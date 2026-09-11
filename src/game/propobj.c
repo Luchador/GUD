@@ -1737,7 +1737,7 @@ after_bg_loop:
 
     i = 0;
 
-    if (!(obj->projectile->flags & PROPFLAG_00000008))
+    if (!(obj->projectile->flags & PROPFLAG_INAIR))
     {
         tile = prop->stan;
 
@@ -1749,12 +1749,12 @@ after_bg_loop:
         }
         else
         {
-            obj->projectile->flags |= PROPFLAG_00000008;
-            prop->flags |= PROPFLAG_00000008;
+            obj->projectile->flags |= PROPFLAG_INAIR;
+            prop->flags |= PROPFLAG_INAIR;
         }
     }
 
-    if (obj->projectile->flags & PROPFLAG_00000008)
+    if (obj->projectile->flags & PROPFLAG_INAIR)
     {
         tile = stanFindTileBelowPos(&obj->position, roomSet, NULL);
 
@@ -1763,8 +1763,8 @@ after_bg_loop:
             prop->stan = tile;
             prop->pos.x = obj->position.x;
             prop->pos.z = obj->position.z;
-            obj->projectile->flags &= ~PROPFLAG_00000008;
-            prop->flags &= ~PROPFLAG_00000008;
+            obj->projectile->flags &= ~PROPFLAG_INAIR;
+            prop->flags &= ~PROPFLAG_INAIR;
         }
     }
 
@@ -3220,12 +3220,9 @@ void propExplode(PropRecord *prop, s32 /* enum EXPLOSION_DEF */ explosionType)
 			pos.z = parent->pos.z;
         }
 
-        if ((parent->flags & PROPFLAG_00000008) == 0
-            && walkTilesBetweenPoints_NoCallback(&stan, parent->pos.f[0], parent->pos.f[2], pos.x, pos.z))
+        if ((parent->flags & PROPFLAG_INAIR) == 0 && walkTilesBetweenPoints_NoCallback(&stan, parent->pos.f[0], parent->pos.f[2], pos.x, pos.z))
         {
-            explosionCreate(0, &pos, stan, (s16) explosionType,
-                (prop_obj->flags & (PROPFLAG_ONSIDE | PROPFLAG_UPSIDEDOWN | PROPFLAG_INAIR)) == 0,
-                playernum, parent->rooms, 0);
+            explosionCreate(0, &pos, stan, (s16) explosionType, (prop_obj->flags & (PROPFLAG_ONSIDE | PROPFLAG_UPSIDEDOWN | PROPFLAG_INAIR)) == 0, playernum, parent->rooms, 0);
         }
         else
         {
@@ -3234,10 +3231,7 @@ void propExplode(PropRecord *prop, s32 /* enum EXPLOSION_DEF */ explosionType)
     }
     else
     {
-        explosionCreate(0, &prop_obj->position, prop->stan, (s16) explosionType,
-            (prop_obj->flags & (PROPFLAG_ONSIDE | PROPFLAG_UPSIDEDOWN | PROPFLAG_INAIR)) == 0
-                && (prop->flags & PROPFLAG_00000008) == 0,
-            playernum, prop->rooms, (prop->flags & PROPFLAG_00000008) != 0);
+        explosionCreate(0, &prop_obj->position, prop->stan, (s16) explosionType, (prop_obj->flags & (PROPFLAG_ONSIDE | PROPFLAG_UPSIDEDOWN | PROPFLAG_INAIR)) == 0 && (prop->flags & PROPFLAG_INAIR) == 0, playernum, prop->rooms, (prop->flags & PROPFLAG_INAIR) != 0);
     }
 }
 
@@ -5621,7 +5615,8 @@ TICKOP objTickProjectile(PropRecord *prop)
                     projectileFree(Proj);
                     obj->projectile = NULL;
                     obj->runtime_bitflags &= ~RUNTIMEBITFLAG_HASPROJECTILE;
-                    if (prop->flags & PROPFLAG_00000008)
+
+                    if (prop->flags & PROPFLAG_INAIR)
                     {
                         prop->flags |= PROPFLAG_SCALE_TO_PAD_BOUNDS;
                     }
@@ -5629,6 +5624,7 @@ TICKOP objTickProjectile(PropRecord *prop)
                     chrobjSndCreatePostEventDefault(sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, ATTACH_MINE_SFX, NULL), &prop->pos);
                     objectivestatusCheckDeposit(((struct WeaponObjRecord *) obj)->weaponnum, prop->stan->room);
                     objStickToSurface(obj, &collisionPoint, prop->stan, &collisionNormal);
+
                     if (D_80030B0C != NULL)
                     {
                         temp_s2 = prop->stan;
@@ -5830,7 +5826,7 @@ TICKOP objTickProjectile(PropRecord *prop)
                             }
                             else
                             {
-                                explosionCreateSmoke(&airborneWeapon->position, prop->stan, 8, prop->rooms, (prop->flags & PROPFLAG_00000008) != 0);
+                                explosionCreateSmoke(&airborneWeapon->position, prop->stan, 8, prop->rooms, (prop->flags & PROPFLAG_INAIR) != 0);
                             }
                         }
                     }
@@ -5842,7 +5838,7 @@ TICKOP objTickProjectile(PropRecord *prop)
                         }
                         else
                         {
-                            explosionCreateSmoke(&obj->position, prop->stan, 9, prop->rooms, (prop->flags & PROPFLAG_00000008) != 0);
+                            explosionCreateSmoke(&obj->position, prop->stan, 9, prop->rooms, (prop->flags & PROPFLAG_INAIR) != 0);
                         }
                     }
 
@@ -5974,7 +5970,7 @@ TICKOP objTickProjectile(PropRecord *prop)
                 obj->projectile = NULL;
                 obj->runtime_bitflags &= ~RUNTIMEBITFLAG_HASPROJECTILE;
 
-                if (prop->flags & PROPFLAG_00000008)
+                if (prop->flags & PROPFLAG_INAIR)
                 {
                     prop->flags |= PROPFLAG_SCALE_TO_PAD_BOUNDS;
                 }
@@ -8079,7 +8075,7 @@ void objFall(ObjectRecord *obj, s32 playernum)
     obj->runtime_bitflags &= ~(RUNTIMEBITFLAG_OWNER);
     obj->runtime_bitflags |= (playernum << RUNTIMEBITSHIFT_OWNER);
 
-    if ((obj->flags2 & PROPFLAG2_NOFALL) == 0 && (obj->flags & PROPFLAG_RENDERPOSTBG) && (obj->runtime_bitflags & (RUNTIMEBITFLAG_EMBEDDED | RUNTIMEBITFLAG_HASPROJECTILE)) == 0)
+    if ((obj->flags2 & PROPFLAG2_NOFALL) == 0 && (obj->flags & PROPFLAG_ALLOWFALL) && (obj->runtime_bitflags & (RUNTIMEBITFLAG_EMBEDDED | RUNTIMEBITFLAG_HASPROJECTILE)) == 0)
     {
         coord3d rot = {0, 0, 0};
         Projectile *projectile = NULL;
@@ -8194,7 +8190,7 @@ void objExplode(ObjectRecord *obj, coord3d *target_pos, s32 playernum)
 
         if (stan != NULL)
         {
-            if ((!(tailprop->flags & PROPFLAG_00000008)) && walkTilesBetweenPoints_NoCallback(&stan, tailprop->pos.x, tailprop->pos.z, target_pos->x, target_pos->z))
+            if ((!(tailprop->flags & PROPFLAG_INAIR)) && walkTilesBetweenPoints_NoCallback(&stan, tailprop->pos.x, tailprop->pos.z, target_pos->x, target_pos->z))
             {
                 explosionCreate(prop, target_pos, stan, explosion_type,
                     (obj->flags & (PROPFLAG_ONSIDE | PROPFLAG_UPSIDEDOWN | PROPFLAG_INAIR)) == 0,
@@ -8244,7 +8240,7 @@ void objExplode(ObjectRecord *obj, coord3d *target_pos, s32 playernum)
 
         if (stan != NULL)
         {
-            if ((!(tailprop->flags & PROPFLAG_00000008)) && walkTilesBetweenPoints_NoCallback(&stan, tailprop->pos.x, tailprop->pos.z, target_pos->x, target_pos->z))
+            if ((!(tailprop->flags & PROPFLAG_INAIR)) && walkTilesBetweenPoints_NoCallback(&stan, tailprop->pos.x, tailprop->pos.z, target_pos->x, target_pos->z))
             {
                 explosionCreate(prop, target_pos, stan, 0x10,
                     (obj->flags & (PROPFLAG_ONSIDE | PROPFLAG_UPSIDEDOWN | PROPFLAG_INAIR)) == 0,
@@ -8859,7 +8855,7 @@ ObjectRecord blank_07_object = {
     0x07, //type
     0, //obj
     0xFFFF, //pad
-    PROPFLAG_RENDERPOSTBG, //flags
+    PROPFLAG_ALLOWFALL, //flags
     0, //flags2
     NULL, //prop
     NULL, //model

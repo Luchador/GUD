@@ -498,14 +498,14 @@ Gfx *chrpropsRenderPass(Gfx *gdl, s32 roomid, s32 renderpass)
             {
                 if ((renderpass == 0)
                         && ((prop->flags
-                            & (PROPFLAG_SCALE_TO_X_BOUNDS | PROPFLAG_RENDERPOSTBG)) == 0))
+                            & (PROPFLAG_SCALE_TO_X_BOUNDS | PROPFLAG_ALLOWFALL)) == 0))
                 {
                     gdl = chrpropRender(gdl, prop, FALSE);
                 }
                 else if ((renderpass == 2)
                         && ((prop->flags
-                            & (PROPFLAG_SCALE_TO_X_BOUNDS | PROPFLAG_RENDERPOSTBG))
-                            == PROPFLAG_RENDERPOSTBG))
+                            & (PROPFLAG_SCALE_TO_X_BOUNDS | PROPFLAG_ALLOWFALL))
+                            == PROPFLAG_ALLOWFALL))
                 {
                     gdl = chrpropRender(gdl, prop, FALSE);
                 }
@@ -2479,10 +2479,11 @@ void chrpropUpdateRoomList(PropRecord *prop, coord3d *bbmin, coord3d *bbmax, f32
     count = 0;
     obj = NULL;
 
-    if (prop->flags & PROPFLAG_00000008)
+    if (prop->flags & PROPFLAG_INAIR)
     {
         // Seed from the prop's existing room list.
-        if (prop->type == PROP_TYPE_OBJ || prop->type == PROP_TYPE_WEAPON || prop->type == PROP_TYPE_DOOR) {
+        if (prop->type == PROP_TYPE_OBJ || prop->type == PROP_TYPE_WEAPON || prop->type == PROP_TYPE_DOOR) 
+        {
             obj = prop->obj;
         }
 

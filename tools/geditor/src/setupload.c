@@ -1754,9 +1754,15 @@ BOOL SetupFileTranslateModel(SetupFile *setup, DWORD selection,
     if (object != NULL && !door)
     {
         object->flags |= PROPFLAG_ABSOLUTEPOSITION;
-        if (!(object->flags & (PROPFLAG_ONSIDE | PROPFLAG_UPSIDEDOWN))) { object->flags |= PROPFLAG_INAIR; }
+
+        if (!(object->flags & (PROPFLAG_ONSIDE | PROPFLAG_UPSIDEDOWN))) 
+        { 
+            object->flags |= PROPFLAG_INAIR;
+        }
+
         SetupWrite32(setup->data + object->sourceoffset + 8, object->flags);
     }
+
     setup->dirty = TRUE;
     *reasonout = "";
     return TRUE;

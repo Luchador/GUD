@@ -204,7 +204,7 @@ void explosionCreate(PropRecord *arg0, struct coord3d *target_pos, StandTile *ta
 
             if (arg7 != 0)
             {
-                sp30->flags |= PROPFLAG_00000008;
+                sp30->flags |= PROPFLAG_INAIR;
             }
 
             chrpropActivateThisFrame(sp30);

@@ -7,13 +7,12 @@
 
 typedef enum PROPFLAG
 {
-    PROPFLAG_RENDERPOSTBG                      = 0x00000001, // Fall to Ground
+    PROPFLAG_ALLOWFALL                         = 0x00000001, // Fall to Ground
     PROPFLAG_ONSCREEN                          = 0x00000002, // PropRecord.flags: runtime visibility.
     PROPFLAG_ONSIDE                            = 0x00000002, // ObjectRecord.flags: sideways placement, anchored at the model's Z-min face.
     PROPFLAG_ENABLED                           = 0x00000004, // In Air Upside-Down
     PROPFLAG_UPSIDEDOWN                        = 0x00000004,
-    PROPFLAG_00000008                          = 0x00000008, // In Air
-    PROPFLAG_INAIR                             = 0x00000008,
+    PROPFLAG_INAIR                             = 0x00000008, // In Air
     PROPFLAG_SCALE_TO_PAD_BOUNDS               = 0x00000010, // Scale to Pad Bounds
     PROPFLAG_SCALE_TO_X_BOUNDS                 = 0x00000020, // Scale X to Pad Bounds
     PROPFLAG_SCALE_TO_Y_BOUNDS                 = 0x00000040, // Scale Y to Pad Bounds
