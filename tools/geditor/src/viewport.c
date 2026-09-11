@@ -22,6 +22,7 @@
 #include "fog.h"
 #include "orbitcamera.h"
 #include "resource.h"
+#include <src/propconstants.h>
 
 #define VIEWPORT_MONITOR_TIMER 1001
 
@@ -96,6 +97,13 @@ typedef struct SceneBatch {
     BOOL    object;     /* setup model, independent of BG visibility */
     int monitor;        /* -1 for static geometry */
 } SceneBatch;
+
+/* A camera's rendered centre, cached with the scene. Resolve its target from
+ * the live setup when drawing so inspector edits do not require a mesh reload. */
+typedef struct ViewportCctvGuide {
+    DWORD objectindex;
+    double origin[3];
+} ViewportCctvGuide;
 
 typedef struct ViewportMonitors {
     MonitorBank bank;
@@ -239,6 +247,8 @@ typedef struct ViewportState {
     SetupMarkerRef selectedmarker;
     const SetupFile *markersetup; /* main document, never the drag preview clone */
     float markerlevelscale;
+    ViewportCctvGuide *cctvguides;
+    DWORD cctvguidecount;
     BgVertex *cylinder;
     DWORD cylindertris;
     BOOL scalemode, dragscaling, scalevalid;
@@ -997,6 +1007,125 @@ static void ViewportBeginFog(ViewportState *state)
     glEnable(GL_FOG);
 }
 
+static void ViewportBuildCctvGuides(ViewportState *state)
+{
+    const SetupFile *setup = state->markersetup;
+    DWORD count = 0;
+    free(state->cctvguides);
+    state->cctvguides = NULL;
+    state->cctvguidecount = 0;
+    if (!setup || !state->scene || !state->sceneobjectindices) { return; }
+    for (DWORD i = 0; i < setup->objectcount; i++)
+    { if (!setup->objects[i].deleted && setup->objects[i].type == PROPDEF_CCTV) { count++; } }
+    if (!count) { return; }
+    state->cctvguides = calloc(count, sizeof(*state->cctvguides));
+    if (!state->cctvguides) { return; }
+    for (DWORD i = 0; i < setup->objectcount; i++)
+    {
+        double low[3] = {0}, high[3] = {0};
+        BOOL found = FALSE;
+        if (setup->objects[i].deleted || setup->objects[i].type != PROPDEF_CCTV) { continue; }
+        /* Camera models can span several texture batches. Derive their
+         * bounds from all rendered parts, including placement/fitting. */
+        for (int triangle = 0; triangle < state->scenecount / 3; triangle++)
+        {
+            if (state->sceneobjectindices[triangle] != i) { continue; }
+            for (int corner = 0; corner < 3; corner++)
+            {
+                const Vertex *v = &state->scene[triangle * 3 + corner];
+                const double point[3] = {v->x, v->y, v->z};
+                if (!isfinite(point[0]) || !isfinite(point[1]) || !isfinite(point[2])) { continue; }
+                for (int axis = 0; axis < 3; axis++)
+                {
+                    if (!found) { low[axis] = high[axis] = point[axis]; }
+                    else { low[axis] = fmin(low[axis], point[axis]); high[axis] = fmax(high[axis], point[axis]); }
+                }
+                found = TRUE;
+            }
+        }
+        /* Missing/deleted models have no camera from which to draw a guide. */
+        if (!found) { continue; }
+        ViewportCctvGuide *guide = &state->cctvguides[state->cctvguidecount++];
+        guide->objectindex = i;
+        for (int axis = 0; axis < 3; axis++) { guide->origin[axis] = (low[axis] + high[axis]) * .5; }
+    }
+}
+
+/* Follow the same transient transform as the model/pad being dragged. */
+static void ViewportPreviewGuidePoint(const ViewportState *state, double point[3])
+{
+    if (state->dragaxis < 0 || state->dragaxis > 2) { return; }
+    if (state->dragrotation)
+    {
+        Rotation rotation;
+        RotationAxis(&rotation, state->dragaxis, state->dragdelta);
+        RotationPoint(&rotation, state->dragorigin, point, point);
+    }
+    else if (state->dragscaling)
+    {
+        Scaling scale = {0};
+        scale.axes = state->scaleaxes;
+        memcpy(scale.pivot, state->dragorigin, sizeof(scale.pivot));
+        for (int axis = 0; axis < 3; axis++) { scale.factor[axis] = axis == state->dragaxis ? 1 + state->dragdelta : 1; }
+        ScalingPoint(&scale, point, point);
+    }
+    else { point[state->dragaxis] += state->dragdelta; }
+}
+
+static BOOL ViewportCctvGuideEndpoints(const ViewportState *state, const ViewportCctvGuide *guide,
+                                      double start[3], double end[3])
+{
+    const SetupFile *setup = state->markersetup;
+    const SetupPad *pad;
+    SetupObjectProperties properties;
+    const char *why;
+    DWORD index;
+    BOOL bound;
+    if (!state->showobjects || !setup || !isfinite(state->markerlevelscale) || state->markerlevelscale <= 0
+        || !SetupFileGetObjectProperties(setup, guide->objectindex, &properties, &why)
+        || properties.object.type != PROPDEF_CCTV || properties.cctv.lookpad < 0) { return FALSE; }
+    bound = properties.cctv.lookpad >= 10000;
+    index = (DWORD)properties.cctv.lookpad - (bound ? 10000 : 0);
+    if (bound ? !setup->boundpads || index >= setup->boundpadcount : !setup->pads || index >= setup->padcount) { return FALSE; }
+    pad = bound ? &setup->boundpads[index].pad : &setup->pads[index];
+    memcpy(start, guide->origin, sizeof(guide->origin));
+    for (int axis = 0; axis < 3; axis++) { end[axis] = pad->pos[axis] / (double)state->markerlevelscale; }
+    if (!state->dragpad && !state->dragstan && !state->dragmarker && state->selectedobject == guide->objectindex)
+    { ViewportPreviewGuidePoint(state, start); }
+    if (state->dragpad && state->selectedpad.index == index && state->selectedpad.bound == bound)
+    { ViewportPreviewGuidePoint(state, end); }
+    for (int axis = 0; axis < 3; axis++)
+    { if (!isfinite(start[axis]) || !isfinite(end[axis])) { return FALSE; } }
+    return TRUE;
+}
+
+static void ViewportDrawCctvGuides(const ViewportState *state)
+{
+    if (!state->showobjects || !state->cctvguidecount) { return; }
+    glPushAttrib(GL_ENABLE_BIT | GL_CURRENT_BIT | GL_LINE_BIT | GL_DEPTH_BUFFER_BIT);
+    glDisable(GL_TEXTURE_2D);
+    glDisable(GL_LIGHTING);
+    glDisable(GL_FOG);
+    glDisable(GL_ALPHA_TEST);
+    glDisable(GL_BLEND);
+    glDisable(GL_LINE_STIPPLE);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+    glDepthMask(GL_FALSE);
+    glLineWidth(2.0f);
+    glColor3ub(32, 255, 64); /* Same green as ordinary pad markers. */
+    glBegin(GL_LINES);
+    for (DWORD i = 0; i < state->cctvguidecount; i++)
+    {
+        double start[3], end[3];
+        if (!ViewportCctvGuideEndpoints(state, &state->cctvguides[i], start, end)) { continue; }
+        glVertex3dv(start);
+        glVertex3dv(end);
+    }
+    glEnd();
+    glPopAttrib();
+}
+
 /* The supplied GLBs use +X for the arrow/lens and +Y for up. Convert
  * metres to GoldenEye's centimetre world units without any level-scale factor. */
 #define VIEWPORT_MARKER_MODEL_SCALE 100.0f
@@ -1242,6 +1371,7 @@ static void ViewportPaintGL(ViewportState *state)
     glDisable(GL_FOG);
     if (state->fogcoordpointer != NULL) { glDisableClientState(GL_FOG_COORDINATE_ARRAY); }
 
+    ViewportDrawCctvGuides(state);
     ViewportDrawSetupMarkers(state);
 
     if (ViewportStanVisible(state) && state->stanfill != NULL && state->stanfillcount > 0)
@@ -5255,6 +5385,9 @@ static void ViewportFreeScene(struct ViewportState *state_)
     free(state->setupmarkers);
     state->setupmarkers = NULL;
     state->setupmarkercount = 0;
+    free(state->cctvguides);
+    state->cctvguides = NULL;
+    state->cctvguidecount = 0;
     SetupSwirlPathFree(&state->swirlpath);
     state->markerselected = FALSE;
     state->markersetup = NULL;
@@ -6442,6 +6575,7 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup, float levelscale, c
     ViewportCancelTransform(hwnd);
     state->markersetup = setup;
     state->markerlevelscale = levelscale;
+    ViewportBuildCctvGuides(state);
     ViewportSetSetupMarkers(hwnd, state, setup, levelscale);
     { SetupMarker marker; if (!ViewportSelectedMarker(state, &marker)) { state->markerselected = FALSE; } }
     free(state->padmarkers);

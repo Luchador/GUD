@@ -2928,6 +2928,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     {
         BOOL ok = GEditorSetObjectProperty(hwnd, (const SetupObjectPropertyEdit *)lparam);
         GEditorRefreshSelectionDetails();
+        /* CCTV guides read the target pad from the live setup on each draw. */
+        if (ok) { ViewportRedraw(g_Viewport); }
         return ok;
     }
 
