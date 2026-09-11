@@ -3,6 +3,7 @@
 #include "initanitable.h"
 #include "objecthandler.h"
 #include "bondgame.h"
+#include "gedmanifest.h"
 
 
 // Where animation frames are saved. The game stores at most four uncompressed frames at once.
@@ -210,6 +211,9 @@ struct ModelAnimation *animation_table_ptrs2[] = {
     0
 };
 
+
+GEDM_TABLE(g_GedCharacterAnimations, animation_table_ptrs1, 1);
+GEDM_TABLE(g_GedObjectAnimations, animation_table_ptrs2, 1);
 
 extern u32 _animation_entriesSegmentRomStart[];
 

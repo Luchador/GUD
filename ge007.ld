@@ -188,6 +188,14 @@ SECTIONS
    _gedMonitorScriptsRom = _csegmentSegmentRomStart + (g_MonitorAnimationScripts - _csegmentSegmentStart);
    _gedMonitorInitialRom = _csegmentSegmentRomStart + (g_InitialMonitorAnimController - _csegmentSegmentStart);
    _gedMonitorImagesRom = _GlobalimagetableSegmentRomStart + (s_monitorimages - _GlobalimagetableSegmentStart);
+   _gedMusicVolumesRom = _csegmentSegmentRomStart + (g_GedMusicVolumes - _csegmentSegmentStart);
+   _gedCharacterAnimationsRom = _csegmentSegmentRomStart + (g_GedCharacterAnimations - _csegmentSegmentStart);
+   _gedObjectAnimationsRom = _csegmentSegmentRomStart + (g_GedObjectAnimations - _csegmentSegmentStart);
+   _gedCharacterModelsRom = _csegmentSegmentRomStart + (g_GedCharacterModels - _csegmentSegmentStart);
+   _gedPropModelsRom = _csegmentSegmentRomStart + (g_GedPropModels - _csegmentSegmentStart);
+   _gedItemModelsRom = _csegmentSegmentRomStart + (g_GedItemModels - _csegmentSegmentStart);
+   _gedGlobalAIListsRom = _csegmentSegmentRomStart + (g_GedGlobalAILists - _csegmentSegmentStart);
+   _gedTextBanksRom = _csegmentSegmentRomStart + (g_GedTextBanks - _csegmentSegmentStart);
 
    _bssSegmentStart = ADDR(.bss);
    .bss (NOLOAD) :

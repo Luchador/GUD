@@ -3,6 +3,11 @@
 .set noreorder # don't insert nops after branches
 
 
+# ROM and linked addresses are identical in the musicfiles segment.
+.section .musicdata
+.global _gedMusicDataRomStart
+_gedMusicDataRomStart:
+
 .section .music
 
 #calculates and stores the total number of music samples
@@ -168,3 +173,6 @@ music_file Msurface1x
 music_file Msurface2_ending
 music_file Mstatue_ending
 music_file Mfrigate_outro
+
+.global _gedMusicDataRomEnd
+_gedMusicDataRomEnd:

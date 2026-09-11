@@ -6,11 +6,14 @@ migrate files produced by older editors.
 | Data | Required format |
 | --- | --- |
 | Project | `.gep` version 2 with a saved level table and matching `base.z64` |
-| Base ROM | GUD manifest version 2, with `IMGS`, `OBSG`, `MUSF`, `STGT`, `CMAP`, `FTBL`, `ENVT`, `TXTB`, and `TXCF` entries |
+| Base ROM | GUD manifest version 2, with `IMGS`, `OBSG`, `MUSF`, `STGT`, `CMAP`, `FTBL`, `ENVT`, `TXTB`, `TXCF`, `MONA`, `MONT`, and `MOND` entries |
 | Level table | 36-byte rows with authored level names; the final sentinel may have a NULL name |
 | Model assets | glTF 2.0 with normalized UV coordinates and the current GEditor metadata |
 | Saved model edits | Current `.gmodel` native overrides (`GMD1`) |
 | Saved image edits | Current `.gtex` metadata (`GTI2`) and the associated BMP, except for deletion records |
+
+New ROMs also expose optional audio, animation, model, global AI and text-bank
+catalogs. See [MANIFEST.md](MANIFEST.md) for their ranges and record layouts.
 
 The model import workflow still supports Blender glTF/GLB files. Its material,
 sampler, and alpha settings remain supported. Embedded GLB editor resources and

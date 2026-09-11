@@ -1,6 +1,7 @@
 #include <ultra64.h>
 #include <bondgame.h>
 #include "chrobjdata.h"
+#include "gedmanifest.h"
 
 //D:800375D0
 #include <assets/obseg/prop/propModelFileHeaders.inc.c>
@@ -12,6 +13,7 @@
 
 //D:8003A228                     .globl PitemZ_entries
 #include <assets/obseg/prop/propItemModelFileRecord.inc.c>
+GEDM_TABLE(g_GedPropModels, PitemZ_entries, 1);
 
 //D:8003b224
 #include <assets/obseg/prop/propExplosionDetailsRecords.inc.c>

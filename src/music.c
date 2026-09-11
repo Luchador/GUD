@@ -8,6 +8,7 @@
 #include "ramrom.h"
 #include "snd.h"
 #include <macro.h>
+#include "game/gedmanifest.h"
 
 /**
  * @file music.c
@@ -423,6 +424,8 @@ s16 g_musicDefaultTrackVolume[MAX_NUM_MUSIC_TRACKS_W_NONE] = {
      */
     0xFFFF
 };
+
+GEDM_TABLE(g_GedMusicVolumes, g_musicDefaultTrackVolume, 0);
 
 ALHeap g_musicHeap;
 

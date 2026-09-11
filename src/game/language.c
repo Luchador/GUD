@@ -3,6 +3,7 @@
 #include <memp.h>
 #include "language.h"
 #include "ob.h"
+#include "gedmanifest.h"
 
 s32 g_LangBanks[45];
 
@@ -53,6 +54,8 @@ char *g_TextBankNames[45] = {
     "LoptionsE",    /* Solo in-game menus */
     "LmiscE"        /* Cheat options */
 };
+
+GEDM_TABLE(g_GedTextBanks, g_TextBankNames, 0);
 
 LEVELID langGetLangBankIndexFromStagenum(LEVELID level)
 {

@@ -34,6 +34,7 @@
 #include "bondinv.h"
 #include "stan.h"
 #include "gbi_extension.h"
+#include "gedmanifest.h"
 
 
 ALSoundState *g_CasingSfxState;
@@ -81,6 +82,7 @@ CartridgeModelFileRecord ejected_cartridge[] = {
 
 //D:80033924
 #include <assets/obseg/gun/gunModelFileRecord.inc.c>
+GEDM_TABLE(g_GedItemModels, gitem_structs, 0);
 
 //D:80034C9C
 u32 cartridges_eject = 0;

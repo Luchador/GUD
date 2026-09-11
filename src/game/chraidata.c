@@ -2,6 +2,7 @@
 #include <bondgame.h>
 #include <bondaicommands.h>
 #include "chrobjdata.h"
+#include "gedmanifest.h"
 
 
 /*private enum, only accessible from within this file */
@@ -658,3 +659,5 @@ AIListRecord g_GlobalAILists[] = {
     {m_RemoveSelf              , GAILIST_REMOVE_CHR},
     {NULL, 0}
 };
+
+GEDM_TABLE(g_GedGlobalAILists, g_GlobalAILists, 1);

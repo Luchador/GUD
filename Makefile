@@ -266,6 +266,16 @@ $(addprefix $(BUILD_DIR)/src/game/,image.o initimages.o gedmanifest.o tex.o chrp
 # dependencies, so changes to either enum must rebuild their game consumers.
 $(GAMEOBJECTS): src/propconstants.h src/propruntimeflags.h
 
+# Manifest catalog descriptors derive counts and strides beside their arrays.
+# IDO emits no .d files, so keep native layouts and included catalogs in sync.
+GED_CATALOG_OBJECTS := $(BUILD_DIR)/src/music.o $(addprefix $(BUILD_DIR)/src/game/,gedmanifest.o initanitable.o cobjdata.o pobjdata.o gun.o chraidata.o language.o)
+$(GED_CATALOG_OBJECTS): src/game/gedmanifest.h src/bondtypes.h src/bondconstants.h
+$(BUILD_DIR)/src/music.o: src/music.h
+$(BUILD_DIR)/src/game/initanitable.o: assets/animationtable_data.h
+$(BUILD_DIR)/src/game/cobjdata.o: assets/obseg/chr/chrModelFileRecords.inc.c $(wildcard assets/obseg/chr/*/chrModelFileRecord.inc.c)
+$(BUILD_DIR)/src/game/pobjdata.o: assets/obseg/prop/propItemModelFileRecord.inc.c $(wildcard assets/obseg/prop/*/propFileRecord.inc.c)
+$(BUILD_DIR)/src/game/gun.o: src/game/gun.h assets/obseg/gun/gunModelFileRecord.inc.c $(wildcard assets/obseg/gun/*/gunFileRecord.inc.c)
+
 $(BUILD_DIR)/assets/images/combined/%.o: $(RAW_IMAGE_BIN)
 	$(LD) -r -b binary $< -o $@
 

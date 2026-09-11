@@ -27,19 +27,30 @@ static void RomAndProject(const char *dir)
 {
     unsigned char *data=calloc(SIZE,1),*row=data+LEVELS;DWORD i,cursor=STRINGS;
     const char *strings[]={"Bunker 1","UsetupsevbunkerZ","bg/bg_sev_all_p.seg","Tbg_sev_all_p_stanZ","bg/bgx.seg"};
+    const char *optional[]={"SFXC","SFXT","INSC","INST","MUST","MUSD","MUSV","ANID",
+                            "ANIF","ANIC","ANIO","CHRM","PROP","ITEM","AIGL","TXBK"};
     char path[MAX_PATH],base[MAX_PATH+16],projectfile[MAX_PATH];const char *why="";
     RomFile rom;GEditorProject project,loaded;RomInfo info;FILE *f;
     assert(data);snprintf(path,sizeof(path),"%s/input.z64",dir);
     Put32(data,0x80371240);memcpy(data+0x20,"GOLDENEYE",9);
-    memcpy(data+MANIFEST,"GUDGEDITORMANIF",16);Put32(data+MANIFEST+16,2);Put32(data+MANIFEST+20,12);
+    memcpy(data+MANIFEST,"GUDGEDITORMANIF",16);Put32(data+MANIFEST+16,2);Put32(data+MANIFEST+20,28);
     Entry(data,0,0x494d4753,0x102000,0x102080,0);Entry(data,1,0x4f425347,0x150000,0x160000,0);
-    Entry(data,2,0x4d555346,0x160000,0x170000,1);Entry(data,3,0x53544754,LEVELS,LEVELS+72,2);
+    Entry(data,2,0x4d555346,0x160000,0x170000,0);Entry(data,3,0x53544754,LEVELS,LEVELS+72,2);
     Entry(data,4,0x434d4150,CMAP,0x140000,VADDR);Entry(data,5,0x4654424c,CMAP+0x600,0,0);
     Entry(data,6,0x454e5654,ENV,0,104);Entry(data,7,0x54585442,CMAP+0x2000,CMAP+0xa008,4096);
     Entry(data,8,0x54584346,CMAP+0x900,CMAP+0x908,1);
     Entry(data,9,0x4d4f4e41,CMAP+0x920,CMAP+0x9f0,52);
     Entry(data,10,0x4d4f4e54,CMAP+0xa00,CMAP+0xc58,12);
     Entry(data,11,0x4d4f4e44,CMAP+0xc60,CMAP+0xcd4,116);
+    /* The current reader must retain optional entries without interpreting
+       their payloads. Actual native catalogs are checked by manifest_catalogs. */
+    for(i=0;i<16;i++)
+    {
+        DWORD start=CMAP+0xb000+i*16;
+        DWORD flags=(i==6 || i>=9) ? 0x80000000u : i==4 ? 8 : 0;
+        Entry(data,12+i,Get32((const unsigned char *)optional[i]),start,start+16,flags);
+        memcpy(data+start,optional[i],4);
+    }
     Put32(row,9);Float(row+20,1.25f);Float(row+24,0.5f);row[29]=13;row[31]=14;row[33]=15;
     for(i=0;i<5;i++)
     {
@@ -50,11 +61,22 @@ static void RomAndProject(const char *dir)
     Put32(data+ENV,9);Put32(data+ENV+4,1);Float(data+ENV+8,10);Float(data+ENV+12,1000);
     Put32(data+ENV+36,995);Put32(data+ENV+40,1000);data[ENV+44]=10;data[ENV+45]=20;data[ENV+46]=30;
     Save(path,data,SIZE);assert(RomLoad(path,&rom,&why));
+    assert(rom.info.entrycount==28);
+    for(i=0;i<16;i++)
+    {
+        const RomManifestEntry *entry=&rom.info.entries[12+i];
+        assert(entry->kind==Get32((const unsigned char *)optional[i]));
+        assert(entry->romstart==CMAP+0xb000+i*16 && entry->romend==entry->romstart+16);
+    }
     assert(rom.info.levelcount==1&&!strcmp(rom.info.levels[0].name,"Bunker 1"));
     assert(rom.info.levels[0].levelscale==1.25f&&rom.info.levels[0].renderScale==0.5f);
     assert(rom.info.levels[0].music==13&&rom.info.levels[0].bgsound==14&&rom.info.levels[0].xtrack==15);
     assert(rom.info.levels[0].hasbackgroundcolor&&rom.info.levels[0].backgroundcolor[1]==20);
     assert(rom.info.levels[0].fog.enabled&&rom.info.levels[0].fog.start==995);info=rom.info;RomFree(&rom);
+    Put32(data+MANIFEST+24+27*16+8,SIZE+1);Reject(path,data);
+    Put32(data+MANIFEST+24+27*16+8,CMAP+0xb100);
+    Put32(data+MANIFEST+20,12);Save(path,data,SIZE);assert(RomLoad(path,&rom,&why));RomFree(&rom);
+    Put32(data+MANIFEST+20,28); /* Discovery entries are optional, not new required features. */
     Put32(data+MANIFEST+16,1);Reject(path,data);Put32(data+MANIFEST+16,2);
     Put32(data+MANIFEST+24+3*16+8,LEVELS+64);Reject(path,data);Put32(data+MANIFEST+24+3*16+8,LEVELS+72);
     Put32(data+MANIFEST+24+7*16,0x42414421);Reject(path,data);Put32(data+MANIFEST+24+7*16,0x54585442);
@@ -71,7 +93,9 @@ static void RomAndProject(const char *dir)
     assert(TestUpdateLevelTable(&loaded,&rom,&why));
     assert(Get32(rom.data+LEVELS+20)==0x40000000&&Get32(rom.data+LEVELS+24)==0x3e800000);
     assert(rom.data[LEVELS+29]==21&&rom.data[LEVELS+31]==22&&rom.data[LEVELS+33]==23);
-    assert(!memcmp(rom.data+LEVELS,data+LEVELS,20));RomFree(&rom);
+    assert(!memcmp(rom.data+LEVELS,data+LEVELS,20));
+    assert(!memcmp(rom.data+MANIFEST,data+MANIFEST,24+28*16));
+    assert(!memcmp(rom.data+CMAP+0xb000,data+CMAP+0xb000,16*16));RomFree(&rom);
     loaded.levels[0].levelID=999;assert(!RomExportRefreshProjectLevelMetadata(&loaded,&why));
     assert(DeleteFile(base));assert(!RomExportRefreshProjectLevelMetadata(&project,&why));
     f=fopen(projectfile,"wb");assert(f);fputs("GEditor Project 1\nname = Old\n",f);fclose(f);assert(!ProjectRead(projectfile,&loaded));
