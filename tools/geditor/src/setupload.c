@@ -788,18 +788,17 @@ static BOOL SetupParsePads(SetupFile *setup, const char **reasonout)
 /* Copy the command stream before appending: growing it in place would overwrite
    another setup section. Internal links are file-relative offsets or command
    indices, so retaining the old data and command order preserves both. */
-static BOOL SetupAddPlacement(SetupFile *setup, BOOL character, int modelid, float levelscale,
-                              const double position[3], const SetupBoundPad *doorpad,
+static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid, float levelscale,
+                              const double position[3], const SetupBoundPad *bound,
                               DWORD *selectionout, const char **reasonout)
 {
     SetupFile added = {0};
     DWORD oldcommands, commandend, commandsize, commandcount = 0;
     DWORD oldpads, newcommands, newrecord, newpads, newpad, chrnum = 0, i;
-    BOOL door = doorpad != NULL;
-    DWORD padheader = door ? SETUP_BOUNDPAD_POINTER : SETUP_PAD_POINTER;
-    DWORD padsize = door ? SETUP_BOUNDPAD_SIZE : SETUP_PAD_SIZE;
-    DWORD padcount = setup ? (door ? setup->boundpadcount : setup->padcount) : 0;
-    unsigned char type = door ? PROPDEF_DOOR : character ? PROPDEF_GUARD : PROPDEF_PROP;
+    BOOL door = type == PROPDEF_DOOR, character = type == PROPDEF_GUARD;
+    DWORD padheader = bound ? SETUP_BOUNDPAD_POINTER : SETUP_PAD_POINTER;
+    DWORD padsize = bound ? SETUP_BOUNDPAD_SIZE : SETUP_PAD_SIZE;
+    DWORD padcount = setup ? (bound ? setup->boundpadcount : setup->padcount) : 0;
     DWORD recordsize = SetupObjectWordCount(type) * 4;
     float authored[3];
 
@@ -813,8 +812,9 @@ static BOOL SetupAddPlacement(SetupFile *setup, BOOL character, int modelid, flo
     }
     /* Ordinary props reserve pad numbers 10000 and above for bound pads.
        Characters can address the entire unsigned 16-bit normal-pad range. */
-    /* Door pad indices are signed 16-bit raw bound indices, without +10000. */
-    if (padcount >= (door ? 32768u : character ? SETUP_PAD_MAX : 10000u))
+    /* Door indices omit +10000; other bound props must leave room for it
+       within the signed 16-bit pad field. */
+    if (padcount >= (door ? 32768u : bound ? 22768u : character ? SETUP_PAD_MAX : 10000u))
     {
         *reasonout = "There are no more pad indices available for this model.";
         return FALSE;
@@ -932,21 +932,24 @@ static BOOL SetupAddPlacement(SetupFile *setup, BOOL character, int modelid, flo
        at the new position. The following pad remains the null terminator. */
     SetupWrite32(added.data + newpad + SETUP_PAD_LINK, newpad + padsize + SETUP_PAD_LINK);
 
-    if (door)
+    if (bound)
     {
-        const float bounds[6] = {doorpad->xmin, doorpad->xmax, doorpad->ymin,
-            doorpad->ymax, doorpad->zmin, doorpad->zmax};
+        const float bounds[6] = {bound->xmin, bound->xmax, bound->ymin,
+            bound->ymax, bound->zmin, bound->zmax};
         for (i = 0; i < 3; i++)
         {
             union { float f; DWORD u; } value;
-            value.f = doorpad->pad.up[i]; SetupWrite32(added.data + newpad + 12 + i * 4, value.u);
-            value.f = doorpad->pad.look[i]; SetupWrite32(added.data + newpad + 24 + i * 4, value.u);
+            value.f = bound->pad.up[i]; SetupWrite32(added.data + newpad + 12 + i * 4, value.u);
+            value.f = bound->pad.look[i]; SetupWrite32(added.data + newpad + 24 + i * 4, value.u);
         }
         for (i = 0; i < 6; i++)
         {
             union { float f; DWORD u; } value;
             value.f = bounds[i]; SetupWrite32(added.data + newpad + SETUP_BOUNDPAD_BBOX + i * 4, value.u);
         }
+    }
+    if (door)
+    {
         SetupWrite32(added.data + newrecord, (256u << 16) | PROPDEF_DOOR);
         SetupWrite32(added.data + newrecord + 4, ((DWORD)modelid << 16) | padcount);
         /* Register both adjacent rooms where possible, but don't close an
@@ -978,9 +981,22 @@ static BOOL SetupAddPlacement(SetupFile *setup, BOOL character, int modelid, flo
     else
     {
         SetupWrite32(added.data + newrecord, (256u << 16) | type); /* scale 1 */
-        SetupWrite32(added.data + newrecord + 4, ((DWORD)modelid << 16) | setup->padcount);
-        SetupWrite32(added.data + newrecord + 8,
-                     PROPFLAG_FORCE_COLLISIONS | PROPFLAG_ABSOLUTEPOSITION);
+        SetupWrite32(added.data + newrecord + 4, ((DWORD)modelid << 16) | (padcount + (bound ? 10000u : 0u)));
+        if (type == PROPDEF_GLASS)
+        {
+            /* Match ordinary breakable free-standing panes in the game:
+             * block movement, permit AI sight, and fit the flat window model
+             * to the bound's width/height. No visibility portal is claimed.
+             * GLASS uses a 32-word ObjectRecord in setup, not sizeof(GlassRecord). */
+            SetupWrite32(added.data + newrecord + 8,
+                PROPFLAG_FREE_STANDING_GLASS | PROPFLAG_FORCE_COLLISIONS | PROPFLAG_TRANSPARENT_TO_AI |
+                PROPFLAG_ORTHOGONAL | PROPFLAG_ONSIDE | PROPFLAG_SCALE_TO_X_BOUNDS | PROPFLAG_SCALE_TO_Y_BOUNDS);
+        }
+        else
+        {
+            SetupWrite32(added.data + newrecord + 8,
+                         PROPFLAG_FORCE_COLLISIONS | PROPFLAG_ABSOLUTEPOSITION);
+        }
         /* ObjectRecord.damage is authored as signed 16.16 durability and
            converted by domakedefaultobj. maxdamage starts at zero. */
         SetupWrite32(added.data + newrecord + 0x74, 1000u << 16);
@@ -1005,7 +1021,8 @@ malformed:
 BOOL SetupFileAddModel(SetupFile *setup, BOOL character, int modelid, float levelscale,
                        const double position[3], DWORD *selectionout, const char **reasonout)
 {
-    return SetupAddPlacement(setup, character, modelid, levelscale, position, NULL, selectionout, reasonout);
+    return SetupAddPlacement(setup, character ? PROPDEF_GUARD : PROPDEF_PROP,
+        modelid, levelscale, position, NULL, selectionout, reasonout);
 }
 
 BOOL SetupFileAddDoor(SetupFile *setup, int modelid, float levelscale,
@@ -1031,7 +1048,31 @@ BOOL SetupFileAddDoor(SetupFile *setup, int modelid, float levelscale,
     pad.xmin = -6 * levelscale; pad.xmax = 6 * levelscale; /* depth */
     pad.ymin = -50 * levelscale; pad.ymax = 50 * levelscale; /* width */
     pad.zmin = 0; pad.zmax = 200 * levelscale; /* height */
-    return SetupAddPlacement(setup, FALSE, modelid, levelscale, position, &pad, selectionout, reasonout);
+    return SetupAddPlacement(setup, PROPDEF_DOOR, modelid, levelscale, position, &pad, selectionout, reasonout);
+}
+
+BOOL SetupFileAddGlass(SetupFile *setup, int modelid, float levelscale,
+                       const double position[3], const double facing[3],
+                       DWORD *selectionout, const char **reasonout)
+{
+    SetupBoundPad pad = {0};
+    double length;
+    *reasonout = "The glass placement or level scale is invalid.";
+    if (!facing || !isfinite(levelscale) || levelscale <= 0) { return FALSE; }
+    for (int axis = 0; axis < 3; axis++) { if (!isfinite(facing[axis])) { return FALSE; } }
+    length = hypot(facing[0], facing[2]);
+    if (!isfinite(length)) { return FALSE; }
+    /* ONSIDE maps model X/Y/Z to -side/look/up. The stock pane lies in
+     * model X/Y, so pad look is vertical and pad up faces the viewer.
+     * Zero thickness matches PwindowZ's bounds, including after scaling. */
+    pad.pad.up[0] = length > 1e-8 ? (float)(-facing[0] / length) : 0;
+    pad.pad.up[2] = length > 1e-8 ? (float)(-facing[2] / length) : 1;
+    pad.pad.look[1] = 1;
+    if (levelscale * 200.0 > 100000000.0 || levelscale * 50.0 < 0.000001)
+    { *reasonout = "The level scale cannot represent the default glass size."; return FALSE; }
+    pad.xmin = -50 * levelscale; pad.xmax = 50 * levelscale;
+    pad.zmin = 0; pad.zmax = 200 * levelscale;
+    return SetupAddPlacement(setup, PROPDEF_GLASS, modelid, levelscale, position, &pad, selectionout, reasonout);
 }
 
 /* Copy the live intro list into appended storage. Keeping the old bytes and

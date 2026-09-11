@@ -237,6 +237,14 @@ BOOL SetupFileAddDoor(SetupFile *setup, int modelid, float levelscale,
                       const double position[3], const double facing[3],
                       DWORD *selectionout, const char **reasonout);
 
+#define SETUP_DEFAULT_GLASS_MODEL "PwindowZ"
+/* Add a breakable free-standing pane with a private bound pad. Floor anchor
+ * and facing use the same convention as AddDoor. Default size: 100 wide,
+ * 200 high, zero thickness. Supports solo and multiplayer setups. */
+BOOL SetupFileAddGlass(SetupFile *setup, int modelid, float levelscale,
+                       const double position[3], const double facing[3],
+                       DWORD *selectionout, const char **reasonout);
+
 
 /* Used within an edit transaction. Accepts a prop index or a character index
    tagged with SETUP_CHARACTER_SELECTION_BIT. Allocates a private pad without
