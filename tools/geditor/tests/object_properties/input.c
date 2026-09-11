@@ -13,13 +13,18 @@ typedef uintptr_t HWND, ULONG_PTR, WPARAM;
 typedef intptr_t LPARAM, LRESULT;
 typedef struct { unsigned int message; WPARAM wParam; } MSG;
 enum { WM_KEYDOWN = 1, EM_EMPTYUNDOBUFFER, EM_CANUNDO, WM_UNDO,
-       OBJECTPROPERTIES_WM_CHANGED, VK_CONTROL, VK_RETURN, VK_ESCAPE };
+       OBJECTPROPERTIES_WM_CHANGED, VK_CONTROL, VK_RETURN, VK_ESCAPE,
+       CB_RESETCONTENT, CB_GETCOUNT, CB_ADDSTRING, CB_SETITEMDATA, CB_GETITEMDATA,
+       CB_SETCURSEL, CB_GETCURSEL };
+#define min(a,b) ((a) < (b) ? (a) : (b))
 #include "input-types.inc"
 static ObjectPropertiesState state;
 static char text[64], status[256];
 static HWND focus;
 static int commits, textundos;
 static BOOL control, canundo, reject;
+static struct { LONG value; char label[80]; } choices[32];
+static int choicecount, chosen;
 static ObjectPropertiesState *ObjectPropertiesGetState(HWND hwnd) { return &state; }
 static HWND GetFocus(void) { return focus; }
 static HWND GetParent(HWND hwnd) { return 1; }
@@ -33,6 +38,22 @@ static LRESULT SendMessage(HWND hwnd, unsigned int msg, WPARAM wparam, LPARAM lp
 
 static LRESULT SendMessage(HWND hwnd, unsigned int msg, WPARAM wparam, LPARAM lparam)
 {
+    if (hwnd == state.controls[OBJECT_CCTV_PAD] && msg >= CB_RESETCONTENT && msg <= CB_GETCURSEL)
+    {
+        switch (msg)
+        {
+        case CB_RESETCONTENT: choicecount = 0; chosen = -1; return 0;
+        case CB_GETCOUNT: return choicecount;
+        case CB_ADDSTRING:
+            assert(choicecount < 32);
+            snprintf(choices[choicecount].label, sizeof(choices[choicecount].label), "%s", (char *)lparam);
+            return choicecount++;
+        case CB_SETITEMDATA: assert(wparam < (WPARAM)choicecount); choices[wparam].value = (LONG)lparam; return 0;
+        case CB_GETITEMDATA: assert(wparam < (WPARAM)choicecount); return choices[wparam].value;
+        case CB_SETCURSEL: chosen = (int)wparam; return chosen;
+        case CB_GETCURSEL: return chosen;
+        }
+    }
     if (msg == EM_EMPTYUNDOBUFFER) { canundo = FALSE; return 0; }
     if (msg == EM_CANUNDO) { return canundo; }
     if (msg == WM_UNDO) { textundos++; canundo = FALSE; return 0; }
@@ -45,12 +66,27 @@ static LRESULT SendMessage(HWND hwnd, unsigned int msg, WPARAM wparam, LPARAM lp
     ObjectPropertiesApplyExtra(0, &state, OBJECT_KEY_MASK);
     ObjectPropertiesApplyExtra(0, &state, OBJECT_QUANTITY);
     for (int field = 0; field < OBJECT_DOOR_FIELD_COUNT; field++) { ObjectPropertiesApplyDoor(0, &state, field); }
+    for (int field = 0; field < OBJECT_CCTV_FIELD_COUNT; field++) { ObjectPropertiesApplyCctv(0, &state, field); }
+    ObjectPropertiesApplyCctvPad(0, &state);
     if (reject) { return FALSE; }
     if (edit->property == SETUP_OBJECT_KEY_FLAGS || edit->property == SETUP_OBJECT_DOOR_KEY_FLAGS) { state.properties.keyflags = (DWORD)edit->value; }
     else if (edit->property == SETUP_OBJECT_AMMO_QUANTITY)
     {
         assert(edit->slot == state.ammoslot);
         state.properties.ammo[edit->slot].quantity = (unsigned short)edit->value;
+    }
+    else if (edit->property >= SETUP_OBJECT_CCTV_LOOK_PAD && edit->property <= SETUP_OBJECT_CCTV_RANGE)
+    {
+        double angle = round(edit->value * (65536.0 / 360.0)) * (360.0 / 65536.0);
+        switch (edit->property)
+        {
+        case SETUP_OBJECT_CCTV_LOOK_PAD: state.properties.cctv.lookpad = (LONG)edit->value; break;
+        case SETUP_OBJECT_CCTV_SWEEP_MIN: state.properties.cctv.sweepmin = angle; break;
+        case SETUP_OBJECT_CCTV_SWEEP_MAX: state.properties.cctv.sweepmax = angle; break;
+        case SETUP_OBJECT_CCTV_SPEED:
+            state.properties.cctv.speed = floor(edit->value * (65536.0 / 21600.0) + 0.5) * (21600.0 / 65536.0); break;
+        default: state.properties.cctv.range = (DWORD)edit->value; break;
+        }
     }
     else if (edit->property >= SETUP_OBJECT_DOOR_TRAVEL && edit->property <= SETUP_OBJECT_DOOR_CLOSE_DELAY)
     {
@@ -106,6 +142,81 @@ static void CheckContents(void)
     assert(small[sizeof(small) - 1] == 0);
     assert(!ObjectPropertiesFormatContents(&properties, FALSE, small, 0));
     puts("PASS: all four difficulty amounts, fractional truncation, single 9mm slot, multiplayer, empty/full crates and complete long summaries.");
+}
+
+static void CheckCctv(void)
+{
+    SetupFile setup = {0}; double value;
+    setup.padcount = 2; setup.boundpadcount = 1;
+    state.controls[OBJECT_CCTV_PAD] = 20;
+    state.properties.object.type = PROPDEF_CCTV;
+    state.properties.cctv.sweepmin = -45; state.properties.cctv.sweepmax = 45;
+    state.properties.cctv.lookpad = 10000;
+    assert(ObjectPropertiesControlVisible(&state, OBJECT_CCTV_PAD));
+    assert(!ObjectPropertiesControlVisible(&state, OBJECT_DOOR_TYPE));
+    ObjectPropertiesLoadCctvPads(&state, &setup, FALSE);
+    ObjectPropertiesRefreshCctv(&state);
+    assert(choicecount == 3 && chosen == 2 && choices[chosen].value == 10000);
+    assert(!strcmp(choices[0].label, "Pad 0") && !strcmp(choices[2].label, "Bound pad 0"));
+    int before = commits;
+    ObjectPropertiesApplyCctvPad(0, &state); assert(commits == before); /* Accept unchanged. */
+    chosen = 1; ObjectPropertiesApplyCctvPad(0, &state);
+    assert(commits == before + 1 && state.properties.cctv.lookpad == 1);
+    state.properties.cctv.lookpad = -1; ObjectPropertiesRefreshCctv(&state);
+    assert(choicecount == 4 && choices[chosen].value == -1 && strstr(choices[chosen].label, "preserved"));
+    ObjectPropertiesLoadCctvPads(&state, &setup, TRUE); assert(choicecount == 4);
+    setup.padcount = 3; ObjectPropertiesLoadCctvPads(&state, &setup, TRUE);
+    assert(choicecount == 4 && choices[2].value == 2 && choices[3].value == 10000);
+    state.properties.cctv.lookpad = 10000; ObjectPropertiesRefreshCctv(&state);
+    assert(chosen == 3);
+    for (int field = 0; field < OBJECT_CCTV_FIELD_COUNT; field++)
+    {
+        state.controls[OBJECT_CCTV_FIRST + field * 3 + 1] = 30 + field;
+        focus = state.controls[OBJECT_CCTV_FIRST + field * 3 + 1];
+        assert(ObjectPropertiesControlVisible(&state, OBJECT_CCTV_FIRST + field * 3 + 1));
+        before = commits;
+        const char *valid[] = {"-30.1", "30.1", "60", "1500"};
+        strcpy(text, valid[field]); state.cctvedited[field] = TRUE; canundo = TRUE;
+        assert(Key(VK_RETURN) && commits == before + 1 && !state.cctvedited[field] && !canundo);
+        double tolerance = field == 2 ? 10800.0 / 65536.0 : field == 3 ? 0 : 180.0 / 65536.0;
+        assert(fabs(ObjectPropertiesCctvValue(&state.properties.cctv, field) - strtod(valid[field], NULL)) <= tolerance);
+        ObjectPropertiesApplyCctv(0, &state, field); assert(commits == before + 1); /* Blur after Enter. */
+        strcpy(text, "bad"); state.cctvedited[field] = TRUE;
+        assert(Key(VK_RETURN) && commits == before + 1 && state.cctvedited[field]);
+        assert(Key(VK_ESCAPE) && !state.cctvedited[field]);
+        reject = TRUE; strcpy(text, "1"); state.cctvedited[field] = TRUE;
+        assert(Key(VK_RETURN) && commits == before + 2 && !state.cctvedited[field]);
+        assert(fabs(strtod(text, NULL) - strtod(valid[field], NULL)) <= tolerance);
+        reject = FALSE;
+    }
+    const char *bad[] = {"", " ", "nan", "inf", "1e999", "12 units", "3 + 4"};
+    for (int field = 0; field < OBJECT_CCTV_FIELD_COUNT; field++)
+    {
+        for (unsigned int i = 0; i < sizeof(bad) / sizeof(*bad); i++)
+        { assert(!ObjectPropertiesParseCctv(&state, field, bad[i], &value)); }
+    }
+    assert(ObjectPropertiesParseCctv(&state, 0, " -360 ", &value) && value == -360);
+    assert(ObjectPropertiesParseCctv(&state, 1, "360", &value) && value == 360);
+    assert(!ObjectPropertiesParseCctv(&state, 0, "31", &value));
+    assert(!ObjectPropertiesParseCctv(&state, 1, "-31", &value));
+    assert(!ObjectPropertiesParseCctv(&state, 0, "-361", &value));
+    assert(!ObjectPropertiesParseCctv(&state, 1, "361", &value));
+    assert(ObjectPropertiesParseCctv(&state, 2, "0", &value));
+    assert(ObjectPropertiesParseCctv(&state, 3, "0", &value));
+    assert(!ObjectPropertiesParseCctv(&state, 2, "-1", &value));
+    assert(!ObjectPropertiesParseCctv(&state, 3, "0.5", &value));
+    assert(!ObjectPropertiesParseCctv(&state, 3, "-100", &value));
+    focus = state.controls[OBJECT_CCTV_FIRST + 1];
+    strcpy(text, "0"); state.cctvedited[0] = TRUE; canundo = TRUE; control = TRUE;
+    before = commits; assert(Key('Z') && !Key('Z') && commits == before);
+    control = FALSE; assert(Key(VK_ESCAPE));
+    strcpy(text, "0"); state.cctvedited[0] = TRUE;
+    ObjectPropertiesApplyCctv(0, &state, 0); assert(commits == before + 1); /* Blur alone. */
+    state.properties.object.type = PROPDEF_PROP; state.cctvedited[0] = TRUE;
+    assert(!Key(VK_RETURN) && !ObjectPropertiesControlVisible(&state, OBJECT_CCTV_PAD));
+    ObjectPropertiesApplyCctv(0, &state, 0); ObjectPropertiesApplyCctvPad(0, &state);
+    assert(commits == before + 1);
+    puts("PASS: CCTV input units, endpoint order, pad picker, unavailable references, Enter/blur, Escape, text undo, visibility and rejected edits.");
 }
 
 int main(void)
@@ -227,5 +338,6 @@ int main(void)
     assert(!Key(VK_RETURN)); ObjectPropertiesApplyDoor(0, &state, 0); assert(commits == before + 1);
     puts("PASS: door percentages/degrees/animation units, per-second rates, timing, locks, field visibility and input transactions.");
     puts("PASS: input validation, Enter/blur commits, Escape, text undo, rejected edits and synchronous reentrancy.");
+    CheckCctv();
     return 0;
 }

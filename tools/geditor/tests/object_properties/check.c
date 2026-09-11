@@ -75,6 +75,11 @@ static void CheckSpecificEdit(const char *dir, const SetupFile *source,
     case SETUP_OBJECT_DOOR_ACCEL: assert(fabs(properties.door.accel - edit.value) <= 0.5 / 65536.0); break;
     case SETUP_OBJECT_DOOR_DECEL: assert(fabs(properties.door.decel - edit.value) <= 0.5 / 65536.0); break;
     case SETUP_OBJECT_DOOR_SPEED: assert(fabs(properties.door.speed - edit.value) <= 0.5 / 65536.0); break;
+    case SETUP_OBJECT_CCTV_LOOK_PAD: assert(properties.cctv.lookpad == (LONG)edit.value); break;
+    case SETUP_OBJECT_CCTV_SWEEP_MIN: assert(fabs(properties.cctv.sweepmin - edit.value) <= 180.0 / 65536.0); break;
+    case SETUP_OBJECT_CCTV_SWEEP_MAX: assert(fabs(properties.cctv.sweepmax - edit.value) <= 180.0 / 65536.0); break;
+    case SETUP_OBJECT_CCTV_SPEED: assert(fabs(properties.cctv.speed - edit.value) <= 10800.0 / 65536.0); break;
+    case SETUP_OBJECT_CCTV_RANGE: assert(properties.cctv.range == (DWORD)edit.value); break;
     default: assert(0);
     }
     OnlyBytes(source, &setup, edit.sourceoffset + relative, length);
@@ -206,6 +211,85 @@ static void CheckDoors(const char *dir, const SetupFile *source)
     puts("PASS: all door types/sound presets, motion units, close delays, lock masks and flags; exact native offsets, save/reload, undo/redo, no-ops and invalid edits.");
 }
 
+static void CheckCctv(const char *dir, const SetupFile *source)
+{
+    DWORD camera = FindType(source, PROPDEF_CCTV), prop = FindType(source, PROPDEF_PROP);
+    SetupObjectPropertyEdit edit;
+    SetupObjectProperties properties;
+    const char *why; BOOL changed;
+    assert(source->padcount == 2 && source->boundpadcount == 1);
+    assert(SetupFileGetObjectProperties(source, camera, &properties, &why));
+    assert(properties.cctv.lookpad == 1 && properties.cctv.sweepmin == -45 && properties.cctv.sweepmax == 45);
+    assert(properties.cctv.speed == 136 * (21600.0 / 65536.0) && properties.cctv.range == 1500);
+    CheckSpecificEdit(dir, source, Request(source, camera, SETUP_OBJECT_CCTV_LOOK_PAD, 0), 0x80, 4);
+    CheckSpecificEdit(dir, source, Request(source, camera, SETUP_OBJECT_CCTV_LOOK_PAD, 10000), 0x80, 4);
+    const double lower[] = {-360, -180, -22.3, -180.0 / 65536.0, 0, 45};
+    const double upper[] = {-45, 0, 180.0 / 65536.0, 22.3, 180, 360};
+    for (unsigned int i = 0; i < sizeof(lower) / sizeof(*lower); i++)
+    {
+        CheckSpecificEdit(dir, source, Request(source, camera, SETUP_OBJECT_CCTV_SWEEP_MIN, lower[i]), 0xd0, 4);
+        CheckSpecificEdit(dir, source, Request(source, camera, SETUP_OBJECT_CCTV_SWEEP_MAX, upper[i]), 0xcc, 4);
+    }
+    const double speeds[] = {0, 0.1, 21600.0 / 65536.0, 30, 60, 2147483647.0 * (21600.0 / 65536.0)};
+    for (unsigned int i = 0; i < sizeof(speeds) / sizeof(*speeds); i++)
+    { CheckSpecificEdit(dir, source, Request(source, camera, SETUP_OBJECT_CCTV_SPEED, speeds[i]), 0xdc, 4); }
+    const double ranges[] = {0, 1, 1000, 2147483647.0};
+    for (unsigned int i = 0; i < sizeof(ranges) / sizeof(*ranges); i++)
+    { CheckSpecificEdit(dir, source, Request(source, camera, SETUP_OBJECT_CCTV_RANGE, ranges[i]), 0xe8, 4); }
+    SetupFile setup = {0};
+    assert(SetupFileClone(source, &setup, &why));
+    const double invalid[] = {NAN, INFINITY, -INFINITY, 4294967296.0};
+    for (int property = SETUP_OBJECT_CCTV_LOOK_PAD; property <= SETUP_OBJECT_CCTV_RANGE; property++)
+    {
+        for (unsigned int i = 0; i < sizeof(invalid) / sizeof(*invalid); i++)
+        {
+            edit = Request(&setup, camera, property, invalid[i]);
+            assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why) && !changed && !setup.dirty);
+            Same(&setup, source);
+        }
+        edit = Request(&setup, prop, property, 0);
+        assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why)); Same(&setup, source);
+        edit = Request(&setup, camera, property, 0); edit.sourceoffset++;
+        assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why)); Same(&setup, source);
+    }
+    const struct { SetupObjectProperty property; double value; } bad[] = {
+        {SETUP_OBJECT_CCTV_LOOK_PAD, -1}, {SETUP_OBJECT_CCTV_LOOK_PAD, 0.5},
+        {SETUP_OBJECT_CCTV_LOOK_PAD, 2}, {SETUP_OBJECT_CCTV_LOOK_PAD, 9999},
+        {SETUP_OBJECT_CCTV_LOOK_PAD, 10001}, {SETUP_OBJECT_CCTV_LOOK_PAD, 2147483647.0},
+        {SETUP_OBJECT_CCTV_SWEEP_MIN, -361}, {SETUP_OBJECT_CCTV_SWEEP_MAX, 361},
+        {SETUP_OBJECT_CCTV_SWEEP_MIN, 46}, {SETUP_OBJECT_CCTV_SWEEP_MAX, -46},
+        {SETUP_OBJECT_CCTV_SPEED, -1}, {SETUP_OBJECT_CCTV_SPEED, 2147483648.0 * (21600.0 / 65536.0)},
+        {SETUP_OBJECT_CCTV_RANGE, -1}, {SETUP_OBJECT_CCTV_RANGE, 0.5}, {SETUP_OBJECT_CCTV_RANGE, 2147483648.0}
+    };
+    for (unsigned int i = 0; i < sizeof(bad) / sizeof(*bad); i++)
+    {
+        edit = Request(&setup, camera, bad[i].property, bad[i].value);
+        assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why) && !changed && !setup.dirty);
+        Same(&setup, source);
+    }
+    edit = Request(&setup, camera, SETUP_OBJECT_CCTV_RANGE, 0);
+    DWORD size = setup.size;
+    setup.size = edit.sourceoffset + 0xe8;
+    assert(!SetupFileGetObjectProperties(&setup, camera, &properties, &why));
+    assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why));
+    setup.size = size;
+    /* Native setupCctv interprets E8 as a signed integer; -100 is a stock
+     * unlimited sentinel, not IEEE-754 and not an enormous positive range. */
+    memcpy(setup.data + edit.sourceoffset + 0xe8, "\xff\xff\xff\x9c", 4);
+    assert(SetupFileGetObjectProperties(&setup, camera, &properties, &why) && properties.cctv.range == 0);
+    assert(SetupFileSetObjectProperty(&setup, &edit, &changed, &why) && !changed && !setup.dirty);
+    assert(Read32(setup.data + edit.sourceoffset + 0xe8) == 0xffffff9c);
+    RoundTrip(dir, &setup);
+    edit.value = 2000;
+    assert(SetupFileSetObjectProperty(&setup, &edit, &changed, &why) && changed);
+    assert(Read32(setup.data + edit.sourceoffset + 0xe8) == 2000);
+    edit.value = 0;
+    assert(SetupFileSetObjectProperty(&setup, &edit, &changed, &why) && changed);
+    assert(Read32(setup.data + edit.sourceoffset + 0xe8) == 0);
+    SetupFileFree(&setup);
+    puts("PASS: CCTV pad references, signed sweep limits, 60 Hz speed, unlimited range, byte preservation, save/reload, undo/redo and invalid edits.");
+}
+
 int main(int argc, char **argv)
 {
     SetupFile source = {0}, setup = {0}; const char *why;
@@ -213,6 +297,7 @@ int main(int argc, char **argv)
     assert(source.objectcount == 21 && source.charactercount == 1);
     CheckKeysAndAmmo(argv[1], &source);
     CheckDoors(argv[1], &source);
+    CheckCctv(argv[1], &source);
     for (DWORD index = 0; index < source.objectcount; index++)
     {
         SetupObjectProperties view;

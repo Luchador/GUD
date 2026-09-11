@@ -2791,6 +2791,11 @@ static BOOL GEditorSetObjectProperty(HWND hwnd, const SetupObjectPropertyEdit *e
     case SETUP_OBJECT_DOOR_SOUND: action = "Change Door Sounds"; break;
     case SETUP_OBJECT_DOOR_FLAGS: action = "Change Door Flags"; break;
     case SETUP_OBJECT_DOOR_KEY_FLAGS: action = "Change Door Key Requirements"; break;
+    case SETUP_OBJECT_CCTV_LOOK_PAD: action = "Change CCTV Look-at Pad"; break;
+    case SETUP_OBJECT_CCTV_SWEEP_MIN: action = "Change CCTV Sweep Minimum"; break;
+    case SETUP_OBJECT_CCTV_SWEEP_MAX: action = "Change CCTV Sweep Maximum"; break;
+    case SETUP_OBJECT_CCTV_SPEED: action = "Change CCTV Turn Speed"; break;
+    case SETUP_OBJECT_CCTV_RANGE: action = "Change CCTV Detection Range"; break;
     default: return FALSE;
     }
     ViewportCancelTransform(g_Viewport);

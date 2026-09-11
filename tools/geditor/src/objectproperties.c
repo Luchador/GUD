@@ -15,8 +15,11 @@
 #define OBJECTPROPERTIES_CLASS "GEditorObjectProperties"
 #define OBJECT_CONTENTS_TEXT_MAX 4096
 #define OBJECT_DOOR_FIELD_COUNT 6
+#define OBJECT_CCTV_FIELD_COUNT 4
 enum { OBJECT_TYPE, OBJECT_MODEL_LABEL, OBJECT_MODEL, OBJECT_MODEL_HELP,
        OBJECT_HEALTH_LABEL, OBJECT_HEALTH, OBJECT_HEALTH_HELP,
+       OBJECT_CCTV_PAD_LABEL, OBJECT_CCTV_PAD, OBJECT_CCTV_PAD_HELP,
+       OBJECT_CCTV_FIRST, OBJECT_CCTV_LAST = OBJECT_CCTV_FIRST + OBJECT_CCTV_FIELD_COUNT * 3 - 1,
        OBJECT_DOOR_TYPE_LABEL, OBJECT_DOOR_TYPE, OBJECT_DOOR_TYPE_HELP,
        OBJECT_DOOR_FIRST, OBJECT_DOOR_LAST = OBJECT_DOOR_FIRST + OBJECT_DOOR_FIELD_COUNT * 3 - 1,
        OBJECT_DOOR_SOUND_LABEL, OBJECT_DOOR_SOUND, OBJECT_DOOR_SOUND_HELP,
@@ -49,6 +52,8 @@ typedef struct ObjectPropertiesState {
     BOOL selected, updating, edited, committing;
     BOOL keyedited, quantityedited, multiplayer;
     BOOL dooredited[OBJECT_DOOR_FIELD_COUNT];
+    BOOL cctvedited[OBJECT_CCTV_FIELD_COUNT];
+    DWORD cctvpadcount, cctvboundpadcount;
     DWORD ammoslot;
     int scroll, wheelremainder;
     char projectdir[MAX_PATH];
@@ -108,6 +113,53 @@ static const struct { unsigned short bit; const char *name; } g_DoorFlags[] = {
     {DOORFLAG_FLIP, "Mirror model front / back"}
 };
 
+static const struct {
+    SetupObjectProperty property;
+    const char *name, *help;
+    double minimum, maximum;
+} g_CctvFields[OBJECT_CCTV_FIELD_COUNT] = {
+    {SETUP_OBJECT_CCTV_SWEEP_MIN, "Sweep minimum (degrees)",
+     "Angles are relative to the look-at direction. Minimum must not exceed maximum.", -360, 360},
+    {SETUP_OBJECT_CCTV_SWEEP_MAX, "Sweep maximum (degrees)",
+     "The camera starts at maximum and sweeps toward minimum. Equal angles hold it still.", -360, 360},
+    {SETUP_OBJECT_CCTV_SPEED, "Maximum turn speed (degrees/s)",
+     "The game accelerates and brakes automatically. 0 stops the sweep.", 0, 2147483647.0 * (21600.0 / 65536.0)},
+    {SETUP_OBJECT_CCTV_RANGE, "Detection range (world units)",
+     "0 means unlimited distance. Line of sight and the camera's viewing angle still apply. Detection flags are in the Flags tab.", 0, 2147483647.0}
+};
+static int ObjectPropertiesCctvField(int id)
+{
+    return id >= OBJECT_CCTV_FIRST && id <= OBJECT_CCTV_LAST
+        && (id - OBJECT_CCTV_FIRST) % 3 == 1 ? (id - OBJECT_CCTV_FIRST) / 3 : -1;
+}
+static BOOL ObjectPropertiesCctvPending(const ObjectPropertiesState *state)
+{
+    for (int i = 0; i < OBJECT_CCTV_FIELD_COUNT; i++) { if (state->cctvedited[i]) { return TRUE; } }
+    return FALSE;
+}
+static double ObjectPropertiesCctvValue(const SetupCctvProperties *cctv, int field)
+{
+    switch (g_CctvFields[field].property)
+    {
+    case SETUP_OBJECT_CCTV_SWEEP_MIN: return cctv->sweepmin;
+    case SETUP_OBJECT_CCTV_SWEEP_MAX: return cctv->sweepmax;
+    case SETUP_OBJECT_CCTV_SPEED: return cctv->speed;
+    default: return cctv->range;
+    }
+}
+static void ObjectPropertiesResetCctv(ObjectPropertiesState *state, int field)
+{
+    int id = OBJECT_CCTV_FIRST + field * 3 + 1;
+    char text[64] = "";
+    if (state->selected)
+    { snprintf(text, sizeof(text), "%.15g", ObjectPropertiesCctvValue(&state->properties.cctv, field)); }
+    state->updating = TRUE;
+    SetWindowText(state->controls[id], text);
+    SendMessage(state->controls[id], EM_EMPTYUNDOBUFFER, 0, 0);
+    state->updating = FALSE;
+    state->cctvedited[field] = FALSE;
+}
+
 static int ObjectPropertiesDoorField(int id)
 {
     return id >= OBJECT_DOOR_FIRST && id <= OBJECT_DOOR_LAST
@@ -160,12 +212,14 @@ static void ObjectPropertiesResetDoor(ObjectPropertiesState *state, int field)
 }
 
 static BOOL ObjectPropertiesIsCombo(int id)
-{ return id == OBJECT_MODEL || id == OBJECT_AMMO_TYPE || id == OBJECT_DOOR_TYPE || id == OBJECT_DOOR_SOUND; }
+{ return id == OBJECT_MODEL || id == OBJECT_AMMO_TYPE || id == OBJECT_DOOR_TYPE || id == OBJECT_DOOR_SOUND || id == OBJECT_CCTV_PAD; }
 static BOOL ObjectPropertiesIsEdit(int id)
-{ return id == OBJECT_HEALTH || id == OBJECT_KEY_MASK || id == OBJECT_QUANTITY || ObjectPropertiesDoorField(id) >= 0; }
+{ return id == OBJECT_HEALTH || id == OBJECT_KEY_MASK || id == OBJECT_QUANTITY
+    || ObjectPropertiesDoorField(id) >= 0 || ObjectPropertiesCctvField(id) >= 0; }
 static BOOL ObjectPropertiesControlVisible(const ObjectPropertiesState *state, int id)
 {
     unsigned char type = state->properties.object.type;
+    if (id >= OBJECT_CCTV_PAD_LABEL && id <= OBJECT_CCTV_LAST) { return state->selected && type == PROPDEF_CCTV; }
     if (id >= OBJECT_KEY_LABEL && id <= OBJECT_KEY_LAST) { return state->selected && (type == PROPDEF_KEY || type == PROPDEF_DOOR); }
     if (id >= OBJECT_DOOR_TYPE_LABEL && id <= OBJECT_DOOR_FLAGS_HELP) { return state->selected && type == PROPDEF_DOOR; }
     if (id >= OBJECT_AMMO_LABEL && id <= OBJECT_AMMO_HELP)
@@ -266,6 +320,40 @@ static void ObjectPropertiesApply(HWND hwnd, ObjectPropertiesState *state,
     state->committing = TRUE;
     SendMessage(GetParent(hwnd), OBJECTPROPERTIES_WM_CHANGED, 0, (LPARAM)&edit);
     state->committing = FALSE;
+}
+
+static BOOL ObjectPropertiesParseCctv(const ObjectPropertiesState *state, int field, const char *text, double *value)
+{
+    char *end;
+    SetupObjectProperty property = g_CctvFields[field].property;
+    errno = 0;
+    *value = strtod(text, &end);
+    if (end == text || errno == ERANGE || !isfinite(*value)) { return FALSE; }
+    while (isspace((unsigned char)*end)) { end++; }
+    if (*end || *value < g_CctvFields[field].minimum || *value > g_CctvFields[field].maximum) { return FALSE; }
+    if (property == SETUP_OBJECT_CCTV_RANGE) { return floor(*value) == *value; }
+    double angle = round(*value * (65536.0 / 360.0)) * (360.0 / 65536.0);
+    if (property == SETUP_OBJECT_CCTV_SWEEP_MIN && angle > state->properties.cctv.sweepmax) { return FALSE; }
+    if (property == SETUP_OBJECT_CCTV_SWEEP_MAX && angle < state->properties.cctv.sweepmin) { return FALSE; }
+    return TRUE;
+}
+static void ObjectPropertiesApplyCctv(HWND hwnd, ObjectPropertiesState *state, int field)
+{
+    char text[64]; double value;
+    if (!state->selected || state->properties.object.type != PROPDEF_CCTV
+        || !state->cctvedited[field] || state->updating || state->committing) { return; }
+    GetWindowText(state->controls[OBJECT_CCTV_FIRST + field * 3 + 1], text, sizeof(text));
+    if (!ObjectPropertiesParseCctv(state, field, text, &value))
+    {
+        char message[256];
+        snprintf(message, sizeof(message), "Enter %s from %.15g to %.15g.%s The camera has not changed.",
+            g_CctvFields[field].name, g_CctvFields[field].minimum, g_CctvFields[field].maximum,
+            field < 2 ? " Minimum must not exceed maximum." : field == 3 ? " Use whole world units." : "");
+        ObjectPropertiesStatus(hwnd, state, message);
+        return;
+    }
+    ObjectPropertiesApply(hwnd, state, g_CctvFields[field].property, value);
+    ObjectPropertiesResetCctv(state, field);
 }
 
 static BOOL ObjectPropertiesParseDoor(const ObjectPropertiesState *state, int field, const char *text, double *value)
@@ -376,6 +464,54 @@ static int ObjectPropertiesModelChoice(HWND combo, int modelid)
     for (int i = 0; i < count; i++)
     { if ((int)SendMessage(combo, CB_GETITEMDATA, i, 0) == modelid) { return i; } }
     return -1;
+}
+
+static void ObjectPropertiesRefreshCctv(ObjectPropertiesState *state)
+{
+    HWND combo = state->controls[OBJECT_CCTV_PAD];
+    int choice = ObjectPropertiesModelChoice(combo, state->properties.cctv.lookpad);
+    state->updating = TRUE;
+    if (choice < 0)
+    {
+        char text[80];
+        snprintf(text, sizeof(text), "Unavailable pad %ld (preserved)", (long)state->properties.cctv.lookpad);
+        choice = (int)SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)text);
+        if (choice >= 0) { SendMessage(combo, CB_SETITEMDATA, choice, state->properties.cctv.lookpad); }
+    }
+    SendMessage(combo, CB_SETCURSEL, choice, 0);
+    state->updating = FALSE;
+    for (int field = 0; field < OBJECT_CCTV_FIELD_COUNT; field++)
+    { if (!state->cctvedited[field]) { ObjectPropertiesResetCctv(state, field); } }
+}
+static void ObjectPropertiesLoadCctvPads(ObjectPropertiesState *state, const SetupFile *setup, BOOL same)
+{
+    if (same && state->cctvpadcount == setup->padcount && state->cctvboundpadcount == setup->boundpadcount) { return; }
+    HWND combo = state->controls[OBJECT_CCTV_PAD];
+    state->updating = TRUE;
+    SendMessage(combo, CB_RESETCONTENT, 0, 0);
+    for (int bound = 0; bound < 2; bound++)
+    {
+        DWORD count = bound ? setup->boundpadcount : min(setup->padcount, 10000);
+        for (DWORD index = 0; index < count; index++)
+        {
+            char text[64];
+            snprintf(text, sizeof(text), "%s %lu", bound ? "Bound pad" : "Pad", (unsigned long)index);
+            int choice = (int)SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)text);
+            if (choice >= 0) { SendMessage(combo, CB_SETITEMDATA, choice, index + (bound ? 10000 : 0)); }
+        }
+    }
+    state->cctvpadcount = setup->padcount; state->cctvboundpadcount = setup->boundpadcount;
+    state->updating = FALSE;
+}
+static void ObjectPropertiesApplyCctvPad(HWND hwnd, ObjectPropertiesState *state)
+{
+    HWND combo = state->controls[OBJECT_CCTV_PAD];
+    int choice = (int)SendMessage(combo, CB_GETCURSEL, 0, 0);
+    if (!state->selected || state->properties.object.type != PROPDEF_CCTV
+        || state->updating || state->committing || choice < 0) { return; }
+    LONG value = (LONG)SendMessage(combo, CB_GETITEMDATA, choice, 0);
+    if (value != state->properties.cctv.lookpad)
+    { ObjectPropertiesApply(hwnd, state, SETUP_OBJECT_CCTV_LOOK_PAD, value); }
 }
 
 static void ObjectPropertiesDoorChoice(HWND combo, DWORD value)
@@ -599,6 +735,13 @@ static LRESULT CALLBACK ObjectPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
             if (ObjectPropertiesIsEdit(i)) { SendMessage(state->controls[i], EM_SETLIMITTEXT, 63, 0); }
         }
         SetWindowText(state->controls[OBJECT_DOOR_TYPE_LABEL], "Door movement");
+        SetWindowText(state->controls[OBJECT_CCTV_PAD_LABEL], "Look-at pad");
+        SetWindowText(state->controls[OBJECT_CCTV_PAD_HELP], "Sets the camera head's base aim, including its tilt. This is separate from the pad that places the camera body.");
+        for (int field = 0; field < OBJECT_CCTV_FIELD_COUNT; field++)
+        {
+            SetWindowText(state->controls[OBJECT_CCTV_FIRST + field * 3], g_CctvFields[field].name);
+            SetWindowText(state->controls[OBJECT_CCTV_FIRST + field * 3 + 2], g_CctvFields[field].help);
+        }
         SetWindowText(state->controls[OBJECT_DOOR_SOUND_LABEL], "Door sounds");
         SetWindowText(state->controls[OBJECT_DOOR_SOUND_HELP], "Preset for opening, moving and closing sounds.");
         SetWindowText(state->controls[OBJECT_DOOR_FLAGS_LABEL], "Door flags");
@@ -638,6 +781,21 @@ static LRESULT CALLBACK ObjectPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
             if (HIWORD(wparam) == EN_CHANGE) { state->edited = TRUE; }
             if (HIWORD(wparam) == EN_KILLFOCUS) { ObjectPropertiesApplyHealth(hwnd, state); }
             if (HIWORD(wparam) == EN_SETFOCUS) { ObjectPropertiesRevealControl(hwnd, state, (HWND)lparam); }
+        }
+        for (int field = 0; field < OBJECT_CCTV_FIELD_COUNT; field++)
+        {
+            if ((HWND)lparam != state->controls[OBJECT_CCTV_FIRST + field * 3 + 1]) { continue; }
+            if (HIWORD(wparam) == EN_CHANGE) { state->cctvedited[field] = TRUE; }
+            if (HIWORD(wparam) == EN_KILLFOCUS) { ObjectPropertiesApplyCctv(hwnd, state, field); }
+            if (HIWORD(wparam) == EN_SETFOCUS) { ObjectPropertiesRevealControl(hwnd, state, (HWND)lparam); }
+        }
+        if ((HWND)lparam == state->controls[OBJECT_CCTV_PAD])
+        {
+            if (HIWORD(wparam) == CBN_SELENDOK || (HIWORD(wparam) == CBN_SELCHANGE
+                && !SendMessage((HWND)lparam, CB_GETDROPPEDSTATE, 0, 0)))
+            { ObjectPropertiesApplyCctvPad(hwnd, state); }
+            if (HIWORD(wparam) == CBN_SELENDCANCEL) { ObjectPropertiesRefreshCctv(state); }
+            if (HIWORD(wparam) == CBN_SETFOCUS) { ObjectPropertiesRevealControl(hwnd, state, (HWND)lparam); }
         }
         for (int field = 0; field < OBJECT_DOOR_FIELD_COUNT; field++)
         {
@@ -766,6 +924,7 @@ BOOL ObjectPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD inde
         state->selected = FALSE; state->edited = FALSE; state->document = 0;
         state->keyedited = state->quantityedited = FALSE;
         memset(state->dooredited, 0, sizeof(state->dooredited));
+        memset(state->cctvedited, 0, sizeof(state->cctvedited));
         ObjectPropertiesResetHealth(state);
         return FALSE;
     }
@@ -783,6 +942,11 @@ BOOL ObjectPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD inde
     if (state->properties.ammo[state->ammoslot].quantity != properties.ammo[state->ammoslot].quantity)
     { state->quantityedited = FALSE; }
     if (state->properties.health != properties.health) { state->edited = FALSE; }
+    for (int field = 0; field < OBJECT_CCTV_FIELD_COUNT; field++)
+    {
+        if (!same || ObjectPropertiesCctvValue(&state->properties.cctv, field) != ObjectPropertiesCctvValue(&properties.cctv, field))
+        { state->cctvedited[field] = FALSE; }
+    }
     for (int field = 0; field < OBJECT_DOOR_FIELD_COUNT; field++)
     {
         if (!same || state->properties.door.type != properties.door.type
@@ -809,6 +973,11 @@ BOOL ObjectPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD inde
     SendMessage(state->controls[OBJECT_MODEL], CB_SETCURSEL, choice, 0);
     state->updating = FALSE;
     if (properties.object.type == PROPDEF_DOOR) { ObjectPropertiesRefreshDoor(state); }
+    if (properties.object.type == PROPDEF_CCTV)
+    {
+        ObjectPropertiesLoadCctvPads(state, setup, same);
+        ObjectPropertiesRefreshCctv(state);
+    }
     SetWindowText(state->controls[OBJECT_KEY_LABEL], properties.object.type == PROPDEF_DOOR
         ? "Required keys (hexadecimal mask)" : "Unlock flags (hexadecimal mask)");
     SetWindowText(state->controls[OBJECT_KEY_HELP], properties.object.type == PROPDEF_DOOR
@@ -854,7 +1023,9 @@ BOOL ObjectPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD inde
     snprintf(text, sizeof(text), "Object index: %lu\r\n%s\r\nExtra scale: %.6g",
         (unsigned long)index, placement, properties.object.extrascale / 256.0);
     SetWindowText(state->controls[OBJECT_IDENTITY], text);
-    if (!state->edited && !state->keyedited && !state->quantityedited && !ObjectPropertiesDoorPending(state)) { SetWindowText(state->controls[OBJECT_STATUS], "Enter or leave a field to apply. Escape cancels typing."); }
+    if (!state->edited && !state->keyedited && !state->quantityedited
+        && !ObjectPropertiesDoorPending(state) && !ObjectPropertiesCctvPending(state))
+    { SetWindowText(state->controls[OBJECT_STATUS], "Enter or leave a field to apply. Escape cancels typing."); }
     ObjectPropertiesLayout(panel, state);
     return TRUE;
 }
@@ -871,6 +1042,7 @@ BOOL ObjectPropertiesHandleMessage(HWND panel, MSG *message)
     if (message->wParam == VK_RETURN)
     {
         if (id == OBJECT_HEALTH) { ObjectPropertiesApplyHealth(panel, state); }
+        else if (ObjectPropertiesCctvField(id) >= 0) { ObjectPropertiesApplyCctv(panel, state, ObjectPropertiesCctvField(id)); }
         else if (ObjectPropertiesDoorField(id) >= 0) { ObjectPropertiesApplyDoor(panel, state, ObjectPropertiesDoorField(id)); }
         else { ObjectPropertiesApplyExtra(panel, state, id); }
         return TRUE;
@@ -878,6 +1050,7 @@ BOOL ObjectPropertiesHandleMessage(HWND panel, MSG *message)
     if (message->wParam == VK_ESCAPE)
     {
         if (id == OBJECT_HEALTH) { ObjectPropertiesResetHealth(state); }
+        else if (ObjectPropertiesCctvField(id) >= 0) { ObjectPropertiesResetCctv(state, ObjectPropertiesCctvField(id)); }
         else if (ObjectPropertiesDoorField(id) >= 0) { ObjectPropertiesResetDoor(state, ObjectPropertiesDoorField(id)); }
         else { ObjectPropertiesResetExtra(state, id); }
         ObjectPropertiesStatus(panel, state, "Enter or leave a field to apply. Escape cancels typing.");

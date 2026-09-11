@@ -58,7 +58,9 @@ typedef enum SetupObjectProperty {
     SETUP_OBJECT_DOOR_TRAVEL, SETUP_OBJECT_DOOR_CLEARANCE,
     SETUP_OBJECT_DOOR_ACCEL, SETUP_OBJECT_DOOR_DECEL, SETUP_OBJECT_DOOR_SPEED,
     SETUP_OBJECT_DOOR_CLOSE_DELAY, SETUP_OBJECT_DOOR_TYPE,
-    SETUP_OBJECT_DOOR_SOUND, SETUP_OBJECT_DOOR_FLAGS, SETUP_OBJECT_DOOR_KEY_FLAGS
+    SETUP_OBJECT_DOOR_SOUND, SETUP_OBJECT_DOOR_FLAGS, SETUP_OBJECT_DOOR_KEY_FLAGS,
+    SETUP_OBJECT_CCTV_LOOK_PAD, SETUP_OBJECT_CCTV_SWEEP_MIN,
+    SETUP_OBJECT_CCTV_SWEEP_MAX, SETUP_OBJECT_CCTV_SPEED, SETUP_OBJECT_CCTV_RANGE
 } SetupObjectProperty;
 /* Movement uses native fractions/degrees/animation units per 60 Hz tick.
  * The inspector converts these to percentages/degrees and seconds. */
@@ -67,11 +69,20 @@ typedef struct SetupDoorProperties {
     DWORD closeframes, sound;
     unsigned short type, flags;
 } SetupDoorProperties;
+/* CCTV angles are degrees relative to the look-at pad; speed is degrees/sec.
+ * Range is in game world units, with any native nonpositive value shown as 0
+ * (unlimited). The look-at pad is separate from the object's placement pad. */
+typedef struct SetupCctvProperties {
+    LONG lookpad;
+    double sweepmin, sweepmax, speed;
+    DWORD range;
+} SetupCctvProperties;
 typedef struct SetupObjectProperties {
     SetupObject object;
     double health;
     DWORD keyflags, ammotype; /* keyflags: supplied by a key, required by a door */
     SetupDoorProperties door;
+    SetupCctvProperties cctv;
     struct { unsigned short model, quantity; } ammo[AMMOTYPE_GLOBAL_MAX];
 } SetupObjectProperties;
 typedef struct SetupObjectPropertyEdit {

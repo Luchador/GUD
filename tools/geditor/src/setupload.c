@@ -2678,6 +2678,17 @@ BOOL SetupFileGetObjectProperties(const SetupFile *setup, DWORD index,
     memset(out, 0, sizeof(*out));
     out->object = setup->objects[index];
     out->health = (LONG)SetupRead32(record + 0x74) / 65536.0;
+    if (out->object.type == PROPDEF_CCTV)
+    {
+        /* setupCctv converts these signed integer words to floats in-game.
+         * CC is the upper/initial yaw, D0 the lower yaw (objTickCctv). */
+        out->cctv.lookpad = (LONG)SetupRead32(record + 0x80);
+        out->cctv.sweepmax = (LONG)SetupRead32(record + 0xcc) * (360.0 / 65536.0);
+        out->cctv.sweepmin = (LONG)SetupRead32(record + 0xd0) * (360.0 / 65536.0);
+        out->cctv.speed = (LONG)SetupRead32(record + 0xdc) * (21600.0 / 65536.0);
+        LONG range = (LONG)SetupRead32(record + 0xe8);
+        out->cctv.range = range > 0 ? (DWORD)range : 0;
+    }
     if (out->object.type == PROPDEF_KEY) { out->keyflags = SetupRead32(record + 0x80); }
     if (out->object.type == PROPDEF_DOOR)
     {
@@ -2752,8 +2763,52 @@ BOOL SetupFileSetObjectProperty(SetupFile *setup, const SetupObjectPropertyEdit 
     if (edit->property >= SETUP_OBJECT_DOOR_TRAVEL && edit->property <= SETUP_OBJECT_DOOR_KEY_FLAGS
         && record[3] != PROPDEF_DOOR)
     { *reasonout = "Door settings can only be edited on a door."; return FALSE; }
+    if (edit->property >= SETUP_OBJECT_CCTV_LOOK_PAD && edit->property <= SETUP_OBJECT_CCTV_RANGE
+        && record[3] != PROPDEF_CCTV)
+    { *reasonout = "CCTV settings can only be edited on a CCTV camera."; return FALSE; }
     switch (edit->property)
     {
+    case SETUP_OBJECT_CCTV_LOOK_PAD:
+        if (edit->value < 0 || edit->value > 2147483647.0 || floor(edit->value) != edit->value)
+        { *reasonout = "Choose an existing look-at pad."; return FALSE; }
+        encoded = (DWORD)edit->value;
+        if (encoded < 10000 ? encoded >= setup->padcount : encoded - 10000 >= setup->boundpadcount)
+        { *reasonout = "The look-at pad does not exist in this setup."; return FALSE; }
+        if (encoded == SetupRead32(record + 0x80)) { return TRUE; }
+        SetupWrite32(setup->data + edit->sourceoffset + 0x80, encoded);
+        break;
+    case SETUP_OBJECT_CCTV_SWEEP_MIN:
+    case SETUP_OBJECT_CCTV_SWEEP_MAX:
+        /* The game's yaw normalization adds/subtracts one full turn. Keep
+         * authored endpoints within that range, in the order its sweep needs. */
+        if (edit->value < -360 || edit->value > 360)
+        { *reasonout = "Enter a sweep angle from -360 to 360 degrees."; return FALSE; }
+        encoded = (DWORD)(LONG)round(edit->value * (65536.0 / 360.0));
+        offset = edit->property == SETUP_OBJECT_CCTV_SWEEP_MIN ? 0xd0 : 0xcc;
+        if (edit->property == SETUP_OBJECT_CCTV_SWEEP_MIN
+            ? (LONG)encoded > (LONG)SetupRead32(record + 0xcc)
+            : (LONG)encoded < (LONG)SetupRead32(record + 0xd0))
+        { *reasonout = "Sweep minimum must be no greater than sweep maximum. Equal angles hold the camera still."; return FALSE; }
+        if (encoded == SetupRead32(record + offset)) { return TRUE; }
+        SetupWrite32(setup->data + edit->sourceoffset + offset, encoded);
+        break;
+    case SETUP_OBJECT_CCTV_SPEED:
+        if (edit->value < 0 || edit->value > 2147483647.0 * (21600.0 / 65536.0))
+        { *reasonout = "CCTV turn speed is outside the supported range."; return FALSE; }
+        encoded = (DWORD)floor(edit->value * (65536.0 / 21600.0) + 0.5);
+        if (encoded == SetupRead32(record + 0xdc)) { return TRUE; }
+        SetupWrite32(setup->data + edit->sourceoffset + 0xdc, encoded);
+        break;
+    case SETUP_OBJECT_CCTV_RANGE:
+        if (edit->value < 0 || edit->value > 2147483647.0 || floor(edit->value) != edit->value)
+        { *reasonout = "Enter a whole detection range from 0 to 2147483647 world units. 0 means unlimited."; return FALSE; }
+        encoded = (DWORD)edit->value;
+        previous = SetupRead32(record + 0xe8);
+        /* Stock cameras use -100 for unlimited. Preserve that encoding when
+         * accepting the displayed 0 without a semantic change. */
+        if (encoded == previous || (!encoded && (LONG)previous <= 0)) { return TRUE; }
+        SetupWrite32(setup->data + edit->sourceoffset + 0xe8, encoded);
+        break;
     case SETUP_OBJECT_DOOR_TRAVEL:
     case SETUP_OBJECT_DOOR_CLEARANCE:
     case SETUP_OBJECT_DOOR_ACCEL:

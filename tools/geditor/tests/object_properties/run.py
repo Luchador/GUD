@@ -37,15 +37,24 @@ def main():
             struct.pack_into('>I', record, 0, 0x01002000 | kind)
             struct.pack_into('>HHII', record, 4, 15, 0, 0x52514C3B, 0x83001400)
             struct.pack_into('>II', record, 0x70, 0xABCDEF01, 0x03E84000)
+            if kind == 6:
+                struct.pack_into('>i', record, 0x80, 1)
+                struct.pack_into('>ii', record, 0xcc, 0x2000, -0x2000)  # +/-45 degrees
+                struct.pack_into('>i', record, 0xdc, 136)  # turns per 60 Hz tick
+                struct.pack_into('>i', record, 0xe8, 1500)
             data += record
         # A separate GuardRecord must never be interpreted as ObjectRecord.
         data += struct.pack('>7I', 9, 2 << 16, 1, 0xFFFFFFFF, 0, 0xFFFF, 0)
         data += struct.pack('>I', 48)
         pads = len(data)
-        data += struct.pack('>9fII', 10, 20, 30, 0, 1, 0, 0, 0, 1, pads + 156, 0)
-        data += bytes(44 + 68) + b'p0\0'
+        names = pads + 3 * 44 + 2 * 68
+        data += struct.pack('>9fII', 10, 20, 30, 0, 1, 0, 0, 0, 1, names, 0)
+        data += struct.pack('>9fII', 100, 50, 70, 0, 1, 0, 0, 0, 1, names + 3, 0)
+        data += bytes(44)
+        data += struct.pack('>9fII6f', -10, 0, 50, 0, 1, 0, 0, 0, 1, names + 6, 0, -5, 5, -5, 5, -5, 5)
+        data += bytes(68) + b'p0\0p1\0bp0\0'
         struct.pack_into('>I', data, 12, 40)
-        struct.pack_into('>II', data, 24, pads, pads + 88)
+        struct.pack_into('>II', data, 24, pads, pads + 132)
         (work / 'setup/UsetuppropertiesZ.set').write_bytes(data)
         command = [os.environ.get('CC', 'cc'), '-O1', '-g', '-std=c99', '-Wall', '-Wextra',
                    '-ffunction-sections', '-fdata-sections', '-fsanitize=address,undefined',
@@ -58,16 +67,22 @@ def main():
         # Exercise actual input logic; native controls and scene callbacks are stubbed.
         source = (src / 'objectproperties.c').read_text()
         types = re.search(r'#define OBJECT_DOOR_FIELD_COUNT .*', source)[0] + '\n'
+        types += re.search(r'#define OBJECT_CCTV_FIELD_COUNT .*', source)[0] + '\n'
         types += re.search(r'enum \{ OBJECT_TYPE,.*?\};', source, re.S)[0]
         types += '\n' + re.search(r'typedef struct ObjectPropertiesState \{.*?\} ObjectPropertiesState;', source, re.S)[0]
         types += '\n' + re.search(r'#define OBJECT_CONTENTS_TEXT_MAX .*', source)[0]
         types += '\n' + re.search(r'static const char \*g_AmmoNames\[AMMOTYPE_MAX\] = \{.*?\};', source, re.S)[0]
         types += '\n' + re.search(r'static const struct \{[^}]*\} g_DoorFields\[OBJECT_DOOR_FIELD_COUNT\] = \{.*?\n\};', source, re.S)[0]
+        types += '\n' + re.search(r'static const struct \{[^}]*\} g_CctvFields\[OBJECT_CCTV_FIELD_COUNT\] = \{.*?\n\};', source, re.S)[0]
         (work / 'input-types.inc').write_text(types)
-        names = ('ObjectPropertiesDoorField', 'ObjectPropertiesDoorValue', 'ObjectPropertiesDoorUnits',
+        names = ('ObjectPropertiesCctvField', 'ObjectPropertiesCctvValue', 'ObjectPropertiesResetCctv',
+                 'ObjectPropertiesDoorField', 'ObjectPropertiesDoorValue', 'ObjectPropertiesDoorUnits',
                  'ObjectPropertiesDoorFactor', 'ObjectPropertiesResetDoor', 'ObjectPropertiesFormatContents', 'ObjectPropertiesIsEdit', 'ObjectPropertiesControlVisible',
                  'ObjectPropertiesResetHealth', 'ObjectPropertiesParseHealth',
-                 'ObjectPropertiesApply', 'ObjectPropertiesParseDoor', 'ObjectPropertiesApplyDoor',
+                 'ObjectPropertiesApply', 'ObjectPropertiesParseCctv', 'ObjectPropertiesApplyCctv',
+                 'ObjectPropertiesModelChoice', 'ObjectPropertiesLoadCctvPads',
+                 'ObjectPropertiesRefreshCctv', 'ObjectPropertiesApplyCctvPad',
+                 'ObjectPropertiesParseDoor', 'ObjectPropertiesApplyDoor',
                  'ObjectPropertiesKeyProperty', 'ObjectPropertiesApplyHealth',
                  'ObjectPropertiesParseUnsigned', 'ObjectPropertiesResetExtra',
                  'ObjectPropertiesApplyExtra', 'ObjectPropertiesHandleMessage')
