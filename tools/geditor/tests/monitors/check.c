@@ -110,7 +110,7 @@ static void Models(const char *root, RomFile *rom)
         object.type=counts[n]==1?PROPDEF_MONITOR:PROPDEF_MULTI_MONITOR;
         object.flags=PROPFLAG_FIXED_MONITOR;
         setup.objects=&object; setup.objectcount=1; setup.size=596; setup.data=calloc(596,1);
-        ObjectPlaceModel(&builder,&model,&p.basis,p.scale,FALSE,p.center,0,counts[n]);
+        ObjectPlaceModel(&builder,&model,&p.basis,p.scale,FALSE,0,p.center,0,counts[n]);
         DWORD staticcount=builder.tricount;
         assert(ObjectPlaceMonitorScreens(&builder,&geometry,&setup,0,&model,&p,rom,&why));
         assert(geometry.count==(DWORD)counts[n] && builder.tricount==staticcount+counts[n]*2);

@@ -336,12 +336,13 @@ static BOOL ObjectBuilderReserve(ObjectBuilder *builder, DWORD add)
 static void ObjectPlaceModel(ObjectBuilder *builder,
                              const ModelCacheEntry *model,
                              const ObjectBasis *basis,
-                             const float scale[3], BOOL door,
+                             const float scale[3], BOOL door, unsigned short doorflags,
                              const float modelcenter[3],
                              DWORD objectindex, int screencount)
 {
     DWORD outfirst;
     DWORD tri;
+    BOOL flip = door && (doorflags & DOORFLAG_FLIP);
 
     if (!ObjectBuilderReserve(builder, model->tricount))
     {
@@ -361,7 +362,11 @@ static void ObjectPlaceModel(ObjectBuilder *builder,
 
         for (corner = 0; corner < 3; corner++)
         {
-            const BgVertex *source = &model->tris[tri * 3 + corner];
+            /* The game mirrors local Z for DOORFLAG_FLIP and swaps front/back
+               culling. Reverse winding here so rendering and picking retain
+               the model's usual culling rules. Keep UVs/colors with vertices. */
+            int sourcecorner = flip && corner != 0 ? 3 - corner : corner;
+            const BgVertex *source = &model->tris[tri * 3 + sourcecorner];
             BgVertex *dest = &builder->tris[outfirst * 3 + corner];
             float local[3];
             int axis;
@@ -369,6 +374,7 @@ static void ObjectPlaceModel(ObjectBuilder *builder,
             local[0] = (source->x - modelcenter[0]) * scale[0];
             local[1] = (source->y - modelcenter[1]) * scale[1];
             local[2] = (source->z - modelcenter[2]) * scale[2];
+            if (flip) { local[2] = -local[2]; }
             *dest = *source;
             if (model->renderflags[tri] & BG_RENDER_ENVIRONMENT)
             {
@@ -383,6 +389,7 @@ static void ObjectPlaceModel(ObjectBuilder *builder,
                     normal[axis] = scale[axis] != 0
                         ? source->environment.normal[axis] / scale[axis] : 0;
                 }
+                if (flip) { normal[2] = -normal[2]; }
                 for (axis = 0; axis < 3; axis++)
                 {
                     dest->environment.normal[axis] = xaxis[axis] * normal[0]
@@ -509,7 +516,7 @@ static BOOL ObjectPlaceMonitorScreens(ObjectBuilder *builder, MonitorGeometry *g
         flags[1] = flags[0];
         for (i = 0; i < 6; i++) { vertices[i] = model->screens[screen][corners[i]]; }
         quad.tris = vertices; quad.tritags = tags; quad.renderflags = flags; quad.tricount = 2;
-        ObjectPlaceModel(builder, &quad, &placement->basis, placement->scale, FALSE,
+        ObjectPlaceModel(builder, &quad, &placement->basis, placement->scale, FALSE, 0,
             placement->center, objectindex, 0);
         if (builder->failed) { *reason = "Out of memory building monitor screens."; return FALSE; }
     }
@@ -772,6 +779,7 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
         int padindex;
         BOOL isbound;
         BOOL isdoor = object->type == PROPDEF_DOOR;
+        unsigned short doorflags = 0;
 
         if (object->deleted
             || (object->flags & (PROPFLAG_ASSIGNEDTOCHR
@@ -827,6 +835,9 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
         if (!ObjectPlacementScale(model, object, bound, worldscale, scale)) { continue; }
         if (isdoor)
         {
+            SetupObjectProperties properties;
+            if (!SetupFileGetObjectProperties(setup, i, &properties, reasonout)) { goto fail; }
+            doorflags = properties.door.flags;
             center[0] = (min[0] + max[0]) * .5f;
             center[1] = (min[1] + max[1]) * .5f;
             center[2] = (min[2] + max[2]) * .5f;
@@ -905,7 +916,7 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
         memcpy(placements[i].scale, scale, sizeof(scale));
         memcpy(placements[i].center, center, sizeof(center));
         placements[i].placed = TRUE;
-        ObjectPlaceModel(&builder, model, &basis, scale, isdoor, center, i,
+        ObjectPlaceModel(&builder, model, &basis, scale, isdoor, doorflags, center, i,
             object->type == PROPDEF_MONITOR ? 1 : object->type == PROPDEF_MULTI_MONITOR ? 4 : 0);
         if (!ObjectPlaceMonitorScreens(&builder, &out->monitors, setup, i, model,
             &placements[i], &rom, reasonout)) { goto fail; }
@@ -972,7 +983,7 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
             p->scale[axis] = 1;
         }
         p->placed = TRUE;
-        ObjectPlaceModel(&builder, model, &p->basis, p->scale, FALSE, p->center, i, 1);
+        ObjectPlaceModel(&builder, model, &p->basis, p->scale, FALSE, 0, p->center, i, 1);
         if (!ObjectPlaceMonitorScreens(&builder, &out->monitors, setup, i, model, p, &rom, reasonout)) { goto fail; }
         out->objectcount++;
     }
