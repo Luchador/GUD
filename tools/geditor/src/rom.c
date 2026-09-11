@@ -329,7 +329,8 @@ static BOOL RomValidateBuffer(unsigned char *data, DWORD size,
 
     {
         static const DWORD required[] = { 0x494D4753u, 0x4F425347u, 0x4D555346u,
-            0x53544754u, 0x434D4150u, 0x4654424Cu, 0x454E5654u, 0x54585442u, 0x54584346u };
+            0x53544754u, 0x434D4150u, 0x4654424Cu, 0x454E5654u, 0x54585442u, 0x54584346u,
+            0x4d4f4e41u, 0x4d4f4e54u, 0x4d4f4e44u };
         DWORD kind;
         for (kind = 0; kind < sizeof(required) / sizeof(required[0]); kind++)
         {

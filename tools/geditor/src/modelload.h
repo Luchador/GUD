@@ -90,6 +90,10 @@ BOOL ModelReadHeadAttachment(const unsigned char *data, DWORD size,
 BOOL ModelReadSwitchAttachment(const unsigned char *data, DWORD size,
                                 int switchcount, int index, float position[3]);
 
+/* Four native screen vertices in switch order. monitorProcessAndRender
+   uses the root render matrix, bypassing the switch node's transform. */
+BOOL ModelReadMonitorScreen(const unsigned char *data, DWORD size, int index, BgVertex quad[4]);
+
 /* Held models use their authored root offset, which flattened project
    geometry omits for ordinary object placement. GROUP roots inherit the
    hand's scale directly; only HEADER roots also apply their own model scale. */

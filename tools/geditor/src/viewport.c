@@ -23,6 +23,8 @@
 #include "orbitcamera.h"
 #include "resource.h"
 
+#define VIEWPORT_MONITOR_TIMER 1001
+
 #define VIEWPORT_CLASS "GEditorViewport"
 
 /**
@@ -92,7 +94,65 @@ typedef struct SceneBatch {
     BgRenderFlags renderflags;
     BOOL    cullbackfaces;
     BOOL    object;     /* setup model, independent of BG visibility */
+    int monitor;        /* -1 for static geometry */
 } SceneBatch;
+
+typedef struct ViewportMonitors {
+    MonitorBank bank;
+    MonitorAnimation *animations;
+    ViewportTexture *textures;
+    DWORD count;
+    double ticks;
+    LARGE_INTEGER previous;
+} ViewportMonitors;
+
+static void ViewportFreeMonitors(ViewportMonitors *monitors)
+{
+    DWORD i;
+    if (monitors->textures)
+    {
+        for (i = 0; i < monitors->bank.imagecount; i++)
+        { if (monitors->textures[i].name) { glDeleteTextures(1, &monitors->textures[i].name); } }
+    }
+    free(monitors->textures);
+    free(monitors->animations);
+    MonitorBankFree(&monitors->bank);
+    ZeroMemory(monitors, sizeof(*monitors));
+}
+
+static BOOL ViewportLoadMonitors(ViewportMonitors *out, const MonitorGeometry *geometry,
+    const char *projectdir, TexPixel *decode)
+{
+    DWORD i;
+    if (!geometry || !geometry->count) { return TRUE; }
+    if (!MonitorBankClone(&out->bank, &geometry->bank)) { return FALSE; }
+    out->animations = calloc(geometry->count, sizeof(*out->animations));
+    out->textures = calloc(out->bank.imagecount, sizeof(*out->textures));
+    if (!out->animations || !out->textures) { return FALSE; }
+    out->count = geometry->count;
+    QueryPerformanceCounter(&out->previous);
+    for (i = 0; i < out->count; i++)
+    {
+        MonitorAnimationStart(&out->animations[i], &out->bank,
+            geometry->surfaces[i].animation, geometry->surfaces[i].seed);
+        MonitorAnimationTick(&out->animations[i], &out->bank);
+    }
+    for (i = 0; i < out->bank.imagecount; i++)
+    {
+        const unsigned char *image = out->bank.images + i * 12;
+        unsigned id = (unsigned)image[0] << 24 | (unsigned)image[1] << 16 | (unsigned)image[2] << 8 | image[3];
+        ViewportTexture *t = &out->textures[i];
+        if (!projectdir || id >= BG_TEX_NONE
+            || !TexLoadProjectImage(projectdir, id, decode, &t->width, &t->height)
+            || t->width < 1 || t->height < 1 || t->width > 256 || t->height > 256) { continue; }
+        glGenTextures(1, &t->name);
+        glBindTexture(GL_TEXTURE_2D, t->name);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, t->width, t->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, decode);
+    }
+    return TRUE;
+}
 
 struct ViewportState;
 static void ViewportFreeScene(struct ViewportState *state);
@@ -207,6 +267,7 @@ typedef struct ViewportState {
     ViewportTexture *texturecache; /* VIEWPORT_TEXTURE_VARIANT_COUNT entries */
     GLuint *textures;    /* GL texture names owned by the scene */
     int texturecount;
+    ViewportMonitors monitors;
     StanFile stan; /* owned preview; edits are committed to the frame's document */
     DWORD *stanpointmap;
     unsigned char *stanselected;
@@ -816,6 +877,88 @@ static void ViewportUpdateEnvironmentMapping(ViewportState *state)
     }
 }
 
+static void ViewportTickMonitors(ViewportMonitors *monitors)
+{
+    LARGE_INTEGER now, frequency;
+    double elapsed;
+    DWORD i;
+    if (!monitors->count) { return; }
+    QueryPerformanceCounter(&now); QueryPerformanceFrequency(&frequency);
+    elapsed = (double)(now.QuadPart - monitors->previous.QuadPart) / frequency.QuadPart;
+    monitors->previous = now;
+    /* Avoid an unbounded catch-up after a suspended/minimized editor. */
+    monitors->ticks += fmax(0, fmin(elapsed, .25)) * 60;
+    while (monitors->ticks >= 1)
+    {
+        for (i = 0; i < monitors->count; i++)
+        { MonitorAnimationTick(&monitors->animations[i], &monitors->bank); }
+        monitors->ticks -= 1;
+    }
+}
+
+/* The animated lists replace the placeholder screen geometry. Draw them
+   after primary cabinets/companion props and before secondary glass, with
+   the game's surface/decal Z mode.
+   All vertices remain in scene storage, so fog, picking and transforms use
+   the very same surface as the animated image. */
+static void ViewportDrawMonitors(ViewportState *state)
+{
+    static const int corners[6] = {0, 1, 2, 0, 2, 3};
+    int i, vertex;
+    if (!state->showobjects) { return; }
+    for (i = 0; i < state->batchcount; i++)
+    {
+        SceneBatch *batch = &state->batches[i];
+        MonitorAnimation *animation;
+        const unsigned char *image;
+        ViewportTexture *texture = NULL;
+        BgRenderFlags flags = batch->renderflags;
+        float uv[4][2];
+        DWORD j;
+        if (batch->monitor < 0 || (DWORD)batch->monitor >= state->monitors.count) { continue; }
+        animation = &state->monitors.animations[batch->monitor];
+        image = MonitorAnimationImage(animation, &state->monitors.bank);
+        if (image)
+        {
+            /* Also handles commands using a direct descriptor in CMAP. */
+            for (j = 0; j < state->monitors.bank.imagecount; j++)
+            {
+                if (!memcmp(image, state->monitors.bank.images + j * 12, 4))
+                { texture = &state->monitors.textures[j]; break; }
+            }
+        }
+        if (animation->color[3] < 255) { flags |= BG_RENDER_BLEND; }
+        ViewportApplyRenderFlags(flags);
+        if (state->cullbackfaces) { glEnable(GL_CULL_FACE); } else { glDisable(GL_CULL_FACE); }
+        if (texture && texture->name)
+        {
+            glEnable(GL_TEXTURE_2D); glBindTexture(GL_TEXTURE_2D, texture->name);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
+                image[9] & 2 ? GL_CLAMP_TO_EDGE : image[9] & 1 ? GL_MIRRORED_REPEAT : GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,
+                image[10] & 2 ? GL_CLAMP_TO_EDGE : image[10] & 1 ? GL_MIRRORED_REPEAT : GL_REPEAT);
+        }
+        else { glDisable(GL_TEXTURE_2D); }
+        MonitorAnimationUvs(animation, uv);
+        for (vertex = 0; vertex < batch->count; vertex++)
+        {
+            Vertex *v = &state->scene[batch->first + vertex];
+            int corner = corners[vertex % 6];
+            /* Game writes signed 16-bit UVs in 1/32 texels. Retain that
+               wrapping behavior, including long-running scroll commands. */
+            float us = image ? image[4] * 32.0f : 32.0f, vs = image ? image[5] * 32.0f : 32.0f;
+            float rawu = uv[corner][0] * us, rawt = uv[corner][1] * vs;
+            int u = isfinite(rawu) ? (int)fmodf(truncf(rawu), 65536.0f) : 0;
+            int t = isfinite(rawt) ? (int)fmodf(truncf(rawt), 65536.0f) : 0;
+            v->s = (int16_t)u / (32.0f * (texture && texture->width ? texture->width : 1));
+            v->t = (int16_t)t / (32.0f * (texture && texture->height ? texture->height : 1));
+            v->r = animation->color[0]; v->g = animation->color[1];
+            v->b = animation->color[2]; v->a = animation->color[3];
+        }
+        glDrawArrays(GL_TRIANGLES, batch->first, batch->count);
+    }
+}
+
 static void ViewportBeginFog(ViewportState *state)
 {
     GLfloat color[4] = {state->backgroundcolor[0], state->backgroundcolor[1],
@@ -999,6 +1142,7 @@ static void ViewportPaintGL(ViewportState *state)
     glRotatef(-state->yaw,   0.0f, 1.0f, 0.0f);
     glTranslatef(-state->posx, -state->posy, -state->posz);
 
+    ViewportTickMonitors(&state->monitors);
     ViewportBeginFog(state);
 
     {
@@ -1013,7 +1157,7 @@ static void ViewportPaintGL(ViewportState *state)
         if (state->scene != NULL && state->batchcount > 0)
         {
             int i;
-            BOOL incullback = FALSE;
+            BOOL incullback = FALSE, monitorsdrawn = FALSE;
             int activerenderflags = -1;
 
             ViewportUpdateEnvironmentMapping(state);
@@ -1024,6 +1168,15 @@ static void ViewportPaintGL(ViewportState *state)
             {
                 const SceneBatch *batch = &state->batches[i];
                 BOOL wantcullback;
+                if (batch->secondary && !monitorsdrawn)
+                {
+                    ViewportDrawMonitors(state);
+                    monitorsdrawn = TRUE;
+                    activerenderflags = -1;
+                    glDisable(GL_CULL_FACE);
+                    incullback = FALSE;
+                }
+                if (batch->monitor >= 0) { continue; }
 
                 if (batch->object ? !state->showobjects
                     : (batch->secondary ? !state->showbgsecondary : !state->showbgprimary))
@@ -1066,6 +1219,7 @@ static void ViewportPaintGL(ViewportState *state)
 
                 ViewportDrawVisibleBatch(state, batch);
             }
+            if (!monitorsdrawn) { ViewportDrawMonitors(state); }
 
             glDisable(GL_TEXTURE_2D);
             glDisable(GL_ALPHA_TEST);
@@ -4595,6 +4749,12 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         }
         return 0;
 
+    case WM_TIMER:
+        if (wparam == VIEWPORT_MONITOR_TIMER && state && state->monitors.count
+            && state->showobjects && !state->flying && IsWindowVisible(hwnd)
+            && !IsIconic(GetAncestor(hwnd, GA_ROOT))) { InvalidateRect(hwnd, NULL, FALSE); }
+        return 0;
+
     case WM_PAINT:
     {
         PAINTSTRUCT ps;
@@ -4781,6 +4941,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         return 1;
 
     case WM_DESTROY:
+        KillTimer(hwnd, VIEWPORT_MONITOR_TIMER);
         ViewportCancelTransform(hwnd);
         if (state != NULL)
         {
@@ -4983,6 +5144,8 @@ static void ViewportFreeScene(struct ViewportState *state_)
         glDeleteTextures(state->texturecount, state->textures);
     }
 
+    wglMakeCurrent(state->hdc, state->hglrc);
+    ViewportFreeMonitors(&state->monitors);
     ViewportFreeTextureCache(state->texturecache);
     state->texturecache = NULL;
     free(state->textures);
@@ -5482,11 +5645,13 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
                       const BgFaceRef *facerefs,
                       const BgDocumentVertexRef *vertexrefs,
                       const DWORD *objectindices, int objectfirsttriangle,
+                      const MonitorGeometry *monitors,
                       int tricount,
                       const char *projectdir, BOOL framecamera)
 {
     ViewportState *state = (ViewportState *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
     Vertex *scene = NULL;
+    ViewportMonitors monitorpreview = {0};
     VertexColor *scenecolors = NULL;
     SceneBatch *batches = NULL;
     GLuint *textures = NULL;
@@ -5577,6 +5742,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
         qsort(order, (size_t)tricount, sizeof(TriKey), ViewportTriKeyCompare);
 
         wglMakeCurrent(state->hdc, state->hglrc);
+        if (!ViewportLoadMonitors(&monitorpreview, monitors, projectdir, decode)) { goto scene_failed; }
 
         for (i = 0; i < tricount; i++)
         {
@@ -5584,11 +5750,22 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
             Vertex *dst = &scene[i * 3];
             float invw = 0.0f;
             float invh = 0.0f;
-            int k;
+            int k, monitorindex = -1;
             unsigned short textureid = BG_TEX_ID(order[i].tag);
             BgRenderFlags flags = renderflags ? renderflags[order[i].tri]
                 : BgRenderDefaultFlags(BG_TRI_IS_SECONDARY(order[i].tag));
             ViewportTexture *texture = &texturecache[ViewportTextureKey(textureid, flags)];
+
+            if ((flags & BG_RENDER_MONITOR) && monitors && order[i].tri >= objectfirsttriangle)
+            {
+                DWORD screen, tri = order[i].tri - objectfirsttriangle;
+                for (screen = 0; screen < monitors->count; screen++)
+                {
+                    if (tri >= monitors->surfaces[screen].firsttriangle
+                        && tri - monitors->surfaces[screen].firsttriangle < 2)
+                    { monitorindex = (int)screen; break; }
+                }
+            }
 
             if (vertexrefs != NULL)
             {
@@ -5645,9 +5822,11 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
                 }
             }
             if (i == 0 || order[i].tag != order[i - 1].tag
-                || flags != batches[batchcount - 1].renderflags)
+                || flags != batches[batchcount - 1].renderflags
+                || monitorindex != batches[batchcount - 1].monitor)
             {
                 SceneBatch *batch = &batches[batchcount++];
+                batch->monitor = monitorindex;
                 batch->gltex = texture->name;
                 batch->textureid = textureid;
                 batch->renderflags = flags;
@@ -5706,6 +5885,9 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     }
 
     ViewportFreeScene(state);
+    state->monitors = monitorpreview;
+    KillTimer(hwnd, VIEWPORT_MONITOR_TIMER);
+    if (state->monitors.count) { SetTimer(hwnd, VIEWPORT_MONITOR_TIMER, 16, NULL); }
     if (framecamera) { state->selectedportal = BG_PORTAL_INDEX_NONE; }
     state->selectedpad = savedpad; /* resolved when the pad overlay is rebuilt */
     state->selectedmarker = savedmarker;
@@ -5792,6 +5974,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     return TRUE;
 
 scene_failed:
+    ViewportFreeMonitors(&monitorpreview);
     if (texturecount) { glDeleteTextures(texturecount, textures); }
     ViewportFreeTextureCache(texturecache);
     free(scene); free(scenecolors); free(order); free(batches);

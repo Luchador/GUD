@@ -499,3 +499,6 @@ tools/mktex/build/tex2png:
 		echo "Building tex2png..."; \
 		cd tools/mktex && $(MAKE); \
 	fi
+
+# Monitor ROM manifest and native tables must agree on their lengths.
+$(BUILD_DIR)/src/game/propobj.o $(BUILD_DIR)/src/game/gedmanifest.o $(BUILD_DIR)/assets/oddtextures.o: src/game/monitorconstants.h

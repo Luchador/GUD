@@ -18,6 +18,7 @@
 #include <snd.h>
 #include <gbi_extension.h>
 #include "propobj.h"
+#include "monitorconstants.h"
 #include "assets/obseg/text/LpropobjE.h"
 #include "bg.h"
 #include "environment.h"
@@ -6572,169 +6573,66 @@ static void monitorApplyCachedUvs(MonitorRecord *screen, sImageTableEntry *textu
 }
 
 
+/* Shared by gameplay and the ROM manifest: animation IDs index this table. */
+void *g_MonitorAnimationScripts[MONITOR_ANIMATION_COUNT] = {
+    &monAnim00Bond,
+    &monAnim01DesktopsSatellite,
+    &monAnim02Astrological,
+    &monAnim03ThreeWavePattern,
+    &monAnim04WavePattern,
+    &monAnim05GreenTextUp,
+    &monAnim06RedTextDown,
+    &monAnim07GreenTextDown,
+    &monAnim08RedBarGraph,
+    &monAnim09BlueBarGraph,
+    &monAnim0AGreenBarGraph,
+    &monAnim0BRadar,
+    &monAnim0CSpinningCube,
+    &monAnim0DLocWeapArmed,
+    &monAnim0ERedTarget,
+    &monAnim0FSatelliteTargeting,
+    &monAnim10GlobalMap,
+    &monAnim11KarlYelling,
+    &monAnim12Skateboard,
+    &monAnim13PoliceGuy,
+    &monAnim14Off,
+    &monAnim15RandomSeven,
+    &monAnim16RandomFour,
+    &monAnim17RandImageEffect,
+    &monRandEffectChanceSHUTTLE1,
+    &monRandEffectChanceSHUTTLE2,
+    &monRandEffectChanceEARTHFULL1,
+    &monRandEffectChanceEARTHFULL2,
+    &monRandEffectChanceBLUESTARS,
+    &monRandEffectChanceGALAXY1,
+    &monRandEffectChanceGALAXY2,
+    &monRandEffectChanceEARTHTEXT,
+    &monRandEffectChanceTARGETEARTH,
+    &monRandEffectChanceGALAXY3,
+    &monRandChanceScrollOrZoomRandRGBN,
+    &monRandChanceScrollOrZoomRed,
+    &monRandChanceScrollOrZoomGreen,
+    &monRandChanceScrollOrZoomBlue,
+    &monRandChanceScrollOrZoom,
+    &monAnim27RandomEffectScrollRight,
+    &monAnim28RandomEffectScrollUpFast,
+    &monAnim29RandomEffectScrollUp,
+    &monAnim2ARandEffectScrollZoom1,
+    &monAnim2ARandEffectScrollZoom2,
+    &monAnim2CRandEffectWaitRoute,
+    &monAnim2DRandEffectFlash,
+    &monAnim2ERedBrightening,
+    &monAnim2FGreenBrightening,
+    &monAnim30GreySolid,
+    &monAnim31RedSolid,
+    &monAnim32GreenSolid,
+    &monAnim33BlackSolid,
+};
+
 void monitorSetImageByNum(MonitorRecord *mon, s32 monAnimID)
 {
-    s32 *image = &monAnim00Bond;
-    switch (monAnimID)
-    {
-         default:
-         case 0:
-            break;
-         case 1:
-            image = &monAnim01DesktopsSatellite;
-            break;
-        case 2:
-            image = &monAnim02Astrological;
-            break;
-        case 3:
-            image = &monAnim03ThreeWavePattern;
-            break;
-        case 4:
-            image = &monAnim04WavePattern;
-            break;
-        case 5:
-            image = &monAnim05GreenTextUp;
-            break;
-        case 6:
-            image = &monAnim06RedTextDown;
-            break;
-        case 7:
-            image = &monAnim07GreenTextDown;
-            break;
-        case 8:
-            image = &monAnim08RedBarGraph;
-            break;
-        case 9:
-            image = &monAnim09BlueBarGraph;
-            break;
-        case 10:
-            image = &monAnim0AGreenBarGraph;
-            break;
-        case 11:
-            image = &monAnim0BRadar;
-            break;
-        case 12:
-            image = &monAnim0CSpinningCube;
-            break;
-        case 13:
-            image = &monAnim0DLocWeapArmed;
-            break;
-        case 14:
-            image = &monAnim0ERedTarget;
-            break;
-        case 15:
-            image = &monAnim0FSatelliteTargeting;
-            break;
-        case 16:
-            image = &monAnim10GlobalMap;
-            break;
-        case 17:
-            image = &monAnim11KarlYelling;
-            break;
-        case 18:
-            image = &monAnim12Skateboard;
-            break;
-        case 19:
-            image = &monAnim13PoliceGuy;
-            break;
-        case 20:
-            image = &monAnim14Off;
-            break;
-        case 21:
-            image = &monAnim15RandomSeven;
-            break;
-        case 22:
-            image = &monAnim16RandomFour;
-            break;
-        case 23:
-            image = &monAnim17RandImageEffect;
-            break;
-        case 24:
-            image = &monRandEffectChanceSHUTTLE1;
-            break;
-        case 25:
-            image = &monRandEffectChanceSHUTTLE2;
-            break;
-        case 26:
-            image = &monRandEffectChanceEARTHFULL1;
-            break;
-        case 27:
-            image = &monRandEffectChanceEARTHFULL2;
-            break;
-        case 28:
-            image = &monRandEffectChanceBLUESTARS;
-            break;
-        case 29:
-            image = &monRandEffectChanceGALAXY1;
-            break;
-        case 30:
-            image = &monRandEffectChanceGALAXY2;
-            break;
-        case 31:
-            image = &monRandEffectChanceEARTHTEXT;
-            break;
-        case 32:
-            image = &monRandEffectChanceTARGETEARTH;
-            break;
-        case 33:
-            image = &monRandEffectChanceGALAXY3;
-            break;
-        case 34:
-            image = &monRandChanceScrollOrZoomRandRGBN;
-            break;
-        case 35:
-            image = &monRandChanceScrollOrZoomRed;
-            break;
-        case 36:
-            image = &monRandChanceScrollOrZoomGreen;
-            break;
-        case 37:
-            image = &monRandChanceScrollOrZoomBlue;
-            break;
-        case 38:
-            image = &monRandChanceScrollOrZoom;
-            break;
-        case 39:
-            image = &monAnim27RandomEffectScrollRight;
-            break;
-        case 40:
-            image = &monAnim28RandomEffectScrollUpFast;
-            break;
-        case 41:
-            image = &monAnim29RandomEffectScrollUp;
-            break;
-        case 42:
-            image = &monAnim2ARandEffectScrollZoom1;
-            break;
-        case 43:
-            image = &monAnim2ARandEffectScrollZoom2;
-            break;
-        case 44:
-            image = &monAnim2CRandEffectWaitRoute;
-            break;
-        case 45:
-            image = &monAnim2DRandEffectFlash;
-            break;
-        case 46:
-            image = &monAnim2ERedBrightening;
-            break;
-        case 47:
-            image = &monAnim2FGreenBrightening;
-            break;
-        case 48:
-            image = &monAnim30GreySolid;
-            break;
-        case 49:
-            image = &monAnim31RedSolid;
-            break;
-        case 50:
-            image = &monAnim32GreenSolid;
-            break;
-        case 51:
-            image = &monAnim33BlackSolid;
-            break;
-    }
-    monitorSetCommandList(mon,  image);
+    if (monAnimID < 0 || monAnimID >= MONITOR_ANIMATION_COUNT) { monAnimID = 0; }
+    monitorSetCommandList(mon, g_MonitorAnimationScripts[monAnimID]);
 }
 
 

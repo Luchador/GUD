@@ -89,6 +89,9 @@ typedef struct SetupFile {
     BOOL dirty;
 } SetupFile;
 
+/* Resolve an object-relative native command reference (not an object-array index). */
+BOOL SetupObjectRelativeTarget(const SetupFile *setup, DWORD sourceoffset, LONG relative, DWORD *objectindex);
+
 /* Derived viewport markers. These are never serialized into setup records.
  * Cameras already store gameplay coordinates; spawn pads use levelscale. */
 typedef enum SetupMarkerKind {

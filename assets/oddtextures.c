@@ -1,3 +1,4 @@
+#include "src/game/monitorconstants.h"
 #include <ultra64.h>
 #include <bondconstants.h>
 #include <bondtypes.h>
@@ -589,7 +590,7 @@ sImageTableEntry s_glassoverlayimage[] = {
     {IMAGE_GLASS3, 0x36, 0x36, 3, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0} // sfx/glass?
 };
 
-sImageTableEntry s_monitorimages[] = {
+sImageTableEntry s_monitorimages[MONITOR_IMAGE_COUNT] = {
     {IMAGE_MONITOR_BOND, 0x20, 0x20, 0, G_IM_FMT_I, G_IM_SIZ_8b, G_TX_WRAP, G_TX_WRAP, 0},                 // monitors/bondlogo
     {IMAGE_MONITOR_LOCATION, 0x80, 0x10, 0, G_IM_FMT_I, G_IM_SIZ_8b, G_TX_WRAP, G_TX_WRAP, 0},             // monitors/cyrlocation
     {IMAGE_MONITOR_BEGINARMING, 0x80, 0x10, 0, G_IM_FMT_I, G_IM_SIZ_8b, G_TX_WRAP, G_TX_WRAP, 0},          // monitors/cyrweaponarmed

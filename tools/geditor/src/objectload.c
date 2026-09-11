@@ -12,6 +12,7 @@
 #include "modelload.h"
 #include "objectload.h"
 #include "characterload.h"
+#include "modeledits.h"
 #include "romexport.h"
 
 #define OBJECT_MODEL_CACHE_COUNT 512
@@ -63,6 +64,10 @@ typedef struct ModelCacheEntry {
     DWORD tricount;
     float scale;
     float min[3], max[3];
+    BgVertex screens[4][4];
+    BOOL hasscreen[4];
+    float attachments[4][3];
+    BOOL hasattachment[4];
 } ModelCacheEntry;
 
 typedef struct ObjectBuilder {
@@ -81,6 +86,42 @@ typedef struct ObjectBasis {
     float look[3];
     float pos[3];
 } ObjectBasis;
+
+typedef struct ObjectPlacement {
+    ObjectBasis basis;
+    float scale[3], center[3];
+    BOOL placed;
+} ObjectPlacement;
+
+static DWORD ObjectRead32(const unsigned char *p)
+{
+    return (DWORD)p[0] << 24 | (DWORD)p[1] << 16 | (DWORD)p[2] << 8 | p[3];
+}
+
+/* Dynamic screen lists are replaced by the game. Suppress just their
+   placeholder faces, identified by all three native screen corners. */
+static BOOL ObjectScreenTriangle(const ModelCacheEntry *model, DWORD tri, int screencount)
+{
+    int screen, corner, point;
+    for (screen = 0; screen < screencount; screen++)
+    {
+        if (!model->hasscreen[screen]) { continue; }
+        for (corner = 0; corner < 3; corner++)
+        {
+            const BgVertex *v = &model->tris[tri * 3 + corner];
+            for (point = 0; point < 4; point++)
+            {
+                const BgVertex *q = &model->screens[screen][point];
+                const float *offset = model->attachments[screen];
+                if (fabsf(v->x - q->x - offset[0]) < .01f && fabsf(v->y - q->y - offset[1]) < .01f
+                    && fabsf(v->z - q->z - offset[2]) < .01f) { break; }
+            }
+            if (point == 4) { break; }
+        }
+        if (corner == 3) { return TRUE; }
+    }
+    return FALSE;
+}
 
 /* Previously activated solid objects can support later objects in the
    same stan room. The game tests their projected collision boxes. */
@@ -297,7 +338,7 @@ static void ObjectPlaceModel(ObjectBuilder *builder,
                              const ObjectBasis *basis,
                              const float scale[3], BOOL door,
                              const float modelcenter[3],
-                             DWORD objectindex)
+                             DWORD objectindex, int screencount)
 {
     DWORD outfirst;
     DWORD tri;
@@ -307,21 +348,21 @@ static void ObjectPlaceModel(ObjectBuilder *builder,
         return;
     }
 
-    outfirst = builder->tricount;
-
     for (tri = 0; tri < model->tricount; tri++)
     {
         int corner;
+        if (ObjectScreenTriangle(model, tri, screencount)) { continue; }
+        outfirst = builder->tricount++;
 
-        builder->tritags[outfirst + tri] =
+        builder->tritags[outfirst] =
             (unsigned short)(model->tritags[tri] | BG_TRI_OBJECT);
-        builder->renderflags[outfirst + tri] = model->renderflags[tri];
-        builder->objectindices[outfirst + tri] = objectindex;
+        builder->renderflags[outfirst] = model->renderflags[tri];
+        builder->objectindices[outfirst] = objectindex;
 
         for (corner = 0; corner < 3; corner++)
         {
             const BgVertex *source = &model->tris[tri * 3 + corner];
-            BgVertex *dest = &builder->tris[(outfirst + tri) * 3 + corner];
+            BgVertex *dest = &builder->tris[outfirst * 3 + corner];
             float local[3];
             int axis;
 
@@ -371,7 +412,6 @@ static void ObjectPlaceModel(ObjectBuilder *builder,
         }
     }
 
-    builder->tricount += model->tricount;
 }
 
 static ModelCacheEntry *ObjectGetModel(ModelCacheEntry *cache, int modelid,
@@ -404,6 +444,18 @@ static ModelCacheEntry *ObjectGetModel(ModelCacheEntry *cache, int modelid,
             {
                 float min[3], max[3];
 
+                const unsigned char *native;
+                DWORD nativesize;
+                int screen;
+                native = ModelEditsGetData(projectdir, name, &nativesize, &why);
+                if (!native) { native = rom->data + offset; nativesize = size; }
+                for (screen = 0; screen < 4; screen++)
+                {
+                    entry->hasscreen[screen] = ModelReadMonitorScreen(native, nativesize, screen, entry->screens[screen]);
+                    /* Each candidate is still checked for a valid segment-5 node. */
+                    entry->hasattachment[screen] = ModelReadSwitchAttachment(native, nativesize, 4,
+                        screen, entry->attachments[screen]);
+                }
                 if (ModelReadPlacementBounds(rom->data + offset, size, min, max))
                 {
                     memcpy(entry->min, min, sizeof(min));
@@ -414,6 +466,54 @@ static ModelCacheEntry *ObjectGetModel(ModelCacheEntry *cache, int modelid,
     }
 
     return entry->tris != NULL && entry->tricount > 0 ? entry : NULL;
+}
+
+static BOOL ObjectPlaceMonitorScreens(ObjectBuilder *builder, MonitorGeometry *geometry,
+    const SetupFile *setup, DWORD objectindex, const ModelCacheEntry *model,
+    const ObjectPlacement *placement, const RomFile *rom, const char **reason)
+{
+    const SetupObject *object = &setup->objects[objectindex];
+    int screen, count = object->type == PROPDEF_MONITOR ? 1 : object->type == PROPDEF_MULTI_MONITOR ? 4 : 0;
+    DWORD size = count == 1 ? 256 : 596;
+    if (!count) { return TRUE; }
+    if (object->sourceoffset > setup->size || size > setup->size - object->sourceoffset)
+    { *reason = "A monitor setup record is truncated."; return FALSE; }
+    for (screen = 0; screen < count; screen++)
+    {
+        static const int corners[6] = {0, 1, 2, 0, 2, 3};
+        BgVertex vertices[6];
+        unsigned short tags[2] = {BG_TEX_NONE | BG_TRI_CULL_BACK, BG_TEX_NONE | BG_TRI_CULL_BACK};
+        BgRenderFlags flags[2];
+        ModelCacheEntry quad = {0};
+        MonitorSurface *grown, *surface;
+        int i;
+        if (!model->hasscreen[screen]) { continue; }
+        if (!geometry->count && !MonitorBankLoadRom(&geometry->bank, rom, reason)) { return FALSE; }
+        grown = realloc(geometry->surfaces, ((size_t)geometry->count + 1) * sizeof(*grown));
+        if (!grown) { *reason = "Out of memory building monitor screens."; return FALSE; }
+        geometry->surfaces = grown;
+        surface = &grown[geometry->count++];
+        surface->firsttriangle = builder->tricount;
+        surface->animation = count == 1 ? (LONG)ObjectRead32(setup->data + object->sourceoffset + 252)
+            : setup->data[object->sourceoffset + 592 + screen];
+        surface->seed = object->sourceoffset * 1664525u + screen + 1;
+        flags[0] = BG_RENDER_MONITOR;
+        if (!(object->flags2 & PROPFLAG2_DISABLE_ZBUFFER))
+        {
+            flags[0] |= BG_RENDER_DEPTH_TEST;
+            if ((object->flags & PROPFLAG_FIXED_MONITOR)
+                || (screen > 0 && (object->flags & PROPFLAG_MONITOR_SECONDARY_SCREENS_DECAL)))
+            { flags[0] |= BG_RENDER_DECAL; }
+            else { flags[0] |= BG_RENDER_DEPTH_WRITE; }
+        }
+        flags[1] = flags[0];
+        for (i = 0; i < 6; i++) { vertices[i] = model->screens[screen][corners[i]]; }
+        quad.tris = vertices; quad.tritags = tags; quad.renderflags = flags; quad.tricount = 2;
+        ObjectPlaceModel(builder, &quad, &placement->basis, placement->scale, FALSE,
+            placement->center, objectindex, 0);
+        if (builder->failed) { *reason = "Out of memory building monitor screens."; return FALSE; }
+    }
+    return TRUE;
 }
 
 /* Shared with scaling so the new bound pad starts at the visible size,
@@ -593,6 +693,7 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
     int pathlength;
     const char *basewhy = "";
     ObjectSupport *supports = NULL;
+    ObjectPlacement *placements = NULL;
     DWORD supportcount = 0;
     DWORD *padtiles = NULL;
     BOOL hasstan = stan != NULL && stan->tiles != NULL && stan->tilecount > 0;
@@ -630,8 +731,9 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
 
     if (setup->objectcount > 0)
     {
+        placements = calloc(setup->objectcount, sizeof(*placements));
         supports = (ObjectSupport *)calloc(setup->objectcount, sizeof(*supports));
-        if (supports == NULL)
+        if (supports == NULL || placements == NULL)
         {
             *reasonout = "out of memory tracking object support surfaces.";
             goto fail;
@@ -799,7 +901,14 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
             }
         }
 
-        ObjectPlaceModel(&builder, model, &basis, scale, isdoor, center, i);
+        placements[i].basis = basis;
+        memcpy(placements[i].scale, scale, sizeof(scale));
+        memcpy(placements[i].center, center, sizeof(center));
+        placements[i].placed = TRUE;
+        ObjectPlaceModel(&builder, model, &basis, scale, isdoor, center, i,
+            object->type == PROPDEF_MONITOR ? 1 : object->type == PROPDEF_MULTI_MONITOR ? 4 : 0);
+        if (!ObjectPlaceMonitorScreens(&builder, &out->monitors, setup, i, model,
+            &placements[i], &rom, reasonout)) { goto fail; }
         if (builder.failed)
         {
             *reasonout = "out of memory building setup object geometry.";
@@ -821,6 +930,50 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
         {
             out->occupiedpads[padindex] = 1;
         }
+        out->objectcount++;
+    }
+
+    /* Negative-pad single monitors attach to a relative setup command and
+       one of its model switches. Reuse the owner's final placement, including
+       grounding/fitting, then apply setupSingleMonitor's 21-degree X tilt. */
+    for (i = 0; i < setup->objectcount; i++)
+    {
+        const SetupObject *object = &setup->objects[i];
+        ObjectPlacement *p = &placements[i], *owner;
+        ModelCacheEntry *model, *ownermodel;
+        DWORD ownerindex, part;
+        float local[3], ratio, c = cosf(.36651915f), n = sinf(.36651915f);
+        int axis;
+        if (object->deleted || object->type != PROPDEF_MONITOR || object->pad >= 0
+            || (object->flags & (PROPFLAG_INSIDEANOTHEROBJ | PROPFLAG_ASSIGNEDTOCHR))
+            || object->sourceoffset > setup->size || setup->size - object->sourceoffset < 256) { continue; }
+        if (!SetupObjectRelativeTarget(setup, object->sourceoffset,
+            (LONG)ObjectRead32(setup->data + object->sourceoffset + 244), &ownerindex)
+            || !placements[ownerindex].placed) { continue; }
+        part = ObjectRead32(setup->data + object->sourceoffset + 248);
+        if (part > 3) { part = 3; }
+        owner = &placements[ownerindex];
+        model = ObjectGetModel(cache, object->modelid, projectdir, &rom);
+        ownermodel = ObjectGetModel(cache, setup->objects[ownerindex].modelid, projectdir, &rom);
+        if (!model || !ownermodel || !ownermodel->hasattachment[part] || owner->scale[0] == 0) { continue; }
+        ratio = model->scale * (object->extrascale / 256.0f) / owner->scale[0];
+        for (axis = 0; axis < 3; axis++)
+        { local[axis] = (ownermodel->attachments[part][axis] - owner->center[axis]) * owner->scale[axis]; }
+        for (axis = 0; axis < 3; axis++)
+        {
+            float x = owner->basis.side[axis] * owner->scale[0];
+            float y = owner->basis.up[axis] * owner->scale[1];
+            float z = owner->basis.look[axis] * owner->scale[2];
+            p->basis.pos[axis] = owner->basis.pos[axis] + owner->basis.side[axis] * local[0]
+                + owner->basis.up[axis] * local[1] + owner->basis.look[axis] * local[2];
+            p->basis.side[axis] = x * ratio;
+            p->basis.up[axis] = (c * y + n * z) * ratio;
+            p->basis.look[axis] = (c * z - n * y) * ratio;
+            p->scale[axis] = 1;
+        }
+        p->placed = TRUE;
+        ObjectPlaceModel(&builder, model, &p->basis, p->scale, FALSE, p->center, i, 1);
+        if (!ObjectPlaceMonitorScreens(&builder, &out->monitors, setup, i, model, p, &rom, reasonout)) { goto fail; }
         out->objectcount++;
     }
 
@@ -862,6 +1015,7 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
     out->renderflags = builder.renderflags;
     out->objectindices = builder.objectindices;
     out->tricount = builder.tricount;
+    free(placements);
     free(supports);
     free(padtiles);
     RomFree(&rom);
@@ -869,6 +1023,7 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
 
 fail:
     ObjectGeometryFree(&characters);
+    free(placements);
     free(supports);
     free(padtiles);
     RomFree(&rom);
@@ -888,6 +1043,7 @@ fail:
 
 void ObjectGeometryFree(SetupObjectGeometry *geometry)
 {
+    MonitorGeometryFree(&geometry->monitors);
     free(geometry->occupiedboundpads);
     free(geometry->occupiedpads);
     free(geometry->tritags);

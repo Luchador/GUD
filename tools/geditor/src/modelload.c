@@ -663,6 +663,29 @@ BOOL ModelReadSwitchAttachment(const unsigned char *data, DWORD size,
     return MdlNodeTranslation(data, size, node, position);
 }
 
+BOOL ModelReadMonitorScreen(const unsigned char *data, DWORD size, int index, BgVertex quad[4])
+{
+    DWORD node, rodata, vertices, ptr;
+    int i, axis;
+    if (!data || size < 64 || index < 0 || index > 3) { return FALSE; }
+    ptr = md32(data + index * 4);
+    node = mdoff(ptr);
+    if ((ptr >> 24) != 5 || !node || node > size - 24
+        || (md16(data + node) & 255) != 0x18) { return FALSE; }
+    ptr = md32(data + node + 4); rodata = mdoff(ptr);
+    if ((ptr >> 24) != 5 || !rodata || rodata > size - 32) { return FALSE; }
+    ptr = md32(data + rodata + 8); vertices = mdoff(ptr);
+    if ((ptr >> 24) != 5 || !vertices || vertices > size - 64) { return FALSE; }
+    memset(quad, 0, 4 * sizeof(*quad));
+    for (i = 0; i < 4; i++)
+    {
+        for (axis = 0; axis < 3; axis++)
+        { (&quad[i].x)[axis] = md16(data + vertices + i * 16 + axis * 2); }
+        quad[i].r = quad[i].g = quad[i].b = quad[i].a = 255;
+    }
+    return TRUE;
+}
+
 BOOL ModelReadHeldPlacement(const unsigned char *data, DWORD size,
                              float origin[3], BOOL *usesmodelscale)
 {

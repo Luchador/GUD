@@ -117,6 +117,38 @@ static DWORD SetupObjectWordCount(unsigned char type)
     }
 }
 
+BOOL SetupObjectRelativeTarget(const SetupFile *setup, DWORD sourceoffset, LONG relative, DWORD *objectindex)
+{
+    DWORD at, command = 0, source = (DWORD)-1, target, i;
+    if (!setup || !setup->data || setup->size < SETUP_HEADER_SIZE) { return FALSE; }
+    at = SetupRead32(setup->data + SETUP_OBJECT_POINTER);
+    if (!at) { return FALSE; }
+    while (at <= setup->size - 4)
+    {
+        DWORD bytes = SetupObjectWordCount(setup->data[at + 3]) * 4;
+        if (setup->data[at + 3] == SETUP_PROP_END || bytes > setup->size - at) { break; }
+        if (at == sourceoffset) { source = command; break; }
+        at += bytes; command++;
+    }
+    if (source == (DWORD)-1 || (long long)source + relative < 0
+        || (long long)source + relative > SETUP_OBJECT_MAX) { return FALSE; }
+    target = source + relative;
+    at = SetupRead32(setup->data + SETUP_OBJECT_POINTER);
+    for (command = 0; at <= setup->size - 4; command++)
+    {
+        DWORD bytes = SetupObjectWordCount(setup->data[at + 3]) * 4;
+        if (setup->data[at + 3] == SETUP_PROP_END || bytes > setup->size - at) { return FALSE; }
+        if (command == target)
+        {
+            for (i = 0; i < setup->objectcount; i++)
+            { if (setup->objects[i].sourceoffset == at) { *objectindex = i; return TRUE; } }
+            return FALSE;
+        }
+        at += bytes;
+    }
+    return FALSE;
+}
+
 /* Intro commands have their own sizes, independent of propDefs. */
 static DWORD SetupIntroWordCount(DWORD type)
 {

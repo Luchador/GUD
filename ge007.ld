@@ -185,6 +185,9 @@ SECTIONS
    _gedEnvTableRom = _csegmentSegmentRomStart + (g_EnvTable - _csegmentSegmentStart);
    _gedTextureTableRom = _csegmentSegmentRomStart + (g_Textures - _csegmentSegmentStart);
    _gedTextureConfigRom = _csegmentSegmentRomStart + (g_TextureRomConfig - _csegmentSegmentStart);
+   _gedMonitorScriptsRom = _csegmentSegmentRomStart + (g_MonitorAnimationScripts - _csegmentSegmentStart);
+   _gedMonitorInitialRom = _csegmentSegmentRomStart + (g_InitialMonitorAnimController - _csegmentSegmentStart);
+   _gedMonitorImagesRom = _GlobalimagetableSegmentRomStart + (s_monitorimages - _GlobalimagetableSegmentStart);
 
    _bssSegmentStart = ADDR(.bss);
    .bss (NOLOAD) :

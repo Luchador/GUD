@@ -9,6 +9,7 @@
 #include "setupload.h"
 #include "stanload.h"
 #include "texload.h"
+#include "monitorload.h"
 
 /* Sent to the frame after mouse picking changes the scene selection. The
    frame can query the selected background face or setup object below. */
@@ -97,6 +98,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
                       const BgFaceRef *facerefs,
                       const BgDocumentVertexRef *vertexrefs,
                       const DWORD *objectindices, int objectfirsttriangle,
+                      const MonitorGeometry *monitors,
                       int tricount,
                       const char *projectdir, BOOL framecamera);
 

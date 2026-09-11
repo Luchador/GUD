@@ -30,7 +30,7 @@ static void ModelEditorClearViewport(void)
 {
     if (g_ModelViewport != NULL)
     {
-        ViewportSetScene(g_ModelViewport, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, TRUE);
+        ViewportSetScene(g_ModelViewport, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0, NULL, TRUE);
     }
     SetWindowText(g_ModelEditor, "Model Editor");
 }
@@ -141,7 +141,7 @@ static void ModelEditorSelect(int category, BOOL framecamera)
         }
         if (!loaded) { why = "The model has invalid geometry."; }
         else if (!ViewportSetScene(g_ModelViewport, vertices, tags, flags,
-                                   NULL, NULL, NULL, 0, (int)count, g_ModelProject, framecamera))
+                                   NULL, NULL, NULL, 0, NULL, (int)count, g_ModelProject, framecamera))
         {
             loaded = FALSE;
             why = "Not enough memory to display the model.";

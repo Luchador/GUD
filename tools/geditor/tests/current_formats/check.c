@@ -31,12 +31,15 @@ static void RomAndProject(const char *dir)
     RomFile rom;GEditorProject project,loaded;RomInfo info;FILE *f;
     assert(data);snprintf(path,sizeof(path),"%s/input.z64",dir);
     Put32(data,0x80371240);memcpy(data+0x20,"GOLDENEYE",9);
-    memcpy(data+MANIFEST,"GUDGEDITORMANIF",16);Put32(data+MANIFEST+16,2);Put32(data+MANIFEST+20,9);
+    memcpy(data+MANIFEST,"GUDGEDITORMANIF",16);Put32(data+MANIFEST+16,2);Put32(data+MANIFEST+20,12);
     Entry(data,0,0x494d4753,0x102000,0x102080,0);Entry(data,1,0x4f425347,0x150000,0x160000,0);
     Entry(data,2,0x4d555346,0x160000,0x170000,1);Entry(data,3,0x53544754,LEVELS,LEVELS+72,2);
     Entry(data,4,0x434d4150,CMAP,0x140000,VADDR);Entry(data,5,0x4654424c,CMAP+0x600,0,0);
     Entry(data,6,0x454e5654,ENV,0,104);Entry(data,7,0x54585442,CMAP+0x2000,CMAP+0xa008,4096);
     Entry(data,8,0x54584346,CMAP+0x900,CMAP+0x908,1);
+    Entry(data,9,0x4d4f4e41,CMAP+0x920,CMAP+0x9f0,52);
+    Entry(data,10,0x4d4f4e54,CMAP+0xa00,CMAP+0xc58,12);
+    Entry(data,11,0x4d4f4e44,CMAP+0xc60,CMAP+0xcd4,116);
     Put32(row,9);Float(row+20,1.25f);Float(row+24,0.5f);row[29]=13;row[31]=14;row[33]=15;
     for(i=0;i<5;i++)
     {

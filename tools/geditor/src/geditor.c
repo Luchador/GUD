@@ -342,7 +342,7 @@ static BOOL GEditorRebuildCurrentViewportWithObjects(
     }
     if (!ViewportSetScene(g_Viewport, mesh.vertices, mesh.tags, mesh.renderflags, mesh.facerefs, mesh.vertexrefs,
                           objects->objectindices,
-                          (int)objectfirsttriangle,
+                          (int)objectfirsttriangle, &objects->monitors,
                           (int)mesh.facecount, g_Project.dir, FALSE))
     {
         BgDocumentRenderMeshFree(&mesh);
@@ -548,7 +548,7 @@ static void GEditorCloseProject(HWND hwnd)
     BrowserSetLevels(g_Browser, NULL, 0);
     BrowserSetImages(g_Browser, NULL, 0, NULL);
     BrowserSetModels(g_Browser, NULL, 0);
-    ViewportSetScene(g_Viewport, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, FALSE);
+    ViewportSetScene(g_Viewport, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0, NULL, FALSE);
     ViewportSetBackgroundColor(g_Viewport, NULL);
     ViewportSetLevelFog(g_Viewport, NULL, 1.0f);
     GEditorRefreshSelectionDetails();
@@ -3025,7 +3025,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         if (!ViewportSetScene(g_Viewport, mesh.vertices, mesh.tags, mesh.renderflags,
                               mesh.facerefs, mesh.vertexrefs,
                               objectsLoaded ? objects.objectindices : NULL,
-                              (int)objectfirsttriangle,
+                              (int)objectfirsttriangle, objectsLoaded ? &objects.monitors : NULL,
                               (int)mesh.facecount,
                               g_Project.dir, TRUE))
         {
@@ -3607,7 +3607,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
         }
         else
         {
-            /* Idle: block. The editor uses no CPU, exactly as before. */
+            /* Idle: block until input or an animated-monitor repaint timer. */
             if (GetMessage(&msg, NULL, 0, 0) <= 0)
             {
                 break;
