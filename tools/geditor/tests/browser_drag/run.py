@@ -60,6 +60,8 @@ typedef struct {
 #define ILC_COLOR32 0
 #define IDC_ARROW 0
 #define BROWSER_SECTION_OBJECTS 0
+#define BROWSER_OBJECT_TRIANGLE 0
+#define BROWSER_OBJECT_QUAD 1
 #define BROWSER_OBJECT_SPAWN 2
 #define BROWSER_OBJECT_INTRO_CAMERA 4
 #define BROWSER_OBJECT_OUTRO_CAMERA 5
@@ -145,6 +147,13 @@ static void Start(BOOL palette)
 }
 int main(void)
 {
+    for (int kind = BROWSER_OBJECT_TRIANGLE; kind <= BROWSER_OBJECT_QUAD; kind++)
+    {
+        Reset(TRUE); Start(TRUE); g_state.pressedobject = kind;
+        Dispatch(browser, WM_LBUTTONUP, 0, (100 << 16) | 320);
+        assert(objectdrops == 1 && placed.type == kind && placed.screen.x == 420 && placed.screen.y == 300);
+        assert(destroyed == 1 && capture == 0);
+    }
     Reset(TRUE); Start(TRUE);
     Dispatch(browser, WM_LBUTTONUP, 0, (100 << 16) | 320);
     assert(objectdrops == 1 && placed.type == BROWSER_OBJECT_SPAWN);
@@ -176,7 +185,7 @@ int main(void)
     Dispatch(browser, WM_LBUTTONUP, 0, 0); assert(imagedrops == 1 && destroyed == 1);
     Reset(FALSE); Start(FALSE); strcpy(g_state.dragmodel, "PcrateZ");
     Dispatch(browser, WM_LBUTTONUP, 0, 0); assert(modeldrops == 1 && destroyed == 1);
-    puts("PASS: palette capture, spawn/intro/outro/door/glass/CCTV/alarm/drone drop type/position, capture loss, cancellation, image/model drags.");
+    puts("PASS: palette capture, triangle/quad/spawn/intro/outro/door/glass/CCTV/alarm/drone drop type/position, capture loss, cancellation, image/model drags.");
     return 0;
 }
 '''

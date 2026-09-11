@@ -2661,6 +2661,45 @@ static BOOL GEditorDropSetupMarker(HWND hwnd, const BrowserObjectDrop *request)
 }
 
 
+static BOOL GEditorDropPrimitive(HWND hwnd, const BrowserObjectDrop *drop)
+{
+    EditHistoryTransaction transaction = {0};
+    const char *why = "", *restorewhy = "";
+    double position[3], right[3];
+    DWORD room, count;
+    BgFaceRef faces[2];
+    BOOL quad;
+    if (!drop || g_CurrentLevelIndex == GEDITOR_NO_LEVEL || !g_CurrentBgDocument.rooms
+        || WindowFromPoint(drop->screen) != g_Viewport
+        || !ViewportGetPrimitiveDrop(g_Viewport, drop->screen, position, right, &room)) { return FALSE; }
+    quad = drop->type == BROWSER_OBJECT_QUAD;
+    if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
+        quad ? "Add BG Quad" : "Add BG Triangle", &transaction, &why)) { goto fail; }
+    if (!BgDocumentAddPrimitive(&g_CurrentBgDocument, quad, room, position, right, faces, &count, &why)
+        || !GEditorRebuildCurrentViewport(&why)) { goto rollback; }
+    ViewportSetTool(g_Viewport, EDITOR_TOOL_FACE_SELECT);
+    if (!ViewportSelectBgFaces(g_Viewport, faces, count))
+    { why = "Could not select the new background geometry."; goto rollback; }
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+        &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    RightPanelShowPrimaryBackground(g_RightPanel);
+    ToolToolbarSetTool(g_ToolToolbar, EDITOR_TOOL_FACE_SELECT);
+    ViewportSetTransformMode(g_Viewport, TRANSFORM_MOVE);
+    RightPanelSetTransformMode(g_RightPanel, TRANSFORM_MOVE);
+    GEditorRefreshHistoryMenu(hwnd);
+    SetFocus(g_Viewport);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    GEditorRebuildCurrentViewport(&restorewhy);
+    GEditorRestoreHistorySelection(hwnd);
+fail:
+    EditHistoryCancelEdit(&transaction);
+    GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
 typedef enum
 {
     GEDITOR_PLACE_MODEL, GEDITOR_PLACE_DOOR, GEDITOR_PLACE_GLASS,
@@ -3144,6 +3183,12 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     }
 
     case BROWSER_WM_OBJECT_DRAG_BEGIN:
+        if (wparam == BROWSER_OBJECT_TRIANGLE || wparam == BROWSER_OBJECT_QUAD)
+        {
+            if (g_CurrentLevelIndex == GEDITOR_NO_LEVEL || !g_CurrentBgDocument.rooms) { return FALSE; }
+            ViewportCancelTransform(g_Viewport);
+            return TRUE;
+        }
         if ((wparam != BROWSER_OBJECT_SPAWN && wparam != BROWSER_OBJECT_INTRO_CAMERA && wparam != BROWSER_OBJECT_OUTRO_CAMERA
                 && wparam != BROWSER_OBJECT_DOOR && wparam != BROWSER_OBJECT_GLASS
                 && wparam != BROWSER_OBJECT_CCTV && wparam != BROWSER_OBJECT_ALARM && wparam != BROWSER_OBJECT_DRONE_GUN)
@@ -3161,6 +3206,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     case BROWSER_WM_OBJECT_DROP:
     {
         const BrowserObjectDrop *drop = (const BrowserObjectDrop *)lparam;
+        if (drop && (drop->type == BROWSER_OBJECT_TRIANGLE || drop->type == BROWSER_OBJECT_QUAD))
+        { return GEditorDropPrimitive(hwnd, drop); }
         if (drop && (drop->type == BROWSER_OBJECT_DOOR || drop->type == BROWSER_OBJECT_GLASS
             || drop->type == BROWSER_OBJECT_CCTV || drop->type == BROWSER_OBJECT_ALARM || drop->type == BROWSER_OBJECT_DRONE_GUN))
         {

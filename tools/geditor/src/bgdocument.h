@@ -124,6 +124,15 @@ BOOL BgDocumentClone(const BgDocument *source, BgDocument *out,
                      const char **reasonout);
 void BgDocumentFree(BgDocument *document);
 
+/* Add an upright, untextured 1-metre primitive (world units are centimetres).
+ * position is the base centre, right the horizontal camera-right direction.
+ * A surface drop supplies its room; room=0 chooses the nearest existing room
+ * whose native coordinates can hold the primitive. Allocates before mutation.
+ * The quad has four shared vertices and two faces. Caller provides out[2]. */
+BOOL BgDocumentAddPrimitive(BgDocument *document, BOOL quad, DWORD room,
+    const double position[3], const double right[3], BgFaceRef out[2],
+    DWORD *countout, const char **reasonout);
+
 /* Room IDs are 1..roomcount and fit the native unsigned-byte fields.
  * Connection edits retain polygon winding, flags, margin and table identity. */
 BOOL BgDocumentSetPortalRooms(BgDocument *document, DWORD portal, DWORD room1, DWORD room2,

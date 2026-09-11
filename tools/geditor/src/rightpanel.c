@@ -243,6 +243,14 @@ void RightPanelShowObjects(HWND panel)
     RightPanelNotifyVisibility(panel, state);
 }
 
+void RightPanelShowPrimaryBackground(HWND panel)
+{
+    RightPanelState *state = RightPanelGetState(panel);
+    if (state == NULL) { return; }
+    SendMessage(state->bgprimary, BM_SETCHECK, BST_CHECKED, 0);
+    RightPanelNotifyVisibility(panel, state);
+}
+
 /* Position fields accept sums/differences of signed numbers. Let strtod
    consume each complete number, including exponent signs such as 1e-3.
    Rotation and scale retain their existing single-number input. */

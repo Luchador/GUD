@@ -2482,6 +2482,38 @@ BOOL ViewportGetModelDropPosition(HWND hwnd, POINT screen, double position[3])
 }
 
 
+BOOL ViewportGetPrimitiveDrop(HWND hwnd, POINT screen, double position[3],
+    double right[3], DWORD *room)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    ViewportPickRay ray;
+    RECT client;
+    double distance, standistance;
+    float forward[3], horizontal[3];
+    int triangle;
+    if (!state || state->orbit || state->flying || state->dragaxis >= 0
+        || !position || !right || !room) { return FALSE; }
+    ScreenToClient(hwnd, &screen);
+    GetClientRect(hwnd, &client);
+    if (!PtInRect(&client, screen) || !ViewportBuildPickRay(hwnd, state, screen.x, screen.y, &ray))
+    { return FALSE; }
+    *room = 0;
+    triangle = ViewportFindVisibleSceneTriangle(state, &ray, &distance);
+    if (triangle >= 0 && state->scenefacerefs
+        && state->scenefacerefs[triangle].faceid != BG_FACE_ID_NONE)
+    { *room = state->scenefacerefs[triangle].room; }
+    if (ViewportFindPickedStan(state, &ray, &standistance) != STAN_TILE_NONE && standistance < distance)
+    { distance = standistance; *room = 0; }
+    if (distance == DBL_MAX) { distance = 1000; } /* Centimetre world units. */
+    ViewportGetBasis(state, forward, horizontal);
+    for (int axis = 0; axis < 3; axis++)
+    {
+        position[axis] = ray.origin[axis] + ray.direction[axis] * distance;
+        right[axis] = horizontal[axis];
+    }
+    return TRUE;
+}
+
 /* Resolve the corner nearest the world-space hit on the closest BG face. */
 static BOOL ViewportFindPaintTarget(const ViewportState *state,
                                      const ViewportPickRay *ray,
@@ -6389,6 +6421,40 @@ BOOL ViewportGetTextureSize(HWND hwnd, unsigned short textureid, int *width, int
     return FALSE;
 }
 
+
+BOOL ViewportSelectBgFaces(HWND hwnd, const BgFaceRef *refs, DWORD count)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    if (!state || state->tool != EDITOR_TOOL_FACE_SELECT || !refs || !count
+        || !state->scenefacerefs || !state->selectedtris) { return FALSE; }
+    for (DWORD i = 0; i < count; i++)
+    {
+        BOOL found = FALSE;
+        if (refs[i].faceid == BG_FACE_ID_NONE) { return FALSE; }
+        for (int tri = 0; tri < state->scenecount / 3; tri++)
+        {
+            if (!ViewportCompareFaceRefs(&refs[i], &state->scenefacerefs[tri])
+                && !ViewportTriangleHidden(state, tri)) { found = TRUE; break; }
+        }
+        if (!found) { return FALSE; }
+    }
+    ViewportClearAllSelection(state);
+    for (int tri = 0; tri < state->scenecount / 3; tri++)
+    {
+        for (DWORD i = 0; i < count; i++)
+        {
+            if (!ViewportCompareFaceRefs(&refs[i], &state->scenefacerefs[tri]))
+            {
+                state->selectedtris[tri] = 1; state->selectedtricount++;
+                ViewportSetTriangleColor(state, tri, TRUE); break;
+            }
+        }
+    }
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd, NULL, FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+    return TRUE;
+}
 
 int ViewportGetSelectedBgFaceCount(HWND hwnd)
 {

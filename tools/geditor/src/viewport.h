@@ -137,6 +137,13 @@ BOOL ViewportGetSelectedObject(HWND hwnd, DWORD *setupobjectindex);
 /* Drop onto the nearest rendered BG/model or visible stan surface. A void
    drop fails. Selecting a new instance clears other selections. */
 BOOL ViewportGetModelDropPosition(HWND hwnd, POINT screen, double position[3]);
+/* Primitive base centre: nearest visible surface, or 10m along the cursor
+   ray in empty space. room=0 asks the document to choose a nearby room.
+   right is horizontal so new geometry remains upright even when looking down. */
+BOOL ViewportGetPrimitiveDrop(HWND hwnd, POINT screen, double position[3],
+    double right[3], DWORD *room);
+/* Select newly created faces by stable identity; caller sets face mode. */
+BOOL ViewportSelectBgFaces(HWND hwnd, const BgFaceRef *refs, DWORD count);
 BOOL ViewportGetCameraDirection(HWND hwnd, double look[3]);
 void ViewportSelectSetupModel(HWND hwnd, DWORD selection);
 BOOL ViewportGetSelectedPad(HWND hwnd, SetupPadRef *out);
