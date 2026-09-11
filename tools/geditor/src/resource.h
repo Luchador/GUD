@@ -8,6 +8,8 @@
 #define IDD_EXIT_UNSAVED      104
 #define IDD_MODEL_EDITOR      105
 #define IDD_IMPORT_IMAGE      106
+#define IDD_ADD_CIRCLE        107
+#define IDD_ADD_CYLINDER      108
 
 /* Icons */
 #define IDI_GEDITOR           201
@@ -46,6 +48,8 @@
 #define IDR_OBJECT_PORTAL       333
 #define IDR_OBJECT_KEY          334
 #define IDR_OBJECT_SAFE         335
+#define IDR_OBJECT_CIRCLE       336
+#define IDR_OBJECT_CYLINDER     337
 
 /* Viewport-only setup marker models. */
 #define IDR_MARKER_START          327
@@ -108,6 +112,11 @@
 #define IDC_IMAGE_TMEM        1133
 #define IDC_IMAGE_WARNING     1134
 #define IDC_IMAGE_IMPORT      1135
+
+/* Circle/cylinder creation settings. */
+#define IDC_PRIMITIVE_RADIUS  1140
+#define IDC_PRIMITIVE_SIDES   1141
+#define IDC_PRIMITIVE_HEIGHT  1142
 
 /* Longest project name we accept, including the terminator. */
 #define GEDITOR_NAME_MAX       64

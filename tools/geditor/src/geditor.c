@@ -30,6 +30,7 @@
 #include "romexport.h"
 #include "bgload.h"
 #include "bgdocument.h"
+#include "primitiveoptions.h"
 #include "bghistory.h"
 #include "setupload.h"
 #include "stanload.h"
@@ -2667,16 +2668,27 @@ static BOOL GEditorDropPrimitive(HWND hwnd, const BrowserObjectDrop *drop)
     const char *why = "", *restorewhy = "";
     double position[3], right[3];
     DWORD room, count;
-    BgFaceRef faces[2];
-    BOOL quad;
+    BgFaceRef faces[BG_PRIMITIVE_MAX_FACES];
+    PrimitiveOptions options;
+    BOOL quad, circular, added;
+    const char *action;
     if (!drop || g_CurrentLevelIndex == GEDITOR_NO_LEVEL || !g_CurrentBgDocument.rooms
         || WindowFromPoint(drop->screen) != g_Viewport
         || !ViewportGetPrimitiveDrop(g_Viewport, drop->screen, position, right, &room)) { return FALSE; }
     quad = drop->type == BROWSER_OBJECT_QUAD;
+    circular = drop->type == BROWSER_OBJECT_CIRCLE || drop->type == BROWSER_OBJECT_CYLINDER;
+    /* Capture the drop position before opening the modal dialog. Cancel must
+     * not create a history entry or modify background geometry. */
+    if (circular && !PrimitiveOptionsPrompt(hwnd, drop->type == BROWSER_OBJECT_CYLINDER, &options)) { return FALSE; }
+    action = drop->type == BROWSER_OBJECT_CYLINDER ? "Add BG Cylinder"
+        : drop->type == BROWSER_OBJECT_CIRCLE ? "Add BG Circle" : quad ? "Add BG Quad" : "Add BG Triangle";
     if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
-        quad ? "Add BG Quad" : "Add BG Triangle", &transaction, &why)) { goto fail; }
-    if (!BgDocumentAddPrimitive(&g_CurrentBgDocument, quad, room, position, right, faces, &count, &why)
-        || !GEditorRebuildCurrentViewport(&why)) { goto rollback; }
+        action, &transaction, &why)) { goto fail; }
+    added = circular
+        ? BgDocumentAddRoundPrimitive(&g_CurrentBgDocument, drop->type == BROWSER_OBJECT_CYLINDER,
+            room, position, options.radius * 100, options.height * 100, options.sides, faces, &count, &why)
+        : BgDocumentAddPrimitive(&g_CurrentBgDocument, quad, room, position, right, faces, &count, &why);
+    if (!added || !GEditorRebuildCurrentViewport(&why)) { goto rollback; }
     ViewportSetTool(g_Viewport, EDITOR_TOOL_FACE_SELECT);
     if (!ViewportSelectBgFaces(g_Viewport, faces, count))
     { why = "Could not select the new background geometry."; goto rollback; }
@@ -3183,7 +3195,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     }
 
     case BROWSER_WM_OBJECT_DRAG_BEGIN:
-        if (wparam == BROWSER_OBJECT_TRIANGLE || wparam == BROWSER_OBJECT_QUAD)
+        if (wparam == BROWSER_OBJECT_TRIANGLE || wparam == BROWSER_OBJECT_QUAD
+            || wparam == BROWSER_OBJECT_CIRCLE || wparam == BROWSER_OBJECT_CYLINDER)
         {
             if (g_CurrentLevelIndex == GEDITOR_NO_LEVEL || !g_CurrentBgDocument.rooms) { return FALSE; }
             ViewportCancelTransform(g_Viewport);
@@ -3206,7 +3219,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     case BROWSER_WM_OBJECT_DROP:
     {
         const BrowserObjectDrop *drop = (const BrowserObjectDrop *)lparam;
-        if (drop && (drop->type == BROWSER_OBJECT_TRIANGLE || drop->type == BROWSER_OBJECT_QUAD))
+        if (drop && (drop->type == BROWSER_OBJECT_TRIANGLE || drop->type == BROWSER_OBJECT_QUAD
+            || drop->type == BROWSER_OBJECT_CIRCLE || drop->type == BROWSER_OBJECT_CYLINDER))
         { return GEditorDropPrimitive(hwnd, drop); }
         if (drop && (drop->type == BROWSER_OBJECT_DOOR || drop->type == BROWSER_OBJECT_GLASS
             || drop->type == BROWSER_OBJECT_CCTV || drop->type == BROWSER_OBJECT_ALARM || drop->type == BROWSER_OBJECT_DRONE_GUN))

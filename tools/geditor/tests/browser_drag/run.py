@@ -70,6 +70,8 @@ typedef struct {
 #define BROWSER_OBJECT_CCTV 10
 #define BROWSER_OBJECT_ALARM 11
 #define BROWSER_OBJECT_DRONE_GUN 12
+#define BROWSER_OBJECT_CIRCLE 17
+#define BROWSER_OBJECT_CYLINDER 18
 #define WM_LBUTTONUP 1
 #define WM_CAPTURECHANGED 2
 #define WM_CANCELMODE 3
@@ -147,8 +149,10 @@ static void Start(BOOL palette)
 }
 int main(void)
 {
-    for (int kind = BROWSER_OBJECT_TRIANGLE; kind <= BROWSER_OBJECT_QUAD; kind++)
+    const int primitives[] = {BROWSER_OBJECT_TRIANGLE, BROWSER_OBJECT_QUAD, BROWSER_OBJECT_CIRCLE, BROWSER_OBJECT_CYLINDER};
+    for (unsigned i = 0; i < sizeof(primitives)/sizeof(*primitives); i++)
     {
+        int kind = primitives[i];
         Reset(TRUE); Start(TRUE); g_state.pressedobject = kind;
         Dispatch(browser, WM_LBUTTONUP, 0, (100 << 16) | 320);
         assert(objectdrops == 1 && placed.type == kind && placed.screen.x == 420 && placed.screen.y == 300);
@@ -185,7 +189,7 @@ int main(void)
     Dispatch(browser, WM_LBUTTONUP, 0, 0); assert(imagedrops == 1 && destroyed == 1);
     Reset(FALSE); Start(FALSE); strcpy(g_state.dragmodel, "PcrateZ");
     Dispatch(browser, WM_LBUTTONUP, 0, 0); assert(modeldrops == 1 && destroyed == 1);
-    puts("PASS: palette capture, triangle/quad/spawn/intro/outro/door/glass/CCTV/alarm/drone drop type/position, capture loss, cancellation, image/model drags.");
+    puts("PASS: palette capture, triangle/quad/circle/cylinder/spawn/intro/outro/door/glass/CCTV/alarm/drone drop type/position, capture loss, cancellation, image/model drags.");
     return 0;
 }
 '''

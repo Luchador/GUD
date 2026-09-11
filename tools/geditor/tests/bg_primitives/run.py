@@ -34,6 +34,8 @@ def main():
                        + ['-Wl,--gc-sections', '-lm', '-o', str(work / 'check')], check=True)
         env = dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1')
         subprocess.run([str(work / 'check'), str(work)], check=True, env=env)
+        subprocess.run(command + [str(here / 'options.c'), '-lm', '-o', str(work / 'options')], check=True)
+        subprocess.run([str(work / 'options')], check=True, env=env)
         viewport = (src / 'viewport.c').read_text()
         logic = '\n'.join(line for line in viewport.splitlines()
                           if line.startswith(('#define VIEWPORT_FOV_Y ', '#define VIEWPORT_NEAR_Z ',

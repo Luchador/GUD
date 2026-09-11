@@ -103,12 +103,132 @@ static void RoundTrip(const BgDocument *doc, const BgFile *source, const char *d
     BgFileFree(&compiled); BgFileFree(&saved); BgFileFree(&again);
 }
 
+static void CheckRound(const BgDocument *doc, BOOL cylinder, DWORD sides, double radius,
+    double height, const double position[3], const BgFaceRef *refs, DWORD count)
+{
+    const BgDocumentRoom *room = &doc->rooms[2];
+    DWORD vertices = cylinder ? sides*2 : sides;
+    unsigned char edges[BG_PRIMITIVE_MAX_SIDES*2][BG_PRIMITIVE_MAX_SIDES*2] = {{0}};
+    double tolerance = .51/doc->levelscale + .01;
+    assert(count == (cylinder ? sides*2 : sides-2));
+    assert(room->vertexcount == vertices && room->facecount == count);
+    CheckNew(doc, refs, count);
+    for (DWORD i = 0; i < vertices; i++)
+    {
+        float p[3];
+        const BgDocumentVertex *v = &room->vertices[i];
+        BgDocumentGetWorldPosition(doc, room, v, p);
+        assert(fabs(hypot(p[0]-position[0], p[2]-position[2])-radius) < tolerance*1.5);
+        assert(fabs(p[1]-position[1]-(i >= sides ? height : 0)) < tolerance);
+        assert(v->y == room->vertices[i >= sides ? sides : 0].y);
+        if (i >= sides)
+        { assert(v->x == room->vertices[i-sides].x && v->z == room->vertices[i-sides].z); }
+        for (DWORD j = 0; j < i; j++)
+        {
+            const BgDocumentVertex *w = &room->vertices[j];
+            assert(v->x != w->x || v->y != w->y || v->z != w->z);
+        }
+    }
+    for (DWORD i = 0; i < count; i++)
+    {
+        const BgDocumentFace *f = BgDocumentFindFace(doc, &refs[i], NULL);
+        float p[3][3]; double a[3], b[3], normal[3];
+        for (int c = 0; c < 3; c++)
+        {
+            DWORD x = f->vertexindices[c], y = f->vertexindices[(c+1)%3];
+            assert(x < vertices && y < vertices && x != y);
+            edges[x<y ? x : y][x<y ? y : x]++;
+            BgDocumentGetWorldPosition(doc, room, &room->vertices[x], p[c]);
+        }
+        for (int axis = 0; axis < 3; axis++)
+        { a[axis] = p[1][axis]-p[0][axis]; b[axis] = p[2][axis]-p[0][axis]; }
+        for (int axis = 0; axis < 3; axis++)
+        { int j=(axis+1)%3, k=(axis+2)%3; normal[axis]=a[j]*b[k]-a[k]*b[j]; }
+        if (cylinder)
+        {
+            assert(normal[1] == 0);
+            assert(normal[0]*((p[0][0]+p[1][0]+p[2][0])/3-position[0])
+                 + normal[2]*((p[0][2]+p[1][2]+p[2][2])/3-position[2]) > 0);
+        }
+        else
+        { assert(f->vertexindices[0] == 0 && normal[1] > 0 && normal[0] == 0 && normal[2] == 0); }
+    }
+    DWORD boundary = 0;
+    for (DWORD i = 0; i < vertices; i++) for (DWORD j = i+1; j < vertices; j++)
+    { assert(edges[i][j] <= 2); boundary += edges[i][j] == 1; }
+    assert(boundary == (cylinder ? sides*2 : sides));
+}
+
+static void RoundPrimitives(const char *dir)
+{
+    const float scales[] = {.06f, .1f, .236f, 1};
+    const DWORD counts[] = {3, 4, 8, 16, 64};
+    const double position[3] = {1000, -200, 300};
+    const char *why = "";
+    for (unsigned scale=0; scale<4; scale++) for (unsigned n=0; n<5; n++) for (BOOL cylinder=0; cylinder<2; cylinder++)
+    {
+        DWORD sides=counts[n], count;
+        /* Default size at eight sides, plus larger finely divided shapes. */
+        double radius=sides<=8 ? 100 : 5000, height=100;
+        BgFile source=Fixture(); BgDocument doc={0}; BgFaceRef refs[BG_PRIMITIVE_MAX_FACES];
+        EditHistory history={0}; EditHistoryTransaction tx={0}; EditHistoryAsset asset;
+        SetupFile setup={0}; StanFile stan={0};
+        assert(BgDocumentLoad(source.data, source.size, scales[scale], &doc, &why));
+        EditHistoryReset(&history, &doc, &setup, &stan);
+        assert(EditHistoryBeginBgEdit(&history, &doc, "Round primitive", &tx, &why));
+        assert(BgDocumentAddRoundPrimitive(&doc, cylinder, 2, position, radius, height, sides, refs, &count, &why));
+        CheckRound(&doc, cylinder, sides, radius, height, position, refs, count);
+        assert(EditHistoryCommitEdit(&history, &doc, &setup, &stan, &tx, &why));
+        RoundTrip(&doc, &source, dir);
+        assert(EditHistoryUndo(&history, &doc, &setup, &stan, &asset, &why));
+        assert(doc.facecount==1 && !doc.rooms[2].vertexcount && !doc.dirty);
+        assert(EditHistoryRedo(&history, &doc, &setup, &stan, &asset, &why));
+        CheckRound(&doc, cylinder, sides, radius, height, position, refs, count);
+        EditHistoryFree(&history); BgDocumentFree(&doc); BgFileFree(&source);
+    }
+    /* Invalid inputs, coarse quantization and all allocation failures are atomic. */
+    BgFile source=Fixture(); BgDocument doc={0}; BgFaceRef refs[BG_PRIMITIVE_MAX_FACES]; DWORD count;
+    assert(BgDocumentLoad(source.data, source.size, .06f, &doc, &why));
+    BgDocument before=doc; BgDocumentRoom room=doc.rooms[1];
+    for (BOOL cylinder=0; cylinder<2; cylinder++)
+    {
+        for (int budget=0; budget<4; budget++)
+        {
+            allocations=budget;
+            assert(!BgDocumentAddRoundPrimitive(&doc, cylinder, 1, position, 100, 100, 8, refs, &count, &why));
+            allocations=-1;
+            assert(!count && !memcmp(&before,&doc,sizeof(doc)) && !memcmp(&room,&doc.rooms[1],sizeof(room)));
+        }
+        const double bad[]={0, -1, NAN, INFINITY, 1e-12, 1e20};
+        for (unsigned i=0; i<sizeof(bad)/sizeof(*bad); i++)
+        {
+            assert(!BgDocumentAddRoundPrimitive(&doc, cylinder, 1, position, bad[i], 100, 8, refs, &count, &why));
+            assert(!count);
+            if (cylinder)
+            { assert(!BgDocumentAddRoundPrimitive(&doc, TRUE, 1, position, 100, bad[i], 8, refs, &count, &why) && !count); }
+        }
+        const DWORD badsides[]={0, 1, 2, 65, 0xffffffffu};
+        for (unsigned i=0; i<sizeof(badsides)/sizeof(*badsides); i++)
+        { assert(!BgDocumentAddRoundPrimitive(&doc, cylinder, 1, position, 100, 100, badsides[i], refs, &count, &why) && !count); }
+        assert(!BgDocumentAddRoundPrimitive(&doc, cylinder, 1, position, 1, 100, 64, refs, &count, &why) && !count);
+        assert(!BgDocumentAddRoundPrimitive(&doc, cylinder, 99, position, 100, 100, 8, refs, &count, &why) && !count);
+        assert(!BgDocumentAddRoundPrimitive(&doc, cylinder, 1, (double[3]){0,NAN,0}, 100, 100, 8, refs, &count, &why) && !count);
+        assert(!memcmp(&before,&doc,sizeof(doc)) && !memcmp(&room,&doc.rooms[1],sizeof(room)));
+    }
+    /* Drop into the void inherits the same nearest-room choice. */
+    assert(BgDocumentAddRoundPrimitive(&doc, FALSE, 0, position, 100, 100, 8, refs, &count, &why) && refs[0].room==1);
+    CheckNew(&doc, refs, count); RoundTrip(&doc, &source, dir);
+    BgDocumentFree(&doc); BgFileFree(&source);
+    puts("PASS: circle perimeter fans and uncapped cylinders (3-64 sides), axes, exterior winding, shared vertices, dimensions, save/ROM batches, undo/redo, and atomic failures.");
+}
+
 int main(int argc, char **argv)
 {
     const float scales[]={.06f,.1f,.236f,1};
     const double rights[][3]={{1,0,0},{0,0,-1},{.6,0,.8}};
     const double position[3]={1000,-200,300};
     const char *why=""; assert(argc==2);
+    RoundPrimitives(argv[1]);
     for (unsigned scale=0; scale<4; scale++) for (unsigned direction=0; direction<3; direction++)
     {
         BgFile source=Fixture(); BgDocument doc={0}; BgFaceRef refs[2]; DWORD count;

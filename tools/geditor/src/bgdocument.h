@@ -133,6 +133,16 @@ BOOL BgDocumentAddPrimitive(BgDocument *document, BOOL quad, DWORD room,
     const double position[3], const double right[3], BgFaceRef out[2],
     DWORD *countout, const char **reasonout);
 
+#define BG_PRIMITIVE_MAX_SIDES 64
+#define BG_PRIMITIVE_MAX_FACES (BG_PRIMITIVE_MAX_SIDES * 2)
+/* Horizontal circle or uncapped Y-axis cylinder, with backface culling.
+ * position is the circle centre / cylinder base centre; dimensions are in
+ * world centimetres. Circle faces point up. Uses the same room/append rules
+ * as above, with sides-2 or sides*2 faces and only perimeter vertices. */
+BOOL BgDocumentAddRoundPrimitive(BgDocument *document, BOOL cylinder, DWORD room,
+    const double position[3], double radius, double height, DWORD sides,
+    BgFaceRef out[BG_PRIMITIVE_MAX_FACES], DWORD *countout, const char **reasonout);
+
 /* Room IDs are 1..roomcount and fit the native unsigned-byte fields.
  * Connection edits retain polygon winding, flags, margin and table identity. */
 BOOL BgDocumentSetPortalRooms(BgDocument *document, DWORD portal, DWORD room1, DWORD room2,

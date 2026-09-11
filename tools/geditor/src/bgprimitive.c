@@ -9,7 +9,7 @@
 #include "bgdocument.h"
 
 static BOOL BgPrimitiveLocal(const BgDocumentRoom *room, float scale,
-    const double world[4][3], DWORD count, BgDocumentVertex local[4])
+    const double world[][3], DWORD count, BgDocumentVertex local[])
 {
     for (DWORD i = 0; i < count; i++)
     {
@@ -50,8 +50,11 @@ static double BgPrimitiveRoomDistance(const BgDocumentRoom *room, const double p
     return distance;
 }
 
-BOOL BgDocumentAddPrimitive(BgDocument *document, BOOL quad, DWORD roomnumber,
-    const double position[3], const double right[3], BgFaceRef out[2],
+/* Shared append path for every primitive: coordinates and winding are checked
+ * before changing the document, then one group is added with shared vertices. */
+static BOOL BgPrimitiveAppend(BgDocument *document, DWORD roomnumber,
+    const double position[3], const double world[][3], DWORD vertices,
+    const unsigned char corners[][3], DWORD faces, BgFaceRef *out,
     DWORD *countout, const char **reasonout)
 {
     /* Explicit opaque, vertex-shaded state: do not inherit a preceding
@@ -68,31 +71,21 @@ BOOL BgDocumentAddPrimitive(BgDocument *document, BOOL quad, DWORD roomnumber,
         {0xB900031D, 0x0C192078}, /* G_RM_PASS, G_RM_AA_ZB_OPA_SURF2. */
         {0xFB000000, 0xFFFFFFFF}  /* Opaque environment alpha for BG fog remapping. */
     };
-    static const unsigned char corners[2][3] = {{0,1,2}, {0,2,3}};
-    DWORD vertices = quad ? 4 : 3, faces = quad ? 2 : 1, groups;
-    BgDocumentVertex local[4] = {0}, *newvertices = NULL;
+    DWORD groups;
+    BgDocumentVertex local[BG_PRIMITIVE_MAX_SIDES * 2] = {0}, *newvertices = NULL;
     BgDocumentFace *newfaces = NULL;
     BgDocumentDrawGroup *newgroups = NULL;
     unsigned char *state = NULL;
     BgDocumentRoom *room;
     BgDocumentLayerData *layer;
-    double world[4][3], length, closest = DBL_MAX, point[3];
+    double closest = DBL_MAX, point[3];
     *countout = 0;
     *reasonout = "No editable background is loaded.";
-    if (!document || !document->rooms || !document->roomcount || !position || !right || !out) { return FALSE; }
-    *reasonout = "The primitive has an invalid position, direction, or level scale.";
+    if (!document || !document->rooms || !document->roomcount || !position || !out) { return FALSE; }
+    *reasonout = "The primitive has an invalid position or level scale.";
     if (!isfinite(document->levelscale) || document->levelscale <= 0) { return FALSE; }
     for (int axis = 0; axis < 3; axis++)
-    { if (!isfinite(position[axis]) || !isfinite(right[axis])) { return FALSE; } }
-    length = hypot(right[0], right[2]);
-    if (!isfinite(length) || length < 1e-8) { return FALSE; }
-    for (DWORD i = 0; i < vertices; i++)
-    {
-        double side = i == 0 || i == 3 ? -50 : i == 1 || quad ? 50 : 0;
-        world[i][0] = position[0] + right[0] / length * side;
-        world[i][1] = position[1] + (i >= 2 ? 100 : 0);
-        world[i][2] = position[2] + right[2] / length * side;
-    }
+    { if (!isfinite(position[axis])) { return FALSE; } }
     *reasonout = "The primitive is outside the available background rooms' coordinate range.";
     if (roomnumber > document->roomcount) { return FALSE; }
     if (!roomnumber)
@@ -113,9 +106,33 @@ BOOL BgDocumentAddPrimitive(BgDocument *document, BOOL quad, DWORD roomnumber,
     if (!roomnumber || roomnumber > USHRT_MAX) { return FALSE; }
     room = &document->rooms[roomnumber]; layer = &room->layers[BG_GEOMETRY_PRIMARY];
     if (!BgPrimitiveLocal(room, document->levelscale, world, vertices, local)) { return FALSE; }
-    /* Refuse a collapsed primitive at exceptionally coarse native scales. */
-    if ((local[0].x == local[1].x && local[0].z == local[1].z) || local[0].y == local[2].y)
-    { *reasonout = "This level's coordinate precision is too coarse for a one-metre primitive."; return FALSE; }
+    /* Rounding to native room coordinates must not collapse or reverse a
+     * triangle. This matters for small circles with many closely spaced sides.
+     * Use doubles: differences of signed 16-bit coordinates can overflow an
+     * integer cross product. Compare against the intended world-space winding. */
+    for (DWORD i = 0; i < faces; i++)
+    {
+        double a[3], b[3], wa[3], wb[3], alignment = 0;
+        const BgDocumentVertex *v[3];
+        for (int c = 0; c < 3; c++) { v[c] = &local[corners[i][c]]; }
+        a[0] = (double)v[1]->x - v[0]->x; a[1] = (double)v[1]->y - v[0]->y; a[2] = (double)v[1]->z - v[0]->z;
+        b[0] = (double)v[2]->x - v[0]->x; b[1] = (double)v[2]->y - v[0]->y; b[2] = (double)v[2]->z - v[0]->z;
+        for (int axis = 0; axis < 3; axis++)
+        {
+            wa[axis] = world[corners[i][1]][axis] - world[corners[i][0]][axis];
+            wb[axis] = world[corners[i][2]][axis] - world[corners[i][0]][axis];
+        }
+        for (int axis = 0; axis < 3; axis++)
+        {
+            int j = (axis+1)%3, k = (axis+2)%3;
+            alignment += (a[j]*b[k] - a[k]*b[j]) * (wa[j]*wb[k] - wa[k]*wb[j]);
+        }
+        if (!(alignment > 0))
+        {
+            *reasonout = "This shape is too small for the level's coordinate precision. Increase its size or use fewer sides.";
+            return FALSE;
+        }
+    }
     *reasonout = "The background has reached its vertex, face, or draw-group limit.";
     if (!document->nextvertexid || !document->nextfaceid
         || document->nextvertexid > UINT32_MAX - vertices || document->nextfaceid > UINT32_MAX - faces
@@ -174,4 +191,75 @@ BOOL BgDocumentAddPrimitive(BgDocument *document, BOOL quad, DWORD roomnumber,
     document->nextvertexid += vertices; document->nextfaceid += faces; document->facecount += faces;
     document->dirty = TRUE; *countout = faces; *reasonout = "";
     return TRUE;
+}
+
+BOOL BgDocumentAddPrimitive(BgDocument *document, BOOL quad, DWORD room,
+    const double position[3], const double right[3], BgFaceRef out[2],
+    DWORD *countout, const char **reasonout)
+{
+    static const unsigned char corners[2][3] = {{0,1,2}, {0,2,3}};
+    DWORD vertices = quad ? 4 : 3;
+    double world[4][3], length;
+    *countout = 0;
+    *reasonout = "The primitive has an invalid position or direction.";
+    if (!position || !right) { return FALSE; }
+    for (int axis = 0; axis < 3; axis++)
+    { if (!isfinite(position[axis]) || !isfinite(right[axis])) { return FALSE; } }
+    length = hypot(right[0], right[2]);
+    if (!isfinite(length) || length < 1e-8) { return FALSE; }
+    for (DWORD i = 0; i < vertices; i++)
+    {
+        double side = i == 0 || i == 3 ? -50 : i == 1 || quad ? 50 : 0;
+        world[i][0] = position[0] + right[0] / length * side;
+        world[i][1] = position[1] + (i >= 2 ? 100 : 0);
+        world[i][2] = position[2] + right[2] / length * side;
+    }
+    return BgPrimitiveAppend(document, room, position, world, vertices,
+        corners, quad ? 2 : 1, out, countout, reasonout);
+}
+
+BOOL BgDocumentAddRoundPrimitive(BgDocument *document, BOOL cylinder, DWORD room,
+    const double position[3], double radius, double height, DWORD sides,
+    BgFaceRef out[BG_PRIMITIVE_MAX_FACES], DWORD *countout, const char **reasonout)
+{
+    double world[BG_PRIMITIVE_MAX_SIDES * 2][3];
+    unsigned char corners[BG_PRIMITIVE_MAX_FACES][3];
+    DWORD faces = 0;
+    *countout = 0;
+    *reasonout = "Use a positive radius and height, and 3 to 64 sides.";
+    if (!position || !isfinite(radius) || radius <= 0
+        || (cylinder && (!isfinite(height) || height <= 0))
+        || sides < 3 || sides > BG_PRIMITIVE_MAX_SIDES) { return FALSE; }
+    /* Start on +X and proceed toward -Z: viewed from above, the perimeter
+     * winds counterclockwise. Both rings lie exactly in horizontal XZ planes. */
+    for (DWORD i = 0; i < sides; i++)
+    {
+        double angle = 6.28318530717958647692 * i / sides;
+        world[i][0] = position[0] + radius * cos(angle);
+        world[i][1] = position[1];
+        world[i][2] = position[2] - radius * sin(angle);
+        if (cylinder)
+        {
+            memcpy(world[i+sides], world[i], sizeof(world[i]));
+            world[i+sides][1] += height;
+        }
+    }
+    if (cylinder)
+    {
+        /* Two outward-facing triangles per side; no top or bottom faces. */
+        for (DWORD i = 0; i < sides; i++)
+        {
+            DWORD next = (i+1)%sides;
+            corners[faces][0] = i; corners[faces][1] = next; corners[faces++][2] = next+sides;
+            corners[faces][0] = i; corners[faces][1] = next+sides; corners[faces++][2] = i+sides;
+        }
+    }
+    else
+    {
+        /* Root the fan at perimeter vertex 0, with no centre vertex. */
+        for (DWORD i = 1; i+1 < sides; i++)
+        { corners[faces][0] = 0; corners[faces][1] = i; corners[faces++][2] = i+1; }
+    }
+    return BgPrimitiveAppend(document, room, position, world, cylinder ? sides*2 : sides,
+        corners, faces, out, countout, reasonout);
 }
