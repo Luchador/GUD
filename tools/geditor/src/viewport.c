@@ -3668,6 +3668,51 @@ static BOOL ViewportVertexInBox(const ViewportState *state, const Vertex *vertex
            screen[0] <= box->right && screen[1] >= box->top && screen[1] <= box->bottom;
 }
 
+static BOOL ViewportEdgeInBox(const ViewportState *state, const Vertex *a, const Vertex *b,
+                              const RECT *box)
+{
+    float forward[3], right[3];
+    double up[3], distances[2][6], focal, enter = 0.0, leave = 1.0;
+    int end, plane;
+    if (state->width <= 0 || state->height <= 0
+        || box->left > box->right || box->top > box->bottom) { return FALSE; }
+    ViewportGetBasis(state, forward, right);
+    up[0] = right[1]*forward[2] - right[2]*forward[1];
+    up[1] = right[2]*forward[0] - right[0]*forward[2];
+    up[2] = right[0]*forward[1] - right[1]*forward[0];
+    focal = state->height / (2.0*tan(VIEWPORT_FOV_Y*0.5*VIEWPORT_DEG_TO_RAD));
+    for (end = 0; end < 2; end++)
+    {
+        const Vertex *vertex = end ? b : a;
+        double p[3] = {vertex->x-state->posx, vertex->y-state->posy, vertex->z-state->posz};
+        double x = p[0]*right[0] + p[1]*right[1] + p[2]*right[2];
+        double y = p[0]*up[0] + p[1]*up[1] + p[2]*up[2];
+        double depth = p[0]*forward[0] + p[1]*forward[1] + p[2]*forward[2];
+        /* Box boundaries expressed before perspective division, plus camera
+           clipping. This also handles edges crossing the near/far planes. */
+        distances[end][0] = depth - VIEWPORT_NEAR_Z;
+        distances[end][1] = VIEWPORT_FAR_Z - depth;
+        distances[end][2] = focal*x + (state->width*0.5 - box->left)*depth;
+        distances[end][3] = (box->right - state->width*0.5)*depth - focal*x;
+        distances[end][4] = (state->height*0.5 - box->top)*depth - focal*y;
+        distances[end][5] = focal*y + (box->bottom - state->height*0.5)*depth;
+    }
+    for (plane = 0; plane < 6; plane++)
+    {
+        double start = distances[0][plane], finish = distances[1][plane];
+        if (start < 0.0 && finish < 0.0) { return FALSE; }
+        if (start < 0.0 || finish < 0.0)
+        {
+            double t = start / (start - finish);
+            if (start < 0.0) { enter = max(enter, t); }
+            else { leave = min(leave, t); }
+            if (enter > leave) { return FALSE; }
+        }
+    }
+    /* A single point of contact, including a box corner, counts as a hit. */
+    return TRUE;
+}
+
 typedef struct ViewportBoxPoint
 {
     DWORD owner, index; /* BG room/vertex, or canonical stan tile/point */
@@ -3742,7 +3787,8 @@ static BOOL ViewportCollectBoxComponents(const ViewportState *state, const RECT 
                 unsigned int other = edges ? (point + 1) % polygon->pointcount : point;
                 Vertex a = ViewportStanPointVertex(&polygon->points[point]);
                 Vertex b = ViewportStanPointVertex(&polygon->points[other]);
-                if (ViewportVertexInBox(state, &a, box) && ViewportVertexInBox(state, &b, box))
+                if (edges ? ViewportEdgeInBox(state, &a, &b, box)
+                          : ViewportVertexInBox(state, &a, box))
                 {
                     StanPointRef a = ViewportStanPointRef(state, tile, point);
                     StanPointRef b = ViewportStanPointRef(state, tile, other);
@@ -3768,11 +3814,11 @@ static BOOL ViewportCollectBoxComponents(const ViewportState *state, const RECT 
                 int other = edges ? (corner / 3) * 3 + (corner + 1) % 3 : corner;
                 const BgDocumentVertexRef *a = &state->scenevertexrefs[corner];
                 const BgDocumentVertexRef *b = &state->scenevertexrefs[other];
-                /* Both endpoints must be enclosed. Hidden faces do not offer
-                   edges; a shared edge on another visible face still qualifies. */
+                /* Hidden faces do not offer edges; a shared edge on another
+                   visible face still qualifies if any part touches the box. */
                 if (a->room && b->room && !ViewportTriangleHidden(state, corner / 3)
-                    && ViewportVertexInBox(state, &state->scene[corner], box)
-                    && ViewportVertexInBox(state, &state->scene[other], box))
+                    && (edges ? ViewportEdgeInBox(state, &state->scene[corner], &state->scene[other], box)
+                              : ViewportVertexInBox(state, &state->scene[corner], box)))
                 {
                     if (edges && !ViewportCompareVertexRefs(a, b)) { continue; }
                     components[count++] = ViewportBoxComponentKey(

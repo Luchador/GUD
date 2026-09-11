@@ -106,9 +106,30 @@ int main(void)
     int count;
     capturedstate = &state;
     ExpectHits(&state, all, FALSE, 8); /* Five front edges, three occluded edges. */
-    ExpectHits(&state, bottom, FALSE, 2); /* One contained edge in each room. */
-    ExpectHits(&state, center, FALSE, 0); /* Crossing without enclosing endpoints. */
-    ExpectHits(&state, (RECT){125,125,140,140}, FALSE, 0); /* One endpoint only. */
+    ExpectHits(&state, bottom, FALSE, 7); /* Contained and partially enclosed edges. */
+    ExpectHits(&state, center, FALSE, 2); /* Crossing with both endpoints outside. */
+    ExpectHits(&state, (RECT){125,125,140,140}, FALSE, 4); /* One endpoint only. */
+    /* Exact boundary contact, parallel misses and overlapping bounding boxes
+       whose segments miss the rectangle. Check both edge directions. */
+    const struct { Vertex a, b; BOOL hit; } contacts[] = {
+        {{.x=-20,.y=20,.z=-100}, {.x=0,.y=0,.z=-100}, TRUE}, /* Corner endpoint. */
+        {{.x=-20,.y=-20,.z=-100}, {.x=20,.y=20,.z=-100}, TRUE}, /* Corner tangent. */
+        {{.x=0,.y=20,.z=-100}, {.x=0,.y=-20,.z=-100}, TRUE}, /* Along boundary. */
+        {{.x=-1,.y=20,.z=-100}, {.x=-1,.y=-20,.z=-100}, FALSE}, /* Parallel outside. */
+        {{.x=-20,.y=-10,.z=-100}, {.x=10,.y=20,.z=-100}, FALSE}, /* Bounding box only. */
+        {{.x=0,.y=0,.z=-100}, {.x=0,.y=0,.z=-100}, TRUE}, /* Projects to a point. */
+        {{.x=0,.y=0,.z=100}, {.x=0,.y=0,.z=-100}, TRUE}, /* Crosses near plane. */
+        {{.x=0,.y=0,.z=-200000}, {.x=0,.y=0,.z=-100}, TRUE}, /* Crosses far plane. */
+        {{.x=0,.y=0,.z=-1}, {.x=0,.y=0,.z=-5}, FALSE}, /* Entirely clipped. */
+        {{.x=0,.y=0,.z=100}, {.x=0,.y=0,.z=200}, FALSE}, /* Behind camera. */
+        {{.x=-20,.y=0,.z=-100}, {.x=20,.y=0,.z=100}, FALSE} /* Only extension hits. */
+    };
+    for (unsigned int i=0; i<sizeof(contacts)/sizeof(contacts[0]); i++)
+    {
+        RECT corner = {100,100,120,120};
+        assert(ViewportEdgeInBox(&state, &contacts[i].a, &contacts[i].b, &corner) == contacts[i].hit);
+        assert(ViewportEdgeInBox(&state, &contacts[i].b, &contacts[i].a, &corner) == contacts[i].hit);
+    }
     hidden[0] = 1;
     ExpectHits(&state, all, FALSE, 6); /* Shared edge survives via visible face. */
     assert(ViewportCollectBoxComponents(&state, &all, FALSE, &hits, &count));
@@ -146,9 +167,10 @@ int main(void)
     free(hits);
     assert(ViewportCollectBoxComponents(&state, &bottom, FALSE, &hits, &count));
     assert(ViewportApplyBoxComponents(&state, hits, count, FALSE, TRUE, TRUE));
-    assert(state.componentcount == 6); /* Ctrl wins over Shift; only full matching edges removed. */
+    assert(state.componentcount == 1); /* Ctrl wins over Shift; intersecting edges removed. */
     assert(ViewportApplyBoxComponents(&state, hits, count, FALSE, TRUE, FALSE));
-    assert(state.componentcount == 8 && state.components[0].refs[1].index == 2);
+    assert(state.componentcount == 8 && state.components[0].refs[0].index == 2
+           && state.components[0].refs[1].index == 3);
     free(hits);
     assert(ViewportApplyBoxComponents(&state, NULL, 0, FALSE, TRUE, FALSE));
     assert(ViewportApplyBoxComponents(&state, NULL, 0, FALSE, FALSE, TRUE));
@@ -164,7 +186,7 @@ int main(void)
     assert(clicks == 1 && clickadd && !clickremove && !capture && state.componentcount == 8);
     ViewportBeginBoxSelection(1, &state, 140, 140, FALSE, FALSE);
     ViewportEndBoxSelection(1, &state, 60, 125); /* Reverse drag, bottom edges. */
-    assert(state.componentcount == 2 && notifications == 1 && !capture);
+    assert(state.componentcount == 7 && notifications == 1 && !capture);
     ViewportBeginBoxSelection(1, &state, 20, 20, FALSE, FALSE);
     ViewportEndBoxSelection(1, &state, 30, 30);
     assert(state.componentcount == 0);
@@ -172,6 +194,7 @@ int main(void)
     /* Vertex-mode click selection leaves refs[1] unused. Its identity still
        must match a marquee vertex after sharing the edge-aware code path. */
     state.tool = EDITOR_TOOL_VERTEX_SELECT;
+    ExpectHits(&state, center, FALSE, 0); /* Vertices still require containment. */
     assert(ViewportCollectBoxComponents(&state, &all, FALSE, &hits, &count));
     assert(count == 7);
     assert(ViewportApplyBoxComponents(&state, hits, count, FALSE, FALSE, FALSE));
@@ -196,6 +219,9 @@ int main(void)
     state.showstan = TRUE; state.stanopacity = 50; state.tool = EDITOR_TOOL_EDGE_SELECT;
     RECT wide = {40,40,160,160};
     ExpectHits(&state, wide, TRUE, 6); /* Shared edge occurs only once. */
+    ExpectHits(&state, bottom, TRUE, 4); /* Partially enclosed stan edges. */
+    ExpectHits(&state, (RECT){125,90,140,110}, TRUE, 1); /* Crosses with endpoints outside. */
+    ExpectHits(&state, center, TRUE, 0); /* No artificial polygon diagonals. */
     assert(ViewportCollectBoxComponents(&state, &wide, TRUE, &hits, &count));
     assert(ViewportApplyBoxComponents(&state, hits, count, TRUE, FALSE, FALSE));
     assert(state.stancomponentcount == 6 && state.componentcount == 0);
