@@ -26,7 +26,7 @@ def main():
     shim = here.parent / 'image_import'
     # Every parsed ObjectRecord subtype, with recognizable specialized data.
     sizes = {1:64, 3:32, 4:33, 5:32, 6:59, 7:33, 8:34, 10:64, 11:149,
-             12:32, 13:54, 17:32, 20:45, 21:34, 36:32, 39:44, 40:45,
+             12:32, 13:54, 17:32, 20:44, 21:34, 36:32, 39:44, 40:45,
              42:32, 43:32, 45:56, 47:37}
     with tempfile.TemporaryDirectory(prefix='geditor-object-properties-') as temp:
         work = Path(temp)

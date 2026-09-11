@@ -310,7 +310,7 @@ s32 intro[] = {
     /* Type = StartWeapon; index = 2 */
     _mkword(0, _mkshort(0, 1)), 4, -1, 0,
     /* Type = StartAmmo; index = 3 */
-    _mkword(0, _mkshort(0, 2)), 1, 100, 0,
+    _mkword(0, _mkshort(0, 2)), AMMO_9MM, 100, 0,
     /* Type = FixedCam; index = 4 */
     _mkword(0, _mkshort(0, 6)), 0xfff822fb, 0x0000f321, 0xfffb103d, 0x00023be8, 0x00000000, 0x00000079, 0x00002422, 0x00000000, 0x00000000,
     /* Type = FixedCam; index = 5 */

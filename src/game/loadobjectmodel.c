@@ -85,7 +85,7 @@ s32 sizepropdef(PropDefHeaderRecord *pdef)
         case PROPDEF_SAFE_ITEM:
             return 5;
         case PROPDEF_AMMO:
-            return 0x2d;
+            return sizeof(MultiAmmoCrateRecord) / sizeof(u32);
         case PROPDEF_ARMOUR:
             return 0x22;
         case PROPDEF_TAG:

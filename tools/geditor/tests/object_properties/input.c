@@ -80,19 +80,18 @@ static void CheckContents(void)
     memset(&properties, 0, sizeof(properties));
     assert(ObjectPropertiesFormatContents(&properties, FALSE, contents, sizeof(contents)));
     assert(strstr(contents, "Empty"));
-    properties.ammo[AMMO_9MM - 1].quantity = properties.ammo[AMMO_9MM_2 - 1].quantity = 1;
+    properties.ammo[AMMO_9MM - 1].quantity = 1;
     assert(ObjectPropertiesFormatContents(&properties, FALSE, contents, sizeof(contents)));
-    assert(strstr(contents, "9mm\r\nAgent: 4\r\nSecret Agent: 2\r\n00 Agent: 2\r\n007 Mode: 2"));
-    assert(!strstr(contents, "alternate slot")); /* Truncate each slot before adding. */
+    assert(strstr(contents, "9mm\r\nAgent: 2\r\nSecret Agent: 1\r\n00 Agent: 1\r\n007 Mode: 1"));
     for (int slot = 0; slot < AMMOTYPE_GLOBAL_MAX; slot++) { properties.ammo[slot].quantity = 65535; }
     assert(ObjectPropertiesFormatContents(&properties, FALSE, contents, sizeof(contents)));
     assert(strlen(contents) > 512 && strstr(contents, "Golden Gun rounds"));
-    assert(strstr(contents, "9mm\r\nAgent: 262140\r\nSecret Agent: 196604"));
-    assert(strstr(contents, "Inventory limits still apply."));
+    assert(strstr(contents, "9mm\r\nAgent: 131070\r\nSecret Agent: 98302"));
+    assert(!strstr(contents, "Inventory limits"));
     assert(!ObjectPropertiesFormatContents(&properties, FALSE, small, sizeof(small)));
     assert(small[sizeof(small) - 1] == 0);
     assert(!ObjectPropertiesFormatContents(&properties, FALSE, small, 0));
-    puts("PASS: all four difficulty amounts, fractional truncation, merged 9mm, multiplayer, empty/full crates and complete long summaries.");
+    puts("PASS: all four difficulty amounts, fractional truncation, single 9mm slot, multiplayer, empty/full crates and complete long summaries.");
 }
 
 int main(void)
@@ -154,7 +153,7 @@ int main(void)
     state.properties.object.type = PROPDEF_AMMO; state.ammoslot = AMMOTYPE_GLOBAL_MAX - 1;
     assert(!Key(VK_RETURN)); /* Hidden key field cannot commit. */
     focus = state.controls[OBJECT_QUANTITY]; strcpy(text, "65535"); state.quantityedited = TRUE;
-    assert(Key(VK_RETURN) && state.properties.ammo[12].quantity == 65535 && commits == 5 && !state.quantityedited);
+    assert(Key(VK_RETURN) && state.properties.ammo[state.ammoslot].quantity == 65535 && commits == 5 && !state.quantityedited);
     assert(state.properties.ammo[0].quantity == 0);
     strcpy(text, "-1"); state.quantityedited = TRUE; assert(Key(VK_RETURN));
     assert(commits == 5 && state.quantityedited);

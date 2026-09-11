@@ -634,7 +634,7 @@ s32 propDefs[] = {
     /* Type = StandardProp; index = 80 */
     _mkword(230, _mkshort(0, 3)), _mkword(53, 58), 0x00020101, 0x00000000, 0x00000000, 0x00000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000000, 0x00000000, 0, 0, _mkword(1000, 0), 0, 0,
     /* Type = AmmoBox; index = 81 */
-    _mkword(256, _mkshort(0, 20)), _mkword(5, 52), 0x00000001, 0x00000000, 0x00000000, 0x00000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000000, 0x00000000, 0, 0, _mkword(1000, 0), 0, 0, _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 8), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0),
+    _mkword(256, _mkshort(0, 20)), _mkword(5, 52), 0x00000001, 0x00000000, 0x00000000, 0x00000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000000, 0x00000000, 0, 0, _mkword(1000, 0), 0, 0, _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 8), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0),
     /* Type = SingleMonitor; index = 82 */
     _mkword(256, _mkshort(0, 10)), _mkword(75, 10020), 0x100000e1, 0x00000000, 0x00000000, 0x00000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000000, 0x00000000, 0, 0, _mkword(1000, 0), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, _mkshort(0, 0), _mkshort(0, 0), _mkshort(0, 0), 0, 0, 0xffffffff, 0xffffffff, 5,
     /* Type = SingleMonitor; index = 83 */
@@ -1074,7 +1074,7 @@ s32 intro[] = {
     /* Type = StartWeapon; index = 4 */
     _mkword(0, _mkshort(0, 1)), 4, -1, 0,
     /* Type = StartAmmo; index = 5 */
-    _mkword(0, _mkshort(0, 2)), 1, 100, 0,
+    _mkword(0, _mkshort(0, 2)), AMMO_9MM, 100, 0,
     /* Type = Cuff; index = 6 */
     _mkword(0, _mkshort(0, 5)), 2,
     /* Type = SwirlCam; index = 7 */

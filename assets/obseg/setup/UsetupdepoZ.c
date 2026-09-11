@@ -688,13 +688,13 @@ s32 propDefs[] = {
     /* Type = Collectable; index = 118 */
     _mkword(256, _mkshort(0, 8)), _mkword(184, 313), 0x40000001, 0x00000000, 0x00000000, 0x00000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000000, 0x00000000, 0, 0, _mkword(1000, 0), 0, 0, _mkword(_mkshort(0x08, 0xff), 0xffff), 0,
     /* Type = AmmoMag; index = 119 */
-    _mkword(256, _mkshort(0, 7)), _mkword(202, 315), 0x00000001, 0x00000000, 0x00000000, 0x00000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000000, 0x00000000, 0, 0, _mkword(1000, 0), 0, 0, 6,
+    _mkword(256, _mkshort(0, 7)), _mkword(202, 315), 0x00000001, 0x00000000, 0x00000000, 0x00000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000000, 0x00000000, 0, 0, _mkword(1000, 0), 0, 0, AMMO_ROCKETS,
     /* Type = AmmoMag; index = 120 */
-    _mkword(256, _mkshort(0, 7)), _mkword(202, 316), 0x00000001, 0x00000000, 0x00000000, 0x00000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000000, 0x00000000, 0, 0, _mkword(1000, 0), 0, 0, 6,
+    _mkword(256, _mkshort(0, 7)), _mkword(202, 316), 0x00000001, 0x00000000, 0x00000000, 0x00000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000000, 0x00000000, 0, 0, _mkword(1000, 0), 0, 0, AMMO_ROCKETS,
     /* Type = AmmoMag; index = 121 */
-    _mkword(256, _mkshort(0, 7)), _mkword(202, 317), 0x00000001, 0x00000000, 0x00000000, 0x00000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000000, 0x00000000, 0, 0, _mkword(1000, 0), 0, 0, 6,
+    _mkword(256, _mkshort(0, 7)), _mkword(202, 317), 0x00000001, 0x00000000, 0x00000000, 0x00000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000000, 0x00000000, 0, 0, _mkword(1000, 0), 0, 0, AMMO_ROCKETS,
     /* Type = AmmoBox; index = 122 */
-    _mkword(128, _mkshort(0, 20)), _mkword(5, 319), 0x00000001, 0x00000000, 0x00000000, 0x00000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000000, 0x00000000, 0, 0, _mkword(1000, 0), 0, 0, _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0x00c8, 6), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0),
+    _mkword(128, _mkshort(0, 20)), _mkword(5, 319), 0x00000001, 0x00000000, 0x00000000, 0x00000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000000, 0x00000000, 0, 0, _mkword(1000, 0), 0, 0, _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0x00c8, 6), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0),
     /* Type = Collectable; index = 123 */
     _mkword(256, _mkshort(0, 8)), _mkword(189, 322), 0x40000001, 0x00000000, 0x00000000, 0x00000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000000, 0x00000000, 0, 0, _mkword(1000, 0), 0, 0, _mkword(_mkshort(0x0a, 0xff), 0xffff), 0,
     /* Type = Collectable; index = 124 */
@@ -900,7 +900,7 @@ s32 intro[] = {
     /* Type = StartWeapon; index = 4 */
     _mkword(0, _mkshort(0, 1)), 4, -1, 0,
     /* Type = StartAmmo; index = 5 */
-    _mkword(0, _mkshort(0, 2)), 1, 100, 0,
+    _mkword(0, _mkshort(0, 2)), AMMO_9MM, 100, 0,
     /* Type = Cuff; index = 6 */
     _mkword(0, _mkshort(0, 5)), 0,
     /* Type = WatchTime; index = 7 */

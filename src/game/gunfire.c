@@ -4330,8 +4330,7 @@ extern const f32 g_RifleCasingRandomDivisor;
  
 extern ALSoundState *g_CasingSfxState;
 
-#define AMMO_RELATED_MAX 30
-extern AmmoStats ammo_related[AMMO_RELATED_MAX];
+extern AmmoStats ammo_related[AMMOTYPE_MAX];
 
 
 void sub_GAME_7F068190(coord3d *zeropos, coord3d *vec)
@@ -4815,7 +4814,7 @@ void set_max_ammo_for_cur_player(void)
 {
     s32 ammo_type;
 
-    for (ammo_type = 0; ammo_type < AMMO_RELATED_MAX; ammo_type++)
+    for (ammo_type = 0; ammo_type < AMMOTYPE_MAX; ammo_type++)
     {
         give_cur_player_ammo(ammo_type, ammo_related[ammo_type].MaxAmmo);
     }

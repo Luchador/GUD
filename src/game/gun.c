@@ -395,11 +395,9 @@ u32 D_80035EA8 = 0;
 u32 D_80035EAC = 0;
 
 //D:80035EF0
-#define AMMO_RELATED_MAX 30
-AmmoStats ammo_related[AMMO_RELATED_MAX] = {
+AmmoStats ammo_related[AMMOTYPE_MAX] = {
     { 0x0    , 0x00000000,   0.0f, },
     { 0x320  , 0x02000C84,   0.0f, },
-    { 0xC8   , 0x00000000,   0.0f, },
     { 0x190  , 0x02000C90,  -2.0f, },
     { 0x64   , 0x02000C9C,   0.0f, },
     { 0xC    , 0x02000CD8,   0.0f, },

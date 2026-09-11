@@ -54,7 +54,7 @@ typedef struct GedManifest {
 
 const GedManifest g_GedManifest = {
     "GUDGEDITORMANIF",
-    2, /* LevelEntry now includes levelName; older editors must not read it as v1. */
+    3, /* Compact ammo IDs and twelve-slot ammo crates require a matching editor. */
     GEDM_ENTRY_COUNT,
     {
         { GEDM_KIND('I','M','G','S'), (u32)_imagesSegmentRomStart,     (u32)_imagesSegmentRomEnd,                                       0                          },

@@ -64,7 +64,7 @@ def main():
     manifest = Object(build / "src/game/gedmanifest.o")
     blob = manifest.bytes("g_GedManifest")
     version, count = struct.unpack_from(">II", blob, 16)
-    assert blob[:16] == b"GUDGEDITORMANIF\0" and version == 2 and count == 28
+    assert blob[:16] == b"GUDGEDITORMANIF\0" and version == 3 and count == 28
     # IDO's ELF symbol size excludes the leading initialized char array here;
     # the complete manifest bytes and relocations are present in the section.
     blob = manifest.bytes("g_GedManifest", 24 + count * 16)

@@ -987,7 +987,7 @@ s32 intro[] = {
     /* Type = StartWeapon; index = 6 */
     _mkword(0, _mkshort(0, 1)), 60, -1, 0,
     /* Type = StartAmmo; index = 7 */
-    _mkword(0, _mkshort(0, 2)), 25, 5, 0,
+    _mkword(0, _mkshort(0, 2)), AMMO_WATCH_MAGNET, 5, 0,
     /* Type = Cuff; index = 8 */
     _mkword(0, _mkshort(0, 5)), 3,
     /* Type = SwirlCam; index = 9 */

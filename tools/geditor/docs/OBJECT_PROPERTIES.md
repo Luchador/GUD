@@ -15,8 +15,8 @@ scale. Transforms stay in the transform panel; object flags stay in **Flags**.
 - Each committed change creates one Undo/Redo step and marks the setup unsaved.
   Unchanged values create no step. Ctrl+Z first undoes pending text edits while
   the Health field has text to undo, then uses the editor's history.
-- Save Project writes the edited setup resource used by ROM creation. Existing
-  projects work; no extraction or GUD rebuild is needed to use the inspector.
+- Save Project writes the edited setup resource used by ROM creation. Projects
+  must use the matching current GUD ROM and setup format.
 
 Health is the authored destruction threshold, stored at ObjectRecord offset
 `0x74` (`damage`) as signed 16.16 fixed point. Despite its name, `maxdamage` at
@@ -56,9 +56,7 @@ Fractional results truncate just as in the game: a base quantity of 5 gives
 10 / 7 / 5 / 5. These are the amounts offered before inventory limits; the actual
 increase depends on how much the player already carries.
 
-The two 9mm slots remain separately editable, but Contents combines their grants
-because both supply the same ammo. Each slot is multiplied and truncated before
-adding; two base quantities of 1 give a total of 2 on Secret Agent, not 3.
+There is one 9mm ammo type and one 9mm crate slot.
 The preview updates on committed edits and Undo/Redo without modifying setup data.
 
 Multiplayer Contents shows unmultiplied setup quantities instead of solo difficulties.
@@ -68,12 +66,14 @@ that weapon slot supplies no ammo. The inspector preserves this game behavior
 and displays a note for multiplayer setups.
 
 Native fields: keys and single-ammo types use the 32-bit word at `0x80`.
-Multi-ammo slots occupy 13 words starting at `0x80`, in ammo-ID order 1–13;
+Multi-ammo slots occupy 12 words starting at `0x80`, in ammo-ID order 1–12;
 each contains a 16-bit model followed by a 16-bit quantity. Only quantity is
 editable; the original model half remains intact through edits, saving and ROM
 creation. `src/ammoconstants.h` shares the AMMOTYPE enum and solo ammo multiplier
-constants between the game and editor without changing native IDs, record layouts
-or difficulty behavior.
+constants between the game and editor. Ammo IDs are compact: 9mm is 1, rifle
+is 2, and Golden Gun ammo is 12. Rebuild GUD and create a new project after
+this refactor; manifest version 3 rejects ROMs with the old thirteen-slot layout.
+Do not replace an old project's base ROM or copy old setup files into a new project.
 
 ## Extending the inspector
 
@@ -106,7 +106,12 @@ The native checks cover all 21 parsed ObjectRecord types, exact preservation of
 unrelated bytes, save/reload, quantization, invalid/stale requests, history and
 rollback. Input checks exercise production parsing and keyboard/commit logic
 with Win32 controls stubbed. They also cover all ammo slots, zero/full quantities,
-four-difficulty previews, per-slot rounding, merged 9mm totals, complete summaries
+four-difficulty previews, per-slot rounding, the single 9mm slot, complete summaries
 for full crates, high key bits and rejection of fields belonging to another
 object type. Windows visual testing is still needed for panel
 layout, scrolling, dropdown interaction and model previews.
+
+After building GUD, `python3 tools/geditor/tests/ammo_layout/run.py` checks the
+compiled N64 ammo tables and setup command boundaries. An optional second build
+directory compares quantities, command references and weapon stats against the
+pre-refactor layout.

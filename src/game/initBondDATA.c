@@ -354,7 +354,7 @@ void init_player_BONDdata_stats(void)
     g_CurrentPlayer->hands[0] = sp24;
     g_CurrentPlayer->hands[1] = sp24;
 
-    for (i=0; i<30; i++)
+    for (i=0; i<AMMOTYPE_MAX; i++)
     {
         g_CurrentPlayer->ammoheldarr[i] = 0;
     }

@@ -954,7 +954,7 @@ struct player
    */
   s32 gunsightmode;
   s32 field_112C;
-  s32 ammoheldarr[30]; // canonical name
+  s32 ammoheldarr[AMMOTYPE_MAX]; // canonical name
   u8 *bloodImgCur;
   u8 *bloodImgNxt;
   u8 *bloodImgBufPtrArray[2];

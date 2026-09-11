@@ -6,7 +6,6 @@ typedef enum AMMOTYPE
 {
     AMMO_NONE,
     AMMO_9MM,
-    AMMO_9MM_2,
     AMMO_RIFLE,
     AMMO_SHOTGUN,
     AMMO_GRENADE,

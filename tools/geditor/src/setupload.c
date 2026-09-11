@@ -87,7 +87,7 @@ static DWORD SetupObjectWordCount(unsigned char type)
     case 17: return 32;
     case 18: return 3;
     case 19: return 4;
-    case 20: return 0x2d;
+    case 20: return 32 + AMMOTYPE_GLOBAL_MAX; /* MultiAmmoCrateRecord */
     case 21: return 0x22;
     case 22: return 4;
     case 23: return 4;

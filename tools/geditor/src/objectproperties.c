@@ -49,7 +49,7 @@ typedef struct ObjectPropertiesState {
 
 /* Designated native IDs keep names correct if the enum grows. */
 static const char *g_AmmoNames[AMMOTYPE_MAX] = {
-    [AMMO_NONE] = "None", [AMMO_9MM] = "9mm", [AMMO_9MM_2] = "9mm (alternate slot)",
+    [AMMO_NONE] = "None", [AMMO_9MM] = "9mm",
     [AMMO_RIFLE] = "Rifle rounds", [AMMO_SHOTGUN] = "Shotgun shells",
     [AMMO_GRENADE] = "Grenades", [AMMO_ROCKETS] = "Rockets",
     [AMMO_REMOTEMINE] = "Remote mines", [AMMO_PROXMINE] = "Proximity mines",
@@ -252,8 +252,7 @@ static void ObjectPropertiesApplyModel(HWND hwnd, ObjectPropertiesState *state)
     { ObjectPropertiesApply(hwnd, state, SETUP_OBJECT_MODEL, model); }
 }
 
-/* Match propobj.c: multiply/truncate each slot before merging the two 9mm
- * slots. These are amounts offered by the pickup, before inventory limits. */
+/* Match propobj.c: multiply each slot's base quantity and truncate. */
 static BOOL ObjectPropertiesFormatContents(const SetupObjectProperties *properties, BOOL multiplayer, char *text, size_t capacity)
 {
     static const float multipliers[] = {
@@ -270,17 +269,15 @@ static BOOL ObjectPropertiesFormatContents(const SetupObjectProperties *properti
     for (DWORD ammo = 1; ammo <= AMMOTYPE_GLOBAL_MAX; ammo++)
     {
         DWORD base = properties->ammo[ammo - 1].quantity;
-        DWORD alternate = ammo == AMMO_9MM ? properties->ammo[AMMO_9MM_2 - 1].quantity : 0;
         DWORD amount[4];
-        if (ammo == AMMO_9MM_2 || (!base && !alternate)) { continue; }
+        if (!base) { continue; }
         any = TRUE;
         for (int difficulty = 0; difficulty < 4; difficulty++)
         {
-            amount[difficulty] = (DWORD)((float)base * multipliers[difficulty])
-                               + (DWORD)((float)alternate * multipliers[difficulty]);
+            amount[difficulty] = (DWORD)((float)base * multipliers[difficulty]);
         }
         if (multiplayer)
-        { length = snprintf(text + used, capacity - used, "\r\n%s: %lu", g_AmmoNames[ammo], (unsigned long)(base + alternate)); }
+        { length = snprintf(text + used, capacity - used, "\r\n%s: %lu", g_AmmoNames[ammo], (unsigned long)base); }
         else
         {
             length = snprintf(text + used, capacity - used,
@@ -297,7 +294,8 @@ static BOOL ObjectPropertiesFormatContents(const SetupObjectProperties *properti
         used += (size_t)length;
     }
 
-    length = snprintf(text + used, capacity - used, any ? "\r\n\r\nInventory limits still apply." : "\r\nEmpty");
+    if (any) { return TRUE; }
+    length = snprintf(text + used, capacity - used, "\r\nEmpty");
 
     return length >= 0 && (size_t)length < capacity - used;
 }

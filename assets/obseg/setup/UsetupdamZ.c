@@ -1210,27 +1210,27 @@ s32 intro[] = {
     /* Type = StartWeapon; index = 19 */
     _mkword(0, _mkshort(0, 1)), 5, -1, 0,
     /* Type = StartAmmo; index = 20 */
-    _mkword(0, _mkshort(0, 2)), 1, 100, 0,
+    _mkword(0, _mkshort(0, 2)), AMMO_9MM, 100, 0,
     /* Type = StartWeapon; index = 21 */
     _mkword(0, _mkshort(0, 1)), 47, -1, 0,
     /* Type = StartAmmo; index = 22 */
-    _mkword(0, _mkshort(0, 2)), 20, 1, 0,
+    _mkword(0, _mkshort(0, 2)), AMMO_BUG, 1, 0,
     /* Type = Spawn; index = 23 */
     _mkword(0, _mkshort(0, 0)), 140, 1,
     /* Type = StartWeapon; index = 24 */
     _mkword(0, _mkshort(0, 1)), 8, -1, 1,
     /* Type = StartAmmo; index = 25 */
-    _mkword(0, _mkshort(0, 2)), 3, 100, 1,
+    _mkword(0, _mkshort(0, 2)), AMMO_RIFLE, 100, 1,
     /* Type = StartWeapon; index = 26 */
     _mkword(0, _mkshort(0, 1)), 47, -1, 1,
     /* Type = StartAmmo; index = 27 */
-    _mkword(0, _mkshort(0, 2)), 20, 1, 1,
+    _mkword(0, _mkshort(0, 2)), AMMO_BUG, 1, 1,
     /* Type = Spawn; index = 28 */
     _mkword(0, _mkshort(0, 0)), 270, 2,
     /* Type = StartWeapon; index = 29 */
     _mkword(0, _mkshort(0, 1)), 17, -1, 2,
     /* Type = StartAmmo; index = 30 */
-    _mkword(0, _mkshort(0, 2)), 3, 100, 2,
+    _mkword(0, _mkshort(0, 2)), AMMO_RIFLE, 100, 2,
     /* Type = Cuff; index = 31 */
     _mkword(0, _mkshort(0, 5)), 3,
     /* Type = EndIntro; index = 32 */

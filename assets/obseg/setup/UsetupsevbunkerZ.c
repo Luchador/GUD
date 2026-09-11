@@ -541,7 +541,7 @@ s32 propDefs[] = {
     /* Type = Collectable; index = 167 */
     _mkword(256, _mkshort(0, 8)), _mkword(184, 24), 0x00004000, 0x00000000, 0x00000000, 0x00000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000000, 0x00000000, 0, 0, _mkword(1000, 0), 0, 0, _mkword(_mkshort(0x08, 0xff), 0xffff), 0,
     /* Type = AmmoBox; index = 168 */
-    _mkword(128, _mkshort(0, 20)), _mkword(3, 48), 0x00000001, 0x00000000, 0x00000000, 0x00000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000000, 0x00000000, 0, 0, _mkword(1000, 0), 0, 0, _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 10), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0),
+    _mkword(128, _mkshort(0, 20)), _mkword(3, 48), 0x00000001, 0x00000000, 0x00000000, 0x00000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000000, 0x00000000, 0, 0, _mkword(1000, 0), 0, 0, _mkword(0xffff, 0), _mkword(0xffff, 10), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0),
     /* Type = Hat; index = 169 */
     _mkword(256, _mkshort(0, 17)), _mkword(220, 0), 0x00004000, 0x00000000, 0x00000000, 0x00000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000000, 0x00000000, 0, 0, _mkword(1000, 0), 0, 0,
     /* Type = SetGuardAttribute; index = 170 */
@@ -637,13 +637,13 @@ s32 intro[] = {
     /* Type = StartWeapon; index = 7 */
     _mkword(0, _mkshort(0, 1)), 5, -1, 0,
     /* Type = StartAmmo; index = 8 */
-    _mkword(0, _mkshort(0, 2)), 1, 100, 0,
+    _mkword(0, _mkshort(0, 2)), AMMO_9MM, 100, 0,
     /* Type = StartWeapon; index = 9 */
     _mkword(0, _mkshort(0, 1)), 46, -1, 0,
     /* Type = StartWeapon; index = 10 */
     _mkword(0, _mkshort(0, 1)), 40, -1, 0,
     /* Type = StartAmmo; index = 11 */
-    _mkword(0, _mkshort(0, 2)), 27, 10, 0,
+    _mkword(0, _mkshort(0, 2)), AMMO_CAMERA, 10, 0,
     /* Type = StartWeapon; index = 12 */
     _mkword(0, _mkshort(0, 1)), 55, -1, 0,
     /* Type = Spawn; index = 13 */
@@ -651,17 +651,17 @@ s32 intro[] = {
     /* Type = StartWeapon; index = 14 */
     _mkword(0, _mkshort(0, 1)), 8, -1, 1,
     /* Type = StartAmmo; index = 15 */
-    _mkword(0, _mkshort(0, 2)), 3, 100, 1,
+    _mkword(0, _mkshort(0, 2)), AMMO_RIFLE, 100, 1,
     /* Type = Spawn; index = 16 */
     _mkword(0, _mkshort(0, 0)), 78, 2,
     /* Type = StartWeapon; index = 17 */
     _mkword(0, _mkshort(0, 1)), 8, -1, 2,
     /* Type = StartAmmo; index = 18 */
-    _mkword(0, _mkshort(0, 2)), 3, 100, 2,
+    _mkword(0, _mkshort(0, 2)), AMMO_RIFLE, 100, 2,
     /* Type = StartWeapon; index = 19 */
     _mkword(0, _mkshort(0, 1)), 5, -1, 2,
     /* Type = StartAmmo; index = 20 */
-    _mkword(0, _mkshort(0, 2)), 1, 100, 2,
+    _mkword(0, _mkshort(0, 2)), AMMO_9MM, 100, 2,
     /* Type = Cuff; index = 21 */
     _mkword(0, _mkshort(0, 5)), 3,
     /* Type = IntroCam; index = 22 */

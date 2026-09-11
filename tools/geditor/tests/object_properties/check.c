@@ -124,7 +124,7 @@ static void CheckKeysAndAmmo(const char *dir, const SetupFile *source)
     edit.slot = (DWORD)-1;
     assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why));
     assert(!setup.dirty); Same(&setup, source); SetupFileFree(&setup);
-    puts("PASS: 32-bit keys, every ammo type and all 13 quantity slots; native byte preservation, save/reload, undo/redo and invalid edits.");
+    puts("PASS: 32-bit keys, every ammo type and all 12 quantity slots; native byte preservation, save/reload, undo/redo and invalid edits.");
 }
 
 int main(int argc, char **argv)

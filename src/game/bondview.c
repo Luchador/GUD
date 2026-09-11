@@ -8435,7 +8435,7 @@ void mp_respawn_handler(void)
     bondinvReinitInv();
     var_v0 = 0;
 
-    while (var_v0 != 30)
+    while (var_v0 < AMMOTYPE_MAX)
     {
         g_CurrentPlayer->ammoheldarr[var_v0++] = 0;
     }

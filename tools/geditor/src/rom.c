@@ -19,7 +19,7 @@
 
 #define ROM_MANIFEST_MAGIC     "GUDGEDITORMANIF"  /* + implicit NUL = 16 bytes */
 #define ROM_MANIFEST_MAGIC_LEN 16
-#define ROM_MANIFEST_VERSION   2
+#define ROM_MANIFEST_VERSION   3
 
 /* The ROM is big-endian; the PC is not. All multi-byte reads go
    through this. */

@@ -14,7 +14,12 @@ and entry count. Each entry is four big-endian `u32` fields:
 | 8 | `romend` | Exclusive ROM offset; zero only for documented self-terminating legacy kinds |
 | 12 | `flags` | Kind-specific metadata; not a universal compression field |
 
-The envelope remains version 2. Existing entry layouts have not changed.
+The current version is 3. Ammo IDs now omit the redundant second 9mm type,
+and `MultiAmmoCrateRecord` contains twelve slots (176 bytes total). IDs after
+9mm shift down by one. Existing entry layouts are unchanged, but the version
+bump prevents older readers from misinterpreting these setup resources.
+Rebuild GUD and create a fresh project with the matching editor; old base ROMs
+and setup files are not compatible.
 There are currently 28 entries; the current GEditor accepts up to 32. The
 16 new discovery entries below are optional to existing editor features.
 Readers must find entries by kind rather than position and bounds-check even

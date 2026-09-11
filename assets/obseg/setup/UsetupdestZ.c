@@ -861,23 +861,23 @@ s32 intro[] = {
     /* Type = StartWeapon; index = 7 */
     _mkword(0, _mkshort(0, 1)), 11, -1, 0,
     /* Type = StartAmmo; index = 8 */
-    _mkword(0, _mkshort(0, 2)), 1, 40, 0,
+    _mkword(0, _mkshort(0, 2)), AMMO_9MM, 40, 0,
     /* Type = StartWeapon; index = 9 */
     _mkword(0, _mkshort(0, 1)), 4, -1, 0,
     /* Type = StartAmmo; index = 10 */
-    _mkword(0, _mkshort(0, 2)), 1, 20, 0,
+    _mkword(0, _mkshort(0, 2)), AMMO_9MM, 20, 0,
     /* Type = StartWeapon; index = 11 */
     _mkword(0, _mkshort(0, 1)), 39, -1, 0,
     /* Type = StartWeapon; index = 12 */
     _mkword(0, _mkshort(0, 1)), 47, -1, 0,
     /* Type = StartAmmo; index = 13 */
-    _mkword(0, _mkshort(0, 2)), 20, 1, 0,
+    _mkword(0, _mkshort(0, 2)), AMMO_BUG, 1, 0,
     /* Type = Spawn; index = 14 */
     _mkword(0, _mkshort(0, 0)), 139, 1,
     /* Type = StartWeapon; index = 15 */
     _mkword(0, _mkshort(0, 1)), 11, -1, 1,
     /* Type = StartAmmo; index = 16 */
-    _mkword(0, _mkshort(0, 2)), 1, 50, 1,
+    _mkword(0, _mkshort(0, 2)), AMMO_9MM, 50, 1,
     /* Type = Cuff; index = 17 */
     _mkword(0, _mkshort(0, 5)), 0,
     /* Type = SwirlCam; index = 18 */

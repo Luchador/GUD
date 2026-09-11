@@ -199,9 +199,9 @@
 // #define switch(numAwayForControlling, numAwayForControlled, field_0xc) \
 //     0x13, numAwayForControlling, numAwayForControlled, field_0xc,
 
-// #define ammobox(scale, state, objectID, presetID, flags1, flags2, ptrPOSData, ptrObjInstanceController, u18, u1c, u20, u24, u28, u2c, u30, u34, u38, u3c, u40, u44, u48, u4c, u50, u54, xPOS, yPOS, zPOS, bitflags, ptrCollisionblock, u6c, u70, health, maxhealth, u78, u7c, ammo_9mm, ammo_9mm_2, ammo_rifle, ammo_shotgun, ammo_hgrenade, ammo_rockets, ammo_remote, ammo_prox, ammo_timed, ammo_throwing, ammo_glaunch, ammo_magnum, ammo_golden) \
+// #define ammobox(scale, state, objectID, presetID, flags1, flags2, ptrPOSData, ptrObjInstanceController, u18, u1c, u20, u24, u28, u2c, u30, u34, u38, u3c, u40, u44, u48, u4c, u50, u54, xPOS, yPOS, zPOS, bitflags, ptrCollisionblock, u6c, u70, health, maxhealth, u78, u7c, ammo_9mm, ammo_rifle, ammo_shotgun, ammo_hgrenade, ammo_rockets, ammo_remote, ammo_prox, ammo_timed, ammo_throwing, ammo_glaunch, ammo_magnum, ammo_golden) \
 //     _generic_object(scale, state, 0x14, objectID, presetID, flags1, flags2, ptrPOSData, ptrObjInstanceController, u18, u1c, u20, u24, u28, u2c, u30, u34, u38, u3c, u40, u44, u48, u4c, u50, u54, xPOS, yPOS, zPOS, bitflags, ptrCollisionblock, u6c, u70, health, maxhealth, u78, u7c), \
-//     ammo_9mm, ammo_9mm_2, ammo_rifle, ammo_shotgun, ammo_hgrenade, ammo_rockets, ammo_remote, ammo_prox, ammo_timed, ammo_throwing, ammo_glaunch, ammo_magnum, ammo_golden,
+//     ammo_9mm, ammo_rifle, ammo_shotgun, ammo_hgrenade, ammo_rockets, ammo_remote, ammo_prox, ammo_timed, ammo_throwing, ammo_glaunch, ammo_magnum, ammo_golden,
 
 // #define bodyarmor(scale, state, objectID, presetID, flags1, flags2, ptrPOSData, ptrObjInstanceController, u18, u1c, u20, u24, u28, u2c, u30, u34, u38, u3c, u40, u44, u48, u4c, u50, u54, xPOS, yPOS, zPOS, bitflags, ptrCollisionblock, u6c, u70, health, maxhealth, u78, u7c, armor_strength, armor_percent) \
 //     _generic_object(scale, state, 0x15, objectID, presetID, flags1, flags2, ptrPOSData, ptrObjInstanceController, u18, u1c, u20, u24, u28, u2c, u30, u34, u38, u3c, u40, u44, u48, u4c, u50, u54, xPOS, yPOS, zPOS, bitflags, ptrCollisionblock, u6c, u70, health, maxhealth, u78, u7c), \

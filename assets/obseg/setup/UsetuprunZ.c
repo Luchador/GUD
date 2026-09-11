@@ -428,11 +428,11 @@ s32 propDefs[] = {
     /* Type = SetGuardAttribute; index = 96 */
     _mkword(0, _mkshort(0, 18)), 20, 0x00000019,
     /* Type = AmmoBox; index = 97 */
-    _mkword(256, _mkshort(0, 20)), _mkword(5, 3), 0x00000001, 0x00000000, 0x00000000, 0x00000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000000, 0x00000000, 0, 0, _mkword(1000, 0), 0, 0, _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 5), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0),
+    _mkword(256, _mkshort(0, 20)), _mkword(5, 3), 0x00000001, 0x00000000, 0x00000000, 0x00000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000000, 0x00000000, 0, 0, _mkword(1000, 0), 0, 0, _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 5), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0),
     /* Type = AmmoBox; index = 98 */
-    _mkword(256, _mkshort(0, 20)), _mkword(5, 25), 0x00000001, 0x00000000, 0x00000000, 0x00000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000000, 0x00000000, 0, 0, _mkword(1000, 0), 0, 0, _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 5), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0),
+    _mkword(256, _mkshort(0, 20)), _mkword(5, 25), 0x00000001, 0x00000000, 0x00000000, 0x00000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000000, 0x00000000, 0, 0, _mkword(1000, 0), 0, 0, _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 5), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0),
     /* Type = AmmoBox; index = 99 */
-    _mkword(128, _mkshort(0, 20)), _mkword(4, 24), 0x00000001, 0x00000000, 0x00000000, 0x00000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000000, 0x00000000, 0, 0, _mkword(1000, 0), 0, 0, _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 5), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0),
+    _mkword(128, _mkshort(0, 20)), _mkword(4, 24), 0x00000001, 0x00000000, 0x00000000, 0x00000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000000, 0x00000000, 0, 0, _mkword(1000, 0), 0, 0, _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 5), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0), _mkword(0xffff, 0),
     /* Type = Tag; index = 100 */
     _mkword(0, _mkshort(0, 22)), _mkword(3, 0x0001), 0, 0,
     /* Type = Aircraft; index = 101 */
@@ -536,19 +536,19 @@ s32 intro[] = {
     /* Type = StartWeapon; index = 8 */
     _mkword(0, _mkshort(0, 1)), 5, -1, 0,
     /* Type = StartAmmo; index = 9 */
-    _mkword(0, _mkshort(0, 2)), 1, 100, 0,
+    _mkword(0, _mkshort(0, 2)), AMMO_9MM, 100, 0,
     /* Type = Spawn; index = 10 */
     _mkword(0, _mkshort(0, 0)), 140, 1,
     /* Type = StartWeapon; index = 11 */
     _mkword(0, _mkshort(0, 1)), 26, -1, 1,
     /* Type = StartAmmo; index = 12 */
-    _mkword(0, _mkshort(0, 2)), 5, 6, 1,
+    _mkword(0, _mkshort(0, 2)), AMMO_GRENADE, 6, 1,
     /* Type = Spawn; index = 13 */
     _mkword(0, _mkshort(0, 0)), 142, 2,
     /* Type = StartWeapon; index = 14 */
     _mkword(0, _mkshort(0, 1)), 8, -1, 2,
     /* Type = StartAmmo; index = 15 */
-    _mkword(0, _mkshort(0, 2)), 3, 100, 2,
+    _mkword(0, _mkshort(0, 2)), AMMO_RIFLE, 100, 2,
     /* Type = Cuff; index = 16 */
     _mkword(0, _mkshort(0, 5)), 3,
     /* Type = SwirlCam; index = 17 */

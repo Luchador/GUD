@@ -8948,11 +8948,6 @@ apply_damage:
                         crate->obj = modelnum;
                         crate->ammoType = slot + 1;
 
-                        if (crate->ammoType == AMMO_9MM_2)
-                        {
-                            crate->ammoType = AMMO_9MM;
-                        }
-
                         if (objInitWithModelDef((ObjectRecord *)crate, PitemZ_entries[modelnum].header) != NULL)
                         {
                             modelSetScale(crate->model, crate->model->scale);
@@ -9515,7 +9510,6 @@ void append_text_ammo_amount_word(u8 *buffer, AMMOTYPE ammotype,u32 amount)
 
     switch(ammotype) {
     case AMMO_9MM:
-    case AMMO_9MM_2:
     case AMMO_RIFLE:
     case AMMO_PLASTIQUE:
         textfiletext = langGet(getStringID(LPROPOBJ,PROPOBJ_STR_01_SOME)); //some
@@ -9575,7 +9569,7 @@ void append_text_ammo_amount_word(u8 *buffer, AMMOTYPE ammotype,u32 amount)
 void apped_text_ammotype(u8 *buffer, AMMOTYPE ammotype, s32 amount)
 {
     u8 *textfiletext;
-    if (((ammotype == AMMO_9MM) || (ammotype == AMMO_9MM_2)) || (ammotype == AMMO_RIFLE))
+    if ((ammotype == AMMO_9MM) || (ammotype == AMMO_RIFLE))
     {
         textfiletext = langGet(getStringID(LPROPOBJ,PROPOBJ_STR_05_AMMO)); //ammo
         strcat(buffer,textfiletext);
@@ -9710,7 +9704,6 @@ void set_sound_effect_for_ammo_collection(AMMOTYPE ammotype)
 {
     switch(ammotype) {
         case AMMO_9MM:
-        case AMMO_9MM_2:
         case AMMO_RIFLE:
         case AMMO_SHOTGUN:
         case AMMO_GRENADE:
@@ -9881,7 +9874,6 @@ s32 get_ammo_in_magazine(AmmoCrateRecord *crate)
     switch (crate->ammoType)
     {
         case AMMO_9MM:     qty = 10; break;
-        case AMMO_9MM_2:   qty = 10; break;
         case AMMO_RIFLE:   qty = 10; break;
         case AMMO_SHOTGUN: qty =  5; break;
         case AMMO_MAGNUM:  qty =  5; break;
@@ -9914,7 +9906,6 @@ s32 objGetCollectedAmmoFromWeapon(WeaponObjRecord *weapon)
     switch (ammotype)
     {
         case AMMO_9MM:          qty = 10; break;
-        case AMMO_9MM_2:        qty = 10; break;
         case AMMO_RIFLE:        qty = 10; break;
         case AMMO_SHOTGUN:      qty =  5; break;
         case AMMO_MAGNUM:       qty =  5; break;
@@ -10150,11 +10141,6 @@ TICKOP propPickupByPlayer(PropRecord *prop, bool showstring)
             for (i = AMMO_NONE; i < AMMOTYPE_GLOBAL_MAX; i++)
             {
                 ammotype = i + 1;
-
-                if (ammotype == AMMO_9MM_2)
-                {
-                    ammotype = AMMO_9MM;
-                }
 
                 ammoquantity = multicrate->slots[i].quantity;
 
@@ -10563,10 +10549,6 @@ TICKOP objTickPlayer(struct PropRecord* prop)
             s32 sp64;
 
             sp64 = i + 1;
-
-            if (i == 1) {
-                sp64 = 1;
-            }
 
             if (multiAmmoCrateObj->slots[i].quantity > 0) 
             {
