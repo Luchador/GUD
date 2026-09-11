@@ -2568,6 +2568,19 @@ BOOL SetupFileGetObjectProperties(const SetupFile *setup, DWORD index,
     out->object = setup->objects[index];
     out->health = (LONG)SetupRead32(record + 0x74) / 65536.0;
     if (out->object.type == PROPDEF_KEY) { out->keyflags = SetupRead32(record + 0x80); }
+    if (out->object.type == PROPDEF_DOOR)
+    {
+        out->door.travel = (LONG)SetupRead32(record + 0x84) / 65536.0;
+        out->door.clearance = (LONG)SetupRead32(record + 0x88) / 65536.0;
+        out->door.accel = (LONG)SetupRead32(record + 0x8c) / 65536.0;
+        out->door.decel = (LONG)SetupRead32(record + 0x90) / 65536.0;
+        out->door.speed = (LONG)SetupRead32(record + 0x94) / 65536.0;
+        out->door.flags = (unsigned short)(SetupRead32(record + 0x98) >> 16);
+        out->door.type = (unsigned short)SetupRead32(record + 0x98);
+        out->keyflags = SetupRead32(record + 0x9c);
+        out->door.closeframes = SetupRead32(record + 0xa0);
+        out->door.sound = SetupRead32(record + 0xa4);
+    }
     if (out->object.type == PROPDEF_MAGAZINE) { out->ammotype = SetupRead32(record + 0x80); }
     if (out->object.type == PROPDEF_AMMO)
     {
@@ -2625,8 +2638,55 @@ BOOL SetupFileSetObjectProperty(SetupFile *setup, const SetupObjectPropertyEdit 
     { *reasonout = "The selected object changed; select it again before editing."; return FALSE; }
     if (!isfinite(edit->value))
     { *reasonout = "Enter a finite number."; return FALSE; }
+    if (edit->property >= SETUP_OBJECT_DOOR_TRAVEL && edit->property <= SETUP_OBJECT_DOOR_KEY_FLAGS
+        && record[3] != PROPDEF_DOOR)
+    { *reasonout = "Door settings can only be edited on a door."; return FALSE; }
     switch (edit->property)
     {
+    case SETUP_OBJECT_DOOR_TRAVEL:
+    case SETUP_OBJECT_DOOR_CLEARANCE:
+    case SETUP_OBJECT_DOOR_ACCEL:
+    case SETUP_OBJECT_DOOR_DECEL:
+    case SETUP_OBJECT_DOOR_SPEED:
+        if (edit->value < 0 || edit->value > 2147483647.0 / 65536.0)
+        { *reasonout = "Door movement is outside the supported range."; return FALSE; }
+        encoded = (DWORD)floor(edit->value * 65536.0 + 0.5);
+        /* chrobjApplySpeed divides by deceleration; zero acceleration cannot
+         * start a stationary door. Require at least one native fixed-point step. */
+        if (!encoded && (edit->property == SETUP_OBJECT_DOOR_ACCEL || edit->property == SETUP_OBJECT_DOOR_DECEL))
+        { *reasonout = "Door acceleration and deceleration must be positive."; return FALSE; }
+        offset = 0x84 + 4 * (edit->property - SETUP_OBJECT_DOOR_TRAVEL);
+        if (encoded == SetupRead32(record + offset)) { return TRUE; }
+        SetupWrite32(setup->data + edit->sourceoffset + offset, encoded);
+        break;
+    case SETUP_OBJECT_DOOR_CLOSE_DELAY:
+        /* Authored seconds, stored in 60 Hz ticks. The game compares this
+         * delay using signed timer arithmetic. Zero means no waiting. */
+        if (edit->value < 0 || edit->value > 2147483647.0 / 60.0)
+        { *reasonout = "Enter a door close delay from 0 to 35791394.11666667 seconds."; return FALSE; }
+        encoded = (DWORD)floor(edit->value * 60.0 + 0.5);
+        if (encoded == SetupRead32(record + 0xa0)) { return TRUE; }
+        SetupWrite32(setup->data + edit->sourceoffset + 0xa0, encoded);
+        break;
+    case SETUP_OBJECT_DOOR_TYPE:
+    case SETUP_OBJECT_DOOR_SOUND:
+    case SETUP_OBJECT_DOOR_FLAGS:
+    case SETUP_OBJECT_DOOR_KEY_FLAGS:
+        if (edit->value < 0 || floor(edit->value) != edit->value
+            || edit->value > (edit->property == SETUP_OBJECT_DOOR_TYPE ? DOORTYPE_AZTECCHAIR
+                : edit->property == SETUP_OBJECT_DOOR_SOUND ? DOOR_OPEN_SOUND_METAL_4
+                : edit->property == SETUP_OBJECT_DOOR_FLAGS ? 65535.0 : 4294967295.0))
+        { *reasonout = "Choose a supported door type, sound or flag mask."; return FALSE; }
+        encoded = (DWORD)edit->value;
+        offset = edit->property == SETUP_OBJECT_DOOR_SOUND ? 0xa4
+            : edit->property == SETUP_OBJECT_DOOR_KEY_FLAGS ? 0x9c : 0x98;
+        previous = SetupRead32(record + offset);
+        if (edit->property == SETUP_OBJECT_DOOR_TYPE) { encoded |= previous & 0xffff0000u; }
+        if (edit->property == SETUP_OBJECT_DOOR_FLAGS)
+        { encoded = (encoded << 16) | (previous & 0xffffu); }
+        if (encoded == previous) { return TRUE; }
+        SetupWrite32(setup->data + edit->sourceoffset + offset, encoded);
+        break;
     case SETUP_OBJECT_KEY_FLAGS:
     case SETUP_OBJECT_AMMO_TYPE:
         if (record[3] != (edit->property == SETUP_OBJECT_KEY_FLAGS ? PROPDEF_KEY : PROPDEF_MAGAZINE))

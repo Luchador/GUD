@@ -57,14 +57,24 @@ static void CheckSpecificEdit(const char *dir, const SetupFile *source,
     BgDocument bg = {0}; StanFile stan = {0}; const char *why; BOOL changed;
     assert(SetupFileClone(source, &setup, &why));
     EditHistoryReset(&history, &bg, &setup, &stan);
-    assert(EditHistoryBeginSetupEdit(&history, &setup, "Edit Key/Ammo", &tx, &why));
+    assert(EditHistoryBeginSetupEdit(&history, &setup, "Edit Object Property", &tx, &why));
     assert(SetupFileSetObjectProperty(&setup, &edit, &changed, &why) && changed);
     assert(SetupFileGetObjectProperties(&setup, edit.objectindex, &properties, &why));
     switch (edit.property)
     {
+    case SETUP_OBJECT_DOOR_KEY_FLAGS:
     case SETUP_OBJECT_KEY_FLAGS: assert(properties.keyflags == (DWORD)edit.value); break;
     case SETUP_OBJECT_AMMO_TYPE: assert(properties.ammotype == (DWORD)edit.value); break;
     case SETUP_OBJECT_AMMO_QUANTITY: assert(properties.ammo[edit.slot].quantity == (unsigned short)edit.value); break;
+    case SETUP_OBJECT_DOOR_TYPE: assert(properties.door.type == (unsigned short)edit.value); break;
+    case SETUP_OBJECT_DOOR_FLAGS: assert(properties.door.flags == (unsigned short)edit.value); break;
+    case SETUP_OBJECT_DOOR_SOUND: assert(properties.door.sound == (DWORD)edit.value); break;
+    case SETUP_OBJECT_DOOR_CLOSE_DELAY: assert(properties.door.closeframes == (DWORD)floor(edit.value * 60.0 + 0.5)); break;
+    case SETUP_OBJECT_DOOR_TRAVEL: assert(fabs(properties.door.travel - edit.value) <= 0.5 / 65536.0); break;
+    case SETUP_OBJECT_DOOR_CLEARANCE: assert(fabs(properties.door.clearance - edit.value) <= 0.5 / 65536.0); break;
+    case SETUP_OBJECT_DOOR_ACCEL: assert(fabs(properties.door.accel - edit.value) <= 0.5 / 65536.0); break;
+    case SETUP_OBJECT_DOOR_DECEL: assert(fabs(properties.door.decel - edit.value) <= 0.5 / 65536.0); break;
+    case SETUP_OBJECT_DOOR_SPEED: assert(fabs(properties.door.speed - edit.value) <= 0.5 / 65536.0); break;
     default: assert(0);
     }
     OnlyBytes(source, &setup, edit.sourceoffset + relative, length);
@@ -127,12 +137,82 @@ static void CheckKeysAndAmmo(const char *dir, const SetupFile *source)
     puts("PASS: 32-bit keys, every ammo type and all 12 quantity slots; native byte preservation, save/reload, undo/redo and invalid edits.");
 }
 
+static void CheckDoors(const char *dir, const SetupFile *source)
+{
+    DWORD door = FindType(source, PROPDEF_DOOR), prop = FindType(source, PROPDEF_PROP);
+    SetupObjectPropertyEdit edit;
+    /* Native signed 16.16 offsets, including clearance beyond full travel. */
+    for (int property = SETUP_OBJECT_DOOR_TRAVEL; property <= SETUP_OBJECT_DOOR_SPEED; property++)
+    {
+        double values[] = {1.0 / 65536.0, 0.1, 90, 1000, 2147483647.0 / 65536.0};
+        for (unsigned int i = 0; i < sizeof(values) / sizeof(*values); i++)
+        {
+            edit = Request(source, door, property, values[i]);
+            CheckSpecificEdit(dir, source, edit, 0x84 + (property - SETUP_OBJECT_DOOR_TRAVEL) * 4, 4);
+        }
+        if (property != SETUP_OBJECT_DOOR_ACCEL && property != SETUP_OBJECT_DOOR_DECEL)
+        {
+            edit.value = 0;
+            CheckSpecificEdit(dir, source, edit, 0x84 + (property - SETUP_OBJECT_DOOR_TRAVEL) * 4, 4);
+        }
+    }
+    for (int type = DOORTYPE_SLIDING; type <= DOORTYPE_AZTECCHAIR; type++)
+    { CheckSpecificEdit(dir, source, Request(source, door, SETUP_OBJECT_DOOR_TYPE, type), 0x9a, 2); }
+    for (int sound = DOOR_OPEN_SOUND_NONE; sound <= DOOR_OPEN_SOUND_METAL_4; sound++)
+    { CheckSpecificEdit(dir, source, Request(source, door, SETUP_OBJECT_DOOR_SOUND, sound), 0xa4, 4); }
+    const double delays[] = {0, 1.0 / 60.0, 0.1, 15, 25, 268435455.0 / 60.0, 2147483647.0 / 60.0};
+    for (unsigned int i = 0; i < sizeof(delays) / sizeof(*delays); i++)
+    { CheckSpecificEdit(dir, source, Request(source, door, SETUP_OBJECT_DOOR_CLOSE_DELAY, delays[i]), 0xa0, 4); }
+    const DWORD masks[] = {0, 1, 0x80000000u, 0xffffffffu};
+    for (unsigned int i = 0; i < sizeof(masks) / sizeof(*masks); i++)
+    { CheckSpecificEdit(dir, source, Request(source, door, SETUP_OBJECT_DOOR_KEY_FLAGS, masks[i]), 0x9c, 4); }
+    for (int bit = 0; bit < 4; bit++)
+    {
+        DWORD original = Read32(source->data + source->objects[door].sourceoffset + 0x98) >> 16;
+        /* All unknown flag bits and the adjacent movement type survive toggles. */
+        CheckSpecificEdit(dir, source, Request(source, door, SETUP_OBJECT_DOOR_FLAGS, original ^ (1u << bit)), 0x98, 2);
+    }
+    SetupFile setup = {0}; const char *why; BOOL changed;
+    assert(SetupFileClone(source, &setup, &why));
+    const double invalid[] = {-1, NAN, INFINITY, 4294967296.0};
+    for (int property = SETUP_OBJECT_DOOR_TRAVEL; property <= SETUP_OBJECT_DOOR_KEY_FLAGS; property++)
+    {
+        for (unsigned int i = 0; i < sizeof(invalid) / sizeof(*invalid); i++)
+        {
+            edit = Request(&setup, door, property, invalid[i]);
+            assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why) && !changed && !setup.dirty);
+            Same(&setup, source);
+        }
+        edit = Request(&setup, prop, property, 1);
+        assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why)); Same(&setup, source);
+    }
+    const struct { SetupObjectProperty property; double value; } bad[] = {
+        {SETUP_OBJECT_DOOR_ACCEL, 0}, {SETUP_OBJECT_DOOR_DECEL, 0},
+        {SETUP_OBJECT_DOOR_ACCEL, 0.1 / 65536.0}, {SETUP_OBJECT_DOOR_DECEL, 0.1 / 65536.0},
+        {SETUP_OBJECT_DOOR_TRAVEL, 32768}, {SETUP_OBJECT_DOOR_CLEARANCE, 32768},
+        {SETUP_OBJECT_DOOR_SPEED, 32768}, {SETUP_OBJECT_DOOR_CLOSE_DELAY, 2147483648.0 / 60.0},
+        {SETUP_OBJECT_DOOR_TYPE, 10}, {SETUP_OBJECT_DOOR_TYPE, 1.5},
+        {SETUP_OBJECT_DOOR_SOUND, 18}, {SETUP_OBJECT_DOOR_SOUND, 1.5},
+        {SETUP_OBJECT_DOOR_FLAGS, 65536}, {SETUP_OBJECT_DOOR_FLAGS, 1.5},
+        {SETUP_OBJECT_DOOR_KEY_FLAGS, 1.5}
+    };
+    for (unsigned int i = 0; i < sizeof(bad) / sizeof(*bad); i++)
+    {
+        edit = Request(&setup, door, bad[i].property, bad[i].value);
+        assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why) && !changed && !setup.dirty);
+        Same(&setup, source);
+    }
+    SetupFileFree(&setup);
+    puts("PASS: all door types/sound presets, motion units, close delays, lock masks and flags; exact native offsets, save/reload, undo/redo, no-ops and invalid edits.");
+}
+
 int main(int argc, char **argv)
 {
     SetupFile source = {0}, setup = {0}; const char *why;
     assert(argc == 2 && SetupLoadProjectFile(argv[1], "UsetuppropertiesZ", &source, &why));
     assert(source.objectcount == 21 && source.charactercount == 1);
     CheckKeysAndAmmo(argv[1], &source);
+    CheckDoors(argv[1], &source);
     for (DWORD index = 0; index < source.objectcount; index++)
     {
         SetupObjectProperties view;

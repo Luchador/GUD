@@ -57,14 +57,18 @@ def main():
                        env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))
         # Exercise actual input logic; native controls and scene callbacks are stubbed.
         source = (src / 'objectproperties.c').read_text()
-        types = re.search(r'enum \{ OBJECT_TYPE,.*?\};', source, re.S)[0]
+        types = re.search(r'#define OBJECT_DOOR_FIELD_COUNT .*', source)[0] + '\n'
+        types += re.search(r'enum \{ OBJECT_TYPE,.*?\};', source, re.S)[0]
         types += '\n' + re.search(r'typedef struct ObjectPropertiesState \{.*?\} ObjectPropertiesState;', source, re.S)[0]
         types += '\n' + re.search(r'#define OBJECT_CONTENTS_TEXT_MAX .*', source)[0]
         types += '\n' + re.search(r'static const char \*g_AmmoNames\[AMMOTYPE_MAX\] = \{.*?\};', source, re.S)[0]
+        types += '\n' + re.search(r'static const struct \{[^}]*\} g_DoorFields\[OBJECT_DOOR_FIELD_COUNT\] = \{.*?\n\};', source, re.S)[0]
         (work / 'input-types.inc').write_text(types)
-        names = ('ObjectPropertiesFormatContents', 'ObjectPropertiesIsEdit', 'ObjectPropertiesControlVisible',
+        names = ('ObjectPropertiesDoorField', 'ObjectPropertiesDoorValue', 'ObjectPropertiesDoorUnits',
+                 'ObjectPropertiesDoorFactor', 'ObjectPropertiesResetDoor', 'ObjectPropertiesFormatContents', 'ObjectPropertiesIsEdit', 'ObjectPropertiesControlVisible',
                  'ObjectPropertiesResetHealth', 'ObjectPropertiesParseHealth',
-                 'ObjectPropertiesApply', 'ObjectPropertiesApplyHealth',
+                 'ObjectPropertiesApply', 'ObjectPropertiesParseDoor', 'ObjectPropertiesApplyDoor',
+                 'ObjectPropertiesKeyProperty', 'ObjectPropertiesApplyHealth',
                  'ObjectPropertiesParseUnsigned', 'ObjectPropertiesResetExtra',
                  'ObjectPropertiesApplyExtra', 'ObjectPropertiesHandleMessage')
         (work / 'input-logic.inc').write_text(''.join(function(source, name) for name in names))

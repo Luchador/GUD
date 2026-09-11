@@ -7,6 +7,7 @@
 
 #include "rom.h"
 #include "../../../src/ammoconstants.h"
+#include "../../../src/doorconstants.h"
 
 /* Host-native views of the pad data parsed from the big-endian setup. */
 typedef struct SetupPad {
@@ -53,12 +54,24 @@ typedef struct SetupObject {
  * and validated setters without exposing raw offsets to panel controls. */
 typedef enum SetupObjectProperty {
     SETUP_OBJECT_HEALTH, SETUP_OBJECT_MODEL, SETUP_OBJECT_KEY_FLAGS,
-    SETUP_OBJECT_AMMO_TYPE, SETUP_OBJECT_AMMO_QUANTITY
+    SETUP_OBJECT_AMMO_TYPE, SETUP_OBJECT_AMMO_QUANTITY,
+    SETUP_OBJECT_DOOR_TRAVEL, SETUP_OBJECT_DOOR_CLEARANCE,
+    SETUP_OBJECT_DOOR_ACCEL, SETUP_OBJECT_DOOR_DECEL, SETUP_OBJECT_DOOR_SPEED,
+    SETUP_OBJECT_DOOR_CLOSE_DELAY, SETUP_OBJECT_DOOR_TYPE,
+    SETUP_OBJECT_DOOR_SOUND, SETUP_OBJECT_DOOR_FLAGS, SETUP_OBJECT_DOOR_KEY_FLAGS
 } SetupObjectProperty;
+/* Movement uses native fractions/degrees/animation units per 60 Hz tick.
+ * The inspector converts these to percentages/degrees and seconds. */
+typedef struct SetupDoorProperties {
+    double travel, clearance, accel, decel, speed;
+    DWORD closeframes, sound;
+    unsigned short type, flags;
+} SetupDoorProperties;
 typedef struct SetupObjectProperties {
     SetupObject object;
     double health;
-    DWORD keyflags, ammotype;
+    DWORD keyflags, ammotype; /* keyflags: supplied by a key, required by a door */
+    SetupDoorProperties door;
     struct { unsigned short model, quantity; } ammo[AMMOTYPE_GLOBAL_MAX];
 } SetupObjectProperties;
 typedef struct SetupObjectPropertyEdit {

@@ -15,7 +15,7 @@ BIN_DIR := ..
 TARGET  := $(BIN_DIR)/GEditor.exe
 SOURCES := $(wildcard *.c)
 HEADERS := $(wildcard *.h)
-SHARED_HEADERS := ../../../src/propconstants.h ../../../src/ammoconstants.h
+SHARED_HEADERS := ../../../src/propconstants.h ../../../src/ammoconstants.h ../../../src/doorconstants.h
 PROP_RECORDS := ../../../assets/obseg/prop/propItemModelFileRecord.inc.c \
                 $(wildcard ../../../assets/obseg/prop/*/propFileRecord.inc.c)
 CHARACTER_RECORDS := ../../../assets/obseg/chr/chrModelFileHeaders.inc.c \

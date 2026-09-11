@@ -40,8 +40,8 @@ the same setup save, ROM export and Undo/Redo path as the shared fields.
   checkboxes. Checkbox 1 is bit `0x00000001`; checkbox 32 is `0x80000000`.
   These are flag positions, not door IDs. The player's collected keys contribute
   flags together, and a door requires every bit in its own required mask.
-  Zero is valid but contributes no unlock flags. Door requirements will be
-  exposed in the future door inspector.
+  Zero is valid but contributes no unlock flags. Edit the matching required
+  flags by selecting a door.
 - **Single-ammo pickups (PROPDEF_MAGAZINE):** select the ammo type. Quantity is
   determined by `get_ammo_in_magazine`, with a solo multiplier where applicable;
   there is no authored quantity field in this record.
@@ -75,6 +75,47 @@ is 2, and Golden Gun ammo is 12. Rebuild GUD and create a new project after
 this refactor; manifest version 3 rejects ROMs with the old thirteen-slot layout.
 Do not replace an old project's base ROM or copy old setup files into a new project.
 
+## Doors
+
+Selecting a `PROPDEF_DOOR` shows these additional controls in **Properties**:
+
+| Setting | Meaning |
+| --- | --- |
+| Door movement | Sliding, three folding variants, vertical, swinging, eye, iris, fall-away or Aztec chair. Special types require compatible model parts. |
+| Open travel | Percentage of the fitted door width (height for vertical/fall-away), degrees for swinging/chair, or animation units for eye/iris. |
+| Collision clearance | Travel at which the door stops blocking passage. Uses the same units as open travel. Values above full travel keep collision active while open. |
+| Maximum speed | Travel units per second. |
+| Acceleration / deceleration | Travel units per second squared. Both must round to a positive native value. |
+| Auto-close delay | Seconds after reaching fully open. Zero closes without waiting; it does not disable automatic closing. The general Start open flag can hold a door open. |
+| Door sounds | One preset controls opening, moving and closing sounds. Silent plus the 17 implemented presets are available. |
+| Door flags | Extended vertical collision, windowed distance transparency, clipping the sliding mesh to its bounds, and mirroring front/back. |
+| Required keys | A hexadecimal mask or 32 checkboxes. Zero needs no key. The player needs every checked bit, potentially from multiple keys. |
+
+Enter or leaving a field commits; Escape cancels typing. Changes use the existing
+setup save, ROM creation, unsaved-state and Undo/Redo system. The viewport shows
+the static model; it does not simulate door motion or preview door sounds.
+General door flags such as Start open, Two way and Interlock remain in **Flags**.
+Linked-door references and window fade distances are preserved but not edited
+in this pass. Clipping needs compatible model geometry; changing movement type
+retains the native motion values and updates their displayed units.
+
+Door enums now live in `src/doorconstants.h`, shared by GUD and GEditor. This move
+changes no IDs or setup layouts. Rebuild GEditor; existing current-format projects
+and ROMs work without regeneration.
+
+Native encoding follows `DoorRecord` and `setupDoor`:
+
+| Offsets | Encoding |
+| --- | --- |
+| `0x84`–`0x94` | Travel, clearance, acceleration, deceleration, speed: signed 16.16 fixed point. Rates use 60 Hz game ticks. |
+| `0x98` / `0x9a` | 16-bit door flags / movement type. Each setter preserves the adjacent half-word. |
+| `0x9c` | 32-bit required-key mask. |
+| `0xa0` | Close delay in 60 Hz ticks, rounded to the nearest tick. Authored edits are limited to the signed timer range. |
+| `0xa4` | 32-bit sound preset. |
+
+Unknown flag bits and unsupported existing type/sound values are preserved.
+Runtime pointers, current travel, speed, state and collision caches are untouched.
+
 ## Extending the inspector
 
 `SetupFileGetObjectProperties` decodes a selected record on demand.
@@ -88,7 +129,7 @@ frame checks the current selection, wraps the setter in an existing setup-histor
 transaction, refreshes geometry when needed, and restores the prior state on
 failure. No control writes directly into a setup record.
 
-Add future door and other sections according to object type, with matching
+Add future specialized sections according to object type, with matching
 validated property IDs/setters. Keep runtime state and derived fields out of the
 editable controls. Fields needing richer values can extend the request payload
 without moving serialization or history logic into the panel.
@@ -108,7 +149,10 @@ rollback. Input checks exercise production parsing and keyboard/commit logic
 with Win32 controls stubbed. They also cover all ammo slots, zero/full quantities,
 four-difficulty previews, per-slot rounding, the single 9mm slot, complete summaries
 for full crates, high key bits and rejection of fields belonging to another
-object type. Windows visual testing is still needed for panel
+object type. Door checks cover every implemented type/sound, exact native field
+bytes, key masks, unknown flag preservation, unit conversions, timer rounding,
+invalid acceleration and per-field save/history transactions. Windows visual
+testing is still needed for panel
 layout, scrolling, dropdown interaction and model previews.
 
 After building GUD, `python3 tools/geditor/tests/ammo_layout/run.py` checks the

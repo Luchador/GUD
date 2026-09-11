@@ -2740,6 +2740,16 @@ static BOOL GEditorSetObjectProperty(HWND hwnd, const SetupObjectPropertyEdit *e
     case SETUP_OBJECT_KEY_FLAGS: action = "Change Key Unlock Flags"; break;
     case SETUP_OBJECT_AMMO_TYPE: action = "Change Ammo Type"; break;
     case SETUP_OBJECT_AMMO_QUANTITY: action = "Change Ammo Quantity"; break;
+    case SETUP_OBJECT_DOOR_TRAVEL: action = "Change Door Travel"; break;
+    case SETUP_OBJECT_DOOR_CLEARANCE: action = "Change Door Collision Clearance"; break;
+    case SETUP_OBJECT_DOOR_ACCEL: action = "Change Door Acceleration"; break;
+    case SETUP_OBJECT_DOOR_DECEL: action = "Change Door Deceleration"; break;
+    case SETUP_OBJECT_DOOR_SPEED: action = "Change Door Speed"; break;
+    case SETUP_OBJECT_DOOR_CLOSE_DELAY: action = "Change Door Close Delay"; break;
+    case SETUP_OBJECT_DOOR_TYPE: action = "Change Door Type"; break;
+    case SETUP_OBJECT_DOOR_SOUND: action = "Change Door Sounds"; break;
+    case SETUP_OBJECT_DOOR_FLAGS: action = "Change Door Flags"; break;
+    case SETUP_OBJECT_DOOR_KEY_FLAGS: action = "Change Door Key Requirements"; break;
     default: return FALSE;
     }
     ViewportCancelTransform(g_Viewport);

@@ -44,12 +44,26 @@ static LRESULT SendMessage(HWND hwnd, unsigned int msg, WPARAM wparam, LPARAM lp
     ObjectPropertiesApplyHealth(0, &state);
     ObjectPropertiesApplyExtra(0, &state, OBJECT_KEY_MASK);
     ObjectPropertiesApplyExtra(0, &state, OBJECT_QUANTITY);
+    for (int field = 0; field < OBJECT_DOOR_FIELD_COUNT; field++) { ObjectPropertiesApplyDoor(0, &state, field); }
     if (reject) { return FALSE; }
-    if (edit->property == SETUP_OBJECT_KEY_FLAGS) { state.properties.keyflags = (DWORD)edit->value; }
+    if (edit->property == SETUP_OBJECT_KEY_FLAGS || edit->property == SETUP_OBJECT_DOOR_KEY_FLAGS) { state.properties.keyflags = (DWORD)edit->value; }
     else if (edit->property == SETUP_OBJECT_AMMO_QUANTITY)
     {
         assert(edit->slot == state.ammoslot);
         state.properties.ammo[edit->slot].quantity = (unsigned short)edit->value;
+    }
+    else if (edit->property >= SETUP_OBJECT_DOOR_TRAVEL && edit->property <= SETUP_OBJECT_DOOR_CLOSE_DELAY)
+    {
+        double value = floor(edit->value * 65536.0 + 0.5) / 65536.0;
+        switch (edit->property)
+        {
+        case SETUP_OBJECT_DOOR_TRAVEL: state.properties.door.travel = value; break;
+        case SETUP_OBJECT_DOOR_CLEARANCE: state.properties.door.clearance = value; break;
+        case SETUP_OBJECT_DOOR_ACCEL: state.properties.door.accel = value; break;
+        case SETUP_OBJECT_DOOR_DECEL: state.properties.door.decel = value; break;
+        case SETUP_OBJECT_DOOR_SPEED: state.properties.door.speed = value; break;
+        default: state.properties.door.closeframes = (DWORD)floor(edit->value * 60.0 + 0.5); break;
+        }
     }
     else
     {
@@ -163,6 +177,55 @@ int main(void)
     state.properties.object.type = PROPDEF_MAGAZINE;
     assert(!ObjectPropertiesControlVisible(&state, OBJECT_QUANTITY));
     assert(ObjectPropertiesControlVisible(&state, OBJECT_AMMO_TYPE));
+    state.properties.object.type = PROPDEF_DOOR;
+    for (int field = 0; field < OBJECT_DOOR_FIELD_COUNT; field++)
+    { state.controls[OBJECT_DOOR_FIRST + field * 3 + 1] = 10 + field; }
+    assert(ObjectPropertiesControlVisible(&state, OBJECT_DOOR_TYPE));
+    assert(ObjectPropertiesControlVisible(&state, OBJECT_KEY_FIRST));
+    assert(!ObjectPropertiesControlVisible(&state, OBJECT_AMMO_TYPE));
+    for (int type = DOORTYPE_SLIDING; type <= DOORTYPE_AZTECCHAIR; type++)
+    {
+        BOOL angle = type == DOORTYPE_SWINGING || type == DOORTYPE_AZTECCHAIR;
+        BOOL animation = type == DOORTYPE_EYE || type == DOORTYPE_IRIS;
+        double scale = angle || animation ? 1.0 : 100.0;
+        state.properties.door.type = type;
+        assert(ObjectPropertiesDoorFactor(type, 0) == scale);
+        assert(ObjectPropertiesDoorFactor(type, 2) == scale * 60);
+        assert(ObjectPropertiesDoorFactor(type, 3) == scale * 3600);
+        assert(ObjectPropertiesDoorFactor(type, 4) == scale * 3600);
+        assert(ObjectPropertiesDoorFactor(type, 5) == 1);
+        for (int field = 0; field < OBJECT_DOOR_FIELD_COUNT; field++)
+        {
+            int before = commits;
+            focus = state.controls[OBJECT_DOOR_FIRST + field * 3 + 1];
+            strcpy(text, "180"); state.dooredited[field] = TRUE;
+            assert(Key(VK_RETURN) && commits == before + 1 && !state.dooredited[field] && !canundo);
+            double expected = 180 / ObjectPropertiesDoorFactor(type, field);
+            assert(fabs(ObjectPropertiesDoorValue(&state.properties.door, field) - expected) <= 0.5 / 65536.0);
+            ObjectPropertiesApplyDoor(0, &state, field); assert(commits == before + 1);
+            strcpy(text, "bad"); state.dooredited[field] = TRUE;
+            assert(Key(VK_RETURN) && commits == before + 1 && state.dooredited[field]);
+            assert(Key(VK_ESCAPE) && !state.dooredited[field] && !canundo);
+        }
+    }
+    state.properties.door.type = DOORTYPE_SWINGING;
+    assert(ObjectPropertiesParseDoor(&state, 1, "1000", &value) && value == 1000); /* Not limited to travel. */
+    assert(ObjectPropertiesParseDoor(&state, 2, "180", &value) && value == 3);
+    assert(ObjectPropertiesParseDoor(&state, 3, "1080", &value) && value == 0.3);
+    assert(ObjectPropertiesParseDoor(&state, 5, "15", &value) && value == 15);
+    assert(ObjectPropertiesParseDoor(&state, 5, "0", &value) && value == 0);
+    assert(!ObjectPropertiesParseDoor(&state, 3, "0", &value));
+    assert(!ObjectPropertiesParseDoor(&state, 4, "0", &value));
+    assert(!ObjectPropertiesParseDoor(&state, 5, "40000000", &value));
+    focus = state.controls[OBJECT_KEY_MASK]; strcpy(text, "0x80000003"); state.keyedited = TRUE;
+    assert(Key(VK_RETURN) && state.properties.keyflags == 0x80000003u && !state.keyedited);
+    focus = state.controls[OBJECT_DOOR_FIRST + 1]; strcpy(text, "90"); state.dooredited[0] = TRUE;
+    int before = commits;
+    reject = TRUE; assert(Key(VK_RETURN) && commits == before + 1 && !state.dooredited[0]);
+    reject = FALSE;
+    state.properties.object.type = PROPDEF_PROP; state.dooredited[0] = TRUE;
+    assert(!Key(VK_RETURN)); ObjectPropertiesApplyDoor(0, &state, 0); assert(commits == before + 1);
+    puts("PASS: door percentages/degrees/animation units, per-second rates, timing, locks, field visibility and input transactions.");
     puts("PASS: input validation, Enter/blur commits, Escape, text undo, rejected edits and synchronous reentrancy.");
     return 0;
 }
