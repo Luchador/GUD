@@ -605,8 +605,8 @@ BOOL ObjectPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD inde
     else if (properties.object.type == PROPDEF_DOOR || properties.object.pad >= 10000)
     { snprintf(placement, sizeof(placement), "Bound pad: %d", properties.object.pad >= 10000 ? properties.object.pad - 10000 : properties.object.pad); }
     else { snprintf(placement, sizeof(placement), "Pad: %d", properties.object.pad); }
-    snprintf(text, sizeof(text), "Object index: %lu\r\nModel ID: %d\r\n%s\r\nExtra scale: %.6g",
-        (unsigned long)index, properties.object.modelid, placement, properties.object.extrascale / 256.0);
+    snprintf(text, sizeof(text), "Object index: %lu\r\n%s\r\nExtra scale: %.6g",
+        (unsigned long)index, placement, properties.object.extrascale / 256.0);
     SetWindowText(state->controls[OBJECT_IDENTITY], text);
     if (!state->edited && !state->keyedited && !state->quantityedited) { SetWindowText(state->controls[OBJECT_STATUS], "Enter or leave a field to apply. Escape cancels typing."); }
     ObjectPropertiesLayout(panel, state);

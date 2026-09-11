@@ -2,7 +2,7 @@
 
 Select a setup object and open the existing **Properties** tab. The shared
 inspector displays its readable type, an editable **Model** dropdown, an editable
-**Health** field, and read-only object/model IDs, placement reference and extra
+**Health** field, and read-only object index, placement reference and extra
 scale. Transforms stay in the transform panel; object flags stay in **Flags**.
 
 - Model choices use the prop model catalog and the models available in the
