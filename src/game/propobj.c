@@ -750,7 +750,7 @@ void objPlaceAtPad(ObjectRecord *baseobj, struct coord3d *pos, Mtxf *matrix, Sta
         }
     }
 
-    if (!(baseobj->flags2 & PROPFLAG2_DRONEGUN) && walkTilesBetweenPoints_NoCallback(&mStan, pos->f[0], pos->f[2], newPos.x, newPos.z))
+    if (!(baseobj->flags2 & PROPFLAG2_USE_PAD_REFERENCE) && walkTilesBetweenPoints_NoCallback(&mStan, pos->f[0], pos->f[2], newPos.x, newPos.z))
     {
         objChangeShading(baseobj, &newPos, &mtxcopy, mStan);
     }
@@ -758,7 +758,7 @@ void objPlaceAtPad(ObjectRecord *baseobj, struct coord3d *pos, Mtxf *matrix, Sta
     {
         objChangeShading(baseobj, pos, &mtxcopy, stan);
 
-        if ((baseobj->flags2 & PROPFLAG2_DRONEGUN) || (baseobj->flags & PROPFLAG_ABSOLUTEPOSITION))
+        if ((baseobj->flags2 & PROPFLAG2_USE_PAD_REFERENCE) || (baseobj->flags & PROPFLAG_ABSOLUTEPOSITION))
         {
             baseobj->position.x = newPos.x;
             baseobj->position.y = newPos.y;
@@ -797,7 +797,7 @@ void objPlaceOnSideAtPad(ObjectRecord *obj, coord3d *referencePos, Mtxf *padMatr
     placedPos.y = anchorPos->y - (placementMatrix.m[2][1] * modelZmin);
     placedPos.z = anchorPos->z - (placementMatrix.m[2][2] * modelZmin);
 
-    if (!(obj->flags2 & PROPFLAG2_DRONEGUN) && walkTilesBetweenPoints_NoCallback(&placementStan, referencePos->x, referencePos->z, placedPos.x, placedPos.z) != 0)
+    if (!(obj->flags2 & PROPFLAG2_USE_PAD_REFERENCE) && walkTilesBetweenPoints_NoCallback(&placementStan, referencePos->x, referencePos->z, placedPos.x, placedPos.z) != 0)
     {
         objChangeShading(obj, &placedPos, &placementMatrix, placementStan);
     }

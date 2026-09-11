@@ -285,7 +285,7 @@ void domakedefaultobj(s32 arg0, ObjectRecord *objectRecord, s32 cmdindex)
 
             matrix_4x4_set_basis_and_position_target(&sp8C, 0.0f, 0.0f, 0.0f, -boundPadRecord->look.f[0], -boundPadRecord->look.f[1], -boundPadRecord->look.f[2], boundPadRecord->up.f[0], boundPadRecord->up.f[1], boundPadRecord->up.f[2]);
 
-            if (!(objectRecord->flags2 & PROPFLAG2_DRONEGUN))
+            if (!(objectRecord->flags2 & PROPFLAG2_USE_PAD_REFERENCE))
             {
                 padGetCenter(boundPadRecord, &spD0);
 

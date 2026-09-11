@@ -748,7 +748,7 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
                                  + pad->up[axis] * localcenter[1]
                                  + pad->look[axis] * localcenter[2];
             }
-            if (!isdoor && !(object->flags2 & PROPFLAG2_DRONEGUN))
+            if (!isdoor && !(object->flags2 & PROPFLAG2_USE_PAD_REFERENCE))
             {
                 DWORD centerstan = referencetile;
 
@@ -785,12 +785,12 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
                     desired[axis] = basis.pos[axis] - basis.side[axis] * center[0] * scale[0]
                         - basis.up[axis] * center[1] * scale[1] - basis.look[axis] * center[2] * scale[2];
                 }
-                if ((object->flags2 & PROPFLAG2_DRONEGUN)
+                if ((object->flags2 & PROPFLAG2_USE_PAD_REFERENCE)
                     || !StanWalkTiles(stan, &placedtile, reference[0], reference[2], desired[0], desired[2]))
                 {
                     placedtile = referencetile;
                     if (!(object->flags & (PROPFLAG_ONSIDE | PROPFLAG_ABSOLUTEPOSITION))
-                        && !(object->flags2 & PROPFLAG2_DRONEGUN))
+                        && !(object->flags2 & PROPFLAG2_USE_PAD_REFERENCE))
                     {
                         memcpy(basis.pos, reference, sizeof(reference));
                         ZeroMemory(center, sizeof(center));

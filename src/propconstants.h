@@ -47,10 +47,10 @@ typedef enum PROPFLAG
     PROPFLAG_AMMO_DETONATE                     = 0x10000000, // Explosive ammo pickup detonates on its next weapon tick.
     PROPFLAG_DOOR_REVERSE_SWING                = 0x20000000, // Reverses the opening rotation and switches the hinge side for swinging doors. Two-way doors choose this setting automatically when opened.
     PROPFLAG_MONITOR_SECONDARY_SCREENS_DECAL   = 0x20000000, // Uses decal rendering for screens 2–4 to prevent depth flickering. Leaves screen 1’s rendering mode unchanged.
-    PROPFLAG_CCTV_NO_DETECTION                = 0x20000000, // Disables player detection while preserving the camera's scanning rotation.
-    PROPFLAG_AUTOGUN_HAS_SEEN_PLAYER          = 0x20000000, // Game-managed acquisition latch: after seeing the player, skip the initial forward-facing acquisition check.
-    PROPFLAG_VEHICLE_INIT_HEADING             = 0x20000000, // Initializes heading from the next waypoint, or the placed orientation without a path; cleared after use.
-    PROPFLAG_AIRCRAFT_PROPELLER               = 0x20000000, // Rotates the main propeller around local Z instead of Y and suppresses helicopter engine audio.
+    PROPFLAG_CCTV_NO_DETECTION                 = 0x20000000, // Disables player detection while preserving the camera's scanning rotation.
+    PROPFLAG_AUTOGUN_HAS_SEEN_PLAYER           = 0x20000000, // Game-managed acquisition latch: after seeing the player, skip the initial forward-facing acquisition check.
+    PROPFLAG_VEHICLE_INIT_HEADING              = 0x20000000, // Initializes heading from the next waypoint, or the placed orientation without a path; cleared after use.
+    PROPFLAG_AIRCRAFT_PROPELLER                = 0x20000000, // Rotates the main propeller around local Z instead of Y and suppresses helicopter engine audio.
     PROPFLAG_CONCEAL_GUN                       = 0x20000000, // Conceal Weapon
     PROPFLAG_MONITOR_RENDERPOSTBG              = 0x40000000,
     PROPFLAG_NO_PORTAL_CLOSE                   = 0x40000000, // Area Behind Door Visible
@@ -62,7 +62,7 @@ typedef enum PROPFLAG
 /* Saved ObjectRecord.flags2 (u32). */
 typedef enum PROPFLAG2
 {
-    PROPFLAG2_DRONEGUN              = 0x00000001, // Activate Drone Gun
+    PROPFLAG2_USE_PAD_REFERENCE     = 0x00000001, // Keeps the pad as the stan placement reference while allowing the model to occupy its calculated position outside the walkable area.
     PROPFLAG2_LIGHTWEIGHT           = 0x00000002, // lightweight (move when shot)
     PROPFLAG2_DOOR_HIDE_LOCKED_MSG  = 0x00000004, // Locked door message not shown, used by Dam's double gates.
     PROPFLAG2_NO_LOAD_MP            = 0x00000008, // Don't Load in Multiplayer
