@@ -31,9 +31,28 @@ static int ObjectFlagsTextHeight(HDC dc, HWND control, int width)
     return max(22, bounds.bottom + 6);
 }
 
+/* Moving controls one at a time with MoveWindow(..., TRUE) repaints them
+ * while their siblings still occupy the old layout. Do not preserve those
+ * pixels or paint intermediate positions; redraw all children when done. */
+static void ObjectFlagsPlaceControl(HWND control, const RECT *bounds, int scroll)
+{
+    UINT flags = SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOCOPYBITS | SWP_NOREDRAW;
+    if (bounds)
+    {
+        SetWindowPos(control, NULL, bounds->left, bounds->top - scroll,
+            bounds->right - bounds->left, bounds->bottom - bounds->top,
+            flags | SWP_SHOWWINDOW);
+    }
+    else
+    {
+        SetWindowPos(control, NULL, 0, 0, 0, 0,
+            flags | SWP_HIDEWINDOW | SWP_NOMOVE | SWP_NOSIZE);
+    }
+}
+
 static void ObjectFlagsLayout(HWND hwnd, ObjectFlagsState *state)
 {
-    RECT client, bounds[OBJECTFLAGS_COUNT], headings[2];
+    RECT client, help, bounds[OBJECTFLAGS_COUNT], headings[2] = {{0}, {0}};
     SCROLLINFO info = {0};
     HDC dc = GetDC(hwnd);
     HFONT previous = (HFONT)SelectObject(dc, GetStockObject(DEFAULT_GUI_FONT));
@@ -63,23 +82,25 @@ static void ObjectFlagsLayout(HWND hwnd, ObjectFlagsState *state)
     state->scroll = max(0, min(state->scroll, y - client.bottom));
     info.cbSize = sizeof(info); info.fMask = SIF_RANGE | SIF_PAGE | SIF_POS | SIF_DISABLENOSCROLL;
     info.nMax = y - 1; info.nPage = max(0, client.bottom); info.nPos = state->scroll;
-    SetScrollInfo(hwnd, SB_VERT, &info, TRUE);
-    MoveWindow(state->help, 4, 4 - state->scroll, width, helpheight, TRUE);
+    SetScrollInfo(hwnd, SB_VERT, &info, FALSE);
+    SetRect(&help, 4, 4, width + 4, helpheight + 4);
+    ObjectFlagsPlaceControl(state->help, &help, state->scroll);
     for (int i = 0; i < 2; i++)
     {
-        if (state->selected)
-        { MoveWindow(state->headings[i], 4, headings[i].top - state->scroll, width, 24, TRUE); }
-        ShowWindow(state->headings[i], state->selected ? SW_SHOW : SW_HIDE);
+        ObjectFlagsPlaceControl(state->headings[i],
+            state->selected && headings[i].bottom > headings[i].top ? &headings[i] : NULL,
+            state->scroll);
     }
     for (int i = 0; i < OBJECTFLAGS_COUNT; i++)
     {
         BOOL visible = ObjectFlagsIsVisible(state, i);
-        if (visible)
-        { MoveWindow(state->checks[i], 4, bounds[i].top - state->scroll, width, bounds[i].bottom - bounds[i].top, TRUE); }
         EnableWindow(state->checks[i], visible);
-        ShowWindow(state->checks[i], visible ? SW_SHOW : SW_HIDE);
+        ObjectFlagsPlaceControl(state->checks[i], visible ? &bounds[i] : NULL, state->scroll);
     }
-    InvalidateRect(hwnd, NULL, TRUE);
+    /* WS_CLIPCHILDREN excludes controls from a parent-only invalidation.
+     * Explicitly erase and invalidate them too, including newly exposed parts
+     * after scrolling, resizing, selection changes or switching tabs. */
+    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
 }
 
 static void ObjectFlagsSyncChecks(ObjectFlagsState *state)
@@ -121,12 +142,12 @@ static LRESULT CALLBACK ObjectFlagsWndProc(HWND hwnd, UINT msg, WPARAM wparam, L
         state = calloc(1, sizeof(*state)); if (!state) { return -1; }
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
         state->help = CreateWindowEx(0, "STATIC", "Select a setup object to edit its flags.\r\nCharacters, geometry, pads and camera markers use different properties.",
-            WS_CHILD | WS_VISIBLE | SS_NOPREFIX, 0, 0, 1, 1, hwnd, NULL, cs->hInstance, NULL);
+            WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | SS_NOPREFIX, 0, 0, 1, 1, hwnd, NULL, cs->hInstance, NULL);
         if (!state->help) { return -1; }
         SendMessage(state->help, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
         for (int i = 0; i < 2; i++)
         {
-            state->headings[i] = CreateWindowEx(0, "STATIC", "", WS_CHILD | SS_NOPREFIX,
+            state->headings[i] = CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_CLIPSIBLINGS | SS_NOPREFIX,
                 0, 0, 1, 1, hwnd, NULL, cs->hInstance, NULL);
             if (!state->headings[i]) { return -1; }
             SendMessage(state->headings[i], WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
@@ -140,7 +161,7 @@ static LRESULT CALLBACK ObjectFlagsWndProc(HWND hwnd, UINT msg, WPARAM wparam, L
         {
             TOOLINFO tool = {0};
             state->checks[i] = CreateWindowEx(0, "BUTTON", g_ObjectFlags[i].label,
-                WS_CHILD | WS_TABSTOP | BS_AUTOCHECKBOX | BS_MULTILINE | BS_NOTIFY,
+                WS_CHILD | WS_TABSTOP | WS_CLIPSIBLINGS | BS_AUTOCHECKBOX | BS_MULTILINE | BS_NOTIFY,
                 0, 0, 1, 1, hwnd, (HMENU)(INT_PTR)(i + 1), cs->hInstance, NULL);
             if (!state->checks[i]) { return -1; }
             SendMessage(state->checks[i], WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
