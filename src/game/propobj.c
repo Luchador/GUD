@@ -184,8 +184,7 @@ void objSettle(struct ObjectRecord *arg0, struct coord3d *arg1);
 void doorsUpdateLinkedMovement(DoorRecord *door);
 void door7F0526EC(DoorRecord *door, Mtxf *rhs);
 void objBreakCCTVGlass(ObjectRecord *obj);
-void save_img_index_to_obj_ani_slot(MonitorRecord *mon, void *unk88);
-void save_ptr_monitor_ani_code_to_obj_ani_slot(MonitorRecord *mon, void *image);
+void monitorSetTexture(MonitorRecord *mon, void *unk88);
 AmmoCrateRecord *ammocrateAllocate(void);
 ModelNode* sub_GAME_7F04B478(ObjectRecord* obj);
 bool sub_GAME_7F04B590(ModelFileHeader* arg0, ModelNode* arg1);
@@ -6461,9 +6460,13 @@ Gfx *weaponRenderTracers(Gfx *gdl)
 }
 
 
-void save_ptr_monitor_ani_code_to_obj_ani_slot(MonitorRecord *mon, void *image)
+/**
+ * Assigns the monitor animation command list and restarts it a offset 0.
+ * Existing screen appearance, transitions and pause state are preserved.
+ */
+void monitorSetCommandList(MonitorRecord *mon, void *image)
 {
-    mon->cmdlist  = image;
+    mon->cmdlist = image;
     mon->offset = 0;
 }
 
@@ -6731,13 +6734,13 @@ void monitorSetImageByNum(MonitorRecord *mon, s32 monAnimID)
             image = &monAnim33BlackSolid;
             break;
     }
-    save_ptr_monitor_ani_code_to_obj_ani_slot(mon,  image);
+    monitorSetCommandList(mon,  image);
 }
 
 
-void save_img_index_to_obj_ani_slot(MonitorRecord *mon, void *unk88)
+void monitorSetTexture(MonitorRecord *monitor, void *texture)
 {
-    mon->tconfig = unk88;
+    monitor->tconfig = texture;
 }
 
 
@@ -6806,7 +6809,7 @@ Gfx *monitorProcessAndRender(Model *model, ModelNode *node, MonitorRecord *scree
                 screen->offset += 3;
                 break;
             case TVCMD_SETTEXTURE:
-                save_img_index_to_obj_ani_slot(screen, m->time);
+                monitorSetTexture(screen, m->time);
                 screen->offset += 2;
                 break;
             case TVCMD_PAUSE:
@@ -6830,12 +6833,12 @@ Gfx *monitorProcessAndRender(Model *model, ModelNode *node, MonitorRecord *scree
                 }
                 break;
             case TVCMD_SETCMDLIST:
-                save_ptr_monitor_ani_code_to_obj_ani_slot(screen, (u32 *) m->time);
+                monitorSetCommandList(screen, (u32 *) m->time);
                 break;
             case TVCMD_RANDSETCMDLIST:
                 if ((randomGetNext() >> 16) < m->arg2) 
                 {
-                    save_ptr_monitor_ani_code_to_obj_ani_slot(screen, (u32 *) m->time);
+                    monitorSetCommandList(screen, (u32 *) m->time);
                 } 
                 else 
                 {
@@ -9092,17 +9095,17 @@ apply_damage:
     {
         if (objGetDestroyedLevel(obj) == 1)
         {
-            save_ptr_monitor_ani_code_to_obj_ani_slot(&((MonitorObjRecord *)obj)->Monitor, monAnim33BlackSolid);
+            monitorSetCommandList(&((MonitorObjRecord *)obj)->Monitor, monAnim33BlackSolid);
         }
     }
     else if (obj->type == PROPDEF_MULTI_MONITOR)
     {
         if (objGetDestroyedLevel(obj) == 1)
         {
-            save_ptr_monitor_ani_code_to_obj_ani_slot(&((MultiMonitorObjRecord *)obj)->Monitor[0], monAnim33BlackSolid);
-            save_ptr_monitor_ani_code_to_obj_ani_slot(&((MultiMonitorObjRecord *)obj)->Monitor[1], monAnim33BlackSolid);
-            save_ptr_monitor_ani_code_to_obj_ani_slot(&((MultiMonitorObjRecord *)obj)->Monitor[2], monAnim33BlackSolid);
-            save_ptr_monitor_ani_code_to_obj_ani_slot(&((MultiMonitorObjRecord *)obj)->Monitor[3], monAnim33BlackSolid);
+            monitorSetCommandList(&((MultiMonitorObjRecord *)obj)->Monitor[0], monAnim33BlackSolid);
+            monitorSetCommandList(&((MultiMonitorObjRecord *)obj)->Monitor[1], monAnim33BlackSolid);
+            monitorSetCommandList(&((MultiMonitorObjRecord *)obj)->Monitor[2], monAnim33BlackSolid);
+            monitorSetCommandList(&((MultiMonitorObjRecord *)obj)->Monitor[3], monAnim33BlackSolid);
         }
     }
     else if (obj->type == PROPDEF_GAS_RELEASING)
