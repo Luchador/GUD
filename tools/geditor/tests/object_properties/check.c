@@ -1,0 +1,168 @@
+#include <assert.h>
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "setupload.h"
+#include "bghistory.h"
+#include "modelload.h"
+
+/* Only setup documents are edited in this suite. */
+void BgDocumentFree(BgDocument *d) { memset(d, 0, sizeof(*d)); }
+void StanFileFree(StanFile *d) { memset(d, 0, sizeof(*d)); }
+
+static DWORD Read32(const unsigned char *p)
+{ return ((DWORD)p[0] << 24) | ((DWORD)p[1] << 16) | ((DWORD)p[2] << 8) | p[3]; }
+static SetupObjectPropertyEdit Request(const SetupFile *setup, DWORD index, SetupObjectProperty property, double value)
+{
+    SetupObjectPropertyEdit edit = {0};
+    edit.objectindex = index; edit.sourceoffset = setup->objects[index].sourceoffset;
+    edit.type = setup->objects[index].type; edit.property = property; edit.value = value;
+    return edit;
+}
+static void Same(const SetupFile *a, const SetupFile *b)
+{
+    assert(a->size == b->size && a->objectcount == b->objectcount && a->charactercount == b->charactercount);
+    assert(!memcmp(a->data, b->data, a->size));
+    assert(!memcmp(a->objects, b->objects, a->objectcount * sizeof(*a->objects)));
+    assert(!memcmp(a->characters, b->characters, a->charactercount * sizeof(*a->characters)));
+}
+static void RoundTrip(const char *dir, const SetupFile *setup)
+{
+    SetupFile loaded = {0}; const char *why;
+    assert(SetupSaveProjectFile(dir, setup, &why));
+    assert(SetupLoadProjectFile(dir, setup->name, &loaded, &why));
+    Same(&loaded, setup); assert(!loaded.dirty);
+    SetupFileFree(&loaded);
+}
+static void OnlyBytes(const SetupFile *before, const SetupFile *after, DWORD start, DWORD length)
+{
+    assert(before->size == after->size);
+    assert(!memcmp(before->data, after->data, start));
+    assert(!memcmp(before->data + start + length, after->data + start + length, before->size - start - length));
+}
+
+int main(int argc, char **argv)
+{
+    SetupFile source = {0}, setup = {0}; const char *why;
+    assert(argc == 2 && SetupLoadProjectFile(argv[1], "UsetuppropertiesZ", &source, &why));
+    assert(source.objectcount == 21 && source.charactercount == 1);
+    for (DWORD index = 0; index < source.objectcount; index++)
+    {
+        SetupObjectProperties view;
+        SetupObjectPropertyEdit edit;
+        BOOL changed;
+        DWORD offset = source.objects[index].sourceoffset;
+        assert(SetupFileClone(&source, &setup, &why));
+        assert(SetupFileGetObjectProperties(&setup, index, &view, &why));
+        assert(view.health == 1000.25 && view.object.modelid == 15);
+        assert(strcmp(SetupObjectTypeName(view.object.type), "Unknown object"));
+        edit = Request(&setup, index, SETUP_OBJECT_HEALTH, view.health);
+        assert(SetupFileSetObjectProperty(&setup, &edit, &changed, &why) && !changed && !setup.dirty);
+        Same(&setup, &source);
+        edit.value = 512.5;
+        assert(SetupFileSetObjectProperty(&setup, &edit, &changed, &why) && changed && setup.dirty);
+        assert(Read32(setup.data + offset + 0x74) == 0x02008000);
+        assert(Read32(setup.data + offset + 0x70) == 0xABCDEF01); /* Never maxdamage. */
+        OnlyBytes(&source, &setup, offset + 0x74, 4);
+        RoundTrip(argv[1], &setup);
+        SetupFileFree(&setup);
+        assert(SetupFileClone(&source, &setup, &why));
+        edit = Request(&setup, index, SETUP_OBJECT_MODEL, 15);
+        assert(SetupFileSetObjectProperty(&setup, &edit, &changed, &why) && !changed && !setup.dirty);
+        edit.value = 8;
+        assert(SetupFileSetObjectProperty(&setup, &edit, &changed, &why) && changed && setup.dirty);
+        assert(setup.objects[index].modelid == 8 && view.object.type == setup.objects[index].type);
+        OnlyBytes(&source, &setup, offset + 4, 2);
+        RoundTrip(argv[1], &setup); SetupFileFree(&setup);
+    }
+    puts("PASS: all 21 ObjectRecord types; health/model edits preserve runtime and specialized fields, flags, pads and command indices through save/reload.");
+
+    assert(SetupFileClone(&source, &setup, &why));
+    SetupObjectPropertyEdit edit = Request(&setup, 0, SETUP_OBJECT_HEALTH, 0.1);
+    SetupObjectProperties view; BOOL changed;
+    assert(SetupFileSetObjectProperty(&setup, &edit, &changed, &why));
+    assert(SetupFileGetObjectProperties(&setup, 0, &view, &why));
+    assert(fabs(view.health - 0.1) <= 0.5 / 65536.0);
+    assert(SetupFileSetObjectProperty(&setup, &edit, &changed, &why) && !changed);
+    edit.value = 2147483647.0 / 65536.0;
+    assert(SetupFileSetObjectProperty(&setup, &edit, &changed, &why));
+    assert(Read32(setup.data + edit.sourceoffset + 0x74) == 0x7FFFFFFF);
+    edit.value = 0;
+    assert(SetupFileSetObjectProperty(&setup, &edit, &changed, &why));
+    assert(Read32(setup.data + edit.sourceoffset + 0x74) == 0);
+    SetupFileFree(&setup);
+
+    /* Invalid edits cannot dirty the asset or touch another subtype/character. */
+    const double badhealth[] = {-1, 32768, NAN, INFINITY, -INFINITY};
+    const double badmodel[] = {-1, 0.5, 32767, 32768, NAN, INFINITY};
+    assert(SetupFileClone(&source, &setup, &why));
+    for (unsigned int i = 0; i < sizeof(badhealth) / sizeof(*badhealth); i++)
+    {
+        edit = Request(&setup, 0, SETUP_OBJECT_HEALTH, badhealth[i]);
+        assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why) && !changed && !setup.dirty); Same(&setup, &source);
+    }
+    for (unsigned int i = 0; i < sizeof(badmodel) / sizeof(*badmodel); i++)
+    {
+        edit = Request(&setup, 0, SETUP_OBJECT_MODEL, badmodel[i]);
+        assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why) && !changed && !setup.dirty); Same(&setup, &source);
+    }
+    edit = Request(&setup, 0, SETUP_OBJECT_HEALTH, 42);
+    edit.type = 3;
+    assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why)); Same(&setup, &source);
+    edit.type = 1; edit.sourceoffset++;
+    assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why)); Same(&setup, &source);
+    edit = Request(&setup, 0, SETUP_OBJECT_HEALTH, 42); edit.objectindex = SETUP_CHARACTER_SELECTION_BIT;
+    assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why)); Same(&setup, &source);
+    edit.objectindex = setup.objectcount;
+    assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why)); Same(&setup, &source);
+    edit = Request(&setup, 0, (SetupObjectProperty)999, 42);
+    assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why)); Same(&setup, &source);
+    DWORD oldsize = setup.size;
+    setup.size = edit.sourceoffset + 0x80;
+    assert(!SetupFileGetObjectProperties(&setup, 0, &view, &why)); /* Door suffix truncated. */
+    setup.size = oldsize;
+    setup.objects[0].deleted = TRUE;
+    assert(!SetupFileGetObjectProperties(&setup, 0, &view, &why));
+    setup.objects[0].deleted = FALSE;
+    Same(&setup, &source); SetupFileFree(&setup);
+    puts("PASS: native quantization/range, nonfinite values, unknown models, stale requests, deleted objects and truncated records.");
+
+    /* Undo includes selections; save revisions stay independent. */
+    EditHistory history = {0}; EditHistoryTransaction tx; EditHistoryAsset asset;
+    BgDocument bg = {0}; StanFile stan = {0}; DWORD selection = 3;
+    assert(SetupFileClone(&source, &setup, &why));
+    EditHistoryReset(&history, &bg, &setup, &stan);
+    assert(EditHistorySetSelection(&history, &selection, sizeof(selection), FALSE, &why));
+    assert(EditHistoryBeginSetupEdit(&history, &setup, "Change Object Health", &tx, &why));
+    edit = Request(&setup, 3, SETUP_OBJECT_HEALTH, 42.25);
+    assert(SetupFileSetObjectProperty(&setup, &edit, &changed, &why) && changed);
+    assert(EditHistoryCommitEdit(&history, &bg, &setup, &stan, &tx, &why));
+    assert(setup.dirty && !bg.dirty && !stan.dirty);
+    RoundTrip(argv[1], &setup); EditHistoryMarkSetupSaved(&history, &setup);
+    assert(!setup.dirty);
+    selection = 4;
+    assert(EditHistorySetSelection(&history, &selection, sizeof(selection), TRUE, &why));
+    assert(EditHistoryUndo(&history, &bg, &setup, &stan, &asset, &why) && asset == EDIT_HISTORY_ASSET_SELECTION && !setup.dirty);
+    assert(EditHistoryUndo(&history, &bg, &setup, &stan, &asset, &why) && asset == EDIT_HISTORY_ASSET_SETUP && setup.dirty);
+    Same(&setup, &source); assert(*(DWORD *)history.selection == 3);
+    assert(EditHistoryRedo(&history, &bg, &setup, &stan, &asset, &why) && !setup.dirty);
+    assert(SetupFileGetObjectProperties(&setup, 3, &view, &why) && view.health == 42.25);
+    assert(EditHistoryBeginSetupEdit(&history, &setup, "Change Object Model", &tx, &why));
+    edit = Request(&setup, 3, SETUP_OBJECT_MODEL, 8);
+    assert(SetupFileSetObjectProperty(&setup, &edit, &changed, &why));
+    EditHistoryRollbackEdit(&tx, &bg, &setup, &stan);
+    assert(setup.objects[3].modelid == 15 && !setup.dirty);
+    RoundTrip(argv[1], &setup);
+    assert(EditHistoryBeginSetupEdit(&history, &setup, "Change Object Model", &tx, &why));
+    assert(SetupFileSetObjectProperty(&setup, &edit, &changed, &why) && changed);
+    assert(EditHistoryCommitEdit(&history, &bg, &setup, &stan, &tx, &why));
+    assert(EditHistoryUndo(&history, &bg, &setup, &stan, &asset, &why));
+    assert(setup.objects[3].modelid == 15 && !setup.dirty);
+    assert(EditHistoryRedo(&history, &bg, &setup, &stan, &asset, &why));
+    assert(setup.objects[3].modelid == 8 && setup.dirty);
+    RoundTrip(argv[1], &setup);
+    EditHistoryFree(&history); SetupFileFree(&setup); SetupFileFree(&source);
+    puts("PASS: mixed selection/property undo-redo, saved revisions and failed-preview rollback.");
+    return 0;
+}

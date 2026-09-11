@@ -46,6 +46,24 @@ typedef struct SetupObject {
     BOOL nonsolid;              /* authored PROPSTATE_NONSOLID */
 } SetupObject;
 
+/* Shared inspector values are decoded from the authored record on demand.
+ * Health is ObjectRecord.damage (signed 16.16 in the setup), not the runtime
+ * damage accumulator named maxdamage. Specialized fields can add property IDs
+ * and validated setters without exposing raw offsets to panel controls. */
+typedef enum SetupObjectProperty {
+    SETUP_OBJECT_HEALTH, SETUP_OBJECT_MODEL
+} SetupObjectProperty;
+typedef struct SetupObjectProperties {
+    SetupObject object;
+    double health;
+} SetupObjectProperties;
+typedef struct SetupObjectPropertyEdit {
+    DWORD objectindex, sourceoffset;
+    unsigned char type;
+    SetupObjectProperty property;
+    double value;
+} SetupObjectPropertyEdit;
+
 /* GuardRecord uses a different layout from ObjectRecord. Keep its source
    values separate so prop editing cannot overwrite character commands. */
 typedef struct SetupCharacter {
@@ -88,6 +106,14 @@ typedef struct SetupFile {
     DWORD charactercount;
     BOOL dirty;
 } SetupFile;
+
+const char *SetupObjectTypeName(unsigned char type);
+BOOL SetupFileGetObjectProperties(const SetupFile *setup, DWORD index,
+                                  SetupObjectProperties *out, const char **reasonout);
+/* Validates before mutation, preserves all unrelated bytes, reports no-ops.
+ * The frame validates model asset availability before committing the edit. */
+BOOL SetupFileSetObjectProperty(SetupFile *setup, const SetupObjectPropertyEdit *edit,
+                                BOOL *changedout, const char **reasonout);
 
 /* Resolve an object-relative native command reference (not an object-array index). */
 BOOL SetupObjectRelativeTarget(const SetupFile *setup, DWORD sourceoffset, LONG relative, DWORD *objectindex);

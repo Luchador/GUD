@@ -18,6 +18,7 @@
 #include "faceproperties.h"
 #include "portalproperties.h"
 #include "objectflags.h"
+#include "objectproperties.h"
 #include "tooltoolbar.h"
 #include "uveditor.h"
 #include "modeleditor.h"
@@ -295,8 +296,7 @@ static void GEditorRefreshSelectionDetails(void)
     }
     else if (objectselected && selectedobject < g_CurrentSetup.objectcount)
     {
-        RightPanelSetSetupObject(g_RightPanel,
-            &g_CurrentSetup.objects[selectedobject], selectedobject);
+        RightPanelSetSetupObject(g_RightPanel, &g_CurrentSetup, selectedobject, g_Project.dir);
     }
     else if (objectselected && (selectedobject & SETUP_CHARACTER_SELECTION_BIT)
         && (selectedobject & ~SETUP_CHARACTER_SELECTION_BIT) < g_CurrentSetup.charactercount)
@@ -2722,7 +2722,65 @@ fail:
     GEditorRefreshHistoryMenu(hwnd);
     return FALSE;
 }
-
+static BOOL GEditorSetObjectProperty(HWND hwnd, const SetupObjectPropertyEdit *edit)
+{
+    EditHistoryTransaction transaction = {0};
+    SetupObjectGeometry objects = {0};
+    const char *why = "", *restorewhy = "";
+    DWORD selected;
+    BOOL changed = FALSE, model;
+    if (!edit || !ViewportGetSelectedObject(g_Viewport, &selected)
+        || selected != edit->objectindex || selected >= g_CurrentSetup.objectcount) { return FALSE; }
+    model = edit->property == SETUP_OBJECT_MODEL;
+    ViewportCancelTransform(g_Viewport);
+    if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup,
+        model ? "Change Object Model" : "Change Object Health", &transaction, &why)) { goto fail; }
+    if (!SetupFileSetObjectProperty(&g_CurrentSetup, edit, &changed, &why)) { goto rollback; }
+    if (!changed) { EditHistoryCancelEdit(&transaction); return TRUE; }
+    if (model)
+    {
+        DWORD count = 0;
+        unsigned short *tags = NULL;
+        BgRenderFlags *flags = NULL;
+        float scale;
+        /* The full scene loader skips missing models to keep damaged projects
+         * inspectable. An explicit model edit must instead fail and roll back. */
+        BgVertex *mesh = ModelLoadProjectGeometry(g_Project.dir, (int)edit->value,
+            &count, &tags, &flags, &scale, &why);
+        BOOL loaded = mesh != NULL;
+        free(mesh); free(tags); free(flags);
+        if (!loaded)
+        {
+            if (!why[0]) { why = "The selected model could not be loaded."; }
+            goto rollback;
+        }
+        if (!ObjectLoadSetupGeometry(g_Project.dir, &g_CurrentSetup, &g_CurrentStan,
+                g_CurrentBgDocument.levelscale, &objects, &why)
+            || !GEditorRebuildCurrentViewportWithObjects(&objects, &why)) { goto rollback; }
+    }
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+                               &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    if (model)
+    {
+        ObjectGeometryFree(&g_CurrentObjects);
+        g_CurrentObjects = objects;
+    }
+    GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    if (model)
+    {
+        GEditorRebuildCurrentViewport(&restorewhy);
+        ViewportSelectSetupModel(g_Viewport, selected);
+    }
+fail:
+    ObjectGeometryFree(&objects);
+    EditHistoryCancelEdit(&transaction);
+    GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
 
 static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
@@ -2796,6 +2854,13 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     case VIEWPORT_WM_SELECTION_CHANGED:
         GEditorRefreshSelectionDetails();
         return 0;
+
+    case OBJECTPROPERTIES_WM_CHANGED:
+    {
+        BOOL ok = GEditorSetObjectProperty(hwnd, (const SetupObjectPropertyEdit *)lparam);
+        GEditorRefreshSelectionDetails();
+        return ok;
+    }
 
     case OBJECTFLAGS_WM_CHANGED:
     {

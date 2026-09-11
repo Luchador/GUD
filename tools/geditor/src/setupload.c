@@ -15,6 +15,7 @@
 #include <src/propconstants.h>
 
 #include "setupload.h"
+#include "modelload.h"
 
 #define SETUP_FILE_MAX (16u * 1024u * 1024u)
 #define SETUP_HEADER_SIZE       40u
@@ -2536,4 +2537,106 @@ BOOL SetupFileSetModelBounds(SetupFile *setup, DWORD selection, float levelscale
         SetupWrite32(setup->data + object->sourceoffset + 8, object->flags);
     }
     return SetupWriteBounds(setup, &ref, bounds, reasonout);
+}
+
+/* Shared authored fields. Offsets are the N64 setup ABI, never host sizeof. */
+static const unsigned char *SetupObjectPropertyRecord(const SetupFile *setup, DWORD index,
+                                                     const char **reasonout)
+{
+    const SetupObject *object;
+    const unsigned char *record;
+    *reasonout = "The selected setup object is no longer available.";
+    if (!setup || !setup->data || !setup->objects || index >= setup->objectcount) { return NULL; }
+    object = &setup->objects[index];
+    if (object->deleted || object->sourceoffset < SETUP_HEADER_SIZE
+        || object->sourceoffset > setup->size || setup->size - object->sourceoffset < 0x80) { return NULL; }
+    record = setup->data + object->sourceoffset;
+    if (!SetupTypeCreatesObject(record[3]) || record[3] != object->type
+        || SetupObjectWordCount(record[3]) * 4 > setup->size - object->sourceoffset
+        || SetupRead16(record + 4) != object->modelid || SetupRead16(record + 6) != object->pad)
+    { *reasonout = "The setup object's source record is inconsistent."; return NULL; }
+    *reasonout = "";
+    return record;
+}
+
+BOOL SetupFileGetObjectProperties(const SetupFile *setup, DWORD index,
+                                  SetupObjectProperties *out, const char **reasonout)
+{
+    const unsigned char *record = SetupObjectPropertyRecord(setup, index, reasonout);
+    if (!record || !out) { return FALSE; }
+    out->object = setup->objects[index];
+    out->health = (LONG)SetupRead32(record + 0x74) / 65536.0;
+    return TRUE;
+}
+
+const char *SetupObjectTypeName(unsigned char type)
+{
+    switch (type)
+    {
+    case PROPDEF_DOOR: return "Door";
+    case PROPDEF_PROP: return "Prop";
+    case PROPDEF_KEY: return "Key";
+    case PROPDEF_ALARM: return "Alarm";
+    case PROPDEF_CCTV: return "CCTV camera";
+    case PROPDEF_MAGAZINE: return "Single-ammo pickup";
+    case PROPDEF_COLLECTABLE: return "Weapon / item";
+    case PROPDEF_MONITOR: return "Monitor";
+    case PROPDEF_MULTI_MONITOR: return "Multi-monitor";
+    case PROPDEF_RACK: return "Monitor rack";
+    case PROPDEF_AUTOGUN: return "Drone gun";
+    case PROPDEF_HAT: return "Hat";
+    case PROPDEF_AMMO: return "Ammo crate";
+    case PROPDEF_ARMOUR: return "Body armour";
+    case PROPDEF_GAS_RELEASING: return "Gas-releasing prop";
+    case PROPDEF_VEHICLE: return "Vehicle";
+    case PROPDEF_AIRCRAFT: return "Aircraft";
+    case PROPDEF_GLASS: return "Glass";
+    case PROPDEF_SAFE: return "Safe";
+    case PROPDEF_TANK: return "Tank";
+    case PROPDEF_TINTED_GLASS: return "Tinted glass";
+    default: return "Unknown object";
+    }
+}
+
+BOOL SetupFileSetObjectProperty(SetupFile *setup, const SetupObjectPropertyEdit *edit,
+                                BOOL *changedout, const char **reasonout)
+{
+    const unsigned char *record;
+    DWORD encoded;
+    const char *modelname;
+    *changedout = FALSE;
+    *reasonout = "The object property request is invalid.";
+    if (!edit) { return FALSE; }
+    record = SetupObjectPropertyRecord(setup, edit->objectindex, reasonout);
+    if (!record) { return FALSE; }
+    if (setup->objects[edit->objectindex].sourceoffset != edit->sourceoffset || record[3] != edit->type)
+    { *reasonout = "The selected object changed; select it again before editing."; return FALSE; }
+    if (!isfinite(edit->value))
+    { *reasonout = "Enter a finite number."; return FALSE; }
+    switch (edit->property)
+    {
+    case SETUP_OBJECT_HEALTH:
+        if (edit->value < 0 || edit->value > 2147483647.0 / 65536.0)
+        { *reasonout = "Health must be between 0 and 32767.99998474121."; return FALSE; }
+        encoded = (DWORD)floor(edit->value * 65536.0 + 0.5);
+        if (encoded == SetupRead32(record + 0x74)) { return TRUE; }
+        SetupWrite32(setup->data + edit->sourceoffset + 0x74, encoded);
+        break;
+    case SETUP_OBJECT_MODEL:
+        if (edit->value < 0 || edit->value > 32767 || floor(edit->value) != edit->value
+            || !ModelGetPropDefinition((int)edit->value, &modelname, NULL) || !modelname || !*modelname)
+        { *reasonout = "Choose a valid prop model."; return FALSE; }
+        if ((short)edit->value == setup->objects[edit->objectindex].modelid) { return TRUE; }
+        /* Model and pad share a word; preserve the pad's exact signed bits. */
+        encoded = ((DWORD)edit->value << 16) | (SetupRead32(record + 4) & 0xffffu);
+        SetupWrite32(setup->data + edit->sourceoffset + 4, encoded);
+        setup->objects[edit->objectindex].modelid = (short)edit->value;
+        break;
+    default:
+        *reasonout = "This object property is not editable.";
+        return FALSE;
+    }
+    setup->dirty = TRUE;
+    *changedout = TRUE;
+    return TRUE;
 }
