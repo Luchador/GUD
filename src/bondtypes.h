@@ -2661,7 +2661,7 @@ typedef union
          */
         s8                 openstate;
 
-        s8                 unkbd; /*0xbd*/
+        s8                 shotstaken; /*0xbd*/
 
         // something related to rendering
         s16                calculatedopacity;      /*0xbe*/

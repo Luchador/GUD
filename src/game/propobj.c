@@ -9300,9 +9300,9 @@ void objHit(ShotData *shotdata, BulletHit *hit)
 
     if ((obj->model->obj->Skeleton == &skeleton_door) && (hit->countsAsPenetration == 0))
     {
-        ((DoorRecord *)obj)->unkbd++;
+        ((DoorRecord *)obj)->shotstaken++;
 
-        if (((DoorRecord *)obj)->unkbd >= 3)
+        if (((DoorRecord *)obj)->shotstaken >= 3)
         {
             objBreakDoorGlass(obj);
         }
@@ -12103,7 +12103,7 @@ PropRecord* doorInit(DoorRecord* door, coord3d* pos, Mtxf* mtx, StandTile* stan,
 
     door->speed = 0.0f;
     door->openstate = DOORSTATE_STATIONARY;
-    door->unkbd = 0;
+    door->shotstaken = 0;
     door->linkedDoor = NULL;
 
     if (door->doorFlags & DOORFLAG_CLIP_TO_BBOX)
