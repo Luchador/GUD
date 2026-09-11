@@ -1,4 +1,4 @@
-/* Scrollable object flags. Enum aliases deliberately expose the same bit. */
+/* Scrollable object flags, with type-specific aliases and game state filtered. */
 #include <windows.h>
 #include <windowsx.h>
 #include <commctrl.h>
@@ -6,30 +6,22 @@
 #include <stdlib.h>
 #include <src/propconstants.h>
 #include "objectflags.h"
+#include "objectflagcatalog.h"
 
 #define OBJECTFLAGS_CLASS "GEditorObjectFlags"
-typedef struct ObjectFlagDefinition {
-    unsigned int bank;
-    DWORD mask;
-    const char *name, *label, *description;
-} ObjectFlagDefinition;
-static const ObjectFlagDefinition g_ObjectFlags[] = {
-#define OBJECT_FLAG(bank, symbol, label, description) {bank, (DWORD)symbol, #symbol, label, description},
-#include "objectflagdefs.h"
-#undef OBJECT_FLAG
-};
-#define OBJECTFLAGS_COUNT ((int)(sizeof(g_ObjectFlags) / sizeof(*g_ObjectFlags)))
-
 typedef struct ObjectFlagsState {
     HWND help, headings[2], checks[OBJECTFLAGS_COUNT], tooltip;
     DWORD objectindex, values[2];
     BOOL selected;
-    int scroll, wheelremainder;
+    int type, scroll, wheelremainder;
     char tip[2048];
 } ObjectFlagsState;
 
 static ObjectFlagsState *ObjectFlagsGetState(HWND hwnd)
 { return (ObjectFlagsState *)GetWindowLongPtr(hwnd, GWLP_USERDATA); }
+
+static BOOL ObjectFlagsIsVisible(const ObjectFlagsState *state, int index)
+{ return state->selected && ObjectFlagAppliesToType(&g_ObjectFlags[index], state->type); }
 
 static int ObjectFlagsTextHeight(HDC dc, HWND control, int width)
 {
@@ -53,7 +45,9 @@ static void ObjectFlagsLayout(HWND hwnd, ObjectFlagsState *state)
     {
         for (int i = 0; i < OBJECTFLAGS_COUNT; i++)
         {
-            int height = ObjectFlagsTextHeight(dc, state->checks[i], width - 24);
+            int height;
+            if (!ObjectFlagsIsVisible(state, i)) { continue; }
+            height = ObjectFlagsTextHeight(dc, state->checks[i], width - 24);
             if (bank != (int)g_ObjectFlags[i].bank)
             {
                 bank = (int)g_ObjectFlags[i].bank;
@@ -79,9 +73,11 @@ static void ObjectFlagsLayout(HWND hwnd, ObjectFlagsState *state)
     }
     for (int i = 0; i < OBJECTFLAGS_COUNT; i++)
     {
-        if (state->selected)
+        BOOL visible = ObjectFlagsIsVisible(state, i);
+        if (visible)
         { MoveWindow(state->checks[i], 4, bounds[i].top - state->scroll, width, bounds[i].bottom - bounds[i].top, TRUE); }
-        ShowWindow(state->checks[i], state->selected ? SW_SHOW : SW_HIDE);
+        EnableWindow(state->checks[i], visible);
+        ShowWindow(state->checks[i], visible ? SW_SHOW : SW_HIDE);
     }
     InvalidateRect(hwnd, NULL, TRUE);
 }
@@ -105,7 +101,8 @@ static void ObjectFlagsDescribe(ObjectFlagsState *state, int index)
     for (int i = 0; i < OBJECTFLAGS_COUNT; i++)
     {
         size_t used;
-        if (i == index || g_ObjectFlags[i].bank != flag->bank || g_ObjectFlags[i].mask != flag->mask) { continue; }
+        if (i == index || !ObjectFlagsIsVisible(state, i)
+            || g_ObjectFlags[i].bank != flag->bank || g_ObjectFlags[i].mask != flag->mask) { continue; }
         used = strlen(state->tip);
         snprintf(state->tip + used, sizeof(state->tip) - used, "%s%s",
             aliases ? ", " : "\r\nSame bit as: ", g_ObjectFlags[i].name);
@@ -160,6 +157,7 @@ static LRESULT CALLBACK ObjectFlagsWndProc(HWND hwnd, UINT msg, WPARAM wparam, L
         {
             int index = LOWORD(wparam) - 1;
             if (index < 0 || index >= OBJECTFLAGS_COUNT || (HWND)lparam != state->checks[index]) { return 0; }
+            if (!ObjectFlagsIsVisible(state, index)) { return 0; }
             if (HIWORD(wparam) == BN_SETFOCUS)
             {
                 RECT rect, client;
@@ -247,9 +245,11 @@ void ObjectFlagsSetSelection(HWND panel, const SetupObject *object, DWORD index)
     ObjectFlagsState *state = ObjectFlagsGetState(panel);
     char heading[64];
     if (!state) { return; }
-    if (state->selected != (object != NULL) || (object && state->objectindex != index))
+    if (state->selected != (object != NULL)
+        || (object && (state->objectindex != index || state->type != object->type)))
     { state->scroll = 0; state->wheelremainder = 0; SendMessage(state->tooltip, TTM_POP, 0, 0); }
     state->selected = object != NULL; state->objectindex = index;
+    state->type = object ? object->type : PROPDEF_NOTHING;
     state->values[0] = object ? object->flags : 0;
     state->values[1] = object ? object->flags2 : 0;
     SetWindowText(state->help, object

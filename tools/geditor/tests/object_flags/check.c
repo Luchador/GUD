@@ -5,17 +5,12 @@
 #include <src/propconstants.h>
 #include "setupload.h"
 #include "bghistory.h"
+#include "objectflagcatalog.h"
 
 /* The tested history entries own only setup documents. */
 void BgDocumentFree(BgDocument *document) { (void)document; abort(); }
 void StanFileFree(StanFile *stan) { (void)stan; abort(); }
 
-typedef struct Flag { unsigned int bank; DWORD mask; } Flag;
-static const Flag flags[] = {
-#define OBJECT_FLAG(bank, symbol, label, description) {bank, (DWORD)symbol},
-#include "objectflagdefs.h"
-#undef OBJECT_FLAG
-};
 static DWORD Read32(const unsigned char *p)
 { return (DWORD)p[0] << 24 | (DWORD)p[1] << 16 | (DWORD)p[2] << 8 | p[3]; }
 static void Same(const SetupFile *a, const SetupFile *b)
@@ -38,9 +33,9 @@ static void RoundTrip(const char *dir, const SetupFile *setup)
 static void AllBits(const SetupFile *source, const char *dir)
 {
     const char *why = "";
-    for (unsigned int i = 0; i < sizeof(flags) / sizeof(*flags); i++)
+    for (int i = 0; i < OBJECTFLAGS_COUNT; i++)
     {
-        SetupFile setup = {0}; const Flag *flag = &flags[i]; BOOL changed;
+        SetupFile setup = {0}; const ObjectFlagDefinition *flag = &g_ObjectFlags[i]; BOOL changed;
         DWORD offset = source->objects[0].sourceoffset + 8 + flag->bank * 4;
         DWORD initial = Read32(source->data + offset);
         assert(SetupFileClone(source, &setup, &why));
@@ -62,6 +57,33 @@ static void AllBits(const SetupFile *source, const char *dir)
         Same(&setup, source); SetupFileFree(&setup);
     }
     puts("PASS: each flag sets/clears only its native bit; aliases, both high bits, no-op edits and save/reload preserve all other data.");
+}
+
+static void TypeSpecificFlags(void)
+{
+    const char *expected[PROPDEF_MAX] = {0};
+    expected[PROPDEF_DOOR] = "PROPFLAG_DOOR_REVERSE_SWING";
+    expected[PROPDEF_MULTI_MONITOR] = "PROPFLAG_MONITOR_SECONDARY_SCREENS_DECAL";
+    expected[PROPDEF_COLLECTABLE] = "PROPFLAG_CONCEAL_GUN";
+    expected[PROPDEF_CCTV] = "PROPFLAG_CCTV_NO_DETECTION";
+    expected[PROPDEF_VEHICLE] = "PROPFLAG_VEHICLE_INIT_HEADING";
+    expected[PROPDEF_AIRCRAFT] = "PROPFLAG_AIRCRAFT_PROPELLER";
+    for (int type = 0; type < PROPDEF_MAX; type++)
+    {
+        int count = 0;
+        for (int i = 0; i < OBJECTFLAGS_COUNT; i++)
+        {
+            const ObjectFlagDefinition *flag = &g_ObjectFlags[i];
+            if (flag->bank == 0 && flag->mask == 0x20000000u
+                && ObjectFlagAppliesToType(flag, type))
+            {
+                assert(expected[type] && !strcmp(flag->name, expected[type]));
+                count++;
+            }
+        }
+        assert(count == (expected[type] != NULL));
+    }
+    puts("PASS: each object type exposes only its own 0x20000000 option; turret acquisition state has no editable alias.");
 }
 
 static void History(const SetupFile *source, const char *dir)
@@ -137,6 +159,6 @@ int main(int argc, char **argv)
     assert(argc == 2);
     assert(SetupLoadProjectFile(argv[1], "UsetupflagsZ", &source, &why));
     assert(source.objectcount == 2 && source.charactercount == 1 && source.padcount == 1);
-    AllBits(&source, argv[1]); History(&source, argv[1]); ModeExclusions(&source, argv[1]); Invalid(&source);
+    TypeSpecificFlags(); AllBits(&source, argv[1]); History(&source, argv[1]); ModeExclusions(&source, argv[1]); Invalid(&source);
     SetupFileFree(&source); return 0;
 }

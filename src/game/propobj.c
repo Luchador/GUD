@@ -4069,7 +4069,7 @@ void objTickCctv(PropRecord *prop)
         seesPlayer = FALSE;
     }
 
-    if (obj->flags & PROPFLAG_INMOTION)
+    if (obj->flags & PROPFLAG_CCTV_NO_DETECTION)
     {
         seesPlayer = FALSE;
     }
@@ -4293,7 +4293,7 @@ void objTickAutogun(PropRecord *prop)
             playerYaw = atan2f(toPlayer.x, toPlayer.z);
             playerPitch = atan2f(toPlayer.y, horizontalDist);
 
-            if ((obj->flags & PROPFLAG_NO_AMMO) || (obj->flags & PROPFLAG_INMOTION))
+            if ((obj->flags & PROPFLAG_NO_AMMO) || (obj->flags & PROPFLAG_AUTOGUN_HAS_SEEN_PLAYER))
             {
                 hasTrackingTarget = TRUE;
             }
@@ -4334,7 +4334,7 @@ void objTickAutogun(PropRecord *prop)
 
                 if (playerYawOffset <= autogun->maxYawOffset && autogun->minYawOffset <= playerYawOffset && stanTestLineUnobstructed(&collisionTile, prop->pos.x, prop->pos.z, playerProp->pos.x, playerProp->pos.z, 0x1B, prop->pos.y, prop->pos.y, playerProp->pos.y, playerProp->pos.y) && collisionTile == playerProp->stan)
                 {
-                    obj->flags |= PROPFLAG_INMOTION;
+                    obj->flags |= PROPFLAG_AUTOGUN_HAS_SEEN_PLAYER;
                     hasLineOfSight = TRUE;
                     targetYaw = playerYaw;
                     targetPitch = playerPitch;
@@ -4576,17 +4576,17 @@ void objTickVehicle(PropRecord *prop)
         currentWaypoint = &g_CurrentSetup.pathwaypoints[*temp_a1_6];
         waypointPosition = &g_CurrentSetup.pads[currentWaypoint->padID].pos;
         targetYaw = atan2f(waypointPosition->f[0] - poTruck->position.f[0], waypointPosition->f[2] - poTruck->position.f[2]);
-        if (poTruck->flags & PROPFLAG_INMOTION)
+        if (poTruck->flags & PROPFLAG_VEHICLE_INIT_HEADING)
         {
             poTruck->roty = targetYaw;
-            obj->flags &= ~PROPFLAG_INMOTION;
+            obj->flags &= ~PROPFLAG_VEHICLE_INIT_HEADING;
             sub_GAME_7F044B38(poTruck);
         }
     }
-    else if (poTruck->flags & PROPFLAG_INMOTION)
+    else if (poTruck->flags & PROPFLAG_VEHICLE_INIT_HEADING)
     {
         poTruck->roty = atan2f(poTruck->mtx.m[2][0], poTruck->mtx.m[2][2]);
-        poTruck->flags &= ~PROPFLAG_INMOTION;
+        poTruck->flags &= ~PROPFLAG_VEHICLE_INIT_HEADING;
         sub_GAME_7F044B38(poTruck);
     }
 
@@ -4725,10 +4725,10 @@ void objTickVehicle(PropRecord *prop)
             poTruck->turnrot60 = sp434;
         }
     }
-    else if (poTruck->flags & PROPFLAG_INMOTION)
+    else if (poTruck->flags & PROPFLAG_VEHICLE_INIT_HEADING)
     {
         poTruck->roty = atan2f(poTruck->mtx.m[2][0], poTruck->mtx.m[2][2]);
-        poTruck->flags &= ~PROPFLAG_INMOTION;
+        poTruck->flags &= ~PROPFLAG_VEHICLE_INIT_HEADING;
         sub_GAME_7F044B38(poTruck);
     }
 }
@@ -4828,7 +4828,7 @@ void objTickAircraft(PropRecord *prop)
     }
 
     truckShouldPlayEngineSound = 0;
-    if ((((!(render_pad2F4->flags2 & PROPFLAG2_ONLYEXPLOSIONDAMAGE)) && (objIsHealthy(obj) != 0)) && (render_pad2F4->rotaryspeed != 0.0f)) && (!(render_pad2F4->flags & PROPFLAG_INMOTION)))
+    if ((((!(render_pad2F4->flags2 & PROPFLAG2_ONLYEXPLOSIONDAMAGE)) && (objIsHealthy(obj) != 0)) && (render_pad2F4->rotaryspeed != 0.0f)) && (!(render_pad2F4->flags & PROPFLAG_AIRCRAFT_PROPELLER)))
     {
         truckShouldPlayEngineSound = sndCalculateVolumeAtPosition(&render_pad2F4->position, 5000.0f, 6000.0f);
     }
@@ -5258,7 +5258,7 @@ void objTickBuildAircraftMatrices(ObjectRecord *obj, Mtxf *mtxs, bool isSimOwner
         matrix_4x4_copy(&mtxs[0], &mtxs[1]);
     }
 
-    if (aircraft_render->flags & PROPFLAG_INMOTION)
+    if (aircraft_render->flags & PROPFLAG_AIRCRAFT_PROPELLER)
     {
         matrix_4x4_set_rotation_around_z(aircraft_render->rotoryrot, &sp200);
     }
@@ -9486,7 +9486,7 @@ bool objTestForInteract(PropRecord* prop)
 
             stan = player->stan;
 
-            if ((obj->type == 0x28) && (obj->flags & PROPFLAG_DOOR_REVERSE_SWING))
+            if ((obj->type == PROPDEF_AIRCRAFT) && (obj->flags & PROPFLAG_AIRCRAFT_PROPELLER))
             {
                 var_f0 = 400.0f;
                 var_f2 = 160000.0f;

@@ -15,7 +15,7 @@ def main():
     shim = here.parent / 'image_import'
     definitions = (root / 'src/propconstants.h').read_text()
     expected = dict(re.findall(r'^\s*(PROPFLAG2?_\w+)\s*=\s*(0x[0-9a-fA-F]+)', definitions, re.M))
-    catalog = re.findall(r'^OBJECT_FLAG\((\d), (PROPFLAG2?_\w+),', (src / 'objectflagdefs.h').read_text(), re.M)
+    catalog = re.findall(r'^OBJECT_FLAG(?:_FOR_TYPE|_GAME_STATE)?\((\d), (PROPFLAG2?_\w+),', (src / 'objectflagdefs.h').read_text(), re.M)
     assert len(catalog) == len(expected) and {name for _, name in catalog} == set(expected)
     for bank, name in catalog:
         assert int(bank) == int(name.startswith('PROPFLAG2_'))

@@ -1,7 +1,10 @@
 /* Every saved ObjectRecord PROPFLAG/PROPFLAG2 from src/propconstants.h,
  * including object-type aliases. Runtime PropRecord flags do not belong here.
  * Values come from the shared enums. tests/object_flags checks coverage.
- * Define OBJECT_FLAG(bank, symbol, label, description) before including. */
+ * Define OBJECT_FLAG(bank, symbol, label, description),
+ * OBJECT_FLAG_FOR_TYPE(bank, symbol, label, description, type), and
+ * OBJECT_FLAG_GAME_STATE(bank, symbol, label, description) before including.
+ * Game-managed state is catalogued for bit preservation, not an editor option. */
 OBJECT_FLAG(0, PROPFLAG_ALLOWFALL, "Allow falling", "Allows this object to fall when its support is destroyed or destruction triggers falling. Overridden by No fall.")
 OBJECT_FLAG(0, PROPFLAG_ONSIDE, "On side", "Sideways placement, anchored at the model's Z-min face.")
 OBJECT_FLAG(0, PROPFLAG_UPSIDEDOWN, "Upside down", "In-air upside-down placement")
@@ -37,10 +40,13 @@ OBJECT_FLAG(0, PROPFLAG_FIXED_MONITOR, "Render screen as decal", "Renders the mo
 OBJECT_FLAG(0, PROPFLAG_CCTV_DISABLED, "Disable CCTV camera", "Stops camera scanning and player detection. The camera remains visible and cannot trigger the alarm.")
 OBJECT_FLAG(0, PROPFLAG_AUTOGUN_DISABLED, "Disable drone gun", "Disables turret aiming and firing. The turret remains visible. Also set automatically when destroyed.")
 OBJECT_FLAG(0, PROPFLAG_AMMO_DETONATE, "Ammo detonate", "Explosive ammo pickup detonates on its next weapon tick.")
-OBJECT_FLAG(0, PROPFLAG_DOOR_REVERSE_SWING, "Reverse door swing", "Reverses the opening rotation and switches the hinge side for swinging doors. Two-way doors choose this setting automatically when opened.")
-OBJECT_FLAG(0, PROPFLAG_MONITOR_SECONDARY_SCREENS_DECAL, "Render screens 2–4 as decals.", "Uses decal rendering for screens 2–4 to prevent depth flickering. Leaves screen 1’s rendering mode unchanged.")
-OBJECT_FLAG(0, PROPFLAG_INMOTION, "In motion", "projectile/prop is in motion")
-OBJECT_FLAG(0, PROPFLAG_CONCEAL_GUN, "Conceal gun", "Conceal Weapon")
+OBJECT_FLAG_FOR_TYPE(0, PROPFLAG_DOOR_REVERSE_SWING, "Reverse door swing", "Reverses the opening rotation and switches the hinge side for swinging doors. Two-way doors choose this setting automatically when opened.", PROPDEF_DOOR)
+OBJECT_FLAG_FOR_TYPE(0, PROPFLAG_MONITOR_SECONDARY_SCREENS_DECAL, "Render screens 2–4 as decals.", "Uses decal rendering for screens 2–4 to prevent depth flickering. Leaves screen 1’s rendering mode unchanged.", PROPDEF_MULTI_MONITOR)
+OBJECT_FLAG_FOR_TYPE(0, PROPFLAG_CCTV_NO_DETECTION, "Disable player detection", "Prevents this camera from detecting the player and triggering the alarm. Scanning rotation continues.", PROPDEF_CCTV)
+OBJECT_FLAG_GAME_STATE(0, PROPFLAG_AUTOGUN_HAS_SEEN_PLAYER, "Turret has seen player", "Set by the game after this turret acquires the player. Bypasses the initial forward-facing acquisition check; range, aiming limits and line of sight still apply.")
+OBJECT_FLAG_FOR_TYPE(0, PROPFLAG_VEHICLE_INIT_HEADING, "Initialize vehicle heading", "Initializes the vehicle heading toward its next waypoint, or from its placed orientation if no path is assigned. The game clears this flag after use.", PROPDEF_VEHICLE)
+OBJECT_FLAG_FOR_TYPE(0, PROPFLAG_AIRCRAFT_PROPELLER, "Propeller aircraft", "Rotates the main propeller around local Z instead of Y and suppresses helicopter engine audio. Also uses a wider interaction area.", PROPDEF_AIRCRAFT)
+OBJECT_FLAG_FOR_TYPE(0, PROPFLAG_CONCEAL_GUN, "Conceal gun", "Conceal Weapon", PROPDEF_COLLECTABLE)
 OBJECT_FLAG(0, PROPFLAG_MONITOR_RENDERPOSTBG, "Monitor render post BG", "")
 OBJECT_FLAG(0, PROPFLAG_NO_PORTAL_CLOSE, "No portal close", "Area Behind Door Visible")
 OBJECT_FLAG(0, PROPFLAG_NO_AMMO, "No ammo", "No Ammo on pickup")
