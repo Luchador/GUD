@@ -17,6 +17,7 @@
 #include "rightpanel.h"
 #include "faceproperties.h"
 #include "portalproperties.h"
+#include "objectflags.h"
 #include "tooltoolbar.h"
 #include "uveditor.h"
 #include "modeleditor.h"
@@ -266,6 +267,10 @@ static void GEditorRefreshSelectionDetails(void)
     BOOL objectselected = ViewportGetSelectedObject(g_Viewport, &selectedobject);
     int components = ViewportGetSelectedComponentCount(g_Viewport);
     DWORD stantile, stancount = ViewportGetStanSelectionCount(g_Viewport, &stantile);
+    RightPanelSetObjectFlags(g_RightPanel,
+        objectselected && selectedobject < g_CurrentSetup.objectcount
+            ? &g_CurrentSetup.objects[selectedobject] : NULL,
+        objectselected ? selectedobject : 0);
     UVEditorRefreshSelection(g_Viewport, &g_CurrentBgDocument);
     RightPanelSetVertexPaintMode(g_RightPanel,
         ViewportGetTool(g_Viewport) == EDITOR_TOOL_VERTEX_PAINT);
@@ -2451,6 +2456,37 @@ static void GEditorDeleteSelectedObject(HWND hwnd, DWORD objectindex)
 }
 
 
+static BOOL GEditorSetObjectFlag(HWND hwnd, const ObjectFlagEdit *edit)
+{
+    EditHistoryTransaction transaction = {0};
+    const char *why = "", *restorewhy = "";
+    DWORD selected; BOOL changed;
+    if (!edit || !ViewportGetSelectedObject(g_Viewport, &selected) || selected != edit->objectindex
+        || selected >= g_CurrentSetup.objectcount) { return FALSE; }
+    ViewportCancelTransform(g_Viewport);
+    if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup,
+        "Change Object Flag", &transaction, &why)) { goto fail; }
+    if (!SetupFileSetObjectFlag(&g_CurrentSetup, selected, edit->bank, edit->mask, edit->enabled,
+        &changed, &why)) { goto fail; }
+    if (!changed) { EditHistoryCancelEdit(&transaction); return TRUE; }
+    if (!GEditorReloadCurrentObjectsAndViewport(&why)
+        || !EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+            &g_CurrentStan, &transaction, &why))
+    {
+        EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+        GEditorReloadCurrentObjectsAndViewport(&restorewhy);
+        ViewportSelectSetupModel(g_Viewport, selected);
+        goto fail;
+    }
+    GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+fail:
+    EditHistoryCancelEdit(&transaction);
+    GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
 static BOOL GEditorSetPortalRooms(HWND hwnd, const PortalPropertiesEdit *edit)
 {
     EditHistoryTransaction transaction = {0};
@@ -2701,6 +2737,13 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     case VIEWPORT_WM_SELECTION_CHANGED:
         GEditorRefreshSelectionDetails();
         return 0;
+
+    case OBJECTFLAGS_WM_CHANGED:
+    {
+        BOOL ok = GEditorSetObjectFlag(hwnd, (const ObjectFlagEdit *)lparam);
+        GEditorRefreshSelectionDetails();
+        return ok;
+    }
 
     case PORTALPROPERTIES_WM_CHANGED:
     {

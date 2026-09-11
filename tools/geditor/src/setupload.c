@@ -1468,6 +1468,43 @@ BOOL SetupFileClone(const SetupFile *source, SetupFile *out,
 }
 
 
+BOOL SetupFileSetObjectFlag(SetupFile *setup, DWORD objectindex,
+                            unsigned int bank, DWORD mask, BOOL enabled,
+                            BOOL *changedout, const char **reasonout)
+{
+    SetupObject *object;
+    unsigned char *record;
+    DWORD value, previous;
+    *changedout = FALSE;
+    *reasonout = "the selected setup object is invalid.";
+    if (!setup || !setup->data || !setup->objects || objectindex >= setup->objectcount
+        || (objectindex & SETUP_CHARACTER_SELECTION_BIT)) { return FALSE; }
+    if (bank > 1 || mask == 0 || (mask & (mask - 1)) != 0)
+    { *reasonout = "select one PROPFLAG or PROPFLAG2 bit."; return FALSE; }
+    object = &setup->objects[objectindex];
+    if (object->sourceoffset < SETUP_HEADER_SIZE || object->sourceoffset > setup->size
+        || setup->size - object->sourceoffset < 16)
+    { *reasonout = "the selected setup object's source record is invalid."; return FALSE; }
+    record = setup->data + object->sourceoffset;
+    if (record[3] != object->type || !SetupTypeCreatesObject(record[3])
+        || SetupObjectWordCount(record[3]) * 4 > setup->size - object->sourceoffset
+        || SetupRead32(record + 8) != object->flags || SetupRead32(record + 12) != object->flags2)
+    { *reasonout = "the selected setup object's source record is inconsistent."; return FALSE; }
+    previous = bank ? object->flags2 : object->flags;
+    value = enabled ? previous | mask : previous & ~mask;
+    *reasonout = "";
+    if (value == previous) { return TRUE; }
+    SetupWrite32(record + 8 + bank * 4, value);
+    if (bank) { object->flags2 = value; }
+    else { object->flags = value; }
+    /* Keep live state identical to reloading this setup. The editor also uses
+       the five mode-exclusion bits together for Delete Object tombstones. */
+    object->deleted = (object->flags2 & SETUP_OBJECT_DELETED_FLAGS2) == SETUP_OBJECT_DELETED_FLAGS2;
+    setup->dirty = TRUE;
+    *changedout = TRUE;
+    return TRUE;
+}
+
 BOOL SetupFileDeleteObject(SetupFile *setup, DWORD objectindex,
                            const char **reasonout)
 {

@@ -165,6 +165,11 @@ BOOL SetupFileClone(const SetupFile *source, SetupFile *out,
 /* Logically removes an object without changing setup command indices. */
 BOOL SetupFileDeleteObject(SetupFile *setup, DWORD objectindex,
                            const char **reasonout);
+/* Edit one bit in the object's native PROPFLAG (bank 0) or PROPFLAG2 (bank 1)
+   word. Aliases share a bit. No other setup fields or indices are rewritten. */
+BOOL SetupFileSetObjectFlag(SetupFile *setup, DWORD objectindex,
+                            unsigned int bank, DWORD mask, BOOL enabled,
+                            BOOL *changedout, const char **reasonout);
 BOOL SetupFileDeleteCharacter(SetupFile *setup, DWORD characterindex,
                               const char **reasonout);
 
