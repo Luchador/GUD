@@ -6009,7 +6009,7 @@ void objTickAutogunFire(PropRecord *prop)
     bool showPrimaryMuzzleFlash = FALSE;
     bool showSecondaryMuzzleFlash = FALSE;
 
-    if (autogun->isActive && !(obj->flags & PROPFLAG_IS_DRONE_GUN))
+    if (autogun->isActive && !(obj->flags & PROPFLAG_AUTOGUN_DISABLED))
     {
         autogun->firingCycle++;
         showPrimaryMuzzleFlash = (autogun->firingCycle & 1) == 0;
@@ -6289,13 +6289,13 @@ s32 objTick(struct PropRecord *prop, s32 playerCount, bool isSimOwner)
 				previousOpenPosition = objTickDoor(prop);
 				break;
 			case PROPDEF_CCTV:
-				if (!(obj->flags & PROPFLAG_IS_DRONE_GUN))
+				if (!(obj->flags & PROPFLAG_AUTOGUN_DISABLED))
 				{
 					objTickCctv(prop);
 				}
 				break;
 			case PROPDEF_AUTOGUN:
-				if (!(obj->flags & PROPFLAG_IS_DRONE_GUN))
+				if (!(obj->flags & PROPFLAG_AUTOGUN_DISABLED))
 				{
 					objTickAutogun(prop);
 				}
@@ -7122,7 +7122,7 @@ void objRenderPropModel(PropRecord *prop, ModelRenderData *renderData, bool tran
 
             gdl = monitorProcessAndRender(model, model->obj->Switches[0], &multiMonitor->Monitor[0], gdl, monitorZBufferMode, 1);
 
-            if (monitorZBufferMode != MONITOR_ZBUFFER_DISABLED && (obj->flags & PROPFLAG_SPECIAL_FUNC))
+            if (monitorZBufferMode != MONITOR_ZBUFFER_DISABLED && (obj->flags & PROPFLAG_MONITOR_SECONDARY_SCREENS_DECAL))
             {
                 monitorZBufferMode = MONITOR_ZBUFFER_DECAL;
             }
@@ -9078,7 +9078,7 @@ apply_damage:
 
         if (objGetDestroyedLevel(obj) == 1)
         {
-            obj->flags |= PROPFLAG_IS_DRONE_GUN;
+            obj->flags |= PROPFLAG_AUTOGUN_DISABLED;
         }
     }
     else if (obj->type == PROPDEF_CCTV)
@@ -9486,7 +9486,7 @@ bool objTestForInteract(PropRecord* prop)
 
             stan = player->stan;
 
-            if ((obj->type == 0x28) && (obj->flags & PROPFLAG_DOOR_OPENTOFRONT))
+            if ((obj->type == 0x28) && (obj->flags & PROPFLAG_DOOR_REVERSE_SWING))
             {
                 var_f0 = 400.0f;
                 var_f2 = 160000.0f;
@@ -11885,7 +11885,7 @@ void door7F0526EC(DoorRecord *door, Mtxf *rhs)
             sp54.f[1] += sp38.f[1] * temp_v0_2->bbox.xmax;
             sp54.f[2] += sp38.f[2] * temp_v0_2->bbox.xmax;
         }
-        else if (door->flags & PROPFLAG_DOOR_OPENTOFRONT)
+        else if (door->flags & PROPFLAG_DOOR_REVERSE_SWING)
         {
             sp54.f[0] += sp38.f[0] * temp_v0_2->bbox.xmax;
             sp54.f[1] += sp38.f[1] * temp_v0_2->bbox.xmax;
@@ -11908,7 +11908,7 @@ void door7F0526EC(DoorRecord *door, Mtxf *rhs)
 
         if (door->doorType == DOORTYPE_AZTECCHAIR)
         {
-            if (door->flags & PROPFLAG_DOOR_OPENTOFRONT)
+            if (door->flags & PROPFLAG_DOOR_REVERSE_SWING)
             {
                 matrix_4x4_set_rotation_around_z(M_TAU_F - ((door->openPosition * M_TAU_F) / 360.0f), &lhs);
             }
@@ -11917,7 +11917,7 @@ void door7F0526EC(DoorRecord *door, Mtxf *rhs)
                 matrix_4x4_set_rotation_around_z((door->openPosition * M_TAU_F) / 360.0f, &lhs);
             }
         }
-        else if (door->flags & PROPFLAG_DOOR_OPENTOFRONT)
+        else if (door->flags & PROPFLAG_DOOR_REVERSE_SWING)
         {
             matrix_4x4_set_rotation_around_y(M_TAU_F - ((door->openPosition * M_TAU_F) / 360.0f), &lhs);
         }
@@ -13184,7 +13184,7 @@ void door7F05522C(DoorRecord *door, f32 *arg1, f32 *arg2, s32 altcoordsystem)
     {
         angle2 = (door->openPosition * M_TAU_F) / 360.0f;
 
-        if (door->flags & PROPFLAG_DOOR_OPENTOFRONT)
+        if (door->flags & PROPFLAG_DOOR_REVERSE_SWING)
         {
             angle2 = M_TAU_F - angle2;
         }
@@ -13444,26 +13444,26 @@ void doorsChooseSwingDirection(PropRecord *chrprop, DoorRecord *door)
         {
             if (!infront)
             {
-                wantflag = PROPFLAG_DOOR_OPENTOFRONT;
+                wantflag = PROPFLAG_DOOR_REVERSE_SWING;
             }
         }
         else
         {
             if (infront)
             {
-                wantflag = PROPFLAG_DOOR_OPENTOFRONT;
+                wantflag = PROPFLAG_DOOR_REVERSE_SWING;
             }
         }
 
         // If the current swing direction differs from the requested direction.
-        if ((door->flags ^ wantflag) & PROPFLAG_DOOR_OPENTOFRONT)
+        if ((door->flags ^ wantflag) & PROPFLAG_DOOR_REVERSE_SWING)
         {
             // Toggle direction on door and siblings
             DoorRecord *sibling = door;
 
             do
             {
-                sibling->flags ^= PROPFLAG_DOOR_OPENTOFRONT;
+                sibling->flags ^= PROPFLAG_DOOR_REVERSE_SWING;
                 sibling = sibling->linkedDoor;
             } while (sibling && sibling != door);
         }

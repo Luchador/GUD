@@ -8443,7 +8443,7 @@ void chrlvTravelTick(ChrRecord *self, coord3d *arg1, StandTile *arg2, struct way
         if (phi_s3 != NULL)
         {
             obj = phi_s3->obj;
-            if (!(obj->flags2 & PROPFLAG_DOOR_OPENTOFRONT))
+            if (!(obj->flags2 & PROPFLAG_DOOR_REVERSE_SWING))
             {
                 dx = phi_s3->pos.f[0] - self_prop->pos.f[0];
                 dy = phi_s3->pos.f[1] - self_prop->pos.f[1];
