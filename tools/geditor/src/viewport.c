@@ -3668,15 +3668,19 @@ static BOOL ViewportVertexInBox(const ViewportState *state, const Vertex *vertex
            screen[0] <= box->right && screen[1] >= box->top && screen[1] <= box->bottom;
 }
 
-typedef struct ViewportBoxVertex
+typedef struct ViewportBoxPoint
 {
     DWORD owner, index; /* BG room/vertex, or canonical stan tile/point */
     int corner;         /* visible-layer BG corner used by transform tools */
-} ViewportBoxVertex;
+} ViewportBoxPoint;
 
-static int ViewportCompareBoxVertices(const void *left, const void *right)
+typedef struct ViewportBoxComponent
 {
-    const ViewportBoxVertex *a = left, *b = right;
+    ViewportBoxPoint ends[2]; /* same endpoint twice for vertex selection */
+} ViewportBoxComponent;
+
+static int ViewportCompareBoxPoints(const ViewportBoxPoint *a, const ViewportBoxPoint *b)
+{
     if (a->owner != b->owner)
     {
         return a->owner < b->owner ? -1 : 1;
@@ -3684,12 +3688,31 @@ static int ViewportCompareBoxVertices(const void *left, const void *right)
     return a->index < b->index ? -1 : a->index > b->index;
 }
 
-static BOOL ViewportCollectBoxVertices(const ViewportState *state, const RECT *box, BOOL stan,
-                                       ViewportBoxVertex **out, int *countout)
+static int ViewportCompareBoxComponents(const void *left, const void *right)
+{
+    const ViewportBoxComponent *a = left, *b = right;
+    int first = ViewportCompareBoxPoints(&a->ends[0], &b->ends[0]);
+    return first ? first : ViewportCompareBoxPoints(&a->ends[1], &b->ends[1]);
+}
+
+static ViewportBoxComponent ViewportBoxComponentKey(ViewportBoxPoint a, ViewportBoxPoint b)
+{
+    /* Match click selection's unordered endpoint identity. Adjacent faces
+       often list the same edge in opposite directions. */
+    ViewportBoxComponent key;
+    BOOL reverse = ViewportCompareBoxPoints(&a, &b) > 0;
+    key.ends[0] = reverse ? b : a;
+    key.ends[1] = reverse ? a : b;
+    return key;
+}
+
+static BOOL ViewportCollectBoxComponents(const ViewportState *state, const RECT *box, BOOL stan,
+                                         ViewportBoxComponent **out, int *countout)
 {
     size_t capacity =
         stan ? (size_t)state->stan.tilecount * STAN_TILE_MAX_POINTS : (size_t)state->scenecount;
-    ViewportBoxVertex *vertices;
+    ViewportBoxComponent *components;
+    BOOL edges = state->tool == EDITOR_TOOL_EDGE_SELECT;
     int count = 0, unique = 0, i;
     *out = NULL;
     *countout = 0;
@@ -3698,12 +3721,12 @@ static BOOL ViewportCollectBoxVertices(const ViewportState *state, const RECT *b
     {
         return TRUE;
     }
-    if (capacity > INT_MAX || capacity > SIZE_MAX / sizeof(*vertices))
+    if (capacity > INT_MAX || capacity > SIZE_MAX / sizeof(*components))
     {
         return FALSE;
     }
-    vertices = malloc(capacity * sizeof(*vertices));
-    if (vertices == NULL)
+    components = malloc(capacity * sizeof(*components));
+    if (components == NULL)
     {
         return FALSE;
     }
@@ -3716,11 +3739,16 @@ static BOOL ViewportCollectBoxVertices(const ViewportState *state, const RECT *b
             unsigned int point;
             for (point = 0; point < polygon->pointcount; point++)
             {
-                Vertex vertex = ViewportStanPointVertex(&polygon->points[point]);
-                if (ViewportVertexInBox(state, &vertex, box))
+                unsigned int other = edges ? (point + 1) % polygon->pointcount : point;
+                Vertex a = ViewportStanPointVertex(&polygon->points[point]);
+                Vertex b = ViewportStanPointVertex(&polygon->points[other]);
+                if (ViewportVertexInBox(state, &a, box) && ViewportVertexInBox(state, &b, box))
                 {
-                    StanPointRef ref = ViewportStanPointRef(state, tile, point);
-                    vertices[count++] = (ViewportBoxVertex){ref.tile, ref.point, 0};
+                    StanPointRef a = ViewportStanPointRef(state, tile, point);
+                    StanPointRef b = ViewportStanPointRef(state, tile, other);
+                    if (edges && a.tile == b.tile && a.point == b.point) { continue; }
+                    components[count++] = ViewportBoxComponentKey(
+                        (ViewportBoxPoint){a.tile, a.point, 0}, (ViewportBoxPoint){b.tile, b.point, 0});
                 }
             }
         }
@@ -3737,28 +3765,38 @@ static BOOL ViewportCollectBoxVertices(const ViewportState *state, const RECT *b
             }
             for (corner = batch->first; corner < batch->first + batch->count; corner++)
             {
-                const BgDocumentVertexRef *ref = &state->scenevertexrefs[corner];
-                if (ref->room && !ViewportTriangleHidden(state, corner / 3)
-                    && ViewportVertexInBox(state, &state->scene[corner], box))
+                int other = edges ? (corner / 3) * 3 + (corner + 1) % 3 : corner;
+                const BgDocumentVertexRef *a = &state->scenevertexrefs[corner];
+                const BgDocumentVertexRef *b = &state->scenevertexrefs[other];
+                /* Both endpoints must be enclosed. Hidden faces do not offer
+                   edges; a shared edge on another visible face still qualifies. */
+                if (a->room && b->room && !ViewportTriangleHidden(state, corner / 3)
+                    && ViewportVertexInBox(state, &state->scene[corner], box)
+                    && ViewportVertexInBox(state, &state->scene[other], box))
                 {
-                    vertices[count++] = (ViewportBoxVertex){ref->room, ref->index, corner};
+                    if (edges && !ViewportCompareVertexRefs(a, b)) { continue; }
+                    components[count++] = ViewportBoxComponentKey(
+                        (ViewportBoxPoint){a->room, a->index, corner},
+                        (ViewportBoxPoint){b->room, b->index, other});
                 }
             }
         }
     }
-    qsort(vertices, count, sizeof(*vertices), ViewportCompareBoxVertices);
+    qsort(components, count, sizeof(*components), ViewportCompareBoxComponents);
     for (i = 0; i < count; i++)
     {
-        if (unique == 0 || ViewportCompareBoxVertices(&vertices[i], &vertices[unique - 1]))
+        if (unique == 0 || ViewportCompareBoxComponents(&components[i], &components[unique - 1]))
         {
-            vertices[unique++] = vertices[i];
+            components[unique++] = components[i];
         }
-        else if (vertices[i].corner < vertices[unique - 1].corner)
+        else if (components[i].ends[0].corner < components[unique - 1].ends[0].corner
+                 || (components[i].ends[0].corner == components[unique - 1].ends[0].corner
+                     && components[i].ends[1].corner < components[unique - 1].ends[1].corner))
         {
-            vertices[unique - 1].corner = vertices[i].corner;
+            components[unique - 1] = components[i];
         }
     }
-    *out = vertices;
+    *out = components;
     *countout = unique;
     return TRUE;
 }
@@ -3766,13 +3804,14 @@ static BOOL ViewportCollectBoxVertices(const ViewportState *state, const RECT *b
 /* Linear filtering with sorted membership lookups avoids scanning the entire
  * selection for every triangle corner. Shared identities occur only once;
  * distinct vertices at the same position remain distinct. */
-static BOOL ViewportApplyBoxVertices(ViewportState *state, const ViewportBoxVertex *hits,
+static BOOL ViewportApplyBoxComponents(ViewportState *state, const ViewportBoxComponent *hits,
                                      int hitcount, BOOL stan, BOOL add, BOOL remove)
 {
+    BOOL edges = state->tool == EDITOR_TOOL_EDGE_SELECT;
     int previous = stan ? state->stancomponentcount : state->componentcount;
     int keep = add || remove ? previous : 0;
     int capacity, count = 0, i;
-    ViewportBoxVertex *selected = NULL;
+    ViewportBoxComponent *selected = NULL;
     ViewportComponent *bg = NULL;
     ViewportStanComponent *tiles = NULL;
     if (hitcount == 0 && (add || remove))
@@ -3811,23 +3850,27 @@ static BOOL ViewportApplyBoxVertices(ViewportState *state, const ViewportBoxVert
     }
     for (i = 0; i < keep; i++)
     {
-        ViewportBoxVertex key;
+        ViewportBoxComponent key;
         if (stan)
         {
-            StanPointRef ref = state->stancomponents[i].refs[0];
-            key = (ViewportBoxVertex){ref.tile, ref.point, 0};
+            StanPointRef a = state->stancomponents[i].refs[0];
+            StanPointRef b = state->stancomponents[i].refs[edges ? 1 : 0];
+            key = ViewportBoxComponentKey((ViewportBoxPoint){a.tile, a.point, 0},
+                                          (ViewportBoxPoint){b.tile, b.point, 0});
         }
         else
         {
             const ViewportComponent *component = &state->components[i];
-            key = (ViewportBoxVertex){component->refs[0].room, component->refs[0].index,
-                                      component->corners[0]};
+            int other = edges ? 1 : 0;
+            key = ViewportBoxComponentKey(
+                (ViewportBoxPoint){component->refs[0].room, component->refs[0].index, component->corners[0]},
+                (ViewportBoxPoint){component->refs[other].room, component->refs[other].index, component->corners[other]});
         }
         if (selected)
         {
             selected[i] = key;
         }
-        if (remove && bsearch(&key, hits, hitcount, sizeof(*hits), ViewportCompareBoxVertices))
+        if (remove && bsearch(&key, hits, hitcount, sizeof(*hits), ViewportCompareBoxComponents))
         {
             continue;
         }
@@ -3843,27 +3886,28 @@ static BOOL ViewportApplyBoxVertices(ViewportState *state, const ViewportBoxVert
     }
     if (selected)
     {
-        qsort(selected, keep, sizeof(*selected), ViewportCompareBoxVertices);
+        qsort(selected, keep, sizeof(*selected), ViewportCompareBoxComponents);
     }
     if (!remove)
     {
         for (i = 0; i < hitcount; i++)
         {
             if (selected &&
-                bsearch(&hits[i], selected, keep, sizeof(*selected), ViewportCompareBoxVertices))
+                bsearch(&hits[i], selected, keep, sizeof(*selected), ViewportCompareBoxComponents))
             {
                 continue;
             }
             if (stan)
             {
-                tiles[count].refs[0] = (StanPointRef){hits[i].owner, hits[i].index};
-                tiles[count].refs[1] = tiles[count].refs[0];
+                tiles[count].refs[0] = (StanPointRef){hits[i].ends[0].owner, hits[i].ends[0].index};
+                tiles[count].refs[1] = (StanPointRef){hits[i].ends[1].owner, hits[i].ends[1].index};
             }
             else
             {
-                bg[count].refs[0] = state->scenevertexrefs[hits[i].corner];
-                bg[count].refs[1] = bg[count].refs[0];
-                bg[count].corners[0] = bg[count].corners[1] = hits[i].corner;
+                bg[count].refs[0] = state->scenevertexrefs[hits[i].ends[0].corner];
+                bg[count].refs[1] = state->scenevertexrefs[hits[i].ends[1].corner];
+                bg[count].corners[0] = hits[i].ends[0].corner;
+                bg[count].corners[1] = hits[i].ends[1].corner;
             }
             count++;
         }
@@ -3909,26 +3953,26 @@ static void ViewportEndBoxSelection(HWND hwnd, ViewportState *state, int x, int 
         return;
     }
     {
-        ViewportBoxVertex *hits = NULL;
+        ViewportBoxComponent *hits = NULL;
         int count = 0;
         BOOL stan = ViewportStanVisible(state) && state->stancomponentcount > 0;
-        BOOL ok = ViewportCollectBoxVertices(state, &box, stan, &hits, &count);
+        BOOL ok = ViewportCollectBoxComponents(state, &box, stan, &hits, &count);
         /* Component transforms edit one asset type at a time. Keep the current
          * type; with no selection prefer BG, falling back to stan-only hits. */
         if (ok && count == 0 && !stan && state->componentcount == 0 && ViewportStanVisible(state))
         {
             free(hits);
             stan = TRUE;
-            ok = ViewportCollectBoxVertices(state, &box, stan, &hits, &count);
+            ok = ViewportCollectBoxComponents(state, &box, stan, &hits, &count);
         }
         if (ok)
         {
-            ok = ViewportApplyBoxVertices(state, hits, count, stan, add, remove);
+            ok = ViewportApplyBoxComponents(state, hits, count, stan, add, remove);
         }
         free(hits);
         if (!ok)
         {
-            MessageBox(hwnd, "Not enough memory to select these vertices.", "GEditor",
+            MessageBox(hwnd, "Not enough memory to select these components.", "GEditor",
                        MB_ICONERROR);
             return;
         }
@@ -4790,7 +4834,8 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
             (wparam & MK_CONTROL) != 0)) { return 0; }
         if (state != NULL && ViewportTryPickPortal(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam),
             (wparam & MK_CONTROL) != 0)) { return 0; }
-        if (state != NULL && !state->flying && state->tool == EDITOR_TOOL_VERTEX_SELECT)
+        if (state != NULL && !state->flying
+            && (state->tool == EDITOR_TOOL_VERTEX_SELECT || state->tool == EDITOR_TOOL_EDGE_SELECT))
         {
             ViewportBeginBoxSelection(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam),
                                       (wparam & MK_SHIFT) != 0, (wparam & MK_CONTROL) != 0);

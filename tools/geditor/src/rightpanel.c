@@ -887,7 +887,7 @@ void RightPanelSetBgComponentSelection(HWND panel, BOOL edges, int count)
     if (state==NULL) { return; }
     lstrcpyn(state->detailtitle,edges ? "Background Edges" : "Background Vertices",sizeof(state->detailtitle));
     snprintf(state->detailtext,sizeof(state->detailtext),
-        "%d %s selected.\r\n\r\nShift-click to add.\r\nControl-click to remove.\r\nDrag an arrow to move.\r\nEscape cancels a drag.",
+        "%d %s selected.\r\n\r\nDrag a box to select.\r\nShift-click/drag to add.\r\nControl-click/drag to remove.\r\nDrag an arrow to move.\r\nEscape cancels a drag.",
         count,edges ? "edges" : "vertices");
     RightPanelShowFaceProperties(panel, state, FALSE);
     SetWindowText(state->details,state->detailtext);
