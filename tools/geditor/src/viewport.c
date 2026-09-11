@@ -3542,8 +3542,10 @@ static BOOL ViewportTryPickStan(HWND hwnd, ViewportState *state, int x, int y, B
 /* Reuse normal vertex picking, including visibility and shared-point identity.
  * Snapshot the source before picking the destination: picking replaces the
  * selection, and committing the edit may rebuild all viewport geometry. */
-static void ViewportSnapVertexAt(HWND hwnd, ViewportState *state, int x, int y)
+void ViewportSnapVertexAt(HWND hwnd, int x, int y)
 {
+    ViewportState *state = ViewportGetState(hwnd);
+    if (!state || state->tool != EDITOR_TOOL_VERTEX_SELECT || !state->vertexsnap) { return; }
     ViewportComponent sourcebg = {0};
     ViewportStanComponent sourcestan = {0};
     double source[3], target[3];
@@ -4868,7 +4870,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         SetFocus(hwnd);
         if (state != NULL && !state->flying && state->vertexsnap)
         {
-            ViewportSnapVertexAt(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam));
+            SendMessage(GetParent(hwnd), VIEWPORT_WM_SNAP_PICK, 0, lparam);
             return 0;
         }
         if (state != NULL && !state->flying
@@ -6827,4 +6829,157 @@ void ViewportSelectPad(HWND hwnd, const SetupPadRef *ref)
     ViewportRefreshPadColors(s);
     ViewportUpdateGizmo(s);
     InvalidateRect(hwnd, NULL, FALSE);
+}
+
+/* Pointer-free, level-local history snapshot. Cached draw indices, camera,
+ * visibility and live transform previews deliberately stay out of history. */
+typedef struct ViewportSelectionSnapshot {
+    EditorTool tool;
+    BOOL vertexsnap;
+    DWORD object, portal;
+    SetupPadRef pad;
+    BOOL markerselected;
+    SetupMarkerRef marker;
+    int faces, components, stantiles, stancomponents;
+    /* Followed by BgFaceRef[], ViewportComponent[], DWORD[] and
+     * ViewportStanComponent[]. Component corners are rebuilt from source IDs. */
+} ViewportSelectionSnapshot;
+
+static size_t ViewportSelectionSize(const ViewportSelectionSnapshot *s)
+{
+    return sizeof(*s) + (size_t)s->faces * sizeof(BgFaceRef)
+        + (size_t)s->components * sizeof(ViewportComponent)
+        + (size_t)s->stantiles * sizeof(DWORD)
+        + (size_t)s->stancomponents * sizeof(ViewportStanComponent);
+}
+
+BOOL ViewportCaptureSelection(HWND hwnd, void **data, size_t *size)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    ViewportSelectionSnapshot header = {0}, *snapshot;
+    BgFaceRef *faces;
+    ViewportComponent *components;
+    ViewportStanComponent *stancomponents;
+    DWORD *tiles;
+    int i, at;
+    DWORD tile;
+    *data = NULL; *size = 0;
+    if (!state) { return FALSE; }
+    header.tool = state->tool;
+    header.vertexsnap = state->vertexsnap;
+    header.object = state->selectedobject;
+    header.portal = state->selectedportal;
+    header.pad.index = state->selectedpad.index;
+    if (header.pad.index != SETUP_PAD_INDEX_NONE) { header.pad.bound = state->selectedpad.bound; }
+    header.markerselected = state->markerselected;
+    if (header.markerselected) { header.marker = state->selectedmarker; }
+    for (i = 0; i < state->scenecount / 3; i++)
+    { if (state->selectedtris[i] && state->scenefacerefs[i].faceid != BG_FACE_ID_NONE) { header.faces++; } }
+    for (tile = 0; state->stanselected && tile < state->stan.tilecount; tile++)
+    { if (state->stanselected[tile]) { header.stantiles++; } }
+    header.components = state->componentcount;
+    header.stancomponents = state->stancomponentcount;
+    *size = ViewportSelectionSize(&header);
+    snapshot = calloc(1, *size);
+    if (!snapshot) { return FALSE; }
+    *snapshot = header;
+    faces = (BgFaceRef *)(snapshot + 1);
+    components = (ViewportComponent *)(faces + header.faces);
+    tiles = (DWORD *)(components + header.components);
+    stancomponents = (ViewportStanComponent *)(tiles + header.stantiles);
+    for (i = 0, at = 0; i < state->scenecount / 3; i++)
+    {
+        if (!state->selectedtris[i] || state->scenefacerefs[i].faceid == BG_FACE_ID_NONE) { continue; }
+        faces[at].faceid = state->scenefacerefs[i].faceid;
+        faces[at].room = state->scenefacerefs[i].room;
+        faces[at++].layer = state->scenefacerefs[i].layer;
+    }
+    qsort(faces, header.faces, sizeof(*faces), ViewportCompareFaceRefs);
+    for (i = 0; i < header.components; i++)
+    { memcpy(components[i].refs, state->components[i].refs, sizeof(components[i].refs)); }
+    for (tile = 0, at = 0; state->stanselected && tile < state->stan.tilecount; tile++)
+    { if (state->stanselected[tile]) { tiles[at++] = tile; } }
+    if (header.stancomponents)
+    { memcpy(stancomponents, state->stancomponents, header.stancomponents * sizeof(*stancomponents)); }
+    *data = snapshot;
+    return TRUE;
+}
+
+BOOL ViewportRestoreSelection(HWND hwnd, const void *data, size_t size)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    const ViewportSelectionSnapshot *s = data;
+    const BgFaceRef *faces;
+    const ViewportComponent *components;
+    const ViewportStanComponent *stancomponents;
+    const DWORD *tiles;
+    ViewportComponent *newcomponents = NULL;
+    ViewportStanComponent *newstancomponents = NULL;
+    SetupMarker marker;
+    int i, kept;
+    if (!state || !s || size < sizeof(*s) || s->tool < 0 || s->tool >= EDITOR_TOOL_COUNT
+        || s->faces < 0 || s->components < 0 || s->stantiles < 0 || s->stancomponents < 0
+        || size != ViewportSelectionSize(s)) { return FALSE; }
+    faces = (const BgFaceRef *)(s + 1);
+    components = (const ViewportComponent *)(faces + s->faces);
+    tiles = (const DWORD *)(components + s->components);
+    stancomponents = (const ViewportStanComponent *)(tiles + s->stantiles);
+    if (s->components)
+    {
+        newcomponents = malloc(s->components * sizeof(*newcomponents));
+        if (!newcomponents) { return FALSE; }
+        memcpy(newcomponents, components, s->components * sizeof(*newcomponents));
+    }
+    if (s->stancomponents)
+    {
+        newstancomponents = malloc(s->stancomponents * sizeof(*newstancomponents));
+        if (!newstancomponents) { free(newcomponents); return FALSE; }
+        memcpy(newstancomponents, stancomponents, s->stancomponents * sizeof(*newstancomponents));
+    }
+    /* Allocate first: an allocation failure must leave the current selection intact. */
+    ViewportCancelTransform(hwnd);
+    ViewportClearAllSelection(state);
+    state->tool = s->tool;
+    state->vertexsnap = s->vertexsnap;
+    free(state->components);
+    state->components = newcomponents;
+    state->componentcount = state->componentcapacity = s->components;
+    ViewportRestoreComponents(state);
+    for (i = 0; i < state->scenecount / 3 && s->faces; i++)
+    {
+        if (!ViewportTriangleHidden(state, i) && ViewportCornerVisible(state, i * 3)
+            && bsearch(&state->scenefacerefs[i], faces, s->faces, sizeof(*faces), ViewportCompareFaceRefs))
+        {
+            state->selectedtris[i] = TRUE;
+            state->selectedtricount++;
+            ViewportSetTriangleColor(state, i, TRUE);
+        }
+    }
+    free(state->stancomponents);
+    state->stancomponents = newstancomponents;
+    state->stancomponentcapacity = s->stancomponents;
+    for (i = 0, kept = 0; ViewportStanVisible(state) && i < s->stancomponents; i++)
+    {
+        const StanPointRef *refs = newstancomponents[i].refs;
+        if (refs[0].tile < state->stan.tilecount && refs[1].tile < state->stan.tilecount
+            && refs[0].point < state->stan.tiles[refs[0].tile].pointcount
+            && refs[1].point < state->stan.tiles[refs[1].tile].pointcount)
+        { newstancomponents[kept++] = newstancomponents[i]; }
+    }
+    state->stancomponentcount = kept;
+    for (i = 0; ViewportStanVisible(state) && state->stanselected && i < s->stantiles; i++)
+    { if (tiles[i] < state->stan.tilecount) { state->stanselected[tiles[i]] = TRUE; } }
+    if (state->showobjects && s->object != VIEWPORT_OBJECT_NONE) { ViewportSelectObject(state, s->object); }
+    state->selectedpad = s->pad;
+    if (ViewportSelectedPadIndex(state) < 0) { state->selectedpad.index = SETUP_PAD_INDEX_NONE; }
+    state->markerselected = s->markerselected;
+    state->selectedmarker = s->marker;
+    if (!ViewportSelectedMarker(state, &marker)) { state->markerselected = FALSE; }
+    if (state->showportals && s->portal < state->portals.portalcount) { state->selectedportal = s->portal; }
+    ViewportRefreshPadColors(state);
+    ViewportRefreshPortalColors(state);
+    ViewportRefreshStanOverlay(state);
+    ViewportUpdateGizmo(state);
+    ViewportRedraw(hwnd);
+    return TRUE;
 }

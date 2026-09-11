@@ -976,3 +976,62 @@ done:
     free(vertices); free(faces); free(edits);
     return result;
 }
+
+/* Source identity and the selected texture's coordinate basis, never live S/T. */
+typedef struct UVCanvasSelectionVertex {
+    BgDocumentVertexRef vertex;
+    DWORD vertexid;
+    int width, height;
+} UVCanvasSelectionVertex;
+
+BOOL UVCanvasCaptureSelection(HWND canvas, void **data, size_t *size)
+{
+    const UVCanvasState *state = UVCanvasGetState(canvas);
+    UVCanvasSelectionVertex *vertices;
+    int i, count = 0, at = 0;
+    *data = NULL; *size = 0;
+    if (!state) { return TRUE; }
+    for (i = 0; i < state->nodecount; i++) { count += state->nodes[i].selected != FALSE; }
+    if (!count) { return TRUE; }
+    vertices = calloc(count, sizeof(*vertices));
+    if (!vertices) { return FALSE; }
+    for (i = 0; i < state->nodecount; i++)
+    {
+        const UVCanvasNode *node = &state->nodes[i];
+        if (!node->selected) { continue; }
+        vertices[at].vertex = node->source.vertex;
+        vertices[at].vertexid = node->source.vertexid;
+        vertices[at].width = node->width;
+        vertices[at++].height = node->height;
+    }
+    *data = vertices; *size = (size_t)count * sizeof(*vertices);
+    return TRUE;
+}
+
+BOOL UVCanvasRestoreSelection(HWND canvas, const void *data, size_t size)
+{
+    UVCanvasState *state = UVCanvasGetState(canvas);
+    const UVCanvasSelectionVertex *vertices = data;
+    size_t i;
+    int nodeindex;
+    if (size % sizeof(*vertices) || (size && !data)) { return FALSE; }
+    if (!state) { return size == 0; }
+    UVCanvasCancelInteraction(canvas);
+    for (nodeindex = 0; nodeindex < state->nodecount; nodeindex++) { state->nodes[nodeindex].selected = FALSE; }
+    for (i = 0; i < size / sizeof(*vertices); i++)
+    {
+        UVCanvasNode key = {0}, *node;
+        key.source.vertex = vertices[i].vertex;
+        key.source.vertexid = vertices[i].vertexid;
+        node = state->nodecount ? bsearch(&key, state->nodes, state->nodecount, sizeof(*node), UVCanvasNodeCompare) : NULL;
+        if (node)
+        {
+            node->selected = TRUE;
+            node->width = vertices[i].width;
+            node->height = vertices[i].height;
+        }
+    }
+    UVCanvasUpdatePreview(state);
+    UVCanvasNotify(canvas);
+    return TRUE;
+}

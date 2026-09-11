@@ -1,7 +1,7 @@
 /*
  * Bounded chronological undo/redo history for editable level documents.
  *
- * Each entry owns only the pre-edit document for the asset which changed.
+ * Each entry owns a selection snapshot and the document for any changed asset.
  * Undo and redo transfer that ownership between the live document and the
  * opposite stack, avoiding another potentially large clone while stepping.
  */
@@ -39,6 +39,7 @@ static void EditHistoryFreeEntry(EditHistoryEntry *entry)
     {
         StanFileFree(&entry->stan);
     }
+    free(entry->selection);
     ZeroMemory(entry, sizeof(*entry));
 }
 
@@ -164,7 +165,51 @@ void EditHistoryFree(EditHistory *history)
 
     EditHistoryFreeEntries(history->undoentries, history->undocount);
     EditHistoryFreeEntries(history->redoentries, history->redocount);
+    free(history->selection);
     ZeroMemory(history, sizeof(*history));
+}
+
+
+/* Selection-only steps use the same chronological stack, but never change an
+ * asset revision. Keeping snapshots opaque avoids coupling history to windows. */
+BOOL EditHistorySetSelection(EditHistory *history, const void *data, size_t size,
+                             BOOL record, const char **reasonout)
+{
+    void *copy = NULL;
+    DWORD needed;
+    EditHistoryEntry *entry;
+    *reasonout = "";
+    if (!history || !history->currentstaterevision || (size && !data))
+    { *reasonout = "the selection history has not been initialized."; return FALSE; }
+    if (size == history->selectionsize && (!size || !memcmp(data, history->selection, size)))
+    { return TRUE; }
+    if (size)
+    {
+        copy = malloc(size);
+        if (!copy) { *reasonout = "out of memory remembering the selection."; return FALSE; }
+        memcpy(copy, data, size);
+    }
+    if (record)
+    {
+        needed = history->undocount < EDIT_HISTORY_LIMIT ? history->undocount + 1 : EDIT_HISTORY_LIMIT;
+        if (!history->nextrevision || !EditHistoryEnsureCapacity(&history->undoentries,
+                &history->undocapacity, needed))
+        { free(copy); *reasonout = "could not extend the selection history."; return FALSE; }
+        EditHistoryClearStack(history->redoentries, &history->redocount);
+        EditHistoryDiscardOldest(history->undoentries, &history->undocount);
+        entry = &history->undoentries[history->undocount++];
+        ZeroMemory(entry, sizeof(*entry));
+        entry->asset = EDIT_HISTORY_ASSET_SELECTION;
+        entry->selection = history->selection;
+        entry->selectionsize = history->selectionsize;
+        entry->staterevision = history->currentstaterevision;
+        EditHistoryCopyAction(entry->action, "Change Selection");
+        history->currentstaterevision = history->nextrevision++;
+    }
+    else { free(history->selection); }
+    history->selection = copy;
+    history->selectionsize = size;
+    return TRUE;
 }
 
 
@@ -261,6 +306,7 @@ BOOL EditHistoryCommitEdit(EditHistory *history, BgDocument *bgdocument,
                            const char **reasonout)
 {
     EditHistoryEntry *entry;
+    void *selection = NULL;
     DWORD needed;
     ULONGLONG currentassetrevision;
     ULONGLONG newrevision;
@@ -299,11 +345,21 @@ BOOL EditHistoryCommitEdit(EditHistory *history, BgDocument *bgdocument,
         return FALSE;
     }
 
+    if (history->selectionsize)
+    {
+        selection = malloc(history->selectionsize);
+        if (!selection)
+        { *reasonout = "out of memory remembering the selection before the edit."; return FALSE; }
+        memcpy(selection, history->selection, history->selectionsize);
+    }
+
     EditHistoryClearStack(history->redoentries, &history->redocount);
     EditHistoryDiscardOldest(history->undoentries, &history->undocount);
 
     entry = &history->undoentries[history->undocount++];
     ZeroMemory(entry, sizeof(*entry));
+    entry->selection = selection;
+    entry->selectionsize = history->selectionsize;
     entry->asset = transaction->asset;
     entry->staterevision = transaction->staterevision;
     entry->assetrevision = transaction->assetrevision;
@@ -440,7 +496,7 @@ static void EditHistoryMoveLiveToEntry(EditHistoryEntry *entry,
     {
         entry->stan = *stan;
     }
-    else
+    else if (asset == EDIT_HISTORY_ASSET_SETUP)
     {
         entry->setup = *setup;
     }
@@ -461,7 +517,7 @@ static void EditHistoryMoveEntryToLive(EditHistoryEntry *entry,
         *stan = entry->stan;
         ZeroMemory(&entry->stan, sizeof(entry->stan));
     }
-    else
+    else if (entry->asset == EDIT_HISTORY_ASSET_SETUP)
     {
         *setup = entry->setup;
         ZeroMemory(&entry->setup, sizeof(entry->setup));
@@ -503,6 +559,10 @@ static BOOL EditHistoryStep(EditHistory *history,
     current = &(*toentries)[(*tocount)++];
     ZeroMemory(current, sizeof(*current));
     EditHistoryMoveLiveToEntry(current, previous.asset, bgdocument, setup, stan);
+    current->selection = history->selection;
+    current->selectionsize = history->selectionsize;
+    history->selection = previous.selection;
+    history->selectionsize = previous.selectionsize;
     current->staterevision = history->currentstaterevision;
     current->assetrevision = currentassetrevision;
     EditHistoryCopyAction(current->action, previous.action);
@@ -517,7 +577,7 @@ static BOOL EditHistoryStep(EditHistory *history,
     {
         history->currentstanrevision = previous.assetrevision;
     }
-    else
+    else if (previous.asset == EDIT_HISTORY_ASSET_SETUP)
     {
         history->currentsetuprevision = previous.assetrevision;
     }

@@ -24,6 +24,11 @@
 #define VIEWPORT_WM_TRANSLATE_SELECTION (WM_APP + 8)
 /* Same ViewportTranslation payload; commits one snap through edit history. */
 #define VIEWPORT_WM_SNAP_VERTEX (WM_APP + 22)
+/* Route the whole snap gesture through the frame so its temporary target
+ * selection and final clearing are part of the same undo action. lparam is
+ * the viewport mouse position packed as in WM_LBUTTONDOWN. */
+#define VIEWPORT_WM_SNAP_PICK (WM_APP + 45)
+void ViewportSnapVertexAt(HWND hwnd, int x, int y);
 /* Refresh coordinate fields after transient drag movement or cancellation. */
 #define VIEWPORT_WM_TRANSFORM_PREVIEW (WM_APP + 9)
 /* wparam is the document tile index; painting changes its complete RGB. */
@@ -32,6 +37,11 @@ typedef struct ViewportTranslation { double offset[3]; } ViewportTranslation;
 
 /* Cancels transient transform/marquee drags before history, saving, or changing tools. */
 void ViewportCancelTransform(HWND hwnd);
+/* In-memory, pointer-free selection snapshots. Capture allocates; caller frees.
+ * Restore remaps source identities into the current draw order, without notifying
+ * the frame or changing camera/visibility. Failure leaves selection unchanged. */
+BOOL ViewportCaptureSelection(HWND hwnd, void **data, size_t *size);
+BOOL ViewportRestoreSelection(HWND hwnd, const void *data, size_t size);
 BgDocumentVertexRef *ViewportGetMoveVertices(HWND hwnd, DWORD *countout);
 int ViewportGetSelectedComponentCount(HWND hwnd);
 
@@ -65,7 +75,7 @@ void ViewportRedraw(HWND viewport);
 /* Vertex mode: left-drag selects through geometry in the visible layers;
    Shift adds and Control subtracts. BG and stan remain separate selections.
    Face selection is the initial tool. Changing tools clears the current
-   selection without editing assets or adding an undo history entry. */
+   selection; undo restores the selection and its tool together. */
 EditorTool ViewportGetTool(HWND viewport);
 void ViewportSetTool(HWND viewport, EditorTool tool);
 BOOL ViewportGetVertexSnap(HWND viewport);

@@ -16,6 +16,11 @@ void UVEditorRefreshSelection(HWND viewport, const BgDocument *document);
    HISTORY wparam is TRUE for redo. */
 #define UVEDITOR_WM_APPLY (WM_APP + 42)
 #define UVEDITOR_WM_HISTORY (WM_APP + 43)
+#define UVEDITOR_WM_SELECTION_CHANGED (WM_APP + 44)
+BOOL UVEditorIsOpen(void);
+BOOL UVEditorCaptureSelection(void **data, size_t *size);
+BOOL UVEditorRestoreSelection(const void *data, size_t size);
+void UVEditorCancelInteraction(void);
 
 /* Route wheel input by hover position, and this window's other messages
    before the main editor's keyboard shortcuts.

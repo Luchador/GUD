@@ -33,6 +33,9 @@ typedef struct UVCanvasEdit {
    and leaves the camera unchanged. FALSE clears the overlay on allocation failure. */
 BOOL UVCanvasSetTriangles(HWND canvas, UVCanvasTriangle *triangles, int count);
 int UVCanvasGetSelection(HWND canvas, double uv[2]);
+/* Pointer-free source identities, owned by the caller after capture. */
+BOOL UVCanvasCaptureSelection(HWND canvas, void **data, size_t *size);
+BOOL UVCanvasRestoreSelection(HWND canvas, const void *data, size_t size);
 BOOL UVCanvasSetPosition(HWND canvas, const double uv[2], const char **reason);
 void UVCanvasSetTransformMode(HWND canvas, TransformMode mode);
 /* Current drag values: UV offsets, degrees, or U/V scale factors. */

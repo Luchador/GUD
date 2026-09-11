@@ -173,6 +173,7 @@ static INT_PTR CALLBACK UVEditorDialogProc(HWND hwnd, UINT message,
 
     case UVCANVAS_WM_SELECTION_CHANGED:
         UVEditorUpdateFields();
+        SendMessage(GetWindow(hwnd, GW_OWNER), UVEDITOR_WM_SELECTION_CHANGED, 0, 0);
         return TRUE;
 
     case UVCANVAS_WM_COMMIT:
@@ -406,4 +407,24 @@ BOOL UVEditorHandleMessage(MSG *message)
         DispatchMessage(message);
     }
     return TRUE;
+}
+
+BOOL UVEditorIsOpen(void)
+{
+    return g_UVEditor != NULL;
+}
+
+BOOL UVEditorCaptureSelection(void **data, size_t *size)
+{
+    return UVCanvasCaptureSelection(g_UVCanvas, data, size);
+}
+
+BOOL UVEditorRestoreSelection(const void *data, size_t size)
+{
+    return UVCanvasRestoreSelection(g_UVCanvas, data, size);
+}
+
+void UVEditorCancelInteraction(void)
+{
+    UVCanvasCancelInteraction(g_UVCanvas);
 }

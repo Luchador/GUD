@@ -14,12 +14,15 @@ typedef enum EditHistoryAsset {
     EDIT_HISTORY_ASSET_NONE = 0,
     EDIT_HISTORY_ASSET_BG,
     EDIT_HISTORY_ASSET_SETUP,
-    EDIT_HISTORY_ASSET_STAN
+    EDIT_HISTORY_ASSET_STAN,
+    EDIT_HISTORY_ASSET_SELECTION
 } EditHistoryAsset;
 
-/* Only the document selected by asset owns allocated data in an entry. */
+/* An entry owns its selection snapshot and, for edits, one asset document. */
 typedef struct EditHistoryEntry {
     EditHistoryAsset asset;
+    void *selection;
+    size_t selectionsize;
     BgDocument bgdocument;
     SetupFile setup;
     StanFile stan;
@@ -32,6 +35,8 @@ typedef struct EditHistoryEntry {
  * document has its own saved revision so saving or undoing one asset cannot
  * incorrectly mark another one clean or dirty. */
 typedef struct EditHistory {
+    void *selection; /* opaque, pointer-free viewport/UV snapshot */
+    size_t selectionsize;
     EditHistoryEntry *undoentries;
     DWORD undocount;
     DWORD undocapacity;
@@ -93,6 +98,12 @@ BOOL EditHistoryUndo(EditHistory *history, BgDocument *bgdocument,
 BOOL EditHistoryRedo(EditHistory *history, BgDocument *bgdocument,
                      SetupFile *setup, StanFile *stan, EditHistoryAsset *assetout,
                      const char **reasonout);
+
+/* record=FALSE synchronizes selection after loading or completing an edit;
+ * TRUE records a user selection change. Identical snapshots are a no-op.
+ * Copies data; failure leaves both history stacks and saved revisions intact. */
+BOOL EditHistorySetSelection(EditHistory *history, const void *data, size_t size,
+                             BOOL record, const char **reasonout);
 
 void EditHistoryMarkBgSaved(EditHistory *history, BgDocument *document);
 void EditHistoryMarkSetupSaved(EditHistory *history, SetupFile *setup);

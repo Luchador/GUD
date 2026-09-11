@@ -70,8 +70,9 @@ static BgFile g_CurrentBg;
 /* Room-aware editable geometry. Saving compiles it back into g_CurrentBg;
    the raw segment supplies preserved portal, visibility, and header data. */
 static BgDocument g_CurrentBgDocument;
-/* One chronological history spans both BG and setup edits. */
+/* One chronological history spans document edits and viewport/UV selections. */
 static EditHistory g_EditHistory;
+static BOOL g_SelectionHistoryPending, g_SelectionHistoryReset, g_SelectionHistoryNavigation;
 /* Setup for the selected level, including host-native parsed views.
    Editor tools can consume it without retaining the source ROM. */
 static SetupFile g_CurrentSetup;
@@ -267,6 +268,7 @@ static void GEditorRefreshSelectionDetails(void)
     BOOL objectselected = ViewportGetSelectedObject(g_Viewport, &selectedobject);
     int components = ViewportGetSelectedComponentCount(g_Viewport);
     DWORD stantile, stancount = ViewportGetStanSelectionCount(g_Viewport, &stantile);
+    g_SelectionHistoryPending = TRUE;
     RightPanelSetObjectFlags(g_RightPanel,
         objectselected && selectedobject < g_CurrentSetup.objectcount
             ? &g_CurrentSetup.objects[selectedobject] : NULL,
@@ -1648,6 +1650,49 @@ static BOOL GEditorInRightSplitter(HWND hwnd, int x)
 }
 
 
+/* One snapshot contains both workspaces so a face change restores its UV
+ * selection too. Data is session-local; none of it enters project assets. */
+typedef struct GEditorSelectionSnapshot {
+    size_t viewsize, uvsize;
+} GEditorSelectionSnapshot;
+
+static BOOL GEditorCaptureSelection(void **data, size_t *size)
+{
+    void *view = NULL, *uv = NULL;
+    size_t viewsize = 0, uvsize = 0;
+    GEditorSelectionSnapshot *snapshot;
+    *data = NULL; *size = 0;
+    if (!ViewportCaptureSelection(g_Viewport, &view, &viewsize)
+        || !UVEditorCaptureSelection(&uv, &uvsize))
+    { free(view); free(uv); return FALSE; }
+    *size = sizeof(*snapshot) + viewsize + uvsize;
+    snapshot = malloc(*size);
+    if (!snapshot) { free(view); free(uv); return FALSE; }
+    snapshot->viewsize = viewsize;
+    snapshot->uvsize = uvsize;
+    memcpy(snapshot + 1, view, viewsize);
+    if (uvsize) { memcpy((char *)(snapshot + 1) + viewsize, uv, uvsize); }
+    free(view); free(uv);
+    *data = snapshot;
+    return TRUE;
+}
+
+static BOOL GEditorRestoreHistorySelection(HWND hwnd)
+{
+    const GEditorSelectionSnapshot *snapshot = g_EditHistory.selection;
+    if (!snapshot || g_EditHistory.selectionsize < sizeof(*snapshot)
+        || snapshot->viewsize > g_EditHistory.selectionsize - sizeof(*snapshot)
+        || snapshot->uvsize != g_EditHistory.selectionsize - sizeof(*snapshot) - snapshot->viewsize)
+    { return FALSE; }
+    if (!ViewportRestoreSelection(g_Viewport, snapshot + 1, snapshot->viewsize)) { return FALSE; }
+    ToolToolbarSetTool(g_ToolToolbar, ViewportGetTool(g_Viewport));
+    ToolToolbarSetVertexSnap(g_ToolToolbar, ViewportGetVertexSnap(g_Viewport));
+    if (snapshot->uvsize && !UVEditorIsOpen() && !UVEditorShow(hwnd, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE)))
+    { return FALSE; }
+    GEditorRefreshSelectionDetails();
+    return UVEditorRestoreSelection((const char *)(snapshot + 1) + snapshot->viewsize, snapshot->uvsize);
+}
+
 static void GEditorApplyHistoryStep(HWND hwnd, BOOL redo)
 {
     const char *why = "";
@@ -1656,6 +1701,9 @@ static void GEditorApplyHistoryStep(HWND hwnd, BOOL redo)
     EditHistoryAsset restoreasset = EDIT_HISTORY_ASSET_NONE;
     BOOL changed;
 
+    g_SelectionHistoryNavigation = TRUE;
+    ViewportCancelTransform(g_Viewport);
+    UVEditorCancelInteraction();
     changed = redo
         ? EditHistoryRedo(&g_EditHistory, &g_CurrentBgDocument,
                           &g_CurrentSetup, &g_CurrentStan, &asset, &why)
@@ -1667,9 +1715,11 @@ static void GEditorApplyHistoryStep(HWND hwnd, BOOL redo)
         return;
     }
 
-    if (!((asset == EDIT_HISTORY_ASSET_SETUP || asset == EDIT_HISTORY_ASSET_STAN)
+    if ((asset != EDIT_HISTORY_ASSET_SELECTION
+         && !((asset == EDIT_HISTORY_ASSET_SETUP || asset == EDIT_HISTORY_ASSET_STAN)
             ? GEditorReloadCurrentObjectsAndViewport(&why)
             : GEditorRebuildCurrentViewport(&why)))
+        || !GEditorRestoreHistorySelection(hwnd))
     {
         /* A history step is not useful if its geometry cannot be presented.
            The inverse transfer cannot allocate here: the destination stack
@@ -1694,7 +1744,8 @@ static void GEditorApplyHistoryStep(HWND hwnd, BOOL redo)
             GEditorRebuildCurrentViewport(&restorewhy);
         }
 
-        MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+        GEditorRestoreHistorySelection(hwnd);
+        MessageBox(hwnd, why[0] ? why : "Could not restore the selection.", GEDITOR_TITLE, MB_ICONERROR);
     }
 
     GEditorRefreshHistoryMenu(hwnd);
@@ -2673,7 +2724,7 @@ fail:
 }
 
 
-static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
+static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     switch (msg)
     {
@@ -2732,6 +2783,14 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
     case VIEWPORT_WM_TRANSFORM_PREVIEW:
         GEditorRefreshTransformFields();
+        return 0;
+
+    case VIEWPORT_WM_SNAP_PICK:
+        ViewportSnapVertexAt(g_Viewport, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam));
+        return 0;
+
+    case UVEDITOR_WM_SELECTION_CHANGED:
+        g_SelectionHistoryPending = TRUE;
         return 0;
 
     case VIEWPORT_WM_SELECTION_CHANGED:
@@ -3099,6 +3158,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         ObjectGeometryFree(&objects);
 
         EditHistoryReset(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+        g_SelectionHistoryReset = TRUE;
         g_CurrentLevelIndex = index;
 
         ViewportSetBackgroundColor(g_Viewport, level->hasbackgroundcolor ? level->backgroundcolor : NULL);
@@ -3433,6 +3493,46 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     }
 
     return DefWindowProc(hwnd, msg, wparam, lparam);
+}
+
+
+/* Selection notifications are synchronous and can nest during asset rebuilds.
+ * Finish only the outer frame message: one click/marquee gets one entry, while
+ * an edit and its automatic reselection stay together in the edit's entry. */
+static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
+{
+    static unsigned int depth;
+    ULONGLONG revision = g_EditHistory.currentstaterevision;
+    LRESULT result;
+    depth++;
+    result = GEditorDispatchMessage(hwnd, msg, wparam, lparam);
+    if (depth == 1)
+    {
+        if (g_EditHistory.currentstaterevision && (g_SelectionHistoryPending
+            || g_SelectionHistoryReset || revision != g_EditHistory.currentstaterevision))
+        {
+            void *selection = NULL;
+            size_t size = 0;
+            const char *why = "out of memory capturing the selection.";
+            BOOL record = !g_SelectionHistoryReset && !g_SelectionHistoryNavigation
+                && revision == g_EditHistory.currentstaterevision;
+            if (!GEditorCaptureSelection(&selection, &size)
+                || !EditHistorySetSelection(&g_EditHistory, selection, size, record, &why))
+            {
+                /* Do not leave an untracked selection masquerading as the
+                 * current undo state if memory is exhausted. */
+                GEditorRestoreHistorySelection(hwnd);
+                MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+            }
+            free(selection);
+            GEditorRefreshHistoryMenu(hwnd);
+        }
+        g_SelectionHistoryPending = FALSE;
+        g_SelectionHistoryReset = FALSE;
+        g_SelectionHistoryNavigation = FALSE;
+    }
+    depth--;
+    return result;
 }
 
 /* W/E/R are editor shortcuts only outside camera flight. Native edit fields
