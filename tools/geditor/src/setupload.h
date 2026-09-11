@@ -60,7 +60,9 @@ typedef enum SetupObjectProperty {
     SETUP_OBJECT_DOOR_CLOSE_DELAY, SETUP_OBJECT_DOOR_TYPE,
     SETUP_OBJECT_DOOR_SOUND, SETUP_OBJECT_DOOR_FLAGS, SETUP_OBJECT_DOOR_KEY_FLAGS,
     SETUP_OBJECT_CCTV_LOOK_PAD, SETUP_OBJECT_CCTV_SWEEP_MIN,
-    SETUP_OBJECT_CCTV_SWEEP_MAX, SETUP_OBJECT_CCTV_SPEED, SETUP_OBJECT_CCTV_RANGE
+    SETUP_OBJECT_CCTV_SWEEP_MAX, SETUP_OBJECT_CCTV_SPEED, SETUP_OBJECT_CCTV_RANGE,
+    SETUP_OBJECT_DRONE_AIM_PAD, SETUP_OBJECT_DRONE_YAW_MIN,
+    SETUP_OBJECT_DRONE_YAW_MAX, SETUP_OBJECT_DRONE_SPEED, SETUP_OBJECT_DRONE_RANGE
 } SetupObjectProperty;
 /* Movement uses native fractions/degrees/animation units per 60 Hz tick.
  * The inspector converts these to percentages/degrees and seconds. */
@@ -77,12 +79,21 @@ typedef struct SetupCctvProperties {
     double sweepmin, sweepmax, speed;
     DWORD range;
 } SetupCctvProperties;
+/* Effective yaw limits in degrees, tracking speed in degrees/sec, range in
+ * world units. Stock +/-720-degree limits mean unrestricted yaw; present
+ * those as +/-180 while preserving their original words on unchanged edits.
+ * Unlike CCTV, zero range is NOT unlimited. Negative aim pads use +Z, level. */
+typedef struct SetupDroneProperties {
+    LONG aimpad;
+    double yawmin, yawmax, speed, range;
+} SetupDroneProperties;
 typedef struct SetupObjectProperties {
     SetupObject object;
     double health;
     DWORD keyflags, ammotype; /* keyflags: supplied by a key, required by a door */
     SetupDoorProperties door;
     SetupCctvProperties cctv;
+    SetupDroneProperties drone;
     struct { unsigned short model, quantity; } ammo[AMMOTYPE_GLOBAL_MAX];
 } SetupObjectProperties;
 typedef struct SetupObjectPropertyEdit {

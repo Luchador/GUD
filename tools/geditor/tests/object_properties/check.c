@@ -80,6 +80,11 @@ static void CheckSpecificEdit(const char *dir, const SetupFile *source,
     case SETUP_OBJECT_CCTV_SWEEP_MAX: assert(fabs(properties.cctv.sweepmax - edit.value) <= 180.0 / 65536.0); break;
     case SETUP_OBJECT_CCTV_SPEED: assert(fabs(properties.cctv.speed - edit.value) <= 10800.0 / 65536.0); break;
     case SETUP_OBJECT_CCTV_RANGE: assert(properties.cctv.range == (DWORD)edit.value); break;
+    case SETUP_OBJECT_DRONE_AIM_PAD: assert(properties.drone.aimpad == (LONG)edit.value); break;
+    case SETUP_OBJECT_DRONE_YAW_MIN: assert(fabs(properties.drone.yawmin - edit.value) <= 180.0 / 65536.0); break;
+    case SETUP_OBJECT_DRONE_YAW_MAX: assert(fabs(properties.drone.yawmax - edit.value) <= 180.0 / 65536.0); break;
+    case SETUP_OBJECT_DRONE_SPEED: assert(fabs(properties.drone.speed - edit.value) <= 10800.0 / 65536.0); break;
+    case SETUP_OBJECT_DRONE_RANGE: assert(fabs(properties.drone.range - edit.value) <= 50.0 / 65536.0); break;
     default: assert(0);
     }
     OnlyBytes(source, &setup, edit.sourceoffset + relative, length);
@@ -290,6 +295,88 @@ static void CheckCctv(const char *dir, const SetupFile *source)
     puts("PASS: CCTV pad references, signed sweep limits, 60 Hz speed, unlimited range, byte preservation, save/reload, undo/redo and invalid edits.");
 }
 
+static void CheckDrone(const char *dir, const SetupFile *source)
+{
+    DWORD gun = FindType(source, PROPDEF_AUTOGUN), camera = FindType(source, PROPDEF_CCTV);
+    SetupObjectProperties properties;
+    SetupObjectPropertyEdit edit;
+    const char *why; BOOL changed;
+    assert(SetupFileGetObjectProperties(source, gun, &properties, &why));
+    assert(properties.drone.aimpad == 1 && properties.drone.yawmin == -180 && properties.drone.yawmax == 180);
+    assert(properties.drone.speed == 0x111 * (21600.0 / 65536.0) && properties.drone.range == 2000);
+    const double pads[] = {-1, 0, 10000};
+    for (unsigned int i = 0; i < sizeof(pads) / sizeof(*pads); i++)
+    { CheckSpecificEdit(dir, source, Request(source, gun, SETUP_OBJECT_DRONE_AIM_PAD, pads[i]), 0x80, 4); }
+    const double angles[] = {-90, -22.3, -180.0 / 65536.0, 0, 180.0 / 65536.0, 22.3, 90};
+    for (unsigned int i = 0; i < sizeof(angles) / sizeof(*angles); i++)
+    {
+        CheckSpecificEdit(dir, source, Request(source, gun, SETUP_OBJECT_DRONE_YAW_MIN, angles[i]), 0x8c, 4);
+        CheckSpecificEdit(dir, source, Request(source, gun, SETUP_OBJECT_DRONE_YAW_MAX, angles[i]), 0x88, 4);
+    }
+    CheckSpecificEdit(dir, source, Request(source, gun, SETUP_OBJECT_DRONE_YAW_MIN, 180), 0x8c, 4);
+    CheckSpecificEdit(dir, source, Request(source, gun, SETUP_OBJECT_DRONE_YAW_MAX, -180), 0x88, 4);
+    const double speeds[] = {0, 0.1, 21600.0 / 65536.0, 30, 60, 2147483647.0 * (21600.0 / 65536.0)};
+    const double ranges[] = {0, 0.1, 100.0 / 65536.0, 1000, 819.9996948242188, 2147483647.0 * (100.0 / 65536.0)};
+    for (unsigned int i = 0; i < sizeof(speeds) / sizeof(*speeds); i++)
+    {
+        CheckSpecificEdit(dir, source, Request(source, gun, SETUP_OBJECT_DRONE_SPEED, speeds[i]), 0xa4, 4);
+        CheckSpecificEdit(dir, source, Request(source, gun, SETUP_OBJECT_DRONE_RANGE, ranges[i]), 0xa8, 4);
+    }
+    SetupFile setup = {0};
+    assert(SetupFileClone(source, &setup, &why));
+    for (int which = 0; which < 2; which++)
+    {
+        edit = Request(&setup, gun, which ? SETUP_OBJECT_DRONE_YAW_MAX : SETUP_OBJECT_DRONE_YAW_MIN, which ? 180 : -180);
+        assert(SetupFileSetObjectProperty(&setup, &edit, &changed, &why) && !changed && !setup.dirty);
+        Same(&setup, source); /* +/-720 native words survive accepting displayed +/-180. */
+    }
+    const double invalid[] = {NAN, INFINITY, -INFINITY, 4294967296.0};
+    for (int property = SETUP_OBJECT_DRONE_AIM_PAD; property <= SETUP_OBJECT_DRONE_RANGE; property++)
+    {
+        for (unsigned int i = 0; i < sizeof(invalid) / sizeof(*invalid); i++)
+        {
+            edit = Request(&setup, gun, property, invalid[i]);
+            assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why) && !changed && !setup.dirty);
+            Same(&setup, source);
+        }
+        edit = Request(&setup, camera, property, 0);
+        assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why)); Same(&setup, source);
+        edit = Request(&setup, gun, property, 0); edit.sourceoffset++;
+        assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why)); Same(&setup, source);
+    }
+    const struct { SetupObjectProperty property; double value; } bad[] = {
+        {SETUP_OBJECT_DRONE_AIM_PAD, -2}, {SETUP_OBJECT_DRONE_AIM_PAD, 0.5},
+        {SETUP_OBJECT_DRONE_AIM_PAD, 2}, {SETUP_OBJECT_DRONE_AIM_PAD, 9999},
+        {SETUP_OBJECT_DRONE_AIM_PAD, 10001}, {SETUP_OBJECT_DRONE_AIM_PAD, 2147483647.0},
+        {SETUP_OBJECT_DRONE_YAW_MIN, -181}, {SETUP_OBJECT_DRONE_YAW_MAX, 181},
+        {SETUP_OBJECT_DRONE_SPEED, -1}, {SETUP_OBJECT_DRONE_SPEED, 2147483648.0 * (21600.0 / 65536.0)},
+        {SETUP_OBJECT_DRONE_RANGE, -1}, {SETUP_OBJECT_DRONE_RANGE, 2147483648.0 * (100.0 / 65536.0)}
+    };
+    for (unsigned int i = 0; i < sizeof(bad) / sizeof(*bad); i++)
+    {
+        edit = Request(&setup, gun, bad[i].property, bad[i].value);
+        assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why) && !changed && !setup.dirty);
+        Same(&setup, source);
+    }
+    edit = Request(&setup, gun, SETUP_OBJECT_DRONE_YAW_MIN, -45);
+    assert(SetupFileSetObjectProperty(&setup, &edit, &changed, &why));
+    edit.property = SETUP_OBJECT_DRONE_YAW_MAX; edit.value = -46;
+    assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why));
+    edit.value = 45; assert(SetupFileSetObjectProperty(&setup, &edit, &changed, &why));
+    edit.property = SETUP_OBJECT_DRONE_YAW_MIN; edit.value = 46;
+    assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why));
+    edit.value = 45; assert(SetupFileSetObjectProperty(&setup, &edit, &changed, &why)); /* Equal is allowed. */
+    assert(SetupFileGetObjectProperties(&setup, gun, &properties, &why) && properties.drone.yawmin == properties.drone.yawmax);
+    RoundTrip(dir, &setup);
+    DWORD size = setup.size;
+    setup.size = edit.sourceoffset + 0xa8;
+    assert(!SetupFileGetObjectProperties(&setup, gun, &properties, &why));
+    assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why));
+    setup.size = size;
+    SetupFileFree(&setup);
+    puts("PASS: drone gun native offsets, signed yaw, full-circle sentinels, aim pads, speed/range units, save/reload, undo/redo and invalid edits.");
+}
+
 int main(int argc, char **argv)
 {
     SetupFile source = {0}, setup = {0}; const char *why;
@@ -298,6 +385,7 @@ int main(int argc, char **argv)
     CheckKeysAndAmmo(argv[1], &source);
     CheckDoors(argv[1], &source);
     CheckCctv(argv[1], &source);
+    CheckDrone(argv[1], &source);
     for (DWORD index = 0; index < source.objectcount; index++)
     {
         SetupObjectProperties view;

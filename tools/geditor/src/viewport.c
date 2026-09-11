@@ -98,12 +98,12 @@ typedef struct SceneBatch {
     int monitor;        /* -1 for static geometry */
 } SceneBatch;
 
-/* A camera's rendered centre, cached with the scene. Resolve its target from
+/* A camera/gun's rendered centre, cached with the scene. Resolve its target from
  * the live setup when drawing so inspector edits do not require a mesh reload. */
-typedef struct ViewportCctvGuide {
+typedef struct ViewportAimGuide {
     DWORD objectindex;
     double origin[3];
-} ViewportCctvGuide;
+} ViewportAimGuide;
 
 typedef struct ViewportMonitors {
     MonitorBank bank;
@@ -247,8 +247,8 @@ typedef struct ViewportState {
     SetupMarkerRef selectedmarker;
     const SetupFile *markersetup; /* main document, never the drag preview clone */
     float markerlevelscale;
-    ViewportCctvGuide *cctvguides;
-    DWORD cctvguidecount;
+    ViewportAimGuide *aimguides;
+    DWORD aimguidecount;
     BgVertex *cylinder;
     DWORD cylindertris;
     BOOL scalemode, dragscaling, scalevalid;
@@ -1007,25 +1007,27 @@ static void ViewportBeginFog(ViewportState *state)
     glEnable(GL_FOG);
 }
 
-static void ViewportBuildCctvGuides(ViewportState *state)
+static void ViewportBuildAimGuides(ViewportState *state)
 {
     const SetupFile *setup = state->markersetup;
     DWORD count = 0;
-    free(state->cctvguides);
-    state->cctvguides = NULL;
-    state->cctvguidecount = 0;
+    free(state->aimguides);
+    state->aimguides = NULL;
+    state->aimguidecount = 0;
     if (!setup || !state->scene || !state->sceneobjectindices) { return; }
     for (DWORD i = 0; i < setup->objectcount; i++)
-    { if (!setup->objects[i].deleted && setup->objects[i].type == PROPDEF_CCTV) { count++; } }
+    { if (!setup->objects[i].deleted && (setup->objects[i].type == PROPDEF_CCTV
+        || setup->objects[i].type == PROPDEF_AUTOGUN)) { count++; } }
     if (!count) { return; }
-    state->cctvguides = calloc(count, sizeof(*state->cctvguides));
-    if (!state->cctvguides) { return; }
+    state->aimguides = calloc(count, sizeof(*state->aimguides));
+    if (!state->aimguides) { return; }
     for (DWORD i = 0; i < setup->objectcount; i++)
     {
         double low[3] = {0}, high[3] = {0};
         BOOL found = FALSE;
-        if (setup->objects[i].deleted || setup->objects[i].type != PROPDEF_CCTV) { continue; }
-        /* Camera models can span several texture batches. Derive their
+        if (setup->objects[i].deleted || (setup->objects[i].type != PROPDEF_CCTV
+            && setup->objects[i].type != PROPDEF_AUTOGUN)) { continue; }
+        /* Aiming models can span several texture batches. Derive their
          * bounds from all rendered parts, including placement/fitting. */
         for (int triangle = 0; triangle < state->scenecount / 3; triangle++)
         {
@@ -1043,9 +1045,9 @@ static void ViewportBuildCctvGuides(ViewportState *state)
                 found = TRUE;
             }
         }
-        /* Missing/deleted models have no camera from which to draw a guide. */
+        /* Missing/deleted models have no origin from which to draw a guide. */
         if (!found) { continue; }
-        ViewportCctvGuide *guide = &state->cctvguides[state->cctvguidecount++];
+        ViewportAimGuide *guide = &state->aimguides[state->aimguidecount++];
         guide->objectindex = i;
         for (int axis = 0; axis < 3; axis++) { guide->origin[axis] = (low[axis] + high[axis]) * .5; }
     }
@@ -1072,7 +1074,7 @@ static void ViewportPreviewGuidePoint(const ViewportState *state, double point[3
     else { point[state->dragaxis] += state->dragdelta; }
 }
 
-static BOOL ViewportCctvGuideEndpoints(const ViewportState *state, const ViewportCctvGuide *guide,
+static BOOL ViewportAimGuideEndpoints(const ViewportState *state, const ViewportAimGuide *guide,
                                       double start[3], double end[3])
 {
     const SetupFile *setup = state->markersetup;
@@ -1080,12 +1082,15 @@ static BOOL ViewportCctvGuideEndpoints(const ViewportState *state, const Viewpor
     SetupObjectProperties properties;
     const char *why;
     DWORD index;
+    LONG target;
     BOOL bound;
     if (!state->showobjects || !setup || !isfinite(state->markerlevelscale) || state->markerlevelscale <= 0
         || !SetupFileGetObjectProperties(setup, guide->objectindex, &properties, &why)
-        || properties.object.type != PROPDEF_CCTV || properties.cctv.lookpad < 0) { return FALSE; }
-    bound = properties.cctv.lookpad >= 10000;
-    index = (DWORD)properties.cctv.lookpad - (bound ? 10000 : 0);
+        || (properties.object.type != PROPDEF_CCTV && properties.object.type != PROPDEF_AUTOGUN)) { return FALSE; }
+    target = properties.object.type == PROPDEF_AUTOGUN ? properties.drone.aimpad : properties.cctv.lookpad;
+    if (target < 0) { return FALSE; }
+    bound = target >= 10000;
+    index = (DWORD)target - (bound ? 10000 : 0);
     if (bound ? !setup->boundpads || index >= setup->boundpadcount : !setup->pads || index >= setup->padcount) { return FALSE; }
     pad = bound ? &setup->boundpads[index].pad : &setup->pads[index];
     memcpy(start, guide->origin, sizeof(guide->origin));
@@ -1099,9 +1104,9 @@ static BOOL ViewportCctvGuideEndpoints(const ViewportState *state, const Viewpor
     return TRUE;
 }
 
-static void ViewportDrawCctvGuides(const ViewportState *state)
+static void ViewportDrawAimGuides(const ViewportState *state)
 {
-    if (!state->showobjects || !state->cctvguidecount) { return; }
+    if (!state->showobjects || !state->aimguidecount) { return; }
     glPushAttrib(GL_ENABLE_BIT | GL_CURRENT_BIT | GL_LINE_BIT | GL_DEPTH_BUFFER_BIT);
     glDisable(GL_TEXTURE_2D);
     glDisable(GL_LIGHTING);
@@ -1115,10 +1120,10 @@ static void ViewportDrawCctvGuides(const ViewportState *state)
     glLineWidth(2.0f);
     glColor3ub(32, 255, 64); /* Same green as ordinary pad markers. */
     glBegin(GL_LINES);
-    for (DWORD i = 0; i < state->cctvguidecount; i++)
+    for (DWORD i = 0; i < state->aimguidecount; i++)
     {
         double start[3], end[3];
-        if (!ViewportCctvGuideEndpoints(state, &state->cctvguides[i], start, end)) { continue; }
+        if (!ViewportAimGuideEndpoints(state, &state->aimguides[i], start, end)) { continue; }
         glVertex3dv(start);
         glVertex3dv(end);
     }
@@ -1371,7 +1376,7 @@ static void ViewportPaintGL(ViewportState *state)
     glDisable(GL_FOG);
     if (state->fogcoordpointer != NULL) { glDisableClientState(GL_FOG_COORDINATE_ARRAY); }
 
-    ViewportDrawCctvGuides(state);
+    ViewportDrawAimGuides(state);
     ViewportDrawSetupMarkers(state);
 
     if (ViewportStanVisible(state) && state->stanfill != NULL && state->stanfillcount > 0)
@@ -5385,9 +5390,9 @@ static void ViewportFreeScene(struct ViewportState *state_)
     free(state->setupmarkers);
     state->setupmarkers = NULL;
     state->setupmarkercount = 0;
-    free(state->cctvguides);
-    state->cctvguides = NULL;
-    state->cctvguidecount = 0;
+    free(state->aimguides);
+    state->aimguides = NULL;
+    state->aimguidecount = 0;
     SetupSwirlPathFree(&state->swirlpath);
     state->markerselected = FALSE;
     state->markersetup = NULL;
@@ -6575,7 +6580,7 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup, float levelscale, c
     ViewportCancelTransform(hwnd);
     state->markersetup = setup;
     state->markerlevelscale = levelscale;
-    ViewportBuildCctvGuides(state);
+    ViewportBuildAimGuides(state);
     ViewportSetSetupMarkers(hwnd, state, setup, levelscale);
     { SetupMarker marker; if (!ViewportSelectedMarker(state, &marker)) { state->markerselected = FALSE; } }
     free(state->padmarkers);

@@ -2689,6 +2689,16 @@ BOOL SetupFileGetObjectProperties(const SetupFile *setup, DWORD index,
         LONG range = (LONG)SetupRead32(record + 0xe8);
         out->cctv.range = range > 0 ? (DWORD)range : 0;
     }
+    if (out->object.type == PROPDEF_AUTOGUN)
+    {
+        /* setupAutogun: signed 16.16 turns, turns/tick, and metres.
+         * objTickAutogun compares yaw offsets only within [-180, 180). */
+        out->drone.aimpad = (LONG)SetupRead32(record + 0x80);
+        out->drone.yawmax = fmax(-180, fmin(180, (LONG)SetupRead32(record + 0x88) * (360.0 / 65536.0)));
+        out->drone.yawmin = fmax(-180, fmin(180, (LONG)SetupRead32(record + 0x8c) * (360.0 / 65536.0)));
+        out->drone.speed = (LONG)SetupRead32(record + 0xa4) * (21600.0 / 65536.0);
+        out->drone.range = (LONG)SetupRead32(record + 0xa8) * (100.0 / 65536.0);
+    }
     if (out->object.type == PROPDEF_KEY) { out->keyflags = SetupRead32(record + 0x80); }
     if (out->object.type == PROPDEF_DOOR)
     {
@@ -2766,8 +2776,51 @@ BOOL SetupFileSetObjectProperty(SetupFile *setup, const SetupObjectPropertyEdit 
     if (edit->property >= SETUP_OBJECT_CCTV_LOOK_PAD && edit->property <= SETUP_OBJECT_CCTV_RANGE
         && record[3] != PROPDEF_CCTV)
     { *reasonout = "CCTV settings can only be edited on a CCTV camera."; return FALSE; }
+    if (edit->property >= SETUP_OBJECT_DRONE_AIM_PAD && edit->property <= SETUP_OBJECT_DRONE_RANGE
+        && record[3] != PROPDEF_AUTOGUN)
+    { *reasonout = "Drone gun settings can only be edited on a drone gun."; return FALSE; }
     switch (edit->property)
     {
+    case SETUP_OBJECT_DRONE_AIM_PAD:
+        if (edit->value < -1 || edit->value > 2147483647.0 || floor(edit->value) != edit->value)
+        { *reasonout = "Choose an existing aim pad or the default +Z direction."; return FALSE; }
+        encoded = (DWORD)(LONG)edit->value;
+        if (edit->value >= 0 && (encoded < 10000 ? encoded >= setup->padcount : encoded - 10000 >= setup->boundpadcount))
+        { *reasonout = "The aim pad does not exist in this setup."; return FALSE; }
+        previous = SetupRead32(record + 0x80);
+        if (encoded == previous || (edit->value == -1 && (LONG)previous < 0)) { return TRUE; }
+        SetupWrite32(setup->data + edit->sourceoffset + 0x80, encoded);
+        break;
+    case SETUP_OBJECT_DRONE_YAW_MIN:
+    case SETUP_OBJECT_DRONE_YAW_MAX:
+    {
+        if (edit->value < -180 || edit->value > 180)
+        { *reasonout = "Enter a horizontal aim limit from -180 to 180 degrees."; return FALSE; }
+        encoded = (DWORD)(LONG)round(edit->value * (65536.0 / 360.0));
+        offset = edit->property == SETUP_OBJECT_DRONE_YAW_MIN ? 0x8c : 0x88;
+        LONG other = (LONG)SetupRead32(record + (offset == 0x8c ? 0x88 : 0x8c));
+        other = (LONG)fmax(-32768, fmin(32768, other));
+        if (offset == 0x8c ? (LONG)encoded > other : (LONG)encoded < other)
+        { *reasonout = "Horizontal aim minimum must not exceed maximum."; return FALSE; }
+        previous = SetupRead32(record + offset);
+        /* Do not rewrite a stock full-circle sentinel just by accepting its
+         * displayed effective limit. Other fields always keep it verbatim. */
+        if ((LONG)encoded == (LONG)fmax(-32768, fmin(32768, (LONG)previous))) { return TRUE; }
+        SetupWrite32(setup->data + edit->sourceoffset + offset, encoded);
+        break;
+    }
+    case SETUP_OBJECT_DRONE_SPEED:
+    case SETUP_OBJECT_DRONE_RANGE:
+    {
+        double factor = edit->property == SETUP_OBJECT_DRONE_SPEED ? 21600.0 : 100.0;
+        if (edit->value < 0 || edit->value > 2147483647.0 * (factor / 65536.0))
+        { *reasonout = "Drone gun speed or range is outside the supported range."; return FALSE; }
+        encoded = (DWORD)floor(edit->value * (65536.0 / factor) + 0.5);
+        offset = edit->property == SETUP_OBJECT_DRONE_SPEED ? 0xa4 : 0xa8;
+        if (encoded == SetupRead32(record + offset)) { return TRUE; }
+        SetupWrite32(setup->data + edit->sourceoffset + offset, encoded);
+        break;
+    }
     case SETUP_OBJECT_CCTV_LOOK_PAD:
         if (edit->value < 0 || edit->value > 2147483647.0 || floor(edit->value) != edit->value)
         { *reasonout = "Choose an existing look-at pad."; return FALSE; }

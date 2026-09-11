@@ -9,7 +9,7 @@ import tempfile
 
 
 def function(source, name):
-    match = re.search(r'^(?:static )?\w+ ' + name + r'\([^;{}]*\)\s*\{', source, re.M)
+    match = re.search(r'^(?:static )?(?:const )?\w+ \**' + name + r'\([^;{}]*\)\s*\{', source, re.M)
     assert match, name
     start = source.index('{', match.start())
     depth, end = 1, start + 1
@@ -42,6 +42,10 @@ def main():
                 struct.pack_into('>ii', record, 0xcc, 0x2000, -0x2000)  # +/-45 degrees
                 struct.pack_into('>i', record, 0xdc, 136)  # turns per 60 Hz tick
                 struct.pack_into('>i', record, 0xe8, 1500)
+            if kind == 13:
+                struct.pack_into('>i', record, 0x80, 1)
+                struct.pack_into('>ii', record, 0x88, 0x20000, -0x20000)  # stock full-circle sentinels
+                struct.pack_into('>ii', record, 0xa4, 0x111, 20 * 65536)  # turns/tick, metres
             data += record
         # A separate GuardRecord must never be interpreted as ObjectRecord.
         data += struct.pack('>7I', 9, 2 << 16, 1, 0xFFFFFFFF, 0, 0xFFFF, 0)
@@ -67,21 +71,24 @@ def main():
         # Exercise actual input logic; native controls and scene callbacks are stubbed.
         source = (src / 'objectproperties.c').read_text()
         types = re.search(r'#define OBJECT_DOOR_FIELD_COUNT .*', source)[0] + '\n'
-        types += re.search(r'#define OBJECT_CCTV_FIELD_COUNT .*', source)[0] + '\n'
+        types += re.search(r'#define OBJECT_AIM_FIELD_COUNT .*', source)[0] + '\n'
         types += re.search(r'enum \{ OBJECT_TYPE,.*?\};', source, re.S)[0]
         types += '\n' + re.search(r'typedef struct ObjectPropertiesState \{.*?\} ObjectPropertiesState;', source, re.S)[0]
         types += '\n' + re.search(r'#define OBJECT_CONTENTS_TEXT_MAX .*', source)[0]
         types += '\n' + re.search(r'static const char \*g_AmmoNames\[AMMOTYPE_MAX\] = \{.*?\};', source, re.S)[0]
         types += '\n' + re.search(r'static const struct \{[^}]*\} g_DoorFields\[OBJECT_DOOR_FIELD_COUNT\] = \{.*?\n\};', source, re.S)[0]
-        types += '\n' + re.search(r'static const struct \{[^}]*\} g_CctvFields\[OBJECT_CCTV_FIELD_COUNT\] = \{.*?\n\};', source, re.S)[0]
+        types += '\n' + re.search(r'typedef struct ObjectAimField \{.*?\} ObjectAimField;', source, re.S)[0]
+        for table in ('g_CctvFields', 'g_DroneFields'):
+            types += '\n' + re.search(r'static const ObjectAimField ' + table + r'\[OBJECT_AIM_FIELD_COUNT\] = \{.*?\n\};', source, re.S)[0]
         (work / 'input-types.inc').write_text(types)
-        names = ('ObjectPropertiesCctvField', 'ObjectPropertiesCctvValue', 'ObjectPropertiesResetCctv',
+        names = ('ObjectPropertiesHasAim', 'ObjectPropertiesAimFields', 'ObjectPropertiesAimPad',
+                 'ObjectPropertiesAimField', 'ObjectPropertiesAimValue', 'ObjectPropertiesResetAim',
                  'ObjectPropertiesDoorField', 'ObjectPropertiesDoorValue', 'ObjectPropertiesDoorUnits',
                  'ObjectPropertiesDoorFactor', 'ObjectPropertiesResetDoor', 'ObjectPropertiesFormatContents', 'ObjectPropertiesIsEdit', 'ObjectPropertiesControlVisible',
                  'ObjectPropertiesResetHealth', 'ObjectPropertiesParseHealth',
-                 'ObjectPropertiesApply', 'ObjectPropertiesParseCctv', 'ObjectPropertiesApplyCctv',
-                 'ObjectPropertiesModelChoice', 'ObjectPropertiesLoadCctvPads',
-                 'ObjectPropertiesRefreshCctv', 'ObjectPropertiesApplyCctvPad',
+                 'ObjectPropertiesApply', 'ObjectPropertiesParseAim', 'ObjectPropertiesApplyAim',
+                 'ObjectPropertiesModelChoice', 'ObjectPropertiesLoadAimPads',
+                 'ObjectPropertiesRefreshAim', 'ObjectPropertiesApplyAimPad',
                  'ObjectPropertiesParseDoor', 'ObjectPropertiesApplyDoor',
                  'ObjectPropertiesKeyProperty', 'ObjectPropertiesApplyHealth',
                  'ObjectPropertiesParseUnsigned', 'ObjectPropertiesResetExtra',

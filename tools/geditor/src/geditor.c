@@ -2796,6 +2796,11 @@ static BOOL GEditorSetObjectProperty(HWND hwnd, const SetupObjectPropertyEdit *e
     case SETUP_OBJECT_CCTV_SWEEP_MAX: action = "Change CCTV Sweep Maximum"; break;
     case SETUP_OBJECT_CCTV_SPEED: action = "Change CCTV Turn Speed"; break;
     case SETUP_OBJECT_CCTV_RANGE: action = "Change CCTV Detection Range"; break;
+    case SETUP_OBJECT_DRONE_AIM_PAD: action = "Change Drone Gun Aim Pad"; break;
+    case SETUP_OBJECT_DRONE_YAW_MIN: action = "Change Drone Gun Aim Minimum"; break;
+    case SETUP_OBJECT_DRONE_YAW_MAX: action = "Change Drone Gun Aim Maximum"; break;
+    case SETUP_OBJECT_DRONE_SPEED: action = "Change Drone Gun Tracking Speed"; break;
+    case SETUP_OBJECT_DRONE_RANGE: action = "Change Drone Gun Detection Range"; break;
     default: return FALSE;
     }
     ViewportCancelTransform(g_Viewport);
@@ -2928,7 +2933,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     {
         BOOL ok = GEditorSetObjectProperty(hwnd, (const SetupObjectPropertyEdit *)lparam);
         GEditorRefreshSelectionDetails();
-        /* CCTV guides read the target pad from the live setup on each draw. */
+        /* Aim guides read the target pad from the live setup on each draw. */
         if (ok) { ViewportRedraw(g_Viewport); }
         return ok;
     }

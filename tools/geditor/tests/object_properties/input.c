@@ -38,7 +38,7 @@ static LRESULT SendMessage(HWND hwnd, unsigned int msg, WPARAM wparam, LPARAM lp
 
 static LRESULT SendMessage(HWND hwnd, unsigned int msg, WPARAM wparam, LPARAM lparam)
 {
-    if (hwnd == state.controls[OBJECT_CCTV_PAD] && msg >= CB_RESETCONTENT && msg <= CB_GETCURSEL)
+    if (hwnd == state.controls[OBJECT_AIM_PAD] && msg >= CB_RESETCONTENT && msg <= CB_GETCURSEL)
     {
         switch (msg)
         {
@@ -66,8 +66,8 @@ static LRESULT SendMessage(HWND hwnd, unsigned int msg, WPARAM wparam, LPARAM lp
     ObjectPropertiesApplyExtra(0, &state, OBJECT_KEY_MASK);
     ObjectPropertiesApplyExtra(0, &state, OBJECT_QUANTITY);
     for (int field = 0; field < OBJECT_DOOR_FIELD_COUNT; field++) { ObjectPropertiesApplyDoor(0, &state, field); }
-    for (int field = 0; field < OBJECT_CCTV_FIELD_COUNT; field++) { ObjectPropertiesApplyCctv(0, &state, field); }
-    ObjectPropertiesApplyCctvPad(0, &state);
+    for (int field = 0; field < OBJECT_AIM_FIELD_COUNT; field++) { ObjectPropertiesApplyAim(0, &state, field); }
+    ObjectPropertiesApplyAimPad(0, &state);
     if (reject) { return FALSE; }
     if (edit->property == SETUP_OBJECT_KEY_FLAGS || edit->property == SETUP_OBJECT_DOOR_KEY_FLAGS) { state.properties.keyflags = (DWORD)edit->value; }
     else if (edit->property == SETUP_OBJECT_AMMO_QUANTITY)
@@ -86,6 +86,20 @@ static LRESULT SendMessage(HWND hwnd, unsigned int msg, WPARAM wparam, LPARAM lp
         case SETUP_OBJECT_CCTV_SPEED:
             state.properties.cctv.speed = floor(edit->value * (65536.0 / 21600.0) + 0.5) * (21600.0 / 65536.0); break;
         default: state.properties.cctv.range = (DWORD)edit->value; break;
+        }
+    }
+    else if (edit->property >= SETUP_OBJECT_DRONE_AIM_PAD && edit->property <= SETUP_OBJECT_DRONE_RANGE)
+    {
+        double angle = round(edit->value * (65536.0 / 360.0)) * (360.0 / 65536.0);
+        switch (edit->property)
+        {
+        case SETUP_OBJECT_DRONE_AIM_PAD: state.properties.drone.aimpad = (LONG)edit->value; break;
+        case SETUP_OBJECT_DRONE_YAW_MIN: state.properties.drone.yawmin = angle; break;
+        case SETUP_OBJECT_DRONE_YAW_MAX: state.properties.drone.yawmax = angle; break;
+        case SETUP_OBJECT_DRONE_SPEED:
+            state.properties.drone.speed = floor(edit->value * (65536.0 / 21600.0) + 0.5) * (21600.0 / 65536.0); break;
+        default:
+            state.properties.drone.range = floor(edit->value * (65536.0 / 100.0) + 0.5) * (100.0 / 65536.0); break;
         }
     }
     else if (edit->property >= SETUP_OBJECT_DOOR_TRAVEL && edit->property <= SETUP_OBJECT_DOOR_CLOSE_DELAY)
@@ -148,75 +162,155 @@ static void CheckCctv(void)
 {
     SetupFile setup = {0}; double value;
     setup.padcount = 2; setup.boundpadcount = 1;
-    state.controls[OBJECT_CCTV_PAD] = 20;
+    state.controls[OBJECT_AIM_PAD] = 20;
     state.properties.object.type = PROPDEF_CCTV;
     state.properties.cctv.sweepmin = -45; state.properties.cctv.sweepmax = 45;
     state.properties.cctv.lookpad = 10000;
-    assert(ObjectPropertiesControlVisible(&state, OBJECT_CCTV_PAD));
+    assert(ObjectPropertiesControlVisible(&state, OBJECT_AIM_PAD));
     assert(!ObjectPropertiesControlVisible(&state, OBJECT_DOOR_TYPE));
-    ObjectPropertiesLoadCctvPads(&state, &setup, FALSE);
-    ObjectPropertiesRefreshCctv(&state);
+    ObjectPropertiesLoadAimPads(&state, &setup, FALSE);
+    ObjectPropertiesRefreshAim(&state);
     assert(choicecount == 3 && chosen == 2 && choices[chosen].value == 10000);
     assert(!strcmp(choices[0].label, "Pad 0") && !strcmp(choices[2].label, "Bound pad 0"));
     int before = commits;
-    ObjectPropertiesApplyCctvPad(0, &state); assert(commits == before); /* Accept unchanged. */
-    chosen = 1; ObjectPropertiesApplyCctvPad(0, &state);
+    ObjectPropertiesApplyAimPad(0, &state); assert(commits == before); /* Accept unchanged. */
+    chosen = 1; ObjectPropertiesApplyAimPad(0, &state);
     assert(commits == before + 1 && state.properties.cctv.lookpad == 1);
-    state.properties.cctv.lookpad = -1; ObjectPropertiesRefreshCctv(&state);
+    state.properties.cctv.lookpad = -1; ObjectPropertiesRefreshAim(&state);
     assert(choicecount == 4 && choices[chosen].value == -1 && strstr(choices[chosen].label, "preserved"));
-    ObjectPropertiesLoadCctvPads(&state, &setup, TRUE); assert(choicecount == 4);
-    setup.padcount = 3; ObjectPropertiesLoadCctvPads(&state, &setup, TRUE);
+    ObjectPropertiesLoadAimPads(&state, &setup, TRUE); assert(choicecount == 4);
+    setup.padcount = 3; ObjectPropertiesLoadAimPads(&state, &setup, TRUE);
     assert(choicecount == 4 && choices[2].value == 2 && choices[3].value == 10000);
-    state.properties.cctv.lookpad = 10000; ObjectPropertiesRefreshCctv(&state);
+    state.properties.cctv.lookpad = 10000; ObjectPropertiesRefreshAim(&state);
     assert(chosen == 3);
-    for (int field = 0; field < OBJECT_CCTV_FIELD_COUNT; field++)
+    for (int field = 0; field < OBJECT_AIM_FIELD_COUNT; field++)
     {
-        state.controls[OBJECT_CCTV_FIRST + field * 3 + 1] = 30 + field;
-        focus = state.controls[OBJECT_CCTV_FIRST + field * 3 + 1];
-        assert(ObjectPropertiesControlVisible(&state, OBJECT_CCTV_FIRST + field * 3 + 1));
+        state.controls[OBJECT_AIM_FIRST + field * 3 + 1] = 30 + field;
+        focus = state.controls[OBJECT_AIM_FIRST + field * 3 + 1];
+        assert(ObjectPropertiesControlVisible(&state, OBJECT_AIM_FIRST + field * 3 + 1));
         before = commits;
         const char *valid[] = {"-30.1", "30.1", "60", "1500"};
-        strcpy(text, valid[field]); state.cctvedited[field] = TRUE; canundo = TRUE;
-        assert(Key(VK_RETURN) && commits == before + 1 && !state.cctvedited[field] && !canundo);
+        strcpy(text, valid[field]); state.aimedited[field] = TRUE; canundo = TRUE;
+        assert(Key(VK_RETURN) && commits == before + 1 && !state.aimedited[field] && !canundo);
         double tolerance = field == 2 ? 10800.0 / 65536.0 : field == 3 ? 0 : 180.0 / 65536.0;
-        assert(fabs(ObjectPropertiesCctvValue(&state.properties.cctv, field) - strtod(valid[field], NULL)) <= tolerance);
-        ObjectPropertiesApplyCctv(0, &state, field); assert(commits == before + 1); /* Blur after Enter. */
-        strcpy(text, "bad"); state.cctvedited[field] = TRUE;
-        assert(Key(VK_RETURN) && commits == before + 1 && state.cctvedited[field]);
-        assert(Key(VK_ESCAPE) && !state.cctvedited[field]);
-        reject = TRUE; strcpy(text, "1"); state.cctvedited[field] = TRUE;
-        assert(Key(VK_RETURN) && commits == before + 2 && !state.cctvedited[field]);
+        assert(fabs(ObjectPropertiesAimValue(&state.properties, field) - strtod(valid[field], NULL)) <= tolerance);
+        ObjectPropertiesApplyAim(0, &state, field); assert(commits == before + 1); /* Blur after Enter. */
+        strcpy(text, "bad"); state.aimedited[field] = TRUE;
+        assert(Key(VK_RETURN) && commits == before + 1 && state.aimedited[field]);
+        assert(Key(VK_ESCAPE) && !state.aimedited[field]);
+        reject = TRUE; strcpy(text, "1"); state.aimedited[field] = TRUE;
+        assert(Key(VK_RETURN) && commits == before + 2 && !state.aimedited[field]);
         assert(fabs(strtod(text, NULL) - strtod(valid[field], NULL)) <= tolerance);
         reject = FALSE;
     }
     const char *bad[] = {"", " ", "nan", "inf", "1e999", "12 units", "3 + 4"};
-    for (int field = 0; field < OBJECT_CCTV_FIELD_COUNT; field++)
+    for (int field = 0; field < OBJECT_AIM_FIELD_COUNT; field++)
     {
         for (unsigned int i = 0; i < sizeof(bad) / sizeof(*bad); i++)
-        { assert(!ObjectPropertiesParseCctv(&state, field, bad[i], &value)); }
+        { assert(!ObjectPropertiesParseAim(&state, field, bad[i], &value)); }
     }
-    assert(ObjectPropertiesParseCctv(&state, 0, " -360 ", &value) && value == -360);
-    assert(ObjectPropertiesParseCctv(&state, 1, "360", &value) && value == 360);
-    assert(!ObjectPropertiesParseCctv(&state, 0, "31", &value));
-    assert(!ObjectPropertiesParseCctv(&state, 1, "-31", &value));
-    assert(!ObjectPropertiesParseCctv(&state, 0, "-361", &value));
-    assert(!ObjectPropertiesParseCctv(&state, 1, "361", &value));
-    assert(ObjectPropertiesParseCctv(&state, 2, "0", &value));
-    assert(ObjectPropertiesParseCctv(&state, 3, "0", &value));
-    assert(!ObjectPropertiesParseCctv(&state, 2, "-1", &value));
-    assert(!ObjectPropertiesParseCctv(&state, 3, "0.5", &value));
-    assert(!ObjectPropertiesParseCctv(&state, 3, "-100", &value));
-    focus = state.controls[OBJECT_CCTV_FIRST + 1];
-    strcpy(text, "0"); state.cctvedited[0] = TRUE; canundo = TRUE; control = TRUE;
+    assert(ObjectPropertiesParseAim(&state, 0, " -360 ", &value) && value == -360);
+    assert(ObjectPropertiesParseAim(&state, 1, "360", &value) && value == 360);
+    assert(!ObjectPropertiesParseAim(&state, 0, "31", &value));
+    assert(!ObjectPropertiesParseAim(&state, 1, "-31", &value));
+    assert(!ObjectPropertiesParseAim(&state, 0, "-361", &value));
+    assert(!ObjectPropertiesParseAim(&state, 1, "361", &value));
+    assert(ObjectPropertiesParseAim(&state, 2, "0", &value));
+    assert(ObjectPropertiesParseAim(&state, 3, "0", &value));
+    assert(!ObjectPropertiesParseAim(&state, 2, "-1", &value));
+    assert(!ObjectPropertiesParseAim(&state, 3, "0.5", &value));
+    assert(!ObjectPropertiesParseAim(&state, 3, "-100", &value));
+    focus = state.controls[OBJECT_AIM_FIRST + 1];
+    strcpy(text, "0"); state.aimedited[0] = TRUE; canundo = TRUE; control = TRUE;
     before = commits; assert(Key('Z') && !Key('Z') && commits == before);
     control = FALSE; assert(Key(VK_ESCAPE));
-    strcpy(text, "0"); state.cctvedited[0] = TRUE;
-    ObjectPropertiesApplyCctv(0, &state, 0); assert(commits == before + 1); /* Blur alone. */
-    state.properties.object.type = PROPDEF_PROP; state.cctvedited[0] = TRUE;
-    assert(!Key(VK_RETURN) && !ObjectPropertiesControlVisible(&state, OBJECT_CCTV_PAD));
-    ObjectPropertiesApplyCctv(0, &state, 0); ObjectPropertiesApplyCctvPad(0, &state);
+    strcpy(text, "0"); state.aimedited[0] = TRUE;
+    ObjectPropertiesApplyAim(0, &state, 0); assert(commits == before + 1); /* Blur alone. */
+    state.properties.object.type = PROPDEF_PROP; state.aimedited[0] = TRUE;
+    assert(!Key(VK_RETURN) && !ObjectPropertiesControlVisible(&state, OBJECT_AIM_PAD));
+    ObjectPropertiesApplyAim(0, &state, 0); ObjectPropertiesApplyAimPad(0, &state);
     assert(commits == before + 1);
     puts("PASS: CCTV input units, endpoint order, pad picker, unavailable references, Enter/blur, Escape, text undo, visibility and rejected edits.");
+}
+
+static void CheckDrone(void)
+{
+    SetupFile setup = {0}; double value;
+    setup.padcount = 2; setup.boundpadcount = 1;
+    state.properties.object.type = PROPDEF_AUTOGUN;
+    state.properties.drone.yawmin = -180; state.properties.drone.yawmax = 180;
+    state.properties.drone.aimpad = -1;
+    memset(state.aimedited, 0, sizeof(state.aimedited));
+    assert(ObjectPropertiesControlVisible(&state, OBJECT_AIM_PAD));
+    assert(!ObjectPropertiesControlVisible(&state, OBJECT_DOOR_TYPE));
+    assert(!ObjectPropertiesControlVisible(&state, OBJECT_AMMO_TYPE));
+    ObjectPropertiesLoadAimPads(&state, &setup, FALSE);
+    ObjectPropertiesRefreshAim(&state);
+    assert(choicecount == 4 && chosen == 0 && choices[chosen].value == -1);
+    assert(strstr(choices[0].label, "+Z"));
+    int before = commits;
+    ObjectPropertiesApplyAimPad(0, &state); assert(commits == before);
+    chosen = 3; ObjectPropertiesApplyAimPad(0, &state);
+    assert(commits == before + 1 && state.properties.drone.aimpad == 10000);
+    chosen = 1; ObjectPropertiesApplyAimPad(0, &state);
+    assert(commits == before + 2 && state.properties.drone.aimpad == 0);
+    chosen = 0; ObjectPropertiesApplyAimPad(0, &state);
+    assert(commits == before + 3 && state.properties.drone.aimpad == -1);
+    /* Returning to CCTV must remove the drone-only default-direction option. */
+    state.properties.object.type = PROPDEF_CCTV;
+    ObjectPropertiesLoadAimPads(&state, &setup, FALSE);
+    assert(choicecount == 3 && choices[0].value == 0);
+    state.properties.object.type = PROPDEF_AUTOGUN;
+    ObjectPropertiesLoadAimPads(&state, &setup, FALSE);
+    const char *valid[] = {"-22.3", "22.3", "60", "819.9996948242188"};
+    for (int field = 0; field < OBJECT_AIM_FIELD_COUNT; field++)
+    {
+        focus = state.controls[OBJECT_AIM_FIRST + field * 3 + 1];
+        before = commits;
+        strcpy(text, valid[field]); state.aimedited[field] = TRUE; canundo = TRUE;
+        assert(Key(VK_RETURN) && commits == before + 1 && !state.aimedited[field] && !canundo);
+        double tolerance = field == 2 ? 10800.0 / 65536.0 : field == 3 ? 50.0 / 65536.0 : 180.0 / 65536.0;
+        assert(fabs(ObjectPropertiesAimValue(&state.properties, field) - strtod(valid[field], NULL)) <= tolerance);
+        ObjectPropertiesApplyAim(0, &state, field); assert(commits == before + 1);
+        strcpy(text, "bad"); state.aimedited[field] = TRUE;
+        assert(Key(VK_RETURN) && commits == before + 1 && state.aimedited[field]);
+        assert(Key(VK_ESCAPE) && !state.aimedited[field]);
+        reject = TRUE; strcpy(text, "1"); state.aimedited[field] = TRUE;
+        assert(Key(VK_RETURN) && commits == before + 2 && !state.aimedited[field]);
+        assert(fabs(strtod(text, NULL) - strtod(valid[field], NULL)) <= tolerance);
+        reject = FALSE;
+    }
+    const char *bad[] = {"", " ", "nan", "inf", "1e999", "12 units", "3 + 4"};
+    for (int field = 0; field < OBJECT_AIM_FIELD_COUNT; field++)
+    { for (unsigned int i = 0; i < sizeof(bad) / sizeof(*bad); i++)
+        { assert(!ObjectPropertiesParseAim(&state, field, bad[i], &value)); } }
+    assert(ObjectPropertiesParseAim(&state, 0, "-180", &value) && value == -180);
+    assert(ObjectPropertiesParseAim(&state, 1, "180", &value) && value == 180);
+    assert(!ObjectPropertiesParseAim(&state, 0, "23", &value));
+    assert(!ObjectPropertiesParseAim(&state, 1, "-23", &value));
+    assert(!ObjectPropertiesParseAim(&state, 0, "-181", &value));
+    assert(!ObjectPropertiesParseAim(&state, 1, "181", &value));
+    assert(ObjectPropertiesParseAim(&state, 2, "0", &value));
+    assert(ObjectPropertiesParseAim(&state, 3, "0", &value));
+    assert(ObjectPropertiesParseAim(&state, 3, "0.5", &value) && value == 0.5); /* Fractional world units, unlike CCTV. */
+    assert(!ObjectPropertiesParseAim(&state, 2, "-1", &value));
+    assert(!ObjectPropertiesParseAim(&state, 3, "3276800", &value));
+    focus = state.controls[OBJECT_AIM_FIRST + 1];
+    strcpy(text, "0"); state.aimedited[0] = TRUE; canundo = TRUE; control = TRUE;
+    before = commits; assert(Key('Z') && !Key('Z') && commits == before);
+    control = FALSE; assert(Key(VK_ESCAPE));
+    strcpy(text, "0"); state.aimedited[0] = TRUE;
+    ObjectPropertiesApplyAim(0, &state, 0); assert(commits == before + 1);
+    /* Draft text must survive refreshes when the selected object is unchanged. */
+    state.aimedited[0] = TRUE;
+    state.properties.object.flags2 |= PROPFLAG2_RANDOM_SCAN;
+    ObjectPropertiesRefreshAim(&state);
+    assert(state.aimedited[0] && ObjectPropertiesAimFields(&state)[3].property == SETUP_OBJECT_DRONE_RANGE);
+    state.properties.object.type = PROPDEF_PROP;
+    assert(!Key(VK_RETURN));
+    ObjectPropertiesApplyAim(0, &state, 0); ObjectPropertiesApplyAimPad(0, &state);
+    assert(commits == before + 1);
+    puts("PASS: shared CCTV/drone controls, aim-pad defaults, fractional range, angle validation, Enter/blur, Escape, undo and rejected edits.");
 }
 
 int main(void)
@@ -339,5 +433,6 @@ int main(void)
     puts("PASS: door percentages/degrees/animation units, per-second rates, timing, locks, field visibility and input transactions.");
     puts("PASS: input validation, Enter/blur commits, Escape, text undo, rejected edits and synchronous reentrancy.");
     CheckCctv();
+    CheckDrone();
     return 0;
 }
