@@ -827,7 +827,7 @@ void setupSingleMonitor(s32 stageID, MonitorObjRecord *monitor, s32 cmdindex)
 
     if ((monitor->flags & PROPFLAG_MONITOR_RENDERPOSTBG) && monitor->prop)
     {
-        monitor->prop->flags |= PROPFLAG_ALLOWFALL;
+        monitor->prop->flags |= PROPRUNTIMEFLAG_RENDERPOSTBG;
     }
 }
 

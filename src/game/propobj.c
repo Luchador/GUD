@@ -1223,7 +1223,7 @@ bool projectileTestObjectCollision(ObjectRecord *obj, coord3d *worldRayOrigin, c
     if (-instsize <= value) {
         if (value <= maxDist + instsize) {
             // Precise line test for on screen props.
-            if (prop->flags & PROPFLAG_ONSCREEN) {
+            if (prop->flags & PROPRUNTIMEFLAG_ONSCREEN) {
                 if (projectileLineTestModel(obj, modelRayOrigin, modelRayDir, hitPos, hitNormal, hitModel, hitNode)) {
                     dx = hitPos->x - worldRayOrigin->x;
                     dy = hitPos->y - worldRayOrigin->y;
@@ -1302,13 +1302,13 @@ bool projectileTestObjectCollisionRecursive(ObjectRecord *obj, coord3d *worldRay
         }
     }
 
-    if (prop->flags & PROPFLAG_ONSCREEN)
+    if (prop->flags & PROPRUNTIMEFLAG_ONSCREEN)
     {
         child = prop->child;
 
         while (child != NULL)
         {
-            if (child->flags & PROPFLAG_ONSCREEN)
+            if (child->flags & PROPRUNTIMEFLAG_ONSCREEN)
             {
                 if (projectileTestObjectCollisionRecursive(child->obj, worldRayOrigin, worldRayEnd, worldRayDir, maxDist, modelRayOrigin, modelRayDir, bestHitPos, bestHitNormal, bestHitDist))
                 {
@@ -1348,7 +1348,7 @@ bool sub_GAME_7F041BB8(ChrRecord *chr, coord3d *arg1, coord3d *arg2, f32 arg3, c
     dz = prop->pos.z - arg1->z;
     planeDist = (dz * arg2->z) + ((dx * arg2->x) + (dy * arg2->y));
 
-    if ((-instSize <= planeDist) && (planeDist <= (arg3 + instSize)) && (prop->flags & PROPFLAG_ONSCREEN))
+    if ((-instSize <= planeDist) && (planeDist <= (arg3 + instSize)) && (prop->flags & PROPRUNTIMEFLAG_ONSCREEN))
     {
         entry = chr->hitChain;
         bodyPart = modelHitFindFirstBBoxHit(&entry, arg4, arg5, &model, &node);
@@ -1576,7 +1576,7 @@ s32 handles_projectile_motion(struct ObjectRecord *arg0, coord3d *arg1, coord3d 
     endpos.y = arg1->y;
     endpos.z = arg1->z;
 
-    if ((!(obj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)) || (!(obj->projectile->flags & PROPFLAG_ENABLED)))
+    if ((!(obj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)) || (!(obj->projectile->flags & PROJECTILEFLAG_STICKY)))
     {
         goto end;
     }
@@ -1737,7 +1737,7 @@ after_bg_loop:
 
     i = 0;
 
-    if (!(obj->projectile->flags & PROPFLAG_INAIR))
+    if (!(obj->projectile->flags & PROJECTILEFLAG_00000008))
     {
         tile = prop->stan;
 
@@ -1749,12 +1749,12 @@ after_bg_loop:
         }
         else
         {
-            obj->projectile->flags |= PROPFLAG_INAIR;
-            prop->flags |= PROPFLAG_INAIR;
+            obj->projectile->flags |= PROJECTILEFLAG_00000008;
+            prop->flags |= PROPRUNTIMEFLAG_USESTOREDROOMS;
         }
     }
 
-    if (obj->projectile->flags & PROPFLAG_INAIR)
+    if (obj->projectile->flags & PROJECTILEFLAG_00000008)
     {
         tile = stanFindTileBelowPos(&obj->position, roomSet, NULL);
 
@@ -1763,8 +1763,8 @@ after_bg_loop:
             prop->stan = tile;
             prop->pos.x = obj->position.x;
             prop->pos.z = obj->position.z;
-            obj->projectile->flags &= ~PROPFLAG_INAIR;
-            prop->flags &= ~PROPFLAG_INAIR;
+            obj->projectile->flags &= ~PROJECTILEFLAG_00000008;
+            prop->flags &= ~PROPRUNTIMEFLAG_USESTOREDROOMS;
         }
     }
 
@@ -3140,7 +3140,7 @@ void objStickToSurface(ObjectRecord* obj, coord3d* pos, StandTile* stan, coord3d
 
 bool objEmbed(PropRecord *prop, PropRecord *parent, Model *model, ModelNode *node)
 {
-    if (parent->flags & PROPFLAG_ONSCREEN)
+    if (parent->flags & PROPRUNTIMEFLAG_ONSCREEN)
     {
         ObjectRecord *obj = prop->obj;
 
@@ -3203,7 +3203,7 @@ void propExplode(PropRecord *prop, s32 /* enum EXPLOSION_DEF */ explosionType)
 
         stan = parent->stan;
 
-        if (prop->flags & PROPFLAG_ONSCREEN)
+        if (prop->flags & PROPRUNTIMEFLAG_ONSCREEN)
         {
             mtx = getsubmatrix(prop_obj->model);
 
@@ -3220,7 +3220,7 @@ void propExplode(PropRecord *prop, s32 /* enum EXPLOSION_DEF */ explosionType)
 			pos.z = parent->pos.z;
         }
 
-        if ((parent->flags & PROPFLAG_INAIR) == 0 && walkTilesBetweenPoints_NoCallback(&stan, parent->pos.f[0], parent->pos.f[2], pos.x, pos.z))
+        if ((parent->flags & PROPRUNTIMEFLAG_USESTOREDROOMS) == 0 && walkTilesBetweenPoints_NoCallback(&stan, parent->pos.f[0], parent->pos.f[2], pos.x, pos.z))
         {
             explosionCreate(0, &pos, stan, (s16) explosionType, (prop_obj->flags & (PROPFLAG_ONSIDE | PROPFLAG_UPSIDEDOWN | PROPFLAG_INAIR)) == 0, playernum, parent->rooms, 0);
         }
@@ -3231,7 +3231,7 @@ void propExplode(PropRecord *prop, s32 /* enum EXPLOSION_DEF */ explosionType)
     }
     else
     {
-        explosionCreate(0, &prop_obj->position, prop->stan, (s16) explosionType, (prop_obj->flags & (PROPFLAG_ONSIDE | PROPFLAG_UPSIDEDOWN | PROPFLAG_INAIR)) == 0 && (prop->flags & PROPFLAG_INAIR) == 0, playernum, prop->rooms, (prop->flags & PROPFLAG_INAIR) != 0);
+        explosionCreate(0, &prop_obj->position, prop->stan, (s16) explosionType, (prop_obj->flags & (PROPFLAG_ONSIDE | PROPFLAG_UPSIDEDOWN | PROPFLAG_INAIR)) == 0 && (prop->flags & PROPRUNTIMEFLAG_USESTOREDROOMS) == 0, playernum, prop->rooms, (prop->flags & PROPRUNTIMEFLAG_USESTOREDROOMS) != 0);
     }
 }
 
@@ -3424,7 +3424,7 @@ void sub_GAME_7F04424C(PropRecord* prop)
         return;
     }
 
-    prop->flags &= ~(PROPFLAG_ONSCREEN);
+    prop->flags &= ~(PROPRUNTIMEFLAG_ONSCREEN);
     chrobjWeaponTick(prop);
 
     child = prop->child;
@@ -3457,7 +3457,7 @@ void sub_GAME_7F0442DC(PropRecord* prop)
     if ((model->attachedto_objinst != NULL) && (obj->runtime_bitflags & RUNTIMEBITFLAG_EMBEDDED))
     {
         mtx = modelFindNodeMtx(model->attachedto, model->attachedto_objinst, 0);
-        prop->flags |= PROPFLAG_ONSCREEN;
+        prop->flags |= PROPRUNTIMEFLAG_ONSCREEN;
         model->render_pos = (RenderPosView*)dynAllocate(model->obj->numMatrices << 6);
 
         matrix_4x4_multiply_homogeneous(mtx, &obj->embedment->matrix, (Mtxf*)model->render_pos);
@@ -3474,7 +3474,7 @@ void sub_GAME_7F0442DC(PropRecord* prop)
     }
     else
     {
-        prop->flags &= ~(PROPFLAG_ONSCREEN);
+        prop->flags &= ~(PROPRUNTIMEFLAG_ONSCREEN);
         chrobjWeaponTick(prop);
 
         child = prop->child;
@@ -5616,9 +5616,9 @@ TICKOP objTickProjectile(PropRecord *prop)
                     obj->projectile = NULL;
                     obj->runtime_bitflags &= ~RUNTIMEBITFLAG_HASPROJECTILE;
 
-                    if (prop->flags & PROPFLAG_INAIR)
+                    if (prop->flags & PROPRUNTIMEFLAG_USESTOREDROOMS)
                     {
-                        prop->flags |= PROPFLAG_SCALE_TO_PAD_BOUNDS;
+                        prop->flags |= PROPRUNTIMEFLAG_PRESERVEROOMS;
                     }
 
                     chrobjSndCreatePostEventDefault(sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, ATTACH_MINE_SFX, NULL), &prop->pos);
@@ -5675,7 +5675,7 @@ TICKOP objTickProjectile(PropRecord *prop)
                                 Proj->unk90 += 1;
                                 gunfirePlaySfxBulletImpact(((struct WeaponObjRecord *) obj)->weaponnum, D_80030B0C, -1);
 
-                                if (((D_80030B0C->flags & PROPFLAG_ONSCREEN) && (bodypartshot != HIT_GUN)) && (bodypartshot != HIT_HAT))
+                                if (((D_80030B0C->flags & PROPRUNTIMEFLAG_ONSCREEN) && (bodypartshot != HIT_GUN)) && (bodypartshot != HIT_HAT))
                                 {
                                     playerProp2 = (struct PropRecord *) modelFindNodeMtx(g_CurrentProjectileModel, g_ProjectileHitModelNode, 0);
 
@@ -5826,7 +5826,7 @@ TICKOP objTickProjectile(PropRecord *prop)
                             }
                             else
                             {
-                                explosionCreateSmoke(&airborneWeapon->position, prop->stan, 8, prop->rooms, (prop->flags & PROPFLAG_INAIR) != 0);
+                                explosionCreateSmoke(&airborneWeapon->position, prop->stan, 8, prop->rooms, (prop->flags & PROPRUNTIMEFLAG_USESTOREDROOMS) != 0);
                             }
                         }
                     }
@@ -5838,7 +5838,7 @@ TICKOP objTickProjectile(PropRecord *prop)
                         }
                         else
                         {
-                            explosionCreateSmoke(&obj->position, prop->stan, 9, prop->rooms, (prop->flags & PROPFLAG_INAIR) != 0);
+                            explosionCreateSmoke(&obj->position, prop->stan, 9, prop->rooms, (prop->flags & PROPRUNTIMEFLAG_USESTOREDROOMS) != 0);
                         }
                     }
 
@@ -5970,9 +5970,9 @@ TICKOP objTickProjectile(PropRecord *prop)
                 obj->projectile = NULL;
                 obj->runtime_bitflags &= ~RUNTIMEBITFLAG_HASPROJECTILE;
 
-                if (prop->flags & PROPFLAG_INAIR)
+                if (prop->flags & PROPRUNTIMEFLAG_USESTOREDROOMS)
                 {
-                    prop->flags |= PROPFLAG_SCALE_TO_PAD_BOUNDS;
+                    prop->flags |= PROPRUNTIMEFLAG_PRESERVEROOMS;
                 }
 
                 if (obj->type == PROPDEF_COLLECTABLE)
@@ -6069,7 +6069,7 @@ void objTickAutogunFire(PropRecord *prop)
             muzzleNode = model->obj->Switches[AUTOGUN_SECONDARY_MUZZLE_SWITCH];
         }
 
-        if ((prop->flags & PROPFLAG_ONSCREEN) && muzzleNode != NULL)
+        if ((prop->flags & PROPRUNTIMEFLAG_ONSCREEN) && muzzleNode != NULL)
         {
             Mtxf *muzzleViewMatrix = modelFindNodeMtx(model, muzzleNode, 0);
             Mtxf muzzleToWorld;
@@ -6266,7 +6266,7 @@ s32 objTick(struct PropRecord *prop, s32 playerCount, bool isSimOwner)
 	}
 	else if (obj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)
 	{
-		prop->flags &= ~PROPFLAG_ONSCREEN;
+		prop->flags &= ~PROPRUNTIMEFLAG_ONSCREEN;
 		obj->runtime_bitflags |= RUNTIMEBITFLAG_ISRETICK;
 		return TICKOP_RETICK;
 	}
@@ -6332,7 +6332,7 @@ s32 objTick(struct PropRecord *prop, s32 playerCount, bool isSimOwner)
 			update_color_shading(&obj->shadecol, &obj->nextcol);
 		}
 
-		prop->flags |= PROPFLAG_ONSCREEN;
+		prop->flags |= PROPRUNTIMEFLAG_ONSCREEN;
 		mtxs = dynAllocate(model->obj->numMatrices << 6);
 		model->render_pos = (RenderPosView *) mtxs;
 
@@ -6344,7 +6344,7 @@ s32 objTick(struct PropRecord *prop, s32 playerCount, bool isSimOwner)
 	}
 	else
 	{
-		prop->flags &= ~PROPFLAG_ONSCREEN;
+		prop->flags &= ~PROPRUNTIMEFLAG_ONSCREEN;
 	}
     
 	if (obj->type == PROP_TYPE_EXPLOSION || obj->type == PROP_TYPE_SMOKE)
@@ -7079,7 +7079,7 @@ void objRenderPropModel(PropRecord *prop, ModelRenderData *renderData, bool tran
     PropRecord *child;
     s32 monitorZBufferMode;
 
-    if (!(prop->flags & PROPFLAG_ONSCREEN))
+    if (!(prop->flags & PROPRUNTIMEFLAG_ONSCREEN))
     {
         return;
     }
@@ -7993,7 +7993,7 @@ s32 objDrop(PropRecord *prop)
 
         rootstan = root->stan;
 
-        if (prop->flags & PROPFLAG_ONSCREEN)
+        if (prop->flags & PROPRUNTIMEFLAG_ONSCREEN)
         {
             // Do collision checks
             f32 objwidth = objGetWidth(obj);
@@ -8190,7 +8190,7 @@ void objExplode(ObjectRecord *obj, coord3d *target_pos, s32 playernum)
 
         if (stan != NULL)
         {
-            if ((!(tailprop->flags & PROPFLAG_INAIR)) && walkTilesBetweenPoints_NoCallback(&stan, tailprop->pos.x, tailprop->pos.z, target_pos->x, target_pos->z))
+            if ((!(tailprop->flags & PROPRUNTIMEFLAG_USESTOREDROOMS)) && walkTilesBetweenPoints_NoCallback(&stan, tailprop->pos.x, tailprop->pos.z, target_pos->x, target_pos->z))
             {
                 explosionCreate(prop, target_pos, stan, explosion_type,
                     (obj->flags & (PROPFLAG_ONSIDE | PROPFLAG_UPSIDEDOWN | PROPFLAG_INAIR)) == 0,
@@ -8240,7 +8240,7 @@ void objExplode(ObjectRecord *obj, coord3d *target_pos, s32 playernum)
 
         if (stan != NULL)
         {
-            if ((!(tailprop->flags & PROPFLAG_INAIR)) && walkTilesBetweenPoints_NoCallback(&stan, tailprop->pos.x, tailprop->pos.z, target_pos->x, target_pos->z))
+            if ((!(tailprop->flags & PROPRUNTIMEFLAG_USESTOREDROOMS)) && walkTilesBetweenPoints_NoCallback(&stan, tailprop->pos.x, tailprop->pos.z, target_pos->x, target_pos->z))
             {
                 explosionCreate(prop, target_pos, stan, 0x10,
                     (obj->flags & (PROPFLAG_ONSIDE | PROPFLAG_UPSIDEDOWN | PROPFLAG_INAIR)) == 0,
@@ -8759,7 +8759,7 @@ void objBreakCCTVGlass(ObjectRecord *obj)
     prop = obj->prop;
     model = obj->model;
 
-    if (prop->flags & PROPFLAG_ONSCREEN)
+    if (prop->flags & PROPRUNTIMEFLAG_ONSCREEN)
     {
         rodata = model->obj->Switches[2]->Data;
 
@@ -9159,7 +9159,7 @@ void objTestAndAddShotHit(PropRecord *prop, struct ShotData *hitinfo)
     coord3d pos;
     ModelNode *hitnode;
 
-    if (((obj->runtime_bitflags & RUNTIMEBITFLAG_FULLY_DESTROYED) == FALSE) && (prop->flags & PROPFLAG_ONSCREEN))
+    if (((obj->runtime_bitflags & RUNTIMEBITFLAG_FULLY_DESTROYED) == FALSE) && (prop->flags & PROPRUNTIMEFLAG_ONSCREEN))
     {
         child = prop->child;
 
@@ -9247,7 +9247,7 @@ void objTestHit(PropRecord* prop, struct ShotData* shotdata)
 
     obj = prop->obj;
 
-    if ((prop->flags & PROPFLAG_ONSCREEN) && (obj->runtime_bitflags & RUNTIMEBITFLAG_FULLY_DESTROYED) == 0 && (obj->flags2 & PROPFLAG2_SHOOTTHROUGH) == 0)
+    if ((prop->flags & PROPRUNTIMEFLAG_ONSCREEN) && (obj->runtime_bitflags & RUNTIMEBITFLAG_FULLY_DESTROYED) == 0 && (obj->flags2 & PROPFLAG2_SHOOTTHROUGH) == 0)
     {
         model = obj->model;
         bbox = chrobjGetBboxFromObjectRecord(obj);
@@ -9473,7 +9473,7 @@ bool objTestForInteract(PropRecord* prop)
 
     if (((obj->type == PROP_TYPE_PLAYER) || (obj->flags & PROPFLAG_COLLECT_BY_INTERACT) || (obj->runtime_bitflags & (RUNTIMEBITFLAG_00000001 | RUNTIMEBITFLAG_00000002 | RUNTIMEBITFLAG_TAGGED))))
     {
-        if ((prop->flags & PROPFLAG_ONSCREEN)
+        if ((prop->flags & PROPRUNTIMEFLAG_ONSCREEN)
                 && (objIsHealthy(obj) != 0)
                 && !(obj->flags & PROPFLAG_CANNOT_ACTIVATE))
         {
@@ -10735,7 +10735,7 @@ TICKOP objTickPlayer(struct PropRecord* prop)
 
 bool objGetOnscreenRenderBounds(PropRecord *prop, coord3d *viewCenter, struct coord2d *viewXBounds, struct coord2d *viewYBounds)
 {
-    if (prop->flags & PROPFLAG_ONSCREEN)
+    if (prop->flags & PROPRUNTIMEFLAG_ONSCREEN)
     {
         ObjectRecord *obj = prop->obj;
         Mtxf *matrix = getsubmatrix(obj->model);
@@ -10971,7 +10971,7 @@ WeaponObjRecord* weaponCreate(bool musthaveprop, bool musthavemodel, ModelFileHe
             {
                 if (!musthavemodel || modelmgrCanSlotFitRwdata(slot->model, modeldef))
                 {
-                    if ((slot->prop->flags & PROPFLAG_ONSCREEN) == 0 && sp40 < 0)
+                    if ((slot->prop->flags & PROPRUNTIMEFLAG_ONSCREEN) == 0 && sp40 < 0)
                     {
                         sp40 = i;
                     }
@@ -11075,7 +11075,7 @@ HatRecord *hatCreate(bool musthaveprop, bool musthavemodel, ModelFileHeader *mod
 				&& g_HatSlots[i].prop->parent == NULL
 				&& (!musthavemodel || modelmgrCanSlotFitRwdata(g_HatSlots[i].model, modeldef)))
 		{
-			if ((g_HatSlots[i].prop->flags & PROPFLAG_ONSCREEN) == 0 && var_s1 < 0)
+			if ((g_HatSlots[i].prop->flags & PROPRUNTIMEFLAG_ONSCREEN) == 0 && var_s1 < 0)
 			{
 				var_s1 = i;
 			}
@@ -11172,7 +11172,7 @@ AmmoCrateRecord *ammocrateAllocate(void)
         if ((g_AmmoCrates[i].runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE) == 0
                 && (g_AmmoCrates[i].state & PROPSTATE_RESPAWN) == 0
                 && g_AmmoCrates[i].prop->parent == NULL
-                && (g_AmmoCrates[i].prop->flags & PROPFLAG_ONSCREEN) == 0)
+                && (g_AmmoCrates[i].prop->flags & PROPRUNTIMEFLAG_ONSCREEN) == 0)
         {
             objFreePermanently(&g_AmmoCrates[i], TRUE);
             return (g_AmmoCrates + i);
@@ -11741,7 +11741,7 @@ void chrRenderHeldWeapon(void *renderContext, GUNHAND hand, Gfx **gdl)
                 renderData = D_800322A4;
 
                 chrModel = chr->model;
-                prop->flags |= PROPFLAG_ONSCREEN;
+                prop->flags |= PROPRUNTIMEFLAG_ONSCREEN;
 
                 renderData.basemtx = modelFindNodeMtx(chrModel, heldModel->attachedto_objinst, 0);
 
@@ -11767,7 +11767,7 @@ void chrRenderHeldWeapon(void *renderContext, GUNHAND hand, Gfx **gdl)
             }
         }
 
-        prop->flags &= ~PROPFLAG_ONSCREEN;
+        prop->flags &= ~PROPRUNTIMEFLAG_ONSCREEN;
     }
 }
 
@@ -13321,7 +13321,7 @@ bool doorTestForInteract(PropRecord *prop)
 
 	if ((door->flags & PROPFLAG_CANNOT_ACTIVATE) == 0
 			&& door->maxFrac > 0
-			&& (prop->flags & PROPFLAG_ONSCREEN))
+			&& (prop->flags & PROPRUNTIMEFLAG_ONSCREEN))
     {
 		maybe = FALSE;
 		playerprop = getCurrentPlayerProp();
@@ -13807,7 +13807,7 @@ void sub_GAME_7F056690(void)
     s2 = chrpropGetActiveTail();
     for (; s2 != NULL; s2 = s2->prev)
     {
-        if ((s2->type == 1) && ((s2->flags & PROPFLAG_ONSCREEN) == 0))
+        if ((s2->type == 1) && ((s2->flags & PROPRUNTIMEFLAG_ONSCREEN) == 0))
         {
             s1 = s2->obj;
             if (s1->state & 0x80)

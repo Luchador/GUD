@@ -9662,7 +9662,7 @@ s32 playerTick(PropRecord *prop)
             g_playerPointers[index]->spatialState.collisionTile = g_playerPointers[index]->prop->stan;
             bondviewUpdatePlayerRoom(g_playerPointers[index]);
  
-            if (prop->flags & PROPFLAG_ONSCREEN)
+            if (prop->flags & PROPRUNTIMEFLAG_ONSCREEN)
             {
                 RenderPosView *rp = g_playerPointers[index]->bodyModel->render_pos;
                 matrix_4x4_multiply_homogeneous(currentPlayerGetViewToWorldMtxf(), (Mtxf *) rp, (Mtxf *) mtx);
@@ -10071,7 +10071,7 @@ join_768:
     return tailret;
  
 clear_and_return:
-    prop->flags &= ~PROPFLAG_ONSCREEN;
+    prop->flags &= ~PROPRUNTIMEFLAG_ONSCREEN;
 
     return TICKOP_NONE;
 }

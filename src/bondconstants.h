@@ -3,6 +3,7 @@
 #include <ultra64.h>
 #include <CPPLib.h>
 #include "propconstants.h"
+#include "propruntimeflags.h"
 
 #pragma region Tools
 #ifdef __INTELLISENSE__

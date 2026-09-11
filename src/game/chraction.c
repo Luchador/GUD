@@ -3512,7 +3512,7 @@ s32 plot_course_for_actor(ChrRecord *self, coord3d *arg1, StandTile *stan, SPEED
 
         chrlvActGoposRelated(self, &sp34, &sp30);
 
-        if (((prop->flags & 2) == 0) && (chrlvStanRoomRelated(self, &sp34, sp30) != 0))
+        if (((prop->flags & PROPRUNTIMEFLAG_ONSCREEN) == 0) && (chrlvStanRoomRelated(self, &sp34, sp30) != 0))
         {
             chrlvSetGoposSegDistTotal(self, &self->act_gopos.waydata, &sp34);
         }
@@ -3639,7 +3639,7 @@ void chractSetChrOnPath(ChrRecord *self, struct patrol_path *path)
 
     pad = chrlvGetNextPatrolStepPad(self);
 
-    if ((self->prop->flags & PROPFLAG_ONSCREEN) == FALSE)
+    if ((self->prop->flags & PROPRUNTIMEFLAG_ONSCREEN) == FALSE)
     {
         if (chrlvStanRoomRelatedPad(self, pad) != 0)
         {
@@ -5619,7 +5619,7 @@ s32 chrlvUpdateAimendsideback(ChrRecord *self, struct weapon_firing_animation_ta
             }
 
             // This if block is a slight modification of @see chrGetGunMuzzlePos.
-            if ((weapon_prop != NULL) && (weapon_prop->flags & 2) && (dxdydz_square < 1000000.0f))
+            if ((weapon_prop != NULL) && (weapon_prop->flags & PROPRUNTIMEFLAG_ONSCREEN) && (dxdydz_square < 1000000.0f))
             {
                 obj = weapon_prop->obj;
                 weapon_prop_model = obj->model;
@@ -6074,7 +6074,7 @@ s32 chrGetGunMuzzlePos(ChrRecord *self, GUNHAND hand, coord3d *arg2)
         obj = weapon_prop->obj;
         weapon_prop_model = obj->model;
 
-        if ((weapon_prop->flags & PROPFLAG_ONSCREEN))
+        if ((weapon_prop->flags & PROPRUNTIMEFLAG_ONSCREEN))
         {
             if (weapon_prop_model->obj->Switches[0])
             {
@@ -8587,7 +8587,7 @@ void chrlvTickGoPos(ChrRecord *self)
         chrlvActGoposRelated(self, &sp58, &sp54);
 
         if ((sp74 == 0)
-            && ((self_prop->flags & PROPFLAG_ONSCREEN) || (chrlvStanRoomRelated(self, &sp58, sp54) == 0)))
+            && ((self_prop->flags & PROPRUNTIMEFLAG_ONSCREEN) || (chrlvStanRoomRelated(self, &sp58, sp54) == 0)))
         {
             chrlvActGoposSetTargetPosRelated(self);
             self->act_gopos.unk9c = g_GlobalTimer;
@@ -8734,7 +8734,7 @@ void chrlvTickPatrol(ChrRecord *self)
     if (self->act_patrol.waydata.mode == WAYMODE_MAGIC)
     {
         if ((sp34 == 0)
-            && ((self_prop->flags & PROPFLAG_ONSCREEN) || (chrlvStanRoomRelatedPad(self, temp_v0) == 0)))
+            && ((self_prop->flags & PROPRUNTIMEFLAG_ONSCREEN) || (chrlvStanRoomRelatedPad(self, temp_v0) == 0)))
         {
             self->act_patrol.lastvisible60 = g_GlobalTimer;
             chrlvSetNextActPatrolStepPadPos(self);

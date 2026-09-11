@@ -428,7 +428,7 @@ void objectiveTakePictureHandler(void)
             {
                 target_prop = target_object->prop;
                 
-                if ((target_prop != NULL) && (target_prop->flags & PROPFLAG_ONSCREEN) && (target_prop->zDepth >= 0.0f) && (objIsHealthy(target_object)) && (objGetOnscreenRenderBounds(target_object->prop, &sp84, &sp7C, &sp74) != 0))
+                if ((target_prop != NULL) && (target_prop->flags & PROPRUNTIMEFLAG_ONSCREEN) && (target_prop->zDepth >= 0.0f) && (objIsHealthy(target_object)) && (objGetOnscreenRenderBounds(target_object->prop, &sp84, &sp7C, &sp74) != 0))
                 {
                     projectRectCornersTo2D(&sp84, &sp7C, &sp74, &sp64.left, &sp64.right);
                     

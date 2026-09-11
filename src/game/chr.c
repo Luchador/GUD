@@ -2420,7 +2420,7 @@ after_position_update:
     if (isOnScreen)
     {
         renderdata = g_DefaultChrModelRenderData;
-        prop->flags |= PROPFLAG_ONSCREEN;
+        prop->flags |= PROPRUNTIMEFLAG_ONSCREEN;
 
         chr->chrflags |= CHRFLAG_HAS_BEEN_ON_SCREEN;
 
@@ -2467,7 +2467,7 @@ after_position_update:
             hatobj = chr->handle_positiondata_hat->obj;
             hatmodel = hatobj->model;
 
-            chr->handle_positiondata_hat->flags |= PROPFLAG_ONSCREEN;
+            chr->handle_positiondata_hat->flags |= PROPRUNTIMEFLAG_ONSCREEN;
 
             renderdata.basemtx = modelFindNodeMtx(model, hatmodel->attachedto_objinst, 0);
             renderdata.mtxlist = dynAllocate(hatmodel->obj->numMatrices * (sizeof(Mtxf)));
@@ -2545,20 +2545,20 @@ after_position_update:
     {
         if (chr->weapons_held[GUNRIGHT] != NULL)
         {
-            chr->weapons_held[GUNRIGHT]->flags &= ~PROPFLAG_ONSCREEN;
+            chr->weapons_held[GUNRIGHT]->flags &= ~PROPRUNTIMEFLAG_ONSCREEN;
         }
 
         if (chr->weapons_held[GUNLEFT] != NULL)
         {
-            chr->weapons_held[GUNLEFT]->flags &= ~PROPFLAG_ONSCREEN;
+            chr->weapons_held[GUNLEFT]->flags &= ~PROPRUNTIMEFLAG_ONSCREEN;
         }
 
         if (chr->handle_positiondata_hat != NULL)
         {
-            chr->handle_positiondata_hat->flags &= ~PROPFLAG_ONSCREEN;
+            chr->handle_positiondata_hat->flags &= ~PROPRUNTIMEFLAG_ONSCREEN;
         }
 
-        prop->flags &= ~PROPFLAG_ONSCREEN;
+        prop->flags &= ~PROPRUNTIMEFLAG_ONSCREEN;
 
         chr->shadecol.r = chr->nextcol.r;
         chr->shadecol.g = chr->nextcol.g;
@@ -3105,7 +3105,7 @@ void chrTestHit(PropRecord *prop, ShotData *shotdata)
     model = chr->model;
     modelsize = modelGetInstSize(model);
 
-    if ((prop->flags & PROPFLAG_ONSCREEN) == FALSE)
+    if ((prop->flags & PROPRUNTIMEFLAG_ONSCREEN) == FALSE)
     {
         return;
     }
@@ -3476,7 +3476,7 @@ s32 chrGetOnscreenRenderBounds(PropRecord *arg0, struct coord3d *arg1, struct co
 
     temp_v1 = arg0->chr;
 
-    if (arg0->flags & PROPFLAG_ONSCREEN)
+    if (arg0->flags & PROPRUNTIMEFLAG_ONSCREEN)
     {
         if ((temp_v1->actiontype != ACT_DIE) && (temp_v1->actiontype != ACT_DEAD) && !(temp_v1->chrflags & CHRFLAG_NO_AUTOAIM))
         {

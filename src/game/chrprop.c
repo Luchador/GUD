@@ -203,7 +203,7 @@ void chraiUpdateOnscreenPropCount(void)
 
     for (; prop != NULL; prop = prop->prev)
     {
-        if ((prop->flags & (PROPFLAG_ENABLED | PROPFLAG_ONSCREEN)) == (PROPFLAG_ENABLED | PROPFLAG_ONSCREEN))
+        if ((prop->flags & (PROPRUNTIMEFLAG_ENABLED | PROPRUNTIMEFLAG_ONSCREEN)) == (PROPRUNTIMEFLAG_ENABLED | PROPRUNTIMEFLAG_ONSCREEN))
         {
             g_OnScreenPropList[count] = prop;
             count++;
@@ -245,13 +245,13 @@ void chraiUpdateOnscreenPropCount(void)
 
 void chrpropEnable(PropRecord *prop)
 {
-    prop->flags |= PROPFLAG_ENABLED;
+    prop->flags |= PROPRUNTIMEFLAG_ENABLED;
 }
 
 
 void chrpropDisable(PropRecord *prop)
 {
-    prop->flags &= ~PROPFLAG_ENABLED;
+    prop->flags &= ~PROPRUNTIMEFLAG_ENABLED;
 }
 
 
@@ -498,14 +498,14 @@ Gfx *chrpropsRenderPass(Gfx *gdl, s32 roomid, s32 renderpass)
             {
                 if ((renderpass == 0)
                         && ((prop->flags
-                            & (PROPFLAG_SCALE_TO_X_BOUNDS | PROPFLAG_ALLOWFALL)) == 0))
+                            & (PROPRUNTIMEFLAG_RENDERLATE | PROPRUNTIMEFLAG_RENDERPOSTBG)) == 0))
                 {
                     gdl = chrpropRender(gdl, prop, FALSE);
                 }
                 else if ((renderpass == 2)
                         && ((prop->flags
-                            & (PROPFLAG_SCALE_TO_X_BOUNDS | PROPFLAG_ALLOWFALL))
-                            == PROPFLAG_ALLOWFALL))
+                            & (PROPRUNTIMEFLAG_RENDERLATE | PROPRUNTIMEFLAG_RENDERPOSTBG))
+                            == PROPRUNTIMEFLAG_RENDERPOSTBG))
                 {
                     gdl = chrpropRender(gdl, prop, FALSE);
                 }
@@ -526,7 +526,7 @@ Gfx *chrpropsRenderPass(Gfx *gdl, s32 roomid, s32 renderpass)
 
             if (prop != NULL)
             {
-                if (prop->flags & PROPFLAG_SCALE_TO_X_BOUNDS)
+                if (prop->flags & PROPRUNTIMEFLAG_RENDERLATE)
                 {
                     gdl = chrpropRender(gdl, prop, FALSE);
                 }
@@ -2440,7 +2440,7 @@ void chrpropDeregisterRooms(PropRecord *prop)
         roomIter += 1;
         room = *roomIter;
     }
-    if (!(prop->flags & PROPFLAG_SCALE_TO_PAD_BOUNDS))
+    if (!(prop->flags & PROPRUNTIMEFLAG_PRESERVEROOMS))
     {
         prop->rooms[0] = -1; //hide room
     }
@@ -2479,7 +2479,7 @@ void chrpropUpdateRoomList(PropRecord *prop, coord3d *bbmin, coord3d *bbmax, f32
     count = 0;
     obj = NULL;
 
-    if (prop->flags & PROPFLAG_INAIR)
+    if (prop->flags & PROPRUNTIMEFLAG_USESTOREDROOMS)
     {
         // Seed from the prop's existing room list.
         if (prop->type == PROP_TYPE_OBJ || prop->type == PROP_TYPE_WEAPON || prop->type == PROP_TYPE_DOOR) 

@@ -186,7 +186,7 @@ void explosionCreate(PropRecord *arg0, struct coord3d *target_pos, StandTile *ta
         if (sp30 != NULL)
         {
             sp30->type = PROP_TYPE_EXPLOSION;
-            sp30->flags |= PROPFLAG_ONSCREEN;
+            sp30->flags |= PROPRUNTIMEFLAG_ONSCREEN;
             sp30->explosion = sp40;
             var_v0 = 0;
             sp30->stan = target_stan;
@@ -204,7 +204,7 @@ void explosionCreate(PropRecord *arg0, struct coord3d *target_pos, StandTile *ta
 
             if (arg7 != 0)
             {
-                sp30->flags |= PROPFLAG_INAIR;
+                sp30->flags |= PROPRUNTIMEFLAG_USESTOREDROOMS;
             }
 
             chrpropActivateThisFrame(sp30);
@@ -614,16 +614,16 @@ s32 explosionTick(PropRecord* arg0)
                 if (exp->source->type == PROP_TYPE_OBJ)
                 {
                     struct ObjectRecord *obj = exp->source->obj;
-                    explosionCreateSmoke(&obj->position, exp->source->stan, (s16) explosiontype->smoketype, exp->source->rooms, (arg0->flags & 8) != 0);
+                    explosionCreateSmoke(&obj->position, exp->source->stan, (s16) explosiontype->smoketype, exp->source->rooms, (arg0->flags & PROPRUNTIMEFLAG_USESTOREDROOMS) != 0);
                 }
                 else
                 {
-                    explosionCreateSmoke(&exp->source->pos, exp->source->stan, (s16) explosiontype->smoketype, exp->source->rooms, (arg0->flags & 8) != 0);
+                    explosionCreateSmoke(&exp->source->pos, exp->source->stan, (s16) explosiontype->smoketype, exp->source->rooms, (arg0->flags & PROPRUNTIMEFLAG_USESTOREDROOMS) != 0);
                 }
             }
             else
             {
-                explosionCreateSmoke(&arg0->pos, arg0->stan, (s16) explosiontype->smoketype, arg0->rooms, (arg0->flags & 8) != 0);
+                explosionCreateSmoke(&arg0->pos, arg0->stan, (s16) explosiontype->smoketype, arg0->rooms, (arg0->flags & PROPRUNTIMEFLAG_USESTOREDROOMS) != 0);
             }
         }
 
@@ -1040,7 +1040,7 @@ void explosionCreateSmoke(coord3d *pos, StandTile *stan, s16 smoke_type, u8 *roo
     if (prop == NULL) { return; }
 
     prop->type = 8;
-    prop->flags |= 2;
+    prop->flags |= PROPRUNTIMEFLAG_ONSCREEN;
     prop->smoke = smoke;
     prop->stan = stan;
     prop->pos.x = pos->x;
@@ -1055,7 +1055,7 @@ void explosionCreateSmoke(coord3d *pos, StandTile *stan, s16 smoke_type, u8 *roo
 
     if (flags != 0)
     {
-        prop->flags |= 8;
+        prop->flags |= PROPRUNTIMEFLAG_USESTOREDROOMS;
     }
 
     chrpropActivateThisFrame(prop);

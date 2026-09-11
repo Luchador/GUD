@@ -1,17 +1,18 @@
 #ifndef GUD_PROPCONSTANTS_H
 #define GUD_PROPCONSTANTS_H
 
-/* Canonical prop flags and setup record types shared by the game and asset
+/* Canonical setup object flags and record types shared by the game and asset
  * tools. Keep this header free of platform-specific includes. Game code
- * continues to receive these enums through bondconstants.h. */
+ * receives these enums through bondconstants.h. Runtime PropRecord.flags
+ * belongs to propruntimeflags.h and must never be exposed as setup options. */
 
+/* Saved ObjectRecord.flags (u32). Aliases here are object-type-specific
+ * meanings within this field, never flags from another record type. */
 typedef enum PROPFLAG
 {
     PROPFLAG_ALLOWFALL                         = 0x00000001, // Fall to Ground
-    PROPFLAG_ONSCREEN                          = 0x00000002, // PropRecord.flags: runtime visibility.
     PROPFLAG_ONSIDE                            = 0x00000002, // ObjectRecord.flags: sideways placement, anchored at the model's Z-min face.
-    PROPFLAG_ENABLED                           = 0x00000004, // In Air Upside-Down
-    PROPFLAG_UPSIDEDOWN                        = 0x00000004,
+    PROPFLAG_UPSIDEDOWN                        = 0x00000004, // In-air upside-down placement.
     PROPFLAG_INAIR                             = 0x00000008, // In Air
     PROPFLAG_SCALE_TO_PAD_BOUNDS               = 0x00000010, // Scale to Pad Bounds
     PROPFLAG_SCALE_TO_X_BOUNDS                 = 0x00000020, // Scale X to Pad Bounds
@@ -55,6 +56,7 @@ typedef enum PROPFLAG
     PROPFLAG_IS_DOUBLE                         = 0x80000000  // Weapon paired for player
 }PROPFLAG;
 
+/* Saved ObjectRecord.flags2 (u32). */
 typedef enum PROPFLAG2
 {
     PROPFLAG2_DRONEGUN              = 0x00000001, // Activate Drone Gun

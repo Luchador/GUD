@@ -2135,7 +2135,7 @@ typedef union
     typedef struct PropRecord
     {
         u8  type;        /*0x00   PROP_TYPE */
-        u8  flags;       /*0x01*/
+        u8  flags;       /*0x01 PROPRUNTIMEFLAG; runtime state, not setup flags */
         s16 timetoregen; // ticks down /*0x02*/
         union
         {
@@ -2481,13 +2481,13 @@ typedef union
         s16         pad;
 
         /**
-         * Setup flags word 1. Flag documentation lives at the PROPFLAG enum in bondconstants.h.
+         * Setup flags word 1. See PROPFLAG in propconstants.h.
          * Note that several bits depend on the type of object.
          */
         u32         flags;
 
         /**
-         * Setup flags word 2. See PROPFLAG2 enum in bondconstants.h.
+         * Setup flags word 2. See PROPFLAG2 in propconstants.h.
          */
         u32         flags2;
 

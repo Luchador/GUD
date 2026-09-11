@@ -262,6 +262,10 @@ $(BUILD_DIR)/src/game/image.o: $(RAW_IMAGE_DEF)
 # builds in sync when the texture headers change (the IDO rules do not emit .d files).
 $(addprefix $(BUILD_DIR)/src/game/,image.o initimages.o gedmanifest.o tex.o chrprop.o front.o): src/game/image.h src/game/tex.h src/bondconstants.h
 
+# Setup and runtime flag enums use separate namespaces. IDO emits no header
+# dependencies, so changes to either enum must rebuild their game consumers.
+$(GAMEOBJECTS): src/propconstants.h src/propruntimeflags.h
+
 $(BUILD_DIR)/assets/images/combined/%.o: $(RAW_IMAGE_BIN)
 	$(LD) -r -b binary $< -o $@
 

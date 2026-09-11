@@ -1,11 +1,10 @@
-/* Every named PROPFLAG/PROPFLAG2 from src/propconstants.h, including aliases.
+/* Every saved ObjectRecord PROPFLAG/PROPFLAG2 from src/propconstants.h,
+ * including object-type aliases. Runtime PropRecord flags do not belong here.
  * Values come from the shared enums. tests/object_flags checks coverage.
  * Define OBJECT_FLAG(bank, symbol, label, description) before including. */
 OBJECT_FLAG(0, PROPFLAG_ALLOWFALL, "Allow falling", "Allows this object to fall when its support is destroyed or destruction triggers falling. Overridden by No fall.")
-OBJECT_FLAG(0, PROPFLAG_ONSCREEN, "On screen", "PropRecord.flags: runtime visibility.")
 OBJECT_FLAG(0, PROPFLAG_ONSIDE, "On side", "ObjectRecord.flags: sideways placement, anchored at the model's Z-min face.")
-OBJECT_FLAG(0, PROPFLAG_ENABLED, "Enabled", "In air upside-down")
-OBJECT_FLAG(0, PROPFLAG_UPSIDEDOWN, "Upside down", "")
+OBJECT_FLAG(0, PROPFLAG_UPSIDEDOWN, "Upside down", "In-air upside-down placement.")
 OBJECT_FLAG(0, PROPFLAG_INAIR, "In air", "")
 OBJECT_FLAG(0, PROPFLAG_SCALE_TO_PAD_BOUNDS, "Scale to pad bounds", "Scale to Pad Bounds")
 OBJECT_FLAG(0, PROPFLAG_SCALE_TO_X_BOUNDS, "Scale to X bounds", "Scale X to Pad Bounds")
