@@ -11,6 +11,7 @@
 
 #include "modelload.h"
 #include "objectload.h"
+#include "objectshade.h"
 #include "characterload.h"
 #include "modeledits.h"
 #include "romexport.h"
@@ -90,6 +91,7 @@ typedef struct ObjectBasis {
 typedef struct ObjectPlacement {
     ObjectBasis basis;
     float scale[3], center[3];
+    ObjectShade shade;
     BOOL placed;
 } ObjectPlacement;
 
@@ -775,7 +777,7 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
         float min[3], max[3], center[3] = { 0.0f, 0.0f, 0.0f };
         float scale[3];
         float reference[3];
-        DWORD referencetile = STAN_TILE_NONE, placedtile;
+        DWORD referencetile = STAN_TILE_NONE, placedtile, firsttriangle;
         int padindex;
         BOOL isbound;
         BOOL isdoor = object->type == PROPDEF_DOOR;
@@ -916,8 +918,13 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
         memcpy(placements[i].scale, scale, sizeof(scale));
         memcpy(placements[i].center, center, sizeof(center));
         placements[i].placed = TRUE;
+        ObjectShadeFromTile(stan, placedtile, FALSE, object->flags, &placements[i].shade);
+        firsttriangle = builder.tricount;
         ObjectPlaceModel(&builder, model, &basis, scale, isdoor, doorflags, center, i,
             object->type == PROPDEF_MONITOR ? 1 : object->type == PROPDEF_MULTI_MONITOR ? 4 : 0);
+        if (builder.tricount > firsttriangle)
+        { ObjectShadeVertices(builder.tris + firsttriangle*3, (builder.tricount-firsttriangle)*3, &placements[i].shade); }
+        /* Dynamic screens are emissive; tint the cabinet before adding them. */
         if (!ObjectPlaceMonitorScreens(&builder, &out->monitors, setup, i, model,
             &placements[i], &rom, reasonout)) { goto fail; }
         if (builder.failed)
@@ -952,7 +959,7 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
         const SetupObject *object = &setup->objects[i];
         ObjectPlacement *p = &placements[i], *owner;
         ModelCacheEntry *model, *ownermodel;
-        DWORD ownerindex, part;
+        DWORD ownerindex, part, firsttriangle;
         float local[3], ratio, c = cosf(.36651915f), n = sinf(.36651915f);
         int axis;
         if (object->deleted || object->type != PROPDEF_MONITOR || object->pad >= 0
@@ -983,7 +990,13 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
             p->scale[axis] = 1;
         }
         p->placed = TRUE;
+        /* objRenderPropModel recurses into children with its render data,
+         * so an attached monitor inherits the owner's shading. */
+        p->shade = owner->shade;
+        firsttriangle = builder.tricount;
         ObjectPlaceModel(&builder, model, &p->basis, p->scale, FALSE, 0, p->center, i, 1);
+        if (builder.tricount > firsttriangle)
+        { ObjectShadeVertices(builder.tris + firsttriangle*3, (builder.tricount-firsttriangle)*3, &p->shade); }
         if (!ObjectPlaceMonitorScreens(&builder, &out->monitors, setup, i, model, p, &rom, reasonout)) { goto fail; }
         out->objectcount++;
     }

@@ -9,6 +9,7 @@
 #include <src/propconstants.h>
 
 #include "characterload.h"
+#include "objectshade.h"
 #include "gltf.h"
 #include "modeledits.h"
 #include "modelload.h"
@@ -363,11 +364,12 @@ static BOOL CharacterPlaceEquipment(CharacterBuilder *builder,
     return TRUE;
 }
 
-BOOL CharacterGetPadPosition(const SetupPad *pad, const StanFile *stan,
-                              float levelscale, float position[3])
+static BOOL CharacterGetPadPlacement(const SetupPad *pad, const StanFile *stan,
+    float levelscale, float position[3], DWORD *tileout)
 {
     int axis;
 
+    *tileout = STAN_TILE_NONE;
     if (pad == NULL || !isfinite(levelscale) || levelscale <= 0.0f) { return FALSE; }
     for (axis = 0; axis < 3; axis++) { position[axis] = pad->pos[axis] / levelscale; }
     if (stan != NULL && stan->tiles != NULL && stan->tilecount > 0)
@@ -379,8 +381,16 @@ BOOL CharacterGetPadPosition(const SetupPad *pad, const StanFile *stan,
         {
             return FALSE;
         }
+        *tileout = tile;
     }
     return TRUE;
+}
+
+BOOL CharacterGetPadPosition(const SetupPad *pad, const StanFile *stan,
+                              float levelscale, float position[3])
+{
+    DWORD tile;
+    return CharacterGetPadPlacement(pad, stan, levelscale, position, &tile);
 }
 
 BOOL CharacterLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
@@ -425,12 +435,14 @@ BOOL CharacterLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
         CharacterPart *body, *head = NULL;
         float position[3], bodyoffset[3] = { 0.0f, 0.0f, 0.0f };
         float length, facingx, facingz;
+        DWORD tile, firsttriangle;
+        ObjectShade shade;
         int bodyid, headid;
 
         if (character->deleted || character->pad >= setup->padcount
             || !CharacterResolveModels(character, &bodyid, &headid)) { continue; }
         pad = &setup->pads[character->pad];
-        if (!CharacterGetPadPosition(pad, stan, levelscale, position)) { continue; }
+        if (!CharacterGetPadPlacement(pad, stan, levelscale, position, &tile)) { continue; }
         CharacterFindEquipment(setup, i, held);
         body = CharacterGetPart(cache, bodyid, CharacterChoosePose(setup, held), projectdir, rom);
         if (body == NULL) { continue; }
@@ -446,6 +458,7 @@ BOOL CharacterLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
         length = sqrtf(pad->look[0] * pad->look[0] + pad->look[2] * pad->look[2]);
         facingx = length > 0.000001f ? pad->look[0] / length : 0.0f;
         facingz = length > 0.000001f ? pad->look[2] / length : 1.0f;
+        firsttriangle = builder.count;
         if (!CharacterPlacePart(&builder, body, NULL, bodyoffset, position,
                                  definition.scale, 1.0f, FALSE, facingx, facingz, i)) { goto done; }
         if (head != NULL)
@@ -456,6 +469,11 @@ BOOL CharacterLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
         if (!CharacterPlaceEquipment(&builder, equipment, equipmentcount, held, i,
             projectdir, rom, body, bodyoffset, position, definition.scale,
             facingx, facingz)) { goto done; }
+        /* chrRender shares the character's shade with the head and held
+         * models. Shade assembled copies once, leaving the pose cache intact. */
+        ObjectShadeFromTile(stan, tile, TRUE, 0, &shade);
+        if (builder.count > firsttriangle)
+        { ObjectShadeVertices(builder.vertices + firsttriangle*3, (builder.count-firsttriangle)*3, &shade); }
         out->occupiedpads[character->pad] = 1;
         out->objectcount++;
     }

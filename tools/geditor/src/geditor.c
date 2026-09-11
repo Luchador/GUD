@@ -2454,17 +2454,15 @@ static BOOL GEditorPaintStanTile(HWND hwnd, DWORD tile)
     EditHistoryTransaction transaction;
     unsigned char rgba[4];
     BOOL changed;
-    const char *why = "";
+    const char *why = "", *restorewhy = "";
     if (ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT) { return FALSE; }
     RightPanelGetPaintColor(g_RightPanel, rgba);
     if (!EditHistoryBeginStanEdit(&g_EditHistory,&g_CurrentStan,"Paint Stan Tile",&transaction,&why)) { goto fail; }
     if (!StanPaintTile(&g_CurrentStan,tile,rgba,&changed,&why)) { goto rollback; }
     if (!changed) { EditHistoryCancelEdit(&transaction); return TRUE; }
-    if (!ViewportSetStanTiles(g_Viewport,&g_CurrentStan))
-    {
-        why="out of memory updating the stan viewport.";
-        goto rollback;
-    }
+    /* Tile RGB also shades placed models. Rebuild their derived colors from
+     * clean assets, just as after a placement edit or a STAN undo/redo. */
+    if (!GEditorReloadCurrentObjectsAndViewport(&why)) { goto rollback; }
     if (!EditHistoryCommitEdit(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,
                               &g_CurrentStan,&transaction,&why)) { goto rollback; }
     GEditorRefreshSelectionDetails();
@@ -2472,7 +2470,7 @@ static BOOL GEditorPaintStanTile(HWND hwnd, DWORD tile)
     return TRUE;
 rollback:
     EditHistoryRollbackEdit(&transaction,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan);
-    ViewportSetStanTiles(g_Viewport,&g_CurrentStan);
+    GEditorReloadCurrentObjectsAndViewport(&restorewhy);
 fail:
     GEditorRefreshHistoryMenu(hwnd);
     MessageBox(hwnd,why,GEDITOR_TITLE,MB_ICONERROR);
