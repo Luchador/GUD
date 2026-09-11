@@ -56,10 +56,10 @@ static const struct {
 } g_BrowserObjects[BROWSER_OBJECT_COUNT] = {
     { "Triangle",     IDR_OBJECT_TRIANGLE,     BROWSER_OBJECT_TAB_PRIMITIVES },
     { "Quad",         IDR_OBJECT_QUAD,         BROWSER_OBJECT_TAB_PRIMITIVES },
-    { "Spawn Point",  IDR_OBJECT_SPAWN,        BROWSER_OBJECT_TAB_OBJECTS },
-    { "Intro Spline", IDR_OBJECT_INTRO_SPLINE, BROWSER_OBJECT_TAB_OBJECTS },
-    { "Intro Camera", IDR_OBJECT_INTRO,        BROWSER_OBJECT_TAB_OBJECTS },
-    { "Outro Camera", IDR_OBJECT_OUTRO,        BROWSER_OBJECT_TAB_OBJECTS },
+    { "Spawn Point",  IDR_OBJECT_SPAWN,        BROWSER_OBJECT_TAB_SPECIAL },
+    { "Intro Spline", IDR_OBJECT_INTRO_SPLINE, BROWSER_OBJECT_TAB_SPECIAL },
+    { "Intro Camera", IDR_OBJECT_INTRO,        BROWSER_OBJECT_TAB_SPECIAL },
+    { "Outro Camera", IDR_OBJECT_OUTRO,        BROWSER_OBJECT_TAB_SPECIAL },
     { "Door",         IDR_OBJECT_DOOR,         BROWSER_OBJECT_TAB_OBJECTS },
     { "Glass",        IDR_OBJECT_GLASS,        BROWSER_OBJECT_TAB_OBJECTS },
     { "Weapon",       IDR_OBJECT_WEAPON,       BROWSER_OBJECT_TAB_OBJECTS },
@@ -1151,7 +1151,8 @@ static void BrowserBeginObjectDrag(HWND hwnd, BrowserState *state, int index, PO
     int width = rect.right - rect.left, i;
     if (width < 1) { return; }
     if ((index == BROWSER_OBJECT_SPAWN || index == BROWSER_OBJECT_INTRO_CAMERA || index == BROWSER_OBJECT_OUTRO_CAMERA
-            || index == BROWSER_OBJECT_DOOR || index == BROWSER_OBJECT_GLASS)
+            || index == BROWSER_OBJECT_DOOR || index == BROWSER_OBJECT_GLASS
+            || index == BROWSER_OBJECT_CCTV || index == BROWSER_OBJECT_ALARM)
         && !SendMessage(GetParent(hwnd), BROWSER_WM_OBJECT_DRAG_BEGIN, index, 0))
     {
         state->pressedobject = -1;
@@ -1606,7 +1607,8 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                 BrowserEndAssetDrag(hwnd, state);
                 if (objectdrop.type == BROWSER_OBJECT_SPAWN || objectdrop.type == BROWSER_OBJECT_INTRO_CAMERA
                     || objectdrop.type == BROWSER_OBJECT_OUTRO_CAMERA || objectdrop.type == BROWSER_OBJECT_DOOR
-                    || objectdrop.type == BROWSER_OBJECT_GLASS)
+                    || objectdrop.type == BROWSER_OBJECT_GLASS || objectdrop.type == BROWSER_OBJECT_CCTV
+                    || objectdrop.type == BROWSER_OBJECT_ALARM)
                 { SendMessage(GetParent(hwnd), BROWSER_WM_OBJECT_DROP, 0, (LPARAM)&objectdrop); }
                 return 0;
             }

@@ -2654,7 +2654,8 @@ static BOOL GEditorDropSetupMarker(HWND hwnd, const BrowserObjectDrop *request)
 
 typedef enum
 {
-    GEDITOR_PLACE_MODEL, GEDITOR_PLACE_DOOR, GEDITOR_PLACE_GLASS
+    GEDITOR_PLACE_MODEL, GEDITOR_PLACE_DOOR, GEDITOR_PLACE_GLASS,
+    GEDITOR_PLACE_CCTV, GEDITOR_PLACE_ALARM
 } GEditorPlacementKind;
 
 static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request, GEditorPlacementKind kind)
@@ -2666,6 +2667,7 @@ static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request, GEditor
     DWORD selection, triangle;
     BOOL character, found = FALSE, added;
     BOOL door = kind == GEDITOR_PLACE_DOOR, glass = kind == GEDITOR_PLACE_GLASS;
+    BOOL cctv = kind == GEDITOR_PLACE_CCTV, alarm = kind == GEDITOR_PLACE_ALARM;
     int modelid;
 
     if (request == NULL || g_CurrentLevelIndex == GEDITOR_NO_LEVEL || g_CurrentSetup.data == NULL ||
@@ -2675,11 +2677,19 @@ static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request, GEditor
     {
         return FALSE;
     }
+    if ((door || glass || cctv || alarm) && !ViewportGetCameraDirection(g_Viewport, look)) { return FALSE; }
+    if (cctv || alarm)
+    {
+        /* Pull the mount a little towards the viewer so an exact wall hit
+         * resolves on the room side of a stan boundary. Keep the drop height. */
+        double length = hypot(look[0], look[2]);
+        if (length > 1e-8)
+        { position[0] -= look[0] / length; position[2] -= look[2] / length; }
+    }
     if (door || glass)
     {
         float point[3], height;
         DWORD tile;
-        if (!ViewportGetCameraDirection(g_Viewport, look)) { return FALSE; }
         for (int axis = 0; axis < 3; axis++) { point[axis] = (float)position[axis]; }
         tile = StanResolvePadTile(&g_CurrentStan, "", point);
         if (tile == STAN_TILE_NONE || !StanGetTileHeight(&g_CurrentStan, tile, point[0], point[2], &height))
@@ -2691,7 +2701,8 @@ static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request, GEditor
         position[1] = height;
     }
     if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup,
-                                   door ? "Add Door" : glass ? "Add Glass" : character ? "Add Character" : "Add Prop",
+                                   door ? "Add Door" : glass ? "Add Glass" : cctv ? "Add CCTV Camera"
+                                       : alarm ? "Add Alarm" : character ? "Add Character" : "Add Prop",
                                    &transaction, &why))
     {
         goto fail;
@@ -2704,6 +2715,16 @@ static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request, GEditor
     else if (glass)
     {
         added = SetupFileAddGlass(&g_CurrentSetup, modelid, g_CurrentBgDocument.levelscale,
+            position, look, &selection, &why);
+    }
+    else if (cctv)
+    {
+        added = SetupFileAddCctv(&g_CurrentSetup, modelid, g_CurrentBgDocument.levelscale,
+            position, look, &selection, &why);
+    }
+    else if (alarm)
+    {
+        added = SetupFileAddAlarm(&g_CurrentSetup, modelid, g_CurrentBgDocument.levelscale,
             position, look, &selection, &why);
     }
     else
@@ -3109,7 +3130,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
     case BROWSER_WM_OBJECT_DRAG_BEGIN:
         if ((wparam != BROWSER_OBJECT_SPAWN && wparam != BROWSER_OBJECT_INTRO_CAMERA && wparam != BROWSER_OBJECT_OUTRO_CAMERA
-                && wparam != BROWSER_OBJECT_DOOR && wparam != BROWSER_OBJECT_GLASS)
+                && wparam != BROWSER_OBJECT_DOOR && wparam != BROWSER_OBJECT_GLASS
+                && wparam != BROWSER_OBJECT_CCTV && wparam != BROWSER_OBJECT_ALARM)
             || g_CurrentLevelIndex == GEDITOR_NO_LEVEL || !g_CurrentSetup.data) { return FALSE; }
         if ((wparam == BROWSER_OBJECT_INTRO_CAMERA || wparam == BROWSER_OBJECT_OUTRO_CAMERA)
             && strncmp(g_CurrentSetup.name, "Ump_", 4) == 0)
@@ -3124,12 +3146,21 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     case BROWSER_WM_OBJECT_DROP:
     {
         const BrowserObjectDrop *drop = (const BrowserObjectDrop *)lparam;
-        if (drop && (drop->type == BROWSER_OBJECT_DOOR || drop->type == BROWSER_OBJECT_GLASS))
+        if (drop && (drop->type == BROWSER_OBJECT_DOOR || drop->type == BROWSER_OBJECT_GLASS
+            || drop->type == BROWSER_OBJECT_CCTV || drop->type == BROWSER_OBJECT_ALARM))
         {
             BrowserModelDrop model = {"", drop->screen};
-            BOOL glass = drop->type == BROWSER_OBJECT_GLASS;
-            lstrcpyn(model.name, glass ? SETUP_DEFAULT_GLASS_MODEL : SETUP_DEFAULT_DOOR_MODEL, sizeof(model.name));
-            return GEditorDropModel(hwnd, &model, glass ? GEDITOR_PLACE_GLASS : GEDITOR_PLACE_DOOR);
+            GEditorPlacementKind kind;
+            const char *name;
+            switch (drop->type)
+            {
+            case BROWSER_OBJECT_GLASS: kind = GEDITOR_PLACE_GLASS; name = SETUP_DEFAULT_GLASS_MODEL; break;
+            case BROWSER_OBJECT_CCTV: kind = GEDITOR_PLACE_CCTV; name = SETUP_DEFAULT_CCTV_MODEL; break;
+            case BROWSER_OBJECT_ALARM: kind = GEDITOR_PLACE_ALARM; name = SETUP_DEFAULT_ALARM_MODEL; break;
+            default: kind = GEDITOR_PLACE_DOOR; name = SETUP_DEFAULT_DOOR_MODEL; break;
+            }
+            lstrcpyn(model.name, name, sizeof(model.name));
+            return GEditorDropModel(hwnd, &model, kind);
         }
         return GEditorDropSetupMarker(hwnd, drop);
     }

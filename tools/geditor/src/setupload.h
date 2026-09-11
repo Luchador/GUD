@@ -267,6 +267,19 @@ BOOL SetupFileAddGlass(SetupFile *setup, int modelid, float levelscale,
                        const double position[3], const double facing[3],
                        DWORD *selectionout, const char **reasonout);
 
+#define SETUP_DEFAULT_CCTV_MODEL "PcctvZ"
+#define SETUP_DEFAULT_ALARM_MODEL "Palarm1Z"
+/* Mounted objects keep the drop height, with their back at position and their
+ * front facing the viewer (facing is the viewing direction). Each gets a
+ * private normal pad; CCTV also gets a look-at pad 200 world units in front.
+ * These append complete native records and support solo/MP, save and history. */
+BOOL SetupFileAddCctv(SetupFile *setup, int modelid, float levelscale,
+                      const double position[3], const double facing[3],
+                      DWORD *selectionout, const char **reasonout);
+BOOL SetupFileAddAlarm(SetupFile *setup, int modelid, float levelscale,
+                       const double position[3], const double facing[3],
+                       DWORD *selectionout, const char **reasonout);
+
 
 /* Used within an edit transaction. Accepts a prop index or a character index
    tagged with SETUP_CHARACTER_SELECTION_BIT. Allocates a private pad without

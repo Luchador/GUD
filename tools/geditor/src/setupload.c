@@ -790,6 +790,7 @@ static BOOL SetupParsePads(SetupFile *setup, const char **reasonout)
    indices, so retaining the old data and command order preserves both. */
 static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid, float levelscale,
                               const double position[3], const SetupBoundPad *bound,
+                              const SetupPad *mount,
                               DWORD *selectionout, const char **reasonout)
 {
     SetupFile added = {0};
@@ -800,7 +801,8 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
     DWORD padsize = bound ? SETUP_BOUNDPAD_SIZE : SETUP_PAD_SIZE;
     DWORD padcount = setup ? (bound ? setup->boundpadcount : setup->padcount) : 0;
     DWORD recordsize = SetupObjectWordCount(type) * 4;
-    float authored[3];
+    DWORD newpadcount = type == PROPDEF_CCTV ? 2 : 1;
+    float authored[3], target[3];
 
     if (setup == NULL || setup->data == NULL || setup->size < SETUP_HEADER_SIZE ||
         setup->size > SETUP_FILE_MAX || position == NULL || selectionout == NULL || modelid < 0 ||
@@ -814,7 +816,7 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
        Characters can address the entire unsigned 16-bit normal-pad range. */
     /* Door indices omit +10000; other bound props must leave room for it
        within the signed 16-bit pad field. */
-    if (padcount >= (door ? 32768u : bound ? 22768u : character ? SETUP_PAD_MAX : 10000u))
+    if (padcount > (door ? 32768u : bound ? 22768u : character ? SETUP_PAD_MAX : 10000u) - newpadcount)
     {
         *reasonout = "There are no more pad indices available for this model.";
         return FALSE;
@@ -828,7 +830,17 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
             return FALSE;
         }
         authored[i] = (float)value;
+        if (type == PROPDEF_CCTV)
+        {
+            double aim = (position[i] + mount->up[i] * 200.0) * levelscale;
+            if (!isfinite(aim) || fabs(aim) > 100000000.0)
+            { *reasonout = "The CCTV look-at pad exceeds the setup coordinate range."; return FALSE; }
+            target[i] = (float)aim;
+        }
     }
+    if (type == PROPDEF_CCTV && target[0] == authored[0]
+        && target[1] == authored[1] && target[2] == authored[2])
+    { *reasonout = "The level scale cannot represent a separate CCTV look-at pad."; return FALSE; }
     if (character)
     {
         /* Append IDs after authored characters instead of filling holes that
@@ -897,7 +909,7 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
     newrecord = newcommands + commandsize;
     newpads = newrecord + recordsize + 4;
     newpad = newpads + padcount * padsize;
-    added.size = newpad + 2 * padsize;
+    added.size = newpad + (newpadcount + 1) * padsize;
     if (added.size > SETUP_FILE_MAX)
     {
         *reasonout = "Adding this model would exceed the setup size limit.";
@@ -929,8 +941,30 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
     SetupWrite32(added.data + newpad + 16, 0x3f800000u); /* up = +Y */
     SetupWrite32(added.data + newpad + 32, 0x3f800000u); /* look = +Z */
     /* Non-null pointer to an empty plink string; the game resolves the stan
-       at the new position. The following pad remains the null terminator. */
-    SetupWrite32(added.data + newpad + SETUP_PAD_LINK, newpad + padsize + SETUP_PAD_LINK);
+       at the new position. The pad after all additions is the null terminator. */
+    SetupWrite32(added.data + newpad + SETUP_PAD_LINK, newpad + newpadcount * padsize + SETUP_PAD_LINK);
+
+    if (mount)
+    {
+        for (i = 0; i < 3; i++)
+        {
+            union { float f; DWORD u; } value;
+            value.f = mount->up[i]; SetupWrite32(added.data + newpad + 12 + i * 4, value.u);
+            value.f = mount->look[i]; SetupWrite32(added.data + newpad + 24 + i * 4, value.u);
+        }
+    }
+    if (type == PROPDEF_CCTV)
+    {
+        DWORD aim = newpad + padsize;
+        for (i = 0; i < 3; i++)
+        {
+            union { float f; DWORD u; } value;
+            value.f = target[i]; SetupWrite32(added.data + aim + i * 4, value.u);
+        }
+        SetupWrite32(added.data + aim + 16, 0x3f800000u);
+        SetupWrite32(added.data + aim + 32, 0x3f800000u);
+        SetupWrite32(added.data + aim + SETUP_PAD_LINK, aim + padsize + SETUP_PAD_LINK);
+    }
 
     if (bound)
     {
@@ -992,6 +1026,12 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
                 PROPFLAG_FREE_STANDING_GLASS | PROPFLAG_FORCE_COLLISIONS | PROPFLAG_TRANSPARENT_TO_AI |
                 PROPFLAG_ORTHOGONAL | PROPFLAG_ONSIDE | PROPFLAG_SCALE_TO_X_BOUNDS | PROPFLAG_SCALE_TO_Y_BOUNDS);
         }
+        else if (mount)
+        {
+            /* Match stock mounted cameras/alarms: anchor the model's Z-min
+             * back face without grounding the prop or enabling falling. */
+            SetupWrite32(added.data + newrecord + 8, PROPFLAG_ONSIDE);
+        }
         else
         {
             SetupWrite32(added.data + newrecord + 8,
@@ -1000,6 +1040,16 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
         /* ObjectRecord.damage is authored as signed 16.16 durability and
            converted by domakedefaultobj. maxdamage starts at zero. */
         SetupWrite32(added.data + newrecord + 0x74, 1000u << 16);
+        if (type == PROPDEF_CCTV)
+        {
+            /* Native 59-word CCTVRecord. setupCctv converts these signed
+             * turn fractions; never write runtime floats/conversion state.
+             * Sweep +/-45 degrees, about 30 degrees/sec, unlimited range. */
+            SetupWrite32(added.data + newrecord + 0x80, padcount + 1);
+            SetupWrite32(added.data + newrecord + 0xcc, 8192);
+            SetupWrite32(added.data + newrecord + 0xd0, (DWORD)-8192);
+            SetupWrite32(added.data + newrecord + 0xdc, 91);
+        }
     }
     if (!SetupParsePads(&added, reasonout) || !SetupParseObjects(&added, reasonout))
     {
@@ -1022,7 +1072,7 @@ BOOL SetupFileAddModel(SetupFile *setup, BOOL character, int modelid, float leve
                        const double position[3], DWORD *selectionout, const char **reasonout)
 {
     return SetupAddPlacement(setup, character ? PROPDEF_GUARD : PROPDEF_PROP,
-        modelid, levelscale, position, NULL, selectionout, reasonout);
+        modelid, levelscale, position, NULL, NULL, selectionout, reasonout);
 }
 
 BOOL SetupFileAddDoor(SetupFile *setup, int modelid, float levelscale,
@@ -1048,7 +1098,7 @@ BOOL SetupFileAddDoor(SetupFile *setup, int modelid, float levelscale,
     pad.xmin = -6 * levelscale; pad.xmax = 6 * levelscale; /* depth */
     pad.ymin = -50 * levelscale; pad.ymax = 50 * levelscale; /* width */
     pad.zmin = 0; pad.zmax = 200 * levelscale; /* height */
-    return SetupAddPlacement(setup, PROPDEF_DOOR, modelid, levelscale, position, &pad, selectionout, reasonout);
+    return SetupAddPlacement(setup, PROPDEF_DOOR, modelid, levelscale, position, &pad, NULL, selectionout, reasonout);
 }
 
 BOOL SetupFileAddGlass(SetupFile *setup, int modelid, float levelscale,
@@ -1072,7 +1122,40 @@ BOOL SetupFileAddGlass(SetupFile *setup, int modelid, float levelscale,
     { *reasonout = "The level scale cannot represent the default glass size."; return FALSE; }
     pad.xmin = -50 * levelscale; pad.xmax = 50 * levelscale;
     pad.zmin = 0; pad.zmax = 200 * levelscale;
-    return SetupAddPlacement(setup, PROPDEF_GLASS, modelid, levelscale, position, &pad, selectionout, reasonout);
+    return SetupAddPlacement(setup, PROPDEF_GLASS, modelid, levelscale, position, &pad, NULL, selectionout, reasonout);
+}
+
+static BOOL SetupAddMountedObject(SetupFile *setup, unsigned char type, int modelid, float levelscale,
+                                  const double position[3], const double facing[3],
+                                  DWORD *selectionout, const char **reasonout)
+{
+    SetupPad mount = {0};
+    double length;
+    *reasonout = "The mounted object's facing direction is invalid.";
+    if (!facing) { return FALSE; }
+    for (int axis = 0; axis < 3; axis++) { if (!isfinite(facing[axis])) { return FALSE; } }
+    length = hypot(facing[0], facing[2]);
+    if (!isfinite(length)) { return FALSE; }
+    /* ONSIDE maps model +Z to pad up and model +Y to pad look. Keep the
+     * device upright even when looking down; its front faces the viewer. */
+    mount.up[0] = length > 1e-8 ? (float)(-facing[0] / length) : 0;
+    mount.up[2] = length > 1e-8 ? (float)(-facing[2] / length) : 1;
+    mount.look[1] = 1;
+    return SetupAddPlacement(setup, type, modelid, levelscale, position, NULL, &mount, selectionout, reasonout);
+}
+
+BOOL SetupFileAddCctv(SetupFile *setup, int modelid, float levelscale,
+                      const double position[3], const double facing[3],
+                      DWORD *selectionout, const char **reasonout)
+{
+    return SetupAddMountedObject(setup, PROPDEF_CCTV, modelid, levelscale, position, facing, selectionout, reasonout);
+}
+
+BOOL SetupFileAddAlarm(SetupFile *setup, int modelid, float levelscale,
+                       const double position[3], const double facing[3],
+                       DWORD *selectionout, const char **reasonout)
+{
+    return SetupAddMountedObject(setup, PROPDEF_ALARM, modelid, levelscale, position, facing, selectionout, reasonout);
 }
 
 /* Copy the live intro list into appended storage. Keeping the old bytes and
