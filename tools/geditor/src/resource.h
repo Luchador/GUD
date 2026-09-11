@@ -41,6 +41,9 @@
 #define IDR_OBJECT_AMMO         324
 #define IDR_OBJECT_CCTV         325
 #define IDR_OBJECT_ALARM        326
+#define IDR_OBJECT_DRONE_GUN    331
+#define IDR_OBJECT_TANK         332
+#define IDR_OBJECT_PORTAL       333
 
 /* Viewport-only setup marker models. */
 #define IDR_MARKER_START          327

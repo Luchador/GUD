@@ -38,25 +38,37 @@ typedef struct BrowserSection {
 #define BROWSER_SECTION_IMAGES 2
 #define BROWSER_SECTION_MODELS 3
 #define BROWSER_OBJECT_COLUMNS 2
-#define BROWSER_OBJECT_ROWS (BROWSER_OBJECT_COUNT / BROWSER_OBJECT_COLUMNS)
+#define BROWSER_OBJECT_TAB_H 24
+#define BROWSER_OBJECT_TAB_COUNT 3
+#define BROWSER_OBJECT_TAB_OBJECTS 0
+#define BROWSER_OBJECT_TAB_PRIMITIVES 1
+#define BROWSER_OBJECT_TAB_SPECIAL 2
 #define BROWSER_OBJECT_TILE_H 38
 #define BROWSER_OBJECT_GAP 4
 #define BROWSER_OBJECT_MARGIN 4
 #define BROWSER_OBJECT_ICON_SIZE 32
-#define BROWSER_OBJECT_HEIGHT (BROWSER_OBJECT_MARGIN * 2 \
-    + BROWSER_OBJECT_ROWS * (BROWSER_OBJECT_TILE_H + BROWSER_OBJECT_GAP) - BROWSER_OBJECT_GAP)
 
-/* Row-major order matches BrowserObjectType and keeps the column pairs together. */
+/* Indexed by BrowserObjectType; each tab displays its entries in row-major order. */
 static const struct {
     const char *label;
     int icon;
+    int tab;
 } g_BrowserObjects[BROWSER_OBJECT_COUNT] = {
-    { "Triangle",     IDR_OBJECT_TRIANGLE }, { "Quad",         IDR_OBJECT_QUAD },
-    { "Spawn Point",  IDR_OBJECT_SPAWN },    { "Intro Spline", IDR_OBJECT_INTRO_SPLINE },
-    { "Intro Camera", IDR_OBJECT_INTRO },    { "Outro Camera", IDR_OBJECT_OUTRO },
-    { "Door",         IDR_OBJECT_DOOR },     { "Glass",        IDR_OBJECT_GLASS },
-    { "Weapon",       IDR_OBJECT_WEAPON },   { "Ammo",         IDR_OBJECT_AMMO },
-    { "CCTV Camera",  IDR_OBJECT_CCTV },     { "Alarm",        IDR_OBJECT_ALARM }
+    { "Triangle",     IDR_OBJECT_TRIANGLE,     BROWSER_OBJECT_TAB_PRIMITIVES },
+    { "Quad",         IDR_OBJECT_QUAD,         BROWSER_OBJECT_TAB_PRIMITIVES },
+    { "Spawn Point",  IDR_OBJECT_SPAWN,        BROWSER_OBJECT_TAB_OBJECTS },
+    { "Intro Spline", IDR_OBJECT_INTRO_SPLINE, BROWSER_OBJECT_TAB_OBJECTS },
+    { "Intro Camera", IDR_OBJECT_INTRO,        BROWSER_OBJECT_TAB_OBJECTS },
+    { "Outro Camera", IDR_OBJECT_OUTRO,        BROWSER_OBJECT_TAB_OBJECTS },
+    { "Door",         IDR_OBJECT_DOOR,         BROWSER_OBJECT_TAB_OBJECTS },
+    { "Glass",        IDR_OBJECT_GLASS,        BROWSER_OBJECT_TAB_OBJECTS },
+    { "Weapon",       IDR_OBJECT_WEAPON,       BROWSER_OBJECT_TAB_OBJECTS },
+    { "Ammo",         IDR_OBJECT_AMMO,         BROWSER_OBJECT_TAB_OBJECTS },
+    { "CCTV Camera",  IDR_OBJECT_CCTV,         BROWSER_OBJECT_TAB_OBJECTS },
+    { "Alarm",        IDR_OBJECT_ALARM,        BROWSER_OBJECT_TAB_OBJECTS },
+    { "Drone Gun",    IDR_OBJECT_DRONE_GUN,    BROWSER_OBJECT_TAB_OBJECTS },
+    { "Tank",         IDR_OBJECT_TANK,         BROWSER_OBJECT_TAB_OBJECTS },
+    { "Portal",       IDR_OBJECT_PORTAL,       BROWSER_OBJECT_TAB_SPECIAL }
 };
 #define BROWSER_MAX_MODELS 512
 #define BROWSER_MODEL_TAB_H 24
@@ -77,6 +89,8 @@ typedef struct BrowserState {
     int levelcount;
     TexThumb objecticons[BROWSER_OBJECT_COUNT];
     unsigned char objectpixels[BROWSER_OBJECT_COUNT][TEX_THUMB_MAX * TEX_THUMB_MAX * 4];
+    int objecttab;                       /* Objects is the default */
+    int objectscroll[BROWSER_OBJECT_TAB_COUNT];
     int hoverobject;
     int pressedobject;
     POINT objectpresspoint;
@@ -119,18 +133,46 @@ static int BrowserModelCategory(const char *name)
     return -1;
 }
 
-/* Models reserve a fixed strip above their scrolling rows for the tabs. All
+/* Tabbed sections reserve a fixed strip above their scrolling rows. All
  * scrollbar calculations and content clipping use this same rectangle. */
 static RECT BrowserContentRect(const BrowserState *state, int section)
 {
     RECT rect = state->sections[section].bodyrc;
 
-    if (section == BROWSER_SECTION_MODELS)
+    if (section == BROWSER_SECTION_MODELS || section == BROWSER_SECTION_OBJECTS)
     {
-        rect.top += BROWSER_MODEL_TAB_H;
+        rect.top += section == BROWSER_SECTION_OBJECTS ? BROWSER_OBJECT_TAB_H : BROWSER_MODEL_TAB_H;
         if (rect.top > rect.bottom) { rect.top = rect.bottom; }
     }
     return rect;
+}
+
+static RECT BrowserObjectTabRect(const BrowserState *state, int tab)
+{
+    RECT rect = state->sections[BROWSER_SECTION_OBJECTS].bodyrc;
+    int width = rect.right - rect.left;
+
+    rect.right = rect.left + width * (tab + 1) / BROWSER_OBJECT_TAB_COUNT;
+    rect.left += width * tab / BROWSER_OBJECT_TAB_COUNT;
+    if (rect.bottom > rect.top + BROWSER_OBJECT_TAB_H)
+    {
+        rect.bottom = rect.top + BROWSER_OBJECT_TAB_H;
+    }
+    return rect;
+}
+
+static int BrowserHitObjectTab(const BrowserState *state, POINT point)
+{
+    int tab;
+
+    if (!state->sections[BROWSER_SECTION_OBJECTS].expanded) { return -1; }
+    for (tab = 0; tab < BROWSER_OBJECT_TAB_COUNT; tab++)
+    {
+        RECT rect = BrowserObjectTabRect(state, tab);
+
+        if (PtInRect(&rect, point)) { return tab; }
+    }
+    return -1;
 }
 
 static RECT BrowserModelTabRect(const BrowserState *state, int tab)
@@ -183,11 +225,21 @@ static int BrowserImageColumns(const RECT *body)
 
 /*
  * Pixel height of a section's content. The image grid wraps to body width.
- * Models report the height of the active category only.
+ * Tabbed sections report the height of the active category only.
  */
 static int BrowserContentHeight(const BrowserState *state, int section)
 {
-    if (section == BROWSER_SECTION_OBJECTS) { return BROWSER_OBJECT_HEIGHT; }
+    if (section == BROWSER_SECTION_OBJECTS)
+    {
+        int i, count = 0, rows;
+        for (i = 0; i < BROWSER_OBJECT_COUNT; i++)
+        {
+            if (g_BrowserObjects[i].tab == state->objecttab) { count++; }
+        }
+        rows = (count + BROWSER_OBJECT_COLUMNS - 1) / BROWSER_OBJECT_COLUMNS;
+        return rows > 0 ? BROWSER_OBJECT_MARGIN * 2
+            + rows * (BROWSER_OBJECT_TILE_H + BROWSER_OBJECT_GAP) - BROWSER_OBJECT_GAP : 0;
+    }
 
     if (section == BROWSER_SECTION_LEVELS)
     {
@@ -308,7 +360,7 @@ static void BrowserHideImageTooltip(HWND hwnd, BrowserState *state)
     state->tooltipimage = -1;
 }
 
-/* Reserve every header, then give Object enough height for its six rows
+/* Reserve every header, then give Objects enough height for its active tab
  * when space permits. At short heights it shares the available space and
  * scrolls. The remaining expanded sections split the rest evenly. */
 static void BrowserLayoutSections(BrowserState *state, const RECT *client)
@@ -324,13 +376,14 @@ static void BrowserLayoutSections(BrowserState *state, const RECT *client)
     remaining = expandedcount;
     if (state->sections[BROWSER_SECTION_OBJECTS].expanded)
     {
+        int preferred = BROWSER_OBJECT_TAB_H + BrowserContentHeight(state, BROWSER_SECTION_OBJECTS);
         objectheight = bodyspace / expandedcount;
-        if (bodyspace >= BROWSER_OBJECT_HEIGHT * expandedcount)
-        { objectheight = BROWSER_OBJECT_HEIGHT; }
+        if (bodyspace >= preferred * expandedcount)
+        { objectheight = preferred; }
         /* Reserve modest useful space for the other bodies before showing
-         * all six rows, rather than leaving Object partially clipped. */
-        else if (bodyspace >= BROWSER_OBJECT_HEIGHT + (expandedcount - 1) * 100)
-        { objectheight = BROWSER_OBJECT_HEIGHT; }
+         * all rows, rather than leaving Objects partially clipped. */
+        else if (bodyspace >= preferred + (expandedcount - 1) * 100)
+        { objectheight = preferred; }
         bodyspace -= objectheight;
         remaining--;
     }
@@ -356,20 +409,41 @@ static void BrowserLayoutSections(BrowserState *state, const RECT *client)
     }
 }
 
+static void BrowserSelectObjectTab(HWND hwnd, BrowserState *state, int tab)
+{
+    RECT client;
+    int i;
+    if (tab == state->objecttab || state->dragimage || state->pressedobject >= 0) { return; }
+    state->objectscroll[state->objecttab] = state->scroll[BROWSER_SECTION_OBJECTS];
+    state->objecttab = tab;
+    state->scroll[BROWSER_SECTION_OBJECTS] = state->objectscroll[tab];
+    state->hoverobject = -1;
+    GetClientRect(hwnd, &client);
+    BrowserLayoutSections(state, &client);
+    for (i = 0; i < BROWSER_SECTION_COUNT; i++) { BrowserClampScroll(state, i); }
+    InvalidateRect(hwnd, NULL, FALSE);
+}
+
 /* Shared tile geometry for painting, mouse hits, and drag previews. Reserve
- * the scrollbar gutter even when all six rows fit so columns stay stable. */
+ * the scrollbar gutter even when all rows fit so columns stay stable.
+ * index is a BrowserObjectType in the active tab, not a visible tile index. */
 static RECT BrowserObjectRect(const BrowserState *state, int index)
 {
     RECT rect = BrowserContentRect(state, BROWSER_SECTION_OBJECTS);
-    int column = index % BROWSER_OBJECT_COLUMNS;
+    int i, tile = 0, column;
     int width = rect.right - rect.left - BROWSER_OBJECT_MARGIN * 2
         - BROWSER_SCROLLBAR_W - 2 + BROWSER_OBJECT_GAP;
+    for (i = 0; i < index; i++)
+    {
+        if (g_BrowserObjects[i].tab == state->objecttab) { tile++; }
+    }
+    column = tile % BROWSER_OBJECT_COLUMNS;
     if (width < BROWSER_OBJECT_COLUMNS * BROWSER_OBJECT_GAP)
     { width = BROWSER_OBJECT_COLUMNS * BROWSER_OBJECT_GAP; }
     rect.left += BROWSER_OBJECT_MARGIN + column * width / BROWSER_OBJECT_COLUMNS;
     rect.right = state->sections[BROWSER_SECTION_OBJECTS].bodyrc.left + BROWSER_OBJECT_MARGIN
         + (column + 1) * width / BROWSER_OBJECT_COLUMNS - BROWSER_OBJECT_GAP;
-    rect.top += BROWSER_OBJECT_MARGIN + (index / BROWSER_OBJECT_COLUMNS)
+    rect.top += BROWSER_OBJECT_MARGIN + (tile / BROWSER_OBJECT_COLUMNS)
         * (BROWSER_OBJECT_TILE_H + BROWSER_OBJECT_GAP) - state->scroll[BROWSER_SECTION_OBJECTS];
     rect.bottom = rect.top + BROWSER_OBJECT_TILE_H;
     return rect;
@@ -382,7 +456,9 @@ static int BrowserHitObject(const BrowserState *state, POINT point)
     if (!state->sections[BROWSER_SECTION_OBJECTS].expanded || !PtInRect(&body, point)) { return -1; }
     for (i = 0; i < BROWSER_OBJECT_COUNT; i++)
     {
-        RECT rect = BrowserObjectRect(state, i);
+        RECT rect;
+        if (g_BrowserObjects[i].tab != state->objecttab) { continue; }
+        rect = BrowserObjectRect(state, i);
         if (PtInRect(&rect, point)) { return i; }
     }
     return -1;
@@ -449,7 +525,9 @@ static void BrowserPaintObjects(const BrowserState *state, HDC dc, const RECT *b
     int i;
     for (i = 0; i < BROWSER_OBJECT_COUNT; i++)
     {
-        RECT rect = BrowserObjectRect(state, i);
+        RECT rect;
+        if (g_BrowserObjects[i].tab != state->objecttab) { continue; }
+        rect = BrowserObjectRect(state, i);
         if (rect.bottom <= body->top || rect.top >= body->bottom) { continue; }
         BrowserPaintObjectTile(state, dc, i, &rect,
             i == state->hoverobject || i == state->pressedobject);
@@ -713,24 +791,37 @@ static void BrowserPaintImageGrid(BrowserState *state, HDC hdc, const RECT *body
     }
 }
 
+static void BrowserPaintTab(HDC hdc, RECT rect, const char *name, BOOL active)
+{
+    SetTextColor(hdc, GetSysColor(COLOR_BTNTEXT));
+    FillRect(hdc, &rect, GetSysColorBrush(active ? COLOR_WINDOW : COLOR_BTNFACE));
+    DrawEdge(hdc, &rect, BDR_RAISEDOUTER,
+             BF_LEFT | BF_TOP | BF_RIGHT | (active ? 0 : BF_BOTTOM));
+    rect.left += 3;
+    rect.right -= 3;
+    DrawText(hdc, name, -1, &rect,
+             DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
+}
+
+static void BrowserPaintObjectTabs(const BrowserState *state, HDC hdc)
+{
+    static const char *names[BROWSER_OBJECT_TAB_COUNT] = {"Objects", "Primitives", "Special"};
+    int tab;
+
+    for (tab = 0; tab < BROWSER_OBJECT_TAB_COUNT; tab++)
+    {
+        BrowserPaintTab(hdc, BrowserObjectTabRect(state, tab), names[tab], tab == state->objecttab);
+    }
+}
+
 static void BrowserPaintModelTabs(const BrowserState *state, HDC hdc)
 {
     static const char *names[BROWSER_MODEL_TAB_COUNT] = {"Characters", "Items", "Props"};
     int tab;
 
-    SetTextColor(hdc, GetSysColor(COLOR_BTNTEXT));
     for (tab = 0; tab < BROWSER_MODEL_TAB_COUNT; tab++)
     {
-        RECT rect = BrowserModelTabRect(state, tab);
-        BOOL active = tab == state->modeltab;
-
-        FillRect(hdc, &rect, GetSysColorBrush(active ? COLOR_WINDOW : COLOR_BTNFACE));
-        DrawEdge(hdc, &rect, BDR_RAISEDOUTER,
-                 BF_LEFT | BF_TOP | BF_RIGHT | (active ? 0 : BF_BOTTOM));
-        rect.left += 3;
-        rect.right -= 3;
-        DrawText(hdc, names[tab], -1, &rect,
-                 DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
+        BrowserPaintTab(hdc, BrowserModelTabRect(state, tab), names[tab], tab == state->modeltab);
     }
 }
 
@@ -825,6 +916,7 @@ static void BrowserPaint(HWND hwnd, HDC hdc)
             RECT body = BrowserContentRect(state, i);
 
             if (i == BROWSER_SECTION_MODELS) { BrowserPaintModelTabs(state, hdc); }
+            if (i == BROWSER_SECTION_OBJECTS) { BrowserPaintObjectTabs(state, hdc); }
             if (body.bottom <= body.top) { continue; }
             if (i == BROWSER_SECTION_OBJECTS
                 || (i == BROWSER_SECTION_LEVELS && state->levelcount > 0)
@@ -1228,7 +1320,7 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             return -1;
         }
 
-        state->sections[BROWSER_SECTION_OBJECTS].name = "Object";
+        state->sections[BROWSER_SECTION_OBJECTS].name = "Objects";
         state->sections[BROWSER_SECTION_LEVELS].name = "Levels";
         state->sections[BROWSER_SECTION_IMAGES].name = "Images";
         state->sections[BROWSER_SECTION_MODELS].name = "Models";
@@ -1301,6 +1393,7 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             GetClientRect(hwnd, &client);
             BrowserLayoutSections(state, &client);
             if (BrowserHitImage(state, point) >= 0 || BrowserHitModelTab(state, point) >= 0
+                || BrowserHitObjectTab(state, point) >= 0
                 || BrowserHitModel(state, point) >= 0 || BrowserHitObject(state, point) >= 0)
             {
                 return SendMessage(hwnd, WM_LBUTTONDOWN, wparam, lparam);
@@ -1337,6 +1430,13 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             BrowserLayoutSections(state, &client);
             p.x = x;
             p.y = y;
+
+            hit = BrowserHitObjectTab(state, p);
+            if (hit >= 0)
+            {
+                BrowserSelectObjectTab(hwnd, state, hit);
+                return 0;
+            }
 
             hit = BrowserHitModelTab(state, p);
             if (hit >= 0)
@@ -1649,7 +1749,8 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         GetCursorPos(&p);
         ScreenToClient(hwnd, &p);
         if (BrowserHitHeader(hwnd, p.x, p.y) >= 0
-            || (state != NULL && (BrowserHitModelTab(state, p) >= 0 || BrowserHitObject(state, p) >= 0)))
+            || (state != NULL && (BrowserHitModelTab(state, p) >= 0
+                || BrowserHitObjectTab(state, p) >= 0 || BrowserHitObject(state, p) >= 0)))
         {
             SetCursor(LoadCursor(NULL, IDC_HAND));
             return TRUE;
