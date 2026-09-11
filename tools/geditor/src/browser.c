@@ -48,7 +48,7 @@ typedef struct BrowserSection {
 #define BROWSER_OBJECT_MARGIN 4
 #define BROWSER_OBJECT_ICON_SIZE 32
 
-/* Indexed by BrowserObjectType; each tab displays its entries in row-major order. */
+/* Indexed by the stable BrowserObjectType; display order is defined separately. */
 static const struct {
     const char *label;
     int icon;
@@ -72,7 +72,24 @@ static const struct {
     { "Key",          IDR_OBJECT_KEY,          BROWSER_OBJECT_TAB_OBJECTS },
     { "Safe",         IDR_OBJECT_SAFE,         BROWSER_OBJECT_TAB_OBJECTS },
     { "Circle",       IDR_OBJECT_CIRCLE,       BROWSER_OBJECT_TAB_PRIMITIVES },
-    { "Cylinder",     IDR_OBJECT_CYLINDER,     BROWSER_OBJECT_TAB_PRIMITIVES }
+    { "Cylinder",     IDR_OBJECT_CYLINDER,     BROWSER_OBJECT_TAB_PRIMITIVES },
+    { "Armor",        IDR_OBJECT_ARMOR,        BROWSER_OBJECT_TAB_OBJECTS },
+    { "Monitor",      IDR_OBJECT_MONITOR,      BROWSER_OBJECT_TAB_OBJECTS }
+};
+
+/* Row-major order within each tab, independent of drag-and-drop identities. */
+static const BrowserObjectType g_BrowserObjectOrder[BROWSER_OBJECT_COUNT] = {
+    BROWSER_OBJECT_DOOR, BROWSER_OBJECT_GLASS,
+    BROWSER_OBJECT_WEAPON, BROWSER_OBJECT_AMMO,
+    BROWSER_OBJECT_ARMOR, BROWSER_OBJECT_MONITOR,
+    BROWSER_OBJECT_CCTV, BROWSER_OBJECT_ALARM,
+    BROWSER_OBJECT_DRONE_GUN, BROWSER_OBJECT_TANK,
+    BROWSER_OBJECT_KEY, BROWSER_OBJECT_SAFE,
+    BROWSER_OBJECT_TRIANGLE, BROWSER_OBJECT_QUAD,
+    BROWSER_OBJECT_CIRCLE, BROWSER_OBJECT_CYLINDER,
+    BROWSER_OBJECT_SPAWN, BROWSER_OBJECT_INTRO_SPLINE,
+    BROWSER_OBJECT_INTRO_CAMERA, BROWSER_OBJECT_OUTRO_CAMERA,
+    BROWSER_OBJECT_PORTAL
 };
 #define BROWSER_MAX_MODELS 512
 #define BROWSER_MODEL_TAB_H 24
@@ -437,9 +454,11 @@ static RECT BrowserObjectRect(const BrowserState *state, int index)
     int i, tile = 0, column;
     int width = rect.right - rect.left - BROWSER_OBJECT_MARGIN * 2
         - BROWSER_SCROLLBAR_W - 2 + BROWSER_OBJECT_GAP;
-    for (i = 0; i < index; i++)
+    for (i = 0; i < BROWSER_OBJECT_COUNT; i++)
     {
-        if (g_BrowserObjects[i].tab == state->objecttab) { tile++; }
+        int object = g_BrowserObjectOrder[i];
+        if (object == index) { break; }
+        if (g_BrowserObjects[object].tab == state->objecttab) { tile++; }
     }
     column = tile % BROWSER_OBJECT_COLUMNS;
     if (width < BROWSER_OBJECT_COLUMNS * BROWSER_OBJECT_GAP)

@@ -50,6 +50,8 @@
 #define IDR_OBJECT_SAFE         335
 #define IDR_OBJECT_CIRCLE       336
 #define IDR_OBJECT_CYLINDER     337
+#define IDR_OBJECT_ARMOR        338
+#define IDR_OBJECT_MONITOR      339
 
 /* Viewport-only setup marker models. */
 #define IDR_MARKER_START          327
