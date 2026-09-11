@@ -44,6 +44,8 @@
 #define IDR_OBJECT_DRONE_GUN    331
 #define IDR_OBJECT_TANK         332
 #define IDR_OBJECT_PORTAL       333
+#define IDR_OBJECT_KEY          334
+#define IDR_OBJECT_SAFE         335
 
 /* Viewport-only setup marker models. */
 #define IDR_MARKER_START          327

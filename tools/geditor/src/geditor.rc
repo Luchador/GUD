@@ -26,6 +26,8 @@ IDR_OBJECT_ALARM RCDATA "../geditorassets/icon_alarm.png"
 IDR_OBJECT_DRONE_GUN RCDATA "../geditorassets/icon_drone_gun.png"
 IDR_OBJECT_TANK RCDATA "../geditorassets/icon_tank.png"
 IDR_OBJECT_PORTAL RCDATA "../geditorassets/icon_portal.png"
+IDR_OBJECT_KEY RCDATA "../geditorassets/icon_key.png"
+IDR_OBJECT_SAFE RCDATA "../geditorassets/icon_safe.png"
 
 
 IDR_VERTEX_SELECT_OFF RCDATA "../geditorassets/verts_select_off.png"

@@ -790,23 +790,24 @@ static BOOL SetupParsePads(SetupFile *setup, const char **reasonout)
    indices, so retaining the old data and command order preserves both. */
 static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid, float levelscale,
                               const double position[3], const SetupBoundPad *bound,
-                              const SetupPad *mount,
+                              const SetupPad *orientation,
                               DWORD *selectionout, const char **reasonout)
 {
     SetupFile added = {0};
     DWORD oldcommands, commandend, commandsize, commandcount = 0;
     DWORD oldpads, newcommands, newrecord, newpads, newpad, chrnum = 0, i;
     BOOL door = type == PROPDEF_DOOR, character = type == PROPDEF_GUARD;
+    BOOL aimed = type == PROPDEF_CCTV || type == PROPDEF_AUTOGUN;
     DWORD padheader = bound ? SETUP_BOUNDPAD_POINTER : SETUP_PAD_POINTER;
     DWORD padsize = bound ? SETUP_BOUNDPAD_SIZE : SETUP_PAD_SIZE;
     DWORD padcount = setup ? (bound ? setup->boundpadcount : setup->padcount) : 0;
     DWORD recordsize = SetupObjectWordCount(type) * 4;
-    DWORD newpadcount = type == PROPDEF_CCTV ? 2 : 1;
+    DWORD newpadcount = aimed ? 2 : 1;
     float authored[3], target[3];
 
     if (setup == NULL || setup->data == NULL || setup->size < SETUP_HEADER_SIZE ||
         setup->size > SETUP_FILE_MAX || position == NULL || selectionout == NULL || modelid < 0 ||
-        modelid > 32767 || !isfinite(levelscale) || levelscale <= 0 ||
+        modelid > 32767 || !isfinite(levelscale) || levelscale <= 0 || (aimed && !orientation) ||
         (setup->charactercount > 0 && setup->characters == NULL))
     {
         *reasonout = "The setup, model or level scale is invalid.";
@@ -830,17 +831,22 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
             return FALSE;
         }
         authored[i] = (float)value;
-        if (type == PROPDEF_CCTV)
+        if (aimed)
         {
-            double aim = (position[i] + mount->up[i] * 200.0) * levelscale;
+            /* Mounted CCTV faces along pad up. A drone's barrels point
+             * along model -X, or minus the normal pad's side vector. */
+            double direction = type == PROPDEF_CCTV ? orientation->up[i]
+                : orientation->look[(i + 1) % 3] * orientation->up[(i + 2) % 3]
+                  - orientation->look[(i + 2) % 3] * orientation->up[(i + 1) % 3];
+            double aim = (position[i] + direction * 200.0) * levelscale;
             if (!isfinite(aim) || fabs(aim) > 100000000.0)
-            { *reasonout = "The CCTV look-at pad exceeds the setup coordinate range."; return FALSE; }
+            { *reasonout = "The look-at pad exceeds the setup coordinate range."; return FALSE; }
             target[i] = (float)aim;
         }
     }
-    if (type == PROPDEF_CCTV && target[0] == authored[0]
+    if (aimed && target[0] == authored[0]
         && target[1] == authored[1] && target[2] == authored[2])
-    { *reasonout = "The level scale cannot represent a separate CCTV look-at pad."; return FALSE; }
+    { *reasonout = "The level scale cannot represent a separate look-at pad."; return FALSE; }
     if (character)
     {
         /* Append IDs after authored characters instead of filling holes that
@@ -944,16 +950,16 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
        at the new position. The pad after all additions is the null terminator. */
     SetupWrite32(added.data + newpad + SETUP_PAD_LINK, newpad + newpadcount * padsize + SETUP_PAD_LINK);
 
-    if (mount)
+    if (orientation)
     {
         for (i = 0; i < 3; i++)
         {
             union { float f; DWORD u; } value;
-            value.f = mount->up[i]; SetupWrite32(added.data + newpad + 12 + i * 4, value.u);
-            value.f = mount->look[i]; SetupWrite32(added.data + newpad + 24 + i * 4, value.u);
+            value.f = orientation->up[i]; SetupWrite32(added.data + newpad + 12 + i * 4, value.u);
+            value.f = orientation->look[i]; SetupWrite32(added.data + newpad + 24 + i * 4, value.u);
         }
     }
-    if (type == PROPDEF_CCTV)
+    if (aimed)
     {
         DWORD aim = newpad + padsize;
         for (i = 0; i < 3; i++)
@@ -1026,7 +1032,13 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
                 PROPFLAG_FREE_STANDING_GLASS | PROPFLAG_FORCE_COLLISIONS | PROPFLAG_TRANSPARENT_TO_AI |
                 PROPFLAG_ORTHOGONAL | PROPFLAG_ONSIDE | PROPFLAG_SCALE_TO_X_BOUNDS | PROPFLAG_SCALE_TO_Y_BOUNDS);
         }
-        else if (mount)
+        else if (type == PROPDEF_AUTOGUN)
+        {
+            /* Keep the base at the selected surface, including raised props,
+             * without falling to the stan below or disabling the gun. */
+            SetupWrite32(added.data + newrecord + 8, PROPFLAG_INAIR | PROPFLAG_ABSOLUTEPOSITION);
+        }
+        else if (orientation)
         {
             /* Match stock mounted cameras/alarms: anchor the model's Z-min
              * back face without grounding the prop or enabling falling. */
@@ -1049,6 +1061,16 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
             SetupWrite32(added.data + newrecord + 0xcc, 8192);
             SetupWrite32(added.data + newrecord + 0xd0, (DWORD)-8192);
             SetupWrite32(added.data + newrecord + 0xdc, 91);
+        }
+        else if (type == PROPDEF_AUTOGUN)
+        {
+            /* Native 54-word AutogunRecord. setupAutogun converts signed
+             * 16.16 turns/metres; all runtime caches/pointers stay zero. */
+            SetupWrite32(added.data + newrecord + 0x80, padcount + 1);
+            SetupWrite32(added.data + newrecord + 0x88, 32768); /* +180 degrees */
+            SetupWrite32(added.data + newrecord + 0x8c, (DWORD)-32768);
+            SetupWrite32(added.data + newrecord + 0xa4, 0x111); /* Stock Control tracking speed. */
+            SetupWrite32(added.data + newrecord + 0xa8, 20u << 16); /* 20 metres */
         }
     }
     if (!SetupParsePads(&added, reasonout) || !SetupParseObjects(&added, reasonout))
@@ -1156,6 +1178,26 @@ BOOL SetupFileAddAlarm(SetupFile *setup, int modelid, float levelscale,
                        DWORD *selectionout, const char **reasonout)
 {
     return SetupAddMountedObject(setup, PROPDEF_ALARM, modelid, levelscale, position, facing, selectionout, reasonout);
+}
+
+BOOL SetupFileAddDroneGun(SetupFile *setup, int modelid, float levelscale,
+                          const double position[3], const double facing[3],
+                          DWORD *selectionout, const char **reasonout)
+{
+    SetupPad orientation = {0};
+    double length;
+    *reasonout = "The drone gun's facing direction is invalid.";
+    if (!facing) { return FALSE; }
+    for (int axis = 0; axis < 3; axis++) { if (!isfinite(facing[axis])) { return FALSE; } }
+    length = hypot(facing[0], facing[2]);
+    if (!isfinite(length)) { return FALSE; }
+    /* Ground gun's barrel direction is model -X. Keep Y upright and rotate
+     * that forward axis towards the viewer. Vertical views fall back to +Z. */
+    orientation.up[1] = 1;
+    orientation.look[0] = length > 1e-8 ? (float)(-facing[2] / length) : 1;
+    orientation.look[2] = length > 1e-8 ? (float)(facing[0] / length) : 0;
+    return SetupAddPlacement(setup, PROPDEF_AUTOGUN, modelid, levelscale, position,
+        NULL, &orientation, selectionout, reasonout);
 }
 
 /* Copy the live intro list into appended storage. Keeping the old bytes and

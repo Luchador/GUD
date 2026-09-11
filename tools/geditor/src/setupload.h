@@ -268,7 +268,8 @@ BOOL SetupFileAddGlass(SetupFile *setup, int modelid, float levelscale,
                        DWORD *selectionout, const char **reasonout);
 
 #define SETUP_DEFAULT_CCTV_MODEL "PcctvZ"
-#define SETUP_DEFAULT_ALARM_MODEL "Palarm1Z"
+#define SETUP_DEFAULT_ALARM_MODEL "Palarm2Z"
+#define SETUP_DEFAULT_DRONE_MODEL "PgroundgunZ"
 /* Mounted objects keep the drop height, with their back at position and their
  * front facing the viewer (facing is the viewing direction). Each gets a
  * private normal pad; CCTV also gets a look-at pad 200 world units in front.
@@ -279,6 +280,12 @@ BOOL SetupFileAddCctv(SetupFile *setup, int modelid, float levelscale,
 BOOL SetupFileAddAlarm(SetupFile *setup, int modelid, float levelscale,
                        const double position[3], const double facing[3],
                        DWORD *selectionout, const char **reasonout);
+/* Upright drone gun with its base at the drop point and a private aim pad
+ * 200 world units towards the viewer. Starts enabled, with full yaw travel,
+ * about 90 degrees/sec tracking and a 2000-world-unit acquisition range. */
+BOOL SetupFileAddDroneGun(SetupFile *setup, int modelid, float levelscale,
+                          const double position[3], const double facing[3],
+                          DWORD *selectionout, const char **reasonout);
 
 
 /* Used within an edit transaction. Accepts a prop index or a character index

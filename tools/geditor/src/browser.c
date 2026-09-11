@@ -68,7 +68,9 @@ static const struct {
     { "Alarm",        IDR_OBJECT_ALARM,        BROWSER_OBJECT_TAB_OBJECTS },
     { "Drone Gun",    IDR_OBJECT_DRONE_GUN,    BROWSER_OBJECT_TAB_OBJECTS },
     { "Tank",         IDR_OBJECT_TANK,         BROWSER_OBJECT_TAB_OBJECTS },
-    { "Portal",       IDR_OBJECT_PORTAL,       BROWSER_OBJECT_TAB_SPECIAL }
+    { "Portal",       IDR_OBJECT_PORTAL,       BROWSER_OBJECT_TAB_SPECIAL },
+    { "Key",          IDR_OBJECT_KEY,          BROWSER_OBJECT_TAB_OBJECTS },
+    { "Safe",         IDR_OBJECT_SAFE,         BROWSER_OBJECT_TAB_OBJECTS }
 };
 #define BROWSER_MAX_MODELS 512
 #define BROWSER_MODEL_TAB_H 24
@@ -1152,7 +1154,7 @@ static void BrowserBeginObjectDrag(HWND hwnd, BrowserState *state, int index, PO
     if (width < 1) { return; }
     if ((index == BROWSER_OBJECT_SPAWN || index == BROWSER_OBJECT_INTRO_CAMERA || index == BROWSER_OBJECT_OUTRO_CAMERA
             || index == BROWSER_OBJECT_DOOR || index == BROWSER_OBJECT_GLASS
-            || index == BROWSER_OBJECT_CCTV || index == BROWSER_OBJECT_ALARM)
+            || index == BROWSER_OBJECT_CCTV || index == BROWSER_OBJECT_ALARM || index == BROWSER_OBJECT_DRONE_GUN)
         && !SendMessage(GetParent(hwnd), BROWSER_WM_OBJECT_DRAG_BEGIN, index, 0))
     {
         state->pressedobject = -1;
@@ -1608,7 +1610,7 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                 if (objectdrop.type == BROWSER_OBJECT_SPAWN || objectdrop.type == BROWSER_OBJECT_INTRO_CAMERA
                     || objectdrop.type == BROWSER_OBJECT_OUTRO_CAMERA || objectdrop.type == BROWSER_OBJECT_DOOR
                     || objectdrop.type == BROWSER_OBJECT_GLASS || objectdrop.type == BROWSER_OBJECT_CCTV
-                    || objectdrop.type == BROWSER_OBJECT_ALARM)
+                    || objectdrop.type == BROWSER_OBJECT_ALARM || objectdrop.type == BROWSER_OBJECT_DRONE_GUN)
                 { SendMessage(GetParent(hwnd), BROWSER_WM_OBJECT_DROP, 0, (LPARAM)&objectdrop); }
                 return 0;
             }

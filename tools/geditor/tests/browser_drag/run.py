@@ -67,6 +67,7 @@ typedef struct {
 #define BROWSER_OBJECT_GLASS 7
 #define BROWSER_OBJECT_CCTV 10
 #define BROWSER_OBJECT_ALARM 11
+#define BROWSER_OBJECT_DRONE_GUN 12
 #define WM_LBUTTONUP 1
 #define WM_CAPTURECHANGED 2
 #define WM_CANCELMODE 3
@@ -157,7 +158,7 @@ int main(void)
         assert(objectdrops == 1 && placed.type == kind && placed.screen.x == 420 && placed.screen.y == 300);
         assert(destroyed == 1 && capture == 0);
     }
-    for (int kind = BROWSER_OBJECT_CCTV; kind <= BROWSER_OBJECT_ALARM; kind++)
+    for (int kind = BROWSER_OBJECT_CCTV; kind <= BROWSER_OBJECT_DRONE_GUN; kind++)
     {
         Reset(TRUE); Start(TRUE); g_state.pressedobject = kind;
         Dispatch(browser, WM_LBUTTONUP, 0, (100 << 16) | 320);
@@ -175,7 +176,7 @@ int main(void)
     Dispatch(browser, WM_LBUTTONUP, 0, 0); assert(imagedrops == 1 && destroyed == 1);
     Reset(FALSE); Start(FALSE); strcpy(g_state.dragmodel, "PcrateZ");
     Dispatch(browser, WM_LBUTTONUP, 0, 0); assert(modeldrops == 1 && destroyed == 1);
-    puts("PASS: palette capture, spawn/intro/outro/door/glass/CCTV/alarm drop type/position, capture loss, cancellation, image/model drags.");
+    puts("PASS: palette capture, spawn/intro/outro/door/glass/CCTV/alarm/drone drop type/position, capture loss, cancellation, image/model drags.");
     return 0;
 }
 '''

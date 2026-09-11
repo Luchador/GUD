@@ -35,23 +35,34 @@ static int ModelId(const char *wanted)
 }
 
 typedef BOOL (*AddDevice)(SetupFile *, int, float, const double *, const double *, DWORD *, const char **);
-static void Place(const char *dir, const SetupFile *source, BOOL cctv, float scale,
+static const struct {
+    AddDevice add;
+    const char *model;
+    unsigned char type;
+    DWORD flags, bytes;
+} devices[] = {
+    {SetupFileAddAlarm, SETUP_DEFAULT_ALARM_MODEL, PROPDEF_ALARM, PROPFLAG_ONSIDE, 128},
+    {SetupFileAddCctv, SETUP_DEFAULT_CCTV_MODEL, PROPDEF_CCTV, PROPFLAG_ONSIDE, 236},
+    {SetupFileAddDroneGun, SETUP_DEFAULT_DRONE_MODEL, PROPDEF_AUTOGUN, PROPFLAG_INAIR | PROPFLAG_ABSOLUTEPOSITION, 216}
+};
+static void Place(const char *dir, const SetupFile *source, int kind, float scale,
                   const double facing[3], BOOL mp)
 {
     SetupFile setup={0}, before={0}, placed={0}; const char *why;
     EditHistory history={0}; EditHistoryTransaction tx; EditHistoryAsset asset;
     BgDocument bg={0}; StanFile stan={0}; SetupObjectProperties properties;
     double position[3]={300, 180, -400}; DWORD selection, target;
-    int model=ModelId(cctv ? SETUP_DEFAULT_CCTV_MODEL : SETUP_DEFAULT_ALARM_MODEL);
-    AddDevice add=cctv ? SetupFileAddCctv : SetupFileAddAlarm;
+    BOOL cctv=kind==1, drone=kind==2, aimed=cctv||drone;
+    int model=ModelId(devices[kind].model);
+    AddDevice add=devices[kind].add;
     assert(SetupFileClone(source,&setup,&why));
     if (mp) { strcpy(setup.name,"Ump_setupdevicesZ"); }
     assert(SetupFileClone(&setup,&before,&why));
     EditHistoryReset(&history,&bg,&setup,&stan);
-    assert(EditHistoryBeginSetupEdit(&history,&setup,cctv ? "Add CCTV Camera" : "Add Alarm",&tx,&why));
+    assert(EditHistoryBeginSetupEdit(&history,&setup,drone ? "Add Drone Gun" : cctv ? "Add CCTV Camera" : "Add Alarm",&tx,&why));
     assert(add(&setup,model,scale,position,facing,&selection,&why));
     assert(selection==source->objectcount && setup.objectcount==source->objectcount+1);
-    assert(setup.padcount==source->padcount+(cctv ? 2 : 1));
+    assert(setup.padcount==source->padcount+(aimed ? 2 : 1));
     assert(setup.boundpadcount==source->boundpadcount && setup.charactercount==source->charactercount && setup.dirty);
     for (int at=0;at<40;at+=4)
     { if (at!=12 && at!=24) { assert(Read(setup.data+at)==Read(source->data+at)); } }
@@ -59,37 +70,50 @@ static void Place(const char *dir, const SetupFile *source, BOOL cctv, float sca
     assert(SetupObjectRelativeTarget(&setup,setup.objects[0].sourceoffset,2,&target) && target==1);
     assert(SetupObjectRelativeTarget(&setup,setup.objects[1].sourceoffset,-2,&target) && target==0);
     assert(SetupFileGetObjectProperties(&setup,selection,&properties,&why));
-    assert(properties.object.type==(cctv ? PROPDEF_CCTV : PROPDEF_ALARM));
+    assert(properties.object.type==devices[kind].type);
     assert(properties.object.modelid==model && properties.object.pad==(short)source->padcount);
-    assert(properties.object.extrascale==256 && properties.object.flags==PROPFLAG_ONSIDE && !properties.object.flags2);
+    assert(properties.object.extrascale==256 && properties.object.flags==devices[kind].flags && !properties.object.flags2);
     Near(properties.health,1000);
     DWORD record=properties.object.sourceoffset;
-    assert(Read(setup.data+record+(cctv ? 236 : 128))==48);
-    for (DWORD at=16;at<(cctv ? 236u : 128u);at+=4)
+    assert(Read(setup.data+record+devices[kind].bytes)==48);
+    for (DWORD at=16;at<devices[kind].bytes;at+=4)
     {
         if (at==0x74 || (cctv && (at==0x80 || at==0xcc || at==0xd0 || at==0xdc))) { continue; }
+        if (drone && (at==0x80 || at==0x88 || at==0x8c || at==0xa4 || at==0xa8)) { continue; }
         assert(!Read(setup.data+record+at)); /* Runtime matrices/timers/conversion flags stay zero. */
     }
     const SetupPad *pad=&setup.pads[source->padcount];
     for (int axis=0;axis<3;axis++) { Near(pad->pos[axis]/scale,position[axis]); }
-    Near(pad->look[1],1); Near(pad->up[1],0);
+    Near(pad->look[1],drone ? 0 : 1); Near(pad->up[1],drone ? 1 : 0);
+    double forward[3]={drone ? -pad->look[2] : pad->up[0],0,drone ? pad->look[0] : pad->up[2]};
     double horizontal=hypot(facing[0],facing[2]);
-    if (horizontal>1e-8) { Near(pad->up[0]*facing[0]+pad->up[2]*facing[2],-horizontal); }
-    else { Near(pad->up[2],1); }
+    if (horizontal>1e-8) { Near(forward[0]*facing[0]+forward[2]*facing[2],-horizontal); }
+    else { Near(forward[2],1); }
     for (DWORD i=source->padcount;i<setup.padcount;i++)
     {
         DWORD link=Read(setup.data+Read(setup.data+24)+i*44+36);
         assert(link && link<setup.size && !setup.data[link] && !setup.pads[i].stanname[0]);
     }
     assert(!Read(setup.data+Read(setup.data+24)+setup.padcount*44+36));
-    if (cctv)
+    if (aimed)
     {
-        assert(properties.cctv.lookpad==(LONG)source->padcount+1);
-        const SetupPad *aim=&setup.pads[properties.cctv.lookpad];
+        LONG aimpad=drone ? properties.drone.aimpad : properties.cctv.lookpad;
+        assert(aimpad==(LONG)source->padcount+1);
+        const SetupPad *aim=&setup.pads[aimpad];
         for (int axis=0;axis<3;axis++)
-        { Near((aim->pos[axis]-pad->pos[axis])/scale,pad->up[axis]*200); }
-        Near(properties.cctv.sweepmin,-45); Near(properties.cctv.sweepmax,45);
-        assert(properties.cctv.speed>29.9 && properties.cctv.speed<30.1 && !properties.cctv.range);
+        { Near((aim->pos[axis]-pad->pos[axis])/scale,forward[axis]*200); }
+        if (drone)
+        {
+            Near(properties.drone.yawmin,-180); Near(properties.drone.yawmax,180);
+            Near(properties.drone.range,2000);
+            assert(properties.drone.speed>89.9 && properties.drone.speed<90.1);
+            assert(!(properties.object.flags & (PROPFLAG_AUTOGUN_DISABLED | PROPFLAG_AUTOGUN_HAS_SEEN_PLAYER)));
+        }
+        else
+        {
+            Near(properties.cctv.sweepmin,-45); Near(properties.cctv.sweepmax,45);
+            assert(properties.cctv.speed>29.9 && properties.cctv.speed<30.1 && !properties.cctv.range);
+        }
     }
     assert(EditHistoryCommitEdit(&history,&bg,&setup,&stan,&tx,&why));
     RoundTrip(dir,&setup); EditHistoryMarkSetupSaved(&history,&setup);
@@ -100,8 +124,9 @@ static void Place(const char *dir, const SetupFile *source, BOOL cctv, float sca
      * the native type and leave the earlier objects' pads/links intact. */
     BOOL changed; SetupObjectPropertyEdit edit={0}; SetupPadRef ref;
     edit.objectindex=selection; edit.sourceoffset=setup.objects[selection].sourceoffset;
-    edit.type=properties.object.type; edit.property=cctv ? SETUP_OBJECT_CCTV_LOOK_PAD : SETUP_OBJECT_HEALTH;
-    edit.value=cctv ? 0 : 250;
+    edit.type=properties.object.type;
+    edit.property=drone ? SETUP_OBJECT_DRONE_AIM_PAD : cctv ? SETUP_OBJECT_CCTV_LOOK_PAD : SETUP_OBJECT_HEALTH;
+    edit.value=aimed ? 0 : 250;
     assert(SetupFileSetObjectProperty(&setup,&edit,&changed,&why) && changed);
     const double offset[3]={10,20,30}; Rotation rotation; RotationAxis(&rotation,1,.5);
     assert(SetupFileTranslateModel(&setup,selection,scale,offset,&why));
@@ -123,15 +148,17 @@ int main(int argc,char **argv)
     assert(argc==2 && SetupLoadProjectFile(argv[1],"UsetupdevicesZ",&source,&why));
     const float scales[]={.15019713f,.53931433f,1.20648f,1};
     const double facing[][3]={{0,0,-1},{1,.5,1},{-1,0,0},{0,-1,0}};
-    for (int kind=0;kind<2;kind++) for (int mp=0;mp<2;mp++)
+    assert(!strcmp(SETUP_DEFAULT_ALARM_MODEL,"Palarm2Z") && ModelId(SETUP_DEFAULT_ALARM_MODEL)==1);
+    assert(ModelId(SETUP_DEFAULT_DRONE_MODEL)==299);
+    for (int kind=0;kind<3;kind++) for (int mp=0;mp<2;mp++)
         for (int s=0;s<4;s++) for (int f=0;f<4;f++) { Place(argv[1],&source,kind,scales[s],facing[f],mp); }
-    puts("PASS: solo/MP CCTV and alarms, native record sizes, level scales, mounted orientation, private look-at pads and existing references.");
+    puts("PASS: solo/MP CCTV, alarms and drone guns, native records, level scales, orientation, private aim pads and existing references.");
     puts("PASS: save/reload, undo/redo, retargeting, health, transforms, repeated placement and deletion.");
     const double pos[3]={0,0,0},bad[3]={NAN,0,0};
-    for (int kind=0;kind<2;kind++)
+    for (int kind=0;kind<3;kind++)
     {
-        AddDevice add=kind ? SetupFileAddCctv : SetupFileAddAlarm;
-        int model=ModelId(kind ? SETUP_DEFAULT_CCTV_MODEL : SETUP_DEFAULT_ALARM_MODEL);
+        AddDevice add=devices[kind].add;
+        int model=ModelId(devices[kind].model);
         assert(SetupFileClone(&source,&setup,&why));
         assert(!add(&setup,model,0,pos,facing[0],&selection,&why)); Same(&setup,&source);
         assert(!add(&setup,model,1,bad,facing[0],&selection,&why)); Same(&setup,&source);
@@ -151,6 +178,6 @@ int main(int argc,char **argv)
         SetupFileFree(&setup);
     }
     SetupFileFree(&source);
-    puts("PASS: invalid drops/pad exhaustion are atomic; empty lists can gain their first camera or alarm.");
+    puts("PASS: invalid drops/pad exhaustion are atomic; empty lists can gain their first camera, alarm or drone gun.");
     return 0;
 }

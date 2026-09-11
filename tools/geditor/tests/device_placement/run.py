@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CCTV/alarm native placement, pad references, persistence and undo/redo."""
+"""CCTV/alarm/drone native placement, pad references, persistence and undo/redo."""
 import os
 from pathlib import Path
 import runpy
