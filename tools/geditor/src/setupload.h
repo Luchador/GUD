@@ -228,6 +228,16 @@ BOOL SetupFileAddModel(SetupFile *setup, BOOL character, int modelid,
                       float levelscale, const double position[3],
                       DWORD *selectionout, const char **reasonout);
 
+#define SETUP_DEFAULT_DOOR_MODEL "Psteel_door1Z"
+/* Add an unlocked slider and its private bound pad, preserving all existing
+ * command/pad indices. position is the floor anchor in gameplay world units;
+ * facing is the viewing direction. The upright door faces back towards the
+ * viewer. Default size: 100 wide, 200 high, 12 deep, independent of levelscale. */
+BOOL SetupFileAddDoor(SetupFile *setup, int modelid, float levelscale,
+                      const double position[3], const double facing[3],
+                      DWORD *selectionout, const char **reasonout);
+
+
 /* Used within an edit transaction. Accepts a prop index or a character index
    tagged with SETUP_CHARACTER_SELECTION_BIT. Allocates a private pad without
    changing existing command/pad indices. Props gain explicit placement flags;

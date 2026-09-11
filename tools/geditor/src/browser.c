@@ -1058,7 +1058,8 @@ static void BrowserBeginObjectDrag(HWND hwnd, BrowserState *state, int index, PO
     HGDIOBJ oldbitmap, oldfont;
     int width = rect.right - rect.left, i;
     if (width < 1) { return; }
-    if ((index == BROWSER_OBJECT_SPAWN || index == BROWSER_OBJECT_INTRO_CAMERA || index == BROWSER_OBJECT_OUTRO_CAMERA)
+    if ((index == BROWSER_OBJECT_SPAWN || index == BROWSER_OBJECT_INTRO_CAMERA || index == BROWSER_OBJECT_OUTRO_CAMERA
+            || index == BROWSER_OBJECT_DOOR)
         && !SendMessage(GetParent(hwnd), BROWSER_WM_OBJECT_DRAG_BEGIN, index, 0))
     {
         state->pressedobject = -1;
@@ -1504,7 +1505,7 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                 ClientToScreen(hwnd, &objectdrop.screen);
                 BrowserEndAssetDrag(hwnd, state);
                 if (objectdrop.type == BROWSER_OBJECT_SPAWN || objectdrop.type == BROWSER_OBJECT_INTRO_CAMERA
-                    || objectdrop.type == BROWSER_OBJECT_OUTRO_CAMERA)
+                    || objectdrop.type == BROWSER_OBJECT_OUTRO_CAMERA || objectdrop.type == BROWSER_OBJECT_DOOR)
                 { SendMessage(GetParent(hwnd), BROWSER_WM_OBJECT_DROP, 0, (LPARAM)&objectdrop); }
                 return 0;
             }

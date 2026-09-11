@@ -77,6 +77,24 @@ Do not replace an old project's base ROM or copy old setup files into a new proj
 
 ## Doors
 
+Drag **Door** from the Object panel onto the viewport to add a door in either
+single-player or multiplayer. Drop over a walkable floor; the base rests on that
+floor and the upright door faces towards the viewport camera. A void drop does
+nothing. If the model cannot be loaded/placed, the edit rolls back.
+
+The new door is selected with Move active. Use the transform tools to move,
+rotate or resize it, and the model picker to change its appearance. The default
+is `Psteel_door1Z`, an unlocked horizontal slider, 100 units wide, 200 high and 12
+deep (1 m × 2 m × 12 cm), consistent across level scales. It travels its full
+width, clears collision at 95%, uses metal sliding sounds and closes after five
+seconds. New doors register in adjacent rooms when possible, without disabling
+a visibility portal. Enable the portal-culling flag separately when appropriate.
+
+Each placed door owns a bound pad and a native 64-word DoorRecord. Existing
+command order, relative links, pad indices, intro/outro cameras and file-relative
+pointers remain intact. Placement, later transforms/properties and deletion
+participate in save, ROM creation and Undo/Redo. No new project is needed.
+
 Selecting a `PROPDEF_DOOR` shows these additional controls in **Properties**:
 
 | Setting | Meaning |
@@ -140,6 +158,8 @@ From the repository root:
 
 ```sh
 python3 tools/geditor/tests/object_properties/run.py
+python3 tools/geditor/tests/door_placement/run.py
+python3 tools/geditor/tests/browser_drag/run.py
 make -C tools/geditor/src
 ```
 

@@ -2652,12 +2652,12 @@ static BOOL GEditorDropSetupMarker(HWND hwnd, const BrowserObjectDrop *request)
 }
 
 
-static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request)
+static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request, BOOL door)
 {
     EditHistoryTransaction transaction;
     SetupObjectGeometry objects = {0};
     const char *why = "", *restorewhy = "";
-    double position[3];
+    double position[3], look[3];
     DWORD selection, triangle;
     BOOL character, found = FALSE;
     int modelid;
@@ -2669,13 +2669,29 @@ static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request)
     {
         return FALSE;
     }
+    if (door)
+    {
+        float point[3], height;
+        DWORD tile;
+        if (!ViewportGetCameraDirection(g_Viewport, look)) { return FALSE; }
+        for (int axis = 0; axis < 3; axis++) { point[axis] = (float)position[axis]; }
+        tile = StanResolvePadTile(&g_CurrentStan, "", point);
+        if (tile == STAN_TILE_NONE || !StanGetTileHeight(&g_CurrentStan, tile, point[0], point[2], &height))
+        {
+            MessageBox(hwnd, "Place the door over a walkable floor.", GEDITOR_TITLE, MB_ICONINFORMATION);
+            return FALSE;
+        }
+        position[1] = height;
+    }
     if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup,
-                                   character ? "Add Character" : "Add Prop", &transaction, &why))
+                                   door ? "Add Door" : character ? "Add Character" : "Add Prop", &transaction, &why))
     {
         goto fail;
     }
-    if (!SetupFileAddModel(&g_CurrentSetup, character, modelid, g_CurrentBgDocument.levelscale,
-                           position, &selection, &why) ||
+    if (!(door ? SetupFileAddDoor(&g_CurrentSetup, modelid, g_CurrentBgDocument.levelscale,
+                                   position, look, &selection, &why)
+               : SetupFileAddModel(&g_CurrentSetup, character, modelid, g_CurrentBgDocument.levelscale,
+                                    position, &selection, &why)) ||
         !ObjectLoadSetupGeometry(g_Project.dir, &g_CurrentSetup, &g_CurrentStan,
                                  g_CurrentBgDocument.levelscale, &objects, &why))
     {
@@ -2708,6 +2724,11 @@ static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request)
     RightPanelShowObjects(g_RightPanel);
     ViewportSetTool(g_Viewport, EDITOR_TOOL_FACE_SELECT);
     ToolToolbarSetTool(g_ToolToolbar, ViewportGetTool(g_Viewport));
+    if (door)
+    {
+        ViewportSetTransformMode(g_Viewport, TRANSFORM_MOVE);
+        RightPanelSetTransformMode(g_RightPanel, TRANSFORM_MOVE);
+    }
     ViewportSelectSetupModel(g_Viewport, selection);
     GEditorRefreshHistoryMenu(hwnd);
     SetFocus(g_Viewport);
@@ -3055,9 +3076,11 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     }
 
     case BROWSER_WM_OBJECT_DRAG_BEGIN:
-        if ((wparam != BROWSER_OBJECT_SPAWN && wparam != BROWSER_OBJECT_INTRO_CAMERA && wparam != BROWSER_OBJECT_OUTRO_CAMERA)
+        if ((wparam != BROWSER_OBJECT_SPAWN && wparam != BROWSER_OBJECT_INTRO_CAMERA && wparam != BROWSER_OBJECT_OUTRO_CAMERA
+                && wparam != BROWSER_OBJECT_DOOR)
             || g_CurrentLevelIndex == GEDITOR_NO_LEVEL || !g_CurrentSetup.data) { return FALSE; }
-        if (wparam != BROWSER_OBJECT_SPAWN && strncmp(g_CurrentSetup.name, "Ump_", 4) == 0)
+        if ((wparam == BROWSER_OBJECT_INTRO_CAMERA || wparam == BROWSER_OBJECT_OUTRO_CAMERA)
+            && strncmp(g_CurrentSetup.name, "Ump_", 4) == 0)
         {
             MessageBox(hwnd, "Intro and outro cameras can only be placed in single-player levels.",
                 GEDITOR_TITLE, MB_ICONINFORMATION);
@@ -3067,7 +3090,15 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         return TRUE;
 
     case BROWSER_WM_OBJECT_DROP:
-        return GEditorDropSetupMarker(hwnd, (const BrowserObjectDrop *)lparam);
+    {
+        const BrowserObjectDrop *drop = (const BrowserObjectDrop *)lparam;
+        if (drop && drop->type == BROWSER_OBJECT_DOOR)
+        {
+            BrowserModelDrop model = {SETUP_DEFAULT_DOOR_MODEL, drop->screen};
+            return GEditorDropModel(hwnd, &model, TRUE);
+        }
+        return GEditorDropSetupMarker(hwnd, drop);
+    }
 
     case BROWSER_WM_MODEL_DRAG_BEGIN:
     {
@@ -3081,7 +3112,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     }
 
     case BROWSER_WM_MODEL_DROP:
-        return GEditorDropModel(hwnd, (const BrowserModelDrop *)lparam);
+        return GEditorDropModel(hwnd, (const BrowserModelDrop *)lparam, FALSE);
 
     case BROWSER_WM_IMAGE_DRAG_BEGIN:
         if (g_CurrentBgDocument.rooms == NULL

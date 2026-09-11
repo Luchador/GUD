@@ -788,13 +788,18 @@ static BOOL SetupParsePads(SetupFile *setup, const char **reasonout)
 /* Copy the command stream before appending: growing it in place would overwrite
    another setup section. Internal links are file-relative offsets or command
    indices, so retaining the old data and command order preserves both. */
-BOOL SetupFileAddModel(SetupFile *setup, BOOL character, int modelid, float levelscale,
-                       const double position[3], DWORD *selectionout, const char **reasonout)
+static BOOL SetupAddPlacement(SetupFile *setup, BOOL character, int modelid, float levelscale,
+                              const double position[3], const SetupBoundPad *doorpad,
+                              DWORD *selectionout, const char **reasonout)
 {
     SetupFile added = {0};
     DWORD oldcommands, commandend, commandsize, commandcount = 0;
     DWORD oldpads, newcommands, newrecord, newpads, newpad, chrnum = 0, i;
-    unsigned char type = character ? PROPDEF_GUARD : PROPDEF_PROP;
+    BOOL door = doorpad != NULL;
+    DWORD padheader = door ? SETUP_BOUNDPAD_POINTER : SETUP_PAD_POINTER;
+    DWORD padsize = door ? SETUP_BOUNDPAD_SIZE : SETUP_PAD_SIZE;
+    DWORD padcount = setup ? (door ? setup->boundpadcount : setup->padcount) : 0;
+    unsigned char type = door ? PROPDEF_DOOR : character ? PROPDEF_GUARD : PROPDEF_PROP;
     DWORD recordsize = SetupObjectWordCount(type) * 4;
     float authored[3];
 
@@ -808,7 +813,8 @@ BOOL SetupFileAddModel(SetupFile *setup, BOOL character, int modelid, float leve
     }
     /* Ordinary props reserve pad numbers 10000 and above for bound pads.
        Characters can address the entire unsigned 16-bit normal-pad range. */
-    if (setup->padcount >= (character ? SETUP_PAD_MAX : 10000u))
+    /* Door pad indices are signed 16-bit raw bound indices, without +10000. */
+    if (padcount >= (door ? 32768u : character ? SETUP_PAD_MAX : 10000u))
     {
         *reasonout = "There are no more pad indices available for this model.";
         return FALSE;
@@ -851,7 +857,7 @@ BOOL SetupFileAddModel(SetupFile *setup, BOOL character, int modelid, float leve
     commandend = oldcommands;
     if (oldcommands != 0)
     {
-        if (oldcommands < SETUP_HEADER_SIZE)
+        if (oldcommands < SETUP_HEADER_SIZE || (oldcommands & 3))
         {
             goto malformed;
         }
@@ -880,9 +886,9 @@ BOOL SetupFileAddModel(SetupFile *setup, BOOL character, int modelid, float leve
         }
     }
     commandsize = commandend - oldcommands;
-    oldpads = SetupRead32(setup->data + SETUP_PAD_POINTER);
-    if (oldpads < SETUP_HEADER_SIZE || oldpads > setup->size ||
-        setup->padcount > (setup->size - oldpads) / SETUP_PAD_SIZE)
+    oldpads = SetupRead32(setup->data + padheader);
+    if (oldpads < SETUP_HEADER_SIZE || (oldpads & 3) || oldpads > setup->size ||
+        padcount + 1 > (setup->size - oldpads) / padsize)
     {
         goto malformed;
     }
@@ -890,8 +896,8 @@ BOOL SetupFileAddModel(SetupFile *setup, BOOL character, int modelid, float leve
     newcommands = (setup->size + 3u) & ~3u;
     newrecord = newcommands + commandsize;
     newpads = newrecord + recordsize + 4;
-    newpad = newpads + setup->padcount * SETUP_PAD_SIZE;
-    added.size = newpad + 2 * SETUP_PAD_SIZE;
+    newpad = newpads + padcount * padsize;
+    added.size = newpad + 2 * padsize;
     if (added.size > SETUP_FILE_MAX)
     {
         *reasonout = "Adding this model would exceed the setup size limit.";
@@ -906,9 +912,9 @@ BOOL SetupFileAddModel(SetupFile *setup, BOOL character, int modelid, float leve
     memcpy(added.name, setup->name, sizeof(added.name));
     memcpy(added.data, setup->data, setup->size);
     memcpy(added.data + newcommands, setup->data + oldcommands, commandsize);
-    memcpy(added.data + newpads, setup->data + oldpads, setup->padcount * SETUP_PAD_SIZE);
+    memcpy(added.data + newpads, setup->data + oldpads, padcount * padsize);
     SetupWrite32(added.data + SETUP_OBJECT_POINTER, newcommands);
-    SetupWrite32(added.data + SETUP_PAD_POINTER, newpads);
+    SetupWrite32(added.data + padheader, newpads);
     SetupWrite32(added.data + newrecord + recordsize, SETUP_PROP_END);
     for (i = 0; i < 3; i++)
     {
@@ -924,9 +930,41 @@ BOOL SetupFileAddModel(SetupFile *setup, BOOL character, int modelid, float leve
     SetupWrite32(added.data + newpad + 32, 0x3f800000u); /* look = +Z */
     /* Non-null pointer to an empty plink string; the game resolves the stan
        at the new position. The following pad remains the null terminator. */
-    SetupWrite32(added.data + newpad + SETUP_PAD_LINK, newpad + SETUP_PAD_SIZE + SETUP_PAD_LINK);
+    SetupWrite32(added.data + newpad + SETUP_PAD_LINK, newpad + padsize + SETUP_PAD_LINK);
 
-    if (character)
+    if (door)
+    {
+        const float bounds[6] = {doorpad->xmin, doorpad->xmax, doorpad->ymin,
+            doorpad->ymax, doorpad->zmin, doorpad->zmax};
+        for (i = 0; i < 3; i++)
+        {
+            union { float f; DWORD u; } value;
+            value.f = doorpad->pad.up[i]; SetupWrite32(added.data + newpad + 12 + i * 4, value.u);
+            value.f = doorpad->pad.look[i]; SetupWrite32(added.data + newpad + 24 + i * 4, value.u);
+        }
+        for (i = 0; i < 6; i++)
+        {
+            union { float f; DWORD u; } value;
+            value.f = bounds[i]; SetupWrite32(added.data + newpad + SETUP_BOUNDPAD_BBOX + i * 4, value.u);
+        }
+        SetupWrite32(added.data + newrecord, (256u << 16) | PROPDEF_DOOR);
+        SetupWrite32(added.data + newrecord + 4, ((DWORD)modelid << 16) | padcount);
+        /* Register both adjacent rooms where possible, but don't close an
+         * existing visibility portal merely because a new door is nearby. */
+        SetupWrite32(added.data + newrecord + 8, PROPFLAG_FORCE_COLLISIONS | PROPFLAG_NO_PORTAL_CLOSE);
+        SetupWrite32(added.data + newrecord + 0x74, 1000u << 16);
+        /* Standalone, unlocked slider. All links, runtime pointers/caches and
+         * exclusion flags start at zero in this complete 64-word DoorRecord. */
+        SetupWrite32(added.data + newrecord + 0x84, 65536); /* 100% travel */
+        SetupWrite32(added.data + newrecord + 0x88, 62259); /* 95% collision clearance */
+        SetupWrite32(added.data + newrecord + 0x8c, 66); /* about 360%/s squared */
+        SetupWrite32(added.data + newrecord + 0x90, 66);
+        SetupWrite32(added.data + newrecord + 0x94, 1311); /* about 120%/s */
+        SetupWrite32(added.data + newrecord + 0x98, DOORTYPE_SLIDING);
+        SetupWrite32(added.data + newrecord + 0xa0, 5 * 60);
+        SetupWrite32(added.data + newrecord + 0xa4, DOOR_OPEN_SOUND_METAL);
+    }
+    else if (character)
     {
         SetupWrite32(added.data + newrecord, type);
         SetupWrite32(added.data + newrecord + 4, (chrnum << 16) | setup->padcount);
@@ -962,6 +1000,38 @@ BOOL SetupFileAddModel(SetupFile *setup, BOOL character, int modelid, float leve
 malformed:
     *reasonout = "The setup command or pad list is malformed.";
     return FALSE;
+}
+
+BOOL SetupFileAddModel(SetupFile *setup, BOOL character, int modelid, float levelscale,
+                       const double position[3], DWORD *selectionout, const char **reasonout)
+{
+    return SetupAddPlacement(setup, character, modelid, levelscale, position, NULL, selectionout, reasonout);
+}
+
+BOOL SetupFileAddDoor(SetupFile *setup, int modelid, float levelscale,
+                      const double position[3], const double facing[3],
+                      DWORD *selectionout, const char **reasonout)
+{
+    SetupBoundPad pad = {0};
+    double length;
+    *reasonout = "The door placement or level scale is invalid.";
+    if (!facing || !isfinite(levelscale) || levelscale <= 0) { return FALSE; }
+    for (int axis = 0; axis < 3; axis++) { if (!isfinite(facing[axis])) { return FALSE; } }
+    length = hypot(facing[0], facing[2]);
+    if (!isfinite(length)) { return FALSE; }
+    /* setupDoor maps model X/Y/Z to pad up/look/side. Put the base at the
+     * drop's floor height, with the face towards the viewer. Looking straight
+     * down uses a stable +X width axis. Dimensions are gameplay world units,
+     * converted exactly once so Train and other scales get the same size. */
+    pad.pad.up[0] = length > 1e-8 ? (float)(-facing[2] / length) : 1;
+    pad.pad.up[2] = length > 1e-8 ? (float)(facing[0] / length) : 0;
+    pad.pad.look[1] = 1;
+    if (levelscale * 200.0 > 100000000.0 || levelscale * 6.0 < 0.000001)
+    { *reasonout = "The level scale cannot represent the default door size."; return FALSE; }
+    pad.xmin = -6 * levelscale; pad.xmax = 6 * levelscale; /* depth */
+    pad.ymin = -50 * levelscale; pad.ymax = 50 * levelscale; /* width */
+    pad.zmin = 0; pad.zmax = 200 * levelscale; /* height */
+    return SetupAddPlacement(setup, FALSE, modelid, levelscale, position, &pad, selectionout, reasonout);
 }
 
 /* Copy the live intro list into appended storage. Keeping the old bytes and
