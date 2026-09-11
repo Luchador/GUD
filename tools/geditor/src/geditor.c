@@ -577,6 +577,9 @@ enum {
     ID_VIEW_HIDE_SELECTED,
     ID_VIEW_UNHIDE_ALL,
 
+    ID_SELECT_GROW,
+    ID_SELECT_ALL,
+
     ID_TOOLS_CREATE_ROM,
     ID_TOOLS_UV_EDITOR,
     ID_TOOLS_MODEL_EDITOR,
@@ -692,6 +695,7 @@ static HMENU GEditorCreateMenuBar(void)
     HMENU filemenu;
     HMENU editmenu;
     HMENU viewmenu;
+    HMENU selectmenu;
     HMENU toolsmenu;
     HMENU importmenu;
 
@@ -699,6 +703,7 @@ static HMENU GEditorCreateMenuBar(void)
     filemenu = CreatePopupMenu();
     editmenu = CreatePopupMenu();
     viewmenu = CreatePopupMenu();
+    selectmenu = CreatePopupMenu();
     toolsmenu = CreatePopupMenu();
     importmenu = CreatePopupMenu();
     AppendMenu(importmenu, MF_STRING, ID_FILE_IMPORT_IMAGE, "Import &Image");
@@ -724,6 +729,9 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(viewmenu, MF_STRING, ID_VIEW_HIDE_SELECTED, "&Hide Selected\tH");
     AppendMenu(viewmenu, MF_STRING, ID_VIEW_UNHIDE_ALL, "&Unhide All\tAlt+H");
 
+    AppendMenu(selectmenu, MF_STRING, ID_SELECT_GROW, "&Grow Selection\tQ");
+    AppendMenu(selectmenu, MF_STRING, ID_SELECT_ALL, "Select &All\tCtrl+A");
+
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_UV_EDITOR, "&UV Editor");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_MODEL_EDITOR, "&Model Editor");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_CREATE_ROM, "&Create ROM...");
@@ -731,6 +739,7 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(menubar, MF_POPUP, (UINT_PTR)filemenu, "&File");
     AppendMenu(menubar, MF_POPUP, (UINT_PTR)editmenu, "&Edit");
     AppendMenu(menubar, MF_POPUP, (UINT_PTR)viewmenu, "&View");
+    AppendMenu(menubar, MF_POPUP, (UINT_PTR)selectmenu, "&Select");
     AppendMenu(menubar, MF_POPUP, (UINT_PTR)toolsmenu, "&Tools");
 
     return menubar;
@@ -3470,6 +3479,10 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_VIEW_UNHIDE_ALL, MF_BYCOMMAND |
             (ViewportHasHiddenBgFaces(g_Viewport) ? MF_ENABLED : MF_GRAYED));
+        EnableMenuItem((HMENU)wparam, ID_SELECT_GROW, MF_BYCOMMAND |
+            (ViewportCanSelectBackground(g_Viewport, TRUE) ? MF_ENABLED : MF_GRAYED));
+        EnableMenuItem((HMENU)wparam, ID_SELECT_ALL, MF_BYCOMMAND |
+            (ViewportCanSelectBackground(g_Viewport, FALSE) ? MF_ENABLED : MF_GRAYED));
         return 0;
 
     case MODELEDITOR_CHANGED:
@@ -3629,6 +3642,12 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
             case ID_VIEW_UNHIDE_ALL:
                 ViewportUnhideAllBgFaces(g_Viewport);
+                return 0;
+
+            case ID_SELECT_GROW:
+            case ID_SELECT_ALL:
+                if (!ViewportSelectBackground(g_Viewport, LOWORD(wparam) == ID_SELECT_GROW))
+                { MessageBox(hwnd, "Not enough memory to change the background selection.", GEDITOR_TITLE, MB_ICONERROR); }
                 return 0;
 
             case ID_TOOLS_UV_EDITOR:
@@ -3793,6 +3812,28 @@ static BOOL GEditorHandleFogHotkey(HWND frame, const MSG *message)
     return TRUE;
 }
 
+/* Leave Q/A to camera flight and native text controls. Scope these shortcuts
+   to the main editor so the floating UV/model windows keep their own input. */
+static BOOL GEditorHandleSelectionHotkey(HWND frame, const MSG *message)
+{
+    char classname[32] = "";
+    BOOL control;
+    if (!message || !g_Viewport || message->message != WM_KEYDOWN
+        || (message->wParam != 'Q' && message->wParam != 'A')
+        || ViewportIsFlying(g_Viewport)
+        || (message->hwnd != frame && !IsChild(frame, message->hwnd))
+        || (GetKeyState(VK_MENU) & 0x8000) || (GetKeyState(VK_SHIFT) & 0x8000)) { return FALSE; }
+    control = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
+    if (control != (message->wParam == 'A')) { return FALSE; }
+    GetClassName(message->hwnd, classname, sizeof(classname));
+    if (lstrcmpi(classname, "Edit") == 0 || lstrcmpi(classname, "ComboBox") == 0
+        || lstrcmpi(classname, "ComboLBox") == 0) { return FALSE; }
+    /* One physical Q press grows one ring, even if the key is held. */
+    if (!(message->lParam & ((LPARAM)1 << 30)))
+    { SendMessage(frame, WM_COMMAND, control ? ID_SELECT_ALL : ID_SELECT_GROW, 0); }
+    return TRUE;
+}
+
 int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int showcmd)
 {
     WNDCLASS wc;
@@ -3884,6 +3925,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                     && !GEditorHandleFogHotkey(hwnd, &msg)
                     && !GEditorHandleVisibilityHotkey(hwnd, &msg)
                     && !GEditorHandleTransformHotkey(hwnd, &msg)
+                    && !GEditorHandleSelectionHotkey(hwnd, &msg)
                     && !RightPanelHandleMessage(g_RightPanel, &msg)
                     && !ToolToolbarHandleMessage(g_ToolToolbar, &msg)
                     && (accelerators == NULL
@@ -3908,6 +3950,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                 && !GEditorHandleFogHotkey(hwnd, &msg)
                 && !GEditorHandleVisibilityHotkey(hwnd, &msg)
                 && !GEditorHandleTransformHotkey(hwnd, &msg)
+                && !GEditorHandleSelectionHotkey(hwnd, &msg)
                 && !RightPanelHandleMessage(g_RightPanel, &msg)
                 && !ToolToolbarHandleMessage(g_ToolToolbar, &msg)
                 && (accelerators == NULL

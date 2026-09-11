@@ -118,6 +118,12 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
 int ViewportGetSelectedBgFaceCount(HWND hwnd);
 BOOL ViewportGetSelectedBgFaces(HWND hwnd, BgFaceRef *out, int count);
 BOOL ViewportGetSingleSelectedBgFace(HWND hwnd, BgFaceRef *out);
+/* Select All (grow=FALSE), or add one adjacent ring (grow=TRUE). Operates on
+   BG source identities in the active selection mode and visible layers.
+   Faces share an edge; edges share an endpoint; vertices connect by edges.
+   Never includes temporarily hidden faces or edits document/dirty state. */
+BOOL ViewportCanSelectBackground(HWND hwnd, BOOL grow);
+BOOL ViewportSelectBackground(HWND hwnd, BOOL grow);
 /* Temporary viewport visibility only: never edits assets or history. Hidden
    identities survive scene rebuilds; opening/closing a level resets them. */
 BOOL ViewportHideSelectedBgFaces(HWND hwnd);

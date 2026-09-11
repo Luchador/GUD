@@ -482,7 +482,7 @@ static BOOL ViewportCreateStatisticsFont(ViewportState *state)
 
 static void ViewportDrawStatistics(const ViewportState *state)
 {
-    char lines[5][64];
+    char lines[6][64];
     int line, linecount;
 
     if ((!state->orbit && !state->showbgstatistics) || !state->statisticsfont
@@ -503,6 +503,15 @@ static void ViewportDrawStatistics(const ViewportState *state)
                  (unsigned long)(state->bgprimarytris + state->bgsecondarytris));
         snprintf(lines[3], sizeof(lines[3]), "Unique textures: %lu", (unsigned long)state->bgtexturecount);
         snprintf(lines[4], sizeof(lines[4]), "Hidden faces: %lu", (unsigned long)state->bghiddentris);
+        if (state->tool == EDITOR_TOOL_VERTEX_SELECT || state->tool == EDITOR_TOOL_EDGE_SELECT
+            || state->tool == EDITOR_TOOL_FACE_SELECT)
+        {
+            const char *kind = state->tool == EDITOR_TOOL_VERTEX_SELECT ? "vertices"
+                : state->tool == EDITOR_TOOL_EDGE_SELECT ? "edges" : "faces";
+            int count = state->tool == EDITOR_TOOL_FACE_SELECT
+                ? state->selectedtricount : state->componentcount;
+            snprintf(lines[linecount++], sizeof(lines[0]), "Selected %s: %d", kind, count);
+        }
     }
 
     /* Draw into the back buffer so text stays steady during camera flight.
@@ -4213,6 +4222,147 @@ static void ViewportDrawBoxSelection(const ViewportState *state)
     glMatrixMode(GL_PROJECTION);
     glPopMatrix();
     glPopAttrib();
+}
+
+/* Grow uses source topology, never position welding: coincident vertices in
+ * different rooms or on disconnected seams remain independently selectable.
+ * Seeds are frozen before collecting hits, so one command adds one ring. */
+static ViewportBoxPoint ViewportBgSelectionPoint(const ViewportState *state, int corner)
+{
+    const BgDocumentVertexRef *ref = &state->scenevertexrefs[corner];
+    return (ViewportBoxPoint){ref->room, ref->index, corner};
+}
+
+BOOL ViewportCanSelectBackground(HWND hwnd, BOOL grow)
+{
+    const ViewportState *s = ViewportGetState(hwnd);
+    if (!s || s->orbit || s->flying || s->dragaxis >= 0 || s->boxpending
+        || !s->scene || !s->scenefacerefs || !s->scenevertexrefs || !s->selectedtris
+        || s->scenecount <= 0 || (!s->showbgprimary && !s->showbgsecondary)) { return FALSE; }
+    if (s->tool != EDITOR_TOOL_VERTEX_SELECT && s->tool != EDITOR_TOOL_EDGE_SELECT
+        && s->tool != EDITOR_TOOL_FACE_SELECT) { return FALSE; }
+    return !grow || (s->tool == EDITOR_TOOL_FACE_SELECT ? s->selectedtricount : s->componentcount) > 0;
+}
+
+/* Selection-only operation. All allocations complete before changing the
+ * selection; the usual notification records a single undoable selection step. */
+BOOL ViewportSelectBackground(HWND hwnd, BOOL grow)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    ViewportBoxComponent *seeds = NULL, *hits = NULL;
+    unsigned char *visible = NULL, *faces = NULL;
+    size_t seedcapacity;
+    int seedcount = 0, hitcount = 0, unique = 0, i, tri;
+    BOOL face, edge, ok = FALSE;
+    if (!ViewportCanSelectBackground(hwnd, grow)) { return TRUE; }
+    face = state->tool == EDITOR_TOOL_FACE_SELECT;
+    edge = state->tool == EDITOR_TOOL_EDGE_SELECT;
+    seedcapacity = !grow ? 0 : face ? (size_t)state->selectedtricount * 3
+        : (size_t)state->componentcount * (edge ? 2 : 1);
+    if (seedcapacity > INT_MAX || seedcapacity > SIZE_MAX / sizeof(*seeds)
+        || (size_t)state->scenecount > SIZE_MAX / sizeof(*hits)) { goto done; }
+    visible = calloc((size_t)state->scenecount / 3, 1);
+    if (face) { faces = calloc((size_t)state->scenecount / 3, 1); }
+    else { hits = malloc((size_t)state->scenecount * sizeof(*hits)); }
+    if (seedcapacity) { seeds = malloc(seedcapacity * sizeof(*seeds)); }
+    if (!visible || (face ? !faces : !hits) || (seedcapacity && !seeds)) { goto done; }
+
+    /* Select across the level, including off-screen/back-facing geometry,
+       while respecting hidden faces and the primary/secondary layer toggles. */
+    for (i = 0; i < state->batchcount; i++)
+    {
+        const SceneBatch *batch = &state->batches[i];
+        if (!ViewportBatchIsPickable(state, batch)) { continue; }
+        for (tri = batch->first / 3; tri < (batch->first + batch->count) / 3; tri++)
+        {
+            if (state->scenefacerefs[tri].faceid == BG_FACE_ID_NONE
+                || ViewportTriangleHidden(state, tri)) { continue; }
+            visible[tri] = 1;
+            if (grow && face && state->selectedtris[tri])
+            {
+                for (int end = 0; end < 3; end++)
+                {
+                    ViewportBoxPoint a = ViewportBgSelectionPoint(state, tri*3+end);
+                    ViewportBoxPoint b = ViewportBgSelectionPoint(state, tri*3+(end+1)%3);
+                    if (a.owner && b.owner && ViewportCompareBoxPoints(&a, &b))
+                    { seeds[seedcount++] = ViewportBoxComponentKey(a, b); }
+                }
+            }
+        }
+    }
+    if (grow && !face)
+    {
+        for (i = 0; i < state->componentcount; i++)
+        {
+            const ViewportComponent *c = &state->components[i];
+            for (int end = 0; end < (edge ? 2 : 1); end++)
+            {
+                ViewportBoxPoint p = {c->refs[end].room, c->refs[end].index, c->corners[end]};
+                /* A cached corner can belong to a now-hidden layer while
+                   the same source vertex is still exposed by another face.
+                   The visible candidate scan below decides eligibility. */
+                if (p.owner)
+                { seeds[seedcount++] = ViewportBoxComponentKey(p, p); }
+            }
+        }
+    }
+    if (seedcount) { qsort(seeds, seedcount, sizeof(*seeds), ViewportCompareBoxComponents); }
+    if (grow && !seedcount) { ok = TRUE; goto done; }
+    for (tri = 0; tri < state->scenecount / 3; tri++)
+    {
+        ViewportBoxPoint points[3];
+        BOOL touches[3] = {FALSE, FALSE, FALSE}, adjacent = !grow;
+        if (!visible[tri]) { continue; }
+        for (i = 0; i < 3; i++) { points[i] = ViewportBgSelectionPoint(state, tri*3+i); }
+        for (i = 0; i < 3; i++)
+        {
+            ViewportBoxComponent key = ViewportBoxComponentKey(points[i], points[face ? (i+1)%3 : i]);
+            if (grow && bsearch(&key, seeds, seedcount, sizeof(*seeds), ViewportCompareBoxComponents))
+            { touches[i] = adjacent = TRUE; }
+        }
+        if (face)
+        {
+            faces[tri] = adjacent;
+            continue;
+        }
+        for (i = 0; i < 3; i++)
+        {
+            ViewportBoxPoint a = points[i], b = points[edge ? (i+1)%3 : i];
+            BOOL include = !grow || (edge ? touches[i] || touches[(i+1)%3] : adjacent);
+            if (include && a.owner && b.owner && (!edge || ViewportCompareBoxPoints(&a, &b)))
+            { hits[hitcount++] = ViewportBoxComponentKey(a, b); }
+        }
+    }
+    if (face)
+    {
+        if (!grow) { ViewportClearAllSelection(state); }
+        for (tri = 0; tri < state->scenecount / 3; tri++)
+        {
+            if (faces[tri] && !state->selectedtris[tri])
+            {
+                state->selectedtris[tri] = 1;
+                state->selectedtricount++;
+                ViewportSetTriangleColor(state, tri, TRUE);
+            }
+        }
+    }
+    else
+    {
+        qsort(hits, hitcount, sizeof(*hits), ViewportCompareBoxComponents);
+        for (i = 0; i < hitcount; i++)
+        {
+            if (!unique || ViewportCompareBoxComponents(&hits[i], &hits[unique-1]))
+            { hits[unique++] = hits[i]; }
+        }
+        if (!ViewportApplyBoxComponents(state, hits, unique, FALSE, grow, FALSE)) { goto done; }
+    }
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd, NULL, FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+    ok = TRUE;
+done:
+    free(visible); free(faces); free(seeds); free(hits);
+    return ok;
 }
 
 static BgVertex *ViewportLoadHandle(int id, DWORD *count, BOOL radial)
