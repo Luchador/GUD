@@ -266,6 +266,10 @@ $(addprefix $(BUILD_DIR)/src/game/,image.o initimages.o gedmanifest.o tex.o chrp
 # dependencies, so changes to either enum must rebuild their game consumers.
 $(GAMEOBJECTS): src/propconstants.h src/propruntimeflags.h
 
+# Player members are accessed throughout the game. Recompile their users when
+# the shared layout changes, including the RSP-aligned gauge vertex buffers.
+$(CODEOBJECTS) $(GAMEOBJECTS): src/bondtypes.h src/game/bondview.h
+
 # Manifest catalog descriptors derive counts and strides beside their arrays.
 # IDO emits no .d files, so keep native layouts and included catalogs in sync.
 GED_CATALOG_OBJECTS := $(BUILD_DIR)/src/music.o $(addprefix $(BUILD_DIR)/src/game/,gedmanifest.o initanitable.o cobjdata.o pobjdata.o gun.o chraidata.o language.o)

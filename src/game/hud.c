@@ -18,7 +18,7 @@
 
 #define G_CC_MODULATEIA_ENV COMBINED, 0, ENVIRONMENT, 0, COMBINED, 0, ENVIRONMENT, 0
 
-#define GAUGE_BAR_VERTEX_PAIR_STRIDE (2 * sizeof(struct WatchVertex))
+#define GAUGE_BAR_VERTEX_PAIR_STRIDE (2 * sizeof(struct damage_display_val))
 
 
 /**

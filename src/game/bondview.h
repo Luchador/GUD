@@ -822,7 +822,7 @@ struct player
 
   s32 resetshadecol;
 
-  // Former unused aimtype. Padding needed to keep the health/armor bar working.
+  // Legacy padding for the removed aimtype field; gauge vertices align themselves.
   u8 padding_0FE4[4];
 
   /**

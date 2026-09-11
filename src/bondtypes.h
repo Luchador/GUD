@@ -3872,10 +3872,21 @@ struct FolderSelectColour {
 };
 
 struct damage_display_val {
-    coord16 pos;
-    coord16 normal;
-    rgba_u8 colour;
+    /* RSP vertex DMA requires 8-byte alignment. Enforce it in the type,
+     * as libultra's Vtx does, so edits to the enclosing player structure
+     * cannot misalign the health/armor buffers. The vertex stays 16 bytes. */
+    union {
+        struct {
+            coord16 pos;
+            coord16 normal;
+            rgba_u8 colour;
+        };
+        u64 force_alignment;
+    };
 };
+
+typedef char DamageDisplayVertexMustMatchVtx[
+    sizeof(struct damage_display_val) == sizeof(Vtx) ? 1 : -1];
 
 struct damage_display_parent {
     struct damage_display_val items[2];
