@@ -3,6 +3,7 @@
 #include <ultra64.h>
 #include <CPPLib.h>
 #include "propconstants.h"
+#include "ammoconstants.h"
 #include "propruntimeflags.h"
 
 #pragma region Tools
@@ -3745,44 +3746,6 @@ typedef enum PROJECTILES
         "ACT_BONDMULTI",
         "ACT_NULL"};
     #endif
-
-
-    typedef enum AMMOTYPE
-    {
-        AMMO_NONE,
-        AMMO_9MM,
-        AMMO_9MM_2,
-        AMMO_RIFLE,
-        AMMO_SHOTGUN,
-        AMMO_GRENADE,
-        AMMO_ROCKETS,
-        AMMO_REMOTEMINE,
-        AMMO_PROXMINE,
-        AMMO_TIMEDMINE,
-        AMMO_KNIFE,
-        AMMO_GRENADEROUND,
-        AMMO_MAGNUM,
-        AMMO_GGUN,
-        AMMOTYPE_GLOBAL_MAX = AMMO_GGUN,
-        // Ammo available in both SP and MP must be listed above this line.
-        AMMO_DARTS,
-        AMMO_EXPLOSIVEPEN,
-        AMMO_BOMBCASE,
-        AMMO_FLARE,
-        AMMO_PITON,
-        AMMO_DYNAMITE,
-        AMMO_BUG,
-        AMMO_MICRO_CAMERA,
-        AMMO_GEKEY,
-        AMMO_PLASTIQUE,
-        AMMO_WATCH_LASER,
-        AMMO_WATCH_MAGNET,
-        AMMO_UNK,
-        AMMO_CAMERA,
-        AMMO_TANK,
-        AMMO_TOKEN,
-        AMMOTYPE_MAX
-    } AMMOTYPE;
 #ifdef AIPARSE
     char *AMMOTYPE_ToString[] = {
         "AMMO_NONE",

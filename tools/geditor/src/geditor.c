@@ -2729,15 +2729,26 @@ static BOOL GEditorSetObjectProperty(HWND hwnd, const SetupObjectPropertyEdit *e
     const char *why = "", *restorewhy = "";
     DWORD selected;
     BOOL changed = FALSE, model;
+    const char *action;
     if (!edit || !ViewportGetSelectedObject(g_Viewport, &selected)
         || selected != edit->objectindex || selected >= g_CurrentSetup.objectcount) { return FALSE; }
     model = edit->property == SETUP_OBJECT_MODEL;
+    switch (edit->property)
+    {
+    case SETUP_OBJECT_MODEL: action = "Change Object Model"; break;
+    case SETUP_OBJECT_HEALTH: action = "Change Object Health"; break;
+    case SETUP_OBJECT_KEY_FLAGS: action = "Change Key Unlock Flags"; break;
+    case SETUP_OBJECT_AMMO_TYPE: action = "Change Ammo Type"; break;
+    case SETUP_OBJECT_AMMO_QUANTITY: action = "Change Ammo Quantity"; break;
+    case SETUP_OBJECT_AMMO_MODEL: action = "Change Released Ammo Model"; break;
+    default: return FALSE;
+    }
     ViewportCancelTransform(g_Viewport);
     if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup,
-        model ? "Change Object Model" : "Change Object Health", &transaction, &why)) { goto fail; }
+        action, &transaction, &why)) { goto fail; }
     if (!SetupFileSetObjectProperty(&g_CurrentSetup, edit, &changed, &why)) { goto rollback; }
     if (!changed) { EditHistoryCancelEdit(&transaction); return TRUE; }
-    if (model)
+    if (model || (edit->property == SETUP_OBJECT_AMMO_MODEL && edit->value != 65535))
     {
         DWORD count = 0;
         unsigned short *tags = NULL;
@@ -2754,6 +2765,9 @@ static BOOL GEditorSetObjectProperty(HWND hwnd, const SetupObjectPropertyEdit *e
             if (!why[0]) { why = "The selected model could not be loaded."; }
             goto rollback;
         }
+    }
+    if (model)
+    {
         if (!ObjectLoadSetupGeometry(g_Project.dir, &g_CurrentSetup, &g_CurrentStan,
                 g_CurrentBgDocument.levelscale, &objects, &why)
             || !GEditorRebuildCurrentViewportWithObjects(&objects, &why)) { goto rollback; }

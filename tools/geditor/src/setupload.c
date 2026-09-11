@@ -2564,8 +2564,20 @@ BOOL SetupFileGetObjectProperties(const SetupFile *setup, DWORD index,
 {
     const unsigned char *record = SetupObjectPropertyRecord(setup, index, reasonout);
     if (!record || !out) { return FALSE; }
+    memset(out, 0, sizeof(*out));
     out->object = setup->objects[index];
     out->health = (LONG)SetupRead32(record + 0x74) / 65536.0;
+    if (out->object.type == PROPDEF_KEY) { out->keyflags = SetupRead32(record + 0x80); }
+    if (out->object.type == PROPDEF_MAGAZINE) { out->ammotype = SetupRead32(record + 0x80); }
+    if (out->object.type == PROPDEF_AMMO)
+    {
+        for (DWORD slot = 0; slot < AMMOTYPE_GLOBAL_MAX; slot++)
+        {
+            DWORD word = SetupRead32(record + 0x80 + slot * 4);
+            out->ammo[slot].model = (unsigned short)(word >> 16);
+            out->ammo[slot].quantity = (unsigned short)word;
+        }
+    }
     return TRUE;
 }
 
@@ -2602,7 +2614,7 @@ BOOL SetupFileSetObjectProperty(SetupFile *setup, const SetupObjectPropertyEdit 
                                 BOOL *changedout, const char **reasonout)
 {
     const unsigned char *record;
-    DWORD encoded;
+    DWORD encoded, offset, previous;
     const char *modelname;
     *changedout = FALSE;
     *reasonout = "The object property request is invalid.";
@@ -2615,6 +2627,34 @@ BOOL SetupFileSetObjectProperty(SetupFile *setup, const SetupObjectPropertyEdit 
     { *reasonout = "Enter a finite number."; return FALSE; }
     switch (edit->property)
     {
+    case SETUP_OBJECT_KEY_FLAGS:
+    case SETUP_OBJECT_AMMO_TYPE:
+        if (record[3] != (edit->property == SETUP_OBJECT_KEY_FLAGS ? PROPDEF_KEY : PROPDEF_MAGAZINE))
+        { *reasonout = "This property does not belong to the selected object type."; return FALSE; }
+        if (edit->value < 0 || edit->value > (edit->property == SETUP_OBJECT_KEY_FLAGS ? 4294967295.0 : AMMOTYPE_MAX - 1)
+            || floor(edit->value) != edit->value)
+        { *reasonout = "Choose a valid ammo type or a 32-bit key mask."; return FALSE; }
+        encoded = (DWORD)edit->value;
+        if (encoded == SetupRead32(record + 0x80)) { return TRUE; }
+        SetupWrite32(setup->data + edit->sourceoffset + 0x80, encoded);
+        break;
+    case SETUP_OBJECT_AMMO_QUANTITY:
+    case SETUP_OBJECT_AMMO_MODEL:
+        if (record[3] != PROPDEF_AMMO || edit->slot >= AMMOTYPE_GLOBAL_MAX)
+        { *reasonout = "Choose a valid ammo crate slot."; return FALSE; }
+        if (edit->value < 0 || edit->value > 65535 || floor(edit->value) != edit->value)
+        { *reasonout = "Ammo quantities and model IDs must be whole numbers from 0 to 65535."; return FALSE; }
+        encoded = (DWORD)edit->value;
+        if (edit->property == SETUP_OBJECT_AMMO_MODEL && encoded != 0xffff
+            && (!ModelGetPropDefinition((int)encoded, &modelname, NULL) || !modelname || !*modelname))
+        { *reasonout = "Choose an available prop model or None for the released ammo."; return FALSE; }
+        offset = 0x80 + edit->slot * 4;
+        previous = SetupRead32(record + offset);
+        encoded = edit->property == SETUP_OBJECT_AMMO_QUANTITY
+            ? (previous & 0xffff0000u) | encoded : (encoded << 16) | (previous & 0xffffu);
+        if (encoded == previous) { return TRUE; }
+        SetupWrite32(setup->data + edit->sourceoffset + offset, encoded);
+        break;
     case SETUP_OBJECT_HEALTH:
         if (edit->value < 0 || edit->value > 2147483647.0 / 65536.0)
         { *reasonout = "Health must be between 0 and 32767.99998474121."; return FALSE; }

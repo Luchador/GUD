@@ -6,6 +6,7 @@
 #include "setupload.h"
 #include "bghistory.h"
 #include "modelload.h"
+#include <src/propconstants.h>
 
 /* Only setup documents are edited in this suite. */
 void BgDocumentFree(BgDocument *d) { memset(d, 0, sizeof(*d)); }
@@ -42,11 +43,102 @@ static void OnlyBytes(const SetupFile *before, const SetupFile *after, DWORD sta
     assert(!memcmp(before->data + start + length, after->data + start + length, before->size - start - length));
 }
 
+static DWORD FindType(const SetupFile *setup, unsigned char type)
+{
+    for (DWORD i = 0; i < setup->objectcount; i++) { if (setup->objects[i].type == type) { return i; } }
+    assert(0); return 0;
+}
+
+static void CheckSpecificEdit(const char *dir, const SetupFile *source,
+    SetupObjectPropertyEdit edit, DWORD relative, DWORD length)
+{
+    SetupFile setup = {0}; SetupObjectProperties properties;
+    EditHistory history = {0}; EditHistoryTransaction tx; EditHistoryAsset asset;
+    BgDocument bg = {0}; StanFile stan = {0}; const char *why; BOOL changed;
+    assert(SetupFileClone(source, &setup, &why));
+    EditHistoryReset(&history, &bg, &setup, &stan);
+    assert(EditHistoryBeginSetupEdit(&history, &setup, "Edit Key/Ammo", &tx, &why));
+    assert(SetupFileSetObjectProperty(&setup, &edit, &changed, &why) && changed);
+    assert(SetupFileGetObjectProperties(&setup, edit.objectindex, &properties, &why));
+    switch (edit.property)
+    {
+    case SETUP_OBJECT_KEY_FLAGS: assert(properties.keyflags == (DWORD)edit.value); break;
+    case SETUP_OBJECT_AMMO_TYPE: assert(properties.ammotype == (DWORD)edit.value); break;
+    case SETUP_OBJECT_AMMO_QUANTITY: assert(properties.ammo[edit.slot].quantity == (unsigned short)edit.value); break;
+    case SETUP_OBJECT_AMMO_MODEL: assert(properties.ammo[edit.slot].model == (unsigned short)edit.value); break;
+    default: assert(0);
+    }
+    OnlyBytes(source, &setup, edit.sourceoffset + relative, length);
+    assert(EditHistoryCommitEdit(&history, &bg, &setup, &stan, &tx, &why));
+    RoundTrip(dir, &setup); EditHistoryMarkSetupSaved(&history, &setup);
+    assert(SetupFileSetObjectProperty(&setup, &edit, &changed, &why) && !changed && !setup.dirty);
+    assert(EditHistoryUndo(&history, &bg, &setup, &stan, &asset, &why) && setup.dirty);
+    Same(&setup, source);
+    assert(EditHistoryRedo(&history, &bg, &setup, &stan, &asset, &why) && !setup.dirty);
+    RoundTrip(dir, &setup);
+    EditHistoryFree(&history); SetupFileFree(&setup);
+}
+
+static void CheckKeysAndAmmo(const char *dir, const SetupFile *source)
+{
+    DWORD key = FindType(source, PROPDEF_KEY), magazine = FindType(source, PROPDEF_MAGAZINE);
+    DWORD crate = FindType(source, PROPDEF_AMMO), prop = FindType(source, PROPDEF_PROP);
+    const DWORD masks[] = {0, 1, 0x80000000u, 0xffffffffu};
+    SetupObjectPropertyEdit edit;
+    for (unsigned int i = 0; i < sizeof(masks) / sizeof(*masks); i++)
+    {
+        edit = Request(source, key, SETUP_OBJECT_KEY_FLAGS, masks[i]);
+        CheckSpecificEdit(dir, source, edit, 0x80, 4);
+    }
+    for (int type = AMMO_NONE; type < AMMOTYPE_MAX; type++)
+    {
+        edit = Request(source, magazine, SETUP_OBJECT_AMMO_TYPE, type);
+        CheckSpecificEdit(dir, source, edit, 0x80, 4);
+    }
+    for (DWORD slot = 0; slot < AMMOTYPE_GLOBAL_MAX; slot++)
+    {
+        edit = Request(source, crate, SETUP_OBJECT_AMMO_QUANTITY, 65535); edit.slot = slot;
+        CheckSpecificEdit(dir, source, edit, 0x82 + slot * 4, 2);
+        edit.value = 0; CheckSpecificEdit(dir, source, edit, 0x82 + slot * 4, 2);
+        edit.property = SETUP_OBJECT_AMMO_MODEL; edit.value = 8;
+        CheckSpecificEdit(dir, source, edit, 0x80 + slot * 4, 2);
+        edit.value = 65535; CheckSpecificEdit(dir, source, edit, 0x80 + slot * 4, 2);
+    }
+    SetupFile setup = {0}; const char *why; BOOL changed;
+    assert(SetupFileClone(source, &setup, &why));
+    const double invalid[] = {-1, 0.5, NAN, INFINITY, 4294967296.0};
+    for (int property = SETUP_OBJECT_KEY_FLAGS; property <= SETUP_OBJECT_AMMO_MODEL; property++)
+    {
+        DWORD index = property == SETUP_OBJECT_KEY_FLAGS ? key : property == SETUP_OBJECT_AMMO_TYPE ? magazine : crate;
+        for (unsigned int i = 0; i < sizeof(invalid) / sizeof(*invalid); i++)
+        {
+            edit = Request(&setup, index, property, invalid[i]);
+            assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why) && !changed && !setup.dirty);
+            Same(&setup, source);
+        }
+        edit = Request(&setup, prop, property, 0);
+        assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why)); Same(&setup, source);
+    }
+    edit = Request(&setup, magazine, SETUP_OBJECT_AMMO_TYPE, AMMOTYPE_MAX);
+    assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why));
+    edit = Request(&setup, crate, SETUP_OBJECT_AMMO_QUANTITY, 65536);
+    assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why));
+    edit.value = 1; edit.slot = AMMOTYPE_GLOBAL_MAX;
+    assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why));
+    edit.slot = (DWORD)-1;
+    assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why));
+    edit.property = SETUP_OBJECT_AMMO_MODEL; edit.slot = 0; edit.value = 65534;
+    assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why));
+    assert(!setup.dirty); Same(&setup, source); SetupFileFree(&setup);
+    puts("PASS: 32-bit keys, every ammo type and all 13 quantity/model slots; native byte preservation, save/reload, undo/redo and invalid edits.");
+}
+
 int main(int argc, char **argv)
 {
     SetupFile source = {0}, setup = {0}; const char *why;
     assert(argc == 2 && SetupLoadProjectFile(argv[1], "UsetuppropertiesZ", &source, &why));
     assert(source.objectcount == 21 && source.charactercount == 1);
+    CheckKeysAndAmmo(argv[1], &source);
     for (DWORD index = 0; index < source.objectcount; index++)
     {
         SetupObjectProperties view;

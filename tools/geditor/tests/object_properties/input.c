@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "setupload.h"
+#include <src/propconstants.h>
 
 typedef uintptr_t HWND, ULONG_PTR, WPARAM;
 typedef intptr_t LPARAM, LRESULT;
@@ -37,13 +38,24 @@ static LRESULT SendMessage(HWND hwnd, unsigned int msg, WPARAM wparam, LPARAM lp
     if (msg == WM_UNDO) { textundos++; canundo = FALSE; return 0; }
     assert(msg == OBJECTPROPERTIES_WM_CHANGED);
     const SetupObjectPropertyEdit *edit = (const SetupObjectPropertyEdit *)lparam;
-    assert(edit->objectindex == 4 && edit->sourceoffset == 200 && edit->type == 3);
-    assert(edit->property == SETUP_OBJECT_HEALTH);
+    assert(edit->objectindex == 4 && edit->sourceoffset == 200 && edit->type == state.properties.object.type);
     commits++;
     /* A synchronous callback can move focus: its nested commit must be ignored. */
     ObjectPropertiesApplyHealth(0, &state);
+    ObjectPropertiesApplyExtra(0, &state, OBJECT_KEY_MASK);
+    ObjectPropertiesApplyExtra(0, &state, OBJECT_QUANTITY);
     if (reject) { return FALSE; }
-    state.properties.health = floor(edit->value * 65536.0 + 0.5) / 65536.0;
+    if (edit->property == SETUP_OBJECT_KEY_FLAGS) { state.properties.keyflags = (DWORD)edit->value; }
+    else if (edit->property == SETUP_OBJECT_AMMO_QUANTITY)
+    {
+        assert(edit->slot == state.ammoslot);
+        state.properties.ammo[edit->slot].quantity = (unsigned short)edit->value;
+    }
+    else
+    {
+        assert(edit->property == SETUP_OBJECT_HEALTH);
+        state.properties.health = floor(edit->value * 65536.0 + 0.5) / 65536.0;
+    }
     return TRUE;
 }
 static void Type(const char *value)
@@ -63,6 +75,7 @@ int main(void)
     state.properties.object.sourceoffset = 200; state.properties.object.type = 3;
     state.properties.health = 1000;
     state.controls[OBJECT_HEALTH] = focus = 2;
+    state.controls[OBJECT_KEY_MASK] = 3; state.controls[OBJECT_QUANTITY] = 4;
     ObjectPropertiesResetHealth(&state);
     assert(!state.edited && !canundo && !strcmp(text, "1000"));
     Type("0.1"); assert(Key(VK_RETURN));
@@ -86,6 +99,38 @@ int main(void)
     assert(!Key(VK_RETURN)); ObjectPropertiesApplyHealth(0, &state); assert(commits == 3);
     state.selected = TRUE; focus = 0;
     assert(!Key(VK_RETURN) && !Key(VK_ESCAPE));
+    state.edited = FALSE;
+    DWORD mask;
+    assert(ObjectPropertiesParseUnsigned("0xFFFFFFFF", TRUE, 0xffffffffu, &mask) && mask == 0xffffffffu);
+    assert(ObjectPropertiesParseUnsigned("80000000", TRUE, 0xffffffffu, &mask) && mask == 0x80000000u);
+    assert(ObjectPropertiesParseUnsigned(" 0010 ", FALSE, 65535, &mask) && mask == 10); /* Not octal. */
+    const char *badmask[] = {"", "0x", "0x100000000", "-1", "+1", "1.5", "FFFFFFFFF", "G123"};
+    for (unsigned int i = 0; i < sizeof(badmask) / sizeof(*badmask); i++)
+    { assert(!ObjectPropertiesParseUnsigned(badmask[i], TRUE, 0xffffffffu, &mask)); }
+    const char *badquantity[] = {"", "-1", "+1", "1.5", "65536", "1e3", "0x10", "10 ammo"};
+    for (unsigned int i = 0; i < sizeof(badquantity) / sizeof(*badquantity); i++)
+    { assert(!ObjectPropertiesParseUnsigned(badquantity[i], FALSE, 65535, &mask)); }
+    state.properties.object.type = PROPDEF_KEY; focus = state.controls[OBJECT_KEY_MASK];
+    strcpy(text, "0x80000001"); state.keyedited = TRUE;
+    assert(Key(VK_RETURN) && state.properties.keyflags == 0x80000001u && commits == 4 && !state.keyedited);
+    assert(!strcmp(text, "0x80000001"));
+    ObjectPropertiesApplyExtra(0, &state, OBJECT_KEY_MASK); assert(commits == 4);
+    strcpy(text, "invalid"); state.keyedited = TRUE; assert(Key(VK_RETURN));
+    assert(commits == 4 && state.keyedited);
+    assert(Key(VK_ESCAPE) && !state.keyedited && !strcmp(text, "0x80000001"));
+    state.properties.object.type = PROPDEF_AMMO; state.ammoslot = AMMOTYPE_GLOBAL_MAX - 1;
+    assert(!Key(VK_RETURN)); /* Hidden key field cannot commit. */
+    focus = state.controls[OBJECT_QUANTITY]; strcpy(text, "65535"); state.quantityedited = TRUE;
+    assert(Key(VK_RETURN) && state.properties.ammo[12].quantity == 65535 && commits == 5 && !state.quantityedited);
+    assert(state.properties.ammo[0].quantity == 0);
+    strcpy(text, "-1"); state.quantityedited = TRUE; assert(Key(VK_RETURN));
+    assert(commits == 5 && state.quantityedited);
+    assert(Key(VK_ESCAPE) && !state.quantityedited && !strcmp(text, "65535"));
+    assert(ObjectPropertiesControlVisible(&state, OBJECT_QUANTITY));
+    assert(!ObjectPropertiesControlVisible(&state, OBJECT_KEY_FIRST));
+    state.properties.object.type = PROPDEF_MAGAZINE;
+    assert(!ObjectPropertiesControlVisible(&state, OBJECT_QUANTITY));
+    assert(ObjectPropertiesControlVisible(&state, OBJECT_AMMO_TYPE));
     puts("PASS: input validation, Enter/blur commits, Escape, text undo, rejected edits and synchronous reentrancy.");
     return 0;
 }

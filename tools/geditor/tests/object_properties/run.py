@@ -60,12 +60,15 @@ def main():
         types = re.search(r'enum \{ OBJECT_TYPE,.*?\};', source, re.S)[0]
         types += '\n' + re.search(r'typedef struct ObjectPropertiesState \{.*?\} ObjectPropertiesState;', source, re.S)[0]
         (work / 'input-types.inc').write_text(types)
-        names = ('ObjectPropertiesResetHealth', 'ObjectPropertiesParseHealth',
-                 'ObjectPropertiesApply', 'ObjectPropertiesApplyHealth', 'ObjectPropertiesHandleMessage')
+        names = ('ObjectPropertiesIsEdit', 'ObjectPropertiesControlVisible',
+                 'ObjectPropertiesResetHealth', 'ObjectPropertiesParseHealth',
+                 'ObjectPropertiesApply', 'ObjectPropertiesApplyHealth',
+                 'ObjectPropertiesParseUnsigned', 'ObjectPropertiesResetExtra',
+                 'ObjectPropertiesApplyExtra', 'ObjectPropertiesHandleMessage')
         (work / 'input-logic.inc').write_text(''.join(function(source, name) for name in names))
         subprocess.run([os.environ.get('CC', 'cc'), '-O1', '-g', '-std=c99', '-Wall', '-Wextra',
                         '-Werror', '-Wno-unused-parameter', '-fsanitize=address,undefined',
-                        f'-I{shim}', f'-I{src}', f'-I{work}', str(here / 'input.c'),
+                        f'-I{shim}', f'-I{src}', f'-I{root}', f'-I{work}', str(here / 'input.c'),
                         '-lm', '-o', str(work / 'input')], check=True)
         subprocess.run([str(work / 'input')], check=True,
                        env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))

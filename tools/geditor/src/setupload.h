@@ -6,6 +6,7 @@
 #include <windows.h>
 
 #include "rom.h"
+#include "../../../src/ammoconstants.h"
 
 /* Host-native views of the pad data parsed from the big-endian setup. */
 typedef struct SetupPad {
@@ -51,17 +52,21 @@ typedef struct SetupObject {
  * damage accumulator named maxdamage. Specialized fields can add property IDs
  * and validated setters without exposing raw offsets to panel controls. */
 typedef enum SetupObjectProperty {
-    SETUP_OBJECT_HEALTH, SETUP_OBJECT_MODEL
+    SETUP_OBJECT_HEALTH, SETUP_OBJECT_MODEL, SETUP_OBJECT_KEY_FLAGS,
+    SETUP_OBJECT_AMMO_TYPE, SETUP_OBJECT_AMMO_QUANTITY, SETUP_OBJECT_AMMO_MODEL
 } SetupObjectProperty;
 typedef struct SetupObjectProperties {
     SetupObject object;
     double health;
+    DWORD keyflags, ammotype;
+    struct { unsigned short model, quantity; } ammo[AMMOTYPE_GLOBAL_MAX];
 } SetupObjectProperties;
 typedef struct SetupObjectPropertyEdit {
     DWORD objectindex, sourceoffset;
     unsigned char type;
     SetupObjectProperty property;
     double value;
+    DWORD slot; /* Zero-based multi-ammo slot; ignored by other properties. */
 } SetupObjectPropertyEdit;
 
 /* GuardRecord uses a different layout from ObjectRecord. Keep its source
