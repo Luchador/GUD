@@ -51,7 +51,8 @@ BgVertex *GltfLoadModel(const char *path, const char *projectdir,
 BgVertex *GltfLoadGlbMesh(const unsigned char *data, DWORD size,
                          DWORD *tricount, const char **reasonout);
 
-/* Lit editor resources require NORMAL. Transformed unit normals are returned
+/* Lit editor resources require NORMAL; COLOR_0 is multiplied by the material
+ * baseColorFactor when present. Transformed unit normals are returned
  * in BgVertex.environment.normal. NULL nodename loads the full scene; a name
  * selects only that mesh node, retaining its ancestors' transforms. */
 BgVertex *GltfLoadGlbLitMesh(const unsigned char *data, DWORD size, const char *nodename,

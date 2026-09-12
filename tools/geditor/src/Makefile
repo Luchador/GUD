@@ -46,7 +46,7 @@ idleposes.h: ../scripts/generate_idle_poses.py ../../../tools/make_animation_ent
 	python3 ../scripts/generate_idle_poses.py
 
 # Resource script -> linkable object (dialogs, icon, and tool button artwork)
-$(RCOBJ): $(RCFILE) resource.h icon.ico $(TOOL_IMAGES) $(MARKER_MODELS) ../geditorassets/gizmo_arrow.glb ../geditorassets/gizmo_cylinder.glb ../geditorassets/gizmo_scale.glb
+$(RCOBJ): $(RCFILE) resource.h icon.ico $(TOOL_IMAGES) $(MARKER_MODELS) ../geditorassets/box.glb ../geditorassets/gizmo_arrow.glb ../geditorassets/gizmo_cylinder.glb ../geditorassets/gizmo_scale.glb
 	$(RC) -i $(RCFILE) -o $@
 
 clean:

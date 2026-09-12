@@ -25,6 +25,8 @@
 #include <src/propconstants.h>
 
 #define VIEWPORT_MONITOR_TIMER 1001
+#define VIEWPORT_STARTUP_TIMER 1002
+#define VIEWPORT_STARTUP_SPIN_DEGREES_PER_SECOND 20.0
 
 #define VIEWPORT_CLASS "GEditorViewport"
 
@@ -218,7 +220,11 @@ typedef struct ViewportState {
     unsigned int orbitbuttons;
 
     BOOL flying;
-    Vertex *scene;       /* malloc'd level geometry, or NULL for the test scene */
+    BgVertex *startupmodel; /* embedded, lit GLB; separate from editable geometry */
+    DWORD startuptris;
+    double startupcenter[3];
+    LARGE_INTEGER startupstart, startupfrequency;
+    Vertex *scene;       /* malloc'd level geometry, or NULL for the startup model */
     VertexColor *scenecolors; /* original RGB restored when faces are deselected */
     GLsizei scenecount;  /* vertices in scene */
     struct SceneBatch *batches;  /* draw-ordered draw ranges */
@@ -420,17 +426,6 @@ static BOOL ViewportPadSelectionPosition(const ViewportState *state, double posi
     }
     return TRUE;
 }
-
-static const Vertex g_TestScene[6] = {
-    {    0.0f,  160.0f, 0.0f,   255,  40,  40, 255 , 1.0f, 0.0f, {{0, 0, 0}, {0, 0}}, 0},
-    { -160.0f, -120.0f, 0.0f,    40, 255,  40, 255 , 0.0f, 1.0f, {{0, 0, 0}, {0, 0}}, 0},
-    {  160.0f, -120.0f, 0.0f,    40,  40, 255, 255 , 0.0f, 0.0f, {{0, 0, 0}, {0, 0}}, 0},
-    {    -80.0f,  160.0f, -200.0f,   255,  255,  0, 255, 2.0f, 0.0f, {{0, 0, 0}, {0, 0}}, 0},
-    { -240.0f, -120.0f, -200.0f,    0, 255,  255, 255, 2.0f, 2.0f, {{0, 0, 0}, {0, 0}}, 0},
-    {  80.0f, -120.0f, -200.0f,    255,  0, 0, 255 , 0.0f, 0.0f, {{0, 0, 0}, {0, 0}}, 0},
-};
-
-#define TESTSCENE_VERTS ((GLsizei)(sizeof(g_TestScene) / sizeof(g_TestScene[0])))
 
 static ViewportState *ViewportGetState(HWND hwnd)
 {
@@ -1149,12 +1144,44 @@ static void ViewportDrawAimGuides(const ViewportState *state)
 /* The supplied GLBs use +X for the arrow/lens and +Y for up. Convert
  * metres to GoldenEye's centimetre world units without any level-scale factor. */
 #define VIEWPORT_MARKER_MODEL_SCALE 100.0f
-static void ViewportDrawSetupMarkers(const ViewportState *state)
+/* Shared fixed-function lighting for embedded editor GLBs. Set the light
+ * before the model transform so its shading changes as the model turns. */
+static void ViewportLightEditorModel(void)
 {
     static const GLfloat ambient[4] = {0.4f, 0.4f, 0.4f, 1};
     static const GLfloat diffuse[4] = {0.8f, 0.8f, 0.8f, 1};
     static const GLfloat black[4] = {0, 0, 0, 1};
     static const GLfloat lightdirection[4] = {-0.4f, 0.8f, 0.3f, 0};
+    glEnable(GL_LIGHTING);
+    glEnable(GL_LIGHT0);
+    glEnable(GL_COLOR_MATERIAL);
+    glEnable(GL_NORMALIZE);
+    glShadeModel(GL_SMOOTH);
+    glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, black);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, black);
+    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambient);
+    glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
+    glLightfv(GL_LIGHT0, GL_AMBIENT, black);
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse);
+    glLightfv(GL_LIGHT0, GL_SPECULAR, black);
+    /* Set after the view transform so the light stays fixed in world space. */
+    glLightfv(GL_LIGHT0, GL_POSITION, lightdirection);
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
+    glEnableClientState(GL_NORMAL_ARRAY);
+}
+
+static void ViewportDrawLitMesh(const BgVertex *model, DWORD triangles)
+{
+    glVertexPointer(3, GL_FLOAT, sizeof(*model), &model->x);
+    glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(*model), &model->r);
+    glNormalPointer(GL_FLOAT, sizeof(*model), model->environment.normal);
+    glDrawArrays(GL_TRIANGLES, 0, triangles * 3);
+}
+
+static void ViewportDrawSetupMarkers(const ViewportState *state)
+{
     DWORD i;
     if (!state->showobjects || state->setupmarkercount == 0) { return; }
     glPushAttrib(GL_ENABLE_BIT | GL_LIGHTING_BIT | GL_CURRENT_BIT
@@ -1194,24 +1221,7 @@ static void ViewportDrawSetupMarkers(const ViewportState *state)
         glEnd();
         glDisable(GL_LINE_STIPPLE);
     }
-    glEnable(GL_LIGHTING);
-    glEnable(GL_LIGHT0);
-    glEnable(GL_COLOR_MATERIAL);
-    glEnable(GL_NORMALIZE);
-    glShadeModel(GL_SMOOTH);
-    glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
-    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, black);
-    glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, black);
-    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambient);
-    glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
-    glLightfv(GL_LIGHT0, GL_AMBIENT, black);
-    glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse);
-    glLightfv(GL_LIGHT0, GL_SPECULAR, black);
-    /* Set after the view transform so the light stays fixed in world space. */
-    glLightfv(GL_LIGHT0, GL_POSITION, lightdirection);
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glEnableClientState(GL_COLOR_ARRAY);
-    glEnableClientState(GL_NORMAL_ARRAY);
+    ViewportLightEditorModel();
     for (i = 0; i < state->setupmarkercount + state->swirlpath.pointcount; i++)
     {
         SetupMarker control = {0};
@@ -1235,9 +1245,6 @@ static void ViewportDrawSetupMarkers(const ViewportState *state)
         glPushMatrix();
         glMultMatrixf(matrix);
         glScalef(VIEWPORT_MARKER_MODEL_SCALE, VIEWPORT_MARKER_MODEL_SCALE, VIEWPORT_MARKER_MODEL_SCALE);
-        glVertexPointer(3, GL_FLOAT, sizeof(*model), &model->x);
-        glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(*model), &model->r);
-        glNormalPointer(GL_FLOAT, sizeof(*model), model->environment.normal);
         if (state->markerselected && marker->kind == state->selectedmarker.kind
             && marker->command == state->selectedmarker.command)
         {
@@ -1245,10 +1252,104 @@ static void ViewportDrawSetupMarkers(const ViewportState *state)
             if (marker->kind == SETUP_MARKER_SPAWN) { glColor3ub(VIEWPORT_SELECTION_GOLD); }
             else { glColor3ub(255, 255, 255); }
         }
-        glDrawArrays(GL_TRIANGLES, 0, state->markermodeltris[marker->kind] * 3);
+        ViewportDrawLitMesh(model, state->markermodeltris[marker->kind]);
         glEnableClientState(GL_COLOR_ARRAY);
         glPopMatrix();
     }
+    glPopClientAttrib();
+    glPopAttrib();
+}
+
+/* Keep the box centered and fit a bounding sphere, including its complete
+ * rotation, using the same framing as the model viewer. Geometry stays in
+ * glTF metres; its display transform uses the marker path's centimetres. */
+static void ViewportFrameStartupModel(ViewportState *state)
+{
+    double bounds[2][3], position[3];
+    OrbitCamera camera;
+    if (!state->startupmodel || !state->startuptris || state->orbit || state->scene) { return; }
+    for (DWORD i = 0; i < state->startuptris * 3; i++)
+    {
+        const BgVertex *v = &state->startupmodel[i];
+        double p[3] = {v->x, v->y, v->z};
+        for (int axis = 0; axis < 3; axis++)
+        {
+            p[axis] *= VIEWPORT_MARKER_MODEL_SCALE;
+            if (!i) { bounds[0][axis] = bounds[1][axis] = p[axis]; }
+            else { bounds[0][axis] = fmin(bounds[0][axis], p[axis]); bounds[1][axis] = fmax(bounds[1][axis], p[axis]); }
+        }
+    }
+    OrbitCameraFrame(&camera, bounds[0], bounds[1],
+        (double)max(1, state->width)/max(1, state->height), VIEWPORT_FOV_Y);
+    memcpy(state->startupcenter, camera.center, sizeof(state->startupcenter));
+    OrbitCameraPosition(&camera, position);
+    state->posx = (float)position[0]; state->posy = (float)position[1]; state->posz = (float)position[2];
+    state->yaw = (float)camera.yaw; state->pitch = (float)camera.pitch;
+}
+
+static void ViewportUpdateStartupTimer(HWND hwnd, ViewportState *state)
+{
+    KillTimer(hwnd, VIEWPORT_STARTUP_TIMER);
+    if (!state->orbit && !state->scene && state->startupmodel)
+    {
+        QueryPerformanceCounter(&state->startupstart);
+        SetTimer(hwnd, VIEWPORT_STARTUP_TIMER, 16, NULL);
+    }
+}
+
+static void ViewportLoadStartupModel(HWND hwnd, ViewportState *state)
+{
+    HINSTANCE instance = GetModuleHandle(NULL);
+    HRSRC resource = FindResource(instance, MAKEINTRESOURCE(IDR_STARTUP_BOX), RT_RCDATA);
+    HGLOBAL loaded = resource ? LoadResource(instance, resource) : NULL;
+    const char *why = "The embedded startup box model is missing.";
+    if (loaded)
+    {
+        state->startupmodel = GltfLoadGlbLitMesh(LockResource(loaded),
+            SizeofResource(instance, resource), NULL, &state->startuptris, &why);
+    }
+    if (!state->startupmodel)
+    { MessageBox(hwnd, why, "GEditor startup model", MB_ICONWARNING); return; }
+    QueryPerformanceFrequency(&state->startupfrequency);
+    ViewportFrameStartupModel(state);
+    ViewportUpdateStartupTimer(hwnd, state);
+}
+
+static double ViewportStartupAngle(const ViewportState *state)
+{
+    LARGE_INTEGER now;
+    if (state->startupfrequency.QuadPart <= 0) { return 0; }
+    QueryPerformanceCounter(&now);
+    double seconds = (double)(now.QuadPart-state->startupstart.QuadPart)/state->startupfrequency.QuadPart;
+    /* Positive Y rotation is counter-clockwise from the elevated camera.
+     * Elapsed time, rather than timer ticks, keeps a full turn at 18 seconds. */
+    return fmod(fmax(0, seconds)*VIEWPORT_STARTUP_SPIN_DEGREES_PER_SECOND, 360.0);
+}
+
+static void ViewportDrawStartupModel(const ViewportState *state)
+{
+    if (!state->startupmodel || !state->startuptris) { return; }
+    glPushAttrib(GL_ENABLE_BIT | GL_LIGHTING_BIT | GL_CURRENT_BIT
+        | GL_DEPTH_BUFFER_BIT | GL_POLYGON_BIT | GL_COLOR_BUFFER_BIT);
+    glPushClientAttrib(GL_CLIENT_VERTEX_ARRAY_BIT);
+    glDisable(GL_TEXTURE_2D); glDisable(GL_ALPHA_TEST); glDisable(GL_BLEND);
+    glDisable(GL_CULL_FACE); glDisable(GL_FOG); glDisable(GL_POLYGON_OFFSET_FILL);
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    if (state->fogcoordpointer) { glDisableClientState(GL_FOG_COORDINATE_ARRAY); }
+    glEnable(GL_DEPTH_TEST); glDepthFunc(GL_LESS); glDepthMask(GL_TRUE);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    glPushMatrix();
+    glLoadIdentity();
+    glRotatef(-state->pitch, 1, 0, 0);
+    glRotatef(-state->yaw, 0, 1, 0);
+    glTranslatef(-state->posx, -state->posy, -state->posz);
+    ViewportLightEditorModel();
+    glTranslated(state->startupcenter[0], state->startupcenter[1], state->startupcenter[2]);
+    glRotated(ViewportStartupAngle(state), 0, 1, 0);
+    glTranslated(-state->startupcenter[0], -state->startupcenter[1], -state->startupcenter[2]);
+    glScalef(VIEWPORT_MARKER_MODEL_SCALE, VIEWPORT_MARKER_MODEL_SCALE, VIEWPORT_MARKER_MODEL_SCALE);
+    ViewportDrawLitMesh(state->startupmodel, state->startuptris);
+    glPopMatrix();
     glPopClientAttrib();
     glPopAttrib();
 }
@@ -1306,8 +1407,9 @@ static void ViewportPaintGL(ViewportState *state)
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    if (state->orbit && state->scene == NULL)
+    if (state->scene == NULL)
     {
+        if (!state->orbit) { ViewportDrawStartupModel(state); }
         ViewportDrawStatistics(state);
         SwapBuffers(state->hdc);
         return;
@@ -1317,16 +1419,8 @@ static void ViewportPaintGL(ViewportState *state)
     glFrontFace(GL_CCW);
     glCullFace(GL_BACK);
 
-    /* Loaded BG scenes select culling per batch below. The built-in
-       test scene continues to use the menu option as a global switch. */
-    if (state->scene == NULL && state->cullbackfaces)
-    {
-        glEnable(GL_CULL_FACE);
-    }
-    else
-    {
-        glDisable(GL_CULL_FACE);
-    }
+    /* Loaded scenes select culling per batch below. */
+    glDisable(GL_CULL_FACE);
 
     /**
      * Build the view transform. -z = forward. Eye stays at the origin.
@@ -1340,8 +1434,8 @@ static void ViewportPaintGL(ViewportState *state)
     ViewportBeginFog(state);
 
     {
-        const Vertex *verts = state->scene != NULL ? state->scene : g_TestScene;
-        GLsizei count = state->scene != NULL ? state->scenecount : TESTSCENE_VERTS;
+        const Vertex *verts = state->scene;
+        GLsizei count = state->scenecount;
 
         glVertexPointer(3, GL_FLOAT, sizeof(Vertex), &verts[0].x);
         glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex), &verts[0].r);
@@ -5287,6 +5381,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
             MessageBox(hwnd, "Could not initialize the OpenGL viewport.", "GEditor", MB_ICONERROR);
             return -1;
         }
+        if (!state->orbit) { ViewportLoadStartupModel(hwnd, state); }
         return 0;
 
     case WM_SIZE:
@@ -5294,11 +5389,15 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         {
             ViewportCancelTransform(hwnd);
             state->width = LOWORD(lparam); state->height = HIWORD(lparam);
+            ViewportFrameStartupModel(state);
             ViewportResizeGL(state, LOWORD(lparam), HIWORD(lparam));
         }
         return 0;
 
     case WM_TIMER:
+        if (wparam == VIEWPORT_STARTUP_TIMER && state && !state->orbit && !state->scene
+            && state->startupmodel && !state->flying && IsWindowVisible(hwnd)
+            && !IsIconic(GetAncestor(hwnd, GA_ROOT))) { InvalidateRect(hwnd, NULL, FALSE); }
         if (wparam == VIEWPORT_MONITOR_TIMER && state && state->monitors.count
             && state->showobjects && !state->flying && IsWindowVisible(hwnd)
             && !IsIconic(GetAncestor(hwnd, GA_ROOT))) { InvalidateRect(hwnd, NULL, FALSE); }
@@ -5491,6 +5590,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         return 1;
 
     case WM_DESTROY:
+        KillTimer(hwnd, VIEWPORT_STARTUP_TIMER);
         KillTimer(hwnd, VIEWPORT_MONITOR_TIMER);
         ViewportCancelTransform(hwnd);
         if (state != NULL)
@@ -5512,6 +5612,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
             {
                 wglDeleteContext(state->hglrc);
             }
+            free(state->startupmodel);
             free(state->cylinder);
             free(state->scalehandle);
             {
@@ -6519,6 +6620,8 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
         state->componentcount = 0;
         ViewportSetStanTiles(hwnd, NULL);
     }
+    ViewportFrameStartupModel(state);
+    ViewportUpdateStartupTimer(hwnd, state);
     ViewportRestoreComponents(state);
     if (scene != NULL && savedobject != VIEWPORT_OBJECT_NONE) { ViewportSelectObject(state, savedobject); }
     ViewportUpdateStatistics(state);

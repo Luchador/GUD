@@ -1437,6 +1437,33 @@ static BOOL GltfPrimitiveWrapFlags(const char *json, const GltfJsonToken *tokens
 }
 
 
+/* Standard glTF base color multiplies COLOR_0. Embedded marker resources
+ * without a material keep their vertex colors; the startup box has a tint. */
+static BOOL GltfLitBaseColor(const char *json, const GltfJsonToken *tokens,
+    int count, int root, int primitive, double color[4])
+{
+    DWORD index;
+    int token = GltfJsonObjectGet(json, tokens, count, primitive, "material");
+    if (token < 0) { return TRUE; }
+    if (!GltfJsonUnsigned(json, &tokens[token], &index)) { return FALSE; }
+    int materials = GltfJsonObjectGet(json, tokens, count, root, "materials");
+    int material = GltfJsonArrayGet(tokens, count, materials, index);
+    if (material < 0 || tokens[material].type != GLTF_JSON_OBJECT) { return FALSE; }
+    int pbr = GltfJsonObjectGet(json, tokens, count, material, "pbrMetallicRoughness");
+    int array = GltfJsonObjectGet(json, tokens, count, pbr, "baseColorFactor");
+    if (array < 0) { return TRUE; }
+    if (tokens[array].type != GLTF_JSON_ARRAY || GltfJsonArrayCount(tokens, count, array) != 4) { return FALSE; }
+    for (int axis = 0; axis < 4; axis++)
+    {
+        char *end;
+        token = GltfJsonArrayGet(tokens, count, array, axis);
+        color[axis] = strtod(json+tokens[token].start, &end);
+        if (end != json+tokens[token].end || !isfinite(color[axis]) || color[axis] < 0 || color[axis] > 1)
+        { return FALSE; }
+    }
+    return TRUE;
+}
+
 static BOOL GltfLoadPrimitive(const char *json,
                               const GltfJsonToken *tokens, int tokencount,
                               int root, int primitive,
@@ -1464,6 +1491,7 @@ static BOOL GltfLoadPrimitive(const char *json,
     BOOL hasindices = FALSE;
     unsigned short tag;
     BgRenderFlags renderflags;
+    double basecolor[4] = {1,1,1,1};
     int texturewidth = 1;
     int textureheight = 1;
 
@@ -1640,6 +1668,8 @@ static BOOL GltfLoadPrimitive(const char *json,
 
     if (builder->lit)
     {
+        if (!GltfLitBaseColor(json, tokens, tokencount, root, primitive, basecolor))
+        { *reasonout = "A lit editor model has an invalid base color."; return FALSE; }
         int normal = GltfJsonObjectGet(json, tokens, tokencount, attributes, "NORMAL");
         if (normal < 0 || !GltfJsonUnsigned(json, &tokens[normal], &accessorindex)
             || !GltfResolveAccessor(json, tokens, tokencount, root, accessorindex, buffercount, &normals)
@@ -1704,20 +1734,20 @@ static BOOL GltfLoadPrimitive(const char *json,
         }
         if (builder->lit && !GltfAccessorFloats(&normals, buffers, sourceindex, vertex->environment.normal, 3))
         { *reasonout = "A lit editor model has invalid normals."; return FALSE; }
+        values[0] = values[1] = values[2] = values[3] = 1.0f;
         if (hascolors)
         {
-            values[3] = 1.0f;
             if (!GltfAccessorFloats(&colors, buffers, sourceindex,
                                     values, colors.components))
             {
                 *reasonout = "a glTF triangle references invalid vertex colors.";
                 return FALSE;
             }
-            vertex->r = GltfColorByte(values[0]);
-            vertex->g = GltfColorByte(values[1]);
-            vertex->b = GltfColorByte(values[2]);
-            vertex->a = GltfColorByte(values[3]);
         }
+        vertex->r = GltfColorByte(values[0] * basecolor[0]);
+        vertex->g = GltfColorByte(values[1] * basecolor[1]);
+        vertex->b = GltfColorByte(values[2] * basecolor[2]);
+        vertex->a = GltfColorByte(values[3] * basecolor[3]);
     }
 
     for (outputindex = 0; outputindex < trianglecount; outputindex++)
