@@ -271,8 +271,9 @@ $(GAMEOBJECTS): src/propconstants.h src/propruntimeflags.h
 $(CODEOBJECTS) $(GAMEOBJECTS): src/bondtypes.h src/game/bondview.h
 
 # IDO does not emit header dependencies; the diagnostic switch affects all hooks.
-N64_DIAG_OBJECTS := $(addprefix $(BUILD_DIR)/src/,n64diagnostics.o crash.o ramrom.o memp.o boss.o game/lv.o game/bg.o)
+N64_DIAG_OBJECTS := $(addprefix $(BUILD_DIR)/src/,n64diagnostics.o n64rdpcheck.o sched.o crash.o ramrom.o memp.o boss.o game/lv.o game/bg.o game/rsp.o)
 $(N64_DIAG_OBJECTS): src/n64diagnostics.h
+$(addprefix $(BUILD_DIR)/src/,n64diagnostics.o n64rdpcheck.o): src/n64rdpcheck.h
 
 # Manifest catalog descriptors derive counts and strides beside their arrays.
 # IDO emits no .d files, so keep native layouts and included catalogs in sync.

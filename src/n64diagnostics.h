@@ -48,6 +48,8 @@ void n64DiagDmaResult(s32 result);
 void n64DiagDmaDone(void);
 void n64DiagAllocation(u32 bank, u32 bytes, void *pos, void *end);
 void n64DiagFault(OSThread *thread);
+void n64DiagTask(u32 type, void *ucode, void *list, u32 size, void *out, void *end);
+void n64DiagCheckGfx(void *list, u32 size);
 #else
 #define n64DiagInit() ((void)0)
 #define n64DiagStage(stage) ((void)0)
@@ -57,6 +59,8 @@ void n64DiagFault(OSThread *thread);
 #define n64DiagDmaDone() ((void)0)
 #define n64DiagAllocation(bank, bytes, pos, end) ((void)0)
 #define n64DiagFault(thread) ((void)0)
+#define n64DiagTask(type, ucode, list, size, out, end) ((void)0)
+#define n64DiagCheckGfx(list, size) ((void)0)
 #endif
 
 #endif

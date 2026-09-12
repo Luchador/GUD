@@ -14,7 +14,7 @@ typedef struct { int unused; } OSTimer;
 typedef struct { int unused; } OSMesgQueue;
 typedef struct {
     u32 pc, cause, badvaddr, fpcsr, sr;
-    u64 sp, ra;
+    u64 sp, ra, a0;
 } TestContext;
 typedef struct {
     s32 id;
@@ -27,6 +27,7 @@ typedef struct {
 } OSViMode;
 extern OSViMode osViModeTable[31];
 extern u32 osTvType;
+extern u32 osMemSize;
 #define OS_VI_NTSC_LAN1 2
 #define OS_VI_PAL_LAN1 16
 #define OS_VI_MPAL_LAN1 30
@@ -35,6 +36,7 @@ extern u32 osTvType;
 #define OS_MESG_BLOCK 1
 #define OS_USEC_TO_CYCLES(n) ((u64)(n) * 46875 / 1000)
 #define TRUE 1
+#define FALSE 0
 OSIntMask osSetIntMask(OSIntMask mask);
 u32 osGetCount(void);
 void osInvalDCache(void *ptr, s32 size);

@@ -9,6 +9,7 @@
       build/OUTCODE/src/fr.o (.bss);
       build/OUTCODE/src/crash.o (.bss);
       build/OUTCODE/src/n64diagnostics.o (.bss);
+      build/OUTCODE/src/n64rdpcheck.o (.bss);
       build/OUTCODE/src/getra.o (.bss);
       build/OUTCODE/src/ramrom.o (.bss);
       build/OUTCODE/src/boss.o (.bss);

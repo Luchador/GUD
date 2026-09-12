@@ -15,5 +15,7 @@ with tempfile.TemporaryDirectory(prefix="gud-n64diag-") as directory:
         "-std=c99", "-O2", "-Wall", "-Wextra", "-Werror",
         "-Wno-pointer-to-int-cast", "-Wno-int-to-pointer-cast", "-Wno-unused-parameter",
         "-I", str(here), "-I", str(root / "src"), str(here / "check.c"),
+        str(root / "src/n64rdpcheck.c"),
+        str(here / "rdpcheck.c"),
         "-o", str(binary)], check=True)
     subprocess.run([str(binary), *sys.argv[1:]], check=True)

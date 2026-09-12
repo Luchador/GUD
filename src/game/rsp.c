@@ -5,6 +5,7 @@
 #include <sched.h>
 #include <PR/sptask.h>
 #include <PR/ucode.h>
+#include "n64diagnostics.h"
 
 
 #define RSP_MEMP_BANK                   6
@@ -230,6 +231,7 @@ void rspGfxTaskStart(Gfx *firstGdl, Gfx *gdl, s32 arg2, OSMesg rspReplyMsg)
 
     sctask->framebuffer = (void *) ((struct GfxInfo_s *)g_gfxTaskSettingsList)->cfb;
 
+    n64DiagCheckGfx(firstGdl, task->t.data_size);
     osWritebackDCacheAll();
 
     /* start graphic task */
