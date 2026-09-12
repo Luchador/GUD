@@ -197,9 +197,7 @@ BEGIN
     COMBOBOX        IDC_MODEL_SURFACE, 596, 298, 168, 100, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     PUSHBUTTON      "Apply to selected faces", IDC_MODEL_APPLY, 596, 324, 168, 20, WS_TABSTOP
     CONTROL         "Show all LODs", IDC_MODEL_LODS, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 596, 358, 168, 16
-    LTEXT           "Click a face to select. Shift adds; Ctrl removes. Drag to orbit; scroll to zoom.
-
-Save Project to keep changes.", IDC_MODEL_HINT, 596, 384, 168, 90
+    LTEXT           "Click a face to select. Shift adds; Ctrl removes. Drag to orbit; scroll to zoom.\n\nSave Project to keep changes.", IDC_MODEL_HINT, 596, 384, 168, 90
 
 END
 
