@@ -271,7 +271,7 @@ $(GAMEOBJECTS): src/propconstants.h src/propruntimeflags.h
 # the shared layout changes, including the RSP-aligned gauge vertex buffers.
 $(CODEOBJECTS) $(GAMEOBJECTS): src/bondtypes.h src/game/bondview.h
 
-$(addprefix $(BUILD_DIR)/src/game/,bg.o bondview.o): src/game/bg.h
+$(addprefix $(BUILD_DIR)/src/game/,bg.o bondview.o lv.o sky.o): src/game/bg.h
 
 # IDO does not emit header dependencies for the scheduler/HUD sample layout.
 $(BUILD_DIR)/src/rcpprofile.o $(BUILD_DIR)/src/sched.o $(BUILD_DIR)/src/game/lv.o: src/rcpprofile.h

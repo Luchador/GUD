@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Test production accounting, scheduler hooks and HUD with OS/hardware shims."""
+"""Test production accounting, scheduler, HUD and scissor A/B experiment."""
 import os
 from pathlib import Path
 import shlex
@@ -27,6 +27,20 @@ with tempfile.TemporaryDirectory(prefix="gud-rcpprofile-") as temporary:
            str(here / "check.c"), str(root / "src/rcpprofile.c"),
            "-o", str(binary)], check=True
     )
+    subprocess.run([str(binary)], check=True)
+
+    bg = (root / "src/game/bg.c").read_text()
+    lv = (root / "src/game/lv.c").read_text()
+    Path(temporary, "scissor_functions.inc").write_text("\n".join(
+        function(bg, name) for name in
+        ("bgSetScissorTest", "bgClampScissorTest",
+         "bgScissorCurrentPlayerView", "bgFillScissorTestRectangle"))
+        + "\n" + function(lv, "lvBeginScissorTest"))
+    binary = Path(temporary) / "scissor"
+    subprocess.run(shlex.split(os.environ.get("CC", "cc")) + [
+        "-std=c99", "-Wall", "-Wextra", "-Werror", "-O2",
+        "-I", str(here), "-I", temporary,
+        str(here / "scissor.c"), "-o", str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
 
     hud = (root / "src/game/lv.c").read_text()

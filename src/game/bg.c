@@ -129,6 +129,11 @@ typedef struct BgScissorCache
  */
 static BgScissorCache g_BgScissorCache = {FALSE, FALSE, 0, 0, 0, 0};
 
+/* Temporary RCP experiment: constrain rasterization, not room visibility. */
+static bool g_BgScissorTestEnabled = FALSE;
+static s32 g_BgScissorTestLeft = 0;
+static s32 g_BgScissorTestRight = 0;
+
 
 /**
  * Array of info about all the rooms on the level
@@ -1054,8 +1059,6 @@ Gfx *bgScissorCurrentPlayerView(Gfx *gdl, s32 left, s32 top, s32 width, s32 heig
         return gdl;
     }
 
-    gDPSetScissor(gdl++, G_SC_NON_INTERLACE, left, top, width, height);
-
     if (g_BgScissorCache.enabled)
     {
         g_BgScissorCache.valid = TRUE;
@@ -1065,6 +1068,58 @@ Gfx *bgScissorCurrentPlayerView(Gfx *gdl, s32 left, s32 top, s32 width, s32 heig
         g_BgScissorCache.bottom = height;
     }
 
+    /* Cache the original bounds above, so the test cannot suppress additional
+     * commands when different room scissors collapse to the same rectangle. */
+    bgClampScissorTest(&left, &width);
+    gDPSetScissor(gdl++, G_SC_NON_INTERLACE, left, top, width, height);
+
+    return gdl;
+}
+
+
+void bgSetScissorTest(bool enabled)
+{
+    g_BgScissorTestEnabled = enabled;
+    g_BgScissorCache.valid = FALSE;
+    if (enabled)
+    {
+        g_BgScissorTestLeft = (s32)g_CurrentPlayer->viewleft
+                + (s32)g_CurrentPlayer->viewx / 4;
+        g_BgScissorTestRight = g_BgScissorTestLeft
+                + (s32)g_CurrentPlayer->viewx / 2;
+    }
+}
+
+
+/* Right is exclusive. Collapse disjoint ranges to zero width without wrapping
+ * a negative coordinate through the unsigned RDP command fields. */
+void bgClampScissorTest(s32 *left, s32 *right)
+{
+    if (g_BgScissorTestEnabled)
+    {
+        if (*left < g_BgScissorTestLeft) { *left = g_BgScissorTestLeft; }
+        if (*left > g_BgScissorTestRight) { *left = g_BgScissorTestRight; }
+        if (*right > g_BgScissorTestRight) { *right = g_BgScissorTestRight; }
+        if (*right < *left) { *right = *left; }
+    }
+}
+
+
+/* Fill-cycle rectangles require explicit clipping; hardware scissoring alone
+ * is insufficient in fill mode. Preserve one command even for an empty fill.
+ * Unlike scissor bounds, the fill rectangle's right/bottom are inclusive. */
+Gfx *bgFillScissorTestRectangle(Gfx *gdl, s32 left, s32 top, s32 right, s32 bottom)
+{
+    right++;
+    bgClampScissorTest(&left, &right);
+    if (right <= left)
+    {
+        gDPNoOp(gdl++);
+    }
+    else
+    {
+        gDPFillRectangle(gdl++, left, top, right - 1, bottom);
+    }
     return gdl;
 }
 

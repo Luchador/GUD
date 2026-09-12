@@ -157,6 +157,10 @@ Gfx* bgSetupAndRender(Gfx *arg0);
 Gfx *bgScissorCurrentPlayerView(Gfx *arg0, s32 left, s32 top, s32 width, s32 height);
 Gfx* bgScissorCurrentPlayerViewDefault(Gfx* arg0);
 Gfx* bgScissorCurrentPlayerViewF(Gfx* arg0, f32 arg1, f32 arg2, f32 arg3, f32 arg4);
+/* Temporary single-player raster-workload experiment. */
+void bgSetScissorTest(bool enabled);
+void bgClampScissorTest(s32 *left, s32 *right);
+Gfx *bgFillScissorTestRectangle(Gfx *gdl, s32 left, s32 top, s32 right, s32 bottom);
 f32 bgGetRoomScale(void);
 u8 bgIsRoomRendered(s32 roomID);
 s32 bgGet2dBboxByRoomId(s32 room_id, struct bbox2d *result);

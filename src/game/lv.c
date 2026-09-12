@@ -120,6 +120,9 @@ f32 g_SystemPowerTimeSeconds = 0.0;
  */
 bool g_BgRenderEnabled = TRUE;
 
+/* Temporary A/B test, reset to full width at each stage load. */
+static bool g_LvScissorHalfWidth = FALSE;
+
 extern u8* _fontdlSegmentRomStart;
 extern u8* _fontdlSegmentRomEnd;
 
@@ -226,6 +229,8 @@ void lvlStageLoad(s32 stage)
     struct player_data *player_data;
 
     g_CurrentStageToLoad = stage;
+    g_LvScissorHalfWidth = FALSE;
+    bgSetScissorTest(FALSE);
     g_BgRenderEnabled = TRUE;
     g_ControlsLockedFlag = 0;
     g_ClockTimer = 1;
@@ -489,6 +494,36 @@ void lvlSetMultipliersForDifficulty(void)
 }
 
 
+/* Both modes perform the same full-view color clear, preventing stale pixels
+ * outside the cropped world without adding a half-mode-only rendering cost.
+ * Called after viSetupScreensForNumPlayers, with the color target active and
+ * a full-screen scissor. The ordinary full-size depth clear stays untouched. */
+static Gfx *lvBeginScissorTest(Gfx *gdl)
+{
+    if (!g_ControlsLockedFlag && !checkGamePaused()
+            && g_CurrentPlayer->watch_animation_state == 0
+            && g_CurrentPlayer->frozencam != 1
+            && joyGetButtons(PLAYER_1, L_TRIG | R_TRIG) == (L_TRIG | R_TRIG)
+            && joyGetButtonsPressedThisFrame(PLAYER_1, U_JPAD))
+    {
+        g_LvScissorHalfWidth = !g_LvScissorHalfWidth;
+    }
+
+    gDPPipeSync(gdl++);
+    gDPSetCycleType(gdl++, G_CYC_FILL);
+    gDPSetRenderMode(gdl++, G_RM_NOOP, G_RM_NOOP2);
+    gDPSetFillColor(gdl++, (GPACK_RGBA5551(0, 0, 0, 1) << 16)
+            | GPACK_RGBA5551(0, 0, 0, 1));
+    gDPFillRectangle(gdl++, viGetViewLeft(), viGetViewTop(),
+            viGetViewLeft() + viGetViewWidth() - 1,
+            viGetViewTop() + viGetViewHeight() - 1);
+    gDPPipeSync(gdl++);
+
+    bgSetScissorTest(g_LvScissorHalfWidth);
+    return bgScissorCurrentPlayerViewDefault(gdl);
+}
+
+
 /**
  * Graphics render method.
  * Also sets player max ammo if infinite ammo cheat is enabled.
@@ -532,6 +567,10 @@ Gfx* lvRender(Gfx* gdl)
             gdl = viSetupCurrentPlayerView(gdl);
             gdl = bviewRenderCameraView(gdl);
             gdl = viSetupScreensForNumPlayers(gdl);
+            if (pcount == 1)
+            {
+                gdl = lvBeginScissorTest(gdl);
+            }
             gdl = skyRender(gdl);
 
             
@@ -570,6 +609,13 @@ Gfx* lvRender(Gfx* gdl)
 
             gdl = glassRenderShards(gdl);
             gdl = explosionRenderCornflakes(gdl);
+
+            if (pcount == 1)
+            {
+                /* Weapons, casings, watch and HUD keep their normal bounds. */
+                bgSetScissorTest(FALSE);
+                gdl = bgScissorCurrentPlayerViewDefault(gdl);
+            }
 
             if (cheatIsActive(CHEAT_INFINITE_AMMO))
             {
@@ -1104,7 +1150,10 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
             total = rcpProfileCpuTenthsMs(sample.totalTicks);
             average = rcpProfileCpuTenthsMs(sample.averageTicks);
             maximum = rcpProfileCpuTenthsMs(sample.maximumTicks);
-            sprintf(rcpText[0], "RCP MS #%u%s", sample.sequence,
+            /* Selection for the frame being built, not a tag on the older
+             * completed sample. Wait 64+ tasks after switching for AVG/MAX. */
+            sprintf(rcpText[0], "RCP MS #%u S:1/%u%s", sample.sequence,
+                    g_LvScissorHalfWidth ? 2 : 1,
                     sample.counterRangeExceeded ? " COUNTER RANGE!" : "");
             sprintf(rcpText[1], "RSP:%u.%u AUD:%u.%u", rsp / 10, rsp % 10,
                     audio / 10, audio % 10);

@@ -12,6 +12,7 @@ static void *ptrFontBankGothicChars, *ptrFontBankGothic;
 static u32 g_ProfBgTickCycles, g_ProfLvlTickCycles, g_ProfLvlRenderCycles;
 static u32 g_ProfBgRenderCycles, g_ProfChrTickCycles, g_ProfObjTickCycles;
 static u32 g_ProfChrActionCycles, g_ProfGfxCommands, g_ProfBgGfxCommands;
+static s32 g_LvScissorHalfWidth;
 OSIntMask osSetIntMask(OSIntMask mask) { (void)mask; return 0; }
 u32 osGetCount(void) { return 100; }
 s32 viGetX(void) { return 320; }
@@ -53,12 +54,19 @@ int main(void)
     rows = fullScissor = 0;
     end = lvDrawFrameRateDisplay(buffer);
     assert(rows == 16 && fullScissor == 1);
-    assert(!strcmp(labels[9], "RCP MS #1"));
+    assert(!strcmp(labels[9], "RCP MS #1 S:1/1"));
     assert(!strcmp(labels[10], "RSP:1.0 AUD:0.0"));
     assert(!strcmp(labels[12], "YLAG:0.0 DPEND:2.0"));
     assert(!strcmp(labels[13], "CLK:2.0 CMD:1.0"));
     assert(!strcmp(labels[14], "PIPE:1.0 TMEM:0.5"));
     assert(!strcmp(labels[15], "END:2.0 AVG:2.0 MAX:2.0"));
+    assert(dynGetFreeGfx(end) >= 2);
+
+    g_LvScissorHalfWidth = TRUE;
+    rows = fullScissor = 0;
+    end = lvDrawFrameRateDisplay(buffer);
+    assert(rows == 16 && fullScissor == 1);
+    assert(!strcmp(labels[9], "RCP MS #1 S:1/2"));
     assert(dynGetFreeGfx(end) >= 2);
 
     /* Exercise every short-buffer boundary: omit rows before overflowing,

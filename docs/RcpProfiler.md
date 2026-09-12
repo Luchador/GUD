@@ -80,6 +80,10 @@ busy for much less than the full interval. Timestamp arithmetic handles a
 
 ## Hardware baseline to collect
 
+The temporary [scissor experiment](RcpScissorExperiment.md) compares full and
+half-width world rasterization within one ROM, using the same camera and
+geometry submissions. Use its full-width mode as the matching baseline.
+
 Use the same ROM settings, video mode, player count, camera position, and enemy
 activity before and after a change. Let loading settle and the 64-task history
 fill, then take repeated screenshots or a short capture showing both panels.
