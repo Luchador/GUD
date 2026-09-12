@@ -57,6 +57,28 @@ BOOL ObjectResolvePlaceableModel(const char *name, BOOL *character, int *modelid
     return FALSE;
 }
 
+BOOL ObjectGetSetupModelName(const SetupFile *setup, DWORD selection, const char **nameout)
+{
+    if (nameout == NULL) { return FALSE; }
+    *nameout = NULL;
+    if (setup == NULL) { return FALSE; }
+    if (selection & SETUP_CHARACTER_SELECTION_BIT)
+    {
+        DWORD index = selection & ~SETUP_CHARACTER_SELECTION_BIT;
+        CharacterModelDefinition definition;
+        int bodyid, headid;
+        if (setup->characters == NULL || index >= setup->charactercount
+            || setup->characters[index].deleted
+            || !CharacterResolveModels(&setup->characters[index], &bodyid, &headid)
+            || !CharacterGetModelDefinition(bodyid, &definition)) { return FALSE; }
+        *nameout = definition.filename;
+        return TRUE;
+    }
+    if (setup->objects == NULL || selection >= setup->objectcount
+        || setup->objects[selection].deleted) { return FALSE; }
+    return ModelGetPropDefinition(setup->objects[selection].modelid, nameout, NULL);
+}
+
 typedef struct ModelCacheEntry {
     BOOL attempted;
     BgVertex *tris;

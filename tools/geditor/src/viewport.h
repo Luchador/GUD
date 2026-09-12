@@ -14,6 +14,9 @@
 /* Sent to the frame after mouse picking changes the scene selection. The
    frame can query the selected background face or setup object below. */
 #define VIEWPORT_WM_SELECTION_CHANGED (WM_APP + 3)
+/* Double-click on a placed model. wparam is its setup selection ID;
+   lparam is the sending viewport HWND. */
+#define VIEWPORT_WM_OPEN_MODEL (WM_APP + 49)
 /* Sent only while the viewport owns keyboard focus, so Delete in future
    property editors cannot accidentally remove scene geometry. */
 #define VIEWPORT_WM_DELETE_SELECTION  (WM_APP + 4)

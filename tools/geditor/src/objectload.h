@@ -27,6 +27,9 @@ typedef struct SetupObjectGeometry {
 /* Resolves browser names through the game's model tables. Items, heads and
    first-person hands are not standalone setup instances. */
 BOOL ObjectResolvePlaceableModel(const char *name, BOOL *character, int *modelid);
+/* Model Editor asset name for a viewport selection. Character attachments
+   share their owner's selection, so these resolve to the preview body. */
+BOOL ObjectGetSetupModelName(const SetupFile *setup, DWORD selection, const char **nameout);
 
 /* Recreates initial setup placement using stan links, authored model boxes,
    placement flags, and previously placed solid props. NULL stan retains a

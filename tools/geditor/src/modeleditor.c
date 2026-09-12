@@ -530,6 +530,42 @@ BOOL ModelEditorShow(HWND owner, HINSTANCE instance, const char *projectdir)
     return TRUE;
 }
 
+BOOL ModelEditorOpenModel(HWND owner, HINSTANCE instance, const char *projectdir,
+                          const char *name, const char **reasonout)
+{
+    int category;
+    if (reasonout) { *reasonout = ""; }
+    if (name == NULL || name[0] == '\0')
+    {
+        if (reasonout) { *reasonout = "This object has no model to open."; }
+        return FALSE;
+    }
+    if (!ModelEditorShow(owner, instance, projectdir))
+    {
+        if (reasonout) { *reasonout = "Could not open the Model Editor window."; }
+        return FALSE;
+    }
+    for (category = 0; category < 3; category++)
+    {
+        HWND combo = GetDlgItem(g_ModelEditor, g_ModelCombos[category]);
+        LRESULT row, count = SendMessage(combo, CB_GETCOUNT, 0, 0);
+        for (row = 0; row < count; row++)
+        {
+            /* The combo is sorted; its rows are not indices into the asset list. */
+            LRESULT index = SendMessage(combo, CB_GETITEMDATA, row, 0);
+            if (index < 0 || index >= g_ModelCount
+                || lstrcmpi(g_ModelEntries[index].name, name) != 0) { continue; }
+            SendMessage(combo, CB_SETCURSEL, row, 0);
+            if (index != g_ModelSelected || g_ModelSource.vertices == NULL)
+            { ModelEditorSelect(category, TRUE); }
+            else { SetFocus(g_ModelViewport); }
+            return TRUE;
+        }
+    }
+    if (reasonout) { *reasonout = "The object's model was not found in this project's model list."; }
+    return FALSE;
+}
+
 BOOL ModelEditorHandleMessage(MSG *message)
 {
     BOOL ownmessage;

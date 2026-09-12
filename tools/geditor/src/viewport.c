@@ -5286,6 +5286,25 @@ static void ViewportUpdateOrbit(ViewportState *state)
     ViewportResizeGL(state, state->width, state->height);
 }
 
+static BOOL ViewportOpenModelAt(HWND hwnd, ViewportState *state, int x, int y, WPARAM modifiers)
+{
+    ViewportPickRay ray;
+    DWORD object;
+    double distance;
+    if (state == NULL || state->orbit || state->flying || state->vertexsnap
+        || state->tool == EDITOR_TOOL_VERTEX_PAINT || state->dragaxis >= 0 || state->boxpending
+        || (modifiers & (MK_SHIFT | MK_CONTROL)) || state->selectedobject == VIEWPORT_OBJECT_NONE)
+    { return FALSE; }
+    if (ViewportPickGizmo(hwnd, state, x, y) >= 0
+        || !ViewportBuildPickRay(hwnd, state, x, y, &ray)) { return FALSE; }
+    object = ViewportFindPickedObject(state, &ray, &distance);
+    /* The first click selected the object. Re-pick the visible surface so an
+       old selection cannot open through background geometry or an overlay. */
+    if (object == VIEWPORT_OBJECT_NONE || object != state->selectedobject) { return FALSE; }
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_OPEN_MODEL, (WPARAM)object, (LPARAM)hwnd);
+    return TRUE;
+}
+
 /* Consume model-viewer input before level picking, transforms, or flight. */
 static BOOL ViewportOrbitInput(HWND hwnd, ViewportState *state,
                                UINT msg, WPARAM wparam, LPARAM lparam)
@@ -5293,12 +5312,14 @@ static BOOL ViewportOrbitInput(HWND hwnd, ViewportState *state,
     switch (msg)
     {
     case WM_LBUTTONDOWN:
+    case WM_LBUTTONDBLCLK:
     case WM_RBUTTONDOWN:
+    case WM_RBUTTONDBLCLK:
         SetFocus(hwnd);
         SetCapture(hwnd);
         if (state->orbitbuttons) { state->orbitdragged = TRUE; }
         else { state->orbitdragged = FALSE; }
-        state->orbitbuttons |= msg == WM_LBUTTONDOWN ? MK_LBUTTON : MK_RBUTTON;
+        state->orbitbuttons |= (msg == WM_LBUTTONDOWN || msg == WM_LBUTTONDBLCLK) ? MK_LBUTTON : MK_RBUTTON;
         state->lastmouse.x = GET_X_LPARAM(lparam);
         state->lastmouse.y = GET_Y_LPARAM(lparam);
         state->orbitstart = state->lastmouse;
@@ -5431,12 +5452,17 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         return 0;
     }
 
+    case WM_RBUTTONDBLCLK:
     case WM_RBUTTONDOWN: ViewportCancelTransform(hwnd); ViewportBeginFly(hwnd, state);
         return 0;
 
     case WM_RBUTTONUP: ViewportEndFly(hwnd, state);
         return 0;
 
+    case WM_LBUTTONDBLCLK:
+        if (ViewportOpenModelAt(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam), wparam))
+        { return 0; }
+        /* Fall through: other double-clicks retain ordinary selection/drag behavior. */
     case WM_LBUTTONDOWN:
         SetFocus(hwnd);
         if (state != NULL && !state->flying && state->vertexsnap)
@@ -5657,7 +5683,7 @@ BOOL ViewportRegisterClass(HINSTANCE hinstance)
     WNDCLASS wc;
 
     ZeroMemory(&wc, sizeof(wc));
-    wc.style         = CS_OWNDC; /* one private DC per window - the GL convention */
+    wc.style         = CS_OWNDC | CS_DBLCLKS; /* private GL DC and double-click messages */
     wc.lpfnWndProc   = ViewportWndProc;
     wc.hInstance     = hinstance;
     wc.hCursor       = LoadCursor(NULL, IDC_ARROW);

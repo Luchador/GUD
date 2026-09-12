@@ -3068,6 +3068,18 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         GEditorRefreshSelectionDetails();
         return 0;
 
+    case VIEWPORT_WM_OPEN_MODEL:
+    {
+        const char *name, *why;
+        if ((HWND)lparam != g_Viewport || g_CurrentLevelIndex == GEDITOR_NO_LEVEL) { return 0; }
+        if (!ObjectGetSetupModelName(&g_CurrentSetup, (DWORD)wparam, &name))
+        { MessageBox(hwnd, "Could not resolve this object's model.", GEDITOR_TITLE, MB_ICONERROR); }
+        else if (!ModelEditorOpenModel(hwnd, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+                                      g_Project.dir, name, &why))
+        { MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR); }
+        return 0;
+    }
+
     case OBJECTPROPERTIES_WM_CHANGED:
     {
         BOOL ok = GEditorSetObjectProperty(hwnd, (const SetupObjectPropertyEdit *)lparam);
