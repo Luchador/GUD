@@ -987,6 +987,24 @@ Gfx *bgSetupAndRender(Gfx *gdl)
 }
 
 
+#if N64_LOAD_DIAGNOSTICS && !N64_DIAG_RDP_PROBE && N64_DIAG_HUD_ONLY && N64_DIAG_RESTORE_WEAPONS
+/* The HUD-only branch skips all of bgSetupAndRender, including its shared
+ * light/look-at setup and final camera matrices. Restore those for 07W
+ * without issuing a room, prop or world-effect display-list call. */
+Gfx *bgSetupWeaponDiagnostic(Gfx *gdl)
+{
+    gSPSetLights1(gdl++, GlobalLight);
+    gSPLookAt(gdl++, sub_GAME_7F078474());
+    gdl = bgScissorCurrentPlayerViewDefault(gdl);
+    gdl = envBeginWorldFog(gdl);
+    gdl = envRenderClearFogMode(gdl);
+    gdl = envRestoreFogAlphaDither(gdl);
+    gSPMatrix(gdl++, g_viProjectionMatrix, G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
+    return bondviewGfxPlayerField5cMatrix(gdl);
+}
+#endif
+
+
 /**
  * Calls @see bgScissorCurrentPlayerView with default current player values.
  */

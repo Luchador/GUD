@@ -273,6 +273,7 @@ $(CODEOBJECTS) $(GAMEOBJECTS): src/bondtypes.h src/game/bondview.h
 # IDO does not emit header dependencies; the diagnostic switch affects all hooks.
 N64_DIAG_OBJECTS := $(addprefix $(BUILD_DIR)/src/,n64diagnostics.o n64rdpcheck.o n64rdpprobe.o sched.o crash.o ramrom.o memp.o boss.o game/lv.o game/bg.o game/bondview.o game/rsp.o game/sky.o)
 $(N64_DIAG_OBJECTS): src/n64diagnostics.h
+$(addprefix $(BUILD_DIR)/src/game/,bg.o bondview.o): src/game/bg.h
 $(addprefix $(BUILD_DIR)/src/,n64diagnostics.o n64rdpcheck.o): src/n64rdpcheck.h
 $(addprefix $(BUILD_DIR)/src/,n64rdpprobe.o game/rsp.o): src/n64rdpprobe.h
 

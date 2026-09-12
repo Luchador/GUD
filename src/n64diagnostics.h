@@ -33,9 +33,17 @@
 /* Next isolation test after 05P passed on hardware: submit the ordinary
  * frame setup and HUD, branching past world/effects and gun/watch drawing.
  * Their CPU functions still run, including render-time gameplay updates.
+ * N64_DIAG_RESTORE_WEAPONS can re-enable the weapon/watch range separately.
  * The fill-only probe takes precedence when re-enabled. Temporary, not a fix. */
 #ifndef N64_DIAG_HUD_ONLY
 #define N64_DIAG_HUD_ONLY 1
+#endif
+
+/* After 06H passed: keep the world/effects bypass but draw casings, the
+ * first-person weapon and the watch. Only applies to the HUD isolation mode.
+ * Set to 0 to repeat the successful 06H control. Temporary, not a fix. */
+#ifndef N64_DIAG_RESTORE_WEAPONS
+#define N64_DIAG_RESTORE_WEAPONS 1
 #endif
 
 enum N64DiagPhase {

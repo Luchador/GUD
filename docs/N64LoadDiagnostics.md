@@ -1,5 +1,77 @@
 # Temporary N64 load diagnostics
 
+## Weapon/watch drawing after the successful HUD test (07W)
+
+`GUD-n64-weapon-isolation.patch` targets master `76664039` (HUDtest).
+It keeps the normal US build and is an isolation test, not a confirmed fix.
+
+### 06H hardware result
+
+The user reports no crash with the HUD, ammo counter, health and armor gauges
+visible. Pausing, watch-menu navigation, firing and audible guard gunfire
+also worked. `GUD(7).elf`/map match the intended **06H** configuration:
+
+| Item | ELF evidence |
+|---|---|
+| Diagnostic title | `N64 DIAG 06H` at `0x8002263C`. |
+| World/effects bypass | `lvRender` at `0x7F0AF6A0` contains the no-push branch construction at `0x7F0AF9F8`. |
+| Weapon/watch bypass | `bondviewRenderPlayerView` at `0x7F08164C` contains the no-push branch construction at `0x7F0816F4`. |
+| Fill-only probe | `n64RdpProbeBuild` is absent; `rspGfxTaskStart` has the ordinary submission path. |
+| Solid sky | `skyRender` is still the 0x60-byte bypass implementation. |
+
+This demonstrates that the common frame setup and clears, HUD texture/text
+drawing and gauge triangles can complete together in the tested situation.
+It does not certify every texture, triangle, synchronization or timing case.
+The successful pause/menu interaction does not undo the compiled branch
+around `bondviewRenderWatch`; its CPU work still ran during 06H.
+
+### What 07W changes
+
+`N64_DIAG_RESTORE_WEAPONS` defaults to 1 in `src/n64diagnostics.h`. With HUD
+isolation active and the fill probe off, the weapon/watch branch becomes an
+RSP no-op. Its reserved command slot is retained. The RSP now executes the
+normal casing, first-person weapon/beam and watch drawing commands. The
+world/effects branch in `lvRender` is unchanged, so rooms, props, characters,
+world tracers, sparks, glass and explosion debris remain invisible. Their
+CPU work continues, as in 06H.
+
+The world branch also skips `bgSetupAndRender`'s shared state commands.
+Before the restored weapon range, `bgSetupWeaponDiagnostic` recreates its
+light/look-at setup, player scissor, environment fog parameters/alpha dither,
+fog-disable state, projection matrix and player model-view matrix. It emits
+no room, prop or world-effect draw calls. Weapon/model renderers retain their
+own cycle, combiner and render-mode setup. This added state setup is part of
+the test, so a failure alone would not prove that a particular gun asset is
+bad. Frozen intro-camera views still take their original HUD-only path and
+do not execute the restored weapon range until normal player view begins.
+
+1. Apply the patch against `76664039` and run `make VERSION=US`.
+2. In the emulator, confirm the weapon is visible once player control begins,
+   with HUD/profiler text over the solid background and no world or guards.
+3. On N64, test Runway and Cradle: reach player control, aim, fire, reload,
+   then pause and switch watch pages. Report which stages were tested and
+   whether any failure occurs at loading, weapon appearance, firing or pause.
+4. If it stalls, send the **07W** diagnostic pages and matching ELF/map.
+
+If 07W succeeds, world/prop/character/effect drawing and its interaction with
+the rest of the frame become the next focus. If it fails, split the restored
+setup, weapon, casing and watch paths further before blaming an asset.
+Both results still allow timing-dependent interactions.
+
+To repeat 06H, set `N64_DIAG_RESTORE_WEAPONS=0` and rebuild. Leave
+`N64_DIAG_HUD_ONLY=1` and `N64_DIAG_RDP_PROBE=0`. The new switch is ignored
+when HUD isolation is off or the fill-only probe is on. The earlier room-list
+and solid-sky switches retain their existing settings.
+
+Validation: US IDO 5.3 compilation succeeded for the changed code and the
+unchanged world-bypass caller; the three existing `bg.c` floating-point
+warnings also occur on master. Both diagnostic/preflight and fill-probe host
+suites pass. Native instruction/relocation inspection confirms the world
+branch remains, the weapon branch is removed, and setup precedes all restored
+draw calls. With `N64_DIAG_RESTORE_WEAPONS=0`, `bg.c`, `bondview.c` and the
+diagnostic module have identical code/data/BSS to master 06H. No full ROM,
+emulator or N64 test of 07W was performed here.
+
 ## HUD and frame-setup isolation after the successful 05P test (06H)
 
 `GUD-n64-hud-isolation.patch` targets master `e27f805e` (Latest diagnostics).

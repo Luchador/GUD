@@ -8698,15 +8698,25 @@ Gfx *bondviewRenderPlayerView(Gfx *gdl)
     gunUpdateAndFireBothHands();
 #if N64_LOAD_DIAGNOSTICS && !N64_DIAG_RDP_PROBE && N64_DIAG_HUD_ONLY
     weaponSkip = gdl++;
+#if N64_DIAG_RESTORE_WEAPONS
+    /* The bypassed world pass normally establishes this shared RSP state.
+     * Recreate it before allowing the first-person draws to execute. */
+    gdl = bgSetupWeaponDiagnostic(gdl);
+#endif
 #endif
     gunRenderCasings(&gdl);
     gunRenderFirstPersonGunModels(&gdl);
     gdl = bondviewRenderWatch(gdl);
 #if N64_LOAD_DIAGNOSTICS && !N64_DIAG_RDP_PROBE && N64_DIAG_HUD_ONLY
+#if N64_DIAG_RESTORE_WEAPONS
+    /* Keep the reserved slot, but let the RSP execute this range normally. */
+    gSPNoOp(weaponSkip);
+#else
     /* These functions also update CPU-side state. Run them normally, then
      * have the RSP bypass only their generated commands, including watch UI.
      * The HUD below supplies its own text/gauge render state. */
     gSPBranchList(weaponSkip, osVirtualToPhysical(gdl));
+#endif
 #endif
 
     if (g_CurrentPlayer->mpmenuon != 0)
