@@ -1,7 +1,9 @@
 #include <ultra64.h>
 #include <PR/os.h>
+#include <PR/rcp.h>
 #include "init.h"
 #include "sched.h"
+#include "rcpprofile.h"
 #include <bondgame.h>
 #include "crash.h"
 #include "fr.h"
@@ -61,6 +63,7 @@ OSViMode *g_ViModePtrs[NUM_VIDEO_FRAME_BUFFERS];
 
 void osCreateScheduler (OSSched * sc, void * stack, u8 mode, u32 numFields)
 {
+    rcpProfileReset();
     sc->curRSPTask = 0;
     sc->curRDPTask = 0;
     sc->clientList = 0;
@@ -256,10 +259,14 @@ void __scHandleRSP(OSSched *sc)
 {
     OSScTask *t, *sp = 0, *dp = 0;
     s32 state;
+    s32 yielded;
+    u32 now = osGetCount();
     t = sc->curRSPTask;
     sc->curRSPTask = 0;
 
-    if ((t->state & OS_SC_YIELD) && osSpTaskYielded(&t->list))
+    yielded = (t->state & OS_SC_YIELD) && osSpTaskYielded(&t->list);
+    rcpProfileRspDone(t, now, yielded);
+    if (yielded)
     {
         t->state |= OS_SC_YIELDED;
 
@@ -290,9 +297,15 @@ void __scHandleRDP(OSSched *sc)
 {
     OSScTask *t, *sp = NULL, *dp = NULL; 
     s32 state;
+    u32 now = osGetCount();
     if (sc->curRDPTask != NULL)
     {
         t = sc->curRDPTask;
+        /* Capture before completion can release the task or launch/reset the
+         * next one. The SP and DP completion messages can arrive either way. */
+        rcpProfileRdpDone(t, now, IO_READ(DPC_CLOCK_REG),
+                IO_READ(DPC_BUFBUSY_REG), IO_READ(DPC_PIPEBUSY_REG),
+                IO_READ(DPC_TMEM_REG));
         sc->curRDPTask = NULL;
         t->state &= ~OS_SC_NEEDS_RDP;
         __scTaskComplete(sc, t);
@@ -382,20 +395,24 @@ void __scAppendList(OSSched *sc, OSScTask *t)
 void __scExec(OSSched *sc, OSScTask *sp, OSScTask *dp)
 {
     int rv;
+    s32 resumed;
     if (sp)
     {
+        resumed = (sp->state & OS_SC_YIELDED) != 0;
         if (sp->list.t.type == M_AUDTASK)
         {
             osWritebackDCacheAll();
         } 
         
-        if ((sp->list.t.type != M_AUDTASK) && (sp->state & 0x10) == 0)
+        if ((sp->list.t.type != M_AUDTASK) && (sp->state & OS_SC_YIELD) == 0)
         {
-            osDpSetStatus(0x3c0);
+            osDpSetStatus(DPC_CLR_TMEM_CTR | DPC_CLR_PIPE_CTR |
+                    DPC_CLR_CMD_CTR | DPC_CLR_CLOCK_CTR);
         }
 
         sp->state &= ~(OS_SC_YIELD | OS_SC_YIELDED); 
         osSpTaskLoad(&sp->list);
+        rcpProfileRspStart(sp, sp->list.t.type, resumed, osGetCount());
         osSpTaskStartGo(&sp->list);
         sc->curRSPTask = sp;
 
@@ -417,7 +434,8 @@ void __scYield(OSSched *sc)
 {
     if (sc->curRSPTask->list.t.type == M_GFXTASK) 
     {
-        sc->curRSPTask->state |= 0x0010;
+        rcpProfileYieldRequested(sc->curRSPTask, osGetCount());
+        sc->curRSPTask->state |= OS_SC_YIELD;
         osSpTaskYield();
     } 
     else 

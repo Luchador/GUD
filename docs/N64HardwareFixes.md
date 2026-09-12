@@ -45,10 +45,10 @@ preserved. See [RcpProfiler.md](RcpProfiler.md) and
 profiling work. Removing the per-task command walk and watchdog eliminates
 their overhead from future performance measurements.
 
-At the cleanup baseline, the RCP module is present but its scheduler/HUD
-connections and explicit linker entries are absent. This pre-existing
-integration gap is separate from the diagnostic removal; the module and
-its tests remain unchanged for follow-up.
+At the cleanup baseline, the RCP module was present but its scheduler/HUD
+connections and explicit linker entries were absent. The subsequent
+`GUD-rcp-profiler-restored.patch` reconnects them without restoring the
+crash-investigation code; see [RcpProfiler.md](RcpProfiler.md).
 
 ## Cleanup validation
 

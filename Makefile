@@ -273,6 +273,9 @@ $(CODEOBJECTS) $(GAMEOBJECTS): src/bondtypes.h src/game/bondview.h
 
 $(addprefix $(BUILD_DIR)/src/game/,bg.o bondview.o): src/game/bg.h
 
+# IDO does not emit header dependencies for the scheduler/HUD sample layout.
+$(BUILD_DIR)/src/rcpprofile.o $(BUILD_DIR)/src/sched.o $(BUILD_DIR)/src/game/lv.o: src/rcpprofile.h
+
 # Manifest catalog descriptors derive counts and strides beside their arrays.
 # IDO emits no .d files, so keep native layouts and included catalogs in sync.
 GED_CATALOG_OBJECTS := $(BUILD_DIR)/src/music.o $(addprefix $(BUILD_DIR)/src/game/,gedmanifest.o initanitable.o cobjdata.o pobjdata.o gun.o chraidata.o language.o)

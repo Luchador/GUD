@@ -1,5 +1,11 @@
 # RSP/RDP profiler
 
+`GUD-rcp-profiler-restored.patch` targets master `aa1f9b09` (Remove diagnostics).
+It reconnects the retained accounting module to the scheduler, resident linker
+sections and on-screen display. The framebuffer/BG alignment fixes and the
+interrupt-mask correction remain. No crash-investigation code is restored.
+Build with `make VERSION=US`; the profiler is independent of DEBUG.
+
 The existing FPS/CPU panel now includes an RCP block. It is enabled wherever
 `lvDrawFrameRateDisplay` is called, once per full rendered gameplay frame,
 including split-screen. No USB cartridge, logging connection, or replacement
@@ -111,6 +117,13 @@ They compile the production module and cover both completion orders, task
 reuse, multiple audio yields, repeated yield requests, completion instead of
 yielding, audio overlap at DP completion, timer wrap, counter masking/range,
 rolling-window eviction, rounding, and interrupt-mask restoration.
+
+The restoration also tests the actual scheduler entry points with OS/hardware
+shims: fresh-task counter resets, counter retention through yield/resume,
+both SP/DP completion orders, and publication before task release. A HUD test
+checks the actual display routines' formatted values, full-screen placement,
+and command-buffer capacity boundaries while reserving the final sync/end.
+These host checks do not emulate RSP microcode or RDP rasterization.
 
 The changed `rcpprofile.c`, `sched.c`, and `game/lv.c` also compile with the
 repository's IDO 5.3 toolchain as MIPS-II objects. A complete ROM link and

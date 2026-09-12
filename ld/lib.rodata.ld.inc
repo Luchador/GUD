@@ -2,6 +2,7 @@
       build/OUTCODE/src/boot.o (.rodata);
       build/OUTCODE/src/init.o (.rodata);
       build/OUTCODE/src/sched.o (.rodata);
+      build/OUTCODE/src/rcpprofile.o (.rodata);
       build/OUTCODE/src/osMapTLB.o (.rodata);
       build/OUTCODE/src/tlb_manage.o (.rodata);
       build/OUTCODE/src/tlb_random.o (.rodata);

@@ -8,6 +8,7 @@
 #include <music.h>
 #include <tlb_manage.h>
 #include <fr.h>
+#include <rcpprofile.h>
 #include <snd.h>
 #include <ramrom.h>
 #include <random.h>
@@ -56,6 +57,7 @@
 #include "stan.h"
 #include "textrelated.h"
 #include "dyntex.h"
+#include "dyn.h"
 #include "viewport.h"
 #include "vtxstore.h"
 
@@ -974,6 +976,23 @@ f32 lvGetSystemPowerTimeSeconds(void)
 }
 
 
+static Gfx *lvDrawProfilerText(Gfx *gdl, s32 *x, s32 *y, char *text, u32 color, s32 width)
+{
+    char *p;
+    s32 commands = 3; /* Primitive color and the caller's final sync/end. */
+
+    /* A glyph uses at most 12 Gfx entries (including its texture upload).
+     * Omit a row if the master list is full; never overwrite the next pool. */
+    for (p = text; *p; p++) {
+        commands += 12;
+    }
+    if (dynGetFreeGfx(gdl) < commands) {
+        return gdl;
+    }
+    return textRender(gdl, x, y, text, ptrFontBankGothicChars,
+            ptrFontBankGothic, color, width, viGetY(), 0, 0);
+}
+
 Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
 {
     static u32 fpsWindowStart = 0;
@@ -1012,12 +1031,17 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         fpsWindowStart = now;
     }
 
-    x = viGetViewLeft() + 14;
-    y = viGetViewTop() + 18;
+    x = 14;
+    y = 18;
     screenwidth = (s32) viGetX();
 
+    if (dynGetFreeGfx(gdl) < 18) {
+        return gdl;
+    }
     gdl = gfxSetup2DTextureMode(gdl);
-    gdl = textRender(gdl, &x, &y, fpsText, ptrFontBankGothicChars, ptrFontBankGothic, color, screenwidth, viGetY(), 0, 0);
+    /* Called once after all players, so use the whole screen in split-screen. */
+    gDPSetScissor(gdl++, G_SC_NON_INTERLACE, 0, 0, viGetX(), viGetY());
+    gdl = lvDrawProfilerText(gdl, &x, &y, fpsText, color, screenwidth);
 
     { /* TEMP profiler readouts: raw osGetCount cycles per frame */
         static char profText[8][32];
@@ -1053,9 +1077,56 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
 
         for (i = 0; i < 8; i++)
         {
-            x = viGetViewLeft() + 14;
-            y = viGetViewTop() + 44 + (i * 10);
-            gdl = textRender(gdl, &x, &y, profText[i], ptrFontBankGothicChars, ptrFontBankGothic, profColor[i], screenwidth, viGetY(), 0, 0);
+            x = 14;
+            y = 44 + (i * 10);
+            gdl = lvDrawProfilerText(gdl, &x, &y, profText[i], profColor[i], screenwidth);
+        }
+    }
+
+    {
+        RcpProfileSample sample;
+        static char rcpText[7][80];
+        u32 rsp, audio, gap, latency, dpEnd, clock, command, pipe, tmem;
+        u32 total, average, maximum;
+        s32 i;
+        s32 lines = 1;
+
+        if (rcpProfileGetSnapshot(&sample)) {
+            rsp = rcpProfileCpuTenthsMs(sample.rspTicks);
+            audio = rcpProfileCpuTenthsMs(sample.audioTicks);
+            gap = rcpProfileCpuTenthsMs(sample.yieldTicks);
+            latency = rcpProfileCpuTenthsMs(sample.yieldLatencyTicks);
+            dpEnd = rcpProfileCpuTenthsMs(sample.rdpEndTicks);
+            clock = rcpProfileRdpTenthsMs(sample.rdpClock);
+            command = rcpProfileRdpTenthsMs(sample.rdpCommand);
+            pipe = rcpProfileRdpTenthsMs(sample.rdpPipe);
+            tmem = rcpProfileRdpTenthsMs(sample.rdpTmem);
+            total = rcpProfileCpuTenthsMs(sample.totalTicks);
+            average = rcpProfileCpuTenthsMs(sample.averageTicks);
+            maximum = rcpProfileCpuTenthsMs(sample.maximumTicks);
+            sprintf(rcpText[0], "RCP MS #%u%s", sample.sequence,
+                    sample.counterRangeExceeded ? " COUNTER RANGE!" : "");
+            sprintf(rcpText[1], "RSP:%u.%u AUD:%u.%u", rsp / 10, rsp % 10,
+                    audio / 10, audio % 10);
+            sprintf(rcpText[2], "GAP:%u.%u YIELDS:%u", gap / 10, gap % 10,
+                    sample.yieldCount);
+            sprintf(rcpText[3], "YLAG:%u.%u DPEND:%u.%u", latency / 10,
+                    latency % 10, dpEnd / 10, dpEnd % 10);
+            sprintf(rcpText[4], "CLK:%u.%u CMD:%u.%u", clock / 10, clock % 10,
+                    command / 10, command % 10);
+            sprintf(rcpText[5], "PIPE:%u.%u TMEM:%u.%u", pipe / 10, pipe % 10,
+                    tmem / 10, tmem % 10);
+            sprintf(rcpText[6], "END:%u.%u AVG:%u.%u MAX:%u.%u", total / 10,
+                    total % 10, average / 10, average % 10, maximum / 10,
+                    maximum % 10);
+            lines = 7;
+        } else {
+            sprintf(rcpText[0], "RCP: WAITING FOR TASK");
+        }
+        for (i = 0; i < lines; i++) {
+            x = 14;
+            y = 130 + i * 10;
+            gdl = lvDrawProfilerText(gdl, &x, &y, rcpText[i], 0xFFFFFFFF, screenwidth);
         }
     }
 
