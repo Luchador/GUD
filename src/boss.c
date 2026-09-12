@@ -4,6 +4,7 @@
 #include <bondconstants.h>
 #include <bondgame.h>
 #include "boss.h"
+#include "n64diagnostics.h"
 #include "crash.h"
 #include "explosion.h"
 #include "game/dyn.h"
@@ -197,6 +198,7 @@ void bossInitMainthreadData(void)
  */
 void bossEntry(void)
 {
+    n64DiagInit();
     bossInitMainthreadData();
     rspAllocateBuffers();
     musicSeqPlayerInit();
@@ -267,6 +269,7 @@ void bossMainloop(void)
         localGfxDoneMsg = g_bossGfxDoneMsg;
         pendingGfx = 0;
 
+        n64DiagStage(g_StageNum);
         ramromInitDemo(g_StageNum, lvGetSelectedDifficulty());
 
         if (g_UseBuiltInMemTokens)
@@ -311,6 +314,7 @@ void bossMainloop(void)
             tokenSetString(memallocstringtable[stringIndex].string);
         }
 
+        n64DiagStep(N64DIAG_POOLS);
         mempResetBank(MEMPOOL_STAGE);
         obBlankResourcesLoadedInBank(MEMPOOL_STAGE);
 
@@ -334,12 +338,17 @@ void bossMainloop(void)
             }
         }
 
+        n64DiagStep(N64DIAG_PLAYERS);
         init_player_data_ptrs_construct_viewports(localSelectedNumPlayers);
+        n64DiagStep(N64DIAG_GFX_MEMORY);
         dynInitMemory();
         joyCheckStatusThreadSafe();
+        n64DiagStep(N64DIAG_STAGE_LOAD);
         lvlStageLoad(g_StageNum);
+        n64DiagStep(N64DIAG_VIDEO);
         viInitBuffers();
         waitForNextFrame();
+        n64DiagStep(N64DIAG_WAIT_FRAME);
 
         while (g_MainStageNum < 0 || pendingGfx != 0)
         {
@@ -376,10 +385,12 @@ void bossMainloop(void)
 
                             { /* TEMP profiler */
                                 u32 prof_t = osGetCount();
+                                n64DiagStep(N64DIAG_TICK);
                                 lvTick();
                                 g_ProfLvlTickCycles = osGetCount() - prof_t;
                             }
 
+                            n64DiagStep(N64DIAG_VIEW);
                             shuffle_player_ids();
 
                             if (g_StageNum != LEVELID_TITLE)
@@ -402,6 +413,7 @@ void bossMainloop(void)
                             
                             { /* TEMP profiler */
                                 u32 prof_t = osGetCount();
+                                n64DiagStep(N64DIAG_RENDER);
                                 gdl = lvRender(gdl);
                                 g_ProfLvlRenderCycles = osGetCount() - prof_t;
                             }
@@ -417,10 +429,12 @@ void bossMainloop(void)
                             video_related_8();
 
                             rspReplyMsg = (s32)(&localGfxDoneMsg);
+                            n64DiagStep(N64DIAG_SUBMIT);
                             rspGfxTaskStart(firstGdl, gdl, 0, (s32*)rspReplyMsg);
 
                             pendingGfx++;
                             memaSingleDefragPass();
+                            n64DiagStep(N64DIAG_WAIT_FRAME);
                         }
                     }
                 }
@@ -436,6 +450,7 @@ void bossMainloop(void)
             }
         }
 
+        n64DiagStep(N64DIAG_UNLOAD);
         lvlUnloadStageTextData();
         ramromStopDemoPlayback();
         mempNullNextEntryInBank(MEMPOOL_STAGE);

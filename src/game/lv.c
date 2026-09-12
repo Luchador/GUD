@@ -1,4 +1,5 @@
 #include <ultra64.h>
+#include <n64diagnostics.h>
 #include <math.h>
 #include <os_extension.h>
 #include <PR/libaudio.h>
@@ -240,10 +241,13 @@ void lvlStageLoad(s32 stage)
     musicTrack3ApplySeqpVol(VOLUME_MAX);
     sub_GAME_7F0C1364();
     modelmgrSetLevelResetting(TRUE);
+    n64DiagStep(N64DIAG_TEXTURES);
     set_mt_tex_alloc();
     fxResetAllSparks();
     texReset();
+    n64DiagStep(N64DIAG_FONTS);
     load_font_tables();
+    n64DiagStep(N64DIAG_STAGE_STATE);
 
     /* If title screen, initialize screen and folder setup.
     * Otherwise:
@@ -278,6 +282,7 @@ void lvlStageLoad(s32 stage)
 
         bgLoadFile(g_CurrentStageToLoad);
 
+        n64DiagStep(N64DIAG_STAGE_STATE);
         optionsWatchInit();
 
         sub_GAME_7F0C11FC(stage);
@@ -346,9 +351,12 @@ void lvlStageLoad(s32 stage)
     init_load_objpos_table();
     reinit_between_menus();
     init_sound_effects_registers();
+    n64DiagStep(N64DIAG_GUARDS);
     init_guards();
     bodiesReset(stage);
+    n64DiagStep(N64DIAG_SETUP);
     setupLoadFiles(stage);
+    n64DiagStep(N64DIAG_FX);
     initFxBuffers();
     alloc_shattered_window_pieces();
     
@@ -366,15 +374,18 @@ void lvlStageLoad(s32 stage)
     {
         s32 player;
 
+        n64DiagStep(N64DIAG_PATHS);
         init_path_table_links();
         init_ejected_cartridges();
 
         for (player = 0; player < getPlayerCount(); player++)
         {
             set_cur_player(player);
+            n64DiagStep(N64DIAG_BOND);
             reinit_gunheld_totaltime();
             init_player_BONDdata_stats();
             init_player_BONDdata();
+            n64DiagStep(N64DIAG_INTRO);
             bondviewLoadSetupIntroSection();
             bviewPlayerBeginLife();
             sets_a_bunch_of_BONDdata_values_to_default();

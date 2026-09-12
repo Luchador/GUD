@@ -2,6 +2,7 @@
 #include <PR/os.h>
 #include "tlb_manage.h"
 #include "crash.h"
+#include "n64diagnostics.h"
 #include "thread_config.h"
 
 /**
@@ -184,6 +185,7 @@ void crashMain(void* arg0)
 
         if (curr == NULL)
         {
+            osSetIntMask(mask);
             continue;
         }
 
@@ -199,6 +201,7 @@ void crashMain(void* arg0)
         }
         else
         {
+            n64DiagFault(curr);
             break;
         }
     }

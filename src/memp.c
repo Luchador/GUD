@@ -1,5 +1,6 @@
 #include <ultra64.h>
 #include "memp.h"
+#include "n64diagnostics.h"
 #include "game/language.h"
 
 
@@ -124,6 +125,7 @@ void *mempAllocBytesInBank(u32 bytes, u8 poolnum)
     MemoryPool *pool = &g_mempPools[poolnum];
     u8 *allocation = pool->pos;
 
+    n64DiagAllocation(poolnum, bytes, pool->pos, pool->end);
     if (pool->pos == NULL)
     {
         while (1);
@@ -170,6 +172,7 @@ MEMP_ADD_ENTRY_RESULT mempAddEntryOfSizeToBank(void *allocation, s32 newsize, u8
     allocation = (void *)(u64)allocation;
     pool = &g_mempPools[poolnum];
 
+    n64DiagAllocation(poolnum, newsize, pool->pos, pool->end);
     if (pool->pos == 0)
     {
         while (TRUE);

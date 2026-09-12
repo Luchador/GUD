@@ -9,6 +9,7 @@
       build/OUTCODE/src/audi.o (.data);
       build/OUTCODE/src/fr.o (.data);
       build/OUTCODE/src/crash.o (.data);
+      build/OUTCODE/src/n64diagnostics.o (.data);
       build/OUTCODE/src/getra.o (.data);
       build/OUTCODE/src/ramrom.o (.data);
       build/OUTCODE/src/boss.o (.data);

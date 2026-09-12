@@ -1,4 +1,5 @@
 #include <ultra64.h>
+#include <n64diagnostics.h>
 #include <PR/os.h>
 #include <PR/gbi.h>
 #include <gbi_extension.h>
@@ -527,6 +528,7 @@ void bgLoadFile(LEVEL_INDEX levelid)
     /* PI DMA requires an 8-byte-aligned destination. Use a complete 16-byte
      * cache-line range as well: a plain s32 array can land at sp + 0x64. */
     g_BgData = (u8 *)(((u32)headerBuffer + 0xf) & ~0xf);
+    n64DiagStep(N64DIAG_BG_HEADER);
     obLoadBGFileBytesAtOffset(g_LevelInfoTable[levelentry_index].bg_seg_filename, g_BgData, 0, 0x40);
 
     bgDataOffsets = g_BgData;
@@ -535,13 +537,16 @@ void bgLoadFile(LEVEL_INDEX levelid)
     size = (((((u32) ptr_bgdata_room_fileposition_list[1].pPointTableBin) & 0x00ffffff) - 1) | 0xf) + 1;
  
     g_BgData = mempAllocBytesInBank(size, 4);
+    n64DiagStep(N64DIAG_BG_DATA);
     obLoadBGFileBytesAtOffset(g_LevelInfoTable[levelentry_index].bg_seg_filename, g_BgData, 0, size);
- 
+
+    n64DiagStep(N64DIAG_STAN);
     g_StanData = (s32) _fileNameLoadToBank(g_LevelInfoTable[levelentry_index].bg_stan_filename, 2, 0, 4);
  
     stanDetermineEOF((struct StanPrefixRecord *) g_StanData, 0, (u8 *) g_StanData);
     stanLoadFile((struct StanPrefixRecord *) g_StanData);
- 
+
+    n64DiagStep(N64DIAG_BG_PROCESS);
     bgSetLevelScale(g_LevelInfoTable[levelentry_index].levelscale);
     setLevelScale(g_LevelInfoTable[levelentry_index].levelscale);
  
