@@ -523,6 +523,9 @@ Gfx* lvRender(Gfx* gdl)
     {
         s32 i;
         s32 pcount;
+#if N64_LOAD_DIAGNOSTICS && !N64_DIAG_RDP_PROBE && N64_DIAG_HUD_ONLY
+        Gfx *worldSkip;
+#endif
 
         pcount = getPlayerCount();
 
@@ -564,6 +567,12 @@ Gfx* lvRender(Gfx* gdl)
 
             propsTickPlayer();
 
+#if N64_LOAD_DIAGNOSTICS && !N64_DIAG_RDP_PROBE && N64_DIAG_HUD_ONLY
+            /* Keep building the world list: room loading, render-time prop
+             * updates and dynamic allocations must still happen on the CPU.
+             * Patch this reserved command before the task is submitted. */
+            worldSkip = gdl++;
+#endif
             { /* TEMP profiler */
                 Gfx *bgGdlStart = gdl;
                 u32 prof_t = osGetCount();
@@ -580,6 +589,11 @@ Gfx* lvRender(Gfx* gdl)
             gdl = glassRenderShards(gdl);
             gdl = explosionRenderCornflakes(gdl);
 
+#if N64_LOAD_DIAGNOSTICS && !N64_DIAG_RDP_PROBE && N64_DIAG_HUD_ONLY
+            /* A no-push branch skips the generated world/effects commands
+             * without executing their nested lists or reusing their space. */
+            gSPBranchList(worldSkip, osVirtualToPhysical(gdl));
+#endif
             if (cheatIsActive(CHEAT_INFINITE_AMMO))
             {
                 set_max_ammo_for_cur_player();

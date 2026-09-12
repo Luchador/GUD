@@ -27,7 +27,15 @@
  * frames, then amber FIFO-wrap frames, then green continuing the wrap test.
  * Menus and the CPU's stage work remain active. Temporary, not a fix. */
 #ifndef N64_DIAG_RDP_PROBE
-#define N64_DIAG_RDP_PROBE 1
+#define N64_DIAG_RDP_PROBE 0
+#endif
+
+/* Next isolation test after 05P passed on hardware: submit the ordinary
+ * frame setup and HUD, branching past world/effects and gun/watch drawing.
+ * Their CPU functions still run, including render-time gameplay updates.
+ * The fill-only probe takes precedence when re-enabled. Temporary, not a fix. */
+#ifndef N64_DIAG_HUD_ONLY
+#define N64_DIAG_HUD_ONLY 1
 #endif
 
 enum N64DiagPhase {

@@ -1,4 +1,5 @@
 #include <ultra64.h>
+#include <n64diagnostics.h>
 #include <math.h>
 #include <bondconstants.h>
 #include <bondtypes.h>
@@ -8678,6 +8679,9 @@ Gfx *bondviewRenderPlayerView(Gfx *gdl)
     s32 count;
     s32 i;
     s32 total;
+#if N64_LOAD_DIAGNOSTICS && !N64_DIAG_RDP_PROBE && N64_DIAG_HUD_ONLY
+    Gfx *weaponSkip;
+#endif
 
     if (g_CurrentPlayer->frozencam == 1)
     {
@@ -8692,9 +8696,18 @@ Gfx *bondviewRenderPlayerView(Gfx *gdl)
     }
 
     gunUpdateAndFireBothHands();
+#if N64_LOAD_DIAGNOSTICS && !N64_DIAG_RDP_PROBE && N64_DIAG_HUD_ONLY
+    weaponSkip = gdl++;
+#endif
     gunRenderCasings(&gdl);
     gunRenderFirstPersonGunModels(&gdl);
     gdl = bondviewRenderWatch(gdl);
+#if N64_LOAD_DIAGNOSTICS && !N64_DIAG_RDP_PROBE && N64_DIAG_HUD_ONLY
+    /* These functions also update CPU-side state. Run them normally, then
+     * have the RSP bypass only their generated commands, including watch UI.
+     * The HUD below supplies its own text/gauge render state. */
+    gSPBranchList(weaponSkip, osVirtualToPhysical(gdl));
+#endif
 
     if (g_CurrentPlayer->mpmenuon != 0)
     {
