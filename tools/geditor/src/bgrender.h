@@ -23,6 +23,10 @@ enum BgRenderFlag
     BG_RENDER_ENVIRONMENT = 1024,
     BG_RENDER_ENVIRONMENT_LINEAR = 2048,
     BG_RENDER_MONITOR = 4096, /* Derived setup screen; drawn by monitor preview. */
+    BG_RENDER_CULL_BACK = 8192,
+    BG_RENDER_CULL_FRONT = 16384,
+    BG_RENDER_CULL_EXPLICIT = 32768, /* Includes an authored two-sided state. */
+    BG_RENDER_CULL_MASK = BG_RENDER_CULL_BACK | BG_RENDER_CULL_FRONT | BG_RENDER_CULL_EXPLICIT,
     BG_RENDER_ENVIRONMENT_MASK = BG_RENDER_ENVIRONMENT | BG_RENDER_ENVIRONMENT_LINEAR,
     BG_RENDER_WRAP_MASK = BG_RENDER_CLAMP_S | BG_RENDER_MIRROR_S
                        | BG_RENDER_CLAMP_T | BG_RENDER_MIRROR_T
@@ -30,8 +34,9 @@ enum BgRenderFlag
 
 typedef struct BgRenderState
 {
-    DWORD othermode;
+    DWORD othermode, othermodehigh;
     BOOL zbuffer;
+    DWORD geometryknown; /* Bits explicitly set/cleared by the native stream. */
     DWORD geometrymode; /* lighting and texture generation, including partial clears */
     unsigned char environmentalpha, primitivealpha;
 } BgRenderState;

@@ -427,6 +427,9 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
                         }
                     }
                     b->renderflags[b->count / 3 - 1] = (BgRenderStateFlags(state) & ~BG_RENDER_ENVIRONMENT_MASK)
+                        | (((state->geometryknown & 0x3000) == 0x3000) ? BG_RENDER_CULL_EXPLICIT : 0)
+                        | ((state->geometrymode & 0x2000) ? BG_RENDER_CULL_BACK : 0)
+                        | ((state->geometrymode & 0x1000) ? BG_RENDER_CULL_FRONT : 0)
                         | cacheflags[idx[0]]
                         | (alpha.texture ? 0 : BG_RENDER_IGNORE_TEXTURE_ALPHA)
                         | BgRenderMaterialWrap(material);
@@ -437,7 +440,7 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
 }
 
 static void MdlSourceWalk(MdlBuilder *b, const unsigned char *data, DWORD size,
-    DWORD pointer, DWORD offset, DWORD vertices, unsigned short layer,
+    DWORD pointer, DWORD offset, DWORD vertices, DWORD vertexpointer, DWORD pointusagepointer, unsigned short layer,
     const MdlPose *pose, const float origin[3], BgRenderState *state, BgMaterial *material, BOOL preserve)
 {
     if (b->source != NULL)
@@ -453,6 +456,9 @@ static void MdlSourceWalk(MdlBuilder *b, const unsigned char *data, DWORD size,
         source->lists = grown; b->list = source->listcount++;
         grown[b->list].pointer = pointer; grown[b->list].offset = offset;
         grown[b->list].end = 0; grown[b->list].vertexbase = vertices;
+        grown[b->list].vertexpointer = vertexpointer;
+        grown[b->list].pointusagepointer = pointusagepointer;
+        grown[b->list].modeltype = 0;
         grown[b->list].initial = *material; grown[b->list].preserve = preserve;
         if (preserve)
         {
@@ -490,7 +496,7 @@ static void MdlNodeMeshes(MdlBuilder *b, const unsigned char *data,
     {
         if (dataoff == 0 || dataoff > maxlen - 16) { b->error="A dynamic model part is invalid."; return; }
         DWORD offset=mdoff(md32(data+dataoff+8));
-        if (offset) { MdlSourceWalk(b,data,maxlen,dataoff+8,offset,mdoff(md32(data+dataoff+4)),0,pose,origin,&state,&material,TRUE); }
+        if (offset) { MdlSourceWalk(b,data,maxlen,dataoff+8,offset,mdoff(md32(data+dataoff+4)),0,0,0,pose,origin,&state,&material,TRUE); }
         return;
     }
     if (dataoff == 0 || dataoff + 0x14 > maxlen)
@@ -516,25 +522,39 @@ static void MdlNodeMeshes(MdlBuilder *b, const unsigned char *data,
         vtxbase = mdoff(md32(data + dataoff + (opcode == 0x04 ? 0xC : 0x8)));
     }
 
+    /* Standard world-model defaults. Property edits replace only surface
+       bits and the active cycle's final blender selector, retaining fog. */
+    state.othermodehigh = modeltype == 1 ? 0 : 0x00100000u;
+    state.othermode = modeltype == 1 ? 0x00552078u : 0xC4112078u;
+    DWORD firstlist = b->source ? b->source->listcount : 0;
     if (prioff != 0 && prioff < maxlen)
     {
-        MdlSourceWalk(b, data, maxlen, dataoff, prioff, vtxbase, 0, pose, origin, &state, &material, FALSE);
+        MdlSourceWalk(b, data, maxlen, dataoff, prioff, vtxbase, dataoff + (opcode == 4 ? 12 : 8), opcode == 0x18 ? dataoff + 0x14 : 0, 0, pose, origin, &state, &material, FALSE);
     }
 
     if (secoff != 0 && secoff < maxlen)
     {
         /* Type 3 keeps the primary combiner; type 4 reinstalls the standard
            combiner. Both secondary passes start with translucent depth state. */
-        BgRenderState defaults;
-        BgRenderStateInit(&defaults, TRUE);
-        state.othermode = defaults.othermode;
+        state.othermode = 0xC41049D8u;
         if (modeltype == 4)
         {
+            /* This is a separately submitted pass: the game applies its
+               caller-dependent cull mode again before entering this list. */
+            state.othermodehigh = (state.othermodehigh & ~0x00300000u) | 0x00100000u;
+            state.geometryknown &= ~0x3000u;
+            state.geometrymode &= ~0x3000u;
             material.combineword0 = 0xFC26A004u;
             material.combineword1 = 0x1F1093FFu;
         }
-        MdlSourceWalk(b, data, maxlen, dataoff + 4, secoff, vtxbase, BG_TRI_SECONDARY, pose, origin,
+        MdlSourceWalk(b, data, maxlen, dataoff + 4, secoff, vtxbase, dataoff + (opcode == 4 ? 12 : 8), opcode == 0x18 ? dataoff + 0x14 : 0, BG_TRI_SECONDARY, pose, origin,
                    &state, &material, FALSE);
+    }
+    if (b->source)
+    {
+        DWORD list;
+        for (list = firstlist; list < b->source->listcount; list++)
+        { b->source->lists[list].modeltype = modeltype; }
     }
 }
 

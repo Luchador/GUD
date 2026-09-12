@@ -184,6 +184,23 @@ BEGIN
     PUSHBUTTON      "Import Model...", IDC_MODEL_IMPORT, 104, 52, 88, 18, WS_TABSTOP
     LTEXT           "Choose a model.", IDC_MODEL_STATUS, 8, 514, 680, 18, SS_ENDELLIPSIS
     PUSHBUTTON      "&Close", IDCANCEL, 702, 514, 70, 18
+    GROUPBOX        "Face properties", IDC_MODEL_PROPERTIES, 588, 80, 184, 420
+    LTEXT           "No faces selected", IDC_MODEL_SELECTION, 596, 96, 168, 18
+    LTEXT           "Part / texture group", IDC_MODEL_GROUP_LABEL, 596, 118, 168, 12
+    COMBOBOX        IDC_MODEL_GROUP, 596, 132, 168, 180, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON      "Select group", IDC_MODEL_SELECT_GROUP, 596, 154, 80, 18, WS_TABSTOP
+    PUSHBUTTON      "Select all", IDC_MODEL_SELECT_ALL, 684, 154, 80, 18, WS_TABSTOP
+    LTEXT           "Select faces to inspect their settings.", IDC_MODEL_CURRENT, 596, 182, 168, 54
+    LTEXT           "Backface culling", IDC_MODEL_CULL_LABEL, 596, 244, 168, 12
+    COMBOBOX        IDC_MODEL_CULL, 596, 258, 168, 100, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Render mode", IDC_MODEL_SURFACE_LABEL, 596, 284, 168, 12
+    COMBOBOX        IDC_MODEL_SURFACE, 596, 298, 168, 100, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON      "Apply to selected faces", IDC_MODEL_APPLY, 596, 324, 168, 20, WS_TABSTOP
+    CONTROL         "Show all LODs", IDC_MODEL_LODS, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 596, 358, 168, 16
+    LTEXT           "Click a face to select. Shift adds; Ctrl removes. Drag to orbit; scroll to zoom.
+
+Save Project to keep changes.", IDC_MODEL_HINT, 596, 384, 168, 90
+
 END
 
 /* Modeless, resizable workspace for the face UV editing tools. */

@@ -105,6 +105,21 @@
 #define IDC_MODEL_EXPORT           1047
 #define IDC_MODEL_IMPORT           1048
 
+#define IDC_MODEL_PROPERTIES       1050
+#define IDC_MODEL_SELECTION        1051
+#define IDC_MODEL_GROUP_LABEL      1052
+#define IDC_MODEL_GROUP            1053
+#define IDC_MODEL_SELECT_GROUP     1054
+#define IDC_MODEL_SELECT_ALL       1055
+#define IDC_MODEL_CURRENT          1056
+#define IDC_MODEL_CULL_LABEL       1057
+#define IDC_MODEL_CULL             1058
+#define IDC_MODEL_SURFACE_LABEL    1059
+#define IDC_MODEL_SURFACE          1060
+#define IDC_MODEL_APPLY            1061
+#define IDC_MODEL_LODS             1062
+#define IDC_MODEL_HINT             1063
+
 /* Image import settings. The thirteen texture types form one radio group. */
 #define IDC_IMAGE_SUMMARY     1100
 #define IDC_IMAGE_FORMAT_FIRST 1110

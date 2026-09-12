@@ -103,6 +103,23 @@ typedef struct SceneBatch {
     int monitor;        /* -1 for static geometry */
 } SceneBatch;
 
+/* Explicit model culling shares the batch flags with depth and blending.
+   Background tags keep their existing meaning. */
+static GLenum ViewportBatchCullMode(const SceneBatch *batch, BOOL enabled)
+{
+    BOOL back, front;
+    if (!enabled) { return 0; }
+    back = (batch->renderflags & BG_RENDER_CULL_BACK) != 0;
+    front = (batch->renderflags & BG_RENDER_CULL_FRONT) != 0;
+    if (!(batch->renderflags & BG_RENDER_CULL_EXPLICIT)) { back |= batch->cullbackfaces; }
+    return back ? (front ? GL_FRONT_AND_BACK : GL_BACK) : front ? GL_FRONT : 0;
+}
+static void ViewportApplyCullMode(GLenum mode)
+{
+    if (mode) { glCullFace(mode); glEnable(GL_CULL_FACE); }
+    else { glDisable(GL_CULL_FACE); }
+}
+
 /* A camera/gun's rendered centre, cached with the scene. Resolve its target from
  * the live setup when drawing so inspector edits do not require a mesh reload. */
 typedef struct ViewportAimGuide {
@@ -221,6 +238,8 @@ typedef struct ViewportState {
     BOOL orbit;
     OrbitCamera orbitcamera;
     unsigned int orbitbuttons;
+    POINT orbitstart;
+    BOOL orbitdragged;
 
     BOOL flying;
     ModelLighting modellighting;
@@ -743,14 +762,7 @@ static void ViewportDrawBgToolOverlay(const ViewportState *state)
             {
                 continue;
             }
-            if (state->cullbackfaces && batch->cullbackfaces)
-            {
-                glEnable(GL_CULL_FACE);
-            }
-            else
-            {
-                glDisable(GL_CULL_FACE);
-            }
+            ViewportApplyCullMode(ViewportBatchCullMode(batch, state->cullbackfaces));
             ViewportDrawVisibleBatch(state, batch);
         }
     }
@@ -954,7 +966,7 @@ static void ViewportDrawMonitors(ViewportState *state)
         }
         if (animation->color[3] < 255) { flags |= BG_RENDER_BLEND; }
         ViewportApplyRenderFlags(flags);
-        if (state->cullbackfaces) { glEnable(GL_CULL_FACE); } else { glDisable(GL_CULL_FACE); }
+        ViewportApplyCullMode(state->cullbackfaces ? GL_BACK : 0);
         if (texture && texture->name)
         {
             glEnable(GL_TEXTURE_2D); glBindTexture(GL_TEXTURE_2D, texture->name);
@@ -1439,7 +1451,8 @@ static void ViewportPaintGL(ViewportState *state)
         if (state->scene != NULL && state->batchcount > 0)
         {
             int i;
-            BOOL incullback = FALSE, monitorsdrawn = FALSE;
+            GLenum incullback = 0;
+            BOOL monitorsdrawn = FALSE;
             int activerenderflags = -1;
 
             ViewportUpdateEnvironmentMapping(state);
@@ -1449,7 +1462,7 @@ static void ViewportPaintGL(ViewportState *state)
             for (i = 0; i < state->batchcount; i++)
             {
                 const SceneBatch *batch = &state->batches[i];
-                BOOL wantcullback;
+                GLenum wantcullback;
                 if (batch->secondary && !monitorsdrawn)
                 {
                     ViewportDrawMonitors(state);
@@ -1466,7 +1479,7 @@ static void ViewportPaintGL(ViewportState *state)
                     continue;
                 }
 
-                wantcullback = state->cullbackfaces && batch->cullbackfaces;
+                wantcullback = ViewportBatchCullMode(batch, state->cullbackfaces);
 
                 if (activerenderflags != batch->renderflags)
                 {
@@ -1476,14 +1489,7 @@ static void ViewportPaintGL(ViewportState *state)
 
                 if (wantcullback != incullback)
                 {
-                    if (wantcullback)
-                    {
-                        glEnable(GL_CULL_FACE);
-                    }
-                    else
-                    {
-                        glDisable(GL_CULL_FACE);
-                    }
+                    ViewportApplyCullMode(wantcullback);
 
                     incullback = wantcullback;
                 }
@@ -2088,8 +2094,12 @@ static BOOL ViewportRayBatchTriangleDistance(const ViewportState *state, const S
     double u, w, denominator, alpha, threshold;
     int axis;
     if (ViewportTriangleHidden(state, corner / 3)) { return FALSE; }
-    if (!ViewportRayTriangleDistance(ray, v, state->cullbackfaces && batch->cullbackfaces,
-                                     distance))
+    GLenum cull = ViewportBatchCullMode(batch, state->cullbackfaces);
+    Vertex reversed[3];
+    const Vertex *pick = v;
+    if (cull == GL_FRONT_AND_BACK) { return FALSE; }
+    if (cull == GL_FRONT) { reversed[0] = v[0]; reversed[1] = v[2]; reversed[2] = v[1]; pick = reversed; }
+    if (!ViewportRayTriangleDistance(ray, pick, cull != 0, distance))
     {
         return FALSE;
     }
@@ -4593,7 +4603,7 @@ static double ViewportGizmoScale(const ViewportState *state)
     double depth;
     /* Keep the selection's handles visible and sized to the current camera,
        including while flying. Only picking is disabled during navigation. */
-    if (!state->gizmovisible || state->height <= 0
+    if (state->orbit || !state->gizmovisible || state->height <= 0
         || (state->scalemode && (!state->scalehandle || !state->scalevalid))
         || (state->rotationmode ? state->cylinder == NULL || !state->rotationaxes
             || state->tool == EDITOR_TOOL_VERTEX_PAINT : !state->scalemode && state->arrow == NULL)) { return 0; }
@@ -5286,12 +5296,20 @@ static BOOL ViewportOrbitInput(HWND hwnd, ViewportState *state,
     case WM_RBUTTONDOWN:
         SetFocus(hwnd);
         SetCapture(hwnd);
+        if (state->orbitbuttons) { state->orbitdragged = TRUE; }
+        else { state->orbitdragged = FALSE; }
         state->orbitbuttons |= msg == WM_LBUTTONDOWN ? MK_LBUTTON : MK_RBUTTON;
         state->lastmouse.x = GET_X_LPARAM(lparam);
         state->lastmouse.y = GET_Y_LPARAM(lparam);
+        state->orbitstart = state->lastmouse;
         return TRUE;
     case WM_LBUTTONUP:
     case WM_RBUTTONUP:
+        if (msg == WM_LBUTTONUP && (state->orbitbuttons & MK_LBUTTON) && !state->orbitdragged)
+        {
+            ViewportPickAt(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam),
+                (wparam & MK_SHIFT) != 0, (wparam & MK_CONTROL) != 0);
+        }
         state->orbitbuttons &= ~(msg == WM_LBUTTONUP ? MK_LBUTTON : MK_RBUTTON);
         if (state->orbitbuttons == 0 && GetCapture() == hwnd) { ReleaseCapture(); }
         return TRUE;
@@ -5299,6 +5317,9 @@ static BOOL ViewportOrbitInput(HWND hwnd, ViewportState *state,
         if (state->orbitbuttons != 0)
         {
             int x = GET_X_LPARAM(lparam), y = GET_Y_LPARAM(lparam);
+            if (abs(x - state->orbitstart.x) > 3 || abs(y - state->orbitstart.y) > 3)
+            { state->orbitdragged = TRUE; }
+            if (!state->orbitdragged) { return TRUE; }
             OrbitCameraRotate(&state->orbitcamera, x - state->lastmouse.x, y - state->lastmouse.y);
             state->lastmouse.x = x; state->lastmouse.y = y;
             ViewportUpdateOrbit(state);

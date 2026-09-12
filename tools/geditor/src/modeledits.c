@@ -112,6 +112,49 @@ static BOOL LoadSource(const char *project, const char *name, unsigned char **da
     if(!*data) { *why="Out of memory loading the source model.";return FALSE; }
     return TRUE;
 }
+BOOL ModelEditsReadSource(const char *project, const char *name, ModelSource *source,
+    DWORD *revision, const char **why)
+{
+    unsigned char *data = NULL;
+    DWORD size, basehash;
+    BOOL ok;
+    ZeroMemory(source, sizeof(*source)); *revision = 0;
+    if (!LoadSource(project, name, &data, &size, &basehash, why)) { return FALSE; }
+    ok = ModelReadSource(data, size, source, why);
+    if (ok) { *revision = ModelDataHash(data, size); source->closestpreview = name[0] == 'C'; }
+    free(data); return ok;
+}
+BOOL ModelEditsSetProperties(const char *project, const char *name, DWORD revision,
+    const DWORD *faces, DWORD count, int culling, int surface, const char **why)
+{
+    unsigned char *data = NULL, *compiled = NULL;
+    DWORD size, basehash, compiledsize;
+    ModelSource source = {0}, check = {0};
+    ModelEdit *edit;
+    BOOL ok = FALSE;
+    if (!LoadSource(project, name, &data, &size, &basehash, why)) { goto done; }
+    if (ModelDataHash(data, size) != revision)
+    { *why = "The model revision changed. Reload the model and select its faces again."; goto done; }
+    if (!ModelReadSource(data, size, &source, why)
+        || !ModelCompileProperties(data, size, &source, faces, count, culling, surface,
+            &compiled, &compiledsize, why)
+        || !ModelReadSource(compiled, compiledsize, &check, why)) { goto done; }
+    if (source.count != check.count)
+    { *why = "The property edit changed the model's face count."; goto done; }
+    if (size == compiledsize && !memcmp(data, compiled, size)) { ok = TRUE; goto done; }
+    for (edit = g_ModelEdits; edit && strcmp(edit->name, name); edit = edit->next) {}
+    if (!edit)
+    {
+        edit = calloc(1, sizeof(*edit));
+        if (!edit) { *why = "Out of memory retaining model properties."; goto done; }
+        lstrcpyn(edit->name, name, sizeof(edit->name)); edit->next = g_ModelEdits; g_ModelEdits = edit;
+    }
+    free(edit->data); edit->data = compiled; compiled = NULL;
+    edit->size = compiledsize; edit->basehash = basehash; edit->dirty = TRUE;
+    ok = TRUE; *why = "";
+done:
+    free(data); free(compiled); ModelFreeSource(&source); ModelFreeSource(&check); return ok;
+}
 BOOL ModelEditsExport(const char *project, const char *name, const char *path, const char **why)
 {
     unsigned char *data;

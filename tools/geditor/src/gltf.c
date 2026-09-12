@@ -1307,7 +1307,7 @@ static BOOL GltfPrimitiveRenderFlags(const char *json, const GltfJsonToken *toke
             (flags &
              ~(BG_RENDER_DEPTH_TEST | BG_RENDER_DEPTH_WRITE | BG_RENDER_DECAL | BG_RENDER_BLEND |
                BG_RENDER_ALPHA_TEST | BG_RENDER_IGNORE_TEXTURE_ALPHA | BG_RENDER_WRAP_MASK |
-               BG_RENDER_ENVIRONMENT_MASK)) ||
+               BG_RENDER_ENVIRONMENT_MASK | BG_RENDER_CULL_MASK)) ||
             (flags & (BG_RENDER_CLAMP_S | BG_RENDER_MIRROR_S)) ==
                 (BG_RENDER_CLAMP_S | BG_RENDER_MIRROR_S) ||
             (flags & (BG_RENDER_CLAMP_T | BG_RENDER_MIRROR_T)) ==
@@ -2374,8 +2374,10 @@ static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
         }
 
         if (fprintf(file,
-            "    {\"name\": \"GUD Texture Tag 0x%04X\", \"doubleSided\": true%s, \"pbrMetallicRoughness\": {\"baseColorFactor\": [1, 1, 1, 1], \"metallicFactor\": 0, \"roughnessFactor\": 1%s}, \"extensions\": {\"KHR_materials_unlit\": {}}, \"extras\": {\"goldeneyeRenderFlags\": %u, \"goldeneyeTextureTag\": %u, \"goldeneyeUvUnits\": \"normalized\", \"goldeneyeTextureSize\": [%d, %d]}}%s\n",
-            item->tag, alpha, texture, item->renderflags, item->tag,
+            "    {\"name\": \"GUD Texture Tag 0x%04X\", \"doubleSided\": %s%s, \"pbrMetallicRoughness\": {\"baseColorFactor\": [1, 1, 1, 1], \"metallicFactor\": 0, \"roughnessFactor\": 1%s}, \"extensions\": {\"KHR_materials_unlit\": {}}, \"extras\": {\"goldeneyeRenderFlags\": %u, \"goldeneyeTextureTag\": %u, \"goldeneyeUvUnits\": \"normalized\", \"goldeneyeTextureSize\": [%d, %d]}}%s\n",
+            item->tag, (item->renderflags & BG_RENDER_CULL_BACK)
+                && !(item->renderflags & BG_RENDER_CULL_FRONT) ? "false" : "true",
+            alpha, texture, item->renderflags, item->tag,
             item->texturewidth, item->textureheight, comma) < 0)
         {
             ok = FALSE;

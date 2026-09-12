@@ -5,6 +5,7 @@ Uses real repository models plus a fixture with vertices loaded under two
 different matrices into the same RSP cache. No ROM or Windows SDK is needed.
 PNG encoding and ROM directory/texture lookup are stubs, not tested here.
 """
+import argparse
 import base64
 import copy
 import json
@@ -34,6 +35,7 @@ def mixed_fixture(path, dynamic=False):
     struct.pack_into(">h", data, 0xae, 1)
     word(0xc0, 0x05000000 | display_list)
     word(0xcc, 0x050000e0)
+    struct.pack_into(">H", data, 0xd0, 4)
     data[0xd2] = 1
     for i in range(4):
         struct.pack_into(">hhhHhh4B", data, 0xe0 + i * 16,
@@ -52,6 +54,22 @@ def mixed_fixture(path, dynamic=False):
         word(0x148, 0x050001c0)
         struct.pack_into(">IIIIII", data, 0x1c0, 0x04200030, 0x04000000,
                          0xbf000000, 0x00000a14, 0xb8000000, 0)
+    path.write_bytes(data)
+
+
+def load_state_fixture(path, inherited=False):
+    mixed_fixture(path)
+    data = bytearray(path.read_bytes()[:0x120])
+    commands = [(0xc0000002, 1)]
+    if not inherited:
+        commands += [(0x01020040, 0x03000000)]
+    commands += [(0xbb002801, 0x80004000), (0x04100020, 0x04000000),
+                 (0x01020040, 0x03000040), (0xbb003001, 0x40002000),
+                 (0x04120020, 0x05000100), (0xbf000000, 0x00000a14),
+                 (0xbb003801, 0x20001000), (0xbf000000, 0x000a1e14),
+                 (0xb8000000, 0)]
+    for command in commands:
+        data += struct.pack(">II", *command)
     path.write_bytes(data)
 
 
@@ -135,6 +153,27 @@ def painted(document, encoding):
     return doc, binary
 
 
+def seamed(document):
+    doc = copy.deepcopy(document)
+    binary = bytearray(base64.b64decode(doc["buffers"][0]["uri"].split(",")[1]))
+    for mesh in doc["meshes"]:
+        for primitive in mesh["primitives"]:
+            attributes = primitive["attributes"]
+            def at(name, index):
+                accessor = doc["accessors"][attributes[name]]
+                view = doc["bufferViews"][accessor["bufferView"]]
+                return view.get("byteOffset", 0) + accessor.get("byteOffset", 0) + index * view["byteStride"]
+            for i in range(doc["accessors"][attributes["COLOR_0"]]["count"]):
+                identity = int(struct.unpack_from("<f", binary, at("_GUD_VERTEX", i))[0])
+                struct.pack_into("4B", binary, at("COLOR_0", i), identity & 255, identity >> 8, 77, 99 + identity % 156)
+                u, v = struct.unpack_from("<ff", binary, at("TEXCOORD_0", i))
+                struct.pack_into("<ff", binary, at("TEXCOORD_0", i), u + (identity % 7) * 0.25, v)
+    doc["buffers"][0]["uri"] = "data:application/octet-stream;base64," + base64.b64encode(binary).decode()
+    # Blender may reorder objects/primitives; _GUD_VERTEX determines identity.
+    doc["nodes"].reverse()
+    return doc, binary
+
+
 def write_model(path, doc, binary):
     if path.suffix == ".gltf":
         path.write_text(json.dumps(doc))
@@ -150,6 +189,9 @@ def write_model(path, doc, binary):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--blender-glb", type=Path, help="also test the original Pjungle3_treeZ Blender export")
+    args = parser.parse_args()
     tests = Path(__file__).resolve().parent
     src = tests.parent.parent / "src"
     root = tests.parents[3]
@@ -174,6 +216,12 @@ def main():
 
         fixture = work / "mixed.bin"
         mixed_fixture(fixture)
+        run("property-guards", fixture, "unused")
+        scales = work / "mixed-scales.bin"
+        load_state_fixture(scales)
+        inherited = work / "inherited.bin"
+        load_state_fixture(inherited, inherited=True)
+        run("inherited", inherited, "unused")
         dynamic = work / "dynamic.bin"
         mixed_fixture(dynamic, dynamic=True)
         run("dynamic", dynamic, "unused")
@@ -182,7 +230,30 @@ def main():
             color_fixture(special, kind)
             run("special", special, kind)
         assets = [root / "assets/obseg/prop" / name for name in
-                  ("Pjungle3_treeZ.bin", "Pjungle5_treeZ.bin", "Pbook1Z.bin")] + [fixture]
+                  ("Pjungle3_treeZ.bin", "Pjungle5_treeZ.bin", "Pbook1Z.bin")] + [fixture, scales]
+        surface_fixtures = []
+        for kind in ("one-cycle", "two-cycle", "cycle-override", "no-depth"):
+            path = work / f"surface-{kind}.bin"
+            mixed_fixture(path)
+            data = bytearray(path.read_bytes()[:0x120])
+            if kind == "two-cycle":
+                data[0xd2] = 4
+            commands = [(0xb6000000, 0x3000), (0xc0000002, 1),
+                        (0x01020040, 0x03000000), (0x04300040, 0x04000000)]
+            if kind == "cycle-override":
+                commands += [(0xba001402, 0x00100000), (0xb900031d, 0xc8112078)]
+            if kind == "no-depth":
+                commands += [(0xb900031d, 0x00552048)]
+            commands += [(0xbf000000, 0x00000a14), (0xbf000000, 0x000a1e14),
+                         (0xbf000000, 0x00001e14), (0xb8000000, 0)]
+            for command in commands:
+                data += struct.pack(">II", *command)
+            path.write_bytes(data)
+            surface_fixtures.append(path)
+        for index, asset in enumerate(assets[:2] + surface_fixtures):
+            project = work / f"properties{index}"
+            (project / "models/objects").mkdir(parents=True)
+            run("properties", asset, project)
         for index, asset in enumerate(assets):
             exported = work / f"export{index}.gltf"
             run("export", asset, exported)
@@ -197,6 +268,19 @@ def main():
                 (project / "models/objects").mkdir(parents=True)
                 write_model(path, doc, binary)
                 run("edited", asset, path, project)
+            doc, binary = seamed(document)
+            for format_name in ("gltf", "glb"):
+                path = work / f"seams{index}.{format_name}"
+                project = work / f"seams{index}-{format_name}"
+                (project / "models/objects").mkdir(parents=True)
+                if format_name == "gltf":
+                    external = copy.deepcopy(doc)
+                    external["buffers"][0]["uri"] = path.with_suffix(".bin").name
+                    path.with_suffix(".bin").write_bytes(binary)
+                    path.write_text(json.dumps(external))
+                else:
+                    write_model(path, doc, binary)
+                run("seams", asset, path, project)
             for encoding in ("byte", "short", "float", "rgb"):
                 doc, binary = painted(document, encoding)
                 path = work / f"paint{index}-{encoding}.glb"
@@ -225,7 +309,11 @@ def main():
                 bad = work / "bad-color.glb"
                 write_model(bad, invalid, binary)
                 run("reject", asset, bad, "vertex color is invalid")
-        print("All model vertex/UV/color regressions passed (ASan + UBSan).")
+        if args.blender_glb:
+            project = work / "blender-original"
+            (project / "models/objects").mkdir(parents=True)
+            run("blender", assets[0], args.blender_glb.resolve(), project)
+        print("All model vertex/UV/color/seam regressions passed (ASan + UBSan).")
 
 
 if __name__ == "__main__":

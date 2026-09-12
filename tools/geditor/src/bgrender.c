@@ -26,6 +26,8 @@ void BgRenderStateInit(BgRenderState *state, BOOL secondary)
     state->environmentalpha = state->primitivealpha = 255;
     state->zbuffer = TRUE;
     state->geometrymode = BG_G_ZBUFFER;
+    state->geometryknown = 0;
+    state->othermodehigh = 0;
     state->othermode = BG_Z_CMP | (secondary ? BG_ZMODE_XLU | BG_FORCE_BL : BG_Z_UPD);
 }
 
@@ -39,6 +41,7 @@ void BgRenderStateRead(BgRenderState *state, DWORD word0, DWORD word1)
     case BG_G_SETPRIMCOLOR:
         state->primitivealpha = (unsigned char)word1;
         break;
+    case 0xBAu: /* SETOTHERMODE_H, including cycle type. */
     case BG_G_SETOTHERMODE_L:
     {
         /* Fast3D encodes the shift and bit count directly. Alpha/depth-source
@@ -46,18 +49,21 @@ void BgRenderStateRead(BgRenderState *state, DWORD word0, DWORD word1)
         unsigned int shift = (word0 >> 8) & 0xFFu;
         unsigned int count = word0 & 0xFFu;
         DWORD mask;
+        DWORD *mode = (word0 >> 24) == 0xBAu ? &state->othermodehigh : &state->othermode;
         if (!count || shift >= 32 || count > 32 - shift)
         {
             break;
         }
         mask = count == 32 ? 0xFFFFFFFFu : ((1u << count) - 1u) << shift;
-        state->othermode = (state->othermode & ~mask) | (word1 & mask);
+        *mode = (*mode & ~mask) | (word1 & mask);
         break;
     }
     case BG_G_RDPSETOTHERMODE:
         state->othermode = word1;
+        state->othermodehigh = word0 & 0x00FFFFFFu;
         break;
     case BG_G_CLEARGEOMETRYMODE:
+        state->geometryknown |= word1;
         state->geometrymode &= ~word1;
         if (word1 & BG_G_ZBUFFER)
         {
@@ -65,6 +71,7 @@ void BgRenderStateRead(BgRenderState *state, DWORD word0, DWORD word1)
         }
         break;
     case BG_G_SETGEOMETRYMODE:
+        state->geometryknown |= word1;
         state->geometrymode |= word1;
         if (word1 & BG_G_ZBUFFER)
         {

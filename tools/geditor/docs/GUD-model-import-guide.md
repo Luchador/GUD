@@ -32,7 +32,7 @@ again before making another round of edits.
 ## What is supported
 
 Import supports moving existing vertices and UVs, painting vertex colors,
-face deletion, removing
+automatic native vertex splitting for UV/color seams, face deletion, removing
 texture assignments, and reassigning existing textures of the same dimensions.
 It validates triangle identities and rejects added/duplicated faces, changed
 triangle connections or index winding. Do not merge
@@ -46,15 +46,19 @@ allowed. Values outside the native signed 16-bit range are rejected, rather
 than clamped. Review the imported preview to see the quantized result.
 
 Exported triangles have separate corners to retain their source identities.
-When several corners reference one native vertex, move **all copies together**,
-including copies in another part or LOD. Their positions, textured UVs and
-native color values must agree after rounding. Use X-Ray selection for coincident positions and select
-all corresponding UV corners. Do not weld them: that loses their individual
-`_GUD_VERTEX` identities. Existing native UV seams remain editable, but creating
-a new seam by separating UVs that share a native vertex is not supported.
-Paint all shared color corners consistently, too; creating a new color seam by
-splitting a native vertex is not supported. Conflicting edits are rejected
-without replacing the current model.
+When several corners reference one native vertex, move **all position copies
+together**, including copies in another part or LOD. Use X-Ray selection for
+coincident positions. Do not weld them: that loses their individual
+`_GUD_VERTEX` identities.
+
+UVs and colors can differ between those corners. The importer automatically
+creates native vertex variants when the quantized UV, RGB or editable alpha
+values disagree. Each variant retains the original joint binding and local
+position. Compatible corners continue to share a record; unused UVs and
+material-controlled alpha do not create unnecessary splits. This also handles
+Blender interpolating colors/UVs differently on adjacent faces when moving a
+vertex with attribute correction enabled. There is no need to average colors
+or manually force those face corners to match.
 
 Color-based geometry accepts RGB edits and, where the authored material uses
 vertex alpha, alpha edits. glTF `COLOR_0` may contain RGB or RGBA floats or
@@ -86,11 +90,27 @@ geometry.
 
 The compiler retains the native skeleton, per-vertex joint associations,
 attachment points, switches, collision/bounding data and dynamic effects such
-as muzzle flashes. Position/UV/color-only edits update the original native vertex
-records and preserve all rendering commands byte-for-byte. Face deletion or
-material changes rebuild triangle/material commands and omit vertex loads
-unused by surviving faces. Vertices shared with preserved dynamic effects
-cannot be modified through the ordinary mesh export.
+as muzzle flashes. Compatible position/UV/color edits update native records
+and preserve rendering commands byte-for-byte. Face deletion or material
+changes rebuild triangle/material commands and omit unused vertex loads.
+
+Seams rebuild the affected vertex loads and triangle indices. The compiler
+expands each affected part's contiguous vertex buffer and vertex count, so
+segment-4 loads still use the runtime buffer used for object deformation.
+Collision-point vertex-usage chains are extended so character blood effects
+reach the new copies while retaining the original collision points and links
+between model nodes. Extra loads retain their original matrix, texture scale and vertex-processing
+state. Triangle order, primary/secondary passes, combiners and draw-time
+culling remain authored. More than sixteen variants can be used by a part;
+the compiler keeps each triangle within the RSP's sixteen-slot cache.
+
+A seam adds vertex data and sometimes display-list commands. A no-op import
+of the refreshed export is byte-for-byte stable and does not add more copies.
+Vertices shared with preserved dynamic effects still cannot be modified.
+Unrestorable inherited RSP state, cache-modification commands and matrix-stack
+operations remain guarded: unsupported splits fail without replacing the
+current model. Lighting-normal editing and new triangle topology remain
+outside this workflow.
 
 Moving or removing visible geometry does not reshape collision/culling bounds
 or move attachment points. Keep edits within the authored bounds; expanding a
@@ -122,9 +142,13 @@ Run `python3 tools/geditor/tests/model_vertex_uv/run.py` with a host C compiler.
 The suite exercises the native compiler, glTF/GLB importer, saved overrides and
 the ROM replacement reader with Jungle trees, a segment-4-addressed book model,
 and a mixed-joint vertex-cache fixture. It checks deformation, UV quantization,
-shared-vertex conflicts, range errors and compatibility with face deletion.
+UV/RGB/alpha seams, the sixteen-slot cache limit, mixed matrix/texture-scale
+loads, native buffer counts and blood-stain chains, range errors and compatibility with face deletion.
 Color tests cover native RGB/RGBA writeback, color accessor encodings, missing
 or invalid colors, normal protection at vertex-load time, material-controlled
-alpha, shared alpha across different materials, and saved replacement reads.
+alpha, shared alpha across different materials, saved replacement reads, and
+byte-for-byte stable reimports after splitting. An optional
+`--blender-glb /path/to/Pjungle3_treeZ.glb` also tests the original Blender tree
+export against the repository model using its actual texture dimensions.
 Texture/ROM directory lookup and Windows file APIs are stubbed; Windows UI,
 PNG encoding and full ROM execution still require the normal application.

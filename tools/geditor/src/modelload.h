@@ -44,6 +44,9 @@ typedef struct ModelSourceFace {
 
 typedef struct ModelSourceList {
     DWORD pointer, offset, end, vertexbase;
+    DWORD vertexpointer; /* Native Vertices field; its count follows at +4. */
+    DWORD pointusagepointer; /* Collision node's per-vertex blood-stain links. */
+    int modeltype; /* Native renderer setup: 1 = one cycle, 2/3/4 = two cycles. */
     BOOL preserve; /* Dynamic effects such as rotating muzzle flashes. */
     BgMaterial initial;
 } ModelSourceList;
