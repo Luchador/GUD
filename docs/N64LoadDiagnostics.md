@@ -1,5 +1,74 @@
 # Temporary N64 load diagnostics
 
+## Solid-sky isolation test (04S)
+
+The separate `GUD-n64-sky-isolation.patch` targets commit `abe660a3`
+(More diagnostics), which already contains Diagnostic 04. It changes the
+normal US build; no DEBUG build is required.
+
+With `N64_DIAG_SOLID_SKY` set to 1 in `src/n64diagnostics.h`, `skyRender`
+uses the existing solid-background path instead of rendering clouds/water.
+The test explicitly synchronizes and selects NOOP render mode before the
+fill. Room geometry, props and characters still use their normal paths.
+Diagnostic screen titles say **04S** so the tested variant can be identified.
+This is a controlled bypass, not a proposed permanent fix.
+
+1. Apply this patch, then run `make VERSION=US`.
+2. Check the ROM in the emulator: outdoor sky/water should become a solid
+   background. Test Runway and Cradle on N64, including intro and player control.
+3. If either still freezes, photograph the six 04S pages and keep the matching
+   ELF/map. State which level and when it froze.
+4. Set `N64_DIAG_SOLID_SKY` to 0 and rebuild to restore normal sky/water while
+   retaining Diagnostic 04. Repeat the same failing load as the A/B control.
+
+If the bypass works and restoring the sky reproduces the hang, focus on the
+cloud/water command generation and its graphics-state transitions. A pass
+still does not establish the exact bad command: the bypass also reduces
+command volume and changes timing. A continued hang means the removed
+cloud/water drawing is not required to reproduce that failure; inspect the
+remaining rendering and FIFO handling next. Disabling all load diagnostics
+also disables this bypass.
+
+## Findings from the Diagnostic 04 hardware capture
+
+The September 12 photos `20260912_014607.jpg` through `20260912_014646.jpg`
+and matching `GUD(3).elf` / `GUD(3).map` show Runway (stage `0x23`):
+
+| Observation | Interpretation |
+|---|---|
+| WAIT FRAME; MAIN PC `0x7000D0C8` | The supplied ELF resolves this to `osRecvMesg + 0x68`; no CPU exception is reported. |
+| Halted SP PC `0x1BC`, word `0x0277A022` | `sub $20,$19,$23` in the same FIFO space-check loop as earlier captures. |
+| DP STATUS `0x760`, CURRENT `0x002BE800`, END `0x002BE7A0` | The RDP is busy while graphics progress has stopped. These registers are captured before the diagnostic freezes the RDP. |
+| R18 `0xB0`, R19 `0x002BE7A0` | The pending RSP output block is 176 bytes; it would end at `0x002BE850`, crossing CURRENT. The FIFO guard is withholding that write. |
+| CHECK GDL and RSP GDL both `0x800D57B0`, status 1 | The check now belongs to the running task. It completed without finding one of the implemented hazards. |
+| REG OK 1 and input VALID `0x707` | The scalar dump completed and all six input-word reads passed their address checks. This is not a whole-state correctness test. |
+
+The exact three-command sequence read from RDRAM is:
+
+```
+04D000E0 0E002470
+B1009652 87534310
+B100AAA9 DCB9CB7A
+```
+
+It occurs uniquely in the supplied ELF, in Runway room 13's primary display
+list. The commands are at raw stream offsets `0x560`, `0x568`, and `0x570`.
+`bg_run_all_p_seg` is at ELF symbol address `0x009FBF00`; that room's primary
+stream begins at segment offset `0x17014`. The first command loads 14
+vertices from room vertex offset `0x2470`; the other two are TRI4 commands.
+GoldenEye consumes TRI4 indices by shifting and rewriting its DMEM copy,
+so the displayed `B1000000 00000000` entries do not by themselves indicate
+cache corruption. The vertex command and both original TRI4 commands match
+the embedded asset.
+
+This locates the RSP producer, not the RDP command responsible for the stall.
+The RSP can be many primitives ahead, and the raw circular FIFO window is
+still not a command trace. Do not label room 13 defective from this capture.
+Also, dumped R23 (`0x72`) is not coherent with the separately captured DP
+CURRENT and loop arithmetic; do not use that one register as a fresh RDP
+address or claim that REG OK validates every register's timing.
+Graphics microcode text remains byte-identical to the previous supplied ELFs.
+
 This patch gathers evidence for the real-console level-load crash that persists
 after the BG header alignment fix. It does not claim to fix the remaining crash.
 This consolidated Diagnostic 04 patch targets GUD commit `58435db0` (RDP check).

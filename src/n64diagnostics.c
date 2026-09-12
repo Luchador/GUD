@@ -14,6 +14,12 @@
 #define DIAG_PAGES 6
 #define DIAG_CHECK_SLOTS 4
 
+#if N64_DIAG_SOLID_SKY
+#define DIAG_SCREEN_TITLE "N64 DIAG 04S PAGE "
+#else
+#define DIAG_SCREEN_TITLE "N64 DIAGNOSTIC 04 PAGE "
+#endif
+
 extern u8 cfb_16[][DIAG_WIDTH * DIAG_HEIGHT * 2];
 extern OSThread mainThread;
 extern OSThread g_tlbThread;
@@ -289,11 +295,11 @@ static void n64DiagPage(volatile u16 *fb, u32 page, const char *reason, OSThread
         fb[i] = 0x0001;
     }
 
-    n64DiagText(fb, 24, 16, page == 0 ? "N64 DIAGNOSTIC 04 PAGE 1 OF 6"
-            : page == 1 ? "N64 DIAGNOSTIC 04 PAGE 2 OF 6"
-            : page == 2 ? "N64 DIAGNOSTIC 04 PAGE 3 OF 6"
-            : page == 3 ? "N64 DIAGNOSTIC 04 PAGE 4 OF 6"
-            : page == 4 ? "N64 DIAGNOSTIC 04 PAGE 5 OF 6" : "N64 DIAGNOSTIC 04 PAGE 6 OF 6");
+    n64DiagText(fb, 24, 16, page == 0 ? DIAG_SCREEN_TITLE "1 OF 6"
+            : page == 1 ? DIAG_SCREEN_TITLE "2 OF 6"
+            : page == 2 ? DIAG_SCREEN_TITLE "3 OF 6"
+            : page == 3 ? DIAG_SCREEN_TITLE "4 OF 6"
+            : page == 4 ? DIAG_SCREEN_TITLE "5 OF 6" : DIAG_SCREEN_TITLE "6 OF 6");
     if (page == 4) {
         n64DiagText(fb, 24, 28, "RSP SCALAR REGISTERS AT STALL");
         n64DiagPair(fb, 40, "VALID", g_DiagStop.registersValid, "SP PC", g_DiagStop.spPc);

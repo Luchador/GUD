@@ -9,6 +9,7 @@
 #include "bg.h"
 #include "fr.h"
 #include "image_bank.h"
+#include "n64diagnostics.h"
 
 
 #define SKYABS(val) (val >= 0.0f ? (val) : -(val))
@@ -551,6 +552,15 @@ Gfx *skyRender(Gfx *gdl)
 
     roomScale = bgGetRoomScale() / 30.0f;
     env = envGetCurrent();
+
+#if N64_LOAD_DIAGNOSTICS && N64_DIAG_SOLID_SKY
+    /* Use the existing no-cloud background instead of the CPU-generated
+     * cloud/water triangles. Establish safe fill state explicitly for this
+     * test; subsequent world rendering sets up its own graphics state. */
+    gDPPipeSync(gdl++);
+    gDPSetRenderMode(gdl++, G_RM_NOOP, G_RM_NOOP2);
+    return skyRenderSolidBackground(gdl, env);
+#endif
 
     if (!env->Sky.Clouds)
     {

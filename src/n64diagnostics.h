@@ -9,6 +9,13 @@
 #define N64_LOAD_DIAGNOSTICS 1
 #endif
 
+/* Temporary A/B test: 1 replaces clouds/water with the solid sky path.
+ * Set to 0 and rebuild to restore normal rendering with diagnostics retained.
+ * This is an isolation test, not a fix for the hardware stall. */
+#ifndef N64_DIAG_SOLID_SKY
+#define N64_DIAG_SOLID_SKY 1
+#endif
+
 enum N64DiagPhase {
     N64DIAG_BOOT,
     N64DIAG_STAGE_BEGIN,
