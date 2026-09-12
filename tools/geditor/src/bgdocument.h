@@ -98,6 +98,27 @@ typedef struct BgDocumentVertexRef {
     DWORD index;
 } BgDocumentVertexRef;
 
+/* Directed edge of one source triangle. The face supplies room, layer,
+ * winding and complete draw/material state; corner goes to (corner+1)%3. */
+typedef struct BgDocumentEdgeRef {
+    BgFaceRef face;
+    unsigned int corner;
+} BgDocumentEdgeRef;
+
+/* Preview writes six world-space corners per edge, in the same order as the
+ * committed triangles. Offsets snap to native BG units. A snapped zero is a
+ * no-op; parallel/degenerate extrusions and coordinate/UV overflow fail. */
+BOOL BgDocumentPreviewEdgeExtrusion(const BgDocument *document,
+    const BgDocumentEdgeRef *edges, DWORD count, const double offset[3],
+    BgVertex *triangles, double applied[3], const char **reasonout);
+
+/* Append two triangles per edge, retaining the base and selecting the outer
+ * edge via out[count]. Shared endpoints stay shared when their UVs agree;
+ * UV seams keep separate identities. Validates/allocates before mutation. */
+BOOL BgDocumentExtrudeEdges(BgDocument *document, const BgDocumentEdgeRef *edges,
+    DWORD count, const double offset[3], BgDocumentEdgeRef *out,
+    DWORD *createdout, const char **reasonout);
+
 typedef struct BgDocumentUVEdit {
     BgDocumentVertexRef vertex;
     DWORD vertexid; /* rejects references left over from another document */

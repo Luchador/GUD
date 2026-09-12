@@ -268,6 +268,12 @@ typedef struct ViewportState {
     BOOL dragvertical;
     BOOL dragstan;
     BOOL dragpad;
+    BOOL dragextruding, extrudepreviewvalid;
+    BgDocumentEdgeRef *extrudeedges;
+    int *extrudeowners; /* source triangle per edge in the current draw order */
+    BgVertex *extrudepreview; /* six corners per edge; source scene stays intact */
+    DWORD extrudecount;
+    double extrudeoffset[3];
     float (*dragvertices)[3];
     unsigned char *dragmask;
     int selectedtricount;
@@ -1247,6 +1253,51 @@ static void ViewportDrawSetupMarkers(const ViewportState *state)
     glPopAttrib();
 }
 
+static void ViewportDrawExtrusionBatch(const ViewportState *state, const SceneBatch *batch)
+{
+    if (!state->dragextruding || !state->extrudepreviewvalid) { return; }
+    int width = 1, height = 1;
+    float forward[3], right[3];
+    if (batch->gltex && state->texturecache)
+    {
+        const ViewportTexture *texture = &state->texturecache[ViewportTextureKey(batch->textureid, batch->renderflags)];
+        width = max(1, texture->width); height = max(1, texture->height);
+    }
+    ViewportGetBasis(state, forward, right);
+    glPushClientAttrib(GL_CLIENT_VERTEX_ARRAY_BIT);
+    for (DWORD i = 0; i < state->extrudecount; i++)
+    {
+        static const int endpoints[6] = {1,0,0,1,0,1};
+        Vertex vertices[6];
+        int first = state->extrudeowners[i]*3;
+        if (first < batch->first || first >= batch->first+batch->count) { continue; }
+        for (int corner = 0; corner < 6; corner++)
+        {
+            const BgVertex *v = &state->extrudepreview[i*6+corner];
+            Vertex *target = &vertices[corner];
+            int source = first+(state->extrudeedges[i].corner+endpoints[corner])%3;
+            *target = state->scene[source];
+            target->x = v->x; target->y = v->y; target->z = v->z;
+            target->a = v->a;
+            if (!(batch->renderflags & BG_RENDER_ENVIRONMENT))
+            {
+                target->r = v->r; target->g = v->g; target->b = v->b;
+                target->s = v->s/width; target->t = v->t/height;
+            }
+            double depth = ((double)v->x-state->posx)*forward[0]
+                + ((double)v->y-state->posy)*forward[1] + ((double)v->z-state->posz)*forward[2];
+            target->fogamount = FogAmount(&state->fog, depth);
+        }
+        glVertexPointer(3, GL_FLOAT, sizeof(Vertex), &vertices[0].x);
+        glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex), &vertices[0].r);
+        glTexCoordPointer(2, GL_FLOAT, sizeof(Vertex), &vertices[0].s);
+        if (state->fogcoordpointer)
+        { state->fogcoordpointer(GL_FLOAT, sizeof(Vertex), &vertices[0].fogamount); }
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+    }
+    glPopClientAttrib();
+}
+
 static void ViewportPaintGL(ViewportState *state)
 {
     wglMakeCurrent(state->hdc, state->hglrc);
@@ -1361,6 +1412,7 @@ static void ViewportPaintGL(ViewportState *state)
                 }
 
                 ViewportDrawVisibleBatch(state, batch);
+                ViewportDrawExtrusionBatch(state, batch);
             }
             if (!monitorsdrawn) { ViewportDrawMonitors(state); }
 
@@ -2828,6 +2880,8 @@ BOOL ViewportGetSelectionPosition(HWND hwnd, double position[3], DWORD *countout
     }
     if (!(weight > 0)) { return FALSE; }
     for (axis = 0; axis < 3; axis++) { position[axis] = sum[axis] / weight; }
+    if (state->dragextruding && state->extrudepreviewvalid)
+    { for (axis = 0; axis < 3; axis++) { position[axis] += state->extrudeoffset[axis]; } }
     *countout = object ? 1 : count;
     return TRUE;
 }
@@ -4500,7 +4554,9 @@ static void ViewportDrawTransformTools(const ViewportState *state)
                 if (ViewportCornerVisible(state,component->corners[end]))
                 {
                     const Vertex *v=&state->scene[component->corners[end]];
-                    glVertex3f(v->x,v->y,v->z);
+                    if (state->dragextruding && state->extrudepreviewvalid)
+                    { glVertex3d(v->x+state->extrudeoffset[0], v->y+state->extrudeoffset[1], v->z+state->extrudeoffset[2]); }
+                    else { glVertex3f(v->x,v->y,v->z); }
                 }
             }
         }
@@ -4643,7 +4699,47 @@ static double ViewportRotationParameter(const ViewportState *state, const Viewpo
            180.0 / 3.14159265358979323846;
 }
 
-static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y)
+/* A component's two cached corners can belong to different triangles after
+ * rebuilding. Resolve a real owning face, preferring the picked face when it
+ * still contains both endpoints, then use its winding and material. */
+static BOOL ViewportPrepareEdgeExtrusion(ViewportState *state)
+{
+    DWORD count = (DWORD)state->componentcount;
+    if (!count || count > INT_MAX/6 || count > UINT32_MAX/(6*sizeof(BgVertex))) { return FALSE; }
+    state->extrudeedges = calloc(count, sizeof(*state->extrudeedges));
+    state->extrudeowners = malloc(count*sizeof(*state->extrudeowners));
+    state->extrudepreview = calloc(count*6, sizeof(*state->extrudepreview));
+    if (!state->extrudeedges || !state->extrudeowners || !state->extrudepreview) { return FALSE; }
+    state->extrudecount = 0;
+    for (DWORD i = 0; i < count; i++)
+    {
+        const ViewportComponent *c = &state->components[i];
+        BOOL found = FALSE;
+        if (!ViewportCornerVisible(state, c->corners[0]) || !ViewportCornerVisible(state, c->corners[1])) { continue; }
+        int preferred = c->corners[0]/3;
+        for (int candidate = -1; candidate < state->scenecount/3 && !found; candidate++)
+        {
+            int tri = candidate < 0 ? preferred : candidate;
+            if (!ViewportCornerVisible(state, tri*3) || !state->scenefacerefs[tri].faceid) { continue; }
+            for (int corner = 0; corner < 3; corner++)
+            {
+                const BgDocumentVertexRef *a = &state->scenevertexrefs[tri*3+corner];
+                const BgDocumentVertexRef *b = &state->scenevertexrefs[tri*3+(corner+1)%3];
+                if ((!ViewportCompareVertexRefs(a, &c->refs[0]) && !ViewportCompareVertexRefs(b, &c->refs[1]))
+                    || (!ViewportCompareVertexRefs(a, &c->refs[1]) && !ViewportCompareVertexRefs(b, &c->refs[0])))
+                {
+                    state->extrudeedges[state->extrudecount] = (BgDocumentEdgeRef){state->scenefacerefs[tri], (unsigned int)corner};
+                    state->extrudeowners[state->extrudecount++] = tri;
+                    found = TRUE; break;
+                }
+            }
+        }
+        if (!found) { return FALSE; }
+    }
+    return state->extrudecount != 0;
+}
+
+static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y, BOOL shift)
 {
     ViewportPickRay ray;
     BgDocumentVertexRef *refs = NULL;
@@ -4788,6 +4884,15 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
         state->rotationtotal = 0;
         state->rotationlast = ViewportRotationParameter(state, &ray, x, y);
     }
+    state->dragextruding = shift && state->tool == EDITOR_TOOL_EDGE_SELECT
+        && !state->dragrotation && !state->dragscaling && !state->dragstan
+        && !state->dragpad && !state->dragmarker && state->selectedobject == VIEWPORT_OBJECT_NONE;
+    if (state->dragextruding && !ViewportPrepareEdgeExtrusion(state))
+    {
+        ViewportCancelTransform(hwnd);
+        MessageBox(hwnd, "Could not prepare the selected background edges for extrusion.", "GEditor", MB_ICONERROR);
+        return TRUE;
+    }
     SetCapture(hwnd);
     InvalidateRect(hwnd, NULL, FALSE);
     return TRUE;
@@ -4850,6 +4955,22 @@ static void ViewportDragTransform(HWND hwnd, ViewportState *state, int x, int y)
     }
     if (!isfinite(delta) || fabs(delta) > 1000000 || delta == state->dragdelta)
     {
+        return;
+    }
+    if (state->dragextruding)
+    {
+        ViewportEdgeExtrusion request = {0};
+        request.edges = state->extrudeedges; request.count = state->extrudecount;
+        request.offset[state->dragaxis] = delta; request.preview = state->extrudepreview;
+        state->extrudepreviewvalid = SendMessage(GetParent(hwnd), VIEWPORT_WM_PREVIEW_EDGE_EXTRUSION, 0, (LPARAM)&request) != 0;
+        state->dragdelta = delta;
+        for (i = 0; i < 3; i++)
+        {
+            state->extrudeoffset[i] = state->extrudepreviewvalid ? request.applied[i] : 0;
+            state->gizmoposition[i] = state->dragorigin[i]+state->extrudeoffset[i];
+        }
+        InvalidateRect(hwnd, NULL, FALSE);
+        SendMessage(GetParent(hwnd), VIEWPORT_WM_TRANSFORM_PREVIEW, 0, 0);
         return;
     }
     if (state->dragmarker && !ViewportPreviewMarker(hwnd, state, delta, state->dragrotation ? &rotation : NULL)) { return; }
@@ -4941,7 +5062,7 @@ void ViewportCancelTransform(HWND hwnd)
     }
     if (state->dragmarker && state->markersetup)
     { ViewportSetSetupMarkers(hwnd, state, state->markersetup, state->markerlevelscale); }
-    for (i = 0; i < (state->dragmarker ? 0 : state->dragpad    ? VIEWPORT_BOX_VERTICES
+    for (i = 0; i < (state->dragmarker || state->dragextruding ? 0 : state->dragpad    ? VIEWPORT_BOX_VERTICES
                      : state->dragstan ? (int)(state->stan.tilecount * STAN_TILE_MAX_POINTS)
                                        : state->scenecount);
          i++)
@@ -4974,6 +5095,11 @@ void ViewportCancelTransform(HWND hwnd)
         }
     }
     state->dragaxis = -1;
+    state->dragextruding = state->extrudepreviewvalid = FALSE;
+    free(state->extrudeedges); state->extrudeedges = NULL;
+    free(state->extrudeowners); state->extrudeowners = NULL;
+    free(state->extrudepreview); state->extrudepreview = NULL;
+    state->extrudecount = 0;
     free(state->dragvertices);
     free(state->dragmask);
     state->dragvertices = NULL;
@@ -4997,6 +5123,20 @@ static void ViewportEndTransform(HWND hwnd, ViewportState *state)
     ViewportTranslation request;
     if (state == NULL || state->dragaxis < 0)
     {
+        return;
+    }
+    if (state->dragextruding)
+    {
+        ViewportEdgeExtrusion extrusion = {0};
+        BgDocumentEdgeRef *edges = state->extrudeedges;
+        extrusion.edges = edges; extrusion.count = state->extrudecount;
+        extrusion.offset[state->dragaxis] = state->dragdelta;
+        /* Keep the stable source refs across preview teardown and rebuilding. */
+        state->extrudeedges = NULL;
+        ViewportCancelTransform(hwnd);
+        if (extrusion.offset[0] || extrusion.offset[1] || extrusion.offset[2])
+        { SendMessage(GetParent(hwnd), VIEWPORT_WM_EXTRUDE_EDGES, 0, (LPARAM)&extrusion); }
+        free(edges);
         return;
     }
     if (state->dragscaling)
@@ -5191,7 +5331,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
             return 0;
         }
         if (state != NULL && !state->flying
-            && ViewportBeginTransform(hwnd,state,GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam)))
+            && ViewportBeginTransform(hwnd,state,GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam), (wparam & MK_SHIFT) != 0))
         {
             return 0;
         }
@@ -6421,6 +6561,46 @@ BOOL ViewportGetTextureSize(HWND hwnd, unsigned short textureid, int *width, int
     return FALSE;
 }
 
+
+BOOL ViewportSelectBgEdges(HWND hwnd, const BgDocumentEdgeRef *edges, DWORD count)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    ViewportComponent *components;
+    if (!state || state->tool != EDITOR_TOOL_EDGE_SELECT || !edges || !count
+        || !state->scenefacerefs || !state->scenevertexrefs || count > INT_MAX
+        || count > UINT32_MAX/sizeof(*components)) { return FALSE; }
+    components = calloc(count, sizeof(*components));
+    if (!components) { return FALSE; }
+    for (DWORD i = 0; i < count; i++)
+    {
+        int tri;
+        if (edges[i].corner >= 3) { free(components); return FALSE; }
+        for (tri = 0; tri < state->scenecount/3; tri++)
+        {
+            if (!ViewportCompareFaceRefs(&edges[i].face, &state->scenefacerefs[tri])
+                && ViewportCornerVisible(state, tri*3)) { break; }
+        }
+        if (tri == state->scenecount/3) { free(components); return FALSE; }
+        ViewportComponent *c = &components[i];
+        c->corners[0] = tri*3+edges[i].corner;
+        c->corners[1] = tri*3+(edges[i].corner+1)%3;
+        c->refs[0] = state->scenevertexrefs[c->corners[0]];
+        c->refs[1] = state->scenevertexrefs[c->corners[1]];
+        if (ViewportCompareVertexRefs(&c->refs[0], &c->refs[1]) > 0)
+        {
+            BgDocumentVertexRef ref = c->refs[0]; int corner = c->corners[0];
+            c->refs[0] = c->refs[1]; c->refs[1] = ref;
+            c->corners[0] = c->corners[1]; c->corners[1] = corner;
+        }
+    }
+    ViewportClearAllSelection(state);
+    free(state->components); state->components = components;
+    state->componentcount = state->componentcapacity = (int)count;
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd, NULL, FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+    return TRUE;
+}
 
 BOOL ViewportSelectBgFaces(HWND hwnd, const BgFaceRef *refs, DWORD count)
 {

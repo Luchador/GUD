@@ -820,7 +820,6 @@ static LRESULT CALLBACK ObjectPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
             if (ObjectPropertiesIsEdit(i)) { SendMessage(state->controls[i], EM_SETLIMITTEXT, 63, 0); }
         }
         SetWindowText(state->controls[OBJECT_ARMOR_LABEL], "Armor strength (%)");
-        SetWindowText(state->controls[OBJECT_ARMOR_HELP], "Raises the player's armor to this percentage if it is higher than their current armor. 0 gives no armor.");
         SetWindowText(state->controls[OBJECT_DOOR_TYPE_LABEL], "Door movement");
         SetWindowText(state->controls[OBJECT_DOOR_SOUND_LABEL], "Door sounds");
         SetWindowText(state->controls[OBJECT_DOOR_SOUND_HELP], "Preset for opening, moving and closing sounds.");

@@ -720,6 +720,7 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(filemenu, MF_STRING, ID_FILE_OPEN_PROJECT, "&Open Project");
     AppendMenu(filemenu, MF_POPUP, (UINT_PTR)g_RecentProjectsMenu, "&Recent Projects");
     AppendMenu(filemenu, MF_STRING, ID_FILE_SAVE_PROJECT, "&Save Project");
+    AppendMenu(filemenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(filemenu, MF_POPUP, (UINT_PTR)importmenu, "&Import...");
     AppendMenu(filemenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(filemenu, MF_STRING, ID_FILE_EXIT, "E&xit");
@@ -1891,6 +1892,39 @@ rollback:
     GEditorRebuildCurrentViewport(&restorewhy);
 fail:
     ObjectGeometryFree(&objects); EditHistoryCancelEdit(&transaction);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
+static BOOL GEditorExtrudeEdges(HWND hwnd, const ViewportEdgeExtrusion *request)
+{
+    EditHistoryTransaction transaction = {0};
+    BgDocumentEdgeRef *outer = NULL;
+    DWORD created = 0;
+    const char *why = "", *restorewhy = "";
+    if (!request || !request->count || !request->edges || ViewportGetTool(g_Viewport) != EDITOR_TOOL_EDGE_SELECT)
+    { return FALSE; }
+    outer = calloc(request->count, sizeof(*outer));
+    if (!outer) { why = "Out of memory extruding background edges."; goto fail; }
+    if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument, "Extrude BG Edges", &transaction, &why)) { goto fail; }
+    if (!BgDocumentExtrudeEdges(&g_CurrentBgDocument, request->edges, request->count,
+        request->offset, outer, &created, &why)) { goto rollback; }
+    if (!created) { EditHistoryCancelEdit(&transaction); free(outer); return TRUE; }
+    if (!GEditorRebuildCurrentViewport(&why)) { goto rollback; }
+    if (!ViewportSelectBgEdges(g_Viewport, outer, created))
+    { why = "Could not select the extruded edges."; goto rollback; }
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+        &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    free(outer);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    GEditorRebuildCurrentViewport(&restorewhy);
+    GEditorRestoreHistorySelection(hwnd);
+fail:
+    free(outer); EditHistoryCancelEdit(&transaction);
     GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
     MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
     return FALSE;
@@ -3175,6 +3209,17 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         GEditorRefreshTransformFields();
         return result;
     }
+
+    case VIEWPORT_WM_PREVIEW_EDGE_EXTRUSION:
+    {
+        ViewportEdgeExtrusion *request = (ViewportEdgeExtrusion *)lparam;
+        const char *why = "";
+        return request && BgDocumentPreviewEdgeExtrusion(&g_CurrentBgDocument,
+            request->edges, request->count, request->offset, request->preview, request->applied, &why);
+    }
+
+    case VIEWPORT_WM_EXTRUDE_EDGES:
+        return GEditorExtrudeEdges(hwnd, (const ViewportEdgeExtrusion *)lparam);
 
     case VIEWPORT_WM_TRANSLATE_SELECTION:
     case VIEWPORT_WM_SNAP_VERTEX:

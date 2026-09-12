@@ -35,6 +35,18 @@ void ViewportSnapVertexAt(HWND hwnd, int x, int y);
 #define VIEWPORT_WM_PAINT_STAN (WM_APP + 11)
 typedef struct ViewportTranslation { double offset[3]; } ViewportTranslation;
 
+/* Synchronous extrusion preview/commit. Preview owns six corners per edge;
+ * the frame resolves native coordinates and UVs without editing the document. */
+#define VIEWPORT_WM_PREVIEW_EDGE_EXTRUSION (WM_APP + 47)
+#define VIEWPORT_WM_EXTRUDE_EDGES (WM_APP + 48)
+typedef struct ViewportEdgeExtrusion {
+    const BgDocumentEdgeRef *edges;
+    DWORD count;
+    double offset[3], applied[3];
+    BgVertex *preview;
+} ViewportEdgeExtrusion;
+BOOL ViewportSelectBgEdges(HWND hwnd, const BgDocumentEdgeRef *edges, DWORD count);
+
 /* Cancels transient transform/marquee drags before history, saving, or changing tools. */
 void ViewportCancelTransform(HWND hwnd);
 /* In-memory, pointer-free selection snapshots. Capture allocates; caller frees.
