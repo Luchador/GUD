@@ -504,7 +504,7 @@ void bgLoadFile(LEVEL_INDEX levelid)
 
     s32 i;
     s32 size;
-    s32 header[0x10];
+    u8 headerBuffer[0x40 + 0xf];
     s32 *data;
  
     levelentry_index = 0;
@@ -524,7 +524,9 @@ void bgLoadFile(LEVEL_INDEX levelid)
  
     lightFixtureInitTables();
  
-    g_BgData = (u8 *)header;
+    /* PI DMA requires an 8-byte-aligned destination. Use a complete 16-byte
+     * cache-line range as well: a plain s32 array can land at sp + 0x64. */
+    g_BgData = (u8 *)(((u32)headerBuffer + 0xf) & ~0xf);
     obLoadBGFileBytesAtOffset(g_LevelInfoTable[levelentry_index].bg_seg_filename, g_BgData, 0, 0x40);
 
     bgDataOffsets = g_BgData;
