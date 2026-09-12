@@ -199,9 +199,17 @@ void n64RdpCheckList(u32 start, u32 bytes, u32 ramSize,
             r->colorSize = (w0 >> 19) & 3;
             colorImage = checkAddress(w1, segments, segmentKnown);
             colorWidth = (w0 & 0xfff) + 1;
+            if (colorImage != 0xffffffff && (colorImage & 63)) {
+                r->reason = "COLOR IMAGE NOT 64 BYTE ALIGNED";
+                break;
+            }
         } else if (op == 0xfe) {
             zImage = checkAddress(w1, segments, segmentKnown);
             zCommand = r->address;
+            if (zImage != 0xffffffff && (zImage & 63)) {
+                r->reason = "DEPTH IMAGE NOT 64 BYTE ALIGNED";
+                break;
+            }
         } else if (op == 0xed) {
             r->scissorLeft = (w0 >> 12) & 0xfff;
         } else if (op == 0xf4 || op == 0xf3 || op == 0xf0) {

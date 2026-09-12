@@ -214,11 +214,15 @@ SECTIONS
    _stacksSegmentEnd = ADDR(.stacks) + SIZEOF(.stacks);
 
    _cfbSegmentStart = ADDR(.cfb);
-   .cfb (NOLOAD) :
+   /* RDP color images require 64-byte alignment. Stack sizes must not
+    * determine framebuffer alignment (removing sp_debug exposed this). */
+   .cfb ALIGN(64) (NOLOAD) :
    {
       build/OUTCODE/src/cfb.o (.bss);
    }
    _cfbSegmentEnd = ADDR(.cfb) + SIZEOF(.cfb);
+   ASSERT((cfb_16 & 63) == 0, "Color framebuffers must be 64-byte aligned")
+   ASSERT(_cfbSegmentEnd <= 0x80400000, "Color framebuffers exceed base 4 MiB RDRAM")
 
    /*move em to end, out of the way*/
    /DISCARD/ : {

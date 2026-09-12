@@ -1,5 +1,81 @@
 # Temporary N64 load diagnostics
 
+## Framebuffer alignment fix (11A)
+
+`GUD-n64-framebuffer-alignment.patch` targets master `8e52a1cc`
+(Depth test 2). Use the normal US build. The controller rendering settings
+remain those of 10R: constant primitive depth, comparison disabled, ordinary
+depth-write enables retained. World rendering remains bypassed.
+
+### 10R hardware result and concrete defect
+
+The controller appeared for about half a second before the watchdog fired.
+All six `20260912_130412.jpg` through `20260912_130450.jpg` photos show 10R.
+The matching `GUD(10).elf` places `osRecvMesg` at `7000D240`; main PC
+`7000D2A8` is inside that wait. SP PC `1C4` is the FIFO-space wait, with
+pre-capture SP status `C0` and DP status `760`. The CPU exception fields are
+zero. This remains an RCP stall, not a captured CPU exception.
+
+Page 4's matched-task snapshot reports depth image `0023E540`, color image
+`003DA150`, width `140` (320), mode `0C19286C`, zero Z-compare draw commands,
+and `136` (310) depth-write-enabled GBI draw commands. These are command-walk
+observations, not proof that those writes completed or the exact stalled
+primitive's state.
+
+The color image is only 16-byte aligned. Nintendo's
+[gDPSetColorImage reference](https://ultra64.ca/files/documentation/online-manuals/functions_reference_manual_2.0i/gdp/gDPSetColorImage.html)
+requires **64-byte alignment for both color and depth images**. The captured
+depth address satisfies that requirement; the color address does not.
+
+The ELF/map confirms the source of this defect:
+
+| Allocation | 10R address/size | After alignment fix |
+|---|---|---|
+| Stacks | `803AB400`, size `9550` | Unchanged |
+| First color framebuffer | `803B4950` | `803B4980` |
+| Second color framebuffer | `803DA150` | `803DA180` |
+| End of both framebuffers | `803FF950` | `803FF980` |
+
+Commit `12b520e7` removed the unused `sp_debug[0x6B0]` stack. Previously that
+stack made the total stack size `9C00`, placing the following framebuffers at
+`803B5000` by coincidence. The old normal US build enabled `LEFTOVERDEBUG`,
+so this dependency also affected normal builds. The linker never explicitly
+aligned the framebuffer section. Preserve the unused-stack removal and fix
+that implicit layout dependency instead.
+
+### What 11A changes
+
+* Align `.cfb` to 64 bytes in the linker script. The 48-byte padding leaves
+  both framebuffers below `80400000` in the original 4 MiB region.
+* Assert framebuffer alignment and the 4 MiB upper bound at link time, and
+  assert the per-frame stride is a multiple of 64 at compile time.
+* Reject known misaligned color/depth image addresses in the existing
+  preflight. Check resolved addresses, including segment bases; unknown
+  segments remain unknown. This is not a general image-bounds validator.
+* Change the current diagnostic title to **11A**. Do not change the
+  controller modes, allocation, geometry, or rendering-isolation switches.
+
+This fixes a demonstrated hardware requirement violation. Whether it accounts
+for every observed hang still requires a hardware test. The delayed failure
+is consistent with the controller fade reaching a depth-writing pass, but
+these captures do not prove that exact transition caused the stall.
+
+### Hardware test and validation
+
+Apply against `8e52a1cc`, then run `make VERSION=US`. Run the newly generated
+ROM. Open the controller page, let the fade finish, manipulate it, leave and
+reopen it. If it stalls, send all six 11A pages and the matching ELF/map.
+If it passes, restore normal controller depth and world rendering in the
+next controlled test; this patch deliberately retains the current isolation.
+
+Validation: normal US IDO 5.3 compilation of `cfb`, `stacks`, diagnostics and
+preflight; diagnostic/preflight and fill-probe host suites; GNU ld layout
+test using the production stack/framebuffer script fragment and host fixtures
+derived from the native objects' symbols, sizes and alignment. The layout
+test confirms the addresses above and that deliberately misaligned or
+overflowing placements fail the new assertions. No full ROM build, emulator
+run or N64 test was performed here.
+
 ## Controller depth-comparison test (10R)
 
 `GUD-n64-controller-depth-compare.patch` targets master `75e4bff4`

@@ -257,6 +257,7 @@ $(RAW_IMAGE_BIN) $(RAW_IMAGE_DEF) &: $(BUILD_DIR)/imagelist.csv assets/images.de
 	mv $(RAW_IMAGE_DEF).tmp $(RAW_IMAGE_DEF)
 
 $(BUILD_DIR)/src/game/image.o: $(RAW_IMAGE_DEF)
+$(BUILD_DIR)/src/cfb.o: src/fr.h
 
 # These readers use the manifest-backed image count/capacity. Keep incremental
 # builds in sync when the texture headers change (the IDO rules do not emit .d files).

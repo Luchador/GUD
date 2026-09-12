@@ -43,6 +43,26 @@ void test_rdp_preflight(void)
     const u32 badFill[] = {0x40, 0x10, 0x20};
     const char *fillReason[] = {"FILL WITH IMAGE READ", "FILL WITH Z COMPARE", "FILL WITH PIXEL Z UPDATE"};
 
+    /* 10R's actual framebuffer address: valid RDRAM, but only 16-byte
+     * aligned. This must be caught even before a Z-enabled draw appears. */
+    begin(); emit(0xff10013f, 0x803da150);
+    run(N64RDP_HAZARD, "COLOR IMAGE NOT 64 BYTE ALIGNED");
+    assert(result.address == 0x1008 && result.word1 == 0x803da150);
+    begin(); emit(0xff10013f, 0x803da180);
+    run(N64RDP_CHECKED, NULL);
+    begin(); emit(0xfe000000, 0x8023e550);
+    run(N64RDP_HAZARD, "DEPTH IMAGE NOT 64 BYTE ALIGNED");
+    begin(); emit(0xfe000000, 0x8023e540);
+    run(N64RDP_CHECKED, NULL);
+    /* Validate the resolved address, including alignment contributed by a
+     * segment base. Unknown segments remain unknown, not false hazards. */
+    begin(); emit(0xbc000406, 0x1810); emit(0xff10013f, 0x01000000);
+    run(N64RDP_HAZARD, "COLOR IMAGE NOT 64 BYTE ALIGNED");
+    begin(); emit(0xbc000406, 0x1800); emit(0xfe000000, 0x01000010);
+    run(N64RDP_HAZARD, "DEPTH IMAGE NOT 64 BYTE ALIGNED");
+    begin(); emit(0xff10013f, 0x01000010);
+    run(N64RDP_CHECKED, NULL);
+
     /* The 10R edit is exactly one bit, including the actual captured 07W
      * and 09P modes. Never change Z_UPD, primitive source, blending, or a
      * different command whose payload happens to contain bit 4. */
