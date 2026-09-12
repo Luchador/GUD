@@ -4549,6 +4549,62 @@ done:
     return ok;
 }
 
+static BOOL ViewportGetSelectedBgTexture(HWND hwnd, unsigned short *textureout)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    BOOL found = FALSE;
+    int i, tri;
+    if (!ViewportCanSelectBackground(hwnd, TRUE) || state->tool != EDITOR_TOOL_FACE_SELECT)
+    { return FALSE; }
+    /* Layer toggles can leave faces selected. Include those seeds too, so
+       hiding a layer never makes a mixed-texture selection appear uniform. */
+    for (i = 0; i < state->batchcount; i++)
+    {
+        const SceneBatch *batch = &state->batches[i];
+        if (batch->object) { continue; }
+        for (tri = batch->first / 3; tri < (batch->first + batch->count) / 3; tri++)
+        {
+            if (!state->selectedtris[tri] || state->scenefacerefs[tri].faceid == BG_FACE_ID_NONE
+                || ViewportTriangleHidden(state, tri)) { continue; }
+            if (found && *textureout != batch->textureid) { return FALSE; }
+            *textureout = batch->textureid;
+            found = TRUE;
+        }
+    }
+    return found;
+}
+
+BOOL ViewportCanSelectSameMaterial(HWND hwnd)
+{
+    unsigned short texture;
+    return ViewportGetSelectedBgTexture(hwnd, &texture);
+}
+
+void ViewportSelectSameMaterial(HWND hwnd)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    unsigned short texture;
+    int i, tri;
+    if (!ViewportGetSelectedBgTexture(hwnd, &texture)) { return; }
+    ViewportClearAllSelection(state);
+    for (i = 0; i < state->batchcount; i++)
+    {
+        const SceneBatch *batch = &state->batches[i];
+        if (batch->textureid != texture || !ViewportBatchIsPickable(state, batch)) { continue; }
+        for (tri = batch->first / 3; tri < (batch->first + batch->count) / 3; tri++)
+        {
+            if (state->scenefacerefs[tri].faceid == BG_FACE_ID_NONE
+                || ViewportTriangleHidden(state, tri)) { continue; }
+            state->selectedtris[tri] = 1;
+            state->selectedtricount++;
+            ViewportSetTriangleColor(state, tri, TRUE);
+        }
+    }
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd, NULL, FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+}
+
 static BgVertex *ViewportLoadHandle(int id, DWORD *count, BOOL radial)
 {
     HINSTANCE instance = GetModuleHandle(NULL);

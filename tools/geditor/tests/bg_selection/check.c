@@ -162,6 +162,71 @@ static void Geometry(void)
     puts("PASS: per-mode counts, one-ring growth, hidden/layer filters, source identity, and atomic failure.");
 }
 
+static void SameMaterial(void)
+{
+    Vertex vertices[30]={0}; VertexColor colors[30]={0};
+    BgDocumentVertexRef refs[30]={0}; BgFaceRef faces[10]={0};
+    unsigned char selected[10]={0}, hidden[10]={0};
+    SceneBatch batches[]={
+        {.first=0, .count=6, .textureid=17}, /* Two faces in one draw batch. */
+        {.first=6, .count=3, .textureid=23},
+        {.first=9, .count=3, .textureid=17, .secondary=TRUE, .renderflags=BG_RENDER_BLEND},
+        {.first=12, .count=3, .textureid=17, .cullbackfaces=TRUE},
+        {.first=15, .count=3, .textureid=17},
+        {.first=18, .count=3, .textureid=17, .object=TRUE},
+        {.first=21, .count=6, .textureid=BG_TEX_NONE},
+        {.first=27, .count=3, .textureid=17}
+    };
+    ViewportState s={.tool=EDITOR_TOOL_FACE_SELECT,.showbgprimary=TRUE,.dragaxis=-1,
+        .scene=vertices,.scenecolors=colors,.scenecount=30,.scenevertexrefs=refs,.scenefacerefs=faces,
+        .selectedtris=selected,.hiddentris=hidden,.batches=batches,.batchcount=8,
+        .selectedobject=VIEWPORT_OBJECT_NONE};
+    for (int i=0; i<10; i++) { faces[i].faceid=i+1; faces[i].room=i/3+1; }
+    for (int i=0; i<30; i++) { vertices[i].z=1000000; } /* Includes off-screen geometry. */
+    hidden[5]=1; faces[6].faceid=faces[9].faceid=BG_FACE_ID_NONE;
+    unsigned before=notifications;
+    assert(!ViewportCanSelectSameMaterial(NULL) && !ViewportCanSelectSameMaterial(&s));
+    ViewportSelectSameMaterial(&s); assert(notifications==before && !s.selectedtricount);
+    Seed(&s,EDITOR_TOOL_FACE_SELECT);
+    assert(ViewportCanSelectSameMaterial(&s));
+    ViewportSelectSameMaterial(&s);
+    assert(s.selectedtricount==3 && selected[0] && selected[1] && selected[4]);
+    assert(!selected[2] && !selected[3] && !selected[5] && !selected[6] && !selected[9]);
+    assert(notifications==before+1); /* Standard selection/history notification. */
+    assert(ViewportCanSelectSameMaterial(&s)); /* Multiple faces, one texture. */
+    ViewportSelectSameMaterial(&s); assert(s.selectedtricount==3); /* No duplicates. */
+    selected[2]=1; s.selectedtricount++;
+    before=notifications;
+    assert(!ViewportCanSelectSameMaterial(&s));
+    ViewportSelectSameMaterial(&s);
+    assert(s.selectedtricount==4 && selected[2] && notifications==before);
+    selected[2]=0; s.selectedtricount--;
+    /* Hidden layer selections still count when checking for mixed textures. */
+    selected[3]=1; s.selectedtricount++; batches[2].textureid=23;
+    assert(!ViewportCanSelectSameMaterial(&s));
+    batches[2].textureid=17; assert(ViewportCanSelectSameMaterial(&s));
+    s.showbgsecondary=TRUE;
+    ViewportSelectSameMaterial(&s);
+    assert(s.selectedtricount==4 && selected[3]); /* Different render flags still match. */
+    s.showbgsecondary=FALSE;
+    ViewportSelectSameMaterial(&s); assert(s.selectedtricount==3 && !selected[3]);
+    ViewportClearAllSelection(&s); selected[7]=1; s.selectedtricount=1;
+    assert(ViewportCanSelectSameMaterial(&s));
+    ViewportSelectSameMaterial(&s); assert(s.selectedtricount==2 && selected[7] && selected[8]);
+    Seed(&s,EDITOR_TOOL_FACE_SELECT);
+    s.flying=TRUE; assert(!ViewportCanSelectSameMaterial(&s)); s.flying=FALSE;
+    s.orbit=TRUE; assert(!ViewportCanSelectSameMaterial(&s)); s.orbit=FALSE;
+    s.dragaxis=0; assert(!ViewportCanSelectSameMaterial(&s)); s.dragaxis=-1;
+    s.boxpending=TRUE; assert(!ViewportCanSelectSameMaterial(&s)); s.boxpending=FALSE;
+    s.showbgprimary=FALSE; assert(!ViewportCanSelectSameMaterial(&s)); s.showbgprimary=TRUE;
+    s.tool=EDITOR_TOOL_VERTEX_SELECT; assert(!ViewportCanSelectSameMaterial(&s));
+    s.tool=EDITOR_TOOL_EDGE_SELECT; assert(!ViewportCanSelectSameMaterial(&s));
+    s.tool=EDITOR_TOOL_VERTEX_PAINT; assert(!ViewportCanSelectSameMaterial(&s));
+    s.tool=EDITOR_TOOL_FACE_SELECT; ViewportClearAllSelection(&s); s.selectedobject=0;
+    assert(!ViewportCanSelectSameMaterial(&s));
+    puts("PASS: same-material selection, mixed-texture rejection, room/batch/layer boundaries, untextured faces and input guards.");
+}
+
 typedef struct { HWND hwnd; unsigned message, wParam; LPARAM lParam; } MSG;
 #define WM_KEYDOWN 2
 #define WM_COMMAND 3
@@ -198,4 +263,4 @@ static void Hotkeys(void)
     puts("PASS: Q/Ctrl+A routing, repeat suppression, text fields, camera flight and window scope.");
 }
 
-int main(void) { Geometry(); Hotkeys(); return 0; }
+int main(void) { Geometry(); SameMaterial(); Hotkeys(); return 0; }

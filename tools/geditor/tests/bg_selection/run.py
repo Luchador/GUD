@@ -31,7 +31,8 @@ def main():
         'ViewportTriangleHidden', 'ViewportBatchIsPickable', 'ViewportSetTriangleColor',
         'ViewportClearBgSelection', 'ViewportClearAllSelection', 'ViewportCompareBoxPoints',
         'ViewportCompareBoxComponents', 'ViewportBoxComponentKey', 'ViewportApplyBoxComponents',
-        'ViewportBgSelectionPoint', 'ViewportCanSelectBackground', 'ViewportSelectBackground'))
+        'ViewportBgSelectionPoint', 'ViewportCanSelectBackground', 'ViewportSelectBackground',
+        'ViewportGetSelectedBgTexture', 'ViewportCanSelectSameMaterial', 'ViewportSelectSameMaterial'))
     hotkeys = function((src / 'geditor.c').read_text(), 'GEditorHandleSelectionHotkey')
     with tempfile.TemporaryDirectory(prefix='geditor-bg-selection-') as temp:
         temp = Path(temp)
