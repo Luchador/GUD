@@ -19,6 +19,7 @@
 #include "browser.h"
 #include "viewport.h"
 #include "gltf.h"
+#include "modellighting.h"
 #include "fog.h"
 #include "orbitcamera.h"
 #include "resource.h"
@@ -26,7 +27,9 @@
 
 #define VIEWPORT_MONITOR_TIMER 1001
 #define VIEWPORT_STARTUP_TIMER 1002
-#define VIEWPORT_STARTUP_SPIN_DEGREES_PER_SECOND 20.0
+#define VIEWPORT_STARTUP_SPIN_DEGREES_PER_SECOND 40.0
+#define VIEWPORT_STARTUP_CAMERA_PITCH -30.0
+#define VIEWPORT_STARTUP_LOWER_OFFSET 0.18
 
 #define VIEWPORT_CLASS "GEditorViewport"
 
@@ -220,6 +223,7 @@ typedef struct ViewportState {
     unsigned int orbitbuttons;
 
     BOOL flying;
+    ModelLighting modellighting;
     BgVertex *startupmodel; /* embedded, lit GLB; separate from editable geometry */
     DWORD startuptris;
     double startupcenter[3];
@@ -631,6 +635,7 @@ static BOOL ViewportInitGL(HWND hwnd, ViewportState *state)
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_COLOR_ARRAY);
 
+    ModelLightingInit(&state->modellighting);
     return ViewportCreateStatisticsFont(state);
 }
 
@@ -1146,27 +1151,9 @@ static void ViewportDrawAimGuides(const ViewportState *state)
 #define VIEWPORT_MARKER_MODEL_SCALE 100.0f
 /* Shared fixed-function lighting for embedded editor GLBs. Set the light
  * before the model transform so its shading changes as the model turns. */
-static void ViewportLightEditorModel(void)
+static void ViewportLightEditorModel(ViewportState *state)
 {
-    static const GLfloat ambient[4] = {0.4f, 0.4f, 0.4f, 1};
-    static const GLfloat diffuse[4] = {0.8f, 0.8f, 0.8f, 1};
-    static const GLfloat black[4] = {0, 0, 0, 1};
-    static const GLfloat lightdirection[4] = {-0.4f, 0.8f, 0.3f, 0};
-    glEnable(GL_LIGHTING);
-    glEnable(GL_LIGHT0);
-    glEnable(GL_COLOR_MATERIAL);
-    glEnable(GL_NORMALIZE);
-    glShadeModel(GL_SMOOTH);
-    glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
-    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, black);
-    glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, black);
-    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambient);
-    glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
-    glLightfv(GL_LIGHT0, GL_AMBIENT, black);
-    glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse);
-    glLightfv(GL_LIGHT0, GL_SPECULAR, black);
-    /* Set after the view transform so the light stays fixed in world space. */
-    glLightfv(GL_LIGHT0, GL_POSITION, lightdirection);
+    ModelLightingBegin(&state->modellighting, NULL);
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_COLOR_ARRAY);
     glEnableClientState(GL_NORMAL_ARRAY);
@@ -1180,7 +1167,7 @@ static void ViewportDrawLitMesh(const BgVertex *model, DWORD triangles)
     glDrawArrays(GL_TRIANGLES, 0, triangles * 3);
 }
 
-static void ViewportDrawSetupMarkers(const ViewportState *state)
+static void ViewportDrawSetupMarkers(ViewportState *state)
 {
     DWORD i;
     if (!state->showobjects || state->setupmarkercount == 0) { return; }
@@ -1221,7 +1208,7 @@ static void ViewportDrawSetupMarkers(const ViewportState *state)
         glEnd();
         glDisable(GL_LINE_STIPPLE);
     }
-    ViewportLightEditorModel();
+    ViewportLightEditorModel(state);
     for (i = 0; i < state->setupmarkercount + state->swirlpath.pointcount; i++)
     {
         SetupMarker control = {0};
@@ -1256,11 +1243,12 @@ static void ViewportDrawSetupMarkers(const ViewportState *state)
         glEnableClientState(GL_COLOR_ARRAY);
         glPopMatrix();
     }
+    ModelLightingEnd(&state->modellighting);
     glPopClientAttrib();
     glPopAttrib();
 }
 
-/* Keep the box centered and fit a bounding sphere, including its complete
+/* Fit a bounding sphere and place the box below center, including its complete
  * rotation, using the same framing as the model viewer. Geometry stays in
  * glTF metres; its display transform uses the marker path's centimetres. */
 static void ViewportFrameStartupModel(ViewportState *state)
@@ -1282,6 +1270,11 @@ static void ViewportFrameStartupModel(ViewportState *state)
     OrbitCameraFrame(&camera, bounds[0], bounds[1],
         (double)max(1, state->width)/max(1, state->height), VIEWPORT_FOV_Y);
     memcpy(state->startupcenter, camera.center, sizeof(state->startupcenter));
+    camera.pitch = VIEWPORT_STARTUP_CAMERA_PITCH;
+    /* Aim a little above the pivot to lower the box in the view. Reserve
+     * extra framing space so narrow viewports still contain the whole spin. */
+    camera.center[1] += camera.radius * VIEWPORT_STARTUP_LOWER_OFFSET;
+    camera.distance *= 1.0 + VIEWPORT_STARTUP_LOWER_OFFSET;
     OrbitCameraPosition(&camera, position);
     state->posx = (float)position[0]; state->posy = (float)position[1]; state->posz = (float)position[2];
     state->yaw = (float)camera.yaw; state->pitch = (float)camera.pitch;
@@ -1322,11 +1315,11 @@ static double ViewportStartupAngle(const ViewportState *state)
     QueryPerformanceCounter(&now);
     double seconds = (double)(now.QuadPart-state->startupstart.QuadPart)/state->startupfrequency.QuadPart;
     /* Positive Y rotation is counter-clockwise from the elevated camera.
-     * Elapsed time, rather than timer ticks, keeps a full turn at 18 seconds. */
+     * Elapsed time, rather than timer ticks, keeps a full turn at 9 seconds. */
     return fmod(fmax(0, seconds)*VIEWPORT_STARTUP_SPIN_DEGREES_PER_SECOND, 360.0);
 }
 
-static void ViewportDrawStartupModel(const ViewportState *state)
+static void ViewportDrawStartupModel(ViewportState *state)
 {
     if (!state->startupmodel || !state->startuptris) { return; }
     glPushAttrib(GL_ENABLE_BIT | GL_LIGHTING_BIT | GL_CURRENT_BIT
@@ -1343,13 +1336,14 @@ static void ViewportDrawStartupModel(const ViewportState *state)
     glRotatef(-state->pitch, 1, 0, 0);
     glRotatef(-state->yaw, 0, 1, 0);
     glTranslatef(-state->posx, -state->posy, -state->posz);
-    ViewportLightEditorModel();
+    ViewportLightEditorModel(state);
     glTranslated(state->startupcenter[0], state->startupcenter[1], state->startupcenter[2]);
     glRotated(ViewportStartupAngle(state), 0, 1, 0);
     glTranslated(-state->startupcenter[0], -state->startupcenter[1], -state->startupcenter[2]);
     glScalef(VIEWPORT_MARKER_MODEL_SCALE, VIEWPORT_MARKER_MODEL_SCALE, VIEWPORT_MARKER_MODEL_SCALE);
     ViewportDrawLitMesh(state->startupmodel, state->startuptris);
     glPopMatrix();
+    ModelLightingEnd(&state->modellighting);
     glPopClientAttrib();
     glPopAttrib();
 }
@@ -5602,6 +5596,11 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         ViewportEndFly(hwnd, state); // Never leave the cursor hidden.
         if (state != NULL)
         {
+            if (state->hglrc != NULL)
+            {
+                wglMakeCurrent(state->hdc, state->hglrc);
+                ModelLightingFree(&state->modellighting);
+            }
             if (state->statisticsfont != 0)
             {
                 wglMakeCurrent(state->hdc, state->hglrc);
