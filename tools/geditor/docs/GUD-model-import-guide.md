@@ -10,8 +10,9 @@ as unsaved; closing the Model Editor does not discard its changes.
    with existing projects that have `base.z64`; no new project is required.
 3. Import that file into Blender. Leave **Merge Vertices** disabled.
 4. Move existing vertices in Edit Mode and adjust their UVs in the UV Editor.
+   Paint the existing color attribute in Vertex Paint to change vertex colors.
    You can also delete faces. To remove texture usage from remaining faces,
-   disconnect the material's image texture from Base Color. Keep vertex colors.
+   disconnect the material's image texture from Base Color. Keep the color attribute.
    Assigning another existing `GUD Image` texture of the same dimensions is also
    supported. Keep the image names so GEditor can identify their ROM texture IDs.
 5. Export from Blender as glTF Binary (`.glb`) or glTF Separate (`.gltf`). Enable
@@ -30,10 +31,11 @@ again before making another round of edits.
 
 ## What is supported
 
-Import supports moving existing vertices and UVs, face deletion, removing
+Import supports moving existing vertices and UVs, painting vertex colors,
+face deletion, removing
 texture assignments, and reassigning existing textures of the same dimensions.
 It validates triangle identities and rejects added/duplicated faces, changed
-triangle connections or index winding, and changed vertex colors. Do not merge
+triangle connections or index winding. Do not merge
 vertices, retriangulate, apply a decimation modifier, or remove `_GUD_VERTEX`.
 
 Native positions use signed 16-bit integers in each vertex's original joint
@@ -45,16 +47,35 @@ than clamped. Review the imported preview to see the quantized result.
 
 Exported triangles have separate corners to retain their source identities.
 When several corners reference one native vertex, move **all copies together**,
-including copies in another part or LOD. Their positions and textured UVs must
-agree after rounding. Use X-Ray selection for coincident positions and select
+including copies in another part or LOD. Their positions, textured UVs and
+native color values must agree after rounding. Use X-Ray selection for coincident positions and select
 all corresponding UV corners. Do not weld them: that loses their individual
 `_GUD_VERTEX` identities. Existing native UV seams remain editable, but creating
 a new seam by separating UVs that share a native vertex is not supported.
-Conflicting edits are rejected without replacing the current model.
+Paint all shared color corners consistently, too; creating a new color seam by
+splitting a native vertex is not supported. Conflicting edits are rejected
+without replacing the current model.
+
+Color-based geometry accepts RGB edits and, where the authored material uses
+vertex alpha, alpha edits. glTF `COLOR_0` may contain RGB or RGBA floats or
+normalized unsigned bytes/shorts. Components must be finite values in 0–1 and
+are rounded to the N64's 8-bit channels. RGB-only attributes imply alpha 1.
+This edits the color attribute, not the material's Base Color factor.
+
+The importer retains the native combiner and blending settings. Lowering
+vertex alpha does not automatically turn an opaque part into a translucent
+one. Where opacity comes from a material constant or texture instead of vertex
+alpha, keep the exported alpha unchanged; the importer preserves the hidden
+native alpha bytes. RGB can still be painted on these color-based parts.
+
+When native lighting is enabled, the vertex's RGB bytes store signed normals.
+Those parts keep their RGB unchanged so painting cannot corrupt their normals.
+Their alpha remains editable if the material uses vertex alpha. Normal editing
+and conversion between lit and color-based geometry are not supported here.
 
 Reflection-mapped parts generate UVs in-game. Their positions can move, but
-their exported UVs must remain unchanged. Authored colors and normals are
-retained; this import does not recalculate model lighting or accept new normals.
+their exported UVs must remain unchanged. Their authored normals are retained;
+this import does not recalculate model lighting or accept new normals.
 
 Exports separate native draw parts/material groups into objects. Distant
 character LOD objects are labeled **(distant LOD)**. Edit those too when a change
@@ -65,11 +86,11 @@ geometry.
 
 The compiler retains the native skeleton, per-vertex joint associations,
 attachment points, switches, collision/bounding data and dynamic effects such
-as muzzle flashes. Position/UV-only edits update the original native vertex
+as muzzle flashes. Position/UV/color-only edits update the original native vertex
 records and preserve all rendering commands byte-for-byte. Face deletion or
 material changes rebuild triangle/material commands and omit vertex loads
 unused by surviving faces. Vertices shared with preserved dynamic effects
-cannot be moved through the ordinary mesh export.
+cannot be modified through the ordinary mesh export.
 
 Moving or removing visible geometry does not reshape collision/culling bounds
 or move attachment points. Keep edits within the authored bounds; expanding a
@@ -102,5 +123,8 @@ The suite exercises the native compiler, glTF/GLB importer, saved overrides and
 the ROM replacement reader with Jungle trees, a segment-4-addressed book model,
 and a mixed-joint vertex-cache fixture. It checks deformation, UV quantization,
 shared-vertex conflicts, range errors and compatibility with face deletion.
+Color tests cover native RGB/RGBA writeback, color accessor encodings, missing
+or invalid colors, normal protection at vertex-load time, material-controlled
+alpha, shared alpha across different materials, and saved replacement reads.
 Texture/ROM directory lookup and Windows file APIs are stubbed; Windows UI,
 PNG encoding and full ROM execution still require the normal application.

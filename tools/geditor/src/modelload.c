@@ -52,6 +52,7 @@ typedef struct PropModelDefinition {
 #define MDL_G_TRI4  0xB1
 #define MDL_G_ENDDL 0xB8
 #define MDL_G_TRI1  0xBF
+#define MDL_G_LIGHTING 0x00020000u
 
 #define MDL_MAX_NODES 512
 #define MDL_MAX_MATRICES (MDL_MAX_NODES * 3)
@@ -249,6 +250,7 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
     DWORD cacheoffsets[16];
     BgRenderFlags cacheflags[16];
     unsigned int valid = 0;
+    unsigned int normalbits = 0;
     const float *translation = origin;
     const ModelTransform *transform = pose->animated != NULL
         ? &pose->animated->matrices[pose->defaultmatrix] : NULL;
@@ -330,6 +332,8 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
                 BgVertex *out = &cache[first + i];
 
                 cacheoffsets[first + i] = addr + i * 16;
+                if (state->geometrymode & MDL_G_LIGHTING) { normalbits |= 1u << (first + i); }
+                else { normalbits &= ~(1u << (first + i)); }
                 out->x = md16(v + 0) + translation[0];
                 out->y = md16(v + 2) + translation[1];
                 out->z = md16(v + 4) + translation[2];
@@ -416,6 +420,11 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
                         ModelSourceFace *face = &b->source->faces[b->count / 3 - 1];
                         face->command = pc; face->list = b->list; face->slot = (unsigned char)tri;
                         face->material = *material; face->closest = b->closest;
+                        face->state = *state; face->normalmask = 0;
+                        for (k = 0; k < 3; k++)
+                        {
+                            if (normalbits & (1u << idx[k])) { face->normalmask |= 1u << k; }
+                        }
                     }
                     b->renderflags[b->count / 3 - 1] = (BgRenderStateFlags(state) & ~BG_RENDER_ENVIRONMENT_MASK)
                         | cacheflags[idx[0]]

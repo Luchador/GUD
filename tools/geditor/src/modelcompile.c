@@ -1,9 +1,9 @@
 /* Rebuild render streams while retaining the original native model tree and
  * vertex/joint associations. Source identities survive Blender reindexing.
- * Position/UV edits update native Vtx records in place. Face deletion and
+ * Position/UV/color edits update native Vtx records in place. Face deletion and
  * texture assignment rebuild commands without changing vertex/joint bindings.
- * Topology and colors remain authored; conflicting edits to shared vertices
- * are rejected instead of changing another face or splitting its binding. */
+ * Topology and lighting normals remain authored. Conflicting shared-vertex
+ * edits are rejected instead of changing another face or splitting a binding. */
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -17,7 +17,7 @@ typedef struct ModelOutput { unsigned char *data; DWORD size, capacity; BOOL fai
 typedef struct ModelVertexEdit {
     DWORD offset;
     unsigned char bytes[16];
-    BOOL textured;
+    BOOL textured, alphaeditable;
 } ModelVertexEdit;
 static DWORD Read32(const unsigned char *p) { return (DWORD)p[0]<<24 | (DWORD)p[1]<<16 | (DWORD)p[2]<<8 | p[3]; }
 static void Write32(unsigned char *p, DWORD v) { p[0]=v>>24; p[1]=v>>16; p[2]=v>>8; p[3]=v; }
@@ -42,13 +42,51 @@ static int VertexEditCompare(const void *left, const void *right)
     return a < b ? -1 : a > b;
 }
 
+static BOOL PrepareVertexColor(ModelVertexEdit *edit, const ModelSource *source,
+    DWORD id, const BgVertex *vertex, BgRenderAlpha alpha, const char **reasonout)
+{
+    const BgVertex *original = &source->vertices[id];
+    if (source->faces[id / 3].normalmask & (1u << (id % 3)))
+    {
+        /* G_LIGHTING is applied at G_VTX time. Even a later geometry-mode
+         * change cannot make these cached normals safe to overwrite as RGB.
+         * Keep the old one-byte round-trip tolerance for the neutral preview. */
+        if (abs((int)vertex->r - original->r) > 1
+            || abs((int)vertex->g - original->g) > 1
+            || abs((int)vertex->b - original->b) > 1)
+        { *reasonout = "This part stores lighting normals in its RGB bytes. Keep its RGB colors unchanged; color-based parts can be painted."; return FALSE; }
+    }
+    else
+    {
+        edit->bytes[12] = vertex->r; edit->bytes[13] = vertex->g; edit->bytes[14] = vertex->b;
+    }
+
+    /* Editable exports contain effective alpha, which can be supplied by a
+     * material constant instead of the native Vtx. Preserve hidden alpha on
+     * a no-op; never bake that constant back into the vertex by accident. */
+    edit->alphaeditable = alpha.shade && alpha.constant != 0;
+    if (!edit->alphaeditable)
+    {
+        if (vertex->a != original->a)
+        { *reasonout = "This part's material controls its opacity independently of vertex alpha. Keep its exported alpha unchanged."; return FALSE; }
+    }
+    else if (BgRenderVertexAlpha(alpha, edit->bytes[15]) != vertex->a)
+    {
+        unsigned int value = ((unsigned int)vertex->a * 255u + alpha.constant / 2u) / alpha.constant;
+        if (value > 255u || BgRenderVertexAlpha(alpha, (unsigned char)value) != vertex->a)
+        { *reasonout = "The requested alpha cannot be represented by this part's native vertex alpha and material."; return FALSE; }
+        edit->bytes[15] = (unsigned char)value;
+    }
+    return TRUE;
+}
+
 /* Export uses a translated rest pose, while N64 Vtx positions remain local
  * to the matrix selected at their original load. Applying the exported delta
  * to the original integer position reverses that translation, including when
  * a triangle's cached vertices belong to different joints. */
 static BOOL PrepareVertexEdit(ModelVertexEdit *edit, const unsigned char *data,
     const ModelSource *source, DWORD id, const BgVertex *vertex, int width,
-    int height, BOOL textured, const char **reasonout)
+    int height, BOOL textured, BgRenderAlpha alpha, const char **reasonout)
 {
     const BgVertex *original = &source->vertices[id];
     const unsigned char *native;
@@ -78,7 +116,7 @@ static BOOL PrepareVertexEdit(ModelVertexEdit *edit, const unsigned char *data,
             && memcmp(edit->bytes + 8, native + 8, 4))
         { *reasonout = "This part uses generated reflection UVs. Keep its UVs unchanged; ordinary texture UVs can be edited."; return FALSE; }
     }
-    return TRUE;
+    return PrepareVertexColor(edit, source, id, vertex, alpha, reasonout);
 }
 
 static BOOL MergeVertexEdits(ModelVertexEdit *edits, DWORD *count, const char **reasonout)
@@ -95,10 +133,20 @@ static BOOL MergeVertexEdits(ModelVertexEdit *edits, DWORD *count, const char **
             if (previous->textured && edits[i].textured
                 && memcmp(previous->bytes + 8, edits[i].bytes + 8, 4))
             { *reasonout = "Faces sharing a native vertex have different UVs. Move their UV corners together; creating a new UV seam requires splitting native vertices and is not supported."; return FALSE; }
+            if (memcmp(previous->bytes + 12, edits[i].bytes + 12, 3))
+            { *reasonout = "Faces sharing a native vertex have different RGB colors or share its lighting normals. Paint all color copies consistently and keep any shared normals unchanged."; return FALSE; }
+            if (previous->alphaeditable && edits[i].alphaeditable
+                && previous->bytes[15] != edits[i].bytes[15])
+            { *reasonout = "Faces sharing a native vertex have different alpha values. Paint all copies that use vertex alpha consistently."; return FALSE; }
             if (edits[i].textured)
             {
                 memcpy(previous->bytes + 8, edits[i].bytes + 8, 4);
                 previous->textured = TRUE;
+            }
+            if (edits[i].alphaeditable)
+            {
+                previous->bytes[15] = edits[i].bytes[15];
+                previous->alphaeditable = TRUE;
             }
         }
         else
@@ -237,7 +285,12 @@ BOOL ModelCompileImport(const unsigned char *data, DWORD size, const ModelSource
         DWORD id=imported->sourcevertices[i*3], face=id/3;
         int corner, width=1,height=1, newwidth=1,newheight=1;
         unsigned short texture=BG_TEX_ID(imported->tags[i]);
+        BgMaterial material;
+        BgRenderAlpha alpha;
         if(face>=source->count || choices[face]!=MODEL_DELETED) { *reasonout="Faces were duplicated or added. Preserve the exported triangles and their GUD attributes; existing faces may be moved or deleted."; goto done; }
+        material = source->faces[face].material;
+        if (texture != BG_TEX_ID(source->tags[face])) { BgMaterialSetTexture(&material, texture); }
+        alpha = BgRenderGetMaterialAlpha(&source->faces[face].state, &material);
         if (BG_TEX_ID(source->tags[face])!=BG_TEX_NONE
             && !TexGetProjectImageSize(projectdir,BG_TEX_ID(source->tags[face]),&width,&height))
         { *reasonout="An original model texture is missing from the project."; goto done; }
@@ -251,14 +304,11 @@ BOOL ModelCompileImport(const unsigned char *data, DWORD size, const ModelSource
         for(corner=0;corner<3;corner++)
         {
             DWORD vertexid=imported->sourcevertices[i*3+corner];
-            const BgVertex *a=&imported->vertices[i*3+corner], *b;
+            const BgVertex *a=&imported->vertices[i*3+corner];
             if(vertexid/3!=face || vertexid%3!=(id%3+corner)%3)
             { *reasonout="A face's vertex identities or winding changed. Preserve the exported triangles and their GUD attributes."; goto done; }
-            b=&source->vertices[vertexid];
-            if (abs((int)a->r-b->r)>1 || abs((int)a->g-b->g)>1 || abs((int)a->b-b->b)>1 || abs((int)a->a-b->a)>1)
-            { *reasonout="Vertex colors changed. Keep the original colors and enable Vertex Colors in Blender's exporter."; goto done; }
             if (!PrepareVertexEdit(&edits[editcount++], data, source, vertexid, a,
-                                  width, height, texture!=BG_TEX_NONE, reasonout)) { goto done; }
+                                  width, height, texture!=BG_TEX_NONE, alpha, reasonout)) { goto done; }
         }
         choices[face]=texture;
         if(texture!=BG_TEX_ID(source->tags[face])) { changed=TRUE; }

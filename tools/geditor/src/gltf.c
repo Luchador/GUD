@@ -1559,6 +1559,19 @@ static BOOL GltfLoadPrimitive(const char *json,
         }
         hascolors = TRUE;
     }
+    if (builder->importing)
+    {
+        if (!hascolors)
+        {
+            *reasonout = "A model part has no vertex colors (COLOR_0). Enable Vertex Colors in Blender's glTF exporter and export the intended color attribute.";
+            return FALSE;
+        }
+        if (colors.count != positions.count
+            || (colors.componenttype != GLTF_COMPONENT_FLOAT
+                && !((colors.componenttype == GLTF_COMPONENT_UNSIGNED_BYTE
+                      || colors.componenttype == GLTF_COMPONENT_UNSIGNED_SHORT) && colors.normalized)))
+        { *reasonout = "Model colors must match the vertex count and use floats or normalized unsigned bytes/shorts."; return FALSE; }
+    }
 
     texcoordtoken = GltfJsonObjectGet(json, tokens, tokencount,
                                       attributes, "TEXCOORD_0");
@@ -1748,6 +1761,15 @@ static BOOL GltfLoadPrimitive(const char *json,
             {
                 *reasonout = "a glTF triangle references invalid vertex colors.";
                 return FALSE;
+            }
+        }
+        if (builder->importing)
+        {
+            int channel;
+            for (channel = 0; channel < 4; channel++)
+            {
+                if (!isfinite(values[channel]) || values[channel] < 0.0f || values[channel] > 1.0f)
+                { *reasonout = "A vertex color is invalid. RGBA components must be finite values from 0 to 1."; return FALSE; }
             }
         }
         vertex->r = GltfColorByte(values[0] * basecolor[0]);

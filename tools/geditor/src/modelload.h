@@ -36,9 +36,10 @@ BOOL ModelApplyCharacterPose(const unsigned char *data, DWORD size, int switchco
  * per-corner identities. The native tree, switches and bounds stay authored. */
 typedef struct ModelSourceFace {
     DWORD command, list;
-    unsigned char slot;
+    unsigned char slot, normalmask; /* RGB holds normals for these corner bits. */
     BOOL closest;
     BgMaterial material;
+    BgRenderState state; /* Draw-time constants used to interpret vertex alpha. */
 } ModelSourceFace;
 
 typedef struct ModelSourceList {

@@ -93,6 +93,15 @@ static void Change(GltfModelImport *copy)
         copy->vertices[i].t -= 1.0f;
     }
 }
+static void Paint(GltfModelImport *copy, BOOL rgb)
+{
+    DWORD i;
+    for (i = 0; i < copy->count * 3; i++)
+    {
+        copy->vertices[i].r = 17; copy->vertices[i].g = 99; copy->vertices[i].b = 201;
+        copy->vertices[i].a = rgb ? 255 : 173;
+    }
+}
 static int S16(const unsigned char *p)
 { int n = p[0] * 256 + p[1]; return n >= 32768 ? n - 65536 : n; }
 
@@ -178,8 +187,10 @@ static void Unit(const unsigned char *data, DWORD size, ModelSource *source)
     edit.vertices[0].s = INFINITY; Reject(data, size, source, &edit, "UV");
     edit.vertices[0].s = 100000; Reject(data, size, source, &edit, "UV");
     GltfFreeModelImport(&edit);
-    edit = Copy(source); edit.vertices[0].r ^= 128;
-    Reject(data, size, source, &edit, "colors"); GltfFreeModelImport(&edit);
+    edit = Copy(source); edit.vertices[first].r ^= 128;
+    Reject(data, size, source, &edit, "RGB colors"); GltfFreeModelImport(&edit);
+    edit = Copy(source); edit.vertices[first].a ^= 128;
+    Reject(data, size, source, &edit, "alpha values"); GltfFreeModelImport(&edit);
     edit = Copy(source); edit.sourcevertices[1] = 2; edit.sourcevertices[2] = 1;
     Reject(data, size, source, &edit, "winding"); GltfFreeModelImport(&edit);
     edit = Copy(source); edit.tags[0] = 0xeee;
@@ -204,7 +215,7 @@ static void Unit(const unsigned char *data, DWORD size, ModelSource *source)
     GltfFreeModelImport(&edit);
 
     /* Material removal and same-size reassignment can accompany deformation. */
-    edit = Copy(source); Change(&edit);
+    edit = Copy(source); Change(&edit); Paint(&edit, FALSE);
     for (i = 0; i < edit.count; i++) { edit.tags[i] = i ? 0xffd : BG_TEX_NONE; }
     CHECK(ModelCompileImport(data, size, source, &edit, "", &out, &length, &why));
     Positions(data, source, out, length, &edit);
@@ -217,7 +228,7 @@ static void Unit(const unsigned char *data, DWORD size, ModelSource *source)
     free(out); GltfFreeModelImport(&edit);
 
     /* Exercise triangle-command rebuilding as well as the in-place path. */
-    edit = Copy(source); Change(&edit); edit.count--;
+    edit = Copy(source); Change(&edit); Paint(&edit, FALSE); edit.count--;
     CHECK(ModelCompileImport(data, size, source, &edit, "", &out, &length, &why));
     Positions(data, source, out, length, &edit);
     {
@@ -246,7 +257,81 @@ static void Dynamic(const unsigned char *data, DWORD size, const ModelSource *so
     for (i = 0; i < edit.count * 3; i++) { edit.vertices[i].y += 1; }
     Reject(data, size, source, &edit, "dynamic model effect");
     GltfFreeModelImport(&edit);
+    edit = Copy(source); Paint(&edit, FALSE);
+    Reject(data, size, source, &edit, "dynamic model effect");
+    GltfFreeModelImport(&edit);
     printf("PASS shared dynamic vertices are preserved\n");
+}
+
+static void Colors(const unsigned char *base, const ModelSource *source,
+    const unsigned char *compiled, DWORD size, const GltfModelImport *edited)
+{
+    ModelSource check = {0};
+    unsigned char *mask = calloc(size, 1);
+    DWORD i;
+    CHECK(mask && ModelReadSource(compiled, size, &check, &why));
+    CHECK(check.count == edited->count);
+    for (i = 0; i < edited->count * 3; i++)
+    {
+        DWORD offset = source->vertexoffsets[i];
+        const BgVertex *a = &edited->vertices[i], *b = &check.vertices[i];
+        CHECK(b->r == a->r && b->g == a->g && b->b == a->b && b->a == a->a);
+        if (!(source->faces[i / 3].normalmask & (1u << (i % 3))))
+        { CHECK(compiled[offset + 12] == a->r && compiled[offset + 13] == a->g && compiled[offset + 14] == a->b); }
+        else { CHECK(!memcmp(base + offset + 12, compiled + offset + 12, 3)); }
+        memset(mask + offset + 12, 1, 4);
+    }
+    for (i = 0; i < size; i++) { CHECK(mask[i] || base[i] == compiled[i]); }
+    free(mask); ModelFreeSource(&check);
+}
+
+static void Special(const unsigned char *data, DWORD size, ModelSource *source, const char *kind)
+{
+    GltfModelImport edit = Copy(source);
+    unsigned char *out;
+    DWORD length, i;
+    CHECK(ModelCompileImport(data, size, source, &edit, "", &out, &length, &why));
+    CHECK(length == size && !memcmp(out, data, size)); free(out);
+    if (!strcmp(kind, "normals") || !strcmp(kind, "reflection"))
+    {
+        CHECK(source->faces[0].normalmask == 7 && source->faces[1].normalmask == 7);
+        CHECK(!(source->faces[0].state.geometrymode & 0x20000)); /* cleared after G_VTX */
+        for (i = 0; i < edit.count * 3; i++) { edit.vertices[i].a = 173; }
+        CHECK(ModelCompileImport(data, size, source, &edit, "", &out, &length, &why));
+        Colors(data, source, out, length, &edit); free(out);
+        edit.vertices[0].r ^= 128;
+        Reject(data, size, source, &edit, "lighting normals");
+    }
+    else if (!strcmp(kind, "shared-normals"))
+    {
+        CHECK(source->faces[0].normalmask == 7 && source->faces[1].normalmask == 0);
+        for (i = 3; i < 6; i++) { edit.vertices[i].r = 17; }
+        Reject(data, size, source, &edit, "shared normals");
+    }
+    else
+    {
+        BOOL shared = !strcmp(kind, "shared-alpha");
+        for (i = 0; i < edit.count * 3; i++)
+        {
+            edit.vertices[i].r = 17; edit.vertices[i].g = 99; edit.vertices[i].b = 201;
+            if (shared && i < 3) { edit.vertices[i].a = 173; }
+        }
+        CHECK(ModelCompileImport(data, size, source, &edit, "", &out, &length, &why));
+        CHECK(length == size); Colors(data, source, out, length, &edit);
+        if (!shared)
+        {
+            for (i = 0; i < edit.count * 3; i++)
+            {
+                DWORD offset = source->vertexoffsets[i];
+                CHECK(edit.vertices[i].a == 128 && out[offset + 15] == data[offset + 15]);
+            }
+        }
+        free(out);
+        edit.vertices[3].a = 100;
+        Reject(data, size, source, &edit, "material controls");
+    }
+    GltfFreeModelImport(&edit);
+    printf("PASS native color semantics: %s\n", kind);
 }
 
 int main(int argc, char **argv)
@@ -259,6 +344,7 @@ int main(int argc, char **argv)
     CHECK(ModelReadSource(data, size, &source, &why));
     CHECK(source.count >= 2);
     if (!strcmp(argv[1], "dynamic")) { Dynamic(data, size, &source); }
+    else if (!strcmp(argv[1], "special")) { Special(data, size, &source, argv[3]); }
     else if (!strcmp(argv[1], "export"))
     {
         Unit(data, size, &source);
@@ -279,16 +365,19 @@ int main(int argc, char **argv)
         char path[MAX_PATH];
         GltfModelImport expected = Copy(&source);
         BOOL changed = strcmp(argv[1], "noop") != 0;
+        BOOL painted = !strncmp(argv[1], "paint", 5);
         CHECK(argc == 5);
         CHECK(ModelEditsImport(argv[4], "Pjungle3_treeZ", argv[3], &before, &after, &why));
         CHECK(before == source.count && after == before);
         CHECK(ModelEditsHasUnsaved() == changed);
         if (changed)
         {
-            Change(&expected);
+            if (painted) { Paint(&expected, !strcmp(argv[1], "paint-rgb")); }
+            else { Change(&expected); }
             pending = ModelEditsGetData(argv[4], "Pjungle3_treeZ", &editedsize, &why);
             CHECK(pending && editedsize == size);
             Positions(data, &source, pending, editedsize, &expected);
+            if (painted) { Colors(data, &source, pending, editedsize, &expected); }
             /* A stale export fails without replacing the pending result. */
             CHECK(!ModelEditsImport(argv[4], "Pjungle3_treeZ", argv[3], &before, &after, &why));
             CHECK(strstr(why, "revision") && ModelEditsHasUnsaved());
@@ -297,6 +386,7 @@ int main(int argc, char **argv)
             ModelEditsReset();
             pending = ModelEditsGetData(argv[4], "Pjungle3_treeZ", &editedsize, &why);
             CHECK(pending != NULL); Positions(data, &source, pending, editedsize, &expected);
+            if (painted) { Colors(data, &source, pending, editedsize, &expected); }
             CHECK(ModelEditsReadReplacement(argv[4], "Pjungle3_treeZ", data, size,
                 &replacement, &replacementsize, &why) == 1);
             CHECK(replacementsize == editedsize && !memcmp(replacement, pending, editedsize));

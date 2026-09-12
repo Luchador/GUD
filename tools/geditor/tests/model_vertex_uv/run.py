@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Test native vertex/UV edits and glTF/GLB save/reopen/ROM replacement reads.
+"""Test native vertex/UV/color edits and saved glTF/GLB/ROM replacements.
 
 Uses real repository models plus a fixture with vertices loaded under two
 different matrices into the same RSP cache. No ROM or Windows SDK is needed.
@@ -79,6 +79,76 @@ def edited(document):
     return doc, binary
 
 
+def color_fixture(path, kind):
+    mixed_fixture(path)
+    data = bytearray(path.read_bytes()[:0x120])
+    for i in range(4):
+        data[0xe0 + i * 16 + 15] = 40 + i * 30
+    commands = [(0xc0000002, 1), (0x01020040, 0x03000000)]
+    lighting = kind in ("normals", "reflection", "shared-normals")
+    flags = 0x60000 if kind == "reflection" else 0x20000
+    if lighting:
+        commands += [(0xb7000000, flags)]
+    commands += [(0x04300040, 0x04000000)]
+    if lighting and kind != "shared-normals":
+        commands += [(0xb6000000, flags)]  # load-time interpretation must survive
+    environment = [(0xfb000000, 128), (0xfcffffff, 0xfffe793d)]
+    if kind == "constant-alpha":
+        commands += environment
+    commands += [(0xbf000000, 0x00000a14)]
+    if kind == "shared-alpha":
+        commands += environment
+    if kind == "shared-normals":
+        commands += [(0xb6000000, flags), (0x04300040, 0x04000000)]
+    commands += [(0xbf000000, 0x000a1e14), (0xb8000000, 0)]
+    for command in commands:
+        data += struct.pack(">II", *command)
+    path.write_bytes(data)
+
+
+def painted(document, encoding):
+    doc = copy.deepcopy(document)
+    binary = bytearray(base64.b64decode(doc["buffers"][0]["uri"].split(",")[1]))
+    components = 3 if encoding == "rgb" else 4
+    values = (17, 99, 201, 173)[:components]
+    component_type = {"byte": 5121, "short": 5123}.get(encoding, 5126)
+    fmt = "<" + {5121: "B", 5123: "H", 5126: "f"}[component_type] * components
+    if component_type == 5123:
+        values = tuple(v * 257 for v in values)
+    if component_type == 5126:
+        values = tuple((v + 0.2) / 255 for v in values)  # test rounding to bytes
+    for mesh in doc["meshes"]:
+        for primitive in mesh["primitives"]:
+            accessor = doc["accessors"][primitive["attributes"]["COLOR_0"]]
+            binary += b"\0" * (-len(binary) % 4)
+            offset = len(binary)
+            binary += struct.pack(fmt, *values) * accessor["count"]
+            accessor.update(bufferView=len(doc["bufferViews"]), byteOffset=0,
+                            componentType=component_type, type=f"VEC{components}")
+            accessor.pop("normalized", None)
+            if component_type != 5126:
+                accessor["normalized"] = True
+            doc["bufferViews"].append({"buffer": 0, "byteOffset": offset,
+                                       "byteLength": len(binary) - offset})
+    doc["buffers"][0]["byteLength"] = len(binary)
+    doc["buffers"][0]["uri"] = "data:application/octet-stream;base64," + base64.b64encode(binary).decode()
+    return doc, binary
+
+
+def write_model(path, doc, binary):
+    if path.suffix == ".gltf":
+        path.write_text(json.dumps(doc))
+    else:
+        glb = copy.deepcopy(doc)
+        del glb["buffers"][0]["uri"]
+        json_chunk = json.dumps(glb).encode()
+        json_chunk += b" " * (-len(json_chunk) % 4)
+        bin_chunk = binary + b"\0" * (-len(binary) % 4)
+        path.write_bytes(struct.pack("<III", 0x46546c67, 2, 28 + len(json_chunk) + len(bin_chunk))
+                         + struct.pack("<II", len(json_chunk), 0x4e4f534a) + json_chunk
+                         + struct.pack("<II", len(bin_chunk), 0x004e4942) + bin_chunk)
+
+
 def main():
     tests = Path(__file__).resolve().parent
     src = tests.parent.parent / "src"
@@ -107,6 +177,10 @@ def main():
         dynamic = work / "dynamic.bin"
         mixed_fixture(dynamic, dynamic=True)
         run("dynamic", dynamic, "unused")
+        for kind in ("normals", "reflection", "constant-alpha", "shared-alpha", "shared-normals"):
+            special = work / f"{kind}.bin"
+            color_fixture(special, kind)
+            run("special", special, kind)
         assets = [root / "assets/obseg/prop" / name for name in
                   ("Pjungle3_treeZ.bin", "Pjungle5_treeZ.bin", "Pbook1Z.bin")] + [fixture]
         for index, asset in enumerate(assets):
@@ -121,18 +195,15 @@ def main():
                 path = work / f"edited{index}.{format_name}"
                 project = work / f"project{index}-{format_name}"
                 (project / "models/objects").mkdir(parents=True)
-                if format_name == "gltf":
-                    path.write_text(json.dumps(doc))
-                else:
-                    glb = copy.deepcopy(doc)
-                    del glb["buffers"][0]["uri"]
-                    json_chunk = json.dumps(glb).encode()
-                    json_chunk += b" " * (-len(json_chunk) % 4)
-                    bin_chunk = binary + b"\0" * (-len(binary) % 4)
-                    path.write_bytes(struct.pack("<III", 0x46546c67, 2, 28 + len(json_chunk) + len(bin_chunk))
-                                     + struct.pack("<II", len(json_chunk), 0x4e4f534a) + json_chunk
-                                     + struct.pack("<II", len(bin_chunk), 0x004e4942) + bin_chunk)
+                write_model(path, doc, binary)
                 run("edited", asset, path, project)
+            for encoding in ("byte", "short", "float", "rgb"):
+                doc, binary = painted(document, encoding)
+                path = work / f"paint{index}-{encoding}.glb"
+                project = work / f"paint{index}-{encoding}"
+                (project / "models/objects").mkdir(parents=True)
+                write_model(path, doc, binary)
+                run("paint-rgb" if encoding == "rgb" else "paint", asset, path, project)
             invalid = copy.deepcopy(document)
             for mesh in invalid["meshes"]:
                 for primitive in mesh["primitives"]:
@@ -140,7 +211,21 @@ def main():
             bad = work / "missing-uv.gltf"
             bad.write_text(json.dumps(invalid))
             run("reject", asset, bad, "no UVs")
-        print("All model vertex/UV regressions passed (ASan + UBSan).")
+            invalid = copy.deepcopy(document)
+            for mesh in invalid["meshes"]:
+                for primitive in mesh["primitives"]:
+                    del primitive["attributes"]["COLOR_0"]
+            bad.write_text(json.dumps(invalid))
+            run("reject", asset, bad, "no vertex colors")
+            for value in (float("nan"), float("inf"), -0.1, 1.1):
+                invalid, binary = painted(document, "float")
+                accessor = invalid["accessors"][invalid["meshes"][0]["primitives"][0]["attributes"]["COLOR_0"]]
+                offset = invalid["bufferViews"][accessor["bufferView"]]["byteOffset"]
+                struct.pack_into("<f", binary, offset, value)
+                bad = work / "bad-color.glb"
+                write_model(bad, invalid, binary)
+                run("reject", asset, bad, "vertex color is invalid")
+        print("All model vertex/UV/color regressions passed (ASan + UBSan).")
 
 
 if __name__ == "__main__":
