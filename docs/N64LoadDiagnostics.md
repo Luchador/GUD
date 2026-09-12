@@ -1,5 +1,84 @@
 # Temporary N64 load diagnostics
 
+## Controller primitive-depth test (09P)
+
+`GUD-n64-controller-primitive-depth.patch` targets master `a8551f7e`
+(Zbuffer test). Use the normal US build. This remains an investigation, not
+a confirmed crash fix.
+
+### 08Z hardware result
+
+The user reports that the controller is visible and can be manipulated,
+left, reopened and manipulated again without a crash. The previous 07W
+controller page stalled with its Z-enabled model render modes. The 08Z
+change leaves the Z-buffer allocation, address setup and clear active, as
+well as the controller's model loading, transformations and triangle output.
+It selects the existing non-Z RDP render modes for the controller.
+
+That is strong evidence for the depth-enabled drawing path. It does not
+establish a defective allocation or identify the exact hardware hazard.
+Disabling depth access also changes rejection, work and timing. Emulator
+success still cannot establish whether the same stream is safe on hardware.
+
+Source review found the normal buffer allocation includes 64 bytes of
+alignment slack, rounds its address to 64 bytes, and uses a 16-bit clear with
+NOOP render mode and pipe synchronization. `zbufInit` sets the depth image
+after a pipe sync. In the ordinary 320x240 single-player configuration, the
+nominal dimensions agree with the framebuffer. These checks do not prove
+the actual runtime addresses or memory lifetime are correct.
+
+### What 09P changes
+
+Re-enable the controller's original Z-enabled render modes, while selecting
+`G_ZS_PRIM` with `gDPSetPrimDepth(0x4000, 0)`. This makes the RDP use a fixed,
+valid depth and deltaZ instead of the interpolated per-pixel depth generated
+from the triangles. Normal model render-mode selection still controls depth
+comparison and writes: translucent passes compare, opaque passes can also
+write. Both the controller body and separately animated buttons share the
+override. Geometry-mode Z stays enabled, so the RSP still generates the
+triangle depth coefficients; the RDP ignores those coefficients for depth
+comparison while the override is active.
+
+The existing depth image, allocation, clear, textures and transformations
+remain. Pipe syncs bracket the override. The routine restores `G_ZS_PIXEL`
+after both draws, including when separate button animation is disabled.
+The initial model-not-ready return occurs before any override is emitted.
+The extra synchronization and resulting timing are part of this test.
+
+`N64_DIAG_CONTROLLER_PRIMITIVE_Z=1` takes precedence over
+`N64_DIAG_CONTROLLER_NO_ZBUFFER` only in the existing weapon/watch isolation
+configuration. No world/room rendering is restored. The diagnostic title is
+**09P**. Set the new switch to 0 to repeat **08Z**, leaving the no-Z switch at
+1. Setting both controller switches to 0 restores the original **07W** test.
+
+1. Apply against `a8551f7e` and run `make VERSION=US`.
+2. In the emulator, confirm the controller still draws. All its parts now
+   share one depth, so overlap/occlusion can be wrong; visual correctness is
+   not the pass criterion for this test.
+3. Test the newly built ROM on N64: open the controller page, wait for its
+   transition to finish, manipulate it, then leave and reopen it.
+4. Report whether it stays responsive. On a stall, photograph all six
+   **09P** pages and send the matching ELF/map.
+
+If it passes, the controller's Z-enabled modes can complete with a fixed
+depth. Prioritize interpolated Z/deltaZ, projection/viewport depth setup,
+depth-dependent rejection and synchronization/timing differences. It would
+not prove a microcode defect by itself. If it fails, the original triangle
+Z/deltaZ values are not required to reproduce the failure; prioritize depth
+image address/lifetime and Z-enabled render-state interactions next.
+
+Nintendo documents this depth-source choice and the primitive register
+format in [gDPSetDepthSource](https://ultra64.ca/files/documentation/online-manuals/man/n64man/gdp/gDPSetDepthSource.html)
+and [gDPSetPrimDepth](https://ultra64.ca/files/documentation/online-manuals/man/n64man/gdp/gDPSetPrimDepth.html).
+
+Validation: the changed functions compile with US IDO 5.3. Native instruction
+inspection confirms the primitive depth/source commands, enabled model Z
+flag and restoration to pixel depth. None of the controller asset's 13 lists
+overwrites the depth-source bit. With the new switch off, `gunfire.o` and
+`n64diagnostics.o` reproduce master 08Z code/data/BSS exactly. Both existing
+diagnostic/preflight and fill-probe host suites pass. No full ROM, emulator
+or hardware test was performed here.
+
 ## Controller depth-access comparison (08Z)
 
 `GUD-n64-controller-zbuffer-isolation.patch` targets master `aa9a80ab`

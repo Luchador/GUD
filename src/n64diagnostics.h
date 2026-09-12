@@ -54,6 +54,14 @@
 #define N64_DIAG_CONTROLLER_NO_ZBUFFER 1
 #endif
 
+/* 08Z passed on hardware. Re-enable the controller's normal Z-enabled
+ * render modes, but feed the RDP a constant primitive Z/deltaZ instead of
+ * interpolated triangle depth. Overrides CONTROLLER_NO_ZBUFFER in the same
+ * isolation configuration. Set to 0 to repeat 08Z. Temporary test, not a fix. */
+#ifndef N64_DIAG_CONTROLLER_PRIMITIVE_Z
+#define N64_DIAG_CONTROLLER_PRIMITIVE_Z 1
+#endif
+
 enum N64DiagPhase {
     N64DIAG_BOOT,
     N64DIAG_STAGE_BEGIN,
