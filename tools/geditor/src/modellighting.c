@@ -6,6 +6,15 @@ const ModelLightingSettings g_ModelLightingDefaults = {
     {0.4f, 0.4f, 0.4f, 1},    // Ambient
     {0.8f, 0.8f, 0.8f, 1},    // Diffuse
     {0.8f, 0.8f, 0.8f, 1},    // Specular
+    {-0.4f, 0.8f, -0.6f, 0}, // Direction
+    15.0f                     // Shininess
+};
+
+/* Preserve the startup box's lighting independently of other editor models. */
+const ModelLightingSettings g_StartupModelLighting = {
+    {0.4f, 0.4f, 0.4f, 1},    // Ambient
+    {0.8f, 0.8f, 0.8f, 1},    // Diffuse
+    {0.8f, 0.8f, 0.8f, 1},    // Specular
     {0.25f, -0.5f, 0.7f, 0},  // Direction
     15.0f                     // Shininess
 };

@@ -14,6 +14,7 @@ typedef struct ModelLightingSettings {
     GLfloat shininess;
 } ModelLightingSettings;
 extern const ModelLightingSettings g_ModelLightingDefaults;
+extern const ModelLightingSettings g_StartupModelLighting;
 
 /* One instance per GL context; create, use and free with that context current. */
 typedef struct ModelLighting {

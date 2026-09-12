@@ -1149,11 +1149,11 @@ static void ViewportDrawAimGuides(const ViewportState *state)
 /* The supplied GLBs use +X for the arrow/lens and +Y for up. Convert
  * metres to GoldenEye's centimetre world units without any level-scale factor. */
 #define VIEWPORT_MARKER_MODEL_SCALE 100.0f
-/* Shared fixed-function lighting for embedded editor GLBs. Set the light
+/* Shared model lighting for embedded editor GLBs. Set the light
  * before the model transform so its shading changes as the model turns. */
-static void ViewportLightEditorModel(ViewportState *state)
+static void ViewportLightEditorModel(ViewportState *state, const ModelLightingSettings *settings)
 {
-    ModelLightingBegin(&state->modellighting, NULL);
+    ModelLightingBegin(&state->modellighting, settings);
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_COLOR_ARRAY);
     glEnableClientState(GL_NORMAL_ARRAY);
@@ -1208,7 +1208,7 @@ static void ViewportDrawSetupMarkers(ViewportState *state)
         glEnd();
         glDisable(GL_LINE_STIPPLE);
     }
-    ViewportLightEditorModel(state);
+    ViewportLightEditorModel(state, NULL);
     for (i = 0; i < state->setupmarkercount + state->swirlpath.pointcount; i++)
     {
         SetupMarker control = {0};
@@ -1315,7 +1315,7 @@ static double ViewportStartupAngle(const ViewportState *state)
     QueryPerformanceCounter(&now);
     double seconds = (double)(now.QuadPart-state->startupstart.QuadPart)/state->startupfrequency.QuadPart;
     /* Positive Y rotation is counter-clockwise from the elevated camera.
-     * Elapsed time, rather than timer ticks, keeps a full turn at 9 seconds. */
+     * Elapsed time, rather than timer ticks, keeps the spin rate consistent. */
     return fmod(fmax(0, seconds)*VIEWPORT_STARTUP_SPIN_DEGREES_PER_SECOND, 360.0);
 }
 
@@ -1336,7 +1336,7 @@ static void ViewportDrawStartupModel(ViewportState *state)
     glRotatef(-state->pitch, 1, 0, 0);
     glRotatef(-state->yaw, 0, 1, 0);
     glTranslatef(-state->posx, -state->posy, -state->posz);
-    ViewportLightEditorModel(state);
+    ViewportLightEditorModel(state, &g_StartupModelLighting);
     glTranslated(state->startupcenter[0], state->startupcenter[1], state->startupcenter[2]);
     glRotated(ViewportStartupAngle(state), 0, 1, 0);
     glTranslated(-state->startupcenter[0], -state->startupcenter[1], -state->startupcenter[2]);
