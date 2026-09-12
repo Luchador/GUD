@@ -154,7 +154,6 @@ s8 bgSwapConnectedRooms(s32 index);
 void bgToggleDataPortalsContrlBytes1Bit1(s32 index, s32 toggle);
 void bgTick(void);
 Gfx* bgSetupAndRender(Gfx *arg0);
-Gfx *bgSetupWeaponDiagnostic(Gfx *gdl);
 Gfx *bgScissorCurrentPlayerView(Gfx *arg0, s32 left, s32 top, s32 width, s32 height);
 Gfx* bgScissorCurrentPlayerViewDefault(Gfx* arg0);
 Gfx* bgScissorCurrentPlayerViewF(Gfx* arg0, f32 arg1, f32 arg2, f32 arg3, f32 arg4);

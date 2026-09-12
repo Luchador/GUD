@@ -1,5 +1,4 @@
 #include <ultra64.h>
-#include <n64diagnostics.h>
 #include <PR/os.h>
 #include <PR/gbi.h>
 #include <gbi_extension.h>
@@ -528,7 +527,6 @@ void bgLoadFile(LEVEL_INDEX levelid)
     /* PI DMA requires an 8-byte-aligned destination. Use a complete 16-byte
      * cache-line range as well: a plain s32 array can land at sp + 0x64. */
     g_BgData = (u8 *)(((u32)headerBuffer + 0xf) & ~0xf);
-    n64DiagStep(N64DIAG_BG_HEADER);
     obLoadBGFileBytesAtOffset(g_LevelInfoTable[levelentry_index].bg_seg_filename, g_BgData, 0, 0x40);
 
     bgDataOffsets = g_BgData;
@@ -537,16 +535,13 @@ void bgLoadFile(LEVEL_INDEX levelid)
     size = (((((u32) ptr_bgdata_room_fileposition_list[1].pPointTableBin) & 0x00ffffff) - 1) | 0xf) + 1;
  
     g_BgData = mempAllocBytesInBank(size, 4);
-    n64DiagStep(N64DIAG_BG_DATA);
     obLoadBGFileBytesAtOffset(g_LevelInfoTable[levelentry_index].bg_seg_filename, g_BgData, 0, size);
 
-    n64DiagStep(N64DIAG_STAN);
     g_StanData = (s32) _fileNameLoadToBank(g_LevelInfoTable[levelentry_index].bg_stan_filename, 2, 0, 4);
  
     stanDetermineEOF((struct StanPrefixRecord *) g_StanData, 0, (u8 *) g_StanData);
     stanLoadFile((struct StanPrefixRecord *) g_StanData);
 
-    n64DiagStep(N64DIAG_BG_PROCESS);
     bgSetLevelScale(g_LevelInfoTable[levelentry_index].levelscale);
     setLevelScale(g_LevelInfoTable[levelentry_index].levelscale);
  
@@ -985,24 +980,6 @@ Gfx *bgSetupAndRender(Gfx *gdl)
     
     return bondviewGfxPlayerField5cMatrix(gdl++);
 }
-
-
-#if N64_LOAD_DIAGNOSTICS && !N64_DIAG_RDP_PROBE && N64_DIAG_HUD_ONLY && N64_DIAG_RESTORE_WEAPONS
-/* The HUD-only branch skips all of bgSetupAndRender, including its shared
- * light/look-at setup and final camera matrices. Restore those for 07W
- * without issuing a room, prop or world-effect display-list call. */
-Gfx *bgSetupWeaponDiagnostic(Gfx *gdl)
-{
-    gSPSetLights1(gdl++, GlobalLight);
-    gSPLookAt(gdl++, sub_GAME_7F078474());
-    gdl = bgScissorCurrentPlayerViewDefault(gdl);
-    gdl = envBeginWorldFog(gdl);
-    gdl = envRenderClearFogMode(gdl);
-    gdl = envRestoreFogAlphaDither(gdl);
-    gSPMatrix(gdl++, g_viProjectionMatrix, G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
-    return bondviewGfxPlayerField5cMatrix(gdl);
-}
-#endif
 
 
 /**
@@ -2173,9 +2150,7 @@ Gfx *bgRenderRoomPrimary(Gfx *gdl, s32 room_index)
         gdl = applyRoomMatrixToDisplayList(gdl, room_index);
 
         gSPSegment(gdl++, SPSEGMENT_BG_VTX, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].vertices));
-#if !N64_LOAD_DIAGNOSTICS || !N64_DIAG_SKIP_BG_GDLS
         gSPDisplayList(gdl++, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].primaryGdl));
-#endif
 
         // Set the room's state to "loaded"
         g_BgRoomInfo[room_index].unloadAge = 1;
@@ -2207,9 +2182,7 @@ Gfx *bgRenderRoomSecondary(Gfx *gdl, s32 room_index)
             gdl = applyRoomMatrixToDisplayList(gdl, room_index);
 
             gSPSegment(gdl++, SPSEGMENT_BG_VTX, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].vertices));
-#if !N64_LOAD_DIAGNOSTICS || !N64_DIAG_SKIP_BG_GDLS
             gSPDisplayList(gdl++, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].secondaryGdl));
-#endif
 
             // Set the room's state to "loaded"
             g_BgRoomInfo[room_index].unloadAge = 1;

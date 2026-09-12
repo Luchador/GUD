@@ -1,6 +1,5 @@
 #include <ultra64.h>
 #include "ramrom.h"
-#include "n64diagnostics.h"
 #include <macro.h>
 
 /**
@@ -29,11 +28,8 @@ void romCreateMesgQueue(void)
  */
 void doRomCopy(void *target, void *source, u32 size)
 {
-    s32 result;
-    n64DiagDmaStart(target, source, size);
     osInvalDCache(target, size);
-    result = osPiStartDma(&memoryMesgMB, OS_MESG_PRI_NORMAL, OS_READ, source, target, size, &memoryMesgQueue);
-    n64DiagDmaResult(result);
+    osPiStartDma(&memoryMesgMB, OS_MESG_PRI_NORMAL, OS_READ, source, target, size, &memoryMesgQueue);
 }
 
 /**
@@ -43,7 +39,6 @@ void doRomCopy(void *target, void *source, u32 size)
 void romReceiveMesg(void)
 {
     osRecvMesg(&memoryMesgQueue, NULL, OS_MESG_BLOCK);
-    n64DiagDmaDone();
 }
 
 /**

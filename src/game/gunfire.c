@@ -1,6 +1,4 @@
 #include <ultra64.h>
-#include <n64diagnostics.h>
-#include <n64rdpcheck.h>
 #include "include/limits.h"
 #include <bondconstants.h>
 #include <bondtypes.h>
@@ -1823,10 +1821,6 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
     struct coord3d coord_node1_base;
     struct coord3d coord_node12_pos;
     struct coord3d coord_node12_base;
-#if N64_LOAD_DIAGNOSTICS && !N64_DIAG_RDP_PROBE && N64_DIAG_HUD_ONLY && N64_DIAG_RESTORE_WEAPONS && N64_DIAG_CONTROLLER_PRIMITIVE_Z && N64_DIAG_CONTROLLER_NO_ZCOMPARE
-    Gfx *controllerStart;
-    Gfx *command;
-#endif
 
     renderdata = g_DefaultGunModelRenderData;
 
@@ -1880,26 +1874,7 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
         renderdata.fogcolour.word = 0xFFFFFF00;
     }
 
-#if N64_LOAD_DIAGNOSTICS && !N64_DIAG_RDP_PROBE && N64_DIAG_HUD_ONLY && N64_DIAG_RESTORE_WEAPONS && N64_DIAG_CONTROLLER_PRIMITIVE_Z
-#if N64_DIAG_CONTROLLER_NO_ZCOMPARE
-    controllerStart = gdl;
-#endif
-    /* Keep the normal Z compare/update modes and the existing depth image.
-     * Use valid, fixed Z/deltaZ to test depth access without interpolated Z.
-     * No geometry-mode bit is changed; the RSP still emits Z coefficients. */
-    gDPPipeSync(gdl++);
-    gDPSetPrimDepth(gdl++, 0x4000, 0);
-    gDPSetDepthSource(gdl++, G_ZS_PRIM);
-    renderdata.gdl = gdl;
     renderdata.zbufferenabled = TRUE;
-#elif N64_LOAD_DIAGNOSTICS && !N64_DIAG_RDP_PROBE && N64_DIAG_HUD_ONLY && N64_DIAG_RESTORE_WEAPONS && N64_DIAG_CONTROLLER_NO_ZBUFFER
-    /* Both subdraw calls (body and animated buttons) share this renderdata.
-     * Keep the geometry's Z coefficients and the ordinary Z-buffer clear;
-     * isolate the controller's RDP depth access through existing non-Z modes. */
-    renderdata.zbufferenabled = FALSE;
-#else
-    renderdata.zbufferenabled = TRUE;
-#endif
     subdraw(&renderdata, &modelstack);
     gdl = renderdata.gdl;
     matrixSuspendConversionScale();
@@ -2146,22 +2121,6 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
         matrixRestoreConversionScale();
     }
 
-#if N64_LOAD_DIAGNOSTICS && !N64_DIAG_RDP_PROBE && N64_DIAG_HUD_ONLY && N64_DIAG_RESTORE_WEAPONS && N64_DIAG_CONTROLLER_PRIMITIVE_Z
-    /* Finish both controller draws before restoring the normal depth source
-     * for the remaining watch UI and the next frame. Early load exits above
-     * occur before the override, so they need no restoration. */
-    gDPPipeSync(gdl++);
-    gDPSetDepthSource(gdl++, G_ZS_PIXEL);
-#if N64_DIAG_CONTROLLER_NO_ZCOMPARE
-    /* Only this routine's newly emitted master-list commands are edited.
-     * Body/buttons keep their normal Z-enabled mode selection; remove the
-     * compare bit from each setter instead of swapping to non-Z modes.
-     * The controller's asset lists do not contain render-mode setters. */
-    for (command = controllerStart; command < gdl; command++) {
-        command->words.w1 = n64RdpWithoutDepthCompare(command->words.w0, command->words.w1);
-    }
-#endif
-#endif
     return gdl;
 }
 

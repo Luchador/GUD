@@ -10,9 +10,6 @@
       build/OUTCODE/src/audi.o (.rodata);
       build/OUTCODE/src/fr.o (.rodata);
       build/OUTCODE/src/crash.o (.rodata);
-      build/OUTCODE/src/n64diagnostics.o (.rodata);
-      build/OUTCODE/src/n64rdpcheck.o (.rodata);
-      build/OUTCODE/src/n64rdpprobe.o (.rodata);
       build/OUTCODE/src/getra.o (.rodata);
       build/OUTCODE/src/ramrom.o (.rodata);
       build/OUTCODE/src/boss.o (.rodata);

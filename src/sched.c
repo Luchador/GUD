@@ -1,5 +1,4 @@
 #include <ultra64.h>
-#include "n64diagnostics.h"
 #include <PR/os.h>
 #include "init.h"
 #include "sched.h"
@@ -397,8 +396,6 @@ void __scExec(OSSched *sc, OSScTask *sp, OSScTask *dp)
 
         sp->state &= ~(OS_SC_YIELD | OS_SC_YIELDED); 
         osSpTaskLoad(&sp->list);
-        n64DiagTask(sp->list.t.type, sp->list.t.ucode, sp->list.t.data_ptr,
-                sp->list.t.data_size, sp->list.t.output_buff, sp->list.t.output_buff_size);
         osSpTaskStartGo(&sp->list);
         sc->curRSPTask = sp;
 

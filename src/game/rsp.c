@@ -5,13 +5,6 @@
 #include <sched.h>
 #include <PR/sptask.h>
 #include <PR/ucode.h>
-#include "n64diagnostics.h"
-#include "n64rdpprobe.h"
-#if N64_LOAD_DIAGNOSTICS && N64_DIAG_RDP_PROBE
-#include "boss.h"
-static s32 g_GfxProbeStage = -1;
-static u32 g_GfxProbeFrame;
-#endif
 
 
 #define RSP_MEMP_BANK                   6
@@ -202,9 +195,6 @@ void rspGfxTaskStart(Gfx *firstGdl, Gfx *gdl, s32 arg2, OSMesg rspReplyMsg)
 {
     OSScTask *sctask;
     OSTask *task;
-#if N64_LOAD_DIAGNOSTICS && N64_DIAG_RDP_PROBE
-    s32 probeStage;
-#endif
 
     sctask = &((struct GfxInfo_s *)g_gfxTaskSettingsList)->task;
     task = &sctask->list;
@@ -240,21 +230,6 @@ void rspGfxTaskStart(Gfx *firstGdl, Gfx *gdl, s32 arg2, OSMesg rspReplyMsg)
 
     sctask->framebuffer = (void *) ((struct GfxInfo_s *)g_gfxTaskSettingsList)->cfb;
 
-#if N64_LOAD_DIAGNOSTICS && N64_DIAG_RDP_PROBE
-    probeStage = bossGetStageNum();
-    if (probeStage != g_GfxProbeStage) {
-        g_GfxProbeStage = probeStage;
-        g_GfxProbeFrame = 0;
-    }
-    if (probeStage >= 0 && probeStage != LEVELID_TITLE) {
-        firstGdl = n64RdpProbeBuild(
-                g_gfxTaskSettingsList == &g_gfxTaskSettings[0] ? 0 : 1,
-                sctask->framebuffer, g_GfxProbeFrame, &task->t.data_size);
-        task->t.data_ptr = (u64 *)firstGdl;
-        if (g_GfxProbeFrame != 0xffffffff) g_GfxProbeFrame++;
-    }
-#endif
-    n64DiagCheckGfx(firstGdl, task->t.data_size);
     osWritebackDCacheAll();
 
     /* start graphic task */
