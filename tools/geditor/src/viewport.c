@@ -5462,7 +5462,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
     case WM_LBUTTONDBLCLK:
         if (ViewportOpenModelAt(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam), wparam))
         { return 0; }
-        /* Fall through: other double-clicks retain ordinary selection/drag behavior. */
+        /* fall through */
     case WM_LBUTTONDOWN:
         SetFocus(hwnd);
         if (state != NULL && !state->flying && state->vertexsnap)
