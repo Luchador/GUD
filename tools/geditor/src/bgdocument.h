@@ -238,6 +238,11 @@ BOOL BgFileValidateVertexBatches(const BgFile *bg, const char **reasonout);
  * state and per-face material as a full rebuild. Raw vertex RGBA stays intact. */
 unsigned char BgDocumentPreviewVertexAlpha(const BgDocumentRoom *room,
     const BgDocumentFace *face, unsigned char vertexalpha);
+/* Read-only inspector data, one state per reference in caller-owned storage.
+   Replays prior draw groups just like the viewport; caches the current room
+   layer so a multi-face selection does not replay its stream for each face. */
+BOOL BgDocumentGetFaceRenderStates(const BgDocument *document, const BgFaceRef *refs,
+                                   DWORD count, BgRenderState *out);
 
 BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
                                BgDocumentRenderMesh *out,

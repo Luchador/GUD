@@ -13,6 +13,7 @@
 #define FACEPROPERTIES_PREVIEW_SIZE 64
 
 enum { FACE_SUMMARY, FACE_TEXTURE_LABEL, FACE_TEXTURE_THUMB, FACE_TEXTURE_FIND,
+       FACE_RENDER_INFO, FACE_RENDER_HELP,
        FACE_CULL_LABEL, FACE_CULL, FACE_CULL_HELP,
        FACE_WRAP_LABEL, FACE_U_LABEL, FACE_U, FACE_V_LABEL, FACE_V,
        FACE_WRAP_HELP, FACE_SELECTION_HELP, FACE_CONTROL_COUNT };
@@ -31,6 +32,48 @@ typedef struct FacePropertiesState {
 static FacePropertiesState *FacePropertiesGetState(HWND hwnd)
 {
     return (FacePropertiesState *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+}
+
+/* 0/1 are known off/on; 2 is inherited. RSP ZBUFFER and RDP Z_CMP/Z_UPD
+   must both allow depth access. Decals suppress depth writes in the preview. */
+static int FacePropertiesDepth(const BgRenderState *state, BOOL write)
+{
+    DWORD bit = write ? 0x20u : 0x10u;
+    BOOL known = (state->othermodeknown & bit) != 0;
+    if ((known && !(state->othermode & bit))
+        || ((state->geometryknown & 1u) && !state->zbuffer)) { return 0; }
+    if (write && (state->othermodeknown & 0xC00u) == 0xC00u
+        && (state->othermode & 0xC00u) == 0xC00u) { return 0; }
+    return known && (state->geometryknown & 1u) ? 1 : 2;
+}
+
+static void FacePropertiesRenderText(const BgDocument *document, const BgFaceRef *refs,
+                                      DWORD count, char *text, size_t size)
+{
+    static const char *types[] = {"Opaque", "Cutout", "Translucent (alpha blend)",
+        "Custom / decal", "Cutout + blend", "Inherited / unknown", "Mixed"};
+    static const char *depth[] = {"Off", "On", "Inherited / unknown", "Mixed"};
+    size_t bytes = (size_t)count * sizeof(BgRenderState);
+    BgRenderState *states = count && bytes / sizeof(*states) == count ? malloc(bytes) : NULL;
+    int surface = -1, test = -1, write = -1;
+    DWORD i;
+    if (!states || !BgDocumentGetFaceRenderStates(document, refs, count, states))
+    {
+        snprintf(text, size, "Transparency: Unavailable\r\nDepth test: Unknown\r\nDepth write: Unknown");
+        free(states);
+        return;
+    }
+    for (i = 0; i < count; i++)
+    {
+        int s = BgRenderGetTransparency(&states[i]);
+        int t = FacePropertiesDepth(&states[i], FALSE), w = FacePropertiesDepth(&states[i], TRUE);
+        surface = surface < 0 ? s : surface == s ? surface : 6;
+        test = test < 0 ? t : test == t ? test : 3;
+        write = write < 0 ? w : write == w ? write : 3;
+    }
+    snprintf(text, size, "Transparency: %s\r\nDepth test: %s\r\nDepth write: %s",
+        types[surface], depth[test], depth[write]);
+    free(states);
 }
 
 static int FacePropertiesTextHeight(HWND control, int width)
@@ -182,7 +225,9 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
     {
         CREATESTRUCT *cs = (CREATESTRUCT *)lparam;
         const char *labels[FACE_CONTROL_COUNT] = {
-            "", "Texture", "", "Find", "Backface culling", "",
+            "", "Texture", "", "Find", "",
+            "Read-only. Inherited / unknown means the asset does not fully specify the setting.",
+            "Backface culling", "",
             "On hides the back of a face. Off shows both sides.",
             "Texture wrapping", "U", "", "V", "",
             "Repeat: tile the image.\r\nMirror: alternate flipped tiles.\r\nClamp: extend the edge pixels.", ""
@@ -345,7 +390,7 @@ BOOL FacePropertiesSetSelection(HWND panel, const BgDocument *document,
     int cull, wrapu, wrapv;
     BOOL textured = TRUE, sametexture = TRUE;
     DWORD i;
-    char summary[256], texture[48];
+    char summary[256], texture[48], render[256];
     if (state == NULL || refs == NULL || count == 0
         || (first = BgDocumentFindFace(document, refs, NULL)) == NULL) { return FALSE; }
     cull = first->cullbackfaces + 1;
@@ -384,6 +429,8 @@ BOOL FacePropertiesSetSelection(HWND panel, const BgDocument *document,
     }
     else { snprintf(texture, sizeof(texture), "Texture: %04X", (unsigned int)first->textureid); }
     SetWindowText(state->controls[FACE_SUMMARY], summary);
+    FacePropertiesRenderText(document, refs, count, render, sizeof(render));
+    SetWindowText(state->controls[FACE_RENDER_INFO], render);
     SetWindowText(state->controls[FACE_TEXTURE_LABEL], texture);
     EnableWindow(state->controls[FACE_TEXTURE_FIND], state->hasthumbnail);
     InvalidateRect(state->controls[FACE_TEXTURE_THUMB], NULL, FALSE);

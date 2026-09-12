@@ -1329,6 +1329,37 @@ static BgRenderState *BgDocumentGroupRenderStates(const BgDocumentLayerData *lay
     return states;
 }
 
+BOOL BgDocumentGetFaceRenderStates(const BgDocument *document, const BgFaceRef *refs,
+                                   DWORD count, BgRenderState *out)
+{
+    const BgDocumentRoom *cachedroom = NULL;
+    BgRenderState *states = NULL;
+    unsigned int cachedlayer = 0;
+    DWORD i;
+    BOOL ok = FALSE;
+    if (!document || !refs || !count || !out) { return FALSE; }
+    for (i = 0; i < count; i++)
+    {
+        const BgDocumentRoom *room;
+        const BgDocumentFace *face = BgDocumentFindFace(document, &refs[i], &room);
+        if (!face || face->layer > 1 || face->drawgroup >= room->layers[face->layer].groupcount)
+        { goto done; }
+        if (room != cachedroom || face->layer != cachedlayer)
+        {
+            free(states);
+            states = BgDocumentGroupRenderStates(&room->layers[face->layer], face->layer == BG_GEOMETRY_SECONDARY);
+            if (!states) { goto done; }
+            cachedroom = room;
+            cachedlayer = face->layer;
+        }
+        out[i] = states[face->drawgroup];
+    }
+    ok = TRUE;
+done:
+    free(states);
+    return ok;
+}
+
 unsigned char BgDocumentPreviewVertexAlpha(const BgDocumentRoom *room, const BgDocumentFace *face,
                                            unsigned char vertexalpha)
 {

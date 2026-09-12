@@ -28,6 +28,7 @@ void BgRenderStateInit(BgRenderState *state, BOOL secondary)
     state->geometrymode = BG_G_ZBUFFER;
     state->geometryknown = 0;
     state->othermodehigh = 0;
+    state->othermodeknown = 0;
     state->othermode = BG_Z_CMP | (secondary ? BG_ZMODE_XLU | BG_FORCE_BL : BG_Z_UPD);
 }
 
@@ -56,10 +57,12 @@ void BgRenderStateRead(BgRenderState *state, DWORD word0, DWORD word1)
         }
         mask = count == 32 ? 0xFFFFFFFFu : ((1u << count) - 1u) << shift;
         *mode = (*mode & ~mask) | (word1 & mask);
+        if ((word0 >> 24) == BG_G_SETOTHERMODE_L) { state->othermodeknown |= mask; }
         break;
     }
     case BG_G_RDPSETOTHERMODE:
         state->othermode = word1;
+        state->othermodeknown = 0xFFFFFFFFu;
         state->othermodehigh = word0 & 0x00FFFFFFu;
         break;
     case BG_G_CLEARGEOMETRYMODE:
@@ -122,6 +125,21 @@ BgRenderFlags BgRenderDefaultFlags(BOOL secondary)
     BgRenderState state;
     BgRenderStateInit(&state, secondary);
     return BgRenderStateFlags(&state);
+}
+
+BgTransparency BgRenderGetTransparency(const BgRenderState *state)
+{
+    BgRenderFlags flags;
+    /* gDPSetRenderMode writes bits 3..31. Alpha compare can be inherited
+       separately; an explicit compare command is included in the flags. */
+    if (!state || (state->othermodeknown & 0xFFFFFFF8u) != 0xFFFFFFF8u)
+    { return BG_TRANSPARENCY_UNKNOWN; }
+    flags = BgRenderStateFlags(state);
+    if (flags & BG_RENDER_DECAL) { return BG_TRANSPARENCY_DECAL; }
+    if ((flags & (BG_RENDER_ALPHA_TEST | BG_RENDER_BLEND)) == (BG_RENDER_ALPHA_TEST | BG_RENDER_BLEND))
+    { return BG_TRANSPARENCY_CUTOUT_BLEND; }
+    if (flags & BG_RENDER_ALPHA_TEST) { return BG_TRANSPARENCY_CUTOUT; }
+    return flags & BG_RENDER_BLEND ? BG_TRANSPARENCY_BLEND : BG_TRANSPARENCY_OPAQUE;
 }
 
 /* Alpha combiner mux values from gbi.h. The multiplier slot uses 0 and 6
