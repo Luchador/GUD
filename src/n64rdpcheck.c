@@ -10,6 +10,12 @@
 #define CHECK_LIMIT 200000U
 #define CHECK_DEPTH 16
 
+u32 n64RdpWithoutDepthCompare(u32 word0, u32 word1)
+{
+    if (word0 == 0xb900031d || (word0 >> 24) == 0xef) return word1 & ~0x10U;
+    return word1;
+}
+
 static u32 checkAddress(u32 address, u32 *segments, u32 known)
 {
     u32 segment = (address >> 24) & 15;
@@ -22,9 +28,20 @@ static s32 checkRange(u32 address, u32 bytes, u32 limit)
     return address >= 0x400 && address < limit && bytes <= limit - address;
 }
 
-static const char *checkDraw(N64RdpCheck *r, u32 hiKnown, u32 loKnown)
+static const char *checkDraw(N64RdpCheck *r, u32 hiKnown, u32 loKnown,
+        u32 zImage, u32 zCommand, u32 colorImage, u32 colorWidth)
 {
     u32 cycle;
+    if ((loKnown & 0x30) == 0x30 && (r->modeLo & 0x30)) {
+        if (r->modeLo & 0x10) r->depthCompareDraws++;
+        if (r->modeLo & 0x20) r->depthWriteDraws++;
+        r->depthImage = zImage;
+        r->depthCommand = zCommand;
+        r->depthColor = colorImage;
+        r->depthWidth = colorWidth;
+        r->depthMode = r->modeLo;
+        r->depthDraw = r->address;
+    }
     if ((hiKnown & 0x300000) != 0x300000) return NULL;
     cycle = (r->modeHi >> 20) & 3;
     if (cycle == 3) {
@@ -50,12 +67,17 @@ void n64RdpCheckList(u32 start, u32 bytes, u32 ramSize,
     u32 pc = start, end = start + bytes, depth = 0;
     u32 op, w0, w1, address, size, shift, mask, pixels;
     u32 halves = 0, halfWords = 0, rectWords = 0;
+    u32 zImage = 0xffffffff, zCommand = 0xffffffff;
+    u32 colorImage = 0xffffffff, colorWidth = 0xffffffff;
     const char *reason;
 
     r->status = N64RDP_PARTIAL;
     r->commands = r->address = r->word0 = r->word1 = r->caller = 0;
     r->modeHi = r->modeLo = 0;
     r->texture = r->textureSize = r->colorSize = r->scissorLeft = 0xffffffff;
+    r->depthCompareDraws = r->depthWriteDraws = 0;
+    r->depthImage = r->depthColor = r->depthWidth = r->depthMode = 0xffffffff;
+    r->depthCommand = r->depthDraw = 0xffffffff;
     r->reason = "COMMAND LIMIT";
     if ((start & 7) || !bytes || (bytes & 7) || !checkRange(start, bytes, ramSize)) {
         r->address = start;
@@ -117,7 +139,7 @@ void n64RdpCheckList(u32 start, u32 bytes, u32 ramSize,
             halfWords = 8 + ((op & 4) ? 16 : 0)
                 + ((op & 2) ? 16 : 0) + ((op & 1) ? 4 : 0);
             halves = 1;
-            reason = checkDraw(r, hiKnown, loKnown);
+            reason = checkDraw(r, hiKnown, loKnown, zImage, zCommand, colorImage, colorWidth);
             if (reason) { r->reason = reason; break; }
             continue;
         }
@@ -175,6 +197,11 @@ void n64RdpCheckList(u32 start, u32 bytes, u32 ramSize,
             r->textureSize = (w0 >> 19) & 3;
         } else if (op == 0xff) {
             r->colorSize = (w0 >> 19) & 3;
+            colorImage = checkAddress(w1, segments, segmentKnown);
+            colorWidth = (w0 & 0xfff) + 1;
+        } else if (op == 0xfe) {
+            zImage = checkAddress(w1, segments, segmentKnown);
+            zCommand = r->address;
         } else if (op == 0xed) {
             r->scissorLeft = (w0 >> 12) & 0xfff;
         } else if (op == 0xf4 || op == 0xf3 || op == 0xf0) {
@@ -208,7 +235,7 @@ void n64RdpCheckList(u32 start, u32 bytes, u32 ramSize,
                 break;
             }
         } else if (op == 0xf6 || op == 0xe4 || op == 0xe5 || op == 0xbf || op == 0xb1) {
-            reason = checkDraw(r, hiKnown, loKnown);
+            reason = checkDraw(r, hiKnown, loKnown, zImage, zCommand, colorImage, colorWidth);
             if (reason) { r->reason = reason; break; }
             if (op == 0xe4 || op == 0xe5) rectWords = 2;
         } else if (op != 0 && op != 0xbc && op != 0xbb && op != 0xbd

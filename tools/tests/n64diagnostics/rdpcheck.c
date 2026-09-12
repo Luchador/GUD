@@ -43,6 +43,45 @@ void test_rdp_preflight(void)
     const u32 badFill[] = {0x40, 0x10, 0x20};
     const char *fillReason[] = {"FILL WITH IMAGE READ", "FILL WITH Z COMPARE", "FILL WITH PIXEL Z UPDATE"};
 
+    /* The 10R edit is exactly one bit, including the actual captured 07W
+     * and 09P modes. Never change Z_UPD, primitive source, blending, or a
+     * different command whose payload happens to contain bit 4. */
+    assert(n64RdpWithoutDepthCompare(0xb900031d, 0xc41049d8) == 0xc41049c8);
+    assert(n64RdpWithoutDepthCompare(0xb900031d, 0x0c19287c) == 0x0c19286c);
+    assert(n64RdpWithoutDepthCompare(0xef99ec2f, 0x0c19287c) == 0x0c19286c);
+    assert(n64RdpWithoutDepthCompare(0xb9000201, 4) == 4);
+    assert(n64RdpWithoutDepthCompare(0xb1003322, 0x45040310) == 0x45040310);
+    assert(n64RdpWithoutDepthCompare(0xfe000000, 0x8023e250) == 0x8023e250);
+    assert(n64RdpWithoutDepthCompare(0xb900031d, 0x0c19286c) == 0x0c19286c);
+
+    /* Snapshot depth state at the draw, following segmented/cached image
+     * addresses. Later non-Z HUD state must not erase the useful values. */
+    begin();
+    emit(0xbc000406, 0x1800);
+    emit(0xfe000000, 0x01000040);
+    emit(0xff10013f, 0x80002000);
+    emit(0xef100000, 0x0c19287c);
+    emit(0xb1003322, 0x45040310);
+    emit(0xb900031d, n64RdpWithoutDepthCompare(0xb900031d, 0x0c192878));
+    emit(0xb1003322, 0x45040310);
+    emit(0xb900031d, 0);
+    emit(0xff10003f, 0x2800);
+    emit(0xfe000000, 0x2c00);
+    emit(0xb1000000, 0);
+    run(N64RDP_CHECKED, NULL);
+    assert(result.depthCompareDraws == 1 && result.depthWriteDraws == 2);
+    assert(result.depthImage == 0x1840 && result.depthColor == 0x2000);
+    assert(result.depthWidth == 320 && result.depthMode == 0x0c19286c);
+    assert(result.depthCommand == 0x1010 && result.depthDraw == 0x1038);
+
+    begin(); emit(0xef100000, 0x34); emit(0xb1000000, 0);
+    run(N64RDP_CHECKED, NULL);
+    assert(result.depthImage == 0xffffffff && result.depthWidth == 0xffffffff);
+    begin(); emit(0xef100000, 0); emit(0xb1000000, 0);
+    run(N64RDP_CHECKED, NULL);
+    assert(!result.depthCompareDraws && !result.depthWriteDraws);
+    assert(result.depthDraw == 0xffffffff && result.depthImage == 0xffffffff);
+
     /* The game's normal Z-clear sequence: fill into RGBA16, NOOP render mode. */
     begin();
     emit(0xff10013f, 0x2000);

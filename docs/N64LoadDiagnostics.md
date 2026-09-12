@@ -1,5 +1,98 @@
 # Temporary N64 load diagnostics
 
+## Controller depth-comparison test (10R)
+
+`GUD-n64-controller-depth-compare.patch` targets master `75e4bff4`
+(Depth buffer test). Use the normal US build, not DEBUG. This is a diagnostic
+experiment; correct world rendering is still bypassed.
+
+### 09P hardware result
+
+The controller page still stalled. All six `20260912_124125.jpg` through
+`20260912_124205.jpg` photos show **09P**, and `GUD(9).elf` contains the
+primitive-depth commands in `watchRenderController` plus the restoration to
+pixel depth after both controller draws.
+
+| Evidence | Interpretation |
+|---|---|
+| Main PC/RA `7000D0C8`, no fault thread | Main is waiting inside `osRecvMesg` (`7000D060` in this ELF), not a captured CPU exception. |
+| SP PC `1B8`, pre-capture status `C0`, DP status `760` | The graphics microcode is waiting for FIFO space while the RDP remains busy. |
+| DP current `002C5000`, write/end `002C4FE0`, pending output `B0` bytes | The pending output crosses the read cursor. Preserve the existing FIFO guard. |
+| RSP saved mode low `0C19287C` | `G_ZS_PRIM` (`04`), `Z_CMP` (`10`) and `Z_UPD` (`20`) are all set. This is producer state, which may be ahead of the stalled RDP primitive. |
+| RAM input `0021A848..0021A85F` | Matches the controller asset at `4C70..4C87`: `B100001C 0000F3DE`, `04F00100 05001DD8`, `B1003322 45040310`. |
+
+Together with 08Z passing, 09P failing deprioritizes the controller's
+interpolated Z/deltaZ values as a necessary cause. It still does not prove an
+invalid depth allocation, a broken RDP, or a defect in the original microcode.
+The raw FIFO window is reused ring memory, not a trustworthy chronological
+trace of the exact primitive that first stopped the RDP.
+
+### What 10R changes
+
+Keep 09P's constant primitive depth, geometry, textures, draw calls, allocation,
+clear and sync commands. Keep selecting the controller's usual Z-enabled
+render modes. After building both body/button command ranges, clear only
+`Z_CMP` in each complete render-mode setter in that newly generated range.
+`Z_UPD` remains enabled wherever the ordinary mode enables it. Blending,
+coverage, cycle type, depth source and the other mode bits are preserved.
+
+The helper recognizes GoldenEye's `B900031D` render-mode command and a full
+`EF` other-mode setter. It does not rewrite model asset memory, walk arbitrary
+memory, or change other command payloads. Source inspection finds 13 controller
+lists, all model type 3, with no nested display-list calls or B9/EF setters.
+Their C0 texture expansion path also does not emit render-mode setters.
+Both animated-buttons paths are included. A model-not-ready return occurs
+before any override or scan. The extra CPU scan can change timing.
+
+`N64_DIAG_CONTROLLER_NO_ZCOMPARE=1` applies only with diagnostics enabled,
+probe off, HUD isolation and weapon restoration on, and primitive depth on.
+The title becomes **10R**. Set this new flag to 0 for the 09P rendering control;
+the added address diagnostics remain. To repeat 08Z, also set primitive depth
+to 0 and retain `N64_DIAG_CONTROLLER_NO_ZBUFFER=1`.
+
+### Depth information on page 4
+
+The preflight now records image addresses using the same segmented-address
+translation as the graphics microcode. The new fields belong to the matched
+running task, unless the page explicitly says its list was rejected.
+
+| Field | Meaning |
+|---|---|
+| Z IMG / COLOR | Physical depth/color image addresses at the last depth-enabled GBI draw encountered by the walk. |
+| WIDTH / Z MODE | Color-image width (also the depth-buffer stride), and mode low at that draw. |
+| Z CMP / Z UPD | Counts of GBI draw commands with comparison/writes enabled. TRI4 counts as one command; this does not count pixels or prove writes completed. |
+| Z CMD / Z DRAW | Address of the depth-image setter used by that draw, and the draw command itself. |
+
+Later non-Z HUD commands do not replace that snapshot. `FFFFFFFF` denotes
+unknown/unseen state. The preflight can only count draws once both depth-enable
+bits are known. A partial walk is incomplete. These fields are CPU command-stream
+evidence, not RDP register readback or proof of allocation ownership, buffer
+bounds, cache coherence, clipping or memory lifetime. Existing preflight hazard
+checks are unchanged; the new fields do not add a submission gate.
+
+### Hardware test
+
+1. Apply against `75e4bff4`, then run `make VERSION=US`.
+2. Check the controller screen in the emulator. Wrong overlap/occlusion is
+   expected with comparison disabled and constant depth.
+3. Run the newly built ROM on N64. Open the controller page, let its fade
+   complete (opaque passes retain Z writes), manipulate it, then leave and
+   return. Also try the second controller layout if available.
+4. If it stalls, send all six **10R** pages and the matching ELF/map. Page 4
+   should have zero Z CMP commands in this isolation configuration. Nonzero
+   Z CMP means the intended comparison was not fully isolated and needs tracing.
+
+If it passes, investigate depth comparison/read access and rejection-related
+state/timing next; an opaque pass can then complete with its depth-write enable
+retained. If it fails with zero Z CMP, comparison is not required for that
+failure. Inspect the captured target addresses/stride and investigate depth
+writes or other preserved controller state. Neither outcome is a finished fix.
+
+Validation: normal US IDO 5.3 compilation of gunfire, diagnostics and preflight;
+existing diagnostic/preflight and fill-probe host suites, including exact-bit
+masking and depth snapshot retention/unknown-state checks. The new flag off
+reproduces 09P's gunfire code/data/BSS. No full ROM, emulator or N64 run here.
+
 ## Controller primitive-depth test (09P)
 
 `GUD-n64-controller-primitive-depth.patch` targets master `a8551f7e`

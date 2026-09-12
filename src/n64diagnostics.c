@@ -17,6 +17,8 @@
 #if N64_DIAG_RDP_PROBE
 #define DIAG_SCREEN_TITLE "N64 DIAG 05P PAGE "
 #define DIAG_PHOTO_PROMPT "PHOTO PAGES 1 TO 3 THEN RESET"
+#elif N64_DIAG_HUD_ONLY && N64_DIAG_RESTORE_WEAPONS && N64_DIAG_CONTROLLER_PRIMITIVE_Z && N64_DIAG_CONTROLLER_NO_ZCOMPARE
+#define DIAG_SCREEN_TITLE "N64 DIAG 10R PAGE "
 #elif N64_DIAG_HUD_ONLY && N64_DIAG_RESTORE_WEAPONS && N64_DIAG_CONTROLLER_PRIMITIVE_Z
 #define DIAG_SCREEN_TITLE "N64 DIAG 09P PAGE "
 #elif N64_DIAG_HUD_ONLY && N64_DIAG_RESTORE_WEAPONS && N64_DIAG_CONTROLLER_NO_ZBUFFER
@@ -371,9 +373,11 @@ static void n64DiagPage(volatile u16 *fb, u32 page, const char *reason, OSThread
         n64DiagPair(fb, 124, "TEX SIZE", check->textureSize, "FB SIZE", check->colorSize);
         n64DiagPair(fb, 136, "CLIP X0", check->scissorLeft, "RSP GDL", g_Diag.taskList);
         n64DiagPair(fb, 148, "LATEST", g_DiagCheckList, "SERIAL", g_DiagRunningSerial);
-        n64DiagText(fb, 24, 160, "1 CHECKED  2 PARTIAL  3 HAZARD");
-        n64DiagText(fb, 24, 172, "CHECKED DOES NOT PROVE RDP SAFE");
-        n64DiagText(fb, 24, 184, "LATEST MAY BE A LATER QUEUED LIST");
+        n64DiagPair(fb, 160, "Z IMG", check->depthImage, "COLOR", check->depthColor);
+        n64DiagPair(fb, 172, "WIDTH", check->depthWidth, "Z MODE", check->depthMode);
+        n64DiagPair(fb, 184, "Z CMP", check->depthCompareDraws, "Z UPD", check->depthWriteDraws);
+        n64DiagPair(fb, 196, "Z CMD", check->depthCommand, "Z DRAW", check->depthDraw);
+        n64DiagText(fb, 24, 208, "Z FIELDS FROM LAST DEPTH DRAW");
         n64DiagText(fb, 24, 222, DIAG_PHOTO_PROMPT);
         return;
     }

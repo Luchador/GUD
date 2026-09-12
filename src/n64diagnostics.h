@@ -62,6 +62,13 @@
 #define N64_DIAG_CONTROLLER_PRIMITIVE_Z 1
 #endif
 
+/* 09P still stalls. Clear only Z_CMP in the controller's emitted render
+ * modes, preserving Z_UPD and the primitive-depth test. Applies only with
+ * PRIMITIVE_Z in the weapon/watch isolation setup. Set to 0 for 09P. */
+#ifndef N64_DIAG_CONTROLLER_NO_ZCOMPARE
+#define N64_DIAG_CONTROLLER_NO_ZCOMPARE 1
+#endif
+
 enum N64DiagPhase {
     N64DIAG_BOOT,
     N64DIAG_STAGE_BEGIN,
