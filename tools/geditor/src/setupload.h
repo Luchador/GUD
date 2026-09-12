@@ -250,6 +250,14 @@ BOOL SetupFileAddModel(SetupFile *setup, BOOL character, int modelid,
                       float levelscale, const double position[3],
                       DWORD *selectionout, const char **reasonout);
 
+#define SETUP_DEFAULT_ARMOR_MODEL "PbodyarmourZ"
+/* Add a full-strength armor pickup at the stock 1.5x model scale, with a
+ * private normal pad. Uses normal floor/support placement and can fall if
+ * its support is destroyed. Available on all difficulties and in multiplayer. */
+BOOL SetupFileAddArmor(SetupFile *setup, int modelid, float levelscale,
+                       const double position[3], DWORD *selectionout,
+                       const char **reasonout);
+
 #define SETUP_DEFAULT_DOOR_MODEL "Psteel_door1Z"
 /* Add an unlocked slider and its private bound pad, preserving all existing
  * command/pad indices. position is the floor anchor in gameplay world units;

@@ -1020,9 +1020,16 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
     }
     else
     {
-        SetupWrite32(added.data + newrecord, (256u << 16) | type); /* scale 1 */
+        /* Stock armor pickups use a 1.5x instance scale. */
+        SetupWrite32(added.data + newrecord, ((type == PROPDEF_ARMOUR ? 384u : 256u) << 16) | type);
         SetupWrite32(added.data + newrecord + 4, ((DWORD)modelid << 16) | (padcount + (bound ? 10000u : 0u)));
-        if (type == PROPDEF_GLASS)
+        if (type == PROPDEF_ARMOUR)
+        {
+            /* Armor is collectible by type; don't turn it into an obstacle
+             * with FORCE_COLLISIONS or require the interaction button. */
+            SetupWrite32(added.data + newrecord + 8, PROPFLAG_ALLOWFALL);
+        }
+        else if (type == PROPDEF_GLASS)
         {
             /* Match ordinary breakable free-standing panes in the game:
              * block movement, permit AI sight, and fit the flat window model
@@ -1052,7 +1059,14 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
         /* ObjectRecord.damage is authored as signed 16.16 durability and
            converted by domakedefaultobj. maxdamage starts at zero. */
         SetupWrite32(added.data + newrecord + 0x74, 1000u << 16);
-        if (type == PROPDEF_CCTV)
+        if (type == PROPDEF_ARMOUR)
+        {
+            /* Native 34-word BodyArmourRecord: setupLoadFiles converts the
+             * signed 16.16 initialamount, then copies it to runtime amount.
+             * 65536 gives full armor; writing float bits here is incorrect. */
+            SetupWrite32(added.data + newrecord + 0x80, 65536);
+        }
+        else if (type == PROPDEF_CCTV)
         {
             /* Native 59-word CCTVRecord. setupCctv converts these signed
              * turn fractions; never write runtime floats/conversion state.
@@ -1095,6 +1109,14 @@ BOOL SetupFileAddModel(SetupFile *setup, BOOL character, int modelid, float leve
 {
     return SetupAddPlacement(setup, character ? PROPDEF_GUARD : PROPDEF_PROP,
         modelid, levelscale, position, NULL, NULL, selectionout, reasonout);
+}
+
+BOOL SetupFileAddArmor(SetupFile *setup, int modelid, float levelscale,
+                       const double position[3], DWORD *selectionout,
+                       const char **reasonout)
+{
+    return SetupAddPlacement(setup, PROPDEF_ARMOUR, modelid, levelscale,
+        position, NULL, NULL, selectionout, reasonout);
 }
 
 BOOL SetupFileAddDoor(SetupFile *setup, int modelid, float levelscale,

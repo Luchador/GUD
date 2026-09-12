@@ -2713,7 +2713,7 @@ fail:
 typedef enum
 {
     GEDITOR_PLACE_MODEL, GEDITOR_PLACE_DOOR, GEDITOR_PLACE_GLASS,
-    GEDITOR_PLACE_CCTV, GEDITOR_PLACE_ALARM, GEDITOR_PLACE_DRONE
+    GEDITOR_PLACE_CCTV, GEDITOR_PLACE_ALARM, GEDITOR_PLACE_DRONE, GEDITOR_PLACE_ARMOR
 } GEditorPlacementKind;
 
 static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request, GEditorPlacementKind kind)
@@ -2727,6 +2727,7 @@ static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request, GEditor
     BOOL door = kind == GEDITOR_PLACE_DOOR, glass = kind == GEDITOR_PLACE_GLASS;
     BOOL cctv = kind == GEDITOR_PLACE_CCTV, alarm = kind == GEDITOR_PLACE_ALARM;
     BOOL drone = kind == GEDITOR_PLACE_DRONE;
+    BOOL armor = kind == GEDITOR_PLACE_ARMOR;
     int modelid;
 
     if (request == NULL || g_CurrentLevelIndex == GEDITOR_NO_LEVEL || g_CurrentSetup.data == NULL ||
@@ -2761,7 +2762,8 @@ static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request, GEditor
     }
     if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup,
                                    door ? "Add Door" : glass ? "Add Glass" : cctv ? "Add CCTV Camera"
-                                       : alarm ? "Add Alarm" : drone ? "Add Drone Gun" : character ? "Add Character" : "Add Prop",
+                                       : alarm ? "Add Alarm" : drone ? "Add Drone Gun" : armor ? "Add Armor"
+                                       : character ? "Add Character" : "Add Prop",
                                    &transaction, &why))
     {
         goto fail;
@@ -2790,6 +2792,11 @@ static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request, GEditor
     {
         added = SetupFileAddDroneGun(&g_CurrentSetup, modelid, g_CurrentBgDocument.levelscale,
             position, look, &selection, &why);
+    }
+    else if (armor)
+    {
+        added = SetupFileAddArmor(&g_CurrentSetup, modelid, g_CurrentBgDocument.levelscale,
+            position, &selection, &why);
     }
     else
     {
@@ -3202,7 +3209,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         }
         if ((wparam != BROWSER_OBJECT_SPAWN && wparam != BROWSER_OBJECT_INTRO_CAMERA && wparam != BROWSER_OBJECT_OUTRO_CAMERA
                 && wparam != BROWSER_OBJECT_DOOR && wparam != BROWSER_OBJECT_GLASS
-                && wparam != BROWSER_OBJECT_CCTV && wparam != BROWSER_OBJECT_ALARM && wparam != BROWSER_OBJECT_DRONE_GUN)
+                && wparam != BROWSER_OBJECT_CCTV && wparam != BROWSER_OBJECT_ALARM && wparam != BROWSER_OBJECT_DRONE_GUN
+                && wparam != BROWSER_OBJECT_ARMOR)
             || g_CurrentLevelIndex == GEDITOR_NO_LEVEL || !g_CurrentSetup.data) { return FALSE; }
         if ((wparam == BROWSER_OBJECT_INTRO_CAMERA || wparam == BROWSER_OBJECT_OUTRO_CAMERA)
             && strncmp(g_CurrentSetup.name, "Ump_", 4) == 0)
@@ -3221,7 +3229,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             || drop->type == BROWSER_OBJECT_CIRCLE || drop->type == BROWSER_OBJECT_CYLINDER))
         { return GEditorDropPrimitive(hwnd, drop); }
         if (drop && (drop->type == BROWSER_OBJECT_DOOR || drop->type == BROWSER_OBJECT_GLASS
-            || drop->type == BROWSER_OBJECT_CCTV || drop->type == BROWSER_OBJECT_ALARM || drop->type == BROWSER_OBJECT_DRONE_GUN))
+            || drop->type == BROWSER_OBJECT_CCTV || drop->type == BROWSER_OBJECT_ALARM || drop->type == BROWSER_OBJECT_DRONE_GUN
+            || drop->type == BROWSER_OBJECT_ARMOR))
         {
             BrowserModelDrop model = {"", drop->screen};
             GEditorPlacementKind kind;
@@ -3232,6 +3241,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             case BROWSER_OBJECT_CCTV: kind = GEDITOR_PLACE_CCTV; name = SETUP_DEFAULT_CCTV_MODEL; break;
             case BROWSER_OBJECT_ALARM: kind = GEDITOR_PLACE_ALARM; name = SETUP_DEFAULT_ALARM_MODEL; break;
             case BROWSER_OBJECT_DRONE_GUN: kind = GEDITOR_PLACE_DRONE; name = SETUP_DEFAULT_DRONE_MODEL; break;
+            case BROWSER_OBJECT_ARMOR: kind = GEDITOR_PLACE_ARMOR; name = SETUP_DEFAULT_ARMOR_MODEL; break;
             default: kind = GEDITOR_PLACE_DOOR; name = SETUP_DEFAULT_DOOR_MODEL; break;
             }
             lstrcpyn(model.name, name, sizeof(model.name));
