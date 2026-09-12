@@ -2155,7 +2155,9 @@ Gfx *bgRenderRoomPrimary(Gfx *gdl, s32 room_index)
         gdl = applyRoomMatrixToDisplayList(gdl, room_index);
 
         gSPSegment(gdl++, SPSEGMENT_BG_VTX, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].vertices));
+#if !N64_LOAD_DIAGNOSTICS || !N64_DIAG_SKIP_BG_GDLS
         gSPDisplayList(gdl++, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].primaryGdl));
+#endif
 
         // Set the room's state to "loaded"
         g_BgRoomInfo[room_index].unloadAge = 1;
@@ -2187,7 +2189,9 @@ Gfx *bgRenderRoomSecondary(Gfx *gdl, s32 room_index)
             gdl = applyRoomMatrixToDisplayList(gdl, room_index);
 
             gSPSegment(gdl++, SPSEGMENT_BG_VTX, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].vertices));
+#if !N64_LOAD_DIAGNOSTICS || !N64_DIAG_SKIP_BG_GDLS
             gSPDisplayList(gdl++, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].secondaryGdl));
+#endif
 
             // Set the room's state to "loaded"
             g_BgRoomInfo[room_index].unloadAge = 1;

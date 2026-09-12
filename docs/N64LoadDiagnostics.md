@@ -1,5 +1,80 @@
 # Temporary N64 load diagnostics
 
+## Room-drawing isolation after 04S
+
+`GUD-n64-room-isolation.patch` applies to master `7153e175` (More diagnostics),
+which includes the solid-sky test. It changes the normal US build and does not
+require DEBUG. This is an investigation switch, not a confirmed crash fix.
+
+`N64_DIAG_SKIP_BG_GDLS` defaults to 1 in `src/n64diagnostics.h`. It omits only
+the primary and secondary room display-list calls in `bgRenderRoomPrimary`
+and `bgRenderRoomSecondary`. Room loading, texture expansion, matrices, vertex
+segment setup, room aging, visibility and collision still run. Characters,
+props, weapons and the HUD retain their drawing paths. The existing solid-sky
+bypass remains enabled so this test changes one additional part of rendering.
+Expect invisible level walls/floors and objects against a solid background.
+
+1. Apply the patch to `7153e175` and run `make VERSION=US`.
+2. Confirm the missing room geometry in the emulator before testing the ROM
+   on N64. Test both Runway and Cradle, including intro and player control.
+3. Report whether each level reaches player control. If it stalls, keep the
+   matching ELF/map and photograph pages 1-3 initially. The screen title will
+   say **04BS** (room lists skipped and solid sky). Capture pages 4-6 too if
+   the first pages show a different failure or a preflight error.
+4. Set `N64_DIAG_SKIP_BG_GDLS` to 0 and rebuild for the 04S control. This
+   restores room drawing. To restore both room and sky/water drawing, also
+   set `N64_DIAG_SOLID_SKY` to 0. Setting `N64_LOAD_DIAGNOSTICS` to 0 disables
+   both bypasses. Header dependencies already rebuild the affected objects.
+
+If this still stalls, room display-list execution is not required for that
+failure; investigate the remaining draws and shared RDP/FIFO handling. If it
+loads, compare with the 04S control and narrow the room draw path next. A pass
+does not prove bad room data: the bypass also changes graphics state, command
+volume and timing. Room loading itself has not been eliminated by this test.
+
+### Evidence from the supplied 04S build
+
+`GUD(4).elf` confirms that `skyRender` calls the solid-background path, with
+the sky/water triangle path omitted. The user reports that Runway and Cradle
+both still stall. The photographed six-page sequence
+`20260912_020657.jpg` through `20260912_020736.jpg` shows Cradle (stage `0x29`).
+The additional UUID-named photo repeats page 6's values; it is not treated as
+an independent Runway register capture.
+
+| Observation | Interpretation |
+|---|---|
+| WAIT FRAME, MAIN PC `0x7000D0C8` | Matches `osRecvMesg + 0x68` in the supplied ELF; no CPU exception is reported. |
+| SP PC `0x1B8`, word `0x40175000` | The same `mfc0 $23,DPC_CURRENT` FIFO free-space loop. |
+| DP STATUS `0x760`, CURRENT `0x002BE8F0`, END/WRITE `0x002BE8D8` | Graphics remains stalled with the solid-sky bypass active. CURRENT above END is possible during a circular-buffer wrap. |
+| R18 `0xB0`, R19 `0x002BE8D8`, R23 `0x002BE8F0` | A 176-byte write would end at `0x002BE988`, crossing CURRENT; the producer correctly withholds it. This R23 agrees with the separate DP register read. |
+| Preflight status 1, matching CHECK/RSP GDL `0x800C8F80` | The running task passed the implemented checks, not a complete hardware correctness test. |
+
+The RDRAM input is:
+
+```
+B6000000 00003000
+04F00100 0E000DC0
+B1007632 64542010
+```
+
+It matches Cradle room 5's primary stream in the ELF. The segment symbol is
+`0x00AF4AA0`, the stream offset is `0x262C4`, and the sequence starts at stream
+offset `0x1D8`. Texture token `C0080002 00000556` immediately precedes it.
+The DMEM TRI4 copy `B1000763 00645420` is consistent with one triangle having
+been consumed. These observations locate the producer; they do not identify
+the RDP primitive that caused the stall or establish texture `0x556` as bad.
+
+The raw FIFO window now contains plausible SetTile/SetTileSize mipmap state
+through `0x002BE8D0`, then zeros beginning at END. It is still reused ring
+memory, not a chronological trace. Neither those zeros nor the visible tile
+commands are proof of an invalid submitted command. The graphics microcode
+text remains identical to the earlier supplied builds.
+
+Validation: both changed production C units compile with IDO 5.3 for US;
+the existing diagnostic host tests pass. The room switch disabled produces
+the same code/data sections as master for `bg.c`. A full ROM run and N64
+validation remain external to this check.
+
 ## Solid-sky isolation test (04S)
 
 The separate `GUD-n64-sky-isolation.patch` targets commit `abe660a3`

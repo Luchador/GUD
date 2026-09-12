@@ -16,6 +16,13 @@
 #define N64_DIAG_SOLID_SKY 1
 #endif
 
+/* Next isolation test: load rooms normally but omit their primary/secondary
+ * display-list calls. Props, characters and HUD still render. Set to 0 to
+ * restore room drawing. This is temporary and is independent of DEBUG. */
+#ifndef N64_DIAG_SKIP_BG_GDLS
+#define N64_DIAG_SKIP_BG_GDLS 1
+#endif
+
 enum N64DiagPhase {
     N64DIAG_BOOT,
     N64DIAG_STAGE_BEGIN,
