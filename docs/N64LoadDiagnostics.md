@@ -1,5 +1,86 @@
 # Temporary N64 load diagnostics
 
+## Fill-only submission and FIFO-wrap probe (05P)
+
+`GUD-n64-rdp-probe.patch` targets master `7767ff96` (Room geometry test).
+The latest 04BS hardware test still stalls with both room display lists and
+sky/water drawing omitted. This next test replaces gameplay graphics-task
+input with a small, known fill-only display list, then increases its output
+past the size of the existing FIFO. It is not a confirmed crash fix.
+
+The normal US build is used; DEBUG is not required. Enable/disable with
+`N64_DIAG_RDP_PROBE` in `src/n64diagnostics.h` (default 1). Menus still draw
+normally. Once a level loads, the CPU continues its existing stage work and
+builds its usual frame, but `rspGfxTaskStart` submits the probe instead. Its
+framebuffer, scheduler, audio yielding, microcode, cache writeback, FIFO and
+completion messages use the normal path. There is one private probe list per
+existing graphics-task slot; the slots are not overwritten together.
+
+| Screen | Submitted workload |
+|---|---|
+| Blue | First 120 gameplay submissions: a full-screen clear and a small moving white marker. The short command stream does not force a FIFO wrap within the task. |
+| Amber | Next 120 submissions: the same clear/marker plus 24 calls to a block containing 128 sync/fill pairs. Those pairs alone produce 49,152 RDP bytes, exceeding the 40 KiB FIFO within one task. |
+| Green | Continues the same wrap workload after reaching 240 submissions. The white marker keeps moving while frames progress. |
+
+All drawing uses 16-bit RGBA FILL with NOOP render mode, a full-screen
+scissor starting at zero, and no texture loads, vertices, triangles, image
+reads or Z-buffer writes. Every small repeated fill is synchronized and has
+a four-pixel-aligned left edge. The calls have a stack depth of one and only
+the top-level list emits FullSync. Segment 0 is explicitly zeroed. Other-mode
+commands update the microcode's saved state for audio yield/resume. Private
+arrays include padding for the microcode's input read-ahead.
+
+1. Apply against `7767ff96`, then build normally with `make VERSION=US`.
+2. Check in the emulator that menus work and loading a level produces
+   blue, then amber, then green with the moving marker. The gameplay view
+   and profiler overlay are intentionally absent during this probe.
+3. Repeat the failing stage load on N64 and wait for green or a diagnostic.
+   Report the level, visible colour progression and whether the marker stops.
+4. If it stalls, send pages 1-3 (title **05P**) and this build's ELF/map.
+   Page 2's GDL SIZE distinguishes the running short list (`0x78`) from the
+   wrap list (`0x138`). The last visible colour may belong to the preceding
+   completed frame, so it is not sufficient by itself to identify the task.
+
+A short-list failure removes scene-command execution and within-task FIFO
+wrap as requirements for that failure, but does not eliminate initial FIFO
+setup or stage-loading side effects. A wrap-list failure after short frames
+complete puts additional focus on FIFO transfer/ownership and shared memory.
+Reaching green demonstrates that repeated wrap workloads can complete in
+this configuration; it does not prove the normal workload's timing, graphics
+state or buffer lifetimes are correct. Restore `N64_DIAG_RDP_PROBE=0` for the
+04BS control. To restore normal scene drawing too, set both earlier bypass
+switches (`N64_DIAG_SKIP_BG_GDLS`, `N64_DIAG_SOLID_SKY`) to 0.
+
+### Evidence from the supplied 04BS build
+
+Photos `20260912_063531.jpg` through `20260912_063610.jpg` show Runway
+(stage `0x23`). In `GUD(5).elf`, neither room-rendering function emits its
+room display-list call, and `skyRender` uses the solid-background bypass.
+
+| Observation | Interpretation |
+|---|---|
+| WAIT FRAME, MAIN PC `0x7000D0C8` | `osRecvMesg + 0x68` in this ELF; no CPU exception is reported. |
+| SP PC `0x1BC`, instruction `0x0277A022` | Still in the FIFO free-space loop. |
+| DP STATUS `0x760`, CURRENT `0x002BF230`, END/WRITE `0x002BF228` | Same class of stalled graphics progress with both bypasses active. |
+| R18 `8`, R19 `0x002BF228`, R23 `0x002BF230` | The pending write would end exactly at CURRENT; the guard correctly withholds it to preserve the ring's full/empty distinction. |
+| Matching CHECK/RSP GDL `0x800D5780`, preflight status 1 | The running list passed the implemented checks. This does not validate all RDP timing/state hazards. |
+| Input near RDRAM `0x000D7D30`: SetTile, LoadSync, LoadBlock | The producer is now forwarding texture-load commands in the main list, rather than the earlier room TRI4 input. The corresponding DMEM and RDRAM words agree. |
+
+The current FIFO window includes texture-rectangle and texture-load state.
+As before, reused FIFO memory and the producer's current command do not
+identify the earlier command responsible for the stall. No bad texture or
+bad font is established by these photographs. Graphics microcode text is
+still byte-identical to the earlier supplied builds.
+
+Validation: the probe, submission hook and diagnostic display compile with
+IDO 5.3 for US. The host probe test uses the repository's actual GBI encoders
+with 32-bit command words, walks every command including nested calls, runs
+the production preflight, checks both phase boundaries, confirms output
+exceeds the FIFO size, and checks separate task buffers/read-ahead space.
+The existing diagnostic tests also pass. With the probe disabled, `rsp.c`
+code/data match master and the probe object has no runtime code/data.
+This is not a full ROM/emulator run or a real-hardware validation.
+
 ## Room-drawing isolation after 04S
 
 `GUD-n64-room-isolation.patch` applies to master `7153e175` (More diagnostics),

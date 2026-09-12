@@ -11,6 +11,7 @@
       build/OUTCODE/src/crash.o (.text);
       build/OUTCODE/src/n64diagnostics.o (.text);
       build/OUTCODE/src/n64rdpcheck.o (.text);
+      build/OUTCODE/src/n64rdpprobe.o (.text);
       build/OUTCODE/src/getra.o (.text);
       build/OUTCODE/src/ramrom.o (.text);
       build/OUTCODE/src/boss.o (.text);

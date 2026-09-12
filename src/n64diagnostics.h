@@ -23,6 +23,13 @@
 #define N64_DIAG_SKIP_BG_GDLS 1
 #endif
 
+/* Replace gameplay submissions with known fill-only commands: blue short
+ * frames, then amber FIFO-wrap frames, then green continuing the wrap test.
+ * Menus and the CPU's stage work remain active. Temporary, not a fix. */
+#ifndef N64_DIAG_RDP_PROBE
+#define N64_DIAG_RDP_PROBE 1
+#endif
+
 enum N64DiagPhase {
     N64DIAG_BOOT,
     N64DIAG_STAGE_BEGIN,

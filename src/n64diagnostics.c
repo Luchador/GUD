@@ -14,7 +14,10 @@
 #define DIAG_PAGES 6
 #define DIAG_CHECK_SLOTS 4
 
-#if N64_DIAG_SKIP_BG_GDLS && N64_DIAG_SOLID_SKY
+#if N64_DIAG_RDP_PROBE
+#define DIAG_SCREEN_TITLE "N64 DIAG 05P PAGE "
+#define DIAG_PHOTO_PROMPT "PHOTO PAGES 1 TO 3 THEN RESET"
+#elif N64_DIAG_SKIP_BG_GDLS && N64_DIAG_SOLID_SKY
 #define DIAG_SCREEN_TITLE "N64 DIAG 04BS PAGE "
 #elif N64_DIAG_SKIP_BG_GDLS
 #define DIAG_SCREEN_TITLE "N64 DIAG 04B PAGE "
@@ -22,6 +25,10 @@
 #define DIAG_SCREEN_TITLE "N64 DIAG 04S PAGE "
 #else
 #define DIAG_SCREEN_TITLE "N64 DIAGNOSTIC 04 PAGE "
+#endif
+
+#ifndef DIAG_PHOTO_PROMPT
+#define DIAG_PHOTO_PROMPT "PHOTO ALL SIX PAGES THEN RESET"
 #endif
 
 extern u8 cfb_16[][DIAG_WIDTH * DIAG_HEIGHT * 2];
@@ -317,7 +324,7 @@ static void n64DiagPage(volatile u16 *fb, u32 page, const char *reason, OSThread
             n64DiagPair(fb, 54 + i * 10, left, g_DiagStop.registers[i],
                     right, g_DiagStop.registers[i + 16]);
         }
-        n64DiagText(fb, 24, 228, "PHOTO ALL SIX PAGES THEN RESET");
+        n64DiagText(fb, 24, 228, DIAG_PHOTO_PROMPT);
         return;
     }
     if (page == 5) {
@@ -340,7 +347,7 @@ static void n64DiagPage(volatile u16 *fb, u32 page, const char *reason, OSThread
         }
         n64DiagText(fb, 24, 202, "TRI4 MAY REWRITE DMEM WORDS");
         n64DiagText(fb, 24, 214, "RSP POSITION IS AHEAD OF RDP");
-        n64DiagText(fb, 24, 228, "PHOTO ALL SIX PAGES THEN RESET");
+        n64DiagText(fb, 24, 228, DIAG_PHOTO_PROMPT);
         return;
     }
     if (page == 3) {
@@ -359,7 +366,7 @@ static void n64DiagPage(volatile u16 *fb, u32 page, const char *reason, OSThread
         n64DiagText(fb, 24, 160, "1 CHECKED  2 PARTIAL  3 HAZARD");
         n64DiagText(fb, 24, 172, "CHECKED DOES NOT PROVE RDP SAFE");
         n64DiagText(fb, 24, 184, "LATEST MAY BE A LATER QUEUED LIST");
-        n64DiagText(fb, 24, 222, "PHOTO ALL SIX PAGES THEN RESET");
+        n64DiagText(fb, 24, 222, DIAG_PHOTO_PROMPT);
         return;
     }
     if (page == 1) {
@@ -380,7 +387,7 @@ static void n64DiagPage(volatile u16 *fb, u32 page, const char *reason, OSThread
             n64DiagHex(fb, 224, 148 + i * 12, g_DiagStop.imemWord[i * 2 + 1]);
         }
         n64DiagPair(fb, 196, "SP POST", g_DiagStop.spPost, "DP START", g_DiagStop.dpStart);
-        n64DiagText(fb, 24, 222, "PHOTO ALL SIX PAGES THEN RESET");
+        n64DiagText(fb, 24, 222, DIAG_PHOTO_PROMPT);
         return;
     }
     if (page == 2) {
@@ -392,7 +399,7 @@ static void n64DiagPage(volatile u16 *fb, u32 page, const char *reason, OSThread
             n64DiagHex(fb, 96, 64 + i * 10, g_DiagStop.rdpWord[i * 2]);
             n64DiagHex(fb, 168, 64 + i * 10, g_DiagStop.rdpWord[i * 2 + 1]);
         }
-        n64DiagText(fb, 24, 228, "PHOTO ALL SIX PAGES THEN RESET");
+        n64DiagText(fb, 24, 228, DIAG_PHOTO_PROMPT);
         return;
     }
     n64DiagText(fb, 24, 28, reason);
@@ -419,7 +426,7 @@ static void n64DiagPage(volatile u16 *fb, u32 page, const char *reason, OSThread
     n64DiagPair(fb, 184, "RAM", g_Diag.dmaTarget, "DMA WAIT", g_Diag.dmaWaiting);
     n64DiagPair(fb, 196, "BANK", g_Diag.bank, "ALLOC", g_Diag.bytes);
     n64DiagPair(fb, 208, "POOL POS", g_Diag.allocPos, "POOL END", g_Diag.allocEnd);
-    n64DiagText(fb, 24, 222, "PHOTO ALL SIX PAGES THEN RESET");
+    n64DiagText(fb, 24, 222, DIAG_PHOTO_PROMPT);
 }
 
 static void n64DiagStop(const char *reason, OSThread *fault)
