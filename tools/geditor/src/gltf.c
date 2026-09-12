@@ -1616,6 +1616,12 @@ static BOOL GltfLoadPrimitive(const char *json,
     if (builder->importing && !GltfImportTexture(json,tokens,tokencount,primitive,&tag,reasonout))
     { return FALSE; }
 
+    if (builder->importing && BG_TEX_ID(tag) != BG_TEX_NONE && !hastexcoords)
+    {
+        *reasonout = "A textured model part has no UVs. Enable UVs in Blender's glTF exporter.";
+        return FALSE;
+    }
+
     if (!GltfPrimitiveRenderFlags(json, tokens, tokencount, root, primitive, &renderflags)
         || !GltfPrimitiveWrapFlags(json, tokens, tokencount, root, primitive, &renderflags))
     {

@@ -8,7 +8,6 @@
 #include <music.h>
 #include <tlb_manage.h>
 #include <fr.h>
-#include <rcpprofile.h>
 #include <snd.h>
 #include <ramrom.h>
 #include <random.h>
@@ -120,9 +119,6 @@ f32 g_SystemPowerTimeSeconds = 0.0;
  */
 bool g_BgRenderEnabled = TRUE;
 
-/* Temporary A/B test, reset to full width at each stage load. */
-static bool g_LvScissorHalfWidth = FALSE;
-
 extern u8* _fontdlSegmentRomStart;
 extern u8* _fontdlSegmentRomEnd;
 
@@ -191,8 +187,6 @@ u32 g_ProfBgRenderCycles;
 u32 g_ProfChrTickCycles;
 u32 g_ProfChrActionCycles;
 u32 g_ProfObjTickCycles;
-u32 g_ProfGfxCommands;
-u32 g_ProfBgGfxCommands;
 /* --- end profiler state --- */
 
 bool lvGetBgRenderEnabled(void)
@@ -229,8 +223,6 @@ void lvlStageLoad(s32 stage)
     struct player_data *player_data;
 
     g_CurrentStageToLoad = stage;
-    g_LvScissorHalfWidth = FALSE;
-    bgSetScissorTest(FALSE);
     g_BgRenderEnabled = TRUE;
     g_ControlsLockedFlag = 0;
     g_ClockTimer = 1;
@@ -494,44 +486,12 @@ void lvlSetMultipliersForDifficulty(void)
 }
 
 
-/* Both modes perform the same full-view color clear, preventing stale pixels
- * outside the cropped world without adding a half-mode-only rendering cost.
- * Called after viSetupScreensForNumPlayers, with the color target active and
- * a full-screen scissor. The ordinary full-size depth clear stays untouched. */
-static Gfx *lvBeginScissorTest(Gfx *gdl)
-{
-    if (!g_ControlsLockedFlag && !checkGamePaused()
-            && g_CurrentPlayer->watch_animation_state == 0
-            && g_CurrentPlayer->frozencam != 1
-            && joyGetButtons(PLAYER_1, L_TRIG | R_TRIG) == (L_TRIG | R_TRIG)
-            && joyGetButtonsPressedThisFrame(PLAYER_1, U_JPAD))
-    {
-        g_LvScissorHalfWidth = !g_LvScissorHalfWidth;
-    }
-
-    gDPPipeSync(gdl++);
-    gDPSetCycleType(gdl++, G_CYC_FILL);
-    gDPSetRenderMode(gdl++, G_RM_NOOP, G_RM_NOOP2);
-    gDPSetFillColor(gdl++, (GPACK_RGBA5551(0, 0, 0, 1) << 16)
-            | GPACK_RGBA5551(0, 0, 0, 1));
-    gDPFillRectangle(gdl++, viGetViewLeft(), viGetViewTop(),
-            viGetViewLeft() + viGetViewWidth() - 1,
-            viGetViewTop() + viGetViewHeight() - 1);
-    gDPPipeSync(gdl++);
-
-    bgSetScissorTest(g_LvScissorHalfWidth);
-    return bgScissorCurrentPlayerViewDefault(gdl);
-}
-
-
 /**
  * Graphics render method.
  * Also sets player max ammo if infinite ammo cheat is enabled.
  */
 Gfx* lvRender(Gfx* gdl)
 {
-    g_ProfBgGfxCommands = 0;
-
     gSPSegment(gdl++, SPSEGMENT_PHYSICAL, NULL);
     gSPSegment(gdl++, SPSEGMENT_UNKNOWN, osVirtualToPhysical(ptr_font_DL));
 
@@ -567,10 +527,6 @@ Gfx* lvRender(Gfx* gdl)
             gdl = viSetupCurrentPlayerView(gdl);
             gdl = bviewRenderCameraView(gdl);
             gdl = viSetupScreensForNumPlayers(gdl);
-            if (pcount == 1)
-            {
-                gdl = lvBeginScissorTest(gdl);
-            }
             gdl = skyRender(gdl);
 
             
@@ -595,12 +551,10 @@ Gfx* lvRender(Gfx* gdl)
             propsTickPlayer();
 
             { /* TEMP profiler */
-                Gfx *bgGdlStart = gdl;
                 u32 prof_t = osGetCount();
 
                 gdl = bgSetupAndRender(gdl);
                 g_ProfBgRenderCycles = osGetCount() - prof_t;
-                g_ProfBgGfxCommands += (u32)(gdl - bgGdlStart);
             }
             
             gdl = weaponRenderTracers(gdl);
@@ -609,13 +563,6 @@ Gfx* lvRender(Gfx* gdl)
 
             gdl = glassRenderShards(gdl);
             gdl = explosionRenderCornflakes(gdl);
-
-            if (pcount == 1)
-            {
-                /* Weapons, casings, watch and HUD keep their normal bounds. */
-                bgSetScissorTest(FALSE);
-                gdl = bgScissorCurrentPlayerViewDefault(gdl);
-            }
 
             if (cheatIsActive(CHEAT_INFINITE_AMMO))
             {
@@ -1090,8 +1037,8 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
     gdl = lvDrawProfilerText(gdl, &x, &y, fpsText, color, screenwidth);
 
     { /* TEMP profiler readouts: raw osGetCount cycles per frame */
-        static char profText[8][32];
-        static const u32 profColor[8] = {
+        static char profText[7][32];
+        static const u32 profColor[7] = {
             0x00FFFFFF,  /* bg tick    - cyan    */
             0x4040FFFF,  /* lv tick    - blue    */
             0xFF3030FF,  /* lv render  - red     */
@@ -1099,7 +1046,6 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
             0xFFFF30FF,  /* obj tick   - yellow  */
             0xB43CFFFF,  /* chr tick   - violet  */
             0x30FF30FF,  /* chr action - green   */
-            0xFFFFFFFF,  /* display-list commands */
         };
         u32 sub;
         u32 lvlOther;
@@ -1115,67 +1061,16 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         sprintf(profText[4], "OBJTICK:%4uK",  (g_ProfObjTickCycles + 500) / 1000);
         sprintf(profText[5], "CHRTICK:%4uK",  (g_ProfChrTickCycles + 500) / 1000);
         sprintf(profText[6], "CHRACT:%4uK",   (g_ProfChrActionCycles + 500) / 1000);
-        sprintf(profText[7], "GFX:%5u BG:%5u", g_ProfGfxCommands, g_ProfBgGfxCommands);
 
         g_ProfChrTickCycles = 0;
         g_ProfChrActionCycles = 0;
         g_ProfObjTickCycles = 0;
 
-        for (i = 0; i < 8; i++)
+        for (i = 0; i < ARRAYCOUNT(profText); i++)
         {
             x = 14;
             y = 44 + (i * 10);
             gdl = lvDrawProfilerText(gdl, &x, &y, profText[i], profColor[i], screenwidth);
-        }
-    }
-
-    {
-        RcpProfileSample sample;
-        static char rcpText[7][80];
-        u32 rsp, audio, gap, latency, dpEnd, clock, command, pipe, tmem;
-        u32 total, average, maximum;
-        s32 i;
-        s32 lines = 1;
-
-        if (rcpProfileGetSnapshot(&sample)) {
-            rsp = rcpProfileCpuTenthsMs(sample.rspTicks);
-            audio = rcpProfileCpuTenthsMs(sample.audioTicks);
-            gap = rcpProfileCpuTenthsMs(sample.yieldTicks);
-            latency = rcpProfileCpuTenthsMs(sample.yieldLatencyTicks);
-            dpEnd = rcpProfileCpuTenthsMs(sample.rdpEndTicks);
-            clock = rcpProfileRdpTenthsMs(sample.rdpClock);
-            command = rcpProfileRdpTenthsMs(sample.rdpCommand);
-            pipe = rcpProfileRdpTenthsMs(sample.rdpPipe);
-            tmem = rcpProfileRdpTenthsMs(sample.rdpTmem);
-            total = rcpProfileCpuTenthsMs(sample.totalTicks);
-            average = rcpProfileCpuTenthsMs(sample.averageTicks);
-            maximum = rcpProfileCpuTenthsMs(sample.maximumTicks);
-            /* Selection for the frame being built, not a tag on the older
-             * completed sample. Wait 64+ tasks after switching for AVG/MAX. */
-            sprintf(rcpText[0], "RCP MS #%u S:1/%u%s", sample.sequence,
-                    g_LvScissorHalfWidth ? 2 : 1,
-                    sample.counterRangeExceeded ? " COUNTER RANGE!" : "");
-            sprintf(rcpText[1], "RSP:%u.%u AUD:%u.%u", rsp / 10, rsp % 10,
-                    audio / 10, audio % 10);
-            sprintf(rcpText[2], "GAP:%u.%u YIELDS:%u", gap / 10, gap % 10,
-                    sample.yieldCount);
-            sprintf(rcpText[3], "YLAG:%u.%u DPEND:%u.%u", latency / 10,
-                    latency % 10, dpEnd / 10, dpEnd % 10);
-            sprintf(rcpText[4], "CLK:%u.%u CMD:%u.%u", clock / 10, clock % 10,
-                    command / 10, command % 10);
-            sprintf(rcpText[5], "PIPE:%u.%u TMEM:%u.%u", pipe / 10, pipe % 10,
-                    tmem / 10, tmem % 10);
-            sprintf(rcpText[6], "END:%u.%u AVG:%u.%u MAX:%u.%u", total / 10,
-                    total % 10, average / 10, average % 10, maximum / 10,
-                    maximum % 10);
-            lines = 7;
-        } else {
-            sprintf(rcpText[0], "RCP: WAITING FOR TASK");
-        }
-        for (i = 0; i < lines; i++) {
-            x = 14;
-            y = 130 + i * 10;
-            gdl = lvDrawProfilerText(gdl, &x, &y, rcpText[i], 0xFFFFFFFF, screenwidth);
         }
     }
 

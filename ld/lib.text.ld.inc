@@ -1,7 +1,6 @@
       build/OUTCODE/src/boot.o (.text);
       build/OUTCODE/src/init.o (.text);
       build/OUTCODE/src/sched.o (.text);
-      build/OUTCODE/src/rcpprofile.o (.text);
       build/OUTCODE/src/osMapTLB.o (.text);
       build/OUTCODE/src/tlb_manage.o (.text);
       build/OUTCODE/src/tlb_random.o (.text);

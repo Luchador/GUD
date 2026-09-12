@@ -1,7 +1,9 @@
 /* Rebuild render streams while retaining the original native model tree and
  * vertex/joint associations. Source identities survive Blender reindexing.
- * This first import path accepts face deletion and existing texture assignment;
- * topology, positions, colors, and UV edits are rejected explicitly. */
+ * Position/UV edits update native Vtx records in place. Face deletion and
+ * texture assignment rebuild commands without changing vertex/joint bindings.
+ * Topology and colors remain authored; conflicting edits to shared vertices
+ * are rejected instead of changing another face or splitting its binding. */
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -12,8 +14,132 @@
 #define MODEL_DELETED 0xffffu
 
 typedef struct ModelOutput { unsigned char *data; DWORD size, capacity; BOOL failed; } ModelOutput;
+typedef struct ModelVertexEdit {
+    DWORD offset;
+    unsigned char bytes[16];
+    BOOL textured;
+} ModelVertexEdit;
 static DWORD Read32(const unsigned char *p) { return (DWORD)p[0]<<24 | (DWORD)p[1]<<16 | (DWORD)p[2]<<8 | p[3]; }
 static void Write32(unsigned char *p, DWORD v) { p[0]=v>>24; p[1]=v>>16; p[2]=v>>8; p[3]=v; }
+static int Read16(const unsigned char *p)
+{
+    int value = (int)p[0] * 256 + p[1];
+    return value < 32768 ? value : value - 65536;
+}
+static BOOL WriteRounded16(unsigned char *p, double value)
+{
+    int rounded;
+    value = round(value);
+    if (!isfinite(value) || value < -32768 || value > 32767) { return FALSE; }
+    rounded = (int)value;
+    p[0] = (unsigned int)rounded >> 8; p[1] = (unsigned int)rounded;
+    return TRUE;
+}
+static int VertexEditCompare(const void *left, const void *right)
+{
+    DWORD a = ((const ModelVertexEdit *)left)->offset;
+    DWORD b = ((const ModelVertexEdit *)right)->offset;
+    return a < b ? -1 : a > b;
+}
+
+/* Export uses a translated rest pose, while N64 Vtx positions remain local
+ * to the matrix selected at their original load. Applying the exported delta
+ * to the original integer position reverses that translation, including when
+ * a triangle's cached vertices belong to different joints. */
+static BOOL PrepareVertexEdit(ModelVertexEdit *edit, const unsigned char *data,
+    const ModelSource *source, DWORD id, const BgVertex *vertex, int width,
+    int height, BOOL textured, const char **reasonout)
+{
+    const BgVertex *original = &source->vertices[id];
+    const unsigned char *native;
+    double delta[3] = {(double)vertex->x - original->x,
+        (double)vertex->y - original->y, (double)vertex->z - original->z};
+    int axis;
+    edit->offset = source->vertexoffsets[id];
+    edit->textured = textured;
+    if (edit->offset > source->lists[0].offset
+        || source->lists[0].offset - edit->offset < 16)
+    { *reasonout = "A model vertex is outside its native vertex data."; return FALSE; }
+    native = data + edit->offset;
+    memcpy(edit->bytes, native, 16);
+    for (axis = 0; axis < 3; axis++)
+    {
+        if (!WriteRounded16(edit->bytes + axis * 2, Read16(native + axis * 2) + delta[axis]))
+        { *reasonout = "An edited position exceeds the N64 signed 16-bit joint-local range (-32768 to 32767)."; return FALSE; }
+    }
+    /* Retain unused UVs when a material is removed. Other textured faces can
+     * still share this Vtx and establish its UVs during the merge below. */
+    if (textured)
+    {
+        if (!WriteRounded16(edit->bytes + 8, (double)vertex->s * width * 32.0)
+            || !WriteRounded16(edit->bytes + 10, (double)vertex->t * height * 32.0))
+        { *reasonout = "An edited UV exceeds the N64 signed 16-bit texture-coordinate range (1/32 texel units)."; return FALSE; }
+        if ((source->flags[id / 3] & BG_RENDER_ENVIRONMENT)
+            && memcmp(edit->bytes + 8, native + 8, 4))
+        { *reasonout = "This part uses generated reflection UVs. Keep its UVs unchanged; ordinary texture UVs can be edited."; return FALSE; }
+    }
+    return TRUE;
+}
+
+static BOOL MergeVertexEdits(ModelVertexEdit *edits, DWORD *count, const char **reasonout)
+{
+    DWORD i, used = 0;
+    if (*count) { qsort(edits, *count, sizeof(*edits), VertexEditCompare); }
+    for (i = 0; i < *count; i++)
+    {
+        ModelVertexEdit *previous = used ? &edits[used - 1] : NULL;
+        if (previous && previous->offset == edits[i].offset)
+        {
+            if (memcmp(previous->bytes, edits[i].bytes, 6))
+            { *reasonout = "Faces sharing a native vertex have different positions. Move all exported copies of that vertex together, including copies in other parts or LODs."; return FALSE; }
+            if (previous->textured && edits[i].textured
+                && memcmp(previous->bytes + 8, edits[i].bytes + 8, 4))
+            { *reasonout = "Faces sharing a native vertex have different UVs. Move their UV corners together; creating a new UV seam requires splitting native vertices and is not supported."; return FALSE; }
+            if (edits[i].textured)
+            {
+                memcpy(previous->bytes + 8, edits[i].bytes + 8, 4);
+                previous->textured = TRUE;
+            }
+        }
+        else
+        {
+            if (previous && edits[i].offset - previous->offset < 16)
+            { *reasonout = "This model has overlapping native vertex records that cannot be safely edited."; return FALSE; }
+            edits[used++] = edits[i];
+        }
+    }
+    *count = used;
+    return TRUE;
+}
+
+/* Dynamic lists are deliberately outside the editable export. If they share
+ * storage, do not let an ordinary face edit modify their hidden vertices. */
+static BOOL CheckDynamicVertices(const unsigned char *data, const ModelSource *source,
+    const ModelVertexEdit *edits, DWORD count, const char **reasonout)
+{
+    DWORD list, pc, i;
+    for (list = 0; list < source->listcount; list++)
+    {
+        const ModelSourceList *part = &source->lists[list];
+        if (!part->preserve) { continue; }
+        for (pc = part->offset; pc < part->end; pc += 8)
+        {
+            const unsigned char *cmd = data + pc;
+            DWORD raw, start, end;
+            if (cmd[0] != 4) { continue; }
+            raw = Read32(cmd + 4);
+            start = (raw & 0xffffffu) + ((raw >> 24) == 5 ? 0 : part->vertexbase);
+            end = start + ((cmd[1] >> 4) + 1) * 16;
+            for (i = 0; i < count; i++)
+            {
+                if (edits[i].offset < end && edits[i].offset + 16 > start
+                    && memcmp(edits[i].bytes, data + edits[i].offset, 16))
+                { *reasonout = "An edited vertex is shared with a preserved dynamic model effect. Keep that vertex unchanged."; return FALSE; }
+            }
+        }
+    }
+    return TRUE;
+}
 DWORD ModelDataHash(const unsigned char *data, DWORD size)
 {
     DWORD hash=2166136261u, i;
@@ -94,21 +220,24 @@ BOOL ModelCompileImport(const unsigned char *data, DWORD size, const ModelSource
     unsigned char **result, DWORD *resultsize, const char **reasonout)
 {
     unsigned short *choices=NULL;
+    ModelVertexEdit *edits=NULL;
     ModelOutput output={0};
-    DWORD i, list, facecursor=0;
+    DWORD i, list, facecursor=0, editcount=0;
     BOOL changed=imported->count!=source->count, ok=FALSE;
     *result=NULL; *resultsize=0;
     *reasonout="The model could not be rebuilt.";
-    if (!source->listcount || size>MODEL_LIMIT || imported->count>source->count) { goto done; }
+    if (!source->listcount || source->lists[0].offset>size || size>MODEL_LIMIT
+        || imported->count>source->count || (source->count && !source->vertexoffsets)) { goto done; }
     choices=malloc((source->count ? source->count : 1)*sizeof(*choices));
-    if (!choices) { goto done; }
+    edits=malloc((size_t)(imported->count ? imported->count : 1)*3*sizeof(*edits));
+    if (!choices || !edits) { goto done; }
     for(i=0;i<source->count;i++) { choices[i]=MODEL_DELETED; }
     for(i=0;i<imported->count;i++)
     {
         DWORD id=imported->sourcevertices[i*3], face=id/3;
         int corner, width=1,height=1, newwidth=1,newheight=1;
         unsigned short texture=BG_TEX_ID(imported->tags[i]);
-        if(face>=source->count || choices[face]!=MODEL_DELETED) { *reasonout="Faces were duplicated or added. This import supports deleting faces and changing texture assignments."; goto done; }
+        if(face>=source->count || choices[face]!=MODEL_DELETED) { *reasonout="Faces were duplicated or added. Preserve the exported triangles and their GUD attributes; existing faces may be moved or deleted."; goto done; }
         if (BG_TEX_ID(source->tags[face])!=BG_TEX_NONE
             && !TexGetProjectImageSize(projectdir,BG_TEX_ID(source->tags[face]),&width,&height))
         { *reasonout="An original model texture is missing from the project."; goto done; }
@@ -124,16 +253,18 @@ BOOL ModelCompileImport(const unsigned char *data, DWORD size, const ModelSource
             DWORD vertexid=imported->sourcevertices[i*3+corner];
             const BgVertex *a=&imported->vertices[i*3+corner], *b;
             if(vertexid/3!=face || vertexid%3!=(id%3+corner)%3)
-            { *reasonout="A face was reshaped or its winding changed. Preserve the exported triangles and their GUD attributes."; goto done; }
+            { *reasonout="A face's vertex identities or winding changed. Preserve the exported triangles and their GUD attributes."; goto done; }
             b=&source->vertices[vertexid];
-            if (fabsf(a->x-b->x)>0.003f || fabsf(a->y-b->y)>0.003f || fabsf(a->z-b->z)>0.003f
-                || abs((int)a->r-b->r)>1 || abs((int)a->g-b->g)>1 || abs((int)a->b-b->b)>1 || abs((int)a->a-b->a)>1
-                || (texture!=BG_TEX_NONE && (fabsf(a->s-b->s/width)>0.0001f || fabsf(a->t-b->t/height)>0.0001f)))
-            { *reasonout="Positions, UVs, or vertex colors changed. This first import supports face deletion and texture assignment; keep vertex colors enabled in Blender's exporter."; goto done; }
+            if (abs((int)a->r-b->r)>1 || abs((int)a->g-b->g)>1 || abs((int)a->b-b->b)>1 || abs((int)a->a-b->a)>1)
+            { *reasonout="Vertex colors changed. Keep the original colors and enable Vertex Colors in Blender's exporter."; goto done; }
+            if (!PrepareVertexEdit(&edits[editcount++], data, source, vertexid, a,
+                                  width, height, texture!=BG_TEX_NONE, reasonout)) { goto done; }
         }
         choices[face]=texture;
         if(texture!=BG_TEX_ID(source->tags[face])) { changed=TRUE; }
     }
+    if (!MergeVertexEdits(edits, &editcount, reasonout)
+        || !CheckDynamicVertices(data, source, edits, editcount, reasonout)) { goto done; }
     if(!changed)
     {
         Append(&output,data,size); goto finish;
@@ -245,7 +376,8 @@ BOOL ModelCompileImport(const unsigned char *data, DWORD size, const ModelSource
     }
 finish:
     if(output.failed) { *reasonout="The rebuilt model exceeded the supported size or available memory."; goto done; }
+    for (i=0; i<editcount; i++) { memcpy(output.data+edits[i].offset, edits[i].bytes, 16); }
     *result=output.data; *resultsize=output.size; output.data=NULL; ok=TRUE; *reasonout="";
 done:
-    free(choices); free(output.data); return ok;
+    free(choices); free(edits); free(output.data); return ok;
 }

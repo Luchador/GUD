@@ -55,8 +55,6 @@ extern u32 g_ProfBgRenderCycles;
 extern u32 g_ProfChrTickCycles;
 extern u32 g_ProfChrActionCycles;
 extern u32 g_ProfObjTickCycles;
-extern u32 g_ProfGfxCommands;
-extern u32 g_ProfBgGfxCommands;
 
 void lvInit(void);
 struct LevelEntry *lvFindLevelInfo(enum LEVELID levelId);

@@ -348,7 +348,7 @@ static Gfx *skyRenderSolidBackground(Gfx *gdl, EnvironmentRecord *env)
     {
         gDPSetCycleType(gdl++, G_CYC_FILL);
         gdl = viSetFillColor(gdl, env->Sky.Red, env->Sky.Green, env->Sky.Blue);
-        gdl = bgFillScissorTestRectangle(gdl, viGetViewLeft(), viGetViewTop(),
+        gDPFillRectangle(gdl++, viGetViewLeft(), viGetViewTop(),
                 viGetViewLeft() + viGetViewWidth() - 1,
                 viGetViewTop() + viGetViewHeight() - 1);
     }
@@ -424,7 +424,7 @@ static Gfx *skyRenderWaterPolygon(Gfx *gdl, SkyRelated18 *vertices, s32 vertexCo
         gDPSetCycleType(gdl++, G_CYC_FILL);
         gDPSetRenderMode(gdl++, G_RM_NOOP, G_RM_NOOP2);
         gDPSetTexturePersp(gdl++, G_TP_NONE);
-        gdl = bgFillScissorTestRectangle(gdl, (s32)(minX * 0.25f), (s32)(minY * 0.25f),
+        gDPFillRectangle(gdl++, (s32)(minX * 0.25f), (s32)(minY * 0.25f),
                 (s32)(maxX * 0.25f), (s32)(maxY * 0.25f));
         gDPPipeSync(gdl++);
         gDPSetTexturePersp(gdl++, G_TP_PERSP);

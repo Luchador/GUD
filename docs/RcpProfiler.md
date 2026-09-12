@@ -1,5 +1,14 @@
 # RSP/RDP profiler
 
+> Historical reference: the RCP profiler, its scheduler/HUD hooks, linker
+> entries and tests, and the GFX/BG command counters have been removed after
+> hardware profiling. FPS and the existing CPU timing rows remain. The
+> implementation and test instructions below describe the profiling build
+> at commit `03bec2a4`, not the current build. Keep these measurement definitions
+> when interpreting earlier captures or restoring instrumentation from Git.
+> The [scissor experiment results](RcpScissorExperiment.md#hardware-results)
+> record the Jungle comparison that followed this profiling pass.
+
 `GUD-rcp-profiler-restored.patch` targets master `aa1f9b09` (Remove diagnostics).
 It reconnects the retained accounting module to the scheduler, resident linker
 sections and on-screen display. The framebuffer/BG alignment fixes and the

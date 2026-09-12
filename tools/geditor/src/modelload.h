@@ -31,8 +31,9 @@ BOOL ModelApplyCharacterPose(const unsigned char *data, DWORD size, int switchco
                               BgVertex *vertices, DWORD tricount,
                               ModelCharacterAttachments *attachments);
 
-/* Stable source associations for a deletion/material-only Blender round trip.
- * The native file retains joint bindings, switches, bounds and all LODs. */
+/* Stable source associations for a Blender round trip. Native vertex offsets
+ * retain joint-local positions and shared storage independently of glTF's
+ * per-corner identities. The native tree, switches and bounds stay authored. */
 typedef struct ModelSourceFace {
     DWORD command, list;
     unsigned char slot;
@@ -48,6 +49,7 @@ typedef struct ModelSourceList {
 
 typedef struct ModelSource {
     BgVertex *vertices;
+    DWORD *vertexoffsets; /* One native 16-byte Vtx offset per exported corner. */
     unsigned short *tags;
     BgRenderFlags *flags;
     ModelSourceFace *faces;

@@ -1,5 +1,38 @@
 # RCP scissor experiment
 
+> Historical experiment: the half-width toggle, extra color clear, scissor
+> clamps and test helpers have been removed together with the RCP profiler.
+> Normal full-view rendering is restored. The controls and implementation
+> below describe commit `03bec2a4`; they are no longer present in the game.
+
+## Hardware results
+
+On 12 September 2026, the user tested Jungle on real N64 with the camera kept
+in the same position. The reported FPS rose from 12 at full width to 15 at
+half width. The three captures, in order, showed:
+
+| Capture | RSP (ms) | END (ms) | AVG (ms) | PIPE (ms) | TMEM (ms) |
+|---|---:|---:|---:|---:|---:|
+| Full, before | 72.6 | 76.7 | 78.3 | 76.6 | 5.2 |
+| Half | 57.5 | 59.7 | 59.5 | 59.6 | 5.8 |
+| Full, after | 66.5 | 70.6 | 70.2 | 70.5 | 4.4 |
+
+Average graphics-task duration decreased by 10.7-18.8 ms (about 15-24%), and
+reported FPS increased by 25%. The two full-width captures and their command
+counts differed, so this is a range rather than an exact isolated percentage.
+The result supports a substantial pixel-dependent rendering cost. The RSP
+reduction is consistent with less RDP backpressure or memory contention;
+scheduled RSP time is not a pure geometry counter. TMEM load time did not fall.
+
+Next candidates are avoidable overdraw and expensive rendering passes,
+especially overlapping foliage and room/prop drawing. This experiment does
+not establish a universal bottleneck for every level or rule out RSP work.
+The original clears, first-person rendering and overlay had fixed costs,
+and the crop removed the outer quarters rather than uniformly halving every
+surface's pixel cost. Preserve these limits when comparing future changes.
+
+## Original experiment
+
 `GUD-rcp-scissor-test.patch` targets master `1641d74c` (Add RCP profiler).
 It is a temporary workload comparison for the normal US build, independent of
 DEBUG. Build with `make VERSION=US`.
@@ -87,6 +120,5 @@ cache behavior and input gating. Native US IDO compilation is also checked
 for `lv.c`, `bg.c` and `sky.c`. Hardware timings and visuals require the N64
 comparison above; host checks do not emulate rasterization.
 
-To remove the experiment before making permanent optimizations, reverse this
-patch with `git apply -R GUD-rcp-scissor-test.patch` while its changes remain
-intact. This leaves the restored RCP profiler in place.
+The experiment and its tests are now removed. To reproduce it later, use the
+profiling revision `03bec2a4` and its build instructions above.

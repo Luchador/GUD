@@ -101,7 +101,7 @@ static DWORD mdoff(DWORD segptr)
     return segptr & 0x00FFFFFF;
 }
 
-static void MdlPush(MdlBuilder *b, const BgVertex *v)
+static void MdlPush(MdlBuilder *b, const BgVertex *v, DWORD vertexoffset)
 {
     if (b->error)
     {
@@ -132,10 +132,14 @@ static void MdlPush(MdlBuilder *b, const BgVertex *v)
             ModelSourceFace *faces = realloc(b->source->faces, (next / 3) * sizeof(*faces));
             if (faces == NULL) { b->error = "out of memory retaining model face identities."; return; }
             b->source->faces = faces;
+            DWORD *offsets = realloc(b->source->vertexoffsets, next * sizeof(*offsets));
+            if (offsets == NULL) { b->error = "out of memory retaining native model vertices."; return; }
+            b->source->vertexoffsets = offsets;
         }
         b->capacity = next;
     }
 
+    if (b->source != NULL) { b->source->vertexoffsets[b->count] = vertexoffset; }
     b->verts[b->count++] = *v;
 }
 
@@ -242,6 +246,7 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
 {
     DWORD pc;
     BgVertex cache[16];
+    DWORD cacheoffsets[16];
     BgRenderFlags cacheflags[16];
     unsigned int valid = 0;
     const float *translation = origin;
@@ -324,6 +329,7 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
                 const unsigned char *v = data + addr + i * 16;
                 BgVertex *out = &cache[first + i];
 
+                cacheoffsets[first + i] = addr + i * 16;
                 out->x = md16(v + 0) + translation[0];
                 out->y = md16(v + 2) + translation[1];
                 out->z = md16(v + 4) + translation[2];
@@ -399,7 +405,7 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
                 {
                     BgVertex vertex = cache[idx[k]];
                     vertex.a = BgRenderVertexAlpha(alpha, vertex.a);
-                    MdlPush(b, &vertex);
+                    MdlPush(b, &vertex, cacheoffsets[idx[k]]);
                 }
 
                 if (!b->error)
@@ -1086,7 +1092,7 @@ BgVertex *ModelLoadCharacterGeometry(const unsigned char *data, DWORD maxlen,
 
 void ModelFreeSource(ModelSource *source)
 {
-    free(source->vertices); free(source->tags); free(source->flags);
+    free(source->vertices); free(source->vertexoffsets); free(source->tags); free(source->flags);
     free(source->faces); free(source->lists); ZeroMemory(source, sizeof(*source));
 }
 

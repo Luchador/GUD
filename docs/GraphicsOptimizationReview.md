@@ -1,4 +1,4 @@
-> Preserved source review from before the profiler patch. The initial scheduler/RDP profiler described below is now implemented; see [RcpProfiler.md](RcpProfiler.md) for measurement definitions and the hardware baseline plan. The remaining optimization candidates are unmeasured and are retained for follow-up.
+> Preserved source review from before the profiler patch. The scheduler/RDP profiler was implemented and tested on real N64, then removed with the GFX/BG counters and half-width experiment to eliminate their overhead. See [RcpProfiler.md](RcpProfiler.md) for historical measurement definitions and [RcpScissorExperiment.md](RcpScissorExperiment.md#hardware-results) for the Jungle results. The individual optimization candidates below remain unmeasured and are retained for follow-up.
 
 **GUD graphics optimization review, 12 September 2026**
 
