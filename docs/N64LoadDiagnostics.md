@@ -1,5 +1,57 @@
 # Temporary N64 load diagnostics
 
+## Restore full rendering (12F)
+
+`GUD-n64-restore-rendering.patch` targets master `ced387d1`
+(Color buffer alignment fix). Use the normal US build.
+
+### 11A hardware result
+
+The user reports no crashes while viewing and manipulating the controller,
+exiting and loading multiple levels, or viewing pause-menu items including
+the PP7 and Sniper Rifle. The aligned color framebuffers therefore pass the
+same controller configuration that previously stalled with misaligned
+buffers. This strongly supports framebuffer alignment as a cause of the
+observed hangs. Full world rendering and normal controller depth comparison
+were still bypassed, so those paths need verification before the hardware
+investigation is considered complete.
+
+### What 12F changes
+
+All rendering-isolation switches now default to zero. This restores:
+
+* Normal sky/cloud/water rendering and room display-list submission.
+* World props, characters, effects, and the ordinary weapon/watch draw path.
+* Normal interpolated controller depth, depth comparison, and depth writes.
+
+The fill-only RDP probe remains disabled. `N64_DIAG_RESTORE_WEAPONS=0` only
+disables its special HUD-isolation path; with `N64_DIAG_HUD_ONLY=0`, weapons
+and the watch render through their ordinary path. The framebuffer alignment,
+compile/link guards and preflight alignment checks remain. The watchdog,
+six-page capture and existing RSP/RDP profiler remain enabled, independently
+of DEBUG. Crash pages identify this configuration as **12F**.
+
+### Hardware test
+
+1. Apply against `ced387d1` and run `make VERSION=US`.
+2. Check that room geometry, characters and sky are visible in the emulator.
+3. Run the new ROM on N64. Test Runway and Cradle first, including the
+   controller fade/manipulation/re-entry, pause-menu item models and combat.
+4. Switch levels and try the other previously profiled scenes: Surface 1,
+   Jungle and Streets. A short split-screen test also exercises shared depth
+   storage and viewport changes.
+5. If it stalls, send all six 12F pages and the matching ELF/map. If it passes,
+   the next cleanup can remove the temporary isolation scaffolding and turn
+   off the expensive command preflight before collecting performance results.
+
+Validation: all 14 consumers of the diagnostic configuration compile with
+normal US IDO 5.3. The diagnostic/preflight and fill-probe host suites pass.
+The restored `gunfire`, `sky` and `bondview` objects have identical code,
+read-only data, data and BSS to builds with diagnostics disabled; `lvRender`
+also has identical compiled instructions. This confirms that the temporary
+rendering overrides are absent while retaining the diagnostic infrastructure.
+No full ROM build, emulator run or N64 test was performed here.
+
 ## Framebuffer alignment fix (11A)
 
 `GUD-n64-framebuffer-alignment.patch` targets master `8e52a1cc`

@@ -9,18 +9,22 @@
 #define N64_LOAD_DIAGNOSTICS 1
 #endif
 
+/* 11A passed on hardware after aligning the color framebuffers. Restore
+ * normal rendering by default (12F), retaining the watchdog and preflight.
+ * Keep these isolation switches available until full rendering is verified. */
+
 /* Temporary A/B test: 1 replaces clouds/water with the solid sky path.
  * Set to 0 and rebuild to restore normal rendering with diagnostics retained.
  * This is an isolation test, not a fix for the hardware stall. */
 #ifndef N64_DIAG_SOLID_SKY
-#define N64_DIAG_SOLID_SKY 1
+#define N64_DIAG_SOLID_SKY 0
 #endif
 
 /* Next isolation test: load rooms normally but omit their primary/secondary
  * display-list calls. Props, characters and HUD still render. Set to 0 to
  * restore room drawing. This is temporary and is independent of DEBUG. */
 #ifndef N64_DIAG_SKIP_BG_GDLS
-#define N64_DIAG_SKIP_BG_GDLS 1
+#define N64_DIAG_SKIP_BG_GDLS 0
 #endif
 
 /* Replace gameplay submissions with known fill-only commands: blue short
@@ -36,14 +40,14 @@
  * N64_DIAG_RESTORE_WEAPONS can re-enable the weapon/watch range separately.
  * The fill-only probe takes precedence when re-enabled. Temporary, not a fix. */
 #ifndef N64_DIAG_HUD_ONLY
-#define N64_DIAG_HUD_ONLY 1
+#define N64_DIAG_HUD_ONLY 0
 #endif
 
 /* After 06H passed: keep the world/effects bypass but draw casings, the
  * first-person weapon and the watch. Only applies to the HUD isolation mode.
  * Set to 0 to repeat the successful 06H control. Temporary, not a fix. */
 #ifndef N64_DIAG_RESTORE_WEAPONS
-#define N64_DIAG_RESTORE_WEAPONS 1
+#define N64_DIAG_RESTORE_WEAPONS 0
 #endif
 
 /* 07W draws weapons/casings but stalls on the watch controller screen.
@@ -51,7 +55,7 @@
  * render modes for the controller only. Applies only to the 07W isolation
  * configuration. Set to 0 to repeat 07W. Temporary test, not a fix. */
 #ifndef N64_DIAG_CONTROLLER_NO_ZBUFFER
-#define N64_DIAG_CONTROLLER_NO_ZBUFFER 1
+#define N64_DIAG_CONTROLLER_NO_ZBUFFER 0
 #endif
 
 /* 08Z passed on hardware. Re-enable the controller's normal Z-enabled
@@ -59,14 +63,14 @@
  * interpolated triangle depth. Overrides CONTROLLER_NO_ZBUFFER in the same
  * isolation configuration. Set to 0 to repeat 08Z. Temporary test, not a fix. */
 #ifndef N64_DIAG_CONTROLLER_PRIMITIVE_Z
-#define N64_DIAG_CONTROLLER_PRIMITIVE_Z 1
+#define N64_DIAG_CONTROLLER_PRIMITIVE_Z 0
 #endif
 
 /* 09P still stalls. Clear only Z_CMP in the controller's emitted render
  * modes, preserving Z_UPD and the primitive-depth test. Applies only with
  * PRIMITIVE_Z in the weapon/watch isolation setup. Set to 0 for 09P. */
 #ifndef N64_DIAG_CONTROLLER_NO_ZCOMPARE
-#define N64_DIAG_CONTROLLER_NO_ZCOMPARE 1
+#define N64_DIAG_CONTROLLER_NO_ZCOMPARE 0
 #endif
 
 enum N64DiagPhase {
