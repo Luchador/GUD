@@ -66,13 +66,12 @@ void RecentProjectsLoad(RecentProjects *recent)
 }
 
 
-void RecentProjectsRemember(RecentProjects *recent, const char *path)
+static void RecentProjectsSave(const RecentProjects *recent)
 {
     HKEY key;
     DWORD index;
 
-    if (!RecentProjectsInsert(recent, path)) { return; }
-    /* A preference-write failure must not prevent opening the project.
+    /* A preference-write failure must not prevent using the editor.
        The in-memory list still works for the rest of this session. */
     if (RegCreateKeyExA(HKEY_CURRENT_USER, RECENT_PROJECTS_KEY, 0, NULL,
                         REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, NULL,
@@ -93,4 +92,17 @@ void RecentProjectsRemember(RecentProjects *recent, const char *path)
         }
     }
     RegCloseKey(key);
+}
+
+
+void RecentProjectsRemember(RecentProjects *recent, const char *path)
+{
+    if (RecentProjectsInsert(recent, path)) { RecentProjectsSave(recent); }
+}
+
+
+void RecentProjectsClear(RecentProjects *recent)
+{
+    ZeroMemory(recent, sizeof(*recent));
+    RecentProjectsSave(recent);
 }

@@ -586,7 +586,8 @@ enum {
     ID_TOOLS_MODEL_EDITOR,
 
     ID_FILE_RECENT_PROJECT_FIRST,
-    ID_FILE_RECENT_PROJECT_LAST = ID_FILE_RECENT_PROJECT_FIRST + RECENT_PROJECTS_MAX - 1
+    ID_FILE_RECENT_PROJECT_LAST = ID_FILE_RECENT_PROJECT_FIRST + RECENT_PROJECTS_MAX - 1,
+    ID_FILE_CLEAR_RECENT_PROJECTS
 };
 
 
@@ -648,6 +649,9 @@ static void GEditorRefreshRecentProjectsMenu(void)
         AppendMenu(g_RecentProjectsMenu, MF_STRING,
                    ID_FILE_RECENT_PROJECT_FIRST + index, label);
     }
+    AppendMenu(g_RecentProjectsMenu, MF_SEPARATOR, 0, NULL);
+    AppendMenu(g_RecentProjectsMenu, MF_STRING | (g_RecentProjects.count ? MF_ENABLED : MF_GRAYED),
+               ID_FILE_CLEAR_RECENT_PROJECTS, "&Clear Recent Projects");
 }
 
 
@@ -3578,6 +3582,12 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         }
         switch (LOWORD(wparam))
         {
+            case ID_FILE_CLEAR_RECENT_PROJECTS:
+                RecentProjectsClear(&g_RecentProjects);
+                GEditorRefreshRecentProjectsMenu();
+                DrawMenuBar(hwnd);
+                return 0;
+
             /**
              * Create a new project.
              */

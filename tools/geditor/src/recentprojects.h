@@ -13,5 +13,6 @@ typedef struct RecentProjects {
 /* Per-user editor preferences, separate from project data and undo history. */
 void RecentProjectsLoad(RecentProjects *recent);
 void RecentProjectsRemember(RecentProjects *recent, const char *path);
+void RecentProjectsClear(RecentProjects *recent);
 
 #endif
