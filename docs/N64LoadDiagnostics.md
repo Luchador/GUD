@@ -1,5 +1,78 @@
 # Temporary N64 load diagnostics
 
+## Controller depth-access comparison (08Z)
+
+`GUD-n64-controller-zbuffer-isolation.patch` targets master `aa9a80ab`
+(Restore weapon and watch rendering). It uses the normal US build. This is
+an isolation test, not a confirmed fix or a replacement for correct depth
+buffering in the finished game.
+
+### 07W hardware result and matching files
+
+The user can see and fire the first-person weapon, create visible casings,
+open the watch, and display the PP7 inventory model without a crash. Opening
+the watch controller page triggers the watchdog. `GUD(8).elf`/map and the six
+`20260912_120346.jpg` through `20260912_120424.jpg` photographs match **07W**.
+
+| Observation | Meaning |
+|---|---|
+| Main PC/RA `0x7000D0C8` | Inside `osRecvMesg`, whose ELF entry is `0x7000D060`: the main thread is waiting. The watchdog reports no captured CPU exception. |
+| SP PC `0x1B8`, SP status `0xC0` before capture | Graphics microcode is in its FIFO free-space wait. The later halt is diagnostic capture, not an original SP break. |
+| DP current `0x002C5000`, producer write/end `0x002C4FC0`, pending bytes `0xB0` | The pending 176-byte output would cross the RDP read cursor. Waiting is correct; do not relax the FIFO full/empty guard. |
+| Captured RAM input `0x0021A918..0x0021A92F` | Matches controller asset commands at file offsets `0x4C70..0x4C87`: `B100001C 0000F3DE`, `04F00100 05001DD8`, `B1003322 45040310`. |
+| Controller asset in the uploaded ELF | Byte-identical to current `assets/obseg/gun/GjoypadZ.bin`. The input match identifies drawing of the loaded controller, not a loader exception. |
+| Saved RSP other-mode low `0xC41049D8` | Includes depth comparison. It is the producer's saved state and can be ahead of the RDP's actual stalled primitive. |
+
+The raw FIFO window may contain reused ring-buffer data. Neither the current
+TRI4 input nor the saved other-mode register identifies the exact command
+that originally stopped the RDP. Passing the known-hazard preflight is also
+not proof of complete command-stream correctness.
+
+### Why test depth access
+
+`watchRenderController` explicitly sets `renderdata.zbufferenabled = TRUE`.
+The working PP7 preview in `watchRenderItemModel`, first-person gun drawing,
+and casing drawing explicitly disable depth buffering. The controller and
+PP7 use the same hand-model loader and model draw machinery. This makes
+depth access a concrete comparison, while still leaving controller-specific
+textures, geometry, state transitions and timing as other candidates.
+
+`N64_DIAG_CONTROLLER_NO_ZBUFFER=1` selects the existing non-Z model render
+modes only within `watchRenderController`. Both the main controller and its
+separately animated buttons use the same renderdata. Loading, vertex data,
+matrices, texture setup, transparency/colour selection and draw calls remain
+in place. No geometry-mode Z bit is removed. The common Z-buffer allocation,
+address setup and clear remain, as do the world bypass and 07W weapon setup.
+
+The switch takes effect only with diagnostics enabled, the fill probe off,
+HUD isolation on, and weapons restored. The diagnostic title is then **08Z**.
+It has no effect on the ordinary renderer outside that isolation setup.
+
+1. Apply against `aa9a80ab`, then build with `make VERSION=US`.
+2. Check that the controller still appears in the emulator. Surfaces and
+   buttons may overlap incorrectly without depth testing; this is expected.
+3. Run that newly built ROM on N64. Load Runway, open the watch controller
+   screen, let its transition finish, and exercise the stick/buttons. Also
+   leave and reopen the page. Check Cradle if Runway stays stable.
+4. Report whether the controller appears and whether the page still stalls.
+   On a stall, send all six **08Z** pages and that ROM's matching ELF/map.
+
+If 08Z works, the controller can render through this path without depth
+access; investigate depth-buffer state/address/lifetime and the Z-enabled
+render modes next. It does not by itself prove that the Z-buffer allocation
+is wrong, nor establish that every original world crash has the same cause.
+If 08Z still stalls, depth access by the controller is not required for that
+failure; retain the model-specific texture/geometry/state investigation.
+
+Set `N64_DIAG_CONTROLLER_NO_ZBUFFER=0` and rebuild to repeat the **07W**
+control. The Makefile now rebuilds `gunfire.o` when diagnostic switches change.
+
+Validation: US IDO 5.3 compilation succeeds. Native function comparison finds
+only `watchRenderController` changed in `gunfire.o`; its depth-enable store
+becomes zero. With the switch off, `gunfire.o` and `n64diagnostics.o` have
+identical code/data/BSS to master. Existing diagnostic/preflight and fill-probe
+host suites pass. No full ROM, emulator or hardware run was performed here.
+
 ## Weapon/watch drawing after the successful HUD test (07W)
 
 `GUD-n64-weapon-isolation.patch` targets master `76664039` (HUDtest).

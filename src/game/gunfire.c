@@ -1,4 +1,5 @@
 #include <ultra64.h>
+#include <n64diagnostics.h>
 #include "include/limits.h"
 #include <bondconstants.h>
 #include <bondtypes.h>
@@ -1874,7 +1875,14 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
         renderdata.fogcolour.word = 0xFFFFFF00;
     }
 
+#if N64_LOAD_DIAGNOSTICS && !N64_DIAG_RDP_PROBE && N64_DIAG_HUD_ONLY && N64_DIAG_RESTORE_WEAPONS && N64_DIAG_CONTROLLER_NO_ZBUFFER
+    /* Both subdraw calls (body and animated buttons) share this renderdata.
+     * Keep the geometry's Z coefficients and the ordinary Z-buffer clear;
+     * isolate the controller's RDP depth access through existing non-Z modes. */
+    renderdata.zbufferenabled = FALSE;
+#else
     renderdata.zbufferenabled = TRUE;
+#endif
     subdraw(&renderdata, &modelstack);
     gdl = renderdata.gdl;
     matrixSuspendConversionScale();

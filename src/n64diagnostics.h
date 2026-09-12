@@ -46,6 +46,14 @@
 #define N64_DIAG_RESTORE_WEAPONS 1
 #endif
 
+/* 07W draws weapons/casings but stalls on the watch controller screen.
+ * Keep its model, textures and animations; use the model renderer's non-Z
+ * render modes for the controller only. Applies only to the 07W isolation
+ * configuration. Set to 0 to repeat 07W. Temporary test, not a fix. */
+#ifndef N64_DIAG_CONTROLLER_NO_ZBUFFER
+#define N64_DIAG_CONTROLLER_NO_ZBUFFER 1
+#endif
+
 enum N64DiagPhase {
     N64DIAG_BOOT,
     N64DIAG_STAGE_BEGIN,
