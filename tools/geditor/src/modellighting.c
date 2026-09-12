@@ -3,11 +3,11 @@
 #include "modellighting.h"
 
 const ModelLightingSettings g_ModelLightingDefaults = {
-    {0.4f, 0.4f, 0.4f, 1},
-    {0.8f, 0.8f, 0.8f, 1},
-    {0.65f, 0.65f, 0.65f, 1},
-    {-0.4f, 0.8f, -0.6f, 0},
-    32.0f
+    {0.4f, 0.4f, 0.4f, 1},    // Ambient
+    {0.8f, 0.8f, 0.8f, 1},    // Diffuse
+    {0.8f, 0.8f, 0.8f, 1},    // Specular
+    {0.25f, -0.5f, 0.7f, 0},  // Direction
+    15.0f                     // Shininess
 };
 
 static const char g_ModelLightingVertexShader[] =
