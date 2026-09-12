@@ -62,7 +62,8 @@ typedef enum SetupObjectProperty {
     SETUP_OBJECT_CCTV_LOOK_PAD, SETUP_OBJECT_CCTV_SWEEP_MIN,
     SETUP_OBJECT_CCTV_SWEEP_MAX, SETUP_OBJECT_CCTV_SPEED, SETUP_OBJECT_CCTV_RANGE,
     SETUP_OBJECT_DRONE_AIM_PAD, SETUP_OBJECT_DRONE_YAW_MIN,
-    SETUP_OBJECT_DRONE_YAW_MAX, SETUP_OBJECT_DRONE_SPEED, SETUP_OBJECT_DRONE_RANGE
+    SETUP_OBJECT_DRONE_YAW_MAX, SETUP_OBJECT_DRONE_SPEED, SETUP_OBJECT_DRONE_RANGE,
+    SETUP_OBJECT_ARMOR_STRENGTH
 } SetupObjectProperty;
 /* Movement uses native fractions/degrees/animation units per 60 Hz tick.
  * The inspector converts these to percentages/degrees and seconds. */
@@ -90,6 +91,7 @@ typedef struct SetupDroneProperties {
 typedef struct SetupObjectProperties {
     SetupObject object;
     double health;
+    double armorstrength; /* Percentage, decoded from BodyArmourRecord.initialamount. */
     DWORD keyflags, ammotype; /* keyflags: supplied by a key, required by a door */
     SetupDoorProperties door;
     SetupCctvProperties cctv;
@@ -257,6 +259,14 @@ BOOL SetupFileAddModel(SetupFile *setup, BOOL character, int modelid,
 BOOL SetupFileAddArmor(SetupFile *setup, int modelid, float levelscale,
                        const double position[3], DWORD *selectionout,
                        const char **reasonout);
+
+#define SETUP_DEFAULT_TANK_MODEL "PtankZ"
+/* Add a driveable tank at stock scale with 30 shells and a private normal
+ * pad. Upright, floor grounded, facing the viewer. Multiple tanks are valid
+ * in solo; multiplayer driving uses shared global state and is unsupported. */
+BOOL SetupFileAddTank(SetupFile *setup, int modelid, float levelscale,
+                      const double position[3], const double facing[3],
+                      DWORD *selectionout, const char **reasonout);
 
 #define SETUP_DEFAULT_DOOR_MODEL "Psteel_door1Z"
 /* Add an unlocked slider and its private bound pad, preserving all existing

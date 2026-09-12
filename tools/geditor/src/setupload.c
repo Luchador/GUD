@@ -1020,14 +1020,21 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
     }
     else
     {
-        /* Stock armor pickups use a 1.5x instance scale. */
-        SetupWrite32(added.data + newrecord, ((type == PROPDEF_ARMOUR ? 384u : 256u) << 16) | type);
+        /* Match stock armor and tank instance scales (unsigned 8.8). */
+        DWORD extrascale = type == PROPDEF_ARMOUR ? 384u : type == PROPDEF_TANK ? 276u : 256u;
+        SetupWrite32(added.data + newrecord, (extrascale << 16) | type);
         SetupWrite32(added.data + newrecord + 4, ((DWORD)modelid << 16) | (padcount + (bound ? 10000u : 0u)));
         if (type == PROPDEF_ARMOUR)
         {
             /* Armor is collectible by type; don't turn it into an obstacle
              * with FORCE_COLLISIONS or require the interaction button. */
             SetupWrite32(added.data + newrecord + 8, PROPFLAG_ALLOWFALL);
+        }
+        else if (type == PROPDEF_TANK)
+        {
+            /* Stock Runway tank: solid, invincible and floor grounded. */
+            SetupWrite32(added.data + newrecord + 8,
+                PROPFLAG_ALLOWFALL | PROPFLAG_FORCE_COLLISIONS | PROPFLAG_INVINCIBLE);
         }
         else if (type == PROPDEF_GLASS)
         {
@@ -1065,6 +1072,13 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
              * signed 16.16 initialamount, then copies it to runtime amount.
              * 65536 gives full armor; writing float bits here is incorrect. */
             SetupWrite32(added.data + newrecord + 0x80, 65536);
+        }
+        else if (type == PROPDEF_TANK)
+        {
+            /* Native 56-word TankRecord. unkD8 is the tank's shell supply,
+             * transferred to/from Bond on entry/exit; remaining fields are
+             * collision caches, angles and other runtime state. */
+            SetupWrite32(added.data + newrecord + 0xd8, 30);
         }
         else if (type == PROPDEF_CCTV)
         {
@@ -1117,6 +1131,26 @@ BOOL SetupFileAddArmor(SetupFile *setup, int modelid, float levelscale,
 {
     return SetupAddPlacement(setup, PROPDEF_ARMOUR, modelid, levelscale,
         position, NULL, NULL, selectionout, reasonout);
+}
+
+BOOL SetupFileAddTank(SetupFile *setup, int modelid, float levelscale,
+                      const double position[3], const double facing[3],
+                      DWORD *selectionout, const char **reasonout)
+{
+    SetupPad orientation = {0};
+    double length;
+    if (setup && strncmp(setup->name, "Ump_", 4) == 0)
+    { *reasonout = "Tanks can only be placed in single-player levels."; return FALSE; }
+    *reasonout = "The tank's facing direction is invalid.";
+    if (!facing) { return FALSE; }
+    for (int axis = 0; axis < 3; axis++) { if (!isfinite(facing[axis])) { return FALSE; } }
+    length = hypot(facing[0], facing[2]);
+    if (!isfinite(length)) { return FALSE; }
+    orientation.up[1] = 1;
+    orientation.look[0] = length > 1e-8 ? (float)(-facing[0] / length) : 0;
+    orientation.look[2] = length > 1e-8 ? (float)(-facing[2] / length) : 1;
+    return SetupAddPlacement(setup, PROPDEF_TANK, modelid, levelscale,
+        position, NULL, &orientation, selectionout, reasonout);
 }
 
 BOOL SetupFileAddDoor(SetupFile *setup, int modelid, float levelscale,
@@ -2825,6 +2859,8 @@ BOOL SetupFileGetObjectProperties(const SetupFile *setup, DWORD index,
     memset(out, 0, sizeof(*out));
     out->object = setup->objects[index];
     out->health = (LONG)SetupRead32(record + 0x74) / 65536.0;
+    if (out->object.type == PROPDEF_ARMOUR)
+    { out->armorstrength = (LONG)SetupRead32(record + 0x80) * (100.0 / 65536.0); }
     if (out->object.type == PROPDEF_CCTV)
     {
         /* setupCctv converts these signed integer words to floats in-game.
@@ -2928,6 +2964,16 @@ BOOL SetupFileSetObjectProperty(SetupFile *setup, const SetupObjectPropertyEdit 
     { *reasonout = "Drone gun settings can only be edited on a drone gun."; return FALSE; }
     switch (edit->property)
     {
+    case SETUP_OBJECT_ARMOR_STRENGTH:
+        if (record[3] != PROPDEF_ARMOUR)
+        { *reasonout = "Armor strength can only be edited on an armor pickup."; return FALSE; }
+        if (edit->value < 0 || edit->value > 100)
+        { *reasonout = "Armor strength must be between 0 and 100 percent."; return FALSE; }
+        encoded = (DWORD)floor(edit->value * (65536.0 / 100.0) + 0.5);
+        if (encoded == SetupRead32(record + 0x80)) { return TRUE; }
+        /* Only author initialamount; amount at 0x84 belongs to the runtime. */
+        SetupWrite32(setup->data + edit->sourceoffset + 0x80, encoded);
+        break;
     case SETUP_OBJECT_DRONE_AIM_PAD:
         if (edit->value < -1 || edit->value > 2147483647.0 || floor(edit->value) != edit->value)
         { *reasonout = "Choose an existing aim pad or the default +Z direction."; return FALSE; }

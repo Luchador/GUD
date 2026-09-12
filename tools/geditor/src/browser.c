@@ -1178,7 +1178,7 @@ static void BrowserBeginObjectDrag(HWND hwnd, BrowserState *state, int index, PO
             || index == BROWSER_OBJECT_SPAWN || index == BROWSER_OBJECT_INTRO_CAMERA || index == BROWSER_OBJECT_OUTRO_CAMERA
             || index == BROWSER_OBJECT_DOOR || index == BROWSER_OBJECT_GLASS
             || index == BROWSER_OBJECT_CCTV || index == BROWSER_OBJECT_ALARM || index == BROWSER_OBJECT_DRONE_GUN
-            || index == BROWSER_OBJECT_ARMOR)
+            || index == BROWSER_OBJECT_ARMOR || index == BROWSER_OBJECT_TANK)
         && !SendMessage(GetParent(hwnd), BROWSER_WM_OBJECT_DRAG_BEGIN, index, 0))
     {
         state->pressedobject = -1;
@@ -1637,7 +1637,7 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                     || objectdrop.type == BROWSER_OBJECT_OUTRO_CAMERA || objectdrop.type == BROWSER_OBJECT_DOOR
                     || objectdrop.type == BROWSER_OBJECT_GLASS || objectdrop.type == BROWSER_OBJECT_CCTV
                     || objectdrop.type == BROWSER_OBJECT_ALARM || objectdrop.type == BROWSER_OBJECT_DRONE_GUN
-                    || objectdrop.type == BROWSER_OBJECT_ARMOR)
+                    || objectdrop.type == BROWSER_OBJECT_ARMOR || objectdrop.type == BROWSER_OBJECT_TANK)
                 { SendMessage(GetParent(hwnd), BROWSER_WM_OBJECT_DROP, 0, (LPARAM)&objectdrop); }
                 return 0;
             }

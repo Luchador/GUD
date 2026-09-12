@@ -62,6 +62,7 @@ static void CheckSpecificEdit(const char *dir, const SetupFile *source,
     assert(SetupFileGetObjectProperties(&setup, edit.objectindex, &properties, &why));
     switch (edit.property)
     {
+    case SETUP_OBJECT_ARMOR_STRENGTH: assert(fabs(properties.armorstrength - edit.value) <= 50.0 / 65536.0); break;
     case SETUP_OBJECT_DOOR_KEY_FLAGS:
     case SETUP_OBJECT_KEY_FLAGS: assert(properties.keyflags == (DWORD)edit.value); break;
     case SETUP_OBJECT_AMMO_TYPE: assert(properties.ammotype == (DWORD)edit.value); break;
@@ -377,6 +378,30 @@ static void CheckDrone(const char *dir, const SetupFile *source)
     puts("PASS: drone gun native offsets, signed yaw, full-circle sentinels, aim pads, speed/range units, save/reload, undo/redo and invalid edits.");
 }
 
+static void CheckArmor(const char *dir, const SetupFile *source)
+{
+    DWORD armor = FindType(source, PROPDEF_ARMOUR), prop = FindType(source, PROPDEF_PROP);
+    const double strengths[] = {0, 25, 33.3, 50, 75, 100};
+    for (unsigned i = 0; i < sizeof(strengths) / sizeof(*strengths); i++)
+    {
+        SetupObjectPropertyEdit edit = Request(source, armor, SETUP_OBJECT_ARMOR_STRENGTH, strengths[i]);
+        CheckSpecificEdit(dir, source, edit, 0x80, 4); /* Preserve runtime amount and every unrelated byte. */
+    }
+    SetupFile setup = {0}; const char *why; BOOL changed;
+    assert(SetupFileClone(source, &setup, &why));
+    const double invalid[] = {-1, 100.01, NAN, INFINITY};
+    for (unsigned i = 0; i < sizeof(invalid) / sizeof(*invalid); i++)
+    {
+        SetupObjectPropertyEdit edit = Request(&setup, armor, SETUP_OBJECT_ARMOR_STRENGTH, invalid[i]);
+        assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why) && !changed && !setup.dirty);
+        Same(&setup, source);
+    }
+    SetupObjectPropertyEdit wrong = Request(&setup, prop, SETUP_OBJECT_ARMOR_STRENGTH, 50);
+    assert(!SetupFileSetObjectProperty(&setup, &wrong, &changed, &why) && !changed); Same(&setup, source);
+    SetupFileFree(&setup);
+    puts("PASS: armor strength fixed-point encoding, untouched runtime amount, persistence, no-ops, undo/redo and validation.");
+}
+
 int main(int argc, char **argv)
 {
     SetupFile source = {0}, setup = {0}; const char *why;
@@ -386,6 +411,7 @@ int main(int argc, char **argv)
     CheckDoors(argv[1], &source);
     CheckCctv(argv[1], &source);
     CheckDrone(argv[1], &source);
+    CheckArmor(argv[1], &source);
     for (DWORD index = 0; index < source.objectcount; index++)
     {
         SetupObjectProperties view;

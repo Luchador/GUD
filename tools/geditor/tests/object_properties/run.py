@@ -86,11 +86,13 @@ def main():
                  'ObjectPropertiesDoorField', 'ObjectPropertiesDoorValue', 'ObjectPropertiesDoorUnits',
                  'ObjectPropertiesDoorFactor', 'ObjectPropertiesResetDoor', 'ObjectPropertiesFormatContents', 'ObjectPropertiesIsEdit', 'ObjectPropertiesControlVisible',
                  'ObjectPropertiesResetHealth', 'ObjectPropertiesParseHealth',
+                 'ObjectPropertiesResetArmor', 'ObjectPropertiesParseArmor',
                  'ObjectPropertiesApply', 'ObjectPropertiesParseAim', 'ObjectPropertiesApplyAim',
                  'ObjectPropertiesModelChoice', 'ObjectPropertiesLoadAimPads',
                  'ObjectPropertiesRefreshAim', 'ObjectPropertiesApplyAimPad',
                  'ObjectPropertiesParseDoor', 'ObjectPropertiesApplyDoor',
                  'ObjectPropertiesKeyProperty', 'ObjectPropertiesApplyHealth',
+                 'ObjectPropertiesApplyArmor',
                  'ObjectPropertiesParseUnsigned', 'ObjectPropertiesResetExtra',
                  'ObjectPropertiesApplyExtra', 'ObjectPropertiesHandleMessage')
         (work / 'input-logic.inc').write_text(''.join(function(source, name) for name in names))

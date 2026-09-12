@@ -63,6 +63,7 @@ static LRESULT SendMessage(HWND hwnd, unsigned int msg, WPARAM wparam, LPARAM lp
     commits++;
     /* A synchronous callback can move focus: its nested commit must be ignored. */
     ObjectPropertiesApplyHealth(0, &state);
+    ObjectPropertiesApplyArmor(0, &state);
     ObjectPropertiesApplyExtra(0, &state, OBJECT_KEY_MASK);
     ObjectPropertiesApplyExtra(0, &state, OBJECT_QUANTITY);
     for (int field = 0; field < OBJECT_DOOR_FIELD_COUNT; field++) { ObjectPropertiesApplyDoor(0, &state, field); }
@@ -70,6 +71,8 @@ static LRESULT SendMessage(HWND hwnd, unsigned int msg, WPARAM wparam, LPARAM lp
     ObjectPropertiesApplyAimPad(0, &state);
     if (reject) { return FALSE; }
     if (edit->property == SETUP_OBJECT_KEY_FLAGS || edit->property == SETUP_OBJECT_DOOR_KEY_FLAGS) { state.properties.keyflags = (DWORD)edit->value; }
+    else if (edit->property == SETUP_OBJECT_ARMOR_STRENGTH)
+    { state.properties.armorstrength = floor(edit->value * (65536.0 / 100.0) + 0.5) * (100.0 / 65536.0); }
     else if (edit->property == SETUP_OBJECT_AMMO_QUANTITY)
     {
         assert(edit->slot == state.ammoslot);
@@ -313,6 +316,39 @@ static void CheckDrone(void)
     puts("PASS: shared CCTV/drone controls, aim-pad defaults, fractional range, angle validation, Enter/blur, Escape, undo and rejected edits.");
 }
 
+static void CheckArmor(void)
+{
+    state.properties.object.type = PROPDEF_ARMOUR;
+    state.properties.armorstrength = 100;
+    state.controls[OBJECT_ARMOR] = focus = 40;
+    state.edited = state.keyedited = state.quantityedited = FALSE;
+    memset(state.dooredited, 0, sizeof(state.dooredited));
+    memset(state.aimedited, 0, sizeof(state.aimedited));
+    assert(ObjectPropertiesControlVisible(&state, OBJECT_ARMOR));
+    int before = commits;
+    ObjectPropertiesResetArmor(&state); assert(!strcmp(text, "100"));
+    strcpy(text, "33.3"); state.armoredited = TRUE; canundo = TRUE;
+    assert(Key(VK_RETURN) && commits == before + 1 && !state.armoredited && !canundo);
+    assert(fabs(state.properties.armorstrength - 33.3) <= 50.0 / 65536.0);
+    ObjectPropertiesApplyArmor(0, &state); assert(commits == before + 1); /* Blur after Enter. */
+    strcpy(text, "75"); state.armoredited = TRUE;
+    ObjectPropertiesApplyArmor(0, &state); assert(commits == before + 2 && state.properties.armorstrength == 75);
+    const char *invalid[] = {"", " ", "-1", "100.01", "nan", "inf", "1e999", "25%", "20 + 5"};
+    for (unsigned i = 0; i < sizeof(invalid) / sizeof(*invalid); i++)
+    {
+        strcpy(text, invalid[i]); state.armoredited = TRUE;
+        assert(Key(VK_RETURN) && commits == before + 2 && state.armoredited);
+        assert(Key(VK_ESCAPE) && !state.armoredited && !strcmp(text, "75"));
+    }
+    reject = TRUE; strcpy(text, "50"); state.armoredited = TRUE;
+    assert(Key(VK_RETURN) && commits == before + 3 && !strcmp(text, "75") && !state.armoredited);
+    reject = FALSE;
+    state.properties.object.type = PROPDEF_PROP; state.armoredited = TRUE;
+    assert(!ObjectPropertiesControlVisible(&state, OBJECT_ARMOR) && !Key(VK_RETURN));
+    ObjectPropertiesApplyArmor(0, &state); assert(commits == before + 3);
+    puts("PASS: armor percentage input, quantization, Enter/blur, Escape, invalid text, rejected edits and type visibility.");
+}
+
 int main(void)
 {
     CheckContents();
@@ -434,5 +470,6 @@ int main(void)
     puts("PASS: input validation, Enter/blur commits, Escape, text undo, rejected edits and synchronous reentrancy.");
     CheckCctv();
     CheckDrone();
+    CheckArmor();
     return 0;
 }

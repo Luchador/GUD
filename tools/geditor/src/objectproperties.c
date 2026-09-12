@@ -18,6 +18,7 @@
 #define OBJECT_AIM_FIELD_COUNT 4
 enum { OBJECT_TYPE, OBJECT_MODEL_LABEL, OBJECT_MODEL, OBJECT_MODEL_HELP,
        OBJECT_HEALTH_LABEL, OBJECT_HEALTH, OBJECT_HEALTH_HELP,
+       OBJECT_ARMOR_LABEL, OBJECT_ARMOR, OBJECT_ARMOR_HELP,
        OBJECT_AIM_PAD_LABEL, OBJECT_AIM_PAD, OBJECT_AIM_PAD_HELP,
        OBJECT_AIM_FIRST, OBJECT_AIM_LAST = OBJECT_AIM_FIRST + OBJECT_AIM_FIELD_COUNT * 3 - 1,
        OBJECT_DOOR_TYPE_LABEL, OBJECT_DOOR_TYPE, OBJECT_DOOR_TYPE_HELP,
@@ -50,7 +51,7 @@ typedef struct ObjectPropertiesState {
     ULONG_PTR document;
     SetupObjectProperties properties;
     BOOL selected, updating, edited, committing;
-    BOOL keyedited, quantityedited, multiplayer;
+    BOOL keyedited, quantityedited, armoredited, multiplayer;
     BOOL dooredited[OBJECT_DOOR_FIELD_COUNT];
     BOOL aimedited[OBJECT_AIM_FIELD_COUNT];
     DWORD aimpadcount, aimboundpadcount;
@@ -245,11 +246,12 @@ static void ObjectPropertiesResetDoor(ObjectPropertiesState *state, int field)
 static BOOL ObjectPropertiesIsCombo(int id)
 { return id == OBJECT_MODEL || id == OBJECT_AMMO_TYPE || id == OBJECT_DOOR_TYPE || id == OBJECT_DOOR_SOUND || id == OBJECT_AIM_PAD; }
 static BOOL ObjectPropertiesIsEdit(int id)
-{ return id == OBJECT_HEALTH || id == OBJECT_KEY_MASK || id == OBJECT_QUANTITY
+{ return id == OBJECT_HEALTH || id == OBJECT_ARMOR || id == OBJECT_KEY_MASK || id == OBJECT_QUANTITY
     || ObjectPropertiesDoorField(id) >= 0 || ObjectPropertiesAimField(id) >= 0; }
 static BOOL ObjectPropertiesControlVisible(const ObjectPropertiesState *state, int id)
 {
     unsigned char type = state->properties.object.type;
+    if (id >= OBJECT_ARMOR_LABEL && id <= OBJECT_ARMOR_HELP) { return state->selected && type == PROPDEF_ARMOUR; }
     if (id >= OBJECT_AIM_PAD_LABEL && id <= OBJECT_AIM_LAST) { return state->selected && ObjectPropertiesHasAim(type); }
     if (id >= OBJECT_KEY_LABEL && id <= OBJECT_KEY_LAST) { return state->selected && (type == PROPDEF_KEY || type == PROPDEF_DOOR); }
     if (id >= OBJECT_DOOR_TYPE_LABEL && id <= OBJECT_DOOR_FLAGS_HELP) { return state->selected && type == PROPDEF_DOOR; }
@@ -335,6 +337,22 @@ static BOOL ObjectPropertiesParseHealth(const char *text, double *value)
     if (end == text || errno == ERANGE || !isfinite(*value)) { return FALSE; }
     while (isspace((unsigned char)*end)) { end++; }
     return !*end && *value >= 0 && *value <= 2147483647.0 / 65536.0;
+}
+
+static void ObjectPropertiesResetArmor(ObjectPropertiesState *state)
+{
+    char text[64] = "";
+    if (state->selected) { snprintf(text, sizeof(text), "%.15g", state->properties.armorstrength); }
+    state->updating = TRUE;
+    SetWindowText(state->controls[OBJECT_ARMOR], text);
+    SendMessage(state->controls[OBJECT_ARMOR], EM_EMPTYUNDOBUFFER, 0, 0);
+    state->updating = FALSE;
+    state->armoredited = FALSE;
+}
+
+static BOOL ObjectPropertiesParseArmor(const char *text, double *value)
+{
+    return ObjectPropertiesParseHealth(text, value) && *value <= 100;
 }
 
 static void ObjectPropertiesApply(HWND hwnd, ObjectPropertiesState *state,
@@ -440,6 +458,21 @@ static void ObjectPropertiesApplyHealth(HWND hwnd, ObjectPropertiesState *state)
     ObjectPropertiesApply(hwnd, state, SETUP_OBJECT_HEALTH, value);
     /* Selection refresh supplies the actual quantized value, even on a no-op. */
     ObjectPropertiesResetHealth(state);
+}
+
+static void ObjectPropertiesApplyArmor(HWND hwnd, ObjectPropertiesState *state)
+{
+    char text[64]; double value;
+    if (!state->selected || state->properties.object.type != PROPDEF_ARMOUR
+        || !state->armoredited || state->updating || state->committing) { return; }
+    GetWindowText(state->controls[OBJECT_ARMOR], text, sizeof(text));
+    if (!ObjectPropertiesParseArmor(text, &value))
+    {
+        ObjectPropertiesStatus(hwnd, state, "Enter armor strength from 0 to 100 percent. Armor strength has not changed.");
+        return;
+    }
+    ObjectPropertiesApply(hwnd, state, SETUP_OBJECT_ARMOR_STRENGTH, value);
+    ObjectPropertiesResetArmor(state);
 }
 
 static BOOL ObjectPropertiesParseUnsigned(const char *text, BOOL hex, DWORD limit, DWORD *value)
@@ -786,6 +819,8 @@ static LRESULT CALLBACK ObjectPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
             if (ObjectPropertiesIsCombo(i)) { SendMessage(state->controls[i], CB_SETDROPPEDWIDTH, 360, 0); }
             if (ObjectPropertiesIsEdit(i)) { SendMessage(state->controls[i], EM_SETLIMITTEXT, 63, 0); }
         }
+        SetWindowText(state->controls[OBJECT_ARMOR_LABEL], "Armor strength (%)");
+        SetWindowText(state->controls[OBJECT_ARMOR_HELP], "Raises the player's armor to this percentage if it is higher than their current armor. 0 gives no armor.");
         SetWindowText(state->controls[OBJECT_DOOR_TYPE_LABEL], "Door movement");
         SetWindowText(state->controls[OBJECT_DOOR_SOUND_LABEL], "Door sounds");
         SetWindowText(state->controls[OBJECT_DOOR_SOUND_HELP], "Preset for opening, moving and closing sounds.");
@@ -825,6 +860,12 @@ static LRESULT CALLBACK ObjectPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
         {
             if (HIWORD(wparam) == EN_CHANGE) { state->edited = TRUE; }
             if (HIWORD(wparam) == EN_KILLFOCUS) { ObjectPropertiesApplyHealth(hwnd, state); }
+            if (HIWORD(wparam) == EN_SETFOCUS) { ObjectPropertiesRevealControl(hwnd, state, (HWND)lparam); }
+        }
+        if ((HWND)lparam == state->controls[OBJECT_ARMOR])
+        {
+            if (HIWORD(wparam) == EN_CHANGE) { state->armoredited = TRUE; }
+            if (HIWORD(wparam) == EN_KILLFOCUS) { ObjectPropertiesApplyArmor(hwnd, state); }
             if (HIWORD(wparam) == EN_SETFOCUS) { ObjectPropertiesRevealControl(hwnd, state, (HWND)lparam); }
         }
         for (int field = 0; field < OBJECT_AIM_FIELD_COUNT; field++)
@@ -967,10 +1008,11 @@ BOOL ObjectPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD inde
     if (!setup || !SetupFileGetObjectProperties(setup, index, &properties, &why))
     {
         state->selected = FALSE; state->edited = FALSE; state->document = 0;
-        state->keyedited = state->quantityedited = FALSE;
+        state->keyedited = state->quantityedited = state->armoredited = FALSE;
         memset(state->dooredited, 0, sizeof(state->dooredited));
         memset(state->aimedited, 0, sizeof(state->aimedited));
         ObjectPropertiesResetHealth(state);
+        ObjectPropertiesResetArmor(state);
         return FALSE;
     }
     same = state->selected && state->objectindex == index && state->document == (ULONG_PTR)setup->data
@@ -978,7 +1020,7 @@ BOOL ObjectPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD inde
         && state->properties.object.type == properties.object.type;
     if (!same)
     {
-        state->scroll = 0; state->edited = state->keyedited = state->quantityedited = FALSE;
+        state->scroll = 0; state->edited = state->keyedited = state->quantityedited = state->armoredited = FALSE;
         state->ammoslot = 0;
         for (DWORD slot = 0; slot < AMMOTYPE_GLOBAL_MAX; slot++)
         { if (properties.ammo[slot].quantity) { state->ammoslot = slot; break; } }
@@ -987,6 +1029,7 @@ BOOL ObjectPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD inde
     if (state->properties.ammo[state->ammoslot].quantity != properties.ammo[state->ammoslot].quantity)
     { state->quantityedited = FALSE; }
     if (state->properties.health != properties.health) { state->edited = FALSE; }
+    if (state->properties.armorstrength != properties.armorstrength) { state->armoredited = FALSE; }
     for (int field = 0; field < OBJECT_AIM_FIELD_COUNT; field++)
     {
         if (!same || ObjectPropertiesAimValue(&state->properties, field) != ObjectPropertiesAimValue(&properties, field))
@@ -1029,6 +1072,7 @@ BOOL ObjectPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD inde
         ? "0 needs no key. The player needs all checked flags, supplied by one or more keys. Numbers are flag positions, not key IDs."
         : "Choose the flags this key supplies. Doors require all their flags, which can come from several keys. Numbers below are flag positions, not door IDs.");
     if (!state->edited) { ObjectPropertiesResetHealth(state); }
+    if (!state->armoredited) { ObjectPropertiesResetArmor(state); }
     if (!state->keyedited) { ObjectPropertiesResetExtra(state, OBJECT_KEY_MASK); }
     state->updating = TRUE;
     for (int bit = 0; bit < 32; bit++)
@@ -1068,7 +1112,7 @@ BOOL ObjectPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD inde
     snprintf(text, sizeof(text), "Object index: %lu\r\n%s\r\nExtra scale: %.6g",
         (unsigned long)index, placement, properties.object.extrascale / 256.0);
     SetWindowText(state->controls[OBJECT_IDENTITY], text);
-    if (!state->edited && !state->keyedited && !state->quantityedited
+    if (!state->edited && !state->keyedited && !state->quantityedited && !state->armoredited
         && !ObjectPropertiesDoorPending(state) && !ObjectPropertiesAimPending(state))
     { SetWindowText(state->controls[OBJECT_STATUS], "Enter or leave a field to apply. Escape cancels typing."); }
     ObjectPropertiesLayout(panel, state);
@@ -1087,6 +1131,7 @@ BOOL ObjectPropertiesHandleMessage(HWND panel, MSG *message)
     if (message->wParam == VK_RETURN)
     {
         if (id == OBJECT_HEALTH) { ObjectPropertiesApplyHealth(panel, state); }
+        else if (id == OBJECT_ARMOR) { ObjectPropertiesApplyArmor(panel, state); }
         else if (ObjectPropertiesAimField(id) >= 0) { ObjectPropertiesApplyAim(panel, state, ObjectPropertiesAimField(id)); }
         else if (ObjectPropertiesDoorField(id) >= 0) { ObjectPropertiesApplyDoor(panel, state, ObjectPropertiesDoorField(id)); }
         else { ObjectPropertiesApplyExtra(panel, state, id); }
@@ -1095,6 +1140,7 @@ BOOL ObjectPropertiesHandleMessage(HWND panel, MSG *message)
     if (message->wParam == VK_ESCAPE)
     {
         if (id == OBJECT_HEALTH) { ObjectPropertiesResetHealth(state); }
+        else if (id == OBJECT_ARMOR) { ObjectPropertiesResetArmor(state); }
         else if (ObjectPropertiesAimField(id) >= 0) { ObjectPropertiesResetAim(state, ObjectPropertiesAimField(id)); }
         else if (ObjectPropertiesDoorField(id) >= 0) { ObjectPropertiesResetDoor(state, ObjectPropertiesDoorField(id)); }
         else { ObjectPropertiesResetExtra(state, id); }
