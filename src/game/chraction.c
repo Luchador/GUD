@@ -2188,7 +2188,7 @@ void play_sound_for_shot_actor(ChrRecord *self)
 
     if (male)
     {
-        s16 male_yelps[] = {
+        static const s16 male_yelps[] = {
             GET_HIT_MALE0_SFX,  GET_HIT_MALE1_SFX,  GET_HIT_MALE2_SFX,  GET_HIT_MALE3_SFX,  GET_HIT_MALE4_SFX,
             GET_HIT_MALE5_SFX,  GET_HIT_MALE6_SFX,  GET_HIT_MALE7_SFX,  GET_HIT_MALE8_SFX,  GET_HIT_MALE9_SFX,
             GET_HIT_MALE10_SFX, GET_HIT_MALE11_SFX, GET_HIT_MALE12_SFX, GET_HIT_MALE13_SFX, GET_HIT_MALE14_SFX,
@@ -2206,7 +2206,7 @@ void play_sound_for_shot_actor(ChrRecord *self)
     }
     else
     {
-        s16 female_yelps[] = {
+        static const s16 female_yelps[] = {
             GET_HIT_GIRL1_SFX,
             GET_HIT_GIRL2_SFX,
             GET_HIT_GIRL3_SFX
@@ -3805,15 +3805,23 @@ void chrlvAlertGuardToPlayerPosition(ChrRecord *self)
 
 bool chrHasStoppedOrPatroling(ChrRecord *self)
 {
+    f32 animSpeed;
+
     if ((self->actiontype == ACT_STAND) && !self->act_stand.prestand && !self->act_stand.reaim)
     {
         return TRUE;
     }
     else if (self->actiontype == ACT_ANIM)
     {
-        if (self->act_anim.playSfx ||
-            ((modelGetAnimSpeed(self->model) >= 0.0f) && modelGetAnimFrame(self->model) >= modelGetAnimEndFrame(self->model)) ||
-            ((modelGetAnimSpeed(self->model)  < 0.0f) && modelGetAnimFrame(self->model) <= 0.0f)
+        if (self->act_anim.playSfx)
+        {
+            return TRUE;
+        }
+
+        animSpeed = modelGetAnimSpeed(self->model);
+        if (
+            ((animSpeed >= 0.0f) && modelGetAnimFrame(self->model) >= modelGetAnimEndFrame(self->model)) ||
+            ((animSpeed  < 0.0f) && modelGetAnimFrame(self->model) <= 0.0f)
            )
         {
             return TRUE;
@@ -3842,31 +3850,32 @@ bool chrCheckTargetInSight(ChrRecord *self)
     u32         rt;
     s32         distance;
 
-    myprop               = self->prop;
-    bondprop             = getCurrentPlayerProp();
-    myRadDirection       = getsubroty(self->model);
-    //Note: x and z get swapped
-    vec.z                = bondprop->pos.x - myprop->pos.x;
-    vec.y                = bondprop->pos.y - myprop->pos.y;
-    vec.x                = bondprop->pos.z - myprop->pos.z;
-
-    atn = atan2f(vec.z, vec.x);
-
     pass                = FALSE;
-    rrr                 = atn - myRadDirection;
-    radChangeToFaceBond = rrr;
 
-    if (atn < myRadDirection)
-    {
-        radChangeToFaceBond = rrr + M_TAU_F;
-    }
-
+    /* Recent sightings bypass the bearing/range test, but still require LOS. */
     if (chrSawTargetRecently(self))
     {
         pass = TRUE;
     }
     else
     {
+        myprop               = self->prop;
+        bondprop             = getCurrentPlayerProp();
+        myRadDirection       = getsubroty(self->model);
+        //Note: x and z get swapped
+        vec.z                = bondprop->pos.x - myprop->pos.x;
+        vec.y                = bondprop->pos.y - myprop->pos.y;
+        vec.x                = bondprop->pos.z - myprop->pos.z;
+
+        atn = atan2f(vec.z, vec.x);
+        rrr = atn - myRadDirection;
+        radChangeToFaceBond = rrr;
+
+        if (atn < myRadDirection)
+        {
+            radChangeToFaceBond = rrr + M_TAU_F;
+        }
+
         vec2rd = SQR(vec.z) + SQR(vec.y) + SQR(vec.x);
 
         if (
@@ -4899,14 +4908,15 @@ void chrlvIterateGuardSeeShotDie(ChrRecord *self, s32 flag)
 void chrlvTickDie(ChrRecord *self)
 {
     Model *model = self->model;
+    f32 frame = modelGetAnimFrame(model);
 
     ALSoundState * p;
 
-    s16 body_hit_SFX[] = {0x7B, 0x7C, 0x7D, 0x7E, 0x7F, 0x80, 0x81, 0x82, 0x83, 0x84, 0x85};
+    static const s16 body_hit_SFX[] = {0x7B, 0x7C, 0x7D, 0x7E, 0x7F, 0x80, 0x81, 0x82, 0x83, 0x84, 0x85};
 
     static s32 thud_index = 0;
 
-    if ((self->act_die.thudframe1 >= 0.0f) && (self->act_die.thudframe1 <= modelGetAnimFrame(model)))
+    if ((self->act_die.thudframe1 >= 0.0f) && (self->act_die.thudframe1 <= frame))
     {
         p = sndPlaySfx((struct ALBankAlt_s *)g_musicSfxBufferPtr, body_hit_SFX[thud_index], NULL);
 
@@ -4922,7 +4932,7 @@ void chrlvTickDie(ChrRecord *self)
         self->act_die.thudframe1 = -1.0f;
     }
 
-    if ((self->act_die.thudframe2 >= 0.0f) && (self->act_die.thudframe2 <= modelGetAnimFrame(model)))
+    if ((self->act_die.thudframe2 >= 0.0f) && (self->act_die.thudframe2 <= frame))
     {
         p = sndPlaySfx((struct ALBankAlt_s *)g_musicSfxBufferPtr, body_hit_SFX[thud_index], NULL);
 
@@ -4937,7 +4947,7 @@ void chrlvTickDie(ChrRecord *self)
         self->act_die.thudframe2 = -1.0f;
     }
 
-    if (modelGetAnimFrame(model) >= modelGetAnimEndFrame(model))
+    if (frame >= modelGetAnimEndFrame(model))
     {
         if ((s32)objecthandlerGetModelAnim(model) == (s32)&ptr_animation_table->data[(s32)&ANIM_DATA_death_left_leg])
         {
@@ -5970,6 +5980,8 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
 {
     PropRecord *self_prop;
     s32 phi_a2;
+    s32 firingRate;
+    f32 pitchCos;
     s32 sp27C;
     s32 sp278;
     ChrRecord *prop_selfchr; // 628
@@ -6026,24 +6038,25 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
         }
 
         sp44 = phi_v1 & 1;
+        firingRate = bondwalkItemGetAutomaticFiringRate(prop_selfchr->act_attack.attack_item);
 
-        if ((sp44 == 0) || (self->seen_bond_time >= (g_GlobalTimer - CHRLV_SEEN_RECENT_CHECK)) || (bondwalkItemGetAutomaticFiringRate(prop_selfchr->act_attack.attack_item) < 0))
+        if ((sp44 == 0) || (self->seen_bond_time >= (g_GlobalTimer - CHRLV_SEEN_RECENT_CHECK)) || (firingRate < 0))
         {
             sp268 = 0;
             sp264 = 0;
 
             self->firecount[hand]++;
 
-            if (bondwalkItemGetAutomaticFiringRate(prop_selfchr->act_attack.attack_item) < 0)
+            if (firingRate < 0)
             {
                 sp268 = 1;
                 sp264 = 1;
             }
-            else if (((s32) self->firecount[hand] % bondwalkItemGetAutomaticFiringRate(prop_selfchr->act_attack.attack_item)) == 0)
+            else if (((s32) self->firecount[hand] % firingRate) == 0)
             {
                 sp268 = 1;
 
-                if ((((s32) self->firecount[hand] % (s32) (bondwalkItemGetAutomaticFiringRate(prop_selfchr->act_attack.attack_item) * 2)) == 0) || (prop_selfchr->act_attack.attack_item == ITEM_LASER))
+                if ((((s32) self->firecount[hand] % (s32) (firingRate * 2)) == 0) || (prop_selfchr->act_attack.attack_item == ITEM_LASER))
                 {
                     sp264 = 1;
                 }
@@ -6097,9 +6110,10 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
 
                     sp21C = chrlvAttackRelated7F0292A8(self, &sp240, sp238);
 
-                    sp220.f[0] = cosf(sp24C) * sinf(subroty);
+                    pitchCos = cosf(sp24C);
+                    sp220.f[0] = pitchCos * sinf(subroty);
                     sp220.f[1] = sinf(sp24C);
-                    sp220.f[2] = cosf(sp24C) * cosf(subroty);
+                    sp220.f[2] = pitchCos * cosf(subroty);
 
                     sp258.f[0] = sp240.f[0] + (sp220.f[0] * M_U16_MAX_VALUE_F);
                     sp258.f[1] = sp240.f[1] + (sp220.f[1] * M_U16_MAX_VALUE_F);
@@ -6568,9 +6582,11 @@ void chrlvTickAttackCommon(ChrRecord *self)
 
         if ((self->act_attack.attacktype & TARGET_AIM_ONLY) != 0)
         {
-            if (modelGetAnimEndFrame(self_model) < fanon1)
+            f32 endFrame = modelGetAnimEndFrame(self_model);
+
+            if (endFrame < fanon1)
             {
-                fanon1 = modelGetAnimEndFrame(self_model);
+                fanon1 = endFrame;
             }
         }
 
@@ -7929,6 +7945,8 @@ s32 sub_GAME_7F03130C(ChrRecord *self, coord3d *arg1, s32 arg2, coord3d *arg3, f
     coord3d sp64; // -- 100
     f32 norm; // -- 96
     f32 phi_f12; // 92
+    f32 cosine;
+    f32 sine;
     coord3d sp50; // 80
     coord3d *sp4C; // 76
     coord3d *sp48; // 72
@@ -7969,9 +7987,11 @@ s32 sub_GAME_7F03130C(ChrRecord *self, coord3d *arg1, s32 arg2, coord3d *arg3, f
         phi_f12 = M_TAU_F - phi_f12;
     }
 
-    sp50.f[0] = (-cosf(phi_f12) * dd.f[0]) + (sinf(phi_f12) * dd.f[2]);
+    cosine = cosf(phi_f12);
+    sine = sinf(phi_f12);
+    sp50.f[0] = (-cosine * dd.f[0]) + (sine * dd.f[2]);
     sp50.f[1] = 0.0f;
-    sp50.f[2] = (-sinf(phi_f12) * dd.f[0]) - (cosf(phi_f12) * dd.f[2]);
+    sp50.f[2] = (-sine * dd.f[0]) - (cosine * dd.f[2]);
 
     sp64.f[0] = arg1->f[0] + sp50.f[0];
     sp64.f[1] = arg1->f[1];
@@ -8020,7 +8040,6 @@ void chrlvTravelTick(ChrRecord *self, coord3d *arg1, StandTile *arg2, struct way
     s32 spF0;
     coord3d sp100; // 260
     coord3d spF4; // 244
-    s32 i; // 240
     f32 spe0;
     f32 spE8; // 232
     f32 spE4; // 228
@@ -8037,7 +8056,6 @@ void chrlvTravelTick(ChrRecord *self, coord3d *arg1, StandTile *arg2, struct way
     f32 dz;
     f32 atan_pos2_c; // 180
     f32 atan_pos3_c;
-    s32 max;
     f32 atan_pos;
     s32 temp_t1;
     s32 cdtypes;
@@ -8052,8 +8070,9 @@ void chrlvTravelTick(ChrRecord *self, coord3d *arg1, StandTile *arg2, struct way
         cdtypes = CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_PLAYERS | CDTYPE_CHRS | CDTYPE_PATHBLOCKER;
     }
 
-    max=1;
-    for (i=0; i<1; i++)
+    /* Process one travel mode. A successful detour can leave this block early,
+     * then still run the common door handling and speed update below. */
+    do
     {
         if ((arg3->mode == WAYMODE_0) || (arg3->mode == WAYMODE_2))
         {
@@ -8137,7 +8156,7 @@ void chrlvTravelTick(ChrRecord *self, coord3d *arg1, StandTile *arg2, struct way
         {
             if (sub_GAME_7F030D70(self, &self_prop->pos, self_prop->stan, &arg3->pos, &arg3->pos2, &arg3->pos3, -(self->chrwidth), self->chrwidth, cdtypes) != 0)
             {
-                arg3->unk03 = max;
+                arg3->unk03 = 1;
                 arg3->mode = WAYMODE_0;
                 arg3->pos_copy.f[0] = arg3->pos.f[0];
                 arg3->pos_copy.f[1] = arg3->pos.f[1];
@@ -8285,7 +8304,7 @@ void chrlvTravelTick(ChrRecord *self, coord3d *arg1, StandTile *arg2, struct way
                 arg3->mode = WAYMODE_0;
             }
         }
-    }
+    } while (0);
 
     if (arg3->unk03 == 0)
     {
