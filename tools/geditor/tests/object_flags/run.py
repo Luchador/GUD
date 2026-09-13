@@ -22,8 +22,11 @@ def main():
         value = int(expected[name], 16)
         assert 0 < value <= 0x80000000 and value & (value - 1) == 0
     for bank in (0, 1):
-        assert {int(expected[name], 16) for b, name in catalog if int(b) == bank} == {1 << bit for bit in range(32)}
-    print(f'PASS: all {len(catalog)} named flags and aliases cover both complete 32-bit words.', flush=True)
+        supported_bits = {1 << bit for bit in range(32)}
+        if bank == 1:
+            supported_bits.remove(0x04000000)  # Retired onscreen override.
+        assert {int(expected[name], 16) for b, name in catalog if int(b) == bank} == supported_bits
+    print(f'PASS: all {len(catalog)} named flags and aliases cover the supported bits in both words.', flush=True)
     with tempfile.TemporaryDirectory(prefix='geditor-object-flags-') as temp:
         work = Path(temp)
         (work / 'setup').mkdir()

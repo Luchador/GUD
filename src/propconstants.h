@@ -88,7 +88,6 @@ typedef enum PROPFLAG2
     PROPFLAG2_NOLOAD3P              = 0x00800000, // Don't load on 3P
     PROPFLAG2_NOLOAD4P              = 0x01000000, // Don't load on 4P
     PROPFLAG2_THROWTHROUGH          = 0x02000000, // Rockets/Mines/Grenades Pass Through
-    PROPFLAG2_FORCEONSCREEN         = 0x04000000, // Bypass the room-based scissor rectangle.
     PROPFLAG2_LOCKEDFRONT           = 0x08000000, // One-Way Lock (Front)
     PROPFLAG2_LOCKEDBACK            = 0x10000000, // One-Way Lock (Back)
     PROPFLAG2_LOCKEDTOAI            = 0x20000000, // Character AI Cannot Operate

@@ -78,7 +78,6 @@ OBJECT_FLAG(1, PROPFLAG2_NOLOAD2P, "No load 2P", "Don't load for two player matc
 OBJECT_FLAG(1, PROPFLAG2_NOLOAD3P, "No load 3P", "Don't load for three player matches.")
 OBJECT_FLAG(1, PROPFLAG2_NOLOAD4P, "No load 4P", "Don't load for four player matches.")
 OBJECT_FLAG(1, PROPFLAG2_THROWTHROUGH, "Throw through", "Projectiles pass through.")
-OBJECT_FLAG(1, PROPFLAG2_FORCEONSCREEN, "Force on screen", "Bypass the room-based scissor rectangle.")
 OBJECT_FLAG(1, PROPFLAG2_LOCKEDFRONT, "Locked front", "One-Way Lock (Front)")
 OBJECT_FLAG(1, PROPFLAG2_LOCKEDBACK, "Locked back", "One-Way Lock (Back)")
 OBJECT_FLAG(1, PROPFLAG2_LOCKEDTOAI, "Locked to AI", "Character AI cannot operate.")

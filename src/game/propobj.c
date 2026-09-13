@@ -6316,14 +6316,7 @@ s32 objTick(struct PropRecord *prop, s32 playerCount, bool isSimOwner)
 		applyFogCull = objTickUpdateOpacityAndPortal(prop, playerCount);
 	}
 
-	if (obj->flags2 & PROPFLAG2_FORCEONSCREEN)
-	{
-		isOnScreen = TRUE;
-	}
-	else
-	{
-		isOnScreen = !(obj->runtime_bitflags & RUNTIMEBITFLAG_00000800) && !(obj->flags2 & PROPFLAG2_ONLYEXPLOSIONDAMAGE) && camIsPosOnScreen(prop, &obj->position, modelGetInstSize(model), applyFogCull);
-	}
+	isOnScreen = !(obj->runtime_bitflags & RUNTIMEBITFLAG_00000800) && !(obj->flags2 & PROPFLAG2_ONLYEXPLOSIONDAMAGE) && camIsPosOnScreen(prop, &obj->position, modelGetInstSize(model), applyFogCull);
 
 	if (isOnScreen)
 	{
@@ -7274,7 +7267,7 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
         sp44 = (withalpha == 0) ? 1 : 2;
     }
 
-    if (!(obj->flags2 & PROPFLAG2_FORCEONSCREEN) && getPropCombinedRoomsBBox2D(prop, &sp58) > 0)
+    if (getPropCombinedRoomsBBox2D(prop, &sp58) > 0)
     {
         gdl = bgScissorCurrentPlayerViewF(gdl, sp58.left, sp58.top, sp58.width, sp58.height);
     }
