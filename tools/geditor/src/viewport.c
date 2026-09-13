@@ -2003,12 +2003,14 @@ static BOOL ViewportRayTriangleDistance(const ViewportPickRay *ray, const Vertex
     double v;
     double distance;
 
-    edge1[0] = vertices[1].x - vertices[0].x;
-    edge1[1] = vertices[1].y - vertices[0].y;
-    edge1[2] = vertices[1].z - vertices[0].z;
-    edge2[0] = vertices[2].x - vertices[0].x;
-    edge2[1] = vertices[2].y - vertices[0].y;
-    edge2[2] = vertices[2].z - vertices[0].z;
+    /* Promote before subtracting. Rounding the edges to float first can
+       put an exact vertex ray outside the triangle's barycentric bounds. */
+    edge1[0] = (double)vertices[1].x - vertices[0].x;
+    edge1[1] = (double)vertices[1].y - vertices[0].y;
+    edge1[2] = (double)vertices[1].z - vertices[0].z;
+    edge2[0] = (double)vertices[2].x - vertices[0].x;
+    edge2[1] = (double)vertices[2].y - vertices[0].y;
+    edge2[2] = (double)vertices[2].z - vertices[0].z;
     fromvertex[0] = ray->origin[0] - vertices[0].x;
     fromvertex[1] = ray->origin[1] - vertices[0].y;
     fromvertex[2] = ray->origin[2] - vertices[0].z;
@@ -2109,8 +2111,8 @@ static BOOL ViewportRayBatchTriangleDistance(const ViewportState *state, const S
     }
     for (axis = 0; axis < 3; axis++)
     {
-        edge[0][axis] = (&v[1].x)[axis] - (&v[0].x)[axis];
-        edge[1][axis] = (&v[2].x)[axis] - (&v[0].x)[axis];
+        edge[0][axis] = (double)(&v[1].x)[axis] - (&v[0].x)[axis];
+        edge[1][axis] = (double)(&v[2].x)[axis] - (&v[0].x)[axis];
         delta[axis] = ray->origin[axis] + ray->direction[axis] * *distance - (&v[0].x)[axis];
         aa += edge[0][axis] * edge[0][axis];
         ab += edge[0][axis] * edge[1][axis];
@@ -3136,7 +3138,8 @@ static void ViewportRestoreComponents(ViewportState *state)
 static BOOL ViewportProject(const ViewportState *state, const Vertex *point, double screen[2])
 {
     float f[3], r[3];
-    double p[3] = {point->x-state->posx, point->y-state->posy, point->z-state->posz};
+    double p[3] = {(double)point->x-state->posx, (double)point->y-state->posy,
+                   (double)point->z-state->posz};
     double up[3], depth, focal;
     if (state->height <= 0 || state->width <= 0) { return FALSE; }
     ViewportGetBasis(state, f, r);
@@ -3157,9 +3160,9 @@ static BOOL ViewportComponentVisible(const ViewportState *state, int triangle,
     int batchindex;
     if (ViewportTriangleHidden(state, triangle)) { return FALSE; }
     ray.origin[0]=state->posx; ray.origin[1]=state->posy; ray.origin[2]=state->posz;
-    ray.direction[0]=point->x-state->posx;
-    ray.direction[1]=point->y-state->posy;
-    ray.direction[2]=point->z-state->posz;
+    ray.direction[0]=(double)point->x-state->posx;
+    ray.direction[1]=(double)point->y-state->posy;
+    ray.direction[2]=(double)point->z-state->posz;
     length=sqrt(ray.direction[0]*ray.direction[0]+ray.direction[1]*ray.direction[1]+ray.direction[2]*ray.direction[2]);
     if (!(length>0)) { return FALSE; }
     ray.direction[0]/=length; ray.direction[1]/=length; ray.direction[2]/=length;
@@ -3677,9 +3680,9 @@ static BOOL ViewportStanComponentVisible(const ViewportState *state, const Verte
     ViewportPickRay ray;
     double length, stan, scene;
     ray.origin[0] = state->posx; ray.origin[1] = state->posy; ray.origin[2] = state->posz;
-    ray.direction[0] = point->x-state->posx;
-    ray.direction[1] = point->y-state->posy;
-    ray.direction[2] = point->z-state->posz;
+    ray.direction[0] = (double)point->x-state->posx;
+    ray.direction[1] = (double)point->y-state->posy;
+    ray.direction[2] = (double)point->z-state->posz;
     length = sqrt(ray.direction[0]*ray.direction[0]+ray.direction[1]*ray.direction[1]+ray.direction[2]*ray.direction[2]);
     if (!(length > 0)) { return FALSE; }
     ray.direction[0] /= length; ray.direction[1] /= length; ray.direction[2] /= length;
@@ -3893,10 +3896,11 @@ void ViewportSnapVertexAt(HWND hwnd, int x, int y)
     {
         ViewportPickComponent(hwnd, state, x, y, FALSE, FALSE);
     }
-    if (pending && ViewportGetSelectionPosition(hwnd, target, &count))
+    if (pending)
     {
         ViewportTranslation request;
         int axis;
+        BOOL picked = ViewportGetSelectionPosition(hwnd, target, &count);
 
         ViewportClearAllSelection(state);
         /* The source's allocation still exists, even after picking a vertex
@@ -3911,12 +3915,17 @@ void ViewportSnapVertexAt(HWND hwnd, int x, int y)
             state->components[0] = sourcebg;
             state->componentcount = 1;
         }
-        for (axis = 0; axis < 3; axis++) { request.offset[axis] = target[axis] - source[axis]; }
-        if (SendMessage(GetParent(hwnd), VIEWPORT_WM_SNAP_VERTEX, 0, (LPARAM)&request))
+        if (picked)
         {
-            ViewportClearAllSelection(state);
+            for (axis = 0; axis < 3; axis++) { request.offset[axis] = target[axis] - source[axis]; }
+            /* Clicking the source again is a retry, not a completed snap. */
+            if ((request.offset[0] != 0 || request.offset[1] != 0 || request.offset[2] != 0)
+                && SendMessage(GetParent(hwnd), VIEWPORT_WM_SNAP_VERTEX, 0, (LPARAM)&request))
+            {
+                ViewportClearAllSelection(state);
+            }
         }
-        /* Cancel or a rejected edit retains the source for another target. */
+        /* A missed target, Cancel, or a rejected edit retains the source. */
     }
     ViewportUpdateGizmo(state);
     InvalidateRect(hwnd, NULL, FALSE);
