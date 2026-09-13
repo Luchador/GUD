@@ -1,3 +1,4 @@
+#include "renderconfig.h"
 #include <os_extension.h>
 #include <PR/os.h>
 #include "bondview.h"
@@ -357,7 +358,8 @@ void bossMainloop(void)
                     }
                     else
                     {
-                        if (g_MainStageNum < 0 && pendingGfx < 2U)
+                        if (g_MainStageNum < 0 && pendingGfx < 2U
+                                && (!renderSettingsPending() || pendingGfx == 0))
                         {
                             if (ramromGetIsDemoPlaying())
                             {
@@ -368,6 +370,7 @@ void bossMainloop(void)
                                 waitForNextFrame();
                             }
 
+                            renderApplySettings();
                             joyConsumeSamplesWrapper();
 
                             gdl = firstGdl = dynGetMasterDisplayList();

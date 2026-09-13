@@ -1,3 +1,4 @@
+#include "renderconfig.h"
 #include <ultra64.h>
 #include <bondconstants.h>
 #include "joy.h"
@@ -1167,6 +1168,7 @@ void fileSaveSettingsForFolder(save_data *save)
 
     temp = ((u16) (cur_player_get_control_type() << 8)) & OPTION_CONTROLTYPE;
     save->options = bits | temp;
+    save->padding = renderEncodeSettings();
 }
 
 /**
@@ -1187,6 +1189,7 @@ void fileLoadSettingsForFolder(u32 folder)
         sndApplyVolumeAllSfxSlot((save->sfx_vol << 7) | (save->sfx_vol >> 1));
 
         options = save->options;
+        renderDecodeSettings((u8)save->padding);
 
         if (getPlayerCount() == 1)
         {

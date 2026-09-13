@@ -1,3 +1,4 @@
+#include "renderconfig.h"
 #include <ultra64.h>
 #include <R4300.h>
 #include "bondtypes.h"
@@ -717,6 +718,7 @@ s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool)
 
     count = srcsize >> 3;
 
+    renderInvalidateAaCache();
     sub_GAME_7F0CC4C8();
 
     if (texpool == NULL)

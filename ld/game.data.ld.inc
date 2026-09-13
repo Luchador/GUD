@@ -102,3 +102,5 @@
       build/OUTCODE/src/game/viewport.o (.data);
       build/OUTCODE/src/game/musicselect.o (.data);
       build/OUTCODE/src/game/gedmanifest.o (.data);
+      build/OUTCODE/src/game/renderconfig.o (.data);
+      build/OUTCODE/src/game/renderprofile.o (.data);

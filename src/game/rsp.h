@@ -2,6 +2,7 @@
 #define _RSP_H_
 
 #include <ultra64.h>
+#include "renderprofile.h"
 
 #include <sched.h>
 #include <PR/gbi.h>
@@ -16,6 +17,7 @@ struct GfxInfo_s {
     OSScTask task;
     u32 cfb;
     u32 unk5C;
+    RenderProfileTask renderProfile;
 };
 
 void rspAllocateBuffers(void);

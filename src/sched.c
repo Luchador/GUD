@@ -1,3 +1,4 @@
+#include "renderprofile.h"
 #include <ultra64.h>
 #include <PR/os.h>
 #include <PR/rcp.h>
@@ -294,6 +295,7 @@ void __scHandleRDP(OSSched *sc)
     if (sc->curRDPTask != NULL)
     {
         t = sc->curRDPTask;
+        renderProfileTaskDone(t);
         sc->curRDPTask = NULL;
         t->state &= ~OS_SC_NEEDS_RDP;
         __scTaskComplete(sc, t);
@@ -394,6 +396,7 @@ void __scExec(OSSched *sc, OSScTask *sp, OSScTask *dp)
         {
             osDpSetStatus(DPC_CLR_TMEM_CTR | DPC_CLR_PIPE_CTR |
                     DPC_CLR_CMD_CTR | DPC_CLR_CLOCK_CTR);
+            renderProfileTaskStart(sp);
         }
 
         sp->state &= ~(OS_SC_YIELD | OS_SC_YIELDED); 

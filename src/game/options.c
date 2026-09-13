@@ -1,3 +1,5 @@
+#include "renderprofile.h"
+#include "renderconfig.h"
 #include <ultra64.h>
 #include <bondconstants.h>
 #include <boss.h>
@@ -22,6 +24,9 @@
 #define WATCH_BACKGROUND_VERTEX_COUNT 30
 
 #define WATCH_VOL_ADJUST_STEP 1024
+#define WATCH_VISIBLE_TOGGLE_OPTIONS 8
+
+static s32 g_WatchFirstToggleOption;
 
 #define WATCH_ROTATION_FRAMES g_FrameDelta
 #define WATCH_PERSPECTIVE_FOVY    50.5f
@@ -273,6 +278,7 @@ void optionsWatchInit()
     watch_screen_index = WATCH_INDEX_MISSION_STATUS;
     controller_options_index = CONTROLLER_OPTIONS_INDEX_STYLE;
     g_WatchGameOptionsIndex = GAME_OPTIONS_INDEX_MUSIC;
+    g_WatchFirstToggleOption = 0;
     mission_brief_index = BRIEF_INDEX_OBJECTIVES;
     g_WatchAbortIsConfirmSelected = FALSE;
     watch_item_is_actively_selected = 0;
@@ -996,7 +1002,7 @@ void watchNavToggleOptions(void)
 
     aux = g_WatchGameOptionsIndex;
 
-    if (aux >= 10)
+    if (aux >= GAME_OPTIONS_INDEX_COUNT)
     {
         g_WatchGameOptionsIndex = GAME_OPTIONS_INDEX_MUSIC;
         return;
@@ -1004,7 +1010,7 @@ void watchNavToggleOptions(void)
 
     if (aux < 0)
     {
-        g_WatchGameOptionsIndex = GAME_OPTIONS_INDEX_RATIO;
+        g_WatchGameOptionsIndex = GAME_OPTIONS_INDEX_COUNT - 1;
     }
 }
 
@@ -1013,7 +1019,7 @@ void game_options_music_volume_navigation(void)
 {
     if (joyGetButtonsPressedThisFrame(PLAYER_1, U_CBUTTONS|U_JPAD) || watchShouldNavUp())
     {
-        g_WatchGameOptionsIndex = GAME_OPTIONS_INDEX_RATIO;
+        g_WatchGameOptionsIndex = GAME_OPTIONS_INDEX_COUNT - 1;
         watchSetStickYDisabled();
         watchResetItemIsActivelySelected();
         return;
@@ -1584,6 +1590,9 @@ void watchNavigate(void)
                 case GAME_OPTIONS_INDEX_AMMO_ONSCREEN:
                 case GAME_OPTIONS_INDEX_SCREEN_SIZE:
                 case GAME_OPTIONS_INDEX_RATIO:
+                case GAME_OPTIONS_INDEX_OPAQUE_AA:
+                case GAME_OPTIONS_INDEX_VI_FILTER:
+                case GAME_OPTIONS_INDEX_RENDER_STATS:
                     watchNavToggleOptions();
             }
             watchNavOptions();
@@ -3206,6 +3215,7 @@ void watchResetControllerOptionsIndex(void)
 void watchResetGameOptionsIndex(void)
 {
     g_WatchGameOptionsIndex = 0;
+    g_WatchFirstToggleOption = 0;
 }
 
 
@@ -3460,36 +3470,99 @@ after_state:
 }
 
 
+/* Keep the two volume sliders fixed while the toggle list scrolls. */
+static void watchScrollGameOptions(void)
+{
+    s32 selected = (s32)g_WatchGameOptionsIndex - 2;
+    s32 maximum = GAME_OPTIONS_INDEX_COUNT - 2 - WATCH_VISIBLE_TOGGLE_OPTIONS;
+    if (selected < g_WatchFirstToggleOption) g_WatchFirstToggleOption = selected;
+    if (selected >= g_WatchFirstToggleOption + WATCH_VISIBLE_TOGGLE_OPTIONS) {
+        g_WatchFirstToggleOption = selected - WATCH_VISIBLE_TOGGLE_OPTIONS + 1;
+    }
+    if (g_WatchFirstToggleOption < 0) g_WatchFirstToggleOption = 0;
+    if (g_WatchFirstToggleOption > maximum) g_WatchFirstToggleOption = maximum;
+}
+
+static Gfx *watchDrawRenderOption(Gfx *gdl, s32 y, s32 index, s32 state)
+{
+    static char *labels[] = {"OPAQUE AA", "VI FILTER", "RENDER STATS"};
+    static char *aaValues[] = {"FULL", "REDUCED", "OFF"};
+    static char *viValues[] = {"SMOOTH", "EDGES", "OFF"};
+    static char *statsValues[] = {"OFF", "ON"};
+    char **values;
+    u32 value;
+    u32 previous;
+    u32 count;
+    u32 colour = state ? 0xa0ffa0f0 : 0x00ff00b0;
+    s32 option = index - GAME_OPTIONS_INDEX_OPAQUE_AA;
+
+    if (index == GAME_OPTIONS_INDEX_OPAQUE_AA) {
+        value = renderGetAaStyle();
+        count = RENDER_AA_COUNT;
+        values = aaValues;
+    } else if (index == GAME_OPTIONS_INDEX_VI_FILTER) {
+        value = renderGetViFilter();
+        count = RENDER_VI_COUNT;
+        values = viValues;
+    } else {
+        value = renderProfileEnabled();
+        count = 2;
+        values = statsValues;
+    }
+    previous = value;
+    if (state == 2) {
+        if ((joyGetButtonsPressedThisFrame(PLAYER_1, L_CBUTTONS|L_TRIG|L_JPAD)
+                || watchShouldNavLeft()) && value > 0) {
+            watchSelectGameOption(&value, value - 1);
+        } else if ((joyGetButtonsPressedThisFrame(PLAYER_1, R_CBUTTONS|R_TRIG|R_JPAD)
+                || watchShouldNavRight()) && value + 1 < count) {
+            watchSelectGameOption(&value, value + 1);
+        }
+    }
+    if (value != previous) {
+        if (index == GAME_OPTIONS_INDEX_OPAQUE_AA) renderSetAaStyle(value);
+        else if (index == GAME_OPTIONS_INDEX_VI_FILTER) renderSetViFilter(value);
+        else renderProfileSetEnabled(value);
+    }
+    gdl = draw_options_labels(gdl, XOFFSET_1, y, labels[option],
+            state == 2 ? 0xffffffff : colour, state == 2, 0x7000a0, 0, 0, 0, 0);
+    gdl = draw_options_labels(gdl, 231, y, values[value], colour, 0, 0, 1, 0, 0, 0);
+    if (state) {
+        if (value > 0) gdl = draw_options_labels(gdl, 181, y, "<", colour, 0, 0, 1, 0, 0, 0);
+        if (value + 1 < count) gdl = draw_options_labels(gdl, 281, y, ">", colour, 0, 0, 1, 0, 0, 0);
+    }
+    return gdl;
+}
+
 Gfx *watchDrawToggleOptions(Gfx *gdl)
 {
-    s32 y_offset;
-    s32 i;
+    s32 y;
+    s32 row;
+    s32 option;
+    s32 index;
+    s32 state;
+    char range[24];
 
+    watchScrollGameOptions();
     gdl = gfxSetup2DTextureMode(gdl);
-
-    for (i = 0, y_offset = YOFFSET_1; i < 8; i = i + 1, y_offset = y_offset + YINC) {
-
-        if ( i == g_WatchGameOptionsIndex - 2)
-        {
-            // Draw option that is highlighted and selected, if there is one.
-            if (watch_item_is_actively_selected)
-            {
-                gdl = watchDrawToggleOptionValues(draw_options_labels(gdl, XOFFSET_1, y_offset, langGet(g_GameOptionEntries[i].text[0]), -1, 1, 0x7000A0, 0, 0, 0x3000B0, 0), y_offset, i, 2);
-            }
-            // Draw option that is highlighted but not selected, if there is one.
-            else
-            {
-                gdl = watchDrawToggleOptionValues(draw_options_labels(gdl, XOFFSET_1, y_offset, langGet(g_GameOptionEntries[i].text[0]), 0xA0FFA0F0, 0, -1, 0, 0, 0x3000B0, 0), y_offset, i, 1);
-            }
+    for (row = 0; row < WATCH_VISIBLE_TOGGLE_OPTIONS; row++) {
+        option = g_WatchFirstToggleOption + row;
+        index = option + 2;
+        if (index >= GAME_OPTIONS_INDEX_COUNT) break;
+        y = YOFFSET_1 + row * YINC;
+        state = index == g_WatchGameOptionsIndex ? (watch_item_is_actively_selected ? 2 : 1) : 0;
+        if (index >= GAME_OPTIONS_INDEX_OPAQUE_AA) {
+            gdl = watchDrawRenderOption(gdl, y, index, state);
+        } else {
+            gdl = draw_options_labels(gdl, XOFFSET_1, y, langGet(g_GameOptionEntries[option].text[0]),
+                    state == 2 ? 0xffffffff : (state == 1 ? 0xa0ffa0f0 : 0x00ff00b0),
+                    state == 2, 0x7000a0, 0, 0, 0x3000b0, 0);
+            gdl = watchDrawToggleOptionValues(gdl, y, option, state);
         }
-        // Draw the options that are neither highlighted nor selected.
-        else
-        {
-            gdl = watchDrawToggleOptionValues(draw_options_labels(gdl, XOFFSET_1, y_offset, langGet(g_GameOptionEntries[i].text[0]), 0xFF00B0, 0, -1, 0, 0, 0x3000B0, 0), y_offset, i, 0);
-        }
-
     }
-
+    sprintf(range, "%d-%d / %d", g_WatchFirstToggleOption + 1,
+            g_WatchFirstToggleOption + WATCH_VISIBLE_TOGGLE_OPTIONS, GAME_OPTIONS_INDEX_COUNT - 2);
+    gdl = draw_options_labels(gdl, 288, 201, range, 0x00ff00b0, 0, 0, 0, 0, 0, 1);
     return gdl;
 }
 

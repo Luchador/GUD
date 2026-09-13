@@ -1,3 +1,4 @@
+#include "renderconfig.h"
 #include <ultra64.h>
 #include "vi.h"
 #include "fr.h"
@@ -184,6 +185,7 @@ void viVsyncRelated(void)
     registerValue = g_viOriginalVstart1;
     (*viMode).fldRegs[1].vStart = ADD_LOW_AND_HI_16_TRUNCATE(registerValue, verticalOffset);
 
+    renderConfigureViMode(viMode);
     osViSetMode(viMode);
     osViBlack(g_ViUnblackTimer);
 
@@ -198,9 +200,9 @@ void viVsyncRelated(void)
         g_ViUnblackTimer--;
     }
 
-    //smooth dither pattern and disable weird gamma
+    // Filtering comes from the watch preference; keep gamma disabled.
     //(N64 was supposed to compensate for CRT's 2.2 gamma, but by this time most games were made with sRGB in mind)
-    osViSetSpecialFeatures(OS_VI_DITHER_FILTER_ON | OS_VI_GAMMA_OFF);
+    osViSetSpecialFeatures(OS_VI_GAMMA_OFF);
 
     g_viVstartSign = -g_viVstartSign;
 }
@@ -264,7 +266,7 @@ void video_related_8(void)
             }
         }
 
-        osViSetSpecialFeatures(OS_VI_DITHER_FILTER_ON | OS_VI_GAMMA_OFF);
+        osViSetSpecialFeatures(OS_VI_GAMMA_OFF);
     }
 
     calculatedXScale = (f32)g_ViBackData->x / (f32)g_ViBackData->bufx;
@@ -308,6 +310,7 @@ void video_related_8(void)
             }
         }
 
+        renderConfigureViMode(&g_ViModes[nextMode]);
         g_ViModes[nextMode].comRegs.width = g_ViBackData->bufx;
         g_ViModes[nextMode].comRegs.xScale = (g_ViBackData->bufx * XSCALE_MAX) / SCREEN_WIDTH_MAX;
         g_ViModes[nextMode].fldRegs[0].yScale = (g_ViBackData->bufy * yScaleMax) / SCREEN_HEIGHT_MAX;
