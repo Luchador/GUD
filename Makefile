@@ -273,8 +273,6 @@ $(CODEOBJECTS) $(GAMEOBJECTS): src/bondtypes.h src/game/bondview.h
 
 $(addprefix $(BUILD_DIR)/src/game/,bg.o bondview.o lv.o sky.o): src/game/bg.h
 
-$(BUILD_DIR)/src/boss.o $(addprefix $(BUILD_DIR)/src/game/,cam.o camprofile.o lv.o): src/game/camprofile.h
-
 $(addprefix $(BUILD_DIR)/src/game/,cam.o player.o): src/game/cam.h
 $(addprefix $(BUILD_DIR)/src/game/,cam.o environment.o): src/game/environment.h
 

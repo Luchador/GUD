@@ -26,13 +26,15 @@ env = (root / "src/game/environment.c").read_text()
 player = (root / "src/game/player.c").read_text()
 assert "camInvalidatePlayerCameraScale(player_num);" in function(player, "playerInitData")
 
-# Keep the test connected to production functions, including their profiler hooks.
+# Keep the test connected to production functions and count real scale work.
 source = (here / "harness.h").read_text()
 source += cam[cam.index("coord3d g_CamFrustumTopNormal;"):cam.index("void camInvalidatePlayerCameraScale(")]
+source += "#define sinf countScaleSinf\n"
 for name in ("camInvalidatePlayerCameraScale", "camSetPlayerScreenSize", "camSetPlayerScreenPosition",
              "camSetPlayerPerspective", "camSetPlayerCameraScale", "camUpdateFrustumPlanes",
              "camIsPosInScreen", "camPrepareScreenBoxCache", "camIsPosInScreenBox", "camIsPosOnScreen"):
     source += function(cam, name)
+source += "#undef sinf\n"
 source += function(env, "envIsPropVisibleThroughFog")
 source += (here / "reference.c").read_text()
 source += (here / "check.c").read_text()
@@ -46,6 +48,6 @@ with tempfile.TemporaryDirectory(prefix="gud-cam-optimizations-") as temp:
     command += ["-I", str(root / "src/game"), "-idirafter", str(root / "include"),
                 "-idirafter", str(root / "include/ultra64")]
     command += [str(work / "check.c"), str(root / "src/game/math_sincos.c"),
-                str(root / "src/game/camprofile.c"), "-lm", "-o", str(work / "check")]
+                "-lm", "-o", str(work / "check")]
     subprocess.run(command, check=True)
     subprocess.run([str(work / "check")], check=True)

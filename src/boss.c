@@ -14,7 +14,6 @@
 #include "joy.h"
 #include "game/lv.h"
 #include "game/front.h"
-#include "game/camprofile.h"
 #include "mema.h"
 #include "memp.h"
 #include "music.h"
@@ -375,7 +374,6 @@ void bossMainloop(void)
 
                             // Primary game tick function.
 
-                            camProfileBeginFrame(lvCameraProfileGameplayActive());
                             { /* TEMP profiler */
                                 u32 prof_t = osGetCount();
                                 lvTick();
@@ -408,7 +406,6 @@ void bossMainloop(void)
                                 g_ProfLvlRenderCycles = osGetCount() - prof_t;
                             }
 
-                            camProfileEndFrame(lvCameraProfileGameplayActive());
                             gdl = lvDrawFrameRateDisplay(gdl);
                             
                             gDPFullSync(gdl++);

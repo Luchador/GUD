@@ -51,10 +51,10 @@ static void checkScaleAndFrustum(void)
     }
 }
 
-static void checkInvalidationAndProfiling(void)
+static void checkInvalidationAndCaching(void)
 {
     s32 i;
-    camProfileReset();
+    scaleSineCalls = 0;
     for (i = 0; i < MAX_PLAYER_COUNT; i++)
     {
         selectPlayer(i);
@@ -63,7 +63,7 @@ static void checkInvalidationAndProfiling(void)
         camSetPlayerPerspective(10, 60, 4.0f / 3.0f);
         camSetPlayerCameraScale();
     }
-    assert(g_CamProfileScaleRebuilds == 4);
+    assert(scaleSineCalls == 4);
     for (i = 0; i < 32; i++)
     {
         selectPlayer(i % MAX_PLAYER_COUNT);
@@ -72,26 +72,23 @@ static void checkInvalidationAndProfiling(void)
         camSetPlayerScreenPosition(i, i);
         camSetPlayerCameraScale();
     }
-    assert(g_CamProfileScaleRebuilds == 4);
-    assert(g_CamProfileFrame[CAM_PROFILE_SCALE].calls == 36);
+    assert(scaleSineCalls == 4);
     camSetPlayerScreenSize(160, 240); camSetPlayerCameraScale();
     camSetPlayerScreenSize(160, 120); camSetPlayerCameraScale();
     camSetPlayerPerspective(20, 30, 4.0f / 3.0f); camSetPlayerCameraScale();
     camSetPlayerPerspective(20, 30, 16.0f / 9.0f); camSetPlayerCameraScale();
-    assert(g_CamProfileScaleRebuilds == 8);
+    assert(scaleSineCalls == 8);
     /* Reusing a player slot on level load must force the first build. */
     camInvalidatePlayerCameraScale(player_num); camSetPlayerCameraScale();
-    assert(g_CamProfileScaleRebuilds == 9);
-    assert(g_CamProfileFrame[CAM_PROFILE_SCALE].calls == 41);
+    assert(scaleSineCalls == 9);
     selectPlayer(0); camSetPlayerCameraScale();
-    assert(g_CamProfileScaleRebuilds == 9);
+    assert(scaleSineCalls == 9);
 }
 
 static void compareVisibility(PropRecord *prop, coord3d *pos, f32 radius, bool fade)
 {
     bool expected, actual;
     s32 oldRooms, oldBoxes;
-    u32 calls = g_CamProfileFrame[CAM_PROFILE_VISIBILITY].calls;
     roomQueries = boxQueries = 0;
     g_CamScreenBoxCache.valid = FALSE;
     expected = reference_camIsPosOnScreen(prop, pos, radius, fade);
@@ -102,7 +99,6 @@ static void compareVisibility(PropRecord *prop, coord3d *pos, f32 radius, bool f
     assert(actual == expected);
     assert(roomQueries == oldRooms && boxQueries == oldBoxes);
     assert(matrixQueries <= 1);
-    assert(g_CamProfileFrame[CAM_PROFILE_VISIBILITY].calls == calls + 1);
 }
 
 static void checkVisibility(void)
@@ -175,8 +171,8 @@ static void checkVisibility(void)
 int main(void)
 {
     checkScaleAndFrustum();
-    checkInvalidationAndProfiling();
+    checkInvalidationAndCaching();
     checkVisibility();
-    puts("cam_optimizations: 12000 bit-exact scale/frustum comparisons; 100162 visibility comparisons; cache lifetime and profiler counts passed");
+    puts("cam_optimizations: 12000 bit-exact scale/frustum comparisons; 100162 visibility comparisons; cache lifetime and skipped scale work passed");
     return 0;
 }

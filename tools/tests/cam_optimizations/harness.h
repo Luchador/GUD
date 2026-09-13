@@ -4,7 +4,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
-#include "camprofile.h"
+#include <ultra64.h>
 
 typedef s32 bool;
 #define TRUE 1
@@ -47,8 +47,10 @@ static bool roomRendered, useScreenBox;
 static bbox2d roomBox;
 static s32 roomQueries, boxQueries, matrixQueries;
 
-u64 osClockRate = 46875000ULL;
-u32 osGetCount(void) { static u32 count; return ++count; }
+/* Count actual expensive work in the host test, without game instrumentation.
+ * run.py redirects only the production camera's sinf call through this wrapper. */
+static u32 scaleSineCalls;
+static f32 countScaleSinf(f32 angle) { scaleSineCalls++; return sinf(angle); }
 static coord3d *bondviewGetPlayerPosition(void) { return &cameraPos; }
 static Mtxf *camGetWorldToViewMtxf(void) { matrixQueries++; return &worldToView; }
 static f32 getPlayer_c_lodscalez(void) { return g_CurrentPlayer->c_lodscalez; }

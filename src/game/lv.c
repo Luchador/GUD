@@ -21,7 +21,6 @@
 #include "bondview.h"
 #include "bondview_r.h"
 #include "cheat.h"
-#include "camprofile.h"
 #include "chr.h"
 #include "chrai.h"
 #include "cleanup.h"
@@ -224,7 +223,6 @@ void lvlStageLoad(s32 stage)
     struct player_data *player_data;
 
     g_CurrentStageToLoad = stage;
-    camProfileReset();
     g_BgRenderEnabled = TRUE;
     g_ControlsLockedFlag = 0;
     g_ClockTimer = 1;
@@ -971,40 +969,6 @@ f32 lvGetSystemPowerTimeSeconds(void)
 }
 
 
-bool lvCameraProfileGameplayActive(void)
-{
-    s32 i;
-    s32 playerCount;
-
-    if (g_CurrentStageToLoad == LEVELID_TITLE || g_ControlsLockedFlag
-            || checkGamePaused() || ramromGetIsDemoPlaying()
-            || g_CameraMode != CAMERAMODE_FP)
-    {
-        return FALSE;
-    }
-
-    playerCount = getPlayerCount();
-    if (playerCount == 0)
-    {
-        return FALSE;
-    }
-
-    for (i = 0; i < playerCount; i++)
-    {
-        struct player *player = g_playerPointers[i];
-
-        if (player == NULL || player->bondstate != BONDSTATE_ALIVE
-                || player->frozencam || player->pause_state != 0
-                || !player->outside_watch_menu)
-        {
-            return FALSE;
-        }
-    }
-
-    return TRUE;
-}
-
-
 static Gfx *lvDrawProfilerText(Gfx *gdl, s32 *x, s32 *y, char *text, u32 color, s32 width)
 {
     char *p;
@@ -1021,78 +985,6 @@ static Gfx *lvDrawProfilerText(Gfx *gdl, s32 *x, s32 *y, char *text, u32 color, 
     return textRender(gdl, x, y, text, ptrFontBankGothicChars,
             ptrFontBankGothic, color, width, viGetY(), 0, 0);
 }
-
-static Gfx *lvDrawCameraProfile(Gfx *gdl, s32 screenwidth)
-{
-    static char lines[9][64];
-    static const char *names[CAM_PROFILE_COUNT] = {"CAMSCALE", "FRUSTUM", "CAMVIS"};
-    static const s32 rowY[9] = {118, 128, 140, 150, 162, 172, 184, 194, 206};
-    static s32 lastState = -1;
-    static u32 lastFrames;
-    static u32 lastWarmup;
-    const CamProfileSummary *summary = camProfileGetSummary();
-    s32 i;
-    s32 x;
-    s32 y;
-    u32 color;
-
-    if (g_CurrentStageToLoad == LEVELID_TITLE)
-    {
-        return gdl;
-    }
-
-    /* Format only when a new summary or warm-up status is available. The
-     * completed sample remains readable even after moving or opening watch. */
-    if (lastState != summary->state
-            || lastWarmup / 15 != summary->warmupFrames / 15
-            || (lastFrames != summary->frames
-                && (summary->frames == 1 || summary->frames % 30 == 0)))
-    {
-        lastState = summary->state;
-        lastFrames = summary->frames;
-        lastWarmup = summary->warmupFrames;
-
-        if (summary->state == CAM_PROFILE_WAITING)
-        {
-            sprintf(lines[0], "CAM " CAM_PROFILE_BUILD_LABEL " WAIT FOR PLAY");
-        }
-        else if (summary->state == CAM_PROFILE_WARMUP)
-        {
-            sprintf(lines[0], "CAM " CAM_PROFILE_BUILD_LABEL " WARM %u/%u",
-                    summary->warmupFrames, CAM_PROFILE_WARMUP_FRAMES);
-        }
-        else
-        {
-            sprintf(lines[0], "CAM " CAM_PROFILE_BUILD_LABEL " %s %u/%u",
-                    summary->state == CAM_PROFILE_HOLD ? "HOLD" : "RUN",
-                    summary->frames, CAM_PROFILE_CAPTURE_FRAMES);
-        }
-
-        sprintf(lines[1], "CAMTOTAL: %u.%u us/f",
-                summary->totalUsPerFrameTenths / 10, summary->totalUsPerFrameTenths % 10);
-
-        for (i = 0; i < CAM_PROFILE_COUNT; i++)
-        {
-            sprintf(lines[2 + i * 2], "%s: %u.%u us/f", names[i],
-                    summary->usPerFrameTenths[i] / 10, summary->usPerFrameTenths[i] % 10);
-            sprintf(lines[3 + i * 2], "  %u.%u us/c  %u.%u calls/f",
-                    summary->usPerCallTenths[i] / 10, summary->usPerCallTenths[i] % 10,
-                    summary->callsPerFrameTenths[i] / 10, summary->callsPerFrameTenths[i] % 10);
-        }
-
-        sprintf(lines[8], "SCALE builds: %u/%u calls", summary->scaleRebuilds, summary->scaleCalls);
-    }
-
-    for (i = 0; i < 9; i++)
-    {
-        x = 14;
-        y = rowY[i];
-        color = i == 0 ? (summary->state == CAM_PROFILE_HOLD ? 0x30FF30FF : 0xFFFF30FF) : 0x00FFFFFF;
-        gdl = lvDrawProfilerText(gdl, &x, &y, lines[i], color, screenwidth);
-    }
-    return gdl;
-}
-
 
 Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
 {
@@ -1143,9 +1035,6 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
     /* Called once after all players, so use the whole screen in split-screen. */
     gDPSetScissor(gdl++, G_SC_NON_INTERLACE, 0, 0, viGetX(), viGetY());
     gdl = lvDrawProfilerText(gdl, &x, &y, fpsText, color, screenwidth);
-
-    /* Give the camera capture priority if the remaining display list is small. */
-    gdl = lvDrawCameraProfile(gdl, screenwidth);
 
     { /* TEMP profiler readouts: raw osGetCount cycles per frame */
         static char profText[7][32];

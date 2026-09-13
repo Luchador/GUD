@@ -9,7 +9,6 @@
 #include <str.h>
 #include <options.h>
 #include "cam.h"
-#include "camprofile.h"
 #include "bg.h"
 #include "environment.h"
 #include "bgroomtrans.h"
@@ -168,13 +167,11 @@ void camSetPlayerCameraScale(void)
 	f32 tmp;
 	f32 fVar5;
 	f32 fVar2;
-    u32 profileStart = osGetCount();
 
     g_CamScreenBoxCache.valid = FALSE;
 
     if (g_CamScaleValid[player_num])
     {
-        CAM_PROFILE_END(CAM_PROFILE_SCALE, profileStart);
         return;
     }
 
@@ -211,9 +208,6 @@ void camSetPlayerCameraScale(void)
 	g_CurrentPlayer->c_cameraleftnorm.z = -fVar5 * fVar4;
 
     g_CamScaleValid[player_num] = TRUE;
-    CAM_PROFILE_END(CAM_PROFILE_SCALE, profileStart);
-    /* Cached calls are timed above, but only this path rebuilds the values. */
-    g_CamProfileScaleRebuilds++;
 }
 
 
@@ -418,7 +412,6 @@ void camUpdateFrustumPlanes()
     f32 h;
     f32 nh_div;
     f32 nh2_div;
-    u32 profileStart = osGetCount();
 
     g_CamScreenBoxCache.valid = FALSE;
 
@@ -464,7 +457,6 @@ void camUpdateFrustumPlanes()
     g_CamFrustumNearOffset = (g_CurrentPlayer->viewtoworldmtxf->m[2][0] * g_CurrentPlayer->viewtoworldmtxf->m[3][0])
                            + (g_CurrentPlayer->viewtoworldmtxf->m[2][1] * g_CurrentPlayer->viewtoworldmtxf->m[3][1])
                            + (g_CurrentPlayer->viewtoworldmtxf->m[2][2] * g_CurrentPlayer->viewtoworldmtxf->m[3][2]);
-    CAM_PROFILE_END(CAM_PROFILE_FRUSTUM, profileStart);
 }
 
 
@@ -641,7 +633,6 @@ bool camIsPosOnScreen(PropRecord *prop, coord3d *pos, f32 modelInstSize, bool ap
     bool singleRoom;
     bbox2d bbox;
     coord3d cameraOffset;
-    u32 profileStart = osGetCount();
 
     result = FALSE;
 
@@ -715,6 +706,5 @@ bool camIsPosOnScreen(PropRecord *prop, coord3d *pos, f32 modelInstSize, bool ap
         result = FALSE;
     }
 
-    CAM_PROFILE_END(CAM_PROFILE_VISIBILITY, profileStart);
     return result;
 }
