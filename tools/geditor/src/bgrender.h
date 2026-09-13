@@ -36,6 +36,7 @@ typedef struct BgRenderState
 {
     DWORD othermode, othermodehigh;
     DWORD othermodeknown; /* Low-mode bits explicitly written by the asset. */
+    DWORD othermodehighknown;
     BOOL zbuffer;
     DWORD geometryknown; /* Bits explicitly set/cleared by the native stream. */
     DWORD geometrymode; /* lighting and texture generation, including partial clears */
@@ -66,6 +67,9 @@ typedef enum BgTransparency {
 /* Classify the authored render mode using the preview decoder. Inherited
    layer defaults alone do not establish a known asset transparency type. */
 BgTransparency BgRenderGetTransparency(const BgRenderState *state);
+/* Safe surface presets for explicit, ordinary one/two-cycle BG pipelines.
+   Preserve the combiner, first-cycle fog, alpha/depth source and cycle type. */
+BOOL BgRenderSurfacePreset(const BgRenderState *state, BgTransparency surface, DWORD *modeout);
 
 /* Matches texModeToGbiMode: mode 3, like mode 0, means ordinary repeat. */
 BgRenderFlags BgRenderMaterialWrap(const BgMaterial *material);

@@ -192,14 +192,17 @@ BOOL BgDocumentSetFaceTexture(BgDocument *document, const BgFaceRef *refs,
 #define BG_FACE_PROPERTY_CULL   1u
 #define BG_FACE_PROPERTY_WRAP_U 2u
 #define BG_FACE_PROPERTY_WRAP_V 4u
+#define BG_FACE_PROPERTY_TRANSPARENCY 8u
 typedef struct BgFacePropertiesEdit {
     unsigned int fields; /* only explicitly changed controls are applied */
     BOOL cullbackfaces;
     BgTextureWrap wrapu, wrapv;
+    BgTransparency transparency;
 } BgFacePropertiesEdit;
 
 /* Validates all faces before editing. Wrap changes require a texture on every
- * selected face. Materials, shared vertices and unedited axes are preserved. */
+ * selected face. Transparency changes require a supported explicit pipeline;
+ * native state groups are split/restored without changing geometry or layers. */
 BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
     DWORD count, const BgFacePropertiesEdit *edit, BOOL *changedout,
     const char **reasonout);

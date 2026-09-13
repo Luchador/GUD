@@ -29,6 +29,7 @@ void BgRenderStateInit(BgRenderState *state, BOOL secondary)
     state->geometryknown = 0;
     state->othermodehigh = 0;
     state->othermodeknown = 0;
+    state->othermodehighknown = 0;
     state->othermode = BG_Z_CMP | (secondary ? BG_ZMODE_XLU | BG_FORCE_BL : BG_Z_UPD);
 }
 
@@ -58,12 +59,14 @@ void BgRenderStateRead(BgRenderState *state, DWORD word0, DWORD word1)
         mask = count == 32 ? 0xFFFFFFFFu : ((1u << count) - 1u) << shift;
         *mode = (*mode & ~mask) | (word1 & mask);
         if ((word0 >> 24) == BG_G_SETOTHERMODE_L) { state->othermodeknown |= mask; }
+        else { state->othermodehighknown |= mask; }
         break;
     }
     case BG_G_RDPSETOTHERMODE:
         state->othermode = word1;
         state->othermodeknown = 0xFFFFFFFFu;
         state->othermodehigh = word0 & 0x00FFFFFFu;
+        state->othermodehighknown = 0x00FFFFFFu;
         break;
     case BG_G_CLEARGEOMETRYMODE:
         state->geometryknown |= word1;
@@ -140,6 +143,32 @@ BgTransparency BgRenderGetTransparency(const BgRenderState *state)
     { return BG_TRANSPARENCY_CUTOUT_BLEND; }
     if (flags & BG_RENDER_ALPHA_TEST) { return BG_TRANSPARENCY_CUTOUT; }
     return flags & BG_RENDER_BLEND ? BG_TRANSPARENCY_BLEND : BG_TRANSPARENCY_OPAQUE;
+}
+
+BOOL BgRenderSurfacePreset(const BgRenderState *state, BgTransparency surface, DWORD *modeout)
+{
+    DWORD bits, blender, fixedmask, fixedvalue;
+    BOOL onecycle;
+    if (!state || !modeout || (unsigned int)surface > BG_TRANSPARENCY_BLEND)
+    { return FALSE; }
+    if ((state->othermodehighknown & 0x00300000u) != 0x00300000u
+        || (state->othermodehigh & 0x00200000u)
+        || BgRenderGetTransparency(state) > BG_TRANSPARENCY_BLEND
+        || (state->othermode & 3u)) { return FALSE; }
+    onecycle = !(state->othermodehigh & 0x00100000u);
+    /* Ordinary final blender: input colour/alpha and framebuffer colour.
+       Decals, additive/custom blenders and alpha-compare pipelines stay read-only. */
+    fixedmask = onecycle ? 0xCCC00000u : 0x33300000u;
+    fixedvalue = onecycle ? 0x00400000u : 0x00100000u;
+    if ((state->othermode & fixedmask) != fixedvalue) { return FALSE; }
+    blender = onecycle ? 0x000C0000u : 0x00030000u;
+    if ((state->othermode & blender) > (onecycle ? 0x00040000u : 0x00010000u)) { return FALSE; }
+    bits = surface == BG_TRANSPARENCY_OPAQUE ? 0x2078u
+        : surface == BG_TRANSPARENCY_CUTOUT ? 0x3078u : 0x49D8u;
+    if (!(state->othermode & BG_Z_CMP)) { bits &= ~0x830u; }
+    if (surface != BG_TRANSPARENCY_BLEND) { bits |= onecycle ? 0x00040000u : 0x00010000u; }
+    *modeout = (state->othermode & ~(0xFFF8u | blender)) | bits;
+    return TRUE;
 }
 
 /* Alpha combiner mux values from gbi.h. The multiplier slot uses 0 and 6

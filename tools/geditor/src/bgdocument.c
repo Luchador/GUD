@@ -1215,6 +1215,169 @@ BOOL BgDocumentSetFaceTexture(BgDocument *document, const BgFaceRef *refs,
 }
 
 
+/* Store edits as ordinary native state groups. The existing preview, history,
+ * project save and ROM compiler then all consume the same representation. */
+static void BgDocumentFreeLayer(BgDocumentLayerData *layer)
+{
+    DWORD i;
+    for (i = 0; i < layer->groupcount; i++) { free(layer->groups[i].commands); }
+    free(layer->groups);
+    ZeroMemory(layer, sizeof(*layer));
+}
+
+static BOOL BgDocumentSurfaceCommand(BgDocumentDrawGroup *group, DWORD w0, DWORD w1)
+{
+    unsigned char command[8];
+    unsigned int i;
+    for (i = 0; i < 4; i++)
+    { command[i] = (unsigned char)(w0 >> (24 - i * 8)); command[i + 4] = (unsigned char)(w1 >> (24 - i * 8)); }
+    return BgDocumentAppendGroupCommand(group, command);
+}
+
+static BOOL BgDocumentSurfaceTransition(BgDocumentDrawGroup *group, DWORD from, DWORD to)
+{
+    DWORD difference = from ^ to;
+    if (!difference) { return TRUE; }
+    /* Partial writes preserve the first-cycle fog blender, including runtime
+       replacements made by bgApplyDynamicCCRMLUT. Sync before RDP changes. */
+    if (!BgDocumentSurfaceCommand(group, 0xE7000000u, 0)) { return FALSE; }
+    if ((difference & 0xFFF8u)
+        && !BgDocumentSurfaceCommand(group, 0xB900030Du, to & 0xFFF8u)) { return FALSE; }
+    if ((difference & 0x000C0000u)
+        && !BgDocumentSurfaceCommand(group, 0xB9001202u, to & 0x000C0000u)) { return FALSE; }
+    if ((difference & 0x00030000u)
+        && !BgDocumentSurfaceCommand(group, 0xB9001002u, to & 0x00030000u)) { return FALSE; }
+    return TRUE;
+}
+
+static BOOL BgDocumentSurfaceLayer(BgDocumentRoom *room, unsigned int layerindex,
+    const unsigned char *selected, const DWORD *modes)
+{
+    BgDocumentLayerData *source = &room->layers[layerindex], output = {0};
+    DWORD *groups = malloc((size_t)room->facecount * sizeof(*groups));
+    BgRenderState state;
+    DWORD group, f;
+    BOOL ok = FALSE;
+    if (!groups) { return FALSE; }
+    for (f = 0; f < room->facecount; f++)
+    { if (room->faces[f].layer == layerindex && room->faces[f].drawgroup >= source->groupcount) { goto done; } }
+    output.sourcepresent = source->sourcepresent;
+    BgRenderStateInit(&state, layerindex == BG_GEOMETRY_SECONDARY);
+    for (group = 0; group < source->groupcount; group++)
+    {
+        const BgDocumentDrawGroup *original = &source->groups[group];
+        DWORD offset, live;
+        BOOL hasfaces = FALSE;
+        if (!BgDocumentAppendDrawGroup(&output)) { goto done; }
+        for (offset = 0; offset < original->commandsize; offset += 8)
+        {
+            const unsigned char *command = original->commands + offset;
+            if (!BgDocumentAppendGroupCommand(&output.groups[output.groupcount - 1], command)) { goto done; }
+            BgRenderStateRead(&state, BgDocumentRead32(command), BgDocumentRead32(command + 4));
+        }
+        live = state.othermode;
+        for (f = 0; f < room->facecount; f++)
+        {
+            const BgDocumentFace *face = &room->faces[f];
+            DWORD target;
+            if (face->layer != layerindex || face->drawgroup != group) { continue; }
+            target = selected[f] ? modes[f] : state.othermode;
+            if (target != live)
+            {
+                if (hasfaces && !BgDocumentAppendDrawGroup(&output)) { goto done; }
+                if (!BgDocumentSurfaceTransition(&output.groups[output.groupcount - 1], live, target)) { goto done; }
+                live = target;
+                hasfaces = FALSE;
+            }
+            groups[f] = output.groupcount - 1;
+            hasfaces = TRUE;
+        }
+        /* Also restore at the end of a layer or before an empty state group.
+           A following room/draw call must never inherit this selection's edit. */
+        if (live != state.othermode)
+        {
+            if (!BgDocumentAppendDrawGroup(&output)
+                || !BgDocumentSurfaceTransition(&output.groups[output.groupcount - 1], live, state.othermode)) { goto done; }
+        }
+    }
+    for (f = 0; f < room->facecount; f++)
+    { if (room->faces[f].layer == layerindex) { room->faces[f].drawgroup = groups[f]; } }
+    BgDocumentFreeLayer(source);
+    *source = output;
+    ZeroMemory(&output, sizeof(output));
+    ok = TRUE;
+done:
+    free(groups);
+    BgDocumentFreeLayer(&output);
+    return ok;
+}
+
+static BOOL BgDocumentSetTransparency(BgDocument *document, const BgFaceRef *refs,
+    DWORD count, BgTransparency surface, BOOL *changed, const char **reasonout)
+{
+    BgDocument copy = {0};
+    size_t bytes = (size_t)count * sizeof(BgRenderState);
+    BgRenderState *states = bytes / sizeof(*states) == count ? malloc(bytes) : NULL;
+    DWORD i, roomindex;
+    BOOL any = FALSE, ok = FALSE;
+    *reasonout = "Out of memory editing background transparency.";
+    if (!states) { return FALSE; }
+    if (!BgDocumentGetFaceRenderStates(document, refs, count, states))
+    { *reasonout = "The selected background render state could not be read."; goto done; }
+    for (i = 0; i < count; i++)
+    {
+        DWORD mode;
+        if (!BgRenderSurfacePreset(&states[i], surface, &mode))
+        {
+            *reasonout = "Transparency changes require explicit, ordinary one-cycle or two-cycle render modes. The selection includes inherited or custom state.";
+            goto done;
+        }
+        any |= states[i].othermode != mode;
+        states[i].othermode = mode;
+    }
+    if (!any) { ok = TRUE; goto done; }
+    /* Build off to the side: allocation failures never leave a partial edit,
+       including multi-room selections and combined property changes. */
+    if (!BgDocumentClone(document, &copy, reasonout)) { goto done; }
+    *reasonout = "Out of memory editing background transparency.";
+    for (roomindex = 1; roomindex <= copy.roomcount; roomindex++)
+    {
+        BgDocumentRoom *room = &copy.rooms[roomindex];
+        unsigned char *selected;
+        DWORD *modes;
+        BOOL layers[2] = {FALSE, FALSE};
+        for (i = 0; i < count; i++) { if (refs[i].room == roomindex) { layers[refs[i].layer] = TRUE; } }
+        if (!layers[0] && !layers[1]) { continue; }
+        selected = calloc(room->facecount, 1);
+        modes = malloc((size_t)room->facecount * sizeof(*modes));
+        if (!selected || !modes) { free(selected); free(modes); goto done; }
+        for (i = 0; i < count; i++)
+        {
+            const BgDocumentFace *face;
+            DWORD f;
+            if (refs[i].room != roomindex) { continue; }
+            face = BgDocumentFindFace(&copy, &refs[i], NULL);
+            f = (DWORD)(face - room->faces);
+            selected[f] = TRUE; modes[f] = states[i].othermode;
+        }
+        ok = (!layers[0] || BgDocumentSurfaceLayer(room, 0, selected, modes))
+            && (!layers[1] || BgDocumentSurfaceLayer(room, 1, selected, modes));
+        free(selected); free(modes);
+        if (!ok) { goto done; }
+        ok = FALSE;
+    }
+    BgDocumentFree(document);
+    *document = copy;
+    ZeroMemory(&copy, sizeof(copy));
+    *changed = TRUE;
+    ok = TRUE;
+done:
+    if (ok) { *reasonout = ""; }
+    free(states);
+    BgDocumentFree(&copy);
+    return ok;
+}
+
 BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
     DWORD count, const BgFacePropertiesEdit *edit, BOOL *changedout,
     const char **reasonout)
@@ -1223,7 +1386,9 @@ BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
     *changedout = FALSE;
     *reasonout = "";
     if (document == NULL || refs == NULL || count == 0 || edit == NULL
-        || edit->fields == 0 || (edit->fields & ~7u)
+        || edit->fields == 0 || (edit->fields & ~15u)
+        || ((edit->fields & BG_FACE_PROPERTY_TRANSPARENCY)
+            && (unsigned int)edit->transparency > BG_TRANSPARENCY_BLEND)
         || ((edit->fields & BG_FACE_PROPERTY_CULL)
             && edit->cullbackfaces != FALSE && edit->cullbackfaces != TRUE)
         || ((edit->fields & BG_FACE_PROPERTY_WRAP_U)
@@ -1250,6 +1415,9 @@ BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
             return FALSE;
         }
     }
+    if ((edit->fields & BG_FACE_PROPERTY_TRANSPARENCY)
+        && !BgDocumentSetTransparency(document, refs, count, edit->transparency, changedout, reasonout))
+    { return FALSE; }
     for (i = 0; i < count; i++)
     {
         BgDocumentFace *face = (BgDocumentFace *)BgDocumentFindFace(document, &refs[i], NULL);
@@ -1319,6 +1487,8 @@ static BgRenderState *BgDocumentGroupRenderStates(const BgDocumentLayerData *lay
     {
         const BgDocumentDrawGroup *source = &layer->groups[group];
         DWORD offset;
+        if ((source->commandsize & 7u) || (source->commandsize && !source->commands))
+        { free(states); return NULL; }
         for (offset = 0; offset + 8 <= source->commandsize; offset += 8)
         {
             BgRenderStateRead(&state, BgDocumentRead32(source->commands + offset),

@@ -13,7 +13,7 @@
 #define FACEPROPERTIES_PREVIEW_SIZE 64
 
 enum { FACE_SUMMARY, FACE_TEXTURE_LABEL, FACE_TEXTURE_THUMB, FACE_TEXTURE_FIND,
-       FACE_RENDER_INFO, FACE_RENDER_HELP,
+       FACE_RENDER_INFO, FACE_RENDER, FACE_RENDER_HELP,
        FACE_CULL_LABEL, FACE_CULL, FACE_CULL_HELP,
        FACE_WRAP_LABEL, FACE_U_LABEL, FACE_U, FACE_V_LABEL, FACE_V,
        FACE_WRAP_HELP, FACE_SELECTION_HELP, FACE_CONTROL_COUNT };
@@ -34,46 +34,32 @@ static FacePropertiesState *FacePropertiesGetState(HWND hwnd)
     return (FacePropertiesState *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
 }
 
-/* 0/1 are known off/on; 2 is inherited. RSP ZBUFFER and RDP Z_CMP/Z_UPD
-   must both allow depth access. Decals suppress depth writes in the preview. */
-static int FacePropertiesDepth(const BgRenderState *state, BOOL write)
-{
-    DWORD bit = write ? 0x20u : 0x10u;
-    BOOL known = (state->othermodeknown & bit) != 0;
-    if ((known && !(state->othermode & bit))
-        || ((state->geometryknown & 1u) && !state->zbuffer)) { return 0; }
-    if (write && (state->othermodeknown & 0xC00u) == 0xC00u
-        && (state->othermode & 0xC00u) == 0xC00u) { return 0; }
-    return known && (state->geometryknown & 1u) ? 1 : 2;
-}
-
-static void FacePropertiesRenderText(const BgDocument *document, const BgFaceRef *refs,
+static BOOL FacePropertiesRenderText(const BgDocument *document, const BgFaceRef *refs,
                                       DWORD count, char *text, size_t size)
 {
     static const char *types[] = {"Opaque", "Cutout", "Translucent (alpha blend)",
         "Custom / decal", "Cutout + blend", "Inherited / unknown", "Mixed"};
-    static const char *depth[] = {"Off", "On", "Inherited / unknown", "Mixed"};
     size_t bytes = (size_t)count * sizeof(BgRenderState);
     BgRenderState *states = count && bytes / sizeof(*states) == count ? malloc(bytes) : NULL;
-    int surface = -1, test = -1, write = -1;
+    int surface = -1;
+    BOOL editable = TRUE;
     DWORD i;
     if (!states || !BgDocumentGetFaceRenderStates(document, refs, count, states))
     {
-        snprintf(text, size, "Transparency: Unavailable\r\nDepth test: Unknown\r\nDepth write: Unknown");
+        snprintf(text, size, "Transparency: Unavailable");
         free(states);
-        return;
+        return FALSE;
     }
     for (i = 0; i < count; i++)
     {
+        DWORD mode;
         int s = BgRenderGetTransparency(&states[i]);
-        int t = FacePropertiesDepth(&states[i], FALSE), w = FacePropertiesDepth(&states[i], TRUE);
         surface = surface < 0 ? s : surface == s ? surface : 6;
-        test = test < 0 ? t : test == t ? test : 3;
-        write = write < 0 ? w : write == w ? write : 3;
+        editable &= BgRenderSurfacePreset(&states[i], BG_TRANSPARENCY_OPAQUE, &mode);
     }
-    snprintf(text, size, "Transparency: %s\r\nDepth test: %s\r\nDepth write: %s",
-        types[surface], depth[test], depth[write]);
+    snprintf(text, size, "Transparency: %s", types[surface]);
     free(states);
+    return editable;
 }
 
 static int FacePropertiesTextHeight(HWND control, int width)
@@ -115,7 +101,7 @@ static void FacePropertiesLayout(HWND hwnd, FacePropertiesState *state)
         }
         if (i == FACE_U_LABEL || i == FACE_V_LABEL) { w = 20; }
         if (i == FACE_U || i == FACE_V) { x += 24; w = width > 24 ? width - 24 : 1; }
-        height = i == FACE_CULL || i == FACE_U || i == FACE_V ? 24
+        height = i == FACE_RENDER || i == FACE_CULL || i == FACE_U || i == FACE_V ? 24
             : FacePropertiesTextHeight(state->controls[i], w);
         SetRect(&bounds[i], x, y, x + w, y + height);
         if (i != FACE_U_LABEL && i != FACE_V_LABEL)
@@ -137,7 +123,7 @@ static void FacePropertiesLayout(HWND hwnd, FacePropertiesState *state)
     {
         RECT *r = &bounds[i];
         /* The height of a native combo includes its opened list. */
-        int height = i == FACE_CULL || i == FACE_U || i == FACE_V ? 160 : r->bottom - r->top;
+        int height = i == FACE_RENDER || i == FACE_CULL || i == FACE_U || i == FACE_V ? 160 : r->bottom - r->top;
         MoveWindow(state->controls[i], r->left, r->top - state->scroll,
                    r->right - r->left, height, TRUE);
     }
@@ -225,8 +211,7 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
     {
         CREATESTRUCT *cs = (CREATESTRUCT *)lparam;
         const char *labels[FACE_CONTROL_COUNT] = {
-            "", "Texture", "", "Find", "",
-            "Read-only. Inherited / unknown means the asset does not fully specify the setting.",
+            "", "Texture", "", "Find", "", "", "",
             "Backface culling", "",
             "On hides the back of a face. Off shows both sides.",
             "Texture wrapping", "U", "", "V", "",
@@ -238,7 +223,7 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
         for (i = 0; i < FACE_CONTROL_COUNT; i++)
         {
-            BOOL combo = i == FACE_CULL || i == FACE_U || i == FACE_V;
+            BOOL combo = i == FACE_RENDER || i == FACE_CULL || i == FACE_U || i == FACE_V;
             BOOL button = i == FACE_TEXTURE_FIND;
             DWORD style = combo ? WS_TABSTOP | WS_VSCROLL | CBS_DROPDOWNLIST
                 : button ? WS_TABSTOP | BS_PUSHBUTTON | BS_NOTIFY
@@ -251,6 +236,15 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
             if (combo)
             {
                 HWND control = state->controls[i];
+                if (i == FACE_RENDER)
+                {
+                    SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Keep current");
+                    SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Opaque");
+                    SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Cutout");
+                    SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Translucent (alpha blend)");
+                    SendMessage(control, CB_SETDROPPEDWIDTH, 200, 0);
+                    continue;
+                }
                 SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Mixed");
                 SendMessage(control, CB_ADDSTRING, 0, (LPARAM)(i == FACE_CULL ? "Off - show both sides" : "Repeat"));
                 SendMessage(control, CB_ADDSTRING, 0, (LPARAM)(i == FACE_CULL ? "On - hide back faces" : "Clamp"));
@@ -291,7 +285,7 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
             return 0;
         }
         if (state && !state->updating
-            && (LOWORD(wparam) == FACE_CULL + 1 || LOWORD(wparam) == FACE_U + 1 || LOWORD(wparam) == FACE_V + 1))
+            && (LOWORD(wparam) == FACE_RENDER + 1 || LOWORD(wparam) == FACE_CULL + 1 || LOWORD(wparam) == FACE_U + 1 || LOWORD(wparam) == FACE_V + 1))
         {
             HWND control = (HWND)lparam;
             if (HIWORD(wparam) == CBN_SETFOCUS)
@@ -304,14 +298,16 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
                 int choice = (int)SendMessage(control, CB_GETCURSEL, 0, 0);
                 if (choice > 0)
                 {
-                    if (control == state->controls[FACE_CULL])
+                    if (control == state->controls[FACE_RENDER])
+                    { edit.fields = BG_FACE_PROPERTY_TRANSPARENCY; edit.transparency = (BgTransparency)(choice - 1); }
+                    else if (control == state->controls[FACE_CULL])
                     { edit.fields = BG_FACE_PROPERTY_CULL; edit.cullbackfaces = choice == 2; }
                     else if (control == state->controls[FACE_U])
                     { edit.fields = BG_FACE_PROPERTY_WRAP_U; edit.wrapu = (BgTextureWrap)(choice - 1); }
                     else
                     { edit.fields = BG_FACE_PROPERTY_WRAP_V; edit.wrapv = (BgTextureWrap)(choice - 1); }
                 }
-                /* Mixed is display-only: a zero-field request just refreshes
+                /* Mixed / Keep current: a zero-field request just refreshes
                  * the controls from the unchanged document. */
                 SendMessage(GetParent(hwnd), FACEPROPERTIES_WM_CHANGED, 0, (LPARAM)&edit);
             }
@@ -388,7 +384,7 @@ BOOL FacePropertiesSetSelection(HWND panel, const BgDocument *document,
     FacePropertiesState *state = FacePropertiesGetState(panel);
     const BgDocumentFace *first;
     int cull, wrapu, wrapv;
-    BOOL textured = TRUE, sametexture = TRUE;
+    BOOL textured = TRUE, sametexture = TRUE, editable;
     DWORD i;
     char summary[256], texture[48], render[256];
     if (state == NULL || refs == NULL || count == 0
@@ -429,7 +425,12 @@ BOOL FacePropertiesSetSelection(HWND panel, const BgDocument *document,
     }
     else { snprintf(texture, sizeof(texture), "Texture: %04X", (unsigned int)first->textureid); }
     SetWindowText(state->controls[FACE_SUMMARY], summary);
-    FacePropertiesRenderText(document, refs, count, render, sizeof(render));
+    editable = FacePropertiesRenderText(document, refs, count, render, sizeof(render));
+    SendMessage(state->controls[FACE_RENDER], CB_SETCURSEL, 0, 0);
+    EnableWindow(state->controls[FACE_RENDER], editable);
+    SetWindowText(state->controls[FACE_RENDER_HELP], editable
+        ? "Cutout discards transparent pixels. Translucent blends them. The current layer is kept."
+        : "Read-only: the selection includes inherited or custom render state.");
     SetWindowText(state->controls[FACE_RENDER_INFO], render);
     SetWindowText(state->controls[FACE_TEXTURE_LABEL], texture);
     EnableWindow(state->controls[FACE_TEXTURE_FIND], state->hasthumbnail);
