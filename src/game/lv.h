@@ -76,5 +76,6 @@ void lvSetBgRenderEnabled(bool enabled);
 f32 lvGetStageElapsedSeconds(void);
 f32 lvGetSystemPowerTimeSeconds(void);
 Gfx *lvDrawFrameRateDisplay(Gfx *gdl);
+bool lvCameraProfileGameplayActive(void);
 
 #endif

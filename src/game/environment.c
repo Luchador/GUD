@@ -401,6 +401,45 @@ s32 envPositionIsVisibleThroughFog(coord3d *pos, f32 range)
 }
 
 
+/* cameraOffset is pos - camera position in world axes. Share its projection
+ * between the far-fog and optional object-fade tests; the caller also reuses
+ * the offset for the 32000-unit distance cap. Keep the original comparisons
+ * and arithmetic order at the fog/fade boundaries. */
+bool envIsPropVisibleThroughFog(coord3d *cameraOffset, f32 radius, bool applyFade)
+{
+    NearFogSettings *nearFog = applyFade ? g_NearFogValuesP : NULL;
+    Mtxf *mtx;
+    f32 depth;
+
+    if (!g_CurrentEnvironment.FogEnabled && nearFog == NULL)
+    {
+        return TRUE;
+    }
+
+    mtx = camGetWorldToViewMtxf();
+    depth = cameraOffset->x * mtx->m[0][0] + cameraOffset->y * mtx->m[0][1]
+            + cameraOffset->z * mtx->m[0][2];
+
+    if (g_CurrentEnvironment.FogEnabled && depth > g_ScaledFarFogIntensity + radius)
+    {
+        return FALSE;
+    }
+
+    if (nearFog != NULL && depth > nearFog->MaxObfuscationRange)
+    {
+        depth = ((depth - nearFog->MaxObfuscationRange) * 100 / radius
+                + nearFog->MaxObfuscationRange) * getPlayer_c_lodscalez();
+
+        if (depth >= nearFog->MaxVisRange)
+        {
+            return FALSE;
+        }
+    }
+
+    return TRUE;
+}
+
+
 NearFogSettings *envGetNearFogValues(void)
 {
     return g_NearFogValuesP;

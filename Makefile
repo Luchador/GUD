@@ -273,6 +273,11 @@ $(CODEOBJECTS) $(GAMEOBJECTS): src/bondtypes.h src/game/bondview.h
 
 $(addprefix $(BUILD_DIR)/src/game/,bg.o bondview.o lv.o sky.o): src/game/bg.h
 
+$(BUILD_DIR)/src/boss.o $(addprefix $(BUILD_DIR)/src/game/,cam.o camprofile.o lv.o): src/game/camprofile.h
+
+$(addprefix $(BUILD_DIR)/src/game/,cam.o player.o): src/game/cam.h
+$(addprefix $(BUILD_DIR)/src/game/,cam.o environment.o): src/game/environment.h
+
 # Manifest catalog descriptors derive counts and strides beside their arrays.
 # IDO emits no .d files, so keep native layouts and included catalogs in sync.
 GED_CATALOG_OBJECTS := $(BUILD_DIR)/src/music.o $(addprefix $(BUILD_DIR)/src/game/,gedmanifest.o initanitable.o cobjdata.o pobjdata.o gun.o chraidata.o language.o)

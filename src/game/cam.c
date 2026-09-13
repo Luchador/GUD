@@ -9,6 +9,7 @@
 #include <str.h>
 #include <options.h>
 #include "cam.h"
+#include "camprofile.h"
 #include "bg.h"
 #include "environment.h"
 #include "bgroomtrans.h"
@@ -109,9 +110,28 @@ typedef struct CamScreenBoxCache
 
 static CamScreenBoxCache g_CamScreenBoxCache;
 
+/* Derived scale values live in each player. A separate validity array keeps
+ * their lifetime explicit without changing the player structure's layout. */
+static bool g_CamScaleValid[MAX_PLAYER_COUNT];
+
+/* sinf(DegToRad(30)) / (cosf(DegToRad(30)) * 120.0f), evaluated with
+ * GUD's math_sincos.c and single-precision rounding: float bits 0x3b9da7b5. */
+#define CAM_SCALE_LOD_60 0.0048112520016729831696f
+
+
+void camInvalidatePlayerCameraScale(s32 playerIndex)
+{
+    g_CamScaleValid[playerIndex] = FALSE;
+    g_CamScreenBoxCache.valid = FALSE;
+}
+
 
 void camSetPlayerScreenSize(f32 width, f32 height)
 {
+    if (g_CurrentPlayer->c_screenwidth != width || g_CurrentPlayer->c_screenheight != height)
+    {
+        g_CamScaleValid[player_num] = FALSE;
+    }
     g_CamScreenBoxCache.valid = FALSE;
     g_CurrentPlayer->c_screenwidth = width;
     g_CurrentPlayer->c_screenheight = height;
@@ -130,6 +150,11 @@ void camSetPlayerScreenPosition(f32 left, f32 top)
 
 void camSetPlayerPerspective(f32 near, f32 fovy, f32 aspect)
 {
+    /* Near clip distance is not an input to the scale calculation. */
+    if (g_CurrentPlayer->c_perspfovy != fovy || g_CurrentPlayer->c_perspaspect != aspect)
+    {
+        g_CamScaleValid[player_num] = FALSE;
+    }
     g_CamScreenBoxCache.valid = FALSE;
     g_CurrentPlayer->c_perspnear = near;
     g_CurrentPlayer->c_perspfovy = fovy;
@@ -143,8 +168,15 @@ void camSetPlayerCameraScale(void)
 	f32 tmp;
 	f32 fVar5;
 	f32 fVar2;
+    u32 profileStart = osGetCount();
 
     g_CamScreenBoxCache.valid = FALSE;
+
+    if (g_CamScaleValid[player_num])
+    {
+        CAM_PROFILE_END(CAM_PROFILE_SCALE, profileStart);
+        return;
+    }
 
 	g_CurrentPlayer->c_scaley = sinf(mDegToHalfRad(g_CurrentPlayer->c_perspfovy)) / (cosf(mDegToHalfRad(g_CurrentPlayer->c_perspfovy)) * g_CurrentPlayer->c_halfheight);
 	g_CurrentPlayer->c_scalex = (g_CurrentPlayer->c_scaley * g_CurrentPlayer->c_perspaspect * g_CurrentPlayer->c_halfheight) / g_CurrentPlayer->c_halfwidth;
@@ -153,7 +185,7 @@ void camSetPlayerCameraScale(void)
 	g_CurrentPlayer->c_recipscaley = 1.0f / g_CurrentPlayer->c_scaley;
 
     g_CurrentPlayer->c_scalelod = g_CurrentPlayer->c_scaley;
-    g_CurrentPlayer->c_scalelod60 = sinf(DegToRad(30)) / (cosf(DegToRad(30)) * 120.0f);
+    g_CurrentPlayer->c_scalelod60 = CAM_SCALE_LOD_60;
 	g_CurrentPlayer->c_lodscalez = g_CurrentPlayer->c_scalelod / g_CurrentPlayer->c_scalelod60;
 	tmp = (g_CurrentPlayer->c_lodscalez * M_U16_MAX_VALUE_F);
 
@@ -177,6 +209,11 @@ void camSetPlayerCameraScale(void)
 	g_CurrentPlayer->c_cameraleftnorm.x = -fVar4;
 	g_CurrentPlayer->c_cameraleftnorm.y = 0;
 	g_CurrentPlayer->c_cameraleftnorm.z = -fVar5 * fVar4;
+
+    g_CamScaleValid[player_num] = TRUE;
+    CAM_PROFILE_END(CAM_PROFILE_SCALE, profileStart);
+    /* Cached calls are timed above, but only this path rebuilds the values. */
+    g_CamProfileScaleRebuilds++;
 }
 
 
@@ -377,19 +414,17 @@ f32 getPlayer_c_perspaspect(void)
  */
 void camUpdateFrustumPlanes()
 {
-    f32 h_div;
     f32 h2;
     f32 h;
     f32 nh_div;
     f32 nh2_div;
-    f32 h2_div;
+    u32 profileStart = osGetCount();
 
     g_CamScreenBoxCache.valid = FALSE;
 
-    h = g_CurrentPlayer->c_halfheight * g_CurrentPlayer->c_scaley;
-    h_div = 1.0f / sqrtf((h * h) + 1.0f);
-    h *= h_div;
-    nh_div = -h_div;
+    /* camSetPlayerCameraScale already normalized these view-space planes. */
+    h = g_CurrentPlayer->c_cameratopnorm.z;
+    nh_div = -g_CurrentPlayer->c_cameratopnorm.y;
 
     g_CamFrustumTopNormal.x = (-nh_div * g_CurrentPlayer->viewtoworldmtxf->m[1][0]) + (h * g_CurrentPlayer->viewtoworldmtxf->m[2][0]);
     g_CamFrustumTopNormal.y = (-nh_div * g_CurrentPlayer->viewtoworldmtxf->m[1][1]) + (h * g_CurrentPlayer->viewtoworldmtxf->m[2][1]);
@@ -407,10 +442,8 @@ void camUpdateFrustumPlanes()
                              + (g_CamFrustumBottomNormal.y * g_CurrentPlayer->viewtoworldmtxf->m[3][1])
                              + (g_CamFrustumBottomNormal.z * g_CurrentPlayer->viewtoworldmtxf->m[3][2]);
 
-    h2 = (-g_CurrentPlayer->c_halfwidth) * g_CurrentPlayer->c_scalex;
-    h2_div = 1.0f / sqrtf((h2 * h2) + 1.0f);
-    h2 *= h2_div;
-    nh2_div = -h2_div;
+    h2 = -g_CurrentPlayer->c_cameraleftnorm.z;
+    nh2_div = g_CurrentPlayer->c_cameraleftnorm.x;
 
     g_CamFrustumLeftNormal.x = (nh2_div * g_CurrentPlayer->viewtoworldmtxf->m[0][0]) - (h2 * g_CurrentPlayer->viewtoworldmtxf->m[2][0]);
     g_CamFrustumLeftNormal.y = (nh2_div * g_CurrentPlayer->viewtoworldmtxf->m[0][1]) - (h2 * g_CurrentPlayer->viewtoworldmtxf->m[2][1]);
@@ -431,6 +464,7 @@ void camUpdateFrustumPlanes()
     g_CamFrustumNearOffset = (g_CurrentPlayer->viewtoworldmtxf->m[2][0] * g_CurrentPlayer->viewtoworldmtxf->m[3][0])
                            + (g_CurrentPlayer->viewtoworldmtxf->m[2][1] * g_CurrentPlayer->viewtoworldmtxf->m[3][1])
                            + (g_CurrentPlayer->viewtoworldmtxf->m[2][2] * g_CurrentPlayer->viewtoworldmtxf->m[3][2]);
+    CAM_PROFILE_END(CAM_PROFILE_FRUSTUM, profileStart);
 }
 
 
@@ -598,42 +632,6 @@ void camSetPlayerFrozenCam(bool isFrozen)
     g_CurrentPlayer->frozencam = isFrozen;
 }
 
-bool camIsPosInObjFadeDistance(coord3d *coord, f32 arg1)
-{
-    bool result = TRUE;
-    NearFogSettings *nearFogSettings = envGetNearFogValues();
-    coord3d diff;
-    f32 distSquared;
-
-    if (nearFogSettings != NULL)
-    {
-        coord3d *campos = bondviewGetPlayerPosition();
-        Mtxf *mtx = camGetWorldToViewMtxf();
-
-        diff.x = coord->x - campos->x;
-        diff.y = coord->y - campos->y;
-        diff.z = coord->z - campos->z;
-
-        distSquared = diff.f[0] * mtx->m[0][0] + diff.f[1] * mtx->m[0][1] + diff.f[2] * mtx->m[0][2];
-
-        if (distSquared > nearFogSettings->MaxObfuscationRange)
-        {
-            f32 scalez = getPlayer_c_lodscalez();
-
-            distSquared = ((distSquared - nearFogSettings->MaxObfuscationRange) * 100 / arg1
-                    + nearFogSettings->MaxObfuscationRange) * scalez;
-
-            if (distSquared >= nearFogSettings->MaxVisRange)
-            {
-                result = FALSE;
-            }
-        }
-    }
-
-    return result;
-}
-
-
 bool camIsPosOnScreen(PropRecord *prop, coord3d *pos, f32 modelInstSize, bool applyFogCull)
 {
     s32 room_ids[8];
@@ -642,6 +640,8 @@ bool camIsPosOnScreen(PropRecord *prop, coord3d *pos, f32 modelInstSize, bool ap
     bool result;
     bool singleRoom;
     bbox2d bbox;
+    coord3d cameraOffset;
+    u32 profileStart = osGetCount();
 
     result = FALSE;
 
@@ -670,7 +670,13 @@ bool camIsPosOnScreen(PropRecord *prop, coord3d *pos, f32 modelInstSize, bool ap
     {
         if (bgIsRoomRendered(roomnum))
         {
-            if (envPositionIsVisibleThroughFog(pos, modelInstSize) && (!applyFogCull || camIsPosInObjFadeDistance(pos, modelInstSize)))
+            coord3d *campos = bondviewGetPlayerPosition();
+
+            cameraOffset.x = pos->x - campos->x;
+            cameraOffset.y = pos->y - campos->y;
+            cameraOffset.z = pos->z - campos->z;
+
+            if (envIsPropVisibleThroughFog(&cameraOffset, modelInstSize, applyFogCull))
             {
                 if ((singleRoom ? bgGet2dBboxByRoomId(roomnum, &bbox) : getPropCombinedRoomsBBox2D(prop, &bbox)) != 0)
                 {
@@ -683,15 +689,11 @@ bool camIsPosOnScreen(PropRecord *prop, coord3d *pos, f32 modelInstSize, bool ap
 
                 if (result)
                 {
-                    coord3d *campos = bondviewGetPlayerPosition();
-                    f32 xdiff = pos->x - campos->x;
-                    f32 ydiff = pos->y - campos->y;
-                    f32 zdiff = pos->z - campos->z;
-
                     /**
                      * If farther than 32000 units, consider it off screen.
                      */
-                    if (xdiff * xdiff + ydiff * ydiff + zdiff * zdiff > 32000 * 32000)
+                    if (cameraOffset.x * cameraOffset.x + cameraOffset.y * cameraOffset.y
+                            + cameraOffset.z * cameraOffset.z > 32000 * 32000)
                     {
                         result = FALSE;
                     }
@@ -713,5 +715,6 @@ bool camIsPosOnScreen(PropRecord *prop, coord3d *pos, f32 modelInstSize, bool ap
         result = FALSE;
     }
 
+    CAM_PROFILE_END(CAM_PROFILE_VISIBILITY, profileStart);
     return result;
 }

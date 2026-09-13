@@ -8,6 +8,8 @@ void camSetPlayerScreenSize(f32 width, f32 height);
 void camSetPlayerScreenPosition(f32 left, f32 top);
 void camSetPlayerPerspective(f32 near, f32 fovy, f32 aspect);
 void camSetPlayerCameraScale(void);
+/* Call when a player slot is initialized, including reuse on level load. */
+void camInvalidatePlayerCameraScale(s32 playerIndex);
 void camSetPlayerProjMtx(Mtx *matrix);
 Mtx *camGetPlayerProjMtx(void);
 void camSetPlayerProjViewMtx(Mtx *mtx);

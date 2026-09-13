@@ -81,6 +81,8 @@ EnvironmentRecord *envGetCurrent(void);
 f32 envGetScaledFarFogIntensitySquared(void);
 void envLoadLevelEnvironment(s32 level_id, s32 arg1);
 s32 envPositionIsVisibleThroughFog(coord3d *pos, f32 range);
+/* cameraOffset is the world-space position minus the camera position. */
+bool envIsPropVisibleThroughFog(coord3d *cameraOffset, f32 radius, bool applyFade);
 Gfx *envBeginWorldFog(Gfx *gdl);
 Gfx *envRestoreFogAlphaDither(Gfx *gdl);
 Gfx *envSetRenderFogColor(Gfx *gdl);

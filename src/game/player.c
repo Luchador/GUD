@@ -3,6 +3,7 @@
 #include <fr.h>
 #include <random.h>
 #include "player.h"
+#include "cam.h"
 #include "dyntex.h"
 #include "bondview.h"
 #include "lv.h"
@@ -225,6 +226,7 @@ void playerInitData(s32 player_num)
  * keeps the next stage-pool allocation aligned. 
  */
     g_playerPointers[player_num] = mempAllocBytesInBank((sizeof(struct player) + 0xF) & ~0xF, MEMPOOL_STAGE);
+    camInvalidatePlayerCameraScale(player_num);
     g_playerPointers[player_num]->frozencam = 0;
     g_playerPointers[player_num]->pos.x = 0.0f;
     g_playerPointers[player_num]->pos.y = 0.0f;

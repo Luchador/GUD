@@ -55,6 +55,7 @@
       build/OUTCODE/src/game/model.o (.rodata);
       build/OUTCODE/src/game/objecthandler_2.o (.rodata);
       build/OUTCODE/src/game/cam.o (.rodata);
+      build/OUTCODE/src/game/camprofile.o (.rodata);
       build/OUTCODE/src/game/bondview.o (.rodata);
       build/OUTCODE/src/game/bondinv.o (.rodata);
       build/OUTCODE/src/game/bondhead.o (.rodata);
