@@ -667,12 +667,13 @@ void modelHitRenderNodeList(ModelRenderData *renderData, ModelHitEntry *entry)
                 case MODELNODE_OPCODE_GUNFIRE:
                     if (node == root)
                     {
-                        if (renderSecondary)
+                        if (renderSecondary && modelRenderGunfire(renderData, model, node))
                         {
+                            /* An invisible flash emits nothing and leaves the
+                             * cached state valid for the following parts. */
                             renderCache.colorSegmentBase = NULL;
                             renderCache.vertexSegmentBase = NULL;
                             renderCache.type3PipelineReady = FALSE;
-                            modelRenderGunfire(renderData, model, node);
                         }
                     }
                     else

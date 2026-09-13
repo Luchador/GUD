@@ -108,7 +108,7 @@ void modelRenderNodeDlWithCache(ModelRenderData *renderdata, Model *model, Model
 void modelRenderRotatingTexture(ModelRenderData *renderdata, ModelNode *node);
 void sub_GAME_7F073038(ModelRenderData *renderdata, struct sImageTableEntry *tconfig, s32 arg2);
 //void dotube(ModelRenderData* renderdata, Model* model, ModelNode* node);
-void modelRenderGunfire(ModelRenderData *renderdata, Model *model, ModelNode *node);
+bool modelRenderGunfire(ModelRenderData *renderdata, Model *model, ModelNode *node);
 void modelSetShadowAlpha(s32 alpha);
 void modelRenderShadow(ModelRenderData *renderdata, Model *model, ModelNode *node);
 void sub_GAME_7F074534(ModelRenderData* data, Model* model, ModelNode* node);

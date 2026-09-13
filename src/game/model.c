@@ -4121,7 +4121,32 @@ void sub_GAME_7F073038(ModelRenderData *renderdata, struct sImageTableEntry *tco
 }
 
 
-void modelRenderGunfire(ModelRenderData *renderdata, Model *model, ModelNode *node)
+/* The random UV angle is a multiple of 1024, giving 64 orientations.
+ * These offsets are (coss/sins(angle) * 32 * 181) >> 18, calculated with
+ * libultra's integer sine table. Keep its rounding and quadrant asymmetry.
+ * Other image widths use the original calculation below. */
+static const s16 g_GunfireUvOffsets32[64][2] = {
+    { 723,    0}, { 720,   71}, { 710,  141}, { 692,  210},
+    { 668,  277}, { 638,  341}, { 601,  402}, { 559,  459},
+    { 511,  512}, { 458,  560}, { 401,  602}, { 340,  638},
+    { 276,  669}, { 209,  693}, { 140,  710}, {  69,  720},
+    {   0,  723}, { -72,  720}, {-142,  710}, {-211,  692},
+    {-278,  668}, {-342,  638}, {-403,  601}, {-460,  559},
+    {-513,  511}, {-561,  458}, {-603,  401}, {-639,  340},
+    {-670,  276}, {-694,  209}, {-711,  140}, {-721,   69},
+    {-724,    0}, {-721,  -72}, {-711, -142}, {-693, -211},
+    {-669, -278}, {-639, -342}, {-602, -403}, {-560, -460},
+    {-512, -513}, {-459, -561}, {-402, -603}, {-341, -639},
+    {-277, -670}, {-210, -694}, {-141, -711}, { -70, -721},
+    {   0, -724}, {  71, -721}, { 141, -711}, { 210, -693},
+    { 277, -669}, { 341, -639}, { 402, -602}, { 459, -560},
+    { 512, -512}, { 560, -459}, { 602, -402}, { 638, -341},
+    { 669, -277}, { 693, -210}, { 710, -141}, { 720,  -70}
+};
+
+
+/* Returns TRUE only when a flash changed the display-list state. */
+bool modelRenderGunfire(ModelRenderData *renderdata, Model *model, ModelNode *node)
 {
     f32 negspc0;
     ModelRoData_GunfireRecord *rodata;
@@ -4146,13 +4171,13 @@ void modelRenderGunfire(ModelRenderData *renderdata, Model *model, ModelNode *no
     f32 tmp;
     coord3d sp9c;
     coord3d sp90;
-    Vertex vtxtemplate = g_GunfireVertexTemplate;
+    Vertex vtxtemplate;
     Vertex *vertices;
     f32 distance;
 
     if (!(renderdata->flags & 2))
     {
-        return;
+        return FALSE;
     }
 
     rodata = &node->Data->Gunfire;
@@ -4184,7 +4209,8 @@ void modelRenderGunfire(ModelRenderData *renderdata, Model *model, ModelNode *no
         }
 
         spec = acosf(spe0.f[0] * mtx->m[1][0] + spe0.f[1] * mtx->m[1][1] + spe0.f[2] * mtx->m[1][2]);
-        spf0 = acosf(-(spe0.f[0] * mtx->m[2][0] + spe0.f[1] * mtx->m[2][1] + spe0.f[2] * mtx->m[2][2]) / sinf(spec));
+        spd0 = sinf(spec);
+        spf0 = acosf(-(spe0.f[0] * mtx->m[2][0] + spe0.f[1] * mtx->m[2][1] + spe0.f[2] * mtx->m[2][2]) / spd0);
 
         tmp = -(spe0.f[0] * mtx->m[0][0] + spe0.f[1] * mtx->m[0][1] + spe0.f[2] * mtx->m[0][2]);
 
@@ -4196,7 +4222,6 @@ void modelRenderGunfire(ModelRenderData *renderdata, Model *model, ModelNode *no
         spdc = cosf(spf0);
         spd8 = sinf(spf0);
         spd4 = cosf(spec);
-        spd0 = sinf(spec);
 
         scale = 0.75f + (randomGetNext() % 128) * (1.0f / 256.0f); // 0.75 to 1.25
 
@@ -4220,6 +4245,7 @@ void modelRenderGunfire(ModelRenderData *renderdata, Model *model, ModelNode *no
         sp90.f[2] = rodata->Offset.f[2];
 
         vertices = g_ModelVertexAllocator(4);
+        vtxtemplate = g_GunfireVertexTemplate;
 
         vertices[0] = vtxtemplate;
         vertices[1] = vtxtemplate;
@@ -4251,8 +4277,17 @@ void modelRenderGunfire(ModelRenderData *renderdata, Model *model, ModelNode *no
             tconfig = rodata->Image;
 
             sp62 = (randomGetNext() * 1024) & 0xffff;
-            sp5c = (coss(sp62) * tconfig->width * 0xb5) >> 18;
-            sp58 = (sins(sp62) * tconfig->width * 0xb5) >> 18;
+
+            if (tconfig->width == 32)
+            {
+                sp5c = g_GunfireUvOffsets32[sp62 >> 10][0];
+                sp58 = g_GunfireUvOffsets32[sp62 >> 10][1];
+            }
+            else
+            {
+                sp5c = (coss(sp62) * tconfig->width * 0xb5) >> 18;
+                sp58 = (sins(sp62) * tconfig->width * 0xb5) >> 18;
+            }
 
             centre = tconfig->width << 4;
 
@@ -4276,7 +4311,11 @@ void modelRenderGunfire(ModelRenderData *renderdata, Model *model, ModelNode *no
         gSPMatrix(renderdata->gdl++, osVirtualToPhysical(mtx), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
         gSPVertex(renderdata->gdl++, osVirtualToPhysical(vertices), 4, 0);
         gSP2Triangles(renderdata->gdl++, 0, 1, 2, 0, 2, 3, 0, 0);
+
+        return TRUE;
     }
+
+    return FALSE;
 }
 
 
