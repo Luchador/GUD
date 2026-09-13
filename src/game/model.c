@@ -4148,32 +4148,24 @@ static const s16 g_GunfireUvOffsets32[64][2] = {
 /* Returns TRUE only when a flash changed the display-list state. */
 bool modelRenderGunfire(ModelRenderData *renderdata, Model *model, ModelNode *node)
 {
-    f32 negspc0;
     ModelRoData_GunfireRecord *rodata;
     union ModelRwData *rwdata;
     sImageTableEntry *tconfig;
-    f32 spf0;
-    f32 spec;
-    coord3d spe0;
-    f32 spdc;
-    f32 spd8;
-    f32 spd4;
-    f32 spd0;
-    f32 spcc;
-    f32 spc8;
-    f32 spc4;
-    f32 spc0;
-    f32 spbc;
-    f32 negspcc;
-    f32 negspc8;
+    coord3d toCamera;
+    coord3d localDirection;
+    coord3d right;
+    coord3d up;
+    f32 horizontalSq;
+    f32 lengthSq;
+    f32 horizontalLength;
+    f32 inverseLength;
+    f32 vertical;
     f32 scale;
     Mtxf *mtx;
-    f32 tmp;
-    coord3d sp9c;
-    coord3d sp90;
+    coord3d size;
+    coord3d centre;
     Vertex vtxtemplate;
     Vertex *vertices;
-    f32 distance;
 
     if (!(renderdata->flags & 2))
     {
@@ -4188,61 +4180,73 @@ bool modelRenderGunfire(ModelRenderData *renderdata, Model *model, ModelNode *no
         s32 index = modelFindNodeMtxIndex(node, 0);
         mtx = &model->render_pos[index].pos;
 
-        spe0.x = -(rodata->Offset.f[0] * mtx->m[0][0] + rodata->Offset.f[1] * mtx->m[1][0] + rodata->Offset.f[2] * mtx->m[2][0] + mtx->m[3][0]);
-        spe0.y = -(rodata->Offset.f[0] * mtx->m[0][1] + rodata->Offset.f[1] * mtx->m[1][1] + rodata->Offset.f[2] * mtx->m[2][1] + mtx->m[3][1]);
-        spe0.z = -(rodata->Offset.f[0] * mtx->m[0][2] + rodata->Offset.f[1] * mtx->m[1][2] + rodata->Offset.f[2] * mtx->m[2][2] + mtx->m[3][2]);
+        toCamera.x = -(rodata->Offset.x * mtx->m[0][0] + rodata->Offset.y * mtx->m[1][0] + rodata->Offset.z * mtx->m[2][0] + mtx->m[3][0]);
+        toCamera.y = -(rodata->Offset.x * mtx->m[0][1] + rodata->Offset.y * mtx->m[1][1] + rodata->Offset.z * mtx->m[2][1] + mtx->m[3][1]);
+        toCamera.z = -(rodata->Offset.x * mtx->m[0][2] + rodata->Offset.y * mtx->m[1][2] + rodata->Offset.z * mtx->m[2][2] + mtx->m[3][2]);
 
-        distance = sqrtf(spe0.f[0] * spe0.f[0] + spe0.f[1] * spe0.f[1] + spe0.f[2] * spe0.f[2]);
-
-        if (distance > 0)
+        /* Keep the view-space +Z fallback when the camera is at the muzzle. */
+        if (toCamera.x == 0.0f && toCamera.y == 0.0f && toCamera.z == 0.0f)
         {
-            f32 tmp = 1 / (model->scale * distance);
-            spe0.f[0] *= tmp;
-            spe0.f[1] *= tmp;
-            spe0.f[2] *= tmp;
+            toCamera.z = 1.0f;
+        }
+
+        /* Project into the weapon's local axes, then normalize. The uniform
+         * scale inherited from a character cancels here, even if it differs
+         * from model->scale. No inverse matrix or angle conversion is needed. */
+        localDirection.x = toCamera.x * mtx->m[0][0] + toCamera.y * mtx->m[0][1] + toCamera.z * mtx->m[0][2];
+        localDirection.y = toCamera.x * mtx->m[1][0] + toCamera.y * mtx->m[1][1] + toCamera.z * mtx->m[1][2];
+        localDirection.z = toCamera.x * mtx->m[2][0] + toCamera.y * mtx->m[2][1] + toCamera.z * mtx->m[2][2];
+
+        horizontalSq = localDirection.x * localDirection.x + localDirection.z * localDirection.z;
+        lengthSq = horizontalSq + localDirection.y * localDirection.y;
+
+        if (lengthSq == 0.0f)
+        {
+            /* A collapsed transform has no facing direction. */
+            localDirection.z = 1.0f;
+            horizontalSq = lengthSq = 1.0f;
+        }
+
+        inverseLength = 1.0f / sqrtf(lengthSq);
+        vertical = localDirection.y * inverseLength;
+        right.y = 0.0f;
+
+        if (horizontalSq > lengthSq * 1.0e-12f)
+        {
+            horizontalLength = sqrtf(horizontalSq);
+            up.y = horizontalLength * inverseLength;
+            inverseLength = 1.0f / horizontalLength;
+            right.x = -localDirection.z * inverseLength;
+            right.z = localDirection.x * inverseLength;
         }
         else
         {
-            spe0.f[0] = 0;
-            spe0.f[1] = 0;
-            spe0.f[2] = 1 / model->scale;
+            /* Looking along local Y leaves the horizontal direction undefined.
+             * Use a fixed right vector rather than divide by a tiny length. */
+            right.x = 1.0f;
+            right.z = 0.0f;
+            up.y = 0.0f;
         }
 
-        spec = acosf(spe0.f[0] * mtx->m[1][0] + spe0.f[1] * mtx->m[1][1] + spe0.f[2] * mtx->m[1][2]);
-        spd0 = sinf(spec);
-        spf0 = acosf(-(spe0.f[0] * mtx->m[2][0] + spe0.f[1] * mtx->m[2][1] + spe0.f[2] * mtx->m[2][2]) / spd0);
-
-        tmp = -(spe0.f[0] * mtx->m[0][0] + spe0.f[1] * mtx->m[0][1] + spe0.f[2] * mtx->m[0][2]);
-
-        if (tmp < 0)
-        {
-            spf0 = M_TAU_F - spf0;
-        }
-
-        spdc = cosf(spf0);
-        spd8 = sinf(spf0);
-        spd4 = cosf(spec);
+        up.x = -vertical * right.z;
+        up.z = vertical * right.x;
 
         scale = 0.75f + (randomGetNext() % 128) * (1.0f / 256.0f); // 0.75 to 1.25
 
-        sp9c.f[0] = rodata->Size.f[0] * scale;
-        sp9c.f[1] = rodata->Size.f[1] * scale;
-        sp9c.f[2] = rodata->Size.f[2] * scale;
+        size.x = rodata->Size.x * scale;
+        size.y = rodata->Size.y * scale;
+        size.z = rodata->Size.z * scale;
 
-        spcc = sp9c.f[0] * spdc * 0.5f;
-        spc8 = sp9c.f[2] * spd8 * 0.5f;
-        spc4 = sp9c.f[1] * spd0 * 0.5f;
+        /* Preserve the anisotropic dimensions and the original X offset. */
+        right.x *= size.x * 0.5f;
+        right.z *= size.z * 0.5f;
+        up.x *= size.x * 0.5f;
+        up.y *= size.y * 0.5f;
+        up.z *= size.z * 0.5f;
 
-        spc0 = sp9c.f[0] * spd4 * spd8 * 0.5f;
-        spbc = sp9c.f[2] * spd4 * spdc * 0.5f;
-
-        negspcc = -spcc;
-        negspc8 = -spc8;
-        negspc0 = -spc0;
-
-        sp90.f[0] = rodata->Offset.f[0] - sp9c.f[0] * 0.5f;
-        sp90.f[1] = rodata->Offset.f[1];
-        sp90.f[2] = rodata->Offset.f[2];
+        centre.x = rodata->Offset.x - size.x * 0.5f;
+        centre.y = rodata->Offset.y;
+        centre.z = rodata->Offset.z;
 
         vertices = g_ModelVertexAllocator(4);
         vtxtemplate = g_GunfireVertexTemplate;
@@ -4252,18 +4256,18 @@ bool modelRenderGunfire(ModelRenderData *renderdata, Model *model, ModelNode *no
         vertices[2] = vtxtemplate;
         vertices[3] = vtxtemplate;
 
-        vertices[0].coord.x = sp90.f[0] + negspcc + negspc0;
-        vertices[0].coord.y = sp90.f[1] - spc4;
-        vertices[0].coord.z = sp90.f[2] - negspc8 + -spbc;
-        vertices[1].coord.x = sp90.f[0] + negspcc - negspc0;
-        vertices[1].coord.y = sp90.f[1] + spc4;
-        vertices[1].coord.z = sp90.f[2] - negspc8 - -spbc;
-        vertices[2].coord.x = sp90.f[0] - negspcc - negspc0;
-        vertices[2].coord.y = sp90.f[1] + spc4;
-        vertices[2].coord.z = sp90.f[2] + negspc8 - -spbc;
-        vertices[3].coord.x = sp90.f[0] - negspcc + negspc0;
-        vertices[3].coord.y = sp90.f[1] - spc4;
-        vertices[3].coord.z = sp90.f[2] + negspc8 + -spbc;
+        vertices[0].coord.x = centre.x - right.x - up.x;
+        vertices[0].coord.y = centre.y - up.y;
+        vertices[0].coord.z = centre.z - right.z - up.z;
+        vertices[1].coord.x = centre.x - right.x + up.x;
+        vertices[1].coord.y = centre.y + up.y;
+        vertices[1].coord.z = centre.z - right.z + up.z;
+        vertices[2].coord.x = centre.x + right.x + up.x;
+        vertices[2].coord.y = centre.y + up.y;
+        vertices[2].coord.z = centre.z + right.z + up.z;
+        vertices[3].coord.x = centre.x + right.x - up.x;
+        vertices[3].coord.y = centre.y - up.y;
+        vertices[3].coord.z = centre.z + right.z - up.z;
 
         gSPSegment(renderdata->gdl++, SPSEGMENT_MODEL_COL1, osVirtualToPhysical(rodata->BaseAddr));
 
