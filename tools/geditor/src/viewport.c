@@ -190,6 +190,7 @@ static void ViewportFreeScene(struct ViewportState *state);
 typedef struct Vertex {
     GLfloat x, y, z;
     GLubyte r, g, b, a;
+    GLubyte fullbright[4]; /* display RGB + original alpha; never exported */
     GLfloat s, t;
     BgEnvironmentVertex environment; /* world normal and normalized generation ranges */
     GLfloat fogamount;
@@ -220,6 +221,7 @@ typedef struct ViewportState {
     HDC hdc;      /* private DC - stable for the window's lifetime (CS_OWNDC) */
     HGLRC hglrc;  /* the GL context rendering into it */
     EditorTool tool;
+    ViewportRenderMode rendermode;
     BOOL vertexsnap;
     BOOL showgeometrystatistics;
     GLuint statisticsfont; /* ASCII bitmap display lists, owned by the GL context */
@@ -727,16 +729,19 @@ static void ViewportDrawVisibleBatch(const ViewportState *state, const SceneBatc
     if (first < end) { glDrawArrays(GL_TRIANGLES, first, end - first); }
 }
 
+static void ViewportDrawExtrusionBatch(const ViewportState *state, const SceneBatch *batch);
+
 /* Draw over the shaded scene without changing document/selection colors.
    Polygon point mode gives camera-facing, fixed-pixel-size square markers
    while retaining the same triangle clipping and backface culling as BG. */
 static void ViewportDrawBgToolOverlay(const ViewportState *state)
 {
     BOOL vertices = state->tool == EDITOR_TOOL_VERTEX_SELECT;
+    BOOL wireframe = state->rendermode == VIEWPORT_RENDER_WIREFRAME;
     int batchindex, pass;
 
     if (state->scene == NULL || state->batchcount <= 0
-        || (!vertices && state->tool != EDITOR_TOOL_EDGE_SELECT))
+        || (!wireframe && !vertices && state->tool != EDITOR_TOOL_EDGE_SELECT))
     {
         return;
     }
@@ -777,18 +782,34 @@ static void ViewportDrawBgToolOverlay(const ViewportState *state)
         {
             const SceneBatch *batch = &state->batches[batchindex];
 
-            if (batch->object
-                || (batch->secondary ? !state->showbgsecondary : !state->showbgprimary))
+            if (batch->object ? (!wireframe || points || !state->showobjects)
+                : (batch->secondary ? !state->showbgsecondary : !state->showbgprimary))
             {
                 continue;
             }
             ViewportApplyCullMode(ViewportBatchCullMode(batch, state->cullbackfaces));
             ViewportDrawVisibleBatch(state, batch);
+            if (wireframe && !points) { ViewportDrawExtrusionBatch(state, batch); }
         }
     }
 
     glPopClientAttrib();
     glPopAttrib();
+}
+
+/* Keep display colors separate from both authored RGB and selection RGB.
+ * Alpha still drives blending/cutout; cyan remains an editing highlight. */
+static void ViewportSetFullbrightColor(Vertex *vertex, BOOL selected)
+{
+    vertex->fullbright[0] = selected ? 0 : 255;
+    vertex->fullbright[1] = vertex->fullbright[2] = 255;
+    vertex->fullbright[3] = vertex->a;
+}
+
+static void ViewportSceneColorPointer(const ViewportState *state, const Vertex *vertices)
+{
+    glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex),
+        state->rendermode == VIEWPORT_RENDER_FULLBRIGHT ? vertices->fullbright : &vertices->r);
 }
 
 
@@ -987,7 +1008,7 @@ static void ViewportDrawMonitors(ViewportState *state)
         if (animation->color[3] < 255) { flags |= BG_RENDER_BLEND; }
         ViewportApplyRenderFlags(flags);
         ViewportApplyCullMode(state->cullbackfaces ? GL_BACK : 0);
-        if (texture && texture->name)
+        if (state->rendermode != VIEWPORT_RENDER_UNTEXTURED && texture && texture->name)
         {
             glEnable(GL_TEXTURE_2D); glBindTexture(GL_TEXTURE_2D, texture->name);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
@@ -1011,6 +1032,7 @@ static void ViewportDrawMonitors(ViewportState *state)
             v->t = (int16_t)t / (32.0f * (texture && texture->height ? texture->height : 1));
             v->r = animation->color[0]; v->g = animation->color[1];
             v->b = animation->color[2]; v->a = animation->color[3];
+            ViewportSetFullbrightColor(v, FALSE);
         }
         glDrawArrays(GL_TRIANGLES, batch->first, batch->count);
     }
@@ -1355,7 +1377,7 @@ static void ViewportDrawStartupModel(ViewportState *state)
 {
     if (!state->startupmodel || !state->startuptris) { return; }
     glPushAttrib(GL_ENABLE_BIT | GL_LIGHTING_BIT | GL_CURRENT_BIT
-        | GL_DEPTH_BUFFER_BIT | GL_POLYGON_BIT | GL_COLOR_BUFFER_BIT);
+        | GL_DEPTH_BUFFER_BIT | GL_POLYGON_BIT | GL_COLOR_BUFFER_BIT | GL_LINE_BIT);
     glPushClientAttrib(GL_CLIENT_VERTEX_ARRAY_BIT);
     glDisable(GL_TEXTURE_2D); glDisable(GL_ALPHA_TEST); glDisable(GL_BLEND);
     glDisable(GL_CULL_FACE); glDisable(GL_FOG); glDisable(GL_POLYGON_OFFSET_FILL);
@@ -1368,14 +1390,32 @@ static void ViewportDrawStartupModel(ViewportState *state)
     glRotatef(-state->pitch, 1, 0, 0);
     glRotatef(-state->yaw, 0, 1, 0);
     glTranslatef(-state->posx, -state->posy, -state->posz);
-    ViewportLightEditorModel(state, &g_StartupModelLighting);
+    if (state->rendermode == VIEWPORT_RENDER_FULLBRIGHT)
+    {
+        glDisable(GL_LIGHTING);
+        glEnableClientState(GL_VERTEX_ARRAY);
+        glDisableClientState(GL_COLOR_ARRAY);
+        glColor4ub(255, 255, 255, 255);
+    }
+    else { ViewportLightEditorModel(state, &g_StartupModelLighting); }
     glTranslated(state->startupcenter[0], state->startupcenter[1], state->startupcenter[2]);
     glRotated(ViewportStartupAngle(state), 0, 1, 0);
     glTranslated(-state->startupcenter[0], -state->startupcenter[1], -state->startupcenter[2]);
     glScalef(VIEWPORT_MARKER_MODEL_SCALE, VIEWPORT_MARKER_MODEL_SCALE, VIEWPORT_MARKER_MODEL_SCALE);
     ViewportDrawLitMesh(state->startupmodel, state->startuptris);
-    glPopMatrix();
     ModelLightingEnd(&state->modellighting);
+    if (state->rendermode == VIEWPORT_RENDER_WIREFRAME)
+    {
+        glDisable(GL_LIGHTING);
+        glDisableClientState(GL_COLOR_ARRAY);
+        glColor4ub(255, 255, 255, 255);
+        glLineWidth(1.0f);
+        glDepthMask(GL_FALSE); glDepthFunc(GL_LEQUAL);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        glEnable(GL_POLYGON_OFFSET_LINE); glPolygonOffset(-1.0f, -1.0f);
+        ViewportDrawLitMesh(state->startupmodel, state->startuptris);
+    }
+    glPopMatrix();
     glPopClientAttrib();
     glPopAttrib();
 }
@@ -1406,6 +1446,7 @@ static void ViewportDrawExtrusionBatch(const ViewportState *state, const SceneBa
             *target = state->scene[source];
             target->x = v->x; target->y = v->y; target->z = v->z;
             target->a = v->a;
+            ViewportSetFullbrightColor(target, FALSE);
             if (!(batch->renderflags & BG_RENDER_ENVIRONMENT))
             {
                 target->r = v->r; target->g = v->g; target->b = v->b;
@@ -1416,7 +1457,7 @@ static void ViewportDrawExtrusionBatch(const ViewportState *state, const SceneBa
             target->fogamount = FogAmount(&state->fog, depth);
         }
         glVertexPointer(3, GL_FLOAT, sizeof(Vertex), &vertices[0].x);
-        glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex), &vertices[0].r);
+        ViewportSceneColorPointer(state, vertices);
         glTexCoordPointer(2, GL_FLOAT, sizeof(Vertex), &vertices[0].s);
         if (state->fogcoordpointer)
         { state->fogcoordpointer(GL_FLOAT, sizeof(Vertex), &vertices[0].fogamount); }
@@ -1464,7 +1505,7 @@ static void ViewportPaintGL(ViewportState *state)
         GLsizei count = state->scenecount;
 
         glVertexPointer(3, GL_FLOAT, sizeof(Vertex), &verts[0].x);
-        glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex), &verts[0].r);
+        ViewportSceneColorPointer(state, verts);
         glTexCoordPointer(2, GL_FLOAT, sizeof(Vertex), &verts[0].s);
         glEnableClientState(GL_TEXTURE_COORD_ARRAY);
 
@@ -1514,7 +1555,7 @@ static void ViewportPaintGL(ViewportState *state)
                     incullback = wantcullback;
                 }
 
-                if (batch->gltex != 0)
+                if (state->rendermode != VIEWPORT_RENDER_UNTEXTURED && batch->gltex != 0)
                 {
                     glEnable(GL_TEXTURE_2D);
                     glBindTexture(GL_TEXTURE_2D, batch->gltex);
@@ -2148,7 +2189,7 @@ static BOOL ViewportRayBatchTriangleDistance(const ViewportState *state, const S
     u = (bb * ap - ab * bp) / denominator;
     w = (aa * bp - ab * ap) / denominator;
     alpha = ((1 - u - w) * v[0].a + u * v[1].a + w * v[2].a) / 255.0;
-    if (texture && texture->name && texture->alpha)
+    if (state->rendermode != VIEWPORT_RENDER_UNTEXTURED && texture && texture->name && texture->alpha)
     {
         float uv[3][2] = {{v[0].s, v[0].t}, {v[1].s, v[1].t}, {v[2].s, v[2].t}};
         if (batch->renderflags & BG_RENDER_ENVIRONMENT)
@@ -2345,6 +2386,7 @@ static void ViewportSetTriangleColor(ViewportState *state, int triangle,
             state->scene[vertex].g = state->scenecolors[vertex].g;
             state->scene[vertex].b = state->scenecolors[vertex].b;
         }
+        ViewportSetFullbrightColor(&state->scene[vertex], selected);
     }
 }
 
@@ -5805,6 +5847,21 @@ void ViewportRedraw(HWND viewport)
     InvalidateRect(viewport, NULL, FALSE);
 }
 
+ViewportRenderMode ViewportGetRenderMode(HWND viewport)
+{
+    const ViewportState *state = ViewportGetState(viewport);
+    return state ? state->rendermode : VIEWPORT_RENDER_NORMAL;
+}
+
+void ViewportSetRenderMode(HWND viewport, ViewportRenderMode mode)
+{
+    ViewportState *state = ViewportGetState(viewport);
+    if (!state || state->orbit || mode < VIEWPORT_RENDER_NORMAL
+        || mode > VIEWPORT_RENDER_UNTEXTURED || state->rendermode == mode) { return; }
+    state->rendermode = mode;
+    ViewportRedraw(viewport);
+}
+
 
 void ViewportSetBackgroundColor(HWND viewport, const unsigned char rgb[3])
 {
@@ -6643,6 +6700,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
                 dst[k].g = src[k].g;
                 dst[k].b = src[k].b;
                 dst[k].a = src[k].a;
+                ViewportSetFullbrightColor(&dst[k], FALSE);
                 scenecolors[i * 3 + k].r = src[k].r;
                 scenecolors[i * 3 + k].g = src[k].g;
                 scenecolors[i * 3 + k].b = src[k].b;

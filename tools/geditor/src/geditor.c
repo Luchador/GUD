@@ -578,6 +578,10 @@ enum {
     ID_VIEW_BACKFACE_CULLING,
     ID_VIEW_GEOMETRY_STATISTICS,
     ID_VIEW_FOG,
+    ID_VIEW_RENDER_NORMAL,
+    ID_VIEW_RENDER_WIREFRAME,
+    ID_VIEW_RENDER_FULLBRIGHT,
+    ID_VIEW_RENDER_UNTEXTURED,
     ID_VIEW_HIDE_SELECTED,
     ID_VIEW_UNHIDE_ALL,
 
@@ -735,6 +739,13 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(viewmenu, MF_STRING, ID_VIEW_BACKFACE_CULLING, "&Backface Culling");
     AppendMenu(viewmenu, MF_STRING | MF_CHECKED, ID_VIEW_GEOMETRY_STATISTICS, "Geometry &Statistics");
     AppendMenu(viewmenu, MF_STRING | MF_CHECKED, ID_VIEW_FOG, "&Fog\tF");
+    AppendMenu(viewmenu, MF_SEPARATOR, 0, NULL);
+    AppendMenu(viewmenu, MF_STRING, ID_VIEW_RENDER_NORMAL, "&Normal\tCtrl+1");
+    AppendMenu(viewmenu, MF_STRING, ID_VIEW_RENDER_WIREFRAME, "&Wireframe\tCtrl+2");
+    AppendMenu(viewmenu, MF_STRING, ID_VIEW_RENDER_FULLBRIGHT, "Fullb&right\tCtrl+3");
+    AppendMenu(viewmenu, MF_STRING, ID_VIEW_RENDER_UNTEXTURED, "Unte&xtured\tCtrl+4");
+    CheckMenuRadioItem(viewmenu, ID_VIEW_RENDER_NORMAL, ID_VIEW_RENDER_UNTEXTURED,
+        ID_VIEW_RENDER_NORMAL, MF_BYCOMMAND);
     AppendMenu(viewmenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(viewmenu, MF_STRING, ID_VIEW_HIDE_SELECTED, "&Hide Selected\tH");
     AppendMenu(viewmenu, MF_STRING, ID_VIEW_UNHIDE_ALL, "&Unhide All\tAlt+H");
@@ -3622,6 +3633,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         CheckMenuItem((HMENU)wparam, ID_VIEW_BACKFACE_CULLING, MF_BYCOMMAND | (ViewportGetBackfaceCulling(g_Viewport) ? MF_CHECKED : MF_UNCHECKED));
         CheckMenuItem((HMENU)wparam, ID_VIEW_GEOMETRY_STATISTICS, MF_BYCOMMAND | (ViewportGetGeometryStatisticsVisible(g_Viewport) ? MF_CHECKED : MF_UNCHECKED));
         CheckMenuItem((HMENU)wparam, ID_VIEW_FOG, MF_BYCOMMAND | (ViewportGetFogVisible(g_Viewport) ? MF_CHECKED : MF_UNCHECKED));
+        CheckMenuRadioItem((HMENU)wparam, ID_VIEW_RENDER_NORMAL, ID_VIEW_RENDER_UNTEXTURED,
+            ID_VIEW_RENDER_NORMAL + ViewportGetRenderMode(g_Viewport), MF_BYCOMMAND);
         EnableMenuItem((HMENU)wparam, ID_VIEW_HIDE_SELECTED, MF_BYCOMMAND |
             (ViewportGetTool(g_Viewport) == EDITOR_TOOL_FACE_SELECT && ViewportGetSelectedBgFaceCount(g_Viewport) > 0
                 ? MF_ENABLED : MF_GRAYED));
@@ -3789,6 +3802,14 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
             case ID_VIEW_FOG:
                 ViewportSetFogVisible(g_Viewport, !ViewportGetFogVisible(g_Viewport));
+                return 0;
+
+            case ID_VIEW_RENDER_NORMAL:
+            case ID_VIEW_RENDER_WIREFRAME:
+            case ID_VIEW_RENDER_FULLBRIGHT:
+            case ID_VIEW_RENDER_UNTEXTURED:
+                ViewportSetRenderMode(g_Viewport,
+                    (ViewportRenderMode)(LOWORD(wparam) - ID_VIEW_RENDER_NORMAL));
                 return 0;
 
             case ID_VIEW_HIDE_SELECTED:
@@ -3972,6 +3993,25 @@ static BOOL GEditorHandleFogHotkey(HWND frame, const MSG *message)
     return TRUE;
 }
 
+/* Display modes work during camera flight too, while text inputs and the
+   floating editors keep their own Ctrl+number key handling. */
+static BOOL GEditorHandleRenderModeHotkey(HWND frame, const MSG *message)
+{
+    char classname[32] = "";
+    if (!message || !g_Viewport || message->message != WM_KEYDOWN
+        || message->wParam < '1' || message->wParam > '4'
+        || (message->hwnd != frame && !IsChild(frame, message->hwnd))
+        || !(GetKeyState(VK_CONTROL) & 0x8000)
+        || (GetKeyState(VK_MENU) & 0x8000)
+        || (GetKeyState(VK_SHIFT) & 0x8000)) { return FALSE; }
+    GetClassName(message->hwnd, classname, sizeof(classname));
+    if (lstrcmpi(classname, "Edit") == 0 || lstrcmpi(classname, "ComboBox") == 0
+        || lstrcmpi(classname, "ComboLBox") == 0) { return FALSE; }
+    if (!(message->lParam & ((LPARAM)1 << 30)))
+    { SendMessage(frame, WM_COMMAND, ID_VIEW_RENDER_NORMAL + message->wParam - '1', 0); }
+    return TRUE;
+}
+
 /* Leave Q/A to camera flight and native text controls. Scope these shortcuts
    to the main editor so the floating UV/model windows keep their own input. */
 static BOOL GEditorHandleSelectionHotkey(HWND frame, const MSG *message)
@@ -4083,6 +4123,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                 if (!ModelEditorHandleMessage(&msg)
                     && !UVEditorHandleMessage(&msg)
                     && !GEditorHandleFogHotkey(hwnd, &msg)
+                    && !GEditorHandleRenderModeHotkey(hwnd, &msg)
                     && !GEditorHandleVisibilityHotkey(hwnd, &msg)
                     && !GEditorHandleTransformHotkey(hwnd, &msg)
                     && !GEditorHandleSelectionHotkey(hwnd, &msg)
@@ -4108,6 +4149,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
             if (!ModelEditorHandleMessage(&msg)
                 && !UVEditorHandleMessage(&msg)
                 && !GEditorHandleFogHotkey(hwnd, &msg)
+                && !GEditorHandleRenderModeHotkey(hwnd, &msg)
                 && !GEditorHandleVisibilityHotkey(hwnd, &msg)
                 && !GEditorHandleTransformHotkey(hwnd, &msg)
                 && !GEditorHandleSelectionHotkey(hwnd, &msg)

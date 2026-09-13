@@ -11,6 +11,16 @@
 #include "texload.h"
 #include "monitorload.h"
 
+/* Display-only modes, in the same order as View menu / Ctrl+1..4. */
+typedef enum ViewportRenderMode {
+    VIEWPORT_RENDER_NORMAL,
+    VIEWPORT_RENDER_WIREFRAME,
+    VIEWPORT_RENDER_FULLBRIGHT,
+    VIEWPORT_RENDER_UNTEXTURED
+} ViewportRenderMode;
+ViewportRenderMode ViewportGetRenderMode(HWND viewport);
+void ViewportSetRenderMode(HWND viewport, ViewportRenderMode mode);
+
 /* Sent to the frame after mouse picking changes the scene selection. The
    frame can query the selected background face or setup object below. */
 #define VIEWPORT_WM_SELECTION_CHANGED (WM_APP + 3)

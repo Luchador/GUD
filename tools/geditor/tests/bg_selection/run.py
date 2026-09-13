@@ -28,7 +28,8 @@ def main():
                  'ViewportStanComponent', 'ViewportBoxPoint', 'ViewportBoxComponent'):
         types += re.search(r'typedef struct ' + name + r'\s*\{.*?\} ' + name + ';', viewport, re.S)[0] + '\n'
     logic = ''.join(function(viewport, name) for name in (
-        'ViewportTriangleHidden', 'ViewportBatchIsPickable', 'ViewportSetTriangleColor',
+        'ViewportTriangleHidden', 'ViewportBatchIsPickable',
+        'ViewportSetFullbrightColor', 'ViewportSetTriangleColor',
         'ViewportClearBgSelection', 'ViewportClearAllSelection', 'ViewportCompareBoxPoints',
         'ViewportCompareBoxComponents', 'ViewportBoxComponentKey', 'ViewportApplyBoxComponents',
         'ViewportBgSelectionPoint', 'ViewportCanSelectBackground', 'ViewportSelectBackground',
