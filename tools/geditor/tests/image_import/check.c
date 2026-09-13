@@ -338,8 +338,10 @@ static void ImageActions(const char *project)
     puts("PASS: base/imported/pending replacement and deletion, unchanged IDs/records, all settings, discard, saved-only export, save rollback, thumbnail compaction, blank slots and rejection of unsupported metadata.");
 }
 
+void CheckBmpAlpha(const char *, const char *);
 int main(int argc,char **argv)
 {
-    char actions[MAX_PATH];assert(argc==2);Encoders();Fixture(argv[1]);Pipeline(argv[1]);Limits(argv[1]);
+    char actions[MAX_PATH];assert(argc==2 || argc==3);Encoders();Fixture(argv[1]);
+    CheckBmpAlpha(argv[1],argc==3?argv[2]:NULL);Pipeline(argv[1]);Limits(argv[1]);
     snprintf(actions,sizeof(actions),"%s-actions",argv[1]);Fixture(actions);ImageActions(actions);return 0;
 }

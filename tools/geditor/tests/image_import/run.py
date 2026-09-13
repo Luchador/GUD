@@ -5,6 +5,7 @@ Uses the production encoder, metadata reader, image edit store and ROM packer.
 The BMP routines are extracted unchanged; WIC/dialogs require Windows testing.
 The small Win32 file shim maps only the file APIs used by these routines.
 """
+import argparse
 import os
 from pathlib import Path
 import re
@@ -25,6 +26,9 @@ def function(source, name):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--photoshop-bmp', type=Path, help='Also verify the original jungle_tree_wall.bmp regression image.')
+    args = parser.parse_args()
     tests = Path(__file__).resolve().parent
     src = tests.parent.parent / "src"
     source = (src / "texload.c").read_text()
@@ -34,18 +38,20 @@ def main():
     for name in ("TexWriteBmp", "TexReadBmpThumb", "TexThumbCompare", "TexLoadProjectThumbnails",
                  "TexLoadSavedProjectImage", "TexLoadProjectImage", "TexGetProjectImageSize"):
         native += "\n" + function(source, name) + "\n"
+    native += '\nBOOL TestRestoreImportBmpAlpha(const char *path, TexPixel *pixels, DWORD w, DWORD h)\n{ return TexRestoreImportBmpAlpha(path, pixels, w, h); }\n'
     with tempfile.TemporaryDirectory(prefix="geditor-image-test-") as temp:
         work = Path(temp)
         (work / "texload_host.c").write_text(native)
         command = [os.environ.get("CC", "cc"), "-O1", "-g", "-std=c99", "-Wall", "-Wextra",
                    "-Wno-format-overflow", "-ffunction-sections", "-fdata-sections",
                    "-fsanitize=address,undefined", "-Dfopen=TestFopen", f"-I{tests}", f"-I{src}",
-                   str(tests / "check.c"), str(tests / "platform.c"), str(work / "texload_host.c")]
+                   str(tests / "check.c"), str(tests / "bmp_alpha.c"), str(tests / "platform.c"), str(work / "texload_host.c")]
         command += [str(src / name) for name in ("texencode.c", "texinfo.c", "texrom.c", "imageedits.c", "gltf.c", "bgrender.c")]
         command += ["-lm", "-Wl,--gc-sections", "-o", str(work / "check")]
         subprocess.run(command, check=True)
         env = dict(os.environ, ASAN_OPTIONS="detect_leaks=0", UBSAN_OPTIONS="halt_on_error=1")
-        subprocess.run([str(work / "check"), str(work / "project")], env=env, check=True)
+        subprocess.run([str(work / "check"), str(work / "project")]
+                       + ([str(args.photoshop_bmp.resolve())] if args.photoshop_bmp else []), env=env, check=True)
 
 
 if __name__ == "__main__":

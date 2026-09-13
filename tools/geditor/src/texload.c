@@ -243,8 +243,105 @@ BOOL TexDecodeRecord(const unsigned char *data, DWORD size, TexPixel *pixels, in
                           texbe32(data + 20), texbe16(data + 8), pixels);
 }
 
-/* WIC handles indexed, RGB, bitfield and RLE BMPs. Alpha-less BMPs become
- * opaque; explicit BMP alpha is retained. Rotate once at the import boundary
+/* WIC ignores the fourth byte in legacy 32-bit BMPs, including Photoshop's
+ * A8R8G8B8 output and our extracted project BMPs. Recover it before rotating
+ * the decoded pixels into native GE order. WIC still owns RGB conversion and
+ * all other BMP formats (indexed, 16/24-bit, RLE, etc.).
+ *
+ * A legacy BI_RGB header cannot distinguish all-transparent alpha from unused
+ * zero padding. Keep WIC's opaque result if every fourth byte is zero; otherwise
+ * retain the full channel. An explicit alpha mask is authoritative even when
+ * every alpha value is zero. */
+static BOOL TexRestoreImportBmpAlpha(const char *path, TexPixel *pixels,
+                                      DWORD width, DWORD height)
+{
+    unsigned char header[138], *raw = NULL;
+    HANDLE file;
+    DWORD got, filesize, headersize, compression, offset, bytes;
+    DWORD mask = 0, shift = 0, maximum, x, y, headerend;
+    LONG rawheight;
+    BOOL legacy = FALSE, ok = FALSE;
+
+    file = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, NULL,
+                      OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file == INVALID_HANDLE_VALUE) { return FALSE; }
+    filesize = GetFileSize(file, NULL);
+    if (filesize == INVALID_FILE_SIZE
+        || !ReadFile(file, header, sizeof(header), &got, NULL)) { goto done; }
+    /* Unknown headers remain the system decoder's responsibility. */
+    if (got < 18 || header[0] != 'B' || header[1] != 'M') { ok = TRUE; goto done; }
+    headersize = texle32(header + 14);
+    if (headersize != 40 && headersize != 52 && headersize != 56
+        && headersize != 108 && headersize != 124) { ok = TRUE; goto done; }
+    if (got < 14 + headersize) { goto done; }
+    compression = texle32(header + 30);
+    if (texle16(header + 28) != 32
+        || (compression != BI_RGB && compression != 3 && compression != 6))
+    { ok = TRUE; goto done; }
+
+    headerend = 14 + headersize;
+    if (headersize >= 56)
+    {
+        mask = texle32(header + 66); /* V3/V4/V5 explicit alpha mask. */
+    }
+    else if (headersize == 40 && compression == 6) /* BI_ALPHABITFIELDS */
+    {
+        headerend += 16; /* Four masks follow BITMAPINFOHEADER. */
+        if (got < headerend) { goto done; }
+        mask = texle32(header + 66);
+    }
+    if (!mask && headersize == 40 && compression == BI_RGB)
+    { mask = 0xFF000000u; legacy = TRUE; }
+    if (!mask) { ok = TRUE; goto done; }
+
+    /* Never treat colour bits as alpha. Explicit masks may use fewer than
+       eight bits, but must be contiguous and separate from the RGB channels. */
+    if (!legacy)
+    {
+        DWORD colourmask = compression == BI_RGB ? 0x00FFFFFFu
+            : texle32(header + 54) | texle32(header + 58) | texle32(header + 62);
+        if (mask & colourmask) { goto done; }
+    }
+    while (!((mask >> shift) & 1u)) { shift++; }
+    maximum = mask >> shift;
+    if (maximum & (maximum + 1u)) { goto done; }
+    rawheight = (LONG)texle32(header + 22);
+    if (!pixels || !width || !height || width > 255 || height > 255
+        || texle16(header + 26) != 1 || texle32(header + 18) != width
+        || (rawheight != (LONG)height && rawheight != -(LONG)height)) { goto done; }
+    offset = texle32(header + 10);
+    bytes = width * height * 4; /* Every 32-bit row is already DWORD aligned. */
+    if (offset < headerend || offset > 0x7FFFFFFFu || offset > filesize
+        || bytes > filesize - offset
+        || SetFilePointer(file, (LONG)offset, NULL, FILE_BEGIN) != offset) { goto done; }
+    raw = (unsigned char *)malloc(bytes);
+    if (!raw || !ReadFile(file, raw, bytes, &got, NULL) || got != bytes) { goto done; }
+    if (legacy)
+    {
+        DWORD i;
+        for (i = 3; i < bytes && raw[i] == 0; i += 4) { }
+        if (i >= bytes) { ok = TRUE; goto done; }
+    }
+    for (y = 0; y < height; y++)
+    {
+        DWORD sourcey = rawheight > 0 ? height - 1 - y : y;
+        const unsigned char *row = raw + sourcey * width * 4;
+        for (x = 0; x < width; x++)
+        {
+            DWORD alpha = (texle32(row + x * 4) & mask) >> shift;
+            pixels[y * width + x].a = (unsigned char)
+                (((ULONGLONG)alpha * 255 + maximum / 2) / maximum);
+        }
+    }
+    ok = TRUE;
+done:
+    free(raw);
+    CloseHandle(file);
+    return ok;
+}
+
+/* WIC handles indexed, RGB, bitfield and RLE BMPs. Restore legacy/explicit
+ * BMP alpha that its decoder ignores. Rotate once at the import boundary
  * to match the native orientation used by existing project textures/UVs. */
 BOOL TexReadImportBmp(const char *path, TexPixel **pixels, int *width, int *height, const char **reasonout)
 {
@@ -281,6 +378,11 @@ BOOL TexReadImportBmp(const char *path, TexPixel **pixels, int *width, int *heig
         || FAILED(IWICFormatConverter_Initialize(converter, (IWICBitmapSource *)frame,
             &GUID_WICPixelFormat32bppRGBA, WICBitmapDitherTypeNone, NULL, 0.0, WICBitmapPaletteTypeCustom))
         || FAILED(IWICFormatConverter_CopyPixels(converter, NULL, w * 4, w * h * 4, (BYTE *)result))) { goto done; }
+    if (!TexRestoreImportBmpAlpha(path, result, w, h))
+    {
+        *reasonout = "The BMP alpha data could not be read. Check that the file is complete and has a valid header.";
+        goto done;
+    }
     for (i = 0; i < w * h / 2; i++)
     {
         TexPixel temp = result[i]; result[i] = result[w * h - 1 - i]; result[w * h - 1 - i] = temp;
