@@ -10,6 +10,9 @@
 #include "renderprofile.h"
 #include "rsp.h"
 
+/* Linked into resident .code. TaskStart/TaskDone and their callees must remain
+ * resident so scheduler callbacks never enter the game's demand pager. */
+
 #define RENDER_PROFILE_WINDOW 60
 #define RENDER_PROFILE_WARMUP 30
 /* All DP counters are 24-bit. Reject long tasks rather than report wrapped

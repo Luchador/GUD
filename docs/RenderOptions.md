@@ -73,6 +73,17 @@ varies, so real-console measurements are the intended result.
 
 ## Implementation notes
 
+The render settings and profiler modules' text is linked into resident
+`.code`, even though their source files live under `src/game`. VI retraces
+start before `bossInitMainthreadData` initializes game demand paging. Their
+callbacks, and the scheduler's profiler hooks, must not enter the paged
+`0x7f...` game segment. Linker assertions enforce residency of those entry
+points. Changes to included linker scripts now also trigger a relink.
+
+Watch strings include trailing newlines, matching the existing language-bank
+labels. `textMeasure` only adds height at a newline; omitting it creates a
+zero-height clipping rectangle and hides the label, value, arrow or footer.
+
 The game drains pending graphics tasks before applying AA/VI changes because
 asset display lists are shared between frames. The submission pass follows
 Fast3D display-list calls, branches and segments. A bounded stack and command
@@ -121,8 +132,12 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1 TEST_CFLAGS='-fsanitiz
 The suite exercises production AA transformations and restoration, segmented
 and nested lists, cache invalidation, all nine AA/VI pairs, legacy-save
 defaults, watch navigation and edit controls, timing windows, stale-task
-rejection, audio-yield resumes and counter conversion/wrap handling. Hardware
-and UI calls are shimmed; these checks do not emulate rendering.
+rejection, audio-yield resumes and counter conversion/wrap handling. It also
+checks resident callback placement and runs the actual watch page drawing,
+label layout and text measurement with all option combinations. The final
+rasterizer is replaced with a check that rejects empty or off-screen clipping
+rectangles. Font metrics and hardware calls are shimmed; these checks do not
+emulate rendering or a console boot.
 
 The affected C files were compiled to MIPS assembly with the repository's
 IDO 5.3 compiler and US build flags. Host tests and sanitizer checks passed.

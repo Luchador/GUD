@@ -41,8 +41,10 @@ source += '''
 static s32 g_WatchFirstToggleOption;
 static u32 g_WatchGameOptionsIndex;
 '''
-for name in ('watchScrollGameOptions', 'watchNavToggleOptions', 'game_options_music_volume_navigation',
-             'game_options_fx_volume_navigation', 'watchDrawRenderOption'):
+source += function((ROOT / 'src/game/textrelated.c').read_text(), 'textMeasure')
+for name in ('draw_options_labels', 'watchScrollGameOptions', 'watchNavToggleOptions',
+             'game_options_music_volume_navigation', 'game_options_fx_volume_navigation',
+             'watchDrawRenderOption', 'watchDrawToggleOptions'):
     source += function(options, name)
 source += function((ROOT / 'src/sched.c').read_text(), '__scExec')
 source += (HERE / 'check.c').read_text()
@@ -56,10 +58,22 @@ assert 'renderProfileTaskStart(sp)' in sched
 assert sched.index('renderProfileTaskDone(t)') < sched.index('sc->curRDPTask = NULL;')
 boss = (ROOT / 'src/boss.c').read_text()
 assert '(!renderSettingsPending() || pendingGfx == 0)' in boss
-for name in ('text', 'data', 'rodata', 'bss'):
+for name in ('data', 'rodata', 'bss'):
     script = (ROOT / f'ld/game.{name}.ld.inc').read_text()
     assert f'renderconfig.o (.{name})' in script
     assert f'renderprofile.o (.{name})' in script
+# Retraces begin before bossInitMainthreadData initializes demand paging.
+# All code used by VI/scheduler hooks must therefore be in resident .code.
+resident = (ROOT / 'ld/lib.text.ld.inc').read_text()
+paged = (ROOT / 'ld/game.text.ld.inc').read_text()
+for module in ('renderconfig', 'renderprofile'):
+    entry = f'build/OUTCODE/src/game/{module}.o (.text);'
+    assert entry in resident and entry not in paged, f'{module} must be resident for scheduler callbacks'
+linker = (ROOT / 'ge007.ld').read_text()
+for symbol in ('renderConfigureViMode', 'renderProfileTaskStart', 'renderProfileTaskDone'):
+    assert f'{symbol} >= _codeSegmentStart && {symbol} < _codeSegmentEnd' in linker
+assert '$(wildcard ld/*.ld.inc)' in (ROOT / 'Makefile').read_text()
+print('Boot layout: VI and profiler hooks are resident and protected by linker assertions', flush=True)
 assert 'renderRestoreAaGdl(start, end)' in (ROOT / 'src/game/bgapply.c').read_text()
 assert 'renderInvalidateAaCache()' in function((ROOT / 'src/game/tex.c').read_text(), 'texLoadFromGdl')
 assert 'renderInvalidateAaCache()' in function((ROOT / 'src/game/dyn.c').read_text(), 'dynInitMemory')

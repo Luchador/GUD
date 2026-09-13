@@ -2,6 +2,9 @@
 #include <PR/rcp.h>
 #include "renderconfig.h"
 
+/* Linked into resident .code: renderConfigureViMode runs on scheduler retraces,
+ * including those before the main thread initializes game demand paging. */
+
 /* Player-facing preferences survive stage changes. Their applied copies change
  * only with an empty graphics queue, since cached display lists are shared. */
 static s32 g_RenderAaStyle = RENDER_AA_FULL;

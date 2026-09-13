@@ -3485,10 +3485,11 @@ static void watchScrollGameOptions(void)
 
 static Gfx *watchDrawRenderOption(Gfx *gdl, s32 y, s32 index, s32 state)
 {
-    static char *labels[] = {"OPAQUE AA", "VI FILTER", "RENDER STATS"};
-    static char *aaValues[] = {"FULL", "REDUCED", "OFF"};
-    static char *viValues[] = {"SMOOTH", "EDGES", "OFF"};
-    static char *statsValues[] = {"OFF", "ON"};
+    /* textMeasure counts height at newlines; watch labels need a final one. */
+    static char *labels[] = {"OPAQUE AA\n", "VI FILTER\n", "RENDER STATS\n"};
+    static char *aaValues[] = {"FULL\n", "REDUCED\n", "OFF\n"};
+    static char *viValues[] = {"SMOOTH\n", "EDGES\n", "OFF\n"};
+    static char *statsValues[] = {"OFF\n", "ON\n"};
     char **values;
     u32 value;
     u32 previous;
@@ -3528,8 +3529,8 @@ static Gfx *watchDrawRenderOption(Gfx *gdl, s32 y, s32 index, s32 state)
             state == 2 ? 0xffffffff : colour, state == 2, 0x7000a0, 0, 0, 0, 0);
     gdl = draw_options_labels(gdl, 231, y, values[value], colour, 0, 0, 1, 0, 0, 0);
     if (state) {
-        if (value > 0) gdl = draw_options_labels(gdl, 181, y, "<", colour, 0, 0, 1, 0, 0, 0);
-        if (value + 1 < count) gdl = draw_options_labels(gdl, 281, y, ">", colour, 0, 0, 1, 0, 0, 0);
+        if (value > 0) gdl = draw_options_labels(gdl, 181, y, "<\n", colour, 0, 0, 1, 0, 0, 0);
+        if (value + 1 < count) gdl = draw_options_labels(gdl, 281, y, ">\n", colour, 0, 0, 1, 0, 0, 0);
     }
     return gdl;
 }
@@ -3541,7 +3542,7 @@ Gfx *watchDrawToggleOptions(Gfx *gdl)
     s32 option;
     s32 index;
     s32 state;
-    char range[24];
+    char range[32];
 
     watchScrollGameOptions();
     gdl = gfxSetup2DTextureMode(gdl);
@@ -3560,7 +3561,7 @@ Gfx *watchDrawToggleOptions(Gfx *gdl)
             gdl = watchDrawToggleOptionValues(gdl, y, option, state);
         }
     }
-    sprintf(range, "%d-%d / %d", g_WatchFirstToggleOption + 1,
+    sprintf(range, "%d-%d / %d\n", g_WatchFirstToggleOption + 1,
             g_WatchFirstToggleOption + WATCH_VISIBLE_TOGGLE_OPTIONS, GAME_OPTIONS_INDEX_COUNT - 2);
     gdl = draw_options_labels(gdl, 288, 201, range, 0x00ff00b0, 0, 0, 0, 0, 0, 1);
     return gdl;

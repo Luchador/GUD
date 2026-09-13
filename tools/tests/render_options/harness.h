@@ -94,11 +94,46 @@ static void watchResetItemIsActivelySelected(void) { g_TestActive = 0; }
 static bool watchShouldNavLeft(void) { return g_TestStick == -2; }
 static bool watchShouldNavRight(void) { return g_TestStick == 2; }
 static void watchSelectGameOption(u32 *value, u32 chosen) { *value = chosen; g_TestStick = 0; }
-static Gfx *draw_options_labels(Gfx *gdl, s32 x, s32 y, char *text, u32 colour, s32 outlined,
-        u32 outlinecolour, s32 centre, s32 drawbg, u32 bgcolour, s32 rightalign)
+/* Use the production measurement and watch-label functions. Only the final
+ * rasterizer is replaced, so zero-height clipping cannot pass unnoticed. */
+struct fontchar { s32 index, baseline, height, width, kerningindex; u8 *pixeldata; };
+struct font { s32 kerning[13 * 13]; struct fontchar chars[94]; };
+static struct font g_TestFont;
+static struct font *ptrFontBankGothic = &g_TestFont;
+static struct fontchar *ptrFontBankGothicChars = g_TestFont.chars;
+static s32 text_spacing;
+#define SPACE_WIDTH 5
+#define YOFFSET_1 80
+#define YINC 15
+static s32 g_WatchBackgroundGreen = 0xff;
+static s32 watch_item_is_actively_selected;
+static struct { u32 current_value; u16 text[4]; } g_GameOptionEntries[8];
+static s32 g_TestDrawCount;
+static char g_TestDrawText[40][64];
+static Gfx *gfxSetup2DTextureMode(Gfx *gdl) { return gdl; }
+static char *langGet(u16 id) { (void)id; return "EXISTING\n"; }
+static Gfx *watchDrawToggleOptionValues(Gfx *gdl, s32 y, s32 option, s32 state)
+{ (void)y; (void)option; (void)state; return gdl; }
+static Gfx *gfxDrawTranslucentRect(Gfx *gdl, s32 x, s32 y, s32 right, s32 bottom, u32 colour)
+{ (void)x; (void)y; (void)right; (void)bottom; (void)colour; return gdl; }
+static Gfx *textRender(Gfx *gdl, s32 *x, s32 *y, char *text,
+        struct fontchar *chars, struct font *font, u32 colour,
+        s32 width, s32 height, u32 yOffset, s32 lineheight)
 {
-    (void)text; (void)colour; (void)outlined; (void)outlinecolour; (void)centre;
-    (void)drawbg; (void)bgcolour; (void)rightalign;
-    assert(x >= 0 && x < 320 && y >= 0 && y < 240);
+    (void)chars; (void)font; (void)colour; (void)yOffset; (void)lineheight;
+    if (width <= 0 || height <= 0) {
+        fprintf(stderr, "Watch text has an empty clipping rectangle: %s\n", text);
+        abort();
+    }
+    assert(*x >= 0 && *x + width <= 320 && *y >= 0 && *y + height <= 240);
+    assert(g_TestDrawCount < 40 && strlen(text) < 64);
+    strcpy(g_TestDrawText[g_TestDrawCount++], text);
     return gdl;
+}
+static Gfx *textRenderOutlined(Gfx *gdl, s32 *x, s32 *y, char *text,
+        struct fontchar *chars, struct font *font, u32 colour, u32 outlinecolour,
+        s32 width, s32 height, u32 yOffset, s32 lineheight)
+{
+    (void)outlinecolour;
+    return textRender(gdl, x, y, text, chars, font, colour, width, height, yOffset, lineheight);
 }

@@ -149,27 +149,69 @@ static void test_watch(void)
 
 static void test_watch_editing(void)
 {
-    Gfx dummy;
+    Gfx dummy[256];
     renderDecodeSettings(0);
+    renderProfileSetEnabled(FALSE);
     g_TestButtons = R_JPAD;
-    watchDrawRenderOption(&dummy, 155, GAME_OPTIONS_INDEX_OPAQUE_AA, 1);
+    watchDrawRenderOption(dummy, 155, GAME_OPTIONS_INDEX_OPAQUE_AA, 1);
     assert(renderGetAaStyle() == RENDER_AA_FULL);
-    watchDrawRenderOption(&dummy, 155, GAME_OPTIONS_INDEX_OPAQUE_AA, 2);
+    watchDrawRenderOption(dummy, 155, GAME_OPTIONS_INDEX_OPAQUE_AA, 2);
     assert(renderGetAaStyle() == RENDER_AA_REDUCED);
-    watchDrawRenderOption(&dummy, 155, GAME_OPTIONS_INDEX_OPAQUE_AA, 2);
-    watchDrawRenderOption(&dummy, 155, GAME_OPTIONS_INDEX_OPAQUE_AA, 2);
+    watchDrawRenderOption(dummy, 155, GAME_OPTIONS_INDEX_OPAQUE_AA, 2);
+    watchDrawRenderOption(dummy, 155, GAME_OPTIONS_INDEX_OPAQUE_AA, 2);
     assert(renderGetAaStyle() == RENDER_AA_OFF);
-    watchDrawRenderOption(&dummy, 170, GAME_OPTIONS_INDEX_VI_FILTER, 2);
+    watchDrawRenderOption(dummy, 170, GAME_OPTIONS_INDEX_VI_FILTER, 2);
     assert(renderGetViFilter() == RENDER_VI_EDGES);
-    watchDrawRenderOption(&dummy, 185, GAME_OPTIONS_INDEX_RENDER_STATS, 2);
+    watchDrawRenderOption(dummy, 185, GAME_OPTIONS_INDEX_RENDER_STATS, 2);
     assert(renderProfileEnabled());
     g_TestButtons = L_CBUTTONS;
-    watchDrawRenderOption(&dummy, 185, GAME_OPTIONS_INDEX_RENDER_STATS, 2);
+    watchDrawRenderOption(dummy, 185, GAME_OPTIONS_INDEX_RENDER_STATS, 2);
     assert(!renderProfileEnabled());
-    watchDrawRenderOption(&dummy, 170, GAME_OPTIONS_INDEX_VI_FILTER, 2);
+    watchDrawRenderOption(dummy, 170, GAME_OPTIONS_INDEX_VI_FILTER, 2);
     assert(renderGetViFilter() == RENDER_VI_SMOOTH);
     g_TestButtons = 0;
     puts("Watch editing: selection gating, both directions and value limits passed");
+}
+
+static bool test_drew(const char *text)
+{
+    s32 i;
+    for (i = 0; i < g_TestDrawCount; i++) if (!strcmp(g_TestDrawText[i], text)) return TRUE;
+    return FALSE;
+}
+
+static void test_watch_text(void)
+{
+    Gfx list[256];
+    s32 i, selected, aa, vi, stats, active, height, width;
+    for (i = 0; i < 94; i++) {
+        g_TestFont.chars[i].width = 5;
+        g_TestFont.chars[i].height = 8;
+        g_TestFont.chars[i].baseline = 1;
+    }
+    /* Reproduce the original bug through the real text measurement code. */
+    textMeasure(&height, &width, "OPAQUE AA", ptrFontBankGothicChars, ptrFontBankGothic, 10);
+    assert(width > 0 && height == 0);
+    textMeasure(&height, &width, "OPAQUE AA\n", ptrFontBankGothicChars, ptrFontBankGothic, 10);
+    assert(width > 0 && height == 10);
+    g_TestButtons = 0; g_TestStick = 0;
+    /* Exercise actual scrolling, labels, all values, both arrows and outlines. */
+    for (aa = 0; aa < 3; aa++) for (vi = 0; vi < 3; vi++) for (stats = 0; stats < 2; stats++)
+    for (active = 0; active < 2; active++) for (selected = 0; selected < GAME_OPTIONS_INDEX_COUNT; selected++) {
+        renderSetAaStyle(aa); renderSetViFilter(vi); renderProfileSetEnabled(stats);
+        g_WatchGameOptionsIndex = selected;
+        watch_item_is_actively_selected = active;
+        g_TestDrawCount = 0;
+        assert(watchDrawToggleOptions(list) < list + 256);
+        if (g_WatchFirstToggleOption >= 1) assert(test_drew("OPAQUE AA\n"));
+        if (g_WatchFirstToggleOption >= 2) assert(test_drew("VI FILTER\n"));
+        if (g_WatchFirstToggleOption >= 3) {
+            assert(test_drew("RENDER STATS\n"));
+            assert(test_drew("4-11 / 11\n"));
+        }
+    }
+    g_TestDrawCount = 0;
+    puts("Watch text: production measurement/render bounds passed for labels, values, arrows, footer and outlines");
 }
 
 static void test_scheduler_yields(void)
@@ -250,6 +292,6 @@ static void test_profile(void)
 
 int main(void)
 {
-    test_modes(); test_vi_and_save(); test_lists(); test_watch(); test_watch_editing(); test_scheduler_yields(); test_profile();
+    test_modes(); test_vi_and_save(); test_lists(); test_watch(); test_watch_text(); test_watch_editing(); test_scheduler_yields(); test_profile();
     return 0;
 }
