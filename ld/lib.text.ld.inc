@@ -8,9 +8,8 @@
       build/OUTCODE/src/tlb_hardwire.o (.text);
       build/OUTCODE/src/audi.o (.text);
       build/OUTCODE/src/fr.o (.text);
-      /* VI retraces and scheduler callbacks must not fault into paged game code. */
+      /* VI retraces must not fault into paged game code. */
       build/OUTCODE/src/game/renderconfig.o (.text);
-      build/OUTCODE/src/game/renderprofile.o (.text);
       build/OUTCODE/src/crash.o (.text);
       build/OUTCODE/src/getra.o (.text);
       build/OUTCODE/src/ramrom.o (.text);

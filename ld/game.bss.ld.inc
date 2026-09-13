@@ -104,4 +104,3 @@
       build/OUTCODE/src/game/musicselect.o (.bss);
       build/OUTCODE/src/game/gedmanifest.o (.bss);
       build/OUTCODE/src/game/renderconfig.o (.bss);
-      build/OUTCODE/src/game/renderprofile.o (.bss);

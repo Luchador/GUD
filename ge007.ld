@@ -72,10 +72,6 @@ SECTIONS
    /* Scheduler retraces begin before game demand paging is initialized. */
    ASSERT(renderConfigureViMode >= _codeSegmentStart && renderConfigureViMode < _codeSegmentEnd,
           "VI render settings callback must be resident")
-   ASSERT(renderProfileTaskStart >= _codeSegmentStart && renderProfileTaskStart < _codeSegmentEnd,
-          "Render profiler start callback must be resident")
-   ASSERT(renderProfileTaskDone >= _codeSegmentStart && renderProfileTaskDone < _codeSegmentEnd,
-          "Render profiler completion callback must be resident")
 
 
    BEGIN_SEG(fontdl, _gameSegmentRomEnd, 0x01000000)

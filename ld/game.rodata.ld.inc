@@ -105,4 +105,3 @@
       build/OUTCODE/src/game/musicselect.o (.rodata);
       build/OUTCODE/src/game/gedmanifest.o (.rodata);
       build/OUTCODE/src/game/renderconfig.o (.rodata);
-      build/OUTCODE/src/game/renderprofile.o (.rodata);

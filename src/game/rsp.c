@@ -196,9 +196,6 @@ void rspGfxTaskStart(Gfx *firstGdl, Gfx *gdl, s32 arg2, OSMesg rspReplyMsg)
 {
     OSScTask *sctask;
     OSTask *task;
-    u32 aaStart;
-    u32 aaCycles;
-    bool aaOk;
 
     sctask = &((struct GfxInfo_s *)g_gfxTaskSettingsList)->task;
     task = &sctask->list;
@@ -234,10 +231,7 @@ void rspGfxTaskStart(Gfx *firstGdl, Gfx *gdl, s32 arg2, OSMesg rspReplyMsg)
 
     sctask->framebuffer = (void *) ((struct GfxInfo_s *)g_gfxTaskSettingsList)->cfb;
 
-    aaStart = osGetCount();
-    aaOk = renderApplyAa(firstGdl, gdl);
-    aaCycles = osGetCount() - aaStart;
-    renderProfilePrepareTask(sctask, aaCycles, aaOk);
+    renderApplyAa(firstGdl, gdl);
 
     osWritebackDCacheAll();
 

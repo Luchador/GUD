@@ -1,5 +1,3 @@
-#include "renderconfig.h"
-#include "renderprofile.h"
 #include <ultra64.h>
 #include <math.h>
 #include <os_extension.h>
@@ -988,46 +986,6 @@ static Gfx *lvDrawProfilerText(Gfx *gdl, s32 *x, s32 *y, char *text, u32 color, 
             ptrFontBankGothic, color, width, viGetY(), 0, 0);
 }
 
-static Gfx *lvDrawRenderProfile(Gfx *gdl, s32 screenwidth)
-{
-    static char *aaNames[] = {"FULL", "REDUCED", "OFF"};
-    static char *viNames[] = {"SMOOTH", "EDGES", "OFF"};
-    static char *metrics[] = {"GFX", "DP CMD", "DP PIPE", "DP TEX", "AA CPU"};
-    RenderProfileStats stats;
-    char text[64];
-    u32 average;
-    u32 maximum;
-    s32 x;
-    s32 y;
-    s32 i;
-
-    if (!renderProfileEnabled() || !renderProfileGameplayActive()) return gdl;
-    renderProfileRead(&stats);
-    x = 14; y = 121;
-    sprintf(text, "AA:%s VI:%s", aaNames[renderGetAaStyle()], viNames[renderGetViFilter()]);
-    gdl = lvDrawProfilerText(gdl, &x, &y, text, 0xffffffff, screenwidth);
-    x = 14; y = 131;
-    if (stats.aaError) sprintf(text, "AA DISPLAY LIST ERROR");
-    else if (stats.warming) sprintf(text, "WARMUP:%u", stats.warming);
-    else if (!stats.samples) sprintf(text, "SAMPLING:%u/60", stats.collected);
-    else sprintf(text, "60 FRAMES: AVG / MAX MS");
-    gdl = lvDrawProfilerText(gdl, &x, &y, text, 0xffff80ff, screenwidth);
-    for (i = 0; i < RENDER_PROFILE_METRICS; i++) {
-        average = renderProfileToUsec(stats.average[i], i);
-        maximum = renderProfileToUsec(stats.maximum[i], i);
-        sprintf(text, "%s:%2u.%02u / %2u.%02u", metrics[i],
-                average / 1000, average / 10 % 100, maximum / 1000, maximum / 10 % 100);
-        x = 14; y = 141 + i * 10;
-        gdl = lvDrawProfilerText(gdl, &x, &y, text, 0x80ffffff, screenwidth);
-    }
-    if (stats.rejected) {
-        sprintf(text, "LONG TASKS SKIPPED:%u", stats.rejected);
-        x = 14; y = 191;
-        gdl = lvDrawProfilerText(gdl, &x, &y, text, 0xff8080ff, screenwidth);
-    }
-    return gdl;
-}
-
 Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
 {
     static u32 fpsWindowStart = 0;
@@ -1116,5 +1074,5 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         }
     }
 
-    return lvDrawRenderProfile(gdl, screenwidth);
+    return gdl;
 }

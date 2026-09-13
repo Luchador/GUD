@@ -1,4 +1,3 @@
-#include "renderprofile.h"
 #include "renderconfig.h"
 #include <ultra64.h>
 #include <bondconstants.h>
@@ -1590,9 +1589,8 @@ void watchNavigate(void)
                 case GAME_OPTIONS_INDEX_AMMO_ONSCREEN:
                 case GAME_OPTIONS_INDEX_SCREEN_SIZE:
                 case GAME_OPTIONS_INDEX_RATIO:
-                case GAME_OPTIONS_INDEX_OPAQUE_AA:
+                case GAME_OPTIONS_INDEX_AA:
                 case GAME_OPTIONS_INDEX_VI_FILTER:
-                case GAME_OPTIONS_INDEX_RENDER_STATS:
                     watchNavToggleOptions();
             }
             watchNavOptions();
@@ -3485,30 +3483,26 @@ static void watchScrollGameOptions(void)
 
 static Gfx *watchDrawRenderOption(Gfx *gdl, s32 y, s32 index, s32 state)
 {
-    /* textMeasure counts height at newlines; watch labels need a final one. */
-    static char *labels[] = {"OPAQUE AA\n", "VI FILTER\n", "RENDER STATS\n"};
-    static char *aaValues[] = {"FULL\n", "REDUCED\n", "OFF\n"};
-    static char *viValues[] = {"SMOOTH\n", "EDGES\n", "OFF\n"};
-    static char *statsValues[] = {"OFF\n", "ON\n"};
+    /* Lowercase selects the same small capitals as the existing watch options.
+     * textMeasure counts height at newlines; labels need a final one. */
+    static char *labels[] = {"aa\n", "vi filter\n"};
+    static char *aaValues[] = {"full\n", "reduced\n", "off\n"};
+    static char *viValues[] = {"smooth\n", "edges\n", "off\n"};
     char **values;
     u32 value;
     u32 previous;
     u32 count;
     u32 colour = state ? 0xa0ffa0f0 : 0x00ff00b0;
-    s32 option = index - GAME_OPTIONS_INDEX_OPAQUE_AA;
+    s32 option = index - GAME_OPTIONS_INDEX_AA;
 
-    if (index == GAME_OPTIONS_INDEX_OPAQUE_AA) {
+    if (index == GAME_OPTIONS_INDEX_AA) {
         value = renderGetAaStyle();
         count = RENDER_AA_COUNT;
         values = aaValues;
-    } else if (index == GAME_OPTIONS_INDEX_VI_FILTER) {
+    } else {
         value = renderGetViFilter();
         count = RENDER_VI_COUNT;
         values = viValues;
-    } else {
-        value = renderProfileEnabled();
-        count = 2;
-        values = statsValues;
     }
     previous = value;
     if (state == 2) {
@@ -3521,17 +3515,36 @@ static Gfx *watchDrawRenderOption(Gfx *gdl, s32 y, s32 index, s32 state)
         }
     }
     if (value != previous) {
-        if (index == GAME_OPTIONS_INDEX_OPAQUE_AA) renderSetAaStyle(value);
-        else if (index == GAME_OPTIONS_INDEX_VI_FILTER) renderSetViFilter(value);
-        else renderProfileSetEnabled(value);
+        if (index == GAME_OPTIONS_INDEX_AA) renderSetAaStyle(value);
+        else renderSetViFilter(value);
     }
     gdl = draw_options_labels(gdl, XOFFSET_1, y, labels[option],
             state == 2 ? 0xffffffff : colour, state == 2, 0x7000a0, 0, 0, 0, 0);
-    gdl = draw_options_labels(gdl, 231, y, values[value], colour, 0, 0, 1, 0, 0, 0);
+    gdl = draw_options_labels(gdl, 231, y, values[value],
+            state == 2 ? 0xa0ffa0f0 : 0x00ff00b0, 0, 0, 1, 0, 0, 0);
     if (state) {
         if (value > 0) gdl = draw_options_labels(gdl, 181, y, "<\n", colour, 0, 0, 1, 0, 0, 0);
         if (value + 1 < count) gdl = draw_options_labels(gdl, 281, y, ">\n", colour, 0, 0, 1, 0, 0, 0);
     }
+    return gdl;
+}
+
+static Gfx *watchDrawMoreOptionsTriangle(Gfx *gdl)
+{
+    s32 row;
+
+    /* Seven narrowing scanlines form a down triangle, below the last option
+     * and above the page buttons. Keep it in the watch's 2D pixel space. */
+    gDPPipeSync(gdl++);
+    gDPSetRenderMode(gdl++, G_RM_XLU_SURF, G_RM_XLU_SURF2);
+    gDPSetCombineMode(gdl++, G_CC_PRIMITIVE, G_CC_PRIMITIVE);
+    gDPSetPrimColor(gdl++, 0, 0, 0, 255, 0, 176);
+    for (row = 0; row < 7; row++) {
+        gDPFillRectangle(gdl++, 154 + row, 201 + row, 167 - row, 202 + row);
+    }
+    gDPPipeSync(gdl++);
+    gDPSetCombineLERP(gdl++, 0, 0, 0, PRIMITIVE, TEXEL0, 0, PRIMITIVE, 0,
+            0, 0, 0, PRIMITIVE, TEXEL0, 0, PRIMITIVE, 0);
     return gdl;
 }
 
@@ -3542,7 +3555,6 @@ Gfx *watchDrawToggleOptions(Gfx *gdl)
     s32 option;
     s32 index;
     s32 state;
-    char range[32];
 
     watchScrollGameOptions();
     gdl = gfxSetup2DTextureMode(gdl);
@@ -3552,7 +3564,7 @@ Gfx *watchDrawToggleOptions(Gfx *gdl)
         if (index >= GAME_OPTIONS_INDEX_COUNT) break;
         y = YOFFSET_1 + row * YINC;
         state = index == g_WatchGameOptionsIndex ? (watch_item_is_actively_selected ? 2 : 1) : 0;
-        if (index >= GAME_OPTIONS_INDEX_OPAQUE_AA) {
+        if (index >= GAME_OPTIONS_INDEX_AA) {
             gdl = watchDrawRenderOption(gdl, y, index, state);
         } else {
             gdl = draw_options_labels(gdl, XOFFSET_1, y, langGet(g_GameOptionEntries[option].text[0]),
@@ -3561,9 +3573,9 @@ Gfx *watchDrawToggleOptions(Gfx *gdl)
             gdl = watchDrawToggleOptionValues(gdl, y, option, state);
         }
     }
-    sprintf(range, "%d-%d / %d\n", g_WatchFirstToggleOption + 1,
-            g_WatchFirstToggleOption + WATCH_VISIBLE_TOGGLE_OPTIONS, GAME_OPTIONS_INDEX_COUNT - 2);
-    gdl = draw_options_labels(gdl, 288, 201, range, 0x00ff00b0, 0, 0, 0, 0, 0, 1);
+    if (g_WatchFirstToggleOption + WATCH_VISIBLE_TOGGLE_OPTIONS < GAME_OPTIONS_INDEX_COUNT - 2) {
+        gdl = watchDrawMoreOptionsTriangle(gdl);
+    }
     return gdl;
 }
 

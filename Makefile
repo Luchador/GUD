@@ -276,9 +276,9 @@ $(addprefix $(BUILD_DIR)/src/game/,bg.o bondview.o lv.o sky.o): src/game/bg.h
 $(addprefix $(BUILD_DIR)/src/game/,cam.o player.o): src/game/cam.h
 $(addprefix $(BUILD_DIR)/src/game/,cam.o environment.o): src/game/environment.h
 
-# Render settings/profiler declarations and the graphics-task extension.
-$(addprefix $(BUILD_DIR)/src/,boss.o fr.o sched.o) $(addprefix $(BUILD_DIR)/src/game/,rsp.o renderprofile.o): src/game/rsp.h src/game/renderprofile.h src/game/renderconfig.h
-$(addprefix $(BUILD_DIR)/src/game/,renderconfig.o options.o file2.o dyn.o tex.o bgapply.o lv.o): src/game/renderconfig.h src/game/renderprofile.h
+# Graphics-task layout and persistent render settings.
+$(addprefix $(BUILD_DIR)/src/,boss.o fr.o) $(BUILD_DIR)/src/game/rsp.o: src/game/rsp.h
+$(addprefix $(BUILD_DIR)/src/,boss.o fr.o) $(addprefix $(BUILD_DIR)/src/game/,rsp.o renderconfig.o options.o file2.o dyn.o tex.o bgapply.o): src/game/renderconfig.h
 $(BUILD_DIR)/src/game/options.o: src/game/options.h
 
 # Manifest catalog descriptors derive counts and strides beside their arrays.

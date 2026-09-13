@@ -136,7 +136,7 @@ static void test_watch(void)
         assert(g_WatchGameOptionsIndex == (u32)((before + (direction == 0 ? 1 : GAME_OPTIONS_INDEX_COUNT - 1)) % GAME_OPTIONS_INDEX_COUNT));
         assert(!g_TestActive);
         watchScrollGameOptions();
-        assert(g_WatchFirstToggleOption >= 0 && g_WatchFirstToggleOption <= 3);
+        assert(g_WatchFirstToggleOption >= 0 && g_WatchFirstToggleOption <= 2);
         if (g_WatchGameOptionsIndex >= 2) {
             assert((s32)g_WatchGameOptionsIndex - 2 >= g_WatchFirstToggleOption);
             assert((s32)g_WatchGameOptionsIndex - 2 < g_WatchFirstToggleOption + WATCH_VISIBLE_TOGGLE_OPTIONS);
@@ -151,22 +151,17 @@ static void test_watch_editing(void)
 {
     Gfx dummy[256];
     renderDecodeSettings(0);
-    renderProfileSetEnabled(FALSE);
     g_TestButtons = R_JPAD;
-    watchDrawRenderOption(dummy, 155, GAME_OPTIONS_INDEX_OPAQUE_AA, 1);
+    watchDrawRenderOption(dummy, 155, GAME_OPTIONS_INDEX_AA, 1);
     assert(renderGetAaStyle() == RENDER_AA_FULL);
-    watchDrawRenderOption(dummy, 155, GAME_OPTIONS_INDEX_OPAQUE_AA, 2);
+    watchDrawRenderOption(dummy, 155, GAME_OPTIONS_INDEX_AA, 2);
     assert(renderGetAaStyle() == RENDER_AA_REDUCED);
-    watchDrawRenderOption(dummy, 155, GAME_OPTIONS_INDEX_OPAQUE_AA, 2);
-    watchDrawRenderOption(dummy, 155, GAME_OPTIONS_INDEX_OPAQUE_AA, 2);
+    watchDrawRenderOption(dummy, 155, GAME_OPTIONS_INDEX_AA, 2);
+    watchDrawRenderOption(dummy, 155, GAME_OPTIONS_INDEX_AA, 2);
     assert(renderGetAaStyle() == RENDER_AA_OFF);
     watchDrawRenderOption(dummy, 170, GAME_OPTIONS_INDEX_VI_FILTER, 2);
     assert(renderGetViFilter() == RENDER_VI_EDGES);
-    watchDrawRenderOption(dummy, 185, GAME_OPTIONS_INDEX_RENDER_STATS, 2);
-    assert(renderProfileEnabled());
     g_TestButtons = L_CBUTTONS;
-    watchDrawRenderOption(dummy, 185, GAME_OPTIONS_INDEX_RENDER_STATS, 2);
-    assert(!renderProfileEnabled());
     watchDrawRenderOption(dummy, 170, GAME_OPTIONS_INDEX_VI_FILTER, 2);
     assert(renderGetViFilter() == RENDER_VI_SMOOTH);
     g_TestButtons = 0;
@@ -180,118 +175,64 @@ static bool test_drew(const char *text)
     return FALSE;
 }
 
+static void test_triangle(Gfx *start, Gfx *end, bool expected)
+{
+    Gfx *cmd;
+    s32 count = 0;
+    s32 previousWidth = 0;
+    assert(end < start + 256);
+    for (cmd = start; cmd < end; cmd++) {
+        if ((cmd->words.w0 >> 24) == (u8)G_FILLRECT) {
+            s32 left = (cmd->words.w1 >> 14) & 1023;
+            s32 top = (cmd->words.w1 >> 2) & 1023;
+            s32 right = (cmd->words.w0 >> 14) & 1023;
+            s32 bottom = (cmd->words.w0 >> 2) & 1023;
+            assert(expected && left < right && bottom == top + 1);
+            assert(top > YOFFSET_1 + (WATCH_VISIBLE_TOGGLE_OPTIONS - 1) * YINC + 10);
+            assert(bottom < 216); /* Top edge of the watch page rectangles. */
+            assert(left + right == 321); /* Centered in the 320-pixel view. */
+            if (count) assert(right - left == previousWidth - 2);
+            previousWidth = right - left;
+            count++;
+        }
+    }
+    assert(count == (expected ? 7 : 0));
+    if (expected) assert(previousWidth == 1);
+}
+
 static void test_watch_text(void)
 {
     Gfx list[256];
-    s32 i, selected, aa, vi, stats, active, height, width;
-    for (i = 0; i < 94; i++) {
-        g_TestFont.chars[i].width = 5;
-        g_TestFont.chars[i].height = 8;
-        g_TestFont.chars[i].baseline = 1;
-    }
+    s32 selected, aa, vi, active, height, width;
+    test_load_font();
+    assert(g_TestFont.chars['a' - 33].height < g_TestFont.chars['A' - 33].height);
+    assert(g_TestFont.chars['v' - 33].height == g_TestFont.chars['s' - 33].height);
+    assert(GAME_OPTIONS_INDEX_COUNT == 12);
     /* Reproduce the original bug through the real text measurement code. */
-    textMeasure(&height, &width, "OPAQUE AA", ptrFontBankGothicChars, ptrFontBankGothic, 10);
+    textMeasure(&height, &width, "aa", ptrFontBankGothicChars, ptrFontBankGothic, 10);
     assert(width > 0 && height == 0);
-    textMeasure(&height, &width, "OPAQUE AA\n", ptrFontBankGothicChars, ptrFontBankGothic, 10);
+    textMeasure(&height, &width, "aa\n", ptrFontBankGothicChars, ptrFontBankGothic, 10);
     assert(width > 0 && height == 10);
     g_TestButtons = 0; g_TestStick = 0;
     /* Exercise actual scrolling, labels, all values, both arrows and outlines. */
-    for (aa = 0; aa < 3; aa++) for (vi = 0; vi < 3; vi++) for (stats = 0; stats < 2; stats++)
+    for (aa = 0; aa < 3; aa++) for (vi = 0; vi < 3; vi++)
     for (active = 0; active < 2; active++) for (selected = 0; selected < GAME_OPTIONS_INDEX_COUNT; selected++) {
-        renderSetAaStyle(aa); renderSetViFilter(vi); renderProfileSetEnabled(stats);
+        Gfx *end;
+        renderSetAaStyle(aa); renderSetViFilter(vi);
         g_WatchGameOptionsIndex = selected;
         watch_item_is_actively_selected = active;
         g_TestDrawCount = 0;
-        assert(watchDrawToggleOptions(list) < list + 256);
-        if (g_WatchFirstToggleOption >= 1) assert(test_drew("OPAQUE AA\n"));
-        if (g_WatchFirstToggleOption >= 2) assert(test_drew("VI FILTER\n"));
-        if (g_WatchFirstToggleOption >= 3) {
-            assert(test_drew("RENDER STATS\n"));
-            assert(test_drew("4-11 / 11\n"));
-        }
+        end = watchDrawToggleOptions(list);
+        test_triangle(list, end, g_WatchFirstToggleOption < 2);
+        if (g_WatchFirstToggleOption >= 1) assert(test_drew("aa\n"));
+        if (g_WatchFirstToggleOption >= 2) assert(test_drew("vi filter\n"));
     }
     g_TestDrawCount = 0;
-    puts("Watch text: production measurement/render bounds passed for labels, values, arrows, footer and outlines");
-}
-
-static void test_scheduler_yields(void)
-{
-    OSSched sc = {0};
-    struct GfxInfo_s gfx = {0};
-    OSScTask audio = {0};
-    gfx.task.list.t.type = M_GFXTASK;
-    audio.list.t.type = M_AUDTASK;
-    g_TestCounterResets = 0;
-    g_TestClock = 500;
-    __scExec(&sc, &gfx.task, &gfx.task);
-    assert(gfx.renderProfile.startCount == 500 && g_TestCounterResets == 1);
-    gfx.task.state = OS_SC_YIELD | OS_SC_YIELDED;
-    g_TestClock = 1000;
-    __scExec(&sc, &audio, NULL);
-    assert(g_TestCounterResets == 1);
-    g_TestClock = 2000;
-    __scExec(&sc, &gfx.task, NULL);
-    assert(gfx.renderProfile.startCount == 500 && g_TestCounterResets == 1);
-    assert(!(gfx.task.state & (OS_SC_YIELD | OS_SC_YIELDED)));
-    puts("Scheduler: audio preemption/resume preserves the graphics start and DP counters");
-}
-
-static void complete_sample(struct GfxInfo_s *task)
-{
-    renderProfilePrepareTask(&task->task, 46875, TRUE);
-    renderProfileTaskStart(&task->task);
-    g_TestClock += 937500; /* 20 ms */
-    g_TestCounters[0] = 625000; /* 10 ms */
-    g_TestCounters[1] = 312500; /* 5 ms */
-    g_TestCounters[2] = 62500; /* 1 ms */
-    renderProfileTaskDone(&task->task);
-}
-
-static void test_profile(void)
-{
-    struct GfxInfo_s task = {0}, queued = {0};
-    RenderProfileStats stats;
-    s32 i;
-    renderSetAaStyle(0); renderSetViFilter(0); renderApplySettings();
-    renderProfileSetEnabled(TRUE);
-    for (i = 0; i < 90; i++) complete_sample(&task);
-    renderProfileRead(&stats);
-    assert(stats.samples == 60 && stats.warming == 0);
-    assert(renderProfileToUsec(stats.average[0], 0) == 20000);
-    assert(renderProfileToUsec(stats.average[1], 1) == 10000);
-    assert(renderProfileToUsec(stats.average[2], 2) == 5000);
-    assert(renderProfileToUsec(stats.average[3], 3) == 1000);
-    assert(renderProfileToUsec(stats.average[4], 4) == 1000);
-    assert(stats.average[0] == stats.maximum[0]);
-    /* A pause invalidates already queued gameplay samples. */
-    renderProfilePrepareTask(&queued.task, 0, TRUE); renderProfileTaskStart(&queued.task);
-    g_TestPlayers[0].pause_state = 1;
-    renderProfilePrepareTask(&task.task, 0, TRUE); renderProfileTaskDone(&queued.task);
-    renderProfileRead(&stats); assert(stats.samples == 0 && stats.warming == 30);
-    g_TestPlayers[0].pause_state = 0;
-    complete_sample(&task); renderProfileRead(&stats); assert(stats.warming == 29);
-    /* Any player's pause, controls lock, title and multiplayer pause are excluded. */
-    g_TestPlayerCount = 2; g_TestPlayers[1].pause_state = 3; assert(!renderProfileGameplayActive());
-    g_TestPlayers[1].pause_state = 0; g_TestLocked = TRUE; assert(!renderProfileGameplayActive());
-    g_TestLocked = FALSE; g_TestStage = LEVELID_TITLE; assert(!renderProfileGameplayActive());
-    g_TestStage = 2; g_TestPaused = TRUE; assert(!renderProfileGameplayActive());
-    g_TestPaused = FALSE; complete_sample(&task); assert(g_RenderProfileStats.warming == 29);
-    renderSetViFilter(2); complete_sample(&task); assert(!task.renderProfile.eligible);
-    renderApplySettings(); complete_sample(&task); assert(g_RenderProfileStats.warming == 29);
-    renderProfilePrepareTask(&task.task, 0, TRUE); renderProfileTaskStart(&task.task);
-    g_TestClock += OS_USEC_TO_CYCLES(250001); renderProfileTaskDone(&task.task);
-    assert(g_RenderProfileStats.rejected == 1);
-    /* osGetCount wraps, but unsigned task-duration subtraction still works. */
-    g_TestClock = 0xffff0000u; complete_sample(&task); assert(g_RenderProfileStats.warming == 28);
-    /* A failed list walk must never contribute a partial-AA frame. */
-    renderProfilePrepareTask(&task.task, 0, FALSE);
-    assert(!task.renderProfile.eligible && g_RenderProfileStats.aaError);
-    renderProfileSetEnabled(FALSE); complete_sample(&task); assert(!task.renderProfile.eligible);
-    puts("Profiler: 60-frame averages, warmup, queue epochs, pauses, clocks and rejection passed");
+    puts("Watch text: production measurement/render bounds passed for small-cap labels, values, arrows and outlines");
 }
 
 int main(void)
 {
-    test_modes(); test_vi_and_save(); test_lists(); test_watch(); test_watch_text(); test_watch_editing(); test_scheduler_yields(); test_profile();
+    test_modes(); test_vi_and_save(); test_lists(); test_watch(); test_watch_text(); test_watch_editing();
     return 0;
 }
