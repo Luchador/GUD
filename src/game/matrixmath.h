@@ -15,6 +15,8 @@ u32 matrix_4x4_calc_depth_scale(f32 arg0, f32 arg1);
 void matrixSetConversionScale(f32 arg0);
 void matrix_4x4_copy(Mtxf *src, Mtxf *dst);
 void matrix_4x4_multiply_homogeneous(Mtxf *lhs, Mtxf *rhs, Mtxf *result);
+void matrix_4x4_multiply_translation(Mtxf *matrix, coord3d *position, Mtxf *result);
+void matrix_4x4_apply_scale_and_translation(Mtxf *matrix, coord3d *scale, coord3d *position);
 
 void matrix_4x4_f32_to_s32(f32 mf[4][4], s32 ms[4][4]);
 void matrix_4x4_f32_to_s32_in_place(Mtxf *matrix);

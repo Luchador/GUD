@@ -2477,11 +2477,7 @@ after_position_update:
             if ((chr->headnum >= HEAD_START) && (chr->headnum < BODY_Female_Sally))
             {
                 coord3d pos;
-                f32 xscale;
-                f32 yscale;
-                f32 zscale;
-                Mtxf mtx;
-                Mtxf tmp;
+                coord3d scale;
                 HATTYPE hat;
                 s32 unusedv;
                 struct headHat *entry;
@@ -2499,18 +2495,11 @@ after_position_update:
                 pos.y = entry->yoffset * 21.3f;
                 pos.z = entry->zoffset * 21.3f;
 
-                xscale = entry->xsize;
-                yscale = entry->ysize;
-                zscale = entry->zsize;
+                scale.x = entry->xsize;
+                scale.y = entry->ysize;
+                scale.z = entry->zsize;
 
-                matrix_4x4_set_identity_and_position(&pos, &mtx);
-
-                matrix_column_1_scalar_multiply(xscale, (f32 *)(&mtx));
-                matrix_column_2_scalar_multiply(yscale, (f32 *)(&mtx));
-                matrix_column_3_scalar_multiply_2(zscale, (f32 *)(&mtx));
-
-                matrix_4x4_multiply_homogeneous((Mtxf *)hatmodel->render_pos, &mtx, &tmp);
-                matrix_4x4_copy(&tmp, (Mtxf *)hatmodel->render_pos);
+                matrix_4x4_apply_scale_and_translation((Mtxf *)hatmodel->render_pos, &scale, &pos);
 
                 if (hat == HATTYPE_PEAKED)
                 {

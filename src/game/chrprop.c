@@ -1883,11 +1883,18 @@ void propsTickPlayer(void)
 f32 chrpropScoreAutoAimTarget(PropRecord *targetprop, coord3d *aimpos, f32 *world_xbounds, f32 *world_ybounds, coord2d *out_screen)
 {
     f32 aim_screen[2];
-    coord3d testpos;
-    f32 screen_left_edge[2];
-    f32 screen_right_edge[2];
-    f32 screen_top_edge[2];
-    f32 screen_bottom_edge[2];
+    f32 inv_z;
+    f32 projection_center_x;
+    f32 projection_center_y;
+    f32 screen_center_x;
+    f32 screen_width;
+    f32 screen_height;
+    f32 screen_left;
+    f32 screen_top;
+    f32 screen_left_edge;
+    f32 screen_right_edge;
+    f32 screen_top_edge;
+    f32 screen_bottom_edge;
     f32 crosshair_x;
     f32 crosshair_y;
     f32 autoaim_top;
@@ -1905,58 +1912,58 @@ f32 chrpropScoreAutoAimTarget(PropRecord *targetprop, coord3d *aimpos, f32 *worl
      * Define a central auto-aim acceptance region.
      * The sweet spot is 65% vertically in favor of the top of the screen and 50% horizontally.
      */
-    autoaim_top = getPlayer_c_screentop() + getPlayer_c_screenheight() * 0.175f;
-    autoaim_bottom = getPlayer_c_screentop() + getPlayer_c_screenheight() * 0.825f;
-    autoaim_left = getPlayer_c_screenleft() + getPlayer_c_screenwidth() * 0.25f;
-    autoaim_right = getPlayer_c_screenleft() + getPlayer_c_screenwidth() * 0.75f;
+    screen_top = g_CurrentPlayer->c_screentop;
+    screen_left = g_CurrentPlayer->c_screenleft;
+    screen_width = g_CurrentPlayer->c_screenwidth;
+    screen_height = g_CurrentPlayer->c_screenheight;
+    screen_center_x = screen_left + 0.5f * screen_width;
+
+    autoaim_top = screen_top + screen_height * 0.175f;
+    autoaim_bottom = screen_top + screen_height * 0.825f;
+    autoaim_left = screen_left + screen_width * 0.25f;
+    autoaim_right = screen_left + screen_width * 0.75f;
 
     score = -2.0f;
 
-    transform3Dto2DCoords(aimpos, (coord3d*)aim_screen);
-    testpos.x = world_xbounds[0];
-    testpos.y = aimpos->y;
-    testpos.z = aimpos->z;
-    transform3Dto2DCoords(&testpos, (coord3d*)screen_left_edge);
-    testpos.x = world_xbounds[1];
-    testpos.y = aimpos->y;
-    testpos.z = aimpos->z;
-    transform3Dto2DCoords(&testpos, (coord3d*)screen_right_edge);
-    testpos.x = aimpos->x;
-    testpos.y = world_ybounds[1];
-    testpos.z = aimpos->z;
-    transform3Dto2DCoords(&testpos, (coord3d*)screen_top_edge);
-    testpos.x = aimpos->x;
-    testpos.y = world_ybounds[0];
-    testpos.z = aimpos->z;
-    transform3Dto2DCoords(&testpos, (coord3d*)screen_bottom_edge);
+    /* All five points share the same depth. Keep the projection's original
+     * multiplication order and project only the components used below. */
+    inv_z = 1.0f / aimpos->z;
+    projection_center_x = screen_left + g_CurrentPlayer->c_halfwidth;
+    projection_center_y = screen_top + g_CurrentPlayer->c_halfheight;
+    aim_screen[0] = projection_center_x - aimpos->x * inv_z * g_CurrentPlayer->c_recipscalex;
+    aim_screen[1] = aimpos->y * inv_z * g_CurrentPlayer->c_recipscaley + projection_center_y;
+    screen_left_edge = projection_center_x - world_xbounds[0] * inv_z * g_CurrentPlayer->c_recipscalex;
+    screen_right_edge = projection_center_x - world_xbounds[1] * inv_z * g_CurrentPlayer->c_recipscalex;
+    screen_top_edge = world_ybounds[1] * inv_z * g_CurrentPlayer->c_recipscaley + projection_center_y;
+    screen_bottom_edge = world_ybounds[0] * inv_z * g_CurrentPlayer->c_recipscaley + projection_center_y;
 
-    if (screen_bottom_edge[1] >= autoaim_top && autoaim_bottom >= screen_top_edge[1])
+    if (screen_bottom_edge >= autoaim_top && autoaim_bottom >= screen_top_edge)
     {
         passes_horizontal_check = FALSE;
         get_bullet_angle(&crosshair_x, &crosshair_y);
-        screen_left_edge[0] = floorFloat(screen_left_edge[0]);
-        screen_right_edge[0] = ceilFloat(screen_right_edge[0]);
+        screen_left_edge = floorFloat(screen_left_edge);
+        screen_right_edge = ceilFloat(screen_right_edge);
 
         if (currentPlayerGetXAutoAimEnabledRedirect())
         {
-            if (screen_left_edge[0] <= autoaim_right && autoaim_left <= screen_right_edge[0])
+            if (screen_left_edge <= autoaim_right && autoaim_left <= screen_right_edge)
             {
-                horizontal_tolerance = (screen_right_edge[0] - screen_left_edge[0]) * 1.5f;
+                horizontal_tolerance = (screen_right_edge - screen_left_edge) * 1.5f;
 
                 if (getPlayerCount() == 1)
                 {
                     horizontal_tolerance = horizontal_tolerance * difficulty;
                 }
 
-                passes_horizontal_check = getPlayer_c_screenleft() + 0.5f * getPlayer_c_screenwidth() >= (screen_left_edge[0] + screen_right_edge[0]) * 0.5f - horizontal_tolerance
-                    && getPlayer_c_screenleft() + 0.5f * getPlayer_c_screenwidth() <= (screen_left_edge[0] + screen_right_edge[0]) * 0.5f + horizontal_tolerance
+                passes_horizontal_check = screen_center_x >= (screen_left_edge + screen_right_edge) * 0.5f - horizontal_tolerance
+                    && screen_center_x <= (screen_left_edge + screen_right_edge) * 0.5f + horizontal_tolerance
                     && autoaim_left <= aim_screen[0]
                     && autoaim_right >= aim_screen[0];
             }
         }
         else
         {
-            passes_horizontal_check = screen_left_edge[0] <= crosshair_x && crosshair_x <= screen_right_edge[0];
+            passes_horizontal_check = screen_left_edge <= crosshair_x && crosshair_x <= screen_right_edge;
         }
 
         if (passes_horizontal_check)
@@ -2003,19 +2010,19 @@ f32 chrpropScoreAutoAimTarget(PropRecord *targetprop, coord3d *aimpos, f32 *worl
                     /** If the screen's center x-coord overlaps the target's horizontal span, give it the best possible score of 1.0.
                      *  If this happens, this function's caller, chrpropUpdateAutoaimTarget, treats this as the winning prop and stops searching.
                      */
-                    if (getPlayer_c_screenleft() + 0.5f * getPlayer_c_screenwidth() >= screen_left_edge[0] && getPlayer_c_screenleft() + 0.5f * getPlayer_c_screenwidth() <= screen_right_edge[0])
+                    if (screen_center_x >= screen_left_edge && screen_center_x <= screen_right_edge)
                     {
                         score = 1.0f;
                     }
                     // If the target is towards the left side of the screen, penalize it based on how far towards the left.
-                    else if (getPlayer_c_screenleft() + 0.5f * getPlayer_c_screenwidth() >= screen_left_edge[0])
+                    else if (screen_center_x >= screen_left_edge)
                     {
-                        score = 1.0f - ((getPlayer_c_screenleft() + 0.5f * getPlayer_c_screenwidth()) - screen_right_edge[0]) / horizontal_tolerance;
+                        score = 1.0f - (screen_center_x - screen_right_edge) / horizontal_tolerance;
                     }
                     // If the target is towards the right side of the screen, penalize it based on how far towards the right.
                     else
                     {
-                        score = 1.0f - (screen_left_edge[0] - (getPlayer_c_screenleft() + 0.5f * getPlayer_c_screenwidth())) / horizontal_tolerance;
+                        score = 1.0f - (screen_left_edge - screen_center_x) / horizontal_tolerance;
                     }
                 }
             }
@@ -2533,9 +2540,14 @@ void chrpropUpdateRoomList(PropRecord *prop, coord3d *bbmin, coord3d *bbmax, f32
 void roomGetProps(s32 *rooms)
 {
     s16 *writeptr = g_RoomPropQueryIndices;
+    u32 seen[(MAX_PROPS + 31) / 32];
     s32 room;
     s32 i;
-    s32 j;
+
+    for (i = 0; i < ARRAYCOUNT(seen); i++)
+    {
+        seen[i] = 0;
+    }
 
     room = *rooms;
 
@@ -2555,18 +2567,13 @@ void roomGetProps(s32 *rooms)
 
                 if (propnum >= 0)
                 {
-                    // Check if it's in the list already
-                    s16 *ptr = g_RoomPropQueryIndices;
+                    u32 mask = 1U << (propnum & 31);
+                    u32 *word = &seen[propnum >> 5];
 
-                    while (ptr < writeptr)
+                    // Append only the first occurrence, preserving query order.
+                    if (!(*word & mask))
                     {
-                        if (*ptr == propnum) { break; }
-                        ptr++;
-                    }
-
-                    if (ptr == writeptr)
-                    {
-                        // Prop is not in the list, so insert it
+                        *word |= mask;
                         *writeptr = propnum;
                         writeptr++;
                     }
@@ -2581,7 +2588,6 @@ void roomGetProps(s32 *rooms)
     }
 
     *writeptr = -1;
-    writeptr++;
 }
 
 

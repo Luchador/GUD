@@ -1593,7 +1593,6 @@ void process_15_subposition(ModelRenderData* arg0, Model *model, ModelNode *node
 {
     union ModelRoData *rodata = node->Data;
     Mtxf *sp68;
-    Mtxf sp28;
     s32 mtxindex = rodata->GroupSimple.Group1;
     RenderPosView *matrices = model->render_pos;
 
@@ -1608,8 +1607,7 @@ void process_15_subposition(ModelRenderData* arg0, Model *model, ModelNode *node
 
     if (sp68)
     {
-        matrix_4x4_set_identity_and_position(&rodata->GroupSimple.Origin, &sp28);
-        matrix_4x4_multiply_homogeneous(sp68, &sp28, &matrices[mtxindex]);
+        matrix_4x4_multiply_translation(sp68, &rodata->GroupSimple.Origin, &matrices[mtxindex].pos);
     }
     else
     {

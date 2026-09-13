@@ -162,6 +162,18 @@ u8 g_PortalIsVertical[PORTMAX] = {
  */
 struct PortalMetric g_PortalPlanes[PORTMAX];
 
+/* Portal endpoints are byte-sized room IDs, including room zero. */
+#define BG_PORTAL_ROOM_COUNT 256
+
+typedef struct BgPortalBounds {
+    coord3d min;
+    coord3d max;
+} BgPortalBounds;
+
+static BgPortalBounds g_BgPortalBounds[PORTMAX];
+static u16 g_BgRoomPortalOffsets[BG_PORTAL_ROOM_COUNT + 1];
+static u8 g_BgRoomPortalIndices[PORTMAX * 2];
+
 s_specialportal specialportalarray[] = {
     {0x03,
         {0x2C,0x2E,0x32, 0x37,0x3E,0x3F,0x4E, 0x56,0x59,0x5D,0x72, 0x76,0x79,0x7A,0xFF}},
@@ -205,8 +217,22 @@ void bgSetLevelScale(f32 arg0);
 s32 bgProjectPortalPoints(s32 portalnum, f32 scale, coord3d *points);
 void bgOrderPortal(s32 portalnum);
 void bgProcessPortalTraversal(s32 value, s32 roomnum, s32 portalnum, s32 depth, bbox2d *parentbox);
+static void bgBuildPortalCache(void);
 
 // End forward declarations.
+
+
+static const u8 *bgGetRoomPortalList(s32 room, const u8 **end)
+{
+    if ((u32)room >= BG_PORTAL_ROOM_COUNT)
+    {
+        *end = g_BgRoomPortalIndices;
+        return g_BgRoomPortalIndices;
+    }
+
+    *end = &g_BgRoomPortalIndices[g_BgRoomPortalOffsets[room + 1]];
+    return &g_BgRoomPortalIndices[g_BgRoomPortalOffsets[room]];
+}
 
 
 void bgMarkSpecialPortals(void)
@@ -696,6 +722,8 @@ void bgLoadFile(LEVEL_INDEX levelid)
  
         bgMarkSpecialPortals();
     }
+
+    bgBuildPortalCache();
  
     g_RoomLoadBudget = 200;
 }
@@ -741,17 +769,15 @@ void bgSetWorldFarClipDistance(f32 distance)
 
 void bgTick(void)
 {
-    PortalData *portal;
-    Portal *next;
     coord3d *cameraPosition;
     coord3d *cameraGroundPosition;
-    u8 *specialPortalFlags;
+    const u8 *portalindex;
+    const u8 *portalend;
     s32 room;
     s32 portalnum;
     s32 lastportal;
     s32 depth;
     s32 maxdepth;
-    s32 offset;
     s32 cammode;
 
     lastportal = -1;
@@ -791,8 +817,9 @@ void bgTick(void)
 
     for (depth = 0, maxdepth = 11; depth != maxdepth; depth++)
     {
-        for (portalnum = 0; g_BgPortals[portalnum].portal != NULL; portalnum++)
+        for (portalindex = bgGetRoomPortalList(room, &portalend); portalindex < portalend; portalindex++)
         {
+            portalnum = *portalindex;
 
             if (g_PortalIsVertical[portalnum] != 0)
             {
@@ -804,7 +831,7 @@ void bgTick(void)
                 continue;
             }
 
-            if (((room == g_BgPortals[portalnum].connectedRoom1 || room == g_BgPortals[portalnum].connectedRoom2) && bgTestLineIntersectsPortal(portalnum, cameraPosition, cameraGroundPosition)))
+            if (bgTestLineIntersectsPortal(portalnum, cameraPosition, cameraGroundPosition))
             {
                 lastportal = portalnum;
 
@@ -814,7 +841,7 @@ void bgTick(void)
             }
         }
 
-        if (g_BgPortals[portalnum].portal == NULL)
+        if (portalindex == portalend)
         {
             break;
         }
@@ -3047,6 +3074,8 @@ void bgProcessPortalTraversal(s32 value, s32 roomnum, s32 portalnum, s32 depth, 
     f32 playermetric;
     f32 portalmetric;
     s32 i;
+    const u8 *portalindex;
+    const u8 *portalend;
 
     if (g_BgPortals[portalnum].controlbytes1 & PORTALFLAG_DISABLED)
     {
@@ -3138,14 +3167,13 @@ void bgProcessPortalTraversal(s32 value, s32 roomnum, s32 portalnum, s32 depth, 
         return;
     }
  
-    for (i = 0; g_BgPortals[i].portal != NULL; i++)
+    for (portalindex = bgGetRoomPortalList(otherroom, &portalend); portalindex < portalend; portalindex++)
     {
+        i = *portalindex;
+
         if (i != portalnum)
         {
-            if ((otherroom == g_BgPortals[i].connectedRoom1) || (otherroom == g_BgPortals[i].connectedRoom2))
-            {
-                bgQueuePortalTraversal(value, otherroom, i, depth + 1, &screenbox);
-            }
+            bgQueuePortalTraversal(value, otherroom, i, depth + 1, &screenbox);
         }
     }
  
@@ -3505,6 +3533,8 @@ void bgDetermineVisibleRooms(void)
     s32 temp_v1;
     s32 i;
     u32 prof_t0 = 0;
+    const u8 *portalindex;
+    const u8 *portalend;
 
     bgUpdateCurrentPlayerScreenMinMax();
 
@@ -3558,12 +3588,9 @@ void bgDetermineVisibleRooms(void)
     {
         bgSetRoomOnScreen(g_BgCurrentRoom, 0, &g_CurrentPlayer->screensize, 1);
 
-        for (i = 0; g_BgPortals[i].portal != NULL; i++) 
+        for (portalindex = bgGetRoomPortalList(g_BgCurrentRoom, &portalend); portalindex < portalend; portalindex++)
         {
-            if ((g_BgCurrentRoom == g_BgPortals[i].connectedRoom1) || (g_BgCurrentRoom == g_BgPortals[i].connectedRoom2)) 
-            {
-                bgQueuePortalTraversal(0, g_BgCurrentRoom, i, 1, screenbounds);
-            }
+            bgQueuePortalTraversal(0, g_BgCurrentRoom, *portalindex, 1, screenbounds);
         }
 
         while (bgProcessNextQueuedPortal())
@@ -3615,44 +3642,36 @@ s32 bgCopyGlobalVisAddedRooms(s32 *rooms, s32 max)
  * @param max          Max number of entries to write.
  * @return             Number of rooms written to the list.
  */
-s32 bgGetConnectedRooms(s32 roomIndex, s32* list, s32 max)
+s32 bgGetConnectedRooms(s32 roomIndex, s32 *list, s32 max)
 {
+    const u8 *portalindex;
+    const u8 *portalend;
     s32 len = 0;
     s32 i;
-    s32 p;
-    s32 connectedRoom1;
-    s32 connectedRoom2;
+    s32 otherroom;
 
-    for (p = 0; g_BgPortals[p].portal != NULL; p++)
+    for (portalindex = bgGetRoomPortalList(roomIndex, &portalend); portalindex < portalend; portalindex++)
     {
-        connectedRoom1 = g_BgPortals[p].connectedRoom1;
-        connectedRoom2 = g_BgPortals[p].connectedRoom2;
+        PortalData *portal = &g_BgPortals[*portalindex];
 
-        if (connectedRoom1 == roomIndex)
+        otherroom = roomIndex == portal->connectedRoom1 ? portal->connectedRoom2 : portal->connectedRoom1;
+
+        for (i = 0; i < len; i++)
         {
-            connectedRoom1 = connectedRoom2;
-            connectedRoom2 = roomIndex;
+            if (list[i] == otherroom)
+            {
+                break;
+            }
         }
 
-        if (connectedRoom2 == roomIndex)
+        if (i == len)
         {
-            for (i = 0; i < len; i++)
-            {
-                if (list[i] == connectedRoom1)
-                {
-                    goto end;
-                }
-            }
-
-            list[len] = connectedRoom1;
-            len++;
+            list[len++] = otherroom;
 
             if (len >= max)
             {
                 return len;
             }
-end:
-            if (1);
         }
     }
 
@@ -3660,29 +3679,23 @@ end:
 }
 
 
-// Scan all portals to see if these rooms are connected
-//
-// Room data doesn't contain a list of its portals, so it goes through
-// the whole list of portals which seems naive and inefficient.
-bool bgRoomsSharePortal(s32 room1, s32 room2) 
+/* Connectivity ignores open/closed flags, as before. */
+bool bgRoomsSharePortal(s32 room1, s32 room2)
 {
-    s32 i;
+    const u8 *portalindex;
+    const u8 *portalend;
 
-    for (i = 0; g_BgPortals[i].portal != NULL; i++)
+    for (portalindex = bgGetRoomPortalList(room1, &portalend); portalindex < portalend; portalindex++)
     {
-        s32 v0 = g_BgPortals[i].connectedRoom1;
-        s32 v1 = g_BgPortals[i].connectedRoom2;
+        PortalData *portal = &g_BgPortals[*portalindex];
+        s32 otherroom = room1 == portal->connectedRoom1 ? portal->connectedRoom2 : portal->connectedRoom1;
 
-        if (v0 == room1 && v1 == room2)
-        {
-            return TRUE;
-        }
-
-        if (v1 == room1 && v0 == room2)
+        if (otherroom == room2)
         {
             return TRUE;
         }
     }
+
     return FALSE;
 }
 
@@ -4034,25 +4047,23 @@ void bgOrderPortal(s32 portalnum)
 
 s32 bgGetPortalBetweenRooms(s32 room1, s32 room2, coord3d *arg2, coord3d *arg3)
 {
-    s32 bFoundPortal = FALSE;
-    s32 i;
-    s32 portalIndex = -1;
+    const u8 *portalindex;
+    const u8 *portalend;
+    s32 result = -1;
 
-    for (i = 0; g_BgPortals[i].portal != NULL; i++)
+    for (portalindex = bgGetRoomPortalList(room1, &portalend); portalindex < portalend; portalindex++)
     {
-        if (((g_BgPortals[i].connectedRoom1 == room1) && (g_BgPortals[i].connectedRoom2 == room2)) ||
-            ((g_BgPortals[i].connectedRoom1 == room2) && (g_BgPortals[i].connectedRoom2 == room1)))
-        {
-            bFoundPortal = TRUE;
+        PortalData *portal = &g_BgPortals[*portalindex];
+        s32 otherroom = room1 == portal->connectedRoom1 ? portal->connectedRoom2 : portal->connectedRoom1;
 
-            if (bgTestLineIntersectsPortal(i, arg2, arg3) != 0)
-            {
-                portalIndex = i;
-            }
+        if (otherroom == room2 && bgTestLineIntersectsPortal(*portalindex, arg2, arg3))
+        {
+            /* Keep the last intersecting portal, matching the full scan. */
+            result = *portalindex;
         }
     }
 
-    return portalIndex;
+    return result;
 }
 
 
@@ -4203,131 +4214,150 @@ bool bgIsBboxOverlapping(coord3d *portalbbmin, coord3d *portalbbmax, coord3d *pr
 }
 
 
+/**
+ * Build immutable portal geometry and adjacency data after stage loading.
+ * Each room's indices stay in original portal order, including self-links
+ * exactly once. Open/closed flags are deliberately read at query time.
+ */
+static void bgBuildPortalCache(void)
+{
+    u16 writeOffsets[BG_PORTAL_ROOM_COUNT];
+    s32 room;
+    s32 portalnum;
+    s32 portalcount;
+    s32 point;
+    s32 axis;
+
+    for (room = 0; room <= BG_PORTAL_ROOM_COUNT; room++)
+    {
+        g_BgRoomPortalOffsets[room] = 0;
+    }
+
+    if (g_BgRenderMode != BGLOADTYPE_ROOMS)
+    {
+        return;
+    }
+
+    for (portalnum = 0; g_BgPortals[portalnum].portal != NULL; portalnum++)
+    {
+        PortalData *data = &g_BgPortals[portalnum];
+        Portal *portal = data->portal;
+        BgPortalBounds *bounds = &g_BgPortalBounds[portalnum];
+
+        g_BgRoomPortalOffsets[data->connectedRoom1 + 1]++;
+
+        if (data->connectedRoom2 != data->connectedRoom1)
+        {
+            g_BgRoomPortalOffsets[data->connectedRoom2 + 1]++;
+        }
+
+        bounds->min = *(coord3d *)&D_80044904;
+        bounds->max = *(coord3d *)&D_80044910;
+
+        for (point = 0; point < portal->numPoints; point++)
+        {
+            for (axis = 0; axis < 3; axis++)
+            {
+                f32 value = (&portal->point)[point].f[axis];
+
+                if (value < bounds->min.f[axis])
+                {
+                    bounds->min.f[axis] = value;
+                }
+
+                if (bounds->max.f[axis] < value)
+                {
+                    bounds->max.f[axis] = value;
+                }
+            }
+        }
+    }
+
+    portalcount = portalnum;
+
+    for (room = 0; room < BG_PORTAL_ROOM_COUNT; room++)
+    {
+        g_BgRoomPortalOffsets[room + 1] += g_BgRoomPortalOffsets[room];
+        writeOffsets[room] = g_BgRoomPortalOffsets[room];
+    }
+
+    for (portalnum = 0; portalnum < portalcount; portalnum++)
+    {
+        PortalData *data = &g_BgPortals[portalnum];
+
+        g_BgRoomPortalIndices[writeOffsets[data->connectedRoom1]++] = portalnum;
+
+        if (data->connectedRoom2 != data->connectedRoom1)
+        {
+            g_BgRoomPortalIndices[writeOffsets[data->connectedRoom2]++] = portalnum;
+        }
+    }
+}
+
+
 void bgGetRoomsIntersectingBbox(coord3d *bbmin, coord3d *bbmax, s32 *room_list, s32 *count, s32 max_count)
 {
-    Portal *portal_pts;
-    f32 v;
-    s32 cur_room;
     coord3d scaled_bbmin;
     coord3d scaled_bbmax;
-    s32 cur_count;
+    const u8 *portalindex;
+    const u8 *portalend;
+    s32 cur_count = *count;
     s32 i;
-    s32 j;
     s32 k;
-    s32 pad;
-    s32 saved_count;
-    coord3d portal_min;
-    coord3d portal_max;
-    s32 portal_idx;
-    s32 *p;
-    s32 other_room;
-    
-    cur_count = *count;
-    i = 0;
+
     scaled_bbmin.x = bbmin->x * g_LevelScale;
     scaled_bbmin.y = bbmin->y * g_LevelScale;
     scaled_bbmin.z = bbmin->z * g_LevelScale;
     scaled_bbmax.x = bbmax->x * g_LevelScale;
     scaled_bbmax.y = bbmax->y * g_LevelScale;
     scaled_bbmax.z = bbmax->z * g_LevelScale;
-    saved_count = cur_count;
-    
-    while (1)
+
+    /* Visit seed rooms, then appended rooms, in the original order. */
+    for (i = 0; i < cur_count; i++)
     {
-        if (i < cur_count)
+        s32 room = room_list[i];
+
+        for (portalindex = bgGetRoomPortalList(room, &portalend); portalindex < portalend; portalindex++)
         {
-            p = (s32 *)((u8 *)room_list + (i << 2)); do {
-            cur_room = *p;
-            portal_idx = 0;
- 
-            if (g_BgPortals[0].portal != ((void *) 0))
+            PortalData *portal = &g_BgPortals[*portalindex];
+            BgPortalBounds *bounds = &g_BgPortalBounds[*portalindex];
+            s32 otherroom;
+
+            if (portal->controlbytes1 & PORTALFLAG_DISABLED)
             {
-                do
-                {
-                    if ((g_BgPortals[portal_idx].controlbytes1 & 1) || ((cur_room != g_BgPortals[portal_idx].connectedRoom1) && (cur_room != g_BgPortals[portal_idx].connectedRoom2)))
-                    {
-                        goto next_portal;
-                    }
-                    
-                    portal_min = *(coord3d *) &D_80044904;
-                    portal_max = *(coord3d *) &D_80044910;
-                    portal_pts = g_BgPortals[portal_idx].portal;
-                    
-                    for (j = 0; j < portal_pts->numPoints; j++)
-                    {
-                        for (k = 0; k < 3; k++)
-                        {
-                            v = (&portal_pts->point)[j].f[k];
-                            
-                            if (v < portal_min.f[k])
-                            {
-                                portal_min.f[k] = v;
-                            }
-                            
-                            if (portal_max.f[k] < v)
-                            {
-                                portal_max.f[k] = v;
-                            }
-                            
-                            portal_pts = g_BgPortals[portal_idx].portal;
-                        }
- 
-                        if (portal_pts->numPoints);
-                    }
-                    
-                if (bgIsBboxOverlapping(&portal_min, &portal_max, &scaled_bbmin, &scaled_bbmax))
-                {
-                    if (cur_room == g_BgPortals[portal_idx].connectedRoom1)
-                    {
-                        other_room = g_BgPortals[portal_idx].connectedRoom2;
-                    }
-                    else
-                    {
-                        other_room = g_BgPortals[portal_idx].connectedRoom1;
-                    }
-                    
-                    for (k = 0; k < cur_count; k++)
-                    {
-                        if (room_list[k] == other_room)
-                        {
-                            break;
-                        }
-                    }
-                    
-                    if (k == cur_count)
-                    {
-                        if (cur_count < max_count)
-                        {
-                            room_list[cur_count] = other_room;
-                            cur_count++;
-                        }
-                        
-                        if (cur_count >= max_count)
-                        {
-                            *count = cur_count;
-                            return;
-                        }
-                    }
-                }
-                    
-next_portal:
-                portal_idx++;
-                }         
-                while (g_BgPortals[portal_idx].portal != NULL);
+                continue;
             }
 
-            i++;
-            p++;
-                    
-            } while (i < saved_count);
-        }    
- 
-        if (cur_count == saved_count)
-        {
-            break;
+            if (!bgIsBboxOverlapping(&bounds->min, &bounds->max, &scaled_bbmin, &scaled_bbmax))
+            {
+                continue;
+            }
+
+            otherroom = room == portal->connectedRoom1 ? portal->connectedRoom2 : portal->connectedRoom1;
+
+            for (k = 0; k < cur_count; k++)
+            {
+                if (room_list[k] == otherroom)
+                {
+                    break;
+                }
+            }
+
+            if (k == cur_count)
+            {
+                if (cur_count < max_count)
+                {
+                    room_list[cur_count++] = otherroom;
+                }
+
+                if (cur_count >= max_count)
+                {
+                    *count = cur_count;
+                    return;
+                }
+            }
         }
-     
-        saved_count = cur_count;
     }
+
     *count = cur_count;
 }

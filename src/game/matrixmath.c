@@ -119,6 +119,64 @@ void matrix_4x4_multiply_homogeneous(Mtxf *lhs, Mtxf *rhs, Mtxf *result)
 }
 
 
+/** Compose an affine matrix with a local translation; result may alias matrix. */
+void matrix_4x4_multiply_translation(Mtxf *matrix, coord3d *position, Mtxf *result)
+{
+    f32 x = position->x;
+    f32 y = position->y;
+    f32 z = position->z;
+    s32 i;
+
+    for (i = 0; i < 3; i++)
+    {
+        f32 basisX = matrix->m[0][i];
+        f32 basisY = matrix->m[1][i];
+        f32 basisZ = matrix->m[2][i];
+
+        result->m[3][i] = basisX * x + basisY * y + basisZ * z + matrix->m[3][i];
+        result->m[0][i] = basisX;
+        result->m[1][i] = basisY;
+        result->m[2][i] = basisZ;
+    }
+
+    result->m[0][3] = 0.0f;
+    result->m[1][3] = 0.0f;
+    result->m[2][3] = 0.0f;
+    result->m[3][3] = 1.0f;
+}
+
+
+/** Compose with a local scale/translation without building a second matrix. */
+void matrix_4x4_apply_scale_and_translation(Mtxf *matrix, coord3d *scale, coord3d *position)
+{
+    f32 x = position->x;
+    f32 y = position->y;
+    f32 z = position->z;
+    f32 scaleX = scale->x;
+    f32 scaleY = scale->y;
+    f32 scaleZ = scale->z;
+    s32 i;
+
+    for (i = 0; i < 3; i++)
+    {
+        f32 basisX = matrix->m[0][i];
+        f32 basisY = matrix->m[1][i];
+        f32 basisZ = matrix->m[2][i];
+
+        /* Translation uses the original basis, before applying the scale. */
+        matrix->m[3][i] = basisX * x + basisY * y + basisZ * z + matrix->m[3][i];
+        matrix->m[0][i] = basisX * scaleX;
+        matrix->m[1][i] = basisY * scaleY;
+        matrix->m[2][i] = basisZ * scaleZ;
+    }
+
+    matrix->m[0][3] = 0.0f;
+    matrix->m[1][3] = 0.0f;
+    matrix->m[2][3] = 0.0f;
+    matrix->m[3][3] = 1.0f;
+}
+
+
 void mtx4RotateVecInPlace(Mtxf *matrix, struct coord3d *vector)
 {
     f32 x = vector->f[0];
