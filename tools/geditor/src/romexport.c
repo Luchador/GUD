@@ -491,7 +491,7 @@ BOOL RomExportDestinationIsValid(const GEditorProject *project,
 
 /* Returns 1 for a managed project resource, 0 for another file-table
  * kind, and -1 if a recognized name cannot form a safe project path. */
-static int RomExportProjectResourcePath(const GEditorProject *project,
+int RomExportProjectResourcePath(const GEditorProject *project,
                                         const char *resource,
                                         char *pathout, size_t pathmax)
 {
@@ -1230,36 +1230,43 @@ static BOOL RomExportUpdateChecksum(RomFile *rom, const char **reasonout)
 }
 
 
+static BOOL RomExportBuild(const GEditorProject *project, RomFile *rom,
+                            const char **reasonout)
+{
+    char basepath[MAX_PATH];
+    ZeroMemory(rom, sizeof(*rom));
+    *reasonout = "";
+    if (!RomExportBasePath(project, basepath, sizeof(basepath), reasonout)
+        || !RomLoad(basepath, rom, reasonout))
+    {
+        return FALSE;
+    }
+    return RomExportProjectMatchesRom(project, rom, reasonout)
+        && RomExportReplaceProjectResources(project, rom, reasonout)
+        && RomExportUpdateLevelTable(project, rom, reasonout)
+        && ImageEditsExportToRom(project->dir, rom, reasonout)
+        && RomExportUpdateChecksum(rom, reasonout);
+}
+
+BOOL RomExportValidateProject(const GEditorProject *project, const char **reasonout)
+{
+    RomFile rom;
+    BOOL ok = RomExportBuild(project, &rom, reasonout);
+    RomFree(&rom);
+    return ok;
+}
+
 BOOL RomExportCreate(const GEditorProject *project,
                      const char *name, const char *directory,
                      char *pathout, size_t pathmax,
                      const char **reasonout)
 {
-    char basepath[MAX_PATH];
     RomFile rom;
     BOOL ok;
-
-    *reasonout = "";
-
     if (!RomExportDestinationIsValid(project, directory, name,
-                                     pathout, pathmax, reasonout)
-        || !RomExportBasePath(project, basepath, sizeof(basepath), reasonout))
-    {
-        return FALSE;
-    }
-
-    if (!RomLoad(basepath, &rom, reasonout))
-    {
-        return FALSE;
-    }
-
-    ok = RomExportProjectMatchesRom(project, &rom, reasonout)
-      && RomExportReplaceProjectResources(project, &rom, reasonout)
-      && RomExportUpdateLevelTable(project, &rom, reasonout)
-      && ImageEditsExportToRom(project->dir, &rom, reasonout)
-      && RomExportUpdateChecksum(&rom, reasonout)
-      && RomExportWriteFile(pathout, rom.data, rom.size, reasonout);
-
+                                     pathout, pathmax, reasonout)) { return FALSE; }
+    ok = RomExportBuild(project, &rom, reasonout)
+        && RomExportWriteFile(pathout, rom.data, rom.size, reasonout);
     RomFree(&rom);
     return ok;
 }

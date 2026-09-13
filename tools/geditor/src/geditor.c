@@ -10,6 +10,7 @@
 #include <math.h>
 
 #include "project.h"
+#include "projectrebase.h"
 #include "recentprojects.h"
 #include "resource.h"
 #include "viewport.h"
@@ -595,7 +596,8 @@ enum {
 
     ID_FILE_RECENT_PROJECT_FIRST,
     ID_FILE_RECENT_PROJECT_LAST = ID_FILE_RECENT_PROJECT_FIRST + RECENT_PROJECTS_MAX - 1,
-    ID_FILE_CLEAR_RECENT_PROJECTS
+    ID_FILE_CLEAR_RECENT_PROJECTS,
+    ID_FILE_REBASE_PROJECT
 };
 
 
@@ -728,6 +730,7 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(filemenu, MF_STRING, ID_FILE_OPEN_PROJECT, "&Open Project");
     AppendMenu(filemenu, MF_POPUP, (UINT_PTR)g_RecentProjectsMenu, "&Recent Projects");
     AppendMenu(filemenu, MF_STRING, ID_FILE_SAVE_PROJECT, "&Save Project");
+    AppendMenu(filemenu, MF_STRING, ID_FILE_REBASE_PROJECT, "Re&base Project...");
     AppendMenu(filemenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(filemenu, MF_POPUP, (UINT_PTR)importmenu, "&Import...");
     AppendMenu(filemenu, MF_SEPARATOR, 0, NULL);
@@ -1571,6 +1574,124 @@ static void GEditorPromptForRomExport(HWND hwnd)
     }
 }
 
+
+typedef struct RebaseProjectInfo {
+    BOOL checked;
+    GEditorProject output;
+} RebaseProjectInfo;
+
+static INT_PTR CALLBACK GEditorRebaseProjectProc(HWND hdlg, UINT msg,
+                                                 WPARAM wparam, LPARAM lparam)
+{
+    RebaseProjectInfo *info=(RebaseProjectInfo *)GetWindowLongPtr(hdlg,DWLP_USER);
+    switch (msg)
+    {
+    case WM_INITDIALOG:
+    {
+        char name[GEDITOR_NAME_MAX], parent[MAX_PATH], *slash;
+        info=(RebaseProjectInfo *)lparam;
+        SetWindowLongPtr(hdlg,DWLP_USER,(LONG_PTR)info);
+        SendDlgItemMessage(hdlg,IDC_REBASE_ROM,EM_LIMITTEXT,MAX_PATH-1,0);
+        SendDlgItemMessage(hdlg,IDC_REBASE_PARENT,EM_LIMITTEXT,MAX_PATH-1,0);
+        SendDlgItemMessage(hdlg,IDC_REBASE_NAME,EM_LIMITTEXT,GEDITOR_NAME_MAX-1,0);
+        snprintf(name,sizeof(name),"%.55s_rebased",g_Project.name);
+        lstrcpyn(parent,g_Project.dir,sizeof(parent));
+        slash=strrchr(parent,'\\');
+        if (!slash) { slash=strrchr(parent,'/'); }
+        if (slash) { slash[1]=0; } else { lstrcpyn(parent,".",sizeof(parent)); }
+        SetDlgItemText(hdlg,IDC_REBASE_NAME,name);
+        SetDlgItemText(hdlg,IDC_REBASE_PARENT,parent);
+        SetDlgItemText(hdlg,IDC_REBASE_REPORT,"Choose a newer GUD ROM, then select Save and Check.\r\n\r\nCompatible project edits, imported images and model edits will be retained. Conflicts must be resolved before a copy can be created.");
+        EnableWindow(GetDlgItem(hdlg,IDC_REBASE_CREATE),FALSE);
+        return TRUE;
+    }
+    case WM_COMMAND:
+        switch (LOWORD(wparam))
+        {
+        case IDC_REBASE_ROM:
+        case IDC_REBASE_PARENT:
+        case IDC_REBASE_NAME:
+            if (HIWORD(wparam)==EN_CHANGE && info)
+            {
+                info->checked=FALSE;
+                EnableWindow(GetDlgItem(hdlg,IDC_REBASE_CREATE),FALSE);
+                SetDlgItemText(hdlg,IDC_REBASE_REPORT,"Select Save and Check to check these settings.");
+            }
+            return TRUE;
+        case IDC_REBASE_BROWSE_ROM:
+        {
+            char path[MAX_PATH];
+            if (GEditorPromptForRom(hdlg,path,sizeof(path))) { SetDlgItemText(hdlg,IDC_REBASE_ROM,path); }
+            return TRUE;
+        }
+        case IDC_REBASE_BROWSE_DIR:
+        {
+            char path[MAX_PATH];
+            if (GEditorPromptForFolder(hdlg,L"Choose Destination for Rebased Project",path,sizeof(path)))
+            { SetDlgItemText(hdlg,IDC_REBASE_PARENT,path); }
+            return TRUE;
+        }
+        case IDC_REBASE_CHECK:
+        case IDC_REBASE_CREATE:
+        {
+            char rom[MAX_PATH], parent[MAX_PATH], name[GEDITOR_NAME_MAX], destination[MAX_PATH];
+            char message[8704];
+            ProjectRebaseReport report={0};
+            const char *why="";
+            BOOL create=LOWORD(wparam)==IDC_REBASE_CREATE, ok;
+            HCURSOR previous;
+            if (!info || (create && !info->checked)) { return TRUE; }
+            GetDlgItemText(hdlg,IDC_REBASE_ROM,rom,sizeof(rom));
+            GetDlgItemText(hdlg,IDC_REBASE_PARENT,parent,sizeof(parent));
+            GetDlgItemText(hdlg,IDC_REBASE_NAME,name,sizeof(name));
+            info->checked=FALSE;
+            EnableWindow(GetDlgItem(hdlg,IDC_REBASE_CREATE),FALSE);
+            if (!ProjectRebaseDestination(&g_Project,parent,name,destination,&why))
+            { SetDlgItemText(hdlg,IDC_REBASE_REPORT,why); return TRUE; }
+            if (!GEditorSaveProject(hdlg))
+            { SetDlgItemText(hdlg,IDC_REBASE_REPORT,"Save failed. Correct the save error, then check again."); return TRUE; }
+            SetDlgItemText(hdlg,IDC_REBASE_REPORT,create ? "Creating and validating the new project..." : "Checking ROM compatibility and saved edits...");
+            UpdateWindow(hdlg);
+            previous=SetCursor(LoadCursor(NULL,IDC_WAIT));
+            ok=create ? ProjectRebaseCreate(&g_Project,rom,parent,name,&info->output,&report,&why)
+                      : ProjectRebaseCheck(&g_Project,rom,&report,&why);
+            SetCursor(previous);
+            if (!ok)
+            {
+                snprintf(message,sizeof(message),"%s\r\n\r\n%s",why,report.details);
+                SetDlgItemText(hdlg,IDC_REBASE_REPORT,message);
+                return TRUE;
+            }
+            if (create) { EndDialog(hdlg,IDOK); return TRUE; }
+            snprintf(message,sizeof(message),
+                "Compatible. Ready to create the new project.\r\n\r\n"
+                "%lu ROM resources checked.\r\n%lu edited level resources retained.\r\n"
+                "%lu level resources updated from the new ROM.\r\n"
+                "Model edits and imported images will be retained.\r\n\r\nDestination:\r\n%s",
+                (unsigned long)report.checked,(unsigned long)report.kept,(unsigned long)report.updated,destination);
+            SetDlgItemText(hdlg,IDC_REBASE_REPORT,message);
+            info->checked=TRUE;
+            EnableWindow(GetDlgItem(hdlg,IDC_REBASE_CREATE),TRUE);
+            return TRUE;
+        }
+        case IDCANCEL:
+            EndDialog(hdlg,IDCANCEL); return TRUE;
+        }
+        break;
+    case WM_CLOSE:
+        EndDialog(hdlg,IDCANCEL); return TRUE;
+    }
+    return FALSE;
+}
+
+static void GEditorPromptForRebase(HWND hwnd)
+{
+    RebaseProjectInfo info={0};
+    INT_PTR result=DialogBoxParam(GetModuleHandle(NULL),MAKEINTRESOURCE(IDD_REBASE_PROJECT),
+        hwnd,GEditorRebaseProjectProc,(LPARAM)&info);
+    if (result==IDOK) { GEditorOpenProject(hwnd,info.output.geppath); }
+    else if (result==-1) { MessageBox(hwnd,"Rebase Project dialog could not be opened.",GEDITOR_TITLE,MB_ICONERROR); }
+}
 
 static void GEditorLayout(HWND hwnd)
 {
@@ -3627,6 +3748,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
            states matter, so they can never be stale. Saving requires
            an open project. */
         EnableMenuItem((HMENU)wparam, ID_FILE_SAVE_PROJECT, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
+        EnableMenuItem((HMENU)wparam, ID_FILE_REBASE_PROJECT, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_FILE_IMPORT_IMAGE, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_CREATE_ROM, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         GEditorUpdateHistoryMenu((HMENU)wparam);
@@ -3770,6 +3892,10 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
             case ID_FILE_SAVE_PROJECT:
                 GEditorSaveProject(hwnd);
+                return 0;
+
+            case ID_FILE_REBASE_PROJECT:
+                if (g_Project.name[0]) { GEditorPromptForRebase(hwnd); }
                 return 0;
 
             case ID_FILE_IMPORT_IMAGE:

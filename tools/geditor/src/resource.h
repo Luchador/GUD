@@ -10,6 +10,7 @@
 #define IDD_IMPORT_IMAGE      106
 #define IDD_ADD_CIRCLE        107
 #define IDD_ADD_CYLINDER      108
+#define IDD_REBASE_PROJECT    109
 
 /* Icons */
 #define IDI_GEDITOR           201
@@ -135,6 +136,16 @@
 #define IDC_PRIMITIVE_RADIUS  1140
 #define IDC_PRIMITIVE_SIDES   1141
 #define IDC_PRIMITIVE_HEIGHT  1142
+
+/* Rebase Project dialog. */
+#define IDC_REBASE_ROM        1160
+#define IDC_REBASE_BROWSE_ROM 1161
+#define IDC_REBASE_NAME       1162
+#define IDC_REBASE_PARENT     1163
+#define IDC_REBASE_BROWSE_DIR 1164
+#define IDC_REBASE_REPORT     1165
+#define IDC_REBASE_CHECK      1166
+#define IDC_REBASE_CREATE     1167
 
 /* Longest project name we accept, including the terminator. */
 #define GEDITOR_NAME_MAX       64

@@ -18,6 +18,11 @@ BOOL RomExportStoreProjectBase(const GEditorProject *project,
 /* Validate the required base ROM and refresh names/environment metadata. */
 BOOL RomExportRefreshProjectLevelMetadata(GEditorProject *project, const char **reasonout);
 
+/* Shared resource mapping and an in-memory export check for project rebasing. */
+int RomExportProjectResourcePath(const GEditorProject *project, const char *resource,
+                                 char *pathout, size_t pathmax);
+BOOL RomExportValidateProject(const GEditorProject *project, const char **reasonout);
+
 /* Shared by the dialog's live validation and the exporter itself. */
 BOOL RomExportNameIsValid(const char *name, const char **reasonout);
 BOOL RomExportBuildOutputPath(const char *directory, const char *name,
