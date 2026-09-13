@@ -278,16 +278,17 @@ Mtx *camGetPlayerProjViewMtx(void)
 }
 
 
-void *currentPlayerSetMatrix10CC(Mtxf *matrix)
+void camSetWorldToViewMtxf(Mtxf *matrix)
 {
-    g_CurrentPlayer->field_10E8 = g_CurrentPlayer->field_10CC;
-    g_CurrentPlayer->field_10CC = matrix;
+    /* Retain the previous camera transform when installing the new one. */
+    g_CurrentPlayer->previousWorldToViewMtxf = g_CurrentPlayer->worldToViewMtxf;
+    g_CurrentPlayer->worldToViewMtxf = matrix;
 }
 
 
-Mtxf *camGetWorldToScreenMtxf(void)
+Mtxf *camGetWorldToViewMtxf(void)
 {
-    return g_CurrentPlayer->field_10CC;
+    return g_CurrentPlayer->worldToViewMtxf;
 }
 
 
@@ -305,7 +306,8 @@ Mtxf *currentPlayerGetProjectionMatrixF(void)
 
 void currentPlayerSetViewToWorldMtxf(Mtxf *matrix)
 {
-    g_CurrentPlayer->field_10EC = g_CurrentPlayer->viewtoworldmtxf;
+    /* Guard aiming still uses model matrices from the previous render. */
+    g_CurrentPlayer->previousViewToWorldMtxf = g_CurrentPlayer->viewtoworldmtxf;
     g_CurrentPlayer->viewtoworldmtxf = matrix;
 }
 
@@ -316,21 +318,21 @@ Mtxf *currentPlayerGetViewToWorldMtxf(void)
 }
 
 
-Mtxf *currentPlayerGetMatrix10EC(void)
+Mtxf *currentPlayerGetPreviousViewToWorldMtxf(void)
 {
-    return g_CurrentPlayer->field_10EC;
+    return g_CurrentPlayer->previousViewToWorldMtxf;
 }
 
 
-void sub_GAME_7F078464(s32 arg0)
+void camSetLookAt(LookAt *lookAt)
 {
-    g_CurrentPlayer->field_10E4 = arg0;
+    g_CurrentPlayer->lookAt = lookAt;
 }
 
 
-s32 sub_GAME_7F078474(void)
+LookAt *camGetLookAt(void)
 {
-    return g_CurrentPlayer->field_10E4;
+    return g_CurrentPlayer->lookAt;
 }
 
 
@@ -606,7 +608,7 @@ bool camIsPosInObjFadeDistance(coord3d *coord, f32 arg1)
     if (nearFogSettings != NULL)
     {
         coord3d *campos = bondviewGetPlayerPosition();
-        Mtxf *mtx = camGetWorldToScreenMtxf();
+        Mtxf *mtx = camGetWorldToViewMtxf();
 
         diff.x = coord->x - campos->x;
         diff.y = coord->y - campos->y;

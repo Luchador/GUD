@@ -954,7 +954,7 @@ void bgFindRoomsAlongSegment(coord3d *fromPos, coord3d *toPos, u8 *fromRooms, u8
 Gfx *bgSetupAndRender(Gfx *gdl)
 {
     gSPSetLights1(gdl++, GlobalLight);
-    gSPLookAt(gdl++, sub_GAME_7F078474());
+    gSPLookAt(gdl++, camGetLookAt());
     gSPSegment(gdl++, SPSEGMENT_BG_DL, g_BgData);
 
     if (g_BgRenderMode == BGLOADTYPE_SINGLE_DL)
@@ -1198,7 +1198,7 @@ bool bgProjectRoomCoordToScreen(coord3d* src, coord3d* dst)
     Mtxf* temp_a0;
     s32 var_v0;
 
-    temp_a0 = camGetWorldToScreenMtxf();
+    temp_a0 = camGetWorldToViewMtxf();
     dst->x = src->x * g_LevelInverseScale;
     dst->y = src->y * g_LevelInverseScale;
     dst->z = src->z * g_LevelInverseScale;
@@ -1228,7 +1228,7 @@ s32 bgProjectPortalPoints(s32 portalnum, f32 scale, coord3d *points)
     struct PortalMetric metric;
     s32 len;
 
-    matrix = camGetWorldToScreenMtxf();
+    matrix = camGetWorldToViewMtxf();
     allbehind = 1;
     farClipThreshold = g_CurrentWorldFarClipDistance * -0.9f;
 

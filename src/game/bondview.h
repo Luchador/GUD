@@ -920,7 +920,7 @@ struct player
 
   Mtx* field_10C4;
   Mtx* field_10C8;
-  Mtxf* field_10CC;
+  Mtxf* worldToViewMtxf; // World to camera/view space, before projection.
   s32 field_10D0; // ptr
 
   /**
@@ -930,9 +930,9 @@ struct player
   Mtx* projmatrix;
   Mtxf* projmatrixf;
   Mtx* projViewMtx;
-  s32 field_10E4; // ptr
-  Mtxf* field_10E8;
-  Mtxf* field_10EC;
+  LookAt* lookAt; // Reflection texture-generation axes from guLookAtReflect.
+  Mtxf* previousWorldToViewMtxf; // World-to-view pointer saved by the last setter call.
+  Mtxf* previousViewToWorldMtxf; // View-to-world pointer saved by the last setter call.
   f32 c_scalelod60; // canonical name
   f32 c_scalelod; // canonical name
   f32 c_lodscalez; // canonical name
@@ -1314,19 +1314,15 @@ void bondviewResetIntroCameraMessageDialogs(void);
 void hudmsgsSetOn(s32 flag);
 void hudmsgsSetOff(s32 flags);
 Gfx* bondviewGfxPlayerField5cMatrix(Gfx* gdl);
-Mtxf *currentPlayerGetViewToWorldMtxf(void);
 void bviewTransformManyPosToWorldMatrix(Mtxf *matrices, s32 count);
 void currentPlayerStartChrFade(f32 duration60, f32 targetfrac);
 s32 bondviewGetVisibleToGuardsFlag(void);
 u8 get_bondata_invincible_flag(void);
 void set_bondata_invincible_flag(u32 arg0);
 void bondviewSetVisibleToGuardsFlag(s32 param_1);
-Mtxf *currentPlayerGetMatrix10EC(void);
 f32 bondviewGetPlayerYawRadians(void);
-Mtxf *camGetWorldToScreenMtxf(void);
 void transformAndNormalizeByLength2Dto3D(struct coord2d *in, coord3d *out, f32 value);
 void bviewTransformManyPosToViewMatrix(RenderPosView *arg0, s32 arg1);
-s32 sub_GAME_7F078474(void);
 Mtx *camGetPlayerProjViewMtx(void);
 Gfx *bondviewRenderProp(PropRecord *arg0, Gfx *arg1, s32 arg2);
 f32 getPlayer_c_lodscalez(void);
@@ -1345,7 +1341,6 @@ s32 bviewGetRandomSpawnPadIndex(void);
 void change_player_pos_to_target(struct PlayerSpatialState *arg0, struct coord3d *arg1, struct StandTile *arg2);
 void sub_GAME_7F089718(f32);
 void bviewResetUpperTextDisplay(void);
-Mtxf *currentPlayerGetProjectionMatrixF(void);
 void transform3Dto2DCoords(coord3d *in, coord2d *out);
 void bondviewRemovePlayerBody(void);
 void currentPlayerAdjustFade(f32 maxfadetime, s32 r, s32 g, s32 b, f32 frac);

@@ -648,7 +648,7 @@ u8 explosionChrpropExplosionTick(PropRecord* prop)
 {
     Mtxf* player_matrix;
 
-    player_matrix = camGetWorldToScreenMtxf();
+    player_matrix = camGetWorldToViewMtxf();
     prop->zDepth = -((((player_matrix->m[0][2] * prop->pos.x) + (player_matrix->m[1][2] * prop->pos.y)) + (player_matrix->m[2][2] * prop->pos.z)) + player_matrix->m[3][2]);
 
     if (prop->zDepth < 100.0f)
@@ -1234,7 +1234,7 @@ u8 explosionChrpropSmokeTick(PropRecord* prop)
 {
     Mtxf* player_matrix;
 
-    player_matrix = camGetWorldToScreenMtxf();
+    player_matrix = camGetWorldToViewMtxf();
     prop->zDepth = -((((player_matrix->m[0][2] * prop->pos.x) + (player_matrix->m[1][2] * prop->pos.y)) + (player_matrix->m[2][2] * prop->pos.z)) + player_matrix->m[3][2]);
 
     if (prop->zDepth < 100.0f)
@@ -1499,7 +1499,7 @@ Gfx *explosionRenderCornflakes(Gfx *gdl)
         if (particles->unk00 > 0)
         {
             matrix_4x4_set_position_and_rotation_around_xyz(&particles->position, &particles->rotation, &sp80);
-            matrix_4x4_multiply_homogeneous_in_place(camGetWorldToScreenMtxf(), &sp80);
+            matrix_4x4_multiply_homogeneous_in_place(camGetWorldToViewMtxf(), &sp80);
 
             if ((sp80.m[3][0] < 20000.0f)
                 && (sp80.m[3][0] > -20000.0f)

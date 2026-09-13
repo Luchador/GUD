@@ -11,6 +11,7 @@
 #include "bg.h"
 #include "environment.h"
 #include "bondview.h"
+#include "cam.h"
 #include "cheat.h"
 #include "chr.h"
 #include "chrai.h"
@@ -789,7 +790,7 @@ void chraiDefaultWeaponFireHandler(s32 hand)
     if (backgroundRoom > 0)
     {
         hitViewPosition = backgroundHit.hitpos;
-        mtx4TransformVecInPlace(camGetWorldToScreenMtxf(), &hitViewPosition);
+        mtx4TransformVecInPlace(camGetWorldToViewMtxf(), &hitViewPosition);
         backgroundDepth = shot.viewOrigin.z - hitViewPosition.z;
         shot.maxdist = backgroundDepth;
     }

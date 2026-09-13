@@ -2104,7 +2104,7 @@ void chrHandleJointPositioned(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
     matrix->m[3][1] = savedposy;
     matrix->m[3][2] = savedposz;
 
-    matrix_4x4_multiply_homogeneous_in_place(camGetWorldToScreenMtxf(), matrix);
+    matrix_4x4_multiply_homogeneous_in_place(camGetWorldToViewMtxf(), matrix);
 }
 
 
@@ -2193,7 +2193,7 @@ static s32 chrCalcScreenFadeAlpha(PropRecord *prop)
     f32 viewdepth;
     f32 px;
 
-    wts = camGetWorldToScreenMtxf();
+    wts = camGetWorldToViewMtxf();
 
     viewdepth = -((wts->m[0][2] * prop->pos.x) + (wts->m[1][2] * prop->pos.y) + (wts->m[2][2] * prop->pos.z) + wts->m[3][2]);
 
@@ -2427,7 +2427,7 @@ after_position_update:
         g_ModelJointPositionedFunc = chrHandleJointPositioned;
         g_CurModelChr = chr;
 
-        renderdata.basemtx = camGetWorldToScreenMtxf();
+        renderdata.basemtx = camGetWorldToViewMtxf();
         renderdata.mtxlist = dynAllocate(model->obj->numMatrices * (sizeof(Mtxf)));
 
         if (g_CurModelChr->flinchcnt >= 0)

@@ -1433,13 +1433,13 @@ bool projectileFindCollidingProp(PropRecord *ignoreProp, coord3d *worldRayStart,
     sp88.y = worldRayStart->y;
     sp88.z = worldRayStart->z;
 
-    mtx4TransformVecInPlace(camGetWorldToScreenMtxf(), &sp88);
+    mtx4TransformVecInPlace(camGetWorldToViewMtxf(), &sp88);
 
     sp7c.x = sp98.x;
     sp7c.y = sp98.y;
     sp7c.z = sp98.z;
 
-    mtx4RotateVecInPlace(camGetWorldToScreenMtxf(), sp7c.f);
+    mtx4RotateVecInPlace(camGetWorldToViewMtxf(), sp7c.f);
 
     spa8 = dist;
 
@@ -4922,7 +4922,7 @@ void objTickBuildDoorMatrices(PropRecord *prop, Mtxf *mtxs, f32 previousOpenPosi
 
     sp39C = (struct DoorRecord *) prop->obj;
     door7F0526EC(sp39C, mtxs);
-    matrix_4x4_multiply_homogeneous_in_place(camGetWorldToScreenMtxf(), mtxs);
+    matrix_4x4_multiply_homogeneous_in_place(camGetWorldToViewMtxf(), mtxs);
 
     if (model->obj->Skeleton == (&skeleton_eyelid_door))
     {
@@ -5023,7 +5023,7 @@ void objTickBuildCctvMatrices(PropRecord *prop, Mtxf *mtxs, Mtxf *tempMatrix2)
     sp360.f[2] = temp_s0_13->f[2];
     mtx4TransformVecInPlace(tempMatrix2, &sp360);
     matrix_4x4_set_position(&sp360, &mtxs[1]);
-    matrix_4x4_multiply_homogeneous_in_place(camGetWorldToScreenMtxf(), &mtxs[1]);
+    matrix_4x4_multiply_homogeneous_in_place(camGetWorldToViewMtxf(), &mtxs[1]);
 }
 
 
@@ -5056,7 +5056,7 @@ void objTickBuildAutogunMatrices(PropRecord *prop, Mtxf *mtxs, Mtxf *tempMatrix2
     matrix_4x4_set_rotation_around_y(sp304, &mtxs[1]);
     matrix_4x4_set_position(&sp308, &mtxs[1]);
     matrix_scalar_multiply(sp318->model->scale, mtxs[1].m[0]);
-    matrix_4x4_multiply_homogeneous_in_place(camGetWorldToScreenMtxf(), &mtxs[1]);
+    matrix_4x4_multiply_homogeneous_in_place(camGetWorldToViewMtxf(), &mtxs[1]);
     temp_s0_13 = (struct coord3d *) model->obj->Switches[2]->Data;
     matrix_4x4_set_rotation_around_z(sp300, &mtxs[2]);
     matrix_4x4_set_position(temp_s0_13, &mtxs[2]);
@@ -5249,7 +5249,7 @@ void objTickBuildAircraftMatrices(ObjectRecord *obj, Mtxf *mtxs, bool isSimOwner
     if (aircraft_render->model->anim != NULL)
     {
         sp1B0 = D_80030B34;
-        sp1B0.basemtx = camGetWorldToScreenMtxf();
+        sp1B0.basemtx = camGetWorldToViewMtxf();
         sp1B0.mtxlist = &mtxs[0];
         subcalcmatrices(&sp1B0, aircraft_render->model);
     }
@@ -5366,7 +5366,7 @@ void objTickBuildMatrices(PropRecord *prop, Mtxf *mtxs, f32 previousOpenPosition
 
     matrix_4x4_copy(&obj->mtx, &tempMatrix2);
     matrix_4x4_set_position(&obj->position, &tempMatrix2);
-    matrix_4x4_multiply_homogeneous(camGetWorldToScreenMtxf(), &tempMatrix2, mtxs);
+    matrix_4x4_multiply_homogeneous(camGetWorldToViewMtxf(), &tempMatrix2, mtxs);
 
     switch (obj->type)
     {
@@ -5683,7 +5683,7 @@ TICKOP objTickProjectile(PropRecord *prop)
                                     bloodStainPos.f[1] = collisionPoint.f[1];
                                     bloodStainPos.f[2] = collisionPoint.f[2];
 
-                                    mtx4TransformVecInPlace(camGetWorldToScreenMtxf(), &bloodStainPos);
+                                    mtx4TransformVecInPlace(camGetWorldToViewMtxf(), &bloodStainPos);
 
                                     bloodStainPos.f[0] += (bloodStainPos.f[0] - ((Mtxf *) playerProp2)->m[3][0]) * 0.5f;
                                     bloodStainPos.f[1] += (bloodStainPos.f[1] - ((Mtxf *) playerProp2)->m[3][1]) * 0.5f;
@@ -7172,7 +7172,7 @@ static s32 objCalcScreenFadeAlpha(PropRecord *prop, f32 diameter)
         diameter = OBJFADE_MIN_DIAMETER;
     }
 
-    wts = camGetWorldToScreenMtxf();
+    wts = camGetWorldToViewMtxf();
 
     viewdepth = -((wts->m[0][2] * prop->pos.x) + (wts->m[1][2] * prop->pos.y)
                 + (wts->m[2][2] * prop->pos.z) + wts->m[3][2]);

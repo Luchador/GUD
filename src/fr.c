@@ -441,7 +441,7 @@ Gfx *viSetupCurrentPlayerView(Gfx *gdl)
 
     // Store the float and non-float projection matrices so we can recall them later instead of having to rebuild them.
     camSetPlayerProjMtx(g_viProjectionMatrix);
-    currentPlayerSetProjectionMatrixF(g_viProjectionMatrixF);
+    currentPlayerSetProjectionMatrixF((Mtxf *)g_viProjectionMatrixF);
 
     // Normal rendering mode is a 16-bit RGBA image.
     if (g_viColorOutputMode != COLORMODE_32BIT)

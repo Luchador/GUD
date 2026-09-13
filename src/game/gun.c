@@ -6,6 +6,7 @@
 #include <music.h>
 #include <snd.h>
 #include "bondview.h"
+#include "cam.h"
 #include "bondinv.h"
 #include "gun.h"
 #include "chrobjdata.h"
@@ -1941,7 +1942,7 @@ void gunUpdateAttachedRocket(s32 handIndex)
     matrix_4x4_copy(&attachedRocket->transform, &worldMtx);
     matrix_4x4_set_position((Mtxf *)&attachedRocket->position, &worldMtx);
 
-    matrix_4x4_multiply_homogeneous(camGetWorldToScreenMtxf(), &worldMtx, rocketModel->render_pos);
+    matrix_4x4_multiply_homogeneous(camGetWorldToViewMtxf(), &worldMtx, rocketModel->render_pos);
     modelUpdateRelationsQuick(rocketModel, rocketModel->obj->RootNode);
 
     attachmentChild->flags1 |= 2;

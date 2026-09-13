@@ -7678,7 +7678,7 @@ void bondviewUpdatePrevModelPos(void)
     g_CurrentPlayer->previous_model_pos.f[1] = g_CurrentPlayer->current_model_pos.f[1];
     g_CurrentPlayer->previous_model_pos.f[2] = g_CurrentPlayer->current_model_pos.f[2];
 
-    mtx4RotateVecInPlace(camGetWorldToScreenMtxf(), &g_CurrentPlayer->previous_model_pos);
+    mtx4RotateVecInPlace(camGetWorldToViewMtxf(), &g_CurrentPlayer->previous_model_pos);
 }
 
 
@@ -7780,10 +7780,10 @@ void bondviewUpdateCameraMatrices(coord3d* cam_pos, coord3d* cam_look_dir, coord
 
     currentPlayerSetMatrix10C8((Mtx* ) g_CurrentPlayer->field_5C);
     currentPlayerSetMatrix10C4((Mtx* ) g_CurrentPlayer->field_60);
-    currentPlayerSetMatrix10CC((Mtxf* ) g_CurrentPlayer->field_64);
+    camSetWorldToViewMtxf((Mtxf* ) g_CurrentPlayer->field_64);
     currentPlayerSetViewToWorldMtxf((Mtxf* ) g_CurrentPlayer->field_68);
 
-    sub_GAME_7F078464((s32) lookat);
+    camSetLookAt(lookat);
     camUpdateFrustumPlanes();
     bondviewUpdatePrevModelPos();
 }
@@ -8217,7 +8217,7 @@ Gfx *bondviewRenderWatch(Gfx *gdl)
         watchpos.z = (g_CurrentPlayer->spatialState.facingDirection.z * (g_CurrentPlayer->headbodyoffset.z + (-12.0f))) + (g_CurrentPlayer->spatialState.collisionPosition.z + (g_CurrentPlayer->headbodyoffset.x * g_CurrentPlayer->spatialState.facingDirection.x));
     
         matrix_4x4_set_position_and_rotation_around_y(watchpos.f, (360.0f - g_CurrentPlayer->vv_theta) * 0.017453292f, &watchmtx);
-        matrix_4x4_multiply_homogeneous_in_place(camGetWorldToScreenMtxf(), &watchmtx);
+        matrix_4x4_multiply_homogeneous_in_place(camGetWorldToViewMtxf(), &watchmtx);
         matrices = dynAllocate(objheader->numMatrices << 6);
         bondviewSelectCuff((Model *) (&g_CurrentPlayer->something_with_watch_object_instance), objheader, 4);
         renderdata.basemtx = &watchmtx;

@@ -7,6 +7,7 @@
 #include <snd.h>
 #include "assets/obseg/text/LgunE.h"
 #include "bondview.h"
+#include "cam.h"
 #include "bondinv.h"
 #include "hud.h"
 #include "chrai.h"
@@ -1106,7 +1107,7 @@ void gunCreateBeamForHand(enum GUNHAND hand)
     BeamRecord *weapon_beam;
 
     hand_ptr = &g_CurrentPlayer->hands[hand];
-    player_matrix = camGetWorldToScreenMtxf();
+    player_matrix = camGetWorldToViewMtxf();
 
     val = -((((hand_ptr->item_related.x * player_matrix->m[0][2]) + (hand_ptr->item_related.y * player_matrix->m[1][2])) + (hand_ptr->item_related.z * player_matrix->m[2][2])) + player_matrix->m[3][2]);
 
@@ -1186,7 +1187,7 @@ Gfx *gunRenderBeam(Gfx *gdl, BeamRecord *flash, s32 arg2)
         extraorigin = g_GunZeroCoord;
         extra_scale = 1.4142f; // ~√2
         image = flareimage3;
-        worldtoscreen = camGetWorldToScreenMtxf();
+        worldtoscreen = camGetWorldToViewMtxf();
 
         if (flash->item_id == ITEM_LASER)
         {
@@ -1483,7 +1484,7 @@ void gunRenderFirstPersonGunModels(Gfx **gdlptr)
         if (item == ITEM_GOLDENGUN || item == ITEM_RUGER || item == ITEM_KNIFE || item == ITEM_THROWKNIFE || item == ITEM_SILVERWPPK || item == ITEM_GOLDWPPK) 
         {
             gSPSetLights1(gdl++, g_WeaponEnvmapLight);
-            gSPLookAt(gdl++, sub_GAME_7F078474());
+            gSPLookAt(gdl++, camGetLookAt());
         }
  
         gSPPerspNormalize(gdl++, matrix_4x4_calc_depth_scale(0.0f, 300.0f));
@@ -1699,7 +1700,7 @@ Gfx *watchRenderItemModel(Gfx *gdl, ITEM_IDS itemid, Mtxf *transform, s32 alpha,
     if ((((((itemid == ITEM_GOLDENGUN) || (itemid == ITEM_RUGER)) || (itemid == ITEM_KNIFE)) || (itemid == ITEM_THROWKNIFE)) || (itemid == ITEM_SILVERWPPK)) || (itemid == ITEM_GOLDWPPK))
     {
         gSPSetLights1(gdl++, g_WeaponEnvmapLight);
-        gSPLookAt(gdl++, sub_GAME_7F078474());
+        gSPLookAt(gdl++, camGetLookAt());
     }
 
     if (bodymodel->numSwitches >= 17)
@@ -4670,7 +4671,7 @@ void sub_GAME_7F068EC4(CasingRecord *casing, Gfx **gdl)
     matrix_4x4_set_position(&casing->pos, &casing_model_mtx);
 
     matrix_4x4_multiply_homogeneous(
-        camGetWorldToScreenMtxf(),
+        camGetWorldToViewMtxf(),
         &casing_model_mtx,
         (Mtxf *)model.render_pos);
 

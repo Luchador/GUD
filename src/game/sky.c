@@ -4,6 +4,7 @@
 #include "player.h"
 #include "dyntex.h"
 #include "bondview.h"
+#include "cam.h"
 #include "lv.h"
 #include "environment.h"
 #include "bg.h"
@@ -373,7 +374,7 @@ static void skyProjectVertices(SkyRelated18 *vertices, SkyRelated38 *projected, 
     Mtxf scaledWorldToClip;
     s32 i;
 
-    matrix_4x4_multiply(currentPlayerGetProjectionMatrixF(), camGetWorldToScreenMtxf(), &worldToClip);
+    matrix_4x4_multiply(currentPlayerGetProjectionMatrixF(), camGetWorldToViewMtxf(), &worldToClip);
     guScaleF(g_SkyInverseRoomScaleMatrix.m, 1.0f / roomScale, 1.0f / roomScale, 1.0f / roomScale);
     matrix_4x4_multiply(&worldToClip, &g_SkyInverseRoomScaleMatrix, &scaledWorldToClip);
 

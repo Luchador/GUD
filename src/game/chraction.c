@@ -12,6 +12,7 @@
 #include "environment.h"
 #include "bondhead.h"
 #include "bondview.h"
+#include "cam.h"
 #include "chr.h"
 #include "chr_b.h"
 #include "chrai.h"
@@ -5499,7 +5500,7 @@ s32 chrlvUpdateAimendsideback(ChrRecord *self, struct weapon_firing_animation_ta
                     spB8 = weapon_prop_model->obj->Switches[0]->Data;
                     matrix_4x4_s32_to_f32(temp_a0, &spBC);
 
-                    matrix_4x4_multiply_homogeneous_in_place(currentPlayerGetMatrix10EC(), &spBC);
+                    matrix_4x4_multiply_homogeneous_in_place(currentPlayerGetPreviousViewToWorldMtxf(), &spBC);
 
                     spAC.f[0] = spB8[0];
                     spAC.f[1] = spB8[1];
@@ -5517,7 +5518,7 @@ s32 chrlvUpdateAimendsideback(ChrRecord *self, struct weapon_firing_animation_ta
                 {
                     temp_a0 = modelFindNodeMtx(weapon_prop_model, weapon_prop_model->obj->Switches[1], 0);
                     matrix_4x4_s32_to_f32(temp_a0, &sp68);
-                    matrix_4x4_multiply_homogeneous_in_place(currentPlayerGetMatrix10EC(), &sp68);
+                    matrix_4x4_multiply_homogeneous_in_place(currentPlayerGetPreviousViewToWorldMtxf(), &sp68);
                     sp104.f[0] = sp68.m[3][0];
                     sp104.f[1] = sp68.m[3][1];
                     sp104.f[2] = sp68.m[3][2];
@@ -9308,7 +9309,7 @@ bool sub_GAME_7F0333F8(ChrRecord *self)
         scale   = modelGetInstSize(mymodel) * 0.8f;
         sub_GAME_7F068190(&zeropos, &pos);
         getsuboffset(mymodel, &vec);
-        mtx4TransformVecInPlace(camGetWorldToScreenMtxf(), &vec);
+        mtx4TransformVecInPlace(camGetWorldToViewMtxf(), &vec);
 
         if (projectileTestPropBoundingSphere(&zeropos, &pos, &vec, scale))
         {
