@@ -79,8 +79,8 @@ static INT_PTR CALLBACK DialogProc(HWND dialog,UINT message,WPARAM wparam,LPARAM
             if(!IsWindowEnabled(GetDlgItem(dialog,IDC_IMAGE_IMPORT))) { return TRUE; }
             SetCursor(LoadCursor(NULL,IDC_WAIT));
             if(state->replacing
-                ? ImageEditsReplace(state->project,state->id,state->pixels,state->width,state->height,&state->options,&why)
-                : ImageEditsImport(state->project,state->pixels,state->width,state->height,&state->options,&state->id,&why))
+                ? ImageEditsReplace(state->project,state->id,state->pixels,state->width,state->height,&state->options,state->path,&why)
+                : ImageEditsImport(state->project,state->pixels,state->width,state->height,&state->options,state->path,&state->id,&why))
             { SetCursor(LoadCursor(NULL,IDC_ARROW));EndDialog(dialog,1); }
             else { SetCursor(LoadCursor(NULL,IDC_ARROW));MessageBox(dialog,why,state->replacing ? "Replace Image" : "Import Image",MB_OK|MB_ICONERROR); }
             return TRUE;
@@ -119,3 +119,18 @@ BOOL ImageImportShow(HWND owner,const char *projectdir,DWORD *id)
 { return Show(owner,projectdir,id,FALSE); }
 BOOL ImageReplaceShow(HWND owner,const char *projectdir,DWORD id)
 { return Show(owner,projectdir,&id,TRUE); }
+
+BOOL ImageReimportShow(HWND owner,const char *projectdir,DWORD id)
+{
+    char source[MAX_PATH],error[MAX_PATH+640];const char *why="";BOOL ok;
+    SetCursor(LoadCursor(NULL,IDC_WAIT));
+    ok=ImageEditsReimport(projectdir,id,source,&why);
+    SetCursor(LoadCursor(NULL,IDC_ARROW));
+    if(!ok)
+    {
+        snprintf(error,sizeof(error),"Image %04lX%s%s\r\n\r\n%s\r\n\r\nThe current image has not been changed.",
+            (unsigned long)id,source[0] ? "\r\n" : "",source,why);
+        MessageBox(owner,error,"Reimport Image",MB_OK|MB_ICONERROR);
+    }
+    return ok;
+}

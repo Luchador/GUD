@@ -1,4 +1,4 @@
-/* Image imports/replacements keep native GUTX + settings beside their BMP.
+/* Image imports/replacements keep native GUTX + settings + source beside their BMP.
  * Changes stay in memory until Save Project. Deletion keeps a blank native
  * record at the same ID, so hard-coded and authored references never shift.
  * Unused images are retained unless the user explicitly deletes them. */
@@ -14,6 +14,7 @@ typedef struct ImageEdit {
     TexPixel *pixels;
     int width, height;
     TexImportOptions options;
+    char sourcepath[MAX_PATH];
     BOOL deleted, restorebmp;
     struct ImageEdit *next;
 } ImageEdit;
@@ -84,14 +85,31 @@ static BOOL Contiguous(const unsigned char *ids,const TexRomBank *bank,DWORD *to
 }
 static BOOL ReadSaved(const char *project,DWORD id,const TexRomBank *bank,ImageEdit *edit,const char **why)
 {
-    char path[MAX_PATH];unsigned char header[32];FILE *file;long length;TexInfoRecord info;int level,w,h;
+    char path[MAX_PATH];unsigned char header[32],sourceheader[8];FILE *file;long length;
+    TexInfoRecord info;int level,w,h;DWORD sourcebytes=0,headersize=32;
     *why="An imported image's native asset is damaged, unreadable, or belongs to another base ROM.";
     if(!Path(path,project,id,".gtex") || !(file=fopen(path,"rb"))) { return FALSE; }
     if(fseek(file,0,SEEK_END) || (length=ftell(file))<144 || length>8192 || fseek(file,0,SEEK_SET)
-        || fread(header,1,32,file)!=32 || memcmp(header,"GTI2",4)
-        || Read32(header+12)!=id || Read32(header+16)!=(DWORD)length-32
+        || fread(header,1,32,file)!=32 || (memcmp(header,"GTI2",4) && memcmp(header,"GTI3",4))
+        || Read32(header+12)!=id
         || header[28]>12 || header[29]>12 || header[30]>1 || header[31]
         || (bank && (Read32(header+4)!=bank->hash || Read32(header+8)!=bank->count)))
+    { fclose(file);return FALSE; }
+    edit->sourcepath[0]=0;
+    /* GTI2 remains readable. GTI3 adds a length + hash, then the NUL-terminated
+     * source path before the GUTX record. The source is saved atomically with
+     * its pixels/settings, never in a separately committed sidecar. */
+    if(!memcmp(header,"GTI3",4))
+    {
+        if(fread(sourceheader,1,8,file)!=8 || (sourcebytes=Read32(sourceheader))<2
+            || sourcebytes>MAX_PATH || header[30]
+            || fread(edit->sourcepath,1,sourcebytes,file)!=sourcebytes
+            || edit->sourcepath[sourcebytes-1] || memchr(edit->sourcepath,0,sourcebytes-1)
+            || TexDataHash((const unsigned char *)edit->sourcepath,sourcebytes)!=Read32(sourceheader+4))
+        { fclose(file);return FALSE; }
+        headersize+=8+sourcebytes;
+    }
+    if(headersize>(DWORD)length || Read32(header+16)!=(DWORD)length-headersize)
     { fclose(file);return FALSE; }
     edit->size=Read32(header+16);edit->data=malloc(edit->size);
     if(!edit->data || fread(edit->data,1,edit->size,file)!=edit->size)
@@ -164,15 +182,18 @@ BOOL ImageEditsCanEdit(const char *project,DWORD id,const char **why)
     *why="";return TRUE;
 }
 static BOOL Stage(const char *project,DWORD id,const TexPixel *pixels,int width,int height,
-    const TexImportOptions *options,BOOL deleted,const char **why)
+    const TexImportOptions *options,const char *sourcepath,BOOL deleted,const char **why)
 {
     ImageEdit *edit,**slot;TexRomBank bank;
+    if(sourcepath && strlen(sourcepath)>=MAX_PATH)
+    { *why="The image source path is too long.";return FALSE; }
     if(!LoadBank(project,&bank,why)) { return FALSE; }
     edit=calloc(1,sizeof(*edit));if(!edit) { *why="Out of memory editing the image.";return FALSE; }
     if(!TexEncodeRecord(pixels,width,height,options,&edit->data,&edit->size,why)) { free(edit);return FALSE; }
     edit->pixels=malloc((size_t)width*height*sizeof(TexPixel));
     if(!edit->pixels || !TexDecodeRecord(edit->data,edit->size,edit->pixels,&edit->width,&edit->height))
     { FreeEdit(edit);free(edit);*why="The converted image could not be previewed.";return FALSE; }
+    if(sourcepath) { lstrcpyn(edit->sourcepath,sourcepath,MAX_PATH); }
     if(strcmp(project,g_ImageProject)) { ImageEditsReset();lstrcpyn(g_ImageProject,project,MAX_PATH); }
     edit->id=id;edit->options=*options;edit->basehash=bank.hash;edit->basecount=bank.count;edit->deleted=deleted;
     edit->pixelhash=TexDataHash((unsigned char *)edit->pixels,width*height*sizeof(TexPixel));
@@ -188,19 +209,54 @@ static BOOL Stage(const char *project,DWORD id,const TexPixel *pixels,int width,
     *slot=edit;*why="";return TRUE;
 }
 BOOL ImageEditsImport(const char *project,const TexPixel *pixels,int width,int height,
-    const TexImportOptions *options,DWORD *id,const char **why)
+    const TexImportOptions *options,const char *sourcepath,DWORD *id,const char **why)
 {
-    return ImageEditsNextId(project,id,why) && Stage(project,*id,pixels,width,height,options,FALSE,why);
+    return ImageEditsNextId(project,id,why) && Stage(project,*id,pixels,width,height,options,sourcepath,FALSE,why);
 }
 BOOL ImageEditsReplace(const char *project,DWORD id,const TexPixel *pixels,int width,int height,
-    const TexImportOptions *options,const char **why)
+    const TexImportOptions *options,const char *sourcepath,const char **why)
 {
-    return ImageEditsCanEdit(project,id,why) && Stage(project,id,pixels,width,height,options,FALSE,why);
+    return ImageEditsCanEdit(project,id,why) && Stage(project,id,pixels,width,height,options,sourcepath,FALSE,why);
+}
+BOOL ImageEditsReimport(const char *project,DWORD id,char sourceout[MAX_PATH],const char **why)
+{
+    ImageEdit stored={0},*edit;TexImportOptions options;TexPixel *pixels=NULL;
+    char path[MAX_PATH];DWORD attrs;int width,height;BOOL ok;
+    sourceout[0]=0;
+    if(!ImageEditsCanEdit(project,id,why)) { return FALSE; }
+    edit=Pending(project,id);
+    if(!edit)
+    {
+        if(!Path(path,project,id,".gtex")) { *why="The image asset path is too long.";return FALSE; }
+        if(GetFileAttributes(path)!=INVALID_FILE_ATTRIBUTES)
+        {
+            if(!ReadSaved(project,id,NULL,&stored,why)) { return FALSE; }
+            edit=&stored;
+        }
+    }
+    if(!edit || !edit->sourcepath[0])
+    {
+        FreeEdit(&stored);
+        *why="This image has no saved source file. Use Replace image once to choose a BMP and its import settings; Reimport will then reuse them.";
+        return FALSE;
+    }
+    lstrcpyn(sourceout,edit->sourcepath,MAX_PATH);options=edit->options;FreeEdit(&stored);
+    attrs=GetFileAttributes(sourceout);
+    if(attrs==INVALID_FILE_ATTRIBUTES || (attrs&FILE_ATTRIBUTE_DIRECTORY))
+    {
+        *why="The source BMP is missing or inaccessible. Restore it to its original location, or use Replace image to choose a new source.";
+        return FALSE;
+    }
+    if(!TexReadImportBmp(sourceout,&pixels,&width,&height,why)) { return FALSE; }
+    /* Stage checks dimensions, mip count and TMEM with the remembered settings.
+     * A failed decode/conversion never discards an existing pending edit. */
+    ok=Stage(project,id,pixels,width,height,&options,sourceout,FALSE,why);
+    free(pixels);return ok;
 }
 BOOL ImageEditsDelete(const char *project,DWORD id,const char **why)
 {
     const TexPixel blank={0,0,0,0};const TexImportOptions options={1,0,0,0};
-    return ImageEditsCanEdit(project,id,why) && Stage(project,id,&blank,1,1,&options,TRUE,why);
+    return ImageEditsCanEdit(project,id,why) && Stage(project,id,&blank,1,1,&options,NULL,TRUE,why);
 }
 /* Saved deletions have no BMP; image consumers can still resolve the blank
  * slot without accidentally falling back to the base ROM's original pixels. */
@@ -237,7 +293,8 @@ BOOL ImageEditsSave(const char *project,const char **why)
     { *why="The native image folder could not be created.";return FALSE; }
     while(g_ImageEdits)
     {
-        ImageEdit *edit=g_ImageEdits;unsigned char header[32]={0};
+        ImageEdit *edit=g_ImageEdits;unsigned char header[40]={0};
+        DWORD headersize=32,sourcebytes=edit->sourcepath[0] ? (DWORD)strlen(edit->sourcepath)+1 : 0;
         char bmp[MAX_PATH],bmptemp[MAX_PATH],native[MAX_PATH],temp[MAX_PATH],backup[MAX_PATH];
         FILE *file;BOOL ok,bmpwritten=FALSE,backedup=FALSE;
         if(!Path(bmp,project,edit->id,".bmp") || !Path(bmptemp,project,edit->id,".bmp.tmp")
@@ -254,7 +311,14 @@ BOOL ImageEditsSave(const char *project,const char **why)
         Write32(header+12,edit->id);Write32(header+16,edit->size);Write32(header+20,TexDataHash(edit->data,edit->size));
         Write32(header+24,edit->pixelhash);header[28]=edit->options.hitsound;header[29]=edit->options.hittexture;
         header[30]=edit->deleted ? 1 : 0;
-        file=fopen(temp,"wb");ok=file && fwrite(header,1,32,file)==32 && fwrite(edit->data,1,edit->size,file)==edit->size;
+        if(sourcebytes)
+        {
+            memcpy(header,"GTI3",4);headersize=40;Write32(header+32,sourcebytes);
+            Write32(header+36,TexDataHash((const unsigned char *)edit->sourcepath,sourcebytes));
+        }
+        file=fopen(temp,"wb");ok=file && fwrite(header,1,headersize,file)==headersize
+            && fwrite(edit->sourcepath,1,sourcebytes,file)==sourcebytes
+            && fwrite(edit->data,1,edit->size,file)==edit->size;
         if(file && fclose(file)) { ok=FALSE; }
         if(ok && !edit->deleted) { ok=TexWriteBmp(bmptemp,edit->pixels,edit->width,edit->height); }
         if(ok && GetFileAttributes(bmp)!=INVALID_FILE_ATTRIBUTES)

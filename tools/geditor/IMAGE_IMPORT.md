@@ -36,15 +36,15 @@ pending image changes. Creating a ROM also saves pending changes first.
 
 Imported and replaced images consist of `images/XXXX.bmp` and `images/native/XXXX.gtex`.
 Keep both files. The native file retains the selected format, mipmaps, surface
-settings, and base-ROM identity. Edits to an imported image's BMP are re-encoded
+settings, source BMP path, and base-ROM identity. Edits to an imported image's BMP are re-encoded
 with those saved settings during ROM creation. Use **Replace image** for original
 ROM images; externally editing an original extracted BMP alone does not change
 the ROM. Images are never automatically deleted when they become unused.
 
-## Delete and replace
+## Delete, replace, and reimport
 
-Right-click an image in the browser and choose **Delete image** or
-**Replace image**. These actions also work for images imported during the
+Right-click an image in the browser and choose **Delete image**, **Replace image**,
+or **Reimport**. These actions also work for images imported during the
 current session. The permanent **No Texture** item has no context actions.
 
 - **Delete image** asks for confirmation and warns that hard-coded texture IDs,
@@ -62,8 +62,21 @@ current session. The permanent **No Texture** item has no context actions.
   and native detail flags with the new choices. All settings start at the import
   dialog defaults; no hidden settings from the old image are carried forward.
   TMEM limits apply to replacements too. Cancel leaves the image unchanged.
+- **Reimport** rereads the original source BMP using the format, mipmap count,
+  hit sound, and bullet-hole type chosen on the last import or replacement.
+  It keeps the image ID and regenerates the pixels, palette, and mipmaps without
+  reopening the settings dialog. A missing/unreadable source, invalid dimensions,
+  or TMEM overflow reports an error and leaves both saved and pending edits intact.
+  Reimport does not reduce mipmaps or change formats to make an oversized image fit.
 
-Both actions mark the project as unsaved and refresh the browser, face thumbnail,
+Source paths are remembered from successful imports/replacements and saved by
+**Save Project**, so Reimport also works after reopening the project. Moving the
+source or moving the project to another machine may break that path; use
+**Replace image** to choose the source again. Images imported by older GEditor
+versions, and unmodified images extracted from the ROM, have no saved source.
+For those images, use **Replace image** once to establish the file and settings.
+
+Successful actions mark the project as unsaved and refresh the browser, face thumbnail,
 main viewport, and any open model viewer. Cameras and geometry selections are
 preserved. Replacing with different dimensions does not rescale authored model
 UV coordinates; the preview uses the same texel coordinates as the ROM. Use the
@@ -71,8 +84,10 @@ UV/model editing tools if you want different mapping.
 
 Save failures preserve the previous saved BMP/settings and leave the edit pending
 for retry. As with imports, exiting without saving discards pending image edits.
-The `GTI2` native-image metadata stores imports, replacements, and deletion
-records. Earlier metadata versions are not supported.
+The `GTI3` native-image metadata includes the source path with a length and
+checksum, committed together with the settings and native pixels. Existing
+`GTI2` files remain readable; edits without a source (including deletion records)
+still use `GTI2`. Earlier metadata versions are not supported.
 
 ## ROM support
 
@@ -105,4 +120,7 @@ They also cover original/imported/pending replacement and deletion, stable IDs,
 all replacement settings, discard, rollback after late save failures, saved-only
 ROM export, thumbnail pixel compaction, blank records, rejected old metadata,
 and model UV stability when a replacement has different dimensions.
+Reimport checks cover source changes, remembered settings, save/reopen, missing
+or malformed BMPs, TMEM/mipmap failures, pending replacement preservation,
+source-path rollback, and invalid source metadata.
 The Windows BMP decoder and dialog require a Windows runtime for visual testing.

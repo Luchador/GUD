@@ -425,9 +425,10 @@ static void GEditorRefreshImageViews(HWND hwnd, DWORD id, BOOL reveal)
     GEditorRefreshHistoryMenu(hwnd);
 }
 
-static void GEditorEditImage(HWND hwnd, DWORD id, BOOL deleting)
+static void GEditorEditImage(HWND hwnd, DWORD id, UINT action)
 {
     const char *why = "";
+    BOOL deleting = action == BROWSER_WM_IMAGE_DELETE;
     if (g_Project.name[0] == '\0') { return; }
     if (deleting)
     {
@@ -442,7 +443,9 @@ static void GEditorEditImage(HWND hwnd, DWORD id, BOOL deleting)
         if (!ImageEditsDelete(g_Project.dir, id, &why))
         { MessageBox(hwnd, why, "Delete Image", MB_ICONERROR); return; }
     }
-    else if (!ImageReplaceShow(hwnd, g_Project.dir, id)) { return; }
+    else if (!(action == BROWSER_WM_IMAGE_REIMPORT
+        ? ImageReimportShow(hwnd, g_Project.dir, id)
+        : ImageReplaceShow(hwnd, g_Project.dir, id))) { return; }
     GEditorRefreshImageViews(hwnd, id, !deleting);
 }
 
@@ -3115,7 +3118,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
     case BROWSER_WM_IMAGE_DELETE:
     case BROWSER_WM_IMAGE_REPLACE:
-        GEditorEditImage(hwnd, (DWORD)wparam, msg == BROWSER_WM_IMAGE_DELETE);
+    case BROWSER_WM_IMAGE_REIMPORT:
+        GEditorEditImage(hwnd, (DWORD)wparam, msg);
         return 0;
 
     case FACEPROPERTIES_WM_REVEAL_IMAGE:

@@ -10,7 +10,7 @@ migrate files produced by older editors.
 | Level table | 36-byte rows with authored level names; the final sentinel may have a NULL name |
 | Model assets | glTF 2.0 with normalized UV coordinates and the current GEditor metadata |
 | Saved model edits | Current `.gmodel` native overrides (`GMD1`) |
-| Saved image edits | Current `.gtex` metadata (`GTI2`) and the associated BMP, except for deletion records |
+| Saved image edits | `.gtex` metadata (`GTI3` with an import source, or `GTI2` without one) and the associated BMP, except for deletion records |
 
 New ROMs also expose optional audio, animation, model, global AI and text-bank
 catalogs. See [MANIFEST.md](MANIFEST.md) for their ranges and record layouts.

@@ -1713,13 +1713,14 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             if (menu == NULL) { return 0; }
             AppendMenu(menu, MF_STRING, 1, "Delete image");
             AppendMenu(menu, MF_STRING, 2, "Replace image");
+            AppendMenu(menu, MF_STRING, 3, "Reimport");
             command = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON,
                                      screen.x, screen.y, 0, hwnd, NULL);
             DestroyMenu(menu);
-            if (command == 1 || command == 2)
+            if (command >= 1 && command <= 3)
             {
                 SendMessage(GetParent(hwnd), command == 1 ? BROWSER_WM_IMAGE_DELETE
-                    : BROWSER_WM_IMAGE_REPLACE, textureid, 0);
+                    : command == 2 ? BROWSER_WM_IMAGE_REPLACE : BROWSER_WM_IMAGE_REIMPORT, textureid, 0);
             }
         }
         return 0;

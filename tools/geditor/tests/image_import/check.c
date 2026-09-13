@@ -108,13 +108,13 @@ static void Pipeline(const char *project)
     assert(ImageEditsNextId(project,&id,&why)&&id==BASE_COUNT);
     for(i=0;i<64;i++) source[i]=(TexPixel){(i%4)*64,(i%3)*64,(i%5)*32,(i%2)*255};
     {TexImportOptions o={1,0,1,1};
-     assert(ImageEditsImport(project,source,8,8,&o,&id,&why)&&ImageEditsHasUnsaved());
+     assert(ImageEditsImport(project,source,8,8,&o,NULL,&id,&why)&&ImageEditsHasUnsaved());
      ImageEditsReset();assert(!ImageEditsHasUnsaved());
      assert(ImageEditsNextId(project,&id,&why)&&id==BASE_COUNT);}
     for(i=0;i<13;i++)
     {
         TexImportOptions o={i,2,i,12-i};
-        assert(ImageEditsImport(project,source,8,8,&o,&id,&why)&&id==BASE_COUNT+i);
+        assert(ImageEditsImport(project,source,8,8,&o,NULL,&id,&why)&&id==BASE_COUNT+i);
         assert(TexGetProjectImageSize(project,id,&w,&h)&&w==8&&h==8);
         assert(TexLoadProjectImage(project,id,decoded,&w,&h));
     }
@@ -248,7 +248,7 @@ static void ImageActions(const char *project)
     originalrom=TexDataHash(rom.data,rom.size);assert(TexRomReadBank(&rom,&bank,&why));
     for(i=0;i<64;i++) { source[i]=(TexPixel){240,32,96,255}; }
     /* Cancelling an edit or closing without save preserves the original BMP/ROM. */
-    assert(ImageEditsReplace(project,3,source,8,8,&o,&why));
+    assert(ImageEditsReplace(project,3,source,8,8,&o,NULL,&why));
     assert(TexLoadProjectImage(project,3,decoded,&w,&h)&&w==8&&h==8&&decoded[0].r==240);
     assert(FileHash(bmp)==originalbmp&&ImageEditsHasUnsaved());
     assert(ImageEditsExportToRom(project,&rom,&why)&&TexDataHash(rom.data,rom.size)==originalrom);
@@ -259,7 +259,7 @@ static void ImageActions(const char *project)
     free(thumbs);free(thumbpixels);assert(FileHash(bmp)==originalbmp);
     ImageEditsReset();assert(TexLoadProjectImage(project,3,decoded,&w,&h)&&w==4);
     /* Replacement changes every setting at the same ID; no new ID is consumed. */
-    assert(ImageEditsReplace(project,3,source,8,8,&o,&why));
+    assert(ImageEditsReplace(project,3,source,8,8,&o,NULL,&why));
     assert(ImageEditsNextId(project,&next,&why)&&next==BASE_COUNT);
     assert(ImageEditsSave(project,&why));ImageEditsReset();
     savedbmp=FileHash(bmp);savednative=FileHash(native);
@@ -281,7 +281,7 @@ static void ImageActions(const char *project)
      assert(TexInfoReadRecord(rom.data+offset,rom.size-offset,&info)&&info.info.format==0&&info.info.mipmaps==2);}
     RomFree(&rom);
     /* Late save failures restore BOTH prior BMP and native settings. */
-    assert(ImageEditsReplace(project,3,source,4,4,&other,&why));
+    assert(ImageEditsReplace(project,3,source,4,4,&other,NULL,&why));
     for(i=1;i<=3;i++)
     {
         test_fail_move=i;assert(!ImageEditsSave(project,&why)&&ImageEditsHasUnsaved());
@@ -301,11 +301,11 @@ static void ImageActions(const char *project)
     assert(!ImageEditsCanEdit(project,3,&why));
     /* Mix pending imports/deletion/replacement with a saved base deletion.
      * Thumbnail compaction must preserve every surviving pixel block. */
-    assert(ImageEditsImport(project,source,4,4,&other,&id,&why)&&id==BASE_COUNT);
-    assert(ImageEditsReplace(project,id,source,8,8,&o,&why));
-    assert(ImageEditsImport(project,source,4,4,&other,&next,&why)&&next==BASE_COUNT+1);
+    assert(ImageEditsImport(project,source,4,4,&other,NULL,&id,&why)&&id==BASE_COUNT);
+    assert(ImageEditsReplace(project,id,source,8,8,&o,NULL,&why));
+    assert(ImageEditsImport(project,source,4,4,&other,NULL,&next,&why)&&next==BASE_COUNT+1);
     assert(ImageEditsDelete(project,next,&why));
-    assert(ImageEditsImport(project,source,4,4,&other,&next,&why)&&next==BASE_COUNT+2);
+    assert(ImageEditsImport(project,source,4,4,&other,NULL,&next,&why)&&next==BASE_COUNT+2);
     assert(ImageEditsDelete(project,0,&why));
     count=TexLoadProjectThumbnails(project,&thumbs,&thumbpixels,&why);assert(count==BASE_COUNT);
     for(i=0;i<count;i++)
@@ -320,7 +320,7 @@ static void ImageActions(const char *project)
     assert(ImageEditsNextId(project,&next,&why)&&next==BASE_COUNT+3);
     snprintf(path,sizeof(path),"%s\\images\\0011.bmp",project);assert(GetFileAttributes(path)==INVALID_FILE_ATTRIBUTES);
     /* A saved imported image is replaceable and later deletable at its own ID. */
-    assert(ImageEditsReplace(project,BASE_COUNT+2,source,8,8,&o,&why));
+    assert(ImageEditsReplace(project,BASE_COUNT+2,source,8,8,&o,NULL,&why));
     assert(ImageEditsSave(project,&why));assert(ImageEditsDelete(project,BASE_COUNT+2,&why));
     assert(ImageEditsSave(project,&why));ImageEditsReset();
     assert(RomLoad(basepath,&rom,&why)&&TexDataHash(rom.data,rom.size)==originalrom);
@@ -331,7 +331,7 @@ static void ImageActions(const char *project)
     RomFree(&rom);
     count=TexLoadProjectThumbnails(project,&thumbs,&thumbpixels,&why);assert(count==BASE_COUNT-1);
     free(thumbs);free(thumbpixels);
-    /* Only current GTI2 native-image metadata is accepted. */
+    /* The unsupported GTI1 metadata remains rejected. */
     snprintf(path,sizeof(path),"%s\\images\\native\\0010.gtex",project);
     {FILE *f=fopen(path,"rb+");assert(f);assert(fwrite("GTI1",1,4,f)==4);fclose(f);}
     assert(RomLoad(basepath,&rom,&why));assert(!ImageEditsExportToRom(project,&rom,&why));RomFree(&rom);
@@ -339,9 +339,11 @@ static void ImageActions(const char *project)
 }
 
 void CheckBmpAlpha(const char *, const char *);
+void CheckReimport(const char *);
 int main(int argc,char **argv)
 {
     char actions[MAX_PATH];assert(argc==2 || argc==3);Encoders();Fixture(argv[1]);
     CheckBmpAlpha(argv[1],argc==3?argv[2]:NULL);Pipeline(argv[1]);Limits(argv[1]);
-    snprintf(actions,sizeof(actions),"%s-actions",argv[1]);Fixture(actions);ImageActions(actions);return 0;
+    snprintf(actions,sizeof(actions),"%s-actions",argv[1]);Fixture(actions);ImageActions(actions);
+    snprintf(actions,sizeof(actions),"%s-reimport",argv[1]);Fixture(actions);CheckReimport(actions);return 0;
 }
