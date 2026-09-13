@@ -221,9 +221,10 @@ typedef struct ViewportState {
     HGLRC hglrc;  /* the GL context rendering into it */
     EditorTool tool;
     BOOL vertexsnap;
-    BOOL showbgstatistics;
+    BOOL showgeometrystatistics;
     GLuint statisticsfont; /* ASCII bitmap display lists, owned by the GL context */
     DWORD bgprimarytris, bgsecondarytris, bgtexturecount; /* cached on scene rebuild */
+    DWORD objecttris, charactertris;
 
     float backgroundcolor[3];
     BOOL showfog, levelfog;
@@ -455,19 +456,36 @@ static ViewportState *ViewportGetState(HWND hwnd)
     return (ViewportState *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
 }
 
-/* Cache counts for the level's BG or the complete orbit model preview.
+/* Cache counts for all loaded level geometry or the complete orbit model preview.
  * Texture IDs are shared across rooms, layers and GL variants; missing images
- * still count as used, but untextured faces do not add a texture. */
+ * still count as used, but untextured faces do not add a texture. The level's
+ * texture count covers BG, as before. Visibility toggles do not change totals. */
 static void ViewportUpdateStatistics(ViewportState *state)
 {
     unsigned char used[BG_TEX_NONE] = {0};
     int i;
 
     state->bgprimarytris = state->bgsecondarytris = state->bgtexturecount = 0;
+    state->objecttris = state->charactertris = 0;
     for (i = 0; i < state->batchcount; i++)
     {
         const SceneBatch *batch = &state->batches[i];
-        if ((!state->orbit && batch->object) || batch->count <= 0) { continue; }
+        if (batch->count <= 0) { continue; }
+        if (!state->orbit && batch->object)
+        {
+            int triangle;
+            /* Adjacent props and characters can share a draw batch. Classify
+             * each triangle by its owner; heads and visible held equipment
+             * already carry their character's selection ID. */
+            for (triangle = batch->first / 3; triangle < (batch->first + batch->count) / 3; triangle++)
+            {
+                DWORD owner = state->sceneobjectindices ? state->sceneobjectindices[triangle] : VIEWPORT_OBJECT_NONE;
+                if (owner != VIEWPORT_OBJECT_NONE && (owner & SETUP_CHARACTER_SELECTION_BIT))
+                { state->charactertris++; }
+                else { state->objecttris++; }
+            }
+            continue;
+        }
         if (batch->secondary) { state->bgsecondarytris += batch->count / 3; }
         else { state->bgprimarytris += batch->count / 3; }
         if (batch->textureid < BG_TEX_NONE && !used[batch->textureid])
@@ -506,10 +524,10 @@ static BOOL ViewportCreateStatisticsFont(ViewportState *state)
 
 static void ViewportDrawStatistics(const ViewportState *state)
 {
-    char lines[6][64];
+    char lines[8][64];
     int line, linecount;
 
-    if ((!state->orbit && !state->showbgstatistics) || !state->statisticsfont
+    if ((!state->orbit && !state->showgeometrystatistics) || !state->statisticsfont
         || state->width <= 0 || state->height <= 0) { return; }
     if (state->orbit)
     {
@@ -520,13 +538,15 @@ static void ViewportDrawStatistics(const ViewportState *state)
     }
     else
     {
-        linecount = 5;
+        linecount = 7;
         snprintf(lines[0], sizeof(lines[0]), "Primary tris: %lu", (unsigned long)state->bgprimarytris);
         snprintf(lines[1], sizeof(lines[1]), "Secondary tris: %lu", (unsigned long)state->bgsecondarytris);
-        snprintf(lines[2], sizeof(lines[2]), "Total tris: %lu",
-                 (unsigned long)(state->bgprimarytris + state->bgsecondarytris));
-        snprintf(lines[3], sizeof(lines[3]), "Unique textures: %lu", (unsigned long)state->bgtexturecount);
-        snprintf(lines[4], sizeof(lines[4]), "Hidden faces: %lu", (unsigned long)state->bghiddentris);
+        snprintf(lines[2], sizeof(lines[2]), "Object tris: %lu", (unsigned long)state->objecttris);
+        snprintf(lines[3], sizeof(lines[3]), "Character tris: %lu", (unsigned long)state->charactertris);
+        snprintf(lines[4], sizeof(lines[4]), "Total tris: %lu",
+                 (unsigned long)(state->bgprimarytris + state->bgsecondarytris + state->objecttris + state->charactertris));
+        snprintf(lines[5], sizeof(lines[5]), "Unique textures: %lu", (unsigned long)state->bgtexturecount);
+        snprintf(lines[6], sizeof(lines[6]), "Hidden faces: %lu", (unsigned long)state->bghiddentris);
         if (state->tool == EDITOR_TOOL_VERTEX_SELECT || state->tool == EDITOR_TOOL_EDGE_SELECT
             || state->tool == EDITOR_TOOL_FACE_SELECT)
         {
@@ -5469,7 +5489,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         state->selectedportal = BG_PORTAL_INDEX_NONE;
         state->showobjects = TRUE;
         state->cullbackfaces = TRUE;
-        state->showbgstatistics = !state->orbit;
+        state->showgeometrystatistics = !state->orbit;
         state->showfog = !state->orbit;
         state->selectedobject = VIEWPORT_OBJECT_NONE;
         state->selectedpad.index = SETUP_PAD_INDEX_NONE;
@@ -5959,6 +5979,7 @@ static void ViewportFreeScene(struct ViewportState *state_)
     state->padmarkercount = 0;
     state->scenecount = 0;
     state->bgprimarytris = state->bgsecondarytris = state->bgtexturecount = 0;
+    state->objecttris = state->charactertris = 0;
 }
 
 
@@ -7299,17 +7320,17 @@ void ViewportSetBackfaceCulling(HWND hwnd, BOOL enabled)
     InvalidateRect(hwnd, NULL, FALSE);
 }
 
-BOOL ViewportGetBgStatisticsVisible(HWND hwnd)
+BOOL ViewportGetGeometryStatisticsVisible(HWND hwnd)
 {
     const ViewportState *state = ViewportGetState(hwnd);
-    return state != NULL && state->showbgstatistics;
+    return state != NULL && state->showgeometrystatistics;
 }
 
-void ViewportSetBgStatisticsVisible(HWND hwnd, BOOL enabled)
+void ViewportSetGeometryStatisticsVisible(HWND hwnd, BOOL enabled)
 {
     ViewportState *state = ViewportGetState(hwnd);
-    if (state == NULL || state->showbgstatistics == enabled) { return; }
-    state->showbgstatistics = enabled;
+    if (state == NULL || state->showgeometrystatistics == enabled) { return; }
+    state->showgeometrystatistics = enabled;
     InvalidateRect(hwnd, NULL, FALSE);
 }
 

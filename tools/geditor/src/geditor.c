@@ -576,7 +576,7 @@ enum {
     ID_EDIT_UNDO,
     ID_EDIT_REDO,
     ID_VIEW_BACKFACE_CULLING,
-    ID_VIEW_BG_STATISTICS,
+    ID_VIEW_GEOMETRY_STATISTICS,
     ID_VIEW_FOG,
     ID_VIEW_HIDE_SELECTED,
     ID_VIEW_UNHIDE_ALL,
@@ -733,7 +733,7 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(editmenu, MF_STRING, ID_EDIT_REDO, "&Redo\tCtrl+Y");
 
     AppendMenu(viewmenu, MF_STRING, ID_VIEW_BACKFACE_CULLING, "&Backface Culling");
-    AppendMenu(viewmenu, MF_STRING | MF_CHECKED, ID_VIEW_BG_STATISTICS, "Background &Statistics");
+    AppendMenu(viewmenu, MF_STRING | MF_CHECKED, ID_VIEW_GEOMETRY_STATISTICS, "Geometry &Statistics");
     AppendMenu(viewmenu, MF_STRING | MF_CHECKED, ID_VIEW_FOG, "&Fog\tF");
     AppendMenu(viewmenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(viewmenu, MF_STRING, ID_VIEW_HIDE_SELECTED, "&Hide Selected\tH");
@@ -3620,7 +3620,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         EnableMenuItem((HMENU)wparam, ID_TOOLS_CREATE_ROM, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         GEditorUpdateHistoryMenu((HMENU)wparam);
         CheckMenuItem((HMENU)wparam, ID_VIEW_BACKFACE_CULLING, MF_BYCOMMAND | (ViewportGetBackfaceCulling(g_Viewport) ? MF_CHECKED : MF_UNCHECKED));
-        CheckMenuItem((HMENU)wparam, ID_VIEW_BG_STATISTICS, MF_BYCOMMAND | (ViewportGetBgStatisticsVisible(g_Viewport) ? MF_CHECKED : MF_UNCHECKED));
+        CheckMenuItem((HMENU)wparam, ID_VIEW_GEOMETRY_STATISTICS, MF_BYCOMMAND | (ViewportGetGeometryStatisticsVisible(g_Viewport) ? MF_CHECKED : MF_UNCHECKED));
         CheckMenuItem((HMENU)wparam, ID_VIEW_FOG, MF_BYCOMMAND | (ViewportGetFogVisible(g_Viewport) ? MF_CHECKED : MF_UNCHECKED));
         EnableMenuItem((HMENU)wparam, ID_VIEW_HIDE_SELECTED, MF_BYCOMMAND |
             (ViewportGetTool(g_Viewport) == EDITOR_TOOL_FACE_SELECT && ViewportGetSelectedBgFaceCount(g_Viewport) > 0
@@ -3782,9 +3782,9 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                     !ViewportGetBackfaceCulling(g_Viewport));
                 return 0;
 
-            case ID_VIEW_BG_STATISTICS:
-                ViewportSetBgStatisticsVisible(g_Viewport,
-                    !ViewportGetBgStatisticsVisible(g_Viewport));
+            case ID_VIEW_GEOMETRY_STATISTICS:
+                ViewportSetGeometryStatisticsVisible(g_Viewport,
+                    !ViewportGetGeometryStatisticsVisible(g_Viewport));
                 return 0;
 
             case ID_VIEW_FOG:
