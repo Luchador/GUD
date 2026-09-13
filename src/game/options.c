@@ -1591,6 +1591,7 @@ void watchNavigate(void)
                 case GAME_OPTIONS_INDEX_RATIO:
                 case GAME_OPTIONS_INDEX_AA:
                 case GAME_OPTIONS_INDEX_VI_FILTER:
+                case GAME_OPTIONS_INDEX_COLOR_DITHER:
                     watchNavToggleOptions();
             }
             watchNavOptions();
@@ -3485,9 +3486,10 @@ static Gfx *watchDrawRenderOption(Gfx *gdl, s32 y, s32 index, s32 state)
 {
     /* Lowercase selects the same small capitals as the existing watch options.
      * textMeasure counts height at newlines; labels need a final one. */
-    static char *labels[] = {"aa\n", "vi filter\n"};
+    static char *labels[] = {"aa\n", "vi filter\n", "color dither\n"};
     static char *aaValues[] = {"full\n", "reduced\n", "off\n"};
     static char *viValues[] = {"smooth\n", "edges\n", "off\n"};
+    static char *ditherValues[] = {"default\n", "off\n"};
     char **values;
     u32 value;
     u32 previous;
@@ -3499,10 +3501,14 @@ static Gfx *watchDrawRenderOption(Gfx *gdl, s32 y, s32 index, s32 state)
         value = renderGetAaStyle();
         count = RENDER_AA_COUNT;
         values = aaValues;
-    } else {
+    } else if (index == GAME_OPTIONS_INDEX_VI_FILTER) {
         value = renderGetViFilter();
         count = RENDER_VI_COUNT;
         values = viValues;
+    } else {
+        value = renderGetColorDither();
+        count = RENDER_COLOR_DITHER_COUNT;
+        values = ditherValues;
     }
     previous = value;
     if (state == 2) {
@@ -3516,7 +3522,8 @@ static Gfx *watchDrawRenderOption(Gfx *gdl, s32 y, s32 index, s32 state)
     }
     if (value != previous) {
         if (index == GAME_OPTIONS_INDEX_AA) renderSetAaStyle(value);
-        else renderSetViFilter(value);
+        else if (index == GAME_OPTIONS_INDEX_VI_FILTER) renderSetViFilter(value);
+        else renderSetColorDither(value);
     }
     gdl = draw_options_labels(gdl, XOFFSET_1, y, labels[option],
             state == 2 ? 0xffffffff : colour, state == 2, 0x7000a0, 0, 0, 0, 0);

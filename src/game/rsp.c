@@ -231,7 +231,7 @@ void rspGfxTaskStart(Gfx *firstGdl, Gfx *gdl, s32 arg2, OSMesg rspReplyMsg)
 
     sctask->framebuffer = (void *) ((struct GfxInfo_s *)g_gfxTaskSettingsList)->cfb;
 
-    renderApplyAa(firstGdl, gdl);
+    renderApplyDisplayListSettings(firstGdl, gdl);
 
     osWritebackDCacheAll();
 

@@ -718,7 +718,7 @@ s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool)
 
     count = srcsize >> 3;
 
-    renderInvalidateAaCache();
+    renderInvalidateDisplayListCache();
     sub_GAME_7F0CC4C8();
 
     if (texpool == NULL)

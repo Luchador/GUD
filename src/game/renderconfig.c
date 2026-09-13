@@ -11,16 +11,20 @@ static s32 g_RenderAaStyle = RENDER_AA_FULL;
 static s32 g_RenderViFilter = RENDER_VI_SMOOTH;
 static s32 g_RenderAppliedAa = RENDER_AA_FULL;
 static s32 g_RenderAppliedVi = RENDER_VI_SMOOTH;
+static s32 g_RenderColorDither = RENDER_COLOR_DITHER_DEFAULT;
+static s32 g_RenderAppliedColorDither = RENDER_COLOR_DITHER_DEFAULT;
 
-#define AA_LEAF_CACHE_SIZE 1024
-#define AA_GDL_STACK_SIZE 16
-#define AA_COMMAND_LIMIT 262144
+#define RENDER_LEAF_CACHE_SIZE 1024
+#define RENDER_GDL_STACK_SIZE 16
+#define RENDER_COMMAND_LIMIT 262144
 #define AA_FIRST_BLENDER_MASK 0xcccc0000u
 #define AA_OTHER_BITS_MASK (~AA_FIRST_BLENDER_MASK)
 #define AA_COMMAND_WORD 0xb900031du
 #define AA_TAG_MASK 0x00ff0000u
 #define AA_TAG_PRESENT 0x80
 #define AA_TAG_FIRST_BLENDER 0x20
+#define COLOR_DITHER_MASK (3u << G_MDSFT_RGBDITHER)
+#define COLOR_DITHER_TAG 0x80
 
 /* Only ordinary opaque surfaces are changed. Cutouts, particles, translucent
  * surfaces, and custom blender equations retain their authored render modes. */
@@ -32,12 +36,13 @@ static const u32 g_AaOpaqueModes[][2] = {
     {G_RM_AA_OPA_TERR | G_RM_AA_OPA_TERR2, G_RM_OPA_SURF | G_RM_OPA_SURF2}
 };
 
-static Gfx *g_AaLeafCache[AA_LEAF_CACHE_SIZE];
+static Gfx *g_RenderLeafCache[RENDER_LEAF_CACHE_SIZE];
 extern u8 *g_GfxBuffers[3];
 extern u8 *g_VtxBuffers[3];
 
 s32 renderGetAaStyle(void) { return g_RenderAaStyle; }
 s32 renderGetViFilter(void) { return g_RenderViFilter; }
+s32 renderGetColorDither(void) { return g_RenderColorDither; }
 
 void renderSetAaStyle(s32 style)
 {
@@ -49,15 +54,21 @@ void renderSetViFilter(s32 filter)
     if (filter >= 0 && filter < RENDER_VI_COUNT) g_RenderViFilter = filter;
 }
 
-bool renderSettingsPending(void)
+void renderSetColorDither(s32 dither)
 {
-    return g_RenderAaStyle != g_RenderAppliedAa || g_RenderViFilter != g_RenderAppliedVi;
+    if (dither >= 0 && dither < RENDER_COLOR_DITHER_COUNT) g_RenderColorDither = dither;
 }
 
-void renderInvalidateAaCache(void)
+bool renderSettingsPending(void)
+{
+    return g_RenderAaStyle != g_RenderAppliedAa || g_RenderViFilter != g_RenderAppliedVi
+            || g_RenderColorDither != g_RenderAppliedColorDither;
+}
+
+void renderInvalidateDisplayListCache(void)
 {
     s32 i;
-    for (i = 0; i < AA_LEAF_CACHE_SIZE; i++) g_AaLeafCache[i] = NULL;
+    for (i = 0; i < RENDER_LEAF_CACHE_SIZE; i++) g_RenderLeafCache[i] = NULL;
 }
 
 void renderApplySettings(void)
@@ -65,24 +76,28 @@ void renderApplySettings(void)
     if (renderSettingsPending()) {
         g_RenderAppliedAa = g_RenderAaStyle;
         g_RenderAppliedVi = g_RenderViFilter;
-        renderInvalidateAaCache();
+        g_RenderAppliedColorDither = g_RenderColorDither;
+        renderInvalidateDisplayListCache();
     }
 }
 
 u8 renderEncodeSettings(void)
 {
-    /* Version marker in the existing unused save byte; old saves use defaults. */
-    return 0xa0 | g_RenderAaStyle | (g_RenderViFilter << 2);
+    /* Bits 7..5 are the format marker; bit 4 stores dither Off. Previous
+     * AA/VI saves have bit 4 clear and therefore retain Default dithering. */
+    return 0xa0 | g_RenderAaStyle | (g_RenderViFilter << 2) | (g_RenderColorDither << 4);
 }
 
 void renderDecodeSettings(u8 settings)
 {
     renderSetAaStyle(RENDER_AA_FULL);
     renderSetViFilter(RENDER_VI_SMOOTH);
-    if ((settings & 0xf0) == 0xa0 && (settings & 3) < RENDER_AA_COUNT
+    renderSetColorDither(RENDER_COLOR_DITHER_DEFAULT);
+    if ((settings & 0xe0) == 0xa0 && (settings & 3) < RENDER_AA_COUNT
             && ((settings >> 2) & 3) < RENDER_VI_COUNT) {
         renderSetAaStyle(settings & 3);
         renderSetViFilter((settings >> 2) & 3);
+        renderSetColorDither((settings >> 4) & 1);
     }
 }
 
@@ -156,24 +171,64 @@ static void renderApplyAaCommand(Gfx *cmd)
     }
 }
 
-void renderRestoreAaGdl(Gfx *start, Gfx *end)
+/* RGB dithering lives in SetOtherMode H, independently of AA's L command.
+ * As with AA, its unused command byte remembers the authored choice. Handle
+ * both gDPSetColorDither and H writes covering the complete RGB-dither field;
+ * leave alpha dithering, texture filtering and all other state bits untouched. */
+static bool renderCommandSetsColorDither(Gfx *cmd)
+{
+    u32 shift = (cmd->words.w0 >> 8) & 0xff;
+    u32 length = cmd->words.w0 & 0xff;
+    return (cmd->words.w0 >> 24) == (u8)G_SETOTHERMODE_H
+            && shift <= G_MDSFT_RGBDITHER && length <= 32
+            && shift + length >= G_MDSFT_RGBDITHER + 2;
+}
+
+static void renderRestoreColorDitherCommand(Gfx *cmd)
+{
+    u32 tag = (cmd->words.w0 >> 16) & 0xff;
+    if (!renderCommandSetsColorDither(cmd) || (tag & ~3u) != COLOR_DITHER_TAG) return;
+    cmd->words.w1 = (cmd->words.w1 & ~COLOR_DITHER_MASK) | ((tag & 3) << G_MDSFT_RGBDITHER);
+    cmd->words.w0 &= ~AA_TAG_MASK;
+}
+
+static void renderApplyColorDitherCommand(Gfx *cmd)
+{
+    u32 original;
+    Gfx canonical;
+    if (!renderCommandSetsColorDither(cmd)) return;
+    canonical = *cmd;
+    renderRestoreColorDitherCommand(&canonical);
+    if (canonical.words.w0 & AA_TAG_MASK) return; /* Unrecognized metadata. */
+    original = canonical.words.w1 & COLOR_DITHER_MASK;
+    if (g_RenderAppliedColorDither == RENDER_COLOR_DITHER_OFF && original != G_CD_DISABLE) {
+        canonical.words.w0 |= (COLOR_DITHER_TAG | (original >> G_MDSFT_RGBDITHER)) << 16;
+        canonical.words.w1 = (canonical.words.w1 & ~COLOR_DITHER_MASK) | G_CD_DISABLE;
+    }
+    /* Static lists may also be used by the previous task. Never transiently
+     * restore/rewrite an already-correct command during steady-state frames. */
+    if (cmd->words.w0 != canonical.words.w0 || cmd->words.w1 != canonical.words.w1) *cmd = canonical;
+}
+
+void renderRestoreDisplayListSettings(Gfx *start, Gfx *end)
 {
     Gfx *cmd;
-    renderInvalidateAaCache();
+    renderInvalidateDisplayListCache();
     if (!start) return;
     for (cmd = start; end ? cmd < end : (cmd->words.w0 >> 24) != (u8)G_ENDDL; cmd++) {
         renderRestoreAaCommand(cmd);
+        renderRestoreColorDitherCommand(cmd);
     }
 }
 
-static bool renderAaIsDynamic(Gfx *gdl)
+static bool renderListIsDynamic(Gfx *gdl)
 {
     u32 address = (u32)gdl;
     return (address >= (u32)g_GfxBuffers[0] && address < (u32)g_GfxBuffers[2])
             || (address >= (u32)g_VtxBuffers[0] && address < (u32)g_VtxBuffers[2]);
 }
 
-static Gfx *renderAaResolveAddress(u32 address, u32 *segments)
+static Gfx *renderResolveDisplayListAddress(u32 address, u32 *segments)
 {
     u32 physical;
     if (address & 0x80000000) {
@@ -186,22 +241,22 @@ static Gfx *renderAaResolveAddress(u32 address, u32 *segments)
     return (Gfx *)(physical | 0x80000000);
 }
 
-bool renderApplyAa(Gfx *start, Gfx *end)
+bool renderApplyDisplayListSettings(Gfx *start, Gfx *end)
 {
-    struct AaListState {
+    struct RenderListState {
         Gfx *start;
         Gfx *cmd;
         Gfx *end;
         bool cacheable;
-    } stack[AA_GDL_STACK_SIZE];
-    struct AaListState *state;
+    } stack[RENDER_GDL_STACK_SIZE];
+    struct RenderListState *state;
     Gfx *cmd;
     Gfx *child;
     u32 segments[16] = {0};
     u32 opcode;
     u32 slot;
     s32 depth = 0;
-    s32 remaining = AA_COMMAND_LIMIT;
+    s32 remaining = RENDER_COMMAND_LIMIT;
 
     stack[0].start = start;
     stack[0].cmd = start;
@@ -216,8 +271,8 @@ bool renderApplyAa(Gfx *start, Gfx *end)
         opcode = cmd->words.w0 >> 24;
         if (opcode == (u8)G_ENDDL) {
             if (state->cacheable) {
-                slot = ((u32)state->start >> 3) & (AA_LEAF_CACHE_SIZE - 1);
-                g_AaLeafCache[slot] = state->start;
+                slot = ((u32)state->start >> 3) & (RENDER_LEAF_CACHE_SIZE - 1);
+                g_RenderLeafCache[slot] = state->start;
             }
             depth--;
         } else if (opcode == (u8)G_MOVEWORD && (cmd->words.w0 & 0xff) == G_MW_SEGMENT) {
@@ -225,23 +280,25 @@ bool renderApplyAa(Gfx *start, Gfx *end)
             segments[((cmd->words.w0 >> 8) & 0xffff) / 4 & 15] = cmd->words.w1 & 0x1fffffff;
         } else if (opcode == (u8)G_DL) {
             state->cacheable = FALSE;
-            child = renderAaResolveAddress(cmd->words.w1, segments);
+            child = renderResolveDisplayListAddress(cmd->words.w1, segments);
             if (!child) return FALSE;
-            slot = ((u32)child >> 3) & (AA_LEAF_CACHE_SIZE - 1);
-            if (!renderAaIsDynamic(child) && g_AaLeafCache[slot] == child) {
+            slot = ((u32)child >> 3) & (RENDER_LEAF_CACHE_SIZE - 1);
+            if (!renderListIsDynamic(child) && g_RenderLeafCache[slot] == child) {
                 if (((cmd->words.w0 >> 16) & 0xff) == G_DL_NOPUSH) depth--;
                 continue;
             }
             if (((cmd->words.w0 >> 16) & 0xff) != G_DL_NOPUSH) {
-                if (++depth == AA_GDL_STACK_SIZE) return FALSE;
+                if (++depth == RENDER_GDL_STACK_SIZE) return FALSE;
                 state = &stack[depth];
             }
             state->start = child;
             state->cmd = child;
             state->end = NULL;
-            state->cacheable = !renderAaIsDynamic(child);
+            state->cacheable = !renderListIsDynamic(child);
         } else if (opcode == (u8)G_SETOTHERMODE_L) {
             renderApplyAaCommand(cmd);
+        } else if (opcode == (u8)G_SETOTHERMODE_H) {
+            renderApplyColorDitherCommand(cmd);
         }
     }
     return depth < 0;

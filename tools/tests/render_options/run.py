@@ -63,7 +63,7 @@ source += (HERE / 'check.c').read_text()
 
 # Ensure the actual integration uses the tested helpers at the correct points.
 rsp = (ROOT / 'src/game/rsp.c').read_text()
-assert rsp.index('renderApplyAa(firstGdl, gdl)') < rsp.index('osWritebackDCacheAll()')
+assert rsp.index('renderApplyDisplayListSettings(firstGdl, gdl)') < rsp.index('osWritebackDCacheAll()')
 boss = (ROOT / 'src/boss.c').read_text()
 assert '(!renderSettingsPending() || pendingGfx == 0)' in boss
 for name in ('data', 'rodata', 'bss'):
@@ -90,9 +90,9 @@ for path in ('src/sched.c', 'src/game/rsp.c', 'src/game/rsp.h', 'src/game/lv.c',
     assert not re.search(r'renderprofile|renderProfile|RenderProfile|RENDER_STATS', text), path
 assert 'osGetCount' not in function(rsp, 'rspGfxTaskStart')
 print('Profiler removal: no AA/VI timing hooks, task metadata, menu row or linker entries remain', flush=True)
-assert 'renderRestoreAaGdl(start, end)' in (ROOT / 'src/game/bgapply.c').read_text()
-assert 'renderInvalidateAaCache()' in function((ROOT / 'src/game/tex.c').read_text(), 'texLoadFromGdl')
-assert 'renderInvalidateAaCache()' in function((ROOT / 'src/game/dyn.c').read_text(), 'dynInitMemory')
+assert 'renderRestoreDisplayListSettings(start, end)' in (ROOT / 'src/game/bgapply.c').read_text()
+assert 'renderInvalidateDisplayListCache()' in function((ROOT / 'src/game/tex.c').read_text(), 'texLoadFromGdl')
+assert 'renderInvalidateDisplayListCache()' in function((ROOT / 'src/game/dyn.c').read_text(), 'dynInitMemory')
 
 with tempfile.TemporaryDirectory(prefix='gud-render-options-') as directory:
     work = Path(directory)

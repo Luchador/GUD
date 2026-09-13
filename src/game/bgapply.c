@@ -41,7 +41,7 @@ void bgApplyDynamicCCRMLUT(Gfx *start, Gfx *end, enum CCRMLUT lutIndex)
 
     static s32 s_bg_lut_replacement_count = 0;
 
-    renderRestoreAaGdl(start, end);
+    renderRestoreDisplayListSettings(start, end);
     curGfx = start;
 
     /* Loop until end pointer or sentinel G_ENDDL (when end==NULL) */
