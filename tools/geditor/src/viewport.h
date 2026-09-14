@@ -234,6 +234,7 @@ StanPointRef *ViewportGetMoveStanPoints(HWND hwnd, DWORD *countout);
 void ViewportSetPortals(HWND hwnd, const BgPortalFile *portals);
 /* Table index, not shared polygon index. Hidden portals cannot be selected. */
 BOOL ViewportGetSelectedPortal(HWND hwnd, DWORD *index);
+BOOL ViewportSelectPortal(HWND hwnd, DWORD index);
 
 /* Controls background, stan, portal and object/character visibility.
    The loaded scene remains resident while a layer is hidden. */

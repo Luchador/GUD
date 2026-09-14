@@ -40,6 +40,8 @@ typedef struct BgFile {
 #define BG_PORTAL_MAX_POINTS 8
 #define BG_MAX_PORTALS 200
 #define BG_PORTAL_INDEX_NONE ((DWORD)-1)
+/* Unsaved editor polygons use identities outside the native 24-bit offsets. */
+#define BG_PORTAL_NEW_GEOMETRY 0x80000000u
 
 /* Host-native view of one entry in the BG portal table. Portal points
    are absolute (not room-relative) and are converted to gameplay world

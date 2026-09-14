@@ -11,6 +11,7 @@
 #define IDD_ADD_CIRCLE        107
 #define IDD_ADD_CYLINDER      108
 #define IDD_REBASE_PROJECT    109
+#define IDD_ADD_PORTAL        110
 
 /* Icons */
 #define IDI_GEDITOR           201
@@ -136,6 +137,15 @@
 #define IDC_PRIMITIVE_RADIUS  1140
 #define IDC_PRIMITIVE_SIDES   1141
 #define IDC_PRIMITIVE_HEIGHT  1142
+
+#define IDC_PORTAL_ROOM1      1180
+#define IDC_PORTAL_ROOM2      1181
+#define IDC_PORTAL_PLANE      1182
+#define IDC_PORTAL_WIDTH      1183
+#define IDC_PORTAL_HEIGHT     1184
+#define IDC_PORTAL_X          1185
+#define IDC_PORTAL_Y          1186
+#define IDC_PORTAL_Z          1187
 
 /* Rebase Project dialog. */
 #define IDC_REBASE_ROM        1160

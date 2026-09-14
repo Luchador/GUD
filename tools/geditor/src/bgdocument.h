@@ -178,6 +178,17 @@ BOOL BgDocumentAddRoundPrimitive(BgDocument *document, BOOL cylinder, DWORD room
 BOOL BgDocumentSetPortalRooms(BgDocument *document, DWORD portal, DWORD room1, DWORD room2,
                               BOOL *changed, const char **reasonout);
 
+typedef enum BgPortalPlane { BG_PORTAL_XY, BG_PORTAL_YZ, BG_PORTAL_XZ } BgPortalPlane;
+typedef struct BgPortalPlacement {
+    DWORD room1, room2;
+    double center[3], width, height; /* World units (centimetres). */
+    BgPortalPlane plane;
+} BgPortalPlacement;
+/* Append one rectangular connection. Existing indices and shared polygons
+ * remain stable. Validation/allocation failure leaves the document unchanged. */
+BOOL BgDocumentAddPortal(BgDocument *document, const BgPortalPlacement *placement,
+                         DWORD *indexout, const char **reasonout);
+
 BOOL BgDocumentDeleteFaces(BgDocument *document, const BgFaceRef *refs,
                            DWORD refcount, DWORD *deletedout,
                            const char **reasonout);

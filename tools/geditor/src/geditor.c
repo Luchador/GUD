@@ -18,6 +18,7 @@
 #include "rightpanel.h"
 #include "faceproperties.h"
 #include "portalproperties.h"
+#include "portaloptions.h"
 #include "objectflags.h"
 #include "objectproperties.h"
 #include "tooltoolbar.h"
@@ -3140,6 +3141,60 @@ static BOOL GEditorDropSetupMarker(HWND hwnd, const BrowserObjectDrop *request)
 }
 
 
+static BOOL GEditorCanAddPortal(const char **why)
+{
+    *why = "Open a level with at least two rooms before adding a portal.";
+    if (g_CurrentLevelIndex == GEDITOR_NO_LEVEL || !g_CurrentBgDocument.rooms
+        || g_CurrentBgDocument.roomcount < 2) { return FALSE; }
+    if (g_CurrentBgDocument.portalwarning)
+    { *why = g_CurrentBgDocument.portalwarning; return FALSE; }
+    if (g_CurrentBgDocument.portals.portalcount >= BG_MAX_PORTALS - 1)
+    { *why = "This level has reached the limit of 199 portals."; return FALSE; }
+    *why = "";
+    return TRUE;
+}
+
+static BOOL GEditorDropPortal(HWND hwnd, const BrowserObjectDrop *drop)
+{
+    EditHistoryTransaction transaction = {0};
+    BgPortalPlacement placement = {0};
+    const char *why = "";
+    double right[3];
+    DWORD index;
+    if (!drop || drop->type != BROWSER_OBJECT_PORTAL || !GEditorCanAddPortal(&why)
+        || WindowFromPoint(drop->screen) != g_Viewport
+        || !ViewportGetPrimitiveDrop(g_Viewport, drop->screen, placement.center,
+                                     right, &placement.room1)) { return FALSE; }
+    placement.width = 200; placement.height = 300;
+    placement.plane = fabs(right[0]) >= fabs(right[2]) ? BG_PORTAL_XY : BG_PORTAL_YZ;
+    /* Resolve the drop before the modal dialog; Cancel changes no assets. */
+    if (!PortalOptionsPrompt(hwnd, g_CurrentBgDocument.roomcount, &placement)) { return FALSE; }
+    if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
+                                "Add Portal", &transaction, &why)) { goto fail; }
+    if (!BgDocumentAddPortal(&g_CurrentBgDocument, &placement, &index, &why)) { goto rollback; }
+    ViewportSetPortals(g_Viewport, &g_CurrentBgDocument.portals);
+    RightPanelShowPortals(g_RightPanel);
+    ViewportSetTool(g_Viewport, EDITOR_TOOL_FACE_SELECT);
+    if (!ViewportSelectPortal(g_Viewport, index))
+    { why = "Could not display the new portal."; goto rollback; }
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument,
+        &g_CurrentSetup, &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    ToolToolbarSetTool(g_ToolToolbar, EDITOR_TOOL_FACE_SELECT);
+    GEditorRefreshSelectionDetails();
+    GEditorRefreshHistoryMenu(hwnd);
+    SetFocus(g_Viewport);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    ViewportSetPortals(g_Viewport, &g_CurrentBgDocument.portals);
+    GEditorRestoreHistorySelection(hwnd);
+fail:
+    EditHistoryCancelEdit(&transaction);
+    GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
 static BOOL GEditorDropPrimitive(HWND hwnd, const BrowserObjectDrop *drop)
 {
     EditHistoryTransaction transaction = {0};
@@ -3739,6 +3794,14 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     }
 
     case BROWSER_WM_OBJECT_DRAG_BEGIN:
+        if (wparam == BROWSER_OBJECT_PORTAL)
+        {
+            const char *why;
+            if (!GEditorCanAddPortal(&why))
+            { MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONINFORMATION); return FALSE; }
+            ViewportCancelTransform(g_Viewport);
+            return TRUE;
+        }
         if (wparam == BROWSER_OBJECT_TRIANGLE || wparam == BROWSER_OBJECT_QUAD
             || wparam == BROWSER_OBJECT_CIRCLE || wparam == BROWSER_OBJECT_CYLINDER)
         {
@@ -3765,6 +3828,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     case BROWSER_WM_OBJECT_DROP:
     {
         const BrowserObjectDrop *drop = (const BrowserObjectDrop *)lparam;
+        if (drop && drop->type == BROWSER_OBJECT_PORTAL) { return GEditorDropPortal(hwnd, drop); }
         if (drop && (drop->type == BROWSER_OBJECT_TRIANGLE || drop->type == BROWSER_OBJECT_QUAD
             || drop->type == BROWSER_OBJECT_CIRCLE || drop->type == BROWSER_OBJECT_CYLINDER))
         { return GEditorDropPrimitive(hwnd, drop); }

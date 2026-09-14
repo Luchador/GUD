@@ -2,13 +2,16 @@
  * Compiler for the editable, room-aware background document.
  *
  * The header, portal table, visibility data, and other unknown data before
- * the room streams are preserved, with the portal connection bytes updated
- * from the document. Room vertex streams, Fast3D display lists and per-face
+ * the room streams are preserved. New portal tables/polygons are appended
+ * to this prefix; existing indices and polygon addresses stay stable.
+ * Room vertex streams, Fast3D display lists and per-face
  * materials are regenerated from BgDocument.
  * Other commands captured by the parser retain the authored render state.
  */
 
 #include <windows.h>
+#include <math.h>
+#include <float.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -764,27 +767,88 @@ static BOOL BgCompileValidateSource(const BgDocument *document,
 }
 
 
-/* Portal indices and geometry pointers also serve native game/script lookups.
- * Patch only the two room bytes, retaining every other authored byte. */
+/* Preserve all original polygon addresses: visibility commands can name them.
+ * Only relocate the table when it grows, retaining its entry order. A saved
+ * source may be newer than an undo snapshot, or older than a redo snapshot. */
 static BOOL BgCompilePortalRooms(const BgDocument *document, BgCompileBuffer *output,
                                  const char **reasonout)
 {
-    DWORD table, count = document->portals.portalcount, i;
-    if (document->portalwarning) { return TRUE; } /* preserve an uneditable table */
-    if (output->size < 12 || count >= BG_MAX_PORTALS) { goto mismatch; }
-    table = BgCompileRead32(output->data + 8) & 0x00ffffffu;
-    if (table > output->size || (count + 1) > (output->size - table) / 8
+    DWORD table, oldcount = 0, count = document->portals.portalcount;
+    DWORD originalsize = output->size, pointers[BG_MAX_PORTALS] = {0};
+    if (document->portalwarning) { return TRUE; }
+    if (output->size < 12 || count >= BG_MAX_PORTALS
         || (count && !document->portals.portals)) { goto mismatch; }
-    for (i = 0; i < count; i++)
+    table = BgCompileRead32(output->data + 8) & 0x00ffffffu;
+    for (;; oldcount++)
+    {
+        DWORD record;
+        if (table > originalsize || oldcount >= BG_MAX_PORTALS
+            || oldcount + 1 > (originalsize - table) / 8) { goto mismatch; }
+        record = BgCompileRead32(output->data + table + oldcount * 8);
+        if (!record) { break; }
+        pointers[oldcount] = record;
+    }
+    /* Validate old identities before changing or reallocating the prefix. */
+    for (DWORD i = 0; i < count; i++)
     {
         const BgPortal *portal = &document->portals.portals[i];
-        unsigned char *record = output->data + table + i * 8;
-        if (!BgCompileRead32(record) || (BgCompileRead32(record) & 0x00ffffffu) != portal->geometryoffset)
-        { goto mismatch; }
-        record[4] = portal->connectedroom1;
-        record[5] = portal->connectedroom2;
+        if (!(portal->geometryoffset & BG_PORTAL_NEW_GEOMETRY)
+            && (i >= oldcount || portal->geometryoffset != (pointers[i] & 0x00ffffffu))) { goto mismatch; }
     }
-    if (BgCompileRead32(output->data + table + count * 8)) { goto mismatch; }
+    if (count > oldcount)
+    {
+        if (!BgCompileAlign(output, 4)) { return FALSE; }
+        table = output->size;
+        for (DWORD i = 0; i <= count; i++)
+        { if (!BgCompileWrite32(output, 0) || !BgCompileWrite32(output, 0)) { return FALSE; } }
+        if (!BgCompilePatch32(output, 8, BGCOMPILE_SEGMENT | table)) { goto mismatch; }
+    }
+    for (DWORD i = 0; i < count; i++)
+    {
+        const BgPortal *portal = &document->portals.portals[i];
+        DWORD geometry = pointers[i] & 0x00ffffffu, record = table + i * 8;
+        if (portal->geometryoffset & BG_PORTAL_NEW_GEOMETRY)
+        {
+            /* These are appended editor rectangles. Reuse their saved storage
+             * on subsequent saves; after an undo, append again if necessary. */
+            if (portal->pointcount != 4 || !isfinite(document->levelscale)
+                || document->levelscale <= 0) { goto mismatch; }
+            if (i < oldcount)
+            {
+                if (geometry > originalsize || originalsize - geometry < 52
+                    || output->data[geometry] != 4) { goto mismatch; }
+            }
+            else
+            {
+                if (!BgCompileAlign(output, 4)) { return FALSE; }
+                geometry = output->size;
+                for (int word = 0; word < 13; word++)
+                { if (!BgCompileWrite32(output, 0)) { return FALSE; } }
+                BgCompilePatch32(output, geometry, 4u << 24);
+            }
+            for (int point = 0; point < 4; point++)
+            {
+                const BgPortalPoint *p = &portal->points[point];
+                const float world[3] = {p->x, p->y, p->z};
+                for (int axis = 0; axis < 3; axis++)
+                {
+                    double native = (double)world[axis] * document->levelscale;
+                    union { float value; DWORD word; } encoded;
+                    if (!isfinite(native) || fabs(native) > FLT_MAX) { goto mismatch; }
+                    encoded.value = (float)native;
+                    BgCompilePatch32(output, geometry + 4 + point * 12 + axis * 4, encoded.word);
+                }
+            }
+        }
+        /* Existing flags/margins and shared geometry are copied unchanged. */
+        BgCompilePatch32(output, record, i < oldcount ? pointers[i] : BGCOMPILE_SEGMENT | geometry);
+        output->data[record + 4] = portal->connectedroom1;
+        output->data[record + 5] = portal->connectedroom2;
+        output->data[record + 6] = portal->controlbytes1;
+        output->data[record + 7] = portal->controlbytes2;
+    }
+    /* Removing the appended tail via Undo must also update the native sentinel. */
+    if (!BgCompilePatch32(output, table + count * 8, 0)) { goto mismatch; }
     return TRUE;
 mismatch:
     *reasonout = "The editable portal table does not match the source BG.";

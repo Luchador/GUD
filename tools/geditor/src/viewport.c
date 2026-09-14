@@ -6548,6 +6548,20 @@ BOOL ViewportGetSelectedPortal(HWND hwnd, DWORD *index)
     return TRUE;
 }
 
+BOOL ViewportSelectPortal(HWND hwnd, DWORD index)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    if (!state || !state->showportals || !state->portals.portals
+        || index >= state->portals.portalcount) { return FALSE; }
+    ViewportClearAllSelection(state);
+    state->selectedportal = index;
+    ViewportRefreshPortalColors(state);
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd, NULL, FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+    return TRUE;
+}
+
 
 void ViewportSetPortals(HWND hwnd, const BgPortalFile *portals)
 {

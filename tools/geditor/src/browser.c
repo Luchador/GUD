@@ -1174,7 +1174,7 @@ static void BrowserBeginObjectDrag(HWND hwnd, BrowserState *state, int index, PO
     int width = rect.right - rect.left, i;
     if (width < 1) { return; }
     if ((index == BROWSER_OBJECT_TRIANGLE || index == BROWSER_OBJECT_QUAD
-            || index == BROWSER_OBJECT_CIRCLE || index == BROWSER_OBJECT_CYLINDER
+            || index == BROWSER_OBJECT_CIRCLE || index == BROWSER_OBJECT_CYLINDER || index == BROWSER_OBJECT_PORTAL
             || index == BROWSER_OBJECT_SPAWN || index == BROWSER_OBJECT_INTRO_CAMERA || index == BROWSER_OBJECT_OUTRO_CAMERA
             || index == BROWSER_OBJECT_DOOR || index == BROWSER_OBJECT_GLASS
             || index == BROWSER_OBJECT_CCTV || index == BROWSER_OBJECT_ALARM || index == BROWSER_OBJECT_DRONE_GUN
@@ -1633,6 +1633,7 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                 BrowserEndAssetDrag(hwnd, state);
                 if (objectdrop.type == BROWSER_OBJECT_TRIANGLE || objectdrop.type == BROWSER_OBJECT_QUAD
                     || objectdrop.type == BROWSER_OBJECT_CIRCLE || objectdrop.type == BROWSER_OBJECT_CYLINDER
+                    || objectdrop.type == BROWSER_OBJECT_PORTAL
                     || objectdrop.type == BROWSER_OBJECT_SPAWN || objectdrop.type == BROWSER_OBJECT_INTRO_CAMERA
                     || objectdrop.type == BROWSER_OBJECT_OUTRO_CAMERA || objectdrop.type == BROWSER_OBJECT_DOOR
                     || objectdrop.type == BROWSER_OBJECT_GLASS || objectdrop.type == BROWSER_OBJECT_CCTV
