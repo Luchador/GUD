@@ -34,20 +34,40 @@ config = strip_includes((ROOT / 'src/game/renderconfig.c').read_text())
 config = config.replace('(Gfx *)(physical | 0x80000000)', '(Gfx *)(g_TestRam + physical)')
 config = config.replace('((u32)cmd & 0x1fffffff)', '((u8 *)cmd - g_TestRam)')
 source += config
+source += strip_includes((ROOT / 'src/game/bgonecycle.h').read_text())
+image_header = (ROOT / 'src/game/image.h').read_text()
+source += re.search(r'struct tex \{.*?\n};', image_header, re.S)[0] + '\n'
+source += '''
+static struct tex g_TestTexture;
+static struct tex *texFindByData(u32 address) {
+    return address == 0x123450 ? &g_TestTexture : NULL;
+}
+'''
 source += strip_includes((ROOT / 'src/game/bgonecycle.c').read_text())
 bg = (ROOT / 'src/game/bg.c').read_text()
-for name in ('DL_LUT_PRIMARY', 'DL_LUT_PRIMARY_ADDFOG'):
+for name in ('DL_LUT_PRIMARY', 'DL_LUT_PRIMARY_ADDFOG', 'DL_LUT_SECONDARY', 'DL_LUT_SECONDARY_ADDFOG'):
     source += re.search(r'Gfx ' + name + r'\[\].*?\n};', bg, re.S)[0] + '\n'
 source += (HERE / 'harness.h').read_text()
-for name in ('bgBuildRoomOneCycleGdl', 'bgFreeRoomData', 'bgRenderRoomPrimary'):
+for name in ('bgBuildRoomOneCycleGdl', 'bgFreeRoomData', 'bgRenderRoomPrimary', 'bgRenderRoomSecondary'):
     source += function(bg, name)
+source += '\n'.join(re.findall(r'^#define TEXFORMAT_.*$', image_header, re.M)) + '\n'
+source += function((ROOT / 'src/game/image.c').read_text(), 'texHasBinaryAlpha')
 source += (HERE / 'check.c').read_text()
+source += (HERE / 'cutouts.c').read_text()
+
+# Classification precedes row swaps/mip generation, using the existing spare
+# descriptor bit (no N64 layout growth or change to texture pointer prefixes).
+loader = function((ROOT / 'src/game/image.c').read_text(), 'texLoadRaw')
+assert loader.index('tex->hasBinaryAlpha = FALSE') < loader.index('romCopy(')
+assert loader.index('romCopy(') < loader.index('texHasBinaryAlpha(') < loader.index('texSwapAltRowBytes(')
+assert 'u32 hasBinaryAlpha : 1' in image_header
 
 # Check the real integration ordering, including all manually ordered sections.
 load = function(bg, 'bgLoadRoomModelData')
 assert load.rindex('bgApplyDynamicCCRMLUT(') < load.index('bgBuildRoomVtxBounds(roomID)') < load.index('bgBuildRoomOneCycleGdl(roomID)')
 assert 'g_BgOneCycleRooms[i].gdl = NULL' in function(bg, 'bgLoadFile')
-assert 'g_BgOneCycleRooms' not in function(bg, 'bgRenderRoomSecondary')
+assert 'g_BgOneCycleRooms[i].secondaryGdl = NULL' in function(bg, 'bgLoadFile')
+assert 'BG_CUTOUT_THRESHOLD' in function(bg, 'bgRenderRoomSecondary')
 for section in ('text', 'data', 'rodata', 'bss'):
     assert f'bgonecycle.o (.{section})' in (ROOT / f'ld/game.{section}.ld.inc').read_text()
 
@@ -91,3 +111,28 @@ with tempfile.TemporaryDirectory(prefix='gud-bg-onecycle-') as directory:
         path = work / (Path(name).stem + '.bin')
         path.write_bytes(fixture)
         subprocess.run([str(work / 'check'), str(path)], check=True)
+
+        # Secondary room commands/LUTs are real. Use a representative full
+        # RGBA16 upload for ordinary markers because ROM texture payloads are
+        # unavailable here. This measures candidate coverage, not actual texels.
+        fixture = bytearray()
+        for body in re.findall(r'u32 sec_mapping_binary_\d+\[\] = \{(.*?)\};', asset, re.S):
+            data = bytes.fromhex(''.join(re.findall(r'0x([0-9a-fA-F]{8})', body)))
+            if data[:2] != b'\x11\x72':
+                continue
+            commands = []
+            for w0, w1 in struct.iter_unpack('>II', zlib.decompress(data[2:], -15)):
+                if w0 >> 24 == 0xc0:
+                    if (w1 & 0xfff) in (1508, 1511) or (w0 & 7) == 1:
+                        commands.append((0x06000000, 0x100))
+                    else:
+                        commands += [(0xfd100000, 0x123450), (0xf5100000, 0x07000000),
+                                     (0xe6000000, 0), (0xf3000000, 0x073ff000),
+                                     (0xe7000000, 0), (0xf5101000, 0), (0xba000e02, 0)]
+                else:
+                    commands.append((w0, w1))
+            data = b''.join(struct.pack('>II', *command) for command in commands)
+            fixture += struct.pack('>I', len(data)) + data
+        path = work / (Path(name).stem + '-secondary.bin')
+        path.write_bytes(fixture)
+        subprocess.run([str(work / 'check'), str(path), 'secondary'], check=True)

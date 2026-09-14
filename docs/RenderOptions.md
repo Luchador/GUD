@@ -14,13 +14,12 @@ The active value is bright; the other value is dim. There are no value arrows.
 
 | Option | On | Off |
 |---|---|---|
-| AA | Authored render modes and original lists; equivalent to the former Full setting. | Non-AA modes on supported opaque surfaces, plus one-cycle rendering for eligible opaque room backgrounds and world props. |
+| AA | Authored render modes and original lists; equivalent to the former Full setting. | Non-AA modes on supported opaque surfaces, plus one-cycle rendering for eligible opaque room backgrounds/world props and binary-alpha secondary room cutouts. |
 | VI Filter | VI edge AA, divot correction and dedithering; equivalent to the former Smooth setting. | Those filters are disabled; the resampling needed for video output remains. |
 
 Both default to On and are saved per folder. AA affects ordinary opaque
-surface, terrain and decal modes, including asset lists. Translucency,
-texture-edge cutouts, particles and custom modes retain their authored AA
-settings. AA Off therefore does not remove every AA operation in the scene.
+surface, terrain and decal modes, including asset lists. Blended translucency, particles and custom modes retain their authored AA
+settings. Eligible secondary room cutouts use the non-AA path described below. AA Off therefore does not remove every AA operation in the scene.
 VI Filter controls final video output independently.
 
 Color Dither is no longer a setting. Each pass keeps its vanilla/authored RDP
@@ -55,8 +54,8 @@ mip chain; the optimization targets pixel processing, not upload traffic.
 Only recognized opaque surface/terrain modes and simple textured or shaded
 combiners in primary room lists are converted. Cutouts, decals, translucency,
 detail/sharpen combiners, animated water and custom materials retain their
-existing pipelines. Secondary room lists, characters, weapons, sky and the
-watch are outside this conversion. World props have the separate path described
+existing pipelines. Characters, weapons, sky and the
+watch are outside this conversion. Secondary rooms have the cutout path below. World props have the separate path described
 below. Mixed lists switch state
 around eligible draws and restore the original AA-Off state at exits/calls.
 State inherited from a called list is treated as unknown until established.
@@ -114,6 +113,63 @@ before and after this patch. Train's crate-filled cars are a useful first test.
 Check crate labels, lighting, nearby doors/windows, damaged crates and distance
 fades, then toggle AA repeatedly and restart the level. Distant textures may
 shimmer more, as with one-cycle backgrounds.
+
+## One-cycle secondary room cutouts
+
+With AA Off, eligible surfaces in secondary room lists now use one-cycle alpha
+cutout rendering. This first pass targets room geometry; transparent model
+lists (including prop/door glass), effects and characters keep their existing
+rendering. AA On selects the original room lists, and VI remains independent.
+
+At texture load, the base image is classified as binary-alpha only if it has
+both fully transparent and fully opaque texels, with no intermediate alpha.
+The check supports RGBA, IA and their paletted formats, ignores row padding and
+unused palette entries, and excludes RGB/intensity-only images and special
+preswapped tile banks. It uses an existing spare descriptor bit, so descriptors
+do not grow. Mips and texture payloads remain unchanged; there is no per-frame
+texel scan or texture-number whitelist. Imported images follow the same rule.
+
+A draw is eligible only with a recognized Z-buffered translucent-surface or
+texture-edge mode, a supported texture-alpha combiner, explicit environment
+alpha 255, and a verified base-tile upload/format/palette. Explicit alpha
+comparison, fades, decals, partial/custom uploads and unsupported combiners
+remain on their original pipeline. Soft-alpha foliage is deliberately left
+blended along with tinted glass; this trial does not classify by appearance.
+
+Converted draws use the base tile with authored bilinear/point filtering and
+an alpha threshold of 128/255 (`BG_CUTOUT_THRESHOLD`). Surviving texels write
+opaque color and Z; holes write neither. Fog retains the shade-alpha blender
+with `FORCE_BL`, without reading framebuffer color. Alpha coverage selection
+is disabled so the comparison sees texture alpha. Dither commands are retained.
+The renderer establishes the threshold before calling the alternate, which
+restores alpha comparison, cycle, LOD, combiner and render mode before skipped
+draws and exits/calls. Unknown state after a nested call prevents conversion.
+
+Optional secondary copies are allocated and freed with their rooms, after
+collision bounds and primary copies. They add roughly the original secondary
+list size plus transition commands; each failed allocation falls back to that
+room's original list. Geometry, collision lists, bullet hits and light vertices
+remain shared/unchanged.
+
+For a hardware comparison, keep AA Off, VI and the camera position fixed across
+builds. Try Jungle foliage and Runway/Depot fencing, including close views,
+distant edges and overlaps with props. Check glass, moving doors, fog, broken
+lights, AA toggles and room streaming. Hard edges and lost mip blending can
+make thin/distant details disappear or shimmer. The existing FPS/bottleneck
+indicator remains; no new watch option or profiler was added.
+
+The host suite checks classification, RGBA/CI uploads, mixed cutout/glass
+transitions, fog/depth, state restoration, allocation fallback, unloading and
+AA/VI selection. It also checks 271 authored secondary streams across seven
+levels with both environment LUTs, using representative binary/soft-alpha
+texture metadata and upload packets. Original texture payloads are unavailable
+here, so those asset checks establish candidate coverage, not which actual
+images qualify or their appearance. Console validation remains necessary.
+
+Host and address/undefined-behavior checks pass. Affected code compiles with
+IDO 5.3 for the US N64 target. The texture module compilation uses a source
+image-catalog fixture in place of the unavailable generated ROM-offset table;
+a complete ROM build is blocked by missing base-ROM/texture assets here.
 
 ## Rendering implementation
 

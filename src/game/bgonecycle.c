@@ -1,6 +1,7 @@
 #include <ultra64.h>
 #include "bgonecycle.h"
 #include "renderconfig.h"
+#include "image.h"
 
 #define BG_CYCLE_MASK (3u << G_MDSFT_CYCLETYPE)
 #define BG_LOD_MASK (1u << G_MDSFT_TEXTLOD)
@@ -37,6 +38,10 @@ static const Gfx g_BgOneCycleCombiners[][2] = {
             COMBINED, 0, SHADE, 0, COMBINED, 0, SHADE, PRIMITIVE),
      gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0, TEXEL0, 0, SHADE, PRIMITIVE,
             TEXEL0, 0, SHADE, 0, TEXEL0, 0, SHADE, PRIMITIVE)},
+    /* Some room textures take alpha from one mip instead of interpolating it. */
+    {gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0, 1, 0, TEXEL1, 0,
+            COMBINED, 0, SHADE, 0, COMBINED, 0, ENVIRONMENT, 0),
+     gsDPSetCombineMode(G_CC_MODULATEIFADEA, G_CC_MODULATEIFADEA)},
     {gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
      gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE)},
     {gsDPSetCombineLERP(0, 0, 0, SHADE, 0, 0, 0, ENVIRONMENT,
@@ -59,6 +64,18 @@ typedef struct BgOneCycleState {
     Gfx combine;
     s32 combineKnown;
     s32 textureEnabled; /* -1 until an explicit gSPTexture */
+    s32 baseTile;
+    s32 envAlpha;
+    s32 blendAlpha;
+    u32 tiles[8];
+    u32 palettes[8];
+    u32 tileKnown;
+    u32 image;
+    u32 imageDepth;
+    u32 loadedImage;
+    u32 loadedTexels;
+    s32 paletteLoaded;
+    struct tex *loadedTexture;
 } BgOneCycleState;
 
 typedef struct BgOneCycleOutput {
@@ -82,20 +99,29 @@ static void bgOneCycleEmit(BgOneCycleOutput *out, Gfx command)
 
 static void bgOneCycleResetState(BgOneCycleState *state)
 {
+    s32 i;
     state->high = state->highKnown = state->low = state->lowKnown = 0;
     state->combine.words.w0 = state->combine.words.w1 = 0;
     state->combineKnown = FALSE;
     state->textureEnabled = -1;
+    state->baseTile = state->envAlpha = state->blendAlpha = -1;
+    state->tileKnown = state->image = state->imageDepth = 0;
+    state->loadedImage = state->loadedTexels = 0;
+    state->paletteLoaded = FALSE;
+    for (i = 0; i < 8; i++) state->tiles[i] = state->palettes[i] = 0;
+    state->loadedTexture = NULL;
 }
 
 /* SETOTHERMODE uses a shift and bit count, including editor-authored partial
  * surface overrides. Never treat a partial write as a complete render mode. */
-static s32 bgOneCycleReadState(BgOneCycleState *state, Gfx command)
+static s32 bgOneCycleReadState(BgOneCycleState *state, Gfx command, bool cutouts)
 {
     u32 opcode = command.words.w0 >> 24;
     u32 shift;
     u32 length;
     u32 mask;
+    u32 tile;
+    struct tex *tex;
     if (opcode == (u8)G_SETOTHERMODE_H || opcode == (u8)G_SETOTHERMODE_L) {
         shift = (command.words.w0 >> 8) & 0xff;
         length = command.words.w0 & 0xff;
@@ -113,6 +139,50 @@ static s32 bgOneCycleReadState(BgOneCycleState *state, Gfx command)
         state->combineKnown = TRUE;
     } else if (opcode == (u8)G_TEXTURE) {
         state->textureEnabled = (command.words.w0 & 0xff) != 0;
+        state->baseTile = (command.words.w0 >> 8) & 7;
+    } else if (opcode == (u8)G_SETENVCOLOR) {
+        state->envAlpha = command.words.w1 & 0xff;
+    } else if (opcode == (u8)G_SETBLENDCOLOR) {
+        state->blendAlpha = command.words.w1 & 0xff;
+    } else if (cutouts && opcode == (u8)G_SETTILE) {
+        tile = (command.words.w1 >> 24) & 7;
+        state->tiles[tile] = command.words.w0;
+        state->palettes[tile] = (command.words.w1 >> 20) & 15;
+        state->tileKnown |= 1u << tile;
+    } else if (cutouts && opcode == (u8)G_SETTIMG) {
+        state->image = command.words.w1;
+        state->imageDepth = (command.words.w0 >> 19) & 3;
+    } else if (cutouts && (opcode == (u8)G_LOADBLOCK || opcode == (u8)G_LOADTILE)) {
+        /* Only a full base-image upload to TMEM zero is understood. A later
+         * detail/partial upload invalidates it; TLUT uploads do not replace it. */
+        state->loadedTexture = NULL;
+        state->paletteLoaded = FALSE;
+        tile = (command.words.w1 >> 24) & 7;
+        if (opcode == (u8)G_LOADBLOCK && !(command.words.w0 & 0xffffff)
+                && (state->tileKnown & (1u << tile)) && !(state->tiles[tile] & 0x1ff)) {
+            tex = texFindByData(state->image);
+            if (tex && tex->hasBinaryAlpha
+                    && (((((command.words.w1 >> 12) & 0xfff) + 1) << state->imageDepth) / 2
+                        >= (tex->depth == G_IM_SIZ_32b ? ((tex->width + 3) & ~3) * 4 * tex->height
+                            : ((tex->width * (4 << tex->depth) + 63) / 64) * 8 * tex->height)))
+            {
+                state->loadedTexture = tex;
+                state->loadedImage = state->image;
+                state->loadedTexels = ((command.words.w1 >> 12) & 0xfff) + 1;
+            }
+        }
+    } else if (cutouts && opcode == (u8)G_LOADTLUT) {
+        tile = (command.words.w1 >> 24) & 7;
+        /* Require the ordinary palette load from the same texture record.
+         * Partial/rebased TLUTs could give the same indices different alpha. */
+        state->paletteLoaded = state->image == state->loadedImage
+                && (state->tileKnown & (1u << tile)) && (state->tiles[tile] & 0x1ff) == 0x100
+                && state->loadedTexture
+                && (((command.words.w0 >> 14) & 0x3ff) + ((command.words.w0 >> 2) & 0x3ff)
+                    == state->loadedTexels)
+                && ((command.words.w0 ^ command.words.w1) & 0xfff) == 0
+                && (((command.words.w1 >> 14) & 0x3ff) - ((command.words.w0 >> 14) & 0x3ff)
+                    == state->loadedTexture->unk0a);
     } else if (opcode == (u8)G_RDPSETOTHERMODE) {
         state->high = command.words.w0 & 0xffffff;
         state->highKnown = 0xffffff;
@@ -122,13 +192,17 @@ static s32 bgOneCycleReadState(BgOneCycleState *state, Gfx command)
     return TRUE;
 }
 
-static s32 bgOneCycleChooseState(const BgOneCycleState *source, BgOneCycleState *chosen, bool model)
+static s32 bgOneCycleChooseState(const BgOneCycleState *source, BgOneCycleState *chosen,
+        bool model, bool cutouts)
 {
     u32 first;
     u32 mode;
     u32 required;
     s32 i;
     s32 combiner;
+    bool cutout = FALSE;
+    struct tex *tex;
+    Gfx alphaCombine = gsDPSetCombineMode(G_CC_MODULATEIFADEA, G_CC_MODULATEIFADEA);
     *chosen = *source;
     if ((source->highKnown & BG_CYCLE_MASK) != BG_CYCLE_MASK
             || (source->high & BG_CYCLE_MASK) != G_CYC_2CYCLE
@@ -142,13 +216,30 @@ static s32 bgOneCycleChooseState(const BgOneCycleState *source, BgOneCycleState 
     for (i = 0; i < sizeof(g_BgOneCycleSurfaces) / sizeof(g_BgOneCycleSurfaces[0]); i++) {
         if (mode == g_BgOneCycleSurfaces[i]) break;
     }
-    if (i == sizeof(g_BgOneCycleSurfaces) / sizeof(g_BgOneCycleSurfaces[0])) return FALSE;
+    if (i == sizeof(g_BgOneCycleSurfaces) / sizeof(g_BgOneCycleSurfaces[0])) {
+        if (!cutouts || (mode != (G_RM_AA_ZB_XLU_SURF2) && mode != (G_RM_ZB_XLU_SURF2)
+                    && mode != (G_RM_AA_ZB_TEX_EDGE2))) return FALSE;
+        /* No vertex/fade alpha: the room LUT must have selected texture times
+         * fully opaque environment alpha. Glass and soft alpha stay blended. */
+        tex = source->loadedTexture;
+        if (!tex || source->envAlpha != 255 || source->blendAlpha != BG_CUTOUT_THRESHOLD
+                || (source->lowKnown & 3) != 3 || source->baseTile != 0
+                || !(source->tileKnown & 1) || (source->tiles[0] & 0x1ff)
+                || ((source->tiles[0] >> 21) & 7) != tex->gbiformat
+                || ((source->tiles[0] >> 19) & 3) != tex->depth
+                || (tex->gbiformat == G_IM_FMT_CI && (source->palettes[0] || !source->paletteLoaded))
+                || (source->highKnown & (3u << G_MDSFT_TEXTLUT)) != (3u << G_MDSFT_TEXTLUT)
+                || ((source->high >> G_MDSFT_TEXTLUT) & 3) != tex->lutmodeindex) return FALSE;
+        cutout = TRUE;
+    }
 
     for (combiner = 0; combiner < sizeof(g_BgOneCycleCombiners) / sizeof(g_BgOneCycleCombiners[0]); combiner++) {
         if (source->combine.words.w0 == g_BgOneCycleCombiners[combiner][0].words.w0
                 && source->combine.words.w1 == g_BgOneCycleCombiners[combiner][0].words.w1) break;
     }
     if (combiner == sizeof(g_BgOneCycleCombiners) / sizeof(g_BgOneCycleCombiners[0])) return FALSE;
+    if (cutout && (g_BgOneCycleCombiners[combiner][1].words.w0 != alphaCombine.words.w0
+                || g_BgOneCycleCombiners[combiner][1].words.w1 != alphaCombine.words.w1)) return FALSE;
     /* The final two entries are the untextured combiners. */
     if (combiner < sizeof(g_BgOneCycleCombiners) / sizeof(g_BgOneCycleCombiners[0]) - 2) {
         required = BG_LOD_MASK | BG_DETAIL_MASK | BG_FILTER_MASK;
@@ -172,6 +263,13 @@ static s32 bgOneCycleChooseState(const BgOneCycleState *source, BgOneCycleState 
                 ? G_RM_ZB_OPA_SURF | G_RM_ZB_OPA_SURF2
                 : G_RM_OPA_SURF | G_RM_OPA_SURF2);
     }
+    if (cutout) {
+        /* Threshold uses combiner alpha, not coverage. Surviving texels are
+         * opaque and write Z; holes write neither colour nor depth. Fog keeps
+         * using shade alpha and never reads the framebuffer colour. */
+        chosen->low = (chosen->low & ~(ALPHA_CVG_SEL | CVG_X_ALPHA | 3))
+                | Z_UPD | G_AC_THRESHOLD;
+    }
     return TRUE;
 }
 
@@ -183,9 +281,10 @@ static void bgOneCycleFlush(BgOneCycleOutput *out, BgOneCycleState *actual,
     Gfx command;
     u32 highDiff = (actual->high ^ wanted->high) & (BG_CYCLE_MASK | BG_LOD_MASK);
     s32 modeDiff = ((actual->low ^ wanted->low) & BG_RENDER_MASK) != 0;
+    s32 alphaDiff = ((actual->low ^ wanted->low) & 3) != 0;
     s32 combineDiff = actual->combine.words.w0 != wanted->combine.words.w0
             || actual->combine.words.w1 != wanted->combine.words.w1;
-    if (!highDiff && !modeDiff && !combineDiff) return;
+    if (!highDiff && !modeDiff && !combineDiff && !alphaDiff) return;
     gDPPipeSync(&command);
     bgOneCycleEmit(out, command);
     if (highDiff & BG_CYCLE_MASK) {
@@ -200,14 +299,18 @@ static void bgOneCycleFlush(BgOneCycleOutput *out, BgOneCycleState *actual,
         gDPSetRenderMode(&command, wanted->low & BG_RENDER_MASK, 0);
         bgOneCycleEmit(out, command);
     }
+    if (alphaDiff) {
+        gDPSetAlphaCompare(&command, wanted->low & 3);
+        bgOneCycleEmit(out, command);
+    }
     if (combineDiff) bgOneCycleEmit(out, wanted->combine);
     *actual = *wanted;
 }
 
 /* Model lists inherit their initial material from modelApplyRenderModeType*.
  * Interpret that setup without copying its per-instance colours into the list. */
-s32 gfxBuildOneCycleGdl(const Gfx *src, s32 size, Gfx *dst, s32 capacity,
-        const Gfx *initial, s32 initialSize)
+static s32 bgOneCycleBuild(const Gfx *src, s32 size, Gfx *dst, s32 capacity,
+        const Gfx *initial, s32 initialSize, bool cutouts)
 {
     BgOneCycleState source;
     BgOneCycleState actual;
@@ -220,10 +323,15 @@ s32 gfxBuildOneCycleGdl(const Gfx *src, s32 size, Gfx *dst, s32 capacity,
             || capacity < 0 || dst == src || initialSize < 0 || (initialSize & 7)
             || (initialSize && !initial)) return -1;
     bgOneCycleResetState(&source);
+    if (cutouts) {
+        /* bgRenderRoomSecondary establishes these before calling an alternate. */
+        source.lowKnown |= 3;
+        source.blendAlpha = BG_CUTOUT_THRESHOLD;
+    }
     for (i = 0; i < initialSize / sizeof(Gfx); i++) {
         command = initial[i];
         if (command.words.w0 >> 24 == (u8)G_SETOTHERMODE_L) command = renderGetAaOffCommand(command);
-        if (!bgOneCycleReadState(&source, command)) return -1;
+        if (!bgOneCycleReadState(&source, command, cutouts)) return -1;
     }
     actual = source;
     out.dst = dst;
@@ -240,7 +348,7 @@ s32 gfxBuildOneCycleGdl(const Gfx *src, s32 size, Gfx *dst, s32 capacity,
          * their own decoder. Refuse the list instead of guessing their state. */
         if (opcode == 0xaf || opcode == 0xb0 || (opcode >= 0xc8 && opcode <= 0xcf)) return -1;
         if (opcode == (u8)G_TRI1 || opcode == 0xb1) {
-            if (bgOneCycleChooseState(&source, &wanted, initial != NULL)) out.converted++;
+            if (bgOneCycleChooseState(&source, &wanted, initial != NULL, cutouts)) out.converted++;
             bgOneCycleFlush(&out, &actual, &wanted);
         } else if (opcode == (u8)G_ENDDL || opcode == (u8)G_DL
                 || opcode == (u8)G_CULLDL || opcode == (u8)G_LINE3D
@@ -249,7 +357,7 @@ s32 gfxBuildOneCycleGdl(const Gfx *src, s32 size, Gfx *dst, s32 capacity,
             bgOneCycleFlush(&out, &actual, &source);
         }
         bgOneCycleEmit(&out, command);
-        if (!bgOneCycleReadState(&source, command) || !bgOneCycleReadState(&actual, command)
+        if (!bgOneCycleReadState(&source, command, cutouts) || !bgOneCycleReadState(&actual, command, cutouts)
                 || out.failed) return -1;
         if (opcode == (u8)G_ENDDL) return out.converted ? out.count * sizeof(Gfx) : 0;
         if (opcode == (u8)G_DL) {
@@ -261,6 +369,17 @@ s32 gfxBuildOneCycleGdl(const Gfx *src, s32 size, Gfx *dst, s32 capacity,
         }
     }
     return -1; /* No ENDDL/terminal branch within the supplied room stream. */
+}
+
+s32 gfxBuildOneCycleGdl(const Gfx *src, s32 size, Gfx *dst, s32 capacity,
+        const Gfx *initial, s32 initialSize)
+{
+    return bgOneCycleBuild(src, size, dst, capacity, initial, initialSize, FALSE);
+}
+
+s32 bgBuildCutoutGdl(const Gfx *src, s32 size, Gfx *dst, s32 capacity)
+{
+    return bgOneCycleBuild(src, size, dst, capacity, NULL, 0, TRUE);
 }
 
 s32 bgBuildOneCycleGdl(const Gfx *src, s32 size, Gfx *dst, s32 capacity)

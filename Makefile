@@ -261,7 +261,7 @@ $(BUILD_DIR)/src/cfb.o: src/fr.h
 
 # These readers use the manifest-backed image count/capacity. Keep incremental
 # builds in sync when the texture headers change (the IDO rules do not emit .d files).
-$(addprefix $(BUILD_DIR)/src/game/,image.o initimages.o gedmanifest.o tex.o chrprop.o front.o): src/game/image.h src/game/tex.h src/bondconstants.h
+$(addprefix $(BUILD_DIR)/src/game/,image.o initimages.o gedmanifest.o tex.o chrprop.o front.o bgonecycle.o): src/game/image.h src/game/tex.h src/bondconstants.h
 
 # Setup and runtime flag enums use separate namespaces. IDO emits no header
 # dependencies, so changes to either enum must rebuild their game consumers.

@@ -145,6 +145,8 @@ RoomInfo g_BgRoomInfo[MAXROOMCOUNT] = {0};
 static struct {
     Gfx *gdl;
     s32 size;
+    Gfx *secondaryGdl;
+    s32 secondarySize;
 } g_BgOneCycleRooms[MAXROOMCOUNT];
 s32 g_MaxNumRooms = MAXROOMCOUNT;
 
@@ -549,6 +551,8 @@ void bgLoadFile(LEVEL_INDEX levelid)
         g_BgRoomInfo[i].vtx_batch_bounds = NULL;
         g_BgOneCycleRooms[i].gdl = NULL;
         g_BgOneCycleRooms[i].size = 0;
+        g_BgOneCycleRooms[i].secondaryGdl = NULL;
+        g_BgOneCycleRooms[i].secondarySize = 0;
     }
  
     for (i = 0; i < STAGES_MAX; i++)
@@ -1941,20 +1945,39 @@ static void bgBuildRoomOneCycleGdl(s32 roomID)
     RoomInfo *room = &g_BgRoomInfo[roomID];
     Gfx *gdl;
     s32 size;
+    s32 pass;
+    Gfx *source;
+    s32 sourceSize;
 
-    size = bgBuildOneCycleGdl(room->primaryGdl, room->primaryGdlSize, NULL, 0);
-    if (size <= 0) return;
-    size = (size + 0xf) & ~0xf;
-    gdl = memaAlloc(size);
-    if (!gdl) return; /* The original room remains renderable under pressure. */
-    if (bgBuildOneCycleGdl(room->primaryGdl, room->primaryGdlSize, gdl, size) <= 0)
+    for (pass = 0; pass < 2; pass++)
     {
-        memaFree(gdl, size);
-        return;
+        source = pass ? room->secondaryGdl : room->primaryGdl;
+        sourceSize = pass ? room->secondaryGdlSize : room->primaryGdlSize;
+        if (!source) continue;
+        size = pass ? bgBuildCutoutGdl(source, sourceSize, NULL, 0)
+                : bgBuildOneCycleGdl(source, sourceSize, NULL, 0);
+        if (size <= 0) continue;
+        size = (size + 0xf) & ~0xf;
+        gdl = memaAlloc(size);
+        if (!gdl) continue; /* Original lists remain renderable under pressure. */
+        if ((pass ? bgBuildCutoutGdl(source, sourceSize, gdl, size)
+                : bgBuildOneCycleGdl(source, sourceSize, gdl, size)) <= 0)
+        {
+            memaFree(gdl, size);
+            continue;
+        }
+        if (pass)
+        {
+            g_BgOneCycleRooms[roomID].secondaryGdl = gdl;
+            g_BgOneCycleRooms[roomID].secondarySize = size;
+        }
+        else
+        {
+            g_BgOneCycleRooms[roomID].gdl = gdl;
+            g_BgOneCycleRooms[roomID].size = size;
+        }
+        renderInvalidateDisplayListCache();
     }
-    g_BgOneCycleRooms[roomID].gdl = gdl;
-    g_BgOneCycleRooms[roomID].size = size;
-    renderInvalidateDisplayListCache();
 }
 
 /*
@@ -2108,6 +2131,14 @@ void bgFreeRoomData(s32 roomID)
     s32 size2;
     Vtx *pointindex;
 
+    if (g_BgOneCycleRooms[roomID].secondaryGdl)
+    {
+        memaFree(g_BgOneCycleRooms[roomID].secondaryGdl, g_BgOneCycleRooms[roomID].secondarySize);
+        g_BgOneCycleRooms[roomID].secondaryGdl = NULL;
+        g_BgOneCycleRooms[roomID].secondarySize = 0;
+        renderInvalidateDisplayListCache();
+    }
+
     if (g_BgOneCycleRooms[roomID].gdl)
     {
         memaFree(g_BgOneCycleRooms[roomID].gdl, g_BgOneCycleRooms[roomID].size);
@@ -2242,6 +2273,8 @@ Gfx *bgRenderRoomPrimary(Gfx *gdl, s32 room_index)
 */
 Gfx *bgRenderRoomSecondary(Gfx *gdl, s32 room_index)
 {
+    Gfx *secondary;
+
     if (room_index >= g_MaxNumRooms)
     {
         return gdl;
@@ -2259,7 +2292,18 @@ Gfx *bgRenderRoomSecondary(Gfx *gdl, s32 room_index)
             gdl = applyRoomMatrixToDisplayList(gdl, room_index);
 
             gSPSegment(gdl++, SPSEGMENT_BG_VTX, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].vertices));
-            gSPDisplayList(gdl++, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].secondaryGdl));
+            secondary = g_BgRoomInfo[room_index].secondaryGdl;
+            if (renderUseOneCycle() && g_BgOneCycleRooms[room_index].secondaryGdl)
+            {
+                secondary = g_BgOneCycleRooms[room_index].secondaryGdl;
+                /* Own the threshold register here, rather than relying on a
+                 * previous effect. The alternate restores alpha compare at
+                 * every exit and before any unconverted draw or nested call. */
+                gDPPipeSync(gdl++);
+                gDPSetAlphaCompare(gdl++, G_AC_NONE);
+                gDPSetBlendColor(gdl++, 0, 0, 0, BG_CUTOUT_THRESHOLD);
+            }
+            gSPDisplayList(gdl++, OS_K0_TO_PHYSICAL(secondary));
 
             // Set the room's state to "loaded"
             g_BgRoomInfo[room_index].unloadAge = 1;

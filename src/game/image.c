@@ -1050,6 +1050,64 @@ static void texCommitLodCache(struct tex *tex)
 }
 
 
+/* Inspect the unswapped base image once, at load time. Ignore row padding and
+ * unused palette entries. Fully opaque images and gradients are not cutouts.
+ * In particular, do not classify an RGB image by its unused stored alpha. */
+static bool texHasBinaryAlpha(const u8 *data, s32 size, s32 format,
+        s32 width, s32 height, const u8 *palette, s32 paletteCount)
+{
+    s32 stride;
+    s32 x;
+    s32 y;
+    s32 alpha;
+    s32 index;
+    s32 holes = FALSE;
+    s32 solid = FALSE;
+    const u8 *row;
+
+    switch (format)
+    {
+        case TEXFORMAT_RGBA32: stride = ((width + 3) & ~3) * 4; break;
+        case TEXFORMAT_RGBA16:
+        case TEXFORMAT_IA16: stride = ((width + 3) & ~3) * 2; break;
+        case TEXFORMAT_IA8:
+        case TEXFORMAT_RGBA16_CI8:
+        case TEXFORMAT_IA16_CI8: stride = (width + 7) & ~7; break;
+        case TEXFORMAT_IA4:
+        case TEXFORMAT_RGBA16_CI4:
+        case TEXFORMAT_IA16_CI4: stride = ((width + 15) & ~15) / 2; break;
+        default: return FALSE;
+    }
+    if (!data || width <= 0 || height <= 0 || stride * height > size) return FALSE;
+    for (y = 0; y < height; y++)
+    {
+        row = data + y * stride;
+        for (x = 0; x < width; x++)
+        {
+            switch (format)
+            {
+                case TEXFORMAT_RGBA32: alpha = row[x * 4 + 3]; break;
+                case TEXFORMAT_RGBA16: alpha = (row[x * 2 + 1] & 1) * 255; break;
+                case TEXFORMAT_IA16: alpha = row[x * 2 + 1]; break;
+                case TEXFORMAT_IA8: alpha = (row[x] & 15) * 17; break;
+                case TEXFORMAT_IA4: alpha = ((row[x / 2] >> ((x & 1) ? 0 : 4)) & 1) * 255; break;
+                default:
+                    index = (format == TEXFORMAT_RGBA16_CI8 || format == TEXFORMAT_IA16_CI8)
+                            ? row[x] : (row[x / 2] >> ((x & 1) ? 0 : 4)) & 15;
+                    if (!palette || index >= paletteCount) return FALSE;
+                    alpha = palette[index * 2 + 1];
+                    if (format == TEXFORMAT_RGBA16_CI8 || format == TEXFORMAT_RGBA16_CI4)
+                        alpha = (alpha & 1) * 255;
+                    break;
+            }
+            if (alpha == 0) holes = TRUE;
+            else if (alpha == 255) solid = TRUE;
+            else return FALSE;
+        }
+    }
+    return holes && solid;
+}
+
 /**
  * Copy a build-time-decoded texture from ROM into a texture pool.
  *
@@ -1083,6 +1141,7 @@ static s32 texLoadRaw(u8 *header, u32 romAddress, struct texpool *pool)
     }
 
     tex->maxlod = lodCount;
+    tex->hasBinaryAlpha = FALSE;
     tex->hasExplicitLods = hasExplicitLods;
     tex->unk0a = paletteCount ? paletteCount - 1 : 0;
 
@@ -1126,6 +1185,10 @@ static s32 texLoadRaw(u8 *header, u32 romAddress, struct texpool *pool)
             tex->gbiformat = g_TexFormatGbiMappings[format];
             tex->depth = g_TexFormatDepths[format];
             tex->lutmodeindex = g_TexFormatLutModes[format] >> G_MDSFT_TEXTLUT;
+            tex->hasBinaryAlpha = texHasBinaryAlpha(dst, dataSize, format,
+                    width, height, (u8 *)palette, paletteCount);
+            /* Special preswapped tile banks are not ordinary base images. */
+            if (hasExplicitLods && lodCount == 0) tex->hasBinaryAlpha = FALSE;
         }
         else if (writeToCache)
         {

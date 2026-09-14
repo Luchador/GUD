@@ -48,7 +48,7 @@ struct tex {
 	/*0x0b*/ u8 depth : 2;
 	/*0x0c*/ u32 lutmodeindex : 2;
 	/*0x0c*/ u32 hasExplicitLods : 1;
-	/*0x0c*/ u32 unk0c_03 : 1;
+	/*0x0c*/ u32 hasBinaryAlpha : 1; /* Base image has holes, solid texels, no partial alpha. */
 	/*0x0c*/ u32 next : 24;
 };
 

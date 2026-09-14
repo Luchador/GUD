@@ -34,6 +34,15 @@ config = strip_includes((ROOT / 'src/game/renderconfig.c').read_text())
 config = config.replace('(Gfx *)(physical | 0x80000000)', '(Gfx *)(g_TestRam + physical)')
 config = config.replace('((u32)cmd & 0x1fffffff)', '((u8 *)cmd - g_TestRam)')
 source += config
+source += strip_includes((ROOT / 'src/game/bgonecycle.h').read_text())
+image_header = (ROOT / 'src/game/image.h').read_text()
+source += re.search(r'struct tex \{.*?\n};', image_header, re.S)[0] + '\n'
+source += '''
+static struct tex g_TestTexture;
+static struct tex *texFindByData(u32 address) {
+    return address == 0x123450 ? &g_TestTexture : NULL;
+}
+'''
 source += strip_includes((ROOT / 'src/game/bgonecycle.c').read_text())
 source += (HERE / 'harness.h').read_text()
 model = (ROOT / 'src/game/model.c').read_text()

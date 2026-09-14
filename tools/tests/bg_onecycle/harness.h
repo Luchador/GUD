@@ -2,12 +2,12 @@
 typedef struct { s32 unused[6]; } RoomVtxBatchBounds;
 typedef struct {
     Gfx *primaryGdl, *secondaryGdl;
-    s32 primaryGdlSize, cur_room_totalsize, unloadAge, num_vtx_batch_bounds;
+    s32 secondaryGdlSize, primaryGdlSize, cur_room_totalsize, unloadAge, num_vtx_batch_bounds;
     RoomVtxBatchBounds *vtx_batch_bounds;
     Vtx *vertices;
 } RoomInfo;
 static RoomInfo g_BgRoomInfo[2];
-static struct { Gfx *gdl; s32 size; } g_BgOneCycleRooms[2];
+static struct { Gfx *gdl; s32 size; Gfx *secondaryGdl; s32 secondarySize; } g_BgOneCycleRooms[2];
 static s32 g_MaxNumRooms = 2, g_RoomLoadBudget;
 static s32 g_TestAllocFail, g_TestAllocCount, g_TestFreeCount;
 static void *memaAlloc(u32 size)

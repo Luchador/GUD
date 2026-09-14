@@ -3,6 +3,12 @@
 
 #include <ultra64.h>
 
+#define BG_CUTOUT_THRESHOLD 128
+
+/* Secondary room variant: also threshold fully opaque binary-alpha materials.
+ * Caller establishes G_AC_NONE and blend alpha BG_CUTOUT_THRESHOLD. */
+s32 bgBuildCutoutGdl(const Gfx *src, s32 size, Gfx *dst, s32 capacity);
+
 /* Build an alternate, AA-off primary room list AFTER texture expansion and
  * the environment's combiner/render-mode LUT. Source commands are untouched.
  * With dst == NULL, return the required byte count. Return 0 when there are

@@ -1,5 +1,5 @@
 /* Decode draw-time state independently of the converter's state tracker. */
-typedef struct { u32 h, l, c0, c1, texture; } Snapshot;
+typedef struct { u32 h, l, c0, c1, texture, env, blend; } Snapshot;
 static int is_draw(Gfx g)
 {
     u32 op = g.words.w0 >> 24;
@@ -22,6 +22,10 @@ static int snapshots(Gfx *gdl, int count, Snapshot *states)
             s.l = data;
         } else if (op == 0xfc) {
             s.c0 = gdl[i].words.w0; s.c1 = data;
+        } else if (op == 0xfb) {
+            s.env = data;
+        } else if (op == 0xf9) {
+            s.blend = data;
         } else if (op == 0xbb) {
             s.texture = gdl[i].words.w0;
         }
@@ -209,9 +213,12 @@ static u32 read_be(FILE *file)
     u8 b[4]; assert(fread(b, 1, 4, file) == 4);
     return ((u32)b[0] << 24) | ((u32)b[1] << 16) | ((u32)b[2] << 8) | b[3];
 }
+static void cutout_checks(void);
+static void cutout_asset_checks(const char *path);
 int main(int argc, char **argv)
 {
-    if (argc == 1) unit_checks();
+    if (argc == 1) { unit_checks(); cutout_checks(); }
+    else if (argc == 3) cutout_asset_checks(argv[1]);
     else {
         FILE *file = fopen(argv[1], "rb");
         int rooms = 0, converted = 0, i, lut;
