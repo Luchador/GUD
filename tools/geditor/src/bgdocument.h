@@ -119,6 +119,15 @@ BOOL BgDocumentExtrudeEdges(BgDocument *document, const BgDocumentEdgeRef *edges
     DWORD count, const double offset[3], BgDocumentEdgeRef *out,
     DWORD *createdout, const char **reasonout);
 
+/* Join two disjoint boundary edges in the same room/layer with two triangles.
+ * Reverse both source edges' winding; inherit the first edge's face material,
+ * keeping all four endpoints' UV/RGBA. Reject degenerates/twists before editing.
+ * CanBridge is read-only; Bridge allocates before mutation and writes out[2]. */
+BOOL BgDocumentCanBridgeEdges(const BgDocument *document,
+    const BgDocumentEdgeRef edges[2], const char **reasonout);
+BOOL BgDocumentBridgeEdges(BgDocument *document, const BgDocumentEdgeRef edges[2],
+    BgFaceRef out[2], const char **reasonout);
+
 typedef struct BgDocumentUVEdit {
     BgDocumentVertexRef vertex;
     DWORD vertexid; /* rejects references left over from another document */

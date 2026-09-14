@@ -6,6 +6,17 @@
 /* The icons are 32px squares, with a 4px margin on each side. */
 #define TOOLTOOLBAR_HEIGHT 40
 
+typedef enum ToolToolbarMenu {
+    TOOLTOOLBAR_MENU_VERTEX,
+    TOOLTOOLBAR_MENU_EDGE,
+    TOOLTOOLBAR_MENU_FACE,
+    TOOLTOOLBAR_MENU_COUNT
+} ToolToolbarMenu;
+/* Synchronous request: wparam is the menu, lparam its anchor button HWND. */
+#define TOOLTOOLBAR_WM_MENU (WM_APP + 53)
+
+/* Wrap controls when the viewport is narrowed by its side panels. */
+int ToolToolbarGetHeight(int width);
 BOOL ToolToolbarRegisterClass(HINSTANCE hinstance);
 HWND ToolToolbarCreate(HWND parent, HINSTANCE hinstance);
 void ToolToolbarSetTool(HWND toolbar, EditorTool tool);

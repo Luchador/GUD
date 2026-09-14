@@ -5019,9 +5019,45 @@ static double ViewportRotationParameter(const ViewportState *state, const Viewpo
            180.0 / 3.14159265358979323846;
 }
 
-/* A component's two cached corners can belong to different triangles after
- * rebuilding. Resolve a real owning face, preferring the picked face when it
- * still contains both endpoints, then use its winding and material. */
+/* A component's cached corners can belong to different triangles after
+ * rebuilding. Resolve its owning face once for all edge operations. */
+static BOOL ViewportResolveBgEdge(const ViewportState *state, const ViewportComponent *c,
+    BgDocumentEdgeRef *out, int *owner)
+{
+    if (!state->scenefacerefs || !state->scenevertexrefs
+        || !ViewportCornerVisible(state, c->corners[0])
+        || !ViewportCornerVisible(state, c->corners[1])) { return FALSE; }
+    int preferred = c->corners[0]/3;
+    for (int candidate = -1; candidate < state->scenecount/3; candidate++)
+    {
+        int tri = candidate < 0 ? preferred : candidate;
+        if (!ViewportCornerVisible(state, tri*3) || !state->scenefacerefs[tri].faceid) { continue; }
+        for (int corner = 0; corner < 3; corner++)
+        {
+            const BgDocumentVertexRef *a = &state->scenevertexrefs[tri*3+corner];
+            const BgDocumentVertexRef *b = &state->scenevertexrefs[tri*3+(corner+1)%3];
+            if ((!ViewportCompareVertexRefs(a, &c->refs[0]) && !ViewportCompareVertexRefs(b, &c->refs[1]))
+                || (!ViewportCompareVertexRefs(a, &c->refs[1]) && !ViewportCompareVertexRefs(b, &c->refs[0])))
+            {
+                *out = (BgDocumentEdgeRef){state->scenefacerefs[tri], (unsigned int)corner};
+                if (owner) { *owner = tri; }
+                return TRUE;
+            }
+        }
+    }
+    return FALSE;
+}
+
+BOOL ViewportGetSelectedBgEdges(HWND hwnd, BgDocumentEdgeRef *out, DWORD count)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    if (!state || state->tool != EDITOR_TOOL_EDGE_SELECT || !out || !count
+        || state->stancomponentcount || count != (DWORD)state->componentcount) { return FALSE; }
+    for (DWORD i = 0; i < count; i++)
+    { if (!ViewportResolveBgEdge(state, &state->components[i], &out[i], NULL)) { return FALSE; } }
+    return TRUE;
+}
+
 static BOOL ViewportPrepareEdgeExtrusion(ViewportState *state)
 {
     DWORD count = (DWORD)state->componentcount;
@@ -5034,27 +5070,10 @@ static BOOL ViewportPrepareEdgeExtrusion(ViewportState *state)
     for (DWORD i = 0; i < count; i++)
     {
         const ViewportComponent *c = &state->components[i];
-        BOOL found = FALSE;
         if (!ViewportCornerVisible(state, c->corners[0]) || !ViewportCornerVisible(state, c->corners[1])) { continue; }
-        int preferred = c->corners[0]/3;
-        for (int candidate = -1; candidate < state->scenecount/3 && !found; candidate++)
-        {
-            int tri = candidate < 0 ? preferred : candidate;
-            if (!ViewportCornerVisible(state, tri*3) || !state->scenefacerefs[tri].faceid) { continue; }
-            for (int corner = 0; corner < 3; corner++)
-            {
-                const BgDocumentVertexRef *a = &state->scenevertexrefs[tri*3+corner];
-                const BgDocumentVertexRef *b = &state->scenevertexrefs[tri*3+(corner+1)%3];
-                if ((!ViewportCompareVertexRefs(a, &c->refs[0]) && !ViewportCompareVertexRefs(b, &c->refs[1]))
-                    || (!ViewportCompareVertexRefs(a, &c->refs[1]) && !ViewportCompareVertexRefs(b, &c->refs[0])))
-                {
-                    state->extrudeedges[state->extrudecount] = (BgDocumentEdgeRef){state->scenefacerefs[tri], (unsigned int)corner};
-                    state->extrudeowners[state->extrudecount++] = tri;
-                    found = TRUE; break;
-                }
-            }
-        }
-        if (!found) { return FALSE; }
+        if (!ViewportResolveBgEdge(state, c, &state->extrudeedges[state->extrudecount],
+            &state->extrudeowners[state->extrudecount])) { return FALSE; }
+        state->extrudecount++;
     }
     return state->extrudecount != 0;
 }

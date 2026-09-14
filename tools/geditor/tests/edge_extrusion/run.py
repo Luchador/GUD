@@ -32,7 +32,7 @@ def main():
         subprocess.run([str(work / 'check'), str(work)], check=True, env=env)
         viewport = (src / 'viewport.c').read_text()
         names = ('ViewportCompareVertexRefs', 'ViewportCompareFaceRefs', 'ViewportTriangleHidden',
-                 'ViewportCornerVisible', 'ViewportPrepareEdgeExtrusion', 'ViewportSelectBgEdges',
+                 'ViewportCornerVisible', 'ViewportResolveBgEdge', 'ViewportPrepareEdgeExtrusion', 'ViewportSelectBgEdges',
                  'ViewportCancelTransform', 'ViewportEndTransform')
         (work / 'viewport.inc').write_text(''.join(helpers.function(viewport, n) for n in names))
         subprocess.run(command + [str(here / 'viewport.c'), '-Wl,--gc-sections', '-lm',

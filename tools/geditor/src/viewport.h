@@ -62,6 +62,9 @@ typedef struct ViewportEdgeExtrusion {
     double offset[3], applied[3];
     BgVertex *preview;
 } ViewportEdgeExtrusion;
+/* Read exactly count selected, visible BG edges; reject mixed stan selections.
+ * Resolves actual source faces even when cached corners were draw-sorted. */
+BOOL ViewportGetSelectedBgEdges(HWND hwnd, BgDocumentEdgeRef *out, DWORD count);
 BOOL ViewportSelectBgEdges(HWND hwnd, const BgDocumentEdgeRef *edges, DWORD count);
 
 /* Cancels transient transform/marquee drags before history, saving, or changing tools. */

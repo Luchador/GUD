@@ -13,6 +13,8 @@
 #define TOOLTOOLBAR_FIRST_ID 3001
 #define TOOLTOOLBAR_SNAP_INDEX EDITOR_TOOL_COUNT
 #define TOOLTOOLBAR_BUTTON_COUNT (EDITOR_TOOL_COUNT + 1)
+#define TOOLTOOLBAR_MENU_FIRST_ID 3101
+#define TOOLTOOLBAR_MENU_WIDTH 80
 
 static const struct {
     const char *name;
@@ -29,6 +31,7 @@ typedef struct ToolToolbarState {
     EditorTool tool;
     BOOL vertexsnap;
     HWND buttons[TOOLTOOLBAR_BUTTON_COUNT];
+    HWND menus[TOOLTOOLBAR_MENU_COUNT];
     HWND tooltip;
     HBITMAP images[TOOLTOOLBAR_BUTTON_COUNT][2];
 } ToolToolbarState;
@@ -126,6 +129,34 @@ static BOOL ToolToolbarLoadImages(HINSTANCE instance, ToolToolbarState *state)
     return success;
 }
 
+/* The height query and WM_SIZE use the same wrapping calculation. */
+static int ToolToolbarLayout(ToolToolbarState *state, int width)
+{
+    int x = TOOLTOOLBAR_MARGIN, y = TOOLTOOLBAR_MARGIN;
+    for (int i = 0; i < TOOLTOOLBAR_BUTTON_COUNT + TOOLTOOLBAR_MENU_COUNT; i++)
+    {
+        BOOL menu = i >= TOOLTOOLBAR_BUTTON_COUNT;
+        int buttonwidth = menu ? TOOLTOOLBAR_MENU_WIDTH : TOOLTOOLBAR_BUTTON_SIZE;
+        if (x > TOOLTOOLBAR_MARGIN && x + buttonwidth + TOOLTOOLBAR_MARGIN > width)
+        {
+            x = TOOLTOOLBAR_MARGIN;
+            y += TOOLTOOLBAR_BUTTON_SIZE + TOOLTOOLBAR_MARGIN;
+        }
+        if (state)
+        {
+            HWND button = menu ? state->menus[i - TOOLTOOLBAR_BUTTON_COUNT] : state->buttons[i];
+            MoveWindow(button, x, y, buttonwidth, TOOLTOOLBAR_BUTTON_SIZE, TRUE);
+        }
+        x += buttonwidth + TOOLTOOLBAR_MARGIN;
+    }
+    return y + TOOLTOOLBAR_BUTTON_SIZE + TOOLTOOLBAR_MARGIN;
+}
+
+int ToolToolbarGetHeight(int width)
+{
+    return ToolToolbarLayout(NULL, width);
+}
+
 static LRESULT CALLBACK ToolToolbarWndProc(HWND hwnd, UINT message,
                                            WPARAM wparam, LPARAM lparam)
 {
@@ -172,10 +203,32 @@ static LRESULT CALLBACK ToolToolbarWndProc(HWND hwnd, UINT message,
             tip.lpszText = (char *)g_Tools[tool].name;
             SendMessage(state->tooltip, TTM_ADDTOOL, 0, (LPARAM)&tip);
         }
+        for (tool = 0; tool < TOOLTOOLBAR_MENU_COUNT; tool++)
+        {
+            static const WCHAR *names[] = { L"Vertex  \x25be", L"Edge  \x25be", L"Face  \x25be" };
+            state->menus[tool] = CreateWindowExW(0, L"BUTTON", names[tool],
+                WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
+                0, 0, TOOLTOOLBAR_MENU_WIDTH, TOOLTOOLBAR_BUTTON_SIZE,
+                hwnd, (HMENU)(INT_PTR)(TOOLTOOLBAR_MENU_FIRST_ID + tool), instance, NULL);
+            if (!state->menus[tool]) { return -1; }
+            SendMessage(state->menus[tool], WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), FALSE);
+        }
         return 0;
     }
 
+    case WM_SIZE:
+        if (state) { ToolToolbarLayout(state, LOWORD(lparam)); }
+        return 0;
+
     case WM_COMMAND:
+        tool = LOWORD(wparam) - TOOLTOOLBAR_MENU_FIRST_ID;
+        if (state && HIWORD(wparam) == BN_CLICKED && tool >= 0 && tool < TOOLTOOLBAR_MENU_COUNT)
+        {
+            SendMessage(state->menus[tool], BM_SETSTATE, TRUE, 0);
+            SendMessage(GetParent(hwnd), TOOLTOOLBAR_WM_MENU, tool, (LPARAM)state->menus[tool]);
+            SendMessage(state->menus[tool], BM_SETSTATE, FALSE, 0);
+            return 0;
+        }
         tool = LOWORD(wparam) - TOOLTOOLBAR_FIRST_ID;
         if (HIWORD(wparam) == BN_CLICKED && tool >= 0 && tool < TOOLTOOLBAR_BUTTON_COUNT)
         {
@@ -338,8 +391,10 @@ BOOL ToolToolbarHandleMessage(HWND toolbar, MSG *message)
         }
     }
 
-    if (message->message == WM_KEYDOWN && message->wParam == VK_RETURN
-        && IsChild(toolbar, message->hwnd))
+    if (message->message == WM_KEYDOWN && IsChild(toolbar, message->hwnd)
+        && (message->wParam == VK_RETURN
+            || (message->wParam == VK_DOWN && GetDlgCtrlID(message->hwnd) >= TOOLTOOLBAR_MENU_FIRST_ID
+                && GetDlgCtrlID(message->hwnd) < TOOLTOOLBAR_MENU_FIRST_ID + TOOLTOOLBAR_MENU_COUNT)))
     {
         SendMessage(message->hwnd, BM_CLICK, 0, 0);
         return TRUE;

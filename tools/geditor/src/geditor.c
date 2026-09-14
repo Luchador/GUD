@@ -577,6 +577,11 @@ enum {
     ID_EDIT_UNDO,
     ID_EDIT_REDO,
     ID_EDIT_FLIP_FACE,
+    ID_GEOMETRY_SNAP_VERTEX,
+    ID_GEOMETRY_PAINT_VERTEX,
+    ID_GEOMETRY_SPLIT_EDGE,
+    ID_GEOMETRY_BRIDGE_EDGES,
+    ID_GEOMETRY_DISCONNECT_FACE,
     ID_VIEW_BACKFACE_CULLING,
     ID_VIEW_GEOMETRY_STATISTICS,
     ID_VIEW_FOG,
@@ -1773,7 +1778,8 @@ static void GEditorLayout(HWND hwnd)
     panelleft = rc.right - g_RightPanelWidth;
     viewportright = panelleft - GEDITOR_SPLITTER_W;
     viewportwidth = viewportright > viewportleft ? viewportright - viewportleft : 0;
-    toolbarheight = rc.bottom < TOOLTOOLBAR_HEIGHT ? rc.bottom : TOOLTOOLBAR_HEIGHT;
+    toolbarheight = ToolToolbarGetHeight(viewportwidth);
+    if (toolbarheight > rc.bottom) { toolbarheight = rc.bottom; }
 
     if (g_Browser != NULL)
     {
@@ -2546,6 +2552,95 @@ fail:
     GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
     MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
     return FALSE;
+}
+
+
+static BOOL GEditorBridgeSelectedBgEdges(HWND hwnd)
+{
+    EditHistoryTransaction transaction = {0};
+    BgDocumentEdgeRef edges[2];
+    BgFaceRef faces[2];
+    const char *why = "", *restorewhy = "";
+    if (ViewportIsFlying(g_Viewport) || ViewportIsTransforming(g_Viewport)
+        || !ViewportGetSelectedBgEdges(g_Viewport, edges, 2)) { return FALSE; }
+    if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
+        "Bridge Edges", &transaction, &why)) { goto fail; }
+    if (!BgDocumentBridgeEdges(&g_CurrentBgDocument, edges, faces, &why)) { goto fail; }
+    if (!GEditorRebuildCurrentViewport(&why)) { goto rollback; }
+    /* Show the new surface immediately and include its selection/tool in undo. */
+    ViewportSetTool(g_Viewport, EDITOR_TOOL_FACE_SELECT);
+    if (!ViewportSelectBgFaces(g_Viewport, faces, 2))
+    { why = "Could not select the bridge faces."; goto rollback; }
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+        &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    ToolToolbarSetTool(g_ToolToolbar, ViewportGetTool(g_Viewport));
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    GEditorRebuildCurrentViewport(&restorewhy);
+    GEditorRestoreHistorySelection(hwnd);
+fail:
+    EditHistoryCancelEdit(&transaction);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
+/* Both the dropdown and command handlers recheck selection. Opening a menu
+ * never changes tools or clears selection, even for an inactive category. */
+static void GEditorShowGeometryMenu(HWND hwnd, ToolToolbarMenu kind, HWND button)
+{
+    HMENU menu;
+    RECT rect;
+    UINT command;
+    EditorTool tool = ViewportGetTool(g_Viewport);
+    BOOL idle = g_CurrentBgDocument.rooms && !ViewportIsFlying(g_Viewport)
+        && !ViewportIsTransforming(g_Viewport);
+    BOOL face = GEditorCanFlipSelectedBgFaces();
+    BgDocumentEdgeRef edges[2];
+    const char *why;
+    if (kind < 0 || kind >= TOOLTOOLBAR_MENU_COUNT || !button) { return; }
+    menu = CreatePopupMenu();
+    if (!menu) { return; }
+    switch (kind)
+    {
+    case TOOLTOOLBAR_MENU_VERTEX:
+        AppendMenu(menu, MF_STRING | (idle && tool == EDITOR_TOOL_VERTEX_SELECT ? MF_ENABLED : MF_GRAYED)
+            | (ViewportGetVertexSnap(g_Viewport) ? MF_CHECKED : MF_UNCHECKED),
+            ID_GEOMETRY_SNAP_VERTEX, "&Snap to Vertex\tV");
+        AppendMenu(menu, MF_STRING | (idle ? MF_ENABLED : MF_GRAYED)
+            | (tool == EDITOR_TOOL_VERTEX_PAINT ? MF_CHECKED : MF_UNCHECKED),
+            ID_GEOMETRY_PAINT_VERTEX, "&Paint Vertices\t4");
+        break;
+    case TOOLTOOLBAR_MENU_EDGE:
+        AppendMenu(menu, MF_STRING | (idle && ViewportGetSelectedBgEdges(g_Viewport, edges, 1)
+            ? MF_ENABLED : MF_GRAYED), ID_GEOMETRY_SPLIT_EDGE, "&Split Edge");
+        AppendMenu(menu, MF_STRING | (idle && ViewportGetSelectedBgEdges(g_Viewport, edges, 2)
+            && BgDocumentCanBridgeEdges(&g_CurrentBgDocument, edges, &why) ? MF_ENABLED : MF_GRAYED),
+            ID_GEOMETRY_BRIDGE_EDGES, "&Bridge Edges");
+        break;
+    case TOOLTOOLBAR_MENU_FACE:
+        AppendMenu(menu, MF_STRING | (face ? MF_ENABLED : MF_GRAYED), ID_EDIT_FLIP_FACE, "&Flip Face\tAlt+N");
+        AppendMenu(menu, MF_STRING | (face ? MF_ENABLED : MF_GRAYED), ID_GEOMETRY_DISCONNECT_FACE, "&Disconnect Face");
+        AppendMenu(menu, MF_SEPARATOR, 0, NULL);
+        AppendMenu(menu, MF_STRING | (face ? MF_ENABLED : MF_GRAYED), ID_TOOLS_UV_EDITOR, "Edit &UVs...");
+        AppendMenu(menu, MF_SEPARATOR, 0, NULL);
+        AppendMenu(menu, MF_STRING | (face ? MF_ENABLED : MF_GRAYED), ID_VIEW_HIDE_SELECTED, "&Hide Selected\tH");
+        AppendMenu(menu, MF_STRING | (idle && ViewportHasHiddenBgFaces(g_Viewport) ? MF_ENABLED : MF_GRAYED),
+            ID_VIEW_UNHIDE_ALL, "&Unhide All\tAlt+H");
+        break;
+    default: break;
+    }
+    GetWindowRect(button, &rect);
+    command = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RIGHTBUTTON,
+        rect.left, rect.bottom, 0, hwnd, NULL);
+    DestroyMenu(menu);
+    if (command)
+    {
+        SetFocus(g_Viewport);
+        SendMessage(hwnd, WM_COMMAND, command, 0);
+    }
 }
 
 
@@ -3378,6 +3473,10 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         GEditorApplyHistoryStep(hwnd, (BOOL)wparam);
         return 0;
 
+    case TOOLTOOLBAR_WM_MENU:
+        GEditorShowGeometryMenu(hwnd, (ToolToolbarMenu)wparam, (HWND)lparam);
+        return 0;
+
     case EDITTOOL_WM_SELECT:
         if (wparam < EDITOR_TOOL_COUNT)
         {
@@ -4036,6 +4135,31 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
             case ID_EDIT_REDO:
                 GEditorApplyHistoryStep(hwnd, TRUE);
+                return 0;
+
+            case ID_GEOMETRY_SNAP_VERTEX:
+                if (g_CurrentBgDocument.rooms && !ViewportIsFlying(g_Viewport))
+                { SendMessage(hwnd, EDITTOOL_WM_TOGGLE_VERTEX_SNAP, 0, 0); }
+                return 0;
+
+            case ID_GEOMETRY_PAINT_VERTEX:
+                if (g_CurrentBgDocument.rooms && !ViewportIsFlying(g_Viewport))
+                { SendMessage(hwnd, EDITTOOL_WM_SELECT, EDITOR_TOOL_VERTEX_PAINT, 0); }
+                return 0;
+
+            case ID_GEOMETRY_SPLIT_EDGE:
+            {
+                BgDocumentEdgeRef edge;
+                if (ViewportGetSelectedBgEdges(g_Viewport, &edge, 1)) { GEditorSeparateBgVertices(hwnd, &edge); }
+                return 0;
+            }
+
+            case ID_GEOMETRY_BRIDGE_EDGES:
+                GEditorBridgeSelectedBgEdges(hwnd);
+                return 0;
+
+            case ID_GEOMETRY_DISCONNECT_FACE:
+                GEditorSeparateBgVertices(hwnd, NULL);
                 return 0;
 
             case ID_EDIT_FLIP_FACE:
