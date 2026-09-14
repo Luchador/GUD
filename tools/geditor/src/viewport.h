@@ -38,6 +38,12 @@ void ViewportSetRenderMode(HWND viewport, ViewportRenderMode mode);
 /* Synchronous paint request. lparam points to a stack-owned hit, copied
    before the frame edits the document and rebuilds the viewport. */
 #define VIEWPORT_WM_PAINT_VERTEX (WM_APP + 7)
+/* One-shot eyedropper in vertex paint mode. Samples use the paint payloads
+ * and return TRUE on success, without editing geometry or selection. */
+#define VIEWPORT_WM_COLOR_PICK_CHANGED (WM_APP + 56) /* wparam: enabled */
+#define VIEWPORT_WM_SAMPLE_VERTEX (WM_APP + 57)
+#define VIEWPORT_WM_SAMPLE_STAN (WM_APP + 58)
+void ViewportSetColorPick(HWND viewport, BOOL enabled);
 #define VIEWPORT_WM_TRANSLATE_SELECTION (WM_APP + 8)
 /* Same ViewportTranslation payload; commits one snap through edit history. */
 #define VIEWPORT_WM_SNAP_VERTEX (WM_APP + 22)

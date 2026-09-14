@@ -2849,6 +2849,39 @@ fail:
 }
 
 
+/* Read authored colors, never the texture/fog/fullbright-adjusted preview.
+ * Sampling changes only the brush, so it cannot dirty the asset or clear redo. */
+static BOOL GEditorSampleBgVertex(const ViewportBgVertexHit *hit)
+{
+    const BgDocumentRoom *room;
+    const BgDocumentFace *face;
+    const BgDocumentVertex *vertex;
+    unsigned char rgba[4];
+    if (hit == NULL || hit->corner >= 3
+        || ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT) { return FALSE; }
+    face = BgDocumentFindFace(&g_CurrentBgDocument, &hit->face, &room);
+    if (face == NULL || room->vertices == NULL
+        || face->vertexindices[hit->corner] >= room->vertexcount) { return FALSE; }
+    vertex = &room->vertices[face->vertexindices[hit->corner]];
+    rgba[0] = vertex->r; rgba[1] = vertex->g; rgba[2] = vertex->b; rgba[3] = vertex->a;
+    RightPanelSetPaintColor(g_RightPanel, rgba);
+    return TRUE;
+}
+
+static BOOL GEditorSampleStanTile(DWORD index)
+{
+    const StanTile *tile;
+    unsigned char rgba[4];
+    if (ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT
+        || g_CurrentStan.tiles == NULL || index >= g_CurrentStan.tilecount) { return FALSE; }
+    tile = &g_CurrentStan.tiles[index];
+    /* Stan stores RGB only; keep the brush's existing alpha. */
+    RightPanelGetPaintColor(g_RightPanel, rgba);
+    rgba[0] = tile->red; rgba[1] = tile->green; rgba[2] = tile->blue;
+    RightPanelSetPaintColor(g_RightPanel, rgba);
+    return TRUE;
+}
+
 static BOOL GEditorPaintBgVertex(HWND hwnd, const ViewportBgVertexHit *request)
 {
     EditHistoryTransaction transaction;
@@ -3660,6 +3693,22 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         return request != NULL && GEditorTranslateSelection(hwnd, request->offset,
                                                             msg == VIEWPORT_WM_SNAP_VERTEX);
     }
+
+    case RIGHTPANEL_WM_PICK_COLOR:
+        if (ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT) { return FALSE; }
+        SetFocus(g_Viewport);
+        ViewportSetColorPick(g_Viewport, TRUE);
+        return TRUE;
+
+    case VIEWPORT_WM_COLOR_PICK_CHANGED:
+        RightPanelSetColorSampling(g_RightPanel, wparam != 0);
+        return 0;
+
+    case VIEWPORT_WM_SAMPLE_VERTEX:
+        return GEditorSampleBgVertex((const ViewportBgVertexHit *)lparam);
+
+    case VIEWPORT_WM_SAMPLE_STAN:
+        return GEditorSampleStanTile((DWORD)wparam);
 
     case VIEWPORT_WM_PAINT_STAN:
         return GEditorPaintStanTile(hwnd, (DWORD)wparam);

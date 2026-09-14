@@ -45,6 +45,9 @@ void RightPanelSetRotationAxes(HWND panel, unsigned int axes);
 BOOL RightPanelHandleMessage(HWND panel, MSG *message);
 void RightPanelSetVertexPaintMode(HWND panel, BOOL enabled);
 void RightPanelGetPaintColor(HWND panel, unsigned char rgba[4]);
+void RightPanelSetPaintColor(HWND panel, const unsigned char rgba[4]);
+void RightPanelSetColorSampling(HWND panel, BOOL enabled);
+#define RIGHTPANEL_WM_PICK_COLOR (WM_APP + 55)
 
 /* The lower pane is a generic properties surface. Background triangles are
    its first supported selection type. */

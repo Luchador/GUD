@@ -11,8 +11,12 @@
 #define COLORPICKER_MARGIN 8
 #define COLORPICKER_IMAGE_SIZE 256
 #define COLORPICKER_EDIT_ID 3000
+#define COLORPICKER_PICK_ID 3004
+#define COLORPICKER_PICK_HEIGHT 28
 
 typedef struct ColorPickerState {
+    HWND pickbutton;
+    BOOL sampling;
     HWND channels[4];
     unsigned char rgba[4];
     double hue, saturation, value;
@@ -128,7 +132,7 @@ static void ColorPickerLayout(HWND hwnd, ColorPickerState *state)
     size = client.right - COLORPICKER_MARGIN * 2 - 30;
     if (size > 224) { size = 224; }
     if (size < 1) { size = 1; }
-    state->contentheight = size + 180;
+    state->contentheight = size + 180 + COLORPICKER_PICK_HEIGHT;
     maximum = state->contentheight - client.bottom;
     if (maximum < 0) { maximum = 0; }
     if (state->scroll > maximum) { state->scroll = maximum; }
@@ -141,8 +145,12 @@ static void ColorPickerLayout(HWND hwnd, ColorPickerState *state)
     info.nPos = state->scroll;
     SetScrollInfo(hwnd, SB_VERT, &info, TRUE);
 
-    SetRect(&state->square, COLORPICKER_MARGIN, COLORPICKER_MARGIN - state->scroll,
-            COLORPICKER_MARGIN + size, COLORPICKER_MARGIN + size - state->scroll);
+    MoveWindow(state->pickbutton, COLORPICKER_MARGIN, COLORPICKER_MARGIN - state->scroll,
+               size + 30, 23, TRUE);
+    SetRect(&state->square, COLORPICKER_MARGIN,
+            COLORPICKER_MARGIN + COLORPICKER_PICK_HEIGHT - state->scroll,
+            COLORPICKER_MARGIN + size,
+            COLORPICKER_MARGIN + COLORPICKER_PICK_HEIGHT + size - state->scroll);
     state->huebar = state->square;
     state->huebar.left = state->square.right + 10;
     state->huebar.right = state->huebar.left + 20;
@@ -300,7 +308,9 @@ static void ColorPickerPaint(HWND hwnd, ColorPickerState *state, HDC hdc)
     }
     SetRect(&label, COLORPICKER_MARGIN, state->channelstop + 60, client.right - 8, state->channelstop + 104);
     SetTextColor(hdc, GetSysColor(COLOR_GRAYTEXT));
-    DrawText(hdc, "RGBA: 0-255. Click a background face to paint its nearest vertex.", -1,
+    DrawText(hdc, state->sampling
+             ? "Click a BG face or Stan tile to pick its color. Esc cancels."
+             : "Click a BG face to paint its nearest vertex. Pick Color copies its RGBA.", -1,
              &label, DT_WORDBREAK | DT_NOPREFIX);
     SelectObject(hdc, oldfont);
 }
@@ -319,6 +329,11 @@ static LRESULT CALLBACK ColorPickerWndProc(HWND hwnd, UINT message, WPARAM wpara
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
         state->value = 1.0;
         state->imagedirty = TRUE;
+        state->pickbutton = CreateWindowEx(0, "BUTTON", "Pick Color",
+            WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON | BS_NOTIFY,
+            0, 0, 1, 1, hwnd, (HMENU)(INT_PTR)COLORPICKER_PICK_ID, create->hInstance, NULL);
+        if (state->pickbutton == NULL) { return -1; }
+        SendMessage(state->pickbutton, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
         for (channel = 0; channel < 4; channel++)
         {
             state->rgba[channel] = 255;
@@ -335,6 +350,17 @@ static LRESULT CALLBACK ColorPickerWndProc(HWND hwnd, UINT message, WPARAM wpara
         if (state != NULL) { ColorPickerLayout(hwnd, state); }
         return 0;
     case WM_COMMAND:
+        if (state != NULL && LOWORD(wparam) == COLORPICKER_PICK_ID)
+        {
+            if (HIWORD(wparam) == BN_CLICKED)
+            { SendMessage(GetParent(hwnd), COLORPICKER_WM_PICK_COLOR, 0, 0); }
+            else if (HIWORD(wparam) == BN_SETFOCUS)
+            {
+                state->scroll = 0;
+                ColorPickerLayout(hwnd, state);
+            }
+            return 0;
+        }
         if (state != NULL && LOWORD(wparam) >= COLORPICKER_EDIT_ID && LOWORD(wparam) < COLORPICKER_EDIT_ID + 4)
         {
             int channel = LOWORD(wparam) - COLORPICKER_EDIT_ID;
@@ -456,12 +482,41 @@ void ColorPickerGetColor(HWND picker, unsigned char rgba[4])
     for (channel = 0; channel < 4; channel++) { rgba[channel] = state != NULL ? state->rgba[channel] : 255; }
 }
 
+void ColorPickerSetColor(HWND picker, const unsigned char rgba[4])
+{
+    ColorPickerState *state = ColorPickerGetState(picker);
+    int channel;
+    if (state == NULL || rgba == NULL) { return; }
+    /* Keep the sampled bytes exact; HSV is only a derived control position. */
+    for (channel = 0; channel < 4; channel++) { state->rgba[channel] = rgba[channel]; }
+    ColorPickerRgbToHsv(state);
+    for (channel = 0; channel < 4; channel++)
+    {
+        ColorPickerSyncText(state, channel);
+        InvalidateRect(state->channels[channel], NULL, TRUE);
+    }
+    InvalidateRect(picker, NULL, FALSE);
+}
+
+void ColorPickerSetSampling(HWND picker, BOOL enabled)
+{
+    ColorPickerState *state = ColorPickerGetState(picker);
+    if (state == NULL || state->sampling == enabled) { return; }
+    state->sampling = enabled;
+    InvalidateRect(picker, NULL, FALSE);
+}
+
 BOOL ColorPickerHandleMessage(HWND picker, MSG *message)
 {
     ColorPickerState *state = ColorPickerGetState(picker);
     HWND focus = GetFocus();
     int channel;
     if (state == NULL || message->message != WM_KEYDOWN) { return FALSE; }
+    if (focus == state->pickbutton && message->wParam == VK_RETURN)
+    {
+        SendMessage(focus, BM_CLICK, 0, 0);
+        return TRUE;
+    }
     for (channel = 0; channel < 4; channel++)
     {
         if (focus == state->channels[channel])

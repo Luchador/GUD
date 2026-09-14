@@ -543,6 +543,9 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         }
         return 0;
 
+    case COLORPICKER_WM_PICK_COLOR:
+        return SendMessage(GetParent(hwnd), RIGHTPANEL_WM_PICK_COLOR, 0, 0);
+
     case OBJECTPROPERTIES_WM_CHANGED:
     case OBJECTFLAGS_WM_CHANGED:
     case PORTALPROPERTIES_WM_CHANGED:
@@ -876,6 +879,18 @@ void RightPanelGetPaintColor(HWND panel, unsigned char rgba[4])
 {
     RightPanelState *state = RightPanelGetState(panel);
     ColorPickerGetColor(state != NULL ? state->colorpicker : NULL, rgba);
+}
+
+void RightPanelSetPaintColor(HWND panel, const unsigned char rgba[4])
+{
+    RightPanelState *state = RightPanelGetState(panel);
+    if (state != NULL) { ColorPickerSetColor(state->colorpicker, rgba); }
+}
+
+void RightPanelSetColorSampling(HWND panel, BOOL enabled)
+{
+    RightPanelState *state = RightPanelGetState(panel);
+    if (state != NULL) { ColorPickerSetSampling(state->colorpicker, enabled); }
 }
 
 

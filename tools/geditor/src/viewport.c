@@ -223,6 +223,8 @@ typedef struct ViewportState {
     EditorTool tool;
     ViewportRenderMode rendermode;
     BOOL vertexsnap;
+    BOOL colorpick;
+    BOOL colorsampleclick; /* Consume the second click of a sampling double-click. */
     BOOL showgeometrystatistics;
     GLuint statisticsfont; /* ASCII bitmap display lists, owned by the GL context */
     DWORD bgprimarytris, bgsecondarytris, bgtexturecount; /* cached on scene rebuild */
@@ -3668,6 +3670,34 @@ static double ViewportSceneHitDistance(const ViewportState *state, const Viewpor
     return distance;
 }
 
+/* Use the same visible surfaces and nearest BG corner as painting. A miss
+ * remains in sampling mode and must never fall through to a paint gesture. */
+static BOOL ViewportSampleColorAt(HWND hwnd, ViewportState *state, int x, int y)
+{
+    ViewportPickRay ray;
+    ViewportBgVertexHit hit;
+    DWORD tile;
+    double scene, stan;
+    BOOL sampled = FALSE;
+    if (state == NULL || !state->colorpick || state->flying
+        || state->tool != EDITOR_TOOL_VERTEX_PAINT) { return FALSE; }
+    if (ViewportBuildPickRay(hwnd, state, x, y, &ray))
+    {
+        tile = ViewportFindPickedStan(state, &ray, &stan);
+        scene = ViewportSceneHitDistance(state, &ray);
+        if (tile != STAN_TILE_NONE && stan <= scene + ViewportCoplanarPickTolerance(stan))
+        {
+            sampled = SendMessage(GetParent(hwnd), VIEWPORT_WM_SAMPLE_STAN, tile, 0) != 0;
+        }
+        else if (ViewportFindPaintTarget(state, &ray, &hit))
+        {
+            sampled = SendMessage(GetParent(hwnd), VIEWPORT_WM_SAMPLE_VERTEX, 0, (LPARAM)&hit) != 0;
+        }
+    }
+    if (sampled) { ViewportSetColorPick(hwnd, FALSE); }
+    return TRUE;
+}
+
 /* Match the double-sided, depth-tested portal overlay. Keep native entries
  * distinct when they share a polygon, cycling only co-located nearest hits. */
 static DWORD ViewportFindPickedPortal(const ViewportState *state, const ViewportPickRay *ray,
@@ -5808,18 +5838,31 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
     }
 
     case WM_RBUTTONDBLCLK:
-    case WM_RBUTTONDOWN: ViewportBeginRightGesture(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam));
+    case WM_RBUTTONDOWN:
+        ViewportSetColorPick(hwnd, FALSE);
+        ViewportBeginRightGesture(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam));
         return 0;
 
     case WM_RBUTTONUP: ViewportEndRightGesture(hwnd, state);
         return 0;
 
     case WM_LBUTTONDBLCLK:
+        if (state != NULL && state->colorsampleclick)
+        {
+            state->colorsampleclick = FALSE;
+            return 0;
+        }
         if (ViewportOpenModelAt(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam), wparam))
         { return 0; }
         /* fall through */
     case WM_LBUTTONDOWN:
         SetFocus(hwnd);
+        if (state != NULL)
+        {
+            state->colorsampleclick = ViewportSampleColorAt(hwnd, state,
+                GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam));
+            if (state->colorsampleclick) { return 0; }
+        }
         if (state != NULL && !state->flying && state->vertexsnap)
         {
             SendMessage(GetParent(hwnd), VIEWPORT_WM_SNAP_PICK, 0, lparam);
@@ -5902,6 +5945,11 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
 
     case WM_KEYDOWN:
         if (state && state->flying) { state->contextpending=FALSE; }
+        if (state != NULL && state->colorpick && wparam == VK_ESCAPE)
+        {
+            ViewportSetColorPick(hwnd, FALSE);
+            return 0;
+        }
         if (state != NULL && (state->dragaxis >= 0 || state->boxpending))
         {
             if (wparam == VK_ESCAPE) { ViewportCancelTransform(hwnd); }
@@ -5931,6 +5979,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
 
     case WM_CANCELMODE:
     case WM_CAPTURECHANGED:
+        ViewportSetColorPick(hwnd, FALSE);
         ViewportCancelTransform(hwnd);
         /**
          * If capture is taken away, act as if right mouse was released so the camera doesn't keep flying with a hidden cursor.
@@ -5939,6 +5988,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         return 0;
 
     case WM_KILLFOCUS:
+        ViewportSetColorPick(hwnd, FALSE);
         ViewportCancelTransform(hwnd);
         ViewportEndFly(hwnd, state);
         if(state != NULL)   
@@ -5982,6 +6032,14 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
             return 0; /* consumed: wheel steers fly speed */
         }
         break; /* not flying: DefWindowProc forwards the wheel to the frame */
+
+    case WM_SETCURSOR:
+        if (state != NULL && state->colorpick && LOWORD(lparam) == HTCLIENT)
+        {
+            SetCursor(LoadCursor(NULL, IDC_CROSS));
+            return TRUE;
+        }
+        break;
 
     case WM_ERASEBKGND:
         /* GL repaints every pixel; skipping the GDI erase kills the
@@ -6157,6 +6215,7 @@ void ViewportSetTool(HWND viewport, EditorTool tool)
     {
         return;
     }
+    ViewportSetColorPick(viewport, FALSE);
     state->tool = tool;
     state->vertexsnap = FALSE;
     /* Clear the previous tool's selection before starting a new one. */
@@ -6171,6 +6230,26 @@ BOOL ViewportGetVertexSnap(HWND viewport)
 {
     const ViewportState *state = ViewportGetState(viewport);
     return state != NULL && state->vertexsnap;
+}
+
+void ViewportSetColorPick(HWND viewport, BOOL enabled)
+{
+    ViewportState *state = ViewportGetState(viewport);
+    POINT cursor;
+    RECT client;
+    if (state == NULL) { return; }
+    enabled = enabled && state->tool == EDITOR_TOOL_VERTEX_PAINT
+        && !state->flying && state->dragaxis < 0 && !state->boxpending;
+    if (state->colorpick == enabled) { return; }
+    state->colorpick = enabled;
+    SendMessage(GetParent(viewport), VIEWPORT_WM_COLOR_PICK_CHANGED, enabled, 0);
+    /* Update immediately after a click/cancel, without requiring mouse motion. */
+    if (GetCursorPos(&cursor) && ScreenToClient(viewport, &cursor))
+    {
+        GetClientRect(viewport, &client);
+        if (PtInRect(&client, cursor))
+        { SetCursor(LoadCursor(NULL, enabled ? IDC_CROSS : IDC_ARROW)); }
+    }
 }
 
 void ViewportSetVertexSnap(HWND viewport, BOOL enabled)
@@ -6749,6 +6828,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     float minx = 0, miny = 0, minz = 0, maxx = 0, maxy = 0, maxz = 0;
     int i;
 
+    ViewportSetColorPick(hwnd, FALSE);
     ViewportCancelTransform(hwnd);
     if (state != NULL && !framecamera) { savedobject = state->selectedobject; }
     if (state != NULL && !framecamera) { savedpad = state->selectedpad; }
