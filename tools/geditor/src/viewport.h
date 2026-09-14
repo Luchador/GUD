@@ -149,6 +149,10 @@ BOOL ViewportGetSingleSelectedBgFace(HWND hwnd, BgFaceRef *out);
    Never includes temporarily hidden faces or edits document/dirty state. */
 BOOL ViewportCanSelectBackground(HWND hwnd, BOOL grow);
 BOOL ViewportSelectBackground(HWND hwnd, BOOL grow);
+/* Expand to all BG geometry in the selected source rooms, retaining the active
+   vertex/edge/face mode. Includes disconnected/off-screen geometry, respecting
+   hidden faces and visible layers. Uses the same availability check as Grow. */
+BOOL ViewportSelectRoom(HWND hwnd);
 /* Face mode only: all selected BG faces must use the same texture ID.
    Select matching faces across rooms in visible layers, excluding hidden faces.
    UV wrapping, render flags and culling do not affect the texture match. */

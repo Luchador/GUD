@@ -27,12 +27,14 @@ def main():
     for name in ('SceneBatch', 'Vertex', 'VertexColor', 'ViewportComponent',
                  'ViewportStanComponent', 'ViewportBoxPoint', 'ViewportBoxComponent'):
         types += re.search(r'typedef struct ' + name + r'\s*\{.*?\} ' + name + ';', viewport, re.S)[0] + '\n'
+    types += re.search(r'typedef enum ViewportBgSelectionScope\s*\{.*?\} ViewportBgSelectionScope;', viewport, re.S)[0] + '\n'
     logic = ''.join(function(viewport, name) for name in (
         'ViewportTriangleHidden', 'ViewportBatchIsPickable',
         'ViewportSetFullbrightColor', 'ViewportSetTriangleColor',
         'ViewportClearBgSelection', 'ViewportClearAllSelection', 'ViewportCompareBoxPoints',
         'ViewportCompareBoxComponents', 'ViewportBoxComponentKey', 'ViewportApplyBoxComponents',
-        'ViewportBgSelectionPoint', 'ViewportCanSelectBackground', 'ViewportSelectBackground',
+        'ViewportBgSelectionPoint', 'ViewportCanSelectBackground', 'ViewportBgRoomKey',
+        'ViewportChangeBgSelection', 'ViewportSelectBackground', 'ViewportSelectRoom',
         'ViewportGetSelectedBgTexture', 'ViewportCanSelectSameMaterial', 'ViewportSelectSameMaterial'))
     hotkeys = function((src / 'geditor.c').read_text(), 'GEditorHandleSelectionHotkey')
     with tempfile.TemporaryDirectory(prefix='geditor-bg-selection-') as temp:

@@ -4499,20 +4499,36 @@ BOOL ViewportCanSelectBackground(HWND hwnd, BOOL grow)
     return !grow || (s->tool == EDITOR_TOOL_FACE_SELECT ? s->selectedtricount : s->componentcount) > 0;
 }
 
+typedef enum ViewportBgSelectionScope
+{
+    VIEWPORT_BG_SELECT_ALL,
+    VIEWPORT_BG_SELECT_GROW,
+    VIEWPORT_BG_SELECT_ROOM
+} ViewportBgSelectionScope;
+
+/* Reuse the sorted source-key lookup, ignoring vertex indices for room scope. */
+static ViewportBoxComponent ViewportBgRoomKey(DWORD room)
+{
+    ViewportBoxPoint point = {room, 0, 0};
+    return ViewportBoxComponentKey(point, point);
+}
+
 /* Selection-only operation. All allocations complete before changing the
  * selection; the usual notification records a single undoable selection step. */
-BOOL ViewportSelectBackground(HWND hwnd, BOOL grow)
+static BOOL ViewportChangeBgSelection(HWND hwnd, ViewportBgSelectionScope scope)
 {
     ViewportState *state = ViewportGetState(hwnd);
     ViewportBoxComponent *seeds = NULL, *hits = NULL;
     unsigned char *visible = NULL, *faces = NULL;
     size_t seedcapacity;
     int seedcount = 0, hitcount = 0, unique = 0, i, tri;
+    BOOL extend = scope != VIEWPORT_BG_SELECT_ALL;
+    BOOL room = scope == VIEWPORT_BG_SELECT_ROOM;
     BOOL face, edge, ok = FALSE;
-    if (!ViewportCanSelectBackground(hwnd, grow)) { return TRUE; }
+    if (!ViewportCanSelectBackground(hwnd, extend)) { return TRUE; }
     face = state->tool == EDITOR_TOOL_FACE_SELECT;
     edge = state->tool == EDITOR_TOOL_EDGE_SELECT;
-    seedcapacity = !grow ? 0 : face ? (size_t)state->selectedtricount * 3
+    seedcapacity = !extend ? 0 : face ? (size_t)state->selectedtricount * (room ? 1 : 3)
         : (size_t)state->componentcount * (edge ? 2 : 1);
     if (seedcapacity > INT_MAX || seedcapacity > SIZE_MAX / sizeof(*seeds)
         || (size_t)state->scenecount > SIZE_MAX / sizeof(*hits)) { goto done; }
@@ -4527,13 +4543,19 @@ BOOL ViewportSelectBackground(HWND hwnd, BOOL grow)
     for (i = 0; i < state->batchcount; i++)
     {
         const SceneBatch *batch = &state->batches[i];
-        if (!ViewportBatchIsPickable(state, batch)) { continue; }
+        BOOL pickable = ViewportBatchIsPickable(state, batch);
+        if (batch->object) { continue; }
         for (tri = batch->first / 3; tri < (batch->first + batch->count) / 3; tri++)
         {
             if (state->scenefacerefs[tri].faceid == BG_FACE_ID_NONE
                 || ViewportTriangleHidden(state, tri)) { continue; }
+            /* Selected faces in a disabled layer still identify their room;
+               only the newly selected geometry is filtered by visibility. */
+            if (room && face && state->selectedtris[tri] && state->scenefacerefs[tri].room)
+            { seeds[seedcount++] = ViewportBgRoomKey(state->scenefacerefs[tri].room); }
+            if (!pickable) { continue; }
             visible[tri] = 1;
-            if (grow && face && state->selectedtris[tri])
+            if (scope == VIEWPORT_BG_SELECT_GROW && face && state->selectedtris[tri])
             {
                 for (int end = 0; end < 3; end++)
                 {
@@ -4545,7 +4567,7 @@ BOOL ViewportSelectBackground(HWND hwnd, BOOL grow)
             }
         }
     }
-    if (grow && !face)
+    if (extend && !face)
     {
         for (i = 0; i < state->componentcount; i++)
         {
@@ -4557,23 +4579,31 @@ BOOL ViewportSelectBackground(HWND hwnd, BOOL grow)
                    the same source vertex is still exposed by another face.
                    The visible candidate scan below decides eligibility. */
                 if (p.owner)
-                { seeds[seedcount++] = ViewportBoxComponentKey(p, p); }
+                { seeds[seedcount++] = room ? ViewportBgRoomKey(p.owner) : ViewportBoxComponentKey(p, p); }
             }
         }
     }
     if (seedcount) { qsort(seeds, seedcount, sizeof(*seeds), ViewportCompareBoxComponents); }
-    if (grow && !seedcount) { ok = TRUE; goto done; }
+    if (extend && !seedcount) { ok = TRUE; goto done; }
     for (tri = 0; tri < state->scenecount / 3; tri++)
     {
         ViewportBoxPoint points[3];
-        BOOL touches[3] = {FALSE, FALSE, FALSE}, adjacent = !grow;
+        BOOL touches[3] = {FALSE, FALSE, FALSE}, adjacent = !extend;
         if (!visible[tri]) { continue; }
         for (i = 0; i < 3; i++) { points[i] = ViewportBgSelectionPoint(state, tri*3+i); }
-        for (i = 0; i < 3; i++)
+        if (room)
         {
-            ViewportBoxComponent key = ViewportBoxComponentKey(points[i], points[face ? (i+1)%3 : i]);
-            if (grow && bsearch(&key, seeds, seedcount, sizeof(*seeds), ViewportCompareBoxComponents))
-            { touches[i] = adjacent = TRUE; }
+            ViewportBoxComponent key = ViewportBgRoomKey(state->scenefacerefs[tri].room);
+            adjacent = bsearch(&key, seeds, seedcount, sizeof(*seeds), ViewportCompareBoxComponents) != NULL;
+        }
+        else
+        {
+            for (i = 0; i < 3; i++)
+            {
+                ViewportBoxComponent key = ViewportBoxComponentKey(points[i], points[face ? (i+1)%3 : i]);
+                if (extend && bsearch(&key, seeds, seedcount, sizeof(*seeds), ViewportCompareBoxComponents))
+                { touches[i] = adjacent = TRUE; }
+            }
         }
         if (face)
         {
@@ -4583,14 +4613,14 @@ BOOL ViewportSelectBackground(HWND hwnd, BOOL grow)
         for (i = 0; i < 3; i++)
         {
             ViewportBoxPoint a = points[i], b = points[edge ? (i+1)%3 : i];
-            BOOL include = !grow || (edge ? touches[i] || touches[(i+1)%3] : adjacent);
+            BOOL include = room ? adjacent : !extend || (edge ? touches[i] || touches[(i+1)%3] : adjacent);
             if (include && a.owner && b.owner && (!edge || ViewportCompareBoxPoints(&a, &b)))
             { hits[hitcount++] = ViewportBoxComponentKey(a, b); }
         }
     }
     if (face)
     {
-        if (!grow) { ViewportClearAllSelection(state); }
+        if (!extend) { ViewportClearAllSelection(state); }
         for (tri = 0; tri < state->scenecount / 3; tri++)
         {
             if (faces[tri] && !state->selectedtris[tri])
@@ -4609,7 +4639,7 @@ BOOL ViewportSelectBackground(HWND hwnd, BOOL grow)
             if (!unique || ViewportCompareBoxComponents(&hits[i], &hits[unique-1]))
             { hits[unique++] = hits[i]; }
         }
-        if (!ViewportApplyBoxComponents(state, hits, unique, FALSE, grow, FALSE)) { goto done; }
+        if (!ViewportApplyBoxComponents(state, hits, unique, FALSE, extend, FALSE)) { goto done; }
     }
     ViewportUpdateGizmo(state);
     InvalidateRect(hwnd, NULL, FALSE);
@@ -4618,6 +4648,16 @@ BOOL ViewportSelectBackground(HWND hwnd, BOOL grow)
 done:
     free(visible); free(faces); free(seeds); free(hits);
     return ok;
+}
+
+BOOL ViewportSelectBackground(HWND hwnd, BOOL grow)
+{
+    return ViewportChangeBgSelection(hwnd, grow ? VIEWPORT_BG_SELECT_GROW : VIEWPORT_BG_SELECT_ALL);
+}
+
+BOOL ViewportSelectRoom(HWND hwnd)
+{
+    return ViewportChangeBgSelection(hwnd, VIEWPORT_BG_SELECT_ROOM);
 }
 
 static BOOL ViewportGetSelectedBgTexture(HWND hwnd, unsigned short *textureout)

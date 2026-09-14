@@ -590,6 +590,7 @@ enum {
     ID_SELECT_GROW,
     ID_SELECT_ALL,
     ID_SELECT_SAME_MATERIAL,
+    ID_SELECT_ROOM,
 
     ID_TOOLS_CREATE_ROM,
     ID_TOOLS_UV_EDITOR,
@@ -759,6 +760,7 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_GROW, "&Grow Selection\tQ");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_ALL, "Select &All\tCtrl+A");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_SAME_MATERIAL, "Select Same &Material");
+    AppendMenu(selectmenu, MF_STRING, ID_SELECT_ROOM, "Select &Room");
 
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_UV_EDITOR, "&UV Editor");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_MODEL_EDITOR, "&Model Editor");
@@ -3826,6 +3828,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             (ViewportCanSelectBackground(g_Viewport, TRUE) ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_SELECT_ALL, MF_BYCOMMAND |
             (ViewportCanSelectBackground(g_Viewport, FALSE) ? MF_ENABLED : MF_GRAYED));
+        EnableMenuItem((HMENU)wparam, ID_SELECT_ROOM, MF_BYCOMMAND |
+            (ViewportCanSelectBackground(g_Viewport, TRUE) ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_SELECT_SAME_MATERIAL, MF_BYCOMMAND |
             (ViewportCanSelectSameMaterial(g_Viewport) ? MF_ENABLED : MF_GRAYED));
         return 0;
@@ -4015,6 +4019,11 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             case ID_SELECT_ALL:
                 if (!ViewportSelectBackground(g_Viewport, LOWORD(wparam) == ID_SELECT_GROW))
                 { MessageBox(hwnd, "Not enough memory to change the background selection.", GEDITOR_TITLE, MB_ICONERROR); }
+                return 0;
+
+            case ID_SELECT_ROOM:
+                if (!ViewportSelectRoom(g_Viewport))
+                { MessageBox(hwnd, "Not enough memory to select the rooms' geometry.", GEDITOR_TITLE, MB_ICONERROR); }
                 return 0;
 
             case ID_SELECT_SAME_MATERIAL:

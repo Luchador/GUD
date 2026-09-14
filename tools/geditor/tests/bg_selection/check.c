@@ -74,6 +74,93 @@ static void Seed(ViewportState *state, EditorTool tool)
     }
 }
 
+static void Rooms(ViewportState *s)
+{
+    const int one[]={11,15,6}, both[]={14,18,7}, layers[]={15,20,8};
+    for (int tool=EDITOR_TOOL_VERTEX_SELECT; tool<=EDITOR_TOOL_FACE_SELECT; tool++)
+    {
+        Seed(s,tool);
+        ViewportComponent anchor=tool==EDITOR_TOOL_FACE_SELECT ? (ViewportComponent){0} : s->components[0];
+        unsigned before=notifications;
+        assert(ViewportSelectRoom(s) && notifications==before+1 && s->tool==(EditorTool)tool);
+        assert((tool==EDITOR_TOOL_FACE_SELECT?s->selectedtricount:s->componentcount)==one[tool]);
+        if (tool==EDITOR_TOOL_FACE_SELECT)
+        {
+            assert(s->selectedtris[0] && s->selectedtris[4] && s->selectedtris[6]); /* Disconnected pieces. */
+            assert(!s->selectedtris[5] && !s->selectedtris[7] && !s->selectedtris[8] && !s->selectedtris[9]);
+        }
+        else
+        {
+            assert(!memcmp(&anchor,s->components,sizeof(anchor))); /* Keep the original transform anchor. */
+            for (int i=0; i<s->componentcount; i++)
+            {
+                for (int end=0; end<2; end++)
+                {
+                    BgDocumentVertexRef ref=s->components[i].refs[end];
+                    assert(ref.room==1 && ref.index<11); /* No coincident room 2, objects or hidden-only points. */
+                    assert(!memcmp(&ref,&s->scenevertexrefs[s->components[i].corners[end]],sizeof(ref)));
+                }
+            }
+        }
+        assert(ViewportSelectRoom(s)); /* Repeated expansion must not duplicate anything. */
+        assert((tool==EDITOR_TOOL_FACE_SELECT?s->selectedtricount:s->componentcount)==one[tool]);
+
+        Seed(s,tool);
+        if (tool==EDITOR_TOOL_FACE_SELECT) { s->selectedtris[5]=1; s->selectedtricount++; }
+        else
+        {
+            s->components=realloc(s->components,2*sizeof(*s->components)); assert(s->components);
+            s->componentcount=s->componentcapacity=2;
+            int other=tool==EDITOR_TOOL_EDGE_SELECT?16:15;
+            s->components[1]=(ViewportComponent){.refs={s->scenevertexrefs[15],s->scenevertexrefs[other]},
+                .corners={15,other}};
+        }
+        assert(ViewportSelectRoom(s));
+        assert((tool==EDITOR_TOOL_FACE_SELECT?s->selectedtricount:s->componentcount)==both[tool]);
+        s->showbgsecondary=TRUE;
+        assert(ViewportSelectRoom(s));
+        assert((tool==EDITOR_TOOL_FACE_SELECT?s->selectedtricount:s->componentcount)==layers[tool]);
+        s->showbgsecondary=FALSE;
+
+        /* A seed on a disabled layer identifies its room and remains selected. */
+        Seed(s,tool);
+        if (tool==EDITOR_TOOL_FACE_SELECT) { s->selectedtris[0]=0; s->selectedtris[9]=1; }
+        else
+        {
+            int other=tool==EDITOR_TOOL_EDGE_SELECT?28:29;
+            s->components[0]=(ViewportComponent){.refs={s->scenevertexrefs[29],s->scenevertexrefs[other]},
+                .corners={29,other}};
+        }
+        assert(ViewportSelectRoom(s));
+        assert((tool==EDITOR_TOOL_FACE_SELECT?s->selectedtricount:s->componentcount)==one[tool]+1);
+
+        /* Each allocation can fail without changing selection or recording history. */
+        int allocationcount=tool==EDITOR_TOOL_FACE_SELECT?3:5;
+        for (int budget=0; budget<=allocationcount; budget++)
+        {
+            Seed(s,tool);
+            if (tool!=EDITOR_TOOL_FACE_SELECT) { anchor=s->components[0]; }
+            before=notifications; allocations=budget;
+            BOOL ok=ViewportSelectRoom(s); allocations=-1;
+            assert(ok==(budget==allocationcount));
+            if (ok)
+            { assert(notifications==before+1 && (tool==EDITOR_TOOL_FACE_SELECT?s->selectedtricount:s->componentcount)==one[tool]); }
+            else
+            {
+                assert(notifications==before);
+                if (tool==EDITOR_TOOL_FACE_SELECT) { assert(s->selectedtricount==1 && s->selectedtris[0]); }
+                else { assert(s->componentcount==1 && !memcmp(&anchor,s->components,sizeof(anchor))); }
+            }
+        }
+        ViewportClearAllSelection(s);
+        before=notifications; allocations=0;
+        assert(ViewportSelectRoom(s) && notifications==before); allocations=-1;
+    }
+    unsigned before=notifications;
+    assert(ViewportSelectRoom(NULL) && notifications==before);
+    puts("PASS: room expansion in all modes, multiple rooms, disconnected geometry, preserved seeds, layer filters and atomic failure.");
+}
+
 static void Geometry(void)
 {
     /* Four triangles form a chain. A fifth touches only one vertex. Other
@@ -89,7 +176,7 @@ static void Geometry(void)
         .selectedtris=selected,.hiddentris=hidden,.batches=batches,.batchcount=10,
         .selectedobject=VIEWPORT_OBJECT_NONE};
     for (int i=0; i<10; i++)
-    { faces[i].faceid=i+1; batches[i].first=i*3; batches[i].count=3; }
+    { faces[i].faceid=i+1; faces[i].room=refs[i*3].room; batches[i].first=i*3; batches[i].count=3; }
     for (int i=0; i<30; i++) { vertices[i].z=1000000; } /* Beyond camera bounds. */
     hidden[7]=1; faces[8].faceid=BG_FACE_ID_NONE; batches[8].object=TRUE; batches[9].secondary=TRUE;
     for (int tool=EDITOR_TOOL_VERTEX_SELECT; tool<=EDITOR_TOOL_FACE_SELECT; tool++)
@@ -117,6 +204,7 @@ static void Geometry(void)
             }
         }
     }
+    Rooms(&s);
     Seed(&s,EDITOR_TOOL_VERTEX_SELECT);
     assert(ViewportSelectBackground(&s,TRUE) && s.componentcount==4);
     assert(ViewportSelectBackground(&s,TRUE) && s.componentcount==8);
