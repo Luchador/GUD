@@ -8,6 +8,7 @@
 #include "lv.h"
 #include "image.h"
 #include "tex.h"
+#include "bgtransparency.h"
 
 s32 g_TexLutMode;
 s_bss_8008D148 g_TexTileStates[8]; //[0x160]; //8 entries of 0x2c ea
@@ -732,6 +733,11 @@ s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool)
         switch (*(u8 *)in)
         {
             case G_NOOP:
+                if (BG_SURFACE_IS_MARKER(in->words.w0, in->words.w1))
+                {
+                    *(out++) = *(in++);
+                    break;
+                }
                 if (!syncEmitted)
                 {
                     gDPPipeSync(out++);

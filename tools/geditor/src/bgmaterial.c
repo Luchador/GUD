@@ -21,6 +21,7 @@ void BgMaterialInit(BgMaterial *material)
 
 BOOL BgMaterialReadCommand(BgMaterial *material, DWORD word0, DWORD word1)
 {
+    if (BG_SURFACE_IS_MARKER(word0, word1)) { return FALSE; }
     switch (word0 >> 24)
     {
     case BG_G_SETTEXTURE:

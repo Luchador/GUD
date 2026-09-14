@@ -217,7 +217,9 @@ typedef struct BgFacePropertiesEdit {
 
 /* Validates all faces before editing. Wrap changes require a texture on every
  * selected face. Transparency changes require a supported explicit pipeline;
- * native state groups are split/restored without changing geometry or layers. */
+ * native state groups are split/restored without changing geometry or layers.
+ * Explicit choices override runtime optimization; Auto restores the native
+ * surface saved by the first explicit choice and permits optimization again. */
 BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
     DWORD count, const BgFacePropertiesEdit *edit, BOOL *changedout,
     const char **reasonout);

@@ -1283,24 +1283,36 @@ static BOOL BgDocumentSurfaceCommand(BgDocumentDrawGroup *group, DWORD w0, DWORD
     return BgDocumentAppendGroupCommand(group, command);
 }
 
-static BOOL BgDocumentSurfaceTransition(BgDocumentDrawGroup *group, DWORD from, DWORD to)
+static BOOL BgDocumentSameSurface(const BgRenderState *a, const BgRenderState *b)
 {
-    DWORD difference = from ^ to;
-    if (!difference) { return TRUE; }
+    return a->othermode == b->othermode && a->surfacepolicy == b->surfacepolicy
+        && a->surfacebasemode == b->surfacebasemode;
+}
+
+static BOOL BgDocumentSurfaceTransition(BgDocumentDrawGroup *group,
+    const BgRenderState *from, const BgRenderState *to)
+{
+    DWORD difference = from->othermode ^ to->othermode;
     /* Partial writes preserve the first-cycle fog blender, including runtime
        replacements made by bgApplyDynamicCCRMLUT. Sync before RDP changes. */
-    if (!BgDocumentSurfaceCommand(group, 0xE7000000u, 0)) { return FALSE; }
-    if ((difference & 0xFFF8u)
-        && !BgDocumentSurfaceCommand(group, 0xB900030Du, to & 0xFFF8u)) { return FALSE; }
-    if ((difference & 0x000C0000u)
-        && !BgDocumentSurfaceCommand(group, 0xB9001202u, to & 0x000C0000u)) { return FALSE; }
-    if ((difference & 0x00030000u)
-        && !BgDocumentSurfaceCommand(group, 0xB9001002u, to & 0x00030000u)) { return FALSE; }
+    if (difference)
+    {
+        if (!BgDocumentSurfaceCommand(group, 0xE7000000u, 0)) { return FALSE; }
+        if ((difference & 0xFFF8u)
+            && !BgDocumentSurfaceCommand(group, 0xB900030Du, to->othermode & 0xFFF8u)) { return FALSE; }
+        if ((difference & 0x000C0000u)
+            && !BgDocumentSurfaceCommand(group, 0xB9001202u, to->othermode & 0x000C0000u)) { return FALSE; }
+        if ((difference & 0x00030000u)
+            && !BgDocumentSurfaceCommand(group, 0xB9001002u, to->othermode & 0x00030000u)) { return FALSE; }
+    }
+    if ((from->surfacepolicy != to->surfacepolicy || from->surfacebasemode != to->surfacebasemode)
+        && !BgDocumentSurfaceCommand(group, BG_SURFACE_MARKER,
+            BG_SURFACE_TAG_VALUE(to->surfacepolicy, to->surfacebasemode))) { return FALSE; }
     return TRUE;
 }
 
 static BOOL BgDocumentSurfaceLayer(BgDocumentRoom *room, unsigned int layerindex,
-    const unsigned char *selected, const DWORD *modes)
+    const unsigned char *selected, const BgRenderState *targets)
 {
     BgDocumentLayerData *source = &room->layers[layerindex], output = {0};
     DWORD *groups = malloc((size_t)room->facecount * sizeof(*groups));
@@ -1315,7 +1327,8 @@ static BOOL BgDocumentSurfaceLayer(BgDocumentRoom *room, unsigned int layerindex
     for (group = 0; group < source->groupcount; group++)
     {
         const BgDocumentDrawGroup *original = &source->groups[group];
-        DWORD offset, live;
+        DWORD offset;
+        BgRenderState live;
         BOOL hasfaces = FALSE;
         if (!BgDocumentAppendDrawGroup(&output)) { goto done; }
         for (offset = 0; offset < original->commandsize; offset += 8)
@@ -1324,17 +1337,17 @@ static BOOL BgDocumentSurfaceLayer(BgDocumentRoom *room, unsigned int layerindex
             if (!BgDocumentAppendGroupCommand(&output.groups[output.groupcount - 1], command)) { goto done; }
             BgRenderStateRead(&state, BgDocumentRead32(command), BgDocumentRead32(command + 4));
         }
-        live = state.othermode;
+        live = state;
         for (f = 0; f < room->facecount; f++)
         {
             const BgDocumentFace *face = &room->faces[f];
-            DWORD target;
+            BgRenderState target;
             if (face->layer != layerindex || face->drawgroup != group) { continue; }
-            target = selected[f] ? modes[f] : state.othermode;
-            if (target != live)
+            target = selected[f] ? targets[f] : state;
+            if (!BgDocumentSameSurface(&target, &live))
             {
                 if (hasfaces && !BgDocumentAppendDrawGroup(&output)) { goto done; }
-                if (!BgDocumentSurfaceTransition(&output.groups[output.groupcount - 1], live, target)) { goto done; }
+                if (!BgDocumentSurfaceTransition(&output.groups[output.groupcount - 1], &live, &target)) { goto done; }
                 live = target;
                 hasfaces = FALSE;
             }
@@ -1343,10 +1356,10 @@ static BOOL BgDocumentSurfaceLayer(BgDocumentRoom *room, unsigned int layerindex
         }
         /* Also restore at the end of a layer or before an empty state group.
            A following room/draw call must never inherit this selection's edit. */
-        if (live != state.othermode)
+        if (!BgDocumentSameSurface(&live, &state))
         {
             if (!BgDocumentAppendDrawGroup(&output)
-                || !BgDocumentSurfaceTransition(&output.groups[output.groupcount - 1], live, state.othermode)) { goto done; }
+                || !BgDocumentSurfaceTransition(&output.groups[output.groupcount - 1], &live, &state)) { goto done; }
         }
     }
     for (f = 0; f < room->facecount; f++)
@@ -1376,13 +1389,18 @@ static BOOL BgDocumentSetTransparency(BgDocument *document, const BgFaceRef *ref
     for (i = 0; i < count; i++)
     {
         DWORD mode;
+        BgRenderState target = states[i];
         if (!BgRenderSurfacePreset(&states[i], surface, &mode))
         {
             *reasonout = "Transparency changes require explicit, ordinary one-cycle or two-cycle render modes. The selection includes inherited or custom state.";
             goto done;
         }
-        any |= states[i].othermode != mode;
-        states[i].othermode = mode;
+        target.othermode = mode;
+        target.surfacepolicy = surface == BG_TRANSPARENCY_AUTO ? BG_SURFACE_AUTO : (DWORD)surface + 1;
+        target.surfacebasemode = target.surfacepolicy == BG_SURFACE_AUTO ? 0
+            : states[i].surfacepolicy == BG_SURFACE_AUTO ? states[i].othermode & BG_SURFACE_MODE_MASK : states[i].surfacebasemode;
+        any |= !BgDocumentSameSurface(&states[i], &target);
+        states[i] = target;
     }
     if (!any) { ok = TRUE; goto done; }
     /* Build off to the side: allocation failures never leave a partial edit,
@@ -1393,13 +1411,13 @@ static BOOL BgDocumentSetTransparency(BgDocument *document, const BgFaceRef *ref
     {
         BgDocumentRoom *room = &copy.rooms[roomindex];
         unsigned char *selected;
-        DWORD *modes;
+        BgRenderState *targets;
         BOOL layers[2] = {FALSE, FALSE};
         for (i = 0; i < count; i++) { if (refs[i].room == roomindex) { layers[refs[i].layer] = TRUE; } }
         if (!layers[0] && !layers[1]) { continue; }
         selected = calloc(room->facecount, 1);
-        modes = malloc((size_t)room->facecount * sizeof(*modes));
-        if (!selected || !modes) { free(selected); free(modes); goto done; }
+        targets = malloc((size_t)room->facecount * sizeof(*targets));
+        if (!selected || !targets) { free(selected); free(targets); goto done; }
         for (i = 0; i < count; i++)
         {
             const BgDocumentFace *face;
@@ -1407,11 +1425,11 @@ static BOOL BgDocumentSetTransparency(BgDocument *document, const BgFaceRef *ref
             if (refs[i].room != roomindex) { continue; }
             face = BgDocumentFindFace(&copy, &refs[i], NULL);
             f = (DWORD)(face - room->faces);
-            selected[f] = TRUE; modes[f] = states[i].othermode;
+            selected[f] = TRUE; targets[f] = states[i];
         }
-        ok = (!layers[0] || BgDocumentSurfaceLayer(room, 0, selected, modes))
-            && (!layers[1] || BgDocumentSurfaceLayer(room, 1, selected, modes));
-        free(selected); free(modes);
+        ok = (!layers[0] || BgDocumentSurfaceLayer(room, 0, selected, targets))
+            && (!layers[1] || BgDocumentSurfaceLayer(room, 1, selected, targets));
+        free(selected); free(targets);
         if (!ok) { goto done; }
         ok = FALSE;
     }
@@ -1437,7 +1455,8 @@ BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
     if (document == NULL || refs == NULL || count == 0 || edit == NULL
         || edit->fields == 0 || (edit->fields & ~15u)
         || ((edit->fields & BG_FACE_PROPERTY_TRANSPARENCY)
-            && (unsigned int)edit->transparency > BG_TRANSPARENCY_BLEND)
+            && (unsigned int)edit->transparency > BG_TRANSPARENCY_BLEND
+            && edit->transparency != BG_TRANSPARENCY_AUTO)
         || ((edit->fields & BG_FACE_PROPERTY_CULL)
             && edit->cullbackfaces != FALSE && edit->cullbackfaces != TRUE)
         || ((edit->fields & BG_FACE_PROPERTY_WRAP_U)

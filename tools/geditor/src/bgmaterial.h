@@ -1,6 +1,8 @@
 #ifndef GEDITOR_BGMATERIAL_H
 #define GEDITOR_BGMATERIAL_H
 
+#include "../../../src/bgtransparency.h"
+
 #include "bgload.h"
 
 /* Fast3D material commands stored in a raw GoldenEye room stream. The C0

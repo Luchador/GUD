@@ -129,12 +129,12 @@ preswapped tile banks. It uses an existing spare descriptor bit, so descriptors
 do not grow. Mips and texture payloads remain unchanged; there is no per-frame
 texel scan or texture-number whitelist. Imported images follow the same rule.
 
-A draw is eligible only with a recognized Z-buffered translucent-surface or
+An Auto draw is eligible only with a recognized Z-buffered translucent-surface or
 texture-edge mode, a supported texture-alpha combiner, explicit environment
 alpha 255, and a verified base-tile upload/format/palette. Explicit alpha
 comparison, fades, decals, partial/custom uploads and unsupported combiners
-remain on their original pipeline. Soft-alpha foliage is deliberately left
-blended along with tinted glass; this trial does not classify by appearance.
+remain on their original pipeline. Soft-alpha foliage is left blended along
+with tinted glass unless explicitly set to Cutout in GEditor, as described below.
 
 Converted draws use the base tile with authored bilinear/point filtering and
 an alpha threshold of 128/255 (`BG_CUTOUT_THRESHOLD`). Surviving texels write
@@ -170,6 +170,59 @@ Host and address/undefined-behavior checks pass. Affected code compiles with
 IDO 5.3 for the US N64 target. The texture module compilation uses a source
 image-catalog fixture in place of the unavailable generated ROM-offset table;
 a complete ROM build is blocked by missing base-ROM/texture assets here.
+
+## Authoring background-face transparency in GEditor
+
+Select background faces and use the Transparency dropdown in their Properties
+panel. Choices apply to the whole selection and participate in undo/redo:
+
+| Choice | Behavior |
+|---|---|
+| Auto | Retain the original material and allow eligible AA-Off optimizations. Returning from an explicit choice restores the material captured before the first override. |
+| Opaque | Use an opaque surface, with the ordinary one-cycle optimization when eligible. |
+| Cutout | Use texture alpha to discard holes and draw the remaining pixels as an opaque surface. Supported secondary-room materials use one-cycle thresholding with AA Off, even when the image has intermediate alpha. |
+| Translucent (alpha blend) | Preserve blended transparency, including for binary-alpha images that Auto would otherwise convert to cutout. |
+
+Explicit choices take priority over automatic classification. They are per
+face: the same texture can be used by cutout and blended faces in one room.
+The inspector shows the common choice, or Mixed when choices differ. Auto also
+shows the underlying native transparency type. Mixed / Keep current leaves
+the existing choices alone. Custom or unresolved native pipelines remain
+read-only, as before.
+
+AA On uses the authored native mode for each explicit choice; AA Off uses the
+optimized version when supported. Explicit Blend stays blended with either
+setting. Cutout does not guarantee one-cycle conversion: unsupported uploads,
+combiners and other pipelines keep their native texture-edge mode. VI is
+independent. The editor preview reflects the authored material, not the game's
+automatic AA-Off conversion or distance filtering.
+
+This control applies to background geometry and keeps faces in their current
+primary/secondary layer. Put glass and other blended room geometry in the
+secondary layer for the usual draw order. Secondary model lists remain outside
+the new one-cycle cutout path; their existing model editing controls are unchanged.
+
+Unmarked assets and older projects load as Auto. Previous files do not record
+whether a native blend mode was an explicit editing decision, so reselect
+Translucent (alpha blend) on faces that must remain blended. Selecting that
+choice records an override even when the native mode is already blended.
+
+The override and pre-override surface bits are stored in standard Fast3D
+`gDPNoOpTag` packets, alongside the native partial render-mode commands. The
+shared contract is `src/bgtransparency.h`. Texture expansion recognizes these
+tags and passes them through without treating them as texture requests or
+changing light-fixture boundaries. The metadata survives project save/reload
+and native background compilation for ROM export, without a project format
+change. Use the updated editor and game code together.
+
+Tests cover mixed selections across rooms/layers, same-mode locks, repeated
+overrides, Auto restoration in both cycle modes, save/reload/recompilation,
+undo/redo and allocation failure. Runtime tests cover explicit Blend/Cutout/
+Opaque precedence, neighboring Auto draws, AA preservation and actual texture
+expander dispatch, including ordinary texture markers that resemble the tag.
+Run `python3 tools/geditor/tests/bg_transparency/run.py` and the background
+one-cycle suite below. Host sanitizer checks and US N64 object compilation
+pass; a full ROM build and Windows viewport/console validation remain pending.
 
 ## Rendering implementation
 

@@ -2,6 +2,7 @@
 #include "bgonecycle.h"
 #include "renderconfig.h"
 #include "image.h"
+#include "bgtransparency.h"
 
 #define BG_CYCLE_MASK (3u << G_MDSFT_CYCLETYPE)
 #define BG_LOD_MASK (1u << G_MDSFT_TEXTLOD)
@@ -75,6 +76,7 @@ typedef struct BgOneCycleState {
     u32 loadedImage;
     u32 loadedTexels;
     s32 paletteLoaded;
+    u32 surfacePolicy;
     struct tex *loadedTexture;
 } BgOneCycleState;
 
@@ -108,6 +110,7 @@ static void bgOneCycleResetState(BgOneCycleState *state)
     state->tileKnown = state->image = state->imageDepth = 0;
     state->loadedImage = state->loadedTexels = 0;
     state->paletteLoaded = FALSE;
+    state->surfacePolicy = BG_SURFACE_AUTO;
     for (i = 0; i < 8; i++) state->tiles[i] = state->palettes[i] = 0;
     state->loadedTexture = NULL;
 }
@@ -122,7 +125,9 @@ static s32 bgOneCycleReadState(BgOneCycleState *state, Gfx command, bool cutouts
     u32 mask;
     u32 tile;
     struct tex *tex;
-    if (opcode == (u8)G_SETOTHERMODE_H || opcode == (u8)G_SETOTHERMODE_L) {
+    if (BG_SURFACE_IS_MARKER(command.words.w0, command.words.w1)) {
+        state->surfacePolicy = BG_SURFACE_TAG_POLICY(command.words.w1);
+    } else if (opcode == (u8)G_SETOTHERMODE_H || opcode == (u8)G_SETOTHERMODE_L) {
         shift = (command.words.w0 >> 8) & 0xff;
         length = command.words.w0 & 0xff;
         if (!length || shift >= 32 || length > 32 - shift) return FALSE;
@@ -161,7 +166,7 @@ static s32 bgOneCycleReadState(BgOneCycleState *state, Gfx command, bool cutouts
         if (opcode == (u8)G_LOADBLOCK && !(command.words.w0 & 0xffffff)
                 && (state->tileKnown & (1u << tile)) && !(state->tiles[tile] & 0x1ff)) {
             tex = texFindByData(state->image);
-            if (tex && tex->hasBinaryAlpha
+            if (tex
                     && (((((command.words.w1 >> 12) & 0xfff) + 1) << state->imageDepth) / 2
                         >= (tex->depth == G_IM_SIZ_32b ? ((tex->width + 3) & ~3) * 4 * tex->height
                             : ((tex->width * (4 << tex->depth) + 63) / 64) * 8 * tex->height)))
@@ -204,6 +209,9 @@ static s32 bgOneCycleChooseState(const BgOneCycleState *source, BgOneCycleState 
     struct tex *tex;
     Gfx alphaCombine = gsDPSetCombineMode(G_CC_MODULATEIFADEA, G_CC_MODULATEIFADEA);
     *chosen = *source;
+    /* A hand-authored blend must survive even when its pixels are binary.
+     * Invalid/unknown policies also retain the original pipeline. */
+    if (source->surfacePolicy == BG_SURFACE_BLEND || source->surfacePolicy > BG_SURFACE_BLEND) return FALSE;
     if ((source->highKnown & BG_CYCLE_MASK) != BG_CYCLE_MASK
             || (source->high & BG_CYCLE_MASK) != G_CYC_2CYCLE
             || (source->lowKnown & BG_RENDER_MASK) != BG_RENDER_MASK
@@ -217,12 +225,17 @@ static s32 bgOneCycleChooseState(const BgOneCycleState *source, BgOneCycleState 
         if (mode == g_BgOneCycleSurfaces[i]) break;
     }
     if (i == sizeof(g_BgOneCycleSurfaces) / sizeof(g_BgOneCycleSurfaces[0])) {
-        if (!cutouts || (mode != (G_RM_AA_ZB_XLU_SURF2) && mode != (G_RM_ZB_XLU_SURF2)
+        if (!cutouts || source->surfacePolicy == BG_SURFACE_OPAQUE
+                || (mode != (G_RM_AA_ZB_XLU_SURF2) && mode != (G_RM_ZB_XLU_SURF2)
                     && mode != (G_RM_AA_ZB_TEX_EDGE2))) return FALSE;
-        /* No vertex/fade alpha: the room LUT must have selected texture times
-         * fully opaque environment alpha. Glass and soft alpha stay blended. */
+        /* Auto requires binary alpha and no fade. An explicit Cutout already
+         * requests thresholding, including for soft-alpha textures. The room
+         * LUT still needs a supported texture-times-environment combiner. */
         tex = source->loadedTexture;
-        if (!tex || source->envAlpha != 255 || source->blendAlpha != BG_CUTOUT_THRESHOLD
+        if (!tex || source->envAlpha < 0
+                || (source->surfacePolicy != BG_SURFACE_CUTOUT && (!tex->hasBinaryAlpha || source->envAlpha != 255))
+                || (source->surfacePolicy == BG_SURFACE_CUTOUT && mode != (G_RM_AA_ZB_TEX_EDGE2))
+                || source->blendAlpha != BG_CUTOUT_THRESHOLD
                 || (source->lowKnown & 3) != 3 || source->baseTile != 0
                 || !(source->tileKnown & 1) || (source->tiles[0] & 0x1ff)
                 || ((source->tiles[0] >> 21) & 7) != tex->gbiformat
@@ -318,6 +331,7 @@ static s32 bgOneCycleBuild(const Gfx *src, s32 size, Gfx *dst, s32 capacity,
     BgOneCycleOutput out;
     Gfx command;
     u32 opcode;
+    u32 policy;
     s32 i;
     if (!src || size <= 0 || (size & 7) || size > BG_MAX_ONE_CYCLE_BYTES
             || capacity < 0 || dst == src || initialSize < 0 || (initialSize & 7)
@@ -364,7 +378,11 @@ static s32 bgOneCycleBuild(const Gfx *src, s32 size, Gfx *dst, s32 capacity,
             /* Nested lists (notably animated water) retain their own pipeline.
              * Nothing after a call is assumed until explicitly established. */
             if ((command.words.w0 >> 16) & 0xff) return out.converted ? out.count * sizeof(Gfx) : 0;
+            /* The editor policy belongs to this list's faces. Nested lists
+             * have their own metadata; only their hardware state is unknown. */
+            policy = source.surfacePolicy;
             bgOneCycleResetState(&source);
+            source.surfacePolicy = policy;
             actual = source;
         }
     }

@@ -69,6 +69,16 @@ static void Equivalent(const BgDocument *a, const BgDocument *b)
     assert(!memcmp(x.tags,y.tags,x.facecount*sizeof(*x.tags)));
     assert(!memcmp(x.renderflags,y.renderflags,x.facecount*sizeof(*x.renderflags)));
     assert(!memcmp(x.vertices,y.vertices,x.facecount*3*sizeof(*x.vertices)));
+    BgFaceRef *ra=malloc(a->facecount*sizeof(*ra)), *rb=malloc(b->facecount*sizeof(*rb));
+    BgRenderState *sa=malloc(a->facecount*sizeof(*sa)), *sb=malloc(b->facecount*sizeof(*sb));
+    assert(ra && rb && sa && sb && Refs(a,ra)==Refs(b,rb));
+    assert(BgDocumentGetFaceRenderStates(a,ra,a->facecount,sa));
+    assert(BgDocumentGetFaceRenderStates(b,rb,b->facecount,sb));
+    for (DWORD i=0; i<a->facecount; i++) {
+        assert(sa[i].surfacepolicy==sb[i].surfacepolicy);
+        assert(sa[i].surfacebasemode==sb[i].surfacebasemode);
+    }
+    free(ra); free(rb); free(sa); free(sb);
     BgDocumentRenderMeshFree(&x); BgDocumentRenderMeshFree(&y);
 }
 static void RoundTrip(const BgDocument *doc, const BgFile *source, const char *dir)
@@ -95,6 +105,8 @@ static void CheckModes(const BgDocument *doc, const BgFaceRef *refs, const BgRen
     {
         BOOL selected=i==1 || i==3 || i==6 || i==11;
         assert(BgRenderGetTransparency(&after[i])==(selected?BG_TRANSPARENCY_CUTOUT:BG_TRANSPARENCY_BLEND));
+        assert(after[i].surfacepolicy==(selected?BG_SURFACE_CUTOUT:BG_SURFACE_AUTO));
+        if (selected) assert(after[i].surfacebasemode==(before[i].othermode&BG_SURFACE_MODE_MASK));
         if (!selected) { assert(after[i].othermode==before[i].othermode); }
         assert(after[i].othermodehigh==before[i].othermodehigh);
         assert(after[i].geometrymode==before[i].geometrymode);
@@ -126,6 +138,7 @@ static void CheckModes(const BgDocument *doc, const BgFaceRef *refs, const BgRen
                 { synced=FALSE; assert((s.othermode&0xCCCC0000u)==0xC8080000u); }
             }
         }
+        assert(s.surfacepolicy==BG_SURFACE_AUTO && s.surfacebasemode==0);
         assert(s.othermode==0xc81849d8); /* Caller state restored, including fog. */
     }
 }
@@ -138,6 +151,10 @@ static void Presets(void)
     BgRenderStateRead(&s,0xba001402,0);
     assert(BgRenderSurfacePreset(&s,BG_TRANSPARENCY_CUTOUT,&mode));
     assert(mode==0x00543078); /* One-cycle final blender, other cycle retained. */
+    BgRenderStateRead(&s,BG_SURFACE_MARKER,BG_SURFACE_TAG_VALUE(BG_SURFACE_CUTOUT,s.othermode));
+    BgRenderStateRead(&s,0xb900031d,mode);
+    assert(BgRenderSurfacePreset(&s,BG_TRANSPARENCY_AUTO,&mode) && mode==0x005049d8);
+    BgRenderStateRead(&s,BG_SURFACE_MARKER,BG_SURFACE_TAG_VALUE(BG_SURFACE_AUTO,0));
     BgRenderStateRead(&s,0xb900031d,0x005049c8); /* No Z compare. */
     assert(BgRenderSurfacePreset(&s,BG_TRANSPARENCY_OPAQUE,&mode));
     assert(!(mode&0x30));
@@ -189,9 +206,46 @@ static void Jungle(const char *filename, const char *dir)
     printf("PASS Jungle native data: %u translucent faces converted to cutout; %u total faces preserved through save/reload.\n",count,doc.facecount);
     free(refs); free(selected); free(before); free(after); free(edited); BgDocumentFree(&doc); BgFileFree(&source);
 }
+static void Overrides(const char *dir)
+{
+    BgFile source=Fixture(); BgDocument doc={0}; BgFaceRef refs[20]; BgRenderState states[20];
+    BgRenderState original[20]; const char *why=""; BOOL changed;
+    assert(BgDocumentLoad(source.data,source.size,1,&doc,&why));
+    assert(Refs(&doc,refs)==20 && BgDocumentGetFaceRenderStates(&doc,refs,20,original));
+    BgFaceRef selected[]={refs[1],refs[3],refs[6],refs[11]};
+    BgFacePropertiesEdit edit={.fields=BG_FACE_PROPERTY_TRANSPARENCY,.transparency=BG_TRANSPARENCY_BLEND};
+    /* Same native blend, new explicit intent: must be a real, undoable edit. */
+    assert(BgDocumentSetFaceProperties(&doc,selected,4,&edit,&changed,&why) && changed);
+    assert(BgDocumentSetFaceProperties(&doc,selected,4,&edit,&changed,&why) && !changed);
+    assert(BgDocumentGetFaceRenderStates(&doc,refs,20,states));
+    for (int i=0; i<20; i++) {
+        int selected=i==1 || i==3 || i==6 || i==11;
+        assert(states[i].othermode==original[i].othermode);
+        assert(states[i].surfacepolicy==(selected?BG_SURFACE_BLEND:BG_SURFACE_AUTO));
+    }
+    RoundTrip(&doc,&source,dir);
+    /* Repeated explicit choices retain the original native mode for Auto. */
+    const BgTransparency choices[]={BG_TRANSPARENCY_CUTOUT,BG_TRANSPARENCY_OPAQUE,BG_TRANSPARENCY_BLEND,BG_TRANSPARENCY_AUTO};
+    for (unsigned int c=0; c<sizeof(choices)/sizeof(choices[0]); c++) {
+        edit.transparency=choices[c];
+        assert(BgDocumentSetFaceProperties(&doc,selected,4,&edit,&changed,&why) && changed);
+        assert(BgDocumentGetFaceRenderStates(&doc,refs,20,states));
+        for (int i=0; i<20; i++) {
+            int selected=i==1 || i==3 || i==6 || i==11;
+            assert(states[i].surfacepolicy==(selected && choices[c]!=BG_TRANSPARENCY_AUTO ? (DWORD)choices[c]+1 : BG_SURFACE_AUTO));
+            if (!selected || choices[c]==BG_TRANSPARENCY_AUTO) assert(states[i].othermode==original[i].othermode);
+            else assert(states[i].surfacebasemode==(original[i].othermode&BG_SURFACE_MODE_MASK));
+        }
+        RoundTrip(&doc,&source,dir);
+    }
+    assert(BgDocumentSetFaceProperties(&doc,selected,4,&edit,&changed,&why) && !changed);
+    BgDocumentFree(&doc); BgFileFree(&source);
+    puts("PASS explicit BG choices: same-mode locks, repeated overrides, Auto restoration and per-face saved metadata.");
+}
+
 int main(int argc, char **argv)
 {
-    assert(argc==3); Presets(); Jungle(argv[2],argv[1]);
+    assert(argc==3); Presets(); Jungle(argv[2],argv[1]); Overrides(argv[1]);
     BgFile source=Fixture(); BgDocument doc={0},original={0}; BgFaceRef refs[20]; BgRenderState states[20];
     const char *why=""; BOOL changed=FALSE;
     assert(BgDocumentLoad(source.data,source.size,1,&doc,&why));

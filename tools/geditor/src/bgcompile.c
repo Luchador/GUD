@@ -208,7 +208,8 @@ static BOOL BgCompileWriteGroupState(BgCompileBuffer *gdl,
         DWORD word0 = BgCompileRead32(command);
         DWORD word1 = BgCompileRead32(command + 4);
 
-        if (command[0] == BG_G_SETTEXTURE || command[0] == BG_G_TEXTURE
+        if ((command[0] == BG_G_SETTEXTURE && !BG_SURFACE_IS_MARKER(word0, word1))
+            || command[0] == BG_G_TEXTURE
             || command[0] == BG_G_SETCOMBINE)
         {
             continue;

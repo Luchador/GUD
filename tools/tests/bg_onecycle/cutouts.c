@@ -62,6 +62,72 @@ static int make_cutout(Gfx *src, int fog)
     return (p - src) * 8;
 }
 
+static void override_checks(void)
+{
+    Gfx src[128], out[256], *p;
+    Snapshot before[32], after[32];
+    int size, bytes, fog, i, n;
+    const Gfx tag = gsDPNoOpTag(BG_SURFACE_TAG_VALUE(BG_SURFACE_BLEND, G_RM_AA_ZB_XLU_SURF2));
+    assert(BG_SURFACE_IS_MARKER(tag.words.w0, tag.words.w1));
+    assert(BG_SURFACE_TAG_POLICY(tag.words.w1) == BG_SURFACE_BLEND);
+    for (fog = 0; fog < 2; fog++) {
+        size = make_cutout(src, fog);
+        src[0] = tag;
+        /* An explicit Blend overrides automatic binary-alpha classification. */
+        assert(bgBuildCutoutGdl(src, size, NULL, 0) == 0);
+        /* Native Opaque remains eligible for the opaque one-cycle path. */
+        gDPNoOpTag(&src[0], BG_SURFACE_TAG_VALUE(BG_SURFACE_OPAQUE, src[2].words.w1));
+        src[2].words.w1 = (fog ? G_RM_FOG_SHADE_A : G_RM_PASS) | G_RM_AA_ZB_OPA_SURF2;
+        bytes = bgBuildCutoutGdl(src, size, out, sizeof(out)); assert(bytes > 0);
+        snapshots(out, bytes / 8, after);
+        assert((after[0].h & (3u << 20)) == G_CYC_1CYCLE && !(after[0].l & 3));
+        /* Explicit Cutout can threshold soft alpha; Auto cannot assume that. */
+        size = make_cutout(src, fog);
+        g_TestTexture.hasBinaryAlpha = 0;
+        src[2].words.w1 = (fog ? G_RM_FOG_SHADE_A : G_RM_PASS) | G_RM_AA_ZB_TEX_EDGE2;
+        assert(bgBuildCutoutGdl(src, size, NULL, 0) == 0);
+        gDPNoOpTag(&src[0], BG_SURFACE_TAG_VALUE(BG_SURFACE_CUTOUT, G_RM_AA_ZB_XLU_SURF2));
+        bytes = bgBuildCutoutGdl(src, size, out, sizeof(out)); assert(bytes > 0);
+        snapshots(out, bytes / 8, after);
+        assert((after[0].h & (3u << 20)) == G_CYC_1CYCLE && (after[0].l & 3) == G_AC_THRESHOLD);
+        src[9].words.w1 = 0x777770; /* A choice does not bypass upload validation. */
+        assert(bgBuildCutoutGdl(src, size, NULL, 0) == 0);
+        g_TestTexture.hasBinaryAlpha = 1;
+
+        /* Auto -> explicit Blend -> Auto, without any native mode change. */
+        size = make_cutout(src, fog); p = src + size / 8 - 1;
+        *p++ = tag;
+        gSP1Triangle(p++, 0, 1, 2, 0);
+        gDPNoOpTag(p++, BG_SURFACE_TAG_VALUE(BG_SURFACE_AUTO, 0));
+        gSP1Triangle(p++, 0, 1, 2, 0);
+        gSPEndDisplayList(p++);
+        size = (p - src) * 8;
+        bytes = bgBuildCutoutGdl(src, size, out, sizeof(out)); assert(bytes > 0);
+        n = snapshots(src, size / 8, before); assert(n == 4);
+        assert(snapshots(out, bytes / 8, after) == n);
+        for (i = 0; i < n; i++) {
+            if (i == 0 || i == 2) assert((after[i].l & 3) == G_AC_THRESHOLD);
+            else assert(!memcmp(&before[i], &after[i], sizeof(Snapshot)));
+        }
+        /* Both settings preserve metadata and the protected blended draw. */
+        for (i = 0; i < 2; i++) {
+            Gfx *ram = (Gfx *)(g_TestRam + 0x20000);
+            int j, tags = 0;
+            memcpy(ram, out, bytes);
+            renderSetAaEnabled(i); renderApplySettings(); renderInvalidateDisplayListCache();
+            assert(renderApplyDisplayListSettings(ram, ram + bytes / 8));
+            for (j = 0; j < bytes / 8; j++) if (BG_SURFACE_IS_MARKER(out[j].words.w0, out[j].words.w1)) {
+                assert(!memcmp(out + j, ram + j, sizeof(Gfx))); tags++;
+            }
+            assert(tags == 2);
+            snapshots(ram, bytes / 8, after);
+            assert(!memcmp(&before[1], &after[1], sizeof(Snapshot)));
+        }
+    }
+    texture_marker_checks();
+    puts("BG overrides: explicit Blend/Opaque/Cutout, Auto resets, mixed draws, tagged no-op loading and AA preservation pass");
+}
+
 static void cutout_checks(void)
 {
     Gfx src[256], saved[256], out[512], *p;
@@ -74,6 +140,7 @@ static void cutout_checks(void)
     g_TestTexture.gbiformat = G_IM_FMT_RGBA;
     g_TestTexture.depth = G_IM_SIZ_16b;
     g_TestTexture.hasBinaryAlpha = 1;
+    override_checks();
     for (fog = 0; fog < 2; fog++) for (j = 0; j < 3; j++) {
         size = make_cutout(src, fog);
         src[2].words.w1 = (fog ? G_RM_FOG_SHADE_A : G_RM_PASS) | modes[j];

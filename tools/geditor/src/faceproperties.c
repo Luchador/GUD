@@ -35,15 +35,17 @@ static FacePropertiesState *FacePropertiesGetState(HWND hwnd)
 }
 
 static BOOL FacePropertiesRenderText(const BgDocument *document, const BgFaceRef *refs,
-                                      DWORD count, char *text, size_t size)
+                                      DWORD count, char *text, size_t size, int *choiceout)
 {
     static const char *types[] = {"Opaque", "Cutout", "Translucent (alpha blend)",
         "Custom / decal", "Cutout + blend", "Inherited / unknown", "Mixed"};
     size_t bytes = (size_t)count * sizeof(BgRenderState);
     BgRenderState *states = count && bytes / sizeof(*states) == count ? malloc(bytes) : NULL;
     int surface = -1;
+    DWORD policy = BG_SURFACE_UNKNOWN;
     BOOL editable = TRUE;
     DWORD i;
+    if (choiceout) { *choiceout = 0; }
     if (!states || !BgDocumentGetFaceRenderStates(document, refs, count, states))
     {
         snprintf(text, size, "Transparency: Unavailable");
@@ -55,9 +57,13 @@ static BOOL FacePropertiesRenderText(const BgDocument *document, const BgFaceRef
         DWORD mode;
         int s = BgRenderGetTransparency(&states[i]);
         surface = surface < 0 ? s : surface == s ? surface : 6;
+        policy = i == 0 ? states[i].surfacepolicy
+            : policy == states[i].surfacepolicy ? policy : BG_SURFACE_UNKNOWN;
         editable &= BgRenderSurfacePreset(&states[i], BG_TRANSPARENCY_OPAQUE, &mode);
     }
-    snprintf(text, size, "Transparency: %s", types[surface]);
+    if (choiceout && policy <= BG_SURFACE_BLEND) { *choiceout = policy + 1; }
+    if (policy == BG_SURFACE_AUTO) { snprintf(text, size, "Transparency: Auto (%s)", types[surface]); }
+    else { snprintf(text, size, "Transparency: %s", policy <= BG_SURFACE_BLEND ? types[policy - 1] : "Mixed"); }
     free(states);
     return editable;
 }
@@ -238,7 +244,8 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
                 HWND control = state->controls[i];
                 if (i == FACE_RENDER)
                 {
-                    SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Keep current");
+                    SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Mixed / Keep current");
+                    SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Auto");
                     SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Opaque");
                     SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Cutout");
                     SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Translucent (alpha blend)");
@@ -299,7 +306,7 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
                 if (choice > 0)
                 {
                     if (control == state->controls[FACE_RENDER])
-                    { edit.fields = BG_FACE_PROPERTY_TRANSPARENCY; edit.transparency = (BgTransparency)(choice - 1); }
+                    { edit.fields = BG_FACE_PROPERTY_TRANSPARENCY; edit.transparency = choice == 1 ? BG_TRANSPARENCY_AUTO : (BgTransparency)(choice - 2); }
                     else if (control == state->controls[FACE_CULL])
                     { edit.fields = BG_FACE_PROPERTY_CULL; edit.cullbackfaces = choice == 2; }
                     else if (control == state->controls[FACE_U])
@@ -425,11 +432,14 @@ BOOL FacePropertiesSetSelection(HWND panel, const BgDocument *document,
     }
     else { snprintf(texture, sizeof(texture), "Texture: %04X", (unsigned int)first->textureid); }
     SetWindowText(state->controls[FACE_SUMMARY], summary);
-    editable = FacePropertiesRenderText(document, refs, count, render, sizeof(render));
-    SendMessage(state->controls[FACE_RENDER], CB_SETCURSEL, 0, 0);
+    {
+        int choice;
+        editable = FacePropertiesRenderText(document, refs, count, render, sizeof(render), &choice);
+        SendMessage(state->controls[FACE_RENDER], CB_SETCURSEL, choice, 0);
+    }
     EnableWindow(state->controls[FACE_RENDER], editable);
     SetWindowText(state->controls[FACE_RENDER_HELP], editable
-        ? "Cutout discards transparent pixels. Translucent blends them. The current layer is kept."
+        ? "Auto allows game optimizations. Explicit choices take priority. Auto restores the pre-override material. The current layer is kept."
         : "Read-only: the selection includes inherited or custom render state.");
     SetWindowText(state->controls[FACE_RENDER_INFO], render);
     SetWindowText(state->controls[FACE_TEXTURE_LABEL], texture);

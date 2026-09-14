@@ -41,6 +41,8 @@ typedef struct BgRenderState
     DWORD geometryknown; /* Bits explicitly set/cleared by the native stream. */
     DWORD geometrymode; /* lighting and texture generation, including partial clears */
     unsigned char environmentalpha, primitivealpha;
+    DWORD surfacepolicy; /* Auto for streams without an editor override. */
+    DWORD surfacebasemode; /* Native mode to restore when returning to Auto. */
 } BgRenderState;
 
 /* Common BG alpha products: optional texture alpha multiplied by a constant
@@ -62,7 +64,8 @@ BgRenderFlags BgRenderDefaultFlags(BOOL secondary);
 
 typedef enum BgTransparency {
     BG_TRANSPARENCY_OPAQUE, BG_TRANSPARENCY_CUTOUT, BG_TRANSPARENCY_BLEND,
-    BG_TRANSPARENCY_DECAL, BG_TRANSPARENCY_CUTOUT_BLEND, BG_TRANSPARENCY_UNKNOWN
+    BG_TRANSPARENCY_DECAL, BG_TRANSPARENCY_CUTOUT_BLEND, BG_TRANSPARENCY_UNKNOWN,
+    BG_TRANSPARENCY_AUTO /* Editor choice; not a native render-mode category. */
 } BgTransparency;
 /* Classify the authored render mode using the preview decoder. Inherited
    layer defaults alone do not establish a known asset transparency type. */

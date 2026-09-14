@@ -34,6 +34,7 @@ config = strip_includes((ROOT / 'src/game/renderconfig.c').read_text())
 config = config.replace('(Gfx *)(physical | 0x80000000)', '(Gfx *)(g_TestRam + physical)')
 config = config.replace('((u32)cmd & 0x1fffffff)', '((u8 *)cmd - g_TestRam)')
 source += config
+source += (ROOT / 'src/bgtransparency.h').read_text()
 source += strip_includes((ROOT / 'src/game/bgonecycle.h').read_text())
 image_header = (ROOT / 'src/game/image.h').read_text()
 source += re.search(r'struct tex \{.*?\n};', image_header, re.S)[0] + '\n'
@@ -52,6 +53,16 @@ for name in ('bgBuildRoomOneCycleGdl', 'bgFreeRoomData', 'bgRenderRoomPrimary', 
     source += function(bg, name)
 source += '\n'.join(re.findall(r'^#define TEXFORMAT_.*$', image_header, re.M)) + '\n'
 source += function((ROOT / 'src/game/image.c').read_text(), 'texHasBinaryAlpha')
+extension = (ROOT / 'include/gbi_extension.h').read_text()
+source += re.search(r'typedef enum\s*\{[^}]*\}\s*TextureTypes;', extension, re.S)[0] + '\n'
+source += (HERE / 'texture_markers.h').read_text()
+# The N64 uses big-endian command bytes and 32-bit pointers. Adapt only these
+# host representations; keep production marker/texture/light dispatch intact.
+expander = function((ROOT / 'src/game/tex.c').read_text(), 'texLoadFromGdl')
+expander = expander.replace('switch (*(u8 *)in)', 'switch (in->words.w0 >> 24)')
+expander = expander.replace('((s32)out) - ((s32)dst)', '(s32)((u8 *)out - (u8 *)dst)')
+expander = re.sub(r'    s32\s+pad;\n', '', expander)
+source += expander
 source += (HERE / 'check.c').read_text()
 source += (HERE / 'cutouts.c').read_text()
 

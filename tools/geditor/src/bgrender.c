@@ -30,11 +30,20 @@ void BgRenderStateInit(BgRenderState *state, BOOL secondary)
     state->othermodehigh = 0;
     state->othermodeknown = 0;
     state->othermodehighknown = 0;
+    state->surfacepolicy = BG_SURFACE_AUTO;
+    state->surfacebasemode = 0;
     state->othermode = BG_Z_CMP | (secondary ? BG_ZMODE_XLU | BG_FORCE_BL : BG_Z_UPD);
 }
 
 void BgRenderStateRead(BgRenderState *state, DWORD word0, DWORD word1)
 {
+    if (BG_SURFACE_IS_MARKER(word0, word1))
+    {
+        DWORD policy = BG_SURFACE_TAG_POLICY(word1);
+        state->surfacepolicy = policy <= BG_SURFACE_BLEND ? policy : BG_SURFACE_UNKNOWN;
+        state->surfacebasemode = policy == BG_SURFACE_AUTO ? 0 : word1 & BG_SURFACE_MODE_MASK;
+        return;
+    }
     switch (word0 >> 24)
     {
     case BG_G_SETENVCOLOR:
@@ -149,7 +158,8 @@ BOOL BgRenderSurfacePreset(const BgRenderState *state, BgTransparency surface, D
 {
     DWORD bits, blender, fixedmask, fixedvalue;
     BOOL onecycle;
-    if (!state || !modeout || (unsigned int)surface > BG_TRANSPARENCY_BLEND)
+    if (!state || !modeout || ((unsigned int)surface > BG_TRANSPARENCY_BLEND
+            && surface != BG_TRANSPARENCY_AUTO) || state->surfacepolicy > BG_SURFACE_BLEND)
     { return FALSE; }
     if ((state->othermodehighknown & 0x00300000u) != 0x00300000u
         || (state->othermodehigh & 0x00200000u)
@@ -163,6 +173,15 @@ BOOL BgRenderSurfacePreset(const BgRenderState *state, BgTransparency surface, D
     if ((state->othermode & fixedmask) != fixedvalue) { return FALSE; }
     blender = onecycle ? 0x000C0000u : 0x00030000u;
     if ((state->othermode & blender) > (onecycle ? 0x00040000u : 0x00010000u)) { return FALSE; }
+    if (surface == BG_TRANSPARENCY_AUTO)
+    {
+        /* Recover the pre-override surface while preserving current fog and
+         * the unused cycle's blender. Unmarked old projects are already Auto. */
+        *modeout = state->surfacepolicy == BG_SURFACE_AUTO ? state->othermode
+            : (state->othermode & ~(0xFFF8u | blender))
+                | (state->surfacebasemode & (0xFFF8u | blender));
+        return TRUE;
+    }
     bits = surface == BG_TRANSPARENCY_OPAQUE ? 0x2078u
         : surface == BG_TRANSPARENCY_CUTOUT ? 0x3078u : 0x49D8u;
     if (!(state->othermode & BG_Z_CMP)) { bits &= ~0x830u; }
