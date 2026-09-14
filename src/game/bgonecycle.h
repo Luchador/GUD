@@ -12,4 +12,10 @@
  * explicitly enabled alpha comparison makes a draw ineligible. */
 s32 bgBuildOneCycleGdl(const Gfx *src, s32 size, Gfx *dst, s32 capacity);
 
+/* Shared converter with an explicit initial material setup. The setup is
+ * interpreted, not emitted; instance-specific fog/primitive colours stay in
+ * the caller's list. Also accepts the constant fog-alpha blender used by props. */
+s32 gfxBuildOneCycleGdl(const Gfx *src, s32 size, Gfx *dst, s32 capacity,
+        const Gfx *initial, s32 initialSize);
+
 #endif

@@ -39,7 +39,7 @@ extern u8 *g_VtxBuffers[3];
 bool renderIsAaEnabled(void) { return g_RenderAaEnabled; }
 /* Use the applied preference: the watch can request a change partway through
  * building a frame, before the graphics queue has drained. */
-bool renderUseOneCycleBackground(void) { return !g_RenderAppliedAaEnabled; }
+bool renderUseOneCycle(void) { return !g_RenderAppliedAaEnabled; }
 bool renderIsViFilterEnabled(void) { return g_RenderViFilterEnabled; }
 
 void renderSetAaEnabled(bool enabled)
@@ -175,7 +175,7 @@ void renderRestoreDisplayListSettings(Gfx *start, Gfx *end)
     }
 }
 
-static bool renderListIsDynamic(Gfx *gdl)
+bool renderListIsDynamic(Gfx *gdl)
 {
     u32 address = (u32)gdl;
     return (address >= (u32)g_GfxBuffers[0] && address < (u32)g_GfxBuffers[2])

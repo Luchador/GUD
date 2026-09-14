@@ -51,7 +51,7 @@ static void test_vi_and_save(void)
         assert(renderIsAaEnabled() == aa && renderIsViFilterEnabled() == vi);
         renderApplySettings();
         assert(!renderSettingsPending());
-        assert(renderUseOneCycleBackground() == !aa);
+        assert(renderUseOneCycle() == !aa);
         for (pixel = 2; pixel <= 3; pixel++) {
             mode.comRegs.ctrl = unaffected | pixel | VI_CTRL_ANTIALIAS_MASK | VI_CTRL_DITHER_FILTER_ON;
             renderConfigureViMode(&mode);
@@ -77,12 +77,12 @@ static void test_vi_and_save(void)
     /* Changing requested values cannot change the in-flight frame's state. */
     renderDecodeSettings(0); renderApplySettings();
     renderSetAaEnabled(FALSE); renderSetViFilterEnabled(FALSE);
-    assert(renderSettingsPending() && !renderUseOneCycleBackground());
+    assert(renderSettingsPending() && !renderUseOneCycle());
     mode.comRegs.ctrl = VI_CTRL_TYPE_16;
     renderConfigureViMode(&mode);
     assert(mode.comRegs.ctrl & VI_CTRL_DITHER_FILTER_ON);
     renderApplySettings();
-    assert(!renderSettingsPending() && renderUseOneCycleBackground());
+    assert(!renderSettingsPending() && renderUseOneCycle());
     renderConfigureViMode(&mode);
     assert(!(mode.comRegs.ctrl & VI_CTRL_DITHER_FILTER_ON));
     puts("VI/save: four combinations, all 256 save bytes, legacy migration and queue gating passed");
@@ -233,7 +233,7 @@ static void test_watch_editing(void)
             assert((index == GAME_OPTIONS_INDEX_AA ? renderIsAaEnabled() : renderIsViFilterEnabled()) == FALSE);
             assert(g_TestChooseCount == count + 1 && g_TestStick == 0);
             assert(renderSettingsPending());
-            if (index == GAME_OPTIONS_INDEX_AA) assert(!renderUseOneCycleBackground());
+            if (index == GAME_OPTIONS_INDEX_AA) assert(!renderUseOneCycle());
             draw_watch_frame(dummy); /* Left at Off is clamped, not wrapped. */
             assert(g_TestChooseCount == count + 1);
             g_TestButtons = right[input]; g_TestStick = input == 3 ? 2 : 0;

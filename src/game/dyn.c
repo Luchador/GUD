@@ -1,4 +1,5 @@
 #include "renderconfig.h"
+#include "modelonecycle.h"
 #include <ultra64.h>
 #include "dyn.h"
 #include <token.h>
@@ -42,6 +43,7 @@ s32 g_VtxSizesByPlayerCount[] = {0x10000, 0x18000, 0x20000, 0x28000};
 void dynInitMemory(void)
 {
     renderInvalidateDisplayListCache();
+    modelOneCycleResetCache();
     if (tokenFind(1, "-mgfx"))
     {
         g_GfxSizesByPlayerCount[getPlayerCount() - 1] = strtol(tokenFind(1, "-mgfx"), NULL, 0) * 1024;

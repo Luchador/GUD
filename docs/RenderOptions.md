@@ -14,7 +14,7 @@ The active value is bright; the other value is dim. There are no value arrows.
 
 | Option | On | Off |
 |---|---|---|
-| AA | Authored render modes and original room lists; equivalent to the former Full setting. | Non-AA modes on supported opaque surfaces, plus one-cycle rendering for eligible opaque room backgrounds. |
+| AA | Authored render modes and original lists; equivalent to the former Full setting. | Non-AA modes on supported opaque surfaces, plus one-cycle rendering for eligible opaque room backgrounds and world props. |
 | VI Filter | VI edge AA, divot correction and dedithering; equivalent to the former Smooth setting. | Those filters are disabled; the resampling needed for video output remains. |
 
 Both default to On and are saved per folder. AA affects ordinary opaque
@@ -55,8 +55,9 @@ mip chain; the optimization targets pixel processing, not upload traffic.
 Only recognized opaque surface/terrain modes and simple textured or shaded
 combiners in primary room lists are converted. Cutouts, decals, translucency,
 detail/sharpen combiners, animated water and custom materials retain their
-existing pipelines. Secondary room lists, objects, characters, weapons, sky
-and the watch are outside the one-cycle conversion. Mixed lists switch state
+existing pipelines. Secondary room lists, characters, weapons, sky and the
+watch are outside this conversion. World props have the separate path described
+below. Mixed lists switch state
 around eligible draws and restore the original AA-Off state at exits/calls.
 State inherited from a called list is treated as unknown until established.
 
@@ -72,6 +73,47 @@ list’s worth of room memory plus inserted commands, freed on room unload. If
 allocation or conversion fails, that room uses its original list. Collision
 cache allocation takes priority. Room streaming should be checked alongside
 stationary performance tests because the alternate consumes extra memory.
+
+## One-cycle opaque models
+
+AA Off also selects cached alternate primary lists for ordinary world props,
+including crates. Model types 2, 3 and 4 are eligible when using the normal
+opaque prop material (render-data `PropType` 9, with a zero low environment
+byte). Type 1 models already use one-cycle. The converter uses the existing
+model setup functions to determine the incoming state, then converts only
+recognized opaque draws within each list. Internal decals, cutouts and
+translucency retain their original pipeline and depth behavior.
+
+The normal prop lighting/distance fog uses `G_RM_FOG_PRIM_A`. Its constant
+fog-alpha blend is retained in one-cycle with `FORCE_BL`, alongside the
+original per-instance fog color. Base-tile sampling, bilinear/point filtering,
+texture uploads, matrices, vertices and UVs follow the background conversion's
+rules. The prop combiner's added primitive alpha is retained. Source commands
+and outgoing material state are preserved, including before a secondary list.
+
+Character blood tinting, fading props, deformed/cutout prop materials and
+first-person weapon materials keep their existing rendering. Secondary model
+lists, nested/branching primary lists and transient frame-buffer display lists
+(such as animated monitor screens) are excluded. Original model lists remain
+in place for collision and bullet hits; vertex changes are shared.
+
+An alternate is built on first eligible use and reused across instances and
+AA toggles. VI does not affect list selection. A 256-entry cache distinguishes
+the incoming opaque material and Z-buffer mode; its alternate allocations are
+capped at 64 KiB per stage, with about 4 KiB of cache metadata on N64. Allocation
+uses the room heap and falls back to the original list if memory, cache capacity
+or conversion is unavailable. This avoids reserving a large buffer up front.
+
+Re-expanding an overlapping source list invalidates its entry. Old alternate
+copies remain allocated until stage reset so queued graphics tasks cannot read
+freed data. Stage initialization resets this cache after the old queue has
+drained and the heap has been reset. This also bounds memory spent on reloads.
+
+For hardware comparison, use the same AA-Off/VI setting and camera position
+before and after this patch. Train's crate-filled cars are a useful first test.
+Check crate labels, lighting, nearby doors/windows, damaged crates and distance
+fades, then toggle AA repeatedly and restart the level. Distant textures may
+shimmer more, as with one-cycle backgrounds.
 
 ## Rendering implementation
 
@@ -105,6 +147,7 @@ Run from the repository root:
 ```sh
 python3 tools/tests/render_options/run.py
 python3 tools/tests/bg_onecycle/run.py
+python3 tools/tests/model_onecycle/run.py
 ```
 
 Either suite supports address/undefined-behavior checks, for example:
@@ -127,3 +170,11 @@ material LUTs. These asset checks substitute texture markers/water calls; they
 do not emulate texture allocation or rasterization. Host and sanitizer checks
 pass, and affected modules compile with IDO 5.3 for the US N64 build. A complete
 ROM link and console verification of this menu/settings cleanup remain pending.
+
+The model suite checks the production material setup, converter, cache and both
+model-node submission paths. It covers incoming/outgoing state, AA/VI switching,
+per-instance colors, dynamic and secondary exclusions, source replacement and
+memory limits. It also checks 443 authored primary prop lists, including both
+crate models placed in Train. Model and background sanitizer checks pass, along
+with render-option and bullet-hit regressions; affected US N64 objects compile.
+Model appearance and performance still require a console comparison.

@@ -185,11 +185,11 @@ static void unit_checks(void)
     assert(g_BgOneCycleRooms[1].gdl && g_TestAllocCount == 2);
     renderSetAaEnabled(TRUE); renderApplySettings();
     renderSetAaEnabled(FALSE);
-    assert(!renderUseOneCycleBackground());
+    assert(!renderUseOneCycle());
     assert(bgRenderRoomPrimary(out, 1) == out + 2);
     assert(out[1].words.w1 == OS_K0_TO_PHYSICAL(src));
     renderApplySettings();
-    assert(renderUseOneCycleBackground());
+    assert(renderUseOneCycle());
     bgRenderRoomPrimary(out, 1);
     assert(out[1].words.w1 == OS_K0_TO_PHYSICAL(g_BgOneCycleRooms[1].gdl));
     renderSetAaEnabled(TRUE); renderApplySettings();

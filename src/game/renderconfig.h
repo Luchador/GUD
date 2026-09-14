@@ -4,7 +4,7 @@
 #include <bondtypes.h>
 
 bool renderIsAaEnabled(void);
-bool renderUseOneCycleBackground(void);
+bool renderUseOneCycle(void);
 bool renderIsViFilterEnabled(void);
 void renderSetAaEnabled(bool enabled);
 void renderSetViFilterEnabled(bool enabled);
@@ -15,6 +15,7 @@ void renderDecodeSettings(u8 settings);
 void renderConfigureViMode(OSViMode *mode);
 
 void renderInvalidateDisplayListCache(void);
+bool renderListIsDynamic(Gfx *gdl); /* Frame buffers must never enter persistent caches. */
 /* Pure command conversion for room-load builders, independent of queued settings. */
 Gfx renderGetAaOffCommand(Gfx command);
 void renderRestoreDisplayListSettings(Gfx *start, Gfx *end);

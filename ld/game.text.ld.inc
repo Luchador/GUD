@@ -52,6 +52,7 @@
       build/OUTCODE/src/game/gunfire.o (.text);
       build/OUTCODE/src/game/objecthandler.o (.text);
       build/OUTCODE/src/game/model.o (.text);
+      build/OUTCODE/src/game/modelonecycle.o (.text);
       build/OUTCODE/src/game/objecthandler_2.o (.text);
       build/OUTCODE/src/game/cam.o (.text);
       build/OUTCODE/src/game/bondview.o (.text);

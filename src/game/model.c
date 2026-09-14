@@ -1,6 +1,7 @@
 #include <ultra64.h>
 #include <memp.h>
 #include "model.h"
+#include "modelonecycle.h"
 #include "../rmon.h"
 #include "bondview.h"
 #include "chr.h"
@@ -3760,7 +3761,7 @@ void modelRenderNodeGundl(ModelRenderData* renderdata, ModelNode* arg1)
             modelApplyRenderModeType2(renderdata);
         }
 
-        gSPDisplayList(renderdata->gdl++, rodata->Primary);
+        gSPDisplayList(renderdata->gdl++, modelGetOneCycleGdl(renderdata, rodata->Primary, rodata->ModelType));
 
         if ((rodata->ModelType == 3) && rodata->Secondary)
         {
@@ -3970,7 +3971,8 @@ void modelRenderNodeDlWithCache(ModelRenderData *renderdata, Model *model, Model
                 gSPSegment(renderdata->gdl++, SPSEGMENT_MODEL_VTX, osVirtualToPhysical(cache->vertexSegmentBase));
             }
 
-            gSPDisplayList(renderdata->gdl++, rwdata->DisplayListCollisions.gdl);
+            gSPDisplayList(renderdata->gdl++, modelGetOneCycleGdl(renderdata,
+                    rwdata->DisplayListCollisions.gdl, rodata->DisplayListCollisions.ModelType));
 
             if (rodata->DisplayListCollisions.ModelType == 3 && rodata->DisplayListCollisions.Secondary)
             {

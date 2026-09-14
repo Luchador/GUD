@@ -2223,7 +2223,7 @@ Gfx *bgRenderRoomPrimary(Gfx *gdl, s32 room_index)
 
         gSPSegment(gdl++, SPSEGMENT_BG_VTX, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].vertices));
         primary = g_BgRoomInfo[room_index].primaryGdl;
-        if (renderUseOneCycleBackground() && g_BgOneCycleRooms[room_index].gdl)
+        if (renderUseOneCycle() && g_BgOneCycleRooms[room_index].gdl)
         {
             primary = g_BgOneCycleRooms[room_index].gdl;
         }

@@ -32,6 +32,11 @@ static const Gfx g_BgOneCycleCombiners[][2] = {
      gsDPSetCombineMode(G_CC_MODULATEIFADEA, G_CC_MODULATEIFADEA)},
     {gsDPSetCombineMode(G_CC_MODULATEIFADE, G_CC_MODULATEIFADE),
      gsDPSetCombineMode(G_CC_MODULATEIFADE, G_CC_MODULATEIFADE)},
+    /* Ordinary props add a constant alpha for their secondary surfaces. */
+    {gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0, TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,
+            COMBINED, 0, SHADE, 0, COMBINED, 0, SHADE, PRIMITIVE),
+     gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0, TEXEL0, 0, SHADE, PRIMITIVE,
+            TEXEL0, 0, SHADE, 0, TEXEL0, 0, SHADE, PRIMITIVE)},
     {gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
      gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE)},
     {gsDPSetCombineLERP(0, 0, 0, SHADE, 0, 0, 0, ENVIRONMENT,
@@ -117,7 +122,7 @@ static s32 bgOneCycleReadState(BgOneCycleState *state, Gfx command)
     return TRUE;
 }
 
-static s32 bgOneCycleChooseState(const BgOneCycleState *source, BgOneCycleState *chosen)
+static s32 bgOneCycleChooseState(const BgOneCycleState *source, BgOneCycleState *chosen, bool model)
 {
     u32 first;
     u32 mode;
@@ -131,7 +136,8 @@ static s32 bgOneCycleChooseState(const BgOneCycleState *source, BgOneCycleState 
             || (source->low & 3) || !source->combineKnown) return FALSE;
 
     first = source->low & BG_FIRST_BLENDER_MASK;
-    if (first != (G_RM_PASS) && first != (G_RM_FOG_SHADE_A)) return FALSE;
+    if (first != (G_RM_PASS) && first != (G_RM_FOG_SHADE_A)
+            && (!model || first != (G_RM_FOG_PRIM_A))) return FALSE;
     mode = source->low & (BG_RENDER_MASK & ~BG_FIRST_BLENDER_MASK);
     for (i = 0; i < sizeof(g_BgOneCycleSurfaces) / sizeof(g_BgOneCycleSurfaces[0]); i++) {
         if (mode == g_BgOneCycleSurfaces[i]) break;
@@ -143,7 +149,8 @@ static s32 bgOneCycleChooseState(const BgOneCycleState *source, BgOneCycleState 
                 && source->combine.words.w1 == g_BgOneCycleCombiners[combiner][0].words.w1) break;
     }
     if (combiner == sizeof(g_BgOneCycleCombiners) / sizeof(g_BgOneCycleCombiners[0])) return FALSE;
-    if (combiner < 8) {
+    /* The final two entries are the untextured combiners. */
+    if (combiner < sizeof(g_BgOneCycleCombiners) / sizeof(g_BgOneCycleCombiners[0]) - 2) {
         required = BG_LOD_MASK | BG_DETAIL_MASK | BG_FILTER_MASK;
         if (source->textureEnabled != TRUE || (source->highKnown & required) != required
                 || (source->high & BG_DETAIL_MASK) != G_TD_CLAMP
@@ -153,13 +160,13 @@ static s32 bgOneCycleChooseState(const BgOneCycleState *source, BgOneCycleState 
     }
     chosen->high &= ~BG_CYCLE_MASK;
     chosen->combine = g_BgOneCycleCombiners[combiner][1];
-    if (first == (G_RM_FOG_SHADE_A)) {
+    if (first == (G_RM_FOG_SHADE_A) || first == (G_RM_FOG_PRIM_A)) {
         /* One-cycle fog uses the FIRST blender mux. FORCE_BL is essential:
          * AA is off, but the fog operation must still run. No framebuffer
          * colour read is needed; Z compare/update retain their source bits. */
         chosen->low = (source->low & (Z_CMP | Z_UPD | 7))
                 | CVG_DST_FULL | ALPHA_CVG_SEL | FORCE_BL
-                | G_RM_FOG_SHADE_A | ((G_RM_FOG_SHADE_A) >> 2);
+                | first | (first >> 2);
     } else {
         chosen->low = (source->low & 7) | ((source->low & Z_CMP)
                 ? G_RM_ZB_OPA_SURF | G_RM_ZB_OPA_SURF2
@@ -197,7 +204,10 @@ static void bgOneCycleFlush(BgOneCycleOutput *out, BgOneCycleState *actual,
     *actual = *wanted;
 }
 
-s32 bgBuildOneCycleGdl(const Gfx *src, s32 size, Gfx *dst, s32 capacity)
+/* Model lists inherit their initial material from modelApplyRenderModeType*.
+ * Interpret that setup without copying its per-instance colours into the list. */
+s32 gfxBuildOneCycleGdl(const Gfx *src, s32 size, Gfx *dst, s32 capacity,
+        const Gfx *initial, s32 initialSize)
 {
     BgOneCycleState source;
     BgOneCycleState actual;
@@ -207,8 +217,14 @@ s32 bgBuildOneCycleGdl(const Gfx *src, s32 size, Gfx *dst, s32 capacity)
     u32 opcode;
     s32 i;
     if (!src || size <= 0 || (size & 7) || size > BG_MAX_ONE_CYCLE_BYTES
-            || capacity < 0 || dst == src) return -1;
+            || capacity < 0 || dst == src || initialSize < 0 || (initialSize & 7)
+            || (initialSize && !initial)) return -1;
     bgOneCycleResetState(&source);
+    for (i = 0; i < initialSize / sizeof(Gfx); i++) {
+        command = initial[i];
+        if (command.words.w0 >> 24 == (u8)G_SETOTHERMODE_L) command = renderGetAaOffCommand(command);
+        if (!bgOneCycleReadState(&source, command)) return -1;
+    }
     actual = source;
     out.dst = dst;
     out.capacity = capacity / sizeof(Gfx);
@@ -224,7 +240,7 @@ s32 bgBuildOneCycleGdl(const Gfx *src, s32 size, Gfx *dst, s32 capacity)
          * their own decoder. Refuse the list instead of guessing their state. */
         if (opcode == 0xaf || opcode == 0xb0 || (opcode >= 0xc8 && opcode <= 0xcf)) return -1;
         if (opcode == (u8)G_TRI1 || opcode == 0xb1) {
-            if (bgOneCycleChooseState(&source, &wanted)) out.converted++;
+            if (bgOneCycleChooseState(&source, &wanted, initial != NULL)) out.converted++;
             bgOneCycleFlush(&out, &actual, &wanted);
         } else if (opcode == (u8)G_ENDDL || opcode == (u8)G_DL
                 || opcode == (u8)G_CULLDL || opcode == (u8)G_LINE3D
@@ -245,4 +261,9 @@ s32 bgBuildOneCycleGdl(const Gfx *src, s32 size, Gfx *dst, s32 capacity)
         }
     }
     return -1; /* No ENDDL/terminal branch within the supplied room stream. */
+}
+
+s32 bgBuildOneCycleGdl(const Gfx *src, s32 size, Gfx *dst, s32 capacity)
+{
+    return gfxBuildOneCycleGdl(src, size, dst, capacity, NULL, 0);
 }

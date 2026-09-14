@@ -1,4 +1,5 @@
 #include "renderconfig.h"
+#include "modelonecycle.h"
 #include <ultra64.h>
 #include <R4300.h>
 #include "bondtypes.h"
@@ -872,6 +873,7 @@ s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool)
         lightFixtureEntryEnd(out);
     }
 
+    modelOneCycleInvalidateGdlRange(dst, out);
     return ((s32)out) - ((s32)dst);
 }
 
