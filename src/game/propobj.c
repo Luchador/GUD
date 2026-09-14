@@ -37,6 +37,7 @@
 #include "gmath.h"
 #include "gun.h"
 #include "hud.h"
+#include "image.h"
 #include "image_bank.h"
 #include "lv.h"
 #include "language.h"
@@ -8180,6 +8181,7 @@ coord3d  D_80032088 = {0, 0, 0};
 bool bgTestHitOnObj(coord3d *arg0, coord3d *arg1, coord3d *arg2, Gfx *gdl, Gfx *gdl2, Vertex *vertices, struct HitThing *hitthing)
 {
     Vertex *vtxbase;
+    struct tex *tex;
     HitThing hitbuf;
     Vertex *pt0;
     Vertex *pt1;
@@ -8439,8 +8441,8 @@ bool bgTestHitOnObj(coord3d *arg0, coord3d *arg1, coord3d *arg2, Gfx *gdl, Gfx *
         }
         else
         {
-            padC = ((u32 *) tcmd)[1] - 8;
-            hitthing->texturenum = *((u16 *) (padC | 0x80000000));
+            tex = texFindByData(((u32 *) tcmd)[1]);
+            hitthing->texturenum = tex != NULL ? tex->texturenum : -1;
         }
     }
 

@@ -15,6 +15,7 @@
 #include "environment.h"
 #include "explosion.h"
 #include "gmath.h"
+#include "image.h"
 #include "lv.h"
 #include "matrixmath.h"
 #include "player.h"
@@ -2574,9 +2575,9 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
 {
     Vertex *vtxbase;
     Vertex *v;
+    struct tex *tex;
 
     union {
-        s32 word;
         Vertex *vertices;
         RoomInfo *roominfo;
     } temp;
@@ -2705,8 +2706,8 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
                         }
                         else
                         {
-                            temp.word = ((u32 *) tcmd)[1] - 8;
-                            texnum = *((u16 *) (temp.word | 0x80000000));
+                            tex = texFindByData(((u32 *) tcmd)[1]);
+                            texnum = tex != NULL ? tex->texturenum : -1;
                         }
 
                         if (check_if_imageID_is_light(texnum))
@@ -2843,8 +2844,8 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
                                 }
                                 else
                                 {
-                                    temp.word = ((u32 *) tcmd)[1] - 8;
-                                    texnum = *((u16 *) (temp.word | 0x80000000));
+                                    tex = texFindByData(((u32 *) tcmd)[1]);
+                                    texnum = tex != NULL ? tex->texturenum : -1;
                                 }
 
                                 if (check_if_imageID_is_light(texnum))
