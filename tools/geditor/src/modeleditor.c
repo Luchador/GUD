@@ -590,6 +590,13 @@ BOOL ModelEditorHandleMessage(MSG *message)
         }
     }
     if (!ownmessage) { return FALSE; }
+    /* Project shortcuts are shared with the main frame's accelerators. */
+    if (message->message == WM_KEYDOWN
+        && (message->wParam == 'S' || message->wParam == 'T')
+        && (GetKeyState(VK_CONTROL) & 0x8000)
+        && !(GetKeyState(VK_MENU) & 0x8000) && !(GetKeyState(VK_SHIFT) & 0x8000))
+    { return FALSE; }
+
     /* Keep dialog navigation and keyboard shortcuts inside this window. */
     if (!IsDialogMessage(g_ModelEditor, message))
     {

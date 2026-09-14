@@ -739,7 +739,7 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(filemenu, MF_STRING, ID_FILE_NEW_PROJECT, "&New Project");
     AppendMenu(filemenu, MF_STRING, ID_FILE_OPEN_PROJECT, "&Open Project");
     AppendMenu(filemenu, MF_POPUP, (UINT_PTR)g_RecentProjectsMenu, "&Recent Projects");
-    AppendMenu(filemenu, MF_STRING, ID_FILE_SAVE_PROJECT, "&Save Project");
+    AppendMenu(filemenu, MF_STRING, ID_FILE_SAVE_PROJECT, "&Save Project\tCtrl+S");
     AppendMenu(filemenu, MF_STRING, ID_FILE_REBASE_PROJECT, "Re&base Project...");
     AppendMenu(filemenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(filemenu, MF_POPUP, (UINT_PTR)importmenu, "&Import...");
@@ -770,7 +770,7 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_SAME_MATERIAL, "Select Same &Material");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_ROOM, "Select &Room");
 
-    AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_UV_EDITOR, "&UV Editor");
+    AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_UV_EDITOR, "&UV Editor\tCtrl+T");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_MODEL_EDITOR, "&Model Editor");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_CREATE_ROM, "&Create ROM...");
 
@@ -786,7 +786,7 @@ static HMENU GEditorCreateMenuBar(void)
 
 static HACCEL GEditorCreateAccelerators(void)
 {
-    ACCEL entries[3];
+    ACCEL entries[5];
 
     ZeroMemory(entries, sizeof(entries));
     entries[0].fVirt = FVIRTKEY | FCONTROL;
@@ -798,7 +798,13 @@ static HACCEL GEditorCreateAccelerators(void)
     entries[2].fVirt = FVIRTKEY | FCONTROL | FSHIFT;
     entries[2].key = 'Z';
     entries[2].cmd = ID_EDIT_REDO;
-    return CreateAcceleratorTable(entries, 3);
+    entries[3].fVirt = FVIRTKEY | FCONTROL;
+    entries[3].key = 'S';
+    entries[3].cmd = ID_FILE_SAVE_PROJECT;
+    entries[4].fVirt = FVIRTKEY | FCONTROL;
+    entries[4].key = 'T';
+    entries[4].cmd = ID_TOOLS_UV_EDITOR;
+    return CreateAcceleratorTable(entries, 5);
 }
 
 
@@ -2745,6 +2751,47 @@ static void GEditorShowGeometryMenu(HWND hwnd, ToolToolbarMenu kind, HWND button
 }
 
 
+static BOOL GEditorMoveSelectedFacesToRoom(HWND hwnd, DWORD target)
+{
+    EditHistoryTransaction transaction = {0};
+    BgFaceRef *faces = NULL;
+    BOOL changed;
+    int count = ViewportGetSelectedBgFaceCount(g_Viewport), i;
+    const char *why = "", *restorewhy = "";
+    if (!g_CurrentBgDocument.rooms || count <= 0
+        || ViewportGetTool(g_Viewport) != EDITOR_TOOL_FACE_SELECT
+        || ViewportIsTransforming(g_Viewport) || ViewportIsFlying(g_Viewport)) { return FALSE; }
+    faces = malloc((size_t)count * sizeof(*faces));
+    if (!faces) { why = "Out of memory reading the background selection."; goto fail; }
+    if (!ViewportGetSelectedBgFaces(g_Viewport, faces, count))
+    { why = "The selected background faces could not be read."; goto fail; }
+    if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
+        "Change BG Room", &transaction, &why)) { goto fail; }
+    if (!BgDocumentMoveFacesToRoom(&g_CurrentBgDocument, faces, (DWORD)count, target, &changed, &why))
+    { goto fail; } /* Document operation is atomic. */
+    if (!changed) { EditHistoryCancelEdit(&transaction); free(faces); return TRUE; }
+    for (i = 0; i < count; i++) { faces[i].room = (unsigned short)target; }
+    if (!GEditorRebuildCurrentViewport(&why)) { goto rollback; }
+    if (!ViewportSelectBgFaces(g_Viewport, faces, count))
+    { why = "Could not restore the moved face selection."; goto rollback; }
+    /* Refresh the UV workspace before the history entry captures selection. */
+    GEditorRefreshSelectionDetails();
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument,
+        &g_CurrentSetup, &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    free(faces); GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    GEditorRebuildCurrentViewport(&restorewhy);
+    GEditorRestoreHistorySelection(hwnd);
+fail:
+    free(faces); EditHistoryCancelEdit(&transaction);
+    GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
+
 static BOOL GEditorSetFaceProperties(HWND hwnd, const BgFacePropertiesEdit *edit)
 {
     EditHistoryTransaction transaction = {0};
@@ -3636,6 +3683,13 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     case PORTALPROPERTIES_WM_CHANGED:
     {
         BOOL ok = GEditorSetPortalRooms(hwnd, (const PortalPropertiesEdit *)lparam);
+        GEditorRefreshSelectionDetails();
+        return ok;
+    }
+
+    case FACEPROPERTIES_WM_ROOM_CHANGED:
+    {
+        BOOL ok = GEditorMoveSelectedFacesToRoom(hwnd, (DWORD)wparam);
         GEditorRefreshSelectionDetails();
         return ok;
     }

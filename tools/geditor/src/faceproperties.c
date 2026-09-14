@@ -12,18 +12,19 @@
 #define FACEPROPERTIES_MARGIN 4
 #define FACEPROPERTIES_PREVIEW_SIZE 64
 
-enum { FACE_SUMMARY, FACE_TEXTURE_LABEL, FACE_TEXTURE_THUMB, FACE_TEXTURE_FIND,
+enum { FACE_SUMMARY, FACE_ROOM_LABEL, FACE_ROOM, FACE_TEXTURE_LABEL, FACE_TEXTURE_THUMB, FACE_TEXTURE_FIND,
        FACE_RENDER_INFO, FACE_RENDER, FACE_RENDER_HELP,
-       FACE_CULL_LABEL, FACE_CULL, FACE_CULL_HELP,
+       FACE_CULL_LABEL, FACE_CULL,
        FACE_WRAP_LABEL, FACE_U_LABEL, FACE_U, FACE_V_LABEL, FACE_V,
-       FACE_WRAP_HELP, FACE_SELECTION_HELP, FACE_CONTROL_COUNT };
+       FACE_SELECTION_HELP, FACE_CONTROL_COUNT };
 
 typedef struct FacePropertiesState {
     HWND controls[FACE_CONTROL_COUNT];
     HWND tooltip;
     TexThumb thumbnail;
     unsigned char pixels[TEX_THUMB_MAX * TEX_THUMB_MAX * 4];
-    DWORD textureid;
+    DWORD textureid, roomcount;
+    char roomtext[32];
     BOOL hasthumbnail, mixedtexture;
     int scroll, wheelremainder;
     BOOL updating;
@@ -107,12 +108,12 @@ static void FacePropertiesLayout(HWND hwnd, FacePropertiesState *state)
         }
         if (i == FACE_U_LABEL || i == FACE_V_LABEL) { w = 20; }
         if (i == FACE_U || i == FACE_V) { x += 24; w = width > 24 ? width - 24 : 1; }
-        height = i == FACE_RENDER || i == FACE_CULL || i == FACE_U || i == FACE_V ? 24
+        height = i == FACE_ROOM || i == FACE_RENDER || i == FACE_CULL || i == FACE_U || i == FACE_V ? 24
             : FacePropertiesTextHeight(state->controls[i], w);
         SetRect(&bounds[i], x, y, x + w, y + height);
         if (i != FACE_U_LABEL && i != FACE_V_LABEL)
         {
-            y += height + (i == FACE_CULL_HELP ? 12 : 6);
+            y += height + (i == FACE_CULL ? 12 : 6);
         }
     }
     maximum = y - client.bottom;
@@ -129,7 +130,7 @@ static void FacePropertiesLayout(HWND hwnd, FacePropertiesState *state)
     {
         RECT *r = &bounds[i];
         /* The height of a native combo includes its opened list. */
-        int height = i == FACE_RENDER || i == FACE_CULL || i == FACE_U || i == FACE_V ? 160 : r->bottom - r->top;
+        int height = i == FACE_ROOM || i == FACE_RENDER || i == FACE_CULL || i == FACE_U || i == FACE_V ? 160 : r->bottom - r->top;
         MoveWindow(state->controls[i], r->left, r->top - state->scroll,
                    r->right - r->left, height, TRUE);
     }
@@ -208,6 +209,54 @@ static void FacePropertiesRevealControl(HWND hwnd, FacePropertiesState *state, H
     FacePropertiesLayout(hwnd, state);
 }
 
+static void FacePropertiesApplyRoom(HWND hwnd, FacePropertiesState *state, BOOL fromlist)
+{
+    HWND control = state->controls[FACE_ROOM];
+    char number[32];
+    DWORD room = 0;
+    unsigned int i;
+    if (fromlist)
+    {
+        LRESULT choice = SendMessage(control, CB_GETCURSEL, 0, 0);
+        if (choice == CB_ERR) { return; }
+        room = (DWORD)choice + 1;
+    }
+    else
+    {
+        GetWindowText(control, number, sizeof(number));
+        if (lstrcmp(number, state->roomtext) == 0) { return; }
+        for (i = 0; number[i] >= '0' && number[i] <= '9'; i++)
+        {
+            room = room * 10 + (number[i] - '0');
+            if (room > state->roomcount) { break; }
+        }
+        if (i == 0 || number[i] || !room || room > state->roomcount)
+        {
+            MessageBox(hwnd, "Enter an existing room number.", "GEditor", MB_ICONERROR);
+            SetWindowText(control, state->roomtext);
+            return;
+        }
+    }
+    SendMessage(GetParent(hwnd), FACEPROPERTIES_WM_ROOM_CHANGED, room, 0);
+}
+
+BOOL FacePropertiesHandleMessage(HWND panel, MSG *message)
+{
+    FacePropertiesState *state = FacePropertiesGetState(panel);
+    HWND focus = GetFocus();
+    HWND control;
+    if (!state || message->message != WM_KEYDOWN) { return FALSE; }
+    control = state->controls[FACE_ROOM];
+    if (focus != control && !IsChild(control, focus)) { return FALSE; }
+    /* Let the native combo accept/cancel an open list first. */
+    if (SendMessage(control, CB_GETDROPPEDSTATE, 0, 0)) { return FALSE; }
+    if (message->wParam == VK_RETURN)
+    { FacePropertiesApplyRoom(panel, state, FALSE); return TRUE; }
+    if (message->wParam == VK_ESCAPE)
+    { SetWindowText(control, state->roomtext); return TRUE; }
+    return FALSE;
+}
+
 static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     FacePropertiesState *state = FacePropertiesGetState(hwnd);
@@ -217,11 +266,10 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
     {
         CREATESTRUCT *cs = (CREATESTRUCT *)lparam;
         const char *labels[FACE_CONTROL_COUNT] = {
-            "", "Texture", "", "Find", "", "", "",
+            "", "Room", "", "Texture", "", "Find", "", "", "",
             "Backface culling", "",
-            "On hides the back of a face. Off shows both sides.",
             "Texture wrapping", "U", "", "V", "",
-            "Repeat: tile the image.\r\nMirror: alternate flipped tiles.\r\nClamp: extend the edge pixels.", ""
+            ""
         };
         int i;
         state = (FacePropertiesState *)calloc(1, sizeof(*state));
@@ -229,9 +277,9 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
         for (i = 0; i < FACE_CONTROL_COUNT; i++)
         {
-            BOOL combo = i == FACE_RENDER || i == FACE_CULL || i == FACE_U || i == FACE_V;
+            BOOL combo = i == FACE_ROOM || i == FACE_RENDER || i == FACE_CULL || i == FACE_U || i == FACE_V;
             BOOL button = i == FACE_TEXTURE_FIND;
-            DWORD style = combo ? WS_TABSTOP | WS_VSCROLL | CBS_DROPDOWNLIST
+            DWORD style = combo ? WS_TABSTOP | WS_VSCROLL | (i == FACE_ROOM ? CBS_DROPDOWN : CBS_DROPDOWNLIST)
                 : button ? WS_TABSTOP | BS_PUSHBUTTON | BS_NOTIFY
                 : i == FACE_TEXTURE_THUMB ? SS_OWNERDRAW : SS_NOPREFIX;
             state->controls[i] = CreateWindowEx(0, combo ? "COMBOBOX" : button ? "BUTTON" : "STATIC", labels[i],
@@ -242,6 +290,8 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
             if (combo)
             {
                 HWND control = state->controls[i];
+                if (i == FACE_ROOM)
+                { SendMessage(control, CB_LIMITTEXT, 5, 0); continue; }
                 if (i == FACE_RENDER)
                 {
                     SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Mixed / Keep current");
@@ -253,8 +303,8 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
                     continue;
                 }
                 SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Mixed");
-                SendMessage(control, CB_ADDSTRING, 0, (LPARAM)(i == FACE_CULL ? "Off - show both sides" : "Repeat"));
-                SendMessage(control, CB_ADDSTRING, 0, (LPARAM)(i == FACE_CULL ? "On - hide back faces" : "Clamp"));
+                SendMessage(control, CB_ADDSTRING, 0, (LPARAM)(i == FACE_CULL ? "On" : "Repeat"));
+                SendMessage(control, CB_ADDSTRING, 0, (LPARAM)(i == FACE_CULL ? "Off" : "Clamp"));
                 if (i != FACE_CULL) { SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Mirror"); }
                 SendMessage(control, CB_SETDROPPEDWIDTH, 180, 0);
             }
@@ -279,6 +329,14 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
         if (state) { FacePropertiesLayout(hwnd, state); }
         return 0;
     case WM_COMMAND:
+        if (state && !state->updating && LOWORD(wparam) == FACE_ROOM + 1)
+        {
+            if (HIWORD(wparam) == CBN_SETFOCUS)
+            { FacePropertiesRevealControl(hwnd, state, (HWND)lparam); }
+            else if (HIWORD(wparam) == CBN_SELENDOK)
+            { FacePropertiesApplyRoom(hwnd, state, TRUE); }
+            return 0;
+        }
         if (state && !state->updating && LOWORD(wparam) == FACE_TEXTURE_FIND + 1)
         {
             if (HIWORD(wparam) == BN_SETFOCUS)
@@ -308,7 +366,7 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
                     if (control == state->controls[FACE_RENDER])
                     { edit.fields = BG_FACE_PROPERTY_TRANSPARENCY; edit.transparency = choice == 1 ? BG_TRANSPARENCY_AUTO : (BgTransparency)(choice - 2); }
                     else if (control == state->controls[FACE_CULL])
-                    { edit.fields = BG_FACE_PROPERTY_CULL; edit.cullbackfaces = choice == 2; }
+                    { edit.fields = BG_FACE_PROPERTY_CULL; edit.cullbackfaces = choice == 1; }
                     else if (control == state->controls[FACE_U])
                     { edit.fields = BG_FACE_PROPERTY_WRAP_U; edit.wrapu = (BgTextureWrap)(choice - 1); }
                     else
@@ -391,19 +449,22 @@ BOOL FacePropertiesSetSelection(HWND panel, const BgDocument *document,
     FacePropertiesState *state = FacePropertiesGetState(panel);
     const BgDocumentFace *first;
     int cull, wrapu, wrapv;
+    unsigned short room;
     BOOL textured = TRUE, sametexture = TRUE, editable;
     DWORD i;
     char summary[256], texture[48], render[256];
     if (state == NULL || refs == NULL || count == 0
         || (first = BgDocumentFindFace(document, refs, NULL)) == NULL) { return FALSE; }
-    cull = first->cullbackfaces + 1;
+    room = first->room;
+    cull = first->cullbackfaces ? 1 : 2;
     wrapu = BgMaterialGetWrap(&first->material, FALSE) + 1;
     wrapv = BgMaterialGetWrap(&first->material, TRUE) + 1;
     for (i = 0; i < count; i++)
     {
         const BgDocumentFace *face = BgDocumentFindFace(document, &refs[i], NULL);
         if (face == NULL) { return FALSE; }
-        if (cull != face->cullbackfaces + 1) { cull = 0; }
+        if (room != face->room) { room = 0; }
+        if (cull != (face->cullbackfaces ? 1 : 2)) { cull = 0; }
         if (wrapu != (int)BgMaterialGetWrap(&face->material, FALSE) + 1) { wrapu = 0; }
         if (wrapv != (int)BgMaterialGetWrap(&face->material, TRUE) + 1) { wrapv = 0; }
         if (face->textureid == BG_TEX_NONE) { textured = FALSE; }
@@ -411,12 +472,28 @@ BOOL FacePropertiesSetSelection(HWND panel, const BgDocument *document,
     }
     if (count == 1)
     {
-        snprintf(summary, sizeof(summary), "Face: %lu   Room: %u\r\nLayer: %s",
-            (unsigned long)first->id, (unsigned int)first->room,
+        snprintf(summary, sizeof(summary), "Face: %lu\r\nLayer: %s",
+            (unsigned long)first->id,
             first->layer == BG_GEOMETRY_SECONDARY ? "Secondary" : "Primary");
     }
     else { snprintf(summary, sizeof(summary), "%lu faces selected.\r\nMixed means their settings differ.", (unsigned long)count); }
     state->updating = TRUE;
+    if (state->roomcount != document->roomcount)
+    {
+        HWND control = state->controls[FACE_ROOM];
+        SendMessage(control, CB_RESETCONTENT, 0, 0);
+        for (i = 1; i <= document->roomcount; i++)
+        {
+            char number[16];
+            snprintf(number, sizeof(number), "%lu", (unsigned long)i);
+            SendMessage(control, CB_ADDSTRING, 0, (LPARAM)number);
+        }
+        state->roomcount = document->roomcount;
+    }
+    if (room) { snprintf(state->roomtext, sizeof(state->roomtext), "%u", (unsigned int)room); }
+    else { lstrcpyn(state->roomtext, "Mixed", sizeof(state->roomtext)); }
+    SendMessage(state->controls[FACE_ROOM], CB_SETCURSEL, room ? room - 1 : -1, 0);
+    SetWindowText(state->controls[FACE_ROOM], state->roomtext);
     state->textureid = first->textureid;
     state->mixedtexture = !sametexture;
     state->hasthumbnail = sametexture && BrowserCopyImageThumbnail(browser,

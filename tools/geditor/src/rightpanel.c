@@ -557,6 +557,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
     case OBJECTPROPERTIES_WM_CHANGED:
     case OBJECTFLAGS_WM_CHANGED:
     case PORTALPROPERTIES_WM_CHANGED:
+    case FACEPROPERTIES_WM_ROOM_CHANGED:
     case FACEPROPERTIES_WM_CHANGED:
     case FACEPROPERTIES_WM_REVEAL_IMAGE:
         return SendMessage(GetParent(hwnd), msg, wparam, lparam);
@@ -853,6 +854,8 @@ BOOL RightPanelHandleMessage(HWND panel, MSG *message)
         && PortalPropertiesHandleMessage(state->portalproperties, message)) { return TRUE; }
     if (!state->vertexpaint && !state->flagstab && state->showingobjects
         && ObjectPropertiesHandleMessage(state->objectproperties, message)) { return TRUE; }
+    if (IsWindowVisible(state->faceproperties)
+        && FacePropertiesHandleMessage(state->faceproperties, message)) { return TRUE; }
     isposition = focus == state->positions[0] || focus == state->positions[1]
             || focus == state->positions[2];
     if (message->wParam == VK_TAB)

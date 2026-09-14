@@ -368,6 +368,13 @@ BOOL UVEditorHandleMessage(MSG *message)
         }
     }
     if (!uvmessage) { return FALSE; }
+    /* Project shortcuts are shared with the main frame's accelerators. */
+    if (message->message == WM_KEYDOWN
+        && (message->wParam == 'S' || message->wParam == 'T')
+        && (GetKeyState(VK_CONTROL) & 0x8000)
+        && !(GetKeyState(VK_MENU) & 0x8000) && !(GetKeyState(VK_SHIFT) & 0x8000))
+    { return FALSE; }
+
 
     if (message->message == WM_KEYDOWN)
     {

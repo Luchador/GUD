@@ -9,6 +9,10 @@
 /* Read-only navigation request; wparam is the selected texture ID. */
 #define FACEPROPERTIES_WM_REVEAL_IMAGE (WM_APP + 26)
 
+/* Room reassignment request; wparam is the existing destination room. */
+#define FACEPROPERTIES_WM_ROOM_CHANGED (WM_APP + 59)
+
+BOOL FacePropertiesHandleMessage(HWND panel, MSG *message);
 BOOL FacePropertiesRegisterClass(HINSTANCE instance);
 HWND FacePropertiesCreate(HWND parent, HINSTANCE instance);
 BOOL FacePropertiesSetSelection(HWND panel, const BgDocument *document,

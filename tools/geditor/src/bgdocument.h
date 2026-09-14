@@ -257,6 +257,13 @@ BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
     DWORD count, const BgFacePropertiesEdit *edit, BOOL *changedout,
     const char **reasonout);
 
+/* Move selected faces to an existing room, retaining world coordinates,
+ * UVs, colors, layers, face IDs and shared vertices within the moved set.
+ * Source vertices/room slots remain for bounds. Atomic on failure; room refs
+ * must be updated by the caller after success. No-op if already in target. */
+BOOL BgDocumentMoveFacesToRoom(BgDocument *document, const BgFaceRef *refs,
+    DWORD count, DWORD target, BOOL *changedout, const char **reasonout);
+
 /* Paints the existing vertex at one face corner. Every face sharing that
  * vertex sees the edit; coincident vertices with different identities do not.
  * An identical RGBA value succeeds without dirtying the document. */
