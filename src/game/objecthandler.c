@@ -45,10 +45,11 @@ struct ModelAnimationScratch *g_ModelAnimationScratch;
  * Appends the model nodes that need independent depth sorting to a hit/render
  * list. Entries come from the fixed stage-lifetime pool above.
  */
-ModelHitEntry *modelHitBuildNodeList(ModelHitEntry *head, Model *model)
+void modelHitAppendModel(ModelHitList *list, Model *model)
 {
     ModelHitEntry *firstNewEntry = g_ModelHitFreeList;
     ModelHitEntry *freeEntry = firstNewEntry;
+    ModelHitEntry *lastNewEntry = NULL;
     ModelNode *node = model->obj->RootNode;
     ModelNode *nextNode;
 
@@ -68,6 +69,7 @@ ModelHitEntry *modelHitBuildNodeList(ModelHitEntry *head, Model *model)
             case MODELNODE_OPCODE_GROUPSIMPLE:
                 freeEntry->model = model;
                 freeEntry->rootnode = node;
+                lastNewEntry = freeEntry;
                 freeEntry = freeEntry->next;
                 break;
             default:
@@ -94,39 +96,58 @@ ModelHitEntry *modelHitBuildNodeList(ModelHitEntry *head, Model *model)
         }
     }
 
-    if (freeEntry != firstNewEntry)
+    if (lastNewEntry != NULL)
     {
-        if (head != NULL)
+        if (list->tail != NULL)
         {
-            ModelHitEntry *tail = head;
-
-            while (tail->next != NULL)
-            {
-                tail = tail->next;
-            }
-
-            tail->next = firstNewEntry;
-            firstNewEntry->prev = tail;
+            list->tail->next = firstNewEntry;
         }
         else
         {
-            head = firstNewEntry;
+            list->head = firstNewEntry;
         }
+        firstNewEntry->prev = list->tail;
+        list->tail = lastNewEntry;
+        lastNewEntry->next = NULL;
 
         if (freeEntry != NULL)
         {
-            ModelHitEntry *lastNewEntry = freeEntry->prev;
-
-            lastNewEntry->next = NULL;
             freeEntry->prev = NULL;
         }
 
         g_ModelHitFreeList = freeEntry;
     }
 
-    return head;
 }
 
+/* Ordinary rigid attachments have one sortable root, already validated by
+ * their update path. Preserve the same pool exhaustion behavior and ordering. */
+void modelHitAppendNode(ModelHitList *list, Model *model, ModelNode *node)
+{
+    ModelHitEntry *entry = g_ModelHitFreeList;
+    if (entry == NULL) return;
+    g_ModelHitFreeList = entry->next;
+    if (g_ModelHitFreeList != NULL) g_ModelHitFreeList->prev = NULL;
+    entry->model = model;
+    entry->rootnode = node;
+    entry->prev = list->tail;
+    entry->next = NULL;
+    if (list->tail != NULL) list->tail->next = entry;
+    else list->head = entry;
+    list->tail = entry;
+}
+
+/* Compatibility entry point for callers that do not carry a builder. */
+ModelHitEntry *modelHitBuildNodeList(ModelHitEntry *head, Model *model)
+{
+    ModelHitList list;
+    list.head = list.tail = head;
+    if (list.tail != NULL) {
+        while (list.tail->next != NULL) list.tail = list.tail->next;
+    }
+    modelHitAppendModel(&list, model);
+    return list.head;
+}
 
 /**
  * Returns a chain of ModelHitEntry records to the free pool. Walks to

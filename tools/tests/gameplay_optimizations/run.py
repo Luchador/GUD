@@ -49,7 +49,8 @@ chr = (root / "src/game/chr.c").read_text()
 # Keep loading and both optimized model call sites connected to the tests.
 assert "bgBuildPortalCache();" in function(bg, "bgLoadFile")
 assert "matrix_4x4_multiply_translation(" in function(model, "process_15_subposition")
-assert "matrix_4x4_apply_scale_and_translation(" in function(chr, "chrTick")
+assert "chrUpdateHat(" in function(chr, "chrTick")
+assert "matrix_4x4_apply_scale_and_translation(" in function(chr, "chrUpdateHat")
 
 source = (here / "harness.h").read_text()
 source += bg[bg.index("#define BG_PORTAL_ROOM_COUNT"):bg.index("s_specialportal specialportalarray")]

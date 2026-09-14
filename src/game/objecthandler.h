@@ -33,6 +33,9 @@ PropRecord *chrGiveWeapon(ChrRecord *self, s32 PropID, ITEM_IDS ItemID, s32 flag
 
 /* Depth-sorted model-node lists used for rendering and hit tests. */
 ModelHitEntry *modelHitBuildNodeList(ModelHitEntry *head, Model *model);
+/* Start with {NULL, NULL}; the tail remains valid only until sorting/freeing. */
+void modelHitAppendModel(ModelHitList *list, Model *model);
+void modelHitAppendNode(ModelHitList *list, Model *model, ModelNode *node);
 void modelHitFreeChain(ModelHitEntry *entry);
 void modelHitCalculateNodeDepths(ModelHitEntry *head);
 ModelHitEntry *modelHitSortByDepth(ModelHitEntry *head);

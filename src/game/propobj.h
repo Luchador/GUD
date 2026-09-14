@@ -123,7 +123,7 @@ TICKOP objTickPlayer(struct PropRecord* arg0);
 TICKOP weaponTickPlayer(struct PropRecord* arg0);
 void objBreakDoorGlass(DoorRecord *door);
 void update_color_shading(rgba_u8 *dest, rgba_u8 *src);
-void chrRenderHeldWeapon(void *renderContext, GUNHAND hand, Gfx **gdl);
+void chrRenderHeldWeapon(ChrRecord *chr, GUNHAND hand, ModelHitList *hitlist);
 HATTYPE get_hat_model(PropRecord *prop);
 s32 objDrop(PropRecord *prop);
 void sub_GAME_7F050DE8(Model* model);

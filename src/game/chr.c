@@ -1665,6 +1665,7 @@ PropRecord *init_GUARDdata_with_set_values(PropRecord *arg0, Model *arg1, struct
     chr->weapons_held[0] = NULL;
     chr->weapons_held[1] = NULL;
     chr->handle_positiondata_hat = NULL;
+    chr->hatcache.model = NULL;
     chr->chrwidth = 20.0f;
     chr->chrheight = 185.0f;
 
@@ -2229,6 +2230,132 @@ static s32 chrCalcScreenFadeAlpha(PropRecord *prop)
 }
 
 
+/* A rigid stock hat has only a translated root, a hit box and a display list.
+ * Reject switches/LOD/extra joints so edited models keep all update behavior. */
+static bool chrHatHasSimpleModel(ModelFileHeader *file)
+{
+    ModelNode *root = file->RootNode;
+    ModelNode *box;
+    ModelNode *draw;
+    if (file->numMatrices != 1 || !root || root->Opcode != MODELNODE_OPCODE_GROUPSIMPLE
+            || !root->Data || root->Data->GroupSimple.Group1 != 0
+            || root->Parent || root->Next || root->Prev) return FALSE;
+    box = root->Child;
+    if (!box || box->Opcode != MODELNODE_OPCODE_BBOX || !box->Data
+            || box->Parent != root || box->Next || box->Prev) return FALSE;
+    draw = box->Child;
+    return draw && draw->Opcode == MODELNODE_OPCODE_DL && draw->Data
+            && draw->Parent == box && !draw->Next && !draw->Prev && !draw->Child;
+}
+
+static void chrRefreshHatCache(ChrRecord *chr, ObjectRecord *hat)
+{
+    ChrHatCache *cache = &chr->hatcache;
+    Model *model = hat->model;
+    s32 type;
+    struct headHat *fit;
+    cache->model = model;
+    cache->hatfile = model->obj;
+    cache->bodyfile = chr->model->obj;
+    cache->root = model->obj->RootNode;
+    cache->attachment = model->attachedto_objinst;
+    cache->headnum = chr->headnum;
+    cache->hatnum = hat->obj;
+    cache->attachmentMtxIndex = modelFindNodeMtxIndex(cache->attachment, 0);
+    cache->simple = chrHatHasSimpleModel(model->obj);
+    cache->offset.x = cache->offset.y = cache->offset.z = 0.0f;
+    cache->scale.x = cache->scale.y = cache->scale.z = 1.0f;
+    cache->fitted = FALSE;
+    cache->headVisible = TRUE;
+
+    if (chr->headnum >= HEAD_START && chr->headnum < BODY_Female_Sally) {
+        type = get_hat_model(chr->handle_positiondata_hat);
+        /* HATTYPE_OTHER is -1; custom hats have no stock fitting entry. */
+        if ((u32)type < 6) {
+            fit = &g_HeadHatDefs[(chr->headnum - HEAD_START) * 6 + type];
+            cache->offset.x = fit->xoffset * 21.3f;
+            cache->offset.y = fit->yoffset * 21.3f;
+            cache->offset.z = fit->zoffset * 21.3f;
+            cache->scale.x = fit->xsize;
+            cache->scale.y = fit->ysize;
+            cache->scale.z = fit->zsize;
+            cache->fitted = cache->offset.x != 0.0f || cache->offset.y != 0.0f || cache->offset.z != 0.0f
+                    || cache->scale.x != 1.0f || cache->scale.y != 1.0f || cache->scale.z != 1.0f;
+            cache->headVisible = type != HATTYPE_PEAKED;
+        }
+    }
+}
+
+/* The two original translations share the same basis. Sum their local offsets
+ * before transforming, then write the final scaled basis once. The live root
+ * origin is still read: setpartoffset can change it after the fitting is cached. */
+static void chrBuildHatMatrix(Mtxf *parent, coord3d *origin, ChrHatCache *cache, Mtxf *matrix)
+{
+    coord3d position;
+    s32 i;
+    if (!cache->fitted) {
+        if (parent) matrix_4x4_multiply_translation(parent, origin, matrix);
+        else matrix_4x4_set_identity_and_position(origin, matrix);
+        return;
+    }
+    position.x = origin->x + cache->offset.x;
+    position.y = origin->y + cache->offset.y;
+    position.z = origin->z + cache->offset.z;
+    if (!parent) {
+        matrix_4x4_set_identity_and_position(&position, matrix);
+        matrix->m[0][0] = cache->scale.x;
+        matrix->m[1][1] = cache->scale.y;
+        matrix->m[2][2] = cache->scale.z;
+        return;
+    }
+    for (i = 0; i < 3; i++) {
+        f32 x = parent->m[0][i];
+        f32 y = parent->m[1][i];
+        f32 z = parent->m[2][i];
+        matrix->m[3][i] = x * position.x + y * position.y + z * position.z + parent->m[3][i];
+        matrix->m[0][i] = x * cache->scale.x;
+        matrix->m[1][i] = y * cache->scale.y;
+        matrix->m[2][i] = z * cache->scale.z;
+    }
+    matrix->m[0][3] = matrix->m[1][3] = matrix->m[2][3] = 0.0f;
+    matrix->m[3][3] = 1.0f;
+}
+
+static bool chrUpdateHat(ChrRecord *chr, ModelRenderData *renderdata, ModelHitList *hitlist)
+{
+    PropRecord *prop = chr->handle_positiondata_hat;
+    ObjectRecord *hat = prop->obj;
+    Model *model = hat->model;
+    ChrHatCache *cache = &chr->hatcache;
+    if (cache->model != model || cache->hatfile != model->obj
+            || cache->bodyfile != chr->model->obj || cache->root != model->obj->RootNode
+            || cache->attachment != model->attachedto_objinst
+            || cache->headnum != chr->headnum || cache->hatnum != hat->obj) {
+        chrRefreshHatCache(chr, hat);
+    }
+    prop->flags |= PROPRUNTIMEFLAG_ONSCREEN;
+    renderdata->basemtx = cache->attachmentMtxIndex >= 0
+        ? &chr->model->render_pos[cache->attachmentMtxIndex].pos : NULL;
+    renderdata->mtxlist = dynAllocate(model->obj->numMatrices * sizeof(Mtxf));
+    if (cache->simple) {
+        model->render_pos = (RenderPosView *)renderdata->mtxlist;
+        renderdata->mtxlist++;
+        chrBuildHatMatrix(renderdata->basemtx, &cache->root->Data->GroupSimple.Origin,
+                cache, &model->render_pos[0].pos);
+    } else {
+        instcalcmatrices(renderdata, model);
+        if (cache->fitted) {
+            matrix_4x4_apply_scale_and_translation(&model->render_pos[0].pos, &cache->scale, &cache->offset);
+        }
+    }
+    /* Still build the pose on the drop frame: objDrop consumes that matrix. */
+    if (!(chr->hidden & CHRHIDDEN_DROP_HELD_ITEMS) || !(hat->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)) {
+        if (cache->simple) modelHitAppendNode(hitlist, model, cache->root);
+        else modelHitAppendModel(hitlist, model);
+    }
+    return cache->headVisible;
+}
+
 /**
  *   This function does the following:
  * - Drive character animations
@@ -2242,6 +2369,7 @@ static s32 chrCalcScreenFadeAlpha(PropRecord *prop)
 s32 chrTick(PropRecord *prop)
 {
     ModelRenderData renderdata;
+    ModelHitList hitlist;
     ChrRecord *chr;
     Model *model;
 
@@ -2449,64 +2577,17 @@ after_position_update:
 
         prop->zDepth = modelGetZDepth(model);
 
-        chr->hitChain = modelHitBuildNodeList(NULL, model);
+        hitlist.head = hitlist.tail = NULL;
+        modelHitAppendModel(&hitlist, model);
 
-        chrRenderHeldWeapon(prop, GUNRIGHT, (Gfx **)(&chr->hitChain));
-        chrRenderHeldWeapon(prop, GUNLEFT, (Gfx **)(&chr->hitChain));
+        chrRenderHeldWeapon(chr, GUNRIGHT, &hitlist);
+        chrRenderHeldWeapon(chr, GUNLEFT, &hitlist);
 
         if (chr->handle_positiondata_hat != NULL)
         {
-            ObjectRecord *hatobj;
-            Model *hatmodel;
-
-            hatobj = chr->handle_positiondata_hat->obj;
-            hatmodel = hatobj->model;
-
-            chr->handle_positiondata_hat->flags |= PROPRUNTIMEFLAG_ONSCREEN;
-
-            renderdata.basemtx = modelFindNodeMtx(model, hatmodel->attachedto_objinst, 0);
-            renderdata.mtxlist = dynAllocate(hatmodel->obj->numMatrices * (sizeof(Mtxf)));
-
-            instcalcmatrices(&renderdata, hatmodel);
-
-            if ((chr->headnum >= HEAD_START) && (chr->headnum < BODY_Female_Sally))
-            {
-                coord3d pos;
-                coord3d scale;
-                HATTYPE hat;
-                s32 unusedv;
-                struct headHat *entry;
-                volatile s32 changed;
-                s32 headindex;
-
-                pos = D_8002CCAC;
-
-                hat = get_hat_model(chr->handle_positiondata_hat);
-
-                headindex = chr->headnum - HEAD_START;
-                entry = &((struct headHat (*)[6]) g_HeadHatDefs)[headindex][hat];
-
-                pos.x = entry->xoffset * 21.3f;
-                pos.y = entry->yoffset * 21.3f;
-                pos.z = entry->zoffset * 21.3f;
-
-                scale.x = entry->xsize;
-                scale.y = entry->ysize;
-                scale.z = entry->zsize;
-
-                matrix_4x4_apply_scale_and_translation((Mtxf *)hatmodel->render_pos, &scale, &pos);
-
-                if (hat == HATTYPE_PEAKED)
-                {
-                    headVisible = 0;
-                }
-            }
-
-            if ((!(chr->hidden & CHRHIDDEN_DROP_HELD_ITEMS)) || (!(hatobj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)))
-            {
-                chr->hitChain = modelHitBuildNodeList(chr->hitChain, hatmodel);
-            }
+            headVisible = chrUpdateHat(chr, &renderdata, &hitlist);
         }
+        chr->hitChain = hitlist.head;
 
         if (model->obj->Switches[4] != NULL)
         {

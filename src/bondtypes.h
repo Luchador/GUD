@@ -1539,6 +1539,13 @@ typedef union
         struct ModelHitEntry *prev;     /* 0x10 */
     } ModelHitEntry;
 
+    /* Temporary construction state; sorted hit chains retain their old layout. */
+    typedef struct ModelHitList
+    {
+        ModelHitEntry *head;
+        ModelHitEntry *tail;
+    } ModelHitList;
+
 #pragma endregion Hit Structures
 
 #pragma region PadAndPaths
@@ -2233,6 +2240,24 @@ typedef union
     #pragma endregion GlobalPropDef
 
     /* unfinished struct, WIP */
+    /* Runtime-only fitting data. No matrices or serialized hat fields live here. */
+    typedef struct ChrHatCache
+    {
+        Model *model; /* NULL invalidates the remaining fields. */
+        ModelFileHeader *hatfile;
+        ModelFileHeader *bodyfile;
+        ModelNode *root;
+        ModelNode *attachment;
+        coord3d offset;
+        coord3d scale;
+        s16 attachmentMtxIndex;
+        s16 hatnum;
+        s8 headnum;
+        u8 simple;
+        u8 fitted;
+        u8 headVisible;
+    } ChrHatCache;
+
     typedef struct ChrRecord
     {
         s16             chrnum;                      /* 0x0000 */
@@ -2370,6 +2395,7 @@ typedef union
         BeamRecord beams[2];
 
         PropRecord    *handle_positiondata_hat;
+        ChrHatCache    hatcache;
     } ChrRecord;
     // ChrRecord *pChrData; //not Global, local to Object or function
 

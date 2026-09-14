@@ -7775,6 +7775,7 @@ void objDetach(PropRecord *prop)
                 if (prop == chr->handle_positiondata_hat)
                 {
                     chr->handle_positiondata_hat = NULL;
+                    chr->hatcache.model = NULL;
                 }
                 else if (prop == chr->weapons_held[GUNRIGHT])
                 {
@@ -10717,6 +10718,7 @@ PropRecord *hatApplyToChr(HatRecord *hat, ChrRecord *chr, ModelFileHeader *filed
 
         chrpropReparent(prop, chr->prop);
         chr->handle_positiondata_hat = prop;
+        chr->hatcache.model = NULL;
     }
 
     return prop;
@@ -11594,9 +11596,8 @@ ModelRenderData D_800322A4 = {
 /**
  * Render the weapon(s) characters are holding including the muzzle flash.
  */
-void chrRenderHeldWeapon(void *renderContext, GUNHAND hand, Gfx **gdl)
+void chrRenderHeldWeapon(ChrRecord *chr, GUNHAND hand, ModelHitList *hitlist)
 {
-    ChrRecord *chr;
     PropRecord *prop;
     ObjectRecord *weaponObj;
     Model *heldModel;
@@ -11604,7 +11605,6 @@ void chrRenderHeldWeapon(void *renderContext, GUNHAND hand, Gfx **gdl)
     Model *chrModel;
     Mtxf rotationMtx;
 
-    chr = ((ChrRenderContext *)renderContext)->chr;
     prop = chrGetEquippedWeaponProp(chr, hand);
 
     if (prop != NULL) {
@@ -11633,11 +11633,11 @@ void chrRenderHeldWeapon(void *renderContext, GUNHAND hand, Gfx **gdl)
                 renderData.mtxlist = dynAllocate(heldModel->obj->numMatrices * sizeof(Mtxf));
                 instcalcmatrices(&renderData, heldModel);
 
-                if (gdl != NULL) 
+                if (hitlist != NULL)
                 {
                     if (!(weaponObj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)) 
                     {
-                        *gdl = modelHitBuildNodeList(*gdl, heldModel);
+                        modelHitAppendModel(hitlist, heldModel);
                     }
                 }
 
