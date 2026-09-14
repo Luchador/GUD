@@ -173,6 +173,11 @@ BOOL BgDocumentDeleteFaces(BgDocument *document, const BgFaceRef *refs,
                            DWORD refcount, DWORD *deletedout,
                            const char **reasonout);
 
+/* Reverse each selected face's winding without changing shared vertex data,
+ * materials or culling. Reject missing/duplicate references before any edit. */
+BOOL BgDocumentFlipFaces(BgDocument *document, const BgFaceRef *refs,
+                         DWORD refcount, const char **reasonout);
+
 /* Compare snapshots with identical topology after a vertex-position edit.
  * Finds faces whose area became zero, retaining pre-existing degenerates.
  * Returns an owned reference array (NULL when empty); the caller frees it. */

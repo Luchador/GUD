@@ -576,6 +576,7 @@ enum {
 
     ID_EDIT_UNDO,
     ID_EDIT_REDO,
+    ID_EDIT_FLIP_FACE,
     ID_VIEW_BACKFACE_CULLING,
     ID_VIEW_GEOMETRY_STATISTICS,
     ID_VIEW_FOG,
@@ -738,6 +739,8 @@ static HMENU GEditorCreateMenuBar(void)
 
     AppendMenu(editmenu, MF_STRING, ID_EDIT_UNDO, "&Undo\tCtrl+Z");
     AppendMenu(editmenu, MF_STRING, ID_EDIT_REDO, "&Redo\tCtrl+Y");
+    AppendMenu(editmenu, MF_SEPARATOR, 0, NULL);
+    AppendMenu(editmenu, MF_STRING, ID_EDIT_FLIP_FACE, "&Flip Face\tAlt+N");
 
     AppendMenu(viewmenu, MF_STRING, ID_VIEW_BACKFACE_CULLING, "&Backface Culling");
     AppendMenu(viewmenu, MF_STRING | MF_CHECKED, ID_VIEW_GEOMETRY_STATISTICS, "Geometry &Statistics");
@@ -789,6 +792,15 @@ static HACCEL GEditorCreateAccelerators(void)
 }
 
 
+static BOOL GEditorCanFlipSelectedBgFaces(void)
+{
+    return g_Viewport != NULL && g_CurrentBgDocument.rooms != NULL
+        && ViewportGetTool(g_Viewport) == EDITOR_TOOL_FACE_SELECT
+        && ViewportGetSelectedBgFaceCount(g_Viewport) > 0
+        && !ViewportIsTransforming(g_Viewport) && !ViewportIsFlying(g_Viewport);
+}
+
+
 static void GEditorUpdateHistoryMenu(HMENU menu)
 {
     const char *undoaction;
@@ -828,6 +840,8 @@ static void GEditorUpdateHistoryMenu(HMENU menu)
                ID_EDIT_REDO, label);
     EnableMenuItem(menu, ID_EDIT_REDO, MF_BYCOMMAND
         | (EditHistoryCanRedo(&g_EditHistory) ? MF_ENABLED : MF_GRAYED));
+    EnableMenuItem(menu, ID_EDIT_FLIP_FACE, MF_BYCOMMAND
+        | (GEditorCanFlipSelectedBgFaces() ? MF_ENABLED : MF_GRAYED));
 }
 
 
@@ -2435,6 +2449,52 @@ fail:
 }
 
 
+static BOOL GEditorFlipSelectedBgFaces(HWND hwnd)
+{
+    EditHistoryTransaction transaction = {0};
+    BgFaceRef *faces = NULL;
+    int count;
+    const char *why = "", *restorewhy = "";
+
+    if (!GEditorCanFlipSelectedBgFaces()) { return FALSE; }
+    count = ViewportGetSelectedBgFaceCount(g_Viewport);
+    faces = (BgFaceRef *)malloc((size_t)count * sizeof(*faces));
+    if (faces == NULL)
+    {
+        why = "Out of memory reading the BG selection.";
+        goto fail;
+    }
+    if (!ViewportGetSelectedBgFaces(g_Viewport, faces, count))
+    {
+        why = "The selected BG faces could not be read.";
+        goto fail;
+    }
+    if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
+        count == 1 ? "Flip Face" : "Flip Faces", &transaction, &why)) { goto fail; }
+    if (!BgDocumentFlipFaces(&g_CurrentBgDocument, faces, (DWORD)count, &why)) { goto fail; }
+    free(faces);
+    faces = NULL;
+    /* Rebuild from the new winding; selection follows the stable face IDs. */
+    if (!GEditorRebuildCurrentViewport(&why)
+        || !EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument,
+            &g_CurrentSetup, &g_CurrentStan, &transaction, &why))
+    {
+        EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument,
+                                &g_CurrentSetup, &g_CurrentStan);
+        GEditorRebuildCurrentViewport(&restorewhy);
+        goto fail;
+    }
+    GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+fail:
+    EditHistoryCancelEdit(&transaction);
+    free(faces);
+    GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
+
 static BOOL GEditorSetFaceProperties(HWND hwnd, const BgFacePropertiesEdit *edit)
 {
     EditHistoryTransaction transaction = {0};
@@ -3916,6 +3976,10 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 GEditorApplyHistoryStep(hwnd, TRUE);
                 return 0;
 
+            case ID_EDIT_FLIP_FACE:
+                GEditorFlipSelectedBgFaces(hwnd);
+                return 0;
+
             case ID_VIEW_BACKFACE_CULLING:
                 ViewportSetBackfaceCulling(g_Viewport,
                     !ViewportGetBackfaceCulling(g_Viewport));
@@ -4100,6 +4164,26 @@ static BOOL GEditorHandleVisibilityHotkey(HWND frame, const MSG *message)
     return TRUE;
 }
 
+/* Alt+N reverses selected BG faces once per press. Text controls and the
+   floating editors retain their own input, as with other geometry shortcuts. */
+static BOOL GEditorHandleFlipFaceHotkey(HWND frame, const MSG *message)
+{
+    char classname[32] = "";
+    if (message == NULL || g_Viewport == NULL
+        || (message->message != WM_KEYDOWN && message->message != WM_SYSKEYDOWN)
+        || message->wParam != 'N' || ViewportIsFlying(g_Viewport)
+        || (message->hwnd != frame && !IsChild(frame, message->hwnd))
+        || !(GetKeyState(VK_MENU) & 0x8000)
+        || (GetKeyState(VK_CONTROL) & 0x8000)
+        || (GetKeyState(VK_SHIFT) & 0x8000)) { return FALSE; }
+    GetClassName(message->hwnd, classname, sizeof(classname));
+    if (lstrcmpi(classname, "Edit") == 0 || lstrcmpi(classname, "ComboBox") == 0
+        || lstrcmpi(classname, "ComboLBox") == 0) { return FALSE; }
+    if (!(message->lParam & ((LPARAM)1 << 30)))
+    { SendMessage(frame, WM_COMMAND, ID_EDIT_FLIP_FACE, 0); }
+    return TRUE;
+}
+
 /* F also works during camera flight, but remains text in property inputs.
    Consume auto-repeat so holding F does not flicker between modes. */
 static BOOL GEditorHandleFogHotkey(HWND frame, const MSG *message)
@@ -4251,6 +4335,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                     && !GEditorHandleFogHotkey(hwnd, &msg)
                     && !GEditorHandleRenderModeHotkey(hwnd, &msg)
                     && !GEditorHandleVisibilityHotkey(hwnd, &msg)
+                    && !GEditorHandleFlipFaceHotkey(hwnd, &msg)
                     && !GEditorHandleTransformHotkey(hwnd, &msg)
                     && !GEditorHandleSelectionHotkey(hwnd, &msg)
                     && !RightPanelHandleMessage(g_RightPanel, &msg)
@@ -4277,6 +4362,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                 && !GEditorHandleFogHotkey(hwnd, &msg)
                 && !GEditorHandleRenderModeHotkey(hwnd, &msg)
                 && !GEditorHandleVisibilityHotkey(hwnd, &msg)
+                && !GEditorHandleFlipFaceHotkey(hwnd, &msg)
                 && !GEditorHandleTransformHotkey(hwnd, &msg)
                 && !GEditorHandleSelectionHotkey(hwnd, &msg)
                 && !RightPanelHandleMessage(g_RightPanel, &msg)

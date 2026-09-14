@@ -906,6 +906,55 @@ BOOL BgDocumentDeleteFaces(BgDocument *document, const BgFaceRef *refs,
 }
 
 
+BOOL BgDocumentFlipFaces(BgDocument *document, const BgFaceRef *refs,
+                         DWORD refcount, const char **reasonout)
+{
+    DWORD index;
+
+    if (reasonout != NULL) { *reasonout = ""; }
+    if (document == NULL || document->rooms == NULL
+        || refs == NULL || refcount == 0)
+    {
+        if (reasonout != NULL) { *reasonout = "there are no bg faces to flip."; }
+        return FALSE;
+    }
+
+    /* Validate the entire selection first. In particular, a duplicate must
+       not silently flip the same face twice and leave its winding unchanged. */
+    for (index = 0; index < refcount; index++)
+    {
+        DWORD duplicate;
+        if (BgDocumentFindFace(document, &refs[index], NULL) == NULL)
+        {
+            if (reasonout != NULL) { *reasonout = "a selected bg face no longer exists."; }
+            return FALSE;
+        }
+        for (duplicate = 0; duplicate < index; duplicate++)
+        {
+            if (refs[duplicate].faceid == refs[index].faceid
+                && refs[duplicate].room == refs[index].room
+                && refs[duplicate].layer == refs[index].layer)
+            {
+                if (reasonout != NULL) { *reasonout = "the bg face selection contains duplicates."; }
+                return FALSE;
+            }
+        }
+    }
+
+    for (index = 0; index < refcount; index++)
+    {
+        BgDocumentFace *face = (BgDocumentFace *)BgDocumentFindFace(document, &refs[index], NULL);
+        DWORD vertex = face->vertexindices[1];
+        /* UVs and colors belong to the vertex records, so only reorder the
+           references. Shared vertices and neighboring faces remain intact. */
+        face->vertexindices[1] = face->vertexindices[2];
+        face->vertexindices[2] = vertex;
+    }
+    document->dirty = TRUE;
+    return TRUE;
+}
+
+
 static BOOL BgDocumentFaceHasArea(const BgDocumentRoom *room, const BgDocumentFace *face)
 {
     const BgDocumentVertex *a = &room->vertices[face->vertexindices[0]];
