@@ -28,8 +28,6 @@ def main():
         (work / 'fixture.inc').write_text(''.join(function(fixture, n) for n in ('Put', 'Get', 'Float', 'Fixture')))
         editor = (src / 'geditor.c').read_text()
         (work / 'editor.inc').write_text(''.join(function(editor, n) for n in ('GEditorCanAddPortal', 'GEditorDropPortal')))
-        options = (src / 'portaloptions.c').read_text()
-        (work / 'options.inc').write_text(function(options, 'PortalOptionsNumber'))
         command = [os.environ.get('CC', 'cc'), '-O1', '-g', '-std=c99', '-Wall', '-Wextra',
                    '-Werror', '-Wno-unused-parameter', '-ffunction-sections', '-fdata-sections',
                    '-fsanitize=address,undefined', f'-I{here.parent / "image_import"}', f'-I{src}', f'-I{work}']

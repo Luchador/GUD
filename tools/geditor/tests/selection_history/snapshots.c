@@ -36,6 +36,7 @@ typedef struct ViewportState {
     SetupMarkerRef selectedmarker;
     ViewportPad *pads;
     BgPortalFile portals;
+    unsigned char portalselection[BG_MAX_PORTALS];
     float posx, posy, posz; /* Restoring a selection must leave camera unchanged. */
 } ViewportState;
 
@@ -52,7 +53,7 @@ static void ViewportSelectObject(ViewportState *state, DWORD index) { state->sel
 static BOOL ViewportSelectedMarker(const ViewportState *state, SetupMarker *marker)
 { return state->markerselected && state->showobjects && state->selectedmarker.command < 10; }
 static void ViewportClearPadSelection(ViewportState *state)
-{ state->selectedpad.index = SETUP_PAD_INDEX_NONE; state->selectedportal = BG_PORTAL_INDEX_NONE; state->markerselected = FALSE; }
+{ memset(state->portalselection, 0, sizeof(state->portalselection)); state->selectedpad.index = SETUP_PAD_INDEX_NONE; state->selectedportal = BG_PORTAL_INDEX_NONE; state->markerselected = FALSE; }
 static void ViewportClearBgSelection(ViewportState *state)
 { if (state->selectedtris) { memset(state->selectedtris, 0, state->scenecount / 3); } state->selectedtricount = 0; }
 static void ViewportClearObjectSelection(ViewportState *state) { state->selectedobject = VIEWPORT_OBJECT_NONE; }
@@ -85,13 +86,14 @@ int main(void)
     SceneBatch batches[2] = {{.first=0,.count=3}, {.first=3,.count=3,.secondary=TRUE}};
     StanTile tiles[2] = {{.pointcount=3}, {.pointcount=3}};
     ViewportPad pads[2] = {{.ref={3,FALSE}}, {.ref={3,TRUE}}};
+    BgPortal portals[2] = {{.pointcount=4}, {.pointcount=4}};
     ViewportState state = {.tool=EDITOR_TOOL_FACE_SELECT, .scenecount=6, .scenefacerefs=faces,
         .selectedtris=selected, .hiddentris=hidden, .selectedtricount=1, .scenevertexrefs=refs,
         .batches=batches, .batchcount=2, .stan={.tiles=tiles,.tilecount=2}, .stanselected=stanselected,
         .showbgprimary=TRUE, .showbgsecondary=TRUE, .showstan=TRUE, .stanopacity=44,
         .showobjects=TRUE, .showportals=TRUE, .selectedobject=VIEWPORT_OBJECT_NONE,
         .selectedportal=BG_PORTAL_INDEX_NONE, .selectedpad={SETUP_PAD_INDEX_NONE,FALSE},
-        .pads=pads, .padcount=2, .portals={.portalcount=2}, .posx=123, .posy=456, .posz=789};
+        .pads=pads, .padcount=2, .portals={.portals=portals,.portalcount=2}, .posx=123, .posy=456, .posz=789};
     size_t size, other_size;
     void *snapshot = Capture(&state, &size), *other;
     /* Reorder triangles like a material edit does. Selection follows face ID. */
@@ -190,7 +192,7 @@ int main(void)
         assert(state.markerselected && state.selectedmarker.kind == (SetupMarkerKind)kind && state.selectedmarker.command == 7);
         free(snapshot);
     }
-    ViewportClearAllSelection(&state); state.selectedportal = 1;
+    ViewportClearAllSelection(&state); state.selectedportal = 1; state.portalselection[1] = 1;
     snapshot = Capture(&state, &size);
     state.selectedportal = 0;
     assert(ViewportRestoreSelection(&state, snapshot, size)); assert(state.selectedportal == 1);
@@ -198,6 +200,19 @@ int main(void)
     state.showportals = FALSE;
     assert(ViewportRestoreSelection(&state, snapshot, size)); assert(state.selectedportal == BG_PORTAL_INDEX_NONE);
     free(snapshot);
+
+    state.showportals = TRUE;
+    for (int mode = EDITOR_TOOL_VERTEX_SELECT; mode <= EDITOR_TOOL_FACE_SELECT; mode++)
+    {
+        ViewportClearAllSelection(&state);state.tool=mode;
+        state.portalselection[0]=mode==EDITOR_TOOL_FACE_SELECT?1:5;
+        state.portalselection[1]=mode==EDITOR_TOOL_FACE_SELECT?1:10;state.selectedportal=1;
+        snapshot=Capture(&state,&size);ViewportClearAllSelection(&state);
+        assert(ViewportRestoreSelection(&state,snapshot,size));
+        assert(state.selectedportal==1 && state.portalselection[0]==(mode==EDITOR_TOOL_FACE_SELECT?1:5)
+            && state.portalselection[1]==(mode==EDITOR_TOOL_FACE_SELECT?1:10));
+        free(snapshot);
+    }
 
     /* UV snapshots ignore transformed coordinates, but retain source identity
      * and texture dimensions for mixed-size texture selections. */

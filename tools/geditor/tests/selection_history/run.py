@@ -35,7 +35,7 @@ def main():
         logic = ""
         for name in ("ViewportTriangleHidden", "ViewportCompareVertexRefs", "ViewportCornerVisible",
                      "ViewportFindVertexCorner", "ViewportRestoreComponents", "ViewportCompareFaceRefs",
-                     "ViewportStanVisible", "ViewportSelectedPadIndex", "ViewportClearAllSelection"):
+                     "ViewportStanVisible", "ViewportSelectedPadIndex", "ViewportResolveActivePortal", "ViewportClearAllSelection"):
             logic += function(viewport, name)
         logic += viewport[viewport.index("/* Pointer-free, level-local history snapshot."):]
         logic += function(uv, "UVCanvasNodeCompare")

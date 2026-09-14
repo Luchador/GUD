@@ -41,6 +41,8 @@ typedef struct ViewportState {
     BOOL boxpending, boxdragging, boxadd, boxremove;
     POINT boxstart, boxend;
     int hoveraxis;
+    BOOL showportals; BgPortalFile portals; DWORD selectedportal;
+    unsigned char portalselection[BG_MAX_PORTALS];
 } ViewportState;
 
 static HWND capture;
@@ -66,11 +68,14 @@ static void ViewportRefreshStanOverlay(ViewportState *state) {}
 static void ViewportClearAllSelection(ViewportState *state)
 {
     state->componentcount = state->stancomponentcount = 0;
+    state->selectedportal = BG_PORTAL_INDEX_NONE; memset(state->portalselection,0,sizeof(state->portalselection));
 }
 static BOOL ViewportTryPickStan(HWND hwnd, ViewportState *state, int x, int y, BOOL add, BOOL remove)
 {
     return FALSE;
 }
+static void ViewportRefreshPortalColors(ViewportState *state) {}
+static BOOL ViewportTryPickPortal(HWND hwnd, ViewportState *state, int x, int y, BOOL add, BOOL remove) { return FALSE; }
 static void ViewportPickComponent(HWND hwnd, ViewportState *state, int x, int y, BOOL add, BOOL remove)
 {
     clicks++; clickadd = add; clickremove = remove;

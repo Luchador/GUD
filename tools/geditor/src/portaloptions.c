@@ -1,8 +1,4 @@
-#include <ctype.h>
-#include <errno.h>
-#include <math.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include "portaloptions.h"
 #include "resource.h"
 
@@ -11,24 +7,9 @@ typedef struct PortalOptionsDialog {
     BgPortalPlacement placement;
 } PortalOptionsDialog;
 
-static BOOL PortalOptionsNumber(const char *text, BOOL dimension, double *out)
-{
-    char *end;
-    double value;
-    errno = 0;
-    value = strtod(text, &end);
-    if (end == text || errno || !isfinite(value) || (dimension && value <= 0)) { return FALSE; }
-    while (isspace((unsigned char)*end)) { end++; }
-    if (*end || (dimension && !isfinite(value * 100))) { return FALSE; }
-    *out = dimension ? value * 100 : value;
-    return TRUE;
-}
-
 static INT_PTR CALLBACK PortalOptionsProc(HWND dialog, UINT message, WPARAM wparam, LPARAM lparam)
 {
     PortalOptionsDialog *state = (PortalOptionsDialog *)GetWindowLongPtr(dialog, DWLP_USER);
-    static const int numbers[] = {IDC_PORTAL_WIDTH, IDC_PORTAL_HEIGHT,
-        IDC_PORTAL_X, IDC_PORTAL_Y, IDC_PORTAL_Z};
     switch (message)
     {
     case WM_INITDIALOG:
@@ -57,14 +38,6 @@ static INT_PTR CALLBACK PortalOptionsProc(HWND dialog, UINT message, WPARAM wpar
         SendDlgItemMessage(dialog, IDC_PORTAL_PLANE, CB_ADDSTRING, 0, (LPARAM)"YZ (vertical, facing X)");
         SendDlgItemMessage(dialog, IDC_PORTAL_PLANE, CB_ADDSTRING, 0, (LPARAM)"XZ (horizontal)");
         SendDlgItemMessage(dialog, IDC_PORTAL_PLANE, CB_SETCURSEL, state->placement.plane, 0);
-        for (int i = 0; i < 5; i++)
-        {
-            double value = i == 0 ? state->placement.width / 100
-                : i == 1 ? state->placement.height / 100 : state->placement.center[i - 2];
-            snprintf(text, sizeof(text), "%.9g", value);
-            SetDlgItemText(dialog, numbers[i], text);
-            SendDlgItemMessage(dialog, numbers[i], EM_LIMITTEXT, 63, 0);
-        }
         return TRUE;
     }
     case WM_CLOSE:
@@ -90,22 +63,6 @@ static INT_PTR CALLBACK PortalOptionsProc(HWND dialog, UINT message, WPARAM wpar
             }
             placement.room1 = rooms[0]; placement.room2 = rooms[1];
             placement.plane = (BgPortalPlane)SendDlgItemMessage(dialog, IDC_PORTAL_PLANE, CB_GETCURSEL, 0, 0);
-            for (int i = 0; i < 5; i++)
-            {
-                char text[64]; double value;
-                GetDlgItemText(dialog, numbers[i], text, sizeof(text));
-                if (!PortalOptionsNumber(text, i < 2, &value))
-                {
-                    MessageBox(dialog, i < 2 ? "Enter a positive size in meters."
-                        : "Enter a finite world coordinate.", "Add Portal", MB_ICONINFORMATION);
-                    SetFocus(GetDlgItem(dialog, numbers[i]));
-                    SendDlgItemMessage(dialog, numbers[i], EM_SETSEL, 0, -1);
-                    return TRUE;
-                }
-                if (i == 0) { placement.width = value; }
-                else if (i == 1) { placement.height = value; }
-                else { placement.center[i - 2] = value; }
-            }
             state->placement = placement;
             EndDialog(dialog, IDOK); return TRUE;
         }

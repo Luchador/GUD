@@ -24,7 +24,7 @@ enum { GL_FRONT=1, GL_BACK, GL_FRONT_AND_BACK, MF_STRING=0,
 typedef struct ViewportState {
     EditorTool tool;
     ViewportRenderMode rendermode;
-    BOOL orbit,flying,vertexsnap,boxpending,contextpending,cullbackfaces;
+    BOOL orbit,flying,vertexsnap,boxpending,contextpending,cullbackfaces,portalsnaptarget;
     BOOL showbgprimary,showbgsecondary,showobjects,keyw,keya,keys,keyd,keyq,keye;
     int dragaxis,hoveraxis,width,height,batchcount,selectedtricount;
     float posx,posy,posz,yaw,pitch,speed;

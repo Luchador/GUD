@@ -59,6 +59,9 @@ typedef struct BgPortal {
     unsigned char controlbytes2;
     unsigned char pointcount;
     BgPortalPoint points[BG_PORTAL_MAX_POINTS];
+    /* Exact native floats also live in history: undo after saving must restore
+     * the original bits, even when world/level scaling is not reversible. */
+    BgPortalPoint nativepoints[BG_PORTAL_MAX_POINTS];
 } BgPortal;
 
 typedef struct BgPortalFile {

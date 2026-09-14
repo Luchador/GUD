@@ -223,6 +223,7 @@ typedef struct ViewportState {
     EditorTool tool;
     ViewportRenderMode rendermode;
     BOOL vertexsnap;
+    BOOL portalsnaptarget; /* BG-only destination picking; ignore editor overlays. */
     BOOL colorpick;
     BOOL colorsampleclick; /* Consume the second click of a sampling double-click. */
     BOOL showgeometrystatistics;
@@ -332,6 +333,8 @@ typedef struct ViewportState {
     GLsizei stanedgecount;
     BgPortalFile portals;
     DWORD selectedportal;
+    unsigned char portalselection[BG_MAX_PORTALS]; /* vertices, perimeter edges, or bit 0 for faces */
+    BOOL dragportal;
     Vertex *portalfill;  /* half-transparent cyan portal polygons */
     GLsizei portalfillcount;
     Vertex *portaledges; /* opaque cyan GL_LINES around portals */
@@ -358,6 +361,10 @@ static void ViewportGetBasis(const ViewportState *state, float fwd[3], float rig
 static BOOL ViewportStanVisible(const ViewportState *state);
 static void ViewportClearStanSelection(ViewportState *state);
 static void ViewportRefreshPortalColors(ViewportState *state);
+static void ViewportRefreshPortalGeometry(ViewportState *state);
+static unsigned int ViewportPortalPointMask(const ViewportState *state, DWORD index);
+static BOOL ViewportPortalSelectionPosition(const ViewportState *state, double position[3], DWORD *countout);
+static BOOL ViewportPortalGeometryIsFirst(const BgPortalFile *file, DWORD index);
 static BOOL ViewportStanSelectionPosition(const ViewportState *state, BOOL gizmo,
                                            double position[3], DWORD *countout);
 static Vertex ViewportStanPointVertex(const StanPoint *point);
@@ -435,6 +442,7 @@ static void ViewportRefreshPadColors(ViewportState *state)
 static void ViewportClearPadSelection(ViewportState *state)
 {
     state->markerselected = FALSE;
+    ZeroMemory(state->portalselection, sizeof(state->portalselection));
     if (state->selectedportal != BG_PORTAL_INDEX_NONE)
     {
         state->selectedportal = BG_PORTAL_INDEX_NONE;
@@ -3009,6 +3017,88 @@ BgDocumentVertexRef *ViewportGetMoveVertices(HWND hwnd, DWORD *countout)
     return refs;
 }
 
+/* Selection bits name native polygon components, never fan diagonals. Shared
+ * geometry is edited once even when several room-link entries select it. */
+static unsigned int ViewportPortalComponentMask(const ViewportState *state, DWORD index)
+{
+    unsigned int mask = 0;
+    if (!state->showportals || !state->portals.portals || index >= state->portals.portalcount) { return 0; }
+    for (DWORD i = 0; i < state->portals.portalcount; i++)
+    {
+        if (state->portals.portals[i].geometryoffset == state->portals.portals[index].geometryoffset)
+        { mask |= state->portalselection[i]; }
+    }
+    return mask;
+}
+
+static unsigned int ViewportPortalPointMask(const ViewportState *state, DWORD index)
+{
+    unsigned int mask = ViewportPortalComponentMask(state, index), result = 0;
+    const BgPortal *portal = &state->portals.portals[index];
+    if (state->tool == EDITOR_TOOL_FACE_SELECT) { return mask ? (1u << portal->pointcount) - 1 : 0; }
+    if (state->tool == EDITOR_TOOL_VERTEX_SELECT) { return mask; }
+    if (state->tool == EDITOR_TOOL_EDGE_SELECT)
+    {
+        for (unsigned int point = 0; point < portal->pointcount; point++)
+        { if (mask & (1u << point)) { result |= (1u << point) | (1u << ((point + 1) % portal->pointcount)); } }
+    }
+    return result;
+}
+
+static BOOL ViewportPortalSelectionPosition(const ViewportState *state, double position[3], DWORD *countout)
+{
+    double sum[3] = {0};
+    DWORD count = 0;
+    if (!state || !state->showportals || state->tool == EDITOR_TOOL_VERTEX_PAINT) { return FALSE; }
+    for (DWORD i = 0; i < state->portals.portalcount; i++)
+    {
+        const BgPortal *portal = &state->portals.portals[i];
+        unsigned int mask = ViewportPortalComponentMask(state, i);
+        if (!mask || !ViewportPortalGeometryIsFirst(&state->portals, i)) { continue; }
+        for (unsigned int point = 0; point < (state->tool == EDITOR_TOOL_FACE_SELECT ? 1u : portal->pointcount); point++)
+        {
+            if (!(mask & (1u << point))) { continue; }
+            unsigned int ends = state->tool == EDITOR_TOOL_FACE_SELECT ? portal->pointcount
+                : state->tool == EDITOR_TOOL_EDGE_SELECT ? 2 : 1;
+            for (unsigned int end = 0; end < ends; end++)
+            {
+                const BgPortalPoint *v = &portal->points[(point + end) % portal->pointcount];
+                sum[0] += (double)v->x / ends; sum[1] += (double)v->y / ends; sum[2] += (double)v->z / ends;
+            }
+            count++;
+        }
+    }
+    if (!count) { return FALSE; }
+    for (int axis = 0; axis < 3; axis++) { position[axis] = sum[axis] / count; }
+    *countout = count;
+    return TRUE;
+}
+
+DWORD ViewportGetPortalSelectionCount(HWND hwnd)
+{
+    double position[3]; DWORD count = 0;
+    ViewportPortalSelectionPosition(ViewportGetState(hwnd), position, &count);
+    return count;
+}
+
+BgPortalPointRef *ViewportGetMovePortalPoints(HWND hwnd, DWORD *countout)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    BgPortalPointRef *refs;
+    *countout = 0;
+    if (!ViewportGetPortalSelectionCount(hwnd)) { return NULL; }
+    refs = malloc(state->portals.portalcount * BG_PORTAL_MAX_POINTS * sizeof(*refs));
+    if (!refs) { return NULL; }
+    for (DWORD i = 0; i < state->portals.portalcount; i++)
+    {
+        unsigned int mask = ViewportPortalPointMask(state, i);
+        if (!ViewportPortalGeometryIsFirst(&state->portals, i)) { continue; }
+        for (DWORD point = 0; point < state->portals.portals[i].pointcount; point++)
+        { if (mask & (1u << point)) { refs[(*countout)++] = (BgPortalPointRef){i, point}; } }
+    }
+    return refs;
+}
+
 int ViewportGetSelectedComponentCount(HWND hwnd)
 {
     const ViewportState *state = ViewportGetState(hwnd);
@@ -3035,6 +3125,7 @@ BOOL ViewportGetSelectionPosition(HWND hwnd, double position[3], DWORD *countout
             *countout = 1; return TRUE;
         }
     }
+    if (ViewportPortalSelectionPosition(state, position, countout)) { return TRUE; }
     if (state != NULL && ViewportPadSelectionPosition(state, position)) { *countout = 1; return TRUE; }
     if (state != NULL && ViewportStanSelectionPosition(state, FALSE, position, countout)) { return TRUE; }
     if (state == NULL || state->scene == NULL || state->tool == EDITOR_TOOL_VERTEX_PAINT)
@@ -3103,6 +3194,14 @@ static void ViewportUpdateGizmo(ViewportState *state)
     state->gizmovisible = FALSE;
     state->hoveraxis = -1;
     if (state->vertexsnap) { return; }
+    {
+        DWORD count;
+        if (ViewportPortalSelectionPosition(state, state->gizmoposition, &count))
+        {
+            state->gizmovisible = !state->rotationmode && !state->scalemode;
+            return;
+        }
+    }
     {
         SetupMarker marker;
         if (ViewportSelectedMarker(state, &marker))
@@ -3302,7 +3401,7 @@ static BOOL ViewportComponentVisible(const ViewportState *state, int triangle,
     ray.mindistance=0; ray.maxdistance=DBL_MAX;
     if (!ViewportRayTriangleDistance(&ray,&state->scene[triangle*3],cull,&distance)) { return FALSE; }
     tolerance=ViewportCoplanarPickTolerance(length);
-    if (ViewportFindPickedStan(state, &ray, &distance) != STAN_TILE_NONE
+    if (!state->portalsnaptarget && ViewportFindPickedStan(state, &ray, &distance) != STAN_TILE_NONE
         && distance <= length+tolerance) { return FALSE; }
     for (batchindex=0; batchindex<state->batchcount; batchindex++)
     {
@@ -3348,7 +3447,7 @@ static void ViewportPickComponent(HWND hwnd, ViewportState *state,
     double nearest = DBL_MAX, objectdistance, best = 100.0;
     int i, triangle = -1, chosen = -1, endcount, found = -1;
     ViewportComponent component;
-    if (ViewportTryPickObject(hwnd, state, x, y, remove)) { return; }
+    if (!state->portalsnaptarget && ViewportTryPickObject(hwnd, state, x, y, remove)) { return; }
     if (!ViewportBuildPickRay(hwnd,state,x,y,&ray)) { return; }
     /* Only offer components of the nearest visible face. The 10px target
        radius also allows choosing the vertex square or an edge itself. */
@@ -3733,19 +3832,83 @@ static DWORD ViewportFindPickedPortal(const ViewportState *state, const Viewport
     return BG_PORTAL_INDEX_NONE;
 }
 
-static BOOL ViewportTryPickPortal(HWND hwnd, ViewportState *state, int x, int y, BOOL remove)
+static BOOL ViewportPortalPointVisible(const ViewportState *state, const Vertex *point)
 {
-    ViewportPickRay ray; double scene; DWORD hit; BOOL clear;
-    if (state->flying || state->tool == EDITOR_TOOL_VERTEX_PAINT || !state->showportals
-        || !ViewportBuildPickRay(hwnd, state, x, y, &ray)) { return FALSE; }
-    scene = ViewportSceneHitDistance(state, &ray);
-    /* Stan is a translucent overlay and does not write depth; it must not
-     * prevent selecting a portal that is still drawn through it. */
-    hit = ViewportFindPickedPortal(state, &ray, scene, remove);
-    if (hit == BG_PORTAL_INDEX_NONE) { return FALSE; }
-    clear = remove && hit == state->selectedportal;
-    ViewportClearAllSelection(state);
-    state->selectedportal = clear ? BG_PORTAL_INDEX_NONE : hit;
+    ViewportPickRay ray;
+    double length;
+    ray.origin[0] = state->posx; ray.origin[1] = state->posy; ray.origin[2] = state->posz;
+    ray.direction[0] = (double)point->x - state->posx;
+    ray.direction[1] = (double)point->y - state->posy;
+    ray.direction[2] = (double)point->z - state->posz;
+    length = sqrt(ray.direction[0]*ray.direction[0] + ray.direction[1]*ray.direction[1] + ray.direction[2]*ray.direction[2]);
+    if (!(length > 0)) { return FALSE; }
+    for (int axis = 0; axis < 3; axis++) { ray.direction[axis] /= length; }
+    ray.mindistance = 0; ray.maxdistance = DBL_MAX;
+    /* Neither transparent portal nor Stan overlays write depth. */
+    return ViewportSceneHitDistance(state, &ray) >= length - ViewportCoplanarPickTolerance(length);
+}
+
+static BOOL ViewportFindPortalComponent(const ViewportState *state, int x, int y,
+    DWORD *portalout, unsigned int *pointout)
+{
+    double best = 100, nearest = DBL_MAX;
+    BOOL found = FALSE;
+    if (!state->showportals || !state->portals.portals) { return FALSE; }
+    for (DWORD i = 0; i < state->portals.portalcount; i++)
+    {
+        const BgPortal *portal = &state->portals.portals[i];
+        if (!ViewportPortalGeometryIsFirst(&state->portals, i)) { continue; }
+        for (unsigned int point = 0; point < portal->pointcount; point++)
+        {
+            const BgPortalPoint *p = &portal->points[point], *q = &portal->points[(point+1)%portal->pointcount];
+            Vertex a = {0}, b = {0}, candidate;
+            double screen[2], distance, depth;
+            a.x = p->x; a.y = p->y; a.z = p->z; b.x = q->x; b.y = q->y; b.z = q->z;
+            candidate = a;
+            if (state->tool == EDITOR_TOOL_EDGE_SELECT)
+            { if (!ViewportProjectEdgePoint(state, &a, &b, x, y, &candidate, screen)) { continue; } }
+            else if (!ViewportProject(state, &a, screen)) { continue; }
+            distance = (x-screen[0])*(x-screen[0]) + (y-screen[1])*(y-screen[1]);
+            depth = ((double)candidate.x-state->posx)*((double)candidate.x-state->posx)
+                + ((double)candidate.y-state->posy)*((double)candidate.y-state->posy)
+                + ((double)candidate.z-state->posz)*((double)candidate.z-state->posz);
+            if ((distance < best || (fabs(distance-best) < 1e-6 && depth < nearest))
+                && ViewportPortalPointVisible(state, &candidate))
+            { best = distance; nearest = depth; *portalout = i; *pointout = point; found = TRUE; }
+        }
+    }
+    return found;
+}
+
+static void ViewportResolveActivePortal(ViewportState *state)
+{
+    if (state->selectedportal < state->portals.portalcount && state->portalselection[state->selectedportal]) { return; }
+    state->selectedportal = BG_PORTAL_INDEX_NONE;
+    for (DWORD i = 0; i < state->portals.portalcount; i++)
+    { if (state->portalselection[i]) { state->selectedportal = i; break; } }
+}
+
+static BOOL ViewportTryPickPortal(HWND hwnd, ViewportState *state, int x, int y, BOOL add, BOOL remove)
+{
+    ViewportPickRay ray; DWORD hit = BG_PORTAL_INDEX_NONE; unsigned int point = 0;
+    if (state->flying || state->tool == EDITOR_TOOL_VERTEX_PAINT || !state->showportals) { return FALSE; }
+    if (state->tool == EDITOR_TOOL_FACE_SELECT)
+    {
+        if (!ViewportBuildPickRay(hwnd, state, x, y, &ray)) { return FALSE; }
+        hit = ViewportFindPickedPortal(state, &ray, ViewportSceneHitDistance(state, &ray), remove);
+        if (hit == BG_PORTAL_INDEX_NONE) { return FALSE; }
+    }
+    else if (!ViewportFindPortalComponent(state, x, y, &hit, &point)) { return FALSE; }
+    if (!add && !remove) { ViewportClearAllSelection(state); }
+    else
+    {
+        ViewportClearBgSelection(state); ViewportClearObjectSelection(state); ViewportClearStanSelection(state);
+        state->componentcount = 0; state->markerselected = FALSE;
+        state->selectedpad.index = SETUP_PAD_INDEX_NONE; ViewportRefreshPadColors(state);
+    }
+    if (remove) { state->portalselection[hit] &= ~(1u << point); }
+    else { state->portalselection[hit] |= 1u << point; state->selectedportal = hit; }
+    ViewportResolveActivePortal(state);
     ViewportRefreshPortalColors(state);
     ViewportUpdateGizmo(state);
     InvalidateRect(hwnd, NULL, FALSE);
@@ -4006,6 +4169,7 @@ static BOOL ViewportTryPickStan(HWND hwnd, ViewportState *state, int x, int y, B
                     }
                     state->stancomponents[state->stancomponentcount++] = component;
                 }
+                ViewportClearPadSelection(state);
                 ViewportClearBgSelection(state); ViewportClearObjectSelection(state); state->componentcount = 0;
             }
         }
@@ -4024,22 +4188,36 @@ void ViewportSnapVertexAt(HWND hwnd, int x, int y)
 {
     ViewportState *state = ViewportGetState(hwnd);
     if (!state || state->tool != EDITOR_TOOL_VERTEX_SELECT || !state->vertexsnap) { return; }
+    unsigned char sourceportals[BG_MAX_PORTALS];
+    DWORD sourceportal = state->selectedportal;
     ViewportComponent sourcebg = {0};
     ViewportStanComponent sourcestan = {0};
     double source[3], target[3];
     DWORD count;
+    DWORD portalcount = ViewportGetPortalSelectionCount(hwnd);
+    BOOL portal = portalcount == 1;
     BOOL stan = state->stancomponentcount == 1;
-    BOOL pending = state->componentcount + state->stancomponentcount == 1
+    BOOL pending = state->componentcount + state->stancomponentcount + portalcount == 1
         && ViewportGetSelectionPosition(hwnd, source, &count);
 
     if (pending)
     {
-        if (stan) { sourcestan = state->stancomponents[0]; }
+        if (portal) { memcpy(sourceportals, state->portalselection, sizeof(sourceportals)); }
+        else if (stan) { sourcestan = state->stancomponents[0]; }
         else { sourcebg = state->components[0]; }
     }
     ViewportClearAllSelection(state);
     /* Shift/Ctrl cannot extend or subtract from this one-vertex selection. */
-    if (!ViewportTryPickStan(hwnd, state, x, y, FALSE, FALSE))
+    if (pending && portal)
+    {
+        /* The destination is BG only: overlays and model selections must not
+         * steal it. Scene geometry still occludes hidden background vertices. */
+        state->portalsnaptarget = TRUE;
+        ViewportPickComponent(hwnd, state, x, y, FALSE, FALSE);
+        state->portalsnaptarget = FALSE;
+    }
+    else if (!pending && ViewportTryPickPortal(hwnd, state, x, y, FALSE, FALSE)) { /* source */ }
+    else if (!ViewportTryPickStan(hwnd, state, x, y, FALSE, FALSE))
     {
         ViewportPickComponent(hwnd, state, x, y, FALSE, FALSE);
     }
@@ -4052,7 +4230,12 @@ void ViewportSnapVertexAt(HWND hwnd, int x, int y)
         ViewportClearAllSelection(state);
         /* The source's allocation still exists, even after picking a vertex
            in the other asset type. Only the source is passed to history. */
-        if (stan)
+        if (portal)
+        {
+            memcpy(state->portalselection, sourceportals, sizeof(sourceportals));
+            state->selectedportal = sourceportal;
+        }
+        else if (stan)
         {
             state->stancomponents[0] = sourcestan;
             state->stancomponentcount = 1;
@@ -4074,6 +4257,7 @@ void ViewportSnapVertexAt(HWND hwnd, int x, int y)
         }
         /* A missed target, Cancel, or a rejected edit retains the source. */
     }
+    ViewportRefreshPortalColors(state);
     ViewportUpdateGizmo(state);
     InvalidateRect(hwnd, NULL, FALSE);
     SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
@@ -4196,6 +4380,37 @@ static BOOL ViewportEdgeInBox(const ViewportState *state, const Vertex *a, const
         }
     }
     /* A single point of contact, including a box corner, counts as a hit. */
+    return TRUE;
+}
+
+static BOOL ViewportApplyPortalBox(ViewportState *state, const RECT *box, BOOL add, BOOL remove)
+{
+    unsigned char hits[BG_MAX_PORTALS] = {0};
+    BOOL found = FALSE, selected = state->selectedportal != BG_PORTAL_INDEX_NONE;
+    if (!state->showportals) { return FALSE; }
+    for (DWORD i = 0; i < state->portals.portalcount; i++)
+    {
+        const BgPortal *portal = &state->portals.portals[i];
+        if (!ViewportPortalGeometryIsFirst(&state->portals, i)) { continue; }
+        for (unsigned int point = 0; point < portal->pointcount; point++)
+        {
+            const BgPortalPoint *p = &portal->points[point], *q = &portal->points[(point+1)%portal->pointcount];
+            Vertex a = {0}, b = {0};
+            a.x = p->x; a.y = p->y; a.z = p->z; b.x = q->x; b.y = q->y; b.z = q->z;
+            if (state->tool == EDITOR_TOOL_EDGE_SELECT ? ViewportEdgeInBox(state, &a, &b, box)
+                : ViewportVertexInBox(state, &a, box))
+            { hits[i] |= 1u << point; found = TRUE; }
+        }
+    }
+    if (!found && !selected) { return FALSE; }
+    if (!add && !remove) { ViewportClearAllSelection(state); }
+    for (DWORD i = 0; i < state->portals.portalcount; i++)
+    {
+        if (remove) { state->portalselection[i] &= ~hits[i]; }
+        else { state->portalselection[i] |= hits[i]; }
+    }
+    ViewportResolveActivePortal(state);
+    ViewportRefreshPortalColors(state);
     return TRUE;
 }
 
@@ -4478,17 +4693,22 @@ static void ViewportEndBoxSelection(HWND hwnd, ViewportState *state, int x, int 
     ViewportCancelBoxSelection(hwnd, state);
     if (!dragged)
     {
-        if (!ViewportTryPickStan(hwnd, state, start.x, start.y, add, remove))
+        if (!ViewportTryPickPortal(hwnd, state, start.x, start.y, add, remove)
+            && !ViewportTryPickStan(hwnd, state, start.x, start.y, add, remove))
         {
             ViewportPickComponent(hwnd, state, start.x, start.y, add, remove);
         }
         return;
     }
+    if (state->selectedportal != BG_PORTAL_INDEX_NONE
+        && ViewportApplyPortalBox(state, &box, add, remove)) { goto done; }
     {
         ViewportBoxComponent *hits = NULL;
         int count = 0;
         BOOL stan = ViewportStanVisible(state) && state->stancomponentcount > 0;
         BOOL ok = ViewportCollectBoxComponents(state, &box, stan, &hits, &count);
+        if (ok && !count && !stan && !state->componentcount
+            && ViewportApplyPortalBox(state, &box, add, remove)) { free(hits); goto done; }
         /* Component transforms edit one asset type at a time. Keep the current
          * type; with no selection prefer BG, falling back to stan-only hits. */
         if (ok && count == 0 && !stan && state->componentcount == 0 && ViewportStanVisible(state))
@@ -4509,6 +4729,7 @@ static void ViewportEndBoxSelection(HWND hwnd, ViewportState *state, int x, int 
             return;
         }
     }
+done:
     ViewportUpdateGizmo(state);
     InvalidateRect(hwnd, NULL, FALSE);
     SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
@@ -4949,6 +5170,42 @@ static void ViewportDrawTransformTools(const ViewportState *state)
             glEnd();
         }
     }
+    if (state->showportals && (state->tool == EDITOR_TOOL_VERTEX_SELECT || state->tool == EDITOR_TOOL_EDGE_SELECT))
+    {
+        if (state->tool == EDITOR_TOOL_VERTEX_SELECT)
+        {
+            glColor3ub(0, 255, 255); glPointSize(VIEWPORT_VERTEX_MARKER_SIZE);
+            glBegin(GL_POINTS);
+            for (DWORD portal = 0; portal < state->portals.portalcount; portal++)
+            {
+                if (!ViewportPortalGeometryIsFirst(&state->portals, portal)) { continue; }
+                for (unsigned int point = 0; point < state->portals.portals[portal].pointcount; point++)
+                {
+                    const BgPortalPoint *v = &state->portals.portals[portal].points[point];
+                    glVertex3f(v->x, v->y, v->z);
+                }
+            }
+            glEnd();
+        }
+        glColor3ub(VIEWPORT_SELECTION_GOLD); glPointSize(8); glLineWidth(3);
+        glBegin(state->tool == EDITOR_TOOL_VERTEX_SELECT ? GL_POINTS : GL_LINES);
+        for (DWORD portal = 0; portal < state->portals.portalcount; portal++)
+        {
+            unsigned int mask = ViewportPortalComponentMask(state, portal);
+            const BgPortal *polygon = &state->portals.portals[portal];
+            if (!ViewportPortalGeometryIsFirst(&state->portals, portal)) { continue; }
+            for (unsigned int point = 0; point < polygon->pointcount; point++)
+            {
+                if (!(mask & (1u << point))) { continue; }
+                for (int end = 0; end < (state->tool == EDITOR_TOOL_EDGE_SELECT ? 2 : 1); end++)
+                {
+                    const BgPortalPoint *v = &polygon->points[(point+end)%polygon->pointcount];
+                    glVertex3f(v->x, v->y, v->z);
+                }
+            }
+        }
+        glEnd();
+    }
     /* Handles remain visible and clickable over the selection. Depth is
        local to the three arrows; scene depth must not hide a handle. */
     glDepthRange(0.0, 1.0);
@@ -5108,6 +5365,36 @@ static BOOL ViewportPrepareEdgeExtrusion(ViewportState *state)
     return state->extrudecount != 0;
 }
 
+static void ViewportPreparePortalDrag(ViewportState *state)
+{
+    for (DWORD portal = 0; portal < state->portals.portalcount; portal++)
+    {
+        unsigned int mask = ViewportPortalPointMask(state, portal);
+        for (unsigned int point = 0; point < state->portals.portals[portal].pointcount; point++)
+        {
+            DWORD i = portal * BG_PORTAL_MAX_POINTS + point;
+            const BgPortalPoint *v = &state->portals.portals[portal].points[point];
+            state->dragvertices[i][0] = v->x; state->dragvertices[i][1] = v->y; state->dragvertices[i][2] = v->z;
+            state->dragmask[i] = (mask & (1u << point)) != 0;
+        }
+    }
+}
+
+/* Always preview from the mouse-down snapshot. Zero displacement restores it
+ * before committing, or when Escape/focus/capture loss cancels the gesture. */
+static void ViewportPreviewPortalDrag(ViewportState *state, double delta)
+{
+    for (DWORD i = 0; i < state->portals.portalcount * BG_PORTAL_MAX_POINTS; i++)
+    {
+        if (!state->dragmask[i]) { continue; }
+        BgPortalPoint *point = &state->portals.portals[i / BG_PORTAL_MAX_POINTS].points[i % BG_PORTAL_MAX_POINTS];
+        point->x = state->dragvertices[i][0] + (state->dragaxis == 0 ? delta : 0);
+        point->y = state->dragvertices[i][1] + (state->dragaxis == 1 ? delta : 0);
+        point->z = state->dragvertices[i][2] + (state->dragaxis == 2 ? delta : 0);
+    }
+    ViewportRefreshPortalGeometry(state);
+}
+
 static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y, BOOL shift)
 {
     ViewportPickRay ray;
@@ -5123,9 +5410,12 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
     state->dragscaling = state->scalemode;
     { SetupMarker marker; state->dragmarker = ViewportSelectedMarker(state, &marker); }
     if (state->dragmarker && state->dragscaling) { return FALSE; }
+    state->dragportal = ViewportGetPortalSelectionCount(hwnd) > 0;
+    if (state->dragportal && (state->dragrotation || state->dragscaling)) { return FALSE; }
     state->dragpad = ViewportSelectedPadIndex(state) >= 0;
     state->dragstan = ViewportGetStanSelectionCount(hwnd, NULL) > 0;
-    vertexcount = state->dragmarker ? 1 : state->dragpad    ? VIEWPORT_BOX_VERTICES
+    vertexcount = state->dragportal ? (int)(state->portals.portalcount * BG_PORTAL_MAX_POINTS)
+                  : state->dragmarker ? 1 : state->dragpad    ? VIEWPORT_BOX_VERTICES
                   : state->dragstan ? (int)(state->stan.tilecount * STAN_TILE_MAX_POINTS)
                                     : state->scenecount;
     state->dragvertices = malloc((size_t)vertexcount * sizeof(*state->dragvertices));
@@ -5138,7 +5428,8 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
         state->dragmask = NULL;
         return TRUE;
     }
-    if (state->dragmarker) { /* Marker previews rebuild their native setup clone below. */ }
+    if (state->dragportal) { ViewportPreparePortalDrag(state); }
+    else if (state->dragmarker) { /* Marker previews rebuild their native setup clone below. */ }
     else if (state->dragpad)
     {
         int first = ViewportSelectedPadIndex(state) * VIEWPORT_BOX_VERTICES;
@@ -5255,7 +5546,7 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
     }
     state->dragextruding = shift && state->tool == EDITOR_TOOL_EDGE_SELECT
         && !state->dragrotation && !state->dragscaling && !state->dragstan
-        && !state->dragpad && !state->dragmarker && state->selectedobject == VIEWPORT_OBJECT_NONE;
+        && !state->dragpad && !state->dragmarker && !state->dragportal && state->selectedobject == VIEWPORT_OBJECT_NONE;
     if (state->dragextruding && !ViewportPrepareEdgeExtrusion(state))
     {
         ViewportCancelTransform(hwnd);
@@ -5344,7 +5635,8 @@ static void ViewportDragTransform(HWND hwnd, ViewportState *state, int x, int y)
     }
     if (state->dragmarker && !ViewportPreviewMarker(hwnd, state, delta, state->dragrotation ? &rotation : NULL)) { return; }
     state->dragdelta = delta;
-    for (i = 0; i < (state->dragmarker ? 0 : state->dragpad    ? VIEWPORT_BOX_VERTICES
+    if (state->dragportal) { ViewportPreviewPortalDrag(state, delta); }
+    for (i = 0; i < (state->dragportal || state->dragmarker ? 0 : state->dragpad    ? VIEWPORT_BOX_VERTICES
                      : state->dragstan ? (int)(state->stan.tilecount * STAN_TILE_MAX_POINTS)
                                        : state->scenecount);
          i++)
@@ -5431,7 +5723,8 @@ void ViewportCancelTransform(HWND hwnd)
     }
     if (state->dragmarker && state->markersetup)
     { ViewportSetSetupMarkers(hwnd, state, state->markersetup, state->markerlevelscale); }
-    for (i = 0; i < (state->dragmarker || state->dragextruding ? 0 : state->dragpad    ? VIEWPORT_BOX_VERTICES
+    if (state->dragportal) { ViewportPreviewPortalDrag(state, 0); }
+    for (i = 0; i < (state->dragportal || state->dragmarker || state->dragextruding ? 0 : state->dragpad    ? VIEWPORT_BOX_VERTICES
                      : state->dragstan ? (int)(state->stan.tilecount * STAN_TILE_MAX_POINTS)
                                        : state->scenecount);
          i++)
@@ -5875,8 +6168,9 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         }
         if (state != NULL && ViewportTryPickMarker(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam),
             (wparam & MK_CONTROL) != 0)) { return 0; }
-        if (state != NULL && ViewportTryPickPortal(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam),
-            (wparam & MK_CONTROL) != 0)) { return 0; }
+        if (state != NULL && state->tool == EDITOR_TOOL_FACE_SELECT
+            && ViewportTryPickPortal(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam),
+                (wparam & MK_SHIFT) != 0, (wparam & MK_CONTROL) != 0)) { return 0; }
         if (state != NULL && !state->flying
             && (state->tool == EDITOR_TOOL_VERTEX_SELECT || state->tool == EDITOR_TOOL_EDGE_SELECT))
         {
@@ -6520,14 +6814,12 @@ static void ViewportRefreshPortalColors(ViewportState *state)
 {
     DWORD fillat = 0, edgeat = 0, i;
     const unsigned char gold[3] = {VIEWPORT_SELECTION_GOLD};
-    DWORD geometry = state->selectedportal < state->portals.portalcount
-        ? state->portals.portals[state->selectedportal].geometryoffset : (DWORD)-1;
     if (!state->portalfill || !state->portaledges) { return; }
     for (i = 0; i < state->portals.portalcount; i++)
     {
         const BgPortal *portal = &state->portals.portals[i];
         DWORD fillcount = (portal->pointcount - 2) * 3, edgecount = portal->pointcount * 2;
-        BOOL selected = geometry == portal->geometryoffset;
+        BOOL selected = state->tool == EDITOR_TOOL_FACE_SELECT && ViewportPortalComponentMask(state, i);
         if (!ViewportPortalGeometryIsFirst(&state->portals, i)) { continue; }
         for (DWORD v = 0; v < fillcount + edgecount; v++)
         {
@@ -6538,6 +6830,29 @@ static void ViewportRefreshPortalColors(ViewportState *state)
         }
         fillat += fillcount; edgeat += edgecount;
     }
+}
+
+static void ViewportRefreshPortalGeometry(ViewportState *state)
+{
+    DWORD fill = 0, edge = 0;
+    if (!state->portalfill || !state->portaledges) { return; }
+    for (DWORD i = 0; i < state->portals.portalcount; i++)
+    {
+        const BgPortal *portal = &state->portals.portals[i];
+        if (!ViewportPortalGeometryIsFirst(&state->portals, i)) { continue; }
+        for (unsigned int point = 1; point + 1 < portal->pointcount; point++)
+        {
+            ViewportSetPortalVertex(&state->portalfill[fill++], &portal->points[0], VIEWPORT_PORTAL_FILL_ALPHA);
+            ViewportSetPortalVertex(&state->portalfill[fill++], &portal->points[point], VIEWPORT_PORTAL_FILL_ALPHA);
+            ViewportSetPortalVertex(&state->portalfill[fill++], &portal->points[point+1], VIEWPORT_PORTAL_FILL_ALPHA);
+        }
+        for (unsigned int point = 0; point < portal->pointcount; point++)
+        {
+            ViewportSetPortalVertex(&state->portaledges[edge++], &portal->points[point], VIEWPORT_PORTAL_EDGE_ALPHA);
+            ViewportSetPortalVertex(&state->portaledges[edge++], &portal->points[(point+1)%portal->pointcount], VIEWPORT_PORTAL_EDGE_ALPHA);
+        }
+    }
+    ViewportRefreshPortalColors(state);
 }
 
 BOOL ViewportGetSelectedPortal(HWND hwnd, DWORD *index)
@@ -6555,6 +6870,8 @@ BOOL ViewportSelectPortal(HWND hwnd, DWORD index)
         || index >= state->portals.portalcount) { return FALSE; }
     ViewportClearAllSelection(state);
     state->selectedportal = index;
+    state->portalselection[index] = state->tool == EDITOR_TOOL_FACE_SELECT ? 1
+        : (1u << state->portals.portals[index].pointcount) - 1;
     ViewportRefreshPortalColors(state);
     ViewportUpdateGizmo(state);
     InvalidateRect(hwnd, NULL, FALSE);
@@ -6590,6 +6907,7 @@ void ViewportSetPortals(HWND hwnd, const BgPortalFile *portals)
     if (portals == NULL || portals->portals == NULL
         || portals->portalcount == 0)
     {
+        ZeroMemory(state->portalselection, sizeof(state->portalselection));
         state->selectedportal = BG_PORTAL_INDEX_NONE;
         InvalidateRect(hwnd, NULL, FALSE);
         return;
@@ -6612,6 +6930,7 @@ void ViewportSetPortals(HWND hwnd, const BgPortalFile *portals)
         free(fill);
         free(edges);
         BgPortalFileFree(&state->portals);
+        ZeroMemory(state->portalselection, sizeof(state->portalselection));
         state->selectedportal = BG_PORTAL_INDEX_NONE;
         InvalidateRect(hwnd, NULL, FALSE);
         return;
@@ -6653,12 +6972,15 @@ void ViewportSetPortals(HWND hwnd, const BgPortalFile *portals)
 
     memcpy(state->portals.portals, portals->portals, portals->portalcount * sizeof(*state->portals.portals));
     state->portals.portalcount = portals->portalcount;
-    if (state->selectedportal >= portals->portalcount) { state->selectedportal = BG_PORTAL_INDEX_NONE; }
+    for (i = 0; i < BG_MAX_PORTALS; i++)
+    { state->portalselection[i] &= i < portals->portalcount ? (1u << portals->portals[i].pointcount) - 1 : 0; }
+    ViewportResolveActivePortal(state);
     state->portalfill = fill;
     state->portaledges = edges;
     state->portalfillcount = (GLsizei)fillat;
     state->portaledgecount = (GLsizei)edgeat;
     ViewportRefreshPortalColors(state);
+    ViewportUpdateGizmo(state);
     InvalidateRect(hwnd, NULL, FALSE);
 }
 
@@ -6682,6 +7004,7 @@ void ViewportSetGeometryVisibility(HWND hwnd, BOOL bgprimary,
     state->showportals = portals;
     if (!portals)
     {
+        ZeroMemory(state->portalselection, sizeof(state->portalselection));
         state->selectedportal = BG_PORTAL_INDEX_NONE;
         ViewportRefreshPortalColors(state);
     }
@@ -7057,7 +7380,8 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     state->monitors = monitorpreview;
     KillTimer(hwnd, VIEWPORT_MONITOR_TIMER);
     if (state->monitors.count) { SetTimer(hwnd, VIEWPORT_MONITOR_TIMER, 16, NULL); }
-    if (framecamera) { state->selectedportal = BG_PORTAL_INDEX_NONE; }
+    if (framecamera)
+    { state->selectedportal = BG_PORTAL_INDEX_NONE; ZeroMemory(state->portalselection, sizeof(state->portalselection)); }
     state->selectedpad = savedpad; /* resolved when the pad overlay is rebuilt */
     state->selectedmarker = savedmarker;
     state->markerselected = savedmarkerselection;
@@ -8013,6 +8337,7 @@ typedef struct ViewportSelectionSnapshot {
     EditorTool tool;
     BOOL vertexsnap;
     DWORD object, portal;
+    unsigned char portalselection[BG_MAX_PORTALS];
     SetupPadRef pad;
     BOOL markerselected;
     SetupMarkerRef marker;
@@ -8045,6 +8370,7 @@ BOOL ViewportCaptureSelection(HWND hwnd, void **data, size_t *size)
     header.vertexsnap = state->vertexsnap;
     header.object = state->selectedobject;
     header.portal = state->selectedportal;
+    memcpy(header.portalselection, state->portalselection, sizeof(header.portalselection));
     header.pad.index = state->selectedpad.index;
     if (header.pad.index != SETUP_PAD_INDEX_NONE) { header.pad.bound = state->selectedpad.bound; }
     header.markerselected = state->markerselected;
@@ -8151,7 +8477,13 @@ BOOL ViewportRestoreSelection(HWND hwnd, const void *data, size_t size)
     state->markerselected = s->markerselected;
     state->selectedmarker = s->marker;
     if (!ViewportSelectedMarker(state, &marker)) { state->markerselected = FALSE; }
-    if (state->showportals && s->portal < state->portals.portalcount) { state->selectedportal = s->portal; }
+    if (state->showportals)
+    {
+        for (DWORD portal = 0; portal < state->portals.portalcount; portal++)
+        { state->portalselection[portal] = s->portalselection[portal] & ((1u << state->portals.portals[portal].pointcount) - 1); }
+        state->selectedportal = s->portal;
+        ViewportResolveActivePortal(state);
+    }
     ViewportRefreshPadColors(state);
     ViewportRefreshPortalColors(state);
     ViewportRefreshStanOverlay(state);

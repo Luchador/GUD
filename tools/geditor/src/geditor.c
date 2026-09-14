@@ -189,9 +189,10 @@ static void GEditorRefreshTransformFields(void)
     SetupMarkerRef markerref;
     BOOL marker = ViewportGetSelectedMarker(g_Viewport, &markerref, NULL);
     BOOL stan = ViewportGetStanSelectionCount(g_Viewport, NULL) > 0;
+    BOOL portal = ViewportGetPortalSelectionCount(g_Viewport) > 0;
     double scale = stan ? g_CurrentStan.levelscale : g_CurrentBgDocument.levelscale;
     BOOL editable = hasposition && (object ? GEditorCanMoveSetupModel(objectindex) : scale > 0);
-    double precision = editable && !object && !pad && !marker ? 1.0 / scale : 0;
+    double precision = editable && !object && !pad && !marker && !portal ? 1.0 / scale : 0;
 
     Rotation frame;
     double degrees[3], pivot[3];
@@ -199,7 +200,7 @@ static void GEditorRefreshTransformFields(void)
     if (!ViewportIsTransforming(g_Viewport))
     {
         BOOL valid = FALSE;
-        if (editable && ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT)
+        if (editable && !portal && ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT)
         {
             if (marker)
             {
@@ -227,7 +228,7 @@ static void GEditorRefreshTransformFields(void)
     if (!ViewportIsTransforming(g_Viewport))
     {
         Rotation scaleaxes;
-        BOOL valid = editable && !marker && ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT;
+        BOOL valid = editable && !marker && !portal && ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT;
         RotationAxis(&scaleaxes, 0, 0);
         if (object)
         {
@@ -2091,8 +2092,44 @@ fail:
     return FALSE;
 }
 
+static BOOL GEditorTranslatePortals(HWND hwnd, const double offset[3], BOOL snap)
+{
+    EditHistoryTransaction transaction = {0};
+    DWORD count, moved;
+    BgPortalPointRef *refs = ViewportGetMovePortalPoints(g_Viewport, &count);
+    const char *why = "There are no editable selected portal points.";
+    EditorTool tool = ViewportGetTool(g_Viewport);
+    const char *action = snap ? "Snap Portal Vertex" : tool == EDITOR_TOOL_VERTEX_SELECT ? "Move Portal Vertices"
+        : tool == EDITOR_TOOL_EDGE_SELECT ? "Move Portal Edges" : "Move Portal Faces";
+    if (!refs) { goto fail; }
+    if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument, action, &transaction, &why)) { goto fail; }
+    if (!BgDocumentTranslatePortalPoints(&g_CurrentBgDocument, refs, count, offset, &moved, &why)) { goto rollback; }
+    free(refs); refs = NULL;
+    if (!moved) { EditHistoryCancelEdit(&transaction); return TRUE; }
+    ViewportSetPortals(g_Viewport, &g_CurrentBgDocument.portals);
+    if (!ViewportGetPortalSelectionCount(g_Viewport))
+    { why = "Could not display the edited portal."; goto rollback; }
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument,
+        &g_CurrentSetup, &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    GEditorRefreshSelectionDetails();
+    GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    ViewportSetPortals(g_Viewport, &g_CurrentBgDocument.portals);
+    GEditorRestoreHistorySelection(hwnd);
+fail:
+    free(refs);
+    EditHistoryCancelEdit(&transaction);
+    GEditorRefreshSelectionDetails();
+    GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
 static BOOL GEditorTranslateSelection(HWND hwnd, const double offset[3], BOOL snap)
 {
+    if (ViewportGetPortalSelectionCount(g_Viewport)) { return GEditorTranslatePortals(hwnd, offset, snap); }
     if (ViewportGetSelectedMarker(g_Viewport, NULL, NULL)) { return GEditorTransformMarker(hwnd, offset, NULL); }
     EditHistoryTransaction transaction;
     double applied[3];
@@ -2223,6 +2260,7 @@ fail:
 static BOOL GEditorTransformSelection(HWND hwnd, const ViewportRotation *request,
                                       const Scaling *scaling)
 {
+    if (ViewportGetPortalSelectionCount(g_Viewport)) { return FALSE; }
     if (ViewportGetSelectedMarker(g_Viewport, NULL, NULL))
     { return !scaling && request && GEditorTransformMarker(hwnd, NULL, &request->rotation); }
     EditHistoryTransaction transaction;
@@ -3165,7 +3203,7 @@ static BOOL GEditorDropPortal(HWND hwnd, const BrowserObjectDrop *drop)
         || WindowFromPoint(drop->screen) != g_Viewport
         || !ViewportGetPrimitiveDrop(g_Viewport, drop->screen, placement.center,
                                      right, &placement.room1)) { return FALSE; }
-    placement.width = 200; placement.height = 300;
+    placement.width = placement.height = 300;
     placement.plane = fabs(right[0]) >= fabs(right[2]) ? BG_PORTAL_XY : BG_PORTAL_YZ;
     /* Resolve the drop before the modal dialog; Cancel changes no assets. */
     if (!PortalOptionsPrompt(hwnd, g_CurrentBgDocument.roomcount, &placement)) { return FALSE; }
@@ -3174,6 +3212,8 @@ static BOOL GEditorDropPortal(HWND hwnd, const BrowserObjectDrop *drop)
     if (!BgDocumentAddPortal(&g_CurrentBgDocument, &placement, &index, &why)) { goto rollback; }
     ViewportSetPortals(g_Viewport, &g_CurrentBgDocument.portals);
     RightPanelShowPortals(g_RightPanel);
+    ViewportSetTransformMode(g_Viewport, TRANSFORM_MOVE);
+    RightPanelSetTransformMode(g_RightPanel, TRANSFORM_MOVE);
     ViewportSetTool(g_Viewport, EDITOR_TOOL_FACE_SELECT);
     if (!ViewportSelectPortal(g_Viewport, index))
     { why = "Could not display the new portal."; goto rollback; }

@@ -16,7 +16,6 @@ static void *TestRealloc(void *p, size_t size) { return failallocation ? NULL : 
 #include "bgportal.c"
 #undef realloc
 #include "fixture.inc"
-#include "options.inc"
 
 static void SamePortals(const BgDocument *a, const BgDocument *b, DWORD oldcount)
 {
@@ -91,11 +90,6 @@ static void Geometry(void)
     doc.portalwarning="bad table";assert(!BgDocumentAddPortal(&doc,&p,&index,&why));doc.portalwarning=NULL;
     assert(doc.portals.portalcount==count && !memcmp(originals,doc.portals.portals,sizeof(originals)));
     BgDocumentFree(&doc);BgFileFree(&source);
-    double value=123;
-    assert(PortalOptionsNumber(" 2.5 ",TRUE,&value) && value==250);
-    assert(PortalOptionsNumber("-7.5",FALSE,&value) && value==-7.5);
-    assert(!PortalOptionsNumber("nan",FALSE,&value) && !PortalOptionsNumber("inf",FALSE,&value));
-    assert(!PortalOptionsNumber("0",TRUE,&value) && !PortalOptionsNumber("1m",TRUE,&value));
     puts("PASS: rectangular planes, room IDs, exact centers/sizes, unique identities, float limits and allocation failure.");
 }
 static void Persistence(const char *dir)
@@ -169,13 +163,15 @@ static BOOL ViewportGetPrimitiveDrop(HWND hwnd, POINT point, double *position, d
 BOOL PortalOptionsPrompt(HWND hwnd, DWORD rooms, BgPortalPlacement *p)
 {
     prompts++;assert(rooms==3 && p->room1==1 && !p->room2 && p->center[0]==100 && p->center[1]==200 && p->center[2]==300);
-    assert(p->width==200 && p->height==300 && p->plane==BG_PORTAL_XY);
+    assert(p->width==300 && p->height==300 && p->plane==BG_PORTAL_XY);
     if(cancelprompt) return FALSE;
     p->room2=3;return TRUE;
 }
 static void ViewportSetPortals(HWND hwnd,const BgPortalFile *p) { overlaycount=faildisplay?0:p->portalcount; }
 static void RightPanelShowPortals(HWND hwnd) { visible=TRUE; }
 static void ViewportSetTool(HWND hwnd,EditorTool t) { tool=t; }
+static void ViewportSetTransformMode(HWND hwnd,TransformMode mode) { assert(mode==TRANSFORM_MOVE); }
+static void RightPanelSetTransformMode(HWND hwnd,TransformMode mode) { assert(mode==TRANSFORM_MOVE); }
 static BOOL ViewportSelectPortal(HWND hwnd,DWORD index)
 { assert(visible && tool==EDITOR_TOOL_FACE_SELECT);if(index>=overlaycount)return FALSE;selectedportal=index;return TRUE; }
 static void ToolToolbarSetTool(HWND hwnd,EditorTool t) { assert(t==tool); }

@@ -81,7 +81,7 @@ static LRESULT CALLBACK PortalPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
     {
         CREATESTRUCT *cs = (CREATESTRUCT *)lparam;
         static const char *labels[] = {"", "Room 1", "", "Room 2", "", "Apply connections",
-            "Choose two different rooms, then apply.\r\nClick overlapping portals again to cycle their connections.\r\nCtrl-click or Escape clears selection."};
+            "Use Vertex, Edge or Face mode and the Move arrows to reshape portals. V snaps a portal vertex to a background vertex.\r\nShift adds; Ctrl removes; Escape clears selection.\r\nKeep the finished polygon flat and convex. Shared connections move together.\r\nIn Face mode, click overlapping portals again to cycle their connections."};
         state = calloc(1, sizeof(*state)); if (!state) { return -1; }
         state->portal = BG_PORTAL_INDEX_NONE;
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);

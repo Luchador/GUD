@@ -111,7 +111,7 @@ BEGIN
     PUSHBUTTON "Cancel", IDCANCEL, 156, 90, 54, 18
 END
 
-IDD_ADD_PORTAL DIALOGEX 0, 0, 260, 282
+IDD_ADD_PORTAL DIALOGEX 0, 0, 260, 136
 STYLE DS_MODALFRAME | DS_CENTER | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Add Portal"
 FONT 8, "MS Shell Dlg"
@@ -122,20 +122,9 @@ BEGIN
     COMBOBOX IDC_PORTAL_ROOM2, 104, 34, 146, 120, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     LTEXT "&Orientation:", -1, 10, 61, 88, 10
     COMBOBOX IDC_PORTAL_PLANE, 104, 58, 146, 70, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    LTEXT "&Width (meters):", -1, 10, 87, 88, 10
-    EDITTEXT IDC_PORTAL_WIDTH, 104, 84, 146, 14, ES_AUTOHSCROLL
-    LTEXT "&Height / depth (m):", -1, 10, 111, 92, 10
-    EDITTEXT IDC_PORTAL_HEIGHT, 104, 108, 146, 14, ES_AUTOHSCROLL
-    GROUPBOX "Center (world coordinates)", -1, 10, 132, 240, 84
-    LTEXT "&X:", -1, 20, 151, 20, 10
-    EDITTEXT IDC_PORTAL_X, 50, 148, 190, 14, ES_AUTOHSCROLL
-    LTEXT "&Y:", -1, 20, 173, 20, 10
-    EDITTEXT IDC_PORTAL_Y, 50, 170, 190, 14, ES_AUTOHSCROLL
-    LTEXT "&Z:", -1, 20, 195, 20, 10
-    EDITTEXT IDC_PORTAL_Z, 50, 192, 190, 14, ES_AUTOHSCROLL
-    LTEXT "Place the rectangle at an opening between the two rooms. XZ uses depth along Z; vertical portals use height along Y.", -1, 10, 224, 240, 26
-    DEFPUSHBUTTON "Create", IDOK, 136, 254, 54, 18
-    PUSHBUTTON "Cancel", IDCANCEL, 196, 254, 54, 18
+    LTEXT "Creates a 3 x 3 meter portal at the drop position. Adjust its vertices, edges or face in the viewport.", -1, 10, 82, 240, 26
+    DEFPUSHBUTTON "Create", IDOK, 136, 110, 54, 18
+    PUSHBUTTON "Cancel", IDCANCEL, 196, 110, 54, 18
 END
 
 IDD_NEW_PROJECT DIALOGEX 0, 0, 300, 156

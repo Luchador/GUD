@@ -92,7 +92,7 @@ static void SetFocus(HWND hwnd) {}
 static BOOL ViewportOpenModelAt(HWND h, ViewportState *s, int x, int y, WPARAM w) { selectioncalls++; return FALSE; }
 static BOOL ViewportBeginTransform(HWND h, ViewportState *s, int x, int y, BOOL shift) { selectioncalls++; return FALSE; }
 static BOOL ViewportTryPickMarker(HWND h, ViewportState *s, int x, int y, BOOL remove) { selectioncalls++; return FALSE; }
-static BOOL ViewportTryPickPortal(HWND h, ViewportState *s, int x, int y, BOOL remove) { selectioncalls++; return FALSE; }
+static BOOL ViewportTryPickPortal(HWND h, ViewportState *s, int x, int y, BOOL add, BOOL remove) { selectioncalls++; return FALSE; }
 static BOOL ViewportTryPickPad(HWND h, ViewportState *s, int x, int y, BOOL remove) { selectioncalls++; return FALSE; }
 static BOOL ViewportTryPickStan(HWND h, ViewportState *s, int x, int y, BOOL add, BOOL remove) { selectioncalls++; return FALSE; }
 static void ViewportBeginBoxSelection(HWND h, ViewportState *s, int x, int y, BOOL add, BOOL remove) { selectioncalls++; }

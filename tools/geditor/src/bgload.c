@@ -616,9 +616,10 @@ BOOL BgLoadPortals(const unsigned char *data, DWORD maxlen,
         {
             const unsigned char *src = data + geometryoffset + 4 + point * 12;
 
-            portal->points[point].x = bgf32(src + 0) * worldscale;
-            portal->points[point].y = bgf32(src + 4) * worldscale;
-            portal->points[point].z = bgf32(src + 8) * worldscale;
+            portal->nativepoints[point] = (BgPortalPoint){bgf32(src), bgf32(src + 4), bgf32(src + 8)};
+            portal->points[point].x = portal->nativepoints[point].x * worldscale;
+            portal->points[point].y = portal->nativepoints[point].y * worldscale;
+            portal->points[point].z = portal->nativepoints[point].z * worldscale;
         }
     }
 

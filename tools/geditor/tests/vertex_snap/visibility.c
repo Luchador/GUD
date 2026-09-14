@@ -15,14 +15,15 @@ typedef struct ViewportState {
     Vertex *scene;
     SceneBatch *batches;
     int batchcount;
-    BOOL showobjects;
+    BOOL showobjects,portalsnaptarget;
     int hidden;
 } ViewportState;
 
 #include "rays.inc"
 static BOOL ViewportTriangleHidden(const ViewportState *s,int triangle) { return triangle==s->hidden; }
+static BOOL stanblocker;
 static DWORD ViewportFindPickedStan(const ViewportState *s,const ViewportPickRay *ray,double *distance)
-{ *distance=DBL_MAX;return STAN_TILE_NONE; }
+{ *distance=stanblocker?1:DBL_MAX;return stanblocker?0:STAN_TILE_NONE; }
 static BOOL ViewportBatchIsPickable(const ViewportState *s,const SceneBatch *b) { return !b->object; }
 /* Plain opaque geometry is enough to exercise visibility/occlusion here;
  * the renderer's independent material/texture sampling is not under test. */
@@ -53,6 +54,9 @@ int main(void)
     assert(!ViewportComponentVisible(&state,0,&vertices[0],TRUE)); /* Backface culling. */
     assert(ViewportComponentVisible(&state,0,&vertices[0],FALSE));
     state.hidden=0;assert(!ViewportComponentVisible(&state,0,&vertices[0],FALSE));state.hidden=-1;
+    stanblocker=TRUE;assert(!ViewportComponentVisible(&state,0,&vertices[0],FALSE));
+    state.portalsnaptarget=TRUE;assert(ViewportComponentVisible(&state,0,&vertices[0],FALSE));
+    state.portalsnaptarget=FALSE;stanblocker=FALSE;
     /* A blocker on the exact ray still occludes the target. */
     state.posx=vertices[0].x;state.posy=vertices[0].y;state.posz=-2800;
     vertices[3]=(Vertex){.x=state.posx-100,.y=state.posy-100,.z=-2900};

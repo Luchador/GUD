@@ -13,25 +13,34 @@ typedef intptr_t LPARAM;
 typedef struct { double offset[3]; } ViewportTranslation;
 typedef struct ViewportState {
     EditorTool tool;
-    BOOL vertexsnap;
+    BOOL vertexsnap,portalsnaptarget;
     int componentcount,stancomponentcount;
+    DWORD selectedportal; unsigned char portalselection[BG_MAX_PORTALS];
     ViewportComponent components[1];
     ViewportStanComponent stancomponents[1];
 } ViewportState;
 #define VIEWPORT_WM_SNAP_VERTEX 1
 #define VIEWPORT_WM_SELECTION_CHANGED 2
-static BOOL targetstan,accept;
+static BOOL targetstan,targetportal,accept;
+static BOOL sourceportal;
 static unsigned requests;
 static int sourceid;
 static BOOL sourcestan;
 static ViewportTranslation last;
 static ViewportState *ViewportGetState(HWND hwnd) { return hwnd; }
-static void ViewportClearAllSelection(ViewportState *s) { s->componentcount=s->stancomponentcount=0; }
+static void ViewportClearAllSelection(ViewportState *s)
+{ s->componentcount=s->stancomponentcount=0;s->selectedportal=BG_PORTAL_INDEX_NONE;memset(s->portalselection,0,sizeof(s->portalselection)); }
+static DWORD ViewportGetPortalSelectionCount(HWND hwnd)
+{ ViewportState *s=hwnd;return s->selectedportal!=BG_PORTAL_INDEX_NONE; }
+static void ViewportRefreshPortalColors(ViewportState *s) {}
+static BOOL ViewportTryPickPortal(HWND hwnd,ViewportState *s,int x,int y,BOOL add,BOOL remove)
+{ if(!targetportal || x<0)return FALSE;s->selectedportal=0;s->portalselection[0]=1u<<x;return TRUE; }
 static void ViewportUpdateGizmo(ViewportState *s) {}
 static void InvalidateRect(HWND hwnd,const void *rect,BOOL erase) {}
 static HWND GetParent(HWND hwnd) { return hwnd; }
 static int Selected(const ViewportState *s)
-{ return s->stancomponentcount ? (int)s->stancomponents[0].refs[0].point : (int)s->components[0].refs[0].index; }
+{ if(s->selectedportal!=BG_PORTAL_INDEX_NONE) { for(int i=0;i<8;i++)if(s->portalselection[0]&(1u<<i))return i; }
+  return s->stancomponentcount ? (int)s->stancomponents[0].refs[0].point : (int)s->components[0].refs[0].index; }
 static void Pick(ViewportState *s,int id,BOOL stan)
 {
     ViewportClearAllSelection(s);
@@ -42,11 +51,11 @@ static void Pick(ViewportState *s,int id,BOOL stan)
 static BOOL ViewportTryPickStan(HWND hwnd,ViewportState *s,int x,int y,BOOL add,BOOL remove)
 { if(!targetstan) { return FALSE; }Pick(s,x,TRUE);return TRUE; }
 static void ViewportPickComponent(HWND hwnd,ViewportState *s,int x,int y,BOOL add,BOOL remove)
-{ Pick(s,x,FALSE); }
+{ assert(s->portalsnaptarget==sourceportal);Pick(s,x,FALSE); }
 static BOOL ViewportGetSelectionPosition(HWND hwnd,double p[3],DWORD *count)
 {
     ViewportState *s=hwnd;
-    *count=s->componentcount+s->stancomponentcount;
+    *count=s->componentcount+s->stancomponentcount+ViewportGetPortalSelectionCount(hwnd);
     if(*count!=1) { return FALSE; }
     p[0]=Selected(s)*10.0;p[1]=Selected(s)*-20.0;p[2]=Selected(s)*30.0;return TRUE;
 }
@@ -54,8 +63,8 @@ static BOOL SendMessage(HWND hwnd,unsigned msg,unsigned wparam,LPARAM lparam)
 {
     ViewportState *s=hwnd;
     if(msg!=VIEWPORT_WM_SNAP_VERTEX) { return TRUE; }
-    assert(s->componentcount+s->stancomponentcount==1);
-    assert(Selected(s)==sourceid && !!s->stancomponentcount==sourcestan);
+    assert(s->componentcount+s->stancomponentcount+ViewportGetPortalSelectionCount(hwnd)==1);
+    assert(Selected(s)==sourceid && !!s->stancomponentcount==sourcestan && !!ViewportGetPortalSelectionCount(hwnd)==sourceportal);
     last=*(const ViewportTranslation *)lparam;requests++;
     return accept;
 }
@@ -81,8 +90,17 @@ int main(void)
         accept=TRUE;ViewportSnapVertexAt(&s,5,0);
         assert(requests==2 && !s.componentcount && !s.stancomponentcount);
     }
-    Pick(&s,2,FALSE);s.vertexsnap=FALSE;
+    ViewportClearAllSelection(&s); sourceid=2; sourceportal=TRUE; sourcestan=FALSE;
+    targetportal=TRUE; targetstan=TRUE; accept=TRUE; requests=0;
+    ViewportSnapVertexAt(&s,2,0); assert(Selected(&s)==2 && ViewportGetPortalSelectionCount(&s));
+    ViewportSnapVertexAt(&s,-1,0); assert(!requests && ViewportGetPortalSelectionCount(&s));
+    ViewportSnapVertexAt(&s,2,0); assert(!requests && ViewportGetPortalSelectionCount(&s));
+    accept=FALSE; ViewportSnapVertexAt(&s,5,0); assert(requests==1 && Selected(&s)==2 && ViewportGetPortalSelectionCount(&s));
+    assert(last.offset[0]==30 && last.offset[1]==-60 && last.offset[2]==90);
+    accept=TRUE; ViewportSnapVertexAt(&s,5,0); assert(requests==2 && !ViewportGetPortalSelectionCount(&s));
+    assert(!s.componentcount && !s.stancomponentcount); /* BG target wins even with both overlays present. */
+    assert(!s.portalsnaptarget);Pick(&s,2,FALSE);s.vertexsnap=FALSE;
     ViewportSnapVertexAt(&s,5,0);assert(Selected(&s)==2);
-    puts("PASS: BG/stan snap sources survive misses, self-clicks and rejected edits; cross-asset success clears selection.");
+    puts("PASS: BG/stan/portal snap sources survive misses, self-clicks and rejected edits; cross-asset success clears selection.");
     return 0;
 }

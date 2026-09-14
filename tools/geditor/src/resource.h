@@ -141,11 +141,6 @@
 #define IDC_PORTAL_ROOM1      1180
 #define IDC_PORTAL_ROOM2      1181
 #define IDC_PORTAL_PLANE      1182
-#define IDC_PORTAL_WIDTH      1183
-#define IDC_PORTAL_HEIGHT     1184
-#define IDC_PORTAL_X          1185
-#define IDC_PORTAL_Y          1186
-#define IDC_PORTAL_Z          1187
 
 /* Rebase Project dialog. */
 #define IDC_REBASE_ROM        1160

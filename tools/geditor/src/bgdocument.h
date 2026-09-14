@@ -178,6 +178,10 @@ BOOL BgDocumentAddRoundPrimitive(BgDocument *document, BOOL cylinder, DWORD room
 BOOL BgDocumentSetPortalRooms(BgDocument *document, DWORD portal, DWORD room1, DWORD room2,
                               BOOL *changed, const char **reasonout);
 
+typedef struct BgPortalPointRef { DWORD portal, point; } BgPortalPointRef;
+BOOL BgDocumentTranslatePortalPoints(BgDocument *document, const BgPortalPointRef *refs,
+    DWORD count, const double offset[3], DWORD *movedout, const char **reasonout);
+
 typedef enum BgPortalPlane { BG_PORTAL_XY, BG_PORTAL_YZ, BG_PORTAL_XZ } BgPortalPlane;
 typedef struct BgPortalPlacement {
     DWORD room1, room2;

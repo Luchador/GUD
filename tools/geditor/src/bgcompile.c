@@ -807,37 +807,33 @@ static BOOL BgCompilePortalRooms(const BgDocument *document, BgCompileBuffer *ou
     {
         const BgPortal *portal = &document->portals.portals[i];
         DWORD geometry = pointers[i] & 0x00ffffffu, record = table + i * 8;
-        if (portal->geometryoffset & BG_PORTAL_NEW_GEOMETRY)
+        /* Retain original addresses, headers and padding. Exact native points
+         * are part of the document/history, so Undo works after a saved move. */
+        if (portal->pointcount < 3 || portal->pointcount > BG_PORTAL_MAX_POINTS) { goto mismatch; }
+        if (i < oldcount)
         {
-            /* These are appended editor rectangles. Reuse their saved storage
-             * on subsequent saves; after an undo, append again if necessary. */
-            if (portal->pointcount != 4 || !isfinite(document->levelscale)
-                || document->levelscale <= 0) { goto mismatch; }
-            if (i < oldcount)
+            if (geometry > originalsize || originalsize - geometry < 4u + portal->pointcount * 12u
+                || output->data[geometry] != portal->pointcount) { goto mismatch; }
+        }
+        else
+        {
+            if (!(portal->geometryoffset & BG_PORTAL_NEW_GEOMETRY)) { goto mismatch; }
+            if (!BgCompileAlign(output, 4)) { return FALSE; }
+            geometry = output->size;
+            for (int word = 0; word < 1 + portal->pointcount * 3; word++)
+            { if (!BgCompileWrite32(output, 0)) { return FALSE; } }
+            BgCompilePatch32(output, geometry, (DWORD)portal->pointcount << 24);
+        }
+        for (int point = 0; point < portal->pointcount; point++)
+        {
+            const BgPortalPoint *p = &portal->nativepoints[point];
+            const float native[3] = {p->x, p->y, p->z};
+            for (int axis = 0; axis < 3; axis++)
             {
-                if (geometry > originalsize || originalsize - geometry < 52
-                    || output->data[geometry] != 4) { goto mismatch; }
-            }
-            else
-            {
-                if (!BgCompileAlign(output, 4)) { return FALSE; }
-                geometry = output->size;
-                for (int word = 0; word < 13; word++)
-                { if (!BgCompileWrite32(output, 0)) { return FALSE; } }
-                BgCompilePatch32(output, geometry, 4u << 24);
-            }
-            for (int point = 0; point < 4; point++)
-            {
-                const BgPortalPoint *p = &portal->points[point];
-                const float world[3] = {p->x, p->y, p->z};
-                for (int axis = 0; axis < 3; axis++)
-                {
-                    double native = (double)world[axis] * document->levelscale;
-                    union { float value; DWORD word; } encoded;
-                    if (!isfinite(native) || fabs(native) > FLT_MAX) { goto mismatch; }
-                    encoded.value = (float)native;
-                    BgCompilePatch32(output, geometry + 4 + point * 12 + axis * 4, encoded.word);
-                }
+                union { float value; DWORD word; } encoded;
+                if (!isfinite(native[axis])) { goto mismatch; }
+                encoded.value = native[axis];
+                BgCompilePatch32(output, geometry + 4 + point * 12 + axis * 4, encoded.word);
             }
         }
         /* Existing flags/margins and shared geometry are copied unchanged. */
