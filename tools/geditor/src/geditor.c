@@ -577,6 +577,7 @@ enum {
     ID_EDIT_UNDO,
     ID_EDIT_REDO,
     ID_EDIT_FLIP_FACE,
+    ID_GEOMETRY_MERGE_VERTICES,
     ID_GEOMETRY_SNAP_VERTEX,
     ID_GEOMETRY_PAINT_VERTEX,
     ID_GEOMETRY_SPLIT_EDGE,
@@ -2587,6 +2588,64 @@ fail:
     return FALSE;
 }
 
+static BOOL GEditorCanMergeSelectedBgVertices(void)
+{
+    return g_Viewport && g_CurrentBgDocument.rooms
+        && ViewportGetTool(g_Viewport) == EDITOR_TOOL_VERTEX_SELECT
+        && ViewportGetSelectedComponentCount(g_Viewport) >= 2
+        && !ViewportGetStanSelectionCount(g_Viewport, NULL)
+        && !ViewportGetVertexSnap(g_Viewport)
+        && !ViewportIsFlying(g_Viewport) && !ViewportIsTransforming(g_Viewport);
+}
+
+static BOOL GEditorMergeSelectedBgVertices(HWND hwnd)
+{
+    EditHistoryTransaction transaction = {0};
+    BgDocumentVertexRef *vertices = NULL, merged;
+    DWORD count = 0, deleted = 0;
+    const char *why = "", *restorewhy = "";
+    if (!GEditorCanMergeSelectedBgVertices()) { return FALSE; }
+    vertices = ViewportGetMoveVertices(g_Viewport, &count);
+    if (!vertices) { why = "Could not read the selected background vertices."; goto fail; }
+    if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
+        "Merge Vertices", &transaction, &why)) { goto fail; }
+    if (!BgDocumentMergeVertices(&g_CurrentBgDocument, vertices, count, &merged, NULL, &deleted, &why))
+    { goto fail; } /* The document operation is atomic. */
+    free(vertices); vertices = NULL;
+    if (deleted)
+    {
+        char warning[320];
+        snprintf(warning, sizeof(warning),
+            "This merge would collapse %lu background triangle%s to a line or point.\n\n"
+            "Click OK to merge and delete the collapsed triangle%s.\n"
+            "Click Cancel to keep the geometry unchanged.",
+            (unsigned long)deleted, deleted == 1 ? "" : "s", deleted == 1 ? "" : "s");
+        if (MessageBox(hwnd, warning, GEDITOR_TITLE, MB_OKCANCEL | MB_ICONWARNING) != IDOK)
+        {
+            /* Nothing has been presented yet: leave viewport and history intact. */
+            EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+            EditHistoryCancelEdit(&transaction);
+            return FALSE;
+        }
+    }
+    if (!GEditorRebuildCurrentViewport(&why)) { goto rollback; }
+    if (!ViewportSelectBgVertex(g_Viewport, &merged))
+    { why = "Could not select the merged vertex."; goto rollback; }
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+        &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    GEditorRebuildCurrentViewport(&restorewhy);
+    GEditorRestoreHistorySelection(hwnd);
+fail:
+    free(vertices); EditHistoryCancelEdit(&transaction);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
 /* Both the dropdown and command handlers recheck selection. Opening a menu
  * never changes tools or clears selection, even for an inactive category. */
 static void GEditorShowGeometryMenu(HWND hwnd, ToolToolbarMenu kind, HWND button)
@@ -2606,6 +2665,9 @@ static void GEditorShowGeometryMenu(HWND hwnd, ToolToolbarMenu kind, HWND button
     switch (kind)
     {
     case TOOLTOOLBAR_MENU_VERTEX:
+        AppendMenu(menu, MF_STRING | (GEditorCanMergeSelectedBgVertices() ? MF_ENABLED : MF_GRAYED),
+            ID_GEOMETRY_MERGE_VERTICES, "&Merge Vertices\tM");
+        AppendMenu(menu, MF_SEPARATOR, 0, NULL);
         AppendMenu(menu, MF_STRING | (idle && tool == EDITOR_TOOL_VERTEX_SELECT ? MF_ENABLED : MF_GRAYED)
             | (ViewportGetVertexSnap(g_Viewport) ? MF_CHECKED : MF_UNCHECKED),
             ID_GEOMETRY_SNAP_VERTEX, "&Snap to Vertex\tV");
@@ -4137,6 +4199,10 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 GEditorApplyHistoryStep(hwnd, TRUE);
                 return 0;
 
+            case ID_GEOMETRY_MERGE_VERTICES:
+                GEditorMergeSelectedBgVertices(hwnd);
+                return 0;
+
             case ID_GEOMETRY_SNAP_VERTEX:
                 if (g_CurrentBgDocument.rooms && !ViewportIsFlying(g_Viewport))
                 { SendMessage(hwnd, EDITTOOL_WM_TOGGLE_VERTEX_SNAP, 0, 0); }
@@ -4375,6 +4441,24 @@ static BOOL GEditorHandleFlipFaceHotkey(HWND frame, const MSG *message)
     return TRUE;
 }
 
+/* M belongs to the main geometry editor, never native text fields or the
+ * floating UV/model editors. One physical press performs at most one merge. */
+static BOOL GEditorHandleMergeVerticesHotkey(HWND frame, const MSG *message)
+{
+    char classname[32] = "";
+    if (!message || !g_Viewport || message->message != WM_KEYDOWN || message->wParam != 'M'
+        || ViewportIsFlying(g_Viewport) || ViewportIsTransforming(g_Viewport)
+        || (message->hwnd != frame && !IsChild(frame, message->hwnd))
+        || (GetKeyState(VK_CONTROL) & 0x8000) || (GetKeyState(VK_MENU) & 0x8000)
+        || (GetKeyState(VK_SHIFT) & 0x8000)) { return FALSE; }
+    GetClassName(message->hwnd, classname, sizeof(classname));
+    if (lstrcmpi(classname, "Edit") == 0 || lstrcmpi(classname, "ComboBox") == 0
+        || lstrcmpi(classname, "ComboLBox") == 0) { return FALSE; }
+    if (!(message->lParam & ((LPARAM)1 << 30)))
+    { SendMessage(frame, WM_COMMAND, ID_GEOMETRY_MERGE_VERTICES, 0); }
+    return TRUE;
+}
+
 /* F also works during camera flight, but remains text in property inputs.
    Consume auto-repeat so holding F does not flicker between modes. */
 static BOOL GEditorHandleFogHotkey(HWND frame, const MSG *message)
@@ -4527,6 +4611,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                     && !GEditorHandleRenderModeHotkey(hwnd, &msg)
                     && !GEditorHandleVisibilityHotkey(hwnd, &msg)
                     && !GEditorHandleFlipFaceHotkey(hwnd, &msg)
+                    && !GEditorHandleMergeVerticesHotkey(hwnd, &msg)
                     && !GEditorHandleTransformHotkey(hwnd, &msg)
                     && !GEditorHandleSelectionHotkey(hwnd, &msg)
                     && !RightPanelHandleMessage(g_RightPanel, &msg)
@@ -4554,6 +4639,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                 && !GEditorHandleRenderModeHotkey(hwnd, &msg)
                 && !GEditorHandleVisibilityHotkey(hwnd, &msg)
                 && !GEditorHandleFlipFaceHotkey(hwnd, &msg)
+                && !GEditorHandleMergeVerticesHotkey(hwnd, &msg)
                 && !GEditorHandleTransformHotkey(hwnd, &msg)
                 && !GEditorHandleSelectionHotkey(hwnd, &msg)
                 && !RightPanelHandleMessage(g_RightPanel, &msg)

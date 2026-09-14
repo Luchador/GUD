@@ -76,6 +76,9 @@ BOOL ViewportCaptureSelection(HWND hwnd, void **data, size_t *size);
 BOOL ViewportRestoreSelection(HWND hwnd, const void *data, size_t size);
 BgDocumentVertexRef *ViewportGetMoveVertices(HWND hwnd, DWORD *countout);
 int ViewportGetSelectedComponentCount(HWND hwnd);
+/* Select one source vertex after a topology edit. NULL or a vertex with no
+ * visible incident face clears selection. Allocation failure changes nothing. */
+BOOL ViewportSelectBgVertex(HWND hwnd, const BgDocumentVertexRef *ref);
 
 /* Mean vertex positions, edge midpoints or face centers; a model uses its
    surface centroid. Includes the live drag preview, excludes hidden items. */

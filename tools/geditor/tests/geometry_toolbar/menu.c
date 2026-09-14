@@ -43,6 +43,7 @@ static BOOL ViewportGetSelectedBgEdges(HWND hwnd, BgDocumentEdgeRef *edges, DWOR
 { return selectedtool == EDITOR_TOOL_EDGE_SELECT && (int)count == edgecount; }
 BOOL BgDocumentCanBridgeEdges(const BgDocument *doc, const BgDocumentEdgeRef edges[2], const char **why)
 { return bridgevalid; }
+static BOOL GEditorCanMergeSelectedBgVertices(void) { return FALSE; }
 static HMENU CreatePopupMenu(void) { memset(&lastmenu, 0, sizeof(lastmenu)); return &lastmenu; }
 static void DestroyMenu(HMENU menu) { assert(menu == &lastmenu); }
 static void AppendMenu(HMENU menu, UINT flags, UINT id, const char *label)

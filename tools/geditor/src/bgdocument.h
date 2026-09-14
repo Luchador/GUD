@@ -197,6 +197,15 @@ BOOL BgDocumentDisconnectFaces(BgDocument *document, const BgFaceRef *refs,
 BOOL BgDocumentSplitEdge(BgDocument *document, const BgDocumentEdgeRef *edge,
     DWORD *duplicatedout, const char **reasonout);
 
+/* Merge two or more distinct vertices within one room. Average XYZ, ST and
+ * RGBA (nearest native integer), retain the lowest-index vertex's ID/flag,
+ * and compact the removed records. Rewire both layers and delete only newly
+ * collapsed triangles; the editor can confirm that count within its transaction.
+ * Duplicate refs are counted once. Atomic on failure; out is the survivor. */
+BOOL BgDocumentMergeVertices(BgDocument *document, const BgDocumentVertexRef *refs,
+    DWORD count, BgDocumentVertexRef *out, DWORD *removedout, DWORD *deletedout,
+    const char **reasonout);
+
 /* Compare snapshots with identical topology after a vertex-position edit.
  * Finds faces whose area became zero, retaining pre-existing degenerates.
  * Returns an owned reference array (NULL when empty); the caller frees it. */

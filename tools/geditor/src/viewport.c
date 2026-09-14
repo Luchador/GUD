@@ -7086,6 +7086,29 @@ BOOL ViewportGetTextureSize(HWND hwnd, unsigned short textureid, int *width, int
 }
 
 
+BOOL ViewportSelectBgVertex(HWND hwnd, const BgDocumentVertexRef *ref)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    ViewportComponent *component = NULL;
+    int corner;
+    if (!state || state->tool != EDITOR_TOOL_VERTEX_SELECT) { return FALSE; }
+    corner = ref ? ViewportFindVertexCorner(state, ref) : -1;
+    if (corner >= 0)
+    {
+        component = calloc(1, sizeof(*component));
+        if (!component) { return FALSE; }
+        component->refs[0] = component->refs[1] = *ref;
+        component->corners[0] = component->corners[1] = corner;
+    }
+    ViewportClearAllSelection(state);
+    free(state->components); state->components = component;
+    state->componentcount = state->componentcapacity = component ? 1 : 0;
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd, NULL, FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+    return TRUE;
+}
+
 BOOL ViewportSelectBgEdges(HWND hwnd, const BgDocumentEdgeRef *edges, DWORD count)
 {
     ViewportState *state = ViewportGetState(hwnd);
