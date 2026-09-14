@@ -1,4 +1,6 @@
 #include <assert.h>
+#include <float.h>
+#include "bgdocument.h"
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -40,7 +42,8 @@ typedef struct ViewportState {
     VertexColor *scenecolors;
     SceneBatch *batches;
     ViewportTexture *texturecache;
-    unsigned char *hiddentris;
+    unsigned char *hiddentris, *selectedtris;
+    BgFaceRef *scenefacerefs;
 } ViewportState;
 
 static unsigned redraws;
@@ -65,7 +68,7 @@ typedef struct ClientState {
 static ServerState server, savedserver;
 static ClientState client, savedclient;
 static unsigned pushes, clientpushes, drawcount, previews;
-static struct Draw { int first, count; GLenum polygon, cull; } draws[32];
+static struct Draw { int first, count; GLenum polygon, cull; BOOL colors; GLubyte color[4]; } draws[32];
 static void glPushAttrib(unsigned flags)
 { assert(flags & GL_DEPTH_BUFFER_BIT); assert(flags & GL_POLYGON_BIT); assert(!pushes++); savedserver=server; }
 static void glPopAttrib(void) { assert(pushes--==1); server=savedserver; }
@@ -91,10 +94,13 @@ static void glColorPointer(int size, GLenum type, int stride, const void *pointe
 static void glDrawArrays(GLenum mode, int first, int count)
 {
     assert(drawcount<32 && mode==GL_TRIANGLES);
-    assert(!server.enabled[GL_TEXTURE_2D] && !client.enabled[GL_COLOR_ARRAY]);
+    assert(!server.enabled[GL_TEXTURE_2D]);
     assert(!server.enabled[GL_BLEND] && !server.enabled[GL_ALPHA_TEST]);
     assert(server.enabled[GL_DEPTH_TEST] && !server.depthwrite && server.depthfunc==GL_LEQUAL);
-    draws[drawcount++]=(struct Draw){first,count,server.polygon,server.enabled[GL_CULL_FACE]?server.cull:0};
+    struct Draw *draw=&draws[drawcount++];
+    *draw=(struct Draw){.first=first,.count=count,.polygon=server.polygon,
+        .cull=server.enabled[GL_CULL_FACE]?server.cull:0,.colors=client.enabled[GL_COLOR_ARRAY]};
+    memcpy(draw->color,draw->colors ? (const GLubyte *)client.colors+first*client.colorstride : server.color,4);
 }
 static void ViewportDrawExtrusionBatch(const ViewportState *s, const SceneBatch *b) { previews++; }
 #include "logic.inc"
@@ -176,6 +182,78 @@ static void Picking(void)
     puts("PASS: untextured picking ignores texture holes, preserves vertex transparency/hidden faces.");
 }
 
+static void FacePicking(void)
+{
+    Vertex vertices[9];
+    for (int tri=0; tri<3; tri++)
+    {
+        float z=tri==0?20:10;
+        vertices[tri*3]=(Vertex){.x=-1,.y=-1,.z=z,.a=255};
+        vertices[tri*3+1]=(Vertex){.x=1,.y=-1,.z=z,.a=255};
+        vertices[tri*3+2]=(Vertex){.x=0,.y=1,.z=z,.a=255};
+    }
+    GLubyte alpha=0;
+    ViewportTexture texture={.name=1,.width=1,.height=1,.alpha=&alpha};
+    SceneBatch batches[]={
+        {.first=0,.count=3,.renderflags=BG_RENDER_DEPTH_TEST|BG_RENDER_DEPTH_WRITE},
+        {.first=3,.count=3,.secondary=TRUE,.renderflags=BG_RENDER_DEPTH_TEST|BG_RENDER_BLEND},
+        {.first=6,.count=3,.secondary=TRUE,.renderflags=BG_RENDER_DEPTH_TEST|BG_RENDER_BLEND}};
+    BgFaceRef refs[]={{.faceid=1,.room=1},{.faceid=2,.room=1},{.faceid=3,.room=1}};
+    unsigned char hidden[3]={0},selected[3]={0};
+    ViewportState s={.scene=vertices,.texturecache=&texture,.hiddentris=hidden,.selectedtris=selected,
+        .scenefacerefs=refs,.batches=batches,.batchcount=2,.showbgprimary=TRUE,.showbgsecondary=TRUE};
+    ViewportPickRay ray={.direction={0,0,1},.mindistance=0,.maxdistance=100};
+    double distance;
+    /* Normal/fullbright still pick the solid face through transparent texels. */
+    assert(ViewportFindPickedTriangle(&s,&ray,FALSE,FALSE,&distance)==0 && distance==20);
+    s.rendermode=VIEWPORT_RENDER_FULLBRIGHT;
+    assert(ViewportFindPickedTriangle(&s,&ray,FALSE,FALSE,&distance)==0);
+    s.rendermode=VIEWPORT_RENDER_WIREFRAME;
+    assert(ViewportFindPickedTriangle(&s,&ray,FALSE,FALSE,&distance)==1 && distance==10);
+    /* Physical visibility queries used by other tools must keep seeing through the hole. */
+    assert(ViewportFindVisibleSceneTriangle(&s,&ray,&distance)==0 && distance==20);
+    for (int i=3; i<6; i++) { vertices[i].a=0; }
+    assert(ViewportFindPickedTriangle(&s,&ray,FALSE,FALSE,&distance)==1);
+    s.rendermode=VIEWPORT_RENDER_UNTEXTURED;
+    assert(ViewportFindPickedTriangle(&s,&ray,FALSE,FALSE,&distance)==0); /* Authored alpha still matters. */
+    s.showbgprimary=FALSE;
+    assert(ViewportFindPickedTriangle(&s,&ray,FALSE,FALSE,&distance)==-1 && distance==DBL_MAX);
+    s.rendermode=VIEWPORT_RENDER_WIREFRAME;
+    assert(ViewportFindPickedTriangle(&s,&ray,FALSE,FALSE,&distance)==1);
+    hidden[1]=1; assert(ViewportFindPickedTriangle(&s,&ray,FALSE,FALSE,&distance)==-1); hidden[1]=0;
+    s.showbgsecondary=FALSE;
+    assert(ViewportFindPickedTriangle(&s,&ray,FALSE,FALSE,&distance)==-1); s.showbgsecondary=TRUE;
+    ray.maxdistance=9; assert(ViewportFindPickedTriangle(&s,&ray,FALSE,FALSE,&distance)==-1); ray.maxdistance=100;
+    s.cullbackfaces=TRUE;
+    batches[1].renderflags|=BG_RENDER_CULL_EXPLICIT|BG_RENDER_CULL_BACK;
+    assert(ViewportFindPickedTriangle(&s,&ray,FALSE,FALSE,&distance)==-1);
+    batches[1].renderflags^=BG_RENDER_CULL_BACK|BG_RENDER_CULL_FRONT;
+    assert(ViewportFindPickedTriangle(&s,&ray,FALSE,FALSE,&distance)==1);
+    s.cullbackfaces=FALSE;
+    batches[1].renderflags=BG_RENDER_DEPTH_TEST|BG_RENDER_BLEND;
+    /* Coplanar cycling and Shift/Ctrl selection use the same geometric hits. */
+    s.batchcount=3;
+    assert(ViewportFindPickedTriangle(&s,&ray,FALSE,FALSE,&distance)==2);
+    selected[2]=1;
+    assert(ViewportFindPickedTriangle(&s,&ray,FALSE,FALSE,&distance)==1);
+    assert(ViewportFindPickedTriangle(&s,&ray,TRUE,FALSE,&distance)==1);
+    assert(ViewportFindPickedTriangle(&s,&ray,FALSE,TRUE,&distance)==2);
+    /* An opaque object in front still blocks selection of the BG. */
+    batches[2].object=TRUE; refs[2].faceid=BG_FACE_ID_NONE; s.showobjects=TRUE;
+    batches[2].renderflags=BG_RENDER_DEPTH_TEST|BG_RENDER_DEPTH_WRITE;
+    for (int i=6; i<9; i++) { vertices[i].z=5; }
+    assert(ViewportFindPickedTriangle(&s,&ray,FALSE,FALSE,&distance)==-1);
+    batches[2].renderflags|=BG_RENDER_BLEND;
+    assert(ViewportFindPickedTriangle(&s,&ray,FALSE,FALSE,&distance)==1); /* Transparent object texel. */
+    batches[2].renderflags&=~BG_RENDER_BLEND; s.showobjects=FALSE;
+    assert(ViewportFindPickedTriangle(&s,&ray,FALSE,FALSE,&distance)==1);
+    /* An opaque BG face in front must also block the transparent wireframe face. */
+    s.showbgprimary=TRUE;
+    for (int i=0; i<3; i++) { vertices[i].z=5; }
+    assert(ViewportFindPickedTriangle(&s,&ray,FALSE,FALSE,&distance)==0);
+    puts("PASS: wireframe face picking through texture/vertex transparency; normal picking, occlusion, culling, visibility and cycling preserved.");
+}
+
 static void Overlay(ViewportState *s, unsigned expected)
 {
     ServerState before=server; ClientState clientbefore=client;
@@ -195,6 +273,7 @@ static void Wireframe(void)
     ViewportState s={.scene=vertices,.batches=batches,.batchcount=4,.tool=EDITOR_TOOL_FACE_SELECT,
         .showobjects=TRUE,.showbgprimary=TRUE,.showbgsecondary=TRUE,.cullbackfaces=TRUE,
         .hiddentris=hidden,.bghiddentris=1};
+    for (int i=0; i<15; i++) { ViewportSetFullbrightColor(&vertices[i],i>=6 && i<9); }
     server.polygon=GL_FILL; server.depthwrite=TRUE; server.enabled[GL_TEXTURE_2D]=TRUE;
     client.enabled[GL_COLOR_ARRAY]=TRUE;
     Overlay(&s,0);
@@ -203,6 +282,10 @@ static void Wireframe(void)
     for (unsigned i=0; i<4; i++)
     { assert(draws[i].polygon==GL_LINE && draws[i].count==3 && draws[i].first==batches[i].first); }
     assert(draws[0].cull==GL_BACK && draws[2].cull==GL_FRONT);
+    assert(draws[0].colors && draws[1].colors && !draws[2].colors && !draws[3].colors);
+    assert(!memcmp(draws[0].color,(GLubyte[]){255,255,255,0},4));
+    assert(!memcmp(draws[1].color,(GLubyte[]){0,255,255,0},4)); /* Cyan despite zero alpha. */
+    assert(!memcmp(draws[2].color,(GLubyte[]){255,255,255,255},4)); /* Object stays white. */
     s.tool=EDITOR_TOOL_EDGE_SELECT; Overlay(&s,4); /* No duplicate BG wire pass. */
     s.rendermode=VIEWPORT_RENDER_NORMAL; Overlay(&s,2); assert(!previews);
     s.rendermode=VIEWPORT_RENDER_WIREFRAME; s.tool=EDITOR_TOOL_VERTEX_SELECT; Overlay(&s,6);
@@ -253,6 +336,6 @@ static void Hotkeys(void)
 
 int main(void)
 {
-    ColorsAndSwitching(); Picking(); Wireframe(); Hotkeys();
+    ColorsAndSwitching(); Picking(); FacePicking(); Wireframe(); Hotkeys();
     return 0;
 }

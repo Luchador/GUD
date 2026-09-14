@@ -33,7 +33,8 @@ def main():
     for name in ('Vertex', 'VertexColor', 'SceneBatch', 'ViewportTexture', 'ViewportPickRay'):
         types += re.search(r'typedef struct ' + name + r' \{.*?\} ' + name + ';', viewport, re.S)[0] + '\n'
     for name in ('VERTEX_MARKER_SIZE', 'PICK_EPSILON', 'PICK_BARY_EPSILON',
-                 'BLEND_ALPHA_THRESHOLD', 'CUTOUT_ALPHA_THRESHOLD'):
+                 'BLEND_ALPHA_THRESHOLD', 'CUTOUT_ALPHA_THRESHOLD',
+                 'PICK_COPLANAR_RELATIVE_EPSILON', 'PICK_COPLANAR_EPSILON'):
         types += re.search(r'^#define VIEWPORT_' + name + r' .*', viewport, re.M)[0] + '\n'
     logic = ''.join(function((src / 'bgrender.c').read_text(), name) for name in (
         'BgRenderWrapCoordinate', 'BgRenderWrapTexel'))
@@ -42,7 +43,10 @@ def main():
         'ViewportTextureKey', 'ViewportSetFullbrightColor', 'ViewportSceneColorPointer',
         'ViewportSetTriangleColor', 'ViewportGetRenderMode', 'ViewportSetRenderMode',
         'ViewportDrawVisibleBatch', 'ViewportDrawBgToolOverlay',
-        'ViewportRayTriangleDistance', 'ViewportRayBatchTriangleDistance'))
+        'ViewportRayTriangleDistance', 'ViewportRayBatchTriangleGeometry',
+        'ViewportRayBatchTriangleDistance', 'ViewportRaySelectableTriangleDistance',
+        'ViewportBatchIsPickable', 'ViewportCoplanarPickTolerance', 'ViewportFindSceneTriangle',
+        'ViewportFindVisibleSceneTriangle', 'ViewportFindPickedTriangle'))
     with tempfile.TemporaryDirectory(prefix='geditor-view-modes-') as temp:
         temp = Path(temp)
         (temp / 'types.inc').write_text(types)

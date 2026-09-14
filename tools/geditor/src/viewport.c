@@ -787,6 +787,19 @@ static void ViewportDrawBgToolOverlay(const ViewportState *state)
             {
                 continue;
             }
+            /* Transparent faces can have no visible fill. Keep their selected
+               outline cyan; fullbright supplies white for unselected faces.
+               Blending and alpha testing are disabled for this overlay. */
+            if (wireframe && !batch->object && state->tool == EDITOR_TOOL_FACE_SELECT)
+            {
+                glEnableClientState(GL_COLOR_ARRAY);
+                glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex), state->scene[0].fullbright);
+            }
+            else
+            {
+                glDisableClientState(GL_COLOR_ARRAY);
+                glColor4ub(255, 255, 255, 255);
+            }
             ViewportApplyCullMode(ViewportBatchCullMode(batch, state->cullbackfaces));
             ViewportDrawVisibleBatch(state, batch);
             if (wireframe && !points) { ViewportDrawExtrusionBatch(state, batch); }
@@ -2143,6 +2156,20 @@ static double ViewportCoplanarPickTolerance(double distance)
         ? relative : VIEWPORT_PICK_COPLANAR_EPSILON;
 }
 
+/* Geometric hit shared by visible-surface and wireframe face picking. */
+static BOOL ViewportRayBatchTriangleGeometry(const ViewportState *state, const SceneBatch *batch,
+                                             const ViewportPickRay *ray, int corner,
+                                             double *distance)
+{
+    const Vertex *v = &state->scene[corner];
+    GLenum cull = ViewportBatchCullMode(batch, state->cullbackfaces);
+    Vertex reversed[3];
+    const Vertex *pick = v;
+    if (ViewportTriangleHidden(state, corner / 3) || cull == GL_FRONT_AND_BACK) { return FALSE; }
+    if (cull == GL_FRONT) { reversed[0] = v[0]; reversed[1] = v[2]; reversed[2] = v[1]; pick = reversed; }
+    return ViewportRayTriangleDistance(ray, pick, cull != 0, distance);
+}
+
 /* CPU equivalent of GL_LINEAR and the material's wrap modes at a triangle hit.
  * Vertex colors remain affine on the triangle; ray intersection supplies
  * the same perspective-correct surface point used by rasterization. */
@@ -2156,16 +2183,7 @@ static BOOL ViewportRayBatchTriangleDistance(const ViewportState *state, const S
     double edge[2][3], delta[3], aa = 0, ab = 0, bb = 0, ap = 0, bp = 0;
     double u, w, denominator, alpha, threshold;
     int axis;
-    if (ViewportTriangleHidden(state, corner / 3)) { return FALSE; }
-    GLenum cull = ViewportBatchCullMode(batch, state->cullbackfaces);
-    Vertex reversed[3];
-    const Vertex *pick = v;
-    if (cull == GL_FRONT_AND_BACK) { return FALSE; }
-    if (cull == GL_FRONT) { reversed[0] = v[0]; reversed[1] = v[2]; reversed[2] = v[1]; pick = reversed; }
-    if (!ViewportRayTriangleDistance(ray, pick, cull != 0, distance))
-    {
-        return FALSE;
-    }
+    if (!ViewportRayBatchTriangleGeometry(state, batch, ray, corner, distance)) { return FALSE; }
     if (!(batch->renderflags & (BG_RENDER_BLEND | BG_RENDER_ALPHA_TEST)))
     {
         return TRUE;
@@ -2226,11 +2244,23 @@ static BOOL ViewportRayBatchTriangleDistance(const ViewportState *state, const S
     return alpha > threshold;
 }
 
+/* Wireframe exposes the whole BG triangle for face editing, including
+   texture holes and zero-alpha vertices. Other tools still query the visible
+   surface, so transparent geometry cannot become an invisible occluder. */
+static BOOL ViewportRaySelectableTriangleDistance(const ViewportState *state, const SceneBatch *batch,
+                                                  const ViewportPickRay *ray, int corner,
+                                                  double *distance)
+{
+    if (state->rendermode == VIEWPORT_RENDER_WIREFRAME && !batch->object)
+    { return ViewportRayBatchTriangleGeometry(state, batch, ray, corner, distance); }
+    return ViewportRayBatchTriangleDistance(state, batch, ray, corner, distance);
+}
+
 /* Replay depth tests in actual draw order at one surface point. Decals use
  * a small coplanar tolerance to model the GL bias; they never replace the
  * supporting depth. Ordinary depth-writing ties keep the first surface. */
-static int ViewportFindVisibleSceneTriangle(const ViewportState *state, const ViewportPickRay *ray,
-                                            double *distanceout)
+static int ViewportFindSceneTriangle(const ViewportState *state, const ViewportPickRay *ray,
+                                            double *distanceout, BOOL faceselection)
 {
     double depth = DBL_MAX;
     int winner = -1, i;
@@ -2250,7 +2280,10 @@ static int ViewportFindVisibleSceneTriangle(const ViewportState *state, const Vi
         for (corner = batch->first; corner < batch->first + batch->count; corner += 3)
         {
             double distance, tolerance;
-            if (!ViewportRayBatchTriangleDistance(state, batch, ray, corner, &distance))
+            BOOL hit = faceselection
+                ? ViewportRaySelectableTriangleDistance(state, batch, ray, corner, &distance)
+                : ViewportRayBatchTriangleDistance(state, batch, ray, corner, &distance);
+            if (!hit)
             {
                 continue;
             }
@@ -2272,11 +2305,17 @@ static int ViewportFindVisibleSceneTriangle(const ViewportState *state, const Vi
     return winner;
 }
 
+static int ViewportFindVisibleSceneTriangle(const ViewportState *state, const ViewportPickRay *ray,
+                                            double *distanceout)
+{
+    return ViewportFindSceneTriangle(state, ray, distanceout, FALSE);
+}
+
 static int ViewportFindPickedTriangle(const ViewportState *state, const ViewportPickRay *ray,
                                       BOOL addtoselection, BOOL deselect, double *distanceout)
 {
     double distance;
-    int visible = ViewportFindVisibleSceneTriangle(state, ray, distanceout);
+    int visible = ViewportFindSceneTriangle(state, ray, distanceout, TRUE);
     int firsttriangle = -1, firstselected = -1, firstunselected = -1;
     int nextafterselected = -1, selectedhits = 0;
     BOOL passedselected = FALSE;
@@ -2303,7 +2342,7 @@ static int ViewportFindPickedTriangle(const ViewportState *state, const Viewport
             {
                 int triangle = vertex / 3;
                 if ((pass == 0) != (triangle == visible) ||
-                    !ViewportRayBatchTriangleDistance(state, batch, ray, vertex, &distance) ||
+                    !ViewportRaySelectableTriangleDistance(state, batch, ray, vertex, &distance) ||
                     fabs(distance - *distanceout) > ViewportCoplanarPickTolerance(*distanceout))
                 {
                     continue;
