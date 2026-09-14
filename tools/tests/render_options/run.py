@@ -33,15 +33,26 @@ source += config
 options = (ROOT / 'src/game/options.c').read_text()
 header = (ROOT / 'src/game/options.h').read_text()
 source += header[header.index('typedef enum WATCH_GAME_OPTIONS_INDEX'):header.index('typedef enum WATCH_BRIEF_INDEX')]
+source += re.search(r'struct game_options \{.*?\n};', header, re.S)[0] + '\n'
+# Use the real row table, English strings and vanilla value renderer/input.
+source += (ROOT / 'assets/obseg/text/LoptionE.h').read_text()
+source += (ROOT / 'assets/obseg/text/LoptionsE.c').read_text()
+source += '''
+#define LOPTIONS 0
+#define getStringID(bank, slot) (slot)
+static char *langGet(u16 id) { assert(id < 64 && LoptionsE[id]); return LoptionsE[id]; }
+'''
+source += re.search(r'struct game_options g_GameOptionEntries\[\] = \{.*?\n};', options, re.S)[0] + '\n'
 source += '''
 #define WATCH_VISIBLE_TOGGLE_OPTIONS 8
 static s32 g_WatchFirstToggleOption;
 static u32 g_WatchGameOptionsIndex;
 '''
 source += function((ROOT / 'src/game/textrelated.c').read_text(), 'textMeasure')
-for name in ('draw_options_labels', 'watchScrollGameOptions', 'watchNavToggleOptions',
+for name in ('draw_options_labels', 'game_option_toggle_input', 'watchDrawToggleOptionValues',
+             'watchScrollGameOptions', 'watchNavToggleOptions',
              'game_options_music_volume_navigation', 'game_options_fx_volume_navigation',
-             'watchDrawRenderOption', 'watchDrawMoreOptionsTriangle', 'watchDrawToggleOptions'):
+             'watchDrawMoreOptionsTriangle', 'watchDrawToggleOptions'):
     source += function(options, name)
 # Use the shipped Bank Gothic metrics: lowercase has smaller capital-shaped
 # glyphs than uppercase, which is why the new rows previously looked too big.
@@ -93,6 +104,9 @@ print('Profiler removal: no AA/VI timing hooks, task metadata, menu row or linke
 assert 'renderRestoreDisplayListSettings(start, end)' in (ROOT / 'src/game/bgapply.c').read_text()
 assert 'renderInvalidateDisplayListCache()' in function((ROOT / 'src/game/tex.c').read_text(), 'texLoadFromGdl')
 assert 'renderInvalidateDisplayListCache()' in function((ROOT / 'src/game/dyn.c').read_text(), 'dynInitMemory')
+for path in ('src/game/renderconfig.c', 'src/game/renderconfig.h', 'src/game/options.c', 'src/game/options.h'):
+    assert not re.search(r'RENDER_AA_REDUCED|RENDER_VI_EDGES|RENDER_COLOR_DITHER|GAME_OPTIONS_INDEX_COLOR_DITHER|render.*ColorDither', (ROOT / path).read_text()), path
+assert 'watchDrawRenderOption' not in options
 
 with tempfile.TemporaryDirectory(prefix='gud-render-options-') as directory:
     work = Path(directory)

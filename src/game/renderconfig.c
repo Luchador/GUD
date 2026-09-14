@@ -7,12 +7,10 @@
 
 /* Player-facing preferences survive stage changes. Their applied copies change
  * only with an empty graphics queue, since cached display lists are shared. */
-static s32 g_RenderAaStyle = RENDER_AA_FULL;
-static s32 g_RenderViFilter = RENDER_VI_SMOOTH;
-static s32 g_RenderAppliedAa = RENDER_AA_FULL;
-static s32 g_RenderAppliedVi = RENDER_VI_SMOOTH;
-static s32 g_RenderColorDither = RENDER_COLOR_DITHER_DEFAULT;
-static s32 g_RenderAppliedColorDither = RENDER_COLOR_DITHER_DEFAULT;
+static bool g_RenderAaEnabled = TRUE;
+static bool g_RenderViFilterEnabled = TRUE;
+static bool g_RenderAppliedAaEnabled = TRUE;
+static bool g_RenderAppliedViFilterEnabled = TRUE;
 
 #define RENDER_LEAF_CACHE_SIZE 1024
 #define RENDER_GDL_STACK_SIZE 16
@@ -23,8 +21,6 @@ static s32 g_RenderAppliedColorDither = RENDER_COLOR_DITHER_DEFAULT;
 #define AA_TAG_MASK 0x00ff0000u
 #define AA_TAG_PRESENT 0x80
 #define AA_TAG_FIRST_BLENDER 0x20
-#define COLOR_DITHER_MASK (3u << G_MDSFT_RGBDITHER)
-#define COLOR_DITHER_TAG 0x80
 
 /* Only ordinary opaque surfaces are changed. Cutouts, particles, translucent
  * surfaces, and custom blender equations retain their authored render modes. */
@@ -40,32 +36,26 @@ static Gfx *g_RenderLeafCache[RENDER_LEAF_CACHE_SIZE];
 extern u8 *g_GfxBuffers[3];
 extern u8 *g_VtxBuffers[3];
 
-s32 renderGetAaStyle(void) { return g_RenderAaStyle; }
+bool renderIsAaEnabled(void) { return g_RenderAaEnabled; }
 /* Use the applied preference: the watch can request a change partway through
  * building a frame, before the graphics queue has drained. */
-bool renderUseOneCycleBackground(void) { return g_RenderAppliedAa == RENDER_AA_OFF; }
-s32 renderGetViFilter(void) { return g_RenderViFilter; }
-s32 renderGetColorDither(void) { return g_RenderColorDither; }
+bool renderUseOneCycleBackground(void) { return !g_RenderAppliedAaEnabled; }
+bool renderIsViFilterEnabled(void) { return g_RenderViFilterEnabled; }
 
-void renderSetAaStyle(s32 style)
+void renderSetAaEnabled(bool enabled)
 {
-    if (style >= 0 && style < RENDER_AA_COUNT) g_RenderAaStyle = style;
+    g_RenderAaEnabled = enabled != FALSE;
 }
 
-void renderSetViFilter(s32 filter)
+void renderSetViFilterEnabled(bool enabled)
 {
-    if (filter >= 0 && filter < RENDER_VI_COUNT) g_RenderViFilter = filter;
-}
-
-void renderSetColorDither(s32 dither)
-{
-    if (dither >= 0 && dither < RENDER_COLOR_DITHER_COUNT) g_RenderColorDither = dither;
+    g_RenderViFilterEnabled = enabled != FALSE;
 }
 
 bool renderSettingsPending(void)
 {
-    return g_RenderAaStyle != g_RenderAppliedAa || g_RenderViFilter != g_RenderAppliedVi
-            || g_RenderColorDither != g_RenderAppliedColorDither;
+    return g_RenderAaEnabled != g_RenderAppliedAaEnabled
+            || g_RenderViFilterEnabled != g_RenderAppliedViFilterEnabled;
 }
 
 void renderInvalidateDisplayListCache(void)
@@ -76,31 +66,30 @@ void renderInvalidateDisplayListCache(void)
 
 void renderApplySettings(void)
 {
-    if (renderSettingsPending()) {
-        g_RenderAppliedAa = g_RenderAaStyle;
-        g_RenderAppliedVi = g_RenderViFilter;
-        g_RenderAppliedColorDither = g_RenderColorDither;
+    if (g_RenderAaEnabled != g_RenderAppliedAaEnabled) {
+        g_RenderAppliedAaEnabled = g_RenderAaEnabled;
         renderInvalidateDisplayListCache();
     }
+    /* VI-only changes do not affect any RDP commands or cached lists. */
+    g_RenderAppliedViFilterEnabled = g_RenderViFilterEnabled;
 }
 
 u8 renderEncodeSettings(void)
 {
-    /* Bits 7..5 are the format marker; bit 4 stores dither Off. Previous
-     * AA/VI saves have bit 4 clear and therefore retain Default dithering. */
-    return 0xa0 | g_RenderAaStyle | (g_RenderViFilter << 2) | (g_RenderColorDither << 4);
+    /* Keep the existing save format: 0 = On, 2 = Off in each two-bit field.
+     * Bit 4 is no longer written; colour dithering always remains authored. */
+    return 0xa0 | (g_RenderAaEnabled ? 0 : 2) | (g_RenderViFilterEnabled ? 0 : 8);
 }
 
 void renderDecodeSettings(u8 settings)
 {
-    renderSetAaStyle(RENDER_AA_FULL);
-    renderSetViFilter(RENDER_VI_SMOOTH);
-    renderSetColorDither(RENDER_COLOR_DITHER_DEFAULT);
-    if ((settings & 0xe0) == 0xa0 && (settings & 3) < RENDER_AA_COUNT
-            && ((settings >> 2) & 3) < RENDER_VI_COUNT) {
-        renderSetAaStyle(settings & 3);
-        renderSetViFilter((settings >> 2) & 3);
-        renderSetColorDither((settings >> 4) & 1);
+    renderSetAaEnabled(TRUE);
+    renderSetViFilterEnabled(TRUE);
+    if ((settings & 0xe0) == 0xa0 && (settings & 3) < 3
+            && ((settings >> 2) & 3) < 3) {
+        /* Old Reduced/Edges values (1) become On; old dither is ignored. */
+        renderSetAaEnabled((settings & 3) != 2);
+        renderSetViFilterEnabled(((settings >> 2) & 3) != 2);
     }
 }
 
@@ -108,10 +97,8 @@ void renderConfigureViMode(OSViMode *mode)
 {
     u32 control = mode->comRegs.ctrl;
     control &= ~(VI_CTRL_ANTIALIAS_MASK | VI_CTRL_DITHER_FILTER_ON | VI_CTRL_DIVOT_ON);
-    if (g_RenderAppliedVi == RENDER_VI_SMOOTH) {
+    if (g_RenderAppliedViFilterEnabled) {
         control |= VI_CTRL_DITHER_FILTER_ON | VI_CTRL_DIVOT_ON;
-    } else if (g_RenderAppliedVi == RENDER_VI_EDGES) {
-        control |= 0x100 | VI_CTRL_DIVOT_ON; /* AA, fetch extra lines only when needed. */
     } else {
         /* Point-sampled VI modes: keep the resampling appropriate to pixel size. */
         control |= (control & 3) == VI_CTRL_TYPE_16 ? 0x200 : 0x300;
@@ -139,36 +126,28 @@ static void renderRestoreAaCommand(Gfx *cmd)
     cmd->words.w0 = AA_COMMAND_WORD;
 }
 
-static void renderApplyAaStyleToCommand(Gfx *cmd, s32 style)
+static void renderDisableAaCommand(Gfx *cmd)
 {
     u32 original;
     u32 replacement;
     u32 tag;
     s32 i;
-    Gfx canonical = *cmd;
-    renderRestoreAaCommand(&canonical);
-    if (style == RENDER_AA_FULL) {
-        if (cmd->words.w0 != canonical.words.w0) *cmd = canonical;
-        return;
-    }
-    if (canonical.words.w0 != AA_COMMAND_WORD) return;
-    original = canonical.words.w1;
+    /* Tagged commands already contain their Off value. Leave them untouched,
+     * including when a previous graphics task still references this list. */
+    if (cmd->words.w0 != AA_COMMAND_WORD) return;
+    original = cmd->words.w1;
     for (i = 0; i < 5; i++) {
         if ((original & AA_OTHER_BITS_MASK) == (g_AaOpaqueModes[i][0] & AA_OTHER_BITS_MASK)) {
             tag = AA_TAG_PRESENT | i;
-            replacement = style == RENDER_AA_REDUCED
-                    ? g_AaOpaqueModes[i][0] & ~IM_RD : g_AaOpaqueModes[i][1];
+            replacement = g_AaOpaqueModes[i][1];
             if ((original & AA_FIRST_BLENDER_MASK) == (g_AaOpaqueModes[i][0] & AA_FIRST_BLENDER_MASK)) {
                 tag |= AA_TAG_FIRST_BLENDER;
-                canonical.words.w1 = replacement;
+                cmd->words.w1 = replacement;
             } else {
                 /* Retain the first cycle's fog/pass blender. */
-                canonical.words.w1 = (original & AA_FIRST_BLENDER_MASK) | (replacement & AA_OTHER_BITS_MASK);
+                cmd->words.w1 = (original & AA_FIRST_BLENDER_MASK) | (replacement & AA_OTHER_BITS_MASK);
             }
-            canonical.words.w0 |= tag << 16;
-            if (cmd->words.w0 != canonical.words.w0 || cmd->words.w1 != canonical.words.w1) {
-                *cmd = canonical;
-            }
+            cmd->words.w0 |= tag << 16;
             return;
         }
     }
@@ -176,52 +155,14 @@ static void renderApplyAaStyleToCommand(Gfx *cmd, s32 style)
 
 Gfx renderGetAaOffCommand(Gfx command)
 {
-    renderApplyAaStyleToCommand(&command, RENDER_AA_OFF);
+    renderDisableAaCommand(&command);
     return command;
 }
 
 static void renderApplyAaCommand(Gfx *cmd)
 {
-    renderApplyAaStyleToCommand(cmd, g_RenderAppliedAa);
-}
-
-/* RGB dithering lives in SetOtherMode H, independently of AA's L command.
- * As with AA, its unused command byte remembers the authored choice. Handle
- * both gDPSetColorDither and H writes covering the complete RGB-dither field;
- * leave alpha dithering, texture filtering and all other state bits untouched. */
-static bool renderCommandSetsColorDither(Gfx *cmd)
-{
-    u32 shift = (cmd->words.w0 >> 8) & 0xff;
-    u32 length = cmd->words.w0 & 0xff;
-    return (cmd->words.w0 >> 24) == (u8)G_SETOTHERMODE_H
-            && shift <= G_MDSFT_RGBDITHER && length <= 32
-            && shift + length >= G_MDSFT_RGBDITHER + 2;
-}
-
-static void renderRestoreColorDitherCommand(Gfx *cmd)
-{
-    u32 tag = (cmd->words.w0 >> 16) & 0xff;
-    if (!renderCommandSetsColorDither(cmd) || (tag & ~3u) != COLOR_DITHER_TAG) return;
-    cmd->words.w1 = (cmd->words.w1 & ~COLOR_DITHER_MASK) | ((tag & 3) << G_MDSFT_RGBDITHER);
-    cmd->words.w0 &= ~AA_TAG_MASK;
-}
-
-static void renderApplyColorDitherCommand(Gfx *cmd)
-{
-    u32 original;
-    Gfx canonical;
-    if (!renderCommandSetsColorDither(cmd)) return;
-    canonical = *cmd;
-    renderRestoreColorDitherCommand(&canonical);
-    if (canonical.words.w0 & AA_TAG_MASK) return; /* Unrecognized metadata. */
-    original = canonical.words.w1 & COLOR_DITHER_MASK;
-    if (g_RenderAppliedColorDither == RENDER_COLOR_DITHER_OFF && original != G_CD_DISABLE) {
-        canonical.words.w0 |= (COLOR_DITHER_TAG | (original >> G_MDSFT_RGBDITHER)) << 16;
-        canonical.words.w1 = (canonical.words.w1 & ~COLOR_DITHER_MASK) | G_CD_DISABLE;
-    }
-    /* Static lists may also be used by the previous task. Never transiently
-     * restore/rewrite an already-correct command during steady-state frames. */
-    if (cmd->words.w0 != canonical.words.w0 || cmd->words.w1 != canonical.words.w1) *cmd = canonical;
+    if (g_RenderAppliedAaEnabled) renderRestoreAaCommand(cmd);
+    else renderDisableAaCommand(cmd);
 }
 
 void renderRestoreDisplayListSettings(Gfx *start, Gfx *end)
@@ -231,7 +172,6 @@ void renderRestoreDisplayListSettings(Gfx *start, Gfx *end)
     if (!start) return;
     for (cmd = start; end ? cmd < end : (cmd->words.w0 >> 24) != (u8)G_ENDDL; cmd++) {
         renderRestoreAaCommand(cmd);
-        renderRestoreColorDitherCommand(cmd);
     }
 }
 
@@ -311,8 +251,6 @@ bool renderApplyDisplayListSettings(Gfx *start, Gfx *end)
             state->cacheable = !renderListIsDynamic(child);
         } else if (opcode == (u8)G_SETOTHERMODE_L) {
             renderApplyAaCommand(cmd);
-        } else if (opcode == (u8)G_SETOTHERMODE_H) {
-            renderApplyColorDitherCommand(cmd);
         }
     }
     return depth < 0;

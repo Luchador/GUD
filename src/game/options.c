@@ -95,7 +95,10 @@ struct game_options g_GameOptionEntries[] = {
     { {getStringID(LOPTIONS, OPTION_STR_13_LOOKAHEAD_LF), getStringID(LOPTIONS, OPTION_STR_1A_OFF_LF), getStringID(LOPTIONS, OPTION_STR_19_ON_LF), 0}, 1}, //look ahead, off, on
     { {getStringID(LOPTIONS, OPTION_STR_16_AMMOONSCREEN_LF), getStringID(LOPTIONS, OPTION_STR_1A_OFF_LF), getStringID(LOPTIONS, OPTION_STR_19_ON_LF), 0}, 1}, //ammo on screen, off, on
     { {getStringID(LOPTIONS, OPTION_STR_17_SCREEN_LF), getStringID(LOPTIONS, OPTION_STR_1F_FULL_LF), getStringID(LOPTIONS, OPTION_STR_20_WIDE_LF), getStringID(LOPTIONS, OPTION_STR_21_CINEMA_LF)}, 0}, //screen, full, wide, cinema
-    { {getStringID(LOPTIONS, OPTION_STR_18_RATIO_LF), getStringID(LOPTIONS, OPTION_STR_22_NORMAL_LF), getStringID(LOPTIONS, OPTION_STR_23_169_LF), 0}, 0} //ratio, normal, 16:9
+    { {getStringID(LOPTIONS, OPTION_STR_18_RATIO_LF), getStringID(LOPTIONS, OPTION_STR_22_NORMAL_LF), getStringID(LOPTIONS, OPTION_STR_23_169_LF), 0}, 0}, //ratio, normal, 16:9
+    /* New labels are supplied below; values use the vanilla Off/On strings. */
+    { {0, getStringID(LOPTIONS, OPTION_STR_1A_OFF_LF), getStringID(LOPTIONS, OPTION_STR_19_ON_LF), 0}, 1}, //AA
+    { {0, getStringID(LOPTIONS, OPTION_STR_1A_OFF_LF), getStringID(LOPTIONS, OPTION_STR_19_ON_LF), 0}, 1} //VI filter
 };
 
 
@@ -1591,7 +1594,6 @@ void watchNavigate(void)
                 case GAME_OPTIONS_INDEX_RATIO:
                 case GAME_OPTIONS_INDEX_AA:
                 case GAME_OPTIONS_INDEX_VI_FILTER:
-                case GAME_OPTIONS_INDEX_COLOR_DITHER:
                     watchNavToggleOptions();
             }
             watchNavOptions();
@@ -3482,60 +3484,6 @@ static void watchScrollGameOptions(void)
     if (g_WatchFirstToggleOption > maximum) g_WatchFirstToggleOption = maximum;
 }
 
-static Gfx *watchDrawRenderOption(Gfx *gdl, s32 y, s32 index, s32 state)
-{
-    /* Lowercase selects the same small capitals as the existing watch options.
-     * textMeasure counts height at newlines; labels need a final one. */
-    static char *labels[] = {"aa\n", "vi filter\n", "color dither\n"};
-    static char *aaValues[] = {"full\n", "reduced\n", "off\n"};
-    static char *viValues[] = {"smooth\n", "edges\n", "off\n"};
-    static char *ditherValues[] = {"default\n", "off\n"};
-    char **values;
-    u32 value;
-    u32 previous;
-    u32 count;
-    u32 colour = state ? 0xa0ffa0f0 : 0x00ff00b0;
-    s32 option = index - GAME_OPTIONS_INDEX_AA;
-
-    if (index == GAME_OPTIONS_INDEX_AA) {
-        value = renderGetAaStyle();
-        count = RENDER_AA_COUNT;
-        values = aaValues;
-    } else if (index == GAME_OPTIONS_INDEX_VI_FILTER) {
-        value = renderGetViFilter();
-        count = RENDER_VI_COUNT;
-        values = viValues;
-    } else {
-        value = renderGetColorDither();
-        count = RENDER_COLOR_DITHER_COUNT;
-        values = ditherValues;
-    }
-    previous = value;
-    if (state == 2) {
-        if ((joyGetButtonsPressedThisFrame(PLAYER_1, L_CBUTTONS|L_TRIG|L_JPAD)
-                || watchShouldNavLeft()) && value > 0) {
-            watchSelectGameOption(&value, value - 1);
-        } else if ((joyGetButtonsPressedThisFrame(PLAYER_1, R_CBUTTONS|R_TRIG|R_JPAD)
-                || watchShouldNavRight()) && value + 1 < count) {
-            watchSelectGameOption(&value, value + 1);
-        }
-    }
-    if (value != previous) {
-        if (index == GAME_OPTIONS_INDEX_AA) renderSetAaStyle(value);
-        else if (index == GAME_OPTIONS_INDEX_VI_FILTER) renderSetViFilter(value);
-        else renderSetColorDither(value);
-    }
-    gdl = draw_options_labels(gdl, XOFFSET_1, y, labels[option],
-            state == 2 ? 0xffffffff : colour, state == 2, 0x7000a0, 0, 0, 0, 0);
-    gdl = draw_options_labels(gdl, 231, y, values[value],
-            state == 2 ? 0xa0ffa0f0 : 0x00ff00b0, 0, 0, 1, 0, 0, 0);
-    if (state) {
-        if (value > 0) gdl = draw_options_labels(gdl, 181, y, "<\n", colour, 0, 0, 1, 0, 0, 0);
-        if (value + 1 < count) gdl = draw_options_labels(gdl, 281, y, ">\n", colour, 0, 0, 1, 0, 0, 0);
-    }
-    return gdl;
-}
-
 static Gfx *watchDrawMoreOptionsTriangle(Gfx *gdl)
 {
     s32 row;
@@ -3557,6 +3505,7 @@ static Gfx *watchDrawMoreOptionsTriangle(Gfx *gdl)
 
 Gfx *watchDrawToggleOptions(Gfx *gdl)
 {
+    char *label;
     s32 y;
     s32 row;
     s32 option;
@@ -3571,14 +3520,21 @@ Gfx *watchDrawToggleOptions(Gfx *gdl)
         if (index >= GAME_OPTIONS_INDEX_COUNT) break;
         y = YOFFSET_1 + row * YINC;
         state = index == g_WatchGameOptionsIndex ? (watch_item_is_actively_selected ? 2 : 1) : 0;
-        if (index >= GAME_OPTIONS_INDEX_AA) {
-            gdl = watchDrawRenderOption(gdl, y, index, state);
+        if (index == GAME_OPTIONS_INDEX_AA) {
+            g_GameOptionEntries[option].current_value = renderIsAaEnabled();
+            label = "aa\n";
+        } else if (index == GAME_OPTIONS_INDEX_VI_FILTER) {
+            g_GameOptionEntries[option].current_value = renderIsViFilterEnabled();
+            label = "vi filter\n";
         } else {
-            gdl = draw_options_labels(gdl, XOFFSET_1, y, langGet(g_GameOptionEntries[option].text[0]),
-                    state == 2 ? 0xffffffff : (state == 1 ? 0xa0ffa0f0 : 0x00ff00b0),
-                    state == 2, 0x7000a0, 0, 0, 0x3000b0, 0);
-            gdl = watchDrawToggleOptionValues(gdl, y, option, state);
+            label = langGet(g_GameOptionEntries[option].text[0]);
         }
+        gdl = draw_options_labels(gdl, XOFFSET_1, y, label,
+                state == 2 ? 0xffffffff : (state == 1 ? 0xa0ffa0f0 : 0x00ff00b0),
+                state == 2, 0x7000a0, 0, 0, 0x3000b0, 0);
+        gdl = watchDrawToggleOptionValues(gdl, y, option, state);
+        if (index == GAME_OPTIONS_INDEX_AA) renderSetAaEnabled(g_GameOptionEntries[option].current_value);
+        else if (index == GAME_OPTIONS_INDEX_VI_FILTER) renderSetViFilterEnabled(g_GameOptionEntries[option].current_value);
     }
     if (g_WatchFirstToggleOption + WATCH_VISIBLE_TOGGLE_OPTIONS < GAME_OPTIONS_INDEX_COUNT - 2) {
         gdl = watchDrawMoreOptionsTriangle(gdl);

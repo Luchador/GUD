@@ -40,6 +40,7 @@ u8 *g_VtxBuffers[3] = {g_TestRam + 0x2000, g_TestRam + 0x3000, g_TestRam + 0x400
 static u32 g_TestButtons;
 static s32 g_TestStick;
 static s32 g_TestActive;
+static s32 g_TestChooseCount;
 static u32 joyGetButtonsPressedThisFrame(s32 player, u32 mask) { (void)player; return g_TestButtons & mask; }
 static bool watchShouldNavUp(void) { return g_TestStick == 1; }
 static bool watchShouldNavDown(void) { return g_TestStick == -1; }
@@ -48,7 +49,7 @@ static void watchResetItemIsActivelySelected(void) { g_TestActive = 0; }
 
 static bool watchShouldNavLeft(void) { return g_TestStick == -2; }
 static bool watchShouldNavRight(void) { return g_TestStick == 2; }
-static void watchSelectGameOption(u32 *value, u32 chosen) { *value = chosen; g_TestStick = 0; }
+static void watchSelectGameOption(u32 *value, u32 chosen) { *value = chosen; g_TestStick = 0; g_TestChooseCount++; }
 /* Use the production measurement and watch-label functions. Only the final
  * rasterizer is replaced, so zero-height clipping cannot pass unnoticed. */
 struct fontchar { s32 index, baseline, height, width, kerningindex; u8 *pixeldata; };
@@ -62,13 +63,11 @@ static s32 text_spacing;
 #define YINC 15
 static s32 g_WatchBackgroundGreen = 0xff;
 static s32 watch_item_is_actively_selected;
-static struct { u32 current_value; u16 text[4]; } g_GameOptionEntries[8];
 static s32 g_TestDrawCount;
 static char g_TestDrawText[40][64];
+static struct { s32 x, y, width, outlined; u32 colour; } g_TestDraw[40];
 static Gfx *gfxSetup2DTextureMode(Gfx *gdl) { return gdl; }
-static char *langGet(u16 id) { (void)id; return "existing\n"; }
-static Gfx *watchDrawToggleOptionValues(Gfx *gdl, s32 y, s32 option, s32 state)
-{ (void)y; (void)option; (void)state; return gdl; }
+static char *langGet(u16 id);
 static Gfx *gfxDrawTranslucentRect(Gfx *gdl, s32 x, s32 y, s32 right, s32 bottom, u32 colour)
 { (void)x; (void)y; (void)right; (void)bottom; (void)colour; return gdl; }
 static Gfx *textRender(Gfx *gdl, s32 *x, s32 *y, char *text,
@@ -82,6 +81,11 @@ static Gfx *textRender(Gfx *gdl, s32 *x, s32 *y, char *text,
     }
     assert(*x >= 0 && *x + width <= 320 && *y >= 0 && *y + height <= 240);
     assert(g_TestDrawCount < 40 && strlen(text) < 64);
+    g_TestDraw[g_TestDrawCount].x = *x;
+    g_TestDraw[g_TestDrawCount].y = *y;
+    g_TestDraw[g_TestDrawCount].width = width;
+    g_TestDraw[g_TestDrawCount].colour = colour;
+    g_TestDraw[g_TestDrawCount].outlined = FALSE;
     strcpy(g_TestDrawText[g_TestDrawCount++], text);
     return gdl;
 }
@@ -90,5 +94,7 @@ static Gfx *textRenderOutlined(Gfx *gdl, s32 *x, s32 *y, char *text,
         s32 width, s32 height, u32 yOffset, s32 lineheight)
 {
     (void)outlinecolour;
-    return textRender(gdl, x, y, text, chars, font, colour, width, height, yOffset, lineheight);
+    gdl = textRender(gdl, x, y, text, chars, font, colour, width, height, yOffset, lineheight);
+    g_TestDraw[g_TestDrawCount - 1].outlined = TRUE;
+    return gdl;
 }

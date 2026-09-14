@@ -79,7 +79,7 @@ static int check_stream(Gfx *input, int size, int run_walker)
         assert(size < 0x10000 && bytes < 0x10000);
         memcpy(ramReference, reference, size); memcpy(ramOutput, output, bytes);
         renderInvalidateDisplayListCache();
-        renderSetAaStyle(RENDER_AA_OFF); renderApplySettings();
+        renderSetAaEnabled(FALSE); renderApplySettings();
         assert(renderApplyDisplayListSettings(ramReference, ramReference + size / 8));
         assert(renderApplyDisplayListSettings(ramOutput, ramOutput + bytes / 8));
         memcpy(reference, ramReference, size); memcpy(output, ramOutput, bytes);
@@ -183,8 +183,8 @@ static void unit_checks(void)
     assert(!g_BgOneCycleRooms[1].gdl);
     g_TestAllocFail = 0; bgBuildRoomOneCycleGdl(1);
     assert(g_BgOneCycleRooms[1].gdl && g_TestAllocCount == 2);
-    renderSetAaStyle(RENDER_AA_FULL); renderApplySettings();
-    renderSetAaStyle(RENDER_AA_OFF);
+    renderSetAaEnabled(TRUE); renderApplySettings();
+    renderSetAaEnabled(FALSE);
     assert(!renderUseOneCycleBackground());
     assert(bgRenderRoomPrimary(out, 1) == out + 2);
     assert(out[1].words.w1 == OS_K0_TO_PHYSICAL(src));
@@ -192,7 +192,7 @@ static void unit_checks(void)
     assert(renderUseOneCycleBackground());
     bgRenderRoomPrimary(out, 1);
     assert(out[1].words.w1 == OS_K0_TO_PHYSICAL(g_BgOneCycleRooms[1].gdl));
-    renderSetAaStyle(RENDER_AA_REDUCED); renderApplySettings();
+    renderSetAaEnabled(TRUE); renderApplySettings();
     bgRenderRoomPrimary(out, 1);
     assert(out[1].words.w1 == OS_K0_TO_PHYSICAL(src));
     bgFreeRoomData(1);

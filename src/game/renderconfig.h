@@ -3,33 +3,11 @@
 #include <ultra64.h>
 #include <bondtypes.h>
 
-enum RenderAaStyle {
-    RENDER_AA_FULL,
-    RENDER_AA_REDUCED,
-    RENDER_AA_OFF,
-    RENDER_AA_COUNT
-};
-
-enum RenderViFilter {
-    RENDER_VI_SMOOTH,
-    RENDER_VI_EDGES,
-    RENDER_VI_OFF,
-    RENDER_VI_COUNT
-};
-
-enum RenderColorDither {
-    RENDER_COLOR_DITHER_DEFAULT,
-    RENDER_COLOR_DITHER_OFF,
-    RENDER_COLOR_DITHER_COUNT
-};
-
-s32 renderGetAaStyle(void);
+bool renderIsAaEnabled(void);
 bool renderUseOneCycleBackground(void);
-s32 renderGetViFilter(void);
-s32 renderGetColorDither(void);
-void renderSetAaStyle(s32 style);
-void renderSetViFilter(s32 filter);
-void renderSetColorDither(s32 dither);
+bool renderIsViFilterEnabled(void);
+void renderSetAaEnabled(bool enabled);
+void renderSetViFilterEnabled(bool enabled);
 bool renderSettingsPending(void);
 void renderApplySettings(void); /* Call only after queued graphics have drained. */
 u8 renderEncodeSettings(void);
