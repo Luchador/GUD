@@ -3532,7 +3532,6 @@ void bgDetermineVisibleRooms(void)
     s32 temp_a0;
     s32 temp_v1;
     s32 i;
-    u32 prof_t0 = 0;
     const u8 *portalindex;
     const u8 *portalend;
 

@@ -47,15 +47,6 @@ extern char ramrom_data_target[0x380];
 extern s32 record_slot_num;
 extern u8 * address_demo_loaded;
 
-// TEMP
-extern u32 g_ProfBgTickCycles;
-extern u32 g_ProfLvlTickCycles;
-extern u32 g_ProfLvlRenderCycles;
-extern u32 g_ProfBgRenderCycles;
-extern u32 g_ProfChrTickCycles;
-extern u32 g_ProfChrActionCycles;
-extern u32 g_ProfObjTickCycles;
-
 void lvInit(void);
 struct LevelEntry *lvFindLevelInfo(enum LEVELID levelId);
 Gfx *lvRender(Gfx *gdl);

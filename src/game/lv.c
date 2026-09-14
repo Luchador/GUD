@@ -1,3 +1,4 @@
+#include "frameprofile.h"
 #include <ultra64.h>
 #include <math.h>
 #include <os_extension.h>
@@ -179,15 +180,6 @@ struct LevelEntry *lvFindLevelInfo(enum LEVELID levelId)
     return NULL;
 }
 
-/* --- TEMP performance profiler --- */
-u32 g_ProfBgTickCycles;
-u32 g_ProfLvlTickCycles;
-u32 g_ProfLvlRenderCycles;
-u32 g_ProfBgRenderCycles;
-u32 g_ProfChrTickCycles;
-u32 g_ProfChrActionCycles;
-u32 g_ProfObjTickCycles;
-/* --- end profiler state --- */
 
 bool lvGetBgRenderEnabled(void)
 {
@@ -530,11 +522,7 @@ Gfx* lvRender(Gfx* gdl)
             gdl = skyRender(gdl);
 
             
-            { /* TEMP profiler */
-                u32 prof_t = osGetCount();
-                bgTick();
-                g_ProfBgTickCycles = osGetCount() - prof_t;
-            }
+            bgTick();
 
             propsTick();
 
@@ -550,12 +538,7 @@ Gfx* lvRender(Gfx* gdl)
 
             propsTickPlayer();
 
-            { /* TEMP profiler */
-                u32 prof_t = osGetCount();
-
-                gdl = bgSetupAndRender(gdl);
-                g_ProfBgRenderCycles = osGetCount() - prof_t;
-            }
+            gdl = bgSetupAndRender(gdl);
             
             gdl = weaponRenderTracers(gdl);
 
@@ -1036,42 +1019,20 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
     gDPSetScissor(gdl++, G_SC_NON_INTERLACE, 0, 0, viGetX(), viGetY());
     gdl = lvDrawProfilerText(gdl, &x, &y, fpsText, color, screenwidth);
 
-    { /* TEMP profiler readouts: raw osGetCount cycles per frame */
-        static char profText[7][32];
-        static const u32 profColor[7] = {
-            0x00FFFFFF,  /* bg tick    - cyan    */
-            0x4040FFFF,  /* lv tick    - blue    */
-            0xFF3030FF,  /* lv render  - red     */
-            0xFF8C00FF,  /* bg render  - orange  */
-            0xFFFF30FF,  /* obj tick   - yellow  */
-            0xB43CFFFF,  /* chr tick   - violet  */
-            0x30FF30FF,  /* chr action - green   */
-        };
-        u32 sub;
-        u32 lvlOther;
-        s32 i;
-
-        sub = g_ProfBgTickCycles + g_ProfBgRenderCycles + g_ProfChrTickCycles + g_ProfObjTickCycles;
-        lvlOther = g_ProfLvlRenderCycles > sub ? g_ProfLvlRenderCycles - sub : 0;
-
-        sprintf(profText[0], "BGTICK:%4uK",   (g_ProfBgTickCycles + 500) / 1000);
-        sprintf(profText[1], "LVTICK:%4uK",   (g_ProfLvlTickCycles + 500) / 1000);
-        sprintf(profText[2], "LVRENDER:%4uK", (lvlOther + 500) / 1000);
-        sprintf(profText[3], "BGRENDER:%4uK", (g_ProfBgRenderCycles + 500) / 1000);
-        sprintf(profText[4], "OBJTICK:%4uK",  (g_ProfObjTickCycles + 500) / 1000);
-        sprintf(profText[5], "CHRTICK:%4uK",  (g_ProfChrTickCycles + 500) / 1000);
-        sprintf(profText[6], "CHRACT:%4uK",   (g_ProfChrActionCycles + 500) / 1000);
-
-        g_ProfChrTickCycles = 0;
-        g_ProfChrActionCycles = 0;
-        g_ProfObjTickCycles = 0;
-
-        for (i = 0; i < ARRAYCOUNT(profText); i++)
-        {
-            x = 14;
-            y = 44 + (i * 10);
-            gdl = lvDrawProfilerText(gdl, &x, &y, profText[i], profColor[i], screenwidth);
+    {
+        char *label;
+        u32 limitColor;
+        switch (frameProfileGetBottleneck()) {
+        case FRAME_LIMIT_CPU: label = "LIMIT: CPU"; limitColor = 0x00FFFFFF; break;
+        case FRAME_LIMIT_RSP: label = "LIMIT: RSP"; limitColor = 0xFFFF30FF; break;
+        case FRAME_LIMIT_RDP: label = "LIMIT: RDP"; limitColor = 0xFF6060FF; break;
+        case FRAME_LIMIT_MIXED: label = "LIMIT: MIXED"; limitColor = 0xFFFFFFFF; break;
+        case FRAME_LIMIT_WAITING: label = "LIMIT: --"; limitColor = 0xA0A0A0FF; break;
+        default: label = "LIMIT: ?"; limitColor = 0xA0A0A0FF; break;
         }
+        x = 14;
+        y = 32;
+        gdl = lvDrawProfilerText(gdl, &x, &y, label, limitColor, screenwidth);
     }
 
     return gdl;

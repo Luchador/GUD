@@ -1,3 +1,4 @@
+#include "frameprofile.h"
 #include "renderconfig.h"
 #include <os_extension.h>
 #include <PR/os.h>
@@ -338,6 +339,7 @@ void bossMainloop(void)
         init_player_data_ptrs_construct_viewports(localSelectedNumPlayers);
         dynInitMemory();
         joyCheckStatusThreadSafe();
+        frameProfileReset();
         lvlStageLoad(g_StageNum);
         viInitBuffers();
         waitForNextFrame();
@@ -370,6 +372,7 @@ void bossMainloop(void)
                                 waitForNextFrame();
                             }
 
+                            frameProfileCpuBegin();
                             renderApplySettings();
                             joyConsumeSamplesWrapper();
 
@@ -377,11 +380,7 @@ void bossMainloop(void)
 
                             // Primary game tick function.
 
-                            { /* TEMP profiler */
-                                u32 prof_t = osGetCount();
-                                lvTick();
-                                g_ProfLvlTickCycles = osGetCount() - prof_t;
-                            }
+                            lvTick();
 
                             shuffle_player_ids();
 
@@ -403,11 +402,7 @@ void bossMainloop(void)
 
                             // Primary game rendering function.
                             
-                            { /* TEMP profiler */
-                                u32 prof_t = osGetCount();
-                                gdl = lvRender(gdl);
-                                g_ProfLvlRenderCycles = osGetCount() - prof_t;
-                            }
+                            gdl = lvRender(gdl);
 
                             gdl = lvDrawFrameRateDisplay(gdl);
                             
@@ -423,6 +418,7 @@ void bossMainloop(void)
 
                             pendingGfx++;
                             memaSingleDefragPass();
+                            frameProfileCpuEnd();
                         }
                     }
                 }

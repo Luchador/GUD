@@ -2261,12 +2261,7 @@ s32 chrTick(PropRecord *prop)
 
     if ((!(chr->chrflags & CHRFLAG_HIDDEN)) || (chr->chrflags & CHRFLAG_00040000))
     {
-        // TEMP
-        {
-            u32 prof_t = osGetCount();
-            chrlvActionTick(chr);
-            g_ProfChrActionCycles += osGetCount() - prof_t;
-        }
+        chrlvActionTick(chr);
         
         if (chr->model == NULL)
         {

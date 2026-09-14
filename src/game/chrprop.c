@@ -1560,21 +1560,11 @@ void propsTick(void)
 
         if (prop->type == PROP_TYPE_CHR)
         {
-            // TEMP
-            {
-                u32 prof_t = osGetCount();
-                tickop = chrTick(prop);
-                g_ProfChrTickCycles += osGetCount() - prof_t;
-            }
+            tickop = chrTick(prop);
         }
         else if ((prop->type == PROP_TYPE_OBJ) || (prop->type == PROP_TYPE_WEAPON) || (prop->type == PROP_TYPE_DOOR))
         {
-            // TEMP
-            {
-                u32 prof_t = osGetCount();
-                tickop = objTick(prop, playerCount, isSimOwner);
-                g_ProfObjTickCycles += osGetCount() - prof_t;
-            }
+            tickop = objTick(prop, playerCount, isSimOwner);
         }
         else if (prop->type == PROP_TYPE_EXPLOSION)
         {
