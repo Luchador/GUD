@@ -245,6 +245,8 @@ typedef struct ViewportState {
     BOOL orbitdragged;
 
     BOOL flying;
+    BOOL contextpending; /* stationary right click; movement keeps camera flight */
+    POINT contextpoint;
     ModelLighting modellighting;
     BgVertex *startupmodel; /* embedded, lit GLB; separate from editable geometry */
     DWORD startuptris;
@@ -1793,10 +1795,9 @@ static void ViewportBeginFly(HWND hwnd, ViewportState *state)
 
 static void ViewportEndFly(HWND hwnd, ViewportState *state)
 {
-    if (state == NULL || !state->flying)
-    {
-        return;
-    }
+    if (state == NULL) { return; }
+    state->contextpending = FALSE;
+    if (!state->flying) { return; }
 
     state->flying = FALSE;
     state->keyw = state->keya = state->keys = state->keyd = state->keyq = state->keye = FALSE;
@@ -1826,6 +1827,11 @@ static void ViewportFlyLook(HWND hwnd, ViewportState *state)
     {
         return;
     }
+
+    /* Ignore click jitter until the gesture becomes a camera drag. */
+    if (state->contextpending && abs(p.x-state->lastmouse.x) <= 3 && abs(p.y-state->lastmouse.y) <= 3)
+    { return; }
+    state->contextpending = FALSE;
 
     state->yaw   -= (float)(p.x - state->lastmouse.x) * VIEWPORT_LOOK_SENSITIVITY;
     state->pitch -= (float)(p.y - state->lastmouse.y) * VIEWPORT_LOOK_SENSITIVITY;
@@ -1905,6 +1911,7 @@ void ViewportFlyFrame(HWND hwnd)
 
     if (moving)
     {
+        state->contextpending = FALSE;
         ViewportGetBasis(state, fwd, right);
 
         move[0] = move[1] = move[2] = 0.0f;
@@ -3253,6 +3260,29 @@ static BOOL ViewportProject(const ViewportState *state, const Vertex *point, dou
     return TRUE;
 }
 
+/* Closest screen-space edge point with perspective-correct world position. */
+static BOOL ViewportProjectEdgePoint(const ViewportState *state, const Vertex *v, const Vertex *w,
+    int x, int y, Vertex *point, double screen[2])
+{
+    double end[2], dx, dy, length, t, deptha, depthb, worldt;
+    float forward[3], right[3];
+    if (!ViewportProject(state, v, screen) || !ViewportProject(state, w, end)) { return FALSE; }
+    dx=end[0]-screen[0]; dy=end[1]-screen[1]; length=dx*dx+dy*dy;
+    t=length>0 ? ((x-screen[0])*dx+(y-screen[1])*dy)/length : 0;
+    if (t<0) t=0;
+    if (t>1) t=1;
+    screen[0]+=t*dx; screen[1]+=t*dy;
+    ViewportGetBasis(state, forward, right);
+    deptha=(v->x-state->posx)*forward[0]+(v->y-state->posy)*forward[1]+(v->z-state->posz)*forward[2];
+    depthb=(w->x-state->posx)*forward[0]+(w->y-state->posy)*forward[1]+(w->z-state->posz)*forward[2];
+    worldt=t*deptha/(t*deptha+(1-t)*depthb);
+    *point=*v;
+    point->x=v->x+(w->x-v->x)*worldt;
+    point->y=v->y+(w->y-v->y)*worldt;
+    point->z=v->z+(w->z-v->z)*worldt;
+    return TRUE;
+}
+
 static BOOL ViewportComponentVisible(const ViewportState *state, int triangle,
                                       const Vertex *point, BOOL cull)
 {
@@ -3352,27 +3382,13 @@ static void ViewportPickComponent(HWND hwnd, ViewportState *state,
             {
                 const Vertex *v=&state->scene[first+corner];
                 Vertex point=*v;
-                double a[2], b[2], dx, dy, distance;
-                if (!ViewportProject(state,v,a)) { continue; }
+                double a[2], dx, dy, distance;
                 if (state->tool==EDITOR_TOOL_EDGE_SELECT)
                 {
-                    const Vertex *w=&state->scene[first+(corner+1)%3];
-                    float forward[3], right[3];
-                    double length, t, deptha, depthb, worldt;
-                    if (!ViewportProject(state,w,b)) { continue; }
-                    dx=b[0]-a[0]; dy=b[1]-a[1]; length=dx*dx+dy*dy;
-                    t=length>0 ? ((x-a[0])*dx+(y-a[1])*dy)/length : 0;
-                    if (t<0) t=0;
-                    if (t>1) t=1;
-                    a[0]+=t*dx; a[1]+=t*dy;
-                    ViewportGetBasis(state,forward,right);
-                    deptha=(v->x-state->posx)*forward[0]+(v->y-state->posy)*forward[1]+(v->z-state->posz)*forward[2];
-                    depthb=(w->x-state->posx)*forward[0]+(w->y-state->posy)*forward[1]+(w->z-state->posz)*forward[2];
-                    worldt=t*deptha/(t*deptha+(1-t)*depthb);
-                    point.x=v->x+(w->x-v->x)*worldt;
-                    point.y=v->y+(w->y-v->y)*worldt;
-                    point.z=v->z+(w->z-v->z)*worldt;
+                    if (!ViewportProjectEdgePoint(state, v, &state->scene[first+(corner+1)%3], x, y, &point, a))
+                    { continue; }
                 }
+                else if (!ViewportProject(state,v,a)) { continue; }
                 dx=x-a[0]; dy=y-a[1]; distance=dx*dx+dy*dy;
                 if (distance<best && state->scenevertexrefs[first+corner].room!=0
                     && ViewportComponentVisible(state,first/3,&point,state->cullbackfaces && batch->cullbackfaces))
@@ -5511,6 +5527,120 @@ static BOOL ViewportOpenModelAt(HWND hwnd, ViewportState *state, int x, int y, W
     return TRUE;
 }
 
+/* Edge context picking uses the same 10-pixel target as left-click selection.
+ * Retain the owning face/corner so the selected side survives a topology edit. */
+static BOOL ViewportFindContextEdge(const ViewportState *state, int x, int y, BgDocumentEdgeRef *out)
+{
+    double best = 100.0, nearest = DBL_MAX;
+    BOOL found = FALSE;
+    if (!state->scene || !state->scenefacerefs || !state->scenevertexrefs) { return FALSE; }
+    for (int i = 0; i < state->batchcount; i++)
+    {
+        const SceneBatch *batch = &state->batches[i];
+        if (!ViewportBatchIsPickable(state, batch)) { continue; }
+        for (int first = batch->first; first < batch->first+batch->count; first += 3)
+        {
+            int tri = first/3;
+            if (!state->scenefacerefs[tri].faceid || ViewportTriangleHidden(state, tri)) { continue; }
+            for (int c = 0; c < 3; c++)
+            {
+                int a = first+c, b = first+(c+1)%3;
+                Vertex point;
+                double screen[2], dx, dy, pixels, distance;
+                ViewportPickRay ray = {.origin={state->posx,state->posy,state->posz},
+                    .mindistance=0, .maxdistance=DBL_MAX};
+                if (!ViewportCompareVertexRefs(&state->scenevertexrefs[a], &state->scenevertexrefs[b])
+                    || !ViewportProjectEdgePoint(state, &state->scene[a], &state->scene[b], x, y, &point, screen))
+                { continue; }
+                dx=x-screen[0]; dy=y-screen[1]; pixels=dx*dx+dy*dy;
+                if (pixels > best || pixels >= 100.0) { continue; }
+                ray.direction[0]=(double)point.x-state->posx;
+                ray.direction[1]=(double)point.y-state->posy;
+                ray.direction[2]=(double)point.z-state->posz;
+                double length=sqrt(ray.direction[0]*ray.direction[0]+ray.direction[1]*ray.direction[1]
+                    +ray.direction[2]*ray.direction[2]);
+                if (!(length>0)) { continue; }
+                for (int axis=0; axis<3; axis++) { ray.direction[axis]/=length; }
+                if ((pixels == best && length >= nearest)
+                    || !ViewportRayBatchTriangleGeometry(state, batch, &ray, first, &distance)
+                    || !ViewportComponentVisible(state, tri, &point, FALSE)) { continue; }
+                best=pixels; nearest=length; found=TRUE;
+                *out=(BgDocumentEdgeRef){state->scenefacerefs[tri], (unsigned int)c};
+            }
+        }
+    }
+    return found;
+}
+
+static void ViewportShowGeometryContextMenu(HWND hwnd, ViewportState *state, int x, int y)
+{
+    BgDocumentEdgeRef edge;
+    POINT screen = {x,y};
+    UINT message, command;
+    HMENU menu;
+    const char *label;
+    if (!state || state->orbit || state->flying || state->vertexsnap || state->dragaxis >= 0 || state->boxpending)
+    { return; }
+    if (state->tool == EDITOR_TOOL_EDGE_SELECT)
+    {
+        if (!ViewportFindContextEdge(state, x, y, &edge)) { return; }
+        if (!ViewportSelectBgEdges(hwnd, &edge, 1)) { return; }
+        message=VIEWPORT_WM_SPLIT_EDGE; label="Split Edge";
+    }
+    else if (state->tool == EDITOR_TOOL_FACE_SELECT)
+    {
+        /* Preserve a multi-face selection even when the menu opens over empty
+           space. With no selection, offer the face under the cursor. */
+        if (!ViewportGetSelectedBgFaceCount(hwnd))
+        {
+            ViewportPickRay ray;
+            double distance;
+            if (!ViewportBuildPickRay(hwnd, state, x, y, &ray)) { return; }
+            int tri=ViewportFindPickedTriangle(state, &ray, FALSE, FALSE, &distance);
+            if (tri < 0 || !ViewportSelectBgFaces(hwnd, &state->scenefacerefs[tri], 1)) { return; }
+        }
+        message=VIEWPORT_WM_DISCONNECT_FACES; label="Disconnect Face";
+    }
+    else { return; }
+    menu=CreatePopupMenu();
+    if (!menu) { return; }
+    if (AppendMenu(menu, MF_STRING, 1, label))
+    {
+        ClientToScreen(hwnd, &screen);
+        command=TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY | TPM_RIGHTBUTTON,
+            screen.x, screen.y, 0, hwnd, NULL);
+        DestroyMenu(menu);
+        if (command == 1)
+        { SendMessage(GetParent(hwnd), message, 0, message == VIEWPORT_WM_SPLIT_EDGE ? (LPARAM)&edge : 0); }
+    }
+    else { DestroyMenu(menu); }
+}
+
+/* Fly immediately as before. Only a stationary release in a BG edit mode
+ * opens a context menu; movement, keys, wheel or lost capture cancel it. */
+static void ViewportBeginRightGesture(HWND hwnd, ViewportState *state, int x, int y)
+{
+    BOOL context = state && !state->orbit && !state->flying && !state->vertexsnap
+        && state->dragaxis < 0 && !state->boxpending
+        && (state->tool == EDITOR_TOOL_EDGE_SELECT || state->tool == EDITOR_TOOL_FACE_SELECT);
+    ViewportCancelTransform(hwnd);
+    ViewportBeginFly(hwnd, state);
+    if (state)
+    {
+        state->contextpoint=(POINT){x,y};
+        state->contextpending=context && !state->keyw && !state->keya && !state->keys
+            && !state->keyd && !state->keyq && !state->keye;
+    }
+}
+
+static void ViewportEndRightGesture(HWND hwnd, ViewportState *state)
+{
+    BOOL context = state && state->contextpending;
+    POINT point = state ? state->contextpoint : (POINT){0,0};
+    ViewportEndFly(hwnd, state);
+    if (context) { ViewportShowGeometryContextMenu(hwnd, state, point.x, point.y); }
+}
+
 /* Consume model-viewer input before level picking, transforms, or flight. */
 static BOOL ViewportOrbitInput(HWND hwnd, ViewportState *state,
                                UINT msg, WPARAM wparam, LPARAM lparam)
@@ -5659,10 +5789,10 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
     }
 
     case WM_RBUTTONDBLCLK:
-    case WM_RBUTTONDOWN: ViewportCancelTransform(hwnd); ViewportBeginFly(hwnd, state);
+    case WM_RBUTTONDOWN: ViewportBeginRightGesture(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam));
         return 0;
 
-    case WM_RBUTTONUP: ViewportEndFly(hwnd, state);
+    case WM_RBUTTONUP: ViewportEndRightGesture(hwnd, state);
         return 0;
 
     case WM_LBUTTONDBLCLK:
@@ -5752,6 +5882,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         return 0;
 
     case WM_KEYDOWN:
+        if (state && state->flying) { state->contextpending=FALSE; }
         if (state != NULL && (state->dragaxis >= 0 || state->boxpending))
         {
             if (wparam == VK_ESCAPE) { ViewportCancelTransform(hwnd); }
@@ -5790,6 +5921,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
 
     case WM_KILLFOCUS:
         ViewportCancelTransform(hwnd);
+        ViewportEndFly(hwnd, state);
         if(state != NULL)   
         {
             state->keyw = state->keya = state->keys = state->keyd = state->keyq = state->keye = FALSE;
@@ -5804,6 +5936,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         if (state != NULL && state->flying)
         {
             int clicks = GET_WHEEL_DELTA_WPARAM(wparam) / WHEEL_DELTA;
+            state->contextpending=FALSE;
 
             while(clicks > 0)
             {

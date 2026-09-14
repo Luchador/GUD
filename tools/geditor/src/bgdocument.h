@@ -178,6 +178,16 @@ BOOL BgDocumentDeleteFaces(BgDocument *document, const BgFaceRef *refs,
 BOOL BgDocumentFlipFaces(BgDocument *document, const BgFaceRef *refs,
                          DWORD refcount, const char **reasonout);
 
+/* Separate each face from all others by copying shared source vertices.
+ * Split Edge separates only its two endpoints on every incident face; it
+ * does not add a midpoint or triangles. Existing positions, UV/RGBA, winding,
+ * materials and face IDs remain intact. Already-private vertices are reused.
+ * Atomic on failure; duplicatedout=0 is a no-op (including repeated edits). */
+BOOL BgDocumentDisconnectFaces(BgDocument *document, const BgFaceRef *refs,
+    DWORD count, DWORD *duplicatedout, const char **reasonout);
+BOOL BgDocumentSplitEdge(BgDocument *document, const BgDocumentEdgeRef *edge,
+    DWORD *duplicatedout, const char **reasonout);
+
 /* Compare snapshots with identical topology after a vertex-position edit.
  * Finds faces whose area became zero, retaining pre-existing degenerates.
  * Returns an owned reference array (NULL when empty); the caller frees it. */

@@ -27,6 +27,10 @@ void ViewportSetRenderMode(HWND viewport, ViewportRenderMode mode);
 /* Double-click on a placed model. wparam is its setup selection ID;
    lparam is the sending viewport HWND. */
 #define VIEWPORT_WM_OPEN_MODEL (WM_APP + 49)
+/* Context commands. Split Edge carries a stack-owned BgDocumentEdgeRef in
+   lparam; Disconnect Face uses the current BG face selection. */
+#define VIEWPORT_WM_SPLIT_EDGE (WM_APP + 51)
+#define VIEWPORT_WM_DISCONNECT_FACES (WM_APP + 52)
 /* Sent only while the viewport owns keyboard focus, so Delete in future
    property editors cannot accidentally remove scene geometry. */
 #define VIEWPORT_WM_DELETE_SELECTION  (WM_APP + 4)

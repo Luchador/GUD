@@ -2497,6 +2497,58 @@ fail:
 }
 
 
+static BOOL GEditorSeparateBgVertices(HWND hwnd, const BgDocumentEdgeRef *edge)
+{
+    EditHistoryTransaction transaction = {0};
+    BgFaceRef *faces = NULL;
+    DWORD duplicated = 0;
+    int count = 0;
+    const char *why = "", *restorewhy = "";
+    if (!g_CurrentBgDocument.rooms || ViewportIsFlying(g_Viewport) || ViewportIsTransforming(g_Viewport))
+    { return FALSE; }
+    if (edge)
+    {
+        if (ViewportGetTool(g_Viewport) != EDITOR_TOOL_EDGE_SELECT) { return FALSE; }
+    }
+    else
+    {
+        if (ViewportGetTool(g_Viewport) != EDITOR_TOOL_FACE_SELECT) { return FALSE; }
+        count = ViewportGetSelectedBgFaceCount(g_Viewport);
+        if (count <= 0) { return FALSE; }
+        faces = malloc((size_t)count * sizeof(*faces));
+        if (!faces) { why = "Out of memory reading the background selection."; goto fail; }
+        if (!ViewportGetSelectedBgFaces(g_Viewport, faces, count))
+        { why = "The selected background faces could not be read."; goto fail; }
+    }
+    if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
+        edge ? "Split Edge" : count == 1 ? "Disconnect Face" : "Disconnect Faces", &transaction, &why))
+    { goto fail; }
+    if (edge ? !BgDocumentSplitEdge(&g_CurrentBgDocument, edge, &duplicated, &why)
+        : !BgDocumentDisconnectFaces(&g_CurrentBgDocument, faces, (DWORD)count, &duplicated, &why))
+    { goto fail; } /* Document operations are atomic. */
+    if (!duplicated) { EditHistoryCancelEdit(&transaction); free(faces); return TRUE; }
+    if (!GEditorRebuildCurrentViewport(&why)) { goto rollback; }
+    /* Face IDs survive; edge endpoints have new identities, so reselect the
+       same owning face/corner rather than following the old vertex records. */
+    if (edge && !ViewportSelectBgEdges(g_Viewport, edge, 1))
+    { why = "Could not restore the split edge selection."; goto rollback; }
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+        &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    free(faces);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    GEditorRebuildCurrentViewport(&restorewhy);
+    GEditorRestoreHistorySelection(hwnd);
+fail:
+    free(faces); EditHistoryCancelEdit(&transaction);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
+
 static BOOL GEditorSetFaceProperties(HWND hwnd, const BgFacePropertiesEdit *edit)
 {
     EditHistoryTransaction transaction = {0};
@@ -3433,6 +3485,12 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
     case VIEWPORT_WM_EXTRUDE_EDGES:
         return GEditorExtrudeEdges(hwnd, (const ViewportEdgeExtrusion *)lparam);
+
+    case VIEWPORT_WM_SPLIT_EDGE:
+        return lparam && GEditorSeparateBgVertices(hwnd, (const BgDocumentEdgeRef *)lparam);
+
+    case VIEWPORT_WM_DISCONNECT_FACES:
+        return GEditorSeparateBgVertices(hwnd, NULL);
 
     case VIEWPORT_WM_TRANSLATE_SELECTION:
     case VIEWPORT_WM_SNAP_VERTEX:
