@@ -24,6 +24,7 @@ enum RenderColorDither {
 };
 
 s32 renderGetAaStyle(void);
+bool renderUseOneCycleBackground(void);
 s32 renderGetViFilter(void);
 s32 renderGetColorDither(void);
 void renderSetAaStyle(s32 style);
@@ -36,6 +37,8 @@ void renderDecodeSettings(u8 settings);
 void renderConfigureViMode(OSViMode *mode);
 
 void renderInvalidateDisplayListCache(void);
+/* Pure command conversion for room-load builders, independent of queued settings. */
+Gfx renderGetAaOffCommand(Gfx command);
 void renderRestoreDisplayListSettings(Gfx *start, Gfx *end);
 bool renderApplyDisplayListSettings(Gfx *start, Gfx *end);
 

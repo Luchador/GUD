@@ -8,7 +8,7 @@ below the list. Press A to select a row, then use left/right to change it.
 
 | Option | Values | Effect |
 |---|---|---|
-| AA | Full / Reduced / Off | Full preserves authored render modes. Reduced keeps coverage AA but removes the framebuffer colour read on supported opaque surfaces. Off uses their non-AA equivalents. |
+| AA | Full / Reduced / Off | Full preserves authored render modes. Reduced keeps coverage AA but removes the framebuffer colour read on supported opaque surfaces. Off uses their non-AA equivalents and enables one-cycle rendering for eligible opaque room backgrounds. |
 | VI Filter | Smooth / Edges / Off | Smooth enables VI edge AA, divot correction and dedithering. Edges keeps edge AA/divot but disables dedithering. Off disables those three filters while retaining the VI resampling needed for video output. |
 | Color Dither | Default / Off | Default preserves each rendering pass's authored color-dither choice. Off suppresses RDP color dithering throughout the submitted display lists. |
 
@@ -33,7 +33,71 @@ comparison settings are preserved. Default restores the authored RGB pattern
 for each pass, including effects that temporarily use noise dithering.
 
 The temporary AA/VI profiler, Render Stats option, task metadata, sampling and
-HUD rows have been removed. The existing FPS and CPU timing panel remains.
+HUD rows have been removed. The FPS counter and CPU/RSP/RDP bottleneck indicator remain.
+
+## One-cycle opaque backgrounds
+
+AA **Off** selects an alternate primary display list built when each room loads.
+Eligible ordinary opaque surfaces use one-cycle rendering, bilinear filtering
+(or point filtering if authored), the primitive's base texture tile, and the
+original depth compare/write behavior. Fog remains active, using the one-cycle
+fog blender with `FORCE_BL` and no framebuffer colour read. Full and Reduced
+select the original room list. VI Filter and Color Dither remain independent.
+
+The visual trade-off is loss of mip-level blending on converted surfaces.
+Distant or oblique textures can shimmer or alias more, especially floors.
+Perspective correction, texture coordinates, vertex colouring and geometry
+are retained. Texture uploads still load the original mip chain; this patch
+targets pixel processing, not texture upload traffic.
+
+Conversion is limited to recognized opaque surface/terrain render modes and
+simple textured or shaded combiners in primary room lists. Cutouts, decals,
+translucency, detail/sharpen combiners, animated water and custom materials keep
+their existing pipelines. Secondary room lists, objects, characters, weapons,
+sky and the watch are outside this conversion. Mixed primary lists switch state
+around eligible draws. Calls, branches and conditional returns restore the
+original AA-Off state; state inherited from a called list is treated as unknown.
+This is not a blanket replacement of every `G_CYC_2CYCLE` command.
+
+The converter runs after texture expansion and the environment's material LUT,
+using the same AA-Off command mapping as the submission walker. Tracking full
+and partial state writes preserves GEditor-authored overrides. Selection uses
+the **applied** AA setting so a watch change cannot switch pipelines mid-frame.
+The existing queue-drain and display-list cache protections still apply.
+
+Original lists remain at their original addresses for collision, bullet hits
+and light-fixture bookkeeping. Both lists share vertex and texture storage, so
+broken lights update the same vertex colours. The alternate list adds roughly
+another primary list's worth of room memory plus inserted state commands; it is
+freed on normal room unload. If its allocation or conversion fails, that room
+uses its original list. The collision cache is allocated first. Test room
+streaming as well as stationary scenes because the additional memory and
+room-load conversion work can affect loading behavior.
+
+For an isolated performance comparison, use the previous ROM with AA Off and
+this patch with AA Off, keeping VI Filter, Color Dither, resolution, view and
+game state identical. Let room loading settle before recording FPS and the
+bottleneck indicator. Full versus Off also changes AA, so it does not isolate
+the one-cycle gain. Check distant floors, fogged outdoor areas, water, fences,
+decals, breakable lights, room transitions and repeated AA changes on hardware.
+No measured speedup is claimed until those console comparisons are available.
+
+Run the converter regression suite with:
+
+```sh
+python3 tools/tests/bg_onecycle/run.py
+ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1 TEST_CFLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' python3 tools/tests/bg_onecycle/run.py
+```
+
+It exercises production conversion, AA command mapping, room allocation/freeing
+and AA selection. An independent command-state decoder checks fog, depth,
+excluded materials, partial overrides, state restoration and geometry/upload
+packet preservation. It also checks 464 authored primary streams from Runway,
+Depot, Train, Frigate, Jungle, Dam and Caverns with both primary material LUTs.
+Those asset checks substitute texture markers and water calls; they do not
+emulate texture allocation, the RSP, RDP or rasterization. The new converter and
+changed game modules compile with IDO 5.3 for N64. A complete ROM link and
+console verification remain pending.
 
 ## Implementation notes
 

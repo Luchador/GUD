@@ -41,6 +41,9 @@ extern u8 *g_GfxBuffers[3];
 extern u8 *g_VtxBuffers[3];
 
 s32 renderGetAaStyle(void) { return g_RenderAaStyle; }
+/* Use the applied preference: the watch can request a change partway through
+ * building a frame, before the graphics queue has drained. */
+bool renderUseOneCycleBackground(void) { return g_RenderAppliedAa == RENDER_AA_OFF; }
 s32 renderGetViFilter(void) { return g_RenderViFilter; }
 s32 renderGetColorDither(void) { return g_RenderColorDither; }
 
@@ -136,7 +139,7 @@ static void renderRestoreAaCommand(Gfx *cmd)
     cmd->words.w0 = AA_COMMAND_WORD;
 }
 
-static void renderApplyAaCommand(Gfx *cmd)
+static void renderApplyAaStyleToCommand(Gfx *cmd, s32 style)
 {
     u32 original;
     u32 replacement;
@@ -144,7 +147,7 @@ static void renderApplyAaCommand(Gfx *cmd)
     s32 i;
     Gfx canonical = *cmd;
     renderRestoreAaCommand(&canonical);
-    if (g_RenderAppliedAa == RENDER_AA_FULL) {
+    if (style == RENDER_AA_FULL) {
         if (cmd->words.w0 != canonical.words.w0) *cmd = canonical;
         return;
     }
@@ -153,7 +156,7 @@ static void renderApplyAaCommand(Gfx *cmd)
     for (i = 0; i < 5; i++) {
         if ((original & AA_OTHER_BITS_MASK) == (g_AaOpaqueModes[i][0] & AA_OTHER_BITS_MASK)) {
             tag = AA_TAG_PRESENT | i;
-            replacement = g_RenderAppliedAa == RENDER_AA_REDUCED
+            replacement = style == RENDER_AA_REDUCED
                     ? g_AaOpaqueModes[i][0] & ~IM_RD : g_AaOpaqueModes[i][1];
             if ((original & AA_FIRST_BLENDER_MASK) == (g_AaOpaqueModes[i][0] & AA_FIRST_BLENDER_MASK)) {
                 tag |= AA_TAG_FIRST_BLENDER;
@@ -169,6 +172,17 @@ static void renderApplyAaCommand(Gfx *cmd)
             return;
         }
     }
+}
+
+Gfx renderGetAaOffCommand(Gfx command)
+{
+    renderApplyAaStyleToCommand(&command, RENDER_AA_OFF);
+    return command;
+}
+
+static void renderApplyAaCommand(Gfx *cmd)
+{
+    renderApplyAaStyleToCommand(cmd, g_RenderAppliedAa);
 }
 
 /* RGB dithering lives in SetOtherMode H, independently of AA's L command.

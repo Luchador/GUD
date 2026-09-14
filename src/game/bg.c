@@ -7,6 +7,7 @@
 #include <mema.h>
 #include <memp.h>
 #include "bg.h"
+#include "bgonecycle.h"
 #include "bgroomtrans.h"
 #include "bondview.h"
 #include "cam.h"
@@ -17,6 +18,7 @@
 #include "lv.h"
 #include "matrixmath.h"
 #include "player.h"
+#include "renderconfig.h"
 #include "stan.h"
 
 
@@ -137,6 +139,12 @@ static BgScissorCache g_BgScissorCache = {FALSE, FALSE, 0, 0, 0, 0};
  * Canonical name: roominf
 */
 RoomInfo g_BgRoomInfo[MAXROOMCOUNT] = {0};
+/* Keep source room commands at their original addresses for collision and
+ * light fixtures. Only the renderer uses this optional alternate list. */
+static struct {
+    Gfx *gdl;
+    s32 size;
+} g_BgOneCycleRooms[MAXROOMCOUNT];
 s32 g_MaxNumRooms = MAXROOMCOUNT;
 
 /**
@@ -538,6 +546,8 @@ void bgLoadFile(LEVEL_INDEX levelid)
     for (i = 0; i < MAXROOMCOUNT; i++) 
     {
         g_BgRoomInfo[i].vtx_batch_bounds = NULL;
+        g_BgOneCycleRooms[i].gdl = NULL;
+        g_BgOneCycleRooms[i].size = 0;
     }
  
     for (i = 0; i < STAGES_MAX; i++)
@@ -1924,6 +1934,28 @@ s32 bgCheckIfRoomModelNeedsLoad(s32 roomID)
 }
 
 
+/* Build once at room load, sharing the source vertices and texture storage. */
+static void bgBuildRoomOneCycleGdl(s32 roomID)
+{
+    RoomInfo *room = &g_BgRoomInfo[roomID];
+    Gfx *gdl;
+    s32 size;
+
+    size = bgBuildOneCycleGdl(room->primaryGdl, room->primaryGdlSize, NULL, 0);
+    if (size <= 0) return;
+    size = (size + 0xf) & ~0xf;
+    gdl = memaAlloc(size);
+    if (!gdl) return; /* The original room remains renderable under pressure. */
+    if (bgBuildOneCycleGdl(room->primaryGdl, room->primaryGdlSize, gdl, size) <= 0)
+    {
+        memaFree(gdl, size);
+        return;
+    }
+    g_BgOneCycleRooms[roomID].gdl = gdl;
+    g_BgOneCycleRooms[roomID].size = size;
+    renderInvalidateDisplayListCache();
+}
+
 /*
 * Allocates memory for room and update its display lists
 *
@@ -2059,6 +2091,9 @@ void bgLoadRoomModelData(s32 roomID)
     }
 
     bgBuildRoomVtxBounds(roomID);
+    /* Texture expansion and the environment LUT must finish before conversion.
+     * Allocate the collision cache first; one-cycle rendering is optional. */
+    bgBuildRoomOneCycleGdl(roomID);
 }
 
 
@@ -2071,6 +2106,14 @@ void bgFreeRoomData(s32 roomID)
     s32 size;
     s32 size2;
     Vtx *pointindex;
+
+    if (g_BgOneCycleRooms[roomID].gdl)
+    {
+        memaFree(g_BgOneCycleRooms[roomID].gdl, g_BgOneCycleRooms[roomID].size);
+        g_BgOneCycleRooms[roomID].gdl = NULL;
+        g_BgOneCycleRooms[roomID].size = 0;
+        renderInvalidateDisplayListCache();
+    }
 
     if (room->vtx_batch_bounds != NULL)
     {
@@ -2154,6 +2197,7 @@ void bgRoomsTickUnload(void)
 */
 Gfx *bgRenderRoomPrimary(Gfx *gdl, s32 room_index)
 {
+    Gfx *primary;
     if (room_index >= g_MaxNumRooms)
     {
         return gdl;
@@ -2177,7 +2221,12 @@ Gfx *bgRenderRoomPrimary(Gfx *gdl, s32 room_index)
         gdl = applyRoomMatrixToDisplayList(gdl, room_index);
 
         gSPSegment(gdl++, SPSEGMENT_BG_VTX, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].vertices));
-        gSPDisplayList(gdl++, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].primaryGdl));
+        primary = g_BgRoomInfo[room_index].primaryGdl;
+        if (renderUseOneCycleBackground() && g_BgOneCycleRooms[room_index].gdl)
+        {
+            primary = g_BgOneCycleRooms[room_index].gdl;
+        }
+        gSPDisplayList(gdl++, OS_K0_TO_PHYSICAL(primary));
 
         // Set the room's state to "loaded"
         g_BgRoomInfo[room_index].unloadAge = 1;

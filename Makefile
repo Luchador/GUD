@@ -272,13 +272,14 @@ $(GAMEOBJECTS): src/propconstants.h src/propruntimeflags.h
 $(CODEOBJECTS) $(GAMEOBJECTS): src/bondtypes.h src/game/bondview.h
 
 $(addprefix $(BUILD_DIR)/src/game/,bg.o bondview.o lv.o sky.o): src/game/bg.h
+$(addprefix $(BUILD_DIR)/src/game/,bg.o bgonecycle.o): src/game/bgonecycle.h
 
 $(addprefix $(BUILD_DIR)/src/game/,cam.o player.o): src/game/cam.h
 $(addprefix $(BUILD_DIR)/src/game/,cam.o environment.o): src/game/environment.h
 
 # Graphics-task layout and persistent render settings.
 $(addprefix $(BUILD_DIR)/src/,boss.o fr.o) $(BUILD_DIR)/src/game/rsp.o: src/game/rsp.h
-$(addprefix $(BUILD_DIR)/src/,boss.o fr.o) $(addprefix $(BUILD_DIR)/src/game/,rsp.o renderconfig.o options.o file2.o dyn.o tex.o bgapply.o): src/game/renderconfig.h
+$(addprefix $(BUILD_DIR)/src/,boss.o fr.o) $(addprefix $(BUILD_DIR)/src/game/,rsp.o renderconfig.o options.o file2.o dyn.o tex.o bgapply.o bg.o bgonecycle.o): src/game/renderconfig.h
 $(BUILD_DIR)/src/game/options.o: src/game/options.h
 
 # Manifest catalog descriptors derive counts and strides beside their arrays.
