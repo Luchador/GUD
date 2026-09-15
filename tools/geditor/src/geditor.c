@@ -24,6 +24,7 @@
 #include "tooltoolbar.h"
 #include "uveditor.h"
 #include "modeleditor.h"
+#include "actioneditor.h"
 #include "modeledits.h"
 #include "imageedits.h"
 #include "imageimport.h"
@@ -613,6 +614,7 @@ enum {
     ID_TOOLS_CREATE_ROM,
     ID_TOOLS_UV_EDITOR,
     ID_TOOLS_MODEL_EDITOR,
+    ID_TOOLS_ACTION_BLOCKS,
 
     ID_FILE_RECENT_PROJECT_FIRST,
     ID_FILE_RECENT_PROJECT_LAST = ID_FILE_RECENT_PROJECT_FIRST + RECENT_PROJECTS_MAX - 1,
@@ -785,6 +787,7 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_SAME_MATERIAL, "Select Same &Material");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_ROOM, "Select &Room");
 
+    AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_ACTION_BLOCKS, "&Action Blocks...");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_UV_EDITOR, "&UV Editor\tCtrl+T");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_MODEL_EDITOR, "&Model Editor");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_CREATE_ROM, "&Create ROM...");
@@ -3158,6 +3161,33 @@ fail:
 }
 
 
+static void GEditorOpenActionBlocks(HWND hwnd)
+{
+    SetupFile edited={0}; EditHistoryTransaction transaction={0};
+    const char *why="", *restorewhy=""; BOOL changed=FALSE;
+    DWORD selected=ACTION_MISSING_TARGET, character=ACTION_MISSING_TARGET;
+    if (!g_CurrentSetup.data) { return; }
+    ViewportCancelTransform(g_Viewport);
+    if (ViewportGetSelectedObject(g_Viewport,&selected) && (selected&SETUP_CHARACTER_SELECTION_BIT))
+    { character=selected&~SETUP_CHARACTER_SELECTION_BIT; }
+    if (!ActionEditorShow(hwnd,&g_Project,&g_CurrentSetup,character,&edited,&changed,&why)) { goto fail; }
+    if (!changed) { return; }
+    if (!EditHistoryBeginSetupEdit(&g_EditHistory,&g_CurrentSetup,"Edit Action Blocks",&transaction,&why)) { goto fail; }
+    SetupFileFree(&g_CurrentSetup); g_CurrentSetup=edited; ZeroMemory(&edited,sizeof(edited));
+    if (!GEditorReloadCurrentObjectsAndViewport(&why)
+        || !EditHistoryCommitEdit(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,&transaction,&why))
+    {
+        EditHistoryRollbackEdit(&transaction,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan);
+        GEditorReloadCurrentObjectsAndViewport(&restorewhy); goto fail;
+    }
+    if (selected!=ACTION_MISSING_TARGET) { ViewportSelectSetupModel(g_Viewport,selected); }
+    GEditorRefreshHistoryMenu(hwnd); return;
+fail:
+    SetupFileFree(&edited); EditHistoryCancelEdit(&transaction);
+    GEditorRefreshHistoryMenu(hwnd); MessageBox(hwnd,why,GEDITOR_TITLE,MB_ICONERROR);
+}
+
+
 static void GEditorDeleteSelectedObject(HWND hwnd, DWORD objectindex)
 {
     EditHistoryTransaction transaction;
@@ -4357,6 +4387,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         EnableMenuItem((HMENU)wparam, ID_FILE_SAVE_PROJECT, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_FILE_REBASE_PROJECT, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_FILE_IMPORT_IMAGE, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
+        EnableMenuItem((HMENU)wparam, ID_TOOLS_ACTION_BLOCKS, MF_BYCOMMAND | (g_CurrentSetup.data ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_CREATE_ROM, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         GEditorUpdateHistoryMenu((HMENU)wparam);
         CheckMenuItem((HMENU)wparam, ID_VIEW_BACKFACE_CULLING, MF_BYCOMMAND | (ViewportGetBackfaceCulling(g_Viewport) ? MF_CHECKED : MF_UNCHECKED));
@@ -4610,6 +4641,10 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
             case ID_SELECT_SAME_MATERIAL:
                 ViewportSelectSameMaterial(g_Viewport);
+                return 0;
+
+            case ID_TOOLS_ACTION_BLOCKS:
+                GEditorOpenActionBlocks(hwnd);
                 return 0;
 
             case ID_TOOLS_UV_EDITOR:

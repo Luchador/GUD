@@ -1,3 +1,4 @@
+#include "setupmeta.h"
 /*
  * GEditor ROM export.
  *
@@ -598,6 +599,13 @@ static unsigned char *RomExportReadResource(const char *path,
     }
 
     CloseHandle(file);
+    if (!strncmp(resource, "Usetup", 6) || !strncmp(resource, "Ump_setup", 9))
+    {
+        DWORD native, meta;
+        if (!SetupMetaSplit(data, size, &native, &meta))
+        { free(data); RomExportSetError(reasonout, "%s has invalid editor metadata.", resource); return NULL; }
+        size = native;
+    }
     *sizeout = size;
     return data;
 }

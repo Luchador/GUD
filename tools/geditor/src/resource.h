@@ -12,6 +12,7 @@
 #define IDD_ADD_CYLINDER      108
 #define IDD_REBASE_PROJECT    109
 #define IDD_ADD_PORTAL        110
+#define IDD_ACTION_BLOCKS     111
 
 /* Icons */
 #define IDI_GEDITOR           201

@@ -137,6 +137,8 @@ void SetupPadGetBoxCorners(const SetupPad *pad,
 typedef struct SetupFile {
     unsigned char *data;
     DWORD size;
+    unsigned char *actionmeta; /* Project-only Action Block names and notes. */
+    DWORD actionmetasize;
     char name[64];
     SetupPad *pads;
     DWORD padcount;

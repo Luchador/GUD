@@ -1,3 +1,4 @@
+#include "setupmeta.h"
 /*
  * GEditor setup-file extraction and project loading.
  *
@@ -1109,6 +1110,8 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
     *selectionout =
         character ? (SETUP_CHARACTER_SELECTION_BIT | setup->charactercount) : setup->objectcount;
     added.dirty = TRUE;
+    added.actionmeta = setup->actionmeta; added.actionmetasize = setup->actionmetasize;
+    setup->actionmeta = NULL;
     SetupFileFree(setup);
     *setup = added;
     return TRUE;
@@ -1391,6 +1394,8 @@ static BOOL SetupEditSpawns(SetupFile *setup, const SetupMarkerRef *remove,
     if (!SetupParsePads(&edited, reasonout) || !SetupParseObjects(&edited, reasonout))
     { SetupFileFree(&edited); return FALSE; }
     edited.dirty = TRUE;
+    edited.actionmeta = setup->actionmeta; edited.actionmetasize = setup->actionmetasize;
+    setup->actionmeta = NULL;
     SetupFileFree(setup); *setup = edited;
     if (placing) { out->kind = SETUP_MARKER_SPAWN; out->command = selected; }
     *reasonout = "";
@@ -1619,7 +1624,7 @@ BOOL SetupLoadProjectFile(const char *projectdir, const char *setupname,
 
     out->size = GetFileSize(file, NULL);
     if (out->size == INVALID_FILE_SIZE || out->size == 0
-        || out->size > SETUP_FILE_MAX)
+        || out->size > SETUP_FILE_MAX + SETUP_META_MAX + SETUP_META_FOOTER)
     {
         CloseHandle(file);
         ZeroMemory(out, sizeof(*out));
@@ -1647,6 +1652,21 @@ BOOL SetupLoadProjectFile(const char *projectdir, const char *setupname,
 
     CloseHandle(file);
 
+    {
+        DWORD native, meta;
+        if (!SetupMetaSplit(out->data, out->size, &native, &meta) || native > SETUP_FILE_MAX)
+        { SetupFileFree(out); *reasonout = "the setup metadata trailer is invalid."; return FALSE; }
+        if (meta)
+        {
+            out->actionmeta = malloc(meta);
+            if (!out->actionmeta)
+            { SetupFileFree(out); *reasonout = "out of memory reading setup notes."; return FALSE; }
+            memcpy(out->actionmeta, out->data + native, meta);
+            out->actionmetasize = meta;
+        }
+        out->size = native;
+    }
+
     if (!SetupParsePads(out, reasonout)
         || !SetupParseObjects(out, reasonout))
     {
@@ -1662,43 +1682,36 @@ BOOL SetupLoadProjectFile(const char *projectdir, const char *setupname,
 BOOL SetupSaveProjectFile(const char *projectdir, const SetupFile *setup,
                           const char **reasonout)
 {
-    char path[MAX_PATH];
+    char path[MAX_PATH], temporary[MAX_PATH];
+    unsigned char footer[SETUP_META_FOOTER];
     HANDLE file;
     DWORD written;
     BOOL ok;
-
     *reasonout = "";
-
-    if (setup == NULL || setup->data == NULL || setup->size == 0
-        || !SetupProjectPath(path, sizeof(path), projectdir, setup->name))
-    {
-        *reasonout = "there is no valid setup loaded to save.";
-        return FALSE;
-    }
-
-    file = CreateFile(path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
-                      FILE_ATTRIBUTE_NORMAL, NULL);
+    if (!setup || !setup->data || !setup->size || setup->actionmetasize > SETUP_META_MAX
+        || (setup->actionmetasize && !setup->actionmeta)
+        || !SetupProjectPath(path, sizeof(path), projectdir, setup->name)
+        || snprintf(temporary, sizeof(temporary), "%s.tmp", path) >= (int)sizeof(temporary))
+    { *reasonout = "there is no valid setup loaded to save."; return FALSE; }
+    file = CreateFile(temporary, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (file == INVALID_HANDLE_VALUE)
+    { *reasonout = "the temporary setup file could not be opened for writing."; return FALSE; }
+    ok = WriteFile(file, setup->data, setup->size, &written, NULL) && written == setup->size;
+    if (ok && setup->actionmetasize)
     {
-        *reasonout = "the project setup could not be opened for writing.";
-        return FALSE;
+        memcpy(footer, SETUP_META_MAGIC, 8);
+        SetupMetaWrite32(footer + 8, setup->size);
+        SetupMetaWrite32(footer + 12, setup->actionmetasize);
+        ok = WriteFile(file, setup->actionmeta, setup->actionmetasize, &written, NULL)
+          && written == setup->actionmetasize;
+        if (ok) { ok = WriteFile(file, footer, sizeof(footer), &written, NULL) && written == sizeof(footer); }
     }
-
-    ok = WriteFile(file, setup->data, setup->size, &written, NULL)
-      && written == setup->size;
-    if (!CloseHandle(file))
-    {
-        ok = FALSE;
-    }
-
+    if (!CloseHandle(file)) { ok = FALSE; }
+    if (ok) { ok = MoveFileEx(temporary, path, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH); }
     if (!ok)
-    {
-        *reasonout = "the project setup could not be fully written.";
-    }
-
+    { DeleteFile(temporary); *reasonout = "the setup could not be saved; the previous file was retained."; }
     return ok;
 }
-
 
 BOOL SetupFileClone(const SetupFile *source, SetupFile *out,
                     const char **reasonout)
@@ -1715,7 +1728,8 @@ BOOL SetupFileClone(const SetupFile *source, SetupFile *out,
         || (source->padcount > 0 && source->pads == NULL)
         || (source->boundpadcount > 0 && source->boundpads == NULL)
         || (source->objectcount > 0 && source->objects == NULL)
-        || (source->charactercount > 0 && source->characters == NULL))
+        || (source->charactercount > 0 && source->characters == NULL)
+        || (source->actionmetasize > 0 && source->actionmeta == NULL))
     {
         *reasonout = "the setup document is incomplete.";
         return FALSE;
@@ -1724,6 +1738,14 @@ BOOL SetupFileClone(const SetupFile *source, SetupFile *out,
     if (source->size > 0)
     {
         out->data = (unsigned char *)malloc(source->size);
+    }
+    if (source->actionmetasize)
+    {
+        out->actionmeta = malloc(source->actionmetasize);
+        if (!out->actionmeta)
+        { SetupFileFree(out); *reasonout = "out of memory copying setup notes."; return FALSE; }
+        memcpy(out->actionmeta, source->actionmeta, source->actionmetasize);
+        out->actionmetasize = source->actionmetasize;
     }
     if (source->padcount > 0)
     {
@@ -2095,6 +2117,7 @@ BOOL SetupFileTranslateModel(SetupFile *setup, DWORD selection,
 
 void SetupFileFree(SetupFile *setup)
 {
+    free(setup->actionmeta);
     free(setup->characters);
     free(setup->objects);
     free(setup->boundpads);
