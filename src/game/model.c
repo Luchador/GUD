@@ -28,6 +28,14 @@ typedef struct ModelAnimFrameCacheEntry {
     u32 size;
 } ModelAnimFrameCacheEntry;
 
+/* Near/far LOD siblings use the same matrix and runtime-data base. This
+ * cache belongs to one matrix traversal, never to a shared model asset. */
+typedef struct ModelDistanceCache {
+    ModelNode *parent;
+    union ModelRwData **rwdata;
+    f32 distance;
+} ModelDistanceCache;
+
 static ModelAnimFrameCacheEntry g_ModelAnimFrameCache[MODEL_ANIM_FRAME_CACHE_CAPACITY];
 static char *g_ModelAnimFrameCacheBuffer;
 static s32 g_ModelAnimFrameCacheNext;
@@ -1670,6 +1678,55 @@ void modelApplyDistanceRelations(Model* model, ModelNode* node)
 }
 
 
+static void modelUpdateDistanceRelationsCached(Model *model, ModelNode *node, ModelDistanceCache *cache)
+{
+    ModelRoData_LODRecord *rodata = &node->Data->LOD;
+    ModelRwData_LODRecord *rwdata;
+
+    if (cache->rwdata == NULL || cache->parent != node->Parent)
+    {
+        /* Keep the existing head-placeholder lookup: an attached head has
+         * its own runtime-data array even though it shares the body tree. */
+        rwdata = (ModelRwData_LODRecord *)modelGetNodeRwData(model, node);
+        cache->rwdata = (union ModelRwData **)rwdata - rodata->RwDataIndex;
+        cache->parent = node->Parent;
+
+        if (g_ModelDistanceDisabled)
+        {
+            cache->distance = 0.0f;
+        }
+        else
+        {
+            Mtxf *mtx = modelFindNodeMtx(model, node, 0);
+            /* Preserve the two multiplies and their order at LOD boundaries. */
+            cache->distance = -mtx->m[3][2] * getPlayer_c_lodscalez();
+            if (g_ModelDistanceScale != 1.0f)
+            {
+                cache->distance *= g_ModelDistanceScale;
+            }
+        }
+    }
+    else
+    {
+        rwdata = (ModelRwData_LODRecord *)&cache->rwdata[rodata->RwDataIndex];
+    }
+
+    /* Each branch retains its authored range, including zero-minimum nodes
+     * and models whose near/far ranges overlap or leave a gap. */
+    if ((cache->distance > rodata->MinDistance * model->scale || rodata->MinDistance == 0)
+            && cache->distance <= rodata->MaxDistance * model->scale)
+    {
+        rwdata->visible = TRUE;
+        node->Child = rodata->Affects;
+    }
+    else
+    {
+        rwdata->visible = FALSE;
+        node->Child = NULL;
+    }
+}
+
+
 void modelApplyToggleRelations(Model* model, ModelNode* node)
 {
     ModelRoData_SwitchRecord *rodata = &node->Data->Switch;
@@ -1959,6 +2016,9 @@ void modelUpdateNodeRelations(Model *model)
 void modelUpdateMatrices(ModelRenderData *arg0, Model *model)
 {
     ModelNode *node = model->obj->RootNode;
+    ModelDistanceCache distancecache;
+
+    distancecache.rwdata = NULL;
 
     while (node)
     {
@@ -1967,26 +2027,31 @@ void modelUpdateMatrices(ModelRenderData *arg0, Model *model)
         switch (type)
         {
             case MODELNODE_OPCODE_HEADER:
+                distancecache.rwdata = NULL;
                 process_01_group_heading(arg0, model, node);
                 break;
 
             case MODELNODE_OPCODE_GROUP:
+                distancecache.rwdata = NULL;
                 process_02_position(arg0, model, node);
                 break;
 
             case MODELNODE_OPCODE_OP03:
+                distancecache.rwdata = NULL;
                 process_03_unknown(arg0, model, node);
                 break;
 
             case MODELNODE_OPCODE_GROUPSIMPLE:
+                distancecache.rwdata = NULL;
                 process_15_subposition(arg0, model, node);
                 break;
 
             case MODELNODE_OPCODE_LOD:
-                modelUpdateDistanceRelations(model, node);
+                modelUpdateDistanceRelationsCached(model, node, &distancecache);
                 break;
 
             case MODELNODE_OPCODE_BSP:
+                distancecache.rwdata = NULL;
                 modelUpdateReorderRelations(model, node);
                 break;
 
@@ -1995,10 +2060,12 @@ void modelUpdateMatrices(ModelRenderData *arg0, Model *model)
                 break;
 
             case MODELNODE_OPCODE_SWITCH:
+                distancecache.rwdata = NULL;
                 modelApplyToggleRelations(model, node);
                 break;
 
             case MODELNODE_OPCODE_HEAD:
+                distancecache.rwdata = NULL;
                 modelApplyHeadRelations(model, node);
                 break;
 
