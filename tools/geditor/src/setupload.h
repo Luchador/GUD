@@ -157,8 +157,9 @@ typedef struct SetupPatrolLink {
     DWORD pads[2];
     unsigned int directions;
 } SetupPatrolLink;
+/* Optional pathpads has setup->padcount bytes; includes single-pad routes. */
 BOOL SetupFileBuildPatrolLinks(const SetupFile *setup, SetupPatrolLink **links,
-                               DWORD *count, const char **reasonout);
+                               DWORD *count, unsigned char *pathpads, const char **reasonout);
 
 const char *SetupObjectTypeName(unsigned char type);
 BOOL SetupFileGetObjectProperties(const SetupFile *setup, DWORD index,

@@ -97,6 +97,9 @@ void ViewportSetLevelClouds(HWND viewport, const RomClouds *clouds, const char *
 /* Level settings and the user's View toggle are independent; changing levels
    keeps the toggle. NULL clears the level fog. Orbit previews never use it. */
 void ViewportSetLevelFog(HWND viewport, const RomFog *fog, float renderscale);
+/* View-only grounding; authored coordinates remain editable and unchanged. */
+BOOL ViewportGetPadPreview(HWND viewport);
+void ViewportSetPadPreview(HWND viewport, BOOL enabled);
 BOOL ViewportGetFogVisible(HWND viewport);
 void ViewportSetFogVisible(HWND viewport, BOOL visible);
 

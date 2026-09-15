@@ -239,12 +239,13 @@ static BOOL SetupAppendPatrolLink(SetupPatrolLink **links, DWORD *count, DWORD *
 }
 
 BOOL SetupFileBuildPatrolLinks(const SetupFile *setup, SetupPatrolLink **links,
-                               DWORD *count, const char **reasonout)
+                               DWORD *count, unsigned char *pathpads, const char **reasonout)
 {
     DWORD paths, waypoints, waypointcount = 0, capacity = 0, visited = 0, at;
     *links = NULL; *count = 0;
     *reasonout = "The setup's patrol paths or waypoint references are invalid.";
     if (!setup || !setup->data || setup->size < SETUP_HEADER_SIZE) { return FALSE; }
+    if (pathpads) { memset(pathpads, 0, setup->padcount); }
     paths = SetupRead32(setup->data + 16);
     if (!paths) { return TRUE; }
     if (paths < SETUP_HEADER_SIZE || (paths & 3) || paths > setup->size - 8) { return FALSE; }
@@ -276,6 +277,7 @@ BOOL SetupFileBuildPatrolLinks(const SetupFile *setup, SetupPatrolLink **links,
             if (waypoint >= waypointcount) { goto fail; }
             pad = SetupRead32(setup->data + waypoints + waypoint * 16);
             if (pad >= setup->padcount || !setup->pads) { goto fail; }
+            if (pathpads) { pathpads[pad] = 1; }
             if (previous != SETUP_PAD_INDEX_NONE
                 && !SetupAppendPatrolLink(links, count, &capacity, previous, pad, loop)) { goto allocation; }
             if (first == SETUP_PAD_INDEX_NONE) { first = pad; }
@@ -301,6 +303,7 @@ allocation:
     *reasonout = "The patrol preview is too large or could not be allocated.";
 fail:
     free(*links); *links = NULL; *count = 0;
+    if (pathpads) { memset(pathpads, 0, setup->padcount); }
     return FALSE;
 }
 

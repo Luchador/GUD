@@ -54,16 +54,18 @@ def main():
         binary = Path(folder) / 'check'
         viewport = (src / 'viewport.c').read_text()
         code = '\n'.join(re.search(r'^#define VIEWPORT_' + name + r' .*', viewport, re.M)[0]
-                         for name in ('FOV_Y', 'DEG_TO_RAD', 'NEAR_Z')) + '\n'
+                         for name in ('FOV_Y', 'DEG_TO_RAD', 'NEAR_Z', 'PATH_COLOR')) + '\n'
         code += ''.join(function(viewport, name) for name in ('ViewportGetBasis',
-            'ViewportPreviewGuidePoint', 'ViewportPatrolEndpoints', 'ViewportDrawPatrolPaths'))
+            'ViewportGroundPadPosition', 'ViewportPadPosition', 'ViewportRefreshPadPreview',
+            'ViewportSelectedPadIndex', 'ViewportPadVisible', 'ViewportRefreshPadColors',
+            'ViewportPatrolEndpoints', 'ViewportDrawPatrolPaths'))
         (Path(folder) / 'patrol_viewport.h').write_text(code)
         command = [os.environ.get('CC', 'cc'), '-O1', '-g', '-std=c99', '-Wall', '-Wextra',
                    '-Wno-unused-parameter', '-ffunction-sections', '-fdata-sections',
                    '-fsanitize=address,undefined', f'-I{shim}', f'-I{src}', f'-I{src.parents[2]}',
                    f'-I{folder}', str(here / 'check.c'), str(here / 'viewport.c'),
                    str(shim / 'platform.c'), str(src / 'setupload.c'),
-                   str(src / 'rotation.c'), str(src / 'scaling.c'),
+                   str(src / 'rotation.c'), str(src / 'scaling.c'), str(src / 'stanquery.c'),
                    '-Wl,--gc-sections', '-lm', '-o', str(binary)]
         subprocess.run(command, check=True)
         args = [str(binary)] + ([str(project)] + [s.stem for s in setups] if project else [])

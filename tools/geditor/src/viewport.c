@@ -52,6 +52,7 @@
 #define VIEWPORT_PITCH_LIMIT 89.0f
 
 #define VIEWPORT_DEG_TO_RAD (3.14159265358979323846f / 180.0f)
+#define VIEWPORT_PATH_COLOR 64, 128, 255
 #define VIEWPORT_BOX_VERTICES  24
 #define VIEWPORT_VERTEX_MARKER_SIZE 5.0f /* screen pixels */
 #define VIEWPORT_SELECTION_GOLD 255, 210, 0
@@ -214,7 +215,8 @@ typedef struct ViewportStanComponent {
 typedef struct ViewportPad {
     SetupPadRef ref;
     float position[3]; /* authored origin in world units */
-    BOOL occupied;
+    float previewposition[3]; /* grounded origin, never written to the setup */
+    BOOL occupied, path;
 } ViewportPad;
 
 /* Per-viewport state, allocated at WM_CREATE, freed at WM_DESTROY,
@@ -350,6 +352,7 @@ typedef struct ViewportState {
     DWORD padcount;
     SetupPatrolLink *patrollinks;
     DWORD patrollinkcount;
+    BOOL padpreview;
     SetupPadRef selectedpad;
     BOOL showbgprimary;
     BOOL showbgsecondary;
@@ -364,6 +367,8 @@ typedef struct ViewportState {
 
 
 static void ViewportRefreshStanOverlay(ViewportState *state);
+static void ViewportRefreshPadPreview(ViewportState *state);
+static BOOL ViewportPadPosition(const ViewportState *state, const SetupPadRef *ref, BOOL preview, double position[3]);
 static void ViewportGetBasis(const ViewportState *state, float fwd[3], float right[3]);
 static BOOL ViewportStanVisible(const ViewportState *state);
 static void ViewportClearStanSelection(ViewportState *state);
@@ -424,7 +429,7 @@ static int ViewportSelectedPadIndex(const ViewportState *state)
 static BOOL ViewportPadVisible(const ViewportState *state, DWORD index)
 {
     const ViewportPad *pad = &state->pads[index];
-    return !pad->occupied || !state->showobjects
+    return pad->path || !pad->occupied || !state->showobjects
         || (pad->ref.index == state->selectedpad.index && pad->ref.bound == state->selectedpad.bound);
 }
 
@@ -435,13 +440,14 @@ static void ViewportRefreshPadColors(ViewportState *state)
     for (i = 0; i < state->padcount; i++)
     {
         int vertex;
-        BOOL white = (int)i == selected, bound = state->pads[i].ref.bound;
+        BOOL white = (int)i == selected, bound = state->pads[i].ref.bound, path = state->pads[i].path;
         for (vertex = 0; vertex < VIEWPORT_BOX_VERTICES; vertex++)
         {
             Vertex *v = &state->padmarkers[i * VIEWPORT_BOX_VERTICES + vertex];
-            v->r = white || bound ? 255 : 32;
-            v->g = white || !bound ? 255 : 48;
-            v->b = white ? 255 : bound ? 48 : 64;
+            static const unsigned char blue[3] = {VIEWPORT_PATH_COLOR};
+            v->r = white ? 255 : path ? blue[0] : bound ? 255 : 32;
+            v->g = white ? 255 : path ? blue[1] : bound ? 48 : 255;
+            v->b = white ? 255 : path ? blue[2] : bound ? 48 : 64;
         }
     }
 }
@@ -460,17 +466,12 @@ static void ViewportClearPadSelection(ViewportState *state)
     ViewportRefreshPadColors(state);
 }
 
-static BOOL ViewportPadSelectionPosition(const ViewportState *state, double position[3])
+static BOOL ViewportPadSelectionPosition(const ViewportState *state, double position[3], BOOL preview)
 {
-    int index = ViewportSelectedPadIndex(state), axis;
-    if (index < 0 || state->tool != EDITOR_TOOL_FACE_SELECT) { return FALSE; }
-    for (axis = 0; axis < 3; axis++)
-    {
-        position[axis] = state->pads[index].position[axis];
-        if (state->dragpad && !state->dragrotation && !state->dragscaling && state->dragaxis == axis) { position[axis] += state->dragdelta; }
-    }
-    return TRUE;
+    if (ViewportSelectedPadIndex(state) < 0 || state->tool != EDITOR_TOOL_FACE_SELECT) { return FALSE; }
+    return ViewportPadPosition(state, &state->selectedpad, preview, position);
 }
+
 
 static ViewportState *ViewportGetState(HWND hwnd)
 {
@@ -1175,11 +1176,50 @@ static void ViewportPreviewGuidePoint(const ViewportState *state, double point[3
     else { point[state->dragaxis] += state->dragdelta; }
 }
 
+/* Apply the same named-tile/linked-walk resolution used for character placement.
+ * Keep X/Z and leave unresolved pads at their authored height. */
+static void ViewportGroundPadPosition(const ViewportState *state, const SetupPad *pad, double position[3])
+{
+    float world[3] = {(float)position[0], (float)position[1], (float)position[2]}, height;
+    DWORD tile = StanResolvePadTile(&state->stan, pad->stanname, world);
+    if (StanGetTileHeight(&state->stan, tile, world[0], world[2], &height)) { position[1] = height; }
+}
+
+static BOOL ViewportPadPosition(const ViewportState *state, const SetupPadRef *ref, BOOL preview, double position[3])
+{
+    const SetupFile *setup = state->markersetup;
+    const SetupPad *pad;
+    DWORD slot;
+    BOOL dragging = state->dragpad && ref->index == state->selectedpad.index && ref->bound == state->selectedpad.bound;
+    if (!setup || !isfinite(state->markerlevelscale) || state->markerlevelscale <= 0
+        || (ref->bound ? !setup->boundpads || ref->index >= setup->boundpadcount
+                       : !setup->pads || ref->index >= setup->padcount)) { return FALSE; }
+    pad = ref->bound ? &setup->boundpads[ref->index].pad : &setup->pads[ref->index];
+    slot = ref->bound ? setup->padcount + ref->index : ref->index;
+    for (int axis = 0; axis < 3; axis++) { position[axis] = pad->pos[axis] / (double)state->markerlevelscale; }
+    if (preview && state->padpreview)
+    {
+        /* Cached for normal painting; a moved pad must resolve its new X/Z. */
+        if (dragging && !state->dragrotation && !state->dragscaling && state->dragaxis >= 0 && state->dragaxis < 3)
+        {
+            position[state->dragaxis] += state->dragdelta;
+            ViewportGroundPadPosition(state, pad, position);
+            dragging = FALSE;
+        }
+        else if (state->pads && slot < state->padcount)
+        { for (int axis = 0; axis < 3; axis++) { position[axis] = state->pads[slot].previewposition[axis]; } }
+        else { ViewportGroundPadPosition(state, pad, position); }
+    }
+    if (dragging && !state->dragrotation && !state->dragscaling && state->dragaxis >= 0 && state->dragaxis < 3)
+    { position[state->dragaxis] += state->dragdelta; }
+    for (int axis = 0; axis < 3; axis++) { if (!isfinite(position[axis])) { return FALSE; } }
+    return TRUE;
+}
+
 static BOOL ViewportAimGuideEndpoints(const ViewportState *state, const ViewportAimGuide *guide,
                                       double start[3], double end[3])
 {
     const SetupFile *setup = state->markersetup;
-    const SetupPad *pad;
     SetupObjectProperties properties;
     const char *why;
     DWORD index;
@@ -1193,13 +1233,11 @@ static BOOL ViewportAimGuideEndpoints(const ViewportState *state, const Viewport
     bound = target >= 10000;
     index = (DWORD)target - (bound ? 10000 : 0);
     if (bound ? !setup->boundpads || index >= setup->boundpadcount : !setup->pads || index >= setup->padcount) { return FALSE; }
-    pad = bound ? &setup->boundpads[index].pad : &setup->pads[index];
+    SetupPadRef ref = {index, bound};
+    if (!ViewportPadPosition(state, &ref, TRUE, end)) { return FALSE; }
     memcpy(start, guide->origin, sizeof(guide->origin));
-    for (int axis = 0; axis < 3; axis++) { end[axis] = pad->pos[axis] / (double)state->markerlevelscale; }
     if (!state->dragpad && !state->dragstan && !state->dragmarker && state->selectedobject == guide->objectindex)
     { ViewportPreviewGuidePoint(state, start); }
-    if (state->dragpad && state->selectedpad.index == index && state->selectedpad.bound == bound)
-    { ViewportPreviewGuidePoint(state, end); }
     for (int axis = 0; axis < 3; axis++)
     { if (!isfinite(start[axis]) || !isfinite(end[axis])) { return FALSE; } }
     return TRUE;
@@ -1235,18 +1273,10 @@ static void ViewportDrawAimGuides(const ViewportState *state)
 static BOOL ViewportPatrolEndpoints(const ViewportState *state, const SetupPatrolLink *link,
                                      double points[2][3])
 {
-    const SetupFile *setup = state->markersetup;
-    if (!setup || !setup->pads || !isfinite(state->markerlevelscale) || state->markerlevelscale <= 0) { return FALSE; }
     for (int end = 0; end < 2; end++)
     {
-        DWORD index = link->pads[end];
-        if (index >= setup->padcount) { return FALSE; }
-        for (int axis = 0; axis < 3; axis++)
-        { points[end][axis] = setup->pads[index].pos[axis] / (double)state->markerlevelscale; }
-        if (state->dragpad && !state->selectedpad.bound && state->selectedpad.index == index)
-        { ViewportPreviewGuidePoint(state, points[end]); }
-        for (int axis = 0; axis < 3; axis++)
-        { if (!isfinite(points[end][axis])) { return FALSE; } }
+        SetupPadRef ref = {link->pads[end], FALSE};
+        if (!ViewportPadPosition(state, &ref, TRUE, points[end])) { return FALSE; }
     }
     return TRUE;
 }
@@ -1269,7 +1299,9 @@ static void ViewportDrawPatrolPaths(const ViewportState *state)
     glDepthFunc(GL_LEQUAL);
     glDepthMask(GL_FALSE);
     glLineWidth(2.0f);
-    glColor3ub(144, 238, 144);
+    glColor3ub(VIEWPORT_PATH_COLOR);
+    /* Grounded lines can coincide with the floor. Bias only the overlay depth. */
+    glDepthRange(0.0, 0.99999);
     glBegin(GL_LINES);
     for (DWORD i = 0; i < state->patrollinkcount; i++)
     {
@@ -3287,7 +3319,7 @@ BOOL ViewportGetSelectionPosition(HWND hwnd, double position[3], DWORD *countout
         }
     }
     if (ViewportPortalSelectionPosition(state, position, countout)) { return TRUE; }
-    if (state != NULL && ViewportPadSelectionPosition(state, position)) { *countout = 1; return TRUE; }
+    if (state != NULL && ViewportPadSelectionPosition(state, position, FALSE)) { *countout = 1; return TRUE; }
     if (state != NULL && ViewportStanSelectionPosition(state, FALSE, position, countout)) { return TRUE; }
     if (state == NULL || state->scene == NULL || state->tool == EDITOR_TOOL_VERTEX_PAINT)
     {
@@ -3418,7 +3450,7 @@ static void ViewportUpdateGizmo(ViewportState *state)
         }
     }
 
-    if (ViewportPadSelectionPosition(state, state->gizmoposition))
+    if (ViewportPadSelectionPosition(state, state->gizmoposition, TRUE))
     {
         state->gizmovisible = TRUE;
         return;
@@ -5864,6 +5896,17 @@ static void ViewportDragTransform(HWND hwnd, ViewportState *state, int x, int y)
     {
         state->gizmoposition[state->dragaxis] = state->dragorigin[state->dragaxis] + delta;
     }
+    if (state->dragpad && state->padpreview && !state->dragrotation && !state->dragscaling)
+    {
+        int index = ViewportSelectedPadIndex(state);
+        double position[3];
+        if (index >= 0 && ViewportPadPosition(state, &state->selectedpad, TRUE, position))
+        {
+            double dy = position[1] - state->pads[index].previewposition[1] - (state->dragaxis == 1 ? delta : 0);
+            for (i = 0; i < VIEWPORT_BOX_VERTICES; i++) { state->padmarkers[index * VIEWPORT_BOX_VERTICES + i].y += dy; }
+            memcpy(state->gizmoposition, position, sizeof(position));
+        }
+    }
     if (state->dragstan)
     {
         ViewportRefreshStanOverlay(state);
@@ -6245,6 +6288,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         state->cullbackfaces = TRUE;
         state->showgeometrystatistics = !state->orbit;
         state->showfog = !state->orbit;
+        state->padpreview = TRUE;
         state->selectedobject = VIEWPORT_OBJECT_NONE;
         state->selectedpad.index = SETUP_PAD_INDEX_NONE;
         state->hoveraxis = state->dragaxis = -1;
@@ -6875,6 +6919,7 @@ static void ViewportRefreshStanOverlay(ViewportState *state)
     DWORD tile;
     size_t fillat=0, edgeat=0;
     unsigned char alpha=(unsigned char)(state->stanopacity*255/100);
+    ViewportRefreshPadPreview(state);
     if (state->stanfill == NULL || state->stanedges == NULL) { return; }
     for (tile=0; tile<state->stan.tilecount; tile++)
     {
@@ -7961,6 +8006,43 @@ static void ViewportAppendPadBox(Vertex *vertices, int *vertexcount,
 }
 
 
+static void ViewportRefreshPadPreview(ViewportState *state)
+{
+    const SetupFile *setup = state->markersetup;
+    if (!setup || !state->pads || !state->padmarkers || (state->dragpad && state->dragaxis >= 0)) { return; }
+    for (DWORD i = 0; i < state->padcount; i++)
+    {
+        ViewportPad *view = &state->pads[i];
+        const SetupPad *pad;
+        double position[3];
+        if (view->ref.index >= (view->ref.bound ? setup->boundpadcount : setup->padcount)) { continue; }
+        pad = view->ref.bound ? &setup->boundpads[view->ref.index].pad : &setup->pads[view->ref.index];
+        for (int axis = 0; axis < 3; axis++) { position[axis] = view->position[axis]; }
+        if (state->padpreview) { ViewportGroundPadPosition(state, pad, position); }
+        float height = (float)position[1], dy = height - view->previewposition[1];
+        for (int j = 0; j < VIEWPORT_BOX_VERTICES; j++) { state->padmarkers[i * VIEWPORT_BOX_VERTICES + j].y += dy; }
+        view->previewposition[1] = height;
+    }
+}
+
+BOOL ViewportGetPadPreview(HWND hwnd)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    return state && state->padpreview;
+}
+
+void ViewportSetPadPreview(HWND hwnd, BOOL enabled)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    if (!state || state->padpreview == !!enabled) { return; }
+    ViewportCancelTransform(hwnd);
+    state->padpreview = !!enabled;
+    ViewportRefreshPadPreview(state);
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd, NULL, FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+}
+
 static void ViewportSetSetupMarkers(HWND hwnd, ViewportState *state,
                                      const SetupFile *setup, float levelscale)
 {
@@ -8093,6 +8175,7 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup, float levelscale, c
     ViewportState *state = ViewportGetState(hwnd);
     Vertex *markers = NULL;
     ViewportPad *pads = NULL;
+    unsigned char *pathpads = NULL;
     DWORD boxcount = 0;
     int vertexcount = 0;
     float worldscale;
@@ -8112,7 +8195,8 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup, float levelscale, c
     if (setup)
     {
         const char *reason;
-        if (!SetupFileBuildPatrolLinks(setup, &state->patrollinks, &state->patrollinkcount, &reason))
+        pathpads = calloc(setup->padcount ? setup->padcount : 1, 1);
+        if (!SetupFileBuildPatrolLinks(setup, &state->patrollinks, &state->patrollinkcount, pathpads, &reason))
         { MessageBox(hwnd, reason, "GEditor patrol paths", MB_ICONWARNING); }
     }
     ViewportBuildAimGuides(state);
@@ -8127,6 +8211,7 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup, float levelscale, c
 
     if (setup == NULL || !(levelscale > 0.0f))
     {
+        free(pathpads);
         state->selectedpad.index = SETUP_PAD_INDEX_NONE;
         ViewportUpdateGizmo(state);
         InvalidateRect(hwnd, NULL, FALSE);
@@ -8136,6 +8221,7 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup, float levelscale, c
     boxcount = setup->padcount + setup->boundpadcount;
     if (boxcount == 0)
     {
+        free(pathpads);
         state->selectedpad.index = SETUP_PAD_INDEX_NONE;
         ViewportUpdateGizmo(state);
         InvalidateRect(hwnd, NULL, FALSE);
@@ -8148,6 +8234,7 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup, float levelscale, c
     if (markers == NULL || pads == NULL)
     {
         free(markers); free(pads);
+        free(pathpads);
         state->selectedpad.index = SETUP_PAD_INDEX_NONE;
         ViewportUpdateGizmo(state);
         InvalidateRect(hwnd, NULL, FALSE);
@@ -8163,6 +8250,7 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup, float levelscale, c
         float halfsize = SETUP_PAD_HALF_SIZE * levelscale;
         int axis;
         pads[i].ref.index = i; pads[i].ref.bound = FALSE;
+        pads[i].path = pathpads && pathpads[i];
         pads[i].occupied = occupiedpads != NULL && occupiedpads[i];
         for (axis = 0; axis < 3; axis++) { pads[i].position[axis] = setup->pads[i].pos[axis] * worldscale; }
 
@@ -8179,6 +8267,7 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup, float levelscale, c
         ViewportPad *preview = &pads[setup->padcount + i];
         int axis;
         preview->ref.index = i; preview->ref.bound = TRUE;
+        preview->path = FALSE;
         preview->occupied = occupiedboundpads != NULL && occupiedboundpads[i];
         for (axis = 0; axis < 3; axis++) { preview->position[axis] = pad->pad.pos[axis] * worldscale; }
 
@@ -8193,11 +8282,14 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup, float levelscale, c
         if (marker->kind == SETUP_MARKER_SPAWN && marker->pad < setup->padcount)
         { pads[marker->pad].occupied = TRUE; }
     }
+    free(pathpads);
+    for (i = 0; i < boxcount; i++) { memcpy(pads[i].previewposition, pads[i].position, sizeof(pads[i].position)); }
     state->padmarkers = markers;
     state->padmarkercount = vertexcount;
     state->pads = pads;
     state->padcount = boxcount;
     if (ViewportSelectedPadIndex(state) < 0) { state->selectedpad.index = SETUP_PAD_INDEX_NONE; }
+    ViewportRefreshPadPreview(state);
     ViewportRefreshPadColors(state);
     ViewportUpdateGizmo(state);
     InvalidateRect(hwnd, NULL, FALSE);
