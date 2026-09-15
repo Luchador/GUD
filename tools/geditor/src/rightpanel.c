@@ -1010,7 +1010,8 @@ void RightPanelSetSetupPad(HWND panel, const SetupFile *setup, const SetupPadRef
         "Up: %.4g, %.4g, %.4g\r\n"
         "Look: %.4g, %.4g, %.4g\r\n\r\n"
         "Drag an arrow or enter a world position.\r\n"
-        "Moving a pad updates all references to it.",
+        "Moving a pad updates all references to it.\r\n"
+        "Delete removes an unused pad.",
         (unsigned long)ref->index, pad->stanname[0] ? pad->stanname : "Automatic",
         pad->up[0], pad->up[1], pad->up[2], pad->look[0], pad->look[1], pad->look[2]);
     RightPanelShowFaceProperties(panel, state, FALSE);

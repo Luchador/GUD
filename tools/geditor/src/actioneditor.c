@@ -184,7 +184,7 @@ static void DisplayInstruction(ActionEditor *e)
             { for (DWORD i=0;i<e->doc.count;i++) { BlockTitle(e,i,text,sizeof(text)); Choice(c,text,e->doc.blocks[i].id); } }
             else if (param->kind==ACTION_PAD)
             {
-                for (DWORD i=0;i<e->setup->padcount;i++)
+                for (DWORD i=0;i<e->setup->padcount;i++) if (!e->setup->pads[i].deleted)
                 { snprintf(text,sizeof(text),"%lu - Pad (%s)",(unsigned long)i,e->setup->pads[i].stanname); Choice(c,text,i); }
                 Choice(c,"9000 - Current pad preset",9000);
             }

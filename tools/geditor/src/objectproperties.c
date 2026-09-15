@@ -579,6 +579,7 @@ static void ObjectPropertiesLoadAimPads(ObjectPropertiesState *state, const Setu
         for (DWORD index = 0; index < count; index++)
         {
             char text[64];
+            if (bound ? setup->boundpads[index].pad.deleted : setup->pads[index].deleted) { continue; }
             snprintf(text, sizeof(text), "%s %lu", bound ? "Bound pad" : "Pad", (unsigned long)index);
             int choice = (int)SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)text);
             if (choice >= 0) { SendMessage(combo, CB_SETITEMDATA, choice, index + (bound ? 10000 : 0)); }

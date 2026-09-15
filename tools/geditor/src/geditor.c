@@ -3227,6 +3227,36 @@ static void GEditorDeleteSelectedObject(HWND hwnd, DWORD objectindex)
 }
 
 
+static void GEditorDeleteSelectedPad(HWND hwnd, const SetupPadRef *ref)
+{
+    EditHistoryTransaction transaction = {0};
+    RomFile rom = {0};
+    char path[MAX_PATH];
+    const char *why = "", *restorewhy = "";
+    if (snprintf(path, sizeof(path), "%s\\%s", g_Project.dir, ROM_EXPORT_BASE_FILENAME) >= (int)sizeof(path))
+    { MessageBox(hwnd, "The project base ROM path is too long.", GEDITOR_TITLE, MB_ICONERROR); return; }
+    if (!RomLoad(path, &rom, &why)) { goto fail; }
+    if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup,
+        ref->bound ? "Delete Bound Pad" : "Delete Pad", &transaction, &why)) { goto fail; }
+    if (!SetupFileDeletePad(&g_CurrentSetup, ref, &rom, &why))
+    { EditHistoryCancelEdit(&transaction); goto fail; }
+    if (!GEditorReloadCurrentObjectsAndViewport(&why)
+        || !EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument,
+                                  &g_CurrentSetup, &g_CurrentStan, &transaction, &why))
+    {
+        EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+        GEditorReloadCurrentObjectsAndViewport(&restorewhy);
+        goto fail;
+    }
+    RomFree(&rom);
+    GEditorRefreshHistoryMenu(hwnd);
+    return;
+fail:
+    RomFree(&rom);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONINFORMATION);
+    GEditorRefreshHistoryMenu(hwnd);
+}
+
 static BOOL GEditorSetObjectFlag(HWND hwnd, const ObjectFlagEdit *edit)
 {
     EditHistoryTransaction transaction = {0};
@@ -4018,6 +4048,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     {
         DWORD selectedobject;
         SetupMarkerRef marker;
+        SetupPadRef pad;
 
         if (ViewportGetTool(g_Viewport) == EDITOR_TOOL_VERTEX_PAINT) { return 0; }
         if (ViewportGetSelectedMarker(g_Viewport, &marker, NULL))
@@ -4028,6 +4059,10 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         else if (ViewportGetSelectedObject(g_Viewport, &selectedobject))
         {
             GEditorDeleteSelectedObject(hwnd, selectedobject);
+        }
+        else if (ViewportGetSelectedPad(g_Viewport, &pad))
+        {
+            GEditorDeleteSelectedPad(hwnd, &pad);
         }
         else if (ViewportGetTool(g_Viewport) == EDITOR_TOOL_FACE_SELECT)
         {

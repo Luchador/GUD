@@ -63,6 +63,7 @@ BOOL ActionDocumentCompile(const ActionDocument *doc, const SetupFile *source,
 BOOL ActionDocumentValidate(const ActionDocument *doc, const SetupFile *setup,
     ActionIssue **issues, DWORD *count, const char **why);
 DWORD ActionReadValue(const ActionInstruction *ins, unsigned int parameter);
+BOOL ActionParameterIsPad(const ActionInstruction *ins, unsigned int parameter);
 double ActionDisplayValue(const ActionParam *param, DWORD value);
 BOOL ActionParseValue(const ActionParam *param, const char *text, DWORD *value);
 int ActionTargetParameter(unsigned int opcode);

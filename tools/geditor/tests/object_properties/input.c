@@ -164,6 +164,8 @@ static void CheckContents(void)
 static void CheckCctv(void)
 {
     SetupFile setup = {0}; double value;
+    SetupPad pads[3] = {0}; SetupBoundPad boundpads[1] = {0};
+    setup.pads = pads; setup.boundpads = boundpads;
     setup.padcount = 2; setup.boundpadcount = 1;
     state.controls[OBJECT_AIM_PAD] = 20;
     state.properties.object.type = PROPDEF_CCTV;
@@ -184,6 +186,11 @@ static void CheckCctv(void)
     ObjectPropertiesLoadAimPads(&state, &setup, TRUE); assert(choicecount == 4);
     setup.padcount = 3; ObjectPropertiesLoadAimPads(&state, &setup, TRUE);
     assert(choicecount == 4 && choices[2].value == 2 && choices[3].value == 10000);
+    pads[1].deleted = TRUE; boundpads[0].pad.deleted = TRUE;
+    ObjectPropertiesLoadAimPads(&state, &setup, FALSE);
+    assert(choicecount == 2 && choices[0].value == 0 && choices[1].value == 2);
+    pads[1].deleted = FALSE; boundpads[0].pad.deleted = FALSE;
+    ObjectPropertiesLoadAimPads(&state, &setup, FALSE);
     state.properties.cctv.lookpad = 10000; ObjectPropertiesRefreshAim(&state);
     assert(chosen == 3);
     for (int field = 0; field < OBJECT_AIM_FIELD_COUNT; field++)
@@ -239,6 +246,8 @@ static void CheckCctv(void)
 static void CheckDrone(void)
 {
     SetupFile setup = {0}; double value;
+    SetupPad pads[2] = {0}; SetupBoundPad boundpads[1] = {0};
+    setup.pads = pads; setup.boundpads = boundpads;
     setup.padcount = 2; setup.boundpadcount = 1;
     state.properties.object.type = PROPDEF_AUTOGUN;
     state.properties.drone.yawmin = -180; state.properties.drone.yawmax = 180;

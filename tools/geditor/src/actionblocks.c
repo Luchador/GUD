@@ -199,6 +199,17 @@ static BOOL Map(const RomFile *r, const RomManifestEntry *map, DWORD ptr, DWORD 
         || size>map->romend-map->romstart-(ptr-map->flags)) { return FALSE; }
     *offset=map->romstart+(ptr-map->flags); return TRUE;
 }
+BOOL ActionParameterIsPad(const ActionInstruction *ins, unsigned int parameter)
+{
+    const ActionOpcode *op = &g_ActionOpcodes[ins->bytes[0]];
+    if (parameter >= op->paramcount) { return FALSE; }
+    /* Aim/facing commands pack a pad OR character target in the same
+     * operand. Character targeting (bit 4) takes priority over pad (bit 8). */
+    return op->params[parameter].kind == ACTION_PAD
+        || (ins->bytes[0] >= 0x14 && ins->bytes[0] <= 0x17 && parameter == 1
+            && (ActionReadValue(ins, 0) & 12) == 8);
+}
+
 BOOL ActionDocumentLoadGlobals(ActionDocument *d, const RomFile *r, const char **why)
 {
     const RomManifestEntry *catalog=Entry(r,0x4149474c), *map=Entry(r,0x434d4150);
@@ -626,6 +637,13 @@ BOOL ActionDocumentValidate(const ActionDocument *d, const SetupFile *setup,
                 }
                 if (param->kind==ACTION_PAD && value<9000 && value>=setup->padcount
                     && !Issue(out,count,b,i,FALSE,"Pad index is outside this level's ordinary pad table; check whether this command uses a preset.")) { goto memory; }
+                if (ActionParameterIsPad(ins,p) && value!=9000)
+                {
+                    const SetupPad *pad = value>=10000
+                        ? (value-10000<setup->boundpadcount ? &setup->boundpads[value-10000].pad : NULL)
+                        : (value<setup->padcount ? &setup->pads[value] : NULL);
+                    if (pad && pad->deleted && !Issue(out,count,b,i,TRUE,"This instruction references a deleted pad.")) { goto memory; }
+                }
             }
             if (block->id>=0x1000 && ins->bytes[0]>=8 && ins->bytes[0]<=0x31
                 && ins->bytes[0]!=0x24 && ins->bytes[0]!=0x25

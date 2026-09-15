@@ -6,7 +6,7 @@
 #include "stanload.h"
 #define VIEWPORT_BOX_VERTICES 24
 typedef struct Vertex { float x, y, z; unsigned char r, g, b; } Vertex;
-typedef struct ViewportPad { SetupPadRef ref; float position[3], previewposition[3]; BOOL occupied, path; } ViewportPad;
+typedef struct ViewportPad { SetupPadRef ref; float position[3], previewposition[3]; BOOL occupied, path, deleted; } ViewportPad;
 
 typedef struct ViewportState {
     const SetupFile *markersetup;
@@ -125,6 +125,13 @@ void PadPreview(void)
     assert(boxes[0].r==64 && boxes[0].g==128 && boxes[0].b==255 && ViewportPadVisible(&state,0));
     assert(boxes[24].r==255 && boxes[24].g==48 && boxes[24].b==48);
     state.selectedpad=ref; ViewportRefreshPadColors(&state); assert(boxes[0].r==255 && boxes[0].g==255 && boxes[0].b==255);
+    /* Deleted slots cannot be drawn or restored as a selected pad, even
+     * with the path flag, object visibility or a stale selection set. */
+    views[0].deleted=TRUE; views[1].deleted=TRUE;
+    assert(!ViewportPadVisible(&state,0) && !ViewportPadVisible(&state,1));
+    assert(ViewportSelectedPadIndex(&state)==-1);
+    state.showobjects=FALSE; assert(!ViewportPadVisible(&state,0) && !ViewportPadVisible(&state,1));
+    state.showobjects=TRUE; views[0].deleted=FALSE; views[1].deleted=FALSE;
     /* Horizontal movement follows the slope while authored Y remains unchanged. */
     state.dragpad=TRUE; state.dragaxis=0; state.dragdelta=40;
     assert(ViewportPadPosition(&state,&ref,TRUE,position)); Near(position[0],60); Near(position[1],130);

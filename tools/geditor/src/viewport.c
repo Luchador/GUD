@@ -216,7 +216,7 @@ typedef struct ViewportPad {
     SetupPadRef ref;
     float position[3]; /* authored origin in world units */
     float previewposition[3]; /* grounded origin, never written to the setup */
-    BOOL occupied, path;
+    BOOL occupied, path, deleted;
 } ViewportPad;
 
 /* Per-viewport state, allocated at WM_CREATE, freed at WM_DESTROY,
@@ -420,7 +420,7 @@ static int ViewportSelectedPadIndex(const ViewportState *state)
     if (state->selectedpad.index == SETUP_PAD_INDEX_NONE) { return -1; }
     for (i = 0; i < state->padcount; i++)
     {
-        if (state->pads[i].ref.index == state->selectedpad.index
+        if (!state->pads[i].deleted && state->pads[i].ref.index == state->selectedpad.index
             && state->pads[i].ref.bound == state->selectedpad.bound) { return (int)i; }
     }
     return -1;
@@ -429,6 +429,7 @@ static int ViewportSelectedPadIndex(const ViewportState *state)
 static BOOL ViewportPadVisible(const ViewportState *state, DWORD index)
 {
     const ViewportPad *pad = &state->pads[index];
+    if (pad->deleted) { return FALSE; }
     return pad->path || !pad->occupied || !state->showobjects
         || (pad->ref.index == state->selectedpad.index && pad->ref.bound == state->selectedpad.bound);
 }
@@ -6460,7 +6461,8 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         if (wparam == VK_DELETE && state != NULL
             && (state->tool == EDITOR_TOOL_FACE_SELECT
                 || ((state->tool == EDITOR_TOOL_VERTEX_SELECT || state->tool == EDITOR_TOOL_EDGE_SELECT)
-                    && (state->selectedobject != VIEWPORT_OBJECT_NONE || state->markerselected))))
+                    && (state->selectedobject != VIEWPORT_OBJECT_NONE || state->markerselected
+                        || ViewportSelectedPadIndex(state) >= 0))))
         {
             SendMessage(GetParent(hwnd), VIEWPORT_WM_DELETE_SELECTION, 0, 0);
         }
@@ -8250,6 +8252,7 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup, float levelscale, c
         float halfsize = SETUP_PAD_HALF_SIZE * levelscale;
         int axis;
         pads[i].ref.index = i; pads[i].ref.bound = FALSE;
+        pads[i].deleted = setup->pads[i].deleted;
         pads[i].path = pathpads && pathpads[i];
         pads[i].occupied = occupiedpads != NULL && occupiedpads[i];
         for (axis = 0; axis < 3; axis++) { pads[i].position[axis] = setup->pads[i].pos[axis] * worldscale; }
@@ -8267,6 +8270,7 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup, float levelscale, c
         ViewportPad *preview = &pads[setup->padcount + i];
         int axis;
         preview->ref.index = i; preview->ref.bound = TRUE;
+        preview->deleted = pad->pad.deleted;
         preview->path = FALSE;
         preview->occupied = occupiedboundpads != NULL && occupiedboundpads[i];
         for (axis = 0; axis < 3; axis++) { preview->position[axis] = pad->pad.pos[axis] * worldscale; }

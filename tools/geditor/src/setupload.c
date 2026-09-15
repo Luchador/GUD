@@ -17,6 +17,7 @@
 
 #include "setupload.h"
 #include "modelload.h"
+#include "actionblocks.h"
 
 #define SETUP_FILE_MAX (16u * 1024u * 1024u)
 #define SETUP_HEADER_SIZE       40u
@@ -44,6 +45,12 @@
  * retaining character IDs and command indices through saving and reparsing.
  * The game only converts its unused camera coordinates during setup load. */
 #define SETUP_DELETED_CHARACTER_HEADER (0x47454400u | PROPDEF_CAMERAPOS)
+
+/* "GEPD" in the runtime stan-pointer slot. setupLoadFiles overwrites that
+ * slot through padAssignStanTile before using it. Keep plink and the slot
+ * itself intact: a null plink would terminate the table and renumbering
+ * would invalidate script, navigation and setup references. */
+#define SETUP_DELETED_PAD_STAN 0x47455044u
 
 static DWORD SetupRead32(const unsigned char *p)
 {
@@ -777,6 +784,161 @@ static BOOL SetupCountPadList(const SetupFile *setup, DWORD offset,
     return FALSE;
 }
 
+/* Most references use 10000 + index for bound pads. Doors are the exception. */
+static BOOL SetupPadMatches(const SetupPadRef *ref, DWORD value)
+{
+    return value == ref->index + (ref->bound ? 10000u : 0u);
+}
+
+static BOOL SetupPadExists(const SetupFile *setup, DWORD value)
+{
+    return value < 10000
+        ? setup->pads && value < setup->padcount && !setup->pads[value].deleted
+        : setup->boundpads && value - 10000 < setup->boundpadcount && !setup->boundpads[value - 10000].pad.deleted;
+}
+
+static BOOL SetupPadUnused(const SetupFile *setup, const SetupPadRef *ref,
+                           const RomFile *rom, const char **why)
+{
+    DWORD at, i;
+    ActionDocument actions = {0};
+    BOOL unused = FALSE;
+
+    *why = "This pad is used by a setup object.";
+    for (i = 0; i < setup->objectcount; i++)
+    {
+        const SetupObject *object = &setup->objects[i];
+        if (object->deleted) { continue; }
+        if (object->pad >= 0 && (object->type == PROPDEF_DOOR
+            || !(object->flags & (PROPFLAG_INSIDEANOTHEROBJ | PROPFLAG_ASSIGNEDTOCHR))))
+        {
+            if (object->type == PROPDEF_DOOR
+                ? ref->bound && ref->index == (DWORD)object->pad
+                : SetupPadMatches(ref, (DWORD)object->pad)) { return FALSE; }
+        }
+        if (object->type == PROPDEF_CCTV || object->type == PROPDEF_AUTOGUN)
+        {
+            if (object->sourceoffset > setup->size || setup->size - object->sourceoffset < 0x84)
+            { goto malformed; }
+            if (SetupPadMatches(ref, SetupRead32(setup->data + object->sourceoffset + 0x80)))
+            { *why = "This pad is an aim target for a camera or drone gun."; return FALSE; }
+        }
+    }
+    *why = "This pad is used by a character.";
+    for (i = 0; !ref->bound && i < setup->charactercount; i++)
+    {
+        if (!setup->characters[i].deleted && setup->characters[i].pad == ref->index) { return FALSE; }
+    }
+
+    /* Every waypoint matters, even if it is not in a displayed patrol path:
+     * guards also use this graph when finding routes during normal AI. */
+    at = SetupRead32(setup->data);
+    while (at)
+    {
+        if (at > setup->size - 16) { goto malformed; }
+        if ((LONG)SetupRead32(setup->data + at) < 0) { break; }
+        if (!ref->bound && SetupRead32(setup->data + at) == ref->index)
+        { *why = "This pad is used by a navigation waypoint or patrol path."; return FALSE; }
+        at += 16;
+    }
+
+    at = SetupRead32(setup->data + 8);
+    while (at)
+    {
+        DWORD type, bytes;
+        if (at > setup->size - 4) { goto malformed; }
+        type = SetupRead32(setup->data + at);
+        bytes = SetupIntroWordCount(type) * 4;
+        if (!bytes || bytes > setup->size - at) { goto malformed; }
+        if (type == 9) { break; }
+        if ((type == 0 && !ref->bound && SetupRead32(setup->data + at + 4) == ref->index)
+            || (type == 3 && SetupPadMatches(ref, SetupRead32(setup->data + at + 28)))
+            || (type == 6 && SetupPadMatches(ref, SetupRead32(setup->data + at + 24))))
+        { *why = "This pad is used by a spawn or intro camera."; return FALSE; }
+        at += bytes;
+    }
+
+    at = SetupRead32(setup->data + SETUP_OBJECT_POINTER);
+    while (at)
+    {
+        DWORD header, type, bytes, field = 0;
+        if (at > setup->size - 4) { goto malformed; }
+        header = SetupRead32(setup->data + at); type = header & 255;
+        if (type > SETUP_PROP_END) { goto malformed; }
+        if (type == SETUP_PROP_END) { break; }
+        bytes = SetupObjectWordCount((unsigned char)type) * 4;
+        if (bytes > setup->size - at) { goto malformed; }
+        if (type == PROPDEF_OBJECTIVE_ENTER_ROOM) { field = 4; }
+        if (type == PROPDEF_OBJECTIVE_DEPOSIT_OBJECT_IN_ROOM) { field = 8; }
+        if (type == PROPDEF_CAMERAPOS && header != SETUP_DELETED_CHARACTER_HEADER) { field = 24; }
+        if (field && SetupPadMatches(ref, SetupRead32(setup->data + at + field)))
+        { *why = "This pad is used by an objective or outro camera."; return FALSE; }
+        at += bytes;
+    }
+
+    if (!ActionDocumentLoad(setup, &actions, why)) { return FALSE; }
+    if (!rom) { *why = "Cannot verify shared Action Blocks without the project base ROM."; goto done; }
+    if (!ActionDocumentLoadGlobals(&actions, rom, why)) { goto done; }
+    if (!actions.globalsloaded)
+    {
+        *why = "Cannot verify pad usage: the project base ROM has no shared Action Block catalog. Rebase the project onto a current GUD ROM.";
+        goto done;
+    }
+    for (i = 0; i < actions.count; i++)
+    {
+        const ActionBlock *block = &actions.blocks[i];
+        DWORD row;
+        for (row = 0; row < block->count; row++)
+        {
+            const ActionInstruction *ins = &block->instructions[row];
+            const ActionOpcode *op = &g_ActionOpcodes[ins->bytes[0]];
+            unsigned int p;
+            for (p = 0; p < op->paramcount; p++)
+            {
+                DWORD value = ActionReadValue(ins, p);
+                if (ActionParameterIsPad(ins, p) && value != 9000 && SetupPadMatches(ref, value))
+                {
+                    *why = block->global ? "This pad is referenced by a shared Action Block."
+                                         : "This pad is referenced by a level Action Block.";
+                    goto done;
+                }
+            }
+        }
+    }
+    unused = TRUE;
+done:
+    ActionDocumentFree(&actions);
+    return unused;
+malformed:
+    *why = "Cannot verify pad usage because a setup reference table is malformed.";
+    return FALSE;
+}
+
+BOOL SetupFileDeletePad(SetupFile *setup, const SetupPadRef *ref,
+                       const RomFile *rom, const char **reasonout)
+{
+    DWORD table, stride, count, record;
+    SetupPad *pad;
+    *reasonout = "Invalid pad selection.";
+    if (!setup || !setup->data || setup->size < SETUP_HEADER_SIZE || !ref) { return FALSE; }
+    count = ref->bound ? setup->boundpadcount : setup->padcount;
+    if (ref->index >= count || (ref->bound ? !setup->boundpads : !setup->pads)) { return FALSE; }
+    table = SetupRead32(setup->data + (ref->bound ? SETUP_BOUNDPAD_POINTER : SETUP_PAD_POINTER));
+    stride = ref->bound ? SETUP_BOUNDPAD_SIZE : SETUP_PAD_SIZE;
+    if (!table || table > setup->size || count >= (setup->size - table) / stride) { return FALSE; }
+    record = table + ref->index * stride;
+    if (!SetupRead32(setup->data + record + SETUP_PAD_LINK)
+        || SetupRead32(setup->data + table + count * stride + SETUP_PAD_LINK)) { return FALSE; }
+    pad = ref->bound ? &setup->boundpads[ref->index].pad : &setup->pads[ref->index];
+    if (pad->deleted) { *reasonout = "This pad has already been deleted."; return FALSE; }
+    if (!SetupPadUnused(setup, ref, rom, reasonout)) { return FALSE; }
+    SetupWrite32(setup->data + record + 40, SETUP_DELETED_PAD_STAN);
+    pad->deleted = TRUE;
+    setup->dirty = TRUE;
+    *reasonout = "";
+    return TRUE;
+}
+
 static BOOL SetupReadPad(const SetupFile *setup, const unsigned char *record,
                           SetupPad *pad)
 {
@@ -784,6 +946,7 @@ static BOOL SetupReadPad(const SetupFile *setup, const unsigned char *record,
     DWORD link = SetupRead32(record + SETUP_PAD_LINK);
     const unsigned char *end;
 
+    pad->deleted = SetupRead32(record + 40) == SETUP_DELETED_PAD_STAN;
     if (link >= setup->size) { return FALSE; }
     end = (const unsigned char *)memchr(setup->data + link, 0, setup->size - link);
     if (end == NULL) { return FALSE; }
@@ -3104,7 +3267,7 @@ BOOL SetupFileSetObjectProperty(SetupFile *setup, const SetupObjectPropertyEdit 
         if (edit->value < -1 || edit->value > 2147483647.0 || floor(edit->value) != edit->value)
         { *reasonout = "Choose an existing aim pad or the default +Z direction."; return FALSE; }
         encoded = (DWORD)(LONG)edit->value;
-        if (edit->value >= 0 && (encoded < 10000 ? encoded >= setup->padcount : encoded - 10000 >= setup->boundpadcount))
+        if (edit->value >= 0 && !SetupPadExists(setup, encoded))
         { *reasonout = "The aim pad does not exist in this setup."; return FALSE; }
         previous = SetupRead32(record + 0x80);
         if (encoded == previous || (edit->value == -1 && (LONG)previous < 0)) { return TRUE; }
@@ -3144,7 +3307,7 @@ BOOL SetupFileSetObjectProperty(SetupFile *setup, const SetupObjectPropertyEdit 
         if (edit->value < 0 || edit->value > 2147483647.0 || floor(edit->value) != edit->value)
         { *reasonout = "Choose an existing look-at pad."; return FALSE; }
         encoded = (DWORD)edit->value;
-        if (encoded < 10000 ? encoded >= setup->padcount : encoded - 10000 >= setup->boundpadcount)
+        if (!SetupPadExists(setup, encoded))
         { *reasonout = "The look-at pad does not exist in this setup."; return FALSE; }
         if (encoded == SetupRead32(record + 0x80)) { return TRUE; }
         SetupWrite32(setup->data + edit->sourceoffset + 0x80, encoded);

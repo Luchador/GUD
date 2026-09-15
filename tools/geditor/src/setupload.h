@@ -16,6 +16,7 @@ typedef struct SetupPad {
     float look[3];
     /* Authored plink tile name. Resolving it must not move the pad itself. */
     char stanname[16];
+    BOOL deleted; /* Stable-index tombstone; hidden by the editor. */
 } SetupPad;
 
 typedef struct SetupBoundPad {
@@ -150,6 +151,11 @@ typedef struct SetupFile {
     DWORD charactercount;
     BOOL dirty;
 } SetupFile;
+
+/* Requires a base ROM with a shared Action Block catalog so every script
+ * can be checked. Preserves table indices and makes no changes on failure. */
+BOOL SetupFileDeletePad(SetupFile *setup, const SetupPadRef *ref,
+                       const RomFile *rom, const char **reasonout);
 
 /* Derived patrol connections between ordinary pads. Canonical pad order lets
  * shared routes draw once; direction bits are 1 = pads[0] -> pads[1], 2 = reverse. */
