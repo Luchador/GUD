@@ -2839,7 +2839,7 @@ static void GEditorShowGeometryMenu(HWND hwnd, ToolToolbarMenu kind, HWND button
             ? MF_ENABLED : MF_GRAYED), ID_GEOMETRY_SPLIT_EDGE, "&Split Edge");
         AppendMenu(menu, MF_STRING | (idle && ViewportGetSelectedBgEdges(g_Viewport, edges, 2)
             && BgDocumentCanBridgeEdges(&g_CurrentBgDocument, edges, &why) ? MF_ENABLED : MF_GRAYED),
-            ID_GEOMETRY_BRIDGE_EDGES, "&Bridge Edges");
+            ID_GEOMETRY_BRIDGE_EDGES, "&Bridge Edges\tB");
         break;
     case TOOLTOOLBAR_MENU_FACE:
         AppendMenu(menu, MF_STRING | (face ? MF_ENABLED : MF_GRAYED), ID_EDIT_FLIP_FACE, "&Flip Face\tAlt+N");
@@ -4794,6 +4794,24 @@ static BOOL GEditorHandleMergeVerticesHotkey(HWND frame, const MSG *message)
     return TRUE;
 }
 
+/* B invokes the existing bridge command once per press, using the same
+ * input scope and text-field exclusions as Merge Vertices. */
+static BOOL GEditorHandleBridgeEdgesHotkey(HWND frame, const MSG *message)
+{
+    char classname[32] = "";
+    if (!message || !g_Viewport || message->message != WM_KEYDOWN || message->wParam != 'B'
+        || ViewportIsFlying(g_Viewport) || ViewportIsTransforming(g_Viewport)
+        || (message->hwnd != frame && !IsChild(frame, message->hwnd))
+        || (GetKeyState(VK_CONTROL) & 0x8000) || (GetKeyState(VK_MENU) & 0x8000)
+        || (GetKeyState(VK_SHIFT) & 0x8000)) { return FALSE; }
+    GetClassName(message->hwnd, classname, sizeof(classname));
+    if (lstrcmpi(classname, "Edit") == 0 || lstrcmpi(classname, "ComboBox") == 0
+        || lstrcmpi(classname, "ComboLBox") == 0) { return FALSE; }
+    if (!(message->lParam & ((LPARAM)1 << 30)))
+    { SendMessage(frame, WM_COMMAND, ID_GEOMETRY_BRIDGE_EDGES, 0); }
+    return TRUE;
+}
+
 /* F also works during camera flight, but remains text in property inputs.
    Consume auto-repeat so holding F does not flicker between modes. */
 static BOOL GEditorHandleFogHotkey(HWND frame, const MSG *message)
@@ -4966,6 +4984,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                     && !GEditorHandleVisibilityHotkey(hwnd, &msg)
                     && !GEditorHandleFlipFaceHotkey(hwnd, &msg)
                     && !GEditorHandleMergeVerticesHotkey(hwnd, &msg)
+                    && !GEditorHandleBridgeEdgesHotkey(hwnd, &msg)
                     && !GEditorHandleTransformHotkey(hwnd, &msg)
                     && !GEditorHandleFaceClipboardHotkey(hwnd, &msg)
                     && !GEditorHandleSelectionHotkey(hwnd, &msg)
@@ -4995,6 +5014,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                 && !GEditorHandleVisibilityHotkey(hwnd, &msg)
                 && !GEditorHandleFlipFaceHotkey(hwnd, &msg)
                 && !GEditorHandleMergeVerticesHotkey(hwnd, &msg)
+                && !GEditorHandleBridgeEdgesHotkey(hwnd, &msg)
                 && !GEditorHandleTransformHotkey(hwnd, &msg)
                 && !GEditorHandleFaceClipboardHotkey(hwnd, &msg)
                 && !GEditorHandleSelectionHotkey(hwnd, &msg)

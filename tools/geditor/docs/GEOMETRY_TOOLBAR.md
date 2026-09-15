@@ -8,7 +8,7 @@ Buttons support mouse click, Tab/Space/Enter, and Down to open a dropdown.
 | Menu | Operations |
 | --- | --- |
 | Vertex | Merge Vertices (M), Snap to Vertex (V), Paint Vertices (4) |
-| Edge | Split Edge, Bridge Edges |
+| Edge | Split Edge, Bridge Edges (B) |
 | Face | Flip Face (Alt+N), Disconnect Face, Edit UVs, Hide Selected (H), Unhide All (Alt+H) |
 
 Merge Vertices requires at least two selected BG vertices in vertex mode,
@@ -29,6 +29,9 @@ editing text or working in the floating UV/model windows. Stan is not merged.
 Split Edge requires one selected BG edge and separates its endpoint vertices
 between incident faces, as the right-click command does; it does not subdivide
 an edge. Disconnect Face works on one or more selected BG faces.
+
+Press **B** to bridge the selected edges. The shortcut ignores text fields,
+floating editors, camera flight, active transforms and key auto-repeat.
 
 Bridge Edges requires exactly two disjoint BG boundary edges in the same room
 and layer. It adds two triangles, with winding opposite each adjoining source
