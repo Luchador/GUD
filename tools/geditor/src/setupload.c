@@ -204,6 +204,106 @@ static void SetupCameraMarker(const unsigned char *record, SetupMarkerKind kind,
     marker->up[2] = sinf(pitch) * cosf(yaw);
 }
 
+/* Patrol entries contain waypoint indices, not pad indices. Resolve through
+ * the 16-byte waypoint table; do not draw the general navigation graph. */
+static int SetupComparePatrolLinks(const void *left, const void *right)
+{
+    const SetupPatrolLink *a = left, *b = right;
+    for (int i = 0; i < 2; i++)
+    {
+        if (a->pads[i] != b->pads[i]) { return a->pads[i] < b->pads[i] ? -1 : 1; }
+    }
+    return 0;
+}
+
+static BOOL SetupAppendPatrolLink(SetupPatrolLink **links, DWORD *count, DWORD *capacity,
+                                  DWORD start, DWORD end, BOOL loop)
+{
+    SetupPatrolLink *link;
+    if (start == end) { return TRUE; }
+    if (*count == *capacity)
+    {
+        DWORD next = *capacity ? *capacity * 2 : 64;
+        SetupPatrolLink *grown;
+        if (next > SETUP_PAD_MAX) { return FALSE; }
+        grown = realloc(*links, next * sizeof(*grown));
+        if (!grown) { return FALSE; }
+        *links = grown; *capacity = next;
+    }
+    link = &(*links)[(*count)++];
+    link->pads[0] = start < end ? start : end;
+    link->pads[1] = start < end ? end : start;
+    /* Non-looping patrols reverse at each end (chrlvPatrolCalculateStep). */
+    link->directions = !loop ? 3 : start < end ? 1 : 2;
+    return TRUE;
+}
+
+BOOL SetupFileBuildPatrolLinks(const SetupFile *setup, SetupPatrolLink **links,
+                               DWORD *count, const char **reasonout)
+{
+    DWORD paths, waypoints, waypointcount = 0, capacity = 0, visited = 0, at;
+    *links = NULL; *count = 0;
+    *reasonout = "The setup's patrol paths or waypoint references are invalid.";
+    if (!setup || !setup->data || setup->size < SETUP_HEADER_SIZE) { return FALSE; }
+    paths = SetupRead32(setup->data + 16);
+    if (!paths) { return TRUE; }
+    if (paths < SETUP_HEADER_SIZE || (paths & 3) || paths > setup->size - 8) { return FALSE; }
+    if (!SetupRead32(setup->data + paths)) { return TRUE; }
+    waypoints = SetupRead32(setup->data);
+    if (waypoints < SETUP_HEADER_SIZE || (waypoints & 3) || waypoints > setup->size - 16) { return FALSE; }
+    at = waypoints;
+    while ((LONG)SetupRead32(setup->data + at) >= 0)
+    {
+        if (++waypointcount > SETUP_PAD_MAX || setup->size - at < 32) { return FALSE; }
+        at += 16;
+    }
+    for (at = paths; ; at += 8)
+    {
+        DWORD steps, first = SETUP_PAD_INDEX_NONE, previous = SETUP_PAD_INDEX_NONE;
+        BOOL loop;
+        if (at > setup->size - 8) { goto fail; }
+        steps = SetupRead32(setup->data + at);
+        if (!steps) { break; }
+        loop = (setup->data[at + 5] & 1) != 0;
+        if (steps < SETUP_HEADER_SIZE || (steps & 3) || steps > setup->size - 4) { goto fail; }
+        for (;; steps += 4)
+        {
+            DWORD waypoint, pad;
+            /* Bound total work even if malformed paths repeatedly share a list. */
+            if (++visited > SETUP_PAD_MAX || steps > setup->size - 4) { goto fail; }
+            waypoint = SetupRead32(setup->data + steps);
+            if ((LONG)waypoint < 0) { break; }
+            if (waypoint >= waypointcount) { goto fail; }
+            pad = SetupRead32(setup->data + waypoints + waypoint * 16);
+            if (pad >= setup->padcount || !setup->pads) { goto fail; }
+            if (previous != SETUP_PAD_INDEX_NONE
+                && !SetupAppendPatrolLink(links, count, &capacity, previous, pad, loop)) { goto allocation; }
+            if (first == SETUP_PAD_INDEX_NONE) { first = pad; }
+            previous = pad;
+        }
+        if (loop && first != SETUP_PAD_INDEX_NONE
+            && !SetupAppendPatrolLink(links, count, &capacity, previous, first, TRUE)) { goto allocation; }
+    }
+    if (*count > 1)
+    {
+        DWORD unique = 1;
+        qsort(*links, *count, sizeof(**links), SetupComparePatrolLinks);
+        for (DWORD i = 1; i < *count; i++)
+        {
+            if (!SetupComparePatrolLinks(&(*links)[unique - 1], &(*links)[i]))
+            { (*links)[unique - 1].directions |= (*links)[i].directions; }
+            else { (*links)[unique++] = (*links)[i]; }
+        }
+        *count = unique;
+    }
+    return TRUE;
+allocation:
+    *reasonout = "The patrol preview is too large or could not be allocated.";
+fail:
+    free(*links); *links = NULL; *count = 0;
+    return FALSE;
+}
+
 BOOL SetupFileBuildMarkers(const SetupFile *setup, float levelscale,
                            SetupMarker **markers, DWORD *count, const char **reasonout)
 {

@@ -151,6 +151,15 @@ typedef struct SetupFile {
     BOOL dirty;
 } SetupFile;
 
+/* Derived patrol connections between ordinary pads. Canonical pad order lets
+ * shared routes draw once; direction bits are 1 = pads[0] -> pads[1], 2 = reverse. */
+typedef struct SetupPatrolLink {
+    DWORD pads[2];
+    unsigned int directions;
+} SetupPatrolLink;
+BOOL SetupFileBuildPatrolLinks(const SetupFile *setup, SetupPatrolLink **links,
+                               DWORD *count, const char **reasonout);
+
 const char *SetupObjectTypeName(unsigned char type);
 BOOL SetupFileGetObjectProperties(const SetupFile *setup, DWORD index,
                                   SetupObjectProperties *out, const char **reasonout);

@@ -348,6 +348,8 @@ typedef struct ViewportState {
     GLsizei padmarkercount;
     ViewportPad *pads; /* parallels the 24-vertex marker boxes */
     DWORD padcount;
+    SetupPatrolLink *patrollinks;
+    DWORD patrollinkcount;
     SetupPadRef selectedpad;
     BOOL showbgprimary;
     BOOL showbgsecondary;
@@ -1230,6 +1232,98 @@ static void ViewportDrawAimGuides(const ViewportState *state)
     glPopAttrib();
 }
 
+static BOOL ViewportPatrolEndpoints(const ViewportState *state, const SetupPatrolLink *link,
+                                     double points[2][3])
+{
+    const SetupFile *setup = state->markersetup;
+    if (!setup || !setup->pads || !isfinite(state->markerlevelscale) || state->markerlevelscale <= 0) { return FALSE; }
+    for (int end = 0; end < 2; end++)
+    {
+        DWORD index = link->pads[end];
+        if (index >= setup->padcount) { return FALSE; }
+        for (int axis = 0; axis < 3; axis++)
+        { points[end][axis] = setup->pads[index].pos[axis] / (double)state->markerlevelscale; }
+        if (state->dragpad && !state->selectedpad.bound && state->selectedpad.index == index)
+        { ViewportPreviewGuidePoint(state, points[end]); }
+        for (int axis = 0; axis < 3; axis++)
+        { if (!isfinite(points[end][axis])) { return FALSE; } }
+    }
+    return TRUE;
+}
+
+static void ViewportDrawPatrolPaths(const ViewportState *state)
+{
+    float forward[3], right[3];
+    double pixelscale;
+    if (!state->patrollinkcount || state->height <= 0) { return; }
+    ViewportGetBasis(state, forward, right);
+    pixelscale = 2 * tan(VIEWPORT_FOV_Y * 0.5 * VIEWPORT_DEG_TO_RAD) / state->height;
+    glPushAttrib(GL_ENABLE_BIT | GL_CURRENT_BIT | GL_LINE_BIT | GL_DEPTH_BUFFER_BIT);
+    glDisable(GL_TEXTURE_2D);
+    glDisable(GL_LIGHTING);
+    glDisable(GL_FOG);
+    glDisable(GL_ALPHA_TEST);
+    glDisable(GL_BLEND);
+    glDisable(GL_LINE_STIPPLE);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+    glDepthMask(GL_FALSE);
+    glLineWidth(2.0f);
+    glColor3ub(144, 238, 144);
+    glBegin(GL_LINES);
+    for (DWORD i = 0; i < state->patrollinkcount; i++)
+    {
+        const SetupPatrolLink *link = &state->patrollinks[i];
+        double points[2][3], middle[3], direction[3], side[3], eye[3], length = 0, width, depth = 0, sidelen = 0;
+        if (!ViewportPatrolEndpoints(state, link, points)) { continue; }
+        for (int axis = 0; axis < 3; axis++)
+        {
+            middle[axis] = (points[0][axis] + points[1][axis]) * 0.5;
+            direction[axis] = points[1][axis] - points[0][axis];
+            length += direction[axis] * direction[axis];
+        }
+        if (length < 1e-12) { continue; }
+        length = sqrt(length);
+        glVertex3dv(points[0]); glVertex3dv(points[1]);
+        eye[0] = middle[0] - state->posx;
+        eye[1] = middle[1] - state->posy;
+        eye[2] = middle[2] - state->posz;
+        for (int axis = 0; axis < 3; axis++)
+        { direction[axis] /= length; depth += eye[axis] * forward[axis]; }
+        if (depth <= VIEWPORT_NEAR_Z) { continue; }
+        /* Face the arrow wings toward the camera, including on vertical paths.
+         * Looking exactly along a segment has no projected travel direction. */
+        for (int axis = 0; axis < 3; axis++)
+        {
+            int a = (axis + 1) % 3, b = (axis + 2) % 3;
+            side[axis] = direction[a] * eye[b] - direction[b] * eye[a];
+            sidelen += side[axis] * side[axis];
+        }
+        if (sidelen < 1e-12) { continue; }
+        sidelen = sqrt(sidelen);
+        /* About 12 pixels long, capped for short pad-to-pad connections. */
+        width = fmin(length * 0.2, depth * pixelscale * 12);
+        for (int axis = 0; axis < 3; axis++) { side[axis] /= sidelen; }
+        for (int reverse = 0; reverse < 2; reverse++)
+        {
+            double sign = reverse ? -1 : 1, offset = link->directions == 3 ? width : 0;
+            if (!(link->directions & (1u << reverse))) { continue; }
+            for (int wing = -1; wing <= 1; wing += 2)
+            {
+                double tip[3], tail[3];
+                for (int axis = 0; axis < 3; axis++)
+                {
+                    tip[axis] = middle[axis] + sign * offset * direction[axis];
+                    tail[axis] = tip[axis] - sign * width * direction[axis] + wing * width * 0.45 * side[axis];
+                }
+                glVertex3dv(tip); glVertex3dv(tail);
+            }
+        }
+    }
+    glEnd();
+    glPopAttrib();
+}
+
 /* The supplied GLBs use +X for the arrow/lens and +Y for up. Convert
  * metres to GoldenEye's centimetre world units without any level-scale factor. */
 #define VIEWPORT_MARKER_MODEL_SCALE 100.0f
@@ -1683,6 +1777,7 @@ static void ViewportPaintGL(ViewportState *state)
     glDisable(GL_FOG);
     if (state->fogcoordpointer != NULL) { glDisableClientState(GL_FOG_COORDINATE_ARRAY); }
 
+    ViewportDrawPatrolPaths(state);
     ViewportDrawAimGuides(state);
     ViewportDrawSetupMarkers(state);
 
@@ -6720,6 +6815,9 @@ static void ViewportFreeScene(struct ViewportState *state_)
     free(state->aimguides);
     state->aimguides = NULL;
     state->aimguidecount = 0;
+    free(state->patrollinks);
+    state->patrollinks = NULL;
+    state->patrollinkcount = 0;
     SetupSwirlPathFree(&state->swirlpath);
     state->markerselected = FALSE;
     state->markersetup = NULL;
@@ -8008,6 +8106,15 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup, float levelscale, c
     ViewportCancelTransform(hwnd);
     state->markersetup = setup;
     state->markerlevelscale = levelscale;
+    free(state->patrollinks);
+    state->patrollinks = NULL;
+    state->patrollinkcount = 0;
+    if (setup)
+    {
+        const char *reason;
+        if (!SetupFileBuildPatrolLinks(setup, &state->patrollinks, &state->patrollinkcount, &reason))
+        { MessageBox(hwnd, reason, "GEditor patrol paths", MB_ICONWARNING); }
+    }
     ViewportBuildAimGuides(state);
     ViewportSetSetupMarkers(hwnd, state, setup, levelscale);
     { SetupMarker marker; if (!ViewportSelectedMarker(state, &marker)) { state->markerselected = FALSE; } }
