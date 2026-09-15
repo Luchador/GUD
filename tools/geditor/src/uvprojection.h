@@ -26,4 +26,11 @@ int UVProjectionMap(UVProjectionVertex *vertices, int vertexcount,
                     const UVProjectionFace *faces, int facecount,
                     UVProjection projection, const char **reason);
 
+/* Fit one cylinder, including rotated or short/wide cylinders. U wraps once
+ * around the sides; V spans the height. Caps use planar UVs in the same tile.
+ * Per-corner output allows separate coordinates on either side of the seam.
+ * The caller owns facecount triples; no source positions/UVs are changed. */
+int UVProjectionCylinder(const UVProjectionVertex *vertices, int vertexcount,
+    const UVProjectionFace *faces, int facecount, double (*uv)[3][2], const char **reason);
+
 #endif

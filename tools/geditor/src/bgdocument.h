@@ -139,6 +139,18 @@ typedef struct BgDocumentUVEdit {
 BOOL BgDocumentSetVertexUVs(BgDocument *document, const BgDocumentUVEdit *edits,
                            DWORD count, DWORD *changed, const char **reason);
 
+typedef struct BgDocumentFaceUVEdit {
+    BgFaceRef face;
+    DWORD vertexids[3];
+    int s[3], t[3];
+} BgDocumentFaceUVEdit;
+
+/* Per-corner UVs for an unwrap. Split only conflicting UV identities or
+ * vertices shared with unselected faces; keep equal-UV corners connected.
+ * All geometry/materials and unselected UVs survive. Atomic on failure. */
+BOOL BgDocumentSetFaceUVs(BgDocument *document, const BgDocumentFaceUVEdit *edits,
+    DWORD count, DWORD *changed, const char **reason);
+
 typedef struct BgDocumentRenderMesh {
     BgVertex *vertices;       /* facecount * 3 world-space vertices */
     unsigned short *tags;     /* one BG_* tag per face */

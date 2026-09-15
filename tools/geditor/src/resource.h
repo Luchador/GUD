@@ -93,6 +93,7 @@
 #define IDC_UV_PROJECT_Y      1031
 #define IDC_UV_PROJECT_Z      1032
 #define IDC_UV_PROJECT_BEST   1033
+#define IDC_UV_PROJECT_CYLINDER 1036
 #define IDC_UV_ROTATE         1034
 #define IDC_UV_SCALE          1035
 

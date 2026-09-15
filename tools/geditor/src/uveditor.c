@@ -31,13 +31,14 @@ static void UVEditorUpdateFields(void)
     ShowWindow(GetDlgItem(g_UVEditor, IDC_UV_V), mode == TRANSFORM_ROTATE ? SW_HIDE : SW_SHOW);
     for (axis = IDC_UV_PROJECT_X; axis <= IDC_UV_PROJECT_BEST; axis++)
     { EnableWindow(GetDlgItem(g_UVEditor, axis), UVCanvasHasFaces(g_UVCanvas)); }
+    EnableWindow(GetDlgItem(g_UVEditor, IDC_UV_PROJECT_CYLINDER), UVCanvasHasFaces(g_UVCanvas));
     if (count == 0) { lstrcpy(text, "No UV vertices selected"); }
     else { snprintf(text, sizeof(text), "%d UV %s selected", count, count == 1 ? "vertex" : "vertices"); }
     SetDlgItemText(g_UVEditor, IDC_UV_SELECTION, text);
     for (axis = 0; axis < 2; axis++)
     {
         int id = axis ? IDC_UV_V : IDC_UV_U;
-        BOOL enabled = mode == TRANSFORM_MOVE ? count == 1 : count >= 2;
+        BOOL enabled = mode == TRANSFORM_MOVE ? count >= 1 : count >= 2;
         if (mode == TRANSFORM_ROTATE && axis == 1) { enabled = FALSE; }
         text[0] = '\0';
         if (enabled) { snprintf(text, sizeof(text), "%.9g", mode == TRANSFORM_MOVE ? uv[axis] : values[axis]); }
@@ -52,9 +53,9 @@ static void UVEditorUpdateFields(void)
         ? "Drag the ring to rotate.\r\nEnter applies an angle in degrees; positive turns counterclockwise.\r\nPivot: selection center."
         : mode == TRANSFORM_SCALE
         ? "Drag U or V to scale one axis, or the center to scale both.\r\nEnter applies the factors; 1 = unchanged.\r\nPivot: selection center."
-        : count == 1
-        ? "Press Enter to set U and V.\r\nDrag U, V, or the center handle to move."
-        : "Select one UV vertex to set its coordinates.\r\nDrag handles to move a group.");
+        : count > 0
+        ? "U and V show the selection average.\r\nEnter aligns selected vertices to the coordinate in that box.\r\nDrag handles to move the selection."
+        : "Select UV vertices to view or set their coordinates.");
 }
 
 static void UVEditorSetMode(TransformMode mode)
@@ -81,6 +82,21 @@ static void UVEditorApplyFields(void)
     TransformMode mode = UVCanvasGetTransform(g_UVCanvas, NULL, NULL);
     const char *reason = "";
     int axis;
+    if (mode == TRANSFORM_MOVE)
+    {
+        axis = GetFocus() == GetDlgItem(g_UVEditor, IDC_UV_V) ? 1 : 0;
+        int id = axis ? IDC_UV_V : IDC_UV_U;
+        if (!UVEditorReadCoordinate(id, &uv[axis]))
+        {
+            MessageBox(g_UVEditor, "Enter a finite UV coordinate.", "UV Editor", MB_ICONERROR);
+            SetFocus(GetDlgItem(g_UVEditor, id));
+            return;
+        }
+        if (!UVCanvasSetCoordinate(g_UVCanvas, axis, uv[axis], &reason) && reason[0])
+        { MessageBox(g_UVEditor, reason, "UV Editor", MB_ICONERROR); }
+        UVEditorUpdateFields();
+        return;
+    }
     for (axis = 0; axis < (mode == TRANSFORM_ROTATE ? 1 : 2); axis++)
     {
         int id = axis ? IDC_UV_V : IDC_UV_U;
@@ -93,8 +109,7 @@ static void UVEditorApplyFields(void)
             return;
         }
     }
-    if (!(mode == TRANSFORM_MOVE ? UVCanvasSetPosition(g_UVCanvas, uv, &reason)
-                                : UVCanvasApplyTransform(g_UVCanvas, uv, &reason)) && reason[0] != '\0')
+    if (!UVCanvasApplyTransform(g_UVCanvas, uv, &reason) && reason[0] != '\0')
     {
         MessageBox(g_UVEditor, reason, "UV Editor", MB_ICONERROR);
     }
@@ -104,8 +119,8 @@ static void UVEditorApplyFields(void)
 static void UVEditorLayout(HWND hwnd)
 {
     static const int tools[] = { IDC_UV_MOVE, IDC_UV_ROTATE, IDC_UV_SCALE, IDC_UV_PROJECT_LABEL, IDC_UV_PROJECT_X,
-                                IDC_UV_PROJECT_Y, IDC_UV_PROJECT_Z, IDC_UV_PROJECT_BEST };
-    static const int widths[] = { 8, 9, 8, 5, 6, 6, 6, 8 };
+                                IDC_UV_PROJECT_Y, IDC_UV_PROJECT_Z, IDC_UV_PROJECT_BEST, IDC_UV_PROJECT_CYLINDER };
+    static const int widths[] = { 8, 9, 8, 5, 6, 6, 6, 8, 11 };
     RECT client;
     RECT units = { 8, 32, 140, 16 };
     HWND closebutton = GetDlgItem(hwnd, IDCANCEL);
@@ -177,8 +192,10 @@ static INT_PTR CALLBACK UVEditorDialogProc(HWND hwnd, UINT message,
         return TRUE;
 
     case UVCANVAS_WM_COMMIT:
+    case UVCANVAS_WM_COMMIT_FACES:
     {
-        LRESULT result = SendMessage(GetWindow(hwnd, GW_OWNER), UVEDITOR_WM_APPLY, 0, lparam);
+        LRESULT result = SendMessage(GetWindow(hwnd, GW_OWNER),
+            message == UVCANVAS_WM_COMMIT_FACES ? UVEDITOR_WM_APPLY_FACES : UVEDITOR_WM_APPLY, 0, lparam);
         SetWindowLongPtr(hwnd, DWLP_MSGRESULT, result);
         return TRUE;
     }
@@ -197,6 +214,15 @@ static INT_PTR CALLBACK UVEditorDialogProc(HWND hwnd, UINT message,
     }
 
     case WM_COMMAND:
+        if (LOWORD(wparam) == IDC_UV_PROJECT_CYLINDER)
+        {
+            const char *reason = "";
+            if (!UVCanvasProjectCylinder(g_UVCanvas, &reason) && reason[0])
+            { MessageBox(hwnd, reason, "UV Editor", MB_ICONERROR); }
+            UVEditorUpdateFields();
+            SetFocus(g_UVCanvas);
+            return TRUE;
+        }
         if (LOWORD(wparam) >= IDC_UV_PROJECT_X && LOWORD(wparam) <= IDC_UV_PROJECT_BEST)
         {
             const char *reason = "";
@@ -312,6 +338,7 @@ void UVEditorRefreshSelection(HWND viewport, const BgDocument *document)
         ViewportGetTextureSize(viewport, face->textureid, &width, &height);
         triangles[output].width = width;
         triangles[output].height = height;
+        triangles[output].face = refs[index];
         for (corner = 0; corner < 3; corner++)
         {
             const BgDocumentVertex *vertex = &room->vertices[face->vertexindices[corner]];

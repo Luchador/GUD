@@ -17,6 +17,8 @@ void UVEditorRefreshSelection(HWND viewport, const BgDocument *document);
 #define UVEDITOR_WM_APPLY (WM_APP + 42)
 #define UVEDITOR_WM_HISTORY (WM_APP + 43)
 #define UVEDITOR_WM_SELECTION_CHANGED (WM_APP + 44)
+/* APPLY_FACES lparam points to a UVCanvasFaceEdit, with per-corner UVs. */
+#define UVEDITOR_WM_APPLY_FACES (WM_APP + 61)
 BOOL UVEditorIsOpen(void);
 BOOL UVEditorCaptureSelection(void **data, size_t *size);
 BOOL UVEditorRestoreSelection(const void *data, size_t size);

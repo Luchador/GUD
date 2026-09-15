@@ -853,34 +853,46 @@ int UVCanvasGetSelection(HWND canvas, double uv[2])
     return state != NULL ? UVCanvasSelectionPosition(state, uv) : 0;
 }
 
-BOOL UVCanvasSetPosition(HWND canvas, const double uv[2], const char **reason)
+BOOL UVCanvasSetCoordinate(HWND canvas, int axis, double value, const char **reason)
 {
     UVCanvasState *state = UVCanvasGetState(canvas);
     double position[2];
+    BgDocumentUVEdit *edits;
+    UVCanvasEdit request;
+    BOOL result;
     int i;
-    *reason = "Select exactly one UV vertex to set coordinates.";
-    if (state == NULL || UVCanvasGetSelection(canvas, position) != 1) { return FALSE; }
+    *reason = "Select UV vertices to set their coordinates.";
+    if (state == NULL || axis < 0 || axis > 1 || UVCanvasGetSelection(canvas, position) < 1) { return FALSE; }
     if (state->mode != TRANSFORM_MOVE) { *reason = "Switch to Move to set UV coordinates."; return FALSE; }
     UVCanvasCancelInteraction(canvas);
+    edits = malloc((size_t)state->nodecount * sizeof(*edits));
+    if (!edits) { *reason = "Out of memory aligning UV vertices."; return FALSE; }
+    request.vertices = edits; request.count = 0;
+    request.action = axis ? "Set UV V Coordinate" : "Set UV U Coordinate";
     for (i = 0; i < state->nodecount; i++)
     {
         const UVCanvasNode *node = &state->nodes[i];
-        double s, t;
+        double coordinate;
         if (!node->selected) { continue; }
-        s = round(uv[0] * 32.0 * node->width);
-        t = round(uv[1] * 32.0 * node->height);
-        if (!isfinite(s) || !isfinite(t) || s < -32768 || s > 32767 || t < -32768 || t > 32767)
+        coordinate = round(value * 32.0 * (axis ? node->height : node->width));
+        if (!isfinite(coordinate) || coordinate < -32768 || coordinate > 32767)
         {
             *reason = "UV coordinates exceed GoldenEye's signed 16-bit texture coordinate range.";
+            free(edits);
             return FALSE;
         }
-        state->values[0] = (s - node->source.s) / (32.0 * node->width);
-        state->values[1] = (t - node->source.t) / (32.0 * node->height);
-        state->draghandle = 3;
-        *reason = "";
-        return UVCanvasCommit(canvas, state);
+        if ((axis ? node->source.t : node->source.s) == (int)coordinate) { continue; }
+        edits[request.count] = node->source;
+        if (axis) { edits[request.count].t = (int)coordinate; }
+        else { edits[request.count].s = (int)coordinate; }
+        request.count++;
     }
-    return FALSE;
+    /* Absolute alignment, not a group translation. Leave the other axis
+     * exact, and validate every vertex before sending one history command. */
+    *reason = "";
+    result = request.count == 0 || (BOOL)SendMessage(GetParent(canvas), UVCANVAS_WM_COMMIT, 0, (LPARAM)&request);
+    free(edits);
+    return result;
 }
 
 void UVCanvasSetTransformMode(HWND canvas, TransformMode mode)
@@ -974,6 +986,55 @@ BOOL UVCanvasProjectFaces(HWND canvas, UVProjection projection, const char **rea
     result = request.count == 0 || (BOOL)SendMessage(GetParent(canvas), UVCANVAS_WM_COMMIT, 0, (LPARAM)&request);
 done:
     free(vertices); free(faces); free(edits);
+    return result;
+}
+
+BOOL UVCanvasProjectCylinder(HWND canvas, const char **reason)
+{
+    UVCanvasState *state = UVCanvasGetState(canvas);
+    UVProjectionVertex *vertices = NULL;
+    UVProjectionFace *faces = NULL;
+    double (*uv)[3][2] = NULL;
+    BgDocumentFaceUVEdit *edits = NULL;
+    UVCanvasFaceEdit request;
+    BOOL result = FALSE;
+    *reason = "Select background faces forming one cylinder.";
+    if (!state || !state->nodecount || !state->trianglecount) { return FALSE; }
+    UVCanvasCancelInteraction(canvas);
+    vertices = calloc((size_t)state->nodecount, sizeof(*vertices));
+    faces = malloc((size_t)state->trianglecount * sizeof(*faces));
+    uv = malloc((size_t)state->trianglecount * sizeof(*uv));
+    edits = calloc((size_t)state->trianglecount, sizeof(*edits));
+    if (!vertices || !faces || !uv || !edits)
+    { *reason = "Out of memory mapping the cylinder."; goto done; }
+    for (int f = 0; f < state->trianglecount; f++) for (int c = 0; c < 3; c++)
+    {
+        int node = state->triangles[f].nodes[c];
+        faces[f].vertices[c] = node;
+        memcpy(vertices[node].position, state->triangles[f].position[c], sizeof(vertices[node].position));
+    }
+    if (!UVProjectionCylinder(vertices, state->nodecount, faces, state->trianglecount, uv, reason)) { goto done; }
+    for (int f = 0; f < state->trianglecount; f++)
+    {
+        const UVCanvasTriangle *triangle = &state->triangles[f];
+        edits[f].face = triangle->face;
+        for (int c = 0; c < 3; c++)
+        {
+            double s = round(uv[f][c][0] * 32.0 * triangle->width);
+            double t = round(uv[f][c][1] * 32.0 * triangle->height);
+            if (!isfinite(s) || !isfinite(t) || s < -32768 || s > 32767 || t < -32768 || t > 32767)
+            { *reason = "The mapped UVs exceed GoldenEye's texture coordinate range."; goto done; }
+            edits[f].vertexids[c] = triangle->source[c].vertexid;
+            edits[f].s[c] = (int)s; edits[f].t[c] = (int)t;
+        }
+    }
+    request.faces = edits; request.count = (DWORD)state->trianglecount;
+    request.action = "Cylindrical UV Mapping";
+    /* Per-corner edits let the document create seam vertices and preserve
+       unselected faces. The synchronous rebuild may replace state. */
+    result = (BOOL)SendMessage(GetParent(canvas), UVCANVAS_WM_COMMIT_FACES, 0, (LPARAM)&request);
+done:
+    free(vertices); free(faces); free(uv); free(edits);
     return result;
 }
 

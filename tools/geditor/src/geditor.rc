@@ -253,7 +253,8 @@ BEGIN
     PUSHBUTTON      "Y-axis", IDC_UV_PROJECT_Y, 330, 6, 48, 20
     PUSHBUTTON      "Z-axis", IDC_UV_PROJECT_Z, 386, 6, 48, 20
     PUSHBUTTON      "Best Fit", IDC_UV_PROJECT_BEST, 442, 6, 64, 20
-    LTEXT           "Drag a box to select UV vertices.", IDC_UV_TOOL_HINT, 514, 12, 118, 10
+    PUSHBUTTON      "Cylindrical", IDC_UV_PROJECT_CYLINDER, 514, 6, 88, 20
+    LTEXT           "Drag a box to select UV vertices.", IDC_UV_TOOL_HINT, 610, 12, 22, 10
     LTEXT           "Transform", IDC_UV_TRANSFORM, 648, 10, 120, 10
     LTEXT           "No UV vertices selected", IDC_UV_SELECTION, 648, 30, 120, 22
     LTEXT           "U", IDC_UV_U_LABEL, 648, 64, 12, 10
