@@ -121,6 +121,11 @@ BOOL BgLoadProjectFile(const char *projectdir, const char *bgname,
                        BgFile *out, const char **reasonout);
 BOOL BgSaveProjectFile(const char *projectdir, const BgFile *bg,
                        const char **reasonout);
+/* Compact unreferenced vertices in a saved copy, remapping G_VTX and triangle
+ * indices together. Empty rooms retain their bounds-only vertex records.
+ * On success out->data is NULL when no changes are needed. Source is immutable. */
+BOOL BgFileRemoveUnusedVertices(const BgFile *source, BgFile *out,
+                                const char **reasonout);
 void BgFileFree(BgFile *bg);
 
 /* Same native BG-unit margin used by bgGetPortalMargin in the game. */

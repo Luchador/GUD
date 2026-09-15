@@ -71,11 +71,16 @@ static void RoundTrip(const BgDocument *doc, const BgFile *source, const char *d
     {
         assert(doc->rooms[r].facecount == loaded.rooms[r].facecount);
         assert(!memcmp(doc->rooms[r].origin,loaded.rooms[r].origin,sizeof(doc->rooms[r].origin)));
-        /* The compiler retains unused original vertices for empty room bounds. */
-        assert(loaded.rooms[r].vertexcount >= doc->rooms[r].vertexcount);
+        /* Empty rooms retain their bounds; populated rooms drop orphans. */
+        if (!doc->rooms[r].facecount)
+        { assert(loaded.rooms[r].vertexcount == doc->rooms[r].vertexcount); }
     }
     assert(BgDocumentCompile(&loaded,&saved,&again,&why));
-    assert(again.size == saved.size && !memcmp(again.data,saved.data,saved.size));
+    /* Reload/recompile may reclaim the cleared space left by cleanup. */
+    assert(again.size <= saved.size && BgFileValidateVertexBatches(&again,&why));
+    BgDocumentFree(&loaded);
+    assert(BgDocumentLoad(again.data,again.size,doc->levelscale,&loaded,&why));
+    Equivalent(doc,&loaded); UseCounts(&loaded);
     BgDocumentFree(&loaded); BgFileFree(&saved); BgFileFree(&compiled); BgFileFree(&again);
 }
 

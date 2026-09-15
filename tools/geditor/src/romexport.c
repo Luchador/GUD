@@ -43,6 +43,7 @@ typedef struct RomExportSlot {
     unsigned char *replacement;
     DWORD replacementlength;
     BOOL model;
+    BOOL background;
 } RomExportSlot;
 
 static char g_RomExportError[256];
@@ -981,6 +982,7 @@ static BOOL RomExportReplaceProjectResources(const GEditorProject *project,
             slot->length = maxlen;
         }
 
+        slot->background |= strncmp(resource, "bg/", 3) == 0;
         managed = ModelEditsReadReplacement(project->dir, resource, rom->data + offset,
             maxlen, &data, &length, reasonout);
         if (managed < 0) { goto fail; }
@@ -1074,6 +1076,23 @@ have_replacement:
         }
 
         free(data);
+    }
+
+    /* Resolve resource aliases before cleanup so unchanged copies do not
+     * conflict with an edited alias. Also clean levels not opened this session. */
+    for (index = 0; index < slotcount; index++) if (slots[index].background)
+    {
+        RomExportSlot *slot = &slots[index];
+        BgFile source = {0}, cleaned = {0};
+        source.data = slot->replacement ? slot->replacement : rom->data + slot->offset;
+        source.size = slot->replacement ? slot->replacementlength : slot->length;
+        if (!BgFileRemoveUnusedVertices(&source, &cleaned, reasonout)) { goto fail; }
+        if (cleaned.data)
+        {
+            free(slot->replacement);
+            slot->replacement = cleaned.data;
+            slot->replacementlength = cleaned.size;
+        }
     }
 
     if (needrepack)

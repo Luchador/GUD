@@ -10,10 +10,11 @@ backface culling, material settings and primary/secondary layers. Vertices share
 by the moved faces remain shared; they are copied into the destination room.
 The selected faces remain selected, and the move supports Undo and Redo.
 
-Original room slots and vertex records remain in place, even when all their
-faces are moved away. The compiler retains a valid primary display list for an
-empty room. Room numbers, portals, Stan geometry, pads and object assignments
-are not changed by this operation.
+Original room slots remain in place, even when all their faces are moved away.
+Saving and ROM creation automatically remove unreferenced vertex records from
+rooms containing faces. Empty rooms keep their bounds-only vertices and a valid
+primary display list, because the game uses those bounds to orient portals.
+Room numbers, portals, Stan geometry, pads and object assignments are not changed.
 
 For Depot's tank, select its faces in room 22 (Select > Select Room can expand
 the selection), then set Room to **23**. Save with **Ctrl+S**. **Ctrl+T** opens or

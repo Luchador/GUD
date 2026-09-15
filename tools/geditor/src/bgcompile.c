@@ -1011,6 +1011,12 @@ room_failed:
     out->data = output.data;
     out->size = output.size;
     lstrcpyn(out->name, source->name, sizeof(out->name));
+    {
+        BgFile cleaned = {0};
+        if (!BgFileRemoveUnusedVertices(out, &cleaned, reasonout))
+        { BgFileFree(out); return FALSE; }
+        if (cleaned.data) { BgFileFree(out); *out = cleaned; }
+    }
     return TRUE;
 }
 
@@ -1126,5 +1132,181 @@ BOOL BgFileValidateVertexBatches(const BgFile *bg, const char **reasonout)
 
 invalid:
     *reasonout = "the bg contains invalid room vertex batches.";
+    return FALSE;
+}
+
+
+/* Remove orphan vertices at the file boundary. Live document indices stay
+ * stable for viewport/UV selections, in-progress edits and undo snapshots. */
+
+#define UNUSED_VERTEX ((DWORD)-1)
+
+static DWORD BgCleanupRead32(const unsigned char *p)
+{
+    return (DWORD)p[0] << 24 | (DWORD)p[1] << 16 | (DWORD)p[2] << 8 | p[3];
+}
+
+static void BgCleanupWrite32(unsigned char *p, DWORD value)
+{
+    p[0] = value >> 24; p[1] = value >> 16; p[2] = value >> 8; p[3] = value;
+}
+
+/* Validation has established that every triangle uses the most recent load.
+ * Pass one marks referenced source vertices across BOTH layers. Pass two
+ * rewrites cache indices and load ranges using the shared compacted map. */
+static BOOL BgCleanupWalk(const BgFile *source, DWORD offset, DWORD *mapping,
+                          DWORD *substitute, unsigned char *output)
+{
+    DWORD size, pc, first = 0, start = 0, count = 0, newfirst = 0;
+    if (!offset) { return TRUE; }
+    size = BgCleanupRead32(source->data + offset - 4);
+    for (pc = offset; pc < offset + size; pc += 8)
+    {
+        const unsigned char *cmd = source->data + pc;
+        DWORD word0 = BgCleanupRead32(cmd), word1 = BgCleanupRead32(cmd + 4);
+        if (cmd[0] == 0xB8) { break; }
+        /* A nested list or a vertex-based cull/branch is not described by the
+         * flat room triangle stream. Keep such rooms intact rather than guess
+         * which of their additional vertex references are significant. */
+        if (cmd[0] == 0x06 || cmd[0] == 0xBE || cmd[0] == 0xB0 || cmd[0] == 0xB2)
+        { return FALSE; }
+        if (cmd[0] == 0x04)
+        {
+            first = (word1 & 0xFFFFFFu) / 16;
+            start = cmd[1] & 15;
+            count = (cmd[1] >> 4) + 1;
+            if (output)
+            {
+                DWORD kept = 0;
+                for (DWORD i = 0; i < count; i++) if (mapping[first + i] != UNUSED_VERTEX)
+                {
+                    if (!kept) { newfirst = mapping[first + i]; }
+                    kept++;
+                }
+                /* A load with no surviving references has no visible effect. */
+                BgCleanupWrite32(output + pc, kept ? 0x04000000u
+                    | ((kept - 1) << 20) | (start << 16) | (kept * 16) : 0);
+                BgCleanupWrite32(output + pc + 4, kept ? (word1 & 0xFF000000u) | (newfirst * 16) : 0);
+            }
+        }
+        else if (cmd[0] == 0xBF || cmd[0] == 0xB1)
+        {
+            for (DWORD t = 0; t < (cmd[0] == 0xBF ? 1u : 4u); t++)
+            {
+                DWORD indices[3];
+                if (cmd[0] == 0xBF)
+                { for (DWORD c = 0; c < 3; c++) { indices[c] = cmd[5 + c] / 10; } }
+                else
+                {
+                    indices[0] = (word1 >> (t * 8)) & 15;
+                    indices[1] = (word1 >> (t * 8 + 4)) & 15;
+                    indices[2] = (word0 >> (t * 4)) & 15;
+                    /* Only 0,0,0 in TRI4 is padding. Preserve real degenerates. */
+                    if (!(indices[0] | indices[1] | indices[2])) { continue; }
+                    /* A real point triangle must not become TRI4's 0,0,0
+                     * padding after compaction. Keep a leading cache slot if
+                     * needed, replacing its unused position with this point
+                     * so an orphan cannot distort the room bounds. */
+                    if (!output && !start && indices[0] == indices[1]
+                        && indices[1] == indices[2] && mapping[first] != 0)
+                    {
+                        mapping[first] = 1;
+                        substitute[first] = first + indices[0];
+                    }
+                }
+                for (DWORD c = 0; c < 3; c++)
+                {
+                    DWORD vertex = first + indices[c] - start;
+                    if (!output) { mapping[vertex] = 0; substitute[vertex] = vertex; }
+                    else { indices[c] = start + mapping[vertex] - newfirst; }
+                }
+                if (!output) { continue; }
+                if (cmd[0] == 0xBF)
+                { for (DWORD c = 0; c < 3; c++) { output[pc + 5 + c] = (unsigned char)(indices[c] * 10); } }
+                else
+                {
+                    word0 = (word0 & ~(15u << (t * 4))) | (indices[2] << (t * 4));
+                    word1 = (word1 & ~(255u << (t * 8)))
+                        | (indices[0] << (t * 8)) | (indices[1] << (t * 8 + 4));
+                }
+            }
+            if (output && cmd[0] == 0xB1)
+            { BgCleanupWrite32(output + pc, word0); BgCleanupWrite32(output + pc + 4, word1); }
+        }
+    }
+    return TRUE;
+}
+
+BOOL BgFileRemoveUnusedVertices(const BgFile *source, BgFile *out,
+                                const char **reasonout)
+{
+    DWORD table;
+    unsigned char *copy = NULL;
+    DWORD *mapping = NULL;
+    if (!out || out == source) { *reasonout = "Invalid background cleanup output."; return FALSE; }
+    ZeroMemory(out, sizeof(*out));
+    *reasonout = "Invalid background to clean.";
+    if (!source || !source->data) { return FALSE; }
+    if (!BgFileValidateVertexBatches(source, reasonout)) { return FALSE; }
+    if (source->size < 8 || BgCleanupRead32(source->data)) { return TRUE; }
+    table = BgCleanupRead32(source->data + 4) & 0xFFFFFFu;
+    for (DWORD rec = table + 24; BgCleanupRead32(source->data + rec + 4); rec += 24)
+    {
+        DWORD vertices = BgCleanupRead32(source->data + rec) & 0xFFFFFFu;
+        DWORD primary = BgCleanupRead32(source->data + rec + 4) & 0xFFFFFFu;
+        DWORD secondary = BgCleanupRead32(source->data + rec + 8) & 0xFFFFFFu;
+        DWORD total, kept = 0, *substitute;
+        BOOL replaced = FALSE;
+        if (!vertices) { continue; }
+        total = BgCleanupRead32(source->data + vertices - 4) / 16;
+        if (!total) { continue; }
+        mapping = malloc((size_t)total * 2 * sizeof(*mapping));
+        if (!mapping) { goto nomemory; }
+        substitute = mapping + total;
+        for (DWORD v = 0; v < total; v++) { mapping[v] = UNUSED_VERTEX; substitute[v] = v; }
+        if (BgCleanupWalk(source, primary, mapping, substitute, NULL)
+            && BgCleanupWalk(source, secondary, mapping, substitute, NULL))
+        {
+            for (DWORD v = 0; v < total; v++)
+            {
+                if (mapping[v] != UNUSED_VERTEX)
+                {
+                    mapping[v] = kept++;
+                    replaced |= substitute[v] != v && memcmp(source->data + vertices + v * 16,
+                        source->data + vertices + substitute[v] * 16, 16) != 0;
+                }
+            }
+            /* Rooms with no faces may deliberately retain vertices solely for
+             * bgRoomCalcBB/bgOrderPortal. Preserve their existing bounds. */
+            if (kept && (kept < total || replaced))
+            {
+                if (!copy)
+                {
+                    copy = malloc(source->size);
+                    if (!copy) { goto nomemory; }
+                    memcpy(copy, source->data, source->size);
+                }
+                for (DWORD v = 0; v < total; v++) if (mapping[v] != UNUSED_VERTEX)
+                { memcpy(copy + vertices + mapping[v] * 16, source->data + vertices + substitute[v] * 16, 16); }
+                /* Leave other stream/polygon addresses unchanged. Subsequent
+                 * compilation can reclaim this cleared, unreferenced space. */
+                memset(copy + vertices + kept * 16, 0, (total - kept) * 16);
+                BgCleanupWrite32(copy + vertices - 4, kept * 16);
+                BgCleanupWalk(source, primary, mapping, substitute, copy);
+                BgCleanupWalk(source, secondary, mapping, substitute, copy);
+            }
+        }
+        free(mapping); mapping = NULL;
+    }
+    if (copy)
+    {
+        *out = *source;
+        out->data = copy;
+        if (!BgFileValidateVertexBatches(out, reasonout)) { BgFileFree(out); return FALSE; }
+    }
+    return TRUE;
+nomemory:
+    free(mapping); free(copy);
+    *reasonout = "Out of memory removing unused background vertices.";
     return FALSE;
 }

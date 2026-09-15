@@ -1343,6 +1343,17 @@ static BOOL GEditorSaveProject(HWND hwnd)
             }
             bgtosave = &compiled;
         }
+        else
+        {
+            /* Repair older project files even when no new edit was made.
+             * File cleanup does not renumber live selections or undo data. */
+            if (!BgFileRemoveUnusedVertices(&g_CurrentBg, &compiled, &why))
+            {
+                MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+                goto done;
+            }
+            if (compiled.data) { bgtosave = &compiled; }
+        }
 
         /* Portals live inside this complete BG segment, so they are
            preserved by the same write rather than as a sidecar file. */
