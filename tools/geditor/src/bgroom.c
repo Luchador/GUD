@@ -78,7 +78,7 @@ static BOOL BgRoomCompatibleLayer(const BgDocumentRoom *src, const unsigned char
         for (f = 0; f < src->facecount; f++)
         {
             const BgDocumentFace *face = &src->faces[f];
-            if (!selected[f] || face->layer != layer || face->drawgroup != g) { continue; }
+            if ((selected && !selected[f]) || face->layer != layer || face->drawgroup != g) { continue; }
             if (before.othermode != after.othermode || before.othermodehigh != after.othermodehigh
                 || ((before.geometrymode ^ after.geometrymode) & ~0x2000u)
                 || before.environmentalpha != after.environmentalpha || before.primitivealpha != after.primitivealpha
@@ -89,25 +89,39 @@ static BOOL BgRoomCompatibleLayer(const BgDocumentRoom *src, const unsigned char
     return TRUE;
 }
 
-static BOOL BgRoomMoveFrom(BgDocument *doc, DWORD source, DWORD target,
-    const BgFaceRef *refs, DWORD count, const char **reasonout)
+static BOOL BgRoomSameLayerPrefix(const BgDocumentLayerData *dst, const BgDocumentLayerData *src)
 {
-    BgDocumentRoom *src = &doc->rooms[source], *dst = &doc->rooms[target];
-    unsigned char *selected = calloc(src->facecount, 1);
+    if (!src->groupcount || dst->groupcount < src->groupcount) { return FALSE; }
+    for (DWORD g = 0; g < src->groupcount; g++)
+    {
+        const BgDocumentDrawGroup *a = &src->groups[g], *b = &dst->groups[g];
+        if (a->commandsize != b->commandsize
+            || (a->commandsize && memcmp(a->commands, b->commands, a->commandsize))) { return FALSE; }
+    }
+    return TRUE;
+}
+
+/* Append to a staged document. NULL selection copies every source face.
+ * Both room transfers and clipboard paste preserve inherited draw state. */
+static BOOL BgRoomAppendFaces(BgDocument *doc, const BgDocumentRoom *src, DWORD target,
+    const unsigned char *selected, BOOL newids, const double translation[3],
+    BgFaceRef *out, const char **reasonout)
+{
+    BgDocumentRoom *dst = &doc->rooms[target];
     DWORD *vertices = malloc((size_t)src->vertexcount * sizeof(*vertices));
     DWORD faces = 0, added = 0, i, f, bases[2] = {0, 0};
     BOOL layers[2] = {FALSE, FALSE}, ok = FALSE;
     double offset[3];
-    if (!selected || (src->vertexcount && !vertices)) { goto done; }
+    if (src->vertexcount && !vertices) { goto done; }
     for (i = 0; i < src->vertexcount; i++) { vertices[i] = (DWORD)-1; }
-    for (i = 0; i < count; i++)
+    for (f = 0; f < src->facecount; f++)
     {
-        const BgDocumentFace *face;
-        if (refs[i].room != source) { continue; }
-        face = BgDocumentFindFace(doc, &refs[i], NULL);
-        f = (DWORD)(face - src->faces);
-        if (selected[f]) { continue; }
-        selected[f] = TRUE; faces++; layers[face->layer] = TRUE;
+        const BgDocumentFace *face = &src->faces[f];
+        if (selected && !selected[f]) { continue; }
+        if (face->layer > 1 || face->drawgroup >=
+            (src->layers[face->layer].groupcount ? src->layers[face->layer].groupcount : 1))
+        { *reasonout = "A background face has invalid display-list state."; goto done; }
+        faces++; layers[face->layer] = TRUE;
         for (unsigned int c = 0; c < 3; c++)
         {
             DWORD v = face->vertexindices[c];
@@ -117,13 +131,16 @@ static BOOL BgRoomMoveFrom(BgDocument *doc, DWORD source, DWORD target,
     }
     for (i = 0; i < 3; i++)
     {
-        offset[i] = (double)src->origin[i] - dst->origin[i];
+        offset[i] = (double)src->origin[i] - dst->origin[i] + translation[i];
         if (!isfinite(offset[i]) || offset[i] != floor(offset[i]))
         { *reasonout = "These room origins cannot preserve exact vertex positions on the native coordinate grid."; goto done; }
     }
     if (dst->vertexcount > 0x100000u || added > 0x100000u - dst->vertexcount
         || !doc->nextvertexid || added > (DWORD)-1 - doc->nextvertexid
-        || dst->facecount > (DWORD)-1 / sizeof(*dst->faces) - faces)
+        || faces > (DWORD)-1 / sizeof(*dst->faces)
+        || dst->facecount > (DWORD)-1 / sizeof(*dst->faces) - faces
+        || (newids && (!doc->nextfaceid || faces > (DWORD)-1 - doc->nextfaceid
+            || faces > (DWORD)-1 - doc->facecount)))
     { *reasonout = "The destination room would exceed the native geometry limits."; goto done; }
     {
         BgDocumentVertex *v = realloc(dst->vertices, (size_t)(dst->vertexcount + added) * sizeof(*v));
@@ -154,34 +171,66 @@ static BOOL BgRoomMoveFrom(BgDocument *doc, DWORD source, DWORD target,
     dst->vertexcount += added;
     for (i = 0; i < 2; i++) if (layers[i])
     {
+        /* A level-local paste normally still has the exact source groups.
+         * Reuse their original positions: replaying a layer at its end could
+         * inherit settings which its first faces did not originally have. */
+        if (newids && BgRoomSameLayerPrefix(&dst->layers[i], &src->layers[i])) { continue; }
         if (!BgRoomAppendLayer(&dst->layers[i], &src->layers[i], &bases[i], reasonout)) { goto done; }
         if (!BgRoomCompatibleLayer(src, selected, &dst->layers[i], bases[i], i))
         { *reasonout = "These faces depend on render state that conflicts with the destination room."; goto done; }
     }
     for (f = 0, i = 0; f < src->facecount; f++)
     {
-        if (selected[f])
+        if (!selected || selected[f])
         {
             BgDocumentFace *face = &dst->faces[dst->facecount++];
             *face = src->faces[f]; face->room = (unsigned short)target;
+            if (newids) { face->id = doc->nextfaceid++; }
             face->drawgroup += bases[face->layer];
             for (unsigned int c = 0; c < 3; c++)
             {
                 DWORD v = face->vertexindices[c];
-                src->vertices[v].usecount--;
                 face->vertexindices[c] = vertices[v];
                 dst->vertices[vertices[v]].usecount++;
             }
+            if (out) { out[i++] = (BgFaceRef){face->id, face->room, face->layer, 0}; }
+        }
+    }
+    if (newids) { doc->facecount += faces; }
+    ok = TRUE;
+done:
+    free(vertices);
+    return ok;
+}
+
+static BOOL BgRoomMoveFrom(BgDocument *doc, DWORD source, DWORD target,
+    const BgFaceRef *refs, DWORD count, const char **reasonout)
+{
+    BgDocumentRoom *src = &doc->rooms[source];
+    unsigned char *selected = calloc(src->facecount, 1);
+    const double offset[3] = {0};
+    DWORD i, f;
+    if (!selected) { return FALSE; }
+    for (i = 0; i < count; i++) if (refs[i].room == source)
+    {
+        const BgDocumentFace *face = BgDocumentFindFace(doc, &refs[i], NULL);
+        selected[face - src->faces] = TRUE;
+    }
+    if (!BgRoomAppendFaces(doc, src, target, selected, FALSE, offset, NULL, reasonout))
+    { free(selected); return FALSE; }
+    for (f = 0, i = 0; f < src->facecount; f++)
+    {
+        if (selected[f])
+        {
+            for (unsigned int c = 0; c < 3; c++)
+            { src->vertices[src->faces[f].vertexindices[c]].usecount--; }
         }
         else { src->faces[i++] = src->faces[f]; }
     }
-    /* Retain orphan vertices and room slots: room bounds and all later room
-     * numbers remain valid, even when this removes the room's last face. */
+    /* Retain orphan vertices and room slots for native bounds. */
     src->facecount = i;
-    ok = TRUE;
-done:
-    free(selected); free(vertices);
-    return ok;
+    free(selected);
+    return TRUE;
 }
 
 static BOOL BgRoomOrderFaces(BgDocumentRoom *room)
@@ -243,4 +292,132 @@ BOOL BgDocumentMoveFacesToRoom(BgDocument *document, const BgFaceRef *refs,
     if (changedout) { *changedout = TRUE; }
     *reasonout = "";
     return TRUE;
+}
+
+BOOL BgDocumentCopyFaces(const BgDocument *document, const BgFaceRef *refs,
+    DWORD count, BgDocument *clipboard, const char **reasonout)
+{
+    BgDocument view = {0}, copy = {0};
+    unsigned char **selected = NULL;
+    const char *ignored;
+    DWORD i, r;
+    BOOL ok = FALSE;
+    if (!reasonout) { reasonout = &ignored; }
+    *reasonout = "Select background faces to copy.";
+    if (!document || !document->rooms || !clipboard || document == clipboard || !refs || !count
+        || document->roomcount > 65535) { return FALSE; }
+    view.roomcount = document->roomcount; view.levelscale = document->levelscale;
+    view.nextfaceid = document->nextfaceid; view.nextvertexid = document->nextvertexid;
+    *reasonout = "Out of memory copying background faces.";
+    view.rooms = calloc((size_t)view.roomcount + 1, sizeof(*view.rooms));
+    selected = calloc((size_t)view.roomcount + 1, sizeof(*selected));
+    if (!view.rooms || !selected) { goto done; }
+    for (i = 0; i < count; i++)
+    {
+        const BgDocumentRoom *room;
+        const BgDocumentFace *face = BgDocumentFindFace(document, &refs[i], &room);
+        if (!face || face->layer > 1 || face->drawgroup >= room->layers[face->layer].groupcount)
+        { *reasonout = "A selected background face is no longer available."; goto done; }
+        r = refs[i].room;
+        if (!selected[r]) { selected[r] = calloc(room->facecount, 1); }
+        if (!selected[r]) { goto done; }
+        if (selected[r][face - room->faces]) { continue; }
+        for (unsigned int c = 0; c < 3; c++) if (face->vertexindices[c] >= room->vertexcount)
+        { *reasonout = "A selected face references a missing vertex."; goto done; }
+        selected[r][face - room->faces] = TRUE;
+        view.facecount++;
+    }
+    for (r = 1; r <= view.roomcount; r++) if (selected[r])
+    {
+        const BgDocumentRoom *src = &document->rooms[r];
+        BgDocumentRoom *dst = &view.rooms[r];
+        DWORD faces = 0;
+        for (i = 0; i < src->facecount; i++) { faces += selected[r][i] != 0; }
+        *dst = *src;
+        dst->faces = malloc((size_t)faces * sizeof(*dst->faces));
+        dst->facecount = 0;
+        if (!dst->faces) { goto done; }
+        for (i = 0; i < src->facecount; i++) if (selected[r][i])
+        { dst->faces[dst->facecount++] = src->faces[i]; }
+        /* Retain the state leading to the copied faces, but not unrelated
+         * layers or later groups. Edits after this prefix cannot invalidate
+         * reuse of the original draw groups when pasting. */
+        for (unsigned int layer = 0; layer < 2; layer++)
+        {
+            DWORD groups = 0;
+            for (i = 0; i < dst->facecount; i++)
+            {
+                const BgDocumentFace *face = &dst->faces[i];
+                if (face->layer == layer && face->drawgroup >= groups) { groups = face->drawgroup + 1; }
+            }
+            dst->layers[layer].groupcount = groups;
+        }
+    }
+    /* The view borrows vertices and state only from rooms being copied.
+     * Clone takes ownership of an independent snapshot, with no portals. */
+    if (!BgDocumentClone(&view, &copy, reasonout)) { goto done; }
+    for (r = 1; r <= copy.roomcount; r++)
+    {
+        BgDocumentRoom *room = &copy.rooms[r];
+        for (i = 0; i < room->vertexcount; i++) { room->vertices[i].usecount = 0; }
+        for (i = 0; i < room->facecount; i++) for (unsigned int c = 0; c < 3; c++)
+        { room->vertices[room->faces[i].vertexindices[c]].usecount++; }
+    }
+    BgDocumentFree(clipboard);
+    *clipboard = copy;
+    *reasonout = ""; ok = TRUE;
+done:
+    for (r = 0; r <= view.roomcount; r++)
+    {
+        if (view.rooms) { free(view.rooms[r].faces); }
+        if (selected) { free(selected[r]); }
+    }
+    free(view.rooms); free(selected);
+    return ok;
+}
+
+BOOL BgDocumentPasteFaces(BgDocument *document, const BgDocument *clipboard,
+    const double offset[3], BgFaceRef **facesout, DWORD *countout, const char **reasonout)
+{
+    BgDocument staged = {0};
+    BgFaceRef *faces = NULL;
+    DWORD r, count = 0;
+    double translation[3];
+    const char *ignored;
+    if (!reasonout) { reasonout = &ignored; }
+    *reasonout = "There are no copied faces for this level.";
+    if (facesout) { *facesout = NULL; }
+    if (countout) { *countout = 0; }
+    if (!document || !document->rooms || !clipboard || !clipboard->rooms || !clipboard->facecount
+        || !offset || !facesout || !countout || document == clipboard
+        || document->roomcount != clipboard->roomcount || document->levelscale != clipboard->levelscale
+        || !isfinite(document->levelscale) || document->levelscale <= 0) { return FALSE; }
+    for (r = 0; r < 3; r++)
+    {
+        translation[r] = round(offset[r] * document->levelscale);
+        if (!isfinite(translation[r]) || fabs(translation[r]) > 65535)
+        { *reasonout = "The paste offset exceeds the native coordinate range."; return FALSE; }
+    }
+    if (clipboard->facecount > (DWORD)-1 / sizeof(*faces)) { return FALSE; }
+    faces = malloc((size_t)clipboard->facecount * sizeof(*faces));
+    *reasonout = "Out of memory pasting background faces.";
+    if (!faces || !BgDocumentClone(document, &staged, reasonout)) { goto fail; }
+    *reasonout = "Out of memory pasting background faces.";
+    for (r = 1; r <= clipboard->roomcount; r++)
+    {
+        const BgDocumentRoom *src = &clipboard->rooms[r];
+        if (!src->facecount) { continue; }
+        if (src->facecount > clipboard->facecount - count) { goto fail; }
+        if (!BgRoomAppendFaces(&staged, src, r, NULL, TRUE, translation, faces + count, reasonout)
+            || !BgRoomOrderFaces(&staged.rooms[r])) { goto fail; }
+        count += src->facecount;
+    }
+    if (count != clipboard->facecount) { goto fail; }
+    BgDocumentFree(document);
+    *document = staged; document->dirty = TRUE;
+    *facesout = faces; *countout = count; *reasonout = "";
+    return TRUE;
+fail:
+    free(faces); BgDocumentFree(&staged);
+    return FALSE;
 }

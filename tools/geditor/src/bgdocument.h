@@ -264,6 +264,17 @@ BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
 BOOL BgDocumentMoveFacesToRoom(BgDocument *document, const BgFaceRef *refs,
     DWORD count, DWORD target, BOOL *changedout, const char **reasonout);
 
+/* Level-local, owned face snapshot; initialize clipboard to zero and release
+ * with BgDocumentFree. Copy retains selected rooms/layers and native draw state.
+ * Failed copies preserve the previous clipboard. Paste gives all copies fresh
+ * identities, preserving sharing within the copied set but never with originals.
+ * offset is in world units, snapped to the native grid like translation. Paste
+ * is atomic and returns owned selection refs; the caller frees *facesout. */
+BOOL BgDocumentCopyFaces(const BgDocument *document, const BgFaceRef *refs,
+    DWORD count, BgDocument *clipboard, const char **reasonout);
+BOOL BgDocumentPasteFaces(BgDocument *document, const BgDocument *clipboard,
+    const double offset[3], BgFaceRef **facesout, DWORD *countout, const char **reasonout);
+
 /* Paints the existing vertex at one face corner. Every face sharing that
  * vertex sees the edit; coincident vertices with different identities do not.
  * An identical RGBA value succeeds without dirtying the document. */

@@ -74,6 +74,9 @@ static BgFile g_CurrentBg;
 /* Room-aware editable geometry. Saving compiles it back into g_CurrentBg;
    the raw segment supplies preserved portal, visibility, and header data. */
 static BgDocument g_CurrentBgDocument;
+/* Faces are a snapshot, independent of later edits/undo. Cleared on level
+ * changes so room numbers and image IDs cannot refer to another level. */
+static BgDocument g_FaceClipboard;
 /* One chronological history spans document edits and viewport/UV selections. */
 static EditHistory g_EditHistory;
 static BOOL g_SelectionHistoryPending, g_SelectionHistoryReset, g_SelectionHistoryNavigation;
@@ -552,6 +555,7 @@ static void GEditorCloseProject(HWND hwnd)
     ObjectGeometryFree(&g_CurrentObjects);
     EditHistoryFree(&g_EditHistory);
     BgDocumentFree(&g_CurrentBgDocument);
+    BgDocumentFree(&g_FaceClipboard);
     BgFileFree(&g_CurrentBg);
     g_CurrentLevelIndex = GEDITOR_NO_LEVEL;
     ModelEditsReset();
@@ -613,7 +617,9 @@ enum {
     ID_FILE_RECENT_PROJECT_FIRST,
     ID_FILE_RECENT_PROJECT_LAST = ID_FILE_RECENT_PROJECT_FIRST + RECENT_PROJECTS_MAX - 1,
     ID_FILE_CLEAR_RECENT_PROJECTS,
-    ID_FILE_REBASE_PROJECT
+    ID_FILE_REBASE_PROJECT,
+    ID_EDIT_COPY_FACES,
+    ID_EDIT_PASTE_FACES
 };
 
 
@@ -755,6 +761,9 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(editmenu, MF_STRING, ID_EDIT_UNDO, "&Undo\tCtrl+Z");
     AppendMenu(editmenu, MF_STRING, ID_EDIT_REDO, "&Redo\tCtrl+Y");
     AppendMenu(editmenu, MF_SEPARATOR, 0, NULL);
+    AppendMenu(editmenu, MF_STRING, ID_EDIT_COPY_FACES, "&Copy Faces\tCtrl+C");
+    AppendMenu(editmenu, MF_STRING, ID_EDIT_PASTE_FACES, "&Paste Faces\tCtrl+V");
+    AppendMenu(editmenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(editmenu, MF_STRING, ID_EDIT_FLIP_FACE, "&Flip Face\tAlt+N");
 
     AppendMenu(viewmenu, MF_STRING, ID_VIEW_BACKFACE_CULLING, "&Backface Culling");
@@ -822,6 +831,13 @@ static BOOL GEditorCanFlipSelectedBgFaces(void)
         && !ViewportIsTransforming(g_Viewport) && !ViewportIsFlying(g_Viewport);
 }
 
+static BOOL GEditorCanPasteBgFaces(void)
+{
+    return g_Viewport && g_CurrentBgDocument.rooms && g_FaceClipboard.facecount
+        && ViewportGetTool(g_Viewport) == EDITOR_TOOL_FACE_SELECT
+        && !ViewportIsTransforming(g_Viewport) && !ViewportIsFlying(g_Viewport);
+}
+
 
 static void GEditorUpdateHistoryMenu(HMENU menu)
 {
@@ -864,6 +880,10 @@ static void GEditorUpdateHistoryMenu(HMENU menu)
         | (EditHistoryCanRedo(&g_EditHistory) ? MF_ENABLED : MF_GRAYED));
     EnableMenuItem(menu, ID_EDIT_FLIP_FACE, MF_BYCOMMAND
         | (GEditorCanFlipSelectedBgFaces() ? MF_ENABLED : MF_GRAYED));
+    EnableMenuItem(menu, ID_EDIT_COPY_FACES, MF_BYCOMMAND
+        | (GEditorCanFlipSelectedBgFaces() ? MF_ENABLED : MF_GRAYED));
+    EnableMenuItem(menu, ID_EDIT_PASTE_FACES, MF_BYCOMMAND
+        | (GEditorCanPasteBgFaces() ? MF_ENABLED : MF_GRAYED));
 }
 
 
@@ -2509,6 +2529,58 @@ fail:
 }
 
 
+static BOOL GEditorCopySelectedBgFaces(HWND hwnd)
+{
+    BgFaceRef *faces;
+    int count;
+    BOOL ok = FALSE;
+    const char *why = "Out of memory reading the background selection.";
+    if (!GEditorCanFlipSelectedBgFaces()) { return FALSE; }
+    count = ViewportGetSelectedBgFaceCount(g_Viewport);
+    faces = malloc((size_t)count * sizeof(*faces));
+    if (faces)
+    {
+        why = "The selected background faces could not be read.";
+        if (ViewportGetSelectedBgFaces(g_Viewport, faces, count))
+        { ok = BgDocumentCopyFaces(&g_CurrentBgDocument, faces, (DWORD)count, &g_FaceClipboard, &why); }
+    }
+    free(faces);
+    if (!ok) { MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR); }
+    GEditorRefreshHistoryMenu(hwnd);
+    return ok;
+}
+
+static BOOL GEditorPasteBgFaces(HWND hwnd)
+{
+    EditHistoryTransaction transaction = {0};
+    BgFaceRef *faces = NULL;
+    DWORD count = 0;
+    const double offset[3] = {0, 10, 0};
+    const char *why = "", *restorewhy = "";
+    if (!GEditorCanPasteBgFaces()) { return FALSE; }
+    if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
+        g_FaceClipboard.facecount == 1 ? "Paste Face" : "Paste Faces", &transaction, &why)) { goto fail; }
+    if (!BgDocumentPasteFaces(&g_CurrentBgDocument, &g_FaceClipboard, offset, &faces, &count, &why))
+    { goto fail; }
+    if (!GEditorRebuildCurrentViewport(&why)) { goto rollback; }
+    if (!ViewportSelectBgFaces(g_Viewport, faces, count))
+    { why = "Could not select the pasted faces."; goto rollback; }
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+        &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    free(faces);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    GEditorRebuildCurrentViewport(&restorewhy);
+    GEditorRestoreHistorySelection(hwnd);
+fail:
+    free(faces); EditHistoryCancelEdit(&transaction);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
 static BOOL GEditorFlipSelectedBgFaces(HWND hwnd)
 {
     EditHistoryTransaction transaction = {0};
@@ -4077,6 +4149,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         BgFileFree(&g_CurrentBg);
         g_CurrentBg = bg;
         BgDocumentFree(&g_CurrentBgDocument);
+        BgDocumentFree(&g_FaceClipboard);
         g_CurrentBgDocument = document;
         GEditorRefreshSelectionDetails();
 
@@ -4413,6 +4486,14 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 GEditorApplyHistoryStep(hwnd, TRUE);
                 return 0;
 
+            case ID_EDIT_COPY_FACES:
+                GEditorCopySelectedBgFaces(hwnd);
+                return 0;
+
+            case ID_EDIT_PASTE_FACES:
+                GEditorPasteBgFaces(hwnd);
+                return 0;
+
             case ID_GEOMETRY_MERGE_VERTICES:
                 GEditorMergeSelectedBgVertices(hwnd);
                 return 0;
@@ -4538,6 +4619,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         ObjectGeometryFree(&g_CurrentObjects);
         EditHistoryFree(&g_EditHistory);
         BgDocumentFree(&g_CurrentBgDocument);
+        BgDocumentFree(&g_FaceClipboard);
         BgFileFree(&g_CurrentBg);
         ImageEditsReset();
         PostQuitMessage(0);
@@ -4711,6 +4793,25 @@ static BOOL GEditorHandleRenderModeHotkey(HWND frame, const MSG *message)
     return TRUE;
 }
 
+/* Scope face clipboard commands to the main editor. */
+static BOOL GEditorHandleFaceClipboardHotkey(HWND frame, const MSG *message)
+{
+    char classname[32] = "";
+    if (!message || !g_Viewport || message->message != WM_KEYDOWN
+        || (message->wParam != 'C' && message->wParam != 'V')
+        || ViewportIsFlying(g_Viewport)
+        || (message->hwnd != frame && !IsChild(frame, message->hwnd))
+        || !(GetKeyState(VK_CONTROL) & 0x8000)
+        || (GetKeyState(VK_MENU) & 0x8000) || (GetKeyState(VK_SHIFT) & 0x8000)) { return FALSE; }
+    /* Keep the Windows text clipboard working in property inputs. */
+    GetClassName(message->hwnd, classname, sizeof(classname));
+    if (lstrcmpi(classname, "Edit") == 0 || lstrcmpi(classname, "ComboBox") == 0
+        || lstrcmpi(classname, "ComboLBox") == 0) { return FALSE; }
+    if (!(message->lParam & ((LPARAM)1 << 30)))
+    { SendMessage(frame, WM_COMMAND, message->wParam == 'C' ? ID_EDIT_COPY_FACES : ID_EDIT_PASTE_FACES, 0); }
+    return TRUE;
+}
+
 /* Leave Q/A to camera flight and native text controls. Scope these shortcuts
    to the main editor so the floating UV/model windows keep their own input. */
 static BOOL GEditorHandleSelectionHotkey(HWND frame, const MSG *message)
@@ -4827,6 +4928,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                     && !GEditorHandleFlipFaceHotkey(hwnd, &msg)
                     && !GEditorHandleMergeVerticesHotkey(hwnd, &msg)
                     && !GEditorHandleTransformHotkey(hwnd, &msg)
+                    && !GEditorHandleFaceClipboardHotkey(hwnd, &msg)
                     && !GEditorHandleSelectionHotkey(hwnd, &msg)
                     && !RightPanelHandleMessage(g_RightPanel, &msg)
                     && !ToolToolbarHandleMessage(g_ToolToolbar, &msg)
@@ -4855,6 +4957,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                 && !GEditorHandleFlipFaceHotkey(hwnd, &msg)
                 && !GEditorHandleMergeVerticesHotkey(hwnd, &msg)
                 && !GEditorHandleTransformHotkey(hwnd, &msg)
+                && !GEditorHandleFaceClipboardHotkey(hwnd, &msg)
                 && !GEditorHandleSelectionHotkey(hwnd, &msg)
                 && !RightPanelHandleMessage(g_RightPanel, &msg)
                 && !ToolToolbarHandleMessage(g_ToolToolbar, &msg)
