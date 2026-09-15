@@ -13,6 +13,7 @@
 #define FACEPROPERTIES_PREVIEW_SIZE 64
 
 enum { FACE_SUMMARY, FACE_ROOM_LABEL, FACE_ROOM, FACE_TEXTURE_LABEL, FACE_TEXTURE_THUMB, FACE_TEXTURE_FIND,
+       FACE_DETAIL_LABEL, FACE_DETAIL_THUMB, FACE_DETAIL_FIND, FACE_DETAIL_INFO,
        FACE_RENDER_INFO, FACE_RENDER, FACE_RENDER_HELP,
        FACE_CULL_LABEL, FACE_CULL,
        FACE_WRAP_LABEL, FACE_U_LABEL, FACE_U, FACE_V_LABEL, FACE_V,
@@ -26,6 +27,10 @@ typedef struct FacePropertiesState {
     DWORD textureid, roomcount;
     char roomtext[32];
     BOOL hasthumbnail, mixedtexture;
+    TexThumb detailthumbnail;
+    unsigned char detailpixels[TEX_THUMB_MAX * TEX_THUMB_MAX * 4];
+    DWORD detailtextureid;
+    BOOL hasdetailthumbnail, mixeddetailtexture, showdetail;
     int scroll, wheelremainder;
     BOOL updating;
 } FacePropertiesState;
@@ -69,6 +74,94 @@ static BOOL FacePropertiesRenderText(const BgDocument *document, const BgFaceRef
     return editable;
 }
 
+/* -1 means that this property differs across the selected faces, or that
+ * some faces have no detail tile to which the property could apply. */
+typedef struct FaceDetailSelection {
+    int mode, textureid, shiftu, shiftv, minlod, offset;
+} FaceDetailSelection;
+
+static void FacePropertiesGetDetail(const BgDocument *document, const BgFaceRef *refs,
+                                    DWORD count, FaceDetailSelection *selection)
+{
+    DWORD i;
+    selection->mode = selection->textureid = selection->shiftu = selection->shiftv
+        = selection->minlod = selection->offset = -1;
+    for (i = 0; i < count; i++)
+    {
+        const BgDocumentFace *face = BgDocumentFindFace(document, &refs[i], NULL);
+        BgDetailTexture detail;
+        FaceDetailSelection current;
+        if (!face) { continue; } /* The caller validates the selection first. */
+        BgMaterialGetDetail(&face->material, &detail);
+        current.mode = detail.mode;
+        current.textureid = current.shiftu = current.shiftv = current.minlod = current.offset = -1;
+        if (detail.mode == BG_DETAIL_BASE_IMAGE || detail.mode == BG_DETAIL_SEPARATE_IMAGE)
+        {
+            current.textureid = detail.textureid;
+            current.shiftu = detail.shiftu;
+            current.shiftv = detail.shiftv;
+            current.minlod = detail.minlod;
+            /* The other offset codes all produce a zero tile origin. */
+            current.offset = detail.offset == 2;
+        }
+        if (i == 0) { *selection = current; }
+        else
+        {
+            if (selection->mode != current.mode) { selection->mode = -1; }
+            if (selection->textureid != current.textureid) { selection->textureid = -1; }
+            if (selection->shiftu != current.shiftu) { selection->shiftu = -1; }
+            if (selection->shiftv != current.shiftv) { selection->shiftv = -1; }
+            if (selection->minlod != current.minlod) { selection->minlod = -1; }
+            if (selection->offset != current.offset) { selection->offset = -1; }
+        }
+    }
+}
+
+static void FacePropertiesDetailScale(int shift, char *text, size_t size)
+{
+    /* RDP shifts 0..10 divide UVs; 11..15 multiply by 32, 16, 8, 4, 2. */
+    if (shift < 0) { snprintf(text, size, "Mixed"); }
+    else if (shift == 0) { snprintf(text, size, "1x"); }
+    else if (shift <= 10) { snprintf(text, size, "1/%ux", 1u << shift); }
+    else { snprintf(text, size, "%ux", 1u << (16 - shift)); }
+}
+
+static void FacePropertiesSetDetail(FacePropertiesState *state, const BgDocument *document,
+                                    const BgFaceRef *refs, DWORD count, HWND browser)
+{
+    FaceDetailSelection detail;
+    char label[96], info[384], u[24], v[24], lod[48], imageinfo[64] = "";
+    FacePropertiesGetDetail(document, refs, count, &detail);
+    state->showdetail = detail.mode != BG_DETAIL_NONE && detail.mode != BG_DETAIL_UNKNOWN;
+    state->detailtextureid = detail.textureid < 0 ? BG_TEX_NONE : (DWORD)detail.textureid;
+    state->mixeddetailtexture = detail.textureid < 0;
+    state->hasdetailthumbnail = state->showdetail && state->detailtextureid != BG_TEX_NONE
+        && BrowserCopyImageThumbnail(browser, state->detailtextureid,
+                                     &state->detailthumbnail, state->detailpixels);
+    if (detail.mode == BG_DETAIL_NONE) { snprintf(label, sizeof(label), "Detail texture: None"); }
+    else if (detail.mode == BG_DETAIL_UNKNOWN) { snprintf(label, sizeof(label), "Detail texture: Unknown texture mode"); }
+    else if (detail.textureid < 0) { snprintf(label, sizeof(label), "Detail texture: Mixed"); }
+    else { snprintf(label, sizeof(label), "Detail texture: %04X", (unsigned int)detail.textureid); }
+    FacePropertiesDetailScale(detail.shiftu, u, sizeof(u));
+    FacePropertiesDetailScale(detail.shiftv, v, sizeof(v));
+    if (detail.minlod < 0) { snprintf(lod, sizeof(lod), "Mixed"); }
+    else { snprintf(lod, sizeof(lod), "%d/256 (%.1f%%)", detail.minlod, detail.minlod * 100.0 / 256.0); }
+    if (state->hasdetailthumbnail)
+    {
+        snprintf(imageinfo, sizeof(imageinfo), "Image size: %d x %d\r\n",
+            state->detailthumbnail.imagewidth, state->detailthumbnail.imageheight);
+    }
+    snprintf(info, sizeof(info), "%s\r\n%sU tile scale: %s\r\nV tile scale: %s\r\nMinimum LOD: %s\r\nTile offset: %s",
+        detail.mode == BG_DETAIL_BASE_IMAGE ? "Base image reused (LOD tile)"
+            : detail.mode == BG_DETAIL_SEPARATE_IMAGE ? "Separate detail image" : "Detail source: Mixed",
+        imageinfo, u, v, lod, detail.offset < 0 ? "Mixed"
+            : detail.offset ? "Half texel (generated mipmaps only)" : "None");
+    SetWindowText(state->controls[FACE_DETAIL_LABEL], label);
+    SetWindowText(state->controls[FACE_DETAIL_INFO], info);
+    EnableWindow(state->controls[FACE_DETAIL_FIND], state->hasdetailthumbnail);
+    InvalidateRect(state->controls[FACE_DETAIL_THUMB], NULL, FALSE);
+}
+
 static int FacePropertiesTextHeight(HWND control, int width)
 {
     char text[512];
@@ -84,7 +177,7 @@ static int FacePropertiesTextHeight(HWND control, int width)
 
 static void FacePropertiesLayout(HWND hwnd, FacePropertiesState *state)
 {
-    RECT client, bounds[FACE_CONTROL_COUNT];
+    RECT client, bounds[FACE_CONTROL_COUNT] = {{0}};
     SCROLLINFO info = {0};
     int width, y = FACEPROPERTIES_MARGIN, i, maximum;
     GetClientRect(hwnd, &client);
@@ -93,15 +186,19 @@ static void FacePropertiesLayout(HWND hwnd, FacePropertiesState *state)
     for (i = 0; i < FACE_CONTROL_COUNT; i++)
     {
         int x = FACEPROPERTIES_MARGIN, w = width, height;
-        if (i == FACE_TEXTURE_THUMB)
+        BOOL visible = state->showdetail || i < FACE_DETAIL_THUMB || i > FACE_DETAIL_INFO;
+        ShowWindow(state->controls[i], visible ? SW_SHOWNA : SW_HIDE);
+        if (!visible) { continue; }
+        if (i == FACE_TEXTURE_THUMB || i == FACE_DETAIL_THUMB)
         {
             int size = width > FACEPROPERTIES_PREVIEW_SIZE + 52
                 ? FACEPROPERTIES_PREVIEW_SIZE : width - 52;
             if (size < 1) { size = 1; }
             SetRect(&bounds[i], x, y, x + size, y + size);
             x += size + 8;
-            SetRect(&bounds[FACE_TEXTURE_FIND], x, y + (size - 24) / 2,
+            SetRect(&bounds[i + 1], x, y + (size - 24) / 2,
                     x + 44, y + (size - 24) / 2 + 24);
+            ShowWindow(state->controls[i + 1], SW_SHOWNA);
             y += size + 12;
             i++; /* The Find button shares the thumbnail's row. */
             continue;
@@ -137,8 +234,8 @@ static void FacePropertiesLayout(HWND hwnd, FacePropertiesState *state)
     InvalidateRect(hwnd, NULL, TRUE);
 }
 
-static void FacePropertiesPaintThumbnail(const FacePropertiesState *state,
-                                          const DRAWITEMSTRUCT *draw)
+static void FacePropertiesPaintThumbnail(const TexThumb *thumb, const unsigned char *source,
+                                         BOOL available, BOOL mixed, const DRAWITEMSTRUCT *draw)
 {
     RECT rect = draw->rcItem;
     HDC dc = draw->hDC;
@@ -146,20 +243,19 @@ static void FacePropertiesPaintThumbnail(const FacePropertiesState *state,
     FillRect(dc, &rect, GetSysColorBrush(COLOR_WINDOW));
     DrawEdge(dc, &rect, BDR_SUNKENOUTER, BF_RECT);
     InflateRect(&rect, -4, -4);
-    if (state->hasthumbnail && rect.right > rect.left && rect.bottom > rect.top)
+    if (available && rect.right > rect.left && rect.bottom > rect.top)
     {
         BITMAPINFO bmi = {0};
         unsigned char pixels[TEX_THUMB_MAX * TEX_THUMB_MAX * 4] = {0};
         int x, y, channel;
         int w = rect.right - rect.left, h = rect.bottom - rect.top;
-        const TexThumb *thumb = &state->thumbnail;
         /* Use the browser's orientation and composite alpha on a checkerboard. */
         for (y = 0; y < thumb->h; y++)
         {
             for (x = 0; x < thumb->w; x++)
             {
                 unsigned int offset = (y * TEX_THUMB_MAX + x) * 4;
-                const unsigned char *src = state->pixels + offset;
+                const unsigned char *src = source + offset;
                 int background = ((x / 4 + y / 4) & 1) ? 192 : 240;
                 for (channel = 0; channel < 3; channel++)
                 {
@@ -188,7 +284,7 @@ static void FacePropertiesPaintThumbnail(const FacePropertiesState *state,
         SelectObject(dc, GetStockObject(DEFAULT_GUI_FONT));
         SetTextColor(dc, GetSysColor(COLOR_GRAYTEXT));
         SetBkMode(dc, TRANSPARENT);
-        DrawText(dc, state->mixedtexture ? "Mixed" : "Image unavailable", -1, &rect,
+        DrawText(dc, mixed ? "Mixed" : "Image unavailable", -1, &rect,
                  DT_CENTER | DT_WORDBREAK | DT_NOPREFIX);
     }
     RestoreDC(dc, saved);
@@ -266,7 +362,8 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
     {
         CREATESTRUCT *cs = (CREATESTRUCT *)lparam;
         const char *labels[FACE_CONTROL_COUNT] = {
-            "", "Room", "", "Texture", "", "Find", "", "", "",
+            "", "Room", "", "Texture", "", "Find",
+            "Detail texture", "", "Find", "", "", "", "",
             "Backface culling", "",
             "Texture wrapping", "U", "", "V", "",
             ""
@@ -278,10 +375,10 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
         for (i = 0; i < FACE_CONTROL_COUNT; i++)
         {
             BOOL combo = i == FACE_ROOM || i == FACE_RENDER || i == FACE_CULL || i == FACE_U || i == FACE_V;
-            BOOL button = i == FACE_TEXTURE_FIND;
+            BOOL button = i == FACE_TEXTURE_FIND || i == FACE_DETAIL_FIND;
             DWORD style = combo ? WS_TABSTOP | WS_VSCROLL | (i == FACE_ROOM ? CBS_DROPDOWN : CBS_DROPDOWNLIST)
                 : button ? WS_TABSTOP | BS_PUSHBUTTON | BS_NOTIFY
-                : i == FACE_TEXTURE_THUMB ? SS_OWNERDRAW : SS_NOPREFIX;
+                : i == FACE_TEXTURE_THUMB || i == FACE_DETAIL_THUMB ? SS_OWNERDRAW : SS_NOPREFIX;
             state->controls[i] = CreateWindowEx(0, combo ? "COMBOBOX" : button ? "BUTTON" : "STATIC", labels[i],
                 WS_CHILD | WS_VISIBLE | style,
                 0, 0, 1, 1, hwnd, (HMENU)(INT_PTR)(i + 1), cs->hInstance, NULL);
@@ -310,6 +407,7 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
             }
         }
         EnableWindow(state->controls[FACE_TEXTURE_FIND], FALSE);
+        EnableWindow(state->controls[FACE_DETAIL_FIND], FALSE);
         state->tooltip = CreateWindowEx(WS_EX_TOPMOST, TOOLTIPS_CLASS, NULL,
             WS_POPUP | TTS_ALWAYSTIP | TTS_NOPREFIX, CW_USEDEFAULT, CW_USEDEFAULT,
             CW_USEDEFAULT, CW_USEDEFAULT, hwnd, NULL, cs->hInstance, NULL);
@@ -321,6 +419,8 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
             tip.hwnd = hwnd;
             tip.uId = (UINT_PTR)state->controls[FACE_TEXTURE_FIND];
             tip.lpszText = "Show image in content browser";
+            SendMessage(state->tooltip, TTM_ADDTOOL, 0, (LPARAM)&tip);
+            tip.uId = (UINT_PTR)state->controls[FACE_DETAIL_FIND];
             SendMessage(state->tooltip, TTM_ADDTOOL, 0, (LPARAM)&tip);
         }
         return 0;
@@ -337,15 +437,18 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
             { FacePropertiesApplyRoom(hwnd, state, TRUE); }
             return 0;
         }
-        if (state && !state->updating && LOWORD(wparam) == FACE_TEXTURE_FIND + 1)
+        if (state && !state->updating
+            && (LOWORD(wparam) == FACE_TEXTURE_FIND + 1 || LOWORD(wparam) == FACE_DETAIL_FIND + 1))
         {
+            BOOL detail = LOWORD(wparam) == FACE_DETAIL_FIND + 1;
             if (HIWORD(wparam) == BN_SETFOCUS)
             {
                 FacePropertiesRevealControl(hwnd, state, (HWND)lparam);
             }
-            else if (HIWORD(wparam) == BN_CLICKED && state->hasthumbnail)
+            else if (HIWORD(wparam) == BN_CLICKED && (detail ? state->hasdetailthumbnail : state->hasthumbnail))
             {
-                SendMessage(GetParent(hwnd), FACEPROPERTIES_WM_REVEAL_IMAGE, state->textureid, 0);
+                SendMessage(GetParent(hwnd), FACEPROPERTIES_WM_REVEAL_IMAGE,
+                    detail ? state->detailtextureid : state->textureid, 0);
             }
             return 0;
         }
@@ -379,9 +482,13 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
         }
         return 0;
     case WM_DRAWITEM:
-        if (state && wparam == FACE_TEXTURE_THUMB + 1)
+        if (state && (wparam == FACE_TEXTURE_THUMB + 1 || wparam == FACE_DETAIL_THUMB + 1))
         {
-            FacePropertiesPaintThumbnail(state, (const DRAWITEMSTRUCT *)lparam);
+            BOOL detail = wparam == FACE_DETAIL_THUMB + 1;
+            FacePropertiesPaintThumbnail(detail ? &state->detailthumbnail : &state->thumbnail,
+                detail ? state->detailpixels : state->pixels,
+                detail ? state->hasdetailthumbnail : state->hasthumbnail,
+                detail ? state->mixeddetailtexture : state->mixedtexture, (const DRAWITEMSTRUCT *)lparam);
             return TRUE;
         }
         break;
@@ -522,6 +629,7 @@ BOOL FacePropertiesSetSelection(HWND panel, const BgDocument *document,
     SetWindowText(state->controls[FACE_TEXTURE_LABEL], texture);
     EnableWindow(state->controls[FACE_TEXTURE_FIND], state->hasthumbnail);
     InvalidateRect(state->controls[FACE_TEXTURE_THUMB], NULL, FALSE);
+    FacePropertiesSetDetail(state, document, refs, count, browser);
     SendMessage(state->controls[FACE_CULL], CB_SETCURSEL, cull, 0);
     SendMessage(state->controls[FACE_U], CB_SETCURSEL, textured ? wrapu : -1, 0);
     SendMessage(state->controls[FACE_V], CB_SETCURSEL, textured ? wrapv : -1, 0);

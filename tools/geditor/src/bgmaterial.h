@@ -25,6 +25,20 @@ typedef enum BgTextureWrap {
     BG_TEXTURE_MIRROR = 2
 } BgTextureWrap;
 
+typedef enum BgDetailMode {
+    BG_DETAIL_NONE,
+    BG_DETAIL_BASE_IMAGE, /* type 0: an extra LOD tile using the base image */
+    BG_DETAIL_SEPARATE_IMAGE, /* type 1: a separate image in tile 0 */
+    BG_DETAIL_UNKNOWN
+} BgDetailMode;
+
+/* Authored C0 parameters, before texLoadFromGdl expands them into tiles. */
+typedef struct BgDetailTexture {
+    BgDetailMode mode;
+    unsigned short textureid;
+    unsigned char shiftu, shiftv, minlod, offset;
+} BgDetailTexture;
+
 void BgMaterialInit(BgMaterial *material);
 BOOL BgMaterialReadCommand(BgMaterial *material, DWORD word0, DWORD word1);
 unsigned short BgMaterialTextureId(const BgMaterial *material);
@@ -32,5 +46,6 @@ void BgMaterialSetTexture(BgMaterial *material, DWORD textureid);
 BOOL BgMaterialEqual(const BgMaterial *a, const BgMaterial *b);
 BgTextureWrap BgMaterialGetWrap(const BgMaterial *material, BOOL t);
 void BgMaterialSetWrap(BgMaterial *material, BOOL t, BgTextureWrap wrap);
+void BgMaterialGetDetail(const BgMaterial *material, BgDetailTexture *detail);
 
 #endif

@@ -102,3 +102,24 @@ void BgMaterialSetWrap(BgMaterial *material, BOOL t, BgTextureWrap wrap)
                               | ((DWORD)wrap << shift);
     }
 }
+
+void BgMaterialGetDetail(const BgMaterial *material, BgDetailTexture *detail)
+{
+    DWORD type = material->textureword0 & 7u;
+    detail->mode = BG_DETAIL_NONE;
+    detail->textureid = BG_TEX_NONE;
+    detail->shiftu = detail->shiftv = detail->minlod = detail->offset = 0;
+    if (BgMaterialTextureId(material) == BG_TEX_NONE) { return; }
+    if (type > 1)
+    {
+        if (type > 4) { detail->mode = BG_DETAIL_UNKNOWN; }
+        return;
+    }
+    /* texHandleType0 reuses the base image; only type 1 has a second ID. */
+    detail->mode = type == 0 ? BG_DETAIL_BASE_IMAGE : BG_DETAIL_SEPARATE_IMAGE;
+    detail->textureid = (unsigned short)((material->textureword1 >> (type == 1 ? 12 : 0)) & BG_TEX_ID_MASK);
+    detail->shiftu = (material->textureword0 >> 14) & 15u;
+    detail->shiftv = (material->textureword0 >> 10) & 15u;
+    detail->offset = (material->textureword0 >> 18) & 3u;
+    detail->minlod = material->textureword1 >> 24;
+}
