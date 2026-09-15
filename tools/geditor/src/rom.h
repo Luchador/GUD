@@ -87,7 +87,6 @@ BOOL RomLevelTableIsValid(const RomManifestEntry *stgt, DWORD romsize);
 BOOL RomLoad(const char *path, RomFile *rom, const char **reasonout);
 void RomFree(RomFile *rom);
 BOOL RomGetLevelClouds(const RomFile *rom, LONG levelid, RomClouds *clouds);
-BOOL RomGetLevelBackgroundColor(const RomFile *rom, LONG levelid, unsigned char rgb[3]);
 BOOL RomGetLevelEnvironment(const RomFile *rom, LONG levelid, unsigned char rgb[3], RomFog *fog);
 
 /*

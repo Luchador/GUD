@@ -160,7 +160,6 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
    order. A setup object and background faces are mutually exclusive. */
 int ViewportGetSelectedBgFaceCount(HWND hwnd);
 BOOL ViewportGetSelectedBgFaces(HWND hwnd, BgFaceRef *out, int count);
-BOOL ViewportGetSingleSelectedBgFace(HWND hwnd, BgFaceRef *out);
 /* Select All (grow=FALSE), or add one adjacent ring (grow=TRUE). Operates on
    BG source identities in the active selection mode and visible layers.
    Faces share an edge; edges share an endpoint; vertices connect by edges.

@@ -1176,39 +1176,6 @@ fail:
 }
 
 
-BOOL BgDocumentTranslateFaces(BgDocument *document, const BgFaceRef *refs,
-                              DWORD refcount, const double offset[3],
-                              double appliedoffset[3], DWORD *movedout,
-                              const char **reasonout)
-{
-    BgDocumentVertexRef *vertices;
-    DWORD i;
-    BOOL ok;
-    const char *ignored;
-    if (reasonout == NULL) { reasonout = &ignored; }
-    *reasonout = "There are no valid background faces to move.";
-    if (movedout != NULL) { *movedout = 0; }
-    if (refs == NULL || refcount == 0 || refcount > (DWORD)-1 / (3 * sizeof(*vertices))) { return FALSE; }
-    vertices = (BgDocumentVertexRef *)malloc((size_t)refcount * 3 * sizeof(*vertices));
-    if (vertices == NULL) { *reasonout = "Out of memory collecting vertices."; return FALSE; }
-    for (i = 0; i < refcount; i++)
-    {
-        const BgDocumentFace *face = BgDocumentFindFace(document, &refs[i], NULL);
-        int corner;
-        if (face == NULL) { free(vertices); return FALSE; }
-        for (corner = 0; corner < 3; corner++)
-        {
-            vertices[i * 3 + corner].room = refs[i].room;
-            vertices[i * 3 + corner].index = face->vertexindices[corner];
-        }
-    }
-    ok = BgDocumentTranslateVertices(document, vertices, refcount * 3, offset,
-                                     appliedoffset, movedout, reasonout);
-    free(vertices);
-    return ok;
-}
-
-
 void BgDocumentGetWorldPosition(const BgDocument *document,
                                 const BgDocumentRoom *room,
                                 const BgDocumentVertex *vertex,

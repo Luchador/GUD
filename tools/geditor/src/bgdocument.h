@@ -294,16 +294,11 @@ BOOL BgDocumentPaintVertex(BgDocument *document, const BgFaceRef *ref,
                            unsigned int corner, const unsigned char rgba[4],
                            BOOL *changedout, const char **reasonout);
 
-/* Translates the unique vertices referenced by the selected faces. Shared
- * vertices retain their identity, so adjacent faces using them follow too.
+/* Translates the unique selected vertices. Shared vertices retain their
+ * identity, so adjacent faces using them follow too.
  * World offsets snap to integral room-local coordinates; all references and
  * coordinate limits are checked before anything changes. A zero snapped move
  * succeeds with movedout == 0 and should not create a history entry. */
-BOOL BgDocumentTranslateFaces(BgDocument *document, const BgFaceRef *refs,
-                              DWORD refcount, const double offset[3],
-                              double appliedoffset[3], DWORD *movedout,
-                              const char **reasonout);
-
 BOOL BgDocumentTranslateVertices(BgDocument *document,
     const BgDocumentVertexRef *refs, DWORD count, const double offset[3],
     double applied[3], DWORD *movedout, const char **reasonout);

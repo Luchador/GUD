@@ -55,7 +55,7 @@ assert "matrix_4x4_apply_scale_and_translation(" in function(chr, "chrUpdateHat"
 source = (here / "harness.h").read_text()
 source += bg[bg.index("#define BG_PORTAL_ROOM_COUNT"):bg.index("s_specialportal specialportalarray")]
 for name in ("bgGetRoomPortalList", "bgBuildPortalCache", "bgIsBboxOverlapping",
-             "bgGetConnectedRooms", "bgRoomsSharePortal", "bgGetPortalBetweenRooms",
+             "bgRoomsSharePortal", "bgGetPortalBetweenRooms",
              "bgGetRoomsIntersectingBbox", "bgTick", "bgProcessPortalTraversal", "bgDetermineVisibleRooms"):
     source += portable(function(bg, name))
 for name in ("roomGetProps", "chrpropScoreAutoAimTarget"):

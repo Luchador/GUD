@@ -565,11 +565,6 @@ BOOL RomGetLevelClouds(const RomFile *rom, LONG levelid, RomClouds *clouds)
     return TRUE;
 }
 
-BOOL RomGetLevelBackgroundColor(const RomFile *rom, LONG levelid, unsigned char rgb[3])
-{
-    return RomGetLevelEnvironment(rom, levelid, rgb, NULL);
-}
-
 /* File-table entries can alias the same data (several multiplayer
    names do). The tightest table-derived upper bound is therefore the
    smallest DISTINCT data address after the start, not necessarily the

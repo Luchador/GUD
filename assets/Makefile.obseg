@@ -1,5 +1,3 @@
-
-OBSEGMENT := obsegment.o
 OBSEG_DIR := assets/obseg
 
 include assets/obseg/Makefile.filelist

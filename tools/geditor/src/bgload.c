@@ -839,48 +839,6 @@ void BgFileFree(BgFile *bg)
 }
 
 
-BgVertex *BgLoadProjectGeometry(const char *projectdir, const char *bgname,
-                                float levelscale,
-                                DWORD *tricount, unsigned short **tritags,
-                                const char **reasonout)
-{
-    BgFile bg;
-    BgVertex *vertices;
-
-    *tricount = 0;
-    *tritags = NULL;
-
-    if (!BgLoadProjectFile(projectdir, bgname, &bg, reasonout))
-    {
-        return NULL;
-    }
-
-    vertices = BgLoadGeometry(bg.data, bg.size, levelscale,
-                              tricount, tritags, reasonout);
-    BgFileFree(&bg);
-    return vertices;
-}
-
-
-BOOL BgLoadProjectPortals(const char *projectdir, const char *bgname,
-                          float levelscale, BgPortalFile *out,
-                          const char **reasonout)
-{
-    BgFile bg;
-    BOOL ok;
-
-    ZeroMemory(out, sizeof(*out));
-    if (!BgLoadProjectFile(projectdir, bgname, &bg, reasonout))
-    {
-        return FALSE;
-    }
-
-    ok = BgLoadPortals(bg.data, bg.size, levelscale, out, reasonout);
-    BgFileFree(&bg);
-    return ok;
-}
-
-
 void BgPortalFileFree(BgPortalFile *portals)
 {
     free(portals->portals);

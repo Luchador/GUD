@@ -252,16 +252,13 @@ static void checkPortals(void)
         for (room = -1; room <= 256; room++)
         {
             const u8 *cursor, *end;
-            s32 expected[256], actual[256], oldCount, newCount;
-            s32 limit = test % 7 + 1, other = nextRandom() % 258 - 1;
+            s32 oldCount, newCount;
+            s32 other = nextRandom() % 258 - 1;
             cursor = bgGetRoomPortalList(room, &end);
             for (portalnum = 0; portalnum < count; portalnum++)
                 if (portalData[portalnum].connectedRoom1 == room || portalData[portalnum].connectedRoom2 == room)
                 { assert(cursor < end && *cursor == portalnum); cursor++; }
             assert(cursor == end);
-            oldCount = reference_bgGetConnectedRooms(room, expected, limit);
-            newCount = bgGetConnectedRooms(room, actual, limit);
-            assert(oldCount == newCount && memcmp(expected, actual, oldCount * sizeof(s32)) == 0);
             assert(reference_bgRoomsSharePortal(room, other) == bgRoomsSharePortal(room, other));
             traceCount = 0;
             oldCount = reference_bgGetPortalBetweenRooms(room, other, &cameraPosition, &cameraGround);

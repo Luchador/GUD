@@ -69,7 +69,7 @@ ifeq ($(VERSION), DEBUG)
  COUNTRYCODE := u
  OUTCODE := d
  LCDEFS := -DVERSION_US -DDEBUGMENU -DVERSION_DEBUG
- ASMDEFS := --defsym VERSION_US=1 --defsym VERSION_DEBUG=1 --defsym --defsym DEBUGMENU=1
+ ASMDEFS := --defsym VERSION_US=1 --defsym VERSION_DEBUG=1 --defsym DEBUGMENU=1
  LDFILEOPTS := -DVERSION_US -DOUTCODE=$(OUTCODE)
 endif
 
@@ -117,11 +117,9 @@ ANIMATION_CONVERTER := tools/make_animation_entries_uncompressed.py
 ASSET_DATAFILES := assets/oddtextures.c assets/animationtable_data.c assets/font_dl.c assets/font_chardatae.c assets/rarewarelogo.c
 ASSET_DATAOBJECTS := $(foreach file,$(ASSET_DATAFILES),$(BUILD_DIR)/$(file:.c=.o)) $(BUILD_DIR)/assets/animationtable_entries.o
 
-ROMFILES2 := assets/romfiles2.s
 ROMOBJECTS2 := $(BUILD_DIR)/assets/romfiles2.o
 GUNBARREL_BACKGROUND := $(BUILD_DIR)/assets/gunbarrel_background.bin
 
-RAMROM_FILES := assets/ramrom/ramrom.s
 RAMROM_OBJECTS := $(BUILD_DIR)/assets/ramrom/ramrom.o
 
 
@@ -132,7 +130,6 @@ FONTOBJECTS := $(foreach file,$(FONTFILES_C),$(BUILD_DIR)/$(file:.c=.o))
 MUSIC_FILES := $(foreach dir,assets/music,$(wildcard $(dir)/*.s))
 MUSIC_OBJECTS := $(foreach file,$(MUSIC_FILES),$(BUILD_DIR)/$(file:.s=.o))
 
-OBSEG_FILES := assets/obseg/ob_seg.s
 OBSEG_OBJECTS := $(BUILD_DIR)/assets/obseg/ob_seg.o
 OBSEG_DATA_FILES := $(BG_SEG_FILES) $(CHR_BIN_FILES) $(GUN_BIN_FILES) $(PROP_BIN_FILES) $(STAN_BIN_FILES) $(BRIEF_BIN_FILES) $(SETUP_BIN_FILES) $(TEXT_BIN_FILES)
 
@@ -141,8 +138,6 @@ RAW_IMAGE_BIN := $(BUILD_DIR)/assets/images/combined/combined.bin
 RAW_IMAGE_DEF := $(BUILD_DIR)/assets/images.raw.def
 IMAGE_OBJS := $(BUILD_DIR)/assets/images/combined/combined.o
 TEX2RAW := tools/mktex/build/tex2raw
-
-OBJECTS := $(RSPOBJECTS) $(CODEOBJECTS) $(GAMEOBJECTS) $(OBSEGMENT) $(ROMOBJECTS) $(RAMROM_OBJECTS) $(FONTOBJECTS) $(MUSIC_OBJECTS) $(IMAGE_OBJS)
 
 ## Command Line args for builders ##
 
@@ -185,24 +180,13 @@ endif
 
 OBJCOPY := $(TOOLCHAIN)objcopy
 
-
-
-
-
-
-
-
-
-
-
-
 ## Build Recipes ##
 
 # Don't delete intermediate files from these targets on make completion.
 .SECONDARY:
 	$(APPELF) $(APPROM) $(APPBIN) $(ULTRAOBJECTS) $(BUILD_DIR)/$(ROMNAME).map \
-	$(HEADEROBJECTS) $(BOOTOBJECTS) $(CODEOBJECTS) $(GAMEOBJECTS) \
-	$(OBSEG_OBJECTS) $(OBSEG_DATA_FILES) $(ROMOBJECTS) $(RAMROM_OBJECTS) $(FONTOBJECTS) $(MUSIC_OBJECTS) $(IMAGE_OBJS) $(MUSIC_DATA_FILES)
+	$(HEADEROBJECTS) $(CODEOBJECTS) $(GAMEOBJECTS) \
+	$(OBSEG_OBJECTS) $(OBSEG_DATA_FILES) $(RAMROM_OBJECTS) $(FONTOBJECTS) $(MUSIC_OBJECTS) $(IMAGE_OBJS) $(MUSIC_DATA_FILES)
 
 # Don't delete these intermediate targets on make cancellation.
 .PRECIOUS: %.bin  %.o
@@ -211,7 +195,7 @@ OBJCOPY := $(TOOLCHAIN)objcopy
 .NOTPARALLEL: print_info create_directories $(APPROM)
 
 # Phony Recipes - These targets are not files, Get Make to do something
-.PHONY: print_info create_directories build_tools prerequisites all_p1 all default commonclean setupclean stanclean dataclean libultraclean codeclean clean nuke help cmdbuidler context extractassets forceextractassets textures extract_u force_extract_u extract_rsp extract_d
+.PHONY: print_info create_directories build_tools prerequisites all_p1 all default commonclean setupclean stanclean dataclean libultraclean codeclean clean nuke help combine_images cmdbuilder context extractassets forceextractassets textures extract_u force_extract_u extract_rsp extract_d
 
 
 # this file references variables defined above: BUILD_DIR, CFLAGWARNING, INCLUDE, LCDEFS
@@ -285,7 +269,7 @@ $(addprefix $(BUILD_DIR)/src/,boss.o fr.o) $(BUILD_DIR)/src/game/rsp.o: src/game
 $(addprefix $(BUILD_DIR)/src/,boss.o fr.o) $(addprefix $(BUILD_DIR)/src/game/,rsp.o renderconfig.o options.o file2.o dyn.o tex.o bgapply.o bg.o bgonecycle.o modelonecycle.o): src/game/renderconfig.h
 $(BUILD_DIR)/src/game/options.o: src/game/options.h
 
-# Manifest catalog descriptors derive counts and strides beside their arrays.
+# The resident frame profiler is shared by task submission and the HUD.
 $(addprefix $(BUILD_DIR)/src/,boss.o sched.o frameprofile.o) $(addprefix $(BUILD_DIR)/src/game/,rsp.o lv.o): src/frameprofile.h
 
 # IDO emits no .d files, so keep native layouts and included catalogs in sync.
@@ -304,10 +288,6 @@ $(GUNBARREL_BACKGROUND): assets/ge007.u.2A4D50.usedby7F008DE4.bin tools/make_rle
 	python3 tools/make_rle_uncompressed.py $< $@
 
 $(ROMOBJECTS2): $(GUNBARREL_BACKGROUND)
-
-
-# Build the raw resource segment.
-$(BUILD_DIR)/$(OBSEGMENT): $(OBSEG_DATA_FILES) $(IMAGE_OBJS)
 
 
 #Build C files in src/
@@ -356,14 +336,8 @@ $(BUILD_DIR)/assets/animationtable_entries.o: $(ANIMATION_ENTRIES_BIN)
 $(BUILD_DIR)/assets/animationtable_data.o: $(ANIMATION_DATA_SOURCE) $(ANIMATION_ENTRIES_HEADER)
 	$(CC) -c $(CFLAGS) -o $@ $(OPTIMIZATION) $(ANIMATION_DATA_SOURCE)
 
-#$(BUILD_DIR)/src/random.o: OPTIMIZATION := -O3
-#$(BUILD_DIR)/src/random.o: INCLUDE := -I . -I include -I include/PR
-#$(BUILD_DIR)/src/random.o: MIPSISET := -mips3 -o32
-#$(BUILD_DIR)/src/random.o: src/random.c
-#	$(CC) -c -Wab,-r4300_mul -non_shared -G 0 -Xcpluscomm $(CFLAGWARNING) -woff 819,820,852,821,838,649 -signed $(INCLUDE) $(MIPSISET) $(LCDEFS) -DTARGET_N64 $(OPTIMIZATION) -o $@ $<
-
 #Link Files
-$(APPELF): $(RSPOBJECTS) $(ULTRAOBJECTS) $(HEADEROBJECTS) $(OBSEG_DATA_FILES) $(BUILD_DIR)/$(OBSEGMENT) $(MUSIC_DATA_FILES) $(BOOTOBJECTS) $(CODEOBJECTS) $(GAMEOBJECTS) $(ROMOBJECTS) $(ASSET_DATAOBJECTS) $(ROMOBJECTS2) $(RAMROM_OBJECTS) $(FONTOBJECTS) $(MUSIC_OBJECTS) $(OBSEG_OBJECTS) ge007.ld $(wildcard ld/*.ld.inc)
+$(APPELF): $(RSPOBJECTS) $(ULTRAOBJECTS) $(HEADEROBJECTS) $(OBSEG_DATA_FILES) $(MUSIC_DATA_FILES) $(CODEOBJECTS) $(GAMEOBJECTS) $(ASSET_DATAOBJECTS) $(ROMOBJECTS2) $(RAMROM_OBJECTS) $(FONTOBJECTS) $(MUSIC_OBJECTS) $(OBSEG_OBJECTS) $(IMAGE_OBJS) ge007.ld $(wildcard ld/*.ld.inc)
 	cpp $(LDFILEOPTS) -P ge007.ld -o $(BUILD_DIR)/$(ROMNAME).ld
 	@echo "Linking Files into ELF"
 	$(LD) $(LDFLAGS) -o $@
@@ -408,7 +382,7 @@ stanclean: commonclean
 	rm -f $(STAN_BUILD_FILES)
 
 dataclean: commonclean stanclean setupclean
-	rm -f $(OBSEG_OBJECTS) $(OBSEG_DATA_FILES) $(ROMOBJECTS) $(ROMOBJECTS2) $(RAMROM_OBJECTS) $(FONTOBJECTS) $(MUSIC_OBJECTS) $(IMAGE_OBJS)
+	rm -f $(OBSEG_OBJECTS) $(OBSEG_DATA_FILES) $(ROMOBJECTS2) $(RAMROM_OBJECTS) $(FONTOBJECTS) $(MUSIC_OBJECTS) $(IMAGE_OBJS)
 	rm -f $(GUNBARREL_BACKGROUND)
 	rm -f $(BUILD_DIR)/imagelist.csv $(RAW_IMAGE_BIN) $(RAW_IMAGE_DEF) $(RAW_IMAGE_BIN).tmp $(RAW_IMAGE_DEF).tmp
 	rm -f $(ANIMATION_ENTRIES_BIN) $(ANIMATION_ENTRIES_HEADER) $(ANIMATION_DATA_SOURCE)
@@ -417,7 +391,7 @@ libultraclean: commonclean
 	rm -f $(ULTRAOBJECTS)
 
 codeclean: commonclean libultraclean
-	rm -f $(HEADEROBJECTS) $(BOOTOBJECTS) $(CODEOBJECTS) $(GAMEOBJECTS) $(RSPOBJECTS)
+	rm -f $(HEADEROBJECTS) $(CODEOBJECTS) $(GAMEOBJECTS) $(RSPOBJECTS)
 
 clean: codeclean dataclean
 	@echo "\nAll Code and Asset Binaries Cleared! Make will Re-Build these next time.\n"
@@ -426,7 +400,7 @@ nuke: clean
 	scripts/make/clean_nuke.sh "$(ALLOWED_COUNTRYCODE)" "$(BUILD_DIR_BASE)"
 
 help:
-	@echo "mmakefile help"
+	@echo "Makefile help"
 	@echo ""
 	@echo "  supported targets:"
 	@echo ""
@@ -441,7 +415,7 @@ help:
 	@echo "                                    from Rare's libultra files"
 	@echo "    stanclean                      Delete only stan build artifacts"
 	@echo "    setupclean                     Delete only setup build artifacts"
-	@echo "    cmdbuidler                     BuildAI Commands"
+	@echo "    cmdbuilder                     BuildAI Commands"
 	@echo "    context [file]                 BuildContext File from [file]"
 	@echo "                                    eg make context src/game/chrai.c"
 	@echo ""

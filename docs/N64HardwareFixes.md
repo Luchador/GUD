@@ -36,7 +36,8 @@ Do not restore the unused stack or disable ordinary depth rendering.
 This section records the earlier diagnostic cleanup. After the subsequent
 hardware profiling pass, the RCP profiler module/tests, scheduler/HUD hooks,
 GFX/BG command counters and half-width experiment were also removed. FPS,
-CPU timing rows, optimization notes and all correctness fixes above remain.
+optimization notes and all correctness fixes above remain. The later
+[bottleneck profiler](BottleneckProfiler.md) replaces the CPU timing rows.
 
 `GUD-n64-diagnostic-cleanup.patch` targets master `337bd7bd` (Restore rendering).
 The temporary watchdog/thread, six-page crash display, stage/DMA/allocation
@@ -44,8 +45,8 @@ tracking, RSP/FIFO snapshots, GBI command preflight, fill-only probe, and
 render-isolation switches are removed, together with their tests and linker
 entries. The existing fault/TLB handler and ordinary rendering remain.
 
-The CPU profiler code, RCP profiler module/tests, and optimization notes are
-preserved. See [RcpProfiler.md](RcpProfiler.md) and
+At that earlier cleanup, the CPU profiler code, RCP profiler module/tests,
+and optimization notes were preserved. See [RcpProfiler.md](RcpProfiler.md) and
 [GraphicsOptimizationReview.md](GraphicsOptimizationReview.md) for the earlier
 profiling work. Removing the per-task command walk and watchdog eliminates
 their overhead from future performance measurements.

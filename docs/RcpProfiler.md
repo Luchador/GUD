@@ -2,7 +2,8 @@
 
 > Historical reference: the RCP profiler, its scheduler/HUD hooks, linker
 > entries and tests, and the GFX/BG command counters have been removed after
-> hardware profiling. FPS and the existing CPU timing rows remain. The
+> hardware profiling. The current build retains FPS and uses the compact
+> [bottleneck profiler](BottleneckProfiler.md) in place of the CPU timing rows. The
 > implementation and test instructions below describe the profiling build
 > at commit `03bec2a4`, not the current build. Keep these measurement definitions
 > when interpreting earlier captures or restoring instrumentation from Git.

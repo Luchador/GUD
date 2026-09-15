@@ -10,18 +10,16 @@
  */
 s32 g_FrameDelta = 1;
 
-u32 copy_of_osgetcount_value_0 = 0;
 u32 copy_of_osgetcount_value_1 = 0;
 s32 frameDelay = 1;
 
 
 /**
- * Stores the current OS count in the two global variables.
+ * Stores the current OS count for frame pacing.
  */
 void store_osgetcount(void)
 {
     copy_of_osgetcount_value_1 = osGetCount();
-    copy_of_osgetcount_value_0 = copy_of_osgetcount_value_1;
 }
 
 
@@ -32,7 +30,6 @@ void store_osgetcount(void)
  */
 void updateFrameCounters(s32 deltaFrames)
 {
-    copy_of_osgetcount_value_0 = (s32) copy_of_osgetcount_value_1;
     copy_of_osgetcount_value_1 = osGetCount();
 
     g_FrameDelta = deltaFrames;

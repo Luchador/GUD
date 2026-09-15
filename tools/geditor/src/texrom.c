@@ -139,21 +139,3 @@ BOOL TexRomUpdateImages(RomFile *rom, const TexRomBank *bank,
 memory:
     free(packed);free(table);*reasonout="Out of memory rebuilding the ROM's images.";return FALSE;
 }
-
-BOOL TexRomAppendImages(RomFile *rom, const TexRomBank *bank,
-    const unsigned char *const *records, const DWORD *sizes,
-    const unsigned char *surfaces, DWORD count, const char **reasonout)
-{
-    const unsigned char **all;DWORD *lengths,total;unsigned char *settings;BOOL ok;
-    if(!count) { *reasonout="";return TRUE; }
-    if(count>bank->capacity-bank->count)
-    { *reasonout="The imported images exceed GUD's image-ID limit.";return FALSE; }
-    total=bank->count+count;
-    all=calloc(total,sizeof(*all));lengths=calloc(total,sizeof(*lengths));settings=calloc(total,1);
-    if(!all || !lengths || !settings)
-    { free(all);free(lengths);free(settings);*reasonout="Out of memory rebuilding images.";return FALSE; }
-    memcpy(all+bank->count,records,count*sizeof(*records));
-    memcpy(lengths+bank->count,sizes,count*sizeof(*sizes));memcpy(settings+bank->count,surfaces,count);
-    ok=TexRomUpdateImages(rom,bank,all,lengths,settings,total,reasonout);
-    free(all);free(lengths);free(settings);return ok;
-}

@@ -274,50 +274,6 @@ void reference_bgDetermineVisibleRooms(void)
     }
 }
 
-s32 reference_bgGetConnectedRooms(s32 roomIndex, s32* list, s32 max)
-{
-    s32 len = 0;
-    s32 i;
-    s32 p;
-    s32 connectedRoom1;
-    s32 connectedRoom2;
-
-    for (p = 0; g_BgPortals[p].portal != NULL; p++)
-    {
-        connectedRoom1 = g_BgPortals[p].connectedRoom1;
-        connectedRoom2 = g_BgPortals[p].connectedRoom2;
-
-        if (connectedRoom1 == roomIndex)
-        {
-            connectedRoom1 = connectedRoom2;
-            connectedRoom2 = roomIndex;
-        }
-
-        if (connectedRoom2 == roomIndex)
-        {
-            for (i = 0; i < len; i++)
-            {
-                if (list[i] == connectedRoom1)
-                {
-                    goto end;
-                }
-            }
-
-            list[len] = connectedRoom1;
-            len++;
-
-            if (len >= max)
-            {
-                return len;
-            }
-end:
-            if (1);
-        }
-    }
-
-    return len;
-}
-
 bool reference_bgRoomsSharePortal(s32 room1, s32 room2)
 {
     s32 i;

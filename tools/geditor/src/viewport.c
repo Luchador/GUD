@@ -7775,52 +7775,6 @@ BOOL ViewportGetSelectedBgFaces(HWND hwnd, BgFaceRef *out, int count)
 }
 
 
-BOOL ViewportGetSingleSelectedBgFace(HWND hwnd, BgFaceRef *out)
-{
-    const ViewportState *state = ViewportGetState(hwnd);
-    const BgFaceRef *found = NULL;
-    int triangle;
-    int trianglecount;
-
-    if (out == NULL)
-    {
-        return FALSE;
-    }
-    ZeroMemory(out, sizeof(*out));
-
-    if (state == NULL || state->selectedtris == NULL
-        || state->scenefacerefs == NULL)
-    {
-        return FALSE;
-    }
-
-    trianglecount = state->scenecount / 3;
-    for (triangle = 0; triangle < trianglecount; triangle++)
-    {
-        if (!state->selectedtris[triangle]
-            || ViewportTriangleHidden(state, triangle)
-            || state->scenefacerefs[triangle].faceid == BG_FACE_ID_NONE)
-        {
-            continue;
-        }
-
-        if (found != NULL)
-        {
-            return FALSE;
-        }
-        found = &state->scenefacerefs[triangle];
-    }
-
-    if (found == NULL)
-    {
-        return FALSE;
-    }
-
-    *out = *found;
-    return TRUE;
-}
-
-
 BOOL ViewportGetSelectedObject(HWND hwnd, DWORD *setupobjectindex)
 {
     const ViewportState *state = ViewportGetState(hwnd);

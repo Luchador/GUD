@@ -1,6 +1,7 @@
 #Git and VS files
 .*~
-__pycache__/*
+__pycache__/
+*.py[cod]
 .vscode/
 .[vV][sS]/
 
@@ -113,5 +114,4 @@ assets/obseg/em/data/under.seg
 
 scripts/local/
 scripts/make/local/
-scripts/__pycache__/generate_prop_model_c.cpython-310.pyc
 .asmdiff/

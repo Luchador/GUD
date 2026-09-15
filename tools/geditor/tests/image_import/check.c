@@ -172,16 +172,17 @@ static void Limits(const char *project)
     Write32(rom.data+CONFIG,IMAGES+16);assert(!TexRomReadBank(&rom,&after,&why));Write32(rom.data+CONFIG,IMAGES);
     Write32(rom.data+TABLE+BASE_COUNT*8,0);assert(!TexRomReadBank(&rom,&after,&why));Write32(rom.data+TABLE+BASE_COUNT*8,0xffff);
     assert(TexDataHash(rom.data,rom.size)==hash);
-    count=TEX_IMAGE_CAPACITY-BASE_COUNT;
+    count=TEX_IMAGE_CAPACITY;
     assert(TexEncodeRecord(source,4,4,&options,&record,&size,&why));
-    records=malloc((count+1)*sizeof(*records));sizes=malloc((count+1)*sizeof(*sizes));surfaces=malloc(count+1);
-    for(i=0;i<=count;i++) {records[i]=record;sizes[i]=size;surfaces[i]=0x12;}
-    assert(!TexRomAppendImages(&rom,&bank,records,sizes,surfaces,count+1,&why));assert(TexDataHash(rom.data,rom.size)==hash);
-    assert(TexRomAppendImages(&rom,&bank,records,sizes,surfaces,count,&why));
+    records=calloc(count+1,sizeof(*records));sizes=calloc(count+1,sizeof(*sizes));surfaces=calloc(count+1,1);
+    /* Use the same final-ID table as export: NULL preserves each original. */
+    for(i=BASE_COUNT;i<=count;i++) {records[i]=record;sizes[i]=size;surfaces[i]=0x12;}
+    assert(!TexRomUpdateImages(&rom,&bank,records,sizes,surfaces,count+1,&why));assert(TexDataHash(rom.data,rom.size)==hash);
+    assert(TexRomUpdateImages(&rom,&bank,records,sizes,surfaces,count,&why));
     assert(TexRomReadBank(&rom,&after,&why)&&after.count==4096);
     assert((Read32(rom.data+TABLE+4095*8)&0xffffff)==size);
     assert(Read32(rom.data+TABLE+4096*8)==0xffff);
-    assert(!TexRomAppendImages(&rom,&after,records,sizes,surfaces,1,&why));
+    assert(!TexRomUpdateImages(&rom,&after,records,sizes,surfaces,count+1,&why));
     free(records);free(sizes);free(surfaces);free(record);RomFree(&rom);
     /* A checksum failure in a saved native asset must stop the build. */
     snprintf(path,sizeof(path),"%s\\images\\native\\0010.gtex",project);

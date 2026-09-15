@@ -3735,43 +3735,6 @@ s32 bgCopyGlobalVisAddedRooms(s32 *rooms, s32 max)
  * @param max          Max number of entries to write.
  * @return             Number of rooms written to the list.
  */
-s32 bgGetConnectedRooms(s32 roomIndex, s32 *list, s32 max)
-{
-    const u8 *portalindex;
-    const u8 *portalend;
-    s32 len = 0;
-    s32 i;
-    s32 otherroom;
-
-    for (portalindex = bgGetRoomPortalList(roomIndex, &portalend); portalindex < portalend; portalindex++)
-    {
-        PortalData *portal = &g_BgPortals[*portalindex];
-
-        otherroom = roomIndex == portal->connectedRoom1 ? portal->connectedRoom2 : portal->connectedRoom1;
-
-        for (i = 0; i < len; i++)
-        {
-            if (list[i] == otherroom)
-            {
-                break;
-            }
-        }
-
-        if (i == len)
-        {
-            list[len++] = otherroom;
-
-            if (len >= max)
-            {
-                return len;
-            }
-        }
-    }
-
-    return len;
-}
-
-
 /* Connectivity ignores open/closed flags, as before. */
 bool bgRoomsSharePortal(s32 room1, s32 room2)
 {

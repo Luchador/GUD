@@ -79,15 +79,12 @@ s16 current_light_fixture_slot;
 s16 current_light_fixture_room;
 
 /**
- * The darkened light table can hold a maximum of 512 vertices. It is a circular table so if that limit is exceeded,
- * the oldest records are overwritten first.
+ * The darkened light table holds DARKENED_LIGHT_TABLE_MAX vertices. Once full,
+ * this circular table overwrites the oldest records first.
  */
 struct s_darkened_light darkened_light_table[DARKENED_LIGHT_TABLE_MAX];
 
-s32 dword_CODE_bss_80083318; // unused
 s32 cur_entry_darkened_light_table = 0;
-
-s32 D_80046034[] = {0, 0, 0, 0, 0, 0, 0}; // unused
 
 
 void lightFixtureInitTables(void)
@@ -625,4 +622,3 @@ void clear_light_fixturetable_in_room(s32 room_index)
 
     current_light_fixture_room = room_index;
 }
-

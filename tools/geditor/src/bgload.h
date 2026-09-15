@@ -123,22 +123,6 @@ BOOL BgSaveProjectFile(const char *projectdir, const BgFile *bg,
                        const char **reasonout);
 void BgFileFree(BgFile *bg);
 
-/*
- * Loads and parses one background from the project's bg folder. The
- * caller owns the returned vertices and triangle tags, as above.
- */
-BgVertex *BgLoadProjectGeometry(const char *projectdir, const char *bgname,
-                                float levelscale,
-                                DWORD *tricount, unsigned short **tritags,
-                                const char **reasonout);
-
-/* Loads the portals from the same saved <projectdir>\bg\*.seg used by
-   BgLoadProjectGeometry; no ROM access or duplicate portal asset is
-   required when a project is reopened. */
-BOOL BgLoadProjectPortals(const char *projectdir, const char *bgname,
-                          float levelscale, BgPortalFile *out,
-                          const char **reasonout);
-
 /* Same native BG-unit margin used by bgGetPortalMargin in the game. */
 float BgPortalGetMargin(const BgPortal *portal);
 void BgPortalFileFree(BgPortalFile *portals);

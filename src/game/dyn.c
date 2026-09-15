@@ -121,7 +121,3 @@ void dynSwapBuffers(void) {
 s32 dynGetFreeGfx(Gfx *gdl) {
     return (Gfx*)g_GfxBuffers[g_GfxActiveBufferIndex + 1] - gdl;
 }
-
-s32 dynGetFreeVtx(void) {
-	return g_VtxBuffers[g_GfxActiveBufferIndex + 1] - g_GfxMemPos;
-}

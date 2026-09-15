@@ -2944,24 +2944,6 @@ void bondviewUpdatePauseTransition(void) {
 }
 
 
-f32 bondViewGetPauseTransitionFrac(void) {
-
-    // Entering pause
-    if (g_CurrentPlayer->pause_state == 1) {
-        return g_CurrentPlayer->pause_transition_time / g_CurrentPlayer->pause_transition_duration;
-    }
-    // Leaving pause
-    if (g_CurrentPlayer->pause_state == 2) {
-        return 1.0f - (g_CurrentPlayer->pause_transition_time / g_CurrentPlayer->pause_transition_duration);
-    }
-    // Fully paused
-    if (g_CurrentPlayer->pause_state == 3) {
-        return 1.0f;
-    }
-    // Unpaused
-    return 0.0f;
-}
-
 void watchChangeFOV(f32 final,f32 time)
 {
   g_CurrentPlayer->zoomintime = 0.00000000;
@@ -9153,10 +9135,6 @@ void bondviewSetVisibleToGuardsFlag(s32 param_1)
 s32 bondviewGetVisibleToGuardsFlag(void)
 {
     return g_VisibleToGuardsFlag;
-}
-
-void set_obj_collision_flag(s32 flag) {
-  obj_collision_flag = flag;
 }
 
 u8 bondviewGetPlayerRoom(void)
