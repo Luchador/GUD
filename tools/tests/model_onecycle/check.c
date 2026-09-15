@@ -191,6 +191,16 @@ static void check_cache_and_dispatch(void)
     ro.DisplayList.ModelType = 4; data.flags = 2; data.gdl = master;
     modelRenderNodeDlWithCache(&data, &model, &node, &cache);
     assert(data.gdl[-1].words.w1 == K0_TO_PHYS(secondary));
+    /* Destroyed console screens clear only the instance's list. Neither
+     * primary nor secondary geometry may fall back to the shared source. */
+    rw.DisplayListCollisions.gdl = NULL;
+    for (int type = 3; type <= 4; type++) for (int pass = 1; pass <= 3; pass++) {
+        ro.DisplayList.ModelType = type; data.flags = pass; data.gdl = master;
+        modelRenderNodeDlWithCache(&data, &model, &node, &cache);
+        assert(data.gdl == master);
+    }
+    assert(ro.DisplayList.Primary == src && ro.DisplayList.Secondary == secondary);
+    rw.DisplayListCollisions.gdl = src;
     data.flags = 1;
 
     bytes = allocated;

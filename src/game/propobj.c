@@ -6954,6 +6954,30 @@ Gfx *monitorProcessAndRender(Model *model, ModelNode *node, MonitorRecord *scree
 }
 
 
+/* Remove only this instance's screen nodes. A NULL list also excludes their
+ * secondary draws and bullet hits, without leaving a stale frame-buffer list.
+ * A respawned monitor rebuilds its screens through monitorProcessAndRender. */
+static void objHideMonitorScreens(ObjectRecord *obj)
+{
+    Model *model = obj->model;
+    s32 count = obj->type == PROPDEF_MONITOR ? 1 : obj->type == PROPDEF_MULTI_MONITOR ? 4 : 0;
+    s32 i;
+
+    for (i = 0; i < count; i++)
+    {
+        ModelNode *node = model->obj->Switches[i];
+
+        if (node != NULL && (node->Opcode & 0xff) == MODELNODE_OPCODE_DLCOLLISION)
+        {
+            union ModelRwData *rwdata = modelGetNodeRwData(model, node);
+
+            rwdata->DisplayListCollisions.gdl = NULL;
+            rwdata->DisplayListCollisions.Vertices = node->Data->DisplayListCollisions.Vertices;
+        }
+    }
+}
+
+
 /**
  * Renders the object's model and recurses over its attached children. Expects model render data
  * prepared by objRenderProp.
@@ -6989,7 +7013,8 @@ void objRenderPropModel(PropRecord *prop, ModelRenderData *renderData, bool tran
         orthogonalProjection = camGetPlayerProjViewMtx();
     }
 
-    if ((obj->type == PROPDEF_MONITOR || obj->type == PROPDEF_MULTI_MONITOR) && (renderData->flags & 1))
+    if ((obj->type == PROPDEF_MONITOR || obj->type == PROPDEF_MULTI_MONITOR)
+            && !(obj->state & PROPSTATE_DESTROYED) && (renderData->flags & 1))
     {
         if (obj->flags2 & PROPFLAG2_DISABLE_ZBUFFER)
         {
@@ -7075,7 +7100,8 @@ void objRenderPropModel(PropRecord *prop, ModelRenderData *renderData, bool tran
 
         if (destroyedLevel > 0 && hasDeformedVertices)
         {
-            renderData->cullmode = CULLMODE_NONE;
+            /* Keep backface rejection on the deformed shell as well. */
+            renderData->cullmode = CULLMODE_BACK;
 
             if (renderData->PropType == PROP_TYPE_MAX)
             {
@@ -8104,6 +8130,7 @@ void objExplode(ObjectRecord *obj, coord3d *target_pos, s32 playernum)
             return;
         }
 
+        objHideMonitorScreens(obj);
         objDeform(obj, 1);
 
         if (tailprop != prop)

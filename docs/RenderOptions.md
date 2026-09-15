@@ -131,8 +131,8 @@ At eligible damage levels the final alpha is either zero or at least 128, so
 an alpha threshold of 128 retains that hole mask. Soft coverage becomes a hard
 cutout, so hole and polygon edges may look sharper. This removes AA and
 framebuffer colour reads while retaining per-instance lighting/fog and the
-original Z compare/write flags. Deformation, burnt vertex colours, culling,
-monitor rendering and collision are unchanged. Mip blending is lost, as for
+original Z compare/write flags. Deformation and burnt vertex colours remain.
+The separate culling/screen changes below also apply with AA On. Mip blending is lost, as for
 other one-cycle models; authored bilinear or point filtering remains.
 
 The model setup explicitly establishes the threshold with alpha comparison off.
@@ -153,6 +153,24 @@ them further to check successive damage stages, inspect holes and burnt areas,
 and check nearby glass and distance fades. Toggle AA to compare with the
 original appearance. The command tests verify both console bodies and the
 alpha calculation, but do not emulate rasterization or predict an FPS gain.
+
+### Destroyed-model culling and console screens
+
+Destroyed, deformed props now use backface culling with either AA setting.
+This rejects the back of their shell; open holes may reveal the background
+where the original two-sided rendering showed an inside surface.
+
+On destruction, single- and four-screen monitor props disable their screen
+nodes per instance and stop generating screen animation, vertices and display
+lists. Both screen render passes and screen bullet hits are skipped. Console
+bodies still render and receive hits. Intact instances sharing the same model
+keep their screens, and respawned monitors rebuild theirs normally. Screen
+animation scripts remain available, including the original black-screen script.
+
+For Silo testing, compare the same close-up view after explosion effects clear.
+Check consoles from the front, sides and rear, further damage stages, an intact
+console nearby, and AA On/Off. The previous one-cycle damaged material remains
+enabled with AA Off.
 
 ## One-cycle secondary room cutouts
 
