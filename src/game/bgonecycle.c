@@ -57,6 +57,16 @@ static const u32 g_BgOneCycleSurfaces[] = {
     G_RM_ZB_OPA_SURF2, G_RM_OPA_SURF2
 };
 
+/* Damaged props use the RDP's nine-bit SHADE_ALPHA + ENV_ALPHA result,
+ * including its wrap/clamp behavior, to open holes in deformed geometry.
+ * Keep that equation on the RDP; only the RGB mip interpolation is removed. */
+static const Gfx g_ModelDamageCombiners[2] = {
+    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0, 1, 0, SHADE, ENVIRONMENT,
+            COMBINED, 0, SHADE, 0, 0, 0, 0, COMBINED),
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0, 1, 0, SHADE, ENVIRONMENT,
+            TEXEL0, 0, SHADE, 0, 1, 0, SHADE, ENVIRONMENT)
+};
+
 typedef struct BgOneCycleState {
     u32 high;
     u32 highKnown;
@@ -206,6 +216,7 @@ static s32 bgOneCycleChooseState(const BgOneCycleState *source, BgOneCycleState 
     s32 i;
     s32 combiner;
     bool cutout = FALSE;
+    bool damaged;
     struct tex *tex;
     Gfx alphaCombine = gsDPSetCombineMode(G_CC_MODULATEIFADEA, G_CC_MODULATEIFADEA);
     *chosen = *source;
@@ -221,10 +232,21 @@ static s32 bgOneCycleChooseState(const BgOneCycleState *source, BgOneCycleState 
     if (first != (G_RM_PASS) && first != (G_RM_FOG_SHADE_A)
             && (!model || first != (G_RM_FOG_PRIM_A))) return FALSE;
     mode = source->low & (BG_RENDER_MASK & ~BG_FIRST_BLENDER_MASK);
+    /* Only the primary world-prop damage material is supported. At the
+     * native damage alphas (150/200/250/255), every nonzero combined alpha
+     * is >= 128. Thresholding therefore retains its holes while replacing
+     * partial AA coverage with opaque pixels. modelApplyRenderModeType3/4
+     * establish the compare baseline and threshold before calling the list. */
+    damaged = model && first == (G_RM_FOG_PRIM_A)
+            && (mode == (G_RM_AA_ZB_TEX_EDGE2) || mode == (G_RM_AA_TEX_EDGE2))
+            && source->envAlpha >= BG_CUTOUT_THRESHOLD
+            && source->blendAlpha == BG_CUTOUT_THRESHOLD && (source->lowKnown & 3) == 3
+            && source->combine.words.w0 == g_ModelDamageCombiners[0].words.w0
+            && source->combine.words.w1 == g_ModelDamageCombiners[0].words.w1;
     for (i = 0; i < sizeof(g_BgOneCycleSurfaces) / sizeof(g_BgOneCycleSurfaces[0]); i++) {
         if (mode == g_BgOneCycleSurfaces[i]) break;
     }
-    if (i == sizeof(g_BgOneCycleSurfaces) / sizeof(g_BgOneCycleSurfaces[0])) {
+    if (!damaged && i == sizeof(g_BgOneCycleSurfaces) / sizeof(g_BgOneCycleSurfaces[0])) {
         if (!cutouts || source->surfacePolicy == BG_SURFACE_OPAQUE
                 || (mode != (G_RM_AA_ZB_XLU_SURF2) && mode != (G_RM_ZB_XLU_SURF2)
                     && mode != (G_RM_AA_ZB_TEX_EDGE2))) return FALSE;
@@ -250,11 +272,11 @@ static s32 bgOneCycleChooseState(const BgOneCycleState *source, BgOneCycleState 
         if (source->combine.words.w0 == g_BgOneCycleCombiners[combiner][0].words.w0
                 && source->combine.words.w1 == g_BgOneCycleCombiners[combiner][0].words.w1) break;
     }
-    if (combiner == sizeof(g_BgOneCycleCombiners) / sizeof(g_BgOneCycleCombiners[0])) return FALSE;
+    if (!damaged && combiner == sizeof(g_BgOneCycleCombiners) / sizeof(g_BgOneCycleCombiners[0])) return FALSE;
     if (cutout && (g_BgOneCycleCombiners[combiner][1].words.w0 != alphaCombine.words.w0
                 || g_BgOneCycleCombiners[combiner][1].words.w1 != alphaCombine.words.w1)) return FALSE;
     /* The final two entries are the untextured combiners. */
-    if (combiner < sizeof(g_BgOneCycleCombiners) / sizeof(g_BgOneCycleCombiners[0]) - 2) {
+    if (damaged || combiner < sizeof(g_BgOneCycleCombiners) / sizeof(g_BgOneCycleCombiners[0]) - 2) {
         required = BG_LOD_MASK | BG_DETAIL_MASK | BG_FILTER_MASK;
         if (source->textureEnabled != TRUE || (source->highKnown & required) != required
                 || (source->high & BG_DETAIL_MASK) != G_TD_CLAMP
@@ -263,7 +285,7 @@ static s32 bgOneCycleChooseState(const BgOneCycleState *source, BgOneCycleState 
         chosen->high &= ~BG_LOD_MASK; /* Sample the primitive's base tile. */
     }
     chosen->high &= ~BG_CYCLE_MASK;
-    chosen->combine = g_BgOneCycleCombiners[combiner][1];
+    chosen->combine = damaged ? g_ModelDamageCombiners[1] : g_BgOneCycleCombiners[combiner][1];
     if (first == (G_RM_FOG_SHADE_A) || first == (G_RM_FOG_PRIM_A)) {
         /* One-cycle fog uses the FIRST blender mux. FORCE_BL is essential:
          * AA is off, but the fog operation must still run. No framebuffer
@@ -276,12 +298,13 @@ static s32 bgOneCycleChooseState(const BgOneCycleState *source, BgOneCycleState 
                 ? G_RM_ZB_OPA_SURF | G_RM_ZB_OPA_SURF2
                 : G_RM_OPA_SURF | G_RM_OPA_SURF2);
     }
-    if (cutout) {
+    if (cutout || damaged) {
         /* Threshold uses combiner alpha, not coverage. Surviving texels are
-         * opaque and write Z; holes write neither colour nor depth. Fog keeps
-         * using shade alpha and never reads the framebuffer colour. */
+         * opaque, retaining damaged models' original Z flags; room cutouts
+         * enable Z writes. Holes write neither colour nor depth. The chosen
+         * fog blender never reads the framebuffer colour. */
         chosen->low = (chosen->low & ~(ALPHA_CVG_SEL | CVG_X_ALPHA | 3))
-                | Z_UPD | G_AC_THRESHOLD;
+                | (cutout ? Z_UPD : 0) | G_AC_THRESHOLD;
     }
     return TRUE;
 }

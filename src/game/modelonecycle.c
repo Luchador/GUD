@@ -108,15 +108,19 @@ Gfx *modelGetOneCycleGdl(ModelRenderData *renderdata, Gfx *primary, s32 modelTyp
     u8 material;
 
     /* PropType 9 is the ordinary world-prop material, including crate props.
-     * Its low environment byte selects the damaged/cutout path. Character
+     * Its low environment byte selects the damaged path. Character
      * blood tinting, fading and weapon/viewer materials use other equations. */
     if (!primary || !renderUseOneCycle() || renderdata->PropType != PROP_TYPE_SMOKE + 1
-            || (renderdata->envcolour.word & 0xff)
             || (modelType != 2 && modelType != 3 && modelType != 4)
             || renderListIsDynamic(primary)) return primary;
 
-    /* Type 3/4 opaque prop setups are equivalent. Z buffering is per instance. */
-    material = (modelType == 2 ? 0 : 2) | (renderdata->zbufferenabled ? 1 : 0);
+    if ((renderdata->envcolour.word & 0xff)
+            && (modelType == 2 || (renderdata->envcolour.word & 0xff) < BG_CUTOUT_THRESHOLD)) return primary;
+
+    /* Type 3/4 primary setups are equivalent. Separate intact/damaged copies;
+     * damage levels share a copy because the instance supplies env alpha. */
+    material = (modelType == 2 ? 0 : 2) | (renderdata->zbufferenabled ? 1 : 0)
+            | ((renderdata->envcolour.word & 0xff) ? 4 : 0);
     slot = (((u32)primary >> 3) ^ material) & (MODEL_ONE_CYCLE_CACHE_SIZE - 1);
     for (count = 0; count < MODEL_ONE_CYCLE_CACHE_SIZE; count++) {
         entry = &g_ModelOneCycleCache[slot];

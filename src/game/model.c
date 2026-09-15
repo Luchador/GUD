@@ -2,6 +2,8 @@
 #include <memp.h>
 #include "model.h"
 #include "modelonecycle.h"
+#include "bgonecycle.h"
+#include "renderconfig.h"
 #include "../rmon.h"
 #include "bondview.h"
 #include "chr.h"
@@ -3328,6 +3330,14 @@ void modelApplyRenderModeType3(ModelRenderData *renderdata, bool isPrimary)
                 gDPSetFogColor(renderdata->gdl++, r, g, b, a);
                 gDPSetEnvColor(renderdata->gdl++, 0, 0, 0, renderdata->envcolour.word & 0xFF);
 
+                /* Establish an explicit baseline for the optional one-cycle
+                 * damage cutout. The original two-cycle path ignores it. */
+                if (renderUseOneCycle() && (renderdata->envcolour.word & 0xff) >= BG_CUTOUT_THRESHOLD)
+                {
+                    gDPSetAlphaCompare(renderdata->gdl++, G_AC_NONE);
+                    gDPSetBlendColor(renderdata->gdl++, 0, 0, 0, BG_CUTOUT_THRESHOLD);
+                }
+
                 gDPSetCombineLERP(renderdata->gdl++, TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0, 1, 0, SHADE, ENVIRONMENT, COMBINED, 0, SHADE, 0, 0, 0, 0, COMBINED);
 
                 if (renderdata->zbufferenabled)
@@ -3615,6 +3625,14 @@ void modelApplyRenderModeType4(ModelRenderData *renderdata, bool isPrimary)
 
             if (isPrimary)
             {
+                /* Establish an explicit baseline for the optional one-cycle
+                 * damage cutout. The original two-cycle path ignores it. */
+                if (renderUseOneCycle() && (renderdata->envcolour.word & 0xff) >= BG_CUTOUT_THRESHOLD)
+                {
+                    gDPSetAlphaCompare(renderdata->gdl++, G_AC_NONE);
+                    gDPSetBlendColor(renderdata->gdl++, 0, 0, 0, BG_CUTOUT_THRESHOLD);
+                }
+
                 gDPSetCombineLERP(renderdata->gdl++, TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0, 1, 0, SHADE, ENVIRONMENT, COMBINED, 0, SHADE, 0, 0, 0, 0, COMBINED);
 
                 if (renderdata->zbufferenabled)

@@ -14,7 +14,7 @@ The active value is bright; the other value is dim. There are no value arrows.
 
 | Option | On | Off |
 |---|---|---|
-| AA | Authored render modes and original lists; equivalent to the former Full setting. | Non-AA modes on supported opaque surfaces, plus one-cycle rendering for eligible opaque room backgrounds/world props and binary-alpha secondary room cutouts. |
+| AA | Authored render modes and original lists; equivalent to the former Full setting. | Non-AA modes on supported opaque surfaces, plus one-cycle rendering for eligible opaque room backgrounds/world props, damaged prop cutouts and binary-alpha secondary room cutouts. |
 | VI Filter | VI edge AA, divot correction and dedithering; equivalent to the former Smooth setting. | Those filters are disabled; the resampling needed for video output remains. |
 
 Both default to On and are saved per folder. AA affects ordinary opaque
@@ -90,15 +90,16 @@ texture uploads, matrices, vertices and UVs follow the background conversion's
 rules. The prop combiner's added primitive alpha is retained. Source commands
 and outgoing material state are preserved, including before a secondary list.
 
-Character blood tinting, fading props, deformed/cutout prop materials and
-first-person weapon materials keep their existing rendering. Secondary model
+Character blood tinting, fading props, other cutout prop materials and
+first-person weapon materials keep their existing rendering. Damaged props have
+the separate path below. Secondary model
 lists, nested/branching primary lists and transient frame-buffer display lists
 (such as animated monitor screens) are excluded. Original model lists remain
 in place for collision and bullet hits; vertex changes are shared.
 
 An alternate is built on first eligible use and reused across instances and
 AA toggles. VI does not affect list selection. A 256-entry cache distinguishes
-the incoming opaque material and Z-buffer mode; its alternate allocations are
+the incoming intact/damaged material and Z-buffer mode; its alternate allocations are
 capped at 64 KiB per stage, with about 4 KiB of cache metadata on N64. Allocation
 uses the room heap and falls back to the original list if memory, cache capacity
 or conversion is unavailable. This avoids reserving a large buffer up front.
@@ -113,6 +114,45 @@ before and after this patch. Train's crate-filled cars are a useful first test.
 Check crate labels, lighting, nearby doors/windows, damaged crates and distance
 fades, then toggle AA repeatedly and restart the level. Distant textures may
 shimmer more, as with one-cycle backgrounds.
+
+## One-cycle damaged props
+
+With AA Off, model types 3 and 4 can also convert the normal damaged world-prop
+primary material (`PropType` 9). This includes the destroyed bodies of
+`Pconsole2Z` and `Pconsole3Z`. The converter requires the exact original damage
+combiner, fog-primitive-alpha blender and texture-edge render mode, plus an
+environment alpha of at least 128. All four native damage stages (150, 200,
+250 and 255) qualify. AA On uses the original renderer; VI remains independent.
+
+The one-cycle combiner shades the base texture and retains the damage alpha
+equation, `SHADE_ALPHA + ENV_ALPHA`. This is the RDP's nine-bit arithmetic, not
+a saturating eight-bit addition: its overflow/clamp behavior creates the holes.
+At eligible damage levels the final alpha is either zero or at least 128, so
+an alpha threshold of 128 retains that hole mask. Soft coverage becomes a hard
+cutout, so hole and polygon edges may look sharper. This removes AA and
+framebuffer colour reads while retaining per-instance lighting/fog and the
+original Z compare/write flags. Deformation, burnt vertex colours, culling,
+monitor rendering and collision are unchanged. Mip blending is lost, as for
+other one-cycle models; authored bilinear or point filtering remains.
+
+The model setup explicitly establishes the threshold with alpha comparison off.
+Converted draws enable threshold comparison and restore the incoming state
+before skipped draws and at the end. Unsupported internal materials and
+secondary lists retain their original rendering. A rejected conversion uses
+the original list with alpha comparison off, which ignores the threshold.
+
+Intact and damaged lists have separate cache entries. All eligible damage
+levels share a damaged copy: environment alpha and fog colours still come from
+the instance and are never baked into it. Existing dynamic-list exclusions,
+memory limits, invalidation and pending-task lifetime rules also apply.
+
+For a hardware comparison, keep AA Off, VI, camera position and the number of
+destroyed consoles fixed across builds. In Silo, wait for the explosion effects
+to clear, then approach the damaged consoles from the front and sides. Shoot
+them further to check successive damage stages, inspect holes and burnt areas,
+and check nearby glass and distance fades. Toggle AA to compare with the
+original appearance. The command tests verify both console bodies and the
+alpha calculation, but do not emulate rasterization or predict an FPS gain.
 
 ## One-cycle secondary room cutouts
 
