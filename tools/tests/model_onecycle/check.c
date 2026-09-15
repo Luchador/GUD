@@ -51,15 +51,12 @@ static int setup_material(ModelRenderData *data, int type, Gfx *out)
     return copy.gdl - out;
 }
 
-static int check_stream_material(Gfx *input, int size, int type, int zbuffer, int damage)
+static int check_stream_setup(Gfx *input, int size, int type, ModelRenderData data, int damage)
 {
-    ModelRenderData data = prop();
     Gfx initial[16];
     Gfx *output, *saved, *reference, *combined;
     Snapshot *before, *after;
     int ninitial, bytes, nb, na, i, j, converted = 0;
-    data.zbufferenabled = zbuffer;
-    data.envcolour.word = damage;
     ninitial = setup_material(&data, type, initial);
     bytes = gfxBuildOneCycleGdl(input, size, NULL, 0, initial, ninitial * 8);
     if (bytes <= 0) return 0;
@@ -110,6 +107,14 @@ static int check_stream_material(Gfx *input, int size, int type, int zbuffer, in
     return converted;
 }
 
+static int check_stream_material(Gfx *input, int size, int type, int zbuffer, int damage)
+{
+    ModelRenderData data = prop();
+    data.zbufferenabled = zbuffer;
+    data.envcolour.word = damage;
+    return check_stream_setup(input, size, type, data, damage);
+}
+
 static int check_stream(Gfx *input, int size, int type, int zbuffer)
 {
     return check_stream_material(input, size, type, zbuffer, 0);
@@ -130,40 +135,40 @@ static void check_cache_and_dispatch(void)
     int bytes, i, aa, vi;
     reset();
     memcpy(src, opaque, sizeof(opaque));
-    alt = modelGetOneCycleGdl(&data, src, 4);
+    alt = modelGetOneCycleGdl(&data, src, 4, NULL);
     assert(alt != src && allocations == 1 && allocated > 0);
-    assert(modelGetOneCycleGdl(&data, src, 3) == alt && allocations == 1);
+    assert(modelGetOneCycleGdl(&data, src, 3, NULL) == alt && allocations == 1);
     data.fogcolour.word = 0xaabbcc11;
     data.envcolour.word = 0x12345600;
-    assert(modelGetOneCycleGdl(&data, src, 4) == alt && allocations == 1);
+    assert(modelGetOneCycleGdl(&data, src, 4, NULL) == alt && allocations == 1);
     for (i = 0; i <= 10; i++) {
         data.PropType = i;
-        if (i != 9) assert(modelGetOneCycleGdl(&data, src, 4) == src);
+        if (i != 9) assert(modelGetOneCycleGdl(&data, src, 4, NULL) == src);
     }
     data = prop();
     for (i = 1; i < 128; i++) {
         data.envcolour.word = i;
-        assert(modelGetOneCycleGdl(&data, src, 4) == src);
+        assert(modelGetOneCycleGdl(&data, src, 4, NULL) == src);
     }
     data.envcolour.word = 0;
-    assert(modelGetOneCycleGdl(&data, src, 0) == src);
-    assert(modelGetOneCycleGdl(&data, src, 1) == src);
+    assert(modelGetOneCycleGdl(&data, src, 0, NULL) == src);
+    assert(modelGetOneCycleGdl(&data, src, 1, NULL) == src);
     for (i = 0; i < 2; i++) {
         Gfx *dynamic = (Gfx *)g_GfxBuffers[i];
         memcpy(dynamic, opaque, sizeof(opaque));
-        assert(modelGetOneCycleGdl(&data, dynamic, 4) == dynamic);
+        assert(modelGetOneCycleGdl(&data, dynamic, 4, NULL) == dynamic);
         dynamic = (Gfx *)g_VtxBuffers[i];
         memcpy(dynamic, opaque, sizeof(opaque));
-        assert(modelGetOneCycleGdl(&data, dynamic, 4) == dynamic);
+        assert(modelGetOneCycleGdl(&data, dynamic, 4, NULL) == dynamic);
     }
     for (aa = 0; aa < 2; aa++) for (vi = 0; vi < 2; vi++) {
         renderSetAaEnabled(aa); renderSetViFilterEnabled(vi); renderApplySettings();
-        assert(modelGetOneCycleGdl(&data, src, 4) == (aa ? src : alt));
+        assert(modelGetOneCycleGdl(&data, src, 4, NULL) == (aa ? src : alt));
     }
     renderSetAaEnabled(FALSE);
-    assert(modelGetOneCycleGdl(&data, src, 4) == src); /* queued On state */
+    assert(modelGetOneCycleGdl(&data, src, 4, NULL) == src); /* queued On state */
     renderApplySettings();
-    assert(modelGetOneCycleGdl(&data, src, 4) == alt);
+    assert(modelGetOneCycleGdl(&data, src, 4, NULL) == alt);
     assert(allocations == 1);
 
     /* Both node formats select the alternate only for primary geometry. */
@@ -208,30 +213,30 @@ static void check_cache_and_dispatch(void)
     memcpy(saved, alt, bytes); oldAlt = alt;
     modelOneCycleInvalidateGdlRange(src + 1, src + 2);
     src[2].words.w1 = G_TF_POINT;
-    alt = modelGetOneCycleGdl(&data, src, 4);
+    alt = modelGetOneCycleGdl(&data, src, 4, NULL);
     assert(alt != src && alt != oldAlt && allocations == 2 && !frees);
     assert(!memcmp(saved, oldAlt, bytes)); /* queued old copy remains intact */
     modelOneCycleInvalidateGdlRange(secondary, secondary + 1);
-    assert(modelGetOneCycleGdl(&data, src, 4) == alt && allocations == 2);
+    assert(modelGetOneCycleGdl(&data, src, 4, NULL) == alt && allocations == 2);
 
     reset(); failAllocation = TRUE;
-    assert(modelGetOneCycleGdl(&data, src, 4) == src && allocations == 1);
-    assert(modelGetOneCycleGdl(&data, src, 4) == src && allocations == 1);
+    assert(modelGetOneCycleGdl(&data, src, 4, NULL) == src && allocations == 1);
+    assert(modelGetOneCycleGdl(&data, src, 4, NULL) == src && allocations == 1);
     reset(); g_ModelOneCycleBytes = MODEL_ONE_CYCLE_BYTE_LIMIT;
-    assert(modelGetOneCycleGdl(&data, src, 4) == src && allocations == 0);
+    assert(modelGetOneCycleGdl(&data, src, 4, NULL) == src && allocations == 0);
     reset();
     src[0].words.w0 = 0x06000000;
-    assert(modelGetOneCycleGdl(&data, src, 4) == src && allocations == 0);
+    assert(modelGetOneCycleGdl(&data, src, 4, NULL) == src && allocations == 0);
     memcpy(src, opaque, sizeof(opaque));
     modelOneCycleInvalidateGdlRange(src, src + sizeof(opaque) / 8);
-    assert(modelGetOneCycleGdl(&data, src, 4) != src);
+    assert(modelGetOneCycleGdl(&data, src, 4, NULL) != src);
     reset();
     for (i = 0; i < MODEL_ONE_CYCLE_CACHE_SIZE; i++) {
         Gfx *empty = (Gfx *)(g_TestRam + 0x20000) + i;
         gSPEndDisplayList(empty);
-        assert(modelGetOneCycleGdl(&data, empty, 4) == empty);
+        assert(modelGetOneCycleGdl(&data, empty, 4, NULL) == empty);
     }
-    assert(modelGetOneCycleGdl(&data, src, 4) == src && allocations == 0);
+    assert(modelGetOneCycleGdl(&data, src, 4, NULL) == src && allocations == 0);
     puts("Cache/draw dispatch: colours, AA/VI gating, secondary/dynamic exclusions, reload retention, memory/table limits pass.");
 }
 
@@ -283,35 +288,35 @@ static void check_damage(void)
     Gfx original, converted;
     int nsetup, size, nstates, bytes, stage, type, z, i;
     reset(); memcpy(src, opaque, sizeof(opaque));
-    intact = modelGetOneCycleGdl(&data, src, 4); assert(intact != src);
+    intact = modelGetOneCycleGdl(&data, src, 4, NULL); assert(intact != src);
     data.envcolour.word = 150;
-    damaged = modelGetOneCycleGdl(&data, src, 4);
+    damaged = modelGetOneCycleGdl(&data, src, 4, NULL);
     assert(damaged != src && damaged != intact && allocations == 2);
     bytes = allocated; memcpy(saved, intact, bytes);
     for (stage = 0; stage < 4; stage++) {
         data.envcolour.word = levels[stage]; data.fogcolour.word = 0x1745ab80 + stage;
-        assert(modelGetOneCycleGdl(&data, src, 3) == damaged && allocations == 2);
+        assert(modelGetOneCycleGdl(&data, src, 3, NULL) == damaged && allocations == 2);
         assert(!memcmp(saved, intact, bytes)); /* No per-instance mutation. */
         for (type = 3; type <= 4; type++) for (z = 0; z < 2; z++)
             assert(check_stream_material(src, sizeof(opaque), type, z, levels[stage]) == 1);
     }
     data.envcolour.word = 150;
-    data.zbufferenabled = FALSE; other = modelGetOneCycleGdl(&data, src, 4);
+    data.zbufferenabled = FALSE; other = modelGetOneCycleGdl(&data, src, 4, NULL);
     assert(other != damaged && other != src);
     data.zbufferenabled = TRUE;
-    assert(modelGetOneCycleGdl(&data, src, 2) == src);
-    data.PropType = 5; assert(modelGetOneCycleGdl(&data, src, 4) == src); data.PropType = 9;
+    assert(modelGetOneCycleGdl(&data, src, 2, NULL) == src);
+    data.PropType = 5; assert(modelGetOneCycleGdl(&data, src, 4, NULL) == src); data.PropType = 9;
     for (i = 0; i < 2; i++) {
         renderSetViFilterEnabled(i); renderApplySettings();
-        assert(modelGetOneCycleGdl(&data, src, 4) == damaged);
+        assert(modelGetOneCycleGdl(&data, src, 4, NULL) == damaged);
     }
     renderSetAaEnabled(TRUE);
-    assert(modelGetOneCycleGdl(&data, src, 4) == damaged); /* Change is still queued. */
-    renderApplySettings(); assert(modelGetOneCycleGdl(&data, src, 4) == src);
+    assert(modelGetOneCycleGdl(&data, src, 4, NULL) == damaged); /* Change is still queued. */
+    renderApplySettings(); assert(modelGetOneCycleGdl(&data, src, 4, NULL) == src);
     nsetup = setup_material(&data, 4, setup);
     for (i = 0; i < nsetup; i++) assert(setup[i].words.w0 >> 24 != (u8)G_SETBLENDCOLOR);
     renderSetAaEnabled(FALSE); renderApplySettings();
-    assert(modelGetOneCycleGdl(&data, src, 4) == damaged);
+    assert(modelGetOneCycleGdl(&data, src, 4, NULL) == damaged);
 
     nsetup = setup_material(&data, 4, setup);
     size = gfxBuildOneCycleGdl(src, sizeof(opaque), result, sizeof(result), setup, nsetup * 8);
@@ -359,11 +364,107 @@ static void check_damage(void)
     memcpy(combined, setup, nsetup * 8); memcpy(combined + nsetup, src, sizeof(opaque));
     assert(bgBuildOneCycleGdl(combined, nsetup * 8 + sizeof(opaque), NULL, 0) == 0);
     modelOneCycleInvalidateGdlRange(src, src + 1);
-    assert(modelGetOneCycleGdl(&data, src, 4) != damaged && !frees);
+    assert(modelGetOneCycleGdl(&data, src, 4, NULL) != damaged && !frees);
     assert(!memcmp(saved, intact, bytes));
     reset(); failAllocation = TRUE;
-    assert(modelGetOneCycleGdl(&data, src, 4) == src); reset();
+    assert(modelGetOneCycleGdl(&data, src, 4, NULL) == src); reset();
     puts("Damaged props: exact nine-bit alpha/hole mask, RGB mux, fog/depth, all damage stages, fallback, instance/cache isolation and AA/VI switching pass.");
+}
+
+static void check_first_person(void)
+{
+    ModelRenderData data = prop();
+    void *base = g_TestRam + 0x20000, *otherBase = g_TestRam + 0x30000;
+    Gfx *segmented = (Gfx *)(uintptr_t)0x05001000;
+    Gfx *src = (Gfx *)((u8 *)base + 0x1000), *otherSrc = (Gfx *)((u8 *)otherBase + 0x1000);
+    Gfx *secondary = (Gfx *)(uintptr_t)0x05002000;
+    Gfx *master = (Gfx *)(g_TestRam + 0x5000), setup[16], saved[128];
+    Gfx *alt, *other, *world, *damaged;
+    union ModelRoData ro = {0}; union ModelRwData rw = {0};
+    ModelNode node = {&ro}; Model model = {&rw}; ModelNodeRenderCache cache = {0};
+    int bytes, n, i, calls, count;
+    reset(); memcpy(src, opaque, sizeof(opaque)); memcpy(otherSrc, opaque, sizeof(opaque));
+    data.zbufferenabled = FALSE;
+    /* The same segmented address must resolve separately in each asset. */
+    world = modelGetOneCycleGdl(&data, segmented, 3, base);
+    assert(world != segmented);
+    data.envcolour.word = 150;
+    damaged = modelGetOneCycleGdl(&data, segmented, 3, base);
+    assert(damaged != segmented && damaged != world);
+    data.PropType = PROP_TYPE_WEAPON;
+    data.envcolour.word = 0x31415980;
+    assert(modelGetOneCycleGdl(&data, segmented, 3, base) == segmented); /* watch/casings */
+    data.flags |= MODEL_RENDER_FIRST_PERSON;
+    alt = modelGetOneCycleGdl(&data, segmented, 3, base);
+    assert(alt != segmented && alt != world && alt != damaged);
+    assert(modelGetOneCycleGdl(&data, src, 4, base) == alt); /* RAM alias, same setup */
+    other = modelGetOneCycleGdl(&data, segmented, 3, otherBase);
+    assert(other != segmented && other != alt);
+    count = allocations; bytes = 0;
+    while (alt[bytes++].words.w0 >> 24 != (u8)G_ENDDL) assert(bytes < 128);
+    memcpy(saved, alt, bytes * 8);
+
+    for (i = 0; i < 256; i++) {
+        data.envcolour.word = 0x31415900 | i; /* room-light blend, not damage alpha */
+        assert(modelGetOneCycleGdl(&data, segmented, 3, base) == alt && allocations == count);
+        assert(!memcmp(saved, alt, bytes * 8));
+        n = setup_material(&data, 3, setup);
+        calls = 0;
+        for (int j = 0; j < n; j++) if (setup[j].words.w0 >> 24 == (u8)G_SETFOGCOLOR) {
+            assert(setup[j].words.w1 == data.envcolour.word); calls++;
+        }
+        assert(calls == 1);
+    }
+    for (i = 0; i < bytes; i++) assert(alt[i].words.w0 >> 24 != (u8)G_SETFOGCOLOR);
+    for (int type = 2; type <= 4; type++) for (int z = 0; z < 2; z++) {
+        data.zbufferenabled = z;
+        assert(check_stream_setup(src, sizeof(opaque), type, data, 0) == 1);
+        assert(check_stream_setup((Gfx *)mixed, sizeof(mixed), type, data, 0) == 2);
+    }
+    data.zbufferenabled = FALSE;
+    /* Both production node formats must submit the converted primary and the
+     * original secondary, with the segment base still available to the RSP. */
+    gSPEndDisplayList((Gfx *)((u8 *)base + 0x2000));
+    ro.DisplayList.Primary = segmented; ro.DisplayList.Secondary = secondary;
+    ro.DisplayList.BaseAddr = base; ro.DisplayList.ModelType = 3;
+    rw.DisplayListCollisions.gdl = segmented; rw.DisplayListCollisions.Vertices = (u8 *)base + 0x3000;
+    for (int format = 0; format < 2; format++) {
+        data.gdl = master;
+        if (format) modelRenderNodeDlWithCache(&data, &model, &node, &cache);
+        else modelRenderNodeGundl(&data, &node);
+        calls = 0;
+        for (Gfx *g = master; g < data.gdl; g++) if (g->words.w0 >> 24 == (u8)G_DL)
+            assert(g->words.w1 == (calls++ ? 0x05002000 : K0_TO_PHYS(alt)));
+        assert(calls == 2 && renderApplyDisplayListSettings(master, data.gdl));
+    }
+    data.PropType = PROP_TYPE_PLAYER; /* faded/custom material remains excluded */
+    assert(modelGetOneCycleGdl(&data, segmented, 3, base) == segmented);
+    data.PropType = PROP_TYPE_WEAPON;
+    assert(modelGetOneCycleGdl(&data, segmented, 0, base) == segmented);
+    assert(modelGetOneCycleGdl(&data, segmented, 3, NULL) == segmented);
+    assert(modelGetOneCycleGdl(&data, segmented, 3, g_TestRam + osMemSize - 8) == segmented);
+    assert(modelGetOneCycleGdl(&data, (Gfx *)(uintptr_t)0x06001000, 3, base) == (Gfx *)(uintptr_t)0x06001000);
+    assert(modelGetOneCycleGdl(&data, (Gfx *)(uintptr_t)0x05000000, 3, g_GfxBuffers[0]) == (Gfx *)(uintptr_t)0x05000000);
+    renderSetViFilterEnabled(FALSE); renderApplySettings();
+    assert(modelGetOneCycleGdl(&data, segmented, 3, base) == alt);
+    renderSetAaEnabled(TRUE);
+    assert(modelGetOneCycleGdl(&data, segmented, 3, base) == alt); /* queued */
+    renderApplySettings();
+    assert(modelGetOneCycleGdl(&data, segmented, 3, base) == segmented);
+    renderSetAaEnabled(FALSE); renderApplySettings();
+    assert(modelGetOneCycleGdl(&data, segmented, 3, base) == alt);
+
+    /* Texture expansion invalidates RAM ranges on a weapon-buffer reload.
+     * Submitted old copies survive; a replacement gets a new conversion. */
+    modelOneCycleInvalidateGdlRange(src, src + sizeof(opaque) / 8);
+    src[2].words.w1 = G_TF_POINT;
+    assert(modelGetOneCycleGdl(&data, segmented, 3, base) != alt && !frees);
+    assert(!memcmp(saved, alt, bytes * 8));
+    assert(modelGetOneCycleGdl(&data, segmented, 3, otherBase) == other);
+    reset(); failAllocation = TRUE;
+    assert(modelGetOneCycleGdl(&data, segmented, 3, base) == segmented);
+    reset();
+    puts("First-person weapons: native segmented addresses, lighting, mixed materials, draw dispatch, AA/VI, instance isolation and reload/failure fallback pass.");
 }
 
 static u32 read_be(FILE *file)
@@ -382,11 +483,12 @@ int main(int argc, char **argv)
         }
         check_cache_and_dispatch();
         check_damage();
+        check_first_person();
         puts("Model states: TRI1/TRI4, opaque fog lighting, depth, decal/cutout/translucent fallback and outgoing state pass.");
     } else {
         FILE *file = fopen(argv[1], "rb");
         int lists = 0, converted = 0, crateLists = 0, cratePackets = 0, trainCrates = 0;
-        int consoleBodies = 0;
+        int consoleBodies = 0, weaponLists = 0, weaponPackets = 0;
         reset();
         assert(file);
         while (fgetc(file) != EOF) {
@@ -401,6 +503,14 @@ int main(int argc, char **argv)
             for (int i = 0; i < count; i++) {
                 gdl[i].words.w0 = read_be(file); gdl[i].words.w1 = read_be(file);
                 if (gdl[i].words.w0 >> 24 == (u8)G_DL) nested = 1;
+            }
+            if (!strncmp(name, "gun/", 4) || !strncmp(name, "chr/", 4)) {
+                ModelRenderData data = prop();
+                data.PropType = PROP_TYPE_WEAPON; data.flags |= MODEL_RENDER_FIRST_PERSON;
+                data.zbufferenabled = FALSE; data.envcolour.word = 0x31415980;
+                gained = nested ? 0 : check_stream_setup(gdl, count * 8, type, data, 0);
+                weaponLists++; weaponPackets += gained;
+                free(gdl); continue;
             }
             gained = nested ? 0 : check_stream(gdl, count * 8, type, TRUE);
             converted += gained;
@@ -423,6 +533,8 @@ int main(int argc, char **argv)
         assert(lists > 100 && converted > 100 && crateLists > 10 && cratePackets > 20 && trainCrates == 2 && consoleBodies == 2);
         printf("Prop assets: %d primary lists checked; %d triangle packets converted, including %d packets across %d crate lists.\n",
                 lists, converted, cratePackets, crateLists);
+        assert(weaponLists > 400 && weaponPackets > 1000);
+        printf("Weapon/hand assets: %d primary lists checked; %d triangle packets converted.\n", weaponLists, weaponPackets);
     }
     return 0;
 }

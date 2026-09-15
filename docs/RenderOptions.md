@@ -14,7 +14,7 @@ The active value is bright; the other value is dim. There are no value arrows.
 
 | Option | On | Off |
 |---|---|---|
-| AA | Authored render modes and original lists; equivalent to the former Full setting. | Non-AA modes on supported opaque surfaces, plus one-cycle rendering for eligible opaque room backgrounds/world props, damaged prop cutouts and binary-alpha secondary room cutouts. |
+| AA | Authored render modes and original lists; equivalent to the former Full setting. | Non-AA modes on supported opaque surfaces, plus one-cycle rendering for eligible opaque room backgrounds/world props/held weapons, damaged prop cutouts and binary-alpha secondary room cutouts. |
 | VI Filter | VI edge AA, divot correction and dedithering; equivalent to the former Smooth setting. | Those filters are disabled; the resampling needed for video output remains. |
 
 Both default to On and are saved per folder. AA affects ordinary opaque
@@ -90,16 +90,16 @@ texture uploads, matrices, vertices and UVs follow the background conversion's
 rules. The prop combiner's added primitive alpha is retained. Source commands
 and outgoing material state are preserved, including before a secondary list.
 
-Character blood tinting, fading props, other cutout prop materials and
-first-person weapon materials keep their existing rendering. Damaged props have
-the separate path below. Secondary model
+Character blood tinting, fading props and other cutout prop materials keep their
+existing rendering. Damaged props and held weapons have the separate paths
+below. Secondary model
 lists, nested/branching primary lists and transient frame-buffer display lists
 (such as animated monitor screens) are excluded. Original model lists remain
 in place for collision and bullet hits; vertex changes are shared.
 
 An alternate is built on first eligible use and reused across instances and
 AA toggles. VI does not affect list selection. A 256-entry cache distinguishes
-the incoming intact/damaged material and Z-buffer mode; its alternate allocations are
+the incoming intact/damaged/held-weapon material and Z-buffer mode; its alternate allocations are
 capped at 64 KiB per stage, with about 4 KiB of cache metadata on N64. Allocation
 uses the room heap and falls back to the original list if memory, cache capacity
 or conversion is unavailable. This avoids reserving a large buffer up front.
@@ -108,6 +108,14 @@ Re-expanding an overlapping source list invalidates its entry. Old alternate
 copies remain allocated until stage reset so queued graphics tasks cannot read
 freed data. Stage initialization resets this cache after the old queue has
 drained and the heap has been reset. This also bounds memory spent on reloads.
+
+Authored model lists use segment-5 addresses. The cache resolves these through
+each node's `BaseAddr` before CPU reads, hashing or invalidation, while fallback
+draws retain their original segmented address. This corrects the earlier cache
+entry path, which required a RAM pointer and consequently rejected native
+segmented lists. The correction also enables the existing opaque/damaged prop
+conversions for these lists. Identical offsets in different models get separate
+entries; source lists and collision pointers remain unchanged.
 
 For hardware comparison, use the same AA-Off/VI setting and camera position
 before and after this patch. Train's crate-filled cars are a useful first test.
@@ -171,6 +179,38 @@ For Silo testing, compare the same close-up view after explosion effects clear.
 Check consoles from the front, sides and rear, further damage stages, an intact
 console nearby, and AA On/Off. The previous one-cycle damaged material remains
 enabled with AA Off.
+
+## One-cycle first-person weapons
+
+The first-person gun renderer opts held models into the same AA-Off primary
+list converter. Ordinary opaque draws in type-2/3/4 nodes use one cycle with
+base-tile sampling and the original bilinear/point filtering. The held rocket
+and unarmed hand model use this path too. AA On retains the original lists.
+
+Weapons do not receive distance fog, but their material uses the fog register
+and constant-alpha blender for room lighting. That colour and blend amount
+remain per instance; removing them would change weapon lighting. The one-cycle
+opaque material preserves the lighting without reading framebuffer colour.
+Matrices, vertex colours, UVs, texture-generation commands and culling remain
+authored. As with the other conversions, mip-level blending is lost.
+
+Secondary transparency, internal decals/cutouts and unsupported combiners retain
+their existing rendering. This includes special environment-map materials that
+do not match the converter. Muzzle flashes, beams and the taser's dynamic
+screen remain on their existing paths. Watch item previews, the watch model,
+world casings and fading materials do not opt in.
+
+Weapon and world-prop material copies have distinct cache keys. Weapon reloads
+already invalidate expanded display-list RAM ranges through `texLoadFromGdl`;
+old copies remain allocated for queued tasks until stage reset. The existing
+256-entry/64-KiB stage limits still apply, with original-list fallback if full.
+
+For hardware testing, compare the same camera position with AA Off and a fixed
+VI setting. Try the PP7/KF7, dual weapons, reloading, the held rocket, the taser
+screen and reflective weapons such as the Cougar Magnum/Golden Gun. Walk
+between bright and dark areas to check lighting, fire to check flashes, switch
+weapons repeatedly, and check the watch after toggling AA. Also retest destroyed
+consoles: resolving segmented addresses now lets their one-cycle material run.
 
 ## One-cycle secondary room cutouts
 

@@ -1465,6 +1465,7 @@ void gunRenderFirstPersonGunModels(Gfx **gdlptr)
     Model *model;
  
     renderdata = g_DefaultGunModelRenderData;
+    renderdata.flags |= MODEL_RENDER_FIRST_PERSON;
  
     for (handnum = 0; handnum != 2; handnum++) 
     {
@@ -1506,7 +1507,7 @@ void gunRenderFirstPersonGunModels(Gfx **gdlptr)
         }
  
         renderdata.gdl = gdl;
-        renderdata.PropType = 4;
+        renderdata.PropType = PROP_TYPE_WEAPON;
         renderdata.envcolour.word = g_CurrentPlayer->tileColor.a
                                   | ((u32)g_CurrentPlayer->tileColor.r << 24)
                                   | ((u32)g_CurrentPlayer->tileColor.g << 16)

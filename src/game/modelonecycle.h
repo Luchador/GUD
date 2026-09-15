@@ -8,6 +8,8 @@
  * and mema's heap has been reset. Old copies may still be queued otherwise. */
 void modelOneCycleResetCache(void);
 void modelOneCycleInvalidateGdlRange(Gfx *start, Gfx *end);
-Gfx *modelGetOneCycleGdl(ModelRenderData *renderdata, Gfx *primary, s32 modelType);
+/* Resolve authored segment-5 lists against the node's BaseAddr for CPU reads.
+ * Failed conversions return the original pointer in its original format. */
+Gfx *modelGetOneCycleGdl(ModelRenderData *renderdata, Gfx *primary, s32 modelType, void *baseAddr);
 
 #endif

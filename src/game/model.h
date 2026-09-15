@@ -9,6 +9,10 @@
 #define MODEL_SPARE_SLOT_COUNT          30
 #define ANIM_MODEL_SPARE_SLOT_COUNT     10
 
+/* Opt in only for held weapon models, not watch previews or world casings.
+ * Bits 0/1 of ModelRenderData.flags continue to select the render passes. */
+#define MODEL_RENDER_FIRST_PERSON       0x04
+
 /*
  * The original game budgets 0xc0 bytes per animated model even though Model
  * has a 0xbc-byte stride. Preserve that unexplained pool tail padding.

@@ -7,7 +7,7 @@ typedef struct ModelRenderData {
 enum { PROP_TYPE_NUL, PROP_TYPE_OBJ, PROP_TYPE_DOOR, PROP_TYPE_CHR,
        PROP_TYPE_WEAPON, PROP_TYPE_PLAYER, PROP_TYPE_VIEWER, PROP_TYPE_EXPLOSION,
        PROP_TYPE_SMOKE, PROP_TYPE_MAX };
-enum { CULLMODE_NONE, CULLMODE_FRONT, CULLMODE_BACK };
+enum { CULLMODE_BOTH, CULLMODE_NONE, CULLMODE_FRONT, CULLMODE_BACK };
 #define SPSEGMENT_MODEL_COL1 5
 #define SPSEGMENT_MODEL_VTX 4
 typedef struct { Gfx *Primary, *Secondary; void *BaseAddr; s32 ModelType; } ModelRoData_DisplayListRecord;
@@ -27,8 +27,10 @@ static union ModelRwData *modelGetNodeRwData(Model *model, ModelNode *node)
 #define K0_TO_PHYS(p) ((u32)((const u8 *)(p) - g_TestRam))
 #define IS_KSEG0(p) ((uintptr_t)(p) >= (uintptr_t)g_TestRam && (uintptr_t)(p) < (uintptr_t)(g_TestRam + sizeof(g_TestRam)))
 #define osVirtualToPhysical(p) K0_TO_PHYS(p)
+static u32 testDisplayListAddress(const Gfx *list)
+{ return IS_KSEG0(list) ? K0_TO_PHYS(list) : (u32)(uintptr_t)list; }
 #undef gSPDisplayList
-#define gSPDisplayList(pkt, dl) gDma1p(pkt, G_DL, K0_TO_PHYS(dl), 0, G_DL_PUSH)
+#define gSPDisplayList(pkt, dl) gDma1p(pkt, G_DL, testDisplayListAddress(dl), 0, G_DL_PUSH)
 static s32 allocated, allocations, frees, failAllocation;
 static void *memaAlloc(u32 bytes)
 {

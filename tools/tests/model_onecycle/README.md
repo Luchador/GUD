@@ -29,3 +29,16 @@ level. Multi-byte GBI words
 and pointers are adapted for the host. Asset texture markers become representative
 upload commands; texture allocation, actual TMEM contents and rasterization are
 not emulated. Hardware testing is still needed for appearance and frame rate.
+
+Held-weapon tests cover the production first-person opt-in, room-light colour
+and all 256 blend amounts, primary/secondary dispatch, mixed materials and
+watch/casing/fading exclusions. Fixtures also walk gun assets and the unarmed
+hand, including switch/LOD/BSP children. Unsupported model types retain their
+existing paths.
+
+Native segment-5 list tests resolve addresses through the actual node base,
+check both draw-node formats, preserve segmented fallback, distinguish two
+models with equal offsets, and exercise intact/damaged/weapon cache separation.
+Reloads invalidate CPU address ranges while pending copies remain intact.
+The host GBI adapter preserves segmented addresses instead of pretending every
+input list pointer is already a RAM pointer.

@@ -46,13 +46,14 @@ static struct tex *texFindByData(u32 address) {
 '''
 source += strip_includes((ROOT / 'src/game/bgonecycle.c').read_text())
 source += (HERE / 'harness.h').read_text()
+source += re.search(r'^#define MODEL_RENDER_FIRST_PERSON[^\n]*', (ROOT / 'src/game/model.h').read_text(), re.M)[0] + '\n'
 model = (ROOT / 'src/game/model.c').read_text()
 for name in ('modelApplyRenderModeType1', 'modelApplyRenderModeType2',
              'modelApplyRenderModeType3', 'modelApplyRenderModeType4', 'modelApplyCullMode'):
     source += function(model, name)
 cache = strip_includes((ROOT / 'src/game/modelonecycle.c').read_text())
 # Pointer arithmetic and the hash use host pointer width; N64 GBI stays 8 bytes.
-cache = re.sub(r'\(u32\)(start|end|primary|entry->source)', r'(uintptr_t)\1', cache)
+cache = re.sub(r'\(u32\)(start|end|primary|source|entry->source)', r'(uintptr_t)\1', cache)
 source += cache
 source += function(model, 'modelRenderNodeGundl')
 source += function(model, 'modelRenderNodeDlWithCache')
@@ -60,6 +61,11 @@ source += function(model, 'modelRenderNodeDlWithCache')
 bgcheck = (HERE.parent / 'bg_onecycle/check.c').read_text()
 source += bgcheck[:bgcheck.index('static const Gfx standard[]')]
 source += (HERE / 'check.c').read_text()
+
+gunfire = (ROOT / 'src/game/gunfire.c').read_text()
+assert 'renderdata.flags |= MODEL_RENDER_FIRST_PERSON;' in function(gunfire, 'gunRenderFirstPersonGunModels')
+for name in ('watchRenderItemModel', 'watchRenderController', 'sub_GAME_7F068EC4'):
+    assert 'MODEL_RENDER_FIRST_PERSON' not in function(gunfire, name)
 
 assert 'modelOneCycleResetCache()' in function((ROOT / 'src/game/dyn.c').read_text(), 'dynInitMemory')
 assert 'modelOneCycleInvalidateGdlRange(dst, out)' in function((ROOT / 'src/game/tex.c').read_text(), 'texLoadFromGdl')
@@ -70,15 +76,19 @@ for section in ('text', 'data', 'rodata', 'bss'):
     assert f'modelonecycle.o (.{section})' in (ROOT / f'ld/game.{section}.ld.inc').read_text()
 
 
-def asset_streams():
-    """Walk real prop nodes, retaining every authored state/geometry command.
+def asset_streams(kind):
+    """Walk real model nodes, retaining every authored state/geometry command.
 
     Texture markers become representative expanded uploads plus gSPTexture.
     Full texture allocation/TMEM contents and rasterization are not emulated.
     """
-    for path in sorted((ROOT / 'assets/obseg/prop').glob('P*Z.bin')):
+    for path in sorted((ROOT / f'assets/obseg/{kind}').glob('*Z.bin')):
+        if kind == 'chr' and path.stem != 'Csuit_lf_handZ':
+            continue
         name = path.stem[1:-1]
-        header = ROOT / f'assets/obseg/prop/{name}/ModelFileHeader.inc.c'
+        header = ROOT / f'assets/obseg/{kind}/{name}/ModelFileHeader.inc.c'
+        if kind == 'chr':
+            header = header.with_name('modelFileHeader.inc.c')
         if not header.exists():
             continue
         args = re.search(r'MODELFILEHEADER\((.*)\)', header.read_text())[1].split(',')
@@ -101,6 +111,10 @@ def asset_streams():
                 ptr = word(node + delta)
                 if ptr:
                     todo.append(ptr & 0xffffff)
+            ro = word(node + 4) & 0xffffff
+            for delta in ({8: (8,), 9: (24, 28), 18: (0,)}.get(opcode, ())):
+                if word(ro + delta):
+                    todo.append(word(ro + delta) & 0xffffff)
             if opcode not in (4, 0x18):
                 continue
             ro = word(node + 4) & 0xffffff
@@ -124,7 +138,7 @@ def asset_streams():
                     commands.append((w0, w1))
                 if w0 >> 24 == 0xb8:
                     break
-            yield name, modeltype, commands
+            yield name if kind == 'prop' else kind + '/' + name, modeltype, commands
 
 
 with tempfile.TemporaryDirectory(prefix='gud-model-onecycle-') as directory:
@@ -145,7 +159,7 @@ with tempfile.TemporaryDirectory(prefix='gud-model-onecycle-') as directory:
     subprocess.run(command, check=True)
     subprocess.run([str(work / 'check')], check=True)
     fixture = bytearray()
-    for name, modeltype, commands in asset_streams():
+    for name, modeltype, commands in (entry for kind in ('prop', 'gun', 'chr') for entry in asset_streams(kind)):
         name = name.encode()
         fixture += struct.pack('>III', len(name), modeltype, len(commands)) + name
         for w0, w1 in commands:

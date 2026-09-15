@@ -72,7 +72,7 @@ static Gfx *modelOneCycleBuildEntry(ModelOneCycleEntry *entry,
     if (!entry->sourceSize) {
         /* A later replacement of this list must still invalidate a rejection. */
         entry->sourceSize = sizeof(Gfx);
-        return primary;
+        return NULL;
     }
 
     /* Obtain the exact setup from the existing renderer. Only material state
@@ -84,15 +84,15 @@ static Gfx *modelOneCycleBuildEntry(ModelOneCycleEntry *entry,
     else modelApplyRenderModeType4(&setup, TRUE);
     size = gfxBuildOneCycleGdl(primary, entry->sourceSize, NULL, 0,
             initial, (setup.gdl - initial) * sizeof(Gfx));
-    if (size <= 0) return primary;
+    if (size <= 0) return NULL;
     size = (size + 15) & ~15;
-    if (size > MODEL_ONE_CYCLE_BYTE_LIMIT - g_ModelOneCycleBytes) return primary;
+    if (size > MODEL_ONE_CYCLE_BYTE_LIMIT - g_ModelOneCycleBytes) return NULL;
     alternate = memaAlloc(size);
-    if (!alternate) return primary;
+    if (!alternate) return NULL;
     if (gfxBuildOneCycleGdl(primary, entry->sourceSize, alternate, size,
             initial, (setup.gdl - initial) * sizeof(Gfx)) <= 0) {
         memaFree(alternate, size);
-        return primary;
+        return NULL;
     }
     entry->alternate = alternate;
     g_ModelOneCycleBytes += size;
@@ -100,37 +100,60 @@ static Gfx *modelOneCycleBuildEntry(ModelOneCycleEntry *entry,
     return alternate;
 }
 
-Gfx *modelGetOneCycleGdl(ModelRenderData *renderdata, Gfx *primary, s32 modelType)
+Gfx *modelGetOneCycleGdl(ModelRenderData *renderdata, Gfx *primary, s32 modelType, void *baseAddr)
 {
     ModelOneCycleEntry *entry;
+    Gfx *source = primary;
+    Gfx *alternate;
     u32 slot;
     s32 count;
     u8 material;
+    bool firstPerson;
 
     /* PropType 9 is the ordinary world-prop material, including crate props.
      * Its low environment byte selects the damaged path. Character
-     * blood tinting, fading and weapon/viewer materials use other equations. */
-    if (!primary || !renderUseOneCycle() || renderdata->PropType != PROP_TYPE_SMOKE + 1
-            || (modelType != 2 && modelType != 3 && modelType != 4)
-            || renderListIsDynamic(primary)) return primary;
+     * blood tinting, fading and viewer materials use other equations. Held
+     * weapons explicitly opt in; their fog blender supplies room lighting. */
+    if (!primary || !renderUseOneCycle()
+            || (modelType != 2 && modelType != 3 && modelType != 4)) return primary;
 
-    if ((renderdata->envcolour.word & 0xff)
-            && (modelType == 2 || (renderdata->envcolour.word & 0xff) < BG_CUTOUT_THRESHOLD)) return primary;
+    firstPerson = renderdata->PropType == PROP_TYPE_WEAPON
+            && (renderdata->flags & MODEL_RENDER_FIRST_PERSON);
+    if (!firstPerson && (renderdata->PropType != PROP_TYPE_SMOKE + 1
+            || ((renderdata->envcolour.word & 0xff)
+                && (modelType == 2 || (renderdata->envcolour.word & 0xff) < BG_CUTOUT_THRESHOLD)))) return primary;
 
-    /* Type 3/4 primary setups are equivalent. Separate intact/damaged copies;
-     * damage levels share a copy because the instance supplies env alpha. */
+    /* Model lists remain segmented after loading. The CPU needs a RAM
+     * address, while fallback draws must retain the authored GBI address.
+     * Resolve before hashing so identical offsets in different models cannot
+     * share a copy. Runtime lists such as the taser screen stay excluded. */
+    if (((u32)primary >> 24) == SPSEGMENT_MODEL_COL1)
+    {
+        u32 offset = (u32)primary & 0x00ffffff;
+
+        if (!IS_KSEG0(baseAddr) || K0_TO_PHYS(baseAddr) >= osMemSize) return primary;
+        if (offset >= osMemSize - K0_TO_PHYS(baseAddr)) return primary;
+        source = (Gfx *)((u8 *)baseAddr + offset);
+    }
+    if (!IS_KSEG0(source) || K0_TO_PHYS(source) >= osMemSize
+            || renderListIsDynamic(source)) return primary;
+
+    /* Type 3/4 primary setups are equivalent within each material family.
+     * Keep weapon lighting separate from intact/damaged world-prop materials;
+     * colours and damage levels stay per instance rather than in the copy. */
     material = (modelType == 2 ? 0 : 2) | (renderdata->zbufferenabled ? 1 : 0)
-            | ((renderdata->envcolour.word & 0xff) ? 4 : 0);
-    slot = (((u32)primary >> 3) ^ material) & (MODEL_ONE_CYCLE_CACHE_SIZE - 1);
+            | (firstPerson ? 8 : (renderdata->envcolour.word & 0xff) ? 4 : 0);
+    slot = (((u32)source >> 3) ^ material) & (MODEL_ONE_CYCLE_CACHE_SIZE - 1);
     for (count = 0; count < MODEL_ONE_CYCLE_CACHE_SIZE; count++) {
         entry = &g_ModelOneCycleCache[slot];
-        if (!entry->source || (entry->source == primary && entry->material == material)) break;
+        if (!entry->source || (entry->source == source && entry->material == material)) break;
         slot = (slot + 1) & (MODEL_ONE_CYCLE_CACHE_SIZE - 1);
     }
     if (count == MODEL_ONE_CYCLE_CACHE_SIZE) return primary;
     if (entry->source && entry->valid) return entry->alternate ? entry->alternate : primary;
 
-    entry->source = primary;
+    entry->source = source;
     entry->material = material;
-    return modelOneCycleBuildEntry(entry, renderdata, modelType);
+    alternate = modelOneCycleBuildEntry(entry, renderdata, modelType);
+    return alternate ? alternate : primary;
 }
