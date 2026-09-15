@@ -33,7 +33,7 @@ static void RomAndProject(const char *dir)
     RomFile rom;GEditorProject project,loaded;RomInfo info;FILE *f;
     assert(data);snprintf(path,sizeof(path),"%s/input.z64",dir);
     Put32(data,0x80371240);memcpy(data+0x20,"GOLDENEYE",9);
-    memcpy(data+MANIFEST,"GUDGEDITORMANIF",16);Put32(data+MANIFEST+16,2);Put32(data+MANIFEST+20,28);
+    memcpy(data+MANIFEST,"GUDGEDITORMANIF",16);Put32(data+MANIFEST+16,3);Put32(data+MANIFEST+20,28);
     Entry(data,0,0x494d4753,0x102000,0x102080,0);Entry(data,1,0x4f425347,0x150000,0x160000,0);
     Entry(data,2,0x4d555346,0x160000,0x170000,0);Entry(data,3,0x53544754,LEVELS,LEVELS+72,2);
     Entry(data,4,0x434d4150,CMAP,0x140000,VADDR);Entry(data,5,0x4654424c,CMAP+0x600,0,0);
@@ -60,6 +60,8 @@ static void RomAndProject(const char *dir)
     Put32(row+36,0xffffffffu); /* Sentinel has a NULL levelName. */
     Put32(data+ENV,9);Put32(data+ENV+4,1);Float(data+ENV+8,10);Float(data+ENV+12,1000);
     Put32(data+ENV+36,995);Put32(data+ENV+40,1000);data[ENV+44]=10;data[ENV+45]=20;data[ENV+46]=30;
+    data[ENV+47]=1;Float(data+ENV+48,5000);Float(data+ENV+56,230);
+    Float(data+ENV+60,220);Float(data+ENV+64,210);Float(data+ENV+92,7);
     Save(path,data,SIZE);assert(RomLoad(path,&rom,&why));
     assert(rom.info.entrycount==28);
     for(i=0;i<16;i++)
@@ -72,12 +74,15 @@ static void RomAndProject(const char *dir)
     assert(rom.info.levels[0].levelscale==1.25f&&rom.info.levels[0].renderScale==0.5f);
     assert(rom.info.levels[0].music==13&&rom.info.levels[0].bgsound==14&&rom.info.levels[0].xtrack==15);
     assert(rom.info.levels[0].hasbackgroundcolor&&rom.info.levels[0].backgroundcolor[1]==20);
-    assert(rom.info.levels[0].fog.enabled&&rom.info.levels[0].fog.start==995);info=rom.info;RomFree(&rom);
+    assert(rom.info.levels[0].fog.enabled&&rom.info.levels[0].fog.start==995);
+    assert(rom.info.levels[0].clouds.enabled&&rom.info.levels[0].clouds.textureid==0x08b4);
+    assert(rom.info.levels[0].clouds.height==5000&&rom.info.levels[0].clouds.color[1]==220);
+    info=rom.info;RomFree(&rom);
     Put32(data+MANIFEST+24+27*16+8,SIZE+1);Reject(path,data);
     Put32(data+MANIFEST+24+27*16+8,CMAP+0xb100);
     Put32(data+MANIFEST+20,12);Save(path,data,SIZE);assert(RomLoad(path,&rom,&why));RomFree(&rom);
     Put32(data+MANIFEST+20,28); /* Discovery entries are optional, not new required features. */
-    Put32(data+MANIFEST+16,1);Reject(path,data);Put32(data+MANIFEST+16,2);
+    Put32(data+MANIFEST+16,2);Reject(path,data);Put32(data+MANIFEST+16,3);
     Put32(data+MANIFEST+24+3*16+8,LEVELS+64);Reject(path,data);Put32(data+MANIFEST+24+3*16+8,LEVELS+72);
     Put32(data+MANIFEST+24+7*16,0x42414421);Reject(path,data);Put32(data+MANIFEST+24+7*16,0x54585442);
     Put32(data+MANIFEST+24+7*16,0x54584346);Reject(path,data);Put32(data+MANIFEST+24+7*16,0x54585442);
@@ -88,6 +93,8 @@ static void RomAndProject(const char *dir)
     strcpy(loaded.levels[0].name,"Stale label");assert(RomExportRefreshProjectLevelMetadata(&loaded,&why));
     assert(!strcmp(loaded.levels[0].name,"Bunker 1")&&loaded.levels[0].hasbackgroundcolor);
     assert(loaded.levels[0].backgroundcolor[2]==30&&loaded.levels[0].fog.enabled);
+    assert(loaded.levels[0].clouds.enabled&&loaded.levels[0].clouds.height==5000);
+    assert(loaded.levels[0].clouds.color[2]==210&&loaded.levels[0].clouds.horizonoffset==7);
     assert(RomLoad(base,&rom,&why));loaded.levels[0].levelscale=2;loaded.levels[0].renderScale=0.25f;
     loaded.levels[0].music=21;loaded.levels[0].bgsound=22;loaded.levels[0].xtrack=23;
     assert(TestUpdateLevelTable(&loaded,&rom,&why));
@@ -101,7 +108,7 @@ static void RomAndProject(const char *dir)
     f=fopen(projectfile,"wb");assert(f);fputs("GEditor Project 1\nname = Old\n",f);fclose(f);assert(!ProjectRead(projectfile,&loaded));
     f=fopen(projectfile,"wb");assert(f);fputs("GEditor Project 2\nname = Incomplete\n",f);fclose(f);assert(!ProjectRead(projectfile,&loaded));
     assert(ProjectSave(&project,&why)&&ProjectRead(projectfile,&loaded));free(data);
-    puts("PASS: current GEP/manifest/36-byte table, authored names, NULL sentinel, fog, level export, and rejected legacy/missing/mismatched metadata.");
+    puts("PASS: current GEP/manifest/36-byte table, authored names, NULL sentinel, fog/cloud refresh, level export, and rejected legacy/missing/mismatched metadata.");
 }
 static void VertexBatches(void)
 {

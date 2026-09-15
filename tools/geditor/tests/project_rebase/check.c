@@ -82,6 +82,8 @@ static unsigned char *Fixture(DWORD shift,const unsigned char *model,DWORD model
     Float(row+20,1.0f);Float(row+24,1.0f);row[29]=5;row[31]=6;row[33]=7;
     Put32(data+CMAP+shift+0x800,21);Put32(data+CMAP+shift+0x804,1);
     Float(data+CMAP+shift+0x808,10);Float(data+CMAP+shift+0x80c,1000);
+    data[CMAP+shift+0x82f]=1;Float(data+CMAP+shift+0x830,shift ? 7500 : 5000);
+    Float(data+CMAP+shift+0x838,70);Float(data+CMAP+shift+0x83c,199);Float(data+CMAP+shift+0x840,186);
     Put32(data+CONFIG+shift,IMAGES+shift);Put32(data+CONFIG+shift+4,1);
     Put32(data+TEXTURES+shift,0x12000000|size);Put32(data+TEXTURES+shift+8,0xffff);
     /* First file is the named empty placeholder, then setup/BG/stan/model. */
@@ -146,6 +148,8 @@ int main(int argc,char **argv)
     OK(ImageEditsSave(project.dir,&why));OK(ImageEditsDelete(project.dir,2,&why));OK(ImageEditsSave(project.dir,&why));ImageEditsReset();
     OK(ProjectRebaseCheck(&project,nextpath,&report,&why));OK(report.kept==1 && report.updated==1 && !report.conflicts);
     OK(ProjectRebaseCreate(&project,nextpath,argv[1],"Updated",&rebased,&report,&why));NoTemps(argv[1]);
+    OK(project.levels[0].clouds.enabled && project.levels[0].clouds.height==5000);
+    OK(rebased.levels[0].clouds.enabled && rebased.levels[0].clouds.height==7500);
     OK(ProjectRead(rebased.geppath,&loaded));OK(!strcmp(loaded.name,"Updated"));
     OK(loaded.levels[0].music==12 && loaded.levels[0].bgsound==8);
     Same(project.dir,rebased.dir,"bg/bg_test.seg");Same(project.dir,rebased.dir,"stan/Tbg_test_stanZ.stan");

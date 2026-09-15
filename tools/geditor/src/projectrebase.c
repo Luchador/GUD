@@ -208,7 +208,7 @@ static BOOL Levels(RebasePlan *plan, const GEditorProject *source,
         lstrcpyn(p->name,b->name,sizeof(p->name));
         lstrcpyn(p->world,b->world,sizeof(p->world));
         p->hasbackgroundcolor=b->hasbackgroundcolor;
-        memcpy(p->backgroundcolor,b->backgroundcolor,sizeof(p->backgroundcolor)); p->fog=b->fog;
+        memcpy(p->backgroundcolor,b->backgroundcolor,sizeof(p->backgroundcolor)); p->fog=b->fog; p->clouds=b->clouds;
     }
     return TRUE;
 }

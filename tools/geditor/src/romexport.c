@@ -249,6 +249,7 @@ BOOL RomExportRefreshProjectLevelMetadata(GEditorProject *project, const char **
                 level->hasbackgroundcolor = source->hasbackgroundcolor;
                 memcpy(level->backgroundcolor, source->backgroundcolor, sizeof(level->backgroundcolor));
                 level->fog = source->fog;
+                level->clouds = source->clouds;
                 break;
             }
         }

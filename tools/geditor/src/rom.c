@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "rom.h"
 
@@ -380,6 +381,7 @@ static BOOL RomValidateBuffer(unsigned char *data, DWORD size,
             RomLevel *level = &info->levels[i];
             level->hasbackgroundcolor = RomGetLevelEnvironment(&view, level->levelID,
                 level->backgroundcolor, &level->fog);
+            RomGetLevelClouds(&view, level->levelID, &level->clouds);
         }
     }
     return TRUE;
@@ -436,7 +438,7 @@ void RomFree(RomFile *rom)
 #define ROM_KIND_ENVT 0x454E5654u /* 'ENVT' */
 #define ROM_FTBL_MAX_ROWS 1024
 
-BOOL RomGetLevelEnvironment(const RomFile *rom, LONG levelid, unsigned char rgb[3], RomFog *fog)
+static const unsigned char *RomFindLevelEnvironment(const RomFile *rom, LONG levelid)
 {
     const RomManifestEntry *envt = NULL;
     const RomManifestEntry *cmap = NULL;
@@ -444,30 +446,30 @@ BOOL RomGetLevelEnvironment(const RomFile *rom, LONG levelid, unsigned char rgb[
     DWORD i, offset;
     int bestpriority = 0;
 
-    if (rom == NULL || rom->data == NULL || rgb == NULL || rom->info.entrycount > ROM_MAX_ENTRIES) 
-    { 
-        return FALSE; 
+    if (rom == NULL || rom->data == NULL || rom->info.entrycount > ROM_MAX_ENTRIES)
+    {
+        return NULL;
     }
 
     for (i = 0; i < rom->info.entrycount; i++)
     {
         const RomManifestEntry *entry = &rom->info.entries[i];
 
-        if (entry->kind == ROM_KIND_ENVT) 
-        { 
-            envt = entry; 
+        if (entry->kind == ROM_KIND_ENVT)
+        {
+            envt = entry;
         }
-    
-        if (entry->kind == ROM_KIND_CMAP) 
-        { 
-            cmap = entry; 
+
+        if (entry->kind == ROM_KIND_CMAP)
+        {
+            cmap = entry;
         }
     }
 
     /* Current N64 EnvironmentRecord: 104 bytes; Sky RGB starts at 44. */
-    if (envt == NULL || cmap == NULL || envt->flags != 104u || envt->romend != 0 || cmap->romstart >= cmap->romend || cmap->romend > rom->size || envt->romstart < cmap->romstart || envt->romstart >= cmap->romend) 
-    { 
-        return FALSE; 
+    if (envt == NULL || cmap == NULL || envt->flags != 104u || envt->romend != 0 || cmap->romstart >= cmap->romend || cmap->romend > rom->size || envt->romstart < cmap->romstart || envt->romstart >= cmap->romend)
+    {
+        return NULL;
     }
 
     offset = envt->romstart;
@@ -480,34 +482,22 @@ BOOL RomGetLevelEnvironment(const RomFile *rom, LONG levelid, unsigned char rgb[
 
         if (id == 0) /* ENVIRONMENTDATA_END */
         {
-            if (selected == NULL) { return FALSE; }
-            memcpy(rgb, selected + 44, 3);
-            if (fog != NULL)
-            {
-                DWORD nearbits = be32(selected + 8), farbits = be32(selected + 12);
-                ZeroMemory(fog, sizeof(*fog));
-                fog->enabled = be32(selected + 4) != 0;
-                memcpy(&fog->nearclip, &nearbits, sizeof(fog->nearclip));
-                memcpy(&fog->farclip, &farbits, sizeof(fog->farclip));
-                fog->start = (LONG)be32(selected + 36);
-                fog->end = (LONG)be32(selected + 40);
-            }
-            return TRUE;
+            return selected;
         }
 
         /* Prefer solo, then a two-player preview for MP-only maps,
          * then LEVELID_NONE (-1), the game's fallback environment. */
-        if (id == (DWORD)levelid) 
-        { 
-            priority = 3; 
+        if (id == (DWORD)levelid)
+        {
+            priority = 3;
         }
-        else if (id == (DWORD)levelid + 200u) 
-        { 
-            priority = 2; 
+        else if (id == (DWORD)levelid + 200u)
+        {
+            priority = 2;
         }
-        else if (id == 0xFFFFFFFFu) 
-        { 
-            priority = 1; 
+        else if (id == 0xFFFFFFFFu)
+        {
+            priority = 1;
         }
 
         if (priority > bestpriority)
@@ -519,7 +509,60 @@ BOOL RomGetLevelEnvironment(const RomFile *rom, LONG levelid, unsigned char rgb[
         offset += envt->flags;
     }
 
-    return FALSE; /* Missing terminator or incomplete final record. */
+    return NULL; /* Missing terminator or incomplete final record. */
+}
+
+static float RomEnvironmentFloat(const unsigned char *p)
+{
+    DWORD bits = be32(p);
+    float value;
+    memcpy(&value, &bits, sizeof(value));
+    return value;
+}
+
+BOOL RomGetLevelEnvironment(const RomFile *rom, LONG levelid, unsigned char rgb[3], RomFog *fog)
+{
+    const unsigned char *row = RomFindLevelEnvironment(rom, levelid);
+    if (fog) { ZeroMemory(fog, sizeof(*fog)); }
+    if (!row || !rgb) { return FALSE; }
+    memcpy(rgb, row + 44, 3);
+    if (fog)
+    {
+        fog->enabled = be32(row + 4) != 0;
+        fog->nearclip = RomEnvironmentFloat(row + 8);
+        fog->farclip = RomEnvironmentFloat(row + 12);
+        fog->start = (LONG)be32(row + 36);
+        fog->end = (LONG)be32(row + 40);
+    }
+    return TRUE;
+}
+
+BOOL RomGetLevelClouds(const RomFile *rom, LONG levelid, RomClouds *clouds)
+{
+    /* s_skywaterimages in assets/oddtextures.c. These image IDs are stable
+     * across current GUD ROMs; no new manifest or project version is needed. */
+    static const DWORD images[] = {0x08b4u, 0x05e4u, 0x05e5u};
+    const unsigned char *row = RomFindLevelEnvironment(rom, levelid);
+    RomClouds result = {0};
+    unsigned int image, i;
+    if (!clouds) { return FALSE; }
+    ZeroMemory(clouds, sizeof(*clouds));
+    if (!row) { return FALSE; }
+    if (!row[47]) { return TRUE; }
+    image = (unsigned int)row[52] << 8 | row[53];
+    if (image >= sizeof(images) / sizeof(images[0])) { return FALSE; }
+    result.textureid = images[image];
+    result.height = RomEnvironmentFloat(row + 48);
+    result.horizonoffset = RomEnvironmentFloat(row + 92);
+    if (!isfinite(result.height) || !isfinite(result.horizonoffset)) { return FALSE; }
+    for (i = 0; i < 3; i++)
+    {
+        result.color[i] = RomEnvironmentFloat(row + 56 + i * 4);
+        if (!isfinite(result.color[i]) || result.color[i] < 0 || result.color[i] > 255) { return FALSE; }
+    }
+    result.enabled = TRUE;
+    *clouds = result;
+    return TRUE;
 }
 
 BOOL RomGetLevelBackgroundColor(const RomFile *rom, LONG levelid, unsigned char rgb[3])

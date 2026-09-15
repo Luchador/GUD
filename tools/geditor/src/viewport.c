@@ -21,12 +21,14 @@
 #include "gltf.h"
 #include "modellighting.h"
 #include "fog.h"
+#include "clouds.h"
 #include "orbitcamera.h"
 #include "resource.h"
 #include <src/propconstants.h>
 
 #define VIEWPORT_MONITOR_TIMER 1001
 #define VIEWPORT_STARTUP_TIMER 1002
+#define VIEWPORT_CLOUD_TIMER 1003
 #define VIEWPORT_STARTUP_SPIN_DEGREES_PER_SECOND 75.0
 #define VIEWPORT_STARTUP_CAMERA_PITCH -30.0
 #define VIEWPORT_STARTUP_LOWER_OFFSET 0.18
@@ -234,6 +236,9 @@ typedef struct ViewportState {
     float backgroundcolor[3];
     BOOL showfog, levelfog;
     FogCurve fog;
+    RomClouds clouds;
+    ViewportTexture cloudtexture; /* separate from editable scene textures */
+    LARGE_INTEGER cloudstart, cloudfrequency;
     FogCoordPointerFn fogcoordpointer; /* owned by this viewport's GL context */
     
     /* Fly Camera */
@@ -1491,6 +1496,65 @@ static void ViewportDrawExtrusionBatch(const ViewportState *state, const SceneBa
     glPopClientAttrib();
 }
 
+static void ViewportDrawClouds(const ViewportState *state)
+{
+    enum { columns = 64, rows = 40 };
+    const ViewportTexture *texture = &state->cloudtexture;
+    float forward[3], right[3];
+    double up[3], eye[3] = {state->posx, state->posy, state->posz};
+    double seconds = 0, halfheight, halfwidth;
+    LARGE_INTEGER now;
+    int row, column, edge;
+    if (state->orbit || !state->clouds.enabled || !texture->name
+        || state->rendermode == VIEWPORT_RENDER_UNTEXTURED || state->width < 1 || state->height < 1) { return; }
+    if (state->cloudfrequency.QuadPart > 0)
+    {
+        QueryPerformanceCounter(&now);
+        seconds = (double)(now.QuadPart - state->cloudstart.QuadPart) / state->cloudfrequency.QuadPart;
+    }
+    ViewportGetBasis(state, forward, right);
+    up[0] = right[1] * forward[2] - right[2] * forward[1];
+    up[1] = right[2] * forward[0] - right[0] * forward[2];
+    up[2] = right[0] * forward[1] - right[1] * forward[0];
+    halfheight = tan(VIEWPORT_FOV_Y * 0.5 * VIEWPORT_DEG_TO_RAD);
+    halfwidth = halfheight * state->width / state->height;
+
+    /* A screen mesh approximates the sky plane without clipping it at the
+     * level's far plane. It never writes depth or enters the pickable scene. */
+    glPushAttrib(GL_ENABLE_BIT | GL_CURRENT_BIT | GL_COLOR_BUFFER_BIT
+        | GL_DEPTH_BUFFER_BIT | GL_TEXTURE_BIT | GL_POLYGON_BIT | GL_TRANSFORM_BIT);
+    glDisable(GL_DEPTH_TEST); glDepthMask(GL_FALSE);
+    glDisable(GL_FOG); glDisable(GL_LIGHTING); glDisable(GL_ALPHA_TEST); glDisable(GL_CULL_FACE);
+    glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    glEnable(GL_TEXTURE_2D); glBindTexture(GL_TEXTURE_2D, texture->name);
+    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+    glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity();
+    glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity();
+    for (row = 0; row < rows; row++)
+    {
+        glBegin(GL_TRIANGLE_STRIP);
+        for (column = 0; column <= columns; column++) for (edge = 0; edge < 2; edge++)
+        {
+            double x = 2.0 * column / columns - 1.0;
+            double y = 2.0 * (row + edge) / rows - 1.0;
+            /* GoldenEye's horizon offset is measured in a 240-line view. */
+            double vertical = (y - state->clouds.horizonoffset / 120.0) * halfheight;
+            double direction[3];
+            CloudSample sample;
+            for (int axis = 0; axis < 3; axis++)
+            { direction[axis] = forward[axis] + right[axis] * x * halfwidth + up[axis] * vertical; }
+            sample = CloudsSample(&state->clouds, eye, direction, seconds, texture->width, texture->height);
+            glColor4f(1, 1, 1, sample.opacity);
+            glTexCoord2f(sample.s, sample.t);
+            glVertex2f((float)x, (float)y);
+        }
+        glEnd();
+    }
+    glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix();
+    glPopAttrib();
+}
+
 static void ViewportPaintGL(ViewportState *state)
 {
     wglMakeCurrent(state->hdc, state->hglrc);
@@ -1506,6 +1570,8 @@ static void ViewportPaintGL(ViewportState *state)
         SwapBuffers(state->hdc);
         return;
     }
+
+    ViewportDrawClouds(state);
 
     /* Fast3D and OpenGL both treat counter-clockwise faces as front. */
     glFrontFace(GL_CCW);
@@ -6109,6 +6175,9 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         return 0;
 
     case WM_TIMER:
+        if (wparam == VIEWPORT_CLOUD_TIMER && state && state->cloudtexture.name && state->scene
+            && state->rendermode != VIEWPORT_RENDER_UNTEXTURED && !state->flying && IsWindowVisible(hwnd)
+            && !IsIconic(GetAncestor(hwnd, GA_ROOT))) { InvalidateRect(hwnd, NULL, FALSE); }
         if (wparam == VIEWPORT_STARTUP_TIMER && state && !state->orbit && !state->scene
             && state->startupmodel && !state->flying && IsWindowVisible(hwnd)
             && !IsIconic(GetAncestor(hwnd, GA_ROOT))) { InvalidateRect(hwnd, NULL, FALSE); }
@@ -6341,6 +6410,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         return 1;
 
     case WM_DESTROY:
+        ViewportSetLevelClouds(hwnd, NULL, NULL);
         KillTimer(hwnd, VIEWPORT_STARTUP_TIMER);
         KillTimer(hwnd, VIEWPORT_MONITOR_TIMER);
         ViewportCancelTransform(hwnd);
@@ -6463,6 +6533,48 @@ void ViewportSetBackgroundColor(HWND viewport, const unsigned char rgb[3])
     }
 
     ViewportRedraw(viewport);
+}
+
+void ViewportSetLevelClouds(HWND viewport, const RomClouds *clouds, const char *projectdir)
+{
+    ViewportState *state = ViewportGetState(viewport);
+    TexPixel *pixels = NULL;
+    ViewportTexture *texture;
+    if (!state) { return; }
+    KillTimer(viewport, VIEWPORT_CLOUD_TIMER);
+    texture = &state->cloudtexture;
+    if (state->hglrc)
+    {
+        wglMakeCurrent(state->hdc, state->hglrc);
+        if (texture->name) { glDeleteTextures(1, &texture->name); }
+    }
+    ZeroMemory(texture, sizeof(*texture));
+    ZeroMemory(&state->clouds, sizeof(state->clouds));
+    if (!state->orbit && state->hglrc && clouds && clouds->enabled && projectdir
+        && clouds->textureid < BG_TEX_NONE)
+    {
+        pixels = malloc(256u * 256u * sizeof(*pixels));
+        if (pixels && TexLoadProjectImage(projectdir, clouds->textureid, pixels, &texture->width, &texture->height)
+            && texture->width > 0 && texture->height > 0 && texture->width <= 256 && texture->height <= 256)
+        {
+            CloudsTint(pixels, (DWORD)texture->width * texture->height, clouds, state->backgroundcolor);
+            glPushAttrib(GL_TEXTURE_BIT);
+            glGenTextures(1, &texture->name);
+            glBindTexture(GL_TEXTURE_2D, texture->name);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture->width, texture->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+            glPopAttrib();
+            state->clouds = *clouds;
+            QueryPerformanceFrequency(&state->cloudfrequency);
+            QueryPerformanceCounter(&state->cloudstart);
+            SetTimer(viewport, VIEWPORT_CLOUD_TIMER, 33, NULL);
+        }
+        free(pixels);
+    }
+    InvalidateRect(viewport, NULL, FALSE);
 }
 
 void ViewportSetLevelFog(HWND viewport, const RomFog *fog, float renderscale)
@@ -7378,6 +7490,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
 
     ViewportFreeScene(state);
     state->monitors = monitorpreview;
+    if (framecamera || !tris || tricount <= 0) { ViewportSetLevelClouds(hwnd, NULL, NULL); }
     KillTimer(hwnd, VIEWPORT_MONITOR_TIMER);
     if (state->monitors.count) { SetTimer(hwnd, VIEWPORT_MONITOR_TIMER, 16, NULL); }
     if (framecamera)

@@ -423,6 +423,12 @@ static void GEditorRefreshImageViews(HWND hwnd, DWORD id, BOOL reveal)
      * geometry as well as the GL texture cache, keeping camera/selection. */
     if (g_CurrentLevelIndex < g_Project.levelcount && !GEditorReloadCurrentObjectsAndViewport(&why))
     { MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR); }
+    if (g_CurrentLevelIndex < g_Project.levelcount)
+    {
+        const RomLevel *level = &g_Project.levels[g_CurrentLevelIndex];
+        if (level->clouds.enabled && level->clouds.textureid == id)
+        { ViewportSetLevelClouds(g_Viewport, &level->clouds, g_Project.dir); }
+    }
     ModelEditorRefreshImages();
     GEditorRefreshSelectionDetails();
     GEditorRefreshHistoryMenu(hwnd);
@@ -4131,6 +4137,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
         ViewportSetBackgroundColor(g_Viewport, level->hasbackgroundcolor ? level->backgroundcolor : NULL);
         ViewportSetLevelFog(g_Viewport, level->hasbackgroundcolor ? &level->fog : NULL, level->renderScale);
+        ViewportSetLevelClouds(g_Viewport, &level->clouds, g_Project.dir);
 
         GEditorRefreshHistoryMenu(hwnd);
 
