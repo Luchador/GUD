@@ -11,6 +11,7 @@
 
 /* Room reassignment request; wparam is the existing destination room. */
 #define FACEPROPERTIES_WM_ROOM_CHANGED (WM_APP + 59)
+#define FACEPROPERTIES_WM_LAYER_CHANGED (WM_APP + 72)
 
 BOOL FacePropertiesHandleMessage(HWND panel, MSG *message);
 BOOL FacePropertiesRegisterClass(HINSTANCE instance);

@@ -297,6 +297,11 @@ BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
 BOOL BgDocumentMoveFacesToRoom(BgDocument *document, const BgFaceRef *refs,
     DWORD count, DWORD target, BOOL *changedout, const char **reasonout);
 
+/* Retain vertices, materials and authored draw state while changing draw pass.
+ * Atomic; the caller updates selection refs to the new layer after success. */
+BOOL BgDocumentSetFaceLayer(BgDocument *document, const BgFaceRef *refs,
+    DWORD count, BgGeometryLayer layer, BOOL *changedout, const char **reasonout);
+
 /* Level-local, owned face snapshot; initialize clipboard to zero and release
  * with BgDocumentFree. Copy retains selected rooms/layers and native draw state.
  * Failed copies preserve the previous clipboard. Paste gives all copies fresh
@@ -323,6 +328,14 @@ BOOL BgDocumentPaintVertex(BgDocument *document, const BgFaceRef *ref,
 BOOL BgDocumentTranslateVertices(BgDocument *document,
     const BgDocumentVertexRef *refs, DWORD count, const double offset[3],
     double applied[3], DWORD *movedout, const char **reasonout);
+
+/* Correct UVs after a vertex/edge translation, before changing topology.
+ * Unfold each affected triangle around its unchanged edge, and average
+ * incident estimates by source area for shared vertices. Existing seams and
+ * RGBA remain intact. Whole-face translations retain their original UVs.
+ * Degenerate source faces contribute no estimate. UV changes are atomic. */
+BOOL BgDocumentCorrectMovedUVs(const BgDocument *before, BgDocument *document,
+    const char **reasonout);
 
 /* Rebuilds every room stream while preserving the source file's header,
  * portals, visibility data, and opaque display-list state. */

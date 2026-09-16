@@ -61,15 +61,16 @@ static BOOL BgRoomAppendLayer(BgDocumentLayerData *dst, const BgDocumentLayerDat
     return TRUE;
 }
 
-/* Do not silently change faces which rely on a different inherited pipeline.
+/* Room transfers retain inherited state too. A deliberate layer change may
+ * inherit different defaults, but must preserve every explicitly authored bit.
  * Per-face materials/culling are emitted by the compiler independently. */
 static BOOL BgRoomCompatibleLayer(const BgDocumentRoom *src, const unsigned char *selected,
-    const BgDocumentLayerData *dst, DWORD base, unsigned int layer)
+    const BgDocumentLayerData *dst, DWORD base, unsigned int layer, unsigned int destinationlayer)
 {
     BgRenderState before, after;
     DWORD g, f;
     BgRenderStateInit(&before, layer == BG_GEOMETRY_SECONDARY);
-    BgRenderStateInit(&after, layer == BG_GEOMETRY_SECONDARY);
+    BgRenderStateInit(&after, destinationlayer == BG_GEOMETRY_SECONDARY);
     for (g = 0; g < base; g++) { BgRoomReadGroup(&after, &dst->groups[g]); }
     for (g = 0; g < dst->groupcount - base; g++)
     {
@@ -79,8 +80,12 @@ static BOOL BgRoomCompatibleLayer(const BgDocumentRoom *src, const unsigned char
         {
             const BgDocumentFace *face = &src->faces[f];
             if ((selected && !selected[f]) || face->layer != layer || face->drawgroup != g) { continue; }
-            if (before.othermode != after.othermode || before.othermodehigh != after.othermodehigh
-                || ((before.geometrymode ^ after.geometrymode) & ~0x2000u)
+            DWORD lowmask = layer == destinationlayer ? 0xffffffffu : before.othermodeknown;
+            DWORD highmask = layer == destinationlayer ? 0xffffffffu : before.othermodehighknown;
+            DWORD geomask = layer == destinationlayer ? 0xffffffffu : before.geometryknown;
+            if (((before.othermode ^ after.othermode) & lowmask)
+                || ((before.othermodehigh ^ after.othermodehigh) & highmask)
+                || ((before.geometrymode ^ after.geometrymode) & geomask & ~0x2000u)
                 || before.environmentalpha != after.environmentalpha || before.primitivealpha != after.primitivealpha
                 || before.surfacepolicy != after.surfacepolicy || before.surfacebasemode != after.surfacebasemode)
             { return FALSE; }
@@ -176,7 +181,7 @@ static BOOL BgRoomAppendFaces(BgDocument *doc, const BgDocumentRoom *src, DWORD 
          * inherit settings which its first faces did not originally have. */
         if (newids && BgRoomSameLayerPrefix(&dst->layers[i], &src->layers[i])) { continue; }
         if (!BgRoomAppendLayer(&dst->layers[i], &src->layers[i], &bases[i], reasonout)) { goto done; }
-        if (!BgRoomCompatibleLayer(src, selected, &dst->layers[i], bases[i], i))
+        if (!BgRoomCompatibleLayer(src, selected, &dst->layers[i], bases[i], i, i))
         { *reasonout = "These faces depend on render state that conflicts with the destination room."; goto done; }
     }
     for (f = 0, i = 0; f < src->facecount; f++)
@@ -292,6 +297,71 @@ BOOL BgDocumentMoveFacesToRoom(BgDocument *document, const BgFaceRef *refs,
     if (changedout) { *changedout = TRUE; }
     *reasonout = "";
     return TRUE;
+}
+
+BOOL BgDocumentSetFaceLayer(BgDocument *document, const BgFaceRef *refs,
+    DWORD count, BgGeometryLayer layer, BOOL *changedout, const char **reasonout)
+{
+    BgDocument staged = {0};
+    unsigned char *selected = NULL;
+    BOOL changed = FALSE;
+    *changedout = FALSE;
+    *reasonout = "Select background faces and choose Primary or Secondary.";
+    if (!document || !document->rooms || !refs || !count || (layer != BG_GEOMETRY_PRIMARY
+        && layer != BG_GEOMETRY_SECONDARY)) { return FALSE; }
+    for (DWORD i = 0; i < count; i++)
+    {
+        const BgDocumentFace *face = BgDocumentFindFace(document, &refs[i], NULL);
+        if (!face || face->layer > 1 || face->drawgroup >=
+            (document->rooms[face->room].layers[face->layer].groupcount
+                ? document->rooms[face->room].layers[face->layer].groupcount : 1))
+        { *reasonout = "A selected background face is no longer available."; return FALSE; }
+        changed |= face->layer != layer;
+    }
+    if (!changed) { *reasonout = ""; return TRUE; }
+    if (!BgDocumentClone(document, &staged, reasonout)) { return FALSE; }
+    *reasonout = "Out of memory changing background layers.";
+    for (DWORD r = 1; r <= staged.roomcount; r++)
+    {
+        BgDocumentRoom *room = &staged.rooms[r];
+        DWORD base, source = 1 - layer;
+        BOOL affected = FALSE;
+        for (DWORD i = 0; i < count; i++)
+        { if (refs[i].room == r && refs[i].layer == source) { affected = TRUE; break; } }
+        if (!affected) { continue; }
+        selected = calloc(room->facecount, 1);
+        if (!selected) { goto fail; }
+        for (DWORD i = 0; i < count; i++) if (refs[i].room == r && refs[i].layer == source)
+        {
+            const BgDocumentFace *face = BgDocumentFindFace(&staged, &refs[i], NULL);
+            selected[face - room->faces] = TRUE;
+        }
+        if (!BgRoomAppendLayer(&room->layers[layer], &room->layers[source], &base, reasonout)) { goto fail; }
+        if (!BgRoomCompatibleLayer(room, selected, &room->layers[layer], base, source, layer))
+        {
+            *reasonout = "These faces depend on inherited render state that conflicts with the destination layer.";
+            goto fail;
+        }
+        for (DWORD f = 0; f < room->facecount; f++) if (selected[f])
+        {
+            BgDocumentFace *face = &room->faces[f];
+            face->layer = (unsigned char)layer; face->drawgroup += base;
+            /* Some vanilla layer heads enable texturing before any image is
+             * assigned. They appear untextured in the editor. After appending
+             * to another stream they must not pick up its last bound image. */
+            if (face->textureid == BG_TEX_NONE && (face->material.modeword0 & 0xffu))
+            { BgMaterialSetTexture(&face->material, BG_TEX_NONE); }
+        }
+        free(selected); selected = NULL;
+        if (!BgRoomOrderFaces(room)) { goto fail; }
+    }
+    BgDocumentFree(document);
+    *document = staged; document->dirty = TRUE;
+    *changedout = TRUE; *reasonout = "";
+    return TRUE;
+fail:
+    free(selected); BgDocumentFree(&staged);
+    return FALSE;
 }
 
 BOOL BgDocumentCopyFaces(const BgDocument *document, const BgFaceRef *refs,

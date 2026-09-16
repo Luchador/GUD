@@ -64,7 +64,7 @@ def main():
         enum = re.search(r'enum \{\s*ID_FILE_NEW_PROJECT.*?\n\};', editor, re.S)[0]
         (work / 'menu.inc').write_text(enum + '\n' + helpers.function(editor, 'GEditorCanFlipSelectedBgFaces')
             + helpers.function(editor, 'GEditorShowGeometryMenu'))
-        constants = '\n'.join(re.findall(r'^#define TOOLTOOLBAR_(?:BUTTON_SIZE|MARGIN|BUTTON_COUNT|MENU_WIDTH) .*', toolbar, re.M))
+        constants = '\n'.join(re.findall(r'^#define TOOLTOOLBAR_(?:BUTTON_SIZE|MARGIN|BUTTON_COUNT|MENU_WIDTH|CORRECT_WIDTH) .*', toolbar, re.M))
         (work / 'layout.inc').write_text(constants + '\n' + helpers.function(toolbar, 'ToolToolbarLayout')
             + helpers.function(toolbar, 'ToolToolbarGetHeight'))
         subprocess.run(command + [str(here / 'menu.c'), '-Wl,--gc-sections', '-o', str(work / 'menu')], check=True)

@@ -2340,6 +2340,9 @@ static BOOL GEditorTranslateSelection(HWND hwnd, const double offset[3], BOOL sn
         if (vertices == NULL) { why="There are no editable selected vertices."; goto fail; }
         if (!EditHistoryBeginBgEdit(&g_EditHistory,&g_CurrentBgDocument,action,&transaction,&why)) { goto fail; }
         if (!BgDocumentTranslateVertices(&g_CurrentBgDocument,vertices,count,offset,applied,&moved,&why)) { goto rollback; }
+        if (moved && (tool == EDITOR_TOOL_VERTEX_SELECT || tool == EDITOR_TOOL_EDGE_SELECT)
+            && ToolToolbarCorrectFaceAttributes(g_ToolToolbar)
+            && !BgDocumentCorrectMovedUVs(&transaction.beforebg, &g_CurrentBgDocument, &why)) { goto rollback; }
     }
     if (moved == 0)
     {
@@ -3047,6 +3050,47 @@ static BOOL GEditorMoveSelectedFacesToRoom(HWND hwnd, DWORD target)
     { goto fail; } /* Document operation is atomic. */
     if (!changed) { EditHistoryCancelEdit(&transaction); free(faces); return TRUE; }
     for (i = 0; i < count; i++) { faces[i].room = (unsigned short)target; }
+    if (!GEditorRebuildCurrentViewport(&why)) { goto rollback; }
+    if (!ViewportSelectBgFaces(g_Viewport, faces, count))
+    { why = "Could not restore the moved face selection."; goto rollback; }
+    /* Refresh the UV workspace before the history entry captures selection. */
+    GEditorRefreshSelectionDetails();
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument,
+        &g_CurrentSetup, &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    free(faces); GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    GEditorRebuildCurrentViewport(&restorewhy);
+    GEditorRestoreHistorySelection(hwnd);
+fail:
+    free(faces); EditHistoryCancelEdit(&transaction);
+    GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
+
+static BOOL GEditorSetSelectedFaceLayer(HWND hwnd, BgGeometryLayer target)
+{
+    EditHistoryTransaction transaction = {0};
+    BgFaceRef *faces = NULL;
+    BOOL changed;
+    int count = ViewportGetSelectedBgFaceCount(g_Viewport), i;
+    const char *why = "", *restorewhy = "";
+    if (!g_CurrentBgDocument.rooms || count <= 0
+        || ViewportGetTool(g_Viewport) != EDITOR_TOOL_FACE_SELECT
+        || ViewportIsTransforming(g_Viewport) || ViewportIsFlying(g_Viewport)) { return FALSE; }
+    faces = malloc((size_t)count * sizeof(*faces));
+    if (!faces) { why = "Out of memory reading the background selection."; goto fail; }
+    if (!ViewportGetSelectedBgFaces(g_Viewport, faces, count))
+    { why = "The selected background faces could not be read."; goto fail; }
+    if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
+        "Change BG Layer", &transaction, &why)) { goto fail; }
+    if (!BgDocumentSetFaceLayer(&g_CurrentBgDocument, faces, (DWORD)count, target, &changed, &why))
+    { goto fail; } /* Document operation is atomic. */
+    if (!changed) { EditHistoryCancelEdit(&transaction); free(faces); return TRUE; }
+    for (i = 0; i < count; i++) { faces[i].layer = (unsigned char)target; }
     if (!GEditorRebuildCurrentViewport(&why)) { goto rollback; }
     if (!ViewportSelectBgFaces(g_Viewport, faces, count))
     { why = "Could not restore the moved face selection."; goto rollback; }
@@ -4063,6 +4107,13 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     case PORTALPROPERTIES_WM_CHANGED:
     {
         BOOL ok = GEditorSetPortalProperty(hwnd, (const PortalPropertiesEdit *)lparam);
+        GEditorRefreshSelectionDetails();
+        return ok;
+    }
+
+    case FACEPROPERTIES_WM_LAYER_CHANGED:
+    {
+        BOOL ok = GEditorSetSelectedFaceLayer(hwnd, (BgGeometryLayer)wparam);
         GEditorRefreshSelectionDetails();
         return ok;
     }

@@ -307,7 +307,7 @@ BgRenderFlags BgRenderMaterialWrap(const BgMaterial *material)
 {
     DWORD s, t;
     BgRenderFlags flags = 0;
-    if ((material->textureword0 >> 24) != BG_G_SETTEXTURE)
+    if (BgMaterialTextureId(material) == BG_TEX_NONE)
     {
         return 0;
     }

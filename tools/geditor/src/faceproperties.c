@@ -12,7 +12,7 @@
 #define FACEPROPERTIES_MARGIN 4
 #define FACEPROPERTIES_PREVIEW_SIZE 64
 
-enum { FACE_SUMMARY, FACE_ROOM_LABEL, FACE_ROOM, FACE_TEXTURE_LABEL, FACE_TEXTURE_THUMB, FACE_TEXTURE_FIND,
+enum { FACE_SUMMARY, FACE_ROOM_LABEL, FACE_ROOM, FACE_LAYER_LABEL, FACE_LAYER, FACE_TEXTURE_LABEL, FACE_TEXTURE_THUMB, FACE_TEXTURE_FIND,
        FACE_RENDER_INFO, FACE_RENDER, FACE_RENDER_HELP,
        FACE_CULL_LABEL, FACE_CULL,
        FACE_WRAP_LABEL, FACE_U_LABEL, FACE_U, FACE_V_LABEL, FACE_V,
@@ -176,7 +176,7 @@ static void FacePropertiesSetDetail(FacePropertiesState *state, const BgDocument
 
 static BOOL FacePropertiesIsCombo(int id)
 {
-    return id == FACE_ROOM || id == FACE_RENDER || id == FACE_CULL || id == FACE_U || id == FACE_V
+    return id == FACE_ROOM || id == FACE_LAYER || id == FACE_RENDER || id == FACE_CULL || id == FACE_U || id == FACE_V
         || id == FACE_DETAIL_MODE || id == FACE_DETAIL_U || id == FACE_DETAIL_V || id == FACE_DETAIL_OFFSET;
 }
 
@@ -446,7 +446,7 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
     {
         CREATESTRUCT *cs = (CREATESTRUCT *)lparam;
         const char *labels[FACE_CONTROL_COUNT] = {
-            "", "Room", "", "Texture", "", "Find",
+            "", "Room", "", "Layer", "", "Texture", "", "Find",
             "", "", "",
             "Backface culling", "",
             "Texture wrapping", "U", "", "V", "",
@@ -501,6 +501,13 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
                         }
                     }
                     SendMessage(control, CB_SETDROPPEDWIDTH, 240, 0);
+                    continue;
+                }
+                if (i == FACE_LAYER)
+                {
+                    SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Mixed");
+                    SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Primary");
+                    SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Secondary");
                     continue;
                 }
                 if (i == FACE_RENDER)
@@ -581,6 +588,12 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
             {
                 BgFacePropertiesEdit edit = {0};
                 int choice = (int)SendMessage(control, CB_GETCURSEL, 0, 0);
+                if (control == state->controls[FACE_LAYER])
+                {
+                    if (choice > 0) { SendMessage(GetParent(hwnd), FACEPROPERTIES_WM_LAYER_CHANGED, choice - 1, 0); }
+                    else { SendMessage(GetParent(hwnd), FACEPROPERTIES_WM_CHANGED, 0, (LPARAM)&edit); }
+                    return 0;
+                }
                 if (choice > 0)
                 {
                     if (control == state->controls[FACE_RENDER])
@@ -680,7 +693,7 @@ BOOL FacePropertiesSetSelection(HWND panel, const BgDocument *document,
 {
     FacePropertiesState *state = FacePropertiesGetState(panel);
     const BgDocumentFace *first;
-    int cull, wrapu, wrapv;
+    int cull, wrapu, wrapv, layer;
     unsigned short room;
     BOOL textured = TRUE, sametexture = TRUE, editable;
     DWORD i;
@@ -688,6 +701,7 @@ BOOL FacePropertiesSetSelection(HWND panel, const BgDocument *document,
     if (state == NULL || refs == NULL || count == 0
         || (first = BgDocumentFindFace(document, refs, NULL)) == NULL) { return FALSE; }
     room = first->room;
+    layer = first->layer + 1;
     cull = first->cullbackfaces ? 1 : 2;
     wrapu = BgMaterialGetWrap(&first->material, FALSE) + 1;
     wrapv = BgMaterialGetWrap(&first->material, TRUE) + 1;
@@ -696,6 +710,7 @@ BOOL FacePropertiesSetSelection(HWND panel, const BgDocument *document,
         const BgDocumentFace *face = BgDocumentFindFace(document, &refs[i], NULL);
         if (face == NULL) { return FALSE; }
         if (room != face->room) { room = 0; }
+        if (layer != face->layer + 1) { layer = 0; }
         if (cull != (face->cullbackfaces ? 1 : 2)) { cull = 0; }
         if (wrapu != (int)BgMaterialGetWrap(&face->material, FALSE) + 1) { wrapu = 0; }
         if (wrapv != (int)BgMaterialGetWrap(&face->material, TRUE) + 1) { wrapv = 0; }
@@ -704,12 +719,11 @@ BOOL FacePropertiesSetSelection(HWND panel, const BgDocument *document,
     }
     if (count == 1)
     {
-        snprintf(summary, sizeof(summary), "Face: %lu\r\nLayer: %s",
-            (unsigned long)first->id,
-            first->layer == BG_GEOMETRY_SECONDARY ? "Secondary" : "Primary");
+        snprintf(summary, sizeof(summary), "Face: %lu", (unsigned long)first->id);
     }
     else { snprintf(summary, sizeof(summary), "%lu faces selected.\r\nMixed means their settings differ.", (unsigned long)count); }
     state->updating = TRUE;
+    SendMessage(state->controls[FACE_LAYER], CB_SETCURSEL, layer, 0);
     if (state->roomcount != document->roomcount)
     {
         HWND control = state->controls[FACE_ROOM];

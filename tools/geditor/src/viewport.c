@@ -7032,8 +7032,16 @@ static void ViewportRefreshStanOverlay(ViewportState *state)
     {
         StanTile color=state->stan.tiles[tile];
         unsigned int point;
-        if (state->stanselected[tile]) { color.red=0; color.green=255; color.blue=255; }
-        else if (linked != NULL && linked[tile]) { color.red=255; color.green=0; color.blue=255; }
+
+        if (state->stanselected[tile]) 
+        { 
+            color.red=0; color.green=255; color.blue=255; 
+        }
+        else if (linked != NULL && linked[tile]) 
+        { 
+            color.red=191; color.green=132; color.blue=188; 
+        }
+
         for (point=1; point+1<color.pointcount; point++)
         {
             ViewportSetStanVertex(&state->stanfill[fillat++], &color.points[0], &color, alpha);

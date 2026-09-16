@@ -15,6 +15,8 @@
 #define TOOLTOOLBAR_BUTTON_COUNT (EDITOR_TOOL_COUNT + 1)
 #define TOOLTOOLBAR_MENU_FIRST_ID 3101
 #define TOOLTOOLBAR_MENU_WIDTH 80
+#define TOOLTOOLBAR_CORRECT_ID 3201
+#define TOOLTOOLBAR_CORRECT_WIDTH 164
 
 static const struct {
     const char *name;
@@ -32,6 +34,7 @@ typedef struct ToolToolbarState {
     BOOL vertexsnap;
     HWND buttons[TOOLTOOLBAR_BUTTON_COUNT];
     HWND menus[TOOLTOOLBAR_MENU_COUNT];
+    HWND correctattributes;
     HWND tooltip;
     HBITMAP images[TOOLTOOLBAR_BUTTON_COUNT][2];
 } ToolToolbarState;
@@ -133,10 +136,14 @@ static BOOL ToolToolbarLoadImages(HINSTANCE instance, ToolToolbarState *state)
 static int ToolToolbarLayout(ToolToolbarState *state, int width)
 {
     int x = TOOLTOOLBAR_MARGIN, y = TOOLTOOLBAR_MARGIN;
-    for (int i = 0; i < TOOLTOOLBAR_BUTTON_COUNT + TOOLTOOLBAR_MENU_COUNT; i++)
+    for (int i = 0; i < TOOLTOOLBAR_BUTTON_COUNT + TOOLTOOLBAR_MENU_COUNT + 1; i++)
     {
+        BOOL correct = i == TOOLTOOLBAR_BUTTON_COUNT + TOOLTOOLBAR_MENU_COUNT;
         BOOL menu = i >= TOOLTOOLBAR_BUTTON_COUNT;
-        int buttonwidth = menu ? TOOLTOOLBAR_MENU_WIDTH : TOOLTOOLBAR_BUTTON_SIZE;
+        int buttonwidth = correct ? TOOLTOOLBAR_CORRECT_WIDTH
+            : menu ? TOOLTOOLBAR_MENU_WIDTH : TOOLTOOLBAR_BUTTON_SIZE;
+        if (correct && buttonwidth > width - 2 * TOOLTOOLBAR_MARGIN)
+        { buttonwidth = width > 2 * TOOLTOOLBAR_MARGIN ? width - 2 * TOOLTOOLBAR_MARGIN : 1; }
         if (x > TOOLTOOLBAR_MARGIN && x + buttonwidth + TOOLTOOLBAR_MARGIN > width)
         {
             x = TOOLTOOLBAR_MARGIN;
@@ -144,7 +151,8 @@ static int ToolToolbarLayout(ToolToolbarState *state, int width)
         }
         if (state)
         {
-            HWND button = menu ? state->menus[i - TOOLTOOLBAR_BUTTON_COUNT] : state->buttons[i];
+            HWND button = correct ? state->correctattributes
+                : menu ? state->menus[i - TOOLTOOLBAR_BUTTON_COUNT] : state->buttons[i];
             MoveWindow(button, x, y, buttonwidth, TOOLTOOLBAR_BUTTON_SIZE, TRUE);
         }
         x += buttonwidth + TOOLTOOLBAR_MARGIN;
@@ -213,6 +221,13 @@ static LRESULT CALLBACK ToolToolbarWndProc(HWND hwnd, UINT message,
             if (!state->menus[tool]) { return -1; }
             SendMessage(state->menus[tool], WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), FALSE);
         }
+        state->correctattributes = CreateWindowEx(0, "BUTTON", "Correct Face Attributes",
+            WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX | BS_MULTILINE,
+            0, 0, TOOLTOOLBAR_CORRECT_WIDTH, TOOLTOOLBAR_BUTTON_SIZE,
+            hwnd, (HMENU)(INT_PTR)TOOLTOOLBAR_CORRECT_ID, instance, NULL);
+        if (!state->correctattributes) { return -1; }
+        SendMessage(state->correctattributes, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), FALSE);
+        SendMessage(state->correctattributes, BM_SETCHECK, BST_CHECKED, 0);
         return 0;
     }
 
@@ -345,6 +360,12 @@ void ToolToolbarSetVertexSnap(HWND toolbar, BOOL enabled)
     if (state == NULL) { return; }
     state->vertexsnap = enabled && state->tool == EDITOR_TOOL_VERTEX_SELECT;
     InvalidateRect(state->buttons[TOOLTOOLBAR_SNAP_INDEX], NULL, FALSE);
+}
+
+BOOL ToolToolbarCorrectFaceAttributes(HWND toolbar)
+{
+    ToolToolbarState *state = (ToolToolbarState *)GetWindowLongPtr(toolbar, GWLP_USERDATA);
+    return state && SendMessage(state->correctattributes, BM_GETCHECK, 0, 0) == BST_CHECKED;
 }
 
 BOOL ToolToolbarHandleMessage(HWND toolbar, MSG *message)

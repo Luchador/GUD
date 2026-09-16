@@ -75,10 +75,10 @@ static void Show(ToolToolbarMenu menu)
     if (!choose) { assert(focus == focuscalls); }
 }
 
-typedef struct ToolToolbarState { HWND buttons[5]; HWND menus[3]; } ToolToolbarState;
-static RECT positions[8];
+typedef struct ToolToolbarState { HWND buttons[5]; HWND menus[3]; HWND correctattributes; } ToolToolbarState;
+static RECT positions[9];
 static void MoveWindow(HWND hwnd, int x, int y, int w, int h, BOOL repaint)
-{ int index = (int)(intptr_t)hwnd-1; assert(index >= 0 && index < 8); positions[index] = (RECT){x,y,x+w,y+h}; }
+{ int index = (int)(intptr_t)hwnd-1; assert(index >= 0 && index < 9); positions[index] = (RECT){x,y,x+w,y+h}; }
 #include "layout.inc"
 
 int main(void)
@@ -112,16 +112,17 @@ int main(void)
     ToolToolbarState toolbar;
     for (int i = 0; i < 5; i++) { toolbar.buttons[i] = (HWND)(intptr_t)(i+1); }
     for (int i = 0; i < 3; i++) { toolbar.menus[i] = (HWND)(intptr_t)(i+6); }
+    toolbar.correctattributes = (HWND)9;
     for (int width = 88; width < 900; width++)
     {
         int height = ToolToolbarLayout(&toolbar, width); assert(height == ToolToolbarGetHeight(width));
-        for (int i = 0; i < 8; i++)
+        for (int i = 0; i < 9; i++)
         {
             const RECT *a = &positions[i]; assert(a->left >= 4 && a->right <= width-4 && a->top >= 4 && a->bottom <= height-4);
             for (int j = 0; j < i; j++)
             { const RECT *b = &positions[j]; assert(a->left >= b->right || a->top >= b->bottom); }
         }
-        if (width >= 440) { assert(height == 40); }
+        if (width >= 608) { assert(height == 40); }
     }
     puts("PASS: selection-aware menus, inactive categories, flight/drag guards, cancellation/focus/command routing and toolbar wrapping across 812 viewport widths.");
     return 0;
