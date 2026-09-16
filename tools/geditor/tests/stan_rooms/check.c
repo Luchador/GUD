@@ -10,6 +10,7 @@
 #include "setupmeta.h"
 
 void BgDocumentFree(BgDocument *doc) { abort(); }
+BOOL SetupFileCompact(SetupFile *setup, const char **why) { (void)setup; (void)why; abort(); }
 void SetupFileFree(SetupFile *setup) { abort(); }
 static int failafter = -1;
 void *__real_malloc(size_t); void *__real_calloc(size_t, size_t);

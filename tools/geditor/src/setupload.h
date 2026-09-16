@@ -150,12 +150,20 @@ typedef struct SetupFile {
     SetupCharacter *characters;
     DWORD charactercount;
     BOOL dirty;
+    /* Immutable shared-script reference catalog, shared by undo snapshots.
+     * Rebuilt from the project's base ROM; never serialized. */
+    struct SetupScriptReferences *globalrefs;
 } SetupFile;
 
-/* Export-only copy: discard unreachable native tables left by append-only
- * edits and relocate file pointers. Live editor offsets/history stay stable. */
+/* Discard unreachable tables and relocate native pointers in a separate copy. */
 BOOL SetupCompactNative(const unsigned char *data, DWORD size,
     unsigned char **out, DWORD *sizeout, const char **reasonout);
+/* Transaction boundary: also relocates decoded command offsets, atomically.
+ * Indices, selections, notes and dirty state are unchanged. */
+BOOL SetupFileCompact(SetupFile *setup, const char **reasonout);
+/* Missing optional catalogs leave globalrefs NULL and disable pad/character
+ * recycling. Invalid catalogs fail without replacing an existing cache. */
+BOOL SetupFileSetGlobalReferences(SetupFile *setup, const RomFile *rom, const char **reasonout);
 
 /* Requires a base ROM with a shared Action Block catalog so every script
  * can be checked. Preserves table indices and makes no changes on failure. */

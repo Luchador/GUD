@@ -7,6 +7,7 @@
 #include "edittool.h"
 
 /* BG history is real; setup and stan edits are outside this command. */
+BOOL SetupFileCompact(SetupFile *setup, const char **why) { (void)setup; (void)why; abort(); }
 void SetupFileFree(SetupFile *setup) { abort(); }
 void StanFileFree(StanFile *stan) { abort(); }
 #include "fixture.inc"

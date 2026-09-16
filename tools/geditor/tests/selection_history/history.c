@@ -11,6 +11,7 @@ BOOL BgDocumentClone(const BgDocument *src, BgDocument *dst, const char **why) {
 BOOL SetupFileClone(const SetupFile *src, SetupFile *dst, const char **why) { *dst = *src; return TRUE; }
 BOOL StanFileClone(const StanFile *src, StanFile *dst, const char **why) { *dst = *src; return TRUE; }
 void BgDocumentFree(BgDocument *doc) { memset(doc, 0, sizeof(*doc)); }
+BOOL SetupFileCompact(SetupFile *setup, const char **why) { (void)setup; (void)why; return TRUE; }
 void SetupFileFree(SetupFile *doc) { memset(doc, 0, sizeof(*doc)); }
 void StanFileFree(StanFile *doc) { memset(doc, 0, sizeof(*doc)); }
 char *lstrcpyn(char *dst, const char *src, int size) { snprintf(dst, size, "%s", src); return dst; }

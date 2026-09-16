@@ -54,7 +54,7 @@ def main():
                    '-fsanitize=address,undefined', f'-I{shim}', f'-I{src}', f'-I{root}', f'-I{temp}',
                    str(here / 'check.c'), str(shim / 'platform.c')]
         command += [str(src / n) for n in ('monitoranim.c', 'monitorload.c', 'modelload.c',
-                    'bgmaterial.c', 'bgrender.c', 'setupload.c')]
+                    'bgmaterial.c', 'bgrender.c', 'setupload.c', 'actionblocks.c')]
         command += ['-Wl,--gc-sections', '-lm', '-o', str(temp / 'check')]
         subprocess.run(command, check=True)
         subprocess.run([str(temp / 'check'), str(root)], check=True,

@@ -7,6 +7,7 @@
 #include "bghistory.h"
 #include "edittool.h"
 #include "uvprojection.h"
+BOOL SetupFileCompact(SetupFile *setup, const char **why) { (void)setup; (void)why; abort(); }
 void SetupFileFree(SetupFile *setup) { abort(); }
 void StanFileFree(StanFile *stan) { abort(); }
 static int allocations=-1;

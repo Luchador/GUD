@@ -8,6 +8,7 @@
 #include "bgdocument.h"
 #include "bghistory.h"
 #include "edittool.h"
+BOOL SetupFileCompact(SetupFile *setup, const char **why) { (void)setup; (void)why; abort(); }
 void SetupFileFree(SetupFile *setup) { abort(); }
 void StanFileFree(StanFile *stan) { abort(); }
 static BOOL failallocation;

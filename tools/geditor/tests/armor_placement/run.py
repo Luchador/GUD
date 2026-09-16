@@ -32,7 +32,7 @@ def main():
                    '-ffunction-sections', '-fdata-sections', '-fsanitize=address,undefined',
                    f'-I{shim}', f'-I{src}', f'-I{root}', f'-I{work}',
                    str(here / 'check.c'), str(shim / 'platform.c')]
-        command += [str(src / name) for name in ('setupload.c', 'bghistory.c', 'modelload.c', 'rotation.c', 'scaling.c')]
+        command += [str(src / name) for name in ('setupload.c', 'actionblocks.c', 'bghistory.c', 'modelload.c', 'rotation.c', 'scaling.c')]
         command += ['-Wl,--gc-sections', '-lm', '-o', str(work / 'check')]
         subprocess.run(command, check=True)
         subprocess.run([str(work / 'check'), str(work)], check=True,

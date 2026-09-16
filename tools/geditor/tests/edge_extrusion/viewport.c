@@ -35,7 +35,7 @@ typedef struct ViewportState {
     BgDocumentVertexRef *scenevertexrefs;
     BgFaceRef *scenefacerefs;
     BOOL showbgsecondary,showbgprimary,dragmarker,dragpad,dragstan,dragscaling,dragrotation;
-    BOOL dragknife;
+    BOOL dragknife,dragportal;
     BOOL dragextruding,extrudepreviewvalid;
     BgDocumentEdgeRef *extrudeedges;
     int *extrudeowners;
@@ -60,6 +60,7 @@ static void InvalidateRect(HWND hwnd,void *rect,BOOL erase) {}
 static void ViewportUpdateGizmo(ViewportState *state) {}
 static void ViewportCancelBoxSelection(HWND hwnd,ViewportState *state) {}
 static void ViewportFinishKnifeTransform(HWND hwnd,ViewportState *state,BOOL cancel) { abort(); }
+static void ViewportPreviewPortalDrag(ViewportState *state,double delta) { abort(); }
 static void ViewportSetSetupMarkers(HWND hwnd,ViewportState *state,const SetupFile *setup,float scale) { abort(); }
 static int ViewportSelectedPadIndex(ViewportState *state) { abort(); }
 static void ViewportRefreshStanOverlay(ViewportState *state) { abort(); }

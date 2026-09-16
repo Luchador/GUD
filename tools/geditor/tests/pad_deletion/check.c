@@ -138,12 +138,15 @@ static void HistoryAndSaving(const char *dir)
     assert(loaded.padcount==3 && loaded.boundpadcount==2);
     assert(loaded.pads[1].deleted && loaded.boundpads[1].pad.deleted);
     assert(!loaded.pads[0].deleted && !loaded.pads[2].deleted && !loaded.boundpads[0].pad.deleted);
-    assert(loaded.size==sizeof(original) && !memcmp(loaded.data,s.data,s.size));
-    /* Only runtime stan slots change. In particular plink/terminators, all
-     * later IDs, coordinates and opaque native sections are unchanged. */
-    memcpy(loaded.data+64+44+40,original+64+44+40,4);
-    memcpy(loaded.data+256+68+40,original+256+68+40,4);
-    assert(!memcmp(loaded.data,original,sizeof(original))); SetupFileFree(&loaded);
+    assert(loaded.size==s.size && !memcmp(loaded.data,s.data,s.size));
+    /* Compare active data after applying the same automatic normalization to
+     * the original; abandoned bytes and empty-link addresses are not content. */
+    DWORD normal=SetupMetaRead32(loaded.data+24), boundtable=SetupMetaRead32(loaded.data+28);
+    memset(loaded.data+normal+44+40,0,4); memset(loaded.data+boundtable+68+40,0,4);
+    unsigned char *packed=NULL; DWORD packedsize=0;
+    Require(SetupCompactNative(original,sizeof(original),&packed,&packedsize,&why));
+    assert(loaded.size==packedsize && !memcmp(loaded.data,packed,packedsize));
+    free(packed); SetupFileFree(&loaded);
     Require(EditHistoryUndo(&history,&bg,&s,&stan,&asset,&why));
     assert(asset==EDIT_HISTORY_ASSET_SETUP && !s.pads[1].deleted && !s.boundpads[1].pad.deleted && s.dirty);
     assert(!memcmp(s.data,original,sizeof(original)));
@@ -151,7 +154,7 @@ static void HistoryAndSaving(const char *dir)
     assert(s.pads[1].deleted && s.boundpads[1].pad.deleted && !s.dirty);
     assert(!SetupFileDeletePad(&s,&ordinary,&rom,&why));
     EditHistoryFree(&history); SetupFileFree(&s);
-    puts("PASS: save/reload, undo/redo, dirty tracking, double deletion and byte-exact preservation outside runtime pointer slots.");
+    puts("PASS: save/reload, undo/redo, dirty tracking, double deletion and active-data preservation through compaction.");
 }
 int main(int argc, char **argv)
 {

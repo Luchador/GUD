@@ -4,12 +4,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include "setupload.h"
+#include "setup_compare.h"
 #include "bghistory.h"
 
 static DWORD Get(const unsigned char *p) { return (DWORD)p[0]<<24|(DWORD)p[1]<<16|(DWORD)p[2]<<8|p[3]; }
 static void Put(unsigned char *p,DWORD v) { p[0]=v>>24;p[1]=v>>16;p[2]=v>>8;p[3]=v; }
 static void Near(double a,double b) { assert(fabs(a-b)<0.0002); }
-static void Same(const SetupFile *a,const SetupFile *b) { assert(a->size==b->size&&!memcmp(a->data,b->data,a->size)); }
+static void Same(const SetupFile *a,const SetupFile *b) { SetupAssertNativeEqual(a,b); }
 static DWORD IntroAt(const SetupFile *setup,DWORD index)
 {
     const DWORD words[]={3,4,4,8,2,2,10,3,2,1}; DWORD at=Get(setup->data+8);
@@ -145,6 +146,7 @@ void CameraEdits(const SetupFile *source,const char *dir)
     assert(SetupSaveProjectFile(dir,&setup,&why));SetupFileFree(&setup);
     assert(SetupLoadProjectFile(dir,source->name,&setup,&why));
     assert(MarkerCount(&setup,SETUP_MARKER_OUTRO)==2 && setup.charactercount==1);
+    table=Get(setup.data+12); /* Load may compact and relocate the stream. */
     assert(SetupFileClone(&setup,&before,&why));EditHistoryReset(&history,&bg,&setup,&stan);
     assert(EditHistoryBeginSetupEdit(&history,&setup,"Replace Outro Camera",&transaction,&why));
     assert(SetupFilePlaceCamera(&setup,SETUP_MARKER_OUTRO,.5f,position,look,&selected,&why));
@@ -159,6 +161,7 @@ void CameraEdits(const SetupFile *source,const char *dir)
     assert(MarkerCount(&setup,SETUP_MARKER_OUTRO)==2);
     assert(EditHistoryRedo(&history,&bg,&setup,&stan,&asset,&why));Same(&setup,&after);
     SetupFileFree(&before);SetupFileFree(&after);EditHistoryFree(&history);
+    table=Get(setup.data+12); /* Commit can also relocate it. */
     assert(SetupFileTransformMarker(&setup,&selected,NULL,.5f,move,NULL,&changed,&why)&&changed);
     assert(!memcmp(setup.data+table+4,setup.data+table+48,24));
     RotationAxis(&rotation,1,90);

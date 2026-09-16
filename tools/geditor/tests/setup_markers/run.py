@@ -39,7 +39,7 @@ def main():
         command=[os.environ.get('CC','cc'),'-O1','-g','-std=c99','-Wall','-Wextra',
                  '-ffunction-sections','-fdata-sections','-fsanitize=address,undefined',
                  f'-I{shim}',f'-I{src}',f'-I{editor.parent.parent}',str(here/'check.c'),str(shim/'platform.c')]
-        command += [str(src/name) for name in ['setupload.c','gltf.c','bgrender.c','rotation.c','scaling.c','bghistory.c']]
+        command += [str(src/name) for name in ['setupload.c', 'actionblocks.c','gltf.c','bgrender.c','rotation.c','scaling.c','bghistory.c']]
         game=(editor.parent.parent/'src/game/bondview_r.c').read_text()
         link_start=game.index('((struct SetupIntroCamera*)intro_record)->prev = g_CurrentSetupIntroCamera;')
         link_end=game.index(';',game.index('g_SetupIntroCameraCount = g_SetupIntroCameraCount + 1',link_start))+1

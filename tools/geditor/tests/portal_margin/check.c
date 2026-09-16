@@ -8,6 +8,7 @@
 #include "bgdocument.h"
 #include "bghistory.h"
 
+BOOL SetupFileCompact(SetupFile *setup, const char **why) { (void)setup; (void)why; abort(); }
 void SetupFileFree(SetupFile *file) { (void)file; abort(); }
 void StanFileFree(StanFile *file) { (void)file; abort(); }
 #include "fixture.inc"

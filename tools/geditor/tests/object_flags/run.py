@@ -49,7 +49,7 @@ def main():
         command = [os.environ.get('CC', 'cc'), '-O1', '-g', '-std=c99', '-Wall', '-Wextra',
                    '-ffunction-sections', '-fdata-sections', '-fsanitize=address,undefined',
                    f'-I{shim}', f'-I{src}', f'-I{root}', str(here / 'check.c'), str(shim / 'platform.c')]
-        command += [str(src / name) for name in ('setupload.c', 'bghistory.c')]
+        command += [str(src / name) for name in ('setupload.c', 'actionblocks.c', 'bghistory.c')]
         command += ['-Wl,--gc-sections', '-lm', '-o', str(work / 'check')]
         subprocess.run(command, check=True)
         subprocess.run([str(work / 'check'), str(work)], check=True,

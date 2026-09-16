@@ -6,6 +6,7 @@
 #include "bghistory.h"
 
 /* This suite uses only the BG history branch. */
+BOOL SetupFileCompact(SetupFile *setup, const char **why) { (void)setup; (void)why; abort(); }
 void SetupFileFree(SetupFile *setup) { (void)setup; abort(); }
 void StanFileFree(StanFile *stan) { (void)stan; abort(); }
 static void Put(unsigned char *p, DWORD v) { p[0]=v>>24;p[1]=v>>16;p[2]=v>>8;p[3]=v; }

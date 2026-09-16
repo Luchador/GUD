@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "setupload.h"
+#include "setup_compare.h"
 #include "bghistory.h"
 #include "modelload.h"
 #include <src/propconstants.h>
@@ -17,9 +18,9 @@ static DWORD Read(const unsigned char *p)
 { return ((DWORD)p[0] << 24) | ((DWORD)p[1] << 16) | ((DWORD)p[2] << 8) | p[3]; }
 static void Same(const SetupFile *a, const SetupFile *b)
 {
-    assert(a->size == b->size && a->objectcount == b->objectcount && a->padcount == b->padcount
+    assert(a->objectcount == b->objectcount && a->padcount == b->padcount
         && a->boundpadcount == b->boundpadcount && a->charactercount == b->charactercount);
-    assert(!memcmp(a->data, b->data, a->size));
+    SetupAssertNativeEqual(a,b);
 }
 static void RoundTrip(const char *dir, const SetupFile *setup)
 {

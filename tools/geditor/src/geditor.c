@@ -915,6 +915,8 @@ static void GEditorRefreshHistoryMenu(HWND hwnd)
 
     /* Saving from an owned dialog (Create ROM) still updates the main frame. */
     hwnd = GetAncestor(hwnd, GA_ROOTOWNER);
+    /* Setup compaction at commit can relocate inspector source offsets. */
+    GEditorRefreshSelectionDetails();
     GEditorSetTitleForProject(hwnd);
     menubar = GetMenu(hwnd);
     if (menubar == NULL)
@@ -4563,6 +4565,19 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
         setupLoaded = SetupLoadProjectFile(g_Project.dir, level->setupname,
                                            &setup, &setupwhy);
+        if (setupLoaded)
+        {
+            RomFile base = {0};
+            char path[MAX_PATH];
+            /* Cache immutable shared-script references once per loaded level,
+             * so pad reuse does not reread the ROM during mouse drags. */
+            if (snprintf(path, sizeof(path), "%s\\%s", g_Project.dir, ROM_EXPORT_BASE_FILENAME) >= (int)sizeof(path))
+            { setupwhy = "The project base ROM path is too long."; setupLoaded = FALSE; }
+            else { setupLoaded = RomLoad(path, &base, &setupwhy)
+                && SetupFileSetGlobalReferences(&setup, &base, &setupwhy); }
+            RomFree(&base);
+            if (!setupLoaded) { SetupFileFree(&setup); }
+        }
         /* Placement needs the collision tiles before object geometry is
            built, regardless of whether the stan overlay is visible. */
         stanLoaded = StanLoadProjectFile(g_Project.dir, level->stanname,

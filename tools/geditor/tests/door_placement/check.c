@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "setupload.h"
+#include "setup_compare.h"
 #include "bghistory.h"
 #include "modelload.h"
 #include <src/propconstants.h>
@@ -17,9 +18,9 @@ static void Write(unsigned char *p, DWORD v)
 static void Near(double a, double b) { assert(fabs(a-b) < .0003); }
 static void Same(const SetupFile *a, const SetupFile *b)
 {
-    assert(a->size == b->size && a->objectcount == b->objectcount && a->padcount == b->padcount
+    assert(a->objectcount == b->objectcount && a->padcount == b->padcount
         && a->boundpadcount == b->boundpadcount && a->charactercount == b->charactercount);
-    assert(!memcmp(a->data, b->data, a->size));
+    SetupAssertNativeEqual(a,b);
     assert(!memcmp(a->pads, b->pads, a->padcount * sizeof(*a->pads)));
     assert(!memcmp(a->boundpads, b->boundpads, a->boundpadcount * sizeof(*a->boundpads)));
 }

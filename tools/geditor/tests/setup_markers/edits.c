@@ -1,3 +1,4 @@
+#include "setup_compare.h"
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
@@ -13,7 +14,7 @@ static DWORD Get(const unsigned char *p) { return (DWORD)p[0]<<24|(DWORD)p[1]<<1
 static void Put(unsigned char *p,DWORD v) { p[0]=v>>24;p[1]=v>>16;p[2]=v>>8;p[3]=v; }
 static void Float(unsigned char *p,float f) { union {float f;DWORD u;}v;v.f=f;Put(p,v.u); }
 static void Near(double a,double b) { assert(fabs(a-b)<0.0002); }
-static void Same(const SetupFile *a,const SetupFile *b) { assert(a->size==b->size&&!memcmp(a->data,b->data,a->size)); }
+static void Same(const SetupFile *a,const SetupFile *b) { SetupAssertNativeEqual(a,b); }
 
 static void PadScaleSizes(const SetupFile *source, const char *dir)
 {
@@ -223,6 +224,16 @@ void MarkerEdits(const char *dir)
     PadScaleSizes(&setup, dir);
     SpawnEdits(&setup, dir);
     CameraEdits(&setup, dir);
+    /* This fixture has a known empty shared-script catalog. Reuse must not
+     * depend on the camera pad still being at the physical end of the file. */
+    {
+        unsigned char shared[32]={0}; RomFile rom={0};
+        rom.data=shared; rom.size=sizeof(shared); rom.info.entrycount=2;
+        rom.info.entries[0]=(RomManifestEntry){0x434d4150,0,32,0x80000000};
+        rom.info.entries[1]=(RomManifestEntry){0x4149474c,0,16,0};
+        Put(shared,0x80000010); Put(shared+8,8); Put(shared+12,1);
+        assert(SetupFileSetGlobalReferences(&setup,&rom,&why));
+    }
     assert(SetupFileClone(&setup,&before,&why));EditHistoryReset(&history,&bg,&setup,&stan);
     assert(SetupFileBuildMarkers(&setup,.5f,&markers,&count,&why)&&count==3);
     assert(markers[0].command==0&&markers[1].command==1&&markers[2].command==0);

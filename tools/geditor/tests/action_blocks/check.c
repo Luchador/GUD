@@ -14,7 +14,8 @@ void BgDocumentFree(BgDocument *a) { abort(); }
 void StanFileFree(StanFile *a) { abort(); }
 static const char *why="";
 static DWORD scripts, instructions, sharedscripts;
-static void Require(BOOL ok) { if (!ok) { fprintf(stderr,"%s\n",why); abort(); } }
+static void RequireAt(BOOL ok, int line) { if (!ok) { fprintf(stderr,"line %d: %s\n",line,why); abort(); } }
+#define Require(ok) RequireAt(ok,__LINE__)
 static void NativeEqual(const SetupFile *a,const SetupFile *b)
 { assert(a->size==b->size && !memcmp(a->data,b->data,a->size)); }
 static void ScriptsEqual(const ActionDocument *a,const ActionDocument *b)
@@ -135,7 +136,10 @@ static void Persistence(const char *dir)
     Require(ActionInstructionSet(&d,index,0,values,0,"Look for Bond","My note","",&why));
     Require(ActionDocumentDeleteBlock(&d,&s,0,&why));
     Require(ActionDocumentCompile(&d,&s,&out,&why)); assert(out.characters[0].ailistid==0x402 && out.data[91]==2);
-    Require(SetupSaveProjectFile(dir,&out,&why)); Require(SetupLoadProjectFile(dir,out.name,&saved,&why)); NativeEqual(&out,&saved);
+    Require(SetupSaveProjectFile(dir,&out,&why)); Require(SetupLoadProjectFile(dir,out.name,&saved,&why));
+    unsigned char *packed; DWORD packedsize;
+    Require(SetupCompactNative(out.data,out.size,&packed,&packedsize,&why));
+    assert(saved.size==packedsize && !memcmp(saved.data,packed,packedsize)); free(packed);
     assert(saved.actionmetasize==out.actionmetasize && !memcmp(saved.actionmeta,out.actionmeta,out.actionmetasize));
     Require(ActionDocumentLoad(&saved,&after,&why)); ScriptsEqual(&d,&after); ActionDocumentFree(&after);
     /* A failed atomic rename must leave the previous native bytes AND notes. */
@@ -143,7 +147,7 @@ static void Persistence(const char *dir)
     Require(SetupLoadProjectFile(dir,out.name,&reloaded,&why)); NativeEqual(&saved,&reloaded);
     assert(!memcmp(saved.actionmeta,reloaded.actionmeta,saved.actionmetasize)); SetupFileFree(&reloaded);
     char path[512]; snprintf(path,sizeof(path),"%s/setup/%s.set",dir,out.name);
-    DWORD n; unsigned char *native=TestReadResource(path,out.name,&n,&why); assert(native && n==out.size && !memcmp(native,out.data,n)); free(native);
+    DWORD n; unsigned char *native=TestReadResource(path,out.name,&n,&why); assert(native && n==saved.size && !memcmp(native,saved.data,n)); free(native);
     /* Genuine project history deep-copies the separate metadata allocation. */
     EditHistory history={0}; EditHistoryTransaction transaction={0}; BgDocument bg={0}; StanFile stan={0}; EditHistoryAsset asset;
     EditHistoryReset(&history,&bg,&s,&stan); Require(EditHistoryBeginSetupEdit(&history,&s,"Action Blocks",&transaction,&why));

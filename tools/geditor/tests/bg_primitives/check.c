@@ -6,6 +6,7 @@
 #include "bgdocument.h"
 #include "bghistory.h"
 /* BG-only history, with real document snapshots and compiler. */
+BOOL SetupFileCompact(SetupFile *setup, const char **why) { (void)setup; (void)why; abort(); }
 void SetupFileFree(SetupFile *setup) { abort(); }
 void StanFileFree(StanFile *stan) { abort(); }
 static int allocations=-1;

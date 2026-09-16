@@ -4,6 +4,7 @@
 #include <string.h>
 #include "bgdocument.h"
 #include "bghistory.h"
+BOOL SetupFileCompact(SetupFile *setup, const char **why) { (void)setup; (void)why; abort(); }
 void SetupFileFree(SetupFile *setup) { abort(); }
 void StanFileFree(StanFile *stan) { abort(); }
 /* Exercise every allocation failure in the edit, including its native group

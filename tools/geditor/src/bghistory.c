@@ -353,6 +353,10 @@ BOOL EditHistoryCommitEdit(EditHistory *history, BgDocument *bgdocument,
         memcpy(selection, history->selection, history->selectionsize);
     }
 
+    /* No tool retains raw offsets across a completed setup transaction.
+     * Compact before changing history so failure can roll back the edit. */
+    if (transaction->asset == EDIT_HISTORY_ASSET_SETUP && !SetupFileCompact(setup, reasonout))
+    { free(selection); return FALSE; }
     EditHistoryClearStack(history->redoentries, &history->redocount);
     EditHistoryDiscardOldest(history->undoentries, &history->undocount);
 

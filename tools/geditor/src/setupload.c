@@ -51,6 +51,14 @@
  * itself intact: a null plink would terminate the table and renumbering
  * would invalidate script, navigation and setup references. */
 #define SETUP_DELETED_PAD_STAN 0x47455044u
+/* Editor-owned placement pad. The game replaces this runtime stan pointer.
+ * Unlike an authored standalone pad, it can be recycled once unreferenced. */
+#define SETUP_PRIVATE_PAD_STAN 0x47455050u
+
+typedef struct SetupScriptReferences {
+    DWORD owners;
+    unsigned char values[65536]; /* bit 0: pad, bit 1: character */
+} SetupScriptReferences;
 
 static DWORD SetupRead32(const unsigned char *p)
 {
@@ -166,13 +174,14 @@ static DWORD SetupIntroWordCount(DWORD type)
 }
 
 /* Native setups have ten root pointers. Placement/script edits append tables
- * to keep live offsets and undo history stable; only their reachable data is
- * needed in the ROM. Keep 16-byte blocks so every retained byte preserves its
+ * within a transaction; commit, load, save and export discard abandoned data.
+ * Keep 16-byte blocks so every retained byte preserves its
  * alignment, including overlapping strings and pointers into terminators. */
 typedef struct SetupCompact {
     const unsigned char *data;
     DWORD size;
     unsigned char *used, *pointers;
+    DWORD emptytarget;
 } SetupCompact;
 
 static BOOL SetupCompactKeep(SetupCompact *c, DWORD at, DWORD bytes)
@@ -297,8 +306,12 @@ static BOOL SetupCompactRoot(SetupCompact *c, DWORD root, DWORD at)
             bytes = root == 6 ? SETUP_PAD_SIZE : SETUP_BOUNDPAD_SIZE;
             if (!SetupCompactKeep(c, at, bytes)
                 || !SetupCompactPointer(c, at + SETUP_PAD_LINK, &target)) { return FALSE; }
-            if (!target) { return TRUE; }
-            if (!SetupCompactString(c, target)) { return FALSE; }
+            if (!target) { c->emptytarget = at + SETUP_PAD_LINK; return TRUE; }
+            /* Old editors pointed empty plinks into abandoned terminators.
+             * Retaining each such byte would retain one block per edit even
+             * after compaction. Share a current terminator's zero instead. */
+            if (!c->data[target]) { c->pointers[(at + SETUP_PAD_LINK) / 4] = 2; }
+            else if (!SetupCompactString(c, target)) { return FALSE; }
             break;
         default: /* optional pad-name pointer tables */
             bytes = 4;
@@ -328,9 +341,16 @@ BOOL SetupCompactNative(const unsigned char *data, DWORD size,
     SetupCompactKeep(&c, 0, SETUP_HEADER_SIZE);
     for (DWORD root = 0; root < 10; root++)
     {
+        static const char *const errors[] = {
+            "The setup waypoint table is invalid.", "The setup waypoint-group table is invalid.",
+            "The setup intro table is invalid.", "The setup object table is invalid.",
+            "The setup patrol table is invalid.", "The setup Action Block table is invalid.",
+            "The setup pad table is invalid.", "The setup bound-pad table is invalid.",
+            "The setup pad-name table is invalid.", "The setup bound-pad-name table is invalid."
+        };
         DWORD target;
         if (!SetupCompactPointer(&c, root * 4, &target)
-            || !SetupCompactRoot(&c, root, target)) { goto done; }
+            || !SetupCompactRoot(&c, root, target)) { *reasonout = errors[root]; goto done; }
     }
     for (DWORD i = 0; i < blocks; i++)
     {
@@ -347,7 +367,7 @@ BOOL SetupCompactNative(const unsigned char *data, DWORD size,
     }
     for (DWORD field = 0; field + 4 <= size; field += 4) if (c.pointers[field / 4])
     {
-        DWORD target = SetupRead32(data + field);
+        DWORD target = c.pointers[field / 4] == 2 ? c.emptytarget : SetupRead32(data + field);
         if (target)
         {
             if (!c.used[target / 16]) { goto done; }
@@ -357,10 +377,36 @@ BOOL SetupCompactNative(const unsigned char *data, DWORD size,
     *out = packed; packed = NULL; *sizeout = total; *reasonout = ""; ok = TRUE;
     goto done;
 memory:
-    *reasonout = "Out of memory compacting the setup for ROM export.";
+    *reasonout = "Out of memory compacting the setup.";
 done:
     free(packed); free(map); free(c.used); free(c.pointers);
     return ok;
+}
+
+BOOL SetupFileCompact(SetupFile *setup, const char **why)
+{
+    unsigned char *data;
+    DWORD size, oldcommands, newcommands;
+    if (!setup || !SetupCompactNative(setup->data, setup->size, &data, &size, why)) { return FALSE; }
+    oldcommands = SetupRead32(setup->data + SETUP_OBJECT_POINTER);
+    newcommands = SetupRead32(data + SETUP_OBJECT_POINTER);
+    /* The command stream is contiguous and its record order never changes. */
+    for (DWORD i = 0; i < setup->objectcount + setup->charactercount; i++)
+    {
+        DWORD at = i < setup->objectcount ? setup->objects[i].sourceoffset
+            : setup->characters[i - setup->objectcount].sourceoffset;
+        if (!oldcommands || at < oldcommands || at >= setup->size
+            || newcommands + (at - oldcommands) >= size)
+        { free(data); *why = "A cached setup command offset is invalid."; return FALSE; }
+    }
+    for (DWORD i = 0; i < setup->objectcount; i++)
+    { setup->objects[i].sourceoffset = newcommands + (setup->objects[i].sourceoffset - oldcommands); }
+    for (DWORD i = 0; i < setup->charactercount; i++)
+    { setup->characters[i].sourceoffset = newcommands + (setup->characters[i].sourceoffset - oldcommands); }
+    if (size == setup->size)
+    { memcpy(setup->data, data, size); free(data); return TRUE; }
+    free(setup->data); setup->data = data; setup->size = size;
+    return TRUE;
 }
 
 /* Multiple script tags may use the same outro camera. Display identical
@@ -995,8 +1041,61 @@ static BOOL SetupPadExists(const SetupFile *setup, DWORD value)
         : setup->boundpads && value - 10000 < setup->boundpadcount && !setup->boundpads[value - 10000].pad.deleted;
 }
 
-static BOOL SetupPadUnused(const SetupFile *setup, const SetupPadRef *ref,
-                           const RomFile *rom, const char **why)
+static BOOL SetupActionParameterIsCharacter(const ActionInstruction *ins, DWORD parameter)
+{
+    const ActionOpcode *op = &g_ActionOpcodes[ins->bytes[0]];
+    /* Aim/facing operands can select a character or a pad. Character mode
+     * takes priority when both bits are present. */
+    return op->params[parameter].kind == ACTION_CHARACTER
+        || (ins->bytes[0] >= 0x14 && ins->bytes[0] <= 0x17 && parameter == 1
+            && (ActionReadValue(ins, 0) & 4));
+}
+
+BOOL SetupFileSetGlobalReferences(SetupFile *setup, const RomFile *rom, const char **why)
+{
+    ActionDocument actions = {0};
+    SetupScriptReferences *refs;
+    if (!setup || !rom) { *why = "No setup or project base ROM was supplied."; return FALSE; }
+    if (!ActionDocumentLoadGlobals(&actions, rom, why))
+    { ActionDocumentFree(&actions); return FALSE; }
+    if (!actions.globalsloaded)
+    {
+        ActionDocumentFree(&actions);
+        /* Older base ROMs remain editable, using conservative allocation.
+         * Never retain a reference catalog from a different base ROM. */
+        if (setup->globalrefs && !--setup->globalrefs->owners) { free(setup->globalrefs); }
+        setup->globalrefs = NULL;
+        *why = "";
+        return TRUE;
+    }
+    refs = calloc(1, sizeof(*refs));
+    if (!refs) { ActionDocumentFree(&actions); *why = "Out of memory indexing shared scripts."; return FALSE; }
+    refs->owners = 1;
+    for (DWORD b = 0; b < actions.count; b++) for (DWORD i = 0; i < actions.blocks[b].count; i++)
+    {
+        const ActionInstruction *ins = &actions.blocks[b].instructions[i];
+        const ActionOpcode *op = &g_ActionOpcodes[ins->bytes[0]];
+        for (DWORD p = 0; p < op->paramcount; p++)
+        {
+            DWORD v = ActionReadValue(ins, p);
+            if (v < 65536)
+            {
+                if (ActionParameterIsPad(ins, p) && v != 9000) { refs->values[v] |= 1; }
+                if (SetupActionParameterIsCharacter(ins, p)) { refs->values[v] |= 2; }
+            }
+        }
+    }
+    ActionDocumentFree(&actions);
+    if (setup->globalrefs && !--setup->globalrefs->owners) { free(setup->globalrefs); }
+    setup->globalrefs = refs;
+    *why = "";
+    return TRUE;
+}
+
+/* Ignore exactly one placement field, never the owner's other references
+ * (for example a CCTV aim pad). This also covers native cameras and spawns. */
+static BOOL SetupPadUnusedExcept(const SetupFile *setup, const SetupPadRef *ref,
+                                 const RomFile *rom, DWORD ignoredfield, const char **why)
 {
     DWORD at, i;
     ActionDocument actions = {0};
@@ -1007,7 +1106,7 @@ static BOOL SetupPadUnused(const SetupFile *setup, const SetupPadRef *ref,
     {
         const SetupObject *object = &setup->objects[i];
         if (object->deleted) { continue; }
-        if (object->pad >= 0 && (object->type == PROPDEF_DOOR
+        if (object->sourceoffset + 6 != ignoredfield && object->pad >= 0 && (object->type == PROPDEF_DOOR
             || !(object->flags & (PROPFLAG_INSIDEANOTHEROBJ | PROPFLAG_ASSIGNEDTOCHR))))
         {
             if (object->type == PROPDEF_DOOR
@@ -1025,7 +1124,16 @@ static BOOL SetupPadUnused(const SetupFile *setup, const SetupPadRef *ref,
     *why = "This pad is used by a character.";
     for (i = 0; !ref->bound && i < setup->charactercount; i++)
     {
-        if (!setup->characters[i].deleted && setup->characters[i].pad == ref->index) { return FALSE; }
+        if (!setup->characters[i].deleted && setup->characters[i].sourceoffset + 6 != ignoredfield
+            && setup->characters[i].pad == ref->index) { return FALSE; }
+    }
+    for (i = 0; i < setup->charactercount; i++)
+    {
+        const SetupCharacter *chr = &setup->characters[i];
+        if (chr->deleted) { continue; }
+        if (chr->sourceoffset > setup->size || setup->size - chr->sourceoffset < 28) { goto malformed; }
+        if (SetupPadMatches(ref, (unsigned short)SetupRead16(setup->data + chr->sourceoffset + 12)))
+        { *why = "This pad is a character's preset destination."; return FALSE; }
     }
 
     /* Every waypoint matters, even if it is not in a displayed patrol path:
@@ -1049,9 +1157,9 @@ static BOOL SetupPadUnused(const SetupFile *setup, const SetupPadRef *ref,
         bytes = SetupIntroWordCount(type) * 4;
         if (!bytes || bytes > setup->size - at) { goto malformed; }
         if (type == 9) { break; }
-        if ((type == 0 && !ref->bound && SetupRead32(setup->data + at + 4) == ref->index)
+        if ((type == 0 && at + 4 != ignoredfield && !ref->bound && SetupRead32(setup->data + at + 4) == ref->index)
             || (type == 3 && SetupPadMatches(ref, SetupRead32(setup->data + at + 28)))
-            || (type == 6 && SetupPadMatches(ref, SetupRead32(setup->data + at + 24))))
+            || (type == 6 && at + 24 != ignoredfield && SetupPadMatches(ref, SetupRead32(setup->data + at + 24))))
         { *why = "This pad is used by a spawn or intro camera."; return FALSE; }
         at += bytes;
     }
@@ -1069,14 +1177,23 @@ static BOOL SetupPadUnused(const SetupFile *setup, const SetupPadRef *ref,
         if (type == PROPDEF_OBJECTIVE_ENTER_ROOM) { field = 4; }
         if (type == PROPDEF_OBJECTIVE_DEPOSIT_OBJECT_IN_ROOM) { field = 8; }
         if (type == PROPDEF_CAMERAPOS && header != SETUP_DELETED_CHARACTER_HEADER) { field = 24; }
-        if (field && SetupPadMatches(ref, SetupRead32(setup->data + at + field)))
+        if (field && at + field != ignoredfield && SetupPadMatches(ref, SetupRead32(setup->data + at + field)))
         { *why = "This pad is used by an objective or outro camera."; return FALSE; }
         at += bytes;
     }
 
     if (!ActionDocumentLoad(setup, &actions, why)) { return FALSE; }
-    if (!rom) { *why = "Cannot verify shared Action Blocks without the project base ROM."; goto done; }
-    if (!ActionDocumentLoadGlobals(&actions, rom, why)) { goto done; }
+    if (rom)
+    {
+        if (!ActionDocumentLoadGlobals(&actions, rom, why)) { goto done; }
+    }
+    else if (setup->globalrefs)
+    {
+        DWORD value = ref->index + (ref->bound ? 10000 : 0);
+        if (value < 65536 && (setup->globalrefs->values[value] & 1))
+        { *why = "This pad is referenced by a shared Action Block."; goto done; }
+        actions.globalsloaded = TRUE;
+    }
     if (!actions.globalsloaded)
     {
         *why = "Cannot verify pad usage: the project base ROM has no shared Action Block catalog. Rebase the project onto a current GUD ROM.";
@@ -1110,6 +1227,32 @@ done:
 malformed:
     *why = "Cannot verify pad usage because a setup reference table is malformed.";
     return FALSE;
+}
+
+static BOOL SetupPadUnused(const SetupFile *setup, const SetupPadRef *ref,
+                           const RomFile *rom, const char **why)
+{
+    return SetupPadUnusedExcept(setup, ref, rom, (DWORD)-1, why);
+}
+
+/* Recycle only explicit deletions and editor-owned placement pads. An
+ * unreferenced authored standalone pad still belongs to the user. */
+static DWORD SetupFindFreePad(const SetupFile *setup, BOOL bound, DWORD skip)
+{
+    DWORD count = bound ? setup->boundpadcount : setup->padcount;
+    DWORD table = SetupRead32(setup->data + (bound ? SETUP_BOUNDPAD_POINTER : SETUP_PAD_POINTER));
+    DWORD stride = bound ? SETUP_BOUNDPAD_SIZE : SETUP_PAD_SIZE;
+    const char *why;
+    if (!setup->globalrefs || table > setup->size || count > (setup->size - table) / stride)
+    { return count + (skip == count); }
+    for (DWORD i = 0; i < count; i++) if (i != skip)
+    {
+        DWORD marker = SetupRead32(setup->data + table + i * stride + 40);
+        SetupPadRef ref = {i, bound};
+        if ((marker == SETUP_DELETED_PAD_STAN || marker == SETUP_PRIVATE_PAD_STAN)
+            && SetupPadUnused(setup, &ref, NULL, &why)) { return i; }
+    }
+    return count + (skip == count);
 }
 
 BOOL SetupFileDeletePad(SetupFile *setup, const SetupPadRef *ref,
@@ -1250,9 +1393,115 @@ static BOOL SetupParsePads(SetupFile *setup, const char **reasonout)
     return TRUE;
 }
 
-/* Copy the command stream before appending: growing it in place would overwrite
-   another setup section. Internal links are file-relative offsets or command
-   indices, so retaining the old data and command order preserves both. */
+/* A tombstone can be reused without renumbering any command. Protect all
+ * native command-relative references, including tags used by AI/objectives.
+ * Unrecognized command types disable recycling rather than guessing. */
+static BOOL SetupCommandReferenced(const SetupFile *s, DWORD target)
+{
+    DWORD start = SetupRead32(s->data + SETUP_OBJECT_POINTER), at = start, wanted = 0;
+    while (at < target)
+    {
+        if (at > s->size - 4) { return TRUE; }
+        DWORD bytes = SetupObjectWordCount(s->data[at + 3]) * 4;
+        if (bytes > s->size - at || s->data[at + 3] == SETUP_PROP_END) { return TRUE; }
+        at += bytes; wanted++;
+    }
+    if (at != target) { return TRUE; }
+    for (DWORD index = 0, at = start; at; index++)
+    {
+        DWORD type, bytes, fields = 0;
+        if (at > s->size - 4) { return TRUE; }
+        type = s->data[at + 3]; bytes = SetupObjectWordCount((unsigned char)type) * 4;
+        if (bytes > s->size - at) { return TRUE; }
+        if (type == SETUP_PROP_END) { return FALSE; }
+        if (type > SETUP_PROP_END || type == 0 || type == 15 || type == 16 || type == 41) { return TRUE; }
+        if (type == PROPDEF_LINK || type == PROPDEF_SWITCH || type == PROPDEF_LOCK_DOOR) { fields = 2; }
+        if (type == PROPDEF_SAFE_ITEM) { fields = 3; }
+        if (type == PROPDEF_RENAME) { fields = 1; }
+        for (DWORD j = 0; j < fields; j++)
+        { if ((long long)index + (LONG)SetupRead32(s->data + at + 4 + j * 4) == wanted) { return TRUE; } }
+        if (type == PROPDEF_TAG && (long long)index + SetupRead16(s->data + at + 6) == wanted) { return TRUE; }
+        if (type == PROPDEF_DOOR || type == PROPDEF_MONITOR)
+        {
+            LONG offset = (LONG)SetupRead32(s->data + at + (type == PROPDEF_DOOR ? 128 : 244));
+            if (offset && (long long)index + offset == wanted) { return TRUE; }
+        }
+        if (SetupTypeCreatesObject((unsigned char)type)
+            && (SetupRead32(s->data + at + 8) & PROPFLAG_INSIDEANOTHEROBJ)
+            && (long long)index + SetupRead16(s->data + at + 6) == wanted) { return TRUE; }
+        at += bytes;
+    }
+    return TRUE;
+}
+
+static BOOL SetupCharacterReferenced(const SetupFile *s, DWORD id)
+{
+    ActionDocument actions = {0};
+    const char *why;
+    BOOL used = TRUE;
+    /* Special AI IDs and runtime-spawned/clone ranges are never recycled. */
+    if (id >= 5000 || (id >= 248 && id <= 255) || !s->globalrefs
+        || (s->globalrefs->values[id] & 2)
+        || (s->globalrefs->values[id + 10000] & 2)) { return TRUE; }
+    for (DWORD i = 0; i < s->objectcount; i++)
+    {
+        const SetupObject *obj = &s->objects[i];
+        if (!obj->deleted && (obj->flags & PROPFLAG_ASSIGNEDTOCHR)
+            && ((unsigned short)obj->pad == id || (unsigned short)obj->pad == id + 10000)) { return TRUE; }
+    }
+    for (DWORD at = SetupRead32(s->data + SETUP_OBJECT_POINTER); at;)
+    {
+        if (at > s->size - 4) { return TRUE; }
+        DWORD type = s->data[at + 3], bytes = SetupObjectWordCount((unsigned char)type) * 4;
+        if (bytes > s->size - at) { return TRUE; }
+        if (type == SETUP_PROP_END) { break; }
+        if (type == PROPDEF_GUARD_ATTRIBUTE || type == PROPDEF_GUARD)
+        {
+            DWORD value = type == PROPDEF_GUARD_ATTRIBUTE ? SetupRead32(s->data + at + 4)
+                : (unsigned short)SetupRead16(s->data + at + 14);
+            if (value == id || value == id + 10000) { return TRUE; }
+        }
+        at += bytes;
+    }
+    if (!ActionDocumentLoad(s, &actions, &why)) { return TRUE; }
+    for (DWORD b = 0; b < actions.count; b++) for (DWORD i = 0; i < actions.blocks[b].count; i++)
+    {
+        const ActionInstruction *ins = &actions.blocks[b].instructions[i];
+        const ActionOpcode *op = &g_ActionOpcodes[ins->bytes[0]];
+        for (DWORD p = 0; p < op->paramcount; p++)
+        {
+            DWORD value = ActionReadValue(ins, p);
+            if (SetupActionParameterIsCharacter(ins, p) && (value == id || value == id + 10000)) { goto done; }
+        }
+    }
+    used = FALSE;
+done:
+    ActionDocumentFree(&actions); return used;
+}
+
+static DWORD SetupFindFreeCommand(const SetupFile *s, unsigned char type, DWORD *chrnum)
+{
+    if (type == PROPDEF_GUARD)
+    {
+        for (DWORD i = 0; i < s->charactercount; i++)
+        {
+            const SetupCharacter *chr = &s->characters[i];
+            if (chr->deleted && !SetupCommandReferenced(s, chr->sourceoffset)
+                && !SetupCharacterReferenced(s, chr->chrnum))
+            { *chrnum = chr->chrnum; return chr->sourceoffset; }
+        }
+    }
+    else for (DWORD i = 0; i < s->objectcount; i++)
+    {
+        const SetupObject *obj = &s->objects[i];
+        if (obj->deleted && obj->type == type && !SetupCommandReferenced(s, obj->sourceoffset))
+        { return obj->sourceoffset; }
+    }
+    return 0;
+}
+
+/* Copy the command stream before extending it: growing it in place could
+ * overwrite another section. Commit discards the abandoned table copies. */
 static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid, float levelscale,
                               const double position[3], const SetupBoundPad *bound,
                               const SetupPad *orientation,
@@ -1267,7 +1516,7 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
     DWORD padsize = bound ? SETUP_BOUNDPAD_SIZE : SETUP_PAD_SIZE;
     DWORD padcount = setup ? (bound ? setup->boundpadcount : setup->padcount) : 0;
     DWORD recordsize = SetupObjectWordCount(type) * 4;
-    DWORD newpadcount = aimed ? 2 : 1;
+    DWORD padindex, aimindex, padtotal, reused;
     float authored[3], target[3];
 
     if (setup == NULL || setup->data == NULL || setup->size < SETUP_HEADER_SIZE ||
@@ -1278,11 +1527,17 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
         *reasonout = "The setup, model or level scale is invalid.";
         return FALSE;
     }
+    reused = SetupFindFreeCommand(setup, type, &chrnum);
+    padindex = SetupFindFreePad(setup, bound != NULL, (DWORD)-1);
+    aimindex = aimed ? SetupFindFreePad(setup, FALSE, padindex) : padindex;
+    padtotal = padcount;
+    if (padindex >= padtotal) { padtotal = padindex + 1; }
+    if (aimindex >= padtotal) { padtotal = aimindex + 1; }
     /* Ordinary props reserve pad numbers 10000 and above for bound pads.
        Characters can address the entire unsigned 16-bit normal-pad range. */
     /* Door indices omit +10000; other bound props must leave room for it
        within the signed 16-bit pad field. */
-    if (padcount > (door ? 32768u : bound ? 22768u : character ? SETUP_PAD_MAX : 10000u) - newpadcount)
+    if (padtotal > (door ? 32768u : bound ? 22768u : character ? SETUP_PAD_MAX : 10000u))
     {
         *reasonout = "There are no more pad indices available for this model.";
         return FALSE;
@@ -1312,7 +1567,7 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
     if (aimed && target[0] == authored[0]
         && target[1] == authored[1] && target[2] == authored[2])
     { *reasonout = "The level scale cannot represent a separate look-at pad."; return FALSE; }
-    if (character)
+    if (character && !reused)
     {
         /* Append IDs after authored characters instead of filling holes that
            level scripts may intentionally reference. 248..255 are special AI
@@ -1355,7 +1610,7 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
             {
                 break;
             }
-            if (++commandcount >= SETUP_OBJECT_MAX - 1)
+            if (++commandcount >= SETUP_OBJECT_MAX - (reused ? 0u : 1u))
             {
                 *reasonout = "The setup command limit has been reached.";
                 return FALSE;
@@ -1377,10 +1632,10 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
     }
 
     newcommands = (setup->size + 3u) & ~3u;
-    newrecord = newcommands + commandsize;
-    newpads = newrecord + recordsize + 4;
-    newpad = newpads + padcount * padsize;
-    added.size = newpad + (newpadcount + 1) * padsize;
+    newrecord = newcommands + (reused ? reused - oldcommands : commandsize);
+    newpads = newcommands + commandsize + (reused ? 0 : recordsize) + 4;
+    newpad = newpads + padindex * padsize;
+    added.size = newpads + (padtotal + 1) * padsize;
     if (added.size > SETUP_FILE_MAX)
     {
         *reasonout = "Adding this model would exceed the setup size limit.";
@@ -1398,7 +1653,10 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
     memcpy(added.data + newpads, setup->data + oldpads, padcount * padsize);
     SetupWrite32(added.data + SETUP_OBJECT_POINTER, newcommands);
     SetupWrite32(added.data + padheader, newpads);
-    SetupWrite32(added.data + newrecord + recordsize, SETUP_PROP_END);
+    SetupWrite32(added.data + newpads - 4, SETUP_PROP_END);
+    memset(added.data + newrecord, 0, recordsize);
+    memset(added.data + newpad, 0, padsize);
+    SetupWrite32(added.data + newpad + 40, SETUP_PRIVATE_PAD_STAN);
     for (i = 0; i < 3; i++)
     {
         union
@@ -1413,7 +1671,7 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
     SetupWrite32(added.data + newpad + 32, 0x3f800000u); /* look = +Z */
     /* Non-null pointer to an empty plink string; the game resolves the stan
        at the new position. The pad after all additions is the null terminator. */
-    SetupWrite32(added.data + newpad + SETUP_PAD_LINK, newpad + newpadcount * padsize + SETUP_PAD_LINK);
+    SetupWrite32(added.data + newpad + SETUP_PAD_LINK, newpads + padtotal * padsize + SETUP_PAD_LINK);
 
     if (orientation)
     {
@@ -1426,7 +1684,9 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
     }
     if (aimed)
     {
-        DWORD aim = newpad + padsize;
+        DWORD aim = newpads + aimindex * padsize;
+        memset(added.data + aim, 0, padsize);
+        SetupWrite32(added.data + aim + 40, SETUP_PRIVATE_PAD_STAN);
         for (i = 0; i < 3; i++)
         {
             union { float f; DWORD u; } value;
@@ -1434,7 +1694,7 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
         }
         SetupWrite32(added.data + aim + 16, 0x3f800000u);
         SetupWrite32(added.data + aim + 32, 0x3f800000u);
-        SetupWrite32(added.data + aim + SETUP_PAD_LINK, aim + padsize + SETUP_PAD_LINK);
+        SetupWrite32(added.data + aim + SETUP_PAD_LINK, newpads + padtotal * padsize + SETUP_PAD_LINK);
     }
 
     if (bound)
@@ -1456,7 +1716,7 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
     if (door)
     {
         SetupWrite32(added.data + newrecord, (256u << 16) | PROPDEF_DOOR);
-        SetupWrite32(added.data + newrecord + 4, ((DWORD)modelid << 16) | padcount);
+        SetupWrite32(added.data + newrecord + 4, ((DWORD)modelid << 16) | padindex);
         /* Register both adjacent rooms where possible, but don't close an
          * existing visibility portal merely because a new door is nearby. */
         SetupWrite32(added.data + newrecord + 8, PROPFLAG_FORCE_COLLISIONS | PROPFLAG_NO_PORTAL_CLOSE);
@@ -1475,7 +1735,7 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
     else if (character)
     {
         SetupWrite32(added.data + newrecord, type);
-        SetupWrite32(added.data + newrecord + 4, (chrnum << 16) | setup->padcount);
+        SetupWrite32(added.data + newrecord + 4, (chrnum << 16) | padindex);
         /* GAILIST_DEAD_AI (1) yields forever. No weapons or patrol/mission
            behavior is implicitly assigned to a newly placed character. */
         SetupWrite32(added.data + newrecord + 8, ((DWORD)modelid << 16) | 1u);
@@ -1488,7 +1748,7 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
         /* Match stock armor and tank instance scales (unsigned 8.8). */
         DWORD extrascale = type == PROPDEF_ARMOUR ? 384u : type == PROPDEF_TANK ? 276u : 256u;
         SetupWrite32(added.data + newrecord, (extrascale << 16) | type);
-        SetupWrite32(added.data + newrecord + 4, ((DWORD)modelid << 16) | (padcount + (bound ? 10000u : 0u)));
+        SetupWrite32(added.data + newrecord + 4, ((DWORD)modelid << 16) | (padindex + (bound ? 10000u : 0u)));
         if (type == PROPDEF_ARMOUR)
         {
             /* Armor is collectible by type; don't turn it into an obstacle
@@ -1550,7 +1810,7 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
             /* Native 59-word CCTVRecord. setupCctv converts these signed
              * turn fractions; never write runtime floats/conversion state.
              * Sweep +/-45 degrees, about 30 degrees/sec, unlimited range. */
-            SetupWrite32(added.data + newrecord + 0x80, padcount + 1);
+            SetupWrite32(added.data + newrecord + 0x80, aimindex);
             SetupWrite32(added.data + newrecord + 0xcc, 8192);
             SetupWrite32(added.data + newrecord + 0xd0, (DWORD)-8192);
             SetupWrite32(added.data + newrecord + 0xdc, 91);
@@ -1559,7 +1819,7 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
         {
             /* Native 54-word AutogunRecord. setupAutogun converts signed
              * 16.16 turns/metres; all runtime caches/pointers stay zero. */
-            SetupWrite32(added.data + newrecord + 0x80, padcount + 1);
+            SetupWrite32(added.data + newrecord + 0x80, aimindex);
             SetupWrite32(added.data + newrecord + 0x88, 32768); /* +180 degrees */
             SetupWrite32(added.data + newrecord + 0x8c, (DWORD)-32768);
             SetupWrite32(added.data + newrecord + 0xa4, 0x111); /* Stock Control tracking speed. */
@@ -1571,10 +1831,15 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
         SetupFileFree(&added);
         return FALSE;
     }
-    *selectionout =
-        character ? (SETUP_CHARACTER_SELECTION_BIT | setup->charactercount) : setup->objectcount;
+    *selectionout = (DWORD)-1;
+    for (i = 0; i < (character ? added.charactercount : added.objectcount); i++)
+    {
+        DWORD at = character ? added.characters[i].sourceoffset : added.objects[i].sourceoffset;
+        if (at == newrecord) { *selectionout = i | (character ? SETUP_CHARACTER_SELECTION_BIT : 0); break; }
+    }
     added.dirty = TRUE;
     added.actionmeta = setup->actionmeta; added.actionmetasize = setup->actionmetasize;
+    added.globalrefs = setup->globalrefs; setup->globalrefs = NULL;
     setup->actionmeta = NULL;
     SetupFileFree(setup);
     *setup = added;
@@ -1733,6 +1998,7 @@ static BOOL SetupEditSpawns(SetupFile *setup, const SetupMarkerRef *remove,
     SetupFile edited = {0};
     DWORD intro, at, end, command, count = 0, first = 0, firstcommand = 0;
     DWORD oldpads, newintro, write, written = 0, selected = 0, newpads, newpad;
+    DWORD padindex = 0, padtotal;
     BOOL placing = position != NULL, multiplayer, found = FALSE, placed = FALSE;
     float native[3], look[3] = {0, 0, 1};
     *reasonout = "The setup's spawn records are invalid.";
@@ -1774,7 +2040,7 @@ static BOOL SetupEditSpawns(SetupFile *setup, const SetupMarkerRef *remove,
          * starts loaded for a multiplayer setup. Never overflow that array. */
         if (multiplayer && count >= 16)
         { *reasonout = "The game supports at most 16 multiplayer spawn points."; return FALSE; }
-        if (command >= SETUP_OBJECT_MAX - 1 || setup->padcount >= SETUP_PAD_MAX)
+        if (command >= SETUP_OBJECT_MAX - 1)
         { *reasonout = "The setup has no room for another spawn point."; return FALSE; }
         for (int axis = 0; axis < 3; axis++)
         {
@@ -1794,8 +2060,18 @@ static BOOL SetupEditSpawns(SetupFile *setup, const SetupMarkerRef *remove,
     oldpads = SetupRead32(setup->data + SETUP_PAD_POINTER);
     if (placing && (oldpads < SETUP_HEADER_SIZE || oldpads > setup->size
         || setup->padcount + 1 > (setup->size - oldpads) / SETUP_PAD_SIZE)) { return FALSE; }
+    padtotal = setup->padcount;
+    if (placing)
+    {
+        const char *unused;
+        SetupPadRef ref = {count ? SetupRead32(setup->data + first + 4) : SETUP_PAD_INDEX_NONE, FALSE};
+        padindex = !multiplayer && count && SetupPadUnusedExcept(setup, &ref, NULL, first + 4, &unused)
+            ? ref.index : SetupFindFreePad(setup, FALSE, (DWORD)-1);
+        if (padindex >= padtotal) { padtotal = padindex + 1; }
+        if (padtotal > SETUP_PAD_MAX) { *reasonout = "The setup has no room for another spawn pad."; return FALSE; }
+    }
     newintro = (setup->size + 3u) & ~3u;
-    edited.size = newintro + (end - intro) + 4 + (placing ? 12 + (setup->padcount + 2) * SETUP_PAD_SIZE : 0);
+    edited.size = newintro + (end - intro) + 4 + (placing ? 12 + (padtotal + 1) * SETUP_PAD_SIZE : 0);
     if (edited.size > SETUP_FILE_MAX)
     { *reasonout = "The spawn edit would exceed the setup size limit."; return FALSE; }
     edited.data = calloc(edited.size, 1);
@@ -1815,7 +2091,7 @@ static BOOL SetupEditSpawns(SetupFile *setup, const SetupMarkerRef *remove,
             memcpy(edited.data + write, setup->data + at, bytes);
             if (normal && placing && !multiplayer)
             {
-                SetupWrite32(edited.data + write + 4, setup->padcount);
+                SetupWrite32(edited.data + write + 4, padindex);
                 selected = written; placed = TRUE;
             }
             if (type == 3 && placing && !multiplayer)
@@ -1832,7 +2108,7 @@ static BOOL SetupEditSpawns(SetupFile *setup, const SetupMarkerRef *remove,
     if (placing && !placed)
     {
         SetupWrite32(edited.data + write, 0);
-        SetupWrite32(edited.data + write + 4, setup->padcount);
+        SetupWrite32(edited.data + write + 4, padindex);
         selected = written;
         write += 12;
     }
@@ -1842,9 +2118,11 @@ static BOOL SetupEditSpawns(SetupFile *setup, const SetupMarkerRef *remove,
     if (placing)
     {
         newpads = edited.size;
-        newpad = newpads + setup->padcount * SETUP_PAD_SIZE;
+        newpad = newpads + padindex * SETUP_PAD_SIZE;
         memcpy(edited.data + newpads, setup->data + oldpads, setup->padcount * SETUP_PAD_SIZE);
         SetupWrite32(edited.data + SETUP_PAD_POINTER, newpads);
+        memset(edited.data + newpad, 0, SETUP_PAD_SIZE);
+        SetupWrite32(edited.data + newpad + 40, SETUP_PRIVATE_PAD_STAN);
         for (int axis = 0; axis < 3; axis++)
         {
             union { float f; DWORD u; } value;
@@ -1852,13 +2130,14 @@ static BOOL SetupEditSpawns(SetupFile *setup, const SetupMarkerRef *remove,
             value.f = look[axis]; SetupWrite32(edited.data + newpad + 24 + axis * 4, value.u);
         }
         SetupWrite32(edited.data + newpad + 16, 0x3f800000u); /* up = +Y */
-        SetupWrite32(edited.data + newpad + SETUP_PAD_LINK, newpad + SETUP_PAD_SIZE + SETUP_PAD_LINK);
-        edited.size = newpad + 2 * SETUP_PAD_SIZE;
+        SetupWrite32(edited.data + newpad + SETUP_PAD_LINK, newpads + padtotal * SETUP_PAD_SIZE + SETUP_PAD_LINK);
+        edited.size = newpads + (padtotal + 1) * SETUP_PAD_SIZE;
     }
     if (!SetupParsePads(&edited, reasonout) || !SetupParseObjects(&edited, reasonout))
     { SetupFileFree(&edited); return FALSE; }
     edited.dirty = TRUE;
     edited.actionmeta = setup->actionmeta; edited.actionmetasize = setup->actionmetasize;
+    edited.globalrefs = setup->globalrefs; setup->globalrefs = NULL;
     setup->actionmeta = NULL;
     SetupFileFree(setup); *setup = edited;
     if (placing) { out->kind = SETUP_MARKER_SPAWN; out->command = selected; }
@@ -2131,7 +2410,8 @@ BOOL SetupLoadProjectFile(const char *projectdir, const char *setupname,
         out->size = native;
     }
 
-    if (!SetupParsePads(out, reasonout)
+    if (!SetupFileCompact(out, reasonout)
+        || !SetupParsePads(out, reasonout)
         || !SetupParseObjects(out, reasonout))
     {
         SetupFileFree(out);
@@ -2148,6 +2428,8 @@ BOOL SetupSaveProjectFile(const char *projectdir, const SetupFile *setup,
 {
     char path[MAX_PATH], temporary[MAX_PATH];
     unsigned char footer[SETUP_META_FOOTER];
+    unsigned char *packed;
+    DWORD packedsize;
     HANDLE file;
     DWORD written;
     BOOL ok;
@@ -2157,14 +2439,16 @@ BOOL SetupSaveProjectFile(const char *projectdir, const SetupFile *setup,
         || !SetupProjectPath(path, sizeof(path), projectdir, setup->name)
         || snprintf(temporary, sizeof(temporary), "%s.tmp", path) >= (int)sizeof(temporary))
     { *reasonout = "there is no valid setup loaded to save."; return FALSE; }
+    if (!SetupCompactNative(setup->data, setup->size, &packed, &packedsize, reasonout)) { return FALSE; }
     file = CreateFile(temporary, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (file == INVALID_HANDLE_VALUE)
-    { *reasonout = "the temporary setup file could not be opened for writing."; return FALSE; }
-    ok = WriteFile(file, setup->data, setup->size, &written, NULL) && written == setup->size;
+    { free(packed); *reasonout = "the temporary setup file could not be opened for writing."; return FALSE; }
+    ok = WriteFile(file, packed, packedsize, &written, NULL) && written == packedsize;
+    free(packed);
     if (ok && setup->actionmetasize)
     {
         memcpy(footer, SETUP_META_MAGIC, 8);
-        SetupMetaWrite32(footer + 8, setup->size);
+        SetupMetaWrite32(footer + 8, packedsize);
         SetupMetaWrite32(footer + 12, setup->actionmetasize);
         ok = WriteFile(file, setup->actionmeta, setup->actionmetasize, &written, NULL)
           && written == setup->actionmetasize;
@@ -2274,6 +2558,8 @@ BOOL SetupFileClone(const SetupFile *source, SetupFile *out,
     out->objectcount = source->objectcount;
     out->charactercount = source->charactercount;
     out->dirty = source->dirty;
+    out->globalrefs = source->globalrefs;
+    if (out->globalrefs) { out->globalrefs->owners++; }
     lstrcpyn(out->name, source->name, sizeof(out->name));
     return TRUE;
 }
@@ -2427,9 +2713,8 @@ BOOL SetupFileTranslatePad(SetupFile *setup, const SetupPadRef *ref,
     return TRUE;
 }
 
-/* Give an explicitly moved model its own pad. Appending a replacement pad
- * table keeps every existing setup command index and embedded pointer valid.
- * An editor-created final pad/table can be reused on subsequent drags. */
+/* Reuse a model's pad if no other consumer refers to it; otherwise detach
+ * its placement first. Physical table order is unrelated to pad ownership. */
 BOOL SetupFileTranslateModel(SetupFile *setup, DWORD selection,
                               float levelscale, const double offset[3],
                               const char **reasonout)
@@ -2437,7 +2722,7 @@ BOOL SetupFileTranslateModel(SetupFile *setup, DWORD selection,
     SetupObject *object = NULL;
     SetupCharacter *character = NULL;
     SetupPad *pad;
-    DWORD header, stride, count, table, index, record, end, i;
+    DWORD header, stride, count, table, index, record, end;
     DWORD owner = selection & ~SETUP_CHARACTER_SELECTION_BIT;
     DWORD sourceoffset, maxindex;
     BOOL bound, door, reuse;
@@ -2488,58 +2773,47 @@ BOOL SetupFileTranslateModel(SetupFile *setup, DWORD selection,
         }
         position[axis] = (float)value;
     }
-    /* The private pad's empty plink points at its own terminator's null
-       link. This both identifies our tail table and requests the game's
-       nearest-stan lookup at the new location, rather than a stale link. */
-    reuse = index == count - 1 && end + stride == setup->size
-         && SetupRead32(setup->data + record + SETUP_PAD_LINK) == end + SETUP_PAD_LINK;
-    for (i = 0; reuse && i < setup->objectcount; i++)
+    /* Ownership follows references, not the pad's physical byte position. */
     {
-        const SetupObject *other = &setup->objects[i];
-        BOOL otherbound = other->type == PROPDEF_DOOR || other->pad >= 10000;
-        int otherindex = other->pad - (otherbound && other->type != PROPDEF_DOOR ? 10000 : 0);
-        if ((character != NULL || i != owner)
-            && otherbound == bound && otherindex == (int)index) { reuse = FALSE; }
-    }
-    for (i = 0; reuse && !bound && i < setup->charactercount; i++)
-    {
-        if ((character == NULL || i != owner)
-            && setup->characters[i].pad == index) { reuse = FALSE; }
+        SetupPadRef ref = {index, bound};
+        reuse = SetupPadUnusedExcept(setup, &ref, NULL, sourceoffset + 6, reasonout);
     }
     if (!reuse)
     {
+        DWORD newindex = SetupFindFreePad(setup, bound, index);
+        DWORD newcount = newindex < count ? count : newindex + 1;
         DWORD newtable = (setup->size + 3) & ~3u;
-        DWORD newsize = newtable + (count + 2) * stride;
+        DWORD newsize = newtable + (newcount + 1) * stride;
         unsigned char *data;
         void *pads;
-        DWORD encoded = count + (bound && !door ? 10000 : 0);
-        if (count > maxindex || newsize > SETUP_FILE_MAX)
+        DWORD encoded = newindex + (bound && !door ? 10000 : 0);
+        if (newindex > maxindex || newsize > SETUP_FILE_MAX)
         {
             *reasonout = "The setup has no room for another placement pad.";
             return FALSE;
         }
         data = calloc(newsize, 1);
-        pads = malloc((size_t)(count + 1) * (bound ? sizeof(SetupBoundPad) : sizeof(SetupPad)));
+        pads = malloc((size_t)newcount * (bound ? sizeof(SetupBoundPad) : sizeof(SetupPad)));
         if (data == NULL || pads == NULL)
         {
             free(data); free(pads); *reasonout = "Out of memory copying the model's pad."; return FALSE;
         }
         memcpy(data, setup->data, setup->size);
         memcpy(data + newtable, setup->data + table, (size_t)count * stride);
-        memcpy(data + newtable + count * stride, setup->data + record, stride);
+        memcpy(data + newtable + newindex * stride, setup->data + record, stride);
         if (bound)
         {
             SetupBoundPad *list = pads;
             memcpy(list, setup->boundpads, (size_t)count * sizeof(*list));
-            list[count] = setup->boundpads[index];
-            free(setup->boundpads); setup->boundpads = list; setup->boundpadcount++;
+            list[newindex] = setup->boundpads[index];
+            free(setup->boundpads); setup->boundpads = list; setup->boundpadcount = newcount;
         }
         else
         {
             SetupPad *list = pads;
             memcpy(list, setup->pads, (size_t)count * sizeof(*list));
-            list[count] = setup->pads[index];
-            free(setup->pads); setup->pads = list; setup->padcount++;
+            list[newindex] = setup->pads[index];
+            free(setup->pads); setup->pads = list; setup->padcount = newcount;
         }
         free(setup->data); setup->data = data; setup->size = newsize;
         SetupWrite32(data + header, newtable);
@@ -2547,12 +2821,15 @@ BOOL SetupFileTranslateModel(SetupFile *setup, DWORD selection,
         else { object->pad = (short)encoded; }
         data[sourceoffset + 6] = (unsigned char)(encoded >> 8);
         data[sourceoffset + 7] = (unsigned char)encoded;
-        record = newtable + count * stride;
-        end = record + stride;
+        record = newtable + newindex * stride;
+        end = newtable + newcount * stride;
         SetupWrite32(data + record + SETUP_PAD_LINK, end + SETUP_PAD_LINK);
-        index = count;
+        SetupWrite32(data + record + 40, SETUP_PRIVATE_PAD_STAN);
+        index = newindex;
     }
     pad = bound ? &setup->boundpads[index].pad : &setup->pads[index];
+    SetupWrite32(setup->data + record + SETUP_PAD_LINK, end + SETUP_PAD_LINK);
+    pad->deleted = FALSE;
     pad->stanname[0] = '\0';
     for (axis = 0; axis < 3; axis++)
     {
@@ -2581,6 +2858,7 @@ BOOL SetupFileTranslateModel(SetupFile *setup, DWORD selection,
 
 void SetupFileFree(SetupFile *setup)
 {
+    if (setup->globalrefs && !--setup->globalrefs->owners) { free(setup->globalrefs); }
     free(setup->actionmeta);
     free(setup->characters);
     free(setup->objects);
@@ -2752,8 +3030,7 @@ static void SetupSwirlWorldPoint(const unsigned char *record, const SetupMarker 
 }
 
 /* A moved camera needs a pad at its new location for the game's room/stan
- * lookup. Never move a shared authored room pad. Reuse our private tail pad
- * on subsequent moves; a moved table preserves all other pad indices. */
+ * lookup. Detach shared pads and recycle unused private placement slots. */
 static BOOL SetupMoveCameraPad(SetupFile *setup, DWORD command, float levelscale,
                               const DWORD coordinates[3], const char **why)
 {
@@ -2761,7 +3038,7 @@ static BOOL SetupMoveCameraPad(SetupFile *setup, DWORD command, float levelscale
     DWORD old = SetupRead32(setup->data + command + 24), end, record, i;
     float pos[3];
     BOOL reuse;
-    if (table < SETUP_HEADER_SIZE || table > setup->size || count >= SETUP_PAD_MAX
+    if (table < SETUP_HEADER_SIZE || table > setup->size || count > SETUP_PAD_MAX
         || count + 1 > (setup->size - table) / SETUP_PAD_SIZE || (count && !setup->pads)) { return FALSE; }
     for (i = 0; i < 3; i++)
     {
@@ -2771,44 +3048,31 @@ static BOOL SetupMoveCameraPad(SetupFile *setup, DWORD command, float levelscale
     }
     end = table + count * SETUP_PAD_SIZE;
     record = old < count ? table + old * SETUP_PAD_SIZE : 0;
-    reuse = count && old == count - 1 && end + SETUP_PAD_SIZE == setup->size
-        && SetupRead32(setup->data + record + SETUP_PAD_LINK) == end + SETUP_PAD_LINK;
-    /* The marker owns this pad only if no other intro/prop command uses it. */
-    for (i = 0; reuse && i < 2; i++)
     {
-        DWORD at = SetupRead32(setup->data + 8 + i * 4), n;
-        if (!at) { continue; }
-        for (n = 0; n < SETUP_OBJECT_MAX; n++)
-        {
-            DWORD type, bytes, pad = (DWORD)-1;
-            if (at > setup->size || setup->size - at < 4) { reuse = FALSE; break; }
-            type = i ? setup->data[at + 3] : SetupRead32(setup->data + at);
-            if (type == (i ? SETUP_PROP_END : 9)) { break; }
-            bytes = (i ? SetupObjectWordCount((unsigned char)type) : SetupIntroWordCount(type)) * 4;
-            if (!bytes || bytes > setup->size - at) { reuse = FALSE; break; }
-            if ((!i && type == 6) || (i && type == PROPDEF_CAMERAPOS)) { pad = SetupRead32(setup->data + at + 24); }
-            if (!i && type == 0) { pad = SetupRead32(setup->data + at + 4); }
-            if (at != command && pad == old) { reuse = FALSE; break; }
-            at += bytes;
-        }
+        SetupPadRef ref = {old, FALSE};
+        reuse = old < count && SetupPadUnusedExcept(setup, &ref, NULL, command + 24, why);
     }
-    for (i = 0; reuse && i < setup->charactercount; i++) { if (setup->characters[i].pad == old) { reuse = FALSE; } }
-    for (i = 0; reuse && i < setup->objectcount; i++) { if (setup->objects[i].pad == (int)old) { reuse = FALSE; } }
     if (!reuse)
     {
-        DWORD newtable = (setup->size + 3u) & ~3u, newsize = newtable + (count + 2) * SETUP_PAD_SIZE;
+        DWORD newindex = SetupFindFreePad(setup, FALSE, old);
+        DWORD newcount = newindex < count ? count : newindex + 1;
+        DWORD newtable = (setup->size + 3u) & ~3u, newsize = newtable + (newcount + 1) * SETUP_PAD_SIZE;
         unsigned char *data;
         SetupPad *pads;
-        if (newsize > SETUP_FILE_MAX) { *why = "The setup has no room for another camera pad."; return FALSE; }
-        data = calloc(newsize, 1); pads = calloc(count + 1, sizeof(*pads));
+        if (newcount > SETUP_PAD_MAX || newsize > SETUP_FILE_MAX) { *why = "The setup has no room for another camera pad."; return FALSE; }
+        data = calloc(newsize, 1); pads = calloc(newcount, sizeof(*pads));
         if (!data || !pads) { free(data); free(pads); *why = "Out of memory moving the camera's room pad."; return FALSE; }
         memcpy(data, setup->data, setup->size);
         memcpy(data + newtable, setup->data + table, count * SETUP_PAD_SIZE);
         if (count) { memcpy(pads, setup->pads, count * sizeof(*pads)); }
         free(setup->data); free(setup->pads);
-        setup->data = data; setup->size = newsize; setup->pads = pads; setup->padcount = count + 1;
+        setup->data = data; setup->size = newsize; setup->pads = pads; setup->padcount = newcount;
         SetupWrite32(data + SETUP_PAD_POINTER, newtable);
-        old = count; record = newtable + count * SETUP_PAD_SIZE; end = record + SETUP_PAD_SIZE;
+        old = newindex; record = newtable + newindex * SETUP_PAD_SIZE;
+        end = newtable + newcount * SETUP_PAD_SIZE;
+        memset(data + record, 0, SETUP_PAD_SIZE);
+        memset(&pads[newindex], 0, sizeof(*pads));
+        SetupWrite32(data + record + 40, SETUP_PRIVATE_PAD_STAN);
         SetupWrite32(data + command + 24, old);
     }
     setup->pads[old].up[1] = 1; setup->pads[old].look[2] = 1; setup->pads[old].stanname[0] = 0;
@@ -3108,15 +3372,17 @@ static BOOL SetupAppendBoundPad(SetupFile *setup, const SetupPadRef *source, Set
                                 const char **reasonout)
 {
     DWORD count = setup->boundpadcount;
+    DWORD index = SetupFindFreePad(setup, TRUE, source->bound ? source->index : (DWORD)-1);
+    DWORD newcount = index < count ? count : index + 1;
     DWORD oldtable = SetupRead32(setup->data + SETUP_BOUNDPAD_POINTER);
     DWORD table = (setup->size + 3) & ~3u;
-    DWORD size = table + (count + 2) * SETUP_BOUNDPAD_SIZE;
+    DWORD size = table + (newcount + 1) * SETUP_BOUNDPAD_SIZE;
     DWORD sourcetable =
         SetupRead32(setup->data + (source->bound ? SETUP_BOUNDPAD_POINTER : SETUP_PAD_POINTER));
     DWORD stride = source->bound ? SETUP_BOUNDPAD_SIZE : SETUP_PAD_SIZE;
     unsigned char *data;
     SetupBoundPad *pads;
-    if (count > 22767 || size > SETUP_FILE_MAX || oldtable > setup->size ||
+    if (index > 22767 || size > SETUP_FILE_MAX || oldtable > setup->size ||
         count > (setup->size - oldtable) / SETUP_BOUNDPAD_SIZE ||
         source->index >= (source->bound ? count : setup->padcount) || sourcetable > setup->size ||
         source->index + 1 > (setup->size - sourcetable) / stride)
@@ -3125,7 +3391,7 @@ static BOOL SetupAppendBoundPad(SetupFile *setup, const SetupPadRef *source, Set
         return FALSE;
     }
     data = calloc(size, 1);
-    pads = calloc(count + 1, sizeof(*pads));
+    pads = calloc(newcount, sizeof(*pads));
     if (!data || !pads)
     {
         free(data);
@@ -3139,28 +3405,31 @@ static BOOL SetupAppendBoundPad(SetupFile *setup, const SetupPadRef *source, Set
         memcpy(data + table, setup->data + oldtable, count * SETUP_BOUNDPAD_SIZE);
         memcpy(pads, setup->boundpads, count * sizeof(*pads));
     }
-    memcpy(data + table + count * SETUP_BOUNDPAD_SIZE,
+    memset(data + table + index * SETUP_BOUNDPAD_SIZE, 0, SETUP_BOUNDPAD_SIZE);
+    memcpy(data + table + index * SETUP_BOUNDPAD_SIZE,
            setup->data + sourcetable + source->index * stride, stride);
     if (source->bound)
     {
-        pads[count] = setup->boundpads[source->index];
+        pads[index] = setup->boundpads[source->index];
     }
     else
     {
-        pads[count].pad = setup->pads[source->index];
+        pads[index].pad = setup->pads[source->index];
     }
     /* Empty stan link, with a non-null pointer so this remains a live record. */
-    SetupWrite32(data + table + count * SETUP_BOUNDPAD_SIZE + SETUP_PAD_LINK,
-                 table + (count + 1) * SETUP_BOUNDPAD_SIZE + SETUP_PAD_LINK);
-    pads[count].pad.stanname[0] = '\0';
+    SetupWrite32(data + table + index * SETUP_BOUNDPAD_SIZE + SETUP_PAD_LINK,
+                 table + newcount * SETUP_BOUNDPAD_SIZE + SETUP_PAD_LINK);
+    SetupWrite32(data + table + index * SETUP_BOUNDPAD_SIZE + 40, SETUP_PRIVATE_PAD_STAN);
+    pads[index].pad.deleted = FALSE;
+    pads[index].pad.stanname[0] = '\0';
     SetupWrite32(data + SETUP_BOUNDPAD_POINTER, table);
     free(setup->data);
     free(setup->boundpads);
     setup->data = data;
     setup->size = size;
     setup->boundpads = pads;
-    setup->boundpadcount = count + 1;
-    out->index = count;
+    setup->boundpadcount = newcount;
+    out->index = index;
     out->bound = TRUE;
     setup->dirty = TRUE;
     return TRUE;
