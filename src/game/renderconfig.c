@@ -17,10 +17,10 @@ static bool g_RenderAppliedViFilterEnabled = TRUE;
 #define RENDER_COMMAND_LIMIT 262144
 #define AA_FIRST_BLENDER_MASK 0xcccc0000u
 #define AA_OTHER_BITS_MASK (~AA_FIRST_BLENDER_MASK)
+#define AA_BLENDER_MASK 0xffff0000u
 #define AA_COMMAND_WORD 0xb900031du
 #define AA_TAG_MASK 0x00ff0000u
 #define AA_TAG_PRESENT 0x80
-#define AA_TAG_FIRST_BLENDER 0x20
 
 /* Only ordinary opaque surfaces are changed. Cutouts, particles, translucent
  * surfaces, and custom blender equations retain their authored render modes. */
@@ -28,8 +28,12 @@ static const u32 g_AaOpaqueModes[][2] = {
     {G_RM_AA_ZB_OPA_SURF | G_RM_AA_ZB_OPA_SURF2, G_RM_ZB_OPA_SURF | G_RM_ZB_OPA_SURF2},
     {G_RM_AA_ZB_OPA_TERR | G_RM_AA_ZB_OPA_TERR2, G_RM_ZB_OPA_SURF | G_RM_ZB_OPA_SURF2},
     {G_RM_AA_ZB_OPA_DECAL | G_RM_AA_ZB_OPA_DECAL2, G_RM_ZB_OPA_DECAL | G_RM_ZB_OPA_DECAL2},
-    {G_RM_AA_OPA_SURF | G_RM_AA_OPA_SURF2, G_RM_OPA_SURF | G_RM_OPA_SURF2},
-    {G_RM_AA_OPA_TERR | G_RM_AA_OPA_TERR2, G_RM_OPA_SURF | G_RM_OPA_SURF2}
+    /* Use the same unblended opaque flags without Z. G_RM_OPA_SURF uses
+     * FORCE_BL and a different mux, so it cannot retain the authored mux. */
+    {G_RM_AA_OPA_SURF | G_RM_AA_OPA_SURF2,
+        (G_RM_ZB_OPA_SURF | G_RM_ZB_OPA_SURF2) & ~(Z_CMP | Z_UPD)},
+    {G_RM_AA_OPA_TERR | G_RM_AA_OPA_TERR2,
+        (G_RM_ZB_OPA_SURF | G_RM_ZB_OPA_SURF2) & ~(Z_CMP | Z_UPD)}
 };
 
 static Gfx *g_RenderLeafCache[RENDER_LEAF_CACHE_SIZE];
@@ -119,10 +123,7 @@ static void renderRestoreAaCommand(Gfx *cmd)
     if ((cmd->words.w0 & ~AA_TAG_MASK) != AA_COMMAND_WORD
             || !(tag & AA_TAG_PRESENT) || index >= 5) return;
     original = g_AaOpaqueModes[index][0];
-    cmd->words.w1 = (cmd->words.w1 & AA_FIRST_BLENDER_MASK) | (original & AA_OTHER_BITS_MASK);
-    if (tag & AA_TAG_FIRST_BLENDER) {
-        cmd->words.w1 = (cmd->words.w1 & AA_OTHER_BITS_MASK) | (original & AA_FIRST_BLENDER_MASK);
-    }
+    cmd->words.w1 = (cmd->words.w1 & AA_BLENDER_MASK) | (original & ~AA_BLENDER_MASK);
     cmd->words.w0 = AA_COMMAND_WORD;
 }
 
@@ -140,13 +141,11 @@ static void renderDisableAaCommand(Gfx *cmd)
         if ((original & AA_OTHER_BITS_MASK) == (g_AaOpaqueModes[i][0] & AA_OTHER_BITS_MASK)) {
             tag = AA_TAG_PRESENT | i;
             replacement = g_AaOpaqueModes[i][1];
-            if ((original & AA_FIRST_BLENDER_MASK) == (g_AaOpaqueModes[i][0] & AA_FIRST_BLENDER_MASK)) {
-                tag |= AA_TAG_FIRST_BLENDER;
-                cmd->words.w1 = replacement;
-            } else {
-                /* Retain the first cycle's fog/pass blender. */
-                cmd->words.w1 = (original & AA_FIRST_BLENDER_MASK) | (replacement & AA_OTHER_BITS_MASK);
-            }
+            /* Opaque AA-Off pixels do not need a different blender mux.
+             * Preserve BOTH cycles: later partial surface writes can enable
+             * translucency without rewriting the inherited mux. In particular,
+             * TERR's 1MA must not become SURF's framebuffer-coverage factor. */
+            cmd->words.w1 = (original & AA_BLENDER_MASK) | (replacement & ~AA_BLENDER_MASK);
             cmd->words.w0 |= tag << 16;
             return;
         }

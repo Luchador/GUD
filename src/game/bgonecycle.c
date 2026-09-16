@@ -54,7 +54,12 @@ static const Gfx g_BgOneCycleCombiners[][2] = {
 static const u32 g_BgOneCycleSurfaces[] = {
     G_RM_AA_ZB_OPA_SURF2, G_RM_AA_ZB_OPA_TERR2,
     G_RM_AA_OPA_SURF2, G_RM_AA_OPA_TERR2,
-    G_RM_ZB_OPA_SURF2, G_RM_OPA_SURF2
+    G_RM_ZB_OPA_SURF2, G_RM_OPA_SURF2,
+    /* AA-Off retains TERR's 1MA blender field. It is inactive for these
+     * opaque pixels, but later partial translucent writes can inherit it. */
+    (G_RM_ZB_OPA_SURF2) & ~(3u << 16),
+    (G_RM_ZB_OPA_SURF2) & ~(Z_CMP | Z_UPD),
+    (G_RM_ZB_OPA_SURF2) & ~(Z_CMP | Z_UPD | (3u << 16))
 };
 
 /* Damaged props use the RDP's nine-bit SHADE_ALPHA + ENV_ALPHA result,

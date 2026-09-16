@@ -20,8 +20,9 @@ static void test_modes(void)
             renderApplyAaCommand(&cmd);
             if (enabled) assert(!memcmp(&cmd, &original, sizeof(cmd)));
             else {
-                assert((cmd.words.w1 & AA_OTHER_BITS_MASK) == (g_AaOpaqueModes[i][1] & AA_OTHER_BITS_MASK));
-                if (first) assert((cmd.words.w1 & AA_FIRST_BLENDER_MASK) == firstModes[first]);
+                assert((cmd.words.w1 & 0xffffu) == (g_AaOpaqueModes[i][1] & 0xffffu));
+                /* Partial surface writes can inherit either cycle's mux. */
+                assert((cmd.words.w1 & 0xffff0000u) == (original.words.w1 & 0xffff0000u));
                 assert((cmd.words.w1 & (Z_CMP | Z_UPD | 0xc00)) == (original.words.w1 & (Z_CMP | Z_UPD | 0xc00)));
             }
             { Gfx again = cmd; renderApplyAaCommand(&cmd); assert(!memcmp(&cmd, &again, sizeof(cmd))); }

@@ -59,6 +59,99 @@ static void alpha_state_checks(Gfx *gdl, int count, int expectedFog, int onecycl
     assert(loads == 3 && draws == 4 && fog == expectedFog);
 }
 
+/* Depot's shafts inherit the TERR blender, then change only bits 3..15 to
+ * translucent. Rewriting that earlier TERR command to a SURF blender for
+ * AA-Off must not substitute framebuffer coverage for (1 - pixel alpha). */
+static void vertex_alpha_surface_override_checks(void)
+{
+    Gfx raw[96], expanded[128], alternate[256], *p;
+    Gfx *runtime = (Gfx *)(g_TestRam + 0x30000);
+    Gfx *submittedAlternate = (Gfx *)(g_TestRam + 0x40000);
+    int fog, onecycle, terrain, neighbor, layer, z, toggle, size, bytes;
+    for (fog = 0; fog < 2; fog++)
+    for (onecycle = 0; onecycle < 2; onecycle++)
+    for (terrain = 0; terrain < 2; terrain++)
+    for (neighbor = 0; neighbor < 2; neighbor++)
+    for (layer = 0; layer < 2; layer++)
+    for (z = 0; z < 2; z++)
+    {
+        u32 original = onecycle
+            ? (terrain ? G_RM_AA_ZB_OPA_TERR : G_RM_AA_ZB_OPA_SURF)
+            : G_RM_PASS | (terrain ? G_RM_AA_ZB_OPA_TERR2 : G_RM_AA_ZB_OPA_SURF2);
+        u32 finalShift = onecycle ? 18 : 16;
+        u32 expected = onecycle ? G_RM_AA_ZB_XLU_SURF : G_RM_PASS | G_RM_AA_ZB_XLU_SURF2;
+        enum CCRMLUT lut = fog ? (layer ? CCRMLUT_SECONDARY_ADDFOG : CCRMLUT_PRIMARY_ADDFOG)
+            : (layer ? CCRMLUT_SECONDARY : CCRMLUT_PRIMARY);
+        if (!z) { original &= ~(Z_CMP | Z_UPD); expected &= ~(Z_CMP | Z_UPD | ZMODE_XLU); }
+        g_TestEnvironment.FogEnabled = fog;
+        p = raw;
+        gDPPipeSync(p++);
+        gDPSetCycleType(p++, onecycle ? G_CYC_1CYCLE : G_CYC_2CYCLE);
+        gDPSetRenderMode(p++, original, 0);
+        gSPTexture(p++, 0xffff, 0xffff, 0, 0, 0);
+        gDPSetCombineMode(p++, G_CC_SHADE, G_CC_SHADE);
+        if (neighbor) { gSP1Triangle(p++, 0, 1, 2, 0); }
+        gDPPipeSync(p++);
+        gSPSetOtherMode(p++, G_SETOTHERMODE_L, 3, 13, expected & 0xfff8);
+        /* TERR already has 1MA: the editor need not write this field. */
+        if (!terrain) { gSPSetOtherMode(p++, G_SETOTHERMODE_L, finalShift, 2, 0); }
+        gDPNoOpTag(p++, BG_SURFACE_TAG_VALUE(BG_SURFACE_BLEND, original));
+        p = alpha_scope(p, BG_ALPHA_VERTEX);
+        gDPSetCombineMode(p++, G_CC_SHADE, G_CC_SHADE);
+        p->words.w0 = 0x04200030; p++->words.w1 = 0x0e000000;
+        gSP1Triangle(p++, 0, 1, 2, 0);
+        p = alpha_scope(p, BG_ALPHA_AUTO);
+        gDPSetCombineMode(p++, G_CC_SHADE, G_CC_SHADE);
+        gDPPipeSync(p++);
+        gSPSetOtherMode(p++, G_SETOTHERMODE_L, 3, 13, original & 0xfff8);
+        if (!terrain) { gSPSetOtherMode(p++, G_SETOTHERMODE_L, finalShift, 2, original & (3u << finalShift)); }
+        gDPNoOpTag(p++, BG_SURFACE_TAG_VALUE(BG_SURFACE_AUTO, 0));
+        if (neighbor) { gSP1Triangle(p++, 0, 1, 2, 0); }
+        gSPEndDisplayList(p++);
+        size = texLoadFromGdl(raw, (p - raw) * 8, expanded, NULL);
+        bgApplyDynamicCCRMLUT(expanded, expanded + size / 8, lut);
+        bytes = layer ? bgBuildCutoutGdl(expanded, size, alternate, sizeof(alternate))
+                      : bgBuildOneCycleGdl(expanded, size, alternate, sizeof(alternate));
+        assert((bytes > 0) == (neighbor && !onecycle));
+        if (bytes > 0) { memcpy(submittedAlternate, alternate, bytes); }
+        memcpy(runtime, expanded, size);
+        for (toggle = 0; toggle < 7; toggle++)
+        {
+            int i, draws = 0, activeFog = fog;
+            BgOneCycleState state;
+            renderSetAaEnabled(!(toggle & 1)); renderApplySettings();
+            assert(renderApplyDisplayListSettings(runtime, runtime + size / 8));
+            if (bytes > 0 && (toggle & 1))
+            { assert(renderApplyDisplayListSettings(submittedAlternate, submittedAlternate + bytes / 8)); }
+            /* Exercise both the submitted original and the cached alternate. */
+            for (int variant = 0; variant < 2; variant++)
+            {
+                Gfx *list = variant ? submittedAlternate : runtime;
+                int count = variant ? bytes / 8 : size / 8;
+                if (variant && (bytes <= 0 || !(toggle & 1))) { continue; }
+                draws = 0; activeFog = fog;
+                bgOneCycleResetState(&state);
+                for (i = 0; i < count; i++)
+                {
+                    u32 op = list[i].words.w0 >> 24;
+                    assert(bgOneCycleReadState(&state, list[i], layer));
+                    if (op == (u8)G_SETGEOMETRYMODE && (list[i].words.w1 & G_FOG)) activeFog = 1;
+                    if (op == (u8)G_CLEARGEOMETRYMODE && (list[i].words.w1 & G_FOG)) activeFog = 0;
+                    if (op == (u8)G_VTX) { assert(!activeFog); }
+                    if (op != (u8)G_TRI1 || state.alphaSource != BG_ALPHA_VERTEX) { continue; }
+                    assert(state.low == expected);
+                    assert((state.high & BG_CYCLE_MASK) == (onecycle ? G_CYC_1CYCLE : G_CYC_2CYCLE));
+                    assert(state.combine.words.w0 == 0xfcffffff && state.combine.words.w1 == 0xfffe793c);
+                    draws++;
+                }
+                assert(draws == 1 && activeFog == fog && state.alphaSource == BG_ALPHA_AUTO);
+            }
+        }
+        assert(!memcmp(runtime, expanded, size));
+    }
+    puts("PASS vertex-alpha surface overrides: TERR/SURF inheritance, both cycles/layers, mixed optimized draws and repeated AA toggles.");
+}
+
 static void vertex_alpha_checks(void)
 {
     Gfx raw[64], expanded[128], autoState[3], *p;
@@ -161,4 +254,5 @@ static void vertex_alpha_checks(void)
         }
     }
     puts("PASS vertex alpha: fog/no-fog LUTs, explicit fog restoration, RGB retention, both cycles/layers, texture-marker dispatch and AA/one-cycle safety.");
+    vertex_alpha_surface_override_checks();
 }
