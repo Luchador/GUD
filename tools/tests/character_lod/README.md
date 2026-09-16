@@ -64,4 +64,4 @@ big-endian MIPS-II object. A complete ROM/hardware run was not performed here.
 
 For hardware comparison, use the same camera view and AA/VI settings in a scene
 with several visible guards. Train or Runway should be useful. The existing FPS
-and bottleneck display remain available; no temporary profiler is added.
+counter remains available; no temporary profiler is added.

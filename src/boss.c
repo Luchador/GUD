@@ -1,4 +1,3 @@
-#include "frameprofile.h"
 #include "renderconfig.h"
 #include <os_extension.h>
 #include <PR/os.h>
@@ -339,7 +338,6 @@ void bossMainloop(void)
         init_player_data_ptrs_construct_viewports(localSelectedNumPlayers);
         dynInitMemory();
         joyCheckStatusThreadSafe();
-        frameProfileReset();
         lvlStageLoad(g_StageNum);
         viInitBuffers();
         waitForNextFrame();
@@ -372,7 +370,6 @@ void bossMainloop(void)
                                 waitForNextFrame();
                             }
 
-                            frameProfileCpuBegin();
                             renderApplySettings();
                             joyConsumeSamplesWrapper();
 
@@ -418,7 +415,6 @@ void bossMainloop(void)
 
                             pendingGfx++;
                             memaSingleDefragPass();
-                            frameProfileCpuEnd();
                         }
                     }
                 }

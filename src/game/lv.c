@@ -1,4 +1,3 @@
-#include "frameprofile.h"
 #include <ultra64.h>
 #include <math.h>
 #include <os_extension.h>
@@ -961,7 +960,7 @@ f32 lvGetSystemPowerTimeSeconds(void)
 }
 
 
-static Gfx *lvDrawProfilerText(Gfx *gdl, s32 *x, s32 *y, char *text, u32 color, s32 width)
+static Gfx *lvDrawFrameRateText(Gfx *gdl, s32 *x, s32 *y, char *text, u32 color, s32 width)
 {
     char *p;
     s32 commands = 3; /* Primitive color and the caller's final sync/end. */
@@ -1027,23 +1026,7 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
     gdl = gfxSetup2DTextureMode(gdl);
     /* Called once after all players, so use the whole screen in split-screen. */
     gDPSetScissor(gdl++, G_SC_NON_INTERLACE, 0, 0, viGetX(), viGetY());
-    gdl = lvDrawProfilerText(gdl, &x, &y, fpsText, color, screenwidth);
-
-    {
-        char *label;
-        u32 limitColor;
-        switch (frameProfileGetBottleneck()) {
-        case FRAME_LIMIT_CPU: label = "LIMIT: CPU"; limitColor = 0x00FFFFFF; break;
-        case FRAME_LIMIT_RSP: label = "LIMIT: RSP"; limitColor = 0xFFFF30FF; break;
-        case FRAME_LIMIT_RDP: label = "LIMIT: RDP"; limitColor = 0xFF6060FF; break;
-        case FRAME_LIMIT_MIXED: label = "LIMIT: MIXED"; limitColor = 0xFFFFFFFF; break;
-        case FRAME_LIMIT_WAITING: label = "LIMIT: --"; limitColor = 0xA0A0A0FF; break;
-        default: label = "LIMIT: ?"; limitColor = 0xA0A0A0FF; break;
-        }
-        x = 14;
-        y = 32;
-        gdl = lvDrawProfilerText(gdl, &x, &y, label, limitColor, screenwidth);
-    }
+    gdl = lvDrawFrameRateText(gdl, &x, &y, fpsText, color, screenwidth);
 
     return bgDebugDrawHud(gdl);
 }

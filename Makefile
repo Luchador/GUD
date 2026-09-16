@@ -269,9 +269,6 @@ $(addprefix $(BUILD_DIR)/src/,boss.o fr.o) $(BUILD_DIR)/src/game/rsp.o: src/game
 $(addprefix $(BUILD_DIR)/src/,boss.o fr.o) $(addprefix $(BUILD_DIR)/src/game/,rsp.o renderconfig.o options.o file2.o dyn.o tex.o bgapply.o bg.o bgonecycle.o model.o modelonecycle.o): src/game/renderconfig.h
 $(BUILD_DIR)/src/game/options.o: src/game/options.h
 
-# The resident frame profiler is shared by task submission and the HUD.
-$(addprefix $(BUILD_DIR)/src/,boss.o sched.o frameprofile.o) $(addprefix $(BUILD_DIR)/src/game/,rsp.o lv.o): src/frameprofile.h
-
 # IDO emits no .d files, so keep native layouts and included catalogs in sync.
 GED_CATALOG_OBJECTS := $(BUILD_DIR)/src/music.o $(addprefix $(BUILD_DIR)/src/game/,gedmanifest.o initanitable.o cobjdata.o pobjdata.o gun.o chraidata.o language.o)
 $(GED_CATALOG_OBJECTS): src/game/gedmanifest.h src/bondtypes.h src/bondconstants.h

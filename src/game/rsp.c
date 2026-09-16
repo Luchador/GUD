@@ -1,4 +1,3 @@
-#include "frameprofile.h"
 #include "renderconfig.h"
 #include <ultra64.h>
 #include "rsp.h"
@@ -235,8 +234,6 @@ void rspGfxTaskStart(Gfx *firstGdl, Gfx *gdl, s32 arg2, OSMesg rspReplyMsg)
     renderApplyDisplayListSettings(firstGdl, gdl);
 
     osWritebackDCacheAll();
-
-    frameProfileTaskSubmitted(sctask);
 
     /* start graphic task */
     osSendMesg(sched_cmdQ, (OSMesg)sctask, OS_MESG_BLOCK);

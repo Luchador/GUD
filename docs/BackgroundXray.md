@@ -34,8 +34,8 @@ remain part of the normal scene, but are **not** duplicated by the background
 x-ray overlay. Split-screen and single-display-list title backgrounds are not
 supported by this debug view.
 
-The FPS counter and bottleneck readout remain visible. The extra CPU decoding,
-vertex processing and translucent overdraw affect those measurements: turn the
+The FPS counter remains visible. The extra CPU decoding,
+vertex processing and translucent overdraw affect the frame rate: turn the
 overlay off to measure normal gameplay performance.
 
 ## Memory and rendering

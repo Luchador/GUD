@@ -70,12 +70,6 @@ SECTIONS
    END_SEG(game)
 
    /* Scheduler retraces begin before game demand paging is initialized. */
-   ASSERT(frameProfileRspStart >= _codeSegmentStart && frameProfileRspStart < _codeSegmentEnd,
-          "Profiler scheduler callbacks must be resident")
-   ASSERT(frameProfileRspStop >= _codeSegmentStart && frameProfileRspStop < _codeSegmentEnd,
-          "Profiler scheduler callbacks must be resident")
-   ASSERT(frameProfileRdpDone >= _codeSegmentStart && frameProfileRdpDone < _codeSegmentEnd,
-          "Profiler scheduler callbacks must be resident")
    ASSERT(renderConfigureViMode >= _codeSegmentStart && renderConfigureViMode < _codeSegmentEnd,
           "VI render settings callback must be resident")
 

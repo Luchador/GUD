@@ -277,7 +277,7 @@ static Gfx *bgDebugText(Gfx *gdl, s32 x, s32 y, char *text, u32 color)
             ptrFontBankGothic, color, viGetX(), viGetY(), 0, 0);
 }
 
-/* Called after the existing FPS/bottleneck display establishes text state. */
+/* Called after the FPS display establishes text state. */
 Gfx *bgDebugDrawHud(Gfx *gdl)
 {
     char text[48];

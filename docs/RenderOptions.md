@@ -25,7 +25,7 @@ VI Filter controls final video output independently.
 Color Dither is no longer a setting. Each pass keeps its vanilla/authored RDP
 RGB-dither and alpha-dither commands, including effects that deliberately use
 noise or disable dithering. VI dedithering is a separate operation controlled
-by VI Filter. The FPS counter and CPU/RSP/RDP bottleneck indicator remain.
+by VI Filter. The FPS counter remains; the CPU/RSP/RDP bottleneck profiler has been removed.
 
 ## Save compatibility
 
@@ -253,8 +253,8 @@ For a hardware comparison, keep AA Off, VI and the camera position fixed across
 builds. Try Jungle foliage and Runway/Depot fencing, including close views,
 distant edges and overlaps with props. Check glass, moving doors, fog, broken
 lights, AA toggles and room streaming. Hard edges and lost mip blending can
-make thin/distant details disappear or shimmer. The existing FPS/bottleneck
-indicator remains; no new watch option or profiler was added.
+make thin/distant details disappear or shimmer. The existing FPS
+counter remains; no new watch option or profiler was added.
 
 The host suite checks classification, RGBA/CI uploads, mixed cutout/glass
 transitions, fog/depth, state restoration, allocation fallback, unloading and

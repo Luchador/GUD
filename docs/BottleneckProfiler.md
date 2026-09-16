@@ -1,5 +1,13 @@
 # Compact frame bottleneck profiler
 
+> Historical reference: this profiler has been removed after bottleneck
+> investigation. The FPS counter and background X-ray remain. The label,
+> CPU/task accounting, scheduler hooks, DP-counter reads, module, linker
+> entries/assertions and profiler tests are removed. The ordinary scheduler's
+> pre-existing DP counter reset is retained. The implementation and validation
+> instructions below describe the earlier profiling build, not the current one.
+> FPS-only checks now run with `python3 tools/tests/frame_rate/run.py`.
+
 The existing FPS counter is retained. The old BGTICK, LVTICK, LVRENDER,
 BGRENDER, OBJTICK, CHRTICK and CHRACT rows and their timers are removed.
 One line below FPS estimates the limiting stage:

@@ -71,5 +71,5 @@ On hardware, compare the same view of hat-wearing guards before/after. Check
 berets, fur hats, helmets and peaked hats while turning, firing and dying;
 shoot hats off and verify helmet ricochets and bullet impacts. Include a level
 restart and split-screen views, since cached fitting must survive model reuse
-and use each player's current matrices. The existing FPS/bottleneck display
+and use each player's current matrices. The existing FPS counter
 remains available for the comparison.

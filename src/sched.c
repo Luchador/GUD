@@ -1,4 +1,3 @@
-#include "frameprofile.h"
 #include <ultra64.h>
 #include <PR/os.h>
 #include <PR/rcp.h>
@@ -263,7 +262,6 @@ void __scHandleRSP(OSSched *sc)
 
     if ((t->state & OS_SC_YIELD) && osSpTaskYielded(&t->list))
     {
-        frameProfileRspStop(t, TRUE);
         t->state |= OS_SC_YIELDED;
 
         if ((t->flags & OS_SC_TYPE_MASK) == OS_SC_XBUS)
@@ -279,7 +277,6 @@ void __scHandleRSP(OSSched *sc)
     } 
     else 
     {
-        frameProfileRspStop(t, FALSE);
         t->state &= ~OS_SC_NEEDS_RSP;
         __scTaskComplete(sc, t);
     }
@@ -297,7 +294,6 @@ void __scHandleRDP(OSSched *sc)
     if (sc->curRDPTask != NULL)
     {
         t = sc->curRDPTask;
-        frameProfileRdpDone(t);
         sc->curRDPTask = NULL;
         t->state &= ~OS_SC_NEEDS_RDP;
         __scTaskComplete(sc, t);
@@ -402,7 +398,6 @@ void __scExec(OSSched *sc, OSScTask *sp, OSScTask *dp)
 
         sp->state &= ~(OS_SC_YIELD | OS_SC_YIELDED); 
         osSpTaskLoad(&sp->list);
-        frameProfileRspStart(sp);
         osSpTaskStartGo(&sp->list);
         sc->curRSPTask = sp;
 

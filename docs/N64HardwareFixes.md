@@ -37,7 +37,9 @@ This section records the earlier diagnostic cleanup. After the subsequent
 hardware profiling pass, the RCP profiler module/tests, scheduler/HUD hooks,
 GFX/BG command counters and half-width experiment were also removed. FPS,
 optimization notes and all correctness fixes above remain. The later
-[bottleneck profiler](BottleneckProfiler.md) replaces the CPU timing rows.
+[bottleneck profiler](BottleneckProfiler.md) replaced the CPU timing rows and
+has now also been removed, including its timing hooks and accounting state.
+The standalone FPS counter remains.
 
 `GUD-n64-diagnostic-cleanup.patch` targets master `337bd7bd` (Restore rendering).
 The temporary watchdog/thread, six-page crash display, stage/DMA/allocation
