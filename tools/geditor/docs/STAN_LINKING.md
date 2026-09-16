@@ -4,6 +4,12 @@ Show **Stan Geometry**, switch to **Face** mode, and select two stan tiles
 (Shift-click adds the second tile). Right-click in the viewport and choose
 **Link Stan Tiles**. The selection is retained when the menu opens.
 
+Selected tiles appear cyan. Their directly linked neighbors appear magenta,
+using the current Stan Geometry opacity. With multiple tiles selected, all
+of their direct neighbors are highlighted; selected tiles stay cyan even if
+they link to one another. The highlight updates with selection and link edits
+and is only a viewport overlay, so stored tile colors are unchanged.
+
 The tiles must share exactly one complete boundary edge: both endpoints must
 match in X, Y, and Z, with the edge running in opposite directions around the
 two tiles. Matching uses the stored native coordinates. If the edges do not

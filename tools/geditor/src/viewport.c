@@ -7009,13 +7009,31 @@ static void ViewportRefreshStanOverlay(ViewportState *state)
     DWORD tile;
     size_t fillat=0, edgeat=0;
     unsigned char alpha=(unsigned char)(state->stanopacity*255/100);
+    unsigned char *linked;
     ViewportRefreshPadPreview(state);
     if (state->stanfill == NULL || state->stanedges == NULL) { return; }
+    linked=calloc(state->stan.tilecount,1);
+    if (linked != NULL)
+    {
+        /* Follow only the selected tiles' direct outgoing links. Do not spread
+         * the highlight through the rest of the connected floor. */
+        for (tile=0; tile<state->stan.tilecount; tile++)
+        {
+            const StanTile *selected=&state->stan.tiles[tile];
+            if (!state->stanselected[tile]) { continue; }
+            for (unsigned int point=0; point<selected->pointcount; point++)
+            {
+                DWORD neighbor=StanLinkedTile(&state->stan,selected->points[point].link);
+                if (neighbor != STAN_TILE_NONE) { linked[neighbor]=TRUE; }
+            }
+        }
+    }
     for (tile=0; tile<state->stan.tilecount; tile++)
     {
         StanTile color=state->stan.tiles[tile];
         unsigned int point;
         if (state->stanselected[tile]) { color.red=0; color.green=255; color.blue=255; }
+        else if (linked != NULL && linked[tile]) { color.red=255; color.green=0; color.blue=255; }
         for (point=1; point+1<color.pointcount; point++)
         {
             ViewportSetStanVertex(&state->stanfill[fillat++], &color.points[0], &color, alpha);
@@ -7032,6 +7050,7 @@ static void ViewportRefreshStanOverlay(ViewportState *state)
             ViewportSetStanVertex(&state->stanedges[edgeat++], &color.points[(point+1)%color.pointcount], &color, alpha);
         }
     }
+    free(linked);
 }
 
 BOOL ViewportSetStanTiles(HWND hwnd, const StanFile *stan)
