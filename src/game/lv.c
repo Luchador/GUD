@@ -16,6 +16,7 @@
 #include <token.h>
 #include "alloc_window_pieces.h"
 #include "bg.h"
+#include "bgdebug.h"
 #include "bgroomtrans.h"
 #include "bondinv.h"
 #include "bondtypes.h"
@@ -484,6 +485,7 @@ void lvlSetMultipliersForDifficulty(void)
  */
 Gfx* lvRender(Gfx* gdl)
 {
+    bgDebugBeginFrame();
     gSPSegment(gdl++, SPSEGMENT_PHYSICAL, NULL);
     gSPSegment(gdl++, SPSEGMENT_UNKNOWN, osVirtualToPhysical(ptr_font_DL));
 
@@ -817,6 +819,13 @@ void lvlViewMoveTick(void)
     local_player_number = get_cur_playernum();
     cheatButtonSampleInput();
 
+    if (getPlayerCount() == 1) {
+        bgDebugInput(joyGetButtonsPressedThisFrame(local_player_number, U_JPAD | D_JPAD),
+                !g_ControlsLockedFlag && g_CameraMode == CAMERAMODE_FP
+                && g_CurrentPlayer->outside_watch_menu && !g_CurrentPlayer->pausing_flag
+                && !g_CurrentPlayer->pause_state);
+    }
+
     bondviewMovePlayerUpdateViewport(joyGetStickX(local_player_number), joyGetStickY(local_player_number), joyGetButtons(local_player_number, ANY_BUTTON));
 
     mpwatchMenuTick();
@@ -1014,6 +1023,7 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
     if (dynGetFreeGfx(gdl) < 18) {
         return gdl;
     }
+    gdl = bgDebugRender(gdl);
     gdl = gfxSetup2DTextureMode(gdl);
     /* Called once after all players, so use the whole screen in split-screen. */
     gDPSetScissor(gdl++, G_SC_NON_INTERLACE, 0, 0, viGetX(), viGetY());
@@ -1035,5 +1045,5 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         gdl = lvDrawProfilerText(gdl, &x, &y, label, limitColor, screenwidth);
     }
 
-    return gdl;
+    return bgDebugDrawHud(gdl);
 }

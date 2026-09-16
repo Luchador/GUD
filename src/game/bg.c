@@ -7,6 +7,7 @@
 #include <mema.h>
 #include <memp.h>
 #include "bg.h"
+#include "bgdebug.h"
 #include "bgonecycle.h"
 #include "bgroomtrans.h"
 #include "bondview.h"
@@ -544,6 +545,7 @@ void bgLoadFile(LEVEL_INDEX levelid)
     u8 headerBuffer[0x40 + 0xf];
     s32 *data;
  
+    bgDebugReset();
     levelentry_index = 0;
 
     for (i = 0; i < MAXROOMCOUNT; i++) 
@@ -2259,6 +2261,7 @@ Gfx *bgRenderRoomPrimary(Gfx *gdl, s32 room_index)
             primary = g_BgOneCycleRooms[room_index].gdl;
         }
         gSPDisplayList(gdl++, OS_K0_TO_PHYSICAL(primary));
+        if (g_BgDebugEnabled) bgDebugRecordRoom(room_index, BG_DEBUG_PRIMARY);
 
         // Set the room's state to "loaded"
         g_BgRoomInfo[room_index].unloadAge = 1;
@@ -2304,6 +2307,7 @@ Gfx *bgRenderRoomSecondary(Gfx *gdl, s32 room_index)
                 gDPSetBlendColor(gdl++, 0, 0, 0, BG_CUTOUT_THRESHOLD);
             }
             gSPDisplayList(gdl++, OS_K0_TO_PHYSICAL(secondary));
+            if (g_BgDebugEnabled) bgDebugRecordRoom(room_index, BG_DEBUG_SECONDARY);
 
             // Set the room's state to "loaded"
             g_BgRoomInfo[room_index].unloadAge = 1;

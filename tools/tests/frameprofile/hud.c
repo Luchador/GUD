@@ -20,6 +20,8 @@ static s32 viGetY(void) { return height; }
 FrameBottleneck frameProfileGetBottleneck(void) { return result; }
 static s32 dynGetFreeGfx(Gfx *gdl) { return (s32)(limit - gdl); }
 static Gfx *gfxSetup2DTextureMode(Gfx *gdl) { return gdl + 11; }
+static Gfx *bgDebugRender(Gfx *gdl) { return gdl; }
+static Gfx *bgDebugDrawHud(Gfx *gdl) { return gdl; }
 static void Scissor(Gfx *gdl, int mode, int x, int y, int w, int h)
 { assert(gdl < limit && x == 0 && y == 0 && w == width && h == height); scissors++; }
 #define gDPSetScissor Scissor

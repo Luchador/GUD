@@ -1,4 +1,8 @@
 /* Minimal room/allocator mocks; production lifecycle and selection code follows. */
+#define BG_DEBUG_PRIMARY 1
+#define BG_DEBUG_SECONDARY 2
+static bool g_BgDebugEnabled;
+static void bgDebugRecordRoom(s32 room, s32 layer) { (void)room; (void)layer; }
 typedef struct { s32 unused[6]; } RoomVtxBatchBounds;
 typedef struct {
     Gfx *primaryGdl, *secondaryGdl;

@@ -81,6 +81,7 @@
       build/OUTCODE/src/game/stan.o (.bss);
       build/OUTCODE/src/game/stanintersection.o (.bss);
       build/OUTCODE/src/game/bg.o (.bss);
+      build/OUTCODE/src/game/bgdebug.o (.bss);
       build/OUTCODE/src/game/bgapply.o (.bss);
       build/OUTCODE/src/game/bgonecycle.o (.bss);
       build/OUTCODE/src/game/environment.o (.bss);
