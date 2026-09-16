@@ -387,6 +387,116 @@ BOOL StanLoadProjectFile(const char *projectdir, const char *stanname,
 }
 
 
+static void StanWrite32(unsigned char *p, DWORD value)
+{
+    p[0] = (unsigned char)(value >> 24); p[1] = (unsigned char)(value >> 16);
+    p[2] = (unsigned char)(value >> 8); p[3] = (unsigned char)value;
+}
+
+static DWORD StanTileAtOffset(const StanFile *stan, DWORD offset)
+{
+    DWORD low = 0, high = stan->tilecount;
+    while (low < high)
+    {
+        DWORD mid = low + (high - low) / 2;
+        if (stan->tiles[mid].sourceoffset < offset) { low = mid + 1; }
+        else { high = mid; }
+    }
+    return low < stan->tilecount && stan->tiles[low].sourceoffset == offset ? low : STAN_TILE_NONE;
+}
+
+/* stanBuildRoomData and stanFindTileBelowPos require one contiguous run per
+ * room. Reorder only the saved copy: live indices, selection and undo remain
+ * stable. Preserve room encounter order and tile order within each room. */
+static BOOL StanGroupRoomsForSave(const StanFile *stan, unsigned char **out, const char **reasonout)
+{
+    BOOL seen[STAN_MAX_ROOM + 1] = {0}, grouped = TRUE;
+    DWORD first, end, previous = STAN_MAX_ROOM + 1, *offsets = NULL;
+    unsigned char *data = NULL;
+    const char *why = "The stan tile records are inconsistent.";
+    *out = NULL;
+    /* Extraction and native fixture writers can supply an undecoded file. */
+    if (!stan->tiles || !stan->tilecount) { return TRUE; }
+    first = stan->tiles[0].sourceoffset;
+    if (stan->size < 12 || first < 12 || first > stan->size - 8 || (first & 3)
+        || (StanRead32(stan->data + 4) & 0xffffffu) != first) { goto fail; }
+    end = first;
+    for (DWORD i = 0; i < stan->tilecount; i++)
+    {
+        const StanTile *tile = stan->tiles + i;
+        DWORD size = 8u + tile->pointcount * 8u;
+        if (tile->room > STAN_MAX_ROOM || tile->sourceoffset != end
+            || tile->pointcount < 3 || tile->pointcount > STAN_TILE_MAX_POINTS
+            || end > stan->size || size > stan->size - end
+            || StanRead32(stan->data + end) != (tile->id << 8 | tile->room)
+            || stan->data[end + 6] >> 4 != tile->pointcount) { goto fail; }
+        if (tile->room != previous && seen[tile->room]) { grouped = FALSE; }
+        seen[tile->room] = TRUE; previous = tile->room;
+        end += size;
+    }
+    if (end > stan->size - 8 || StanRead32(stan->data + end) != 0) { goto fail; }
+    if (grouped) { return TRUE; }
+    offsets = malloc((size_t)stan->tilecount * sizeof(*offsets));
+    data = malloc(stan->size);
+    if (!offsets || !data) { why = "Out of memory grouping stan tiles by room."; goto fail; }
+    memcpy(data, stan->data, stan->size);
+    memset(seen, 0, sizeof(seen));
+    end = first;
+    for (DWORD i = 0; i < stan->tilecount; i++)
+    {
+        unsigned int room = stan->tiles[i].room;
+        if (seen[room]) { continue; }
+        seen[room] = TRUE;
+        for (DWORD j = i; j < stan->tilecount; j++)
+        {
+            const StanTile *tile = stan->tiles + j;
+            DWORD size = 8u + tile->pointcount * 8u;
+            if (tile->room != room) { continue; }
+            offsets[j] = end;
+            memcpy(data + end, stan->data + tile->sourceoffset, size);
+            end += size;
+        }
+    }
+    for (DWORD i = 0; i < stan->tilecount; i++)
+    {
+        const StanTile *tile = stan->tiles + i;
+        for (unsigned int p = 0; p < tile->pointcount; p++)
+        {
+            unsigned char *raw = data + offsets[i] + 8u + p * 8u + 6u;
+            unsigned int link = StanRead16(raw);
+            DWORD target, relocated;
+            if (link < 0x10) { continue; }
+            target = StanTileAtOffset(stan, first + (link - 0x10u) * 8u);
+            if (target == STAN_TILE_NONE)
+            { why = "A stan edge link points to a missing tile."; goto fail; }
+            relocated = (offsets[target] - first) / 8u + 0x10u;
+            if (relocated > 0xffffu)
+            { why = "A relocated stan edge link exceeds the native range."; goto fail; }
+            raw[0] = (unsigned char)(relocated >> 8); raw[1] = (unsigned char)relocated;
+        }
+    }
+    /* Relocate all header tile pointers, keeping their segment bytes. The
+     * first tile stays first, preserving the base used by every edge link. */
+    for (DWORD i = 4; i < first; i += 4)
+    {
+        DWORD pointer = StanRead32(stan->data + i), target;
+        if (!pointer)
+        {
+            if (i != first - 4) { goto fail; }
+            break;
+        }
+        if (i == first - 4) { goto fail; }
+        target = StanTileAtOffset(stan, pointer & 0xffffffu);
+        if (target == STAN_TILE_NONE) { goto fail; }
+        StanWrite32(data + i, (pointer & 0xff000000u) | offsets[target]);
+    }
+    free(offsets); *out = data;
+    return TRUE;
+fail:
+    free(offsets); free(data); *reasonout = why;
+    return FALSE;
+}
+
 BOOL StanSaveProjectFile(const char *projectdir, const StanFile *stan,
                          const char **reasonout)
 {
@@ -394,6 +504,7 @@ BOOL StanSaveProjectFile(const char *projectdir, const StanFile *stan,
     HANDLE file;
     DWORD written;
     BOOL ok;
+    unsigned char *grouped = NULL;
 
     *reasonout = "";
 
@@ -404,16 +515,19 @@ BOOL StanSaveProjectFile(const char *projectdir, const StanFile *stan,
         return FALSE;
     }
 
+    if (!StanGroupRoomsForSave(stan, &grouped, reasonout)) { return FALSE; }
     file = CreateFile(path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
                       FILE_ATTRIBUTE_NORMAL, NULL);
     if (file == INVALID_HANDLE_VALUE)
     {
+        free(grouped);
         *reasonout = "the project stan could not be opened for writing.";
         return FALSE;
     }
 
-    ok = WriteFile(file, stan->data, stan->size, &written, NULL)
+    ok = WriteFile(file, grouped ? grouped : stan->data, stan->size, &written, NULL)
       && written == stan->size;
+    free(grouped);
     if (!CloseHandle(file))
     {
         ok = FALSE;

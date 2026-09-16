@@ -13,6 +13,8 @@
 #define RIGHTPANEL_WM_VISIBILITY_CHANGED (WM_APP + 2)
 /* wparam is opacity percent, 0-100; this changes only the preview. */
 #define RIGHTPANEL_WM_STAN_OPACITY (WM_APP + 10)
+/* Assign all selected stan faces to the existing room in wparam. */
+#define RIGHTPANEL_WM_STAN_ROOM_CHANGED (WM_APP + 73)
 
 /* Synchronous absolute-position request. axismask marks edited X/Y/Z fields;
    the frame translates the selection's average position, then refreshes it. */
@@ -55,7 +57,8 @@ void RightPanelSetColorSampling(HWND panel, BOOL enabled);
 void RightPanelSetBgFaces(HWND panel, const BgDocument *document,
                          const BgFaceRef *refs, DWORD count, HWND browser);
 void RightPanelSetStanSelection(HWND panel, const StanFile *stan, EditorTool tool,
-                                 DWORD count, DWORD singletile);
+                                 DWORD count, DWORD singletile,
+                                 const DWORD *selected, DWORD roomcount);
 void RightPanelSetBgComponentSelection(HWND panel, BOOL edges, int count);
 void RightPanelSetBgSelectionCount(HWND panel, int count);
 void RightPanelSetSetupObject(HWND panel, const SetupFile *setup,

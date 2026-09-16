@@ -309,7 +309,13 @@ static void GEditorRefreshSelectionDetails(void)
     }
     else if (stancount > 0)
     {
-        RightPanelSetStanSelection(g_RightPanel, &g_CurrentStan, ViewportGetTool(g_Viewport), stancount, stantile);
+        EditorTool tool = ViewportGetTool(g_Viewport);
+        DWORD *tiles = tool == EDITOR_TOOL_FACE_SELECT ? malloc((size_t)stancount * sizeof(*tiles)) : NULL;
+        if (tiles && !ViewportGetSelectedStanTiles(g_Viewport, tiles, stancount))
+        { free(tiles); tiles = NULL; }
+        RightPanelSetStanSelection(g_RightPanel, &g_CurrentStan, tool, stancount, stantile,
+            tiles, g_CurrentBgDocument.roomcount);
+        free(tiles);
     }
     else if (objectselected && selectedobject < g_CurrentSetup.objectcount)
     {
@@ -1986,6 +1992,41 @@ static void GEditorApplyHistoryStep(HWND hwnd, BOOL redo)
     GEditorRefreshHistoryMenu(hwnd);
 }
 
+
+static BOOL GEditorSetSelectedStanRoom(HWND hwnd, DWORD room)
+{
+    EditHistoryTransaction transaction = {0};
+    DWORD *selected = NULL, count, changed = 0;
+    const char *why = "Out of memory reading the stan selection.", *restorewhy = "";
+    if (ViewportGetTool(g_Viewport) != EDITOR_TOOL_FACE_SELECT
+        || ViewportIsFlying(g_Viewport) || ViewportIsTransforming(g_Viewport)) { return FALSE; }
+    count = ViewportGetStanSelectionCount(g_Viewport, NULL);
+    if (!count) { return FALSE; }
+    selected = malloc((size_t)count * sizeof(*selected));
+    if (!selected) { goto fail; }
+    if (!ViewportGetSelectedStanTiles(g_Viewport, selected, count))
+    { why = "The selected stan tiles could not be read."; goto fail; }
+    if (!EditHistoryBeginStanEdit(&g_EditHistory, &g_CurrentStan,
+        "Change Stan Room", &transaction, &why)) { goto fail; }
+    if (!StanSetTileRooms(&g_CurrentStan, selected, count, room,
+        g_CurrentBgDocument.roomcount, &changed, &why)) { goto fail; }
+    if (!changed) { free(selected); EditHistoryCancelEdit(&transaction); return TRUE; }
+    if (!GEditorReloadCurrentObjectsAndViewport(&why)) { goto rollback; }
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+        &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    free(selected);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    GEditorReloadCurrentObjectsAndViewport(&restorewhy);
+    GEditorRestoreHistorySelection(hwnd);
+fail:
+    free(selected); EditHistoryCancelEdit(&transaction);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
 
 static BOOL GEditorLinkSelectedStanTiles(HWND hwnd)
 {
@@ -4157,6 +4198,13 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     case FACEPROPERTIES_WM_LAYER_CHANGED:
     {
         BOOL ok = GEditorSetSelectedFaceLayer(hwnd, (BgGeometryLayer)wparam);
+        GEditorRefreshSelectionDetails();
+        return ok;
+    }
+
+    case RIGHTPANEL_WM_STAN_ROOM_CHANGED:
+    {
+        BOOL ok = GEditorSetSelectedStanRoom(hwnd, (DWORD)wparam);
         GEditorRefreshSelectionDetails();
         return ok;
     }

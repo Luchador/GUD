@@ -9,6 +9,8 @@
 
 #define STAN_TILE_MAX_POINTS 10
 #define STAN_TILE_NONE ((DWORD)-1)
+/* The runtime room index has 139 slots, including reserved room zero. */
+#define STAN_MAX_ROOM 138u
 
 /* Host-native form of one point from a variable-length stan tile.
    Positions are converted to gameplay world units while the authored
@@ -76,6 +78,10 @@ BOOL StanDeleteTiles(StanFile *stan, const DWORD *selected, DWORD count,
  * endpoints must match in reverse order. Existing third-party links are kept. */
 BOOL StanLinkTiles(StanFile *stan, DWORD first, DWORD second,
     BOOL *changedout, const char **reasonout);
+/* Keep live tile indices stable. Saving groups tiles by room and relocates
+ * native links in a copy for the runtime's contiguous room scans. */
+BOOL StanSetTileRooms(StanFile *stan, const DWORD *selected, DWORD count,
+    DWORD room, DWORD roomcount, DWORD *changedout, const char **reasonout);
 /* RGB is quantized to the format's 4-bit channels; stan has no stored alpha. */
 BOOL StanPaintTile(StanFile *stan, DWORD tile, const unsigned char rgba[4],
                    BOOL *changedout, const char **reasonout);

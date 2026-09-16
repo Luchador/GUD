@@ -1,4 +1,4 @@
-/* Edits preserve stan record sizes, tile IDs, room/special flags and links.
+/* Edits preserve stan record sizes, tile IDs and links.
  * Raw bytes are updated with their decoded view so save and ROM export use
  * exactly the same document as the viewport and placement queries. */
 #include <limits.h>
@@ -7,6 +7,45 @@
 #include <stdlib.h>
 #include <string.h>
 #include "stanload.h"
+
+BOOL StanSetTileRooms(StanFile *stan, const DWORD *selected, DWORD count,
+    DWORD room, DWORD roomcount, DWORD *changedout, const char **reasonout)
+{
+    *changedout = 0;
+    *reasonout = "";
+    if (!stan || !stan->data || !stan->tiles || !selected || !count || count > stan->tilecount)
+    { *reasonout = "Select stan tiles in Face mode."; return FALSE; }
+    if (!room || room > roomcount || room > STAN_MAX_ROOM)
+    { *reasonout = "Choose an existing room between 1 and 138."; return FALSE; }
+    /* Validate the entire selection before changing any record. */
+    for (DWORD i = 0; i < count; i++)
+    {
+        const StanTile *tile;
+        const unsigned char *raw;
+        DWORD size;
+        if (selected[i] >= stan->tilecount)
+        { *reasonout = "A selected stan tile no longer exists."; return FALSE; }
+        tile = stan->tiles + selected[i];
+        size = 8u + tile->pointcount * 8u;
+        if (tile->pointcount < 3 || tile->pointcount > STAN_TILE_MAX_POINTS
+            || tile->sourceoffset > stan->size || size > stan->size - tile->sourceoffset)
+        { *reasonout = "A selected stan tile has an invalid record."; return FALSE; }
+        raw = stan->data + tile->sourceoffset;
+        if (((DWORD)raw[0] << 16 | (DWORD)raw[1] << 8 | raw[2]) != tile->id
+            || raw[3] != tile->room || raw[6] >> 4 != tile->pointcount)
+        { *reasonout = "The selected stan tile records are inconsistent."; return FALSE; }
+    }
+    for (DWORD i = 0; i < count; i++)
+    {
+        StanTile *tile = stan->tiles + selected[i];
+        if (tile->room == room) { continue; }
+        tile->room = (unsigned char)room;
+        stan->data[tile->sourceoffset + 3] = (unsigned char)room;
+        (*changedout)++;
+    }
+    if (*changedout) { stan->dirty = TRUE; }
+    return TRUE;
+}
 
 static DWORD StanPointRoot(DWORD *map, DWORD point)
 {
