@@ -34,6 +34,12 @@ static void alpha_state_checks(Gfx *gdl, int count, int expectedFog, int onecycl
                 assert(!bgOneCycleChooseState(&state, &chosen, FALSE, TRUE));
                 assert(state.combine.words.w0 == BG_ALPHA_COMBINE_W0(original.words.w0));
                 assert(state.combine.words.w1 == BG_ALPHA_COMBINE_W1(original.words.w1));
+                /* Decode the RGB/alpha field boundaries independently of the
+                 * override macros: bit 15 is RGB C0, not an alpha field. */
+                assert((state.combine.words.w0 & ~0x00007e00u) ==
+                       (original.words.w0 & ~0x00007e00u));
+                assert((state.combine.words.w1 & ~0x00fc7e3fu) ==
+                       (original.words.w1 & ~0x00fc7e3fu));
                 /* Independent mux decode: both cycles emit SHADE alpha. */
                 assert(((state.combine.words.w0 >> 12) & 7) == ((state.combine.words.w1 >> 12) & 7));
                 assert(((state.combine.words.w1 >> 21) & 7) == ((state.combine.words.w1 >> 3) & 7));

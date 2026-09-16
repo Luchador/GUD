@@ -42,7 +42,7 @@
     (BG_SURFACE_IS_MARKER(w0, w1) || BG_ALPHA_IS_MARKER(w0, w1))
 
 /* (0 - 0) * 0 + SHADE in both alpha cycles; RGB mux bits are untouched. */
-#define BG_ALPHA_COMBINE_W0(w0) ((w0) | 0x0000fe00u)
+#define BG_ALPHA_COMBINE_W0(w0) ((w0) | 0x00007e00u)
 #define BG_ALPHA_COMBINE_W1(w1) (((w1) & ~0x00fc7e3fu) | 0x00fc783cu)
 
 #endif
