@@ -236,6 +236,8 @@ void ViewportMoveCameraToSpawn(HWND hwnd);
 BOOL ViewportSetStanTiles(HWND hwnd, const StanFile *stan);
 void ViewportSetStanOpacity(HWND hwnd, int percent);
 DWORD ViewportGetStanSelectionCount(HWND hwnd, DWORD *singletile);
+/* Reads exactly count visible, selected stan tiles in Face mode. */
+BOOL ViewportGetSelectedStanTiles(HWND hwnd, DWORD *out, DWORD count);
 StanPointRef *ViewportGetMoveStanPoints(HWND hwnd, DWORD *countout);
 
 /* Replaces the BG portal overlay. Shared portal polygons are rendered

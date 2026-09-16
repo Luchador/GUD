@@ -3876,6 +3876,19 @@ DWORD ViewportGetStanSelectionCount(HWND hwnd, DWORD *singletile)
     return count;
 }
 
+BOOL ViewportGetSelectedStanTiles(HWND hwnd, DWORD *out, DWORD count)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    DWORD tile, at = 0;
+    if (!state || !out || !count || state->tool != EDITOR_TOOL_FACE_SELECT
+        || !state->stanselected || ViewportGetStanSelectionCount(hwnd, NULL) != count) { return FALSE; }
+    for (tile = 0; tile < state->stan.tilecount; tile++)
+    {
+        if (state->stanselected[tile]) { out[at++] = tile; }
+    }
+    return TRUE;
+}
+
 StanPointRef *ViewportGetMoveStanPoints(HWND hwnd, DWORD *countout)
 {
     const ViewportState *state = ViewportGetState(hwnd);

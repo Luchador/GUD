@@ -1980,6 +1980,41 @@ static void GEditorApplyHistoryStep(HWND hwnd, BOOL redo)
 }
 
 
+static BOOL GEditorDeleteSelectedStanTiles(HWND hwnd)
+{
+    EditHistoryTransaction transaction = {0};
+    DWORD *selected = NULL, count, deleted = 0;
+    const char *why = "Out of memory reading the stan selection.", *restorewhy = "";
+    if (ViewportGetTool(g_Viewport) != EDITOR_TOOL_FACE_SELECT
+        || ViewportIsFlying(g_Viewport) || ViewportIsTransforming(g_Viewport)) { return FALSE; }
+    count = ViewportGetStanSelectionCount(g_Viewport, NULL);
+    if (!count) { return FALSE; }
+    selected = malloc((size_t)count * sizeof(*selected));
+    if (!selected) { goto fail; }
+    if (!ViewportGetSelectedStanTiles(g_Viewport, selected, count))
+    { why = "The selected stan tiles could not be read."; goto fail; }
+    if (!EditHistoryBeginStanEdit(&g_EditHistory, &g_CurrentStan,
+        count == 1 ? "Delete Stan Tile" : "Delete Stan Tiles", &transaction, &why)) { goto fail; }
+    if (!StanDeleteTiles(&g_CurrentStan, selected, count, &deleted, &why)) { goto fail; }
+    /* Deletion clears the tile selection on rebuild. Re-evaluate pad preview
+     * and object grounding/shading against the remaining collision surface. */
+    if (!GEditorReloadCurrentObjectsAndViewport(&why)) { goto rollback; }
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+        &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    free(selected);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    GEditorReloadCurrentObjectsAndViewport(&restorewhy);
+    GEditorRestoreHistorySelection(hwnd);
+fail:
+    free(selected); EditHistoryCancelEdit(&transaction);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
 static void GEditorDeleteSelectedBgFaces(HWND hwnd)
 {
     EditHistoryTransaction transaction;
@@ -4204,7 +4239,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         }
         else if (ViewportGetTool(g_Viewport) == EDITOR_TOOL_FACE_SELECT)
         {
-            GEditorDeleteSelectedBgFaces(hwnd);
+            if (ViewportGetStanSelectionCount(g_Viewport, NULL)) { GEditorDeleteSelectedStanTiles(hwnd); }
+            else { GEditorDeleteSelectedBgFaces(hwnd); }
         }
         return 0;
     }

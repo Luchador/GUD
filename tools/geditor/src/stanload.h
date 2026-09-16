@@ -68,6 +68,10 @@ DWORD *StanBuildPointMap(const StanFile *stan, const char **reasonout);
 BOOL StanTranslatePoints(StanFile *stan, const StanPointRef *points, DWORD count,
                           const double offset[3], DWORD *movedout,
                           const char **reasonout);
+/* Atomic tile removal: compact records and relocate edge/header pointers.
+ * Links to deleted tiles become boundaries. At least one tile must remain. */
+BOOL StanDeleteTiles(StanFile *stan, const DWORD *selected, DWORD count,
+    DWORD *deletedout, const char **reasonout);
 /* RGB is quantized to the format's 4-bit channels; stan has no stored alpha. */
 BOOL StanPaintTile(StanFile *stan, DWORD tile, const unsigned char rgba[4],
                    BOOL *changedout, const char **reasonout);
