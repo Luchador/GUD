@@ -26,6 +26,7 @@
 #include "modeledits.h"
 #include "imageedits.h"
 #include "bgdocument.h"
+#include "setupload.h"
 
 #define ROM_EXPORT_FTBL_MAX_ROWS 1024u
 #define ROM_EXPORT_CHECKSUM_END  0x101000u
@@ -44,6 +45,7 @@ typedef struct RomExportSlot {
     DWORD replacementlength;
     BOOL model;
     BOOL background;
+    BOOL setup;
 } RomExportSlot;
 
 static char g_RomExportError[256];
@@ -787,7 +789,8 @@ static BOOL RomExportRepackResources(RomFile *rom,
             *reasonout = "the base ROM contains an invalid resource slot.";
             return FALSE;
         }
-        if (slots[slotindex].replacementlength > payload)
+        if (slots[slotindex].replacement != NULL
+            && (slots[slotindex].setup || slots[slotindex].replacementlength > payload))
         {
             payload = slots[slotindex].replacementlength;
         }
@@ -814,15 +817,19 @@ static BOOL RomExportRepackResources(RomFile *rom,
         DWORD payload = slot->length;
 
         slot->newoffset = cursor;
-        memcpy(packed + cursor, rom->data + slot->offset, slot->length);
-        if (slot->replacement != NULL)
+        if (slot->setup && slot->replacement != NULL)
         {
-            if (slot->model) { memset(packed + cursor, 0, slot->length); }
-            memcpy(packed + cursor, slot->replacement,
-                   slot->replacementlength);
-            if (slot->replacementlength > payload)
+            payload = slot->replacementlength;
+            memcpy(packed + cursor, slot->replacement, payload);
+        }
+        else
+        {
+            memcpy(packed + cursor, rom->data + slot->offset, slot->length);
+            if (slot->replacement != NULL)
             {
-                payload = slot->replacementlength;
+                if (slot->model) { memset(packed + cursor, 0, slot->length); }
+                memcpy(packed + cursor, slot->replacement, slot->replacementlength);
+                if (slot->replacementlength > payload) { payload = slot->replacementlength; }
             }
         }
         cursor += payload;
@@ -883,7 +890,7 @@ static BOOL RomExportRepackResources(RomFile *rom,
         return FALSE;
     }
 
-    if (target != oldstart)
+    if (target != oldstart || packedsize != oldend - oldstart)
     {
         DWORD manifestentry = rom->info.manifestoffset + 24
                             + (DWORD)(obsg - rom->info.entries) * 16;
@@ -983,6 +990,7 @@ static BOOL RomExportReplaceProjectResources(const GEditorProject *project,
         }
 
         slot->background |= strncmp(resource, "bg/", 3) == 0;
+        slot->setup |= strncmp(resource, "Usetup", 6) == 0 || strncmp(resource, "Ump_setup", 9) == 0;
         managed = ModelEditsReadReplacement(project->dir, resource, rom->data + offset,
             maxlen, &data, &length, reasonout);
         if (managed < 0) { goto fail; }
@@ -1093,6 +1101,25 @@ have_replacement:
             slot->replacement = cleaned.data;
             slot->replacementlength = cleaned.size;
         }
+    }
+
+    /* Resolve aliases first, then compact the chosen setup. The runtime loads
+     * the whole FTBL slot, so shortening bytes inside an old large slot does
+     * not save RAM: its following resource address must move as well. */
+    for (index = 0; index < slotcount; index++) if (slots[index].setup)
+    {
+        RomExportSlot *slot = &slots[index];
+        const unsigned char *source = slot->replacement ? slot->replacement : rom->data + slot->offset;
+        DWORD size = slot->replacement ? slot->replacementlength : slot->length;
+        unsigned char *packed;
+        DWORD packedsize;
+        /* Unused stock setup placeholders can share a tiny, opaque slot. */
+        if (size < 40) { continue; }
+        if (!SetupCompactNative(source, size, &packed, &packedsize, reasonout)) { goto fail; }
+        free(slot->replacement);
+        slot->replacement = packed;
+        slot->replacementlength = packedsize;
+        if (packedsize != slot->length) { needrepack = TRUE; }
     }
 
     if (needrepack)

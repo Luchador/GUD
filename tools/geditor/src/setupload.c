@@ -165,6 +165,204 @@ static DWORD SetupIntroWordCount(DWORD type)
     return type < sizeof(words) / sizeof(words[0]) ? words[type] : 0;
 }
 
+/* Native setups have ten root pointers. Placement/script edits append tables
+ * to keep live offsets and undo history stable; only their reachable data is
+ * needed in the ROM. Keep 16-byte blocks so every retained byte preserves its
+ * alignment, including overlapping strings and pointers into terminators. */
+typedef struct SetupCompact {
+    const unsigned char *data;
+    DWORD size;
+    unsigned char *used, *pointers;
+} SetupCompact;
+
+static BOOL SetupCompactKeep(SetupCompact *c, DWORD at, DWORD bytes)
+{
+    DWORD end;
+    if (at > c->size || bytes > c->size - at || !bytes) { return FALSE; }
+    end = (at + bytes - 1) / 16;
+    for (DWORD i = at / 16; i <= end; i++) { c->used[i] = 1; }
+    return TRUE;
+}
+
+static BOOL SetupCompactPointer(SetupCompact *c, DWORD field, DWORD *target)
+{
+    if ((field & 3) || !SetupCompactKeep(c, field, 4)) { return FALSE; }
+    *target = SetupRead32(c->data + field);
+    if (*target && (*target < SETUP_HEADER_SIZE || *target >= c->size)) { return FALSE; }
+    c->pointers[field / 4] = 1;
+    return TRUE;
+}
+
+static BOOL SetupCompactString(SetupCompact *c, DWORD at)
+{
+    const unsigned char *end;
+    if (!at) { return TRUE; }
+    if (at >= c->size) { return FALSE; }
+    end = memchr(c->data + at, 0, c->size - at);
+    return end && SetupCompactKeep(c, at, (DWORD)(end - c->data - at) + 1);
+}
+
+/* Waypoint indices and group neighbours end with a signed negative word. */
+static BOOL SetupCompactIndices(SetupCompact *c, DWORD at)
+{
+    if (!at) { return TRUE; }
+    if (at & 3) { return FALSE; }
+    for (;; at += 4)
+    {
+        if (!SetupCompactKeep(c, at, 4)) { return FALSE; }
+        if (SetupRead32(c->data + at) & 0x80000000u) { return TRUE; }
+    }
+}
+
+static BOOL SetupCompactScript(SetupCompact *c, DWORD at)
+{
+    while (at < c->size)
+    {
+        DWORD op = c->data[at], bytes;
+        if (op >= ACTION_OPCODE_COUNT) { return FALSE; }
+        bytes = g_ActionOpcodes[op].size;
+        if (op == 0xad) /* PRINT has a zero-terminated inline string. */
+        {
+            const unsigned char *end = memchr(c->data + at + 1, 0, c->size - at - 1);
+            if (!end) { return FALSE; }
+            bytes = (DWORD)(end - c->data - at) + 1;
+        }
+        if (!SetupCompactKeep(c, at, bytes)) { return FALSE; }
+        at += bytes;
+        if (op == 4) { return TRUE; }
+    }
+    return FALSE;
+}
+
+static BOOL SetupCompactRoot(SetupCompact *c, DWORD root, DWORD at)
+{
+    if (!at) { return TRUE; }
+    if (at & 3) { return FALSE; }
+    for (;;)
+    {
+        DWORD value, bytes, target;
+        if (!SetupCompactKeep(c, at, 4)) { return FALSE; }
+        value = SetupRead32(c->data + at);
+        switch (root)
+        {
+        case 0: /* waypoint { pad, neighbours*, group, distance } */
+            bytes = 16;
+            if (!SetupCompactKeep(c, at, bytes)) { return FALSE; }
+            if (value & 0x80000000u) { return TRUE; }
+            if (!SetupCompactPointer(c, at + 4, &target)
+                || !SetupCompactIndices(c, target)) { return FALSE; }
+            break;
+        case 1: /* waygroup { neighbours*, waypoints*, distance } */
+            bytes = 12;
+            if (!SetupCompactKeep(c, at, bytes)) { return FALSE; }
+            if (!value) { return TRUE; }
+            for (DWORD i = 0; i < 8; i += 4)
+            {
+                if (!SetupCompactPointer(c, at + i, &target)
+                    || !SetupCompactIndices(c, target)) { return FALSE; }
+            }
+            break;
+        case 2: /* intro commands, including the Cuba credits pointer */
+            bytes = SetupIntroWordCount(value) * 4;
+            if (!SetupCompactKeep(c, at, bytes)) { return FALSE; }
+            if (value == 9) { return TRUE; }
+            if (value == 8)
+            {
+                if (!SetupCompactPointer(c, at + 4, &target) || !target || (target & 3)) { return FALSE; }
+                do
+                {
+                    if (!SetupCompactKeep(c, target, 12)) { return FALSE; }
+                    value = SetupRead32(c->data + target);
+                    target += 12;
+                } while (value);
+            }
+            break;
+        case 3: /* prop commands contain indices/IDs, not file pointers */
+            value &= 255;
+            if (value > SETUP_PROP_END) { return FALSE; }
+            bytes = SetupObjectWordCount((unsigned char)value) * 4;
+            if (!SetupCompactKeep(c, at, bytes)) { return FALSE; }
+            if (value == SETUP_PROP_END) { return TRUE; }
+            break;
+        case 4: /* patrol { waypoint indices*, id/flags/length } */
+        case 5: /* Action Block { bytecode*, id } */
+            bytes = 8;
+            if (!SetupCompactKeep(c, at, bytes)) { return FALSE; }
+            if (!value) { return TRUE; }
+            if (!SetupCompactPointer(c, at, &target)
+                || !(root == 4 ? SetupCompactIndices(c, target) : SetupCompactScript(c, target))) { return FALSE; }
+            break;
+        case 6: /* pads and bound pads: plink is the only native pointer */
+        case 7:
+            bytes = root == 6 ? SETUP_PAD_SIZE : SETUP_BOUNDPAD_SIZE;
+            if (!SetupCompactKeep(c, at, bytes)
+                || !SetupCompactPointer(c, at + SETUP_PAD_LINK, &target)) { return FALSE; }
+            if (!target) { return TRUE; }
+            if (!SetupCompactString(c, target)) { return FALSE; }
+            break;
+        default: /* optional pad-name pointer tables */
+            bytes = 4;
+            if (!SetupCompactPointer(c, at, &target)) { return FALSE; }
+            if (!target) { return TRUE; }
+            if (!SetupCompactString(c, target)) { return FALSE; }
+            break;
+        }
+        at += bytes;
+    }
+}
+
+BOOL SetupCompactNative(const unsigned char *data, DWORD size,
+    unsigned char **out, DWORD *sizeout, const char **reasonout)
+{
+    SetupCompact c = {0};
+    DWORD blocks, *map = NULL, total = 0;
+    unsigned char *packed = NULL;
+    BOOL ok = FALSE;
+    *out = NULL; *sizeout = 0;
+    *reasonout = "The setup contains an invalid native table or pointer.";
+    if (!data || size < SETUP_HEADER_SIZE || size > SETUP_FILE_MAX) { return FALSE; }
+    c.data = data; c.size = size; blocks = (size + 15) / 16;
+    c.used = calloc(blocks, 1); c.pointers = calloc((size + 3) / 4, 1);
+    map = malloc((size_t)blocks * sizeof(*map));
+    if (!c.used || !c.pointers || !map) { goto memory; }
+    SetupCompactKeep(&c, 0, SETUP_HEADER_SIZE);
+    for (DWORD root = 0; root < 10; root++)
+    {
+        DWORD target;
+        if (!SetupCompactPointer(&c, root * 4, &target)
+            || !SetupCompactRoot(&c, root, target)) { goto done; }
+    }
+    for (DWORD i = 0; i < blocks; i++)
+    {
+        map[i] = total;
+        if (c.used[i]) { total += 16; }
+    }
+    packed = calloc(total, 1);
+    if (!packed) { goto memory; }
+    for (DWORD i = 0; i < blocks; i++) if (c.used[i])
+    {
+        DWORD bytes = size - i * 16;
+        if (bytes > 16) { bytes = 16; }
+        memcpy(packed + map[i], data + i * 16, bytes);
+    }
+    for (DWORD field = 0; field + 4 <= size; field += 4) if (c.pointers[field / 4])
+    {
+        DWORD target = SetupRead32(data + field);
+        if (target)
+        {
+            if (!c.used[target / 16]) { goto done; }
+            SetupWrite32(packed + map[field / 16] + field % 16, map[target / 16] + target % 16);
+        }
+    }
+    *out = packed; packed = NULL; *sizeout = total; *reasonout = ""; ok = TRUE;
+    goto done;
+memory:
+    *reasonout = "Out of memory compacting the setup for ROM export.";
+done:
+    free(packed); free(map); free(c.used); free(c.pointers);
+    return ok;
+}
+
 /* Multiple script tags may use the same outro camera. Display identical
  * native camera records as one marker without removing commands or tags. */
 static BOOL SetupOutroDuplicate(const SetupFile *setup, DWORD record)

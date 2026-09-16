@@ -152,6 +152,11 @@ typedef struct SetupFile {
     BOOL dirty;
 } SetupFile;
 
+/* Export-only copy: discard unreachable native tables left by append-only
+ * edits and relocate file pointers. Live editor offsets/history stay stable. */
+BOOL SetupCompactNative(const unsigned char *data, DWORD size,
+    unsigned char **out, DWORD *sizeout, const char **reasonout);
+
 /* Requires a base ROM with a shared Action Block catalog so every script
  * can be checked. Preserves table indices and makes no changes on failure. */
 BOOL SetupFileDeletePad(SetupFile *setup, const SetupPadRef *ref,

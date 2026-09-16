@@ -93,6 +93,8 @@ static unsigned char *Fixture(DWORD shift,const unsigned char *model,DWORD model
         DWORD at=TABLE+shift+i*12,offset=i==1 ? OBJECTS : i==2 ? OBJECTS+64 : i==3 ? OBJECTS+576 : MODEL;
         Put32(data+at,i);Put32(data+at+4,names[i]);Put32(data+at+8,offset+shift);
     }
+    Put32(data+OBJECTS+shift+12,48); /* Native setup with a two-word objective command. */
+    Put32(data+OBJECTS+shift+48,25);Put32(data+OBJECTS+shift+56,48);
     row=data+OBJECTS+shift+64; /* Valid native BG with a three-vertex batch. */
     Put32(row+4,32);Put32(row+56,0x0e000080);Put32(row+60,0x0e000100);
     Put32(row+124,64);Put32(row+252,24);Put32(row+256,0x04200030);
@@ -120,7 +122,7 @@ int main(int argc,char **argv)
     assert(argc==3);model=Read(argv[2],&modelsize);old=Fixture(0,model,modelsize);next=Fixture(SHIFT,model,modelsize);
     Path(oldpath,argv[1],"old.z64");Path(nextpath,argv[1],"new.z64");Save(oldpath,old,SIZE);
     /* Incoming setup and sound changes; our BG/music changes must survive. */
-    next[OBJECTS+SHIFT+32]=0x56;next[LEVELS+SHIFT+31]=8;Save(nextpath,next,SIZE);
+    next[OBJECTS+SHIFT+52]=0x56;next[LEVELS+SHIFT+31]=8;Save(nextpath,next,SIZE);
     OK(RomLoad(oldpath,&rom,&why));OK(ProjectCreate("Original",argv[1],&rom.info,&project,&why));
     OK(RomExportStoreProjectBase(&project,&rom,&why));
     Folder(project.dir,"bg");Folder(project.dir,"setup");Folder(project.dir,"stan");Folder(project.dir,"images");
@@ -160,7 +162,7 @@ int main(int argc,char **argv)
     Path(path,rebased.dir,"base.z64");OK(Hash(path)==Hash(nextpath));Path(path,project.dir,"base.z64");OK(Hash(path)==Hash(oldpath));
     OK(RomExportCreate(&rebased,"Playable",argv[1],exported,sizeof(exported),&why));OK(RomLoad(exported,&output,&why));
     OK(output.data[0x2000]==0x22 && output.info.levels[0].music==12 && output.info.levels[0].bgsound==8);
-    OK(RomGetFileByIndex(&output,1,path,sizeof(path),&offset,&span) && output.data[offset+32]==0x56);
+    OK(RomGetFileByIndex(&output,1,path,sizeof(path),&offset,&span) && output.data[offset+52]==0x56);
     OK(RomGetFileByIndex(&output,2,path,sizeof(path),&offset,&span) && output.data[offset+128]==1);
     OK(RomGetFileByIndex(&output,4,path,sizeof(path),&offset,&span) && span==modelsize && memcmp(output.data+offset,model,modelsize));
     OK(TexRomReadBank(&output,&bank,&why) && bank.count==3);RomFree(&output);
