@@ -13,13 +13,13 @@
 #define FACEPROPERTIES_PREVIEW_SIZE 64
 
 enum { FACE_SUMMARY, FACE_ROOM_LABEL, FACE_ROOM, FACE_TEXTURE_LABEL, FACE_TEXTURE_THUMB, FACE_TEXTURE_FIND,
+       FACE_RENDER_INFO, FACE_RENDER, FACE_RENDER_HELP,
+       FACE_CULL_LABEL, FACE_CULL,
+       FACE_WRAP_LABEL, FACE_U_LABEL, FACE_U, FACE_V_LABEL, FACE_V,
        FACE_DETAIL_LABEL, FACE_DETAIL_MODE, FACE_DETAIL_IMAGE_LABEL, FACE_DETAIL_IMAGE,
        FACE_DETAIL_THUMB, FACE_DETAIL_FIND, FACE_DETAIL_INFO,
        FACE_DETAIL_U_LABEL, FACE_DETAIL_U, FACE_DETAIL_V_LABEL, FACE_DETAIL_V,
        FACE_DETAIL_LOD_LABEL, FACE_DETAIL_LOD, FACE_DETAIL_OFFSET_LABEL, FACE_DETAIL_OFFSET,
-       FACE_RENDER_INFO, FACE_RENDER, FACE_RENDER_HELP,
-       FACE_CULL_LABEL, FACE_CULL,
-       FACE_WRAP_LABEL, FACE_U_LABEL, FACE_U, FACE_V_LABEL, FACE_V,
        FACE_SELECTION_HELP, FACE_CONTROL_COUNT };
 
 typedef struct FacePropertiesState {
@@ -447,11 +447,11 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
         CREATESTRUCT *cs = (CREATESTRUCT *)lparam;
         const char *labels[FACE_CONTROL_COUNT] = {
             "", "Room", "", "Texture", "", "Find",
-            "Detail texture", "", "Detail image (hex ID, Enter to apply)", "", "", "Find", "",
-            "Detail U scale", "", "Detail V scale", "", "Minimum LOD (0-255, Enter to apply)", "", "Tile offset", "",
             "", "", "",
             "Backface culling", "",
             "Texture wrapping", "U", "", "V", "",
+            "Detail texture", "", "Detail image (hex ID, Enter to apply)", "", "", "Find", "",
+            "Detail U scale", "", "Detail V scale", "", "Minimum LOD (0-255, Enter to apply)", "", "Tile offset", "",
             ""
         };
         int i;
