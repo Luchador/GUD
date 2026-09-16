@@ -229,8 +229,10 @@ typedef struct ViewportState {
     BOOL vertexsnap;
     BOOL portalsnaptarget; /* BG-only destination picking; ignore editor overlays. */
     BOOL colorpick;
-    BOOL knifepreview;
-    double knifecorners[4][3];
+    BOOL knifeactive, knifepreview, dragknife;
+    BgKnifePlane knifeplane, dragknifeplane;
+    Rotation knifeframe, dragknifeframe;
+    double kniferadius, knifecorners[4][3];
     BOOL colorsampleclick; /* Consume the second click of a sampling double-click. */
     BOOL showgeometrystatistics;
     GLuint statisticsfont; /* ASCII bitmap display lists, owned by the GL context */
@@ -1707,34 +1709,89 @@ static void ViewportDrawKnifePlane(const ViewportState *state)
     glPopAttrib();
 }
 
-void ViewportSetKnifePlane(HWND viewport, const BgKnifePlane *input, const double selectioncenter[3], double radius)
+/* The finite preview and gizmo share the authored position. Retain the full
+ * frame so rotating around the plane normal also rotates its visible square. */
+static void ViewportRefreshKnifePlane(HWND hwnd, ViewportState *state)
 {
-    ViewportState *state = ViewportGetState(viewport);
-    BgKnifePlane plane;
-    double u[3] = {0}, v[3], center[3], distance = 0, length;
     const int signs[4][2] = {{-1,-1},{1,-1},{1,1},{-1,1}};
-    int axis = 0, i, corner;
-    if (!state) { return; }
-    state->knifepreview = FALSE;
-    if (selectioncenter && isfinite(radius) && radius > 0 && BgKnifeNormalizePlane(input, &plane))
+    for (int corner = 0; corner < 4; corner++)
     {
-        /* Anchor the finite preview near the selection even if the entered
-         * position slides along the infinite cutting plane. */
-        for (i = 0; i < 3; i++) { distance += (selectioncenter[i] - plane.position[i]) * plane.normal[i]; }
-        for (i = 1; i < 3; i++) { if (fabs(plane.normal[i]) < fabs(plane.normal[axis])) { axis = i; } }
-        u[axis] = 1;
-        length = plane.normal[axis];
-        for (i = 0; i < 3; i++) { u[i] -= length * plane.normal[i]; }
-        length = sqrt(u[0]*u[0] + u[1]*u[1] + u[2]*u[2]);
-        for (i = 0; i < 3; i++) { u[i] /= length; center[i] = selectioncenter[i] - distance * plane.normal[i]; }
-        v[0] = plane.normal[1]*u[2] - plane.normal[2]*u[1];
-        v[1] = plane.normal[2]*u[0] - plane.normal[0]*u[2];
-        v[2] = plane.normal[0]*u[1] - plane.normal[1]*u[0];
-        for (corner = 0; corner < 4; corner++)
-        { for (i = 0; i < 3; i++) { state->knifecorners[corner][i] = center[i] + radius*(signs[corner][0]*u[i] + signs[corner][1]*v[i]); } }
+        for (int axis = 0; axis < 3; axis++)
+        {
+            state->knifecorners[corner][axis] = state->knifeplane.position[axis]
+                + state->kniferadius * (signs[corner][0] * state->knifeframe.m[axis][0]
+                                     + signs[corner][1] * state->knifeframe.m[axis][2]);
+        }
+    }
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd, NULL, FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_TRANSFORM_PREVIEW, 0, 0);
+}
+
+void ViewportSetKnifePlane(HWND hwnd, const BgKnifePlane *input, double radius)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    BgKnifePlane plane;
+    if (!state) { return; }
+    state->knifeactive = isfinite(radius) && radius > 0;
+    if (state->knifeactive && BgKnifeNormalizePlane(input, &plane))
+    {
+        double difference = 0;
+        for (int axis = 0; axis < 3; axis++)
+        { difference += fabs(plane.normal[axis] - state->knifeplane.normal[axis]); }
+        if (!state->knifepreview || difference > 1e-10)
+        {
+            double look[3] = {0, 0, 1};
+            if (fabs(plane.normal[2]) > .9) { look[0] = 1; look[2] = 0; }
+            double dot = look[0] * plane.normal[0] + look[2] * plane.normal[2];
+            for (int axis = 0; axis < 3; axis++) { look[axis] -= dot * plane.normal[axis]; }
+            RotationBasis(&state->knifeframe, plane.normal, look);
+        }
+        state->knifeplane = plane;
+        state->kniferadius = radius;
         state->knifepreview = TRUE;
     }
-    InvalidateRect(viewport, NULL, FALSE);
+    else { state->knifepreview = FALSE; }
+    ViewportRefreshKnifePlane(hwnd, state);
+}
+
+BOOL ViewportKnifeActive(HWND hwnd)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    return state && state->knifeactive;
+}
+
+BOOL ViewportGetKnifePlane(HWND hwnd, BgKnifePlane *plane)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    if (!state || !state->knifepreview) { return FALSE; }
+    if (plane) { *plane = state->knifeplane; }
+    return TRUE;
+}
+
+BOOL ViewportTransformKnife(HWND hwnd, const double offset[3], const Rotation *rotation)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    BgKnifePlane plane;
+    if (!state || !state->knifepreview || state->dragaxis >= 0 || (!offset && !rotation)
+        || (rotation && !RotationValid(rotation))) { return FALSE; }
+    plane = state->knifeplane;
+    if (offset)
+    {
+        for (int axis = 0; axis < 3; axis++)
+        {
+            plane.position[axis] += offset[axis];
+            if (!isfinite(plane.position[axis]) || fabs(plane.position[axis]) > 1e20) { return FALSE; }
+        }
+    }
+    if (rotation)
+    {
+        RotationVector(rotation, plane.normal, plane.normal);
+        RotationMultiply(&state->knifeframe, rotation, &state->knifeframe);
+    }
+    state->knifeplane = plane;
+    ViewportRefreshKnifePlane(hwnd, state);
+    return TRUE;
 }
 
 static void ViewportPaintGL(ViewportState *state)
@@ -3393,6 +3450,12 @@ BOOL ViewportGetSelectionPosition(HWND hwnd, double position[3], DWORD *countout
     int i, axis;
 
     *countout = 0;
+    if (state && state->knifeactive)
+    {
+        if (!state->knifepreview) { return FALSE; }
+        memcpy(position, state->knifeplane.position, sizeof(state->knifeplane.position));
+        *countout = 1; return TRUE;
+    }
     if (state != NULL)
     {
         SetupMarker marker;
@@ -3470,6 +3533,12 @@ static void ViewportUpdateGizmo(ViewportState *state)
     int i, axis;
     state->gizmovisible = FALSE;
     state->hoveraxis = -1;
+    if (state->knifeactive)
+    {
+        memcpy(state->gizmoposition, state->knifeplane.position, sizeof(state->gizmoposition));
+        state->gizmovisible = state->knifepreview && !state->scalemode;
+        return;
+    }
     if (state->vertexsnap) { return; }
     {
         DWORD count;
@@ -5698,44 +5767,29 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
     }
     state->dragrotation = state->rotationmode;
     state->dragscaling = state->scalemode;
-    { SetupMarker marker; state->dragmarker = ViewportSelectedMarker(state, &marker); }
-    if (state->dragmarker && state->dragscaling) { return FALSE; }
-    state->dragportal = ViewportGetPortalSelectionCount(hwnd) > 0;
-    if (state->dragportal && (state->dragrotation || state->dragscaling)) { return FALSE; }
-    state->dragpad = ViewportSelectedPadIndex(state) >= 0;
-    state->dragstan = ViewportGetStanSelectionCount(hwnd, NULL) > 0;
-    vertexcount = state->dragportal ? (int)(state->portals.portalcount * BG_PORTAL_MAX_POINTS)
-                  : state->dragmarker ? 1 : state->dragpad    ? VIEWPORT_BOX_VERTICES
-                  : state->dragstan ? (int)(state->stan.tilecount * STAN_TILE_MAX_POINTS)
-                                    : state->scenecount;
-    state->dragvertices = malloc((size_t)vertexcount * sizeof(*state->dragvertices));
-    state->dragmask = calloc((size_t)vertexcount, 1);
-    if (state->dragvertices == NULL || state->dragmask == NULL)
+    state->dragknife = state->knifeactive;
+    if (state->dragknife)
     {
-        free(state->dragvertices);
-        free(state->dragmask);
-        state->dragvertices = NULL;
-        state->dragmask = NULL;
-        return TRUE;
+        if (state->dragscaling || !state->knifepreview) { return FALSE; }
+        state->dragknifeplane = state->knifeplane;
+        state->dragknifeframe = state->knifeframe;
+        state->dragmarker = state->dragportal = state->dragpad = state->dragstan = FALSE;
     }
-    if (state->dragportal) { ViewportPreparePortalDrag(state); }
-    else if (state->dragmarker) { /* Marker previews rebuild their native setup clone below. */ }
-    else if (state->dragpad)
+    else
     {
-        int first = ViewportSelectedPadIndex(state) * VIEWPORT_BOX_VERTICES;
-        for (i = 0; i < vertexcount; i++)
-        {
-            const Vertex *v = &state->padmarkers[first + i];
-            state->dragvertices[i][0] = v->x;
-            state->dragvertices[i][1] = v->y;
-            state->dragvertices[i][2] = v->z;
-            state->dragmask[i] = 1;
-        }
-    }
-    else if (state->dragstan)
-    {
-        StanPointRef *stanrefs = ViewportGetMoveStanPoints(hwnd, &refcount);
-        if (stanrefs == NULL)
+        { SetupMarker marker; state->dragmarker = ViewportSelectedMarker(state, &marker); }
+        if (state->dragmarker && state->dragscaling) { return FALSE; }
+        state->dragportal = ViewportGetPortalSelectionCount(hwnd) > 0;
+        if (state->dragportal && (state->dragrotation || state->dragscaling)) { return FALSE; }
+        state->dragpad = ViewportSelectedPadIndex(state) >= 0;
+        state->dragstan = ViewportGetStanSelectionCount(hwnd, NULL) > 0;
+        vertexcount = state->dragportal ? (int)(state->portals.portalcount * BG_PORTAL_MAX_POINTS)
+                      : state->dragmarker ? 1 : state->dragpad    ? VIEWPORT_BOX_VERTICES
+                      : state->dragstan ? (int)(state->stan.tilecount * STAN_TILE_MAX_POINTS)
+                                        : state->scenecount;
+        state->dragvertices = malloc((size_t)vertexcount * sizeof(*state->dragvertices));
+        state->dragmask = calloc((size_t)vertexcount, 1);
+        if (state->dragvertices == NULL || state->dragmask == NULL)
         {
             free(state->dragvertices);
             free(state->dragmask);
@@ -5743,26 +5797,24 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
             state->dragmask = NULL;
             return TRUE;
         }
-        for (i = 0; i < vertexcount; i++)
+        if (state->dragportal) { ViewportPreparePortalDrag(state); }
+        else if (state->dragmarker) { /* Marker previews rebuild their native setup clone below. */ }
+        else if (state->dragpad)
         {
-            DWORD tile = (DWORD)i / STAN_TILE_MAX_POINTS, point = (DWORD)i % STAN_TILE_MAX_POINTS;
-            const StanPoint *v = &state->stan.tiles[tile].points[point];
-            StanPointRef ref = ViewportStanPointRef(state, tile, point);
-            state->dragvertices[i][0] = v->x;
-            state->dragvertices[i][1] = v->y;
-            state->dragvertices[i][2] = v->z;
-            state->dragmask[i] = point < state->stan.tiles[tile].pointcount &&
-                                 bsearch(&ref, stanrefs, refcount, sizeof(*stanrefs),
-                                         ViewportCompareStanRefs) != NULL;
+            int first = ViewportSelectedPadIndex(state) * VIEWPORT_BOX_VERTICES;
+            for (i = 0; i < vertexcount; i++)
+            {
+                const Vertex *v = &state->padmarkers[first + i];
+                state->dragvertices[i][0] = v->x;
+                state->dragvertices[i][1] = v->y;
+                state->dragvertices[i][2] = v->z;
+                state->dragmask[i] = 1;
+            }
         }
-        free(stanrefs);
-    }
-    else
-    {
-        if (state->selectedobject == VIEWPORT_OBJECT_NONE)
+        else if (state->dragstan)
         {
-            refs = ViewportGetMoveVertices(hwnd, &refcount);
-            if (refs == NULL)
+            StanPointRef *stanrefs = ViewportGetMoveStanPoints(hwnd, &refcount);
+            if (stanrefs == NULL)
             {
                 free(state->dragvertices);
                 free(state->dragmask);
@@ -5770,18 +5822,46 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
                 state->dragmask = NULL;
                 return TRUE;
             }
+            for (i = 0; i < vertexcount; i++)
+            {
+                DWORD tile = (DWORD)i / STAN_TILE_MAX_POINTS, point = (DWORD)i % STAN_TILE_MAX_POINTS;
+                const StanPoint *v = &state->stan.tiles[tile].points[point];
+                StanPointRef ref = ViewportStanPointRef(state, tile, point);
+                state->dragvertices[i][0] = v->x;
+                state->dragvertices[i][1] = v->y;
+                state->dragvertices[i][2] = v->z;
+                state->dragmask[i] = point < state->stan.tiles[tile].pointcount &&
+                                     bsearch(&ref, stanrefs, refcount, sizeof(*stanrefs),
+                                             ViewportCompareStanRefs) != NULL;
+            }
+            free(stanrefs);
         }
-        for (i = 0; i < state->scenecount; i++)
+        else
         {
-            state->dragvertices[i][0] = state->scene[i].x;
-            state->dragvertices[i][1] = state->scene[i].y;
-            state->dragvertices[i][2] = state->scene[i].z;
-            state->dragmask[i] = state->selectedobject != VIEWPORT_OBJECT_NONE
-                                     ? state->sceneobjectindices[i / 3] == state->selectedobject
-                                     : bsearch(&state->scenevertexrefs[i], refs, refcount,
-                                               sizeof(*refs), ViewportCompareVertexRefs) != NULL;
+            if (state->selectedobject == VIEWPORT_OBJECT_NONE)
+            {
+                refs = ViewportGetMoveVertices(hwnd, &refcount);
+                if (refs == NULL)
+                {
+                    free(state->dragvertices);
+                    free(state->dragmask);
+                    state->dragvertices = NULL;
+                    state->dragmask = NULL;
+                    return TRUE;
+                }
+            }
+            for (i = 0; i < state->scenecount; i++)
+            {
+                state->dragvertices[i][0] = state->scene[i].x;
+                state->dragvertices[i][1] = state->scene[i].y;
+                state->dragvertices[i][2] = state->scene[i].z;
+                state->dragmask[i] = state->selectedobject != VIEWPORT_OBJECT_NONE
+                                         ? state->sceneobjectindices[i / 3] == state->selectedobject
+                                         : bsearch(&state->scenevertexrefs[i], refs, refcount,
+                                                   sizeof(*refs), ViewportCompareVertexRefs) != NULL;
+            }
+            free(refs);
         }
-        free(refs);
     }
     ViewportBuildPickRay(hwnd, state, x, y, &ray);
     state->dragaxis = axis;
@@ -5834,7 +5914,7 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
         state->rotationtotal = 0;
         state->rotationlast = ViewportRotationParameter(state, &ray, x, y);
     }
-    state->dragextruding = shift && state->tool == EDITOR_TOOL_EDGE_SELECT
+    state->dragextruding = !state->dragknife && shift && state->tool == EDITOR_TOOL_EDGE_SELECT
         && !state->dragrotation && !state->dragscaling && !state->dragstan
         && !state->dragpad && !state->dragmarker && !state->dragportal && state->selectedobject == VIEWPORT_OBJECT_NONE;
     if (state->dragextruding && !ViewportPrepareEdgeExtrusion(state))
@@ -5846,6 +5926,13 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
     SetCapture(hwnd);
     InvalidateRect(hwnd, NULL, FALSE);
     return TRUE;
+}
+
+BOOL ViewportBeginKnifeTransform(HWND hwnd, int x, int y)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    return state && state->knifeactive && state->knifepreview && !state->flying
+        && state->dragaxis < 0 && ViewportBeginTransform(hwnd, state, x, y, FALSE);
 }
 
 static BOOL ViewportPreviewMarker(HWND hwnd, ViewportState *state, double delta, const Rotation *rotation)
@@ -5886,7 +5973,7 @@ static void ViewportDragTransform(HWND hwnd, ViewportState *state, int x, int y)
         state->rotationtotal += state->dragvertical ? angle - state->rotationlast
                                                     : remainder(angle - state->rotationlast, 360.0);
         state->rotationlast = angle;
-        delta = round(state->rotationtotal);
+        delta = (GetKeyState(VK_CONTROL) & 0x8000) ? RotationSnapDegrees(state->rotationtotal) : round(state->rotationtotal);
         RotationAxis(&rotation, state->dragaxis, delta);
     }
     else if (state->dragscaling)
@@ -5905,6 +5992,19 @@ static void ViewportDragTransform(HWND hwnd, ViewportState *state, int x, int y)
     }
     if (!isfinite(delta) || fabs(delta) > 1000000 || delta == state->dragdelta)
     {
+        return;
+    }
+    if (state->dragknife)
+    {
+        state->knifeplane = state->dragknifeplane;
+        if (state->dragrotation)
+        {
+            RotationVector(&rotation, state->dragknifeplane.normal, state->knifeplane.normal);
+            RotationMultiply(&state->knifeframe, &rotation, &state->dragknifeframe);
+        }
+        else { state->knifeplane.position[state->dragaxis] += delta; }
+        state->dragdelta = delta;
+        ViewportRefreshKnifePlane(hwnd, state);
         return;
     }
     if (state->dragextruding)
@@ -6013,6 +6113,19 @@ static void ViewportDragTransform(HWND hwnd, ViewportState *state, int x, int y)
     SendMessage(GetParent(hwnd), VIEWPORT_WM_TRANSFORM_PREVIEW, 0, 0);
 }
 
+static void ViewportFinishKnifeTransform(HWND hwnd, ViewportState *state, BOOL cancel)
+{
+    if (cancel)
+    {
+        state->knifeplane = state->dragknifeplane;
+        state->knifeframe = state->dragknifeframe;
+    }
+    state->dragaxis = -1;
+    state->dragknife = FALSE;
+    if (GetCapture() == hwnd) { ReleaseCapture(); }
+    ViewportRefreshKnifePlane(hwnd, state);
+}
+
 void ViewportCancelTransform(HWND hwnd)
 {
     ViewportState *state = ViewportGetState(hwnd);
@@ -6022,6 +6135,7 @@ void ViewportCancelTransform(HWND hwnd)
     {
         return;
     }
+    if (state->dragknife) { ViewportFinishKnifeTransform(hwnd, state, TRUE); return; }
     if (state->dragmarker && state->markersetup)
     { ViewportSetSetupMarkers(hwnd, state, state->markersetup, state->markerlevelscale); }
     if (state->dragportal) { ViewportPreviewPortalDrag(state, 0); }
@@ -6088,6 +6202,7 @@ static void ViewportEndTransform(HWND hwnd, ViewportState *state)
     {
         return;
     }
+    if (state->dragknife) { ViewportFinishKnifeTransform(hwnd, state, FALSE); return; }
     if (state->dragextruding)
     {
         ViewportEdgeExtrusion extrusion = {0};
@@ -6550,6 +6665,12 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         return 0;
 
     case WM_KEYDOWN:
+        if (state && state->dragaxis >= 0 && state->dragrotation && wparam == VK_CONTROL)
+        {
+            POINT point;
+            if (GetCursorPos(&point) && ScreenToClient(hwnd, &point)) { ViewportDragTransform(hwnd, state, point.x, point.y); }
+            return 0;
+        }
         if (state && state->flying) { state->contextpending=FALSE; }
         if (state != NULL && state->colorpick && wparam == VK_ESCAPE)
         {
@@ -6581,7 +6702,14 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         }
         return 0;
 
-    case WM_KEYUP: ViewportSetKey(state, wparam, lparam, 0);
+    case WM_KEYUP:
+        if (state && state->dragaxis >= 0 && state->dragrotation && wparam == VK_CONTROL)
+        {
+            POINT point;
+            if (GetCursorPos(&point) && ScreenToClient(hwnd, &point)) { ViewportDragTransform(hwnd, state, point.x, point.y); }
+            return 0;
+        }
+        ViewportSetKey(state, wparam, lparam, 0);
         return 0;
 
     case WM_CANCELMODE:
@@ -8559,6 +8687,11 @@ static BOOL ViewportGetComponentRotation(HWND hwnd, const ViewportState *state,
 BOOL ViewportGetGeometryRotation(HWND hwnd, Rotation *frame)
 {
     const ViewportState *state = ViewportGetState(hwnd);
+    if (state && state->knifeactive)
+    {
+        if (!state->knifepreview) { return FALSE; }
+        *frame = state->knifeframe; return TRUE;
+    }
     Vertex triangle[3];
     int i, best = -1;
     if (!state || state->tool == EDITOR_TOOL_VERTEX_PAINT)
@@ -8659,7 +8792,8 @@ BOOL ViewportGetRotation(HWND hwnd, Rotation *frame, double degrees[3], double p
         return FALSE;
     }
     *frame = s->rotationframe;
-    if (s->dragaxis >= 0 && s->dragrotation && s->dragmarker)
+    if (s->knifepreview) { *frame = s->knifeframe; }
+    else if (s->dragaxis >= 0 && s->dragrotation && s->dragmarker)
     { ViewportGetMarkerRotation(hwnd, frame); }
     else if (s->dragaxis >= 0 && s->dragrotation)
     {

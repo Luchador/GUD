@@ -24,3 +24,28 @@ with tempfile.TemporaryDirectory(prefix='geditor-knife-') as temp:
                    + ['-Wl,--gc-sections', '-Wl,--wrap=malloc', '-Wl,--wrap=calloc', '-Wl,--wrap=realloc', '-lm', '-o', str(work / 'check')], check=True)
     subprocess.run([str(work / 'check'), str(work)], check=True,
                    env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))
+
+    import re
+    viewport = (src / 'viewport.c').read_text()
+    uv = (src / 'uvcanvas.c').read_text()
+    def structure(text, name):
+        return re.search(r'typedef struct ' + name + r' \{.*?\} ' + name + ';', text, re.S)[0] + '\n'
+    (work / 'interaction_types.inc').write_text(''.join(structure(viewport, n) for n in
+        ('Vertex', 'ViewportComponent', 'ViewportState', 'ViewportPickRay'))
+        + ''.join(structure(uv, n) for n in ('UVCanvasNode', 'UVCanvasState')))
+    names = ('ViewportUpdateGizmo', 'ViewportRefreshKnifePlane', 'ViewportSetKnifePlane',
+             'ViewportKnifeActive', 'ViewportGetKnifePlane', 'ViewportTransformKnife',
+             'ViewportBeginTransform', 'ViewportBeginKnifeTransform', 'ViewportDragTransform', 'ViewportGetRotation', 'ViewportFinishKnifeTransform', 'ViewportCancelTransform', 'ViewportEndTransform')
+    (work / 'plane.inc').write_text(''.join(extract.function(viewport, n) for n in names))
+    (work / 'uv_drag.inc').write_text(''.join(extract.function(uv, n) for n in
+        ('UVCanvasTransformST', 'UVCanvasNodeST', 'UVCanvasTryTransform', 'UVCanvasDrag', 'UVCanvasCommit')))
+    # Exercise the real one-point message routing, including Escape precedence.
+    (work / 'pick.inc').write_text(extract.function((src / 'knife.c').read_text(), 'KnifeDialogHandleMessage'))
+    binary = work / 'interaction'
+    subprocess.run([os.environ.get('CC', 'cc'), '-std=c99', '-O1', '-g', '-Wall', '-Wextra', '-Werror',
+                    '-Wno-unused-parameter', '-ffunction-sections', '-fdata-sections', '-fsanitize=address,undefined',
+                    f'-I{here.parent / "image_import"}', f'-I{src}', f'-I{work}', str(here / 'interaction.c'),
+                    str(src / 'rotation.c'), str(src / 'scaling.c'), str(src / 'bgknife.c'),
+                    '-Wl,--gc-sections', '-lm', '-o', str(binary)], check=True)
+    subprocess.run([str(binary)], check=True,
+                   env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))

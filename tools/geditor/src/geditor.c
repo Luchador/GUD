@@ -196,9 +196,11 @@ static void GEditorRefreshTransformFields(void)
     BOOL marker = ViewportGetSelectedMarker(g_Viewport, &markerref, NULL);
     BOOL stan = ViewportGetStanSelectionCount(g_Viewport, NULL) > 0;
     BOOL portal = ViewportGetPortalSelectionCount(g_Viewport) > 0;
+    BOOL knife = ViewportKnifeActive(g_Viewport);
     double scale = stan ? g_CurrentStan.levelscale : g_CurrentBgDocument.levelscale;
     BOOL editable = hasposition && (object ? GEditorCanMoveSetupModel(objectindex) : scale > 0);
     double precision = editable && !object && !pad && !marker && !portal ? 1.0 / scale : 0;
+    if (knife) { editable = hasposition; precision = 0; }
 
     Rotation frame;
     double degrees[3], pivot[3];
@@ -206,7 +208,12 @@ static void GEditorRefreshTransformFields(void)
     if (!ViewportIsTransforming(g_Viewport))
     {
         BOOL valid = FALSE;
-        if (editable && !portal && ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT)
+        if (knife)
+        {
+            valid = ViewportGetGeometryRotation(g_Viewport, &frame);
+            axes = 7;
+        }
+        else if (editable && !portal && ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT)
         {
             if (marker)
             {
@@ -234,7 +241,7 @@ static void GEditorRefreshTransformFields(void)
     if (!ViewportIsTransforming(g_Viewport))
     {
         Rotation scaleaxes;
-        BOOL valid = editable && !marker && !portal && ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT;
+        BOOL valid = editable && !knife && !marker && !portal && ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT;
         RotationAxis(&scaleaxes, 0, 0);
         if (object)
         {
@@ -2312,6 +2319,7 @@ fail:
 
 static BOOL GEditorTranslateSelection(HWND hwnd, const double offset[3], BOOL snap)
 {
+    if (ViewportKnifeActive(g_Viewport)) { return ViewportTransformKnife(g_Viewport, offset, NULL); }
     if (ViewportGetPortalSelectionCount(g_Viewport)) { return GEditorTranslatePortals(hwnd, offset, snap); }
     if (ViewportGetSelectedMarker(g_Viewport, NULL, NULL)) { return GEditorTransformMarker(hwnd, offset, NULL); }
     EditHistoryTransaction transaction;
@@ -2446,6 +2454,8 @@ fail:
 static BOOL GEditorTransformSelection(HWND hwnd, const ViewportRotation *request,
                                       const Scaling *scaling)
 {
+    if (ViewportKnifeActive(g_Viewport))
+    { return !scaling && request && ViewportTransformKnife(g_Viewport, NULL, &request->rotation); }
     if (ViewportGetPortalSelectionCount(g_Viewport)) { return FALSE; }
     if (ViewportGetSelectedMarker(g_Viewport, NULL, NULL))
     { return !scaling && request && GEditorTransformMarker(hwnd, NULL, &request->rotation); }
@@ -2768,6 +2778,8 @@ static void GEditorShowKnife(HWND hwnd)
     { center[a] = (min[a] + max[a]) * .5; radius += (max[a] - min[a]) * (max[a] - min[a]); }
     radius = sqrt(radius) * .75;
     if (radius < 150) { radius = 150; }
+    if (ViewportGetTransformMode(g_Viewport) == TRANSFORM_SCALE)
+    { SendMessage(hwnd, RIGHTPANEL_WM_TRANSFORM_MODE, TRANSFORM_MOVE, 0); }
     if (!KnifeDialogShow(hwnd, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), g_Viewport, center, radius)) { goto fail; }
     free(faces); return;
 fail:
@@ -4091,6 +4103,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         return 0;
 
     case VIEWPORT_WM_TRANSFORM_PREVIEW:
+        KnifeDialogSyncPreview();
         GEditorRefreshTransformFields();
         return 0;
 

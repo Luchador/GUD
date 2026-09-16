@@ -1,5 +1,11 @@
 #ifndef GEDITOR_ROTATION_H
 #define GEDITOR_ROTATION_H
+#include <math.h>
+/* Apply to the accumulated drag angle, never to each mouse movement. */
+static inline double RotationSnapDegrees(double degrees)
+{
+    return round(degrees / 10.0) * 10.0;
+}
 /* Right-handed world rotations, column vectors; Euler order Rz * Ry * Rx. */
 typedef struct Rotation
 {

@@ -7,5 +7,6 @@
 BOOL KnifeDialogShow(HWND owner, HINSTANCE instance, HWND viewport,
     const double center[3], double radius);
 void KnifeDialogClose(void);
+void KnifeDialogSyncPreview(void);
 BOOL KnifeDialogHandleMessage(MSG *message);
 #endif

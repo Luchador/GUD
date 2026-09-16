@@ -13,7 +13,12 @@
 #include "monitorload.h"
 
 /* Knife preview is editor-only; point picking samples the visible BG surface. */
-void ViewportSetKnifePlane(HWND viewport, const BgKnifePlane *plane, const double center[3], double radius);
+/* Positive radius keeps knife mode active even while its fields are invalid. */
+void ViewportSetKnifePlane(HWND viewport, const BgKnifePlane *plane, double radius);
+BOOL ViewportKnifeActive(HWND viewport);
+BOOL ViewportGetKnifePlane(HWND viewport, BgKnifePlane *plane);
+BOOL ViewportBeginKnifeTransform(HWND viewport, int x, int y);
+BOOL ViewportTransformKnife(HWND viewport, const double offset[3], const Rotation *rotation);
 BOOL ViewportGetKnifePoint(HWND viewport, int x, int y, double position[3]);
 
 /* Display-only modes, in the same order as View menu / Ctrl+1..4. */

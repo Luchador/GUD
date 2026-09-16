@@ -1,4 +1,5 @@
 #include "uvcanvas.h"
+#include "rotation.h"
 
 #include <windowsx.h>
 #include <math.h>
@@ -571,7 +572,7 @@ static void UVCanvasDrag(HWND hwnd, UVCanvasState *state, int x, int y)
         angle = atan2(v, u);
         state->dragangle += remainder(angle - state->lastangle, 2.0 * UVCANVAS_PI) * 180.0 / UVCANVAS_PI;
         state->lastangle = angle;
-        values[0] = state->dragangle;
+        values[0] = (GetKeyState(VK_CONTROL) & 0x8000) ? RotationSnapDegrees(state->dragangle) : state->dragangle;
     }
     else if (state->mode == TRANSFORM_SCALE)
     {
@@ -672,7 +673,7 @@ static LRESULT CALLBACK UVCanvasWndProc(HWND hwnd, UINT message,
         SetFocus(hwnd);
         if (state != NULL && !state->panning && state->pixelsperunit > 0)
         {
-            int handle = (wparam & (MK_SHIFT | MK_CONTROL)) ? 0
+            int handle = ((wparam & MK_SHIFT) || ((wparam & MK_CONTROL) && state->mode != TRANSFORM_ROTATE)) ? 0
                 : UVCanvasPickHandle(state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam));
             UVCanvasCancelInteraction(hwnd);
             UVCanvasSelectionPosition(state, state->pivot);
@@ -744,6 +745,16 @@ static LRESULT CALLBACK UVCanvasWndProc(HWND hwnd, UINT message,
             UVCanvasEndPan(hwnd, state);
         }
         return 0;
+
+    case WM_KEYDOWN:
+    case WM_KEYUP:
+        if (wparam == VK_CONTROL && state && state->draghandle && state->mode == TRANSFORM_ROTATE)
+        {
+            POINT point;
+            if (GetCursorPos(&point) && ScreenToClient(hwnd, &point)) { UVCanvasDrag(hwnd, state, point.x, point.y); }
+            return 0;
+        }
+        break;
 
     case WM_MOUSEWHEEL:
         if (state != NULL) { UVCanvasZoom(hwnd, state, wparam, lparam); }

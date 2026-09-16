@@ -61,13 +61,25 @@ horizontal through the selection center. A red, two-sided plane previews the
 cut at 40% opacity; it is depth-tested against the scene. The preview's finite
 size does not limit the actual cut.
 
-**Pick Points** temporarily reserves left clicks for background surface hits.
-The first click sets the plane position. The direction from the first point to
-the second sets the normal. The selected faces stay selected, and camera flight
-remains available. Misses and coincident points leave picking active. **Cancel
-Pick** or Escape restores the previous plane. Escape outside picking closes
-the dialog. Changing the selection, active tool, level, or undo state also closes
-it, so the preview cannot refer to an obsolete selection.
+**Pick Point** sets the position with one click on a background surface. The
+default plane lies parallel to the X/Z axes (normal 0, 1, 0). Use **Move (W)** or
+**Rotate (E)** to adjust the plane with the existing gizmos, or enter coordinates
+and angles in the transform panel. The preview and gizmo stay centered on the
+picked position. Scaling is unavailable for the infinite cutting plane.
+
+The selected faces stay selected while the knife is open; moving and rotating
+the preview does not edit geometry or create undo steps. Camera flight remains
+available. A missed pick leaves picking active. **Cancel Pick** or Escape cancels
+point picking. Escape during a gizmo drag restores the plane before that drag;
+otherwise Escape closes the dialog. Losing focus or capture also cancels a drag.
+Changing the selection, active selection tool, level, or undo state closes the
+dialog, so its preview cannot refer to an obsolete selection.
+
+Hold **Ctrl** during a rotation drag to snap its angle to **10-degree intervals**.
+This applies to the knife, background geometry, Stan, props, characters, pads,
+markers, and UV rotation rings. Ctrl can be held before grabbing a handle or
+pressed/released during the drag. The snap is relative to the drag's starting
+orientation. Releasing Ctrl restores normal precision; typed angles remain exact.
 
 Press **Knife** to bisect the selected faces. Both sides are kept, triangulated,
 and selected together. They retain their room, layer, texture, detail settings,
@@ -85,3 +97,5 @@ Undo/redo includes the complete operation and selection.
 Knife validation: `python3 tools/geditor/tests/knife/run.py` covers interpolation,
 shared edges and seams, Depot-style thin railing, multiple rooms/layers and
 detail materials, allocation failures, native save/reload, and edit history.
+The same suite checks single-point placement, preview transforms/cancellation,
+scene isolation and Ctrl snapping in both 3D and UV drags with window calls stubbed.

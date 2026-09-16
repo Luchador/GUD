@@ -50,7 +50,7 @@ static void UVEditorUpdateFields(void)
         : mode != TRANSFORM_MOVE && count < 2
         ? "Select at least two UV vertices.\r\nThe selection center is the pivot."
         : mode == TRANSFORM_ROTATE
-        ? "Drag the ring to rotate.\r\nEnter applies an angle in degrees; positive turns counterclockwise.\r\nPivot: selection center."
+        ? "Drag the ring to rotate; Ctrl snaps to 10 degrees.\r\nEnter applies an angle in degrees; positive turns counterclockwise.\r\nPivot: selection center."
         : mode == TRANSFORM_SCALE
         ? "Drag U or V to scale one axis, or the center to scale both.\r\nEnter applies the factors; 1 = unchanged.\r\nPivot: selection center."
         : count > 0
