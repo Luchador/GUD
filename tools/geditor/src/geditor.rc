@@ -272,3 +272,28 @@ CAPTION "Action Blocks"
 FONT 9, "Segoe UI"
 BEGIN
 END
+
+IDD_KNIFE DIALOGEX 0, 0, 290, 178
+STYLE DS_MODALFRAME | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Knife"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    LTEXT "", -1, 10, 8, 66, 10
+    LTEXT "X", -1, 83, 8, 60, 10
+    LTEXT "Y", -1, 151, 8, 60, 10
+    LTEXT "Z", -1, 219, 8, 60, 10
+    LTEXT "Position", -1, 10, 27, 65, 12
+    EDITTEXT IDC_KNIFE_PX, 80, 24, 62, 14, ES_AUTOHSCROLL
+    EDITTEXT IDC_KNIFE_PY, 148, 24, 62, 14, ES_AUTOHSCROLL
+    EDITTEXT IDC_KNIFE_PZ, 216, 24, 62, 14, ES_AUTOHSCROLL
+    LTEXT "Direction (normal)", -1, 10, 49, 68, 12
+    EDITTEXT IDC_KNIFE_NX, 80, 46, 62, 14, ES_AUTOHSCROLL
+    EDITTEXT IDC_KNIFE_NY, 148, 46, 62, 14, ES_AUTOHSCROLL
+    EDITTEXT IDC_KNIFE_NZ, 216, 46, 62, 14, ES_AUTOHSCROLL
+    LTEXT "Position uses world units. The normal points perpendicular to the cut.", -1, 10, 68, 268, 22
+    PUSHBUTTON "Pick Points", IDC_KNIFE_PICK, 10, 94, 65, 16
+    LTEXT "First click: position. First-to-second direction: normal.", -1, 84, 94, 194, 22
+    LTEXT "", IDC_KNIFE_STATUS, 10, 121, 268, 22
+    DEFPUSHBUTTON "Knife", IDOK, 146, 152, 62, 16
+    PUSHBUTTON "Cancel", IDCANCEL, 216, 152, 62, 16
+END

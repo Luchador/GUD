@@ -9,7 +9,7 @@ Buttons support mouse click, Tab/Space/Enter, and Down to open a dropdown.
 | --- | --- |
 | Vertex | Merge Vertices (M), Snap to Vertex (V), Paint Vertices (4) |
 | Edge | Split Edge, Bridge Edges (B) |
-| Face | Flip Face (Alt+N), Disconnect Face, Edit UVs, Hide Selected (H), Unhide All (Alt+H) |
+| Face | Knife (K), Flip Face (Alt+N), Disconnect Face, Edit UVs, Hide Selected (H), Unhide All (Alt+H) |
 
 Merge Vertices requires at least two selected BG vertices in vertex mode,
 within one room. It creates one shared vertex at their average position and
@@ -51,3 +51,37 @@ as well as source edge lookup, menu availability and toolbar wrapping.
 Merge validation: `python3 tools/geditor/tests/merge_vertices/run.py` checks
 averaging, shared native vertices, collapsed triangles, Cancel, undo/redo,
 failure rollback, survivor selection and the M shortcut.
+
+## Knife
+
+Select background faces in Face mode, then choose **Face > Knife** or press
+**K**. The floating dialog edits a plane position in world units and a direction
+vector, interpreted as the plane's perpendicular normal. The initial plane is
+horizontal through the selection center. A red, two-sided plane previews the
+cut at 40% opacity; it is depth-tested against the scene. The preview's finite
+size does not limit the actual cut.
+
+**Pick Points** temporarily reserves left clicks for background surface hits.
+The first click sets the plane position. The direction from the first point to
+the second sets the normal. The selected faces stay selected, and camera flight
+remains available. Misses and coincident points leave picking active. **Cancel
+Pick** or Escape restores the previous plane. Escape outside picking closes
+the dialog. Changing the selection, active tool, level, or undo state also closes
+it, so the preview cannot refer to an obsolete selection.
+
+Press **Knife** to bisect the selected faces. Both sides are kept, triangulated,
+and selected together. They retain their room, layer, texture, detail settings,
+culling and draw state. New vertices interpolate UVs and RGBA along their source
+edges. Adjacent selected faces share intersections on shared source edges;
+authored UV/color seams remain separate. Unselected faces are untouched.
+
+Coordinates and attributes round to native integer precision. Intersections
+which round onto an existing endpoint reuse it. Fragments narrower than the
+native grid may collapse; zero-area fragments and unused new vertices are
+omitted. A cut which would invert geometry is rejected without changing the
+document. Coplanar faces and cuts which only touch an edge/vertex are unchanged.
+Undo/redo includes the complete operation and selection.
+
+Knife validation: `python3 tools/geditor/tests/knife/run.py` covers interpolation,
+shared edges and seams, Depot-style thin railing, multiple rooms/layers and
+detail materials, allocation failures, native save/reload, and edit history.

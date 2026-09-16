@@ -229,6 +229,8 @@ typedef struct ViewportState {
     BOOL vertexsnap;
     BOOL portalsnaptarget; /* BG-only destination picking; ignore editor overlays. */
     BOOL colorpick;
+    BOOL knifepreview;
+    double knifecorners[4][3];
     BOOL colorsampleclick; /* Consume the second click of a sampling double-click. */
     BOOL showgeometrystatistics;
     GLuint statisticsfont; /* ASCII bitmap display lists, owned by the GL context */
@@ -1682,6 +1684,59 @@ static void ViewportDrawClouds(const ViewportState *state)
     glPopAttrib();
 }
 
+static void ViewportDrawKnifePlane(const ViewportState *state)
+{
+    if (!state->knifepreview || state->orbit) { return; }
+    glPushAttrib(GL_ENABLE_BIT | GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT
+        | GL_CURRENT_BIT | GL_POLYGON_BIT);
+    glDisable(GL_TEXTURE_2D);
+    glDisable(GL_ALPHA_TEST);
+    glDisable(GL_CULL_FACE);
+    glDisable(GL_FOG);
+    glDisable(GL_LIGHTING);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+    glDepthMask(GL_FALSE);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    glColor4f(1.0f, 0.0f, 0.0f, 0.4f);
+    glBegin(GL_QUADS);
+    for (int i = 0; i < 4; i++) { glVertex3dv(state->knifecorners[i]); }
+    glEnd();
+    glPopAttrib();
+}
+
+void ViewportSetKnifePlane(HWND viewport, const BgKnifePlane *input, const double selectioncenter[3], double radius)
+{
+    ViewportState *state = ViewportGetState(viewport);
+    BgKnifePlane plane;
+    double u[3] = {0}, v[3], center[3], distance = 0, length;
+    const int signs[4][2] = {{-1,-1},{1,-1},{1,1},{-1,1}};
+    int axis = 0, i, corner;
+    if (!state) { return; }
+    state->knifepreview = FALSE;
+    if (selectioncenter && isfinite(radius) && radius > 0 && BgKnifeNormalizePlane(input, &plane))
+    {
+        /* Anchor the finite preview near the selection even if the entered
+         * position slides along the infinite cutting plane. */
+        for (i = 0; i < 3; i++) { distance += (selectioncenter[i] - plane.position[i]) * plane.normal[i]; }
+        for (i = 1; i < 3; i++) { if (fabs(plane.normal[i]) < fabs(plane.normal[axis])) { axis = i; } }
+        u[axis] = 1;
+        length = plane.normal[axis];
+        for (i = 0; i < 3; i++) { u[i] -= length * plane.normal[i]; }
+        length = sqrt(u[0]*u[0] + u[1]*u[1] + u[2]*u[2]);
+        for (i = 0; i < 3; i++) { u[i] /= length; center[i] = selectioncenter[i] - distance * plane.normal[i]; }
+        v[0] = plane.normal[1]*u[2] - plane.normal[2]*u[1];
+        v[1] = plane.normal[2]*u[0] - plane.normal[0]*u[2];
+        v[2] = plane.normal[0]*u[1] - plane.normal[1]*u[0];
+        for (corner = 0; corner < 4; corner++)
+        { for (i = 0; i < 3; i++) { state->knifecorners[corner][i] = center[i] + radius*(signs[corner][0]*u[i] + signs[corner][1]*v[i]); } }
+        state->knifepreview = TRUE;
+    }
+    InvalidateRect(viewport, NULL, FALSE);
+}
+
 static void ViewportPaintGL(ViewportState *state)
 {
     wglMakeCurrent(state->hdc, state->hglrc);
@@ -1958,6 +2013,7 @@ static void ViewportPaintGL(ViewportState *state)
 
     if (!state->orbit)
     {
+        ViewportDrawKnifePlane(state);
         ViewportDrawBgToolOverlay(state);
         ViewportDrawTransformTools(state);
         ViewportDrawBoxSelection(state);
@@ -2865,6 +2921,18 @@ static int ViewportFindNearestBgTriangle(const ViewportState *state, const Viewp
     return triangle;
 }
 
+
+BOOL ViewportGetKnifePoint(HWND hwnd, int x, int y, double position[3])
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    ViewportPickRay ray;
+    double distance;
+    if (!state || state->flying || state->dragaxis >= 0 || !position
+        || !ViewportBuildPickRay(hwnd, state, x, y, &ray)
+        || ViewportFindNearestBgTriangle(state, &ray, &distance) < 0) { return FALSE; }
+    for (int i = 0; i < 3; i++) { position[i] = ray.origin[i] + ray.direction[i] * distance; }
+    return TRUE;
+}
 
 BOOL ViewportGetTextureDropFace(HWND hwnd, POINT screen,
                                 BgFaceRef *out, BOOL *selectedout)

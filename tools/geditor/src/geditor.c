@@ -19,6 +19,7 @@
 #include "faceproperties.h"
 #include "portalproperties.h"
 #include "portaloptions.h"
+#include "knife.h"
 #include "objectflags.h"
 #include "objectproperties.h"
 #include "tooltoolbar.h"
@@ -597,6 +598,7 @@ enum {
     ID_GEOMETRY_SPLIT_EDGE,
     ID_GEOMETRY_BRIDGE_EDGES,
     ID_GEOMETRY_DISCONNECT_FACE,
+    ID_GEOMETRY_KNIFE,
     ID_VIEW_BACKFACE_CULLING,
     ID_VIEW_GEOMETRY_STATISTICS,
     ID_VIEW_FOG,
@@ -2634,6 +2636,82 @@ fail:
     return FALSE;
 }
 
+static void GEditorShowKnife(HWND hwnd)
+{
+    BgFaceRef *faces;
+    double min[3] = {0}, max[3] = {0}, center[3], radius = 0;
+    DWORD count;
+    const char *why = "Could not open the Knife dialog.";
+    BOOL first = TRUE;
+    if (!GEditorCanFlipSelectedBgFaces()) { return; }
+    count = (DWORD)ViewportGetSelectedBgFaceCount(g_Viewport);
+    faces = malloc((size_t)count * sizeof(*faces));
+    if (!faces || !ViewportGetSelectedBgFaces(g_Viewport, faces, count)) { goto fail; }
+    for (DWORD i = 0; i < count; i++)
+    {
+        const BgDocumentRoom *room;
+        const BgDocumentFace *face = BgDocumentFindFace(&g_CurrentBgDocument, faces + i, &room);
+        if (!face) { goto fail; }
+        for (int c = 0; c < 3; c++)
+        {
+            const BgDocumentVertex *v = room->vertices + face->vertexindices[c];
+            double native[3] = {v->x, v->y, v->z};
+            for (int a = 0; a < 3; a++)
+            {
+                double value = (native[a] + room->origin[a]) / g_CurrentBgDocument.levelscale;
+                if (first || value < min[a]) { min[a] = value; }
+                if (first || value > max[a]) { max[a] = value; }
+            }
+            first = FALSE;
+        }
+    }
+    for (int a = 0; a < 3; a++)
+    { center[a] = (min[a] + max[a]) * .5; radius += (max[a] - min[a]) * (max[a] - min[a]); }
+    radius = sqrt(radius) * .75;
+    if (radius < 150) { radius = 150; }
+    if (!KnifeDialogShow(hwnd, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), g_Viewport, center, radius)) { goto fail; }
+    free(faces); return;
+fail:
+    free(faces); MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+}
+
+static BOOL GEditorKnifeFaces(HWND hwnd, const BgKnifePlane *plane)
+{
+    EditHistoryTransaction transaction = {0};
+    BgFaceRef *faces = NULL, *result = NULL;
+    DWORD count, resultcount = 0, cutcount = 0;
+    const char *why = "Out of memory reading the background selection.", *restorewhy = "";
+    if (!GEditorCanFlipSelectedBgFaces()) { return FALSE; }
+    count = (DWORD)ViewportGetSelectedBgFaceCount(g_Viewport);
+    faces = malloc((size_t)count * sizeof(*faces));
+    if (!faces || !ViewportGetSelectedBgFaces(g_Viewport, faces, count)) { goto fail; }
+    if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument, "Knife Faces", &transaction, &why)) { goto fail; }
+    if (!BgDocumentKnifeFaces(&g_CurrentBgDocument, faces, count, plane, &result, &resultcount, &cutcount, &why)) { goto fail; }
+    if (!cutcount)
+    {
+        free(faces); free(result); EditHistoryCancelEdit(&transaction);
+        MessageBox(hwnd, "The plane does not cross any selected background faces.", "Knife", MB_ICONINFORMATION);
+        return TRUE;
+    }
+    if (!GEditorRebuildCurrentViewport(&why)) { goto rollback; }
+    if (!ViewportSelectBgFaces(g_Viewport, result, resultcount))
+    { why = "Could not select the cut faces."; goto rollback; }
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+        &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    free(faces); free(result);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    GEditorRebuildCurrentViewport(&restorewhy);
+    GEditorRestoreHistorySelection(hwnd);
+fail:
+    free(faces); free(result); EditHistoryCancelEdit(&transaction);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, "Knife", MB_ICONERROR);
+    return FALSE;
+}
+
 static BOOL GEditorFlipSelectedBgFaces(HWND hwnd)
 {
     EditHistoryTransaction transaction = {0};
@@ -2859,6 +2937,7 @@ static void GEditorShowGeometryMenu(HWND hwnd, ToolToolbarMenu kind, HWND button
             ID_GEOMETRY_BRIDGE_EDGES, "&Bridge Edges\tB");
         break;
     case TOOLTOOLBAR_MENU_FACE:
+        AppendMenu(menu, MF_STRING | (face ? MF_ENABLED : MF_GRAYED), ID_GEOMETRY_KNIFE, "&Knife...\tK");
         AppendMenu(menu, MF_STRING | (face ? MF_ENABLED : MF_GRAYED), ID_EDIT_FLIP_FACE, "&Flip Face\tAlt+N");
         AppendMenu(menu, MF_STRING | (face ? MF_ENABLED : MF_GRAYED), ID_GEOMETRY_DISCONNECT_FACE, "&Disconnect Face");
         AppendMenu(menu, MF_SEPARATOR, 0, NULL);
@@ -3815,6 +3894,9 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 {
     switch (msg)
     {
+    case KNIFE_WM_APPLY:
+        return GEditorKnifeFaces(hwnd, (const BgKnifePlane *)lparam);
+
     case WM_CREATE:
     {
         CREATESTRUCT *cs = (CREATESTRUCT *)lparam;
@@ -4683,6 +4765,10 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 GEditorBridgeSelectedBgEdges(hwnd);
                 return 0;
 
+            case ID_GEOMETRY_KNIFE:
+                GEditorShowKnife(hwnd);
+                return 0;
+
             case ID_GEOMETRY_DISCONNECT_FACE:
                 GEditorSeparateBgVertices(hwnd, NULL);
                 return 0;
@@ -4784,6 +4870,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         return 0;
 
     case WM_DESTROY:
+        KnifeDialogClose();
         /* The window is gone; ask the message loop to stop. Without
            this the process keeps running after the window closes. */
         SetupFileFree(&g_CurrentSetup);
@@ -4833,6 +4920,9 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             free(selection);
             GEditorRefreshHistoryMenu(hwnd);
         }
+        if (g_SelectionHistoryPending || g_SelectionHistoryReset
+            || revision != g_EditHistory.currentstaterevision
+            || (g_Viewport && ViewportGetTool(g_Viewport) != EDITOR_TOOL_FACE_SELECT)) { KnifeDialogClose(); }
         g_SelectionHistoryPending = FALSE;
         g_SelectionHistoryReset = FALSE;
         g_SelectionHistoryNavigation = FALSE;
@@ -4942,6 +5032,22 @@ static BOOL GEditorHandleBridgeEdgesHotkey(HWND frame, const MSG *message)
         || lstrcmpi(classname, "ComboLBox") == 0) { return FALSE; }
     if (!(message->lParam & ((LPARAM)1 << 30)))
     { SendMessage(frame, WM_COMMAND, ID_GEOMETRY_BRIDGE_EDGES, 0); }
+    return TRUE;
+}
+
+static BOOL GEditorHandleKnifeHotkey(HWND frame, const MSG *message)
+{
+    char classname[32] = "";
+    if (!message || !g_Viewport || message->message != WM_KEYDOWN || message->wParam != 'K'
+        || ViewportIsFlying(g_Viewport) || ViewportIsTransforming(g_Viewport)
+        || (message->hwnd != frame && !IsChild(frame, message->hwnd))
+        || (GetKeyState(VK_CONTROL) & 0x8000) || (GetKeyState(VK_MENU) & 0x8000)
+        || (GetKeyState(VK_SHIFT) & 0x8000)) { return FALSE; }
+    GetClassName(message->hwnd, classname, sizeof(classname));
+    if (lstrcmpi(classname, "Edit") == 0 || lstrcmpi(classname, "ComboBox") == 0
+        || lstrcmpi(classname, "ComboLBox") == 0) { return FALSE; }
+    if (!(message->lParam & ((LPARAM)1 << 30)))
+    { SendMessage(frame, WM_COMMAND, ID_GEOMETRY_KNIFE, 0); }
     return TRUE;
 }
 
@@ -5128,7 +5234,8 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                     CoUninitialize();
                     return (int)msg.wParam;
                 }
-                if (!ModelEditorHandleMessage(&msg)
+                if (!KnifeDialogHandleMessage(&msg)
+                    && !ModelEditorHandleMessage(&msg)
                     && !UVEditorHandleMessage(&msg)
                     && !GEditorHandleFogHotkey(hwnd, &msg)
                     && !GEditorHandlePadPreviewHotkey(hwnd, &msg)
@@ -5137,6 +5244,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                     && !GEditorHandleFlipFaceHotkey(hwnd, &msg)
                     && !GEditorHandleMergeVerticesHotkey(hwnd, &msg)
                     && !GEditorHandleBridgeEdgesHotkey(hwnd, &msg)
+                    && !GEditorHandleKnifeHotkey(hwnd, &msg)
                     && !GEditorHandleTransformHotkey(hwnd, &msg)
                     && !GEditorHandleFaceClipboardHotkey(hwnd, &msg)
                     && !GEditorHandleSelectionHotkey(hwnd, &msg)
@@ -5159,7 +5267,8 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
             {
                 break;
             }
-            if (!ModelEditorHandleMessage(&msg)
+            if (!KnifeDialogHandleMessage(&msg)
+                && !ModelEditorHandleMessage(&msg)
                 && !UVEditorHandleMessage(&msg)
                 && !GEditorHandleFogHotkey(hwnd, &msg)
                 && !GEditorHandlePadPreviewHotkey(hwnd, &msg)
@@ -5168,6 +5277,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                 && !GEditorHandleFlipFaceHotkey(hwnd, &msg)
                 && !GEditorHandleMergeVerticesHotkey(hwnd, &msg)
                 && !GEditorHandleBridgeEdgesHotkey(hwnd, &msg)
+                && !GEditorHandleKnifeHotkey(hwnd, &msg)
                 && !GEditorHandleTransformHotkey(hwnd, &msg)
                 && !GEditorHandleFaceClipboardHotkey(hwnd, &msg)
                 && !GEditorHandleSelectionHotkey(hwnd, &msg)

@@ -96,15 +96,18 @@ int main(void)
     choose = ID_GEOMETRY_BRIDGE_EDGES; Show(TOOLTOOLBAR_MENU_EDGE); assert(dispatched == choose && focuscalls == 1); choose = 0;
     selectedtool = EDITOR_TOOL_FACE_SELECT; facecount = 3;
     Show(TOOLTOOLBAR_MENU_FACE);
+    assert(Enabled(ID_GEOMETRY_KNIFE));
+    choose = ID_GEOMETRY_KNIFE; Show(TOOLTOOLBAR_MENU_FACE); assert(dispatched == choose); choose = 0;
     assert(Enabled(ID_EDIT_FLIP_FACE) && Enabled(ID_GEOMETRY_DISCONNECT_FACE) && Enabled(ID_TOOLS_UV_EDITOR));
     assert(Enabled(ID_VIEW_HIDE_SELECTED) && !Enabled(ID_VIEW_UNHIDE_ALL));
     hidden = TRUE; facecount = 0; Show(TOOLTOOLBAR_MENU_FACE);
+    assert(!Enabled(ID_GEOMETRY_KNIFE));
     assert(!Enabled(ID_EDIT_FLIP_FACE) && !Enabled(ID_GEOMETRY_DISCONNECT_FACE) && Enabled(ID_VIEW_UNHIDE_ALL));
     for (int mode = 0; mode < 2; mode++)
     {
         flying = mode == 0; transforming = mode == 1;
         selectedtool = EDITOR_TOOL_EDGE_SELECT; Show(TOOLTOOLBAR_MENU_EDGE); assert(!Enabled(ID_GEOMETRY_BRIDGE_EDGES));
-        selectedtool = EDITOR_TOOL_FACE_SELECT; facecount = 1; Show(TOOLTOOLBAR_MENU_FACE); assert(!Enabled(ID_EDIT_FLIP_FACE));
+        selectedtool = EDITOR_TOOL_FACE_SELECT; facecount = 1; Show(TOOLTOOLBAR_MENU_FACE); assert(!Enabled(ID_EDIT_FLIP_FACE) && !Enabled(ID_GEOMETRY_KNIFE));
     }
     ToolToolbarState toolbar;
     for (int i = 0; i < 5; i++) { toolbar.buttons[i] = (HWND)(intptr_t)(i+1); }

@@ -4,12 +4,17 @@
 #include <windows.h>
 
 #include "bgdocument.h"
+#include "bgknife.h"
 #include "edittool.h"
 #include "rom.h"
 #include "setupload.h"
 #include "stanload.h"
 #include "texload.h"
 #include "monitorload.h"
+
+/* Knife preview is editor-only; point picking samples the visible BG surface. */
+void ViewportSetKnifePlane(HWND viewport, const BgKnifePlane *plane, const double center[3], double radius);
+BOOL ViewportGetKnifePoint(HWND viewport, int x, int y, double position[3]);
 
 /* Display-only modes, in the same order as View menu / Ctrl+1..4. */
 typedef enum ViewportRenderMode {

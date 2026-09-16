@@ -13,6 +13,7 @@
 #define IDD_REBASE_PROJECT    109
 #define IDD_ADD_PORTAL        110
 #define IDD_ACTION_BLOCKS     111
+#define IDD_KNIFE             112
 
 /* Icons */
 #define IDI_GEDITOR           201
@@ -153,6 +154,16 @@
 #define IDC_REBASE_REPORT     1165
 #define IDC_REBASE_CHECK      1166
 #define IDC_REBASE_CREATE     1167
+
+/* Knife plane fields are contiguous, position followed by normal. */
+#define IDC_KNIFE_PX          1200
+#define IDC_KNIFE_PY          1201
+#define IDC_KNIFE_PZ          1202
+#define IDC_KNIFE_NX          1203
+#define IDC_KNIFE_NY          1204
+#define IDC_KNIFE_NZ          1205
+#define IDC_KNIFE_PICK        1206
+#define IDC_KNIFE_STATUS      1207
 
 /* Longest project name we accept, including the terminator. */
 #define GEDITOR_NAME_MAX       64
