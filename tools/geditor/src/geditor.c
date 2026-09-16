@@ -3339,15 +3339,20 @@ fail:
     return FALSE;
 }
 
-static BOOL GEditorSetPortalRooms(HWND hwnd, const PortalPropertiesEdit *edit)
+static BOOL GEditorSetPortalProperty(HWND hwnd, const PortalPropertiesEdit *edit)
 {
     EditHistoryTransaction transaction = {0};
     const char *why = "";
     DWORD index; BOOL changed;
     if (!edit || !ViewportGetSelectedPortal(g_Viewport, &index) || index != edit->portal) { return FALSE; }
     ViewportCancelTransform(g_Viewport);
-    if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument, "Change Portal Rooms", &transaction, &why)) { goto fail; }
-    if (!BgDocumentSetPortalRooms(&g_CurrentBgDocument, index, edit->room1, edit->room2, &changed, &why)) { goto fail; }
+    if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
+        edit->marginonly ? "Change Portal Margin" : "Change Portal Rooms", &transaction, &why)) { goto fail; }
+    if (edit->marginonly)
+    {
+        if (!BgDocumentSetPortalMargin(&g_CurrentBgDocument, index, edit->margin, &changed, &why)) { goto fail; }
+    }
+    else if (!BgDocumentSetPortalRooms(&g_CurrentBgDocument, index, edit->room1, edit->room2, &changed, &why)) { goto fail; }
     if (!changed) { EditHistoryCancelEdit(&transaction); return TRUE; }
     if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
         &g_CurrentStan, &transaction, &why))
@@ -3909,7 +3914,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
     case PORTALPROPERTIES_WM_CHANGED:
     {
-        BOOL ok = GEditorSetPortalRooms(hwnd, (const PortalPropertiesEdit *)lparam);
+        BOOL ok = GEditorSetPortalProperty(hwnd, (const PortalPropertiesEdit *)lparam);
         GEditorRefreshSelectionDetails();
         return ok;
     }

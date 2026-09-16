@@ -1,16 +1,21 @@
-/* Portal connections are edited in native table order, including shared polygons. */
+/* Portal connections and margins are edited independently in native table order. */
 #include <windows.h>
 #include <windowsx.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
+#include <errno.h>
+#include <ctype.h>
 #include "portalproperties.h"
 
 #define PORTALPROPERTIES_CLASS "GEditorPortalProperties"
-enum { PORTAL_SUMMARY, PORTAL_ROOM1_LABEL, PORTAL_ROOM1, PORTAL_ROOM2_LABEL,
+enum { PORTAL_SUMMARY, PORTAL_MARGIN_LABEL, PORTAL_MARGIN, PORTAL_MARGIN_APPLY, PORTAL_MARGIN_HELP,
+       PORTAL_ROOM1_LABEL, PORTAL_ROOM1, PORTAL_ROOM2_LABEL,
        PORTAL_ROOM2, PORTAL_APPLY, PORTAL_HELP, PORTAL_CONTROL_COUNT };
 typedef struct PortalPropertiesState {
     HWND controls[PORTAL_CONTROL_COUNT];
     DWORD portal;
+    char margintext[64];
     int scroll, wheelremainder;
 } PortalPropertiesState;
 
@@ -26,7 +31,8 @@ static void PortalPropertiesLayout(HWND hwnd, PortalPropertiesState *state)
     for (int i = 0; i < PORTAL_CONTROL_COUNT; i++)
     {
         int height = 24;
-        if (i != PORTAL_ROOM1 && i != PORTAL_ROOM2 && i != PORTAL_APPLY)
+        if (i != PORTAL_ROOM1 && i != PORTAL_ROOM2 && i != PORTAL_APPLY
+            && i != PORTAL_MARGIN && i != PORTAL_MARGIN_APPLY)
         {
             char text[512]; RECT rect = {0, 0, width, 0};
             HDC dc = GetDC(state->controls[i]);
@@ -64,11 +70,41 @@ static void PortalPropertiesRevealControl(HWND hwnd, PortalPropertiesState *stat
 
 static void PortalPropertiesApply(HWND hwnd, PortalPropertiesState *state)
 {
-    PortalPropertiesEdit edit = {state->portal, 0, 0};
+    PortalPropertiesEdit edit = {.portal = state->portal};
     int a = (int)SendMessage(state->controls[PORTAL_ROOM1], CB_GETCURSEL, 0, 0);
     int b = (int)SendMessage(state->controls[PORTAL_ROOM2], CB_GETCURSEL, 0, 0);
     if (a != CB_ERR) { edit.room1 = (DWORD)SendMessage(state->controls[PORTAL_ROOM1], CB_GETITEMDATA, a, 0); }
     if (b != CB_ERR) { edit.room2 = (DWORD)SendMessage(state->controls[PORTAL_ROOM2], CB_GETITEMDATA, b, 0); }
+    SendMessage(GetParent(hwnd), PORTALPROPERTIES_WM_CHANGED, 0, (LPARAM)&edit);
+}
+
+static BOOL PortalPropertiesParseMargin(const char *text, double *margin)
+{
+    char *end;
+    double value;
+    errno = 0;
+    value = strtod(text, &end);
+    if (end == text || errno == ERANGE || !isfinite(value) || value < 0) { return FALSE; }
+    while (isspace((unsigned char)*end)) { end++; }
+    if (*end) { return FALSE; }
+    *margin = value;
+    return TRUE;
+}
+
+static void PortalPropertiesApplyMargin(HWND hwnd, PortalPropertiesState *state)
+{
+    PortalPropertiesEdit edit = {.portal = state->portal, .marginonly = TRUE};
+    char text[64];
+    GetWindowText(state->controls[PORTAL_MARGIN], text, sizeof(text));
+    if (!lstrcmp(text, state->margintext)) { return; }
+    if (!PortalPropertiesParseMargin(text, &edit.margin))
+    {
+        MessageBox(hwnd, "Enter a nonnegative number for the extra margin. Use 0 for no extra margin.",
+                   "GEditor", MB_ICONERROR);
+        SetFocus(state->controls[PORTAL_MARGIN]);
+        SendMessage(state->controls[PORTAL_MARGIN], EM_SETSEL, 0, -1);
+        return;
+    }
     SendMessage(GetParent(hwnd), PORTALPROPERTIES_WM_CHANGED, 0, (LPARAM)&edit);
 }
 
@@ -80,19 +116,26 @@ static LRESULT CALLBACK PortalPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
     case WM_CREATE:
     {
         CREATESTRUCT *cs = (CREATESTRUCT *)lparam;
-        static const char *labels[] = {"", "Room 1", "", "Room 2", "", "Apply connections",
+        static const char *labels[] = {"", "Extra margin (world units)", "", "Apply margin",
+            "Rounded to the nearest supported value. 0 = no extra margin.",
+            "Room 1", "", "Room 2", "", "Apply connections",
             "Use Vertex, Edge or Face mode and the Move arrows to reshape portals. V snaps a portal vertex to a background vertex.\r\nShift adds; Ctrl removes; Escape clears selection.\r\nKeep the finished polygon flat and convex. Shared connections move together.\r\nIn Face mode, click overlapping portals again to cycle their connections."};
         state = calloc(1, sizeof(*state)); if (!state) { return -1; }
         state->portal = BG_PORTAL_INDEX_NONE;
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
         for (int i = 0; i < PORTAL_CONTROL_COUNT; i++)
         {
-            BOOL combo = i == PORTAL_ROOM1 || i == PORTAL_ROOM2, button = i == PORTAL_APPLY;
+            BOOL combo = i == PORTAL_ROOM1 || i == PORTAL_ROOM2;
+            BOOL button = i == PORTAL_APPLY || i == PORTAL_MARGIN_APPLY;
+            BOOL edit = i == PORTAL_MARGIN;
             DWORD style = combo ? WS_TABSTOP | WS_VSCROLL | CBS_DROPDOWNLIST
-                : button ? WS_TABSTOP | BS_PUSHBUTTON | BS_NOTIFY : SS_NOPREFIX;
-            state->controls[i] = CreateWindowEx(0, combo ? "COMBOBOX" : button ? "BUTTON" : "STATIC", labels[i],
+                : button ? WS_TABSTOP | BS_PUSHBUTTON | BS_NOTIFY
+                : edit ? WS_TABSTOP | ES_AUTOHSCROLL : SS_NOPREFIX;
+            state->controls[i] = CreateWindowEx(edit ? WS_EX_CLIENTEDGE : 0,
+                combo ? "COMBOBOX" : button ? "BUTTON" : edit ? "EDIT" : "STATIC", labels[i],
                 WS_CHILD | WS_VISIBLE | style, 0, 0, 1, 1, hwnd, (HMENU)(INT_PTR)(i + 1), cs->hInstance, NULL);
             if (!state->controls[i]) { return -1; }
+            if (edit) { SendMessage(state->controls[i], EM_LIMITTEXT, sizeof(state->margintext) - 1, 0); }
             SendMessage(state->controls[i], WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
         }
         return 0;
@@ -104,9 +147,11 @@ static LRESULT CALLBACK PortalPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
         {
             int id = LOWORD(wparam) - 1, event = HIWORD(wparam);
             if (((id == PORTAL_ROOM1 || id == PORTAL_ROOM2) && event == CBN_SETFOCUS)
-                || (id == PORTAL_APPLY && event == BN_SETFOCUS))
+                || ((id == PORTAL_APPLY || id == PORTAL_MARGIN_APPLY) && event == BN_SETFOCUS)
+                || (id == PORTAL_MARGIN && event == EN_SETFOCUS))
             { PortalPropertiesRevealControl(hwnd, state, (HWND)lparam); }
             if (id == PORTAL_APPLY && event == BN_CLICKED) { PortalPropertiesApply(hwnd, state); }
+            if (id == PORTAL_MARGIN_APPLY && event == BN_CLICKED) { PortalPropertiesApplyMargin(hwnd, state); }
         }
         return 0;
     case WM_MOUSEWHEEL:
@@ -165,9 +210,11 @@ BOOL PortalPropertiesSetSelection(HWND panel, const BgDocument *document, DWORD 
     for (DWORD i = 0; i < document->portals.portalcount; i++)
     { shared += document->portals.portals[i].geometryoffset == portal->geometryoffset; }
     /* bgGetPortalMargin is in BG units; the viewport uses world units. */
-    margin = BgPortalGetMargin(portal) / document->levelscale;
-    snprintf(text, sizeof(text), "Portal: %lu\r\nPoints: %u\r\nExtra margin: %s (%.4g world units)\r\nPolygon used by: %lu connection(s)",
-        (unsigned long)index, portal->pointcount, margin > 0 ? "Yes" : "No", margin, (unsigned long)shared);
+    margin = (double)BgPortalGetMargin(portal) / document->levelscale;
+    snprintf(state->margintext, sizeof(state->margintext), "%.9g", margin);
+    SetWindowText(state->controls[PORTAL_MARGIN], state->margintext);
+    snprintf(text, sizeof(text), "Portal: %lu\r\nPoints: %u\r\nPolygon used by: %lu connection(s)",
+        (unsigned long)index, portal->pointcount, (unsigned long)shared);
     SetWindowText(state->controls[PORTAL_SUMMARY], text);
     for (int side = 0; side < 2; side++)
     {
@@ -195,7 +242,15 @@ BOOL PortalPropertiesSetSelection(HWND panel, const BgDocument *document, DWORD 
 BOOL PortalPropertiesHandleMessage(HWND panel, MSG *message)
 {
     PortalPropertiesState *state = PortalPropertiesGetState(panel); HWND focus = GetFocus();
-    if (!state || !IsChild(panel, focus) || message->message != WM_KEYDOWN || message->wParam != VK_RETURN) { return FALSE; }
+    if (!state || !IsChild(panel, focus) || message->message != WM_KEYDOWN) { return FALSE; }
+    if (focus == state->controls[PORTAL_MARGIN] || focus == state->controls[PORTAL_MARGIN_APPLY])
+    {
+        if (message->wParam == VK_RETURN) { PortalPropertiesApplyMargin(panel, state); return TRUE; }
+        if (message->wParam == VK_ESCAPE)
+        { SetWindowText(state->controls[PORTAL_MARGIN], state->margintext); return TRUE; }
+        return FALSE;
+    }
+    if (message->wParam != VK_RETURN) { return FALSE; }
     if ((focus == state->controls[PORTAL_ROOM1] || focus == state->controls[PORTAL_ROOM2])
         && SendMessage(focus, CB_GETDROPPEDSTATE, 0, 0)) { return FALSE; }
     PortalPropertiesApply(panel, state); return TRUE;

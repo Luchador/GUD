@@ -190,6 +190,12 @@ BOOL BgDocumentAddRoundPrimitive(BgDocument *document, BOOL cylinder, DWORD room
 BOOL BgDocumentSetPortalRooms(BgDocument *document, DWORD portal, DWORD room1, DWORD room2,
                               BOOL *changed, const char **reasonout);
 
+/* Margin is in world units, like the viewport; quantized to the native format.
+ * Only this connection's margin changes, even when its polygon is shared.
+ * Equivalent encodings are a no-op, preserving the original byte. */
+BOOL BgDocumentSetPortalMargin(BgDocument *document, DWORD portal, double margin,
+                               BOOL *changed, const char **reasonout);
+
 typedef struct BgPortalPointRef { DWORD portal, point; } BgPortalPointRef;
 BOOL BgDocumentTranslatePortalPoints(BgDocument *document, const BgPortalPointRef *refs,
     DWORD count, const double offset[3], DWORD *movedout, const char **reasonout);

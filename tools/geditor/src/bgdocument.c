@@ -786,6 +786,34 @@ BOOL BgDocumentSetPortalRooms(BgDocument *document, DWORD index, DWORD room1, DW
 }
 
 
+BOOL BgDocumentSetPortalMargin(BgDocument *document, DWORD index, double margin,
+                               BOOL *changed, const char **reasonout)
+{
+    unsigned char encoded;
+    BgPortal *portal;
+    *changed = FALSE;
+    *reasonout = "The selected portal is no longer available.";
+    if (!document || !document->rooms || document->portalwarning || !document->portals.portals
+        || index >= document->portals.portalcount) { return FALSE; }
+    if (!isfinite(document->levelscale) || document->levelscale <= 0
+        || !isfinite(margin) || margin < 0 || margin > 122880.0 / document->levelscale
+        /* Division followed by multiplication can land one ULP above the
+           maximum. The world-unit range check above makes this clamp safe. */
+        || !BgPortalEncodeMargin(fmin(margin * (double)document->levelscale, 122880.0), &encoded))
+    { *reasonout = "Enter a nonnegative, finite margin within this level's supported range."; return FALSE; }
+    portal = &document->portals.portals[index];
+    /* Preserve authored aliases, including zero with a nonzero exponent. */
+    if (BgPortalGetMargin(portal) != (encoded & 15u) * .25f * (1u << (encoded >> 4)))
+    {
+        portal->controlbytes2 = encoded;
+        document->dirty = TRUE;
+        *changed = TRUE;
+    }
+    *reasonout = "";
+    return TRUE;
+}
+
+
 BOOL BgDocumentDeleteFaces(BgDocument *document, const BgFaceRef *refs,
                            DWORD refcount, DWORD *deletedout,
                            const char **reasonout)

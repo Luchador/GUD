@@ -130,6 +130,9 @@ void BgFileFree(BgFile *bg);
 
 /* Same native BG-unit margin used by bgGetPortalMargin in the game. */
 float BgPortalGetMargin(const BgPortal *portal);
+/* Quantize a finite, nonnegative native BG-unit margin to the closest byte
+ * encoding. Equidistant values round upward. Reject values above 122880. */
+BOOL BgPortalEncodeMargin(double margin, unsigned char *encoded);
 void BgPortalFileFree(BgPortalFile *portals);
 
 #endif /* GEDITOR_BGLOAD_H */

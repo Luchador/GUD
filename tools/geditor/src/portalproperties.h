@@ -2,9 +2,13 @@
 #define GEDITOR_PORTALPROPERTIES_H
 #include "bgdocument.h"
 
-/* Atomic request: both endpoints are applied together, allowing room swaps. */
+/* Room requests apply both endpoints atomically; margin requests are independent. */
 #define PORTALPROPERTIES_WM_CHANGED (WM_APP + 31)
-typedef struct PortalPropertiesEdit { DWORD portal, room1, room2; } PortalPropertiesEdit;
+typedef struct PortalPropertiesEdit {
+    DWORD portal, room1, room2;
+    BOOL marginonly;
+    double margin; /* World units; used only when marginonly is TRUE. */
+} PortalPropertiesEdit;
 BOOL PortalPropertiesRegisterClass(HINSTANCE instance);
 HWND PortalPropertiesCreate(HWND parent, HINSTANCE instance);
 BOOL PortalPropertiesSetSelection(HWND panel, const BgDocument *document, DWORD index);

@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "bgload.h"
 #include "bgmaterial.h"
@@ -849,4 +850,22 @@ float BgPortalGetMargin(const BgPortal *portal)
 {
     unsigned int value = portal->controlbytes2;
     return (value & 15) * .25f * (1u << (value >> 4));
+}
+
+BOOL BgPortalEncodeMargin(double margin, unsigned char *encoded)
+{
+    unsigned int best = 0;
+    double bestvalue = 0, distance = margin;
+    if (!encoded || !isfinite(margin) || margin < 0 || margin > 122880.0) { return FALSE; }
+    /* There are aliases in the byte format; retain the first exact encoding.
+       This path runs only when editing, not during gameplay or drawing. */
+    for (unsigned int i = 1; i < 256; i++)
+    {
+        double value = (i & 15u) * .25 * (1u << (i >> 4));
+        double difference = fabs(value - margin);
+        if (difference < distance || (difference == distance && value > bestvalue))
+        { best = i; bestvalue = value; distance = difference; }
+    }
+    *encoded = (unsigned char)best;
+    return TRUE;
 }

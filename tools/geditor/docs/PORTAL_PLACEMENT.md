@@ -49,8 +49,23 @@ clicks on coincident portals cycle their entries. Some native entries share
 one polygon: changing that geometry updates all its connections together,
 while room-link edits still affect only the active table entry.
 
+**Extra margin (world units)** is editable. Enter a nonnegative value and press
+Enter or **Apply margin**. Escape restores the current value; 0 removes the
+extra margin. The value is rounded to the closest amount GoldenEye can store
+(ties round upward), and the text box shows the stored result after applying.
+A margin extends the visibility opening on both sides of the portal plane; it
+does not move the portal's vertices. Margin edits affect only the active table
+entry, independently of pending room-link edits, and support undo/redo.
+
+For Depot portal 105, try **110 world units**: this stores a margin of 24 native
+background units (about 109.85044 world units). Save the project and create a
+ROM to test the railing from both floors and while moving on the stairs. The
+viewport continues to draw the portal polygon, not its expanded visibility
+volume.
+
 Saving writes portal geometry and links into the native BG included by Create
-ROM. Existing indices, polygon addresses, flags and margins are preserved.
+ROM. Existing indices, polygon addresses and flags are preserved; margins are
+preserved unless explicitly edited.
 Native coordinates are floats rather than integer BG vertex coordinates.
 Exact native values are retained in history so Undo after saving restores the
 original coordinates without accumulating scale-conversion rounding.
@@ -66,6 +81,7 @@ Depot's rooms 20–24.
 Run from the repository root:
 
 ```
+python3 tools/geditor/tests/portal_margin/run.py
 python3 tools/geditor/tests/portal_editing/run.py
 python3 tools/geditor/tests/portal_placement/run.py
 python3 tools/geditor/tests/portals/run.py
