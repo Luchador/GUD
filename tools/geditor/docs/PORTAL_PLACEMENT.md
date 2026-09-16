@@ -20,6 +20,9 @@ and place both new and existing portals:
 - **Edge (2):** select and move perimeter edges. Fan-triangulation diagonals
   are not selectable edges.
 - **Face (3):** select and move whole portal polygons.
+- **Delete:** in Face mode, remove the selected portal connections. Shift-click
+  selects several for a single deletion. Undo restores them and their selection;
+  Redo removes them again. Vertex/Edge modes do not delete portal components.
 - **Move (W):** drag an axis arrow, or enter coordinates in the existing
   position fields. The fields show the average selected component position.
 - **Shift-click** adds components or faces; **Ctrl-click** removes them.
@@ -48,6 +51,11 @@ Properties shows the active portal entry's room links. In Face mode, repeated
 clicks on coincident portals cycle their entries. Some native entries share
 one polygon: changing that geometry updates all its connections together,
 while room-link edits still affect only the active table entry.
+Deletion likewise removes only selected table entries, not every connection
+sharing their polygon. Surviving entries are renumbered. If a level's global
+visibility script references a polygon, its last connection cannot be deleted
+until the script is updated; the editor explains this and leaves the selection
+unchanged. Depot's empty global visibility script does not impose this restriction.
 
 **Extra margin (world units)** is editable. Enter a nonnegative value and press
 Enter or **Apply margin**. Escape restores the current value; 0 removes the
@@ -64,15 +72,15 @@ viewport continues to draw the portal polygon, not its expanded visibility
 volume.
 
 Saving writes portal geometry and links into the native BG included by Create
-ROM. Existing indices, polygon addresses and flags are preserved; margins are
-preserved unless explicitly edited.
+ROM. Deletion compacts the table; surviving polygon addresses, flags and margins
+are preserved unless explicitly edited.
 Native coordinates are floats rather than integer BG vertex coordinates.
 Exact native values are retained in history so Undo after saving restores the
 original coordinates without accumulating scale-conversion rounding.
 
 The native limit remains 199 portals. Additions append to the table and normal
-repeat saves reuse their storage. Undo/save/redo across portal additions is
-supported; replacing additions after saving can leave unused metadata to keep
+repeat saves reuse their storage. Deletion frees portal capacity. Undo/save/redo
+across portal additions and deletions is supported; saved edits can leave unused metadata to keep
 original addresses stable. No tank connections are added automatically to
 Depot's rooms 20–24.
 
@@ -82,6 +90,7 @@ Run from the repository root:
 
 ```
 python3 tools/geditor/tests/portal_margin/run.py
+python3 tools/geditor/tests/portal_deletion/run.py
 python3 tools/geditor/tests/portal_editing/run.py
 python3 tools/geditor/tests/portal_placement/run.py
 python3 tools/geditor/tests/portals/run.py

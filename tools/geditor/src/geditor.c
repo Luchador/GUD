@@ -2011,6 +2011,36 @@ fail:
     return FALSE;
 }
 
+static BOOL GEditorDeleteSelectedPortals(HWND hwnd)
+{
+    EditHistoryTransaction transaction = {0};
+    DWORD selected[BG_MAX_PORTALS], count;
+    const char *why = "", *restorewhy = "";
+    if (ViewportGetTool(g_Viewport) != EDITOR_TOOL_FACE_SELECT
+        || ViewportIsFlying(g_Viewport) || ViewportIsTransforming(g_Viewport)) { return FALSE; }
+    count = ViewportGetSelectedPortalFaces(g_Viewport, selected);
+    if (!count) { return FALSE; }
+    if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
+        count == 1 ? "Delete Portal" : "Delete Portals", &transaction, &why)) { goto fail; }
+    if (!BgDocumentDeletePortals(&g_CurrentBgDocument, &g_CurrentBg, selected, count, &why)) { goto fail; }
+    /* Table indices compact, so no old selection may target a surviving row. */
+    ViewportSetPortals(g_Viewport, NULL);
+    if (!GEditorRebuildCurrentViewport(&why)
+        || !EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+            &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    GEditorRebuildCurrentViewport(&restorewhy);
+    GEditorRestoreHistorySelection(hwnd);
+fail:
+    EditHistoryCancelEdit(&transaction);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
 static BOOL GEditorDeleteSelectedStanTiles(HWND hwnd)
 {
     EditHistoryTransaction transaction = {0};
@@ -4324,7 +4354,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         }
         else if (ViewportGetTool(g_Viewport) == EDITOR_TOOL_FACE_SELECT)
         {
-            if (ViewportGetStanSelectionCount(g_Viewport, NULL)) { GEditorDeleteSelectedStanTiles(hwnd); }
+            if (ViewportGetSelectedPortalFaces(g_Viewport, NULL)) { GEditorDeleteSelectedPortals(hwnd); }
+            else if (ViewportGetStanSelectionCount(g_Viewport, NULL)) { GEditorDeleteSelectedStanTiles(hwnd); }
             else { GEditorDeleteSelectedBgFaces(hwnd); }
         }
         return 0;

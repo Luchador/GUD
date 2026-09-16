@@ -3,7 +3,7 @@
  *
  * The header, portal table, visibility data, and other unknown data before
  * the room streams are preserved. New portal tables/polygons are appended
- * to this prefix; existing indices and polygon addresses stay stable.
+ * to this prefix; polygon addresses stay stable when connections are deleted.
  * Room vertex streams, Fast3D display lists and per-face
  * materials are regenerated from BgDocument.
  * Other commands captured by the parser retain the authored render state.
@@ -768,9 +768,10 @@ static BOOL BgCompileValidateSource(const BgDocument *document,
 
 
 /* Preserve all original polygon addresses: visibility commands can name them.
- * Only relocate the table when it grows, retaining its entry order. A saved
+ * Compact surviving connections without moving native polygons. A saved
  * source may be newer than an undo snapshot, or older than a redo snapshot. */
 static BOOL BgCompilePortalRooms(const BgDocument *document, BgCompileBuffer *output,
+                                 DWORD newoffsets[BG_MAX_PORTALS],
                                  const char **reasonout)
 {
     DWORD table, oldcount = 0, count = document->portals.portalcount;
@@ -788,13 +789,6 @@ static BOOL BgCompilePortalRooms(const BgDocument *document, BgCompileBuffer *ou
         if (!record) { break; }
         pointers[oldcount] = record;
     }
-    /* Validate old identities before changing or reallocating the prefix. */
-    for (DWORD i = 0; i < count; i++)
-    {
-        const BgPortal *portal = &document->portals.portals[i];
-        if (!(portal->geometryoffset & BG_PORTAL_NEW_GEOMETRY)
-            && (i >= oldcount || portal->geometryoffset != (pointers[i] & 0x00ffffffu))) { goto mismatch; }
-    }
     if (count > oldcount)
     {
         if (!BgCompileAlign(output, 4)) { return FALSE; }
@@ -806,13 +800,19 @@ static BOOL BgCompilePortalRooms(const BgDocument *document, BgCompileBuffer *ou
     for (DWORD i = 0; i < count; i++)
     {
         const BgPortal *portal = &document->portals.portals[i];
-        DWORD geometry = pointers[i] & 0x00ffffffu, record = table + i * 8;
+        DWORD geometry = portal->geometryoffset, record = table + i * 8;
+        DWORD slot = geometry & ~BG_PORTAL_NEW_GEOMETRY;
+        if (geometry & BG_PORTAL_NEW_GEOMETRY)
+        {
+            if (slot >= BG_MAX_PORTALS) { goto mismatch; }
+            geometry = newoffsets[slot];
+        }
         /* Retain original addresses, headers and padding. Exact native points
          * are part of the document/history, so Undo works after a saved move. */
         if (portal->pointcount < 3 || portal->pointcount > BG_PORTAL_MAX_POINTS) { goto mismatch; }
-        if (i < oldcount)
+        if (geometry)
         {
-            if (geometry > originalsize || originalsize - geometry < 4u + portal->pointcount * 12u
+            if (geometry > output->size || output->size - geometry < 4u + portal->pointcount * 12u
                 || output->data[geometry] != portal->pointcount) { goto mismatch; }
         }
         else
@@ -823,6 +823,7 @@ static BOOL BgCompilePortalRooms(const BgDocument *document, BgCompileBuffer *ou
             for (int word = 0; word < 1 + portal->pointcount * 3; word++)
             { if (!BgCompileWrite32(output, 0)) { return FALSE; } }
             BgCompilePatch32(output, geometry, (DWORD)portal->pointcount << 24);
+            newoffsets[slot] = geometry;
         }
         for (int point = 0; point < portal->pointcount; point++)
         {
@@ -837,13 +838,16 @@ static BOOL BgCompilePortalRooms(const BgDocument *document, BgCompileBuffer *ou
             }
         }
         /* Existing flags/margins and shared geometry are copied unchanged. */
-        BgCompilePatch32(output, record, i < oldcount ? pointers[i] : BGCOMPILE_SEGMENT | geometry);
+        DWORD pointer = BGCOMPILE_SEGMENT | geometry;
+        for (DWORD old = 0; old < oldcount; old++)
+        { if ((pointers[old] & 0x00ffffffu) == geometry) { pointer = pointers[old]; break; } }
+        BgCompilePatch32(output, record, pointer);
         output->data[record + 4] = portal->connectedroom1;
         output->data[record + 5] = portal->connectedroom2;
         output->data[record + 6] = portal->controlbytes1;
         output->data[record + 7] = portal->controlbytes2;
     }
-    /* Removing the appended tail via Undo must also update the native sentinel. */
+    /* Deleted connections must no longer be traversed by the game. */
     if (!BgCompilePatch32(output, table + count * 8, 0)) { goto mismatch; }
     return TRUE;
 mismatch:
@@ -859,15 +863,18 @@ BOOL BgDocumentCompile(const BgDocument *document, const BgFile *source,
     DWORD roomtable;
     DWORD prefixsize;
     DWORD roomindex;
+    DWORD newoffsets[BG_MAX_PORTALS];
 
     ZeroMemory(out, sizeof(*out));
     ZeroMemory(&output, sizeof(output));
     *reasonout = "";
+    ZeroMemory(newoffsets, sizeof(newoffsets));
+    if (source) { memcpy(newoffsets, source->newportaloffsets, sizeof(newoffsets)); }
 
     if (!BgCompileValidateSource(document, source, &roomtable,
                                  &prefixsize, reasonout)
         || !BgCompileAppend(&output, source->data, prefixsize)
-        || !BgCompilePortalRooms(document, &output, reasonout))
+        || !BgCompilePortalRooms(document, &output, newoffsets, reasonout))
     {
         if (output.failed && (*reasonout)[0] == '\0')
         {
@@ -1010,6 +1017,7 @@ room_failed:
 
     out->data = output.data;
     out->size = output.size;
+    memcpy(out->newportaloffsets, newoffsets, sizeof(newoffsets));
     lstrcpyn(out->name, source->name, sizeof(out->name));
     {
         BgFile cleaned = {0};

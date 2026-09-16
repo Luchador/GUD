@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "bghistory.h"
+#include "edittool.h"
 
 /* Document contents are represented by counts here; production history owns
  * all stack/revision/snapshot logic. These stubs isolate it from asset IO. */
@@ -33,6 +34,9 @@ static void *TestRealloc(void *data, size_t size)
 #undef realloc
 
 typedef int HWND;
+static HWND g_Viewport;
+static EditorTool ViewportGetTool(HWND hwnd) { return EDITOR_TOOL_FACE_SELECT; }
+static void KnifeDialogClose(void) {}
 typedef unsigned int UINT;
 typedef uintptr_t WPARAM;
 typedef intptr_t LPARAM;

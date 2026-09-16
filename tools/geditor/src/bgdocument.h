@@ -210,6 +210,10 @@ typedef struct BgPortalPlacement {
  * remain stable. Validation/allocation failure leaves the document unchanged. */
 BOOL BgDocumentAddPortal(BgDocument *document, const BgPortalPlacement *placement,
                          DWORD *indexout, const char **reasonout);
+/* Remove selected table entries, retaining other aliases of shared polygons.
+ * Reject removal of the last connection named by a visibility script. */
+BOOL BgDocumentDeletePortals(BgDocument *document, const BgFile *source,
+    const DWORD *indices, DWORD count, const char **reasonout);
 
 BOOL BgDocumentDeleteFaces(BgDocument *document, const BgFaceRef *refs,
                            DWORD refcount, DWORD *deletedout,

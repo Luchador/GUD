@@ -28,6 +28,8 @@ typedef struct BgVertex {
     BgEnvironmentVertex environment;
 } BgVertex;
 
+#define BG_MAX_PORTALS 200
+
 /* Raw project background retained while a level is open. The compiler uses
    it to preserve the header, portals, visibility data, and other data which
    sits outside editable room geometry. */
@@ -35,10 +37,12 @@ typedef struct BgFile {
     unsigned char *data;
     DWORD size;
     char name[64];
+    /* Session-only addresses for editor-created polygons. Keep retired slots
+     * for undo after saving; reloading makes all saved polygons native IDs. */
+    DWORD newportaloffsets[BG_MAX_PORTALS];
 } BgFile;
 
 #define BG_PORTAL_MAX_POINTS 8
-#define BG_MAX_PORTALS 200
 #define BG_PORTAL_INDEX_NONE ((DWORD)-1)
 /* Unsaved editor polygons use identities outside the native 24-bit offsets. */
 #define BG_PORTAL_NEW_GEOMETRY 0x80000000u

@@ -249,6 +249,8 @@ void ViewportSetPortals(HWND hwnd, const BgPortalFile *portals);
 BOOL ViewportGetSelectedPortal(HWND hwnd, DWORD *index);
 BOOL ViewportSelectPortal(HWND hwnd, DWORD index);
 DWORD ViewportGetPortalSelectionCount(HWND hwnd);
+/* Whole portal table entries, without merging shared polygons. NULL counts. */
+DWORD ViewportGetSelectedPortalFaces(HWND hwnd, DWORD indices[BG_MAX_PORTALS]);
 BgPortalPointRef *ViewportGetMovePortalPoints(HWND hwnd, DWORD *countout);
 
 /* Controls background, stan, portal and object/character visibility.

@@ -9,7 +9,8 @@ Vertex paint and vertex snapping keep their existing click behavior.
 Properties shows the native portal index, polygon point count, extra-margin
 status and value, and the number of connections sharing the polygon. The margin
 is decoded using the game's `bgGetPortalMargin` formula and converted from BG
-units to world units using the level scale. The margin is read-only.
+units to world units using the level scale. See [Portal creation and editing](PORTAL_PLACEMENT.md)
+for margin editing, movement, snapping, creation and deletion.
 
 Use the **Room 1** and **Room 2** lists and click **Apply connections** (or press
 Enter with a closed list). Both endpoints are applied together, so they can be
@@ -19,15 +20,15 @@ within the native byte limit, and the two rooms must differ. Room 0 is unused.
 Repeated clicks cycle the nearest overlapping table entries, including entries
 that share one polygon but have different room connections or margins. Only the
 selected entry is edited. Ctrl-click deselects it; Escape in the viewport clears
-selection. Hiding portals clears portal selection. Portal geometry has no
-translation, rotation, scaling or deletion controls in this change.
+selection. Hiding portals clears portal selection. In Face mode, **Delete**
+removes the selected connections and supports undo/redo.
 
 Each applied change is one **Change Portal Rooms** undo step and marks the
 project unsaved. BG history snapshots own the portal metadata, so portal edits
 and face edits can be interleaved, undone and redone, including after a save.
 The compiler writes the room IDs into the BG segment's native eight-byte table
-records, preserving polygon pointers, table order, flags, margin bytes, and
-other metadata. Project saves and the existing ROM builder use that segment.
+records, preserving surviving polygon addresses, flags, margin bytes, and
+other metadata. Deletion compacts table indices. Project saves and the existing ROM builder use that segment.
 No new project or game-engine changes are required.
 
 Malformed portal tables retain the existing load warning and remain uneditable;

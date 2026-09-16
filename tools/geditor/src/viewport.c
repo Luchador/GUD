@@ -3343,6 +3343,21 @@ DWORD ViewportGetPortalSelectionCount(HWND hwnd)
     return count;
 }
 
+DWORD ViewportGetSelectedPortalFaces(HWND hwnd, DWORD indices[BG_MAX_PORTALS])
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    DWORD count = 0;
+    if (!state || !state->showportals || state->tool != EDITOR_TOOL_FACE_SELECT
+        || !state->portals.portals || state->portals.portalcount >= BG_MAX_PORTALS) { return 0; }
+    for (DWORD i = 0; i < state->portals.portalcount; i++)
+    {
+        if (!state->portalselection[i]) { continue; }
+        if (indices) { indices[count] = i; }
+        count++;
+    }
+    return count;
+}
+
 BgPortalPointRef *ViewportGetMovePortalPoints(HWND hwnd, DWORD *countout)
 {
     const ViewportState *state = ViewportGetState(hwnd);

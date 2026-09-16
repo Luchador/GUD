@@ -1,9 +1,12 @@
-/* Author and reshape portal polygons without changing script-facing indices. */
+/* Author, reshape and remove portal connections. */
 #include <float.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
 #include "bgdocument.h"
+
+/* Native visibility operand converted by bgLoadFile to a portal index. */
+#define BG_VIS_PORTAL_REFERENCE 0x64
 
 BOOL BgDocumentAddPortal(BgDocument *document, const BgPortalPlacement *placement,
                          DWORD *indexout, const char **reasonout)
@@ -32,7 +35,16 @@ BOOL BgDocumentAddPortal(BgDocument *document, const BgPortalPlacement *placemen
     { *reasonout = "Choose a portal orientation and positive width and height."; return FALSE; }
     horizontal = placement->plane == BG_PORTAL_YZ ? 2 : 0;
     vertical = placement->plane == BG_PORTAL_XZ ? 2 : 1;
-    portal.geometryoffset = BG_PORTAL_NEW_GEOMETRY | count;
+    /* Table positions can change after deletion. Never alias another live
+     * editor polygon when reusing a temporary identity. */
+    for (DWORD attempt = 0; attempt < BG_MAX_PORTALS; attempt++)
+    {
+        BOOL used = FALSE;
+        portal.geometryoffset = BG_PORTAL_NEW_GEOMETRY | ((count + attempt) % BG_MAX_PORTALS);
+        for (DWORD i = 0; i < count; i++)
+        { if (document->portals.portals[i].geometryoffset == portal.geometryoffset) { used = TRUE; break; } }
+        if (!used) { break; }
+    }
     portal.connectedroom1 = (unsigned char)placement->room1;
     portal.connectedroom2 = (unsigned char)placement->room2;
     portal.pointcount = 4;
@@ -83,6 +95,68 @@ BOOL BgDocumentAddPortal(BgDocument *document, const BgPortalPlacement *placemen
     document->portals.portalcount = count + 1;
     document->dirty = TRUE;
     *indexout = count;
+    *reasonout = "";
+    return TRUE;
+}
+
+static DWORD BgPortalRead32(const unsigned char *p)
+{
+    return ((DWORD)p[0] << 24) | ((DWORD)p[1] << 16) | ((DWORD)p[2] << 8) | p[3];
+}
+
+BOOL BgDocumentDeletePortals(BgDocument *document, const BgFile *source,
+    const DWORD *indices, DWORD count, const char **reasonout)
+{
+    unsigned char removed[BG_MAX_PORTALS] = {0};
+    DWORD total, kept = 0, vis;
+    *reasonout = "The selected portals could not be read.";
+    if (!document || document->portalwarning || !document->portals.portals
+        || !indices || !count || !source || !source->data || source->size < 16) { return FALSE; }
+    total = document->portals.portalcount;
+    if (total >= BG_MAX_PORTALS || count > total) { return FALSE; }
+    for (DWORD i = 0; i < count; i++)
+    {
+        if (indices[i] >= total || removed[indices[i]]) { return FALSE; }
+        removed[indices[i]] = 1;
+    }
+    /* The runtime resolves polygon-address operands to portal indices. A
+     * missing polygon silently resolves to portal 0, changing the script.
+     * Keep those references valid; deleting one of several aliases is safe. */
+    vis = BgPortalRead32(source->data + 12) & 0x00ffffffu;
+    if (vis)
+    {
+        for (;; vis += 8)
+        {
+            DWORD geometry;
+            BOOL deleted = FALSE, survives = FALSE;
+            if (vis > source->size || source->size - vis < 8)
+            { *reasonout = "The background visibility script is invalid; portals cannot be deleted safely."; return FALSE; }
+            if (!source->data[vis]) { break; }
+            if (source->data[vis] != BG_VIS_PORTAL_REFERENCE) { continue; }
+            geometry = BgPortalRead32(source->data + vis + 4) & 0x00ffffffu;
+            for (DWORD i = 0; i < total; i++)
+            {
+                DWORD address = document->portals.portals[i].geometryoffset;
+                if (address & BG_PORTAL_NEW_GEOMETRY)
+                {
+                    DWORD slot = address & ~BG_PORTAL_NEW_GEOMETRY;
+                    address = slot < BG_MAX_PORTALS ? source->newportaloffsets[slot] : 0;
+                }
+                if (address != geometry) { continue; }
+                if (removed[i]) { deleted = TRUE; } else { survives = TRUE; }
+            }
+            if (deleted && !survives)
+            {
+                *reasonout = "A selected portal is referenced by the level's visibility script. "
+                    "Its last connection cannot be deleted until that script is updated.";
+                return FALSE;
+            }
+        }
+    }
+    for (DWORD i = 0; i < total; i++)
+    { if (!removed[i]) { document->portals.portals[kept++] = document->portals.portals[i]; } }
+    document->portals.portalcount = kept;
+    document->dirty = TRUE;
     *reasonout = "";
     return TRUE;
 }
