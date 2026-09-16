@@ -1980,6 +1980,37 @@ static void GEditorApplyHistoryStep(HWND hwnd, BOOL redo)
 }
 
 
+static BOOL GEditorLinkSelectedStanTiles(HWND hwnd)
+{
+    EditHistoryTransaction transaction = {0};
+    DWORD selected[2];
+    BOOL changed;
+    const char *why = "", *restorewhy = "";
+    if (ViewportGetTool(g_Viewport) != EDITOR_TOOL_FACE_SELECT
+        || ViewportIsFlying(g_Viewport) || ViewportIsTransforming(g_Viewport)
+        || !ViewportGetSelectedStanTiles(g_Viewport, selected, 2)) { return FALSE; }
+    if (!EditHistoryBeginStanEdit(&g_EditHistory, &g_CurrentStan,
+        "Link Stan Tiles", &transaction, &why)) { goto fail; }
+    if (!StanLinkTiles(&g_CurrentStan, selected[0], selected[1], &changed, &why)) { goto fail; }
+    if (!changed) { EditHistoryCancelEdit(&transaction); return TRUE; }
+    /* Rebuild shared-vertex groups, pad placement and object shading using
+     * the new connectivity. Tile indices/counts remain stable, as does selection. */
+    if (!GEditorReloadCurrentObjectsAndViewport(&why)) { goto rollback; }
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+        &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    GEditorReloadCurrentObjectsAndViewport(&restorewhy);
+    GEditorRestoreHistorySelection(hwnd);
+fail:
+    EditHistoryCancelEdit(&transaction);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
 static BOOL GEditorDeleteSelectedStanTiles(HWND hwnd)
 {
     EditHistoryTransaction transaction = {0};
@@ -4186,6 +4217,9 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
     case VIEWPORT_WM_DISCONNECT_FACES:
         return GEditorSeparateBgVertices(hwnd, NULL);
+
+    case VIEWPORT_WM_LINK_STAN_TILES:
+        return GEditorLinkSelectedStanTiles(hwnd);
 
     case VIEWPORT_WM_TRANSLATE_SELECTION:
     case VIEWPORT_WM_SNAP_VERTEX:

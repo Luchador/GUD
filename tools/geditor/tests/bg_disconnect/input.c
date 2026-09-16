@@ -20,13 +20,13 @@ typedef intptr_t LPARAM;
 #include "types.inc"
 enum { GL_FRONT=1, GL_BACK, GL_FRONT_AND_BACK, MF_STRING=0,
        TPM_RETURNCMD=1, TPM_NONOTIFY=2, TPM_RIGHTBUTTON=4,
-       VIEWPORT_WM_SPLIT_EDGE=51, VIEWPORT_WM_DISCONNECT_FACES=52 };
+       VIEWPORT_WM_SPLIT_EDGE=51, VIEWPORT_WM_DISCONNECT_FACES=52, VIEWPORT_WM_LINK_STAN_TILES=71 };
 typedef struct ViewportState {
     EditorTool tool;
     ViewportRenderMode rendermode;
     BOOL orbit,flying,vertexsnap,boxpending,contextpending,cullbackfaces,portalsnaptarget;
     BOOL showbgprimary,showbgsecondary,showobjects,keyw,keya,keys,keyd,keyq,keye;
-    int dragaxis,hoveraxis,width,height,batchcount,selectedtricount;
+    int dragaxis,hoveraxis,width,height,batchcount,selectedtricount,selectedstantiles;
     float posx,posy,posz,yaw,pitch,speed;
     LONGLONG lastqpc;
     POINT contextpoint,lastmouse;
@@ -72,6 +72,7 @@ static void DestroyMenu(HMENU menu) { destroyed++; }
 static void SendMessage(HWND hwnd,UINT msg,UINT wparam,LPARAM lparam)
 { commands++;sent=msg;if(msg==VIEWPORT_WM_SPLIT_EDGE)sentedge=*(const BgDocumentEdgeRef *)lparam;else assert(!lparam); }
 static int ViewportGetSelectedBgFaceCount(HWND hwnd) { return ((ViewportState *)hwnd)->selectedtricount; }
+static DWORD ViewportGetStanSelectionCount(HWND hwnd,DWORD *single) { return ((ViewportState *)hwnd)->selectedstantiles; }
 static BOOL ViewportSelectBgEdges(HWND hwnd,const BgDocumentEdgeRef *edge,DWORD count)
 { assert(count==1);edgepicks++;selectededge=*edge;return TRUE; }
 static BOOL ViewportSelectBgFaces(HWND hwnd,const BgFaceRef *face,DWORD count)
@@ -139,6 +140,16 @@ int main(void)
     s.vertexsnap=TRUE;Click(&s,200,150);assert(commands==4);s.vertexsnap=FALSE;
     s.dragaxis=0;Click(&s,200,150);assert(commands==4);
     failmenu=TRUE;Click(&s,200,150);assert(commands==4 && destroyed==menus);
+    /* Two selected stan faces offer linking without picking BG underneath.
+     * Other stan counts must not fall through to Disconnect Face. */
+    failmenu=FALSE;s.selectedtricount=0;s.selectedstantiles=2;
+    int oldfacepicks=facepicks,oldmenus=menus;
+    Click(&s,30,30);
+    assert(commands==5 && menus==oldmenus+1 && sent==VIEWPORT_WM_LINK_STAN_TILES);
+    assert(!strcmp(label,"Link Stan Tiles") && facepicks==oldfacepicks && s.selectedstantiles==2 && !s.selectedtricount);
+    s.selectedstantiles=1;Click(&s,200,150);assert(commands==5 && facepicks==oldfacepicks && menus==oldmenus+1);
+    s.selectedstantiles=3;Click(&s,200,150);assert(commands==5 && facepicks==oldfacepicks && menus==oldmenus+1);
+    s.selectedstantiles=2;commandchoice=0;Click(&s,30,30);assert(commands==5 && destroyed==menus && s.selectedstantiles==2);
     puts("PASS: real edge hit testing, culling/occlusion, context labels/targets, preserved face selections, click jitter, camera drag/keys and capture cancellation.");
     return 0;
 }

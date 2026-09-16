@@ -36,6 +36,8 @@ void ViewportSetRenderMode(HWND viewport, ViewportRenderMode mode);
    lparam; Disconnect Face uses the current BG face selection. */
 #define VIEWPORT_WM_SPLIT_EDGE (WM_APP + 51)
 #define VIEWPORT_WM_DISCONNECT_FACES (WM_APP + 52)
+/* Link the two currently selected stan faces without replacing the selection. */
+#define VIEWPORT_WM_LINK_STAN_TILES (WM_APP + 71)
 /* Sent only while the viewport owns keyboard focus, so Delete in future
    property editors cannot accidentally remove scene geometry. */
 #define VIEWPORT_WM_DELETE_SELECTION  (WM_APP + 4)

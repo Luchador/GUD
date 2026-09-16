@@ -72,6 +72,10 @@ BOOL StanTranslatePoints(StanFile *stan, const StanPointRef *points, DWORD count
  * Links to deleted tiles become boundaries. At least one tile must remain. */
 BOOL StanDeleteTiles(StanFile *stan, const DWORD *selected, DWORD count,
     DWORD *deletedout, const char **reasonout);
+/* Connect the unique shared edge of two tiles in both directions. Native
+ * endpoints must match in reverse order. Existing third-party links are kept. */
+BOOL StanLinkTiles(StanFile *stan, DWORD first, DWORD second,
+    BOOL *changedout, const char **reasonout);
 /* RGB is quantized to the format's 4-bit channels; stan has no stored alpha. */
 BOOL StanPaintTile(StanFile *stan, DWORD tile, const unsigned char rgba[4],
                    BOOL *changedout, const char **reasonout);

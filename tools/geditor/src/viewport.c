@@ -6215,6 +6215,13 @@ static void ViewportShowGeometryContextMenu(HWND hwnd, ViewportState *state, int
         if (!ViewportSelectBgEdges(hwnd, &edge, 1)) { return; }
         message=VIEWPORT_WM_SPLIT_EDGE; label="Split Edge";
     }
+    else if (state->tool == EDITOR_TOOL_FACE_SELECT && ViewportGetStanSelectionCount(hwnd, NULL))
+    {
+        /* A stan context click must not pick the BG underneath the tiles or
+         * replace the pair that the user has already selected. */
+        if (ViewportGetStanSelectionCount(hwnd, NULL) != 2) { return; }
+        message=VIEWPORT_WM_LINK_STAN_TILES; label="Link Stan Tiles";
+    }
     else if (state->tool == EDITOR_TOOL_FACE_SELECT)
     {
         /* Preserve a multi-face selection even when the menu opens over empty
