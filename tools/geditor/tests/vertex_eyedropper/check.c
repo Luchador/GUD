@@ -20,7 +20,7 @@ typedef struct { int left, top, right, bottom; } RECT;
 #include "types.inc"
 enum { GL_FRONT=1, GL_BACK, GL_FRONT_AND_BACK, IDC_ARROW, IDC_CROSS,
        WM_LBUTTONDOWN, WM_LBUTTONDBLCLK, WM_KEYDOWN, WM_KEYUP,
-       WM_CANCELMODE, WM_CAPTURECHANGED, WM_KILLFOCUS, VK_ESCAPE, VK_DELETE,
+       WM_CANCELMODE, WM_CAPTURECHANGED, WM_KILLFOCUS, VK_ESCAPE, VK_DELETE, VK_CONTROL,
        MK_SHIFT=1, MK_CONTROL=2 };
 #define VIEWPORT_OBJECT_NONE ((DWORD)-1)
 #define GET_X_LPARAM(p) ((short)(p))
@@ -30,7 +30,7 @@ typedef struct ViewportState {
     ViewportRenderMode rendermode;
     BOOL orbit, flying, vertexsnap, boxpending, contextpending, colorpick, colorsampleclick;
     BOOL cullbackfaces, showbgprimary, showbgsecondary, showobjects, showstan;
-    BOOL keyw, keya, keys, keyd, keyq, keye, markerselected;
+    BOOL keyw, keya, keys, keyd, keyq, keye, markerselected, dragrotation;
     int dragaxis, width, height, batchcount, stanopacity;
     DWORD selectedobject;
     float posx, posy, posz, yaw, pitch;
@@ -91,6 +91,8 @@ static LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 static void SetFocus(HWND hwnd) {}
 static BOOL ViewportOpenModelAt(HWND h, ViewportState *s, int x, int y, WPARAM w) { selectioncalls++; return FALSE; }
 static BOOL ViewportBeginTransform(HWND h, ViewportState *s, int x, int y, BOOL shift) { selectioncalls++; return FALSE; }
+static void ViewportDragTransform(HWND h, ViewportState *s, int x, int y) { abort(); }
+static int ViewportSelectedPadIndex(const ViewportState *s) { return -1; }
 static BOOL ViewportTryPickMarker(HWND h, ViewportState *s, int x, int y, BOOL remove) { selectioncalls++; return FALSE; }
 static BOOL ViewportTryPickPortal(HWND h, ViewportState *s, int x, int y, BOOL add, BOOL remove) { selectioncalls++; return FALSE; }
 static BOOL ViewportTryPickPad(HWND h, ViewportState *s, int x, int y, BOOL remove) { selectioncalls++; return FALSE; }

@@ -208,6 +208,7 @@ static void ColorPickerDrawImage(HDC hdc, const RECT *rect,
                                   const DWORD *pixels, int width, int height)
 {
     BITMAPINFO bitmap;
+    int oldmode;
 
     ZeroMemory(&bitmap, sizeof(bitmap));
     bitmap.bmiHeader.biSize = sizeof(bitmap.bmiHeader);
@@ -216,9 +217,14 @@ static void ColorPickerDrawImage(HDC hdc, const RECT *rect,
     bitmap.bmiHeader.biPlanes = 1;
     bitmap.bmiHeader.biBitCount = 32;
     bitmap.bmiHeader.biCompression = BI_RGB;
+    /* The default BLACKONWHITE mode ANDs color bits when reducing the
+       256-pixel gradients to the panel size, introducing dark lines and
+       saturated bands. Preserve sampled colors in both picker images. */
+    oldmode = SetStretchBltMode(hdc, COLORONCOLOR);
     StretchDIBits(hdc, rect->left, rect->top, rect->right - rect->left,
                   rect->bottom - rect->top, 0, 0, width, height, pixels,
                   &bitmap, DIB_RGB_COLORS, SRCCOPY);
+    if (oldmode) { SetStretchBltMode(hdc, oldmode); }
 }
 
 static void ColorPickerPaint(HWND hwnd, ColorPickerState *state, HDC hdc)
