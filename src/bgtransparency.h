@@ -23,4 +23,26 @@
     (BG_SURFACE_TAG | ((policy) << 20) | ((mode) & BG_SURFACE_MODE_MASK))
 #define BG_SURFACE_TAG_POLICY(w1) (((w1) >> 20) & 3u)
 
+/* Per-face alpha scopes. Keep the authored combiner in the asset so Auto can
+ * restore it exactly. The loader replaces reserved packets with a pipe sync,
+ * fog geometry state and four first-cycle blender fields in place.
+ * Scope boundaries precede vertex loads: hardware fog overwrites vertex A.
+ * A closing Auto scope restores the surrounding fog/blender before ENDDL. */
+#define BG_ALPHA_TAG 0x47800000u
+#define BG_ALPHA_IS_MARKER(w0, w1) \
+    ((w0) == BG_SURFACE_MARKER && ((w1) & 0xffffff00u) == BG_ALPHA_TAG)
+#define BG_ALPHA_AUTO 0u
+#define BG_ALPHA_VERTEX 1u
+#define BG_ALPHA_SYNC 2u
+#define BG_ALPHA_FOG 3u
+#define BG_ALPHA_BLENDER 4u
+#define BG_ALPHA_LAST_SLOT 7u
+#define BG_ALPHA_TAG_KIND(w1) ((w1) & 0xffu)
+#define BG_EDITOR_IS_MARKER(w0, w1) \
+    (BG_SURFACE_IS_MARKER(w0, w1) || BG_ALPHA_IS_MARKER(w0, w1))
+
+/* (0 - 0) * 0 + SHADE in both alpha cycles; RGB mux bits are untouched. */
+#define BG_ALPHA_COMBINE_W0(w0) ((w0) | 0x0000fe00u)
+#define BG_ALPHA_COMBINE_W1(w1) (((w1) & ~0x00fc7e3fu) | 0x00fc783cu)
+
 #endif

@@ -197,11 +197,11 @@ static BOOL BgCompileAppendStream(BgCompileBuffer *output,
 }
 
 
-/* Material commands now belong to faces. Replaying an old C0 marker here
- * would load an image even if every face using it was made untextured. */
+/* Material commands and alpha scopes belong to faces. Replaying an old C0
+ * marker could load an unused image or retain an obsolete alpha scope. */
 static BOOL BgCompileWriteGroupState(BgCompileBuffer *gdl,
                                      const unsigned char *commands, DWORD size,
-                                     BOOL *cullbackfaces)
+                                     BOOL *cullbackfaces, BgRenderState *renderstate)
 {
     DWORD offset;
 
@@ -211,6 +211,7 @@ static BOOL BgCompileWriteGroupState(BgCompileBuffer *gdl,
         DWORD word0 = BgCompileRead32(command);
         DWORD word1 = BgCompileRead32(command + 4);
 
+        BgRenderStateRead(renderstate, word0, word1);
         if ((command[0] == BG_G_SETTEXTURE && !BG_SURFACE_IS_MARKER(word0, word1))
             || command[0] == BG_G_TEXTURE
             || command[0] == BG_G_SETCOMBINE)
@@ -230,6 +231,23 @@ static BOOL BgCompileWriteGroupState(BgCompileBuffer *gdl,
         }
     }
     return TRUE;
+}
+
+static BOOL BgCompileAlphaScope(BgCompileBuffer *gdl, BgMaterial *current, DWORD source)
+{
+    DWORD slot;
+    if (current->alphasource == source) { return TRUE; }
+    if (!BgCompileWriteCommand(gdl, BG_SURFACE_MARKER, BG_ALPHA_TAG | source)) { return FALSE; }
+    for (slot = BG_ALPHA_SYNC; slot <= BG_ALPHA_LAST_SLOT; slot++)
+    {
+        if (!BgCompileWriteCommand(gdl, BG_SURFACE_MARKER, BG_ALPHA_TAG | slot)) { return FALSE; }
+    }
+    gdl->pipesynced = TRUE;
+    current->alphasource = source;
+    /* Leaving a scope must also restore the authored combiner at a list's
+     * end, even if there are no more faces. Entry writes the next face's mux. */
+    return source != BG_ALPHA_AUTO
+        || BgCompileWriteCommand(gdl, current->combineword0, current->combineword1);
 }
 
 
@@ -328,16 +346,19 @@ static BOOL BgCompileEmitFaceState(BgCompileBuffer *gdl,
     BOOL modechanged = material->modeword0 != current->modeword0
                     || material->modeword1 != current->modeword1;
     BOOL combinechanged = material->combineword0 != current->combineword0
-                       || material->combineword1 != current->combineword1;
+                       || material->combineword1 != current->combineword1
+                       || material->alphasource != current->alphasource;
     BOOL textured = face->textureid != BG_TEX_NONE;
 
     if ((material->modeword0 >> 24) != BG_G_TEXTURE
         || (material->combineword0 >> 24) != BG_G_SETCOMBINE
-        || face->textureid != BgMaterialTextureId(material))
+        || face->textureid != BgMaterialTextureId(material)
+        || material->alphasource > BG_ALPHA_VERTEX)
     {
         *reasonout = "a bg face contains invalid material state.";
         return FALSE;
     }
+    if (!BgCompileAlphaScope(gdl, current, material->alphasource)) { return FALSE; }
     /* Reuse a preserved sync until more triangles are drawn. Otherwise each
      * save/reload would retain the old sync and insert another before it. */
     if (combinechanged && !gdl->pipesynced
@@ -526,11 +547,12 @@ static BOOL BgCompileEmitGroupFaces(BgCompileBuffer *gdl,
             int corner;
             const BgMaterial *firstmaterial = &room->faces[faceindices[batchstart]].material;
 
-            /* G_TEXTURE scale/enable affects vertex processing. Reload the
-             * shared vertices when it changes, even if they fit in the cache. */
+            /* Texture scale/enable and fog affect vertex processing. Reload
+             * shared vertices when either changes, even if they fit. */
             if (batchend > batchstart
                 && (face->material.modeword0 != firstmaterial->modeword0
-                    || face->material.modeword1 != firstmaterial->modeword1))
+                    || face->material.modeword1 != firstmaterial->modeword1
+                    || face->material.alphasource != firstmaterial->alphasource))
             {
                 break;
             }
@@ -601,10 +623,12 @@ static BOOL BgCompileLayer(const BgDocumentRoom *room,
 {
     const BgDocumentLayerData *layerdata = &room->layers[layer];
     BgMaterial material = {0};
+    BgRenderState renderstate;
     BOOL cullbackfaces = FALSE;
     DWORD groupcount = layerdata->groupcount ? layerdata->groupcount : 1;
     DWORD groupindex;
 
+    BgRenderStateInit(&renderstate, layer == BG_GEOMETRY_SECONDARY);
     if (layerdata->groupcount != 0 && layerdata->groups == NULL)
     {
         *reasonout = "a bg layer references missing draw groups.";
@@ -619,6 +643,9 @@ static BOOL BgCompileLayer(const BgDocumentRoom *room,
         DWORD facecount = 0;
         DWORD faceindex;
 
+        /* Scope only face draws, never the following group's authored state.
+         * Old generated alpha packets are discarded by WriteGroupState. */
+        if (!BgCompileAlphaScope(gdl, &material, BG_ALPHA_AUTO)) { return FALSE; }
         if (group != NULL)
         {
             if ((group->commandsize & 7) != 0
@@ -628,7 +655,7 @@ static BOOL BgCompileLayer(const BgDocumentRoom *room,
                 return FALSE;
             }
             if (!BgCompileWriteGroupState(gdl, group->commands, group->commandsize,
-                                           &cullbackfaces))
+                                           &cullbackfaces, &renderstate))
             {
                 return FALSE;
             }
@@ -661,6 +688,13 @@ static BOOL BgCompileLayer(const BgDocumentRoom *room,
             }
             if (face->drawgroup == groupindex)
             {
+                if (face->material.alphasource == BG_ALPHA_VERTEX
+                    && !BgRenderSupportsVertexAlpha(&renderstate))
+                {
+                    *reasonout = "a vertex-alpha face has unsupported or inherited render state.";
+                    free(faceindices);
+                    return FALSE;
+                }
                 faceindices[facecount++] = faceindex;
             }
         }
@@ -675,7 +709,8 @@ static BOOL BgCompileLayer(const BgDocumentRoom *room,
         free(faceindices);
     }
 
-    return BgCompileWriteCommand(gdl,
+    return BgCompileAlphaScope(gdl, &material, BG_ALPHA_AUTO)
+        && BgCompileWriteCommand(gdl,
                     (DWORD)BGCOMPILE_G_ENDDL << 24, 0);
 }
 

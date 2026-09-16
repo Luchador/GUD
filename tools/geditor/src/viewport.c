@@ -1017,6 +1017,13 @@ static void ViewportTickMonitors(ViewportMonitors *monitors)
    the game's surface/decal Z mode.
    All vertices remain in scene storage, so fog, picking and transforms use
    the very same surface as the animated image. */
+static void ViewportApplyFog(ViewportState *state, BgRenderFlags flags)
+{
+    if (state->showfog && state->levelfog && !state->orbit && !(flags & BG_RENDER_NO_FOG))
+    { glEnable(GL_FOG); }
+    else { glDisable(GL_FOG); }
+}
+
 static void ViewportDrawMonitors(ViewportState *state)
 {
     static const int corners[6] = {0, 1, 2, 0, 2, 3};
@@ -1045,6 +1052,7 @@ static void ViewportDrawMonitors(ViewportState *state)
         }
         if (animation->color[3] < 255) { flags |= BG_RENDER_BLEND; }
         ViewportApplyRenderFlags(flags);
+        ViewportApplyFog(state, flags);
         ViewportApplyCullMode(state->cullbackfaces ? GL_BACK : 0);
         if (state->rendermode != VIEWPORT_RENDER_UNTEXTURED && texture && texture->name)
         {
@@ -1844,7 +1852,7 @@ static void ViewportPaintGL(ViewportState *state)
             int i;
             GLenum incullback = 0;
             BOOL monitorsdrawn = FALSE;
-            int activerenderflags = -1;
+            BgRenderFlags activerenderflags = (BgRenderFlags)-1;
 
             ViewportUpdateEnvironmentMapping(state);
 
@@ -1858,7 +1866,7 @@ static void ViewportPaintGL(ViewportState *state)
                 {
                     ViewportDrawMonitors(state);
                     monitorsdrawn = TRUE;
-                    activerenderflags = -1;
+                    activerenderflags = (BgRenderFlags)-1;
                     glDisable(GL_CULL_FACE);
                     incullback = FALSE;
                 }
@@ -1875,6 +1883,7 @@ static void ViewportPaintGL(ViewportState *state)
                 if (activerenderflags != batch->renderflags)
                 {
                     ViewportApplyRenderFlags(batch->renderflags);
+                    ViewportApplyFog(state, batch->renderflags);
                     activerenderflags = batch->renderflags;
                 }
 

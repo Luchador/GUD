@@ -87,6 +87,7 @@ typedef struct BgOneCycleState {
     u32 loadedTexels;
     s32 paletteLoaded;
     u32 surfacePolicy;
+    u32 alphaSource;
     struct tex *loadedTexture;
 } BgOneCycleState;
 
@@ -121,6 +122,7 @@ static void bgOneCycleResetState(BgOneCycleState *state)
     state->loadedImage = state->loadedTexels = 0;
     state->paletteLoaded = FALSE;
     state->surfacePolicy = BG_SURFACE_AUTO;
+    state->alphaSource = BG_ALPHA_AUTO;
     for (i = 0; i < 8; i++) state->tiles[i] = state->palettes[i] = 0;
     state->loadedTexture = NULL;
 }
@@ -137,6 +139,9 @@ static s32 bgOneCycleReadState(BgOneCycleState *state, Gfx command, bool cutouts
     struct tex *tex;
     if (BG_SURFACE_IS_MARKER(command.words.w0, command.words.w1)) {
         state->surfacePolicy = BG_SURFACE_TAG_POLICY(command.words.w1);
+    } else if (BG_ALPHA_IS_MARKER(command.words.w0, command.words.w1)) {
+        if (BG_ALPHA_TAG_KIND(command.words.w1) <= BG_ALPHA_VERTEX)
+            state->alphaSource = BG_ALPHA_TAG_KIND(command.words.w1);
     } else if (opcode == (u8)G_SETOTHERMODE_H || opcode == (u8)G_SETOTHERMODE_L) {
         shift = (command.words.w0 >> 8) & 0xff;
         length = command.words.w0 & 0xff;
@@ -223,6 +228,7 @@ static s32 bgOneCycleChooseState(const BgOneCycleState *source, BgOneCycleState 
     /* A hand-authored blend must survive even when its pixels are binary.
      * Invalid/unknown policies also retain the original pipeline. */
     if (source->surfacePolicy == BG_SURFACE_BLEND || source->surfacePolicy > BG_SURFACE_BLEND) return FALSE;
+    if (source->alphaSource != BG_ALPHA_AUTO) return FALSE;
     if ((source->highKnown & BG_CYCLE_MASK) != BG_CYCLE_MASK
             || (source->high & BG_CYCLE_MASK) != G_CYC_2CYCLE
             || (source->lowKnown & BG_RENDER_MASK) != BG_RENDER_MASK
@@ -355,6 +361,7 @@ static s32 bgOneCycleBuild(const Gfx *src, s32 size, Gfx *dst, s32 capacity,
     Gfx command;
     u32 opcode;
     u32 policy;
+    u32 alphaSource;
     s32 i;
     if (!src || size <= 0 || (size & 7) || size > BG_MAX_ONE_CYCLE_BYTES
             || capacity < 0 || dst == src || initialSize < 0 || (initialSize & 7)
@@ -404,8 +411,10 @@ static s32 bgOneCycleBuild(const Gfx *src, s32 size, Gfx *dst, s32 capacity,
             /* The editor policy belongs to this list's faces. Nested lists
              * have their own metadata; only their hardware state is unknown. */
             policy = source.surfacePolicy;
+            alphaSource = source.alphaSource;
             bgOneCycleResetState(&source);
             source.surfacePolicy = policy;
+            source.alphaSource = alphaSource;
             actual = source;
         }
     }

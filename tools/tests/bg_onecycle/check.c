@@ -214,10 +214,11 @@ static u32 read_be(FILE *file)
     return ((u32)b[0] << 24) | ((u32)b[1] << 16) | ((u32)b[2] << 8) | b[3];
 }
 static void cutout_checks(void);
+static void vertex_alpha_checks(void);
 static void cutout_asset_checks(const char *path);
 int main(int argc, char **argv)
 {
-    if (argc == 1) { unit_checks(); cutout_checks(); }
+    if (argc == 1) { unit_checks(); cutout_checks(); vertex_alpha_checks(); }
     else if (argc == 3) cutout_asset_checks(argv[1]);
     else {
         FILE *file = fopen(argv[1], "rb");

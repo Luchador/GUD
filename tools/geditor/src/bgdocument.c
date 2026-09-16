@@ -1523,7 +1523,8 @@ BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
     *changedout = FALSE;
     *reasonout = "";
     if (document == NULL || refs == NULL || count == 0 || edit == NULL
-        || edit->fields == 0 || (edit->fields & ~1023u)
+        || edit->fields == 0 || (edit->fields & ~2047u)
+        || ((edit->fields & BG_FACE_PROPERTY_ALPHA_SOURCE) && edit->alphasource > BG_ALPHA_VERTEX)
         || ((edit->fields & BG_FACE_PROPERTY_DETAIL_MODE) && (unsigned int)edit->detail.mode > BG_DETAIL_SEPARATE_IMAGE)
         || ((edit->fields & BG_FACE_PROPERTY_DETAIL_IMAGE) && edit->detail.textureid >= BG_TEX_NONE)
         || ((edit->fields & BG_FACE_PROPERTY_DETAIL_U) && edit->detail.shiftu > 15)
@@ -1558,6 +1559,27 @@ BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
             return FALSE;
         }
     }
+    if ((edit->fields & BG_FACE_PROPERTY_ALPHA_SOURCE) && edit->alphasource == BG_ALPHA_VERTEX)
+    {
+        size_t bytes = (size_t)count * sizeof(BgRenderState);
+        BgRenderState *states = bytes / sizeof(*states) == count ? malloc(bytes) : NULL;
+        BOOL supported;
+        if (!states || !BgDocumentGetFaceRenderStates(document, refs, count, states))
+        {
+            free(states);
+            *reasonout = "Could not read the selected faces' render state for vertex alpha.";
+            return FALSE;
+        }
+        supported = TRUE;
+        for (i = 0; supported && i < count; i++)
+        { supported = BgRenderSupportsVertexAlpha(&states[i]); }
+        free(states);
+        if (!supported)
+        {
+            *reasonout = "Vertex alpha requires explicit one- or two-cycle render state with a standard fog/pass blender.";
+            return FALSE;
+        }
+    }
     if ((edit->fields & (BG_FACE_PROPERTY_TRANSPARENCY | BG_FACE_PROPERTY_DETAIL_MASK))
         && !BgDocumentSetRenderProperties(document, refs, count, edit, changedout, reasonout))
     { return FALSE; }
@@ -1572,6 +1594,7 @@ BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
         { BgDocumentDetailMaterial(&face->material, edit, &material, reasonout); }
         if (edit->fields & BG_FACE_PROPERTY_WRAP_U) { BgMaterialSetWrap(&material, FALSE, edit->wrapu); }
         if (edit->fields & BG_FACE_PROPERTY_WRAP_V) { BgMaterialSetWrap(&material, TRUE, edit->wrapv); }
+        if (edit->fields & BG_FACE_PROPERTY_ALPHA_SOURCE) { material.alphasource = edit->alphasource; }
         if (face->cullbackfaces != cull || !BgMaterialEqual(&face->material, &material))
         {
             face->cullbackfaces = (unsigned char)cull;
@@ -1787,6 +1810,8 @@ BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
             out->renderflags[outputface] = BgRenderStateFlags(renderstate)
                 | BgRenderMaterialWrap(&face->material);
             if (!alpha.texture) { out->renderflags[outputface] |= BG_RENDER_IGNORE_TEXTURE_ALPHA; }
+            if (face->material.alphasource == BG_ALPHA_VERTEX)
+            { out->renderflags[outputface] |= BG_RENDER_NO_FOG; }
             out->tags[outputface] = tag;
             out->facerefs[outputface].faceid = face->id;
             out->facerefs[outputface].room = face->room;

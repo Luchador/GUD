@@ -6,7 +6,7 @@
 
 /* Host preview flags derived from the preserved Fast3D stream. These are
  * presentation data, never written back as replacement N64 commands. */
-typedef unsigned short BgRenderFlags;
+typedef unsigned int BgRenderFlags;
 
 enum BgRenderFlag
 {
@@ -26,6 +26,7 @@ enum BgRenderFlag
     BG_RENDER_CULL_BACK = 8192,
     BG_RENDER_CULL_FRONT = 16384,
     BG_RENDER_CULL_EXPLICIT = 32768, /* Includes an authored two-sided state. */
+    BG_RENDER_NO_FOG = 65536, /* Vertex alpha needs the shade alpha channel. */
     BG_RENDER_CULL_MASK = BG_RENDER_CULL_BACK | BG_RENDER_CULL_FRONT | BG_RENDER_CULL_EXPLICIT,
     BG_RENDER_ENVIRONMENT_MASK = BG_RENDER_ENVIRONMENT | BG_RENDER_ENVIRONMENT_LINEAR,
     BG_RENDER_WRAP_MASK = BG_RENDER_CLAMP_S | BG_RENDER_MIRROR_S
@@ -74,6 +75,7 @@ BgTransparency BgRenderGetTransparency(const BgRenderState *state);
 /* Safe surface presets for explicit, ordinary one/two-cycle BG pipelines.
    Preserve the combiner, first-cycle fog, alpha/depth source and cycle type. */
 BOOL BgRenderSurfacePreset(const BgRenderState *state, BgTransparency surface, DWORD *modeout);
+BOOL BgRenderSupportsVertexAlpha(const BgRenderState *state);
 
 /* Matches texModeToGbiMode: mode 3, like mode 0, means ordinary repeat. */
 BgRenderFlags BgRenderMaterialWrap(const BgMaterial *material);

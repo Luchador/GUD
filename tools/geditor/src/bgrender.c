@@ -194,6 +194,16 @@ BOOL BgRenderSurfacePreset(const BgRenderState *state, BgTransparency surface, D
     return TRUE;
 }
 
+BOOL BgRenderSupportsVertexAlpha(const BgRenderState *state)
+{
+    DWORD first = state->othermode & 0xcccc0000u;
+    return (state->othermodehighknown & 0x00300000u) == 0x00300000u
+        && !(state->othermodehigh & 0x00200000u)
+        && (state->othermodeknown & 0xffff0000u) == 0xffff0000u
+        && (!(state->othermodehigh & 0x00100000u)
+            || first == 0x0c080000u || first == 0xc8080000u);
+}
+
 /* Alpha combiner mux values from gbi.h. The multiplier slot uses 0 and 6
  * for LOD fractions instead of COMBINED and ONE. */
 enum BgAlphaInput
@@ -228,6 +238,11 @@ BgRenderAlpha BgRenderGetAlpha(const BgRenderState *state, const BgMaterial *mat
     DWORD w0 = material->combineword0, w1 = material->combineword1;
     unsigned int i;
 
+    if (material->alphasource == BG_ALPHA_VERTEX)
+    {
+        BgRenderAlpha alpha = {255, TRUE, FALSE};
+        return alpha;
+    }
     for (i = 0; i < sizeof(remapped) / sizeof(remapped[0]); i++)
     {
         if (w0 == remapped[i].word0 && w1 == remapped[i].word1)

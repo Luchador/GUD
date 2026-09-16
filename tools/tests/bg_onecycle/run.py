@@ -48,6 +48,17 @@ source += strip_includes((ROOT / 'src/game/bgonecycle.c').read_text())
 bg = (ROOT / 'src/game/bg.c').read_text()
 for name in ('DL_LUT_PRIMARY', 'DL_LUT_PRIMARY_ADDFOG', 'DL_LUT_SECONDARY', 'DL_LUT_SECONDARY_ADDFOG'):
     source += re.search(r'Gfx ' + name + r'\[\].*?\n};', bg, re.S)[0] + '\n'
+constants = (ROOT / 'src/bondconstants.h').read_text()
+source += re.search(r'enum CCRMLUT\s*\{.*?\n};', constants, re.S)[0] + '\n'
+source += '''
+static Gfx *ptrDynamic_CC_RM_LUT[] = {
+    NULL, DL_LUT_PRIMARY_ADDFOG, NULL, NULL, NULL,
+    DL_LUT_SECONDARY_ADDFOG, DL_LUT_PRIMARY, DL_LUT_SECONDARY
+};
+static struct TestEnvironment { int FogEnabled; } g_TestEnvironment;
+static struct TestEnvironment *envGetCurrent(void) { return &g_TestEnvironment; }
+'''
+source += strip_includes((ROOT / 'src/game/bgapply.c').read_text())
 source += (HERE / 'harness.h').read_text()
 for name in ('bgBuildRoomOneCycleGdl', 'bgFreeRoomData', 'bgRenderRoomPrimary', 'bgRenderRoomSecondary'):
     source += function(bg, name)
@@ -65,6 +76,7 @@ expander = re.sub(r'    s32\s+pad;\n', '', expander)
 source += expander
 source += (HERE / 'check.c').read_text()
 source += (HERE / 'cutouts.c').read_text()
+source += (HERE / 'alpha.c').read_text()
 
 # Classification precedes row swaps/mip generation, using the existing spare
 # descriptor bit (no N64 layout growth or change to texture pointer prefixes).

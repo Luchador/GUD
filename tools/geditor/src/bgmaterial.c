@@ -12,6 +12,7 @@
 
 void BgMaterialInit(BgMaterial *material)
 {
+    material->alphasource = BG_ALPHA_AUTO;
     material->textureword0 = material->textureword1 = 0;
     material->modeword0 = (BG_G_TEXTURE << 24) | 1u;
     material->modeword1 = 0xFFFFFFFFu;
@@ -21,6 +22,12 @@ void BgMaterialInit(BgMaterial *material)
 
 BOOL BgMaterialReadCommand(BgMaterial *material, DWORD word0, DWORD word1)
 {
+    if (BG_ALPHA_IS_MARKER(word0, word1))
+    {
+        DWORD kind = BG_ALPHA_TAG_KIND(word1);
+        if (kind <= BG_ALPHA_VERTEX) { material->alphasource = kind; }
+        return TRUE;
+    }
     if (BG_SURFACE_IS_MARKER(word0, word1)) { return FALSE; }
     switch (word0 >> 24)
     {
@@ -81,7 +88,8 @@ BOOL BgMaterialEqual(const BgMaterial *a, const BgMaterial *b)
 {
     return a->textureword0 == b->textureword0 && a->textureword1 == b->textureword1
         && a->modeword0 == b->modeword0 && a->modeword1 == b->modeword1
-        && a->combineword0 == b->combineword0 && a->combineword1 == b->combineword1;
+        && a->combineword0 == b->combineword0 && a->combineword1 == b->combineword1
+        && a->alphasource == b->alphasource;
 }
 
 BgTextureWrap BgMaterialGetWrap(const BgMaterial *material, BOOL t)

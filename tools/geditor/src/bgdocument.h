@@ -270,12 +270,14 @@ BOOL BgDocumentSetFaceTexture(BgDocument *document, const BgFaceRef *refs,
 #define BG_FACE_PROPERTY_DETAIL_MINLOD 256u
 #define BG_FACE_PROPERTY_DETAIL_OFFSET 512u
 #define BG_FACE_PROPERTY_DETAIL_MASK 1008u
+#define BG_FACE_PROPERTY_ALPHA_SOURCE 1024u
 typedef struct BgFacePropertiesEdit {
     unsigned int fields; /* only explicitly changed controls are applied */
     BOOL cullbackfaces;
     BgTextureWrap wrapu, wrapv;
     BgTransparency transparency;
     BgDetailTexture detail;
+    DWORD alphasource;
 } BgFacePropertiesEdit;
 
 /* Resolve partial detail edits without modifying the document. Used for image
@@ -288,6 +290,8 @@ BOOL BgDocumentDetailMaterial(const BgMaterial *source, const BgFacePropertiesEd
  * native state groups are split/restored without changing geometry or layers.
  * Detail switches require supported combiners and explicit texture state;
  * sampling edits retain the existing combiner and change only requested fields.
+ * Vertex alpha requires explicit one/two-cycle state; its fog override is
+ * scoped by the compiler and Auto retains the authored combiner unchanged.
  * Explicit choices override runtime optimization; Auto restores the native
  * surface saved by the first explicit choice and permits optimization again. */
 BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,

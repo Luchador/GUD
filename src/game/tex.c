@@ -733,7 +733,7 @@ s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool)
         switch (*(u8 *)in)
         {
             case G_NOOP:
-                if (BG_SURFACE_IS_MARKER(in->words.w0, in->words.w1))
+                if (BG_EDITOR_IS_MARKER(in->words.w0, in->words.w1))
                 {
                     *(out++) = *(in++);
                     break;

@@ -20,7 +20,7 @@ enum { FACE_SUMMARY, FACE_ROOM_LABEL, FACE_ROOM, FACE_LAYER_LABEL, FACE_LAYER, F
        FACE_DETAIL_THUMB, FACE_DETAIL_FIND, FACE_DETAIL_INFO,
        FACE_DETAIL_U_LABEL, FACE_DETAIL_U, FACE_DETAIL_V_LABEL, FACE_DETAIL_V,
        FACE_DETAIL_LOD_LABEL, FACE_DETAIL_LOD, FACE_DETAIL_OFFSET_LABEL, FACE_DETAIL_OFFSET,
-       FACE_SELECTION_HELP, FACE_CONTROL_COUNT };
+       FACE_SELECTION_HELP, FACE_ALPHA_LABEL, FACE_ALPHA, FACE_ALPHA_HELP, FACE_CONTROL_COUNT };
 
 typedef struct FacePropertiesState {
     HWND controls[FACE_CONTROL_COUNT];
@@ -177,7 +177,8 @@ static void FacePropertiesSetDetail(FacePropertiesState *state, const BgDocument
 static BOOL FacePropertiesIsCombo(int id)
 {
     return id == FACE_ROOM || id == FACE_LAYER || id == FACE_RENDER || id == FACE_CULL || id == FACE_U || id == FACE_V
-        || id == FACE_DETAIL_MODE || id == FACE_DETAIL_U || id == FACE_DETAIL_V || id == FACE_DETAIL_OFFSET;
+        || id == FACE_DETAIL_MODE || id == FACE_DETAIL_U || id == FACE_DETAIL_V || id == FACE_DETAIL_OFFSET
+        || id == FACE_ALPHA;
 }
 
 static BOOL FacePropertiesIsEdit(int id)
@@ -452,7 +453,7 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
             "Texture wrapping", "U", "", "V", "",
             "Detail texture", "", "Detail image (hex ID, Enter to apply)", "", "", "Find", "",
             "Detail U scale", "", "Detail V scale", "", "Minimum LOD (0-255, Enter to apply)", "", "Tile offset", "",
-            ""
+            "", "Alpha Source", "", "Vertex alpha uses the painted A value (0-255) and disables fog on these faces. For soft transparency, use Translucent and the Secondary layer."
         };
         int i;
         state = (FacePropertiesState *)calloc(1, sizeof(*state));
@@ -508,6 +509,14 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
                     SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Mixed");
                     SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Primary");
                     SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Secondary");
+                    continue;
+                }
+                if (i == FACE_ALPHA)
+                {
+                    SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Mixed / Keep current");
+                    SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Auto");
+                    SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Vertex alpha");
+                    SendMessage(control, CB_SETDROPPEDWIDTH, 180, 0);
                     continue;
                 }
                 if (i == FACE_RENDER)
@@ -598,6 +607,8 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
                 {
                     if (control == state->controls[FACE_RENDER])
                     { edit.fields = BG_FACE_PROPERTY_TRANSPARENCY; edit.transparency = choice == 1 ? BG_TRANSPARENCY_AUTO : (BgTransparency)(choice - 2); }
+                    else if (control == state->controls[FACE_ALPHA])
+                    { edit.fields = BG_FACE_PROPERTY_ALPHA_SOURCE; edit.alphasource = choice - 1; }
                     else if (control == state->controls[FACE_CULL])
                     { edit.fields = BG_FACE_PROPERTY_CULL; edit.cullbackfaces = choice == 1; }
                     else if (control == state->controls[FACE_U])
@@ -693,7 +704,7 @@ BOOL FacePropertiesSetSelection(HWND panel, const BgDocument *document,
 {
     FacePropertiesState *state = FacePropertiesGetState(panel);
     const BgDocumentFace *first;
-    int cull, wrapu, wrapv, layer;
+    int cull, wrapu, wrapv, layer, alphasource;
     unsigned short room;
     BOOL textured = TRUE, sametexture = TRUE, editable;
     DWORD i;
@@ -705,6 +716,7 @@ BOOL FacePropertiesSetSelection(HWND panel, const BgDocument *document,
     cull = first->cullbackfaces ? 1 : 2;
     wrapu = BgMaterialGetWrap(&first->material, FALSE) + 1;
     wrapv = BgMaterialGetWrap(&first->material, TRUE) + 1;
+    alphasource = first->material.alphasource + 1;
     for (i = 0; i < count; i++)
     {
         const BgDocumentFace *face = BgDocumentFindFace(document, &refs[i], NULL);
@@ -714,6 +726,7 @@ BOOL FacePropertiesSetSelection(HWND panel, const BgDocument *document,
         if (cull != (face->cullbackfaces ? 1 : 2)) { cull = 0; }
         if (wrapu != (int)BgMaterialGetWrap(&face->material, FALSE) + 1) { wrapu = 0; }
         if (wrapv != (int)BgMaterialGetWrap(&face->material, TRUE) + 1) { wrapv = 0; }
+        if (alphasource != (int)face->material.alphasource + 1) { alphasource = 0; }
         if (face->textureid == BG_TEX_NONE) { textured = FALSE; }
         if (face->textureid != first->textureid) { sametexture = FALSE; }
     }
@@ -772,6 +785,7 @@ BOOL FacePropertiesSetSelection(HWND panel, const BgDocument *document,
     EnableWindow(state->controls[FACE_DETAIL_MODE], textured);
     EnableWindow(state->controls[FACE_DETAIL_IMAGE], textured);
     SendMessage(state->controls[FACE_CULL], CB_SETCURSEL, cull, 0);
+    SendMessage(state->controls[FACE_ALPHA], CB_SETCURSEL, alphasource, 0);
     SendMessage(state->controls[FACE_U], CB_SETCURSEL, textured ? wrapu : -1, 0);
     SendMessage(state->controls[FACE_V], CB_SETCURSEL, textured ? wrapv : -1, 0);
     EnableWindow(state->controls[FACE_U], textured);
