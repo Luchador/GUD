@@ -1109,6 +1109,85 @@ static const BgVertex *ObjectFirstVertex(const SetupObjectGeometry *geometry, DW
     return NULL;
 }
 
+BOOL ObjectCopySetupModelPose(const SetupObjectGeometry *source, DWORD index,
+    SetupObjectGeometry *out, const char **reasonout)
+{
+    SetupObjectGeometry pose = {0};
+    for (DWORD i = 0; i < source->tricount; i++)
+    { if (source->objectindices[i] == index) { pose.tricount++; } }
+    *reasonout = "The object has no rendered geometry.";
+    if (!pose.tricount) { return FALSE; }
+    pose.tris = malloc((size_t)pose.tricount * 3 * sizeof(*pose.tris));
+    pose.objectindices = malloc((size_t)pose.tricount * sizeof(*pose.objectindices));
+    if (!pose.tris || !pose.objectindices)
+    { ObjectGeometryFree(&pose); *reasonout = "Out of memory copying the object."; return FALSE; }
+    for (DWORD i = 0, j = 0; i < source->tricount; i++)
+    {
+        if (source->objectindices[i] != index) { continue; }
+        memcpy(pose.tris + j * 3, source->tris + i * 3, 3 * sizeof(*pose.tris));
+        pose.objectindices[j++] = index;
+    }
+    *out = pose;
+    return TRUE;
+}
+
+BOOL ObjectDuplicateSetupModel(const char *projectdir, SetupFile *setup,
+    const SetupFile *source, const StanFile *stan, float levelscale,
+    const SetupObjectGeometry *before, DWORD index, const double offset[3],
+    const Rotation *rotation, const double pivot[3], const Scaling *scaling,
+    DWORD *selectionout, SetupObjectGeometry *out, const char **reasonout)
+{
+    SetupObjectGeometry pose = {0}, placed = {0};
+    SetupObjectProperties properties;
+    const double zero[3] = {0};
+    DWORD selected;
+    LONG aim = -1;
+    BOOL ok = FALSE;
+    memset(out, 0, sizeof(*out));
+    if ((!!offset + !!rotation + !!scaling) != 1 || !selectionout
+        || (rotation && (!pivot || !RotationValid(rotation)))
+        || (scaling && !ScalingValid(scaling)))
+    { *reasonout = "Invalid duplicate transform."; return FALSE; }
+    if (!ObjectCopySetupModelPose(before, index, &pose, reasonout)
+        || !SetupFileDuplicateObject(setup, source, index, &selected, reasonout)) { goto done; }
+    for (DWORD i = 0; i < pose.tricount; i++) { pose.objectindices[i] = selected; }
+    /* Grounding and support offsets belong to the visible copied pose. They
+     * must not be recomputed relative to the original prop underneath it. */
+    if (!ObjectTranslateSetupModel(projectdir, setup, stan, levelscale, &pose,
+        selected, offset ? offset : zero, &placed, reasonout)) { goto done; }
+    if (scaling || rotation)
+    {
+        if (!(scaling ? ObjectScaleSetupModel(projectdir, setup, stan, levelscale,
+                &placed, selected, scaling, out, reasonout)
+            : ObjectRotateSetupModel(projectdir, setup, stan, levelscale,
+                &placed, selected, rotation, pivot, out, reasonout))) { goto done; }
+        ObjectGeometryFree(&placed);
+        placed = *out; memset(out, 0, sizeof(*out));
+    }
+    /* Cameras and drone guns use a second native pad to aim. Transform that
+     * private target with the copy, leaving the source's target untouched. */
+    if (!SetupFileGetObjectProperties(setup, selected, &properties, reasonout)) { goto done; }
+    if (properties.object.type == PROPDEF_CCTV) { aim = properties.cctv.lookpad; }
+    if (properties.object.type == PROPDEF_AUTOGUN) { aim = properties.drone.aimpad; }
+    if (aim >= 0)
+    {
+        SetupPadRef ref = {(DWORD)aim, FALSE};
+        double point[3], target[3], delta[3];
+        BOOL changed;
+        for (int axis = 0; axis < 3; axis++) { point[axis] = setup->pads[aim].pos[axis] / levelscale; }
+        if (scaling) { ScalingPoint(scaling, point, target); }
+        else if (rotation) { RotationPoint(rotation, pivot, point, target); }
+        else for (int axis = 0; axis < 3; axis++) { target[axis] = point[axis] + offset[axis]; }
+        for (int axis = 0; axis < 3; axis++) { delta[axis] = target[axis] - point[axis]; }
+        if (!SetupFileTranslatePad(setup, &ref, levelscale, delta, &changed, reasonout)) { goto done; }
+    }
+    *selectionout = selected; *out = placed; memset(&placed, 0, sizeof(placed));
+    ok = TRUE;
+done:
+    ObjectGeometryFree(&pose); ObjectGeometryFree(&placed);
+    return ok;
+}
+
 /* The caller holds an EditHistory transaction. Props use explicit placement
  * with their old floor/support offset compensated. Characters keep the game's
  * grounding rules, using their visible feet as the starting pad position. */

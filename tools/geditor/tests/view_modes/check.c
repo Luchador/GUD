@@ -38,6 +38,9 @@ typedef struct ViewportState {
     EditorTool tool;
     BOOL orbit, cullbackfaces, showbgprimary, showbgsecondary, showobjects;
     int batchcount, bghiddentris;
+    BOOL dragduplicating;
+    float (*dragvertices)[3];
+    unsigned char *dragmask;
     Vertex *scene;
     VertexColor *scenecolors;
     SceneBatch *batches;
@@ -68,7 +71,7 @@ typedef struct ClientState {
 static ServerState server, savedserver;
 static ClientState client, savedclient;
 static unsigned pushes, clientpushes, drawcount, previews;
-static struct Draw { int first, count; GLenum polygon, cull; BOOL colors; GLubyte color[4]; } draws[32];
+static struct Draw { int first, count; GLenum polygon, cull; BOOL colors; GLubyte color[4]; const void *vertices; } draws[32];
 static void glPushAttrib(unsigned flags)
 { assert(flags & GL_DEPTH_BUFFER_BIT); assert(flags & GL_POLYGON_BIT); assert(!pushes++); savedserver=server; }
 static void glPopAttrib(void) { assert(pushes--==1); server=savedserver; }
@@ -88,7 +91,7 @@ static void glPolygonOffset(float factor, float units) { server.offset[0]=factor
 static void glColor4ub(GLubyte r, GLubyte g, GLubyte b, GLubyte a)
 { server.color[0]=r; server.color[1]=g; server.color[2]=b; server.color[3]=a; }
 static void glVertexPointer(int size, GLenum type, int stride, const void *pointer)
-{ assert(size==3 && stride==sizeof(Vertex)); client.vertices=pointer; }
+{ assert(size==3 && (stride==sizeof(Vertex) || stride==3*sizeof(float))); client.vertices=pointer; }
 static void glColorPointer(int size, GLenum type, int stride, const void *pointer)
 { assert(size==4 && type==GL_UNSIGNED_BYTE); client.colors=pointer; client.colorstride=stride; }
 static void glDrawArrays(GLenum mode, int first, int count)
@@ -99,7 +102,7 @@ static void glDrawArrays(GLenum mode, int first, int count)
     assert(server.enabled[GL_DEPTH_TEST] && !server.depthwrite && server.depthfunc==GL_LEQUAL);
     struct Draw *draw=&draws[drawcount++];
     *draw=(struct Draw){.first=first,.count=count,.polygon=server.polygon,
-        .cull=server.enabled[GL_CULL_FACE]?server.cull:0,.colors=client.enabled[GL_COLOR_ARRAY]};
+        .cull=server.enabled[GL_CULL_FACE]?server.cull:0,.colors=client.enabled[GL_COLOR_ARRAY],.vertices=client.vertices};
     memcpy(draw->color,draw->colors ? (const GLubyte *)client.colors+first*client.colorstride : server.color,4);
 }
 static void ViewportDrawExtrusionBatch(const ViewportState *s, const SceneBatch *b) { previews++; }
@@ -286,6 +289,14 @@ static void Wireframe(void)
     assert(!memcmp(draws[0].color,(GLubyte[]){255,255,255,0},4));
     assert(!memcmp(draws[1].color,(GLubyte[]){0,255,255,0},4)); /* Cyan despite zero alpha. */
     assert(!memcmp(draws[2].color,(GLubyte[]){255,255,255,255},4)); /* Object stays white. */
+    float original[15][3]={{0}};
+    unsigned char mask[15]={0}; mask[9]=mask[10]=mask[11]=1;
+    s.dragduplicating=TRUE; s.dragvertices=original; s.dragmask=mask;
+    Overlay(&s,5);
+    assert(draws[2].first==9 && draws[2].count==3 && draws[2].vertices==original);
+    assert(draws[3].first==9 && draws[3].count==3 && draws[3].vertices==&vertices[0].x);
+    assert(draws[4].first==12 && draws[4].vertices==&vertices[0].x);
+    s.dragduplicating=FALSE;
     s.tool=EDITOR_TOOL_EDGE_SELECT; Overlay(&s,4); /* No duplicate BG wire pass. */
     s.rendermode=VIEWPORT_RENDER_NORMAL; Overlay(&s,2); assert(!previews);
     s.rendermode=VIEWPORT_RENDER_WIREFRAME; s.tool=EDITOR_TOOL_VERTEX_SELECT; Overlay(&s,6);

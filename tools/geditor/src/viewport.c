@@ -323,6 +323,7 @@ typedef struct ViewportState {
     DWORD extrudecount;
     double extrudeoffset[3];
     float (*dragvertices)[3];
+    BOOL dragduplicating;
     unsigned char *dragmask;
     int selectedtricount;
     DWORD selectedobject;
@@ -743,6 +744,20 @@ static BOOL ViewportTriangleHidden(const ViewportState *state, int triangle)
 static void ViewportDrawVisibleBatch(const ViewportState *state, const SceneBatch *batch)
 {
     int first = batch->first, end = first + batch->count, corner;
+    if (batch->object && state->dragduplicating)
+    {
+        /* Keep the original visible while the selected mesh previews the
+         * copy. Only the frame's mouse-up transaction changes the setup. */
+        glVertexPointer(3, GL_FLOAT, sizeof(*state->dragvertices), state->dragvertices);
+        for (corner = first; corner < end;)
+        {
+            int run = corner;
+            while (corner < end && state->dragmask[corner]) { corner += 3; }
+            if (corner > run) { glDrawArrays(GL_TRIANGLES, run, corner - run); }
+            while (corner < end && !state->dragmask[corner]) { corner += 3; }
+        }
+        glVertexPointer(3, GL_FLOAT, sizeof(*state->scene), &state->scene[0].x);
+    }
     if (batch->object || state->bghiddentris == 0)
     { glDrawArrays(GL_TRIANGLES, first, batch->count); return; }
     for (corner = first; corner < end; corner += 3)
@@ -1080,7 +1095,7 @@ static void ViewportDrawMonitors(ViewportState *state)
             v->b = animation->color[2]; v->a = animation->color[3];
             ViewportSetFullbrightColor(v, FALSE);
         }
-        glDrawArrays(GL_TRIANGLES, batch->first, batch->count);
+        ViewportDrawVisibleBatch(state, batch);
     }
 }
 
@@ -5774,6 +5789,12 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
     {
         return FALSE;
     }
+    if (shift && state->selectedobject != VIEWPORT_OBJECT_NONE
+        && !SetupFileCanDuplicateObject(state->markersetup, state->selectedobject))
+    {
+        MessageBox(hwnd, "Select a placed object to duplicate.", "GEditor", MB_ICONINFORMATION);
+        return TRUE;
+    }
     state->dragrotation = state->rotationmode;
     state->dragscaling = state->scalemode;
     state->dragknife = state->knifeactive;
@@ -5926,6 +5947,8 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
     state->dragextruding = !state->dragknife && shift && state->tool == EDITOR_TOOL_EDGE_SELECT
         && !state->dragrotation && !state->dragscaling && !state->dragstan
         && !state->dragpad && !state->dragmarker && !state->dragportal && state->selectedobject == VIEWPORT_OBJECT_NONE;
+    state->dragduplicating = shift && !state->dragknife && !state->dragmarker && !state->dragportal
+        && !state->dragpad && !state->dragstan && state->selectedobject != VIEWPORT_OBJECT_NONE;
     if (state->dragextruding && !ViewportPrepareEdgeExtrusion(state))
     {
         ViewportCancelTransform(hwnd);
@@ -6182,6 +6205,7 @@ void ViewportCancelTransform(HWND hwnd)
     }
     state->dragaxis = -1;
     state->dragextruding = state->extrudepreviewvalid = FALSE;
+    state->dragduplicating = FALSE;
     free(state->extrudeedges); state->extrudeedges = NULL;
     free(state->extrudeowners); state->extrudeowners = NULL;
     free(state->extrudepreview); state->extrudepreview = NULL;
@@ -6212,6 +6236,23 @@ static void ViewportEndTransform(HWND hwnd, ViewportState *state)
         return;
     }
     if (state->dragknife) { ViewportFinishKnifeTransform(hwnd, state, FALSE); return; }
+    if (state->dragduplicating)
+    {
+        ViewportObjectDuplicate copy = {0};
+        double delta = state->dragdelta;
+        copy.source = state->selectedobject;
+        copy.mode = state->dragscaling ? TRANSFORM_SCALE : state->dragrotation ? TRANSFORM_ROTATE : TRANSFORM_MOVE;
+        copy.translation.offset[state->dragaxis] = delta;
+        RotationAxis(&copy.rotation.rotation, state->dragaxis, delta);
+        memcpy(copy.rotation.pivot, state->dragorigin, sizeof(copy.rotation.pivot));
+        copy.scaling.axes = state->scaleaxes;
+        memcpy(copy.scaling.pivot, state->dragorigin, sizeof(copy.scaling.pivot));
+        for (int axis = 0; axis < 3; axis++)
+        { copy.scaling.factor[axis] = axis == state->dragaxis ? 1 + delta : 1; }
+        ViewportCancelTransform(hwnd);
+        if (delta != 0) { SendMessage(GetParent(hwnd), VIEWPORT_WM_DUPLICATE_OBJECT, 0, (LPARAM)&copy); }
+        return;
+    }
     if (state->dragextruding)
     {
         ViewportEdgeExtrusion extrusion = {0};

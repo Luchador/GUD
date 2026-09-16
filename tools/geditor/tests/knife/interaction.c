@@ -17,6 +17,7 @@ typedef struct { HWND hwnd; UINT message; WPARAM wParam; LPARAM lParam; } MSG;
 #define VK_ESCAPE 27
 #define VK_CONTROL 17
 #define MB_ICONERROR 1
+#define MB_ICONINFORMATION 2
 #define GET_X_LPARAM(p) ((short)((p)&65535))
 #define GET_Y_LPARAM(p) ((short)(((p)>>16)&65535))
 #include "viewport.h"
@@ -32,6 +33,7 @@ typedef float GLfloat;
 typedef unsigned char GLubyte;
 typedef struct { double previewposition[3]; } ViewportPad;
 #include "interaction_types.inc"
+BOOL SetupFileCanDuplicateObject(const SetupFile *s,DWORD i) { abort(); }
 static BOOL control;
 static HWND capture;
 static int scenecommits, previews, uvcommits;

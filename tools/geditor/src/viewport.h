@@ -273,6 +273,15 @@ void ViewportSetGeometryStatisticsVisible(HWND hwnd, BOOL enabled);
 
 #define VIEWPORT_WM_ROTATE_SELECTION (WM_APP + 16)
 typedef struct ViewportRotation { Rotation rotation; double pivot[3]; } ViewportRotation;
+/* Shift-drag commits the copy and its transform as one history action. */
+#define VIEWPORT_WM_DUPLICATE_OBJECT (WM_APP + 74)
+typedef struct ViewportObjectDuplicate {
+    DWORD source;
+    TransformMode mode;
+    ViewportTranslation translation;
+    ViewportRotation rotation;
+    Scaling scaling;
+} ViewportObjectDuplicate;
 void ViewportSetTransformMode(HWND hwnd, TransformMode mode);
 TransformMode ViewportGetTransformMode(HWND hwnd);
 #define VIEWPORT_WM_SCALE_SELECTION (WM_APP + 23)

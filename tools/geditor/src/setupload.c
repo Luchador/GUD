@@ -3607,6 +3607,129 @@ static const unsigned char *SetupObjectPropertyRecord(const SetupFile *setup, DW
     return record;
 }
 
+BOOL SetupFileCanDuplicateObject(const SetupFile *setup, DWORD index)
+{
+    const char *why;
+    SetupPadRef ref;
+    return SetupObjectPropertyRecord(setup, index, &why)
+        && !(setup->objects[index].flags & (PROPFLAG_INSIDEANOTHEROBJ | PROPFLAG_ASSIGNEDTOCHR))
+        && SetupFileGetModelPad(setup, index, &ref);
+}
+
+static BOOL SetupDuplicatePad(SetupFile *dest, const SetupFile *source,
+    const SetupPadRef *ref, DWORD limit, DWORD excluded, SetupPadRef *out, const char **reasonout)
+{
+    DWORD header = ref->bound ? SETUP_BOUNDPAD_POINTER : SETUP_PAD_POINTER;
+    DWORD stride = ref->bound ? SETUP_BOUNDPAD_SIZE : SETUP_PAD_SIZE;
+    DWORD count = ref->bound ? dest->boundpadcount : dest->padcount;
+    DWORD index = SetupFindFreePad(dest, ref->bound, excluded);
+    DWORD total = index < count ? count : index + 1;
+    DWORD old = SetupRead32(dest->data + header), start = (dest->size + 3u) & ~3u;
+    DWORD size = start + (total + 1) * stride;
+    DWORD from = SetupRead32(source->data + header) + ref->index * stride;
+    unsigned char *data;
+    if (total > limit || size > SETUP_FILE_MAX || old > dest->size
+        || count > (dest->size - old) / stride || from > source->size
+        || stride > source->size - from)
+    { *reasonout = "There is no room for the copied placement pad."; return FALSE; }
+    data = calloc(size, 1);
+    if (!data) { *reasonout = "Out of memory copying the placement pad."; return FALSE; }
+    memcpy(data, dest->data, dest->size);
+    memcpy(data + start, dest->data + old, count * stride);
+    memcpy(data + start + index * stride, source->data + from, stride);
+    /* Resolve the new room from the new position, never a stale plink/cache. */
+    SetupWrite32(data + start + index * stride + SETUP_PAD_LINK,
+                 start + total * stride + SETUP_PAD_LINK);
+    SetupWrite32(data + start + index * stride + 40, SETUP_PRIVATE_PAD_STAN);
+    SetupWrite32(data + header, start);
+    free(dest->data); dest->data = data; dest->size = size;
+    free(dest->pads); dest->pads = NULL; dest->padcount = 0;
+    free(dest->boundpads); dest->boundpads = NULL; dest->boundpadcount = 0;
+    if (!SetupParsePads(dest, reasonout)) { return FALSE; }
+    out->bound = ref->bound; out->index = index;
+    return TRUE;
+}
+
+BOOL SetupFileDuplicateObject(SetupFile *setup, const SetupFile *source,
+    DWORD index, DWORD *selectionout, const char **reasonout)
+{
+    SetupFile copy = {0};
+    SetupPadRef ref, placed, aimref = {0}, aimcopy;
+    DWORD start, end, commands = 0, bytes, reused, newstart, record, size, unused;
+    const SetupObject *object;
+    unsigned char *data;
+    LONG aim = -1;
+    *reasonout = "Select a placed object to duplicate.";
+    if (!setup || !setup->data || setup->size < SETUP_HEADER_SIZE || setup->size > SETUP_FILE_MAX
+        || !selectionout || !SetupFileCanDuplicateObject(source, index)
+        || !SetupFileClone(setup, &copy, reasonout)) { return FALSE; }
+    object = &source->objects[index];
+    SetupFileGetModelPad(source, index, &ref);
+    if (!SetupDuplicatePad(&copy, source, &ref,
+        ref.bound ? (object->type == PROPDEF_DOOR ? 32768u : 22768u) : 10000u,
+        (DWORD)-1, &placed, reasonout)) { goto fail; }
+    if (object->type == PROPDEF_CCTV || object->type == PROPDEF_AUTOGUN)
+    {
+        aim = (LONG)SetupRead32(source->data + object->sourceoffset + 0x80);
+        if (aim >= 0)
+        {
+            if ((DWORD)aim >= source->padcount || source->pads[aim].deleted)
+            { *reasonout = "The object's look-at pad is unavailable."; goto fail; }
+            aimref.index = (DWORD)aim;
+            /* The new placement is not yet referenced by a command. */
+            if (!SetupDuplicatePad(&copy, source, &aimref, 10000u,
+                placed.bound ? (DWORD)-1 : placed.index, &aimcopy, reasonout)) { goto fail; }
+            aim = (LONG)aimcopy.index;
+        }
+    }
+    bytes = SetupObjectWordCount(object->type) * 4;
+    start = SetupRead32(copy.data + SETUP_OBJECT_POINTER); end = start;
+    reused = SetupFindFreeCommand(&copy, object->type, &unused);
+    if (start && (start < SETUP_HEADER_SIZE || (start & 3) || start > copy.size - 4)) { goto malformed; }
+    while (start && copy.data[end + 3] != SETUP_PROP_END)
+    {
+        DWORD length = SetupObjectWordCount(copy.data[end + 3]) * 4;
+        if (++commands >= SETUP_OBJECT_MAX - (reused ? 0u : 1u)
+            || length > copy.size - end || copy.size - end - length < 4) { goto malformed; }
+        end += length;
+    }
+    newstart = (copy.size + 3u) & ~3u;
+    record = newstart + (reused ? reused - start : end - start);
+    size = newstart + end - start + (reused ? 0 : bytes) + 4;
+    if (size > SETUP_FILE_MAX) { *reasonout = "The setup size limit has been reached."; goto fail; }
+    data = calloc(size, 1);
+    if (!data) { *reasonout = "Out of memory duplicating the object."; goto fail; }
+    memcpy(data, copy.data, copy.size);
+    memcpy(data + newstart, copy.data + start, end - start);
+    memcpy(data + record, source->data + object->sourceoffset, bytes);
+    SetupWrite32(data + SETUP_OBJECT_POINTER, newstart);
+    SetupWrite32(data + size - 4, SETUP_PROP_END);
+    SetupWrite32(data + record + 4, ((DWORD)(unsigned short)object->modelid << 16)
+        | (placed.index + (placed.bound && object->type != PROPDEF_DOOR ? 10000u : 0u)));
+    /* Native relative links would point at unrelated commands from this new
+     * index. Copies are standalone, with no duplicate tags or mission links. */
+    if (object->type == PROPDEF_DOOR) { SetupWrite32(data + record + 0x80, 0); }
+    if (object->type == PROPDEF_MONITOR) { SetupWrite32(data + record + 244, 0); }
+    if (object->type == PROPDEF_CCTV || object->type == PROPDEF_AUTOGUN)
+    { SetupWrite32(data + record + 0x80, (DWORD)aim); }
+    free(copy.data); copy.data = data; copy.size = size;
+    free(copy.objects); copy.objects = NULL; copy.objectcount = 0;
+    free(copy.characters); copy.characters = NULL; copy.charactercount = 0;
+    if (!SetupParseObjects(&copy, reasonout)) { goto fail; }
+    for (DWORD i = 0; i < copy.objectcount; i++)
+    {
+        if (copy.objects[i].sourceoffset != record) { continue; }
+        copy.dirty = TRUE;
+        SetupFileFree(setup); *setup = copy; *selectionout = i;
+        return TRUE;
+    }
+malformed:
+    *reasonout = "The setup command list is malformed or full.";
+fail:
+    SetupFileFree(&copy);
+    return FALSE;
+}
+
 BOOL SetupFileGetObjectProperties(const SetupFile *setup, DWORD index,
                                   SetupObjectProperties *out, const char **reasonout)
 {

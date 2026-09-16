@@ -80,6 +80,15 @@ static BgDocument g_CurrentBgDocument;
 /* Faces are a snapshot, independent of later edits/undo. Cleared on level
  * changes so room numbers and image IDs cannot refer to another level. */
 static BgDocument g_FaceClipboard;
+static SetupFile g_ObjectClipboard;
+static SetupObjectGeometry g_ObjectClipboardPose;
+static DWORD g_ObjectClipboardSelection;
+
+static void GEditorClearObjectClipboard(void)
+{
+    SetupFileFree(&g_ObjectClipboard);
+    ObjectGeometryFree(&g_ObjectClipboardPose);
+}
 /* One chronological history spans document edits and viewport/UV selections. */
 static EditHistory g_EditHistory;
 static BOOL g_SelectionHistoryPending, g_SelectionHistoryReset, g_SelectionHistoryNavigation;
@@ -580,6 +589,7 @@ static void GEditorCloseProject(HWND hwnd)
     EditHistoryFree(&g_EditHistory);
     BgDocumentFree(&g_CurrentBgDocument);
     BgDocumentFree(&g_FaceClipboard);
+    GEditorClearObjectClipboard();
     BgFileFree(&g_CurrentBg);
     g_CurrentLevelIndex = GEDITOR_NO_LEVEL;
     ModelEditsReset();
@@ -788,8 +798,8 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(editmenu, MF_STRING, ID_EDIT_UNDO, "&Undo\tCtrl+Z");
     AppendMenu(editmenu, MF_STRING, ID_EDIT_REDO, "&Redo\tCtrl+Y");
     AppendMenu(editmenu, MF_SEPARATOR, 0, NULL);
-    AppendMenu(editmenu, MF_STRING, ID_EDIT_COPY_FACES, "&Copy Faces\tCtrl+C");
-    AppendMenu(editmenu, MF_STRING, ID_EDIT_PASTE_FACES, "&Paste Faces\tCtrl+V");
+    AppendMenu(editmenu, MF_STRING, ID_EDIT_COPY_FACES, "&Copy\tCtrl+C");
+    AppendMenu(editmenu, MF_STRING, ID_EDIT_PASTE_FACES, "&Paste\tCtrl+V");
     AppendMenu(editmenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(editmenu, MF_STRING, ID_EDIT_FLIP_FACE, "&Flip Face\tAlt+N");
 
@@ -868,6 +878,21 @@ static BOOL GEditorCanPasteBgFaces(void)
 }
 
 
+static BOOL GEditorCanUseObjectClipboard(void)
+{
+    return g_Viewport && g_CurrentSetup.data && g_CurrentBgDocument.rooms
+        && ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT
+        && !ViewportKnifeActive(g_Viewport)
+        && !ViewportIsTransforming(g_Viewport) && !ViewportIsFlying(g_Viewport);
+}
+
+static BOOL GEditorCanCopyObject(void)
+{
+    DWORD selected;
+    return GEditorCanUseObjectClipboard() && ViewportGetSelectedObject(g_Viewport, &selected)
+        && SetupFileCanDuplicateObject(&g_CurrentSetup, selected);
+}
+
 static void GEditorUpdateHistoryMenu(HMENU menu)
 {
     const char *undoaction;
@@ -910,9 +935,9 @@ static void GEditorUpdateHistoryMenu(HMENU menu)
     EnableMenuItem(menu, ID_EDIT_FLIP_FACE, MF_BYCOMMAND
         | (GEditorCanFlipSelectedBgFaces() ? MF_ENABLED : MF_GRAYED));
     EnableMenuItem(menu, ID_EDIT_COPY_FACES, MF_BYCOMMAND
-        | (GEditorCanFlipSelectedBgFaces() ? MF_ENABLED : MF_GRAYED));
+        | (GEditorCanCopyObject() || GEditorCanFlipSelectedBgFaces() ? MF_ENABLED : MF_GRAYED));
     EnableMenuItem(menu, ID_EDIT_PASTE_FACES, MF_BYCOMMAND
-        | (GEditorCanPasteBgFaces() ? MF_ENABLED : MF_GRAYED));
+        | ((g_ObjectClipboard.data ? GEditorCanUseObjectClipboard() : GEditorCanPasteBgFaces()) ? MF_ENABLED : MF_GRAYED));
 }
 
 
@@ -2797,6 +2822,65 @@ fail:
     return FALSE;
 }
 
+static BOOL GEditorCopyObject(HWND hwnd)
+{
+    SetupFile snapshot = {0};
+    SetupObjectGeometry pose = {0};
+    DWORD selected;
+    const char *why = "";
+    if (!GEditorCanCopyObject() || !ViewportGetSelectedObject(g_Viewport, &selected)) { return FALSE; }
+    if (!SetupFileClone(&g_CurrentSetup, &snapshot, &why)
+        || !ObjectCopySetupModelPose(&g_CurrentObjects, selected, &pose, &why))
+    {
+        SetupFileFree(&snapshot); ObjectGeometryFree(&pose);
+        MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+        return FALSE;
+    }
+    GEditorClearObjectClipboard(); BgDocumentFree(&g_FaceClipboard);
+    g_ObjectClipboard = snapshot; g_ObjectClipboardPose = pose; g_ObjectClipboardSelection = selected;
+    GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+}
+
+static BOOL GEditorDuplicateObject(HWND hwnd, const ViewportObjectDuplicate *drag)
+{
+    EditHistoryTransaction transaction = {0};
+    SetupObjectGeometry objects = {0};
+    const double pasteoffset[3] = {0, 10, 0};
+    const SetupFile *source = drag ? &g_CurrentSetup : &g_ObjectClipboard;
+    const SetupObjectGeometry *pose = drag ? &g_CurrentObjects : &g_ObjectClipboardPose;
+    DWORD selected, index = drag ? drag->source : g_ObjectClipboardSelection;
+    const char *why = "", *restorewhy = "";
+    if (!GEditorCanUseObjectClipboard() || !SetupFileCanDuplicateObject(source, index)) { return FALSE; }
+    if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup,
+        drag ? "Duplicate Object" : "Paste Object", &transaction, &why)) { goto fail; }
+    if (!ObjectDuplicateSetupModel(g_Project.dir, &g_CurrentSetup, source, &g_CurrentStan,
+        g_CurrentBgDocument.levelscale, pose, index,
+        !drag ? pasteoffset : drag->mode == TRANSFORM_MOVE ? drag->translation.offset : NULL,
+        drag && drag->mode == TRANSFORM_ROTATE ? &drag->rotation.rotation : NULL,
+        drag && drag->mode == TRANSFORM_ROTATE ? drag->rotation.pivot : NULL,
+        drag && drag->mode == TRANSFORM_SCALE ? &drag->scaling : NULL,
+        &selected, &objects, &why)
+        || !GEditorRebuildCurrentViewportWithObjects(&objects, &why)
+        || !EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+            &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    ObjectGeometryFree(&g_CurrentObjects); g_CurrentObjects = objects;
+    ViewportSelectSetupModel(g_Viewport, selected);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    SetFocus(g_Viewport);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    ObjectGeometryFree(&objects);
+    GEditorRebuildCurrentViewport(&restorewhy);
+    GEditorRestoreHistorySelection(hwnd);
+fail:
+    EditHistoryCancelEdit(&transaction);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
 static void GEditorShowKnife(HWND hwnd)
 {
     BgFaceRef *faces;
@@ -4383,6 +4467,9 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                                                             msg == VIEWPORT_WM_SNAP_VERTEX);
     }
 
+    case VIEWPORT_WM_DUPLICATE_OBJECT:
+        return lparam && GEditorDuplicateObject(hwnd, (const ViewportObjectDuplicate *)lparam);
+
     case RIGHTPANEL_WM_PICK_COLOR:
         if (ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT) { return FALSE; }
         SetFocus(g_Viewport);
@@ -4632,6 +4719,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         g_CurrentBg = bg;
         BgDocumentFree(&g_CurrentBgDocument);
         BgDocumentFree(&g_FaceClipboard);
+        GEditorClearObjectClipboard();
         g_CurrentBgDocument = document;
         GEditorRefreshSelectionDetails();
 
@@ -4971,11 +5059,14 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 return 0;
 
             case ID_EDIT_COPY_FACES:
-                GEditorCopySelectedBgFaces(hwnd);
+                if (GEditorCanCopyObject()) { GEditorCopyObject(hwnd); }
+                else if (GEditorCopySelectedBgFaces(hwnd))
+                { GEditorClearObjectClipboard(); GEditorRefreshHistoryMenu(hwnd); }
                 return 0;
 
             case ID_EDIT_PASTE_FACES:
-                GEditorPasteBgFaces(hwnd);
+                if (g_ObjectClipboard.data) { GEditorDuplicateObject(hwnd, NULL); }
+                else { GEditorPasteBgFaces(hwnd); }
                 return 0;
 
             case ID_GEOMETRY_MERGE_VERTICES:
@@ -5117,6 +5208,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         EditHistoryFree(&g_EditHistory);
         BgDocumentFree(&g_CurrentBgDocument);
         BgDocumentFree(&g_FaceClipboard);
+        GEditorClearObjectClipboard();
         BgFileFree(&g_CurrentBg);
         ImageEditsReset();
         PostQuitMessage(0);

@@ -48,6 +48,17 @@ BOOL ObjectTranslateSetupModel(const char *projectdir, SetupFile *setup,
 
 void ObjectGeometryFree(SetupObjectGeometry *geometry);
 
+/* Clipboard pose: only triangles and selection IDs, not a renderable scene. */
+BOOL ObjectCopySetupModelPose(const SetupObjectGeometry *source, DWORD index,
+    SetupObjectGeometry *out, const char **reasonout);
+/* Copy native properties and the visible pose, then transform only the copy.
+ * Exactly one of offset/rotation/scaling is supplied. Caller owns rollback. */
+BOOL ObjectDuplicateSetupModel(const char *projectdir, SetupFile *setup,
+    const SetupFile *source, const StanFile *stan, float levelscale,
+    const SetupObjectGeometry *before, DWORD index, const double offset[3],
+    const Rotation *rotation, const double pivot[3], const Scaling *scaling,
+    DWORD *selectionout, SetupObjectGeometry *out, const char **reasonout);
+
 /* Rotate one model through its private placement pad; caller owns rollback. */
 BOOL ObjectRotateSetupModel(const char *projectdir, SetupFile *setup,
     const StanFile *stan, float levelscale, const SetupObjectGeometry *before,

@@ -17,6 +17,7 @@ typedef intptr_t LPARAM;
 #define VIEWPORT_WM_TRANSLATE_SELECTION 4
 #define VIEWPORT_WM_ROTATE_SELECTION 5
 #define VIEWPORT_WM_SCALE_SELECTION 6
+#define VIEWPORT_WM_DUPLICATE_OBJECT 7
 typedef struct Vertex { float x,y,z; } Vertex;
 typedef struct SceneBatch { int first,count; BOOL object,secondary; } SceneBatch;
 typedef struct ViewportComponent { BgDocumentVertexRef refs[2]; int corners[2]; } ViewportComponent;
@@ -25,6 +26,10 @@ typedef struct ViewportEdgeExtrusion {
 } ViewportEdgeExtrusion;
 typedef struct ViewportTranslation { double offset[3]; } ViewportTranslation;
 typedef struct ViewportRotation { Rotation rotation; double pivot[3]; } ViewportRotation;
+typedef struct ViewportObjectDuplicate {
+    DWORD source; TransformMode mode; ViewportTranslation translation;
+    ViewportRotation rotation; Scaling scaling;
+} ViewportObjectDuplicate;
 typedef struct ViewportState {
     EditorTool tool;
     int scenecount,batchcount,componentcount,componentcapacity,dragaxis;
@@ -36,7 +41,8 @@ typedef struct ViewportState {
     BgFaceRef *scenefacerefs;
     BOOL showbgsecondary,showbgprimary,dragmarker,dragpad,dragstan,dragscaling,dragrotation;
     BOOL dragknife,dragportal;
-    BOOL dragextruding,extrudepreviewvalid;
+    BOOL dragextruding,extrudepreviewvalid,dragduplicating;
+    DWORD selectedobject;
     BgDocumentEdgeRef *extrudeedges;
     int *extrudeowners;
     BgVertex *extrudepreview;
@@ -50,6 +56,8 @@ typedef struct ViewportState {
 } ViewportState;
 static HWND captured;
 static unsigned commits,moves,notifications;
+static unsigned duplicates;
+static ViewportObjectDuplicate duplicated;
 static BgDocumentEdgeRef committed;
 static double offset[3];
 static ViewportState *ViewportGetState(HWND hwnd) { return hwnd; }
@@ -77,9 +85,16 @@ static void SendMessage(HWND hwnd,int msg,int wparam,LPARAM lparam)
     }
     else if (msg==VIEWPORT_WM_TRANSLATE_SELECTION)
     { moves++; memcpy(offset,((ViewportTranslation *)lparam)->offset,sizeof(offset)); }
+    else if (msg==VIEWPORT_WM_DUPLICATE_OBJECT)
+    {
+        assert(state->dragaxis==-1 && !state->dragduplicating && !state->dragvertices && !captured);
+        duplicated=*(ViewportObjectDuplicate *)lparam; duplicates++;
+    }
     else { notifications++; }
 }
-void RotationAxis(Rotation *rotation,int axis,double degrees) { abort(); }
+/* Spy on the input to the independently tested rotation math. */
+void RotationAxis(Rotation *rotation,int axis,double degrees)
+{ memset(rotation,0,sizeof(*rotation)); rotation->m[axis][axis]=degrees; }
 #include "viewport.inc"
 
 static void Begin(ViewportState *s,BOOL extrude,double delta)
@@ -122,6 +137,25 @@ int main(void)
     /* Ordinary translation still restores its preview and sends a move. */
     Begin(&s,FALSE,25); vertices[0].y+=25; ViewportEndTransform(&s,&s);
     assert(moves==1 && commits==1 && !memcmp(vertices,saved,sizeof(saved)));
+    /* Shift-drag routes all three transforms to one duplicate commit, with
+     * the source pose restored before the frame receives the request. */
+    for(int mode=0;mode<3;mode++)
+    {
+        s.selectedobject=17; s.dragrotation=mode==1; s.dragscaling=mode==2;
+        s.dragorigin[0]=10; s.dragorigin[1]=20; s.dragorigin[2]=30;
+        Begin(&s,FALSE,.5); s.dragduplicating=TRUE; vertices[0].y+=10;
+        ViewportEndTransform(&s,&s);
+        assert(duplicates==(unsigned)mode+1 && duplicated.source==17 && duplicated.mode==(TransformMode)mode);
+        assert(!memcmp(vertices,saved,sizeof(saved)) && moves==1 && commits==1);
+        if(mode==0) { assert(duplicated.translation.offset[1]==.5); }
+        if(mode==1) { assert(duplicated.rotation.rotation.m[1][1]==.5 && duplicated.rotation.pivot[2]==30); }
+        if(mode==2) { assert(duplicated.scaling.factor[0]==1 && duplicated.scaling.factor[1]==1.5 && duplicated.scaling.pivot[2]==30); }
+        Begin(&s,FALSE,.5); s.dragduplicating=TRUE; vertices[0].y+=10;
+        ViewportCancelTransform(&s);
+        assert(duplicates==(unsigned)mode+1 && !memcmp(vertices,saved,sizeof(saved)) && !s.dragduplicating);
+        Begin(&s,FALSE,0); s.dragduplicating=TRUE; ViewportEndTransform(&s,&s);
+        assert(duplicates==(unsigned)mode+1);
+    }
     /* Select the new outer edge by actual face/corner, independent of sort
      * order, and preserve canonical endpoint ordering used for deselection. */
     BgDocumentEdgeRef edge={{12,1,0,0},2};
@@ -134,5 +168,6 @@ int main(void)
     edge.corner=1; edge.face.faceid=999; assert(!ViewportSelectBgEdges(&s,&edge,1));
     free(s.components);
     puts("PASS: real edge ownership after draw reordering, commit payload lifetime, cancellation/no-op drags, unchanged ordinary moves, and canonical outer-edge selection.");
+    puts("PASS: move/rotate/scale duplicate payloads, original pose restoration, cancellation and no-op drags.");
     return 0;
 }

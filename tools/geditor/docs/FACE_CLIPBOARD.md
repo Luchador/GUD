@@ -5,7 +5,7 @@ Press **Ctrl+V** to paste copies at their copied positions, displaced upward
 by 10 world units. This uses the same native-coordinate snapping as Move.
 The copies become the selection, ready for another operation.
 
-The Edit menu also provides **Copy Faces** and **Paste Faces**. Copy does not
+The Edit menu also provides **Copy** and **Paste**. Copy does not
 modify the level or add an undo step. Each paste adds one undo step and saves
 through the existing background/ROM pipeline.
 
