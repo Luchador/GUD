@@ -41,6 +41,7 @@ typedef struct BgRenderState
     DWORD geometryknown; /* Bits explicitly set/cleared by the native stream. */
     DWORD geometrymode; /* lighting and texture generation, including partial clears */
     unsigned char environmentalpha, primitivealpha;
+    DWORD primitiveword0, primitiveword1; /* Full color/LOD state for detail-tile restoration. */
     DWORD surfacepolicy; /* Auto for streams without an editor override. */
     DWORD surfacebasemode; /* Native mode to restore when returning to Auto. */
 } BgRenderState;

@@ -47,5 +47,9 @@ BOOL BgMaterialEqual(const BgMaterial *a, const BgMaterial *b);
 BgTextureWrap BgMaterialGetWrap(const BgMaterial *material, BOOL t);
 void BgMaterialSetWrap(BgMaterial *material, BOOL t, BgTextureWrap wrap);
 void BgMaterialGetDetail(const BgMaterial *material, BgDetailTexture *detail);
+/* Changes only the native detail fields, retaining wraps, UV scale and other bits. */
+void BgMaterialSetDetail(BgMaterial *material, const BgDetailTexture *detail);
+/* Switch standard shaded/mipmapped combiners without changing their alpha source. */
+BOOL BgMaterialDetailCombiner(BgMaterial *material, BOOL enabled);
 
 #endif

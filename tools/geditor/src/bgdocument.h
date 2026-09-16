@@ -253,16 +253,31 @@ BOOL BgDocumentSetFaceTexture(BgDocument *document, const BgFaceRef *refs,
 #define BG_FACE_PROPERTY_WRAP_U 2u
 #define BG_FACE_PROPERTY_WRAP_V 4u
 #define BG_FACE_PROPERTY_TRANSPARENCY 8u
+#define BG_FACE_PROPERTY_DETAIL_MODE 16u
+#define BG_FACE_PROPERTY_DETAIL_IMAGE 32u
+#define BG_FACE_PROPERTY_DETAIL_U 64u
+#define BG_FACE_PROPERTY_DETAIL_V 128u
+#define BG_FACE_PROPERTY_DETAIL_MINLOD 256u
+#define BG_FACE_PROPERTY_DETAIL_OFFSET 512u
+#define BG_FACE_PROPERTY_DETAIL_MASK 1008u
 typedef struct BgFacePropertiesEdit {
     unsigned int fields; /* only explicitly changed controls are applied */
     BOOL cullbackfaces;
     BgTextureWrap wrapu, wrapv;
     BgTransparency transparency;
+    BgDetailTexture detail;
 } BgFacePropertiesEdit;
+
+/* Resolve partial detail edits without modifying the document. Used for image
+ * validation before an edit and by the atomic document operation. */
+BOOL BgDocumentDetailMaterial(const BgMaterial *source, const BgFacePropertiesEdit *edit,
+    BgMaterial *result, const char **reasonout);
 
 /* Validates all faces before editing. Wrap changes require a texture on every
  * selected face. Transparency changes require a supported explicit pipeline;
  * native state groups are split/restored without changing geometry or layers.
+ * Detail switches require supported combiners and explicit texture state;
+ * sampling edits retain the existing combiner and change only requested fields.
  * Explicit choices override runtime optimization; Auto restores the native
  * surface saved by the first explicit choice and permits optimization again. */
 BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,

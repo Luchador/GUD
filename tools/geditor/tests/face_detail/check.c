@@ -28,6 +28,17 @@ int main(void)
         "1/64x", "1/128x", "1/256x", "1/512x", "1/1024x", "32x", "16x", "8x", "4x", "2x"};
     unsigned int i;
 
+    assert(FacePropertiesParseDetailNumber("0x0fFe", 16, 4094, &i) && i == 4094);
+    assert(FacePropertiesParseDetailNumber("00a5", 16, 4094, &i) && i == 165);
+    assert(FacePropertiesParseDetailNumber("255", 10, 255, &i) && i == 255);
+    assert(FacePropertiesParseDetailNumber("0", 10, 255, &i) && i == 0);
+    assert(!FacePropertiesParseDetailNumber("0FFF", 16, 4094, &i));
+    assert(!FacePropertiesParseDetailNumber("-1", 10, 255, &i));
+    assert(!FacePropertiesParseDetailNumber("256", 10, 255, &i));
+    assert(!FacePropertiesParseDetailNumber("", 10, 255, &i));
+    assert(!FacePropertiesParseDetailNumber("0x", 16, 4094, &i));
+    assert(!FacePropertiesParseDetailNumber("Mixed", 16, 4094, &i));
+    assert(!FacePropertiesParseDetailNumber("9999999999999999", 10, 255, &i));
     BgMaterialInit(&material);
     BgMaterialGetDetail(&material, &detail);
     assert(detail.mode == BG_DETAIL_NONE && detail.textureid == BG_TEX_NONE);

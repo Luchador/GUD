@@ -123,3 +123,52 @@ void BgMaterialGetDetail(const BgMaterial *material, BgDetailTexture *detail)
     detail->offset = (material->textureword0 >> 18) & 3u;
     detail->minlod = material->textureword1 >> 24;
 }
+
+void BgMaterialSetDetail(BgMaterial *material, const BgDetailTexture *detail)
+{
+    BgDetailTexture old;
+    BgMaterialGetDetail(material, &old);
+    if (detail->mode == BG_DETAIL_NONE)
+    {
+        if (old.mode == BG_DETAIL_BASE_IMAGE || old.mode == BG_DETAIL_SEPARATE_IMAGE)
+        { material->textureword0 = (material->textureword0 & ~7u) | BG_TEXTURETYPE_MIPMAP; }
+        return;
+    }
+    material->textureword0 = (material->textureword0 & ~(7u | (0x3FFu << 10)))
+        | (detail->mode == BG_DETAIL_SEPARATE_IMAGE ? 1u : 0u)
+        | ((DWORD)detail->shiftu << 14) | ((DWORD)detail->shiftv << 10)
+        | ((DWORD)detail->offset << 18);
+    material->textureword1 = (material->textureword1 & 0x00FFFFFFu) | ((DWORD)detail->minlod << 24);
+    if (detail->mode == BG_DETAIL_SEPARATE_IMAGE)
+    { material->textureword1 = (material->textureword1 & ~0x00FFF000u) | ((DWORD)detail->textureid << 12); }
+}
+
+BOOL BgMaterialDetailCombiner(BgMaterial *material, BOOL enabled)
+{
+    static const DWORD modes[][4] = {
+        {0xFC26A004u, 0x1F1093FFu, 0xFC26E404u, 0x1F10FFFFu},
+        {0xFC26A004u, 0x1FFC93FCu, 0xFC26E404u, 0x1FFCFFFCu}
+    };
+    unsigned int i;
+    /* The base image is in TEXEL1 at close range with detail enabled. Use its
+       alpha, not the detail tile's alpha. These pairs also match GE's fog LUT. */
+    if (enabled && material->combineword0 == BG_COMBINE_MODULATE_0
+        && material->combineword1 == BG_COMBINE_MODULATE_1)
+    { material->combineword0 = modes[0][0]; material->combineword1 = modes[0][1]; }
+    if (enabled && material->combineword0 == 0xFC127E24u && material->combineword1 == 0xFFFFF9FCu)
+    { material->combineword0 = modes[1][0]; material->combineword1 = modes[1][1]; }
+    for (i = 0; i < sizeof(modes) / sizeof(modes[0]); i++)
+    {
+        if ((material->combineword0 == modes[i][0] && material->combineword1 == modes[i][1])
+            || (material->combineword0 == modes[i][2] && material->combineword1 == modes[i][3]))
+        {
+            material->combineword0 = modes[i][enabled ? 2 : 0];
+            material->combineword1 = modes[i][enabled ? 3 : 1];
+            return TRUE;
+        }
+    }
+    /* Some native faces load detail tiles but draw only vertex colors. They
+       can be turned off without changing their intentionally plain shading. */
+    return !enabled && material->combineword0 == BG_COMBINE_SHADE_0
+        && material->combineword1 == BG_COMBINE_SHADE_1;
+}

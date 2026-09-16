@@ -13,7 +13,10 @@
 #define FACEPROPERTIES_PREVIEW_SIZE 64
 
 enum { FACE_SUMMARY, FACE_ROOM_LABEL, FACE_ROOM, FACE_TEXTURE_LABEL, FACE_TEXTURE_THUMB, FACE_TEXTURE_FIND,
-       FACE_DETAIL_LABEL, FACE_DETAIL_THUMB, FACE_DETAIL_FIND, FACE_DETAIL_INFO,
+       FACE_DETAIL_LABEL, FACE_DETAIL_MODE, FACE_DETAIL_IMAGE_LABEL, FACE_DETAIL_IMAGE,
+       FACE_DETAIL_THUMB, FACE_DETAIL_FIND, FACE_DETAIL_INFO,
+       FACE_DETAIL_U_LABEL, FACE_DETAIL_U, FACE_DETAIL_V_LABEL, FACE_DETAIL_V,
+       FACE_DETAIL_LOD_LABEL, FACE_DETAIL_LOD, FACE_DETAIL_OFFSET_LABEL, FACE_DETAIL_OFFSET,
        FACE_RENDER_INFO, FACE_RENDER, FACE_RENDER_HELP,
        FACE_CULL_LABEL, FACE_CULL,
        FACE_WRAP_LABEL, FACE_U_LABEL, FACE_U, FACE_V_LABEL, FACE_V,
@@ -30,6 +33,8 @@ typedef struct FacePropertiesState {
     TexThumb detailthumbnail;
     unsigned char detailpixels[TEX_THUMB_MAX * TEX_THUMB_MAX * 4];
     DWORD detailtextureid;
+    HWND browser;
+    char detailimagetext[32], detaillodtext[32];
     BOOL hasdetailthumbnail, mixeddetailtexture, showdetail;
     int scroll, wheelremainder;
     BOOL updating;
@@ -130,37 +135,53 @@ static void FacePropertiesSetDetail(FacePropertiesState *state, const BgDocument
                                     const BgFaceRef *refs, DWORD count, HWND browser)
 {
     FaceDetailSelection detail;
-    char label[96], info[384], u[24], v[24], lod[48], imageinfo[64] = "";
+    char info[96] = "";
+    BOOL active;
     FacePropertiesGetDetail(document, refs, count, &detail);
+    state->browser = browser;
     state->showdetail = detail.mode != BG_DETAIL_NONE && detail.mode != BG_DETAIL_UNKNOWN;
+    active = TRUE;
+    for (DWORD i = 0; i < count; i++)
+    {
+        BgDetailTexture tile;
+        BgMaterialGetDetail(&BgDocumentFindFace(document, &refs[i], NULL)->material, &tile);
+        active &= tile.mode == BG_DETAIL_BASE_IMAGE || tile.mode == BG_DETAIL_SEPARATE_IMAGE;
+    }
     state->detailtextureid = detail.textureid < 0 ? BG_TEX_NONE : (DWORD)detail.textureid;
     state->mixeddetailtexture = detail.textureid < 0;
     state->hasdetailthumbnail = state->showdetail && state->detailtextureid != BG_TEX_NONE
         && BrowserCopyImageThumbnail(browser, state->detailtextureid,
                                      &state->detailthumbnail, state->detailpixels);
-    if (detail.mode == BG_DETAIL_NONE) { snprintf(label, sizeof(label), "Detail texture: None"); }
-    else if (detail.mode == BG_DETAIL_UNKNOWN) { snprintf(label, sizeof(label), "Detail texture: Unknown texture mode"); }
-    else if (detail.textureid < 0) { snprintf(label, sizeof(label), "Detail texture: Mixed"); }
-    else { snprintf(label, sizeof(label), "Detail texture: %04X", (unsigned int)detail.textureid); }
-    FacePropertiesDetailScale(detail.shiftu, u, sizeof(u));
-    FacePropertiesDetailScale(detail.shiftv, v, sizeof(v));
-    if (detail.minlod < 0) { snprintf(lod, sizeof(lod), "Mixed"); }
-    else { snprintf(lod, sizeof(lod), "%d/256 (%.1f%%)", detail.minlod, detail.minlod * 100.0 / 256.0); }
     if (state->hasdetailthumbnail)
-    {
-        snprintf(imageinfo, sizeof(imageinfo), "Image size: %d x %d\r\n",
-            state->detailthumbnail.imagewidth, state->detailthumbnail.imageheight);
-    }
-    snprintf(info, sizeof(info), "%s\r\n%sU tile scale: %s\r\nV tile scale: %s\r\nMinimum LOD: %s\r\nTile offset: %s",
-        detail.mode == BG_DETAIL_BASE_IMAGE ? "Base image reused (LOD tile)"
-            : detail.mode == BG_DETAIL_SEPARATE_IMAGE ? "Separate detail image" : "Detail source: Mixed",
-        imageinfo, u, v, lod, detail.offset < 0 ? "Mixed"
-            : detail.offset ? "Half texel (generated mipmaps only)" : "None");
-    SetWindowText(state->controls[FACE_DETAIL_LABEL], label);
+    { snprintf(info, sizeof(info), "Image size: %d x %d", state->detailthumbnail.imagewidth, state->detailthumbnail.imageheight); }
+    SendMessage(state->controls[FACE_DETAIL_MODE], CB_SETCURSEL,
+        detail.mode >= 0 && detail.mode <= BG_DETAIL_SEPARATE_IMAGE ? detail.mode + 1 : 0, 0);
+    if (detail.textureid >= 0) { snprintf(state->detailimagetext, sizeof(state->detailimagetext), "%04X", detail.textureid); }
+    else { lstrcpyn(state->detailimagetext, detail.mode == BG_DETAIL_NONE ? "" : "Mixed", sizeof(state->detailimagetext)); }
+    if (detail.minlod >= 0) { snprintf(state->detaillodtext, sizeof(state->detaillodtext), "%d", detail.minlod); }
+    else { lstrcpyn(state->detaillodtext, "Mixed", sizeof(state->detaillodtext)); }
+    SetWindowText(state->controls[FACE_DETAIL_IMAGE], state->detailimagetext);
+    SetWindowText(state->controls[FACE_DETAIL_LOD], state->detaillodtext);
+    SendMessage(state->controls[FACE_DETAIL_U], CB_SETCURSEL, detail.shiftu + 1, 0);
+    SendMessage(state->controls[FACE_DETAIL_V], CB_SETCURSEL, detail.shiftv + 1, 0);
+    SendMessage(state->controls[FACE_DETAIL_OFFSET], CB_SETCURSEL, detail.offset + 1, 0);
+    EnableWindow(state->controls[FACE_DETAIL_U], active);
+    EnableWindow(state->controls[FACE_DETAIL_V], active);
+    EnableWindow(state->controls[FACE_DETAIL_LOD], active);
+    EnableWindow(state->controls[FACE_DETAIL_OFFSET], active);
     SetWindowText(state->controls[FACE_DETAIL_INFO], info);
     EnableWindow(state->controls[FACE_DETAIL_FIND], state->hasdetailthumbnail);
     InvalidateRect(state->controls[FACE_DETAIL_THUMB], NULL, FALSE);
 }
+
+static BOOL FacePropertiesIsCombo(int id)
+{
+    return id == FACE_ROOM || id == FACE_RENDER || id == FACE_CULL || id == FACE_U || id == FACE_V
+        || id == FACE_DETAIL_MODE || id == FACE_DETAIL_U || id == FACE_DETAIL_V || id == FACE_DETAIL_OFFSET;
+}
+
+static BOOL FacePropertiesIsEdit(int id)
+{ return id == FACE_DETAIL_IMAGE || id == FACE_DETAIL_LOD; }
 
 static int FacePropertiesTextHeight(HWND control, int width)
 {
@@ -186,7 +207,7 @@ static void FacePropertiesLayout(HWND hwnd, FacePropertiesState *state)
     for (i = 0; i < FACE_CONTROL_COUNT; i++)
     {
         int x = FACEPROPERTIES_MARGIN, w = width, height;
-        BOOL visible = state->showdetail || i < FACE_DETAIL_THUMB || i > FACE_DETAIL_INFO;
+        BOOL visible = state->showdetail || i < FACE_DETAIL_THUMB || i > FACE_DETAIL_OFFSET;
         ShowWindow(state->controls[i], visible ? SW_SHOWNA : SW_HIDE);
         if (!visible) { continue; }
         if (i == FACE_TEXTURE_THUMB || i == FACE_DETAIL_THUMB)
@@ -205,7 +226,7 @@ static void FacePropertiesLayout(HWND hwnd, FacePropertiesState *state)
         }
         if (i == FACE_U_LABEL || i == FACE_V_LABEL) { w = 20; }
         if (i == FACE_U || i == FACE_V) { x += 24; w = width > 24 ? width - 24 : 1; }
-        height = i == FACE_ROOM || i == FACE_RENDER || i == FACE_CULL || i == FACE_U || i == FACE_V ? 24
+        height = FacePropertiesIsCombo(i) || FacePropertiesIsEdit(i) ? 24
             : FacePropertiesTextHeight(state->controls[i], w);
         SetRect(&bounds[i], x, y, x + w, y + height);
         if (i != FACE_U_LABEL && i != FACE_V_LABEL)
@@ -227,7 +248,7 @@ static void FacePropertiesLayout(HWND hwnd, FacePropertiesState *state)
     {
         RECT *r = &bounds[i];
         /* The height of a native combo includes its opened list. */
-        int height = i == FACE_ROOM || i == FACE_RENDER || i == FACE_CULL || i == FACE_U || i == FACE_V ? 160 : r->bottom - r->top;
+        int height = FacePropertiesIsCombo(i) ? 160 : r->bottom - r->top;
         MoveWindow(state->controls[i], r->left, r->top - state->scroll,
                    r->right - r->left, height, TRUE);
     }
@@ -336,12 +357,75 @@ static void FacePropertiesApplyRoom(HWND hwnd, FacePropertiesState *state, BOOL 
     SendMessage(GetParent(hwnd), FACEPROPERTIES_WM_ROOM_CHANGED, room, 0);
 }
 
+static BOOL FacePropertiesParseDetailNumber(const char *text, unsigned int base,
+                                            unsigned int maximum, unsigned int *value)
+{
+    unsigned int n = 0, digits = 0;
+    if (base == 16 && text[0] == '0' && (text[1] == 'x' || text[1] == 'X')) { text += 2; }
+    for (; *text; text++, digits++)
+    {
+        unsigned int digit = *text >= '0' && *text <= '9' ? (unsigned int)(*text - '0')
+            : *text >= 'a' && *text <= 'f' ? (unsigned int)(*text - 'a' + 10)
+            : *text >= 'A' && *text <= 'F' ? (unsigned int)(*text - 'A' + 10) : base;
+        if (digit >= base || n > maximum / base) { return FALSE; }
+        n = n * base + digit;
+        if (n > maximum) { return FALSE; }
+    }
+    if (!digits) { return FALSE; }
+    *value = n;
+    return TRUE;
+}
+
+static void FacePropertiesApplyDetailNumber(HWND hwnd, FacePropertiesState *state, int id)
+{
+    char text[32];
+    unsigned int value;
+    BgFacePropertiesEdit edit = {0};
+    BOOL image = id == FACE_DETAIL_IMAGE;
+    const char *old = image ? state->detailimagetext : state->detaillodtext;
+    GetWindowText(state->controls[id], text, sizeof(text));
+    if (!lstrcmp(text, old)) { return; }
+    if (!FacePropertiesParseDetailNumber(text, image ? 16 : 10, image ? BG_TEX_NONE - 1 : 255, &value))
+    {
+        MessageBox(hwnd, image ? "Enter an image ID in hexadecimal (0000 to 0FFE)."
+            : "Enter a minimum LOD from 0 to 255 (in units of 1/256).", "GEditor", MB_ICONERROR);
+        SetWindowText(state->controls[id], old);
+        return;
+    }
+    if (image)
+    {
+        TexThumb thumb;
+        unsigned char pixels[TEX_THUMB_MAX * TEX_THUMB_MAX * 4];
+        if (!BrowserCopyImageThumbnail(state->browser, value, &thumb, pixels))
+        {
+            MessageBox(hwnd, "That image is not available in this project.", "GEditor", MB_ICONERROR);
+            SetWindowText(state->controls[id], old);
+            return;
+        }
+        edit.fields = BG_FACE_PROPERTY_DETAIL_IMAGE;
+        edit.detail.textureid = (unsigned short)value;
+    }
+    else { edit.fields = BG_FACE_PROPERTY_DETAIL_MINLOD; edit.detail.minlod = (unsigned char)value; }
+    SendMessage(GetParent(hwnd), FACEPROPERTIES_WM_CHANGED, 0, (LPARAM)&edit);
+}
+
 BOOL FacePropertiesHandleMessage(HWND panel, MSG *message)
 {
     FacePropertiesState *state = FacePropertiesGetState(panel);
     HWND focus = GetFocus();
     HWND control;
     if (!state || message->message != WM_KEYDOWN) { return FALSE; }
+    for (int id = 0; id < FACE_CONTROL_COUNT; id++)
+    {
+        if (FacePropertiesIsEdit(id) && focus == state->controls[id])
+        {
+            if (message->wParam == VK_RETURN)
+            { FacePropertiesApplyDetailNumber(panel, state, id); return TRUE; }
+            if (message->wParam == VK_ESCAPE)
+            { SetWindowText(focus, id == FACE_DETAIL_IMAGE ? state->detailimagetext : state->detaillodtext); return TRUE; }
+            return FALSE;
+        }
+    }
     control = state->controls[FACE_ROOM];
     if (focus != control && !IsChild(control, focus)) { return FALSE; }
     /* Let the native combo accept/cancel an open list first. */
@@ -363,7 +447,9 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
         CREATESTRUCT *cs = (CREATESTRUCT *)lparam;
         const char *labels[FACE_CONTROL_COUNT] = {
             "", "Room", "", "Texture", "", "Find",
-            "Detail texture", "", "Find", "", "", "", "",
+            "Detail texture", "", "Detail image (hex ID, Enter to apply)", "", "", "Find", "",
+            "Detail U scale", "", "Detail V scale", "", "Minimum LOD (0-255, Enter to apply)", "", "Tile offset", "",
+            "", "", "",
             "Backface culling", "",
             "Texture wrapping", "U", "", "V", "",
             ""
@@ -374,21 +460,49 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
         for (i = 0; i < FACE_CONTROL_COUNT; i++)
         {
-            BOOL combo = i == FACE_ROOM || i == FACE_RENDER || i == FACE_CULL || i == FACE_U || i == FACE_V;
+            BOOL combo = FacePropertiesIsCombo(i);
+            BOOL edit = FacePropertiesIsEdit(i);
             BOOL button = i == FACE_TEXTURE_FIND || i == FACE_DETAIL_FIND;
             DWORD style = combo ? WS_TABSTOP | WS_VSCROLL | (i == FACE_ROOM ? CBS_DROPDOWN : CBS_DROPDOWNLIST)
+                : edit ? WS_TABSTOP | ES_AUTOHSCROLL
                 : button ? WS_TABSTOP | BS_PUSHBUTTON | BS_NOTIFY
                 : i == FACE_TEXTURE_THUMB || i == FACE_DETAIL_THUMB ? SS_OWNERDRAW : SS_NOPREFIX;
-            state->controls[i] = CreateWindowEx(0, combo ? "COMBOBOX" : button ? "BUTTON" : "STATIC", labels[i],
+            state->controls[i] = CreateWindowEx(edit ? WS_EX_CLIENTEDGE : 0, combo ? "COMBOBOX" : edit ? "EDIT" : button ? "BUTTON" : "STATIC", labels[i],
                 WS_CHILD | WS_VISIBLE | style,
                 0, 0, 1, 1, hwnd, (HMENU)(INT_PTR)(i + 1), cs->hInstance, NULL);
             if (state->controls[i] == NULL) { return -1; }
             SendMessage(state->controls[i], WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
+            if (edit) { SendMessage(state->controls[i], EM_LIMITTEXT, 16, 0); }
             if (combo)
             {
                 HWND control = state->controls[i];
                 if (i == FACE_ROOM)
                 { SendMessage(control, CB_LIMITTEXT, 5, 0); continue; }
+                if (i == FACE_DETAIL_MODE || i == FACE_DETAIL_U || i == FACE_DETAIL_V || i == FACE_DETAIL_OFFSET)
+                {
+                    SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Mixed / Keep current");
+                    if (i == FACE_DETAIL_MODE)
+                    {
+                        SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Off");
+                        SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"On - reuse base image");
+                        SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"On - separate image");
+                    }
+                    else if (i == FACE_DETAIL_OFFSET)
+                    {
+                        SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"None");
+                        SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Half texel (generated mipmaps)");
+                    }
+                    else
+                    {
+                        for (int shift = 0; shift < 16; shift++)
+                        {
+                            char scale[24]; FacePropertiesDetailScale(shift, scale, sizeof(scale));
+                            SendMessage(control, CB_ADDSTRING, 0, (LPARAM)scale);
+                        }
+                    }
+                    SendMessage(control, CB_SETDROPPEDWIDTH, 240, 0);
+                    continue;
+                }
                 if (i == FACE_RENDER)
                 {
                     SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Mixed / Keep current");
@@ -452,8 +566,11 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
             }
             return 0;
         }
+        if (state && FacePropertiesIsEdit((int)LOWORD(wparam) - 1)
+            && HIWORD(wparam) == EN_SETFOCUS)
+        { FacePropertiesRevealControl(hwnd, state, (HWND)lparam); return 0; }
         if (state && !state->updating
-            && (LOWORD(wparam) == FACE_RENDER + 1 || LOWORD(wparam) == FACE_CULL + 1 || LOWORD(wparam) == FACE_U + 1 || LOWORD(wparam) == FACE_V + 1))
+            && FacePropertiesIsCombo((int)LOWORD(wparam) - 1))
         {
             HWND control = (HWND)lparam;
             if (HIWORD(wparam) == CBN_SETFOCUS)
@@ -472,8 +589,16 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
                     { edit.fields = BG_FACE_PROPERTY_CULL; edit.cullbackfaces = choice == 1; }
                     else if (control == state->controls[FACE_U])
                     { edit.fields = BG_FACE_PROPERTY_WRAP_U; edit.wrapu = (BgTextureWrap)(choice - 1); }
-                    else
+                    else if (control == state->controls[FACE_V])
                     { edit.fields = BG_FACE_PROPERTY_WRAP_V; edit.wrapv = (BgTextureWrap)(choice - 1); }
+                    else if (control == state->controls[FACE_DETAIL_MODE])
+                    { edit.fields = BG_FACE_PROPERTY_DETAIL_MODE; edit.detail.mode = (BgDetailMode)(choice - 1); }
+                    else if (control == state->controls[FACE_DETAIL_U])
+                    { edit.fields = BG_FACE_PROPERTY_DETAIL_U; edit.detail.shiftu = choice - 1; }
+                    else if (control == state->controls[FACE_DETAIL_V])
+                    { edit.fields = BG_FACE_PROPERTY_DETAIL_V; edit.detail.shiftv = choice - 1; }
+                    else if (control == state->controls[FACE_DETAIL_OFFSET])
+                    { edit.fields = BG_FACE_PROPERTY_DETAIL_OFFSET; edit.detail.offset = choice == 2 ? 2 : 0; }
                 }
                 /* Mixed / Keep current: a zero-field request just refreshes
                  * the controls from the unchanged document. */
@@ -630,6 +755,8 @@ BOOL FacePropertiesSetSelection(HWND panel, const BgDocument *document,
     EnableWindow(state->controls[FACE_TEXTURE_FIND], state->hasthumbnail);
     InvalidateRect(state->controls[FACE_TEXTURE_THUMB], NULL, FALSE);
     FacePropertiesSetDetail(state, document, refs, count, browser);
+    EnableWindow(state->controls[FACE_DETAIL_MODE], textured);
+    EnableWindow(state->controls[FACE_DETAIL_IMAGE], textured);
     SendMessage(state->controls[FACE_CULL], CB_SETCURSEL, cull, 0);
     SendMessage(state->controls[FACE_U], CB_SETCURSEL, textured ? wrapu : -1, 0);
     SendMessage(state->controls[FACE_V], CB_SETCURSEL, textured ? wrapv : -1, 0);

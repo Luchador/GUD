@@ -24,6 +24,8 @@
 void BgRenderStateInit(BgRenderState *state, BOOL secondary)
 {
     state->environmentalpha = state->primitivealpha = 255;
+    state->primitiveword0 = 0xFA000000u;
+    state->primitiveword1 = 0xFFFFFFFFu;
     state->zbuffer = TRUE;
     state->geometrymode = BG_G_ZBUFFER;
     state->geometryknown = 0;
@@ -51,6 +53,8 @@ void BgRenderStateRead(BgRenderState *state, DWORD word0, DWORD word1)
         break;
     case BG_G_SETPRIMCOLOR:
         state->primitivealpha = (unsigned char)word1;
+        state->primitiveword0 = word0;
+        state->primitiveword1 = word1;
         break;
     case 0xBAu: /* SETOTHERMODE_H, including cycle type. */
     case BG_G_SETOTHERMODE_L:

@@ -38,6 +38,7 @@
 #include "setupload.h"
 #include "stanload.h"
 #include "texload.h"
+#include "texencode.h"
 #include "modelload.h"
 #include "objectload.h"
 
@@ -2922,6 +2923,43 @@ fail:
 }
 
 
+/* A separate detail image shares TMEM (and, for CI images, the palette)
+ * with the base mip chain. Validate newly assigned pairs before any mutation. */
+static BOOL GEditorValidateDetailImages(const BgFaceRef *faces, DWORD count,
+    const BgFacePropertiesEdit *edit, const char **why)
+{
+    if (!(edit->fields & (BG_FACE_PROPERTY_DETAIL_MODE | BG_FACE_PROPERTY_DETAIL_IMAGE))) { return TRUE; }
+    for (DWORD i = 0; i < count; i++)
+    {
+        const BgDocumentFace *face = BgDocumentFindFace(&g_CurrentBgDocument, &faces[i], NULL);
+        BgMaterial material;
+        BgDetailTexture detail, old;
+        TexThumb base, tile;
+        unsigned char pixels[TEX_THUMB_MAX * TEX_THUMB_MAX * 4];
+        DWORD basebytes, tilebytes;
+        if (!face || !BgDocumentDetailMaterial(&face->material, edit, &material, why)) { return FALSE; }
+        BgMaterialGetDetail(&material, &detail);
+        BgMaterialGetDetail(&face->material, &old);
+        if (detail.mode == BG_DETAIL_NONE || (detail.mode == old.mode && detail.textureid == old.textureid)) { continue; }
+        if (!BrowserCopyImageThumbnail(g_Browser, face->textureid, &base, pixels)
+            || !BrowserCopyImageThumbnail(g_Browser, detail.textureid, &tile, pixels)
+            || !base.info.valid || !tile.info.valid)
+        { *why = "The base and detail images must be available with texture format metadata."; return FALSE; }
+        if (detail.mode == BG_DETAIL_BASE_IMAGE) { continue; }
+        /* The native loader shares one palette, and RGBA32 has split banks.
+           Keep those specialized combinations intact, but do not create new
+           pairs whose palette/bank layout cannot be verified here. */
+        if (base.info.format == 0 || base.info.format == 2 || tile.info.format == 0 || tile.info.format == 2
+            || base.info.format >= 9 || tile.info.format >= 9)
+        { *why = "A new separate detail pair requires non-paletted textures of 16 bits or less. Reuse the base image, or choose compatible images."; return FALSE; }
+        basebytes = TexImportTmemBytes(base.imagewidth, base.imageheight, base.info.format, base.info.mipmaps);
+        tilebytes = TexImportTmemBytes(tile.imagewidth, tile.imageheight, tile.info.format, 0);
+        if (!basebytes || !tilebytes || basebytes + tilebytes > 4096)
+        { *why = "The base mipmaps and detail image exceed texture memory. Choose a smaller detail image or reuse the base image."; return FALSE; }
+    }
+    return TRUE;
+}
+
 static BOOL GEditorSetFaceProperties(HWND hwnd, const BgFacePropertiesEdit *edit)
 {
     EditHistoryTransaction transaction = {0};
@@ -2944,7 +2982,9 @@ static BOOL GEditorSetFaceProperties(HWND hwnd, const BgFacePropertiesEdit *edit
         why = "The selected BG faces could not be read.";
         goto fail;
     }
-    action = edit->fields == BG_FACE_PROPERTY_CULL ? "Change BG Backface Culling"
+    if (!GEditorValidateDetailImages(faces, (DWORD)count, edit, &why)) { goto fail; }
+    action = edit->fields & BG_FACE_PROPERTY_DETAIL_MASK ? "Change BG Detail Texture"
+        : edit->fields == BG_FACE_PROPERTY_CULL ? "Change BG Backface Culling"
         : edit->fields == BG_FACE_PROPERTY_TRANSPARENCY ? "Change BG Transparency"
         : "Change BG Texture Wrapping";
     if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,

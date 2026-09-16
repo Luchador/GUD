@@ -1253,13 +1253,23 @@ static BOOL BgDocumentSurfaceCommand(BgDocumentDrawGroup *group, DWORD w0, DWORD
 static BOOL BgDocumentSameSurface(const BgRenderState *a, const BgRenderState *b)
 {
     return a->othermode == b->othermode && a->surfacepolicy == b->surfacepolicy
-        && a->surfacebasemode == b->surfacebasemode;
+        && a->surfacebasemode == b->surfacebasemode
+        && !((a->othermodehigh ^ b->othermodehigh) & 0x00073000u);
 }
 
 static BOOL BgDocumentSurfaceTransition(BgDocumentDrawGroup *group,
     const BgRenderState *from, const BgRenderState *to)
 {
     DWORD difference = from->othermode ^ to->othermode;
+    DWORD highdifference = (from->othermodehigh ^ to->othermodehigh) & 0x00073000u;
+    if (highdifference)
+    {
+        if (!BgDocumentSurfaceCommand(group, 0xE7000000u, 0)) { return FALSE; }
+        if ((highdifference & 0x70000u)
+            && !BgDocumentSurfaceCommand(group, 0xBA001003u, to->othermodehigh & 0x70000u)) { return FALSE; }
+        if ((highdifference & 0x3000u)
+            && !BgDocumentSurfaceCommand(group, 0xBA000C02u, to->othermodehigh & 0x3000u)) { return FALSE; }
+    }
     /* Partial writes preserve the first-cycle fog blender, including runtime
        replacements made by bgApplyDynamicCCRMLUT. Sync before RDP changes. */
     if (difference)
@@ -1272,6 +1282,11 @@ static BOOL BgDocumentSurfaceTransition(BgDocumentDrawGroup *group,
         if ((difference & 0x00030000u)
             && !BgDocumentSurfaceCommand(group, 0xB9001002u, to->othermode & 0x00030000u)) { return FALSE; }
     }
+    /* texHandleType0/1 emits a white primitive color for minimum LOD. Restore
+       the surrounding stream's color after an inserted detail span. */
+    if ((from->othermodehigh & 0x60000u) == 0x40000u
+        && (to->othermodehigh & 0x60000u) != 0x40000u
+        && !BgDocumentSurfaceCommand(group, to->primitiveword0, to->primitiveword1)) { return FALSE; }
     if ((from->surfacepolicy != to->surfacepolicy || from->surfacebasemode != to->surfacebasemode)
         && !BgDocumentSurfaceCommand(group, BG_SURFACE_MARKER,
             BG_SURFACE_TAG_VALUE(to->surfacepolicy, to->surfacebasemode))) { return FALSE; }
@@ -1341,15 +1356,15 @@ done:
     return ok;
 }
 
-static BOOL BgDocumentSetTransparency(BgDocument *document, const BgFaceRef *refs,
-    DWORD count, BgTransparency surface, BOOL *changed, const char **reasonout)
+static BOOL BgDocumentSetRenderProperties(BgDocument *document, const BgFaceRef *refs,
+    DWORD count, const BgFacePropertiesEdit *edit, BOOL *changed, const char **reasonout)
 {
     BgDocument copy = {0};
     size_t bytes = (size_t)count * sizeof(BgRenderState);
     BgRenderState *states = bytes / sizeof(*states) == count ? malloc(bytes) : NULL;
     DWORD i, roomindex;
     BOOL any = FALSE, ok = FALSE;
-    *reasonout = "Out of memory editing background transparency.";
+    *reasonout = "Out of memory editing background render properties.";
     if (!states) { return FALSE; }
     if (!BgDocumentGetFaceRenderStates(document, refs, count, states))
     { *reasonout = "The selected background render state could not be read."; goto done; }
@@ -1357,15 +1372,40 @@ static BOOL BgDocumentSetTransparency(BgDocument *document, const BgFaceRef *ref
     {
         DWORD mode;
         BgRenderState target = states[i];
-        if (!BgRenderSurfacePreset(&states[i], surface, &mode))
+        if (edit->fields & BG_FACE_PROPERTY_TRANSPARENCY)
         {
-            *reasonout = "Transparency changes require explicit, ordinary one-cycle or two-cycle render modes. The selection includes inherited or custom state.";
-            goto done;
+            BgTransparency surface = edit->transparency;
+            if (!BgRenderSurfacePreset(&states[i], surface, &mode))
+            {
+                *reasonout = "Transparency changes require explicit, ordinary one-cycle or two-cycle render modes. The selection includes inherited or custom state.";
+                goto done;
+            }
+            target.othermode = mode;
+            target.surfacepolicy = surface == BG_TRANSPARENCY_AUTO ? BG_SURFACE_AUTO : (DWORD)surface + 1;
+            target.surfacebasemode = target.surfacepolicy == BG_SURFACE_AUTO ? 0
+                : states[i].surfacepolicy == BG_SURFACE_AUTO ? states[i].othermode & BG_SURFACE_MODE_MASK : states[i].surfacebasemode;
         }
-        target.othermode = mode;
-        target.surfacepolicy = surface == BG_TRANSPARENCY_AUTO ? BG_SURFACE_AUTO : (DWORD)surface + 1;
-        target.surfacebasemode = target.surfacepolicy == BG_SURFACE_AUTO ? 0
-            : states[i].surfacepolicy == BG_SURFACE_AUTO ? states[i].othermode & BG_SURFACE_MODE_MASK : states[i].surfacebasemode;
+        if (edit->fields & BG_FACE_PROPERTY_DETAIL_MASK)
+        {
+            const BgDocumentFace *face = BgDocumentFindFace(document, &refs[i], NULL);
+            BgMaterial material;
+            BgDetailTexture old, detail;
+            if (!BgDocumentDetailMaterial(&face->material, edit, &material, reasonout)) { goto done; }
+            BgMaterialGetDetail(&face->material, &old);
+            BgMaterialGetDetail(&material, &detail);
+            if ((old.mode == BG_DETAIL_NONE) != (detail.mode == BG_DETAIL_NONE))
+            {
+                BOOL enabled = detail.mode != BG_DETAIL_NONE;
+                if ((target.othermodehighknown & 0x373000u) != 0x373000u
+                    || (enabled && (target.othermodehigh & 0x300000u) != 0x100000u))
+                {
+                    *reasonout = "Detail texture switching requires explicit texture settings and a two-cycle background material when enabling detail.";
+                    goto done;
+                }
+                target.othermodehigh = (target.othermodehigh & ~0x73000u)
+                    | (enabled ? 0x52000u : 0x12000u);
+            }
+        }
         any |= !BgDocumentSameSurface(&states[i], &target);
         states[i] = target;
     }
@@ -1373,7 +1413,7 @@ static BOOL BgDocumentSetTransparency(BgDocument *document, const BgFaceRef *ref
     /* Build off to the side: allocation failures never leave a partial edit,
        including multi-room selections and combined property changes. */
     if (!BgDocumentClone(document, &copy, reasonout)) { goto done; }
-    *reasonout = "Out of memory editing background transparency.";
+    *reasonout = "Out of memory editing background render properties.";
     for (roomindex = 1; roomindex <= copy.roomcount; roomindex++)
     {
         BgDocumentRoom *room = &copy.rooms[roomindex];
@@ -1412,6 +1452,41 @@ done:
     return ok;
 }
 
+BOOL BgDocumentDetailMaterial(const BgMaterial *source, const BgFacePropertiesEdit *edit,
+    BgMaterial *result, const char **reasonout)
+{
+    BgDetailTexture old, detail;
+    unsigned int fields = edit->fields;
+    *result = *source;
+    BgMaterialGetDetail(source, &old);
+    detail = old;
+    if (BgMaterialTextureId(source) == BG_TEX_NONE || old.mode == BG_DETAIL_UNKNOWN)
+    { *reasonout = "Assign a supported base texture to every selected face before editing detail textures."; return FALSE; }
+    if (fields & BG_FACE_PROPERTY_DETAIL_MODE) { detail.mode = edit->detail.mode; }
+    if (old.mode == BG_DETAIL_NONE && (detail.mode != BG_DETAIL_NONE || (fields & BG_FACE_PROPERTY_DETAIL_IMAGE)))
+    {
+        detail.textureid = BgMaterialTextureId(source);
+        detail.shiftu = detail.shiftv = 15; /* 2x base UVs */
+        detail.minlod = 0;
+        detail.offset = (source->textureword0 >> 18) & 3u;
+    }
+    if (fields & BG_FACE_PROPERTY_DETAIL_IMAGE)
+    { detail.mode = BG_DETAIL_SEPARATE_IMAGE; detail.textureid = edit->detail.textureid; }
+    if (fields & BG_FACE_PROPERTY_DETAIL_U) { detail.shiftu = edit->detail.shiftu; }
+    if (fields & BG_FACE_PROPERTY_DETAIL_V) { detail.shiftv = edit->detail.shiftv; }
+    if (fields & BG_FACE_PROPERTY_DETAIL_MINLOD) { detail.minlod = edit->detail.minlod; }
+    if (fields & BG_FACE_PROPERTY_DETAIL_OFFSET)
+    { detail.offset = edit->detail.offset == 0 && old.offset != 2 ? old.offset : edit->detail.offset; }
+    if (detail.mode == BG_DETAIL_NONE && (fields & (BG_FACE_PROPERTY_DETAIL_U
+        | BG_FACE_PROPERTY_DETAIL_V | BG_FACE_PROPERTY_DETAIL_MINLOD | BG_FACE_PROPERTY_DETAIL_OFFSET)))
+    { *reasonout = "Enable detail texturing on every selected face before changing its sampling settings."; return FALSE; }
+    if ((old.mode == BG_DETAIL_NONE) != (detail.mode == BG_DETAIL_NONE)
+        && !BgMaterialDetailCombiner(result, detail.mode != BG_DETAIL_NONE))
+    { *reasonout = "This selection includes a custom texture combiner that cannot be switched automatically."; return FALSE; }
+    BgMaterialSetDetail(result, &detail);
+    return TRUE;
+}
+
 BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
     DWORD count, const BgFacePropertiesEdit *edit, BOOL *changedout,
     const char **reasonout)
@@ -1420,7 +1495,12 @@ BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
     *changedout = FALSE;
     *reasonout = "";
     if (document == NULL || refs == NULL || count == 0 || edit == NULL
-        || edit->fields == 0 || (edit->fields & ~15u)
+        || edit->fields == 0 || (edit->fields & ~1023u)
+        || ((edit->fields & BG_FACE_PROPERTY_DETAIL_MODE) && (unsigned int)edit->detail.mode > BG_DETAIL_SEPARATE_IMAGE)
+        || ((edit->fields & BG_FACE_PROPERTY_DETAIL_IMAGE) && edit->detail.textureid >= BG_TEX_NONE)
+        || ((edit->fields & BG_FACE_PROPERTY_DETAIL_U) && edit->detail.shiftu > 15)
+        || ((edit->fields & BG_FACE_PROPERTY_DETAIL_V) && edit->detail.shiftv > 15)
+        || ((edit->fields & BG_FACE_PROPERTY_DETAIL_OFFSET) && edit->detail.offset > 3)
         || ((edit->fields & BG_FACE_PROPERTY_TRANSPARENCY)
             && (unsigned int)edit->transparency > BG_TRANSPARENCY_BLEND
             && edit->transparency != BG_TRANSPARENCY_AUTO)
@@ -1450,8 +1530,8 @@ BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
             return FALSE;
         }
     }
-    if ((edit->fields & BG_FACE_PROPERTY_TRANSPARENCY)
-        && !BgDocumentSetTransparency(document, refs, count, edit->transparency, changedout, reasonout))
+    if ((edit->fields & (BG_FACE_PROPERTY_TRANSPARENCY | BG_FACE_PROPERTY_DETAIL_MASK))
+        && !BgDocumentSetRenderProperties(document, refs, count, edit, changedout, reasonout))
     { return FALSE; }
     for (i = 0; i < count; i++)
     {
@@ -1459,6 +1539,9 @@ BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
         BgMaterial material = face->material;
         BOOL cull = (edit->fields & BG_FACE_PROPERTY_CULL)
             ? edit->cullbackfaces : face->cullbackfaces;
+        /* Already validated for every face before the atomic state edit. */
+        if (edit->fields & BG_FACE_PROPERTY_DETAIL_MASK)
+        { BgDocumentDetailMaterial(&face->material, edit, &material, reasonout); }
         if (edit->fields & BG_FACE_PROPERTY_WRAP_U) { BgMaterialSetWrap(&material, FALSE, edit->wrapu); }
         if (edit->fields & BG_FACE_PROPERTY_WRAP_V) { BgMaterialSetWrap(&material, TRUE, edit->wrapv); }
         if (face->cullbackfaces != cull || !BgMaterialEqual(&face->material, &material))
