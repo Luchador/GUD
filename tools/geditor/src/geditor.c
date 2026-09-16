@@ -277,7 +277,9 @@ static void GEditorRefreshTransformFields(void)
 }
 
 
-static void GEditorRefreshSelectionDetails(void)
+/* Rebind inspector data after setup compaction without replacing the UV
+ * overlay. History/menu updates also run during live UV drag notifications. */
+static void GEditorRefreshSelectionInspector(void)
 {
     SetupPadRef padref;
     SetupMarkerRef markerref;
@@ -286,12 +288,10 @@ static void GEditorRefreshSelectionDetails(void)
     BOOL objectselected = ViewportGetSelectedObject(g_Viewport, &selectedobject);
     int components = ViewportGetSelectedComponentCount(g_Viewport);
     DWORD stantile, stancount = ViewportGetStanSelectionCount(g_Viewport, &stantile);
-    g_SelectionHistoryPending = TRUE;
     RightPanelSetObjectFlags(g_RightPanel,
         objectselected && selectedobject < g_CurrentSetup.objectcount
             ? &g_CurrentSetup.objects[selectedobject] : NULL,
         objectselected ? selectedobject : 0);
-    UVEditorRefreshSelection(g_Viewport, &g_CurrentBgDocument);
     RightPanelSetVertexPaintMode(g_RightPanel,
         ViewportGetTool(g_Viewport) == EDITOR_TOOL_VERTEX_PAINT);
     GEditorRefreshTransformFields();
@@ -346,6 +346,14 @@ static void GEditorRefreshSelectionDetails(void)
     {
         RightPanelSetBgSelectionCount(g_RightPanel, count);
     }
+}
+
+
+static void GEditorRefreshSelectionDetails(void)
+{
+    g_SelectionHistoryPending = TRUE;
+    UVEditorRefreshSelection(g_Viewport, &g_CurrentBgDocument);
+    GEditorRefreshSelectionInspector();
 }
 
 
@@ -915,8 +923,9 @@ static void GEditorRefreshHistoryMenu(HWND hwnd)
 
     /* Saving from an owned dialog (Create ROM) still updates the main frame. */
     hwnd = GetAncestor(hwnd, GA_ROOTOWNER);
-    /* Setup compaction at commit can relocate inspector source offsets. */
-    GEditorRefreshSelectionDetails();
+    /* Compaction can relocate inspector offsets. A menu refresh must not
+     * replace the UV selection or cancel the drag that triggered it. */
+    GEditorRefreshSelectionInspector();
     GEditorSetTitleForProject(hwnd);
     menubar = GetMenu(hwnd);
     if (menubar == NULL)
