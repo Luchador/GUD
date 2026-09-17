@@ -208,6 +208,28 @@ static void check_cache_and_dispatch(void)
     rw.DisplayListCollisions.gdl = src;
     data.flags = 1;
 
+    /* Destruction filters native translucent passes in both node formats.
+     * A fading prop requests both passes together; its primary shell must
+     * still draw. Restoring the flags also restores a live shared instance. */
+    for (int format = 0; format < 2; format++) for (int type = 3; type <= 4; type++)
+    for (int pass = 1; pass <= 3; pass++) for (int destroyed = 0; destroyed < 2; destroyed++) {
+        int primaryCalls = 0, secondaryCalls = 0;
+        ro.DisplayList.ModelType = type;
+        cache = (ModelNodeRenderCache){0}; data.gdl = master;
+        data.flags = destroyed ? (pass & ~2u) | MODEL_RENDER_HIDE_TRANSLUCENT : (u32)pass;
+        if (format) modelRenderNodeDlWithCache(&data, &model, &node, &cache);
+        else modelRenderNodeGundl(&data, &node);
+        for (Gfx *g = master; g < data.gdl; g++) if (g->words.w0 >> 24 == (u8)G_DL) {
+            if (g->words.w1 == K0_TO_PHYS(secondary)) secondaryCalls++;
+            else { assert(g->words.w1 == K0_TO_PHYS(alt)); primaryCalls++; }
+        }
+        assert(primaryCalls == !!(pass & 1));
+        assert(secondaryCalls == (!destroyed && !!(pass & (type == 3 ? 1 : 2))));
+        assert(!memcmp(src, opaque, sizeof(opaque)));
+        if (format && type == 3 && (pass & 1)) assert(cache.type3PipelineReady == destroyed);
+    }
+    data.flags = 1;
+
     bytes = allocated;
     assert(bytes <= sizeof(saved));
     memcpy(saved, alt, bytes); oldAlt = alt;
@@ -238,6 +260,7 @@ static void check_cache_and_dispatch(void)
     }
     assert(modelGetOneCycleGdl(&data, src, 4, NULL) == src && allocations == 0);
     puts("Cache/draw dispatch: colours, AA/VI gating, secondary/dynamic exclusions, reload retention, memory/table limits pass.");
+    puts("Destroyed model passes: type-3/type-4, both node formats, fading shell and shared intact instance pass.");
 }
 
 /* Independent alpha-mux evaluation. The RDP carries nine-bit intermediates:

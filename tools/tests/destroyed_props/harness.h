@@ -33,6 +33,7 @@ struct PropRecord { u32 flags; ObjectRecord *obj; DoorRecord *door; PropRecord *
 typedef struct { Gfx *gdl; u32 flags; s32 PropType, cullmode; struct { u32 word; } envcolour; } ModelRenderData;
 static int screenBuilds, draws;
 static int lastCull, lastEnv;
+static u32 lastFlags, drawnFlags[128];
 static Gfx screenList;
 static union ModelRwData *modelGetNodeRwData(Model *model, ModelNode *node)
 { return &model->rw[node->Data->DisplayListCollisions.RwDataIndex]; }
@@ -42,7 +43,10 @@ static Mtx *camGetPlayerProjMtx(void) { return NULL; }
 #define gSPClearGeometryMode(p, mode) ((p)->word = 0)
 #define gSPMatrix(p, matrix, mode) ((void)(matrix), (p)->word = 1)
 static void subdraw(ModelRenderData *data, Model *model)
-{ draws++; lastCull = data->cullmode; lastEnv = data->envcolour.word & 255; }
+{
+    assert(draws < 128); drawnFlags[draws++] = lastFlags = data->flags;
+    lastCull = data->cullmode; lastEnv = data->envcolour.word & 255;
+}
 static Gfx *explosionRenderBulletImpactOnProp(Gfx *g, PropRecord *p, bool alpha) { return g; }
 static void bviewTransformManyPosToWorldMatrix(Mtxf *m, int n) {}
 static void bviewTransformManyPosToViewMatrix(void *m, int n) {}

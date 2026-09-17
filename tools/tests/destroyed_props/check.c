@@ -24,6 +24,7 @@ int main(void)
     data.gdl = frame; data.flags = 1; data.PropType = PROP_TYPE_MAX;
     objRenderPropModel(&prop, &data, FALSE);
     assert(screenBuilds == 4 && draws == 1 && lastCull == CULLMODE_BACK);
+    assert(lastFlags == 1 && data.flags == 1);
 
     /* The other console shares source nodes, but has independent runtime data. */
     console.obj.state = PROPSTATE_DESTROYED;
@@ -41,6 +42,8 @@ int main(void)
             data.flags = pass; data.cullmode = CULLMODE_NONE;
             objRenderPropModel(&prop, &data, pass == 2);
             assert(screenBuilds == 4 && lastCull == CULLMODE_BACK);
+            assert(lastFlags == ((pass & ~2u) | MODEL_RENDER_HIDE_TRANSLUCENT));
+            assert(data.flags == (u32)pass);
             int alpha = (stage + 1) * 50 + 100;
             assert(lastEnv == (deform ? (alpha > 255 ? 255 : alpha) : 0));
         }
@@ -55,6 +58,7 @@ int main(void)
     data.flags = 1; data.PropType = PROP_TYPE_MAX;
     objRenderPropModel(&prop, &data, FALSE);
     assert(screenBuilds == 8 && lastEnv == 0);
+    assert(lastFlags == 1 && data.flags == 1);
     for (int i = 1; i < 5; i++) assert(model.rw[i].DisplayListCollisions.gdl == &screenList);
 
     /* Single-screen monitors, missing nodes and unrelated objects. */
@@ -68,6 +72,33 @@ int main(void)
     objHideMonitorScreens(&console.obj);
     assert(model.rw[2].DisplayListCollisions.gdl == &screenList);
 
+    /* A destroyed parent must not hide the alpha pass of its live children;
+     * a destroyed child must not affect its parent or following sibling. */
+    ObjectRecord live = {.type=PROPDEF_OBJ, .model=&intact};
+    ObjectRecord broken = {.type=PROPDEF_OBJ, .model=&model, .state=PROPSTATE_DESTROYED};
+    PropRecord liveChild = {.obj=&live, .flags=PROPRUNTIMEFLAG_ONSCREEN};
+    PropRecord brokenChild = {.obj=&broken, .flags=PROPRUNTIMEFLAG_ONSCREEN, .prev=&liveChild};
+    prop.child = &brokenChild;
+    for (int destroyed = 0; destroyed < 2; destroyed++) for (int pass = 1; pass <= 3; pass++) {
+        int first = draws;
+        console.obj.state = destroyed ? PROPSTATE_DESTROYED : 0;
+        data.flags = pass; data.gdl = frame;
+        objRenderPropModel(&prop, &data, pass != 1);
+        assert(draws == first + 3);
+        assert(drawnFlags[first] == (destroyed ? (pass & ~2u) | MODEL_RENDER_HIDE_TRANSLUCENT : (u32)pass));
+        assert(drawnFlags[first+1] == ((pass & ~2u) | MODEL_RENDER_HIDE_TRANSLUCENT));
+        assert(drawnFlags[first+2] == (u32)pass && data.flags == (u32)pass);
+    }
+    prop.child = NULL;
+    /* State, not accumulated damage, controls hiding. Respawn restores alpha. */
+    prop.obj = &broken; broken.state = 0; broken.maxdamage = 1000;
+    data.flags = 2; objRenderPropModel(&prop,&data,TRUE);
+    assert(lastFlags == 2 && data.flags == 2);
+    broken.state = PROPSTATE_DESTROYED; broken.maxdamage = 0;
+    data.flags = 3; data.PropType = PROP_TYPE_PLAYER;
+    objRenderPropModel(&prop,&data,TRUE);
+    assert(lastFlags == (1 | MODEL_RENDER_HIDE_TRANSLUCENT) && data.flags == 3);
+
     /* Doors retain their authored front/back culling convention. */
     DoorRecord door = {0}; door.obj.model = &model; door.obj.type = PROPDEF_DOOR;
     prop.obj = &door.obj; prop.door = &door;
@@ -77,5 +108,6 @@ int main(void)
         assert(lastCull == (flip ? CULLMODE_FRONT : CULLMODE_BACK));
     }
     puts("Destroyed props: per-instance screen removal, no rebuild while destroyed, respawn, damage stages, fading and door culling pass.");
+    puts("Destroyed translucency: immediate removal, primary geometry during fading, independent children/siblings and respawn pass.");
     return 0;
 }

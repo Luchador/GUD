@@ -6997,6 +6997,7 @@ void objRenderPropModel(PropRecord *prop, ModelRenderData *renderData, bool tran
     Mtx *orthogonalProjection;
     PropRecord *child;
     s32 monitorZBufferMode;
+    u32 renderFlags;
 
     if (!(prop->flags & PROPRUNTIMEFLAG_ONSCREEN))
     {
@@ -7137,7 +7138,17 @@ void objRenderPropModel(PropRecord *prop, ModelRenderData *renderData, bool tran
     }
 
     renderData->gdl = gdl;
+    renderFlags = renderData->flags;
+    if (obj->state & PROPSTATE_DESTROYED)
+    {
+        /* Hide authored translucent geometry (such as lamp beams) from the
+         * first destroyed stage, even if no deformed vertices were allocated.
+         * Keep primary geometry when the whole prop is fading in the alpha
+         * pass. Never edit shared model lists or affect attached live props. */
+        renderData->flags = (renderFlags & ~2u) | MODEL_RENDER_HIDE_TRANSLUCENT;
+    }
     subdraw(renderData, model);
+    renderData->flags = renderFlags;
     gdl = renderData->gdl;
 
     if (obj->type == PROPDEF_DOOR)

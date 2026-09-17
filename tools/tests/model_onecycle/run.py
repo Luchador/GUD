@@ -46,7 +46,7 @@ static struct tex *texFindByData(u32 address) {
 '''
 source += strip_includes((ROOT / 'src/game/bgonecycle.c').read_text())
 source += (HERE / 'harness.h').read_text()
-source += re.search(r'^#define MODEL_RENDER_FIRST_PERSON[^\n]*', (ROOT / 'src/game/model.h').read_text(), re.M)[0] + '\n'
+source += '\n'.join(re.findall(r'^#define MODEL_RENDER_[^\n]*', (ROOT / 'src/game/model.h').read_text(), re.M)) + '\n'
 model = (ROOT / 'src/game/model.c').read_text()
 for name in ('modelApplyRenderModeType1', 'modelApplyRenderModeType2',
              'modelApplyRenderModeType3', 'modelApplyRenderModeType4', 'modelApplyCullMode'):

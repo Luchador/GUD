@@ -13,6 +13,10 @@
  * Bits 0/1 of ModelRenderData.flags continue to select the render passes. */
 #define MODEL_RENDER_FIRST_PERSON       0x04
 
+/* Per-instance destruction: also suppress type-3 secondary lists, which are
+ * normally submitted with the primary pass rather than through flags bit 1. */
+#define MODEL_RENDER_HIDE_TRANSLUCENT   0x08
+
 /*
  * The original game budgets 0xc0 bytes per animated model even though Model
  * has a 0xbc-byte stride. Preserve that unexplained pool tail padding.

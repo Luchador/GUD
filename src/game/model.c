@@ -3848,7 +3848,8 @@ void modelRenderNodeGundl(ModelRenderData* renderdata, ModelNode* arg1)
 
         gSPDisplayList(renderdata->gdl++, modelGetOneCycleGdl(renderdata, rodata->Primary, rodata->ModelType, rodata->BaseAddr));
 
-        if ((rodata->ModelType == 3) && rodata->Secondary)
+        if ((rodata->ModelType == 3) && rodata->Secondary
+                && !(renderdata->flags & MODEL_RENDER_HIDE_TRANSLUCENT))
         {
             modelApplyRenderModeType3(renderdata, 0);
             gSPDisplayList(renderdata->gdl++, rodata->Secondary);
@@ -4060,7 +4061,8 @@ void modelRenderNodeDlWithCache(ModelRenderData *renderdata, Model *model, Model
                     rwdata->DisplayListCollisions.gdl, rodata->DisplayListCollisions.ModelType,
                     rodata->DisplayListCollisions.BaseAddr));
 
-            if (rodata->DisplayListCollisions.ModelType == 3 && rodata->DisplayListCollisions.Secondary)
+            if (rodata->DisplayListCollisions.ModelType == 3 && rodata->DisplayListCollisions.Secondary
+                    && !(renderdata->flags & MODEL_RENDER_HIDE_TRANSLUCENT))
             {
                 modelApplyRenderModeType3(renderdata, FALSE);
                 gSPDisplayList(renderdata->gdl++, rodata->DisplayListCollisions.Secondary);
