@@ -2713,6 +2713,45 @@ BOOL SetupFileTranslatePad(SetupFile *setup, const SetupPadRef *ref,
     return TRUE;
 }
 
+BOOL SetupFileSetPadStanName(SetupFile *setup, const SetupPadRef *ref,
+    const char *name, const char **reasonout)
+{
+    DWORD count, stride, table, record, start, size;
+    size_t length;
+    SetupPad *pad;
+    unsigned char *data;
+    *reasonout = "The placement pad or Stan tile name is invalid.";
+    if (!setup || !setup->data || setup->size < SETUP_HEADER_SIZE
+        || setup->size > SETUP_FILE_MAX || !ref || !name)
+    { return FALSE; }
+    for (length = 0; length < sizeof(pad->stanname) && name[length]; length++) {}
+    if (!length || length >= sizeof(pad->stanname)) { return FALSE; }
+    count = ref->bound ? setup->boundpadcount : setup->padcount;
+    stride = ref->bound ? SETUP_BOUNDPAD_SIZE : SETUP_PAD_SIZE;
+    table = SetupRead32(setup->data + (ref->bound ? SETUP_BOUNDPAD_POINTER : SETUP_PAD_POINTER));
+    if (ref->index >= count || count > SETUP_PAD_MAX || table < SETUP_HEADER_SIZE
+        || table > setup->size || count + 1 > (setup->size - table) / stride
+        || (ref->bound ? !setup->boundpads : !setup->pads)) { return FALSE; }
+    record = table + ref->index * stride;
+    pad = ref->bound ? &setup->boundpads[ref->index].pad : &setup->pads[ref->index];
+    if (pad->deleted || !SetupRead32(setup->data + record + SETUP_PAD_LINK)) { return FALSE; }
+    if (!strcmp(pad->stanname, name)) { *reasonout = ""; return TRUE; }
+    start = (setup->size + 3u) & ~3u;
+    size = (start + (DWORD)length + 1u + 3u) & ~3u;
+    if (size > SETUP_FILE_MAX)
+    { *reasonout = "The setup has no room for the placement's Stan tile name."; return FALSE; }
+    data = calloc(size, 1);
+    if (!data) { *reasonout = "Out of memory retaining the placement's Stan tile."; return FALSE; }
+    memcpy(data, setup->data, setup->size);
+    memcpy(data + start, name, length + 1);
+    SetupWrite32(data + record + SETUP_PAD_LINK, start);
+    /* Names may be shared by other pads: never overwrite the old string.
+     * Transaction compaction discards obsolete names before retaining history. */
+    memcpy(pad->stanname, name, length + 1);
+    free(setup->data); setup->data = data; setup->size = size;
+    setup->dirty = TRUE; *reasonout = ""; return TRUE;
+}
+
 /* Reuse a model's pad if no other consumer refers to it; otherwise detach
  * its placement first. Physical table order is unrelated to pad ownership. */
 BOOL SetupFileTranslateModel(SetupFile *setup, DWORD selection,

@@ -358,6 +358,11 @@ BOOL SetupFileTranslatePad(SetupFile *setup, const SetupPadRef *ref,
                             float levelscale, const double offset[3],
                             BOOL *changedout, const char **reasonout);
 
+/* Store a resolved native plink name without changing pad coordinates or
+ * another pad's shared string. Caller owns pad isolation and the transaction. */
+BOOL SetupFileSetPadStanName(SetupFile *setup, const SetupPadRef *ref,
+    const char *name, const char **reasonout);
+
 /* Overwrites the project copy with the raw setup retained in memory. */
 BOOL SetupSaveProjectFile(const char *projectdir, const SetupFile *setup,
                           const char **reasonout);

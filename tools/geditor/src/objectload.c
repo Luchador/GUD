@@ -1209,6 +1209,33 @@ done:
     return ok;
 }
 
+static BOOL ObjectTranslateModelPad(SetupFile *setup, const StanFile *stan,
+    float levelscale, DWORD index, const double offset[3], const char **reasonout)
+{
+    SetupPadRef ref;
+    SetupPad previous;
+    const SetupPad *moved;
+    float from[3], to[3];
+    char name[16];
+    /* Characters retain their existing destination-floor selection rules. */
+    if ((index & SETUP_CHARACTER_SELECTION_BIT) || !stan || !stan->tiles || !stan->tilecount)
+    { return SetupFileTranslateModel(setup, index, levelscale, offset, reasonout); }
+    if (!SetupFileGetModelPad(setup, index, &ref))
+    { *reasonout = "The object has no editable placement pad."; return FALSE; }
+    previous = ref.bound ? setup->boundpads[ref.index].pad : setup->pads[ref.index];
+    if (!SetupFileTranslateModel(setup, index, levelscale, offset, reasonout)
+        || !SetupFileGetModelPad(setup, index, &ref)) { return FALSE; }
+    moved = ref.bound ? &setup->boundpads[ref.index].pad : &setup->pads[ref.index];
+    for (int axis = 0; axis < 3; axis++)
+    {
+        from[axis] = previous.pos[axis] / levelscale;
+        to[axis] = moved->pos[axis] / levelscale;
+    }
+    if (!StanResolveMovedPadName(stan, previous.stanname, from, to, name))
+    { *reasonout = "The object has no valid Stan tile at this location."; return FALSE; }
+    return SetupFileSetPadStanName(setup, &ref, name, reasonout);
+}
+
 /* The caller holds an EditHistory transaction. Props use explicit placement
  * with their old floor/support offset compensated. Characters keep the game's
  * grounding rules, using their visible feet as the starting pad position. */
@@ -1253,7 +1280,7 @@ BOOL ObjectTranslateSetupModel(const char *projectdir, SetupFile *setup,
             padmove[axis] += (double)feet[axis] - pad->pos[axis] / levelscale;
         }
     }
-    if (!SetupFileTranslateModel(setup,index,levelscale,padmove,reasonout)
+    if (!ObjectTranslateModelPad(setup,stan,levelscale,index,padmove,reasonout)
         || !ObjectLoadSetupGeometry(projectdir,setup,stan,levelscale,&provisional,reasonout)) { return FALSE; }
     placed = ObjectFirstVertex(&provisional, index);
     if (placed == NULL)
@@ -1274,7 +1301,7 @@ BOOL ObjectTranslateSetupModel(const char *projectdir, SetupFile *setup,
         correction[1] = (double)old->y + offset[1] - placed->y;
         correction[2] = (double)old->z + offset[2] - placed->z;
         ObjectGeometryFree(&provisional);
-        if (!SetupFileTranslateModel(setup,index,levelscale,correction,reasonout)
+        if (!ObjectTranslateModelPad(setup,stan,levelscale,index,correction,reasonout)
             || !ObjectLoadSetupGeometry(projectdir,setup,stan,levelscale,out,reasonout)) { return FALSE; }
     }
     /* Placement must be a translation, never an accidental change of scale

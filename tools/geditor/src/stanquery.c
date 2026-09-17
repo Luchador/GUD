@@ -1,6 +1,7 @@
 /* Placement subset of game/stan.c. Keep tile identity and link traversal:
    a global downward ray can pick the wrong floor in overlapping rooms. */
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "stanload.h"
@@ -306,4 +307,42 @@ DWORD StanResolvePadTile(const StanFile *stan, const char *name, const float pos
         return best;
     }
     return STAN_TILE_NONE;
+}
+
+/* A prop's room follows its existing floor through a move. Starting a fresh
+ * 3D nearest-sample search at ceiling height can choose a disconnected raised
+ * surface even when the destination lies above the original floor. */
+BOOL StanResolveMovedPadName(const StanFile *stan, const char *name,
+    const float from[3], const float to[3], char resolved[16])
+{
+    DWORD tile = StanResolvePadTile(stan, name, from), id;
+    resolved[0] = '\0';
+    if (!to) { return FALSE; }
+    if (tile != STAN_TILE_NONE
+        && StanWalkTiles(stan, &tile, from[0], from[2], to[0], to[2]))
+    {
+        StanTile query;
+        StanQueryTile(stan, tile, &query);
+        /* A successful zero-length/edge walk alone is not proof of containment. */
+        if (!StanInsideTriple(&query, to[0] * stan->levelscale, to[2] * stan->levelscale))
+        { tile = STAN_TILE_NONE; }
+    }
+    else { tile = STAN_TILE_NONE; }
+    /* Keep existing placement behavior for moves to another disconnected
+     * area. Never carry an old tile name beyond its valid footprint. */
+    if (tile == STAN_TILE_NONE) { tile = StanResolvePadTile(stan, "", to); }
+    if (tile == STAN_TILE_NONE) { return FALSE; }
+    id = stan->tiles[tile].id;
+    if (id > 0xffffffu || ((id >> 3) & 31u) >= 26) { return FALSE; }
+    snprintf(resolved, 16, "%c%lu%c", id & 0x800000u ? 'q' : 'p',
+             (unsigned long)((id >> 8) & 32767u), 'a' + (int)((id >> 3) & 31u));
+    if (id & 7u)
+    {
+        size_t length = 0;
+        while (resolved[length]) { length++; }
+        resolved[length] = '0' + (id & 7u); resolved[length + 1] = '\0';
+    }
+    /* Verify the native name lookup, including duplicate IDs and edge cases,
+     * will select this same tile when the saved setup is loaded by the game. */
+    return StanResolvePadTile(stan, resolved, to) == tile;
 }
