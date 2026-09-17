@@ -1306,6 +1306,32 @@ static BOOL GltfPrimitiveTextureSize(const char *json,
 }
 
 
+/* Project BMPs are displayed rotated 180 degrees from native GE texels.
+ * New models authored against those images need the inverse rotation in UV
+ * space. GEditor exports embed native-order PNGs, so preserve their UVs.
+ * Material extras survive a Blender round trip even when primitive extras
+ * do not. Texture-size extras identify exports made before the explicit tag. */
+static int GltfPrimitiveNativeUvs(const char *json, const GltfJsonToken *tokens,
+    int count, int root, int primitive)
+{
+    int objects[2] = {primitive, -1}, width, height;
+    int token = GltfJsonObjectGet(json, tokens, count, primitive, "material");
+    DWORD index;
+    if (token >= 0 && GltfJsonUnsigned(json, &tokens[token], &index))
+        objects[1] = GltfJsonArrayGet(tokens, count,
+            GltfJsonObjectGet(json, tokens, count, root, "materials"), index);
+    for (int i = 0; i < 2; i++)
+    {
+        int extras = GltfJsonObjectGet(json, tokens, count, objects[i], "extras");
+        token = GltfJsonObjectGet(json, tokens, count, extras, "goldeneyeUvOrientation");
+        if (token < 0) { continue; }
+        if (GltfJsonTokenEquals(json, &tokens[token], "native")) { return 1; }
+        if (GltfJsonTokenEquals(json, &tokens[token], "display")) { return 0; }
+        return -1;
+    }
+    return GltfPrimitiveTextureSize(json, tokens, count, root, primitive, &width, &height) ? 1 : 0;
+}
+
 /* Native extras retain modes glTF cannot express. Standard glTF materials
  * use alphaMode (OPAQUE when absent), as required for Blender imports. */
 static BOOL GltfPrimitiveRenderFlags(const char *json, const GltfJsonToken *tokens, int tokencount,
@@ -1540,6 +1566,7 @@ static BOOL GltfLoadPrimitive(const char *json,
     GltfAccessor normals, environmentscales, sourceids;
     BOOL hascolors = FALSE;
     BOOL hastexcoords = FALSE;
+    int nativeuvs = 1;
     BOOL hasindices = FALSE;
     unsigned short tag;
     BgRenderFlags renderflags;
@@ -1642,6 +1669,13 @@ static BOOL GltfLoadPrimitive(const char *json,
             return FALSE;
         }
         hastexcoords = TRUE;
+    }
+
+    if (builder->newprop && hastexcoords)
+    {
+        nativeuvs = GltfPrimitiveNativeUvs(json, tokens, tokencount, root, primitive);
+        if (nativeuvs < 0)
+        { *reasonout = "A prop material has an unsupported goldeneyeUvOrientation."; return FALSE; }
     }
 
     indicestoken = GltfJsonObjectGet(json, tokens, tokencount,
@@ -1828,8 +1862,8 @@ static BOOL GltfLoadPrimitive(const char *json,
                 *reasonout = "a glTF triangle references invalid texture coordinates.";
                 return FALSE;
             }
-            vertex->s = values[0] * (float)texturewidth;
-            vertex->t = values[1] * (float)textureheight;
+            vertex->s = (nativeuvs ? values[0] : 1.0f - values[0]) * (float)texturewidth;
+            vertex->t = (nativeuvs ? values[1] : 1.0f - values[1]) * (float)textureheight;
         }
 
         if (!builder->importing && (renderflags & BG_RENDER_ENVIRONMENT))
@@ -2502,7 +2536,7 @@ static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
         }
 
         if (fprintf(file,"    {\"name\": ")<0 || !GltfWriteString(file,label) || fprintf(file,
-            ", \"doubleSided\": %s%s, \"pbrMetallicRoughness\": {\"baseColorFactor\": [1, 1, 1, 1], \"metallicFactor\": 0, \"roughnessFactor\": 1%s}, \"extensions\": {\"KHR_materials_unlit\": {}}, \"extras\": {%s\"goldeneyeRenderFlags\": %u, \"goldeneyeTextureTag\": %u, \"goldeneyeUvUnits\": \"normalized\", \"goldeneyeTextureSize\": [%d, %d]}}%s\n",
+            ", \"doubleSided\": %s%s, \"pbrMetallicRoughness\": {\"baseColorFactor\": [1, 1, 1, 1], \"metallicFactor\": 0, \"roughnessFactor\": 1%s}, \"extensions\": {\"KHR_materials_unlit\": {}}, \"extras\": {%s\"goldeneyeRenderFlags\": %u, \"goldeneyeTextureTag\": %u, \"goldeneyeUvUnits\": \"normalized\", \"goldeneyeUvOrientation\": \"native\", \"goldeneyeTextureSize\": [%d, %d]}}%s\n",
             (item->renderflags & BG_RENDER_CULL_BACK)
                 && !(item->renderflags & BG_RENDER_CULL_FRONT) ? "false" : "true",
             alpha, texture, slotextra, item->renderflags, item->tag,
@@ -2532,7 +2566,7 @@ static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
             snprintf(attributes+used,sizeof(attributes)-used,", \"_GUD_VERTEX\": %lu",(unsigned long)(group*6+5));
         }
         if (fprintf(file,
-            "      {\"attributes\": {\"POSITION\": %lu, \"TEXCOORD_0\": %lu, \"COLOR_0\": %lu%s}, \"material\": %lu, \"mode\": 4, \"extras\": {\"goldeneyeTextureTag\": %u, \"goldeneyeUvUnits\": \"normalized\", \"goldeneyeTextureSize\": [%d, %d]}}%s\n",
+            "      {\"attributes\": {\"POSITION\": %lu, \"TEXCOORD_0\": %lu, \"COLOR_0\": %lu%s}, \"material\": %lu, \"mode\": 4, \"extras\": {\"goldeneyeTextureTag\": %u, \"goldeneyeUvUnits\": \"normalized\", \"goldeneyeUvOrientation\": \"native\", \"goldeneyeTextureSize\": [%d, %d]}}%s\n",
             (unsigned long)(group*6),(unsigned long)(group*6+1),(unsigned long)(group*6+2),attributes,
             (unsigned long)group,groups[group].tag,groups[group].texturewidth,groups[group].textureheight,
             source == NULL && group+1<groupcount ? "," : "")<0) { ok=FALSE; }

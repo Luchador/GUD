@@ -4595,6 +4595,16 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         return GEditorDropSetupMarker(hwnd, drop);
     }
 
+    case BROWSER_WM_MODEL_OPEN:
+    {
+        const char *why;
+        if (g_Project.name[0] == '\0') { return 0; }
+        if (!ModelEditorOpenModel(hwnd, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+                                  g_Project.dir, (const char *)lparam, &why))
+        { MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR); }
+        return 0;
+    }
+
     case BROWSER_WM_MODEL_DRAG_BEGIN:
     {
         BOOL character;

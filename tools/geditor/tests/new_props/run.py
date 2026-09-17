@@ -124,6 +124,22 @@ def main():
         command += ['-Wl,--gc-sections', '-lm', '-o', str(work / 'check')]
         subprocess.run(command, check=True)
         doc, data = fixture(work / 'pendant.glb')
+        # Distinct, non-edge UVs include tiling outside [0,1]. These must be
+        # rotated with project BMPs, but not with GEditor's native-order PNGs.
+        uvdata = bytearray(data)
+        accessor = doc['accessors'][doc['meshes'][0]['primitives'][0]['attributes']['TEXCOORD_0']]
+        offset = doc['bufferViews'][accessor['bufferView']]['byteOffset']
+        struct.pack_into('<6f', uvdata, offset, .125, .25, .75, -.125, 1.25, .875)
+        for orientation in ('display', 'native', 'legacy', 'primitive', 'invalid'):
+            uvdoc = copy.deepcopy(doc)
+            extra = uvdoc['materials'][0].setdefault('extras', {})
+            if orientation == 'legacy':
+                extra.update(goldeneyeTextureSize=[32, 32], goldeneyeUvUnits='normalized')
+            elif orientation == 'primitive':
+                uvdoc['meshes'][0]['primitives'][0]['extras'] = {'goldeneyeUvOrientation': 'native'}
+            elif orientation != 'display':
+                extra['goldeneyeUvOrientation'] = orientation
+            write(work / f'uv-{orientation}.glb', uvdoc, uvdata)
         fixture(work / 'changed.gltf', True)
         invalid = copy.deepcopy(doc)
         invalid['images'][1]['name'] = 'GUD Image 0BAD'

@@ -31,6 +31,9 @@ def main():
     drag_point = function(source, 'static BOOL BrowserImageDragPoint(')
     end_drag = function(source, 'static void BrowserEndAssetDrag(')
     start_drag = function(source, 'static BOOL BrowserStartAssetDrag(')
+    hit_model = function(source, 'static int BrowserModelCategory(') + '\n'
+    hit_model += function(source, 'static int BrowserHitModel(')
+    double_click = source[source.index('    case WM_LBUTTONDBLCLK:'):source.index('    case WM_LBUTTONDOWN:')]
     mousemove = source[source.index('    case WM_MOUSEMOVE:'):source.index('    case WM_MOUSELEAVE:')]
     move_drag = mousemove[mousemove.index('        if (state != NULL && state->dragimage != NULL)'):
                           mousemove.index('        if (state != NULL && state->dragsection >= 0)')]
@@ -55,7 +58,9 @@ typedef struct {
     BOOL dragobject;
     int pressedobject, dragsection;
     DWORD dragtextureid;
-    struct { RECT bodyrc; } sections[1];
+    struct { RECT bodyrc; BOOL expanded; } sections[4];
+    struct { char label[64]; } models[4], levels[1];
+    int modelcount, modeltab, scroll[4], selectedlevel;
 } BrowserState;
 #define TRUE 1
 #define FALSE 0
@@ -67,6 +72,13 @@ typedef struct {
 #define SM_XVIRTUALSCREEN 76
 #define SM_YVIRTUALSCREEN 77
 #define BROWSER_SECTION_OBJECTS 0
+#define BROWSER_SECTION_IMAGES 2
+#define BROWSER_SECTION_MODELS 3
+#define BROWSER_MODEL_CHARACTERS 0
+#define BROWSER_MODEL_ITEMS 1
+#define BROWSER_MODEL_PROPS 2
+#define BROWSER_ROW_H 16
+#define BROWSER_SCROLLBAR_W 8
 #define BROWSER_OBJECT_TRIANGLE 0
 #define BROWSER_OBJECT_QUAD 1
 #define BROWSER_OBJECT_SPAWN 2
@@ -86,6 +98,10 @@ typedef struct {
 #define WM_CAPTURECHANGED 2
 #define WM_CANCELMODE 3
 #define WM_MOUSEMOVE 7
+#define WM_LBUTTONDBLCLK 8
+#define WM_LBUTTONDOWN 9
+#define BROWSER_WM_MODEL_OPEN 10
+#define BROWSER_WM_LEVEL_OPEN 11
 #define BROWSER_WM_OBJECT_DROP 4
 #define BROWSER_WM_IMAGE_DROP 5
 #define BROWSER_WM_MODEL_DROP 6
@@ -103,6 +119,8 @@ static BrowserState g_state;
 static HWND capture;
 static POINT clientorigin = {100, 200}, virtualorigin, preview;
 static int captures, destroyed, objectdrops, imagedrops, modeldrops;
+static int modelopens;
+static char openedmodel[64];
 static BrowserObjectDrop placed;
 static LRESULT Dispatch(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 static HWND GetParent(HWND hwnd) { return frame; }
@@ -147,12 +165,25 @@ static BOOL ClientToScreen(HWND hwnd, POINT *p)
 {
     p->x += clientorigin.x; p->y += clientorigin.y; return TRUE;
 }
+static BOOL PtInRect(const RECT *r, POINT p)
+{ return p.x >= r->left && p.x < r->right && p.y >= r->top && p.y < r->bottom; }
+static RECT BrowserContentRect(const BrowserState *state, int section) { return state->sections[section].bodyrc; }
+static void GetClientRect(HWND hwnd, RECT *r) { *r = (RECT){0, 0, 200, 200}; }
+static void BrowserLayoutSections(BrowserState *state, const RECT *r) {}
+static int BrowserHitLevelRow(HWND hwnd, int x, int y) { return -1; }
+static int BrowserHitHeader(HWND hwnd, int x, int y) { return -1; }
+static int BrowserHitImage(const BrowserState *state, POINT p) { return -1; }
+static int BrowserHitModelTab(const BrowserState *state, POINT p) { return -1; }
+static int BrowserHitObjectTab(const BrowserState *state, POINT p) { return -1; }
+static int BrowserHitObject(const BrowserState *state, POINT p) { return -1; }
 static LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     assert(hwnd == frame && capture == 0 && g_state.dragimage == 0);
     if (msg == BROWSER_WM_OBJECT_DROP) { placed = *(BrowserObjectDrop *)lparam; objectdrops++; }
     else if (msg == BROWSER_WM_IMAGE_DROP) { imagedrops++; }
     else if (msg == BROWSER_WM_MODEL_DROP) { modeldrops++; }
+    else if (msg == BROWSER_WM_MODEL_OPEN)
+    { modelopens++; lstrcpyn(openedmodel, (const char *)lparam, sizeof(openedmodel)); }
     else { assert(0); }
     return TRUE;
 }
@@ -165,6 +196,7 @@ static void Reset(BOOL palette)
     g_state.dragsection = -1; g_state.pressedobject = palette ? BROWSER_OBJECT_SPAWN : -1;
     capture = palette ? browser : 0;
     captures = destroyed = objectdrops = imagedrops = modeldrops = 0;
+    modelopens = 0; openedmodel[0] = 0;
 }
 static void Start(BOOL palette)
 {
@@ -210,6 +242,28 @@ static void CheckMonitorLayouts(void)
 int main(void)
 {
     CheckMonitorLayouts();
+    /* Use real tab filtering and scrolled model-row hit testing. Item models
+       can open even though they do not support placement drags. */
+    for (int tab = 0; tab < 3; tab++)
+    {
+        const char *expected[] = {"CguardZ", "Gpp7Z", "PpendantZ"};
+        Reset(FALSE); Start(FALSE);
+        g_state.sections[BROWSER_SECTION_MODELS].expanded = TRUE;
+        g_state.sections[BROWSER_SECTION_MODELS].bodyrc = (RECT){0, 0, 200, 100};
+        g_state.modelcount = 4; g_state.modeltab = tab;
+        strcpy(g_state.models[0].label, "CguardZ"); strcpy(g_state.models[1].label, "Gpp7Z");
+        strcpy(g_state.models[2].label, "PboxZ"); strcpy(g_state.models[3].label, "PpendantZ");
+        g_state.scroll[BROWSER_SECTION_MODELS] = tab == 2 ? BROWSER_ROW_H : 0;
+        Dispatch(browser, WM_LBUTTONDBLCLK, 0, MousePoint(10, 6));
+        assert(modelopens == 1 && !strcmp(openedmodel, expected[tab]));
+        assert(destroyed == 1 && !capture && !g_state.dragimage && !modeldrops);
+        Dispatch(browser, WM_LBUTTONUP, 0, 0); assert(!modeldrops);
+        Dispatch(browser, WM_LBUTTONDBLCLK, 0, MousePoint(10, 90)); /* Blank area. */
+        Dispatch(browser, WM_LBUTTONDBLCLK, 0, MousePoint(195, 6)); /* Scrollbar. */
+        g_state.sections[BROWSER_SECTION_MODELS].expanded = FALSE;
+        Dispatch(browser, WM_LBUTTONDBLCLK, 0, MousePoint(10, 6));
+        assert(modelopens == 1);
+    }
     const int primitives[] = {BROWSER_OBJECT_TRIANGLE, BROWSER_OBJECT_QUAD, BROWSER_OBJECT_CIRCLE, BROWSER_OBJECT_CYLINDER};
     for (unsigned i = 0; i < sizeof(primitives)/sizeof(*primitives); i++)
     {
@@ -258,18 +312,19 @@ int main(void)
     Dispatch(browser, WM_LBUTTONUP, 0, 0); assert(imagedrops == 1 && destroyed == 1);
     Reset(FALSE); Start(FALSE); strcpy(g_state.dragmodel, "PcrateZ");
     Dispatch(browser, WM_LBUTTONUP, 0, 0); assert(modeldrops == 1 && destroyed == 1);
-    puts("PASS: multi-monitor preview coordinates, palette capture, triangle/quad/circle/cylinder/spawn/intro/outro/door/glass/CCTV/alarm/drone/tank/armor/portal drop type/position, capture loss, cancellation, image/model drags.");
+    puts("PASS: multi-monitor preview coordinates, palette capture, triangle/quad/circle/cylinder/spawn/intro/outro/door/glass/CCTV/alarm/drone/tank/armor/portal drop type/position, capture loss, cancellation, image/model drags, double-click opening across model tabs and scrolling.");
     return 0;
 }
 '''
     dispatch = '\nstatic LRESULT Dispatch(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)\n{\n'
     dispatch += 'BrowserState *state = &g_state;\nswitch (msg) {\n'
+    dispatch += double_click
     dispatch += 'case WM_MOUSEMOVE:\n' + move_drag + '\nreturn 0;\n'
     dispatch += events + '\ndefault: return 0;\n}\n}\n'
     with tempfile.TemporaryDirectory(prefix='geditor-browser-drag-') as temp:
         temp = Path(temp)
         unit = temp / 'check.c'
-        unit.write_text(prelude + drag_point + '\n' + end_drag + '\n' + start_drag + dispatch + tests)
+        unit.write_text(prelude + drag_point + '\n' + end_drag + '\n' + start_drag + '\n' + hit_model + dispatch + tests)
         subprocess.run([os.environ.get('CC', 'cc'), '-std=c99', '-O1', '-g', '-Wall', '-Wextra',
                         '-Werror', '-Wno-unused-parameter', '-fsanitize=address,undefined',
                         str(unit), '-o', str(temp / 'check')], check=True)

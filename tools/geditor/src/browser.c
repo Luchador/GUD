@@ -1417,9 +1417,18 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
             GetClientRect(hwnd, &client);
             BrowserLayoutSections(state, &client);
+            row = BrowserHitModel(state, point);
+            if (row >= 0)
+            {
+                char name[sizeof(state->models[row].label)];
+                lstrcpyn(name, state->models[row].label, sizeof(name));
+                BrowserEndAssetDrag(hwnd, state);
+                SendMessage(GetParent(hwnd), BROWSER_WM_MODEL_OPEN, 0, (LPARAM)name);
+                return 0;
+            }
             if (BrowserHitImage(state, point) >= 0 || BrowserHitModelTab(state, point) >= 0
                 || BrowserHitObjectTab(state, point) >= 0
-                || BrowserHitModel(state, point) >= 0 || BrowserHitObject(state, point) >= 0)
+                || BrowserHitObject(state, point) >= 0)
             {
                 return SendMessage(hwnd, WM_LBUTTONDOWN, wparam, lparam);
             }

@@ -24,9 +24,11 @@ typedef struct BrowserImageDrop {
 } BrowserImageDrop;
 
 /* BEGIN lparam is the model name; DROP points to the copied name and screen
-   position. Items remain browse-only. Both messages are synchronous. */
+   position. Items do not support placement drags. Both messages are synchronous. */
 #define BROWSER_WM_MODEL_DRAG_BEGIN (WM_APP + 19)
 #define BROWSER_WM_MODEL_DROP       (WM_APP + 20)
+/* OPEN lparam is a model name, valid only during the synchronous message. */
+#define BROWSER_WM_MODEL_OPEN       (WM_APP + 62)
 typedef struct BrowserModelDrop {
     char name[64];
     POINT screen;

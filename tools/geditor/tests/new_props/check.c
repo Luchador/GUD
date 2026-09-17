@@ -6,6 +6,7 @@
 #include "modelcompile.h"
 #include "modeledits.h"
 #include "texload.h"
+#include "gltf.h"
 /* Exercise the real private placement cache and shading with the same assets. */
 #include "objectload.c"
 #include "propcompile.h"
@@ -58,7 +59,7 @@ static void CheckSlots(const char *project)
     CHECK(!strcmp(source.materials.slots[0].name,"Cable"));
     CHECK(!strcmp(source.materials.slots[1].name,"Metal"));
     for(i=0;i<4;i++) CHECK(BG_TEX_ID(source.tags[i])==BG_TEX_NONE);
-    CHECK(source.materials.faces[0].uv[2]==1.0f);ModelFreeSource(&source);
+    CHECK(source.materials.faces[0].uv[0]==1.0f && source.materials.faces[0].uv[2]==0.0f);ModelFreeSource(&source);
     CHECK(!ModelEditsSetMaterial(project,"PpendantZ",revision,0,0xbad,&why));
     Assign(project,0,0xd4);Assign(project,1,0xd4);
     CHECK(ModelEditsReadSource(project,"PpendantZ",&source,&revision,&why));
@@ -112,7 +113,9 @@ static void CheckModel(const char *project,DWORD expected)
         }
     }
     CHECK(blended==1);CHECK(BG_TEX_ID(source.tags[0])==0xd4);CHECK(BG_TEX_ID(source.tags[1])==0xb00);
-    CHECK(source.vertices[1].s==32 && source.vertices[4].s==64);
+    CHECK(source.vertices[0].s==32 && source.vertices[3].s==64);
+    CHECK(source.vertices[1].s==0 && source.vertices[4].s==0);
+    CHECK(source.vertices[0].t==32 && source.vertices[2].t==0);
     ModelFreeSource(&source);
 }
 static void ActualPendant(const char *project,const char *path)
@@ -160,6 +163,35 @@ static void ActualPendant(const char *project,const char *path)
     ModelEditsReset();puts("PASS supplied pendant: 80 faces, four unassigned slots, 00D4/0A93 bindings, alpha 25 and save/export/reimport.");
 }
 
+static void CheckUvOrientation(const char *project)
+{
+    const char *variants[]={"display","native","legacy","primitive","invalid"};
+    const float authored[]={.125f,.25f,.75f,-.125f,1.25f,.875f};
+    for (int variant=0;variant<5;variant++)
+    {
+        char path[MAX_PATH];DWORD count=0;unsigned short *tags=NULL;BgRenderFlags *flags=NULL;
+        ModelMaterials materials={0};BgVertex *vertices;
+        snprintf(path,sizeof(path),"%s/uv-%s.glb",project,variants[variant]);
+        vertices=GltfReadNewProp(path,project,&count,&tags,&flags,&materials,&why);
+        if (variant==4) { CHECK(!vertices && strstr(why,"goldeneyeUvOrientation")); }
+        else
+        {
+            CHECK(vertices && count==4 && materials.facecount==4);
+            for (int corner=0;corner<3;corner++)
+            {
+                float s=authored[corner*2],t=authored[corner*2+1];
+                if (variant==0) { s=1.f-s;t=1.f-t; }
+                CHECK(vertices[corner].s==s && vertices[corner].t==t);
+                CHECK(materials.faces[0].uv[corner*2]==s && materials.faces[0].uv[corner*2+1]==t);
+            }
+            /* Orientation metadata for one material must not affect another. */
+            CHECK(vertices[3].s==1.f && vertices[3].t==1.f);
+        }
+        free(vertices);free(tags);free(flags);ModelMaterialsFree(&materials);
+    }
+    puts("PASS display/native UV orientation, tiling, legacy exports and material/primitive metadata.");
+}
+
 int main(int argc,char **argv)
 {
     const char *project=argv[1],*name;float scale;DWORD count,size,hash,oldsize,start,i;
@@ -173,6 +205,7 @@ int main(int argc,char **argv)
     Write(base,rom.data,rom.size);RomFree(&rom);
     CHECK(NewPropsOpen(project,&why));CHECK(NewPropsCount()==0);
     if(argc==3) { ActualPendant(project,argv[2]);return 0; }
+    CheckUvOrientation(project);
     snprintf(source,sizeof(source),"%s/pendant.glb",project);
     CHECK(!NewPropsImport(project,"PnativeZ",source,FALSE,&count,&why));
     CHECK(NewPropsImport(project,"PpendantZ",source,FALSE,&count,&why));CHECK(count==4);
