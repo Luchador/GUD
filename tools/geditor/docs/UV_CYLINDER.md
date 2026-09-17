@@ -12,6 +12,20 @@ Changes are rounded to GoldenEye's native 1/32-texel precision. An entry outside
 the signed 16-bit S/T range rejects the entire edit. Invalid text in the other
 box does not block a coordinate entry. An unchanged entry adds no undo step.
 
+When the selected faces share one texture, the canvas shows it behind their
+UVs. The **Opacity** slider controls the preview inside the outlined 0-1 tile;
+repeats outside it use half that opacity. The image repeats in both directions,
+including negative coordinates, and stays aligned while panning or zooming.
+At 0% both the main image and its repeats disappear.
+
+The **red border** marks the native UV limits, not the 0-1 tile: tiling outside
+0-1 is valid. For a texture of width W and height H, the supported range is
+`-32768/(32*W)` through `32767/(32*W)` in U, and the equivalent using H in V.
+For example, a 32x32 texture permits almost 32 repeats in either direction.
+Zoom out or pan towards a limit to see its border. For mixed texture sizes,
+the border encloses the range valid for every displayed face. It remains
+visible without a shared texture preview and with opacity set to 0%.
+
 Select the background faces making up one cylinder, open the UV editor, and
 click **Cylindrical** beside the planar projection buttons. It maps all faces
 shown in the UV editor, independently of the UV vertex selection.
@@ -33,6 +47,10 @@ one ordinary undo/redo step and save through the existing background compiler.
 No game rendering code or project file format changes are required.
 
 ## Verification
+
+Run `python3 tools/geditor/tests/uv_texture/run.py` for texture selection,
+alpha/opacity, negative repeats, pan/zoom alignment, and native range borders
+with mixed dimensions and offscreen clipping.
 
 Run `python3 tools/geditor/tests/uv_cylinder/run.py` for the focused native tests:
 

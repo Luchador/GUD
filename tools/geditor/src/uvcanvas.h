@@ -42,9 +42,9 @@ typedef struct UVCanvasFaceEdit {
    and leaves the camera unchanged. FALSE clears the overlay on allocation failure. */
 BOOL UVCanvasSetTriangles(HWND canvas, UVCanvasTriangle *triangles, int count);
 /* Takes ownership of native-order RGBA pixels. NULL clears the background.
- * The image covers the 0-1 UV square and follows its camera. Invalid sizes or
- * allocation failure clear the preview and return FALSE. No selection/edit
- * notifications are sent. Opacity is a presentation-only percentage. */
+ * The image tiles with the camera, at half opacity outside the 0-1 UV square.
+ * Invalid sizes or allocation failure clear the preview and return FALSE.
+ * No selection/edit notifications are sent. Opacity is presentation-only. */
 BOOL UVCanvasSetTexture(HWND canvas, TexPixel *pixels, int width, int height);
 void UVCanvasSetTextureOpacity(HWND canvas, int percent);
 int UVCanvasGetSelection(HWND canvas, double uv[2]);

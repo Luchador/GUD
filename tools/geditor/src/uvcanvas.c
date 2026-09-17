@@ -6,11 +6,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
+#include <stdint.h>
 
 #define UVCANVAS_CLASS "GEditorUVCanvas"
 #define UVCANVAS_UNIT_FILL RGB(48, 48, 48)
 #define UVCANVAS_UNIT_EDGE RGB(160, 160, 160)
 #define UVCANVAS_FACE_EDGE RGB(128, 128, 128)
+#define UVCANVAS_LIMIT_EDGE RGB(255, 80, 80)
 #define UVCANVAS_VERTEX_RADIUS 2 /* a filled 5x5 screen-pixel square */
 #define UVCANVAS_MIN_SCALE 4.0
 #define UVCANVAS_MAX_SCALE 1000000.0
@@ -30,7 +32,7 @@ typedef struct UVCanvasState {
     double pixelsperunit;
     int width, height;
     TexPixel *texture;
-    unsigned char *texturebitmap; /* bottom-up opaque BGRA, blended over unit fill */
+    unsigned char *texturebitmap; /* native-order BGRA: unit tile, then dim repeat tile */
     int texturewidth, textureheight, textureopacity;
     BOOL panning;
     POINT lastmouse;
@@ -147,18 +149,23 @@ static UVCanvasState *UVCanvasGetState(HWND hwnd)
 
 static void UVCanvasBlendTexture(UVCanvasState *state)
 {
-    int i;
-    for (i = 0; i < state->texturewidth * state->textureheight; i++)
+    int tile, i, count = state->texturewidth * state->textureheight;
+    for (tile = 0; tile < 2; tile++)
     {
-        const TexPixel *pixel = &state->texture[i];
-        unsigned char *out = state->texturebitmap + i * 4;
-        unsigned int alpha = pixel->a * state->textureopacity;
-        /* Keep straight image alpha and slider opacity independent. The GDI
-         * bitmap itself is opaque, avoiding a per-frame AlphaBlend surface. */
-        out[0] = (unsigned char)((pixel->b * alpha + GetBValue(UVCANVAS_UNIT_FILL) * (25500 - alpha) + 12750) / 25500);
-        out[1] = (unsigned char)((pixel->g * alpha + GetGValue(UVCANVAS_UNIT_FILL) * (25500 - alpha) + 12750) / 25500);
-        out[2] = (unsigned char)((pixel->r * alpha + GetRValue(UVCANVAS_UNIT_FILL) * (25500 - alpha) + 12750) / 25500);
-        out[3] = 0;
+        unsigned int background = tile ? UVCANVAS_BACKGROUND : UVCANVAS_UNIT_FILL;
+        /* Twice the denominator gives repeats exactly half the slider's
+         * opacity, including odd percentages, without losing image alpha. */
+        unsigned int denominator = tile ? 51000 : 25500;
+        for (i = 0; i < count; i++)
+        {
+            const TexPixel *pixel = &state->texture[i];
+            unsigned char *out = state->texturebitmap + (tile * count + i) * 4;
+            unsigned int alpha = pixel->a * state->textureopacity;
+            out[0] = (unsigned char)((pixel->b * alpha + GetBValue(background) * (denominator - alpha) + denominator / 2) / denominator);
+            out[1] = (unsigned char)((pixel->g * alpha + GetGValue(background) * (denominator - alpha) + denominator / 2) / denominator);
+            out[2] = (unsigned char)((pixel->r * alpha + GetRValue(background) * (denominator - alpha) + denominator / 2) / denominator);
+            out[3] = 0;
+        }
     }
 }
 
@@ -170,7 +177,7 @@ BOOL UVCanvasSetTexture(HWND hwnd, TexPixel *pixels, int width, int height)
     if (!state) { free(pixels); return FALSE; }
     if (pixels && width > 0 && width <= 256 && height > 0 && height <= 256)
     {
-        bitmap = malloc((size_t)width * height * 4);
+        bitmap = malloc((size_t)width * height * 4 * 2);
         valid = bitmap != NULL;
     }
     free(state->texture); free(state->texturebitmap);
@@ -409,31 +416,88 @@ static void UVCanvasDrawTools(HDC dc, const UVCanvasState *state)
     SelectObject(dc, oldfont);
 }
 
-static void UVCanvasDrawTexture(HDC dc, const UVCanvasState *state,
-                                double left, double top, double right, double bottom)
+static void UVCanvasDrawTexture(HDC dc, const UVCanvasState *state)
 {
     BITMAPINFO info = {0};
-    int x, y, width, height, oldmode;
-    if (!state->texturebitmap || !state->textureopacity) { return; }
-    /* Called only while the unit square intersects the client. With zoom
-     * capped at 1,000,000, these un-clipped coordinates fit GDI integers.
-     * Let the DC clip the image: clipping its destination rectangle here
-     * would stretch the whole image into the visible portion at high zoom. */
-    x = (int)floor(left + 0.5); y = (int)floor(top + 0.5);
-    width = (int)floor(right + 0.5) - x;
-    height = (int)floor(bottom + 0.5) - y;
+    unsigned char *bitmap;
+    int *columns, x, y, oldmode, previousrow = -1, unitstart, unitend;
+    BOOL previousunit = FALSE;
+    size_t stride, tilebytes;
+    double left, right;
+    if (!state->texturebitmap || !state->textureopacity || state->width <= 0
+        || state->height <= 0 || state->pixelsperunit <= 0.0) { return; }
+    if ((size_t)state->width > SIZE_MAX / 4 / state->height) { return; }
+    stride = (size_t)state->width * 4;
+    bitmap = malloc(stride * state->height);
+    columns = malloc((size_t)state->width * sizeof(*columns));
+    if (!bitmap || !columns) { free(bitmap); free(columns); return; }
+    tilebytes = (size_t)state->texturewidth * state->textureheight * 4;
+    left = state->width * 0.5 - state->centeru * state->pixelsperunit;
+    right = left + state->pixelsperunit;
+    unitstart = (int)fmin(state->width, fmax(0.0, ceil(left - 0.5)));
+    unitend = (int)fmin(state->width, fmax(0.0, ceil(right - 0.5)));
+    /* Sample at screen-pixel centers, wrapping negative UVs with floor.
+     * Work and allocation depend only on the visible canvas, not the number
+     * of repeats or the size of a tile at high zoom. One blit avoids tens of
+     * thousands of tiny GDI operations at the minimum zoom. */
+    for (x = 0; x < state->width; x++)
+    {
+        double u = state->centeru + (x + 0.5 - state->width * 0.5) / state->pixelsperunit;
+        columns[x] = (int)floor((u - floor(u)) * state->texturewidth) * 4;
+    }
+    for (y = 0; y < state->height; y++)
+    {
+        double v = state->centerv - (y + 0.5 - state->height * 0.5) / state->pixelsperunit;
+        int row = (int)floor((v - floor(v)) * state->textureheight);
+        BOOL unit = v >= 0.0 && v < 1.0;
+        unsigned char *out = bitmap + (size_t)y * stride;
+        const unsigned char *source = state->texturebitmap + row * state->texturewidth * 4;
+        if (row == previousrow && unit == previousunit)
+        {
+            memcpy(out, out - stride, stride);
+            continue;
+        }
+        for (x = 0; x < state->width; x++)
+        {
+            size_t tile = unit && x >= unitstart && x < unitend ? 0 : tilebytes;
+            memcpy(out + (size_t)x * 4, source + tile + columns[x], 4);
+        }
+        previousrow = row; previousunit = unit;
+    }
     info.bmiHeader.biSize = sizeof(info.bmiHeader);
-    info.bmiHeader.biWidth = state->texturewidth;
-    /* Native row zero is V=0, at the bottom of this V-up canvas, just as in
-     * the viewport's GL upload. Do not use the browser's rotated thumbnail. */
-    info.bmiHeader.biHeight = state->textureheight;
+    info.bmiHeader.biWidth = state->width;
+    /* The screen bitmap is top-down; source row zero remains V=0 at the
+     * bottom of each tile, matching the viewport's native image upload. */
+    info.bmiHeader.biHeight = -state->height;
     info.bmiHeader.biPlanes = 1;
     info.bmiHeader.biBitCount = 32;
     info.bmiHeader.biCompression = BI_RGB;
     oldmode = SetStretchBltMode(dc, COLORONCOLOR);
-    StretchDIBits(dc, x, y, width, height, 0, 0, state->texturewidth, state->textureheight,
-                  state->texturebitmap, &info, DIB_RGB_COLORS, SRCCOPY);
+    StretchDIBits(dc, 0, 0, state->width, state->height, 0, 0, state->width, state->height,
+                  bitmap, &info, DIB_RGB_COLORS, SRCCOPY);
     if (oldmode) { SetStretchBltMode(dc, oldmode); }
+    free(columns); free(bitmap);
+}
+
+static void UVCanvasDrawLimits(HDC dc, const UVCanvasState *state)
+{
+    double uv[4][2], screen[4][2];
+    int i, width = 0, height = 0;
+    /* Intersect the native ranges of all displayed faces. A mixed-size
+     * selection must fit the largest width in U and largest height in V. */
+    for (i = 0; i < state->trianglecount; i++)
+    {
+        width = max(width, state->triangles[i].width);
+        height = max(height, state->triangles[i].height);
+    }
+    if (width <= 0 || height <= 0) { return; }
+    uv[0][0] = uv[3][0] = -32768.0 / (32.0 * width);
+    uv[1][0] = uv[2][0] = 32767.0 / (32.0 * width);
+    uv[0][1] = uv[1][1] = -32768.0 / (32.0 * height);
+    uv[2][1] = uv[3][1] = 32767.0 / (32.0 * height);
+    for (i = 0; i < 4; i++) { UVCanvasProject(state, uv[i], screen[i]); }
+    SetDCPenColor(dc, UVCANVAS_LIMIT_EDGE);
+    for (i = 0; i < 4; i++) { UVCanvasDrawEdge(dc, state, screen[i], screen[(i + 1) % 4]); }
 }
 
 static void UVCanvasDraw(HDC dc, const UVCanvasState *state)
@@ -459,13 +523,20 @@ static void UVCanvasDraw(HDC dc, const UVCanvasState *state)
                       UVCanvasClipCoordinate(bottom, state->height) + 1 };
         SetDCBrushColor(dc, UVCANVAS_UNIT_FILL);
         FillRect(dc, &unit, (HBRUSH)GetStockObject(DC_BRUSH));
-        UVCanvasDrawTexture(dc, state, left, top, right, bottom);
+    }
+    UVCanvasDrawTexture(dc, state);
+    if (right >= 0.0 && bottom >= 0.0 && left < state->width && top < state->height)
+    {
         SetDCPenColor(dc, UVCANVAS_UNIT_EDGE);
         SelectObject(dc, GetStockObject(HOLLOW_BRUSH));
-        Rectangle(dc, unit.left, unit.top, unit.right, unit.bottom);
+        Rectangle(dc, UVCanvasClipCoordinate(left, state->width),
+                  UVCanvasClipCoordinate(top, state->height),
+                  UVCanvasClipCoordinate(right, state->width) + 1,
+                  UVCanvasClipCoordinate(bottom, state->height) + 1);
         SelectObject(dc, GetStockObject(DC_BRUSH));
     }
     /* UVs may lie outside 0-1, even with the entire unit square offscreen. */
+    UVCanvasDrawLimits(dc, state);
     UVCanvasDrawTriangles(dc, state);
     UVCanvasDrawTools(dc, state);
     SelectObject(dc, oldpen);
