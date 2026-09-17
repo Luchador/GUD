@@ -710,7 +710,7 @@ void modelHitRenderNodeList(ModelRenderData *renderData, ModelHitEntry *entry)
                             renderCache.colorSegmentBase = NULL;
                             renderCache.vertexSegmentBase = NULL;
                             renderCache.type3PipelineReady = FALSE;
-                            //modelRenderShadow(renderData, model, node);
+                            modelRenderShadow(renderData, model, node);
                         }
                     }
                     else
