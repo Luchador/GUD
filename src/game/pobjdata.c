@@ -56,7 +56,11 @@ void customPropsInit(void)
     if (row[0] != CUSTOM_PROP_MAGIC || !count || count > CUSTOM_PROP_CAPACITY
         || row[2] != CUSTOM_PROP_ENTRY_SIZE || row[3] != CUSTOM_PROP_BASE
         || count > (g_CustomPropRomConfig.romSize - 16) / CUSTOM_PROP_ENTRY_SIZE) return;
-    items = mempAllocBytesInBank(count * sizeof(*items), MEMPOOL_STAGE);
+    /* mempAllocBytesInBank does not round sizes. Each runtime record is
+     * 140 bytes on N64, so an unrounded allocation misaligns the following
+     * setup/model DMA buffers even when no custom prop is placed. Reserve
+     * a whole number of cache lines; the CPU-only array keeps its stride. */
+    items = mempAllocBytesInBank(ALIGN16_a(count * sizeof(*items)), MEMPOOL_STAGE);
     if (!items) return;
     bzero(items, count * sizeof(*items));
     for (i = 0; i < count; i++)
