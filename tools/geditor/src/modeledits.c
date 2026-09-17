@@ -179,6 +179,71 @@ BOOL ModelEditsSetProperties(const char *project, const char *name, DWORD revisi
 done:
     free(data); free(compiled); ModelFreeSource(&source); ModelFreeSource(&check); return ok;
 }
+
+/* Takes ownership on success, matching NewPropsReplace. */
+static BOOL RetainPaint(const char *project, const char *name, DWORD basehash,
+    unsigned char *data, DWORD size, const char **why)
+{
+    DWORD customsize;
+    ModelEdit *edit;
+    if (NewPropsData(project, name, &customsize))
+    { return NewPropsReplace(name, data, size, why); }
+    for (edit = g_ModelEdits; edit && strcmp(edit->name, name); edit = edit->next) {}
+    if (!edit)
+    {
+        edit = calloc(1, sizeof(*edit));
+        if (!edit) { *why = "Out of memory retaining the painted model."; return FALSE; }
+        lstrcpyn(edit->name, name, sizeof(edit->name)); edit->next = g_ModelEdits; g_ModelEdits = edit;
+    }
+    free(edit->data); edit->data = data;
+    edit->size = size; edit->basehash = basehash; edit->dirty = TRUE;
+    *why = ""; return TRUE;
+}
+
+BOOL ModelEditsSetVertexColor(const char *project, const char *name, DWORD revision,
+    DWORD corner, const unsigned char rgba[4], ModelVertexPaint *change, const char **why)
+{
+    unsigned char *data = NULL, *painted = NULL;
+    DWORD size, basehash;
+    ModelSource source = {0};
+    ModelVertexPaint step = {0};
+    BOOL ok = FALSE;
+    if (change) { memset(change, 0, sizeof(*change)); }
+    if (!LoadSource(project, name, &data, &size, &basehash, why)) { goto done; }
+    if (ModelDataHash(data, size) != revision)
+    { *why = "The model changed. Reload it before painting."; goto done; }
+    if (!ModelReadSource(data, size, &source, why)
+        || !ModelCompileVertexColor(data, size, &source, corner, rgba, &painted, why)) { goto done; }
+    step.offset = source.vertexoffsets[corner];
+    step.beforeRevision = revision; step.afterRevision = ModelDataHash(painted, size);
+    memcpy(step.before, data + step.offset + 12, 4);
+    memcpy(step.after, painted + step.offset + 12, 4);
+    if (!memcmp(step.before, step.after, 4)) { ok = TRUE; goto done; }
+    ok = RetainPaint(project, name, basehash, painted, size, why);
+    if (ok) { painted = NULL; }
+done:
+    if (ok && change) { *change = step; }
+    free(data); free(painted); ModelFreeSource(&source); return ok;
+}
+
+BOOL ModelEditsRestoreVertexColor(const char *project, const char *name,
+    const ModelVertexPaint *change, BOOL redo, const char **why)
+{
+    unsigned char *data = NULL;
+    DWORD size, basehash;
+    BOOL ok = FALSE;
+    if (!change || !LoadSource(project, name, &data, &size, &basehash, why)) { goto done; }
+    if (ModelDataHash(data, size) != (redo ? change->beforeRevision : change->afterRevision)
+        || change->offset > size || size-change->offset < 16)
+    { *why = "The model changed since this paint edit. Its paint history can no longer be applied."; goto done; }
+    memcpy(data+change->offset+12, redo ? change->after : change->before, 4);
+    if (ModelDataHash(data, size) != (redo ? change->afterRevision : change->beforeRevision))
+    { *why = "The model's paint history does not match its vertex data."; goto done; }
+    ok = RetainPaint(project, name, basehash, data, size, why);
+    if (ok) { data = NULL; }
+done:
+    free(data); return ok;
+}
 BOOL ModelEditsSetMaterial(const char *project,const char *name,DWORD revision,
     DWORD slot,DWORD texture,const char **why)
 {

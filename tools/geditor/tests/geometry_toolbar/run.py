@@ -42,11 +42,7 @@ def main():
         (work / 'viewport.inc').write_text(''.join(helpers.function(viewport, n) for n in names))
         harness = (here.parent / 'edge_extrusion/viewport.c').read_text()
         harness = harness.replace('int scenecount,batchcount,', 'int stancomponentcount;\n    int scenecount,batchcount,')
-        # The shared viewport cancellation path also handles portal drags;
-        # this BG-only fixture must never enter that branch.
-        harness = harness.replace('BOOL dragextruding,', 'BOOL dragportal,dragextruding,')
-        harness = harness.replace('#include "viewport.inc"',
-            'static void ViewportPreviewPortalDrag(ViewportState *state, double delta) { abort(); }\n#include "viewport.inc"')
+        # The shared fixture already includes the portal cancellation stubs.
         harness = harness.replace('    Begin(&s,TRUE,25);', '''    BgDocumentEdgeRef selected;
     assert(ViewportGetSelectedBgEdges(&s, &selected, 1) && selected.face.faceid == 11 && selected.corner == 0);
     assert(!ViewportGetSelectedBgEdges(&s, &selected, 2));

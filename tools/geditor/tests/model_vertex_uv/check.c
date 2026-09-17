@@ -662,6 +662,75 @@ static void MaterialSlots(const unsigned char *base,DWORD basesize,const char *p
     printf("PASS stock material assignment, resize, clear, stale revision, unchanged neighbours, UV retention, save/reload and native ROM export: %s\n",assetpath);
 }
 
+static void Brush(const unsigned char *base, DWORD size, const ModelSource *source, const char *project)
+{
+    ModelSource current = {0}; DWORD revision, length, offset = source->vertexoffsets[1];
+    unsigned char rgba[4] = {17, 99, 201, 173}, *painted = NULL, *rom = NULL;
+    ModelVertexPaint change;
+    const unsigned char *pending;
+    CHECK(ModelCompileVertexColor(base, size, source, 1, rgba, &painted, &why));
+    for (DWORD i = 0; i < size; i++)
+        CHECK(painted[i] == (i >= offset+12 && i < offset+16 ? rgba[i-offset-12] : base[i]));
+    CHECK(ModelReadSource(painted, size, &current, &why));
+    for (DWORD i = 0; i < current.count*3; i++)
+    {
+        const BgVertex *a = &source->vertices[i], *b = &current.vertices[i];
+        CHECK(a->x==b->x && a->y==b->y && a->z==b->z && a->s==b->s && a->t==b->t);
+        if (source->vertexoffsets[i] == offset)
+            CHECK(b->r==17 && b->g==99 && b->b==201 && b->a==173);
+        else CHECK(!memcmp(a,b,sizeof(*a)));
+    }
+    ModelFreeSource(&current); free(painted);
+    CHECK(!ModelCompileVertexColor(base,size,source,source->count*3,rgba,&painted,&why) && !painted);
+    CHECK(ModelEditsReadSource(project,"Pjungle3_treeZ",&current,&revision,&why));
+    { const BgVertex *v=&current.vertices[1]; unsigned char same[]={v->r,v->g,v->b,v->a};
+      CHECK(ModelEditsSetVertexColor(project,"Pjungle3_treeZ",revision,1,same,NULL,&why));
+      CHECK(!ModelEditsHasUnsaved()); }
+    ModelFreeSource(&current);
+    CHECK(ModelEditsSetVertexColor(project,"Pjungle3_treeZ",revision,1,rgba,&change,&why));
+    CHECK(ModelEditsHasUnsaved());
+    CHECK(ModelEditsRestoreVertexColor(project,"Pjungle3_treeZ",&change,FALSE,&why));
+    pending=ModelEditsGetData(project,"Pjungle3_treeZ",&length,&why);
+    CHECK(length==size && !memcmp(pending,base,size));
+    CHECK(ModelEditsRestoreVertexColor(project,"Pjungle3_treeZ",&change,TRUE,&why));
+    CHECK(!ModelEditsRestoreVertexColor(project,"Pjungle3_treeZ",&change,TRUE,&why));
+    CHECK(!ModelEditsSetVertexColor(project,"Pjungle3_treeZ",revision,1,rgba,NULL,&why));
+    CHECK(strstr(why,"changed"));
+    for (DWORD i=0;i<100;i++)
+    {
+        CHECK(ModelEditsReadSource(project,"Pjungle3_treeZ",&current,&revision,&why));
+        ModelFreeSource(&current); rgba[0]=(unsigned char)i;
+        CHECK(ModelEditsSetVertexColor(project,"Pjungle3_treeZ",revision,1,rgba,NULL,&why));
+        pending=ModelEditsGetData(project,"Pjungle3_treeZ",&length,&why);
+        CHECK(pending && length==size);
+    }
+    CHECK(ModelEditsSave(project,&why)); ModelEditsReset();
+    CHECK(ModelEditsReadSource(project,"Pjungle3_treeZ",&current,&revision,&why));
+    CHECK(current.vertices[1].r==99 && current.vertices[1].a==173);
+    ModelFreeSource(&current);
+    CHECK(ModelEditsReadReplacement(project,"Pjungle3_treeZ",base,size,&rom,&length,&why)==1);
+    CHECK(length==size && !memcmp(rom+offset+12,rgba,4)); free(rom);
+    { char path[MAX_PATH]; DWORD before,after;
+      snprintf(path,sizeof(path),"%s/models/objects/Pjungle3_treeZ.gltf",project);
+      CHECK(ModelEditsImport(project,"Pjungle3_treeZ",path,&before,&after,&why));
+      CHECK(!ModelEditsHasUnsaved() && before==after); }
+    ModelEditsReset();
+    puts("PASS brush RGBA, shared vertices, untouched UVs/geometry, no-op/stale edits, no growth, save/reload/ROM and glTF round trip.");
+}
+
+static void BrushGuards(const unsigned char *data, DWORD size, const ModelSource *source, const char *kind)
+{
+    unsigned char *out=NULL, rgba[4]={17,99,201,173};
+    /* Shared-normals selects the RGB use of a vertex also loaded as normals. */
+    DWORD corner=!strcmp(kind,"shared-normals") ? 3 : 0;
+    const BgVertex *v=&source->vertices[corner];
+    rgba[3]=v->a;
+    if (!strcmp(kind,"constant-alpha"))
+    { rgba[0]=v->r; rgba[1]=v->g; rgba[2]=v->b; rgba[3]=v->a^0xff; }
+    CHECK(!ModelCompileVertexColor(data,size,source,corner,rgba,&out,&why) && !out);
+    CHECK(strstr(why,!strcmp(kind,"dynamic") ? "dynamic" : !strcmp(kind,"constant-alpha") ? "opacity" : "normal"));
+}
+
 int main(int argc, char **argv)
 {
     unsigned char *data;
@@ -672,7 +741,9 @@ int main(int argc, char **argv)
     data = Read(assetpath, &size);
     CHECK(ModelReadSource(data, size, &source, &why));
     CHECK(source.count >= 2);
-    if (!strcmp(argv[1], "property-guards")) { PropertyGuards(data, size, &source); }
+    if (!strcmp(argv[1], "brush")) { Brush(data,size,&source,argv[3]); }
+    else if (!strcmp(argv[1], "brush-guards")) { BrushGuards(data,size,&source,argv[3]); }
+    else if (!strcmp(argv[1], "property-guards")) { PropertyGuards(data, size, &source); }
     else if (!strcmp(argv[1], "slots")) { MaterialSlots(data,size,argv[3]); }
     else if (!strcmp(argv[1], "properties")) { Properties(data, size, &source, argv[3]); }
     else if (!strcmp(argv[1], "dynamic")) { Dynamic(data, size, &source); }

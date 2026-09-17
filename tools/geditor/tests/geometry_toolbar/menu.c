@@ -75,7 +75,8 @@ static void Show(ToolToolbarMenu menu)
     if (!choose) { assert(focus == focuscalls); }
 }
 
-typedef struct ToolToolbarState { HWND buttons[5]; HWND menus[3]; HWND correctattributes; } ToolToolbarState;
+#define TOOLTOOLBAR_HEIGHT 40
+typedef struct ToolToolbarState { HWND buttons[5]; HWND menus[3]; HWND correctattributes; BOOL paintonly; } ToolToolbarState;
 static RECT positions[9];
 static void MoveWindow(HWND hwnd, int x, int y, int w, int h, BOOL repaint)
 { int index = (int)(intptr_t)hwnd-1; assert(index >= 0 && index < 9); positions[index] = (RECT){x,y,x+w,y+h}; }
@@ -109,7 +110,7 @@ int main(void)
         selectedtool = EDITOR_TOOL_EDGE_SELECT; Show(TOOLTOOLBAR_MENU_EDGE); assert(!Enabled(ID_GEOMETRY_BRIDGE_EDGES));
         selectedtool = EDITOR_TOOL_FACE_SELECT; facecount = 1; Show(TOOLTOOLBAR_MENU_FACE); assert(!Enabled(ID_EDIT_FLIP_FACE) && !Enabled(ID_GEOMETRY_KNIFE));
     }
-    ToolToolbarState toolbar;
+    ToolToolbarState toolbar={0};
     for (int i = 0; i < 5; i++) { toolbar.buttons[i] = (HWND)(intptr_t)(i+1); }
     for (int i = 0; i < 3; i++) { toolbar.menus[i] = (HWND)(intptr_t)(i+6); }
     toolbar.correctattributes = (HWND)9;
@@ -124,6 +125,9 @@ int main(void)
         }
         if (width >= 608) { assert(height == 40); }
     }
-    puts("PASS: selection-aware menus, inactive categories, flight/drag guards, cancellation/focus/command routing and toolbar wrapping across 812 viewport widths.");
+    toolbar.paintonly=TRUE;
+    assert(ToolToolbarLayout(&toolbar,40)==40);
+    assert(positions[EDITOR_TOOL_VERTEX_PAINT].left==4 && positions[EDITOR_TOOL_VERTEX_PAINT].right==36);
+    puts("PASS: selection-aware menus, inactive categories, flight/drag guards, cancellation/focus/command routing, paint-only button and toolbar wrapping across 812 viewport widths.");
     return 0;
 }

@@ -31,6 +31,7 @@ static const struct {
 
 typedef struct ToolToolbarState {
     EditorTool tool;
+    BOOL paintonly;
     BOOL vertexsnap;
     HWND buttons[TOOLTOOLBAR_BUTTON_COUNT];
     HWND menus[TOOLTOOLBAR_MENU_COUNT];
@@ -119,6 +120,7 @@ static BOOL ToolToolbarLoadImages(HINSTANCE instance, ToolToolbarState *state)
         success = TRUE;
         for (tool = 0; tool < TOOLTOOLBAR_BUTTON_COUNT; tool++)
         {
+            if (state->paintonly && tool != EDITOR_TOOL_VERTEX_PAINT) { continue; }
             for (active = 0; active < 2; active++)
             {
                 state->images[tool][active] = ToolToolbarLoadImage(
@@ -136,6 +138,12 @@ static BOOL ToolToolbarLoadImages(HINSTANCE instance, ToolToolbarState *state)
 static int ToolToolbarLayout(ToolToolbarState *state, int width)
 {
     int x = TOOLTOOLBAR_MARGIN, y = TOOLTOOLBAR_MARGIN;
+    if (state && state->paintonly)
+    {
+        MoveWindow(state->buttons[EDITOR_TOOL_VERTEX_PAINT], x, y,
+                   TOOLTOOLBAR_BUTTON_SIZE, TOOLTOOLBAR_BUTTON_SIZE, TRUE);
+        return TOOLTOOLBAR_HEIGHT;
+    }
     for (int i = 0; i < TOOLTOOLBAR_BUTTON_COUNT + TOOLTOOLBAR_MENU_COUNT + 1; i++)
     {
         BOOL correct = i == TOOLTOOLBAR_BUTTON_COUNT + TOOLTOOLBAR_MENU_COUNT;
@@ -181,6 +189,7 @@ static LRESULT CALLBACK ToolToolbarWndProc(HWND hwnd, UINT message,
         if (state == NULL) { return -1; }
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
         state->tool = EDITOR_TOOL_FACE_SELECT;
+        state->paintonly = ((CREATESTRUCT *)lparam)->lpCreateParams != NULL;
         if (!ToolToolbarLoadImages(instance, state))
         {
             MessageBox(hwnd, "Could not load the toolbar button graphics.",
@@ -196,6 +205,7 @@ static LRESULT CALLBACK ToolToolbarWndProc(HWND hwnd, UINT message,
         {
             TOOLINFO tip;
 
+            if (state->paintonly && tool != EDITOR_TOOL_VERTEX_PAINT) { continue; }
             state->buttons[tool] = CreateWindowEx(0, "BUTTON", g_Tools[tool].name,
                 WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_OWNERDRAW,
                 TOOLTOOLBAR_MARGIN + tool * (TOOLTOOLBAR_BUTTON_SIZE + TOOLTOOLBAR_MARGIN),
@@ -211,6 +221,7 @@ static LRESULT CALLBACK ToolToolbarWndProc(HWND hwnd, UINT message,
             tip.lpszText = (char *)g_Tools[tool].name;
             SendMessage(state->tooltip, TTM_ADDTOOL, 0, (LPARAM)&tip);
         }
+        if (state->paintonly) { return 0; }
         for (tool = 0; tool < TOOLTOOLBAR_MENU_COUNT; tool++)
         {
             static const WCHAR *names[] = { L"Vertex  \x25be", L"Edge  \x25be", L"Face  \x25be" };
@@ -335,6 +346,13 @@ HWND ToolToolbarCreate(HWND parent, HINSTANCE hinstance)
         0, 0, 16, TOOLTOOLBAR_HEIGHT, parent, NULL, hinstance, NULL);
 }
 
+HWND ToolToolbarCreatePaint(HWND parent, HINSTANCE hinstance)
+{
+    return CreateWindowEx(WS_EX_CONTROLPARENT, TOOLTOOLBAR_CLASS, "Vertex Paint (4)",
+        WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN,
+        0, 0, TOOLTOOLBAR_HEIGHT, TOOLTOOLBAR_HEIGHT, parent, NULL, hinstance, (void *)1);
+}
+
 void ToolToolbarSetTool(HWND toolbar, EditorTool tool)
 {
     ToolToolbarState *state = (ToolToolbarState *)GetWindowLongPtr(toolbar, GWLP_USERDATA);
@@ -349,7 +367,7 @@ void ToolToolbarSetTool(HWND toolbar, EditorTool tool)
     EnableWindow(state->buttons[TOOLTOOLBAR_SNAP_INDEX], tool == EDITOR_TOOL_VERTEX_SELECT);
     for (index = 0; index < TOOLTOOLBAR_BUTTON_COUNT; index++)
     {
-        InvalidateRect(state->buttons[index], NULL, FALSE);
+        if (state->buttons[index]) { InvalidateRect(state->buttons[index], NULL, FALSE); }
     }
 }
 
@@ -371,8 +389,10 @@ BOOL ToolToolbarCorrectFaceAttributes(HWND toolbar)
 BOOL ToolToolbarHandleMessage(HWND toolbar, MSG *message)
 {
     HWND frame;
+    ToolToolbarState *state;
 
     if (toolbar == NULL || message == NULL) { return FALSE; }
+    state = (ToolToolbarState *)GetWindowLongPtr(toolbar, GWLP_USERDATA);
     frame = GetParent(toolbar);
     if (message->hwnd != frame && !IsChild(frame, message->hwnd)) { return FALSE; }
 
@@ -388,7 +408,18 @@ BOOL ToolToolbarHandleMessage(HWND toolbar, MSG *message)
            other native edit controls added to the editor in future. */
         GetClassName(message->hwnd, classname, sizeof(classname));
         if (lstrcmpi(classname, "Edit") == 0) { return FALSE; }
-        if (message->wParam == 'V')
+        if (state && state->paintonly)
+        {
+            if (lstrcmpi(classname, "ComboBox") == 0 || lstrcmpi(classname, "ComboLBox") == 0)
+            { return FALSE; }
+            if (message->wParam == '4' || message->wParam == VK_NUMPAD4)
+            {
+                if (!(message->lParam & (1L << 30)))
+                { SendMessage(frame, EDITTOOL_WM_SELECT, EDITOR_TOOL_VERTEX_PAINT, 0); }
+                return TRUE;
+            }
+        }
+        else if (message->wParam == 'V')
         {
             /* Holding V must not repeatedly toggle the mode. */
             if (!(message->lParam & (1L << 30)))
@@ -397,11 +428,11 @@ BOOL ToolToolbarHandleMessage(HWND toolbar, MSG *message)
             }
             return TRUE;
         }
-        if (message->wParam >= '1' && message->wParam <= '4')
+        if ((!state || !state->paintonly) && message->wParam >= '1' && message->wParam <= '4')
         {
             tool = (int)(message->wParam - '1');
         }
-        else if (message->wParam >= VK_NUMPAD1 && message->wParam <= VK_NUMPAD4)
+        else if ((!state || !state->paintonly) && message->wParam >= VK_NUMPAD1 && message->wParam <= VK_NUMPAD4)
         {
             tool = (int)(message->wParam - VK_NUMPAD1);
         }

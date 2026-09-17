@@ -19,6 +19,14 @@ BOOL ModelEditsSetProperties(const char *project, const char *name, DWORD revisi
     const DWORD *faces, DWORD count, int culling, int surface, const char **reasonout);
 BOOL ModelEditsSetMaterial(const char *project, const char *name, DWORD revision,
     DWORD slot, DWORD texture, const char **reasonout);
+typedef struct ModelVertexPaint {
+    DWORD offset, beforeRevision, afterRevision;
+    unsigned char before[4], after[4]; /* Native bytes, including unrounded alpha. */
+} ModelVertexPaint;
+BOOL ModelEditsSetVertexColor(const char *project, const char *name, DWORD revision,
+    DWORD corner, const unsigned char rgba[4], ModelVertexPaint *change, const char **reasonout);
+BOOL ModelEditsRestoreVertexColor(const char *project, const char *name,
+    const ModelVertexPaint *change, BOOL redo, const char **reasonout);
 BOOL ModelEditsSave(const char *projectdir, const char **reasonout);
 /* Returns 1 for a replacement, 0 if absent, -1 on a corrupt/mismatched edit.
    ROM builds read saved overrides only; save-before-build is owned by GEditor. */

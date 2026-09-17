@@ -201,6 +201,45 @@ DWORD ModelDataHash(const unsigned char *data, DWORD size)
     for (i=0; i<size; i++) { hash=(hash^data[i])*16777619u; }
     return hash;
 }
+
+BOOL ModelCompileVertexColor(const unsigned char *data, DWORD size, const ModelSource *source,
+    DWORD corner, const unsigned char rgba[4], unsigned char **result, const char **reasonout)
+{
+    ModelVertexEdit edit = {0};
+    BgVertex vertex;
+    BgRenderAlpha alpha;
+    DWORD i;
+    *result = NULL;
+    if (!data || !source || !rgba || corner / 3 >= source->count
+        || !source->vertexoffsets || !source->listcount)
+    { *reasonout = "The painted model vertex is no longer available."; return FALSE; }
+    edit.offset = source->vertexoffsets[corner];
+    if (edit.offset > size || size - edit.offset < 16
+        || edit.offset > source->lists[0].offset || source->lists[0].offset - edit.offset < 16)
+    { *reasonout = "The painted vertex is outside the model's vertex data."; return FALSE; }
+    memcpy(edit.bytes, data + edit.offset, 16);
+    vertex = source->vertices[corner];
+    vertex.r = rgba[0]; vertex.g = rgba[1]; vertex.b = rgba[2]; vertex.a = rgba[3];
+    alpha = BgRenderGetMaterialAlpha(&source->faces[corner / 3].state,
+                                     &source->faces[corner / 3].material);
+    if (!PrepareVertexColor(&edit, source, corner, &vertex, alpha, reasonout)) { return FALSE; }
+    /* A vertex can be loaded as RGB in one part and as normals in another.
+       Shared storage must retain the lighting data in both uses. */
+    for (i = 0; i < source->count * 3; i++)
+    {
+        if (source->vertexoffsets[i] == edit.offset
+            && (source->faces[i / 3].normalmask & (1u << (i % 3)))
+            && memcmp(edit.bytes + 12, data + edit.offset + 12, 3))
+        { *reasonout = "This vertex is shared with a part that stores lighting normals. Its RGB cannot be painted."; return FALSE; }
+    }
+    if (!CheckDynamicVertices(data, source, &edit, 1, reasonout)) { return FALSE; }
+    *result = malloc(size);
+    if (!*result) { *reasonout = "Out of memory painting the model vertex."; return FALSE; }
+    memcpy(*result, data, size);
+    memcpy(*result + edit.offset + 12, edit.bytes + 12, 4);
+    *reasonout = "";
+    return TRUE;
+}
 static void Append(ModelOutput *out, const void *data, DWORD size)
 {
     DWORD next;

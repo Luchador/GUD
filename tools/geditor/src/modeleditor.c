@@ -16,6 +16,8 @@
 #include "uveditor.h"
 #include "resource.h"
 #include "browser.h"
+#include "colorpicker.h"
+#include "tooltoolbar.h"
 
 typedef struct ModelEditorEntry {
     char name[MAX_PATH];
@@ -23,6 +25,7 @@ typedef struct ModelEditorEntry {
 } ModelEditorEntry;
 
 static HWND g_ModelEditor, g_ModelViewport, g_ModelBrowser;
+static HWND g_ModelColorPicker, g_ModelPaintToolbar;
 static char g_ModelProject[MAX_PATH];
 static ModelEditorEntry *g_ModelEntries;
 static int g_ModelCount;
@@ -31,6 +34,10 @@ static ModelSource g_ModelSource;
 static DWORD g_ModelRevision;
 static BOOL g_ModelAllLods;
 static BOOL g_ModelCompleting;
+static BOOL g_ModelSampling;
+#define MODEL_PAINT_HISTORY_LIMIT 256
+static ModelVertexPaint g_ModelPaintHistory[MODEL_PAINT_HISTORY_LIMIT];
+static int g_ModelPaintCount, g_ModelPaintPosition;
 static void ModelEditorProperties(void);
 static void ModelEditorGroups(void);
 static BOOL ModelEditorFaceVisible(DWORD face)
@@ -91,6 +98,7 @@ static LRESULT CALLBACK ModelEditorNameEditProc(HWND hwnd, UINT message, WPARAM 
 
 static void ModelEditorClearViewport(void)
 {
+    g_ModelPaintCount = g_ModelPaintPosition = 0;
     if (g_ModelViewport != NULL)
     {
         ViewportSetScene(g_ModelViewport, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0, NULL, TRUE);
@@ -210,6 +218,11 @@ static void ModelEditorLoad(int index, BOOL framecamera)
         && g_ModelSource.count <= INT_MAX / 3)
     {
         DWORD face;
+        /* Material/topology edits invalidate the old native paint offsets.
+           Changing only the preview's LOD or saving keeps history usable. */
+        if (g_ModelPaintCount && g_ModelRevision != (g_ModelPaintPosition
+            ? g_ModelPaintHistory[g_ModelPaintPosition-1].afterRevision : g_ModelPaintHistory[0].beforeRevision))
+        { g_ModelPaintCount = g_ModelPaintPosition = 0; }
         for (face = 0; face < g_ModelSource.count; face++) { count += ModelEditorFaceVisible(face); }
         vertices = malloc((size_t)max(count, 1) * 3 * sizeof(*vertices));
         tags = malloc((size_t)max(count, 1) * sizeof(*tags)); flags = malloc((size_t)max(count, 1) * sizeof(*flags));
@@ -272,6 +285,104 @@ static void ModelEditorSelect(int category, BOOL framecamera)
         if (other != category) { SendDlgItemMessage(g_ModelEditor, g_ModelCombos[other], CB_SETCURSEL, -1, 0); }
     }
     ModelEditorLoad((int)index, framecamera);
+}
+
+static void ModelEditorSetPaint(BOOL enabled)
+{
+    EditorTool tool = enabled ? EDITOR_TOOL_VERTEX_PAINT : EDITOR_TOOL_FACE_SELECT;
+    SendMessage(g_ModelViewport, WM_CANCELMODE, 0, 0);
+    ViewportSetTool(g_ModelViewport, tool);
+    ToolToolbarSetTool(g_ModelPaintToolbar, tool);
+    SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS, enabled
+        ? "Click a face to paint its nearest vertex. Drag to orbit; 4 exits painting. Save Project to keep edits."
+        : "Click to select faces; drag either mouse button to orbit. 4 toggles vertex painting.");
+    SetFocus(g_ModelViewport);
+}
+
+static BOOL ModelEditorVertexColor(const ViewportBgVertexHit *hit, BOOL sample)
+{
+    DWORD corner;
+    unsigned char rgba[4];
+    const BgVertex *vertex;
+    const char *why = "";
+    ModelVertexPaint change;
+    if (!hit || g_ModelSelected < 0 || hit->corner >= 3 || !hit->face.faceid
+        || hit->face.faceid > g_ModelSource.count) { return FALSE; }
+    corner = (hit->face.faceid - 1) * 3 + hit->corner;
+    vertex = &g_ModelSource.vertices[corner];
+    if (sample)
+    {
+        rgba[0] = vertex->r; rgba[1] = vertex->g; rgba[2] = vertex->b; rgba[3] = vertex->a;
+        ColorPickerSetColor(g_ModelColorPicker, rgba);
+        SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS, "Vertex RGBA sampled. Click another vertex to paint it.");
+        return TRUE;
+    }
+    ColorPickerGetColor(g_ModelColorPicker, rgba);
+    if (vertex->r == rgba[0] && vertex->g == rgba[1] && vertex->b == rgba[2] && vertex->a == rgba[3])
+    { return TRUE; }
+    if (!ModelEditsSetVertexColor(g_ModelProject, g_ModelEntries[g_ModelSelected].name,
+                                 g_ModelRevision, corner, rgba, &change, &why))
+    {
+        SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS, why);
+        return FALSE;
+    }
+    if (!memcmp(change.before, change.after, 4)) { return TRUE; }
+    if (g_ModelPaintPosition == MODEL_PAINT_HISTORY_LIMIT)
+    {
+        memmove(g_ModelPaintHistory, g_ModelPaintHistory+1,
+                (MODEL_PAINT_HISTORY_LIMIT-1)*sizeof(*g_ModelPaintHistory));
+        g_ModelPaintPosition--;
+    }
+    g_ModelPaintHistory[g_ModelPaintPosition++] = change;
+    g_ModelPaintCount = g_ModelPaintPosition; /* A new stroke replaces redo. */
+    ModelEditorLoad(g_ModelSelected, FALSE);
+    SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS, "Vertex RGBA painted. Save Project to keep the model changes.");
+    SendMessage(GetWindow(g_ModelEditor, GW_OWNER), MODELEDITOR_CHANGED, 0, 0);
+    return TRUE;
+}
+
+static void ModelEditorUndoPaint(BOOL redo)
+{
+    const char *why = "";
+    int position = redo ? g_ModelPaintPosition : g_ModelPaintPosition-1;
+    if (g_ModelSelected < 0 || position < 0 || position >= g_ModelPaintCount) { return; }
+    SendMessage(g_ModelViewport, WM_CANCELMODE, 0, 0);
+    if (!ModelEditsRestoreVertexColor(g_ModelProject, g_ModelEntries[g_ModelSelected].name,
+                                      &g_ModelPaintHistory[position], redo, &why))
+    {
+        g_ModelPaintCount = g_ModelPaintPosition = 0;
+        SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS, why);
+        return;
+    }
+    g_ModelPaintPosition += redo ? 1 : -1;
+    ModelEditorLoad(g_ModelSelected, FALSE);
+    SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS, redo
+        ? "Vertex paint redone. Save Project to keep model changes."
+        : "Vertex paint undone. Save Project to keep model changes.");
+    SendMessage(GetWindow(g_ModelEditor, GW_OWNER), MODELEDITOR_CHANGED, 0, 0);
+}
+
+static BOOL ModelEditorPaintKey(MSG *message)
+{
+    if (message->message != WM_KEYDOWN) { return FALSE; }
+    /* Handle sampling before IsDialogMessage translates Escape to Close. */
+    if (message->wParam == VK_ESCAPE && g_ModelSampling)
+    {
+        SendMessage(g_ModelViewport, WM_CANCELMODE, 0, 0);
+        return TRUE;
+    }
+    if ((GetKeyState(VK_CONTROL) & 0x8000) && !(GetKeyState(VK_MENU) & 0x8000)
+        && (message->wParam == 'Z' || message->wParam == 'Y'))
+    {
+        char classname[32] = "";
+        GetClassName(message->hwnd, classname, sizeof(classname));
+        if (lstrcmpi(classname, "Edit") != 0)
+        {
+            ModelEditorUndoPaint(message->wParam == 'Y' || (GetKeyState(VK_SHIFT) & 0x8000));
+            return TRUE;
+        }
+    }
+    return FALSE;
 }
 
 static void ModelEditorAcceptName(int category)
@@ -609,6 +720,9 @@ static void ModelEditorLayout(HWND hwnd)
     ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_EXPORT),margin,margin*2+units.bottom*2,units.right,units.bottom);
     ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_IMPORT),margin*2+units.right,margin*2+units.bottom*2,units.right,units.bottom);
     ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_ADD),margin*3+units.right*2,margin*2+units.bottom*2,units.right+margin,units.bottom);
+    if (g_ModelPaintToolbar)
+        ModelEditorPlaceControl(g_ModelPaintToolbar, margin*5+units.right*3,
+                                units.top-TOOLTOOLBAR_HEIGHT-margin/2, TOOLTOOLBAR_HEIGHT, TOOLTOOLBAR_HEIGHT);
     if (g_ModelViewport != NULL)
     {
         ModelEditorPlaceControl(g_ModelViewport, 0, units.top, panelx, max(0, bottom - units.top));
@@ -616,22 +730,29 @@ static void ModelEditorLayout(HWND hwnd)
     {
         static const struct {int id,x,y,w,h;} controls[] = {
             {IDC_MODEL_SELECTION,8,16,98,12},{IDC_MODEL_SELECT_ALL,114,12,62,18},
-            {IDC_MODEL_CURRENT,8,38,168,36},
-            {IDC_MODEL_CULL_LABEL,8,80,168,12},{IDC_MODEL_CULL,8,94,168,100},
-            {IDC_MODEL_SURFACE_LABEL,8,118,168,12},{IDC_MODEL_SURFACE,8,132,168,100},
-            {IDC_MODEL_APPLY,8,158,168,20},{IDC_MODEL_LODS,8,188,168,16}
+            {IDC_MODEL_CURRENT,8,36,168,30},
+            {IDC_MODEL_CULL_LABEL,8,70,80,12},{IDC_MODEL_CULL,8,84,80,100},
+            {IDC_MODEL_SURFACE_LABEL,96,70,80,12},{IDC_MODEL_SURFACE,96,84,80,100},
+            {IDC_MODEL_APPLY,8,110,168,20},{IDC_MODEL_LODS,8,138,168,16}
         };
-        RECT dimensions={8,16,168,212},row={0,0,0,44};
-        int facey,materialheight;
+        RECT dimensions={8,16,168,156},row={0,0,0,44};
+        int facey,colory,colorheight,materialheight;
         size_t i;
         MapDialogRect(hwnd,&dimensions);MapDialogRect(hwnd,&row);
-        facey=bottom-dimensions.bottom;materialheight=max(0,facey-units.top-margin);
+        facey=bottom-dimensions.bottom;
+        colorheight=COLORPICKER_MODEL_HEIGHT+dimensions.top+margin;
+        colory=facey-margin-colorheight;
+        materialheight=max(0,colory-units.top-margin);
         ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_MATERIALS),panelx,units.top,panel.right-margin,materialheight);
         ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_MATERIAL_LIST),panelx+dimensions.left,units.top+dimensions.top,
             dimensions.right,max(0,materialheight-dimensions.top*3));
         ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_HINT),panelx+dimensions.left,units.top+materialheight-dimensions.top*2,
             dimensions.right,dimensions.top*2-margin);
         SendDlgItemMessage(hwnd,IDC_MODEL_MATERIAL_LIST,LB_SETITEMHEIGHT,0,row.bottom);
+        ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_COLORS),panelx,colory,panel.right-margin,colorheight);
+        if (g_ModelColorPicker)
+            ModelEditorPlaceControl(g_ModelColorPicker,panelx+dimensions.left,colory+dimensions.top,
+                                    dimensions.right,COLORPICKER_MODEL_HEIGHT);
         ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_PROPERTIES),panelx,facey,panel.right-margin,dimensions.bottom);
         for (i=0;i<sizeof(controls)/sizeof(controls[0]);i++)
         {
@@ -639,6 +760,7 @@ static void ModelEditorLayout(HWND hwnd)
             MapDialogRect(hwnd,&r);
             ModelEditorPlaceControl(GetDlgItem(hwnd,controls[i].id),panelx+r.left,facey+r.top,r.right,r.bottom);
         }
+        SendDlgItemMessage(hwnd,IDC_MODEL_CULL,CB_SETDROPPEDWIDTH,dimensions.right,0);
     }
 
     ModelEditorPlaceControl(GetDlgItem(hwnd, IDC_MODEL_STATUS), margin, bottom + margin,
@@ -692,7 +814,7 @@ static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wp
     case WM_GETMINMAXINFO:
     {
         MINMAXINFO *limits = (MINMAXINFO *)lparam;
-        RECT minimum = { 0, 0, 660, 520 };
+        RECT minimum = { 0, 0, 660, 540 };
         MapDialogRect(hwnd, &minimum);
         AdjustWindowRectEx(&minimum, (DWORD)GetWindowLongPtr(hwnd, GWL_STYLE),
                            FALSE, (DWORD)GetWindowLongPtr(hwnd, GWL_EXSTYLE));
@@ -702,6 +824,23 @@ static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wp
     }
     case VIEWPORT_WM_SELECTION_CHANGED:
         ModelEditorProperties(); return TRUE;
+    case EDITTOOL_WM_SELECT:
+        if (wparam == EDITOR_TOOL_VERTEX_PAINT)
+            ModelEditorSetPaint(ViewportGetTool(g_ModelViewport) != EDITOR_TOOL_VERTEX_PAINT);
+        return TRUE;
+    case COLORPICKER_WM_PICK_COLOR:
+        ModelEditorSetPaint(TRUE);
+        ViewportSetColorPick(g_ModelViewport, TRUE);
+        SetDlgItemText(hwnd, IDC_MODEL_STATUS, "Click a face to sample its nearest vertex's RGBA. Esc cancels.");
+        return TRUE;
+    case VIEWPORT_WM_COLOR_PICK_CHANGED:
+        g_ModelSampling = (BOOL)wparam;
+        ColorPickerSetSampling(g_ModelColorPicker, (BOOL)wparam); return TRUE;
+    case VIEWPORT_WM_SAMPLE_VERTEX:
+    case VIEWPORT_WM_PAINT_VERTEX:
+        SetWindowLongPtr(hwnd, DWLP_MSGRESULT,
+            ModelEditorVertexColor((const ViewportBgVertexHit *)lparam, message == VIEWPORT_WM_SAMPLE_VERTEX));
+        return TRUE;
     case WM_COMMAND:
         if ((LOWORD(wparam)==IDC_MODEL_MATERIAL_LIST && HIWORD(wparam)==LBN_SELCHANGE)
             || LOWORD(wparam)==IDC_MODEL_SELECT_ALL)
@@ -740,6 +879,8 @@ static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wp
         ModelFreeSource(&g_ModelSource); g_ModelRevision = 0;
         free(g_ModelEntries); g_ModelEntries = NULL; g_ModelCount = 0; g_ModelSelected = -1;
         g_ModelViewport = NULL; g_ModelEditor = NULL;
+        g_ModelColorPicker = NULL; g_ModelPaintToolbar = NULL;
+        g_ModelSampling = FALSE;
         break;
     }
     return FALSE;
@@ -753,7 +894,10 @@ BOOL ModelEditorShow(HWND owner, HINSTANCE instance, const char *projectdir)
         g_ModelEditor = CreateDialog(instance, MAKEINTRESOURCE(IDD_MODEL_EDITOR), owner, ModelEditorDialogProc);
         if (g_ModelEditor == NULL) { return FALSE; }
         g_ModelViewport = ViewportCreateOrbit(g_ModelEditor, instance);
-        if (g_ModelViewport == NULL) { DestroyWindow(g_ModelEditor); return FALSE; }
+        g_ModelColorPicker = ColorPickerCreateModel(g_ModelEditor, instance);
+        g_ModelPaintToolbar = ToolToolbarCreatePaint(g_ModelEditor, instance);
+        if (!g_ModelViewport || !g_ModelColorPicker || !g_ModelPaintToolbar)
+        { DestroyWindow(g_ModelEditor); return FALSE; }
         ModelEditorLayout(g_ModelEditor);
         ModelEditorSetProject(projectdir);
     }
@@ -826,6 +970,9 @@ BOOL ModelEditorHandleMessage(MSG *message)
         }
     }
     if (!ownmessage) { return FALSE; }
+    if (ColorPickerHandleMessage(g_ModelColorPicker, message)
+        || ToolToolbarHandleMessage(g_ModelPaintToolbar, message)) { return TRUE; }
+    if (ModelEditorPaintKey(message)) { return TRUE; }
     /* Consume Enter in the combo's edit child before dialog navigation can
      * treat it as a default-button click. Typing itself never loads a model. */
     if (ModelEditorNameKey(message)) { return TRUE; }

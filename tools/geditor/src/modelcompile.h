@@ -3,6 +3,11 @@
 #include "modelload.h"
 #include "gltf.h"
 DWORD ModelDataHash(const unsigned char *data, DWORD size);
+/* Paint one native vertex, including every corner sharing its storage.
+   Only RGBA bytes change; normals, dynamic effects and material alpha remain
+   subject to the same constraints as Blender edits. Result retains size. */
+BOOL ModelCompileVertexColor(const unsigned char *data, DWORD size, const ModelSource *source,
+    DWORD corner, const unsigned char rgba[4], unsigned char **result, const char **reasonout);
 BOOL ModelCompileImport(const unsigned char *data, DWORD size, const ModelSource *source,
     const GltfModelImport *imported, const char *projectdir,
     unsigned char **result, DWORD *resultsize, const char **reasonout);

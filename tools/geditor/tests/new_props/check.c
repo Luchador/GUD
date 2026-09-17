@@ -192,6 +192,39 @@ static void CheckUvOrientation(const char *project)
     puts("PASS display/native UV orientation, tiling, legacy exports and material/primitive metadata.");
 }
 
+static void PaintedProp(const char *project, BOOL paint)
+{
+    ModelSource source={0}; DWORD revision,size;
+    const unsigned char *data;
+    unsigned char rgba[4]={17,99,201,163};
+    CHECK(ModelEditsReadSource(project,"PsecondZ",&source,&revision,&why));
+    if (paint)
+    {
+        ModelVertexPaint change;
+        DWORD oldsize; const unsigned char *old=NewPropsData(project,"PsecondZ",&oldsize);
+        unsigned char *snapshot=malloc(oldsize); CHECK(snapshot);memcpy(snapshot,old,oldsize);
+        DWORD offset=source.vertexoffsets[0];
+        CHECK(ModelEditsSetVertexColor(project,"PsecondZ",revision,0,rgba,&change,&why));
+        CHECK(ModelEditsRestoreVertexColor(project,"PsecondZ",&change,FALSE,&why));
+        data=NewPropsData(project,"PsecondZ",&size);
+        CHECK(size==oldsize && !memcmp(data,snapshot,size));
+        CHECK(ModelEditsRestoreVertexColor(project,"PsecondZ",&change,TRUE,&why));
+        data=NewPropsData(project,"PsecondZ",&size);CHECK(size==oldsize);
+        for(DWORD i=0;i<size;i++)
+            CHECK(data[i]==(i>=offset+12 && i<offset+16 ? rgba[i-offset-12] : snapshot[i]));
+        free(snapshot);ModelFreeSource(&source);
+        CHECK(ModelEditsReadSource(project,"PsecondZ",&source,&revision,&why));
+        rgba[3]=91;
+        CHECK(ModelEditsSetVertexColor(project,"PsecondZ",revision,9,rgba,NULL,&why));
+        ModelFreeSource(&source);
+        CHECK(ModelEditsReadSource(project,"PsecondZ",&source,&revision,&why));
+    }
+    CHECK(source.vertices[0].r==17 && source.vertices[0].g==99 && source.vertices[0].b==201 && source.vertices[0].a==163);
+    CHECK(source.vertices[9].r==17 && source.vertices[9].a==91);
+    if (paint) CHECK(source.materials.count==4 && source.materials.faces[0].uv[0]==1.f);
+    ModelFreeSource(&source);
+}
+
 int main(int argc,char **argv)
 {
     const char *project=argv[1],*name;float scale;DWORD count,size,hash,oldsize,start,i;
@@ -259,6 +292,7 @@ int main(int argc,char **argv)
     CHECK(NewPropsImport(project,"PpendantZ",path,TRUE,&count,&why));CHECK(count==5);CheckModel(project,5);
     CHECK(NewPropsImport(project,"PsecondZ",source,FALSE,&count,&why));CHECK(NewPropsCount()==2);
     CHECK(NewPropsDefinition(513,&name,NULL) && !strcmp(name,"PsecondZ"));
+    PaintedProp(project,TRUE);
     CHECK(ModelEditsSave(project,&why));CHECK(RomLoad(base,&rom,&why));CHECK(NewPropsExportToRom(project,&rom,&why));
     start=Word(rom.data+0x204);CHECK(start>=0x101000 && !(start&15));
     CHECK(Word(rom.data+start)==CUSTOM_PROP_MAGIC && Word(rom.data+start+4)==2);
@@ -267,6 +301,11 @@ int main(int argc,char **argv)
         CHECK(ModelMaterialsNativeSize(rom.data+at,length)==length);
         ModelSource native={0};CHECK(ModelReadSource(rom.data+at,length,&native,&why));
         CHECK(native.materials.count==0 && native.count==5);ModelFreeSource(&native);
+        at=start+Word(rom.data+start+16+CUSTOM_PROP_ENTRY_SIZE+64);
+        length=Word(rom.data+start+16+CUSTOM_PROP_ENTRY_SIZE+68);
+        CHECK(ModelReadSource(rom.data+at,length,&native,&why));
+        CHECK(native.vertices[0].r==17 && native.vertices[0].a==163 && native.vertices[9].a==91);
+        ModelFreeSource(&native);
     }
     CHECK(rom.info.entries[1].romstart==start);CHECK(Word(rom.data+0x12c)==start);
     oldsize=rom.size;snapshot=malloc(oldsize);CHECK(snapshot);memcpy(snapshot,rom.data,oldsize);
@@ -279,6 +318,7 @@ int main(int argc,char **argv)
     Write(base,rom.data,rom.size);RomFree(&rom);
     snprintf(path,sizeof(path),"%s/models/newprops.gnp",project);CHECK(DeleteFile(path));ModelEditsReset();
     CHECK(NewPropsOpen(project,&why));CHECK(NewPropsHasUnsaved());CHECK(NewPropsCount()==2);CheckModel(project,5);
+    PaintedProp(project,FALSE);
     CHECK(NewPropsSave(project,&why));
     /* Negative determinant flips winding along with the transformed mesh. */
     snprintf(path,sizeof(path),"%s/mirror.glb",project);

@@ -6466,6 +6466,14 @@ static BOOL ViewportOrbitInput(HWND hwnd, ViewportState *state,
     case WM_LBUTTONDBLCLK:
     case WM_RBUTTONDOWN:
     case WM_RBUTTONDBLCLK:
+        if (msg == WM_LBUTTONDBLCLK && state->colorsampleclick)
+        {
+            state->colorsampleclick = FALSE;
+            return TRUE; /* A sampling double-click must not paint. */
+        }
+        if (msg == WM_LBUTTONDOWN) { state->colorsampleclick = FALSE; }
+        if (msg == WM_RBUTTONDOWN || msg == WM_RBUTTONDBLCLK)
+        { ViewportSetColorPick(hwnd, FALSE); }
         SetFocus(hwnd);
         SetCapture(hwnd);
         if (state->orbitbuttons) { state->orbitdragged = TRUE; }
@@ -6479,8 +6487,18 @@ static BOOL ViewportOrbitInput(HWND hwnd, ViewportState *state,
     case WM_RBUTTONUP:
         if (msg == WM_LBUTTONUP && (state->orbitbuttons & MK_LBUTTON) && !state->orbitdragged)
         {
-            ViewportPickAt(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam),
-                (wparam & MK_SHIFT) != 0, (wparam & MK_CONTROL) != 0);
+            if (state->tool == EDITOR_TOOL_VERTEX_PAINT)
+            {
+                state->colorsampleclick = ViewportSampleColorAt(hwnd, state,
+                    GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam));
+                if (!state->colorsampleclick)
+                { ViewportPaintAt(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)); }
+            }
+            else
+            {
+                ViewportPickAt(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam),
+                    (wparam & MK_SHIFT) != 0, (wparam & MK_CONTROL) != 0);
+            }
         }
         state->orbitbuttons &= ~(msg == WM_LBUTTONUP ? MK_LBUTTON : MK_RBUTTON);
         if (state->orbitbuttons == 0 && GetCapture() == hwnd) { ReleaseCapture(); }
@@ -6492,6 +6510,7 @@ static BOOL ViewportOrbitInput(HWND hwnd, ViewportState *state,
             if (abs(x - state->orbitstart.x) > 3 || abs(y - state->orbitstart.y) > 3)
             { state->orbitdragged = TRUE; }
             if (!state->orbitdragged) { return TRUE; }
+            ViewportSetColorPick(hwnd, FALSE);
             OrbitCameraRotate(&state->orbitcamera, x - state->lastmouse.x, y - state->lastmouse.y);
             state->lastmouse.x = x; state->lastmouse.y = y;
             ViewportUpdateOrbit(state);
@@ -6504,12 +6523,17 @@ static BOOL ViewportOrbitInput(HWND hwnd, ViewportState *state,
         InvalidateRect(hwnd, NULL, FALSE);
         return TRUE;
     case WM_CANCELMODE:
-    case WM_CAPTURECHANGED:
     case WM_KILLFOCUS:
+        ViewportSetColorPick(hwnd, FALSE);
+        /* fall through */
+    case WM_CAPTURECHANGED:
+        if (state->orbitbuttons) { ViewportSetColorPick(hwnd, FALSE); }
         state->orbitbuttons = 0;
         if (GetCapture() == hwnd) { ReleaseCapture(); }
         return TRUE;
     case WM_KEYDOWN:
+        if (wparam == VK_ESCAPE) { ViewportSetColorPick(hwnd, FALSE); }
+        return TRUE;
     case WM_KEYUP:
         return TRUE;
     }

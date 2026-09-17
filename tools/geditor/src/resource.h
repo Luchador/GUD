@@ -133,6 +133,7 @@
 #define IDC_MODEL_HINT             1063
 #define IDC_MODEL_MATERIALS        1064
 #define IDC_MODEL_MATERIAL_LIST    1065
+#define IDC_MODEL_COLORS           1066
 
 /* Image import settings. The thirteen texture types form one radio group. */
 #define IDC_IMAGE_SUMMARY     1100

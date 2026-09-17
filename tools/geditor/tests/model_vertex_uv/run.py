@@ -217,6 +217,9 @@ def main():
         fixture = work / "mixed.bin"
         mixed_fixture(fixture)
         run("property-guards", fixture, "unused")
+        brush_project = work / "brush"
+        (brush_project / "models/objects").mkdir(parents=True)
+        run("brush", fixture, brush_project)
         scales = work / "mixed-scales.bin"
         load_state_fixture(scales)
         inherited = work / "inherited.bin"
@@ -225,10 +228,13 @@ def main():
         dynamic = work / "dynamic.bin"
         mixed_fixture(dynamic, dynamic=True)
         run("dynamic", dynamic, "unused")
+        run("brush-guards", dynamic, "dynamic")
         for kind in ("normals", "reflection", "constant-alpha", "shared-alpha", "shared-normals"):
             special = work / f"{kind}.bin"
             color_fixture(special, kind)
             run("special", special, kind)
+            if kind in ("normals", "reflection", "shared-normals", "constant-alpha"):
+                run("brush-guards", special, kind)
         assets = [root / "assets/obseg/prop" / name for name in
                   ("Pjungle3_treeZ.bin", "Pjungle5_treeZ.bin", "Pbook1Z.bin")] + [fixture, scales]
         slots_project = work / "stock-slots"

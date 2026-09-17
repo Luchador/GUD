@@ -9,6 +9,9 @@
 /* Persistent RGBA brush color; changing it never edits the document. */
 BOOL ColorPickerRegisterClass(HINSTANCE instance);
 HWND ColorPickerCreate(HWND parent, HINSTANCE instance);
+/* Compact model panel: HSV beside RGBA, with all four fields visible. */
+#define COLORPICKER_MODEL_HEIGHT 204
+HWND ColorPickerCreateModel(HWND parent, HINSTANCE instance);
 void ColorPickerGetColor(HWND picker, unsigned char rgba[4]);
 void ColorPickerSetColor(HWND picker, const unsigned char rgba[4]);
 void ColorPickerSetSampling(HWND picker, BOOL enabled);

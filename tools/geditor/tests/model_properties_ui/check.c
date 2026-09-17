@@ -27,6 +27,8 @@ enum {IDC_MODEL_MATERIAL_LIST=10,IDC_MODEL_STATUS,LB_ITEMFROMPOINT,LB_GETITEMREC
 #define MK_SHIFT 4
 #define MK_CONTROL 8
 #define WHEEL_DELTA 120
+#define VK_ESCAPE 27
+#define EDITOR_TOOL_VERTEX_PAINT 3
 #define GET_X_LPARAM(l) ((short)(l))
 #define GET_Y_LPARAM(l) ((short)((l) >> 16))
 #define GET_WHEEL_DELTA_WPARAM(w) ((short)((w) >> 16))
@@ -98,9 +100,13 @@ typedef struct {
     unsigned int orbitbuttons;
     POINT lastmouse, orbitstart;
     BOOL orbitdragged;
+    BOOL colorsampleclick, colorpick;
+    int tool;
 } ViewportState;
 static HWND captured;
-static int picks, updates;
+static int picks, updates, paints, samples;
+static BOOL samplehit=TRUE;
+static ViewportState *activeorbit;
 static BOOL add, deselected;
 static void SetFocus(HWND hwnd) {(void)hwnd;}
 static void SetCapture(HWND hwnd) {captured=hwnd;}
@@ -110,12 +116,17 @@ static void InvalidateRect(HWND hwnd, void *rect, BOOL erase) {}
 static void ViewportUpdateOrbit(ViewportState *state) {updates++;}
 static void ViewportPickAt(HWND hwnd, ViewportState *state, int x, int y, BOOL a, BOOL r)
 {picks++; add=a; deselected=r;}
+static void ViewportSetColorPick(HWND hwnd, BOOL enabled) {activeorbit->colorpick=enabled;}
+static BOOL ViewportSampleColorAt(HWND hwnd, ViewportState *state, int x, int y)
+{ if(!state->colorpick) return FALSE; samples++; if(samplehit) state->colorpick=FALSE; return TRUE; }
+static void ViewportPaintAt(HWND hwnd, ViewportState *state, int x, int y) {paints++;}
 #include "logic.inc"
 static LPARAM Position(int x, int y) {return (unsigned short)x | (LPARAM)(unsigned short)y << 16;}
 int main(void)
 {
     HWND hwnd=(HWND)(uintptr_t)1;
     ViewportState state={0};
+    activeorbit=&state;
     SceneBatch batch={0};
     ModelSourceFace face={0};
     const double low[3]={-10,-10,-10}, high[3]={10,10,10};
@@ -167,6 +178,31 @@ int main(void)
     ViewportOrbitInput(hwnd,&state,WM_MOUSEMOVE,0,Position(40,20));
     ViewportOrbitInput(hwnd,&state,WM_RBUTTONUP,0,Position(40,20));
     assert(picks==3 && updates==2 && !captured);
+    state.tool=EDITOR_TOOL_VERTEX_PAINT;
+    ViewportOrbitInput(hwnd,&state,WM_LBUTTONDOWN,0,Position(10,20));
+    ViewportOrbitInput(hwnd,&state,WM_LBUTTONUP,0,Position(10,20));
+    assert(paints==1 && picks==3 && !captured);
+    ViewportOrbitInput(hwnd,&state,WM_LBUTTONDOWN,0,Position(10,20));
+    ViewportOrbitInput(hwnd,&state,WM_MOUSEMOVE,0,Position(40,20));
+    ViewportOrbitInput(hwnd,&state,WM_LBUTTONUP,0,Position(40,20));
+    assert(paints==1 && updates==3); /* Dragging still orbits without painting. */
+    state.colorpick=TRUE;
+    ViewportOrbitInput(hwnd,&state,WM_LBUTTONDOWN,0,Position(10,20));
+    ViewportOrbitInput(hwnd,&state,WM_LBUTTONUP,0,Position(10,20));
+    assert(samples==1 && !state.colorpick && paints==1);
+    ViewportOrbitInput(hwnd,&state,WM_LBUTTONDBLCLK,0,Position(10,20));
+    ViewportOrbitInput(hwnd,&state,WM_LBUTTONUP,0,Position(10,20));
+    assert(paints==1 && samples==1 && !captured);
+    samplehit=FALSE;state.colorpick=TRUE;
+    ViewportOrbitInput(hwnd,&state,WM_LBUTTONDOWN,0,Position(10,20));
+    ViewportOrbitInput(hwnd,&state,WM_LBUTTONUP,0,Position(10,20));
+    ViewportOrbitInput(hwnd,&state,WM_CAPTURECHANGED,0,0);
+    assert(state.colorpick && paints==1); /* Releasing our capture preserves a missed sample. */
+    ViewportOrbitInput(hwnd,&state,WM_KEYDOWN,VK_ESCAPE,0);
+    assert(!state.colorpick);
+    state.colorpick=TRUE;
+    ViewportOrbitInput(hwnd,&state,WM_KILLFOCUS,0,0);
+    assert(!state.colorpick);
     {
         const char *why;
         assert(ModelEditorOpenModel(hwnd,NULL,"project","Pjungle3_treeZ",&why));
