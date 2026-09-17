@@ -1,6 +1,7 @@
 #include <windows.h>
 #include <windowsx.h>
 #include <commdlg.h>
+#include <commctrl.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -29,6 +30,7 @@ static int g_ModelSelected = -1;
 static ModelSource g_ModelSource;
 static DWORD g_ModelRevision;
 static BOOL g_ModelAllLods;
+static BOOL g_ModelCompleting;
 static void ModelEditorProperties(void);
 static void ModelEditorGroups(void);
 static BOOL ModelEditorFaceVisible(DWORD face)
@@ -36,6 +38,56 @@ static BOOL ModelEditorFaceVisible(DWORD face)
     return !g_ModelSource.closestpreview || g_ModelAllLods || g_ModelSource.faces[face].closest;
 }
 static const int g_ModelCombos[] = { IDC_MODEL_CHARACTERS, IDC_MODEL_ITEMS, IDC_MODEL_PROPS };
+
+/* Prefer an exact name, then the first prefix match in the sorted list.
+ * Win32's combo-box searches are case-insensitive. */
+static LRESULT ModelEditorFindName(HWND combo, const char *name)
+{
+    LRESULT row;
+    if (name[0] == '\0') { return CB_ERR; }
+    row = SendMessage(combo, CB_FINDSTRINGEXACT, (WPARAM)-1, (LPARAM)name);
+    if (row == CB_ERR) { row = SendMessage(combo, CB_FINDSTRING, (WPARAM)-1, (LPARAM)name); }
+    return row;
+}
+
+static void ModelEditorCompleteName(HWND combo)
+{
+    char text[MAX_PATH];
+    DWORD start = 0, end = 0;
+    int length;
+    LRESULT row;
+    if (g_ModelCompleting) { return; }
+    length = GetWindowText(combo, text, sizeof(text));
+    SendMessage(combo, CB_GETEDITSEL, (WPARAM)&start, (LPARAM)&end);
+    /* Leave selections and edits in the middle of a name alone. */
+    if (!length || start != end || end != (DWORD)length) { return; }
+    row = ModelEditorFindName(combo, text);
+    if (row == CB_ERR) { return; }
+    g_ModelCompleting = TRUE;
+    SendMessage(combo, CB_SETCURSEL, row, 0);
+    SendMessage(combo, CB_SETEDITSEL, 0, MAKELPARAM(length, -1));
+    g_ModelCompleting = FALSE;
+}
+
+static LRESULT CALLBACK ModelEditorNameEditProc(HWND hwnd, UINT message, WPARAM wparam,
+                                               LPARAM lparam, UINT_PTR id, DWORD_PTR data)
+{
+    /* Do not immediately put the completion back after Backspace, Delete,
+     * Cut or Undo. Paste and ordinary character input still complete. */
+    if ((message == WM_KEYDOWN && wparam == VK_DELETE)
+        || (message == WM_CHAR && wparam == VK_BACK)
+        || message == WM_CUT || message == WM_CLEAR || message == WM_UNDO || message == EM_UNDO)
+    {
+        BOOL previous = g_ModelCompleting;
+        LRESULT result;
+        g_ModelCompleting = TRUE;
+        result = DefSubclassProc(hwnd, message, wparam, lparam);
+        g_ModelCompleting = previous;
+        return result;
+    }
+    if (message == WM_NCDESTROY) { RemoveWindowSubclass(hwnd, ModelEditorNameEditProc, id); }
+    return DefSubclassProc(hwnd, message, wparam, lparam);
+}
 
 static void ModelEditorClearViewport(void)
 {
@@ -132,11 +184,10 @@ void ModelEditorSetProject(const char *projectdir)
         : "Choose a model. Drag either mouse button to orbit; scroll to dolly.");
 }
 
-static void ModelEditorSelect(int category, BOOL framecamera)
+/* Reload by asset identity: an editable selector may contain an uncommitted
+ * suggestion while materials or face properties of the open model change. */
+static void ModelEditorLoad(int index, BOOL framecamera)
 {
-    HWND combo = GetDlgItem(g_ModelEditor, g_ModelCombos[category]);
-    LRESULT row = SendMessage(combo, CB_GETCURSEL, 0, 0);
-    LRESULT index;
     const ModelEditorEntry *entry;
     BgVertex *vertices = NULL;
     BgFaceRef *refs = NULL;
@@ -147,19 +198,11 @@ static void ModelEditorSelect(int category, BOOL framecamera)
     char text[MAX_PATH + 128];
     HCURSOR previous;
     BOOL loaded = FALSE;
-    int other;
-
-    if (row == CB_ERR) { return; }
-    index = SendMessage(combo, CB_GETITEMDATA, row, 0);
     if (index < 0 || index >= g_ModelCount) { return; }
-    g_ModelSelected = (int)index;
+    g_ModelSelected = index;
     EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_EXPORT),TRUE);
     EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_IMPORT),TRUE);
     entry = &g_ModelEntries[index];
-    for (other = 0; other < 3; other++)
-    {
-        if (other != category) { SendDlgItemMessage(g_ModelEditor, g_ModelCombos[other], CB_SETCURSEL, -1, 0); }
-    }
     if (framecamera) { ModelEditorClearViewport(); }
     previous = SetCursor(LoadCursor(NULL, IDC_WAIT));
     ModelFreeSource(&g_ModelSource);
@@ -215,6 +258,56 @@ static void ModelEditorSelect(int category, BOOL framecamera)
     snprintf(text, sizeof(text), "%lu visible triangles. Click to select faces; drag either mouse button to orbit.", (unsigned long)count);
     SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS, text);
     if (framecamera) { SetFocus(g_ModelViewport); }
+}
+
+static void ModelEditorSelect(int category, BOOL framecamera)
+{
+    HWND combo = GetDlgItem(g_ModelEditor, g_ModelCombos[category]);
+    LRESULT row = SendMessage(combo, CB_GETCURSEL, 0, 0), index;
+    if (row == CB_ERR) { return; }
+    index = SendMessage(combo, CB_GETITEMDATA, row, 0);
+    if (index < 0 || index >= g_ModelCount) { return; }
+    for (int other = 0; other < 3; other++)
+    {
+        if (other != category) { SendDlgItemMessage(g_ModelEditor, g_ModelCombos[other], CB_SETCURSEL, -1, 0); }
+    }
+    ModelEditorLoad((int)index, framecamera);
+}
+
+static void ModelEditorAcceptName(int category)
+{
+    HWND combo = GetDlgItem(g_ModelEditor, g_ModelCombos[category]);
+    char text[MAX_PATH];
+    LRESULT row;
+    GetWindowText(combo, text, sizeof(text));
+    row = ModelEditorFindName(combo, text);
+    if (row == CB_ERR)
+    {
+        SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS,
+            "No matching model. Type the beginning of a model name, then press Enter.");
+        return;
+    }
+    /* Closing the popup can generate combo notifications. Commit only once. */
+    g_ModelCompleting = TRUE;
+    SendMessage(combo, CB_SHOWDROPDOWN, FALSE, 0);
+    SendMessage(combo, CB_SETCURSEL, row, 0);
+    g_ModelCompleting = FALSE;
+    ModelEditorSelect(category, TRUE);
+}
+
+static BOOL ModelEditorNameKey(MSG *message)
+{
+    if (message->message != WM_KEYDOWN || message->wParam != VK_RETURN) { return FALSE; }
+    for (int category = 0; category < 3; category++)
+    {
+        HWND combo = GetDlgItem(g_ModelEditor, g_ModelCombos[category]);
+        if (message->hwnd == combo || IsChild(combo, message->hwnd))
+        {
+            ModelEditorAcceptName(category);
+            return TRUE;
+        }
+    }
+    return FALSE;
 }
 
 static void ModelEditorGroups(void)
@@ -377,13 +470,8 @@ BOOL ModelEditorDropImage(DWORD texture,POINT screen)
 
 void ModelEditorRefreshImages(void)
 {
-    int category;
     if (g_ModelEditor == NULL || g_ModelSelected < 0) { return; }
-    for (category = 0; category < 3; category++)
-    {
-        if (SendDlgItemMessage(g_ModelEditor, g_ModelCombos[category], CB_GETCURSEL, 0, 0) != CB_ERR)
-        { ModelEditorSelect(category, FALSE); break; }
-    }
+    ModelEditorLoad(g_ModelSelected, FALSE);
 }
 
 static void ModelEditorApplyProperties(void)
@@ -420,7 +508,6 @@ static void ModelEditorTransfer(BOOL importing)
     DWORD before=0, after=0;
     BOOL ok;
     HCURSOR previous;
-    int category;
     if (g_ModelSelected < 0 || g_ModelSelected >= g_ModelCount) { return; }
     entry=&g_ModelEntries[g_ModelSelected];
     if (!importing) { snprintf(path,sizeof(path),"%s.gltf",entry->name); }
@@ -441,11 +528,7 @@ static void ModelEditorTransfer(BOOL importing)
             "Exported all LODs. In Blender enable Custom Properties, Attributes, UVs and Vertex Colors.");
         return;
     }
-    for (category=0;category<3;category++)
-    {
-        if (SendDlgItemMessage(g_ModelEditor,g_ModelCombos[category],CB_GETCURSEL,0,0)!=CB_ERR)
-        { ModelEditorSelect(category, TRUE);break; }
-    }
+    ModelEditorLoad(g_ModelSelected, TRUE);
     snprintf(message,sizeof(message),"Imported all LODs: %lu to %lu tris. Save Project to keep the replacement.",
         (unsigned long)before,(unsigned long)after);
     SetDlgItemText(g_ModelEditor,IDC_MODEL_STATUS,message);
@@ -573,6 +656,16 @@ static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wp
     {
     case WM_INITDIALOG:
         g_ModelEditor = hwnd;
+        g_ModelCompleting = FALSE;
+        for (int category = 0; category < 3; category++)
+        {
+            HWND combo = GetDlgItem(hwnd, g_ModelCombos[category]);
+            COMBOBOXINFO info = {0};
+            info.cbSize = sizeof(info);
+            SendMessage(combo, CB_LIMITTEXT, MAX_PATH - 1, 0);
+            if (GetComboBoxInfo(combo, &info))
+            { SetWindowSubclass(info.hwndItem, ModelEditorNameEditProc, 1, 0); }
+        }
         {
             static const char *culls[] = {"Keep current", "Disabled (two-sided)", "Cull back faces", "Cull front faces"};
             static const char *surfaces[] = {"Keep current", "Opaque", "Cutout", "Alpha blend"};
@@ -629,10 +722,12 @@ static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wp
         if (LOWORD(wparam)==IDC_MODEL_EXPORT || LOWORD(wparam)==IDC_MODEL_IMPORT)
         { ModelEditorTransfer(LOWORD(wparam)==IDC_MODEL_IMPORT);return TRUE; }
         if (LOWORD(wparam)==IDC_MODEL_ADD) { ModelEditorAddProp();return TRUE; }
-        if (LOWORD(wparam) >= IDC_MODEL_CHARACTERS && LOWORD(wparam) <= IDC_MODEL_PROPS
-            && HIWORD(wparam) == CBN_SELCHANGE)
+        if (LOWORD(wparam) >= IDC_MODEL_CHARACTERS && LOWORD(wparam) <= IDC_MODEL_PROPS)
         {
-            ModelEditorSelect(LOWORD(wparam) - IDC_MODEL_CHARACTERS, TRUE);
+            if (HIWORD(wparam) == CBN_EDITCHANGE)
+            { ModelEditorCompleteName((HWND)lparam); }
+            else if (HIWORD(wparam) == CBN_SELENDOK && !g_ModelCompleting)
+            { ModelEditorSelect(LOWORD(wparam) - IDC_MODEL_CHARACTERS, TRUE); }
             return TRUE;
         }
         if (LOWORD(wparam) == IDCANCEL) { DestroyWindow(hwnd); return TRUE; }
@@ -731,6 +826,9 @@ BOOL ModelEditorHandleMessage(MSG *message)
         }
     }
     if (!ownmessage) { return FALSE; }
+    /* Consume Enter in the combo's edit child before dialog navigation can
+     * treat it as a default-button click. Typing itself never loads a model. */
+    if (ModelEditorNameKey(message)) { return TRUE; }
     /* Project shortcuts are shared with the main frame's accelerators. */
     if (message->message == WM_KEYDOWN
         && (message->wParam == 'S' || message->wParam == 'T')
