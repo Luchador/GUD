@@ -7,8 +7,10 @@ selection. Shortcuts leave model names and RGBA text fields alone.
 The picker between **Materials** and **Face properties** provides HSV controls
 and R, G, B and A fields (0–255). Click a visible face near a vertex to paint
 its RGBA. Corners sharing the same native vertex update together; separate
-vertices at UV/color seams remain separate. Drag either mouse button to orbit;
-camera drags do not paint. **Pick Color** samples the nearest vertex's authored
+vertices at UV/color seams remain separate. Drag the left or right mouse button
+to orbit, hold the middle button and drag to pan, and scroll to zoom. Panning
+moves the orbit target with the camera, so you can focus on a small model part.
+Camera drags do not paint. **Pick Color** samples the nearest vertex's authored
 RGBA; Escape cancels sampling.
 
 Use **Ctrl+Z** to undo painting and **Ctrl+Y** or **Ctrl+Shift+Z** to redo it.

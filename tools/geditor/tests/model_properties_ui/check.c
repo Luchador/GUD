@@ -26,6 +26,8 @@ enum {IDC_MODEL_MATERIAL_LIST=10,IDC_MODEL_STATUS,LB_ITEMFROMPOINT,LB_GETITEMREC
 #define MK_RBUTTON 2
 #define MK_SHIFT 4
 #define MK_CONTROL 8
+#define MK_MBUTTON 16
+#define VIEWPORT_FOV_Y 60
 #define WHEEL_DELTA 120
 #define VK_ESCAPE 27
 #define EDITOR_TOOL_VERTEX_PAINT 3
@@ -34,6 +36,7 @@ enum {IDC_MODEL_MATERIAL_LIST=10,IDC_MODEL_STATUS,LB_ITEMFROMPOINT,LB_GETITEMREC
 #define GET_WHEEL_DELTA_WPARAM(w) ((short)((w) >> 16))
 enum {WM_LBUTTONDOWN=0x201, WM_LBUTTONUP, WM_LBUTTONDBLCLK,
     WM_RBUTTONDOWN=0x204, WM_RBUTTONUP, WM_RBUTTONDBLCLK,
+    WM_MBUTTONDOWN=0x207, WM_MBUTTONUP, WM_MBUTTONDBLCLK,
     WM_MOUSEMOVE=0x200, WM_MOUSEWHEEL=0x20a, WM_CANCELMODE=0x1f, WM_CAPTURECHANGED=0x215,
     WM_KILLFOCUS=8, WM_KEYDOWN=0x100, WM_KEYUP};
 #include "types.inc"
@@ -101,7 +104,7 @@ typedef struct {
     POINT lastmouse, orbitstart;
     BOOL orbitdragged;
     BOOL colorsampleclick, colorpick;
-    int tool;
+    int tool, height;
 } ViewportState;
 static HWND captured;
 static int picks, updates, paints, samples;

@@ -4,7 +4,7 @@ Open **Tools → Model Editor** and choose a model. The right-hand **Face
 properties** panel reads the native model's draw state.
 
 - Click a visible face to select it. **Shift-click** adds faces; **Ctrl-click**
-  removes them. Drag either mouse button to orbit; scroll to zoom.
+  removes them. Left/right drag to orbit; middle drag to pan; scroll to zoom.
 - Click a thumbnail in **Materials** to select that slot's faces, including
   faces currently hidden by culling. Drag an image from the main image browser
   onto a slot to assign it, or drag **No Texture** to clear it. **Select all**

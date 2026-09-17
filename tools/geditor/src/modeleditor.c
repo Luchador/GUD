@@ -189,7 +189,7 @@ void ModelEditorSetProject(const char *projectdir)
         ? "Could not list every model: check the project path or available memory."
         : g_ModelProject[0] == '\0' ? "Open or create a project to browse its models."
         : g_ModelCount == 0 ? "No models were found in this project."
-        : "Choose a model. Drag either mouse button to orbit; scroll to dolly.");
+        : "Choose a model. Left/right drag to orbit; middle drag to pan; scroll to zoom.");
 }
 
 /* Reload by asset identity: an editable selector may contain an uncommitted
@@ -268,7 +268,7 @@ static void ModelEditorLoad(int index, BOOL framecamera)
     }
     snprintf(text, sizeof(text), "Model Editor - %s", entry->name);
     SetWindowText(g_ModelEditor, text);
-    snprintf(text, sizeof(text), "%lu visible triangles. Click to select faces; drag either mouse button to orbit.", (unsigned long)count);
+    snprintf(text, sizeof(text), "%lu visible triangles. Click to select faces; left/right drag to orbit; middle drag to pan; scroll to zoom.", (unsigned long)count);
     SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS, text);
     if (framecamera) { SetFocus(g_ModelViewport); }
 }
@@ -294,8 +294,8 @@ static void ModelEditorSetPaint(BOOL enabled)
     ViewportSetTool(g_ModelViewport, tool);
     ToolToolbarSetTool(g_ModelPaintToolbar, tool);
     SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS, enabled
-        ? "Click a face to paint its nearest vertex. Drag to orbit; 4 exits painting. Save Project to keep edits."
-        : "Click to select faces; drag either mouse button to orbit. 4 toggles vertex painting.");
+        ? "Click a face to paint its nearest vertex. Left/right drag to orbit; middle drag to pan. 4 exits painting. Save Project to keep edits."
+        : "Click to select faces; left/right drag to orbit; middle drag to pan. 4 toggles vertex painting.");
     SetFocus(g_ModelViewport);
 }
 

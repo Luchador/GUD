@@ -6466,25 +6466,31 @@ static BOOL ViewportOrbitInput(HWND hwnd, ViewportState *state,
     case WM_LBUTTONDBLCLK:
     case WM_RBUTTONDOWN:
     case WM_RBUTTONDBLCLK:
+    case WM_MBUTTONDOWN:
+    case WM_MBUTTONDBLCLK:
         if (msg == WM_LBUTTONDBLCLK && state->colorsampleclick)
         {
             state->colorsampleclick = FALSE;
             return TRUE; /* A sampling double-click must not paint. */
         }
         if (msg == WM_LBUTTONDOWN) { state->colorsampleclick = FALSE; }
-        if (msg == WM_RBUTTONDOWN || msg == WM_RBUTTONDBLCLK)
+        if (msg == WM_RBUTTONDOWN || msg == WM_RBUTTONDBLCLK
+            || msg == WM_MBUTTONDOWN || msg == WM_MBUTTONDBLCLK)
         { ViewportSetColorPick(hwnd, FALSE); }
         SetFocus(hwnd);
         SetCapture(hwnd);
-        if (state->orbitbuttons) { state->orbitdragged = TRUE; }
+        if (state->orbitbuttons || msg == WM_MBUTTONDOWN || msg == WM_MBUTTONDBLCLK)
+        { state->orbitdragged = TRUE; }
         else { state->orbitdragged = FALSE; }
-        state->orbitbuttons |= (msg == WM_LBUTTONDOWN || msg == WM_LBUTTONDBLCLK) ? MK_LBUTTON : MK_RBUTTON;
+        state->orbitbuttons |= (msg == WM_LBUTTONDOWN || msg == WM_LBUTTONDBLCLK) ? MK_LBUTTON
+            : (msg == WM_MBUTTONDOWN || msg == WM_MBUTTONDBLCLK) ? MK_MBUTTON : MK_RBUTTON;
         state->lastmouse.x = GET_X_LPARAM(lparam);
         state->lastmouse.y = GET_Y_LPARAM(lparam);
         state->orbitstart = state->lastmouse;
         return TRUE;
     case WM_LBUTTONUP:
     case WM_RBUTTONUP:
+    case WM_MBUTTONUP:
         if (msg == WM_LBUTTONUP && (state->orbitbuttons & MK_LBUTTON) && !state->orbitdragged)
         {
             if (state->tool == EDITOR_TOOL_VERTEX_PAINT)
@@ -6500,7 +6506,8 @@ static BOOL ViewportOrbitInput(HWND hwnd, ViewportState *state,
                     (wparam & MK_SHIFT) != 0, (wparam & MK_CONTROL) != 0);
             }
         }
-        state->orbitbuttons &= ~(msg == WM_LBUTTONUP ? MK_LBUTTON : MK_RBUTTON);
+        state->orbitbuttons &= ~(msg == WM_LBUTTONUP ? MK_LBUTTON
+            : msg == WM_MBUTTONUP ? MK_MBUTTON : MK_RBUTTON);
         if (state->orbitbuttons == 0 && GetCapture() == hwnd) { ReleaseCapture(); }
         return TRUE;
     case WM_MOUSEMOVE:
@@ -6511,7 +6518,12 @@ static BOOL ViewportOrbitInput(HWND hwnd, ViewportState *state,
             { state->orbitdragged = TRUE; }
             if (!state->orbitdragged) { return TRUE; }
             ViewportSetColorPick(hwnd, FALSE);
-            OrbitCameraRotate(&state->orbitcamera, x - state->lastmouse.x, y - state->lastmouse.y);
+            if (state->orbitbuttons & MK_MBUTTON)
+            {
+                OrbitCameraPan(&state->orbitcamera, x - state->lastmouse.x, y - state->lastmouse.y,
+                               state->height, VIEWPORT_FOV_Y);
+            }
+            else { OrbitCameraRotate(&state->orbitcamera, x - state->lastmouse.x, y - state->lastmouse.y); }
             state->lastmouse.x = x; state->lastmouse.y = y;
             ViewportUpdateOrbit(state);
             InvalidateRect(hwnd, NULL, FALSE);
