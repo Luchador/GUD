@@ -153,6 +153,98 @@ static void Depot(StanFile *stan, BOOL bound, BOOL named)
     SetupFileFree(&s); SetupFileFree(&baseline); SetupFileFree(&after);
     SetupFileFree(&saved); SetupFileFree(&rejected); EditHistoryFree(&history);
 }
+
+static void Duplicate(StanFile *stan, BOOL bound, BOOL live, int mode)
+{
+    SetupFile setup = {0}, snapshot = {0}, baseline = {0}, after = {0}, saved = {0};
+    SetupObjectGeometry initial = {0}, placed = {0}, pose = {0}, duplicated = {0}, reloaded = {0};
+    EditHistory history = {0}; EditHistoryTransaction tx = {0}; EditHistoryAsset asset;
+    BgDocument bg = {0}; StanFile historyStan = {0}; SetupPadRef ref;
+    DWORD selection = (DWORD)-1;
+    const double move[3] = {50,0,0}, paste[3] = {0,10,0}, drag[3] = {300,0,0};
+    const double pivot[3] = {-1210.526,248.49382,1083.28711};
+    Rotation rotation; RotationAxis(&rotation,1,35);
+    Scaling scaling = {.factor={1.25,1.5,.75}};
+    RotationAxis(&scaling.axes,0,0); memcpy(scaling.pivot,pivot,sizeof(pivot));
+    Require(SetupLoadProjectFile(dir,"UsetupmoveZ",&setup,&why));
+    LoadGlobalReferences(&setup);
+    if (bound)
+    {
+        setup.objects[0].pad = 10000;
+        setup.data[setup.objects[0].sourceoffset+6] = 10000 >> 8;
+        setup.data[setup.objects[0].sourceoffset+7] = 10000 & 255;
+    }
+    Require(ObjectLoadSetupGeometry(dir,&setup,stan,levelscale,&initial,&why));
+    Require(ObjectTranslateSetupModel(dir,&setup,stan,levelscale,&initial,0,move,&placed,&why));
+    Require(SetupFileCompact(&setup,&why));
+    Require(ObjectCopySetupModelPose(&placed,0,&pose,&why));
+    Require(SetupFileClone(&setup,&snapshot,&why));
+    SetupPad original = *Pad(&setup,0);
+    float query[3];
+    for (int axis=0;axis<3;axis++) { query[axis]=original.pos[axis]/levelscale; }
+    assert(StanResolvePadTile(stan,"",query)==STAN_TILE_NONE);
+    assert(StanResolvePadTile(stan,original.stanname,query)!=STAN_TILE_NONE);
+    if (!live)
+    {
+        /* Clipboard data belongs to a different setup allocation, and remains
+         * valid after the source moves or changes its own tile-name string. */
+        SetupObjectGeometry changed = {0};
+        Require(ObjectTranslateSetupModel(dir,&setup,stan,levelscale,&placed,0,drag,&changed,&why));
+        ObjectGeometryFree(&changed);
+        Require(SetupFileCompact(&setup,&why));
+        assert(strcmp(Pad(&setup,0)->stanname,original.stanname));
+    }
+    SetupPad untouched = *Pad(&setup,0);
+    Require(SetupFileClone(&setup,&baseline,&why));
+    EditHistoryReset(&history,NULL,&setup,NULL);
+    Require(EditHistoryBeginSetupEdit(&history,&setup,"Duplicate Object",&tx,&why));
+    Require(ObjectDuplicateSetupModel(dir,&setup,live ? &setup : &snapshot,stan,levelscale,
+        &pose,0,mode<2 ? (mode==0 ? paste : drag) : NULL,
+        mode==2 ? &rotation : NULL,mode==2 ? pivot : NULL,mode==3 ? &scaling : NULL,
+        &selection,&duplicated,&why));
+    Require(SetupFileGetModelPad(&setup,selection,&ref));
+    assert(setup.objects[selection].pad != setup.objects[0].pad);
+    const SetupPad *sourcepad = Pad(&setup,0);
+    assert(!memcmp(sourcepad->pos,untouched.pos,sizeof(untouched.pos)));
+    assert(!memcmp(sourcepad->up,untouched.up,sizeof(untouched.up)));
+    assert(!memcmp(sourcepad->look,untouched.look,sizeof(untouched.look)));
+    /* Re-parsing clears unused bytes after the name's terminator. */
+    assert(!strcmp(sourcepad->stanname,untouched.stanname) && sourcepad->deleted==untouched.deleted);
+    assert(Pad(&setup,selection)->stanname[0] && Resolve(stan,Pad(&setup,selection))!=STAN_TILE_NONE);
+    DWORD corner=0;
+    for (DWORD i=0;i<duplicated.tricount;i++) if (duplicated.objectindices[i]==selection)
+    {
+        for (int j=0;j<3;j++,corner++)
+        {
+            const BgVertex *v=&pose.tris[corner], *actual=&duplicated.tris[i*3+j];
+            double point[3]={v->x,v->y,v->z}, expected[3];
+            if (mode==2) { RotationPoint(&rotation,pivot,point,expected); }
+            else if (mode==3) { ScalingPoint(&scaling,point,expected); }
+            else for (int axis=0;axis<3;axis++)
+                { expected[axis]=point[axis]+(mode==0 ? paste[axis] : drag[axis]); }
+            assert(fabs(actual->x-expected[0])<.02);
+            assert(fabs(actual->y-expected[1])<.02);
+            assert(fabs(actual->z-expected[2])<.02);
+        }
+    }
+    assert(corner==pose.tricount*3);
+    Require(EditHistoryCommitEdit(&history,NULL,&setup,NULL,&tx,&why));
+    Require(SetupFileClone(&setup,&after,&why));
+    Require(EditHistoryUndo(&history,&bg,&setup,&historyStan,&asset,&why));
+    SetupAssertNativeEqual(&setup,&baseline);
+    Require(EditHistoryRedo(&history,&bg,&setup,&historyStan,&asset,&why));
+    SetupAssertNativeEqual(&setup,&after);
+    Require(SetupSaveProjectFile(dir,&setup,&why));
+    Require(SetupLoadProjectFile(dir,setup.name,&saved,&why));
+    SetupAssertNativeEqual(&setup,&saved);
+    assert(!strcmp(Pad(&saved,selection)->stanname,Pad(&setup,selection)->stanname));
+    Require(ObjectLoadSetupGeometry(dir,&saved,stan,levelscale,&reloaded,&why));
+    SamePose(&duplicated,&reloaded,(double[3]){0,0,0});
+    ObjectGeometryFree(&initial); ObjectGeometryFree(&placed); ObjectGeometryFree(&pose);
+    ObjectGeometryFree(&duplicated); ObjectGeometryFree(&reloaded);
+    SetupFileFree(&setup); SetupFileFree(&snapshot); SetupFileFree(&baseline);
+    SetupFileFree(&after); SetupFileFree(&saved); EditHistoryFree(&history);
+}
 int main(int argc, char **argv)
 {
     StanFile stan = {0}; SetupFile fixture = {0};
@@ -165,7 +257,13 @@ int main(int argc, char **argv)
         Depot(&stan, bound, named);
         Require(SetupSaveProjectFile(dir, &fixture, &why));
     }
+    for (int bound=0;bound<2;bound++) for (int live=0;live<2;live++) for (int mode=0;mode<4;mode++)
+    {
+        Duplicate(&stan,bound,live,mode);
+        Require(SetupSaveProjectFile(dir,&fixture,&why));
+    }
     SetupFileFree(&fixture); StanFileFree(&stan);
     puts("PASS Depot elevated prop: same/linked floor, preserved height, ordinary/bound/shared pads, native save/reload, undo/redo, 800 repeated moves and invalid-move rollback.");
+    puts("PASS elevated copies: clipboard snapshots and live duplication, translation/rotation/scale, normal/bound pads, unchanged source, undo/redo and native save/reload.");
     return 0;
 }

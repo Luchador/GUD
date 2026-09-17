@@ -3586,6 +3586,7 @@ BOOL SetupFileSetModelBounds(SetupFile *setup, DWORD selection, float levelscale
 {
     SetupPadRef ref;
     SetupObject *object;
+    char stanname[16];
     double zero[3] = {0};
     if ((selection & SETUP_CHARACTER_SELECTION_BIT) ||
         !SetupFileGetModelPad(setup, selection, &ref))
@@ -3593,6 +3594,8 @@ BOOL SetupFileSetModelBounds(SetupFile *setup, DWORD selection, float levelscale
         *reasonout = "Only props can be scaled.";
         return FALSE;
     }
+    lstrcpyn(stanname, ref.bound ? setup->boundpads[ref.index].pad.stanname
+                                : setup->pads[ref.index].stanname, sizeof(stanname));
     if (ref.bound)
     {
         if (!SetupFileTranslateModel(setup, selection, levelscale, zero, reasonout) ||
@@ -3605,6 +3608,9 @@ BOOL SetupFileSetModelBounds(SetupFile *setup, DWORD selection, float levelscale
     {
         return FALSE;
     }
+    /* Detaching/promoting a pad changes ownership and bounds, not its
+     * authored position. Keep the floor needed to rebuild elevated props. */
+    if (stanname[0] && !SetupFileSetPadStanName(setup, &ref, stanname, reasonout)) { return FALSE; }
     object = &setup->objects[selection];
     object->pad = (short)(ref.index + (object->type == PROPDEF_DOOR ? 0 : 10000));
     setup->data[object->sourceoffset + 6] = (unsigned char)(object->pad >> 8);
@@ -3667,16 +3673,20 @@ static BOOL SetupDuplicatePad(SetupFile *dest, const SetupFile *source,
     DWORD size = start + (total + 1) * stride;
     DWORD from = SetupRead32(source->data + header) + ref->index * stride;
     unsigned char *data;
+    char stanname[16];
     if (total > limit || size > SETUP_FILE_MAX || old > dest->size
         || count > (dest->size - old) / stride || from > source->size
         || stride > source->size - from)
     { *reasonout = "There is no room for the copied placement pad."; return FALSE; }
+    lstrcpyn(stanname, ref->bound ? source->boundpads[ref->index].pad.stanname
+                                 : source->pads[ref->index].stanname, sizeof(stanname));
     data = calloc(size, 1);
     if (!data) { *reasonout = "Out of memory copying the placement pad."; return FALSE; }
     memcpy(data, dest->data, dest->size);
     memcpy(data + start, dest->data + old, count * stride);
     memcpy(data + start + index * stride, source->data + from, stride);
-    /* Resolve the new room from the new position, never a stale plink/cache. */
+    /* A clipboard snapshot has its own native offsets. Use a valid empty
+     * link while rebuilding this table, then copy the name into dest below. */
     SetupWrite32(data + start + index * stride + SETUP_PAD_LINK,
                  start + total * stride + SETUP_PAD_LINK);
     SetupWrite32(data + start + index * stride + 40, SETUP_PRIVATE_PAD_STAN);
@@ -3686,7 +3696,9 @@ static BOOL SetupDuplicatePad(SetupFile *dest, const SetupFile *source,
     free(dest->boundpads); dest->boundpads = NULL; dest->boundpadcount = 0;
     if (!SetupParsePads(dest, reasonout)) { return FALSE; }
     out->bound = ref->bound; out->index = index;
-    return TRUE;
+    /* The duplicate starts at the source position. Its transform will
+     * resolve the destination from this floor instead of ceiling height. */
+    return !stanname[0] || SetupFileSetPadStanName(dest, out, stanname, reasonout);
 }
 
 BOOL SetupFileDuplicateObject(SetupFile *setup, const SetupFile *source,

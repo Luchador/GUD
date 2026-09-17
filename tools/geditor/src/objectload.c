@@ -1378,7 +1378,7 @@ BOOL ObjectRotateSetupModel(const char *projectdir, SetupFile *setup, const Stan
             padmove[axis] = (double)feet[axis] - pad->pos[axis] / levelscale;
         }
     }
-    if (!SetupFileTranslateModel(setup, index, levelscale, padmove, reasonout) ||
+    if (!ObjectTranslateModelPad(setup, stan, levelscale, index, padmove, reasonout) ||
         !SetupFileGetModelPad(setup, index, &ref) ||
         !SetupFileRotatePad(setup, &ref, rotation, &changed, reasonout) ||
         !ObjectLoadSetupGeometry(projectdir, setup, stan, levelscale, &provisional, reasonout))
@@ -1395,7 +1395,7 @@ BOOL ObjectRotateSetupModel(const char *projectdir, SetupFile *setup, const Stan
     correction[1] = expected[1] - placed->y;
     correction[2] = expected[2] - placed->z;
     ObjectGeometryFree(&provisional);
-    if (!SetupFileTranslateModel(setup, index, levelscale, correction, reasonout) ||
+    if (!ObjectTranslateModelPad(setup, stan, levelscale, index, correction, reasonout) ||
         !ObjectLoadSetupGeometry(projectdir, setup, stan, levelscale, out, reasonout))
     {
         goto fail;
@@ -1581,7 +1581,7 @@ BOOL ObjectScaleSetupModel(const char *projectdir, SetupFile *setup, const StanF
     correction[0] = expected[0] - newvertex->x;
     correction[1] = expected[1] - newvertex->y;
     correction[2] = expected[2] - newvertex->z;
-    if (!SetupFileTranslateModel(setup, index, levelscale, correction, reasonout) ||
+    if (!ObjectTranslateModelPad(setup, stan, levelscale, index, correction, reasonout) ||
         !ObjectLoadSetupGeometry(projectdir, setup, stan, levelscale, out, reasonout))
     {
         goto done;
