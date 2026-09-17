@@ -309,15 +309,41 @@ DWORD StanResolvePadTile(const StanFile *stan, const char *name, const float pos
     return STAN_TILE_NONE;
 }
 
+/* Authoring fallback for props: a ceiling-height 3D nearest-sample search can
+ * select the next storey's floor. Pick the highest containing walkable floor
+ * at or below the pad instead. Do not change the runtime-compatible loader. */
+static DWORD StanFindPropFloorBelow(const StanFile *stan, const float pos[3])
+{
+    DWORD best = STAN_TILE_NONE, i;
+    float bestheight = 0;
+    if (!StanHasTile(stan, 0)) { return STAN_TILE_NONE; }
+    for (i = 0; i < stan->tilecount; i++)
+    {
+        StanTile tile;
+        float height;
+        StanQueryTile(stan, i, &tile);
+        if ((tile.id & 0x800000u)
+            || StanEdgeSide(&tile.points[tile.extreme[0]], &tile.points[tile.extreme[1]],
+                            tile.points[tile.extreme[2]].x, tile.points[tile.extreme[2]].z) == 0
+            || !StanInsideTriple(&tile, pos[0] * stan->levelscale, pos[2] * stan->levelscale)
+            || !StanGetTileHeight(stan, i, pos[0], pos[2], &height)) { continue; }
+        if (height <= pos[1] + 0.01f && (best == STAN_TILE_NONE || height > bestheight))
+        { best = i; bestheight = height; }
+    }
+    return best;
+}
+
 /* A prop's room follows its existing floor through a move. Starting a fresh
  * 3D nearest-sample search at ceiling height can choose a disconnected raised
  * surface even when the destination lies above the original floor. */
 BOOL StanResolveMovedPadName(const StanFile *stan, const char *name,
     const float from[3], const float to[3], char resolved[16])
 {
-    DWORD tile = StanResolvePadTile(stan, name, from), id;
+    DWORD tile, id;
+    float height;
     resolved[0] = '\0';
-    if (!to) { return FALSE; }
+    if (!from || !to) { return FALSE; }
+    tile = StanResolvePadTile(stan, name, from);
     if (tile != STAN_TILE_NONE
         && StanWalkTiles(stan, &tile, from[0], from[2], to[0], to[2]))
     {
@@ -328,8 +354,16 @@ BOOL StanResolveMovedPadName(const StanFile *stan, const char *name,
         { tile = STAN_TILE_NONE; }
     }
     else { tile = STAN_TILE_NONE; }
-    /* Keep existing placement behavior for moves to another disconnected
-     * area. Never carry an old tile name beyond its valid footprint. */
+    /* Keep a connected floor only while it is beneath the prop. A stale
+     * upstairs name is valid in X/Z but makes a downstairs prop invisible.
+     * New props and disconnected moves also need an explicit floor choice. */
+    if (tile == STAN_TILE_NONE || !StanGetTileHeight(stan, tile, to[0], to[2], &height)
+        || height > to[1] + 0.01f)
+    {
+        DWORD below = StanFindPropFloorBelow(stan, to);
+        if (below != STAN_TILE_NONE) { tile = below; }
+    }
+    /* Preserve legacy placement where no containing floor below exists. */
     if (tile == STAN_TILE_NONE) { tile = StanResolvePadTile(stan, "", to); }
     if (tile == STAN_TILE_NONE) { return FALSE; }
     id = stan->tiles[tile].id;

@@ -91,8 +91,10 @@ BOOL StanPaintTile(StanFile *stan, DWORD tile, const unsigned char rgba[4],
    nearest-walkable sample search and linked walk, without altering pos. */
 DWORD StanResolvePadTile(const StanFile *stan, const char *name,
                          const float pos[3]);
-/* Preserve a moved prop's floor through connected tiles when possible, then
- * fall back to normal destination lookup. Returns a native setup tile name. */
+/* Preserve a moved prop's connected floor when below its destination. Otherwise
+ * prefer the highest containing floor below, then legacy destination lookup.
+ * For new props, pass an empty name and the pad position as both endpoints.
+ * Returns a native setup tile name; loading existing assets stays unchanged. */
 BOOL StanResolveMovedPadName(const StanFile *stan, const char *name,
     const float from[3], const float to[3], char resolved[16]);
 BOOL StanWalkTiles(const StanFile *stan, DWORD *tile,

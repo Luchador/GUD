@@ -4044,8 +4044,22 @@ static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request, GEditor
         added = SetupFileAddModel(&g_CurrentSetup, character, modelid, g_CurrentBgDocument.levelscale,
             position, &selection, &why);
     }
-    if (!added ||
-        !ObjectLoadSetupGeometry(g_Project.dir, &g_CurrentSetup, &g_CurrentStan,
+    if (!added) { goto rollback; }
+    if (!character)
+    {
+        SetupPadRef ref;
+        const SetupPad *pad;
+        float point[3];
+        char name[16];
+        if (!SetupFileGetModelPad(&g_CurrentSetup, selection, &ref))
+        { why = "The object has no editable placement pad."; goto rollback; }
+        pad = ref.bound ? &g_CurrentSetup.boundpads[ref.index].pad : &g_CurrentSetup.pads[ref.index];
+        for (int axis = 0; axis < 3; axis++) { point[axis] = pad->pos[axis] / g_CurrentBgDocument.levelscale; }
+        if (!StanResolveMovedPadName(&g_CurrentStan, "", point, point, name))
+        { why = "Place the object over a walkable Stan floor."; goto rollback; }
+        if (!SetupFileSetPadStanName(&g_CurrentSetup, &ref, name, &why)) { goto rollback; }
+    }
+    if (!ObjectLoadSetupGeometry(g_Project.dir, &g_CurrentSetup, &g_CurrentStan,
                                  g_CurrentBgDocument.levelscale, &objects, &why))
     {
         goto rollback;

@@ -245,6 +245,54 @@ static void Duplicate(StanFile *stan, BOOL bound, BOOL live, int mode)
     SetupFileFree(&setup); SetupFileFree(&snapshot); SetupFileFree(&baseline);
     SetupFileFree(&after); SetupFileFree(&saved); EditHistoryFree(&history);
 }
+static void DepotStackedRooms(StanFile *stan, BOOL bound)
+{
+    /* Uploaded gray-building pendant: p43e2 is the upstairs floor at Y=105,
+     * but its pad is downstairs at Y=14, above room 40's floor at Y=-243. */
+    const float point[3] = {141.91492f,14.330784f,879.27264f};
+    const float upstairs[3] = {141.91492f,150,879.27264f};
+    const double nudge[3] = {1,0,0};
+    SetupFile s = {0}, saved = {0};
+    SetupObjectGeometry before = {0}, after = {0}, reloaded = {0};
+    SetupPadRef ref;
+    DWORD tile;
+    char name[16];
+    double delta[3];
+    tile = StanResolvePadTile(stan, "", point);
+    assert(tile != STAN_TILE_NONE && stan->tiles[tile].room == 42);
+    /* Runtime lookup is intentionally unchanged. New placements serialize
+     * an explicit downstairs name so the game uses the same floor. */
+    assert(StanResolveMovedPadName(stan, "", point, point, name));
+    tile = StanResolvePadTile(stan, name, point);
+    assert(tile != STAN_TILE_NONE && stan->tiles[tile].room == 40);
+    assert(StanResolveMovedPadName(stan, "p43e2", upstairs, upstairs, name));
+    assert(!strcmp(name, "p43e2"));
+    Require(SetupLoadProjectFile(dir, "UsetupmoveZ", &s, &why));
+    LoadGlobalReferences(&s);
+    if (bound)
+    {
+        s.objects[0].pad = 10000;
+        s.data[s.objects[0].sourceoffset+6] = 10000 >> 8;
+        s.data[s.objects[0].sourceoffset+7] = 10000 & 255;
+    }
+    for (int axis = 0; axis < 3; axis++) { delta[axis] = point[axis] - Pad(&s,0)->pos[axis] / levelscale; }
+    Require(SetupFileTranslateModel(&s,0,levelscale,delta,&why));
+    Require(SetupFileGetModelPad(&s,0,&ref));
+    Require(SetupFileSetPadStanName(&s,&ref,"p43e2",&why));
+    assert(stan->tiles[Resolve(stan,Pad(&s,0))].room == 42);
+    Require(ObjectLoadSetupGeometry(dir,&s,stan,levelscale,&before,&why));
+    Require(ObjectTranslateSetupModel(dir,&s,stan,levelscale,&before,0,nudge,&after,&why));
+    SamePose(&before,&after,nudge);
+    assert(stan->tiles[Resolve(stan,Pad(&s,0))].room == 40);
+    Require(SetupSaveProjectFile(dir,&s,&why));
+    Require(SetupLoadProjectFile(dir,s.name,&saved,&why));
+    assert(stan->tiles[Resolve(stan,Pad(&saved,0))].room == 40);
+    Require(ObjectLoadSetupGeometry(dir,&saved,stan,levelscale,&reloaded,&why));
+    SamePose(&after,&reloaded,(double[3]){0,0,0});
+    ObjectGeometryFree(&before); ObjectGeometryFree(&after); ObjectGeometryFree(&reloaded);
+    SetupFileFree(&s); SetupFileFree(&saved);
+}
+
 int main(int argc, char **argv)
 {
     StanFile stan = {0}; SetupFile fixture = {0};
@@ -262,8 +310,14 @@ int main(int argc, char **argv)
         Duplicate(&stan,bound,live,mode);
         Require(SetupSaveProjectFile(dir,&fixture,&why));
     }
+    for (int bound=0;bound<2;bound++)
+    {
+        DepotStackedRooms(&stan,bound);
+        Require(SetupSaveProjectFile(dir,&fixture,&why));
+    }
     SetupFileFree(&fixture); StanFileFree(&stan);
     puts("PASS Depot elevated prop: same/linked floor, preserved height, ordinary/bound/shared pads, native save/reload, undo/redo, 800 repeated moves and invalid-move rollback.");
     puts("PASS elevated copies: clipboard snapshots and live duplication, translation/rotation/scale, normal/bound pads, unchanged source, undo/redo and native save/reload.");
+    puts("PASS Depot stacked rooms: downstairs prop placement/repair, upstairs reference retained, normal/bound pads and native save/reload.");
     return 0;
 }
