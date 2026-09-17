@@ -4,6 +4,7 @@
  * tool independent of the N64 ABI avoids importing its platform typedefs. */
 #define BG_COMBINE_SHADE_0       0xFCFFFFFFu /* G_CC_SHADE, G_CC_SHADE */
 #define BG_COMBINE_SHADE_1       0xFFFE793Cu
+#define BG_COMBINE_SHADE_PASS_1  0xFFFE7838u /* G_CC_SHADE, G_CC_PASS2 */
 #define BG_COMBINE_MODULATE_0    0xFC121824u /* G_CC_MODULATEIA, G_CC_MODULATEIA */
 #define BG_COMBINE_MODULATE_1    0xFF33FFFFu
 #define BG_COMBINE_MIPMAP_0      0xFC26A004u /* G_CC_TRILERP, G_CC_MODULATEIA2 */
@@ -66,7 +67,13 @@ void BgMaterialSetTexture(BgMaterial *material, DWORD textureid)
         return;
     }
 
-    BOOL wasuntextured = BgMaterialTextureId(material) == BG_TEX_NONE;
+    /* Native faces can inherit an enabled texture and image binding while
+     * drawing only SHADE. An explicit image assignment must enable sampling
+     * on those faces too, even when reapplying the already-bound image. */
+    BOOL wasuntextured = BgMaterialTextureId(material) == BG_TEX_NONE
+        || (material->combineword0 == BG_COMBINE_SHADE_0
+            && (material->combineword1 == BG_COMBINE_SHADE_1
+                || material->combineword1 == BG_COMBINE_SHADE_PASS_1));
     if ((material->textureword0 >> 24) != BG_G_SETTEXTURE)
     {
         material->textureword0 = (BG_G_SETTEXTURE << 24) | BG_TEXTURETYPE_MIPMAP;
@@ -76,9 +83,13 @@ void BgMaterialSetTexture(BgMaterial *material, DWORD textureid)
     {
         /* A texture can be assigned again after saving an untextured face.
          * Use a standard shaded material; undo retains the exact old one. */
-        BOOL mipmap = (material->textureword0 & 7u) == BG_TEXTURETYPE_MIPMAP;
+        DWORD type = material->textureword0 & 7u;
+        BOOL mipmap = type <= BG_TEXTURETYPE_MIPMAP;
         material->combineword0 = mipmap ? BG_COMBINE_MIPMAP_0 : BG_COMBINE_MODULATE_0;
         material->combineword1 = mipmap ? BG_COMBINE_MIPMAP_1 : BG_COMBINE_MODULATE_1;
+        /* Types 0/1 retain their authored detail tiles; select the matching
+         * combiner so the base image and its alpha come from the right tile. */
+        if (type < BG_TEXTURETYPE_MIPMAP) { BgMaterialDetailCombiner(material, TRUE); }
     }
     material->modeword0 = (material->modeword0 & ~0xFFu) | 1u;
     material->textureword1 = (material->textureword1 & ~(DWORD)BG_TEX_ID_MASK) | textureid;

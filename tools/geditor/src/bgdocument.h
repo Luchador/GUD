@@ -252,9 +252,11 @@ BOOL BgDocumentFindCollapsedFaces(const BgDocument *before, const BgDocument *af
 
 /* Replaces the image on each face, preserving UVs and shared vertices.
  * Existing textured faces retain their other material settings; untextured
- * faces receive a standard shaded texture material. BG_TEX_NONE disables
+ * and shade-only faces receive a standard shaded texture material, retaining
+ * any detail tile settings. BG_TEX_NONE disables
  * texturing and uses vertex RGBA in both cycles. Validates the whole selection
- * before editing; assigning the same image is a no-op. */
+ * before editing; assigning the same image is a no-op unless its shade-only
+ * combiner still needs to be switched to texture sampling. */
 BOOL BgDocumentSetFaceTexture(BgDocument *document, const BgFaceRef *refs,
                               DWORD refcount, DWORD textureid,
                               BOOL *changedout, const char **reasonout);
