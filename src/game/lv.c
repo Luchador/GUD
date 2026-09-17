@@ -25,6 +25,8 @@
 #include "chr.h"
 #include "chrai.h"
 #include "cleanup.h"
+#include "dyntex.h"
+#include "dyn.h"
 #include "ejectedcartridges.h"
 #include "explosion.h"
 #include "frametiming.h"
@@ -52,12 +54,11 @@
 #include "mpmenu.h"
 #include "objective.h"
 #include "player.h"
-#include "setup.h"
 #include "propobj.h"
+#include "renderconfig.h"
+#include "setup.h"
 #include "stan.h"
 #include "textrelated.h"
-#include "dyntex.h"
-#include "dyn.h"
 #include "viewport.h"
 #include "vtxstore.h"
 
@@ -967,15 +968,19 @@ static Gfx *lvDrawFrameRateText(Gfx *gdl, s32 *x, s32 *y, char *text, u32 color,
 
     /* A glyph uses at most 12 Gfx entries (including its texture upload).
      * Omit a row if the master list is full; never overwrite the next pool. */
-    for (p = text; *p; p++) {
+    for (p = text; *p; p++) 
+    {
         commands += 12;
     }
-    if (dynGetFreeGfx(gdl) < commands) {
+
+    if (dynGetFreeGfx(gdl) < commands) 
+    {
         return gdl;
     }
-    return textRender(gdl, x, y, text, ptrFontBankGothicChars,
-            ptrFontBankGothic, color, width, viGetY(), 0, 0);
+
+    return textRender(gdl, x, y, text, ptrFontBankGothicChars, ptrFontBankGothic, color, width, viGetY(), 0, 0);
 }
+
 
 Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
 {
@@ -1019,14 +1024,21 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
     y = 18;
     screenwidth = (s32) viGetX();
 
-    if (dynGetFreeGfx(gdl) < 18) {
+    if (dynGetFreeGfx(gdl) < 18) 
+    {
         return gdl;
     }
+
     gdl = bgDebugRender(gdl);
     gdl = gfxSetup2DTextureMode(gdl);
+
     /* Called once after all players, so use the whole screen in split-screen. */
     gDPSetScissor(gdl++, G_SC_NON_INTERLACE, 0, 0, viGetX(), viGetY());
-    gdl = lvDrawFrameRateText(gdl, &x, &y, fpsText, color, screenwidth);
+
+    if (renderIsFpsCounterEnabled()) 
+    {
+        gdl = lvDrawFrameRateText(gdl, &x, &y, fpsText, color, screenwidth);
+    }
 
     return bgDebugDrawHud(gdl);
 }

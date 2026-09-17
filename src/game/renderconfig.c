@@ -2,15 +2,12 @@
 #include <PR/rcp.h>
 #include "renderconfig.h"
 
-/* Linked into resident .code: renderConfigureViMode runs on scheduler retraces,
- * including those before the main thread initializes game demand paging. */
 
-/* Player-facing preferences survive stage changes. Their applied copies change
- * only with an empty graphics queue, since cached display lists are shared. */
 static bool g_RenderAaEnabled = TRUE;
 static bool g_RenderViFilterEnabled = TRUE;
 static bool g_RenderAppliedAaEnabled = TRUE;
-static bool g_RenderAppliedViFilterEnabled = TRUE;
+static bool g_RenderAppliedViFilterEnabled = TRUE; 
+static bool g_RenderFpsCounterEnabled = TRUE;
 
 #define RENDER_LEAF_CACHE_SIZE 1024
 #define RENDER_GDL_STACK_SIZE 16
@@ -43,30 +40,54 @@ extern u8 *g_VtxBuffers[3];
 bool renderIsAaEnabled(void) { return g_RenderAaEnabled; }
 /* Use the applied preference: the watch can request a change partway through
  * building a frame, before the graphics queue has drained. */
-bool renderUseOneCycle(void) { return !g_RenderAppliedAaEnabled; }
-bool renderIsViFilterEnabled(void) { return g_RenderViFilterEnabled; }
+bool renderUseOneCycle(void) 
+{ 
+    return !g_RenderAppliedAaEnabled; 
+}
+
+
+bool renderIsViFilterEnabled(void) 
+{ 
+    return g_RenderViFilterEnabled; 
+}
+
 
 void renderSetAaEnabled(bool enabled)
 {
     g_RenderAaEnabled = enabled != FALSE;
 }
 
+
 void renderSetViFilterEnabled(bool enabled)
 {
     g_RenderViFilterEnabled = enabled != FALSE;
 }
 
+
+bool renderIsFpsCounterEnabled(void)
+{
+    return g_RenderFpsCounterEnabled;
+}
+
+
+void renderSetFpsCounterEnabled(bool enabled)
+{
+    g_RenderFpsCounterEnabled = enabled != FALSE;
+}
+
+
 bool renderSettingsPending(void)
 {
-    return g_RenderAaEnabled != g_RenderAppliedAaEnabled
-            || g_RenderViFilterEnabled != g_RenderAppliedViFilterEnabled;
+    return g_RenderAaEnabled != g_RenderAppliedAaEnabled || g_RenderViFilterEnabled != g_RenderAppliedViFilterEnabled;
 }
+
 
 void renderInvalidateDisplayListCache(void)
 {
     s32 i;
     for (i = 0; i < RENDER_LEAF_CACHE_SIZE; i++) g_RenderLeafCache[i] = NULL;
 }
+
 
 void renderApplySettings(void)
 {
@@ -78,24 +99,33 @@ void renderApplySettings(void)
     g_RenderAppliedViFilterEnabled = g_RenderViFilterEnabled;
 }
 
+
 u8 renderEncodeSettings(void)
 {
-    /* Keep the existing save format: 0 = On, 2 = Off in each two-bit field.
-     * Bit 4 is no longer written; colour dithering always remains authored. */
-    return 0xa0 | (g_RenderAaEnabled ? 0 : 2) | (g_RenderViFilterEnabled ? 0 : 8);
+    return 0xc0 | (g_RenderAaEnabled ? 0 : 2) | (g_RenderViFilterEnabled ? 0 : 8) | (g_RenderFpsCounterEnabled ? 0 : 0x10);
 }
+
 
 void renderDecodeSettings(u8 settings)
 {
+    u8 format = settings & 0xe0;
+
     renderSetAaEnabled(TRUE);
     renderSetViFilterEnabled(TRUE);
-    if ((settings & 0xe0) == 0xa0 && (settings & 3) < 3
-            && ((settings >> 2) & 3) < 3) {
-        /* Old Reduced/Edges values (1) become On; old dither is ignored. */
+    renderSetFpsCounterEnabled(TRUE);
+
+    if ((format == 0xa0 || format == 0xc0) && (settings & 3) < 3 && ((settings >> 2) & 3) < 3) 
+    {
         renderSetAaEnabled((settings & 3) != 2);
         renderSetViFilterEnabled(((settings >> 2) & 3) != 2);
+
+        if (format == 0xc0) 
+        {
+            renderSetFpsCounterEnabled((settings & 0x10) == 0);
+        }
     }
 }
+
 
 void renderConfigureViMode(OSViMode *mode)
 {
@@ -109,6 +139,7 @@ void renderConfigureViMode(OSViMode *mode)
     }
     mode->comRegs.ctrl = control;
 }
+
 
 /* Fast3D's SetOtherMode command ignores bits 16..23 of word 0. Keep the
  * original opaque mode's table index there while a command is modified. This
@@ -127,18 +158,26 @@ static void renderRestoreAaCommand(Gfx *cmd)
     cmd->words.w0 = AA_COMMAND_WORD;
 }
 
+
 static void renderDisableAaCommand(Gfx *cmd)
 {
     u32 original;
     u32 replacement;
     u32 tag;
     s32 i;
+
     /* Tagged commands already contain their Off value. Leave them untouched,
      * including when a previous graphics task still references this list. */
-    if (cmd->words.w0 != AA_COMMAND_WORD) return;
+    if (cmd->words.w0 != AA_COMMAND_WORD) 
+    {
+        return;
+    }
+
     original = cmd->words.w1;
-    for (i = 0; i < 5; i++) {
-        if ((original & AA_OTHER_BITS_MASK) == (g_AaOpaqueModes[i][0] & AA_OTHER_BITS_MASK)) {
+    for (i = 0; i < 5; i++) 
+    {
+        if ((original & AA_OTHER_BITS_MASK) == (g_AaOpaqueModes[i][0] & AA_OTHER_BITS_MASK)) 
+        {
             tag = AA_TAG_PRESENT | i;
             replacement = g_AaOpaqueModes[i][1];
             /* Opaque AA-Off pixels do not need a different blender mux.
@@ -152,17 +191,20 @@ static void renderDisableAaCommand(Gfx *cmd)
     }
 }
 
+
 Gfx renderGetAaOffCommand(Gfx command)
 {
     renderDisableAaCommand(&command);
     return command;
 }
 
+
 static void renderApplyAaCommand(Gfx *cmd)
 {
     if (g_RenderAppliedAaEnabled) renderRestoreAaCommand(cmd);
     else renderDisableAaCommand(cmd);
 }
+
 
 void renderRestoreDisplayListSettings(Gfx *start, Gfx *end)
 {
@@ -174,6 +216,7 @@ void renderRestoreDisplayListSettings(Gfx *start, Gfx *end)
     }
 }
 
+
 bool renderListIsDynamic(Gfx *gdl)
 {
     u32 address = (u32)gdl;
@@ -181,16 +224,30 @@ bool renderListIsDynamic(Gfx *gdl)
             || (address >= (u32)g_VtxBuffers[0] && address < (u32)g_VtxBuffers[2]);
 }
 
+
 static Gfx *renderResolveDisplayListAddress(u32 address, u32 *segments)
 {
     u32 physical;
-    if (address & 0x80000000) {
+
+    if (address & 0x80000000) 
+    {
         physical = address & 0x1fffffff;
-    } else {
-        if ((address >> 24) >= 16) return NULL;
+    } 
+    else 
+    {
+        if ((address >> 24) >= 16) 
+        {
+            return NULL;
+        }
+    
         physical = segments[address >> 24] + (address & 0xffffff);
     }
-    if ((physical & 7) || physical >= osMemSize) return NULL;
+
+    if ((physical & 7) || physical >= osMemSize) 
+    {
+        return NULL;
+    }
+
     return (Gfx *)(physical | 0x80000000);
 }
 
@@ -202,6 +259,7 @@ bool renderApplyDisplayListSettings(Gfx *start, Gfx *end)
         Gfx *end;
         bool cacheable;
     } stack[RENDER_GDL_STACK_SIZE];
+
     struct RenderListState *state;
     Gfx *cmd;
     Gfx *child;
@@ -215,6 +273,7 @@ bool renderApplyDisplayListSettings(Gfx *start, Gfx *end)
     stack[0].cmd = start;
     stack[0].end = end;
     stack[0].cacheable = FALSE;
+
     while (depth >= 0 && remaining-- > 0) {
         state = &stack[depth];
         cmd = state->cmd;
