@@ -1063,20 +1063,18 @@ static void BrowserUpdateImageTooltip(HWND hwnd, BrowserState *state, WPARAM wpa
 }
 
 
-/* Image-list drag coordinates are relative to the drawing window's outer
- * rectangle, including its caption and borders. Use the desktop so the preview
- * also reaches owned editor windows. Both starting
- * and moving the preview must use this same conversion. */
+/* Desktop image-list drags use the virtual screen's upper-left corner. The
+ * desktop window rectangle reports only the primary monitor, so using it as
+ * the origin shifts the preview onto another monitor when a display sits to
+ * the left or above the primary. Share this conversion for enter and move. */
 static BOOL BrowserImageDragPoint(HWND hwnd, POINT *point)
 {
-    RECT frame;
-
-    if (!ClientToScreen(hwnd, point) || !GetWindowRect(GetDesktopWindow(), &frame))
+    if (!ClientToScreen(hwnd, point))
     {
         return FALSE;
     }
-    point->x += 12 - frame.left;
-    point->y += 18 - frame.top;
+    point->x += 12 - GetSystemMetrics(SM_XVIRTUALSCREEN);
+    point->y += 18 - GetSystemMetrics(SM_YVIRTUALSCREEN);
     return TRUE;
 }
 
