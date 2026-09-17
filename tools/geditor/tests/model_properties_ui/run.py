@@ -40,7 +40,7 @@ def main():
                         '-Wno-unused-parameter', '-ffunction-sections', '-fdata-sections',
                         '-fsanitize=address,undefined', f'-I{here.parent / "image_import"}',
                         f'-I{src}', f'-I{src.parents[2]}', str(here / 'setup.c')]
-                       + [str(src / name) for name in ('objectload.c', 'characterload.c', 'modelload.c')]
+                       + [str(src / name) for name in ('objectload.c', 'characterload.c', 'modelload.c', 'newprops.c')]
                        + ['-Wl,--gc-sections', '-lm', '-o', str(work / 'setup')], check=True)
         subprocess.run([str(work / 'setup')], check=True,
                        env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))

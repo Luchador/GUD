@@ -14,6 +14,7 @@
 #define IDD_ADD_PORTAL        110
 #define IDD_ACTION_BLOCKS     111
 #define IDD_KNIFE             112
+#define IDD_ADD_PROP_MODEL    113
 
 /* Icons */
 #define IDI_GEDITOR           201
@@ -113,6 +114,8 @@
 #define IDC_MODEL_STATUS           1046
 #define IDC_MODEL_EXPORT           1047
 #define IDC_MODEL_IMPORT           1048
+#define IDC_MODEL_ADD              1049
+#define IDC_NEW_PROP_NAME          1190
 
 #define IDC_MODEL_PROPERTIES       1050
 #define IDC_MODEL_SELECTION        1051

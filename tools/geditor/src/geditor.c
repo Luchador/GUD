@@ -27,6 +27,7 @@
 #include "modeleditor.h"
 #include "actioneditor.h"
 #include "modeledits.h"
+#include "newprops.h"
 #include "imageedits.h"
 #include "imageimport.h"
 #include "uvcanvas.h"
@@ -521,14 +522,17 @@ static void GEditorRefreshProjectAssets(void)
        clears the section, which is the right display for "none". */
     BrowserSetImages(g_Browser, items, (int)count, pixels);
 
+    if (!NewPropsOpen(g_Project.dir,&why))
+    { MessageBox(GetParent(g_Viewport),why,GEDITOR_TITLE,MB_ICONERROR); }
+
     /* Models: enumerate the four class folders into plain rows. */
     {
         static const char *classes[] = { "characters", "guns", "objects", "casings" };
-        BrowserLevelItem models[512];
+        BrowserLevelItem models[1024];
         int modelcount = 0;
         int c;
 
-        for (c = 0; c < 4 && modelcount < 512; c++)
+        for (c = 0; c < 4 && modelcount < 1024; c++)
         {
             char pattern[MAX_PATH];
             WIN32_FIND_DATA find;
@@ -565,11 +569,18 @@ static void GEditorRefreshProjectAssets(void)
                 lstrcpyn(models[modelcount].label, stem, sizeof(models[modelcount].label));
                 modelcount++;
             }
-            while (modelcount < 512 && FindNextFile(search, &find));
+            while (modelcount < 1024 && FindNextFile(search, &find));
 
             FindClose(search);
         }
 
+        for (int index=0;index<NewPropsCount() && modelcount<1024;index++)
+        {
+            const char *name;int row;
+            NewPropsDefinition(CUSTOM_PROP_BASE+index,&name,NULL);
+            for (row=0;row<modelcount;row++) if (!strcmp(models[row].label,name)) break;
+            if (row==modelcount) lstrcpyn(models[modelcount++].label,name,sizeof(models[0].label));
+        }
         BrowserSetModels(g_Browser, modelcount > 0 ? models : NULL, modelcount);
     }
     ModelEditorSetProject(g_Project.dir);
@@ -4915,6 +4926,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     case MODELEDITOR_CHANGED:
     {
         const char *why="";
+        if (wparam) GEditorRefreshProjectAssets();
         if (g_CurrentLevelIndex < g_Project.levelcount && !GEditorReloadCurrentObjectsAndViewport(&why))
         { MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR); }
         GEditorRefreshSelectionDetails();

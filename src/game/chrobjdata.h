@@ -18,6 +18,8 @@ struct headHat
 extern struct headHat g_HeadHatDefs[168];
 
 extern struct ItemModelFileRecord PitemZ_entries[];
+struct ItemModelFileRecord *propModelGet(s32 modelid);
+struct ExplosionDetailsRecord *propExplosionGet(s32 modelid);
 
 extern struct ModelSkeleton SKELETON(cctv);  /* macro declaration for skeleton_cctv */
 extern struct ModelSkeleton SKELETON(console_one_screen);  /* macro declaration for skeleton_console_one_screen */

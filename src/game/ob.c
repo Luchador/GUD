@@ -1,6 +1,7 @@
 #include <ultra64.h>
 #include "macro.h"
 #include "ob.h"
+#include "customprops.h"
 #include <memp.h>
 #include <assets/obseg/obseg.h>
 #include "assets/obseg/file_resource_id_enums.h"
@@ -10,6 +11,17 @@
 resource_lookup_data_entry resource_lookup_data_array[OBJ_INDEX_MAX];
 s32 ob_c_debug_notice_list_entry = 0;
 s32 file_entry_max = OBJ_INDEX_END;
+
+
+static fileentry *obFile(s32 index)
+{
+    return index >= OBJ_INDEX_MAX ? customPropFile(index) : &file_resource_table[index];
+}
+
+static resource_lookup_data_entry *obInfo(s32 index)
+{
+    return index >= OBJ_INDEX_MAX ? customPropFileInfo(index) : &resource_lookup_data_array[index];
+}
 
 
 void load_resource(u8 *ptrdata, fileentry *srcfile, resource_lookup_data_entry *lookupdata)
@@ -57,12 +69,12 @@ void obLoadBGFileBytesAtOffset(u8 *bgname, u8 *target, s32 offset, s32 len)
     fileentry *fileentry;
 
     index = fileGetIndex(bgname);
-    fileentry = &file_resource_table[index];
+    fileentry = obFile(index);
 
-    if (resource_lookup_data_array[index].rom_size != 0)
+    if (obInfo(index)->rom_size != 0)
     {
         //if the size of offset data would exceed file size, loop forever
-        if ((resource_lookup_data_array[index].rom_size + 0xF) < (offset + len))
+        if ((obInfo(index)->rom_size + 0xF) < (offset + len))
         {
             while (1);
         }
@@ -73,7 +85,7 @@ void obLoadBGFileBytesAtOffset(u8 *bgname, u8 *target, s32 offset, s32 len)
 
 void *fileIndexLoadToBank(s32 index, FILELOADMETHOD loadMethod, s32 size, u8 bank)
 {
-    resource_lookup_data_entry *info = &resource_lookup_data_array[index];
+    resource_lookup_data_entry *info = obInfo(index);
     s32                         bytes;
     void                       *ptrdata = NULL;
 
@@ -89,7 +101,7 @@ void *fileIndexLoadToBank(s32 index, FILELOADMETHOD loadMethod, s32 size, u8 ban
         ptrdata             = mempAllocBytesInBank(info->poolRemaining, bank); // get pointer to allocated space in bank
         info->rom_remaining = info->poolRemaining;
 
-        load_resource(ptrdata, &file_resource_table[index], info);
+        load_resource(ptrdata, obFile(index), info);
 
         if (loadMethod != FILELOADMETHOD_EXTRAMEM)
         {
@@ -113,7 +125,7 @@ void *fileIndexLoadToBank(s32 index, FILELOADMETHOD loadMethod, s32 size, u8 ban
         ptrdata = mempAllocBytesInBank(info->poolRemaining, bank);
         info->rom_remaining = info->poolRemaining;
 
-        load_resource(ptrdata, &file_resource_table[index], info);
+        load_resource(ptrdata, obFile(index), info);
 
         if (size == 0)
         {
@@ -127,7 +139,7 @@ void *fileIndexLoadToBank(s32 index, FILELOADMETHOD loadMethod, s32 size, u8 ban
 
 void *fileIndexLoadToAddr(s32 index, FILELOADMETHOD loadMethod, void *ptrdata, s32 bytes) //#match https://decomp.me/scratch/YExRh
 {
-    resource_lookup_data_entry *info = &resource_lookup_data_array[index];
+    resource_lookup_data_entry *info = obInfo(index);
 
     if (!info->poolRemaining)
     {
@@ -144,11 +156,11 @@ void *fileIndexLoadToAddr(s32 index, FILELOADMETHOD loadMethod, void *ptrdata, s
     if (loadMethod == FILELOADMETHOD_EXTRAMEM || loadMethod == FILELOADMETHOD_DEFAULT || loadMethod == 2)
     {
         info->rom_remaining = bytes;
-        load_resource(ptrdata, &file_resource_table[index], &resource_lookup_data_array[index]);
+        load_resource(ptrdata, obFile(index), obInfo(index));
     }
     else
     {
-        load_resource(ptrdata, &file_resource_table[index], &resource_lookup_data_array[index]);
+        load_resource(ptrdata, obFile(index), obInfo(index));
     }
 
     return ptrdata;
@@ -157,24 +169,24 @@ void *fileIndexLoadToAddr(s32 index, FILELOADMETHOD loadMethod, void *ptrdata, s
 
 s32 get_pc_remaining_buffer_for_index(s32 index)
 {
-    return resource_lookup_data_array[index].poolRemaining;
+    return obInfo(index)->poolRemaining;
 }
 
 
 s32 get_rom_remaining_buffer_for_index(s32 index)
 {
-    return resource_lookup_data_array[index].rom_remaining;
+    return obInfo(index)->rom_remaining;
 }
 
 
 void fileSetSize(s32 filenum, u8* ptr, u32 size, s32 reallocate)
 {
-    resource_lookup_data_array[filenum].poolRemaining = size;
-    resource_lookup_data_array[filenum].rom_remaining = size;
+    obInfo(filenum)->poolRemaining = size;
+    obInfo(filenum)->rom_remaining = size;
 
     if (reallocate != 0)
     {
-        mempAddEntryOfSizeToBank(ptr, resource_lookup_data_array[filenum].poolRemaining, MEMPOOL_STAGE);
+        mempAddEntryOfSizeToBank(ptr, obInfo(filenum)->poolRemaining, MEMPOOL_STAGE);
     }
 }
 
@@ -185,13 +197,15 @@ s32 get_pc_buffer_remaining_value(u8 *name)
 
     index = fileGetIndex(name);
 
-    return resource_lookup_data_array[index].poolRemaining;
+    return obInfo(index)->poolRemaining;
 }
 
 
 void obBlankResourcesLoadedInBank(u8 bank)
 {
     s32 i;
+
+    if (bank == MEMPOOL_STAGE) customPropsReset();
 
     for (i = 1; i < file_entry_max; i++) 
     {
@@ -231,6 +245,9 @@ s32 fileGetIndex(u8 *resname)
         }
     }
     
+    i = customPropFileIndex((char *)resname);
+    if (i >= 0) return i;
+
     i = file_entry_max;
     
     //too many files exist

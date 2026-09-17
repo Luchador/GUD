@@ -24,6 +24,7 @@
 
 #include "romexport.h"
 #include "modeledits.h"
+#include "newprops.h"
 #include "imageedits.h"
 #include "bgdocument.h"
 #include "setupload.h"
@@ -1299,6 +1300,7 @@ static BOOL RomExportBuild(const GEditorProject *project, RomFile *rom,
     return RomExportProjectMatchesRom(project, rom, reasonout)
         && RomExportReplaceProjectResources(project, rom, reasonout)
         && RomExportUpdateLevelTable(project, rom, reasonout)
+        && NewPropsExportToRom(project->dir, rom, reasonout)
         && ImageEditsExportToRom(project->dir, rom, reasonout)
         && RomExportUpdateChecksum(rom, reasonout);
 }

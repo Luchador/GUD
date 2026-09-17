@@ -78,6 +78,8 @@ typedef struct GltfBuilder {
     DWORD capacity;
     BOOL importing;
     BOOL lit;
+    BOOL newprop;
+    const char *projectdir;
     const char *nodename; /* optional exact mesh-node filter for editor resources */
     DWORD *sourcevertices;
 } GltfBuilder;
@@ -1307,7 +1309,7 @@ static BOOL GltfPrimitiveRenderFlags(const char *json, const GltfJsonToken *toke
             (flags &
              ~(BG_RENDER_DEPTH_TEST | BG_RENDER_DEPTH_WRITE | BG_RENDER_DECAL | BG_RENDER_BLEND |
                BG_RENDER_ALPHA_TEST | BG_RENDER_IGNORE_TEXTURE_ALPHA | BG_RENDER_WRAP_MASK |
-               BG_RENDER_ENVIRONMENT_MASK | BG_RENDER_CULL_MASK)) ||
+               BG_RENDER_ENVIRONMENT_MASK | BG_RENDER_CULL_MASK | BG_RENDER_NO_FOG)) ||
             (flags & (BG_RENDER_CLAMP_S | BG_RENDER_MIRROR_S)) ==
                 (BG_RENDER_CLAMP_S | BG_RENDER_MIRROR_S) ||
             (flags & (BG_RENDER_CLAMP_T | BG_RENDER_MIRROR_T)) ==
@@ -1514,9 +1516,13 @@ static BOOL GltfLoadPrimitive(const char *json,
         }
         if (mode != GLTF_MODE_TRIANGLES)
         {
+            if (builder->newprop) { *reasonout="New props must contain triangle meshes only."; return FALSE; }
             return TRUE; /* Points, lines, strips, and fans are not BG faces. */
         }
     }
+
+    if (builder->newprop && GltfJsonObjectGet(json,tokens,tokencount,primitive,"targets") >= 0)
+    { *reasonout="Apply morph targets before importing a static prop."; return FALSE; }
 
     attributes = GltfJsonObjectGet(json, tokens, tokencount,
                                    primitive, "attributes");
@@ -1559,7 +1565,7 @@ static BOOL GltfLoadPrimitive(const char *json,
         }
         hascolors = TRUE;
     }
-    if (builder->importing)
+    if (builder->importing || (builder->newprop && hascolors))
     {
         if (!hascolors)
         {
@@ -1614,6 +1620,8 @@ static BOOL GltfLoadPrimitive(const char *json,
         return FALSE;
     }
     trianglecount = elementcount / 3;
+    if (builder->newprop && trianglecount > 10000u-builder->tricount)
+    { *reasonout="New props are limited to 10000 triangles."; return FALSE; }
     if (!GltfBuilderReserve(builder, trianglecount))
     {
         *reasonout = "the glTF contains too many triangles or could not be allocated.";
@@ -1626,10 +1634,10 @@ static BOOL GltfLoadPrimitive(const char *json,
         return FALSE;
     }
 
-    if (builder->importing && !GltfImportTexture(json,tokens,tokencount,primitive,&tag,reasonout))
+    if ((builder->importing || builder->newprop) && !GltfImportTexture(json,tokens,tokencount,primitive,&tag,reasonout))
     { return FALSE; }
 
-    if (builder->importing && BG_TEX_ID(tag) != BG_TEX_NONE && !hastexcoords)
+    if ((builder->importing || builder->newprop) && BG_TEX_ID(tag) != BG_TEX_NONE && !hastexcoords)
     {
         *reasonout = "A textured model part has no UVs. Enable UVs in Blender's glTF exporter.";
         return FALSE;
@@ -1640,6 +1648,40 @@ static BOOL GltfLoadPrimitive(const char *json,
     {
         *reasonout = "a glTF primitive has invalid material render settings.";
         return FALSE;
+    }
+
+    if (builder->newprop)
+    {
+        DWORD materialindex;
+        int material, sided, pbr, texture, coord;
+        if (!GltfLitBaseColor(json,tokens,tokencount,root,primitive,basecolor))
+        { *reasonout = "A prop material has an invalid Base Color factor."; return FALSE; }
+        if (renderflags & (BG_RENDER_ENVIRONMENT_MASK | BG_RENDER_ALPHA_TEST))
+        { *reasonout = "New props currently support opaque or alpha-blended materials, without generated reflection UVs."; return FALSE; }
+        renderflags |= BG_RENDER_CULL_EXPLICIT | BG_RENDER_CULL_BACK;
+        material = GltfJsonObjectGet(json,tokens,tokencount,primitive,"material");
+        if (material >= 0 && GltfJsonUnsigned(json,&tokens[material],&materialindex))
+        {
+            material = GltfJsonArrayGet(tokens,tokencount,
+                GltfJsonObjectGet(json,tokens,tokencount,root,"materials"),materialindex);
+            sided = GltfJsonObjectGet(json,tokens,tokencount,material,"doubleSided");
+            if (sided >= 0 && tokens[sided].type == GLTF_JSON_PRIMITIVE
+                && tokens[sided].end-tokens[sided].start == 4
+                && !memcmp(json+tokens[sided].start,"true",4))
+                renderflags &= ~BG_RENDER_CULL_BACK;
+            pbr=GltfJsonObjectGet(json,tokens,tokencount,material,"pbrMetallicRoughness");
+            texture=GltfJsonObjectGet(json,tokens,tokencount,pbr,"baseColorTexture");
+            coord=GltfJsonObjectGet(json,tokens,tokencount,texture,"texCoord");
+            if ((coord>=0 && (!GltfJsonUnsigned(json,&tokens[coord],&materialindex) || materialindex!=0))
+                || GltfJsonObjectGet(json,tokens,tokencount,
+                    GltfJsonObjectGet(json,tokens,tokencount,texture,"extensions"),"KHR_texture_transform")>=0)
+            { *reasonout="New prop textures must use UV map 0 with mapping transforms applied to the UVs.";return FALSE; }
+        }
+        if (BG_TEX_ID(tag) != BG_TEX_NONE
+            && !TexGetProjectImageSize(builder->projectdir,BG_TEX_ID(tag),&texturewidth,&textureheight))
+        { *reasonout = "A prop material references an image missing from this project. Import the image first."; return FALSE; }
+        /* The compiler consumes normalized UVs and resolves dimensions itself. */
+        texturewidth = textureheight = 1;
     }
 
     if (normalizeduvs && hastexcoords)
@@ -1763,7 +1805,7 @@ static BOOL GltfLoadPrimitive(const char *json,
                 return FALSE;
             }
         }
-        if (builder->importing)
+        if (builder->importing || builder->newprop)
         {
             int channel;
             for (channel = 0; channel < 4; channel++)
@@ -1946,6 +1988,9 @@ static BOOL GltfLoadGlbNode(const char *json, const GltfJsonToken *tokens,
     double local[16] = {1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1}, world[16];
     double t[3] = {0,0,0}, s[3] = {1,1,1}, q[4] = {0,0,0,1};
     if (node < 0 || depth > 64 || ++*visited > 4096) { return FALSE; }
+    if (builder->newprop && (GltfJsonObjectGet(json,tokens,tokencount,node,"skin") >= 0
+        || GltfJsonObjectGet(json,tokens,tokencount,node,"weights") >= 0))
+    { *reasonout = "New prop imports must be static meshes without skinning or morph targets."; return FALSE; }
     token = GltfJsonObjectGet(json, tokens, tokencount, node, "matrix");
     if (token >= 0)
     {
@@ -2011,6 +2056,18 @@ static BOOL GltfLoadGlbNode(const char *json, const GltfJsonToken *tokens,
             }
             v->x=result[0]; v->y=result[1]; v->z=result[2];
             if (builder->lit && !GltfTransformLitNormal(world, v->environment.normal)) { return FALSE; }
+        }
+        if (builder->newprop)
+        {
+            double determinant = world[0]*(world[5]*world[10]-world[9]*world[6])
+                - world[4]*(world[1]*world[10]-world[9]*world[2])
+                + world[8]*(world[1]*world[6]-world[5]*world[2]);
+            if (fabs(determinant) < 1e-20) { *reasonout = "A prop mesh has a zero-scale transform."; return FALSE; }
+            if (determinant < 0) for (i=first; i<builder->tricount; i++)
+            {
+                BgVertex swap=builder->vertices[i*3+1];
+                builder->vertices[i*3+1]=builder->vertices[i*3+2]; builder->vertices[i*3+2]=swap;
+            }
         }
     }
     children = GltfJsonObjectGet(json,tokens,tokencount,node,"children");
@@ -2570,8 +2627,8 @@ void GltfFreeModelImport(GltfModelImport *model)
     ZeroMemory(model,sizeof(*model));
 }
 
-BOOL GltfReadModelImport(const char *path, DWORD sourcehash,
-                         GltfModelImport *model, const char **reasonout)
+static BOOL GltfReadImport(const char *path, DWORD sourcehash, const char *projectdir, BOOL newprop,
+    GltfModelImport *model, BgRenderFlags **flags, const char **reasonout)
 {
     char *file = NULL, *json = NULL;
     size_t size, jsonsize;
@@ -2585,7 +2642,7 @@ BOOL GltfReadModelImport(const char *path, DWORD sourcehash,
     BOOL foundhash = FALSE, ok = FALSE;
     const double identity[16] = {1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1};
     ZeroMemory(model,sizeof(*model)); ZeroMemory(&builder,sizeof(builder));
-    builder.importing = TRUE;
+    builder.importing = !newprop; builder.newprop = newprop; builder.projectdir = projectdir;
     *reasonout = "The model import file is invalid or unsupported.";
     file = GltfReadTextFile(path,&size);
     if (file == NULL) { goto done; }
@@ -2618,9 +2675,12 @@ BOOL GltfReadModelImport(const char *path, DWORD sourcehash,
     token=GltfJsonObjectGet(json,tokens,tokencount,0,"asset");
     token=GltfJsonObjectGet(json,tokens,tokencount,token,"version");
     if (token<0 || !GltfJsonTokenEquals(json,&tokens[token],"2.0")) { goto done; }
+    if (newprop && GltfJsonArrayCount(tokens,tokencount,
+        GltfJsonObjectGet(json,tokens,tokencount,0,"animations")))
+    { *reasonout="New props must be exported without animations."; goto done; }
     /* Blender preserves object/scene extras when Custom Properties is enabled.
        Check all occurrences so mixed exports cannot replace the wrong model. */
-    for (token=0; token<tokencount; token++)
+    for (token=0; !newprop && token<tokencount; token++)
     {
         if (tokens[token].type == GLTF_JSON_OBJECT)
         {
@@ -2642,7 +2702,7 @@ BOOL GltfReadModelImport(const char *path, DWORD sourcehash,
             }
         }
     }
-    if (!foundhash)
+    if (!newprop && !foundhash)
     { *reasonout="The model has no GUD source identity. Use Export Model in GEditor and enable Include > Custom Properties in Blender."; goto done; }
     token=GltfJsonObjectGet(json,tokens,tokencount,0,"buffers");
     if (GltfJsonArrayCount(tokens,tokencount,token)>0
@@ -2664,9 +2724,28 @@ BOOL GltfReadModelImport(const char *path, DWORD sourcehash,
     model->vertices=builder.vertices; builder.vertices=NULL;
     model->tags=builder.tags; builder.tags=NULL;
     model->sourcevertices=builder.sourcevertices; builder.sourcevertices=NULL;
+    if (flags) { *flags=builder.renderflags; builder.renderflags=NULL; }
     model->count=builder.tricount; ok=TRUE; *reasonout="";
 done:
     free(file); free(tokens); GltfFreeBuffers(buffers,buffercount);
     free(builder.vertices); free(builder.tags); free(builder.renderflags); free(builder.sourcevertices);
     return ok;
+}
+
+
+BOOL GltfReadModelImport(const char *path, DWORD sourcehash,
+    GltfModelImport *model, const char **reasonout)
+{
+    return GltfReadImport(path,sourcehash,NULL,FALSE,model,NULL,reasonout);
+}
+
+BgVertex *GltfReadNewProp(const char *path, const char *projectdir, DWORD *count,
+    unsigned short **tags, BgRenderFlags **flags, const char **reasonout)
+{
+    GltfModelImport model={0};
+    *count=0; *tags=NULL; *flags=NULL;
+    if (!GltfReadImport(path,0,projectdir,TRUE,&model,flags,reasonout)) return NULL;
+    *count=model.count; *tags=model.tags;
+    free(model.sourcevertices);
+    return model.vertices;
 }

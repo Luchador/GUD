@@ -5,6 +5,7 @@
 #include "lv.h"
 #include "monitorconstants.h"
 #include "gedmanifest.h"
+#include "customprops.h"
 
 extern u8 _imagesSegmentRomStart[], _imagesSegmentRomEnd[];
 extern u8 _obsegSegmentRomStart[], _obsegSegmentRomEnd[];
@@ -27,11 +28,12 @@ extern u8 _animation_entriesSegmentRomStart[], _animation_entriesSegmentRomEnd[]
 extern u8 _gedMusicVolumesRom[], _gedCharacterAnimationsRom[], _gedObjectAnimationsRom[];
 extern u8 _gedCharacterModelsRom[], _gedPropModelsRom[], _gedItemModelsRom[];
 extern u8 _gedGlobalAIListsRom[], _gedTextBanksRom[];
+extern u8 _gedCustomPropsRom[];
 
 #define GEDM_KIND(a, b, c, d) \
     (((u32)(a) << 24) | ((u32)(b) << 16) | ((u32)(c) << 8) | (u32)(d))
 
-#define GEDM_ENTRY_COUNT 28
+#define GEDM_ENTRY_COUNT 30
 
 /* A bounded, versioned descriptor. The native table's size comes from its
  * defining translation unit, avoiding duplicate hard-coded catalog counts. */
@@ -93,5 +95,8 @@ const GedManifest g_GedManifest = {
         GEDM_CATALOG('I','T','E','M', _gedItemModelsRom),
         GEDM_CATALOG('A','I','G','L', _gedGlobalAIListsRom),
         GEDM_CATALOG('T','X','B','K', _gedTextBanksRom),
+        { CUSTOM_PROP_MANIFEST_KIND, (u32)_gedCustomPropsRom,
+            (u32)_gedCustomPropsRom + sizeof(CustomPropRomConfig), CUSTOM_PROP_CONFIG_VERSION },
+        { CUSTOM_PROP_DATA_KIND, 0, 0, CUSTOM_PROP_CONFIG_VERSION },
     },
 };

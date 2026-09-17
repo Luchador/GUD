@@ -7,6 +7,7 @@
 #include <ctype.h>
 #include "modeledits.h"
 #include "modelcompile.h"
+#include "newprops.h"
 
 typedef struct ModelEdit {
     char name[64];
@@ -34,20 +35,21 @@ static BOOL Path(char *path, const char *project, const char *name, const char *
     n=snprintf(path,MAX_PATH,"%s\\models\\native\\%s%s",project,name,suffix);
     return n>=0 && n<MAX_PATH;
 }
-void ModelEditsReset(void)
+static void ResetLegacy(void)
 {
     while(g_ModelEdits) { ModelEdit *next=g_ModelEdits->next;free(g_ModelEdits->data);free(g_ModelEdits);g_ModelEdits=next; }
     g_EditProject[0]=0;
 }
+void ModelEditsReset(void) { ResetLegacy();NewPropsReset(); }
 static void SetProject(const char *project)
 {
-    if(strcmp(g_EditProject,project)) { ModelEditsReset();lstrcpyn(g_EditProject,project,MAX_PATH); }
+    if(strcmp(g_EditProject,project)) { ResetLegacy();lstrcpyn(g_EditProject,project,MAX_PATH); }
 }
 BOOL ModelEditsHasUnsaved(void)
 {
     ModelEdit *edit;
     for(edit=g_ModelEdits;edit;edit=edit->next) { if(edit->dirty) { return TRUE; } }
-    return FALSE;
+    return NewPropsHasUnsaved();
 }
 static int ReadEdit(const char *project, const char *name, ModelEdit *edit, const char **why)
 {
@@ -76,8 +78,11 @@ static int ReadEdit(const char *project, const char *name, ModelEdit *edit, cons
 const unsigned char *ModelEditsGetData(const char *project, const char *name, DWORD *size, const char **why)
 {
     ModelEdit *edit;
+    const unsigned char *custom;
     int result;
     *why="";*size=0;SetProject(project);
+    if (!NewPropsOpen(project,why)) return NULL;
+    custom=NewPropsData(project,name,size);if (custom) return custom;
     for(edit=g_ModelEdits;edit;edit=edit->next)
     { if(!strcmp(edit->name,name)) { *size=edit->size;return edit->data; } }
     edit=calloc(1,sizeof(*edit));if(!edit) { *why="Out of memory loading the model.";return NULL; }
@@ -94,6 +99,14 @@ static BOOL LoadSource(const char *project, const char *name, unsigned char **da
     int n=snprintf(path,sizeof(path),"%s\\base.z64",project);
     *data=NULL;*size=0;
     if(n<0 || n>=MAX_PATH || !Folder(name)) { *why="The model path is invalid.";return FALSE; }
+    if (!NewPropsOpen(project,why)) return FALSE;
+    edited=NewPropsData(project,name,&editedsize);
+    if (edited)
+    {
+        *data=malloc(editedsize);
+        if (!*data) { *why="Out of memory loading the new prop.";return FALSE; }
+        memcpy(*data,edited,editedsize);*size=editedsize;*basehash=0;return TRUE;
+    }
     if(!RomLoad(path,&rom,why)) { return FALSE; }
     if(!RomFindFile(&rom,name,&offset,&span,why)) { RomFree(&rom);return FALSE; }
     *basehash=ModelDataHash(rom.data+offset,span);
@@ -142,6 +155,12 @@ BOOL ModelEditsSetProperties(const char *project, const char *name, DWORD revisi
     if (source.count != check.count)
     { *why = "The property edit changed the model's face count."; goto done; }
     if (size == compiledsize && !memcmp(data, compiled, size)) { ok = TRUE; goto done; }
+    if (NewPropsData(project,name,&basehash))
+    {
+        ok=NewPropsReplace(name,compiled,compiledsize,why);
+        if (ok) compiled=NULL;
+        goto done;
+    }
     for (edit = g_ModelEdits; edit && strcmp(edit->name, name); edit = edit->next) {}
     if (!edit)
     {
@@ -165,6 +184,13 @@ BOOL ModelEditsExport(const char *project, const char *name, const char *path, c
     ok=ModelReadSource(data,size,&source,why);
     if(ok)
     {
+        DWORD customsize;
+        if (NewPropsData(project,name,&customsize))
+        {
+            DWORD i;
+            for (i=0;i<source.count*3;i++)
+            { source.vertices[i].x*=.001f;source.vertices[i].y*=.001f;source.vertices[i].z*=.001f; }
+        }
         source.closestpreview=name[0]=='C';
         ok=GltfWriteEditableModel(path,project,&source,ModelDataHash(data,size),why);
         ModelFreeSource(&source);
@@ -180,6 +206,13 @@ BOOL ModelEditsImport(const char *project, const char *name, const char *path,
     GltfModelImport imported={0};
     ModelEdit *edit;
     BOOL ok=FALSE;
+    if (!NewPropsOpen(project,why)) return FALSE;
+    if (NewPropsData(project,name,&size))
+    {
+        if (!ModelEditsReadSource(project,name,&source,&basehash,why)) return FALSE;
+        *before=source.count;ModelFreeSource(&source);
+        return NewPropsImport(project,name,path,TRUE,after,why);
+    }
     if(!LoadSource(project,name,&data,&size,&basehash,why)) { goto done; }
     if(!ModelReadSource(data,size,&source,why)
         || !GltfReadModelImport(path,ModelDataHash(data,size),&imported,why)
@@ -205,6 +238,7 @@ BOOL ModelEditsSave(const char *project, const char **why)
     char dir[MAX_PATH];
     int n;
     *why="";
+    if (!NewPropsSave(project,why)) return FALSE;
     if(!ModelEditsHasUnsaved()) { return TRUE; }
     n=snprintf(dir,sizeof(dir),"%s\\models\\native",project);
     if(n<0 || n>=MAX_PATH || (!CreateDirectory(dir,NULL) && GetLastError()!=ERROR_ALREADY_EXISTS))

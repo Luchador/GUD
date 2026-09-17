@@ -204,7 +204,7 @@ def main():
                    "-ffunction-sections", "-fdata-sections", "-fsanitize=address,undefined",
                    "-Dfopen=TestFopen", f"-I{shim}", f"-I{src}", f"-I{root}",
                    str(tests / "check.c"), str(shim / "platform.c")]
-        command += [str(src / name) for name in ("modelload.c", "modelcompile.c", "gltf.c", "modeledits.c", "bgmaterial.c", "bgrender.c")]
+        command += [str(src / name) for name in ("modelload.c", "modelcompile.c", "gltf.c", "modeledits.c", "bgmaterial.c", "bgrender.c", "newprops.c", "propcompile.c")]
         command += ["-lm", "-Wl,--gc-sections", "-o", str(executable)]
         subprocess.run(command, check=True)
         # LeakSanitizer's /proc thread scan is unavailable in some containers;

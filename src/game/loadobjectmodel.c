@@ -210,10 +210,11 @@ s32 setupGetCommandIndexByProp(struct PropRecord *prop)
 
 s32 modelLoad(s32 modelid)
 {
-    if (PitemZ_entries[modelid].header->RootNode == NULL)
+    ItemModelFileRecord *entry = propModelGet(modelid);
+    if (entry && entry->header->RootNode == NULL)
     {
-        fileLoad(PitemZ_entries[modelid].header,PitemZ_entries[modelid].filename);
-        modelCalculateRwDataLen(PitemZ_entries[modelid].header);
+        fileLoad(entry->header, entry->filename);
+        modelCalculateRwDataLen(entry->header);
         return TRUE;
     }
 
@@ -417,4 +418,3 @@ ObjectRecord *setupFindObjForReuse(s32 wanttype, ObjectRecord **offscreenobjptr,
 
     return NULL;
 }
-

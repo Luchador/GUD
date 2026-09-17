@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <windowsx.h>
 #include <stdio.h>
+#include "newprops.h"
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -58,6 +59,7 @@ typedef struct ObjectPropertiesState {
     DWORD ammoslot;
     int scroll, wheelremainder;
     char projectdir[MAX_PATH];
+    int newmodelcount;
 } ObjectPropertiesState;
 
 /* Designated native IDs keep names correct if the enum grows. */
@@ -751,25 +753,26 @@ static BOOL ObjectPropertiesLoadModels(ObjectPropertiesState *state, const char 
 {
     HWND combo = state->controls[OBJECT_MODEL];
     if (!projectdir) { projectdir = ""; }
-    if (!lstrcmpi(projectdir, state->projectdir)) { return TRUE; }
+    if (!lstrcmpi(projectdir, state->projectdir) && state->newmodelcount==NewPropsCount()) { return TRUE; }
     state->updating = TRUE;
     SendMessage(combo, CB_RESETCONTENT, 0, 0);
-    for (int model = 0; *projectdir; model++)
+    for (int model = 0; *projectdir && model<CUSTOM_PROP_BASE+CUSTOM_PROP_CAPACITY; model++)
     {
         const char *name;
         char path[MAX_PATH];
         DWORD attributes;
         int choice;
-        if (!ModelGetPropDefinition(model, &name, NULL)) { break; }
+        if (!ModelGetPropDefinition(model, &name, NULL)) { continue; }
         if (!name || !*name) { continue; }
         if (snprintf(path, sizeof(path), "%s\\models\\objects\\%s.gltf", projectdir, name) >= (int)sizeof(path)) { continue; }
         attributes = GetFileAttributes(path);
-        if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_DIRECTORY)) { continue; }
+        if (model<CUSTOM_PROP_BASE && (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_DIRECTORY))) { continue; }
         choice = (int)SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)name);
         if (choice < 0) { state->updating = FALSE; state->projectdir[0] = '\0'; return FALSE; }
         SendMessage(combo, CB_SETITEMDATA, choice, model);
     }
     lstrcpyn(state->projectdir, projectdir, sizeof(state->projectdir));
+    state->newmodelcount=NewPropsCount();
     state->updating = FALSE;
     return TRUE;
 }

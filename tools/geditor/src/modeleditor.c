@@ -9,6 +9,7 @@
 
 #include "modeleditor.h"
 #include "modeledits.h"
+#include "newprops.h"
 #include "modelload.h"
 #include "viewport.h"
 #include "uveditor.h"
@@ -88,6 +89,7 @@ void ModelEditorSetProject(const char *projectdir)
     g_ModelSelected = -1;
     EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_EXPORT),FALSE);
     EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_IMPORT),FALSE);
+    EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_ADD),g_ModelProject[0]!=0);
     for (category = 0; category < 3; category++)
     {
         SendDlgItemMessage(g_ModelEditor, g_ModelCombos[category], CB_RESETCONTENT, 0, 0);
@@ -95,10 +97,27 @@ void ModelEditorSetProject(const char *projectdir)
     free(g_ModelEntries); g_ModelEntries = NULL; g_ModelCount = 0;
     if (g_ModelProject[0] != '\0')
     {
+        const char *why="";
+        if (!NewPropsOpen(g_ModelProject,&why))
+        { SetDlgItemText(g_ModelEditor,IDC_MODEL_STATUS,why);return; }
         complete = ModelEditorAddFolder("characters", 0)
             && ModelEditorAddFolder("guns", 1)
             && ModelEditorAddFolder("casings", 1)
             && ModelEditorAddFolder("objects", 2);
+        for (int i=0;complete && i<NewPropsCount();i++)
+        {
+            const char *name;int j;LRESULT row;ModelEditorEntry *grown;
+            NewPropsDefinition(CUSTOM_PROP_BASE+i,&name,NULL);
+            for (j=0;j<g_ModelCount;j++) if (!strcmp(g_ModelEntries[j].name,name)) break;
+            if (j<g_ModelCount) continue;
+            grown=realloc(g_ModelEntries,((size_t)g_ModelCount+1)*sizeof(*grown));
+            if (!grown) { complete=FALSE;break; }
+            g_ModelEntries=grown;lstrcpyn(grown[g_ModelCount].name,name,MAX_PATH);
+            grown[g_ModelCount].folder="objects";
+            row=SendDlgItemMessage(g_ModelEditor,IDC_MODEL_PROPS,CB_ADDSTRING,0,(LPARAM)name);
+            if (row<0) { complete=FALSE;break; }
+            SendDlgItemMessage(g_ModelEditor,IDC_MODEL_PROPS,CB_SETITEMDATA,row,g_ModelCount++);
+        }
     }
     for (category = 0; category < 3; category++)
     {
@@ -384,6 +403,48 @@ static void ModelEditorTransfer(BOOL importing)
     SendMessage(GetWindow(g_ModelEditor,GW_OWNER),MODELEDITOR_CHANGED,0,0);
 }
 
+static INT_PTR CALLBACK ModelEditorNewPropDialog(HWND hwnd,UINT message,WPARAM wparam,LPARAM lparam)
+{
+    char *name=(char *)GetWindowLongPtr(hwnd,DWLP_USER);
+    if (message==WM_INITDIALOG)
+    {
+        SetWindowLongPtr(hwnd,DWLP_USER,lparam);
+        SendDlgItemMessage(hwnd,IDC_NEW_PROP_NAME,EM_SETLIMITTEXT,63,0);
+        SetDlgItemText(hwnd,IDC_NEW_PROP_NAME,(const char *)lparam);return TRUE;
+    }
+    if (message==WM_COMMAND && LOWORD(wparam)==IDOK)
+    { GetDlgItemText(hwnd,IDC_NEW_PROP_NAME,name,64);EndDialog(hwnd,IDOK);return TRUE; }
+    if ((message==WM_COMMAND && LOWORD(wparam)==IDCANCEL) || message==WM_CLOSE)
+    { EndDialog(hwnd,IDCANCEL);return TRUE; }
+    return FALSE;
+}
+
+static void ModelEditorAddProp(void)
+{
+    OPENFILENAME ofn={0};char path[MAX_PATH]="",name[64],stem[64],text[160];
+    const char *base,*why="";char *dot;DWORD triangles;HCURSOR cursor;BOOL ok;
+    HWND owner=GetWindow(g_ModelEditor,GW_OWNER);
+    HINSTANCE instance=(HINSTANCE)GetWindowLongPtr(g_ModelEditor,GWLP_HINSTANCE);
+    if (!g_ModelProject[0]) return;
+    ofn.lStructSize=sizeof(ofn);ofn.hwndOwner=g_ModelEditor;ofn.lpstrFile=path;ofn.nMaxFile=sizeof(path);
+    ofn.lpstrTitle="Add a new prop model";ofn.lpstrFilter="glTF models (*.glb;*.gltf)\0*.glb;*.gltf\0\0";
+    ofn.Flags=OFN_EXPLORER|OFN_NOCHANGEDIR|OFN_PATHMUSTEXIST|OFN_FILEMUSTEXIST;
+    if (!GetOpenFileName(&ofn)) return;
+    base=strrchr(path,'\\');base=base?base+1:path;lstrcpyn(stem,base,sizeof(stem));
+    dot=strrchr(stem,'.');if (dot) *dot=0;
+    if (stem[0]=='P' && strlen(stem)>1 && stem[strlen(stem)-1]=='Z') lstrcpyn(name,stem,sizeof(name));
+    else snprintf(name,sizeof(name),"P%.60sZ",stem);
+    if (DialogBoxParam(instance,MAKEINTRESOURCE(IDD_ADD_PROP_MODEL),g_ModelEditor,ModelEditorNewPropDialog,(LPARAM)name)!=IDOK) return;
+    cursor=SetCursor(LoadCursor(NULL,IDC_WAIT));
+    ok=NewPropsImport(g_ModelProject,name,path,FALSE,&triangles,&why);SetCursor(cursor);
+    if (!ok) { MessageBox(g_ModelEditor,why,"Add Prop Model",MB_ICONERROR);return; }
+    SendMessage(owner,MODELEDITOR_CHANGED,1,0); /* Refresh browser and new IDs before selecting. */
+    ModelEditorSetProject(g_ModelProject);
+    ModelEditorOpenModel(owner,instance,g_ModelProject,name,&why);
+    snprintf(text,sizeof(text),"Added %s (%lu triangles). Drag it from Models into the level; Save Project to keep it.",name,(unsigned long)triangles);
+    SetDlgItemText(g_ModelEditor,IDC_MODEL_STATUS,text);
+}
+
 static void ModelEditorLayout(HWND hwnd)
 {
     static const int labels[] = { IDC_MODEL_CHARACTERS_LABEL, IDC_MODEL_ITEMS_LABEL, IDC_MODEL_PROPS_LABEL };
@@ -406,6 +467,7 @@ static void ModelEditorLayout(HWND hwnd)
     }
     MoveWindow(GetDlgItem(hwnd,IDC_MODEL_EXPORT),margin,margin*2+units.bottom*2,units.right,units.bottom,TRUE);
     MoveWindow(GetDlgItem(hwnd,IDC_MODEL_IMPORT),margin*2+units.right,margin*2+units.bottom*2,units.right,units.bottom,TRUE);
+    MoveWindow(GetDlgItem(hwnd,IDC_MODEL_ADD),margin*3+units.right*2,margin*2+units.bottom*2,units.right+margin,units.bottom,TRUE);
     if (g_ModelViewport != NULL)
     {
         MoveWindow(g_ModelViewport, 0, units.top, panelx, max(0, bottom - units.top), TRUE);
@@ -488,6 +550,7 @@ static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wp
         }
         if (LOWORD(wparam)==IDC_MODEL_EXPORT || LOWORD(wparam)==IDC_MODEL_IMPORT)
         { ModelEditorTransfer(LOWORD(wparam)==IDC_MODEL_IMPORT);return TRUE; }
+        if (LOWORD(wparam)==IDC_MODEL_ADD) { ModelEditorAddProp();return TRUE; }
         if (LOWORD(wparam) >= IDC_MODEL_CHARACTERS && LOWORD(wparam) <= IDC_MODEL_PROPS
             && HIWORD(wparam) == CBN_SELCHANGE)
         {

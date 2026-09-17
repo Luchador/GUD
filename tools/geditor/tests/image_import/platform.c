@@ -8,6 +8,12 @@
 #include <strings.h>
 static DWORD error;
 int test_fail_move;
+/* Legacy asset fixtures contain only stock props and intentionally mock their
+ * ROM/project IO. New-prop integration tests link the strong production API. */
+__attribute__((weak)) BOOL NewPropsOpen(const char *project,const char **why)
+{ (void)project;*why="";return TRUE; }
+__attribute__((weak)) BOOL NewPropsDefinition(int id,const char **name,float *scale)
+{ (void)id;(void)name;(void)scale;return FALSE; }
 static void Path(char *dst,const char *src) { while(*src) { *dst++=*src=='\\' ? '/' : *src;src++; } *dst=0; }
 FILE *TestFopen(const char *path,const char *mode) { char p[1024];Path(p,path);return fopen(p,mode); }
 DWORD GetLastError(void) { return error; }

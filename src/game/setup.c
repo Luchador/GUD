@@ -1,4 +1,5 @@
 #include <ultra64.h>
+#include "customprops.h"
 #include <memp.h>
 #include "game/mp_weapon.h"
 #include "game/bondview_r.h"
@@ -37,7 +38,7 @@ s32 g_MpSetupWeaponSlot = -1;
 f32 g_DoorScale = 1.0f;
 
 // redeclare with the element count so ARRAYCOUNT works in setupLoadFiles
-extern ItemModelFileRecord PitemZ_entries[341];
+extern ItemModelFileRecord PitemZ_entries[PROP_MAX + 1];
 
 // Begin forward declarations.
 
@@ -222,11 +223,11 @@ void domakedefaultobj(s32 arg0, ObjectRecord *objectRecord, s32 cmdindex)
     {
         if (objectRecord->type == PROP_TYPE_SMOKE)
         {
-            sub_GAME_7F051DD8(objectRecord, PitemZ_entries[modelID].header);
+            sub_GAME_7F051DD8(objectRecord, propModelGet(modelID)->header);
         }
         else
         {
-            objInitWithModelDef(objectRecord, PitemZ_entries[modelID].header);
+            objInitWithModelDef(objectRecord, propModelGet(modelID)->header);
         }
 
         modelSetScale(objectRecord->model, objectRecord->model->scale * sp78);
@@ -239,11 +240,11 @@ void domakedefaultobj(s32 arg0, ObjectRecord *objectRecord, s32 cmdindex)
         {
             if (objectRecord->type == 8)
             {
-                var_v0 = sub_GAME_7F051DD8(objectRecord, PitemZ_entries[modelID].header);
+                var_v0 = sub_GAME_7F051DD8(objectRecord, propModelGet(modelID)->header);
             }
             else
             {
-                var_v0 = objInitWithModelDef(objectRecord, PitemZ_entries[modelID].header);
+                var_v0 = objInitWithModelDef(objectRecord, propModelGet(modelID)->header);
             }
 
             modelSetScale(objectRecord->model, objectRecord->model->scale * sp78);
@@ -324,7 +325,7 @@ void domakedefaultobj(s32 arg0, ObjectRecord *objectRecord, s32 cmdindex)
         {
             if (objectRecord->type == PROP_TYPE_SMOKE)
             {
-                prop = sub_GAME_7F051DD8(objectRecord, PitemZ_entries[modelID].header);
+                prop = sub_GAME_7F051DD8(objectRecord, propModelGet(modelID)->header);
             }
             else
             {
@@ -1017,7 +1018,7 @@ void setupDoor(struct DoorRecord *door, s32 cmdindex)
     if (getposstan(&pad->pos, pad->stan, 0.0f, &groundedPos, &groundedStan) != 0)
     {
         matrix_4x4_set_basis_and_position_target(&lookUpMtx, 0, 0, 0, -pad->look.f[0], -pad->look.f[1], -pad->look.f[2], pad->up.f[0], pad->up.f[1], pad->up.f[2]);
-        modelHeader = PitemZ_entries[modelnum].header;
+        modelHeader = propModelGet(modelnum)->header;
         centerWalkStan = groundedStan;
 
         localBBox.zmax = pad->bbox.xmin;
@@ -1183,6 +1184,7 @@ void setupLoadFiles(enum LEVELID stageId)
         itemModel->header->RootNode = NULL;
     }
 
+    customPropsInit();
     levelInfo = lvFindLevelInfo(stageId);
 
     if ((levelInfo != NULL) && (levelInfo->setupFileName != NULL))

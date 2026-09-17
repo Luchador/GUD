@@ -25,7 +25,7 @@ def main():
     native = '#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n#include "texload.h"\n#include "imageedits.h"\n'
     native += texture[texture.index('#define GUTX_DESC_OFFSET'):texture.index('/* WIC handles')]
     native = native.replace(image_tests.function(texture, 'TexRestoreImportBmpAlpha'), '')
-    for name in ('TexWriteBmp', 'TexLoadSavedProjectImage'):
+    for name in ('TexWriteBmp', 'TexLoadSavedProjectImage', 'TexLoadProjectImage', 'TexGetProjectImageSize'):
         native += '\n' + image_tests.function(texture, name) + '\n'
     with tempfile.TemporaryDirectory(prefix='geditor-rebase-') as temp:
         work = Path(temp)
@@ -36,11 +36,19 @@ def main():
                    str(here / 'check.c'), str(here / 'platform.c'), str(work / 'texture.c')]
         command += [str(src / name) for name in ('projectrebase.c', 'project.c', 'rom.c', 'romexport.c',
                    'texrom.c', 'texinfo.c', 'texencode.c', 'imageedits.c', 'modeledits.c', 'modelload.c',
-                   'setupload.c', 'actionblocks.c', 'gltf.c', 'bgrender.c', 'bgcompile.c', 'bgload.c', 'modelcompile.c', 'bgmaterial.c')]
+                   'setupload.c', 'actionblocks.c', 'gltf.c', 'bgrender.c', 'bgcompile.c', 'bgload.c', 'modelcompile.c', 'bgmaterial.c', 'newprops.c', 'propcompile.c')]
         command += ['-Wl,--gc-sections', '-lm', '-o', str(work / 'check')]
         subprocess.run(command, check=True)
         env = dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1')
-        subprocess.run([str(work / 'check'), str(work), str(root / 'assets/obseg/prop/Pjungle3_treeZ.bin')],
+        spec = importlib.util.spec_from_file_location('new_props', here.parent / 'new_props/run.py')
+        new_props = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(new_props)
+        model = work / 'pendant.glb'
+        doc, data = new_props.fixture(model)
+        doc['images'][0]['name'] = 'GUD Image 0000'
+        doc['images'][1]['name'] = 'GUD Image 0001'
+        new_props.write(model, doc, data)
+        subprocess.run([str(work / 'check'), str(work), str(root / 'assets/obseg/prop/Pjungle3_treeZ.bin'), str(model)],
                        env=env, check=True)
 
 

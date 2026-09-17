@@ -23,6 +23,7 @@
 #include "modelload.h"
 #include "modeledits.h"
 #include "modelcompile.h"
+#include "newprops.h"
 
 /* Reuse the exact model-ID order and scale values compiled into the
    game. Redefining the record macro avoids pulling any N64 structs or
@@ -432,6 +433,7 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
                         | ((state->geometrymode & 0x1000) ? BG_RENDER_CULL_FRONT : 0)
                         | cacheflags[idx[0]]
                         | (alpha.texture ? 0 : BG_RENDER_IGNORE_TEXTURE_ALPHA)
+                        | (((state->geometryknown & 0x10000u) && !(state->geometrymode & 0x10000u)) ? BG_RENDER_NO_FOG : 0)
                         | BgRenderMaterialWrap(material);
                 }
             }
@@ -1298,7 +1300,7 @@ BOOL ModelGetPropDefinition(int modelid, const char **nameout,
 {
     if (modelid < 0 || modelid >= PROP_MODEL_COUNT)
     {
-        return FALSE;
+        return NewPropsDefinition(modelid,nameout,scaleout);
     }
 
     if (nameout != NULL)
@@ -1326,6 +1328,7 @@ BgVertex *ModelLoadProjectGeometry(const char *projectdir, int modelid,
     *tritags = NULL;
     *renderflags = NULL;
     *reasonout = "";
+    if (!NewPropsOpen(projectdir,reasonout)) return NULL;
     if (!ModelGetPropDefinition(modelid, &name, modelscale))
     {
         *reasonout = "the setup references an unknown prop model ID.";

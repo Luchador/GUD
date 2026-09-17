@@ -6,9 +6,10 @@ migrate files produced by older editors.
 | Data | Required format |
 | --- | --- |
 | Project | `.gep` version 2 with a saved level table and matching `base.z64` |
-| Base ROM | GUD manifest version 2, with `IMGS`, `OBSG`, `MUSF`, `STGT`, `CMAP`, `FTBL`, `ENVT`, `TXTB`, `TXCF`, `MONA`, `MONT`, and `MOND` entries |
+| Base ROM | GUD manifest version 3, with `IMGS`, `OBSG`, `MUSF`, `STGT`, `CMAP`, `FTBL`, `ENVT`, `TXTB`, `TXCF`, `MONA`, `MONT`, and `MOND` entries |
 | Level table | 36-byte rows with authored level names; the final sentinel may have a NULL name |
 | Model assets | glTF 2.0 with normalized UV coordinates and the current GEditor metadata |
+| Added prop models | `models/newprops.gnp` (`GNP1`), with `NPRP`/`NPMD` support in the base ROM; see [New prop models](../NEW_PROP_MODELS.md) |
 | Saved model edits | Current `.gmodel` native overrides (`GMD1`) |
 | Saved image edits | `.gtex` metadata (`GTI3` with an import source, or `GTI2` without one) and the associated BMP, except for deletion records |
 

@@ -10,7 +10,11 @@
 #include "imageedits.h"
 #include "texrom.h"
 #include "modelcompile.h"
+#include "newprops.h"
 
+/* PNG encoding uses Windows WIC, outside this host test. */
+BOOL TexEncodePng(const TexPixel *pixels,int width,int height,unsigned char **data,DWORD *size)
+{ *size=8;*data=calloc(*size,1);return *data!=NULL; }
 #define SIZE 0x200000u
 #define SHIFT 0x8000u
 #define MANIFEST 0x101000u
@@ -54,7 +58,7 @@ static unsigned char *Fixture(DWORD shift,const unsigned char *model,DWORD model
     TexPixel pixels[64];TexImportOptions options={1,0,1,2};
     Put32(data,0x80371240);memcpy(data+0x20,"GOLDENEYE",9);data[0x2000]=shift ? 0x22 : 0x11;
     memcpy(data+MANIFEST+shift,"GUDGEDITORMANIF",16);
-    Put32(data+MANIFEST+shift+16,3);Put32(data+MANIFEST+shift+20,15);
+    Put32(data+MANIFEST+shift+16,3);Put32(data+MANIFEST+shift+20,17);
     for(i=0;i<64;i++) { pixels[i]=(TexPixel){64,128,(i%4)*64,(i%2)*255}; }
     OK(TexEncodeRecord(pixels,8,8,&options,&record,&size,&why));memcpy(data+IMAGES+shift,record,size);free(record);
     Entry(data,shift,0,"IMGS",IMAGES,IMAGES+size,0);
@@ -69,6 +73,10 @@ static unsigned char *Fixture(DWORD shift,const unsigned char *model,DWORD model
     Entry(data,shift,9,"MONA",CMAP+0xd000,CMAP+0xd034,52);
     Entry(data,shift,10,"MONT",CMAP+0xd100,CMAP+0xd10c,12);
     Entry(data,shift,11,"MOND",CMAP+0xd200,CMAP+0xd274,116);
+    Entry(data,shift,15,"NPRP",CONFIG+16,CONFIG+32,1);
+    Entry(data,shift,16,"NPMD",0,0,1);
+    Put32(data+MANIFEST+shift+24+16*16+4,0);
+    Put32(data+CONFIG+shift+16,1);
     for(i=0;i<6;i++) { names[i]=vbase+strings-CMAP-shift;strcpy((char *)data+strings,namestr[i]);strings+=strlen(namestr[i])+1; }
     for(i=0;i<3;i++)
     {
@@ -119,7 +127,7 @@ int main(int argc,char **argv)
     char oldpath[MAX_PATH],nextpath[MAX_PATH],path[MAX_PATH],backup[MAX_PATH],exported[MAX_PATH],destination[MAX_PATH];
     GEditorProject project,rebased,loaded,again;ProjectRebaseReport report;RomFile rom,output;ModelSource native;
     TexPixel pixels[64];TexImportOptions options={1,1,3,4};TexRomBank bank;
-    assert(argc==3);model=Read(argv[2],&modelsize);old=Fixture(0,model,modelsize);next=Fixture(SHIFT,model,modelsize);
+    assert(argc==4);model=Read(argv[2],&modelsize);old=Fixture(0,model,modelsize);next=Fixture(SHIFT,model,modelsize);
     Path(oldpath,argv[1],"old.z64");Path(nextpath,argv[1],"new.z64");Save(oldpath,old,SIZE);
     /* Incoming setup and sound changes; our BG/music changes must survive. */
     next[OBJECTS+SHIFT+52]=0x56;next[LEVELS+SHIFT+31]=8;Save(nextpath,next,SIZE);
@@ -148,6 +156,9 @@ int main(int argc,char **argv)
     OK(ImageEditsSave(project.dir,&why));
     OK(ImageEditsImport(project.dir,pixels,8,8,&options,NULL,&id,&why) && id==2);
     OK(ImageEditsSave(project.dir,&why));OK(ImageEditsDelete(project.dir,2,&why));OK(ImageEditsSave(project.dir,&why));ImageEditsReset();
+    Path(path,project.dir,"images/0000.bmp");OK(TexWriteBmp(path,pixels,8,8));
+    OK(NewPropsImport(project.dir,"PpendantZ",argv[3],FALSE,&size,&why) && size==4);
+    OK(NewPropsSave(project.dir,&why));
     OK(ProjectRebaseCheck(&project,nextpath,&report,&why));OK(report.kept==1 && report.updated==1 && !report.conflicts);
     OK(ProjectRebaseCreate(&project,nextpath,argv[1],"Updated",&rebased,&report,&why));NoTemps(argv[1]);
     OK(project.levels[0].clouds.enabled && project.levels[0].clouds.height==5000);
@@ -156,6 +167,8 @@ int main(int argc,char **argv)
     OK(loaded.levels[0].music==12 && loaded.levels[0].bgsound==8);
     Same(project.dir,rebased.dir,"bg/bg_test.seg");Same(project.dir,rebased.dir,"stan/Tbg_test_stanZ.stan");
     Same(project.dir,rebased.dir,"models/native/Pjungle3_treeZ.gmodel");Same(project.dir,rebased.dir,"models/objects/Pjungle3_treeZ.gltf");
+    Same(project.dir,rebased.dir,"models/newprops.gnp");
+    Same(project.dir,rebased.dir,"models/objects/PpendantZ.gltf");
     Same(project.dir,rebased.dir,"images/native/0001.gtex");Same(project.dir,rebased.dir,"images/native/0002.gtex");
     Same(project.dir,rebased.dir,"images/0001.bmp");Same(project.dir,rebased.dir,"notes/.artist-note");
     Path(path,rebased.dir,"Original.gep");OK(GetFileAttributes(path)==INVALID_FILE_ATTRIBUTES);
@@ -165,7 +178,15 @@ int main(int argc,char **argv)
     OK(RomGetFileByIndex(&output,1,path,sizeof(path),&offset,&span) && output.data[offset+52]==0x56);
     OK(RomGetFileByIndex(&output,2,path,sizeof(path),&offset,&span) && output.data[offset+128]==1);
     OK(RomGetFileByIndex(&output,4,path,sizeof(path),&offset,&span) && span==modelsize && memcmp(output.data+offset,model,modelsize));
-    OK(TexRomReadBank(&output,&bank,&why) && bank.count==3);RomFree(&output);
+    OK(TexRomReadBank(&output,&bank,&why) && bank.count==3);
+    {
+        RomManifestEntry *props=&output.info.entries[16];
+        OK(props->kind==CUSTOM_PROP_DATA_KIND && props->romend>props->romstart);
+        OK(!memcmp(output.data+props->romstart,"GNP1",4));
+        OK(props->romend<=bank.images || props->romstart>=bank.images+bank.imagebytes);
+        OK(NewPropsCheckRebase(rebased.dir,&output,&why));
+    }
+    RomFree(&output);
     OK(ProjectRebaseCreate(&rebased,nextpath,argv[1],"Again",&again,&report,&why));
     puts("PASS: relocated ROM tables/code, three-way asset/settings merge, native model edits, imported/deleted images, source settings, sidecars, reopen, ROM export and repeat rebase.");
     /* Conflicts and format changes must fail without touching the source. */

@@ -10,6 +10,7 @@
 #include "projectrebase.h"
 #include "romexport.h"
 #include "texrom.h"
+#include "newprops.h"
 
 #define REBASE_MAX_FILES 1024u
 typedef struct RebaseUpdate {
@@ -320,6 +321,7 @@ static BOOL Prepare(RebasePlan *plan, const GEditorProject *source, const char *
     if (!Join(base,source->dir,ROM_EXPORT_BASE_FILENAME,why)
         || !RomLoad(base,&plan->oldrom,why) || !RomLoad(rompath,&plan->newrom,why)
         || !ImageBank(&plan->oldrom,&plan->newrom,why) || !Catalogs(&plan->oldrom,&plan->newrom,why)
+        || !NewPropsCheckRebase(source->dir,&plan->newrom,why)
         || !Levels(plan,source,report,why) || !Resources(plan,source,report,why)) { return FALSE; }
     if (report->conflicts) { return Fail(why,"Rebase blocked by %lu conflict(s). See the report.",(unsigned long)report->conflicts); }
     return TRUE;

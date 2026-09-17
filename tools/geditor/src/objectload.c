@@ -14,9 +14,10 @@
 #include "objectshade.h"
 #include "characterload.h"
 #include "modeledits.h"
+#include "newprops.h"
 #include "romexport.h"
 
-#define OBJECT_MODEL_CACHE_COUNT 512
+#define OBJECT_MODEL_CACHE_COUNT (CUSTOM_PROP_BASE + CUSTOM_PROP_CAPACITY)
 
 #define PAD_BOUND_BASE 10000
 
@@ -30,8 +31,9 @@ BOOL ObjectResolvePlaceableModel(const char *name, BOOL *character, int *modelid
     if (name[0] == 'P')
     {
         const char *filename;
-        for (i = 0; ModelGetPropDefinition(i, &filename, NULL); i++)
+        for (i = 0; i < OBJECT_MODEL_CACHE_COUNT; i++)
         {
+            if (!ModelGetPropDefinition(i,&filename,NULL)) continue;
             if (strcmp(name, filename) == 0)
             {
                 *character = FALSE;
@@ -116,6 +118,21 @@ typedef struct ObjectPlacement {
     ObjectShade shade;
     BOOL placed;
 } ObjectPlacement;
+
+static void ObjectShadeModel(ObjectBuilder *builder,DWORD first,int modelid,const ObjectShade *shade)
+{
+    DWORD i;
+    if (modelid<CUSTOM_PROP_BASE || modelid>=CUSTOM_PROP_BASE+CUSTOM_PROP_CAPACITY)
+    {
+        ObjectShadeVertices(builder->tris+first*3,(builder->tricount-first)*3,shade);
+        return;
+    }
+    /* New props use PASS/source-alpha for their light-shaft pass, bypassing
+     * the game's room tint. Keep the placed preview consistent with that. */
+    for (i=first;i<builder->tricount;i++)
+        if (!(builder->renderflags[i]&BG_RENDER_BLEND))
+            ObjectShadeVertices(builder->tris+i*3,3,shade);
+}
 
 static DWORD ObjectRead32(const unsigned char *p)
 {
@@ -468,10 +485,9 @@ static ModelCacheEntry *ObjectGetModel(ModelCacheEntry *cache, int modelid,
             DWORD offset, size;
 
             ObjectModelBounds(entry->tris, entry->tricount, entry->min, entry->max);
-            /* Gameplay boxes come from the required base ROM. Models with
-               no native box use their render-geometry bounds. */
-            if (ModelGetPropDefinition(modelid, &name, NULL)
-                && RomFindFile(rom, name, &offset, &size, &why))
+            /* Imported props have native gameplay boxes in their project bank.
+               Models without a native box use their render-geometry bounds. */
+            if (ModelGetPropDefinition(modelid, &name, NULL))
             {
                 float min[3], max[3];
 
@@ -479,15 +495,16 @@ static ModelCacheEntry *ObjectGetModel(ModelCacheEntry *cache, int modelid,
                 DWORD nativesize;
                 int screen;
                 native = ModelEditsGetData(projectdir, name, &nativesize, &why);
-                if (!native) { native = rom->data + offset; nativesize = size; }
-                for (screen = 0; screen < 4; screen++)
+                if (!native && RomFindFile(rom,name,&offset,&size,&why))
+                { native = rom->data + offset; nativesize = size; }
+                for (screen = 0; native && screen < 4; screen++)
                 {
                     entry->hasscreen[screen] = ModelReadMonitorScreen(native, nativesize, screen, entry->screens[screen]);
                     /* Each candidate is still checked for a valid segment-5 node. */
                     entry->hasattachment[screen] = ModelReadSwitchAttachment(native, nativesize, 4,
                         screen, entry->attachments[screen]);
                 }
-                if (ModelReadPlacementBounds(rom->data + offset, size, min, max))
+                if (native && ModelReadPlacementBounds(native, nativesize, min, max))
                 {
                     memcpy(entry->min, min, sizeof(min));
                     memcpy(entry->max, max, sizeof(max));
@@ -715,7 +732,7 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
                              SetupObjectGeometry *out,
                              const char **reasonout)
 {
-    ModelCacheEntry cache[OBJECT_MODEL_CACHE_COUNT];
+    ModelCacheEntry *cache = NULL;
     ObjectBuilder builder;
     SetupObjectGeometry characters;
     float worldscale;
@@ -731,7 +748,6 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
     DWORD i;
 
     ZeroMemory(out, sizeof(*out));
-    ZeroMemory(cache, sizeof(cache));
     ZeroMemory(&builder, sizeof(builder));
     ZeroMemory(&characters, sizeof(characters));
     ZeroMemory(&rom, sizeof(rom));
@@ -741,6 +757,9 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
     {
         return TRUE;
     }
+    if (!NewPropsOpen(projectdir,reasonout)) return FALSE;
+    cache=calloc(OBJECT_MODEL_CACHE_COUNT,sizeof(*cache));
+    if (!cache) { *reasonout="Out of memory preparing object models.";return FALSE; }
 
     if (setup->padcount > 0)
     {
@@ -945,7 +964,7 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
         ObjectPlaceModel(&builder, model, &basis, scale, isdoor, doorflags, center, i,
             object->type == PROPDEF_MONITOR ? 1 : object->type == PROPDEF_MULTI_MONITOR ? 4 : 0);
         if (builder.tricount > firsttriangle)
-        { ObjectShadeVertices(builder.tris + firsttriangle*3, (builder.tricount-firsttriangle)*3, &placements[i].shade); }
+        { ObjectShadeModel(&builder,firsttriangle,object->modelid,&placements[i].shade); }
         /* Dynamic screens are emissive; tint the cabinet before adding them. */
         if (!ObjectPlaceMonitorScreens(&builder, &out->monitors, setup, i, model,
             &placements[i], &rom, reasonout)) { goto fail; }
@@ -1018,7 +1037,7 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
         firsttriangle = builder.tricount;
         ObjectPlaceModel(&builder, model, &p->basis, p->scale, FALSE, 0, p->center, i, 1);
         if (builder.tricount > firsttriangle)
-        { ObjectShadeVertices(builder.tris + firsttriangle*3, (builder.tricount-firsttriangle)*3, &p->shade); }
+        { ObjectShadeModel(&builder,firsttriangle,setup->objects[i].modelid,&p->shade); }
         if (!ObjectPlaceMonitorScreens(&builder, &out->monitors, setup, i, model, p, &rom, reasonout)) { goto fail; }
         out->objectcount++;
     }
@@ -1064,6 +1083,7 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
     free(placements);
     free(supports);
     free(padtiles);
+    free(cache);
     RomFree(&rom);
     return TRUE;
 
@@ -1080,6 +1100,7 @@ fail:
         free(cache[i].renderflags);
     }
     free(builder.tris);
+    free(cache);
     free(builder.tritags);
     free(builder.renderflags);
     free(builder.objectindices);

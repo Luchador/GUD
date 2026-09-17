@@ -197,6 +197,7 @@ SECTIONS
    _gedObjectAnimationsRom = _csegmentSegmentRomStart + (g_GedObjectAnimations - _csegmentSegmentStart);
    _gedCharacterModelsRom = _csegmentSegmentRomStart + (g_GedCharacterModels - _csegmentSegmentStart);
    _gedPropModelsRom = _csegmentSegmentRomStart + (g_GedPropModels - _csegmentSegmentStart);
+   _gedCustomPropsRom = _csegmentSegmentRomStart + (g_CustomPropRomConfig - _csegmentSegmentStart);
    _gedItemModelsRom = _csegmentSegmentRomStart + (g_GedItemModels - _csegmentSegmentStart);
    _gedGlobalAIListsRom = _csegmentSegmentRomStart + (g_GedGlobalAILists - _csegmentSegmentStart);
    _gedTextBanksRom = _csegmentSegmentRomStart + (g_GedTextBanks - _csegmentSegmentStart);

@@ -615,7 +615,7 @@ PropRecord* objInit(ObjectRecord* obj, ModelFileHeader* model_header, PropRecord
 
         obj->maxdamage = 0.0f;
         obj->model->chr = NULL;
-        modelSetScale(obj->model, PitemZ_entries[obj->obj].scale);
+        modelSetScale(obj->model, propModelGet(obj->obj)->scale);
         prop->type = 1;
         prop->obj = obj;
         prop->pos.x = 0.0f;
@@ -659,7 +659,7 @@ PropRecord* objInitWithModelDef(ObjectRecord* object, ModelFileHeader* header)
 
 PropRecord* objInitWithAutoModel(ObjectRecord* obj)
 {
-    return objInitWithModelDef(obj, PitemZ_entries[obj->obj].header);
+    return objInitWithModelDef(obj, propModelGet(obj->obj)->header);
 }
 
 
@@ -7488,11 +7488,11 @@ void objDeform(ObjectRecord *obj, E_EXPLOSIONTYPE explosiontype)
     
     if (randomGetNext() & 1)
     {
-        deformseed = (u16) object_explosion_details[obj->obj].Seed[explosiontype];
+        deformseed = (u16) propExplosionGet(obj->obj)->Seed[explosiontype];
     }
     else
     {
-        deformseed = (u16) object_explosion_details[obj->obj].Seed[ymid = explosiontype + 3];
+        deformseed = (u16) propExplosionGet(obj->obj)->Seed[ymid = explosiontype + 3];
     }
     
     if (deformseed == 0)
@@ -8091,7 +8091,7 @@ void objExplode(ObjectRecord *obj, coord3d *target_pos, s32 playernum)
     }
 
     prop = obj->prop;
-    explosion_type = object_explosion_details[obj->obj].TypeID;
+    explosion_type = propExplosionGet(obj->obj)->TypeID;
     tailprop = prop;
 
     if (tailprop->parent != (NULL))
@@ -8971,7 +8971,7 @@ apply_damage:
                         crate->obj = modelnum;
                         crate->ammoType = slot + 1;
 
-                        if (objInitWithModelDef((ObjectRecord *)crate, PitemZ_entries[modelnum].header) != NULL)
+                        if (objInitWithModelDef((ObjectRecord *)crate, propModelGet(modelnum)->header) != NULL)
                         {
                             modelSetScale(crate->model, crate->model->scale);
                             chrpropReparent(crate->prop, obj->prop);
@@ -10758,7 +10758,7 @@ void hatLoadAndApplyToChr(HatRecord *hat, PropRecord *arg1)
     s32 obj_idx;
     obj_idx = (u32) hat->obj;
     modelLoad(obj_idx);
-    hatApplyToChr(hat, arg1, PitemZ_entries[obj_idx].header, NULL, 0);
+    hatApplyToChr(hat, arg1, propModelGet(obj_idx)->header, NULL, 0);
 }
 
 
@@ -10776,7 +10776,7 @@ PropRecord *hatCreateForChr(ChrRecord *chr, s32 modelnum, u32 flags)
     Model *model;
     HatRecord *hat;
 
-    modeldef = PitemZ_entries[modelnum].header;
+    modeldef = propModelGet(modelnum)->header;
 
     modelLoad(modelnum);
     prop = chrpropAllocate();
@@ -11389,7 +11389,7 @@ void sub_GAME_7F051FD4(WeaponObjRecord *weapon, ChrRecord *chr)
 	s32 modelnum = weapon->obj;
 
 	modelLoad(modelnum);
-	sub_GAME_7F051F30(weapon, chr, PitemZ_entries[modelnum].header, 0, 0);
+	sub_GAME_7F051F30(weapon, chr, propModelGet(modelnum)->header, 0, 0);
 }
 
 
@@ -11442,7 +11442,7 @@ ObjectRecord *create_new_item_instance_of_model(PROP modelnum, s32 weaponid)
     Model *model;
     WeaponObjRecord *obj;
 
-    modeldef = PitemZ_entries[modelnum].header;
+    modeldef = propModelGet(modelnum)->header;
 
     modelLoad(modelnum);
 
@@ -11541,7 +11541,7 @@ PropRecord *something_with_generating_object(ChrRecord *self, s32 propid, ITEM_I
 
     if (!prop_header)
     {
-        prop_header = PitemZ_entries[propid].header;
+        prop_header = propModelGet(propid)->header;
         modelLoad(propid);
     }
 
@@ -12086,7 +12086,7 @@ PropRecord* doorInit(DoorRecord* door, coord3d* pos, Mtxf* mtx, StandTile* stan,
     f32 scale;
 
     prop = objInitWithAutoModel((ObjectRecord* ) door);
-    scale = PitemZ_entries[door->obj].scale;
+    scale = propModelGet(door->obj)->scale;
     door->collisionBlock = mempAllocBytesInBank(0x50U, MEMPOOL_STAGE);
 
     matrix_4x4_copy(mtx, &door->mtx);

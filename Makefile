@@ -276,6 +276,7 @@ $(BUILD_DIR)/src/music.o: src/music.h
 $(BUILD_DIR)/src/game/initanitable.o: assets/animationtable_data.h
 $(BUILD_DIR)/src/game/cobjdata.o: assets/obseg/chr/chrModelFileRecords.inc.c $(wildcard assets/obseg/chr/*/chrModelFileRecord.inc.c)
 $(BUILD_DIR)/src/game/pobjdata.o: assets/obseg/prop/propItemModelFileRecord.inc.c $(wildcard assets/obseg/prop/*/propFileRecord.inc.c)
+$(addprefix $(BUILD_DIR)/src/game/,pobjdata.o ob.o setup.o loadobjectmodel.o propobj.o gedmanifest.o): src/game/customprops.h src/custompropformat.h src/game/chrobjdata.h
 $(BUILD_DIR)/src/game/gun.o: src/game/gun.h assets/obseg/gun/gunModelFileRecord.inc.c $(wildcard assets/obseg/gun/*/gunFileRecord.inc.c)
 
 $(BUILD_DIR)/assets/images/combined/%.o: $(RAW_IMAGE_BIN)

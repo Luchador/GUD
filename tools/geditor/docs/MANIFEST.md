@@ -11,7 +11,7 @@ and entry count. Each entry is four big-endian `u32` fields:
 | --- | --- | --- |
 | 0 | `kind` | FourCC |
 | 4 | `romstart` | Inclusive ROM offset |
-| 8 | `romend` | Exclusive ROM offset; zero only for documented self-terminating legacy kinds |
+| 8 | `romend` | Exclusive ROM offset; zero for documented self-terminating legacy kinds or an empty `NPMD` bank |
 | 12 | `flags` | Kind-specific metadata; not a universal compression field |
 
 The current version is 3. Ammo IDs now omit the redundant second 9mm type,
@@ -20,7 +20,7 @@ and `MultiAmmoCrateRecord` contains twelve slots (176 bytes total). IDs after
 bump prevents older readers from misinterpreting these setup resources.
 Rebuild GUD and create a fresh project with the matching editor; old base ROMs
 and setup files are not compatible.
-There are currently 28 entries; the current GEditor accepts up to 32. The
+There are currently 30 entries; the current GEditor accepts up to 32. The
 16 new discovery entries below are optional to existing editor features.
 Readers must find entries by kind rather than position and bounds-check even
 unrecognized kinds. Changes to a catalog record layout require a new catalog
@@ -161,3 +161,20 @@ python3 tools/geditor/tests/current_formats/run.py
 The first check inspects the actual big-endian MIPS object data and pointer
 relocations. The second exercises GEditor's ROM/project reader and metadata
 export with the extended manifest, including optional-entry preservation.
+
+## Project-added prop models
+
+`NPRP` points to a 16-byte linked runtime descriptor, with flags 1:
+`{ u32 version=1, u32 bank_rom_start, u32 bank_rom_size, u32 reserved=0 }`.
+`NPMD` gives that bank's ROM range, with flags 1. Both offsets are zero for an
+empty bank. Export updates both descriptors together. Other resource packers
+must preserve the `NPMD` range.
+
+The bank uses the `GNP1` format documented in `src/custompropformat.h`.
+Descriptors and model blobs are aligned to 16 bytes. Entries assign stable
+prop IDs beginning at 512, independently of the stock `PROP` catalog. Added
+models use one switch, one matrix, a root node at byte 4 and no texture-header
+entries; texture references are native C0 display-list commands. The project
+bank and ROM bank share the same pointer-free, big-endian format.
+
+See [New prop models](../NEW_PROP_MODELS.md) for import and persistence rules.

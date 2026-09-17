@@ -220,6 +220,7 @@ BEGIN
     COMBOBOX        IDC_MODEL_PROPS, 528, 26, 244, 216, CBS_DROPDOWNLIST | CBS_SORT | WS_VSCROLL | WS_TABSTOP
     PUSHBUTTON      "Export Model...", IDC_MODEL_EXPORT, 8, 52, 88, 18, WS_TABSTOP
     PUSHBUTTON      "Import Model...", IDC_MODEL_IMPORT, 104, 52, 88, 18, WS_TABSTOP
+    PUSHBUTTON      "Add Prop Model...", IDC_MODEL_ADD, 200, 52, 96, 18, WS_TABSTOP
     LTEXT           "Choose a model.", IDC_MODEL_STATUS, 8, 514, 680, 18, SS_ENDELLIPSIS
     PUSHBUTTON      "&Close", IDCANCEL, 702, 514, 70, 18
     GROUPBOX        "Face properties", IDC_MODEL_PROPERTIES, 588, 80, 184, 420
@@ -301,4 +302,16 @@ BEGIN
     LTEXT "", IDC_KNIFE_STATUS, 10, 121, 268, 22
     DEFPUSHBUTTON "Knife", IDOK, 146, 152, 62, 16
     PUSHBUTTON "Cancel", IDCANCEL, 216, 152, 62, 16
+END
+
+IDD_ADD_PROP_MODEL DIALOGEX 0, 0, 262, 96
+STYLE DS_CENTER | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Add Prop Model"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    LTEXT "Model name", -1, 8, 10, 58, 12
+    EDITTEXT IDC_NEW_PROP_NAME, 70, 8, 184, 14, ES_AUTOHSCROLL | WS_TABSTOP
+    LTEXT "Use a unique name such as PpendantZ.\nBlender/glTF metres are converted to game scale.\nImport any new images in the image browser first.", -1, 8, 30, 246, 34
+    DEFPUSHBUTTON "Add", IDOK, 146, 74, 50, 14
+    PUSHBUTTON "Cancel", IDCANCEL, 204, 74, 50, 14
 END
