@@ -4,6 +4,7 @@
 #include "resource.h"
 
 #include <windowsx.h>
+#include <commctrl.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
@@ -12,6 +13,41 @@
 
 static HWND g_UVEditor;
 static HWND g_UVCanvas;
+static int g_UVTextureOpacity = 50; /* Retained when the window is reopened. */
+
+static void UVEditorUpdateOpacity(void)
+{
+    char text[48];
+    snprintf(text, sizeof(text), "Opacity: %d%%", g_UVTextureOpacity);
+    SetDlgItemText(g_UVEditor, IDC_UV_TEXTURE_OPACITY_LABEL, text);
+    UVCanvasSetTextureOpacity(g_UVCanvas, g_UVTextureOpacity);
+}
+
+static void UVEditorRefreshTexture(const char *projectdir, unsigned short textureid, BOOL shared, int count)
+{
+    TexPixel *pixels = NULL;
+    int width = 0, height = 0;
+    BOOL loaded = FALSE;
+    char text[80];
+    if (!count) { lstrcpy(text, "Select textured faces."); }
+    else if (!shared) { lstrcpy(text, "Mixed textures"); }
+    else if (textureid == BG_TEX_NONE) { lstrcpy(text, "No texture"); }
+    else
+    {
+        pixels = malloc(256 * 256 * sizeof(*pixels));
+        if (pixels && projectdir && TexLoadProjectImage(projectdir, textureid, pixels, &width, &height))
+        { loaded = width > 0 && width <= 256 && height > 0 && height <= 256; }
+        if (!loaded) { free(pixels); pixels = NULL; }
+        snprintf(text, sizeof(text), "Image %04X unavailable", textureid);
+    }
+    /* Replacing or clearing the image is presentation-only: never rebuild UV
+     * nodes or emit selection/history notifications when opacity changes. */
+    if (!UVCanvasSetTexture(g_UVCanvas, pixels, width, height)) { loaded = FALSE; }
+    if (loaded) { snprintf(text, sizeof(text), "Image %04X (%d x %d)", textureid, width, height); }
+    SetDlgItemText(g_UVEditor, IDC_UV_TEXTURE_STATUS, text);
+    EnableWindow(GetDlgItem(g_UVEditor, IDC_UV_TEXTURE_OPACITY), loaded);
+    EnableWindow(GetDlgItem(g_UVEditor, IDC_UV_TEXTURE_OPACITY_LABEL), loaded);
+}
 
 static void UVEditorUpdateFields(void)
 {
@@ -162,9 +198,16 @@ static void UVEditorLayout(HWND hwnd)
     MoveWindow(GetDlgItem(hwnd, IDC_UV_V_LABEL), panelleft + margin, row * 4 + margin * 4, margin * 4, row, TRUE);
     MoveWindow(GetDlgItem(hwnd, IDC_UV_V), panelleft + margin * 6, row * 4 + margin * 4, editwidth, row, TRUE);
     int hinttop = row * 6 + margin * 4;
-    int hintheight = max(0, min(row * 5, client.bottom - margin * 3 - row - hinttop));
+    int closetop = client.bottom - margin - row;
+    int previewtop = max(hinttop, closetop - row * 4 - margin * 3);
+    int hintheight = max(0, min(row * 5, previewtop - margin - hinttop));
     MoveWindow(GetDlgItem(hwnd, IDC_UV_HINT), panelleft + margin, hinttop, panelwidth - margin * 2, hintheight, TRUE);
-    MoveWindow(closebutton, panelleft + margin, client.bottom - margin - row,
+    MoveWindow(GetDlgItem(hwnd, IDC_UV_TEXTURE_LABEL), panelleft + margin, previewtop, panelwidth - margin * 2, row, TRUE);
+    MoveWindow(GetDlgItem(hwnd, IDC_UV_TEXTURE_STATUS), panelleft + margin, previewtop + row + margin / 2, panelwidth - margin * 2, row, TRUE);
+    MoveWindow(GetDlgItem(hwnd, IDC_UV_TEXTURE_OPACITY_LABEL), panelleft + margin, previewtop + row * 2 + margin, panelwidth - margin * 2, row, TRUE);
+    MoveWindow(GetDlgItem(hwnd, IDC_UV_TEXTURE_OPACITY), panelleft + margin, previewtop + row * 3 + margin,
+               panelwidth - margin * 2, row + margin / 2, TRUE);
+    MoveWindow(closebutton, panelleft + margin, closetop,
                panelwidth - margin * 2, row, TRUE);
 }
 
@@ -178,6 +221,10 @@ static INT_PTR CALLBACK UVEditorDialogProc(HWND hwnd, UINT message,
         CheckDlgButton(hwnd, IDC_UV_MOVE, BST_CHECKED);
         SendDlgItemMessage(hwnd, IDC_UV_U, EM_LIMITTEXT, 63, 0);
         SendDlgItemMessage(hwnd, IDC_UV_V, EM_LIMITTEXT, 63, 0);
+        SendDlgItemMessage(hwnd, IDC_UV_TEXTURE_OPACITY, TBM_SETRANGE, FALSE, MAKELPARAM(0, 100));
+        SendDlgItemMessage(hwnd, IDC_UV_TEXTURE_OPACITY, TBM_SETPAGESIZE, 0, 10);
+        SendDlgItemMessage(hwnd, IDC_UV_TEXTURE_OPACITY, TBM_SETPOS, TRUE, g_UVTextureOpacity);
+        UVEditorUpdateOpacity();
         UVEditorUpdateFields();
         UVEditorLayout(hwnd);
         return TRUE;
@@ -185,6 +232,15 @@ static INT_PTR CALLBACK UVEditorDialogProc(HWND hwnd, UINT message,
     case WM_SIZE:
         UVEditorLayout(hwnd);
         return TRUE;
+
+    case WM_HSCROLL:
+        if ((HWND)lparam == GetDlgItem(hwnd, IDC_UV_TEXTURE_OPACITY))
+        {
+            g_UVTextureOpacity = (int)SendDlgItemMessage(hwnd, IDC_UV_TEXTURE_OPACITY, TBM_GETPOS, 0, 0);
+            UVEditorUpdateOpacity();
+            return TRUE;
+        }
+        break;
 
     case UVCANVAS_WM_SELECTION_CHANGED:
         UVEditorUpdateFields();
@@ -284,6 +340,7 @@ BOOL UVEditorShow(HWND owner, HINSTANCE instance)
             DestroyWindow(g_UVEditor);
             return FALSE;
         }
+        UVEditorUpdateOpacity();
         UVEditorLayout(g_UVEditor);
     }
 
@@ -292,17 +349,20 @@ BOOL UVEditorShow(HWND owner, HINSTANCE instance)
     return TRUE;
 }
 
-void UVEditorRefreshSelection(HWND viewport, const BgDocument *document)
+void UVEditorRefreshSelection(HWND viewport, const BgDocument *document, const char *projectdir)
 {
     BgFaceRef *refs;
     UVCanvasTriangle *triangles;
     int count, index, output = 0;
+    unsigned short textureid = BG_TEX_NONE;
+    BOOL shared = TRUE;
 
     if (g_UVCanvas == NULL) { return; }
     if (ViewportGetTool(viewport) != EDITOR_TOOL_FACE_SELECT)
-    { UVCanvasSetTriangles(g_UVCanvas, NULL, 0); return; }
+    { UVCanvasSetTriangles(g_UVCanvas, NULL, 0); UVEditorRefreshTexture(NULL, BG_TEX_NONE, TRUE, 0); return; }
     count = ViewportGetSelectedBgFaceCount(viewport);
-    if (count <= 0) { UVCanvasSetTriangles(g_UVCanvas, NULL, 0); return; }
+    if (count <= 0)
+    { UVCanvasSetTriangles(g_UVCanvas, NULL, 0); UVEditorRefreshTexture(NULL, BG_TEX_NONE, TRUE, 0); return; }
 
     refs = (BgFaceRef *)malloc((size_t)count * sizeof(*refs));
     triangles = (UVCanvasTriangle *)malloc((size_t)count * sizeof(*triangles));
@@ -311,6 +371,7 @@ void UVEditorRefreshSelection(HWND viewport, const BgDocument *document)
         free(refs);
         free(triangles);
         UVCanvasSetTriangles(g_UVCanvas, NULL, 0);
+        UVEditorRefreshTexture(NULL, BG_TEX_NONE, TRUE, 0);
         MessageBox(g_UVEditor, "Out of memory displaying the selected UVs.",
                    "UV Editor", MB_ICONERROR);
         return;
@@ -320,6 +381,7 @@ void UVEditorRefreshSelection(HWND viewport, const BgDocument *document)
         free(refs);
         free(triangles);
         UVCanvasSetTriangles(g_UVCanvas, NULL, 0);
+        UVEditorRefreshTexture(NULL, BG_TEX_NONE, TRUE, 0);
         return;
     }
 
@@ -333,8 +395,11 @@ void UVEditorRefreshSelection(HWND viewport, const BgDocument *document)
             || face->vertexindices[1] >= room->vertexcount
             || face->vertexindices[2] >= room->vertexcount)
         {
+            shared = FALSE;
             continue;
         }
+        if (index == 0) { textureid = face->textureid; }
+        else if (textureid != face->textureid) { shared = FALSE; }
         ViewportGetTextureSize(viewport, face->textureid, &width, &height);
         triangles[output].width = width;
         triangles[output].height = height;
@@ -361,7 +426,11 @@ void UVEditorRefreshSelection(HWND viewport, const BgDocument *document)
     }
     free(refs);
     if (!UVCanvasSetTriangles(g_UVCanvas, triangles, output))
-    { MessageBox(g_UVEditor, "Out of memory displaying the selected UVs.", "UV Editor", MB_ICONERROR); }
+    {
+        UVEditorRefreshTexture(NULL, BG_TEX_NONE, TRUE, 0);
+        MessageBox(g_UVEditor, "Out of memory displaying the selected UVs.", "UV Editor", MB_ICONERROR);
+    }
+    else { UVEditorRefreshTexture(projectdir, textureid, shared, output); }
 }
 
 BOOL UVEditorHandleMessage(MSG *message)

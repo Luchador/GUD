@@ -1,4 +1,5 @@
 #include <windows.h>
+#include <commctrl.h>
 #include "resource.h"
 
 IDI_GEDITOR ICON "icon.ico"
@@ -262,6 +263,10 @@ BEGIN
     LTEXT           "V", IDC_UV_V_LABEL, 648, 88, 12, 10
     EDITTEXT        IDC_UV_V, 666, 84, 102, 16, ES_AUTOHSCROLL
     LTEXT           "Select one UV vertex to set its coordinates.", IDC_UV_HINT, 648, 112, 120, 42
+    LTEXT           "Texture background", IDC_UV_TEXTURE_LABEL, 648, 430, 120, 12
+    LTEXT           "Select textured faces.", IDC_UV_TEXTURE_STATUS, 648, 448, 120, 12
+    LTEXT           "Opacity: 50%", IDC_UV_TEXTURE_OPACITY_LABEL, 648, 466, 120, 12, WS_DISABLED
+    CONTROL         "", IDC_UV_TEXTURE_OPACITY, "msctls_trackbar32", WS_TABSTOP | WS_DISABLED | TBS_HORZ | TBS_NOTICKS, 648, 482, 120, 20
     PUSHBUTTON      "&Close", IDCANCEL, 648, 516, 120, 16
 END
 

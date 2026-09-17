@@ -361,7 +361,7 @@ static void GEditorRefreshSelectionInspector(void)
 static void GEditorRefreshSelectionDetails(void)
 {
     g_SelectionHistoryPending = TRUE;
-    UVEditorRefreshSelection(g_Viewport, &g_CurrentBgDocument);
+    UVEditorRefreshSelection(g_Viewport, &g_CurrentBgDocument, g_Project.dir);
     GEditorRefreshSelectionInspector();
 }
 
@@ -2235,7 +2235,7 @@ static BOOL GEditorApplyUVEdit(HWND hwnd, const UVCanvasEdit *request)
     if (changed == 0)
     {
         EditHistoryCancelEdit(&transaction);
-        UVEditorRefreshSelection(g_Viewport, &g_CurrentBgDocument);
+        UVEditorRefreshSelection(g_Viewport, &g_CurrentBgDocument, g_Project.dir);
         return TRUE;
     }
     if (!GEditorRebuildCurrentViewport(&why)
@@ -2271,7 +2271,7 @@ static BOOL GEditorApplyUVFaceEdit(HWND hwnd, const UVCanvasFaceEdit *request)
     if (changed == 0)
     {
         EditHistoryCancelEdit(&transaction);
-        UVEditorRefreshSelection(g_Viewport, &g_CurrentBgDocument);
+        UVEditorRefreshSelection(g_Viewport, &g_CurrentBgDocument, g_Project.dir);
         return TRUE;
     }
     if (!GEditorRebuildCurrentViewport(&why)
@@ -5168,7 +5168,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 }
                 else
                 {
-                    UVEditorRefreshSelection(g_Viewport, &g_CurrentBgDocument);
+                    UVEditorRefreshSelection(g_Viewport, &g_CurrentBgDocument, g_Project.dir);
                 }
                 return 0;
 

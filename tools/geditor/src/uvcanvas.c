@@ -29,6 +29,9 @@ typedef struct UVCanvasState {
     double centeru, centerv;
     double pixelsperunit;
     int width, height;
+    TexPixel *texture;
+    unsigned char *texturebitmap; /* bottom-up opaque BGRA, blended over unit fill */
+    int texturewidth, textureheight, textureopacity;
     BOOL panning;
     POINT lastmouse;
     UVCanvasTriangle *triangles;
@@ -140,6 +143,56 @@ static int UVCanvasSelectionPosition(const UVCanvasState *state, double uv[2])
 static UVCanvasState *UVCanvasGetState(HWND hwnd)
 {
     return (UVCanvasState *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+}
+
+static void UVCanvasBlendTexture(UVCanvasState *state)
+{
+    int i;
+    for (i = 0; i < state->texturewidth * state->textureheight; i++)
+    {
+        const TexPixel *pixel = &state->texture[i];
+        unsigned char *out = state->texturebitmap + i * 4;
+        unsigned int alpha = pixel->a * state->textureopacity;
+        /* Keep straight image alpha and slider opacity independent. The GDI
+         * bitmap itself is opaque, avoiding a per-frame AlphaBlend surface. */
+        out[0] = (unsigned char)((pixel->b * alpha + GetBValue(UVCANVAS_UNIT_FILL) * (25500 - alpha) + 12750) / 25500);
+        out[1] = (unsigned char)((pixel->g * alpha + GetGValue(UVCANVAS_UNIT_FILL) * (25500 - alpha) + 12750) / 25500);
+        out[2] = (unsigned char)((pixel->r * alpha + GetRValue(UVCANVAS_UNIT_FILL) * (25500 - alpha) + 12750) / 25500);
+        out[3] = 0;
+    }
+}
+
+BOOL UVCanvasSetTexture(HWND hwnd, TexPixel *pixels, int width, int height)
+{
+    UVCanvasState *state = UVCanvasGetState(hwnd);
+    unsigned char *bitmap = NULL;
+    BOOL valid = pixels == NULL;
+    if (!state) { free(pixels); return FALSE; }
+    if (pixels && width > 0 && width <= 256 && height > 0 && height <= 256)
+    {
+        bitmap = malloc((size_t)width * height * 4);
+        valid = bitmap != NULL;
+    }
+    free(state->texture); free(state->texturebitmap);
+    if (!valid) { free(pixels); pixels = NULL; }
+    state->texture = pixels;
+    state->texturebitmap = bitmap;
+    state->texturewidth = pixels ? width : 0;
+    state->textureheight = pixels ? height : 0;
+    UVCanvasBlendTexture(state);
+    InvalidateRect(hwnd, NULL, FALSE);
+    return valid;
+}
+
+void UVCanvasSetTextureOpacity(HWND hwnd, int percent)
+{
+    UVCanvasState *state = UVCanvasGetState(hwnd);
+    if (!state) { return; }
+    percent = max(0, min(100, percent));
+    if (state->textureopacity == percent) { return; }
+    state->textureopacity = percent;
+    UVCanvasBlendTexture(state);
+    InvalidateRect(hwnd, NULL, FALSE);
 }
 
 static void UVCanvasResize(HWND hwnd, UVCanvasState *state)
@@ -356,6 +409,33 @@ static void UVCanvasDrawTools(HDC dc, const UVCanvasState *state)
     SelectObject(dc, oldfont);
 }
 
+static void UVCanvasDrawTexture(HDC dc, const UVCanvasState *state,
+                                double left, double top, double right, double bottom)
+{
+    BITMAPINFO info = {0};
+    int x, y, width, height, oldmode;
+    if (!state->texturebitmap || !state->textureopacity) { return; }
+    /* Called only while the unit square intersects the client. With zoom
+     * capped at 1,000,000, these un-clipped coordinates fit GDI integers.
+     * Let the DC clip the image: clipping its destination rectangle here
+     * would stretch the whole image into the visible portion at high zoom. */
+    x = (int)floor(left + 0.5); y = (int)floor(top + 0.5);
+    width = (int)floor(right + 0.5) - x;
+    height = (int)floor(bottom + 0.5) - y;
+    info.bmiHeader.biSize = sizeof(info.bmiHeader);
+    info.bmiHeader.biWidth = state->texturewidth;
+    /* Native row zero is V=0, at the bottom of this V-up canvas, just as in
+     * the viewport's GL upload. Do not use the browser's rotated thumbnail. */
+    info.bmiHeader.biHeight = state->textureheight;
+    info.bmiHeader.biPlanes = 1;
+    info.bmiHeader.biBitCount = 32;
+    info.bmiHeader.biCompression = BI_RGB;
+    oldmode = SetStretchBltMode(dc, COLORONCOLOR);
+    StretchDIBits(dc, x, y, width, height, 0, 0, state->texturewidth, state->textureheight,
+                  state->texturebitmap, &info, DIB_RGB_COLORS, SRCCOPY);
+    if (oldmode) { SetStretchBltMode(dc, oldmode); }
+}
+
 static void UVCanvasDraw(HDC dc, const UVCanvasState *state)
 {
     RECT client = { 0, 0, state->width, state->height };
@@ -373,12 +453,17 @@ static void UVCanvasDraw(HDC dc, const UVCanvasState *state)
     oldpen = SelectObject(dc, GetStockObject(DC_PEN));
     if (right >= 0.0 && bottom >= 0.0 && left < state->width && top < state->height)
     {
+        RECT unit = { UVCanvasClipCoordinate(left, state->width),
+                      UVCanvasClipCoordinate(top, state->height),
+                      UVCanvasClipCoordinate(right, state->width) + 1,
+                      UVCanvasClipCoordinate(bottom, state->height) + 1 };
         SetDCBrushColor(dc, UVCANVAS_UNIT_FILL);
+        FillRect(dc, &unit, (HBRUSH)GetStockObject(DC_BRUSH));
+        UVCanvasDrawTexture(dc, state, left, top, right, bottom);
         SetDCPenColor(dc, UVCANVAS_UNIT_EDGE);
-        Rectangle(dc, UVCanvasClipCoordinate(left, state->width),
-                  UVCanvasClipCoordinate(top, state->height),
-                  UVCanvasClipCoordinate(right, state->width) + 1,
-                  UVCanvasClipCoordinate(bottom, state->height) + 1);
+        SelectObject(dc, GetStockObject(HOLLOW_BRUSH));
+        Rectangle(dc, unit.left, unit.top, unit.right, unit.bottom);
+        SelectObject(dc, GetStockObject(DC_BRUSH));
     }
     /* UVs may lie outside 0-1, even with the entire unit square offscreen. */
     UVCanvasDrawTriangles(dc, state);
@@ -654,6 +739,7 @@ static LRESULT CALLBACK UVCanvasWndProc(HWND hwnd, UINT message,
         state = (UVCanvasState *)calloc(1, sizeof(*state));
         if (state == NULL) { return -1; }
         state->centeru = state->centerv = 0.5;
+        state->textureopacity = 50;
         UVCanvasResetTransform(state);
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
         return 0;
@@ -780,6 +866,7 @@ static LRESULT CALLBACK UVCanvasWndProc(HWND hwnd, UINT message,
         SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
         if (state != NULL) { free(state->triangles); }
         if (state != NULL) { free(state->nodes); }
+        if (state != NULL) { free(state->texture); free(state->texturebitmap); }
         free(state);
         break;
     }

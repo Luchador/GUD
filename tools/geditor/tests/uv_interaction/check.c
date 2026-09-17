@@ -50,7 +50,7 @@ static void UVCanvasEndPan(HWND hwnd, UVCanvasState *s) { s->panning = FALSE; }
 
 /* Presentation calls are inert. Replacing the UV overlay uses the real
  * cancellation, shared-vertex selection and preview rebuilding functions. */
-static void UVEditorRefreshSelection(HWND hwnd, const BgDocument *document)
+static void UVEditorRefreshSelection(HWND hwnd, const BgDocument *document, const char *projectdir)
 {
     UVCanvasTriangle *copy = malloc(sizeof(*copy)); assert(copy);
     *copy = source; refreshes++;
@@ -128,7 +128,7 @@ static void Fixture(TransformMode mode)
     { source.source[i] = (BgDocumentUVEdit){.vertex = {1, i}, .vertexid = i + 1,
         .s = i == 1 ? 1024 : 0, .t = i == 2 ? 1024 : 0}; }
     capture = NULL; commits = 0;
-    UVEditorRefreshSelection(g_Viewport, &g_CurrentBgDocument);
+    UVEditorRefreshSelection(g_Viewport, &g_CurrentBgDocument, g_Project.dir);
     for (int i = 0; i < 3; i++) { state.nodes[i].selected = TRUE; }
     UVCanvasResetTransform(&state);
 }

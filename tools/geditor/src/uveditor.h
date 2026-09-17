@@ -8,9 +8,10 @@
    Closing it leaves GEditor running; closing its owner destroys it too. */
 BOOL UVEditorShow(HWND owner, HINSTANCE instance);
 
-/* Snapshot the selected BG faces' authored UVs while in face mode. No
-   document/viewport pointers are retained, and a closed window is a no-op. */
-void UVEditorRefreshSelection(HWND viewport, const BgDocument *document);
+/* Snapshot the selected BG faces' authored UVs while in face mode and load
+   their shared image from the project (including pending replacements).
+   No document/viewport pointers are retained; a closed window is a no-op. */
+void UVEditorRefreshSelection(HWND viewport, const BgDocument *document, const char *projectdir);
 
 /* Synchronous owner requests. APPLY lparam points to a UVCanvasEdit;
    HISTORY wparam is TRUE for redo. */

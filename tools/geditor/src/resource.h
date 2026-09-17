@@ -98,6 +98,10 @@
 #define IDC_UV_PROJECT_CYLINDER 1036
 #define IDC_UV_ROTATE         1034
 #define IDC_UV_SCALE          1035
+#define IDC_UV_TEXTURE_LABEL  1037
+#define IDC_UV_TEXTURE_STATUS 1038
+#define IDC_UV_TEXTURE_OPACITY_LABEL 1039
+#define IDC_UV_TEXTURE_OPACITY 1099
 
 /* Model Editor selectors and footer. */
 #define IDC_MODEL_CHARACTERS       1040

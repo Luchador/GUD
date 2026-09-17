@@ -5,6 +5,7 @@
 #include "bgdocument.h"
 #include "uvprojection.h"
 #include "edittool.h"
+#include "texload.h"
 
 #define UVCANVAS_BACKGROUND RGB(40, 40, 40)
 
@@ -40,6 +41,12 @@ typedef struct UVCanvasFaceEdit {
    overlay. NULL/0 clears it. Retains selection by shared source identity
    and leaves the camera unchanged. FALSE clears the overlay on allocation failure. */
 BOOL UVCanvasSetTriangles(HWND canvas, UVCanvasTriangle *triangles, int count);
+/* Takes ownership of native-order RGBA pixels. NULL clears the background.
+ * The image covers the 0-1 UV square and follows its camera. Invalid sizes or
+ * allocation failure clear the preview and return FALSE. No selection/edit
+ * notifications are sent. Opacity is a presentation-only percentage. */
+BOOL UVCanvasSetTexture(HWND canvas, TexPixel *pixels, int width, int height);
+void UVCanvasSetTextureOpacity(HWND canvas, int percent);
 int UVCanvasGetSelection(HWND canvas, double uv[2]);
 /* Pointer-free source identities, owned by the caller after capture. */
 BOOL UVCanvasCaptureSelection(HWND canvas, void **data, size_t *size);

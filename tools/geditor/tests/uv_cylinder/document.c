@@ -109,7 +109,8 @@ static int errors;
 static EditorTool ViewportGetTool(HWND hwnd) { return EDITOR_TOOL_FACE_SELECT; }
 static BOOL GEditorRebuildCurrentViewport(const char **why)
 { if (failrebuild) { failrebuild=FALSE; *why="test rebuild failure"; return FALSE; } return TRUE; }
-static void UVEditorRefreshSelection(HWND hwnd,const BgDocument *doc) {}
+static struct { char dir[MAX_PATH]; } g_Project;
+static void UVEditorRefreshSelection(HWND hwnd,const BgDocument *doc,const char *projectdir) {}
 static void GEditorRefreshHistoryMenu(HWND hwnd) {}
 static void MessageBox(HWND hwnd,const char *why,const char *title,unsigned flags) { assert(why[0]); errors++; }
 #include "editor.inc"
