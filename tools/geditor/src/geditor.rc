@@ -223,10 +223,11 @@ BEGIN
     PUSHBUTTON      "Add Prop Model...", IDC_MODEL_ADD, 200, 52, 96, 18, WS_TABSTOP
     LTEXT           "Choose a model.", IDC_MODEL_STATUS, 8, 514, 680, 18, SS_ENDELLIPSIS
     PUSHBUTTON      "&Close", IDCANCEL, 702, 514, 70, 18
-    GROUPBOX        "Materials", IDC_MODEL_MATERIALS, 588, 80, 184, 202
+    /* Let the dialog erase behind these frames despite WS_CLIPCHILDREN. */
+    GROUPBOX        "Materials", IDC_MODEL_MATERIALS, 588, 80, 184, 202, BS_GROUPBOX, WS_EX_TRANSPARENT
     LISTBOX         IDC_MODEL_MATERIAL_LIST, 596, 96, 168, 160, LBS_OWNERDRAWFIXED | LBS_HASSTRINGS | LBS_NOTIFY | LBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
     LTEXT           "Drag an image onto a material.\nDrop No Texture to clear its image.", IDC_MODEL_HINT, 596, 258, 168, 24
-    GROUPBOX        "Face properties", IDC_MODEL_PROPERTIES, 588, 288, 184, 212
+    GROUPBOX        "Face properties", IDC_MODEL_PROPERTIES, 588, 288, 184, 212, BS_GROUPBOX, WS_EX_TRANSPARENT
     LTEXT           "No faces selected", IDC_MODEL_SELECTION, 596, 304, 100, 12
     PUSHBUTTON      "Select all", IDC_MODEL_SELECT_ALL, 702, 300, 62, 18, WS_TABSTOP
     LTEXT           "Select faces to inspect their settings.", IDC_MODEL_CURRENT, 596, 326, 168, 36

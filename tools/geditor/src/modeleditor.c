@@ -494,6 +494,15 @@ static void ModelEditorAddProp(void)
     SetDlgItemText(g_ModelEditor,IDC_MODEL_STATUS,text);
 }
 
+/* Move every control before repainting. Copying pixels or painting a group
+ * box while its siblings still occupy their old positions leaves fragments
+ * of labels and borders behind during a resize. */
+static void ModelEditorPlaceControl(HWND control, int x, int y, int width, int height)
+{
+    SetWindowPos(control, NULL, x, y, width, height,
+        SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOCOPYBITS | SWP_NOREDRAW);
+}
+
 static void ModelEditorLayout(HWND hwnd)
 {
     static const int labels[] = { IDC_MODEL_CHARACTERS_LABEL, IDC_MODEL_ITEMS_LABEL, IDC_MODEL_PROPS_LABEL };
@@ -510,16 +519,16 @@ static void ModelEditorLayout(HWND hwnd)
     for (category = 0; category < 3; category++)
     {
         int x = margin + category * (column + margin);
-        MoveWindow(GetDlgItem(hwnd, labels[category]), x, margin, column, units.bottom, TRUE);
-        MoveWindow(GetDlgItem(hwnd, g_ModelCombos[category]), x, margin + units.bottom,
-                   column, units.bottom * 12, TRUE);
+        ModelEditorPlaceControl(GetDlgItem(hwnd, labels[category]), x, margin, column, units.bottom);
+        ModelEditorPlaceControl(GetDlgItem(hwnd, g_ModelCombos[category]), x, margin + units.bottom,
+                                column, units.bottom * 12);
     }
-    MoveWindow(GetDlgItem(hwnd,IDC_MODEL_EXPORT),margin,margin*2+units.bottom*2,units.right,units.bottom,TRUE);
-    MoveWindow(GetDlgItem(hwnd,IDC_MODEL_IMPORT),margin*2+units.right,margin*2+units.bottom*2,units.right,units.bottom,TRUE);
-    MoveWindow(GetDlgItem(hwnd,IDC_MODEL_ADD),margin*3+units.right*2,margin*2+units.bottom*2,units.right+margin,units.bottom,TRUE);
+    ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_EXPORT),margin,margin*2+units.bottom*2,units.right,units.bottom);
+    ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_IMPORT),margin*2+units.right,margin*2+units.bottom*2,units.right,units.bottom);
+    ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_ADD),margin*3+units.right*2,margin*2+units.bottom*2,units.right+margin,units.bottom);
     if (g_ModelViewport != NULL)
     {
-        MoveWindow(g_ModelViewport, 0, units.top, panelx, max(0, bottom - units.top), TRUE);
+        ModelEditorPlaceControl(g_ModelViewport, 0, units.top, panelx, max(0, bottom - units.top));
     }
     {
         static const struct {int id,x,y,w,h;} controls[] = {
@@ -534,25 +543,28 @@ static void ModelEditorLayout(HWND hwnd)
         size_t i;
         MapDialogRect(hwnd,&dimensions);MapDialogRect(hwnd,&row);
         facey=bottom-dimensions.bottom;materialheight=max(0,facey-units.top-margin);
-        MoveWindow(GetDlgItem(hwnd,IDC_MODEL_MATERIALS),panelx,units.top,panel.right-margin,materialheight,TRUE);
-        MoveWindow(GetDlgItem(hwnd,IDC_MODEL_MATERIAL_LIST),panelx+dimensions.left,units.top+dimensions.top,
-            dimensions.right,max(0,materialheight-dimensions.top*3),TRUE);
-        MoveWindow(GetDlgItem(hwnd,IDC_MODEL_HINT),panelx+dimensions.left,units.top+materialheight-dimensions.top*2,
-            dimensions.right,dimensions.top*2-margin,TRUE);
+        ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_MATERIALS),panelx,units.top,panel.right-margin,materialheight);
+        ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_MATERIAL_LIST),panelx+dimensions.left,units.top+dimensions.top,
+            dimensions.right,max(0,materialheight-dimensions.top*3));
+        ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_HINT),panelx+dimensions.left,units.top+materialheight-dimensions.top*2,
+            dimensions.right,dimensions.top*2-margin);
         SendDlgItemMessage(hwnd,IDC_MODEL_MATERIAL_LIST,LB_SETITEMHEIGHT,0,row.bottom);
-        MoveWindow(GetDlgItem(hwnd,IDC_MODEL_PROPERTIES),panelx,facey,panel.right-margin,dimensions.bottom,TRUE);
+        ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_PROPERTIES),panelx,facey,panel.right-margin,dimensions.bottom);
         for (i=0;i<sizeof(controls)/sizeof(controls[0]);i++)
         {
             RECT r={controls[i].x,controls[i].y,controls[i].w,controls[i].h};
             MapDialogRect(hwnd,&r);
-            MoveWindow(GetDlgItem(hwnd,controls[i].id),panelx+r.left,facey+r.top,r.right,r.bottom,TRUE);
+            ModelEditorPlaceControl(GetDlgItem(hwnd,controls[i].id),panelx+r.left,facey+r.top,r.right,r.bottom);
         }
     }
 
-    MoveWindow(GetDlgItem(hwnd, IDC_MODEL_STATUS), margin, bottom + margin,
-               max(0, client.right - units.right - margin * 3), units.bottom, TRUE);
-    MoveWindow(GetDlgItem(hwnd, IDCANCEL), max(0, client.right - units.right - margin),
-               bottom + margin, units.right, units.bottom, TRUE);
+    ModelEditorPlaceControl(GetDlgItem(hwnd, IDC_MODEL_STATUS), margin, bottom + margin,
+                            max(0, client.right - units.right - margin * 3), units.bottom);
+    ModelEditorPlaceControl(GetDlgItem(hwnd, IDCANCEL), max(0, client.right - units.right - margin),
+                            bottom + margin, units.right, units.bottom);
+    /* The dialog clips child windows, so invalidate their full contents and
+     * borders too once the entire layout is in its final position. */
+    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
 }
 
 static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
