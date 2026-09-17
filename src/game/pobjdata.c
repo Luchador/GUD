@@ -3,6 +3,7 @@
 #include "chrobjdata.h"
 #include "gedmanifest.h"
 #include "customprops.h"
+#include <macro.h>
 #include <memp.h>
 #include <assets/obseg/file_resource_id_enums.h>
 

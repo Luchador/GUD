@@ -4564,7 +4564,7 @@ void sub_GAME_7F074534(ModelRenderData* data, Model* model, ModelNode* node)
             modelRenderGunfire(data, model, node);
             return;
         case MODELNODE_OPCODE_SHADOW:
-            modelRenderShadow(data, model, node);
+            //modelRenderShadow(data, model, node);
             return;
         case MODELNODE_OPCODE_BBOX:
             return;
