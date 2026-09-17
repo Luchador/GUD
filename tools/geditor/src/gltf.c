@@ -82,6 +82,8 @@ typedef struct GltfBuilder {
     const char *projectdir;
     const char *nodename; /* optional exact mesh-node filter for editor resources */
     DWORD *sourcevertices;
+    ModelMaterials materials;
+    DWORD *materialkeys;
 } GltfBuilder;
 
 typedef struct GltfGroup {
@@ -91,7 +93,7 @@ typedef struct GltfGroup {
     int textureheight;
     int imageindex;
     int textureindex;
-    DWORD part;
+    DWORD part, materialslot;
     BOOL hidden;
     DWORD tricount;
     DWORD firstvertex;
@@ -1118,6 +1120,12 @@ static BOOL GltfBuilderReserve(GltfBuilder *builder, DWORD add)
         if (ids == NULL) { return FALSE; }
         builder->sourcevertices = ids;
     }
+    if (builder->importing || builder->newprop)
+    {
+        ModelMaterialFace *faces=realloc(builder->materials.faces,(size_t)capacity*sizeof(*faces));
+        if (!faces) return FALSE;
+        builder->materials.faces=faces;
+    }
     builder->capacity = capacity;
     return TRUE;
 }
@@ -1179,35 +1187,56 @@ static BOOL GltfPrimitiveTag(const char *json,
 }
 
 
-static BOOL GltfImportTexture(const char *json, const GltfJsonToken *tokens,
-    int count, int primitive, unsigned short *tag, const char **reasonout)
+/* Materials identify slots, never project images. Exported slot IDs keep one
+ * slot together across native parts/LODs with different draw states. */
+static BOOL GltfImportMaterial(const char *json, const GltfJsonToken *tokens,
+    int count, int primitive, GltfBuilder *builder, DWORD *slot, const char **why)
 {
-    DWORD index;
-    int token = GltfJsonObjectGet(json,tokens,count,primitive,"material");
-    int material, pbr, texture, image, name;
-    char *label;
-    unsigned int id;
-    *tag = BG_TEX_NONE;
-    if (token < 0) { return TRUE; }
-    if (!GltfJsonUnsigned(json,&tokens[token],&index)) { return FALSE; }
-    material = GltfJsonArrayGet(tokens,count,GltfJsonObjectGet(json,tokens,count,0,"materials"),index);
-    pbr = GltfJsonObjectGet(json,tokens,count,material,"pbrMetallicRoughness");
-    texture = GltfJsonObjectGet(json,tokens,count,pbr,"baseColorTexture");
-    if (texture < 0) { return TRUE; }
-    token = GltfJsonObjectGet(json,tokens,count,texture,"index");
-    if (token < 0 || !GltfJsonUnsigned(json,&tokens[token],&index)) { return FALSE; }
-    texture = GltfJsonArrayGet(tokens,count,GltfJsonObjectGet(json,tokens,count,0,"textures"),index);
-    token = GltfJsonObjectGet(json,tokens,count,texture,"source");
-    if (token < 0 || !GltfJsonUnsigned(json,&tokens[token],&index)) { return FALSE; }
-    image = GltfJsonArrayGet(tokens,count,GltfJsonObjectGet(json,tokens,count,0,"images"),index);
-    name = GltfJsonObjectGet(json,tokens,count,image,"name");
-    label = name >= 0 ? GltfJsonCopyString(json,&tokens[name]) : NULL;
-    if (label == NULL || sscanf(label,"GUD Image %x",&id) != 1 || id >= BG_TEX_NONE)
+    int token=GltfJsonObjectGet(json,tokens,count,primitive,"material"), material=-1;
+    DWORD index=0xffffffffu, key, i;
+    ModelMaterialSlot entry={0}, *grown;
+    DWORD *keys;
+    char *name=NULL;
+    if (token>=0)
     {
-        free(label); *reasonout = "A material uses an unidentified texture. Keep the exported GUD Image names when assigning existing textures.";
-        return FALSE;
+        if (!GltfJsonUnsigned(json,&tokens[token],&index) || index>=4096) return FALSE;
+        material=GltfJsonArrayGet(tokens,count,GltfJsonObjectGet(json,tokens,count,0,"materials"),index);
+        if (material<0) return FALSE;
+        token=GltfJsonObjectGet(json,tokens,count,material,"name");
+        if (token>=0 && !(name=GltfJsonCopyString(json,&tokens[token]))) return FALSE;
     }
-    free(label); *tag = (unsigned short)id; return TRUE;
+    key=index;
+    token=GltfJsonObjectGet(json,tokens,count,
+        GltfJsonObjectGet(json,tokens,count,material,"extras"),"goldeneyeMaterialSlot");
+    if (token>=0)
+    {
+        if (!GltfJsonUnsigned(json,&tokens[token],&key) || key>=4096) { free(name); return FALSE; }
+        key|=0x80000000u;
+    }
+    if (name && name[0])
+    {
+        if (strlen(name)>=sizeof(entry.name))
+        { free(name); *why="Material slot names must be shorter than 128 UTF-8 bytes."; return FALSE; }
+        memcpy(entry.name,name,strlen(name)+1);
+    }
+    else if (index==0xffffffffu) strcpy(entry.name,"Default material");
+    else snprintf(entry.name,sizeof(entry.name),"Material %lu",(unsigned long)index+1);
+    free(name); entry.texture=BG_TEX_NONE;
+    for (i=0;i<builder->materials.count;i++)
+        if (builder->materialkeys[i]==key)
+        {
+            if (strcmp(builder->materials.slots[i].name,entry.name))
+            { *why="Exported material slots have conflicting names."; return FALSE; }
+            *slot=i; return TRUE;
+        }
+    if (i>=4096) { *why="The model contains too many material slots."; return FALSE; }
+    grown=realloc(builder->materials.slots,(size_t)(i+1)*sizeof(*grown));
+    if (!grown) return FALSE;
+    builder->materials.slots=grown;
+    keys=realloc(builder->materialkeys,(size_t)(i+1)*sizeof(*keys));
+    if (!keys) return FALSE;
+    builder->materialkeys=keys; keys[i]=key; grown[i]=entry;
+    builder->materials.count++; *slot=i; return TRUE;
 }
 
 static BOOL GltfReadTextureSize(const char *json,
@@ -1352,6 +1381,27 @@ static BOOL GltfPrimitiveRenderFlags(const char *json, const GltfJsonToken *toke
     return TRUE;
 }
 
+/* Stable slot order follows the glTF material array (or our exported slot
+ * identities), independently of primitive/node traversal order. */
+static BOOL GltfOrderMaterials(GltfBuilder *builder,const char **why)
+{
+    ModelMaterials *m=&builder->materials;
+    DWORD i,j,*old=malloc((size_t)(m->count?m->count:1)*2*sizeof(*old)),*map;
+    if (!old) { *why="Out of memory ordering material slots.";return FALSE; }
+    map=old+m->count;
+    for(i=0;i<m->count;i++) old[i]=i;
+    for(i=1;i<m->count;i++)
+    {
+        ModelMaterialSlot slot=m->slots[i];DWORD key=builder->materialkeys[i],index=old[i];
+        for(j=i;j && builder->materialkeys[j-1]>key;j--)
+        { m->slots[j]=m->slots[j-1];builder->materialkeys[j]=builder->materialkeys[j-1];old[j]=old[j-1]; }
+        m->slots[j]=slot;builder->materialkeys[j]=key;old[j]=index;
+    }
+    for(i=0;i<m->count;i++) map[old[i]]=i;
+    for(i=0;i<builder->tricount;i++) m->faces[i].slot=map[m->faces[i].slot];
+    free(old);return TRUE;
+}
+
 /* An externally edited glTF may use standard base-color texture samplers.
    If present they take precedence over the native wrap extras; absent texture
    bindings retain GEditor's native material metadata. */
@@ -1482,7 +1532,7 @@ static BOOL GltfLoadPrimitive(const char *json,
     DWORD accessorindex;
     DWORD elementcount;
     DWORD trianglecount;
-    DWORD outputindex;
+    DWORD outputindex, materialslot=0;
     GltfAccessor positions;
     GltfAccessor colors;
     GltfAccessor texcoords;
@@ -1634,8 +1684,11 @@ static BOOL GltfLoadPrimitive(const char *json,
         return FALSE;
     }
 
-    if ((builder->importing || builder->newprop) && !GltfImportTexture(json,tokens,tokencount,primitive,&tag,reasonout))
-    { return FALSE; }
+    if (builder->importing || builder->newprop)
+    {
+        if (!GltfImportMaterial(json,tokens,tokencount,primitive,builder,&materialslot,reasonout)) return FALSE;
+        tag=(tag & ~BG_TEX_ID_MASK) | BG_TEX_NONE;
+    }
 
     if ((builder->importing || builder->newprop) && BG_TEX_ID(tag) != BG_TEX_NONE && !hastexcoords)
     {
@@ -1677,9 +1730,6 @@ static BOOL GltfLoadPrimitive(const char *json,
                     GltfJsonObjectGet(json,tokens,tokencount,texture,"extensions"),"KHR_texture_transform")>=0)
             { *reasonout="New prop textures must use UV map 0 with mapping transforms applied to the UVs.";return FALSE; }
         }
-        if (BG_TEX_ID(tag) != BG_TEX_NONE
-            && !TexGetProjectImageSize(builder->projectdir,BG_TEX_ID(tag),&texturewidth,&textureheight))
-        { *reasonout = "A prop material references an image missing from this project. Import the image first."; return FALSE; }
         /* The compiler consumes normalized UVs and resolves dimensions itself. */
         texturewidth = textureheight = 1;
     }
@@ -1824,6 +1874,8 @@ static BOOL GltfLoadPrimitive(const char *json,
     {
         builder->tags[builder->tricount + outputindex] = tag;
         builder->renderflags[builder->tricount + outputindex] = renderflags;
+        if (builder->importing || builder->newprop)
+            builder->materials.faces[builder->tricount+outputindex].slot=materialslot;
     }
     builder->tricount += trianglecount;
     return TRUE;
@@ -2339,6 +2391,19 @@ static BOOL GltfWriteTextures(FILE *file, const GltfGroup *groups, DWORD groupco
     return fprintf(file, "\n  ],\n") >= 0;
 }
 
+static BOOL GltfWriteString(FILE *file,const char *text)
+{
+    const unsigned char *p=(const unsigned char *)text;
+    if (fputc('"',file)==EOF) return FALSE;
+    for (;*p;p++)
+    {
+        if (*p=='"' || *p=='\\') { if (fputc('\\',file)==EOF) return FALSE; }
+        if (*p<32) { if (fprintf(file,"\\u%04x",*p)<0) return FALSE; }
+        else if (fputc(*p,file)==EOF) return FALSE;
+    }
+    return fputc('"',file)!=EOF;
+}
+
 static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
                           DWORD binarysize, const GltfGroup *groups,
                           DWORD groupcount, const GltfImage *images, DWORD imagecount, const ModelSource *source, DWORD sourcehash)
@@ -2423,18 +2488,24 @@ static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
             ? ", \"alphaMode\": \"MASK\""
             : (item->renderflags & BG_RENDER_BLEND) ? ", \"alphaMode\": \"BLEND\"" : "";
         const char *comma = group + 1 < groupcount ? "," : "";
-        char texture[96] = "";
+        char texture[96] = "", slotextra[64]="", label[128];
+        snprintf(label,sizeof(label),"GUD Texture Tag 0x%04X",item->tag);
+        if (source && source->materials.count)
+        {
+            lstrcpyn(label,source->materials.slots[item->materialslot].name,sizeof(label));
+            snprintf(slotextra,sizeof(slotextra),"\"goldeneyeMaterialSlot\": %lu, ",(unsigned long)item->materialslot);
+        }
 
         if (item->textureindex >= 0)
         {
             snprintf(texture, sizeof(texture), ", \"baseColorTexture\": {\"index\": %d, \"texCoord\": 0}", item->textureindex);
         }
 
-        if (fprintf(file,
-            "    {\"name\": \"GUD Texture Tag 0x%04X\", \"doubleSided\": %s%s, \"pbrMetallicRoughness\": {\"baseColorFactor\": [1, 1, 1, 1], \"metallicFactor\": 0, \"roughnessFactor\": 1%s}, \"extensions\": {\"KHR_materials_unlit\": {}}, \"extras\": {\"goldeneyeRenderFlags\": %u, \"goldeneyeTextureTag\": %u, \"goldeneyeUvUnits\": \"normalized\", \"goldeneyeTextureSize\": [%d, %d]}}%s\n",
-            item->tag, (item->renderflags & BG_RENDER_CULL_BACK)
+        if (fprintf(file,"    {\"name\": ")<0 || !GltfWriteString(file,label) || fprintf(file,
+            ", \"doubleSided\": %s%s, \"pbrMetallicRoughness\": {\"baseColorFactor\": [1, 1, 1, 1], \"metallicFactor\": 0, \"roughnessFactor\": 1%s}, \"extensions\": {\"KHR_materials_unlit\": {}}, \"extras\": {%s\"goldeneyeRenderFlags\": %u, \"goldeneyeTextureTag\": %u, \"goldeneyeUvUnits\": \"normalized\", \"goldeneyeTextureSize\": [%d, %d]}}%s\n",
+            (item->renderflags & BG_RENDER_CULL_BACK)
                 && !(item->renderflags & BG_RENDER_CULL_FRONT) ? "false" : "true",
-            alpha, texture, item->renderflags, item->tag,
+            alpha, texture, slotextra, item->renderflags, item->tag,
             item->texturewidth, item->textureheight, comma) < 0)
         {
             ok = FALSE;
@@ -2526,10 +2597,13 @@ static BOOL GltfWriteModelSource(const char *path, const char *projectdir,
 
         /* Keep authored draw order, including repeated texture tags separated
            by other materials. The same image can be opaque and translucent. */
-        if (groupcount == 0 || groups[groupcount - 1].tag != tag
+        DWORD slot=source && source->materials.count ? source->materials.faces[triangle].slot : 0;
+        if (groupcount == 0 || groups[groupcount - 1].materialslot != slot
+            || groups[groupcount - 1].tag != tag
             || groups[groupcount - 1].renderflags != flags
             || (source != NULL && groups[groupcount - 1].part != source->faces[triangle].list))
         {
+            groups[groupcount].materialslot = slot;
             groups[groupcount].tag = tag;
             groups[groupcount].renderflags = flags;
             groups[groupcount].part = source != NULL ? source->faces[triangle].list : 0;
@@ -2564,6 +2638,11 @@ static BOOL GltfWriteModelSource(const char *path, const char *projectdir,
             GltfPackVertex(binary + (destination + corner)
                            * GLTF_VERTEX_STRIDE, vertex,
                            group->texturewidth, group->textureheight);
+            if (source && source->materials.count)
+            {
+                GltfWriteFloat(binary+(destination+corner)*GLTF_VERTEX_STRIDE+12,source->materials.faces[triangle].uv[corner*2]);
+                GltfWriteFloat(binary+(destination+corner)*GLTF_VERTEX_STRIDE+16,source->materials.faces[triangle].uv[corner*2+1]);
+            }
             GltfWriteFloat(binary + (destination + corner) * GLTF_VERTEX_STRIDE + 44,
                            (float)(triangle * 3 + corner));
 
@@ -2617,6 +2696,16 @@ BOOL GltfWriteEditableModel(const char *path, const char *projectdir,
         if (!ok) { *reasonout="The empty model could not be completely written."; }
         return ok;
     }
+    if (!source->materials.count)
+    {
+        ModelSource copy=*source;
+        BOOL ok;
+        memset(&copy.materials,0,sizeof(copy.materials));
+        if (!ModelMaterialsEnsure(&copy,projectdir,reasonout)) return FALSE;
+        ok=GltfWriteModelSource(path,projectdir,copy.vertices,copy.tags,copy.flags,
+            copy.count,&copy,sourcehash,reasonout);
+        ModelMaterialsFree(&copy.materials);return ok;
+    }
     return GltfWriteModelSource(path,projectdir,source->vertices,source->tags,source->flags,
         source->count,source,sourcehash,reasonout);
 }
@@ -2624,6 +2713,7 @@ BOOL GltfWriteEditableModel(const char *path, const char *projectdir,
 void GltfFreeModelImport(GltfModelImport *model)
 {
     free(model->vertices); free(model->tags); free(model->sourcevertices);
+    ModelMaterialsFree(&model->materials); free(model->rebind);
     ZeroMemory(model,sizeof(*model));
 }
 
@@ -2721,6 +2811,19 @@ static BOOL GltfReadImport(const char *path, DWORD sourcehash, const char *proje
             || !GltfLoadGlbNode(json,tokens,tokencount,index,buffers,buffercount,identity,
                                &builder,0,&visited,reasonout)) { goto done; }
     }
+    if (!GltfOrderMaterials(&builder,reasonout)) goto done;
+    /* Capture UVs after mirrored-node winding corrections. */
+    builder.materials.facecount=builder.tricount;
+    for (i=0;i<builder.tricount;i++)
+    {
+        DWORD k;
+        for (k=0;k<3;k++)
+        {
+            builder.materials.faces[i].uv[k*2]=builder.vertices[i*3+k].s;
+            builder.materials.faces[i].uv[k*2+1]=builder.vertices[i*3+k].t;
+        }
+    }
+    model->materials=builder.materials; memset(&builder.materials,0,sizeof(builder.materials));
     model->vertices=builder.vertices; builder.vertices=NULL;
     model->tags=builder.tags; builder.tags=NULL;
     model->sourcevertices=builder.sourcevertices; builder.sourcevertices=NULL;
@@ -2729,6 +2832,7 @@ static BOOL GltfReadImport(const char *path, DWORD sourcehash, const char *proje
 done:
     free(file); free(tokens); GltfFreeBuffers(buffers,buffercount);
     free(builder.vertices); free(builder.tags); free(builder.renderflags); free(builder.sourcevertices);
+    free(builder.materialkeys); ModelMaterialsFree(&builder.materials);
     return ok;
 }
 
@@ -2740,12 +2844,12 @@ BOOL GltfReadModelImport(const char *path, DWORD sourcehash,
 }
 
 BgVertex *GltfReadNewProp(const char *path, const char *projectdir, DWORD *count,
-    unsigned short **tags, BgRenderFlags **flags, const char **reasonout)
+    unsigned short **tags, BgRenderFlags **flags, ModelMaterials *materials, const char **reasonout)
 {
     GltfModelImport model={0};
     *count=0; *tags=NULL; *flags=NULL;
     if (!GltfReadImport(path,0,projectdir,TRUE,&model,flags,reasonout)) return NULL;
-    *count=model.count; *tags=model.tags;
+    *count=model.count; *tags=model.tags; *materials=model.materials;
     free(model.sourcevertices);
     return model.vertices;
 }

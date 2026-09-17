@@ -10,6 +10,7 @@
 #include "imageedits.h"
 #include "texrom.h"
 #include "modelcompile.h"
+#include "modeledits.h"
 #include "newprops.h"
 
 /* PNG encoding uses Windows WIC, outside this host test. */
@@ -158,6 +159,14 @@ int main(int argc,char **argv)
     OK(ImageEditsSave(project.dir,&why));OK(ImageEditsDelete(project.dir,2,&why));OK(ImageEditsSave(project.dir,&why));ImageEditsReset();
     Path(path,project.dir,"images/0000.bmp");OK(TexWriteBmp(path,pixels,8,8));
     OK(NewPropsImport(project.dir,"PpendantZ",argv[3],FALSE,&size,&why) && size==4);
+    /* The slot accepts an image absent from base.z64, including an unsaved edit. */
+    OK(ImageEditsImport(project.dir,pixels,8,8,&options,NULL,&id,&why) && id==3);
+    { DWORD revision;ModelSource slots={0};
+      OK(ModelEditsReadSource(project.dir,"PpendantZ",&slots,&revision,&why));ModelFreeSource(&slots);
+      OK(ModelEditsSetMaterial(project.dir,"PpendantZ",revision,0,id,&why));
+      OK(ModelEditsReadSource(project.dir,"PpendantZ",&slots,&revision,&why));ModelFreeSource(&slots);
+      OK(ModelEditsSetMaterial(project.dir,"PpendantZ",revision,1,1,&why)); }
+    OK(ImageEditsSave(project.dir,&why));
     OK(NewPropsSave(project.dir,&why));
     OK(ProjectRebaseCheck(&project,nextpath,&report,&why));OK(report.kept==1 && report.updated==1 && !report.conflicts);
     OK(ProjectRebaseCreate(&project,nextpath,argv[1],"Updated",&rebased,&report,&why));NoTemps(argv[1]);
@@ -170,6 +179,7 @@ int main(int argc,char **argv)
     Same(project.dir,rebased.dir,"models/newprops.gnp");
     Same(project.dir,rebased.dir,"models/objects/PpendantZ.gltf");
     Same(project.dir,rebased.dir,"images/native/0001.gtex");Same(project.dir,rebased.dir,"images/native/0002.gtex");
+    Same(project.dir,rebased.dir,"images/native/0003.gtex");
     Same(project.dir,rebased.dir,"images/0001.bmp");Same(project.dir,rebased.dir,"notes/.artist-note");
     Path(path,rebased.dir,"Original.gep");OK(GetFileAttributes(path)==INVALID_FILE_ATTRIBUTES);
     Path(path,rebased.dir,"base.z64");OK(Hash(path)==Hash(nextpath));Path(path,project.dir,"base.z64");OK(Hash(path)==Hash(oldpath));
@@ -178,7 +188,7 @@ int main(int argc,char **argv)
     OK(RomGetFileByIndex(&output,1,path,sizeof(path),&offset,&span) && output.data[offset+52]==0x56);
     OK(RomGetFileByIndex(&output,2,path,sizeof(path),&offset,&span) && output.data[offset+128]==1);
     OK(RomGetFileByIndex(&output,4,path,sizeof(path),&offset,&span) && span==modelsize && memcmp(output.data+offset,model,modelsize));
-    OK(TexRomReadBank(&output,&bank,&why) && bank.count==3);
+    OK(TexRomReadBank(&output,&bank,&why) && bank.count==4);
     {
         RomManifestEntry *props=&output.info.entries[16];
         OK(props->kind==CUSTOM_PROP_DATA_KIND && props->romend>props->romstart);

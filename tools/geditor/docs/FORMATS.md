@@ -17,8 +17,20 @@ New ROMs also expose optional audio, animation, model, global AI and text-bank
 catalogs. See [MANIFEST.md](MANIFEST.md) for their ranges and record layouts.
 
 The model import workflow still supports Blender glTF/GLB files. Its material,
-sampler, and alpha settings remain supported. Embedded GLB editor resources and
-graphics-driver fallbacks are also unchanged.
+sampler, and alpha settings remain supported. New imports create unassigned
+material slots; image names are not used to bind textures. Assign images by
+dragging from the image browser into the Model Editor's Materials panel.
+Embedded GLB editor resources and graphics-driver fallbacks are unchanged.
+
+`GMD1` overrides and `GNP1` project entries may append a `GMS1` editor trailer
+to their native model bytes. It contains slot names, image assignments, per-face
+slot IDs and normalized UVs. A 16-byte footer holds the `GMS1` magic, native
+length, metadata length and metadata FNV-1a hash (32-bit big-endian fields).
+The payload is slot count and face count, then 132-byte slots (128-byte UTF-8
+name plus image ID), then 28-byte faces (slot ID and six IEEE float UVs), with
+up to 15 zero padding bytes before the footer. Existing native data without
+this trailer derives its slots from its draw states. ROM export strips the
+trailer; no game runtime change is needed for material slots.
 
 Removed compatibility paths include version-1 projects and manifests, unnamed
 32-byte level rows, the prompt to supply a missing base ROM, image-table

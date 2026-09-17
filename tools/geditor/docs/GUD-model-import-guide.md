@@ -11,17 +11,19 @@ as unsaved; closing the Model Editor does not discard its changes.
 3. Import that file into Blender. Leave **Merge Vertices** disabled.
 4. Move existing vertices in Edit Mode and adjust their UVs in the UV Editor.
    Paint the existing color attribute in Vertex Paint to change vertex colors.
-   You can also delete faces. To remove texture usage from remaining faces,
-   disconnect the material's image texture from Base Color. Keep the color attribute.
-   Assigning another existing `GUD Image` texture of the same dimensions is also
-   supported. Keep the image names so GEditor can identify their ROM texture IDs.
+   You can also delete faces. Keep the color attribute and material slot names.
+   Image names and embedded Blender images do not assign GEditor textures.
+   Assign or clear textures in GEditor's **Materials** panel after import.
 5. Export from Blender as glTF Binary (`.glb`) or glTF Separate (`.gltf`). Enable
    **Include > Custom Properties**, **Data > Mesh > Attributes**, **UVs**, and
    **Vertex Colors**. Export the complete model, including its other parts and
    LODs. Do not enable mesh compression. Keep separate-format `.bin` files
    beside their `.gltf` file.
 6. Select the same model in GEditor and click **Import Model...**. Review the
-   viewport and the before/after counts in the footer, then **Save Project**.
+   viewport and the before/after counts in the footer. Slots retain assignments
+   when their names match uniquely; new or renamed slots start with **No Texture**.
+   Drag an image from the main image browser onto a material thumbnail to assign
+   it, or drag **No Texture** to clear it. Then **Save Project**.
 7. Use **Tools > Create ROM** and test the result in-game.
 
 New projects' extracted model glTFs also contain the import identities. Using
@@ -32,8 +34,11 @@ again before making another round of edits.
 ## What is supported
 
 Import supports moving existing vertices and UVs, painting vertex colors,
-automatic native vertex splitting for UV/color seams, face deletion, removing
-texture assignments, and reassigning existing textures of the same dimensions.
+automatic native vertex splitting for UV/color seams and face deletion. The
+Materials panel supports removing texture assignments and assigning any project
+image, including newly imported images and images of different dimensions.
+Normalized UVs are retained while a material is unassigned. Distinct material
+slots stay separate even when they share an image.
 It validates triangle identities and rejects added/duplicated faces, changed
 triangle connections or index winding. Do not merge
 vertices, retriangulate, apply a decimation modifier, or remove `_GUD_VERTEX`.
@@ -129,7 +134,9 @@ shared texture asset. Edited glTF exports embed the textures they still use.
 
 `models/native/<name>.gmodel` is the authoritative saved native replacement.
 It contains a compiled model plus fingerprints identifying its base-ROM source
-and checking the file contents. The matching model `.gltf` is refreshed on save
+and checking the file contents. An editor-only `GMS1` trailer retains slot
+names, assignments, face membership and normalized UVs. It is omitted from ROM
+exports. The matching model `.gltf` is refreshed on save
 as an editable export. Keep the `.gmodel` files with the project.
 
 The ROM builder validates saved replacements, updates resource offsets if a

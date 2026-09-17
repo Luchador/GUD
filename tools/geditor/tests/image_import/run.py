@@ -47,7 +47,7 @@ def main():
                    "-fsanitize=address,undefined", "-Dfopen=TestFopen", f"-I{tests}", f"-I{src}",
                    str(tests / "check.c"), str(tests / "bmp_alpha.c"), str(tests / "reimport.c"),
                    str(tests / "platform.c"), str(work / "texload_host.c")]
-        command += [str(src / name) for name in ("texencode.c", "texinfo.c", "texrom.c", "imageedits.c", "gltf.c", "bgrender.c")]
+        command += [str(src / name) for name in ("texencode.c", "texinfo.c", "texrom.c", "imageedits.c", "gltf.c", 'modelmaterials.c', 'bgmaterial.c', "bgrender.c")]
         command += ["-lm", "-Wl,--gc-sections", "-o", str(work / "check")]
         subprocess.run(command, check=True)
         env = dict(os.environ, ASAN_OPTIONS="detect_leaks=0", UBSAN_OPTIONS="halt_on_error=1")

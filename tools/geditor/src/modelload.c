@@ -1124,6 +1124,7 @@ BgVertex *ModelLoadCharacterGeometry(const unsigned char *data, DWORD maxlen,
 void ModelFreeSource(ModelSource *source)
 {
     free(source->vertices); free(source->vertexoffsets); free(source->tags); free(source->flags);
+    ModelMaterialsFree(&source->materials);
     free(source->faces); free(source->lists); ZeroMemory(source, sizeof(*source));
 }
 
@@ -1131,9 +1132,11 @@ BOOL ModelReadSource(const unsigned char *data, DWORD size, ModelSource *source,
                       const char **reasonout)
 {
     ZeroMemory(source, sizeof(*source));
-    source->vertices = MdlLoadGeometry(data, size, &source->count, &source->tags,
+    source->vertices = MdlLoadGeometry(data, ModelMaterialsNativeSize(data,size), &source->count, &source->tags,
         &source->flags, reasonout, FALSE, NULL, source);
     if (source->vertices == NULL) { ModelFreeSource(source); return FALSE; }
+    if (!ModelMaterialsRead(data,size,source->count,&source->materials,reasonout))
+    { ModelFreeSource(source); return FALSE; }
     return TRUE;
 }
 

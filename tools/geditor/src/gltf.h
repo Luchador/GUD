@@ -3,6 +3,7 @@
 
 #include "bgload.h"
 #include "bgrender.h"
+#include "modelmaterials.h"
 
 /* Writes a self-contained glTF 2.0 model. Adjacent triangles with matching
  * texture tags and preview render flags share a primitive. Ordered material
@@ -30,16 +31,18 @@ typedef struct GltfModelImport {
     unsigned short *tags;
     DWORD *sourcevertices;
     DWORD count;
+    ModelMaterials materials;
+    unsigned char *rebind; /* Optional native-face mask for explicit image assignment. */
 } GltfModelImport;
 BOOL GltfReadModelImport(const char *path, DWORD sourcehash,
                          GltfModelImport *model, const char **reasonout);
 void GltfFreeModelImport(GltfModelImport *model);
 
-/* New static props have no source identities. Standard materials supply
- * OPAQUE/BLEND, doubleSided, baseColorFactor and COLOR_0. Named GUD images
- * resolve against the project, including pending image imports. */
+/* Imports keep material slots and normalized UVs without looking up images.
+ * Every imported slot starts with No Texture; the edit store can retain
+ * previous assignments for matching slots on reimport. */
 BgVertex *GltfReadNewProp(const char *path, const char *projectdir, DWORD *count,
-    unsigned short **tags, BgRenderFlags **flags, const char **reasonout);
+    unsigned short **tags, BgRenderFlags **flags, ModelMaterials *materials, const char **reasonout);
 
 /* Loads triangle primitives from a glTF 2.0 JSON file. Standard base-color
  * texture samplers override native wrapping extras when present. The loader accepts

@@ -15,5 +15,9 @@ void ModelEditorSetProject(const char *projectdir);
 /* Reload the displayed model and textures without resetting its orbit camera. */
 void ModelEditorRefreshImages(void);
 BOOL ModelEditorHandleMessage(MSG *message);
+void ModelEditorSetImageBrowser(HWND browser);
+BOOL ModelEditorCanAssignImages(void);
+/* TRUE means the drop was handled, including a reported assignment error. */
+BOOL ModelEditorDropImage(DWORD texture, POINT screen);
 
 #endif

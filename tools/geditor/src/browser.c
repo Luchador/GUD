@@ -1064,14 +1064,14 @@ static void BrowserUpdateImageTooltip(HWND hwnd, BrowserState *state, WPARAM wpa
 
 
 /* Image-list drag coordinates are relative to the drawing window's outer
- * rectangle, including its caption and borders. Use the editor frame as the
- * surface so desktop/monitor origins cannot offset the preview. Both starting
+ * rectangle, including its caption and borders. Use the desktop so the preview
+ * also reaches owned editor windows. Both starting
  * and moving the preview must use this same conversion. */
 static BOOL BrowserImageDragPoint(HWND hwnd, POINT *point)
 {
     RECT frame;
 
-    if (!ClientToScreen(hwnd, point) || !GetWindowRect(GetParent(hwnd), &frame))
+    if (!ClientToScreen(hwnd, point) || !GetWindowRect(GetDesktopWindow(), &frame))
     {
         return FALSE;
     }
@@ -1085,7 +1085,7 @@ static void BrowserEndAssetDrag(HWND hwnd, BrowserState *state)
 {
     if (state->dragimage != NULL)
     {
-        ImageList_DragLeave(GetParent(hwnd));
+        ImageList_DragLeave(GetDesktopWindow());
         ImageList_EndDrag();
         ImageList_Destroy(state->dragimage);
         state->dragimage = NULL;
@@ -1146,7 +1146,7 @@ static BOOL BrowserStartAssetDrag(HWND hwnd, BrowserState *state, HBITMAP bitmap
         return FALSE;
     }
     if (!BrowserImageDragPoint(hwnd, &point) ||
-        !ImageList_DragEnter(GetParent(hwnd), point.x, point.y))
+        !ImageList_DragEnter(GetDesktopWindow(), point.x, point.y))
     {
         ImageList_EndDrag();
         ImageList_Destroy(images);

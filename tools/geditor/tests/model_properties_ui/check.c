@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <strings.h>
+#include <string.h>
 #include "modelload.h"
 #include "orbitcamera.h"
 typedef unsigned int GLenum, GLuint, UINT;
@@ -12,6 +13,12 @@ typedef uintptr_t WPARAM;
 typedef intptr_t LPARAM;
 typedef intptr_t LRESULT;
 typedef struct {int x, y;} POINT;
+typedef struct {int left,top,right,bottom;} RECT;
+#define HIWORD(n) (((uintptr_t)(n)>>16)&0xffff)
+#define LOWORD(n) ((uintptr_t)(n)&0xffff)
+#define MAKELPARAM(x,y) ((unsigned short)(x)|((LPARAM)(unsigned short)(y)<<16))
+#define LB_ERR (-1)
+enum {IDC_MODEL_MATERIAL_LIST=10,IDC_MODEL_STATUS,LB_ITEMFROMPOINT,LB_GETITEMRECT,LB_SETCURSEL,MB_ICONERROR,GW_OWNER,MODELEDITOR_CHANGED};
 #define GL_FRONT 0x0404
 #define GL_BACK 0x0405
 #define GL_FRONT_AND_BACK 0x0408
@@ -42,9 +49,32 @@ static ModelSource g_ModelSource;
 static const int rows[3][2] = {{1, -1}, {2, -1}, {3, 0}};
 static int selectedrows[3] = {-1, -1, -1}, shown, loads;
 static BOOL showok = TRUE;
+static BOOL editorvisible=TRUE,hitlist=TRUE,assignok=TRUE;
+static int assigned,refreshed,selectedslot=-1,notified,errors;
+static DWORD assignedtexture,assignedslot,g_ModelRevision=123;
+static const char g_ModelProject[]="project";
+static BOOL IsWindowVisible(HWND hwnd) {return editorvisible;}
+static HWND WindowFromPoint(POINT p) {return hitlist?(HWND)(uintptr_t)12:NULL;}
+static BOOL ScreenToClient(HWND hwnd,POINT *p) {p->x+=1000;return TRUE;}
+static BOOL GetClientRect(HWND hwnd,RECT *r) {*r=(RECT){0,0,200,300};return TRUE;}
+static BOOL PtInRect(const RECT *r,POINT p) {return p.x>=r->left && p.x<r->right && p.y>=r->top && p.y<r->bottom;}
+static HWND GetWindow(HWND hwnd,int type) {return (HWND)(uintptr_t)99;}
+static void MessageBox(HWND hwnd,const char *why,const char *title,int type) {errors++;}
+static void SetDlgItemText(HWND hwnd,int id,const char *text) {}
+static void ModelEditorRefreshImages(void) {refreshed++;}
+static void ModelEditorSelectGroup(BOOL all) {assert(!all);}
+static BOOL ModelEditsSetMaterial(const char *project,const char *name,DWORD revision,DWORD slot,DWORD texture,const char **why)
+{assert(!strcmp(project,"project") && !strcmp(name,"Gpp7Z") && revision==123);assigned++;assignedslot=slot;assignedtexture=texture;return assignok;}
 static HWND GetDlgItem(HWND hwnd, int item) {return (HWND)(uintptr_t)(item+2);}
 static LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
+    if(hwnd==(HWND)(uintptr_t)99) {assert(msg==MODELEDITOR_CHANGED);notified++;return 0;}
+    if(hwnd==(HWND)(uintptr_t)12)
+    {
+        if(msg==LB_ITEMFROMPOINT) return HIWORD(lparam)<132?HIWORD(lparam)/66:1;
+        if(msg==LB_GETITEMRECT) {*(RECT *)lparam=(RECT){0,(int)wparam*66,200,(int)(wparam+1)*66};return 0;}
+        assert(msg==LB_SETCURSEL);selectedslot=wparam;return 0;
+    }
     int category = (int)(uintptr_t)hwnd-2;
     assert(category >= 0 && category < 3);
     if (msg == CB_GETCOUNT) {return category == 2 ? 2 : 1;}
@@ -156,6 +186,21 @@ int main(void)
         assert(loads==4);
         assert(!ModelEditorOpenModel(hwnd,NULL,"project",NULL,&why) && why[0]);
     }
+    g_ModelSource.materials.count=2;
+    assert(ModelEditorCanAssignImages());
+    assert(ModelEditorDropImage(0xa93,(POINT){-950,80}));
+    assert(assigned==1 && assignedslot==1 && assignedtexture==0xa93 && selectedslot==1 && refreshed==1 && notified==1);
+    assert(ModelEditorDropImage(BG_TEX_NONE,(POINT){-950,5}));
+    assert(assigned==2 && assignedslot==0 && assignedtexture==BG_TEX_NONE && refreshed==2 && notified==2);
+    assert(!ModelEditorDropImage(0xd4,(POINT){-950,250})); /* Empty area below slots. */
+    assert(!ModelEditorDropImage(0xd4,(POINT){-795,20})); /* Scrollbar. */
+    assert(!ModelEditorDropImage(0xd4,(POINT){-1001,20})); /* Border. */
+    hitlist=FALSE;assert(!ModelEditorDropImage(0xd4,(POINT){-950,20}));hitlist=TRUE;
+    editorvisible=FALSE;assert(!ModelEditorDropImage(0xd4,(POINT){-950,20}));editorvisible=TRUE;
+    assert(assigned==2);
+    assignok=FALSE;assert(ModelEditorDropImage(0xbad,(POINT){-950,20}));
+    assert(assigned==3 && errors==1 && refreshed==2 && notified==2); /* Consume failed model drop; no BG fallthrough. */
+    puts("PASS material drop targeting, negative screen coordinates, No Texture, invalid targets and failed assignment.");
     puts("PASS model viewer click/double-click/orbit, sorted asset opening/reuse, culling and inspector labels (ASan + UBSan)");
     return 0;
 }

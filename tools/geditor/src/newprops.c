@@ -107,14 +107,15 @@ fail:
     FreeStore(store);return FALSE;
 }
 
-static unsigned char *PackBank(const NewPropStore *store,DWORD *size,const char **why)
+static unsigned char *PackBank(const NewPropStore *store,DWORD *size,BOOL nativeonly,const char **why)
 {
     DWORD i,cursor=16+store->count*CUSTOM_PROP_ENTRY_SIZE,total=cursor;
     unsigned char *data;
     for (i=0;i<store->count;i++)
     {
-        if (store->entries[i].size>BANK_LIMIT-total) { *why="The new prop bank exceeds 64 MB.";return NULL; }
-        total+=store->entries[i].size;
+        DWORD length=nativeonly ? (ModelMaterialsNativeSize(store->entries[i].data,store->entries[i].size)+15)&~15u : store->entries[i].size;
+        if (length>BANK_LIMIT-total) { *why="The new prop bank exceeds 64 MB.";return NULL; }
+        total+=length;
     }
     data=calloc(total,1);
     if (!data) { *why="Out of memory packing new props.";return NULL; }
@@ -123,9 +124,12 @@ static unsigned char *PackBank(const NewPropStore *store,DWORD *size,const char 
     for (i=0;i<store->count;i++)
     {
         const NewProp *prop=&store->entries[i];unsigned char *entry=data+16+i*CUSTOM_PROP_ENTRY_SIZE;
-        memcpy(entry,prop->name,strlen(prop->name));Write32(entry+64,cursor);Write32(entry+68,prop->size);
-        WriteFloat(entry+72,prop->radius);Write32(entry+76,ModelDataHash(prop->data,prop->size));
-        WriteFloat(entry+80,prop->scale);memcpy(data+cursor,prop->data,prop->size);cursor+=prop->size;
+        DWORD bytes=nativeonly ? ModelMaterialsNativeSize(prop->data,prop->size) : prop->size;
+        DWORD length=(bytes+15)&~15u;
+        memcpy(entry,prop->name,strlen(prop->name));Write32(entry+64,cursor);Write32(entry+68,length);
+        memcpy(data+cursor,prop->data,bytes);
+        WriteFloat(entry+72,prop->radius);Write32(entry+76,ModelDataHash(data+cursor,length));
+        WriteFloat(entry+80,prop->scale);cursor+=length;
     }
     *size=total;return data;
 }
@@ -216,7 +220,8 @@ BOOL NewPropsImport(const char *project,const char *name,const char *path,BOOL r
 {
     BgVertex *vertices=NULL;unsigned short *tags=NULL;BgRenderFlags *flags=NULL;
     unsigned char *data=NULL;DWORD count,size;float radius;NewProp *prop;BOOL ok=FALSE;
-    ModelSource check={0};RomFile rom={0};char base[MAX_PATH];DWORD offset,span;
+    ModelSource check={0},previous={0};RomFile rom={0};char base[MAX_PATH];DWORD offset,span;
+    ModelMaterials materials={0}, ordered={0}; DWORD face,pass,cursor=0;
     if (!NewPropsOpen(project,why)) return FALSE;
     if (!g_Supported) { *why="Rebuild GUD with new-prop support, then rebase this project to that ROM before adding models.";return FALSE; }
     if (!NameValid(name)) { *why="Use a unique prop name such as PpendantZ (letters, digits and underscores, ending in Z).";return FALSE; }
@@ -238,16 +243,31 @@ BOOL NewPropsImport(const char *project,const char *name,const char *path,BOOL r
         if (!RomLoad(base,&rom,why)) goto done;
         if (RomFindFile(&rom,name,&offset,&span,why)) { *why="This name belongs to an existing ROM resource.";goto done; }
     }
-    vertices=GltfReadNewProp(path,project,&count,&tags,&flags,why);
+    vertices=GltfReadNewProp(path,project,&count,&tags,&flags,&materials,why);
+    if (vertices && prop)
+    {
+        if (!ModelReadSource(prop->data,prop->size,&previous,why)
+            || !ModelMaterialsEnsure(&previous,project,why)) goto done;
+        ModelMaterialsMatch(&materials,&previous.materials);
+    }
+    for (face=0;vertices && face<count;face++)
+        tags[face]=(tags[face]&~BG_TEX_ID_MASK)|materials.slots[materials.faces[face].slot].texture;
     if (!vertices && !**why) *why="The selected scene contains no triangles.";
     if (!vertices || !PropCompile(vertices,tags,flags,count,project,&data,&size,&radius,why)
         || !ModelReadSource(data,size,&check,why)) goto done;
     if (check.count!=count) { *why="The compiled model did not reproduce every imported triangle.";goto done; }
+    if (!ModelMaterialsCopy(&ordered,&materials,why)) goto done;
+    /* PropCompile emits the opaque pass before the translucent pass. */
+    for (pass=0;pass<2;pass++) for (face=0;face<count;face++)
+        if (!!(flags[face]&BG_RENDER_BLEND)==(int)pass) ordered.faces[cursor++]=materials.faces[face];
+    if (!ModelMaterialsAttach(&data,&size,&ordered,why)) goto done;
     if (!prop) { prop=&g_Props.entries[g_Props.count++];lstrcpyn(prop->name,name,64); }
     free(prop->data);prop->data=data;data=NULL;prop->size=size;prop->radius=radius;prop->scale=.1f;
     *triangles=count;g_Dirty=TRUE;*why="";ok=TRUE;
 done:
-    RomFree(&rom);ModelFreeSource(&check);free(vertices);free(tags);free(flags);free(data);return ok;
+    RomFree(&rom);ModelFreeSource(&check);ModelFreeSource(&previous);
+    ModelMaterialsFree(&materials);ModelMaterialsFree(&ordered);
+    free(vertices);free(tags);free(flags);free(data);return ok;
 }
 
 BOOL NewPropsReplace(const char *name,unsigned char *data,DWORD size,const char **why)
@@ -268,7 +288,7 @@ BOOL NewPropsSave(const char *project,const char **why)
     if (!NewPropsOpen(project,why)) return FALSE;
     if (!g_Dirty) return TRUE;
     if (!Path(path,project,"") || !Path(temp,project,".tmp")) { *why="The new-prop save path is too long.";return FALSE; }
-    data=PackBank(&g_Props,&size,why);if (!data) return FALSE;
+    data=PackBank(&g_Props,&size,FALSE,why);if (!data) return FALSE;
     file=fopen(temp,"wb");ok=file && fwrite(data,1,size,file)==size;
     if (file && fclose(file)) ok=FALSE;
     free(data);
@@ -313,7 +333,7 @@ BOOL NewPropsExportToRom(const char *project,RomFile *rom,const char **why)
     result=Config(rom,&config,&index,why);
     if (result!=1) { if (!result) *why="The base ROM needs GUD's new-prop runtime before these models can be exported.";goto done; }
     if (!NewPropsCheckRebase(project,rom,why)) goto done;
-    packed=PackBank(&saved,&size,why);if (!packed) goto done;
+    packed=PackBank(&saved,&size,TRUE,why);if (!packed) goto done;
     oldstart=Read32(rom->data+config+4);oldsize=Read32(rom->data+config+8);
     target=oldsize>=size?oldstart:rom->info.manifestoffset+24+rom->info.entrycount*16;
     if (oldsize<size)

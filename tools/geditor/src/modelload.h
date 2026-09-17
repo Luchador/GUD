@@ -6,6 +6,7 @@
 #include "rom.h"
 #include "bgload.h"
 #include "bgrender.h"
+#include "modelmaterials.h"
 
 /* Row-vector affine transform, matching the game's model matrices. */
 typedef struct ModelTransform {
@@ -60,6 +61,7 @@ typedef struct ModelSource {
     ModelSourceList *lists;
     DWORD count, listcount;
     BOOL closestpreview;
+    ModelMaterials materials;
 } ModelSource;
 
 BOOL ModelReadSource(const unsigned char *data, DWORD size, ModelSource *source,

@@ -219,6 +219,10 @@ static void Append(ModelOutput *out, const void *data, DWORD size)
 }
 static void Command(ModelOutput *out, DWORD w0, DWORD w1)
 {
+    /* Rebinding materials revisits their original pipe sync. Reuse it rather
+     * than adding another sync on every edit/save/reimport cycle. */
+    if (w0==0xe7000000u && !w1 && out->size>=8
+        && Read32(out->data+out->size-8)==w0 && !Read32(out->data+out->size-4)) return;
     unsigned char bytes[8]; Write32(bytes,w0); Write32(bytes+4,w1); Append(out,bytes,8);
 }
 static void Indices(const unsigned char *command, int slot, unsigned char indices[3])
@@ -446,7 +450,7 @@ static BOOL LoadState(ModelOutput *out, ModelLoadState *current,
 static BOOL SplitList(ModelOutput *out, const unsigned char *data,
     const ModelSource *source, DWORD list, DWORD *facecursor,
     const unsigned short *choices, const ModelVertexEdit *edits,
-    const DWORD *corners, const ModelVertexBuffer *buffer, const char **reasonout)
+    const DWORD *corners, const ModelVertexBuffer *buffer, const unsigned char *rebind, const char **reasonout)
 {
     const ModelSourceList *part = &source->lists[list];
     DWORD count = (part->end - part->offset) / 8, pc, scan = *facecursor;
@@ -540,7 +544,7 @@ static BOOL SplitList(ModelOutput *out, const unsigned char *data,
                     cache[slot].key = recipes[idx[k]].key; cache[slot].variant = variants[k];
                     mapped[k] = (unsigned char)slot; locked |= 1u << slot;
                 }
-                if (choices[face] != BG_TEX_ID(source->tags[face])) { BgMaterialSetTexture(&desired, choices[face]); }
+                if (choices[face] != BG_TEX_ID(source->tags[face]) || (rebind && rebind[face])) { BgMaterialSetTexture(&desired, choices[face]); }
                 if (!BgMaterialEqual(&current, &desired))
                 { Triangles(out, triangles, pending); pending = 0; Material(out, &current, &desired); }
                 state.mode0 = current.modeword0; state.mode1 = current.modeword1;
@@ -556,9 +560,15 @@ static BOOL SplitList(ModelOutput *out, const unsigned char *data,
             int first = cmd[1] & 15, end = first + (cmd[1] >> 4) + 1;
             DWORD addresses[16], variants[16], serial = (pc - part->offset) / 8;
             if (end > 16) { goto done; }
-            if (state.mode0 != original.modeword0 || state.mode1 != original.modeword1)
-            { Command(out, original.modeword0, original.modeword1); }
-            state.mode0 = current.modeword0 = original.modeword0;
+            DWORD loadmode=original.modeword0;
+            for (slot=first;slot<end;slot++)
+            {
+                DWORD variant=firstuses[serial*16+slot];
+                if (variant!=MODEL_NO_VERTEX && edits[variant].textured) loadmode|=1u;
+            }
+            if (state.mode0 != loadmode || state.mode1 != original.modeword1)
+            { Command(out, loadmode, original.modeword1); }
+            state.mode0 = current.modeword0 = loadmode;
             state.mode1 = current.modeword1 = original.modeword1;
             for (slot = first; slot < end; slot++)
             {
@@ -610,6 +620,7 @@ BOOL ModelCompileImport(const unsigned char *data, DWORD size, const ModelSource
     DWORD i, list, facecursor=0, editcount=0;
     BOOL changed=imported->count!=source->count, split=FALSE, ok=FALSE;
     *result=NULL; *resultsize=0;
+    size=ModelMaterialsNativeSize(data,size);
     *reasonout="The model could not be rebuilt.";
     if (!source->listcount || source->lists[0].offset>size || size>MODEL_LIMIT
         || imported->count>source->count || (source->count && !source->vertexoffsets)) { goto done; }
@@ -627,7 +638,9 @@ BOOL ModelCompileImport(const unsigned char *data, DWORD size, const ModelSource
         BgRenderAlpha alpha;
         if(face>=source->count || choices[face]!=MODEL_DELETED) { *reasonout="Faces were duplicated or added. Preserve the exported triangles and their GUD attributes; existing faces may be moved or deleted."; goto done; }
         material = source->faces[face].material;
-        if (texture != BG_TEX_ID(source->tags[face])) { BgMaterialSetTexture(&material, texture); }
+        if (texture != BG_TEX_ID(source->tags[face]) || (imported->rebind && imported->rebind[face]))
+            BgMaterialSetTexture(&material, texture);
+        if (!BgMaterialEqual(&material,&source->faces[face].material)) changed=TRUE;
         alpha = BgRenderGetMaterialAlpha(&source->faces[face].state, &material);
         if (BG_TEX_ID(source->tags[face])!=BG_TEX_NONE
             && !TexGetProjectImageSize(projectdir,BG_TEX_ID(source->tags[face]),&width,&height))
@@ -636,8 +649,6 @@ BOOL ModelCompileImport(const unsigned char *data, DWORD size, const ModelSource
         {
             if (!TexGetProjectImageSize(projectdir,texture,&newwidth,&newheight))
             { *reasonout="An assigned texture is not available in the project."; goto done; }
-            if (newwidth!=width || newheight!=height)
-            { *reasonout="Reassigned textures must have the same dimensions in this version of model import."; goto done; }
         }
         for(corner=0;corner<3;corner++)
         {
@@ -646,7 +657,7 @@ BOOL ModelCompileImport(const unsigned char *data, DWORD size, const ModelSource
             if(vertexid/3!=face || vertexid%3!=(id%3+corner)%3)
             { *reasonout="A face's vertex identities or winding changed. Preserve the exported triangles and their GUD attributes."; goto done; }
             if (!PrepareVertexEdit(&edits[editcount++], data, source, vertexid, a,
-                                  width, height, texture!=BG_TEX_NONE, alpha, reasonout)) { goto done; }
+                                  newwidth, newheight, texture!=BG_TEX_NONE, alpha, reasonout)) { goto done; }
         }
         choices[face]=texture;
         if(texture!=BG_TEX_ID(source->tags[face])) { changed=TRUE; }
@@ -688,7 +699,7 @@ BOOL ModelCompileImport(const unsigned char *data, DWORD size, const ModelSource
             }
             if (remap)
             {
-                if (!SplitList(&output,data,source,list,&facecursor,choices,edits,corners,&buffers[list],reasonout)) { goto done; }
+                if (!SplitList(&output,data,source,list,&facecursor,choices,edits,corners,&buffers[list],imported->rebind,reasonout)) { goto done; }
                 continue;
             }
         }
@@ -744,7 +755,7 @@ BOOL ModelCompileImport(const unsigned char *data, DWORD size, const ModelSource
                     DWORD face=facecursor++;
                     BgMaterial desired=source->faces[face].material;
                     if(choices[face]==MODEL_DELETED) { continue; }
-                    if(choices[face]!=BG_TEX_ID(source->tags[face])) { BgMaterialSetTexture(&desired,choices[face]); }
+                    if(choices[face]!=BG_TEX_ID(source->tags[face]) || (imported->rebind && imported->rebind[face])) { BgMaterialSetTexture(&desired,choices[face]); }
                     if(BgMaterialTextureId(&desired)==BG_TEX_NONE) { desired.textureword0=desired.textureword1=0; }
                     if(!BgMaterialEqual(&current,&desired))
                     {
@@ -764,6 +775,7 @@ BOOL ModelCompileImport(const unsigned char *data, DWORD size, const ModelSource
                 int first=cmd[1]&15, end=first+(cmd[1]>>4)+1;
                 DWORD mode=original.modeword0;
                 if(!textured[(pc-part->offset)/8]) { mode &= ~0xffu; }
+                else mode |= 1u; /* Assigned images need UV processing at G_VTX. */
                 if(mask && (current.modeword0!=mode || current.modeword1!=original.modeword1))
                 {
                     Command(&output,mode,original.modeword1);
@@ -838,6 +850,7 @@ BOOL ModelCompileProperties(const unsigned char *data, DWORD size, const ModelSo
     DWORD i, list, cursor = 0, previous = 0;
     BOOL any = FALSE, ok = FALSE;
     *result = NULL; *resultsize = 0;
+    size=ModelMaterialsNativeSize(data,size);
     *reasonout = "Invalid model face properties.";
     if (!data || !source || !source->listcount || !faces || !count
         || culling < -1 || culling > 2 || surface < -1 || surface > 2) { return FALSE; }

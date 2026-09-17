@@ -5,9 +5,10 @@ properties** panel reads the native model's draw state.
 
 - Click a visible face to select it. **Shift-click** adds faces; **Ctrl-click**
   removes them. Drag either mouse button to orbit; scroll to zoom.
-- Choose a **Part / texture group** and press **Select group** to select a
-  material-sized group, including faces currently hidden by culling. **Select
-  all** selects every visible LOD's faces. Characters also have **Show all LODs**.
+- Click a thumbnail in **Materials** to select that slot's faces, including
+  faces currently hidden by culling. Drag an image from the main image browser
+  onto a slot to assign it, or drag **No Texture** to clear it. **Select all**
+  selects every visible LOD's faces. Characters also have **Show all LODs**.
 - The current culling and render mode are shown separately from the edit
   controls. **Keep current** leaves a property alone, including mixed selections.
 - Choose **Disabled (two-sided)**, **Cull back faces**, or **Cull front faces**,
@@ -19,7 +20,7 @@ properties** panel reads the native model's draw state.
   an export from before the edit has an obsolete revision fingerprint.
 
 A part here is a native display-list pass. Different faces can have different
-properties while sharing the same texture. Editing a texture group changes
+properties while sharing the same texture. Editing a material slot's faces changes
 only the selected faces of that model; it does not change the image or all
 materials using that image. The primary/secondary submission pass is retained.
 

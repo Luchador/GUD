@@ -10,6 +10,7 @@
 #include "objectload.c"
 #include "propcompile.h"
 static const char *why="";
+static BOOL realpendant;
 #define CHECK(x) do { if (!(x)) { fprintf(stderr,"line %d: %s (%s)\n",__LINE__,#x,why);exit(1); } } while(0)
 static DWORD Word(const unsigned char *p) { return (DWORD)p[0]<<24|(DWORD)p[1]<<16|(DWORD)p[2]<<8|p[3]; }
 static void Put(unsigned char *p,DWORD n) { p[0]=n>>24;p[1]=n>>16;p[2]=n>>8;p[3]=n; }
@@ -36,11 +37,39 @@ void RomFree(RomFile *rom) { free(rom->data);memset(rom,0,sizeof(*rom)); }
 BOOL RomFindFile(const RomFile *rom,const char *name,DWORD *offset,DWORD *size,const char **reason)
 { return !strcmp(name,"PnativeZ"); }
 BOOL TexGetProjectImageSize(const char *project,DWORD id,int *w,int *h)
-{ *w=id==0xb00?64:32;*h=32;return id==0xd4 || id==0xb00; }
+{ *w=id==0xb00?64:id==0xa93?48:realpendant?16:32;*h=realpendant && id==0xd4?64:32;return id==0xd4 || id==0xb00 || id==0xa93; }
 BOOL TexLoadProjectImage(const char *project,DWORD id,TexPixel *out,int *w,int *h)
 { if (!TexGetProjectImageSize(project,id,w,h)) return FALSE;memset(out,255,*w**h*sizeof(*out));return TRUE; }
 BOOL TexEncodePng(const TexPixel *pixels,int w,int h,unsigned char **data,DWORD *size)
 { *size=8;*data=calloc(8,1);return *data!=NULL; }
+static void Assign(const char *project,DWORD slot,DWORD texture)
+{
+    ModelSource source={0};DWORD revision;
+    CHECK(ModelEditsReadSource(project,"PpendantZ",&source,&revision,&why));
+    ModelFreeSource(&source);
+    CHECK(ModelEditsSetMaterial(project,"PpendantZ",revision,slot,texture,&why));
+}
+static void CheckSlots(const char *project)
+{
+    ModelSource source={0};DWORD revision,i,size;
+    const unsigned char *data;
+    CHECK(ModelEditsReadSource(project,"PpendantZ",&source,&revision,&why));
+    CHECK(source.materials.count==4);
+    CHECK(!strcmp(source.materials.slots[0].name,"Cable"));
+    CHECK(!strcmp(source.materials.slots[1].name,"Metal"));
+    for(i=0;i<4;i++) CHECK(BG_TEX_ID(source.tags[i])==BG_TEX_NONE);
+    CHECK(source.materials.faces[0].uv[2]==1.0f);ModelFreeSource(&source);
+    CHECK(!ModelEditsSetMaterial(project,"PpendantZ",revision,0,0xbad,&why));
+    Assign(project,0,0xd4);Assign(project,1,0xd4);
+    CHECK(ModelEditsReadSource(project,"PpendantZ",&source,&revision,&why));
+    CHECK(source.materials.count==4 && source.materials.faces[0].slot!=source.materials.faces[1].slot);
+    ModelFreeSource(&source);
+    Assign(project,1,0xb00);Assign(project,0,BG_TEX_NONE);Assign(project,0,0xd4);
+    data=NewPropsData(project,"PpendantZ",&size);CHECK(ModelMaterialsNativeSize(data,size)<size);
+    /* Repeated changes must replace editor metadata, not accumulate trailers. */
+    for(i=0;i<100;i++) { Assign(project,0,BG_TEX_NONE);Assign(project,0,0xd4); }
+    { DWORD after;NewPropsData(project,"PpendantZ",&after);CHECK(after==size); }
+}
 static void CheckModel(const char *project,DWORD expected)
 {
     DWORD size,i,blended=0;const unsigned char *data=NewPropsData(project,"PpendantZ",&size);
@@ -86,18 +115,64 @@ static void CheckModel(const char *project,DWORD expected)
     CHECK(source.vertices[1].s==32 && source.vertices[4].s==64);
     ModelFreeSource(&source);
 }
+static void ActualPendant(const char *project,const char *path)
+{
+    ModelSource source={0};DWORD revision,count,i,bySlot[4]={0},size;
+    const unsigned char *data;char exported[MAX_PATH];
+    realpendant=TRUE;
+    CHECK(NewPropsImport(project,"PpendantZ",path,FALSE,&count,&why) && count==80);
+    CHECK(ModelEditsReadSource(project,"PpendantZ",&source,&revision,&why));
+    CHECK(source.materials.count==4);
+    for(i=0;i<count;i++)
+    {
+        DWORD slot=source.materials.faces[i].slot;
+        CHECK(slot<4 && BG_TEX_ID(source.tags[i])==BG_TEX_NONE);bySlot[slot]++;
+        if(slot==3) CHECK(source.vertices[i*3].a==25 && (source.flags[i]&BG_RENDER_BLEND));
+    }
+    CHECK(bySlot[0]==10 && bySlot[1]==34 && bySlot[2]==20 && bySlot[3]==16);
+    ModelFreeSource(&source);Assign(project,0,0xd4);Assign(project,1,0xa93);
+    CHECK(ModelEditsReadSource(project,"PpendantZ",&source,&revision,&why));
+    for(i=0;i<count;i++)
+    {
+        DWORD slot=source.materials.faces[i].slot,k;
+        CHECK(BG_TEX_ID(source.tags[i])==(slot==0?0xd4:slot==1?0xa93:BG_TEX_NONE));
+        if(slot<2) for(k=0;k<3;k++)
+        {
+            CHECK(fabsf(source.vertices[i*3+k].s-source.materials.faces[i].uv[k*2]*(slot==0?16:48))<=1.f/64+1e-5f);
+            CHECK(fabsf(source.vertices[i*3+k].t-source.materials.faces[i].uv[k*2+1]*(slot==0?64:32))<=1.f/64+1e-5f);
+        }
+        if(slot==3) CHECK(source.vertices[i*3].a==25 && BG_TEX_ID(source.tags[i])==BG_TEX_NONE);
+    }
+    ModelFreeSource(&source);CHECK(NewPropsSave(project,&why));NewPropsReset();CHECK(NewPropsOpen(project,&why));
+    data=NewPropsData(project,"PpendantZ",&size);CHECK(ModelReadSource(data,size,&source,&why));
+    snprintf(exported,sizeof(exported),"%s/actual-roundtrip.gltf",project);
+    CHECK(ModelEditsExport(project,"PpendantZ",exported,&why));
+    CHECK(NewPropsImport(project,"PpendantZ",exported,TRUE,&count,&why) && count==80);
+    data=NewPropsData(project,"PpendantZ",&size);
+    { ModelSource check={0};CHECK(ModelReadSource(data,size,&check,&why));
+      CHECK(check.materials.count==source.materials.count && check.count==source.count);
+      CHECK(!memcmp(check.materials.slots,source.materials.slots,4*sizeof(*source.materials.slots)));
+      CHECK(!memcmp(check.materials.faces,source.materials.faces,count*sizeof(*source.materials.faces)));
+      CHECK(!memcmp(check.vertices,source.vertices,count*3*sizeof(*source.vertices)));
+      CHECK(!memcmp(check.tags,source.tags,count*sizeof(*source.tags)));
+      CHECK(!memcmp(check.flags,source.flags,count*sizeof(*source.flags)));ModelFreeSource(&check); }
+    ModelFreeSource(&source);
+    ModelEditsReset();puts("PASS supplied pendant: 80 faces, four unassigned slots, 00D4/0A93 bindings, alpha 25 and save/export/reimport.");
+}
+
 int main(int argc,char **argv)
 {
     const char *project=argv[1],*name;float scale;DWORD count,size,hash,oldsize,start,i;
     char path[MAX_PATH],base[MAX_PATH],source[MAX_PATH];RomFile rom={0};unsigned char *snapshot;
     const unsigned char *data;extern int test_fail_move;
-    CHECK(argc==2);snprintf(base,sizeof(base),"%s/base.z64",project);
+    CHECK(argc==2 || argc==3);snprintf(base,sizeof(base),"%s/base.z64",project);
     rom.size=0x200000;rom.data=calloc(rom.size,1);CHECK(rom.data);
     Put(rom.data+0x114,2);Put(rom.data+0x118,CUSTOM_PROP_MANIFEST_KIND);
     Put(rom.data+0x11c,0x200);Put(rom.data+0x120,0x210);Put(rom.data+0x124,1);
     Put(rom.data+0x128,CUSTOM_PROP_DATA_KIND);Put(rom.data+0x134,1);Put(rom.data+0x200,1);
     Write(base,rom.data,rom.size);RomFree(&rom);
     CHECK(NewPropsOpen(project,&why));CHECK(NewPropsCount()==0);
+    if(argc==3) { ActualPendant(project,argv[2]);return 0; }
     snprintf(source,sizeof(source),"%s/pendant.glb",project);
     CHECK(!NewPropsImport(project,"PnativeZ",source,FALSE,&count,&why));
     CHECK(NewPropsImport(project,"PpendantZ",source,FALSE,&count,&why));CHECK(count==4);
@@ -105,11 +180,14 @@ int main(int argc,char **argv)
     { BOOL character=TRUE;int id=-1;
       CHECK(ObjectResolvePlaceableModel("PpendantZ",&character,&id) && !character && id==512); }
     CHECK(!NewPropsDefinition(511,NULL,NULL) && !NewPropsDefinition(513,NULL,NULL));
+    CheckSlots(project);
     CHECK(!NewPropsImport(project,"PpendantZ",source,FALSE,&count,&why));
     CHECK(NewPropsImport(project,"PpendantZ",source,TRUE,&count,&why));
+    snprintf(path,sizeof(path),"%s/missing.glb",project);
+    CHECK(NewPropsImport(project,"PpendantZ",path,TRUE,&count,&why));
     CheckModel(project,4);data=NewPropsData(project,"PpendantZ",&size);hash=ModelDataHash(data,size);
     {
-        const char *bad[]={"missing","animation","skin","mask","collapse","range","line"};
+        const char *bad[]={"animation","skin","mask","collapse","range","line"};
         for(i=0;i<sizeof(bad)/sizeof(*bad);i++)
         {
             snprintf(path,sizeof(path),"%s/%s.glb",project,bad[i]);
@@ -151,6 +229,12 @@ int main(int argc,char **argv)
     CHECK(ModelEditsSave(project,&why));CHECK(RomLoad(base,&rom,&why));CHECK(NewPropsExportToRom(project,&rom,&why));
     start=Word(rom.data+0x204);CHECK(start>=0x101000 && !(start&15));
     CHECK(Word(rom.data+start)==CUSTOM_PROP_MAGIC && Word(rom.data+start+4)==2);
+    {
+        DWORD at=start+Word(rom.data+start+16+64),length=Word(rom.data+start+16+68);
+        CHECK(ModelMaterialsNativeSize(rom.data+at,length)==length);
+        ModelSource native={0};CHECK(ModelReadSource(rom.data+at,length,&native,&why));
+        CHECK(native.materials.count==0 && native.count==5);ModelFreeSource(&native);
+    }
     CHECK(rom.info.entries[1].romstart==start);CHECK(Word(rom.data+0x12c)==start);
     oldsize=rom.size;snapshot=malloc(oldsize);CHECK(snapshot);memcpy(snapshot,rom.data,oldsize);
     CHECK(NewPropsExportToRom(project,&rom,&why));CHECK(oldsize==rom.size && !memcmp(snapshot,rom.data,oldsize));

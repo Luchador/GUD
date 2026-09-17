@@ -204,7 +204,7 @@ def main():
                    "-ffunction-sections", "-fdata-sections", "-fsanitize=address,undefined",
                    "-Dfopen=TestFopen", f"-I{shim}", f"-I{src}", f"-I{root}",
                    str(tests / "check.c"), str(shim / "platform.c")]
-        command += [str(src / name) for name in ("modelload.c", "modelcompile.c", "gltf.c", "modeledits.c", "bgmaterial.c", "bgrender.c", "newprops.c", "propcompile.c")]
+        command += [str(src / name) for name in ("modelload.c", 'modelmaterials.c', "modelcompile.c", "gltf.c", "modeledits.c", "bgmaterial.c", "bgrender.c", "newprops.c", "propcompile.c")]
         command += ["-lm", "-Wl,--gc-sections", "-o", str(executable)]
         subprocess.run(command, check=True)
         # LeakSanitizer's /proc thread scan is unavailable in some containers;
@@ -231,6 +231,9 @@ def main():
             run("special", special, kind)
         assets = [root / "assets/obseg/prop" / name for name in
                   ("Pjungle3_treeZ.bin", "Pjungle5_treeZ.bin", "Pbook1Z.bin")] + [fixture, scales]
+        slots_project = work / "stock-slots"
+        (slots_project / "models/objects").mkdir(parents=True)
+        run("slots", assets[2], slots_project)
         surface_fixtures = []
         for kind in ("one-cycle", "two-cycle", "cycle-override", "no-depth"):
             path = work / f"surface-{kind}.bin"
@@ -294,7 +297,7 @@ def main():
                     del primitive["attributes"]["TEXCOORD_0"]
             bad = work / "missing-uv.gltf"
             bad.write_text(json.dumps(invalid))
-            run("reject", asset, bad, "no UVs")
+            run("no-uv", asset, bad)
             invalid = copy.deepcopy(document)
             for mesh in invalid["meshes"]:
                 for primitive in mesh["primitives"]:

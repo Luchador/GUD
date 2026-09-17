@@ -4202,6 +4202,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         CREATESTRUCT *cs = (CREATESTRUCT *)lparam;
 
         g_Browser = BrowserCreate(hwnd, cs->hInstance);
+        ModelEditorSetImageBrowser(g_Browser);
         if (g_Browser == NULL)
         {
             return -1;
@@ -4609,8 +4610,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         return GEditorDropModel(hwnd, (const BrowserModelDrop *)lparam, GEDITOR_PLACE_MODEL);
 
     case BROWSER_WM_IMAGE_DRAG_BEGIN:
-        if (g_CurrentBgDocument.rooms == NULL
-            || ViewportGetTool(g_Viewport) != EDITOR_TOOL_FACE_SELECT)
+        if (!ModelEditorCanAssignImages() && (g_CurrentBgDocument.rooms == NULL
+            || ViewportGetTool(g_Viewport) != EDITOR_TOOL_FACE_SELECT))
         {
             return FALSE;
         }
@@ -4618,7 +4619,11 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         return TRUE;
 
     case BROWSER_WM_IMAGE_DROP:
-        return GEditorDropBgTexture(hwnd, (const BrowserImageDrop *)lparam);
+    {
+        const BrowserImageDrop *drop=(const BrowserImageDrop *)lparam;
+        if (drop && ModelEditorDropImage(drop->textureid,drop->screen)) return TRUE;
+        return GEditorDropBgTexture(hwnd,drop);
+    }
 
     case BROWSER_WM_LEVEL_OPEN:
     {

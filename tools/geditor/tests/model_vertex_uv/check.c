@@ -43,7 +43,7 @@ BOOL TexLoadProjectImage(const char *project, DWORD id, TexPixel *out, int *w, i
 }
 BOOL TexEncodePng(const TexPixel *pixels, int w, int h, unsigned char **data, DWORD *size)
 {
-    /* The importer resolves GUD image IDs; it does not decode these PNGs. */
+    /* Image bindings come from slots; the importer does not decode these PNGs. */
     static const unsigned char png[] = {137,80,78,71,13,10,26,10};
     (void)pixels; (void)w; (void)h;
     *size = sizeof(png); *data = malloc(*size); CHECK(*data != NULL);
@@ -360,7 +360,12 @@ static void Unit(const unsigned char *data, DWORD size, ModelSource *source)
     edit = Copy(source); edit.sourcevertices[1] = 2; edit.sourcevertices[2] = 1;
     Reject(data, size, source, &edit, "winding"); GltfFreeModelImport(&edit);
     edit = Copy(source); edit.tags[0] = 0xeee;
-    Reject(data, size, source, &edit, "dimensions"); GltfFreeModelImport(&edit);
+    for (i=0;i<3;i++) { edit.vertices[i].s=i==1;edit.vertices[i].t=i==2; }
+    CHECK(ModelCompileImport(data,size,source,&edit,"",&out,&length,&why));
+    { ModelSource resized={0};CHECK(ModelReadSource(out,length,&resized,&why));
+      CHECK(BG_TEX_ID(resized.tags[0])==0xeee && resized.vertices[1].s==64 && resized.vertices[2].t==16);
+      ModelFreeSource(&resized); }
+    free(out);GltfFreeModelImport(&edit);
     edit = Copy(source);
     {
         BgRenderFlags saved = source->flags[0];
@@ -447,7 +452,7 @@ static void Colors(const unsigned char *base, const ModelSource *source,
         else { CHECK(!memcmp(base + offset + 12, compiled + offset + 12, 3)); }
         memset(mask + offset + 12, 1, 4);
     }
-    for (i = 0; i < size; i++) { CHECK(mask[i] || base[i] == compiled[i]); }
+    for (i = 0; i < ModelMaterialsNativeSize(compiled,size); i++) { CHECK(mask[i] || base[i] == compiled[i]); }
     free(mask); ModelFreeSource(&check);
 }
 
@@ -602,13 +607,59 @@ static void Properties(const unsigned char *data, DWORD size, const ModelSource 
     CHECK((check.flags[chosen[0]] & (BG_RENDER_CULL_BACK | BG_RENDER_ALPHA_TEST))
         == (BG_RENDER_CULL_BACK | BG_RENDER_ALPHA_TEST));
     CHECK(ModelEditsReadReplacement(project, "Pjungle3_treeZ", data, size, &replacement, &replacementsize, &why) == 1);
-    CHECK(replacementsize == savedsize && !memcmp(replacement, saved, savedsize)); free(replacement);
+    CHECK(replacementsize == ModelMaterialsNativeSize(saved,savedsize) && !memcmp(replacement, saved, replacementsize)); free(replacement);
     snprintf(path, sizeof(path), "%s/models/objects/Pjungle3_treeZ.gltf", project);
     CHECK(GltfReadModelImport(path, ModelDataHash(saved, savedsize), &roundtrip, &why));
+    ModelMaterialsMatch(&roundtrip.materials,&check.materials);
+    for (i=0;i<roundtrip.count;i++) roundtrip.tags[i]=roundtrip.materials.slots[roundtrip.materials.faces[i].slot].texture;
     CHECK(ModelCompileImport(saved, savedsize, &check, &roundtrip, project, &again, &length, &why));
-    CHECK(length == savedsize && !memcmp(again, saved, length)); free(again);
+    CHECK(length == ModelMaterialsNativeSize(saved,savedsize) && !memcmp(again, saved, length)); free(again);
     GltfFreeModelImport(&roundtrip); ModelFreeSource(&check); ModelEditsReset();
     printf("PASS selected-face properties, TRI4 splitting, unchanged neighbours, save/reload/ROM and Blender round trip: %s\n", assetpath);
+}
+
+static void MaterialSlots(const unsigned char *base,DWORD basesize,const char *project)
+{
+    ModelSource original={0},current={0};DWORD revision,i,k,nativesize,size;
+    const unsigned char *pending;unsigned char *rom=NULL;DWORD textures[]={0xeee,BG_TEX_NONE,0xeee};
+    CHECK(ModelEditsReadSource(project,"Pjungle3_treeZ",&original,&revision,&why));
+    CHECK(original.materials.count>0);
+    for(k=0;k<3;k++)
+    {
+        CHECK(ModelEditsSetMaterial(project,"Pjungle3_treeZ",revision,0,textures[k],&why));
+        CHECK(!ModelEditsSetMaterial(project,"Pjungle3_treeZ",revision,0,textures[k],&why));
+        CHECK(strstr(why,"changed"));
+        CHECK(ModelEditsReadSource(project,"Pjungle3_treeZ",&current,&revision,&why));
+        CHECK(current.count==original.count && current.materials.count==original.materials.count);
+        CHECK(!memcmp(current.materials.faces,original.materials.faces,current.count*sizeof(*current.materials.faces)));
+        for(i=0;i<current.count;i++)
+        {
+            DWORD slot=original.materials.faces[i].slot,j;
+            CHECK(BG_TEX_ID(current.tags[i])==(slot==0?textures[k]:BG_TEX_ID(original.tags[i])));
+            for(j=0;j<3;j++)
+            {
+                const BgVertex *a=&original.vertices[i*3+j],*b=&current.vertices[i*3+j];
+                CHECK(a->x==b->x && a->y==b->y && a->z==b->z);
+                CHECK(a->r==b->r && a->g==b->g && a->b==b->b && a->a==b->a);
+                if(slot==0 && textures[k]!=BG_TEX_NONE)
+                {
+                    CHECK(fabsf(b->s-original.materials.faces[i].uv[j*2]*64)<=1.f/64);
+                    CHECK(fabsf(b->t-original.materials.faces[i].uv[j*2+1]*16)<=1.f/64);
+                }
+                if(slot!=0) CHECK(a->s==b->s && a->t==b->t);
+            }
+        }
+        ModelFreeSource(&current);
+    }
+    CHECK(ModelEditsSave(project,&why));ModelEditsReset();
+    CHECK(ModelEditsReadSource(project,"Pjungle3_treeZ",&current,&revision,&why));
+    CHECK(current.materials.slots[0].texture==0xeee && current.count==original.count);
+    CHECK(!memcmp(current.materials.faces,original.materials.faces,current.count*sizeof(*current.materials.faces)));
+    pending=ModelEditsGetData(project,"Pjungle3_treeZ",&size,&why);CHECK(pending);
+    CHECK(ModelEditsReadReplacement(project,"Pjungle3_treeZ",base,basesize,&rom,&nativesize,&why)==1);
+    CHECK(nativesize<size && nativesize==ModelMaterialsNativeSize(pending,size) && !memcmp(rom,pending,nativesize));
+    free(rom);ModelFreeSource(&current);ModelFreeSource(&original);ModelEditsReset();
+    printf("PASS stock material assignment, resize, clear, stale revision, unchanged neighbours, UV retention, save/reload and native ROM export: %s\n",assetpath);
 }
 
 int main(int argc, char **argv)
@@ -622,6 +673,7 @@ int main(int argc, char **argv)
     CHECK(ModelReadSource(data, size, &source, &why));
     CHECK(source.count >= 2);
     if (!strcmp(argv[1], "property-guards")) { PropertyGuards(data, size, &source); }
+    else if (!strcmp(argv[1], "slots")) { MaterialSlots(data,size,argv[3]); }
     else if (!strcmp(argv[1], "properties")) { Properties(data, size, &source, argv[3]); }
     else if (!strcmp(argv[1], "dynamic")) { Dynamic(data, size, &source); }
     else if (!strcmp(argv[1], "inherited")) { Inherited(data, size, &source); }
@@ -630,6 +682,14 @@ int main(int argc, char **argv)
     {
         Unit(data, size, &source);
         CHECK(GltfWriteEditableModel(argv[3], "test", &source, ModelDataHash(data, size), &why));
+    }
+    else if (!strcmp(argv[1], "no-uv"))
+    {
+        GltfModelImport imported={0};
+        CHECK(GltfReadModelImport(argv[3],ModelDataHash(data,size),&imported,&why));
+        CHECK(imported.count==source.count);
+        for (DWORD i=0;i<imported.count*3;i++) CHECK(imported.vertices[i].s==0 && imported.vertices[i].t==0);
+        GltfFreeModelImport(&imported);
     }
     else if (!strcmp(argv[1], "reject"))
     {
@@ -658,11 +718,14 @@ int main(int argc, char **argv)
             {
                 GltfFreeModelImport(&expected);
                 CHECK(GltfReadModelImport(argv[3], ModelDataHash(data, size), &expected, &why));
+                CHECK(ModelMaterialsEnsure(&source,argv[4],&why));
+                ModelMaterialsMatch(&expected.materials,&source.materials);
+                for (DWORD i=0;i<expected.count;i++) expected.tags[i]=expected.materials.slots[expected.materials.faces[i].slot].texture;
             }
             else if (painted) { Paint(&expected, !strcmp(argv[1], "paint-rgb")); }
             else { Change(&expected); }
             pending = ModelEditsGetData(argv[4], "Pjungle3_treeZ", &editedsize, &why);
-            CHECK(pending && (seams ? editedsize > size : editedsize == size));
+            CHECK(pending && (seams ? ModelMaterialsNativeSize(pending,editedsize) > size : ModelMaterialsNativeSize(pending,editedsize) == size));
             if (seams) { Corners(data, &source, pending, editedsize, &expected); }
             else { Positions(data, &source, pending, editedsize, &expected); }
             if (painted) { Colors(data, &source, pending, editedsize, &expected); }
@@ -679,7 +742,7 @@ int main(int argc, char **argv)
             if (painted) { Colors(data, &source, pending, editedsize, &expected); }
             CHECK(ModelEditsReadReplacement(argv[4], "Pjungle3_treeZ", data, size,
                 &replacement, &replacementsize, &why) == 1);
-            CHECK(replacementsize == editedsize && !memcmp(replacement, pending, editedsize));
+            CHECK(replacementsize == ModelMaterialsNativeSize(pending,editedsize) && !memcmp(replacement, pending, replacementsize));
             free(replacement);
             snprintf(path, sizeof(path), "%s/models/objects/Pjungle3_treeZ.gltf", argv[4]);
             CHECK(ModelEditsImport(argv[4], "Pjungle3_treeZ", path, &before, &after, &why));

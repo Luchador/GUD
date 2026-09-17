@@ -14,13 +14,14 @@
 #include "viewport.h"
 #include "uveditor.h"
 #include "resource.h"
+#include "browser.h"
 
 typedef struct ModelEditorEntry {
     char name[MAX_PATH];
     const char *folder;
 } ModelEditorEntry;
 
-static HWND g_ModelEditor, g_ModelViewport;
+static HWND g_ModelEditor, g_ModelViewport, g_ModelBrowser;
 static char g_ModelProject[MAX_PATH];
 static ModelEditorEntry *g_ModelEntries;
 static int g_ModelCount;
@@ -218,36 +219,62 @@ static void ModelEditorSelect(int category, BOOL framecamera)
 
 static void ModelEditorGroups(void)
 {
-    HWND combo = GetDlgItem(g_ModelEditor, IDC_MODEL_GROUP);
-    LRESULT old = SendMessage(combo, CB_GETCURSEL, 0, 0);
-    DWORD face;
-    SendMessage(combo, CB_RESETCONTENT, 0, 0);
-    for (face = 0; face < g_ModelSource.count; face++)
-    {
-        DWORD earlier;
-        char text[96];
-        LRESULT row;
-        if (!ModelEditorFaceVisible(face)) { continue; }
-        for (earlier = 0; earlier < face; earlier++)
-        {
-            if (ModelEditorFaceVisible(earlier)
-                && g_ModelSource.faces[earlier].list == g_ModelSource.faces[face].list
-                && g_ModelSource.tags[earlier] == g_ModelSource.tags[face]) { break; }
-        }
-        if (earlier < face) { continue; }
-        snprintf(text, sizeof(text), "Part %lu / texture 0x%03X%s",
-            (unsigned long)g_ModelSource.faces[face].list + 1, BG_TEX_ID(g_ModelSource.tags[face]),
-            BG_TRI_IS_SECONDARY(g_ModelSource.tags[face]) ? " (secondary)" : "");
-        row = SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)text);
-        if (row >= 0) { SendMessage(combo, CB_SETITEMDATA, row, face); }
-    }
-    if (old < 0 || old >= SendMessage(combo, CB_GETCOUNT, 0, 0)) { old = 0; }
-    SendMessage(combo, CB_SETCURSEL, old, 0);
-    EnableWindow(combo, g_ModelSource.count != 0);
-    EnableWindow(GetDlgItem(g_ModelEditor, IDC_MODEL_SELECT_GROUP), g_ModelSource.count != 0);
-    EnableWindow(GetDlgItem(g_ModelEditor, IDC_MODEL_SELECT_ALL), g_ModelSource.count != 0);
-    EnableWindow(GetDlgItem(g_ModelEditor, IDC_MODEL_LODS), g_ModelSource.closestpreview);
+    HWND list=GetDlgItem(g_ModelEditor,IDC_MODEL_MATERIAL_LIST);
+    LRESULT old=SendMessage(list,LB_GETCURSEL,0,0),top=SendMessage(list,LB_GETTOPINDEX,0,0);
+    DWORD slot;
+    SendMessage(list,WM_SETREDRAW,FALSE,0);
+    SendMessage(list,LB_RESETCONTENT,0,0);
+    for (slot=0;slot<g_ModelSource.materials.count;slot++)
+        SendMessage(list,LB_ADDSTRING,0,(LPARAM)g_ModelSource.materials.slots[slot].name);
+    if (old>=0 && (DWORD)old<g_ModelSource.materials.count) SendMessage(list,LB_SETCURSEL,old,0);
+    if (top>=0) SendMessage(list,LB_SETTOPINDEX,top,0);
+    SendMessage(list,WM_SETREDRAW,TRUE,0);InvalidateRect(list,NULL,TRUE);
+    EnableWindow(list,g_ModelSource.materials.count!=0);
+    EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_SELECT_ALL),g_ModelSource.count!=0);
+    EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_LODS),g_ModelSource.closestpreview);
 }
+
+static void ModelEditorDrawMaterial(const DRAWITEMSTRUCT *draw)
+{
+    DWORD slot=draw->itemID;
+    RECT r=draw->rcItem,thumbrect,textrect;
+    TexThumb thumb={0};unsigned char pixels[TEX_THUMB_MAX*TEX_THUMB_MAX*4];
+    BITMAPINFO bmi={0};
+    BOOL selected=(draw->itemState & ODS_SELECTED)!=0;
+    char caption[192],image[64];WCHAR label[192];
+    int pad=6,side=max(16,r.bottom-r.top-pad*2);
+    if (slot>=g_ModelSource.materials.count) return;
+    const ModelMaterialSlot *material=&g_ModelSource.materials.slots[slot];
+    FillRect(draw->hDC,&r,GetSysColorBrush(selected?COLOR_HIGHLIGHT:COLOR_WINDOW));
+    SetBkMode(draw->hDC,TRANSPARENT);
+    SetTextColor(draw->hDC,GetSysColor(selected?COLOR_HIGHLIGHTTEXT:COLOR_WINDOWTEXT));
+    thumbrect=r;thumbrect.left+=pad;thumbrect.top+=pad;
+    thumbrect.right=thumbrect.left+side;thumbrect.bottom=thumbrect.top+side;
+    FillRect(draw->hDC,&thumbrect,GetSysColorBrush(COLOR_BTNFACE));
+    if (BrowserCopyImageThumbnail(g_ModelBrowser,material->texture,&thumb,pixels))
+    {
+        int width=side,height=side,x,y;
+        if (thumb.w>thumb.h) height=max(1,side*thumb.h/thumb.w);
+        else width=max(1,side*thumb.w/thumb.h);
+        x=thumbrect.left+(side-width)/2;y=thumbrect.top+(side-height)/2;
+        bmi.bmiHeader.biSize=sizeof(bmi.bmiHeader);bmi.bmiHeader.biWidth=TEX_THUMB_MAX;
+        bmi.bmiHeader.biHeight=-TEX_THUMB_MAX;bmi.bmiHeader.biPlanes=1;
+        bmi.bmiHeader.biBitCount=32;bmi.bmiHeader.biCompression=BI_RGB;
+        StretchDIBits(draw->hDC,x,y,width,height,0,0,thumb.w,thumb.h,pixels,&bmi,DIB_RGB_COLORS,SRCCOPY);
+    }
+    FrameRect(draw->hDC,&thumbrect,GetSysColorBrush(COLOR_3DSHADOW));
+    textrect=r;textrect.left=thumbrect.right+pad;textrect.right-=pad;textrect.top+=pad;
+    textrect.bottom=textrect.top+(r.bottom-r.top)/2;
+    snprintf(caption,sizeof(caption),"%lu. %s",(unsigned long)slot+1,material->name);
+    if (MultiByteToWideChar(CP_UTF8,0,caption,-1,label,sizeof(label)/sizeof(label[0])))
+        DrawTextW(draw->hDC,label,-1,&textrect,DT_SINGLELINE|DT_VCENTER|DT_END_ELLIPSIS|DT_NOPREFIX);
+    textrect.top=textrect.bottom;textrect.bottom=r.bottom-pad;
+    if (material->texture==BG_TEX_NONE) strcpy(image,"No Texture");
+    else snprintf(image,sizeof(image),"Image %04lX",(unsigned long)material->texture);
+    DrawText(draw->hDC,image,-1,&textrect,DT_SINGLELINE|DT_VCENTER|DT_END_ELLIPSIS|DT_NOPREFIX);
+    if (draw->itemState & ODS_FOCUS) DrawFocusRect(draw->hDC,&r);
+}
+
 static int ModelEditorCulling(const ModelSourceFace *face)
 {
     if ((face->state.geometryknown & 0x3000) != 0x3000) { return 4; }
@@ -305,25 +332,47 @@ static void ModelEditorProperties(void)
 }
 static void ModelEditorSelectGroup(BOOL all)
 {
-    DWORD face, count = 0, groupface = 0;
-    LRESULT row = SendDlgItemMessage(g_ModelEditor, IDC_MODEL_GROUP, CB_GETCURSEL, 0, 0);
-    BgFaceRef *refs = calloc(g_ModelSource.count, sizeof(*refs));
-    if (!refs) { return; }
-    if (!all)
-    {
-        LRESULT id = row < 0 ? -1 : SendDlgItemMessage(g_ModelEditor, IDC_MODEL_GROUP, CB_GETITEMDATA, row, 0);
-        if (id < 0 || (DWORD)id >= g_ModelSource.count) { free(refs); return; }
-        groupface = (DWORD)id;
-    }
-    for (face = 0; face < g_ModelSource.count; face++)
-    {
-        if (ModelEditorFaceVisible(face) && (all ||
-            (g_ModelSource.faces[face].list == g_ModelSource.faces[groupface].list
-             && g_ModelSource.tags[face] == g_ModelSource.tags[groupface])))
-        { refs[count].faceid = face + 1; refs[count++].room = 1; }
-    }
-    if (count) { ViewportSelectBgFaces(g_ModelViewport, refs, count); }
+    DWORD face,count=0;
+    LRESULT slot=SendDlgItemMessage(g_ModelEditor,IDC_MODEL_MATERIAL_LIST,LB_GETCURSEL,0,0);
+    BgFaceRef *refs=calloc(g_ModelSource.count?g_ModelSource.count:1,sizeof(*refs));
+    if (!refs) return;
+    for (face=0;face<g_ModelSource.count;face++)
+        if (ModelEditorFaceVisible(face) && (all || (slot>=0 && g_ModelSource.materials.faces[face].slot==(DWORD)slot)))
+        { refs[count].faceid=face+1;refs[count++].room=1; }
+    if (count) ViewportSelectBgFaces(g_ModelViewport,refs,count);
     free(refs);
+}
+
+void ModelEditorSetImageBrowser(HWND browser) { g_ModelBrowser=browser; }
+BOOL ModelEditorCanAssignImages(void)
+{
+    return g_ModelEditor && IsWindowVisible(g_ModelEditor) && g_ModelSelected>=0
+        && g_ModelSource.materials.count!=0;
+}
+BOOL ModelEditorDropImage(DWORD texture,POINT screen)
+{
+    HWND list;
+    RECT client;
+    LRESULT hit;
+    const char *why="";
+    BOOL ok;
+    if (!ModelEditorCanAssignImages()) return FALSE;
+    list=GetDlgItem(g_ModelEditor,IDC_MODEL_MATERIAL_LIST);
+    if (WindowFromPoint(screen)!=list) return FALSE;
+    ScreenToClient(list,&screen);GetClientRect(list,&client);
+    if (!PtInRect(&client,screen)) return FALSE; /* Scrollbar and border are not slots. */
+    hit=SendMessage(list,LB_ITEMFROMPOINT,0,MAKELPARAM(screen.x,screen.y));
+    if (HIWORD(hit) || (DWORD)LOWORD(hit)>=g_ModelSource.materials.count) return FALSE;
+    { RECT item;
+      if (SendMessage(list,LB_GETITEMRECT,LOWORD(hit),(LPARAM)&item)==LB_ERR || !PtInRect(&item,screen)) return FALSE; }
+    SendMessage(list,LB_SETCURSEL,LOWORD(hit),0);
+    ok=ModelEditsSetMaterial(g_ModelProject,g_ModelEntries[g_ModelSelected].name,
+        g_ModelRevision,LOWORD(hit),texture,&why);
+    if (!ok) { MessageBox(g_ModelEditor,why,"Assign Material Image",MB_ICONERROR);return TRUE; }
+    ModelEditorRefreshImages();ModelEditorSelectGroup(FALSE);
+    SetDlgItemText(g_ModelEditor,IDC_MODEL_STATUS,"Material image updated. Save Project to keep the assignment.");
+    SendMessage(GetWindow(g_ModelEditor,GW_OWNER),MODELEDITOR_CHANGED,0,0);
+    return TRUE;
 }
 
 void ModelEditorRefreshImages(void)
@@ -473,25 +522,33 @@ static void ModelEditorLayout(HWND hwnd)
         MoveWindow(g_ModelViewport, 0, units.top, panelx, max(0, bottom - units.top), TRUE);
     }
     {
-        static const struct {int id, x, y, w, h;} controls[] = {
-            {IDC_MODEL_SELECTION,8,16,168,18}, {IDC_MODEL_GROUP_LABEL,8,38,168,12},
-            {IDC_MODEL_GROUP,8,52,168,180}, {IDC_MODEL_SELECT_GROUP,8,74,80,18},
-            {IDC_MODEL_SELECT_ALL,96,74,80,18}, {IDC_MODEL_CURRENT,8,102,168,54},
-            {IDC_MODEL_CULL_LABEL,8,164,168,12}, {IDC_MODEL_CULL,8,178,168,100},
-            {IDC_MODEL_SURFACE_LABEL,8,204,168,12}, {IDC_MODEL_SURFACE,8,218,168,100},
-            {IDC_MODEL_APPLY,8,244,168,20}, {IDC_MODEL_LODS,8,278,168,16},
-            {IDC_MODEL_HINT,8,304,168,80}
+        static const struct {int id,x,y,w,h;} controls[] = {
+            {IDC_MODEL_SELECTION,8,16,98,12},{IDC_MODEL_SELECT_ALL,114,12,62,18},
+            {IDC_MODEL_CURRENT,8,38,168,36},
+            {IDC_MODEL_CULL_LABEL,8,80,168,12},{IDC_MODEL_CULL,8,94,168,100},
+            {IDC_MODEL_SURFACE_LABEL,8,118,168,12},{IDC_MODEL_SURFACE,8,132,168,100},
+            {IDC_MODEL_APPLY,8,158,168,20},{IDC_MODEL_LODS,8,188,168,16}
         };
+        RECT dimensions={8,16,168,212},row={0,0,0,44};
+        int facey,materialheight;
         size_t i;
-        MoveWindow(GetDlgItem(hwnd, IDC_MODEL_PROPERTIES), panelx, units.top,
-            panel.right - margin, max(0, bottom - units.top), TRUE);
-        for (i = 0; i < sizeof(controls) / sizeof(controls[0]); i++)
+        MapDialogRect(hwnd,&dimensions);MapDialogRect(hwnd,&row);
+        facey=bottom-dimensions.bottom;materialheight=max(0,facey-units.top-margin);
+        MoveWindow(GetDlgItem(hwnd,IDC_MODEL_MATERIALS),panelx,units.top,panel.right-margin,materialheight,TRUE);
+        MoveWindow(GetDlgItem(hwnd,IDC_MODEL_MATERIAL_LIST),panelx+dimensions.left,units.top+dimensions.top,
+            dimensions.right,max(0,materialheight-dimensions.top*3),TRUE);
+        MoveWindow(GetDlgItem(hwnd,IDC_MODEL_HINT),panelx+dimensions.left,units.top+materialheight-dimensions.top*2,
+            dimensions.right,dimensions.top*2-margin,TRUE);
+        SendDlgItemMessage(hwnd,IDC_MODEL_MATERIAL_LIST,LB_SETITEMHEIGHT,0,row.bottom);
+        MoveWindow(GetDlgItem(hwnd,IDC_MODEL_PROPERTIES),panelx,facey,panel.right-margin,dimensions.bottom,TRUE);
+        for (i=0;i<sizeof(controls)/sizeof(controls[0]);i++)
         {
-            RECT r = {controls[i].x, controls[i].y, controls[i].w, controls[i].h};
-            MapDialogRect(hwnd, &r);
-            MoveWindow(GetDlgItem(hwnd, controls[i].id), panelx + r.left, units.top + r.top, r.right, r.bottom, TRUE);
+            RECT r={controls[i].x,controls[i].y,controls[i].w,controls[i].h};
+            MapDialogRect(hwnd,&r);
+            MoveWindow(GetDlgItem(hwnd,controls[i].id),panelx+r.left,facey+r.top,r.right,r.bottom,TRUE);
         }
     }
+
     MoveWindow(GetDlgItem(hwnd, IDC_MODEL_STATUS), margin, bottom + margin,
                max(0, client.right - units.right - margin * 3), units.bottom, TRUE);
     MoveWindow(GetDlgItem(hwnd, IDCANCEL), max(0, client.right - units.right - margin),
@@ -516,6 +573,14 @@ static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wp
         }
         g_ModelAllLods = FALSE;
         return TRUE;
+    case WM_MEASUREITEM:
+        if (((MEASUREITEMSTRUCT *)lparam)->CtlID==IDC_MODEL_MATERIAL_LIST)
+        { ((MEASUREITEMSTRUCT *)lparam)->itemHeight=66;return TRUE; }
+        break;
+    case WM_DRAWITEM:
+        if (((DRAWITEMSTRUCT *)lparam)->CtlID==IDC_MODEL_MATERIAL_LIST)
+        { ModelEditorDrawMaterial((const DRAWITEMSTRUCT *)lparam);return TRUE; }
+        break;
     case WM_SIZE:
         ModelEditorLayout(hwnd);
         return TRUE;
@@ -533,8 +598,9 @@ static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wp
     case VIEWPORT_WM_SELECTION_CHANGED:
         ModelEditorProperties(); return TRUE;
     case WM_COMMAND:
-        if (LOWORD(wparam) == IDC_MODEL_SELECT_GROUP || LOWORD(wparam) == IDC_MODEL_SELECT_ALL)
-        { ModelEditorSelectGroup(LOWORD(wparam) == IDC_MODEL_SELECT_ALL); return TRUE; }
+        if ((LOWORD(wparam)==IDC_MODEL_MATERIAL_LIST && HIWORD(wparam)==LBN_SELCHANGE)
+            || LOWORD(wparam)==IDC_MODEL_SELECT_ALL)
+        { ModelEditorSelectGroup(LOWORD(wparam)==IDC_MODEL_SELECT_ALL); return TRUE; }
         if (LOWORD(wparam) == IDC_MODEL_LODS)
         {
             g_ModelAllLods = IsDlgButtonChecked(hwnd, IDC_MODEL_LODS) == BST_CHECKED;

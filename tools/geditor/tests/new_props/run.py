@@ -5,6 +5,7 @@ Real glTF/compiler/native model/edit-store code; mocked ROM directory, image
 lookup and PNG encoder. Existing project_rebase tests exercise the real ROM
 reader/exporter separately. The Windows UI and N64 GPU are not simulated.
 """
+import argparse
 import base64
 import copy
 import json
@@ -47,6 +48,8 @@ def fixture(path, extra=False):
         if i < 2:
             attrs['TEXCOORD_0'] = accessor([(0, 0), (1, 0), (0, 1)], 'VEC2', 'ff', 5126)
         doc['meshes'][0]['primitives'].append({'attributes': attrs, 'material': min(i, 3) if i < 4 else 2})
+    for material, name in zip(doc['materials'], ('Cable', 'Metal', 'Solid', 'Shaft')):
+        material['name'] = name
     write(path, doc, data)
     return doc, data
 
@@ -102,6 +105,9 @@ int main(void) {
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--pendant", type=Path, help="Also validate the supplied 80-triangle PpendantZ GLB")
+    args = parser.parse_args()
     here = Path(__file__).resolve().parent
     src = here.parent.parent / 'src'
     root = src.parents[2]
@@ -113,7 +119,7 @@ def main():
         command = [os.environ.get('CC', 'cc'), '-O1', '-g', '-std=c99', '-Wall', '-Wextra', '-Werror',
                    '-Wno-unused-parameter', '-ffunction-sections', '-fdata-sections', '-fsanitize=address,undefined',
                    '-Dfopen=TestFopen', f'-I{shim}', f'-I{src}', f'-I{root}', str(here / 'check.c'), str(shim / 'platform.c')]
-        command += [str(src / n) for n in ('newprops.c', 'propcompile.c', 'modelload.c', 'modelcompile.c',
+        command += [str(src / n) for n in ('newprops.c', 'propcompile.c', 'modelload.c', 'modelmaterials.c', 'modelcompile.c',
                                           'modeledits.c', 'gltf.c', 'bgmaterial.c', 'bgrender.c', 'objectshade.c')]
         command += ['-Wl,--gc-sections', '-lm', '-o', str(work / 'check')]
         subprocess.run(command, check=True)
@@ -138,6 +144,10 @@ def main():
         write(work / 'mirror.glb', mirrored, data)
         env = dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1')
         subprocess.run([str(work / 'check'), str(work)], env=env, check=True)
+        if args.pendant:
+            actual = work / 'actual'
+            (actual / 'models/objects').mkdir(parents=True)
+            subprocess.run([str(work / 'check'), str(actual), str(args.pendant.resolve())], env=env, check=True)
         print('New-prop import, native materials, stable IDs, topology, save/reload and ROM-bank tests passed (ASan + UBSan).')
 
 

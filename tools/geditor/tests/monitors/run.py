@@ -53,7 +53,7 @@ def main():
                    '-Wno-unused-parameter', '-ffunction-sections', '-fdata-sections',
                    '-fsanitize=address,undefined', f'-I{shim}', f'-I{src}', f'-I{root}', f'-I{temp}',
                    str(here / 'check.c'), str(shim / 'platform.c')]
-        command += [str(src / n) for n in ('monitoranim.c', 'monitorload.c', 'modelload.c',
+        command += [str(src / n) for n in ('monitoranim.c', 'monitorload.c', 'modelload.c', 'modelmaterials.c',
                     'bgmaterial.c', 'bgrender.c', 'setupload.c', 'actionblocks.c')]
         command += ['-Wl,--gc-sections', '-lm', '-o', str(temp / 'check')]
         subprocess.run(command, check=True)
