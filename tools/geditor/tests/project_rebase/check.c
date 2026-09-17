@@ -30,6 +30,7 @@ BOOL TexEncodePng(const TexPixel *pixels,int width,int height,unsigned char **da
 static const char *why="";
 #define OK(expr) do { if (!(expr)) { fprintf(stderr,"%s:%d: %s: %s\n",__FILE__,__LINE__,#expr,why); abort(); } } while(0)
 static void Put32(unsigned char *p,DWORD v) { p[0]=v>>24;p[1]=v>>16;p[2]=v>>8;p[3]=v; }
+static DWORD Get32(const unsigned char *p) { return (DWORD)p[0]<<24|(DWORD)p[1]<<16|(DWORD)p[2]<<8|p[3]; }
 static void Float(unsigned char *p,float f) { DWORD u;memcpy(&u,&f,4);Put32(p,u); }
 static void Save(const char *path,const void *p,size_t size)
 { FILE *f=fopen(path,"wb");OK(f && fwrite(p,1,size,f)==size && !fclose(f)); }
@@ -122,6 +123,93 @@ static void Reject(const GEditorProject *project,const char *rom,const char *par
     OK(!ProjectRebaseCreate(project,rom,parent,name,&output,&report,&why));OK(why[0] && !output.dir[0]);
     Path(dest,parent,name);OK(GetFileAttributes(dest)==INVALID_FILE_ATTRIBUTES);OK(Hash(base)==hash);NoTemps(parent);
 }
+static void ImageRebases(const GEditorProject *source,const char *incoming,const char *parent)
+{
+    GEditorProject grown,shrunk,again;ProjectRebaseReport report;
+    RomFile rom,before,after;TexRomBank bank,a,b;
+    char large[MAX_PATH],path[MAX_PATH],saved[MAX_PATH],exported[MAX_PATH];
+    DWORD id,sourcehash,romhash,size,othersize,i;unsigned char *data,*other;
+    TexPixel pixels[64],preview[64];int width,height;const TexImportOptions options={1,1,3,4};
+    /* Incoming ROM absorbs the project's three imported slots verbatim, then
+     * adds a new stock slot with legacy surface/detail flags. */
+    OK(RomLoad(incoming,&rom,&why));OK(ImageEditsExportToRom(source->dir,&rom,&why));
+    OK(TexRomReadBank(&rom,&bank,&why) && bank.count==4);
+    {
+        const unsigned char *records[5]={0};DWORD sizes[5]={0};unsigned char surfaces[5]={0};
+        records[4]=rom.data+bank.images;sizes[4]=Get32(rom.data+bank.table)&0xffffffu;
+        OK(TexRomUpdateImages(&rom,&bank,records,sizes,surfaces,5,&why));
+        Put32(rom.data+bank.table+4*8,0xfa000000u|sizes[4]);
+        Put32(rom.data+bank.table+4*8+4,0x12345678);
+    }
+    Path(large,parent,"larger-images.z64");Save(large,rom.data,rom.size);RomFree(&rom);
+    Path(saved,source->dir,"images/native/0001.gtex");sourcehash=Hash(saved);romhash=Hash(large);
+    OK(ProjectRebaseCheck(source,large,&report,&why) && report.imagesadded==4 && !report.imagesretained);
+    OK(Hash(saved)==sourcehash && Hash(large)==romhash);NoTemps(parent);
+    OK(ProjectRebaseCreate(source,large,parent,"MoreImages",&grown,&report,&why));
+    Path(path,grown.dir,"base.z64");OK(Hash(path)==romhash);
+    OK(RomLoad(path,&rom,&why));OK(TexRomReadBank(&rom,&bank,&why) && bank.count==5);
+    /* Only the eight fingerprint bytes change, including GTI3 source paths,
+     * GTI2 imports and deleted-image metadata. */
+    for(i=1;i<=3;i++)
+    {
+        char relative[64];snprintf(relative,sizeof(relative),"images/native/%04lX.gtex",(unsigned long)i);
+        Path(path,source->dir,relative);data=Read(path,&size);
+        Path(path,grown.dir,relative);other=Read(path,&othersize);
+        OK(size==othersize && !memcmp(data,other,4) && !memcmp(data+12,other+12,size-12));
+        OK(Get32(other+4)==bank.hash && Get32(other+8)==bank.count);
+        if(i==1) { OK(!memcmp(other,"GTI3",4) && !strcmp((char *)other+40,"C:\\art\\missing-original.bmp")); }
+        free(data);free(other);
+    }
+    Same(source->dir,grown.dir,"bg/bg_test.seg");Same(source->dir,grown.dir,"models/newprops.gnp");
+    Same(source->dir,grown.dir,"models/native/Pjungle3_treeZ.gmodel");
+    Same(source->dir,grown.dir,"models/objects/PpendantZ.gltf");
+    Same(source->dir,grown.dir,"images/0001.bmp");
+    OK(TexDecodeRecord(rom.data+bank.images,Get32(rom.data+bank.table)&0xffffffu,pixels,&width,&height));
+    OK(TexLoadSavedProjectImage(grown.dir,4,preview,&width,&height) && width==8 && height==8);
+    OK(!memcmp(pixels,preview,sizeof(pixels)));
+    OK(ImageEditsGetDeletedPixels(grown.dir,2,preview,&width,&height) && width==1 && height==1 && !preview[0].a);
+    OK(ImageEditsNextId(grown.dir,&id,&why) && id==5);
+    /* Keep an override and a new project-only import on top of the larger base. */
+    OK(ImageEditsReplace(grown.dir,0,pixels,8,8,&options,NULL,&why));
+    OK(ImageEditsImport(grown.dir,pixels,8,8,&options,NULL,&id,&why) && id==5);
+    OK(ImageEditsSave(grown.dir,&why));ImageEditsReset();
+    OK(RomExportCreate(&grown,"BeforeShrink",parent,exported,sizeof(exported),&why));
+    OK(RomLoad(exported,&before,&why));OK(TexRomReadBank(&before,&a,&why) && a.count==6);
+    /* This is the lamp case: rebase onto a clean build lacking baked images.
+     * The retained suffix must not become an override that loses detail flags. */
+    OK(ProjectRebaseCheck(&grown,incoming,&report,&why) && report.imagesretained==4 && !report.imagesadded);
+    OK(ProjectRebaseCreate(&grown,incoming,parent,"FewerImages",&shrunk,&report,&why));
+    Path(path,shrunk.dir,"base.z64");OK(RomLoad(path,&after,&why));OK(TexRomReadBank(&after,&b,&why));
+    OK(b.count==bank.count && b.hash==bank.hash && b.imagebytes==bank.imagebytes);
+    OK(!memcmp(after.data+b.images,rom.data+bank.images,bank.imagebytes));
+    OK(!memcmp(after.data+b.table,rom.data+bank.table,(bank.count+1)*8));RomFree(&after);RomFree(&rom);
+    Same(grown.dir,shrunk.dir,"images/native/0000.gtex");Same(grown.dir,shrunk.dir,"images/native/0001.gtex");
+    Same(grown.dir,shrunk.dir,"images/native/0002.gtex");Same(grown.dir,shrunk.dir,"images/native/0005.gtex");
+    Same(grown.dir,shrunk.dir,"images/0004.bmp");Same(grown.dir,shrunk.dir,"models/newprops.gnp");
+    OK(RomExportCreate(&shrunk,"AfterShrink",parent,exported,sizeof(exported),&why));
+    OK(RomLoad(exported,&after,&why));OK(TexRomReadBank(&after,&b,&why));
+    OK(a.count==b.count && a.imagebytes==b.imagebytes && a.hash==b.hash);
+    OK(!memcmp(before.data+a.images,after.data+b.images,a.imagebytes));
+    OK(!memcmp(before.data+a.table,after.data+b.table,(a.count+1)*8));RomFree(&before);RomFree(&after);
+    OK(ImageEditsNextId(shrunk.dir,&id,&why) && id==6);
+    OK(ProjectRebaseCreate(&shrunk,incoming,parent,"RepeatImages",&again,&report,&why));
+    /* Edited BMPs, settings and missing metadata must not be silently absorbed
+     * by incoming stock IDs, even if their older native payload would match. */
+    Path(path,source->dir,"images/0001.bmp");data=Read(path,&size);
+    for(i=0;i<64;i++) { preview[i]=(TexPixel){255,0,255,255}; }
+    OK(TexWriteBmp(path,preview,8,8));
+    OK(!ProjectRebaseCheck(source,large,&report,&why) && strstr(why,"Image 0001"));
+    Reject(source,large,parent,"BmpCollision");Save(path,data,size);free(data);
+    Path(path,source->dir,"images/native/0001.gtex");data=Read(path,&size);data[28]^=1;Save(path,data,size);
+    Reject(source,large,parent,"SettingsCollision");data[28]^=1;Save(path,data,size);free(data);
+    Path(path,source->dir,"images/native/0003.gtex");Path(saved,source->dir,"images/native/0003.hold");
+    OK(MoveFileEx(path,saved,0));Reject(source,large,parent,"OrphanImage");OK(MoveFileEx(saved,path,0));
+    /* A publication failure after fingerprint migration still leaves no copy. */
+    test_fail_move=1;Reject(source,large,parent,"ImagePublishFail");
+    Path(path,source->dir,"images/native/0001.gtex");OK(Hash(path)==sourcehash && Hash(large)==romhash);
+    NoTemps(parent);OK(RomExportValidateProject(source,&why));
+    puts("PASS: larger/smaller image banks, stable model/BG references, imported/deleted slots, exact native flags, source paths, new previews, further imports, repeat rebase and image collision rollback.");
+}
 int main(int argc,char **argv)
 {
     unsigned char *model,*old,*next,*edited;DWORD modelsize,i,offset,span,size,id;
@@ -199,6 +287,7 @@ int main(int argc,char **argv)
     RomFree(&output);
     OK(ProjectRebaseCreate(&rebased,nextpath,argv[1],"Again",&again,&report,&why));
     puts("PASS: relocated ROM tables/code, three-way asset/settings merge, native model edits, imported/deleted images, source settings, sidecars, reopen, ROM export and repeat rebase.");
+    ImageRebases(&project,nextpath,argv[1]);
     /* Conflicts and format changes must fail without touching the source. */
     next[OBJECTS+SHIFT+64+128]=2;Save(nextpath,next,SIZE);
     OK(!ProjectRebaseCheck(&project,nextpath,&report,&why) && report.conflicts==1 && strstr(report.details,"bg/bg_test.seg"));
@@ -206,12 +295,12 @@ int main(int argc,char **argv)
     next[LEVELS+SHIFT+29]=13;Save(nextpath,next,SIZE);Reject(&project,nextpath,argv[1],"MusicConflict");next[LEVELS+SHIFT+29]=5;
     next[MODEL+SHIFT+modelsize-1]^=1;Save(nextpath,next,SIZE);Reject(&project,nextpath,argv[1],"ModelConflict");next[MODEL+SHIFT+modelsize-1]^=1;
     next[TEXTURES+SHIFT]=0x23;Save(nextpath,next,SIZE);Reject(&project,nextpath,argv[1],"TextureConflict");next[TEXTURES+SHIFT]=0x12;
-    /* A new stock image would occupy the first imported ID: reject it. */
+    /* Different new stock data at an imported ID remains a real conflict. */
     OK(TexRomReadBank(&rom,&bank,&why));
     memcpy(next+IMAGES+SHIFT+bank.imagebytes,next+IMAGES+SHIFT,bank.imagebytes);
     Put32(next+CONFIG+SHIFT+4,2);Put32(next+TEXTURES+SHIFT+8,0x12000000|bank.imagebytes);
     Put32(next+TEXTURES+SHIFT+16,0xffff);Put32(next+MANIFEST+SHIFT+24+8,IMAGES+SHIFT+bank.imagebytes*2);
-    Save(nextpath,next,SIZE);OK(!ProjectRebaseCheck(&project,nextpath,&report,&why) && strstr(why,"image count"));
+    Save(nextpath,next,SIZE);OK(!ProjectRebaseCheck(&project,nextpath,&report,&why) && strstr(why,"Image 0001"));
     Reject(&project,nextpath,argv[1],"ImageIds");
     memset(next+IMAGES+SHIFT+bank.imagebytes,0,bank.imagebytes);Put32(next+CONFIG+SHIFT+4,1);
     Put32(next+TEXTURES+SHIFT+8,0xffff);Put32(next+TEXTURES+SHIFT+16,0);

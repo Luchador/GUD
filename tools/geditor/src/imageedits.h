@@ -18,6 +18,11 @@ BOOL ImageEditsDelete(const char *projectdir, DWORD id, const char **reasonout);
 BOOL ImageEditsGetDeletedPixels(const char *projectdir, DWORD id, TexPixel *out, int *width, int *height);
 BOOL ImageEditsSave(const char *projectdir, const char **reasonout);
 BOOL ImageEditsExportToRom(const char *projectdir, RomFile *rom, const char **reasonout);
+/* Rebase already-validated, compatible base banks without changing image IDs.
+ * FALSE checks only; TRUE updates metadata/previews in a private staging copy.
+ * The caller must discard that copy on failure, never pass the live project. */
+BOOL ImageEditsRebase(const char *projectdir, const RomFile *oldrom,
+    const RomFile *newrom, BOOL write, const char **reasonout);
 /* Pending imports participate in every existing project-image consumer. */
 BOOL ImageEditsGetPixels(const char *projectdir, DWORD id, TexPixel *out, int *width, int *height);
 void ImageEditsUpdateThumbnails(const char *projectdir, TexThumb **items, unsigned char **pixels, DWORD *count);

@@ -344,6 +344,92 @@ BOOL ImageEditsSave(const char *project,const char **why)
     }
     return TRUE;
 }
+/* Resolve external edits to the saved BMP exactly as ROM export will, using
+ * the remembered conversion settings. Rebase collision checks must compare
+ * these effective bytes, not just a possibly older .gtex payload. */
+static BOOL ReadForExport(const char *project,DWORD id,const TexRomBank *bank,ImageEdit *edit,const char **why)
+{
+    TexPixel *pixels;int width,height;BOOL ok=FALSE;
+    if(!ReadSaved(project,id,bank,edit,why)) { return FALSE; }
+    if(edit->deleted) { return TRUE; }
+    pixels=malloc(256*256*sizeof(TexPixel));
+    if(!pixels) { *why="Out of memory checking the imported BMP.";return FALSE; }
+    if(!TexLoadSavedProjectImage(project,id,pixels,&width,&height))
+    { *why="An imported image's BMP is missing or unreadable. Restore it before building the ROM.";goto done; }
+    if(width!=edit->width || height!=edit->height || TexDataHash((unsigned char *)pixels,width*height*sizeof(TexPixel))!=edit->pixelhash)
+    {
+        unsigned char *encoded;DWORD size;
+        if(!TexEncodeRecord(pixels,width,height,&edit->options,&encoded,&size,why)) { goto done; }
+        free(edit->data);edit->data=encoded;edit->size=size;
+    }
+    ok=TRUE;
+done:
+    free(pixels);return ok;
+}
+BOOL ImageEditsRebase(const char *project,const RomFile *oldrom,const RomFile *newrom,BOOL write,const char **why)
+{
+    unsigned char ids[TEX_IMAGE_CAPACITY];TexRomBank oldbank,newbank;
+    DWORD count,total,i,at;static char message[256];
+    if(!TexRomReadBank(oldrom,&oldbank,why) || !TexRomReadBank(newrom,&newbank,why)
+        || !SavedIds(project,ids,&count,why) || !Contiguous(ids,&oldbank,&total,why)) { return FALSE; }
+    if(newbank.count<oldbank.count || total>newbank.capacity)
+    { *why="The rebased image bank cannot retain every project image ID.";return FALSE; }
+    if(oldbank.count==newbank.count && oldbank.hash==newbank.hash) { return TRUE; }
+    at=newbank.images;
+    for(i=0;i<newbank.count || i<total;i++)
+    {
+        DWORD size=i<newbank.count ? Read32(newrom->data+newbank.table+i*8)&0xffffffu : 0;
+        char path[MAX_PATH];
+        if(ids[i])
+        {
+            ImageEdit edit={0};BOOL ok=ReadForExport(project,i,&oldbank,&edit,why);
+            if(ok && i>=oldbank.count && i<newbank.count)
+            {
+                unsigned char entry[8]={0};
+                Write32(entry,((DWORD)((edit.options.hitsound<<4)|edit.options.hittexture)<<24)|edit.size);
+                if(edit.size!=size || memcmp(entry,newrom->data+newbank.table+i*8,8)
+                    || memcmp(edit.data,newrom->data+at,size))
+                {
+                    snprintf(message,sizeof(message),"Image %04lX is used by both an imported project image and a different image in the new ROM. Rebase cannot automatically merge this image-ID conflict.",(unsigned long)i);
+                    *why=message;ok=FALSE;
+                }
+            }
+            FreeEdit(&edit);if(!ok) { return FALSE; }
+            if(write)
+            {
+                /* Only the verified base fingerprint changes. Keep GTI2/GTI3,
+                 * pixels, settings, deletion state and source path untouched. */
+                FILE *file;unsigned char fingerprint[8];
+                Write32(fingerprint,newbank.hash);Write32(fingerprint+4,newbank.count);
+                if(!Path(path,project,i,".gtex") || !(file=fopen(path,"r+b")))
+                { *why="An image's base fingerprint could not be updated in the rebased copy.";return FALSE; }
+                ok=!fseek(file,4,SEEK_SET) && fwrite(fingerprint,1,8,file)==8;
+                if(fclose(file)) { ok=FALSE; }
+                if(!ok) { *why="An image's base fingerprint could not be saved in the rebased copy.";return FALSE; }
+            }
+        }
+        else if(i>=oldbank.count && i<newbank.count)
+        {
+            /* New stock images need previews too: image/model browsers read
+             * project BMPs, not the ROM bank. Never overwrite a project image. */
+            TexPixel *pixels=malloc(256*256*sizeof(TexPixel));int width,height;BOOL ok;
+            if(!pixels) { *why="Out of memory decoding a new base image.";return FALSE; }
+            ok=TexDecodeRecord(newrom->data+at,size,pixels,&width,&height);
+            if(ok && write)
+            {
+                int n=snprintf(path,sizeof(path),"%s\\images",project);
+                ok=n>=0 && n<MAX_PATH && (CreateDirectory(path,NULL) || GetLastError()==ERROR_ALREADY_EXISTS)
+                    && Path(path,project,i,".bmp") && GetFileAttributes(path)==INVALID_FILE_ATTRIBUTES
+                    && (GetLastError()==ERROR_FILE_NOT_FOUND || GetLastError()==ERROR_PATH_NOT_FOUND)
+                    && TexWriteBmp(path,pixels,width,height);
+            }
+            free(pixels);
+            if(!ok) { *why="A new base image could not be decoded or its preview saved in the rebased copy.";return FALSE; }
+        }
+        at+=size;
+    }
+    *why="";return TRUE;
+}
 BOOL ImageEditsExportToRom(const char *project,RomFile *rom,const char **why)
 {
     unsigned char ids[TEX_IMAGE_CAPACITY],*surfaces=NULL;DWORD count,total,i,*sizes=NULL;
@@ -374,21 +460,9 @@ BOOL ImageEditsExportToRom(const char *project,RomFile *rom,const char **why)
     if(!records || !sizes || !surfaces) { *why="Out of memory loading imported images.";goto done; }
     for(i=0;i<total;i++) if(ids[i])
     {
-        ImageEdit edit={0};TexPixel *pixels;int width,height;
-        if(!ReadSaved(project,i,&bank,&edit,why)) { goto done; }
+        ImageEdit edit={0};
+        if(!ReadForExport(project,i,&bank,&edit,why)) { FreeEdit(&edit);goto done; }
         records[i]=edit.data;sizes[i]=edit.size;surfaces[i]=(edit.options.hitsound<<4)|edit.options.hittexture;
-        if(edit.deleted) { continue; }
-        pixels=malloc(256*256*sizeof(TexPixel));
-        if(!pixels) { *why="Out of memory checking the imported BMP.";goto done; }
-        if(!TexLoadSavedProjectImage(project,edit.id,pixels,&width,&height))
-        { free(pixels);*why="An imported image's BMP is missing or unreadable. Restore it before building the ROM.";goto done; }
-        if(width!=edit.width || height!=edit.height || TexDataHash((unsigned char *)pixels,width*height*sizeof(TexPixel))!=edit.pixelhash)
-        {
-            unsigned char *encoded;DWORD size;
-            if(!TexEncodeRecord(pixels,width,height,&edit.options,&encoded,&size,why)) { free(pixels);goto done; }
-            free(records[i]);records[i]=encoded;sizes[i]=size;
-        }
-        free(pixels);
     }
     ok=TexRomUpdateImages(rom,&bank,(const unsigned char *const *)records,sizes,surfaces,total,why);
 done:

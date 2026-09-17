@@ -1,6 +1,7 @@
 /* Rebase saved edits onto a compatible GUD ROM. ROM addresses may move;
- * resource names/IDs, native model content and the original image bank may
- * not. BG/setup/stan files and editable level fields use a three-way merge.
+ * resource names/IDs and native model content may not. Image banks may gain
+ * or lose an appended suffix; surviving image IDs must still agree.
+ * BG/setup/stan files and editable level fields use a three-way merge.
  * Binary conflicts are reported, never guessed or merged byte by byte. */
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,6 +11,7 @@
 #include "projectrebase.h"
 #include "romexport.h"
 #include "texrom.h"
+#include "imageedits.h"
 #include "newprops.h"
 
 #define REBASE_MAX_FILES 1024u
@@ -152,17 +154,54 @@ static BOOL Catalogs(const RomFile *a, const RomFile *b, const char **why)
     }
     return TRUE;
 }
-static BOOL ImageBank(const RomFile *a, const RomFile *b, const char **why)
+static BOOL ImageBank(const RomFile *a, RomFile *b, ProjectRebaseReport *report, const char **why)
 {
     TexRomBank oldbank, newbank;
+    DWORD i, oldat, newat, common;
+    const unsigned char **records=NULL;
+    DWORD *sizes=NULL;
+    unsigned char *surfaces=NULL;
+    BOOL ok;
     if (!TexRomReadBank(a,&oldbank,why) || !TexRomReadBank(b,&newbank,why)) { return FALSE; }
-    if (oldbank.count != newbank.count)
-    { return Fail(why, "The new ROM changes the base image count. Imported image IDs could collide; automatic image-ID migration is not supported yet."); }
-    if (newbank.capacity < oldbank.capacity || oldbank.imagebytes != newbank.imagebytes
-        || memcmp(a->data+oldbank.images,b->data+newbank.images,oldbank.imagebytes)
-        || memcmp(a->data+oldbank.table,b->data+newbank.table,(oldbank.count+1)*8))
-    { return Fail(why, "The ROM's original textures or image settings changed. This version preserves image edits only when the base image bank is unchanged."); }
-    return TRUE;
+    common=oldbank.count<newbank.count ? oldbank.count : newbank.count;
+    oldat=oldbank.images; newat=newbank.images;
+    for (i=0;i<common;i++)
+    {
+        DWORD size=Read32(a->data+oldbank.table+i*8)&0xffffffu;
+        /* Compare each complete table entry first (size, surface and detail
+         * flags). No prefix hash or pixel-only match can establish identity. */
+        if (memcmp(a->data+oldbank.table+i*8,b->data+newbank.table+i*8,8)
+            || memcmp(a->data+oldat,b->data+newat,size))
+        { return Fail(why,"Image %04lX changed in the base ROM. Rebase cannot automatically merge different textures or image settings at the same ID.",(unsigned long)i); }
+        oldat+=size; newat+=size;
+    }
+    if (oldbank.count<=newbank.count)
+    { report->imagesadded=newbank.count-oldbank.count; return TRUE; }
+    if (oldbank.count>newbank.capacity)
+    { return Fail(why,"The new ROM has insufficient image capacity to retain the project's base images."); }
+    /* A project made from an exported ROM can have textures baked into its
+     * base that a fresh GUD build lacks. Retain that suffix at the same IDs
+     * in the private incoming ROM; no BG/model/material references move. */
+    records=calloc(oldbank.count,sizeof(*records)); sizes=calloc(oldbank.count,sizeof(*sizes));
+    surfaces=calloc(oldbank.count,1);
+    if (!records || !sizes || !surfaces)
+    { free(records); free(sizes); free(surfaces); return Fail(why,"Out of memory retaining the project's base images."); }
+    for (i=common;i<oldbank.count;i++)
+    {
+        records[i]=a->data+oldat; sizes[i]=Read32(a->data+oldbank.table+i*8)&0xffffffu;
+        /* A legacy original can use flags unavailable to fresh imports.
+         * Supply neutral import flags here and restore its full entry below. */
+        oldat+=sizes[i];
+    }
+    ok=TexRomUpdateImages(b,&newbank,records,sizes,surfaces,oldbank.count,why);
+    if (ok)
+    {
+        /* These are originals, not fresh imports. Preserve all detail flags
+         * too; TexRomUpdateImages normally clears them on replacement. */
+        memcpy(b->data+newbank.table+common*8,a->data+oldbank.table+common*8,(oldbank.count-common)*8);
+        report->imagesretained=oldbank.count-common;
+    }
+    free(records); free(sizes); free(surfaces); return ok;
 }
 static BOOL LevelNames(const RomLevel *a, const RomLevel *b)
 {
@@ -320,11 +359,14 @@ static BOOL Prepare(RebasePlan *plan, const GEditorProject *source, const char *
     if (!source || !source->dir[0] || source->levelcount>ROM_MAX_LEVELS) { return Fail(why,"Open a valid saved project first."); }
     if (!Join(base,source->dir,ROM_EXPORT_BASE_FILENAME,why)
         || !RomLoad(base,&plan->oldrom,why) || !RomLoad(rompath,&plan->newrom,why)
-        || !ImageBank(&plan->oldrom,&plan->newrom,why) || !Catalogs(&plan->oldrom,&plan->newrom,why)
+        || !ImageBank(&plan->oldrom,&plan->newrom,report,why) || !Catalogs(&plan->oldrom,&plan->newrom,why)
         || !NewPropsCheckRebase(source->dir,&plan->newrom,why)
         || !Levels(plan,source,report,why) || !Resources(plan,source,report,why)) { return FALSE; }
     if (report->conflicts) { return Fail(why,"Rebase blocked by %lu conflict(s). See the report.",(unsigned long)report->conflicts); }
-    return TRUE;
+    /* Validate against the original base before new stock IDs can turn an
+     * orphan BMP or a gap in imported IDs into an apparently valid asset. */
+    return RomExportValidateProject(source,why)
+        && ImageEditsRebase(source->dir,&plan->oldrom,&plan->newrom,FALSE,why);
 }
 static void FreePlan(RebasePlan *plan)
 { if (plan) { RomFree(&plan->oldrom); RomFree(&plan->newrom); free(plan); } }
@@ -335,7 +377,7 @@ BOOL ProjectRebaseCheck(const GEditorProject *source, const char *rompath,
     BOOL ok;
     ZeroMemory(report,sizeof(*report));
     if (!plan) { return Fail(why,"Out of memory checking the project."); }
-    ok=Prepare(plan,source,rompath,report,why) && RomExportValidateProject(source,why);
+    ok=Prepare(plan,source,rompath,report,why);
     FreePlan(plan); return ok;
 }
 
@@ -442,6 +484,7 @@ BOOL ProjectRebaseCreate(const GEditorProject *source, const char *rompath,
     lstrcpyn(plan->project.name,name,sizeof(plan->project.name));
     snprintf(filename,sizeof(filename),"%s.gep",name);
     if (!Join(plan->project.geppath,staging,filename,why)
+        || !ImageEditsRebase(staging,&plan->oldrom,&plan->newrom,TRUE,why)
         || !RomExportStoreProjectBase(&plan->project,&plan->newrom,why)
         || !ProjectSave(&plan->project,why)
         || !RomExportValidateProject(&plan->project,why)) { goto done; }

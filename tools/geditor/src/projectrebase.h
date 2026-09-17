@@ -4,6 +4,7 @@
 
 typedef struct ProjectRebaseReport {
     DWORD checked, kept, updated, conflicts;
+    DWORD imagesretained, imagesadded;
     char details[8192];
 } ProjectRebaseReport;
 
