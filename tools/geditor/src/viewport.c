@@ -6609,7 +6609,8 @@ static void ViewportShowGeometryContextMenu(HWND hwnd, ViewportState *state, int
     else { return; }
     menu=CreatePopupMenu();
     if (!menu) { return; }
-    if (AppendMenu(menu, MF_STRING, 1, label))
+    if (AppendMenu(menu, MF_STRING, 1, label)
+        && (message != VIEWPORT_WM_SPLIT_STAN_EDGE || AppendMenu(menu, MF_STRING, 2, "Link Tiles")))
     {
         ClientToScreen(hwnd, &screen);
         command=TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY | TPM_RIGHTBUTTON,
@@ -6618,6 +6619,8 @@ static void ViewportShowGeometryContextMenu(HWND hwnd, ViewportState *state, int
         if (command == 1)
         { SendMessage(GetParent(hwnd), message, 0, message == VIEWPORT_WM_SPLIT_EDGE ? (LPARAM)&edge
             : message == VIEWPORT_WM_SPLIT_STAN_EDGE ? (LPARAM)&stanedge : 0); }
+        else if (command == 2 && message == VIEWPORT_WM_SPLIT_STAN_EDGE)
+        { SendMessage(GetParent(hwnd), VIEWPORT_WM_LINK_STAN_EDGE, 0, (LPARAM)&stanedge); }
     }
     else { DestroyMenu(menu); }
 }

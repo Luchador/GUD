@@ -91,6 +91,10 @@ BOOL StanDeleteTiles(StanFile *stan, const DWORD *selected, DWORD count,
  * endpoints must match in reverse order. Existing third-party links are kept. */
 BOOL StanLinkTiles(StanFile *stan, DWORD first, DWORD second,
     BOOL *changedout, const char **reasonout);
+/* Find the unique opposite edge of another tile and link it reciprocally.
+ * Matching uses exact native XYZ endpoints, not proximity or screen overlap. */
+BOOL StanLinkEdgeTiles(StanFile *stan, const StanEdgeRef *edge,
+    BOOL *changedout, const char **reasonout);
 /* Keep live tile indices stable. Saving groups tiles by room and relocates
  * native links in a copy for the runtime's contiguous room scans. */
 BOOL StanSetTileRooms(StanFile *stan, const DWORD *selected, DWORD count,

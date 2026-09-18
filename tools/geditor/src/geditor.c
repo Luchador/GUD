@@ -2077,22 +2077,30 @@ fail:
     return FALSE;
 }
 
-static BOOL GEditorLinkSelectedStanTiles(HWND hwnd)
+static BOOL GEditorLinkStanTiles(HWND hwnd, const StanEdgeRef *edge)
 {
     EditHistoryTransaction transaction = {0};
     DWORD selected[2];
     BOOL changed;
     const char *why = "", *restorewhy = "";
-    if (ViewportGetTool(g_Viewport) != EDITOR_TOOL_FACE_SELECT
-        || ViewportIsFlying(g_Viewport) || ViewportIsTransforming(g_Viewport)
+    if (ViewportIsFlying(g_Viewport) || ViewportIsTransforming(g_Viewport)) { return FALSE; }
+    if (edge)
+    {
+        if (ViewportGetTool(g_Viewport) != EDITOR_TOOL_EDGE_SELECT) { return FALSE; }
+    }
+    else if (ViewportGetTool(g_Viewport) != EDITOR_TOOL_FACE_SELECT
         || !ViewportGetSelectedStanTiles(g_Viewport, selected, 2)) { return FALSE; }
     if (!EditHistoryBeginStanEdit(&g_EditHistory, &g_CurrentStan,
         "Link Stan Tiles", &transaction, &why)) { goto fail; }
-    if (!StanLinkTiles(&g_CurrentStan, selected[0], selected[1], &changed, &why)) { goto fail; }
+    if (edge ? !StanLinkEdgeTiles(&g_CurrentStan, edge, &changed, &why)
+        : !StanLinkTiles(&g_CurrentStan, selected[0], selected[1], &changed, &why)) { goto fail; }
     if (!changed) { EditHistoryCancelEdit(&transaction); return TRUE; }
     /* Rebuild shared-vertex groups, pad placement and object shading using
-     * the new connectivity. Tile indices/counts remain stable, as does selection. */
+     * the new connectivity. The edge's canonical vertex IDs may change, so
+     * restore its selection from the stable tile/point reference. */
     if (!GEditorReloadCurrentObjectsAndViewport(&why)) { goto rollback; }
+    if (edge && !ViewportSelectStanEdge(g_Viewport, edge))
+    { why = "Could not restore the linked stan edge selection."; goto rollback; }
     if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
         &g_CurrentStan, &transaction, &why)) { goto rollback; }
     GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
@@ -4542,7 +4550,9 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         return GEditorSeparateBgVertices(hwnd, NULL);
 
     case VIEWPORT_WM_LINK_STAN_TILES:
-        return GEditorLinkSelectedStanTiles(hwnd);
+        return GEditorLinkStanTiles(hwnd, NULL);
+    case VIEWPORT_WM_LINK_STAN_EDGE:
+        return lparam && GEditorLinkStanTiles(hwnd, (const StanEdgeRef *)lparam);
 
     case VIEWPORT_WM_TRANSLATE_SELECTION:
     case VIEWPORT_WM_SNAP_VERTEX:

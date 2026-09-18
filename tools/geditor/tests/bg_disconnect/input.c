@@ -20,7 +20,7 @@ typedef intptr_t LPARAM;
 #include "types.inc"
 enum { GL_FRONT=1, GL_BACK, GL_FRONT_AND_BACK, MF_STRING=0,
        TPM_RETURNCMD=1, TPM_NONOTIFY=2, TPM_RIGHTBUTTON=4,
-       VIEWPORT_WM_SPLIT_EDGE=51, VIEWPORT_WM_DISCONNECT_FACES=52, VIEWPORT_WM_LINK_STAN_TILES=71, VIEWPORT_WM_SPLIT_STAN_EDGE=75 };
+       VIEWPORT_WM_SPLIT_EDGE=51, VIEWPORT_WM_DISCONNECT_FACES=52, VIEWPORT_WM_LINK_STAN_TILES=71, VIEWPORT_WM_SPLIT_STAN_EDGE=75, VIEWPORT_WM_LINK_STAN_EDGE=76 };
 typedef struct ViewportState {
     EditorTool tool;
     ViewportRenderMode rendermode;
@@ -41,7 +41,8 @@ static HWND captured;
 static POINT cursor;
 static int cursorhide,menus,destroyed,commands,edgepicks,facepicks,commandchoice=1;
 static BOOL heldkey,failmenu;
-static char label[40];
+static char label[40],linklabel[40];
+static unsigned menuitems;
 static UINT sent;
 static BgDocumentEdgeRef sentedge,selectededge;
 static BOOL stanedgehit;
@@ -65,14 +66,14 @@ static void ValidateRect(HWND hwnd,const RECT *rect) {}
 static void ViewportCancelTransform(HWND hwnd) { if(hwnd) { ((ViewportState *)hwnd)->dragaxis=-1; } }
 static HWND GetParent(HWND hwnd) { return hwnd; }
 static void ClientToScreen(HWND hwnd,POINT *p) { p->x+=10;p->y+=20; }
-static HMENU CreatePopupMenu(void) { if(failmenu)return NULL;menus++;return (HMENU)1; }
+static HMENU CreatePopupMenu(void) { if(failmenu)return NULL;menus++;menuitems=0;linklabel[0]=0;return (HMENU)1; }
 static BOOL AppendMenu(HMENU menu,UINT flags,UINT id,const char *text)
-{ assert(menu && id==1);snprintf(label,sizeof(label),"%s",text);return TRUE; }
+{ assert(menu && (id==1 || id==2));menuitems|=1u<<id;snprintf(id==1?label:linklabel,sizeof(label),"%s",text);return TRUE; }
 static UINT TrackPopupMenu(HMENU menu,UINT flags,int x,int y,int reserved,HWND hwnd,const RECT *rect)
-{ assert(!((ViewportState *)hwnd)->flying && !cursorhide && !captured);return commandchoice; }
+{ assert(!((ViewportState *)hwnd)->flying && !cursorhide && !captured);assert(!commandchoice || (menuitems&(1u<<commandchoice)));return commandchoice; }
 static void DestroyMenu(HMENU menu) { destroyed++; }
 static void SendMessage(HWND hwnd,UINT msg,UINT wparam,LPARAM lparam)
-{ commands++;sent=msg;if(msg==VIEWPORT_WM_SPLIT_EDGE)sentedge=*(const BgDocumentEdgeRef *)lparam;else if(msg==VIEWPORT_WM_SPLIT_STAN_EDGE)sentstanedge=*(const StanEdgeRef *)lparam;else assert(!lparam); }
+{ commands++;sent=msg;if(msg==VIEWPORT_WM_SPLIT_EDGE)sentedge=*(const BgDocumentEdgeRef *)lparam;else if(msg==VIEWPORT_WM_SPLIT_STAN_EDGE || msg==VIEWPORT_WM_LINK_STAN_EDGE)sentstanedge=*(const StanEdgeRef *)lparam;else assert(!lparam); }
 static int ViewportGetSelectedBgFaceCount(HWND hwnd) { return ((ViewportState *)hwnd)->selectedtricount; }
 static DWORD ViewportGetStanSelectionCount(HWND hwnd,DWORD *single) { return ((ViewportState *)hwnd)->selectedstantiles; }
 static BOOL ViewportSelectBgEdges(HWND hwnd,const BgDocumentEdgeRef *edge,DWORD count)
@@ -159,6 +160,13 @@ int main(void)
     Click(&s,30,30);
     assert(commands==before+1 && sent==VIEWPORT_WM_SPLIT_STAN_EDGE && edgepicks==bg);
     assert(sentstanedge.tile==8 && sentstanedge.point==2 && !strcmp(label,"Split Edge"));
+    assert(menuitems==6 && !strcmp(linklabel,"Link Tiles"));
+    commandchoice=2;Click(&s,30,30);
+    assert(commands==before+2 && sent==VIEWPORT_WM_LINK_STAN_EDGE && edgepicks==bg);
+    assert(sentstanedge.tile==8 && sentstanedge.point==2);
+    commandchoice=0;Click(&s,30,30);assert(commands==before+2 && destroyed==menus);
+    stanedgehit=FALSE;commandchoice=1;Click(&s,200,124);
+    assert(sent==VIEWPORT_WM_SPLIT_EDGE && menuitems==2 && !linklabel[0]);
     puts("PASS: real edge hit testing, culling/occlusion, context labels/targets, preserved face selections, click jitter, camera drag/keys and capture cancellation.");
     return 0;
 }

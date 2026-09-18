@@ -69,6 +69,62 @@ static void UnchangedExceptLinks(const StanFile *before,const StanFile *after,DW
         assert(!memcmp(&tile,&before->tiles[i],sizeof(tile)));
     }
 }
+static void RejectEdge(StanFile *stan,const StanEdgeRef *edge)
+{
+    StanFile before={0};const char *why="";BOOL changed=TRUE;
+    assert(StanFileClone(stan,&before,&why));
+    assert(!StanLinkEdgeTiles(stan,edge,&changed,&why) && !changed && why[0]);
+    Same(stan,&before);StanFileFree(&before);
+}
+static void EdgeLinking(const StanFile *source,const char *dir)
+{
+    StanFile work={0};const char *why="";BOOL changed;
+    const StanEdgeRef edges[2]={{0,2},{1,0}};
+    for(int side=0;side<2;side++) {
+        assert(StanFileClone(source,&work,&why));
+        assert(StanLinkEdgeTiles(&work,&edges[side],&changed,&why) && changed && work.dirty);
+        Walk(&work,TRUE);UnchangedExceptLinks(source,&work,0,2,1,0);Persist(dir,&work);
+        work.dirty=FALSE;
+        assert(StanLinkEdgeTiles(&work,&edges[side],&changed,&why) && !changed && !work.dirty);
+        SetLink(&work,1-side,edges[1-side].point,0);
+        assert(StanLinkEdgeTiles(&work,&edges[side],&changed,&why) && changed);Walk(&work,TRUE);
+        StanFileFree(&work);
+    }
+    assert(StanFileClone(source,&work,&why));
+    RejectEdge(&work,NULL);RejectEdge(&work,&(StanEdgeRef){9,0});RejectEdge(&work,&(StanEdgeRef){0,4});
+    RejectEdge(&work,&(StanEdgeRef){0,0});RejectEdge(&work,&(StanEdgeRef){2,0});StanFileFree(&work);
+    /* Spatial overlap must not guess a neighbor; height and complete endpoints matter. */
+    const short bad[4][2][3]={{{0,5,-20},{0,5,20}},{{1,0,-20},{1,0,20}},
+        {{0,0,-20},{0,0,10}},{{0,0,20},{0,0,-20}}};
+    for(int i=0;i<4;i++) {
+        assert(StanFileClone(source,&work,&why));
+        EditPoint(&work,1,0,bad[i][0]);EditPoint(&work,1,1,bad[i][1]);
+        RejectEdge(&work,&edges[0]);StanFileFree(&work);
+    }
+    assert(StanFileClone(source,&work,&why));
+    EditPoint(&work,2,0,(short[3]){0,0,-20});EditPoint(&work,2,1,(short[3]){0,0,20});
+    RejectEdge(&work,&edges[0]);StanFileFree(&work);
+    for(int side=0;side<2;side++) {
+        assert(StanFileClone(source,&work,&why));
+        SetLink(&work,side,edges[side].point,0x10+(work.tiles[2].sourceoffset-work.tiles[0].sourceoffset)/8);
+        RejectEdge(&work,&edges[0]);StanFileFree(&work);
+    }
+    assert(StanFileClone(source,&work,&why));
+    EditPoint(&work,0,3,(short[3]){0,0,20});RejectEdge(&work,&edges[0]);StanFileFree(&work);
+    for(int tile=0;tile<3;tile++) {
+        assert(StanFileClone(source,&work,&why));work.tiles[tile].sourceoffset=work.size;
+        RejectEdge(&work,&edges[0]);StanFileFree(&work);
+    }
+    assert(StanFileClone(source,&work,&why));work.tiles[1].points[0].link=0x10;
+    RejectEdge(&work,&edges[0]);StanFileFree(&work);
+    /* Picking one edge disambiguates a pair with multiple shared boundaries. */
+    assert(StanFileClone(source,&work,&why));
+    const short opposite[4][3]={{-20,0,-20},{0,0,-20},{0,0,20},{-20,0,20}};
+    for(int p=0;p<4;p++)EditPoint(&work,1,p,opposite[p]);
+    StanFile before={0};assert(StanFileClone(&work,&before,&why));
+    assert(StanLinkEdgeTiles(&work,&edges[0],&changed,&why) && changed);
+    UnchangedExceptLinks(&before,&work,0,2,1,1);StanFileFree(&before);StanFileFree(&work);
+}
 static void Reject(StanFile *stan,DWORD a,DWORD b)
 {
     StanFile before={0};const char *why="";BOOL changed=TRUE;
@@ -90,6 +146,7 @@ static BOOL flying,transforming,failrebuild;
 static unsigned errors,restores,rebuilds;
 static ViewportState *ViewportGetState(HWND hwnd) { return hwnd; }
 #include "selection.inc"
+static BOOL ViewportSelectStanEdge(HWND hwnd,const StanEdgeRef *edge) { abort(); }
 static EditorTool ViewportGetTool(HWND hwnd) { return view.tool; }
 static BOOL ViewportIsFlying(HWND hwnd) { return flying; }
 static BOOL ViewportIsTransforming(HWND hwnd) { return transforming; }
@@ -114,22 +171,22 @@ static void Controller(const StanFile *source,const char *dir)
     for(int failure=0;failure<3;failure++) {
         ULONGLONG revision=g_EditHistory.nextrevision;
         failrebuild=failure==0;if(failure==1)g_EditHistory.nextrevision=0;if(failure==2)failafter=0;
-        assert(!GEditorLinkSelectedStanTiles(NULL));failafter=-1;g_EditHistory.nextrevision=revision;
+        assert(!GEditorLinkStanTiles(NULL,NULL));failafter=-1;g_EditHistory.nextrevision=revision;
         Same(source,&g_CurrentStan);assert(selected[0] && selected[1] && !g_EditHistory.undocount);
     }
     assert(errors==3 && restores==2);
-    flying=TRUE;assert(!GEditorLinkSelectedStanTiles(NULL));flying=FALSE;
-    transforming=TRUE;assert(!GEditorLinkSelectedStanTiles(NULL));transforming=FALSE;
-    view.tool=EDITOR_TOOL_EDGE_SELECT;assert(!GEditorLinkSelectedStanTiles(NULL));view.tool=EDITOR_TOOL_FACE_SELECT;
-    view.showstan=FALSE;assert(!GEditorLinkSelectedStanTiles(NULL));view.showstan=TRUE;
-    selected[1]=0;assert(!GEditorLinkSelectedStanTiles(NULL));selected[1]=1;selected[2]=1;
-    assert(!GEditorLinkSelectedStanTiles(NULL));selected[2]=0;
-    assert(GEditorLinkSelectedStanTiles(NULL));Walk(&g_CurrentStan,TRUE);
+    flying=TRUE;assert(!GEditorLinkStanTiles(NULL,NULL));flying=FALSE;
+    transforming=TRUE;assert(!GEditorLinkStanTiles(NULL,NULL));transforming=FALSE;
+    view.tool=EDITOR_TOOL_EDGE_SELECT;assert(!GEditorLinkStanTiles(NULL,NULL));view.tool=EDITOR_TOOL_FACE_SELECT;
+    view.showstan=FALSE;assert(!GEditorLinkStanTiles(NULL,NULL));view.showstan=TRUE;
+    selected[1]=0;assert(!GEditorLinkStanTiles(NULL,NULL));selected[1]=1;selected[2]=1;
+    assert(!GEditorLinkStanTiles(NULL,NULL));selected[2]=0;
+    assert(GEditorLinkStanTiles(NULL,NULL));Walk(&g_CurrentStan,TRUE);
     assert(selected[0] && selected[1] && g_EditHistory.undocount==1);
     assert(!strcmp(EditHistoryGetUndoAction(&g_EditHistory),"Link Stan Tiles"));
     Persist(dir,&g_CurrentStan);EditHistoryMarkStanSaved(&g_EditHistory,&g_CurrentStan);
     unsigned oldrebuilds=rebuilds;
-    assert(GEditorLinkSelectedStanTiles(NULL) && rebuilds==oldrebuilds && !g_CurrentStan.dirty && g_EditHistory.undocount==1);
+    assert(GEditorLinkStanTiles(NULL,NULL) && rebuilds==oldrebuilds && !g_CurrentStan.dirty && g_EditHistory.undocount==1);
     assert(EditHistoryUndo(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,NULL,&why));Walk(&g_CurrentStan,FALSE);
     GEditorReloadCurrentObjectsAndViewport(&why);GEditorRestoreHistorySelection(NULL);assert(selected[0] && selected[1]);
     assert(EditHistoryRedo(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,NULL,&why));Walk(&g_CurrentStan,TRUE);
@@ -161,7 +218,7 @@ int main(int argc,char **argv)
     for(int p=0;p<4;p++) { EditPoint(&work,1,p,opposite[p]); }Reject(&work,0,1);StanFileFree(&work);
     assert(StanFileClone(&original,&work,&why));SetLink(&work,1,0,0x10+(work.tiles[2].sourceoffset-work.tiles[0].sourceoffset)/8);Reject(&work,0,1);StanFileFree(&work);
     assert(StanFileClone(&original,&work,&why));work.tiles[1].sourceoffset=work.size;Reject(&work,0,1);StanFileFree(&work);
-    Controller(&original,argv[1]);StanFileFree(&original);
+    Controller(&original,argv[1]);EdgeLinking(&original,argv[1]);StanFileFree(&original);
     /* Repair the bottom-riser/floor connection at the actual Depot stairs.
      * Walking must cross both riser triangles as well as the edited link. */
     assert(StanLoadProjectFile(argv[1],"Tbg_depo_all_p_stanZ",.21847887f,&original,&why));
@@ -171,7 +228,7 @@ int main(int argc,char **argv)
     assert(StanFileClone(&original,&work,&why));SetLink(&work,1253,2,0);SetLink(&work,1217,2,0);
     tile=1217;assert(!StanWalkTiles(&work,&tile,-165/scale,183/scale,-165/scale,186/scale));
     tile=1220;assert(!StanWalkTiles(&work,&tile,-165/scale,186/scale,-165/scale,183/scale));
-    assert(StanLinkTiles(&work,1253,1217,&changed,&why) && changed);
+    assert(StanLinkEdgeTiles(&work,&(StanEdgeRef){1253,2},&changed,&why) && changed);
     tile=1217;assert(StanWalkTiles(&work,&tile,-165/scale,183/scale,-165/scale,186/scale) && tile==1220);
     tile=1220;assert(StanWalkTiles(&work,&tile,-165/scale,186/scale,-165/scale,183/scale) && tile==1217);
     original.dirty=TRUE;Same(&original,&work);Persist(argv[1],&work);

@@ -194,6 +194,39 @@ static void Controller(const StanFile *source,const char *dir)
     EditHistoryFree(&g_EditHistory);StanFileFree(&g_CurrentStan);FreeView(&view);
 }
 
+static void EdgeLinkController(const StanFile *source,const char *dir)
+{
+    const StanEdgeRef edge={1,0};StanEdgeRef read;StanFile unlinked={0};
+    Require(StanFileClone(source,&g_CurrentStan,&why),why);
+    SetLink(&g_CurrentStan,0,2,0);SetLink(&g_CurrentStan,1,0,0);
+    Require(StanFileClone(&g_CurrentStan,&unlinked,&why),why);
+    view=(ViewportState){.showstan=TRUE,.stanopacity=44,.tool=EDITOR_TOOL_EDGE_SELECT};
+    assert(ViewportSetStanTiles(&view,&g_CurrentStan));assert(ViewportSelectStanEdge(&view,&edge));
+    assert(view.stancomponents[0].refs[0].tile==1); /* This canonical owner changes when linked. */
+    EditHistoryReset(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan);
+    unsigned olderrors=errors,oldrestores=restores;
+    for(int f=0;f<3;f++) {
+        ULONGLONG revision=g_EditHistory.nextrevision;
+        failrebuild=f==0;if(f==1)g_EditHistory.nextrevision=0;if(f==2)failafter=0;
+        assert(!GEditorLinkStanTiles(NULL,&edge));failafter=-1;g_EditHistory.nextrevision=revision;
+        Same(&unlinked,&g_CurrentStan);assert(!g_EditHistory.undocount);
+    }
+    assert(errors==olderrors+3 && restores==oldrestores+2);
+    flying=TRUE;assert(!GEditorLinkStanTiles(NULL,&edge));flying=FALSE;
+    transforming=TRUE;assert(!GEditorLinkStanTiles(NULL,&edge));transforming=FALSE;
+    view.tool=EDITOR_TOOL_FACE_SELECT;assert(!GEditorLinkStanTiles(NULL,&edge));view.tool=EDITOR_TOOL_EDGE_SELECT;
+    assert(GEditorLinkStanTiles(NULL,&edge) && g_EditHistory.undocount==1);Walk(&g_CurrentStan,TRUE);
+    assert(ViewportGetSelectedStanEdge(&view,&read) && read.tile==0 && read.point==2);
+    assert(view.stancomponents[0].refs[0].tile==0 && view.stancomponents[0].refs[1].tile==0);
+    assert(!strcmp(EditHistoryGetUndoAction(&g_EditHistory),"Link Stan Tiles"));
+    Persist(dir,&g_CurrentStan);EditHistoryMarkStanSaved(&g_EditHistory,&g_CurrentStan);
+    assert(GEditorLinkStanTiles(NULL,&edge) && g_EditHistory.undocount==1 && !g_CurrentStan.dirty);
+    Require(EditHistoryUndo(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,NULL,&why),why);
+    Walk(&g_CurrentStan,FALSE);
+    Require(EditHistoryRedo(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,NULL,&why),why);
+    Walk(&g_CurrentStan,TRUE);assert(!g_CurrentStan.dirty);
+    EditHistoryFree(&g_EditHistory);StanFileFree(&g_CurrentStan);StanFileFree(&unlinked);FreeView(&view);
+}
 int main(int argc,char **argv)
 {
     assert(argc==2);StanFile source=Fixture(argv[1]),s={0};BOOL changed;
@@ -248,7 +281,7 @@ int main(int argc,char **argv)
     /* A triangle on either side rejects the complete shared-point edit. */
     Require(StanFileClone(&source,&s,&why),why);Require(StanMergeVertices(&s,(StanPointRef[]){{1,2},{1,3}},2,NULL,&why),why);
     Reject(&s,shared,2);StanFileFree(&s);
-    Visibility(&source,argv[1]);Controller(&source,argv[1]);StanFileFree(&source);
+    Visibility(&source,argv[1]);Controller(&source,argv[1]);EdgeLinkController(&source,argv[1]);StanFileFree(&source);
     /* Exercise real Depot IDs/links and save/reload after a merge. */
     Require(StanLoadProjectFile(argv[1],"Tbg_depo_all_p_stanZ",.21847887f,&source,&why),why);
     Require(StanFileClone(&source,&s,&why),why);

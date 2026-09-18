@@ -32,7 +32,7 @@ with tempfile.TemporaryDirectory(prefix='geditor-stan-link-') as temp:
     viewport = (src / 'viewport.c').read_text()
     (work / 'selection.inc').write_text(''.join(extract.function(viewport, n) for n in
         ('ViewportStanVisible', 'ViewportGetStanSelectionCount', 'ViewportGetSelectedStanTiles')))
-    (work / 'controller.inc').write_text(extract.function((src / 'geditor.c').read_text(), 'GEditorLinkSelectedStanTiles'))
+    (work / 'controller.inc').write_text(extract.function((src / 'geditor.c').read_text(), 'GEditorLinkStanTiles'))
     export = (src / 'romexport.c').read_text()
     (work / 'export.inc').write_text('#include "actionblocks.h"\n' + ''.join(extract.function(export, n) for n in
         ('RomExportSetError', 'RomExportEndsWith', 'RomExportSimpleResourceName', 'RomExportProjectResourcePath', 'RomExportReadResource')))
