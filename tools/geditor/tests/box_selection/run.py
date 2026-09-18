@@ -35,7 +35,7 @@ def main():
     logic = ""
     for name in ("ViewportGetBasis", "ViewportProject", "ViewportTriangleHidden",
                  "ViewportBatchIsPickable", "ViewportCompareVertexRefs",
-                 "ViewportStanVisible", "ViewportStanPointVertex", "ViewportStanPointRef",
+                 "ViewportCompareStanIds", "ViewportStanTileHidden", "ViewportStanVisible", "ViewportStanPointVertex", "ViewportStanPointRef",
                  "ViewportPortalGeometryIsFirst", "ViewportResolveActivePortal"):
         logic += function(source, name)
     start = source.index("static void ViewportCancelBoxSelection(HWND hwnd, ViewportState *state)\n{")

@@ -33,6 +33,7 @@ typedef struct ViewportState {
     SceneBatch *batches;
     unsigned char *hiddentris;
     StanFile stan;
+    DWORD *stanhiddenids, stanhiddencount;
     DWORD *stanpointmap;
     ViewportComponent *components;
     int componentcount, componentcapacity;
@@ -213,8 +214,8 @@ int main(void)
     /* Stan uses polygon boundaries, including the closing edge, and joins
        shared points by its existing map without selecting fan diagonals. */
     StanTile tiles[2] = {
-        {.pointcount=4, .points={{-20,-20,-100,0},{20,-20,-100,0},{20,20,-100,0},{-20,20,-100,0}}},
-        {.pointcount=3, .points={{20,20,-100,0},{20,-20,-100,0},{30,0,-100,0}}}
+        {.id=1, .editorid=1, .pointcount=4, .points={{-20,-20,-100,0},{20,-20,-100,0},{20,20,-100,0},{-20,20,-100,0}}},
+        {.id=2, .editorid=2, .pointcount=3, .points={{20,20,-100,0},{20,-20,-100,0},{30,0,-100,0}}}
     };
     DWORD pointmap[2 * STAN_TILE_MAX_POINTS];
     for (unsigned int i=0; i<2*STAN_TILE_MAX_POINTS; i++) { pointmap[i] = i; }
@@ -240,6 +241,12 @@ int main(void)
     state.showstan = TRUE; state.stanopacity = 0; ExpectHits(&state, wide, TRUE, 0);
     state.stanopacity = 50; state.tool = EDITOR_TOOL_VERTEX_SELECT;
     ExpectHits(&state, wide, TRUE, 5);
+    DWORD hiddenstan=1;
+    state.stanhiddenids=&hiddenstan;state.stanhiddencount=1;
+    ExpectHits(&state, wide, TRUE, 3); /* Hidden canonical owner, visible shared endpoints. */
+    state.tool=EDITOR_TOOL_EDGE_SELECT;ExpectHits(&state, wide, TRUE, 3);
+    hiddenstan=2;ExpectHits(&state, wide, TRUE, 4);
+    state.stanhiddencount=0;ExpectHits(&state, wide, TRUE, 6);
     free(state.components); free(state.stancomponents);
     puts("PASS: BG/stan edge boxes, identities, visibility/clipping, modifiers, drag/cancel/click, vertex regression.");
     return 0;

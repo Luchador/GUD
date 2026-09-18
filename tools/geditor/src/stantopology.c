@@ -1,0 +1,265 @@
+/* Stan stores private perimeter points, but authored links weld their editing
+ * identities. Topology edits must also maintain variable record offsets and
+ * the links/header pointers used by runtime collision queries. */
+#include <math.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include "stanload.h"
+
+static unsigned short Read16(const unsigned char *p)
+{ return (unsigned short)((unsigned int)p[0] << 8 | p[1]); }
+static DWORD Read32(const unsigned char *p)
+{ return (DWORD)p[0] << 24 | (DWORD)p[1] << 16 | (DWORD)p[2] << 8 | p[3]; }
+static void Write16(unsigned char *p, unsigned short n)
+{ p[0] = n >> 8; p[1] = (unsigned char)n; }
+static void Write32(unsigned char *p, DWORD n)
+{ p[0] = n >> 24; p[1] = n >> 16; p[2] = n >> 8; p[3] = (unsigned char)n; }
+static const unsigned char *Point(const StanFile *s, DWORD t, DWORD p)
+{ return s->data + s->tiles[t].sourceoffset + 8 + p * 8; }
+static DWORD TileAt(const StanFile *s, DWORD offset)
+{
+    DWORD low = 0, high = s->tilecount;
+    while (low < high)
+    {
+        DWORD mid = low + (high - low) / 2;
+        if (s->tiles[mid].sourceoffset < offset) { low = mid + 1; } else { high = mid; }
+    }
+    return low < s->tilecount && s->tiles[low].sourceoffset == offset ? low : STAN_TILE_NONE;
+}
+static BOOL Validate(const StanFile *s, DWORD *end, const char **why)
+{
+    *why = "The stan tile records are inconsistent.";
+    if (!s || !s->data || !s->tiles || !s->tilecount || s->tilecount > 65536
+        || s->size < 20 || !(s->levelscale > 0) || !isfinite(s->levelscale)) { return FALSE; }
+    DWORD first = s->tiles[0].sourceoffset, at = first;
+    if (first < 12 || first > s->size - 8 || (first & 3)
+        || (Read32(s->data + 4) & 0xffffffu) != first) { return FALSE; }
+    for (DWORD t = 0; t < s->tilecount; t++)
+    {
+        const StanTile *tile = &s->tiles[t];
+        DWORD bytes = 8u + tile->pointcount * 8u;
+        if (tile->pointcount < 3 || tile->pointcount > STAN_TILE_MAX_POINTS
+            || tile->sourceoffset != at || at > s->size || bytes > s->size - at
+            || Read32(s->data + at) != (tile->id << 8 | tile->room)
+            || (s->data[at + 6] >> 4) != tile->pointcount) { return FALSE; }
+        for (DWORD p = 0; p < tile->pointcount; p++)
+        {
+            unsigned short link = tile->points[p].link;
+            if (Read16(Point(s, t, p) + 6) != link) { return FALSE; }
+            if (link >= 0x10 && StanLinkedTile(s, link) == STAN_TILE_NONE)
+            { *why = "A stan edge has an invalid tile link."; return FALSE; }
+        }
+        at += bytes;
+    }
+    if (at > s->size - 8 || Read32(s->data + at)) { return FALSE; }
+    for (DWORD p = 4; p < first; p += 4)
+    {
+        DWORD ptr = Read32(s->data + p);
+        if (p == first - 4 ? ptr != 0 : !ptr || TileAt(s, ptr & 0xffffffu) == STAN_TILE_NONE)
+        { *why = "The stan header has an invalid tile pointer."; return FALSE; }
+    }
+    *end = at; return TRUE;
+}
+
+BOOL StanSplitEdge(StanFile *s, const StanEdgeRef *edge, BOOL *changedout, const char **why)
+{
+    DWORD end, *map = NULL, a, b;
+    unsigned short *detach = NULL, *clear = NULL;
+    BOOL ok = FALSE;
+    *changedout = FALSE;
+    if (!Validate(s, &end, why)) { return FALSE; }
+    if (!edge || edge->tile >= s->tilecount || edge->point >= s->tiles[edge->tile].pointcount)
+    { *why = "Select a stan edge to split."; return FALSE; }
+    map = StanBuildPointMap(s, why);
+    if (!map) { return FALSE; }
+    *why = "Out of memory splitting the stan edge.";
+    detach = calloc(s->tilecount, sizeof(*detach)); clear = calloc(s->tilecount, sizeof(*clear));
+    if (!detach || !clear) { goto done; }
+    a = map[edge->tile * STAN_TILE_MAX_POINTS + edge->point];
+    b = map[edge->tile * STAN_TILE_MAX_POINTS + (edge->point + 1) % s->tiles[edge->tile].pointcount];
+    if (a == b || !memcmp(Point(s,edge->tile,edge->point),
+        Point(s,edge->tile,(edge->point+1)%s->tiles[edge->tile].pointcount),6))
+    { *why = "The selected stan edge is collapsed."; goto done; }
+    /* As with BG splitting, detach both endpoints of every incident polygon.
+     * Clearing just the selected edge would leave them welded around a fan. */
+    for (DWORD t = 0; t < s->tilecount; t++)
+    for (DWORD p = 0; p < s->tiles[t].pointcount; p++)
+    {
+        DWORD q = (p + 1) % s->tiles[t].pointcount;
+        DWORD x = map[t * STAN_TILE_MAX_POINTS + p], y = map[t * STAN_TILE_MAX_POINTS + q];
+        if ((x == a && y == b) || (x == b && y == a)) { detach[t] |= (1u << p) | (1u << q); }
+    }
+    for (DWORD t = 0; t < s->tilecount; t++)
+    for (DWORD p = 0; p < s->tiles[t].pointcount; p++)
+    {
+        DWORD target = StanLinkedTile(s, s->tiles[t].points[p].link);
+        DWORD q = (p + 1) % s->tiles[t].pointcount;
+        if (target == STAN_TILE_NONE) { continue; }
+        if (detach[t] & ((1u << p) | (1u << q))) { clear[t] |= 1u << p; }
+        /* Also remove incoming/one-way links that could re-weld a detached
+         * endpoint. Compare native XYZ; never affect an unrelated floor. */
+        for (DWORD v = 0; v < s->tiles[target].pointcount; v++)
+        if ((detach[target] & (1u << v))
+            && (!memcmp(Point(s, t, p), Point(s, target, v), 6)
+                || !memcmp(Point(s, t, q), Point(s, target, v), 6))) { clear[t] |= 1u << p; }
+    }
+    for (DWORD t = 0; t < s->tilecount; t++)
+    for (DWORD p = 0; p < s->tiles[t].pointcount; p++) if (clear[t] & (1u << p))
+    {
+        s->tiles[t].points[p].link = 0;
+        Write16(s->data + s->tiles[t].sourceoffset + 8 + p * 8 + 6, 0);
+        *changedout = TRUE;
+    }
+    if (*changedout) { s->dirty = TRUE; }
+    *why = ""; ok = TRUE;
+done:
+    free(map); free(detach); free(clear); return ok;
+}
+
+typedef struct PendingTile {
+    unsigned char points[STAN_TILE_MAX_POINTS][8];
+    unsigned int count;
+    BOOL changed;
+} PendingTile;
+
+static void Normal(const unsigned char points[][8], unsigned int count, double n[3])
+{
+    n[0] = n[1] = n[2] = 0;
+    for (unsigned int p = 0; p < count; p++)
+    {
+        const unsigned char *a = points[p], *b = points[(p + 1) % count];
+        double x = (short)Read16(a), y = (short)Read16(a + 2), z = (short)Read16(a + 4);
+        double u = (short)Read16(b), v = (short)Read16(b + 2), w = (short)Read16(b + 4);
+        n[0] += (y-v)*(z+w); n[1] += (z-w)*(x+u); n[2] += (x-u)*(y+v);
+    }
+}
+static BOOL ValidShape(const StanFile *s, DWORD t, const PendingTile *tile)
+{
+    unsigned char original[STAN_TILE_MAX_POINTS][8];
+    double before[3], after[3]; int axis = 0;
+    for (unsigned int p = 0; p < s->tiles[t].pointcount; p++) { memcpy(original[p], Point(s,t,p), 8); }
+    Normal(original, s->tiles[t].pointcount, before); Normal(tile->points, tile->count, after);
+    if (before[0]*after[0] + before[1]*after[1] + before[2]*after[2] <= 0) { return FALSE; }
+    for (int k = 1; k < 3; k++) if (fabs(after[k]) > fabs(after[axis])) { axis = k; }
+    /* Runtime point-inside/line walking assumes convex, ordered perimeters.
+     * Check every vertex against every edge in the dominant projection. */
+    int x = (axis + 1) % 3, y = (axis + 2) % 3;
+    for (unsigned int p = 0; p < tile->count; p++)
+    {
+        const unsigned char *a = tile->points[p], *b = tile->points[(p + 1) % tile->count];
+        for (unsigned int q = p + 1; q < tile->count; q++)
+        { if (!memcmp(a, tile->points[q], 6)) { return FALSE; } }
+        double ax = (short)Read16(a+x*2), ay = (short)Read16(a+y*2);
+        double bx = (short)Read16(b+x*2), by = (short)Read16(b+y*2);
+        for (unsigned int q = 0; q < tile->count; q++)
+        {
+            double cx = (short)Read16(tile->points[q]+x*2), cy = (short)Read16(tile->points[q]+y*2);
+            if (((bx-ax)*(cy-ay)-(by-ay)*(cx-ax))*after[axis] < 0) { return FALSE; }
+        }
+    }
+    return TRUE;
+}
+
+BOOL StanMergeVertices(StanFile *s, const StanPointRef *refs, DWORD count,
+    StanPointRef *mergedout, const char **why)
+{
+    DWORD end, *map = NULL, *offsets = NULL, unique = 0, newend;
+    unsigned char *selected = NULL, *data = NULL;
+    PendingTile *pending = NULL;
+    StanTile *tiles = NULL;
+    int64_t sum[3] = {0}; short average[3];
+    BOOL ok = FALSE; StanPointRef merged = {STAN_TILE_NONE, 0};
+    if (!Validate(s, &end, why)) { return FALSE; }
+    if (!refs || count < 2 || count > s->tilecount * STAN_TILE_MAX_POINTS)
+    { *why = "Select at least two stan vertices to merge."; return FALSE; }
+    map = StanBuildPointMap(s, why); if (!map) { return FALSE; }
+    *why = "Out of memory merging stan vertices.";
+    selected = calloc((size_t)s->tilecount * STAN_TILE_MAX_POINTS, 1);
+    pending = calloc(s->tilecount, sizeof(*pending));
+    offsets = malloc((size_t)s->tilecount * sizeof(*offsets));
+    tiles = malloc((size_t)s->tilecount * sizeof(*tiles));
+    if (!selected || !pending || !offsets || !tiles) { goto done; }
+    for (DWORD i = 0; i < count; i++)
+    {
+        if (refs[i].tile >= s->tilecount || refs[i].point >= s->tiles[refs[i].tile].pointcount)
+        { *why = "A selected stan vertex no longer exists."; goto done; }
+        DWORD root = map[refs[i].tile * STAN_TILE_MAX_POINTS + refs[i].point];
+        if (selected[root]) { continue; }
+        selected[root] = 1; unique++;
+        const unsigned char *p = Point(s, root / STAN_TILE_MAX_POINTS, root % STAN_TILE_MAX_POINTS);
+        for (int axis = 0; axis < 3; axis++) { sum[axis] += (short)Read16(p + axis * 2); }
+    }
+    if (unique < 2) { *why = "Select at least two different stan vertices to merge."; goto done; }
+    for (int axis = 0; axis < 3; axis++)
+    { average[axis] = (short)(sum[axis] < 0 ? -((-sum[axis] + unique/2)/unique) : (sum[axis] + unique/2)/unique); }
+    newend = s->tiles[0].sourceoffset;
+    for (DWORD t = 0; t < s->tilecount; t++)
+    {
+        unsigned int n = s->tiles[t].pointcount, hits = 0, runs = 0, last = 0;
+        unsigned char mask[STAN_TILE_MAX_POINTS] = {0};
+        for (unsigned int p = 0; p < n; p++) { mask[p] = selected[map[t*STAN_TILE_MAX_POINTS+p]]; hits += mask[p]; }
+        if (hits && n - hits + 1 < 3)
+        { *why = "The merge would leave a stan tile with fewer than 3 points. Split its edge first if the shared neighboring tile must stay unchanged."; goto done; }
+        for (unsigned int p = 0; p < n; p++) if (mask[p] && !mask[(p+1)%n]) { runs++; last = p; }
+        if (hits && runs != 1)
+        { *why = "Selected vertices in each stan tile must form one consecutive perimeter run."; goto done; }
+        PendingTile *tile = &pending[t];
+        for (unsigned int p = 0; p < n; p++)
+        {
+            if (mask[p] && p != last) { continue; }
+            unsigned char *raw = tile->points[tile->count];
+            memcpy(raw, Point(s,t,p), 8);
+            if (mask[p])
+            {
+                for (int axis = 0; axis < 3; axis++) { Write16(raw + axis*2, (unsigned short)average[axis]); }
+                if (merged.tile == STAN_TILE_NONE) { merged = (StanPointRef){t,tile->count}; }
+            }
+            tile->count++;
+        }
+        tile->changed = hits != 0;
+        if (hits && !ValidShape(s, t, tile))
+        { *why = "The merge would create a collapsed, reversed or concave stan tile."; goto done; }
+        offsets[t] = newend; newend += 8 + tile->count * 8;
+    }
+    data = malloc(newend + s->size - end);
+    if (!data) { *why = "Out of memory rebuilding stan tile records."; goto done; }
+    memcpy(data, s->data, s->tiles[0].sourceoffset);
+    memcpy(data + newend, s->data + end, s->size - end);
+    float scale = 1.0f / s->levelscale;
+    for (DWORD t = 0; t < s->tilecount; t++)
+    {
+        PendingTile *edit = &pending[t]; StanTile *tile = &tiles[t];
+        *tile = s->tiles[t]; tile->sourceoffset = offsets[t]; tile->pointcount = (unsigned char)edit->count;
+        memset(tile->points, 0, sizeof(tile->points));
+        memcpy(data + offsets[t], s->data + s->tiles[t].sourceoffset, 8);
+        for (unsigned int p = 0; p < edit->count; p++)
+        {
+            unsigned char *raw = data + offsets[t] + 8 + p*8;
+            memcpy(raw, edit->points[p], 8);
+            unsigned short link = Read16(raw + 6);
+            if (link >= 0x10)
+            {
+                DWORD target = StanLinkedTile(s, link);
+                DWORD relocated = (offsets[target] - offsets[0])/8 + 0x10;
+                if (relocated > 0xffff) { *why = "A stan edge link exceeds the native range."; goto done; }
+                link = (unsigned short)relocated; Write16(raw+6, link);
+            }
+            tile->points[p] = (StanPoint){(short)Read16(raw)*scale, (short)Read16(raw+2)*scale,
+                (short)Read16(raw+4)*scale, link};
+        }
+    }
+    for (DWORD p = 4; p < offsets[0]-4; p += 4)
+    {
+        DWORD ptr = Read32(s->data+p), target = TileAt(s, ptr & 0xffffffu);
+        Write32(data+p, (ptr & 0xff000000u) | offsets[target]);
+    }
+    StanFile staged = *s; staged.data = data; staged.tiles = tiles;
+    for (DWORD t = 0; t < s->tilecount; t++) if (pending[t].changed) { StanUpdateRepresentativeTriangle(&staged,t); }
+    free(s->data); free(s->tiles); s->data = data; data = NULL; s->tiles = tiles; tiles = NULL;
+    s->size = newend + s->size - end; s->dirty = TRUE;
+    if (mergedout) { *mergedout = merged; }
+    *why = ""; ok = TRUE;
+done:
+    free(map); free(selected); free(pending); free(offsets); free(tiles); free(data); return ok;
+}

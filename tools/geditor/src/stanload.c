@@ -197,6 +197,7 @@ static BOOL StanParseTiles(StanFile *stan, float levelscale,
         unsigned int point;
 
         tile->id = idroom >> 8;
+        tile->editorid = i + 1;
         tile->sourceoffset = offset;
         tile->room = (unsigned char)idroom;
         tile->special = (unsigned char)(mid >> 12);

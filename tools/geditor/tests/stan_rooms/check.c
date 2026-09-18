@@ -41,6 +41,7 @@ static void Equivalent(const StanFile *a, const StanFile *b)
         const StanTile *x = a->tiles + i, *y = b->tiles + ById(b, x->id);
         StanTile expected = *x;
         expected.sourceoffset = y->sourceoffset;
+        expected.editorid = y->editorid; /* A file reload starts a fresh visibility session. */
         assert(!memcmp(a->data + x->sourceoffset, b->data + y->sourceoffset, 8));
         for (DWORD p = 0; p < x->pointcount; p++)
         {

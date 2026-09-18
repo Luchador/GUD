@@ -42,6 +42,7 @@ typedef struct ViewportState {
     unsigned char *hiddentris;
     ViewportTexture *texturecache;
     StanFile stan;
+    DWORD *stanhiddenids, stanhiddencount;
 } ViewportState;
 static ColorPickerState picker;
 static BgDocument g_CurrentBgDocument;

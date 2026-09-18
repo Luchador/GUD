@@ -119,7 +119,7 @@ static void StanEditWrite16(unsigned char *p, unsigned short value)
 /* Runtime height queries and interior samples use this representative
  * triangle. Choose the widest XZ triple after deformation, retaining perimeter
  * order. Vertical tiles use the widest 3D triple when all XZ areas are zero. */
-static void StanUpdateRepresentativeTriangle(StanFile *stan, DWORD index)
+void StanUpdateRepresentativeTriangle(StanFile *stan, DWORD index)
 {
     StanTile *tile = &stan->tiles[index];
     double bestxz = -1, bestarea = -1;

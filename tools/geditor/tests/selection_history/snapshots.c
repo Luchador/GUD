@@ -31,6 +31,7 @@ typedef struct ViewportState {
     ViewportStanComponent *stancomponents;
     SceneBatch *batches;
     StanFile stan;
+    DWORD *stanpointmap, *stanhiddenids, stanhiddencount;
     DWORD selectedobject, selectedportal, padcount;
     SetupPadRef selectedpad;
     SetupMarkerRef selectedmarker;
@@ -84,12 +85,14 @@ int main(void)
     BgDocumentVertexRef refs[6] = {{1,0},{1,1},{1,2}, {2,0},{2,1},{2,2}};
     unsigned char selected[2] = {1,0}, hidden[2] = {0}, stanselected[2] = {0};
     SceneBatch batches[2] = {{.first=0,.count=3}, {.first=3,.count=3,.secondary=TRUE}};
-    StanTile tiles[2] = {{.pointcount=3}, {.pointcount=3}};
+    StanTile tiles[2] = {{.id=1,.editorid=1,.pointcount=3}, {.id=2,.editorid=2,.pointcount=3}};
+    DWORD pointmap[2*STAN_TILE_MAX_POINTS];
+    for (DWORD i=0;i<2*STAN_TILE_MAX_POINTS;i++) { pointmap[i]=i; }
     ViewportPad pads[2] = {{.ref={3,FALSE}}, {.ref={3,TRUE}}};
     BgPortal portals[2] = {{.pointcount=4}, {.pointcount=4}};
     ViewportState state = {.tool=EDITOR_TOOL_FACE_SELECT, .scenecount=6, .scenefacerefs=faces,
         .selectedtris=selected, .hiddentris=hidden, .selectedtricount=1, .scenevertexrefs=refs,
-        .batches=batches, .batchcount=2, .stan={.tiles=tiles,.tilecount=2}, .stanselected=stanselected,
+        .batches=batches, .batchcount=2, .stan={.tiles=tiles,.tilecount=2}, .stanselected=stanselected,.stanpointmap=pointmap,
         .showbgprimary=TRUE, .showbgsecondary=TRUE, .showstan=TRUE, .stanopacity=44,
         .showobjects=TRUE, .showportals=TRUE, .selectedobject=VIEWPORT_OBJECT_NONE,
         .selectedportal=BG_PORTAL_INDEX_NONE, .selectedpad={SETUP_PAD_INDEX_NONE,FALSE},
@@ -147,23 +150,30 @@ int main(void)
     state.tool = EDITOR_TOOL_EDGE_SELECT;
     state.stancomponents = calloc(2, sizeof(*state.stancomponents));
     state.stancomponentcount = state.stancomponentcapacity = 2;
-    state.stancomponents[0] = (ViewportStanComponent){.refs={{0,1},{1,2}}};
-    state.stancomponents[1] = (ViewportStanComponent){.refs={{0,0},{1,0}}};
+    state.stancomponents[0] = (ViewportStanComponent){.refs={{0,1},{0,2}}};
+    state.stancomponents[1] = (ViewportStanComponent){.refs={{1,0},{1,1}}};
     snapshot = Capture(&state, &size);
     ViewportClearAllSelection(&state);
     assert(ViewportRestoreSelection(&state, snapshot, size));
     assert(state.stancomponentcount == 2 && state.stancomponents[0].refs[1].point == 2);
-    tiles[1].pointcount = 1;
+    tiles[0].pointcount = 1;
     assert(ViewportRestoreSelection(&state, snapshot, size));
     assert(state.stancomponentcount == 1 && state.stancomponents[0].refs[0].point == 0);
-    tiles[1].pointcount = 3;
+    tiles[0].pointcount = 3;
+    DWORD hiddenstan=1;state.stanhiddenids=&hiddenstan;state.stanhiddencount=1;
+    assert(ViewportRestoreSelection(&state,snapshot,size));
+    assert(state.stancomponentcount==1 && state.stancomponents[0].refs[0].tile==1);
+    state.stanhiddencount=0;
     free(snapshot);
     ViewportClearAllSelection(&state);
     state.tool = EDITOR_TOOL_FACE_SELECT; stanselected[1] = TRUE;
     snapshot = Capture(&state, &size);
     stanselected[0] = TRUE; stanselected[1] = FALSE;
     assert(ViewportRestoreSelection(&state, snapshot, size));
-    assert(!stanselected[0] && stanselected[1]); free(snapshot);
+    assert(!stanselected[0] && stanselected[1]);
+    hiddenstan=2;state.stanhiddencount=1;
+    assert(ViewportRestoreSelection(&state,snapshot,size) && !stanselected[1]);
+    state.stanhiddencount=0;free(snapshot);
 
     /* Setup models (including character IDs), bound/ordinary pads, camera,
      * spawn/spline markers and portal identities survive selection changes. */

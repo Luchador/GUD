@@ -337,6 +337,8 @@ typedef struct ViewportState {
     StanFile stan; /* owned preview; edits are committed to the frame's document */
     DWORD *stanpointmap;
     unsigned char *stanselected;
+    DWORD *stanhiddenids; /* level-local tile identities; never serialized */
+    DWORD stanhiddencount;
     ViewportStanComponent *stancomponents;
     int stancomponentcount, stancomponentcapacity;
     int stanopacity; /* percent, independent of the tile's stored RGB */
@@ -3996,6 +3998,18 @@ static BOOL ViewportStanVisible(const ViewportState *state)
     return state->showstan && state->stanopacity > 0 && state->stan.tiles != NULL;
 }
 
+static int ViewportCompareStanIds(const void *a, const void *b)
+{
+    DWORD x = *(const DWORD *)a, y = *(const DWORD *)b;
+    return x < y ? -1 : x > y;
+}
+
+static BOOL ViewportStanTileHidden(const ViewportState *state, DWORD tile)
+{
+    return state->stanhiddencount && bsearch(&state->stan.tiles[tile].editorid,
+        state->stanhiddenids, state->stanhiddencount, sizeof(DWORD), ViewportCompareStanIds) != NULL;
+}
+
 static Vertex ViewportStanPointVertex(const StanPoint *point)
 {
     Vertex vertex = {0};
@@ -4101,6 +4115,105 @@ StanPointRef *ViewportGetMoveStanPoints(HWND hwnd, DWORD *countout)
     return refs;
 }
 
+/* Resolve canonical endpoints back to a visible native perimeter. A root
+ * may live on a hidden neighboring tile, while its shared endpoint is visible. */
+static BOOL ViewportFindStanComponent(const ViewportState *state, const StanPointRef *refs,
+    int ends, StanEdgeRef *out)
+{
+    if (!ViewportStanVisible(state) || !state->stanpointmap) { return FALSE; }
+    for (DWORD t = 0; t < state->stan.tilecount; t++)
+    {
+        if (ViewportStanTileHidden(state,t)) { continue; }
+        for (DWORD p = 0; p < state->stan.tiles[t].pointcount; p++)
+        {
+            StanPointRef a = ViewportStanPointRef(state,t,p);
+            StanPointRef b = ViewportStanPointRef(state,t,(p+1)%state->stan.tiles[t].pointcount);
+            if (ends == 1 ? !ViewportCompareStanRefs(&a,refs)
+                : (!ViewportCompareStanRefs(&a,&refs[0]) && !ViewportCompareStanRefs(&b,&refs[1]))
+                    || (!ViewportCompareStanRefs(&a,&refs[1]) && !ViewportCompareStanRefs(&b,&refs[0])))
+            { if (out) { *out = (StanEdgeRef){t,p}; } return TRUE; }
+        }
+    }
+    return FALSE;
+}
+
+BOOL ViewportGetSelectedStanEdge(HWND hwnd, StanEdgeRef *out)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    return state && out && state->tool == EDITOR_TOOL_EDGE_SELECT
+        && state->stancomponentcount == 1 && !state->componentcount
+        && ViewportFindStanComponent(state,state->stancomponents[0].refs,2,out);
+}
+
+static BOOL ViewportSelectStanComponent(HWND hwnd, DWORD tile, DWORD point, int ends)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    if (!state || !ViewportStanVisible(state) || tile >= state->stan.tilecount
+        || point >= state->stan.tiles[tile].pointcount) { return FALSE; }
+    ViewportStanComponent component;
+    component.refs[0] = ViewportStanPointRef(state,tile,point);
+    component.refs[1] = ends == 1 ? component.refs[0]
+        : ViewportStanPointRef(state,tile,(point+1)%state->stan.tiles[tile].pointcount);
+    if (!ViewportFindStanComponent(state,component.refs,ends,NULL)) { return FALSE; }
+    if (ViewportCompareStanRefs(&component.refs[0],&component.refs[1]) > 0)
+    { StanPointRef tmp=component.refs[0]; component.refs[0]=component.refs[1]; component.refs[1]=tmp; }
+    if (!state->stancomponentcapacity)
+    {
+        ViewportStanComponent *allocated = malloc(sizeof(*allocated));
+        if (!allocated) { return FALSE; }
+        free(state->stancomponents); state->stancomponents=allocated; state->stancomponentcapacity=1;
+    }
+    ViewportClearAllSelection(state);
+    state->stancomponents[0]=component; state->stancomponentcount=1;
+    ViewportUpdateGizmo(state); InvalidateRect(hwnd,NULL,FALSE);
+    SendMessage(GetParent(hwnd),VIEWPORT_WM_SELECTION_CHANGED,0,0);
+    return TRUE;
+}
+
+BOOL ViewportSelectStanEdge(HWND hwnd, const StanEdgeRef *edge)
+{ return edge && ViewportSelectStanComponent(hwnd,edge->tile,edge->point,2); }
+BOOL ViewportSelectStanVertex(HWND hwnd, const StanPointRef *point)
+{ return point && ViewportSelectStanComponent(hwnd,point->tile,point->point,1); }
+
+BOOL ViewportHideSelectedStanTiles(HWND hwnd)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    if (!state || state->tool != EDITOR_TOOL_FACE_SELECT) { return TRUE; }
+    ViewportCancelTransform(hwnd);
+    DWORD count = ViewportGetStanSelectionCount(hwnd,NULL), total, unique = 0;
+    if (!count) { return TRUE; }
+    if (count > UINT32_MAX-state->stanhiddencount) { return FALSE; }
+    total = count+state->stanhiddencount;
+    DWORD *ids = malloc((size_t)total*sizeof(*ids));
+    if (!ids) { return FALSE; }
+    if (state->stanhiddencount) { memcpy(ids,state->stanhiddenids,state->stanhiddencount*sizeof(*ids)); }
+    count=state->stanhiddencount;
+    for (DWORD t=0;t<state->stan.tilecount;t++) if (state->stanselected[t]) { ids[count++]=state->stan.tiles[t].editorid; }
+    qsort(ids,total,sizeof(*ids),ViewportCompareStanIds);
+    for (DWORD i=0;i<total;i++) if (!unique || ids[i]!=ids[unique-1]) { ids[unique++]=ids[i]; }
+    free(state->stanhiddenids); state->stanhiddenids=ids; state->stanhiddencount=unique;
+    ViewportClearAllSelection(state);
+    ViewportRefreshStanOverlay(state); ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd,NULL,FALSE); SendMessage(GetParent(hwnd),VIEWPORT_WM_SELECTION_CHANGED,0,0);
+    return TRUE;
+}
+
+void ViewportUnhideAllStanTiles(HWND hwnd)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    if (!state) { return; }
+    ViewportCancelTransform(hwnd);
+    free(state->stanhiddenids); state->stanhiddenids=NULL; state->stanhiddencount=0;
+    ViewportRefreshStanOverlay(state); ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd,NULL,FALSE); SendMessage(GetParent(hwnd),VIEWPORT_WM_SELECTION_CHANGED,0,0);
+}
+
+BOOL ViewportHasHiddenStanTiles(HWND hwnd)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    return state && state->stanhiddencount;
+}
+
 static double ViewportStanTileCenter(const StanTile *tile, double center[3])
 {
     double total = 0;
@@ -4189,6 +4302,7 @@ static DWORD ViewportFindPickedStan(const ViewportState *state, const ViewportPi
     if (!ViewportStanVisible(state)) { return nearest; }
     for (tile = 0; tile < state->stan.tilecount; tile++)
     {
+        if (ViewportStanTileHidden(state,tile)) { continue; }
         const StanTile *polygon = &state->stan.tiles[tile];
         unsigned int point;
         Vertex triangle[3];
@@ -4541,6 +4655,7 @@ static BOOL ViewportTryPickStan(HWND hwnd, ViewportState *state, int x, int y, B
     {
         for (tile = 0; tile < state->stan.tilecount; tile++)
         {
+            if (ViewportStanTileHidden(state,tile)) { continue; }
             const StanTile *polygon = &state->stan.tiles[tile];
             unsigned int point;
             for (point = 0; point < polygon->pointcount; point++)
@@ -4927,6 +5042,7 @@ static BOOL ViewportCollectBoxComponents(const ViewportState *state, const RECT 
         DWORD tile;
         for (tile = 0; tile < state->stan.tilecount; tile++)
         {
+            if (ViewportStanTileHidden(state,tile)) { continue; }
             const StanTile *polygon = &state->stan.tiles[tile];
             unsigned int point;
             for (point = 0; point < polygon->pointcount; point++)
@@ -5590,6 +5706,7 @@ static void ViewportDrawTransformTools(const ViewportState *state)
             glBegin(GL_POINTS);
             for (tile=0; tile<state->stan.tilecount; tile++)
             {
+                if (ViewportStanTileHidden(state,tile)) { continue; }
                 unsigned int point;
                 for (point=0; point<state->stan.tiles[tile].pointcount; point++)
                 {
@@ -6446,6 +6563,7 @@ static BOOL ViewportFindContextEdge(const ViewportState *state, int x, int y, Bg
 static void ViewportShowGeometryContextMenu(HWND hwnd, ViewportState *state, int x, int y)
 {
     BgDocumentEdgeRef edge;
+    StanEdgeRef stanedge;
     POINT screen = {x,y};
     UINT message, command;
     HMENU menu;
@@ -6454,9 +6572,18 @@ static void ViewportShowGeometryContextMenu(HWND hwnd, ViewportState *state, int
     { return; }
     if (state->tool == EDITOR_TOOL_EDGE_SELECT)
     {
-        if (!ViewportFindContextEdge(state, x, y, &edge)) { return; }
-        if (!ViewportSelectBgEdges(hwnd, &edge, 1)) { return; }
-        message=VIEWPORT_WM_SPLIT_EDGE; label="Split Edge";
+        if (ViewportTryPickStan(hwnd,state,x,y,FALSE,FALSE))
+        {
+            if (!ViewportGetSelectedStanEdge(hwnd,&stanedge)) { return; }
+            message=VIEWPORT_WM_SPLIT_STAN_EDGE;
+        }
+        else
+        {
+            if (!ViewportFindContextEdge(state, x, y, &edge)) { return; }
+            if (!ViewportSelectBgEdges(hwnd, &edge, 1)) { return; }
+            message=VIEWPORT_WM_SPLIT_EDGE;
+        }
+        label="Split Edge";
     }
     else if (state->tool == EDITOR_TOOL_FACE_SELECT && ViewportGetStanSelectionCount(hwnd, NULL))
     {
@@ -6489,7 +6616,8 @@ static void ViewportShowGeometryContextMenu(HWND hwnd, ViewportState *state, int
             screen.x, screen.y, 0, hwnd, NULL);
         DestroyMenu(menu);
         if (command == 1)
-        { SendMessage(GetParent(hwnd), message, 0, message == VIEWPORT_WM_SPLIT_EDGE ? (LPARAM)&edge : 0); }
+        { SendMessage(GetParent(hwnd), message, 0, message == VIEWPORT_WM_SPLIT_EDGE ? (LPARAM)&edge
+            : message == VIEWPORT_WM_SPLIT_STAN_EDGE ? (LPARAM)&stanedge : 0); }
     }
     else { DestroyMenu(menu); }
 }
@@ -7321,6 +7449,7 @@ static void ViewportRefreshStanOverlay(ViewportState *state)
     }
     for (tile=0; tile<state->stan.tilecount; tile++)
     {
+        if (ViewportStanTileHidden(state,tile)) { continue; }
         StanTile color=state->stan.tiles[tile];
         unsigned int point;
 
@@ -7350,6 +7479,7 @@ static void ViewportRefreshStanOverlay(ViewportState *state)
         }
     }
     free(linked);
+    state->stanfillcount=(GLsizei)fillat; state->stanedgecount=(GLsizei)edgeat;
 }
 
 BOOL ViewportSetStanTiles(HWND hwnd, const StanFile *stan)
@@ -7384,6 +7514,15 @@ BOOL ViewportSetStanTiles(HWND hwnd, const StanFile *stan)
         keep=state->stan.tilecount==copy.tilecount && strcmp(state->stan.name,copy.name)==0;
         if (keep) { memcpy(selected,state->stanselected,copy.tilecount); }
     }
+    /* Keep missing IDs across delete/undo, but never carry visibility to a
+     * different level/project. H is view state, independent of document history. */
+    if (!copy.tiles || strcmp(state->stan.name,copy.name))
+    { free(state->stanhiddenids); state->stanhiddenids=NULL; state->stanhiddencount=0; }
+    if (selected) for (DWORD t=0;t<copy.tilecount;t++)
+    {
+        if (state->stanhiddencount && bsearch(&copy.tiles[t].editorid,state->stanhiddenids,
+            state->stanhiddencount,sizeof(DWORD),ViewportCompareStanIds)) { selected[t]=0; }
+    }
     StanFileFree(&state->stan); free(state->stanpointmap); free(state->stanselected);
     free(state->stanfill); free(state->stanedges);
     state->stan=copy; state->stanpointmap=map; state->stanselected=selected;
@@ -7403,7 +7542,7 @@ BOOL ViewportSetStanTiles(HWND hwnd, const StanFile *stan)
                 if (ref->tile>=copy.tilecount || ref->point>=copy.tiles[ref->tile].pointcount) { break; }
                 *ref=ViewportStanPointRef(state,ref->tile,ref->point);
             }
-            if (end<ends) { continue; }
+            if (end<ends || !ViewportFindStanComponent(state,component.refs,ends,NULL)) { continue; }
             if (ends==2 && ViewportCompareStanRefs(&component.refs[0],&component.refs[1])>0)
             {
                 StanPointRef swap=component.refs[0]; component.refs[0]=component.refs[1]; component.refs[1]=swap;
@@ -9147,12 +9286,14 @@ BOOL ViewportRestoreSelection(HWND hwnd, const void *data, size_t size)
         const StanPointRef *refs = newstancomponents[i].refs;
         if (refs[0].tile < state->stan.tilecount && refs[1].tile < state->stan.tilecount
             && refs[0].point < state->stan.tiles[refs[0].tile].pointcount
-            && refs[1].point < state->stan.tiles[refs[1].tile].pointcount)
+            && refs[1].point < state->stan.tiles[refs[1].tile].pointcount
+            && ViewportFindStanComponent(state,refs,s->tool==EDITOR_TOOL_EDGE_SELECT ? 2 : 1,NULL))
         { newstancomponents[kept++] = newstancomponents[i]; }
     }
     state->stancomponentcount = kept;
     for (i = 0; ViewportStanVisible(state) && state->stanselected && i < s->stantiles; i++)
-    { if (tiles[i] < state->stan.tilecount) { state->stanselected[tiles[i]] = TRUE; } }
+    { if (tiles[i] < state->stan.tilecount && !ViewportStanTileHidden(state,tiles[i]))
+      { state->stanselected[tiles[i]] = TRUE; } }
     if (state->showobjects && s->object != VIEWPORT_OBJECT_NONE) { ViewportSelectObject(state, s->object); }
     state->selectedpad = s->pad;
     if (ViewportSelectedPadIndex(state) < 0) { state->selectedpad.index = SETUP_PAD_INDEX_NONE; }

@@ -57,7 +57,7 @@ def main():
         'ViewportRayTriangleDistance', 'ViewportRayBatchTriangleGeometry', 'ViewportRayBatchTriangleDistance',
         'ViewportRaySelectableTriangleDistance', 'ViewportFindSceneTriangle', 'ViewportFindVisibleSceneTriangle',
         'ViewportFindNearestBgTriangle', 'ViewportFindPaintTarget', 'ViewportPaintAt',
-        'ViewportStanVisible', 'ViewportStanPointVertex', 'ViewportFindPickedStan',
+        'ViewportCompareStanIds', 'ViewportStanTileHidden', 'ViewportStanVisible', 'ViewportStanPointVertex', 'ViewportFindPickedStan',
         'ViewportSceneHitDistance', 'ViewportSampleColorAt'))
     wnd = function(viewport, 'ViewportWndProc')
     # Compile actual dispatch cases, retaining their early returns and fallthrough.

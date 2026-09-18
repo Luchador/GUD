@@ -24,6 +24,7 @@ typedef struct StanPoint {
    the file's four-bit channels to ordinary eight-bit editor colors. */
 typedef struct StanTile {
     DWORD id;
+    DWORD editorid; /* stable during this level session, never serialized; native IDs can repeat */
     DWORD sourceoffset; /* byte offset for resolving authored edge links */
     unsigned char room;
     unsigned char special;
@@ -65,6 +66,18 @@ BOOL StanFileClone(const StanFile *source, StanFile *out, const char **reasonout
 /* A point identity is local to its tile. The point map joins coincident
    endpoints only through authored tile links, never unrelated stacked floors. */
 typedef struct StanPointRef { DWORD tile, point; } StanPointRef;
+/* Directed perimeter edge: point -> (point + 1) % pointcount. */
+typedef struct StanEdgeRef { DWORD tile, point; } StanEdgeRef;
+/* Like BG Split Edge, detach the incident tiles' endpoints, without adding
+ * points. Remove links that would still join those endpoints in either direction. */
+BOOL StanSplitEdge(StanFile *stan, const StanEdgeRef *edge,
+    BOOL *changedout, const char **reasonout);
+/* Merge canonical selected points at their average native position. Collapse
+ * each affected perimeter run atomically; every tile must retain >= 3 points. */
+BOOL StanMergeVertices(StanFile *stan, const StanPointRef *points, DWORD count,
+    StanPointRef *mergedout, const char **reasonout);
+/* Recompute the native height-query triangle after topology/position edits. */
+void StanUpdateRepresentativeTriangle(StanFile *stan, DWORD index);
 DWORD StanLinkedTile(const StanFile *stan, unsigned short link);
 DWORD *StanBuildPointMap(const StanFile *stan, const char **reasonout);
 BOOL StanTranslatePoints(StanFile *stan, const StanPointRef *points, DWORD count,

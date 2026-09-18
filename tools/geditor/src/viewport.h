@@ -43,6 +43,8 @@ void ViewportSetRenderMode(HWND viewport, ViewportRenderMode mode);
 #define VIEWPORT_WM_DISCONNECT_FACES (WM_APP + 52)
 /* Link the two currently selected stan faces without replacing the selection. */
 #define VIEWPORT_WM_LINK_STAN_TILES (WM_APP + 71)
+/* lparam is a synchronous, stack-owned StanEdgeRef. */
+#define VIEWPORT_WM_SPLIT_STAN_EDGE (WM_APP + 75)
 /* Sent only while the viewport owns keyboard focus, so Delete in future
    property editors cannot accidentally remove scene geometry. */
 #define VIEWPORT_WM_DELETE_SELECTION  (WM_APP + 4)
@@ -245,6 +247,13 @@ void ViewportSetStanOpacity(HWND hwnd, int percent);
 DWORD ViewportGetStanSelectionCount(HWND hwnd, DWORD *singletile);
 /* Reads exactly count visible, selected stan tiles in Face mode. */
 BOOL ViewportGetSelectedStanTiles(HWND hwnd, DWORD *out, DWORD count);
+BOOL ViewportGetSelectedStanEdge(HWND hwnd, StanEdgeRef *out);
+BOOL ViewportSelectStanEdge(HWND hwnd, const StanEdgeRef *edge);
+BOOL ViewportSelectStanVertex(HWND hwnd, const StanPointRef *point);
+/* Temporary level-local visibility. Hidden tiles remain in saved/exported Stan. */
+BOOL ViewportHideSelectedStanTiles(HWND hwnd);
+void ViewportUnhideAllStanTiles(HWND hwnd);
+BOOL ViewportHasHiddenStanTiles(HWND hwnd);
 StanPointRef *ViewportGetMoveStanPoints(HWND hwnd, DWORD *countout);
 
 /* Replaces the BG portal overlay. Shared portal polygons are rendered

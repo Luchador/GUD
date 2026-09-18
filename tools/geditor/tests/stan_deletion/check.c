@@ -48,7 +48,13 @@ static StanFile Fixture(const char *dir)
 static void Same(const StanFile *a,const StanFile *b)
 {
     assert(a->size==b->size && a->tilecount==b->tilecount && a->dirty==b->dirty && a->levelscale==b->levelscale);
-    assert(!memcmp(a->data,b->data,a->size)); assert(!memcmp(a->tiles,b->tiles,a->tilecount*sizeof(*a->tiles)));
+    assert(!memcmp(a->data,b->data,a->size));
+    /* Loading a saved file starts a new visibility session. Native content
+     * must round-trip exactly; temporary editor identities need not. */
+    for(DWORD t=0;t<a->tilecount;t++) {
+        StanTile tile=b->tiles[t];tile.editorid=a->tiles[t].editorid;
+        assert(!memcmp(&a->tiles[t],&tile,sizeof(tile)));
+    }
 }
 static void CheckLinks(const StanFile *before,const StanFile *after,const DWORD *selected,DWORD count)
 {

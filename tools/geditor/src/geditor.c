@@ -3102,6 +3102,58 @@ fail:
     return FALSE;
 }
 
+static BOOL GEditorCanMergeSelectedStanVertices(void)
+{
+    return g_Viewport && g_CurrentStan.tiles
+        && ViewportGetTool(g_Viewport) == EDITOR_TOOL_VERTEX_SELECT
+        && ViewportGetStanSelectionCount(g_Viewport,NULL) >= 2
+        && !ViewportGetSelectedComponentCount(g_Viewport)
+        && !ViewportGetVertexSnap(g_Viewport)
+        && !ViewportIsFlying(g_Viewport) && !ViewportIsTransforming(g_Viewport);
+}
+
+static BOOL GEditorEditStanTopology(HWND hwnd, const StanEdgeRef *edge)
+{
+    EditHistoryTransaction transaction = {0};
+    StanPointRef *points = NULL, merged;
+    DWORD count = 0;
+    BOOL changed = TRUE;
+    const char *why = "", *restorewhy = "";
+    if (ViewportIsFlying(g_Viewport) || ViewportIsTransforming(g_Viewport)) { return FALSE; }
+    if (edge)
+    {
+        if (ViewportGetTool(g_Viewport) != EDITOR_TOOL_EDGE_SELECT) { return FALSE; }
+    }
+    else
+    {
+        if (!GEditorCanMergeSelectedStanVertices()) { return FALSE; }
+        points=ViewportGetMoveStanPoints(g_Viewport,&count);
+        if (!points) { why="Could not read the selected stan vertices."; goto fail; }
+    }
+    if (!EditHistoryBeginStanEdit(&g_EditHistory,&g_CurrentStan,
+        edge ? "Split Stan Edge" : "Merge Stan Vertices",&transaction,&why)) { goto fail; }
+    if (edge ? !StanSplitEdge(&g_CurrentStan,edge,&changed,&why)
+        : !StanMergeVertices(&g_CurrentStan,points,count,&merged,&why)) { goto fail; }
+    free(points); points=NULL;
+    if (!changed) { EditHistoryCancelEdit(&transaction); return TRUE; }
+    if (!GEditorReloadCurrentObjectsAndViewport(&why)) { goto rollback; }
+    if (edge ? !ViewportSelectStanEdge(g_Viewport,edge) : !ViewportSelectStanVertex(g_Viewport,&merged))
+    { why="Could not restore the edited stan selection."; goto rollback; }
+    if (!EditHistoryCommitEdit(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,
+        &g_CurrentStan,&transaction,&why)) { goto rollback; }
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan);
+    GEditorReloadCurrentObjectsAndViewport(&restorewhy);
+    GEditorRestoreHistorySelection(hwnd);
+fail:
+    free(points); EditHistoryCancelEdit(&transaction);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd,why,GEDITOR_TITLE,MB_ICONERROR);
+    return FALSE;
+}
+
 static BOOL GEditorCanMergeSelectedBgVertices(void)
 {
     return g_Viewport && g_CurrentBgDocument.rooms
@@ -3172,6 +3224,7 @@ static void GEditorShowGeometryMenu(HWND hwnd, ToolToolbarMenu kind, HWND button
         && !ViewportIsTransforming(g_Viewport);
     BOOL face = GEditorCanFlipSelectedBgFaces();
     BgDocumentEdgeRef edges[2];
+    StanEdgeRef stanedge;
     const char *why;
     if (kind < 0 || kind >= TOOLTOOLBAR_MENU_COUNT || !button) { return; }
     menu = CreatePopupMenu();
@@ -3179,7 +3232,7 @@ static void GEditorShowGeometryMenu(HWND hwnd, ToolToolbarMenu kind, HWND button
     switch (kind)
     {
     case TOOLTOOLBAR_MENU_VERTEX:
-        AppendMenu(menu, MF_STRING | (GEditorCanMergeSelectedBgVertices() ? MF_ENABLED : MF_GRAYED),
+        AppendMenu(menu, MF_STRING | ((GEditorCanMergeSelectedBgVertices() || GEditorCanMergeSelectedStanVertices()) ? MF_ENABLED : MF_GRAYED),
             ID_GEOMETRY_MERGE_VERTICES, "&Merge Vertices\tM");
         AppendMenu(menu, MF_SEPARATOR, 0, NULL);
         AppendMenu(menu, MF_STRING | (idle && tool == EDITOR_TOOL_VERTEX_SELECT ? MF_ENABLED : MF_GRAYED)
@@ -3190,8 +3243,8 @@ static void GEditorShowGeometryMenu(HWND hwnd, ToolToolbarMenu kind, HWND button
             ID_GEOMETRY_PAINT_VERTEX, "&Paint Vertices\t4");
         break;
     case TOOLTOOLBAR_MENU_EDGE:
-        AppendMenu(menu, MF_STRING | (idle && ViewportGetSelectedBgEdges(g_Viewport, edges, 1)
-            ? MF_ENABLED : MF_GRAYED), ID_GEOMETRY_SPLIT_EDGE, "&Split Edge");
+        AppendMenu(menu, MF_STRING | (idle && (ViewportGetSelectedBgEdges(g_Viewport, edges, 1)
+            || ViewportGetSelectedStanEdge(g_Viewport,&stanedge)) ? MF_ENABLED : MF_GRAYED), ID_GEOMETRY_SPLIT_EDGE, "&Split Edge");
         AppendMenu(menu, MF_STRING | (idle && ViewportGetSelectedBgEdges(g_Viewport, edges, 2)
             && BgDocumentCanBridgeEdges(&g_CurrentBgDocument, edges, &why) ? MF_ENABLED : MF_GRAYED),
             ID_GEOMETRY_BRIDGE_EDGES, "&Bridge Edges\tB");
@@ -3203,8 +3256,9 @@ static void GEditorShowGeometryMenu(HWND hwnd, ToolToolbarMenu kind, HWND button
         AppendMenu(menu, MF_SEPARATOR, 0, NULL);
         AppendMenu(menu, MF_STRING | (face ? MF_ENABLED : MF_GRAYED), ID_TOOLS_UV_EDITOR, "Edit &UVs...");
         AppendMenu(menu, MF_SEPARATOR, 0, NULL);
-        AppendMenu(menu, MF_STRING | (face ? MF_ENABLED : MF_GRAYED), ID_VIEW_HIDE_SELECTED, "&Hide Selected\tH");
-        AppendMenu(menu, MF_STRING | (idle && ViewportHasHiddenBgFaces(g_Viewport) ? MF_ENABLED : MF_GRAYED),
+        AppendMenu(menu, MF_STRING | ((face || (idle && tool==EDITOR_TOOL_FACE_SELECT && ViewportGetStanSelectionCount(g_Viewport,NULL)))
+            ? MF_ENABLED : MF_GRAYED), ID_VIEW_HIDE_SELECTED, "&Hide Selected\tH");
+        AppendMenu(menu, MF_STRING | (idle && (ViewportHasHiddenBgFaces(g_Viewport) || ViewportHasHiddenStanTiles(g_Viewport)) ? MF_ENABLED : MF_GRAYED),
             ID_VIEW_UNHIDE_ALL, "&Unhide All\tAlt+H");
         break;
     default: break;
@@ -4481,6 +4535,9 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     case VIEWPORT_WM_SPLIT_EDGE:
         return lparam && GEditorSeparateBgVertices(hwnd, (const BgDocumentEdgeRef *)lparam);
 
+    case VIEWPORT_WM_SPLIT_STAN_EDGE:
+        return lparam && GEditorEditStanTopology(hwnd,(const StanEdgeRef *)lparam);
+
     case VIEWPORT_WM_DISCONNECT_FACES:
         return GEditorSeparateBgVertices(hwnd, NULL);
 
@@ -4940,10 +4997,11 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         CheckMenuRadioItem((HMENU)wparam, ID_VIEW_RENDER_NORMAL, ID_VIEW_RENDER_UNTEXTURED,
             ID_VIEW_RENDER_NORMAL + ViewportGetRenderMode(g_Viewport), MF_BYCOMMAND);
         EnableMenuItem((HMENU)wparam, ID_VIEW_HIDE_SELECTED, MF_BYCOMMAND |
-            (ViewportGetTool(g_Viewport) == EDITOR_TOOL_FACE_SELECT && ViewportGetSelectedBgFaceCount(g_Viewport) > 0
+            (ViewportGetTool(g_Viewport) == EDITOR_TOOL_FACE_SELECT
+                && (ViewportGetSelectedBgFaceCount(g_Viewport) > 0 || ViewportGetStanSelectionCount(g_Viewport,NULL))
                 ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_VIEW_UNHIDE_ALL, MF_BYCOMMAND |
-            (ViewportHasHiddenBgFaces(g_Viewport) ? MF_ENABLED : MF_GRAYED));
+            ((ViewportHasHiddenBgFaces(g_Viewport) || ViewportHasHiddenStanTiles(g_Viewport)) ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_SELECT_GROW, MF_BYCOMMAND |
             (ViewportCanSelectBackground(g_Viewport, TRUE) ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_SELECT_ALL, MF_BYCOMMAND |
@@ -5113,7 +5171,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 return 0;
 
             case ID_GEOMETRY_MERGE_VERTICES:
-                GEditorMergeSelectedBgVertices(hwnd);
+                if (ViewportGetStanSelectionCount(g_Viewport,NULL)) { GEditorEditStanTopology(hwnd,NULL); }
+                else { GEditorMergeSelectedBgVertices(hwnd); }
                 return 0;
 
             case ID_GEOMETRY_SNAP_VERTEX:
@@ -5128,8 +5187,9 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
             case ID_GEOMETRY_SPLIT_EDGE:
             {
-                BgDocumentEdgeRef edge;
-                if (ViewportGetSelectedBgEdges(g_Viewport, &edge, 1)) { GEditorSeparateBgVertices(hwnd, &edge); }
+                BgDocumentEdgeRef edge; StanEdgeRef stanedge;
+                if (ViewportGetSelectedStanEdge(g_Viewport,&stanedge)) { GEditorEditStanTopology(hwnd,&stanedge); }
+                else if (ViewportGetSelectedBgEdges(g_Viewport, &edge, 1)) { GEditorSeparateBgVertices(hwnd, &edge); }
                 return 0;
             }
 
@@ -5176,12 +5236,14 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 return 0;
 
             case ID_VIEW_HIDE_SELECTED:
-                if (!ViewportHideSelectedBgFaces(g_Viewport))
+                if (!(ViewportGetStanSelectionCount(g_Viewport,NULL)
+                    ? ViewportHideSelectedStanTiles(g_Viewport) : ViewportHideSelectedBgFaces(g_Viewport)))
                 { MessageBox(hwnd, "Not enough memory to hide the selected faces.", GEDITOR_TITLE, MB_ICONERROR); }
                 return 0;
 
             case ID_VIEW_UNHIDE_ALL:
                 ViewportUnhideAllBgFaces(g_Viewport);
+                ViewportUnhideAllStanTiles(g_Viewport);
                 return 0;
 
             case ID_SELECT_GROW:

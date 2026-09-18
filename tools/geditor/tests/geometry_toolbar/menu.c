@@ -4,6 +4,7 @@
 #include <string.h>
 #include "bgdocument.h"
 #include "edittool.h"
+#include "stanload.h"
 typedef void *HWND;
 typedef unsigned UINT;
 typedef intptr_t LPARAM;
@@ -29,7 +30,8 @@ static Menu lastmenu;
 static HWND g_Viewport = (HWND)1;
 static BgDocument g_CurrentBgDocument;
 static EditorTool selectedtool = EDITOR_TOOL_FACE_SELECT;
-static int facecount, edgecount;
+static int facecount, edgecount, stancount;
+static BOOL stanhidden;
 static BOOL flying, transforming, snap, hidden, bridgevalid;
 static UINT choose, dispatched;
 static unsigned focuscalls;
@@ -43,6 +45,12 @@ static BOOL ViewportGetSelectedBgEdges(HWND hwnd, BgDocumentEdgeRef *edges, DWOR
 { return selectedtool == EDITOR_TOOL_EDGE_SELECT && (int)count == edgecount; }
 BOOL BgDocumentCanBridgeEdges(const BgDocument *doc, const BgDocumentEdgeRef edges[2], const char **why)
 { return bridgevalid; }
+static BOOL ViewportGetSelectedStanEdge(HWND hwnd,StanEdgeRef *out)
+{ return selectedtool==EDITOR_TOOL_EDGE_SELECT && stancount==1; }
+static DWORD ViewportGetStanSelectionCount(HWND hwnd,DWORD *single) { return stancount; }
+static BOOL ViewportHasHiddenStanTiles(HWND hwnd) { return stanhidden; }
+static BOOL GEditorCanMergeSelectedStanVertices(void)
+{ return selectedtool==EDITOR_TOOL_VERTEX_SELECT && stancount>=2 && !flying && !transforming; }
 static BOOL GEditorCanMergeSelectedBgVertices(void) { return FALSE; }
 static HMENU CreatePopupMenu(void) { memset(&lastmenu, 0, sizeof(lastmenu)); return &lastmenu; }
 static void DestroyMenu(HMENU menu) { assert(menu == &lastmenu); }
@@ -110,6 +118,15 @@ int main(void)
         selectedtool = EDITOR_TOOL_EDGE_SELECT; Show(TOOLTOOLBAR_MENU_EDGE); assert(!Enabled(ID_GEOMETRY_BRIDGE_EDGES));
         selectedtool = EDITOR_TOOL_FACE_SELECT; facecount = 1; Show(TOOLTOOLBAR_MENU_FACE); assert(!Enabled(ID_EDIT_FLIP_FACE) && !Enabled(ID_GEOMETRY_KNIFE));
     }
+    flying=transforming=hidden=FALSE;facecount=edgecount=0;stancount=1;
+    selectedtool=EDITOR_TOOL_FACE_SELECT;Show(TOOLTOOLBAR_MENU_FACE);
+    assert(Enabled(ID_VIEW_HIDE_SELECTED) && !Enabled(ID_EDIT_FLIP_FACE));
+    stanhidden=TRUE;stancount=0;Show(TOOLTOOLBAR_MENU_FACE);
+    assert(!Enabled(ID_VIEW_HIDE_SELECTED) && Enabled(ID_VIEW_UNHIDE_ALL));
+    selectedtool=EDITOR_TOOL_EDGE_SELECT;stancount=1;Show(TOOLTOOLBAR_MENU_EDGE);
+    assert(Enabled(ID_GEOMETRY_SPLIT_EDGE) && !Enabled(ID_GEOMETRY_BRIDGE_EDGES));
+    selectedtool=EDITOR_TOOL_VERTEX_SELECT;stancount=2;Show(TOOLTOOLBAR_MENU_VERTEX);
+    assert(Enabled(ID_GEOMETRY_MERGE_VERTICES));
     ToolToolbarState toolbar={0};
     for (int i = 0; i < 5; i++) { toolbar.buttons[i] = (HWND)(intptr_t)(i+1); }
     for (int i = 0; i < 3; i++) { toolbar.menus[i] = (HWND)(intptr_t)(i+6); }
