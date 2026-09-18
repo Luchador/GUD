@@ -22,7 +22,7 @@
 #include "portalproperties.h"
 #include "objectflags.h"
 #include "objectproperties.h"
-#include "characterload.h"
+#include "characterproperties.h"
 
 #define RIGHTPANEL_CLASS "GEditorRightPanel"
 
@@ -72,9 +72,9 @@ typedef struct RightPanelState {
     HWND colorpicker;
     HWND faceproperties;
     HWND portalproperties;
-    HWND propertytabs, objectflags, objectproperties;
+    HWND propertytabs, objectflags, objectproperties, characterproperties;
     BOOL flagstab;
-    BOOL showingfaces, showingportals, showingobjects;
+    BOOL showingfaces, showingportals, showingobjects, showingcharacters;
     BOOL vertexpaint;
     BOOL transformenabled;
     BOOL updatingposition;
@@ -168,7 +168,7 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
         MoveWindow(state->details, RIGHTPANEL_MARGIN, detailtop + (showroom ? 52 : 0), width,
                    max(0, detailheight - (showroom ? 52 : 0)), TRUE);
     }
-    ShowWindow(state->details, detailheight > 0 && !state->vertexpaint && !state->flagstab && !state->showingfaces && !state->showingportals && !state->showingobjects ? SW_SHOW : SW_HIDE);
+    ShowWindow(state->details, detailheight > 0 && !state->vertexpaint && !state->flagstab && !state->showingfaces && !state->showingportals && !state->showingobjects && !state->showingcharacters ? SW_SHOW : SW_HIDE);
     MoveWindow(state->faceproperties, RIGHTPANEL_MARGIN, detailtop, width,
                detailheight > 0 ? detailheight : 0, TRUE);
     ShowWindow(state->faceproperties, detailheight > 0 && !state->vertexpaint && !state->flagstab && state->showingfaces ? SW_SHOW : SW_HIDE);
@@ -178,6 +178,9 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
     MoveWindow(state->objectproperties, RIGHTPANEL_MARGIN, detailtop, width,
                detailheight > 0 ? detailheight : 0, TRUE);
     ShowWindow(state->objectproperties, detailheight > 0 && !state->vertexpaint && !state->flagstab && state->showingobjects ? SW_SHOW : SW_HIDE);
+    MoveWindow(state->characterproperties, RIGHTPANEL_MARGIN, detailtop, width,
+               detailheight > 0 ? detailheight : 0, TRUE);
+    ShowWindow(state->characterproperties, detailheight > 0 && !state->vertexpaint && !state->flagstab && state->showingcharacters ? SW_SHOW : SW_HIDE);
     MoveWindow(state->objectflags, RIGHTPANEL_MARGIN, detailtop, width,
                detailheight > 0 ? detailheight : 0, TRUE);
     ShowWindow(state->objectflags, detailheight > 0 && !state->vertexpaint && state->flagstab ? SW_SHOW : SW_HIDE);
@@ -192,8 +195,10 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
 
 static void RightPanelShowFaceProperties(HWND panel, RightPanelState *state, BOOL show)
 {
-    if (state->showingfaces == show && !state->showingportals && !state->showingobjects && !state->showingstanroom) { return; }
+    if (state->showingfaces == show && !state->showingportals && !state->showingobjects && !state->showingstanroom && !state->showingcharacters) { return; }
     ObjectPropertiesSetSelection(state->objectproperties, NULL, 0, NULL);
+    CharacterPropertiesSetSelection(state->characterproperties, NULL, 0);
+    state->showingcharacters = FALSE;
     state->showingobjects = FALSE;
     state->showingstanroom = FALSE;
     state->showingfaces = show;
@@ -566,6 +571,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         state->portalproperties = PortalPropertiesCreate(hwnd, cs->hInstance);
         state->objectflags = ObjectFlagsCreate(hwnd, cs->hInstance);
         state->objectproperties = ObjectPropertiesCreate(hwnd, cs->hInstance);
+        state->characterproperties = CharacterPropertiesCreate(hwnd, cs->hInstance);
         state->propertytabs = CreateWindowEx(0, WC_TABCONTROL, "",
             WS_CHILD | WS_TABSTOP | TCS_FIXEDWIDTH, 0, 0, 1, 1, hwnd,
             (HMENU)(INT_PTR)RIGHTPANEL_ID_PROPERTY_TABS, cs->hInstance, NULL);
@@ -586,7 +592,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
             || state->positions[2] == NULL || state->objects == NULL || state->details == NULL
             || state->movemode == NULL || state->rotatemode == NULL || state->scalebutton == NULL
             || state->colorpicker == NULL || state->faceproperties == NULL || state->portalproperties == NULL
-            || state->objectflags == NULL || state->propertytabs == NULL || state->objectproperties == NULL)
+            || state->objectflags == NULL || state->propertytabs == NULL || state->objectproperties == NULL || state->characterproperties == NULL)
         {
             free(state);
             SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
@@ -615,6 +621,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
     case COLORPICKER_WM_PICK_COLOR:
         return SendMessage(GetParent(hwnd), RIGHTPANEL_WM_PICK_COLOR, 0, 0);
 
+    case CHARACTERPROPERTIES_WM_WEAPON_CHANGED:
     case OBJECTPROPERTIES_WM_CHANGED:
     case OBJECTFLAGS_WM_CHANGED:
     case PORTALPROPERTIES_WM_CHANGED:
@@ -758,6 +765,12 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
                 if (PtInRect(&bounds, point)) { SendMessage(state->objectflags, WM_MOUSEWHEEL, wparam, lparam); }
                 return 0;
             }
+            if (state->showingcharacters)
+            {
+                GetWindowRect(state->characterproperties, &bounds);
+                if (PtInRect(&bounds, point)) { SendMessage(state->characterproperties, WM_MOUSEWHEEL, wparam, lparam); }
+                return 0;
+            }
             if (state->showingobjects)
             {
                 GetWindowRect(state->objectproperties, &bounds);
@@ -831,7 +844,7 @@ BOOL RightPanelRegisterClass(HINSTANCE hinstance)
     if (!InitCommonControlsEx(&controls)) { return FALSE; }
     if (!ColorPickerRegisterClass(hinstance) || !FacePropertiesRegisterClass(hinstance)
         || !PortalPropertiesRegisterClass(hinstance) || !ObjectFlagsRegisterClass(hinstance)
-        || !ObjectPropertiesRegisterClass(hinstance)) { return FALSE; }
+        || !ObjectPropertiesRegisterClass(hinstance) || !CharacterPropertiesRegisterClass(hinstance)) { return FALSE; }
     ZeroMemory(&wc, sizeof(wc));
     wc.lpfnWndProc = RightPanelWndProc;
     wc.hInstance = hinstance;
@@ -917,6 +930,8 @@ BOOL RightPanelHandleMessage(HWND panel, MSG *message)
     }
     if (!state->vertexpaint && !state->flagstab && state->showingportals
         && PortalPropertiesHandleMessage(state->portalproperties, message)) { return TRUE; }
+    if (!state->vertexpaint && !state->flagstab && state->showingcharacters
+        && CharacterPropertiesHandleMessage(state->characterproperties, message)) { return TRUE; }
     if (!state->vertexpaint && !state->flagstab && state->showingobjects
         && ObjectPropertiesHandleMessage(state->objectproperties, message)) { return TRUE; }
     if (IsWindowVisible(state->faceproperties)
@@ -1093,6 +1108,8 @@ void RightPanelSetSetupObject(HWND panel, const SetupFile *setup,
         return;
     }
     state->showingfaces = state->showingportals = state->showingstanroom = FALSE;
+    CharacterPropertiesSetSelection(state->characterproperties, NULL, 0);
+    state->showingcharacters = FALSE;
     state->showingobjects = TRUE;
     RightPanelLayout(panel, state);
 }
@@ -1144,38 +1161,21 @@ void RightPanelSetSetupMarker(HWND panel, const SetupMarkerRef *ref)
     InvalidateRect(panel, NULL, FALSE);
 }
 
-void RightPanelSetSetupCharacter(HWND panel, const SetupCharacter *character)
+void RightPanelSetSetupCharacter(HWND panel, const SetupFile *setup, DWORD index)
 {
     RightPanelState *state = RightPanelGetState(panel);
-    CharacterModelDefinition body, head;
-    int bodyid, headid;
-    const char *headname = "Included in body";
-
-    if (state == NULL || character == NULL
-        || !CharacterResolveModels(character, &bodyid, &headid)
-        || !CharacterGetModelDefinition(bodyid, &body)) { return; }
-    if (headid >= 0 && CharacterGetModelDefinition(headid, &head))
-    {
-        headname = head.filename;
-    }
+    if (!state) { return; }
     lstrcpyn(state->detailtitle, "Setup Character", sizeof(state->detailtitle));
-    snprintf(state->detailtext, sizeof(state->detailtext),
-        "Character ID: %u\r\n"
-        "Body: %s\r\n"
-        "Head: %s%s\r\n"
-        "Pad: %u\r\n"
-        "AI list: 0x%04X\r\n"
-        "Flags: 0x%04X\r\n"
-        "\r\nDrag an arrow or enter a world position.\r\n"
-        "Characters settle onto a stan floor when placed.",
-        (unsigned int)character->chrnum, body.filename, headname,
-        headid >= 0 && character->headid < 0 ? " (random preview)" : "",
-        (unsigned int)character->pad, (unsigned int)character->ailistid,
-        (unsigned int)character->flags);
-    state->detailtext[sizeof(state->detailtext) - 1] = '\0';
-    RightPanelShowFaceProperties(panel, state, FALSE);
-    SetWindowText(state->details, state->detailtext);
-    InvalidateRect(panel, NULL, FALSE);
+    if (!CharacterPropertiesSetSelection(state->characterproperties, setup, index))
+    {
+        RightPanelShowFaceProperties(panel, state, FALSE);
+        SetWindowText(state->details, "The character's properties could not be loaded.");
+        return;
+    }
+    ObjectPropertiesSetSelection(state->objectproperties, NULL, 0, NULL);
+    state->showingfaces = state->showingportals = state->showingstanroom = state->showingobjects = FALSE;
+    state->showingcharacters = TRUE;
+    RightPanelLayout(panel, state);
 }
 
 
@@ -1240,6 +1240,8 @@ void RightPanelSetPortal(HWND panel, const BgDocument *document, DWORD index)
     if (!state || !PortalPropertiesSetSelection(state->portalproperties, document, index)) { return; }
     lstrcpyn(state->detailtitle, "Portal", sizeof(state->detailtitle));
     ObjectPropertiesSetSelection(state->objectproperties, NULL, 0, NULL);
+    CharacterPropertiesSetSelection(state->characterproperties, NULL, 0);
+    state->showingcharacters = FALSE;
     state->showingobjects = FALSE;
     state->showingfaces = state->showingstanroom = FALSE; state->showingportals = TRUE;
     RightPanelLayout(panel, state);

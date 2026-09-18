@@ -65,7 +65,7 @@ void RightPanelSetSetupObject(HWND panel, const SetupFile *setup,
                               DWORD objectindex, const char *projectdir);
 /* Clear with NULL whenever the selection is not an ObjectRecord. */
 void RightPanelSetObjectFlags(HWND panel, const SetupObject *object, DWORD index);
-void RightPanelSetSetupCharacter(HWND panel, const SetupCharacter *character);
+void RightPanelSetSetupCharacter(HWND panel, const SetupFile *setup, DWORD index);
 void RightPanelSetSetupPad(HWND panel, const SetupFile *setup, const SetupPadRef *ref);
 void RightPanelSetSetupMarker(HWND panel, const SetupMarkerRef *ref);
 void RightPanelSetPortal(HWND panel, const BgDocument *document, DWORD index);

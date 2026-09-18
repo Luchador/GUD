@@ -40,11 +40,14 @@ TOOL_IMAGES := $(wildcard ../geditorassets/*_select_*.png) \
 MARKER_MODELS := ../geditorassets/start.glb ../geditorassets/intro_camera.glb \
                  ../geditorassets/outro_camera.glb ../geditorassets/intro_spline_point.glb
 
-$(TARGET): $(SOURCES) $(HEADERS) $(SHARED_HEADERS) $(PROP_RECORDS) $(CHARACTER_RECORDS) idleposes.h $(RCOBJ)
+$(TARGET): $(SOURCES) $(HEADERS) $(SHARED_HEADERS) $(PROP_RECORDS) $(CHARACTER_RECORDS) idleposes.h weaponchoices.h $(RCOBJ)
 	$(CC) $(CFLAGS) -o $@ $(SOURCES) $(RCOBJ) $(LDFLAGS)
 
 idleposes.h: ../scripts/generate_idle_poses.py ../../../tools/make_animation_entries_uncompressed.py $(IDLE_SOURCES)
 	python3 ../scripts/generate_idle_poses.py
+
+weaponchoices.h: ../scripts/generate_weapon_choices.py ../../../src/bondconstants.h
+	python3 ../scripts/generate_weapon_choices.py
 
 # Resource script -> linkable object (dialogs, icon, and tool button artwork)
 $(RCOBJ): $(RCFILE) resource.h icon.ico $(TOOL_IMAGES) $(MARKER_MODELS) ../geditorassets/box.glb ../geditorassets/gizmo_arrow.glb ../geditorassets/gizmo_cylinder.glb ../geditorassets/gizmo_scale.glb

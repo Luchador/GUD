@@ -283,23 +283,7 @@ static BOOL CharacterPlacePart(CharacterBuilder *builder, const CharacterPart *p
 static void CharacterFindEquipment(const SetupFile *setup, DWORD index,
                                     const SetupObject *held[2])
 {
-    const SetupCharacter *character = &setup->characters[index];
-    DWORD i;
-
-    held[0] = held[1] = NULL;
-    for (i = 0; i < setup->objectcount; i++)
-    {
-        const SetupObject *object = &setup->objects[i];
-        int hand;
-
-        if (object->deleted || object->type != PROPDEF_COLLECTABLE
-            || !(object->flags & PROPFLAG_ASSIGNEDTOCHR)
-            || (object->flags & PROPFLAG_CONCEAL_GUN)
-            || object->pad < 0 || (unsigned short)object->pad != character->chrnum
-            || object->sourceoffset <= character->sourceoffset) { continue; }
-        hand = (object->flags & PROPFLAG_WEAPON_LEFTHANDED) ? 1 : 0;
-        if (held[hand] == NULL) { held[hand] = object; }
-    }
+    SetupFileGetCharacterHeldWeapons(setup, index, held);
 }
 
 static int CharacterChoosePose(const SetupFile *setup, const SetupObject *held[2])

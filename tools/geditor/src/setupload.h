@@ -155,6 +155,26 @@ typedef struct SetupFile {
     struct SetupScriptReferences *globalrefs;
 } SetupFile;
 
+/* Starting visible hand equipment. Right is 0, left is 1. None is -1;
+ * -2 denotes differing item types among authored difficulty variants. */
+#define SETUP_WEAPON_NONE (-1)
+#define SETUP_WEAPON_MIXED (-2)
+typedef struct SetupWeaponChoice { int item, model; const char *name; } SetupWeaponChoice;
+typedef struct SetupCharacterWeapons { int item[2]; DWORD count[2]; } SetupCharacterWeapons;
+typedef struct SetupCharacterWeaponEdit {
+    DWORD characterindex, sourceoffset;
+    unsigned short chrnum;
+    int hand, item;
+} SetupCharacterWeaponEdit;
+const SetupWeaponChoice *SetupWeaponChoices(DWORD *count);
+const SetupWeaponChoice *SetupWeaponChoiceForItem(int item);
+BOOL SetupFileGetCharacterWeapons(const SetupFile *setup, DWORD index, SetupCharacterWeapons *out);
+void SetupFileGetCharacterHeldWeapons(const SetupFile *setup, DWORD index, const SetupObject *held[2]);
+/* Atomic; existing variants retain flags, scale and command identities.
+ * None disables all visible records for that hand. Concealed inventory is untouched. */
+BOOL SetupFileSetCharacterWeapon(SetupFile *setup, const SetupCharacterWeaponEdit *edit,
+    BOOL *changedout, const char **reasonout);
+
 /* Discard unreachable tables and relocate native pointers in a separate copy.
  * Clear negligible pad-direction residues which can trap on the R4300. */
 BOOL SetupCompactNative(const unsigned char *data, DWORD size,

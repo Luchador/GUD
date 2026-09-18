@@ -18,6 +18,7 @@
 #include "setupload.h"
 #include "modelload.h"
 #include "actionblocks.h"
+#include "weaponchoices.h"
 
 #define SETUP_FILE_MAX (16u * 1024u * 1024u)
 #define SETUP_HEADER_SIZE       40u
@@ -2682,6 +2683,187 @@ BOOL SetupFileDeleteObject(SetupFile *setup, DWORD objectindex,
     object->deleted = TRUE;
     setup->dirty = TRUE;
     return TRUE;
+}
+
+const SetupWeaponChoice *SetupWeaponChoices(DWORD *count)
+{
+    *count = sizeof(g_SetupWeaponChoices) / sizeof(*g_SetupWeaponChoices);
+    return g_SetupWeaponChoices;
+}
+const SetupWeaponChoice *SetupWeaponChoiceForItem(int item)
+{
+    DWORD count;
+    const SetupWeaponChoice *choices = SetupWeaponChoices(&count);
+    for (DWORD i = 0; i < count; i++) { if (choices[i].item == item) { return &choices[i]; } }
+    return NULL;
+}
+
+/* Saved only on editor-cleared weapons, in two runtime matrix slots.
+ * The five exclusion bits make these records inert in every game mode. Keeping
+ * their original flags2 permits None -> weapon without losing difficulty
+ * variants or appending a new command on every toggle. The game builds the
+ * matrix when equipping a weapon. Prop/model pointers must remain null even
+ * for skipped records, since setup tags can still refer to those records. */
+#define SETUP_CLEARED_WEAPON_MARKER 0x47454357u /* GECW */
+static BOOL SetupCharacterValid(const SetupFile *setup, DWORD index)
+{
+    if (!setup || !setup->data || setup->size < SETUP_HEADER_SIZE || setup->size > SETUP_FILE_MAX
+        || !setup->characters || index >= setup->charactercount
+        || (setup->objectcount && !setup->objects)) { return FALSE; }
+    const SetupCharacter *chr = &setup->characters[index];
+    return !chr->deleted && chr->sourceoffset >= SETUP_HEADER_SIZE
+        && chr->sourceoffset <= setup->size && setup->size - chr->sourceoffset >= 28
+        && setup->data[chr->sourceoffset + 3] == PROPDEF_GUARD
+        && (unsigned short)SetupRead16(setup->data + chr->sourceoffset + 4) == chr->chrnum;
+}
+static int SetupCharacterWeaponHand(const SetupFile *setup, DWORD index, const SetupObject *object)
+{
+    const SetupCharacter *chr = &setup->characters[index];
+    if (object->type != PROPDEF_COLLECTABLE || !(object->flags & PROPFLAG_ASSIGNEDTOCHR)
+        || (object->flags & PROPFLAG_CONCEAL_GUN) || object->pad < 0
+        || (unsigned short)object->pad != chr->chrnum || object->sourceoffset <= chr->sourceoffset
+        || object->sourceoffset > setup->size || setup->size - object->sourceoffset < 136
+        || setup->data[object->sourceoffset + 3] != PROPDEF_COLLECTABLE) { return -1; }
+    return (object->flags & PROPFLAG_WEAPON_LEFTHANDED) ? 1 : 0;
+}
+void SetupFileGetCharacterHeldWeapons(const SetupFile *setup, DWORD index, const SetupObject *held[2])
+{
+    held[0] = held[1] = NULL;
+    if (!SetupCharacterValid(setup, index)) { return; }
+    for (DWORD i = 0; i < setup->objectcount; i++)
+    {
+        const SetupObject *object = &setup->objects[i];
+        int hand = SetupCharacterWeaponHand(setup, index, object);
+        if (!object->deleted && hand >= 0 && !held[hand]) { held[hand] = object; }
+    }
+}
+BOOL SetupFileGetCharacterWeapons(const SetupFile *setup, DWORD index, SetupCharacterWeapons *out)
+{
+    if (!out || !SetupCharacterValid(setup, index)) { return FALSE; }
+    memset(out, 0, sizeof(*out));
+    out->item[0] = out->item[1] = SETUP_WEAPON_NONE;
+    for (DWORD i = 0; i < setup->objectcount; i++)
+    {
+        const SetupObject *object = &setup->objects[i];
+        int hand = SetupCharacterWeaponHand(setup, index, object);
+        if (!object->deleted && hand >= 0)
+        {
+            int item = setup->data[object->sourceoffset + 128];
+            if (!out->count[hand]) { out->item[hand] = item; }
+            else if (out->item[hand] != item) { out->item[hand] = SETUP_WEAPON_MIXED; }
+            out->count[hand]++;
+        }
+    }
+    return TRUE;
+}
+static BOOL SetupWeaponWasCleared(const SetupFile *setup, const SetupObject *object)
+{
+    return object->deleted && SetupRead32(setup->data + object->sourceoffset + 0x20) == SETUP_CLEARED_WEAPON_MARKER
+        && (SetupRead32(setup->data + object->sourceoffset + 0x24) & SETUP_OBJECT_DELETED_FLAGS2) != SETUP_OBJECT_DELETED_FLAGS2;
+}
+
+BOOL SetupFileSetCharacterWeapon(SetupFile *setup, const SetupCharacterWeaponEdit *edit,
+    BOOL *changedout, const char **reasonout)
+{
+    SetupFile copy = {0};
+    SetupCharacterWeapons current;
+    const SetupWeaponChoice *choice;
+    BOOL restore;
+    DWORD count = 0;
+    *changedout = FALSE;
+    *reasonout = "The character weapon edit is invalid or the selection changed.";
+    if (!edit || edit->hand < 0 || edit->hand > 1
+        || !(choice = SetupWeaponChoiceForItem(edit->item))
+        || !SetupFileGetCharacterWeapons(setup, edit->characterindex, &current)
+        || setup->characters[edit->characterindex].sourceoffset != edit->sourceoffset
+        || setup->characters[edit->characterindex].chrnum != edit->chrnum) { return FALSE; }
+    if (current.item[edit->hand] == edit->item) { *reasonout = ""; return TRUE; }
+    if (edit->chrnum > 32767)
+    { *reasonout = "This character ID cannot be stored in a weapon's signed owner field."; return FALSE; }
+    for (DWORD i = 0; i < setup->charactercount; i++)
+    {
+        if (i != edit->characterindex && !setup->characters[i].deleted && setup->characters[i].chrnum == edit->chrnum)
+        { *reasonout = "Two characters share this ID, so their weapon ownership is ambiguous."; return FALSE; }
+    }
+    if (!SetupFileClone(setup, &copy, reasonout)) { return FALSE; }
+    restore = !current.count[edit->hand] && edit->item != SETUP_WEAPON_NONE;
+    for (DWORD i = 0; i < copy.objectcount; i++)
+    {
+        SetupObject *object = &copy.objects[i];
+        if (SetupCharacterWeaponHand(&copy, edit->characterindex, object) != edit->hand
+            || (object->deleted && !(restore && SetupWeaponWasCleared(&copy, object)))) { continue; }
+        unsigned char *record = copy.data + object->sourceoffset;
+        count++;
+        if (edit->item == SETUP_WEAPON_NONE)
+        {
+            SetupWrite32(record + 0x20, SETUP_CLEARED_WEAPON_MARKER);
+            SetupWrite32(record + 0x24, object->flags2);
+            object->flags2 |= SETUP_OBJECT_DELETED_FLAGS2;
+            object->deleted = TRUE;
+            SetupWrite32(record + 12, object->flags2);
+        }
+        else
+        {
+            if (object->deleted)
+            {
+                object->flags2 = SetupRead32(record + 0x24);
+                object->deleted = FALSE;
+                SetupWrite32(record + 12, object->flags2);
+                SetupWrite32(record + 0x20, 0); SetupWrite32(record + 0x24, 0);
+            }
+            /* Keep custom appearance/scale when this variant already has the
+             * requested item; otherwise update behavior and model together. */
+            if (record[128] != edit->item)
+            {
+                object->modelid = choice->model;
+                SetupWrite32(record + 4, ((DWORD)choice->model << 16) | (unsigned short)object->pad);
+                record[128] = (unsigned char)edit->item;
+            }
+        }
+    }
+    if (!count && edit->item != SETUP_WEAPON_NONE)
+    {
+        DWORD commands = SetupRead32(copy.data + SETUP_OBJECT_POINTER), end = commands, n = 0;
+        if (commands < SETUP_HEADER_SIZE || (commands & 3)) { goto malformed; }
+        for (;;)
+        {
+            if (end > copy.size || copy.size - end < 4) { goto malformed; }
+            if (copy.data[end + 3] == SETUP_PROP_END) { break; }
+            DWORD bytes = SetupObjectWordCount(copy.data[end + 3]) * 4;
+            if (!bytes || bytes > copy.size - end || ++n >= SETUP_OBJECT_MAX - 1) { goto malformed; }
+            end += bytes;
+        }
+        DWORD table = (copy.size + 3u) & ~3u;
+        DWORD at = table + end - commands, size = at + 136 + 4;
+        if (copy.size > SETUP_FILE_MAX || size > SETUP_FILE_MAX || size < copy.size)
+        { *reasonout = "Adding a weapon would exceed the setup size limit."; goto fail; }
+        unsigned char *data = realloc(copy.data, size);
+        if (!data) { *reasonout = "Out of memory adding a character weapon."; goto fail; }
+        copy.data = data;
+        memset(data + copy.size, 0, size - copy.size);
+        memcpy(data + table, data + commands, end - commands);
+        SetupWrite32(data + SETUP_OBJECT_POINTER, table);
+        SetupWrite32(data + at, (256u << 16) | PROPDEF_COLLECTABLE);
+        SetupWrite32(data + at + 4, ((DWORD)choice->model << 16) | edit->chrnum);
+        SetupWrite32(data + at + 8, PROPFLAG_ASSIGNEDTOCHR | (edit->hand ? PROPFLAG_WEAPON_LEFTHANDED : 0));
+        SetupWrite32(data + at + 0x74, 1000u << 16);
+        SetupWrite32(data + at + 0x78, 0xffffff00u);
+        SetupWrite32(data + at + 0x7c, 0xffffff00u);
+        SetupWrite32(data + at + 128, ((DWORD)edit->item << 24) | 0xffffffu);
+        SetupWrite32(data + at + 136, SETUP_PROP_END);
+        copy.size = size;
+        free(copy.objects); copy.objects = NULL; copy.objectcount = 0;
+        free(copy.characters); copy.characters = NULL; copy.charactercount = 0;
+        if (!SetupParseObjects(&copy, reasonout)) { goto fail; }
+    }
+    if (!SetupFileCompact(&copy, reasonout)) { goto fail; }
+    copy.dirty = TRUE;
+    SetupFileFree(setup); *setup = copy;
+    *changedout = TRUE; *reasonout = ""; return TRUE;
+malformed:
+    *reasonout = "The setup command list is malformed or full.";
+fail:
+    SetupFileFree(&copy); return FALSE;
 }
 
 BOOL SetupFileDeleteCharacter(SetupFile *setup, DWORD characterindex,
