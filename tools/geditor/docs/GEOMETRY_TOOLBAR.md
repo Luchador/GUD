@@ -41,10 +41,10 @@ draw state. Existing endpoint UVs and RGBA are retained; Edit UVs can adjust the
 new surface afterward. The new faces are selected in face mode. Undo restores
 the original geometry and edge selection.
 
-For **Stan edges**, Bridge Edges also uses **B**. It creates two linked Stan
-triangles, links them back to the selected source boundaries, and selects the
-new tiles in Face mode. Different source rooms are allowed; both triangles
-inherit one source room, which can be changed in Properties. See
+For **Stan edges**, Bridge Edges also uses **B**. Edges sharing one endpoint
+create one triangle; separate edges create two. The new tiles link back to
+the selected source boundaries and are selected in Face mode. Different source
+rooms are allowed; the new tiles inherit one source room, which can be changed in Properties. See
 [Bridging Stan edges](STAN_BRIDGING.md) for details.
 
 Existing Edit/View menu entries, shortcuts and viewport context menus remain

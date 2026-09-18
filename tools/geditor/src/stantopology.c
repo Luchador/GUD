@@ -449,7 +449,7 @@ static double StanBridgeSide(const unsigned char *a, const unsigned char *b, con
 }
 
 static BOOL StanBridgePrepare(const StanFile *s, const StanEdgeRef edges[2],
-    PendingTile pieces[2], DWORD *end, DWORD *nextid, DWORD *nexteditor, const char **why)
+    PendingTile pieces[2], DWORD *count, DWORD *end, DWORD *nextid, DWORD *nexteditor, const char **why)
 {
     const unsigned char *points[4];
     static const unsigned char diagonals[2][2][3] = {{{1,0,3},{1,3,2}},{{1,0,2},{0,3,2}}};
@@ -465,10 +465,21 @@ static BOOL StanBridgePrepare(const StanFile *s, const StanEdgeRef edges[2],
         points[e*2+1]=Point(s,edges[e].tile,(edges[e].point+1)%tile->pointcount);
         if (tile->points[edges[e].point].link>=0x10)
         { *why="Only unlinked stan boundary edges can be bridged. Split or unlink the existing connection first."; return FALSE; }
+        if (!memcmp(points[e*2],points[e*2+1],6))
+        { *why="A selected stan edge is collapsed."; return FALSE; }
     }
-    *why="Bridge Edges requires four distinct stan endpoints. Use Link Tiles for edges that already coincide.";
-    for (int a=0;a<4;a++) for (int b=0;b<a;b++)
-    { if (!memcmp(points[a],points[b],6)) { return FALSE; } }
+    unsigned int shared=0;
+    for (int a=0;a<2;a++) for (int b=2;b<4;b++)
+    { if (!memcmp(points[a],points[b],6)) { shared++; } }
+    if (shared==2)
+    { *why="Use Link Tiles for edges that already coincide."; return FALSE; }
+    /* Reverse both source edges around the gap: b -> a -> d -> c.
+     * A shared point must join an incoming and an outgoing edge. Same-start
+     * or same-end matches cannot form a consistently linked triangle. */
+    BOOL shared03=!memcmp(points[0],points[3],6);
+    if (shared && !shared03 && memcmp(points[1],points[2],6))
+    { *why="The selected stan edges have incompatible winding at their shared point."; return FALSE; }
+    *count=shared ? 1 : 2;
     /* Do not put a second surface on an occupied boundary, including an
      * incoming-only connection or an unlinked but coincident tile edge. */
     *nextid=*nexteditor=0;
@@ -490,56 +501,63 @@ static BOOL StanBridgePrepare(const StanFile *s, const StanEdgeRef edges[2],
     *why="The bridge would overlap a source tile. Choose boundary edges facing the gap.";
     for (int e=0;e<2;e++) for (int p=0;p<2;p++)
     { if (StanBridgeSide(points[e*2],points[e*2+1],points[(1-e)*2+p])>0) { return FALSE; } }
-    /* Two triangles handle unequal heights without making a nonplanar Stan
-     * quad. Native floors need positive XZ area; vertical stair risers may
-     * have zero XZ area but still need nonzero 3D area and coherent winding. */
+    /* A shared endpoint closes a single triangle. Otherwise two triangles
+     * handle unequal heights without making a nonplanar Stan quad. Native
+     * floors need positive XZ area; vertical risers still need 3D area. */
     int diagonal;
     for (diagonal=0;diagonal<2;diagonal++)
     {
         BOOL valid=TRUE;
-        double normals[2][3];
-        for (int t=0;t<2;t++)
+        double normals[2][3]={{0}};
+        for (DWORD t=0;t<*count;t++)
         {
-            const unsigned char *c=diagonals[diagonal][t];
+            const unsigned char *c=*count==1 ? diagonals[shared03 ? 1 : 0][0] : diagonals[diagonal][t];
             memset(&pieces[t],0,sizeof(pieces[t])); pieces[t].count=3;
             for (int p=0;p<3;p++) { memcpy(pieces[t].points[p],points[c[p]],6); }
             Normal(pieces[t].points,3,normals[t]);
             double area=normals[t][0]*normals[t][0]+normals[t][1]*normals[t][1]+normals[t][2]*normals[t][2];
             if (!area || normals[t][1]<0) { valid=FALSE; }
         }
-        double dot=normals[0][0]*normals[1][0]+normals[0][1]*normals[1][1]+normals[0][2]*normals[1][2];
-        if (valid && dot>=0) { break; }
+        if (*count==1) { if (valid) { break; } }
+        else
+        {
+            double dot=normals[0][0]*normals[1][0]+normals[0][1]*normals[1][1]+normals[0][2]*normals[1][2];
+            if (valid && dot>=0) { break; }
+        }
     }
     if (diagonal==2)
     { *why="These edges would form a crossed, reversed or zero-area stan bridge. Check their positions and winding."; return FALSE; }
     *why="The bridge exceeds the native stan tile, identity or edge-link limits.";
-    if (s->tilecount>65534u || *nextid>0x7ffdu || *nexteditor>UINT32_MAX-2
-        || *end>0xffffffu-64 || s->size>UINT32_MAX-64
-        || (*end+64-s->tiles[0].sourceoffset)/8+0x10>0x10000u) { return FALSE; }
+    DWORD bytes=*count*32;
+    if (s->tilecount>65536u-*count || *nextid>0x7fffu-*count || *nexteditor>UINT32_MAX-*count
+        || *end>0xffffffu-bytes || s->size>UINT32_MAX-bytes
+        || (*end+bytes-s->tiles[0].sourceoffset)/8+0x10>0x10000u) { return FALSE; }
     *why=""; return TRUE;
 }
 
 BOOL StanCanBridgeEdges(const StanFile *s, const StanEdgeRef edges[2], const char **why)
 {
-    PendingTile pieces[2]; DWORD end,nextid,nexteditor; const char *unused;
-    return StanBridgePrepare(s,edges,pieces,&end,&nextid,&nexteditor,why ? why : &unused);
+    PendingTile pieces[2]; DWORD count,end,nextid,nexteditor; const char *unused;
+    return StanBridgePrepare(s,edges,pieces,&count,&end,&nextid,&nexteditor,why ? why : &unused);
 }
 
-BOOL StanBridgeEdges(StanFile *s, const StanEdgeRef edges[2], DWORD out[2], const char **why)
+BOOL StanBridgeEdges(StanFile *s, const StanEdgeRef edges[2], DWORD out[2], DWORD *countout, const char **why)
 {
-    PendingTile pieces[2]; DWORD end,nextid,nexteditor;
+    PendingTile pieces[2]; DWORD count,end,nextid,nexteditor;
     StanFile staged;
-    if (!StanBridgePrepare(s,edges,pieces,&end,&nextid,&nexteditor,why)) { return FALSE; }
+    if (countout) { *countout=0; }
+    if (!StanBridgePrepare(s,edges,pieces,&count,&end,&nextid,&nexteditor,why)) { return FALSE; }
+    DWORD bytes=count*32;
     staged=*s;
-    staged.data=malloc(s->size+64);
-    staged.tiles=malloc((s->tilecount+2)*sizeof(*staged.tiles));
+    staged.data=malloc(s->size+bytes);
+    staged.tiles=malloc((s->tilecount+count)*sizeof(*staged.tiles));
     if (!staged.data || !staged.tiles)
     { free(staged.data); free(staged.tiles); *why="Out of memory bridging stan edges."; return FALSE; }
-    staged.size+=64; staged.tilecount+=2;
+    staged.size+=bytes; staged.tilecount+=count;
     memcpy(staged.data,s->data,end);
-    memcpy(staged.data+end+64,s->data+end,s->size-end);
+    memcpy(staged.data+end+bytes,s->data+end,s->size-end);
     memcpy(staged.tiles,s->tiles,s->tilecount*sizeof(*s->tiles));
-    for (int t=0;t<2;t++)
+    for (DWORD t=0;t<count;t++)
     {
         DWORD index=s->tilecount+t, offset=end+t*32;
         StanTile *tile=&staged.tiles[index];
@@ -565,14 +583,17 @@ BOOL StanBridgeEdges(StanFile *s, const StanEdgeRef edges[2], DWORD out[2], cons
                     Write16(staged.data+source->sourceoffset+8+edges[e].point*8+6,link);
                 }
             }
-            for (int q=0;q<3;q++)
+            for (int q=0;count==2 && q<3;q++)
             {
                 if (!memcmp(a,pieces[1-t].points[(q+1)%3],6) && !memcmp(b,pieces[1-t].points[q],6))
                 { target=s->tilecount+1-t; }
             }
-            DWORD targetoffset=target<s->tilecount ? s->tiles[target].sourceoffset : end+(1-t)*32;
-            unsigned short link=target==STAN_TILE_NONE ? 0
-                : (unsigned short)((targetoffset-s->tiles[0].sourceoffset)/8+0x10);
+            unsigned short link=0;
+            if (target!=STAN_TILE_NONE)
+            {
+                DWORD targetoffset=target<s->tilecount ? s->tiles[target].sourceoffset : end+(target-s->tilecount)*32;
+                link=(unsigned short)((targetoffset-s->tiles[0].sourceoffset)/8+0x10);
+            }
             unsigned char *raw=staged.data+offset+8+p*8;
             memcpy(raw,a,6); Write16(raw+6,link);
             float scale=1.0f/s->levelscale;
@@ -581,6 +602,7 @@ BOOL StanBridgeEdges(StanFile *s, const StanEdgeRef edges[2], DWORD out[2], cons
         StanUpdateRepresentativeTriangle(&staged,index);
     }
     free(s->data); free(s->tiles); *s=staged; s->dirty=TRUE;
-    if (out) { out[0]=s->tilecount-2; out[1]=s->tilecount-1; }
+    if (out) { out[0]=s->tilecount-count; out[1]=count==2 ? s->tilecount-1 : STAN_TILE_NONE; }
+    if (countout) { *countout=count; }
     *why=""; return TRUE;
 }

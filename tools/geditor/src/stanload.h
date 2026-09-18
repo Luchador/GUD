@@ -68,11 +68,15 @@ BOOL StanFileClone(const StanFile *source, StanFile *out, const char **reasonout
 typedef struct StanPointRef { DWORD tile, point; } StanPointRef;
 /* Directed perimeter edge: point -> (point + 1) % pointcount. */
 typedef struct StanEdgeRef { DWORD tile, point; } StanEdgeRef;
-/* Bridge two unshared boundary edges with two reciprocally linked triangles.
+/* Bridge two unshared boundary edges with one triangle at a shared endpoint,
+ * or two triangles across a four-endpoint gap, with reciprocal source links.
  * Inherit the first edge's room and tile attributes, even across rooms. Native
- * endpoints stay exact; validation/allocation failure leaves the file intact. */
+ * endpoints stay exact; validation/allocation failure leaves the file intact.
+ * countout receives 1 or 2 on success (0 on failure); out holds two tile indices,
+ * with out[1] set to STAN_TILE_NONE when only one triangle is created. */
 BOOL StanCanBridgeEdges(const StanFile *stan, const StanEdgeRef edges[2], const char **reasonout);
-BOOL StanBridgeEdges(StanFile *stan, const StanEdgeRef edges[2], DWORD out[2], const char **reasonout);
+BOOL StanBridgeEdges(StanFile *stan, const StanEdgeRef edges[2], DWORD out[2],
+    DWORD *countout, const char **reasonout);
 /* Insert the native midpoint, split the tile and all linked incident tiles,
  * and relocate external/internal links atomically. Triangles become two
  * triangles; larger convex tiles become two convex polygons. */

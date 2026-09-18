@@ -3212,18 +3212,18 @@ static BOOL GEditorBridgeSelectedStanEdges(HWND hwnd)
 {
     EditHistoryTransaction transaction = {0};
     StanEdgeRef edges[2];
-    DWORD tiles[2];
+    DWORD tiles[2], count;
     const char *why = "", *restorewhy = "";
     if (ViewportIsFlying(g_Viewport) || ViewportIsTransforming(g_Viewport)
         || ViewportGetVertexSnap(g_Viewport)
         || !ViewportGetSelectedStanEdges(g_Viewport, edges, 2)) { return FALSE; }
     if (!EditHistoryBeginStanEdit(&g_EditHistory, &g_CurrentStan,
         "Bridge Stan Edges", &transaction, &why)) { goto fail; }
-    if (!StanBridgeEdges(&g_CurrentStan, edges, tiles, &why)) { goto fail; }
+    if (!StanBridgeEdges(&g_CurrentStan, edges, tiles, &count, &why)) { goto fail; }
     /* Refresh canonical points, collision geometry and grounded object poses. */
     if (!GEditorReloadCurrentObjectsAndViewport(&why)) { goto rollback; }
     ViewportSetTool(g_Viewport, EDITOR_TOOL_FACE_SELECT);
-    if (!ViewportSelectStanTiles(g_Viewport, tiles, 2))
+    if (!ViewportSelectStanTiles(g_Viewport, tiles, count))
     { why = "Could not select the bridge tiles."; goto rollback; }
     if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
         &g_CurrentStan, &transaction, &why)) { goto rollback; }
