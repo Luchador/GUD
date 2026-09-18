@@ -3518,6 +3518,103 @@ static BOOL SetupWriteBounds(SetupFile *setup, const SetupPadRef *ref, const dou
     return TRUE;
 }
 
+BOOL SetupFileTranslateModelReferenced(SetupFile *setup, DWORD selection,
+    float levelscale, const double offset[3], const float reference[3],
+    const char *stanname, const char **reasonout)
+{
+    SetupPadRef ref;
+    SetupPad previous, *pad;
+    SetupObject *object;
+    double bounds[6] = {0}, axes[3][3], delta[3], determinant = 0;
+    const double zero[3] = {0};
+    float position[3];
+    DWORD record;
+    BOOL wasbound;
+    int axis, component;
+    *reasonout = "Invalid prop placement reference.";
+    if (!setup || !setup->data || !offset || !reference || !stanname || !stanname[0]
+        || !isfinite(levelscale) || levelscale <= 0
+        || (selection & SETUP_CHARACTER_SELECTION_BIT)
+        || !SetupFileGetModelPad(setup, selection, &ref)
+        || setup->objects[selection].type == PROPDEF_DOOR) { return FALSE; }
+    wasbound = ref.bound;
+    previous = ref.bound ? setup->boundpads[ref.index].pad : setup->pads[ref.index];
+    if (wasbound)
+    {
+        const SetupBoundPad *bound = &setup->boundpads[ref.index];
+        bounds[0] = bound->xmin; bounds[1] = bound->xmax;
+        bounds[2] = bound->ymin; bounds[3] = bound->ymax;
+        bounds[4] = bound->zmin; bounds[5] = bound->zmax;
+    }
+    for (axis = 0; axis < 3; axis++)
+    {
+        double value = (double)reference[axis] * levelscale;
+        if (!isfinite(value) || fabs(value) > 100000000 || !isfinite(offset[axis]))
+        { *reasonout = "The move exceeds the setup coordinate range."; return FALSE; }
+        /* A retained reference must not drift through repeated world/native
+         * conversions, especially when its pad is on a tile boundary. */
+        position[axis] = reference[axis] == previous.pos[axis] / levelscale
+            ? previous.pos[axis] : (float)value;
+        delta[axis] = previous.pos[axis] + offset[axis] * levelscale - position[axis];
+        axes[1][axis] = previous.up[axis];
+        axes[2][axis] = previous.look[axis];
+        axes[0][axis] = (double)previous.up[(axis+1)%3] * previous.look[(axis+2)%3]
+                     - (double)previous.up[(axis+2)%3] * previous.look[(axis+1)%3];
+        determinant += axes[0][axis] * axes[0][axis];
+    }
+    if (!isfinite(determinant) || determinant < 1e-12) { return FALSE; }
+    determinant = sqrt(determinant);
+    for (axis = 0; axis < 3; axis++) { axes[0][axis] /= determinant; }
+    /* Invert padGetCenter's basis: normalized cross, authored up/look.
+     * Imported pads need not have perfectly normalized orientation vectors. */
+    for (axis = 0; axis < 3; axis++)
+    {
+        double shift = 0;
+        for (component = 0; component < 3; component++)
+        {
+            int a = (axis+1)%3, b = (axis+2)%3;
+            int c = (component+1)%3, d = (component+2)%3;
+            shift += delta[component] * (axes[a][c]*axes[b][d] - axes[a][d]*axes[b][c]);
+        }
+        shift /= determinant;
+        bounds[axis*2] += shift; bounds[axis*2+1] += shift;
+        if (!isfinite(bounds[axis*2]) || !isfinite(bounds[axis*2+1])
+            || fabs(bounds[axis*2]) > 100000000 || fabs(bounds[axis*2+1]) > 100000000)
+        { *reasonout = "The move exceeds the setup coordinate range."; return FALSE; }
+    }
+    /* Detach shared pads before changing their bounds or reference position. */
+    if (wasbound)
+    {
+        if (!SetupFileTranslateModel(setup, selection, levelscale, zero, reasonout)
+            || !SetupFileGetModelPad(setup, selection, &ref)) { return FALSE; }
+    }
+    else if (!SetupAppendBoundPad(setup, &ref, &ref, reasonout)) { return FALSE; }
+    object = &setup->objects[selection];
+    object->pad = (short)(ref.index + 10000);
+    setup->data[object->sourceoffset+6] = (unsigned char)(object->pad >> 8);
+    setup->data[object->sourceoffset+7] = (unsigned char)object->pad;
+    /* Fitting flags on an ordinary pad were inert. Do not let promotion turn
+     * its zero-size placement bounds into a new scale for the model. */
+    if (!wasbound)
+    { object->flags &= ~(PROPFLAG_SCALE_TO_PAD_BOUNDS | PROPFLAG_SCALE_TO_X_BOUNDS
+                      | PROPFLAG_SCALE_TO_Y_BOUNDS | PROPFLAG_SCALE_TO_Z_BOUNDS); }
+    object->flags |= PROPFLAG_ABSOLUTEPOSITION;
+    if (!(object->flags & (PROPFLAG_ONSIDE | PROPFLAG_UPSIDEDOWN))) { object->flags |= PROPFLAG_INAIR; }
+    object->flags2 |= PROPFLAG2_USE_PAD_REFERENCE;
+    SetupWrite32(setup->data + object->sourceoffset + 8, object->flags);
+    SetupWrite32(setup->data + object->sourceoffset + 12, object->flags2);
+    record = SetupRead32(setup->data + SETUP_BOUNDPAD_POINTER) + ref.index * SETUP_BOUNDPAD_SIZE;
+    pad = &setup->boundpads[ref.index].pad;
+    for (axis = 0; axis < 3; axis++)
+    {
+        union { float f; DWORD u; } value;
+        value.f = position[axis]; pad->pos[axis] = value.f;
+        SetupWrite32(setup->data + record + axis*4, value.u);
+    }
+    return SetupWriteBounds(setup, &ref, bounds, reasonout)
+        && SetupFileSetPadStanName(setup, &ref, stanname, reasonout);
+}
+
 BOOL SetupFileScalePad(SetupFile *setup, SetupPadRef *ref, float levelscale, const Scaling *scale,
                        const char **reasonout)
 {

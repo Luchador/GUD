@@ -897,10 +897,8 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
 
             for (axis = 0; axis < 3; axis++)
             {
-                float side = pad->up[(axis + 1) % 3] * pad->look[(axis + 2) % 3]
-                           - pad->up[(axis + 2) % 3] * pad->look[(axis + 1) % 3];
-
-                basis.pos[axis] += side * localcenter[0]
+                /* padGetCenter normalizes the cross axis in the game. */
+                basis.pos[axis] += basis.side[axis] * localcenter[0]
                                  + pad->up[axis] * localcenter[1]
                                  + pad->look[axis] * localcenter[2];
             }
@@ -1214,25 +1212,52 @@ static BOOL ObjectTranslateModelPad(SetupFile *setup, const StanFile *stan,
 {
     SetupPadRef ref;
     SetupPad previous;
-    const SetupPad *moved;
+    ObjectBasis basis;
     float from[3], to[3];
+    BOOL referenced;
     char name[16];
     /* Characters retain their existing destination-floor selection rules. */
     if ((index & SETUP_CHARACTER_SELECTION_BIT) || !stan || !stan->tiles || !stan->tilecount)
     { return SetupFileTranslateModel(setup, index, levelscale, offset, reasonout); }
     if (!SetupFileGetModelPad(setup, index, &ref))
     { *reasonout = "The object has no editable placement pad."; return FALSE; }
+    if (!offset || !isfinite(levelscale) || levelscale <= 0) { return FALSE; }
     previous = ref.bound ? setup->boundpads[ref.index].pad : setup->pads[ref.index];
-    if (!SetupFileTranslateModel(setup, index, levelscale, offset, reasonout)
-        || !SetupFileGetModelPad(setup, index, &ref)) { return FALSE; }
-    moved = ref.bound ? &setup->boundpads[ref.index].pad : &setup->pads[ref.index];
+    referenced = ref.bound && setup->objects[index].type != PROPDEF_DOOR
+        && (setup->objects[index].flags2 & PROPFLAG2_USE_PAD_REFERENCE);
+    if (referenced && !ObjectMakeBasis(&previous, 1, &basis))
+    { *reasonout = "The object's placement orientation is invalid."; return FALSE; }
     for (int axis = 0; axis < 3; axis++)
     {
+        double position = previous.pos[axis] + offset[axis] * levelscale;
+        if (referenced)
+        {
+            const SetupBoundPad *bound = &setup->boundpads[ref.index];
+            /* Resolve the translated model anchor, not the retained pad.
+             * Returning over Stan must follow the destination room again. */
+            position += basis.side[axis] * ((double)bound->xmin + bound->xmax) * .5
+                + previous.up[axis] * bound->ymin
+                + previous.look[axis] * ((double)bound->zmin + bound->zmax) * .5;
+        }
+        if (!isfinite(position) || fabs(position) > 100000000)
+        { *reasonout = "The move exceeds the setup coordinate range."; return FALSE; }
         from[axis] = previous.pos[axis] / levelscale;
-        to[axis] = moved->pos[axis] / levelscale;
+        to[axis] = (float)position / levelscale;
     }
     if (!StanResolveMovedPadName(stan, previous.stanname, from, to, name))
-    { *reasonout = "The object has no valid Stan tile at this location."; return FALSE; }
+    {
+        /* Doors/characters retain their placement rules. A regular prop can
+         * offset its geometry from a valid existing pad, including across a
+         * wall where there is no walkable floor beneath the visible model. */
+        if (setup->objects[index].type == PROPDEF_DOOR
+            || !StanResolveMovedPadName(stan, previous.stanname, from, from, name))
+        { *reasonout = "The object has no valid Stan tile for its placement reference."; return FALSE; }
+        return SetupFileTranslateModelReferenced(setup, index, levelscale, offset, from, name, reasonout);
+    }
+    if (referenced)
+    { return SetupFileTranslateModelReferenced(setup, index, levelscale, offset, to, name, reasonout); }
+    if (!SetupFileTranslateModel(setup, index, levelscale, offset, reasonout)
+        || !SetupFileGetModelPad(setup, index, &ref)) { return FALSE; }
     return SetupFileSetPadStanName(setup, &ref, name, reasonout);
 }
 

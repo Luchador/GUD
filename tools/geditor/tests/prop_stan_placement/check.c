@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <src/propconstants.h>
 #include "objectload.h"
 #include "bghistory.h"
 #include "setupmeta.h"
@@ -142,8 +143,8 @@ static void Depot(StanFile *stan, BOOL bound, BOOL named)
     Require(EditHistoryBeginSetupEdit(&history, &s, "Move Object", &tx, &why));
     SetupObjectGeometry invalid = {0};
     assert(!ObjectTranslateSetupModel(dir, &s, stan, levelscale, &moved, 0,
-                                      (double[3]){0,0,100000}, &invalid, &why));
-    assert(strstr(why, "Stan tile"));
+                                      (double[3]){0,0,NAN}, &invalid, &why));
+    assert(strstr(why, "coordinate range"));
     EditHistoryRollbackEdit(&tx, NULL, &s, NULL); EditHistoryCancelEdit(&tx);
     SetupAssertNativeEqual(&s, &rejected);
     assert(!invalid.tricount);
@@ -293,6 +294,125 @@ static void DepotStackedRooms(StanFile *stan, BOOL bound)
     SetupFileFree(&s); SetupFileFree(&saved);
 }
 
+static void OffStan(BOOL bound, DWORD orientation)
+{
+    StanTile tiles[2] = {
+        {.id=0x100, .sourceoffset=12, .room=1, .pointcount=3, .extreme={0,1,2},
+         .points={{0,0,0,0},{0,0,100,0},{100,0,0,0}}},
+        {.id=0x200, .sourceoffset=44, .room=2, .pointcount=3, .extreme={0,1,2},
+         .points={{300,0,0,0},{300,0,100,0},{400,0,0,0}}}
+    };
+    StanFile floor = {.tiles=tiles,.tilecount=2,.levelscale=levelscale}, historyStan={0};
+    SetupFile s={0}, baseline={0}, after={0}, saved={0};
+    SetupObjectGeometry pose={0}, next={0}, reloaded={0};
+    EditHistory history={0}; EditHistoryTransaction tx={0}; EditHistoryAsset asset;
+    BgDocument bg={0}; SetupPadRef ref; BOOL changed;
+    double delta[3], pivot[3], anchor[3];
+    const double outside[3]={800,0,0}, zero[3]={0};
+    Rotation rotation; RotationEuler(&rotation,(double[3]){15,35,20});
+    Require(SetupLoadProjectFile(dir,"UsetupmoveZ",&s,&why));
+    LoadGlobalReferences(&s);
+    for (int i=0;i<2;i++)
+    {
+        if (bound) { s.objects[i].pad=10000; }
+        s.data[s.objects[i].sourceoffset+6]=(unsigned char)(s.objects[i].pad>>8);
+        s.data[s.objects[i].sourceoffset+7]=(unsigned char)s.objects[i].pad;
+    }
+    /* Existing bound fitting must survive; fitting bits on an ordinary pad
+     * must stay inert when it is promoted. Include a non-default extra scale. */
+    s.objects[0].flags |= orientation | PROPFLAG_SCALE_TO_X_BOUNDS
+        | PROPFLAG_SCALE_TO_Y_BOUNDS | PROPFLAG_SCALE_TO_Z_BOUNDS;
+    s.objects[0].extrascale=384;
+    SetupMetaWrite32(s.data+s.objects[0].sourceoffset,0x01800003);
+    SetupMetaWrite32(s.data+s.objects[0].sourceoffset+8,s.objects[0].flags);
+    Require(SetupFileGetModelPad(&s,0,&ref));
+    for (int a=0;a<3;a++) { delta[a]=(a==1 ? 50 : 10)-Pad(&s,0)->pos[a]/levelscale; }
+    Require(SetupFileTranslatePad(&s,&ref,levelscale,delta,&changed,&why));
+    Require(SetupFileRotatePad(&s,&ref,&rotation,&changed,&why));
+    Require(SetupFileSetPadStanName(&s,&ref,"p1a",&why));
+    SetupPad other=*Pad(&s,1);
+    Require(ObjectLoadSetupGeometry(dir,&s,&floor,levelscale,&pose,&why));
+    assert(pose.tricount==8);
+    Require(SetupFileClone(&s,&baseline,&why));
+    EditHistoryReset(&history,NULL,&s,NULL);
+    Require(EditHistoryBeginSetupEdit(&history,&s,"Move Object",&tx,&why));
+    Require(ObjectTranslateSetupModel(dir,&s,&floor,levelscale,&pose,0,outside,&next,&why));
+    SamePose(&pose,&next,outside);
+    assert(s.objects[0].flags2 & PROPFLAG2_USE_PAD_REFERENCE);
+    assert(s.objects[0].extrascale==384 && s.objects[0].pad>=10000);
+    assert(!memcmp(&other,Pad(&s,1),sizeof(other)) && s.objects[0].pad!=s.objects[1].pad);
+    assert(Resolve(&floor,Pad(&s,0))==0);
+    Require(EditHistoryCommitEdit(&history,NULL,&s,NULL,&tx,&why));
+    Require(SetupFileClone(&s,&after,&why));
+    Require(EditHistoryUndo(&history,&bg,&s,&historyStan,&asset,&why));
+    SetupAssertNativeEqual(&s,&baseline);
+    Require(EditHistoryRedo(&history,&bg,&s,&historyStan,&asset,&why));
+    SetupAssertNativeEqual(&s,&after);
+    ObjectGeometryFree(&pose); pose=next; memset(&next,0,sizeof(next));
+    Require(SetupSaveProjectFile(dir,&s,&why));
+    Require(SetupLoadProjectFile(dir,s.name,&saved,&why));
+    SetupAssertNativeEqual(&s,&saved);
+    Require(ObjectLoadSetupGeometry(dir,&saved,&floor,levelscale,&reloaded,&why));
+    SamePose(&pose,&reloaded,zero); ObjectGeometryFree(&reloaded); SetupFileFree(&saved);
+    DWORD size=s.size, pads=s.padcount, bounds=s.boundpadcount;
+    for (int i=0;i<40;i++)
+    {
+        const double step[3]={0,0,i%2 ? -10 : 10};
+        Require(ObjectTranslateSetupModel(dir,&s,&floor,levelscale,&pose,0,step,&next,&why));
+        SamePose(&pose,&next,step);
+        Require(SetupFileCompact(&s,&why));
+        assert(s.padcount==pads && s.boundpadcount==bounds && s.size<=size+16);
+        ObjectGeometryFree(&pose); pose=next; memset(&next,0,sizeof(next));
+    }
+    for (int a=0;a<3;a++) { pivot[a]=a==0 ? pose.tris[0].x : a==1 ? pose.tris[0].y : pose.tris[0].z; }
+    RotationAxis(&rotation,0,35);
+    Require(ObjectRotateSetupModel(dir,&s,&floor,levelscale,&pose,0,&rotation,pivot,&next,&why));
+    ObjectGeometryFree(&pose); pose=next; memset(&next,0,sizeof(next));
+    Scaling scale={.factor={1.25,1.5,.75}};
+    Require(SetupFileGetModelPad(&s,0,&ref)); Require(SetupFilePadRotation(&s,&ref,&scale.axes));
+    memcpy(scale.pivot,pivot,sizeof(pivot));
+    Require(ObjectScaleSetupModel(dir,&s,&floor,levelscale,&pose,0,&scale,&next,&why));
+    ObjectGeometryFree(&pose); pose=next; memset(&next,0,sizeof(next));
+    /* Duplicate an already offset model, then verify the original stays put. */
+    DWORD selection;
+    Require(ObjectDuplicateSetupModel(dir,&s,&s,&floor,levelscale,&pose,0,
+        (double[3]){0,10,0},NULL,NULL,NULL,&selection,&next,&why));
+    SetupObjectGeometry original={0}, copy={0};
+    Require(ObjectCopySetupModelPose(&next,0,&original,&why));
+    Require(ObjectCopySetupModelPose(&next,selection,&copy,&why));
+    for (DWORD i=0;i<original.tricount*3;i++)
+    {
+        assert(fabs(copy.tris[i].x-original.tris[i].x)<.02);
+        assert(fabs(copy.tris[i].y-original.tris[i].y-10)<.02);
+        assert(fabs(copy.tris[i].z-original.tris[i].z)<.02);
+    }
+    assert(s.objects[0].pad!=s.objects[selection].pad && Resolve(&floor,Pad(&s,selection))==0);
+    ObjectGeometryFree(&original); ObjectGeometryFree(&copy);
+    ObjectGeometryFree(&pose); pose=next; memset(&next,0,sizeof(next));
+    /* Move the model's native bottom-center anchor onto a disconnected room.
+     * Its Stan reference must now follow room 2 instead of remaining in 1. */
+    Require(SetupFileGetModelPad(&s,0,&ref));
+    const SetupBoundPad *bp=&s.boundpads[ref.index];
+    for (int a=0;a<3;a++)
+    {
+        double side=(double)bp->pad.up[(a+1)%3]*bp->pad.look[(a+2)%3]
+                   -(double)bp->pad.up[(a+2)%3]*bp->pad.look[(a+1)%3];
+        anchor[a]=(bp->pad.pos[a]+side*(bp->xmin+bp->xmax)*.5
+            +bp->pad.up[a]*bp->ymin+bp->pad.look[a]*(bp->zmin+bp->zmax)*.5)/levelscale;
+        delta[a]=(a==0 ? 310 : a==1 ? 50 : 10)-anchor[a];
+    }
+    Require(ObjectTranslateSetupModel(dir,&s,&floor,levelscale,&pose,0,delta,&next,&why));
+    SamePose(&pose,&next,delta);
+    assert(Resolve(&floor,Pad(&s,0))==1 && Resolve(&floor,Pad(&s,selection))==0);
+    Require(SetupSaveProjectFile(dir,&s,&why)); Require(SetupLoadProjectFile(dir,s.name,&saved,&why));
+    SetupAssertNativeEqual(&s,&saved);
+    Require(ObjectLoadSetupGeometry(dir,&saved,&floor,levelscale,&reloaded,&why));
+    SamePose(&next,&reloaded,zero);
+    ObjectGeometryFree(&pose); ObjectGeometryFree(&next); ObjectGeometryFree(&reloaded);
+    SetupFileFree(&s); SetupFileFree(&baseline); SetupFileFree(&after); SetupFileFree(&saved);
+    EditHistoryFree(&history);
+}
+
 int main(int argc, char **argv)
 {
     StanFile stan = {0}; SetupFile fixture = {0};
@@ -315,9 +435,16 @@ int main(int argc, char **argv)
         DepotStackedRooms(&stan,bound);
         Require(SetupSaveProjectFile(dir,&fixture,&why));
     }
+    const DWORD orientations[]={0,PROPFLAG_ONSIDE,PROPFLAG_UPSIDEDOWN};
+    for (int bound=0;bound<2;bound++) for (int i=0;i<3;i++)
+    {
+        OffStan(bound,orientations[i]);
+        Require(SetupSaveProjectFile(dir,&fixture,&why));
+    }
     SetupFileFree(&fixture); StanFileFree(&stan);
     puts("PASS Depot elevated prop: same/linked floor, preserved height, ordinary/bound/shared pads, native save/reload, undo/redo, 800 repeated moves and invalid-move rollback.");
     puts("PASS elevated copies: clipboard snapshots and live duplication, translation/rotation/scale, normal/bound pads, unchanged source, undo/redo and native save/reload.");
     puts("PASS Depot stacked rooms: downstairs prop placement/repair, upstairs reference retained, normal/bound pads and native save/reload.");
+    puts("PASS off-Stan props: independent reference/bounds, tilted/sideways/upside-down models, fitting and extra scale, copy/rotate/scale, undo/redo, compact save/reload, repeated moves and room reassignment on return.");
     return 0;
 }

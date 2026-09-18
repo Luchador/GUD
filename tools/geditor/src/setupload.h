@@ -352,6 +352,14 @@ BOOL SetupFileTranslateModel(SetupFile *setup, DWORD selection,
                               float levelscale, const double offset[3],
                               const char **reasonout);
 
+/* Translate a prop's geometry while placing its private bound-pad reference
+ * at a separately resolved Stan position (world units). Bounds carry the
+ * remaining offset; native dimensions, model scale and orientation survive.
+ * Caller owns the edit transaction and validates reference/stanname. */
+BOOL SetupFileTranslateModelReferenced(SetupFile *setup, DWORD selection,
+    float levelscale, const double offset[3], const float reference[3],
+    const char *stanname, const char **reasonout);
+
 /* Moves the authored pad in place, retaining all references and bounds.
    Invalidates only this pad's stan link so it resolves at its new position. */
 BOOL SetupFileTranslatePad(SetupFile *setup, const SetupPadRef *ref,
