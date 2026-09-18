@@ -1,4 +1,5 @@
 #include "renderconfig.h"
+#include "rendercache.h"
 #include <os_extension.h>
 #include <PR/os.h>
 #include "bondview.h"
@@ -359,7 +360,8 @@ void bossMainloop(void)
                     else
                     {
                         if (g_MainStageNum < 0 && pendingGfx < 2U
-                                && (!renderSettingsPending() || pendingGfx == 0))
+                                && (!renderSettingsPending() || pendingGfx == 0)
+                                && (!renderCacheReclaimPending() || pendingGfx == 0))
                         {
                             if (ramromGetIsDemoPlaying())
                             {
@@ -370,6 +372,10 @@ void bossMainloop(void)
                                 waitForNextFrame();
                             }
 
+                            /* Recovery is requested while building a frame;
+                             * wait for that frame and all older tasks to finish
+                             * before freeing any optional display-list copies. */
+                            renderCacheReclaim();
                             renderApplySettings();
                             joyConsumeSamplesWrapper();
 

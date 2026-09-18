@@ -23,6 +23,7 @@ static const Gfx mixed[] = {
 
 static void reset(void)
 {
+    renderCacheReset();
     modelOneCycleResetCache();
     allocated = allocations = frees = failAllocation = 0;
     renderInvalidateDisplayListCache();
@@ -230,7 +231,7 @@ static void check_cache_and_dispatch(void)
     }
     data.flags = 1;
 
-    bytes = allocated;
+    bytes = allocated - RENDER_CACHE_HEADER_SIZE;
     assert(bytes <= sizeof(saved));
     memcpy(saved, alt, bytes); oldAlt = alt;
     modelOneCycleInvalidateGdlRange(src + 1, src + 2);
@@ -309,17 +310,22 @@ static void check_damage(void)
     Gfx setup[16], result[128], combined[144], saved[128];
     Snapshot states[128];
     Gfx original, converted;
-    int nsetup, size, nstates, bytes, stage, type, z, i;
+    int nsetup, size, nstates, bytes, damagedBytes, stage, type, z, i;
     reset(); memcpy(src, opaque, sizeof(opaque));
     intact = modelGetOneCycleGdl(&data, src, 4, NULL); assert(intact != src);
+    bytes = g_ModelOneCycleBytes;
     data.envcolour.word = 150;
     damaged = modelGetOneCycleGdl(&data, src, 4, NULL);
     assert(damaged != src && damaged != intact && allocations == 2);
-    bytes = allocated; memcpy(saved, intact, bytes);
+    damagedBytes = g_ModelOneCycleBytes - bytes;
+    assert(bytes + damagedBytes <= sizeof(saved));
+    memcpy(saved, intact, bytes);
+    memcpy((u8 *)saved + bytes, damaged, damagedBytes);
     for (stage = 0; stage < 4; stage++) {
         data.envcolour.word = levels[stage]; data.fogcolour.word = 0x1745ab80 + stage;
         assert(modelGetOneCycleGdl(&data, src, 3, NULL) == damaged && allocations == 2);
         assert(!memcmp(saved, intact, bytes)); /* No per-instance mutation. */
+        assert(!memcmp((u8 *)saved + bytes, damaged, damagedBytes));
         for (type = 3; type <= 4; type++) for (z = 0; z < 2; z++)
             assert(check_stream_material(src, sizeof(opaque), type, z, levels[stage]) == 1);
     }
@@ -490,6 +496,37 @@ static void check_first_person(void)
     puts("First-person weapons: native segmented addresses, lighting, mixed materials, draw dispatch, AA/VI, instance isolation and reload/failure fallback pass.");
 }
 
+static void check_pressure_reclaim(void)
+{
+    ModelRenderData data = prop();
+    Gfx *src = (Gfx *)(g_TestRam + 0x10000), *old, *replacement;
+    Gfx saved[128];
+    int bytes;
+    reset(); memcpy(src, opaque, sizeof(opaque));
+    old = modelGetOneCycleGdl(&data, src, 4, NULL);
+    assert(old != src);
+    bytes = g_ModelOneCycleBytes;
+    assert(bytes <= sizeof(saved)); memcpy(saved, old, bytes);
+    modelOneCycleInvalidateGdlRange(src, src + sizeof(opaque) / 8);
+    src[2].words.w1 = G_TF_POINT;
+    replacement = modelGetOneCycleGdl(&data, src, 4, NULL);
+    assert(replacement != src && replacement != old && allocations == 2);
+    renderCacheRequestReclaim();
+    assert(renderCacheReclaimPending() && !frees);
+    assert(!memcmp(saved, old, bytes));
+    assert(modelGetOneCycleGdl(&data, src, 4, NULL) == src);
+    assert(allocations == 2 && !frees);
+    /* Simulate boss's safe point after every queued graphics task completes. */
+    renderCacheReclaim();
+    assert(frees == 2 && allocated == 0 && g_ModelOneCycleBytes == 0);
+    assert(!renderCacheReclaimPending() && !renderCacheIsEnabled());
+    assert(modelGetOneCycleGdl(&data, src, 4, NULL) == src && allocations == 2);
+    renderCacheReclaim(); assert(frees == 2);
+    reset();
+    assert(modelGetOneCycleGdl(&data, src, 4, NULL) != src);
+    puts("Memory pressure: live and retired model copies survive until drain, then reclaim completely; native fallback and stage reset pass.");
+}
+
 static u32 read_be(FILE *file)
 {
     u8 b[4]; assert(fread(b, 1, 4, file) == 4);
@@ -507,6 +544,7 @@ int main(int argc, char **argv)
         check_cache_and_dispatch();
         check_damage();
         check_first_person();
+        check_pressure_reclaim();
         puts("Model states: TRI1/TRI4, opaque fog lighting, depth, decal/cutout/translucent fallback and outgoing state pass.");
     } else {
         FILE *file = fopen(argv[1], "rb");

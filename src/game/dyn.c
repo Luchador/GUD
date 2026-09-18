@@ -1,4 +1,5 @@
 #include "renderconfig.h"
+#include "rendercache.h"
 #include "modelonecycle.h"
 #include <ultra64.h>
 #include "dyn.h"
@@ -43,6 +44,7 @@ s32 g_VtxSizesByPlayerCount[] = {0x10000, 0x18000, 0x20000, 0x28000};
 void dynInitMemory(void)
 {
     renderInvalidateDisplayListCache();
+    renderCacheReset();
     modelOneCycleResetCache();
     if (tokenFind(1, "-mgfx"))
     {

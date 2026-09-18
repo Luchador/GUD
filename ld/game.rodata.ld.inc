@@ -54,6 +54,7 @@
       build/OUTCODE/src/game/objecthandler.o (.rodata);
       build/OUTCODE/src/game/model.o (.rodata);
       build/OUTCODE/src/game/modelonecycle.o (.rodata);
+      build/OUTCODE/src/game/rendercache.o (.rodata);
       build/OUTCODE/src/game/objecthandler_2.o (.rodata);
       build/OUTCODE/src/game/cam.o (.rodata);
       build/OUTCODE/src/game/bondview.o (.rodata);

@@ -21,6 +21,7 @@
 #include "matrixmath.h"
 #include "player.h"
 #include "renderconfig.h"
+#include "rendercache.h"
 #include "stan.h"
 
 
@@ -1941,6 +1942,19 @@ s32 bgCheckIfRoomModelNeedsLoad(s32 roomID)
 }
 
 
+void bgClearRoomRenderCaches(void)
+{
+    s32 i;
+
+    for (i = 0; i < MAXROOMCOUNT; i++)
+    {
+        g_BgOneCycleRooms[i].gdl = NULL;
+        g_BgOneCycleRooms[i].size = 0;
+        g_BgOneCycleRooms[i].secondaryGdl = NULL;
+        g_BgOneCycleRooms[i].secondarySize = 0;
+    }
+}
+
 /* Build once at room load, sharing the source vertices and texture storage. */
 static void bgBuildRoomOneCycleGdl(s32 roomID)
 {
@@ -1951,6 +1965,8 @@ static void bgBuildRoomOneCycleGdl(s32 roomID)
     Gfx *source;
     s32 sourceSize;
 
+    if (!renderCacheIsEnabled()) return;
+
     for (pass = 0; pass < 2; pass++)
     {
         source = pass ? room->secondaryGdl : room->primaryGdl;
@@ -1960,12 +1976,12 @@ static void bgBuildRoomOneCycleGdl(s32 roomID)
                 : bgBuildOneCycleGdl(source, sourceSize, NULL, 0);
         if (size <= 0) continue;
         size = (size + 0xf) & ~0xf;
-        gdl = memaAlloc(size);
+        gdl = renderCacheAlloc(size);
         if (!gdl) continue; /* Original lists remain renderable under pressure. */
         if ((pass ? bgBuildCutoutGdl(source, sourceSize, gdl, size)
                 : bgBuildOneCycleGdl(source, sourceSize, gdl, size)) <= 0)
         {
-            memaFree(gdl, size);
+            renderCacheFree(gdl);
             continue;
         }
         if (pass)
@@ -2022,10 +2038,14 @@ void bgLoadRoomModelData(s32 roomID)
     /**
     * Allocate one contiguous block for vertices and display lists.
     */
-    data = memaAlloc(allocsize);
+    data = allocsize > 0 ? memaAlloc(allocsize) : NULL;
 
     if (data == NULL)
     {
+        /* The next frame retries after boss drains queued graphics and
+         * releases optional room/model lists. Do not free submitted lists
+         * here: even this frame may already contain references to them. */
+        renderCacheRequestReclaim();
         return;
     }
 
@@ -2135,7 +2155,7 @@ void bgFreeRoomData(s32 roomID)
 
     if (g_BgOneCycleRooms[roomID].secondaryGdl)
     {
-        memaFree(g_BgOneCycleRooms[roomID].secondaryGdl, g_BgOneCycleRooms[roomID].secondarySize);
+        renderCacheFree(g_BgOneCycleRooms[roomID].secondaryGdl);
         g_BgOneCycleRooms[roomID].secondaryGdl = NULL;
         g_BgOneCycleRooms[roomID].secondarySize = 0;
         renderInvalidateDisplayListCache();
@@ -2143,7 +2163,7 @@ void bgFreeRoomData(s32 roomID)
 
     if (g_BgOneCycleRooms[roomID].gdl)
     {
-        memaFree(g_BgOneCycleRooms[roomID].gdl, g_BgOneCycleRooms[roomID].size);
+        renderCacheFree(g_BgOneCycleRooms[roomID].gdl);
         g_BgOneCycleRooms[roomID].gdl = NULL;
         g_BgOneCycleRooms[roomID].size = 0;
         renderInvalidateDisplayListCache();

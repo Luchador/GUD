@@ -1,10 +1,10 @@
 #include <ultra64.h>
 #include <PR/R4300.h>
-#include <mema.h>
 #include "bgonecycle.h"
 #include "model.h"
 #include "modelonecycle.h"
 #include "renderconfig.h"
+#include "rendercache.h"
 
 #define MODEL_ONE_CYCLE_CACHE_SIZE 256
 #define MODEL_ONE_CYCLE_BYTE_LIMIT 0x10000
@@ -35,8 +35,9 @@ void modelOneCycleInvalidateGdlRange(Gfx *start, Gfx *end)
         if (entry->source && (u32)start < (u32)entry->source + entry->sourceSize
                 && (u32)end > (u32)entry->source) entry->valid = FALSE;
     }
-    /* Retain invalidated copies until stage reset: submitted graphics tasks
-     * can still reference them. Their memory remains charged to the budget. */
+    /* Retain invalidated copies until stage reset or a drained cache reclaim:
+     * submitted graphics tasks can still reference them. The allocation
+     * registry retains copies even after their cache entries are replaced. */
 }
 
 static s32 modelOneCycleListSize(const Gfx *source)
@@ -87,11 +88,11 @@ static Gfx *modelOneCycleBuildEntry(ModelOneCycleEntry *entry,
     if (size <= 0) return NULL;
     size = (size + 15) & ~15;
     if (size > MODEL_ONE_CYCLE_BYTE_LIMIT - g_ModelOneCycleBytes) return NULL;
-    alternate = memaAlloc(size);
+    alternate = renderCacheAlloc(size);
     if (!alternate) return NULL;
     if (gfxBuildOneCycleGdl(primary, entry->sourceSize, alternate, size,
             initial, (setup.gdl - initial) * sizeof(Gfx)) <= 0) {
-        memaFree(alternate, size);
+        renderCacheFree(alternate);
         return NULL;
     }
     entry->alternate = alternate;
@@ -114,7 +115,7 @@ Gfx *modelGetOneCycleGdl(ModelRenderData *renderdata, Gfx *primary, s32 modelTyp
      * Its low environment byte selects the damaged path. Character
      * blood tinting, fading and viewer materials use other equations. Held
      * weapons explicitly opt in; their fog blender supplies room lighting. */
-    if (!primary || !renderUseOneCycle()
+    if (!primary || !renderUseOneCycle() || !renderCacheIsEnabled()
             || (modelType != 2 && modelType != 3 && modelType != 4)) return primary;
 
     firstPerson = renderdata->PropType == PROP_TYPE_WEAPON
