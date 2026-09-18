@@ -248,7 +248,10 @@ void ViewportSetStanOpacity(HWND hwnd, int percent);
 DWORD ViewportGetStanSelectionCount(HWND hwnd, DWORD *singletile);
 /* Reads exactly count visible, selected stan tiles in Face mode. */
 BOOL ViewportGetSelectedStanTiles(HWND hwnd, DWORD *out, DWORD count);
+BOOL ViewportSelectStanTiles(HWND hwnd, const DWORD *indices, DWORD count);
 BOOL ViewportGetSelectedStanEdge(HWND hwnd, StanEdgeRef *out);
+/* Reads exactly count visible native perimeter edges in Edge mode. */
+BOOL ViewportGetSelectedStanEdges(HWND hwnd, StanEdgeRef *out, DWORD count);
 BOOL ViewportSelectStanEdge(HWND hwnd, const StanEdgeRef *edge);
 BOOL ViewportSelectStanVertex(HWND hwnd, const StanPointRef *point);
 /* Temporary level-local visibility. Hidden tiles remain in saved/exported Stan. */

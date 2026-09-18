@@ -3183,6 +3183,39 @@ fail:
     return FALSE;
 }
 
+static BOOL GEditorBridgeSelectedStanEdges(HWND hwnd)
+{
+    EditHistoryTransaction transaction = {0};
+    StanEdgeRef edges[2];
+    DWORD tiles[2];
+    const char *why = "", *restorewhy = "";
+    if (ViewportIsFlying(g_Viewport) || ViewportIsTransforming(g_Viewport)
+        || ViewportGetVertexSnap(g_Viewport)
+        || !ViewportGetSelectedStanEdges(g_Viewport, edges, 2)) { return FALSE; }
+    if (!EditHistoryBeginStanEdit(&g_EditHistory, &g_CurrentStan,
+        "Bridge Stan Edges", &transaction, &why)) { goto fail; }
+    if (!StanBridgeEdges(&g_CurrentStan, edges, tiles, &why)) { goto fail; }
+    /* Refresh canonical points, collision geometry and grounded object poses. */
+    if (!GEditorReloadCurrentObjectsAndViewport(&why)) { goto rollback; }
+    ViewportSetTool(g_Viewport, EDITOR_TOOL_FACE_SELECT);
+    if (!ViewportSelectStanTiles(g_Viewport, tiles, 2))
+    { why = "Could not select the bridge tiles."; goto rollback; }
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+        &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    ToolToolbarSetTool(g_ToolToolbar, ViewportGetTool(g_Viewport));
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    GEditorReloadCurrentObjectsAndViewport(&restorewhy);
+    GEditorRestoreHistorySelection(hwnd);
+fail:
+    EditHistoryCancelEdit(&transaction);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
 static BOOL GEditorBridgeSelectedBgEdges(HWND hwnd)
 {
     EditHistoryTransaction transaction = {0};
@@ -3337,7 +3370,7 @@ static void GEditorShowGeometryMenu(HWND hwnd, ToolToolbarMenu kind, HWND button
         && !ViewportIsTransforming(g_Viewport);
     BOOL face = GEditorCanFlipSelectedBgFaces();
     BgDocumentEdgeRef edges[2];
-    StanEdgeRef stanedge;
+    StanEdgeRef stanedge, stanedges[2];
     const char *why;
     if (kind < 0 || kind >= TOOLTOOLBAR_MENU_COUNT || !button) { return; }
     menu = CreatePopupMenu();
@@ -3361,8 +3394,11 @@ static void GEditorShowGeometryMenu(HWND hwnd, ToolToolbarMenu kind, HWND button
             ? MF_ENABLED : MF_GRAYED), ID_GEOMETRY_BISECT_EDGE, "Bisect &Edge\tCtrl+Q");
         AppendMenu(menu, MF_STRING | (idle && (ViewportGetSelectedBgEdges(g_Viewport, edges, 1)
             || ViewportGetSelectedStanEdge(g_Viewport,&stanedge)) ? MF_ENABLED : MF_GRAYED), ID_GEOMETRY_SPLIT_EDGE, "&Split Edge");
-        AppendMenu(menu, MF_STRING | (idle && ViewportGetSelectedBgEdges(g_Viewport, edges, 2)
-            && BgDocumentCanBridgeEdges(&g_CurrentBgDocument, edges, &why) ? MF_ENABLED : MF_GRAYED),
+        AppendMenu(menu, MF_STRING | (idle
+            && ((ViewportGetSelectedBgEdges(g_Viewport, edges, 2)
+                 && BgDocumentCanBridgeEdges(&g_CurrentBgDocument, edges, &why))
+                || (!ViewportGetVertexSnap(g_Viewport) && ViewportGetSelectedStanEdges(g_Viewport, stanedges, 2)
+                    && StanCanBridgeEdges(&g_CurrentStan, stanedges, &why))) ? MF_ENABLED : MF_GRAYED),
             ID_GEOMETRY_BRIDGE_EDGES, "&Bridge Edges\tB");
         break;
     case TOOLTOOLBAR_MENU_FACE:
@@ -5375,7 +5411,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 return 0;
 
             case ID_GEOMETRY_BRIDGE_EDGES:
-                GEditorBridgeSelectedBgEdges(hwnd);
+                if (ViewportGetStanSelectionCount(g_Viewport, NULL)) { GEditorBridgeSelectedStanEdges(hwnd); }
+                else { GEditorBridgeSelectedBgEdges(hwnd); }
                 return 0;
 
             case ID_GEOMETRY_KNIFE:

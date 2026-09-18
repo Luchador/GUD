@@ -29,9 +29,10 @@ typedef Menu *HMENU;
 static Menu lastmenu;
 static HWND g_Viewport = (HWND)1;
 static BgDocument g_CurrentBgDocument;
+static StanFile g_CurrentStan;
 static EditorTool selectedtool = EDITOR_TOOL_FACE_SELECT;
 static int facecount, edgecount, stancount;
-static BOOL stanhidden;
+static BOOL stanhidden, stanbridgevalid;
 static BOOL flying, transforming, snap, hidden, bridgevalid;
 static UINT choose, dispatched;
 static unsigned focuscalls;
@@ -47,6 +48,10 @@ BOOL BgDocumentCanBridgeEdges(const BgDocument *doc, const BgDocumentEdgeRef edg
 { return bridgevalid; }
 static BOOL ViewportGetSelectedStanEdge(HWND hwnd,StanEdgeRef *out)
 { return selectedtool==EDITOR_TOOL_EDGE_SELECT && stancount==1; }
+static BOOL ViewportGetSelectedStanEdges(HWND hwnd,StanEdgeRef *out,DWORD count)
+{ return selectedtool==EDITOR_TOOL_EDGE_SELECT && (DWORD)stancount==count && !edgecount; }
+BOOL StanCanBridgeEdges(const StanFile *stan,const StanEdgeRef edges[2],const char **why)
+{ return stanbridgevalid; }
 static DWORD ViewportGetStanSelectionCount(HWND hwnd,DWORD *single) { return stancount; }
 static BOOL ViewportHasHiddenStanTiles(HWND hwnd) { return stanhidden; }
 static BOOL GEditorCanMergeSelectedStanVertices(void)
@@ -90,8 +95,34 @@ static void MoveWindow(HWND hwnd, int x, int y, int w, int h, BOOL repaint)
 { int index = (int)(intptr_t)hwnd-1; assert(index >= 0 && index < 9); positions[index] = (RECT){x,y,x+w,y+h}; }
 #include "layout.inc"
 
+typedef struct { HWND hwnd; UINT message; UINT wParam; LPARAM lParam; } MSG;
+enum { WM_KEYDOWN=256, VK_CONTROL=17, VK_MENU=18, VK_SHIFT=16 };
+static int modifiers;
+static const char *inputclass="Viewport";
+static BOOL IsChild(HWND frame,HWND child) { return frame==(HWND)9 && child==g_Viewport; }
+static int GetKeyState(int key) { return key==modifiers?0x8000:0; }
+static void GetClassName(HWND hwnd,char *out,int size) { snprintf(out,size,"%s",inputclass); }
+#include "input.inc"
+static void Hotkey(void)
+{
+    MSG msg={g_Viewport,WM_KEYDOWN,'B',0};dispatched=0;
+    assert(GEditorHandleBridgeEdgesHotkey((HWND)9,&msg)&&dispatched==ID_GEOMETRY_BRIDGE_EDGES);
+    dispatched=0;msg.lParam=(LPARAM)1<<30;
+    assert(GEditorHandleBridgeEdgesHotkey((HWND)9,&msg)&&!dispatched);msg.lParam=0;
+    const char *fields[]={"Edit","ComboBox","ComboLBox"};
+    for(unsigned i=0;i<3;i++) { inputclass=fields[i];assert(!GEditorHandleBridgeEdgesHotkey((HWND)9,&msg)); }
+    inputclass="Viewport";
+    const int keys[]={VK_CONTROL,VK_MENU,VK_SHIFT};
+    for(unsigned i=0;i<3;i++) {modifiers=keys[i];assert(!GEditorHandleBridgeEdgesHotkey((HWND)9,&msg));}modifiers=0;
+    flying=TRUE;assert(!GEditorHandleBridgeEdgesHotkey((HWND)9,&msg));flying=FALSE;
+    transforming=TRUE;assert(!GEditorHandleBridgeEdgesHotkey((HWND)9,&msg));transforming=FALSE;
+    msg.hwnd=(HWND)88;assert(!GEditorHandleBridgeEdgesHotkey((HWND)9,&msg));
+    puts("PASS: B shortcut, auto-repeat suppression, modifier/flight/drag guards, native text inputs and floating-window isolation.");
+}
+
 int main(void)
 {
+    Hotkey();
     BgDocumentRoom room = {0};
     Show(TOOLTOOLBAR_MENU_VERTEX); assert(!Enabled(ID_GEOMETRY_PAINT_VERTEX) && !Enabled(ID_GEOMETRY_SNAP_VERTEX));
     Show(TOOLTOOLBAR_MENU_EDGE); assert(!Enabled(ID_GEOMETRY_SPLIT_EDGE) && !Enabled(ID_GEOMETRY_BRIDGE_EDGES));
@@ -128,6 +159,11 @@ int main(void)
     assert(!Enabled(ID_VIEW_HIDE_SELECTED) && Enabled(ID_VIEW_UNHIDE_ALL));
     selectedtool=EDITOR_TOOL_EDGE_SELECT;stancount=1;Show(TOOLTOOLBAR_MENU_EDGE);
     assert(Enabled(ID_GEOMETRY_SPLIT_EDGE) && Enabled(ID_GEOMETRY_BISECT_EDGE) && !Enabled(ID_GEOMETRY_BRIDGE_EDGES));
+    stancount=2;stanbridgevalid=TRUE;Show(TOOLTOOLBAR_MENU_EDGE);
+    assert(Enabled(ID_GEOMETRY_BRIDGE_EDGES));
+    choose=ID_GEOMETRY_BRIDGE_EDGES;Show(TOOLTOOLBAR_MENU_EDGE);assert(dispatched==choose);choose=0;
+    snap=TRUE;Show(TOOLTOOLBAR_MENU_EDGE);assert(!Enabled(ID_GEOMETRY_BRIDGE_EDGES));snap=FALSE;
+    stanbridgevalid=FALSE;Show(TOOLTOOLBAR_MENU_EDGE);assert(!Enabled(ID_GEOMETRY_BRIDGE_EDGES));
     selectedtool=EDITOR_TOOL_VERTEX_SELECT;stancount=2;Show(TOOLTOOLBAR_MENU_VERTEX);
     assert(Enabled(ID_GEOMETRY_MERGE_VERTICES));
     ToolToolbarState toolbar={0};

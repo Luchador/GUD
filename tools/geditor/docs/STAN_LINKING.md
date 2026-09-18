@@ -22,6 +22,8 @@ match in X, Y, and Z, with the edge running in opposite directions around the
 two tiles. Matching uses the stored native coordinates. If the edges do not
 match, align their vertices first. Linking does not move vertices, fill gaps,
 or create missing stair risers. Partial edge overlaps cannot be linked.
+To fill a gap with new tiles, select its two open boundary edges and press **B**
+([Bridge Edges](STAN_BRIDGING.md)).
 
 The operation connects the shared edge in both directions, allowing crossings
 from either tile. It repairs an existing one-way link and leaves an already

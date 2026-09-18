@@ -420,3 +420,150 @@ BOOL StanBisectEdge(StanFile *s, const StanEdgeRef *edge, StanEdgeRef *out, cons
 done:
     free(map); free(children); free(offsets); free(cuts); free(pieces); free(data); free(tiles); return ok;
 }
+
+/* Signed interior-side test in the XZ plane, as used by the runtime's Stan
+ * walk. Positive area is native floor winding; vertical risers have zero. */
+static double StanBridgeSide(const unsigned char *a, const unsigned char *b, const unsigned char *p)
+{
+    double ax=(short)Read16(a), az=(short)Read16(a+4);
+    double bx=(short)Read16(b), bz=(short)Read16(b+4);
+    double px=(short)Read16(p), pz=(short)Read16(p+4);
+    return (bz-az)*(px-ax)-(bx-ax)*(pz-az);
+}
+
+static BOOL StanBridgePrepare(const StanFile *s, const StanEdgeRef edges[2],
+    PendingTile pieces[2], DWORD *end, DWORD *nextid, DWORD *nexteditor, const char **why)
+{
+    const unsigned char *points[4];
+    static const unsigned char diagonals[2][2][3] = {{{1,0,3},{1,3,2}},{{1,0,2},{0,3,2}}};
+    if (!Validate(s,end,why)) { return FALSE; }
+    *why="Select two boundary edges on different stan tiles.";
+    if (!edges || edges[0].tile==edges[1].tile) { return FALSE; }
+    for (int e=0;e<2;e++)
+    {
+        if (edges[e].tile>=s->tilecount || edges[e].point>=s->tiles[edges[e].tile].pointcount
+            || s->tiles[edges[e].tile].room>STAN_MAX_ROOM) { return FALSE; }
+        const StanTile *tile=&s->tiles[edges[e].tile];
+        points[e*2]=Point(s,edges[e].tile,edges[e].point);
+        points[e*2+1]=Point(s,edges[e].tile,(edges[e].point+1)%tile->pointcount);
+        if (tile->points[edges[e].point].link>=0x10)
+        { *why="Only unlinked stan boundary edges can be bridged. Split or unlink the existing connection first."; return FALSE; }
+    }
+    *why="Bridge Edges requires four distinct stan endpoints. Use Link Tiles for edges that already coincide.";
+    for (int a=0;a<4;a++) for (int b=0;b<a;b++)
+    { if (!memcmp(points[a],points[b],6)) { return FALSE; } }
+    /* Do not put a second surface on an occupied boundary, including an
+     * incoming-only connection or an unlinked but coincident tile edge. */
+    *nextid=*nexteditor=0;
+    for (DWORD t=0;t<s->tilecount;t++)
+    {
+        const StanTile *tile=&s->tiles[t];
+        DWORD number=(tile->id>>8)&0x7fffu;
+        if (number>*nextid) { *nextid=number; }
+        if (tile->editorid>*nexteditor) { *nexteditor=tile->editorid; }
+        for (DWORD p=0;p<tile->pointcount;p++) for (int e=0;e<2;e++)
+        {
+            if (t==edges[e].tile && p==edges[e].point) { continue; }
+            const unsigned char *a=Point(s,t,p), *b=Point(s,t,(p+1)%tile->pointcount);
+            if ((!memcmp(a,points[e*2],6) && !memcmp(b,points[e*2+1],6))
+                || (!memcmp(b,points[e*2],6) && !memcmp(a,points[e*2+1],6)))
+            { *why="A selected stan boundary is already shared by another edge. Use Link Tiles or choose an open boundary."; return FALSE; }
+        }
+    }
+    *why="The bridge would overlap a source tile. Choose boundary edges facing the gap.";
+    for (int e=0;e<2;e++) for (int p=0;p<2;p++)
+    { if (StanBridgeSide(points[e*2],points[e*2+1],points[(1-e)*2+p])>0) { return FALSE; } }
+    /* Two triangles handle unequal heights without making a nonplanar Stan
+     * quad. Native floors need positive XZ area; vertical stair risers may
+     * have zero XZ area but still need nonzero 3D area and coherent winding. */
+    int diagonal;
+    for (diagonal=0;diagonal<2;diagonal++)
+    {
+        BOOL valid=TRUE;
+        double normals[2][3];
+        for (int t=0;t<2;t++)
+        {
+            const unsigned char *c=diagonals[diagonal][t];
+            memset(&pieces[t],0,sizeof(pieces[t])); pieces[t].count=3;
+            for (int p=0;p<3;p++) { memcpy(pieces[t].points[p],points[c[p]],6); }
+            Normal(pieces[t].points,3,normals[t]);
+            double area=normals[t][0]*normals[t][0]+normals[t][1]*normals[t][1]+normals[t][2]*normals[t][2];
+            if (!area || normals[t][1]<0) { valid=FALSE; }
+        }
+        double dot=normals[0][0]*normals[1][0]+normals[0][1]*normals[1][1]+normals[0][2]*normals[1][2];
+        if (valid && dot>=0) { break; }
+    }
+    if (diagonal==2)
+    { *why="These edges would form a crossed, reversed or zero-area stan bridge. Check their positions and winding."; return FALSE; }
+    *why="The bridge exceeds the native stan tile, identity or edge-link limits.";
+    if (s->tilecount>65534u || *nextid>0x7ffdu || *nexteditor>UINT32_MAX-2
+        || *end>0xffffffu-64 || s->size>UINT32_MAX-64
+        || (*end+64-s->tiles[0].sourceoffset)/8+0x10>0x10000u) { return FALSE; }
+    *why=""; return TRUE;
+}
+
+BOOL StanCanBridgeEdges(const StanFile *s, const StanEdgeRef edges[2], const char **why)
+{
+    PendingTile pieces[2]; DWORD end,nextid,nexteditor; const char *unused;
+    return StanBridgePrepare(s,edges,pieces,&end,&nextid,&nexteditor,why ? why : &unused);
+}
+
+BOOL StanBridgeEdges(StanFile *s, const StanEdgeRef edges[2], DWORD out[2], const char **why)
+{
+    PendingTile pieces[2]; DWORD end,nextid,nexteditor;
+    StanFile staged;
+    if (!StanBridgePrepare(s,edges,pieces,&end,&nextid,&nexteditor,why)) { return FALSE; }
+    staged=*s;
+    staged.data=malloc(s->size+64);
+    staged.tiles=malloc((s->tilecount+2)*sizeof(*staged.tiles));
+    if (!staged.data || !staged.tiles)
+    { free(staged.data); free(staged.tiles); *why="Out of memory bridging stan edges."; return FALSE; }
+    staged.size+=64; staged.tilecount+=2;
+    memcpy(staged.data,s->data,end);
+    memcpy(staged.data+end+64,s->data+end,s->size-end);
+    memcpy(staged.tiles,s->tiles,s->tilecount*sizeof(*s->tiles));
+    for (int t=0;t<2;t++)
+    {
+        DWORD index=s->tilecount+t, offset=end+t*32;
+        StanTile *tile=&staged.tiles[index];
+        *tile=s->tiles[edges[0].tile];
+        tile->id=(++nextid<<8)|(tile->id&0x8000ffu); tile->editorid=++nexteditor;
+        tile->sourceoffset=offset; tile->pointcount=3;
+        memset(tile->points,0,sizeof(tile->points));
+        memcpy(staged.data+offset,s->data+s->tiles[edges[0].tile].sourceoffset,8);
+        Write32(staged.data+offset,tile->id<<8|tile->room);
+        for (int p=0;p<3;p++)
+        {
+            const unsigned char *a=pieces[t].points[p], *b=pieces[t].points[(p+1)%3];
+            DWORD target=STAN_TILE_NONE;
+            for (int e=0;e<2;e++)
+            {
+                const StanTile *source=&s->tiles[edges[e].tile];
+                if (!memcmp(a,Point(s,edges[e].tile,(edges[e].point+1)%source->pointcount),6)
+                    && !memcmp(b,Point(s,edges[e].tile,edges[e].point),6))
+                {
+                    target=edges[e].tile;
+                    unsigned short link=(unsigned short)((offset-s->tiles[0].sourceoffset)/8+0x10);
+                    staged.tiles[target].points[edges[e].point].link=link;
+                    Write16(staged.data+source->sourceoffset+8+edges[e].point*8+6,link);
+                }
+            }
+            for (int q=0;q<3;q++)
+            {
+                if (!memcmp(a,pieces[1-t].points[(q+1)%3],6) && !memcmp(b,pieces[1-t].points[q],6))
+                { target=s->tilecount+1-t; }
+            }
+            DWORD targetoffset=target<s->tilecount ? s->tiles[target].sourceoffset : end+(1-t)*32;
+            unsigned short link=target==STAN_TILE_NONE ? 0
+                : (unsigned short)((targetoffset-s->tiles[0].sourceoffset)/8+0x10);
+            unsigned char *raw=staged.data+offset+8+p*8;
+            memcpy(raw,a,6); Write16(raw+6,link);
+            float scale=1.0f/s->levelscale;
+            tile->points[p]=(StanPoint){(short)Read16(raw)*scale,(short)Read16(raw+2)*scale,(short)Read16(raw+4)*scale,link};
+        }
+        StanUpdateRepresentativeTriangle(&staged,index);
+    }
+    free(s->data); free(s->tiles); *s=staged; s->dirty=TRUE;
+    if (out) { out[0]=s->tilecount-2; out[1]=s->tilecount-1; }
+    *why=""; return TRUE;
+}

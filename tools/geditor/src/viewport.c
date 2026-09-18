@@ -4078,6 +4078,26 @@ BOOL ViewportGetSelectedStanTiles(HWND hwnd, DWORD *out, DWORD count)
     return TRUE;
 }
 
+BOOL ViewportSelectStanTiles(HWND hwnd, const DWORD *indices, DWORD count)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    if (!state || !ViewportStanVisible(state) || !state->stanselected
+        || state->tool != EDITOR_TOOL_FACE_SELECT || !indices || !count
+        || count > state->stan.tilecount) { return FALSE; }
+    for (DWORD i = 0; i < count; i++)
+    {
+        if (indices[i] >= state->stan.tilecount || ViewportStanTileHidden(state, indices[i])) { return FALSE; }
+        for (DWORD j = 0; j < i; j++) { if (indices[j] == indices[i]) { return FALSE; } }
+    }
+    ViewportClearAllSelection(state);
+    for (DWORD i = 0; i < count; i++) { state->stanselected[indices[i]] = 1; }
+    ViewportRefreshStanOverlay(state);
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd, NULL, FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+    return TRUE;
+}
+
 StanPointRef *ViewportGetMoveStanPoints(HWND hwnd, DWORD *countout)
 {
     const ViewportState *state = ViewportGetState(hwnd);
@@ -4147,6 +4167,19 @@ BOOL ViewportGetSelectedStanEdge(HWND hwnd, StanEdgeRef *out)
     return state && out && state->tool == EDITOR_TOOL_EDGE_SELECT
         && state->stancomponentcount == 1 && !state->componentcount
         && ViewportFindStanComponent(state,state->stancomponents[0].refs,2,out);
+}
+
+BOOL ViewportGetSelectedStanEdges(HWND hwnd, StanEdgeRef *out, DWORD count)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    if (!state || !out || !count || state->tool != EDITOR_TOOL_EDGE_SELECT
+        || state->stancomponentcount != (int)count || !state->stancomponents
+        || state->componentcount) { return FALSE; }
+    for (DWORD i = 0; i < count; i++)
+    {
+        if (!ViewportFindStanComponent(state, state->stancomponents[i].refs, 2, &out[i])) { return FALSE; }
+    }
+    return TRUE;
 }
 
 static BOOL ViewportSelectStanComponent(HWND hwnd, DWORD tile, DWORD point, int ends)
