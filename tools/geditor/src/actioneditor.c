@@ -14,7 +14,7 @@ enum {
     AE_SEARCH, AE_COMMAND, AE_INSERT, AE_DELETE, AE_UP, AE_DOWN, AE_UNDO, AE_REDO,
     AE_VALIDATE, AE_ISSUES, AE_CHARACTERS, AE_ASSIGN, AE_USED, AE_HELP, AE_STATUS,
     AE_BLOCKLABEL, AE_NAMELABEL, AE_NOTELABEL, AE_TEXTLABEL, AE_SEARCHLABEL,
-    AE_CHARLABEL, AE_USEDLABEL, AE_ISSUELABEL, AE_PARAM=2100, AE_PARAMLABEL=2120
+    AE_CHARLABEL, AE_USEDLABEL, AE_ISSUELABEL, AE_ENABLED, AE_PARAM=2100, AE_PARAMLABEL=2120
 };
 #define AE_HISTORY 32
 #define AE_HISTORY_BYTES (64u * 1024u * 1024u)
@@ -213,7 +213,8 @@ static void DisplayInstruction(ActionEditor *e)
         else if (ins->bytes[0]==5) { help="Changes the chosen character's behavior. For This character, execution restarts at the new block immediately. It does not return here afterward."; }
         else if (ins->bytes[0]==6 || ins->bytes[0]==7) { help="Return behavior is one stored block ID, not a call stack. Return starts that block from its beginning. Set it before using Return."; }
         else if (ins->bytes[0]==0xad) { help="Legacy debug text is preserved byte for byte. It is not shown in gameplay. Use the Note box for new editor comments."; }
-        snprintf(text,sizeof(text),"%s%s\r\n\r\nNative command: %s [0x%02X]\r\nNumbers accept decimal or 0x hex. Lists accept a listed reference or a numeric ID.",b->global ? "Shared behavior (read-only). Duplicate into this level to customize.\r\n\r\n" : "",help,op->symbol,ins->bytes[0]);
+        snprintf(text,sizeof(text),"%s%s%s\r\n\r\nNative command: %s [0x%02X]\r\nNumbers accept decimal or 0x hex. Lists accept a listed reference or a numeric ID.",b->global ? "Shared behavior (read-only). Duplicate into this level to customize.\r\n\r\n" : "",
+            b->disabled ? "Disabled in game. Re-enable to run this block in your next ROM.\r\n\r\n" : "",help,op->symbol,ins->bytes[0]);
     }
     SetText(e,AE_HELP,text); e->pending=FALSE; e->refreshing=FALSE;
 }
@@ -283,6 +284,8 @@ static void Refresh(ActionEditor *e)
     }
     SendMessage(steps,WM_SETREDRAW,TRUE,0); InvalidateRect(steps,NULL,TRUE);
     SetText(e,AE_BLOCKNAME,b ? b->name : ""); Enable(e,AE_BLOCKNAME,Editable(e));
+    Enable(e,AE_ENABLED,Editable(e));
+    SendMessage(Control(e,AE_ENABLED),BM_SETCHECK,b && !b->disabled ? BST_CHECKED : BST_UNCHECKED,0);
     Enable(e,AE_DUPLICATE,b!=NULL); Enable(e,AE_DELETEBLOCK,Editable(e)); Enable(e,AE_INSERT,Editable(e));
     Enable(e,AE_DELETE,Editable(e)); Enable(e,AE_UP,Editable(e)); Enable(e,AE_DOWN,Editable(e));
     Enable(e,AE_UNDO,e->undocount!=0); Enable(e,AE_REDO,e->redocount!=0);
@@ -371,7 +374,11 @@ static void Navigate(ActionEditor *e, DWORD block, DWORD row)
 static void Command(ActionEditor *e, int id)
 {
     const char *why=""; ActionDocument next; DWORD block=e->block,row=e->row; BOOL ok=FALSE;
-    if (!ApplyFields(e)) { return; }
+    if (!ApplyFields(e))
+    {
+        if (id==AE_ENABLED) { SendMessage(Control(e,AE_ENABLED),BM_SETCHECK,Block(e) && !Block(e)->disabled ? BST_CHECKED : BST_UNCHECKED,0); }
+        return;
+    }
     if (id==AE_APPLYSTEP) { Refresh(e); return; }
     if (id==AE_VALIDATE) { Refresh(e); Validate(e); return; }
     if (id==AE_FOLLOW)
@@ -411,6 +418,8 @@ static void Command(ActionEditor *e, int id)
     if (!Begin(e,&next)) { return; }
     switch (id)
     {
+        case AE_ENABLED:
+            ok=ActionDocumentSetEnabled(&next,e->block,SendMessage(Control(e,AE_ENABLED),BM_GETCHECK,0,0)==BST_CHECKED,&why); break;
         case AE_NEW: case AE_NEWLEVEL: case AE_DUPLICATE:
             ok=ActionDocumentAddBlock(&next,id==AE_DUPLICATE ? e->block : ACTION_MISSING_TARGET,
                 id==AE_NEWLEVEL || (id==AE_DUPLICATE && Block(e) && Block(e)->id>=0x1000),&block,&why); row=0; break;
@@ -440,7 +449,8 @@ static void Layout(ActionEditor *e)
     Place(e,AE_ASSIGN,12,listbottom+129,left,27); Place(e,AE_USEDLABEL,12,listbottom+166,left,18);
     Place(e,AE_USED,12,listbottom+186,left,body-listbottom-190);
     Place(e,AE_BLOCKLABEL,x,12,86,20); Place(e,AE_BLOCKNAME,x+90,10,middle-90,25);
-    Place(e,AE_STEPS,x,43,middle,body-163);
+    Place(e,AE_ENABLED,x,43,middle,23);
+    Place(e,AE_STEPS,x,73,middle,body-193);
     Place(e,AE_UP,x,body-114,60,27); Place(e,AE_DOWN,x+66,body-114,60,27); Place(e,AE_DELETE,x+132,body-114,105,27);
     Place(e,AE_SEARCHLABEL,x,body-78,104,20); Place(e,AE_SEARCH,x+110,body-81,middle-110,25);
     Place(e,AE_COMMAND,x,body-48,middle-88,350); Place(e,AE_INSERT,x+middle-82,body-49,82,27);
@@ -487,6 +497,7 @@ static void Controls(ActionEditor *e)
     AddControl(e,AE_FILTER,"EDIT","",edit); SendMessage(Control(e,AE_FILTER),EM_SETCUEBANNER,FALSE,(LPARAM)L"Find block by name or ID");
     AddControl(e,AE_BLOCKS,"LISTBOX","",list); AddControl(e,AE_STEPS,"LISTBOX","",list);
     AddControl(e,AE_BLOCKNAME,"EDIT","",edit); AddControl(e,AE_NAME,"EDIT","",edit);
+    AddControl(e,AE_ENABLED,"BUTTON","Enabled in game",WS_TABSTOP|BS_AUTOCHECKBOX);
     AddControl(e,AE_NOTE,"EDIT","",WS_TABSTOP|ES_MULTILINE|ES_AUTOVSCROLL|ES_WANTRETURN|WS_VSCROLL);
     AddControl(e,AE_DEBUGTEXT,"EDIT","",WS_TABSTOP|ES_MULTILINE|ES_AUTOVSCROLL|ES_WANTRETURN|WS_VSCROLL);
     AddControl(e,AE_SEARCH,"EDIT","",edit);

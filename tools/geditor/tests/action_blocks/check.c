@@ -24,7 +24,7 @@ static void ScriptsEqual(const ActionDocument *a,const ActionDocument *b)
     for (DWORD i=0;i<a->count;i++) if (!a->blocks[i].global)
     {
         assert(count<b->count); const ActionBlock *x=&a->blocks[i],*y=&b->blocks[count++];
-        assert(x->id==y->id && x->count==y->count && !strcmp(x->name,y->name));
+        assert(x->disabled==y->disabled && x->id==y->id && x->count==y->count && !strcmp(x->name,y->name));
         for (DWORD j=0;j<x->count;j++)
         {
             assert(x->instructions[j].size==y->instructions[j].size);
@@ -164,6 +164,95 @@ static void Persistence(const char *dir)
     assert(saved.actionmetasize==out.actionmetasize && !memcmp(saved.actionmeta,out.actionmeta,out.actionmetasize));
     ActionDocumentFree(&d); SetupFileFree(&s); SetupFileFree(&out); SetupFileFree(&saved);
 }
+static void Disabled(const char *dir)
+{
+    const unsigned char code[]={2,0,3,1,0,4};
+    SetupFile source=Fixture(code,sizeof(code)),edited={0},saved={0},again={0};
+    ActionDocument d={0},loaded={0},copy={0}; DWORD size,packedsize;
+    unsigned char *runtime=NULL,*packed=NULL; char path[512],title[160];
+    /* Three table occurrences share one script. The third even shares the
+     * first ID: automatic level threads must remain individually addressable. */
+    for (DWORD i=0;i<3;i++)
+    {
+        SetupMetaWrite32(source.data+40+i*8,256);
+        SetupMetaWrite32(source.data+44+i*8,i==1 ? 0x1003 : 0x1002);
+    }
+    Require(ActionDocumentLoad(&source,&d,&why)); assert(d.count==3);
+    Require(ActionDocumentSetEnabled(&d,0,TRUE,&why)); assert(!d.changed);
+    assert(!ActionDocumentSetEnabled(&d,99,FALSE,&why));
+    strcpy(d.blocks[0].name,"Guard spawner"); strcpy(d.blocks[0].instructions[0].note,"Keep this original loop");
+    Require(ActionDocumentSetEnabled(&d,0,FALSE,&why));
+    Require(ActionDocumentSetEnabled(&d,2,FALSE,&why));
+    assert(d.changed && !d.blocks[0].changed && !d.blocks[2].changed);
+    ActionBlockTitle(&d.blocks[0],title,sizeof(title)); assert(strstr(title,"[Disabled]"));
+    Require(ActionDocumentClone(&d,&copy,&why)); ScriptsEqual(&d,&copy);
+    DWORD duplicate; Require(ActionDocumentAddBlock(&copy,0,TRUE,&duplicate,&why));
+    assert(copy.blocks[duplicate].disabled); ActionDocumentFree(&copy);
+    Require(ActionDocumentCompile(&d,&source,&edited,&why)); NativeEqual(&source,&edited);
+    assert(!memcmp(edited.actionmeta,"AIN2",4));
+    Require(SetupSaveProjectFile(dir,&edited,&why));
+    Require(SetupLoadProjectFile(dir,edited.name,&saved,&why));
+    Require(ActionDocumentLoad(&saved,&loaded,&why)); ScriptsEqual(&d,&loaded);
+    ActionDocumentFree(&loaded);
+    Require(ActionSetupBuildRuntime(&saved,&runtime,&size,&why)); assert(runtime);
+    DWORD table=SetupMetaRead32(runtime+20),stub=SetupMetaRead32(runtime+table);
+    assert(runtime[stub]==4 && SetupMetaRead32(runtime+table+16)==stub);
+    assert(!memcmp(runtime+SetupMetaRead32(runtime+table+8),code,sizeof(code)));
+    Require(SetupCompactNative(runtime,size,&packed,&packedsize,&why));
+    SetupFile game={0}; game.data=packed; game.size=packedsize;
+    Require(ActionDocumentLoad(&game,&loaded,&why)); assert(loaded.count==3);
+    for (DWORD i=0;i<3;i++)
+    {
+        assert(loaded.blocks[i].id==d.blocks[i].id);
+        assert(loaded.blocks[i].count==(i==1 ? 4u : 1u));
+        if (i!=1) { assert(loaded.blocks[i].instructions[0].bytes[0]==4); }
+    }
+    ActionDocumentFree(&loaded); free(packed);
+    /* Exercise the actual ROM resource reader, including metadata stripping.
+     * Reading/exporting must not persist the disabled stub into the project. */
+    snprintf(path,sizeof(path),"%s/setup/%s.set",dir,saved.name);
+    unsigned char *exported=TestReadResource(path,saved.name,&packedsize,&why);
+    assert(exported && packedsize==size && !memcmp(exported,runtime,size));
+    free(exported); free(runtime); runtime=NULL;
+    Require(SetupLoadProjectFile(dir,saved.name,&again,&why)); NativeEqual(&saved,&again);
+    assert(saved.actionmetasize==again.actionmetasize && !memcmp(saved.actionmeta,again.actionmeta,saved.actionmetasize));
+    SetupFileFree(&again);
+    /* Existing setup undo/redo must restore the switches together with notes. */
+    EditHistory history={0}; EditHistoryTransaction transaction={0};
+    BgDocument bg={0}; StanFile stan={0}; EditHistoryAsset asset;
+    EditHistoryReset(&history,&bg,&source,&stan);
+    Require(EditHistoryBeginSetupEdit(&history,&source,"Action Blocks",&transaction,&why));
+    SetupFileFree(&source); Require(SetupFileClone(&saved,&source,&why));
+    Require(EditHistoryCommitEdit(&history,&bg,&source,&stan,&transaction,&why));
+    Require(EditHistoryUndo(&history,&bg,&source,&stan,&asset,&why));
+    Require(ActionDocumentLoad(&source,&loaded,&why)); assert(!loaded.blocks[0].disabled);
+    ActionDocumentFree(&loaded);
+    Require(EditHistoryRedo(&history,&bg,&source,&stan,&asset,&why));
+    Require(ActionDocumentLoad(&source,&loaded,&why)); ScriptsEqual(&d,&loaded);
+    ActionDocumentFree(&loaded); EditHistoryFree(&history);
+    /* Repeated toggles never append bytecode or native tables to the project. */
+    ActionDocumentFree(&d); Require(ActionDocumentLoad(&saved,&d,&why));
+    for (int i=0;i<100;i++)
+    {
+        Require(ActionDocumentSetEnabled(&d,0,i&1,&why));
+        Require(ActionDocumentCompile(&d,&saved,&again,&why)); NativeEqual(&saved,&again);
+        SetupFileFree(&again);
+    }
+    Require(ActionDocumentSetEnabled(&d,2,TRUE,&why));
+    Require(ActionDocumentCompile(&d,&saved,&again,&why)); NativeEqual(&saved,&again);
+    assert(!memcmp(again.actionmeta,"AIN1",4));
+    Require(ActionSetupBuildRuntime(&again,&runtime,&size,&why)); assert(!runtime && size==saved.size);
+    Require(ActionDocumentLoad(&again,&loaded,&why)); ScriptsEqual(&d,&loaded);
+    ActionDocumentFree(&loaded); SetupFileFree(&again);
+    /* Unknown flags and damaged metadata fail export instead of silently
+     * enabling a supposedly disabled script. */
+    saved.actionmeta[19]=2;
+    assert(!ActionSetupBuildRuntime(&saved,&runtime,&size,&why) && !runtime);
+    saved.actionmeta[19]=1;
+    Require(ActionSetupBuildRuntime(&saved,&runtime,&size,&why)); free(runtime);
+    ActionDocumentFree(&d); SetupFileFree(&source); SetupFileFree(&edited); SetupFileFree(&saved);
+    puts("Disabled blocks: aliases/duplicate IDs, native preservation, save/reload, undo/redo, export/compaction, exact re-enable and malformed metadata passed.");
+}
 static void Vehicle(void)
 {
     unsigned char bytes[]={3,1,0,2,0,4}; SetupFile s=Fixture(bytes,sizeof(bytes)); ActionDocument d={0};
@@ -181,6 +270,7 @@ static void Globals(void)
     SetupMetaWrite32(r.data+16,0x80000030); SetupMetaWrite32(r.data+20,1); SetupMetaWrite32(r.data+24,8); SetupMetaWrite32(r.data+28,1);
     SetupMetaWrite32(r.data+48,0x80000050); SetupMetaWrite32(r.data+52,2); memcpy(r.data+80,code,sizeof(code));
     d.nextuid=1; Require(ActionDocumentLoadGlobals(&d,&r,&why)); assert(d.count==1 && d.blocks[0].global && d.blocks[0].id==2);
+    assert(!ActionDocumentSetEnabled(&d,0,FALSE,&why));
     assert(!ActionBlockDelete(&d,0,1,&why)); Require(ActionDocumentAddBlock(&d,0,FALSE,&index,&why)); assert(!d.blocks[index].global);
     ActionDocumentFree(&d); r.data[28]=99; assert(!ActionDocumentLoadGlobals(&d,&r,&why)); assert(d.count==0);
     ActionDocumentFree(&d); free(r.data);
@@ -188,7 +278,8 @@ static void Globals(void)
 static void Stock(const char *dir,const char *name)
 {
     SetupFile s={0},out={0}; ActionDocument d={0},reloaded={0}; ActionIssue *issues=NULL; DWORD count;
-    Require(SetupLoadProjectFile(dir,name,&s,&why)); Require(ActionDocumentLoad(&s,&d,&why));
+    if (!SetupLoadProjectFile(dir,name,&s,&why)) { fprintf(stderr,"%s: %s\n",name,why); abort(); }
+    Require(ActionDocumentLoad(&s,&d,&why));
     Require(ActionDocumentValidate(&d,&s,&issues,&count,&why));
     for (DWORD i=0;i<count;i++) if (issues[i].error)
     { fprintf(stderr,"%s block %04lX row %lu: %s\n",name,(unsigned long)d.blocks[issues[i].block].id,(unsigned long)issues[i].instruction,issues[i].text); }
@@ -212,6 +303,42 @@ static void Stock(const char *dir,const char *name)
     }
     Require(ActionDocumentCompile(&d,&s,&out,&why)); NativeEqual(&s,&out);
     Require(ActionDocumentLoad(&out,&reloaded,&why)); ScriptsEqual(&d,&reloaded);
+    ActionDocumentFree(&reloaded); SetupFileFree(&out);
+    /* Exercise selected spawn scripts in a real saved setup as well. Every
+     * other script and ID must survive the runtime compactor unchanged. */
+    DWORD disabled=0;
+    for (DWORD b=0;b<d.count;b++) for (DWORD i=0;i<d.blocks[b].count;i++)
+    {
+        unsigned int op=d.blocks[b].instructions[i].bytes[0];
+        if (op==0xbd || op==0xbe)
+        {
+            Require(ActionDocumentSetEnabled(&d,b,FALSE,&why)); disabled++;
+            printf("%s: disable spawn block %04lX\n",name,(unsigned long)d.blocks[b].id); break;
+        }
+    }
+    if (disabled)
+    {
+        unsigned char *runtime,*packed; DWORD size,packedsize; SetupFile game={0};
+        Require(ActionDocumentCompile(&d,&s,&out,&why)); NativeEqual(&s,&out);
+        Require(ActionSetupBuildRuntime(&out,&runtime,&size,&why)); assert(runtime);
+        Require(SetupCompactNative(runtime,size,&packed,&packedsize,&why)); free(runtime);
+        game.data=packed; game.size=packedsize;
+        Require(ActionDocumentLoad(&game,&reloaded,&why)); assert(reloaded.count==d.count);
+        for (DWORD b=0;b<d.count;b++)
+        {
+            const ActionBlock *before=&d.blocks[b],*after=&reloaded.blocks[b];
+            assert(before->id==after->id);
+            if (before->disabled) { assert(after->count==1 && after->instructions[0].bytes[0]==4); }
+            else
+            {
+                assert(before->count==after->count);
+                for (DWORD i=0;i<before->count;i++)
+                { assert(before->instructions[i].size==after->instructions[i].size);
+                  assert(!memcmp(before->instructions[i].bytes,after->instructions[i].bytes,before->instructions[i].size)); }
+            }
+        }
+        free(packed);
+    }
     ActionDocumentFree(&reloaded); ActionDocumentFree(&d); SetupFileFree(&s); SetupFileFree(&out);
 }
 static void StockGlobals(const char *dir)
@@ -240,7 +367,7 @@ static void StockGlobals(const char *dir)
 int main(int argc,char **argv)
 {
     assert(argc>=2); Parameters(); Branches(); Malformed(); OffsetLimit();
-    Persistence(argv[1]); Vehicle(); Globals(); StockGlobals(argv[1]);
+    Persistence(argv[1]); Disabled(argv[1]); Vehicle(); Globals(); StockGlobals(argv[1]);
     for (int i=2;i<argc;i++) { Stock(argv[1],argv[i]); }
     printf("Action Blocks: safety, metadata, atomic save, history, export and %lu stock scripts / %lu instructions and %lu shared scripts passed.\n",(unsigned long)scripts,(unsigned long)instructions,(unsigned long)sharedscripts);
     return 0;

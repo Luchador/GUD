@@ -4,6 +4,7 @@
 Builds all stock setup sources with IDO when its compiler is available. The
 standalone synthetic suite needs only a C compiler; no ROM assets or GUI.
 """
+import argparse
 import importlib.util
 import json
 import sys
@@ -132,6 +133,10 @@ def layouts(root, work):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--setup", action="append", type=Path,
+                        help="test this saved setup instead of rebuilding the source corpus; repeatable")
+    args = parser.parse_args()
     here = Path(__file__).resolve().parent
     root = here.parents[3]
     src = root / 'tools/geditor/src'
@@ -140,9 +145,16 @@ def main():
         work = Path(temp)
         (work / 'setup').mkdir()
         layouts(root, work)
-        names = corpus(root, work, here)
+        if args.setup:
+            names = []
+            for i, path in enumerate(args.setup):
+                name = f'Usetuptest{i}Z'
+                (work / 'setup' / (name + '.set')).write_bytes(path.read_bytes())
+                names.append(name)
+        else:
+            names = corpus(root, work, here)
         source = (src / 'romexport.c').read_text()
-        exported = '#include <stdlib.h>\n#include <stdio.h>\n#include <stdarg.h>\n#include "setupmeta.h"\nstatic char g_RomExportError[256];\n'
+        exported = '#include <stdlib.h>\n#include <stdio.h>\n#include <stdarg.h>\n#include "setupmeta.h"\n#include "actionblocks.h"\nstatic char g_RomExportError[256];\n'
         exported += function(source, 'RomExportSetError') + function(source, 'RomExportReadResource')
         exported += 'unsigned char *TestReadResource(const char *p,const char *r,DWORD *n,const char **why) {return RomExportReadResource(p,r,n,why);}\n'
         (work / 'export.c').write_text(exported)

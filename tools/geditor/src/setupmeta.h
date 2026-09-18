@@ -3,7 +3,8 @@
 #include <windows.h>
 #include <string.h>
 /* Optional project-only trailer. Native setup bytes remain an unchanged prefix.
- * Load splits it into SetupFile.actionmeta; ROM export only copies the prefix.
+ * Load splits it into SetupFile.actionmeta; ROM export applies disabled block
+ * flags to a separate native copy, then discards all editor metadata.
  * One atomic project-file replacement keeps scripts and their names together. */
 #define SETUP_META_MAGIC "GEDAI001"
 #define SETUP_META_FOOTER 16u

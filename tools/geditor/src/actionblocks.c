@@ -126,7 +126,7 @@ static BOOL LoadNames(ActionDocument *d, const SetupFile *setup, const char **wh
 {
     const unsigned char *p=setup->actionmeta; DWORD size=setup->actionmetasize;
     if (!size) { return TRUE; }
-    if (!p || size<8 || memcmp(p,"AIN1",4) || Read(p+4,4)!=(size-8)/ACTION_META_RECORD
+    if (!p || size<8 || (memcmp(p,"AIN1",4) && memcmp(p,"AIN2",4)) || Read(p+4,4)!=(size-8)/ACTION_META_RECORD
         || (size-8)%ACTION_META_RECORD)
     { return Fail(why,"The saved Action Block names are damaged."); }
     for (DWORD at=8;at<size;at+=ACTION_META_RECORD)
@@ -138,7 +138,13 @@ static BOOL LoadNames(ActionDocument *d, const SetupFile *setup, const char **wh
         if (blockindex>=d->count) { return Fail(why,"Saved Action Block notes refer to a missing table entry."); }
         {
             ActionBlock *b=&d->blocks[blockindex];
-            if (index==ACTION_MISSING_TARGET) { Text(b->name,sizeof(b->name),name); }
+            if (index==ACTION_MISSING_TARGET)
+            {
+                /* AIN2 uses the block record's formerly reserved opcode word
+                 * for flags. AIN1 remains the exact enabled-only format. */
+                if (opcode>(p[3]=='2' ? 1u : 0u)) { return Fail(why,"Unknown saved Action Block flags."); }
+                Text(b->name,sizeof(b->name),name); b->disabled=(opcode&1)!=0;
+            }
             else if (index<b->count && opcode==b->instructions[index].bytes[0])
             {
                 Text(b->instructions[index].name,ACTION_NAME_SIZE,name);
@@ -279,6 +285,16 @@ static BOOL Editable(ActionDocument *d, DWORD b, const char **why)
     return b<d->count && !d->blocks[b].global
         ? TRUE : Fail(why,"Duplicate a shared block into this level before editing it.");
 }
+BOOL ActionDocumentSetEnabled(ActionDocument *d, DWORD index, BOOL enabled, const char **why)
+{
+    if (!Editable(d,index,why)) { return FALSE; }
+    if (d->blocks[index].disabled!=!enabled)
+    {
+        d->blocks[index].disabled=!enabled;
+        d->changed=TRUE; /* Metadata only; do not rewrite the original script. */
+    }
+    return TRUE;
+}
 BOOL ActionDocumentAddBlock(ActionDocument *d, DWORD source, BOOL background, DWORD *out, const char **why)
 {
     unsigned char idle[]={2,0,3,1,0,4};
@@ -306,6 +322,7 @@ BOOL ActionDocumentAddBlock(ActionDocument *d, DWORD source, BOOL background, DW
     free(data); b->sourceoffset=0; b->changed=TRUE;
     if (source<d->count-1)
     {
+        b->disabled=d->blocks[source].disabled;
         Text(b->name,sizeof(b->name),d->blocks[source].name);
         for (i=0;i<b->count;i++)
         {
@@ -517,8 +534,9 @@ BOOL ActionParseValue(const ActionParam *p, const char *text, DWORD *value)
 }
 void ActionBlockTitle(const ActionBlock *b, char *text, size_t size)
 {
-    snprintf(text,size,"%s%s  [%04lX]",b->global ? "Shared: " : "",
-        b->name[0] ? b->name : b->id>=0x1000 ? "Level logic" : "Behavior",(unsigned long)b->id);
+    snprintf(text,size,"%s%s  [%04lX]%s",b->global ? "Shared: " : "",
+        b->name[0] ? b->name : b->id>=0x1000 ? "Level logic" : "Behavior",(unsigned long)b->id,
+        b->disabled ? "  [Disabled]" : "");
 }
 void ActionInstructionFormat(const ActionBlock *b, DWORD row, char *text, size_t size)
 {
@@ -679,10 +697,11 @@ memory:
 }
 static BOOL SaveNames(const ActionDocument *d, unsigned char **out, DWORD *size, const char **why)
 {
-    DWORD records=0,at=8,localindex=0; unsigned char *data;
+    DWORD records=0,at=8,localindex=0; unsigned char *data; BOOL disabled=FALSE;
     for (DWORD b=0;b<d->count;b++) if (!d->blocks[b].global)
     {
-        if (d->blocks[b].name[0]) { records++; }
+        if (d->blocks[b].name[0] || d->blocks[b].disabled) { records++; }
+        disabled|=d->blocks[b].disabled;
         for (DWORD i=0;i<d->blocks[b].count;i++)
         { if (d->blocks[b].instructions[i].name[0] || d->blocks[b].instructions[i].note[0]) { records++; } }
     }
@@ -691,13 +710,14 @@ static BOOL SaveNames(const ActionDocument *d, unsigned char **out, DWORD *size,
     if (records>(SETUP_META_MAX-8)/ACTION_META_RECORD) { return Fail(why,"Too many Action Block notes."); }
     *size=8+records*ACTION_META_RECORD; data=calloc(*size,1);
     if (!data) { return Fail(why,"Out of memory saving Action Block names."); }
-    memcpy(data,"AIN1",4); Write(data+4,4,records);
+    memcpy(data,disabled ? "AIN2" : "AIN1",4); Write(data+4,4,records);
     for (DWORD b=0;b<d->count;b++) if (!d->blocks[b].global)
     {
         const ActionBlock *block=&d->blocks[b];
-        if (block->name[0])
+        if (block->name[0] || block->disabled)
         {
             Write(data+at,4,localindex); Write(data+at+4,4,ACTION_MISSING_TARGET);
+            Write(data+at+8,4,block->disabled ? 1 : 0);
             Text((char *)data+at+12,ACTION_NAME_SIZE,block->name); at+=ACTION_META_RECORD;
         }
         for (DWORD i=0;i<block->count;i++)
@@ -774,4 +794,29 @@ BOOL ActionDocumentCompile(const ActionDocument *d, const SetupFile *source, Set
         chr->ailistid=d->assignments[i]; Write(out->data+chr->sourceoffset+10,2,chr->ailistid);
     }
     out->dirty=TRUE; return TRUE;
+}
+
+BOOL ActionSetupBuildRuntime(const SetupFile *source, unsigned char **out, DWORD *size, const char **why)
+{
+    ActionDocument doc={0}; DWORD disabled=0,table,stub; unsigned char *data;
+    *out=NULL; *size=source->size;
+    if (!source->actionmetasize) { return TRUE; }
+    if (!ActionDocumentLoad(source,&doc,why)) { return FALSE; }
+    for (DWORD i=0;i<doc.count;i++) { disabled+=doc.blocks[i].disabled!=FALSE; }
+    if (!disabled) { ActionDocumentFree(&doc); return TRUE; }
+    if (source->size>ACTION_SETUP_MAX-4)
+    { ActionDocumentFree(&doc); return Fail(why,"The disabled Action Blocks exceed the setup resource limit."); }
+    stub=(source->size+3u)&~3u;
+    data=calloc(stub+4,1);
+    if (!data) { ActionDocumentFree(&doc); return Fail(why,"Out of memory exporting disabled Action Blocks."); }
+    memcpy(data,source->data,source->size);
+    /* Keep every ID/table occurrence, including automatic level threads.
+     * Redirect entries instead of overwriting bytecode: an enabled alias can
+     * share the same original instructions. Compaction removes unused scripts
+     * from the ROM copy; the project retains them for exact re-enabling. */
+    data[stub]=4; /* AI_EndList returns immediately for every script owner. */
+    table=Read(data+20,4);
+    for (DWORD i=0;i<doc.count;i++) if (doc.blocks[i].disabled)
+    { Write(data+table+i*8,4,stub); }
+    ActionDocumentFree(&doc); *out=data; *size=stub+4; return TRUE;
 }

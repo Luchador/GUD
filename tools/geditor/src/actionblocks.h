@@ -27,7 +27,7 @@ typedef struct ActionInstruction {
 } ActionInstruction;
 typedef struct ActionBlock {
     DWORD id, sourceoffset, sourcesize;
-    BOOL global, changed;
+    BOOL global, changed, disabled;
     char name[ACTION_NAME_SIZE];
     ActionInstruction *instructions;
     DWORD count;
@@ -50,6 +50,7 @@ BOOL ActionDocumentClone(const ActionDocument *source, ActionDocument *out, cons
 void ActionDocumentFree(ActionDocument *doc);
 BOOL ActionDocumentAddBlock(ActionDocument *doc, DWORD source, BOOL background, DWORD *out, const char **why);
 BOOL ActionDocumentDeleteBlock(ActionDocument *doc, const SetupFile *setup, DWORD block, const char **why);
+BOOL ActionDocumentSetEnabled(ActionDocument *doc, DWORD block, BOOL enabled, const char **why);
 BOOL ActionBlockInsert(ActionDocument *doc, DWORD block, DWORD before, unsigned int opcode, const char **why);
 BOOL ActionBlockDelete(ActionDocument *doc, DWORD block, DWORD instruction, const char **why);
 BOOL ActionBlockMove(ActionDocument *doc, DWORD block, DWORD instruction, int direction, const char **why);
@@ -60,6 +61,9 @@ BOOL ActionDocumentAssign(ActionDocument *doc, DWORD character, DWORD block, con
 /* Compile into an independent setup clone. No-op edits retain every native byte. */
 BOOL ActionDocumentCompile(const ActionDocument *doc, const SetupFile *source,
     SetupFile *out, const char **why);
+/* Export-only copy: disabled entries point at End of block. Project bytecode
+ * and metadata are never changed. A NULL result means no replacement needed. */
+BOOL ActionSetupBuildRuntime(const SetupFile *source, unsigned char **out, DWORD *size, const char **why);
 BOOL ActionDocumentValidate(const ActionDocument *doc, const SetupFile *setup,
     ActionIssue **issues, DWORD *count, const char **why);
 DWORD ActionReadValue(const ActionInstruction *ins, unsigned int parameter);

@@ -35,14 +35,14 @@ with tempfile.TemporaryDirectory(prefix='geditor-stan-delete-') as temp:
         ('ViewportStanVisible', 'ViewportGetStanSelectionCount', 'ViewportGetSelectedStanTiles')))
     (work / 'controller.inc').write_text(extract.function((src / 'geditor.c').read_text(), 'GEditorDeleteSelectedStanTiles'))
     export = (src / 'romexport.c').read_text()
-    (work / 'export.inc').write_text(''.join(extract.function(export, n) for n in
+    (work / 'export.inc').write_text('#include "actionblocks.h"\n' + ''.join(extract.function(export, n) for n in
         ('RomExportSetError', 'RomExportEndsWith', 'RomExportSimpleResourceName', 'RomExportProjectResourcePath', 'RomExportReadResource')))
     binary = work / 'check'
     subprocess.run([os.environ.get('CC', 'cc'), '-std=c99', '-O1', '-g', '-Wall', '-Wextra', '-Werror',
                     '-Wno-unused-parameter', '-ffunction-sections', '-fdata-sections', '-fsanitize=address,undefined',
                     f'-I{here.parent / "image_import"}', f'-I{src}', f'-I{work}', str(here / 'check.c'),
                     str(here.parent / 'image_import/platform.c'),
-                    *[str(src / name) for name in ('stanload.c', 'standelete.c', 'stanquery.c', 'bghistory.c')],
+                    *[str(src / name) for name in ('actionblocks.c', 'stanload.c', 'standelete.c', 'stanquery.c', 'bghistory.c')],
                     '-Wl,--gc-sections', '-Wl,--wrap=malloc', '-Wl,--wrap=calloc', '-lm', '-o', str(binary)], check=True)
     subprocess.run([str(binary), str(work)], check=True,
                    env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))

@@ -28,6 +28,7 @@
 #include "imageedits.h"
 #include "bgdocument.h"
 #include "setupload.h"
+#include "actionblocks.h"
 
 #define ROM_EXPORT_FTBL_MAX_ROWS 1024u
 #define ROM_EXPORT_CHECKSUM_END  0x101000u
@@ -609,6 +610,15 @@ static unsigned char *RomExportReadResource(const char *path,
         if (!SetupMetaSplit(data, size, &native, &meta))
         { free(data); RomExportSetError(reasonout, "%s has invalid editor metadata.", resource); return NULL; }
         size = native;
+        if (meta)
+        {
+            SetupFile setup = {0}; unsigned char *runtime = NULL; DWORD runtimesize;
+            setup.data = data; setup.size = native;
+            setup.actionmeta = data + native; setup.actionmetasize = meta;
+            if (!ActionSetupBuildRuntime(&setup, &runtime, &runtimesize, reasonout))
+            { free(data); return NULL; }
+            if (runtime) { free(data); data = runtime; size = runtimesize; }
+        }
     }
     *sizeout = size;
     return data;
