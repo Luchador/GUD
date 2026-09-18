@@ -63,7 +63,8 @@ source += function(model, 'modelRenderNodeDlWithCache')
 # Independently decode the final RDP state using the established BG test oracle.
 bgcheck = (HERE.parent / 'bg_onecycle/check.c').read_text()
 source += bgcheck[:bgcheck.index('static const Gfx standard[]')]
-source += (HERE / 'check.c').read_text()
+checks = (HERE / 'check.c').read_text()
+source += checks.replace('static u32 read_be(FILE *file)', (HERE / 'character.c').read_text() + '\nstatic u32 read_be(FILE *file)')
 
 gunfire = (ROOT / 'src/game/gunfire.c').read_text()
 assert 'renderdata.flags |= MODEL_RENDER_FIRST_PERSON;' in function(gunfire, 'gunRenderFirstPersonGunModels')

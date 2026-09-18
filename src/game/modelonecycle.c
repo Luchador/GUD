@@ -5,6 +5,7 @@
 #include "modelonecycle.h"
 #include "renderconfig.h"
 #include "rendercache.h"
+#include "dyn.h"
 
 #define MODEL_ONE_CYCLE_CACHE_SIZE 256
 #define MODEL_ONE_CYCLE_BYTE_LIMIT 0x10000
@@ -15,6 +16,8 @@ typedef struct ModelOneCycleEntry {
     s32 sourceSize;
     u8 material;
     u8 valid;
+    u8 pipelineSafe;
+    u8 characterFixups;
 } ModelOneCycleEntry;
 
 static ModelOneCycleEntry g_ModelOneCycleCache[MODEL_ONE_CYCLE_CACHE_SIZE];
@@ -56,6 +59,175 @@ static s32 modelOneCycleListSize(const Gfx *source)
         if (op == (u8)G_ENDDL) return (i + 1) * sizeof(Gfx);
     }
     return 0;
+}
+
+/* These are the ordinary material commands emitted by GEditor. Characters
+ * supply blood tint and opacity at draw time; an authored SHADE/MODULATE
+ * command must not replace that per-instance combiner. Other equations are
+ * left alone, including special effects and explicit constant-alpha faces. */
+static s32 modelCharacterCombinerKind(Gfx command)
+{
+    static const Gfx textured[] = {
+        gsDPSetCombineMode(G_CC_MODULATEIA, G_CC_MODULATEIA),
+        gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEIA2),
+        {{0xfc26e404, 0x1f10ffff}} /* detail texture */
+    };
+    static const Gfx shade[] = {
+        gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
+        gsDPSetCombineMode(G_CC_SHADE, G_CC_PASS2)
+    };
+    s32 i;
+    for (i = 0; i < 3; i++) {
+        if (command.words.w0 == textured[i].words.w0
+                && command.words.w1 == textured[i].words.w1) return 1;
+    }
+    for (i = 0; i < 2; i++) {
+        if (command.words.w0 == shade[i].words.w0
+                && command.words.w1 == shade[i].words.w1) return 2;
+    }
+    return 0;
+}
+
+static Gfx *modelResolveGdl(Gfx *source, void *baseAddr)
+{
+    if (((u32)source >> 24) == SPSEGMENT_MODEL_COL1) {
+        u32 offset = (u32)source & 0x00ffffff;
+        if (!IS_KSEG0(baseAddr) || K0_TO_PHYS(baseAddr) >= osMemSize
+                || offset >= osMemSize - K0_TO_PHYS(baseAddr)) return NULL;
+        source = (Gfx *)((u8 *)baseAddr + offset);
+    }
+    if (!IS_KSEG0(source) || K0_TO_PHYS(source) >= osMemSize) return NULL;
+    return source;
+}
+
+static ModelOneCycleEntry *modelMaterialEntry(Gfx *source, u8 material)
+{
+    u32 slot = (((u32)source >> 3) ^ material) & (MODEL_ONE_CYCLE_CACHE_SIZE - 1);
+    s32 count;
+    for (count = 0; count < MODEL_ONE_CYCLE_CACHE_SIZE; count++) {
+        ModelOneCycleEntry *entry = &g_ModelOneCycleCache[slot];
+        if (!entry->source || (entry->source == source && entry->material == material)) return entry;
+        slot = (slot + 1) & (MODEL_ONE_CYCLE_CACHE_SIZE - 1);
+    }
+    return NULL;
+}
+
+static ModelOneCycleEntry *modelInspectGdl(Gfx *primary, void *baseAddr, ModelOneCycleEntry *local)
+{
+    Gfx *source = modelResolveGdl(primary, baseAddr);
+    ModelOneCycleEntry *entry;
+    s32 i;
+    local->source = NULL;
+    local->valid = FALSE;
+    local->pipelineSafe = FALSE;
+    local->characterFixups = FALSE;
+    if (!source) return local;
+    /* Material 16 is metadata only, shared by all instances and draw modes.
+     * Transient lists and a full table are inspected without retaining them. */
+    entry = renderListIsDynamic(source) ? NULL : modelMaterialEntry(source, 16);
+    if (!entry) entry = local;
+    if (entry->source == source && entry->valid) return entry;
+    entry->source = source;
+    entry->material = 16;
+    entry->alternate = NULL;
+    entry->valid = TRUE;
+    entry->pipelineSafe = FALSE;
+    entry->characterFixups = FALSE;
+    entry->sourceSize = modelOneCycleListSize(source);
+    if (!entry->sourceSize) {
+        entry->sourceSize = sizeof(Gfx);
+        return entry;
+    }
+    entry->pipelineSafe = TRUE;
+    for (i = 0; i < entry->sourceSize / sizeof(Gfx); i++) {
+        Gfx command = source[i];
+        u32 op = command.words.w0 >> 24;
+        if (op == (u8)G_SETCOMBINE || op == (u8)G_SETOTHERMODE_L
+                || op == (u8)G_RDPSETOTHERMODE
+                || op == (u8)G_SETENVCOLOR || op == (u8)G_SETPRIMCOLOR || op == (u8)G_SETFOGCOLOR
+                || command.words.w0 == 0xba001402 /* cycle type */
+                || (op == (u8)G_MOVEWORD && (command.words.w0 & 255) == G_MW_SEGMENT)) {
+            entry->pipelineSafe = FALSE;
+            if (op != (u8)G_SETCOMBINE || !modelCharacterCombinerKind(command)) {
+                entry->characterFixups |= 2; /* state outside the combiner repair */
+            }
+        }
+        if (op == (u8)G_SETCOMBINE && modelCharacterCombinerKind(command)) entry->characterFixups |= 1;
+    }
+    return entry;
+}
+
+bool modelGdlPreservesType3Pipeline(ModelRenderData *renderdata, Gfx *primary, void *baseAddr)
+{
+    ModelOneCycleEntry local;
+    ModelOneCycleEntry *info = modelInspectGdl(primary, baseAddr, &local);
+    return info->pipelineSafe || (info->characterFixups == 1
+            && (renderdata->PropType == PROP_TYPE_VIEWER + 1
+                || renderdata->PropType == PROP_TYPE_EXPLOSION + 1));
+}
+
+static Gfx *modelGetCharacterGdl(ModelRenderData *renderdata, Gfx *primary, s32 modelType, void *baseAddr)
+{
+    ModelOneCycleEntry local;
+    ModelOneCycleEntry *info = modelInspectGdl(primary, baseAddr, &local);
+    ModelOneCycleEntry *entry;
+    ModelRenderData setup = *renderdata;
+    Gfx initial[16], combine, untextured;
+    Gfx *out, *alternate;
+    s32 i, size;
+    bool retained = FALSE;
+    bool fading = renderdata->PropType == PROP_TYPE_EXPLOSION + 1;
+    if (!(info->characterFixups & 1)) return primary;
+    entry = renderListIsDynamic(info->source) ? NULL : modelMaterialEntry(info->source, 32 + fading);
+    if (entry && entry->source && entry->valid && entry->alternate) return entry->alternate;
+
+    /* Only equations go into the copy. ENV colour/alpha remain in the parent
+     * list, so several characters can share it at different fade amounts. */
+    setup.gdl = initial;
+    if (modelType == 3) modelApplyRenderModeType3(&setup, TRUE);
+    else modelApplyRenderModeType4(&setup, TRUE);
+    combine = initial[0];
+    for (out = initial; out < setup.gdl; out++) {
+        if (out->words.w0 >> 24 == (u8)G_SETCOMBINE) combine = *out;
+    }
+    if (fading) {
+        gDPSetCombineLERP(&untextured, 1, ENVIRONMENT, SHADE_ALPHA, ENVIRONMENT,
+                0, 0, 0, ENVIRONMENT, COMBINED, 0, SHADE, 0, 0, 0, 0, COMBINED);
+    } else {
+        gDPSetCombineLERP(&untextured, 1, ENVIRONMENT, SHADE_ALPHA, ENVIRONMENT,
+                0, 0, 0, 1, COMBINED, 0, SHADE, 0, 0, 0, 0, COMBINED);
+    }
+    size = info->sourceSize + 2 * sizeof(Gfx);
+    size = (size + 15) & ~15;
+    alternate = NULL;
+    if (entry && size <= MODEL_ONE_CYCLE_BYTE_LIMIT - g_ModelOneCycleBytes) {
+        alternate = renderCacheAlloc(size);
+        retained = alternate != NULL;
+    }
+    /* This is a correctness fix, including with AA enabled or optional
+     * caches reclaimed. A frame-owned copy is the allocation fallback. */
+    if (!alternate) alternate = dynAllocate(size);
+    out = alternate;
+    for (i = 0; i < info->sourceSize / sizeof(Gfx); i++) {
+        Gfx command = info->source[i];
+        s32 kind = modelCharacterCombinerKind(command);
+        if (command.words.w0 >> 24 == (u8)G_ENDDL) {
+            /* Secondary lists can inherit the primary character equation. */
+            gDPPipeSync(out++);
+            *out++ = combine;
+        }
+        *out++ = kind == 1 ? combine : kind == 2 ? untextured : command;
+    }
+    if (retained) {
+        entry->source = info->source;
+        entry->sourceSize = info->sourceSize;
+        entry->material = 32 + fading;
+        entry->alternate = alternate;
+        entry->valid = TRUE;
+        g_ModelOneCycleBytes += size;
+        renderInvalidateDisplayListCache();
+    }
+    return alternate;
 }
 
 static Gfx *modelOneCycleBuildEntry(ModelOneCycleEntry *entry,
@@ -110,6 +282,12 @@ Gfx *modelGetOneCycleGdl(ModelRenderData *renderdata, Gfx *primary, s32 modelTyp
     s32 count;
     u8 material;
     bool firstPerson;
+
+    if (primary && (modelType == 3 || modelType == 4)
+            && (renderdata->PropType == PROP_TYPE_VIEWER + 1
+                || renderdata->PropType == PROP_TYPE_EXPLOSION + 1)) {
+        return modelGetCharacterGdl(renderdata, primary, modelType, baseAddr);
+    }
 
     /* PropType 9 is the ordinary world-prop material, including crate props.
      * Its low environment byte selects the damaged path. Character

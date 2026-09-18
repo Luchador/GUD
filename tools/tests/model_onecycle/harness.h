@@ -44,3 +44,11 @@ static void *memaAlloc(u32 bytes)
 }
 static void memaFree(void *p, u32 bytes)
 { (void)p; frees++; allocated -= bytes; }
+static s32 frameBytes;
+static void *dynAllocate(s32 size)
+{
+    void *p = g_TestRam + 0x40000 + frameBytes;
+    frameBytes += (size + 15) & ~15;
+    assert(frameBytes <= 0x10000);
+    return p;
+}

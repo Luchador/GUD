@@ -1,5 +1,13 @@
 # Model one-cycle regression
 
+Character material regressions also exercise GEditor-style switches between
+textured and untextured legs, followed by another body part. They independently
+decode the combiner and evaluate all 256 fade values against all 256 blood/vertex
+alpha values. Both AA settings, live/dying instances sharing one model, native
+segment-5 addresses, source immutability, outgoing combiner restoration,
+unhandled-state cache invalidation, and frame-owned allocation fallback after
+memory-pressure reclaim are covered. These tests do not render pixels on N64.
+
 Run from the repository root:
 
 ```sh

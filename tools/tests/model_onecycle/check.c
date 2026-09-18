@@ -545,6 +545,7 @@ int main(int argc, char **argv)
         check_damage();
         check_first_person();
         check_pressure_reclaim();
+        check_character_materials();
         puts("Model states: TRI1/TRI4, opaque fog lighting, depth, decal/cutout/translucent fallback and outgoing state pass.");
     } else {
         FILE *file = fopen(argv[1], "rb");

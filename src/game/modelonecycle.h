@@ -8,8 +8,11 @@
  * reclaim. The render-cache allocator owns all copies, including retired ones. */
 void modelOneCycleResetCache(void);
 void modelOneCycleInvalidateGdlRange(Gfx *start, Gfx *end);
-/* Resolve authored segment-5 lists against the node's BaseAddr for CPU reads.
+/* Includes character material repair, independently of the one-cycle option.
+ * Resolve authored segment-5 lists against the node's BaseAddr for CPU reads.
  * Failed conversions return the original pointer in its original format. */
 Gfx *modelGetOneCycleGdl(ModelRenderData *renderdata, Gfx *primary, s32 modelType, void *baseAddr);
+/* Stock body lists inherit pipeline state. Edited lists may override it. */
+bool modelGdlPreservesType3Pipeline(ModelRenderData *renderdata, Gfx *primary, void *baseAddr);
 
 #endif

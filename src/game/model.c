@@ -3997,11 +3997,9 @@ Model Type 4: Normal Fog/Lighting object
  * Renders a collision display-list node while carrying safe RSP state from
  * the preceding character part.
  *
- * Character bodies are composed entirely of type-3 nodes. Their display
- * lists change texture state, but do not change the cycle type, combiner or
- * render mode. The hit-chain renderer can therefore carry this state between
- * consecutive body parts instead of emitting the same setup and segment
- * addresses for every part.
+ * Stock type-3 body lists inherit the cycle type, combiner and render mode.
+ * Carry those settings between parts only when the list preserves them;
+ * edited materials can install their own settings inside the list.
  */
 void modelRenderNodeDlWithCache(ModelRenderData *renderdata, Model *model, ModelNode *node, ModelNodeRenderCache *cache)
 {
@@ -4072,7 +4070,9 @@ void modelRenderNodeDlWithCache(ModelRenderData *renderdata, Model *model, Model
             }
             else
             {
-                cache->type3PipelineReady = rodata->DisplayListCollisions.ModelType == 3;
+                cache->type3PipelineReady = rodata->DisplayListCollisions.ModelType == 3
+                        && modelGdlPreservesType3Pipeline(renderdata, rwdata->DisplayListCollisions.gdl,
+                                rodata->DisplayListCollisions.BaseAddr);
 
                 if (!cache->type3PipelineReady)
                 {
