@@ -79,6 +79,48 @@ static void SetupWrite32(unsigned char *p, DWORD value)
     p[3] = (unsigned char)value;
 }
 
+/* Cardinal rotations leave trig/round-trip residues instead of exact zero.
+ * Repeated transforms can turn these into subnormal float operands, which
+ * trap on the R4300 even with underflow flushing enabled. Direction vectors
+ * are unit-sized; this tolerance is far below the editor's angular precision.
+ * Do not apply it to positions, bounds, scale, or arbitrary setup words. */
+static float SetupPadDirectionValue(float value)
+{
+    return fabsf(value) < 1.0e-12f ? 0.0f : value;
+}
+
+static void SetupCleanPadDirections(SetupPad *pad)
+{
+    for (int axis = 0; axis < 3; axis++)
+    {
+        pad->up[axis] = SetupPadDirectionValue(pad->up[axis]);
+        pad->look[axis] = SetupPadDirectionValue(pad->look[axis]);
+    }
+}
+
+/* Called only after native reachability validation and pointer relocation.
+ * Load, save, history commits, and ROM export all use this packed copy, so
+ * previously saved projects are repaired without requiring another rotation. */
+static void SetupCleanNativePadDirections(unsigned char *data)
+{
+    for (DWORD root = 6; root <= 7; root++)
+    {
+        DWORD at = SetupRead32(data + root * 4);
+        DWORD stride = root == 6 ? SETUP_PAD_SIZE : SETUP_BOUNDPAD_SIZE;
+        if (!at) { continue; }
+        for (; SetupRead32(data + at + SETUP_PAD_LINK); at += stride)
+        {
+            for (DWORD field = 12; field < 36; field += 4)
+            {
+                union { DWORD u; float f; } value;
+                value.u = SetupRead32(data + at + field);
+                value.f = SetupPadDirectionValue(value.f);
+                SetupWrite32(data + at + field, value.u);
+            }
+        }
+    }
+}
+
 /* Setup commands are variable length. These are their encoded source
    sizes; they must not use host sizeof because a 64-bit editor has
    different pointer sizes from the N64. */
@@ -374,6 +416,7 @@ BOOL SetupCompactNative(const unsigned char *data, DWORD size,
             SetupWrite32(packed + map[field / 16] + field % 16, map[target / 16] + target % 16);
         }
     }
+    SetupCleanNativePadDirections(packed);
     *out = packed; packed = NULL; *sizeout = total; *reasonout = ""; ok = TRUE;
     goto done;
 memory:
@@ -403,6 +446,10 @@ BOOL SetupFileCompact(SetupFile *setup, const char **why)
     { setup->objects[i].sourceoffset = newcommands + (setup->objects[i].sourceoffset - oldcommands); }
     for (DWORD i = 0; i < setup->charactercount; i++)
     { setup->characters[i].sourceoffset = newcommands + (setup->characters[i].sourceoffset - oldcommands); }
+    for (DWORD i = 0; i < setup->padcount; i++)
+    { SetupCleanPadDirections(&setup->pads[i]); }
+    for (DWORD i = 0; i < setup->boundpadcount; i++)
+    { SetupCleanPadDirections(&setup->boundpads[i].pad); }
     if (size == setup->size)
     { memcpy(setup->data, data, size); free(data); return TRUE; }
     free(setup->data); setup->data = data; setup->size = size;
@@ -3002,11 +3049,11 @@ BOOL SetupFileRotatePad(SetupFile *setup, const SetupPadRef *ref, const Rotation
             float f;
             DWORD u;
         } value;
-        value.f = (float)up[axis];
+        value.f = SetupPadDirectionValue((float)up[axis]);
         *changed |= value.f != pad->up[axis];
         pad->up[axis] = value.f;
         SetupWrite32(setup->data + record + 12 + axis * 4, value.u);
-        value.f = (float)look[axis];
+        value.f = SetupPadDirectionValue((float)look[axis]);
         *changed |= value.f != pad->look[axis];
         pad->look[axis] = value.f;
         SetupWrite32(setup->data + record + 24 + axis * 4, value.u);

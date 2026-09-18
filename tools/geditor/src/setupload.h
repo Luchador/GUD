@@ -155,10 +155,11 @@ typedef struct SetupFile {
     struct SetupScriptReferences *globalrefs;
 } SetupFile;
 
-/* Discard unreachable tables and relocate native pointers in a separate copy. */
+/* Discard unreachable tables and relocate native pointers in a separate copy.
+ * Clear negligible pad-direction residues which can trap on the R4300. */
 BOOL SetupCompactNative(const unsigned char *data, DWORD size,
     unsigned char **out, DWORD *sizeout, const char **reasonout);
-/* Transaction boundary: also relocates decoded command offsets, atomically.
+/* Transaction boundary: also updates decoded command offsets and directions, atomically.
  * Indices, selections, notes and dirty state are unchanged. */
 BOOL SetupFileCompact(SetupFile *setup, const char **reasonout);
 /* Missing optional catalogs leave globalrefs NULL and disable pad/character
