@@ -220,6 +220,13 @@ BOOL BgDocumentAddPortal(BgDocument *document, const BgPortalPlacement *placemen
  * Reject removal of the last connection named by a visibility script. */
 BOOL BgDocumentDeletePortals(BgDocument *document, const BgFile *source,
     const DWORD *indices, DWORD count, const char **reasonout);
+/* Level-local snapshots retain connection metadata and internal polygon sharing.
+ * Paste appends independent geometry and returns the new table indices. Both
+ * operations leave the destination unchanged on validation/allocation failure. */
+BOOL BgDocumentCopyPortals(const BgDocument *document, const DWORD *indices,
+    DWORD count, BgPortalFile *clipboard, const char **reasonout);
+BOOL BgDocumentPastePortals(BgDocument *document, const BgPortalFile *clipboard,
+    const double offset[3], DWORD indices[BG_MAX_PORTALS], const char **reasonout);
 
 BOOL BgDocumentDeleteFaces(BgDocument *document, const BgFaceRef *refs,
                            DWORD refcount, DWORD *deletedout,

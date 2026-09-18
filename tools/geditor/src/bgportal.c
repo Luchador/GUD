@@ -245,3 +245,107 @@ BOOL BgDocumentTranslatePortalPoints(BgDocument *document, const BgPortalPointRe
     *reasonout = "";
     return TRUE;
 }
+
+BOOL BgDocumentCopyPortals(const BgDocument *document, const DWORD *indices,
+    DWORD count, BgPortalFile *clipboard, const char **reasonout)
+{
+    unsigned char selected[BG_MAX_PORTALS] = {0};
+    BgPortalFile snapshot = {0};
+    *reasonout = "The selected portals could not be read.";
+    if (!document || document->portalwarning || !document->portals.portals
+        || document->portals.portalcount >= BG_MAX_PORTALS || !clipboard
+        || !indices || !count || count > document->portals.portalcount) { return FALSE; }
+    for (DWORD i = 0; i < count; i++)
+    {
+        if (indices[i] >= document->portals.portalcount || selected[indices[i]]) { return FALSE; }
+        const BgPortal *portal = &document->portals.portals[indices[i]];
+        if (portal->pointcount < 3 || portal->pointcount > BG_PORTAL_MAX_POINTS) { return FALSE; }
+        selected[indices[i]] = 1;
+    }
+    snapshot.portals = malloc(count * sizeof(*snapshot.portals));
+    if (!snapshot.portals) { *reasonout = "Out of memory copying portals."; return FALSE; }
+    snapshot.portalcount = count;
+    for (DWORD i = 0; i < count; i++) { snapshot.portals[i] = document->portals.portals[indices[i]]; }
+    BgPortalFileFree(clipboard);
+    *clipboard = snapshot;
+    *reasonout = "";
+    return TRUE;
+}
+
+BOOL BgDocumentPastePortals(BgDocument *document, const BgPortalFile *clipboard,
+    const double offset[3], DWORD indices[BG_MAX_PORTALS], const char **reasonout)
+{
+    unsigned char used[BG_MAX_PORTALS] = {0};
+    BgPortalPointRef refs[BG_MAX_PORTALS * BG_PORTAL_MAX_POINTS];
+    BgDocument pasted = {0};
+    BgPortal *combined;
+    DWORD count, added, refcount = 0, moved;
+    *reasonout = "There are no editable copied portals.";
+    if (!document || !document->rooms || document->portalwarning || !clipboard
+        || !clipboard->portals || !clipboard->portalcount || !offset || !indices
+        || !isfinite(document->levelscale) || document->levelscale <= 0) { return FALSE; }
+    count = document->portals.portalcount;
+    added = clipboard->portalcount;
+    if (count >= BG_MAX_PORTALS || added >= BG_MAX_PORTALS || (count && !document->portals.portals))
+    { return FALSE; }
+    if (added > BG_MAX_PORTALS - 1 - count)
+    { *reasonout = "Pasting these portals would exceed the level limit of 199 portals."; return FALSE; }
+    for (DWORD i = 0; i < added; i++)
+    {
+        const BgPortal *portal = &clipboard->portals[i];
+        if (portal->pointcount < 3 || portal->pointcount > BG_PORTAL_MAX_POINTS) { return FALSE; }
+        if (!portal->connectedroom1 || !portal->connectedroom2
+            || portal->connectedroom1 > document->roomcount || portal->connectedroom2 > document->roomcount
+            || portal->connectedroom1 == portal->connectedroom2)
+        { *reasonout = "The copied portal must connect two existing, different rooms."; return FALSE; }
+        for (DWORD point = 0; point < portal->pointcount; point++)
+        {
+            const BgPortalPoint *p = &portal->points[point], *n = &portal->nativepoints[point];
+            if (!isfinite(p->x) || !isfinite(p->y) || !isfinite(p->z)
+                || !isfinite(n->x) || !isfinite(n->y) || !isfinite(n->z))
+            { *reasonout = "The copied portal has invalid coordinates."; return FALSE; }
+        }
+    }
+    /* Reserve all live editor identities, including those shifted by deletion.
+     * Native offsets cannot collide with these high-bit temporary identities. */
+    for (DWORD i = 0; i < count; i++)
+    {
+        DWORD geometry = document->portals.portals[i].geometryoffset;
+        if ((geometry & BG_PORTAL_NEW_GEOMETRY) && (geometry & ~BG_PORTAL_NEW_GEOMETRY) < BG_MAX_PORTALS)
+        { used[geometry & ~BG_PORTAL_NEW_GEOMETRY] = 1; }
+    }
+    combined = malloc((count + added) * sizeof(*combined));
+    if (!combined) { *reasonout = "Out of memory pasting portals."; return FALSE; }
+    if (count) { memcpy(combined, document->portals.portals, count * sizeof(*combined)); }
+    memcpy(combined + count, clipboard->portals, added * sizeof(*combined));
+    pasted.portals = (BgPortalFile){combined + count, added};
+    pasted.levelscale = document->levelscale;
+    for (DWORD i = 0; i < added; i++)
+    {
+        DWORD previous, slot;
+        for (previous = 0; previous < i; previous++)
+        { if (clipboard->portals[previous].geometryoffset == clipboard->portals[i].geometryoffset) { break; } }
+        if (previous < i)
+        { pasted.portals.portals[i].geometryoffset = pasted.portals.portals[previous].geometryoffset; }
+        else
+        {
+            for (slot = 0; slot < BG_MAX_PORTALS && used[slot]; slot++) {}
+            /* There are fewer than BG_MAX_PORTALS entries in the entire result. */
+            used[slot] = 1;
+            pasted.portals.portals[i].geometryoffset = BG_PORTAL_NEW_GEOMETRY | slot;
+        }
+        for (DWORD point = 0; point < clipboard->portals[i].pointcount; point++)
+        { refs[refcount++] = (BgPortalPointRef){i, point}; }
+    }
+    /* Apply the same float/native-coordinate rules as moving existing portals,
+     * but only to the detached snapshot. No live edit occurs until it succeeds. */
+    if (!BgDocumentTranslatePortalPoints(&pasted, refs, refcount, offset, &moved, reasonout))
+    { free(combined); return FALSE; }
+    free(document->portals.portals);
+    document->portals.portals = combined;
+    document->portals.portalcount = count + added;
+    document->dirty = TRUE;
+    for (DWORD i = 0; i < added; i++) { indices[i] = count + i; }
+    *reasonout = "";
+    return TRUE;
+}

@@ -845,6 +845,12 @@ static BOOL BgCompilePortalRooms(const BgDocument *document, BgCompileBuffer *ou
         /* Retain original addresses, headers and padding. Exact native points
          * are part of the document/history, so Undo works after a saved move. */
         if (portal->pointcount < 3 || portal->pointcount > BG_PORTAL_MAX_POINTS) { goto mismatch; }
+        /* A deleted/undone editor identity can be reused by a pasted polygon
+         * with a different vertex count. Its retired allocation cannot hold
+         * that shape; append a new record and update the session mapping. */
+        if ((portal->geometryoffset & BG_PORTAL_NEW_GEOMETRY) && geometry
+            && geometry < output->size && output->data[geometry] != portal->pointcount)
+        { geometry = 0; }
         if (geometry)
         {
             if (geometry > output->size || output->size - geometry < 4u + portal->pointcount * 12u

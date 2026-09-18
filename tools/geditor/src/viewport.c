@@ -7722,6 +7722,29 @@ BOOL ViewportSelectPortal(HWND hwnd, DWORD index)
 }
 
 
+BOOL ViewportSelectPortalFaces(HWND hwnd, const DWORD *indices, DWORD count)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    unsigned char selected[BG_MAX_PORTALS] = {0};
+    if (!state || !state->showportals || state->tool != EDITOR_TOOL_FACE_SELECT
+        || !state->portals.portals || state->portals.portalcount >= BG_MAX_PORTALS
+        || !indices || !count || count > state->portals.portalcount) { return FALSE; }
+    for (DWORD i = 0; i < count; i++)
+    {
+        if (indices[i] >= state->portals.portalcount || selected[indices[i]]) { return FALSE; }
+        selected[indices[i]] = 1;
+    }
+    ViewportClearAllSelection(state);
+    for (DWORD i = 0; i < count; i++) { state->portalselection[indices[i]] = 1; }
+    state->selectedportal = indices[0];
+    ViewportRefreshPortalColors(state);
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd, NULL, FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+    return TRUE;
+}
+
+
 void ViewportSetPortals(HWND hwnd, const BgPortalFile *portals)
 {
     ViewportState *state = ViewportGetState(hwnd);

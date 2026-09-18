@@ -79,9 +79,10 @@ static BgFile g_CurrentBg;
 /* Room-aware editable geometry. Saving compiles it back into g_CurrentBg;
    the raw segment supplies preserved portal, visibility, and header data. */
 static BgDocument g_CurrentBgDocument;
-/* Faces are a snapshot, independent of later edits/undo. Cleared on level
- * changes so room numbers and image IDs cannot refer to another level. */
+/* Scene clipboards own snapshots, independent of later edits/undo. Cleared
+ * on level changes so room numbers and image IDs stay local to the level. */
 static BgDocument g_FaceClipboard;
+static BgPortalFile g_PortalClipboard;
 static SetupFile g_ObjectClipboard;
 static SetupObjectGeometry g_ObjectClipboardPose;
 static DWORD g_ObjectClipboardSelection;
@@ -601,6 +602,7 @@ static void GEditorCloseProject(HWND hwnd)
     EditHistoryFree(&g_EditHistory);
     BgDocumentFree(&g_CurrentBgDocument);
     BgDocumentFree(&g_FaceClipboard);
+    BgPortalFileFree(&g_PortalClipboard);
     GEditorClearObjectClipboard();
     BgFileFree(&g_CurrentBg);
     g_CurrentLevelIndex = GEDITOR_NO_LEVEL;
@@ -891,6 +893,24 @@ static BOOL GEditorCanPasteBgFaces(void)
 }
 
 
+static BOOL GEditorCanUsePortalClipboard(void)
+{
+    return g_Viewport && g_CurrentBgDocument.rooms && !g_CurrentBgDocument.portalwarning
+        && ViewportGetTool(g_Viewport) == EDITOR_TOOL_FACE_SELECT
+        && !ViewportKnifeActive(g_Viewport)
+        && !ViewportIsTransforming(g_Viewport) && !ViewportIsFlying(g_Viewport);
+}
+
+static BOOL GEditorCanCopyPortals(void)
+{
+    return GEditorCanUsePortalClipboard() && ViewportGetSelectedPortalFaces(g_Viewport, NULL) > 0;
+}
+
+static BOOL GEditorCanPastePortals(void)
+{
+    return g_PortalClipboard.portalcount && GEditorCanUsePortalClipboard();
+}
+
 static BOOL GEditorCanUseObjectClipboard(void)
 {
     return g_Viewport && g_CurrentSetup.data && g_CurrentBgDocument.rooms
@@ -948,9 +968,10 @@ static void GEditorUpdateHistoryMenu(HMENU menu)
     EnableMenuItem(menu, ID_EDIT_FLIP_FACE, MF_BYCOMMAND
         | (GEditorCanFlipSelectedBgFaces() ? MF_ENABLED : MF_GRAYED));
     EnableMenuItem(menu, ID_EDIT_COPY_FACES, MF_BYCOMMAND
-        | (GEditorCanCopyObject() || GEditorCanFlipSelectedBgFaces() ? MF_ENABLED : MF_GRAYED));
+        | (GEditorCanCopyObject() || GEditorCanCopyPortals() || GEditorCanFlipSelectedBgFaces() ? MF_ENABLED : MF_GRAYED));
     EnableMenuItem(menu, ID_EDIT_PASTE_FACES, MF_BYCOMMAND
-        | ((g_ObjectClipboard.data ? GEditorCanUseObjectClipboard() : GEditorCanPasteBgFaces()) ? MF_ENABLED : MF_GRAYED));
+        | ((g_ObjectClipboard.data ? GEditorCanUseObjectClipboard()
+            : g_PortalClipboard.portalcount ? GEditorCanPastePortals() : GEditorCanPasteBgFaces()) ? MF_ENABLED : MF_GRAYED));
 }
 
 
@@ -2845,6 +2866,50 @@ fail:
     return FALSE;
 }
 
+static BOOL GEditorCopyPortals(HWND hwnd)
+{
+    DWORD indices[BG_MAX_PORTALS], count;
+    const char *why = "";
+    if (!GEditorCanCopyPortals()) { return FALSE; }
+    count = ViewportGetSelectedPortalFaces(g_Viewport, indices);
+    if (!BgDocumentCopyPortals(&g_CurrentBgDocument, indices, count, &g_PortalClipboard, &why))
+    { MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR); return FALSE; }
+    GEditorClearObjectClipboard();
+    BgDocumentFree(&g_FaceClipboard);
+    GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+}
+
+static BOOL GEditorPastePortals(HWND hwnd)
+{
+    EditHistoryTransaction transaction = {0};
+    DWORD indices[BG_MAX_PORTALS];
+    const double offset[3] = {0, 10, 0};
+    const char *why = "";
+    if (!GEditorCanPastePortals()) { return FALSE; }
+    if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
+        g_PortalClipboard.portalcount == 1 ? "Paste Portal" : "Paste Portals", &transaction, &why)) { goto fail; }
+    if (!BgDocumentPastePortals(&g_CurrentBgDocument, &g_PortalClipboard, offset, indices, &why)) { goto fail; }
+    ViewportSetPortals(g_Viewport, &g_CurrentBgDocument.portals);
+    RightPanelShowPortals(g_RightPanel);
+    if (!ViewportSelectPortalFaces(g_Viewport, indices, g_PortalClipboard.portalcount))
+    { why = "Could not display the pasted portals."; goto rollback; }
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+        &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    SetFocus(g_Viewport);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    ViewportSetPortals(g_Viewport, &g_CurrentBgDocument.portals);
+    GEditorRestoreHistorySelection(hwnd);
+fail:
+    EditHistoryCancelEdit(&transaction);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
 static BOOL GEditorCopyObject(HWND hwnd)
 {
     SetupFile snapshot = {0};
@@ -2860,6 +2925,7 @@ static BOOL GEditorCopyObject(HWND hwnd)
         return FALSE;
     }
     GEditorClearObjectClipboard(); BgDocumentFree(&g_FaceClipboard);
+    BgPortalFileFree(&g_PortalClipboard);
     g_ObjectClipboard = snapshot; g_ObjectClipboardPose = pose; g_ObjectClipboardSelection = selected;
     GEditorRefreshHistoryMenu(hwnd);
     return TRUE;
@@ -4923,6 +4989,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         g_CurrentBg = bg;
         BgDocumentFree(&g_CurrentBgDocument);
         BgDocumentFree(&g_FaceClipboard);
+        BgPortalFileFree(&g_PortalClipboard);
         GEditorClearObjectClipboard();
         g_CurrentBgDocument = document;
         GEditorRefreshSelectionDetails();
@@ -5266,12 +5333,17 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
             case ID_EDIT_COPY_FACES:
                 if (GEditorCanCopyObject()) { GEditorCopyObject(hwnd); }
+                else if (GEditorCanCopyPortals()) { GEditorCopyPortals(hwnd); }
                 else if (GEditorCopySelectedBgFaces(hwnd))
-                { GEditorClearObjectClipboard(); GEditorRefreshHistoryMenu(hwnd); }
+                {
+                    GEditorClearObjectClipboard(); BgPortalFileFree(&g_PortalClipboard);
+                    GEditorRefreshHistoryMenu(hwnd);
+                }
                 return 0;
 
             case ID_EDIT_PASTE_FACES:
                 if (g_ObjectClipboard.data) { GEditorDuplicateObject(hwnd, NULL); }
+                else if (g_PortalClipboard.portalcount) { GEditorPastePortals(hwnd); }
                 else { GEditorPasteBgFaces(hwnd); }
                 return 0;
 
@@ -5422,6 +5494,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         EditHistoryFree(&g_EditHistory);
         BgDocumentFree(&g_CurrentBgDocument);
         BgDocumentFree(&g_FaceClipboard);
+        BgPortalFileFree(&g_PortalClipboard);
         GEditorClearObjectClipboard();
         BgFileFree(&g_CurrentBg);
         ImageEditsReset();
@@ -5668,7 +5741,7 @@ static BOOL GEditorHandleRenderModeHotkey(HWND frame, const MSG *message)
     return TRUE;
 }
 
-/* Scope face clipboard commands to the main editor. */
+/* Scope scene clipboard commands to the main editor. */
 static BOOL GEditorHandleFaceClipboardHotkey(HWND frame, const MSG *message)
 {
     char classname[32] = "";

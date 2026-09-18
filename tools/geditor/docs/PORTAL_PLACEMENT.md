@@ -23,6 +23,11 @@ and place both new and existing portals:
 - **Delete:** in Face mode, remove the selected portal connections. Shift-click
   selects several for a single deletion. Undo restores them and their selection;
   Redo removes them again. Vertex/Edge modes do not delete portal components.
+- **Ctrl+C / Ctrl+V:** in Face mode, copy the selected portal connections and
+  paste independent copies 10 world units above their copied positions, matching
+  object/face paste. Shift-click can select several portals for one copy. The
+  copies become selected and portal visibility is enabled. **Edit > Copy/Paste**
+  performs the same commands.
 - **Move (W):** drag an axis arrow, or enter coordinates in the existing
   position fields. The fields show the average selected component position.
 - **Shift-click** adds components or faces; **Ctrl-click** removes them.
@@ -39,6 +44,20 @@ Live previews do not modify the document until the drag is released. Moving
 several selected edges translates their shared vertices only once. Rotation,
 scaling, extrusion and other BG topology operations remain separate tools;
 this portal extension adds translation and vertex snapping.
+
+Portal copies retain their shape, winding, room links, flags and margin. Entries
+that share a polygon within the copied group continue to share the new polygon;
+the pasted group never shares geometry with the originals. Each paste is one
+Undo/Redo step. Copy itself does not modify the level. Repeated paste starts
+from the snapshot, so editing or deleting the source does not change it.
+After moving a copy to another opening, update its Room 1/Room 2 links as needed.
+
+Copying portals, objects or background faces replaces the previous scene
+clipboard. It clears when changing levels or projects. Text fields keep their
+normal text clipboard. Portal copy/paste requires Face mode with no active
+transform, knife operation or camera flight. Invalid coordinates, allocation
+failure or exceeding the 199-portal limit leaves the level and clipboard intact.
+Global visibility scripts are retained and are not duplicated with portals.
 
 Portals are ordered polygons. Keep the finished shape flat and convex, with
 no collapsed edges or crossing perimeter edges. Individual corner edits may
@@ -89,6 +108,7 @@ Depot's rooms 20–24.
 Run from the repository root:
 
 ```
+python3 tools/geditor/tests/portal_clipboard/run.py
 python3 tools/geditor/tests/portal_margin/run.py
 python3 tools/geditor/tests/portal_deletion/run.py
 python3 tools/geditor/tests/portal_editing/run.py

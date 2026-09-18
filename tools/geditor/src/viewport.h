@@ -266,6 +266,7 @@ BOOL ViewportSelectPortal(HWND hwnd, DWORD index);
 DWORD ViewportGetPortalSelectionCount(HWND hwnd);
 /* Whole portal table entries, without merging shared polygons. NULL counts. */
 DWORD ViewportGetSelectedPortalFaces(HWND hwnd, DWORD indices[BG_MAX_PORTALS]);
+BOOL ViewportSelectPortalFaces(HWND hwnd, const DWORD *indices, DWORD count);
 BgPortalPointRef *ViewportGetMovePortalPoints(HWND hwnd, DWORD *countout);
 
 /* Controls background, stan, portal and object/character visibility.
