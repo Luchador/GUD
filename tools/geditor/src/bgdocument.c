@@ -580,6 +580,18 @@ BOOL BgDocumentLoad(const unsigned char *data, DWORD size, float levelscale,
         }
     }
 
+    /* Room transfers in older editors replayed whole layers, including the
+     * state of faces left behind. Repair that accumulated history on load.
+     * Material packets are already captured on faces; stripping those alone
+     * is not an edit. Only redundant native state requires a repair save. */
+    for (roomindex = 1; roomindex <= roomcount; roomindex++)
+    {
+        BOOL changed;
+        if (!BgDocumentCompactRoomState(&out->rooms[roomindex], &changed, reasonout))
+        { BgDocumentFree(out); return FALSE; }
+        if (changed) { out->dirty = TRUE; }
+    }
+
     /* As with the original overlay, malformed portals must not prevent
      * inspecting the rest of a level. Such tables cannot be edited. */
     if (BgLoadPortals(data, size, levelscale, &out->portals, &out->portalwarning))
@@ -1267,6 +1279,135 @@ static void BgDocumentFreeLayer(BgDocumentLayerData *layer)
     for (i = 0; i < layer->groupcount; i++) { free(layer->groups[i].commands); }
     free(layer->groups);
     ZeroMemory(layer, sizeof(*layer));
+}
+
+/* Registers whose writes have no side effects before the next draw. Unknown
+ * commands are barriers: do not assume that matrices, lights, DMA, etc. leave
+ * these registers alone or do not observe them. Track complete colour words,
+ * not just the alpha subset used by the preview. */
+static BOOL BgDocumentStateWrite(DWORD w0, DWORD w1, DWORD masks[6])
+{
+    DWORD opcode = w0 >> 24, shift = (w0 >> 8) & 255, count = w0 & 255;
+    ZeroMemory(masks, 6 * sizeof(*masks));
+    if (opcode == 0xBA || opcode == 0xB9)
+    {
+        if (!count || count > 32 || shift > 31 || count > 32 - shift) { return FALSE; }
+        masks[opcode == 0xBA ? 0 : 1] = count == 32 ? 0xffffffffu : ((1u << count) - 1) << shift;
+    }
+    else if (opcode == 0xEF) { masks[0] = 0x00ffffffu; masks[1] = 0xffffffffu; }
+    else if (opcode == 0xB6 || opcode == 0xB7) { masks[2] = w1; }
+    else if (opcode == 0xFA) { masks[3] = 0xffffffffu; }
+    else if (opcode == 0xFB) { masks[4] = 0xffffffffu; }
+    else if (BG_SURFACE_IS_MARKER(w0, w1)) { masks[5] = 0xffffffffu; }
+    else { return opcode == BG_G_PIPESYNC; }
+    return TRUE;
+}
+
+static void BgDocumentCompactCommands(BgDocumentDrawGroup *group)
+{
+    DWORD covered[6] = {0}, masks[6], read, write = group->commandsize;
+    BOOL synced = FALSE;
+    /* Keep the last writer of each bit, without synthesizing new commands.
+     * Partial other-mode and clear/set geometry writes share their register. */
+    for (read = group->commandsize; read; )
+    {
+        BOOL keep = FALSE;
+        DWORD w0, w1;
+        read -= 8;
+        w0 = BgDocumentRead32(group->commands + read);
+        w1 = BgDocumentRead32(group->commands + read + 4);
+        if (!BgDocumentStateWrite(w0, w1, masks))
+        { ZeroMemory(covered, sizeof(covered)); keep = TRUE; }
+        else if (w0 >> 24 == BG_G_PIPESYNC) { keep = TRUE; }
+        else for (unsigned int i = 0; i < 6; i++)
+        { keep |= (masks[i] & ~covered[i]) != 0; covered[i] |= masks[i]; }
+        if (keep) { write -= 8; memmove(group->commands + write, group->commands + read, 8); }
+    }
+    group->commandsize -= write;
+    if (group->commandsize) { memmove(group->commands, group->commands + write, group->commandsize); }
+    /* Keep the first pipe sync before state changes, not the last one after
+     * them. State-only commands do not start rendering. Opaque commands may. */
+    for (read = write = 0; read < group->commandsize; read += 8)
+    {
+        DWORD w0 = BgDocumentRead32(group->commands + read);
+        DWORD w1 = BgDocumentRead32(group->commands + read + 4);
+        if (w0 >> 24 == BG_G_PIPESYNC)
+        { if (synced) { continue; } synced = TRUE; }
+        else if (!BgDocumentStateWrite(w0, w1, masks)) { synced = FALSE; }
+        memmove(group->commands + write, group->commands + read, 8); write += 8;
+    }
+    group->commandsize = write;
+}
+
+BOOL BgDocumentCompactRoomState(BgDocumentRoom *room, BOOL *changedout,
+    const char **reasonout)
+{
+    const char *previousreason = *reasonout;
+    *changedout = FALSE;
+    for (unsigned int layerindex = 0; layerindex < 2; layerindex++)
+    {
+        BgDocumentLayerData *source = &room->layers[layerindex], output = {0};
+        DWORD count = source->groupcount, *map = NULL, before = 0, after = 0;
+        unsigned char *used = NULL;
+        if (!count) { continue; }
+        *reasonout = "Out of memory compacting background render state.";
+        if (!source->groups || count > (DWORD)-1 / sizeof(*map)) { goto fail; }
+        used = calloc(count, 1); map = malloc((size_t)count * sizeof(*map));
+        if (!used || !map) { goto fail; }
+        for (DWORD f = 0; f < room->facecount; f++) if (room->faces[f].layer == layerindex)
+        {
+            if (room->faces[f].drawgroup >= count)
+            { *reasonout = "A background face references missing render state."; goto fail; }
+            used[room->faces[f].drawgroup] = TRUE;
+        }
+        output.sourcepresent = source->sourcepresent;
+        for (DWORD g = 0; g < count; g++)
+        {
+            const BgDocumentDrawGroup *from = &source->groups[g];
+            BgDocumentDrawGroup *to;
+            if (!g || used[g - 1])
+            { if (!BgDocumentAppendDrawGroup(&output)) { goto fail; } }
+            to = &output.groups[output.groupcount - 1]; map[g] = output.groupcount - 1;
+            if ((from->commandsize & 7u) || (from->commandsize && !from->commands))
+            { *reasonout = "A background group contains malformed render state."; goto fail; }
+            for (DWORD off = 0; off < from->commandsize; off += 8)
+            {
+                const unsigned char *cmd = from->commands + off;
+                DWORD w0 = BgDocumentRead32(cmd), w1 = BgDocumentRead32(cmd + 4);
+                /* Match the compiler: textures, combiners and generated alpha
+                 * scopes are emitted from face materials, never this history. */
+                if ((cmd[0] == BG_G_SETTEXTURE && !BG_SURFACE_IS_MARKER(w0, w1))
+                    || cmd[0] == BG_G_TEXTURE || cmd[0] == BG_G_SETCOMBINE) { continue; }
+                if (before > (DWORD)-1 - 8 || !BgDocumentAppendGroupCommand(to, cmd)) { goto fail; }
+                before += 8;
+            }
+            if (used[g] || g + 1 == count)
+            {
+                BgDocumentCompactCommands(to); after += to->commandsize;
+                /* Release oversized buffers too, so undo snapshots cannot
+                 * retain the old multi-megabyte command history. */
+                if (!to->commandsize) { free(to->commands); to->commands = NULL; }
+                else
+                {
+                    unsigned char *small = realloc(to->commands, to->commandsize);
+                    if (!small) { goto fail; }
+                    to->commands = small;
+                }
+                to->commandcapacity = to->commandsize;
+            }
+        }
+        for (DWORD f = 0; f < room->facecount; f++) if (room->faces[f].layer == layerindex)
+        { room->faces[f].drawgroup = map[room->faces[f].drawgroup]; }
+        BgDocumentFreeLayer(source); *source = output;
+        *changedout |= before != after;
+        free(used); free(map);
+        continue;
+fail:
+        free(used); free(map); BgDocumentFreeLayer(&output);
+        return FALSE;
+    }
+    *reasonout = previousreason;
+    return TRUE;
 }
 
 static BOOL BgDocumentSurfaceCommand(BgDocumentDrawGroup *group, DWORD w0, DWORD w1)

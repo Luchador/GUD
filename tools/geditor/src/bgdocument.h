@@ -171,6 +171,11 @@ BOOL BgDocumentLoad(const unsigned char *data, DWORD size, float levelscale,
 BOOL BgDocumentClone(const BgDocument *source, BgDocument *out,
                      const char **reasonout);
 void BgDocumentFree(BgDocument *document);
+/* Compact a newly loaded/staged room, preserving state at every face and at
+ * opaque commands. Face/vertex identities are unchanged. On failure discard
+ * the staged document. changedout reports redundant native state removed. */
+BOOL BgDocumentCompactRoomState(BgDocumentRoom *room, BOOL *changedout,
+    const char **reasonout);
 
 /* Add an upright, untextured 1-metre primitive (world units are centimetres).
  * position is the base centre, right the horizontal camera-right direction.

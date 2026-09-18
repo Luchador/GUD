@@ -148,7 +148,9 @@ void EditHistoryReset(EditHistory *history, BgDocument *bgdocument,
     history->currentbgrevision = 1;
     history->currentsetuprevision = 1;
     history->currentstanrevision = 1;
-    history->savedbgrevision = 1;
+    /* Loading may repair redundant room state. Keep that repair pending
+     * until Save Project, including across selection changes and undo. */
+    history->savedbgrevision = bgdocument && bgdocument->dirty ? 0 : 1;
     history->savedsetuprevision = 1;
     history->savedstanrevision = 1;
     history->nextrevision = 2;

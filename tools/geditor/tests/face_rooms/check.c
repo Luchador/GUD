@@ -211,4 +211,114 @@ static void Commands(void)
     EditHistoryFree(&g_EditHistory); BgDocumentFree(&g_CurrentBgDocument); BgDocumentFree(&original); BgDocumentFree(&moved); BgFileFree(&source);
     puts("PASS: editor selection follows moved faces; undo/redo, no-op history and rebuild/selection/commit rollback.");
 }
-int main(int argc, char **argv) { assert(argc == 3); Geometry(argv[1]); Depot(argv[2],argv[1]); Commands(); return 0; }
+static DWORD StateBytes(const BgDocument *doc)
+{
+    DWORD size = 0;
+    for (DWORD r = 1; r <= doc->roomcount; r++) for (unsigned int l = 0; l < 2; l++)
+    {
+        const BgDocumentLayerData *layer = &doc->rooms[r].layers[l];
+        assert(layer->groupcount <= doc->rooms[r].facecount + 1);
+        for (DWORD g = 0; g < layer->groupcount; g++) { size += layer->groups[g].commandsize; }
+    }
+    return size;
+}
+
+static void RepeatedTransfers(const char *dir)
+{
+    BgFile source = Fixture(), saved = {0}; BgDocument doc = {0}, original = {0}, loaded = {0};
+    BgFaceRef refs[20]; const char *why = ""; BOOL changed;
+    assert(BgDocumentLoad(source.data,source.size,1,&doc,&why));
+    assert(BgDocumentClone(&doc,&original,&why)); Refs(&doc,refs);
+    DWORD limit = StateBytes(&doc) * 2 + 1024;
+    for (unsigned int i = 0; i < 100; i++)
+    {
+        DWORD target = refs[1].room == 1 ? 2 : 1;
+        assert(BgDocumentMoveFacesToRoom(&doc,&refs[1],1,target,&changed,&why) && changed);
+        refs[1].room = (unsigned short)target;
+        assert(StateBytes(&doc) < limit);
+        Appearance(&original,&doc);
+    }
+    RoundTrip(&doc,&source,dir);
+    assert(BgDocumentCompile(&doc,&source,&saved,&why));
+    assert(BgDocumentLoad(saved.data,saved.size,1,&loaded,&why));
+    assert(!loaded.dirty);
+    BgDocumentFree(&loaded); BgDocumentFree(&doc); BgDocumentFree(&original);
+    BgFileFree(&source); BgFileFree(&saved);
+    puts("PASS: 100 alternating room transfers retain every face's appearance without accumulating render-state history.");
+}
+
+/* A loaded legacy room with repeated state must stay dirty across history
+ * reset, selection edits and undo; otherwise Save Project skips its repair. */
+static void LegacyRepair(const char *dir)
+{
+    BgFile source = Fixture(), bloated = {0}, saved = {0}; BgDocument doc = {0}, loaded = {0};
+    BgDocument original = {0}; EditHistory history = {0}; EditHistoryTransaction tx = {0};
+    SetupFile setup = {0}; StanFile stan = {0};
+    const char *why = ""; BOOL changed;
+    assert(BgDocumentLoad(source.data,source.size,1,&doc,&why));
+    BgDocumentDrawGroup *group = &doc.rooms[1].layers[0].groups[0];
+    /* Thousands of repeated sync, full RGB colours, and mixed/partial bit
+     * writes before the first face reproduce the live Depot command bloat. */
+    for (unsigned int i = 0; i < 1024; i++)
+    {
+        assert(BgDocumentSurfaceCommand(group,0xe7000000,0));
+        assert(BgDocumentSurfaceCommand(group,0xb7000000,0x2000));
+        assert(BgDocumentSurfaceCommand(group,0xfb000000,0x123456ff));
+        assert(BgDocumentSurfaceCommand(group,0xfa008080,0xabcdefaa));
+        assert(BgDocumentSurfaceCommand(group,0xba000c02,0x2000));
+    }
+    assert(BgDocumentClone(&doc,&original,&why));
+    assert(BgDocumentCompile(&doc,&source,&bloated,&why));
+    assert(BgDocumentLoad(bloated.data,bloated.size,1,&loaded,&why) && loaded.dirty);
+    Appearance(&original,&loaded);
+    EditHistoryReset(&history,&loaded,NULL,NULL); assert(loaded.dirty);
+    assert(EditHistoryBeginBgEdit(&history,&loaded,"Test repair history",&tx,&why));
+    BgFaceRef ref = {loaded.rooms[1].faces[0].id,1,loaded.rooms[1].faces[0].layer,0};
+    assert(BgDocumentMoveFacesToRoom(&loaded,&ref,1,2,&changed,&why) && changed);
+    assert(EditHistoryCommitEdit(&history,&loaded,NULL,NULL,&tx,&why));
+    assert(EditHistoryUndo(&history,&loaded,&setup,&stan,NULL,&why) && loaded.dirty);
+    assert(BgDocumentCompile(&loaded,&bloated,&saved,&why));
+    assert(saved.size + 30000 < bloated.size);
+    EditHistoryMarkBgSaved(&history,&loaded); assert(!loaded.dirty);
+    RoundTrip(&loaded,&saved,dir);
+    EditHistoryFree(&history); BgDocumentFree(&doc); BgDocumentFree(&original); BgDocumentFree(&loaded);
+    BgFileFree(&source); BgFileFree(&bloated); BgFileFree(&saved);
+    puts("PASS: old bloated files repair on load/save, retaining appearances and pending repair through history reset/undo.");
+}
+
+static void StateBarriers(void)
+{
+    BgDocumentDrawGroup group = {0};
+    const DWORD input[][2] = {
+        {0xe7000000,0}, {0xb9000008,0xaa}, {0xb9000004,5},
+        {0xfb000000,0x11223344}, {0xfb000000,0x55667788},
+        {0x03860010,0x0e000100}, /* Opaque DMA/light command: preserve both sides. */
+        {0xef123456,0x98765432}, {0xba000008,0xab}, {0xb9000004,7},
+        {0xfb000000,0xaabbccdd}, {0xfb000000,0xffffffff},
+        {0xb6000000,0x3000}, {0xb7000000,0x2000},
+        {0xe7000000,0}, {0xfa000080,0x01020304}, {0xe7000000,0},
+        {BG_SURFACE_MARKER,BG_SURFACE_TAG_VALUE(BG_SURFACE_OPAQUE,0x2018)},
+        {BG_SURFACE_MARKER,BG_SURFACE_TAG_VALUE(BG_SURFACE_BLEND,0x2038)}
+    };
+    const DWORD expected[][2] = {
+        {0xe7000000,0}, {0xb9000008,0xaa}, {0xb9000004,5}, {0xfb000000,0x55667788},
+        {0x03860010,0x0e000100},
+        {0xef123456,0x98765432}, {0xba000008,0xab}, {0xb9000004,7},
+        {0xfb000000,0xffffffff}, {0xb6000000,0x3000}, {0xb7000000,0x2000},
+        {0xe7000000,0}, {0xfa000080,0x01020304},
+        {BG_SURFACE_MARKER,BG_SURFACE_TAG_VALUE(BG_SURFACE_BLEND,0x2038)}
+    };
+    for (unsigned int i = 0; i < sizeof(input)/sizeof(input[0]); i++)
+    { assert(BgDocumentSurfaceCommand(&group,input[i][0],input[i][1])); }
+    BgDocumentCompactCommands(&group);
+    assert(group.commandsize == sizeof(expected));
+    for (unsigned int i = 0; i < sizeof(expected)/sizeof(expected[0]); i++)
+    {
+        assert(BgDocumentRead32(group.commands+i*8) == expected[i][0]);
+        assert(BgDocumentRead32(group.commands+i*8+4) == expected[i][1]);
+    }
+    BgDocumentCompactCommands(&group); assert(group.commandsize == sizeof(expected)); free(group.commands);
+    puts("PASS: partial register writes, full RGB/alpha, geometry masks, surface tags, leading sync and opaque-command barriers survive cleanup.");
+}
+
+int main(int argc, char **argv) { assert(argc == 3); Geometry(argv[1]); RepeatedTransfers(argv[1]); LegacyRepair(argv[1]); StateBarriers(); Depot(argv[2],argv[1]); Commands(); return 0; }

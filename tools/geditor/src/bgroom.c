@@ -235,7 +235,11 @@ static BOOL BgRoomMoveFrom(BgDocument *doc, DWORD source, DWORD target,
     /* Retain orphan vertices and room slots for native bounds. */
     src->facecount = i;
     free(selected);
-    return TRUE;
+    {
+        BOOL changed;
+        return BgDocumentCompactRoomState(src, &changed, reasonout)
+            && BgDocumentCompactRoomState(&doc->rooms[target], &changed, reasonout);
+    }
 }
 
 static BOOL BgRoomOrderFaces(BgDocumentRoom *room)
@@ -353,7 +357,8 @@ BOOL BgDocumentSetFaceLayer(BgDocument *document, const BgFaceRef *refs,
             { BgMaterialSetTexture(&face->material, BG_TEX_NONE); }
         }
         free(selected); selected = NULL;
-        if (!BgRoomOrderFaces(room)) { goto fail; }
+        if (!BgDocumentCompactRoomState(room, &changed, reasonout)
+            || !BgRoomOrderFaces(room)) { goto fail; }
     }
     BgDocumentFree(document);
     *document = staged; document->dirty = TRUE;
@@ -478,7 +483,9 @@ BOOL BgDocumentPasteFaces(BgDocument *document, const BgDocument *clipboard,
         const BgDocumentRoom *src = &clipboard->rooms[r];
         if (!src->facecount) { continue; }
         if (src->facecount > clipboard->facecount - count) { goto fail; }
+        BOOL compacted;
         if (!BgRoomAppendFaces(&staged, src, r, NULL, TRUE, translation, faces + count, reasonout)
+            || !BgDocumentCompactRoomState(&staged.rooms[r], &compacted, reasonout)
             || !BgRoomOrderFaces(&staged.rooms[r])) { goto fail; }
         count += src->facecount;
     }
