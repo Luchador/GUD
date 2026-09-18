@@ -56,6 +56,8 @@
 #define VIEWPORT_BOX_VERTICES  24
 #define VIEWPORT_VERTEX_MARKER_SIZE 5.0f /* screen pixels */
 #define VIEWPORT_SELECTION_GOLD 255, 210, 0
+/* X/Y/Z are 0..2; the center cube is a scale-only fourth handle. */
+#define VIEWPORT_UNIFORM_SCALE_AXIS 3
 #define VIEWPORT_PORTAL_FILL_ALPHA 64
 #define VIEWPORT_PORTAL_EDGE_ALPHA 255
 #define VIEWPORT_PICK_EPSILON 1.0e-10
@@ -314,6 +316,7 @@ typedef struct ViewportState {
     double gizmoposition[3];
     int hoveraxis, dragaxis;
     double dragorigin[3], dragplane[3], dragparameter, dragdelta, dragscale;
+    double scalemouse[2]; /* Uniform scale is measured from the initial screen position. */
     BOOL dragvertical;
     BOOL dragstan;
     BOOL dragpad;
@@ -1042,7 +1045,7 @@ static void ViewportEnvironmentCoordinates(const ViewportState *state, int index
         inverse.axes = state->scaleaxes;
         for (axis = 0; axis < 3; axis++)
         {
-            inverse.factor[axis] = axis == state->dragaxis ? 1.0 / (1 + state->dragdelta) : 1;
+            inverse.factor[axis] = (state->dragaxis == VIEWPORT_UNIFORM_SCALE_AXIS || axis == state->dragaxis) ? 1.0 / (1 + state->dragdelta) : 1;
         }
         ScalingPoint(&inverse, normal, normal);
         for (axis = 0; axis < 3; axis++) { environment.normal[axis] = (float)normal[axis]; }
@@ -1251,7 +1254,8 @@ static void ViewportBuildAimGuides(ViewportState *state)
 /* Follow the same transient transform as the model/pad being dragged. */
 static void ViewportPreviewGuidePoint(const ViewportState *state, double point[3])
 {
-    if (state->dragaxis < 0 || state->dragaxis > 2) { return; }
+    if (state->dragaxis < 0 || (state->dragaxis > 2
+        && !(state->dragscaling && state->dragaxis == VIEWPORT_UNIFORM_SCALE_AXIS))) { return; }
     if (state->dragrotation)
     {
         Rotation rotation;
@@ -1263,7 +1267,7 @@ static void ViewportPreviewGuidePoint(const ViewportState *state, double point[3
         Scaling scale = {0};
         scale.axes = state->scaleaxes;
         memcpy(scale.pivot, state->dragorigin, sizeof(scale.pivot));
-        for (int axis = 0; axis < 3; axis++) { scale.factor[axis] = axis == state->dragaxis ? 1 + state->dragdelta : 1; }
+        for (int axis = 0; axis < 3; axis++) { scale.factor[axis] = (state->dragaxis == VIEWPORT_UNIFORM_SCALE_AXIS || axis == state->dragaxis) ? 1 + state->dragdelta : 1; }
         ScalingPoint(&scale, point, point);
     }
     else { point[state->dragaxis] += state->dragdelta; }
@@ -5653,21 +5657,59 @@ static double ViewportGizmoScale(const ViewportState *state)
 static void ViewportArrowVertex(const ViewportState *state, int axis,
                                 DWORD index, double scale, Vertex *out)
 {
-    const BgVertex *source = state->rotationmode ? &state->cylinder[index]
-        : state->scalemode ? &state->scalehandle[index] : &state->arrow[index];
-    double p[3] = {source->x,source->y,source->z};
-    if (axis==1) { p[0]=-source->y; p[1]=source->x; }
-    if (axis==2) { p[0]=-source->z; p[2]=source->x; }
+    double p[3];
+    if (axis == VIEWPORT_UNIFORM_SCALE_AXIS)
+    {
+        /* Same solid cube triangles for drawing and picking. Bit-coded corners
+         * avoid another asset dependency; its side is about 16 screen pixels. */
+        static const unsigned char corners[36] = {
+            0,2,3, 0,3,1, 4,5,7, 4,7,6,
+            0,1,5, 0,5,4, 2,6,7, 2,7,3,
+            0,4,6, 0,6,2, 1,3,7, 1,7,5
+        };
+        unsigned char corner = corners[index];
+        for (int k=0; k<3; k++) { p[k] = (corner & (1u << k)) ? .09 : -.09; }
+    }
+    else
+    {
+        const BgVertex *source = state->rotationmode ? &state->cylinder[index]
+            : state->scalemode ? &state->scalehandle[index] : &state->arrow[index];
+        p[0]=source->x; p[1]=source->y; p[2]=source->z;
+        if (axis==1) { p[0]=-source->y; p[1]=source->x; }
+        if (axis==2) { p[0]=-source->z; p[2]=source->x; }
+    }
     if (state->scalemode) { RotationVector(&state->scaleaxes, p, p); }
     out->x=(float)(state->gizmoposition[0]+p[0]*scale);
     out->y=(float)(state->gizmoposition[1]+p[1]*scale);
     out->z=(float)(state->gizmoposition[2]+p[2]*scale);
 }
 
+static void ViewportDrawGizmoHandles(const ViewportState *state, double scale)
+{
+    for (int axis=0; axis<(state->scalemode ? 4 : 3); axis++)
+    {
+        DWORD vertex;
+        if(state->rotationmode && !(state->rotationaxes & (1u<<axis)))continue;
+        if (axis==state->dragaxis || axis==state->hoveraxis) { glColor3ub(255,205,0); }
+        else if (axis==VIEWPORT_UNIFORM_SCALE_AXIS) { glColor3ub(255,255,255); }
+        else if (axis==0) { glColor3ub(240,40,40); }
+        else if (axis==1) { glColor3ub(40,220,60); }
+        else { glColor3ub(40,100,255); }
+        glBegin(GL_TRIANGLES);
+        for (vertex=0; vertex<(axis==VIEWPORT_UNIFORM_SCALE_AXIS ? 12 : state->rotationmode ? state->cylindertris : state->scalemode ? state->scalehandletris : state->arrowtris)*3; vertex++)
+        {
+            Vertex v;
+            ViewportArrowVertex(state,axis,vertex,scale,&v);
+            glVertex3f(v.x,v.y,v.z);
+        }
+        glEnd();
+    }
+}
+
 static void ViewportDrawTransformTools(const ViewportState *state)
 {
     double scale=ViewportGizmoScale(state);
-    int i, axis;
+    int i;
     glPushAttrib(GL_CURRENT_BIT|GL_ENABLE_BIT|GL_DEPTH_BUFFER_BIT|GL_LINE_BIT|GL_POINT_BIT|GL_POLYGON_BIT);
     glDisable(GL_TEXTURE_2D); glDisable(GL_ALPHA_TEST); glDisable(GL_BLEND); glDisable(GL_CULL_FACE);
     glDisable(GL_POINT_SMOOTH);
@@ -5770,30 +5812,14 @@ static void ViewportDrawTransformTools(const ViewportState *state)
         glEnd();
     }
     /* Handles remain visible and clickable over the selection. Depth is
-       local to the three arrows; scene depth must not hide a handle. */
+       local to the gizmo; scene depth must not hide a handle. */
     glDepthRange(0.0, 1.0);
     if (scale > 0)
     {
         glDepthMask(GL_TRUE);
         glClear(GL_DEPTH_BUFFER_BIT);
         glEnable(GL_DEPTH_TEST); glDepthFunc(GL_LESS);
-        for (axis=0; axis<3; axis++)
-        {
-            DWORD vertex;
-            if(state->rotationmode && !(state->rotationaxes & (1u<<axis)))continue;
-            if (axis==state->dragaxis || axis==state->hoveraxis) { glColor3ub(255,205,0); }
-            else if (axis==0) { glColor3ub(240,40,40); }
-            else if (axis==1) { glColor3ub(40,220,60); }
-            else { glColor3ub(40,100,255); }
-            glBegin(GL_TRIANGLES);
-            for (vertex=0; vertex<(state->rotationmode ? state->cylindertris : state->scalemode ? state->scalehandletris : state->arrowtris)*3; vertex++)
-            {
-                Vertex v;
-                ViewportArrowVertex(state,axis,vertex,scale,&v);
-                glVertex3f(v.x,v.y,v.z);
-            }
-            glEnd();
-        }
+        ViewportDrawGizmoHandles(state,scale);
     }
     glPopAttrib();
 }
@@ -5804,11 +5830,11 @@ static int ViewportPickGizmo(HWND hwnd, ViewportState *state, int x, int y)
     double scale=ViewportGizmoScale(state), nearest=DBL_MAX;
     int axis, picked=-1;
     if (state->flying || !(scale>0) || !ViewportBuildPickRay(hwnd,state,x,y,&ray)) { return -1; }
-    for (axis=0; axis<3; axis++)
+    for (axis=0; axis<(state->scalemode ? 4 : 3); axis++)
     {
         DWORD tri;
         if(state->rotationmode && !(state->rotationaxes & (1u<<axis)))continue;
-        for (tri=0; tri<(state->rotationmode ? state->cylindertris : state->scalemode ? state->scalehandletris : state->arrowtris); tri++)
+        for (tri=0; tri<(axis==VIEWPORT_UNIFORM_SCALE_AXIS ? 12 : state->rotationmode ? state->cylindertris : state->scalemode ? state->scalehandletris : state->arrowtris); tri++)
         {
             Vertex v[3]; double distance; int corner;
             for (corner=0; corner<3; corner++) { ViewportArrowVertex(state,axis,tri*3+corner,scale,&v[corner]); }
@@ -6078,6 +6104,13 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
     state->hoveraxis = axis;
     state->dragdelta = 0;
     state->dragscale = ViewportGizmoScale(state);
+    if (axis == VIEWPORT_UNIFORM_SCALE_AXIS)
+    {
+        memcpy(state->dragorigin,state->gizmoposition,sizeof(state->dragorigin));
+        state->scalemouse[0]=x; state->scalemouse[1]=y;
+        state->dragvertical=FALSE; state->dragparameter=0;
+    }
+    else
     {
         double dot = 0;
         for (i = 0; i < 3; i++)
@@ -6091,9 +6124,9 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
             state->dragplane[i] = ray.direction[i] - dot * state->dragdirection[i];
             length += state->dragplane[i] * state->dragplane[i];
         }
+        state->dragvertical = length < 0.0025;
+        state->dragparameter = ViewportDragParameter(state, &ray, y);
     }
-    state->dragvertical = length < 0.0025;
-    state->dragparameter = ViewportDragParameter(state, &ray, y);
     if (state->dragrotation)
     {
         int a = (axis + 1) % 3, b = (axis + 2) % 3;
@@ -6190,13 +6223,17 @@ static void ViewportDragTransform(HWND hwnd, ViewportState *state, int x, int y)
     }
     else if (state->dragscaling)
     {
-        double movement = ViewportDragParameter(state, &ray, y) - state->dragparameter;
+        /* Right/up increase; left/down decrease. Opposing diagonal motions
+         * cancel. Use the original press so event frequency cannot affect it. */
+        double movement = state->dragaxis == VIEWPORT_UNIFORM_SCALE_AXIS
+            ? ((x-state->scalemouse[0])-(y-state->scalemouse[1]))*state->dragscale/90.0
+            : ViewportDragParameter(state, &ray, y) - state->dragparameter;
         /* A handle-length drag doubles the selected dimension. One-percent
            drag steps never cross zero or reflect/collapse the selection. */
         delta = fmax(-.99, round(movement / state->dragscale * 100.0) / 100.0);
         scale.axes = state->scaleaxes;
         memcpy(scale.pivot, state->dragorigin, sizeof(scale.pivot));
-        for (i = 0; i < 3; i++) { scale.factor[i] = i == state->dragaxis ? 1 + delta : 1; }
+        for (i = 0; i < 3; i++) { scale.factor[i] = (state->dragaxis == VIEWPORT_UNIFORM_SCALE_AXIS || i == state->dragaxis) ? 1 + delta : 1; }
     }
     else
     {
@@ -6422,13 +6459,13 @@ static void ViewportEndTransform(HWND hwnd, ViewportState *state)
         double delta = state->dragdelta;
         copy.source = state->selectedobject;
         copy.mode = state->dragscaling ? TRANSFORM_SCALE : state->dragrotation ? TRANSFORM_ROTATE : TRANSFORM_MOVE;
-        copy.translation.offset[state->dragaxis] = delta;
-        RotationAxis(&copy.rotation.rotation, state->dragaxis, delta);
+        if (copy.mode == TRANSFORM_MOVE) { copy.translation.offset[state->dragaxis] = delta; }
+        if (copy.mode == TRANSFORM_ROTATE) { RotationAxis(&copy.rotation.rotation, state->dragaxis, delta); }
         memcpy(copy.rotation.pivot, state->dragorigin, sizeof(copy.rotation.pivot));
         copy.scaling.axes = state->scaleaxes;
         memcpy(copy.scaling.pivot, state->dragorigin, sizeof(copy.scaling.pivot));
         for (int axis = 0; axis < 3; axis++)
-        { copy.scaling.factor[axis] = axis == state->dragaxis ? 1 + delta : 1; }
+        { copy.scaling.factor[axis] = (state->dragaxis == VIEWPORT_UNIFORM_SCALE_AXIS || axis == state->dragaxis) ? 1 + delta : 1; }
         ViewportCancelTransform(hwnd);
         if (delta != 0) { SendMessage(GetParent(hwnd), VIEWPORT_WM_DUPLICATE_OBJECT, 0, (LPARAM)&copy); }
         return;
@@ -6454,7 +6491,7 @@ static void ViewportEndTransform(HWND hwnd, ViewportState *state)
         double delta = state->dragdelta;
         scale.axes = state->scaleaxes;
         memcpy(scale.pivot, state->dragorigin, sizeof(scale.pivot));
-        for (axis = 0; axis < 3; axis++) { scale.factor[axis] = axis == state->dragaxis ? 1 + delta : 1; }
+        for (axis = 0; axis < 3; axis++) { scale.factor[axis] = (state->dragaxis == VIEWPORT_UNIFORM_SCALE_AXIS || axis == state->dragaxis) ? 1 + delta : 1; }
         ViewportCancelTransform(hwnd);
         if (delta != 0)
         {
@@ -9133,7 +9170,7 @@ BOOL ViewportGetScaling(HWND hwnd, Scaling *scale)
     memcpy(scale->pivot, s->gizmoposition, sizeof(scale->pivot));
     for (axis = 0; axis < 3; axis++)
     {
-        scale->factor[axis] = s->dragscaling && s->dragaxis == axis ? 1 + s->dragdelta : 1;
+        scale->factor[axis] = s->dragscaling && (s->dragaxis == VIEWPORT_UNIFORM_SCALE_AXIS || s->dragaxis == axis) ? 1 + s->dragdelta : 1;
     }
     return TRUE;
 }

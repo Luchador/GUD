@@ -36,7 +36,7 @@ with tempfile.TemporaryDirectory(prefix='geditor-knife-') as temp:
     names = ('ViewportUpdateGizmo', 'ViewportRefreshKnifePlane', 'ViewportSetKnifePlane',
              'ViewportKnifeActive', 'ViewportGetKnifePlane', 'ViewportTransformKnife',
              'ViewportBeginTransform', 'ViewportBeginKnifeTransform', 'ViewportDragTransform', 'ViewportGetRotation', 'ViewportFinishKnifeTransform', 'ViewportCancelTransform', 'ViewportEndTransform')
-    (work / 'plane.inc').write_text(''.join(extract.function(viewport, n) for n in names))
+    (work / 'plane.inc').write_text(re.search(r'^#define VIEWPORT_UNIFORM_SCALE_AXIS .*$', viewport, re.M)[0] + '\n' + ''.join(extract.function(viewport, n) for n in names))
     (work / 'uv_drag.inc').write_text(''.join(extract.function(uv, n) for n in
         ('UVCanvasTransformST', 'UVCanvasNodeST', 'UVCanvasTryTransform', 'UVCanvasDrag', 'UVCanvasCommit')))
     # Exercise the real one-point message routing, including Escape precedence.

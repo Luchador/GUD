@@ -44,6 +44,25 @@ the original geometry and edge selection.
 Existing Edit/View menu entries, shortcuts and viewport context menus remain
 available. Edge extrusion still uses Shift-drag on a Move gizmo arrow.
 
+In **Scale** mode, the white cube at the gizmo center scales all three axes
+together around the existing selection pivot. It turns gold on hover. Hold the
+left mouse button and drag right or up to enlarge, or left or down to shrink.
+This works for objects and selected faces or edges, including rotated objects.
+The colored axis handles still scale one axis at a time.
+
+A 90-pixel horizontal or vertical drag increases the scale by 100%. Combined
+horizontal and vertical movement adds together; opposite directions cancel.
+Scaling uses 1% steps and stops at 1% of the starting size. Releasing the button
+commits through the existing undo history; Escape or right-click cancels the
+drag. Returning to the starting position makes no edit. Shift-dragging the
+center cube on an object creates a uniformly scaled copy.
+
+Uniform-scale validation: `python3 tools/geditor/tests/uniform_scale/run.py`
+checks the shipped handle geometry, center picking/highlighting, object and
+face/edge selections, rotated axes, preview/commit agreement, cancellation,
+no-op drags and duplication with AddressSanitizer and UndefinedBehaviorSanitizer.
+Window and OpenGL calls are stubbed in this host test.
+
 Validation: `python3 tools/geditor/tests/geometry_toolbar/run.py` checks bridge
 geometry, native save/reload, ROM vertex batches, undo/redo and failure rollback,
 as well as source edge lookup, menu availability and toolbar wrapping.

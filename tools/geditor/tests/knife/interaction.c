@@ -27,7 +27,7 @@ typedef struct { HWND hwnd; UINT message; WPARAM wParam; LPARAM lParam; } MSG;
 #define VIEWPORT_OBJECT_NONE 0xffffffffu
 #define UVCANVAS_PI 3.14159265358979323846
 /* Unused rendering/camera fields keep the production state layout in this host fixture. */
-typedef int HDC,HGLRC,GLuint,GLsizei,FogCurve,ViewportTexture,LARGE_INTEGER,FogCoordPointerFn;
+typedef int HDC,HGLRC,HCURSOR,GLuint,GLsizei,FogCurve,ViewportTexture,LARGE_INTEGER,FogCoordPointerFn;
 typedef int OrbitCamera,ModelLighting,VertexColor,ViewportAimGuide,ViewportMonitors,ViewportStanComponent;
 typedef float GLfloat;
 typedef unsigned char GLubyte;
