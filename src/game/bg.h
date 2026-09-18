@@ -51,8 +51,8 @@ typedef struct RoomInfo {
     u8 unloadAge;                          // 0x02
 
     /**
-     * Counts how often this room has been reached during the current portal
-     * visibility traversal.
+     * Saturating diagnostic count of queued approaches to this room during
+     * the current portal pass. It does not limit traversal or visibility.
      */
     u8 portal_visit_count;                  // 0x03
 
@@ -129,9 +129,21 @@ typedef struct BgQueuedPortal {
     s32 arg0;          // 0x00
     s32 roomnum;       // 0x04
     s32 portalnum;     // 0x08
-    s32 arg3;          // 0x0c
-    f32 sp10[4];       // 0x10
+    s32 arg3;          // 0x0c traversal depth
+    f32 sp10[4];       // 0x10 parent screen window
 } BgQueuedPortal;
+
+typedef struct BgVisibilityStats {
+    s32 portalQueuePeak;
+    s32 visibleRooms;
+    s32 unloadedRooms;
+    s32 firstUnloadedRoom;
+    s32 allocationFailedRoom;
+    bool renderCachesEnabled;
+} BgVisibilityStats;
+
+/* Read-only snapshot for the existing solo BG x-ray overlay. */
+void bgGetVisibilityStats(BgVisibilityStats *stats);
 
 extern PortalData *g_BgPortals;
 extern struct PortalCache g_PortalCameraCache[PORTMAX];

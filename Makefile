@@ -255,7 +255,7 @@ $(GAMEOBJECTS): src/propconstants.h src/propruntimeflags.h
 # the shared layout changes, including the RSP-aligned gauge vertex buffers.
 $(CODEOBJECTS) $(GAMEOBJECTS): src/bondtypes.h src/game/bondview.h
 
-$(addprefix $(BUILD_DIR)/src/game/,bg.o bondview.o lv.o sky.o rendercache.o): src/game/bg.h
+$(addprefix $(BUILD_DIR)/src/game/,bg.o bgdebug.o bondview.o lv.o sky.o rendercache.o): src/game/bg.h
 $(addprefix $(BUILD_DIR)/src/game/,bg.o bgonecycle.o model.o modelonecycle.o): src/game/bgonecycle.h
 $(addprefix $(BUILD_DIR)/src/game/,model.o modelonecycle.o dyn.o tex.o rendercache.o): src/game/modelonecycle.h
 $(addprefix $(BUILD_DIR)/src/game/,model.o modelonecycle.o gunfire.o propobj.o): src/game/model.h

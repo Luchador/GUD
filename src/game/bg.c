@@ -80,7 +80,11 @@ s32 *g_BgGlobalVisCommands;
  */
 extern BgDrawSlot g_BgDrawSlots[];
 
-#define BG_PORTAL_QUEUE_LEN 500
+/* Each portal has two traversal directions. Keep at most one pending entry
+ * for each direction, merging its screen window instead of dropping paths. */
+#define BG_PORTAL_QUEUE_LEN (PORTMAX * 2)
+#define BG_PORTAL_SEEN 1
+#define BG_PORTAL_QUEUED 2
 
 u8* g_BgData;
 s32 g_StanData;
@@ -1499,6 +1503,11 @@ void bbox2dCopy(struct bbox2d *a, struct bbox2d *b)
 
 
 BgQueuedPortal g_BgPortalQueue[BG_PORTAL_QUEUE_LEN];
+static u16 g_BgPortalQueueOrder[BG_PORTAL_QUEUE_LEN];
+static u8 g_BgPortalQueueState[BG_PORTAL_QUEUE_LEN];
+static s32 g_BgPortalQueueCount;
+static s32 g_BgPortalQueuePeak;
+static s32 g_BgRoomAllocationFailed = -1;
 PortalData *g_BgPortals;
 s32 g_BgRenderMode;
 BgRoomData *ptr_bgdata_room_fileposition_list;
@@ -2046,6 +2055,7 @@ void bgLoadRoomModelData(s32 roomID)
          * releases optional room/model lists. Do not free submitted lists
          * here: even this frame may already contain references to them. */
         renderCacheRequestReclaim();
+        g_BgRoomAllocationFailed = roomID;
         return;
     }
 
@@ -3093,8 +3103,17 @@ bool bgTestBulletHitBackground(coord3d *from, coord3d *to, s32 roomnum, struct H
 
 void bgResetPortalQueue(void)
 {
+    s32 i;
+
     g_BgPortalQueueWriteIndex = 0;
     g_BgPortalQueueReadIndex = 0;
+    g_BgPortalQueueCount = 0;
+    g_BgPortalQueuePeak = 0;
+    g_BgRoomAllocationFailed = -1;
+    for (i = 0; i < BG_PORTAL_QUEUE_LEN; i++)
+    {
+        g_BgPortalQueueState[i] = 0;
+    }
 }
 
 
@@ -3120,58 +3139,82 @@ u8 bgIncrementRoomPortalVisitCount(s32 roomnum)
 }
 
 
-void bgQueuePortalTraversal(s32 arg0, s32 arg1, s32 portalnum, s32 depth, f32 *arg4)
+void bgQueuePortalTraversal(s32 value, s32 fromRoom, s32 portalnum, s32 depth, f32 *screenbounds)
 {
     BgQueuedPortal *entry;
-    entry = &g_BgPortalQueue[g_BgPortalQueueWriteIndex];
+    s32 key;
 
-    if (depth >= 2)
+    if ((u32)portalnum >= PORTMAX)
     {
-        if (bgIncrementRoomPortalVisitCount((g_BgPortals[portalnum].connectedRoom2 ^ g_BgPortals[portalnum].connectedRoom1) ^ arg1) >= 9)
-        {
-            return;
-        }
+        return;
     }
 
-    entry->arg0 = arg0;
-    entry->roomnum = arg1;
-    entry->portalnum = portalnum;
-    entry->arg3 = depth;
-    entry->sp10[0] = arg4[0];
-    entry->sp10[1] = arg4[1];
-    entry->sp10[2] = arg4[2];
-    entry->sp10[3] = arg4[3];
+    key = portalnum * 2;
+    if (fromRoom != g_BgPortals[portalnum].connectedRoom1)
+    {
+        if (fromRoom != g_BgPortals[portalnum].connectedRoom2) return;
+        key++;
+    }
 
+    entry = &g_BgPortalQueue[key];
+    if (g_BgPortalQueueState[key] & BG_PORTAL_SEEN)
+    {
+        /* A previously tested (or pending) window already covers this path.
+         * Portal projection and plane tests are fixed for this camera pass.
+         * Only a larger window can reveal anything new. This terminates
+         * cycles without the old eight-attempt limit, which also counted
+         * rejected/off-screen paths and could suppress a later valid one. */
+        if (screenbounds[0] >= entry->sp10[0] && screenbounds[1] >= entry->sp10[1]
+                && screenbounds[2] <= entry->sp10[2] && screenbounds[3] <= entry->sp10[3]) return;
+        bgRectOutersect((bbox2d *)entry->sp10, (bbox2d *)screenbounds);
+        if (entry->arg3 < depth) entry->arg3 = depth;
+    }
+    else
+    {
+        entry->arg0 = value;
+        entry->roomnum = fromRoom;
+        entry->portalnum = portalnum;
+        entry->arg3 = depth;
+        entry->sp10[0] = screenbounds[0];
+        entry->sp10[1] = screenbounds[1];
+        entry->sp10[2] = screenbounds[2];
+        entry->sp10[3] = screenbounds[3];
+        g_BgPortalQueueState[key] = BG_PORTAL_SEEN;
+    }
+
+    if (g_BgPortalQueueState[key] & BG_PORTAL_QUEUED) return;
+
+    /* No overflow case: there are exactly BG_PORTAL_QUEUE_LEN unique keys,
+     * and a key cannot be pending twice. Count distinguishes a full ring
+     * from an empty one, even when read and write indices are equal. */
+    g_BgPortalQueueOrder[g_BgPortalQueueWriteIndex] = key;
+    g_BgPortalQueueState[key] |= BG_PORTAL_QUEUED;
+    g_BgPortalQueueCount++;
+    if (g_BgPortalQueuePeak < g_BgPortalQueueCount) g_BgPortalQueuePeak = g_BgPortalQueueCount;
     g_BgPortalQueueWriteIndex++;
+    if (g_BgPortalQueueWriteIndex == BG_PORTAL_QUEUE_LEN) g_BgPortalQueueWriteIndex = 0;
 
-    if (g_BgPortalQueueWriteIndex == BG_PORTAL_QUEUE_LEN)
-    {
-        g_BgPortalQueueWriteIndex = 0;
-    }
-
-    /**
-     * Former debug comment: "bg: pstackat: Overflow "
-     */
-    if (g_BgPortalQueueWriteIndex == g_BgPortalQueueReadIndex)
-    {
-        g_BgPortalQueueWriteIndex--;
-    }
+    /* Retain the saturating diagnostic count; it no longer limits visibility. */
+    if (depth >= 2)
+        bgIncrementRoomPortalVisitCount((g_BgPortals[portalnum].connectedRoom2
+                ^ g_BgPortals[portalnum].connectedRoom1) ^ fromRoom);
 }
 
 
 bool bgProcessNextQueuedPortal()
 {
-    BgQueuedPortal *entry;
+    BgQueuedPortal entry;
+    s32 key;
 
-    if (g_BgPortalQueueReadIndex == g_BgPortalQueueWriteIndex)
+    if (g_BgPortalQueueCount == 0)
     {
         return FALSE;
     }
 
-    entry = &g_BgPortalQueue[g_BgPortalQueueReadIndex];
-
-    bgProcessPortalTraversal(entry->arg0, entry->roomnum, entry->portalnum, entry->arg3, entry->sp10);
-
+    key = g_BgPortalQueueOrder[g_BgPortalQueueReadIndex];
+    entry = g_BgPortalQueue[key];
+    g_BgPortalQueueState[key] &= ~BG_PORTAL_QUEUED;
+    g_BgPortalQueueCount--;
     g_BgPortalQueueReadIndex++;
 
     if (g_BgPortalQueueReadIndex == BG_PORTAL_QUEUE_LEN)
@@ -3179,7 +3222,34 @@ bool bgProcessNextQueuedPortal()
         g_BgPortalQueueReadIndex = 0;
     }
 
+    /* Release the queue slot before expansion. A cycle may widen this same
+     * key while it is processed, so pass an independent copy of the window. */
+    bgProcessPortalTraversal(entry.arg0, entry.roomnum, entry.portalnum, entry.arg3, (bbox2d *)entry.sp10);
+
     return TRUE;
+}
+
+
+void bgGetVisibilityStats(BgVisibilityStats *stats)
+{
+    s32 i;
+    s32 room;
+
+    stats->portalQueuePeak = g_BgPortalQueuePeak;
+    stats->visibleRooms = g_BgRoomsScheduledToBeDrawn;
+    stats->unloadedRooms = 0;
+    stats->firstUnloadedRoom = -1;
+    stats->allocationFailedRoom = g_BgRoomAllocationFailed;
+    stats->renderCachesEnabled = renderCacheIsEnabled();
+    for (i = 0; i < g_BgRoomsScheduledToBeDrawn; i++)
+    {
+        room = g_BgDrawSlots[i].roomid;
+        if (room > 0 && room < g_MaxNumRooms && !g_BgRoomInfo[room].unloadAge)
+        {
+            if (!stats->unloadedRooms) stats->firstUnloadedRoom = room;
+            stats->unloadedRooms++;
+        }
+    }
 }
 
 
@@ -3200,8 +3270,6 @@ void bgProcessPortalTraversal(s32 value, s32 roomnum, s32 portalnum, s32 depth, 
         return;
     }
 
-    i = (s32) &g_PortalTraversalDepths[portalnum];
- 
     playerpos = bondviewGetPlayerPosition();
     metric = g_PortalPlanes[portalnum];
     playermetric = ((metric.normal.z * playerpos->z) + ((metric.normal.x * playerpos->x) + (metric.normal.y * playerpos->y))) * g_LevelScale;
@@ -3271,7 +3339,7 @@ void bgProcessPortalTraversal(s32 value, s32 roomnum, s32 portalnum, s32 depth, 
         }
     }
  
-    *((u8 *) i) = depth;
+    g_PortalTraversalDepths[portalnum] = depth;
  
     if ((screenbox.min.x < screenbox.max.x) && (screenbox.min.y < screenbox.max.y))
     {
@@ -3291,7 +3359,7 @@ void bgProcessPortalTraversal(s32 value, s32 roomnum, s32 portalnum, s32 depth, 
 
         if (i != portalnum)
         {
-            bgQueuePortalTraversal(value, otherroom, i, depth + 1, &screenbox);
+            bgQueuePortalTraversal(value, otherroom, i, depth + 1, screenbox.f[0]);
         }
     }
  

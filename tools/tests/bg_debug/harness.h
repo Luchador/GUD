@@ -57,3 +57,6 @@ static Gfx *textRender(Gfx *p, s32 *x, s32 *y, char *text, void *chars,
     assert(p + 2 < g_TestGfxEnd);
     return p;
 }
+
+static BgVisibilityStats g_TestVisibilityStats;
+static void bgGetVisibilityStats(BgVisibilityStats *stats) { *stats = g_TestVisibilityStats; }
