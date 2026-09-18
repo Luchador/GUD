@@ -64,6 +64,7 @@
 #define IDR_MARKER_OUTRO_CAMERA   329
 #define IDR_MARKER_INTRO_SPLINE   330
 #define IDR_STARTUP_BOX           340
+#define IDR_VERTEX_COLOR_BRUSH    341
 
 /* Controls inside IDD_NEW_PROJECT */
 #define IDC_PROJECT_NAME     1001

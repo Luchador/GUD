@@ -225,6 +225,7 @@ typedef struct ViewportState {
     HDC hdc;      /* private DC - stable for the window's lifetime (CS_OWNDC) */
     HGLRC hglrc;  /* the GL context rendering into it */
     EditorTool tool;
+    HCURSOR paintcursor; /* owned by this viewport; shared tool logic for both editors */
     ViewportRenderMode rendermode;
     BOOL vertexsnap;
     BOOL portalsnaptarget; /* BG-only destination picking; ignore editor overlays. */
@@ -482,6 +483,68 @@ static BOOL ViewportPadSelectionPosition(const ViewportState *state, double posi
 static ViewportState *ViewportGetState(HWND hwnd)
 {
     return (ViewportState *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+}
+
+/* Use the embedded PNG at its native 32x32 size, with the upper-left brush
+ * tip as the hotspot. Reuse the resource decoder; cursors need premultiplied
+ * BGRA and a monochrome transparency mask rather than an opaque toolbar DIB. */
+static HCURSOR ViewportLoadPaintCursor(HINSTANCE instance)
+{
+    TexThumb image = {0};
+    unsigned char source[TEX_THUMB_MAX * TEX_THUMB_MAX * 4];
+    unsigned char mask[((TEX_THUMB_MAX + 15) / 16 * 2) * TEX_THUMB_MAX] = {0};
+    BITMAPINFO info = {0};
+    ICONINFO icon = {0};
+    HCURSOR cursor = NULL;
+    unsigned char *pixels;
+    int maskstride, x, y, channel;
+
+    if (!TexLoadResourceThumbnail(instance, IDR_VERTEX_COLOR_BRUSH, &image, source))
+    { return NULL; }
+    info.bmiHeader.biSize = sizeof(info.bmiHeader);
+    info.bmiHeader.biWidth = image.w;
+    info.bmiHeader.biHeight = -image.h;
+    info.bmiHeader.biPlanes = 1;
+    info.bmiHeader.biBitCount = 32;
+    info.bmiHeader.biCompression = BI_RGB;
+    icon.hbmColor = CreateDIBSection(NULL, &info, DIB_RGB_COLORS, (void **)&pixels, NULL, 0);
+    if (!icon.hbmColor) { return NULL; }
+    maskstride = (image.w + 15) / 16 * 2; /* CreateBitmap rows are WORD-aligned. */
+    for (y = 0; y < image.h; y++)
+    {
+        for (x = 0; x < image.w; x++)
+        {
+            const unsigned char *src = source + (y * TEX_THUMB_MAX + x) * 4;
+            unsigned char *dst = pixels + (y * image.w + x) * 4;
+            for (channel = 0; channel < 3; channel++)
+            { dst[channel] = (src[channel] * src[3] + 127) / 255; }
+            dst[3] = src[3];
+            if (!src[3]) { mask[y * maskstride + x / 8] |= 0x80 >> (x % 8); }
+        }
+    }
+    icon.hbmMask = CreateBitmap(image.w, image.h, 1, 1, mask);
+    /* fIcon = FALSE, xHotspot = yHotspot = 0. CreateIconIndirect copies both bitmaps. */
+    if (icon.hbmMask) { cursor = (HCURSOR)CreateIconIndirect(&icon); }
+    if (icon.hbmMask) { DeleteObject(icon.hbmMask); }
+    DeleteObject(icon.hbmColor);
+    return cursor;
+}
+
+static HCURSOR ViewportToolCursor(const ViewportState *state)
+{
+    if (state->colorpick) { return LoadCursor(NULL, IDC_CROSS); }
+    if (state->tool == EDITOR_TOOL_VERTEX_PAINT && state->paintcursor)
+    { return state->paintcursor; }
+    return LoadCursor(NULL, IDC_ARROW);
+}
+
+static void ViewportRefreshCursor(HWND hwnd, const ViewportState *state)
+{
+    POINT point;
+    /* Keyboard toggles and sampling must update without mouse motion. Avoid
+     * changing the cursor over a panel or a dialog covering this viewport. */
+    if (!state->flying && GetCursorPos(&point) && WindowFromPoint(point) == hwnd)
+    { SetCursor(ViewportToolCursor(state)); }
 }
 
 /* Cache counts for all loaded level geometry or the complete orbit model preview.
@@ -6599,6 +6662,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         state->hoveraxis = state->dragaxis = -1;
         if (!state->orbit) { ViewportLoadGizmo(state); }
         state->tool = EDITOR_TOOL_FACE_SELECT;
+        state->paintcursor = ViewportLoadPaintCursor(((CREATESTRUCT *)lparam)->hInstance);
 
         if (!ViewportInitGL(hwnd, state))
         {
@@ -6855,9 +6919,9 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         break; /* not flying: DefWindowProc forwards the wheel to the frame */
 
     case WM_SETCURSOR:
-        if (state != NULL && state->colorpick && LOWORD(lparam) == HTCLIENT)
+        if (state != NULL && (HWND)wparam == hwnd && LOWORD(lparam) == HTCLIENT)
         {
-            SetCursor(LoadCursor(NULL, IDC_CROSS));
+            SetCursor(ViewportToolCursor(state));
             return TRUE;
         }
         break;
@@ -6906,6 +6970,11 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
             free(state->arrow);
             free(state->components);
             free(state->hiddenrefs);
+            if (state->paintcursor)
+            {
+                if (GetCursor() == state->paintcursor) { SetCursor(LoadCursor(NULL, IDC_ARROW)); }
+                DestroyCursor(state->paintcursor);
+            }
             free(state);
             SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
         }
@@ -7085,6 +7154,7 @@ void ViewportSetTool(HWND viewport, EditorTool tool)
     /* Clear the previous tool's selection before starting a new one. */
     ViewportCancelTransform(viewport);
     ViewportClearAllSelection(state);
+    ViewportRefreshCursor(viewport, state);
     ViewportRedraw(viewport);
     SendMessage(GetParent(viewport), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
 }
@@ -7099,21 +7169,13 @@ BOOL ViewportGetVertexSnap(HWND viewport)
 void ViewportSetColorPick(HWND viewport, BOOL enabled)
 {
     ViewportState *state = ViewportGetState(viewport);
-    POINT cursor;
-    RECT client;
     if (state == NULL) { return; }
     enabled = enabled && state->tool == EDITOR_TOOL_VERTEX_PAINT
         && !state->flying && state->dragaxis < 0 && !state->boxpending;
     if (state->colorpick == enabled) { return; }
     state->colorpick = enabled;
     SendMessage(GetParent(viewport), VIEWPORT_WM_COLOR_PICK_CHANGED, enabled, 0);
-    /* Update immediately after a click/cancel, without requiring mouse motion. */
-    if (GetCursorPos(&cursor) && ScreenToClient(viewport, &cursor))
-    {
-        GetClientRect(viewport, &client);
-        if (PtInRect(&client, cursor))
-        { SetCursor(LoadCursor(NULL, enabled ? IDC_CROSS : IDC_ARROW)); }
-    }
+    ViewportRefreshCursor(viewport, state);
 }
 
 void ViewportSetVertexSnap(HWND viewport, BOOL enabled)

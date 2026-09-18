@@ -8,6 +8,7 @@
 #include "edittool.h"
 #include "stanload.h"
 typedef void *HWND;
+typedef int HCURSOR;
 typedef unsigned int GLuint, GLenum, UINT;
 typedef int GLsizei;
 typedef float GLfloat;
@@ -18,7 +19,7 @@ typedef struct { int x, y; } POINT;
 typedef struct { int left, top, right, bottom; } RECT;
 #define WM_APP 0x8000
 #include "types.inc"
-enum { GL_FRONT=1, GL_BACK, GL_FRONT_AND_BACK, IDC_ARROW, IDC_CROSS,
+enum { GL_FRONT=1, GL_BACK, GL_FRONT_AND_BACK, IDC_ARROW, IDC_CROSS, BRUSH_CURSOR,
        WM_LBUTTONDOWN, WM_LBUTTONDBLCLK, WM_KEYDOWN, WM_KEYUP,
        WM_CANCELMODE, WM_CAPTURECHANGED, WM_KILLFOCUS, VK_ESCAPE, VK_DELETE, VK_CONTROL,
        MK_SHIFT=1, MK_CONTROL=2 };
@@ -27,6 +28,7 @@ enum { GL_FRONT=1, GL_BACK, GL_FRONT_AND_BACK, IDC_ARROW, IDC_CROSS,
 #define GET_Y_LPARAM(p) ((short)((p) >> 16))
 typedef struct ViewportState {
     EditorTool tool;
+    HCURSOR paintcursor;
     ViewportRenderMode rendermode;
     BOOL orbit, flying, vertexsnap, boxpending, contextpending, colorpick, colorsampleclick;
     BOOL cullbackfaces, showbgprimary, showbgsecondary, showobjects, showstan;
@@ -60,8 +62,7 @@ static BOOL GetClientRect(HWND hwnd, RECT *rect)
 { ViewportState *s=hwnd; *rect=(RECT){0,0,s->width,s->height}; return TRUE; }
 static BOOL GetCursorPos(POINT *p) { *p=(POINT){50,50}; return TRUE; }
 static BOOL ScreenToClient(HWND hwnd, POINT *p) { return TRUE; }
-static BOOL PtInRect(const RECT *r, POINT p)
-{ return p.x>=r->left && p.x<r->right && p.y>=r->top && p.y<r->bottom; }
+static HWND WindowFromPoint(POINT p) { return g_Viewport; }
 static int LoadCursor(void *instance, int id) { return id; }
 static void SetCursor(int id) { cursor=id; }
 static HWND GetParent(HWND hwnd) { return hwnd; }
@@ -141,6 +142,7 @@ int main(void)
     GLubyte alpha=255;
     ViewportTexture texture={.name=1,.width=1,.height=1,.alpha=&alpha};
     ViewportState s={.tool=EDITOR_TOOL_VERTEX_PAINT,.dragaxis=-1,.width=101,.height=101,.yaw=180,
+        .paintcursor=BRUSH_CURSOR,
         .scene=scene,.batches=batches,.batchcount=1,.scenefacerefs=refs,.hiddentris=hidden,
         .texturecache=&texture,.showbgprimary=TRUE,.showbgsecondary=TRUE,.showobjects=TRUE};
     g_Viewport=&s; g_RightPanel=&picker;
@@ -150,7 +152,7 @@ int main(void)
     unsigned changes=modechanges;
     ViewportSetColorPick(&s,TRUE); assert(modechanges==changes);
     Click(&s,WM_LBUTTONDOWN);
-    assert(samplecount==1 && !s.colorpick && !picker.sampling && cursor==IDC_ARROW);
+    assert(samplecount==1 && !s.colorpick && !picker.sampling && cursor==BRUSH_CURSOR);
     assert(!selectioncalls && !paintcount && !clears && sampled.face.faceid==42 && sampled.corner==2);
     BrushEquals(37,119,203,73);
     assert(!memcmp(vertices,original,sizeof(vertices)) && !g_CurrentBgDocument.dirty);

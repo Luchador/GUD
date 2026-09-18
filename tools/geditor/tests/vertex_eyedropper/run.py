@@ -44,7 +44,8 @@ def main():
     types += re.search(r'typedef struct ColorPickerState \{.*?\} ColorPickerState;', picker, re.S)[0] + '\n'
     logic = ''.join(function(picker, n) for n in ('ColorPickerRgbToHsv', 'ColorPickerSyncText',
         'ColorPickerSetColor', 'ColorPickerGetColor', 'ColorPickerSetSampling'))
-    logic += ''.join(function(viewport, n) for n in ('ViewportGetTool', 'ViewportSetColorPick'))
+    logic += ''.join(function(viewport, n) for n in ('ViewportGetTool', 'ViewportToolCursor',
+        'ViewportRefreshCursor', 'ViewportSetColorPick'))
     logic += ''.join(function((src / 'bgdocument.c').read_text(), n) for n in
                      ('BgDocumentGetRoom', 'BgDocumentFindFace'))
     logic += ''.join(function(editor, n) for n in ('GEditorSampleBgVertex', 'GEditorSampleStanTile'))
