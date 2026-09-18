@@ -19,12 +19,16 @@ typedef intptr_t LPARAM;
 #define VIEWPORT_WM_ROTATE_SELECTION 5
 #define VIEWPORT_WM_SCALE_SELECTION 6
 #define VIEWPORT_WM_DUPLICATE_OBJECT 7
+#define VIEWPORT_WM_PREVIEW_EDGE_EXTRUSION 8
+#define VIEWPORT_OBJECT_NONE ((DWORD)-1)
 typedef struct Vertex { float x,y,z; } Vertex;
 typedef struct SceneBatch { int first,count; BOOL object,secondary; } SceneBatch;
 typedef struct ViewportComponent { BgDocumentVertexRef refs[2]; int corners[2]; } ViewportComponent;
 typedef struct ViewportEdgeExtrusion {
     const BgDocumentEdgeRef *edges; DWORD count; double offset[3],applied[3]; BgVertex *preview;
+    const StanEdgeRef *stanedges; StanPoint *stanpreview;
 } ViewportEdgeExtrusion;
+typedef struct ViewportStanComponent { StanPointRef refs[2]; } ViewportStanComponent;
 typedef struct ViewportTranslation { double offset[3]; } ViewportTranslation;
 typedef struct ViewportRotation { Rotation rotation; double pivot[3]; } ViewportRotation;
 typedef struct ViewportObjectDuplicate {
@@ -45,13 +49,20 @@ typedef struct ViewportState {
     BOOL dragextruding,extrudepreviewvalid,dragduplicating;
     DWORD selectedobject;
     BgDocumentEdgeRef *extrudeedges;
+    StanEdgeRef *stanextrudeedges;
+    StanPoint *stanextrudepreview;
     int *extrudeowners;
     BgVertex *extrudepreview;
     DWORD extrudecount;
     double dragdelta,dragorigin[3];
+    double extrudeoffset[3],gizmoposition[3];
     float (*dragvertices)[3];
     Rotation scaleaxes;
     StanFile stan;
+    ViewportStanComponent *stancomponents;
+    int stancomponentcount,stanopacity;
+    BOOL showstan;
+    DWORD *stanpointmap,*stanhiddenids,stanhiddencount;
     const SetupFile *markersetup;
     float markerlevelscale;
 } ViewportState;
@@ -60,6 +71,9 @@ static unsigned commits,moves,notifications;
 static unsigned duplicates;
 static ViewportObjectDuplicate duplicated;
 static BgDocumentEdgeRef committed;
+static StanEdgeRef stancommitted;
+static unsigned stancommits,previews;
+static BOOL rejectpreview;
 static double offset[3];
 static ViewportState *ViewportGetState(HWND hwnd) { return hwnd; }
 static HWND GetParent(HWND hwnd) { return hwnd; }
@@ -72,17 +86,28 @@ static void ViewportFinishKnifeTransform(HWND hwnd,ViewportState *state,BOOL can
 static void ViewportPreviewPortalDrag(ViewportState *state,double delta) { abort(); }
 static void ViewportSetSetupMarkers(HWND hwnd,ViewportState *state,const SetupFile *setup,float scale) { abort(); }
 static int ViewportSelectedPadIndex(ViewportState *state) { abort(); }
-static void ViewportRefreshStanOverlay(ViewportState *state) { abort(); }
+static void ViewportRefreshStanOverlay(ViewportState *state) {}
 static void ViewportBuildObjectSelectionBox(ViewportState *state) {}
 static void ViewportClearAllSelection(ViewportState *state) { state->componentcount=0; }
-static void SendMessage(HWND hwnd,int msg,int wparam,LPARAM lparam)
+static intptr_t SendMessage(HWND hwnd,int msg,int wparam,LPARAM lparam)
 {
     ViewportState *state=hwnd;
     if (msg==VIEWPORT_WM_EXTRUDE_EDGES)
     {
         const ViewportEdgeExtrusion *r=(void *)lparam;
         assert(state->dragaxis==-1 && !state->dragextruding && !state->extrudepreview && !captured);
-        assert(r->count==1 && r->edges); committed=r->edges[0]; memcpy(offset,r->offset,sizeof(offset)); commits++;
+        assert(r->count==1);memcpy(offset,r->offset,sizeof(offset));
+        if(r->stanedges)
+        { assert(!r->edges&&!state->stanextrudeedges&&!state->stanextrudepreview);stancommitted=r->stanedges[0];stancommits++; }
+        else { assert(r->edges);committed=r->edges[0];commits++; }
+    }
+    else if(msg==VIEWPORT_WM_PREVIEW_EDGE_EXTRUSION)
+    {
+        ViewportEdgeExtrusion *r=(void *)lparam;previews++;
+        assert(r->count==1&&r->stanedges&&r->stanpreview&&!r->edges&&!r->preview);
+        if(rejectpreview)return 0;
+        for(int k=0;k<3;k++)r->applied[k]=round(r->offset[k]/4)*4;
+        return 1;
     }
     else if (msg==VIEWPORT_WM_TRANSLATE_SELECTION)
     { moves++; memcpy(offset,((ViewportTranslation *)lparam)->offset,sizeof(offset)); }
@@ -92,6 +117,7 @@ static void SendMessage(HWND hwnd,int msg,int wparam,LPARAM lparam)
         duplicated=*(ViewportObjectDuplicate *)lparam; duplicates++;
     }
     else { notifications++; }
+    return 1;
 }
 /* Spy on the input to the independently tested rotation math. */
 void RotationAxis(Rotation *rotation,int axis,double degrees)
@@ -101,15 +127,58 @@ void RotationAxis(Rotation *rotation,int axis,double degrees)
 static void Begin(ViewportState *s,BOOL extrude,double delta)
 {
     s->dragaxis=1; s->dragdelta=delta; s->dragextruding=extrude;
-    s->dragvertices=calloc(s->scenecount,sizeof(*s->dragvertices)); s->dragmask=calloc(s->scenecount,1);
+    int count=s->dragstan ? (int)(s->stan.tilecount*STAN_TILE_MAX_POINTS) : s->scenecount;
+    s->dragvertices=calloc(count,sizeof(*s->dragvertices)); s->dragmask=calloc(count,1);
     assert(s->dragvertices && s->dragmask);
-    for (int i=0;i<s->scenecount;i++)
+    for (int i=0;i<count;i++)
     {
-        s->dragvertices[i][0]=s->scene[i].x; s->dragvertices[i][1]=s->scene[i].y; s->dragvertices[i][2]=s->scene[i].z;
+        if(s->dragstan)
+        {
+            const StanPoint *p=&s->stan.tiles[i/STAN_TILE_MAX_POINTS].points[i%STAN_TILE_MAX_POINTS];
+            s->dragvertices[i][0]=p->x;s->dragvertices[i][1]=p->y;s->dragvertices[i][2]=p->z;
+        }
+        else { s->dragvertices[i][0]=s->scene[i].x; s->dragvertices[i][1]=s->scene[i].y; s->dragvertices[i][2]=s->scene[i].z; }
         s->dragmask[i]=1;
     }
     if (extrude) { assert(ViewportPrepareEdgeExtrusion(s)); }
     captured=s;
+}
+
+static void StanGesture(void)
+{
+    StanTile tile={.editorid=1,.pointcount=4,.points={{0,0,0,0},{0,0,20,0},{20,0,20,0},{20,0,0,0}}};
+    StanTile before=tile;DWORD map[STAN_TILE_MAX_POINTS];
+    for(DWORD i=0;i<STAN_TILE_MAX_POINTS;i++)map[i]=i;
+    ViewportStanComponent component={.refs={{0,2},{0,3}}};
+    ViewportState s={.tool=EDITOR_TOOL_EDGE_SELECT,.selectedobject=VIEWPORT_OBJECT_NONE,.dragstan=TRUE,
+        .showstan=TRUE,.stanopacity=44,.stan={.tiles=&tile,.tilecount=1},.stancomponents=&component,
+        .stancomponentcount=1,.stanpointmap=map,.dragaxis=-1};
+    assert(ViewportShouldExtrudeEdges(&s,TRUE)&&!ViewportShouldExtrudeEdges(&s,FALSE));
+    s.dragrotation=TRUE;assert(!ViewportShouldExtrudeEdges(&s,TRUE));s.dragrotation=FALSE;
+    s.dragscaling=TRUE;assert(!ViewportShouldExtrudeEdges(&s,TRUE));s.dragscaling=FALSE;
+    s.tool=EDITOR_TOOL_FACE_SELECT;assert(!ViewportShouldExtrudeEdges(&s,TRUE));s.tool=EDITOR_TOOL_EDGE_SELECT;
+    s.selectedobject=17;assert(!ViewportShouldExtrudeEdges(&s,TRUE));s.selectedobject=VIEWPORT_OBJECT_NONE;
+    s.dragstan=FALSE;assert(ViewportShouldExtrudeEdges(&s,TRUE));s.dragstan=TRUE;
+    Begin(&s,TRUE,25);
+    assert(s.stanextrudeedges&&s.stanextrudepreview&&!s.extrudeedges&&s.extrudecount==1);
+    assert(s.stanextrudeedges[0].tile==0&&s.stanextrudeedges[0].point==2);
+    ViewportPreviewEdgeExtrusion(&s,&s,25);
+    assert(previews==1&&s.extrudepreviewvalid&&s.extrudeoffset[1]==24&&s.gizmoposition[1]==24);
+    assert(!memcmp(&tile,&before,sizeof(tile))); /* Only new geometry is previewed. */
+    rejectpreview=TRUE;ViewportPreviewEdgeExtrusion(&s,&s,-25);rejectpreview=FALSE;
+    assert(!s.extrudepreviewvalid&&!s.extrudeoffset[1]&&!s.gizmoposition[1]);
+    ViewportPreviewEdgeExtrusion(&s,&s,25);ViewportEndTransform(&s,&s);
+    assert(stancommits==1&&stancommitted.tile==0&&stancommitted.point==2&&offset[1]==25);
+    assert(!memcmp(&tile,&before,sizeof(tile))&&!captured&&!s.stanextrudeedges&&!s.stanextrudepreview);
+    Begin(&s,TRUE,25);ViewportPreviewEdgeExtrusion(&s,&s,25);ViewportCancelTransform(&s);
+    assert(stancommits==1&&!captured&&!s.stanextrudepreview&&!memcmp(&tile,&before,sizeof(tile)));
+    Begin(&s,TRUE,0);ViewportEndTransform(&s,&s);assert(stancommits==1);
+    Begin(&s,TRUE,25);ViewportPreviewEdgeExtrusion(&s,&s,25);ViewportPreviewEdgeExtrusion(&s,&s,0);
+    ViewportEndTransform(&s,&s);assert(stancommits==1); /* Back to mouse-down position. */
+    unsigned oldmoves=moves;
+    Begin(&s,FALSE,25);tile.points[2].y+=25;ViewportEndTransform(&s,&s);
+    assert(moves==oldmoves+1&&stancommits==1&&!memcmp(&tile,&before,sizeof(tile)));
+    puts("PASS: Stan Shift-Move extrusion routing, quantized/invalid preview, fixed source geometry, commit payload lifetime, cancellation/no-op gestures and ordinary Stan movement.");
 }
 
 int main(void)
@@ -170,5 +239,6 @@ int main(void)
     free(s.components);
     puts("PASS: real edge ownership after draw reordering, commit payload lifetime, cancellation/no-op drags, unchanged ordinary moves, and canonical outer-edge selection.");
     puts("PASS: move/rotate/scale duplicate payloads, original pose restoration, cancellation and no-op drags.");
+    StanGesture();
     return 0;
 }

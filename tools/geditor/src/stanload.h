@@ -68,6 +68,15 @@ BOOL StanFileClone(const StanFile *source, StanFile *out, const char **reasonout
 typedef struct StanPointRef { DWORD tile, point; } StanPointRef;
 /* Directed perimeter edge: point -> (point + 1) % pointcount. */
 typedef struct StanEdgeRef { DWORD tile, point; } StanEdgeRef;
+/* Extrude open boundaries by a quantized world offset. Preview writes six
+ * world-space points per edge without mutation. Commit appends two triangles
+ * per edge and returns count outer edges for continued extrusion. Neighboring
+ * strips join only through shared editing identities. A rounded-zero offset
+ * succeeds without creating anything. Failures leave the file intact. */
+BOOL StanPreviewEdgeExtrusion(const StanFile *stan, const StanEdgeRef *edges,
+    DWORD count, const double offset[3], StanPoint *triangles, double applied[3], const char **reasonout);
+BOOL StanExtrudeEdges(StanFile *stan, const StanEdgeRef *edges, DWORD count,
+    const double offset[3], StanEdgeRef *out, DWORD *extrudedout, const char **reasonout);
 /* Bridge two unshared boundary edges with one triangle at a shared endpoint,
  * or two triangles across a four-endpoint gap, with reciprocal source links.
  * Inherit the first edge's room and tile attributes, even across rooms. Native

@@ -37,13 +37,16 @@ def main():
         viewport = (src / 'viewport.c').read_text()
         names = ('ViewportCompareVertexRefs', 'ViewportCompareFaceRefs', 'ViewportTriangleHidden',
                  'ViewportCornerVisible', 'ViewportResolveBgEdge', 'ViewportGetSelectedBgEdges',
+                 'ViewportStanVisible', 'ViewportCompareStanIds', 'ViewportStanTileHidden', 'ViewportCompareStanRefs',
+                 'ViewportStanPointRef', 'ViewportFindStanComponent', 'ViewportPrepareStanEdgeExtrusion',
+                 'ViewportShouldExtrudeEdges', 'ViewportPreviewEdgeExtrusion',
                  'ViewportPrepareEdgeExtrusion', 'ViewportSelectBgEdges',
                  'ViewportCancelTransform', 'ViewportEndTransform')
         (work / 'viewport.inc').write_text(''.join(helpers.function(viewport, n) for n in names))
         harness = (here.parent / 'edge_extrusion/viewport.c').read_text()
-        harness = harness.replace('int scenecount,batchcount,', 'int stancomponentcount;\n    int scenecount,batchcount,')
         # The shared fixture already includes the portal cancellation stubs.
-        harness = harness.replace('    Begin(&s,TRUE,25);', '''    BgDocumentEdgeRef selected;
+        prefix, main = harness.split('int main(void)', 1)
+        main = main.replace('    Begin(&s,TRUE,25);', '''    BgDocumentEdgeRef selected;
     assert(ViewportGetSelectedBgEdges(&s, &selected, 1) && selected.face.faceid == 11 && selected.corner == 0);
     assert(!ViewportGetSelectedBgEdges(&s, &selected, 2));
     s.stancomponentcount = 1; assert(!ViewportGetSelectedBgEdges(&s, &selected, 1)); s.stancomponentcount = 0;
@@ -51,6 +54,7 @@ def main():
     s.tool = EDITOR_TOOL_VERTEX_SELECT; assert(!ViewportGetSelectedBgEdges(&s, &selected, 1));
     s.tool = EDITOR_TOOL_EDGE_SELECT;
     Begin(&s,TRUE,25);''', 1)
+        harness = prefix + 'int main(void)' + main
         (work / 'viewport.c').write_text(harness)
         subprocess.run(command + [str(work / 'viewport.c'), '-Wl,--gc-sections', '-lm',
                                   '-o', str(work / 'viewport')], check=True)

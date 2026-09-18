@@ -50,6 +50,7 @@ with tempfile.TemporaryDirectory(prefix='geditor-uniform-scale-') as temp:
     defines = ('VIEWPORT_UNIFORM_SCALE_AXIS', 'VIEWPORT_PICK_EPSILON', 'VIEWPORT_PICK_BARY_EPSILON')
     names = ('ViewportCompareVertexRefs', 'ViewportGetMoveVertices', 'ViewportRayTriangleDistance',
              'ViewportArrowVertex', 'ViewportDrawGizmoHandles', 'ViewportPickGizmo',
+             'ViewportShouldExtrudeEdges', 'ViewportPreviewEdgeExtrusion',
              'ViewportBeginTransform', 'ViewportDragTransform', 'ViewportCancelTransform',
              'ViewportEndTransform', 'ViewportGetScaling', 'ViewportPreviewGuidePoint',
              'ViewportEnvironmentCoordinates')

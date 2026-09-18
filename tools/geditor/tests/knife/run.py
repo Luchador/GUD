@@ -35,6 +35,7 @@ with tempfile.TemporaryDirectory(prefix='geditor-knife-') as temp:
         + ''.join(structure(uv, n) for n in ('UVCanvasNode', 'UVCanvasState')))
     names = ('ViewportUpdateGizmo', 'ViewportRefreshKnifePlane', 'ViewportSetKnifePlane',
              'ViewportKnifeActive', 'ViewportGetKnifePlane', 'ViewportTransformKnife',
+             'ViewportShouldExtrudeEdges', 'ViewportPreviewEdgeExtrusion',
              'ViewportBeginTransform', 'ViewportBeginKnifeTransform', 'ViewportDragTransform', 'ViewportGetRotation', 'ViewportFinishKnifeTransform', 'ViewportCancelTransform', 'ViewportEndTransform')
     (work / 'plane.inc').write_text(re.search(r'^#define VIEWPORT_UNIFORM_SCALE_AXIS .*$', viewport, re.M)[0] + '\n' + ''.join(extract.function(viewport, n) for n in names))
     (work / 'uv_drag.inc').write_text(''.join(extract.function(uv, n) for n in

@@ -2384,8 +2384,37 @@ fail:
     return FALSE;
 }
 
+static BOOL GEditorExtrudeStanEdges(HWND hwnd, const ViewportEdgeExtrusion *request)
+{
+    EditHistoryTransaction transaction={0};
+    StanEdgeRef *outer=NULL;
+    DWORD created=0;
+    const char *why="", *restorewhy="";
+    if (!request || !request->count || request->count>16383 || !request->stanedges || request->edges
+        || ViewportGetTool(g_Viewport)!=EDITOR_TOOL_EDGE_SELECT
+        || ViewportIsFlying(g_Viewport) || ViewportIsTransforming(g_Viewport)) { return FALSE; }
+    outer=calloc(request->count,sizeof(*outer));
+    if (!outer) { why="Out of memory extruding stan edges."; goto fail; }
+    if (!EditHistoryBeginStanEdit(&g_EditHistory,&g_CurrentStan,"Extrude Stan Edges",&transaction,&why)) { goto fail; }
+    if (!StanExtrudeEdges(&g_CurrentStan,request->stanedges,request->count,request->offset,outer,&created,&why)) { goto fail; }
+    if (!created) { EditHistoryCancelEdit(&transaction); free(outer); return TRUE; }
+    if (!GEditorReloadCurrentObjectsAndViewport(&why)) { goto rollback; }
+    if (!ViewportSelectStanEdges(g_Viewport,outer,created))
+    { why="Could not select the extruded stan edges."; goto rollback; }
+    if (!EditHistoryCommitEdit(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,&transaction,&why)) { goto rollback; }
+    free(outer); GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd); return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan);
+    GEditorReloadCurrentObjectsAndViewport(&restorewhy); GEditorRestoreHistorySelection(hwnd);
+fail:
+    free(outer); EditHistoryCancelEdit(&transaction);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd,why,GEDITOR_TITLE,MB_ICONERROR); return FALSE;
+}
+
 static BOOL GEditorExtrudeEdges(HWND hwnd, const ViewportEdgeExtrusion *request)
 {
+    if (request && request->stanedges) { return GEditorExtrudeStanEdges(hwnd,request); }
     EditHistoryTransaction transaction = {0};
     BgDocumentEdgeRef *outer = NULL;
     DWORD created = 0;
@@ -4756,7 +4785,11 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     {
         ViewportEdgeExtrusion *request = (ViewportEdgeExtrusion *)lparam;
         const char *why = "";
-        return request && BgDocumentPreviewEdgeExtrusion(&g_CurrentBgDocument,
+        if (!request) { return FALSE; }
+        if (request->stanedges)
+        { return StanPreviewEdgeExtrusion(&g_CurrentStan,request->stanedges,request->count,
+            request->offset,request->stanpreview,request->applied,&why); }
+        return BgDocumentPreviewEdgeExtrusion(&g_CurrentBgDocument,
             request->edges, request->count, request->offset, request->preview, request->applied, &why);
     }
 

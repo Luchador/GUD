@@ -606,3 +606,202 @@ BOOL StanBridgeEdges(StanFile *s, const StanEdgeRef edges[2], DWORD out[2], DWOR
     if (countout) { *countout=count; }
     *why=""; return TRUE;
 }
+
+/* A, B, B+offset, A+offset: both new triangles reverse the source edge. */
+static const unsigned char g_StanExtrudeCorners[2][3]={{1,0,3},{1,3,2}};
+typedef struct StanExtrudeQuad {
+    unsigned char points[4][8];
+    DWORD neighbor[2]; /* neighboring selected strip at A / B, or NONE */
+} StanExtrudeQuad;
+typedef struct StanExtrudeSide { DWORD root, edge, end; } StanExtrudeSide;
+static int StanExtrudeCompareSides(const void *left,const void *right)
+{
+    const StanExtrudeSide *a=left,*b=right;
+    return a->root<b->root ? -1 : a->root>b->root;
+}
+
+static BOOL StanExtrudePrepare(const StanFile *s,const StanEdgeRef *edges,DWORD count,
+    const double offset[3],StanExtrudeQuad **out,double delta[3],DWORD *end,
+    DWORD *nextid,DWORD *nexteditor,const char **why)
+{
+    StanExtrudeQuad *quads=NULL;
+    StanExtrudeSide *sides=NULL;
+    DWORD *map=NULL;
+    unsigned short *selected=NULL;
+    BOOL ok=FALSE;
+    *out=NULL;
+    if (!Validate(s,end,why)) { return FALSE; }
+    if (!edges || !count || count>16383 || !offset)
+    { *why="Select open stan edges to extrude."; return FALSE; }
+    for (int k=0;k<3;k++)
+    {
+        delta[k]=round(offset[k]*s->levelscale);
+        if (!isfinite(delta[k]) || fabs(delta[k])>65535)
+        { *why="The extrusion exceeds the native stan coordinate range."; return FALSE; }
+    }
+    for (DWORD i=0;i<count;i++)
+    {
+        if (edges[i].tile>=s->tilecount || edges[i].point>=s->tiles[edges[i].tile].pointcount
+            || s->tiles[edges[i].tile].room>STAN_MAX_ROOM)
+        { *why="A selected stan edge no longer exists or has an invalid room."; return FALSE; }
+    }
+    if (!delta[0] && !delta[1] && !delta[2]) { *why=""; return TRUE; }
+    *why="Out of memory preparing stan extrusion.";
+    quads=calloc(count,sizeof(*quads)); selected=calloc(s->tilecount,sizeof(*selected));
+    if (!quads || !selected) { goto done; }
+    for (DWORD i=0;i<count;i++)
+    {
+        const StanEdgeRef *edge=&edges[i];
+        const StanTile *tile=&s->tiles[edge->tile];
+        if (selected[edge->tile] & (1u<<edge->point))
+        { *why="The same stan edge was selected more than once."; goto done; }
+        selected[edge->tile]|=1u<<edge->point;
+        if (tile->points[edge->point].link>=0x10)
+        { *why="Only open stan boundary edges can be extruded. Split the existing connection first."; goto done; }
+        StanExtrudeQuad *quad=&quads[i];
+        quad->neighbor[0]=quad->neighbor[1]=STAN_TILE_NONE;
+        memcpy(quad->points[0],Point(s,edge->tile,edge->point),6);
+        memcpy(quad->points[1],Point(s,edge->tile,(edge->point+1)%tile->pointcount),6);
+        for (int p=2;p<4;p++) for (int k=0;k<3;k++)
+        {
+            double value=(short)Read16(quad->points[3-p]+k*2)+delta[k];
+            if (value < -32768 || value > 32767)
+            { *why="An extruded vertex exceeds the native stan coordinate range. Use a shorter drag."; goto done; }
+            Write16(quad->points[p]+k*2,(unsigned short)(short)value);
+        }
+        double normal[3];
+        Normal(quad->points,4,normal);
+        if (!normal[0] && !normal[1] && !normal[2])
+        { *why="This extrusion has no area. Choose an axis that is not parallel to the edge."; goto done; }
+        if (normal[1]>0)
+        { *why="Extrude outward from the source tile; this direction would overlap or reverse the new stan tiles."; goto done; }
+        /* The quad above follows the source edge; the output reverses it.
+         * Nonzero 3D area permits vertical risers with zero XZ area. */
+    }
+    /* Reject occupied boundaries even when a neighbor's link is one-way or
+     * missing. Preserve all existing records except the selected link words. */
+    *nextid=*nexteditor=0;
+    for (DWORD t=0;t<s->tilecount;t++)
+    {
+        const StanTile *tile=&s->tiles[t];
+        DWORD number=(tile->id>>8)&0x7fffu;
+        if (number>*nextid) { *nextid=number; }
+        if (tile->editorid>*nexteditor) { *nexteditor=tile->editorid; }
+        for (DWORD p=0;p<tile->pointcount;p++) for (DWORD e=0;e<count;e++)
+        {
+            if (t==edges[e].tile && p==edges[e].point) { continue; }
+            const unsigned char *a=Point(s,t,p), *b=Point(s,t,(p+1)%tile->pointcount);
+            if ((!memcmp(a,quads[e].points[0],6) && !memcmp(b,quads[e].points[1],6))
+                || (!memcmp(b,quads[e].points[0],6) && !memcmp(a,quads[e].points[1],6)))
+            { *why="A selected stan edge is already shared by another tile. Choose an open boundary."; goto done; }
+        }
+    }
+    DWORD additions=count*2,bytes=count*64;
+    if (s->tilecount>65536u-additions || *nextid>0x7fffu-additions || *nexteditor>UINT32_MAX-additions
+        || *end>0xffffffu-bytes || s->size>UINT32_MAX-bytes
+        || (*end+bytes-s->tiles[0].sourceoffset)/8+0x10>0x10000u)
+    { *why="The extrusion exceeds the native stan tile, identity or edge-link limits."; goto done; }
+    if (count>1)
+    {
+        map=StanBuildPointMap(s,why);
+        if (!map) { goto done; }
+        sides=malloc((size_t)count*2*sizeof(*sides));
+        if (!sides) { *why="Out of memory linking extruded stan edges."; goto done; }
+        for (DWORD e=0;e<count;e++) for (DWORD p=0;p<2;p++)
+        {
+            DWORD point=(edges[e].point+p)%s->tiles[edges[e].tile].pointcount;
+            sides[e*2+p]=(StanExtrudeSide){map[edges[e].tile*STAN_TILE_MAX_POINTS+point],e,p};
+        }
+        qsort(sides,count*2,sizeof(*sides),StanExtrudeCompareSides);
+        for (DWORD i=0;i<count*2;)
+        {
+            DWORD j=i+1;
+            while (j<count*2 && sides[j].root==sides[i].root) { j++; }
+            if (j-i>2 || (j-i==2 && sides[i].end==sides[i+1].end))
+            { *why="The selected stan edges branch or overlap at a shared vertex. Extrude a simple boundary chain."; goto done; }
+            if (j-i==2)
+            {
+                quads[sides[i].edge].neighbor[sides[i].end]=sides[i+1].edge;
+                quads[sides[i+1].edge].neighbor[sides[i+1].end]=sides[i].edge;
+            }
+            i=j;
+        }
+    }
+    *out=quads; quads=NULL; *why=""; ok=TRUE;
+done:
+    free(quads); free(selected); free(map); free(sides); return ok;
+}
+
+BOOL StanPreviewEdgeExtrusion(const StanFile *s,const StanEdgeRef *edges,DWORD count,
+    const double offset[3],StanPoint *triangles,double applied[3],const char **why)
+{
+    StanExtrudeQuad *quads=NULL; double delta[3]; DWORD end,nextid,nexteditor;
+    if (!triangles || !applied) { *why="The stan extrusion preview is unavailable."; return FALSE; }
+    if (!StanExtrudePrepare(s,edges,count,offset,&quads,delta,&end,&nextid,&nexteditor,why)) { return FALSE; }
+    for (int k=0;k<3;k++) { applied[k]=delta[k]/s->levelscale; }
+    memset(triangles,0,(size_t)count*6*sizeof(*triangles));
+    if (!quads) { return TRUE; }
+    float scale=1.0f/s->levelscale;
+    for (DWORD e=0;e<count;e++) for (DWORD p=0;p<6;p++)
+    {
+        const unsigned char *raw=quads[e].points[g_StanExtrudeCorners[p/3][p%3]];
+        triangles[e*6+p]=(StanPoint){(short)Read16(raw)*scale,(short)Read16(raw+2)*scale,(short)Read16(raw+4)*scale,0};
+    }
+    free(quads); return TRUE;
+}
+
+BOOL StanExtrudeEdges(StanFile *s,const StanEdgeRef *edges,DWORD count,
+    const double offset[3],StanEdgeRef *out,DWORD *extrudedout,const char **why)
+{
+    StanExtrudeQuad *quads=NULL; double delta[3]; DWORD end,nextid,nexteditor;
+    *extrudedout=0;
+    if (!out) { *why="The extruded stan edge selection is unavailable."; return FALSE; }
+    if (!StanExtrudePrepare(s,edges,count,offset,&quads,delta,&end,&nextid,&nexteditor,why)) { return FALSE; }
+    if (!quads) { return TRUE; }
+    DWORD bytes=count*64;
+    StanFile staged=*s;
+    staged.data=malloc(s->size+bytes); staged.tiles=malloc((size_t)(s->tilecount+count*2)*sizeof(*staged.tiles));
+    if (!staged.data || !staged.tiles)
+    { free(quads);free(staged.data);free(staged.tiles);*why="Out of memory extruding stan edges.";return FALSE; }
+    staged.size+=bytes; staged.tilecount+=count*2;
+    memcpy(staged.data,s->data,end);memcpy(staged.data+end+bytes,s->data+end,s->size-end);
+    memcpy(staged.tiles,s->tiles,s->tilecount*sizeof(*s->tiles));
+    float scale=1.0f/s->levelscale;
+    for (DWORD e=0;e<count;e++) for (DWORD tri=0;tri<2;tri++)
+    {
+        DWORD index=s->tilecount+e*2+tri,offset=end+(e*2+tri)*32;
+        StanTile *tile=&staged.tiles[index];
+        *tile=s->tiles[edges[e].tile];tile->id=(++nextid<<8)|(tile->id&0x8000ffu);tile->editorid=++nexteditor;
+        tile->sourceoffset=offset;tile->pointcount=3;memset(tile->points,0,sizeof(tile->points));
+        memcpy(staged.data+offset,s->data+s->tiles[edges[e].tile].sourceoffset,8);
+        Write32(staged.data+offset,tile->id<<8|tile->room);
+        for (DWORD p=0;p<3;p++)
+        {
+            DWORD target=STAN_TILE_NONE;
+            if (!tri && !p) { target=edges[e].tile; }
+            else if ((!tri && p==2) || (tri && !p)) { target=s->tilecount+e*2+(1-tri); }
+            else if (!tri && p==1 && quads[e].neighbor[0]!=STAN_TILE_NONE)
+            { target=s->tilecount+quads[e].neighbor[0]*2+1; }
+            else if (tri && p==2 && quads[e].neighbor[1]!=STAN_TILE_NONE)
+            { target=s->tilecount+quads[e].neighbor[1]*2; }
+            unsigned short link=0;
+            if (target!=STAN_TILE_NONE)
+            {
+                DWORD to=target<s->tilecount ? s->tiles[target].sourceoffset : end+(target-s->tilecount)*32;
+                link=(unsigned short)((to-s->tiles[0].sourceoffset)/8+0x10);
+            }
+            unsigned char *raw=staged.data+offset+8+p*8;
+            memcpy(raw,quads[e].points[g_StanExtrudeCorners[tri][p]],6);Write16(raw+6,link);
+            tile->points[p]=(StanPoint){(short)Read16(raw)*scale,(short)Read16(raw+2)*scale,(short)Read16(raw+4)*scale,link};
+        }
+        StanUpdateRepresentativeTriangle(&staged,index);
+        if (!tri)
+        {
+            unsigned short link=(unsigned short)((offset-s->tiles[0].sourceoffset)/8+0x10);
+            staged.tiles[edges[e].tile].points[edges[e].point].link=link;
+            Write16(staged.data+s->tiles[edges[e].tile].sourceoffset+8+edges[e].point*8+6,link);
+        }
+        else { out[e]=(StanEdgeRef){index,1}; }
+    }
+    free(quads);free(s->data);free(s->tiles);*s=staged;s->dirty=TRUE;*extrudedout=count;*why="";return TRUE;
+}

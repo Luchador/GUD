@@ -21,12 +21,15 @@ resulting UVs agree.
 Positions snap to the level's native BG precision. A drag that rounds to zero
 adds nothing. Zero-length edges, axis-parallel extrusions that have no area,
 and positions or UVs outside native limits are rejected without changing the
-geometry. Rotation, scale, stan edges, and setup objects keep their existing
+geometry. Rotation, scale, and setup objects keep their existing
 transform behavior.
 
 Save Project and Create ROM use the normal BG asset pipeline; no project
 format migration is needed. This feature creates visual BG geometry. It does
 not create stan collision tiles or portals.
+
+The same Shift-left-drag gesture now extrudes selected **Stan boundary edges**
+into linked collision triangles. See [Extruding Stan edges](STAN_EXTRUSION.md).
 
 Run the focused geometry, save/ROM, transaction, and viewport tests with:
 

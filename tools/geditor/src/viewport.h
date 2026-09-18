@@ -82,7 +82,10 @@ typedef struct ViewportEdgeExtrusion {
     DWORD count;
     double offset[3], applied[3];
     BgVertex *preview;
+    const StanEdgeRef *stanedges; /* mutually exclusive with BG edges */
+    StanPoint *stanpreview;
 } ViewportEdgeExtrusion;
+BOOL ViewportSelectStanEdges(HWND hwnd, const StanEdgeRef *edges, DWORD count);
 /* Read exactly count selected, visible BG edges; reject mixed stan selections.
  * Resolves actual source faces even when cached corners were draw-sorted. */
 BOOL ViewportGetSelectedBgEdges(HWND hwnd, BgDocumentEdgeRef *out, DWORD count);

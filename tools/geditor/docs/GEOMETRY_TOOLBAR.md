@@ -48,7 +48,10 @@ rooms are allowed; the new tiles inherit one source room, which can be changed i
 [Bridging Stan edges](STAN_BRIDGING.md) for details.
 
 Existing Edit/View menu entries, shortcuts and viewport context menus remain
-available. Edge extrusion still uses Shift-drag on a Move gizmo arrow.
+available. BG and Stan edge extrusion uses Shift-left-drag on a Move gizmo
+arrow. Each selected Stan boundary edge creates two linked triangular tiles;
+the outer edges stay selected for continued extrusion. See
+[Extruding Stan edges](STAN_EXTRUSION.md).
 
 In **Scale** mode, the white cube at the gizmo center scales all three axes
 together around the existing selection pivot. It turns gold on hover. Hold the

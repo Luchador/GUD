@@ -322,6 +322,8 @@ typedef struct ViewportState {
     BOOL dragpad;
     BOOL dragextruding, extrudepreviewvalid;
     BgDocumentEdgeRef *extrudeedges;
+    StanEdgeRef *stanextrudeedges;
+    StanPoint *stanextrudepreview;
     int *extrudeowners; /* source triangle per edge in the current draw order */
     BgVertex *extrudepreview; /* six corners per edge; source scene stays intact */
     DWORD extrudecount;
@@ -1675,7 +1677,7 @@ static void ViewportDrawStartupModel(ViewportState *state)
 
 static void ViewportDrawExtrusionBatch(const ViewportState *state, const SceneBatch *batch)
 {
-    if (!state->dragextruding || !state->extrudepreviewvalid) { return; }
+    if (!state->dragextruding || state->dragstan || !state->extrudepreviewvalid) { return; }
     int width = 1, height = 1;
     float forward[3], right[3];
     if (batch->gltex && state->texturecache)
@@ -1717,6 +1719,39 @@ static void ViewportDrawExtrusionBatch(const ViewportState *state, const SceneBa
         glDrawArrays(GL_TRIANGLES, 0, 6);
     }
     glPopClientAttrib();
+}
+
+static void ViewportDrawStanExtrusion(const ViewportState *state)
+{
+    if (!ViewportStanVisible(state) || !state->dragextruding || !state->dragstan
+        || !state->extrudepreviewvalid || !state->stanextrudepreview) { return; }
+    glPushAttrib(GL_CURRENT_BIT|GL_ENABLE_BIT|GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_LINE_BIT|GL_POLYGON_BIT);
+    glPushClientAttrib(GL_CLIENT_VERTEX_ARRAY_BIT);
+    glDisableClientState(GL_COLOR_ARRAY);
+    glDisable(GL_TEXTURE_2D); glDisable(GL_ALPHA_TEST); glDisable(GL_CULL_FACE);
+    glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+    glDepthMask(GL_FALSE); glDepthFunc(GL_LEQUAL);
+    glEnable(GL_POLYGON_OFFSET_FILL); glPolygonOffset(-1,-1);
+    glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
+    GLubyte alpha=(GLubyte)(state->stanopacity*255/100);
+    for (DWORD e=0;e<state->extrudecount;e++)
+    {
+        const StanTile *tile=&state->stan.tiles[state->stanextrudeedges[e].tile];
+        glColor4ub(tile->red,tile->green,tile->blue,alpha);
+        glBegin(GL_TRIANGLES);
+        for (int p=0;p<6;p++)
+        { const StanPoint *v=&state->stanextrudepreview[e*6+p]; glVertex3f(v->x,v->y,v->z); }
+        glEnd();
+    }
+    glDepthRange(0.0,0.99999); glLineWidth(1); glColor4ub(255,255,255,alpha);
+    glBegin(GL_LINES);
+    for (DWORD e=0;e<state->extrudecount;e++) for (int t=0;t<2;t++) for (int p=0;p<3;p++)
+    {
+        const StanPoint *a=&state->stanextrudepreview[e*6+t*3+p];
+        const StanPoint *b=&state->stanextrudepreview[e*6+t*3+(p+1)%3];
+        glVertex3f(a->x,a->y,a->z); glVertex3f(b->x,b->y,b->z);
+    }
+    glEnd(); glPopClientAttrib(); glPopAttrib();
 }
 
 static void ViewportDrawClouds(const ViewportState *state)
@@ -2066,6 +2101,7 @@ static void ViewportPaintGL(ViewportState *state)
         glDepthFunc(GL_LESS);
     }
 
+    ViewportDrawStanExtrusion(state);
     if (state->showportals && state->portalfill != NULL && state->portalfillcount > 0)
     {
         /* Portals are editor-only, double-sided translucent surfaces.
@@ -3560,7 +3596,12 @@ BOOL ViewportGetSelectionPosition(HWND hwnd, double position[3], DWORD *countout
     }
     if (ViewportPortalSelectionPosition(state, position, countout)) { return TRUE; }
     if (state != NULL && ViewportPadSelectionPosition(state, position, FALSE)) { *countout = 1; return TRUE; }
-    if (state != NULL && ViewportStanSelectionPosition(state, FALSE, position, countout)) { return TRUE; }
+    if (state != NULL && ViewportStanSelectionPosition(state, FALSE, position, countout))
+    {
+        if (state->dragextruding && state->extrudepreviewvalid)
+        { for (axis=0;axis<3;axis++) { position[axis]+=state->extrudeoffset[axis]; } }
+        return TRUE;
+    }
     if (state == NULL || state->scene == NULL || state->tool == EDITOR_TOOL_VERTEX_PAINT)
     {
         return FALSE;
@@ -4179,6 +4220,30 @@ BOOL ViewportGetSelectedStanEdges(HWND hwnd, StanEdgeRef *out, DWORD count)
     {
         if (!ViewportFindStanComponent(state, state->stancomponents[i].refs, 2, &out[i])) { return FALSE; }
     }
+    return TRUE;
+}
+
+BOOL ViewportSelectStanEdges(HWND hwnd, const StanEdgeRef *edges, DWORD count)
+{
+    ViewportState *state=ViewportGetState(hwnd);
+    if (!state || !edges || !count || count>16383 || !ViewportStanVisible(state)
+        || state->tool!=EDITOR_TOOL_EDGE_SELECT) { return FALSE; }
+    ViewportStanComponent *components=malloc((size_t)count*sizeof(*components));
+    if (!components) { return FALSE; }
+    for (DWORD i=0;i<count;i++)
+    {
+        DWORD t=edges[i].tile,p=edges[i].point;
+        if (t>=state->stan.tilecount || p>=state->stan.tiles[t].pointcount || ViewportStanTileHidden(state,t))
+        { free(components); return FALSE; }
+        components[i].refs[0]=ViewportStanPointRef(state,t,p);
+        components[i].refs[1]=ViewportStanPointRef(state,t,(p+1)%state->stan.tiles[t].pointcount);
+        if (ViewportCompareStanRefs(&components[i].refs[0],&components[i].refs[1])>0)
+        { StanPointRef swap=components[i].refs[0]; components[i].refs[0]=components[i].refs[1]; components[i].refs[1]=swap; }
+    }
+    ViewportClearAllSelection(state); free(state->stancomponents); state->stancomponents=components;
+    state->stancomponentcount=state->stancomponentcapacity=(int)count;
+    ViewportUpdateGizmo(state); InvalidateRect(hwnd,NULL,FALSE);
+    SendMessage(GetParent(hwnd),VIEWPORT_WM_SELECTION_CHANGED,0,0);
     return TRUE;
 }
 
@@ -5802,7 +5867,9 @@ static void ViewportDrawTransformTools(const ViewportState *state)
                 {
                     const StanPointRef *ref=&state->stancomponents[i].refs[end];
                     const StanPoint *v=&state->stan.tiles[ref->tile].points[ref->point];
-                    glVertex3f(v->x,v->y,v->z);
+                    if (state->dragextruding && state->extrudepreviewvalid)
+                    { glVertex3d(v->x+state->extrudeoffset[0],v->y+state->extrudeoffset[1],v->z+state->extrudeoffset[2]); }
+                    else { glVertex3f(v->x,v->y,v->z); }
                 }
             }
             glEnd();
@@ -5967,8 +6034,23 @@ BOOL ViewportGetSelectedBgEdges(HWND hwnd, BgDocumentEdgeRef *out, DWORD count)
     return TRUE;
 }
 
+static BOOL ViewportPrepareStanEdgeExtrusion(ViewportState *state)
+{
+    DWORD count=(DWORD)state->stancomponentcount;
+    if (!count || count>16383 || state->componentcount) { return FALSE; }
+    state->stanextrudeedges=malloc((size_t)count*sizeof(*state->stanextrudeedges));
+    state->stanextrudepreview=calloc((size_t)count*6,sizeof(*state->stanextrudepreview));
+    if (!state->stanextrudeedges || !state->stanextrudepreview) { return FALSE; }
+    for (DWORD i=0;i<count;i++)
+    {
+        if (!ViewportFindStanComponent(state,state->stancomponents[i].refs,2,&state->stanextrudeedges[i])) { return FALSE; }
+    }
+    state->extrudecount=count; return TRUE;
+}
+
 static BOOL ViewportPrepareEdgeExtrusion(ViewportState *state)
 {
+    if (state->dragstan) { return ViewportPrepareStanEdgeExtrusion(state); }
     DWORD count = (DWORD)state->componentcount;
     if (!count || count > INT_MAX/6 || count > UINT32_MAX/(6*sizeof(BgVertex))) { return FALSE; }
     state->extrudeedges = calloc(count, sizeof(*state->extrudeedges));
@@ -6015,6 +6097,13 @@ static void ViewportPreviewPortalDrag(ViewportState *state, double delta)
         point->z = state->dragvertices[i][2] + (state->dragaxis == 2 ? delta : 0);
     }
     ViewportRefreshPortalGeometry(state);
+}
+
+static BOOL ViewportShouldExtrudeEdges(const ViewportState *state, BOOL shift)
+{
+    return !state->dragknife && shift && state->tool==EDITOR_TOOL_EDGE_SELECT
+        && !state->dragrotation && !state->dragscaling && !state->dragpad
+        && !state->dragmarker && !state->dragportal && state->selectedobject==VIEWPORT_OBJECT_NONE;
 }
 
 static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y, BOOL shift)
@@ -6190,15 +6279,13 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
         state->rotationtotal = 0;
         state->rotationlast = ViewportRotationParameter(state, &ray, x, y);
     }
-    state->dragextruding = !state->dragknife && shift && state->tool == EDITOR_TOOL_EDGE_SELECT
-        && !state->dragrotation && !state->dragscaling && !state->dragstan
-        && !state->dragpad && !state->dragmarker && !state->dragportal && state->selectedobject == VIEWPORT_OBJECT_NONE;
+    state->dragextruding = ViewportShouldExtrudeEdges(state,shift);
     state->dragduplicating = shift && !state->dragknife && !state->dragmarker && !state->dragportal
         && !state->dragpad && !state->dragstan && state->selectedobject != VIEWPORT_OBJECT_NONE;
     if (state->dragextruding && !ViewportPrepareEdgeExtrusion(state))
     {
         ViewportCancelTransform(hwnd);
-        MessageBox(hwnd, "Could not prepare the selected background edges for extrusion.", "GEditor", MB_ICONERROR);
+        MessageBox(hwnd, "Could not prepare the selected edges for extrusion.", "GEditor", MB_ICONERROR);
         return TRUE;
     }
     SetCapture(hwnd);
@@ -6230,6 +6317,24 @@ static BOOL ViewportPreviewMarker(HWND hwnd, ViewportState *state, double delta,
     if (ok) { ViewportSetSetupMarkers(hwnd, state, &copy, state->markerlevelscale); }
     SetupFileFree(&copy);
     return ok;
+}
+
+static void ViewportPreviewEdgeExtrusion(HWND hwnd, ViewportState *state, double delta)
+{
+    int i;
+    ViewportEdgeExtrusion request = {0};
+    request.edges = state->extrudeedges; request.count = state->extrudecount;
+    request.stanedges = state->stanextrudeedges; request.stanpreview = state->stanextrudepreview;
+    request.offset[state->dragaxis] = delta; request.preview = state->extrudepreview;
+    state->extrudepreviewvalid = SendMessage(GetParent(hwnd), VIEWPORT_WM_PREVIEW_EDGE_EXTRUSION, 0, (LPARAM)&request) != 0;
+    state->dragdelta = delta;
+    for (i = 0; i < 3; i++)
+    {
+        state->extrudeoffset[i] = state->extrudepreviewvalid ? request.applied[i] : 0;
+        state->gizmoposition[i] = state->dragorigin[i]+state->extrudeoffset[i];
+    }
+    InvalidateRect(hwnd, NULL, FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_TRANSFORM_PREVIEW, 0, 0);
 }
 
 static void ViewportDragTransform(HWND hwnd, ViewportState *state, int x, int y)
@@ -6289,22 +6394,7 @@ static void ViewportDragTransform(HWND hwnd, ViewportState *state, int x, int y)
         ViewportRefreshKnifePlane(hwnd, state);
         return;
     }
-    if (state->dragextruding)
-    {
-        ViewportEdgeExtrusion request = {0};
-        request.edges = state->extrudeedges; request.count = state->extrudecount;
-        request.offset[state->dragaxis] = delta; request.preview = state->extrudepreview;
-        state->extrudepreviewvalid = SendMessage(GetParent(hwnd), VIEWPORT_WM_PREVIEW_EDGE_EXTRUSION, 0, (LPARAM)&request) != 0;
-        state->dragdelta = delta;
-        for (i = 0; i < 3; i++)
-        {
-            state->extrudeoffset[i] = state->extrudepreviewvalid ? request.applied[i] : 0;
-            state->gizmoposition[i] = state->dragorigin[i]+state->extrudeoffset[i];
-        }
-        InvalidateRect(hwnd, NULL, FALSE);
-        SendMessage(GetParent(hwnd), VIEWPORT_WM_TRANSFORM_PREVIEW, 0, 0);
-        return;
-    }
+    if (state->dragextruding) { ViewportPreviewEdgeExtrusion(hwnd,state,delta); return; }
     if (state->dragmarker && !ViewportPreviewMarker(hwnd, state, delta, state->dragrotation ? &rotation : NULL)) { return; }
     state->dragdelta = delta;
     if (state->dragportal) { ViewportPreviewPortalDrag(state, delta); }
@@ -6457,6 +6547,8 @@ void ViewportCancelTransform(HWND hwnd)
     state->dragextruding = state->extrudepreviewvalid = FALSE;
     state->dragduplicating = FALSE;
     free(state->extrudeedges); state->extrudeedges = NULL;
+    free(state->stanextrudeedges); state->stanextrudeedges = NULL;
+    free(state->stanextrudepreview); state->stanextrudepreview = NULL;
     free(state->extrudeowners); state->extrudeowners = NULL;
     free(state->extrudepreview); state->extrudepreview = NULL;
     state->extrudecount = 0;
@@ -6507,14 +6599,17 @@ static void ViewportEndTransform(HWND hwnd, ViewportState *state)
     {
         ViewportEdgeExtrusion extrusion = {0};
         BgDocumentEdgeRef *edges = state->extrudeedges;
+        StanEdgeRef *stanedges = state->stanextrudeedges;
         extrusion.edges = edges; extrusion.count = state->extrudecount;
+        extrusion.stanedges = stanedges;
         extrusion.offset[state->dragaxis] = state->dragdelta;
         /* Keep the stable source refs across preview teardown and rebuilding. */
         state->extrudeedges = NULL;
+        state->stanextrudeedges = NULL;
         ViewportCancelTransform(hwnd);
         if (extrusion.offset[0] || extrusion.offset[1] || extrusion.offset[2])
         { SendMessage(GetParent(hwnd), VIEWPORT_WM_EXTRUDE_EDGES, 0, (LPARAM)&extrusion); }
-        free(edges);
+        free(edges); free(stanedges);
         return;
     }
     if (state->dragscaling)
