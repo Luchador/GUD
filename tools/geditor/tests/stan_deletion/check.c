@@ -126,6 +126,8 @@ static ViewportState *ViewportGetState(HWND hwnd) { return hwnd; }
 static EditorTool ViewportGetTool(HWND hwnd) { return view.tool; }
 static BOOL ViewportIsFlying(HWND hwnd) { return flying; }
 static BOOL ViewportIsTransforming(HWND hwnd) { return transforming; }
+/* Real canonical edge selection/deletion is exercised in stan_topology. */
+static BOOL ViewportGetSelectedStanEdges(HWND hwnd,StanEdgeRef *edges,DWORD count) { return FALSE; }
 static BOOL GEditorReloadCurrentObjectsAndViewport(const char **why)
 {
     rebuilds++; view.stan=g_CurrentStan; memset(view.stanselected,0,4);
@@ -148,7 +150,7 @@ static void Controller(const StanFile *source,const char *dir)
     assert(!ViewportGetSelectedStanTiles(&view,ids,2));view.showstan=TRUE;view.stanopacity=0;
     assert(!ViewportGetSelectedStanTiles(&view,ids,2));view.stanopacity=44;
     view.tool=EDITOR_TOOL_EDGE_SELECT;view.stancomponentcount=2;
-    assert(!ViewportGetSelectedStanTiles(&view,ids,2));assert(!GEditorDeleteSelectedStanTiles(NULL));view.tool=EDITOR_TOOL_FACE_SELECT;
+    assert(!ViewportGetSelectedStanTiles(&view,ids,2));view.tool=EDITOR_TOOL_FACE_SELECT;
     flying=TRUE;assert(!GEditorDeleteSelectedStanTiles(NULL));flying=FALSE;
     transforming=TRUE;assert(!GEditorDeleteSelectedStanTiles(NULL));transforming=FALSE;
     EditHistoryReset(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan);

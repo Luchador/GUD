@@ -82,10 +82,12 @@ BOOL StanBisectEdge(StanFile *stan, const StanEdgeRef *edge,
  * points. Remove links that would still join those endpoints in either direction. */
 BOOL StanSplitEdge(StanFile *stan, const StanEdgeRef *edge,
     BOOL *changedout, const char **reasonout);
-/* Merge canonical selected points at their average native position. Collapse
- * each affected perimeter run atomically; every tile must retain >= 3 points. */
+/* Merge canonical selected points at their average native position. Remove
+ * tiles collapsed to a line/point. mergedout.tile is NONE if none survives. */
 BOOL StanMergeVertices(StanFile *stan, const StanPointRef *points, DWORD count,
     StanPointRef *mergedout, const char **reasonout);
+/* Exact 3D area test for native, eight-byte perimeter point records. */
+BOOL StanPointsHaveArea(const unsigned char *points, DWORD count);
 /* Recompute the native height-query triangle after topology/position edits. */
 void StanUpdateRepresentativeTriangle(StanFile *stan, DWORD index);
 DWORD StanLinkedTile(const StanFile *stan, unsigned short link);
@@ -96,6 +98,14 @@ BOOL StanTranslatePoints(StanFile *stan, const StanPointRef *points, DWORD count
 /* Atomic tile removal: compact records and relocate edge/header pointers.
  * Links to deleted tiles become boundaries. At least one tile must remain. */
 BOOL StanDeleteTiles(StanFile *stan, const DWORD *selected, DWORD count,
+    DWORD *deletedout, const char **reasonout);
+/* Remove the incident tiles of selected canonical edges, not the entire
+ * connected mesh. Coincident but unlinked floors remain independent. */
+BOOL StanDeleteEdgeTiles(StanFile *stan, const StanEdgeRef *edges, DWORD count,
+    DWORD *deletedout, const char **reasonout);
+/* After a position edit, remove only changed tiles that are now lines/points.
+ * Call inside the transform's undo transaction, after preview is committed. */
+BOOL StanDeleteCollapsedTiles(const StanFile *before, StanFile *stan,
     DWORD *deletedout, const char **reasonout);
 /* Connect the unique shared edge of two tiles in both directions. Native
  * endpoints must match in reverse order. Existing third-party links are kept. */

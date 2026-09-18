@@ -2173,24 +2173,38 @@ static BOOL GEditorDeleteSelectedStanTiles(HWND hwnd)
 {
     EditHistoryTransaction transaction = {0};
     DWORD *selected = NULL, count, deleted = 0;
+    StanEdgeRef *edges = NULL;
+    EditorTool tool = ViewportGetTool(g_Viewport);
     const char *why = "Out of memory reading the stan selection.", *restorewhy = "";
-    if (ViewportGetTool(g_Viewport) != EDITOR_TOOL_FACE_SELECT
+    if ((tool != EDITOR_TOOL_FACE_SELECT && tool != EDITOR_TOOL_EDGE_SELECT)
         || ViewportIsFlying(g_Viewport) || ViewportIsTransforming(g_Viewport)) { return FALSE; }
     count = ViewportGetStanSelectionCount(g_Viewport, NULL);
     if (!count) { return FALSE; }
-    selected = malloc((size_t)count * sizeof(*selected));
-    if (!selected) { goto fail; }
-    if (!ViewportGetSelectedStanTiles(g_Viewport, selected, count))
-    { why = "The selected stan tiles could not be read."; goto fail; }
+    if (tool == EDITOR_TOOL_EDGE_SELECT)
+    {
+        edges = malloc((size_t)count * sizeof(*edges));
+        if (!edges) { goto fail; }
+        if (!ViewportGetSelectedStanEdges(g_Viewport, edges, count))
+        { why = "The selected stan edges could not be read."; goto fail; }
+    }
+    else
+    {
+        selected = malloc((size_t)count * sizeof(*selected));
+        if (!selected) { goto fail; }
+        if (!ViewportGetSelectedStanTiles(g_Viewport, selected, count))
+        { why = "The selected stan tiles could not be read."; goto fail; }
+    }
     if (!EditHistoryBeginStanEdit(&g_EditHistory, &g_CurrentStan,
-        count == 1 ? "Delete Stan Tile" : "Delete Stan Tiles", &transaction, &why)) { goto fail; }
-    if (!StanDeleteTiles(&g_CurrentStan, selected, count, &deleted, &why)) { goto fail; }
+        edges ? "Delete Stan Edge Tiles" : count == 1 ? "Delete Stan Tile" : "Delete Stan Tiles",
+        &transaction, &why)) { goto fail; }
+    if (edges ? !StanDeleteEdgeTiles(&g_CurrentStan, edges, count, &deleted, &why)
+        : !StanDeleteTiles(&g_CurrentStan, selected, count, &deleted, &why)) { goto fail; }
     /* Deletion clears the tile selection on rebuild. Re-evaluate pad preview
      * and object grounding/shading against the remaining collision surface. */
     if (!GEditorReloadCurrentObjectsAndViewport(&why)) { goto rollback; }
     if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
         &g_CurrentStan, &transaction, &why)) { goto rollback; }
-    free(selected);
+    free(selected); free(edges);
     GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
     return TRUE;
 rollback:
@@ -2198,7 +2212,7 @@ rollback:
     GEditorReloadCurrentObjectsAndViewport(&restorewhy);
     GEditorRestoreHistorySelection(hwnd);
 fail:
-    free(selected); EditHistoryCancelEdit(&transaction);
+    free(selected); free(edges); EditHistoryCancelEdit(&transaction);
     GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
     MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
     return FALSE;
@@ -2484,6 +2498,9 @@ static BOOL GEditorTranslateSelection(HWND hwnd, const double offset[3], BOOL sn
         if (stanpoints == NULL) { why="There are no editable selected stan points."; goto fail; }
         if (!EditHistoryBeginStanEdit(&g_EditHistory,&g_CurrentStan,action,&transaction,&why)) { goto fail; }
         if (!StanTranslatePoints(&g_CurrentStan,stanpoints,count,offset,&moved,&why)) { goto rollback; }
+        DWORD deleted;
+        if (moved && !StanDeleteCollapsedTiles(&transaction.beforestan, &g_CurrentStan, &deleted, &why))
+        { goto rollback; }
     }
     else if (object)
     {
@@ -2560,7 +2577,11 @@ static BOOL GEditorTranslateSelection(HWND hwnd, const double offset[3], BOOL sn
     return TRUE;
 rollback:
     EditHistoryRollbackEdit(&transaction,&g_CurrentBgDocument,&g_CurrentSetup, &g_CurrentStan);
-    if (stan) { GEditorReloadCurrentObjectsAndViewport(&restorewhy); }
+    if (stan)
+    {
+        GEditorReloadCurrentObjectsAndViewport(&restorewhy);
+        GEditorRestoreHistorySelection(hwnd);
+    }
     else { GEditorRebuildCurrentViewport(&restorewhy); }
 fail:
     EditHistoryCancelEdit(&transaction);
@@ -2679,6 +2700,9 @@ static BOOL GEditorTransformSelection(HWND hwnd, const ViewportRotation *request
         {
             goto rollback;
         }
+        DWORD deleted;
+        if (moved && !StanDeleteCollapsedTiles(&transaction.beforestan, &g_CurrentStan, &deleted, &why))
+        { goto rollback; }
     }
     else if (object)
     {
@@ -2798,6 +2822,7 @@ rollback:
     if (stan)
     {
         GEditorReloadCurrentObjectsAndViewport(&restorewhy);
+        GEditorRestoreHistorySelection(hwnd);
     }
     else
     {
@@ -3283,7 +3308,8 @@ static BOOL GEditorEditStanTopology(HWND hwnd, const StanEdgeRef *edge)
     free(points); points=NULL;
     if (!changed) { EditHistoryCancelEdit(&transaction); return TRUE; }
     if (!GEditorReloadCurrentObjectsAndViewport(&why)) { goto rollback; }
-    if (edge ? !ViewportSelectStanEdge(g_Viewport,edge) : !ViewportSelectStanVertex(g_Viewport,&merged))
+    if (edge ? !ViewportSelectStanEdge(g_Viewport,edge)
+        : merged.tile != STAN_TILE_NONE && !ViewportSelectStanVertex(g_Viewport,&merged))
     { why="Could not restore the edited stan selection."; goto rollback; }
     if (!EditHistoryCommitEdit(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,
         &g_CurrentStan,&transaction,&why)) { goto rollback; }
@@ -4810,6 +4836,9 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             else if (ViewportGetStanSelectionCount(g_Viewport, NULL)) { GEditorDeleteSelectedStanTiles(hwnd); }
             else { GEditorDeleteSelectedBgFaces(hwnd); }
         }
+        else if (ViewportGetTool(g_Viewport) == EDITOR_TOOL_EDGE_SELECT
+            && ViewportGetStanSelectionCount(g_Viewport, NULL))
+        { GEditorDeleteSelectedStanTiles(hwnd); }
         return 0;
     }
 

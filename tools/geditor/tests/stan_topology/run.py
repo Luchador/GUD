@@ -32,7 +32,7 @@ with tempfile.TemporaryDirectory(prefix='geditor-stan-topology-') as temp:
     names = ('ViewportStanVisible', 'ViewportCompareStanIds', 'ViewportStanTileHidden',
              'ViewportStanPointVertex', 'ViewportCompareStanRefs', 'ViewportStanPointRef',
              'ViewportClearStanSelection', 'ViewportGetStanSelectionCount', 'ViewportGetSelectedStanTiles',
-             'ViewportGetMoveStanPoints', 'ViewportFindStanComponent', 'ViewportGetSelectedStanEdge',
+             'ViewportGetMoveStanPoints', 'ViewportFindStanComponent', 'ViewportGetSelectedStanEdge', 'ViewportGetSelectedStanEdges',
              'ViewportSelectStanComponent', 'ViewportSelectStanEdge', 'ViewportSelectStanVertex',
              'ViewportHideSelectedStanTiles', 'ViewportUnhideAllStanTiles', 'ViewportHasHiddenStanTiles',
              'ViewportSetStanVertex', 'ViewportRefreshStanOverlay', 'ViewportSetStanTiles',
@@ -41,7 +41,8 @@ with tempfile.TemporaryDirectory(prefix='geditor-stan-topology-') as temp:
     (work / 'viewport.inc').write_text(constants + ''.join(extract.function(viewport, n) for n in names))
     controller = (src / 'geditor.c').read_text()
     (work / 'controller.inc').write_text(''.join(extract.function(controller, n) for n in
-        ('GEditorCanMergeSelectedStanVertices', 'GEditorEditStanTopology', 'GEditorLinkStanTiles', 'GEditorBisectSelectedEdge')))
+        ('GEditorCanMergeSelectedStanVertices', 'GEditorEditStanTopology', 'GEditorLinkStanTiles', 'GEditorBisectSelectedEdge',
+         'GEditorDeleteSelectedStanTiles')))
     export = (src / 'romexport.c').read_text()
     (work / 'export.inc').write_text('#include "actionblocks.h"\n' + ''.join(extract.function(export, n) for n in
         ('RomExportSetError', 'RomExportEndsWith', 'RomExportSimpleResourceName', 'RomExportProjectResourcePath', 'RomExportReadResource')))
@@ -53,7 +54,8 @@ with tempfile.TemporaryDirectory(prefix='geditor-stan-topology-') as temp:
                     f'-I{here.parent / "image_import"}', f'-I{src}', f'-I{work}', str(here / 'check.c'),
                     str(here.parent / 'image_import/platform.c'),
                     *[str(src / name) for name in ('actionblocks.c', 'stanload.c', 'stantopology.c',
-                                                  'stanlink.c', 'stanedit.c', 'standelete.c', 'stanquery.c', 'bghistory.c')],
+                                                  'stanlink.c', 'stanedit.c', 'standelete.c', 'stanquery.c', 'bghistory.c',
+                                                  'rotation.c', 'scaling.c')],
                     '-Wl,--gc-sections', '-Wl,--wrap=malloc', '-Wl,--wrap=calloc', '-lm', '-o', str(binary)], check=True)
     subprocess.run([str(binary), str(work)], check=True,
                    env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))

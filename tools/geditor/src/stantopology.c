@@ -164,7 +164,7 @@ static BOOL ValidShape(const StanFile *s, DWORD t, const PendingTile *tile)
 BOOL StanMergeVertices(StanFile *s, const StanPointRef *refs, DWORD count,
     StanPointRef *mergedout, const char **why)
 {
-    DWORD end, *map = NULL, *offsets = NULL, unique = 0, newend;
+    DWORD end, *map = NULL, *offsets = NULL, unique = 0, newend, kept = 0;
     unsigned char *selected = NULL, *data = NULL;
     PendingTile *pending = NULL;
     StanTile *tiles = NULL;
@@ -199,12 +199,12 @@ BOOL StanMergeVertices(StanFile *s, const StanPointRef *refs, DWORD count,
         unsigned int n = s->tiles[t].pointcount, hits = 0, runs = 0, last = 0;
         unsigned char mask[STAN_TILE_MAX_POINTS] = {0};
         for (unsigned int p = 0; p < n; p++) { mask[p] = selected[map[t*STAN_TILE_MAX_POINTS+p]]; hits += mask[p]; }
-        if (hits && n - hits + 1 < 3)
-        { *why = "The merge would leave a stan tile with fewer than 3 points. Split its edge first if the shared neighboring tile must stay unchanged."; goto done; }
         for (unsigned int p = 0; p < n; p++) if (mask[p] && !mask[(p+1)%n]) { runs++; last = p; }
+        if (hits == n) { runs = 1; last = n - 1; }
         if (hits && runs != 1)
         { *why = "Selected vertices in each stan tile must form one consecutive perimeter run."; goto done; }
         PendingTile *tile = &pending[t];
+        DWORD mergedpoint = STAN_TILE_NONE;
         for (unsigned int p = 0; p < n; p++)
         {
             if (mask[p] && p != last) { continue; }
@@ -213,23 +213,31 @@ BOOL StanMergeVertices(StanFile *s, const StanPointRef *refs, DWORD count,
             if (mask[p])
             {
                 for (int axis = 0; axis < 3; axis++) { Write16(raw + axis*2, (unsigned short)average[axis]); }
-                if (merged.tile == STAN_TILE_NONE) { merged = (StanPointRef){t,tile->count}; }
+                mergedpoint = tile->count;
             }
             tile->count++;
         }
         tile->changed = hits != 0;
+        if (hits && !StanPointsHaveArea(&tile->points[0][0], tile->count))
+        { offsets[t] = STAN_TILE_NONE; continue; }
         if (hits && !ValidShape(s, t, tile))
-        { *why = "The merge would create a collapsed, reversed or concave stan tile."; goto done; }
+        { *why = "The merge would create a reversed or concave stan tile."; goto done; }
+        if (merged.tile == STAN_TILE_NONE && mergedpoint != STAN_TILE_NONE)
+        { merged = (StanPointRef){kept, mergedpoint}; }
         offsets[t] = newend; newend += 8 + tile->count * 8;
+        kept++;
     }
+    if (!kept) { *why = "At least one stan tile must remain in the level."; goto done; }
     data = malloc(newend + s->size - end);
     if (!data) { *why = "Out of memory rebuilding stan tile records."; goto done; }
     memcpy(data, s->data, s->tiles[0].sourceoffset);
     memcpy(data + newend, s->data + end, s->size - end);
     float scale = 1.0f / s->levelscale;
+    kept = 0;
     for (DWORD t = 0; t < s->tilecount; t++)
     {
-        PendingTile *edit = &pending[t]; StanTile *tile = &tiles[t];
+        if (offsets[t] == STAN_TILE_NONE) { continue; }
+        PendingTile *edit = &pending[t]; StanTile *tile = &tiles[kept++];
         *tile = s->tiles[t]; tile->sourceoffset = offsets[t]; tile->pointcount = (unsigned char)edit->count;
         memset(tile->points, 0, sizeof(tile->points));
         memcpy(data + offsets[t], s->data + s->tiles[t].sourceoffset, 8);
@@ -241,7 +249,8 @@ BOOL StanMergeVertices(StanFile *s, const StanPointRef *refs, DWORD count,
             if (link >= 0x10)
             {
                 DWORD target = StanLinkedTile(s, link);
-                DWORD relocated = (offsets[target] - offsets[0])/8 + 0x10;
+                DWORD relocated = offsets[target] == STAN_TILE_NONE ? 0
+                    : (offsets[target] - s->tiles[0].sourceoffset)/8 + 0x10;
                 if (relocated > 0xffff) { *why = "A stan edge link exceeds the native range."; goto done; }
                 link = (unsigned short)relocated; Write16(raw+6, link);
             }
@@ -249,15 +258,23 @@ BOOL StanMergeVertices(StanFile *s, const StanPointRef *refs, DWORD count,
                 (short)Read16(raw+4)*scale, link};
         }
     }
-    for (DWORD p = 4; p < offsets[0]-4; p += 4)
+    for (DWORD p = 4; p < s->tiles[0].sourceoffset-4; p += 4)
     {
         DWORD ptr = Read32(s->data+p), target = TileAt(s, ptr & 0xffffffu);
+        while (target < s->tilecount && offsets[target] == STAN_TILE_NONE) { target++; }
+        if (target == s->tilecount)
+        { target = 0; while (offsets[target] == STAN_TILE_NONE) { target++; } }
         Write32(data+p, (ptr & 0xff000000u) | offsets[target]);
     }
-    StanFile staged = *s; staged.data = data; staged.tiles = tiles;
-    for (DWORD t = 0; t < s->tilecount; t++) if (pending[t].changed) { StanUpdateRepresentativeTriangle(&staged,t); }
+    StanFile staged = *s; staged.data = data; staged.tiles = tiles; staged.tilecount = kept;
+    DWORD at = 0;
+    for (DWORD t = 0; t < s->tilecount; t++) if (offsets[t] != STAN_TILE_NONE)
+    {
+        if (pending[t].changed) { StanUpdateRepresentativeTriangle(&staged,at); }
+        at++;
+    }
     free(s->data); free(s->tiles); s->data = data; data = NULL; s->tiles = tiles; tiles = NULL;
-    s->size = newend + s->size - end; s->dirty = TRUE;
+    s->size = newend + s->size - end; s->tilecount = kept; s->dirty = TRUE;
     if (mergedout) { *mergedout = merged; }
     *why = ""; ok = TRUE;
 done:

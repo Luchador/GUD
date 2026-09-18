@@ -143,3 +143,93 @@ done:
     *reasonout = ok ? "" : why;
     return ok;
 }
+
+typedef struct StanDeleteEdge { DWORD a, b; } StanDeleteEdge;
+
+static StanDeleteEdge StanDeleteEdgeKey(const StanFile *stan, const DWORD *map, DWORD t, DWORD p)
+{
+    DWORD a = map[t * STAN_TILE_MAX_POINTS + p];
+    DWORD b = map[t * STAN_TILE_MAX_POINTS + (p + 1) % stan->tiles[t].pointcount];
+    return a < b ? (StanDeleteEdge){a,b} : (StanDeleteEdge){b,a};
+}
+
+static int StanDeleteCompareEdges(const void *left, const void *right)
+{
+    const StanDeleteEdge *a = left, *b = right;
+    if (a->a != b->a) { return a->a < b->a ? -1 : 1; }
+    return a->b < b->b ? -1 : a->b > b->b;
+}
+
+BOOL StanDeleteEdgeTiles(StanFile *stan, const StanEdgeRef *edges, DWORD count,
+    DWORD *deletedout, const char **reasonout)
+{
+    DWORD *map = NULL, *selected = NULL, selectedcount = 0;
+    StanDeleteEdge *keys = NULL;
+    BOOL ok = FALSE;
+    *deletedout = 0;
+    if (!stan || !stan->tiles || !edges || !count
+        || count > (size_t)stan->tilecount * STAN_TILE_MAX_POINTS)
+    { *reasonout = "Select stan edges to delete their incident tiles."; return FALSE; }
+    for (DWORD i = 0; i < count; i++)
+    {
+        if (edges[i].tile >= stan->tilecount || edges[i].point >= stan->tiles[edges[i].tile].pointcount)
+        { *reasonout = "A selected stan edge no longer exists."; return FALSE; }
+    }
+    map = StanBuildPointMap(stan, reasonout);
+    if (!map) { return FALSE; }
+    *reasonout = "Out of memory resolving stan edge deletion.";
+    keys = malloc((size_t)count * sizeof(*keys));
+    selected = malloc((size_t)stan->tilecount * sizeof(*selected));
+    if (!keys || !selected) { goto done; }
+    for (DWORD i = 0; i < count; i++)
+    { keys[i] = StanDeleteEdgeKey(stan, map, edges[i].tile, edges[i].point); }
+    qsort(keys, count, sizeof(*keys), StanDeleteCompareEdges);
+    for (DWORD t = 0; t < stan->tilecount; t++)
+    for (DWORD p = 0; p < stan->tiles[t].pointcount; p++)
+    {
+        StanDeleteEdge key = StanDeleteEdgeKey(stan, map, t, p);
+        if (bsearch(&key, keys, count, sizeof(*keys), StanDeleteCompareEdges))
+        { selected[selectedcount++] = t; break; }
+    }
+    ok = StanDeleteTiles(stan, selected, selectedcount, deletedout, reasonout);
+done:
+    free(map); free(keys); free(selected); return ok;
+}
+
+BOOL StanDeleteCollapsedTiles(const StanFile *before, StanFile *stan,
+    DWORD *deletedout, const char **reasonout)
+{
+    DWORD *selected = NULL, count = 0;
+    BOOL ok = FALSE;
+    *deletedout = 0;
+    *reasonout = "The stan position edit changed the tile layout unexpectedly.";
+    if (!before || !stan || !before->data || !stan->data || !before->tiles || !stan->tiles
+        || before->tilecount != stan->tilecount) { return FALSE; }
+    /* Position edits keep the record layout. Ignore unrelated pre-existing
+     * damage: only tiles whose native positions changed belong to this edit. */
+    for (DWORD t = 0; t < stan->tilecount; t++)
+    {
+        const StanTile *old = &before->tiles[t], *tile = &stan->tiles[t];
+        DWORD bytes = 8u + tile->pointcount * 8u;
+        if (old->editorid != tile->editorid || old->pointcount != tile->pointcount
+            || tile->pointcount > STAN_TILE_MAX_POINTS
+            || old->sourceoffset > before->size || bytes > before->size - old->sourceoffset
+            || tile->sourceoffset > stan->size || bytes > stan->size - tile->sourceoffset) { goto done; }
+        const unsigned char *a = before->data + old->sourceoffset + 8;
+        const unsigned char *b = stan->data + tile->sourceoffset + 8;
+        BOOL changed = FALSE;
+        for (DWORD p = 0; p < tile->pointcount; p++)
+        { if (memcmp(a + p*8, b + p*8, 6)) { changed = TRUE; break; } }
+        if (!changed || StanPointsHaveArea(b, tile->pointcount)) { continue; }
+        if (!selected)
+        {
+            selected = malloc((size_t)stan->tilecount * sizeof(*selected));
+            if (!selected) { *reasonout = "Out of memory removing collapsed stan tiles."; goto done; }
+        }
+        selected[count++] = t;
+    }
+    if (count) { ok = StanDeleteTiles(stan, selected, count, deletedout, reasonout); }
+    else { *reasonout = ""; ok = TRUE; }
+done:
+    free(selected); return ok;
+}

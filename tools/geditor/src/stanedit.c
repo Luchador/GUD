@@ -3,6 +3,7 @@
  * exactly the same document as the viewport and placement queries. */
 #include <limits.h>
 #include <math.h>
+#include <stdint.h>
 #include "scaling.h"
 #include <stdlib.h>
 #include <string.h>
@@ -114,6 +115,27 @@ static void StanEditWrite16(unsigned char *p, unsigned short value)
 {
     p[0] = (unsigned char)(value >> 8);
     p[1] = (unsigned char)value;
+}
+
+BOOL StanPointsHaveArea(const unsigned char *points, DWORD count)
+{
+    /* Use native integers: rounding can collapse an otherwise valid preview.
+     * Test 3D collinearity, retaining vertical risers with zero XZ area. */
+    if (!points || count < 3) { return FALSE; }
+    DWORD second = 1;
+    while (second < count && !memcmp(points, points + second * 8, 6)) { second++; }
+    if (second == count) { return FALSE; }
+    int64_t a[3], b[3];
+    for (int axis = 0; axis < 3; axis++)
+    { a[axis] = (int64_t)StanEditRead16(points + second*8 + axis*2) - StanEditRead16(points + axis*2); }
+    for (DWORD p = second + 1; p < count; p++)
+    {
+        for (int axis = 0; axis < 3; axis++)
+        { b[axis] = (int64_t)StanEditRead16(points + p*8 + axis*2) - StanEditRead16(points + axis*2); }
+        if (a[1]*b[2] != a[2]*b[1] || a[2]*b[0] != a[0]*b[2] || a[0]*b[1] != a[1]*b[0])
+        { return TRUE; }
+    }
+    return FALSE;
 }
 
 /* Runtime height queries and interior samples use this representative

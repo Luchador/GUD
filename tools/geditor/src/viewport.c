@@ -7035,6 +7035,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         }
         if (wparam == VK_DELETE && state != NULL
             && (state->tool == EDITOR_TOOL_FACE_SELECT
+                || (state->tool == EDITOR_TOOL_EDGE_SELECT && ViewportGetStanSelectionCount(hwnd, NULL))
                 || ((state->tool == EDITOR_TOOL_VERTEX_SELECT || state->tool == EDITOR_TOOL_EDGE_SELECT)
                     && (state->selectedobject != VIEWPORT_OBJECT_NONE || state->markerselected
                         || ViewportSelectedPadIndex(state) >= 0))))

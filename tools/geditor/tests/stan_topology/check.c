@@ -363,6 +363,146 @@ static void Bisect(const StanFile *source,const char *dir)
     assert(EditHistoryRedo(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,NULL,&why));BisectWalk(&g_CurrentStan);
     EditHistoryFree(&g_EditHistory);StanFileFree(&g_CurrentStan);FreeView(&view);
 }
+static void CollapseAndDelete(const StanFile *source,const char *dir)
+{
+    StanFile s={0},before={0}; DWORD deleted,moved; StanPointRef merged;
+    const StanEdgeRef edge={0,2};
+    /* Both incident tiles, but not a neighbor attached by a different edge. */
+    Require(StanFileClone(source,&s,&why),why);
+    Require(StanDeleteEdgeTiles(&s,&edge,1,&deleted,&why),why);
+    assert(deleted==2 && s.tilecount==2 && s.tiles[0].id==source->tiles[2].id
+        && s.tiles[1].id==source->tiles[3].id && !s.tiles[1].points[0].link);
+    assert((Get(s.data+4)&0xffffff)==20 && (Get(s.data+8)&0xffffff)==20);
+    Persist(dir,&s);StanFileFree(&s);
+    /* Exact overlapping, unlinked geometry is independent; one-way links
+     * still share an editing edge. Duplicate selected edges delete once. */
+    Require(StanFileClone(source,&s,&why),why);
+    Require(StanTranslatePoints(&s,(StanPointRef[]){{2,0},{2,1},{2,2},{2,3}},4,
+        (double[]){0,-80,0},&moved,&why),why);
+    SetLink(&s,0,2,0);
+    Require(StanDeleteEdgeTiles(&s,(StanEdgeRef[]){{0,2},{1,0},{3,2}},3,&deleted,&why),why);
+    assert(deleted==3 && s.tilecount==1 && s.tiles[0].id==source->tiles[2].id);
+    Require(StanFileClone(&s,&before,&why),why);
+    assert(!StanDeleteEdgeTiles(&s,&(StanEdgeRef){0,0},1,&deleted,&why));Same(&s,&before);
+    StanFileFree(&before);StanFileFree(&s);
+    for(int f=0;f<12;f++) {
+        Require(StanFileClone(source,&s,&why),why);failafter=f;
+        BOOL ok=StanDeleteEdgeTiles(&s,&edge,1,&deleted,&why);failafter=-1;
+        if(!ok) { assert(!deleted);Same(source,&s); }
+        StanFileFree(&s);if(ok)break;assert(f<11);
+    }
+    /* A triangle merged to an edge disappears; surviving references use
+     * compacted indices, while links to the removed tile become boundaries. */
+    Require(StanFileClone(source,&s,&why),why);
+    Require(StanMergeVertices(&s,(StanPointRef[]){{0,0},{0,1}},2,NULL,&why),why);
+    Require(StanFileClone(&s,&before,&why),why);
+    Require(StanMergeVertices(&s,(StanPointRef[]){{0,1},{0,2}},2,&merged,&why),why);
+    assert(s.tilecount==3 && merged.tile==0 && s.tiles[0].id==source->tiles[1].id
+        && s.tiles[0].pointcount==3 && !s.tiles[0].points[0].link);
+    Persist(dir,&s);StanFileFree(&s);
+    for(int f=0;f<10;f++) {
+        Require(StanFileClone(&before,&s,&why),why);failafter=f;
+        BOOL ok=StanMergeVertices(&s,(StanPointRef[]){{0,1},{0,2}},2,&merged,&why);failafter=-1;
+        if(!ok) { Same(&s,&before); }
+        StanFileFree(&s);if(ok)break;assert(f<9);
+    }
+    StanFileFree(&before);
+    /* M on a whole isolated tile removes it, with no vertex to reselect. */
+    Require(StanFileClone(source,&s,&why),why);
+    Require(StanMergeVertices(&s,(StanPointRef[]){{2,0},{2,1},{2,2},{2,3}},4,&merged,&why),why);
+    assert(s.tilecount==3 && merged.tile==STAN_TILE_NONE);Persist(dir,&s);StanFileFree(&s);
+    Require(StanFileClone(source,&s,&why),why);
+    Require(StanDeleteTiles(&s,(DWORD[]){0,1,3},3,&deleted,&why),why);
+    Reject(&s,(StanPointRef[]){{0,0},{0,1},{0,2},{0,3}},4);StanFileFree(&s);
+    /* Quantized scale creates an edge-shaped record with four stored points.
+     * Preview alone keeps it; committing cleanup removes it atomically. */
+    Scaling scale={.axes={.m={{1,0,0},{0,1,0},{0,0,1}}},.factor={1,1,.001}};
+    Require(StanFileClone(source,&s,&why),why);
+    Require(StanScalePoints(&s,(StanPointRef[]){{2,0},{2,1},{2,2},{2,3}},4,&scale,&moved,&why),why);
+    assert(moved && s.tilecount==4);
+    Require(StanFileClone(&s,&before,&why),why);
+    for(int f=0;f<8;f++) {
+        failafter=f;BOOL ok=StanDeleteCollapsedTiles(source,&s,&deleted,&why);failafter=-1;
+        if(!ok)Same(&s,&before);else { assert(deleted==1);break; } assert(f<7);
+    }
+    assert(s.tilecount==3);Persist(dir,&s);StanFileFree(&s);
+    /* Unchanged old damage is not swept into an unrelated position edit. */
+    Require(StanFileClone(&before,&s,&why),why);
+    Require(StanTranslatePoints(&s,&(StanPointRef){0,0},1,(double[]){-4,0,0},&moved,&why),why);
+    Require(StanDeleteCollapsedTiles(&before,&s,&deleted,&why),why);
+    assert(!deleted && s.tilecount==4);StanFileFree(&s);
+    /* The existing collapsed tile can be selected and deleted by its edge. */
+    view=(ViewportState){.showstan=TRUE,.stanopacity=44,.tool=EDITOR_TOOL_EDGE_SELECT};
+    assert(ViewportSetStanTiles(&view,&before));assert(ViewportSelectStanEdge(&view,&(StanEdgeRef){2,0}));
+    StanEdgeRef picked;assert(ViewportGetSelectedStanEdge(&view,&picked));
+    Require(StanDeleteEdgeTiles(&before,&picked,1,&deleted,&why),why);assert(deleted==1);
+    FreeView(&view);StanFileFree(&before);
+    /* Snap a triangle's tip to another corner, creating two unique positions. */
+    Require(StanFileClone(source,&s,&why),why);
+    Require(StanMergeVertices(&s,(StanPointRef[]){{2,0},{2,1}},2,NULL,&why),why);
+    Require(StanFileClone(&s,&before,&why),why);
+    double delta[3]={s.tiles[2].points[1].x-s.tiles[2].points[0].x,0,
+        s.tiles[2].points[1].z-s.tiles[2].points[0].z};
+    Require(StanTranslatePoints(&s,&(StanPointRef){2,0},1,delta,&moved,&why),why);
+    Require(StanDeleteCollapsedTiles(&before,&s,&deleted,&why),why);
+    assert(deleted==1 && s.tilecount==3);Persist(dir,&s);StanFileFree(&before);StanFileFree(&s);
+    /* XZ area zero alone must not delete vertical risers. */
+    unsigned char points[4][8]={{0}};
+    Put16(points[1]+2,10);Put16(points[2]+2,10);Put16(points[2]+4,10);
+    assert(StanPointsHaveArea(&points[0][0],3));
+    Put16(points[2]+4,0);Put16(points[2]+2,20);assert(!StanPointsHaveArea(&points[0][0],3));
+    Put16(points[3]+4,1);assert(StanPointsHaveArea(&points[0][0],4));
+    /* Real controller, viewport rebuild and history for edge deletion. */
+    Require(StanFileClone(source,&g_CurrentStan,&why),why);
+    view=(ViewportState){.showstan=TRUE,.stanopacity=44,.tool=EDITOR_TOOL_EDGE_SELECT};
+    assert(ViewportSetStanTiles(&view,&g_CurrentStan));assert(ViewportSelectStanEdge(&view,&edge));
+    EditHistoryReset(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan);
+    for(int f=0;f<2;f++) {
+        ULONGLONG revision=g_EditHistory.nextrevision;
+        failrebuild=f==0;if(f==1)g_EditHistory.nextrevision=0;
+        assert(!GEditorDeleteSelectedStanTiles(NULL));g_EditHistory.nextrevision=revision;
+        Same(source,&g_CurrentStan);assert(!g_EditHistory.undocount);
+        assert(ViewportSelectStanEdge(&view,&edge));
+    }
+    assert(GEditorDeleteSelectedStanTiles(NULL) && g_CurrentStan.tilecount==2 && !view.stancomponentcount);
+    assert(g_EditHistory.undocount==1);
+    Require(EditHistoryUndo(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,NULL,&why),why);
+    Same(source,&g_CurrentStan);
+    Require(EditHistoryRedo(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,NULL,&why),why);
+    assert(g_CurrentStan.tilecount==2);Persist(dir,&g_CurrentStan);
+    EditHistoryFree(&g_EditHistory);StanFileFree(&g_CurrentStan);FreeView(&view);
+    /* Position change and cleanup are one transaction: undo restores both
+     * coordinates and tile/link records, including after save and redo. */
+    Require(StanFileClone(source,&g_CurrentStan,&why),why);
+    EditHistoryReset(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan);
+    EditHistoryTransaction transaction={0};
+    Require(EditHistoryBeginStanEdit(&g_EditHistory,&g_CurrentStan,"Scale Stan Tiles",&transaction,&why),why);
+    Require(StanScalePoints(&g_CurrentStan,(StanPointRef[]){{2,0},{2,1},{2,2},{2,3}},4,&scale,&moved,&why),why);
+    Require(StanDeleteCollapsedTiles(&transaction.beforestan,&g_CurrentStan,&deleted,&why),why);
+    Require(EditHistoryCommitEdit(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,&transaction,&why),why);
+    assert(deleted==1 && g_EditHistory.undocount==1);
+    Persist(dir,&g_CurrentStan);EditHistoryMarkStanSaved(&g_EditHistory,&g_CurrentStan);
+    Require(EditHistoryUndo(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,NULL,&why),why);
+    assert(g_CurrentStan.tilecount==4 && !memcmp(g_CurrentStan.data,source->data,source->size));
+    Require(EditHistoryRedo(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,NULL,&why),why);
+    assert(g_CurrentStan.tilecount==3 && !g_CurrentStan.dirty);
+    EditHistoryFree(&g_EditHistory);StanFileFree(&g_CurrentStan);
+    /* M with no surviving selected vertex succeeds through the controller. */
+    Require(StanFileClone(source,&g_CurrentStan,&why),why);
+    view=(ViewportState){.showstan=TRUE,.stanopacity=44,.tool=EDITOR_TOOL_VERTEX_SELECT};
+    assert(ViewportSetStanTiles(&view,&g_CurrentStan));assert(ViewportSelectStanVertex(&view,&(StanPointRef){2,0}));
+    view.stancomponents=realloc(view.stancomponents,4*sizeof(*view.stancomponents));assert(view.stancomponents);
+    view.stancomponentcount=view.stancomponentcapacity=4;
+    for(DWORD p=0;p<4;p++)view.stancomponents[p].refs[0]=view.stancomponents[p].refs[1]=(StanPointRef){2,p};
+    EditHistoryReset(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan);
+    assert(GEditorEditStanTopology(NULL,NULL) && g_CurrentStan.tilecount==3 && !view.stancomponentcount);
+    Require(EditHistoryUndo(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,NULL,&why),why);
+    Same(source,&g_CurrentStan);
+    Require(EditHistoryRedo(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,NULL,&why),why);
+    assert(g_CurrentStan.tilecount==3);Persist(dir,&g_CurrentStan);
+    EditHistoryFree(&g_EditHistory);StanFileFree(&g_CurrentStan);FreeView(&view);
+}
+
 int main(int argc,char **argv)
 {
     assert(argc==2);StanFile source=Fixture(argv[1]),s={0};BOOL changed;
@@ -407,17 +547,18 @@ int main(int argc,char **argv)
         assert(s.tiles[0].pointcount==3 && s.tiles[1].pointcount==(i==1 ? 3 : 4));
         assert(s.size==source.size-(i==1 ? 16 : 8));Preserved(&source,&s);Persist(argv[1],&s);
         if(i==0) { Walk(&s,TRUE);assert(s.tiles[0].points[merged.point].z==40); }
-        Reject(&s,(StanPointRef[]){{0,0},{0,1}},2);StanFileFree(&s);
+        Require(StanMergeVertices(&s,(StanPointRef[]){{0,0},{0,1}},2,NULL,&why),why);
+        assert(s.tilecount<source.tilecount);Persist(argv[1],&s);StanFileFree(&s);
     }
     Reject(&source,(StanPointRef[]){{0,2},{1,1}},2); /* One shared identity, not two. */
     Reject(&source,(StanPointRef[]){{0,0},{0,2}},2);
-    Reject(&source,(StanPointRef[]){{0,0},{0,1},{0,2}},3);
     Reject(&source,(StanPointRef[]){{0,0},{9,0}},2);
     Reject(&source,(StanPointRef[]){{0,0},{3,2}},2); /* Would fold a tile across itself. */
-    /* A triangle on either side rejects the complete shared-point edit. */
+    /* A triangle on either side is removed without losing its neighbor. */
     Require(StanFileClone(&source,&s,&why),why);Require(StanMergeVertices(&s,(StanPointRef[]){{1,2},{1,3}},2,NULL,&why),why);
-    Reject(&s,shared,2);StanFileFree(&s);
-    Visibility(&source,argv[1]);Controller(&source,argv[1]);EdgeLinkController(&source,argv[1]);Bisect(&source,argv[1]);StanFileFree(&source);
+    Require(StanMergeVertices(&s,shared,2,NULL,&why),why);assert(s.tilecount==3);StanFileFree(&s);
+    Visibility(&source,argv[1]);Controller(&source,argv[1]);EdgeLinkController(&source,argv[1]);Bisect(&source,argv[1]);
+    CollapseAndDelete(&source,argv[1]);StanFileFree(&source);
     /* Exercise real Depot IDs/links and save/reload after a merge. */
     Require(StanLoadProjectFile(argv[1],"Tbg_depo_all_p_stanZ",.21847887f,&source,&why),why);
     Require(StanFileClone(&source,&s,&why),why);
@@ -439,5 +580,5 @@ int main(int argc,char **argv)
     assert(StanWalkTiles(&s,&step,-165/scale,183/scale,-165/scale,186/scale));
     assert(StanWalkTiles(&s,&step,-165/scale,186/scale,-165/scale,183/scale));
     BisectPersist(&s,argv[1]);StanFileFree(&s);StanFileFree(&source);
-    puts("PASS: Stan bisection/links/walking/export/native IDs, edge detachment, shared/wraparound merges, three-point and shape guards, native links/header/footer, allocation rollback, save/ROM bytes, controller undo/redo, temporary hiding/rebuild/picking and real Depot edits.");
+    puts("PASS: Stan edge deletion and collapse cleanup, bisection/links/walking/export/native IDs, edge detachment, shared/wraparound merges, shape guards, native links/header/footer, allocation rollback, save/ROM bytes, controller undo/redo, temporary hiding/rebuild/picking and real Depot edits.");
 }

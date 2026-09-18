@@ -42,7 +42,7 @@ with tempfile.TemporaryDirectory(prefix='geditor-stan-delete-') as temp:
                     '-Wno-unused-parameter', '-ffunction-sections', '-fdata-sections', '-fsanitize=address,undefined',
                     f'-I{here.parent / "image_import"}', f'-I{src}', f'-I{work}', str(here / 'check.c'),
                     str(here.parent / 'image_import/platform.c'),
-                    *[str(src / name) for name in ('actionblocks.c', 'stanload.c', 'standelete.c', 'stanquery.c', 'bghistory.c')],
+                    *[str(src / name) for name in ('actionblocks.c', 'stanload.c', 'standelete.c', 'stanedit.c', 'stanquery.c', 'bghistory.c')],
                     '-Wl,--gc-sections', '-Wl,--wrap=malloc', '-Wl,--wrap=calloc', '-lm', '-o', str(binary)], check=True)
     subprocess.run([str(binary), str(work)], check=True,
                    env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))
