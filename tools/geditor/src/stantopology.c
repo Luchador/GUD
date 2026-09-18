@@ -263,3 +263,160 @@ BOOL StanMergeVertices(StanFile *s, const StanPointRef *refs, DWORD count,
 done:
     free(map); free(selected); free(pending); free(offsets); free(tiles); free(data); return ok;
 }
+
+/* A split keeps the first child at its parent's live index and appends the
+ * second. Saving already groups the records by room. Each inherited boundary
+ * remembers its original link; internal diagonals get explicit sibling links. */
+typedef struct StanBisectTile {
+    PendingTile shape;
+    DWORD parent, sibling;
+    unsigned int diagonal;
+} StanBisectTile;
+
+BOOL StanBisectEdge(StanFile *s, const StanEdgeRef *edge, StanEdgeRef *out, const char **why)
+{
+    DWORD end, *map=NULL, *children=NULL, *offsets=NULL, additions=0, total, newend;
+    DWORD a,b,nextid=0,nexteditor=0;
+    unsigned int *cuts=NULL;
+    unsigned char midpoint[8]={0}, *data=NULL;
+    StanBisectTile *pieces=NULL;
+    StanTile *tiles=NULL;
+    BOOL ok=FALSE;
+    if (!Validate(s,&end,why)) { return FALSE; }
+    if (!edge || !out || edge->tile>=s->tilecount || edge->point>=s->tiles[edge->tile].pointcount)
+    { *why="Select one stan edge to bisect."; return FALSE; }
+    const unsigned char *pa=Point(s,edge->tile,edge->point);
+    const unsigned char *pb=Point(s,edge->tile,(edge->point+1)%s->tiles[edge->tile].pointcount);
+    for (int k=0;k<3;k++)
+    {
+        int sum=(short)Read16(pa+k*2)+(short)Read16(pb+k*2);
+        Write16(midpoint+k*2,(unsigned short)(sum<0 ? -((-sum+1)/2) : (sum+1)/2));
+    }
+    if (!memcmp(midpoint,pa,6) || !memcmp(midpoint,pb,6))
+    { *why="The stan edge is too small to bisect at native coordinate precision."; return FALSE; }
+    map=StanBuildPointMap(s,why); if (!map) { return FALSE; }
+    a=map[edge->tile*STAN_TILE_MAX_POINTS+edge->point];
+    b=map[edge->tile*STAN_TILE_MAX_POINTS+(edge->point+1)%s->tiles[edge->tile].pointcount];
+    *why="Out of memory bisecting stan tiles.";
+    cuts=malloc(s->tilecount*sizeof(*cuts)); children=malloc(s->tilecount*sizeof(*children));
+    if (!cuts || !children) { goto done; }
+    for (DWORD t=0;t<s->tilecount;t++)
+    {
+        unsigned int n=s->tiles[t].pointcount;
+        cuts[t]=STAN_TILE_MAX_POINTS; children[t]=STAN_TILE_NONE;
+        if (((s->tiles[t].id>>8)&0x7fffu)>nextid) { nextid=(s->tiles[t].id>>8)&0x7fffu; }
+        if (s->tiles[t].editorid>nexteditor) { nexteditor=s->tiles[t].editorid; }
+        for (unsigned int p=0;p<n;p++)
+        {
+            DWORD x=map[t*STAN_TILE_MAX_POINTS+p],y=map[t*STAN_TILE_MAX_POINTS+(p+1)%n];
+            if ((x!=a || y!=b) && (x!=b || y!=a)) { continue; }
+            if (cuts[t]!=STAN_TILE_MAX_POINTS)
+            { *why="A stan tile repeats the selected edge. Repair its perimeter first."; goto done; }
+            cuts[t]=p; children[t]=s->tilecount+additions++;
+        }
+    }
+    *why="Bisecting this edge exceeds the native stan tile or identity limits.";
+    if (!additions || additions>65536u-s->tilecount || additions>0x7fffu || nextid>0x7fffu-additions
+        || nexteditor>UINT32_MAX-additions) { goto done; }
+    total=s->tilecount+additions;
+    pieces=calloc(total,sizeof(*pieces)); offsets=malloc(total*sizeof(*offsets)); tiles=malloc(total*sizeof(*tiles));
+    if (!pieces || !offsets || !tiles) { *why="Out of memory bisecting stan tiles."; goto done; }
+    for (DWORD t=0;t<s->tilecount;t++)
+    {
+        unsigned int n=s->tiles[t].pointcount, start=cuts[t];
+        StanBisectTile *first=&pieces[t];
+        first->parent=t; first->sibling=STAN_TILE_NONE;
+        if (start==STAN_TILE_MAX_POINTS)
+        {
+            first->shape.count=n;
+            for (unsigned int p=0;p<n;p++) { memcpy(first->shape.points[p],Point(s,t,p),8); }
+            continue;
+        }
+        StanBisectTile *second=&pieces[children[t]];
+        second->parent=t; second->sibling=t; first->sibling=children[t];
+        /* A triangle becomes two triangles. Larger convex tiles become two
+         * convex polygons along the midpoint-to-opposite-vertex diagonal. */
+        unsigned int opposite=(n+1)/2;
+        memcpy(first->shape.points[0],Point(s,t,start),8);
+        memcpy(first->shape.points[1],midpoint,8); first->diagonal=1;
+        first->shape.count=2;
+        for (unsigned int p=opposite;p<n;p++)
+        { memcpy(first->shape.points[first->shape.count++],Point(s,t,(start+p)%n),8); }
+        memcpy(second->shape.points[0],midpoint,8);
+        Write16(second->shape.points[0]+6,Read16(Point(s,t,start)+6));
+        second->shape.count=1;
+        for (unsigned int p=1;p<=opposite;p++)
+        { memcpy(second->shape.points[second->shape.count++],Point(s,t,(start+p)%n),8); }
+        second->diagonal=second->shape.count-1;
+        if (!ValidShape(s,t,&first->shape) || !ValidShape(s,t,&second->shape))
+        { *why="The midpoint would create a collapsed, reversed or concave stan tile."; goto done; }
+    }
+    newend=s->tiles[0].sourceoffset;
+    for (DWORD t=0;t<total;t++) { offsets[t]=newend; newend+=8+pieces[t].shape.count*8; }
+    if ((newend-offsets[0])/8+0x10>0x10000u || newend>0xffffffu
+        || s->size-end>UINT32_MAX-newend)
+    { *why="Bisecting this edge exceeds the native stan link range."; goto done; }
+    data=malloc(newend+s->size-end);
+    if (!data) { *why="Out of memory rebuilding stan tile records."; goto done; }
+    memcpy(data,s->data,offsets[0]); memcpy(data+newend,s->data+end,s->size-end);
+    for (DWORD t=0;t<total;t++)
+    {
+        StanBisectTile *piece=&pieces[t]; PendingTile *shape=&piece->shape;
+        StanTile *tile=&tiles[t]; *tile=s->tiles[piece->parent];
+        tile->sourceoffset=offsets[t]; tile->pointcount=(unsigned char)shape->count;
+        if (t>=s->tilecount)
+        {
+            /* The high bit distinguishes p/q (walkable/non-walkable), and
+             * the low byte encodes the native letter/suffix. Preserve both. */
+            tile->id=(++nextid<<8)|(tile->id&0x8000ffu); tile->editorid=++nexteditor;
+        }
+        memset(tile->points,0,sizeof(tile->points));
+        memcpy(data+offsets[t],s->data+s->tiles[piece->parent].sourceoffset,8);
+        Write32(data+offsets[t],tile->id<<8|tile->room);
+        for (unsigned int p=0;p<shape->count;p++)
+        {
+            unsigned char *raw=data+offsets[t]+8+p*8;
+            unsigned short link=Read16(shape->points[p]+6);
+            DWORD target=STAN_TILE_NONE;
+            if (piece->sibling!=STAN_TILE_NONE && p==piece->diagonal) { target=piece->sibling; }
+            else if (link>=0x10)
+            {
+                target=StanLinkedTile(s,link);
+                if (children[target]!=STAN_TILE_NONE)
+                {
+                    DWORD matched=STAN_TILE_NONE, candidates[2]={target,children[target]};
+                    const unsigned char *p0=shape->points[p],*p1=shape->points[(p+1)%shape->count];
+                    for (int c=0;c<2;c++)
+                    {
+                        const PendingTile *other=&pieces[candidates[c]].shape;
+                        for (unsigned int q=0;q<other->count;q++)
+                        if (!memcmp(p0,other->points[(q+1)%other->count],6) && !memcmp(p1,other->points[q],6))
+                        {
+                            if (matched!=STAN_TILE_NONE)
+                            { *why="A stan link has more than one matching boundary after bisection."; goto done; }
+                            matched=candidates[c];
+                        }
+                    }
+                    if (matched==STAN_TILE_NONE)
+                    { *why="An existing stan link does not match the subdivided tile boundary. Repair that connection first."; goto done; }
+                    target=matched;
+                }
+            }
+            if (target!=STAN_TILE_NONE) { link=(unsigned short)((offsets[target]-offsets[0])/8+0x10); }
+            memcpy(raw,shape->points[p],8); Write16(raw+6,link);
+            float scale=1.0f/s->levelscale;
+            tile->points[p]=(StanPoint){(short)Read16(raw)*scale,(short)Read16(raw+2)*scale,(short)Read16(raw+4)*scale,link};
+        }
+    }
+    for (DWORD p=4;p<offsets[0]-4;p+=4)
+    {
+        DWORD ptr=Read32(s->data+p),target=TileAt(s,ptr&0xffffffu);
+        Write32(data+p,(ptr&0xff000000u)|offsets[target]);
+    }
+    StanFile staged=*s; staged.data=data; staged.tiles=tiles; staged.tilecount=total; staged.size=newend+s->size-end;
+    for (DWORD t=0;t<total;t++) if (pieces[t].sibling!=STAN_TILE_NONE) { StanUpdateRepresentativeTriangle(&staged,t); }
+    free(s->data); free(s->tiles); *s=staged; data=NULL; tiles=NULL; s->dirty=TRUE;
+    *out=(StanEdgeRef){edge->tile,0}; *why=""; ok=TRUE;
+done:
+    free(map); free(children); free(offsets); free(cuts); free(pieces); free(data); free(tiles); return ok;
+}

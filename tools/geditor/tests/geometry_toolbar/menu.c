@@ -98,8 +98,11 @@ int main(void)
     g_CurrentBgDocument.rooms = &room;
     selectedtool = EDITOR_TOOL_VERTEX_SELECT; snap = TRUE;
     Show(TOOLTOOLBAR_MENU_VERTEX); assert(Enabled(ID_GEOMETRY_SNAP_VERTEX) && (Find(ID_GEOMETRY_SNAP_VERTEX)->flags & MF_CHECKED));
-    selectedtool = EDITOR_TOOL_EDGE_SELECT; edgecount = 1;
+    selectedtool = EDITOR_TOOL_EDGE_SELECT; edgecount = 1; snap = FALSE;
     Show(TOOLTOOLBAR_MENU_EDGE); assert(Enabled(ID_GEOMETRY_SPLIT_EDGE) && !Enabled(ID_GEOMETRY_BRIDGE_EDGES));
+    assert(Enabled(ID_GEOMETRY_BISECT_EDGE) && !strcmp(Find(ID_GEOMETRY_BISECT_EDGE)->label,"Bisect &Edge\tCtrl+Q"));
+    choose=ID_GEOMETRY_BISECT_EDGE;Show(TOOLTOOLBAR_MENU_EDGE);assert(dispatched==choose);choose=0;focuscalls=0;
+    snap=TRUE;Show(TOOLTOOLBAR_MENU_EDGE);assert(!Enabled(ID_GEOMETRY_BISECT_EDGE));snap=FALSE;
     edgecount = 2; Show(TOOLTOOLBAR_MENU_EDGE); assert(!Enabled(ID_GEOMETRY_SPLIT_EDGE) && !Enabled(ID_GEOMETRY_BRIDGE_EDGES));
     bridgevalid = TRUE; Show(TOOLTOOLBAR_MENU_EDGE); assert(Enabled(ID_GEOMETRY_BRIDGE_EDGES));
     choose = ID_GEOMETRY_BRIDGE_EDGES; Show(TOOLTOOLBAR_MENU_EDGE); assert(dispatched == choose && focuscalls == 1); choose = 0;
@@ -124,7 +127,7 @@ int main(void)
     stanhidden=TRUE;stancount=0;Show(TOOLTOOLBAR_MENU_FACE);
     assert(!Enabled(ID_VIEW_HIDE_SELECTED) && Enabled(ID_VIEW_UNHIDE_ALL));
     selectedtool=EDITOR_TOOL_EDGE_SELECT;stancount=1;Show(TOOLTOOLBAR_MENU_EDGE);
-    assert(Enabled(ID_GEOMETRY_SPLIT_EDGE) && !Enabled(ID_GEOMETRY_BRIDGE_EDGES));
+    assert(Enabled(ID_GEOMETRY_SPLIT_EDGE) && Enabled(ID_GEOMETRY_BISECT_EDGE) && !Enabled(ID_GEOMETRY_BRIDGE_EDGES));
     selectedtool=EDITOR_TOOL_VERTEX_SELECT;stancount=2;Show(TOOLTOOLBAR_MENU_VERTEX);
     assert(Enabled(ID_GEOMETRY_MERGE_VERTICES));
     ToolToolbarState toolbar={0};

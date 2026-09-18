@@ -8,7 +8,7 @@ Buttons support mouse click, Tab/Space/Enter, and Down to open a dropdown.
 | Menu | Operations |
 | --- | --- |
 | Vertex | Merge Vertices (M), Snap to Vertex (V), Paint Vertices (4) |
-| Edge | Split Edge, Bridge Edges (B) |
+| Edge | Bisect Edge (Ctrl+Q), Split Edge, Bridge Edges (B) |
 | Face | Knife (K), Flip Face (Alt+N), Disconnect Face, Edit UVs, Hide Selected (H), Unhide All (Alt+H) |
 
 Merge Vertices requires at least two selected BG vertices in vertex mode,
@@ -99,3 +99,34 @@ shared edges and seams, Depot-style thin railing, multiple rooms/layers and
 detail materials, allocation failures, native save/reload, and edit history.
 The same suite checks single-point placement, preview transforms/cancellation,
 scene isolation and Ctrl snapping in both 3D and UV drags with window calls stubbed.
+
+## Bisect Edge
+
+Select one background or Stan edge in Edge mode (`2`), then choose
+**Edge > Bisect Edge** or press **Ctrl+Q**. One triangle becomes two triangles,
+with a new vertex at the selected edge's midpoint. All triangles sharing that
+source edge are divided together; a shared edge between two triangles creates
+four triangles. Background UVs and RGBA are averaged at the midpoint, and
+faces retain their room, layer, material, winding and draw state. Coincident
+background edges with separate vertex identities (such as UV seams) remain
+independent.
+
+Stan uses its existing linked vertex identities to find incident tiles.
+Triangular tiles become two triangles. Larger convex tiles become two convex
+polygons, cut from the edge midpoint to an opposite perimeter vertex. Internal
+and external links are updated, including incoming and one-way connections.
+Room, tile color, flags, and walkable/non-walkable classification are preserved.
+Unlinked overlapping tiles and floors at other heights remain separate.
+
+Positions, UVs and colors round to native integer precision. A midpoint that
+collapses a triangle or an invalid Stan boundary connection rejects the entire
+edit. The operation supports undo/redo, Save Project, and Create ROM. The two
+new background edge halves stay selected; for Stan, the first half is selected.
+The shortcut leaves text fields, floating editors, camera flight and active
+transforms alone, and runs only once per key press.
+
+Validation: `python3 tools/geditor/tests/bisect_edge/run.py` covers background
+subdivision, attributes, seams, native save/reload, history, rollback and Ctrl+Q.
+`python3 tools/geditor/tests/stan_topology/run.py` covers Stan bisection, linked
+neighbors, both-way walking, native ID flags, room regrouping and export, and
+Depot's actual floor/stair link. `geometry_toolbar/run.py` checks menu routing.

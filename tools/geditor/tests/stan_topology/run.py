@@ -41,7 +41,7 @@ with tempfile.TemporaryDirectory(prefix='geditor-stan-topology-') as temp:
     (work / 'viewport.inc').write_text(constants + ''.join(extract.function(viewport, n) for n in names))
     controller = (src / 'geditor.c').read_text()
     (work / 'controller.inc').write_text(''.join(extract.function(controller, n) for n in
-        ('GEditorCanMergeSelectedStanVertices', 'GEditorEditStanTopology', 'GEditorLinkStanTiles')))
+        ('GEditorCanMergeSelectedStanVertices', 'GEditorEditStanTopology', 'GEditorLinkStanTiles', 'GEditorBisectSelectedEdge')))
     export = (src / 'romexport.c').read_text()
     (work / 'export.inc').write_text('#include "actionblocks.h"\n' + ''.join(extract.function(export, n) for n in
         ('RomExportSetError', 'RomExportEndsWith', 'RomExportSimpleResourceName', 'RomExportProjectResourcePath', 'RomExportReadResource')))

@@ -128,6 +128,12 @@ BOOL BgDocumentCanBridgeEdges(const BgDocument *document,
 BOOL BgDocumentBridgeEdges(BgDocument *document, const BgDocumentEdgeRef edges[2],
     BgFaceRef out[2], const char **reasonout);
 
+/* Insert a midpoint and split each triangle sharing the selected source edge.
+ * Interpolate native XYZ/ST/RGBA; preserve winding/materials and authored seams.
+ * Atomic on failure. out[2] selects the two halves of the picked edge. */
+BOOL BgDocumentBisectEdge(BgDocument *document, const BgDocumentEdgeRef *edge,
+    BgDocumentEdgeRef out[2], const char **reasonout);
+
 typedef struct BgDocumentUVEdit {
     BgDocumentVertexRef vertex;
     DWORD vertexid; /* rejects references left over from another document */

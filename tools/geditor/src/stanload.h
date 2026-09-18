@@ -68,6 +68,11 @@ BOOL StanFileClone(const StanFile *source, StanFile *out, const char **reasonout
 typedef struct StanPointRef { DWORD tile, point; } StanPointRef;
 /* Directed perimeter edge: point -> (point + 1) % pointcount. */
 typedef struct StanEdgeRef { DWORD tile, point; } StanEdgeRef;
+/* Insert the native midpoint, split the tile and all linked incident tiles,
+ * and relocate external/internal links atomically. Triangles become two
+ * triangles; larger convex tiles become two convex polygons. */
+BOOL StanBisectEdge(StanFile *stan, const StanEdgeRef *edge,
+    StanEdgeRef *out, const char **reasonout);
 /* Like BG Split Edge, detach the incident tiles' endpoints, without adding
  * points. Remove links that would still join those endpoints in either direction. */
 BOOL StanSplitEdge(StanFile *stan, const StanEdgeRef *edge,

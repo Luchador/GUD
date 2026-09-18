@@ -160,6 +160,11 @@ static void GEditorRestoreHistorySelection(HWND hwnd) { restores++; }
 static void GEditorRefreshSelectionDetails(void) {}
 static void GEditorRefreshHistoryMenu(HWND hwnd) {}
 static void MessageBox(HWND hwnd,const char *reason,const char *title,unsigned flags) { assert(reason[0]);errors++; }
+/* This harness exercises the Stan branch; BG is covered in bisect_edge. */
+BOOL BgDocumentBisectEdge(BgDocument *doc,const BgDocumentEdgeRef *edge,BgDocumentEdgeRef out[2],const char **why) { abort(); }
+static BOOL ViewportGetSelectedBgEdges(HWND hwnd,BgDocumentEdgeRef *out,DWORD count) { return FALSE; }
+static BOOL ViewportSelectBgEdges(HWND hwnd,const BgDocumentEdgeRef *edges,DWORD count) { abort(); }
+static BOOL GEditorRebuildCurrentViewport(const char **why) { abort(); }
 #include "controller.inc"
 static void Controller(const StanFile *source,const char *dir)
 {
@@ -227,6 +232,137 @@ static void EdgeLinkController(const StanFile *source,const char *dir)
     Walk(&g_CurrentStan,TRUE);assert(!g_CurrentStan.dirty);
     EditHistoryFree(&g_EditHistory);StanFileFree(&g_CurrentStan);StanFileFree(&unlinked);FreeView(&view);
 }
+static void BisectWalk(const StanFile *s)
+{
+    for(int z=6;z<=14;z+=8)for(int direction=0;direction<2;direction++) {
+        float scale=s->levelscale,from[3]={(direction?30:10)/scale,0,z/scale};
+        DWORD tile=StanResolvePadTile(s,"",from);
+        if(tile==STAN_TILE_NONE)fprintf(stderr,"BisectWalk failed: tiles=%u firstpoints=%u z=%d direction=%d\n",s->tilecount,s->tiles[0].pointcount,z,direction);
+        assert(tile!=STAN_TILE_NONE);
+        assert(StanWalkTiles(s,&tile,from[0],from[2],(direction?10:30)/scale,from[2]));
+        assert(s->tiles[tile].room==(direction?1:2));
+        float height;assert(StanGetTileHeight(s,tile,(direction?10:30)/scale,from[2],&height) && height==0);
+    }
+}
+static void BisectPersist(const StanFile *s,const char *dir)
+{
+    StanFile loaded={0};char path[MAX_PATH];GEditorProject project={0};DWORD size;
+    Require(StanSaveProjectFile(dir,s,&why),why);
+    Require(StanLoadProjectFile(dir,s->name,s->levelscale,&loaded,&why),why);
+    assert(loaded.tilecount==s->tilecount && loaded.size==s->size);
+    /* Appended children are regrouped by room in the saved copy. Compare each
+     * record's geometry/flags and destination identities after relocation. */
+    for(DWORD t=0;t<s->tilecount;t++) {
+        const StanTile *a=&s->tiles[t],*b=NULL;
+        for(DWORD u=0;u<loaded.tilecount;u++)if(loaded.tiles[u].id==a->id && loaded.tiles[u].room==a->room
+            && loaded.tiles[u].pointcount==a->pointcount) {
+            BOOL same=TRUE;
+            for(unsigned int p=0;p<a->pointcount;p++)if(memcmp(s->data+a->sourceoffset+8+p*8,loaded.data+loaded.tiles[u].sourceoffset+8+p*8,6))same=FALSE;
+            if(same) { b=&loaded.tiles[u];break; }
+        }
+        assert(b && a->red==b->red && a->green==b->green && a->blue==b->blue && a->special==b->special);
+        for(unsigned int p=0;p<a->pointcount;p++) {
+            DWORD x=StanLinkedTile(s,a->points[p].link),y=StanLinkedTile(&loaded,b->points[p].link);
+            assert((x==STAN_TILE_NONE)==(y==STAN_TILE_NONE));
+            if(x!=STAN_TILE_NONE)assert(s->tiles[x].id==loaded.tiles[y].id && s->tiles[x].room==loaded.tiles[y].room);
+            else assert(a->points[p].link==b->points[p].link);
+        }
+    }
+    strcpy(project.dir,dir);assert(RomExportProjectResourcePath(&project,s->name,path,sizeof(path))==1);
+    unsigned char *resource=RomExportReadResource(path,s->name,&size,&why);
+    assert(resource && size==loaded.size && !memcmp(resource,loaded.data,size));free(resource);
+    if(!strcmp(s->name,"Tbg_topology_test_stanZ"))BisectWalk(&loaded);
+    StanFileFree(&loaded);
+}
+static void Bisect(const StanFile *source,const char *dir)
+{
+    StanFile s={0},tri={0};StanEdgeRef out;
+    for(int f=0;f<16;f++) {
+        Require(StanFileClone(source,&s,&why),why);failafter=f;
+        BOOL ok=StanBisectEdge(&s,&(StanEdgeRef){0,2},&out,&why);failafter=-1;
+        if(!ok) { Same(source,&s); }
+        StanFileFree(&s);if(ok)break;assert(f<15);
+    }
+    for(int side=0;side<2;side++) {
+        Require(StanFileClone(source,&s,&why),why);
+        Require(StanBisectEdge(&s,&(StanEdgeRef){side,side?0:2},&out,&why),why);
+        assert(s.tilecount==6 && out.tile==(DWORD)side && out.point==0);
+        assert(s.tiles[0].pointcount==4 && s.tiles[1].pointcount==4 && s.tiles[4].pointcount==3 && s.tiles[5].pointcount==3);
+        assert(s.tiles[0].points[1].x==80 && s.tiles[0].points[1].z==40);
+        assert(s.tiles[2].points[0].link==0xf && s.tiles[0].editorid==source->tiles[0].editorid);
+        assert(StanLinkedTile(&s,s.tiles[0].points[1].link)==4 && StanLinkedTile(&s,s.tiles[4].points[2].link)==0);
+        assert(StanLinkedTile(&s,s.tiles[3].points[0].link)==1);
+        assert((Get(s.data+8)&0xffffff)==s.tiles[2].sourceoffset && (Get(s.data+12)&0xffffff)==s.tiles[3].sourceoffset);
+        assert(!memcmp(s.data+s.size-32,source->data+source->size-32,32));
+        BisectWalk(&s);BisectPersist(&s,dir);StanFileFree(&s);
+    }
+    /* Turn the adjacent quads into triangles, keeping their shared boundary. */
+    Require(StanFileClone(source,&tri,&why),why);
+    Require(StanMergeVertices(&tri,(StanPointRef[]){{0,0},{0,1}},2,NULL,&why),why);
+    /* Leave the right neighbor's outer link alone: a triangle boundary test on
+     * the left still exercises a mixed triangle/quad shared subdivision. */
+    Require(StanFileClone(&tri,&s,&why),why);
+    Require(StanBisectEdge(&s,&(StanEdgeRef){0,1},&out,&why),why);
+    assert(s.tiles[0].pointcount==3 && s.tiles[4].pointcount==3 && s.tilecount==6);
+    BisectPersist(&s,dir);StanFileFree(&s);StanFileFree(&tri);
+    /* Each triangle edge, including wraparound, gives two proper triangles. */
+    Require(StanFileClone(source,&tri,&why),why);
+    Require(StanMergeVertices(&tri,(StanPointRef[]){{0,0},{0,1}},2,NULL,&why),why);
+    for(unsigned int c=0;c<3;c++) {
+        Require(StanFileClone(&tri,&s,&why),why);
+        Require(StanBisectEdge(&s,&(StanEdgeRef){0,c},&out,&why),why);
+        assert(s.tiles[0].pointcount==3 && s.tiles[4].pointcount==3);
+        BisectWalk(&s);StanFileFree(&s);
+    }
+    StanFileFree(&tri);
+    /* Boundary/wraparound edge, reserved links and p/q naming semantics. */
+    Require(StanFileClone(source,&s,&why),why);
+    s.tiles[2].id|=0x800000;Put(s.data+s.tiles[2].sourceoffset,s.tiles[2].id<<8|s.tiles[2].room);
+    Require(StanBisectEdge(&s,&(StanEdgeRef){0,3},&out,&why),why);
+    assert(s.tilecount==5 && !(s.tiles[4].id&0x800000) && (s.tiles[4].id&255)==(source->tiles[0].id&255));
+    BisectWalk(&s);BisectPersist(&s,dir);StanFileFree(&s);
+    Require(StanFileClone(source,&s,&why),why);
+    s.tiles[2].id|=0x800000;Put(s.data+s.tiles[2].sourceoffset,s.tiles[2].id<<8|s.tiles[2].room);
+    Require(StanBisectEdge(&s,&(StanEdgeRef){2,0},&out,&why),why);assert(s.tiles[4].id&0x800000);StanFileFree(&s);
+    /* One-way connections preserve their authored direction across both halves. */
+    Require(StanFileClone(source,&s,&why),why);SetLink(&s,0,2,0);
+    Require(StanBisectEdge(&s,&(StanEdgeRef){0,2},&out,&why),why);
+    assert(!s.tiles[0].points[0].link && !s.tiles[4].points[0].link);
+    assert(StanLinkedTile(&s,s.tiles[1].points[0].link)==4 && StanLinkedTile(&s,s.tiles[5].points[0].link)==0);StanFileFree(&s);
+    /* Stale/malformed input must not change native bytes. */
+    Require(StanFileClone(source,&s,&why),why);
+    assert(!StanBisectEdge(&s,&(StanEdgeRef){99,0},&out,&why));Same(source,&s);
+    assert(!StanBisectEdge(&s,&(StanEdgeRef){0,4},&out,&why));Same(source,&s);StanFileFree(&s);
+    Require(StanFileClone(source,&s,&why),why);SetLink(&s,3,0,0x10);
+    Require(StanFileClone(&s,&tri,&why),why);
+    assert(!StanBisectEdge(&s,&(StanEdgeRef){0,2},&out,&why));Same(&s,&tri);StanFileFree(&tri);StanFileFree(&s);
+    Require(StanFileClone(source,&s,&why),why);
+    s.tiles[0].id=0x7fff00;Put(s.data+s.tiles[0].sourceoffset,s.tiles[0].id<<8|s.tiles[0].room);
+    Require(StanFileClone(&s,&tri,&why),why);
+    assert(!StanBisectEdge(&s,&(StanEdgeRef){0,2},&out,&why));Same(&s,&tri);StanFileFree(&tri);StanFileFree(&s);
+    Require(StanFileClone(source,&s,&why),why);
+    Put16(s.data+s.tiles[2].sourceoffset+8+8+4,1);s.tiles[2].points[1].z=4;
+    Require(StanFileClone(&s,&tri,&why),why);
+    assert(!StanBisectEdge(&s,&(StanEdgeRef){2,0},&out,&why));Same(&s,&tri);StanFileFree(&tri);StanFileFree(&s);
+    /* Actual controller and viewport: topology reload, selected half and undo. */
+    Require(StanFileClone(source,&g_CurrentStan,&why),why);
+    view=(ViewportState){.showstan=TRUE,.stanopacity=44,.tool=EDITOR_TOOL_EDGE_SELECT};
+    assert(ViewportSetStanTiles(&view,&g_CurrentStan));
+    EditHistoryReset(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan);
+    for(int f=0;f<3;f++) {
+        assert(ViewportSelectStanEdge(&view,&(StanEdgeRef){0,2}));
+        ULONGLONG revision=g_EditHistory.nextrevision;
+        failrebuild=f==0;if(f==1)g_EditHistory.nextrevision=0;if(f==2)failafter=0;
+        assert(!GEditorBisectSelectedEdge(NULL));failafter=-1;g_EditHistory.nextrevision=revision;
+        Same(source,&g_CurrentStan);assert(!g_EditHistory.undocount);
+    }
+    assert(ViewportSelectStanEdge(&view,&(StanEdgeRef){0,2}));
+    assert(GEditorBisectSelectedEdge(NULL) && g_EditHistory.undocount==1 && g_CurrentStan.tilecount==6);
+    assert(ViewportGetSelectedStanEdge(&view,&out) && out.tile==0 && out.point==0);BisectWalk(&g_CurrentStan);
+    assert(EditHistoryUndo(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,NULL,&why));Same(source,&g_CurrentStan);
+    assert(EditHistoryRedo(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,NULL,&why));BisectWalk(&g_CurrentStan);
+    EditHistoryFree(&g_EditHistory);StanFileFree(&g_CurrentStan);FreeView(&view);
+}
 int main(int argc,char **argv)
 {
     assert(argc==2);StanFile source=Fixture(argv[1]),s={0};BOOL changed;
@@ -281,7 +417,7 @@ int main(int argc,char **argv)
     /* A triangle on either side rejects the complete shared-point edit. */
     Require(StanFileClone(&source,&s,&why),why);Require(StanMergeVertices(&s,(StanPointRef[]){{1,2},{1,3}},2,NULL,&why),why);
     Reject(&s,shared,2);StanFileFree(&s);
-    Visibility(&source,argv[1]);Controller(&source,argv[1]);EdgeLinkController(&source,argv[1]);StanFileFree(&source);
+    Visibility(&source,argv[1]);Controller(&source,argv[1]);EdgeLinkController(&source,argv[1]);Bisect(&source,argv[1]);StanFileFree(&source);
     /* Exercise real Depot IDs/links and save/reload after a merge. */
     Require(StanLoadProjectFile(argv[1],"Tbg_depo_all_p_stanZ",.21847887f,&source,&why),why);
     Require(StanFileClone(&source,&s,&why),why);
@@ -296,6 +432,12 @@ int main(int argc,char **argv)
             StanFileFree(&s);
         }
     }
-    assert(found);StanFileFree(&source);
-    puts("PASS: Stan edge detachment, shared/wraparound merges, three-point and shape guards, native links/header/footer, allocation rollback, save/ROM bytes, controller undo/redo, temporary hiding/rebuild/picking and real Depot edits.");
+    assert(found);
+    Require(StanFileClone(&source,&s,&why),why);StanEdgeRef half;
+    Require(StanBisectEdge(&s,&(StanEdgeRef){1253,2},&half,&why),why);
+    DWORD step=1217;float scale=s.levelscale;
+    assert(StanWalkTiles(&s,&step,-165/scale,183/scale,-165/scale,186/scale));
+    assert(StanWalkTiles(&s,&step,-165/scale,186/scale,-165/scale,183/scale));
+    BisectPersist(&s,argv[1]);StanFileFree(&s);StanFileFree(&source);
+    puts("PASS: Stan bisection/links/walking/export/native IDs, edge detachment, shared/wraparound merges, three-point and shape guards, native links/header/footer, allocation rollback, save/ROM bytes, controller undo/redo, temporary hiding/rebuild/picking and real Depot edits.");
 }
