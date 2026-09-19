@@ -26,6 +26,7 @@
 #include "tooltoolbar.h"
 #include "uveditor.h"
 #include "modeleditor.h"
+#include "levelmanager.h"
 #include "actioneditor.h"
 #include "modeledits.h"
 #include "newprops.h"
@@ -665,6 +666,7 @@ enum {
     ID_TOOLS_UV_EDITOR,
     ID_TOOLS_MODEL_EDITOR,
     ID_TOOLS_ACTION_BLOCKS,
+    ID_TOOLS_LEVEL_MANAGER,
 
     ID_FILE_RECENT_PROJECT_FIRST,
     ID_FILE_RECENT_PROJECT_LAST = ID_FILE_RECENT_PROJECT_FIRST + RECENT_PROJECTS_MAX - 1,
@@ -815,8 +817,6 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(editmenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(editmenu, MF_STRING, ID_EDIT_COPY_FACES, "&Copy\tCtrl+C");
     AppendMenu(editmenu, MF_STRING, ID_EDIT_PASTE_FACES, "&Paste\tCtrl+V");
-    AppendMenu(editmenu, MF_SEPARATOR, 0, NULL);
-    AppendMenu(editmenu, MF_STRING, ID_EDIT_FLIP_FACE, "&Flip Face\tAlt+N");
 
     AppendMenu(viewmenu, MF_STRING, ID_VIEW_BACKFACE_CULLING, "&Backface Culling");
     AppendMenu(viewmenu, MF_STRING | MF_CHECKED, ID_VIEW_GEOMETRY_STATISTICS, "Geometry &Statistics");
@@ -838,6 +838,7 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_SAME_MATERIAL, "Select Same &Material");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_ROOM, "Select &Room");
 
+    AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_LEVEL_MANAGER, "&Level Manager");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_ACTION_BLOCKS, "&Action Blocks...");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_UV_EDITOR, "&UV Editor\tCtrl+T");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_MODEL_EDITOR, "&Model Editor");
@@ -965,8 +966,6 @@ static void GEditorUpdateHistoryMenu(HMENU menu)
                ID_EDIT_REDO, label);
     EnableMenuItem(menu, ID_EDIT_REDO, MF_BYCOMMAND
         | (EditHistoryCanRedo(&g_EditHistory) ? MF_ENABLED : MF_GRAYED));
-    EnableMenuItem(menu, ID_EDIT_FLIP_FACE, MF_BYCOMMAND
-        | (GEditorCanFlipSelectedBgFaces() ? MF_ENABLED : MF_GRAYED));
     EnableMenuItem(menu, ID_EDIT_COPY_FACES, MF_BYCOMMAND
         | (GEditorCanCopyObject() || GEditorCanCopyPortals() || GEditorCanFlipSelectedBgFaces() ? MF_ENABLED : MF_GRAYED));
     EnableMenuItem(menu, ID_EDIT_PASTE_FACES, MF_BYCOMMAND
@@ -5541,6 +5540,13 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 ViewportSelectSameMaterial(g_Viewport);
                 return 0;
 
+            case ID_TOOLS_LEVEL_MANAGER:
+                if (!LevelManagerShow(hwnd, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE)))
+                {
+                    MessageBox(hwnd, "Could not open the Level Manager window.", GEDITOR_TITLE, MB_ICONERROR);
+                }
+                return 0;
+
             case ID_TOOLS_ACTION_BLOCKS:
                 GEditorOpenActionBlocks(hwnd);
                 return 0;
@@ -5968,6 +5974,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                     return (int)msg.wParam;
                 }
                 if (!KnifeDialogHandleMessage(&msg)
+                    && !LevelManagerHandleMessage(&msg)
                     && !ModelEditorHandleMessage(&msg)
                     && !UVEditorHandleMessage(&msg)
                     && !GEditorHandleFogHotkey(hwnd, &msg)
@@ -6002,6 +6009,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                 break;
             }
             if (!KnifeDialogHandleMessage(&msg)
+                && !LevelManagerHandleMessage(&msg)
                 && !ModelEditorHandleMessage(&msg)
                 && !UVEditorHandleMessage(&msg)
                 && !GEditorHandleFogHotkey(hwnd, &msg)

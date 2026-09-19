@@ -15,6 +15,10 @@
 #define IDD_ACTION_BLOCKS     111
 #define IDD_KNIFE             112
 #define IDD_ADD_PROP_MODEL    113
+#define IDD_LEVEL_MANAGER     114
+
+/* Level Manager tabs. */
+#define IDC_LEVEL_MANAGER_TABS 1210
 
 /* Icons */
 #define IDI_GEDITOR           201
