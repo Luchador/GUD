@@ -162,23 +162,32 @@ static void TrimRight(char *s)
 static BOOL ProjectReadLevel(const char *value, RomLevel *level)
 {
     long levelid;
-    int music;
-    int bgsound;
-    int xtrack;
+    int music, bgsound, xtrack;
+    char idtext[32];
+    const char *separator = strchr(value, '|');
     char tail;
+    char *fields[] = {level->setupname, level->bgname, level->stanname, level->name, level->world};
+    const size_t limits[] = {sizeof(level->setupname), sizeof(level->bgname), sizeof(level->stanname),
+                            sizeof(level->name), sizeof(level->world)};
+    size_t i;
 
     ZeroMemory(level, sizeof(*level));
-
-    if (sscanf(value,
-        "%ld|%31[^|]|%39[^|]|%39[^|]|%31[^|]|%23[^|]|%f|%f|%d|%d|%d%c",
-        &levelid,
-        level->setupname, level->bgname, level->stanname,
-        level->name, level->world,
-        &level->levelscale, &level->renderScale,
-        &music, &bgsound, &xtrack, &tail) != 11)
+    if (!separator || (size_t)(separator - value) >= sizeof(idtext)) { return FALSE; }
+    memcpy(idtext, value, separator - value); idtext[separator - value] = '\0';
+    if (sscanf(idtext, "%ld%c", &levelid, &tail) != 1) { return FALSE; }
+    value = separator + 1;
+    /* Empty resource names are intentional for stages such as Title.
+     * Scansets/strtok cannot preserve these empty pipe-separated fields. */
+    for (i = 0; i < sizeof(fields) / sizeof(fields[0]); i++)
     {
-        return FALSE;
+        const char *end = strchr(value, '|');
+        if (!end || (size_t)(end - value) >= limits[i]) { return FALSE; }
+        memcpy(fields[i], value, end - value);
+        value = end + 1;
     }
+    if (!level->name[0] || sscanf(value, "%f|%f|%d|%d|%d%c",
+        &level->levelscale, &level->renderScale, &music, &bgsound, &xtrack, &tail) != 5)
+    { return FALSE; }
 
     level->levelID = (LONG)levelid;
     level->music = (short)music;
@@ -186,7 +195,6 @@ static BOOL ProjectReadLevel(const char *value, RomLevel *level)
     level->xtrack = (short)xtrack;
     return TRUE;
 }
-
 
 /**
   * Reads a .gep file into proj. Returns FALSE if the file cannot be

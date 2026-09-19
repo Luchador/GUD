@@ -210,8 +210,10 @@ static BOOL RomParseLevelTable(const unsigned char *data, DWORD size,
             RomCopyString(dsts[s], dstmax[s], data + (DWORD)off, size - (DWORD)off);
         }
 
-        /* The table ends with a placeholder row; it is not a level. */
-        if (lvl->bgname[0] == '\0' || strcmp(lvl->bgname, "bg/bgx.seg") == 0)
+        /* Title is a named stage with no BG/setup; allocation-only rows and
+         * the final BG placeholder are not selectable levels. */
+        if ((lvl->bgname[0] == '\0' && (lvl->levelID != 90 || !lvl->name[0]))
+            || strcmp(lvl->bgname, "bg/bgx.seg") == 0)
         {
             continue;
         }
@@ -234,6 +236,14 @@ static BOOL RomParseLevelTable(const unsigned char *data, DWORD size,
             return FALSE;
         }
         RomWorldStem(lvl->world, sizeof(lvl->world), lvl->bgname);
+        for (s = 0; s < info->levelcount; s++)
+        {
+            if (info->levels[s].levelID == lvl->levelID)
+            {
+                *reasonout = "The GUD level table contains duplicate level IDs.";
+                return FALSE;
+            }
+        }
 
         info->levelcount++;
     }
@@ -478,6 +488,9 @@ static const unsigned char *RomFindLevelEnvironment(const RomFile *rom, LONG lev
         return NULL;
     }
 
+    /* +400 selects a catalog variant, not necessarily a four-player match. */
+    BOOL multiplayer = levelid >= 400 && levelid < 500;
+    if (multiplayer) { levelid -= 400; }
     offset = envt->romstart;
 
     while (cmap->romend - offset >= envt->flags)
@@ -491,15 +504,15 @@ static const unsigned char *RomFindLevelEnvironment(const RomFile *rom, LONG lev
             return selected;
         }
 
-        /* Prefer solo, then a two-player preview for MP-only maps,
-         * then LEVELID_NONE (-1), the game's fallback environment. */
+        /* MP variants prefer a two-player preview; solo maps prefer solo.
+         * Both retain the game's LEVELID_NONE fallback. */
         if (id == (DWORD)levelid)
         {
-            priority = 3;
+            priority = multiplayer ? 2 : 3;
         }
         else if (id == (DWORD)levelid + 200u)
         {
-            priority = 2;
+            priority = multiplayer ? 3 : 2;
         }
         else if (id == 0xFFFFFFFFu)
         {

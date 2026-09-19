@@ -1185,7 +1185,7 @@ void setupLoadFiles(enum LEVELID stageId)
     }
 
     customPropsInit();
-    levelInfo = lvFindLevelInfo(stageId);
+    levelInfo = lvFindStageInfo(stageId, getPlayerCount());
 
     if ((levelInfo != NULL) && (levelInfo->setupFileName != NULL))
     {
@@ -1197,10 +1197,10 @@ void setupLoadFiles(enum LEVELID stageId)
         setupFileName[1] = '\0';
 
         /**
-         * g_LevelInfoTable stores the single-player setup name. The multiplayer name is created
-         * by adding "mp_" after the "U", for example "Ump_setuparchZ".
+         * Explicit MP rows already name Ump_setup resources. Older entries and
+         * MP-only maps retain their base names, so add mp_ only when needed.
          */
-        if (getPlayerCount() >= 2)
+        if (getPlayerCount() >= 2 && strncmp(levelInfo->setupFileName, "Ump_", 4) != 0)
         {
             strcat(setupFileName, "mp_");
         }

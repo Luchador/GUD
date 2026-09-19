@@ -562,11 +562,12 @@ void bgLoadFile(LEVEL_INDEX levelid)
         g_BgOneCycleRooms[i].secondarySize = 0;
     }
  
-    for (i = 0; i < STAGES_MAX; i++)
     {
-        if (g_LevelInfoTable[i].levelID == levelid)
+        struct LevelEntry *levelInfo = lvFindStageInfo(levelid, getPlayerCount());
+        if (levelInfo != NULL && levelInfo->bg_seg_filename != NULL
+            && levelInfo->bg_stan_filename != NULL)
         {
-            levelentry_index = i;
+            levelentry_index = levelInfo - g_LevelInfoTable;
         }
     }
  

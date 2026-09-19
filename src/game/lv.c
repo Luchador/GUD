@@ -163,16 +163,15 @@ struct LevelEntry g_LevelInfoTable[] = {
     {LEVELID_CUBA,      "Cuba",                  "UsetuplenZ",               "bg/bg_len_all_p.seg",  "Tbg_len_all_p_stanZ", "-ml0 -me0 -mgfx100 -mvtx50 -mt300 -ma300"  ,  0.094662853, 1.0,            M_CUBA,          0xFFFF,       0xFFFF             },
     {LEVELID_WAX,       "WAX",                   "UsetupwaxZ",               "bg/bg_wax_all_p.seg",  "Tbg_wax_all_p_stanZ", NULL                                        ,  0.94285715,  1.0,            0xFFFF,          0xFFFF,       0xFFFF             },
     {LEVELID_PAM,       "PAM",                   "UsetuppamZ",               "bg/bg_pam_all_p.seg",  "Tbg_pam_all_p_stanZ", NULL                                        ,  0.94285715,  1.0,            0xFFFF,          0xFFFF,       0xFFFF             },
-    {LEVELID_MAX,        NULL,                    NULL,                      "bg/bgx.seg",           "TbgxZ"              , NULL                                        ,  1.0,         1.0,            0xFFFF,          0xFFFF,       0xFFFF             },
-    /* Keep the first STAGES_MAX rows above as the BG/editor catalog, including
-     * its placeholder. These additional rows only supply allocation tokens. */
-    { LEVELID_TITLE, NULL, NULL, NULL, NULL, "-ml0 -me0 -mgfx80 -mvtx20 -mt646 -ma001", 1.0, 1.0, 0xFFFF, 0xFFFF, 0xFFFF },
-    { LEVELID_BUNKER2_MP, NULL, NULL, NULL, NULL, "-ml0 -me0 -mgfx130 -mvtx100 -mt550 -ma170", 1.0, 1.0, 0xFFFF, 0xFFFF, 0xFFFF },
-    { LEVELID_ARCHIVES_MP, NULL, NULL, NULL, NULL, "-ml0 -me0 -mgfx80  -mvtx100 -mt550 -ma250", 1.0, 1.0, 0xFFFF, 0xFFFF, 0xFFFF },
-    { LEVELID_CAVERNS_MP, NULL, NULL, NULL, NULL, "-ml0 -me0 -mgfx130 -mvtx100 -mt440 -ma220", 1.0, 1.0, 0xFFFF, 0xFFFF, 0xFFFF },
-    { LEVELID_FACILITY_MP, NULL, NULL, NULL, NULL, "-ml0 -me0 -mgfx90  -mvtx100 -mt550 -ma230", 1.0, 1.0, 0xFFFF, 0xFFFF, 0xFFFF },
-    { LEVELID_EGYPT_MP, NULL, NULL, NULL, NULL, "-ml0 -me0 -mgfx110 -mvtx100 -mt350 -ma400", 1.0, 1.0, 0xFFFF, 0xFFFF, 0xFFFF },
+    { LEVELID_TITLE, "Title", NULL, NULL, NULL, "-ml0 -me0 -mgfx80 -mvtx20 -mt646 -ma001", 1.0, 1.0, 0xFFFF, 0xFFFF, 0xFFFF },
+    { LEVELID_BUNKER2_MP, "Bunker 2 (MP)", "Ump_setupsevbZ", "bg/bg_sevb_all_p.seg", "Tbg_sevb_all_p_stanZ", "-ml0 -me0 -mgfx130 -mvtx100 -mt550 -ma170", 0.53931433, 1.0, M_BUNKER2, 0xFFFF, M_BUNKER2X },
+    { LEVELID_ARCHIVES_MP, "Archives (MP)", "Ump_setuparchZ", "bg/bg_arch_all_p.seg", "Tbg_arch_all_p_stanZ", "-ml0 -me0 -mgfx80  -mvtx100 -mt550 -ma250", 0.50678575, 1.0, M_ARCHIVES, 0xFFFF, M_ARCHIVESX },
+    { LEVELID_CAVERNS_MP, "Caverns (MP)", "Ump_setupcaveZ", "bg/bg_cave_all_p.seg", "Tbg_cave_all_p_stanZ", "-ml0 -me0 -mgfx130 -mvtx100 -mt440 -ma220", 0.26824287, 1.0, M_WATERCAVERNS, 0xFFFF, M_ELEVATOR_WC },
+    { LEVELID_FACILITY_MP, "Facility (MP)", "Ump_setuparkZ", "bg/bg_ark_all_p.seg", "Tbg_ark_all_p_stanZ", "-ml0 -me0 -mgfx90  -mvtx100 -mt550 -ma230", 1.20648, 1.0, M_FACILITY, 0xFFFF, M_FACILITYX },
+    { LEVELID_EGYPT_MP, "Egypt (MP)", "Ump_setupcrypZ", "bg/bg_cryp_all_p.seg", "Tbg_cryp_all_p_stanZ", "-ml0 -me0 -mgfx110 -mvtx100 -mt350 -ma400", 0.25608, 1.0, M_EGYPTIAN, 0xFFFF, M_EGYPTX },
     { LEVELID_DEFAULT, NULL, NULL, NULL, NULL, "-ml0 -me0 -mgfx100 -mvtx50 -mt700 -ma400", 1.0, 1.0, 0xFFFF, 0xFFFF, 0xFFFF },
+    /* The placeholder must remain last; it is excluded from the editor list. */
+    {LEVELID_MAX,        NULL,                    NULL,                      "bg/bgx.seg",           "TbgxZ"              , NULL                                        ,  1.0,         1.0,            0xFFFF,          0xFFFF,       0xFFFF             },
 };
 
 struct LevelEntry *lvFindLevelInfo(enum LEVELID levelId)
@@ -188,6 +187,24 @@ struct LevelEntry *lvFindLevelInfo(enum LEVELID levelId)
     }
 
     return NULL;
+}
+
+/* Gameplay retains the base stage ID; shared solo/MP maps select their own
+ * catalog row without changing AI, language or environment stage IDs. */
+struct LevelEntry *lvFindStageInfo(enum LEVELID levelId, s32 numPlayers)
+{
+    struct LevelEntry *levelInfo;
+
+    if (levelId != LEVELID_TITLE && numPlayers >= 2)
+    {
+        levelInfo = lvFindLevelInfo(levelId + ENVIRONMENTDATA_PLAYERS_4);
+        if (levelInfo != NULL)
+        {
+            return levelInfo;
+        }
+    }
+
+    return lvFindLevelInfo(levelId);
 }
 
 /* Prefer the multiplayer override, then the stage, then the default budget. */

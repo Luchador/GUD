@@ -23,6 +23,55 @@ static void Entry(unsigned char *data,int index,DWORD kind,DWORD start,DWORD end
 { unsigned char *p=data+MANIFEST+24+index*16;Put32(p,kind);Put32(p+4,start);Put32(p+8,end);Put32(p+12,flags); }
 static void Reject(const char *path,unsigned char *data)
 { const char *why="";RomFile rom;Save(path,data,SIZE);assert(!RomLoad(path,&rom,&why)&&!rom.data&&why[0]); }
+static DWORD String(unsigned char *data, DWORD *cursor, const char *text)
+{
+    DWORD pointer=VADDR+*cursor-CMAP;
+    strcpy((char *)data+*cursor,text);*cursor+=(DWORD)strlen(text)+1;return pointer;
+}
+static void ExpandedCatalog(const char *dir, unsigned char *data)
+{
+    unsigned char *solo=data+LEVELS,*mp=solo+40,*title=mp+40,*fallback=title+40,*sentinel=fallback+40;
+    DWORD cursor=CMAP+0x500;
+    char path[MAX_PATH],base[MAX_PATH+16];const char *why="";
+    RomFile rom;GEditorProject project,loaded;
+    Put32(solo,27);Put32(solo+4,String(data,&cursor,"Bunker 2"));
+    Put32(solo+8,String(data,&cursor,"UsetupsevbZ"));
+    memcpy(mp,solo,40);Put32(mp,427);Put32(mp+4,String(data,&cursor,"Bunker 2 (MP)"));
+    Put32(mp+8,String(data,&cursor,"Ump_setupsevbZ"));
+    memset(title,0,120);Put32(title,90);Put32(title+4,String(data,&cursor,"Title"));
+    Float(title+24,1);Float(title+28,1);memset(title+32,0xff,6);
+    Float(fallback+24,1);Float(fallback+28,1);memset(fallback+32,0xff,6);
+    Put32(sentinel,57);Put32(sentinel+12,String(data,&cursor,"bg/bgx.seg"));
+    Float(sentinel+24,1);Float(sentinel+28,1);memset(sentinel+32,0xff,6);
+    Entry(data,3,0x53544754,LEVELS,LEVELS+200,5);
+    Put32(data+ENV,27);memcpy(data+ENV+104,data+ENV,104);Put32(data+ENV+104,227);
+    data[ENV+104+44]=77;
+    memcpy(data+ENV+208,data+ENV,104);Put32(data+ENV+208,427);data[ENV+208+44]=88;
+    Put32(data+ENV+312,0);
+    snprintf(path,sizeof(path),"%s/catalog.z64",dir);Save(path,data,SIZE);
+    assert(RomLoad(path,&rom,&why)&&rom.info.levelcount==3);
+    assert(rom.info.levels[0].levelID==27&&rom.info.levels[1].levelID==427&&rom.info.levels[2].levelID==90);
+    assert(!strcmp(rom.info.levels[1].setupname,"Ump_setupsevbZ"));
+    assert(!strcmp(rom.info.levels[0].bgname,rom.info.levels[1].bgname));
+    assert(rom.info.levels[0].backgroundcolor[0]==10&&rom.info.levels[1].backgroundcolor[0]==77);
+    assert(!rom.info.levels[2].bgname[0]&&!rom.info.levels[2].setupname[0]&&!rom.info.levels[2].stanname[0]);
+    assert(ProjectCreate("Catalog",dir,&rom.info,&project,&why));
+    snprintf(base,sizeof(base),"%s\\base.z64",project.dir);Save(base,data,SIZE);
+    assert(ProjectRead(project.geppath,&loaded)&&loaded.levelcount==3);
+    assert(!strcmp(loaded.levels[2].name,"Title")&&!loaded.levels[2].world[0]);
+    assert(RomExportRefreshProjectLevelMetadata(&loaded,&why));
+    loaded.levels[1].music=51;loaded.levels[1].renderScale=0.75f;
+    assert(TestUpdateLevelTable(&loaded,&rom,&why));
+    assert(!memcmp(rom.data+LEVELS,data+LEVELS,40)); /* MP edits leave the solo row intact. */
+    assert(!memcmp(rom.data+LEVELS+40,data+LEVELS+40,28)); /* Preserve resource/allocation pointers. */
+    assert(Get32(rom.data+LEVELS+40+28)==0x3f400000&&rom.data[LEVELS+40+33]==51);
+    assert(!memcmp(rom.data+LEVELS+80,data+LEVELS+80,120)); /* Title/default/MAX survive. */
+    assert(ProjectSave(&loaded,&why)&&ProjectRead(loaded.geppath,&project));
+    assert(project.levels[1].music==51&&project.levels[1].renderScale==0.75f);
+    RomFree(&rom);
+    Put32(mp,27);Reject(path,data);Put32(mp,427);
+    puts("PASS: named MP/Title catalog, shared BG, two-player environment, empty resource fields, independent MP settings and duplicate-ID rejection.");
+}
 static void RomAndProject(const char *dir, DWORD rowSize)
 {
     unsigned char *data=calloc(SIZE,1),*row=data+LEVELS;DWORD i,cursor=STRINGS,shift=rowSize-36;
@@ -113,7 +162,9 @@ static void RomAndProject(const char *dir, DWORD rowSize)
     assert(DeleteFile(base));assert(!RomExportRefreshProjectLevelMetadata(&project,&why));
     f=fopen(projectfile,"wb");assert(f);fputs("GEditor Project 1\nname = Old\n",f);fclose(f);assert(!ProjectRead(projectfile,&loaded));
     f=fopen(projectfile,"wb");assert(f);fputs("GEditor Project 2\nname = Incomplete\n",f);fclose(f);assert(!ProjectRead(projectfile,&loaded));
-    assert(ProjectSave(&project,&why)&&ProjectRead(projectfile,&loaded));free(data);
+    assert(ProjectSave(&project,&why)&&ProjectRead(projectfile,&loaded));
+    if (rowSize==40) { ExpandedCatalog(dir,data); }
+    free(data);
     printf("PASS: %u-byte level table load/export preserves pointers, names, sentinel and settings; malformed metadata rejected.\n",(unsigned)rowSize);
 }
 static void VertexBatches(void)

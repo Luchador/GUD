@@ -28,7 +28,7 @@ int main(void)
 
     /* Every former allocation, including title/special/MP/default entries,
      * must now reside directly in LevelEntry without changing its tokens. */
-    assert(ARRAYCOUNT(expected) == 37);
+    assert(ARRAYCOUNT(expected) == 35);
     for (i = 0; i < ARRAYCOUNT(expected); i++)
     {
         entry = lvFindLevelInfo(expected[i].id);
@@ -39,16 +39,46 @@ int main(void)
         for (players = 0; players <= 4; players++)
             assert(!strcmp(lvGetMemoryAllocationString(id, players), reference(id, players)));
 
-    /* Allocation-only rows must not displace the BG catalog/placeholder or
-     * introduce duplicate IDs that would shadow another stage's settings. */
-    assert(STAGES_MAX == 38);
-    assert(g_LevelInfoTable[STAGES_MAX - 1].levelID == LEVELID_MAX);
+    assert(ARRAYCOUNT(g_LevelInfoTable) == LEVEL_INFO_COUNT);
+    assert(g_LevelInfoTable[LEVEL_INFO_COUNT - 1].levelID == LEVELID_MAX);
     for (i = 0; i < ARRAYCOUNT(g_LevelInfoTable); i++)
     {
         entry = &g_LevelInfoTable[i];
-        assert((entry->bg_seg_filename != NULL) == (i < STAGES_MAX));
         for (j = i + 1; j < ARRAYCOUNT(g_LevelInfoTable); j++)
             assert(entry->levelID != g_LevelInfoTable[j].levelID);
+    }
+    {
+        static const s32 stages[] = {LEVELID_BUNKER2, LEVELID_ARCHIVES, LEVELID_CAVERNS, LEVELID_FACILITY, LEVELID_EGYPT};
+        char filename[256];
+        for (i = 0; i < ARRAYCOUNT(stages); i++)
+        {
+            struct LevelEntry *solo = lvFindLevelInfo(stages[i]);
+            struct LevelEntry *mp = lvFindLevelInfo(stages[i] + 400);
+            assert(solo && mp && strstr(mp->levelName, "(MP)"));
+            assert(!strncmp(mp->setupFileName, "Ump_setup", 9));
+            assert(!strcmp(solo->bg_seg_filename, mp->bg_seg_filename));
+            assert(!strcmp(solo->bg_stan_filename, mp->bg_stan_filename));
+            assert(solo->levelscale == mp->levelscale);
+            assert(lvFindStageInfo(stages[i], 1) == solo);
+            setupName(stages[i], 1, filename);
+            assert(!strcmp(filename, solo->setupFileName));
+            for (players = 2; players <= 4; players++)
+            {
+                assert(lvFindStageInfo(stages[i], players) == mp);
+                setupName(stages[i], players, filename);
+                assert(!strcmp(filename, mp->setupFileName));
+            }
+        }
+        setupName(LEVELID_TEMPLE, 2, filename);
+        assert(!strcmp(filename, "Ump_setupdishZ"));
+        setupName(LEVELID_TITLE, 1, filename);
+        assert(!filename[0]);
+        entry = lvFindLevelInfo(LEVELID_TITLE);
+        assert(entry && !strcmp(entry->levelName, "Title"));
+        assert(!entry->setupFileName && !entry->bg_seg_filename && !entry->bg_stan_filename);
+        assert(lvFindStageInfo(LEVELID_TITLE, 4) == entry);
+        assert(lvFindStageInfo(LEVELID_DAM, 4) == lvFindLevelInfo(LEVELID_DAM));
+        assert(lvFindStageInfo(1000, 1) == NULL);
     }
 
     /* Verify the game reads the field, including fallback for an unset stage. */
@@ -60,6 +90,6 @@ int main(void)
     entry->memoryAllocationString = NULL;
     assert(!strcmp(lvGetMemoryAllocationString(LEVELID_DAM, 1), reference(LEVELID_DEFAULT, 1)));
     entry->memoryAllocationString = saved;
-    puts("PASS: all 37 allocations preserved; solo/MP/title/default lookups and BG catalog bounds verified.");
+    puts("PASS: all 35 allocations preserved; solo/MP/title/default lookups and full catalog/MP setup selection verified.");
     return 0;
 }

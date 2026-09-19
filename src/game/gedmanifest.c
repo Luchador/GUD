@@ -62,7 +62,7 @@ const GedManifest g_GedManifest = {
         { GEDM_KIND('I','M','G','S'), (u32)_imagesSegmentRomStart,     (u32)_imagesSegmentRomEnd,                                       0                          },
         { GEDM_KIND('O','B','S','G'), (u32)_obsegSegmentRomStart,      (u32)_obsegSegmentRomEnd,                                        0                          },
         { GEDM_KIND('M','U','S','F'), (u32)_musicfilesSegmentRomStart, (u32)_musicfilesSegmentRomEnd,                                   0                          },
-        { GEDM_KIND('S','T','G','T'), (u32)_gedLevelTableRom,          (u32)_gedLevelTableRom + STAGES_MAX * sizeof(struct LevelEntry), STAGES_MAX                 },
+        { GEDM_KIND('S','T','G','T'), (u32)_gedLevelTableRom,          (u32)_gedLevelTableRom + sizeof(g_LevelInfoTable), ARRAYCOUNT(g_LevelInfoTable)                 },
         { GEDM_KIND('C','M','A','P'), (u32)&_csegmentSegmentRomStart,  (u32)&_csegmentSegmentRomEnd,                                    (u32)&_csegmentSegmentStart},
         { GEDM_KIND('F','T','B','L'), (u32)_gedFileTableRom,           0,                                                               0                          },
         { GEDM_KIND('E','N','V','T'), (u32)_gedEnvTableRom,            0,                                                               sizeof(EnvironmentRecord)  },

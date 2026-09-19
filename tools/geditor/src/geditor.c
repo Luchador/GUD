@@ -426,6 +426,9 @@ static BOOL GEditorReloadCurrentObjectsAndViewport(const char **reasonout)
 {
     SetupObjectGeometry objects;
 
+    /* Title has no BG scene to rebuild when a shared model/image changes. */
+    if (g_CurrentBgDocument.rooms == NULL && g_CurrentSetup.data == NULL) { return TRUE; }
+
     ZeroMemory(&objects, sizeof(objects));
     if (g_CurrentSetup.data != NULL
         && !ObjectLoadSetupGeometry(g_Project.dir, &g_CurrentSetup,
@@ -1432,51 +1435,54 @@ static BOOL GEditorSaveProject(HWND hwnd)
 
     if (g_CurrentLevelIndex < g_Project.levelcount)
     {
-        BgFile compiled;
-        const BgFile *bgtosave = &g_CurrentBg;
-
-        ZeroMemory(&compiled, sizeof(compiled));
-
-        if (g_CurrentBgDocument.dirty)
+        if (g_CurrentBg.data != NULL)
         {
-            if (!BgDocumentCompile(&g_CurrentBgDocument, &g_CurrentBg,
-                                   &compiled, &why))
-            {
-                MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
-                goto done;
-            }
-            bgtosave = &compiled;
-        }
-        else
-        {
-            /* Repair older project files even when no new edit was made.
-             * File cleanup does not renumber live selections or undo data. */
-            if (!BgFileRemoveUnusedVertices(&g_CurrentBg, &compiled, &why))
-            {
-                MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
-                goto done;
-            }
-            if (compiled.data) { bgtosave = &compiled; }
-        }
+            BgFile compiled;
+            const BgFile *bgtosave = &g_CurrentBg;
 
-        /* Portals live inside this complete BG segment, so they are
-           preserved by the same write rather than as a sidecar file. */
-        if (!BgSaveProjectFile(g_Project.dir, bgtosave, &why)
-            || !BgDocumentSaveSeams(&g_CurrentBgDocument, g_Project.dir,
-                g_Project.levels[g_CurrentLevelIndex].bgname, &why))
-        {
-            BgFileFree(&compiled);
-            MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
-            goto done;
-        }
-
-        if (compiled.data != NULL)
-        {
-            BgFileFree(&g_CurrentBg);
-            g_CurrentBg = compiled;
             ZeroMemory(&compiled, sizeof(compiled));
+
+            if (g_CurrentBgDocument.dirty)
+            {
+                if (!BgDocumentCompile(&g_CurrentBgDocument, &g_CurrentBg,
+                                       &compiled, &why))
+                {
+                    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+                    goto done;
+                }
+                bgtosave = &compiled;
+            }
+            else
+            {
+                /* Repair older project files even when no new edit was made.
+                 * File cleanup does not renumber live selections or undo data. */
+                if (!BgFileRemoveUnusedVertices(&g_CurrentBg, &compiled, &why))
+                {
+                    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+                    goto done;
+                }
+                if (compiled.data) { bgtosave = &compiled; }
+            }
+
+            /* Portals live inside this complete BG segment, so they are
+               preserved by the same write rather than as a sidecar file. */
+            if (!BgSaveProjectFile(g_Project.dir, bgtosave, &why)
+                || !BgDocumentSaveSeams(&g_CurrentBgDocument, g_Project.dir,
+                    g_Project.levels[g_CurrentLevelIndex].bgname, &why))
+            {
+                BgFileFree(&compiled);
+                MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+                goto done;
+            }
+
+            if (compiled.data != NULL)
+            {
+                BgFileFree(&g_CurrentBg);
+                g_CurrentBg = compiled;
+                ZeroMemory(&compiled, sizeof(compiled));
+            }
+            EditHistoryMarkBgSaved(&g_EditHistory, &g_CurrentBgDocument);
         }
-        EditHistoryMarkBgSaved(&g_EditHistory, &g_CurrentBgDocument);
 
         if (g_CurrentSetup.data != NULL)
         {
@@ -5077,12 +5083,12 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     {
         DWORD index = (DWORD)wparam;
         const RomLevel *level;
-        BgFile bg;
-        BgDocument document;
-        BgDocumentRenderMesh mesh;
-        SetupFile setup;
+        BgFile bg = {0};
+        BgDocument document = {0};
+        BgDocumentRenderMesh mesh = {0};
+        SetupFile setup = {0};
         SetupObjectGeometry objects;
-        StanFile stan;
+        StanFile stan = {0};
         const char *bgwhy = "";
         const char *setupwhy = "";
         const char *objectwhy = "";
@@ -5101,31 +5107,35 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
         level = &g_Project.levels[index];
 
-        if (!BgLoadProjectFile(g_Project.dir, level->bgname, &bg, &bgwhy))
+        document.levelscale = level->levelscale;
+        if (level->bgname[0])
         {
-            MessageBox(hwnd, bgwhy, GEDITOR_TITLE, MB_ICONERROR);
-            return 0;
-        }
+            if (!BgLoadProjectFile(g_Project.dir, level->bgname, &bg, &bgwhy))
+            {
+                MessageBox(hwnd, bgwhy, GEDITOR_TITLE, MB_ICONERROR);
+                return 0;
+            }
 
-        if (!BgDocumentLoad(bg.data, bg.size, level->levelscale,
-                            &document, &bgwhy))
-        {
-            BgFileFree(&bg);
-            MessageBox(hwnd, bgwhy, GEDITOR_TITLE, MB_ICONERROR);
-            return 0;
-        }
+            if (!BgDocumentLoad(bg.data, bg.size, level->levelscale,
+                                &document, &bgwhy))
+            {
+                BgFileFree(&bg);
+                MessageBox(hwnd, bgwhy, GEDITOR_TITLE, MB_ICONERROR);
+                return 0;
+            }
 
-        if (!BgDocumentLoadSeams(&document, g_Project.dir, level->bgname, &bgwhy)
-            || !BgDocumentBuildRenderMesh(&document, &mesh, &bgwhy))
-        {
-            BgDocumentFree(&document);
-            BgFileFree(&bg);
-            MessageBox(hwnd, bgwhy, GEDITOR_TITLE, MB_ICONERROR);
-            return 0;
+            if (!BgDocumentLoadSeams(&document, g_Project.dir, level->bgname, &bgwhy)
+                || !BgDocumentBuildRenderMesh(&document, &mesh, &bgwhy))
+            {
+                BgDocumentFree(&document);
+                BgFileFree(&bg);
+                MessageBox(hwnd, bgwhy, GEDITOR_TITLE, MB_ICONERROR);
+                return 0;
+            }
         }
         objectfirsttriangle = mesh.facecount;
 
-        setupLoaded = SetupLoadProjectFile(g_Project.dir, level->setupname,
+        setupLoaded = level->setupname[0] && SetupLoadProjectFile(g_Project.dir, level->setupname,
                                            &setup, &setupwhy);
         if (setupLoaded)
         {
@@ -5142,7 +5152,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         }
         /* Placement needs the collision tiles before object geometry is
            built, regardless of whether the stan overlay is visible. */
-        stanLoaded = StanLoadProjectFile(g_Project.dir, level->stanname,
+        stanLoaded = level->stanname[0] && StanLoadProjectFile(g_Project.dir, level->stanname,
                                          level->levelscale, &stan,
                                          &stanwhy);
         ZeroMemory(&objects, sizeof(objects));
@@ -5204,7 +5214,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             ViewportSetStanTiles(g_Viewport, NULL);
             /* As with unfinished setup entries, keep the useful BG
                open even when this level has no project stan. */
-            MessageBox(hwnd, stanwhy, GEDITOR_TITLE, MB_ICONWARNING);
+            if (level->stanname[0]) { MessageBox(hwnd, stanwhy, GEDITOR_TITLE, MB_ICONWARNING); }
         }
 
         SetupFileFree(&g_CurrentSetup);
@@ -5224,7 +5234,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             /* Some unfinished/test level-table entries name setup
                resources which are not present in obseg. Their BG is
                still useful, so open it and report only the setup gap. */
-            MessageBox(hwnd, setupwhy, GEDITOR_TITLE, MB_ICONWARNING);
+            if (level->setupname[0]) { MessageBox(hwnd, setupwhy, GEDITOR_TITLE, MB_ICONWARNING); }
         }
 
         if (setupLoaded && !objectsLoaded)

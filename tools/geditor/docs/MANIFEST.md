@@ -33,9 +33,22 @@ version; incompatible envelope changes require a new manifest version.
 main music, ambient track and action track. `ENVT` includes sky/water and
 visibility data as well as fog.
 
-`STGT.flags` counts the first `STAGES_MAX` rows of `g_LevelInfoTable`, including
-the BG placeholder. Allocation-only rows for the title, multiplayer overrides
-and default budget follow that catalog and are not exposed as editable levels.
+`STGT` covers the complete `g_LevelInfoTable`; its range and count come from
+`sizeof`/`ARRAYCOUNT` of the bounded declaration in `lv.h`. `LEVELID_MAX` is
+always the last row. GEditor excludes this BG placeholder and the unnamed
+default allocation row. The five shared-map MP variants have authored names,
+explicit `Ump_setup*` filenames, and the same BG/Stan resources as their solo
+counterparts. Their catalog IDs are the base stage ID + 400; gameplay keeps
+its base ID while selecting the MP row for setup/BG/music settings. The editor
+previews these variants with the two-player environment. BG/Stan edits affect
+both variants because the resource files are shared; setup edits stay separate.
+
+Title is a named, selectable stage with null setup/BG/Stan pointers. Projects
+preserve these as empty fields, and selecting/saving Title does not try to load
+or create level files. It is a stage entry for future settings; the game's
+existing menu models/rendering remain in use. This does not add a 3D title scene.
+Rebase accepts added named rows while preserving existing stage edits and still
+rejecting removed IDs or changed resource names.
 The row stride is `(STGT.romend - STGT.romstart) / STGT.flags`. Current rows are
 40 bytes: level ID at 0; name, setup, BG and Stan pointers at 4/8/12/16;
 `memoryAllocationString` pointer at 20; scale floats at 24/28; and music,

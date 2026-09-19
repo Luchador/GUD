@@ -36,7 +36,9 @@ struct LevelEntry
     s16 xtrack;
 };
 
-extern struct LevelEntry g_LevelInfoTable[];
+/* Complete catalog, including Title, multiplayer overrides, default and MAX. */
+#define LEVEL_INFO_COUNT 45
+extern struct LevelEntry g_LevelInfoTable[LEVEL_INFO_COUNT];
 extern stagesetup *g_ptrStageSetupFile;
 
 extern s32 g_ClockTimer;
@@ -50,6 +52,7 @@ extern u8 * address_demo_loaded;
 
 void lvInit(void);
 struct LevelEntry *lvFindLevelInfo(enum LEVELID levelId);
+struct LevelEntry *lvFindStageInfo(enum LEVELID levelId, s32 numPlayers);
 const char *lvGetMemoryAllocationString(enum LEVELID levelId, s32 numPlayers);
 Gfx *lvRender(Gfx *gdl);
 void lvSetSelectedDifficulty(DIFFICULTY diff);

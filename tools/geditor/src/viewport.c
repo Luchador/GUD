@@ -276,7 +276,8 @@ typedef struct ViewportState {
     DWORD startuptris;
     double startupcenter[3];
     LARGE_INTEGER startupstart, startupfrequency;
-    Vertex *scene;       /* malloc'd level geometry, or NULL for the startup model */
+    Vertex *scene;       /* malloc'd level geometry, or NULL for an empty viewport */
+    BOOL stageopen;      /* A selected stage may intentionally have no geometry. */
     VertexColor *scenecolors; /* original RGB restored when faces are deselected */
     GLsizei scenecount;  /* vertices in scene */
     struct SceneBatch *batches;  /* draw-ordered draw ranges */
@@ -1626,7 +1627,7 @@ static void ViewportFrameStartupModel(ViewportState *state)
 {
     double bounds[2][3], position[3];
     OrbitCamera camera;
-    if (!state->startupmodel || !state->startuptris || state->orbit || state->scene) { return; }
+    if (!state->startupmodel || !state->startuptris || state->orbit || state->scene || state->stageopen) { return; }
     for (DWORD i = 0; i < state->startuptris * 3; i++)
     {
         const BgVertex *v = &state->startupmodel[i];
@@ -1654,7 +1655,7 @@ static void ViewportFrameStartupModel(ViewportState *state)
 static void ViewportUpdateStartupTimer(HWND hwnd, ViewportState *state)
 {
     KillTimer(hwnd, VIEWPORT_STARTUP_TIMER);
-    if (!state->orbit && !state->scene && state->startupmodel)
+    if (!state->orbit && !state->scene && !state->stageopen && state->startupmodel)
     {
         QueryPerformanceCounter(&state->startupstart);
         SetTimer(hwnd, VIEWPORT_STARTUP_TIMER, 16, NULL);
@@ -1993,7 +1994,7 @@ static void ViewportPaintGL(ViewportState *state)
 
     if (state->scene == NULL)
     {
-        if (!state->orbit) { ViewportDrawStartupModel(state); }
+        if (!state->orbit && !state->stageopen) { ViewportDrawStartupModel(state); }
         ViewportDrawStatistics(state);
         SwapBuffers(state->hdc);
         return;
@@ -7264,7 +7265,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
             && state->rendermode != VIEWPORT_RENDER_UNTEXTURED && !state->flying && IsWindowVisible(hwnd)
             && !IsIconic(GetAncestor(hwnd, GA_ROOT))) { InvalidateRect(hwnd, NULL, FALSE); }
         if (wparam == VIEWPORT_STARTUP_TIMER && state && !state->orbit && !state->scene
-            && state->startupmodel && !state->flying && IsWindowVisible(hwnd)
+            && state->startupmodel && !state->stageopen && !state->flying && IsWindowVisible(hwnd)
             && !IsIconic(GetAncestor(hwnd, GA_ROOT))) { InvalidateRect(hwnd, NULL, FALSE); }
         if (wparam == VIEWPORT_MONITOR_TIMER && state && state->monitors.count
             && state->showobjects && !state->flying && IsWindowVisible(hwnd)
@@ -8664,6 +8665,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     state->selectedmarker = savedmarker;
     state->markerselected = savedmarkerselection;
     state->scene = scene;
+    state->stageopen = projectdir != NULL && projectdir[0] != '\0';
     state->scenecolors = scenecolors;
     state->scenecount = scene != NULL ? (GLsizei)(tricount * 3) : 0;
     state->batches = batches;

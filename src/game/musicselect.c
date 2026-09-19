@@ -2,6 +2,7 @@
 #include "musicselect.h"
 #include "bondconstants.h"
 #include "lv.h"
+#include "player.h"
 #include "random.h"
 
 s16 random_tracks[] = {
@@ -61,7 +62,7 @@ s32 musicGetMainTrackOrRandom(s32 stageID)
 {
     struct LevelEntry *levelInfo;
 
-    levelInfo = lvFindLevelInfo(stageID);
+    levelInfo = lvFindStageInfo(stageID, getPlayerCount());
 
     if (levelInfo != NULL && levelInfo->main_music != -1)
     {
@@ -89,7 +90,7 @@ s32 musicGetAmbientTrackForStage(s32 stageID)
 {
     struct LevelEntry *levelInfo;
 
-    levelInfo = lvFindLevelInfo(stageID);
+    levelInfo = lvFindStageInfo(stageID, getPlayerCount());
 
     return levelInfo != NULL ? levelInfo->bg_sound : -1;
 }
@@ -99,7 +100,7 @@ s32 musicGetXTrackForStage(s32 stageID)
 {
     struct LevelEntry *levelInfo;
 
-    levelInfo = lvFindLevelInfo(stageID);
+    levelInfo = lvFindStageInfo(stageID, getPlayerCount());
 
     return levelInfo != NULL ? levelInfo->xtrack : -1;
 }

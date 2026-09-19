@@ -36,11 +36,25 @@ typedef float f32;
 '''
 for name in ('ENVIRONMENTDATA_IDS', 'LEVELID', 'MUSIC_TRACKS'):
     source += re.search(r'typedef enum ' + name + r'\s*\{.*?\}[^;]*;', constants, re.S)[0] + '\n'
-source += re.search(r'#define STAGES_MAX \d+', (ROOT / 'src/game/bg.h').read_text())[0] + '\n'
+source += re.search(r'#define LEVEL_INFO_COUNT \d+', header)[0] + '\n'
 source += re.search(r'struct LevelEntry\s*\{.*?\};', header, re.S)[0] + '\n'
 source += re.search(r'struct LevelEntry g_LevelInfoTable\[\] = \{.*?\n\};', level, re.S)[0] + '\n'
 source += function(level, 'lvFindLevelInfo')
+source += function(level, 'lvFindStageInfo')
 source += function(level, 'lvGetMemoryAllocationString')
+# Exercise the production filename construction (including its MP prefix guard).
+setup = (ROOT / 'src/game/setup.c').read_text()
+start = setup.index('        setupFileName[0] = levelInfo->setupFileName[0];')
+end = setup.index('        g_ptrStageSetupFile = _fileNameLoadToBank(', start)
+source += """static s32 selectedPlayers;
+static s32 getPlayerCount(void) { return selectedPlayers; }
+static void setupName(LEVELID id, s32 players, char *out) {
+    struct LevelEntry *levelInfo = lvFindStageInfo(id, players);
+    char setupFileName[0x100] = "";
+    selectedPlayers = players;
+    if (!levelInfo || !levelInfo->setupFileName) { out[0] = 0; return; }
+"""
+source += setup[start:end] + 'strcpy(out, setupFileName); }\n'
 source += (HERE / 'check.c').read_text()
 
 with tempfile.TemporaryDirectory(prefix='gud-level-memory-') as directory:

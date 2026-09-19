@@ -222,8 +222,8 @@ static BOOL Levels(RebasePlan *plan, const GEditorProject *source,
     DWORD i;
     plan->project = *source;
     if (!source->levelcount || source->levelcount != plan->oldrom.info.levelcount
-        || source->levelcount != plan->newrom.info.levelcount)
-    { return Fail(why, "The level table changed. Adding/removing levels needs a separate migration."); }
+        || plan->newrom.info.levelcount > ROM_MAX_LEVELS)
+    { return Fail(why, "The project's level table does not match its base ROM."); }
     for (i=0;i<source->levelcount;i++)
     {
         RomLevel *p=&plan->project.levels[i];
@@ -249,6 +249,18 @@ static BOOL Levels(RebasePlan *plan, const GEditorProject *source,
         lstrcpyn(p->world,b->world,sizeof(p->world));
         p->hasbackgroundcolor=b->hasbackgroundcolor;
         memcpy(p->backgroundcolor,b->backgroundcolor,sizeof(p->backgroundcolor)); p->fog=b->fog; p->clouds=b->clouds;
+    }
+    /* New named rows (MP variants and Title) can be added without changing
+     * any existing resource IDs. Resources() still verifies the file catalog. */
+    for (i = 0; i < plan->newrom.info.levelcount; i++)
+    {
+        const RomLevel *level = &plan->newrom.info.levels[i];
+        if (!Level(&plan->oldrom.info, level->levelID))
+        {
+            if (plan->project.levelcount >= ROM_MAX_LEVELS)
+            { return Fail(why, "The expanded level table exceeds the editor's capacity."); }
+            plan->project.levels[plan->project.levelcount++] = *level;
+        }
     }
     return TRUE;
 }

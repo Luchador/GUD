@@ -12,6 +12,7 @@
 #include "modelcompile.h"
 #include "modeledits.h"
 #include "newprops.h"
+#include "setupload.h"
 
 /* PNG encoding uses Windows WIC, outside this host test. */
 BOOL TexEncodePng(const TexPixel *pixels,int width,int height,unsigned char **data,DWORD *size)
@@ -64,7 +65,7 @@ static unsigned char *Fixture(DWORD shift,const unsigned char *model,DWORD model
     for(i=0;i<64;i++) { pixels[i]=(TexPixel){64,128,(i%4)*64,(i%2)*255}; }
     OK(TexEncodeRecord(pixels,8,8,&options,&record,&size,&why));memcpy(data+IMAGES+shift,record,size);free(record);
     Entry(data,shift,0,"IMGS",IMAGES,IMAGES+size,0);
-    Entry(data,shift,1,"OBSG",OBJECTS,MODEL+modelsize,0);
+    Entry(data,shift,1,"OBSG",OBJECTS,MODEL+modelsize+156,0);
     Entry(data,shift,2,"MUSF",0x180000,0x181000,0);
     Entry(data,shift,3,"STGT",LEVELS,LEVELS+36,1);
     Entry(data,shift,4,"CMAP",CMAP,CMAP+0x10000,vbase);
@@ -103,18 +104,71 @@ static unsigned char *Fixture(DWORD shift,const unsigned char *model,DWORD model
         DWORD at=TABLE+shift+i*12,offset=i==1 ? OBJECTS : i==2 ? OBJECTS+64 : i==3 ? OBJECTS+576 : MODEL;
         Put32(data+at,i);Put32(data+at+4,names[i]);Put32(data+at+8,offset+shift);
     }
+    /* An existing MP resource becomes selectable when a later ROM exposes
+     * its catalog row. Its empty native setup is independent of the solo one. */
+    strcpy((char *)data+CMAP+shift+0x4e0,"Ump_setuptestZ");
+    Put32(data+TABLE+shift+5*12,5);Put32(data+TABLE+shift+5*12+4,vbase+0x4e0);
+    Put32(data+TABLE+shift+5*12+8,MODEL+modelsize+shift);
     Put32(data+OBJECTS+shift+12,48); /* Native setup with a two-word objective command. */
     Put32(data+OBJECTS+shift+48,25);Put32(data+OBJECTS+shift+56,48);
     row=data+OBJECTS+shift+64; /* Valid native BG with a three-vertex batch. */
     Put32(row+4,32);Put32(row+56,0x0e000080);Put32(row+60,0x0e000100);
     Put32(row+124,64);Put32(row+252,24);Put32(row+256,0x04200030);
     Put32(row+264,0xbf000000);Put32(row+268,0x00000a14);Put32(row+272,0xb8000000);
-    memcpy(data+MODEL+shift,model,modelsize);return data;
+    memcpy(data+MODEL+shift,model,modelsize);
+    row=data+MODEL+modelsize+shift; /* Empty MP setup with valid list terminators. */
+    Put32(row+8,40);Put32(row+40,9);Put32(row+24,44);Put32(row+28,88);
+    return data;
 }
 static void NoTemps(const char *dir)
 {
     DIR *d=opendir(dir);struct dirent *e;OK(d);
     while((e=readdir(d))) { OK(strncmp(e->d_name,".geditor-rebase-",16)); }closedir(d);
+}
+static void CatalogRebase(const GEditorProject *source,const char *incoming,const char *parent)
+{
+    DWORD size,offset,span,soloHash;unsigned char *data=Read(incoming,&size);
+    DWORD vbase=0x80000000u+SHIFT*2;
+    unsigned char *solo=data+LEVELS+SHIFT,*mp=solo+36,*title=mp+36,*last=title+36;
+    char path[MAX_PATH],expanded[MAX_PATH],exported[MAX_PATH];
+    GEditorProject updated,loaded,again;ProjectRebaseReport report;RomFile rom={0};
+    SetupFile setup={0};SetupIntroEntry *entries=NULL;DWORD count;BOOL changed;
+    SetupIntroEdit edit={SETUP_INTRO_ADD,{0,SETUP_INTRO_AMMO,{AMMO_9MM,100}}};
+    memcpy(mp,solo,36);Put32(mp,421);Put32(mp+4,vbase+0x480);Put32(mp+8,vbase+0x4e0);
+    strcpy((char *)data+CMAP+SHIFT+0x480,"Jungle (MP)");
+    memset(title,0,72);Put32(title,90);Put32(title+4,vbase+0x490);
+    strcpy((char *)data+CMAP+SHIFT+0x490,"Title");
+    Float(title+20,1);Float(title+24,1);memset(title+28,0xff,6);
+    Put32(last,57);Put32(last+12,vbase+0x4a0);
+    strcpy((char *)data+CMAP+SHIFT+0x4a0,"bg/bgx.seg");
+    Entry(data,SHIFT,3,"STGT",LEVELS,LEVELS+4*36,4);
+    Path(expanded,parent,"expanded.z64");Save(expanded,data,size);
+    OK(ProjectRebaseCheck(source,expanded,&report,&why));
+    OK(ProjectRebaseCreate(source,expanded,parent,"Expanded",&updated,&report,&why));
+    OK(source->levelcount==1&&updated.levelcount==3);
+    OK(updated.levels[0].music==source->levels[0].music);
+    OK(updated.levels[1].levelID==421&&!strcmp(updated.levels[1].setupname,"Ump_setuptestZ"));
+    OK(updated.levels[2].levelID==90&&!updated.levels[2].bgname[0]&&!updated.levels[2].setupname[0]);
+    OK(ProjectRead(updated.geppath,&loaded)&&RomExportRefreshProjectLevelMetadata(&loaded,&why));
+    Path(path,updated.dir,"setup/UsetuptestZ.set");soloHash=Hash(path);
+    OK(SetupLoadProjectFile(updated.dir,updated.levels[1].setupname,&setup,&why));
+    OK(SetupFileEditIntroEquipment(&setup,&edit,&changed,&why)&&changed);
+    OK(SetupSaveProjectFile(updated.dir,&setup,&why));SetupFileFree(&setup);
+    OK(Hash(path)==soloHash);
+    OK(RomExportCreate(&updated,"ExpandedPlayable",parent,exported,sizeof(exported),&why));
+    OK(RomLoad(exported,&rom,&why)&&rom.info.levelcount==3);
+    OK(RomFindFile(&rom,"Ump_setuptestZ",&offset,&span,&why));
+    setup.data=malloc(span);OK(setup.data);memcpy(setup.data,rom.data+offset,span);setup.size=span;
+    strcpy(setup.name,"Ump_setuptestZ");
+    OK(SetupFileGetIntroEquipment(&setup,&entries,&count,&why)&&count==1&&entries[0].value[1]==100);
+    free(entries);SetupFileFree(&setup);RomFree(&rom);
+    OK(ProjectRebaseCreate(&updated,expanded,parent,"ExpandedAgain",&again,&report,&why));
+    OK(again.levelcount==3);Same(updated.dir,again.dir,"setup/Ump_setuptestZ.set");
+    /* Removing an old ID or introducing duplicates must still be rejected. */
+    Put32(solo,22);Save(expanded,data,size);OK(!ProjectRebaseCheck(source,expanded,&report,&why));
+    Put32(solo,21);Put32(mp,21);Save(expanded,data,size);OK(!ProjectRebaseCheck(source,expanded,&report,&why));
+    free(data);
+    puts("PASS: additive MP/Title rebase, reopen, separate MP setup edits, playable export, repeat rebase and removed/duplicate-ID rejection.");
 }
 static void Reject(const GEditorProject *project,const char *rom,const char *parent,const char *name)
 {
@@ -224,8 +278,9 @@ int main(int argc,char **argv)
     OK(RomExportStoreProjectBase(&project,&rom,&why));
     Folder(project.dir,"bg");Folder(project.dir,"setup");Folder(project.dir,"stan");Folder(project.dir,"images");
     Folder(project.dir,"models");Folder(project.dir,"models/native");Folder(project.dir,"models/objects");Folder(project.dir,"notes");
-    for(i=1;i<=3;i++)
+    for(i=1;i<=5;i++)
     {
+        if(i==4) { continue; } /* Models use their own edit sidecars. */
         char name[64];OK(RomGetFileByIndex(&rom,i,name,sizeof(name),&offset,&span));
         OK(RomExportProjectResourcePath(&project,name,path,sizeof(path))==1);Save(path,rom.data+offset,span);
     }
@@ -343,5 +398,6 @@ int main(int argc,char **argv)
       Path(alias,source,"notes/link");OK(!symlink(oldpath,alias));Reject(&project,nextpath,argv[1],"Linked");OK(!unlink(alias)); }
     Path(path,project.dir,"base.z64");OK(Hash(path)==Hash(oldpath));OK(RomExportValidateProject(&project,&why));
     puts("PASS: copy/write/publish failures, destination race, existing/reserved/nested paths and reparse-point rejection; original project remains exportable.");
+    CatalogRebase(&project,nextpath,argv[1]);
     free(model);free(old);free(next);RomFree(&rom);return 0;
 }
