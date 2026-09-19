@@ -950,16 +950,17 @@ static BOOL MdlBuildIdleMatrices(const unsigned char *data, DWORD size,
         if (child != 0) { stack[count++] = child; }
     }
     if (count > 0) { return FALSE; }
-    for (hand = 0; hand < 2; hand++)
+    for (hand = 0; hand < 3; hand++)
     {
-        int slot = hand == 0 ? 3 : 5;
+        int slot = hand == 0 ? 3 : hand == 1 ? 5 : 6;
         float unused[3];
         if (ModelReadSwitchAttachment(data, size, switchcount, slot, unused))
         {
             DWORD node = mdoff(md32(data + slot * 4));
-            attachments->hashands[hand] = MdlAnimatedNode(data, size, node, angles,
-                                                         flip, FALSE, &attachments->hands[hand]);
-            if (!attachments->hashands[hand]) { return FALSE; }
+            BOOL *present = hand < 2 ? &attachments->hashands[hand] : &attachments->hashat;
+            ModelTransform *attachment = hand < 2 ? &attachments->hands[hand] : &attachments->hat;
+            *present = MdlAnimatedNode(data, size, node, angles, flip, FALSE, attachment);
+            if (!*present) { return FALSE; }
         }
     }
     return TRUE;
@@ -968,7 +969,8 @@ static BOOL MdlBuildIdleMatrices(const unsigned char *data, DWORD size,
 static BgVertex *MdlLoadGeometry(const unsigned char *data, DWORD maxlen,
                             DWORD *tricount, unsigned short **texids,
                             BgRenderFlags **renderflags,
-                            const char **reasonout, BOOL closestlod, const MdlAnimatedPose *animated, ModelSource *source)
+                            const char **reasonout, BOOL closestlod, const MdlAnimatedPose *animated, ModelSource *source,
+                            DWORD hiddenswitch)
 {
     MdlBuilder b;
     MdlPose pose;
@@ -1035,6 +1037,7 @@ static BgVertex *MdlLoadGeometry(const unsigned char *data, DWORD maxlen,
         nodes[nodecount++] = node;
         nextoff = mdoff(md32(data + node + 12));
         childoff = mdoff(md32(data + node + 20));
+        if (node == hiddenswitch) { childoff = 0; }
 
         if (!MdlAddNodeMatrices(&pose, data, maxlen, node))
         {
@@ -1110,7 +1113,7 @@ BgVertex *ModelLoadGeometry(const unsigned char *data, DWORD maxlen,
                             BgRenderFlags **renderflags,
                             const char **reasonout)
 {
-    return MdlLoadGeometry(data, maxlen, tricount, texids, renderflags, reasonout, FALSE, NULL, NULL);
+    return MdlLoadGeometry(data, maxlen, tricount, texids, renderflags, reasonout, FALSE, NULL, NULL, 0);
 }
 
 BgVertex *ModelLoadCharacterGeometry(const unsigned char *data, DWORD maxlen,
@@ -1118,7 +1121,15 @@ BgVertex *ModelLoadCharacterGeometry(const unsigned char *data, DWORD maxlen,
                                      BgRenderFlags **renderflags,
                                      const char **reasonout)
 {
-    return MdlLoadGeometry(data, maxlen, tricount, texids, renderflags, reasonout, TRUE, NULL, NULL);
+    return MdlLoadGeometry(data, maxlen, tricount, texids, renderflags, reasonout, TRUE, NULL, NULL, 0);
+}
+
+BgVertex *ModelLoadHeadWithHatGeometry(const unsigned char *data, DWORD size, int switchcount,
+    DWORD *tricount, unsigned short **texids, BgRenderFlags **renderflags, const char **reasonout)
+{
+    DWORD node = data && size >= 24 && switchcount > 1 ? mdoff(md32(data + 4)) : 0;
+    if (node && (node > size - 24 || (md16(data + node) & 0xff) != 0x12)) { node = 0; }
+    return MdlLoadGeometry(data, size, tricount, texids, renderflags, reasonout, TRUE, NULL, NULL, node);
 }
 
 void ModelFreeSource(ModelSource *source)
@@ -1133,7 +1144,7 @@ BOOL ModelReadSource(const unsigned char *data, DWORD size, ModelSource *source,
 {
     ZeroMemory(source, sizeof(*source));
     source->vertices = MdlLoadGeometry(data, ModelMaterialsNativeSize(data,size), &source->count, &source->tags,
-        &source->flags, reasonout, FALSE, NULL, source);
+        &source->flags, reasonout, FALSE, NULL, source, 0);
     if (source->vertices == NULL) { ModelFreeSource(source); return FALSE; }
     if (!ModelMaterialsRead(data,size,source->count,&source->materials,reasonout))
     { ModelFreeSource(source); return FALSE; }
@@ -1177,7 +1188,7 @@ BOOL ModelApplyCharacterPose(const unsigned char *data, DWORD size, int switchco
     pose = (MdlAnimatedPose *)calloc(1, sizeof(*pose));
     if (pose == NULL || !MdlBuildIdleMatrices(data, size, switchcount, angles,
                                             flip, pose, &posedattachments)) { goto done; }
-    posed = MdlLoadGeometry(data, size, &count, &tags, &flags, &why, TRUE, pose, NULL);
+    posed = MdlLoadGeometry(data, size, &count, &tags, &flags, &why, TRUE, pose, NULL, 0);
     if (posed == NULL || count != tricount) { goto done; }
     for (i = 0; i < count * 3; i++)
     {

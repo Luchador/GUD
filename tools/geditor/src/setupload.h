@@ -196,6 +196,24 @@ void SetupFileGetCharacterHeldWeapons(const SetupFile *setup, DWORD index, const
 BOOL SetupFileSetCharacterWeapon(SetupFile *setup, const SetupCharacterWeaponEdit *edit,
     BOOL *changedout, const char **reasonout);
 
+#define SETUP_HAT_NONE (-1)
+#define SETUP_HAT_MIXED (-2)
+typedef struct SetupHatChoice { int model, fitting; const char *name; } SetupHatChoice;
+typedef struct SetupCharacterHat { int model; DWORD count; } SetupCharacterHat;
+typedef struct SetupCharacterHatEdit {
+    DWORD characterindex, sourceoffset;
+    unsigned short chrnum;
+    int model;
+} SetupCharacterHatEdit;
+const SetupHatChoice *SetupHatChoices(DWORD *count);
+const SetupHatChoice *SetupHatChoiceForModel(int model);
+BOOL SetupFileGetCharacterHat(const SetupFile *setup, DWORD index, SetupCharacterHat *out);
+const SetupObject *SetupFileGetCharacterWornHat(const SetupFile *setup, DWORD index);
+/* Atomic; No hat disables the owner's active hat variants. Restoring a hat
+ * reuses those records and preserves their scale, flags and exclusions. */
+BOOL SetupFileSetCharacterHat(SetupFile *setup, const SetupCharacterHatEdit *edit,
+    BOOL *changedout, const char **reasonout);
+
 /* Discard unreachable tables and relocate native pointers in a separate copy.
  * Clear negligible pad-direction residues which can trap on the R4300. */
 BOOL SetupCompactNative(const unsigned char *data, DWORD size,

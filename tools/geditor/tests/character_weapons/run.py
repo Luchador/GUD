@@ -16,6 +16,7 @@ spec = importlib.util.spec_from_file_location('choices', src.parent / 'scripts/g
 choices = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(choices)
 assert (src / 'weaponchoices.h').read_text() == choices.generate(), 'Regenerate weaponchoices.h'
+assert (src / 'hatchoices.h').read_text() == choices.generate_hats(), 'Regenerate hatchoices.h'
 with tempfile.TemporaryDirectory(prefix='geditor-character-weapons-') as temp:
     work = Path(temp)
     (work / 'setup').mkdir()
@@ -36,9 +37,14 @@ with tempfile.TemporaryDirectory(prefix='geditor-character-weapons-') as temp:
     (work / 'input-types.inc').write_text(re.search(r'enum \{ CHARACTER_RIGHT_LABEL,.*?\};', panel, re.S)[0]
         + '\n' + re.search(r'typedef struct CharacterPropertiesState \{.*?\} CharacterPropertiesState;', panel, re.S)[0])
     (work / 'input.inc').write_text(''.join(extract.function(panel, name) for name in
-        ('CharacterPropertiesChoices', 'CharacterPropertiesApply')))
+        ('CharacterPropertiesChoices', 'CharacterPropertiesApply', 'CharacterPropertiesHatChoices', 'CharacterPropertiesApplyHat')))
     (work / 'catalog.inc').write_text(''.join(extract.function((src / 'setupload.c').read_text(), name)
-        for name in ('SetupWeaponChoices', 'SetupWeaponChoiceForItem')))
-    (work / 'editor.inc').write_text(extract.function((src / 'geditor.c').read_text(), 'GEditorSetCharacterWeapon'))
+        for name in ('SetupWeaponChoices', 'SetupWeaponChoiceForItem', 'SetupHatChoices', 'SetupHatChoiceForModel')))
+    (work / 'editor.inc').write_text(''.join(extract.function((src / 'geditor.c').read_text(), name)
+        for name in ('GEditorSetCharacterWeapon', 'GEditorSetCharacterHat')))
     subprocess.run(command + [str(here / 'input.c'), '-Wl,--gc-sections', '-lm', '-o', str(work / 'input')], check=True)
     subprocess.run([str(work / 'input')], check=True, env=env)
+    subprocess.run(command + [str(here / 'preview.c'), str(here.parent / 'image_import/platform.c')]
+        + [str(src / name) for name in ('modelload.c', 'modelmaterials.c', 'bgmaterial.c', 'bgrender.c', 'setupload.c')]
+        + ['-Wl,--gc-sections', '-lm', '-o', str(work / 'preview')], check=True)
+    subprocess.run([str(work / 'preview'), str(root)], check=True, env=env)

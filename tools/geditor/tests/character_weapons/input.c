@@ -18,14 +18,17 @@ enum { CB_RESETCONTENT=1,CB_ADDSTRING,CB_SETITEMDATA,CB_SETCURSEL,CB_GETCURSEL,C
 #include "bghistory.h"
 #include "input-types.inc"
 #include "weaponchoices.h"
+#include "hatchoices.h"
 #include "catalog.inc"
 typedef struct Combo { int count,selected,item[40];char names[40][80]; } Combo;
-static Combo combos[2];
+static Combo combos[3];
 static CharacterPropertiesState *active;
 static SetupCharacterWeaponEdit received;
+static SetupCharacterHatEdit receivedhat;
 static int requests;
 static BOOL reject,reenter;
 static void CharacterPropertiesApply(HWND,CharacterPropertiesState *,int);
+static void CharacterPropertiesApplyHat(HWND,CharacterPropertiesState *);
 static HWND GetParent(HWND h) { return NULL; }
 static LRESULT SendMessage(HWND h,int msg,WPARAM wp,LPARAM lp)
 {
@@ -33,6 +36,11 @@ static LRESULT SendMessage(HWND h,int msg,WPARAM wp,LPARAM lp)
     if(msg==CHARACTERPROPERTIES_WM_WEAPON_CHANGED) {
         assert(active->committing);received=*(SetupCharacterWeaponEdit *)lp;requests++;
         if(reenter)CharacterPropertiesApply(active,active,0);
+        return !reject;
+    }
+    if(msg==CHARACTERPROPERTIES_WM_HAT_CHANGED) {
+        assert(active->committing);receivedhat=*(SetupCharacterHatEdit *)lp;requests++;
+        if(reenter)CharacterPropertiesApplyHat(active,active);
         return !reject;
     }
     switch(msg) {
@@ -63,6 +71,18 @@ static void Input(void)
     CharacterPropertiesChoices(&combos[0],254);CharacterPropertiesApply(&s,&s,0);assert(requests==2);
     assert(!strcmp(combos[0].names[combos[0].selected],"Item 254 (current)"));
     combos[0].selected=CB_ERR;CharacterPropertiesApply(&s,&s,0);assert(requests==2);
+    s.controls[CHARACTER_HAT]=&combos[2];
+    CharacterPropertiesHatChoices(&combos[2],SETUP_HAT_NONE);
+    assert(combos[2].count==13 && !strcmp(combos[2].names[0],"No hat"));
+    combos[2].selected=Row(&combos[2],220);CharacterPropertiesApplyHat(&s,&s);
+    assert(requests==3 && receivedhat.model==220 && receivedhat.characterindex==3
+        && receivedhat.sourceoffset==512 && receivedhat.chrnum==8 && !s.committing);
+    combos[2].selected=0;CharacterPropertiesApplyHat(&s,&s);assert(requests==4 && receivedhat.model==SETUP_HAT_NONE);
+    s.updating=TRUE;CharacterPropertiesApplyHat(&s,&s);assert(requests==4);s.updating=FALSE;
+    s.selected=FALSE;CharacterPropertiesApplyHat(&s,&s);assert(requests==4);s.selected=TRUE;
+    CharacterPropertiesHatChoices(&combos[2],SETUP_HAT_MIXED);CharacterPropertiesApplyHat(&s,&s);assert(requests==4);
+    CharacterPropertiesHatChoices(&combos[2],999);CharacterPropertiesApplyHat(&s,&s);assert(requests==4);
+    assert(!strcmp(combos[2].names[combos[2].selected],"Model 999 (current)"));
     puts("PASS: actual dropdown catalog, None/unknown/mixed display, right/left edit payloads, selection guards and synchronous reentrancy.");
 }
 
@@ -75,6 +95,7 @@ static StanFile g_CurrentStan;
 static struct {char dir[MAX_PATH];} g_Project;
 static DWORD selection=SETUP_CHARACTER_SELECTION_BIT|3,restored;
 static int begins,commits,rollbacks,rebuilds,errors,sceneversion;
+static int expectedmodel;
 static BOOL selected=TRUE,change=TRUE,modelok=TRUE,buildok=TRUE,commitok=TRUE,editok=TRUE;
 static BOOL ViewportGetSelectedObject(HWND h,DWORD *out) {*out=selection;return selected;}
 static void ViewportCancelTransform(HWND h) {}
@@ -90,8 +111,10 @@ void EditHistoryRollbackEdit(EditHistoryTransaction *t,BgDocument *bg,SetupFile 
 void EditHistoryCancelEdit(EditHistoryTransaction *t) {t->active=FALSE;}
 BOOL SetupFileSetCharacterWeapon(SetupFile *s,const SetupCharacterWeaponEdit *e,BOOL *changed,const char **why)
 {*changed=change;if(change&&editok)s->dirty=TRUE;return editok;}
+BOOL SetupFileSetCharacterHat(SetupFile *s,const SetupCharacterHatEdit *e,BOOL *changed,const char **why)
+{*changed=change;if(change&&editok)s->dirty=TRUE;return editok;}
 BgVertex *ModelLoadProjectGeometry(const char *dir,int model,DWORD *n,unsigned short **tags,BgRenderFlags **flags,float *scale,const char **why)
-{assert(model==SetupWeaponChoiceForItem(13)->model);return modelok?calloc(1,sizeof(BgVertex)):NULL;}
+{assert(model==expectedmodel);return modelok?calloc(1,sizeof(BgVertex)):NULL;}
 BOOL ObjectLoadSetupGeometry(const char *dir,const SetupFile *s,const StanFile *st,float scale,SetupObjectGeometry *out,const char **why)
 {out->tricount=2;return buildok;}
 void ObjectGeometryFree(SetupObjectGeometry *o) {memset(o,0,sizeof(*o));}
@@ -105,6 +128,7 @@ static void Reset(void)
     begins=commits=rollbacks=rebuilds=errors=0;restored=0;
     g_CurrentSetup.dirty=FALSE;g_CurrentObjects.tricount=1;sceneversion=1;
     selected=change=modelok=buildok=commitok=editok=TRUE;
+    expectedmodel=SetupWeaponChoiceForItem(13)->model;
 }
 static void Editor(void)
 {
@@ -122,6 +146,22 @@ static void Editor(void)
     }
     Reset();modelok=FALSE;e.item=-1;e.hand=1;
     assert(GEditorSetCharacterWeapon(NULL,&e));assert(commits==1&&!errors); /* None needs no model. */
+    SetupCharacterHatEdit hat={.characterindex=3,.sourceoffset=512,.chrnum=8,.model=220};
+    Reset();expectedmodel=220;assert(GEditorSetCharacterHat(NULL,&hat));
+    assert(begins==1 && commits==1 && !rollbacks && sceneversion==2 && restored==selection);
+    Reset();change=FALSE;assert(GEditorSetCharacterHat(NULL,&hat));assert(!commits&&!rebuilds);
+    Reset();selected=FALSE;assert(!GEditorSetCharacterHat(NULL,&hat));assert(!begins);
+    for(int failure=0;failure<4;failure++) {
+        Reset();expectedmodel=220;
+        if(failure==0) { modelok=FALSE; }
+        if(failure==1) { buildok=FALSE; }
+        if(failure==2) { commitok=FALSE; }
+        if(failure==3) { editok=FALSE; }
+        assert(!GEditorSetCharacterHat(NULL,&hat));
+        assert(errors==1&&rollbacks==1&&!g_CurrentSetup.dirty&&sceneversion==1&&restored==selection);
+    }
+    Reset();modelok=FALSE;hat.model=SETUP_HAT_NONE;
+    assert(GEditorSetCharacterHat(NULL,&hat));assert(commits==1&&!errors);
     puts("PASS: production frame transaction, immediate geometry rebuild, one undo commit, no-op/stale selection, missing-model/build/commit failure rollback and None without model loading.");
 }
 int main(void) {Input();Editor();return 0;}

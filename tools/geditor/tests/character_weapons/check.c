@@ -243,6 +243,91 @@ static void DuplicateCharacters(void)
     SetupFileFree(&s);SetupFileFree(&source);
     puts("PASS: character copies retain native settings, mixed/left/concealed weapons, hats and attributes; new IDs/pads, stable commands, aliasing, save/reload, undo/redo, ID limits and atomic allocation failures.");
 }
+static SetupCharacterHatEdit HatRequest(const SetupFile *s,DWORD index,int model)
+{
+    const SetupCharacter *chr=s->characters+index;
+    return (SetupCharacterHatEdit){index,chr->sourceoffset,chr->chrnum,model};
+}
+static void HatSet(SetupFile *s,DWORD index,int model)
+{
+    SetupCharacterHatEdit edit=HatRequest(s,index,model);BOOL changed;
+    Require(SetupFileSetCharacterHat(s,&edit,&changed,&why));assert(changed);
+}
+static void Hats(void)
+{
+    SetupFile source=Fixture(),s={0},before={0},after={0};
+    DWORD first=R(source.data+12),end=source.characters[2].sourceoffset+28+16;
+    DWORD table=source.size,at=table+end-first,size=at+5*128+4;
+    source.data=realloc(source.data,size);assert(source.data);
+    memset(source.data+table,0,size-table);memcpy(source.data+table,source.data+first,end-first);
+    W(source.data+12,table);source.size=size;
+    const DWORD flags2[]={PROPFLAG2_NO_LOAD_A,PROPFLAG2_NO_LOAD_SA,0xf8,0,0};
+    for(int i=0;i<5;i++,at+=128) {
+        W(source.data+at,0x01800011);W(source.data+at+4,((212u+i)<<16)|(i==3 ? 8 : 7));
+        W(source.data+at+8,i==4 ? 0 : PROPFLAG_ASSIGNEDTOCHR);W(source.data+at+12,flags2[i]);
+        W(source.data+at+0x74,777u<<16);
+    }
+    W(source.data+at,48);
+    Require(SetupSaveProjectFile(dir,&source,&why));SetupFileFree(&source);
+    Require(SetupLoadProjectFile(dir,"UsetupweaponsZ",&source,&why));
+    Require(SetupFileClone(&source,&s,&why));
+    SetupCharacterHat view;Require(SetupFileGetCharacterHat(&s,0,&view));
+    assert(view.model==SETUP_HAT_MIXED && view.count==2);
+    assert(SetupFileGetCharacterWornHat(&s,0)==s.objects+source.objectcount-5);
+    HatSet(&s,0,220);Require(SetupFileGetCharacterHat(&s,0,&view));assert(view.model==220 && view.count==2);
+    for(DWORD i=0;i<source.objectcount;i++) {
+        const unsigned char *a=source.data+source.objects[i].sourceoffset,*b=s.data+s.objects[i].sourceoffset;
+        int bytes=source.objects[i].type==PROPDEF_HAT ? 128 : 136;
+        for(int n=0;n<bytes;n++) {
+            if(i>=source.objectcount-5 && i<source.objectcount-3 && (n==4 || n==5))continue;
+            assert(a[n]==b[n]);
+        }
+    }
+    DWORD savedsize=s.size,savedcount=s.objectcount;
+    for(int i=0;i<100;i++) {
+        HatSet(&s,0,SETUP_HAT_NONE);assert(!SetupFileGetCharacterWornHat(&s,0));
+        Require(SetupFileGetCharacterHat(&s,0,&view));assert(view.model==SETUP_HAT_NONE && !view.count);
+        if(!i)Reload(&s);
+        HatSet(&s,0,221);assert(s.size==savedsize && s.objectcount==savedcount);
+        for(int h=0;h<2;h++) {
+            const SetupObject *hat=s.objects+source.objectcount-5+h;
+            assert(hat->flags2==flags2[h] && hat->extrascale==384);
+        }
+    }
+    Reload(&s);
+    Require(SetupFileClone(&s,&before,&why));
+    SetupCharacterHatEdit edit=HatRequest(&s,0,221);BOOL changed=TRUE;
+    Require(SetupFileSetCharacterHat(&s,&edit,&changed,&why));assert(!changed);Same(&s,&before);
+    edit.model=999;assert(!SetupFileSetCharacterHat(&s,&edit,&changed,&why));Same(&s,&before);
+    edit=HatRequest(&s,0,212);edit.sourceoffset++;assert(!SetupFileSetCharacterHat(&s,&edit,&changed,&why));Same(&s,&before);
+    EditHistory h={0};EditHistoryTransaction tx={0};EditHistoryAsset asset;BgDocument bg={0};StanFile stan={0};
+    EditHistoryReset(&h,&bg,&s,&stan);Require(EditHistoryBeginSetupEdit(&h,&s,"Change Hat",&tx,&why));
+    HatSet(&s,2,223);assert(s.objectcount==savedcount+1);
+    const SetupObject *added=s.objects+s.objectcount-1;
+    assert(added->type==PROPDEF_HAT && added->pad==9 && added->extrascale==256 && added->flags==PROPFLAG_ASSIGNEDTOCHR);
+    Require(EditHistoryCommitEdit(&h,&bg,&s,&stan,&tx,&why));Reload(&s);
+    Require(SetupFileClone(&s,&after,&why));
+    Require(EditHistoryUndo(&h,&bg,&s,&stan,&asset,&why));Same(&s,&before);
+    Require(EditHistoryRedo(&h,&bg,&s,&stan,&asset,&why));Same(&s,&after);
+    DWORD count;const SetupHatChoice *choices=SetupHatChoices(&count);assert(count==13);
+    for(DWORD i=0;i<count;i++) {
+        HatSet(&s,2,choices[i].model);
+        Require(SetupFileGetCharacterHat(&s,2,&view));assert(view.model==choices[i].model);
+    }
+    EditHistoryFree(&h);SetupFileFree(&before);SetupFileFree(&after);SetupFileFree(&s);
+    for(int mode=0;mode<3;mode++) {
+        if(mode==2)HatSet(&source,0,SETUP_HAT_NONE);
+        for(int failure=0;failure<100;failure++) {
+            Require(SetupFileClone(&source,&s,&why));
+            edit=HatRequest(&s,mode==1 ? 2 : 0,mode==0 ? SETUP_HAT_NONE : 220);changed=TRUE;
+            failat=failure;allocations=0;BOOL ok=SetupFileSetCharacterHat(&s,&edit,&changed,&why);failat=-1;
+            if(!ok){assert(!changed);Same(&s,&source);assert(s.dirty==source.dirty);}
+            SetupFileFree(&s);if(ok)break;assert(failure<99);
+        }
+    }
+    SetupFileFree(&source);
+    puts("PASS: all 12 hats and No hat, mixed variants, native hat ownership, flags/scale, weapon and loose-hat isolation, bounded remove/re-equip cycles, no-op/stale edits, save/reload, undo/redo and atomic failures.");
+}
 int main(int argc,char **argv)
 {
     assert(argc==2);dir=argv[1];SetupFile source=Fixture();
@@ -250,5 +335,5 @@ int main(int argc,char **argv)
     AllocationFailures(&source,0,0,13);AllocationFailures(&source,2,1,25);AllocationFailures(&source,0,0,-1);
     Set(&source,0,0,-1);AllocationFailures(&source,0,0,6);
     SetupFileFree(&source);puts("PASS: allocation failures leave native bytes, caches, counts and dirty state unchanged.");
-    DuplicateCharacters();return 0;
+    DuplicateCharacters();Hats();return 0;
 }

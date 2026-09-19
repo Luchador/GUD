@@ -4507,6 +4507,52 @@ fail:
     return FALSE;
 }
 
+static BOOL GEditorSetCharacterHat(HWND hwnd, const SetupCharacterHatEdit *edit)
+{
+    EditHistoryTransaction transaction = {0};
+    SetupObjectGeometry objects = {0};
+    const char *why = "", *restorewhy = "";
+    DWORD selected;
+    BOOL changed;
+    if (!edit || !ViewportGetSelectedObject(g_Viewport, &selected)
+        || !(selected & SETUP_CHARACTER_SELECTION_BIT)
+        || (selected & ~SETUP_CHARACTER_SELECTION_BIT) != edit->characterindex) { return FALSE; }
+    ViewportCancelTransform(g_Viewport);
+    if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup,
+        "Change Hat", &transaction, &why)) { goto fail; }
+    if (!SetupFileSetCharacterHat(&g_CurrentSetup, edit, &changed, &why)) { goto rollback; }
+    if (!changed) { EditHistoryCancelEdit(&transaction); return TRUE; }
+    if (edit->model != SETUP_HAT_NONE)
+    {
+        const SetupHatChoice *choice = SetupHatChoiceForModel(edit->model);
+        DWORD count = 0; unsigned short *tags = NULL; BgRenderFlags *flags = NULL; float scale;
+        BgVertex *mesh = choice ? ModelLoadProjectGeometry(g_Project.dir, choice->model,
+            &count, &tags, &flags, &scale, &why) : NULL;
+        BOOL loaded = mesh != NULL;
+        free(mesh); free(tags); free(flags);
+        if (!loaded)
+        { if (!why[0]) { why = "The selected hat model could not be loaded."; } goto rollback; }
+    }
+    if (!ObjectLoadSetupGeometry(g_Project.dir, &g_CurrentSetup, &g_CurrentStan,
+        g_CurrentBgDocument.levelscale, &objects, &why)
+        || !GEditorRebuildCurrentViewportWithObjects(&objects, &why)) { goto rollback; }
+    ViewportSelectSetupModel(g_Viewport, selected);
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+        &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    ObjectGeometryFree(&g_CurrentObjects); g_CurrentObjects = objects;
+    GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    GEditorRebuildCurrentViewport(&restorewhy);
+    ViewportSelectSetupModel(g_Viewport, selected);
+fail:
+    ObjectGeometryFree(&objects); EditHistoryCancelEdit(&transaction);
+    GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
 static BOOL GEditorSetObjectProperty(HWND hwnd, const SetupObjectPropertyEdit *edit)
 {
     EditHistoryTransaction transaction = {0};
@@ -4703,6 +4749,13 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     case CHARACTERPROPERTIES_WM_WEAPON_CHANGED:
     {
         BOOL ok = GEditorSetCharacterWeapon(hwnd, (const SetupCharacterWeaponEdit *)lparam);
+        GEditorRefreshSelectionDetails();
+        return ok;
+    }
+
+    case CHARACTERPROPERTIES_WM_HAT_CHANGED:
+    {
+        BOOL ok = GEditorSetCharacterHat(hwnd, (const SetupCharacterHatEdit *)lparam);
         GEditorRefreshSelectionDetails();
         return ok;
     }

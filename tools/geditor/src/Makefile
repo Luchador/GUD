@@ -40,13 +40,13 @@ TOOL_IMAGES := $(wildcard ../geditorassets/*_select_*.png) \
 MARKER_MODELS := ../geditorassets/start.glb ../geditorassets/intro_camera.glb \
                  ../geditorassets/outro_camera.glb ../geditorassets/intro_spline_point.glb
 
-$(TARGET): $(SOURCES) $(HEADERS) $(SHARED_HEADERS) $(PROP_RECORDS) $(CHARACTER_RECORDS) idleposes.h weaponchoices.h introchoices.h $(RCOBJ)
+$(TARGET): $(SOURCES) $(HEADERS) $(SHARED_HEADERS) $(PROP_RECORDS) $(CHARACTER_RECORDS) ../../../assets/obseg/chr/chrHeadHats.inc.c idleposes.h weaponchoices.h introchoices.h hatchoices.h $(RCOBJ)
 	$(CC) $(CFLAGS) -o $@ $(SOURCES) $(RCOBJ) $(LDFLAGS)
 
 idleposes.h: ../scripts/generate_idle_poses.py ../../../tools/make_animation_entries_uncompressed.py $(IDLE_SOURCES)
 	python3 ../scripts/generate_idle_poses.py
 
-weaponchoices.h introchoices.h &: ../scripts/generate_weapon_choices.py ../../../src/bondconstants.h
+weaponchoices.h introchoices.h hatchoices.h &: ../scripts/generate_weapon_choices.py ../../../src/bondconstants.h
 	python3 ../scripts/generate_weapon_choices.py
 
 # Resource script -> linkable object (dialogs, icon, and tool button artwork)

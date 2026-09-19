@@ -8,7 +8,7 @@
 
 #define CHARACTERPROPERTIES_CLASS "GEditorCharacterProperties"
 enum { CHARACTER_RIGHT_LABEL, CHARACTER_RIGHT, CHARACTER_LEFT_LABEL, CHARACTER_LEFT,
-       CHARACTER_HELP, CHARACTER_DETAILS, CHARACTER_CONTROLS };
+       CHARACTER_HAT_LABEL, CHARACTER_HAT, CHARACTER_DETAILS, CHARACTER_CONTROLS };
 typedef struct CharacterPropertiesState {
     HWND controls[CHARACTER_CONTROLS];
     SetupCharacterWeaponEdit binding;
@@ -31,20 +31,18 @@ static void CharacterPropertiesLayout(HWND hwnd, CharacterPropertiesState *state
 {
     RECT rect; GetClientRect(hwnd, &rect);
     int width = max(1, rect.right - 8);
-    int help = CharacterPropertiesTextHeight(state->controls[CHARACTER_HELP], width);
     int details = CharacterPropertiesTextHeight(state->controls[CHARACTER_DETAILS], width);
-    int height = 118 + help + details;
+    int height = 168 + details;
     state->scroll = max(0, min(state->scroll, max(0, height - rect.bottom)));
     SCROLLINFO si = {sizeof(si), SIF_RANGE | SIF_PAGE | SIF_POS, 0, height - 1, (UINT)max(0,rect.bottom), state->scroll, 0};
     SetScrollInfo(hwnd, SB_VERT, &si, TRUE);
-    for (int hand = 0; hand < 2; hand++)
+    for (int slot = 0; slot < 3; slot++)
     {
-        int label = hand ? CHARACTER_LEFT_LABEL : CHARACTER_RIGHT_LABEL;
-        MoveWindow(state->controls[label], 4, 4 + hand * 54 - state->scroll, width, 18, TRUE);
-        MoveWindow(state->controls[label+1], 4, 24 + hand * 54 - state->scroll, width, 320, TRUE);
+        int label = slot * 2;
+        MoveWindow(state->controls[label], 4, 4 + slot * 54 - state->scroll, width, 18, TRUE);
+        MoveWindow(state->controls[label+1], 4, 24 + slot * 54 - state->scroll, width, 320, TRUE);
     }
-    MoveWindow(state->controls[CHARACTER_HELP], 4, 114 - state->scroll, width, help, TRUE);
-    MoveWindow(state->controls[CHARACTER_DETAILS], 4, 118 + help - state->scroll, width, details, TRUE);
+    MoveWindow(state->controls[CHARACTER_DETAILS], 4, 168 - state->scroll, width, details, TRUE);
     RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
 }
 static void CharacterPropertiesChoices(HWND combo, int item)
@@ -83,13 +81,51 @@ static void CharacterPropertiesApply(HWND hwnd, CharacterPropertiesState *state,
     SendMessage(GetParent(hwnd), CHARACTERPROPERTIES_WM_WEAPON_CHANGED, 0, (LPARAM)&edit);
     state->committing = FALSE;
 }
+static void CharacterPropertiesHatChoices(HWND combo, int model)
+{
+    DWORD count; const SetupHatChoice *choices = SetupHatChoices(&count);
+    int selected = -1;
+    SendMessage(combo, CB_RESETCONTENT, 0, 0);
+    for (DWORD i = 0; i < count; i++)
+    {
+        int row = (int)SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)choices[i].name);
+        if (row < 0) { continue; }
+        SendMessage(combo, CB_SETITEMDATA, row, choices[i].model);
+        if (choices[i].model == model) { selected = row; }
+    }
+    if (selected < 0)
+    {
+        char text[80];
+        if (model == SETUP_HAT_MIXED) { snprintf(text, sizeof(text), "Multiple setup variants"); }
+        else { snprintf(text, sizeof(text), "Model %d (current)", model); }
+        selected = (int)SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)text);
+        if (selected >= 0) { SendMessage(combo, CB_SETITEMDATA, selected, model); }
+    }
+    SendMessage(combo, CB_SETCURSEL, selected, 0);
+}
+static void CharacterPropertiesApplyHat(HWND hwnd, CharacterPropertiesState *state)
+{
+    if (!state || !state->selected || state->updating || state->committing) { return; }
+    HWND combo = state->controls[CHARACTER_HAT];
+    int row = (int)SendMessage(combo, CB_GETCURSEL, 0, 0);
+    if (row == CB_ERR) { return; }
+    int model = (int)SendMessage(combo, CB_GETITEMDATA, row, 0);
+    if (!SetupHatChoiceForModel(model)) { return; }
+    SetupCharacterHatEdit edit = {state->binding.characterindex, state->binding.sourceoffset,
+        state->binding.chrnum, model};
+    state->committing = TRUE;
+    SendMessage(GetParent(hwnd), CHARACTERPROPERTIES_WM_HAT_CHANGED, 0, (LPARAM)&edit);
+    state->committing = FALSE;
+}
 BOOL CharacterPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD index)
 {
     CharacterPropertiesState *state = CharacterPropertiesGetState(panel);
     SetupCharacterWeapons weapons;
+    SetupCharacterHat hat;
     if (!state) { return FALSE; }
     state->updating = TRUE;
-    if (!SetupFileGetCharacterWeapons(setup, index, &weapons))
+    if (!SetupFileGetCharacterWeapons(setup, index, &weapons)
+        || !SetupFileGetCharacterHat(setup, index, &hat))
     {
         state->selected = FALSE; state->scroll = 0;
         for (int i = 0; i < CHARACTER_CONTROLS; i++) { EnableWindow(state->controls[i], FALSE); }
@@ -102,6 +138,7 @@ BOOL CharacterPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD i
     for (int i = 0; i < CHARACTER_CONTROLS; i++) { EnableWindow(state->controls[i], TRUE); }
     CharacterPropertiesChoices(state->controls[CHARACTER_RIGHT], weapons.item[0]);
     CharacterPropertiesChoices(state->controls[CHARACTER_LEFT], weapons.item[1]);
+    CharacterPropertiesHatChoices(state->controls[CHARACTER_HAT], hat.model);
     int bodyid, headid; CharacterModelDefinition body, head;
     BOOL randomhead = FALSE;
     const char *bodyname = "Unknown", *headname = "Included in body";
@@ -133,10 +170,10 @@ static LRESULT CALLBACK CharacterPropertiesWndProc(HWND hwnd, UINT msg, WPARAM w
         state = calloc(1, sizeof(*state)); if (!state) { return -1; }
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
         const char *labels[CHARACTER_CONTROLS] = {"Right-hand weapon", "", "Left-hand weapon", "",
-            "Starting held weapons. None clears a hand. Existing difficulty variants change together; concealed items are kept. Action Blocks may equip weapons later.", ""};
+            "Hat", "", ""};
         for (int i = 0; i < CHARACTER_CONTROLS; i++)
         {
-            BOOL combo = i == CHARACTER_RIGHT || i == CHARACTER_LEFT;
+            BOOL combo = i == CHARACTER_RIGHT || i == CHARACTER_LEFT || i == CHARACTER_HAT;
             state->controls[i] = CreateWindowEx(0, combo ? "COMBOBOX" : "STATIC", labels[i],
                 WS_CHILD | WS_VISIBLE | (combo ? WS_TABSTOP | WS_VSCROLL | CBS_DROPDOWNLIST : SS_NOPREFIX),
                 0,0,1,1, hwnd, (HMENU)(INT_PTR)(i+1), cs->hInstance, NULL);
@@ -152,6 +189,7 @@ static LRESULT CALLBACK CharacterPropertiesWndProc(HWND hwnd, UINT msg, WPARAM w
         {
             if (LOWORD(wp) == CHARACTER_RIGHT+1) { CharacterPropertiesApply(hwnd, state, 0); }
             if (LOWORD(wp) == CHARACTER_LEFT+1) { CharacterPropertiesApply(hwnd, state, 1); }
+            if (LOWORD(wp) == CHARACTER_HAT+1) { CharacterPropertiesApplyHat(hwnd, state); }
         }
         return 0;
     case WM_MOUSEWHEEL:

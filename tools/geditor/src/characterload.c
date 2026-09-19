@@ -18,6 +18,7 @@
 enum CharacterPreviewPose {
     CHARACTER_POSE_NONE, CHARACTER_POSE_RELAXED,
     CHARACTER_POSE_TWO_HANDED, CHARACTER_POSE_TWO_HANDED_LEFT,
+    CHARACTER_POSE_HEAD_WITH_HAT,
     CHARACTER_POSE_COUNT
 };
 
@@ -42,6 +43,11 @@ typedef struct CharacterSourceDefinition {
 #include <assets/obseg/chr/chrModelFileRecords.inc.c>
 #undef CitemZ_entries
 #undef ChrModelFileRecord
+
+struct headHat { float xoffset, yoffset, zoffset, xsize, ysize, zsize; };
+#define g_HeadHatDefs g_EditorHeadHatDefs
+#include <assets/obseg/chr/chrHeadHats.inc.c>
+#undef g_HeadHatDefs
 
 #define CHARACTER_MODEL_COUNT \
     ((int)(sizeof(g_CharacterModels) / sizeof(g_CharacterModels[0])) - 1)
@@ -142,6 +148,7 @@ static CharacterPart *CharacterGetPart(CharacterPart *cache, int modelid, int po
         ModelTransformIdentity(&part->attachments.head);
         ModelTransformIdentity(&part->attachments.hands[0]);
         ModelTransformIdentity(&part->attachments.hands[1]);
+        ModelTransformIdentity(&part->attachments.hat);
         /* Replacements retain their native skeleton and attachment points.
            Pose the edited native model so face deletion keeps joint bindings. */
         const unsigned char *native = ModelEditsGetData(projectdir, definition->filename, &size, &why);
@@ -159,7 +166,21 @@ static CharacterPart *CharacterGetPart(CharacterPart *cache, int modelid, int po
                 size, *definition->header, 3, part->attachments.hands[0].m[3]);
             part->attachments.hashands[1] = ModelReadSwitchAttachment(native,
                 size, *definition->header, 5, part->attachments.hands[1].m[3]);
-            if (poseid != CHARACTER_POSE_NONE)
+            part->attachments.hashat = ModelReadSwitchAttachment(native,
+                size, *definition->header, 6, part->attachments.hat.m[3]);
+            if (poseid == CHARACTER_POSE_HEAD_WITH_HAT)
+            {
+                DWORD count; unsigned short *tags; BgRenderFlags *flags;
+                BgVertex *vertices = ModelLoadHeadWithHatGeometry(native, size, *definition->header,
+                    &count, &tags, &flags, &why);
+                if (vertices)
+                {
+                    free(part->vertices); free(part->tags); free(part->renderflags);
+                    part->vertices = vertices; part->tricount = count;
+                    part->tags = tags; part->renderflags = flags;
+                }
+            }
+            else if (poseid != CHARACTER_POSE_NONE)
             {
                 const unsigned short *angles = poseid == CHARACTER_POSE_RELAXED
                     ? g_EditorPose_idle_unarmed : g_EditorPose_idle;
@@ -348,6 +369,39 @@ static BOOL CharacterPlaceEquipment(CharacterBuilder *builder,
     return TRUE;
 }
 
+static const struct headHat *CharacterHatFit(int headid, int model)
+{
+    const SetupHatChoice *choice = SetupHatChoiceForModel(model);
+    int first = CharacterFindModel("CheadkarlZ"), end = CharacterFindModel("CheadsallyZ");
+    if (!choice || choice->fitting < 0 || choice->fitting >= 6
+        || first < 0 || headid < first || headid >= end) { return NULL; }
+    unsigned int index = (headid - first) * 6 + choice->fitting;
+    return index < sizeof(g_EditorHeadHatDefs) / sizeof(*g_EditorHeadHatDefs)
+        ? g_EditorHeadHatDefs + index : NULL;
+}
+
+static BOOL CharacterPlaceHat(CharacterBuilder *builder, const CharacterEquipment *equipment,
+    const SetupObject *hat, const struct headHat *fit, const CharacterPart *body,
+    const float bodyoffset[3], const float position[3], float scale, float facingx, float facingz, DWORD index)
+{
+    ModelTransform attachment = body->attachments.hat;
+    float offset[3] = {0}, size[3] = {1,1,1};
+    if (fit)
+    {
+        /* Same per-head fit and local-unit conversion as chrRefreshHatCache. */
+        offset[0] = fit->xoffset * 21.3f; offset[1] = fit->yoffset * 21.3f; offset[2] = fit->zoffset * 21.3f;
+        size[0] = fit->xsize; size[1] = fit->ysize; size[2] = fit->zsize;
+    }
+    for (int axis = 0; axis < 3; axis++) for (int row = 0; row < 3; row++)
+    {
+        attachment.m[3][axis] += (equipment->origin[row] + offset[row]) * attachment.m[row][axis];
+        attachment.m[row][axis] *= size[row];
+    }
+    float partscale = equipment->usesmodelscale ? equipment->scale * (hat->extrascale / 256.0f) : 1.0f;
+    return CharacterPlacePart(builder, &equipment->part, &attachment, bodyoffset, position,
+        scale, partscale, FALSE, facingx, facingz, index);
+}
+
 static BOOL CharacterGetPadPlacement(const SetupPad *pad, const StanFile *stan,
     float levelscale, float position[3], DWORD *tileout)
 {
@@ -417,6 +471,9 @@ BOOL CharacterLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
         const SetupObject *held[2];
         CharacterModelDefinition definition;
         CharacterPart *body, *head = NULL;
+        const SetupObject *hat;
+        CharacterEquipment *hatmodel = NULL;
+        const struct headHat *hatfit = NULL;
         float position[3], bodyoffset[3] = { 0.0f, 0.0f, 0.0f };
         float length, facingx, facingz;
         DWORD tile, firsttriangle;
@@ -430,9 +487,17 @@ BOOL CharacterLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
         CharacterFindEquipment(setup, i, held);
         body = CharacterGetPart(cache, bodyid, CharacterChoosePose(setup, held), projectdir, rom);
         if (body == NULL) { continue; }
+        hat = SetupFileGetCharacterWornHat(setup, i);
+        if (hat && body->attachments.hashat && !(hat->flags2 & PROPFLAG2_ONLYEXPLOSIONDAMAGE))
+        {
+            hatmodel = CharacterGetEquipment(equipment, equipmentcount, hat->modelid, projectdir, rom);
+            if (hatmodel) { hatfit = CharacterHatFit(headid, hat->modelid); }
+        }
         if (headid >= 0)
         {
-            head = CharacterGetPart(cache, headid, CHARACTER_POSE_NONE, projectdir, rom);
+            const SetupHatChoice *choice = hatmodel ? SetupHatChoiceForModel(hat->modelid) : NULL;
+            BOOL hidehair = hatfit && choice && choice->fitting == 2; /* HATTYPE_PEAKED */
+            head = CharacterGetPart(cache, headid, hidehair ? CHARACTER_POSE_HEAD_WITH_HAT : CHARACTER_POSE_NONE, projectdir, rom);
             if (head == NULL || !body->attachments.hashead) { continue; }
         }
         if (!CharacterGetModelDefinition(bodyid, &definition)) { continue; }
@@ -453,6 +518,8 @@ BOOL CharacterLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
         if (!CharacterPlaceEquipment(&builder, equipment, equipmentcount, held, i,
             projectdir, rom, body, bodyoffset, position, definition.scale,
             facingx, facingz)) { goto done; }
+        if (hatmodel && !CharacterPlaceHat(&builder, hatmodel, hat, hatfit, body,
+            bodyoffset, position, definition.scale, facingx, facingz, i)) { goto done; }
         /* chrRender shares the character's shade with the head and held
          * models. Shade assembled copies once, leaving the pose cache intact. */
         ObjectShadeFromTile(stan, tile, TRUE, 0, &shade);

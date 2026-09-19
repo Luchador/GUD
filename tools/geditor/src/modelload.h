@@ -16,8 +16,10 @@ typedef struct ModelTransform {
 typedef struct ModelCharacterAttachments {
     ModelTransform head;
     ModelTransform hands[2]; /* right, left */
+    ModelTransform hat;
     BOOL hashead;
     BOOL hashands[2];
+    BOOL hashat;
 } ModelCharacterAttachments;
 
 void ModelTransformIdentity(ModelTransform *transform);
@@ -88,6 +90,9 @@ BgVertex *ModelLoadCharacterGeometry(const unsigned char *data, DWORD maxlen,
                                      DWORD *tricount, unsigned short **texids,
                                      BgRenderFlags **renderflags,
                                      const char **reasonout);
+/* Head switch 1 hides the hair/upper-head branch beneath a peaked cap. */
+BgVertex *ModelLoadHeadWithHatGeometry(const unsigned char *data, DWORD size, int switchcount,
+    DWORD *tricount, unsigned short **texids, BgRenderFlags **renderflags, const char **reasonout);
 
 /* Model-space position of MODELNODE_OPCODE_HEAD in the unanimated body. */
 BOOL ModelReadHeadAttachment(const unsigned char *data, DWORD size,
