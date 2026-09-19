@@ -6,6 +6,7 @@ static void reset(int bytes)
     renderCacheReset();
     modelResets = leafInvalidations = conversions = rejectConversion = 0;
     oneCycle = TRUE; settingsPending = FALSE; g_MainStageNum = -1;
+    streamSizes[0] = streamSizes[1] = streamSizes[2] = 64;
     lastDrawn = NULL;
     memset(g_BgRoomInfo, 0, sizeof(g_BgRoomInfo));
     bgClearRoomRenderCaches();
@@ -124,6 +125,63 @@ static void check_allocation_lifetime(void)
     puts("PASS: aligned allocation, unlink/free, conversion failure, exhaustion, repeated reclaim and stage-reset lifetimes.");
 }
 
+static void check_short_list_reload(void)
+{
+    /* Depot room 38 contains 5808 vertex bytes and two 104-byte state-only
+     * lists. Room 88 has 256 vertex bytes and a 72-byte primary list.
+     * No texture expansion hides the DMA workspace requirement. */
+    const int sizes[][3] = {{5808, 104, 104}, {256, 72, 0},
+                            {64, 64, 104}, {64, 104, 64}};
+    for (unsigned int i = 0; i < sizeof(sizes) / sizeof(sizes[0]); i++) {
+        reset(0x10000);
+        oneCycle = FALSE;
+        memcpy(streamSizes, sizes[i], sizeof(streamSizes));
+        g_BgRoomInfo[1].cur_room_totalsize = -1;
+        g_BgRoomInfo[1].secondaryGdlRomBlockSize = sizes[i][2] != 0;
+        int allocation = 0;
+        for (int reload = 0; reload < 4; reload++) {
+            bgLoadRoomModelData(1);
+            RoomInfo *room = &g_BgRoomInfo[1];
+            assert(room->unloadAge && room->vertices && room->primaryGdl);
+            assert(room->verticesSize == sizes[i][0] && room->primaryGdlSize == sizes[i][1]);
+            if (sizes[i][2]) assert(room->secondaryGdl && room->secondaryGdlSize == sizes[i][2]);
+            if (reload) assert(room->cur_room_totalsize == allocation);
+            allocation = room->cur_room_totalsize;
+            bgFreeRoomData(1);
+            assert_full_heap(0x10000);
+        }
+    }
+    puts("PASS: short state-only primary/secondary lists survive repeated room reloads without losing streams or shrinking the cached allocation.");
+}
+
+static void check_partial_room_failure(void)
+{
+    /* Leave just enough space to fail the vertex, primary or secondary
+     * loader in turn. Releasing the other allocation must allow a retry. */
+    for (int stream = 0; stream < 3; stream++) {
+        reset(4096);
+        g_BgRoomInfo[1].cur_room_totalsize = -1;
+        g_BgRoomInfo[1].secondaryGdlRomBlockSize = 64;
+        int occupied = 4096 - (stream + 1) * 64;
+        void *otherRoom = memaAlloc(occupied);
+        assert(otherRoom);
+        bgLoadRoomModelData(1);
+        RoomInfo *room = &g_BgRoomInfo[1];
+        assert(!room->unloadAge && room->cur_room_totalsize == -1);
+        assert(!room->vertices && !room->primaryGdl && !room->secondaryGdl);
+        assert(!room->verticesSize && !room->primaryGdlSize && !room->secondaryGdlSize);
+        assert(!room->vtx_batch_bounds && !conversions);
+        assert(g_BgRoomAllocationFailed == 1 && !renderCacheIsEnabled());
+        memaFree(otherRoom, occupied);
+        assert_full_heap(4096);
+        bgLoadRoomModelData(1);
+        assert(room->unloadAge && room->vertices && room->primaryGdl && room->secondaryGdl);
+        bgFreeRoomData(1);
+        assert_full_heap(4096);
+    }
+    puts("PASS: failure at each room stream rolls back the allocation, leaves no published partial room and recovers on retry.");
+}
+
 int main(void)
 {
     /* Keep production mema's N64 32-bit addresses intact on the host. */
@@ -131,6 +189,8 @@ int main(void)
     assert(heap != MAP_FAILED && (uintptr_t)heap + 0x10000 < 0x80000000u);
     check_room_recovery();
     check_allocation_lifetime();
+    check_short_list_reload();
+    check_partial_room_failure();
     assert(munmap(heap, 0x10000) == 0);
     return 0;
 }

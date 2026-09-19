@@ -35,7 +35,9 @@ static int bgBuildOneCycleGdl(Gfx *src, int size, Gfx *dst, int cap)
 { (void)src; (void)size; return convert(dst, cap, primaryCacheSize); }
 static int bgBuildCutoutGdl(Gfx *src, int size, Gfx *dst, int cap)
 { (void)src; (void)size; return convert(dst, cap, secondaryCacheSize); }
-static int bgGetRoomStreamSize(int offset) { (void)offset; return 64; }
+static int streamSizes[3] = {64, 64, 64};
+static int bgGetRoomStreamSize(int offset)
+{ assert(offset >= 0x100 && offset <= 0x300); return streamSizes[offset / 0x100 - 1]; }
 static void obLoadBGFileBytesAtOffset(char *file, u8 *dst, int offset, int size)
 { (void)file; (void)offset; memset(dst, 0x5a, size); }
 static int texLoadFromGdl(Gfx *src, int size, Gfx *dst, void *pool)

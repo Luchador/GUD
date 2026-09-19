@@ -2063,11 +2063,13 @@ void bgLoadRoomModelData(s32 roomID)
     {
         result = bgLoadRoomVtxData(roomID, data, allocsize);
 
-        if (result >= 0)
+        if (result < 0)
         {
-            used = result;
-            redarken_lights_in_room(roomID);
+            goto load_failed;
         }
+
+        used = (result + 0xf) & ~0xf;
+        redarken_lights_in_room(roomID);
     }
     else
     {
@@ -2082,10 +2084,16 @@ void bgLoadRoomModelData(s32 roomID)
     {
         result = bgLoadRoomPrimaryGdl(roomID, data + used, allocsize - used);
 
-        if (result >= 0)
+        if (result < 0)
         {
-            used += result;
+            goto load_failed;
         }
+
+        /* Each loader requires ALIGN16(raw size) plus 0x20 workspace.
+         * Keep stream starts and the cached allocation aligned too. A pair
+         * of short, 8-mod-16 lists otherwise loses the secondary on reload,
+         * shrinks the cached size, then loses the primary on the next load. */
+        used = (used + result + 0xf) & ~0xf;
     }
 
     /**
@@ -2095,10 +2103,12 @@ void bgLoadRoomModelData(s32 roomID)
     {
         result = bgLoadRoomSecondaryGdl(roomID, data + used, allocsize - used);
 
-        if (result > 0)
+        if (result < 0)
         {
-            used += result;
+            goto load_failed;
         }
+
+        used = (used + result + 0xf) & ~0xf;
     }
     else
     {
@@ -2150,6 +2160,21 @@ void bgLoadRoomModelData(s32 roomID)
     /* Texture expansion and the environment LUT must finish before conversion.
      * Allocate the collision cache first; one-cycle rendering is optional. */
     bgBuildRoomOneCycleGdl(roomID);
+    return;
+
+load_failed:
+    /* A partial room must never reach rendering, LUT conversion or collision
+     * setup. Preserve its cached size and return the complete allocation. */
+    clear_light_fixturetable_in_room(roomID);
+    g_BgRoomInfo[roomID].vertices = NULL;
+    g_BgRoomInfo[roomID].verticesSize = 0;
+    g_BgRoomInfo[roomID].primaryGdl = NULL;
+    g_BgRoomInfo[roomID].primaryGdlSize = 0;
+    g_BgRoomInfo[roomID].secondaryGdl = NULL;
+    g_BgRoomInfo[roomID].secondaryGdlSize = 0;
+    memaFree(data, allocsize);
+    renderCacheRequestReclaim();
+    g_BgRoomAllocationFailed = roomID;
 }
 
 
