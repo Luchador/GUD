@@ -111,6 +111,11 @@ BOOL ViewportSelectBgVertex(HWND hwnd, const BgDocumentVertexRef *ref);
    surface centroid. Includes the live drag preview, excludes hidden items. */
 BOOL ViewportGetSelectionPosition(HWND hwnd, double position[3], DWORD *countout);
 
+/* Main viewport: smooth, view-only framing of every visible selected element.
+ * Preserve yaw/pitch. No selection leaves the camera unchanged. */
+BOOL ViewportCanZoomToSelected(HWND hwnd);
+BOOL ViewportZoomToSelected(HWND hwnd);
+
 void ViewportSetBackgroundColor(HWND viewport, const unsigned char rgb[3]);
 
 /* Preview-only sky, using the project's current cloud image. NULL clears it. */

@@ -23,6 +23,7 @@ typedef struct { int left, top, right, bottom; } RECT;
 #include "types.inc"
 
 typedef struct ViewportState {
+    double selectionfar;
     EditorTool tool;
     int width, height, scenecount, batchcount;
     float posx, posy, posz, yaw, pitch;

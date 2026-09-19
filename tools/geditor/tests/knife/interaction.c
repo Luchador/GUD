@@ -21,6 +21,7 @@ typedef struct { HWND hwnd; UINT message; WPARAM wParam; LPARAM lParam; } MSG;
 #define GET_X_LPARAM(p) ((short)((p)&65535))
 #define GET_Y_LPARAM(p) ((short)(((p)>>16)&65535))
 #include "viewport.h"
+#include "cameraframe.h"
 #include "uvcanvas.h"
 #include "resource.h"
 #define VIEWPORT_BOX_VERTICES 24

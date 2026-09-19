@@ -23,12 +23,14 @@
 #include "fog.h"
 #include "clouds.h"
 #include "orbitcamera.h"
+#include "cameraframe.h"
 #include "resource.h"
 #include <src/propconstants.h>
 
 #define VIEWPORT_MONITOR_TIMER 1001
 #define VIEWPORT_STARTUP_TIMER 1002
 #define VIEWPORT_CLOUD_TIMER 1003
+#define VIEWPORT_ZOOM_TIMER 1004
 #define VIEWPORT_STARTUP_SPIN_DEGREES_PER_SECOND 75.0
 #define VIEWPORT_STARTUP_CAMERA_PITCH -30.0
 #define VIEWPORT_STARTUP_LOWER_OFFSET 0.18
@@ -254,6 +256,11 @@ typedef struct ViewportState {
     float posx, posy, posz;
     float yaw, pitch;
     float speed;
+
+    BOOL zooming;
+    CameraFrame zoomframe;
+    LARGE_INTEGER zoomstart, zoomfrequency;
+    double selectionfar; /* extended clipping for a large framed selection */
 
     BOOL orbit;
     OrbitCamera orbitcamera;
@@ -795,6 +802,7 @@ static void ViewportResizeGL(ViewportState *state, int width, int height)
     aspect = (GLdouble)width / (GLdouble)height;
 
     if (state->orbit) { OrbitCameraClip(&state->orbitcamera, &nearz, &farz); }
+    else { farz = fmax(farz, state->selectionfar); }
     halfheight = tan(VIEWPORT_FOV_Y * 0.5 * VIEWPORT_DEG_TO_RAD) * nearz;
     halfwidth = halfheight * aspect;
 
@@ -802,6 +810,27 @@ static void ViewportResizeGL(ViewportState *state, int width, int height)
     glLoadIdentity();
     glFrustum(-halfwidth, halfwidth, -halfheight, halfheight, nearz, farz);
     glMatrixMode(GL_MODELVIEW);
+}
+
+static void ViewportCancelZoom(HWND hwnd, ViewportState *state)
+{
+    if (!state || !state->zooming) { return; }
+    KillTimer(hwnd, VIEWPORT_ZOOM_TIMER);
+    state->zooming = FALSE;
+}
+
+static void ViewportZoomFrame(HWND hwnd, ViewportState *state)
+{
+    LARGE_INTEGER now;
+    double eye[3];
+    BOOL done;
+    if (!state || !state->zooming) { return; }
+    QueryPerformanceCounter(&now);
+    done = CameraFrameSample(&state->zoomframe,
+        (double)(now.QuadPart - state->zoomstart.QuadPart)/state->zoomfrequency.QuadPart, eye);
+    state->posx = (float)eye[0]; state->posy = (float)eye[1]; state->posz = (float)eye[2];
+    if (done) { ViewportCancelZoom(hwnd, state); }
+    InvalidateRect(hwnd, NULL, FALSE);
 }
 
 
@@ -2545,7 +2574,7 @@ static BOOL ViewportBuildPickRay(HWND hwnd, const ViewportState *state,
        not spherical distances from the eye. Convert them to distances
        along this particular off-axis ray. */
     ray->mindistance = VIEWPORT_NEAR_Z / forwardcomponent;
-    ray->maxdistance = VIEWPORT_FAR_Z / forwardcomponent;
+    ray->maxdistance = fmax(VIEWPORT_FAR_Z, state->selectionfar) / forwardcomponent;
 
     return TRUE;
 }
@@ -3869,7 +3898,7 @@ static BOOL ViewportProject(const ViewportState *state, const Vertex *point, dou
     ViewportGetBasis(state, f, r);
     up[0]=r[1]*f[2]-r[2]*f[1]; up[1]=r[2]*f[0]-r[0]*f[2]; up[2]=r[0]*f[1]-r[1]*f[0];
     depth=p[0]*f[0]+p[1]*f[1]+p[2]*f[2];
-    if (depth < VIEWPORT_NEAR_Z || depth > VIEWPORT_FAR_Z) { return FALSE; }
+    if (depth < VIEWPORT_NEAR_Z || depth > fmax(VIEWPORT_FAR_Z, state->selectionfar)) { return FALSE; }
     focal=state->height/(2.0*tan(VIEWPORT_FOV_Y*0.5*VIEWPORT_DEG_TO_RAD));
     screen[0]=state->width*0.5+focal*(p[0]*r[0]+p[1]*r[1]+p[2]*r[2])/depth;
     screen[1]=state->height*0.5-focal*(p[0]*up[0]+p[1]*up[1]+p[2]*up[2])/depth;
@@ -4428,6 +4457,173 @@ static BOOL ViewportStanSelectionPosition(const ViewportState *state, BOOL gizmo
     if (!(total > 0)) { return FALSE; }
     for (axis = 0; axis < 3; axis++) { position[axis] /= total; }
     *countout = count;
+    return TRUE;
+}
+
+static void ViewportExtendSelectionBounds(double min[3], double max[3], double x, double y, double z)
+{
+    const double point[3] = {x, y, z};
+    int axis;
+    if (!isfinite(x) || !isfinite(y) || !isfinite(z)) { return; }
+    for (axis = 0; axis < 3; axis++)
+    {
+        min[axis] = fmin(min[axis], point[axis]);
+        max[axis] = fmax(max[axis], point[axis]);
+    }
+}
+
+/* Use extents, not the transform gizmo's centroid. BG and stan selections
+ * can coexist; model triangles already include their placed transforms. */
+static BOOL ViewportSelectionBounds(const ViewportState *state, double min[3], double max[3])
+{
+    int i, end, ends;
+    DWORD tile, point, portal;
+    SetupMarker marker;
+    if (!state || state->orbit || state->flying || state->dragaxis >= 0 || state->boxpending
+        || state->width < 1 || state->height < 1 || state->tool == EDITOR_TOOL_VERTEX_PAINT)
+    { return FALSE; }
+    for (i = 0; i < 3; i++) { min[i] = DBL_MAX; max[i] = -DBL_MAX; }
+    ends = state->tool == EDITOR_TOOL_EDGE_SELECT ? 2 : 1;
+    if (state->scene)
+    {
+        for (i = 0; i < state->scenecount/3; i++)
+        {
+            BOOL object = state->showobjects && state->selectedobject != VIEWPORT_OBJECT_NONE
+                && state->sceneobjectindices && state->sceneobjectindices[i] == state->selectedobject;
+            BOOL face = state->tool == EDITOR_TOOL_FACE_SELECT && state->selectedtris
+                && state->selectedtris[i] && ViewportCornerVisible(state, i*3);
+            if (!object && !face) { continue; }
+            for (end = 0; end < 3; end++)
+            {
+                const Vertex *v = &state->scene[i*3 + end];
+                ViewportExtendSelectionBounds(min, max, v->x, v->y, v->z);
+            }
+        }
+        if (state->tool != EDITOR_TOOL_FACE_SELECT)
+        {
+            for (i = 0; i < state->componentcount; i++)
+            {
+                for (end = 0; end < ends; end++)
+                {
+                    int corner = state->components[i].corners[end];
+                    if (ViewportCornerVisible(state, corner))
+                    {
+                        const Vertex *v = &state->scene[corner];
+                        ViewportExtendSelectionBounds(min, max, v->x, v->y, v->z);
+                    }
+                }
+            }
+        }
+    }
+    if (state->showobjects && state->selectedobject != VIEWPORT_OBJECT_NONE)
+    {
+        for (i = 0; i < state->objectselectionboxcount; i++)
+        {
+            const Vertex *v = &state->objectselectionbox[i];
+            ViewportExtendSelectionBounds(min, max, v->x, v->y, v->z);
+        }
+    }
+    if (ViewportStanVisible(state))
+    {
+        if (state->tool == EDITOR_TOOL_FACE_SELECT && state->stanselected)
+        {
+            for (tile = 0; tile < state->stan.tilecount; tile++)
+            {
+                if (!state->stanselected[tile] || ViewportStanTileHidden(state, tile)) { continue; }
+                for (point = 0; point < state->stan.tiles[tile].pointcount; point++)
+                {
+                    const StanPoint *v = &state->stan.tiles[tile].points[point];
+                    ViewportExtendSelectionBounds(min, max, v->x, v->y, v->z);
+                }
+            }
+        }
+        else if (state->tool != EDITOR_TOOL_FACE_SELECT)
+        {
+            for (i = 0; i < state->stancomponentcount; i++)
+            {
+                /* Canonical endpoints may belong to a hidden neighbor. */
+                if (!ViewportFindStanComponent(state, state->stancomponents[i].refs, ends, NULL)) { continue; }
+                for (end = 0; end < ends; end++)
+                {
+                    const StanPointRef *ref = &state->stancomponents[i].refs[end];
+                    if (ref->tile < state->stan.tilecount
+                        && ref->point < state->stan.tiles[ref->tile].pointcount)
+                    {
+                        const StanPoint *v = &state->stan.tiles[ref->tile].points[ref->point];
+                        ViewportExtendSelectionBounds(min, max, v->x, v->y, v->z);
+                    }
+                }
+            }
+        }
+    }
+    for (portal = 0; portal < state->portals.portalcount; portal++)
+    {
+        unsigned int mask = ViewportPortalPointMask(state, portal);
+        for (point = 0; point < state->portals.portals[portal].pointcount; point++)
+        {
+            if (mask & (1u << point))
+            {
+                const BgPortalPoint *v = &state->portals.portals[portal].points[point];
+                ViewportExtendSelectionBounds(min, max, v->x, v->y, v->z);
+            }
+        }
+    }
+    i = ViewportSelectedPadIndex(state);
+    if (i >= 0 && ViewportPadVisible(state, (DWORD)i))
+    {
+        const ViewportPad *pad = &state->pads[i];
+        const float *position = state->padpreview ? pad->previewposition : pad->position;
+        ViewportExtendSelectionBounds(min, max, position[0], position[1], position[2]);
+        for (end = 0; state->padmarkers && end < VIEWPORT_BOX_VERTICES
+            && i*VIEWPORT_BOX_VERTICES + end < state->padmarkercount; end++)
+        {
+            const Vertex *v = &state->padmarkers[i*VIEWPORT_BOX_VERTICES + end];
+            ViewportExtendSelectionBounds(min, max, v->x, v->y, v->z);
+        }
+    }
+    if (ViewportSelectedMarker(state, &marker))
+    {
+        double side[3];
+        DWORD vertex;
+        ViewportExtendSelectionBounds(min, max, marker.position[0], marker.position[1], marker.position[2]);
+        for (i = 0; i < 3; i++)
+        { side[i] = marker.look[(i+1)%3]*marker.up[(i+2)%3] - marker.look[(i+2)%3]*marker.up[(i+1)%3]; }
+        for (vertex = 0; state->markermodels[marker.kind] && vertex < state->markermodeltris[marker.kind]*3; vertex++)
+        {
+            const BgVertex *v = &state->markermodels[marker.kind][vertex];
+            double position[3];
+            for (i = 0; i < 3; i++)
+            { position[i] = marker.position[i] + VIEWPORT_MARKER_MODEL_SCALE*(v->x*marker.look[i] + v->y*marker.up[i] + v->z*side[i]); }
+            ViewportExtendSelectionBounds(min, max, position[0], position[1], position[2]);
+        }
+    }
+    return min[0] <= max[0];
+}
+
+BOOL ViewportCanZoomToSelected(HWND hwnd)
+{
+    double min[3], max[3];
+    return ViewportSelectionBounds(ViewportGetState(hwnd), min, max);
+}
+
+BOOL ViewportZoomToSelected(HWND hwnd)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    CameraFrame frame;
+    double min[3], max[3], eye[3];
+    LARGE_INTEGER start, frequency;
+    if (!ViewportSelectionBounds(state, min, max)) { return FALSE; }
+    eye[0] = state->posx; eye[1] = state->posy; eye[2] = state->posz;
+    if (!CameraFrameBegin(&frame, min, max, eye, state->yaw, state->pitch,
+        (double)state->width/state->height, VIEWPORT_FOV_Y, VIEWPORT_NEAR_Z)
+        || !QueryPerformanceFrequency(&frequency) || frequency.QuadPart <= 0
+        || !QueryPerformanceCounter(&start)) { return FALSE; }
+    ViewportCancelZoom(hwnd, state);
+    if (!SetTimer(hwnd, VIEWPORT_ZOOM_TIMER, 16, NULL)) { return FALSE; }
+    state->zoomframe = frame; state->zoomstart = start; state->zoomfrequency = frequency;
+    state->zooming = TRUE;
+    state->selectionfar = fmax(state->selectionfar, frame.farclip);
+    ViewportResizeGL(state, state->width, state->height);
     return TRUE;
 }
 
@@ -5059,7 +5255,7 @@ static BOOL ViewportEdgeInBox(const ViewportState *state, const Vertex *a, const
         /* Box boundaries expressed before perspective division, plus camera
            clipping. This also handles edges crossing the near/far planes. */
         distances[end][0] = depth - VIEWPORT_NEAR_Z;
-        distances[end][1] = VIEWPORT_FAR_Z - depth;
+        distances[end][1] = fmax(VIEWPORT_FAR_Z, state->selectionfar) - depth;
         distances[end][2] = focal*x + (state->width*0.5 - box->left)*depth;
         distances[end][3] = (box->right - state->width*0.5)*depth - focal*x;
         distances[end][4] = (state->height*0.5 - box->top)*depth - focal*y;
@@ -5783,7 +5979,7 @@ static double ViewportGizmoScale(const ViewportState *state)
     depth=(state->gizmoposition[0]-state->posx)*forward[0]
         +(state->gizmoposition[1]-state->posy)*forward[1]
         +(state->gizmoposition[2]-state->posz)*forward[2];
-    if (depth < VIEWPORT_NEAR_Z*2 || depth > VIEWPORT_FAR_Z*0.95) { return 0; }
+    if (depth < VIEWPORT_NEAR_Z*2 || depth > fmax(VIEWPORT_FAR_Z, state->selectionfar)*0.95) { return 0; }
     return 90.0*depth*2.0*tan(VIEWPORT_FOV_Y*0.5*VIEWPORT_DEG_TO_RAD)/state->height;
 }
 
@@ -6957,6 +7153,14 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
     if (state != NULL && state->orbit && ViewportOrbitInput(hwnd, state, msg, wparam, lparam))
     { return 0; }
 
+    /* A gesture or lifecycle change takes control immediately; mouse hover
+     * alone must not interrupt the animation. Keep orbit previews separate. */
+    if (msg == WM_SIZE || msg == WM_LBUTTONDOWN || msg == WM_LBUTTONDBLCLK
+        || msg == WM_RBUTTONDOWN || msg == WM_RBUTTONDBLCLK || msg == WM_MBUTTONDOWN
+        || msg == WM_MOUSEWHEEL || msg == WM_CANCELMODE || msg == WM_CAPTURECHANGED
+        || msg == WM_KILLFOCUS || msg == WM_DESTROY || (msg == WM_KEYDOWN && wparam == VK_ESCAPE))
+    { ViewportCancelZoom(hwnd, state); }
+
     switch (msg)
     {
     case WM_CREATE:
@@ -7018,6 +7222,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         return 0;
 
     case WM_TIMER:
+        if (wparam == VIEWPORT_ZOOM_TIMER) { ViewportZoomFrame(hwnd, state); return 0; }
         if (wparam == VIEWPORT_CLOUD_TIMER && state && state->cloudtexture.name && state->scene
             && state->rendermode != VIEWPORT_RENDER_UNTEXTURED && !state->flying && IsWindowVisible(hwnd)
             && !IsIconic(GetAncestor(hwnd, GA_ROOT))) { InvalidateRect(hwnd, NULL, FALSE); }
@@ -8200,6 +8405,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     int i;
 
     ViewportSetColorPick(hwnd, FALSE);
+    ViewportCancelZoom(hwnd, state);
     ViewportCancelTransform(hwnd);
     if (state != NULL && !framecamera) { savedobject = state->selectedobject; }
     if (state != NULL && !framecamera) { savedpad = state->selectedpad; }
@@ -8491,6 +8697,8 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
 
     if (framecamera || scene == NULL)
     {
+        state->selectionfar = 0;
+        ViewportResizeGL(state, state->width, state->height);
         state->componentcount = 0;
         ViewportSetStanTiles(hwnd, NULL);
     }
@@ -8888,6 +9096,7 @@ void ViewportMoveCameraToSpawn(HWND hwnd)
     ViewportState *state = ViewportGetState(hwnd);
     DWORD i;
     if (state == NULL || state->orbit) { return; }
+    ViewportCancelZoom(hwnd, state);
     for (i = 0; i < state->setupmarkercount; i++)
     {
         const SetupMarker *spawn = &state->setupmarkers[i];

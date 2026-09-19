@@ -27,6 +27,7 @@ enum { GL_FRONT=1, GL_BACK, GL_FRONT_AND_BACK, IDC_ARROW, IDC_CROSS, BRUSH_CURSO
 #define GET_X_LPARAM(p) ((short)(p))
 #define GET_Y_LPARAM(p) ((short)((p) >> 16))
 typedef struct ViewportState {
+    double selectionfar;
     EditorTool tool;
     HCURSOR paintcursor;
     ViewportRenderMode rendermode;
@@ -94,6 +95,7 @@ static void SetFocus(HWND hwnd) {}
 static BOOL ViewportOpenModelAt(HWND h, ViewportState *s, int x, int y, WPARAM w) { selectioncalls++; return FALSE; }
 static BOOL ViewportBeginTransform(HWND h, ViewportState *s, int x, int y, BOOL shift) { selectioncalls++; return FALSE; }
 static void ViewportDragTransform(HWND h, ViewportState *s, int x, int y) { abort(); }
+static DWORD ViewportGetStanSelectionCount(HWND h, DWORD *tile) { return 0; }
 static int ViewportSelectedPadIndex(const ViewportState *s) { return -1; }
 static BOOL ViewportTryPickMarker(HWND h, ViewportState *s, int x, int y, BOOL remove) { selectioncalls++; return FALSE; }
 static BOOL ViewportTryPickPortal(HWND h, ViewportState *s, int x, int y, BOOL add, BOOL remove) { selectioncalls++; return FALSE; }

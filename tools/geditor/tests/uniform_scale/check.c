@@ -14,6 +14,7 @@ typedef struct { int x,y; } POINT;
 #define MB_ICONERROR 1
 #define MB_ICONINFORMATION 2
 #include "viewport.h"
+#include "cameraframe.h"
 #define VIEWPORT_BOX_VERTICES 24
 #define VIEWPORT_OBJECT_NONE 0xffffffffu
 #define GL_TRIANGLES 4

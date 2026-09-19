@@ -22,6 +22,7 @@ enum { GL_FRONT=1, GL_BACK, GL_FRONT_AND_BACK, MF_STRING=0,
        TPM_RETURNCMD=1, TPM_NONOTIFY=2, TPM_RIGHTBUTTON=4,
        VIEWPORT_WM_MARK_SEAM=78, VIEWPORT_WM_SPLIT_EDGE=51, VIEWPORT_WM_DISCONNECT_FACES=52, VIEWPORT_WM_LINK_STAN_TILES=71, VIEWPORT_WM_SPLIT_STAN_EDGE=75, VIEWPORT_WM_LINK_STAN_EDGE=76 };
 typedef struct ViewportState {
+    double selectionfar;
     EditorTool tool;
     ViewportRenderMode rendermode;
     BOOL orbit,flying,vertexsnap,boxpending,contextpending,cullbackfaces,portalsnaptarget;

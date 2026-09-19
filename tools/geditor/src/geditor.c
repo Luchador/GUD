@@ -646,6 +646,7 @@ enum {
     ID_GEOMETRY_BRIDGE_EDGES,
     ID_GEOMETRY_DISCONNECT_FACE,
     ID_GEOMETRY_KNIFE,
+    ID_VIEW_ZOOM_SELECTED,
     ID_VIEW_BACKFACE_CULLING,
     ID_VIEW_GEOMETRY_STATISTICS,
     ID_VIEW_FOG,
@@ -818,6 +819,8 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(editmenu, MF_STRING, ID_EDIT_COPY_FACES, "&Copy\tCtrl+C");
     AppendMenu(editmenu, MF_STRING, ID_EDIT_PASTE_FACES, "&Paste\tCtrl+V");
 
+    AppendMenu(viewmenu, MF_STRING, ID_VIEW_ZOOM_SELECTED, "&Zoom to Selected\tZ");
+    AppendMenu(viewmenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(viewmenu, MF_STRING, ID_VIEW_BACKFACE_CULLING, "&Backface Culling");
     AppendMenu(viewmenu, MF_STRING | MF_CHECKED, ID_VIEW_GEOMETRY_STATISTICS, "Geometry &Statistics");
     AppendMenu(viewmenu, MF_STRING | MF_CHECKED, ID_VIEW_FOG, "&Fog\tF");
@@ -5331,6 +5334,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         EnableMenuItem((HMENU)wparam, ID_TOOLS_ACTION_BLOCKS, MF_BYCOMMAND | (g_CurrentSetup.data ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_CREATE_ROM, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         GEditorUpdateHistoryMenu((HMENU)wparam);
+        EnableMenuItem((HMENU)wparam, ID_VIEW_ZOOM_SELECTED, MF_BYCOMMAND |
+            (ViewportCanZoomToSelected(g_Viewport) ? MF_ENABLED : MF_GRAYED));
         CheckMenuItem((HMENU)wparam, ID_VIEW_BACKFACE_CULLING, MF_BYCOMMAND | (ViewportGetBackfaceCulling(g_Viewport) ? MF_CHECKED : MF_UNCHECKED));
         CheckMenuItem((HMENU)wparam, ID_VIEW_GEOMETRY_STATISTICS, MF_BYCOMMAND | (ViewportGetGeometryStatisticsVisible(g_Viewport) ? MF_CHECKED : MF_UNCHECKED));
         CheckMenuItem((HMENU)wparam, ID_VIEW_FOG, MF_BYCOMMAND | (ViewportGetFogVisible(g_Viewport) ? MF_CHECKED : MF_UNCHECKED));
@@ -5558,6 +5563,10 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
             case ID_EDIT_FLIP_FACE:
                 GEditorFlipSelectedBgFaces(hwnd);
+                return 0;
+
+            case ID_VIEW_ZOOM_SELECTED:
+                ViewportZoomToSelected(g_Viewport);
                 return 0;
 
             case ID_VIEW_BACKFACE_CULLING:
@@ -5791,6 +5800,23 @@ static BOOL GEditorHandleFlipFaceHotkey(HWND frame, const MSG *message)
         || lstrcmpi(classname, "ComboLBox") == 0) { return FALSE; }
     if (!(message->lParam & ((LPARAM)1 << 30)))
     { SendMessage(frame, WM_COMMAND, ID_EDIT_FLIP_FACE, 0); }
+    return TRUE;
+}
+
+/* Plain Z belongs to the main viewport; typing and Ctrl+Z keep their meaning. */
+static BOOL GEditorHandleZoomSelectedHotkey(HWND frame, const MSG *message)
+{
+    char classname[32] = "";
+    if (!message || !g_Viewport || message->message != WM_KEYDOWN || message->wParam != 'Z'
+        || ViewportIsFlying(g_Viewport) || ViewportIsTransforming(g_Viewport)
+        || (message->hwnd != frame && !IsChild(frame, message->hwnd))
+        || (GetKeyState(VK_CONTROL) & 0x8000) || (GetKeyState(VK_MENU) & 0x8000)
+        || (GetKeyState(VK_SHIFT) & 0x8000)) { return FALSE; }
+    GetClassName(message->hwnd, classname, sizeof(classname));
+    if (lstrcmpi(classname, "Edit") == 0 || lstrcmpi(classname, "ComboBox") == 0
+        || lstrcmpi(classname, "ComboLBox") == 0) { return FALSE; }
+    if (!(message->lParam & ((LPARAM)1 << 30)))
+    { SendMessage(frame, WM_COMMAND, ID_VIEW_ZOOM_SELECTED, 0); }
     return TRUE;
 }
 
@@ -6056,6 +6082,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                     && !GEditorHandleRenderModeHotkey(hwnd, &msg)
                     && !GEditorHandleVisibilityHotkey(hwnd, &msg)
                     && !GEditorHandleFlipFaceHotkey(hwnd, &msg)
+                    && !GEditorHandleZoomSelectedHotkey(hwnd, &msg)
                     && !GEditorHandleMergeVerticesHotkey(hwnd, &msg)
                     && !GEditorHandleBridgeEdgesHotkey(hwnd, &msg)
                     && !GEditorHandleBisectEdgeHotkey(hwnd, &msg)
@@ -6091,6 +6118,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                 && !GEditorHandleRenderModeHotkey(hwnd, &msg)
                 && !GEditorHandleVisibilityHotkey(hwnd, &msg)
                 && !GEditorHandleFlipFaceHotkey(hwnd, &msg)
+                && !GEditorHandleZoomSelectedHotkey(hwnd, &msg)
                 && !GEditorHandleMergeVerticesHotkey(hwnd, &msg)
                 && !GEditorHandleBridgeEdgesHotkey(hwnd, &msg)
                 && !GEditorHandleBisectEdgeHotkey(hwnd, &msg)

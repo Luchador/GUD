@@ -10,6 +10,7 @@ typedef void *HWND;
 typedef struct { int x,y; } POINT;
 typedef struct { int left,top,right,bottom; } RECT;
 typedef struct ViewportState {
+    double selectionfar;
     BOOL flying,orbit;
     int dragaxis,scenecount,selectedtricount;
     float yaw,pitch,posx,posy,posz;

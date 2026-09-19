@@ -106,6 +106,7 @@ typedef struct { int left,top,right,bottom; } RECT;
 #define GEDITOR_TITLE "GEditor"
 #include "types.inc"
 typedef struct ViewportState {
+    double selectionfar;
     EditorTool tool;BOOL showportals,flying,markerselected;int componentcount;
     float posx,posy,posz,yaw,pitch;int width,height,dragaxis;
     BgPortalFile portals;DWORD selectedportal;unsigned char portalselection[BG_MAX_PORTALS];
