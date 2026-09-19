@@ -180,6 +180,11 @@
 #define IDC_KNIFE_PICK        1206
 #define IDC_KNIFE_STATUS      1207
 
+#define IDC_UV_CYLINDER_AXIS_LABEL 1230
+#define IDC_UV_CYLINDER_AXIS       1231
+#define IDC_UV_CYLINDER_SIZE_LABEL 1232
+#define IDC_UV_CYLINDER_SIZE       1233
+
 /* Longest project name we accept, including the terminator. */
 #define GEDITOR_NAME_MAX       64
 

@@ -257,6 +257,7 @@ BOOL BgDocumentExtrudeEdges(BgDocument *document, const BgDocumentEdgeRef *edges
                 face->vertexindices[c] = indices[g_ExtrudeCorners[tri][c]];
                 pending->vertices[face->vertexindices[c]].usecount++;
             }
+            BgDocumentInheritFaceSeams(pending->vertices, &q->face, face);
             if (tri == 1)
             { out[i] = (BgDocumentEdgeRef){{face->id,face->room,face->layer,0},1}; }
         }

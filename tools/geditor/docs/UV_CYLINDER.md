@@ -26,45 +26,71 @@ Zoom out or pan towards a limit to see its border. For mixed texture sizes,
 the border encloses the range valid for every displayed face. It remains
 visible without a shared texture preview and with opacity set to 0%.
 
-Select the background faces making up one cylinder, open the UV editor, and
-click **Cylindrical** beside the planar projection buttons. It maps all faces
-shown in the UV editor, independently of the UV vertex selection.
+## Cylindrical unwrap
 
-The mapper estimates an axis from vertex positions and face normals, including
-rotated cylinders and cylinders that are wider than they are tall. The side
-faces wrap once around U; V covers the cylinder's height. The seam follows a
-rim column where possible. Selected end caps receive planar UVs in the same
-texture tile, overlapping the side layout. This is a starting mapping for a
-single, approximately circular cylinder; selecting several objects or an
-incomplete side wall can give poor results. Rotate, scale or move the resulting
-UVs as needed.
+Select the complete **uncapped side wall** of one cylinder in face mode, open
+Tools > UV Editor, choose **Axis** and **Texel size (cm)**, then click
+**Cylindrical**. The operation uses all faces displayed in the UV Editor,
+independently of the selected UV vertices.
 
-Mapping creates native vertex copies where the seam, caps, or different texture
-sizes require different UV coordinates. Copies retain position, color and flags.
-Unselected faces keep their original UVs. Face identities, materials and room
-assignments are preserved. Both coordinate entries and cylindrical mapping use
-one ordinary undo/redo step and save through the existing background compiler.
-No game rendering code or project file format changes are required.
+- **Auto** derives the axis from the two open rims, using their area centroids
+  and rim planes to handle both tall and short cylinders.
+  Uneven tessellation, rotated tubes, short/wide cylinders and polygonal or
+  elliptical cross-sections are supported. X/Y/Z explicitly choose a world
+  axis; an upright smokestack uses **Y**.
+- **Texel size (cm)** is world centimetres covered by one image pixel, in both
+  directions. The default is 4. A 32 x 32 texture therefore repeats every
+  128 cm. Larger values make the texture larger; smaller values add repeats.
+  Image dimensions are respected when the canvas converts native texels to UVs.
+- U measures distance along the polygonal rim; V measures height along the
+  chosen axis. Adjacent wall faces remain connected in UV space except at
+  the seam. The unwrap does not stretch the whole wall into a square 0-1 tile.
+- Cylindrical expects one wall with two open rims. Caps, non-manifold geometry,
+  disconnected walls and invalid seam paths are rejected without changing UVs.
+  Strong bends or tapering still introduce projection distortion; this tool
+  is intended for approximately straight cylinders, not a general relax solver.
+
+### Marking the seam
+
+1. Switch the viewport to **Edge** mode (2).
+2. Right-click an edge and choose **Mark Seam**. For a subdivided wall, mark
+   a continuous edge path from one open rim to the other. Do not mark the rims.
+3. Marked edges appear **green while the UV Editor is open**. Right-click a
+   marked edge and choose **Clear Seam** to remove its mark.
+4. Return to **Face** mode (3), select the whole wall, and click Cylindrical.
+
+A marked seam must be one connected, unbranched path. Incomplete, multiple,
+branched, closed or rim-following seams produce an explanation. With no marks
+on the selection, the tool chooses a connected edge path automatically.
+Seam marking does not split or move geometry. Both sides of matching geometric
+edges are marked even if their native vertices were split by UVs or colors.
+
+Seam marks support undo/redo and Save Project. They are stored beside each BG
+as an editor-only `.uvseams` file, using geometric edge keys that survive native
+vertex compaction and UV splitting. They do not enter the ROM. Face winding,
+edge bisection, extrusion and knife cuts retain the applicable seam portions.
+The normal project rebase copy also carries these guide files forward; keys
+that no longer match geometry are ignored when loading.
+
+Mapping creates native vertex copies only where different UVs require them.
+Copies retain position, color and flags; unselected faces retain their UVs.
+Each mapping is one undo step and saves through the normal background compiler.
+If the result exceeds native S/T limits, the entire edit is rejected; increase
+Texel size to reduce the number of repeats.
 
 ## Verification
 
-Run `python3 tools/geditor/tests/uv_texture/run.py` for texture selection,
-alpha/opacity, negative repeats, pan/zoom alignment, and native range borders
-with mixed dimensions and offscreen clipping.
+Run `python3 tools/geditor/tests/uv_cylinder/run.py`. The native tests use
+AddressSanitizer and UndefinedBehaviorSanitizer and cover:
 
-Run `python3 tools/geditor/tests/uv_cylinder/run.py` for the focused native tests:
+- 396 regular cylinder cases, including 6-16 sides, three aspect ratios,
+  rotation, duplicated native vertices and integral coordinate rounding.
+- Explicit seams on every axis, irregular elliptical rims, multiple height
+  segments, diagonal seam paths, shared-edge continuity and rejected seams/caps.
+- Per-corner UV splitting, colors/materials, native compile/save/reload,
+  undo/redo, repeated mapping, rollback and native coordinate limits.
+- Seam guide persistence, winding, marking across native splits, failed file
+  replacement and confirmation that marks do not change compiled BG bytes.
 
-- 792 cylinder cases covering every side count from 6 through 16, three aspect
-  ratios and orientations, optional caps, duplicated vertices and integer grid
-  rounding; side spans, seam wrapping and invalid input are checked.
-- Per-face native UV edits preserve unselected faces, geometry, colors and
-  materials; equal UV variants share copies; repeated mapping adds no vertices.
-- Actual editor transactions cover native compile/save/reload, undo/redo and
-  rollback on allocation, rebuild or history failures.
-- Actual UV field/canvas functions cover displayed means, focused-axis Enter,
-  mixed texture dimensions, bounds, invalid input, unchanged entries and the
-  existing rotate/scale controls.
-
-The tests use AddressSanitizer and UndefinedBehaviorSanitizer. Selection-history
-regressions and a complete MinGW Windows build with warnings treated as errors
-also passed. Interactive Windows viewport testing remains a manual check.
+Texture canvas and existing topology tests remain in `tests/uv_texture`,
+`tests/edge_extrusion`, `tests/bisect_edge` and `tests/knife`.

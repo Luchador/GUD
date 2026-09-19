@@ -40,6 +40,9 @@ void ViewportSetRenderMode(HWND viewport, ViewportRenderMode mode);
 /* Context commands. Split Edge carries a stack-owned BgDocumentEdgeRef in
    lparam; Disconnect Face uses the current BG face selection. */
 #define VIEWPORT_WM_SPLIT_EDGE (WM_APP + 51)
+/* Synchronous edge payload, wparam is TRUE to mark / FALSE to clear. */
+#define VIEWPORT_WM_MARK_SEAM (WM_APP + 78)
+void ViewportShowUVSeams(HWND viewport, BOOL show);
 #define VIEWPORT_WM_DISCONNECT_FACES (WM_APP + 52)
 /* Link the two currently selected stan faces without replacing the selection. */
 #define VIEWPORT_WM_LINK_STAN_TILES (WM_APP + 71)

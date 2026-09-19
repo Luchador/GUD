@@ -989,6 +989,7 @@ BOOL BgDocumentFlipFaces(BgDocument *document, const BgFaceRef *refs,
            references. Shared vertices and neighboring faces remain intact. */
         face->vertexindices[1] = face->vertexindices[2];
         face->vertexindices[2] = vertex;
+        face->uvseams = ((face->uvseams & 1) << 2) | (face->uvseams & 2) | ((face->uvseams & 4) >> 2);
     }
     document->dirty = TRUE;
     return TRUE;
@@ -1957,7 +1958,7 @@ BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
             out->facerefs[outputface].faceid = face->id;
             out->facerefs[outputface].room = face->room;
             out->facerefs[outputface].layer = face->layer;
-            out->facerefs[outputface].reserved = 0;
+            out->facerefs[outputface].seams = face->uvseams;
 
             for (corner = 0; corner < 3; corner++)
             {
@@ -2163,4 +2164,34 @@ BOOL BgDocumentScaleVertices(BgDocument *document, const BgDocumentVertexRef *re
 {
     return BgDocumentTransformVertices(document, refs, count, NULL, scale,
                                        scale ? scale->pivot : NULL, changed, reasonout);
+}
+
+/* Topology edits retain only portions of an existing seam, never copy the
+ * source triangle's corner mask onto unrelated new edges. */
+void BgDocumentInheritFaceSeams(const BgDocumentVertex *vertices,
+    const BgDocumentFace *source,BgDocumentFace *target)
+{
+    unsigned char mask=source->uvseams;
+    target->uvseams=0;
+    for (int s=0;s<3;s++) if (mask&(1<<s))
+    {
+        const BgDocumentVertex *a=&vertices[source->vertexindices[s]],*b=&vertices[source->vertexindices[(s+1)%3]];
+        double av[3]={a->x,a->y,a->z},d[3]={b->x-a->x,b->y-a->y,b->z-a->z};
+        double square=d[0]*d[0]+d[1]*d[1]+d[2]*d[2];
+        if (!square) { continue; }
+        for (int c=0;c<3;c++)
+        {
+            BOOL on=TRUE;
+            for (int end=0;end<2;end++)
+            {
+                const BgDocumentVertex *p=&vertices[target->vertexindices[(c+end)%3]];
+                double v[3]={p->x-av[0],p->y-av[1],p->z-av[2]};
+                double t=(v[0]*d[0]+v[1]*d[1]+v[2]*d[2])/square,error=0;
+                for (int k=0;k<3;k++) { double e=v[k]-t*d[k]; error+=e*e; }
+                /* Midpoints snap to integral native positions. */
+                if (t < -1e-8 || t > 1+1e-8 || error>0.76) { on=FALSE; }
+            }
+            if (on) { target->uvseams|=(unsigned char)(1<<c); }
+        }
+    }
 }

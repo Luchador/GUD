@@ -23,7 +23,7 @@ def main():
         common = (here.parent / 'bg_disconnect/check.c').read_text()
         (work / 'common.inc').write_text(''.join(helper.function(common, n) for n in ('Same', 'UseCounts')))
         editor = (src / 'geditor.c').read_text()
-        (work / 'editor.inc').write_text(helper.function(editor, 'GEditorApplyUVFaceEdit'))
+        (work / 'editor.inc').write_text(helper.function(editor, 'GEditorApplyUVFaceEdit') + helper.function(editor, 'GEditorMarkUVSeam'))
         canvas = (src / 'uvcanvas.c').read_text()
         (work / 'types.inc').write_text(''.join(re.search(r'typedef struct ' + n + r' \{.*?\} ' + n + ';',canvas,re.S)[0]+'\n'
             for n in ('UVCanvasNode', 'UVCanvasState')))
@@ -34,11 +34,11 @@ def main():
         (work / 'fields.inc').write_text(''.join(helper.function(uv, n) for n in
             ('UVEditorUpdateFields', 'UVEditorReadCoordinate', 'UVEditorApplyFields')))
         command = [os.environ.get('CC','cc'), '-std=c99', '-O1', '-g', '-Wall', '-Wextra', '-Werror',
-                   '-Wno-unused-parameter', '-ffunction-sections', '-fdata-sections', '-fsanitize=address,undefined',
+                   '-Wno-unused-parameter', '-Dfopen=TestFopen', '-ffunction-sections', '-fdata-sections', '-fsanitize=address,undefined',
                    f'-I{here.parent / "image_import"}', f'-I{src}', f'-I{work}']
         env = dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1')
-        for name, sources in (('projection',('uvcylinder.c',)),
-                              ('document',('bgload.c','bgcompile.c','bgmaterial.c','bgrender.c','bgprimitive.c','bghistory.c','uvcylinder.c')),
+        for name, sources in (('projection',('uvcylinder.c',)), ('seams',('uvcylinder.c',)),
+                              ('document',('bgload.c','bgcompile.c','bgmaterial.c','bgrender.c','bgprimitive.c','bghistory.c','uvcylinder.c','bgseams.c','bgseamfile.c','bgbisect.c')),
                               ('canvas',('uvcylinder.c',))):
             subprocess.run(command + [str(here / (name+'.c')), str(here.parent / 'image_import/platform.c')]
                 + [str(src / n) for n in sources] + ['-Wl,--gc-sections', '-lm', '-o', str(work / name)],check=True)

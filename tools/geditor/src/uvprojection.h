@@ -26,11 +26,12 @@ int UVProjectionMap(UVProjectionVertex *vertices, int vertexcount,
                     const UVProjectionFace *faces, int facecount,
                     UVProjection projection, const char **reason);
 
-/* Fit one cylinder, including rotated or short/wide cylinders. U wraps once
- * around the sides; V spans the height. Caps use planar UVs in the same tile.
- * Per-corner output allows separate coordinates on either side of the seam.
- * The caller owns facecount triples; no source positions/UVs are changed. */
+/* Unwrap one uncapped side wall. Geometric adjacency joins native UV/color
+ * duplicates; seams has one three-bit edge mask per face (or NULL for auto).
+ * Axis: 0=Auto (open rims), 1=X, 2=Y, 3=Z. Output distances are in
+ * world units, ready for uniform texel density. No source data is modified. */
 int UVProjectionCylinder(const UVProjectionVertex *vertices, int vertexcount,
-    const UVProjectionFace *faces, int facecount, double (*uv)[3][2], const char **reason);
+    const UVProjectionFace *faces, int facecount, const unsigned char *seams,
+    int axis, double (*uv)[3][2], const char **reason);
 
 #endif

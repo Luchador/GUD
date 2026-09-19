@@ -38,7 +38,7 @@ typedef struct { BITMAPINFOHEADER bmiHeader; DWORD color; } BITMAPINFO;
 
 static UVCanvasState state;
 static HWND g_UVCanvas=&state, g_UVEditor=(HWND)1;
-static RECT client={0,0,1170,877}, controls[1200];
+static RECT client={0,0,1170,877}, controls[1300];
 static unsigned char *screenpixels;
 static unsigned pencolor;
 static POINT linestart, lines[4][2];
@@ -109,7 +109,7 @@ static void MoveWindow(HWND hwnd,int x,int y,int w,int h,BOOL paint)
 {
     assert(w>=0 && h>=0);
     if(hwnd==g_UVCanvas) { state.width=w; state.height=h; return; }
-    int id=(int)(intptr_t)hwnd; assert(id>=0 && id<1200);
+    int id=(int)(intptr_t)hwnd; assert(id>=0 && id<1300);
     controls[id]=(RECT){x,y,x+w,y+h};
 }
 static void ShowWindow(HWND hwnd,int show) {}

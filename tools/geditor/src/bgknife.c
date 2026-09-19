@@ -218,6 +218,7 @@ BOOL BgDocumentKnifeFaces(BgDocument *document, const BgFaceRef *faces, DWORD co
                     child.vertexindices[0] = polygon[0];
                     child.vertexindices[1] = polygon[triangle];
                     child.vertexindices[2] = polygon[triangle + 1];
+                    BgDocumentInheritFaceSeams(room->vertices, &face, &child);
                     KnifeNormal(room, child.vertexindices, normal);
                     /* Thin railing triangles can leave a fragment narrower
                      * than one native unit. Never emit its zero-area triangle. */

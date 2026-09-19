@@ -13,6 +13,8 @@
 
 static HWND g_UVEditor;
 static HWND g_UVCanvas;
+static int g_UVCylinderAxis;
+static double g_UVCylinderTexelSize = 4.0;
 static int g_UVTextureOpacity = 50; /* Retained when the window is reopened. */
 
 static void UVEditorUpdateOpacity(void)
@@ -155,8 +157,9 @@ static void UVEditorApplyFields(void)
 static void UVEditorLayout(HWND hwnd)
 {
     static const int tools[] = { IDC_UV_MOVE, IDC_UV_ROTATE, IDC_UV_SCALE, IDC_UV_PROJECT_LABEL, IDC_UV_PROJECT_X,
-                                IDC_UV_PROJECT_Y, IDC_UV_PROJECT_Z, IDC_UV_PROJECT_BEST, IDC_UV_PROJECT_CYLINDER };
-    static const int widths[] = { 8, 9, 8, 5, 6, 6, 6, 8, 11 };
+                                IDC_UV_PROJECT_Y, IDC_UV_PROJECT_Z, IDC_UV_PROJECT_BEST, IDC_UV_PROJECT_CYLINDER,
+                                IDC_UV_CYLINDER_AXIS_LABEL, IDC_UV_CYLINDER_AXIS, IDC_UV_CYLINDER_SIZE_LABEL, IDC_UV_CYLINDER_SIZE };
+    static const int widths[] = { 8, 9, 8, 5, 6, 6, 6, 8, 11, 5, 9, 14, 7 };
     RECT client;
     RECT units = { 8, 32, 140, 16 };
     HWND closebutton = GetDlgItem(hwnd, IDCANCEL);
@@ -174,11 +177,14 @@ static void UVEditorLayout(HWND hwnd)
     for (index = 0; index < (int)(sizeof(tools) / sizeof(tools[0])); index++)
     {
         int width = margin * widths[index];
+        if (tools[index] == IDC_UV_CYLINDER_AXIS_LABEL) { x = margin; y += buttonheight + margin / 2; }
+        BOOL label = tools[index] == IDC_UV_PROJECT_LABEL || tools[index] == IDC_UV_CYLINDER_AXIS_LABEL
+            || tools[index] == IDC_UV_CYLINDER_SIZE_LABEL;
         if (x > margin && x + width > panelleft - margin)
         { x = margin; y += buttonheight + margin / 2; }
         MoveWindow(GetDlgItem(hwnd, tools[index]), x,
-                   y + (tools[index] == IDC_UV_PROJECT_LABEL ? margin / 2 : 0),
-                   width, tools[index] == IDC_UV_PROJECT_LABEL ? row : buttonheight, TRUE);
+                   y + (label ? margin / 2 : 0),
+                   width, tools[index] == IDC_UV_CYLINDER_AXIS ? row * 7 : label ? row : buttonheight, TRUE);
         x += width + margin;
     }
     int hintwidth = max(0, panelleft - x - margin);
@@ -218,6 +224,12 @@ static INT_PTR CALLBACK UVEditorDialogProc(HWND hwnd, UINT message,
     {
     case WM_INITDIALOG:
         g_UVEditor = hwnd;
+        for (int i = 0; i < 4; i++)
+        { SendDlgItemMessage(hwnd, IDC_UV_CYLINDER_AXIS, CB_ADDSTRING, 0, (LPARAM)(const char *[]){"Auto", "X", "Y", "Z"}[i]); }
+        SendDlgItemMessage(hwnd, IDC_UV_CYLINDER_AXIS, CB_SETCURSEL, g_UVCylinderAxis, 0);
+        char size[64]; snprintf(size, sizeof(size), "%.9g", g_UVCylinderTexelSize);
+        SetDlgItemText(hwnd, IDC_UV_CYLINDER_SIZE, size);
+        SendDlgItemMessage(hwnd, IDC_UV_CYLINDER_SIZE, EM_LIMITTEXT, 63, 0);
         CheckDlgButton(hwnd, IDC_UV_MOVE, BST_CHECKED);
         SendDlgItemMessage(hwnd, IDC_UV_U, EM_LIMITTEXT, 63, 0);
         SendDlgItemMessage(hwnd, IDC_UV_V, EM_LIMITTEXT, 63, 0);
@@ -273,7 +285,12 @@ static INT_PTR CALLBACK UVEditorDialogProc(HWND hwnd, UINT message,
         if (LOWORD(wparam) == IDC_UV_PROJECT_CYLINDER)
         {
             const char *reason = "";
-            if (!UVCanvasProjectCylinder(g_UVCanvas, &reason) && reason[0])
+            double size;
+            if (!UVEditorReadCoordinate(IDC_UV_CYLINDER_SIZE, &size) || size <= 0)
+            { MessageBox(hwnd, "Enter a positive texel size in world centimetres.", "UV Editor", MB_ICONERROR); return TRUE; }
+            g_UVCylinderTexelSize = size;
+            g_UVCylinderAxis = (int)SendDlgItemMessage(hwnd, IDC_UV_CYLINDER_AXIS, CB_GETCURSEL, 0, 0);
+            if (!UVCanvasProjectCylinder(g_UVCanvas, g_UVCylinderAxis, size, &reason) && reason[0])
             { MessageBox(hwnd, reason, "UV Editor", MB_ICONERROR); }
             UVEditorUpdateFields();
             SetFocus(g_UVCanvas);
@@ -318,6 +335,7 @@ static INT_PTR CALLBACK UVEditorDialogProc(HWND hwnd, UINT message,
         {
             g_UVCanvas = NULL;
             g_UVEditor = NULL;
+            SendMessage(GetWindow(hwnd, GW_OWNER), UVEDITOR_WM_VISIBILITY, FALSE, 0);
         }
         break;
     }
@@ -344,6 +362,7 @@ BOOL UVEditorShow(HWND owner, HINSTANCE instance)
         UVEditorLayout(g_UVEditor);
     }
 
+    SendMessage(owner, UVEDITOR_WM_VISIBILITY, TRUE, 0);
     ShowWindow(g_UVEditor, SW_SHOWNORMAL);
     SetForegroundWindow(g_UVEditor);
     return TRUE;
@@ -404,6 +423,7 @@ void UVEditorRefreshSelection(HWND viewport, const BgDocument *document, const c
         triangles[output].width = width;
         triangles[output].height = height;
         triangles[output].face = refs[index];
+        triangles[output].seams = face->uvseams;
         for (corner = 0; corner < 3; corner++)
         {
             const BgDocumentVertex *vertex = &room->vertices[face->vertexindices[corner]];

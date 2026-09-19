@@ -76,12 +76,17 @@ static BOOL BgBridgePrepare(const BgDocument *document, const BgDocumentEdgeRef 
     {
         faces[t] = *source[0];
         faces[t].id = document->nextfaceid + t;
+        faces[t].uvseams = 0;
         for (int c = 0; c < 3; c++)
         {
             DWORD v = indices[diagonals[diagonal][t][c]];
             if (room->vertices[v].usecount > UINT32_MAX-2) { return FALSE; }
             faces[t].vertexindices[c] = v;
         }
+        BgDocumentInheritFaceSeams(room->vertices, source[0], &faces[t]);
+        BgDocumentFace other = faces[t];
+        BgDocumentInheritFaceSeams(room->vertices, source[1], &other);
+        faces[t].uvseams |= other.uvseams;
     }
     *why = "";
     return TRUE;

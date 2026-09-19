@@ -1158,41 +1158,46 @@ done:
     return result;
 }
 
-BOOL UVCanvasProjectCylinder(HWND canvas, const char **reason)
+BOOL UVCanvasProjectCylinder(HWND canvas, int axis, double unitspertexel, const char **reason)
 {
     UVCanvasState *state = UVCanvasGetState(canvas);
     UVProjectionVertex *vertices = NULL;
     UVProjectionFace *faces = NULL;
+    unsigned char *seams = NULL;
     double (*uv)[3][2] = NULL;
     BgDocumentFaceUVEdit *edits = NULL;
     UVCanvasFaceEdit request;
     BOOL result = FALSE;
     *reason = "Select background faces forming one cylinder.";
+    if (!isfinite(unitspertexel) || unitspertexel <= 0)
+    { *reason="Enter a positive world-units-per-texel value."; return FALSE; }
     if (!state || !state->nodecount || !state->trianglecount) { return FALSE; }
     UVCanvasCancelInteraction(canvas);
     vertices = calloc((size_t)state->nodecount, sizeof(*vertices));
     faces = malloc((size_t)state->trianglecount * sizeof(*faces));
     uv = malloc((size_t)state->trianglecount * sizeof(*uv));
+    seams = calloc((size_t)state->trianglecount, sizeof(*seams));
     edits = calloc((size_t)state->trianglecount, sizeof(*edits));
-    if (!vertices || !faces || !uv || !edits)
+    if (!vertices || !faces || !uv || !edits || !seams)
     { *reason = "Out of memory mapping the cylinder."; goto done; }
     for (int f = 0; f < state->trianglecount; f++) for (int c = 0; c < 3; c++)
     {
         int node = state->triangles[f].nodes[c];
         faces[f].vertices[c] = node;
+        seams[f] = state->triangles[f].seams;
         memcpy(vertices[node].position, state->triangles[f].position[c], sizeof(vertices[node].position));
     }
-    if (!UVProjectionCylinder(vertices, state->nodecount, faces, state->trianglecount, uv, reason)) { goto done; }
+    if (!UVProjectionCylinder(vertices, state->nodecount, faces, state->trianglecount, seams, axis, uv, reason)) { goto done; }
     for (int f = 0; f < state->trianglecount; f++)
     {
         const UVCanvasTriangle *triangle = &state->triangles[f];
         edits[f].face = triangle->face;
         for (int c = 0; c < 3; c++)
         {
-            double s = round(uv[f][c][0] * 32.0 * triangle->width);
-            double t = round(uv[f][c][1] * 32.0 * triangle->height);
+            double s = round(uv[f][c][0] * 32.0 / unitspertexel);
+            double t = round(uv[f][c][1] * 32.0 / unitspertexel);
             if (!isfinite(s) || !isfinite(t) || s < -32768 || s > 32767 || t < -32768 || t > 32767)
-            { *reason = "The mapped UVs exceed GoldenEye's texture coordinate range."; goto done; }
+            { *reason = "The mapped UVs exceed GoldenEye's texture coordinate range. Increase world units per texel."; goto done; }
             edits[f].vertexids[c] = triangle->source[c].vertexid;
             edits[f].s[c] = (int)s; edits[f].t[c] = (int)t;
         }
@@ -1203,7 +1208,7 @@ BOOL UVCanvasProjectCylinder(HWND canvas, const char **reason)
        unselected faces. The synchronous rebuild may replace state. */
     result = (BOOL)SendMessage(GetParent(canvas), UVCANVAS_WM_COMMIT_FACES, 0, (LPARAM)&request);
 done:
-    free(vertices); free(faces); free(uv); free(edits);
+    free(vertices); free(faces); free(uv); free(edits); free(seams);
     return result;
 }
 

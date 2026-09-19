@@ -9,6 +9,8 @@
 #define BG_G_CLEARGEOMETRYMODE 0xB6u
 #define BG_G_SETGEOMETRYMODE 0xB7u
 #define BG_G_ZBUFFER 1u
+#define BG_G_SHADE 0x00000004u
+#define BG_G_SHADING_SMOOTH 0x00000200u
 #define BG_G_LIGHTING 0x00020000u
 #define BG_G_TEXTURE_GEN 0x00040000u
 #define BG_G_TEXTURE_GEN_LINEAR 0x00080000u
@@ -27,7 +29,10 @@ void BgRenderStateInit(BgRenderState *state, BOOL secondary)
     state->primitiveword0 = 0xFA000000u;
     state->primitiveword1 = 0xFFFFFFFFu;
     state->zbuffer = TRUE;
-    state->geometrymode = BG_G_ZBUFFER;
+    /* Match dlZBufferGeometry in assets/font_dl.c. A room which inherits
+     * shading must compare equal to one which explicitly enables it. Keep
+     * geometryknown separate: these defaults are not authored room commands. */
+    state->geometrymode = BG_G_ZBUFFER | BG_G_SHADE | BG_G_SHADING_SMOOTH;
     state->geometryknown = 0;
     state->othermodehigh = 0;
     state->othermodeknown = 0;

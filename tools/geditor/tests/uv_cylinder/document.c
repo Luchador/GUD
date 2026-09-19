@@ -145,11 +145,11 @@ static void Cylinder(const char *dir)
             faces[i].vertices[c]=n;
         }
     }
-    assert(UVProjectionCylinder(vertices,72,faces,24,uv,&why));
+    assert(UVProjectionCylinder(vertices,72,faces,24,NULL,0,uv,&why));
     for (DWORD i=0;i<count;i++)
     {
         edits[i]=Edit(&before,refs[i],0,0);
-        for (int c=0;c<3;c++) { edits[i].s[c]=(int)round(uv[i][c][0]*32*128); edits[i].t[c]=(int)round(uv[i][c][1]*32*32); }
+        for (int c=0;c<3;c++) { edits[i].s[c]=(int)round(uv[i][c][0]*8); edits[i].t[c]=(int)round(uv[i][c][1]*8); }
     }
     UVCanvasFaceEdit request={edits,count,"Cylindrical UV Mapping"};
     failrebuild=TRUE; assert(!GEditorApplyUVFaceEdit((HWND)1,&request)); Same(&g_CurrentBgDocument,&before);
@@ -171,4 +171,52 @@ static void Cylinder(const char *dir)
     EditHistoryFree(&g_EditHistory); BgDocumentFree(&g_CurrentBgDocument); BgDocumentFree(&before); BgDocumentFree(&after); BgFileFree(&source);
     puts("PASS: cylinder mapping through the real editor transaction, two seam vertices, undo/redo, repeated mapping, save/reload and rebuild/history failure rollback.");
 }
-int main(int argc,char **argv) { setbuf(stdout,NULL); assert(argc==2); Geometry(argv[1]); Cylinder(argv[1]); }
+static unsigned SeamCount(const BgDocument *doc)
+{
+    unsigned count=0;
+    for (DWORD r=1;r<=doc->roomcount;r++) for (DWORD f=0;f<doc->rooms[r].facecount;f++)
+    { unsigned mask=doc->rooms[r].faces[f].uvseams; for (int c=0;c<3;c++) { count+=(mask>>c)&1; } }
+    return count;
+}
+static void Seams(const char *dir)
+{
+    BgFile source=Fixture(),compiled={0},unmarked={0}; BgDocument loaded={0}; const char *why="";
+    BgFaceRef refs[20]; DWORD changed; char folder[MAX_PATH];
+    snprintf(folder,sizeof(folder),"%s/bg",dir); assert(CreateDirectory(folder,NULL) || GetLastError()==ERROR_ALREADY_EXISTS);
+    assert(BgDocumentLoad(source.data,source.size,1,&g_CurrentBgDocument,&why));
+    Refs(&g_CurrentBgDocument,refs); BgDocumentEdgeRef edge={refs[0],0};
+    assert(BgDocumentCompile(&g_CurrentBgDocument,&source,&unmarked,&why));
+    EditHistoryReset(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan);
+    failrebuild=TRUE; assert(!GEditorMarkUVSeam((HWND)1,&edge,TRUE)); assert(!SeamCount(&g_CurrentBgDocument));
+    assert(GEditorMarkUVSeam((HWND)1,&edge,TRUE)); unsigned count=SeamCount(&g_CurrentBgDocument); assert(count>=2);
+    assert(g_CurrentBgDocument.dirty && g_EditHistory.undocount==1);
+    assert(GEditorMarkUVSeam((HWND)1,&edge,TRUE) && g_EditHistory.undocount==1);
+    assert(EditHistoryUndo(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,NULL,&why)); assert(!SeamCount(&g_CurrentBgDocument));
+    assert(EditHistoryRedo(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,NULL,&why)); assert(SeamCount(&g_CurrentBgDocument)==count);
+    assert(BgDocumentSaveSeams(&g_CurrentBgDocument,dir,source.name,&why));
+    assert(BgDocumentCompile(&g_CurrentBgDocument,&source,&compiled,&why));
+    assert(unmarked.size==compiled.size && !memcmp(unmarked.data,compiled.data,compiled.size));
+    assert(BgDocumentLoad(compiled.data,compiled.size,1,&loaded,&why)); assert(!SeamCount(&loaded));
+    assert(BgDocumentLoadSeams(&loaded,dir,source.name,&why)); assert(SeamCount(&loaded)==count);
+    /* Clearing and saving replaces the previous marks; failed replacement
+     * leaves the existing guide file readable. */
+    assert(BgDocumentSetEdgeSeam(&g_CurrentBgDocument,&edge,FALSE,&changed,&why) && changed);
+    extern int test_fail_move; test_fail_move=1;
+    assert(!BgDocumentSaveSeams(&g_CurrentBgDocument,dir,source.name,&why));
+    assert(BgDocumentLoadSeams(&loaded,dir,source.name,&why) && SeamCount(&loaded)==count);
+    assert(BgDocumentSaveSeams(&g_CurrentBgDocument,dir,source.name,&why));
+    assert(BgDocumentLoadSeams(&loaded,dir,source.name,&why) && !SeamCount(&loaded));
+    /* Face winding changes permute the edge bits, not the geometric seam. */
+    assert(BgDocumentSetEdgeSeam(&g_CurrentBgDocument,&edge,TRUE,&changed,&why));
+    assert(BgDocumentFlipFaces(&g_CurrentBgDocument,refs,1,&why));
+    assert(BgDocumentFindFace(&g_CurrentBgDocument,&refs[0],NULL)->uvseams&4);
+    assert(BgDocumentFlipFaces(&g_CurrentBgDocument,refs,1,&why));
+    assert(BgDocumentFindFace(&g_CurrentBgDocument,&refs[0],NULL)->uvseams&1);
+    BgDocumentEdgeRef halves[2];
+    assert(BgDocumentBisectEdge(&g_CurrentBgDocument,&edge,halves,&why));
+    for (int i=0;i<2;i++) { assert(BgDocumentFindFace(&g_CurrentBgDocument,&halves[i].face,NULL)->uvseams&(1<<halves[i].corner)); }
+    EditHistoryFree(&g_EditHistory); BgDocumentFree(&g_CurrentBgDocument); BgDocumentFree(&loaded);
+    BgFileFree(&source); BgFileFree(&compiled); BgFileFree(&unmarked);
+    puts("PASS: seam marking across native splits, undo/redo/no-op/rollback, winding, native compile/reload and persistent guide replacement/failure.");
+}
+int main(int argc,char **argv) { setbuf(stdout,NULL); assert(argc==2); Geometry(argv[1]); Cylinder(argv[1]); Seams(argv[1]); }

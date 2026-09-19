@@ -274,6 +274,7 @@ typedef struct ViewportState {
     GLsizei scenecount;  /* vertices in scene */
     struct SceneBatch *batches;  /* draw-ordered draw ranges */
     int batchcount;
+    BOOL showuvseams;
     unsigned char *selectedtris; /* one byte per draw-ordered triangle */
     unsigned char *hiddentris;   /* derived from hiddenrefs in the current draw order */
     BgFaceRef *hiddenrefs;       /* sorted level-local visibility; never document data */
@@ -918,6 +919,36 @@ static void ViewportDrawBgToolOverlay(const ViewportState *state)
 
     glPopClientAttrib();
     glPopAttrib();
+}
+
+/* Seam guides are drawn only while the UV workspace is open. Draw narrow
+ * triangle wireframes with an edge mask so polygon offset gives the same
+ * occlusion/bias as the existing geometry overlay. */
+static void ViewportDrawUVSeams(const ViewportState *state)
+{
+    if (!state->showuvseams || !state->scene || !state->scenefacerefs) { return; }
+    glPushAttrib(GL_ENABLE_BIT | GL_CURRENT_BIT | GL_LINE_BIT | GL_POLYGON_BIT | GL_DEPTH_BUFFER_BIT);
+    glDisable(GL_TEXTURE_2D); glDisable(GL_ALPHA_TEST); glDisable(GL_BLEND); glDisable(GL_FOG);
+    glEnable(GL_DEPTH_TEST); glDepthFunc(GL_LEQUAL); glDepthMask(GL_FALSE);
+    glDisable(GL_CULL_FACE); glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    glEnable(GL_POLYGON_OFFSET_LINE); glPolygonOffset(-2.0f, -2.0f);
+    glLineWidth(2.0f); glColor4ub(32, 255, 64, 255);
+    glBegin(GL_TRIANGLES);
+    for (int t=0;t<state->scenecount/3;t++)
+    {
+        const BgFaceRef *ref=&state->scenefacerefs[t];
+        if (!ref->faceid || !ref->seams || ViewportTriangleHidden(state,t)
+            || (ref->layer ? !state->showbgsecondary : !state->showbgprimary)) { continue; }
+        for (int c=0;c<3;c++)
+        { glEdgeFlag((ref->seams & (1<<c)) != 0); glVertex3fv(&state->scene[t*3+c].x); }
+    }
+    glEnd(); glEdgeFlag(GL_TRUE); glPopAttrib();
+}
+
+void ViewportShowUVSeams(HWND hwnd, BOOL show)
+{
+    ViewportState *state=ViewportGetState(hwnd);
+    if (state) { state->showuvseams=show; InvalidateRect(hwnd,NULL,FALSE); }
 }
 
 /* Keep display colors separate from both authored RGB and selection RGB.
@@ -2201,6 +2232,7 @@ static void ViewportPaintGL(ViewportState *state)
     {
         ViewportDrawKnifePlane(state);
         ViewportDrawBgToolOverlay(state);
+        ViewportDrawUVSeams(state);
         ViewportDrawTransformTools(state);
         ViewportDrawBoxSelection(state);
     }
@@ -6775,7 +6807,9 @@ static void ViewportShowGeometryContextMenu(HWND hwnd, ViewportState *state, int
     menu=CreatePopupMenu();
     if (!menu) { return; }
     if (AppendMenu(menu, MF_STRING, 1, label)
-        && (message != VIEWPORT_WM_SPLIT_STAN_EDGE || AppendMenu(menu, MF_STRING, 2, "Link Tiles")))
+        && (message != VIEWPORT_WM_SPLIT_STAN_EDGE || AppendMenu(menu, MF_STRING, 2, "Link Tiles"))
+        && (message != VIEWPORT_WM_SPLIT_EDGE || AppendMenu(menu, MF_STRING, 3,
+            (edge.face.seams & (1u << edge.corner)) ? "Clear Seam" : "Mark Seam")))
     {
         ClientToScreen(hwnd, &screen);
         command=TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY | TPM_RIGHTBUTTON,
@@ -6784,6 +6818,8 @@ static void ViewportShowGeometryContextMenu(HWND hwnd, ViewportState *state, int
         if (command == 1)
         { SendMessage(GetParent(hwnd), message, 0, message == VIEWPORT_WM_SPLIT_EDGE ? (LPARAM)&edge
             : message == VIEWPORT_WM_SPLIT_STAN_EDGE ? (LPARAM)&stanedge : 0); }
+        else if (command == 3 && message == VIEWPORT_WM_SPLIT_EDGE)
+        { SendMessage(GetParent(hwnd), VIEWPORT_WM_MARK_SEAM, !(edge.face.seams & (1u << edge.corner)), (LPARAM)&edge); }
         else if (command == 2 && message == VIEWPORT_WM_SPLIT_STAN_EDGE)
         { SendMessage(GetParent(hwnd), VIEWPORT_WM_LINK_STAN_EDGE, 0, (LPARAM)&stanedge); }
     }

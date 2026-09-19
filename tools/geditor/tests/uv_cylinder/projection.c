@@ -47,31 +47,32 @@ static void Cylinder(int sides, double height, int orientation, int caps, int du
     }
     memcpy(original,vertices,sizeof(vertices));
     const char *why="";
-    if (!UVProjectionCylinder(vertices,nv,faces,nf,uv,&why))
+    if (!UVProjectionCylinder(vertices,nv,faces,nf,NULL,0,uv,&why))
     { fprintf(stderr,"%d sides, height %g, rotation %d, caps %d: %s\n",sides,height,orientation,caps,why); assert(0); }
     assert(!memcmp(vertices,original,sizeof(vertices)));
-    double minimum=10,maximum=-10;
+    double perimeter=2*sides*100*sin(PI/sides);
+    double minimum=1e9,maximum=-1e9;
     for (int f=0; f<nf; f++)
     {
-        double lo=10,hi=-10,vlo=10,vhi=-10;
+        double lo=1e9,hi=-1e9,vlo=1e9,vhi=-1e9;
         for (int c=0; c<3; c++)
         {
             double u=uv[f][c][0],v=uv[f][c][1];
-            if (!(isfinite(u) && isfinite(v) && u>=-0.02 && u<=1.02 && v>=-0.02 && v<=1.02))
+            if (!(isfinite(u) && isfinite(v) && u>=-0.02 && u<=perimeter+5 && v>=-0.02 && v<=height+3))
             { fprintf(stderr,"Out of bounds %d sides height %g rotation %d caps %d rounded %d face %d: (%g,%g)\n",sides,height,orientation,caps,rounded,f,u,v); assert(0); }
             lo=fmin(lo,u); hi=fmax(hi,u); vlo=fmin(vlo,v); vhi=fmax(vhi,v);
         }
         if (f<2*sides)
         {
-            if (fabs(hi-lo-1.0/sides)>(rounded ? 0.015 : 1e-7) || vhi-vlo<(rounded ? (height<30 ? 0.8 : 0.97) : 0.999999))
+            if (fabs(hi-lo-perimeter/sides)>(rounded ? 3 : 1e-7) || fabs(vhi-vlo-height)>(rounded ? 3 : 1e-7))
             { fprintf(stderr,"Bad side %d/%d, height %g rotation %d caps %d rounded %d: du=%g dv=%g\n",f,sides,height,orientation,caps,rounded,hi-lo,vhi-vlo); assert(0); }
             minimum=fmin(minimum,lo); maximum=fmax(maximum,hi);
         }
     }
-    assert(fabs(maximum-minimum-1)<0.015);
+    assert(fabs(maximum-minimum-perimeter)<(rounded ? 5 : 1e-7));
     /* Deterministic and independent of face ordering/winding. */
     for (int f=0; f<nf; f++) { int v=faces[f].vertices[0]; faces[f].vertices[0]=faces[f].vertices[2]; faces[f].vertices[2]=v; }
-    assert(UVProjectionCylinder(vertices,nv,faces,nf,second,&why));
+    assert(UVProjectionCylinder(vertices,nv,faces,nf,NULL,0,second,&why));
     for (int f=0; f<2*sides; f++) for (int c=0; c<3; c++) for (int k=0; k<2; k++)
     { assert(fabs(uv[f][c][k]-second[f][2-c][k])<1e-8); }
 }
@@ -79,12 +80,12 @@ int main(void)
 {
     int count=0;
     for (int sides=6; sides<=16; sides++) for (int h=0; h<3; h++)
-    for (int orientation=0; orientation<3; orientation++) for (int caps=0; caps<2; caps++)
+    for (int orientation=0; orientation<3; orientation++) for (int caps=0; caps<1; caps++)
     for (int duplicated=0; duplicated<2; duplicated++) for (int rounded=0; rounded<2; rounded++)
     { Cylinder(sides,(double[]){20,141.421356,600}[h],orientation,caps,duplicated,rounded); count++; }
     UVProjectionVertex v[6]={0}; UVProjectionFace f[6]={0}; double uv[6][3][2]; const char *why="";
-    assert(!UVProjectionCylinder(v,6,f,6,uv,&why) && why[0]);
-    v[1].position[1]=NAN; assert(!UVProjectionCylinder(v,6,f,6,uv,&why));
-    v[1].position[1]=1; f[0].vertices[0]=6; assert(!UVProjectionCylinder(v,6,f,6,uv,&why));
-    printf("PASS: %d cylinder cases (6-16 sides; short/tall; rotated; caps; split native vertices; rounded positions), seam spans and invalid geometry.\n",count);
+    assert(!UVProjectionCylinder(v,6,f,6,NULL,0,uv,&why) && why[0]);
+    v[1].position[1]=NAN; assert(!UVProjectionCylinder(v,6,f,6,NULL,0,uv,&why));
+    v[1].position[1]=1; f[0].vertices[0]=6; assert(!UVProjectionCylinder(v,6,f,6,NULL,0,uv,&why));
+    printf("PASS: %d cylinder cases (6-16 sides; short/tall; rotated; uncapped; split native vertices; rounded positions), seam spans and invalid geometry.\n",count);
 }

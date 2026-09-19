@@ -129,12 +129,12 @@ static void Cylinder(void)
         }
     }
     const char *why=""; int before=messages;
-    state.triangles[15].height=2048;
-    assert(!UVCanvasProjectCylinder(g_UVCanvas,&why) && why[0] && messages==before);
-    state.triangles[15].height=32;
+    /* A tiny texel size must fail atomically at the native S/T limit. */
+    assert(!UVCanvasProjectCylinder(g_UVCanvas,0,0.01,&why) && why[0] && messages==before);
+
     /* Synchronous editor rebuild frees/replaces every canvas pointer. */
     destroyoncommit=TRUE;
-    assert(UVCanvasProjectCylinder(g_UVCanvas,&why) && mappedcount==16 && messages==before+1);
+    assert(UVCanvasProjectCylinder(g_UVCanvas,0,4,&why) && mappedcount==16 && messages==before+1);
     for (int f=0;f<16;f++)
     {
         int lo=99999,hi=-99999;
@@ -143,9 +143,9 @@ static void Cylinder(void)
         {
             assert(mapped[f].vertexids[c]>=10 && mapped[f].vertexids[c]<26);
             if (mapped[f].s[c]<lo) { lo=mapped[f].s[c]; } if (mapped[f].s[c]>hi) { hi=mapped[f].s[c]; }
-            assert(mapped[f].t[c]==0 || mapped[f].t[c]==1024);
+            assert(mapped[f].t[c]==0 || mapped[f].t[c]==3200);
         }
-        assert(hi-lo==512);
+        assert(abs(hi-lo-(int)round(200*sin(UVCANVAS_PI/8)*8))<=1);
     }
     puts("PASS: actual cylindrical button operation produces native per-corner UVs and face identities, rejects range overflow, and survives synchronous canvas replacement.");
 }

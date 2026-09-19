@@ -268,7 +268,11 @@ BEGIN
     PUSHBUTTON      "Z-axis", IDC_UV_PROJECT_Z, 386, 6, 48, 20
     PUSHBUTTON      "Best Fit", IDC_UV_PROJECT_BEST, 442, 6, 64, 20
     PUSHBUTTON      "Cylindrical", IDC_UV_PROJECT_CYLINDER, 514, 6, 88, 20
-    LTEXT           "Drag a box to select UV vertices.", IDC_UV_TOOL_HINT, 610, 12, 22, 10
+    LTEXT           "Side wall only. Mark a seam in the viewport.", IDC_UV_TOOL_HINT, 610, 12, 22, 10
+    LTEXT           "Axis:", IDC_UV_CYLINDER_AXIS_LABEL, 8, 34, 32, 10
+    COMBOBOX        IDC_UV_CYLINDER_AXIS, 48, 30, 72, 100, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Texel size (cm):", IDC_UV_CYLINDER_SIZE_LABEL, 128, 34, 104, 10
+    EDITTEXT        IDC_UV_CYLINDER_SIZE, 240, 30, 56, 16, ES_AUTOHSCROLL
     LTEXT           "Transform", IDC_UV_TRANSFORM, 648, 10, 120, 10
     LTEXT           "No UV vertices selected", IDC_UV_SELECTION, 648, 30, 120, 22
     LTEXT           "U", IDC_UV_U_LABEL, 648, 64, 12, 10

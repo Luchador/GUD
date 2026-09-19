@@ -89,6 +89,8 @@ BOOL BgDocumentBisectEdge(BgDocument *doc, const BgDocumentEdgeRef *edge,
             faces[at+1]=*face; faces[at+1].id=nextface++;
             faces[at].vertexindices[(c+1)%3]=source->vertexcount;
             faces[at+1].vertexindices[c]=source->vertexcount;
+            BgDocumentInheritFaceSeams(vertices,face,&faces[at]);
+            BgDocumentInheritFaceSeams(vertices,face,&faces[at+1]);
             if (face==picked)
             {
                 out[0]=(BgDocumentEdgeRef){{face->id,face->room,face->layer,0},(unsigned int)c};

@@ -23,7 +23,7 @@ typedef struct BgFaceRef {
     DWORD faceid;
     unsigned short room;
     unsigned char layer;
-    unsigned char reserved;
+    unsigned char seams; /* viewport edge mask; not part of face identity */
 } BgFaceRef;
 
 /* Exact, room-local N64 vertex data. Positions and UVs deliberately remain
@@ -63,6 +63,7 @@ typedef struct BgDocumentFace {
     unsigned short textureid;
     unsigned char layer;
     unsigned char cullbackfaces;
+    unsigned char uvseams; /* editor seam guides: bit c joins corner c to c+1 */
 
     /* Complete material state, including texture enable and color combiner,
      * so textured/untextured faces can share an authored draw group. */
@@ -133,6 +134,17 @@ BOOL BgDocumentBridgeEdges(BgDocument *document, const BgDocumentEdgeRef edges[2
  * Atomic on failure. out[2] selects the two halves of the picked edge. */
 BOOL BgDocumentBisectEdge(BgDocument *document, const BgDocumentEdgeRef *edge,
     BgDocumentEdgeRef out[2], const char **reasonout);
+
+/* Mark every geometrically matching edge; UV/color splits remain separate. */
+BOOL BgDocumentSetEdgeSeam(BgDocument *document, const BgDocumentEdgeRef *edge,
+    BOOL marked, DWORD *changed, const char **reason);
+
+void BgDocumentInheritFaceSeams(const BgDocumentVertex *vertices,
+    const BgDocumentFace *source, BgDocumentFace *target);
+BOOL BgDocumentSaveSeams(const BgDocument *document, const char *projectdir,
+    const char *bgname, const char **reason);
+BOOL BgDocumentLoadSeams(BgDocument *document, const char *projectdir,
+    const char *bgname, const char **reason);
 
 typedef struct BgDocumentUVEdit {
     BgDocumentVertexRef vertex;

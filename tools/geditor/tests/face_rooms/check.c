@@ -138,6 +138,47 @@ static void Geometry(const char *dir)
     puts("PASS: room transfers preserve positions/UVs/RGBA/materials/shared vertices; mixed selections, empty rooms, native save/reload, no-ops and atomic allocation/range failures.");
 }
 
+static void InheritedShading(const char *dir)
+{
+    BgFile source = Fixture();
+    BgDocument original = {0}, doc = {0};
+    BgFaceRef refs[20];
+    const char *why = "";
+    BOOL changed;
+    const DWORD shading = 0x00000204u; /* G_SHADE | G_SHADING_SMOOTH. */
+
+    assert(BgDocumentLoad(source.data,source.size,1,&original,&why));
+    Refs(&original,refs);
+    /* Like Depot 29 -> 14: the source inherits runtime shading defaults;
+     * the destination explicitly enables those same flags in its last group. */
+    BgDocumentLayerData *inherited = &original.rooms[1].layers[0];
+    for (DWORD g = 0; g < inherited->groupcount; g++)
+    for (DWORD off = 0; off < inherited->groups[g].commandsize; off += 8)
+    {
+        unsigned char *cmd = inherited->groups[g].commands + off;
+        if (cmd[0] == 0xb6 || cmd[0] == 0xb7)
+        { Put(cmd+4,BgDocumentRead32(cmd+4) & ~shading); }
+    }
+    BgDocumentLayerData *layer = &original.rooms[2].layers[0];
+    assert(layer->groupcount);
+    assert(BgDocumentSurfaceCommand(&layer->groups[layer->groupcount-1],0xb7000000,shading));
+    BgRenderState state;
+    assert(BgDocumentGetFaceRenderStates(&original,&refs[0],1,&state));
+    assert((state.geometrymode & shading) == shading && !(state.geometryknown & shading));
+    assert(BgDocumentClone(&original,&doc,&why));
+    assert(BgDocumentMoveFacesToRoom(&doc,refs,2,2,&changed,&why) && changed);
+    Appearance(&original,&doc); UseCounts(&doc); RoundTrip(&doc,&source,dir);
+    BgDocumentFree(&doc);
+
+    /* A genuinely different shading state must still fail atomically. */
+    assert(BgDocumentSurfaceCommand(&layer->groups[layer->groupcount-1],0xb6000000,shading));
+    assert(BgDocumentClone(&original,&doc,&why));
+    assert(!BgDocumentMoveFacesToRoom(&doc,refs,2,2,&changed,&why) && !changed);
+    assert(strstr(why,"render state")); Same(&doc,&original);
+    BgDocumentFree(&doc); BgDocumentFree(&original); BgFileFree(&source);
+    puts("PASS: inherited runtime shading matches explicit shading through room transfer and save/reload; real conflicts retain atomic rejection.");
+}
+
 static void Depot(const char *file, const char *dir)
 {
     BgFile source = {0}; BgDocument original = {0}, doc = {0}; const char *why = ""; BOOL changed;
@@ -321,4 +362,4 @@ static void StateBarriers(void)
     puts("PASS: partial register writes, full RGB/alpha, geometry masks, surface tags, leading sync and opaque-command barriers survive cleanup.");
 }
 
-int main(int argc, char **argv) { assert(argc == 3); Geometry(argv[1]); RepeatedTransfers(argv[1]); LegacyRepair(argv[1]); StateBarriers(); Depot(argv[2],argv[1]); Commands(); return 0; }
+int main(int argc, char **argv) { assert(argc == 3); Geometry(argv[1]); InheritedShading(argv[1]); RepeatedTransfers(argv[1]); LegacyRepair(argv[1]); StateBarriers(); Depot(argv[2],argv[1]); Commands(); return 0; }

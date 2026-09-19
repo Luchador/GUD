@@ -1442,7 +1442,9 @@ static BOOL GEditorSaveProject(HWND hwnd)
 
         /* Portals live inside this complete BG segment, so they are
            preserved by the same write rather than as a sidecar file. */
-        if (!BgSaveProjectFile(g_Project.dir, bgtosave, &why))
+        if (!BgSaveProjectFile(g_Project.dir, bgtosave, &why)
+            || !BgDocumentSaveSeams(&g_CurrentBgDocument, g_Project.dir,
+                g_Project.levels[g_CurrentLevelIndex].bgname, &why))
         {
             BgFileFree(&compiled);
             MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
@@ -2310,6 +2312,28 @@ fail:
     return FALSE;
 }
 
+
+static BOOL GEditorMarkUVSeam(HWND hwnd, const BgDocumentEdgeRef *edge, BOOL mark)
+{
+    EditHistoryTransaction transaction = {0};
+    const char *why = "", *restorewhy = "";
+    DWORD changed;
+    if (!edge || !EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
+        mark ? "Mark UV Seam" : "Clear UV Seam", &transaction, &why)) { goto fail; }
+    if (!BgDocumentSetEdgeSeam(&g_CurrentBgDocument, edge, mark, &changed, &why)) { goto rollback; }
+    if (!changed) { EditHistoryCancelEdit(&transaction); return TRUE; }
+    if (!GEditorRebuildCurrentViewport(&why)
+        || !EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+            &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    GEditorRebuildCurrentViewport(&restorewhy);
+fail:
+    EditHistoryCancelEdit(&transaction); GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR); return FALSE;
+}
 
 /* Per-face mapping can add UV seams without moving geometry. */
 static BOOL GEditorApplyUVFaceEdit(HWND hwnd, const UVCanvasFaceEdit *request)
@@ -4669,6 +4693,13 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     case FACEPROPERTIES_WM_REVEAL_IMAGE:
         return BrowserRevealImage(g_Browser, (DWORD)wparam);
 
+    case UVEDITOR_WM_VISIBILITY:
+        ViewportShowUVSeams(g_Viewport, (BOOL)wparam);
+        return 0;
+
+    case VIEWPORT_WM_MARK_SEAM:
+        return GEditorMarkUVSeam(hwnd, (const BgDocumentEdgeRef *)lparam, (BOOL)wparam);
+
     case UVEDITOR_WM_APPLY_FACES:
         return GEditorApplyUVFaceEdit(hwnd, (const UVCanvasFaceEdit *)lparam);
 
@@ -5018,7 +5049,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             return 0;
         }
 
-        if (!BgDocumentBuildRenderMesh(&document, &mesh, &bgwhy))
+        if (!BgDocumentLoadSeams(&document, g_Project.dir, level->bgname, &bgwhy)
+            || !BgDocumentBuildRenderMesh(&document, &mesh, &bgwhy))
         {
             BgDocumentFree(&document);
             BgFileFree(&bg);
