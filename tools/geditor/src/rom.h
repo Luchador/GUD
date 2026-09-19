@@ -6,7 +6,8 @@
 
 #define ROM_MAX_ENTRIES 32
 #define ROM_MAX_LEVELS  64
-#define ROM_LEVEL_ROW_SIZE 36u
+#define ROM_LEVEL_ROW_SIZE 40u
+#define ROM_LEVEL_ROW_LEGACY_SIZE 36u
 
 typedef struct RomManifestEntry {
     DWORD kind;      /* fourcc, e.g. 'IMGS'  */
@@ -77,7 +78,7 @@ typedef struct RomFile {
     RomInfo info;
 } RomFile;
 
-/* Validate the current 36-byte LevelEntry layout, including levelName. */
+/* Accept LevelEntry with or without the memoryAllocationString pointer. */
 BOOL RomLevelTableIsValid(const RomManifestEntry *stgt, DWORD romsize);
 
 /*

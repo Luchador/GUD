@@ -139,7 +139,8 @@ BOOL RomLevelTableIsValid(const RomManifestEntry *stgt, DWORD romsize)
 {
     return stgt != NULL && stgt->flags > 0 && stgt->flags <= ROM_MAX_LEVELS
         && stgt->romstart < stgt->romend && stgt->romend <= romsize
-        && stgt->romend - stgt->romstart == stgt->flags * ROM_LEVEL_ROW_SIZE;
+        && (stgt->romend - stgt->romstart == stgt->flags * ROM_LEVEL_ROW_SIZE
+            || stgt->romend - stgt->romstart == stgt->flags * ROM_LEVEL_ROW_LEGACY_SIZE);
 }
 
 /*
@@ -153,17 +154,22 @@ static BOOL RomParseLevelTable(const unsigned char *data, DWORD size,
                                RomInfo *info, const char **reasonout)
 {
     DWORD rows = stgt->flags;
+    DWORD rowSize, layoutShift;
     DWORD i;
 
     if (!RomLevelTableIsValid(stgt, size))
     {
-        *reasonout = "The GUD level table must use the current 36-byte layout. Rebuild GUD.";
+        *reasonout = "The GUD level table must use a supported 36- or 40-byte layout. Rebuild GUD.";
         return FALSE;
     }
 
+    rowSize = (stgt->romend - stgt->romstart) / rows;
+    /* New rows insert a memory-allocation pointer before the scale fields. */
+    layoutShift = rowSize - ROM_LEVEL_ROW_LEGACY_SIZE;
+
     for (i = 0; i < rows; i++)
     {
-        const unsigned char *row = data + stgt->romstart + i * ROM_LEVEL_ROW_SIZE;
+        const unsigned char *row = data + stgt->romstart + i * rowSize;
         RomLevel *lvl = &info->levels[info->levelcount];
         DWORD strs[4];
         char *dsts[4];
@@ -214,13 +220,13 @@ static BOOL RomParseLevelTable(const unsigned char *data, DWORD size,
             /* floats arrive as big-endian bit patterns */
             union { DWORD u; float f; } cvt;
 
-            cvt.u = be32(row + 20); lvl->levelscale = cvt.f;
-            cvt.u = be32(row + 24); lvl->renderScale = cvt.f;
+            cvt.u = be32(row + 20 + layoutShift); lvl->levelscale = cvt.f;
+            cvt.u = be32(row + 24 + layoutShift); lvl->renderScale = cvt.f;
         }
 
-        lvl->music   = (short)((row[28] << 8) | row[29]);
-        lvl->bgsound = (short)((row[30] << 8) | row[31]);
-        lvl->xtrack  = (short)((row[32] << 8) | row[33]);
+        lvl->music   = (short)((row[28 + layoutShift] << 8) | row[29 + layoutShift]);
+        lvl->bgsound = (short)((row[30 + layoutShift] << 8) | row[31 + layoutShift]);
+        lvl->xtrack  = (short)((row[32 + layoutShift] << 8) | row[33 + layoutShift]);
 
         if (lvl->name[0] == '\0')
         {

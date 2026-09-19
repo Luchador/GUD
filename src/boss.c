@@ -75,49 +75,6 @@ s32 g_StageNum = LEVELID_TITLE;
 u32 g_CurentMMallocValue = 0x234800;
 u32 g_CurentMaMallocValue = 0x4B000;
 
-struct memallocstring memallocstringtable[] = {
-{ LEVELID_DAM,          "-ml0 -me0 -mgfx70  -mvtx50 -mt625 -ma275"},
-{ LEVELID_FACILITY,     "-ml0 -me0 -mgfx70  -mvtx50 -mt650 -ma160"},
-{ LEVELID_RUNWAY,       "-ml0 -me0 -mgfx100 -mvtx50 -mt610 -ma300"},
-{ LEVELID_SURFACE,      "-ml0 -me0 -mgfx70  -mvtx50 -mt600 -ma300"},
-{ LEVELID_BUNKER1,      "-ml0 -me0 -mgfx100 -mvtx50 -mt700 -ma150"},
-{ LEVELID_SILO,         "-ml0 -me0 -mgfx70  -mvtx50 -mt660 -ma150"},
-{ LEVELID_FRIGATE,      "-ml0 -me0 -mgfx70  -mvtx50 -mt750 -ma225"},
-{ LEVELID_SURFACE2,     "-ml0 -me0 -mgfx100 -mvtx50 -mt550 -ma350"},
-{ LEVELID_BUNKER2,      "-ml0 -me0 -mgfx100 -mvtx50 -mt725 -ma150"},
-{ LEVELID_STATUE,       "-ml0 -me0 -mgfx70  -mvtx50 -mt750 -ma220"},
-{ LEVELID_ARCHIVES,     "-ml0 -me0 -mgfx70  -mvtx50 -mt600 -ma250"},
-{ LEVELID_STREETS,      "-ml0 -me0 -mgfx60  -mvtx40 -mt635 -ma290"},
-{ LEVELID_DEPOT,        "-ml0 -me0 -mgfx60  -mvtx50 -mt710 -ma300"},
-{ LEVELID_TRAIN,        "-ml0 -me0 -mgfx100 -mvtx50 -mt600 -ma200"},
-{ LEVELID_JUNGLE,       "-ml0 -me0 -mgfx70  -mvtx50 -mt500 -ma200"},
-{ LEVELID_CONTROL,      "-ml0 -me0 -mgfx70  -mvtx50 -mt671 -ma200"},
-{ LEVELID_CRADLE,       "-ml0 -me0 -mgfx100 -mvtx50 -mt650 -ma250"},
-{ LEVELID_CAVERNS,      "-ml0 -me0 -mgfx100 -mvtx50 -mt530 -ma250"},
-{ LEVELID_AZTEC,        "-ml0 -me0 -mgfx60  -mvtx40 -mt855 -ma135"},
-{ LEVELID_EGYPT,        "-ml0 -me0 -mgfx100 -mvtx50 -mt600 -ma250"},
-{ LEVELID_CITADEL,      "-ml0 -me0 -mgfx100 -mvtx50 -mt650 -ma150"},
-{ LEVELID_CUBA,         "-ml0 -me0 -mgfx100 -mvtx50 -mt300 -ma300"},
-{ LEVELID_TITLE,        "-ml0 -me0 -mgfx80 -mvtx20 -mt646 -ma001"},
-{ 0x5B,                 "-ml0 -me0 -mgfx60 -mvtx20 -mt500 -ma001"},
-{ 0x63,                 "-ml0 -me0 -mgfx60 -mvtx20 -mt500 -ma001"},
-{ LEVELID_TEMPLE,       "-ml0 -me0 -mgfx130 -mvtx100 -mt390 -ma100"},
-{ LEVELID_COMPLEX,      "-ml0 -me0 -mgfx130 -mvtx100 -mt400 -ma100"},
-{ LEVELID_LIBRARY,      "-ml0 -me0 -mgfx130 -mvtx100 -mt400 -ma100"},
-{ LEVELID_BASEMENT,     "-ml0 -me0 -mgfx130 -mvtx100 -mt400 -ma100"},
-{ LEVELID_STACK,        "-ml0 -me0 -mgfx130 -mvtx100 -mt400 -ma100"},
-{ LEVELID_CAVES,        "-ml0 -me0 -mgfx130 -mvtx100 -mt400 -ma300"},
-{ LEVELID_BUNKER2_MP ,  "-ml0 -me0 -mgfx130 -mvtx100 -mt550 -ma170"},
-{ LEVELID_ARCHIVES_MP , "-ml0 -me0 -mgfx80  -mvtx100 -mt550 -ma250"},
-{ LEVELID_CAVERNS_MP ,  "-ml0 -me0 -mgfx130 -mvtx100 -mt440 -ma220"},
-{ LEVELID_FACILITY_MP , "-ml0 -me0 -mgfx90  -mvtx100 -mt550 -ma230"},
-{ LEVELID_EGYPT_MP ,    "-ml0 -me0 -mgfx110 -mvtx100 -mt350 -ma400"},
-{ LEVELID_DEFAULT,      "-ml0 -me0 -mgfx100 -mvtx50 -mt700 -ma400"},
-{ 0x0, },
-{ 0x0, },
-{ 0x0, }
-};
-
 s32 g_MainStageNum = LEVELID_NONE;
 
 OSScMsg g_bossGfxDoneMsg = { OS_SC_DONE_MSG };
@@ -217,7 +174,6 @@ void bossMainloop(void)
     const unsigned char *tokenFindLevel;
     GFXMsg *localGfxFrameMsg;
     OSScMsg localGfxDoneMsg;
-    s32 stringIndex;
     Gfx *gdl;
     Gfx *firstGdl;
     u32 nowCount;
@@ -273,44 +229,7 @@ void bossMainloop(void)
 
         if (g_UseBuiltInMemTokens)
         {
-            stringIndex = -1;
-
-            if (g_StageNum != LEVELID_TITLE && get_selected_num_players() >= 2)
-            {
-                stringIndex = 0;
-
-                while(memallocstringtable[stringIndex].id)
-                {
-                    if (memallocstringtable[stringIndex].id == (g_StageNum + 400))
-                    {
-                        break;
-                    }
-
-                    stringIndex++;
-                }
-
-                if (memallocstringtable[stringIndex].id == 0)
-                {
-                    stringIndex = -1;
-                }
-            }
-
-            if (stringIndex < 0)
-            {
-                stringIndex = 0;
-
-                while(memallocstringtable[stringIndex].id)
-                {
-                    if (memallocstringtable[stringIndex].id == g_StageNum)
-                    {
-                        break;
-                    }
-
-                    stringIndex++;
-                }
-            }
-
-            tokenSetString(memallocstringtable[stringIndex].string);
+            tokenSetString(lvGetMemoryAllocationString(g_StageNum, get_selected_num_players()));
         }
 
         mempResetBank(MEMPOOL_STAGE);

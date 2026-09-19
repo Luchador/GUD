@@ -1165,6 +1165,7 @@ static BOOL RomExportUpdateLevelTable(const GEditorProject *project,
                                       const char **reasonout)
 {
     const RomManifestEntry *stgt = NULL;
+    DWORD rowSize, layoutShift;
     DWORD i;
 
     for (i = 0; i < rom->info.entrycount; i++)
@@ -1182,6 +1183,10 @@ static BOOL RomExportUpdateLevelTable(const GEditorProject *project,
         return FALSE;
     }
 
+    rowSize = (stgt->romend - stgt->romstart) / stgt->flags;
+    /* Preserve the allocation string pointer when writing the new layout. */
+    layoutShift = rowSize - ROM_LEVEL_ROW_LEGACY_SIZE;
+
     for (i = 0; i < project->levelcount; i++)
     {
         const RomLevel *level = &project->levels[i];
@@ -1197,7 +1202,7 @@ static BOOL RomExportUpdateLevelTable(const GEditorProject *project,
 
         for (j = 0; j < stgt->flags; j++)
         {
-            unsigned char *candidate = rom->data + stgt->romstart + j * ROM_LEVEL_ROW_SIZE;
+            unsigned char *candidate = rom->data + stgt->romstart + j * rowSize;
 
             if ((LONG)RomExportRead32(candidate) == level->levelID)
             {
@@ -1222,14 +1227,14 @@ static BOOL RomExportUpdateLevelTable(const GEditorProject *project,
             union { DWORD u; float f; } bits;
 
             bits.f = level->levelscale;
-            RomExportWrite32(row + 20, bits.u);
+            RomExportWrite32(row + 20 + layoutShift, bits.u);
             bits.f = level->renderScale;
-            RomExportWrite32(row + 24, bits.u);
+            RomExportWrite32(row + 24 + layoutShift, bits.u);
         }
 
-        RomExportWrite16(row + 28, (unsigned short)level->music);
-        RomExportWrite16(row + 30, (unsigned short)level->bgsound);
-        RomExportWrite16(row + 32, (unsigned short)level->xtrack);
+        RomExportWrite16(row + 28 + layoutShift, (unsigned short)level->music);
+        RomExportWrite16(row + 30 + layoutShift, (unsigned short)level->bgsound);
+        RomExportWrite16(row + 32 + layoutShift, (unsigned short)level->xtrack);
     }
 
     return TRUE;

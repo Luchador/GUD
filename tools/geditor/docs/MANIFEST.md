@@ -33,6 +33,18 @@ version; incompatible envelope changes require a new manifest version.
 main music, ambient track and action track. `ENVT` includes sky/water and
 visibility data as well as fog.
 
+`STGT.flags` counts the first `STAGES_MAX` rows of `g_LevelInfoTable`, including
+the BG placeholder. Allocation-only rows for the title, multiplayer overrides
+and default budget follow that catalog and are not exposed as editable levels.
+The row stride is `(STGT.romend - STGT.romstart) / STGT.flags`. Current rows are
+40 bytes: level ID at 0; name, setup, BG and Stan pointers at 4/8/12/16;
+`memoryAllocationString` pointer at 20; scale floats at 24/28; and music,
+ambient and action track IDs (`s16`) at 32/34/36, followed by two padding bytes.
+GEditor also accepts the previous 36-byte rows, which omit the allocation
+pointer and place the scale/track fields four bytes earlier. Export preserves
+the base ROM's stride and allocation pointers. Older editors that require a
+36-byte stride reject rebuilt ROMs; rebuild GEditor with the matching sources.
+
 `CMAP` gives the ROM range and linked RAM base of the game's data segment.
 For a linked RAM address `p`, resolve it as:
 

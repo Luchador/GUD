@@ -28,6 +28,7 @@ struct LevelEntry
     char *setupFileName;
     void *bg_seg_filename;
     void *bg_stan_filename;
+    const char *memoryAllocationString; /* NULL uses LEVELID_DEFAULT. */
     f32 levelscale;
     f32 renderScale;
     s16 main_music;
@@ -49,6 +50,7 @@ extern u8 * address_demo_loaded;
 
 void lvInit(void);
 struct LevelEntry *lvFindLevelInfo(enum LEVELID levelId);
+const char *lvGetMemoryAllocationString(enum LEVELID levelId, s32 numPlayers);
 Gfx *lvRender(Gfx *gdl);
 void lvSetSelectedDifficulty(DIFFICULTY diff);
 void lvTick(void);
