@@ -262,7 +262,7 @@ $(addprefix $(BUILD_DIR)/src/game/,bg.o bgdebug.o bondview.o lv.o sky.o renderca
 $(addprefix $(BUILD_DIR)/src/game/,bg.o bgonecycle.o model.o modelonecycle.o): src/game/bgonecycle.h
 $(addprefix $(BUILD_DIR)/src/game/,model.o modelonecycle.o dyn.o tex.o rendercache.o): src/game/modelonecycle.h
 $(BUILD_DIR)/src/game/modelonecycle.o: src/game/dyn.h
-$(addprefix $(BUILD_DIR)/src/game/,model.o modelonecycle.o gunfire.o propobj.o): src/game/model.h
+$(addprefix $(BUILD_DIR)/src/game/,model.o modelonecycle.o gunfire.o propobj.o initunk_0009E0.o): src/game/model.h
 $(addprefix $(BUILD_DIR)/src/game/,bgonecycle.o tex.o bgapply.o): src/bgtransparency.h
 
 $(addprefix $(BUILD_DIR)/src/game/,cam.o player.o): src/game/cam.h

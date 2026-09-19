@@ -22,12 +22,15 @@ typedef struct ModelGroupMtxBuildArg {
     ModelNode *parentnode;
 } ModelGroupMtxBuildArg;
 
-#define MODEL_ANIM_FRAME_CACHE_CAPACITY 4
+#define MODEL_ANIM_FRAME_CACHE_SETS 16
+#define MODEL_ANIM_FRAME_CACHE_WAYS 4
+#define MODEL_ANIM_FRAME_CACHE_CAPACITY (MODEL_ANIM_FRAME_CACHE_SETS * MODEL_ANIM_FRAME_CACHE_WAYS)
+#define MODEL_ANIM_FRAME_CACHE_FRAME_SIZE 128
 
 typedef struct ModelAnimFrameCacheEntry {
-    u32 dest;
     u32 source;
     u32 size;
+    u32 age;
 } ModelAnimFrameCacheEntry;
 
 /* Near/far LOD siblings use the same matrix and runtime-data base. This
@@ -39,8 +42,9 @@ typedef struct ModelDistanceCache {
 } ModelDistanceCache;
 
 static ModelAnimFrameCacheEntry g_ModelAnimFrameCache[MODEL_ANIM_FRAME_CACHE_CAPACITY];
-static char *g_ModelAnimFrameCacheBuffer;
-static s32 g_ModelAnimFrameCacheNext;
+/* Private storage survives each model's scratch reset. Align its base at use
+ * time so PI DMA/cache invalidation touches only whole, owned cache lines. */
+static u8 g_ModelAnimFrameCacheData[MODEL_ANIM_FRAME_CACHE_CAPACITY * MODEL_ANIM_FRAME_CACHE_FRAME_SIZE + 15];
 
 // Begin forward declarations.
 
@@ -4929,17 +4933,86 @@ u32 modelFindNextProjectileHitCandidate(Model *model, coord3d *arg1, coord3d *ar
 }
 
 
-/**
- * Copy animation from ROM to RAM
-*/
+void modelResetAnimationFrameCache(void)
+{
+    s32 i;
+    for (i = 0; i < MODEL_ANIM_FRAME_CACHE_CAPACITY; i++)
+    {
+        g_ModelAnimFrameCache[i].size = 0;
+    }
+}
+
+/* Four-way LRU keeps lookup bounded while retaining unrelated guards' frames.
+ * The tag describes the actual aligned ROM transfer, including odd-address
+ * padding. Stock character frames transfer 96 bytes; larger custom frames
+ * keep the original direct-DMA path rather than overflowing a cache slot. */
+static void modelLoadCachedAnimationFrame(u8 *dest, u32 source, u32 size)
+{
+    s32 set;
+    s32 slot;
+    s32 victim;
+    u32 age;
+    u8 *data;
+    ModelAnimFrameCacheEntry *entry;
+
+    if (size == 0 || size > MODEL_ANIM_FRAME_CACHE_FRAME_SIZE)
+    {
+        romCopy(dest, (void *)source, size);
+        return;
+    }
+
+    set = ((source >> 1) ^ (source >> 8)) & (MODEL_ANIM_FRAME_CACHE_SETS - 1);
+    set *= MODEL_ANIM_FRAME_CACHE_WAYS;
+    victim = set;
+    for (slot = set; slot < set + MODEL_ANIM_FRAME_CACHE_WAYS; slot++)
+    {
+        entry = &g_ModelAnimFrameCache[slot];
+        if (entry->size == size && entry->source == source)
+        {
+            victim = slot;
+            break;
+        }
+        if (!entry->size || (g_ModelAnimFrameCache[victim].size
+                && entry->age > g_ModelAnimFrameCache[victim].age))
+        {
+            victim = slot;
+        }
+    }
+
+    entry = &g_ModelAnimFrameCache[victim];
+    data = (u8 *)(((u32)g_ModelAnimFrameCacheData + 15) & ~15u)
+            + victim * MODEL_ANIM_FRAME_CACHE_FRAME_SIZE;
+    if (entry->size != size || entry->source != source)
+    {
+        romCopy(data, (void *)source, size);
+        entry->source = source;
+        entry->size = size;
+        entry->age = MODEL_ANIM_FRAME_CACHE_WAYS;
+    }
+
+    /* Per-set ranks avoid a timestamp that can wrap during long sessions. */
+    age = entry->age;
+    for (slot = set; slot < set + MODEL_ANIM_FRAME_CACHE_WAYS; slot++)
+    {
+        if (g_ModelAnimFrameCache[slot].size && g_ModelAnimFrameCache[slot].age < age)
+        {
+            g_ModelAnimFrameCache[slot].age++;
+        }
+    }
+    entry->age = 0;
+
+    /* Callers can hold four frames at once while blending animations. Return
+     * scratch copies, never evictable cache pointers, preserving that lifetime
+     * even when all four frames hash to the same set. */
+    memcpy(dest, data, size);
+}
+
+/** Copy an animation frame to the model's scratch buffer, using the ROM cache. */
 u8 *loadAnimationFrame(ModelAnimation* anim, s32 frame)
 {
     u8 *ret;
     s32 source;
     s32 frameSize;
-    s32 i;
-    s32 cacheSlot;
-    bool cacheHit;
     u32 dest;
     u32 size;
 
@@ -4968,66 +5041,7 @@ u8 *loadAnimationFrame(ModelAnimation* anim, s32 frame)
         // Size of frame rounded up for DMA. An uncompressed guard frame transfers 96 bytes.
         size = ((u32) (frameSize + 15) >> 4) * 16;
 
-        /* The scratch pointer returns to the same address after each model.
-         * When consecutive models need the same frame in the same slot, the
-         * ROM data is already there and the blocking PI DMA can be skipped. */
-        if (g_ModelAnimFrameCacheBuffer != g_ModelAnimationScratch->bufferStart)
-        {
-            g_ModelAnimFrameCacheBuffer = g_ModelAnimationScratch->bufferStart;
-            g_ModelAnimFrameCacheNext = 0;
-
-            for (i = 0; i < MODEL_ANIM_FRAME_CACHE_CAPACITY; i++)
-            {
-                g_ModelAnimFrameCache[i].size = 0;
-            }
-        }
-
-        cacheHit = FALSE;
-
-        for (i = 0; i < MODEL_ANIM_FRAME_CACHE_CAPACITY; i++)
-        {
-            if (g_ModelAnimFrameCache[i].size == size
-                    && g_ModelAnimFrameCache[i].dest == dest
-                    && g_ModelAnimFrameCache[i].source == (u32)source)
-            {
-                cacheHit = TRUE;
-                break;
-            }
-        }
-
-        if (!cacheHit)
-        {
-            cacheSlot = -1;
-
-            /* A new DMA can invalidate more than one cached range if frame
-             * sizes differ between models. */
-            for (i = 0; i < MODEL_ANIM_FRAME_CACHE_CAPACITY; i++)
-            {
-                if (g_ModelAnimFrameCache[i].size != 0
-                        && dest < g_ModelAnimFrameCache[i].dest + g_ModelAnimFrameCache[i].size
-                        && g_ModelAnimFrameCache[i].dest < dest + size)
-                {
-                    g_ModelAnimFrameCache[i].size = 0;
-                }
-
-                if (cacheSlot < 0 && g_ModelAnimFrameCache[i].size == 0)
-                {
-                    cacheSlot = i;
-                }
-            }
-
-            romCopy((void *)dest, (void *)source, size);
-
-            if (cacheSlot < 0)
-            {
-                cacheSlot = g_ModelAnimFrameCacheNext;
-            }
-
-            g_ModelAnimFrameCache[cacheSlot].dest = dest;
-            g_ModelAnimFrameCache[cacheSlot].source = source;
-            g_ModelAnimFrameCache[cacheSlot].size = size;
-            g_ModelAnimFrameCacheNext = (cacheSlot + 1) % MODEL_ANIM_FRAME_CACHE_CAPACITY;
-        }
+        modelLoadCachedAnimationFrame((u8 *)dest, (u32)source, size);
 
         // Set this to point to the end of the copied frame
         // This allows to copy another frame after this one

@@ -6,7 +6,8 @@
 #include "gedmanifest.h"
 
 
-// Where animation frames are saved. The game stores at most four uncompressed frames at once.
+// Working copies for one model's four blended frames; the persistent ROM cache
+// in model.c owns separate storage and survives reuse of this scratch buffer.
 static char g_ModelAnimationFrameBuffer[0x2D0];
 
 // Animation table ptr
