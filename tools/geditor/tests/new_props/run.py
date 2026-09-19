@@ -124,6 +124,12 @@ def main():
         command += ['-Wl,--gc-sections', '-lm', '-o', str(work / 'check')]
         subprocess.run(command, check=True)
         doc, data = fixture(work / 'pendant.glb')
+        batching = copy.deepcopy(doc)
+        batching['meshes'] = [{'primitives': [copy.deepcopy(doc['meshes'][0]['primitives'][i])]}
+                              for i in (0, 1, 0, 3, 1, 0, 3)]
+        batching['nodes'] = [{'mesh': i, 'translation': [i * .3, 0, 0]} for i in range(7)]
+        batching['scenes'] = [{'nodes': list(range(7))}]
+        write(work / 'batching.glb', batching, data)
         # Distinct, non-edge UVs include tiling outside [0,1]. These must be
         # rotated with project BMPs, but not with GEditor's native-order PNGs.
         uvdata = bytearray(data)

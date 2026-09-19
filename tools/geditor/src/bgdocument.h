@@ -386,6 +386,10 @@ BOOL BgDocumentCompile(const BgDocument *document, const BgFile *source,
  * player bullet tests. Invalid assets are rejected, never rewritten. */
 BOOL BgFileValidateVertexBatches(const BgFile *bg, const char **reasonout);
 
+/* Export-time opaque batching for unopened rooms. NULL out->data means no
+ * worthwhile change. Keeps original vertex/secondary streams and offsets. */
+BOOL BgFileBatchOpaque(const BgFile *source, BgFile *out, const char **reasonout);
+
 /* Resolve a painted corner's preview alpha from the same inherited draw
  * state and per-face material as a full rebuild. Raw vertex RGBA stays intact. */
 unsigned char BgDocumentPreviewVertexAlpha(const BgDocumentRoom *room,

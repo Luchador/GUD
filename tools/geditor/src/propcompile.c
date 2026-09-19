@@ -57,11 +57,68 @@ static void Material(PropOutput *out,unsigned short tag,BgRenderFlags flags,BOOL
     Command(out,material.combineword0,material.combineword1);
 }
 
+typedef struct PropFaceOrder { DWORD index; unsigned short tag; BgRenderFlags flags; } PropFaceOrder;
+static int CompareFaces(const void *left,const void *right)
+{
+    const PropFaceOrder *a=left,*b=right;
+    if (a->tag!=b->tag) return a->tag<b->tag?-1:1;
+    if (a->flags!=b->flags) return a->flags<b->flags?-1:1;
+    return a->index<b->index?-1:a->index!=b->index;
+}
+static DWORD VertexLoads(const PropOutput *out)
+{
+    DWORD loads=0;
+    for (DWORD i=0;i+8<=out->size;i+=8) loads+=out->data[i]==4;
+    return loads;
+}
+static BOOL DrawPass(PropOutput *out,const DWORD *indices,const unsigned short *tags,
+    const BgRenderFlags *flags,DWORD count,const PropFaceOrder *order,DWORD pass)
+{
+    DWORD cache[16],lastflags=0xffffffffu, lasttag=0xffffffffu;
+    BOOL any=FALSE;
+    memset(cache,0xff,sizeof(cache));
+    for (DWORD position=0;position<count;position++)
+    {
+        DWORD face=order ? order[position].index : position;
+        unsigned char mapped[3];
+        unsigned locked=0;
+        if (!!(flags[face]&BG_RENDER_BLEND)!=(int)pass) continue;
+        /* The renderer binds segment 3, but native model display lists
+         * must load their own matrix before the first vertex command. */
+        if (!any) Command(out,0x01020040u,0x03000000u);
+        any=TRUE;
+        if (lasttag!=tags[face] || lastflags!=flags[face])
+        {
+            Material(out,tags[face],flags[face],pass!=0);
+            memset(cache,0xff,sizeof(cache)); lasttag=tags[face]; lastflags=flags[face];
+        }
+        for (DWORD corner=0;corner<3;corner++)
+        {
+            int slot;
+            mapped[corner]=16;
+            for (slot=0;slot<16;slot++) if (cache[slot]==indices[face*3+corner])
+            { mapped[corner]=slot; locked|=1u<<slot; break; }
+        }
+        for (DWORD corner=0;corner<3;corner++) if (mapped[corner]==16)
+        {
+            int slot;
+            for (slot=0;slot<16 && (locked&(1u<<slot));slot++) {}
+            mapped[corner]=slot; locked|=1u<<slot; cache[slot]=indices[face*3+corner];
+            Command(out,0x04000010u|((DWORD)slot<<16),0x04000000u|cache[slot]*16);
+        }
+        Command(out,0xbf000000u,((DWORD)mapped[0]*10<<16)|((DWORD)mapped[1]*10<<8)|((DWORD)mapped[2]*10));
+    }
+    /* Type-4 rendering requires a primary list even for an all-alpha prop. */
+    if (any || !pass) Command(out,0xb8000000u,0);
+    return any || !pass;
+}
+
 BOOL PropCompile(const BgVertex *vertices,const unsigned short *tags,
     const BgRenderFlags *flags,DWORD count,const char *projectdir,
-    unsigned char **data,DWORD *size,float *radius,const char **why)
+    unsigned char **data,DWORD *size,float *radius,DWORD *faceorder,const char **why)
 {
     PropOutput out={0};
+    PropFaceOrder *order=NULL;DWORD emitted=0;
     unsigned char header[176]={0}, *native=NULL;
     DWORD *indices=NULL,*hashes=NULL, slots=1, unique=0, face, corner, pass;
     float bounds[2][3]={{32767,32767,32767},{-32768,-32768,-32768}};
@@ -74,8 +131,11 @@ BOOL PropCompile(const BgVertex *vertices,const unsigned short *tags,
     while (slots<count*6) slots*=2;
     indices=malloc((size_t)count*3*sizeof(*indices)); hashes=calloc(slots,sizeof(*hashes));
     native=malloc((size_t)count*3*16);
+    order=malloc((size_t)count*sizeof(*order));
     *why="Out of memory compiling the prop.";
-    if (!indices || !hashes || !native) goto done;
+    if (!indices || !hashes || !native || !order) goto done;
+    for (face=0;face<count;face++) order[face]=(PropFaceOrder){face,tags[face],flags[face]};
+    qsort(order,count,sizeof(*order),CompareFaces);
     for (face=0;face<count;face++)
     {
         int width=1,height=1;
@@ -143,50 +203,31 @@ BOOL PropCompile(const BgVertex *vertices,const unsigned short *tags,
     Append(&out,header,sizeof(header)); Append(&out,native,unique*16);
     for (pass=0;pass<2;pass++)
     {
-        DWORD cache[16],lastflags=0xffffffffu, lasttag=0xffffffffu, first=out.size;
-        BOOL any=FALSE;
-        memset(cache,0xff,sizeof(cache));
-        for (face=0;face<count;face++)
+        PropOutput original={0},sorted={0};
+        DWORD first=out.size;
+        BOOL any=DrawPass(&original,indices,tags,flags,count,NULL,pass),batched=FALSE;
+        if (!pass)
         {
-            unsigned char mapped[3];
-            unsigned locked=0;
-            if (!!(flags[face]&BG_RENDER_BLEND)!=(int)pass) continue;
-            /* The renderer binds segment 3, but native model display lists
-             * must load their own matrix before the first vertex command. */
-            if (!any) Command(&out,0x01020040u,0x03000000u);
-            any=TRUE;
-            if (lasttag!=tags[face] || lastflags!=flags[face])
-            {
-                Material(&out,tags[face],flags[face],pass!=0);
-                memset(cache,0xff,sizeof(cache)); lasttag=tags[face]; lastflags=flags[face];
-            }
-            for (corner=0;corner<3;corner++)
-            {
-                int slot;
-                mapped[corner]=16;
-                for (slot=0;slot<16;slot++) if (cache[slot]==indices[face*3+corner])
-                { mapped[corner]=slot; locked|=1u<<slot; break; }
-            }
-            for (corner=0;corner<3;corner++) if (mapped[corner]==16)
-            {
-                int slot;
-                for (slot=0;slot<16 && (locked&(1u<<slot));slot++) {}
-                mapped[corner]=slot; locked|=1u<<slot; cache[slot]=indices[face*3+corner];
-                Command(&out,0x04000010u|((DWORD)slot<<16),0x04000000u|cache[slot]*16);
-            }
-            Command(&out,0xbf000000u,((DWORD)mapped[0]*10<<16)|((DWORD)mapped[1]*10<<8)|((DWORD)mapped[2]*10));
+            DrawPass(&sorted,indices,tags,flags,count,order,pass);
+            batched=!sorted.failed && sorted.size<original.size && VertexLoads(&sorted)<=VertexLoads(&original);
         }
-        /* Type-4 translucent rendering is gated by a non-NULL primary list,
-         * even for a model that consists entirely of translucent faces. */
-        if (any || !pass)
+        if (original.failed || sorted.failed) out.failed=TRUE;
+        if (any)
         {
-            Command(&out,0xb8000000u,0);
+            PropOutput *chosen=batched?&sorted:&original;
+            Append(&out,chosen->data,chosen->size);
             if (!out.failed) Put32(out.data+132+pass*4,0x05000000u|first);
         }
+        if (faceorder) for (face=0;face<count;face++)
+        {
+            DWORD index=batched?order[face].index:face;
+            if (!!(flags[index]&BG_RENDER_BLEND)==(int)pass) faceorder[emitted++]=index;
+        }
+        free(original.data);free(sorted.data);
     }
     if (out.size&15) { unsigned char pad[16]={0}; Append(&out,pad,16-(out.size&15)); }
     if (out.failed) { *why="The compiled prop is too large or could not be allocated."; goto done; }
     *data=out.data; *size=out.size; out.data=NULL; *why=""; ok=TRUE;
 done:
-    free(out.data); free(native); free(indices); free(hashes); return ok;
+    free(order); free(out.data); free(native); free(indices); free(hashes); return ok;
 }

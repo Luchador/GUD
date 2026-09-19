@@ -1112,6 +1112,15 @@ have_replacement:
             slot->replacement = cleaned.data;
             slot->replacementlength = cleaned.size;
         }
+        source.data = slot->replacement ? slot->replacement : rom->data + slot->offset;
+        source.size = slot->replacement ? slot->replacementlength : slot->length;
+        if (!BgFileBatchOpaque(&source, &cleaned, reasonout)) { goto fail; }
+        if (cleaned.data)
+        {
+            free(slot->replacement);
+            slot->replacement = cleaned.data;
+            slot->replacementlength = cleaned.size;
+        }
     }
 
     /* Resolve aliases first, then compact the chosen setup. The runtime loads

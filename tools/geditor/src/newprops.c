@@ -221,7 +221,7 @@ BOOL NewPropsImport(const char *project,const char *name,const char *path,BOOL r
     BgVertex *vertices=NULL;unsigned short *tags=NULL;BgRenderFlags *flags=NULL;
     unsigned char *data=NULL;DWORD count,size;float radius;NewProp *prop;BOOL ok=FALSE;
     ModelSource check={0},previous={0};RomFile rom={0};char base[MAX_PATH];DWORD offset,span;
-    ModelMaterials materials={0}, ordered={0}; DWORD face,pass,cursor=0;
+    ModelMaterials materials={0}, ordered={0}; DWORD face,*faceorder=NULL;
     if (!NewPropsOpen(project,why)) return FALSE;
     if (!g_Supported) { *why="Rebuild GUD with new-prop support, then rebase this project to that ROM before adding models.";return FALSE; }
     if (!NameValid(name)) { *why="Use a unique prop name such as PpendantZ (letters, digits and underscores, ending in Z).";return FALSE; }
@@ -253,13 +253,15 @@ BOOL NewPropsImport(const char *project,const char *name,const char *path,BOOL r
     for (face=0;vertices && face<count;face++)
         tags[face]=(tags[face]&~BG_TEX_ID_MASK)|materials.slots[materials.faces[face].slot].texture;
     if (!vertices && !**why) *why="The selected scene contains no triangles.";
-    if (!vertices || !PropCompile(vertices,tags,flags,count,project,&data,&size,&radius,why)
+    if (!vertices) goto done;
+    faceorder=malloc((size_t)count*sizeof(*faceorder));
+    if (!faceorder) { *why="Out of memory retaining imported face materials.";goto done; }
+    if (!PropCompile(vertices,tags,flags,count,project,&data,&size,&radius,faceorder,why)
         || !ModelReadSource(data,size,&check,why)) goto done;
     if (check.count!=count) { *why="The compiled model did not reproduce every imported triangle.";goto done; }
     if (!ModelMaterialsCopy(&ordered,&materials,why)) goto done;
-    /* PropCompile emits the opaque pass before the translucent pass. */
-    for (pass=0;pass<2;pass++) for (face=0;face<count;face++)
-        if (!!(flags[face]&BG_RENDER_BLEND)==(int)pass) ordered.faces[cursor++]=materials.faces[face];
+    /* Keep named material slots and original UVs attached to their triangles. */
+    for (face=0;face<count;face++) ordered.faces[face]=materials.faces[faceorder[face]];
     if (!ModelMaterialsAttach(&data,&size,&ordered,why)) goto done;
     if (!prop) { prop=&g_Props.entries[g_Props.count++];lstrcpyn(prop->name,name,64); }
     free(prop->data);prop->data=data;data=NULL;prop->size=size;prop->radius=radius;prop->scale=.1f;
@@ -267,7 +269,7 @@ BOOL NewPropsImport(const char *project,const char *name,const char *path,BOOL r
 done:
     RomFree(&rom);ModelFreeSource(&check);ModelFreeSource(&previous);
     ModelMaterialsFree(&materials);ModelMaterialsFree(&ordered);
-    free(vertices);free(tags);free(flags);free(data);return ok;
+    free(faceorder);free(vertices);free(tags);free(flags);free(data);return ok;
 }
 
 BOOL NewPropsReplace(const char *name,unsigned char *data,DWORD size,const char **why)

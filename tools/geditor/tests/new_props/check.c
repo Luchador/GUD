@@ -50,6 +50,49 @@ static void Assign(const char *project,DWORD slot,DWORD texture)
     ModelFreeSource(&source);
     CHECK(ModelEditsSetMaterial(project,"PpendantZ",revision,slot,texture,&why));
 }
+static DWORD TextureSelections(const unsigned char *data)
+{
+    DWORD n=0;
+    for (DWORD pc=Word(data+132)&0xffffff;data[pc]!=0xb8;pc+=8) n+=data[pc]==0xc0;
+    return n;
+}
+static void Batching(const char *project)
+{
+    char path[MAX_PATH];DWORD count,size,before,revision;
+    ModelSource source={0},batched={0};const unsigned char *data;
+    snprintf(path,sizeof(path),"%s/batching.glb",project);
+    CHECK(NewPropsImport(project,"PbatchZ",path,FALSE,&count,&why)&&count==7);
+    for (DWORD slot=0;slot<2;slot++)
+    {
+        CHECK(ModelEditsReadSource(project,"PbatchZ",&source,&revision,&why));ModelFreeSource(&source);
+        CHECK(ModelEditsSetMaterial(project,"PbatchZ",revision,slot,slot?0xb00:0xd4,&why));
+    }
+    data=NewPropsData(project,"PbatchZ",&size);before=size;
+    CHECK(TextureSelections(data)==5);
+    CHECK(ModelReadSource(data,size,&source,&why));
+    CHECK(NewPropsImport(project,"PbatchZ",path,TRUE,&count,&why)&&count==7);
+    data=NewPropsData(project,"PbatchZ",&size);CHECK(TextureSelections(data)==2&&size<before);
+    CHECK(ModelReadSource(data,size,&batched,&why));
+    for (DWORD f=0;f<batched.count;f++)
+    {
+        DWORD original=0;
+        while(original<source.count && source.vertices[original*3].x!=batched.vertices[f*3].x) original++;
+        CHECK(original<source.count);
+        CHECK(!memcmp(source.vertices+original*3,batched.vertices+f*3,3*sizeof(BgVertex)));
+        CHECK(source.tags[original]==batched.tags[f]&&source.flags[original]==batched.flags[f]);
+        CHECK(!memcmp(&source.materials.faces[original],&batched.materials.faces[f],sizeof(ModelMaterialFace)));
+        if(batched.flags[f]&BG_RENDER_BLEND) CHECK(original==f);
+    }
+    ModelFreeSource(&source);ModelFreeSource(&batched);
+    printf("PASS static-prop batching: texture selections 5 -> 2; bytes %u -> %u; material slots, UVs, colors and translucent order preserved.\n",before,size);
+    CHECK(NewPropsSave(project,&why));ModelEditsReset();CHECK(NewPropsOpen(project,&why));
+    data=NewPropsData(project,"PbatchZ",&before);CHECK(before==size&&TextureSelections(data)==2);
+    CHECK(ModelEditsReadSource(project,"PbatchZ",&source,&revision,&why));ModelFreeSource(&source);
+    CHECK(ModelEditsSetMaterial(project,"PbatchZ",revision,0,0xb00,&why));
+    CHECK(ModelEditsReadSource(project,"PbatchZ",&source,&revision,&why));
+    for(DWORD f=0;f<source.count;f++) if(source.materials.faces[f].slot==0) CHECK(BG_TEX_ID(source.tags[f])==0xb00);
+    ModelFreeSource(&source);
+}
 static void CheckSlots(const char *project)
 {
     ModelSource source={0};DWORD revision,i,size;
@@ -275,7 +318,7 @@ int main(int argc,char **argv)
         BgVertex vertices[3]={{.x=0,.a=25},{.x=.2f,.a=25},{.y=.2f,.a=25}};
         unsigned short tag=BG_TEX_NONE;BgRenderFlags flags=BG_RENDER_BLEND;
         unsigned char *native=NULL;DWORD length;float radius;ModelSource mesh={0};
-        CHECK(PropCompile(vertices,&tag,&flags,1,project,&native,&length,&radius,&why));
+        CHECK(PropCompile(vertices,&tag,&flags,1,project,&native,&length,&radius,NULL,&why));
         CHECK(Word(native+132)!=0 && Word(native+136)!=0);
         CHECK(native[Word(native+132)&0xffffff]==0xb8);
         CHECK(ModelReadSource(native,length,&mesh,&why) && mesh.count==1);
@@ -328,6 +371,7 @@ int main(int argc,char **argv)
         CHECK(ModelReadSource(data,size,&mesh,&why));
         CHECK(mesh.vertices[1].y==200 && mesh.vertices[2].x==-200);ModelFreeSource(&mesh);
     }
+    Batching(project);
     ModelEditsReset();puts("PASS four materials, alpha, bounds, winding, validation, IDs, topology, atomic save, roundtrip, bank export and rebase.");
     return 0;
 }
