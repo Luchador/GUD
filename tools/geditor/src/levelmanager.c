@@ -105,7 +105,7 @@ void LevelManagerRefresh(const SetupFile *setup, const char *levelname)
 {
     if (!g_LevelManager) { return; }
     char title[128];
-    snprintf(title, sizeof(title), "Level Manager%s%s", levelname ? " - " : "", levelname ? levelname : "");
+    snprintf(title, sizeof(title), "Level Settings%s%s", levelname ? " - " : "", levelname ? levelname : "");
     SetWindowText(g_LevelManager, title);
     SetupIntroEntry *entries = NULL; DWORD count = 0;
     const char *why = "Open a level with a setup to edit starting equipment.";
@@ -254,10 +254,10 @@ static void LevelManagerEdit(HWND hwnd, BOOL ammo, SetupIntroAction action)
         unsigned generation = g_IntroGeneration;
         INT_PTR result = DialogBoxParam((HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
             MAKEINTRESOURCE(IDD_INTRO_EQUIPMENT), hwnd, IntroEquipmentDialogProc, (LPARAM)&edit.entry);
-        if (result == -1) { MessageBox(hwnd, "The starting-equipment dialog could not be opened.", "Level Manager", MB_ICONERROR); }
+        if (result == -1) { MessageBox(hwnd, "The starting-equipment dialog could not be opened.", "Level Settings", MB_ICONERROR); }
         if (result != IDOK) { return; }
         if (generation != g_IntroGeneration)
-        { MessageBox(hwnd, "The level was refreshed while this entry was open. Please edit the entry again.", "Level Manager", MB_ICONINFORMATION); return; }
+        { MessageBox(hwnd, "The level was refreshed while this entry was open. Please edit the entry again.", "Level Settings", MB_ICONINFORMATION); return; }
     }
     if (!SendMessage(GetWindow(hwnd, GW_OWNER), LEVELMANAGER_WM_INTRO_EDIT, 0, (LPARAM)&edit)) { return; }
     if (action == SETUP_INTRO_ADD) { row = ListView_GetItemCount(list) - 1; }

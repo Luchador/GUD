@@ -17,8 +17,9 @@
 #define IDD_ADD_PROP_MODEL    113
 #define IDD_LEVEL_MANAGER     114
 #define IDD_INTRO_EQUIPMENT   115
+#define IDD_PROJECT_SETTINGS  116
 
-/* Level Manager tabs. */
+/* Level Settings tabs. */
 #define IDC_LEVEL_MANAGER_TABS 1210
 #define IDC_INTRO_STATUS       1211
 #define IDC_INTRO_WEAPONS_LABEL 1212

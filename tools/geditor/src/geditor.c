@@ -27,6 +27,7 @@
 #include "uveditor.h"
 #include "modeleditor.h"
 #include "levelmanager.h"
+#include "projectsettings.h"
 #include "actioneditor.h"
 #include "modeledits.h"
 #include "newprops.h"
@@ -667,7 +668,8 @@ enum {
     ID_TOOLS_UV_EDITOR,
     ID_TOOLS_MODEL_EDITOR,
     ID_TOOLS_ACTION_BLOCKS,
-    ID_TOOLS_LEVEL_MANAGER,
+    ID_SETTINGS_LEVEL,
+    ID_SETTINGS_PROJECT,
 
     ID_FILE_RECENT_PROJECT_FIRST,
     ID_FILE_RECENT_PROJECT_LAST = ID_FILE_RECENT_PROJECT_FIRST + RECENT_PROJECTS_MAX - 1,
@@ -789,6 +791,7 @@ static HMENU GEditorCreateMenuBar(void)
     HMENU viewmenu;
     HMENU selectmenu;
     HMENU toolsmenu;
+    HMENU settingsmenu;
     HMENU importmenu;
 
     menubar = CreateMenu();
@@ -797,6 +800,7 @@ static HMENU GEditorCreateMenuBar(void)
     viewmenu = CreatePopupMenu();
     selectmenu = CreatePopupMenu();
     toolsmenu = CreatePopupMenu();
+    settingsmenu = CreatePopupMenu();
     importmenu = CreatePopupMenu();
     AppendMenu(importmenu, MF_STRING, ID_FILE_IMPORT_IMAGE, "Import &Image");
     g_RecentProjectsMenu = CreatePopupMenu();
@@ -841,17 +845,20 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_SAME_MATERIAL, "Select Same &Material");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_ROOM, "Select &Room\tShift+R");
 
-    AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_LEVEL_MANAGER, "&Level Manager");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_ACTION_BLOCKS, "&Action Blocks...");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_UV_EDITOR, "&UV Editor\tCtrl+T");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_MODEL_EDITOR, "&Model Editor");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_CREATE_ROM, "&Create ROM...");
+
+    AppendMenu(settingsmenu, MF_STRING, ID_SETTINGS_LEVEL, "&Level Settings");
+    AppendMenu(settingsmenu, MF_STRING, ID_SETTINGS_PROJECT, "&Project Settings");
 
     AppendMenu(menubar, MF_POPUP, (UINT_PTR)filemenu, "&File");
     AppendMenu(menubar, MF_POPUP, (UINT_PTR)editmenu, "&Edit");
     AppendMenu(menubar, MF_POPUP, (UINT_PTR)viewmenu, "&View");
     AppendMenu(menubar, MF_POPUP, (UINT_PTR)selectmenu, "&Select");
     AppendMenu(menubar, MF_POPUP, (UINT_PTR)toolsmenu, "&Tools");
+    AppendMenu(menubar, MF_POPUP, (UINT_PTR)settingsmenu, "Setti&ngs");
 
     return menubar;
 }
@@ -5637,11 +5644,18 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 ViewportSelectSameMaterial(g_Viewport);
                 return 0;
 
-            case ID_TOOLS_LEVEL_MANAGER:
+            case ID_SETTINGS_LEVEL:
                 if (!LevelManagerShow(hwnd, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), &g_CurrentSetup,
                     g_CurrentLevelIndex < g_Project.levelcount ? g_Project.levels[g_CurrentLevelIndex].name : NULL))
                 {
-                    MessageBox(hwnd, "Could not open the Level Manager window.", GEDITOR_TITLE, MB_ICONERROR);
+                    MessageBox(hwnd, "Could not open the Level Settings window.", GEDITOR_TITLE, MB_ICONERROR);
+                }
+                return 0;
+
+            case ID_SETTINGS_PROJECT:
+                if (!ProjectSettingsShow(hwnd, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE)))
+                {
+                    MessageBox(hwnd, "Could not open the Project Settings window.", GEDITOR_TITLE, MB_ICONERROR);
                 }
                 return 0;
 
@@ -6091,6 +6105,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                 }
                 if (!KnifeDialogHandleMessage(&msg)
                     && !LevelManagerHandleMessage(&msg)
+                    && !ProjectSettingsHandleMessage(&msg)
                     && !ModelEditorHandleMessage(&msg)
                     && !UVEditorHandleMessage(&msg)
                     && !GEditorHandleFogHotkey(hwnd, &msg)
@@ -6127,6 +6142,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
             }
             if (!KnifeDialogHandleMessage(&msg)
                 && !LevelManagerHandleMessage(&msg)
+                && !ProjectSettingsHandleMessage(&msg)
                 && !ModelEditorHandleMessage(&msg)
                 && !UVEditorHandleMessage(&msg)
                 && !GEditorHandleFogHotkey(hwnd, &msg)
