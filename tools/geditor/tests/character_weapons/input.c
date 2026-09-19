@@ -21,14 +21,16 @@ enum { CB_RESETCONTENT=1,CB_ADDSTRING,CB_SETITEMDATA,CB_SETCURSEL,CB_GETCURSEL,C
 #include "hatchoices.h"
 #include "catalog.inc"
 typedef struct Combo { int count,selected,item[40];char names[40][80]; } Combo;
-static Combo combos[3];
+static Combo combos[4];
 static CharacterPropertiesState *active;
 static SetupCharacterWeaponEdit received;
 static SetupCharacterHatEdit receivedhat;
+static SetupCharacterBehaviorEdit receivedbehavior;
 static int requests;
 static BOOL reject,reenter;
 static void CharacterPropertiesApply(HWND,CharacterPropertiesState *,int);
 static void CharacterPropertiesApplyHat(HWND,CharacterPropertiesState *);
+static void CharacterPropertiesApplyBehavior(HWND,CharacterPropertiesState *);
 static HWND GetParent(HWND h) { return NULL; }
 static LRESULT SendMessage(HWND h,int msg,WPARAM wp,LPARAM lp)
 {
@@ -41,6 +43,11 @@ static LRESULT SendMessage(HWND h,int msg,WPARAM wp,LPARAM lp)
     if(msg==CHARACTERPROPERTIES_WM_HAT_CHANGED) {
         assert(active->committing);receivedhat=*(SetupCharacterHatEdit *)lp;requests++;
         if(reenter)CharacterPropertiesApplyHat(active,active);
+        return !reject;
+    }
+    if(msg==CHARACTERPROPERTIES_WM_BEHAVIOR_CHANGED) {
+        assert(active->committing);receivedbehavior=*(SetupCharacterBehaviorEdit *)lp;requests++;
+        if(reenter)CharacterPropertiesApplyBehavior(active,active);
         return !reject;
     }
     switch(msg) {
@@ -83,6 +90,23 @@ static void Input(void)
     CharacterPropertiesHatChoices(&combos[2],SETUP_HAT_MIXED);CharacterPropertiesApplyHat(&s,&s);assert(requests==4);
     CharacterPropertiesHatChoices(&combos[2],999);CharacterPropertiesApplyHat(&s,&s);assert(requests==4);
     assert(!strcmp(combos[2].names[combos[2].selected],"Model 999 (current)"));
+    s.controls[CHARACTER_BEHAVIOR]=&combos[3];s.ailistid=0x401;
+    CharacterPropertiesBehaviorChoices(&combos[3],s.ailistid);
+    assert(combos[3].count==3 && combos[3].item[combos[3].selected]==0x401);
+    assert(!strcmp(combos[3].names[combos[3].selected],"Action Block 0x0401 (current)"));
+    CharacterPropertiesApplyBehavior(&s,&s);assert(requests==4); /* Viewing a custom assignment never replaces it. */
+    combos[3].selected=Row(&combos[3],SETUP_BEHAVIOR_STANDARD_GUARD);
+    CharacterPropertiesApplyBehavior(&s,&s);
+    assert(requests==5 && receivedbehavior.ailistid==2 && receivedbehavior.previous==0x401
+        && receivedbehavior.characterindex==3 && receivedbehavior.sourceoffset==512
+        && receivedbehavior.chrnum==8 && !s.committing);
+    CharacterPropertiesBehaviorChoices(&combos[3],SETUP_BEHAVIOR_DO_NOTHING);
+    assert(combos[3].count==2 && !strcmp(combos[3].names[combos[3].selected],"Do nothing"));
+    CharacterPropertiesApplyBehavior(&s,&s);assert(requests==6 && receivedbehavior.ailistid==1);
+    s.updating=TRUE;CharacterPropertiesApplyBehavior(&s,&s);assert(requests==6);s.updating=FALSE;
+    s.selected=FALSE;CharacterPropertiesApplyBehavior(&s,&s);assert(requests==6);s.selected=TRUE;
+    combos[3].selected=CB_ERR;CharacterPropertiesApplyBehavior(&s,&s);assert(requests==6);
+    puts("PASS: behavior presets, preserved custom display, edit identity/previous assignment, selection guards and synchronous reentrancy.");
     puts("PASS: actual dropdown catalog, None/unknown/mixed display, right/left edit payloads, selection guards and synchronous reentrancy.");
 }
 
@@ -112,6 +136,8 @@ void EditHistoryCancelEdit(EditHistoryTransaction *t) {t->active=FALSE;}
 BOOL SetupFileSetCharacterWeapon(SetupFile *s,const SetupCharacterWeaponEdit *e,BOOL *changed,const char **why)
 {*changed=change;if(change&&editok)s->dirty=TRUE;return editok;}
 BOOL SetupFileSetCharacterHat(SetupFile *s,const SetupCharacterHatEdit *e,BOOL *changed,const char **why)
+{*changed=change;if(change&&editok)s->dirty=TRUE;return editok;}
+BOOL SetupFileSetCharacterBehavior(SetupFile *s,const SetupCharacterBehaviorEdit *e,BOOL *changed,const char **why)
 {*changed=change;if(change&&editok)s->dirty=TRUE;return editok;}
 BgVertex *ModelLoadProjectGeometry(const char *dir,int model,DWORD *n,unsigned short **tags,BgRenderFlags **flags,float *scale,const char **why)
 {assert(model==expectedmodel);return modelok?calloc(1,sizeof(BgVertex)):NULL;}
@@ -162,6 +188,18 @@ static void Editor(void)
     }
     Reset();modelok=FALSE;hat.model=SETUP_HAT_NONE;
     assert(GEditorSetCharacterHat(NULL,&hat));assert(commits==1&&!errors);
+    SetupCharacterBehaviorEdit behavior={.characterindex=3,.sourceoffset=512,.chrnum=8,.previous=1,.ailistid=2};
+    Reset();modelok=buildok=FALSE;assert(GEditorSetCharacterBehavior(NULL,&behavior));
+    assert(begins==1 && commits==1 && !rollbacks && !rebuilds && !errors && g_CurrentSetup.dirty && sceneversion==1);
+    Reset();change=FALSE;assert(GEditorSetCharacterBehavior(NULL,&behavior));assert(!commits&&!rebuilds&&!g_CurrentSetup.dirty);
+    Reset();selected=FALSE;assert(!GEditorSetCharacterBehavior(NULL,&behavior));assert(!begins);
+    Reset();behavior.characterindex=2;assert(!GEditorSetCharacterBehavior(NULL,&behavior));assert(!begins);behavior.characterindex=3;
+    for(int failure=0;failure<2;failure++) {
+        Reset();if(failure==0)editok=FALSE;else commitok=FALSE;
+        assert(!GEditorSetCharacterBehavior(NULL,&behavior));
+        assert(errors==1 && rollbacks==1 && !g_CurrentSetup.dirty && !rebuilds && sceneversion==1);
+    }
+    puts("PASS: behavior history commit, no geometry reload, no-op/stale selection and edit/commit failure rollback.");
     puts("PASS: production frame transaction, immediate geometry rebuild, one undo commit, no-op/stale selection, missing-model/build/commit failure rollback and None without model loading.");
 }
 int main(void) {Input();Editor();return 0;}

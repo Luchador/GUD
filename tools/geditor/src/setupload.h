@@ -214,6 +214,22 @@ const SetupObject *SetupFileGetCharacterWornHat(const SetupFile *setup, DWORD in
 BOOL SetupFileSetCharacterHat(SetupFile *setup, const SetupCharacterHatEdit *edit,
     BOOL *changedout, const char **reasonout);
 
+/* Standalone shared AI entry points (GAILISTID in bondaicommands.h).
+ * Other shared scripts may be subroutines requiring a return list. */
+enum { SETUP_BEHAVIOR_DO_NOTHING = 1, SETUP_BEHAVIOR_STANDARD_GUARD = 2 };
+typedef struct SetupBehaviorChoice { int id; const char *name; } SetupBehaviorChoice;
+typedef struct SetupCharacterBehaviorEdit {
+    DWORD characterindex, sourceoffset;
+    unsigned short chrnum, previous;
+    int ailistid;
+} SetupCharacterBehaviorEdit;
+const SetupBehaviorChoice *SetupCharacterBehaviorChoices(DWORD *count);
+const SetupBehaviorChoice *SetupCharacterBehaviorChoiceForId(int id);
+/* Changes only the guard's starting AI assignment; rejects stale edits.
+ * Existing custom assignments are preserved until explicitly changed. */
+BOOL SetupFileSetCharacterBehavior(SetupFile *setup, const SetupCharacterBehaviorEdit *edit,
+    BOOL *changedout, const char **reasonout);
+
 /* Discard unreachable tables and relocate native pointers in a separate copy.
  * Clear negligible pad-direction residues which can trap on the R4300. */
 BOOL SetupCompactNative(const unsigned char *data, DWORD size,
@@ -343,7 +359,7 @@ BOOL SetupFileSetObjectFlag(SetupFile *setup, DWORD objectindex,
 BOOL SetupFileDeleteCharacter(SetupFile *setup, DWORD characterindex,
                               const char **reasonout);
 
-/* Appends an ordinary prop or an unarmed, idle character and its private pad.
+/* Appends an ordinary prop or an unarmed standard guard and its private pad.
    Position is in world units; placement follows the normal stan-grounded rules.
    Existing command indices, pad indices and file-relative links are retained.
    On failure the setup is unchanged. Returns the new viewport selection ID. */

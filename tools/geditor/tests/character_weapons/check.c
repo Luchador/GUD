@@ -328,6 +328,71 @@ static void Hats(void)
     SetupFileFree(&source);
     puts("PASS: all 12 hats and No hat, mixed variants, native hat ownership, flags/scale, weapon and loose-hat isolation, bounded remove/re-equip cycles, no-op/stale edits, save/reload, undo/redo and atomic failures.");
 }
+static SetupCharacterBehaviorEdit BehaviorRequest(const SetupFile *s,DWORD index,int id)
+{
+    const SetupCharacter *chr=s->characters+index;
+    return (SetupCharacterBehaviorEdit){index,chr->sourceoffset,chr->chrnum,chr->ailistid,id};
+}
+static void Behaviors(void)
+{
+    SetupFile s=Fixture(),before={0},after={0};BOOL changed;
+    /* Existing local script assignments survive load and opening properties. */
+    W(s.data+s.characters[0].sourceoffset+8,0x00010401);s.characters[0].ailistid=0x401;
+    Reload(&s);Require(SetupFileClone(&s,&before,&why));
+    DWORD count;const SetupBehaviorChoice *choices=SetupCharacterBehaviorChoices(&count);
+    assert(count==2 && choices[0].id==2 && choices[1].id==1);
+    assert(!SetupCharacterBehaviorChoiceForId(0x401));
+    SetupCharacterBehaviorEdit edit=BehaviorRequest(&s,0,SETUP_BEHAVIOR_STANDARD_GUARD);
+    for(int invalid=0;invalid<7;invalid++) {
+        SetupCharacterBehaviorEdit bad=edit;
+        switch(invalid) {
+        case 0:bad.characterindex=s.charactercount;break;
+        case 1:bad.sourceoffset++;break;
+        case 2:bad.chrnum++;break;
+        case 3:bad.previous=1;break;
+        case 4:bad.ailistid=-1;break;
+        case 5:bad.ailistid=0;break;
+        case 6:bad.ailistid=0x401;break;
+        }
+        changed=TRUE;assert(!SetupFileSetCharacterBehavior(&s,&bad,&changed,&why));
+        assert(!changed && s.dirty==before.dirty);Same(&s,&before);
+    }
+    EditHistory h={0};EditHistoryTransaction tx={0};EditHistoryAsset asset;BgDocument bg={0};StanFile stan={0};
+    EditHistoryReset(&h,&bg,&s,&stan);Require(EditHistoryBeginSetupEdit(&h,&s,"Change Starting Behavior",&tx,&why));
+    Require(SetupFileSetCharacterBehavior(&s,&edit,&changed,&why));assert(changed && s.dirty);
+    DWORD offset=s.characters[0].sourceoffset;
+    assert(s.characters[0].ailistid==2 && R(s.data+offset+8)==0x00010002 && s.size==before.size);
+    for(DWORD i=0;i<s.size;i++)if(i!=offset+10 && i!=offset+11)assert(s.data[i]==before.data[i]);
+    assert(!memcmp(s.objects,before.objects,s.objectcount*sizeof(*s.objects)));
+    assert(!memcmp(s.characters+1,before.characters+1,(s.charactercount-1)*sizeof(*s.characters)));
+    Require(EditHistoryCommitEdit(&h,&bg,&s,&stan,&tx,&why));Reload(&s);
+    Require(SetupFileClone(&s,&after,&why));
+    edit=BehaviorRequest(&s,0,2);Require(SetupFileSetCharacterBehavior(&s,&edit,&changed,&why));
+    assert(!changed && s.dirty==after.dirty);Same(&s,&after);
+    Require(EditHistoryUndo(&h,&bg,&s,&stan,&asset,&why));Same(&s,&before);
+    Require(EditHistoryRedo(&h,&bg,&s,&stan,&asset,&why));Same(&s,&after);
+    /* A stale cached assignment cannot silently overwrite native data. */
+    W(s.data+offset+8,0x00010402);edit=BehaviorRequest(&s,0,1);
+    assert(!SetupFileSetCharacterBehavior(&s,&edit,&changed,&why));assert(!changed && R(s.data+offset+8)==0x00010402);
+    W(s.data+offset+8,0x00010002);
+    Require(SetupFileSetCharacterBehavior(&s,&edit,&changed,&why));assert(changed && s.characters[0].ailistid==1);
+    Reload(&s);assert(s.characters[0].ailistid==1);
+    /* Newly placed characters default to Standard guard. Copying an existing
+     * guard preserves its actual behavior, including Do nothing and custom AI. */
+    const double pos[3]={10,20,30};DWORD selected;
+    Require(SetupFileAddModel(&s,TRUE,1,1,pos,&selected,&why));
+    DWORD index=selected&~SETUP_CHARACTER_SELECTION_BIT;
+    assert(selected&SETUP_CHARACTER_SELECTION_BIT);
+    assert(s.characters[index].ailistid==2 && (R(s.data+s.characters[index].sourceoffset+8)&0xffffu)==2);
+    Require(SetupFileDuplicateObject(&s,&s,SETUP_CHARACTER_SELECTION_BIT,&selected,&why));
+    assert(s.characters[selected&~SETUP_CHARACTER_SELECTION_BIT].ailistid==1);
+    Require(SetupFileDuplicateObject(&s,&before,SETUP_CHARACTER_SELECTION_BIT,&selected,&why));
+    assert(s.characters[selected&~SETUP_CHARACTER_SELECTION_BIT].ailistid==0x401);
+    Require(SetupFileCompact(&s,&why)); /* Normally performed by the paste history commit. */
+    Reload(&s);assert(s.characters[s.charactercount-1].ailistid==0x401);
+    SetupFileFree(&s);SetupFileFree(&before);SetupFileFree(&after);EditHistoryFree(&h);
+    puts("PASS: behavior edit isolation, invalid/stale requests, native save/reload, undo/redo, standard guard placement and copied idle/custom assignments.");
+}
 int main(int argc,char **argv)
 {
     assert(argc==2);dir=argv[1];SetupFile source=Fixture();
@@ -335,5 +400,5 @@ int main(int argc,char **argv)
     AllocationFailures(&source,0,0,13);AllocationFailures(&source,2,1,25);AllocationFailures(&source,0,0,-1);
     Set(&source,0,0,-1);AllocationFailures(&source,0,0,6);
     SetupFileFree(&source);puts("PASS: allocation failures leave native bytes, caches, counts and dirty state unchanged.");
-    DuplicateCharacters();Hats();return 0;
+    DuplicateCharacters();Hats();Behaviors();return 0;
 }

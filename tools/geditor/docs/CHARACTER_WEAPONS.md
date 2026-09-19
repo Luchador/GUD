@@ -1,4 +1,4 @@
-# Character equipment
+# Character equipment and starting behavior
 
 Select a character in the viewport, then use **Right-hand weapon** and
 **Left-hand weapon** in the **Properties** tab. Each list includes **None**.
@@ -38,6 +38,19 @@ and remain intact until replaced or cleared. Choosing the current item does not
 reset a custom model or scale. An unavailable weapon model or failed scene
 rebuild rolls the edit back.
 
+The **Starting behavior** dropdown below **Hat** offers **Standard guard**
+(`0x0002`) and **Do nothing** (`0x0001`). Standard guards notice and react to
+Bond using the game's shared guard AI; equip a weapon separately if they should
+shoot. Newly placed characters use Standard guard. Previously placed characters
+keep their existing behavior, so select Standard guard explicitly for older
+guards that were created with Do nothing. Copies retain the source behavior.
+
+Other assignments appear as **Action Block 0xNNNN (current)** and are preserved
+until explicitly replaced. Use **Tools > Action Blocks** to assign a custom
+script. A behavior change creates one undo step and is saved with the setup
+and exported ROM. It changes the character's starting AI, so test it after
+starting the level again; it does not animate the editor preview.
+
 ## Native representation
 
 Each hand uses `PROPDEF_COLLECTABLE` records with `PROPFLAG_ASSIGNEDTOCHR` and
@@ -73,3 +86,5 @@ also cover all choices, ownership, bounded clear/re-equip cycles, persistence,
 history, allocation failures, dropdown messages and frame rollback. Preview
 checks use real guard/head assets for the hat joint and peaked-cap toggle,
 plus a numerical fitting/heading/scale check.
+Behavior tests cover native assignment isolation, stale edits, save/reload,
+undo/redo, new-guard defaults, copied custom/idle behaviors and dropdown routing.

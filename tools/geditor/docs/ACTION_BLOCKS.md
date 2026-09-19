@@ -4,6 +4,11 @@ Open **Tools > Action Blocks…** while a level is loaded. It is the first Tools
 menu item. If a character is selected in the viewport, the window initially
 selects that character's starting behavior.
 
+For ordinary guards, the character **Properties > Starting behavior** dropdown
+provides **Standard guard** and **Do nothing** directly. Newly placed guards use
+Standard guard; copies retain their source assignment. Existing custom scripts
+remain intact. Use this window to assign any other starting behavior.
+
 ## Editing a level
 
 - The left list contains level scripts and available shared behaviors. Search

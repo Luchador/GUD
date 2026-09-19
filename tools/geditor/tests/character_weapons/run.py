@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Character hand assignment, native persistence/history and UI routing tests."""
+"""Character equipment/behavior, native persistence/history and UI routing tests."""
 import importlib.util
 import os
 import re
@@ -37,11 +37,13 @@ with tempfile.TemporaryDirectory(prefix='geditor-character-weapons-') as temp:
     (work / 'input-types.inc').write_text(re.search(r'enum \{ CHARACTER_RIGHT_LABEL,.*?\};', panel, re.S)[0]
         + '\n' + re.search(r'typedef struct CharacterPropertiesState \{.*?\} CharacterPropertiesState;', panel, re.S)[0])
     (work / 'input.inc').write_text(''.join(extract.function(panel, name) for name in
-        ('CharacterPropertiesChoices', 'CharacterPropertiesApply', 'CharacterPropertiesHatChoices', 'CharacterPropertiesApplyHat')))
+        ('CharacterPropertiesChoices', 'CharacterPropertiesApply', 'CharacterPropertiesHatChoices', 'CharacterPropertiesApplyHat',
+         'CharacterPropertiesBehaviorChoices', 'CharacterPropertiesApplyBehavior')))
     (work / 'catalog.inc').write_text(''.join(extract.function((src / 'setupload.c').read_text(), name)
-        for name in ('SetupWeaponChoices', 'SetupWeaponChoiceForItem', 'SetupHatChoices', 'SetupHatChoiceForModel')))
+        for name in ('SetupWeaponChoices', 'SetupWeaponChoiceForItem', 'SetupHatChoices', 'SetupHatChoiceForModel',
+                     'SetupCharacterBehaviorChoices', 'SetupCharacterBehaviorChoiceForId')))
     (work / 'editor.inc').write_text(''.join(extract.function((src / 'geditor.c').read_text(), name)
-        for name in ('GEditorSetCharacterWeapon', 'GEditorSetCharacterHat')))
+        for name in ('GEditorSetCharacterWeapon', 'GEditorSetCharacterHat', 'GEditorSetCharacterBehavior')))
     subprocess.run(command + [str(here / 'input.c'), '-Wl,--gc-sections', '-lm', '-o', str(work / 'input')], check=True)
     subprocess.run([str(work / 'input')], check=True, env=env)
     subprocess.run(command + [str(here / 'preview.c'), str(here.parent / 'image_import/platform.c')]

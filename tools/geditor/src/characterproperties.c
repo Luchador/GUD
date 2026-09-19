@@ -8,10 +8,12 @@
 
 #define CHARACTERPROPERTIES_CLASS "GEditorCharacterProperties"
 enum { CHARACTER_RIGHT_LABEL, CHARACTER_RIGHT, CHARACTER_LEFT_LABEL, CHARACTER_LEFT,
-       CHARACTER_HAT_LABEL, CHARACTER_HAT, CHARACTER_DETAILS, CHARACTER_CONTROLS };
+       CHARACTER_HAT_LABEL, CHARACTER_HAT, CHARACTER_BEHAVIOR_LABEL, CHARACTER_BEHAVIOR,
+       CHARACTER_DETAILS, CHARACTER_CONTROLS };
 typedef struct CharacterPropertiesState {
     HWND controls[CHARACTER_CONTROLS];
     SetupCharacterWeaponEdit binding;
+    unsigned short ailistid;
     BOOL selected, updating, committing;
     int scroll, wheel;
 } CharacterPropertiesState;
@@ -32,17 +34,17 @@ static void CharacterPropertiesLayout(HWND hwnd, CharacterPropertiesState *state
     RECT rect; GetClientRect(hwnd, &rect);
     int width = max(1, rect.right - 8);
     int details = CharacterPropertiesTextHeight(state->controls[CHARACTER_DETAILS], width);
-    int height = 168 + details;
+    int height = 222 + details;
     state->scroll = max(0, min(state->scroll, max(0, height - rect.bottom)));
     SCROLLINFO si = {sizeof(si), SIF_RANGE | SIF_PAGE | SIF_POS, 0, height - 1, (UINT)max(0,rect.bottom), state->scroll, 0};
     SetScrollInfo(hwnd, SB_VERT, &si, TRUE);
-    for (int slot = 0; slot < 3; slot++)
+    for (int slot = 0; slot < 4; slot++)
     {
         int label = slot * 2;
         MoveWindow(state->controls[label], 4, 4 + slot * 54 - state->scroll, width, 18, TRUE);
         MoveWindow(state->controls[label+1], 4, 24 + slot * 54 - state->scroll, width, 320, TRUE);
     }
-    MoveWindow(state->controls[CHARACTER_DETAILS], 4, 168 - state->scroll, width, details, TRUE);
+    MoveWindow(state->controls[CHARACTER_DETAILS], 4, 222 - state->scroll, width, details, TRUE);
     RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
 }
 static void CharacterPropertiesChoices(HWND combo, int item)
@@ -117,6 +119,41 @@ static void CharacterPropertiesApplyHat(HWND hwnd, CharacterPropertiesState *sta
     SendMessage(GetParent(hwnd), CHARACTERPROPERTIES_WM_HAT_CHANGED, 0, (LPARAM)&edit);
     state->committing = FALSE;
 }
+static void CharacterPropertiesBehaviorChoices(HWND combo, unsigned short id)
+{
+    DWORD count; const SetupBehaviorChoice *choices = SetupCharacterBehaviorChoices(&count);
+    int selected = -1;
+    SendMessage(combo, CB_RESETCONTENT, 0, 0);
+    for (DWORD i = 0; i < count; i++)
+    {
+        int row = (int)SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)choices[i].name);
+        if (row < 0) { continue; }
+        SendMessage(combo, CB_SETITEMDATA, row, choices[i].id);
+        if (choices[i].id == id) { selected = row; }
+    }
+    if (selected < 0)
+    {
+        char text[80];
+        snprintf(text, sizeof(text), "Action Block 0x%04X (current)", id);
+        selected = (int)SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)text);
+        if (selected >= 0) { SendMessage(combo, CB_SETITEMDATA, selected, id); }
+    }
+    SendMessage(combo, CB_SETCURSEL, selected, 0);
+}
+static void CharacterPropertiesApplyBehavior(HWND hwnd, CharacterPropertiesState *state)
+{
+    if (!state || !state->selected || state->updating || state->committing) { return; }
+    HWND combo = state->controls[CHARACTER_BEHAVIOR];
+    int row = (int)SendMessage(combo, CB_GETCURSEL, 0, 0);
+    if (row == CB_ERR) { return; }
+    int id = (int)SendMessage(combo, CB_GETITEMDATA, row, 0);
+    if (!SetupCharacterBehaviorChoiceForId(id)) { return; }
+    SetupCharacterBehaviorEdit edit = {state->binding.characterindex, state->binding.sourceoffset,
+        state->binding.chrnum, state->ailistid, id};
+    state->committing = TRUE;
+    SendMessage(GetParent(hwnd), CHARACTERPROPERTIES_WM_BEHAVIOR_CHANGED, 0, (LPARAM)&edit);
+    state->committing = FALSE;
+}
 BOOL CharacterPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD index)
 {
     CharacterPropertiesState *state = CharacterPropertiesGetState(panel);
@@ -134,11 +171,13 @@ BOOL CharacterPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD i
     const SetupCharacter *chr = &setup->characters[index];
     if (!state->selected || state->binding.characterindex != index || state->binding.chrnum != chr->chrnum) { state->scroll = 0; }
     state->binding = (SetupCharacterWeaponEdit){.characterindex=index, .sourceoffset=chr->sourceoffset, .chrnum=chr->chrnum};
+    state->ailistid = chr->ailistid;
     state->selected = TRUE;
     for (int i = 0; i < CHARACTER_CONTROLS; i++) { EnableWindow(state->controls[i], TRUE); }
     CharacterPropertiesChoices(state->controls[CHARACTER_RIGHT], weapons.item[0]);
     CharacterPropertiesChoices(state->controls[CHARACTER_LEFT], weapons.item[1]);
     CharacterPropertiesHatChoices(state->controls[CHARACTER_HAT], hat.model);
+    CharacterPropertiesBehaviorChoices(state->controls[CHARACTER_BEHAVIOR], chr->ailistid);
     int bodyid, headid; CharacterModelDefinition body, head;
     BOOL randomhead = FALSE;
     const char *bodyname = "Unknown", *headname = "Included in body";
@@ -170,10 +209,10 @@ static LRESULT CALLBACK CharacterPropertiesWndProc(HWND hwnd, UINT msg, WPARAM w
         state = calloc(1, sizeof(*state)); if (!state) { return -1; }
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
         const char *labels[CHARACTER_CONTROLS] = {"Right-hand weapon", "", "Left-hand weapon", "",
-            "Hat", "", ""};
+            "Hat", "", "Starting behavior", "", ""};
         for (int i = 0; i < CHARACTER_CONTROLS; i++)
         {
-            BOOL combo = i == CHARACTER_RIGHT || i == CHARACTER_LEFT || i == CHARACTER_HAT;
+            BOOL combo = i == CHARACTER_RIGHT || i == CHARACTER_LEFT || i == CHARACTER_HAT || i == CHARACTER_BEHAVIOR;
             state->controls[i] = CreateWindowEx(0, combo ? "COMBOBOX" : "STATIC", labels[i],
                 WS_CHILD | WS_VISIBLE | (combo ? WS_TABSTOP | WS_VSCROLL | CBS_DROPDOWNLIST : SS_NOPREFIX),
                 0,0,1,1, hwnd, (HMENU)(INT_PTR)(i+1), cs->hInstance, NULL);
@@ -190,6 +229,7 @@ static LRESULT CALLBACK CharacterPropertiesWndProc(HWND hwnd, UINT msg, WPARAM w
             if (LOWORD(wp) == CHARACTER_RIGHT+1) { CharacterPropertiesApply(hwnd, state, 0); }
             if (LOWORD(wp) == CHARACTER_LEFT+1) { CharacterPropertiesApply(hwnd, state, 1); }
             if (LOWORD(wp) == CHARACTER_HAT+1) { CharacterPropertiesApplyHat(hwnd, state); }
+            if (LOWORD(wp) == CHARACTER_BEHAVIOR+1) { CharacterPropertiesApplyBehavior(hwnd, state); }
         }
         return 0;
     case WM_MOUSEWHEEL:

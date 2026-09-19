@@ -4553,6 +4553,34 @@ fail:
     return FALSE;
 }
 
+static BOOL GEditorSetCharacterBehavior(HWND hwnd, const SetupCharacterBehaviorEdit *edit)
+{
+    EditHistoryTransaction transaction = {0};
+    const char *why = "";
+    DWORD selected;
+    BOOL changed;
+    if (!edit || !ViewportGetSelectedObject(g_Viewport, &selected)
+        || !(selected & SETUP_CHARACTER_SELECTION_BIT)
+        || (selected & ~SETUP_CHARACTER_SELECTION_BIT) != edit->characterindex) { return FALSE; }
+    ViewportCancelTransform(g_Viewport);
+    if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup,
+        "Change Starting Behavior", &transaction, &why)) { goto fail; }
+    if (!SetupFileSetCharacterBehavior(&g_CurrentSetup, edit, &changed, &why)) { goto rollback; }
+    if (!changed) { EditHistoryCancelEdit(&transaction); return TRUE; }
+    /* Starting AI runs in-game; it does not alter the editor's idle pose. */
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+        &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+fail:
+    EditHistoryCancelEdit(&transaction);
+    GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
 static BOOL GEditorSetObjectProperty(HWND hwnd, const SetupObjectPropertyEdit *edit)
 {
     EditHistoryTransaction transaction = {0};
@@ -4756,6 +4784,13 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     case CHARACTERPROPERTIES_WM_HAT_CHANGED:
     {
         BOOL ok = GEditorSetCharacterHat(hwnd, (const SetupCharacterHatEdit *)lparam);
+        GEditorRefreshSelectionDetails();
+        return ok;
+    }
+
+    case CHARACTERPROPERTIES_WM_BEHAVIOR_CHANGED:
+    {
+        BOOL ok = GEditorSetCharacterBehavior(hwnd, (const SetupCharacterBehaviorEdit *)lparam);
         GEditorRefreshSelectionDetails();
         return ok;
     }

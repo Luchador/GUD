@@ -1941,9 +1941,9 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
     {
         SetupWrite32(added.data + newrecord, type);
         SetupWrite32(added.data + newrecord + 4, (chrnum << 16) | padindex);
-        /* GAILIST_DEAD_AI (1) yields forever. No weapons or patrol/mission
-           behavior is implicitly assigned to a newly placed character. */
-        SetupWrite32(added.data + newrecord + 8, ((DWORD)modelid << 16) | 1u);
+        /* Ordinary guards react to Bond. Equipment is assigned separately;
+         * users can select Do nothing or a custom starting behavior later. */
+        SetupWrite32(added.data + newrecord + 8, ((DWORD)modelid << 16) | SETUP_BEHAVIOR_STANDARD_GUARD);
         SetupWrite32(added.data + newrecord + 12, 0xffffffffu);          /* no presets */
         SetupWrite32(added.data + newrecord + 16, (1000u << 16) | 100u); /* hearing/vision */
         SetupWrite32(added.data + newrecord + 20, 0x0000ffffu);          /* random head */
@@ -2884,6 +2884,45 @@ static int SetupCharacterWeaponHand(const SetupFile *setup, DWORD index, const S
         || setup->data[object->sourceoffset + 3] != PROPDEF_COLLECTABLE) { return -1; }
     return (object->flags & PROPFLAG_WEAPON_LEFTHANDED) ? 1 : 0;
 }
+
+const SetupBehaviorChoice *SetupCharacterBehaviorChoices(DWORD *count)
+{
+    static const SetupBehaviorChoice choices[] = {
+        {SETUP_BEHAVIOR_STANDARD_GUARD, "Standard guard"},
+        {SETUP_BEHAVIOR_DO_NOTHING, "Do nothing"}
+    };
+    if (count) { *count = sizeof(choices) / sizeof(*choices); }
+    return choices;
+}
+const SetupBehaviorChoice *SetupCharacterBehaviorChoiceForId(int id)
+{
+    DWORD count;
+    const SetupBehaviorChoice *choices = SetupCharacterBehaviorChoices(&count);
+    for (DWORD i = 0; i < count; i++) { if (choices[i].id == id) { return choices + i; } }
+    return NULL;
+}
+BOOL SetupFileSetCharacterBehavior(SetupFile *setup, const SetupCharacterBehaviorEdit *edit,
+    BOOL *changedout, const char **reasonout)
+{
+    *changedout = FALSE;
+    *reasonout = "The character behavior edit is invalid or the selection changed.";
+    if (!edit || !SetupCharacterBehaviorChoiceForId(edit->ailistid)
+        || !SetupCharacterValid(setup, edit->characterindex)) { return FALSE; }
+    SetupCharacter *chr = setup->characters + edit->characterindex;
+    if (chr->sourceoffset != edit->sourceoffset || chr->chrnum != edit->chrnum
+        || chr->ailistid != edit->previous
+        || (unsigned short)SetupRead16(setup->data + chr->sourceoffset + 10) != chr->ailistid) { return FALSE; }
+    if (chr->ailistid != edit->ailistid)
+    {
+        unsigned char *record = setup->data + chr->sourceoffset;
+        SetupWrite32(record + 8, (SetupRead32(record + 8) & 0xffff0000u) | (DWORD)edit->ailistid);
+        chr->ailistid = (unsigned short)edit->ailistid;
+        setup->dirty = TRUE; *changedout = TRUE;
+    }
+    *reasonout = "";
+    return TRUE;
+}
+
 void SetupFileGetCharacterHeldWeapons(const SetupFile *setup, DWORD index, const SetupObject *held[2])
 {
     held[0] = held[1] = NULL;
