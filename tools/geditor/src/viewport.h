@@ -300,6 +300,13 @@ void ViewportSetGeometryStatisticsVisible(HWND hwnd, BOOL enabled);
 typedef struct ViewportRotation { Rotation rotation; double pivot[3]; } ViewportRotation;
 /* Shift-drag commits the copy and its transform as one history action. */
 #define VIEWPORT_WM_DUPLICATE_OBJECT (WM_APP + 74)
+/* Synchronous clipboard query and surface placement request. The frame owns
+ * the clipboard; the viewport captures the hit before opening the menu. */
+#define VIEWPORT_WM_CAN_PASTE_OBJECT (WM_APP + 80)
+#define VIEWPORT_WM_PASTE_OBJECT_HERE (WM_APP + 81)
+typedef struct ViewportObjectPaste {
+    double position[3], normal[3]; /* world hit and normal towards the viewer */
+} ViewportObjectPaste;
 typedef struct ViewportObjectDuplicate {
     DWORD source;
     TransformMode mode;

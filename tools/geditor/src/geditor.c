@@ -930,6 +930,13 @@ static BOOL GEditorCanCopyObject(void)
         && SetupFileCanDuplicateObject(&g_CurrentSetup, selected);
 }
 
+static BOOL GEditorCanPasteObject(void)
+{
+    return GEditorCanUseObjectClipboard() && g_ObjectClipboard.data
+        && g_ObjectClipboardPose.tricount
+        && SetupFileCanDuplicateObject(&g_ObjectClipboard, g_ObjectClipboardSelection);
+}
+
 static void GEditorUpdateHistoryMenu(HMENU menu)
 {
     const char *undoaction;
@@ -3013,18 +3020,21 @@ static BOOL GEditorCopyObject(HWND hwnd)
     return TRUE;
 }
 
-static BOOL GEditorDuplicateObject(HWND hwnd, const ViewportObjectDuplicate *drag)
+static BOOL GEditorDuplicateObject(HWND hwnd, const ViewportObjectDuplicate *drag,
+    const ViewportObjectPaste *paste)
 {
     EditHistoryTransaction transaction = {0};
     SetupObjectGeometry objects = {0};
-    const double pasteoffset[3] = {0, 10, 0};
+    double pasteoffset[3] = {0, 10, 0};
     const SetupFile *source = drag ? &g_CurrentSetup : &g_ObjectClipboard;
     const SetupObjectGeometry *pose = drag ? &g_CurrentObjects : &g_ObjectClipboardPose;
     DWORD selected, index = drag ? drag->source : g_ObjectClipboardSelection;
     const char *why = "", *restorewhy = "";
     if (!GEditorCanUseObjectClipboard() || !SetupFileCanDuplicateObject(source, index)) { return FALSE; }
+    if (paste && (drag || !GEditorCanPasteObject())) { return FALSE; }
+    if (paste && !ObjectGetPasteOffset(pose, index, paste->position, paste->normal, pasteoffset, &why)) { goto fail; }
     if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup,
-        drag ? "Duplicate Object" : "Paste Object", &transaction, &why)) { goto fail; }
+        drag ? "Duplicate Object" : paste ? "Paste Object Here" : "Paste Object", &transaction, &why)) { goto fail; }
     if (!ObjectDuplicateSetupModel(g_Project.dir, &g_CurrentSetup, source, &g_CurrentStan,
         g_CurrentBgDocument.levelscale, pose, index,
         !drag ? pasteoffset : drag->mode == TRANSFORM_MOVE ? drag->translation.offset : NULL,
@@ -4892,7 +4902,13 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     }
 
     case VIEWPORT_WM_DUPLICATE_OBJECT:
-        return lparam && GEditorDuplicateObject(hwnd, (const ViewportObjectDuplicate *)lparam);
+        return lparam && GEditorDuplicateObject(hwnd, (const ViewportObjectDuplicate *)lparam, NULL);
+
+    case VIEWPORT_WM_CAN_PASTE_OBJECT:
+        return GEditorCanPasteObject();
+
+    case VIEWPORT_WM_PASTE_OBJECT_HERE:
+        return lparam && GEditorDuplicateObject(hwnd, NULL, (const ViewportObjectPaste *)lparam);
 
     case RIGHTPANEL_WM_PICK_COLOR:
         if (ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT) { return FALSE; }
@@ -5516,7 +5532,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 return 0;
 
             case ID_EDIT_PASTE_FACES:
-                if (g_ObjectClipboard.data) { GEditorDuplicateObject(hwnd, NULL); }
+                if (g_ObjectClipboard.data) { GEditorDuplicateObject(hwnd, NULL, NULL); }
                 else if (g_PortalClipboard.portalcount) { GEditorPastePortals(hwnd); }
                 else { GEditorPasteBgFaces(hwnd); }
                 return 0;

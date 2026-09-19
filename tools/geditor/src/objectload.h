@@ -51,6 +51,10 @@ void ObjectGeometryFree(SetupObjectGeometry *geometry);
 /* Clipboard pose: only triangles and selection IDs, not a renderable scene. */
 BOOL ObjectCopySetupModelPose(const SetupObjectGeometry *source, DWORD index,
     SetupObjectGeometry *out, const char **reasonout);
+/* Keep the copied orientation/scale, centering it over the hit and moving its
+ * nearest surface onto the plane. Works on floors, slopes, walls and ceilings. */
+BOOL ObjectGetPasteOffset(const SetupObjectGeometry *pose, DWORD index,
+    const double position[3], const double normal[3], double offset[3], const char **reasonout);
 /* Copy native properties and the visible pose, then transform only the copy.
  * Exactly one of offset/rotation/scaling is supplied. Caller owns rollback. */
 BOOL ObjectDuplicateSetupModel(const char *projectdir, SetupFile *setup,

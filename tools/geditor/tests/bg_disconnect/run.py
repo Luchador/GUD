@@ -38,6 +38,8 @@ def main():
                           (src / 'viewport.h').read_text(), re.S)[0] + '\n'
         for name in ('Vertex', 'SceneBatch', 'ViewportTexture', 'ViewportPickRay'):
             types += re.search(r'typedef struct ' + name + r' \{.*?\} ' + name + ';', viewport, re.S)[0] + '\n'
+        types += re.search(r'typedef struct ViewportObjectPaste \{.*?\} ViewportObjectPaste;',
+                           (src / 'viewport.h').read_text(), re.S)[0] + '\n'
         for name in ('FOV_Y', 'NEAR_Z', 'FAR_Z', 'DEG_TO_RAD', 'LOOK_SENSITIVITY', 'PITCH_LIMIT',
                      'PICK_EPSILON', 'PICK_BARY_EPSILON', 'PICK_COPLANAR_EPSILON',
                      'PICK_COPLANAR_RELATIVE_EPSILON', 'BLEND_ALPHA_THRESHOLD', 'CUTOUT_ALPHA_THRESHOLD'):
@@ -50,6 +52,7 @@ def main():
                  'ViewportBuildPickRay', 'ViewportRayTriangleDistance', 'ViewportRayBatchTriangleGeometry',
                  'ViewportRayBatchTriangleDistance', 'ViewportRaySelectableTriangleDistance',
                  'ViewportFindSceneTriangle', 'ViewportFindPickedTriangle',
+                 'ViewportFindVisibleSceneTriangle', 'ViewportFindNearestBgTriangle', 'ViewportObjectPasteTarget',
                  'ViewportProject', 'ViewportProjectEdgePoint', 'ViewportComponentVisible',
                  'ViewportFindContextEdge', 'ViewportShowGeometryContextMenu',
                  'ViewportBeginFly', 'ViewportEndFly', 'ViewportFlyLook', 'ViewportFlyFrame',

@@ -6956,27 +6956,58 @@ static BOOL ViewportFindContextEdge(const ViewportState *state, int x, int y, Bg
     return found;
 }
 
+static BOOL ViewportObjectPasteTarget(HWND hwnd, const ViewportState *state, int x, int y,
+    ViewportObjectPaste *out)
+{
+    ViewportPickRay ray;
+    double distance, a[3], b[3], length, facing = 0;
+    int triangle, axis;
+    if (!ViewportBuildPickRay(hwnd, state, x, y, &ray)) { return FALSE; }
+    triangle = ViewportFindNearestBgTriangle(state, &ray, &distance);
+    if (triangle < 0) { return FALSE; }
+    const Vertex *v = &state->scene[triangle*3];
+    a[0] = (double)v[1].x-v[0].x; a[1] = (double)v[1].y-v[0].y; a[2] = (double)v[1].z-v[0].z;
+    b[0] = (double)v[2].x-v[0].x; b[1] = (double)v[2].y-v[0].y; b[2] = (double)v[2].z-v[0].z;
+    for (axis = 0; axis < 3; axis++)
+    { out->normal[axis] = a[(axis+1)%3]*b[(axis+2)%3] - a[(axis+2)%3]*b[(axis+1)%3]; }
+    length = hypot(hypot(out->normal[0], out->normal[1]), out->normal[2]);
+    if (!isfinite(length) || length < 1e-8) { return FALSE; }
+    for (axis = 0; axis < 3; axis++) { facing += out->normal[axis]*ray.direction[axis]; }
+    for (axis = 0; axis < 3; axis++)
+    {
+        out->position[axis] = ray.origin[axis] + ray.direction[axis]*distance;
+        /* Either side of a two-sided face can receive a copy. */
+        out->normal[axis] *= (facing > 0 ? -1.0 : 1.0)/length;
+    }
+    return TRUE;
+}
+
 static void ViewportShowGeometryContextMenu(HWND hwnd, ViewportState *state, int x, int y)
 {
     BgDocumentEdgeRef edge;
     StanEdgeRef stanedge;
+    ViewportObjectPaste target;
+    BOOL paste;
     POINT screen = {x,y};
-    UINT message, command;
+    UINT message = 0, command;
     HMENU menu;
-    const char *label;
-    if (!state || state->orbit || state->flying || state->vertexsnap || state->dragaxis >= 0 || state->boxpending)
+    const char *label = NULL;
+    if (!state || state->orbit || state->flying || state->vertexsnap || state->dragaxis >= 0 || state->boxpending
+        || state->tool == EDITOR_TOOL_VERTEX_PAINT)
     { return; }
+    paste = SendMessage(GetParent(hwnd), VIEWPORT_WM_CAN_PASTE_OBJECT, 0, 0)
+        && ViewportObjectPasteTarget(hwnd, state, x, y, &target);
     if (state->tool == EDITOR_TOOL_EDGE_SELECT)
     {
         if (ViewportTryPickStan(hwnd,state,x,y,FALSE,FALSE))
         {
-            if (!ViewportGetSelectedStanEdge(hwnd,&stanedge)) { return; }
+            if (!ViewportGetSelectedStanEdge(hwnd,&stanedge)) { goto show_menu; }
             message=VIEWPORT_WM_SPLIT_STAN_EDGE;
         }
         else
         {
-            if (!ViewportFindContextEdge(state, x, y, &edge)) { return; }
-            if (!ViewportSelectBgEdges(hwnd, &edge, 1)) { return; }
+            if (!ViewportFindContextEdge(state, x, y, &edge)) { goto show_menu; }
+            if (!ViewportSelectBgEdges(hwnd, &edge, 1)) { goto show_menu; }
             message=VIEWPORT_WM_SPLIT_EDGE;
         }
         label="Split Edge";
@@ -6985,7 +7016,7 @@ static void ViewportShowGeometryContextMenu(HWND hwnd, ViewportState *state, int
     {
         /* A stan context click must not pick the BG underneath the tiles or
          * replace the pair that the user has already selected. */
-        if (ViewportGetStanSelectionCount(hwnd, NULL) != 2) { return; }
+        if (ViewportGetStanSelectionCount(hwnd, NULL) != 2) { goto show_menu; }
         message=VIEWPORT_WM_LINK_STAN_TILES; label="Link Stan Tiles";
     }
     else if (state->tool == EDITOR_TOOL_FACE_SELECT)
@@ -6996,16 +7027,19 @@ static void ViewportShowGeometryContextMenu(HWND hwnd, ViewportState *state, int
         {
             ViewportPickRay ray;
             double distance;
-            if (!ViewportBuildPickRay(hwnd, state, x, y, &ray)) { return; }
+            if (!ViewportBuildPickRay(hwnd, state, x, y, &ray)) { goto show_menu; }
             int tri=ViewportFindPickedTriangle(state, &ray, FALSE, FALSE, &distance);
-            if (tri < 0 || !ViewportSelectBgFaces(hwnd, &state->scenefacerefs[tri], 1)) { return; }
+            if (tri < 0 || !ViewportSelectBgFaces(hwnd, &state->scenefacerefs[tri], 1)) { goto show_menu; }
         }
         message=VIEWPORT_WM_DISCONNECT_FACES; label="Disconnect Face";
     }
-    else { return; }
+show_menu:
+    if (!message && !paste) { return; }
     menu=CreatePopupMenu();
     if (!menu) { return; }
-    if (AppendMenu(menu, MF_STRING, 1, label)
+    if ((!paste || (AppendMenu(menu, MF_STRING, 4, "Paste Here")
+            && (!message || AppendMenu(menu, MF_SEPARATOR, 0, NULL))))
+        && (!message || AppendMenu(menu, MF_STRING, 1, label))
         && (message != VIEWPORT_WM_SPLIT_STAN_EDGE || AppendMenu(menu, MF_STRING, 2, "Link Tiles"))
         && (message != VIEWPORT_WM_SPLIT_EDGE || AppendMenu(menu, MF_STRING, 3,
             (edge.face.seams & (1u << edge.corner)) ? "Clear Seam" : "Mark Seam")))
@@ -7021,6 +7055,8 @@ static void ViewportShowGeometryContextMenu(HWND hwnd, ViewportState *state, int
         { SendMessage(GetParent(hwnd), VIEWPORT_WM_MARK_SEAM, !(edge.face.seams & (1u << edge.corner)), (LPARAM)&edge); }
         else if (command == 2 && message == VIEWPORT_WM_SPLIT_STAN_EDGE)
         { SendMessage(GetParent(hwnd), VIEWPORT_WM_LINK_STAN_EDGE, 0, (LPARAM)&stanedge); }
+        else if (command == 4 && paste)
+        { SendMessage(GetParent(hwnd), VIEWPORT_WM_PASTE_OBJECT_HERE, 0, (LPARAM)&target); }
     }
     else { DestroyMenu(menu); }
 }
@@ -7031,7 +7067,8 @@ static void ViewportBeginRightGesture(HWND hwnd, ViewportState *state, int x, in
 {
     BOOL context = state && !state->orbit && !state->flying && !state->vertexsnap
         && state->dragaxis < 0 && !state->boxpending
-        && (state->tool == EDITOR_TOOL_EDGE_SELECT || state->tool == EDITOR_TOOL_FACE_SELECT);
+        && (state->tool == EDITOR_TOOL_VERTEX_SELECT || state->tool == EDITOR_TOOL_EDGE_SELECT
+            || state->tool == EDITOR_TOOL_FACE_SELECT);
     ViewportCancelTransform(hwnd);
     ViewportBeginFly(hwnd, state);
     if (state)

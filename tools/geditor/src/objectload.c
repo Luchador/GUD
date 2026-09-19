@@ -3,6 +3,7 @@
 
 #include <windows.h>
 #include <math.h>
+#include <float.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -1147,6 +1148,58 @@ BOOL ObjectCopySetupModelPose(const SetupObjectGeometry *source, DWORD index,
         pose.objectindices[j++] = index;
     }
     *out = pose;
+    return TRUE;
+}
+
+BOOL ObjectGetPasteOffset(const SetupObjectGeometry *pose, DWORD index,
+    const double position[3], const double normal[3], double offset[3], const char **reasonout)
+{
+    double min[3] = {DBL_MAX, DBL_MAX, DBL_MAX}, max[3] = {-DBL_MAX, -DBL_MAX, -DBL_MAX};
+    double center[3], unit[3], length = 0, nearest = DBL_MAX, result[3];
+    DWORD triangle;
+    int axis, corner;
+    *reasonout = "The copied object or paste surface is invalid.";
+    if (!pose || !pose->tris || !pose->objectindices || !position || !normal || !offset) { return FALSE; }
+    for (axis = 0; axis < 3; axis++)
+    {
+        if (!isfinite(position[axis]) || !isfinite(normal[axis])) { return FALSE; }
+        length = hypot(length, normal[axis]);
+    }
+    if (!isfinite(length) || length < 1e-8) { return FALSE; }
+    for (axis = 0; axis < 3; axis++) { unit[axis] = normal[axis]/length; }
+    for (triangle = 0; triangle < pose->tricount; triangle++)
+    {
+        if (pose->objectindices[triangle] != index) { continue; }
+        for (corner = 0; corner < 3; corner++)
+        {
+            const BgVertex *v = &pose->tris[triangle*3 + corner];
+            const double point[3] = {v->x, v->y, v->z};
+            for (axis = 0; axis < 3; axis++)
+            {
+                if (!isfinite(point[axis])) { return FALSE; }
+                min[axis] = fmin(min[axis], point[axis]); max[axis] = fmax(max[axis], point[axis]);
+            }
+        }
+    }
+    if (min[0] > max[0]) { *reasonout = "The copied object has no rendered geometry."; return FALSE; }
+    for (axis = 0; axis < 3; axis++) { center[axis] = (min[axis] + max[axis])*0.5; }
+    for (triangle = 0; triangle < pose->tricount; triangle++)
+    {
+        if (pose->objectindices[triangle] != index) { continue; }
+        for (corner = 0; corner < 3; corner++)
+        {
+            const BgVertex *v = &pose->tris[triangle*3 + corner];
+            double depth = (v->x - center[0])*unit[0] + (v->y - center[1])*unit[1] + (v->z - center[2])*unit[2];
+            nearest = fmin(nearest, depth);
+        }
+    }
+    for (axis = 0; axis < 3; axis++)
+    {
+        result[axis] = position[axis] - center[axis] - unit[axis]*nearest;
+        if (!isfinite(result[axis])) { return FALSE; }
+    }
+    memcpy(offset, result, sizeof(result));
+    *reasonout = "";
     return TRUE;
 }
 

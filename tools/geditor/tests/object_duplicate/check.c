@@ -14,6 +14,37 @@ static void Require(BOOL ok) { if(!ok) { fprintf(stderr,"%s\n",why); abort(); } 
 static SetupFile Load(void)
 { SetupFile s={0}; Require(SetupLoadProjectFile(dir,"UsetupduplicateZ",&s,&why)); return s; }
 static void Near(double a,double b) { assert(fabs(a-b)<.025); }
+static void PasteSurfaces(void)
+{
+    BgVertex vertices[6]={{.x=-10,.y=-20,.z=-5},{.x=30,.y=-20,.z=5},{.x=0,.y=40,.z=10},
+                         {.x=100000},{.x=100000},{.x=100000}};
+    DWORD ids[]={7,8};
+    SetupObjectGeometry pose={.tris=vertices,.objectindices=ids,.tricount=2};
+    const double hit[3]={100,200,300};
+    const double normals[][3]={{0,1,0},{0,-1,0},{1,0,0},{0,0,-1},{1,2,3}};
+    for(unsigned i=0;i<sizeof(normals)/sizeof(*normals);i++)
+    {
+        double offset[3], nearest=1e100;
+        Require(ObjectGetPasteOffset(&pose,7,hit,normals[i],offset,&why));
+        for(int j=0;j<3;j++)
+        {
+            double d=(vertices[j].x+offset[0]-hit[0])*normals[i][0]
+                    +(vertices[j].y+offset[1]-hit[1])*normals[i][1]
+                    +(vertices[j].z+offset[2]-hit[2])*normals[i][2];
+            assert(d>=-1e-8); nearest=fmin(nearest,d);
+        }
+        assert(fabs(nearest)<1e-8); /* Touch the surface without penetrating it. */
+        if(i==0) { Near(offset[0],90); Near(offset[1],220); Near(offset[2],297.5); }
+        if(i==1) { Near(offset[1],160); }
+        if(i==2) { Near(offset[0],110); }
+    }
+    double offset[3]={1,2,3}, saved[3]={1,2,3}, zero[3]={0}, invalid[3]={NAN,0,0};
+    assert(!ObjectGetPasteOffset(&pose,7,hit,zero,offset,&why));
+    assert(!ObjectGetPasteOffset(&pose,7,invalid,normals[0],offset,&why));
+    assert(!ObjectGetPasteOffset(&pose,99,hit,normals[0],offset,&why));
+    assert(!memcmp(offset,saved,sizeof(offset)));
+    puts("PASS: floor/wall/ceiling/slope placement contacts the surface, preserves the pose, and rejects invalid or absent geometry.");
+}
 static void RoundTrip(SetupFile *s)
 {
     SetupFile saved={0}; Require(SetupFileCompact(s,&why));
@@ -94,7 +125,9 @@ static void Transform(int mode,float levelscale,BOOL bounded,DWORD original,BOOL
         .points={{-1000,0,-1000,0},{0,0,2000,0},{2000,0,-1000,0}}};
     StanFile floor={.tiles=&tile,.tilecount=1,.levelscale=levelscale};
     DWORD selected;
-    const double bounds[6]={-4,6,-8,12,-3,7}, offset[3]={0,10,0}, pivot[3]={10,20,30};
+    const double bounds[6]={-4,6,-8,12,-3,7}, pivot[3]={10,20,30};
+    double offset[3]={0,10,0};
+    const double hit[3]={100,150,200}, normals[4][3]={{0,1,0},{1,0,0},{0,-1,0},{0,1,1}};
     Rotation rotation; RotationAxis(&rotation,1,35);
     Scaling scale={.factor={1.5,1,1}}; RotationAxis(&scale.axes,0,0); memcpy(scale.pivot,pivot,sizeof(pivot));
     if(bounded) { Require(SetupFileSetModelBounds(&s,original,levelscale,bounds,&why)); }
@@ -103,6 +136,7 @@ static void Transform(int mode,float levelscale,BOOL bounded,DWORD original,BOOL
     Require(SetupFilePadRotation(&s,&scalingref,&scale.axes));
     Require(ObjectLoadSetupGeometry(dir,&s,&floor,levelscale,&before,&why));
     Require(ObjectCopySetupModelPose(&before,original,&clipboard,&why));
+    if(mode>=3) { Require(ObjectGetPasteOffset(&clipboard,original,hit,normals[mode-3],offset,&why)); }
     Require(SetupFileClone(&s,&snapshot,&why));
     /* Copy is a snapshot: moving/deleting the source cannot alter its pose. */
     const double moved[3]={100,-20,40};
@@ -115,7 +149,7 @@ static void Transform(int mode,float levelscale,BOOL bounded,DWORD original,BOOL
     EditHistoryReset(&h,NULL,&s,NULL);
     Require(EditHistoryBeginSetupEdit(&h,&s,"Duplicate Object",&tx,&why));
     Require(ObjectDuplicateSetupModel(dir,&s,live ? &s : &snapshot,&floor,levelscale,live ? &before : &clipboard,original,
-        mode==0 ? offset : NULL,mode==1 ? &rotation : NULL,mode==1 ? pivot : NULL,
+        mode!=1 && mode!=2 ? offset : NULL,mode==1 ? &rotation : NULL,mode==1 ? pivot : NULL,
         mode==2 ? &scale : NULL,&selected,&objects,&why));
     DWORD j=0;
     for(DWORD i=0;i<objects.tricount;i++) if(objects.objectindices[i]==selected)
@@ -132,6 +166,18 @@ static void Transform(int mode,float levelscale,BOOL bounded,DWORD original,BOOL
         j++;
     }
     assert(j==clipboard.tricount);
+    if(mode>=3)
+    {
+        double nearest=1e100;
+        for(DWORD i=0;i<objects.tricount;i++) if(objects.objectindices[i]==selected)
+        for(int c=0;c<3;c++)
+        {
+            const BgVertex *v=&objects.tris[i*3+c];
+            double d=(v->x-hit[0])*normals[mode-3][0]+(v->y-hit[1])*normals[mode-3][1]+(v->z-hit[2])*normals[mode-3][2];
+            assert(d>=-.025); nearest=fmin(nearest,d);
+        }
+        Near(nearest,0);
+    }
     SetupObjectProperties oldprops, newprops;
     Require(SetupFileGetObjectProperties(&snapshot,original,&oldprops,&why));
     Require(SetupFileGetObjectProperties(&s,selected,&newprops,&why));
@@ -162,9 +208,10 @@ int main(int argc,char **argv)
     assert(argc==2); dir=argv[1];
     /* Keep the fixture on disk for each independent case. */
     SetupFile fixture=Load();
+    PasteSurfaces();
     FailuresAndEmpty();
     Records(); Require(SetupSaveProjectFile(dir,&fixture,&why));
-    for(int mode=0;mode<3;mode++) for(int bound=0;bound<2;bound++)
+    for(int mode=0;mode<7;mode++) for(int bound=0;bound<2;bound++)
         for(int scale=0;scale<2;scale++)
         { Transform(mode,scale ? .53931433f : 1,bound,1,FALSE); Require(SetupSaveProjectFile(dir,&fixture,&why)); }
     /* Live source aliases the destination during Shift-drag; include aimed
@@ -172,7 +219,9 @@ int main(int argc,char **argv)
     const DWORD props[]={0,1,4,10};
     for(int mode=0;mode<3;mode++) for(unsigned i=0;i<sizeof(props)/sizeof(*props);i++)
     { Transform(mode,1,FALSE,props[i],TRUE); Require(SetupSaveProjectFile(dir,&fixture,&why)); }
+    for(unsigned i=0;i<sizeof(props)/sizeof(*props);i++)
+    { Transform(3,1,FALSE,props[i],FALSE); Require(SetupSaveProjectFile(dir,&fixture,&why)); }
     SetupFileFree(&fixture);
-    puts("PASS: copied visible pose survives source move/delete; +10 paste, rotation and scaling, normal/bound pads and level scales; single-action undo/redo.");
+    puts("PASS: copied visible pose survives source move/delete; +10 and surface paste, rotation and scaling, normal/bound pads and level scales; single-action undo/redo and save/reload.");
     return 0;
 }
