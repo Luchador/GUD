@@ -984,6 +984,8 @@ static void GEditorRefreshHistoryMenu(HWND hwnd)
     /* Compaction can relocate inspector offsets. A menu refresh must not
      * replace the UV selection or cancel the drag that triggered it. */
     GEditorRefreshSelectionInspector();
+    LevelManagerRefresh(&g_CurrentSetup,
+        g_CurrentLevelIndex < g_Project.levelcount ? g_Project.levels[g_CurrentLevelIndex].name : NULL);
     GEditorSetTitleForProject(hwnd);
     menubar = GetMenu(hwnd);
     if (menubar == NULL)
@@ -3879,6 +3881,35 @@ fail:
 }
 
 
+static BOOL GEditorEditIntroEquipment(HWND hwnd, const SetupIntroEdit *edit)
+{
+    EditHistoryTransaction transaction = {0};
+    const char *why = ""; BOOL changed;
+    SetupMarkerRef marker;
+    BOOL hadmarker = ViewportGetSelectedMarker(g_Viewport, &marker, NULL);
+    if (!g_CurrentSetup.data || !edit) { return FALSE; }
+    ViewportCancelTransform(g_Viewport);
+    if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup, "Edit Starting Equipment", &transaction, &why)) { goto fail; }
+    if (!SetupFileEditIntroEquipment(&g_CurrentSetup, edit, &changed, &why)) { goto rollback; }
+    if (!changed) { EditHistoryCancelEdit(&transaction); return TRUE; }
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    /* Removing an intro record shifts camera/spawn command indices. Prop
+     * records and geometry stay the same; rebuild only the setup overlays. */
+    if (hadmarker && marker.kind != SETUP_MARKER_OUTRO && edit->action == SETUP_INTRO_REMOVE
+        && marker.command > edit->entry.command) { marker.command--; }
+    ViewportSetSetupPads(g_Viewport, &g_CurrentSetup, g_CurrentBgDocument.levelscale,
+        g_CurrentObjects.occupiedpads, g_CurrentObjects.occupiedboundpads);
+    if (hadmarker) { ViewportSelectSetupMarker(g_Viewport, &marker); }
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+fail:
+    EditHistoryCancelEdit(&transaction);
+    GEditorRefreshHistoryMenu(hwnd); MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
 static void GEditorOpenActionBlocks(HWND hwnd)
 {
     SetupFile edited={0}; EditHistoryTransaction transaction={0};
@@ -4608,6 +4639,15 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
     case UVEDITOR_WM_SELECTION_CHANGED:
         g_SelectionHistoryPending = TRUE;
+        return 0;
+
+    case LEVELMANAGER_WM_INTRO_EDIT:
+        return GEditorEditIntroEquipment(hwnd, (const SetupIntroEdit *)lparam);
+    case LEVELMANAGER_WM_HISTORY:
+        GEditorApplyHistoryStep(hwnd, wparam != 0);
+        return 0;
+    case LEVELMANAGER_WM_SAVE:
+        SendMessage(hwnd, WM_COMMAND, ID_FILE_SAVE_PROJECT, 0);
         return 0;
 
     case VIEWPORT_WM_SELECTION_CHANGED:
@@ -5573,7 +5613,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 return 0;
 
             case ID_TOOLS_LEVEL_MANAGER:
-                if (!LevelManagerShow(hwnd, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE)))
+                if (!LevelManagerShow(hwnd, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), &g_CurrentSetup,
+                    g_CurrentLevelIndex < g_Project.levelcount ? g_Project.levels[g_CurrentLevelIndex].name : NULL))
                 {
                     MessageBox(hwnd, "Could not open the Level Manager window.", GEDITOR_TITLE, MB_ICONERROR);
                 }

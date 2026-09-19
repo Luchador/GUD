@@ -19,6 +19,7 @@
 #include "modelload.h"
 #include "actionblocks.h"
 #include "weaponchoices.h"
+#include "introchoices.h"
 
 #define SETUP_FILE_MAX (16u * 1024u * 1024u)
 #define SETUP_HEADER_SIZE       40u
@@ -455,6 +456,161 @@ BOOL SetupFileCompact(SetupFile *setup, const char **why)
     { memcpy(setup->data, data, size); free(data); return TRUE; }
     free(setup->data); setup->data = data; setup->size = size;
     return TRUE;
+}
+
+const SetupIntroChoice *SetupIntroItemChoices(DWORD *count)
+{
+    *count = sizeof(g_SetupIntroItemChoices) / sizeof(g_SetupIntroItemChoices[0]);
+    return g_SetupIntroItemChoices;
+}
+
+const char *SetupIntroItemName(int item)
+{
+    DWORD count; const SetupIntroChoice *choices = SetupIntroItemChoices(&count);
+    for (DWORD i = 0; i < count; i++) { if (choices[i].id == item) { return choices[i].name; } }
+    return NULL;
+}
+
+static BOOL SetupScanIntroEquipment(const SetupFile *setup, DWORD *end, DWORD *commands, DWORD *count)
+{
+    DWORD at;
+    *end = *commands = *count = 0;
+    if (!setup || !setup->data || setup->size < SETUP_HEADER_SIZE || setup->size > SETUP_FILE_MAX) { return FALSE; }
+    at = SetupRead32(setup->data + 8);
+    if (!at) { return TRUE; }
+    if (at < SETUP_HEADER_SIZE || (at & 3)) { return FALSE; }
+    for (; *commands < SETUP_OBJECT_MAX; (*commands)++)
+    {
+        DWORD type, bytes;
+        if (at > setup->size || setup->size - at < 4) { return FALSE; }
+        type = SetupRead32(setup->data + at);
+        bytes = SetupIntroWordCount(type) * 4;
+        if (!bytes || bytes > setup->size - at) { return FALSE; }
+        if (type == 9) { *end = at; return TRUE; }
+        if ((type == SETUP_INTRO_WEAPON || type == SETUP_INTRO_AMMO)
+            && !SetupRead32(setup->data + at + 12)) { (*count)++; }
+        at += bytes;
+    }
+    return FALSE;
+}
+
+BOOL SetupFileGetIntroEquipment(const SetupFile *setup, SetupIntroEntry **entries,
+    DWORD *count, const char **reasonout)
+{
+    DWORD end, commands, written = 0;
+    *entries = NULL; *count = 0; *reasonout = "The setup intro table is invalid.";
+    if (!SetupScanIntroEquipment(setup, &end, &commands, count)) { *count = 0; return FALSE; }
+    if (*count)
+    {
+        *entries = calloc(*count, sizeof(**entries));
+        if (!*entries) { *count = 0; *reasonout = "Out of memory reading starting equipment."; return FALSE; }
+    }
+    DWORD at = SetupRead32(setup->data + 8);
+    for (DWORD command = 0; at < end; command++)
+    {
+        DWORD type = SetupRead32(setup->data + at);
+        if ((type == SETUP_INTRO_WEAPON || type == SETUP_INTRO_AMMO)
+            && !SetupRead32(setup->data + at + 12))
+        {
+            (*entries)[written++] = (SetupIntroEntry){command, type,
+                {(LONG)SetupRead32(setup->data + at + 4), (LONG)SetupRead32(setup->data + at + 8)}};
+        }
+        at += SetupIntroWordCount(type) * 4;
+    }
+    *reasonout = ""; return TRUE;
+}
+
+BOOL SetupFileEditIntroEquipment(SetupFile *setup, const SetupIntroEdit *edit,
+    BOOL *changedout, const char **reasonout)
+{
+    SetupFile copy = {0};
+    DWORD end, commands, count, start, at, target = 0, previous = 0, next = 0, other = 0;
+    *changedout = FALSE; *reasonout = "The starting-equipment edit is invalid.";
+    if (!edit || edit->action < SETUP_INTRO_ADD || edit->action > SETUP_INTRO_DOWN
+        || (edit->entry.type != SETUP_INTRO_WEAPON && edit->entry.type != SETUP_INTRO_AMMO)
+        || !SetupScanIntroEquipment(setup, &end, &commands, &count)) { return FALSE; }
+    start = SetupRead32(setup->data + 8);
+    for (at = start, count = 0; at < end; count++)
+    {
+        DWORD type = SetupRead32(setup->data + at);
+        if (type == edit->entry.type && !SetupRead32(setup->data + at + 12))
+        {
+            if (count == edit->entry.command) { target = at; }
+            else if (!target) { previous = at; }
+            else if (!next) { next = at; }
+        }
+        at += SetupIntroWordCount(type) * 4;
+    }
+    if (edit->action != SETUP_INTRO_ADD && !target)
+    { *reasonout = "The selected starting-equipment entry no longer exists."; return FALSE; }
+    if (edit->action == SETUP_INTRO_ADD || edit->action == SETUP_INTRO_UPDATE)
+    {
+        if (edit->entry.type == SETUP_INTRO_WEAPON)
+        {
+            if (edit->entry.value[0] < 0 || !SetupIntroItemName(edit->entry.value[0])
+                || edit->entry.value[1] < -1 || !SetupIntroItemName(edit->entry.value[1]))
+            { *reasonout = "Choose a valid right-hand weapon and an optional left-hand weapon."; return FALSE; }
+        }
+        else if (edit->entry.value[0] <= AMMO_NONE || edit->entry.value[0] >= AMMOTYPE_MAX
+            || edit->entry.value[1] < 0)
+        { *reasonout = "Choose a valid ammo type and a nonnegative quantity."; return FALSE; }
+        if (edit->action == SETUP_INTRO_UPDATE
+            && SetupRead32(setup->data + target + 4) == (DWORD)edit->entry.value[0]
+            && SetupRead32(setup->data + target + 8) == (DWORD)edit->entry.value[1])
+        { *reasonout = ""; return TRUE; }
+    }
+    if (edit->action == SETUP_INTRO_UP || edit->action == SETUP_INTRO_DOWN)
+    {
+        other = edit->action == SETUP_INTRO_UP ? previous : next;
+        if (!other) { *reasonout = ""; return TRUE; }
+    }
+    if (edit->action == SETUP_INTRO_ADD && commands + 1 >= SETUP_OBJECT_MAX)
+    { *reasonout = "The setup intro table is full."; return FALSE; }
+    if (!SetupFileClone(setup, &copy, reasonout)) { return FALSE; }
+    if (edit->action == SETUP_INTRO_ADD || edit->action == SETUP_INTRO_REMOVE)
+    {
+        DWORD newstart = (copy.size + 3u) & ~3u;
+        DWORD bytes = end - start + 4 + (edit->action == SETUP_INTRO_ADD ? 16 : -16);
+        if (bytes > SETUP_FILE_MAX - newstart)
+        { *reasonout = "The setup has no room for this starting-equipment edit."; goto fail; }
+        unsigned char *data = calloc(newstart + bytes, 1);
+        if (!data) { *reasonout = "Out of memory editing starting equipment."; goto fail; }
+        memcpy(data, copy.data, copy.size);
+        if (edit->action == SETUP_INTRO_ADD)
+        {
+            if (end > start) { memcpy(data + newstart, copy.data + start, end - start); }
+            target = newstart + end - start;
+            SetupWrite32(data + target, edit->entry.type);
+            SetupWrite32(data + target + 4, (DWORD)edit->entry.value[0]);
+            SetupWrite32(data + target + 8, (DWORD)edit->entry.value[1]);
+            SetupWrite32(data + target + 16, 9);
+        }
+        else
+        {
+            memcpy(data + newstart, copy.data + start, target - start);
+            memcpy(data + newstart + target - start, copy.data + target + 16, end - target - 12);
+        }
+        SetupWrite32(data + 8, newstart);
+        free(copy.data); copy.data = data; copy.size = newstart + bytes;
+    }
+    else if (edit->action == SETUP_INTRO_UPDATE)
+    {
+        SetupWrite32(copy.data + target + 4, (DWORD)edit->entry.value[0]);
+        SetupWrite32(copy.data + target + 8, (DWORD)edit->entry.value[1]);
+    }
+    else
+    {
+        unsigned char record[16];
+        memcpy(record, copy.data + target, sizeof(record));
+        memcpy(copy.data + target, copy.data + other, sizeof(record));
+        memcpy(copy.data + other, record, sizeof(record));
+    }
+    if (!SetupFileCompact(&copy, reasonout)) { goto fail; }
+    copy.dirty = TRUE;
+    SetupFileFree(setup); *setup = copy;
+    *changedout = TRUE; *reasonout = ""; return TRUE;
+fail:
+    SetupFileFree(&copy); return FALSE;
 }
 
 /* Multiple script tags may use the same outro camera. Display identical

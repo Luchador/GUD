@@ -155,6 +155,27 @@ typedef struct SetupFile {
     struct SetupScriptReferences *globalrefs;
 } SetupFile;
 
+/* Normal-play starting equipment. Demo-specific intro records stay untouched.
+ * Weapon values are right/left item IDs (-1 means no left weapon); ammo values
+ * are type/quantity. The first weapon record is equipped on level entry. */
+enum { SETUP_INTRO_WEAPON = 1, SETUP_INTRO_AMMO = 2 };
+typedef struct SetupIntroEntry { DWORD command, type; LONG value[2]; } SetupIntroEntry;
+typedef enum SetupIntroAction {
+    SETUP_INTRO_ADD, SETUP_INTRO_UPDATE, SETUP_INTRO_REMOVE,
+    SETUP_INTRO_UP, SETUP_INTRO_DOWN
+} SetupIntroAction;
+typedef struct SetupIntroEdit { SetupIntroAction action; SetupIntroEntry entry; } SetupIntroEdit;
+typedef struct SetupIntroChoice { int id; const char *name; } SetupIntroChoice;
+const SetupIntroChoice *SetupIntroItemChoices(DWORD *count);
+const char *SetupIntroItemName(int item);
+/* Caller frees the returned array. Commands are stable until a row is removed. */
+BOOL SetupFileGetIntroEquipment(const SetupFile *setup, SetupIntroEntry **entries,
+    DWORD *count, const char **reasonout);
+/* Atomic, compacted native edits. Moving a row swaps same-type normal-play
+ * entries only, preserving cameras, spawns, demo equipment and other commands. */
+BOOL SetupFileEditIntroEquipment(SetupFile *setup, const SetupIntroEdit *edit,
+    BOOL *changedout, const char **reasonout);
+
 /* Starting visible hand equipment. Right is 0, left is 1. None is -1;
  * -2 denotes differing item types among authored difficulty variants. */
 #define SETUP_WEAPON_NONE (-1)
