@@ -13,7 +13,7 @@ static const char *why, *dir;
 static void Require(BOOL ok) { if(!ok) { fprintf(stderr,"%s\n",why); abort(); } }
 static SetupFile Load(void)
 { SetupFile s={0}; Require(SetupLoadProjectFile(dir,"UsetupduplicateZ",&s,&why)); return s; }
-static void Near(double a,double b) { assert(fabs(a-b)<.025); }
+static void Near(double a,double b) { if(fabs(a-b)>=.025)fprintf(stderr,"Expected %.9f, got %.9f\n",b,a);assert(fabs(a-b)<.025); }
 static void PasteSurfaces(void)
 {
     BgVertex vertices[6]={{.x=-10,.y=-20,.z=-5},{.x=30,.y=-20,.z=5},{.x=0,.y=40,.z=10},
@@ -203,6 +203,64 @@ static void Transform(int mode,float levelscale,BOOL bounded,DWORD original,BOOL
     ObjectGeometryFree(&before); ObjectGeometryFree(&clipboard); ObjectGeometryFree(&objects);
     SetupFileFree(&snapshot); SetupFileFree(&baseline); SetupFileFree(&after); SetupFileFree(&s); EditHistoryFree(&h);
 }
+static void CharacterPaste(float levelscale,BOOL live)
+{
+    SetupFile s=Load(),snapshot={0},baseline={0};
+    SetupObjectGeometry before={0},clipboard={0},out={0};
+    /* Two overlapping floors: the clicked height must choose the upper one. */
+    StanTile tiles[2]={
+        {.id=0,.room=1,.pointcount=3,.extreme={0,1,2},
+         .points={{-1000,0,-1000,0},{0,0,2000,0},{2000,0,-1000,0}}},
+        {.id=1,.room=2,.pointcount=3,.extreme={0,1,2},
+         .points={{-1000,200,-1000,0},{0,200,2000,0},{2000,200,-1000,0}}}};
+    StanFile floor={.tiles=tiles,.tilecount=2,.levelscale=levelscale};
+    for(int p=0;p<3;p++)tiles[1].points[p].y=200/levelscale;
+    DWORD source,selected;const double pos[3]={0,10,0};
+    Require(SetupFileAddModel(&s,TRUE,1,levelscale,pos,&source,&why));
+    for(int hand=0;hand<2;hand++) {
+        SetupCharacter *chr=s.characters;
+        SetupCharacterWeaponEdit edit={0,chr->sourceoffset,chr->chrnum,hand,hand ? 6 : 4};BOOL changed;
+        Require(SetupFileSetCharacterWeapon(&s,&edit,&changed,&why));assert(changed);
+    }
+    Require(ObjectLoadSetupGeometry(dir,&s,&floor,levelscale,&before,&why));
+    Require(ObjectCopySetupModelPose(&before,source,&clipboard,&why));assert(clipboard.tricount==3);
+    Require(SetupFileClone(&s,&snapshot,&why));
+    if(!live) {
+        const double moved[3]={20,0,0};
+        Require(SetupFileTranslateModel(&s,source,levelscale,moved,&why));
+        Require(SetupFileDeleteCharacter(&s,0,&why));
+    }
+    Require(SetupFileClone(&s,&baseline,&why));
+    const SetupFile *from=live ? &s : &snapshot;
+    double hit[3]={100,200/levelscale,150},delta[3];
+    Require(ObjectGetCharacterPasteOffset(from,&floor,levelscale,source,hit,delta,&why));
+    Near(delta[0],100);Near(delta[1],hit[1]);Near(delta[2],150);
+    Require(ObjectDuplicateSetupModel(dir,&s,from,&floor,levelscale,&clipboard,source,
+        delta,NULL,NULL,NULL,&selected,&out,&why));
+    assert(selected==(SETUP_CHARACTER_SELECTION_BIT|1));
+    SetupPadRef pad;Require(SetupFileGetModelPad(&s,selected,&pad));
+    Near(s.pads[pad.index].pos[0]/levelscale,hit[0]);Near(s.pads[pad.index].pos[2]/levelscale,hit[2]);
+    DWORD n=0;
+    for(DWORD t=0;t<out.tricount;t++)if(out.objectindices[t]==selected) {
+        for(int c=0;c<3;c++) {
+            const BgVertex *a=clipboard.tris+n*3+c,*b=out.tris+t*3+c;
+            Near(b->x-a->x,hit[0]);Near(b->y-a->y,hit[1]);Near(b->z-a->z,hit[2]);
+        }
+        n++;
+    }
+    assert(n==3);RoundTrip(&s);ObjectGeometryFree(&out);
+    /* An off-Stan paste must roll back the guard, equipment and new pad. */
+    EditHistory h={0};EditHistoryTransaction tx={0};
+    EditHistoryReset(&h,NULL,&baseline,NULL);
+    Require(EditHistoryBeginSetupEdit(&h,&baseline,"Paste Character Here",&tx,&why));
+    hit[0]=100000;Require(ObjectGetCharacterPasteOffset(&snapshot,&floor,levelscale,source,hit,delta,&why));
+    assert(!ObjectDuplicateSetupModel(dir,&baseline,&snapshot,&floor,levelscale,&clipboard,source,
+        delta,NULL,NULL,NULL,&selected,&out,&why));
+    EditHistoryRollbackEdit(&tx,NULL,&baseline,NULL);EditHistoryCancelEdit(&tx);
+    assert(baseline.charactercount==1 && baseline.objectcount==snapshot.objectcount && !out.tricount);
+    EditHistoryFree(&h);ObjectGeometryFree(&before);ObjectGeometryFree(&clipboard);ObjectGeometryFree(&out);
+    SetupFileFree(&s);SetupFileFree(&snapshot);SetupFileFree(&baseline);
+}
 int main(int argc,char **argv)
 {
     assert(argc==2); dir=argv[1];
@@ -221,7 +279,11 @@ int main(int argc,char **argv)
     { Transform(mode,1,FALSE,props[i],TRUE); Require(SetupSaveProjectFile(dir,&fixture,&why)); }
     for(unsigned i=0;i<sizeof(props)/sizeof(*props);i++)
     { Transform(3,1,FALSE,props[i],FALSE); Require(SetupSaveProjectFile(dir,&fixture,&why)); }
+    for(int scale=0;scale<2;scale++)for(int live=0;live<2;live++) {
+        CharacterPaste(scale ? .53931433f : 1,live);Require(SetupSaveProjectFile(dir,&fixture,&why));
+    }
     SetupFileFree(&fixture);
+    puts("PASS: armed character Paste Here anchors the feet, selects the upper Stan floor, preserves copied pose after source deletion, supports aliased sources and level scales, and rolls back off-Stan placement.");
     puts("PASS: copied visible pose survives source move/delete; +10 and surface paste, rotation and scaling, normal/bound pads and level scales; single-action undo/redo and save/reload.");
     return 0;
 }

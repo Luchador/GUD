@@ -1,12 +1,14 @@
 /* Replace only asset/ROM IO. Production placement, transforms, setup parsing,
  * compaction and edit history run against a deterministic asymmetric mesh. */
 #include <assert.h>
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 #include "modelload.h"
 #include "modeledits.h"
 #include "characterload.h"
 #include "bghistory.h"
+#include "character-placement.inc"
 
 BOOL RomLoad(const char *path, RomFile *rom, const char **why) { memset(rom,0,sizeof(*rom)); return TRUE; }
 void RomFree(RomFile *rom) {}
@@ -20,8 +22,34 @@ BOOL MonitorBankLoadRom(MonitorBank *out,const RomFile *rom,const char **why) { 
 void MonitorGeometryFree(MonitorGeometry *geometry) { assert(!geometry->count); }
 BOOL CharacterLoadSetupGeometry(const char *dir,const SetupFile *setup,const StanFile *stan,
     const RomFile *rom,float scale,SetupObjectGeometry *out,const char **why)
-{ memset(out,0,sizeof(*out)); return TRUE; }
-BOOL CharacterGetPadPosition(const SetupPad *pad,const StanFile *stan,float scale,float pos[3]) { abort(); }
+{
+    /* Replace skeletal asset IO with an asymmetric armed pose; use production
+     * character grounding and weapon ownership so copies must retain both. */
+    memset(out,0,sizeof(*out));
+    DWORD capacity=setup->charactercount*3;
+    if(!capacity)return TRUE;
+    out->tris=calloc(capacity*3,sizeof(*out->tris));out->objectindices=calloc(capacity,sizeof(*out->objectindices));
+    out->tritags=calloc(capacity,sizeof(*out->tritags));out->renderflags=calloc(capacity,sizeof(*out->renderflags));
+    out->occupiedpads=calloc(setup->padcount,1);
+    assert(out->tris && out->objectindices && out->tritags && out->renderflags && out->occupiedpads);
+    for(DWORD i=0;i<setup->charactercount;i++) {
+        const SetupCharacter *chr=setup->characters+i;float pos[3];const SetupObject *held[2];
+        if(chr->deleted || chr->pad>=setup->padcount
+            || !CharacterGetPadPosition(setup->pads+chr->pad,stan,scale,pos))continue;
+        SetupFileGetCharacterHeldWeapons(setup,i,held);
+        for(int part=0;part<3;part++) {
+            if(part && !held[part-1])continue;
+            DWORD n=out->tricount++;out->objectindices[n]=SETUP_CHARACTER_SELECTION_BIT|i;
+            for(int c=0;c<3;c++) {
+                BgVertex *v=out->tris+n*3+c;
+                v->x=pos[0]+(part ? 40*part : -5)+c;
+                v->y=pos[1]+(c ? 100 : 0);v->z=pos[2]+10*c;
+            }
+        }
+        out->occupiedpads[chr->pad]=1;out->objectcount++;
+    }
+    return TRUE;
+}
 void BgDocumentFree(BgDocument *document) { memset(document,0,sizeof(*document)); }
 void StanFileFree(StanFile *stan) { memset(stan,0,sizeof(*stan)); }
 BgVertex *ModelLoadProjectGeometry(const char *dir,int id,DWORD *count,unsigned short **tags,

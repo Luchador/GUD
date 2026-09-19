@@ -36,9 +36,13 @@ def main():
         work = Path(temp)
         (work / 'setup').mkdir()
         (work / 'setup/UsetupduplicateZ.set').write_bytes(data)
+        extract = runpy.run_path(str(here.parent / 'object_properties/run.py'))['function']
+        character = (src / 'characterload.c').read_text()
+        (work / 'character-placement.inc').write_text(''.join(extract(character, name) for name in
+            ('CharacterGetPadPlacement', 'CharacterGetPadPosition')))
         command = [os.environ.get('CC', 'cc'), '-O1', '-g', '-std=c99', '-Wall', '-Wextra',
                    '-Werror', '-Wno-unused-parameter', '-ffunction-sections', '-fdata-sections',
-                   '-fsanitize=address,undefined', f'-I{shim}', f'-I{src}', f'-I{src.parents[2]}']
+                   '-fsanitize=address,undefined', f'-I{shim}', f'-I{src}', f'-I{src.parents[2]}', f'-I{work}']
         sources = ('setupload.c', 'actionblocks.c', 'bghistory.c', 'objectload.c',
                    'objectshade.c', 'rotation.c', 'scaling.c', 'stanquery.c')
         subprocess.run(command + [str(here / 'check.c'), str(here / 'assets.c'), str(shim / 'platform.c')]

@@ -1203,6 +1203,24 @@ BOOL ObjectGetPasteOffset(const SetupObjectGeometry *pose, DWORD index,
     return TRUE;
 }
 
+BOOL ObjectGetCharacterPasteOffset(const SetupFile *source, const StanFile *stan,
+    float levelscale, DWORD index, const double position[3], double offset[3], const char **reasonout)
+{
+    SetupPadRef ref;
+    float feet[3];
+    *reasonout = "The copied character's placement could not be resolved.";
+    if (!(index & SETUP_CHARACTER_SELECTION_BIT) || !position || !offset
+        || !SetupFileGetModelPad(source, index, &ref) || ref.bound
+        || !CharacterGetPadPosition(source->pads + ref.index, stan, levelscale, feet)) { return FALSE; }
+    for (int axis = 0; axis < 3; axis++)
+    { if (!isfinite(position[axis]) || !isfinite(feet[axis])) { return FALSE; } }
+    /* Anchor at the character's feet, not the centre of an asymmetric armed
+     * pose. The destination height selects a Stan floor; facing stays upright. */
+    for (int axis = 0; axis < 3; axis++) { offset[axis] = position[axis] - feet[axis]; }
+    *reasonout = "";
+    return TRUE;
+}
+
 BOOL ObjectDuplicateSetupModel(const char *projectdir, SetupFile *setup,
     const SetupFile *source, const StanFile *stan, float levelscale,
     const SetupObjectGeometry *before, DWORD index, const double offset[3],
@@ -1238,9 +1256,12 @@ BOOL ObjectDuplicateSetupModel(const char *projectdir, SetupFile *setup,
     }
     /* Cameras and drone guns use a second native pad to aim. Transform that
      * private target with the copy, leaving the source's target untouched. */
-    if (!SetupFileGetObjectProperties(setup, selected, &properties, reasonout)) { goto done; }
-    if (properties.object.type == PROPDEF_CCTV) { aim = properties.cctv.lookpad; }
-    if (properties.object.type == PROPDEF_AUTOGUN) { aim = properties.drone.aimpad; }
+    if (!(selected & SETUP_CHARACTER_SELECTION_BIT))
+    {
+        if (!SetupFileGetObjectProperties(setup, selected, &properties, reasonout)) { goto done; }
+        if (properties.object.type == PROPDEF_CCTV) { aim = properties.cctv.lookpad; }
+        if (properties.object.type == PROPDEF_AUTOGUN) { aim = properties.drone.aimpad; }
+    }
     if (aim >= 0)
     {
         SetupPadRef ref = {(DWORD)aim, FALSE};

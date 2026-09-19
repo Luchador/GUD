@@ -6352,7 +6352,7 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
     if (shift && state->selectedobject != VIEWPORT_OBJECT_NONE
         && !SetupFileCanDuplicateObject(state->markersetup, state->selectedobject))
     {
-        MessageBox(hwnd, "Select a placed object to duplicate.", "GEditor", MB_ICONINFORMATION);
+        MessageBox(hwnd, "Select a placed object or character to duplicate.", "GEditor", MB_ICONINFORMATION);
         return TRUE;
     }
     state->dragrotation = state->rotationmode;

@@ -4138,6 +4138,11 @@ BOOL SetupFileCanDuplicateObject(const SetupFile *setup, DWORD index)
 {
     const char *why;
     SetupPadRef ref;
+    if (index & SETUP_CHARACTER_SELECTION_BIT)
+    {
+        DWORD character = index & ~SETUP_CHARACTER_SELECTION_BIT;
+        return SetupCharacterValid(setup, character) && SetupFileGetModelPad(setup, index, &ref);
+    }
     return SetupObjectPropertyRecord(setup, index, &why)
         && !(setup->objects[index].flags & (PROPFLAG_INSIDEANOTHEROBJ | PROPFLAG_ASSIGNEDTOCHR))
         && SetupFileGetModelPad(setup, index, &ref);
@@ -4183,6 +4188,106 @@ static BOOL SetupDuplicatePad(SetupFile *dest, const SetupFile *source,
     return !stanname[0] || SetupFileSetPadStanName(dest, out, stanname, reasonout);
 }
 
+/* Only equipment and attributes that execute after this guard are initial
+ * character state. Preserve their order and difficulty variants, but never
+ * duplicate setup tags, relative links or shared action lists. */
+static BOOL SetupCopyCharacterCommand(const unsigned char *record, DWORD chrnum)
+{
+    unsigned char type = record[3];
+    if (type == PROPDEF_GUARD_ATTRIBUTE) { return SetupRead32(record + 4) == chrnum; }
+    if (type == PROPDEF_COLLECTABLE || type == PROPDEF_HAT)
+    {
+        DWORD flags = SetupRead32(record + 8), flags2 = SetupRead32(record + 12);
+        return (flags & PROPFLAG_ASSIGNEDTOCHR) && !(flags & PROPFLAG_INSIDEANOTHEROBJ)
+            && (unsigned short)SetupRead16(record + 6) == chrnum
+            && (flags2 & SETUP_OBJECT_DELETED_FLAGS2) != SETUP_OBJECT_DELETED_FLAGS2;
+    }
+    return FALSE;
+}
+
+static BOOL SetupDuplicateCharacter(SetupFile *setup, const SetupFile *source,
+    DWORD index, DWORD *selectionout, const char **reasonout)
+{
+    SetupFile copy = {0};
+    SetupPadRef ref, placed;
+    SetupCameraList from, to; /* Validated native prop-command spans. */
+    DWORD chrnum = 0, bytes = 28, commands = 1, start, record, size, at;
+    const SetupCharacter *character;
+    unsigned char *data;
+    *reasonout = "Select a placed character to duplicate.";
+    if (!setup || !selectionout || !SetupFileCanDuplicateObject(source, index)
+        || !SetupScanCameras(source, TRUE, &from) || !SetupScanCameras(setup, TRUE, &to)) { return FALSE; }
+    character = &source->characters[index & ~SETUP_CHARACTER_SELECTION_BIT];
+    for (DWORD i = 0; i < source->charactercount; i++)
+    {
+        if (source->characters + i != character && !source->characters[i].deleted
+            && source->characters[i].chrnum == character->chrnum)
+        { *reasonout = "Two characters share this ID, so their equipment ownership is ambiguous."; return FALSE; }
+    }
+    /* Follow Add Character's ID policy: append beyond authored IDs, including
+     * tombstones, rather than filling gaps that scripts may still reference. */
+    for (DWORD i = 0; i < setup->charactercount; i++)
+    {
+        DWORD existing = setup->characters[i].chrnum;
+        if (existing < 5000 && existing >= chrnum) { chrnum = existing + 1; }
+    }
+    if (chrnum >= 248 && chrnum <= 255) { chrnum = 256; }
+    if (chrnum >= 5000)
+    { *reasonout = "There are no more authored character IDs available."; return FALSE; }
+    for (at = character->sourceoffset + 28; at < from.end;
+         at += SetupObjectWordCount(source->data[at + 3]) * 4)
+    {
+        if (SetupCopyCharacterCommand(source->data + at, character->chrnum))
+        { bytes += SetupObjectWordCount(source->data[at + 3]) * 4; commands++; }
+    }
+    if (to.commands + commands >= SETUP_OBJECT_MAX)
+    { *reasonout = "The setup command list is full."; return FALSE; }
+    if (!SetupFileClone(setup, &copy, reasonout)) { return FALSE; }
+    SetupFileGetModelPad(source, index, &ref);
+    if (!SetupDuplicatePad(&copy, source, &ref, 65536u, (DWORD)-1, &placed, reasonout)) { goto fail; }
+    start = (copy.size + 3u) & ~3u;
+    record = start + to.end - to.start;
+    size = record + bytes + 4;
+    if (size > SETUP_FILE_MAX)
+    { *reasonout = "The setup size limit has been reached."; goto fail; }
+    data = calloc(size, 1);
+    if (!data) { *reasonout = "Out of memory duplicating the character."; goto fail; }
+    memcpy(data, copy.data, copy.size);
+    memcpy(data + start, copy.data + to.start, to.end - to.start);
+    memcpy(data + record, source->data + character->sourceoffset, 28);
+    SetupWrite32(data + record + 4, (chrnum << 16) | placed.index);
+    DWORD next = record + 28;
+    for (at = character->sourceoffset + 28; at < from.end;
+         at += SetupObjectWordCount(source->data[at + 3]) * 4)
+    {
+        if (!SetupCopyCharacterCommand(source->data + at, character->chrnum)) { continue; }
+        DWORD length = SetupObjectWordCount(source->data[at + 3]) * 4;
+        memcpy(data + next, source->data + at, length);
+        SetupWrite32(data + next + 4, source->data[at + 3] == PROPDEF_GUARD_ATTRIBUTE ? chrnum
+            : (SetupRead32(source->data + at + 4) & 0xffff0000u) | chrnum);
+        next += length;
+    }
+    SetupWrite32(data + SETUP_OBJECT_POINTER, start);
+    SetupWrite32(data + next, SETUP_PROP_END);
+    free(copy.data); copy.data = data; copy.size = size;
+    free(copy.objects); copy.objects = NULL; copy.objectcount = 0;
+    free(copy.characters); copy.characters = NULL; copy.charactercount = 0;
+    if (!SetupParseObjects(&copy, reasonout)) { goto fail; }
+    for (DWORD i = 0; i < copy.charactercount; i++)
+    {
+        if (copy.characters[i].sourceoffset != record) { continue; }
+        copy.dirty = TRUE;
+        SetupFileFree(setup); *setup = copy;
+        *selectionout = SETUP_CHARACTER_SELECTION_BIT | i;
+        *reasonout = "";
+        return TRUE;
+    }
+    *reasonout = "The copied character could not be found.";
+fail:
+    SetupFileFree(&copy);
+    return FALSE;
+}
+
 BOOL SetupFileDuplicateObject(SetupFile *setup, const SetupFile *source,
     DWORD index, DWORD *selectionout, const char **reasonout)
 {
@@ -4192,6 +4297,8 @@ BOOL SetupFileDuplicateObject(SetupFile *setup, const SetupFile *source,
     const SetupObject *object;
     unsigned char *data;
     LONG aim = -1;
+    if (index & SETUP_CHARACTER_SELECTION_BIT)
+    { return SetupDuplicateCharacter(setup, source, index, selectionout, reasonout); }
     *reasonout = "Select a placed object to duplicate.";
     if (!setup || !setup->data || setup->size < SETUP_HEADER_SIZE || setup->size > SETUP_FILE_MAX
         || !selectionout || !SetupFileCanDuplicateObject(source, index)

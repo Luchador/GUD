@@ -55,6 +55,10 @@ BOOL ObjectCopySetupModelPose(const SetupObjectGeometry *source, DWORD index,
  * nearest surface onto the plane. Works on floors, slopes, walls and ceilings. */
 BOOL ObjectGetPasteOffset(const SetupObjectGeometry *pose, DWORD index,
     const double position[3], const double normal[3], double offset[3], const char **reasonout);
+/* Characters retain their upright facing and ground at the clicked X/Z.
+ * The clicked height chooses the destination Stan floor. */
+BOOL ObjectGetCharacterPasteOffset(const SetupFile *source, const StanFile *stan,
+    float levelscale, DWORD index, const double position[3], double offset[3], const char **reasonout);
 /* Copy native properties and the visible pose, then transform only the copy.
  * Exactly one of offset/rotation/scaling is supplied. Caller owns rollback. */
 BOOL ObjectDuplicateSetupModel(const char *projectdir, SetupFile *setup,

@@ -163,11 +163,92 @@ static void AllocationFailures(const SetupFile *source,int chr,int hand,int item
     }
     abort();
 }
+static void DuplicateCharacters(void)
+{
+    SetupFile source=Fixture(),s={0},before={0},after={0};
+    /* Append a hat and a grenade-probability attribute after the source guard.
+     * Keep the existing native stream, pads and relative tag unchanged. */
+    DWORD first=R(source.data+12),end=source.characters[2].sourceoffset+28+16;
+    DWORD table=source.size,extra=table+end-first;
+    source.data=realloc(source.data,extra+128+12+4);assert(source.data);
+    memset(source.data+table,0,extra+144-table);
+    memcpy(source.data+table,source.data+first,end-first);
+    W(source.data+12,table);
+    W(source.data+extra,0x01000011);W(source.data+extra+4,0x00010007);
+    W(source.data+extra+8,PROPFLAG_ASSIGNEDTOCHR);
+    W(source.data+extra+128,18);W(source.data+extra+132,7);W(source.data+extra+136,0x12345678);
+    W(source.data+extra+140,48);source.size=extra+144;
+    /* Reparse after relocating the stream. */
+    Require(SetupSaveProjectFile(dir,&source,&why));SetupFileFree(&source);
+    Require(SetupLoadProjectFile(dir,"UsetupweaponsZ",&source,&why));
+    Require(SetupFileClone(&source,&s,&why));
+    Require(SetupFileClone(&source,&before,&why));
+    DWORD selected=0;const DWORD original=SETUP_CHARACTER_SELECTION_BIT;
+    assert(SetupFileCanDuplicateObject(&s,original));
+    EditHistory h={0};EditHistoryTransaction tx={0};EditHistoryAsset asset;BgDocument bg={0};StanFile stan={0};
+    EditHistoryReset(&h,&bg,&s,&stan);Require(EditHistoryBeginSetupEdit(&h,&s,"Paste Character Here",&tx,&why));
+    Require(SetupFileDuplicateObject(&s,&source,original,&selected,&why));
+    assert(selected==(original|3) && s.charactercount==4 && s.objectcount==source.objectcount+5);
+    const SetupCharacter *chr=&s.characters[3];
+    assert(chr->chrnum==10 && chr->pad!=source.characters[0].pad);
+    for(int b=0;b<28;b++)if(b<4 || b>=8)
+        assert(s.data[chr->sourceoffset+b]==source.data[source.characters[0].sourceoffset+b]);
+    SetupCharacterWeapons view;
+    Require(SetupFileGetCharacterWeapons(&s,3,&view));
+    assert(view.item[0]==SETUP_WEAPON_MIXED && view.count[0]==2 && view.item[1]==26);
+    for(int i=0;i<5;i++) {
+        const SetupObject *a=&source.objects[i<4 ? (DWORD)i : source.objectcount-1];
+        const SetupObject *b=&s.objects[source.objectcount+i];
+        assert(b->pad==10 && b->sourceoffset>chr->sourceoffset);
+        for(int n=0;n<(i==4 ? 128 : 136);n++)if(n!=6 && n!=7)
+            assert(s.data[b->sourceoffset+n]==source.data[a->sourceoffset+n]);
+    }
+    DWORD attribute=s.objects[s.objectcount-1].sourceoffset+128;
+    assert(R(s.data+attribute)==18 && R(s.data+attribute+4)==10 && R(s.data+attribute+8)==0x12345678);
+    /* Every old command (including the tag) remains at the same command index. */
+    first=R(source.data+12);
+    DWORD oldbytes=source.objects[source.objectcount-1].sourceoffset+128+12-first;
+    assert(!memcmp(source.data+first,s.data+R(s.data+12),oldbytes));
+    Require(EditHistoryCommitEdit(&h,&bg,&s,&stan,&tx,&why));Reload(&s);
+    Require(SetupFileClone(&s,&after,&why));
+    Require(EditHistoryUndo(&h,&bg,&s,&stan,&asset,&why));Same(&s,&before);
+    Require(EditHistoryRedo(&h,&bg,&s,&stan,&asset,&why));Same(&s,&after);
+    /* A live source may alias the destination; repeated pastes own distinct pads. */
+    Require(SetupFileDuplicateObject(&s,&s,selected,&selected,&why));
+    assert(s.characters[4].chrnum==11 && s.characters[4].pad!=s.characters[3].pad);
+    SetupFileFree(&s);SetupFileFree(&before);SetupFileFree(&after);EditHistoryFree(&h);
+    for(int failure=0;failure<100;failure++) {
+        Require(SetupFileClone(&source,&s,&why));selected=123;
+        failat=failure;allocations=0;
+        BOOL ok=SetupFileDuplicateObject(&s,&s,original,&selected,&why);
+        failat=-1;
+        if(!ok){assert(selected==123);Same(&s,&source);assert(s.dirty==source.dirty);}
+        SetupFileFree(&s);if(ok)break;assert(failure<99);
+    }
+    /* Skip AI sentinel IDs; never recycle deleted character IDs. */
+    source.characters[2].chrnum=247;
+    W(source.data+source.characters[2].sourceoffset+4,247u<<16);
+    Require(SetupFileClone(&source,&s,&why));
+    Require(SetupFileDuplicateObject(&s,&source,original,&selected,&why));
+    assert(s.characters[3].chrnum==256);SetupFileFree(&s);
+    Require(SetupFileDeleteCharacter(&source,2,&why));
+    assert(!SetupFileCanDuplicateObject(&source,original|2));
+    Require(SetupFileClone(&source,&s,&why));
+    Require(SetupFileDuplicateObject(&s,&source,original,&selected,&why));
+    assert(s.characters[3].chrnum==256);SetupFileFree(&s);
+    source.characters[2].chrnum=4999;
+    W(source.data+source.characters[2].sourceoffset+4,4999u<<16);
+    Require(SetupFileClone(&source,&s,&why));selected=123;
+    assert(!SetupFileDuplicateObject(&s,&source,original,&selected,&why));Same(&s,&source);assert(selected==123);
+    SetupFileFree(&s);SetupFileFree(&source);
+    puts("PASS: character copies retain native settings, mixed/left/concealed weapons, hats and attributes; new IDs/pads, stable commands, aliasing, save/reload, undo/redo, ID limits and atomic allocation failures.");
+}
 int main(int argc,char **argv)
 {
     assert(argc==2);dir=argv[1];SetupFile source=Fixture();
     Variants(&source);AppendAndHistory(&source);
     AllocationFailures(&source,0,0,13);AllocationFailures(&source,2,1,25);AllocationFailures(&source,0,0,-1);
     Set(&source,0,0,-1);AllocationFailures(&source,0,0,6);
-    SetupFileFree(&source);puts("PASS: allocation failures leave native bytes, caches, counts and dirty state unchanged.");return 0;
+    SetupFileFree(&source);puts("PASS: allocation failures leave native bytes, caches, counts and dirty state unchanged.");
+    DuplicateCharacters();return 0;
 }

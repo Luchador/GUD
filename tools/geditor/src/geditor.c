@@ -3042,12 +3042,20 @@ static BOOL GEditorDuplicateObject(HWND hwnd, const ViewportObjectDuplicate *dra
     const SetupFile *source = drag ? &g_CurrentSetup : &g_ObjectClipboard;
     const SetupObjectGeometry *pose = drag ? &g_CurrentObjects : &g_ObjectClipboardPose;
     DWORD selected, index = drag ? drag->source : g_ObjectClipboardSelection;
+    BOOL character = (index & SETUP_CHARACTER_SELECTION_BIT) != 0;
     const char *why = "", *restorewhy = "";
     if (!GEditorCanUseObjectClipboard() || !SetupFileCanDuplicateObject(source, index)) { return FALSE; }
     if (paste && (drag || !GEditorCanPasteObject())) { return FALSE; }
-    if (paste && !ObjectGetPasteOffset(pose, index, paste->position, paste->normal, pasteoffset, &why)) { goto fail; }
+    /* A vertical Ctrl+V offset would snap a character back onto its source. */
+    if (character) { pasteoffset[0] = 10; pasteoffset[1] = 0; }
+    if (paste && !(character
+        ? ObjectGetCharacterPasteOffset(source, &g_CurrentStan, g_CurrentBgDocument.levelscale,
+            index, paste->position, pasteoffset, &why)
+        : ObjectGetPasteOffset(pose, index, paste->position, paste->normal, pasteoffset, &why))) { goto fail; }
     if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup,
-        drag ? "Duplicate Object" : paste ? "Paste Object Here" : "Paste Object", &transaction, &why)) { goto fail; }
+        character ? (drag ? "Duplicate Character" : paste ? "Paste Character Here" : "Paste Character")
+                  : (drag ? "Duplicate Object" : paste ? "Paste Object Here" : "Paste Object"),
+        &transaction, &why)) { goto fail; }
     if (!ObjectDuplicateSetupModel(g_Project.dir, &g_CurrentSetup, source, &g_CurrentStan,
         g_CurrentBgDocument.levelscale, pose, index,
         !drag ? pasteoffset : drag->mode == TRANSFORM_MOVE ? drag->translation.offset : NULL,

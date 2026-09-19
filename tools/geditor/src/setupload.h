@@ -306,9 +306,10 @@ BOOL SetupLoadProjectFile(const char *projectdir, const char *setupname,
 BOOL SetupFileClone(const SetupFile *source, SetupFile *out,
                     const char **reasonout);
 
-/* Duplicate a placed prop from a same-level snapshot. Existing command/pad
- * IDs remain stable; the copy owns its placement and optional look-at pad.
- * Tags, links and attached/character-owned objects are not copied. Atomic. */
+/* Duplicate a placed prop or tagged character from a same-level snapshot.
+ * Existing command/pad IDs remain stable; the copy owns its placement and optional look-at pad.
+ * Characters get a fresh ID and copies of their weapons, hats and attributes.
+ * Tags, links and shared action lists are not copied. Atomic. */
 BOOL SetupFileCanDuplicateObject(const SetupFile *setup, DWORD index);
 BOOL SetupFileDuplicateObject(SetupFile *setup, const SetupFile *source,
     DWORD index, DWORD *selectionout, const char **reasonout);
