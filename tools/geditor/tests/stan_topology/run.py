@@ -37,7 +37,7 @@ with tempfile.TemporaryDirectory(prefix='geditor-stan-topology-') as temp:
              'ViewportHideSelectedStanTiles', 'ViewportUnhideAllStanTiles', 'ViewportHasHiddenStanTiles',
              'ViewportSetStanVertex', 'ViewportRefreshStanOverlay', 'ViewportSetStanTiles',
              'ViewportRayTriangleDistance', 'ViewportFindPickedStan')
-    constants = '\n'.join(re.findall(r'^#define VIEWPORT_PICK_.*$', viewport, re.M)) + '\n'
+    constants = '\n'.join(re.findall(r'^#define VIEWPORT_(?:PICK_.*|SELECTION_GOLD .*)$', viewport, re.M)) + '\n'
     (work / 'viewport.inc').write_text(constants + ''.join(extract.function(viewport, n) for n in names))
     controller = (src / 'geditor.c').read_text()
     (work / 'controller.inc').write_text(''.join(extract.function(controller, n) for n in

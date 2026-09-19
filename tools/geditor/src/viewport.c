@@ -899,7 +899,7 @@ static void ViewportDrawBgToolOverlay(const ViewportState *state)
                 continue;
             }
             /* Transparent faces can have no visible fill. Keep their selected
-               outline cyan; fullbright supplies white for unselected faces.
+               outline gold; fullbright supplies white for unselected faces.
                Blending and alpha testing are disabled for this overlay. */
             if (wireframe && !batch->object && state->tool == EDITOR_TOOL_FACE_SELECT)
             {
@@ -952,11 +952,13 @@ void ViewportShowUVSeams(HWND hwnd, BOOL show)
 }
 
 /* Keep display colors separate from both authored RGB and selection RGB.
- * Alpha still drives blending/cutout; cyan remains an editing highlight. */
+ * Alpha still drives blending/cutout; gold remains an editing highlight. */
 static void ViewportSetFullbrightColor(Vertex *vertex, BOOL selected)
 {
-    vertex->fullbright[0] = selected ? 0 : 255;
-    vertex->fullbright[1] = vertex->fullbright[2] = 255;
+    const unsigned char gold[3] = {VIEWPORT_SELECTION_GOLD};
+    vertex->fullbright[0] = selected ? gold[0] : 255;
+    vertex->fullbright[1] = selected ? gold[1] : 255;
+    vertex->fullbright[2] = selected ? gold[2] : 255;
     vertex->fullbright[3] = vertex->a;
 }
 
@@ -2893,6 +2895,7 @@ static DWORD ViewportFindPickedObject(const ViewportState *state, const Viewport
 static void ViewportSetTriangleColor(ViewportState *state, int triangle,
                                      BOOL selected)
 {
+    const unsigned char gold[3] = {VIEWPORT_SELECTION_GOLD};
     int vertex;
     int end = triangle * 3 + 3;
 
@@ -2900,9 +2903,9 @@ static void ViewportSetTriangleColor(ViewportState *state, int triangle,
     {
         if (selected)
         {
-            state->scene[vertex].r = 0;
-            state->scene[vertex].g = 255;
-            state->scene[vertex].b = 255;
+            state->scene[vertex].r = gold[0];
+            state->scene[vertex].g = gold[1];
+            state->scene[vertex].b = gold[2];
         }
         else
         {
@@ -7630,6 +7633,7 @@ static void ViewportSetStanVertex(Vertex *vertex, const StanPoint *point,
 
 static void ViewportRefreshStanOverlay(ViewportState *state)
 {
+    const unsigned char gold[3] = {VIEWPORT_SELECTION_GOLD};
     DWORD tile;
     size_t fillat=0, edgeat=0;
     unsigned char alpha=(unsigned char)(state->stanopacity*255/100);
@@ -7660,7 +7664,7 @@ static void ViewportRefreshStanOverlay(ViewportState *state)
 
         if (state->stanselected[tile]) 
         { 
-            color.red=0; color.green=255; color.blue=255; 
+            color.red=gold[0]; color.green=gold[1]; color.blue=gold[2];
         }
         else if (linked != NULL && linked[tile]) 
         { 

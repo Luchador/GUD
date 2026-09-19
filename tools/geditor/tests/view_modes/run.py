@@ -32,7 +32,7 @@ def main():
                       (src / 'viewport.h').read_text(), re.S)[0] + '\n'
     for name in ('Vertex', 'VertexColor', 'SceneBatch', 'ViewportTexture', 'ViewportPickRay'):
         types += re.search(r'typedef struct ' + name + r' \{.*?\} ' + name + ';', viewport, re.S)[0] + '\n'
-    for name in ('VERTEX_MARKER_SIZE', 'PICK_EPSILON', 'PICK_BARY_EPSILON',
+    for name in ('SELECTION_GOLD', 'VERTEX_MARKER_SIZE', 'PICK_EPSILON', 'PICK_BARY_EPSILON',
                  'BLEND_ALPHA_THRESHOLD', 'CUTOUT_ALPHA_THRESHOLD',
                  'PICK_COPLANAR_RELATIVE_EPSILON', 'PICK_COPLANAR_EPSILON'):
         types += re.search(r'^#define VIEWPORT_' + name + r' .*', viewport, re.M)[0] + '\n'

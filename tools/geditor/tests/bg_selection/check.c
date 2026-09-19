@@ -323,6 +323,7 @@ typedef struct { HWND hwnd; unsigned message, wParam; LPARAM lParam; } MSG;
 #define VK_SHIFT 2
 #define ID_SELECT_ALL 10
 #define ID_SELECT_GROW 11
+#define ID_SELECT_ROOM 12
 static HWND g_Viewport=(HWND)2;
 static int keys[3]; static BOOL flying;
 static const char *classname="Viewport";
@@ -348,7 +349,17 @@ static void Hotkeys(void)
     for (unsigned i=0; i<3; i++) { classname=inputs[i]; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg)); }
     classname="Viewport"; msg.hwnd=(HWND)4; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg));
     msg.hwnd=(HWND)2; keys[VK_CONTROL]=0; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg));
-    puts("PASS: Q/Ctrl+A routing, repeat suppression, text fields, camera flight and window scope.");
+    msg.wParam='R'; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg)); /* Plain R still scales. */
+    keys[VK_SHIFT]=0x8000;
+    assert(GEditorHandleSelectionHotkey((HWND)1,&msg) && command==ID_SELECT_ROOM);
+    command=0; msg.lParam=(LPARAM)1<<30;
+    assert(GEditorHandleSelectionHotkey((HWND)1,&msg) && !command); msg.lParam=0;
+    flying=TRUE; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg)); flying=FALSE;
+    keys[VK_CONTROL]=0x8000; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg)); keys[VK_CONTROL]=0;
+    keys[VK_MENU]=0x8000; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg)); keys[VK_MENU]=0;
+    for (unsigned i=0; i<3; i++) { classname=inputs[i]; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg)); }
+    classname="Viewport"; msg.hwnd=(HWND)4; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg));
+    puts("PASS: Q/Ctrl+A/Shift+R routing, repeat suppression, text fields, camera flight and window scope.");
 }
 
 int main(void) { Geometry(); SameMaterial(); Hotkeys(); return 0; }

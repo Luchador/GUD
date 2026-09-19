@@ -23,7 +23,7 @@ def main():
     here = Path(__file__).resolve().parent
     src = here.parents[1] / 'src'
     viewport = (src / 'viewport.c').read_text()
-    types = ''
+    types = re.search(r'^#define VIEWPORT_SELECTION_GOLD .*', viewport, re.M)[0] + '\n'
     for name in ('SceneBatch', 'Vertex', 'VertexColor', 'ViewportComponent',
                  'ViewportStanComponent', 'ViewportBoxPoint', 'ViewportBoxComponent'):
         types += re.search(r'typedef struct ' + name + r'\s*\{.*?\} ' + name + ';', viewport, re.S)[0] + '\n'

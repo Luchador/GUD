@@ -143,7 +143,11 @@ static void ColorsAndSwitching(void)
     assert(redraws==before && s.rendermode==VIEWPORT_RENDER_UNTEXTURED);
     ViewportSetTriangleColor(&s,0,TRUE);
     for (int i=0; i<3; i++)
-    { assert(vertices[i].fullbright[0]==0 && vertices[i].fullbright[1]==255 && vertices[i].fullbright[3]==original[i].a); }
+    {
+        assert(!memcmp(vertices[i].fullbright,(GLubyte[]){VIEWPORT_SELECTION_GOLD},3));
+        assert(!memcmp(&vertices[i].r,(GLubyte[]){VIEWPORT_SELECTION_GOLD},3));
+        assert(vertices[i].fullbright[3]==original[i].a && vertices[i].a==original[i].a);
+    }
     ViewportSetTriangleColor(&s,0,FALSE);
     ViewportSetRenderMode(&s,VIEWPORT_RENDER_NORMAL);
     ViewportSceneColorPointer(&s,vertices);
@@ -287,7 +291,7 @@ static void Wireframe(void)
     assert(draws[0].cull==GL_BACK && draws[2].cull==GL_FRONT);
     assert(draws[0].colors && draws[1].colors && !draws[2].colors && !draws[3].colors);
     assert(!memcmp(draws[0].color,(GLubyte[]){255,255,255,0},4));
-    assert(!memcmp(draws[1].color,(GLubyte[]){0,255,255,0},4)); /* Cyan despite zero alpha. */
+    assert(!memcmp(draws[1].color,(GLubyte[]){VIEWPORT_SELECTION_GOLD,0},4)); /* Gold despite zero alpha. */
     assert(!memcmp(draws[2].color,(GLubyte[]){255,255,255,255},4)); /* Object stays white. */
     float original[15][3]={{0}};
     unsigned char mask[15]={0}; mask[9]=mask[10]=mask[11]=1;

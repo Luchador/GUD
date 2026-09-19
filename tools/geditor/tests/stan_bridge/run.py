@@ -3,6 +3,7 @@
 import importlib.util
 import os
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 
@@ -24,7 +25,8 @@ with tempfile.TemporaryDirectory(prefix='geditor-stan-bridge-') as directory:
              'ViewportClearStanSelection', 'ViewportGetStanSelectionCount', 'ViewportGetSelectedStanTiles',
              'ViewportSelectStanTiles', 'ViewportFindStanComponent', 'ViewportGetSelectedStanEdges',
              'ViewportSetStanVertex', 'ViewportRefreshStanOverlay', 'ViewportSetStanTiles')
-    (work / 'viewport.inc').write_text(''.join(extract.function(viewport, n) for n in names))
+    constants = re.search(r'^#define VIEWPORT_SELECTION_GOLD .*', viewport, re.M)[0] + '\n'
+    (work / 'viewport.inc').write_text(constants + ''.join(extract.function(viewport, n) for n in names))
     harness = topology[topology.index('typedef void *HWND;'):topology.index('static void Visibility(')]
     (work / 'viewport_harness.inc').write_text(harness)
     editor = (src / 'geditor.c').read_text()

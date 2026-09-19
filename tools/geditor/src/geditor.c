@@ -836,7 +836,7 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_GROW, "&Grow Selection\tQ");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_ALL, "Select &All\tCtrl+A");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_SAME_MATERIAL, "Select Same &Material");
-    AppendMenu(selectmenu, MF_STRING, ID_SELECT_ROOM, "Select &Room");
+    AppendMenu(selectmenu, MF_STRING, ID_SELECT_ROOM, "Select &Room\tShift+R");
 
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_LEVEL_MANAGER, "&Level Manager");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_ACTION_BLOCKS, "&Action Blocks...");
@@ -5897,25 +5897,26 @@ static BOOL GEditorHandleFaceClipboardHotkey(HWND frame, const MSG *message)
     return TRUE;
 }
 
-/* Leave Q/A to camera flight and native text controls. Scope these shortcuts
+/* Leave selection keys to camera flight and native text controls. Scope these shortcuts
    to the main editor so the floating UV/model windows keep their own input. */
 static BOOL GEditorHandleSelectionHotkey(HWND frame, const MSG *message)
 {
     char classname[32] = "";
-    BOOL control;
+    BOOL control, shift;
     if (!message || !g_Viewport || message->message != WM_KEYDOWN
-        || (message->wParam != 'Q' && message->wParam != 'A')
+        || (message->wParam != 'Q' && message->wParam != 'A' && message->wParam != 'R')
         || ViewportIsFlying(g_Viewport)
         || (message->hwnd != frame && !IsChild(frame, message->hwnd))
-        || (GetKeyState(VK_MENU) & 0x8000) || (GetKeyState(VK_SHIFT) & 0x8000)) { return FALSE; }
+        || (GetKeyState(VK_MENU) & 0x8000)) { return FALSE; }
     control = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
-    if (control != (message->wParam == 'A')) { return FALSE; }
+    shift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+    if (control != (message->wParam == 'A') || shift != (message->wParam == 'R')) { return FALSE; }
     GetClassName(message->hwnd, classname, sizeof(classname));
     if (lstrcmpi(classname, "Edit") == 0 || lstrcmpi(classname, "ComboBox") == 0
         || lstrcmpi(classname, "ComboLBox") == 0) { return FALSE; }
-    /* One physical Q press grows one ring, even if the key is held. */
+    /* Run once per physical press; holding Q must not grow more rings. */
     if (!(message->lParam & ((LPARAM)1 << 30)))
-    { SendMessage(frame, WM_COMMAND, control ? ID_SELECT_ALL : ID_SELECT_GROW, 0); }
+    { SendMessage(frame, WM_COMMAND, shift ? ID_SELECT_ROOM : control ? ID_SELECT_ALL : ID_SELECT_GROW, 0); }
     return TRUE;
 }
 

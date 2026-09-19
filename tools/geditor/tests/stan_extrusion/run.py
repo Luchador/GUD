@@ -3,6 +3,7 @@
 import importlib.util
 import os
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 
@@ -23,7 +24,8 @@ with tempfile.TemporaryDirectory(prefix='geditor-stan-extrusion-') as directory:
         'ViewportGetStanSelectionCount','ViewportGetSelectedStanTiles','ViewportFindStanComponent',
         'ViewportGetSelectedStanEdges','ViewportSelectStanEdges','ViewportSetStanVertex',
         'ViewportRefreshStanOverlay','ViewportSetStanTiles')
-    (work/'viewport.inc').write_text(''.join(extract.function(viewport,n) for n in names))
+    constants=re.search(r'^#define VIEWPORT_SELECTION_GOLD .*',viewport,re.M)[0]+'\n'
+    (work/'viewport.inc').write_text(constants+''.join(extract.function(viewport,n) for n in names))
     (work/'viewport_harness.inc').write_text(topology[topology.index('typedef void *HWND;'):topology.index('static void Visibility(')])
     (work/'controller.inc').write_text(extract.function((src/'geditor.c').read_text(),'GEditorExtrudeStanEdges'))
     export=(src/'romexport.c').read_text()
