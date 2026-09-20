@@ -21,6 +21,7 @@ typedef struct { LONGLONG QuadPart; } LARGE_INTEGER;
 typedef struct { HWND hwnd; unsigned message; uintptr_t wParam; LPARAM lParam; } MSG;
 #include "types.inc"
 typedef struct ViewportState {
+    BOOL padpick;
     BOOL orbit, flying, boxpending, showbgprimary, showbgsecondary, showobjects, showstan, showportals;
     BOOL markerselected, padpreview, zooming;
     EditorTool tool;

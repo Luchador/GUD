@@ -74,7 +74,8 @@ static const struct {
     { "Circle",       IDR_OBJECT_CIRCLE,       BROWSER_OBJECT_TAB_PRIMITIVES },
     { "Cylinder",     IDR_OBJECT_CYLINDER,     BROWSER_OBJECT_TAB_PRIMITIVES },
     { "Armor",        IDR_OBJECT_ARMOR,        BROWSER_OBJECT_TAB_OBJECTS },
-    { "Monitor",      IDR_OBJECT_MONITOR,      BROWSER_OBJECT_TAB_OBJECTS }
+    { "Monitor",      IDR_OBJECT_MONITOR,      BROWSER_OBJECT_TAB_OBJECTS },
+    { "Pad",          IDR_OBJECT_PAD,          BROWSER_OBJECT_TAB_SPECIAL }
 };
 
 /* Row-major order within each tab, independent of drag-and-drop identities. */
@@ -87,6 +88,7 @@ static const BrowserObjectType g_BrowserObjectOrder[BROWSER_OBJECT_COUNT] = {
     BROWSER_OBJECT_KEY, BROWSER_OBJECT_SAFE,
     BROWSER_OBJECT_TRIANGLE, BROWSER_OBJECT_QUAD,
     BROWSER_OBJECT_CIRCLE, BROWSER_OBJECT_CYLINDER,
+    BROWSER_OBJECT_PAD,
     BROWSER_OBJECT_SPAWN, BROWSER_OBJECT_INTRO_SPLINE,
     BROWSER_OBJECT_INTRO_CAMERA, BROWSER_OBJECT_OUTRO_CAMERA,
     BROWSER_OBJECT_PORTAL
@@ -1171,7 +1173,7 @@ static void BrowserBeginObjectDrag(HWND hwnd, BrowserState *state, int index, PO
     HGDIOBJ oldbitmap, oldfont;
     int width = rect.right - rect.left, i;
     if (width < 1) { return; }
-    if ((index == BROWSER_OBJECT_TRIANGLE || index == BROWSER_OBJECT_QUAD
+    if ((index == BROWSER_OBJECT_PAD || index == BROWSER_OBJECT_TRIANGLE || index == BROWSER_OBJECT_QUAD
             || index == BROWSER_OBJECT_CIRCLE || index == BROWSER_OBJECT_CYLINDER || index == BROWSER_OBJECT_PORTAL
             || index == BROWSER_OBJECT_SPAWN || index == BROWSER_OBJECT_INTRO_CAMERA || index == BROWSER_OBJECT_OUTRO_CAMERA
             || index == BROWSER_OBJECT_DOOR || index == BROWSER_OBJECT_GLASS
@@ -1638,7 +1640,7 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                 objectdrop.screen.y = GET_Y_LPARAM(lparam);
                 ClientToScreen(hwnd, &objectdrop.screen);
                 BrowserEndAssetDrag(hwnd, state);
-                if (objectdrop.type == BROWSER_OBJECT_TRIANGLE || objectdrop.type == BROWSER_OBJECT_QUAD
+                if (objectdrop.type == BROWSER_OBJECT_PAD || objectdrop.type == BROWSER_OBJECT_TRIANGLE || objectdrop.type == BROWSER_OBJECT_QUAD
                     || objectdrop.type == BROWSER_OBJECT_CIRCLE || objectdrop.type == BROWSER_OBJECT_CYLINDER
                     || objectdrop.type == BROWSER_OBJECT_PORTAL
                     || objectdrop.type == BROWSER_OBJECT_SPAWN || objectdrop.type == BROWSER_OBJECT_INTRO_CAMERA

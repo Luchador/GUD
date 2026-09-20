@@ -14,6 +14,7 @@ typedef struct PatrolPath {
 } PatrolPath;
 typedef struct PatrolDocument {
     DWORD *pads, waypointcount;
+    DWORD originalwaypointcount; /* Draft-only mappings can be discarded until Apply. */
     PatrolPath paths[PATROL_MAX_PATHS];
     DWORD count;
     BOOL changed;
@@ -29,6 +30,9 @@ void PatrolDocumentFree(PatrolDocument *doc);
 BOOL PatrolDocumentAdd(PatrolDocument *doc, const SetupFile *setup, DWORD *index, const char **why);
 BOOL PatrolDocumentDelete(PatrolDocument *doc, const SetupFile *setup, DWORD index, const char **why);
 BOOL PatrolPathInsert(PatrolDocument *doc, DWORD path, DWORD before, DWORD waypoint, const char **why);
+BOOL PatrolPathInsertPad(PatrolDocument *doc, const SetupFile *setup, DWORD path,
+    DWORD before, DWORD pad, const char **why);
+BOOL PatrolDocumentMatches(const PatrolDocument *a, const PatrolDocument *b);
 BOOL PatrolPathRemove(PatrolDocument *doc, DWORD path, DWORD point);
 BOOL PatrolPathMove(PatrolDocument *doc, DWORD path, DWORD point, int direction);
 BOOL PatrolPathSetLoop(PatrolDocument *doc, DWORD path, BOOL loop);

@@ -12,7 +12,7 @@ typedef struct ViewportState {
     const SetupFile *markersetup;
     float markerlevelscale, yaw, pitch, posx, posy, posz;
     int height, dragaxis;
-    BOOL dragpad, dragrotation, dragscaling, padpreview, showobjects;
+    BOOL dragpad, dragrotation, dragscaling, padpreview, showobjects, padpick;
     StanFile stan;
     ViewportPad *pads;
     DWORD padcount;
@@ -120,6 +120,12 @@ void PadPreview(void)
     strcpy(pad.stanname,"p2a"); ViewportRefreshPadPreview(&state); Near(views[0].previewposition[1],110);
     state.padpreview=FALSE; ViewportRefreshPadPreview(&state); Near(boxes[0].y,595);
     state.padpreview=TRUE; ViewportRefreshPadPreview(&state); Near(boxes[0].y,105);
+    state.selectedpad.index=SETUP_PAD_INDEX_NONE;
+    views[0].path=FALSE; views[1].occupied=TRUE;
+    assert(!ViewportPadVisible(&state,0) && !ViewportPadVisible(&state,1));
+    state.padpick=TRUE; assert(ViewportPadVisible(&state,0) && !ViewportPadVisible(&state,1));
+    views[0].deleted=TRUE; assert(!ViewportPadVisible(&state,0)); views[0].deleted=FALSE;
+    state.padpick=FALSE; views[0].path=TRUE; views[1].occupied=FALSE;
     /* Path pads stay blue and visible even if occupied; selection stays white. */
     state.selectedpad.index=SETUP_PAD_INDEX_NONE; ViewportRefreshPadColors(&state);
     assert(boxes[0].r==64 && boxes[0].g==128 && boxes[0].b==255 && ViewportPadVisible(&state,0));

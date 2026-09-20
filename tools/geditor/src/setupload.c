@@ -1467,6 +1467,62 @@ static DWORD SetupFindFreePad(const SetupFile *setup, BOOL bound, DWORD skip)
     return count + (skip == count);
 }
 
+static BOOL SetupParsePads(SetupFile *setup, const char **reasonout);
+
+BOOL SetupFileAddPad(SetupFile *setup, float levelscale, const double position[3],
+    const char *stanname, SetupPadRef *out, const char **reasonout)
+{
+    SetupFile copy = {0};
+    DWORD index, total, old, start, size;
+    float native[3];
+    *reasonout = "Invalid pad position or setup.";
+    if (!setup || !setup->data || setup->size < SETUP_HEADER_SIZE
+        || setup->size > SETUP_FILE_MAX || !position || !out
+        || !isfinite(levelscale) || levelscale <= 0) { return FALSE; }
+    for (int axis = 0; axis < 3; axis++)
+    {
+        double value = position[axis] * levelscale;
+        if (!isfinite(value) || fabs(value) > 100000000.0) { return FALSE; }
+        native[axis] = (float)value;
+    }
+    old = SetupRead32(setup->data + SETUP_PAD_POINTER);
+    if ((setup->padcount && (old < SETUP_HEADER_SIZE || (old & 3)))
+        || old > setup->size || setup->padcount > (setup->size - old) / SETUP_PAD_SIZE) { return FALSE; }
+    index = SetupFindFreePad(setup, FALSE, (DWORD)-1);
+    total = setup->padcount > index ? setup->padcount : index + 1;
+    start = (setup->size + 3u) & ~3u;
+    size = start + (total + 1) * SETUP_PAD_SIZE;
+    if (total > SETUP_PAD_MAX || size > SETUP_FILE_MAX)
+    { *reasonout = "There is no room for another pad."; return FALSE; }
+    if (!SetupFileClone(setup, &copy, reasonout)) { return FALSE; }
+    unsigned char *data = calloc(size, 1);
+    if (!data) { *reasonout = "Out of memory adding a pad."; goto fail; }
+    memcpy(data, copy.data, copy.size);
+    memcpy(data + start, copy.data + old, setup->padcount * SETUP_PAD_SIZE);
+    unsigned char *record = data + start + index * SETUP_PAD_SIZE;
+    memset(record, 0, SETUP_PAD_SIZE);
+    for (int axis = 0; axis < 3; axis++)
+    {
+        union { float f; DWORD u; } value;
+        value.f = native[axis]; SetupWrite32(record + axis * 4, value.u);
+    }
+    SetupWrite32(record + 16, 0x3f800000u);
+    SetupWrite32(record + 32, 0x3f800000u);
+    SetupWrite32(record + SETUP_PAD_LINK, start + total * SETUP_PAD_SIZE + SETUP_PAD_LINK);
+    SetupWrite32(data + SETUP_PAD_POINTER, start);
+    free(copy.data); copy.data = data; copy.size = size;
+    free(copy.pads); copy.pads = NULL; copy.padcount = 0;
+    free(copy.boundpads); copy.boundpads = NULL; copy.boundpadcount = 0;
+    SetupPadRef ref = {index, FALSE};
+    if (!SetupParsePads(&copy, reasonout)
+        || (stanname && stanname[0] && !SetupFileSetPadStanName(&copy, &ref, stanname, reasonout))
+        || !SetupFileCompact(&copy, reasonout)) { goto fail; }
+    copy.dirty = TRUE; SetupFileFree(setup); *setup = copy; *out = ref;
+    *reasonout = ""; return TRUE;
+fail:
+    SetupFileFree(&copy); return FALSE;
+}
+
 BOOL SetupFileDeletePad(SetupFile *setup, const SetupPadRef *ref,
                        const RomFile *rom, const char **reasonout)
 {

@@ -32,6 +32,7 @@
 #define IDC_PATROL_DOWN       1249
 #define IDC_PATROL_LOOP       1250
 #define IDC_PATROL_HELP       1251
+#define IDC_PATROL_PICK       1252
 
 /* Level Settings tabs. */
 #define IDC_LEVEL_MANAGER_TABS 1210
@@ -107,6 +108,8 @@
 #define IDR_MARKER_INTRO_SPLINE   330
 #define IDR_STARTUP_BOX           340
 #define IDR_VERTEX_COLOR_BRUSH    341
+#define IDR_OBJECT_PAD            342
+#define IDR_EYEDROPPER            343
 
 /* Controls inside IDD_NEW_PROJECT */
 #define IDC_PROJECT_NAME     1001

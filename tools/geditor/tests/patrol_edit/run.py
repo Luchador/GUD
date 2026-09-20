@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Native patrol authoring, guard AI, persistence/history and failure atomicity."""
 import os
+import re
 import importlib.util
 import sys
 from pathlib import Path
@@ -12,6 +13,15 @@ src = here.parents[1] / 'src'
 shim = here.parent / 'image_import'
 with tempfile.TemporaryDirectory(prefix='geditor-patrol-edit-') as temp:
     work = Path(temp)
+    sys.dont_write_bytecode = True
+    spec = importlib.util.spec_from_file_location('eyedropper', here.parent / 'vertex_eyedropper/run.py')
+    extraction = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(extraction)
+    ui = (src / 'patroleditor.c').read_text()
+    (work / 'ui_type.inc').write_text(re.search(r'typedef struct PatrolEditor \{.*?\} PatrolEditor;', ui, re.S)[0])
+    (work / 'ui_logic.inc').write_text(''.join(extraction.function(ui, name) for name in (
+        'Reload', 'PatrolEditorSetPicking', 'PatrolEditorRefresh', 'PatrolEditorApply',
+        'PatrolEditorPickPad', 'PatrolEditorHandleMessage', 'PatrolEditorClose', 'PatrolEditorConfirmClose')))
     (work / 'setup').mkdir()
     names = []
     if '--stock' in sys.argv:
@@ -25,7 +35,7 @@ with tempfile.TemporaryDirectory(prefix='geditor-patrol-edit-') as temp:
                  if not name.startswith('Ump_')]
     command = [os.environ.get('CC', 'cc'), '-std=c99', '-O1', '-g', '-Wall', '-Wextra', '-Werror',
                '-Wno-unused-parameter', '-ffunction-sections', '-fdata-sections',
-               '-fsanitize=address,undefined', f'-I{shim}', f'-I{src}', f'-I{src.parents[2]}',
+               '-fsanitize=address,undefined', f'-I{shim}', f'-I{src}', f'-I{src.parents[2]}', f'-I{work}',
                str(here / 'check.c'), str(shim / 'platform.c')]
     command += [str(src / name) for name in ('patrolpaths.c', 'setupload.c', 'actionblocks.c', 'bghistory.c')]
     command += ['-Wl,--gc-sections', '-Wl,--wrap=malloc', '-Wl,--wrap=calloc', '-Wl,--wrap=realloc',

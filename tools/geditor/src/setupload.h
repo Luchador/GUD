@@ -343,6 +343,11 @@ BOOL SetupLoadProjectFile(const char *projectdir, const char *setupname,
 BOOL SetupFileClone(const SetupFile *source, SetupFile *out,
                     const char **reasonout);
 
+/* Standalone ordinary pad, owned by the user (never recycled as a private
+ * object pad). Atomic and compacted; position is in gameplay world units. */
+BOOL SetupFileAddPad(SetupFile *setup, float levelscale, const double position[3],
+    const char *stanname, SetupPadRef *out, const char **reasonout);
+
 /* Duplicate a placed prop or tagged character from a same-level snapshot.
  * Existing command/pad IDs remain stable; the copy owns its placement and optional look-at pad.
  * Characters get a fresh ID and copies of their weapons, hats and attributes.

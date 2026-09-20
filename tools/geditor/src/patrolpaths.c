@@ -72,6 +72,7 @@ BOOL PatrolDocumentLoad(const SetupFile *s, PatrolDocument *d, const char **why)
             for (DWORD i=0;i<p->count;i++) { p->points[i]=R(s->data+start+i*4); }
         }
     }
+    d->originalwaypointcount=d->waypointcount;
     *why=""; return TRUE;
 invalid:
     PatrolDocumentFree(d); return Fail(why,"The patrol/waypoint table is invalid, too large, or contains duplicate patrol IDs.");
@@ -158,6 +159,20 @@ BOOL PatrolDocumentAdd(PatrolDocument *d, const SetupFile *s, DWORD *index, cons
     *index=d->count++; d->paths[*index]=(PatrolPath){.id=id,.changed=TRUE};
     d->changed=TRUE; return TRUE;
 }
+static void PruneDraftWaypoints(PatrolDocument *d)
+{
+    for (DWORD i=d->waypointcount;i-->d->originalwaypointcount;)
+    {
+        BOOL used=FALSE;
+        for (DWORD p=0;p<d->count;p++) for (DWORD j=0;j<d->paths[p].count;j++)
+        { if (d->paths[p].points[j]==i) { used=TRUE; } }
+        if (used) { continue; }
+        memmove(d->pads+i,d->pads+i+1,(d->waypointcount-i-1)*sizeof(*d->pads));
+        d->waypointcount--;
+        for (DWORD p=0;p<d->count;p++) for (DWORD j=0;j<d->paths[p].count;j++)
+        { if (d->paths[p].points[j]>i) { d->paths[p].points[j]--; } }
+    }
+}
 BOOL PatrolDocumentDelete(PatrolDocument *d, const SetupFile *s, DWORD index, const char **why)
 {
     ActionDocument actions={0}; BOOL used;
@@ -168,7 +183,8 @@ BOOL PatrolDocumentDelete(PatrolDocument *d, const SetupFile *s, DWORD index, co
     if (used) { return Fail(why,"This patrol is used by an Action Block. Remove guard assignments or edit the referencing block before deleting it."); }
     free(d->paths[index].points);
     memmove(d->paths+index,d->paths+index+1,(d->count-index-1)*sizeof(*d->paths));
-    d->count--; memset(d->paths+d->count,0,sizeof(*d->paths)); d->changed=TRUE; return TRUE;
+    d->count--; memset(d->paths+d->count,0,sizeof(*d->paths)); d->changed=TRUE;
+    PruneDraftWaypoints(d); return TRUE;
 }
 BOOL PatrolPathInsert(PatrolDocument *d, DWORD path, DWORD before, DWORD waypoint, const char **why)
 {
@@ -184,12 +200,49 @@ BOOL PatrolPathInsert(PatrolDocument *d, DWORD path, DWORD before, DWORD waypoin
     memmove(points+before+1,points+before,(p->count-before)*sizeof(*points));
     points[before]=waypoint; p->count++; p->changed=d->changed=TRUE; return TRUE;
 }
+/* Resolve an ordinary pad without confusing its ID with a waypoint index.
+ * New mappings remain draft-only until a successful compile. */
+BOOL PatrolPathInsertPad(PatrolDocument *d, const SetupFile *s, DWORD path,
+    DWORD before, DWORD pad, const char **why)
+{
+    DWORD waypoint;
+    if (!s || pad >= s->padcount || s->pads[pad].deleted)
+    { return Fail(why,"Choose an ordinary, undeleted pad."); }
+    for (waypoint=0;waypoint<d->waypointcount && d->pads[waypoint]!=pad;waypoint++) {}
+    BOOL added=waypoint==d->waypointcount;
+    if (added)
+    {
+        if (d->waypointcount==65536) { return Fail(why,"The waypoint limit has been reached."); }
+        DWORD *pads=realloc(d->pads,(d->waypointcount+1)*sizeof(*pads));
+        if (!pads) { return Fail(why,"Out of memory adding a navigation pad."); }
+        d->pads=pads; d->pads[d->waypointcount++]=pad;
+    }
+    if (!PatrolPathInsert(d,path,before,waypoint,why))
+    { if (added) { d->waypointcount--; } return FALSE; }
+    return TRUE;
+}
+
+/* Modeless drafts may merge with pad/object edits, but never replace routes
+ * changed by undo/redo or another tool. Compare identities, not relocated bytes. */
+BOOL PatrolDocumentMatches(const PatrolDocument *a, const PatrolDocument *b)
+{
+    if (a->count!=b->count || a->waypointcount!=b->waypointcount
+        || (a->waypointcount && memcmp(a->pads,b->pads,a->waypointcount*sizeof(*a->pads)))) { return FALSE; }
+    for (DWORD i=0;i<a->count;i++)
+    {
+        const PatrolPath *p=&a->paths[i], *q=&b->paths[i];
+        if (p->id!=q->id || p->flags!=q->flags || p->length!=q->length || p->count!=q->count
+            || (p->count && memcmp(p->points,q->points,p->count*sizeof(*p->points)))) { return FALSE; }
+    }
+    return TRUE;
+}
+
 BOOL PatrolPathRemove(PatrolDocument *d, DWORD path, DWORD point)
 {
     if (path>=d->count || point>=d->paths[path].count) { return FALSE; }
     PatrolPath *p=&d->paths[path];
     memmove(p->points+point,p->points+point+1,(p->count-point-1)*sizeof(*p->points));
-    p->count--; p->changed=d->changed=TRUE; return TRUE;
+    p->count--; p->changed=d->changed=TRUE; PruneDraftWaypoints(d); return TRUE;
 }
 BOOL PatrolPathMove(PatrolDocument *d, DWORD path, DWORD point, int direction)
 {
@@ -218,6 +271,116 @@ static BOOL ValidPath(const PatrolDocument *d, const PatrolPath *p, const char *
     }
     return distinct || Fail(why,"A patrol needs at least two different navigation pads.");
 }
+typedef struct PatrolNavList { DWORD *items, count; } PatrolNavList;
+static BOOL NavAppend(PatrolNavList *list, DWORD item)
+{
+    for (DWORD i=0;i<list->count;i++) { if (list->items[i]==item) { return TRUE; } }
+    if (list->count>=65536) { return FALSE; }
+    DWORD *items=realloc(list->items,(list->count+1)*sizeof(*items));
+    if (!items) { return FALSE; }
+    list->items=items; list->items[list->count++]=item; return TRUE;
+}
+static BOOL NavRead(const SetupFile *s, DWORD at, DWORD limit, PatrolNavList *list)
+{
+    for (DWORD i=0;i<=65536;i++,at+=4)
+    {
+        if (!Range(s,at,4)) { return FALSE; }
+        DWORD item=R(s->data+at);
+        if (item&0x80000000u) { return TRUE; }
+        if (item>=limit || !NavAppend(list,item)) { return FALSE; }
+    }
+    return FALSE;
+}
+static DWORD NavWrite(unsigned char *data, DWORD at, const PatrolNavList *list)
+{
+    for (DWORD i=0;i<list->count;i++,at+=4) { W(data+at,list->items[i]); }
+    W(data+at,0xffffffffu); return at+4;
+}
+/* Each new waypoint gets a singleton group, with reciprocal links along the
+ * authored route. Existing waypoint/group IDs and their links survive. Never
+ * guess a connection through a wall from geometric proximity alone. */
+static BOOL CompileNavigation(const PatrolDocument *d, DWORD oldcount, SetupFile *s, const char **why)
+{
+    if (oldcount==d->waypointcount) { return TRUE; }
+    DWORD oldway=R(s->data), oldgroups=R(s->data+4), groups=0;
+    DWORD count=d->waypointcount, extra=count-oldcount, *group=NULL;
+    PatrolNavList *links=NULL, *neighbors=NULL, *members=NULL;
+    unsigned char *data=NULL; BOOL ok=FALSE;
+    *why="Invalid navigation tables or out of memory adding patrol waypoints.";
+    if (oldgroups) for (;;groups++)
+    {
+        if (groups==65536 || !Range(s,oldgroups+groups*12,12)) { return FALSE; }
+        if (!R(s->data+oldgroups+groups*12)) { break; }
+    }
+    DWORD totalgroups=groups+extra;
+    if (totalgroups>65536) { return FALSE; }
+    group=calloc(count,sizeof(*group)); links=calloc(count,sizeof(*links));
+    neighbors=calloc(totalgroups,sizeof(*neighbors)); members=calloc(totalgroups,sizeof(*members));
+    if (!group || !links || !neighbors || !members) { goto done; }
+    for (DWORD i=0;i<oldcount;i++)
+    {
+        group[i]=0xffffffffu;
+        if (!NavRead(s,R(s->data+oldway+i*16+4),oldcount,&links[i])) { goto done; }
+    }
+    for (DWORD i=0;i<groups;i++)
+    {
+        if (!NavRead(s,R(s->data+oldgroups+i*12),groups,&neighbors[i])
+            || !NavRead(s,R(s->data+oldgroups+i*12+4),oldcount,&members[i])) { goto done; }
+        for (DWORD j=0;j<members[i].count;j++)
+        {
+            DWORD waypoint=members[i].items[j], native=R(s->data+oldway+waypoint*16+8);
+            if (group[waypoint]!=0xffffffffu || (!(native&0x80000000u) && native!=i)) { goto done; }
+            group[waypoint]=i;
+        }
+    }
+    for (DWORD i=0;i<oldcount;i++) { if (group[i]==0xffffffffu) { goto done; } }
+    for (DWORD i=oldcount;i<count;i++)
+    {
+        group[i]=groups+i-oldcount;
+        if (!NavAppend(&members[group[i]],i)) { goto done; }
+    }
+    for (DWORD i=0;i<d->count;i++)
+    {
+        const PatrolPath *p=&d->paths[i];
+        for (DWORD j=0;j<p->count;j++)
+        {
+            if (j+1==p->count && !(p->flags&1)) { break; }
+            DWORD a=p->points[j], b=p->points[(j+1)%p->count];
+            if (a>=count || b>=count) { goto done; }
+            if (a==b || (a<oldcount && b<oldcount)) { continue; }
+            if (!NavAppend(&links[a],b) || !NavAppend(&links[b],a)) { goto done; }
+            if (group[a]!=group[b] && (!NavAppend(&neighbors[group[a]],group[b])
+                || !NavAppend(&neighbors[group[b]],group[a]))) { goto done; }
+        }
+    }
+    DWORD way=(s->size+3u)&~3u, table=way+(count+1)*16, at=table+(totalgroups+1)*12;
+    size_t size=at;
+    for (DWORD i=0;i<count;i++) { size+=((size_t)links[i].count+1)*4; }
+    for (DWORD i=0;i<totalgroups;i++) { size+=((size_t)neighbors[i].count+members[i].count+2)*4; }
+    if (size>PATROL_SETUP_MAX) { *why="The new navigation waypoints exceed the setup size limit."; goto done; }
+    data=calloc(size,1); if (!data) { goto done; }
+    memcpy(data,s->data,s->size); W(data,way); W(data+4,table);
+    for (DWORD i=0;i<count;i++)
+    {
+        if (i<oldcount) { memcpy(data+way+i*16,s->data+oldway+i*16,16); }
+        W(data+way+i*16,d->pads[i]); W(data+way+i*16+4,at); W(data+way+i*16+8,group[i]);
+        at=NavWrite(data,at,&links[i]);
+    }
+    W(data+way+count*16,0xffffffffu);
+    for (DWORD i=0;i<totalgroups;i++)
+    {
+        if (i<groups) { memcpy(data+table+i*12,s->data+oldgroups+i*12,12); }
+        W(data+table+i*12,at); at=NavWrite(data,at,&neighbors[i]);
+        W(data+table+i*12+4,at); at=NavWrite(data,at,&members[i]);
+    }
+    free(s->data); s->data=data; s->size=(DWORD)size; data=NULL; ok=TRUE;
+done:
+    if (links) { for (DWORD i=0;i<count;i++) { free(links[i].items); } }
+    if (neighbors) { for (DWORD i=0;i<totalgroups;i++) { free(neighbors[i].items); } }
+    if (members) { for (DWORD i=0;i<totalgroups;i++) { free(members[i].items); } }
+    free(group); free(links); free(neighbors); free(members); free(data); return ok;
+}
+
 BOOL PatrolDocumentCompile(const PatrolDocument *d, const SetupFile *s, SetupFile *out, const char **why)
 {
     PatrolDocument original={0}; ActionDocument actions={0}; SetupFile copy={0};
@@ -225,9 +388,12 @@ BOOL PatrolDocumentCompile(const PatrolDocument *d, const SetupFile *s, SetupFil
     memset(out,0,sizeof(*out));
     if (!d->changed) { return SetupFileClone(s,out,why); }
     if (!PatrolDocumentLoad(s,&original,why) || !ActionDocumentLoad(s,&actions,why)) { goto done; }
-    if (d->count>PATROL_MAX_PATHS || d->waypointcount!=original.waypointcount
-        || (d->waypointcount && memcmp(d->pads,original.pads,d->waypointcount*sizeof(*d->pads))))
+    if (d->count>PATROL_MAX_PATHS || d->waypointcount<original.waypointcount || d->waypointcount>65536
+        || (original.waypointcount && memcmp(d->pads,original.pads,original.waypointcount*sizeof(*d->pads))))
     { Fail(why,"The navigation pads changed while patrols were being edited."); goto done; }
+    for (DWORD i=0;i<d->waypointcount;i++)
+    { if (d->pads[i]>=s->padcount || s->pads[d->pads[i]].deleted)
+        { Fail(why,"A patrol pad was removed while editing. Reopen Patrol Paths."); goto done; } }
     for (DWORD i=0;i<d->count;i++)
     {
         const PatrolPath *p=&d->paths[i];
@@ -241,7 +407,10 @@ BOOL PatrolDocumentCompile(const PatrolDocument *d, const SetupFile *s, SetupFil
         && PathReferenced(&actions,s,original.paths[i].id))
     { Fail(why,"An Action Block still references a deleted patrol."); goto done; }
     if (!(actions.changed ? ActionDocumentCompile(&actions,s,&copy,why) : SetupFileClone(s,&copy,why))) { goto done; }
-    table=(copy.size+3u)&~3u; at=table+(d->count+1)*8;
+    if (!CompileNavigation(d,original.waypointcount,&copy,why)) { goto done; }
+    /* Keep the replaceable route table out of navigation's final 16-byte
+     * compaction block, so the next edit does not retain obsolete route bytes. */
+    table=(copy.size+15u)&~15u; at=table+(d->count+1)*8;
     total=at+total*4;
     if (total>PATROL_SETUP_MAX) { Fail(why,"The edited patrols exceed the setup size limit."); goto done; }
     data=calloc(total,1);

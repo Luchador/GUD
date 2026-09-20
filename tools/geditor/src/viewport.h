@@ -62,6 +62,11 @@ void ViewportShowUVSeams(HWND viewport, BOOL show);
 #define VIEWPORT_WM_SAMPLE_VERTEX (WM_APP + 57)
 #define VIEWPORT_WM_SAMPLE_STAN (WM_APP + 58)
 void ViewportSetColorPick(HWND viewport, BOOL enabled);
+/* Patrol picking consumes clicks before scene tools; lparam is a synchronous SetupPadRef. */
+#define VIEWPORT_WM_PICK_PAD (WM_APP + 85)
+#define VIEWPORT_WM_PAD_PICK_CHANGED (WM_APP + 86)
+void ViewportSetPadPick(HWND viewport, BOOL enabled);
+void ViewportSelectSetupPad(HWND viewport, const SetupPadRef *pad);
 #define VIEWPORT_WM_TRANSLATE_SELECTION (WM_APP + 8)
 /* Same ViewportTranslation payload; commits one snap through edit history. */
 #define VIEWPORT_WM_SNAP_VERTEX (WM_APP + 22)

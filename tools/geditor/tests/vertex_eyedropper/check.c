@@ -31,7 +31,7 @@ typedef struct ViewportState {
     EditorTool tool;
     HCURSOR paintcursor;
     ViewportRenderMode rendermode;
-    BOOL orbit, flying, vertexsnap, boxpending, contextpending, colorpick, colorsampleclick;
+    BOOL orbit, flying, vertexsnap, boxpending, contextpending, colorpick, colorsampleclick, padpick;
     BOOL cullbackfaces, showbgprimary, showbgsecondary, showobjects, showstan;
     BOOL keyw, keya, keys, keyd, keyq, keye, markerselected, dragrotation;
     int dragaxis, width, height, batchcount, stanopacity;
@@ -71,6 +71,7 @@ static HWND GetParent(HWND hwnd) { return hwnd; }
 static LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 static void RightPanelGetPaintColor(HWND hwnd, unsigned char rgba[4]);
 static void RightPanelSetPaintColor(HWND hwnd, const unsigned char rgba[4]);
+static void ViewportSetPadPick(HWND h, BOOL enabled) { ((ViewportState *)h)->padpick=enabled; }
 static void ViewportEnvironmentAxes(const ViewportState *s, float *r, float *u) { abort(); }
 static void ViewportEnvironmentCoordinates(const ViewportState *s, int i, BgRenderFlags f,
                                            const float *r, const float *u, float *uv) { abort(); }
@@ -223,5 +224,15 @@ int main(void)
     ColorPickerSetColor(NULL,(unsigned char[]){1,2,3,4}); ColorPickerSetColor(&picker,NULL);
     BrushEquals(255,255,255,255);
     puts("PASS: stale targets, invalid tools, drag guards, failed samples, cancellation and black/white RGBA updates.");
+    /* Patrol mode owns the click ahead of transforms, paint and selection.
+     * A miss remains in pick mode; double-click and Escape cannot edit. */
+    s.padpick=TRUE; s.tool=EDITOR_TOOL_VERTEX_SELECT; s.vertexsnap=TRUE;
+    selections=selectioncalls; samples=samplecount; paints=paintcount;
+    Click(&s,WM_LBUTTONDOWN);
+    assert(selectioncalls==selections+1 && samplecount==samples && paintcount==paints && s.padpick);
+    selections=selectioncalls; Click(&s,WM_LBUTTONDBLCLK); assert(selectioncalls==selections);
+    unsigned clearbefore=clears;
+    Dispatch(&s,WM_KEYDOWN,VK_ESCAPE,0); assert(!s.padpick && clears==clearbefore);
+    puts("PASS: patrol picking bypasses snapping/painting/model double-click; misses stay armed and Escape preserves selection.");
     return 0;
 }

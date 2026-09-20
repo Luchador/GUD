@@ -234,6 +234,7 @@ typedef struct ViewportState {
     BOOL vertexsnap;
     BOOL portalsnaptarget; /* BG-only destination picking; ignore editor overlays. */
     BOOL colorpick;
+    BOOL padpick;
     BOOL knifeactive, knifepreview, dragknife;
     BgKnifePlane knifeplane, dragknifeplane;
     Rotation knifeframe, dragknifeframe;
@@ -452,7 +453,7 @@ static BOOL ViewportPadVisible(const ViewportState *state, DWORD index)
 {
     const ViewportPad *pad = &state->pads[index];
     if (pad->deleted) { return FALSE; }
-    return pad->path || !pad->occupied || !state->showobjects
+    return (state->padpick && !pad->ref.bound) || pad->path || !pad->occupied || !state->showobjects
         || (pad->ref.index == state->selectedpad.index && pad->ref.bound == state->selectedpad.bound);
 }
 
@@ -548,7 +549,7 @@ static HCURSOR ViewportLoadPaintCursor(HINSTANCE instance)
 
 static HCURSOR ViewportToolCursor(const ViewportState *state)
 {
-    if (state->colorpick) { return LoadCursor(NULL, IDC_CROSS); }
+    if (state->colorpick || state->padpick) { return LoadCursor(NULL, IDC_CROSS); }
     if (state->tool == EDITOR_TOOL_VERTEX_PAINT && state->paintcursor)
     { return state->paintcursor; }
     return LoadCursor(NULL, IDC_ARROW);
@@ -4907,12 +4908,12 @@ static BOOL ViewportTryPickPad(HWND hwnd, ViewportState *state, int x, int y, BO
     DWORD i;
     float forward[3], right[3];
 
-    if (state->flying || state->tool != EDITOR_TOOL_FACE_SELECT) { return FALSE; }
+    if (state->flying || (!state->padpick && state->tool != EDITOR_TOOL_FACE_SELECT)) { return FALSE; }
     ViewportGetBasis(state, forward, right);
     for (i = 0; i < state->padcount; i++)
     {
         int edge;
-        if (!ViewportPadVisible(state, i)) { continue; }
+        if (!ViewportPadVisible(state, i) || (state->padpick && state->pads[i].ref.bound)) { continue; }
         for (edge = 0; edge < VIEWPORT_BOX_VERTICES; edge += 2)
         {
             const Vertex *a = &state->padmarkers[i * VIEWPORT_BOX_VERTICES + edge], *b = a + 1;
@@ -4941,6 +4942,12 @@ static BOOL ViewportTryPickPad(HWND hwnd, ViewportState *state, int x, int y, BO
         }
     }
     if (hit < 0) { return FALSE; }
+    if (state->padpick)
+    {
+        SetupPadRef pad = state->pads[hit].ref;
+        SendMessage(GetParent(hwnd), VIEWPORT_WM_PICK_PAD, 0, (LPARAM)&pad);
+        return TRUE;
+    }
     {
         BOOL deselect = remove && ViewportSelectedPadIndex(state) == hit;
         ViewportClearAllSelection(state);
@@ -7295,6 +7302,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         return 0;
 
     case WM_LBUTTONDBLCLK:
+        if (state && state->padpick) { return 0; }
         if (state != NULL && state->colorsampleclick)
         {
             state->colorsampleclick = FALSE;
@@ -7304,6 +7312,12 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         { return 0; }
         /* fall through */
     case WM_LBUTTONDOWN:
+        if (state && state->padpick && !state->flying)
+        {
+            SetFocus(hwnd);
+            ViewportTryPickPad(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam), FALSE);
+            return 0;
+        }
         SetFocus(hwnd);
         if (state != NULL)
         {
@@ -7400,6 +7414,8 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
             return 0;
         }
         if (state && state->flying) { state->contextpending=FALSE; }
+        if (state && state->padpick && wparam == VK_ESCAPE)
+        { ViewportSetPadPick(hwnd, FALSE); return 0; }
         if (state != NULL && state->colorpick && wparam == VK_ESCAPE)
         {
             ViewportSetColorPick(hwnd, FALSE);
@@ -7745,10 +7761,35 @@ BOOL ViewportGetVertexSnap(HWND viewport)
     return state != NULL && state->vertexsnap;
 }
 
+void ViewportSelectSetupPad(HWND viewport, const SetupPadRef *pad)
+{
+    ViewportState *state = ViewportGetState(viewport);
+    if (!state) { return; }
+    ViewportClearAllSelection(state);
+    if (pad) { state->selectedpad = *pad; }
+    ViewportRefreshPadColors(state);
+    ViewportUpdateGizmo(state);
+    InvalidateRect(viewport, NULL, FALSE);
+    SendMessage(GetParent(viewport), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+}
+
+void ViewportSetPadPick(HWND viewport, BOOL enabled)
+{
+    ViewportState *state = ViewportGetState(viewport);
+    if (!state || state->padpick == enabled) { return; }
+    if (enabled) { ViewportCancelTransform(viewport); ViewportSetColorPick(viewport, FALSE); }
+    state->padpick = enabled;
+    state->hoveraxis = -1;
+    InvalidateRect(viewport, NULL, FALSE);
+    ViewportRefreshCursor(viewport, state);
+    SendMessage(GetParent(viewport), VIEWPORT_WM_PAD_PICK_CHANGED, enabled, 0);
+}
+
 void ViewportSetColorPick(HWND viewport, BOOL enabled)
 {
     ViewportState *state = ViewportGetState(viewport);
     if (state == NULL) { return; }
+    if (enabled) { ViewportSetPadPick(viewport, FALSE); }
     enabled = enabled && state->tool == EDITOR_TOOL_VERTEX_PAINT
         && !state->flying && state->dragaxis < 0 && !state->boxpending;
     if (state->colorpick == enabled) { return; }

@@ -13,6 +13,8 @@ IDR_MARKER_OUTRO_CAMERA RCDATA "../geditorassets/outro_camera.glb"
 IDR_MARKER_INTRO_SPLINE RCDATA "../geditorassets/intro_spline_point.glb"
 IDR_NO_TEXTURE RCDATA "../geditorassets/no_texture.png"
 
+IDR_OBJECT_PAD RCDATA "../geditorassets/icon_pad.png"
+IDR_EYEDROPPER RCDATA "../geditorassets/icon_eyedropper.png"
 IDR_OBJECT_TRIANGLE RCDATA "../geditorassets/icon_tri.png"
 IDR_OBJECT_QUAD RCDATA "../geditorassets/icon_quad.png"
 IDR_OBJECT_SPAWN RCDATA "../geditorassets/icon_spawn_point.png"
@@ -350,14 +352,15 @@ BEGIN
     PUSHBUTTON "Up", IDC_PATROL_UP, 490, 26, 60, 18
     PUSHBUTTON "Down", IDC_PATROL_DOWN, 490, 50, 60, 18
     PUSHBUTTON "Remove", IDC_PATROL_REMOVE, 490, 78, 60, 18
-    LTEXT "Navigation pad (type a pad number after 'Pad ' to find it)", -1, 152, 206, 398, 12
-    COMBOBOX IDC_PATROL_PAD, 152, 222, 398, 200, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT "Pad (choose a number, or pick pads in the viewport)", -1, 152, 206, 398, 12
+    CONTROL "Pick pads", IDC_PATROL_PICK, "BUTTON", BS_OWNERDRAW | WS_TABSTOP, 524, 219, 26, 23
+    COMBOBOX IDC_PATROL_PAD, 152, 222, 362, 200, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     PUSHBUTTON "Add to End", IDC_PATROL_ADD, 152, 246, 92, 18
     PUSHBUTTON "Insert Before", IDC_PATROL_INSERT, 252, 246, 92, 18
     CONTROL "Loop (otherwise back and forth)", IDC_PATROL_LOOP, "BUTTON", BS_AUTOCHECKBOX | WS_TABSTOP, 352, 246, 198, 18
     LTEXT "Use at least two navigation pads along a walkable route. View > Pad Preview shows patrol lines; select a pad to read its ID. Moving a pad moves every route that uses it.\nAfter applying, select a guard and choose its Patrol in Properties.", IDC_PATROL_HELP, 152, 274, 398, 40
-    DEFPUSHBUTTON "Apply and Close", IDOK, 354, 322, 106, 18
-    PUSHBUTTON "Cancel", IDCANCEL, 470, 322, 80, 18
+    DEFPUSHBUTTON "Apply", IDOK, 354, 322, 106, 18
+    PUSHBUTTON "Close", IDCANCEL, 470, 322, 80, 18
 END
 
 IDD_KNIFE DIALOGEX 0, 0, 290, 178

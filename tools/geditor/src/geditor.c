@@ -597,6 +597,7 @@ static void GEditorRefreshProjectAssets(void)
 /* Creating or opening another project implicitly closes the current one. */
 static void GEditorCloseProject(HWND hwnd)
 {
+    PatrolEditorClose();
     if (g_Project.name[0] == '\0')
     {
         return; /* Nothing open. */
@@ -779,6 +780,7 @@ static void GEditorOpenProject(HWND hwnd, const char *path)
         MessageBox(hwnd, message, GEDITOR_TITLE, MB_ICONERROR);
         return;
     }
+    if (!PatrolEditorConfirmClose(TRUE)) { return; }
     GEditorCloseProject(hwnd);
     g_Project = project;
     GEditorRefreshProjectAssets();
@@ -1431,6 +1433,8 @@ static BOOL GEditorSaveProject(HWND hwnd)
     const char *why = "";
     BOOL saved = FALSE;
 
+    if (!PatrolEditorApply()) { return FALSE; }
+
     if (g_Project.name[0] == '\0')
     {
         return FALSE;
@@ -1566,6 +1570,7 @@ static BOOL GEditorConfirmExit(HWND hwnd)
 {
     INT_PTR choice;
 
+    if (!PatrolEditorConfirmClose(FALSE)) { return FALSE; }
     if (!GEditorHasUnsavedChanges())
     {
         return TRUE;
@@ -3976,15 +3981,21 @@ fail:
 
 static void GEditorOpenPatrolPaths(HWND hwnd)
 {
-    SetupFile edited={0}; EditHistoryTransaction transaction={0};
-    const char *why="", *restorewhy=""; BOOL changed=FALSE;
-    DWORD selected=(DWORD)-1; SetupPadRef pad={.index=SETUP_PAD_INDEX_NONE};
+    const char *why=""; SetupPadRef pad={.index=SETUP_PAD_INDEX_NONE};
     if (!g_CurrentSetup.data) { return; }
     ViewportCancelTransform(g_Viewport);
-    ViewportGetSelectedObject(g_Viewport,&selected);
     ViewportGetSelectedPad(g_Viewport,&pad);
-    if (!PatrolEditorShow(hwnd,&g_CurrentSetup,pad.bound ? SETUP_PAD_INDEX_NONE : pad.index,&edited,&changed,&why)) { goto fail; }
-    if (!changed) { return; }
+    if (!PatrolEditorShow(hwnd,g_Viewport,&g_CurrentSetup,pad.bound ? SETUP_PAD_INDEX_NONE : pad.index,&why))
+    { MessageBox(hwnd,why,GEDITOR_TITLE,MB_ICONERROR); }
+}
+
+static BOOL GEditorApplyPatrolPaths(HWND hwnd, const PatrolDocument *doc)
+{
+    SetupFile edited={0}; EditHistoryTransaction transaction={0};
+    const char *why="", *restorewhy="";
+    if (!doc || !g_CurrentSetup.data) { return FALSE; }
+    ViewportCancelTransform(g_Viewport);
+    if (!PatrolDocumentCompile(doc,&g_CurrentSetup,&edited,&why)) { goto fail; }
     if (!EditHistoryBeginSetupEdit(&g_EditHistory,&g_CurrentSetup,"Edit Patrol Paths",&transaction,&why)) { goto fail; }
     SetupFileFree(&g_CurrentSetup); g_CurrentSetup=edited; ZeroMemory(&edited,sizeof(edited));
     if (!GEditorReloadCurrentObjectsAndViewport(&why)
@@ -3993,11 +4004,11 @@ static void GEditorOpenPatrolPaths(HWND hwnd)
         EditHistoryRollbackEdit(&transaction,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan);
         GEditorReloadCurrentObjectsAndViewport(&restorewhy); goto fail;
     }
-    if (selected!=(DWORD)-1) { ViewportSelectSetupModel(g_Viewport,selected); }
-    GEditorRefreshHistoryMenu(hwnd); return;
+    GEditorRefreshHistoryMenu(hwnd); return TRUE;
 fail:
     SetupFileFree(&edited); EditHistoryCancelEdit(&transaction);
     GEditorRefreshHistoryMenu(hwnd); MessageBox(hwnd,why,GEDITOR_TITLE,MB_ICONERROR);
+    return FALSE;
 }
 
 static void GEditorDeleteSelectedObject(HWND hwnd, DWORD objectindex)
@@ -4183,6 +4194,35 @@ fail:
     GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
     MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
     return FALSE;
+}
+
+static BOOL GEditorDropPad(HWND hwnd, const BrowserObjectDrop *request)
+{
+    double position[3]; float point[3],height; char name[16];
+    SetupPadRef pad; EditHistoryTransaction transaction={0};
+    const char *why="", *restorewhy="";
+    if (!request || !g_CurrentSetup.data || WindowFromPoint(request->screen)!=g_Viewport
+        || !ViewportGetModelDropPosition(g_Viewport,request->screen,position)) { return FALSE; }
+    for (int axis=0;axis<3;axis++) { point[axis]=(float)position[axis]; }
+    DWORD tile=StanResolvePadTile(&g_CurrentStan,"",point);
+    if (tile==STAN_TILE_NONE || !StanGetTileHeight(&g_CurrentStan,tile,point[0],point[2],&height))
+    { MessageBox(hwnd,"Place the pad over a walkable Stan floor.",GEDITOR_TITLE,MB_ICONINFORMATION); return FALSE; }
+    position[1]=point[1]=height;
+    if (!StanResolveMovedPadName(&g_CurrentStan,"",point,point,name)) { return FALSE; }
+    if (!EditHistoryBeginSetupEdit(&g_EditHistory,&g_CurrentSetup,"Add Pad",&transaction,&why)) { goto fail; }
+    if (!SetupFileAddPad(&g_CurrentSetup,g_CurrentBgDocument.levelscale,position,name,&pad,&why)
+        || !GEditorReloadCurrentObjectsAndViewport(&why)
+        || !EditHistoryCommitEdit(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,&transaction,&why))
+    {
+        EditHistoryRollbackEdit(&transaction,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan);
+        GEditorReloadCurrentObjectsAndViewport(&restorewhy); goto fail;
+    }
+    ViewportSetTool(g_Viewport,EDITOR_TOOL_FACE_SELECT);
+    ViewportSelectSetupPad(g_Viewport,&pad);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd); return TRUE;
+fail:
+    EditHistoryCancelEdit(&transaction); GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd,why,GEDITOR_TITLE,MB_ICONERROR); return FALSE;
 }
 
 static BOOL GEditorDropSetupMarker(HWND hwnd, const BrowserObjectDrop *request)
@@ -5134,6 +5174,16 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         return 0;
     }
 
+    case PATROLEDITOR_WM_SAVE:
+        return GEditorSaveProject(hwnd);
+    case PATROLEDITOR_WM_APPLY:
+        return GEditorApplyPatrolPaths(hwnd,(const PatrolDocument *)lparam);
+    case VIEWPORT_WM_PICK_PAD:
+        return PatrolEditorPickPad((const SetupPadRef *)lparam);
+    case VIEWPORT_WM_PAD_PICK_CHANGED:
+        if (wparam) { KnifeDialogClose(); }
+        PatrolEditorSetPicking((BOOL)wparam); return 0;
+
     case BROWSER_WM_OBJECT_DRAG_BEGIN:
         if (wparam == BROWSER_OBJECT_PORTAL)
         {
@@ -5150,7 +5200,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             ViewportCancelTransform(g_Viewport);
             return TRUE;
         }
-        if ((wparam != BROWSER_OBJECT_SPAWN && wparam != BROWSER_OBJECT_INTRO_CAMERA && wparam != BROWSER_OBJECT_OUTRO_CAMERA
+        if ((wparam != BROWSER_OBJECT_PAD && wparam != BROWSER_OBJECT_SPAWN && wparam != BROWSER_OBJECT_INTRO_CAMERA && wparam != BROWSER_OBJECT_OUTRO_CAMERA
                 && wparam != BROWSER_OBJECT_DOOR && wparam != BROWSER_OBJECT_GLASS
                 && wparam != BROWSER_OBJECT_CCTV && wparam != BROWSER_OBJECT_ALARM && wparam != BROWSER_OBJECT_DRONE_GUN
                 && wparam != BROWSER_OBJECT_ARMOR && wparam != BROWSER_OBJECT_TANK)
@@ -5169,6 +5219,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     case BROWSER_WM_OBJECT_DROP:
     {
         const BrowserObjectDrop *drop = (const BrowserObjectDrop *)lparam;
+        if (drop && drop->type == BROWSER_OBJECT_PAD) { return GEditorDropPad(hwnd, drop); }
         if (drop && drop->type == BROWSER_OBJECT_PORTAL) { return GEditorDropPortal(hwnd, drop); }
         if (drop && (drop->type == BROWSER_OBJECT_TRIANGLE || drop->type == BROWSER_OBJECT_QUAD
             || drop->type == BROWSER_OBJECT_CIRCLE || drop->type == BROWSER_OBJECT_CYLINDER))
@@ -5262,6 +5313,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             return 0;
         }
 
+        if (!PatrolEditorConfirmClose(TRUE)) { return 0; }
         level = &g_Project.levels[index];
 
         document.levelscale = level->levelscale;
@@ -5587,6 +5639,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             {
                 NewProjectInfo info;
 
+                if (!PatrolEditorConfirmClose(TRUE)) { return 0; }
                 if (GEditorPromptForNewProject(hwnd, &info))
                 {
                     GEditorCloseProject(hwnd); /* one project at a time */
@@ -5874,6 +5927,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         return 0;
 
     case WM_DESTROY:
+        PatrolEditorClose();
         KnifeDialogClose();
         /* The window is gone; ask the message loop to stop. Without
            this the process keeps running after the window closes. */
@@ -5926,6 +5980,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             free(selection);
             GEditorRefreshHistoryMenu(hwnd);
         }
+        if (revision != g_EditHistory.currentstaterevision) { PatrolEditorRefresh(); }
         if (g_SelectionHistoryPending || g_SelectionHistoryReset
             || revision != g_EditHistory.currentstaterevision
             || (g_Viewport && ViewportGetTool(g_Viewport) != EDITOR_TOOL_FACE_SELECT)) { KnifeDialogClose(); }
@@ -6275,7 +6330,8 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                     CoUninitialize();
                     return (int)msg.wParam;
                 }
-                if (!KnifeDialogHandleMessage(&msg)
+                if (!PatrolEditorHandleMessage(&msg)
+                    && !KnifeDialogHandleMessage(&msg)
                     && !LevelManagerHandleMessage(&msg)
                     && !ProjectSettingsHandleMessage(&msg)
                     && !ModelEditorHandleMessage(&msg)
@@ -6312,7 +6368,8 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
             {
                 break;
             }
-            if (!KnifeDialogHandleMessage(&msg)
+            if (!PatrolEditorHandleMessage(&msg)
+                && !KnifeDialogHandleMessage(&msg)
                 && !LevelManagerHandleMessage(&msg)
                 && !ProjectSettingsHandleMessage(&msg)
                 && !ModelEditorHandleMessage(&msg)
