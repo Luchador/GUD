@@ -17,6 +17,9 @@
  * normally submitted with the primary pass rather than through flags bit 1. */
 #define MODEL_RENDER_HIDE_TRANSLUCENT   0x08
 
+/* World-character pass: RSP fog is off; room/fog shading uses FOG_PRIM_A. */
+#define MODEL_RENDER_CHARACTER          0x10
+
 /*
  * The original game budgets 0xc0 bytes per animated model even though Model
  * has a 0xbc-byte stride. Preserve that unexplained pool tail padding.

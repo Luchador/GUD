@@ -10,7 +10,11 @@ enum { PROP_TYPE_NUL, PROP_TYPE_OBJ, PROP_TYPE_DOOR, PROP_TYPE_CHR,
 enum { CULLMODE_BOTH, CULLMODE_NONE, CULLMODE_FRONT, CULLMODE_BACK };
 #define SPSEGMENT_MODEL_COL1 5
 #define SPSEGMENT_MODEL_VTX 4
-typedef struct { Gfx *Primary, *Secondary; void *BaseAddr; s32 ModelType; } ModelRoData_DisplayListRecord;
+typedef struct { s16 x, y, z, index, s, t; u8 r, g, b, a; } Vertex;
+typedef struct {
+    Gfx *Primary, *Secondary; void *BaseAddr; s32 ModelType;
+    Vertex *Vertices; s16 numVertices;
+} ModelRoData_DisplayListRecord;
 union ModelRoData {
     ModelRoData_DisplayListRecord DisplayList;
     ModelRoData_DisplayListRecord DisplayListCollisions;

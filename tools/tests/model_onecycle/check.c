@@ -546,7 +546,10 @@ int main(int argc, char **argv)
         check_first_person();
         check_pressure_reclaim();
         check_character_materials();
+        check_character_onecycle();
         puts("Model states: TRI1/TRI4, opaque fog lighting, depth, decal/cutout/translucent fallback and outgoing state pass.");
+    } else if (argc == 3) {
+        check_character_assets(argv[1]);
     } else {
         FILE *file = fopen(argv[1], "rb");
         int lists = 0, converted = 0, crateLists = 0, cratePackets = 0, trainCrates = 0;

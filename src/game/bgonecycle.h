@@ -24,4 +24,9 @@ s32 bgBuildOneCycleGdl(const Gfx *src, s32 size, Gfx *dst, s32 capacity);
 s32 gfxBuildOneCycleGdl(const Gfx *src, s32 size, Gfx *dst, s32 capacity,
         const Gfx *initial, s32 initialSize);
 
+/* Opaque character variant. Caller must prove every referenced vertex has
+ * alpha 255, is unmodified, and is processed with RSP fog disabled. */
+s32 gfxBuildCharacterOneCycleGdl(const Gfx *src, s32 size, Gfx *dst, s32 capacity,
+        const Gfx *initial, s32 initialSize);
+
 #endif

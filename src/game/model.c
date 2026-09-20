@@ -3824,6 +3824,8 @@ void modelApplyCullMode(ModelRenderData *renderdata)
 void modelRenderNodeGundl(ModelRenderData* renderdata, ModelNode* arg1)
 {
     ModelRoData_DisplayListRecord* rodata = &arg1->Data->DisplayList;
+    /* This path does not prove the authored vertex/RSP state. */
+    renderdata->flags &= ~MODEL_RENDER_CHARACTER;
 
     if ((renderdata->flags & 1) && rodata->Primary)
     {
@@ -4060,15 +4062,28 @@ void modelRenderNodeDlWithCache(ModelRenderData *renderdata, Model *model, Model
                 gSPSegment(renderdata->gdl++, SPSEGMENT_MODEL_VTX, osVirtualToPhysical(cache->vertexSegmentBase));
             }
 
-            gSPDisplayList(renderdata->gdl++, modelGetOneCycleGdl(renderdata,
-                    rwdata->DisplayListCollisions.gdl, rodata->DisplayListCollisions.ModelType,
-                    rodata->DisplayListCollisions.BaseAddr));
+            if ((renderdata->flags & MODEL_RENDER_CHARACTER)
+                    && rwdata->DisplayListCollisions.Vertices == rodata->DisplayListCollisions.Vertices)
+            {
+                gSPDisplayList(renderdata->gdl++, modelGetUnbloodiedGdl(renderdata,
+                        rwdata->DisplayListCollisions.gdl, rodata->DisplayListCollisions.ModelType,
+                        rodata->DisplayListCollisions.BaseAddr, rodata->DisplayListCollisions.Vertices,
+                        rodata->DisplayListCollisions.numVertices));
+            }
+            else
+            {
+                gSPDisplayList(renderdata->gdl++, modelGetOneCycleGdl(renderdata,
+                        rwdata->DisplayListCollisions.gdl, rodata->DisplayListCollisions.ModelType,
+                        rodata->DisplayListCollisions.BaseAddr));
+            }
 
             if (rodata->DisplayListCollisions.ModelType == 3 && rodata->DisplayListCollisions.Secondary
                     && !(renderdata->flags & MODEL_RENDER_HIDE_TRANSLUCENT))
             {
                 modelApplyRenderModeType3(renderdata, FALSE);
                 gSPDisplayList(renderdata->gdl++, rodata->DisplayListCollisions.Secondary);
+                /* Secondary lists retain their authored RSP state. */
+                renderdata->flags &= ~MODEL_RENDER_CHARACTER;
                 cache->type3PipelineReady = FALSE;
                 cache->colorSegmentBase = NULL;
                 cache->vertexSegmentBase = NULL;
@@ -4114,6 +4129,7 @@ void modelRenderNodeDlWithCache(ModelRenderData *renderdata, Model *model, Model
             modelApplyRenderModeType4(renderdata, FALSE);
 
             gSPDisplayList(renderdata->gdl++, rodata->DisplayListCollisions.Secondary);
+            renderdata->flags &= ~MODEL_RENDER_CHARACTER;
             cache->type3PipelineReady = FALSE;
             cache->colorSegmentBase = NULL;
             cache->vertexSegmentBase = NULL;

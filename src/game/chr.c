@@ -2816,6 +2816,10 @@ Gfx *chrRenderChr(PropRecord *prop, Gfx *gdl, s32 withalpha)
             }
 
             g_playerPerm->time_other_players_on_screen += 1;
+            /* Vertex alpha is blood strength, not RSP fog. Establish this
+             * explicitly before opting untouched parts into one-cycle. */
+            gSPClearGeometryMode(mrData.gdl++, G_FOG);
+            mrData.flags |= MODEL_RENDER_CHARACTER;
             modelHitRenderNodeList(&mrData, chr->hitChain);
 
             gdl = mrData.gdl;

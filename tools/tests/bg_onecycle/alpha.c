@@ -31,7 +31,7 @@ static void alpha_state_checks(Gfx *gdl, int count, int expectedFog, int onecycl
             {
                 BgOneCycleState chosen;
                 assert(!fog && state.alphaSource == BG_ALPHA_VERTEX);
-                assert(!bgOneCycleChooseState(&state, &chosen, FALSE, TRUE));
+                assert(!bgOneCycleChooseState(&state, &chosen, FALSE, TRUE, FALSE));
                 assert(state.combine.words.w0 == BG_ALPHA_COMBINE_W0(original.words.w0));
                 assert(state.combine.words.w1 == BG_ALPHA_COMBINE_W1(original.words.w1));
                 /* Decode the RGB/alpha field boundaries independently of the

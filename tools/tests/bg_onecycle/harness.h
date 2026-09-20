@@ -26,6 +26,17 @@ static void memaFree(void *p, s32 size)
     g_TestFreeCount++;
     free(p);
 }
+/* Room allocation now goes through rendercache.c. Keep this room-lifecycle
+ * harness focused on allocation/failure/free dispatch; the model harness
+ * exercises the real shared allocator and its drained reclaim. */
+static bool renderCacheIsEnabled(void) { return TRUE; }
+static void *renderCacheAlloc(s32 size) { return memaAlloc(size); }
+static void renderCacheFree(void *p)
+{
+    assert(p);
+    g_TestFreeCount++;
+    free(p);
+}
 static void bgLoadRoomModelData(s32 room) { (void)room; }
 static Gfx *applyRoomMatrixToDisplayList(Gfx *gdl, s32 room) { (void)room; return gdl; }
 #define SPSEGMENT_BG_VTX 14

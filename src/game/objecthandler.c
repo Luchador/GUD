@@ -690,6 +690,7 @@ void modelHitRenderNodeList(ModelRenderData *renderData, ModelHitEntry *entry)
                     {
                         if (renderSecondary && modelRenderGunfire(renderData, model, node))
                         {
+                            renderData->flags &= ~MODEL_RENDER_CHARACTER;
                             /* An invisible flash emits nothing and leaves the
                              * cached state valid for the following parts. */
                             renderCache.colorSegmentBase = NULL;
@@ -707,6 +708,7 @@ void modelHitRenderNodeList(ModelRenderData *renderData, ModelHitEntry *entry)
                     {
                         if (renderSecondary)
                         {
+                            renderData->flags &= ~MODEL_RENDER_CHARACTER;
                             renderCache.colorSegmentBase = NULL;
                             renderCache.vertexSegmentBase = NULL;
                             renderCache.type3PipelineReady = FALSE;
@@ -743,6 +745,7 @@ void modelHitRenderNodeList(ModelRenderData *renderData, ModelHitEntry *entry)
                 case MODELNODE_OPCODE_DLPRIMARY:
                     if (renderSecondary && node->Data->DisplayListPrimary.Primary)
                     {
+                        renderData->flags &= ~MODEL_RENDER_CHARACTER;
                         renderCache.colorSegmentBase = NULL;
                         renderCache.vertexSegmentBase = NULL;
                         renderCache.type3PipelineReady = FALSE;

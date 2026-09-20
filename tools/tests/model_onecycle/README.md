@@ -1,5 +1,66 @@
 # Model one-cycle regression
 
+## Opaque world characters
+
+With **Anti-Aliasing Off** in the existing watch options, untouched opaque
+character parts may use a one-cycle combiner. AA On retains the original
+two-cycle character path. No new setting or ROM asset conversion is required.
+This extends the current model cache and shares its 64 KiB allocation budget;
+the extra per-entry vertex provenance costs 3 KiB of static cache metadata.
+
+The new path keeps texture mip-level selection (the stock blood combiner
+already samples one mip), texture filtering, fog/room lighting, depth and
+authored culling. It removes the blood-tint stage only when the node still
+uses its authored vertices and every referenced vertex has alpha 255.
+Blood-stained parts, faded characters, translucent/cutout/decal materials,
+detail/sharpen materials and unsupported display-list state retain two cycles.
+Unchanged parts of a wounded guard can still qualify. GEditor-style untextured
+parts retain the existing blood/death-fade repair on either path.
+
+The removed stage multiplies by 255/256 rather than exact fixed-point one.
+An exhaustive scalar RGB comparison bounds the combiner difference to one
+8-bit channel level, before fog/dithering/framebuffer quantization. This is a
+small precision tradeoff, not a claim of bit-identical final pixels.
+
+Proofs and copies are cached per source list, depth mode and vertex provenance;
+blood-buffer checks happen before lookup. All copies restore the original
+outgoing pipeline and leave per-instance colours in the caller. The character
+pass explicitly disables RSP fog, which otherwise overwrites vertex alpha.
+An unsupported part that can alter RSP state, a secondary list or a special
+draw stops further character conversion until the next character pass.
+Source replacement retires copies without freeing graphics still in flight.
+Allocation failure, full tables and memory-pressure reclaim use the existing
+renderer, including its mandatory material repair.
+
+Fixtures exercise 1,068 authored body/head lists: 1,054 lists and 7,393 triangle
+packets qualify. CarmourguardZ converts all 25 lists / 131 triangle packets
+before blood or fading. These are coverage counts, not frame-rate estimates.
+First-person hands remain covered by the existing weapon tests.
+
+For in-game comparison, use AA Off and a repeatable camera position facing
+several guards. Check close/distant textures, room lighting/fog, wounded limbs,
+death fades, untextured legs and held equipment. Compare against the previous
+build with the same settings. This patch targets RDP pixel work; animation,
+RSP vertex transforms and AI costs remain, so 30 FPS is not guaranteed.
+
+Hardware references:
+- [Nintendo blender documentation](https://ultra64.ca/files/documentation/online-manuals/man/pro-man/pro12/12-07.html): one-cycle fog with opaque, non-AA rendering.
+- [Nintendo tile selection documentation](https://ultra64.ca/files/documentation/online-manuals/man/pro-man/pro13/13-07.html): LOD tile selection versus two-cycle trilinear interpolation.
+- [libdragon mipmap modes](https://libdragon.dev/ref/rdpq__mode_8h.html): nearest-mip selection and interpolated mip modes.
+
+## Regression coverage
+
+Validated against GUD master `8090527` (LOD chr skips): the five changed game
+translation units compile with IDO 5.3 for NTSC, the model suite passes normally
+and under ASan/UBSan, and the BG one-cycle/cutout, character LOD and LOD-skip
+suites pass. The BG harness also needed its allocator mock updated to the
+current shared render-cache API.
+
+The separate `render_options` suite fails its settings-save assertion in
+`test_vi_and_save` on both this patch and the unmodified `8090527` sources.
+Its settings implementation and tests are unchanged here. A complete ROM
+build, hardware/emulator visual comparison and FPS measurement were not run.
+
 Character material regressions also exercise GEditor-style switches between
 textured and untextured legs, followed by another body part. They independently
 decode the combiner and evaluate all 256 fade values against all 256 blood/vertex

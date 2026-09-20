@@ -19,6 +19,9 @@ typedef struct ModelOneCycleEntry {
     u8 valid;
     u8 pipelineSafe;
     u8 characterFixups;
+    Vertex *vertices;
+    s32 numVertices;
+    void *vertexFileBase;
 } ModelOneCycleEntry;
 
 static ModelOneCycleEntry g_ModelOneCycleCache[MODEL_ONE_CYCLE_CACHE_SIZE];
@@ -139,12 +142,17 @@ static ModelOneCycleEntry *modelInspectGdl(Gfx *primary, void *baseAddr, ModelOn
     entry->sourceSize = modelOneCycleListSize(source);
     if (!entry->sourceSize) {
         entry->sourceSize = sizeof(Gfx);
+        entry->characterFixups = 4; /* uninspectable RSP state */
         return entry;
     }
     entry->pipelineSafe = TRUE;
     for (i = 0; i < entry->sourceSize / sizeof(Gfx); i++) {
         Gfx command = source[i];
         u32 op = command.words.w0 >> 24;
+        if ((op == (u8)G_SETGEOMETRYMODE && (command.words.w1 & G_FOG))
+                || op == (u8)G_MOVEWORD || op == (u8)G_MOVEMEM || op == 0xaf || op == 0xb0) {
+            entry->characterFixups |= 4;
+        }
         if (op == (u8)G_SETCOMBINE || op == (u8)G_SETOTHERMODE_L
                 || op == (u8)G_RDPSETOTHERMODE
                 || op == (u8)G_SETENVCOLOR || op == (u8)G_SETPRIMCOLOR || op == (u8)G_SETFOGCOLOR
@@ -180,6 +188,10 @@ static Gfx *modelGetCharacterGdl(ModelRenderData *renderdata, Gfx *primary, s32 
     s32 i, size;
     bool retained = FALSE;
     bool fading = renderdata->PropType == PROP_TYPE_EXPLOSION + 1;
+    /* An unusual part can change the inherited RSP fog/segment state of
+     * later parts. Stop opting in until the next character establishes its
+     * baseline, including when this particular part already fell back. */
+    if (info->characterFixups & 4) renderdata->flags &= ~MODEL_RENDER_CHARACTER;
     if (!(info->characterFixups & 1)) return primary;
     entry = renderListIsDynamic(info->source) ? NULL : modelMaterialEntry(info->source, 32 + fading);
     if (entry && entry->source && entry->valid && entry->alternate) return entry->alternate;
@@ -286,6 +298,8 @@ Gfx *modelGetOneCycleGdl(ModelRenderData *renderdata, Gfx *primary, s32 modelTyp
     u8 material;
     bool firstPerson;
 
+    if (primary && modelType != 3 && modelType != 4) renderdata->flags &= ~MODEL_RENDER_CHARACTER;
+
     if (primary && (modelType == 3 || modelType == 4)
             && (renderdata->PropType == PROP_TYPE_VIEWER + 1
                 || renderdata->PropType == PROP_TYPE_EXPLOSION + 1)) {
@@ -338,4 +352,130 @@ Gfx *modelGetOneCycleGdl(ModelRenderData *renderdata, Gfx *primary, s32 modelTyp
     entry->material = material;
     alternate = modelOneCycleBuildEntry(entry, renderdata, modelType);
     return alternate ? alternate : primary;
+}
+
+/* This proof is cached with the alternate, never repeated for every guard.
+ * The caller excludes per-instance blood/deformation buffers before lookup.
+ * Refuse inherited vertices, vertex modification, nested lists and RSP fog:
+ * all of those can invalidate the full SHADE_ALPHA assumption. */
+static bool modelCharacterVerticesSafe(Gfx *source, s32 size, void *baseAddr,
+        Vertex *vertices, s32 numVertices)
+{
+    u32 loaded = 0;
+    u32 bytes;
+    s32 i, j;
+    if (!IS_KSEG0(vertices) || K0_TO_PHYS(vertices) >= osMemSize
+            || numVertices <= 0 || numVertices > 32767) return FALSE;
+    bytes = numVertices * sizeof(Vertex);
+    if ((K0_TO_PHYS(vertices) & 7) || bytes > osMemSize - K0_TO_PHYS(vertices)) return FALSE;
+    for (i = 0; i < numVertices; i++) if (vertices[i].a != 255) return FALSE;
+    for (i = 0; i < size / sizeof(Gfx); i++) {
+        u32 w0 = source[i].words.w0, w1 = source[i].words.w1;
+        u32 op = w0 >> 24;
+        if (op == (u8)G_VTX) {
+            u32 count = ((w0 >> 20) & 15) + 1;
+            u32 first = (w0 >> 16) & 15;
+            u32 offset = w1 & 0xffffff;
+            if (w1 >> 24 == SPSEGMENT_MODEL_COL1) {
+                if (!IS_KSEG0(baseAddr) || K0_TO_PHYS(baseAddr) >= osMemSize) return FALSE;
+                offset += K0_TO_PHYS(baseAddr) - K0_TO_PHYS(vertices);
+            } else if (w1 >> 24 != SPSEGMENT_MODEL_VTX) return FALSE;
+            if (first + count > 16 || (offset & 15) || offset > bytes
+                    || count * sizeof(Vertex) > bytes - offset
+                    || (w0 & 0xffff) != count * sizeof(Vertex)) return FALSE;
+            loaded |= ((1u << count) - 1) << first;
+        } else if (op == (u8)G_TRI1) {
+            for (j = 0; j < 3; j++) {
+                u32 index = (w1 >> (j * 8)) & 255;
+                if (index % 10 || index / 10 >= 16 || !(loaded & (1u << (index / 10)))) return FALSE;
+            }
+        } else if (op == 0xb1) {
+            for (j = 0; j < 4; j++) {
+                u32 x = (w1 >> (j * 8)) & 15;
+                u32 y = (w1 >> (j * 8 + 4)) & 15;
+                u32 z = (w0 >> (j * 4)) & 15;
+                if ((x || y || z) && (loaded & ((1u << x) | (1u << y) | (1u << z)))
+                        != ((1u << x) | (1u << y) | (1u << z))) return FALSE;
+            }
+        } else if (op == (u8)G_SETGEOMETRYMODE) {
+            if (w1 & G_FOG) return FALSE;
+        } else if (op != (u8)G_CLEARGEOMETRYMODE && op != (u8)G_MTX
+                && op != (u8)G_TEXTURE && op != (u8)G_ENDDL && op != (u8)G_SPNOOP
+                && op != (u8)G_SETOTHERMODE_H && op != (u8)G_SETOTHERMODE_L
+                && op != (u8)G_SETCOMBINE && op != (u8)G_SETENVCOLOR
+                && op != (u8)G_SETPRIMCOLOR && op != (u8)G_SETFOGCOLOR
+                && op != (u8)G_SETBLENDCOLOR && op != (u8)G_RDPSETOTHERMODE
+                && op != (u8)G_SETTIMG && op != (u8)G_SETTILE && op != (u8)G_SETTILESIZE
+                && op != (u8)G_LOADBLOCK && op != (u8)G_LOADTILE && op != (u8)G_LOADTLUT
+                && op != (u8)G_RDPPIPESYNC && op != (u8)G_RDPLOADSYNC && op != (u8)G_RDPTILESYNC) {
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+
+Gfx *modelGetUnbloodiedGdl(ModelRenderData *renderdata, Gfx *primary, s32 modelType,
+        void *baseAddr, Vertex *vertices, s32 numVertices)
+{
+    ModelOneCycleEntry *entry;
+    ModelRenderData setup;
+    Gfx initial[16];
+    Gfx *source, *repaired, *alternate;
+    s32 size, repairedSize, initialSize;
+    u8 material = 40 + (renderdata->zbufferenabled ? 1 : 0);
+    if (!primary || !renderUseOneCycle() || !renderCacheIsEnabled()
+            || !(renderdata->flags & MODEL_RENDER_CHARACTER)
+            || renderdata->PropType != PROP_TYPE_VIEWER + 1
+            || (modelType != 3 && modelType != 4)) goto fallback;
+    source = modelResolveGdl(primary, baseAddr);
+    if (!source || renderListIsDynamic(source)) goto fallback;
+    entry = modelMaterialEntry(source, material);
+    if (!entry) goto fallback;
+    if (entry->source && entry->valid) {
+        /* A list shared by nodes with different segment-4 bases cannot share
+         * this proof. Keep the established entry and decline the other node. */
+        if (entry->vertices == vertices && entry->numVertices == numVertices
+                && entry->vertexFileBase == baseAddr
+                && entry->alternate) return entry->alternate;
+        goto fallback;
+    }
+    entry->source = source;
+    entry->material = material;
+    entry->vertices = vertices;
+    entry->numVertices = numVertices;
+    entry->vertexFileBase = baseAddr;
+    entry->alternate = NULL;
+    entry->valid = TRUE;
+    entry->sourceSize = modelOneCycleListSize(source);
+    if (!entry->sourceSize) {
+        entry->sourceSize = sizeof(Gfx);
+        goto fallback;
+    }
+    if (!modelCharacterVerticesSafe(source, entry->sourceSize, baseAddr, vertices, numVertices)) goto fallback;
+    repaired = modelGetCharacterGdl(renderdata, primary, modelType, baseAddr);
+    repaired = modelResolveGdl(repaired, baseAddr);
+    if (!repaired || !(repairedSize = modelOneCycleListSize(repaired))) goto fallback;
+    setup = *renderdata;
+    setup.gdl = initial;
+    if (modelType == 3) modelApplyRenderModeType3(&setup, TRUE);
+    else modelApplyRenderModeType4(&setup, TRUE);
+    initialSize = (setup.gdl - initial) * sizeof(Gfx);
+    size = gfxBuildCharacterOneCycleGdl(repaired, repairedSize, NULL, 0, initial, initialSize);
+    if (size <= 0) goto fallback;
+    size = (size + 15) & ~15;
+    if (size > MODEL_ONE_CYCLE_BYTE_LIMIT - g_ModelOneCycleBytes) goto fallback;
+    alternate = renderCacheAlloc(size);
+    if (!alternate) goto fallback;
+    if (gfxBuildCharacterOneCycleGdl(repaired, repairedSize, alternate, size, initial, initialSize) <= 0) {
+        renderCacheFree(alternate);
+        goto fallback;
+    }
+    entry->alternate = alternate;
+    g_ModelOneCycleBytes += size;
+    renderInvalidateDisplayListCache();
+    return alternate;
+fallback:
+    /* The existing material repair is mandatory even when optimization is
+     * ineligible, AA is on, or the optional cache has been reclaimed. */
+    return modelGetOneCycleGdl(renderdata, primary, modelType, baseAddr);
 }

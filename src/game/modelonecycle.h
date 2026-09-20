@@ -12,6 +12,10 @@ void modelOneCycleInvalidateGdlRange(Gfx *start, Gfx *end);
  * Resolve authored segment-5 lists against the node's BaseAddr for CPU reads.
  * Failed conversions return the original pointer in its original format. */
 Gfx *modelGetOneCycleGdl(ModelRenderData *renderdata, Gfx *primary, s32 modelType, void *baseAddr);
+/* Only call with the unchanged authored vertex buffer. Blood-stained parts
+ * use modelGetOneCycleGdl, preserving the original character equations. */
+Gfx *modelGetUnbloodiedGdl(ModelRenderData *renderdata, Gfx *primary, s32 modelType,
+        void *baseAddr, Vertex *vertices, s32 numVertices);
 /* Stock body lists inherit pipeline state. Edited lists may override it. */
 bool modelGdlPreservesType3Pipeline(ModelRenderData *renderdata, Gfx *primary, void *baseAddr);
 

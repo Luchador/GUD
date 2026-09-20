@@ -65,12 +65,19 @@ source += function(model, 'modelRenderNodeDlWithCache')
 bgcheck = (HERE.parent / 'bg_onecycle/check.c').read_text()
 source += bgcheck[:bgcheck.index('static const Gfx standard[]')]
 checks = (HERE / 'check.c').read_text()
-source += checks.replace('static u32 read_be(FILE *file)', (HERE / 'character.c').read_text() + '\nstatic u32 read_be(FILE *file)')
+source += checks.replace('static u32 read_be(FILE *file)',
+                        (HERE / 'character.c').read_text()
+                        + '\n' + (HERE / 'character_onecycle.c').read_text()
+                        + '\nstatic u32 read_be(FILE *file)')
 
 gunfire = (ROOT / 'src/game/gunfire.c').read_text()
 assert 'renderdata.flags |= MODEL_RENDER_FIRST_PERSON;' in function(gunfire, 'gunRenderFirstPersonGunModels')
 for name in ('watchRenderItemModel', 'watchRenderController', 'sub_GAME_7F068EC4'):
     assert 'MODEL_RENDER_FIRST_PERSON' not in function(gunfire, name)
+
+chr_render = function((ROOT / 'src/game/chr.c').read_text(), 'chrRenderChr')
+assert chr_render.index('gSPClearGeometryMode(mrData.gdl++, G_FOG)') < chr_render.index('mrData.flags |= MODEL_RENDER_CHARACTER')
+assert chr_render.index('mrData.flags |= MODEL_RENDER_CHARACTER') < chr_render.index('modelHitRenderNodeList(')
 
 assert 'modelOneCycleResetCache()' in function((ROOT / 'src/game/dyn.c').read_text(), 'dynInitMemory')
 assert 'modelOneCycleInvalidateGdlRange(dst, out)' in function((ROOT / 'src/game/tex.c').read_text(), 'texLoadFromGdl')
@@ -81,14 +88,14 @@ for section in ('text', 'data', 'rodata', 'bss'):
     assert f'modelonecycle.o (.{section})' in (ROOT / f'ld/game.{section}.ld.inc').read_text()
 
 
-def asset_streams(kind):
+def asset_streams(kind, characters=False):
     """Walk real model nodes, retaining every authored state/geometry command.
 
     Texture markers become representative expanded uploads plus gSPTexture.
     Full texture allocation/TMEM contents and rasterization are not emulated.
     """
     for path in sorted((ROOT / f'assets/obseg/{kind}').glob('*Z.bin')):
-        if kind == 'chr' and path.stem != 'Csuit_lf_handZ':
+        if kind == 'chr' and not characters and path.stem != 'Csuit_lf_handZ':
             continue
         name = path.stem[1:-1]
         header = ROOT / f'assets/obseg/{kind}/{name}/ModelFileHeader.inc.c'
@@ -122,6 +129,8 @@ def asset_streams(kind):
                     todo.append(word(ro + delta) & 0xffffff)
             if opcode not in (4, 0x18):
                 continue
+            if characters and opcode != 0x18:
+                continue  # first-person hands use the existing weapon path
             ro = word(node + 4) & 0xffffff
             modeltype = data[ro + 0x12] if opcode == 4 else struct.unpack_from('>H', data, ro + 0x18)[0]
             if modeltype not in (2, 3, 4) or not word(ro):
@@ -143,7 +152,13 @@ def asset_streams(kind):
                     commands.append((w0, w1))
                 if w0 >> 24 == 0xb8:
                     break
-            yield name if kind == 'prop' else kind + '/' + name, modeltype, commands
+            if characters:
+                voffset = word(ro + 8) & 0xffffff
+                count = struct.unpack_from('>h', data, ro + 12)[0]
+                assert count > 0
+                yield name, modeltype, commands, voffset, data[voffset:voffset + count * 16]
+            else:
+                yield name if kind == 'prop' else kind + '/' + name, modeltype, commands
 
 
 with tempfile.TemporaryDirectory(prefix='gud-model-onecycle-') as directory:
@@ -171,3 +186,11 @@ with tempfile.TemporaryDirectory(prefix='gud-model-onecycle-') as directory:
             fixture += struct.pack('>II', w0, w1)
     (work / 'props.bin').write_bytes(fixture)
     subprocess.run([str(work / 'check'), str(work / 'props.bin')], check=True)
+    fixture = bytearray()
+    for name, modeltype, commands, offset, vertices in asset_streams('chr', characters=True):
+        name = name.encode()
+        fixture += struct.pack('>IIIII', len(name), modeltype, len(commands), offset, len(vertices)) + name + vertices
+        for w0, w1 in commands:
+            fixture += struct.pack('>II', w0, w1)
+    (work / 'characters.bin').write_bytes(fixture)
+    subprocess.run([str(work / 'check'), str(work / 'characters.bin'), 'characters'], check=True)

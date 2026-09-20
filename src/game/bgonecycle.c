@@ -72,6 +72,23 @@ static const Gfx g_ModelDamageCombiners[2] = {
             TEXEL0, 0, SHADE, 0, 1, 0, SHADE, ENVIRONMENT)
 };
 
+/* Only used after the model renderer has proved that the part still uses
+ * its authored, full-alpha vertices. Blood needs the original first cycle.
+ * The opaque blender ignores pixel alpha; fog uses the per-instance fog
+ * colour/alpha, not vertex alpha. Keep texture LOD selection for characters:
+ * their native equation already samples one mip rather than interpolating. */
+static const Gfx g_CharacterOneCycleCombiners[][2] = {
+    {gsDPSetCombineLERP(TEXEL0, ENVIRONMENT, SHADE_ALPHA, ENVIRONMENT,
+            TEXEL0, ENVIRONMENT, SHADE, ENVIRONMENT,
+            COMBINED, 0, SHADE, 0, 0, 0, 0, COMBINED),
+     gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0, 0, 0, 0, 1,
+            TEXEL0, 0, SHADE, 0, 0, 0, 0, 1)},
+    {gsDPSetCombineLERP(1, ENVIRONMENT, SHADE_ALPHA, ENVIRONMENT,
+            0, 0, 0, 1, COMBINED, 0, SHADE, 0, 0, 0, 0, COMBINED),
+     gsDPSetCombineLERP(0, 0, 0, SHADE, 0, 0, 0, 1,
+            0, 0, 0, SHADE, 0, 0, 0, 1)}
+};
+
 typedef struct BgOneCycleState {
     u32 high;
     u32 highKnown;
@@ -218,13 +235,14 @@ static s32 bgOneCycleReadState(BgOneCycleState *state, Gfx command, bool cutouts
 }
 
 static s32 bgOneCycleChooseState(const BgOneCycleState *source, BgOneCycleState *chosen,
-        bool model, bool cutouts)
+        bool model, bool cutouts, bool character)
 {
     u32 first;
     u32 mode;
     u32 required;
     s32 i;
     s32 combiner;
+    s32 characterCombiner = -1;
     bool cutout = FALSE;
     bool damaged;
     struct tex *tex;
@@ -283,20 +301,31 @@ static s32 bgOneCycleChooseState(const BgOneCycleState *source, BgOneCycleState 
         if (source->combine.words.w0 == g_BgOneCycleCombiners[combiner][0].words.w0
                 && source->combine.words.w1 == g_BgOneCycleCombiners[combiner][0].words.w1) break;
     }
-    if (!damaged && combiner == sizeof(g_BgOneCycleCombiners) / sizeof(g_BgOneCycleCombiners[0])) return FALSE;
+    if (character) {
+        for (i = 0; i < sizeof(g_CharacterOneCycleCombiners) / sizeof(g_CharacterOneCycleCombiners[0]); i++) {
+            if (source->combine.words.w0 == g_CharacterOneCycleCombiners[i][0].words.w0
+                    && source->combine.words.w1 == g_CharacterOneCycleCombiners[i][0].words.w1) {
+                characterCombiner = i;
+                break;
+            }
+        }
+        if (characterCombiner < 0 || first != (G_RM_FOG_PRIM_A)) return FALSE;
+    } else if (!damaged && combiner == sizeof(g_BgOneCycleCombiners) / sizeof(g_BgOneCycleCombiners[0])) return FALSE;
     if (cutout && (g_BgOneCycleCombiners[combiner][1].words.w0 != alphaCombine.words.w0
                 || g_BgOneCycleCombiners[combiner][1].words.w1 != alphaCombine.words.w1)) return FALSE;
     /* The final two entries are the untextured combiners. */
-    if (damaged || combiner < sizeof(g_BgOneCycleCombiners) / sizeof(g_BgOneCycleCombiners[0]) - 2) {
+    if (character ? characterCombiner == 0
+            : damaged || combiner < sizeof(g_BgOneCycleCombiners) / sizeof(g_BgOneCycleCombiners[0]) - 2) {
         required = BG_LOD_MASK | BG_DETAIL_MASK | BG_FILTER_MASK;
         if (source->textureEnabled != TRUE || (source->highKnown & required) != required
                 || (source->high & BG_DETAIL_MASK) != G_TD_CLAMP
                 || ((source->high & BG_FILTER_MASK) != G_TF_BILERP
                     && (source->high & BG_FILTER_MASK) != G_TF_POINT)) return FALSE;
-        chosen->high &= ~BG_LOD_MASK; /* Sample the primitive's base tile. */
+        if (!character) chosen->high &= ~BG_LOD_MASK; /* Sample the primitive's base tile. */
     }
     chosen->high &= ~BG_CYCLE_MASK;
-    chosen->combine = damaged ? g_ModelDamageCombiners[1] : g_BgOneCycleCombiners[combiner][1];
+    chosen->combine = character ? g_CharacterOneCycleCombiners[characterCombiner][1]
+            : damaged ? g_ModelDamageCombiners[1] : g_BgOneCycleCombiners[combiner][1];
     if (first == (G_RM_FOG_SHADE_A) || first == (G_RM_FOG_PRIM_A)) {
         /* One-cycle fog uses the FIRST blender mux. FORCE_BL is essential:
          * AA is off, but the fog operation must still run. No framebuffer
@@ -357,7 +386,7 @@ static void bgOneCycleFlush(BgOneCycleOutput *out, BgOneCycleState *actual,
 /* Model lists inherit their initial material from modelApplyRenderModeType*.
  * Interpret that setup without copying its per-instance colours into the list. */
 static s32 bgOneCycleBuild(const Gfx *src, s32 size, Gfx *dst, s32 capacity,
-        const Gfx *initial, s32 initialSize, bool cutouts)
+        const Gfx *initial, s32 initialSize, bool cutouts, bool character)
 {
     BgOneCycleState source;
     BgOneCycleState actual;
@@ -397,7 +426,7 @@ static s32 bgOneCycleBuild(const Gfx *src, s32 size, Gfx *dst, s32 capacity,
          * their own decoder. Refuse the list instead of guessing their state. */
         if (opcode == 0xaf || opcode == 0xb0 || (opcode >= 0xc8 && opcode <= 0xcf)) return -1;
         if (opcode == (u8)G_TRI1 || opcode == 0xb1) {
-            if (bgOneCycleChooseState(&source, &wanted, initial != NULL, cutouts)) out.converted++;
+            if (bgOneCycleChooseState(&source, &wanted, initial != NULL, cutouts, character)) out.converted++;
             bgOneCycleFlush(&out, &actual, &wanted);
         } else if (opcode == (u8)G_ENDDL || opcode == (u8)G_DL
                 || opcode == (u8)G_CULLDL || opcode == (u8)G_LINE3D
@@ -429,12 +458,18 @@ static s32 bgOneCycleBuild(const Gfx *src, s32 size, Gfx *dst, s32 capacity,
 s32 gfxBuildOneCycleGdl(const Gfx *src, s32 size, Gfx *dst, s32 capacity,
         const Gfx *initial, s32 initialSize)
 {
-    return bgOneCycleBuild(src, size, dst, capacity, initial, initialSize, FALSE);
+    return bgOneCycleBuild(src, size, dst, capacity, initial, initialSize, FALSE, FALSE);
+}
+
+s32 gfxBuildCharacterOneCycleGdl(const Gfx *src, s32 size, Gfx *dst, s32 capacity,
+        const Gfx *initial, s32 initialSize)
+{
+    return bgOneCycleBuild(src, size, dst, capacity, initial, initialSize, FALSE, TRUE);
 }
 
 s32 bgBuildCutoutGdl(const Gfx *src, s32 size, Gfx *dst, s32 capacity)
 {
-    return bgOneCycleBuild(src, size, dst, capacity, NULL, 0, TRUE);
+    return bgOneCycleBuild(src, size, dst, capacity, NULL, 0, TRUE, FALSE);
 }
 
 s32 bgBuildOneCycleGdl(const Gfx *src, s32 size, Gfx *dst, s32 capacity)
