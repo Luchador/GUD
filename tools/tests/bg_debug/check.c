@@ -153,17 +153,10 @@ static void integrationChecks(void)
         }
     }
     assert(mode && combine && scissor && vertices == 2 && triangles == 2);
-    g_TestVisibilityStats = (BgVisibilityStats){20, 5, 1, 12, 12, FALSE};
     bgDebugDrawHud(end);
     assert(strstr(g_TestLabels[0], "1 ROOMS") && !strcmp(g_TestLabels[1], "1"));
-    assert(!strcmp(g_TestLabels[2], "PORTAL PEAK: 20  VISIBLE: 5"));
-    assert(!strcmp(g_TestLabels[3], "WAIT: 1  FIRST ROOM: 12"));
-    assert(!strcmp(g_TestLabels[4], "ALLOC FAIL: ROOM 12"));
+    assert(g_TestLabelCount == 2);
     g_TestLabelCount = 0;
-    g_TestVisibilityStats = (BgVisibilityStats){2, 1, 0, -1, -1, FALSE};
-    bgDebugDrawHud(end);
-    assert(!strcmp(g_TestLabels[3], "WAIT: NONE"));
-    assert(!strcmp(g_TestLabels[4], "ALLOC FAIL: NONE  CACHE: OFF"));
     for (int capacity = 0; capacity < BG_DEBUG_GFX_RESERVE + 80; capacity++) {
         g_TestGfxEnd = output + capacity;
         g_BgDebugIncomplete = FALSE;

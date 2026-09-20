@@ -1507,8 +1507,6 @@ BgQueuedPortal g_BgPortalQueue[BG_PORTAL_QUEUE_LEN];
 static u16 g_BgPortalQueueOrder[BG_PORTAL_QUEUE_LEN];
 static u8 g_BgPortalQueueState[BG_PORTAL_QUEUE_LEN];
 static s32 g_BgPortalQueueCount;
-static s32 g_BgPortalQueuePeak;
-static s32 g_BgRoomAllocationFailed = -1;
 PortalData *g_BgPortals;
 s32 g_BgRenderMode;
 BgRoomData *ptr_bgdata_room_fileposition_list;
@@ -2056,7 +2054,6 @@ void bgLoadRoomModelData(s32 roomID)
          * releases optional room/model lists. Do not free submitted lists
          * here: even this frame may already contain references to them. */
         renderCacheRequestReclaim();
-        g_BgRoomAllocationFailed = roomID;
         return;
     }
 
@@ -2175,7 +2172,6 @@ load_failed:
     g_BgRoomInfo[roomID].secondaryGdlSize = 0;
     memaFree(data, allocsize);
     renderCacheRequestReclaim();
-    g_BgRoomAllocationFailed = roomID;
 }
 
 
@@ -3134,8 +3130,6 @@ void bgResetPortalQueue(void)
     g_BgPortalQueueWriteIndex = 0;
     g_BgPortalQueueReadIndex = 0;
     g_BgPortalQueueCount = 0;
-    g_BgPortalQueuePeak = 0;
-    g_BgRoomAllocationFailed = -1;
     for (i = 0; i < BG_PORTAL_QUEUE_LEN; i++)
     {
         g_BgPortalQueueState[i] = 0;
@@ -3216,7 +3210,6 @@ void bgQueuePortalTraversal(s32 value, s32 fromRoom, s32 portalnum, s32 depth, f
     g_BgPortalQueueOrder[g_BgPortalQueueWriteIndex] = key;
     g_BgPortalQueueState[key] |= BG_PORTAL_QUEUED;
     g_BgPortalQueueCount++;
-    if (g_BgPortalQueuePeak < g_BgPortalQueueCount) g_BgPortalQueuePeak = g_BgPortalQueueCount;
     g_BgPortalQueueWriteIndex++;
     if (g_BgPortalQueueWriteIndex == BG_PORTAL_QUEUE_LEN) g_BgPortalQueueWriteIndex = 0;
 
@@ -3253,29 +3246,6 @@ bool bgProcessNextQueuedPortal()
     bgProcessPortalTraversal(entry.arg0, entry.roomnum, entry.portalnum, entry.arg3, (bbox2d *)entry.sp10);
 
     return TRUE;
-}
-
-
-void bgGetVisibilityStats(BgVisibilityStats *stats)
-{
-    s32 i;
-    s32 room;
-
-    stats->portalQueuePeak = g_BgPortalQueuePeak;
-    stats->visibleRooms = g_BgRoomsScheduledToBeDrawn;
-    stats->unloadedRooms = 0;
-    stats->firstUnloadedRoom = -1;
-    stats->allocationFailedRoom = g_BgRoomAllocationFailed;
-    stats->renderCachesEnabled = renderCacheIsEnabled();
-    for (i = 0; i < g_BgRoomsScheduledToBeDrawn; i++)
-    {
-        room = g_BgDrawSlots[i].roomid;
-        if (room > 0 && room < g_MaxNumRooms && !g_BgRoomInfo[room].unloadAge)
-        {
-            if (!stats->unloadedRooms) stats->firstUnloadedRoom = room;
-            stats->unloadedRooms++;
-        }
-    }
 }
 
 

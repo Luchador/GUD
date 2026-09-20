@@ -36,27 +36,13 @@ Repeated work now terminates when windows stop growing rather than when a room
 hits an arbitrary visit limit. As with the existing room rectangle unions,
 merging multiple views is conservative and may include extra screen area.
 
-## On-screen diagnostics
+## X-ray overlay
 
-The existing solo BG x-ray view works in ordinary builds: D-pad Up enables it;
-D-pad Down disables it. Additional lines show:
-
-- `PORTAL PEAK`: maximum simultaneous pending traversals for this camera pass.
-- `VISIBLE`: rooms on the current render worklist, including unloaded rooms.
-- `WAIT` / `FIRST ROOM`: how many worklist rooms remain unloaded, and the first
-  such room's ID. A normal loading-budget delay can produce a short-lived wait.
-- `ALLOC FAIL`: the most recent required room allocation failure since this
-  camera pass began. It reports allocation failures, not the separate unchecked
-  stream-loader error paths.
-- `CACHE: OFF`: the previous memory-recovery patch has disabled optional render
-  copies for this stage visit. This appears when there was no allocation failure
-  in the current pass.
-
-These snapshots do not allocate memory, request room loads, or change visibility.
-The additional overlay reserves display-list space and checks available space
-before every label. If Aztec still loses rooms, a screenshot with these values
-will help separate visibility rejection, load-budget delay and memory pressure.
-`WAIT: NONE` by itself does not prove that every room's stream data is valid.
+The solo BG x-ray view works in ordinary builds: D-pad Up enables it; D-pad Down
+disables it. Its HUD shows the submitted-room count, current room, colored room
+legend, and any incomplete-overlay or legend-overflow notice. The former portal
+queue, visibility, loading, allocation-failure and cache statistics have been
+removed along with their snapshot API and display-only tracking.
 
 ## Validation
 
@@ -71,8 +57,8 @@ The new host test uses production queue/traversal/room-window functions with
 controlled camera projections. It freezes only the former queue/traversal
 functions in `legacy.c` to demonstrate both old failures. Tests cover full rings,
 both portal directions, 1,200 reuse steps across multiple wraps, pending-window merges, expanded
-revisits, cycles, disabled and special portals, script-added rooms, and read-only
-load diagnostics under ASan/UBSan.
+revisits, cycles, disabled and special portals, and script-added rooms under
+ASan/UBSan.
 
 Native Aztec and Silo connectivity is read from the repository, then exercised
 with full-screen and randomized directed/projected windows. The results match

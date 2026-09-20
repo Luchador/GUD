@@ -132,18 +132,6 @@ typedef struct BgQueuedPortal {
     f32 sp10[4];       // 0x10 parent screen window
 } BgQueuedPortal;
 
-typedef struct BgVisibilityStats {
-    s32 portalQueuePeak;
-    s32 visibleRooms;
-    s32 unloadedRooms;
-    s32 firstUnloadedRoom;
-    s32 allocationFailedRoom;
-    bool renderCachesEnabled;
-} BgVisibilityStats;
-
-/* Read-only snapshot for the existing solo BG x-ray overlay. */
-void bgGetVisibilityStats(BgVisibilityStats *stats);
-
 extern PortalData *g_BgPortals;
 extern struct PortalCache g_PortalCameraCache[PORTMAX];
 

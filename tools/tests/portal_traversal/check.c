@@ -157,23 +157,6 @@ static void check_ring_and_windows(void)
     puts("PASS: old wrap produces -1; new full ring, both directions, 1200 queue reuse steps, pending merges, expanding revisits and in-flight copies remain safe.");
 }
 
-static void check_statistics(void)
-{
-    BgVisibilityStats stats;
-    reset(); add(1,2); add(2,3); adjacency(); run(1,FALSE);
-    g_BgRoomInfo[1].unloadAge = 1; g_BgRoomInfo[3].unloadAge = 1;
-    g_BgRoomAllocationFailed = 2; cacheEnabled = FALSE;
-    bgGetVisibilityStats(&stats);
-    assert(stats.visibleRooms == 3 && stats.unloadedRooms == 1 && stats.firstUnloadedRoom == 2);
-    assert(stats.allocationFailedRoom == 2 && !stats.renderCachesEnabled);
-    assert(stats.portalQueuePeak == peak && !g_BgPortalQueueCount);
-    g_BgRoomInfo[2].unloadAge = 1;
-    bgGetVisibilityStats(&stats); assert(!stats.unloadedRooms && stats.firstUnloadedRoom == -1);
-    bgResetPortalQueue(); bgGetVisibilityStats(&stats);
-    assert(stats.allocationFailedRoom == -1 && stats.portalQueuePeak == 0);
-    puts("PASS: read-only visibility/load diagnostics and per-camera reset.");
-}
-
 static void check_cycles_and_specials(void)
 {
     reset(); add(1,2); add(2,3); add(3,4); add(4,2); add(3,5); adjacency();
@@ -264,6 +247,6 @@ static void check_native(const char *path)
 int main(int argc, char **argv)
 {
     if (argc == 2) check_native(argv[1]);
-    else { check_cutoff(); check_ring_and_windows(); check_cycles_and_specials(); check_statistics(); }
+    else { check_cutoff(); check_ring_and_windows(); check_cycles_and_specials(); }
     return 0;
 }

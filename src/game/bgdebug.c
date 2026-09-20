@@ -281,7 +281,6 @@ static Gfx *bgDebugText(Gfx *gdl, s32 x, s32 y, char *text, u32 color)
 Gfx *bgDebugDrawHud(Gfx *gdl)
 {
     char text[48];
-    BgVisibilityStats stats;
     s32 i;
     s32 shown = 0;
     if (!g_BgDebugDrawn) return gdl;
@@ -298,22 +297,6 @@ Gfx *bgDebugDrawHud(Gfx *gdl)
     } else if (shown < g_BgDebugRoomCount) {
         sprintf(text, "+%d ROOMS (LEGEND)", g_BgDebugRoomCount - shown);
         gdl = bgDebugText(gdl, 14, 86, text, 0xffffffff);
-    }
-    bgGetVisibilityStats(&stats);
-    sprintf(text, "PORTAL PEAK: %d  VISIBLE: %d", stats.portalQueuePeak, stats.visibleRooms);
-    gdl = bgDebugText(gdl, 14, 100, text, 0xffffffff);
-    if (stats.unloadedRooms) {
-        sprintf(text, "WAIT: %d  FIRST ROOM: %d", stats.unloadedRooms, stats.firstUnloadedRoom);
-        gdl = bgDebugText(gdl, 14, 112, text, 0xff6060ff);
-    } else {
-        gdl = bgDebugText(gdl, 14, 112, "WAIT: NONE", 0xffffffff);
-    }
-    if (stats.allocationFailedRoom >= 0) {
-        sprintf(text, "ALLOC FAIL: ROOM %d", stats.allocationFailedRoom);
-        gdl = bgDebugText(gdl, 14, 124, text, 0xff6060ff);
-    } else {
-        sprintf(text, "ALLOC FAIL: NONE  CACHE: %s", stats.renderCachesEnabled ? "ON" : "OFF");
-        gdl = bgDebugText(gdl, 14, 124, text, 0xffffffff);
     }
     return gdl;
 }

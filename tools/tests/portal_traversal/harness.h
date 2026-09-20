@@ -47,7 +47,3 @@ static bool bgGetPortalScreenBbox(s32 portal, bbox2d *box)
 { *box = portalBoxes[portal]; return portalVisible[portal]; }
 static bool bgIsRoomOnScreen(s32 room, struct rectbbox *box)
 { (void)box; return roomVisible[room]; }
-
-static s32 g_MaxNumRooms = MAXROOMCOUNT;
-static bool cacheEnabled;
-static bool renderCacheIsEnabled(void) { return cacheEnabled; }

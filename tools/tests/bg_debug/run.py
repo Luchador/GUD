@@ -29,7 +29,6 @@ def function(source, name):
 
 
 source = (HERE.parent / 'render_options/harness.h').read_text().split('static u32 g_TestButtons;')[0]
-source += re.search(r'typedef struct BgVisibilityStats \{.*?\} BgVisibilityStats;', (ROOT / 'src/game/bg.h').read_text(), re.S)[0] + '\n'
 source += (HERE / 'harness.h').read_text()
 source += strip_includes((ROOT / 'src/game/bgdebug.h').read_text())
 debug = strip_includes((ROOT / 'src/game/bgdebug.c').read_text())

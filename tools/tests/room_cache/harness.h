@@ -54,5 +54,3 @@ static void bgBuildRoomVtxBounds(int room)
         memset(g_BgRoomInfo[room].vtx_batch_bounds, 0x33, 32);
     }
 }
-
-static s32 g_BgRoomAllocationFailed;

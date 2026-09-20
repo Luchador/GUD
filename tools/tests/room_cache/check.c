@@ -171,7 +171,7 @@ static void check_partial_room_failure(void)
         assert(!room->vertices && !room->primaryGdl && !room->secondaryGdl);
         assert(!room->verticesSize && !room->primaryGdlSize && !room->secondaryGdlSize);
         assert(!room->vtx_batch_bounds && !conversions);
-        assert(g_BgRoomAllocationFailed == 1 && !renderCacheIsEnabled());
+        assert(!renderCacheIsEnabled());
         memaFree(otherRoom, occupied);
         assert_full_heap(4096);
         bgLoadRoomModelData(1);

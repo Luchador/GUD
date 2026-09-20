@@ -30,14 +30,13 @@ for name in ('BG_PORTAL_QUEUE_LEN', 'BG_PORTAL_SEEN', 'BG_PORTAL_QUEUED'):
 source += re.search(r'typedef struct BgQueuedPortal \{.*?\} BgQueuedPortal;', header, re.S)[0] + '\n'
 source += bg[bg.index('BgQueuedPortal g_BgPortalQueue['):bg.index('PortalData *g_BgPortals;', bg.index('BgQueuedPortal g_BgPortalQueue['))]
 source += 'static s32 g_BgPortalQueueWriteIndex, g_BgPortalQueueReadIndex;\n'
-source += re.search(r'typedef struct BgVisibilityStats \{.*?\} BgVisibilityStats;', header, re.S)[0] + '\n'
 source += '''
 void bgQueuePortalTraversal(s32, s32, s32, s32, f32 *);
 void bgProcessPortalTraversal(s32, s32, s32, s32, bbox2d *);
 '''
 for name in ('bgRectIntersect', 'bgRectOutersect', 'bgGetRoomPortalList', 'bgSetRoomOnScreen',
              'bgResetPortalVisitCounts', 'bgResetPortalQueue', 'bgIncrementRoomPortalVisitCount',
-             'bgQueuePortalTraversal', 'bgProcessNextQueuedPortal', 'bgGetVisibilityStats'):
+             'bgQueuePortalTraversal', 'bgProcessNextQueuedPortal'):
     source += function(bg, name)
 process = function(bg, 'bgProcessPortalTraversal')
 process = process.replace('depth + 1, &screenbox)', 'depth + 1, screenbox.f[0])')
