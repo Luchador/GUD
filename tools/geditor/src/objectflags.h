@@ -5,7 +5,8 @@
 
 #define OBJECTFLAGS_WM_CHANGED (WM_APP + 32)
 typedef struct ObjectFlagEdit {
-    DWORD objectindex;
+    const DWORD *selection;
+    DWORD count;
     unsigned int bank;
     DWORD mask;
     BOOL enabled;
@@ -14,6 +15,6 @@ typedef struct ObjectFlagEdit {
 BOOL ObjectFlagsRegisterClass(HINSTANCE instance);
 HWND ObjectFlagsCreate(HWND parent, HINSTANCE instance);
 /* Copies values; never retains a pointer into the undoable setup document. */
-void ObjectFlagsSetSelection(HWND panel, const SetupObject *object, DWORD index);
+void ObjectFlagsSetSelection(HWND panel, const SetupFile *setup, const DWORD *ids, DWORD count);
 
 #endif

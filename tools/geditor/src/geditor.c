@@ -21,6 +21,7 @@
 #include "portaloptions.h"
 #include "knife.h"
 #include "objectflags.h"
+#include "setupselection.h"
 #include "objectproperties.h"
 #include "characterproperties.h"
 #include "tooltoolbar.h"
@@ -305,10 +306,11 @@ static void GEditorRefreshSelectionInspector(void)
     BOOL objectselected = ViewportGetSelectedObject(g_Viewport, &selectedobject);
     int components = ViewportGetSelectedComponentCount(g_Viewport);
     DWORD stantile, stancount = ViewportGetStanSelectionCount(g_Viewport, &stantile);
-    RightPanelSetObjectFlags(g_RightPanel,
-        objectselected && selectedobject < g_CurrentSetup.objectcount
-            ? &g_CurrentSetup.objects[selectedobject] : NULL,
-        objectselected ? selectedobject : 0);
+    DWORD modelcount = ViewportGetSelectedModelCount(g_Viewport);
+    DWORD *models = modelcount ? malloc((size_t)modelcount * sizeof(*models)) : NULL;
+    if (models && !ViewportGetSelectedModels(g_Viewport, models, modelcount)) { free(models); models = NULL; }
+    RightPanelSetObjectFlags(g_RightPanel, &g_CurrentSetup, models, models ? modelcount : 0);
+    free(models);
     RightPanelSetVertexPaintMode(g_RightPanel,
         ViewportGetTool(g_Viewport) == EDITOR_TOOL_VERTEX_PAINT);
     GEditorRefreshTransformFields();
@@ -333,6 +335,10 @@ static void GEditorRefreshSelectionInspector(void)
         RightPanelSetStanSelection(g_RightPanel, &g_CurrentStan, tool, stancount, stantile,
             tiles, g_CurrentBgDocument.roomcount);
         free(tiles);
+    }
+    else if (modelcount > 1)
+    {
+        RightPanelSetModelSelectionCount(g_RightPanel, modelcount);
     }
     else if (objectselected && selectedobject < g_CurrentSetup.objectcount)
     {
@@ -672,6 +678,7 @@ enum {
     ID_SELECT_ALL,
     ID_SELECT_SAME_MATERIAL,
     ID_SELECT_ROOM,
+    ID_SELECT_SIMILAR,
 
     ID_TOOLS_CREATE_ROM,
     ID_TOOLS_UV_EDITOR,
@@ -856,6 +863,7 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_ALL, "Select &All\tCtrl+A");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_SAME_MATERIAL, "Select Same &Material");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_ROOM, "Select &Room\tShift+R");
+    AppendMenu(selectmenu, MF_STRING, ID_SELECT_SIMILAR, "Select &Similar\tShift+S");
 
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_ACTION_BLOCKS, "&Action Blocks...");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_PATROL_PATHS, "&Patrol Paths...");
@@ -4109,31 +4117,57 @@ static BOOL GEditorSetObjectFlag(HWND hwnd, const ObjectFlagEdit *edit)
 {
     EditHistoryTransaction transaction = {0};
     const char *why = "", *restorewhy = "";
-    DWORD selected; BOOL changed;
-    if (!edit || !ViewportGetSelectedObject(g_Viewport, &selected) || selected != edit->objectindex
-        || selected >= g_CurrentSetup.objectcount) { return FALSE; }
+    DWORD count = ViewportGetSelectedModelCount(g_Viewport);
+    DWORD *ids = NULL;
+    BOOL changed;
+    if (!edit || !count || count != edit->count || !edit->selection) { return FALSE; }
+    ids = malloc((size_t)count * sizeof(*ids));
+    if (!ids) { why = "Out of memory editing the selected flags."; goto fail; }
+    if (!ViewportGetSelectedModels(g_Viewport, ids, count)
+        || memcmp(ids, edit->selection, count * sizeof(*ids))) { free(ids); return FALSE; }
+    /* Selection refresh can replace the inspector's copy during a rebuild. */
+    unsigned int bank = edit->bank; DWORD mask = edit->mask; BOOL enabled = edit->enabled;
     ViewportCancelTransform(g_Viewport);
     if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup,
-        "Change Object Flag", &transaction, &why)) { goto fail; }
-    if (!SetupFileSetObjectFlag(&g_CurrentSetup, selected, edit->bank, edit->mask, edit->enabled,
+        "Change Model Flags", &transaction, &why)) { goto fail; }
+    if (!SetupSelectionSetFlag(&g_CurrentSetup, ids, count, bank, mask, enabled,
         &changed, &why)) { goto fail; }
-    if (!changed) { EditHistoryCancelEdit(&transaction); return TRUE; }
+    if (!changed) { EditHistoryCancelEdit(&transaction); free(ids); return TRUE; }
     if (!GEditorReloadCurrentObjectsAndViewport(&why)
         || !EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
             &g_CurrentStan, &transaction, &why))
     {
         EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
         GEditorReloadCurrentObjectsAndViewport(&restorewhy);
-        ViewportSelectSetupModel(g_Viewport, selected);
+        ViewportSelectSetupModels(g_Viewport, ids, count);
         goto fail;
     }
+    free(ids);
     GEditorRefreshHistoryMenu(hwnd);
     return TRUE;
 fail:
+    free(ids);
     EditHistoryCancelEdit(&transaction);
     GEditorRefreshHistoryMenu(hwnd);
     MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
     return FALSE;
+}
+
+static void GEditorSelectSimilar(HWND hwnd)
+{
+    DWORD count = ViewportGetSelectedModelCount(g_Viewport), similarcount = 0;
+    DWORD *selected = NULL, *similar = NULL;
+    const char *why = "Not enough memory to select similar models.";
+    if (!count || ViewportIsFlying(g_Viewport) || ViewportIsTransforming(g_Viewport)) { return; }
+    selected = malloc((size_t)count * sizeof(*selected));
+    if (!selected || !ViewportGetSelectedModels(g_Viewport, selected, count)) { goto fail; }
+    if (!SetupSelectionSimilar(&g_CurrentSetup, selected, count, &similar, &similarcount, &why)) { goto fail; }
+    if (!ViewportSelectSetupModels(g_Viewport, similar, similarcount))
+    { why = "Not enough memory to select similar models."; goto fail; }
+    free(selected); free(similar); return;
+fail:
+    free(selected); free(similar);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
 }
 
 static BOOL GEditorSetPortalProperty(HWND hwnd, const PortalPropertiesEdit *edit)
@@ -5705,6 +5739,9 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_VIEW_UNHIDE_ALL, MF_BYCOMMAND |
             ((ViewportHasHiddenBgFaces(g_Viewport) || ViewportHasHiddenStanTiles(g_Viewport)) ? MF_ENABLED : MF_GRAYED));
+        EnableMenuItem((HMENU)wparam, ID_SELECT_SIMILAR, MF_BYCOMMAND |
+            (ViewportGetSelectedModelCount(g_Viewport) && !ViewportIsFlying(g_Viewport)
+                && !ViewportIsTransforming(g_Viewport) ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_SELECT_GROW, MF_BYCOMMAND |
             (ViewportCanSelectBackground(g_Viewport, TRUE) ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_SELECT_ALL, MF_BYCOMMAND |
@@ -5962,6 +5999,10 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             case ID_VIEW_UNHIDE_ALL:
                 ViewportUnhideAllBgFaces(g_Viewport);
                 ViewportUnhideAllStanTiles(g_Viewport);
+                return 0;
+
+            case ID_SELECT_SIMILAR:
+                GEditorSelectSimilar(hwnd);
                 return 0;
 
             case ID_SELECT_GROW:
@@ -6359,19 +6400,19 @@ static BOOL GEditorHandleSelectionHotkey(HWND frame, const MSG *message)
     char classname[32] = "";
     BOOL control, shift;
     if (!message || !g_Viewport || message->message != WM_KEYDOWN
-        || (message->wParam != 'Q' && message->wParam != 'A' && message->wParam != 'R')
+        || (message->wParam != 'Q' && message->wParam != 'A' && message->wParam != 'R' && message->wParam != 'S')
         || ViewportIsFlying(g_Viewport)
         || (message->hwnd != frame && !IsChild(frame, message->hwnd))
         || (GetKeyState(VK_MENU) & 0x8000)) { return FALSE; }
     control = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
     shift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
-    if (control != (message->wParam == 'A') || shift != (message->wParam == 'R')) { return FALSE; }
+    if (control != (message->wParam == 'A') || shift != (message->wParam == 'R' || message->wParam == 'S')) { return FALSE; }
     GetClassName(message->hwnd, classname, sizeof(classname));
     if (lstrcmpi(classname, "Edit") == 0 || lstrcmpi(classname, "ComboBox") == 0
         || lstrcmpi(classname, "ComboLBox") == 0) { return FALSE; }
     /* Run once per physical press; holding Q must not grow more rings. */
     if (!(message->lParam & ((LPARAM)1 << 30)))
-    { SendMessage(frame, WM_COMMAND, shift ? ID_SELECT_ROOM : control ? ID_SELECT_ALL : ID_SELECT_GROW, 0); }
+    { SendMessage(frame, WM_COMMAND, message->wParam == 'S' ? ID_SELECT_SIMILAR : shift ? ID_SELECT_ROOM : control ? ID_SELECT_ALL : ID_SELECT_GROW, 0); }
     return TRUE;
 }
 

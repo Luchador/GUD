@@ -28,7 +28,7 @@ def main():
         types += re.search(r'typedef struct ' + name + r' \{.*?\} ' + name + ';', viewport, re.S)[0] + '\n'
     for name in ('BOX_VERTICES', 'MARKER_MODEL_SCALE', 'OBJECT_NONE', 'FOV_Y', 'NEAR_Z', 'ZOOM_TIMER'):
         types += re.search(r'^#define VIEWPORT_' + name + r' .*', viewport, re.M)[0] + '\n'
-    names = ('ViewportMarkerAt', 'ViewportSelectedMarker', 'ViewportSelectedPadIndex', 'ViewportPadVisible',
+    names = ('ViewportCompareObjectIds', 'ViewportObjectSelected', 'ViewportMarkerAt', 'ViewportSelectedMarker', 'ViewportSelectedPadIndex', 'ViewportPadVisible',
              'ViewportTriangleHidden', 'ViewportCornerVisible', 'ViewportStanVisible',
              'ViewportCompareStanIds', 'ViewportStanTileHidden', 'ViewportCompareStanRefs',
              'ViewportStanPointRef', 'ViewportFindStanComponent', 'ViewportPortalComponentMask',

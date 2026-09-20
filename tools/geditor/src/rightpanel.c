@@ -1081,6 +1081,19 @@ void RightPanelSetBgComponentSelection(HWND panel, BOOL edges, int count)
     InvalidateRect(panel,NULL,FALSE);
 }
 
+void RightPanelSetModelSelectionCount(HWND panel, DWORD count)
+{
+    RightPanelState *state = RightPanelGetState(panel);
+    if (!state) { return; }
+    lstrcpyn(state->detailtitle, "Models", sizeof(state->detailtitle));
+    snprintf(state->detailtext, sizeof(state->detailtext),
+        "%lu models selected.\r\n\r\nUse Flags to edit their flags together. Select one model to edit its other properties.",
+        (unsigned long)count);
+    RightPanelShowFaceProperties(panel, state, FALSE);
+    SetWindowText(state->details, state->detailtext);
+    InvalidateRect(panel, NULL, FALSE);
+}
+
 void RightPanelSetBgSelectionCount(HWND panel, int count)
 {
     RightPanelState *state = RightPanelGetState(panel);
@@ -1265,8 +1278,8 @@ void RightPanelSetPortal(HWND panel, const BgDocument *document, DWORD index)
     RightPanelLayout(panel, state);
 }
 
-void RightPanelSetObjectFlags(HWND panel, const SetupObject *object, DWORD index)
+void RightPanelSetObjectFlags(HWND panel, const SetupFile *setup, const DWORD *ids, DWORD count)
 {
     RightPanelState *state = RightPanelGetState(panel);
-    if (state) { ObjectFlagsSetSelection(state->objectflags, object, index); }
+    if (state) { ObjectFlagsSetSelection(state->objectflags, setup, ids, count); }
 }

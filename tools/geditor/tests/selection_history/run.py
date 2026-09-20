@@ -33,7 +33,10 @@ def main():
                 types += re.search(r"typedef struct " + name + r" \{.*?\} " + name + ";", source, re.S)[0] + "\n"
         (work / "types.inc").write_text(types)
         logic = ""
-        for name in ("ViewportTriangleHidden", "ViewportCompareVertexRefs", "ViewportCornerVisible",
+        for name in ("ViewportObjectCount", "ViewportCompareObjectIds", "ViewportObjectSelected",
+                     "ViewportSetObjectIds", "ViewportModifyObjectSelection", "ViewportClearObjectSelection",
+                     "ViewportGetSelectedObject", "ViewportGetSelectedModelCount", "ViewportGetSelectedModels",
+                     "ViewportTriangleHidden", "ViewportCompareVertexRefs", "ViewportCornerVisible",
                      "ViewportFindVertexCorner", "ViewportRestoreComponents", "ViewportCompareFaceRefs",
                      "ViewportStanVisible", "ViewportCompareStanIds", "ViewportStanTileHidden",
                      "ViewportCompareStanRefs", "ViewportStanPointRef", "ViewportFindStanComponent", "ViewportSelectedPadIndex", "ViewportResolveActivePortal", "ViewportClearAllSelection"):

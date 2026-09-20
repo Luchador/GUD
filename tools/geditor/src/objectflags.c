@@ -7,13 +7,20 @@
 #include <src/propconstants.h>
 #include "objectflags.h"
 #include "objectflagcatalog.h"
+#include "characterflagcatalog.h"
+#include "setupselection.h"
+
+#define FLAGS_COUNT (OBJECTFLAGS_COUNT + CHARACTERFLAGS_COUNT)
+static const ObjectFlagDefinition *ObjectFlagsDefinition(int index)
+{ return index < OBJECTFLAGS_COUNT ? &g_ObjectFlags[index] : &g_CharacterFlags[index - OBJECTFLAGS_COUNT]; }
 
 #define OBJECTFLAGS_CLASS "GEditorObjectFlags"
 typedef struct ObjectFlagsState {
-    HWND help, headings[2], checks[OBJECTFLAGS_COUNT], tooltip;
-    DWORD objectindex, values[2];
+    HWND help, headings[3], checks[FLAGS_COUNT], tooltip;
+    DWORD *selection, count;
+    SetupFlagSummary summary;
     BOOL selected;
-    int type, scroll, wheelremainder;
+    int scroll, wheelremainder;
     char tip[2048];
 } ObjectFlagsState;
 
@@ -21,7 +28,11 @@ static ObjectFlagsState *ObjectFlagsGetState(HWND hwnd)
 { return (ObjectFlagsState *)GetWindowLongPtr(hwnd, GWLP_USERDATA); }
 
 static BOOL ObjectFlagsIsVisible(const ObjectFlagsState *state, int index)
-{ return state->selected && ObjectFlagAppliesToType(&g_ObjectFlags[index], state->type); }
+{
+    const ObjectFlagDefinition *flag = ObjectFlagsDefinition(index);
+    return state->selected && (flag->bank == 2 ? state->summary.characters > 0
+        : state->summary.objects > 0 && ObjectFlagAppliesToType(flag, state->summary.objecttype));
+}
 
 static int ObjectFlagsTextHeight(HDC dc, HWND control, int width)
 {
@@ -52,7 +63,7 @@ static void ObjectFlagsPlaceControl(HWND control, const RECT *bounds, int scroll
 
 static void ObjectFlagsLayout(HWND hwnd, ObjectFlagsState *state)
 {
-    RECT client, help, bounds[OBJECTFLAGS_COUNT], headings[2] = {{0}, {0}};
+    RECT client, help, bounds[FLAGS_COUNT], headings[3] = {{0}, {0}, {0}};
     SCROLLINFO info = {0};
     HDC dc = GetDC(hwnd);
     HFONT previous = (HFONT)SelectObject(dc, GetStockObject(DEFAULT_GUI_FONT));
@@ -62,14 +73,14 @@ static void ObjectFlagsLayout(HWND hwnd, ObjectFlagsState *state)
     y = helpheight + 12;
     if (state->selected)
     {
-        for (int i = 0; i < OBJECTFLAGS_COUNT; i++)
+        for (int i = 0; i < FLAGS_COUNT; i++)
         {
             int height;
             if (!ObjectFlagsIsVisible(state, i)) { continue; }
             height = ObjectFlagsTextHeight(dc, state->checks[i], width - 24);
-            if (bank != (int)g_ObjectFlags[i].bank)
+            if (bank != (int)ObjectFlagsDefinition(i)->bank)
             {
-                bank = (int)g_ObjectFlags[i].bank;
+                bank = (int)ObjectFlagsDefinition(i)->bank;
                 y += 8;
                 SetRect(&headings[bank], 4, y, width + 4, y + 24);
                 y += 28;
@@ -85,13 +96,13 @@ static void ObjectFlagsLayout(HWND hwnd, ObjectFlagsState *state)
     SetScrollInfo(hwnd, SB_VERT, &info, FALSE);
     SetRect(&help, 4, 4, width + 4, helpheight + 4);
     ObjectFlagsPlaceControl(state->help, &help, state->scroll);
-    for (int i = 0; i < 2; i++)
+    for (int i = 0; i < 3; i++)
     {
         ObjectFlagsPlaceControl(state->headings[i],
             state->selected && headings[i].bottom > headings[i].top ? &headings[i] : NULL,
             state->scroll);
     }
-    for (int i = 0; i < OBJECTFLAGS_COUNT; i++)
+    for (int i = 0; i < FLAGS_COUNT; i++)
     {
         BOOL visible = ObjectFlagsIsVisible(state, i);
         EnableWindow(state->checks[i], visible);
@@ -105,28 +116,29 @@ static void ObjectFlagsLayout(HWND hwnd, ObjectFlagsState *state)
 
 static void ObjectFlagsSyncChecks(ObjectFlagsState *state)
 {
-    for (int i = 0; i < OBJECTFLAGS_COUNT; i++)
+    for (int i = 0; i < FLAGS_COUNT; i++)
     {
-        const ObjectFlagDefinition *flag = &g_ObjectFlags[i];
+        const ObjectFlagDefinition *flag = ObjectFlagsDefinition(i);
         SendMessage(state->checks[i], BM_SETCHECK,
-            state->selected && (state->values[flag->bank] & flag->mask) ? BST_CHECKED : BST_UNCHECKED, 0);
+            !state->selected ? BST_UNCHECKED : (state->summary.all[flag->bank] & flag->mask) ? BST_CHECKED
+                : (state->summary.any[flag->bank] & flag->mask) ? BST_INDETERMINATE : BST_UNCHECKED, 0);
     }
 }
 
 static void ObjectFlagsDescribe(ObjectFlagsState *state, int index)
 {
-    const ObjectFlagDefinition *flag = &g_ObjectFlags[index];
+    const ObjectFlagDefinition *flag = ObjectFlagsDefinition(index);
     BOOL aliases = FALSE;
     snprintf(state->tip, sizeof(state->tip), "%s\r\nBit: 0x%08lX\r\n%s", flag->name,
         (unsigned long)flag->mask, flag->description[0] ? flag->description : "No description in propconstants.h.");
-    for (int i = 0; i < OBJECTFLAGS_COUNT; i++)
+    for (int i = 0; i < FLAGS_COUNT; i++)
     {
         size_t used;
         if (i == index || !ObjectFlagsIsVisible(state, i)
-            || g_ObjectFlags[i].bank != flag->bank || g_ObjectFlags[i].mask != flag->mask) { continue; }
+            || ObjectFlagsDefinition(i)->bank != flag->bank || ObjectFlagsDefinition(i)->mask != flag->mask) { continue; }
         used = strlen(state->tip);
         snprintf(state->tip + used, sizeof(state->tip) - used, "%s%s",
-            aliases ? ", " : "\r\nSame bit as: ", g_ObjectFlags[i].name);
+            aliases ? ", " : "\r\nSame bit as: ", ObjectFlagsDefinition(i)->name);
         aliases = TRUE;
     }
 }
@@ -141,11 +153,11 @@ static LRESULT CALLBACK ObjectFlagsWndProc(HWND hwnd, UINT msg, WPARAM wparam, L
         CREATESTRUCT *cs = (CREATESTRUCT *)lparam;
         state = calloc(1, sizeof(*state)); if (!state) { return -1; }
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
-        state->help = CreateWindowEx(0, "STATIC", "Select a setup object to edit its flags.\r\nCharacters, geometry, pads and camera markers use different properties.",
+        state->help = CreateWindowEx(0, "STATIC", "Select objects or characters to edit their flags.\r\nShift-click adds models; Shift+S selects matching models.",
             WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | SS_NOPREFIX, 0, 0, 1, 1, hwnd, NULL, cs->hInstance, NULL);
         if (!state->help) { return -1; }
         SendMessage(state->help, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
-        for (int i = 0; i < 2; i++)
+        for (int i = 0; i < 3; i++)
         {
             state->headings[i] = CreateWindowEx(0, "STATIC", "", WS_CHILD | WS_CLIPSIBLINGS | SS_NOPREFIX,
                 0, 0, 1, 1, hwnd, NULL, cs->hInstance, NULL);
@@ -157,11 +169,11 @@ static LRESULT CALLBACK ObjectFlagsWndProc(HWND hwnd, UINT msg, WPARAM wparam, L
         if (!state->tooltip) { return -1; }
         SendMessage(state->tooltip, TTM_SETMAXTIPWIDTH, 0, 430);
         SendMessage(state->tooltip, TTM_SETDELAYTIME, TTDT_AUTOPOP, 20000);
-        for (int i = 0; i < OBJECTFLAGS_COUNT; i++)
+        for (int i = 0; i < FLAGS_COUNT; i++)
         {
             TOOLINFO tool = {0};
-            state->checks[i] = CreateWindowEx(0, "BUTTON", g_ObjectFlags[i].label,
-                WS_CHILD | WS_TABSTOP | WS_CLIPSIBLINGS | BS_AUTOCHECKBOX | BS_MULTILINE | BS_NOTIFY,
+            state->checks[i] = CreateWindowEx(0, "BUTTON", ObjectFlagsDefinition(i)->label,
+                WS_CHILD | WS_TABSTOP | WS_CLIPSIBLINGS | BS_3STATE | BS_MULTILINE | BS_NOTIFY,
                 0, 0, 1, 1, hwnd, (HMENU)(INT_PTR)(i + 1), cs->hInstance, NULL);
             if (!state->checks[i]) { return -1; }
             SendMessage(state->checks[i], WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
@@ -177,7 +189,7 @@ static LRESULT CALLBACK ObjectFlagsWndProc(HWND hwnd, UINT msg, WPARAM wparam, L
         if (state && state->selected)
         {
             int index = LOWORD(wparam) - 1;
-            if (index < 0 || index >= OBJECTFLAGS_COUNT || (HWND)lparam != state->checks[index]) { return 0; }
+            if (index < 0 || index >= FLAGS_COUNT || (HWND)lparam != state->checks[index]) { return 0; }
             if (!ObjectFlagsIsVisible(state, index)) { return 0; }
             if (HIWORD(wparam) == BN_SETFOCUS)
             {
@@ -190,8 +202,9 @@ static LRESULT CALLBACK ObjectFlagsWndProc(HWND hwnd, UINT msg, WPARAM wparam, L
             }
             else if (HIWORD(wparam) == BN_CLICKED)
             {
-                ObjectFlagEdit edit = {state->objectindex, g_ObjectFlags[index].bank, g_ObjectFlags[index].mask,
-                    SendMessage(state->checks[index], BM_GETCHECK, 0, 0) == BST_CHECKED};
+                const ObjectFlagDefinition *flag = ObjectFlagsDefinition(index);
+                ObjectFlagEdit edit = {state->selection, state->count, flag->bank, flag->mask,
+                    (state->summary.all[flag->bank] & flag->mask) == 0};
                 /* The frame refreshes these copied values after success or rollback. */
                 SendMessage(GetParent(hwnd), OBJECTFLAGS_WM_CHANGED, 0, (LPARAM)&edit);
                 ObjectFlagsSyncChecks(state);
@@ -202,7 +215,7 @@ static LRESULT CALLBACK ObjectFlagsWndProc(HWND hwnd, UINT msg, WPARAM wparam, L
         if (state && ((NMHDR *)lparam)->hwndFrom == state->tooltip && ((NMHDR *)lparam)->code == TTN_GETDISPINFO)
         {
             NMTTDISPINFO *tip = (NMTTDISPINFO *)lparam;
-            for (int i = 0; i < OBJECTFLAGS_COUNT; i++)
+            for (int i = 0; i < FLAGS_COUNT; i++)
             {
                 if ((HWND)tip->hdr.idFrom != state->checks[i]) { continue; }
                 ObjectFlagsDescribe(state, i); tip->lpszText = state->tip; break;
@@ -243,6 +256,7 @@ static LRESULT CALLBACK ObjectFlagsWndProc(HWND hwnd, UINT msg, WPARAM wparam, L
         if (state && state->tooltip) { DestroyWindow(state->tooltip); state->tooltip = NULL; }
         return 0;
     case WM_NCDESTROY:
+        if (state) { free(state->selection); }
         free(state); SetWindowLongPtr(hwnd, GWLP_USERDATA, 0); break;
     }
     return DefWindowProc(hwnd, msg, wparam, lparam);
@@ -261,24 +275,39 @@ HWND ObjectFlagsCreate(HWND parent, HINSTANCE instance)
         WS_CHILD | WS_VSCROLL | WS_CLIPCHILDREN, 0, 0, 1, 1, parent, NULL, instance, NULL);
 }
 
-void ObjectFlagsSetSelection(HWND panel, const SetupObject *object, DWORD index)
+void ObjectFlagsSetSelection(HWND panel, const SetupFile *setup, const DWORD *ids, DWORD count)
 {
     ObjectFlagsState *state = ObjectFlagsGetState(panel);
-    char heading[64];
+    char heading[128], help[512];
+    DWORD *copy = NULL;
+    SetupFlagSummary summary;
     if (!state) { return; }
-    if (state->selected != (object != NULL)
-        || (object && (state->objectindex != index || state->type != object->type)))
-    { state->scroll = 0; state->wheelremainder = 0; SendMessage(state->tooltip, TTM_POP, 0, 0); }
-    state->selected = object != NULL; state->objectindex = index;
-    state->type = object ? object->type : PROPDEF_NOTHING;
-    state->values[0] = object ? object->flags : 0;
-    state->values[1] = object ? object->flags2 : 0;
-    SetWindowText(state->help, object
-        ? "Meanings depend on object type. Aliases share a bit. Hover for details.\r\nFlags can hide an object; Undo restores it."
-        : "Select a setup object to edit its flags.\r\nCharacters, geometry, pads and camera markers use different properties.");
-    for (int bank = 0; bank < 2; bank++)
+    if (count && ids && SetupSelectionFlags(setup, ids, count, &summary))
     {
-        snprintf(heading, sizeof(heading), "%s: 0x%08lX", bank ? "PROPFLAG2" : "PROPFLAG", (unsigned long)state->values[bank]);
+        copy = malloc((size_t)count * sizeof(*copy));
+        if (copy) { memcpy(copy, ids, count * sizeof(*copy)); }
+    }
+    if (!copy) { count = 0; memset(&summary, 0, sizeof(summary)); }
+    if (count != state->count || (count && memcmp(copy, state->selection, count * sizeof(*copy))))
+    { state->scroll = 0; state->wheelremainder = 0; SendMessage(state->tooltip, TTM_POP, 0, 0); }
+    free(state->selection); state->selection = copy; state->count = count;
+    state->selected = count != 0; state->summary = summary;
+    if (count)
+    {
+        snprintf(help, sizeof(help), "%lu object(s), %lu character(s) selected.\r\n"
+            "A shaded checkbox means mixed values; click to enable for all. Each section applies to its listed models.\r\n"
+            "Aliases share a bit. Hover for details. Flags can hide models; Undo restores them.",
+            (unsigned long)summary.objects, (unsigned long)summary.characters);
+    }
+    else { snprintf(help, sizeof(help), "Select objects or characters to edit their flags.\r\nShift-click adds models; Shift+S selects matching models."); }
+    SetWindowText(state->help, help);
+    for (int bank = 0; bank < 3; bank++)
+    {
+        const char *name = bank == 2 ? "Character flags" : bank ? "PROPFLAG2" : "PROPFLAG";
+        DWORD models = bank == 2 ? summary.characters : summary.objects;
+        if (summary.all[bank] == summary.any[bank])
+            snprintf(heading, sizeof(heading), "%s (%lu): 0x%08lX", name, (unsigned long)models, (unsigned long)summary.all[bank]);
+        else { snprintf(heading, sizeof(heading), "%s (%lu): Mixed", name, (unsigned long)models); }
         SetWindowText(state->headings[bank], heading);
     }
     ObjectFlagsSyncChecks(state);

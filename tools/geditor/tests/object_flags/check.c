@@ -6,6 +6,7 @@
 #include "setupload.h"
 #include "bghistory.h"
 #include "objectflagcatalog.h"
+#include "setupselection.h"
 
 /* The tested history entries own only setup documents. */
 void BgDocumentFree(BgDocument *document) { (void)document; abort(); }
@@ -153,12 +154,109 @@ static void Invalid(const SetupFile *source)
     puts("PASS: invalid masks, banks, character indices and corrupt/stale source records are rejected without mutation.");
 }
 
+static void Similar(void)
+{
+    SetupObject objects[7] = {
+        {.type=PROPDEF_PROP,.modelid=12}, {.type=PROPDEF_PROP,.modelid=13},
+        {.type=PROPDEF_DOOR,.modelid=12}, {.type=PROPDEF_PROP,.modelid=12,.deleted=TRUE},
+        {.type=PROPDEF_COLLECTABLE,.modelid=12,.flags=PROPFLAG_ASSIGNEDTOCHR},
+        {.type=PROPDEF_PROP,.modelid=12,.flags=PROPFLAG_INSIDEANOTHEROBJ}, {.modelid=-1}};
+    SetupCharacter characters[4] = {{.bodyid=12,.headid=3},{.bodyid=12,.headid=6},{.bodyid=13},{.bodyid=12,.deleted=TRUE}};
+    SetupFile setup = {.objects=objects,.objectcount=7,.characters=characters,.charactercount=4};
+    DWORD seeds[] = {0, SETUP_CHARACTER_SELECTION_BIT}, *out, count;
+    const char *why;
+    assert(SetupSelectionSimilar(&setup,seeds,1,&out,&count,&why));
+    assert(count==2 && out[0]==0 && out[1]==2); free(out);
+    assert(SetupSelectionSimilar(&setup,seeds+1,1,&out,&count,&why));
+    assert(count==2 && out[0]==SETUP_CHARACTER_SELECTION_BIT && out[1]==(SETUP_CHARACTER_SELECTION_BIT|1)); free(out);
+    assert(SetupSelectionSimilar(&setup,seeds,2,&out,&count,&why));
+    assert(count==4 && out[0]==0 && out[1]==2 && out[2]==SETUP_CHARACTER_SELECTION_BIT); free(out);
+    assert(!SetupSelectionSimilar(&setup,NULL,0,&out,&count,&why) && !out && !count);
+    seeds[0]=1000;
+    assert(!SetupSelectionSimilar(&setup,seeds,1,&out,&count,&why));
+    puts("PASS: Similar matches object models / character bodies in separate namespaces, unions mixed seeds and excludes deleted/carried/contained records.");
+}
+
+static void Collective(const SetupFile *source, const char *dir)
+{
+    SetupFile setup = {0}, before = {0}, edited = {0};
+    const char *why; BOOL changed; SetupFlagSummary flags;
+    DWORD ids[] = {0,1,SETUP_CHARACTER_SELECTION_BIT,SETUP_CHARACTER_SELECTION_BIT|1};
+    EditHistory history = {0}; EditHistoryTransaction transaction = {0}; EditHistoryAsset asset;
+    BgDocument bg = {0}; StanFile stan = {0};
+    assert(SetupFileClone(source,&setup,&why));
+    assert(SetupSelectionFlags(&setup,ids,4,&flags));
+    assert(flags.objects==2 && flags.characters==2 && flags.objecttype==-1);
+    assert(flags.all[2]==0 && flags.any[2]==9);
+    /* One undoable checkbox edit covers both objects, preserving character data. */
+    EditHistoryReset(&history,&bg,&setup,&stan);
+    assert(EditHistoryBeginSetupEdit(&history,&setup,"Change Model Flags",&transaction,&why));
+    assert(SetupSelectionSetFlag(&setup,ids,4,1,PROPFLAG2_GUNFIRE_IMMUNE,TRUE,&changed,&why) && changed);
+    assert(!memcmp(setup.characters,source->characters,2*sizeof(*source->characters)));
+    assert((setup.objects[0].flags2 & PROPFLAG2_GUNFIRE_IMMUNE) && (setup.objects[1].flags2 & PROPFLAG2_GUNFIRE_IMMUNE));
+    assert(EditHistoryCommitEdit(&history,&bg,&setup,&stan,&transaction,&why));
+    assert(history.undocount==1 && SetupFileClone(&setup,&edited,&why));
+    assert(EditHistoryUndo(&history,&bg,&setup,&stan,&asset,&why)); Same(&setup,source);
+    assert(EditHistoryRedo(&history,&bg,&setup,&stan,&asset,&why)); Same(&setup,&edited);
+    RoundTrip(dir,&setup);
+    EditHistoryFree(&history); SetupFileFree(&edited); SetupFileFree(&setup);
+    /* All sixteen saved guard bits, including mixed -> checked / clear.
+     * Compare every byte to catch writes into adjacent fields or records. */
+    for (DWORD mask=1;mask<=0x8000;mask<<=1)
+    {
+        assert(SetupFileClone(source,&setup,&why));
+        for (int enabled=1;enabled>=0;enabled--)
+        {
+            assert(SetupFileClone(&setup,&before,&why));
+            for (DWORD c=0;c<before.charactercount;c++)
+            {
+                DWORD at=before.characters[c].sourceoffset+20;
+                unsigned short value=before.characters[c].flags;
+                value=enabled ? value|mask : value&~mask;
+                before.data[at]=value>>8; before.data[at+1]=value;
+                before.characters[c].flags=value;
+            }
+            assert(SetupSelectionSetFlag(&setup,ids,4,2,mask,enabled,&changed,&why));
+            Same(&setup,&before); RoundTrip(dir,&setup); SetupFileFree(&before);
+            assert(SetupSelectionFlags(&setup,ids,4,&flags));
+            assert((flags.all[2]&mask)==(enabled?mask:0) && (flags.any[2]&mask)==(enabled?mask:0));
+            assert(SetupSelectionSetFlag(&setup,ids,4,2,mask,enabled,&changed,&why) && !changed);
+        }
+        SetupFileFree(&setup);
+    }
+    /* A late corrupt record rolls back the whole batch, including an earlier edit. */
+    assert(SetupFileClone(source,&setup,&why));
+    setup.objects[1].sourceoffset=0;
+    assert(SetupFileClone(&setup,&before,&why));
+    assert(!SetupSelectionSetFlag(&setup,ids,4,1,PROPFLAG2_GUNFIRE_IMMUNE,TRUE,&changed,&why) && !changed);
+    Same(&setup,&before); assert(!setup.dirty);
+    SetupFileFree(&setup); SetupFileFree(&before);
+    assert(SetupFileClone(source,&setup,&why));
+    setup.characters[1].flags^=2;
+    assert(SetupFileClone(&setup,&before,&why));
+    assert(!SetupSelectionSetFlag(&setup,ids,4,2,2,TRUE,&changed,&why) && !changed);
+    Same(&setup,&before); assert(!setup.dirty);
+    assert(!SetupSelectionSetFlag(&setup,ids,4,2,0x10000,TRUE,&changed,&why));
+    assert(!SetupSelectionSetFlag(&setup,ids,4,2,3,TRUE,&changed,&why));
+    SetupFileFree(&setup); SetupFileFree(&before);
+    /* Hidden-by-flags objects stay editable as part of a group. */
+    assert(SetupFileClone(source,&setup,&why));
+    for (DWORD mask=8;mask<=128;mask<<=1)
+        assert(SetupSelectionSetFlag(&setup,ids,4,1,mask,TRUE,&changed,&why));
+    assert(setup.objects[0].deleted && setup.objects[1].deleted);
+    assert(SetupSelectionSetFlag(&setup,ids,4,1,PROPFLAG2_NO_LOAD_A,FALSE,&changed,&why) && changed);
+    assert(!setup.objects[0].deleted && !setup.objects[1].deleted);
+    RoundTrip(dir,&setup); SetupFileFree(&setup);
+    puts("PASS: collective object/character flags, mixed values, all guard bits, atomic rejection, save/reload, no-ops, hidden models and one-step undo/redo.");
+}
+
 int main(int argc, char **argv)
 {
     SetupFile source = {0}; const char *why = "";
     assert(argc == 2);
     assert(SetupLoadProjectFile(argv[1], "UsetupflagsZ", &source, &why));
-    assert(source.objectcount == 2 && source.charactercount == 1 && source.padcount == 1);
+    assert(source.objectcount == 2 && source.charactercount == 2 && source.padcount == 1);
+    Similar(); Collective(&source, argv[1]);
     TypeSpecificFlags(); AllBits(&source, argv[1]); History(&source, argv[1]); ModeExclusions(&source, argv[1]); Invalid(&source);
     SetupFileFree(&source); return 0;
 }

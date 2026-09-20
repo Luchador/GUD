@@ -35,6 +35,7 @@ typedef struct ViewportState {
     SceneBatch *batches;
     ViewportComponent *components;
     unsigned char *selectedtris, *hiddentris, *stanselected;
+    DWORD *selectedobjects, selectedobjectcount;
     DWORD *sceneobjectindices, selectedobject, *stanpointmap, *stanhiddenids, stanhiddencount;
     StanFile stan;
     ViewportStanComponent *stancomponents;
@@ -182,6 +183,10 @@ static void TestSelection(void)
     assert(ViewportSelectionBounds(&s,min,max) && min[0]==-10 && max[0]==10 && max[1]==30);
     s.componentcount=0; s.selectedobject=objects[2];
     assert(ViewportSelectionBounds(&s,min,max) && min[0]==400 && max[0]==600 && min[2]==-300);
+    DWORD group[] = {4,0x80000002};
+    objects[1]=4; s.selectedobjects=group; s.selectedobjectcount=2;
+    assert(ViewportSelectionBounds(&s,min,max) && min[0]==400 && max[0]==30000);
+    s.selectedobjectcount=0; s.selectedobjects=NULL; objects[1]=VIEWPORT_OBJECT_NONE;
     s.showobjects=FALSE;
     assert(!ViewportSelectionBounds(&s,min,max));
     s=Empty();

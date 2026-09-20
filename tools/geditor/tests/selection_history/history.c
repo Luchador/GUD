@@ -47,6 +47,9 @@ typedef intptr_t LRESULT;
 #define GEDITOR_TITLE "test"
 static EditHistory g_EditHistory;
 static BgDocument bg;
+static BgDocument g_CurrentBgDocument;
+static void PatrolEditorRefresh(void) {}
+static void IssuesWindowInvalidate(void) {}
 static SetupFile setup;
 static StanFile stan;
 static BOOL g_SelectionHistoryPending, g_SelectionHistoryReset, g_SelectionHistoryNavigation;

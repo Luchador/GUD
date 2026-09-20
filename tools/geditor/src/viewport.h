@@ -233,6 +233,9 @@ BOOL ViewportGetPrimitiveDrop(HWND hwnd, POINT screen, double position[3],
 BOOL ViewportSelectBgFaces(HWND hwnd, const BgFaceRef *refs, DWORD count);
 BOOL ViewportGetCameraDirection(HWND hwnd, double look[3]);
 void ViewportSelectSetupModel(HWND hwnd, DWORD selection);
+DWORD ViewportGetSelectedModelCount(HWND hwnd);
+BOOL ViewportGetSelectedModels(HWND hwnd, DWORD *ids, DWORD count);
+BOOL ViewportSelectSetupModels(HWND hwnd, const DWORD *ids, DWORD count);
 BOOL ViewportGetSelectedPad(HWND hwnd, SetupPadRef *out);
 BOOL ViewportGetSelectedMarker(HWND hwnd, SetupMarkerRef *out, SetupMarker *spawn);
 /* NULL clears selection. Call after a spawn edit changes intro command indices. */

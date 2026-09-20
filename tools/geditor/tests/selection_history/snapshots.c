@@ -16,6 +16,7 @@ typedef float GLfloat;
 typedef unsigned char GLubyte;
 #include "uvcanvas.h"
 #include "types.inc"
+#define VIEWPORT_BOX_VERTICES 24
 #define VIEWPORT_OBJECT_NONE ((DWORD)-1)
 
 typedef struct ViewportState {
@@ -33,6 +34,9 @@ typedef struct ViewportState {
     StanFile stan;
     DWORD *stanpointmap, *stanhiddenids, stanhiddencount;
     DWORD selectedobject, selectedportal, padcount;
+    DWORD *selectedobjects, selectedobjectcount;
+    Vertex *objectselectionboxes;
+    GLsizei objectselectionboxescount, objectselectionboxcount;
     SetupPadRef selectedpad;
     SetupMarkerRef selectedmarker;
     ViewportPad *pads;
@@ -50,14 +54,13 @@ static void ViewportUpdateGizmo(ViewportState *state) { state->gizmovisible = TR
 static void ViewportRedraw(HWND hwnd) {}
 static void ViewportCancelTransform(HWND hwnd) {}
 static void ViewportSetTriangleColor(ViewportState *state, int triangle, BOOL selected) {}
-static void ViewportSelectObject(ViewportState *state, DWORD index) { state->selectedobject = index; }
+static void ViewportBuildObjectSelectionBox(ViewportState *state) {}
 static BOOL ViewportSelectedMarker(const ViewportState *state, SetupMarker *marker)
 { return state->markerselected && state->showobjects && state->selectedmarker.command < 10; }
 static void ViewportClearPadSelection(ViewportState *state)
 { memset(state->portalselection, 0, sizeof(state->portalselection)); state->selectedpad.index = SETUP_PAD_INDEX_NONE; state->selectedportal = BG_PORTAL_INDEX_NONE; state->markerselected = FALSE; }
 static void ViewportClearBgSelection(ViewportState *state)
 { if (state->selectedtris) { memset(state->selectedtris, 0, state->scenecount / 3); } state->selectedtricount = 0; }
-static void ViewportClearObjectSelection(ViewportState *state) { state->selectedobject = VIEWPORT_OBJECT_NONE; }
 static void ViewportClearStanSelection(ViewportState *state)
 { if (state->stanselected) { memset(state->stanselected, 0, state->stan.tilecount); } state->stancomponentcount = 0; }
 BOOL UVCanvasCancelInteraction(HWND canvas) { return FALSE; }
@@ -183,6 +186,40 @@ int main(void)
     state.selectedobject = 0;
     assert(ViewportRestoreSelection(&state, snapshot, size));
     assert(state.selectedobject == 0x80000003u); free(snapshot);
+    /* Shift adds without toggling; Ctrl removes only its target. Mixed
+     * object/character groups survive snapshots and allocation failures. */
+    ViewportClearAllSelection(&state);
+    assert(ViewportModifyObjectSelection(&state, 7, FALSE, FALSE));
+    assert(ViewportModifyObjectSelection(&state, 2, TRUE, FALSE));
+    assert(ViewportModifyObjectSelection(&state, 0x80000003u, TRUE, FALSE));
+    assert(ViewportModifyObjectSelection(&state, 7, TRUE, FALSE));
+    assert(ViewportGetSelectedModelCount(&state) == 3 && state.selectedobject == 7);
+    DWORD models[3], single;
+    assert(!ViewportGetSelectedObject(&state, &single));
+    assert(ViewportGetSelectedModels(&state, models, 3));
+    assert(models[0] == 2 && models[1] == 7 && models[2] == 0x80000003u);
+    snapshot = Capture(&state, &size);
+    assert(ViewportModifyObjectSelection(&state, 99, FALSE, TRUE));
+    other = Capture(&state, &other_size);
+    assert(size == other_size && !memcmp(snapshot, other, size)); free(other);
+    assert(ViewportModifyObjectSelection(&state, 7, FALSE, TRUE));
+    assert(state.selectedobjectcount == 2 && !ViewportObjectSelected(&state, 7));
+    failalloc = TRUE;
+    assert(!ViewportRestoreSelection(&state, snapshot, size));
+    assert(!ViewportModifyObjectSelection(&state, 50, TRUE, FALSE));
+    assert(state.selectedobjectcount == 2 && !ViewportObjectSelected(&state, 7));
+    failalloc = FALSE;
+    assert(ViewportRestoreSelection(&state, snapshot, size));
+    other = Capture(&state, &other_size);
+    assert(size == other_size && !memcmp(snapshot, other, size)); free(other); free(snapshot);
+    assert(ViewportModifyObjectSelection(&state, 50, FALSE, FALSE));
+    assert(ViewportGetSelectedModelCount(&state) == 1 && ViewportGetSelectedObject(&state, &single) && single == 50);
+    assert(ViewportModifyObjectSelection(&state, 50, FALSE, TRUE));
+    assert(!ViewportGetSelectedModelCount(&state));
+    DWORD duplicates[] = {9, 2, 9, VIEWPORT_OBJECT_NONE, 2};
+    assert(ViewportSetObjectIds(&state, duplicates, 5) && state.selectedobjectcount == 2);
+    assert(state.selectedobjects[0] == 2 && state.selectedobjects[1] == 9);
+    puts("Shift-add, Ctrl-remove, canonical group snapshots, single-property guards and allocation rollback passed.");
     for (int bound = 0; bound < 2; bound++)
     {
         ViewportClearAllSelection(&state);
@@ -241,6 +278,7 @@ int main(void)
     free(snapshot);
     assert(UVCanvasCaptureSelection(&uv, &snapshot, &size)); assert(!snapshot && !size);
     assert(UVCanvasRestoreSelection(&uv, NULL, 0));
+    ViewportClearObjectSelection(&state);
     free(state.components); free(state.stancomponents);
     puts("BG/stan, object/character, pad/marker, portal and UV selection snapshot restoration passed.");
     return 0;

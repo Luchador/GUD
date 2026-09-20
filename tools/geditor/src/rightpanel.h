@@ -61,11 +61,12 @@ void RightPanelSetStanSelection(HWND panel, const StanFile *stan, EditorTool too
                                  DWORD count, DWORD singletile,
                                  const DWORD *selected, DWORD roomcount);
 void RightPanelSetBgComponentSelection(HWND panel, BOOL edges, int count);
+void RightPanelSetModelSelectionCount(HWND panel, DWORD count);
 void RightPanelSetBgSelectionCount(HWND panel, int count);
 void RightPanelSetSetupObject(HWND panel, const SetupFile *setup,
                               DWORD objectindex, const char *projectdir);
 /* Clear with NULL whenever the selection is not an ObjectRecord. */
-void RightPanelSetObjectFlags(HWND panel, const SetupObject *object, DWORD index);
+void RightPanelSetObjectFlags(HWND panel, const SetupFile *setup, const DWORD *ids, DWORD count);
 void RightPanelSetSetupCharacter(HWND panel, const SetupFile *setup, DWORD index);
 void RightPanelSetSetupPad(HWND panel, const SetupFile *setup, const SetupPadRef *ref);
 void RightPanelSetSetupMarker(HWND panel, const SetupMarkerRef *ref);

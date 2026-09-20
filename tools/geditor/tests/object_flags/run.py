@@ -27,17 +27,24 @@ def main():
             supported_bits.remove(0x04000000)  # Retired onscreen override.
         assert {int(expected[name], 16) for b, name in catalog if int(b) == bank} == supported_bits
     print(f'PASS: all {len(catalog)} named flags and aliases cover the supported bits in both words.', flush=True)
+    guard = (root / 'src/bondconstants.h').read_text()
+    flags = dict(re.findall(r'(GUARD_SETUP_FLAG_\w+)\s*=\s*(0x[0-9a-fA-F]+)', guard))
+    exposed = dict((name, mask) for mask, name in re.findall(r'\{2, (0x[0-9a-fA-F]+), "(GUARD_SETUP_FLAG_\w+)"', (src / 'characterflagcatalog.h').read_text()))
+    assert flags == exposed
     with tempfile.TemporaryDirectory(prefix='geditor-object-flags-') as temp:
         work = Path(temp)
         (work / 'setup').mkdir()
         # An object, a guard, and a door, followed by a real pad and both table
         # terminators. Patterned payloads catch unrelated data being rewritten.
         data = bytearray(40)
-        for size, kind in ((128, 3), (28, 9), (256, 1)):
+        for size, kind in ((128, 3), (28, 9), (256, 1), (28, 9)):
             record = bytearray((i * 13 + 7) % 256 for i in range(size))
             struct.pack_into('>I', record, 0, 0x01002000 | kind)
             if kind != 9:
                 struct.pack_into('>HHII', record, 4, 15, 0, 0x52514C3B, 0x8310140D)
+            if kind == 9:
+                struct.pack_into('>HHH', record, 4, len(data), 0, 0x12)
+                struct.pack_into('>H', record, 20, 1 if len(data) == 168 else 8)
             data += record
         data += struct.pack('>I', 48)
         pads = len(data)
@@ -49,7 +56,7 @@ def main():
         command = [os.environ.get('CC', 'cc'), '-O1', '-g', '-std=c99', '-Wall', '-Wextra',
                    '-ffunction-sections', '-fdata-sections', '-fsanitize=address,undefined',
                    f'-I{shim}', f'-I{src}', f'-I{root}', str(here / 'check.c'), str(shim / 'platform.c')]
-        command += [str(src / name) for name in ('setupload.c', 'actionblocks.c', 'bghistory.c')]
+        command += [str(src / name) for name in ('setupload.c', 'actionblocks.c', 'bghistory.c', 'setupselection.c')]
         command += ['-Wl,--gc-sections', '-lm', '-o', str(work / 'check')]
         subprocess.run(command, check=True)
         subprocess.run([str(work / 'check'), str(work)], check=True,

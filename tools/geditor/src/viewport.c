@@ -343,6 +343,9 @@ typedef struct ViewportState {
     unsigned char *dragmask;
     int selectedtricount;
     DWORD selectedobject;
+    DWORD *selectedobjects, selectedobjectcount;
+    Vertex *objectselectionboxes;
+    GLsizei objectselectionboxescount;
     Vertex objectselectionbox[VIEWPORT_BOX_VERTICES];
     GLsizei objectselectionboxcount;
     ViewportTexture *texturecache; /* VIEWPORT_TEXTURE_VARIANT_COUNT entries */
@@ -2237,8 +2240,10 @@ static void ViewportPaintGL(ViewportState *state)
         glLineWidth(1.0f);
     }
 
-    if (state->showobjects && state->objectselectionboxcount > 0)
+    if (state->showobjects && (state->objectselectionboxcount > 0 || state->objectselectionboxescount > 0))
     {
+        const Vertex *boxes = state->selectedobjectcount > 1 ? state->objectselectionboxes : state->objectselectionbox;
+        GLsizei boxvertices = state->selectedobjectcount > 1 ? state->objectselectionboxescount : state->objectselectionboxcount;
         /* A selected object keeps its normal shading. The white bounds are
            a separate depth-tested overlay, so selection never mutates model
            colors or leaks into exported geometry. */
@@ -2250,11 +2255,11 @@ static void ViewportPaintGL(ViewportState *state)
         glDepthFunc(GL_LEQUAL);
 
         glVertexPointer(3, GL_FLOAT, sizeof(Vertex),
-                        &state->objectselectionbox[0].x);
+                        &boxes[0].x);
         glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex),
-                       &state->objectselectionbox[0].r);
+                       &boxes[0].r);
         glLineWidth(2.0f);
-        glDrawArrays(GL_LINES, 0, state->objectselectionboxcount);
+        glDrawArrays(GL_LINES, 0, boxvertices);
         glLineWidth(1.0f);
 
         glDepthMask(GL_TRUE);
@@ -3012,7 +3017,67 @@ void ViewportRefreshBgVertexColor(HWND viewport, const BgDocument *document,
 }
 
 
-static void ViewportBuildObjectSelectionBox(ViewportState *state)
+static DWORD ViewportObjectCount(const ViewportState *state)
+{
+    return !state || state->selectedobject == VIEWPORT_OBJECT_NONE ? 0
+        : state->selectedobjectcount > 1 ? state->selectedobjectcount : 1;
+}
+static int ViewportCompareObjectIds(const void *a, const void *b)
+{ DWORD x = *(const DWORD *)a, y = *(const DWORD *)b; return x < y ? -1 : x != y; }
+static BOOL ViewportObjectSelected(const ViewportState *state, DWORD id)
+{
+    if (!state || id == VIEWPORT_OBJECT_NONE) { return FALSE; }
+    if (state->selectedobjectcount <= 1) { return state->selectedobject == id; }
+    return bsearch(&id, state->selectedobjects, state->selectedobjectcount,
+        sizeof(id), ViewportCompareObjectIds) != NULL;
+}
+/* Reserve both IDs and outlines before changing selection. The sorted set is
+ * canonical for history and membership; selectedobject remains the anchor. */
+static BOOL ViewportSetObjectIds(ViewportState *state, const DWORD *ids, DWORD count)
+{
+    DWORD *copy = NULL, unique = 0; Vertex *boxes = NULL;
+    if (count > 1000000u || (count && !ids)) { return FALSE; }
+    if (count > 1)
+    {
+        copy = malloc((size_t)count * sizeof(*copy));
+        if (!copy) { return FALSE; }
+        memcpy(copy, ids, count * sizeof(*copy));
+        qsort(copy, count, sizeof(*copy), ViewportCompareObjectIds);
+        for (DWORD i = 0; i < count; i++) if (copy[i] != VIEWPORT_OBJECT_NONE && (!unique || copy[i] != copy[unique-1]))
+            copy[unique++] = copy[i];
+        if (unique > 1)
+        {
+            boxes = malloc((size_t)unique * VIEWPORT_BOX_VERTICES * sizeof(*boxes));
+            if (!boxes) { free(copy); return FALSE; }
+        }
+    }
+    else { unique = count && ids[0] != VIEWPORT_OBJECT_NONE ? 1 : 0; }
+    DWORD primary = unique ? (copy ? copy[0] : ids[0]) : VIEWPORT_OBJECT_NONE;
+    free(state->selectedobjects); free(state->objectselectionboxes);
+    state->selectedobjects = copy; state->selectedobjectcount = unique;
+    state->objectselectionboxes = boxes; state->objectselectionboxescount = 0;
+    state->selectedobject = primary; state->objectselectionboxcount = 0;
+    return TRUE;
+}
+static BOOL ViewportModifyObjectSelection(ViewportState *state, DWORD id, BOOL add, BOOL remove)
+{
+    DWORD count = ViewportObjectCount(state), at = 0;
+    if (!add && !remove) { return ViewportSetObjectIds(state, &id, 1); }
+    DWORD *ids = malloc((size_t)(count+1) * sizeof(*ids));
+    if (!ids) { return FALSE; }
+    DWORD primary = state->selectedobject;
+    for (DWORD i = 0; i < count; i++)
+    {
+        DWORD previous = count > 1 ? state->selectedobjects[i] : state->selectedobject;
+        if (!remove || previous != id) { ids[at++] = previous; }
+    }
+    if (!remove) { ids[at++] = id; primary = id; }
+    BOOL ok = ViewportSetObjectIds(state, ids, at); free(ids);
+    if (ok && ViewportObjectSelected(state, primary)) { state->selectedobject = primary; }
+    return ok;
+}
+
+static BOOL ViewportBuildModelBox(ViewportState *state, DWORD object, Vertex box[VIEWPORT_BOX_VERTICES])
 {
     static const unsigned char edges[VIEWPORT_BOX_VERTICES] = {
         0, 1, 1, 2, 2, 3, 3, 0,
@@ -3029,16 +3094,15 @@ static void ViewportBuildObjectSelectionBox(ViewportState *state)
     int axis;
     int vertex;
 
-    state->objectselectionboxcount = 0;
-    if (!state->showobjects || state->selectedobject == VIEWPORT_OBJECT_NONE
+    if (!state->showobjects || object == VIEWPORT_OBJECT_NONE
         || state->scene == NULL || state->sceneobjectindices == NULL)
     {
-        return;
+        return FALSE;
     }
 
     for (triangle = 0; triangle < trianglecount; triangle++)
     {
-        if (state->sceneobjectindices[triangle] != state->selectedobject)
+        if (state->sceneobjectindices[triangle] != object)
         {
             continue;
         }
@@ -3067,8 +3131,7 @@ static void ViewportBuildObjectSelectionBox(ViewportState *state)
 
     if (!found)
     {
-        state->selectedobject = VIEWPORT_OBJECT_NONE;
-        return;
+        return FALSE;
     }
 
     padding = max[0] - min[0];
@@ -3096,7 +3159,7 @@ static void ViewportBuildObjectSelectionBox(ViewportState *state)
 
     for (vertex = 0; vertex < VIEWPORT_BOX_VERTICES; vertex++)
     {
-        Vertex *destination = &state->objectselectionbox[vertex];
+        Vertex *destination = &box[vertex];
         const float *source = corners[edges[vertex]];
 
         destination->x = source[0];
@@ -3106,21 +3169,23 @@ static void ViewportBuildObjectSelectionBox(ViewportState *state)
         destination->a = 255;
         destination->s = destination->t = 0.0f;
     }
-    state->objectselectionboxcount = VIEWPORT_BOX_VERTICES;
+    return TRUE;
 }
 
-
-static void ViewportSelectObject(ViewportState *state, DWORD objectindex)
+static void ViewportBuildObjectSelectionBox(ViewportState *state)
 {
-    state->selectedobject = objectindex;
-    ViewportBuildObjectSelectionBox(state);
+    state->objectselectionboxcount = ViewportBuildModelBox(state, state->selectedobject, state->objectselectionbox)
+        ? VIEWPORT_BOX_VERTICES : 0;
+    state->objectselectionboxescount = 0;
+    for (DWORD i = 0; i < state->selectedobjectcount && state->objectselectionboxes; i++)
+        if (ViewportBuildModelBox(state, state->selectedobjects[i], state->objectselectionboxes + state->objectselectionboxescount))
+            state->objectselectionboxescount += VIEWPORT_BOX_VERTICES;
 }
 
 
 static void ViewportClearObjectSelection(ViewportState *state)
 {
-    state->selectedobject = VIEWPORT_OBJECT_NONE;
-    state->objectselectionboxcount = 0;
+    ViewportSetObjectIds(state, NULL, 0);
 }
 
 
@@ -3398,14 +3463,9 @@ static void ViewportPickAt(HWND hwnd, ViewportState *state, int mousex,
         && (bgdistance == DBL_MAX || objectdistance < bgdistance))
     {
         ViewportClearBgSelection(state);
-        if (deselect && state->selectedobject == objectindex)
-        {
-            ViewportClearObjectSelection(state);
-        }
-        else
-        {
-            ViewportSelectObject(state, objectindex);
-        }
+        state->componentcount = 0;
+        ViewportModifyObjectSelection(state, objectindex, addtoselection, deselect);
+        ViewportBuildObjectSelectionBox(state);
     }
     else if (bgdistance != DBL_MAX)
     {
@@ -3645,6 +3705,7 @@ BOOL ViewportGetSelectionPosition(HWND hwnd, double position[3], DWORD *countout
     int i, axis;
 
     *countout = 0;
+    if (ViewportObjectCount(state) > 1) { return FALSE; }
     if (state && state->knifeactive)
     {
         if (!state->knifepreview) { return FALSE; }
@@ -3739,7 +3800,7 @@ static void ViewportUpdateGizmo(ViewportState *state)
         state->gizmovisible = state->knifepreview && !state->scalemode;
         return;
     }
-    if (state->vertexsnap) { return; }
+    if (state->vertexsnap || ViewportObjectCount(state) > 1) { return; }
     {
         DWORD count;
         if (ViewportPortalSelectionPosition(state, state->gizmoposition, &count))
@@ -3965,21 +4026,23 @@ static BOOL ViewportComponentVisible(const ViewportState *state, int triangle,
 
 /* Vertex and edge modes still pick placed models as a whole. Use the same
  * visible-surface test as face mode, so hidden models cannot steal clicks. */
-static BOOL ViewportTryPickObject(HWND hwnd, ViewportState *state, int x, int y, BOOL remove)
+static BOOL ViewportTryPickObject(HWND hwnd, ViewportState *state, int x, int y, BOOL add, BOOL remove)
 {
     ViewportPickRay ray;
     double distance, standistance;
     DWORD object;
-    BOOL deselect;
     if (state == NULL || state->flying || state->vertexsnap
         || !ViewportBuildPickRay(hwnd, state, x, y, &ray)) { return FALSE; }
     object = ViewportFindPickedObject(state, &ray, &distance);
     if (object == VIEWPORT_OBJECT_NONE) { return FALSE; }
     if (ViewportFindPickedStan(state, &ray, &standistance) != STAN_TILE_NONE
         && standistance <= distance + ViewportCoplanarPickTolerance(distance)) { return FALSE; }
-    deselect = remove && state->selectedobject == object;
-    ViewportClearAllSelection(state);
-    if (!deselect) { ViewportSelectObject(state, object); }
+    ViewportClearPadSelection(state);
+    ViewportClearBgSelection(state);
+    ViewportClearStanSelection(state);
+    state->componentcount = 0;
+    ViewportModifyObjectSelection(state, object, add, remove);
+    ViewportBuildObjectSelectionBox(state);
     ViewportUpdateGizmo(state);
     InvalidateRect(hwnd, NULL, FALSE);
     SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
@@ -3993,7 +4056,7 @@ static void ViewportPickComponent(HWND hwnd, ViewportState *state,
     double nearest = DBL_MAX, objectdistance, best = 100.0;
     int i, triangle = -1, chosen = -1, endcount, found = -1;
     ViewportComponent component;
-    if (!state->portalsnaptarget && ViewportTryPickObject(hwnd, state, x, y, remove)) { return; }
+    if (!state->portalsnaptarget && ViewportTryPickObject(hwnd, state, x, y, add, remove)) { return; }
     if (!ViewportBuildPickRay(hwnd,state,x,y,&ray)) { return; }
     /* Only offer components of the nearest visible face. The 10px target
        radius also allows choosing the vertex square or an edge itself. */
@@ -4506,7 +4569,7 @@ static BOOL ViewportSelectionBounds(const ViewportState *state, double min[3], d
         for (i = 0; i < state->scenecount/3; i++)
         {
             BOOL object = state->showobjects && state->selectedobject != VIEWPORT_OBJECT_NONE
-                && state->sceneobjectindices && state->sceneobjectindices[i] == state->selectedobject;
+                && state->sceneobjectindices && ViewportObjectSelected(state, state->sceneobjectindices[i]);
             BOOL face = state->tool == EDITOR_TOOL_FACE_SELECT && state->selectedtris
                 && state->selectedtris[i] && ViewportCornerVisible(state, i*3);
             if (!object && !face) { continue; }
@@ -6374,7 +6437,7 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
     DWORD refcount = 0;
     int axis = ViewportPickGizmo(hwnd, state, x, y), i, vertexcount;
     double length = 0;
-    if (axis < 0)
+    if (axis < 0 || ViewportObjectCount(state) > 1)
     {
         return FALSE;
     }
@@ -6929,7 +6992,7 @@ static BOOL ViewportOpenModelAt(HWND hwnd, ViewportState *state, int x, int y, W
     double distance;
     if (state == NULL || state->orbit || state->flying || state->vertexsnap
         || state->tool == EDITOR_TOOL_VERTEX_PAINT || state->dragaxis >= 0 || state->boxpending
-        || (modifiers & (MK_SHIFT | MK_CONTROL)) || state->selectedobject == VIEWPORT_OBJECT_NONE)
+        || (modifiers & (MK_SHIFT | MK_CONTROL)) || ViewportObjectCount(state) != 1)
     { return FALSE; }
     if (ViewportPickGizmo(hwnd, state, x, y) >= 0
         || !ViewportBuildPickRay(hwnd, state, x, y, &ray)) { return FALSE; }
@@ -7910,8 +7973,7 @@ static void ViewportFreeScene(struct ViewportState *state_)
     state->texturecount = 0;
     state->batchcount = 0;
     state->selectedtricount = 0;
-    state->selectedobject = VIEWPORT_OBJECT_NONE;
-    state->objectselectionboxcount = 0;
+    ViewportSetObjectIds(state, NULL, 0);
     state->portaledgecount = 0;
     state->portalfillcount = 0;
     state->padmarkercount = 0;
@@ -8349,7 +8411,7 @@ void ViewportSetGeometryVisibility(HWND hwnd, BOOL bgprimary,
         ViewportRefreshPortalColors(state);
     }
     state->showobjects = objects;
-    if (!objects) { state->selectedobject = VIEWPORT_OBJECT_NONE; }
+    if (!objects) { ViewportClearObjectSelection(state); }
     ViewportBuildObjectSelectionBox(state);
     ViewportUpdateGizmo(state);
     InvalidateRect(hwnd, NULL, FALSE);
@@ -8489,7 +8551,10 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     unsigned char *selectedtris = NULL;
     unsigned char *hiddentris = NULL;
     BgDocumentVertexRef *scenevertexrefs = NULL;
-    DWORD savedobject = VIEWPORT_OBJECT_NONE;
+    BOOL keepmodels = !framecamera && projectdir && projectdir[0];
+    DWORD savedobject = VIEWPORT_OBJECT_NONE, savedobjectcount = 0;
+    DWORD *savedobjects = NULL;
+    Vertex *savedobjectboxes = NULL;
     SetupPadRef savedpad = {SETUP_PAD_INDEX_NONE, FALSE};
     SetupMarkerRef savedmarker = state ? state->selectedmarker : (SetupMarkerRef){0};
     BOOL savedmarkerselection = state && !framecamera && state->markerselected;
@@ -8508,7 +8573,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     ViewportSetColorPick(hwnd, FALSE);
     ViewportCancelZoom(hwnd, state);
     ViewportCancelTransform(hwnd);
-    if (state != NULL && !framecamera) { savedobject = state->selectedobject; }
+    if (state != NULL && keepmodels) { savedobject = state->selectedobject; }
     if (state != NULL && !framecamera) { savedpad = state->selectedpad; }
     if (state == NULL
         || (objectindices != NULL
@@ -8717,7 +8782,19 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
         free(selectedrefs);
     }
 
+    if (keepmodels)
+    {
+        savedobjects = state->selectedobjects;
+        savedobjectcount = state->selectedobjectcount;
+        savedobjectboxes = state->objectselectionboxes;
+        state->selectedobjects = NULL;
+        state->objectselectionboxes = NULL;
+    }
     ViewportFreeScene(state);
+    state->selectedobjects = savedobjects;
+    state->selectedobjectcount = savedobjectcount;
+    state->objectselectionboxes = savedobjectboxes;
+    state->selectedobject = savedobject;
     state->monitors = monitorpreview;
     if (framecamera || !tris || tricount <= 0) { ViewportSetLevelClouds(hwnd, NULL, NULL); }
     KillTimer(hwnd, VIEWPORT_MONITOR_TIMER);
@@ -8807,7 +8884,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     ViewportFrameStartupModel(state);
     ViewportUpdateStartupTimer(hwnd, state);
     ViewportRestoreComponents(state);
-    if (scene != NULL && savedobject != VIEWPORT_OBJECT_NONE) { ViewportSelectObject(state, savedobject); }
+    ViewportBuildObjectSelectionBox(state);
     ViewportUpdateStatistics(state);
     ViewportUpdateGizmo(state);
     InvalidateRect(hwnd, NULL, FALSE);
@@ -9012,7 +9089,7 @@ BOOL ViewportGetSelectedObject(HWND hwnd, DWORD *setupobjectindex)
     const ViewportState *state = ViewportGetState(hwnd);
 
     if (state == NULL || !state->showobjects || setupobjectindex == NULL
-        || state->selectedobject == VIEWPORT_OBJECT_NONE)
+        || ViewportObjectCount(state) != 1)
     {
         return FALSE;
     }
@@ -9022,19 +9099,41 @@ BOOL ViewportGetSelectedObject(HWND hwnd, DWORD *setupobjectindex)
 }
 
 
-void ViewportSelectSetupModel(HWND hwnd, DWORD selection)
+DWORD ViewportGetSelectedModelCount(HWND hwnd)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    return state && state->showobjects ? ViewportObjectCount(state) : 0;
+}
+
+BOOL ViewportGetSelectedModels(HWND hwnd, DWORD *ids, DWORD count)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    if (!ids || !count || count != ViewportGetSelectedModelCount(hwnd)) { return FALSE; }
+    if (count == 1) { ids[0] = state->selectedobject; }
+    else { memcpy(ids, state->selectedobjects, count * sizeof(*ids)); }
+    return TRUE;
+}
+
+BOOL ViewportSelectSetupModels(HWND hwnd, const DWORD *ids, DWORD count)
 {
     ViewportState *state = ViewportGetState(hwnd);
-    if (state == NULL)
-    {
-        return;
-    }
+    if (!state || !state->showobjects) { return FALSE; }
     ViewportCancelTransform(hwnd);
-    ViewportClearAllSelection(state);
-    ViewportSelectObject(state, selection);
+    if (!ViewportSetObjectIds(state, ids, count)) { return FALSE; }
+    ViewportClearPadSelection(state);
+    ViewportClearBgSelection(state);
+    ViewportClearStanSelection(state);
+    state->componentcount = 0;
+    ViewportBuildObjectSelectionBox(state);
     ViewportUpdateGizmo(state);
     ViewportRedraw(hwnd);
     SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+    return TRUE;
+}
+
+void ViewportSelectSetupModel(HWND hwnd, DWORD selection)
+{
+    ViewportSelectSetupModels(hwnd, &selection, 1);
 }
 
 
@@ -9706,8 +9805,9 @@ typedef struct ViewportSelectionSnapshot {
     BOOL markerselected;
     SetupMarkerRef marker;
     int faces, components, stantiles, stancomponents;
+    DWORD objects;
     /* Followed by BgFaceRef[], ViewportComponent[], DWORD[] and
-     * ViewportStanComponent[]. Component corners are rebuilt from source IDs. */
+     * ViewportStanComponent[], then model IDs. Component corners are rebuilt from source IDs. */
 } ViewportSelectionSnapshot;
 
 static size_t ViewportSelectionSize(const ViewportSelectionSnapshot *s)
@@ -9715,7 +9815,8 @@ static size_t ViewportSelectionSize(const ViewportSelectionSnapshot *s)
     return sizeof(*s) + (size_t)s->faces * sizeof(BgFaceRef)
         + (size_t)s->components * sizeof(ViewportComponent)
         + (size_t)s->stantiles * sizeof(DWORD)
-        + (size_t)s->stancomponents * sizeof(ViewportStanComponent);
+        + (size_t)s->stancomponents * sizeof(ViewportStanComponent)
+        + (size_t)s->objects * sizeof(DWORD);
 }
 
 BOOL ViewportCaptureSelection(HWND hwnd, void **data, size_t *size)
@@ -9733,6 +9834,7 @@ BOOL ViewportCaptureSelection(HWND hwnd, void **data, size_t *size)
     header.tool = state->tool;
     header.vertexsnap = state->vertexsnap;
     header.object = state->selectedobject;
+    header.objects = ViewportObjectCount(state);
     header.portal = state->selectedportal;
     memcpy(header.portalselection, state->portalselection, sizeof(header.portalselection));
     header.pad.index = state->selectedpad.index;
@@ -9767,6 +9869,9 @@ BOOL ViewportCaptureSelection(HWND hwnd, void **data, size_t *size)
     { if (state->stanselected[tile]) { tiles[at++] = tile; } }
     if (header.stancomponents)
     { memcpy(stancomponents, state->stancomponents, header.stancomponents * sizeof(*stancomponents)); }
+    DWORD *objects = (DWORD *)(stancomponents + header.stancomponents);
+    if (header.objects == 1) { objects[0] = state->selectedobject; }
+    else if (header.objects) { memcpy(objects, state->selectedobjects, header.objects * sizeof(*objects)); }
     *data = snapshot;
     return TRUE;
 }
@@ -9785,6 +9890,7 @@ BOOL ViewportRestoreSelection(HWND hwnd, const void *data, size_t size)
     int i, kept;
     if (!state || !s || size < sizeof(*s) || s->tool < 0 || s->tool >= EDITOR_TOOL_COUNT
         || s->faces < 0 || s->components < 0 || s->stantiles < 0 || s->stancomponents < 0
+        || s->objects > 1000000u
         || size != ViewportSelectionSize(s)) { return FALSE; }
     faces = (const BgFaceRef *)(s + 1);
     components = (const ViewportComponent *)(faces + s->faces);
@@ -9803,8 +9909,14 @@ BOOL ViewportRestoreSelection(HWND hwnd, const void *data, size_t size)
         memcpy(newstancomponents, stancomponents, s->stancomponents * sizeof(*newstancomponents));
     }
     /* Allocate first: an allocation failure must leave the current selection intact. */
+    if (!ViewportSetObjectIds(state, (const DWORD *)(stancomponents + s->stancomponents),
+        state->showobjects ? s->objects : 0))
+    { free(newcomponents); free(newstancomponents); return FALSE; }
+    if (ViewportObjectSelected(state, s->object)) { state->selectedobject = s->object; }
     ViewportCancelTransform(hwnd);
-    ViewportClearAllSelection(state);
+    ViewportClearPadSelection(state);
+    ViewportClearBgSelection(state);
+    ViewportClearStanSelection(state);
     state->tool = s->tool;
     state->vertexsnap = s->vertexsnap;
     free(state->components);
@@ -9837,7 +9949,7 @@ BOOL ViewportRestoreSelection(HWND hwnd, const void *data, size_t size)
     for (i = 0; ViewportStanVisible(state) && state->stanselected && i < s->stantiles; i++)
     { if (tiles[i] < state->stan.tilecount && !ViewportStanTileHidden(state,tiles[i]))
       { state->stanselected[tiles[i]] = TRUE; } }
-    if (state->showobjects && s->object != VIEWPORT_OBJECT_NONE) { ViewportSelectObject(state, s->object); }
+    ViewportBuildObjectSelectionBox(state);
     state->selectedpad = s->pad;
     if (ViewportSelectedPadIndex(state) < 0) { state->selectedpad.index = SETUP_PAD_INDEX_NONE; }
     state->markerselected = s->markerselected;
