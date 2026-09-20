@@ -2,6 +2,7 @@
 #include <memp.h>
 #include "model.h"
 #include "modelonecycle.h"
+#include "modellod.h"
 #include "bgonecycle.h"
 #include "renderconfig.h"
 #include "../rmon.h"
@@ -1246,7 +1247,7 @@ void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildA
         g_ModelJointPositionedFunc(matrix0, matrix0_mtx);
     }
 
-    if (has_matrix1)
+    if (has_matrix1 && (!g_ModelLodModel || !modelLodSkipJoint(model, group)))
     {
         half_factor = modelGetHalfRotationQuaternion(q, q2);
 
@@ -1302,7 +1303,7 @@ void sub_GAME_7F06DB5C(ModelRenderData *arg0, Model *arg1, ModelNode *arg2, quat
         }
     }
 
-    if (spA4 & 0x100) {
+    if ((spA4 & 0x100) && (!g_ModelLodModel || !modelLodSkipJoint(arg1, spA0))) {
         sp24 = modelGetHalfRotationQuaternion(arg3, sp2C);
         modelBuildQuaternionTransform(sp9C, &spA0->Origin, sp2C, &sp48[sp50].pos, sp24);
     }
@@ -5071,6 +5072,8 @@ void modelPromoteNodeOffsetsToPointers(ModelNode *node, u32 vma, u32 fileramaddr
     s32 diff = fileramaddr - vma;
     s32 i;
 
+    modelLodResetCache();
+
     while (node)
     {
         u32 type = node->Opcode & 0xff;
@@ -5393,6 +5396,8 @@ void modelInitRwData(Model *model, ModelNode *startnode)
 {
     ModelNode *node = startnode;
 
+    modelLodInvalidateInstance(model);
+
     while (node)
     {
         u32 type = node->Opcode & 0xFF;
@@ -5707,6 +5712,8 @@ void modelNodeReplaceGdl(u32 arg0, ModelNode *node, Gfx *find, Gfx *replacement)
 {
     union ModelRoData *rodata;
     u32 type = node->Opcode & 0xff;
+
+    modelLodResetCache();
 
     switch (type) {
         case MODELNODE_OPCODE_DL:

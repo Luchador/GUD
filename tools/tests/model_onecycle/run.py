@@ -46,6 +46,7 @@ static struct tex *texFindByData(u32 address) {
 '''
 source += strip_includes((ROOT / 'src/game/bgonecycle.c').read_text())
 source += (HERE / 'harness.h').read_text()
+source += 'static void modelLodResetCache(void) {}\n'
 source += 'void modelOneCycleResetCache(void);\nstatic void bgClearRoomRenderCaches(void) {}\n'
 source += strip_includes((ROOT / 'src/game/rendercache.h').read_text())
 source += strip_includes((ROOT / 'src/game/rendercache.c').read_text())

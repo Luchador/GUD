@@ -24,6 +24,7 @@ def function(source, name):
 
 props = (ROOT / 'src/game/propobj.c').read_text()
 source = (HERE / 'harness.h').read_text()
+source += 'static void modelLodInvalidateInstance(Model *model) { (void)model; }\n'
 source += re.search(r'^#define MODEL_RENDER_HIDE_TRANSLUCENT[^\n]*',
                     (ROOT / 'src/game/model.h').read_text(), re.M)[0] + '\n'
 for name in ('objGetDestroyedLevel', 'objHideMonitorScreens', 'objRenderPropModel'):

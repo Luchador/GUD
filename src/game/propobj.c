@@ -45,6 +45,7 @@
 #include "math_atan2f.h"
 #include "matrixmath.h"
 #include "model.h"
+#include "modellod.h"
 #include "objecthandler.h"
 #include "objective_status.h"
 #include "player.h"
@@ -6875,6 +6876,7 @@ Gfx *monitorProcessAndRender(Model *model, ModelNode *node, MonitorRecord *scree
         }
 
         // Set up everything for rendering
+        modelLodInvalidateInstance(model);
         rwdata->DisplayListCollisions.gdl = gdl;
         rwdata->DisplayListCollisions.Vertices = vertices;
 
@@ -6971,6 +6973,7 @@ static void objHideMonitorScreens(ObjectRecord *obj)
         {
             union ModelRwData *rwdata = modelGetNodeRwData(model, node);
 
+            modelLodInvalidateInstance(model);
             rwdata->DisplayListCollisions.gdl = NULL;
             rwdata->DisplayListCollisions.Vertices = node->Data->DisplayListCollisions.Vertices;
         }

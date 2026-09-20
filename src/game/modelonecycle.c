@@ -2,6 +2,7 @@
 #include <PR/R4300.h>
 #include "bgonecycle.h"
 #include "model.h"
+#include "modellod.h"
 #include "modelonecycle.h"
 #include "renderconfig.h"
 #include "rendercache.h"
@@ -26,6 +27,7 @@ static s32 g_ModelOneCycleBytes;
 void modelOneCycleResetCache(void)
 {
     s32 i;
+    modelLodResetCache();
     for (i = 0; i < MODEL_ONE_CYCLE_CACHE_SIZE; i++) g_ModelOneCycleCache[i].source = NULL;
     g_ModelOneCycleBytes = 0;
 }
@@ -33,6 +35,7 @@ void modelOneCycleResetCache(void)
 void modelOneCycleInvalidateGdlRange(Gfx *start, Gfx *end)
 {
     s32 i;
+    modelLodResetCache();
     for (i = 0; i < MODEL_ONE_CYCLE_CACHE_SIZE; i++) {
         ModelOneCycleEntry *entry = &g_ModelOneCycleCache[i];
         if (entry->source && (u32)start < (u32)entry->source + entry->sourceSize

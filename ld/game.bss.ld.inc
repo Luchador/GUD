@@ -53,6 +53,7 @@
       build/OUTCODE/src/game/objecthandler.o (.bss);
       build/OUTCODE/src/game/model.o (.bss);
       build/OUTCODE/src/game/modelonecycle.o (.bss);
+      build/OUTCODE/src/game/modellod.o (.bss);
       build/OUTCODE/src/game/rendercache.o (.bss);
       build/OUTCODE/src/game/objecthandler_2.o (.bss);
       build/OUTCODE/src/game/cam.o (.bss);

@@ -33,6 +33,7 @@
 #include "propobj.h"
 #include "stan.h"
 #include "model.h"
+#include "modellod.h"
 #include "tex.h"
 #include "vtxstore.h"
 
@@ -2567,7 +2568,9 @@ after_position_update:
          * LOD distance is global model state so scope the character-specific adjustment to this character.
          */
         modelSetDistanceScale(CHR_LOD_DISTANCE_FACTOR);
+        modelLodBegin(model);
         subcalcmatrices(&renderdata, model);
+        modelLodEnd();
 
         modelSetDistanceScale(1.0f);
 
