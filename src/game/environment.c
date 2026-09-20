@@ -233,15 +233,15 @@ void envLoadLevelEnvironment(s32 levelId, s32 useCinemaEnvironment)
         record = envFindEnvironment(LEVELID_NONE);
     }
 
-    if (record->FogEnabled)
+    /* Fog can be disabled by a project override even on stages whose AI
+     * switches environments. Keep those transitions valid without fog, and
+     * do not mistake an adjacent stage/MP row for an alternate environment. */
+    g_MainEnvironment = record;
+    g_AlternateEnvironment = record->Id == (u32)levelId
+        ? envFindEnvironment(levelId + ENVIRONMENTDATA_ALT) : NULL;
+    if (g_AlternateEnvironment == NULL)
     {
-        g_MainEnvironment = record;
-        g_AlternateEnvironment = record + 1;
-    }
-    else
-    {
-        g_MainEnvironment = NULL;
-        g_AlternateEnvironment = NULL;
+        g_AlternateEnvironment = record;
     }
 
     envLoadCurrentEnvironment(record);
@@ -255,6 +255,11 @@ void envLoadLevelEnvironment(s32 levelId, s32 useCinemaEnvironment)
 void envSwitchToSoloSky2(f32 transitionTime)
 {
     static EnvironmentRecord static_envr;
+
+    if (g_MainEnvironment == NULL || g_AlternateEnvironment == NULL)
+    {
+        return;
+    }
 
     static_envr = *g_MainEnvironment;
 
@@ -277,6 +282,19 @@ void envSwitchToSoloSky2(f32 transitionTime)
         (f32)g_MainEnvironment->Visibility.FogEnd
         + (transitionTime * ((f32)g_AlternateEnvironment->Visibility.FogEnd
         - (f32)g_MainEnvironment->Visibility.FogEnd));
+
+    /* A disabled row can legitimately have a zero fog range. Switch its
+     * enable flag at the endpoint instead of blending that range into an
+     * enabled fog calculation (which could divide by zero). */
+    if (g_MainEnvironment->FogEnabled != g_AlternateEnvironment->FogEnabled)
+    {
+        static_envr.FogEnabled = transitionTime < 1.0f
+            ? g_MainEnvironment->FogEnabled : g_AlternateEnvironment->FogEnabled;
+        static_envr.Visibility.FogStart = transitionTime < 1.0f
+            ? g_MainEnvironment->Visibility.FogStart : g_AlternateEnvironment->Visibility.FogStart;
+        static_envr.Visibility.FogEnd = transitionTime < 1.0f
+            ? g_MainEnvironment->Visibility.FogEnd : g_AlternateEnvironment->Visibility.FogEnd;
+    }
 
     static_envr.Sky.Red =
         (f32)g_MainEnvironment->Sky.Red

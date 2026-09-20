@@ -4,6 +4,7 @@
 #include <windows.h>
 #include "setupload.h"
 #include "roomstats.h"
+#include "environmentpanel.h"
 
 #define LEVELMANAGER_WM_INTRO_EDIT (WM_APP + 0x250)
 #define LEVELMANAGER_WM_HISTORY (WM_APP + 0x251)
@@ -13,6 +14,9 @@
 BOOL LevelManagerShow(HWND owner, HINSTANCE instance, const SetupFile *setup, const char *levelname);
 void LevelManagerRefresh(const SetupFile *setup, const char *levelname);
 void LevelManagerRefreshRooms(const BgDocument *bg, const SetupFile *setup, const StanFile *stan);
+void LevelManagerRefreshEnvironment(const GEditorProject *project, DWORD level);
+BOOL LevelManagerApplyEnvironment(void);
+BOOL LevelManagerHasEnvironmentDraft(void);
 BOOL LevelManagerHandleMessage(MSG *message);
 
 #endif

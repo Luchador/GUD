@@ -262,6 +262,17 @@ static BOOL Levels(RebasePlan *plan, const GEditorProject *source,
             plan->project.levels[plan->project.levelcount++] = *level;
         }
     }
+    const char *environmentwhy = "";
+    BOOL available = EnvironmentReadRom(&plan->newrom, &plan->project.environments, NULL, &environmentwhy);
+    if (source->environmentOverrides.count)
+    {
+        EnvironmentTable oldbase;
+        if (!available || !EnvironmentReadRom(&plan->oldrom, &oldbase, NULL, &environmentwhy)
+            || !EnvironmentRebase(&oldbase, &plan->project.environments, &plan->project.environmentOverrides, &environmentwhy))
+        { Conflict(report, "Environment", environmentwhy); }
+    }
+    EnvironmentRefreshLevels(&plan->project.environments, &plan->project.environmentOverrides,
+        plan->project.levels, plan->project.levelcount);
     return TRUE;
 }
 static BOOL ReadFileBytes(const char *path, unsigned char **data, DWORD *size, const char **why)

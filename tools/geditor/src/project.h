@@ -4,6 +4,7 @@
 #include <windows.h>
 #include "resource.h"
 #include "rom.h"
+#include "environment.h"
 
 typedef struct GEditorProject {
     char name[GEDITOR_NAME_MAX];
@@ -11,6 +12,8 @@ typedef struct GEditorProject {
     char geppath[MAX_PATH];
     DWORD levelcount;
     RomLevel levels[ROM_MAX_LEVELS];
+    EnvironmentTable environments; /* immutable defaults refreshed from base.z64 */
+    EnvironmentOverrides environmentOverrides;
 } GEditorProject;
 
 BOOL ProjectCreate(const char *name, const char *location,

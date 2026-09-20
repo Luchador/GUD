@@ -113,6 +113,7 @@ static SetupObjectGeometry g_CurrentObjects;
 
 static void GEditorSetTitleForProject(HWND hwnd);
 static void GEditorRefreshHistoryMenu(HWND hwnd);
+static BOOL GEditorConfirmExit(HWND hwnd);
 
 
 static BOOL GEditorAppendObjectGeometry(BgDocumentRenderMesh *mesh,
@@ -605,6 +606,7 @@ static void GEditorRefreshProjectAssets(void)
 /* Creating or opening another project implicitly closes the current one. */
 static void GEditorCloseProject(HWND hwnd)
 {
+    LevelManagerRefreshEnvironment(NULL, GEDITOR_NO_LEVEL);
     IssuesWindowClose();
     RomExportClearIssues();
     PatrolEditorClose();
@@ -776,6 +778,9 @@ static void GEditorOpenProject(HWND hwnd, const char *path)
     GEditorProject project;
     const char *why = "";
 
+    /* A save can update the very project being reopened. Read its metadata
+     * after resolving the current edits, so that snapshot cannot go stale. */
+    if ((g_ProjectMetadataDirty || LevelManagerHasEnvironmentDraft()) && !GEditorConfirmExit(hwnd)) { return; }
     if (!ProjectRead(path, &project))
     {
         char message[MAX_PATH + 128];
@@ -1029,6 +1034,7 @@ static void GEditorRefreshHistoryMenu(HWND hwnd)
     GEditorRefreshSelectionInspector();
     LevelManagerRefresh(&g_CurrentSetup,
         g_CurrentLevelIndex < g_Project.levelcount ? g_Project.levels[g_CurrentLevelIndex].name : NULL);
+    LevelManagerRefreshEnvironment(&g_Project, g_CurrentLevelIndex);
     GEditorSetTitleForProject(hwnd);
     menubar = GetMenu(hwnd);
     if (menubar == NULL)
@@ -1411,7 +1417,7 @@ static BOOL GEditorHasUnsavedChanges(void)
 {
     return g_Project.name[0] != '\0'
         && (g_CurrentBgDocument.dirty || g_CurrentSetup.dirty
-            || g_CurrentStan.dirty || g_ProjectMetadataDirty || ModelEditsHasUnsaved()
+            || g_CurrentStan.dirty || g_ProjectMetadataDirty || LevelManagerHasEnvironmentDraft() || ModelEditsHasUnsaved()
             || ImageEditsHasUnsaved());
 }
 
@@ -1452,7 +1458,7 @@ static BOOL GEditorSaveProject(HWND hwnd)
     BOOL saved = FALSE;
     SetupStanRefresh padstats = {0};
 
-    if (!PatrolEditorApply()) { return FALSE; }
+    if (!LevelManagerApplyEnvironment() || !PatrolEditorApply()) { return FALSE; }
 
     if (g_Project.name[0] == '\0')
     {
@@ -1599,7 +1605,7 @@ static BOOL GEditorConfirmExit(HWND hwnd)
 {
     INT_PTR choice;
 
-    if (!PatrolEditorConfirmClose(FALSE)) { return FALSE; }
+    if (!LevelManagerApplyEnvironment() || !PatrolEditorConfirmClose(FALSE)) { return FALSE; }
     if (!GEditorHasUnsavedChanges())
     {
         return TRUE;
@@ -4919,10 +4925,51 @@ static BOOL GEditorFrameRoom(DWORD room)
     return TRUE;
 }
 
+static void GEditorPreviewEnvironment(DWORD id, BOOL selected)
+{
+    if (g_CurrentLevelIndex >= g_Project.levelcount) { return; }
+    const RomLevel *level = &g_Project.levels[g_CurrentLevelIndex];
+    EditorEnvironment value;
+    unsigned char rgb[3]; RomFog fog; RomClouds clouds;
+    if (selected && EnvironmentGet(&g_Project.environments, &g_Project.environmentOverrides, id, &value))
+    {
+        EnvironmentPreview(&value, rgb, &fog, &clouds);
+        ViewportSetBackgroundColor(g_Viewport, rgb);
+        ViewportSetLevelFog(g_Viewport, &fog, level->renderScale);
+        ViewportSetLevelClouds(g_Viewport, &clouds, g_Project.dir);
+    }
+    else
+    {
+        ViewportSetBackgroundColor(g_Viewport, level->hasbackgroundcolor ? level->backgroundcolor : NULL);
+        ViewportSetLevelFog(g_Viewport, level->hasbackgroundcolor ? &level->fog : NULL, level->renderScale);
+        ViewportSetLevelClouds(g_Viewport, &level->clouds, g_Project.dir);
+    }
+}
+
+static BOOL GEditorApplyEnvironment(HWND hwnd, EnvironmentEditRequest *request)
+{
+    if (!request || g_CurrentLevelIndex >= g_Project.levelcount) { return FALSE; }
+    EnvironmentOverrides next = g_Project.environmentOverrides;
+    if (!EnvironmentSet(&g_Project.environments, &next, &request->value, &request->why)) { return FALSE; }
+    if (memcmp(&next, &g_Project.environmentOverrides, sizeof(next)))
+    {
+        g_Project.environmentOverrides = next; g_ProjectMetadataDirty = TRUE;
+        EnvironmentRefreshLevels(&g_Project.environments, &g_Project.environmentOverrides, g_Project.levels, g_Project.levelcount);
+        GEditorSetTitleForProject(hwnd);
+    }
+    return TRUE;
+}
+
 static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     switch (msg)
     {
+    case ENVIRONMENT_WM_APPLY:
+        return GEditorApplyEnvironment(hwnd, (EnvironmentEditRequest *)lparam);
+    case ENVIRONMENT_WM_PREVIEW:
+        GEditorPreviewEnvironment((DWORD)wparam, lparam != 0); return 0;
+    case ENVIRONMENT_WM_DRAFT:
+        GEditorSetTitleForProject(hwnd); return 0;
     case LEVELMANAGER_WM_FRAME_ROOM:
         return GEditorFrameRoom((DWORD)wparam);
     case ISSUES_WM_SCAN:
@@ -5469,7 +5516,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             return 0;
         }
 
-        if (!PatrolEditorConfirmClose(TRUE)) { return 0; }
+        if (!LevelManagerApplyEnvironment() || !PatrolEditorConfirmClose(TRUE)) { return 0; }
         level = &g_Project.levels[index];
 
         document.levelscale = level->levelscale;
@@ -5801,6 +5848,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             {
                 NewProjectInfo info;
 
+                if ((g_ProjectMetadataDirty || LevelManagerHasEnvironmentDraft()) && !GEditorConfirmExit(hwnd)) { return 0; }
                 if (!PatrolEditorConfirmClose(TRUE)) { return 0; }
                 if (GEditorPromptForNewProject(hwnd, &info))
                 {
@@ -5819,6 +5867,9 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                         if (RomLoad(info.rompath, &rom, &romwhy))
                         {
                             const char *assetwhy = "";
+
+                            EnvironmentReadRom(&rom, &g_Project.environments, NULL, &assetwhy);
+                            EnvironmentRefreshLevels(&g_Project.environments, &g_Project.environmentOverrides, g_Project.levels, g_Project.levelcount);
 
                             if (!RomExportStoreProjectBase(&g_Project, &rom,
                                                           &assetwhy))
@@ -6038,6 +6089,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                     MessageBox(hwnd, "Could not open the Level Settings window.", GEDITOR_TITLE, MB_ICONERROR);
                 }
                 LevelManagerRefreshRooms(&g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+                LevelManagerRefreshEnvironment(&g_Project, g_CurrentLevelIndex);
                 return 0;
 
             case ID_SETTINGS_PROJECT:

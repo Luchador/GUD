@@ -8,7 +8,7 @@ GUD build, such as one containing character or rendering optimizations.
 3. Select **Save and Check**. This saves the current project's edits and checks
    the retained `base.z64`, the incoming ROM, and the saved assets.
 4. Review the result, then select **Create Copy**. GEditor creates and opens the
-   new project. Use **File → Create ROM…** in that project to build the playable ROM.
+   new project. Use **Tools → Create ROM…** in that project to build the playable ROM.
 
 The original project folder remains available with its original base ROM.
 Canceling before Save and Check does not save edits. Save and Check performs a
@@ -58,8 +58,10 @@ project copy, and incoming base:
 
 A missing local resource override inherits the incoming ROM resource during
 ROM export. Render scale, music, background sound, and the extra music track
-use the same three-way rule. Level names and environment metadata refresh from
-the new ROM. An incoming world coordinate scale change is rejected because it
+use the same three-way rule. Environment overrides merge per field: untouched
+defaults refresh from the new ROM, while conflicting edits or missing edited
+rows block the rebase. Level names refresh from the new ROM. An incoming world
+coordinate scale change is rejected because it
 requires coordinated geometry conversion.
 
 ## Compatibility limits

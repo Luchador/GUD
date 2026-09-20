@@ -1,0 +1,138 @@
+#include <assert.h>
+#include <math.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "project.h"
+
+static const char *why = "";
+#define OK(x) do { if (!(x)) { fprintf(stderr, "%d: %s: %s\n", __LINE__, #x, why); abort(); } } while (0)
+static void Put32(unsigned char *p, DWORD v) { p[0]=v>>24; p[1]=v>>16; p[2]=v>>8; p[3]=v; }
+static DWORD U32(const unsigned char *p) { return (DWORD)p[0]<<24|(DWORD)p[1]<<16|(DWORD)p[2]<<8|p[3]; }
+static void Float(unsigned char *p, float v) { DWORD u;memcpy(&u,&v,4);Put32(p,u); }
+static float F32(const unsigned char *p) { DWORD u=U32(p);float f;memcpy(&f,&u,4);return f; }
+static EditorEnvironment Row(DWORD id)
+{
+    EditorEnvironment r={0};Put32(r.data,id);Put32(r.data+4,1);
+    Float(r.data+8,10);Float(r.data+12,3000);Float(r.data+16,1600);Float(r.data+20,2000);Float(r.data+24,800);
+    Put32(r.data+32,999);Put32(r.data+36,996);Put32(r.data+40,1000);
+    r.data[46]=8;r.data[47]=1;Float(r.data+48,7500);
+    Float(r.data+56,70);Float(r.data+60,199);Float(r.data+64,186);
+    Float(r.data+72,-1000);r.data[77]=1;Float(r.data+84,255);Float(r.data+88,255);
+    Float(r.data+92,25);Float(r.data+96,18);Float(r.data+100,16);
+    /* Reserved fields are opaque, not part of any editor override. */
+    r.data[54]=0x93;r.data[55]=0x57;r.data[69]=0xb1;r.data[70]=0xb2;r.data[71]=0xb3;r.data[78]=0xc1;r.data[79]=0xc2;
+    return r;
+}
+static void Edit(EditorEnvironment *r, const char *key, const char *text)
+{
+    for(int i=0;i<ENVIRONMENT_FIELD_COUNT;i++)if(!strcmp(key,g_EnvironmentFields[i].key))
+    { OK(EnvironmentParseField(r,i,text,&why));return; }
+    abort();
+}
+static void RoundTrip(const char *dir)
+{
+    const DWORD ids[]={29,129,929,229,329,429,UINT32_MAX,200,300,400};
+    EnvironmentTable base={0};EnvironmentOverrides changes={0};EditorEnvironment edited,actual;
+    for(unsigned i=0;i<sizeof(ids)/sizeof(ids[0]);i++)base.rows[base.count++]=Row(ids[i]);
+    edited=base.rows[0];
+    const char *texts[]={"0","5.25","6400.5","1700","2100","850","5","4294967295","995","1050",
+        "1","2","3","0","8000.25","2","60.5","150.25","200.125","1","-123.5","2","100.5","90.25","80.125","12.5","24","12"};
+    for(int i=0;i<ENVIRONMENT_FIELD_COUNT;i++)OK(EnvironmentParseField(&edited,i,texts[i],&why));
+    OK(EnvironmentSet(&base,&changes,&edited,&why));OK(changes.count==1);
+    OK(EnvironmentGet(&base,&changes,29,&actual)&&!memcmp(&actual,&edited,sizeof(actual)));
+    OK(EnvironmentValidateOverrides(&base,&changes,&why));
+    GEditorProject project={0},loaded={0};
+    strcpy(project.name,"Environment");snprintf(project.geppath,sizeof(project.geppath),"%s/environment.gep",dir);
+    strcpy(project.dir,dir);project.levelcount=1;project.levels[0].levelID=29;strcpy(project.levels[0].name,"Depot");
+    project.levels[0].levelscale=project.levels[0].renderScale=1;
+    project.environments=base;project.environmentOverrides=changes;
+    OK(ProjectSave(&project,&why)&&ProjectRead(project.geppath,&loaded));
+    OK(!memcmp(&loaded.environmentOverrides,&changes,sizeof(changes)));
+    FILE *f=fopen(project.geppath,"r");char header[80];OK(f&&fgets(header,sizeof(header),f));fclose(f);
+    OK(!strcmp(header,"GEditor Project 3\n"));
+    /* All fields have independent, known native offsets/types. */
+    OK(!U32(actual.data+4)&&F32(actual.data+8)==5.25f&&F32(actual.data+12)==6400.5f);
+    OK(F32(actual.data+16)==1700&&F32(actual.data+20)==2100&&F32(actual.data+24)==850&&F32(actual.data+28)==5);
+    OK(U32(actual.data+32)==UINT32_MAX&&U32(actual.data+36)==995&&U32(actual.data+40)==1050);
+    OK(actual.data[44]==1&&actual.data[45]==2&&actual.data[46]==3&&!actual.data[47]);
+    OK(F32(actual.data+48)==8000.25f&&actual.data[53]==2);
+    OK(F32(actual.data+56)==60.5f&&F32(actual.data+60)==150.25f&&F32(actual.data+64)==200.125f);
+    OK(actual.data[68]==1&&F32(actual.data+72)==-123.5f&&actual.data[77]==2);
+    OK(F32(actual.data+80)==100.5f&&F32(actual.data+84)==90.25f&&F32(actual.data+88)==80.125f);
+    OK(F32(actual.data+92)==12.5f&&F32(actual.data+96)==24&&F32(actual.data+100)==12);
+    unsigned char bytes[2048],before[2048];memset(bytes,0xa5,sizeof(bytes));
+    for(DWORD i=0;i<base.count;i++)memcpy(bytes+128+i*104,base.rows[i].data,104);
+    memset(bytes+128+base.count*104,0,104);memcpy(before,bytes,sizeof(bytes));
+    RomFile rom={.data=bytes,.size=sizeof(bytes)};rom.info.entrycount=2;
+    rom.info.entries[0]=(RomManifestEntry){0x434d4150,64,sizeof(bytes),0x80000000};
+    rom.info.entries[1]=(RomManifestEntry){0x454e5654,128,0,104};
+    OK(EnvironmentApplyRom(&rom,&changes,&why));
+    memcpy(before+128,edited.data,104);OK(!memcmp(bytes,before,sizeof(bytes)));
+    EnvironmentTable saved;OK(EnvironmentReadRom(&rom,&saved,NULL,&why));
+    OK(!memcmp(saved.rows[0].data,edited.data,104));
+    OK(EnvironmentApplyRom(&rom,&changes,&why)&&!memcmp(bytes,before,sizeof(bytes)));
+    /* Reserved data, row order/IDs, other variants, sentinel and surrounding code remain byte-identical. */
+    OK(EnvironmentSet(&base,&changes,&base.rows[0],&why)&&!changes.count);
+    project.environmentOverrides=changes;OK(ProjectSave(&project,&why)&&ProjectRead(project.geppath,&loaded));
+    f=fopen(project.geppath,"r");OK(f&&fgets(header,sizeof(header),f));fclose(f);OK(!strcmp(header,"GEditor Project 2\n"));
+    puts("PASS: every environment field, exact native bytes, integer/float round trips, project versions, reset/compaction, untouched ROM data and repeat exports.");
+
+    EnvironmentChoice choices[ENVIRONMENT_MAX_CHOICES];
+    OK(EnvironmentChoices(&base,29,choices)==6&&choices[0].id==29&&choices[1].id==129&&choices[2].id==929);
+    OK(EnvironmentChoices(&base,429,choices)==3&&choices[0].id==229&&choices[2].id==429);
+    OK(EnvironmentChoices(&base,430,choices)==3&&choices[0].id==200&&choices[0].shared);
+    OK(EnvironmentChoices(&base,30,choices)==1&&choices[0].id==UINT32_MAX&&choices[0].shared);
+    RomLevel levels[4]={{.levelID=29},{.levelID=429},{.levelID=430},{.levelID=30}};
+    Edit(&base.rows[3],"fogRed","50");Edit(&base.rows[6],"fogRed","60");Edit(&base.rows[7],"fogRed","70");
+    EnvironmentRefreshLevels(&base,&changes,levels,4);
+    OK(levels[0].backgroundcolor[0]==0&&levels[1].backgroundcolor[0]==50&&levels[2].backgroundcolor[0]==70&&levels[3].backgroundcolor[0]==60);
+    OK(levels[0].clouds.enabled&&levels[0].clouds.height==7500&&levels[0].clouds.color[1]==199);
+    puts("PASS: gameplay/alternate/cinema and MP choices, explicit shared defaults, game-correct fallback and fog/cloud previews.");
+}
+static void Invalid(void)
+{
+    EnvironmentTable base={.count=1};base.rows[0]=Row(29);EnvironmentOverrides changes={0};
+    EditorEnvironment r=base.rows[0];
+    const char *bad[]={"", "NaN", "Infinity", "1abc", "1e1000", "-1"};
+    for(unsigned i=0;i<sizeof(bad)/sizeof(bad[0]);i++)OK(!EnvironmentParseField(&r,1,bad[i],&why));
+    OK(!EnvironmentParseField(&r,7,"4294967296",&why));OK(!EnvironmentParseField(&r,10,"1.5",&why));
+    OK(!EnvironmentParseField(&r,15,"3",&why));OK(!EnvironmentParseField(&r,0,"2",&why));
+    Edit(&r,"nearclip","0");OK(!EnvironmentSet(&base,&changes,&r,&why)&&!changes.count);r=base.rows[0];
+    Edit(&r,"farclip","5");OK(!EnvironmentSet(&base,&changes,&r,&why));r=base.rows[0];
+    Edit(&r,"fogend","996");OK(!EnvironmentSet(&base,&changes,&r,&why));
+    Edit(&r,"fogEnabled","0");OK(EnvironmentSet(&base,&changes,&r,&why));
+    r=base.rows[0];Edit(&r,"fogend","1050");OK(EnvironmentSet(&base,&changes,&r,&why));
+    Edit(&r,"propEndFade","18");OK(!EnvironmentSet(&base,&changes,&r,&why));
+    Edit(&r,"propStartFade","-1");OK(EnvironmentSet(&base,&changes,&r,&why));
+    EnvironmentOverrides saved=changes;
+    OK(!EnvironmentReadOverride(&changes,"29|farclip|NaN"));OK(!memcmp(&changes,&saved,sizeof(changes)));
+    OK(!EnvironmentReadOverride(&changes,"29|unknown|12"));OK(!EnvironmentReadOverride(&changes,"4294967296|farclip|20"));
+    OK(!EnvironmentReadOverride(&changes,"-1|farclip|20"));OK(!EnvironmentReadOverride(&changes,"29|propStartFade|1"));
+    unsigned char bytes[400]={0},before[400];memcpy(bytes+16,base.rows[0].data,104);memcpy(before,bytes,sizeof(bytes));
+    RomFile rom={.data=bytes,.size=sizeof(bytes)};rom.info.entrycount=2;
+    rom.info.entries[0]=(RomManifestEntry){0x434d4150,0,224,0x80000000};
+    rom.info.entries[1]=(RomManifestEntry){0x454e5654,16,0,104};
+    Put32(changes.rows[0].value.data,999);OK(!EnvironmentApplyRom(&rom,&changes,&why)&&!memcmp(bytes,before,sizeof(bytes)));
+    EnvironmentTable table;memcpy(bytes+120,bytes+16,104);OK(!EnvironmentReadRom(&rom,&table,NULL,&why)&&!table.count);
+    Put32(bytes+120,30);OK(!EnvironmentReadRom(&rom,&table,NULL,&why)&&!table.count);
+    memset(bytes+120,0,104);rom.info.entries[1].flags=100;OK(!EnvironmentReadRom(&rom,&table,NULL,&why));
+    puts("PASS: invalid numbers, clipping/fog/fade constraints, image bounds, malformed/duplicate overrides and ROM tables; failed export leaves bytes unchanged.");
+}
+static void Rebase(void)
+{
+    EnvironmentTable old={.count=1};old.rows[0]=Row(29);EnvironmentTable next=old;
+    EnvironmentOverrides changes={0};EditorEnvironment r=old.rows[0];
+    Edit(&r,"farclip","6000");OK(EnvironmentSet(&old,&changes,&r,&why));
+    Edit(&next.rows[0],"skyheight","9000");OK(EnvironmentRebase(&old,&next,&changes,&why));
+    OK(EnvironmentGet(&next,&changes,29,&r)&&F32(r.data+12)==6000&&F32(r.data+48)==9000);
+    EnvironmentOverrides saved=changes;Edit(&next.rows[0],"farclip","5000");
+    OK(!EnvironmentRebase(&old,&next,&changes,&why)&&strstr(why,"farclip")&&!memcmp(&saved,&changes,sizeof(saved)));
+    Edit(&next.rows[0],"farclip","6000");OK(EnvironmentRebase(&old,&next,&changes,&why)&&!changes.count);
+    r=old.rows[0];Edit(&r,"farclip","6000");OK(EnvironmentSet(&old,&changes,&r,&why));next.count=0;
+    OK(!EnvironmentRebase(&old,&next,&changes,&why));
+    puts("PASS: field-level three-way rebase, new untouched defaults, identical-edit cleanup, conflict/missing-row rejection and rollback.");
+}
+#include "ui.c"
+int main(int argc,char **argv) { assert(argc==2);RoundTrip(argv[1]);Invalid();Rebase();UI(argv[1]);return 0; }

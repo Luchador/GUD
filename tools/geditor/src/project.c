@@ -9,7 +9,7 @@
 #include "project.h"
 
 #define GEP_MAGIC   "GEditor Project"
-#define GEP_VERSION 2
+#define GEP_VERSION 3
 
 
 /**
@@ -28,7 +28,9 @@ static BOOL ProjectWrite(const GEditorProject *proj)
         return FALSE;
     }
 
-    ok = ok && fprintf(f, "%s %d\n", GEP_MAGIC, GEP_VERSION) >= 0;
+    /* Old editors must reject a project containing overrides rather than
+     * silently dropping them. Projects without overrides remain version 2. */
+    ok = ok && fprintf(f, "%s %d\n", GEP_MAGIC, proj->environmentOverrides.count ? GEP_VERSION : 2) >= 0;
     ok = ok && fprintf(f, "name = %s\n", proj->name) >= 0;
 
     /* Keep the ROM's level table with the project. The pipe separator
@@ -48,6 +50,7 @@ static BOOL ProjectWrite(const GEditorProject *proj)
             (int)level->xtrack) >= 0;
     }
 
+    ok = ok && EnvironmentWriteOverrides(f, &proj->environmentOverrides);
     return fclose(f) == 0 && ok;
 }
 
@@ -61,6 +64,9 @@ BOOL ProjectSave(const GEditorProject *proj, const char **reasonout)
         *reasonout = "there is no valid project open to save.";
         return FALSE;
     }
+
+    if (proj->environmentOverrides.count
+        && !EnvironmentValidateOverrides(&proj->environments, &proj->environmentOverrides, reasonout)) { return FALSE; }
 
     if (!ProjectWrite(proj))
     {
@@ -221,9 +227,9 @@ BOOL ProjectRead(const char *geppath, GEditorProject *proj)
     }
  
     /**
-     * Only the current project format is accepted.
+     * Version 3 adds environment overrides; version 2 remains readable.
      */
-    if (fgets(line, sizeof(line), f) == NULL || sscanf(line, GEP_MAGIC " %d %c", &version, &tail) != 1 || version != GEP_VERSION)
+    if (fgets(line, sizeof(line), f) == NULL || sscanf(line, GEP_MAGIC " %d %c", &version, &tail) != 1 || version < 2 || version > GEP_VERSION)
     {
         fclose(f);
         return FALSE;
@@ -266,12 +272,18 @@ BOOL ProjectRead(const char *geppath, GEditorProject *proj)
 
             proj->levelcount++;
         }
+        else if (strcmp(key, "environment") == 0)
+        {
+            if (version < 3 || !EnvironmentReadOverride(&proj->environmentOverrides, value))
+            { fclose(f); ZeroMemory(proj, sizeof(*proj)); return FALSE; }
+        }
         /* unknown keys: ignored */
     }
  
+    BOOL readerror = ferror(f);
     fclose(f);
  
-    if (proj->name[0] == '\0' || proj->levelcount == 0)
+    if (readerror || proj->name[0] == '\0' || proj->levelcount == 0)
     {
         ZeroMemory(proj, sizeof(*proj));
         return FALSE;

@@ -93,6 +93,7 @@ static unsigned char *Fixture(DWORD shift,const unsigned char *model,DWORD model
     Float(row+20,1.0f);Float(row+24,1.0f);row[29]=5;row[31]=6;row[33]=7;
     Put32(data+CMAP+shift+0x800,21);Put32(data+CMAP+shift+0x804,1);
     Float(data+CMAP+shift+0x808,10);Float(data+CMAP+shift+0x80c,1000);
+    Put32(data+CMAP+shift+0x824,996);Put32(data+CMAP+shift+0x828,1000);
     data[CMAP+shift+0x82f]=1;Float(data+CMAP+shift+0x830,shift ? 7500 : 5000);
     Float(data+CMAP+shift+0x838,70);Float(data+CMAP+shift+0x83c,199);Float(data+CMAP+shift+0x840,186);
     Put32(data+CONFIG+shift,IMAGES+shift);Put32(data+CONFIG+shift+4,1);
@@ -279,6 +280,11 @@ int main(int argc,char **argv)
     next[OBJECTS+SHIFT+52]=0x56;next[LEVELS+SHIFT+31]=8;Save(nextpath,next,SIZE);
     OK(RomLoad(oldpath,&rom,&why));OK(ProjectCreate("Original",argv[1],&rom.info,&project,&why));
     OK(RomExportStoreProjectBase(&project,&rom,&why));
+    OK(RomExportRefreshProjectLevelMetadata(&project,&why));
+    EditorEnvironment environment=project.environments.rows[0];
+    OK(EnvironmentParseField(&environment,2,"6000",&why));
+    OK(EnvironmentParseField(&environment,10,"25",&why));
+    OK(EnvironmentSet(&project.environments,&project.environmentOverrides,&environment,&why));
     Folder(project.dir,"bg");Folder(project.dir,"setup");Folder(project.dir,"stan");Folder(project.dir,"images");
     Folder(project.dir,"models");Folder(project.dir,"models/native");Folder(project.dir,"models/objects");Folder(project.dir,"notes");
     for(i=1;i<=5;i++)
@@ -319,6 +325,8 @@ int main(int argc,char **argv)
     OK(project.levels[0].clouds.enabled && project.levels[0].clouds.height==5000);
     OK(rebased.levels[0].clouds.enabled && rebased.levels[0].clouds.height==7500);
     OK(ProjectRead(rebased.geppath,&loaded));OK(!strcmp(loaded.name,"Updated"));
+    OK(RomExportRefreshProjectLevelMetadata(&loaded,&why));
+    OK(loaded.levels[0].fog.farclip==6000&&loaded.levels[0].backgroundcolor[0]==25&&loaded.levels[0].clouds.height==7500);
     OK(loaded.levels[0].music==12 && loaded.levels[0].bgsound==8);
     Same(project.dir,rebased.dir,"bg/bg_test.seg");Same(project.dir,rebased.dir,"stan/Tbg_test_stanZ.stan");
     Same(project.dir,rebased.dir,"models/native/Pjungle3_treeZ.gmodel");Same(project.dir,rebased.dir,"models/objects/Pjungle3_treeZ.gltf");
@@ -331,6 +339,7 @@ int main(int argc,char **argv)
     Path(path,rebased.dir,"base.z64");OK(Hash(path)==Hash(nextpath));Path(path,project.dir,"base.z64");OK(Hash(path)==Hash(oldpath));
     OK(RomExportCreate(&rebased,"Playable",argv[1],exported,sizeof(exported),&why));OK(RomLoad(exported,&output,&why));
     OK(output.data[0x2000]==0x22 && output.info.levels[0].music==12 && output.info.levels[0].bgsound==8);
+    OK(output.info.levels[0].fog.farclip==6000&&output.info.levels[0].backgroundcolor[0]==25&&output.info.levels[0].clouds.height==7500);
     OK(RomGetFileByIndex(&output,1,path,sizeof(path),&offset,&span) && output.data[offset+52]==0x56);
     OK(RomGetFileByIndex(&output,2,path,sizeof(path),&offset,&span));
     { DWORD rooms=Get32(output.data+offset+4)&0xffffffu;
@@ -349,6 +358,10 @@ int main(int argc,char **argv)
     OK(ProjectRebaseCreate(&rebased,nextpath,argv[1],"Again",&again,&report,&why));
     puts("PASS: relocated ROM tables/code, three-way asset/settings merge, native model edits, imported/deleted images, source settings, sidecars, reopen, ROM export and repeat rebase.");
     ImageRebases(&project,nextpath,argv[1]);
+    Float(next+CMAP+SHIFT+0x80c,5000);Save(nextpath,next,SIZE);
+    OK(!ProjectRebaseCheck(&project,nextpath,&report,&why)&&report.conflicts&&strstr(report.details,"farclip"));
+    Reject(&project,nextpath,argv[1],"EnvironmentConflict");Float(next+CMAP+SHIFT+0x80c,1000);Save(nextpath,next,SIZE);
+    puts("PASS: saved environment overrides survive reopen, relocated ROM export and repeated rebases; untouched sky defaults update and conflicting field changes block publication.");
     /* Conflicts and format changes must fail without touching the source. */
     next[OBJECTS+SHIFT+64+128]=2;Save(nextpath,next,SIZE);
     OK(!ProjectRebaseCheck(&project,nextpath,&report,&why) && report.conflicts==1 && strstr(report.details,"bg/bg_test.seg"));

@@ -14,9 +14,10 @@ horizontal cloud plane. Its geometry cannot be selected or edited. It draws
 behind level geometry without writing depth or changing triangle statistics.
 It does not preview water, weather or the exact N64 filtering.
 
-Cloud metadata is read from the base ROM's existing `ENVT` records. Project
-reopen and rebase refresh it automatically; no project or ROM format change
-is needed. Missing cloud images or unsupported settings leave the solid sky
+Cloud metadata starts with the base ROM's existing `ENVT` records and includes
+project overrides from **Level Settings > Environment**. Project reopen and
+rebase refresh the effective settings automatically. Missing cloud images or
+unsupported settings leave the solid sky
 background in place. The image bank mapping follows `s_skywaterimages` in
 `assets/oddtextures.c`.
 

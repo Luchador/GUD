@@ -9,6 +9,7 @@
 #include "resource.h"
 
 static HWND g_LevelManager;
+static HWND g_EnvironmentPanel;
 static SetupIntroEntry *g_IntroEntries;
 static DWORD g_IntroCount;
 static BOOL g_IntroValid, g_IntroUpdating;
@@ -18,6 +19,11 @@ static RoomStats g_RoomStats;
 static int g_RoomSortColumn;
 static BOOL g_RoomSortDescending;
 static void LevelManagerLayout(HWND hwnd);
+
+void LevelManagerRefreshEnvironment(const GEditorProject *project, DWORD level)
+{ EnvironmentPanelRefresh(g_EnvironmentPanel, project, level); }
+BOOL LevelManagerApplyEnvironment(void) { return EnvironmentPanelApply(g_EnvironmentPanel); }
+BOOL LevelManagerHasEnvironmentDraft(void) { return EnvironmentPanelHasDraft(g_EnvironmentPanel); }
 
 static const char *g_IntroAmmoNames[AMMOTYPE_MAX] = {
     [AMMO_9MM] = "9mm", [AMMO_RIFLE] = "Rifle rounds", [AMMO_SHOTGUN] = "Shotgun shells",
@@ -214,6 +220,11 @@ static void LevelManagerLayout(HWND hwnd)
     ShowWindow(GetDlgItem(hwnd, IDC_LEVEL_ROOMS_STATUS), rooms && helpheight ? SW_SHOW : SW_HIDE);
     ShowWindow(roomlist, rooms ? SW_SHOW : SW_HIDE);
     ShowWindow(GetDlgItem(hwnd, IDC_LEVEL_ROOMS_TOTALS), rooms ? SW_SHOW : SW_HIDE);
+    if (g_EnvironmentPanel)
+    {
+        MoveWindow(g_EnvironmentPanel, page.left, page.top, width, max(1, page.bottom - page.top), TRUE);
+        EnvironmentPanelShow(g_EnvironmentPanel, TabCtrl_GetCurSel(tab) == 2);
+    }
     RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
 }
 
@@ -427,6 +438,8 @@ static INT_PTR CALLBACK LevelManagerDialogProc(HWND hwnd, UINT message, WPARAM w
     case WM_NOTIFY:
     {
         NMHDR *notice = (NMHDR *)lparam;
+        if (notice->idFrom == IDC_LEVEL_MANAGER_TABS && notice->code == TCN_SELCHANGING)
+        { SetWindowLongPtr(hwnd, DWLP_MSGRESULT, !LevelManagerApplyEnvironment()); return TRUE; }
         if (notice->idFrom == IDC_LEVEL_MANAGER_TABS && notice->code == TCN_SELCHANGE) { LevelManagerLayout(hwnd); }
         if (notice->idFrom == IDC_LEVEL_ROOMS_LIST && notice->code == NM_DBLCLK)
         { LevelManagerFrameRoom(hwnd, ((NMITEMACTIVATE *)notice)->iItem); }
@@ -453,12 +466,17 @@ static INT_PTR CALLBACK LevelManagerDialogProc(HWND hwnd, UINT message, WPARAM w
     case WM_COMMAND:
     {
         int id = LOWORD(wparam);
-        if (id == IDCANCEL) { DestroyWindow(hwnd); return TRUE; }
+        if (id == IDCANCEL)
+        {
+            if (LevelManagerApplyEnvironment()) { EnvironmentPanelShow(g_EnvironmentPanel, FALSE); DestroyWindow(hwnd); }
+            return TRUE;
+        }
         if (id == IDOK)
         {
             HWND focus = GetFocus();
             if (focus == GetDlgItem(hwnd, IDC_INTRO_WEAPONS) || focus == GetDlgItem(hwnd, IDC_INTRO_AMMO))
             { LevelManagerEdit(hwnd, focus == GetDlgItem(hwnd, IDC_INTRO_AMMO), SETUP_INTRO_UPDATE); }
+            if (TabCtrl_GetCurSel(GetDlgItem(hwnd, IDC_LEVEL_MANAGER_TABS)) == 2) { LevelManagerApplyEnvironment(); }
             return TRUE;
         }
         if (HIWORD(wparam) == BN_CLICKED)
@@ -469,11 +487,13 @@ static INT_PTR CALLBACK LevelManagerDialogProc(HWND hwnd, UINT message, WPARAM w
         }
         break;
     }
-    case WM_CLOSE: DestroyWindow(hwnd); return TRUE;
+    case WM_CLOSE:
+        if (LevelManagerApplyEnvironment()) { EnvironmentPanelShow(g_EnvironmentPanel, FALSE); DestroyWindow(hwnd); }
+        return TRUE;
     case WM_NCDESTROY:
         RoomStatsFree(&g_RoomStats); g_RoomSortColumn = 0; g_RoomSortDescending = FALSE;
         free(g_IntroEntries); g_IntroEntries = NULL; g_IntroCount = 0;
-        g_IntroValid = FALSE; g_IntroSetupName[0] = 0; g_LevelManager = NULL;
+        g_IntroValid = FALSE; g_IntroSetupName[0] = 0; g_LevelManager = NULL; g_EnvironmentPanel = NULL;
         break;
     }
     return FALSE;
@@ -514,6 +534,8 @@ BOOL LevelManagerShow(HWND owner, HINSTANCE instance, const SetupFile *setup, co
             column.pszText = (LPSTR)roomcolumns[i]; column.fmt = i ? LVCFMT_RIGHT : LVCFMT_LEFT;
             if (ListView_InsertColumn(roomlist, i, &column) == -1) { DestroyWindow(g_LevelManager); return FALSE; }
         }
+        g_EnvironmentPanel = EnvironmentPanelCreate(g_LevelManager, instance);
+        if (!g_EnvironmentPanel) { DestroyWindow(g_LevelManager); return FALSE; }
         TabCtrl_SetCurSel(GetDlgItem(g_LevelManager, IDC_LEVEL_MANAGER_TABS), 0);
         LevelManagerLayout(g_LevelManager);
         LevelManagerButtons(g_LevelManager);
@@ -529,6 +551,13 @@ BOOL LevelManagerHandleMessage(MSG *message)
         || (message->hwnd != g_LevelManager && !IsChild(g_LevelManager, message->hwnd))) { return FALSE; }
     if (message->message == WM_KEYDOWN && (GetKeyState(VK_CONTROL) & 0x8000) && !(GetKeyState(VK_MENU) & 0x8000))
     {
+        if (g_EnvironmentPanel && IsChild(g_EnvironmentPanel, message->hwnd)
+            && (message->wParam == 'Z' || message->wParam == 'Y'))
+        {
+            /* Let environment edit boxes undo their text, without undoing
+             * an unrelated geometry edit behind this settings form. */
+            TranslateMessage(message); DispatchMessage(message); return TRUE;
+        }
         if (message->wParam == 'Z' || message->wParam == 'Y' || message->wParam == 'S')
         {
             if (!(message->lParam & ((LPARAM)1 << 30)))
