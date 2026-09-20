@@ -12,9 +12,13 @@ The **Report** selector has two scopes:
   all setup resources, including other levels and multiplayer setups, so this
   total can be larger than the current level's report.
 
-An export with pad findings opens the export report automatically. Every pad row
-identifies the level, setup resource, ordinary/bound pad number, retained STAN
-reference, and world position. Setups without a unique STAN pairing get separate
+Use **Tools > Create ROM...** or **Ctrl+R** to export. Exporting does not open
+the issues window. To inspect the findings, open **Tools > Check for Issues**
+and choose **Last ROM export (all setups)**. An already open export report
+refreshes after a successful export without being raised.
+
+Every pad row identifies the level, setup resource, ordinary/bound pad number,
+retained STAN reference, and world position. Setups without a unique STAN pairing get separate
 rows; they are not included in the unresolved-pad count. Aliased setup resources
 are counted once, matching export.
 
@@ -65,6 +69,8 @@ and clears current-level results while retaining the export snapshot.
 
 Run `python3 tools/geditor/tests/level_issues/run.py` for native diagnostics and
 modeless navigation tests with address/undefined-behavior sanitizers.
+These also check that export completion only refreshes existing reports and
+does not open a report window.
 An optional argument names a Depot audit folder containing `rom-depot.set`,
 `rom-depot.stan`, and `rom-depot.seg`; these files are read without modification.
 The optional fixture verifies the previously audited Depot pads 21, 145, and

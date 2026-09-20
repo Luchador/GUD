@@ -26,6 +26,7 @@ assert 'stan != g_EditHistory.currentstanrevision' in proc
 assert 'bg != g_EditHistory.currentbgrevision' in proc
 with tempfile.TemporaryDirectory(prefix='geditor-issues-') as folder:
     work = Path(folder)
+    (work / 'export_dialog.inc').write_text(extract.function(editor, 'GEditorPromptForRomExport'))
     (work / 'navigation.inc').write_text(extract.function(editor, 'GEditorLocateIssue'))
     (work / 'ui_type.inc').write_text(re.search(r'typedef struct IssuesWindow \{.*?\} IssuesWindow;', ui, re.S)[0])
     (work / 'ui_logic.inc').write_text(''.join(extract.function(ui, n) for n in
@@ -46,4 +47,11 @@ with tempfile.TemporaryDirectory(prefix='geditor-issues-') as folder:
         'patrolpaths.c', 'actionblocks.c', 'bgdocument.c', 'bgload.c', 'bgmaterial.c', 'bgrender.c')]
     subprocess.run(command + ['-Wl,--gc-sections', '-lm', '-o', str(work / 'check')], check=True)
     subprocess.run([str(work / 'check')] + args, check=True,
+        env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))
+
+    dialog = work / 'export_dialog'
+    subprocess.run([os.environ.get('CC', 'cc'), '-std=c99', '-O1', '-g', '-Wall', '-Wextra', '-Werror',
+        '-Wno-unused-parameter', '-fsanitize=address,undefined', f'-I{work}',
+        str(here/'export_dialog.c'), '-o', str(dialog)], check=True)
+    subprocess.run([str(dialog)], check=True,
         env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))

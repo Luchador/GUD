@@ -87,6 +87,7 @@ static void Window(void)
     consume=TRUE;assert(IssuesWindowHandleMessage(&msg) && dispatched==1);
     Clear(g_IssuesWindow,&state);g_IssuesWindow=NULL;
     assert(!IssuesWindowHandleMessage(&msg));
+    int previous_scans=scans;IssuesWindowRefreshExport();assert(!g_IssuesWindow && scans==previous_scans);
     puts("PASS: modeless message scope, scan/recheck, stale-result protection, failures and safe copied navigation.");
 }
 

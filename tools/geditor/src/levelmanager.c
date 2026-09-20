@@ -17,6 +17,7 @@ static char g_IntroSetupName[64];
 static RoomStats g_RoomStats;
 static int g_RoomSortColumn;
 static BOOL g_RoomSortDescending;
+static void LevelManagerLayout(HWND hwnd);
 
 static const char *g_IntroAmmoNames[AMMOTYPE_MAX] = {
     [AMMO_9MM] = "9mm", [AMMO_RIFLE] = "Rifle rounds", [AMMO_SHOTGUN] = "Shotgun shells",
@@ -98,6 +99,7 @@ void LevelManagerRefreshRooms(const BgDocument *bg, const SetupFile *setup, cons
         ListView_DeleteAllItems(list); RoomStatsFree(&g_RoomStats);
         SetDlgItemText(g_LevelManager, IDC_LEVEL_ROOMS_STATUS, why);
         SetDlgItemText(g_LevelManager, IDC_LEVEL_ROOMS_TOTALS, "");
+        LevelManagerLayout(g_LevelManager);
         return;
     }
     if (g_RoomStats.rooms && counts.roomcount == g_RoomStats.roomcount
@@ -133,6 +135,7 @@ void LevelManagerRefreshRooms(const BgDocument *bg, const SetupFile *setup, cons
             if (visible) { SendMessage(list, WM_SETREDRAW, TRUE, 0); }
             SetDlgItemText(g_LevelManager, IDC_LEVEL_ROOMS_STATUS, "Out of memory displaying room counts.");
             SetDlgItemText(g_LevelManager, IDC_LEVEL_ROOMS_TOTALS, "");
+            LevelManagerLayout(g_LevelManager);
             return;
         }
         for (int c = 0; c < ROOM_COUNT_COLUMNS; c++)
@@ -147,14 +150,13 @@ void LevelManagerRefreshRooms(const BgDocument *bg, const SetupFile *setup, cons
     if (ListView_GetItemCount(list)) { ListView_EnsureVisible(list, min(top, ListView_GetItemCount(list) - 1), FALSE); }
     if (visible) { SendMessage(list, WM_SETREDRAW, TRUE, 0); }
     InvalidateRect(list, NULL, TRUE);
-    SetDlgItemText(g_LevelManager, IDC_LEVEL_ROOMS_STATUS, counts.roomcount
-        ? "Authored counts, including hidden geometry and all difficulties. Models use their placement room; carried/contained items are excluded.\r\nUnassigned means no valid room. Click a column heading to sort."
-        : "Open a level with background rooms to view room counts. Unassigned entries have no valid background room.");
+    SetDlgItemText(g_LevelManager, IDC_LEVEL_ROOMS_STATUS, "");
     snprintf(text, sizeof(text), "%lu rooms. Totals - Primary tris: %lu   Secondary tris: %lu   STAN tiles: %lu   Objects: %lu   Characters: %lu",
         (unsigned long)counts.roomcount, (unsigned long)counts.total.values[ROOM_PRIMARY_TRIS],
         (unsigned long)counts.total.values[ROOM_SECONDARY_TRIS], (unsigned long)counts.total.values[ROOM_STAN_TILES],
         (unsigned long)counts.total.values[ROOM_OBJECTS], (unsigned long)counts.total.values[ROOM_CHARACTERS]);
     SetDlgItemText(g_LevelManager, IDC_LEVEL_ROOMS_TOTALS, text);
+    LevelManagerLayout(g_LevelManager);
 }
 
 static void LevelManagerLayout(HWND hwnd)
@@ -198,17 +200,18 @@ static void LevelManagerLayout(HWND hwnd)
     for (int id = IDC_INTRO_STATUS; id <= IDC_INTRO_AMMO_DOWN; id++)
     { ShowWindow(GetDlgItem(hwnd, id), intro ? SW_SHOW : SW_HIDE); }
     BOOL rooms = TabCtrl_GetCurSel(tab) == 3;
-    int helpheight = line * 2, totalsheight = line * 2;
+    int helpheight = GetWindowTextLength(GetDlgItem(hwnd, IDC_LEVEL_ROOMS_STATUS)) ? line * 2 : 0;
+    int totalsheight = line * 2, statusgap = helpheight ? gap : 0;
     HWND roomlist = GetDlgItem(hwnd, IDC_LEVEL_ROOMS_LIST);
     MoveWindow(GetDlgItem(hwnd, IDC_LEVEL_ROOMS_STATUS), page.left, page.top, width, helpheight, TRUE);
-    MoveWindow(roomlist, page.left, page.top + helpheight + gap, width,
-        max(1, page.bottom - page.top - helpheight - totalsheight - gap * 2), TRUE);
+    MoveWindow(roomlist, page.left, page.top + helpheight + statusgap, width,
+        max(1, page.bottom - page.top - helpheight - totalsheight - statusgap - gap), TRUE);
     MoveWindow(GetDlgItem(hwnd, IDC_LEVEL_ROOMS_TOTALS), page.left, page.bottom - totalsheight, width, totalsheight, TRUE);
     int available = max(1, width - GetSystemMetrics(SM_CXVSCROLL) - 8), roomwidth = units.right;
     ListView_SetColumnWidth(roomlist, 0, roomwidth);
     for (int i = 1; i <= ROOM_COUNT_COLUMNS; i++)
     { ListView_SetColumnWidth(roomlist, i, max(units.right, (available - roomwidth) / ROOM_COUNT_COLUMNS)); }
-    ShowWindow(GetDlgItem(hwnd, IDC_LEVEL_ROOMS_STATUS), rooms ? SW_SHOW : SW_HIDE);
+    ShowWindow(GetDlgItem(hwnd, IDC_LEVEL_ROOMS_STATUS), rooms && helpheight ? SW_SHOW : SW_HIDE);
     ShowWindow(roomlist, rooms ? SW_SHOW : SW_HIDE);
     ShowWindow(GetDlgItem(hwnd, IDC_LEVEL_ROOMS_TOTALS), rooms ? SW_SHOW : SW_HIDE);
     RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
@@ -394,6 +397,15 @@ static void LevelManagerEdit(HWND hwnd, BOOL ammo, SetupIntroAction action)
     LevelManagerButtons(hwnd); SetFocus(list);
 }
 
+static void LevelManagerFrameRoom(HWND hwnd, int row)
+{
+    LVITEM item = {0}; item.mask = LVIF_PARAM; item.iItem = row;
+    if (row < 0 || !ListView_GetItem(GetDlgItem(hwnd, IDC_LEVEL_ROOMS_LIST), &item)
+        || item.lParam <= 0 || (DWORD)item.lParam > g_RoomStats.roomcount) { return; }
+    /* Use the stored room ID, since column sorting changes row indices. */
+    SendMessage(GetWindow(hwnd, GW_OWNER), LEVELMANAGER_WM_FRAME_ROOM, (WPARAM)item.lParam, 0);
+}
+
 static INT_PTR CALLBACK LevelManagerDialogProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
 {
     switch (message)
@@ -416,6 +428,8 @@ static INT_PTR CALLBACK LevelManagerDialogProc(HWND hwnd, UINT message, WPARAM w
     {
         NMHDR *notice = (NMHDR *)lparam;
         if (notice->idFrom == IDC_LEVEL_MANAGER_TABS && notice->code == TCN_SELCHANGE) { LevelManagerLayout(hwnd); }
+        if (notice->idFrom == IDC_LEVEL_ROOMS_LIST && notice->code == NM_DBLCLK)
+        { LevelManagerFrameRoom(hwnd, ((NMITEMACTIVATE *)notice)->iItem); }
         if (notice->idFrom == IDC_LEVEL_ROOMS_LIST && notice->code == LVN_COLUMNCLICK)
         {
             int column = ((NMLISTVIEW *)notice)->iSubItem;

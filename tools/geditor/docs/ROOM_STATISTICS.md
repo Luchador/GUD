@@ -6,6 +6,12 @@ tris**, **STAN tiles**, **Objects**, and **Characters**. Click a column heading
 to sort numerically; count columns initially show the largest counts first.
 The footer totals include the Unassigned row when it is present.
 
+Double-click a room row to smoothly frame that room in the viewport without
+changing the selection. This works after sorting the table. Framing includes
+both background layers and hidden faces, ignoring unused vertices left by
+deleted faces. Rooms without faces use their STAN bounds, or their origin if
+they have no STAN tiles. The Unassigned row has no camera target.
+
 Counts come from the current editable level documents, including unsaved edits,
 hidden geometry and all authored difficulty variants. They refresh after edits,
 undo/redo, level changes and reopening Level Settings. Selection-only changes do
@@ -43,3 +49,6 @@ The room test optionally accepts an extracted Depot audit directory containing
 against those native assets. Synthetic tests cover layers, empty rooms, sorting,
 stacked floors, stale pad references, doors/bound pads, attached monitors/cycles,
 Unassigned records, live changes and allocation failures under ASan/UBSan.
+They also cover sorted-row navigation, scaled room bounds, unused vertices,
+STAN/empty-room fallbacks and invalid navigation targets. Camera animation is
+covered by `python3 tools/geditor/tests/zoom_selected/run.py`.

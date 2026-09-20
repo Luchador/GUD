@@ -861,7 +861,7 @@ static HMENU GEditorCreateMenuBar(void)
 
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_GROW, "&Grow Selection\tQ");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_ALL, "Select &All\tCtrl+A");
-    AppendMenu(selectmenu, MF_STRING, ID_SELECT_SAME_MATERIAL, "Select Same &Material");
+    AppendMenu(selectmenu, MF_STRING, ID_SELECT_SAME_MATERIAL, "Select Same &Material\tShift+M");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_ROOM, "Select &Room\tShift+R");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_SIMILAR, "Select &Similar\tShift+S");
 
@@ -869,7 +869,7 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_PATROL_PATHS, "&Patrol Paths...");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_UV_EDITOR, "&UV Editor\tCtrl+T");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_MODEL_EDITOR, "&Model Editor");
-    AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_CREATE_ROM, "&Create ROM...");
+    AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_CREATE_ROM, "&Create ROM...\tCtrl+R");
     AppendMenu(toolsmenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_CHECK_ISSUES, "Check for &Issues...");
 
@@ -889,7 +889,7 @@ static HMENU GEditorCreateMenuBar(void)
 
 static HACCEL GEditorCreateAccelerators(void)
 {
-    ACCEL entries[5];
+    ACCEL entries[6];
 
     ZeroMemory(entries, sizeof(entries));
     entries[0].fVirt = FVIRTKEY | FCONTROL;
@@ -907,7 +907,10 @@ static HACCEL GEditorCreateAccelerators(void)
     entries[4].fVirt = FVIRTKEY | FCONTROL;
     entries[4].key = 'T';
     entries[4].cmd = ID_TOOLS_UV_EDITOR;
-    return CreateAcceleratorTable(entries, 5);
+    entries[5].fVirt = FVIRTKEY | FCONTROL;
+    entries[5].key = 'R';
+    entries[5].cmd = ID_TOOLS_CREATE_ROM;
+    return CreateAcceleratorTable(entries, 6);
 }
 
 
@@ -1790,14 +1793,10 @@ static void GEditorPromptForRomExport(HWND hwnd)
         MessageBox(hwnd, "Create ROM dialog resource missing (build problem).",
                    GEDITOR_TITLE, MB_ICONERROR);
     }
-    else if (result == IDOK && RomExportIssues())
+    else if (result == IDOK)
     {
-        const char *why = "";
-        if (RomExportIssues()->count)
-        {
-            if (!IssuesWindowShow(hwnd, TRUE, &why)) { MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR); }
-        }
-        else { IssuesWindowRefreshExport(); }
+        /* Update an already open export report without opening or raising it. */
+        IssuesWindowRefreshExport();
     }
 }
 
@@ -4910,10 +4909,22 @@ static BOOL GEditorLocateIssue(HWND hwnd, const LevelIssue *issue)
     return moved;
 }
 
+static BOOL GEditorFrameRoom(DWORD room)
+{
+    double min[3], max[3];
+    if (!g_Viewport || !RoomStatsGetBounds(&g_CurrentBgDocument, &g_CurrentStan, room, min, max)) { return FALSE; }
+    ViewportCancelTransform(g_Viewport);
+    if (!ViewportZoomToBounds(g_Viewport, min, max)) { return FALSE; }
+    SetFocus(g_Viewport);
+    return TRUE;
+}
+
 static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     switch (msg)
     {
+    case LEVELMANAGER_WM_FRAME_ROOM:
+        return GEditorFrameRoom((DWORD)wparam);
     case ISSUES_WM_SCAN:
         return GEditorScanIssues((IssuesScanRequest *)lparam);
     case ISSUES_WM_LOCATE:
@@ -6073,7 +6084,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 return 0;
 
             case ID_TOOLS_CREATE_ROM:
-                GEditorPromptForRomExport(hwnd);
+                if (g_Project.name[0]) { GEditorPromptForRomExport(hwnd); }
                 return 0;
 
             case ID_FILE_EXIT:
@@ -6405,19 +6416,19 @@ static BOOL GEditorHandleSelectionHotkey(HWND frame, const MSG *message)
     char classname[32] = "";
     BOOL control, shift;
     if (!message || !g_Viewport || message->message != WM_KEYDOWN
-        || (message->wParam != 'Q' && message->wParam != 'A' && message->wParam != 'R' && message->wParam != 'S')
+        || (message->wParam != 'Q' && message->wParam != 'A' && message->wParam != 'R' && message->wParam != 'S' && message->wParam != 'M')
         || ViewportIsFlying(g_Viewport)
         || (message->hwnd != frame && !IsChild(frame, message->hwnd))
         || (GetKeyState(VK_MENU) & 0x8000)) { return FALSE; }
     control = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
     shift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
-    if (control != (message->wParam == 'A') || shift != (message->wParam == 'R' || message->wParam == 'S')) { return FALSE; }
+    if (control != (message->wParam == 'A') || shift != (message->wParam == 'R' || message->wParam == 'S' || message->wParam == 'M')) { return FALSE; }
     GetClassName(message->hwnd, classname, sizeof(classname));
     if (lstrcmpi(classname, "Edit") == 0 || lstrcmpi(classname, "ComboBox") == 0
         || lstrcmpi(classname, "ComboLBox") == 0) { return FALSE; }
     /* Run once per physical press; holding Q must not grow more rings. */
     if (!(message->lParam & ((LPARAM)1 << 30)))
-    { SendMessage(frame, WM_COMMAND, message->wParam == 'S' ? ID_SELECT_SIMILAR : shift ? ID_SELECT_ROOM : control ? ID_SELECT_ALL : ID_SELECT_GROW, 0); }
+    { SendMessage(frame, WM_COMMAND, message->wParam == 'M' ? ID_SELECT_SAME_MATERIAL : message->wParam == 'S' ? ID_SELECT_SIMILAR : shift ? ID_SELECT_ROOM : control ? ID_SELECT_ALL : ID_SELECT_GROW, 0); }
     return TRUE;
 }
 

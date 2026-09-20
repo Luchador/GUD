@@ -1,4 +1,5 @@
 #include <math.h>
+#include <float.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -130,4 +131,55 @@ BOOL RoomStatsBuild(const BgDocument *bg, const SetupFile *setup, const StanFile
     free(padrooms); free(objectrooms); *out = result; *why = ""; return TRUE;
 fail:
     free(padrooms); free(objectrooms); RoomStatsFree(&result); return FALSE;
+}
+
+static BOOL RoomBoundsExtend(double min[3], double max[3], const float position[3])
+{
+    for (int axis = 0; axis < 3; axis++)
+    {
+        if (!isfinite(position[axis])) { return FALSE; }
+        min[axis] = fmin(min[axis], position[axis]);
+        max[axis] = fmax(max[axis], position[axis]);
+    }
+    return TRUE;
+}
+
+BOOL RoomStatsGetBounds(const BgDocument *bg, const StanFile *stan, DWORD room,
+                        double min[3], double max[3])
+{
+    if (!bg || !bg->rooms || !room || room > bg->roomcount || !min || !max
+        || !isfinite(bg->levelscale) || bg->levelscale <= 0) { return FALSE; }
+    const BgDocumentRoom *r = &bg->rooms[room];
+    if (r->facecount && (!r->faces || !r->vertices)) { return FALSE; }
+    for (int axis = 0; axis < 3; axis++) { min[axis] = DBL_MAX; max[axis] = -DBL_MAX; }
+    /* Only live face corners contribute: deleted faces can leave unused
+     * vertices behind until compaction. Include both BG layers. */
+    for (DWORD face = 0; face < r->facecount; face++)
+        for (int corner = 0; corner < 3; corner++)
+        {
+            DWORD index = r->faces[face].vertexindices[corner];
+            float position[3];
+            if (index >= r->vertexcount) { return FALSE; }
+            BgDocumentGetWorldPosition(bg, r, &r->vertices[index], position);
+            if (!RoomBoundsExtend(min, max, position)) { return FALSE; }
+        }
+    if (r->facecount) { return TRUE; }
+    if (stan && stan->tiles)
+        for (DWORD tile = 0; tile < stan->tilecount; tile++)
+        {
+            const StanTile *t = &stan->tiles[tile];
+            if (t->room != room) { continue; }
+            if (t->pointcount > STAN_TILE_MAX_POINTS) { return FALSE; }
+            for (int point = 0; point < t->pointcount; point++)
+            {
+                const StanPoint *p = &t->points[point];
+                float position[3] = {p->x, p->y, p->z};
+                if (!RoomBoundsExtend(min, max, position)) { return FALSE; }
+            }
+        }
+    if (min[0] != DBL_MAX) { return TRUE; }
+    /* Even a completely empty authored room can be visited. */
+    float position[3];
+    for (int axis = 0; axis < 3; axis++) { position[axis] = r->origin[axis] / bg->levelscale; }
+    return RoomBoundsExtend(min, max, position);
 }

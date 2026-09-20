@@ -21,4 +21,8 @@ typedef struct RoomStats {
 BOOL RoomStatsBuild(const BgDocument *bg, const SetupFile *setup, const StanFile *stan,
                     RoomStats *out, const char **why);
 void RoomStatsFree(RoomStats *stats);
+/* Frame live BG face vertices, then STAN for a BG-empty room, then its origin.
+ * Reserved room zero and invalid IDs have no camera target. */
+BOOL RoomStatsGetBounds(const BgDocument *bg, const StanFile *stan, DWORD room,
+                        double min[3], double max[3]);
 #endif

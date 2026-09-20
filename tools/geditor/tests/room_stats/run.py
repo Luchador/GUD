@@ -12,11 +12,15 @@ src = here.parents[1] / 'src'
 with tempfile.TemporaryDirectory(prefix='geditor-rooms-') as directory:
     work = Path(directory)
     ui = (src / 'levelmanager.c').read_text()
-    match = re.search(r'^static int CALLBACK LevelManagerCompareRooms\([^;{}]*\)\s*\{', ui, re.M)
-    start = ui.index('{', match.start()); depth, end = 1, start + 1
-    while depth:
-        depth += (ui[end] == '{') - (ui[end] == '}'); end += 1
-    (work / 'sort.inc').write_text(ui[match.start():end])
+    def function(source, name):
+        match = re.search(r'^[\w *]+\b' + re.escape(name) + r'\([^;{}]*\)\s*\{', source, re.M)
+        start = source.index('{', match.start()); depth, end = 1, start + 1
+        while depth:
+            depth += (source[end] == '{') - (source[end] == '}'); end += 1
+        return source[match.start():end] + '\n'
+    (work / 'sort.inc').write_text(function(ui, 'LevelManagerCompareRooms'))
+    editor = (src / 'geditor.c').read_text()
+    (work / 'navigation.inc').write_text(function(editor, 'GEditorFrameRoom') + function(ui, 'LevelManagerFrameRoom'))
     command = [os.environ.get('CC','cc'), '-std=c99', '-O1', '-g', '-Wall', '-Wextra', '-Werror',
         '-Wno-unused-parameter', '-ffunction-sections', '-fdata-sections', '-fsanitize=address,undefined',
         f'-I{work}', f'-I{here.parent / "image_import"}', f'-I{src}', f'-I{src.parents[2]}',

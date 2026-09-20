@@ -105,6 +105,30 @@ static void Synthetic(void)
     rooms[1].faces=NULL;assert(!RoomStatsBuild(&bg,&setup,&stan,&s,&why) && !s.rooms);rooms[1].faces=a;
     puts("PASS: all rooms and layers, scaled/stacked floors, stale references, shared and bound pads, doors, monitor attachments/cycles, excluded/deleted records, Unassigned, totals, live edits, read-only counts and allocation failure.");
 }
+static void Bounds(void)
+{
+    BgDocumentVertex vertices[5]={{.x=-10},{.x=10},{.y=20},{.z=50},{.x=30000}};
+    BgDocumentFace faces[2]={{.vertexindices={0,1,2},.layer=0},{.vertexindices={0,2,3},.layer=1}};
+    BgDocumentRoom rooms[4]={[1]={.origin={100,200,300},.vertices=vertices,.vertexcount=5,.faces=faces,.facecount=2},
+        [2]={.origin={1000,0,0}},[3]={.origin={1000,2000,3000}}};
+    BgDocument bg={.rooms=rooms,.roomcount=3,.levelscale=.5f};
+    StanTile tile=Tile(0x100,2,-200,5);StanFile stan={.tiles=&tile,.tilecount=1,.levelscale=.5f};
+    double min[3],max[3];
+    Require(RoomStatsGetBounds(&bg,&stan,1,min,max));
+    assert(min[0]==180 && max[0]==220 && min[1]==400 && max[1]==440 && min[2]==600 && max[2]==700);
+    /* Secondary faces contribute; the unused outlier vertex never does. */
+    rooms[1].facecount=1;Require(RoomStatsGetBounds(&bg,&stan,1,min,max));assert(max[2]==600);rooms[1].facecount=2;
+    Require(RoomStatsGetBounds(&bg,&stan,2,min,max));
+    assert(min[0]==-200 && max[0]==-100 && min[1]==5 && max[1]==5 && min[2]==0 && max[2]==100);
+    Require(RoomStatsGetBounds(&bg,&stan,3,min,max));
+    assert(min[0]==2000 && min[1]==4000 && min[2]==6000 && !memcmp(min,max,sizeof(min)));
+    assert(!RoomStatsGetBounds(&bg,&stan,0,min,max) && !RoomStatsGetBounds(&bg,&stan,4,min,max));
+    faces[0].vertexindices[0]=5;assert(!RoomStatsGetBounds(&bg,&stan,1,min,max));faces[0].vertexindices[0]=0;
+    bg.levelscale=0;assert(!RoomStatsGetBounds(&bg,&stan,1,min,max));bg.levelscale=.5f;
+    rooms[3].origin[0]=NAN;assert(!RoomStatsGetBounds(&bg,&stan,3,min,max));
+    puts("PASS: room bounds use live primary/secondary corners, room origin and level scale; STAN/empty-room fallbacks and invalid IDs are handled.");
+}
+
 static unsigned char *Read(const char *dir,const char *name,DWORD *size)
 {
     char path[1024];snprintf(path,sizeof(path),"%s/%s",dir,name);FILE *f=fopen(path,"rb");assert(f);
@@ -131,4 +155,5 @@ static void Depot(const char *dir)
         (unsigned long)counts.rooms[0].values[3],(unsigned long)counts.rooms[0].values[4]);
     RoomStatsFree(&counts);BgDocumentFree(&bg);StanFileFree(&stan);SetupFileFree(&setup);
 }
-int main(int argc,char **argv) { Synthetic();if(argc==2)Depot(argv[1]);return 0; }
+#include "navigation.c"
+int main(int argc,char **argv) { Synthetic();Bounds();Navigation();if(argc==2)Depot(argv[1]);return 0; }
