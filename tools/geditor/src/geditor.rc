@@ -335,6 +335,31 @@ FONT 9, "Segoe UI"
 BEGIN
 END
 
+IDD_PATROL_PATHS DIALOGEX 0, 0, 560, 350
+STYLE DS_CENTER | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_CONTROLPARENT
+CAPTION "Patrol Paths"
+FONT 9, "Segoe UI"
+BEGIN
+    LTEXT "Patrol paths", -1, 10, 10, 130, 12
+    LISTBOX IDC_PATROL_PATHS, 10, 26, 130, 248, LBS_NOTIFY | LBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON "New", IDC_PATROL_NEW, 10, 282, 60, 18
+    PUSHBUTTON "Delete", IDC_PATROL_DELETE, 80, 282, 60, 18
+    LTEXT "Route points (in travel order)", -1, 152, 10, 350, 12
+    LISTBOX IDC_PATROL_POINTS, 152, 26, 330, 174, LBS_NOTIFY | LBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON "Up", IDC_PATROL_UP, 490, 26, 60, 18
+    PUSHBUTTON "Down", IDC_PATROL_DOWN, 490, 50, 60, 18
+    PUSHBUTTON "Remove", IDC_PATROL_REMOVE, 490, 78, 60, 18
+    LTEXT "Navigation pad (type a pad number after 'Pad ' to find it)", -1, 152, 206, 398, 12
+    COMBOBOX IDC_PATROL_PAD, 152, 222, 398, 200, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON "Add to End", IDC_PATROL_ADD, 152, 246, 92, 18
+    PUSHBUTTON "Insert Before", IDC_PATROL_INSERT, 252, 246, 92, 18
+    CONTROL "Loop (otherwise back and forth)", IDC_PATROL_LOOP, "BUTTON", BS_AUTOCHECKBOX | WS_TABSTOP, 352, 246, 198, 18
+    LTEXT "Use at least two navigation pads along a walkable route. View > Pad Preview shows patrol lines; select a pad to read its ID. Moving a pad moves every route that uses it.\nAfter applying, select a guard and choose its Patrol in Properties.", IDC_PATROL_HELP, 152, 274, 398, 40
+    DEFPUSHBUTTON "Apply and Close", IDOK, 354, 322, 106, 18
+    PUSHBUTTON "Cancel", IDCANCEL, 470, 322, 80, 18
+END
+
 IDD_KNIFE DIALOGEX 0, 0, 290, 178
 STYLE DS_MODALFRAME | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Knife"

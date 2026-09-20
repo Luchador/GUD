@@ -8,6 +8,8 @@
 #define CHARACTERPROPERTIES_WM_HAT_CHANGED (WM_APP + 82)
 /* Synchronous stack-owned SetupCharacterBehaviorEdit. */
 #define CHARACTERPROPERTIES_WM_BEHAVIOR_CHANGED (WM_APP + 83)
+/* Synchronous stack-owned PatrolAssignment; frame owns history. */
+#define CHARACTERPROPERTIES_WM_PATROL_CHANGED (WM_APP + 84)
 BOOL CharacterPropertiesRegisterClass(HINSTANCE instance);
 HWND CharacterPropertiesCreate(HWND parent, HINSTANCE instance);
 BOOL CharacterPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD index);

@@ -5,10 +5,12 @@
 #include <stdlib.h>
 #include "characterproperties.h"
 #include "characterload.h"
+#include "patrolpaths.h"
 
 #define CHARACTERPROPERTIES_CLASS "GEditorCharacterProperties"
 enum { CHARACTER_RIGHT_LABEL, CHARACTER_RIGHT, CHARACTER_LEFT_LABEL, CHARACTER_LEFT,
        CHARACTER_HAT_LABEL, CHARACTER_HAT, CHARACTER_BEHAVIOR_LABEL, CHARACTER_BEHAVIOR,
+       CHARACTER_PATROL_LABEL, CHARACTER_PATROL,
        CHARACTER_DETAILS, CHARACTER_CONTROLS };
 typedef struct CharacterPropertiesState {
     HWND controls[CHARACTER_CONTROLS];
@@ -34,17 +36,17 @@ static void CharacterPropertiesLayout(HWND hwnd, CharacterPropertiesState *state
     RECT rect; GetClientRect(hwnd, &rect);
     int width = max(1, rect.right - 8);
     int details = CharacterPropertiesTextHeight(state->controls[CHARACTER_DETAILS], width);
-    int height = 222 + details;
+    int height = 276 + details;
     state->scroll = max(0, min(state->scroll, max(0, height - rect.bottom)));
     SCROLLINFO si = {sizeof(si), SIF_RANGE | SIF_PAGE | SIF_POS, 0, height - 1, (UINT)max(0,rect.bottom), state->scroll, 0};
     SetScrollInfo(hwnd, SB_VERT, &si, TRUE);
-    for (int slot = 0; slot < 4; slot++)
+    for (int slot = 0; slot < 5; slot++)
     {
         int label = slot * 2;
         MoveWindow(state->controls[label], 4, 4 + slot * 54 - state->scroll, width, 18, TRUE);
         MoveWindow(state->controls[label+1], 4, 24 + slot * 54 - state->scroll, width, 320, TRUE);
     }
-    MoveWindow(state->controls[CHARACTER_DETAILS], 4, 222 - state->scroll, width, details, TRUE);
+    MoveWindow(state->controls[CHARACTER_DETAILS], 4, 276 - state->scroll, width, details, TRUE);
     RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
 }
 static void CharacterPropertiesChoices(HWND combo, int item)
@@ -154,6 +156,51 @@ static void CharacterPropertiesApplyBehavior(HWND hwnd, CharacterPropertiesState
     SendMessage(GetParent(hwnd), CHARACTERPROPERTIES_WM_BEHAVIOR_CHANGED, 0, (LPARAM)&edit);
     state->committing = FALSE;
 }
+static void CharacterPropertiesPatrolChoices(HWND combo, const SetupFile *setup, DWORD character)
+{
+    PatrolDocument paths={0}; const char *why;
+    int current=PatrolCharacterPath(setup,character), selected=-1;
+    SendMessage(combo,CB_RESETCONTENT,0,0);
+    int row=(int)SendMessage(combo,CB_ADDSTRING,0,(LPARAM)"None");
+    SendMessage(combo,CB_SETITEMDATA,row,PATROL_NONE);
+    if (current==PATROL_NONE) { selected=row; }
+    if (PatrolDocumentLoad(setup,&paths,&why))
+    {
+        for (DWORD i=0;i<paths.count;i++)
+        {
+            char text[96]; PatrolPath *p=&paths.paths[i];
+            snprintf(text,sizeof(text),"Patrol %u (%lu points, %s)",p->id,(unsigned long)p->count,
+                (p->flags&1) ? "loop" : "back and forth");
+            row=(int)SendMessage(combo,CB_ADDSTRING,0,(LPARAM)text);
+            SendMessage(combo,CB_SETITEMDATA,row,p->id);
+            if (current==p->id) { selected=row; }
+        }
+    }
+    PatrolDocumentFree(&paths);
+    if (selected<0)
+    {
+        char text[96];
+        if (current>=0) { snprintf(text,sizeof(text),"Patrol %d (missing)",current); }
+        else { snprintf(text,sizeof(text),"Custom / disabled Action Block"); }
+        selected=(int)SendMessage(combo,CB_ADDSTRING,0,(LPARAM)text);
+        SendMessage(combo,CB_SETITEMDATA,selected,PATROL_CUSTOM);
+    }
+    SendMessage(combo,CB_SETCURSEL,selected,0);
+}
+static void CharacterPropertiesApplyPatrol(HWND hwnd, CharacterPropertiesState *state)
+{
+    if (!state || !state->selected || state->updating || state->committing) { return; }
+    HWND combo=state->controls[CHARACTER_PATROL];
+    int row=(int)SendMessage(combo,CB_GETCURSEL,0,0);
+    if (row==CB_ERR) { return; }
+    int path=(int)SendMessage(combo,CB_GETITEMDATA,row,0);
+    if (path<PATROL_NONE || path>255) { return; }
+    PatrolAssignment edit={state->binding.characterindex,state->binding.sourceoffset,
+        state->binding.chrnum,state->ailistid,path};
+    state->committing=TRUE;
+    SendMessage(GetParent(hwnd),CHARACTERPROPERTIES_WM_PATROL_CHANGED,0,(LPARAM)&edit);
+    state->committing=FALSE;
+}
 BOOL CharacterPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD index)
 {
     CharacterPropertiesState *state = CharacterPropertiesGetState(panel);
@@ -178,6 +225,7 @@ BOOL CharacterPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD i
     CharacterPropertiesChoices(state->controls[CHARACTER_LEFT], weapons.item[1]);
     CharacterPropertiesHatChoices(state->controls[CHARACTER_HAT], hat.model);
     CharacterPropertiesBehaviorChoices(state->controls[CHARACTER_BEHAVIOR], chr->ailistid);
+    CharacterPropertiesPatrolChoices(state->controls[CHARACTER_PATROL], setup, index);
     int bodyid, headid; CharacterModelDefinition body, head;
     BOOL randomhead = FALSE;
     const char *bodyname = "Unknown", *headname = "Included in body";
@@ -190,6 +238,7 @@ BOOL CharacterPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD i
     char details[2048];
     snprintf(details, sizeof(details),
         "Character ID: %u\r\nBody: %s\r\nHead: %s%s\r\nPad: %u\r\nAI list: 0x%04X\r\nFlags: 0x%04X\r\n\r\n"
+        "Create routes in Tools > Patrol Paths. Choosing a patrol replaces the starting behavior. None returns a patrolling guard to Standard guard.\r\n\r\n"
         "Drag an arrow or enter a world position.\r\nCharacters settle onto a stan floor when placed.",
         chr->chrnum, bodyname, headname, randomhead ? " (random preview)" : "",
         chr->pad, chr->ailistid, chr->flags);
@@ -209,10 +258,10 @@ static LRESULT CALLBACK CharacterPropertiesWndProc(HWND hwnd, UINT msg, WPARAM w
         state = calloc(1, sizeof(*state)); if (!state) { return -1; }
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
         const char *labels[CHARACTER_CONTROLS] = {"Right-hand weapon", "", "Left-hand weapon", "",
-            "Hat", "", "Starting behavior", "", ""};
+            "Hat", "", "Starting behavior", "", "Patrol", "", ""};
         for (int i = 0; i < CHARACTER_CONTROLS; i++)
         {
-            BOOL combo = i == CHARACTER_RIGHT || i == CHARACTER_LEFT || i == CHARACTER_HAT || i == CHARACTER_BEHAVIOR;
+            BOOL combo = i == CHARACTER_RIGHT || i == CHARACTER_LEFT || i == CHARACTER_HAT || i == CHARACTER_BEHAVIOR || i == CHARACTER_PATROL;
             state->controls[i] = CreateWindowEx(0, combo ? "COMBOBOX" : "STATIC", labels[i],
                 WS_CHILD | WS_VISIBLE | (combo ? WS_TABSTOP | WS_VSCROLL | CBS_DROPDOWNLIST : SS_NOPREFIX),
                 0,0,1,1, hwnd, (HMENU)(INT_PTR)(i+1), cs->hInstance, NULL);
@@ -230,6 +279,7 @@ static LRESULT CALLBACK CharacterPropertiesWndProc(HWND hwnd, UINT msg, WPARAM w
             if (LOWORD(wp) == CHARACTER_LEFT+1) { CharacterPropertiesApply(hwnd, state, 1); }
             if (LOWORD(wp) == CHARACTER_HAT+1) { CharacterPropertiesApplyHat(hwnd, state); }
             if (LOWORD(wp) == CHARACTER_BEHAVIOR+1) { CharacterPropertiesApplyBehavior(hwnd, state); }
+            if (LOWORD(wp) == CHARACTER_PATROL+1) { CharacterPropertiesApplyPatrol(hwnd, state); }
         }
         return 0;
     case WM_MOUSEWHEEL:

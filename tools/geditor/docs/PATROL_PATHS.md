@@ -1,4 +1,52 @@
-# Patrol path preview
+# Patrol paths
+
+## Create and edit routes
+
+Open **Tools > Patrol Paths…**, click **New**, and add navigation pads in travel
+order. **Insert Before**, **Remove**, **Up**, and **Down** edit that order. Check
+**Loop** to join the last point back to the first; otherwise the guard reverses
+direction at each end. An edited route needs at least two different pads.
+**Apply and Close** saves the draft into the current level and refreshes the
+viewport. **Cancel** discards the draft. Applying is one undoable setup edit.
+
+Select a pad in the viewport to read its **Pad index** in Properties. If that pad
+belongs to the navigation network, it is preselected in the Patrol Paths window.
+The pad dropdown lists both pad IDs and their native waypoint indices. Routes
+use existing navigation waypoints, not object placement pads or bound pads;
+this tool does not create a new navigation network. Choose points along a
+walkable corridor rather than drawing a straight line through obstacles.
+Existing pad translation controls move route points; moving a shared pad also
+changes every other reference to it.
+
+Select a guard and choose a route from the new **Patrol** dropdown in Properties.
+Place the guard near a route point. This replaces that guard's starting behavior
+with **Start patrol**, followed by the shared **Simple guard** detection loop.
+The guard watches and listens for Bond and switches to normal combat when alerted.
+It does not automatically resume patrolling after combat. **None** changes a
+patrolling/custom guard to **Standard guard**. Viewing a custom or disabled
+Action Block does not rewrite it. Use **Tools > Action Blocks** for more elaborate
+behavior; routes can also be referenced by its **Start patrol** instruction.
+
+Several guards can share one route. Generated starter blocks are reused, and
+unused generated starters are removed when assignments change or routes are
+applied. User-authored scripts are preserved. A route still referenced by a
+guard/vehicle Action Block (even a disabled block) cannot be deleted; remove
+assignments or edit those references first. Shared-script references are checked
+when the base ROM supplies its shared AI catalog.
+
+Routes retain stable native byte-sized IDs. The editor keeps the waypoint and
+navigation-group tables intact and compacts replaced route/script data so edits
+do not continually enlarge the setup. Paths and assignments survive Save Project,
+undo/redo, and Create ROM. Reload the level in-game to use its new starting AI.
+
+Verification: `python3 tools/geditor/tests/patrol_edit/run.py`. Add `--stock` to
+compile and check the repository's solo setup corpus when IDO is installed. The suite
+covers native encoding, ordering/loop edits, reused assignments, stale requests,
+reference protection, save/reload, export, history, allocation failure atomicity,
+and repeated edits without setup growth. Inspector/frame routing tests are in
+`python3 tools/geditor/tests/character_weapons/run.py`.
+
+## Viewport preview
 
 The level viewport draws blue lines between the pads on each authored
 guard or vehicle route. Pads belonging to a path are blue too, including

@@ -240,6 +240,9 @@ BOOL SetupFileCompact(SetupFile *setup, const char **reasonout);
 /* Missing optional catalogs leave globalrefs NULL and disable pad/character
  * recycling. Invalid catalogs fail without replacing an existing cache. */
 BOOL SetupFileSetGlobalReferences(SetupFile *setup, const RomFile *rom, const char **reasonout);
+/* References from the project's shared AI catalog, when available. */
+BOOL SetupFileGlobalBlockReference(const SetupFile *setup, DWORD id);
+BOOL SetupFileGlobalPatrolReference(const SetupFile *setup, DWORD id);
 
 /* Requires a base ROM with a shared Action Block catalog so every script
  * can be checked. Preserves table indices and makes no changes on failure. */

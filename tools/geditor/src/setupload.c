@@ -60,7 +60,7 @@
 
 typedef struct SetupScriptReferences {
     DWORD owners;
-    unsigned char values[65536]; /* bit 0: pad, bit 1: character */
+    unsigned char values[65536]; /* bit 0: pad, 1: character, 2: AI block, 3: patrol */
 } SetupScriptReferences;
 
 static DWORD SetupRead32(const unsigned char *p)
@@ -1287,6 +1287,8 @@ BOOL SetupFileSetGlobalReferences(SetupFile *setup, const RomFile *rom, const ch
             {
                 if (ActionParameterIsPad(ins, p) && v != 9000) { refs->values[v] |= 1; }
                 if (SetupActionParameterIsCharacter(ins, p)) { refs->values[v] |= 2; }
+                if (op->params[p].kind == ACTION_BLOCK) { refs->values[v] |= 4; }
+                if ((ins->bytes[0] == 0x20 || ins->bytes[0] == 0xcb) && p == 0) { refs->values[v] |= 8; }
             }
         }
     }
@@ -1296,6 +1298,11 @@ BOOL SetupFileSetGlobalReferences(SetupFile *setup, const RomFile *rom, const ch
     *why = "";
     return TRUE;
 }
+
+BOOL SetupFileGlobalBlockReference(const SetupFile *setup, DWORD id)
+{ return id < 65536 && setup->globalrefs && (setup->globalrefs->values[id] & 4); }
+BOOL SetupFileGlobalPatrolReference(const SetupFile *setup, DWORD id)
+{ return id < 256 && setup->globalrefs && (setup->globalrefs->values[id] & 8); }
 
 /* Ignore exactly one placement field, never the owner's other references
  * (for example a CCTV aim pad). This also covers native cameras and spawns. */

@@ -18,6 +18,20 @@
 #define IDD_LEVEL_MANAGER     114
 #define IDD_INTRO_EQUIPMENT   115
 #define IDD_PROJECT_SETTINGS  116
+#define IDD_PATROL_PATHS      117
+
+#define IDC_PATROL_PATHS      1240
+#define IDC_PATROL_NEW        1241
+#define IDC_PATROL_DELETE     1242
+#define IDC_PATROL_POINTS     1243
+#define IDC_PATROL_PAD        1244
+#define IDC_PATROL_ADD        1245
+#define IDC_PATROL_INSERT     1246
+#define IDC_PATROL_REMOVE     1247
+#define IDC_PATROL_UP         1248
+#define IDC_PATROL_DOWN       1249
+#define IDC_PATROL_LOOP       1250
+#define IDC_PATROL_HELP       1251
 
 /* Level Settings tabs. */
 #define IDC_LEVEL_MANAGER_TABS 1210

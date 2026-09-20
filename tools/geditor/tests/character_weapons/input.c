@@ -14,6 +14,7 @@ enum { CB_RESETCONTENT=1,CB_ADDSTRING,CB_SETITEMDATA,CB_SETCURSEL,CB_GETCURSEL,C
 #define MB_ICONERROR 1
 #define GEDITOR_TITLE "GEditor"
 #include "characterproperties.h"
+#include "patrolpaths.h"
 #include "objectload.h"
 #include "bghistory.h"
 #include "input-types.inc"
@@ -21,16 +22,18 @@ enum { CB_RESETCONTENT=1,CB_ADDSTRING,CB_SETITEMDATA,CB_SETCURSEL,CB_GETCURSEL,C
 #include "hatchoices.h"
 #include "catalog.inc"
 typedef struct Combo { int count,selected,item[40];char names[40][80]; } Combo;
-static Combo combos[4];
+static Combo combos[5];
 static CharacterPropertiesState *active;
 static SetupCharacterWeaponEdit received;
 static SetupCharacterHatEdit receivedhat;
 static SetupCharacterBehaviorEdit receivedbehavior;
+static PatrolAssignment receivedpatrol;
 static int requests;
 static BOOL reject,reenter;
 static void CharacterPropertiesApply(HWND,CharacterPropertiesState *,int);
 static void CharacterPropertiesApplyHat(HWND,CharacterPropertiesState *);
 static void CharacterPropertiesApplyBehavior(HWND,CharacterPropertiesState *);
+static void CharacterPropertiesApplyPatrol(HWND,CharacterPropertiesState *);
 static HWND GetParent(HWND h) { return NULL; }
 static LRESULT SendMessage(HWND h,int msg,WPARAM wp,LPARAM lp)
 {
@@ -48,6 +51,11 @@ static LRESULT SendMessage(HWND h,int msg,WPARAM wp,LPARAM lp)
     if(msg==CHARACTERPROPERTIES_WM_BEHAVIOR_CHANGED) {
         assert(active->committing);receivedbehavior=*(SetupCharacterBehaviorEdit *)lp;requests++;
         if(reenter)CharacterPropertiesApplyBehavior(active,active);
+        return !reject;
+    }
+    if(msg==CHARACTERPROPERTIES_WM_PATROL_CHANGED) {
+        assert(active->committing);receivedpatrol=*(PatrolAssignment *)lp;requests++;
+        if(reenter)CharacterPropertiesApplyPatrol(active,active);
         return !reject;
     }
     switch(msg) {
@@ -106,6 +114,16 @@ static void Input(void)
     s.updating=TRUE;CharacterPropertiesApplyBehavior(&s,&s);assert(requests==6);s.updating=FALSE;
     s.selected=FALSE;CharacterPropertiesApplyBehavior(&s,&s);assert(requests==6);s.selected=TRUE;
     combos[3].selected=CB_ERR;CharacterPropertiesApplyBehavior(&s,&s);assert(requests==6);
+    s.controls[CHARACTER_PATROL]=&combos[4];
+    combos[4]=(Combo){.count=3,.selected=0,.item={23,PATROL_NONE,PATROL_CUSTOM}};
+    CharacterPropertiesApplyPatrol(&s,&s);
+    assert(requests==7 && receivedpatrol.path==23 && receivedpatrol.previous==0x401
+        && receivedpatrol.characterindex==3 && receivedpatrol.sourceoffset==512 && receivedpatrol.chrnum==8 && !s.committing);
+    combos[4].selected=1;CharacterPropertiesApplyPatrol(&s,&s);assert(requests==8 && receivedpatrol.path==PATROL_NONE);
+    combos[4].selected=2;CharacterPropertiesApplyPatrol(&s,&s);assert(requests==8);
+    combos[4].selected=0;s.updating=TRUE;CharacterPropertiesApplyPatrol(&s,&s);assert(requests==8);s.updating=FALSE;
+    s.selected=FALSE;CharacterPropertiesApplyPatrol(&s,&s);assert(requests==8);s.selected=TRUE;
+    puts("PASS: patrol dropdown IDs/None/custom handling, stale binding payload and reentrancy guards.");
     puts("PASS: behavior presets, preserved custom display, edit identity/previous assignment, selection guards and synchronous reentrancy.");
     puts("PASS: actual dropdown catalog, None/unknown/mixed display, right/left edit payloads, selection guards and synchronous reentrancy.");
 }
@@ -148,6 +166,11 @@ static BOOL GEditorRebuildCurrentViewportWithObjects(const SetupObjectGeometry *
 {rebuilds++;sceneversion=o->tricount;return buildok;}
 static BOOL GEditorRebuildCurrentViewport(const char **why)
 {rebuilds++;sceneversion=g_CurrentObjects.tricount;return TRUE;}
+static BOOL GEditorReloadCurrentObjectsAndViewport(const char **why)
+{rebuilds++;sceneversion=g_CurrentSetup.dirty ? 2 : 1;return !g_CurrentSetup.dirty || buildok;}
+BOOL PatrolAssignCharacter(const SetupFile *s,const PatrolAssignment *e,SetupFile *out,BOOL *changed,const char **why)
+{*changed=change;if(change&&editok){*out=*s;out->dirty=TRUE;}return editok;}
+void SetupFileFree(SetupFile *s) {memset(s,0,sizeof(*s));}
 #include "editor.inc"
 static void Reset(void)
 {
@@ -200,6 +223,19 @@ static void Editor(void)
         assert(errors==1 && rollbacks==1 && !g_CurrentSetup.dirty && !rebuilds && sceneversion==1);
     }
     puts("PASS: behavior history commit, no geometry reload, no-op/stale selection and edit/commit failure rollback.");
+    PatrolAssignment patrol={.characterindex=3,.sourceoffset=512,.chrnum=8,.previous=1,.path=23};
+    Reset();assert(GEditorSetCharacterPatrol(NULL,&patrol));
+    assert(begins==1 && commits==1 && !rollbacks && rebuilds==1 && !errors && g_CurrentSetup.dirty && restored==selection);
+    Reset();change=FALSE;assert(GEditorSetCharacterPatrol(NULL,&patrol));assert(!begins&&!commits&&!rebuilds&&!g_CurrentSetup.dirty);
+    Reset();selected=FALSE;assert(!GEditorSetCharacterPatrol(NULL,&patrol));assert(!begins&&!errors);
+    Reset();patrol.characterindex=2;assert(!GEditorSetCharacterPatrol(NULL,&patrol));assert(!begins);patrol.characterindex=3;
+    for(int failure=0;failure<3;failure++) {
+        Reset();if(failure==0)editok=FALSE;if(failure==1)buildok=FALSE;if(failure==2)commitok=FALSE;
+        assert(!GEditorSetCharacterPatrol(NULL,&patrol));
+        assert(errors==1 && !g_CurrentSetup.dirty && sceneversion==1);
+        if(failure)assert(rollbacks==1 && restored==selection);
+    }
+    puts("PASS: patrol frame transaction, preview rebuild, no-op/stale selection and assignment/rebuild/commit failure rollback.");
     puts("PASS: production frame transaction, immediate geometry rebuild, one undo commit, no-op/stale selection, missing-model/build/commit failure rollback and None without model loading.");
 }
 int main(void) {Input();Editor();return 0;}

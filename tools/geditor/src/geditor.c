@@ -29,6 +29,7 @@
 #include "levelmanager.h"
 #include "projectsettings.h"
 #include "actioneditor.h"
+#include "patroleditor.h"
 #include "modeledits.h"
 #include "newprops.h"
 #include "imageedits.h"
@@ -671,6 +672,7 @@ enum {
     ID_TOOLS_UV_EDITOR,
     ID_TOOLS_MODEL_EDITOR,
     ID_TOOLS_ACTION_BLOCKS,
+    ID_TOOLS_PATROL_PATHS,
     ID_SETTINGS_LEVEL,
     ID_SETTINGS_PROJECT,
 
@@ -849,6 +851,7 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_ROOM, "Select &Room\tShift+R");
 
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_ACTION_BLOCKS, "&Action Blocks...");
+    AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_PATROL_PATHS, "&Patrol Paths...");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_UV_EDITOR, "&UV Editor\tCtrl+T");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_MODEL_EDITOR, "&Model Editor");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_CREATE_ROM, "&Create ROM...");
@@ -3971,6 +3974,32 @@ fail:
 }
 
 
+static void GEditorOpenPatrolPaths(HWND hwnd)
+{
+    SetupFile edited={0}; EditHistoryTransaction transaction={0};
+    const char *why="", *restorewhy=""; BOOL changed=FALSE;
+    DWORD selected=(DWORD)-1; SetupPadRef pad={.index=SETUP_PAD_INDEX_NONE};
+    if (!g_CurrentSetup.data) { return; }
+    ViewportCancelTransform(g_Viewport);
+    ViewportGetSelectedObject(g_Viewport,&selected);
+    ViewportGetSelectedPad(g_Viewport,&pad);
+    if (!PatrolEditorShow(hwnd,&g_CurrentSetup,pad.bound ? SETUP_PAD_INDEX_NONE : pad.index,&edited,&changed,&why)) { goto fail; }
+    if (!changed) { return; }
+    if (!EditHistoryBeginSetupEdit(&g_EditHistory,&g_CurrentSetup,"Edit Patrol Paths",&transaction,&why)) { goto fail; }
+    SetupFileFree(&g_CurrentSetup); g_CurrentSetup=edited; ZeroMemory(&edited,sizeof(edited));
+    if (!GEditorReloadCurrentObjectsAndViewport(&why)
+        || !EditHistoryCommitEdit(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,&transaction,&why))
+    {
+        EditHistoryRollbackEdit(&transaction,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan);
+        GEditorReloadCurrentObjectsAndViewport(&restorewhy); goto fail;
+    }
+    if (selected!=(DWORD)-1) { ViewportSelectSetupModel(g_Viewport,selected); }
+    GEditorRefreshHistoryMenu(hwnd); return;
+fail:
+    SetupFileFree(&edited); EditHistoryCancelEdit(&transaction);
+    GEditorRefreshHistoryMenu(hwnd); MessageBox(hwnd,why,GEDITOR_TITLE,MB_ICONERROR);
+}
+
 static void GEditorDeleteSelectedObject(HWND hwnd, DWORD objectindex)
 {
     EditHistoryTransaction transaction;
@@ -4581,6 +4610,31 @@ fail:
     return FALSE;
 }
 
+static BOOL GEditorSetCharacterPatrol(HWND hwnd, const PatrolAssignment *edit)
+{
+    SetupFile edited={0}; EditHistoryTransaction transaction={0};
+    const char *why="", *restorewhy=""; BOOL changed=FALSE; DWORD selected;
+    if (!edit || !ViewportGetSelectedObject(g_Viewport,&selected)
+        || !(selected&SETUP_CHARACTER_SELECTION_BIT)
+        || (selected&~SETUP_CHARACTER_SELECTION_BIT)!=edit->characterindex) { return FALSE; }
+    ViewportCancelTransform(g_Viewport);
+    if (!PatrolAssignCharacter(&g_CurrentSetup,edit,&edited,&changed,&why)) { goto fail; }
+    if (!changed) { return TRUE; }
+    if (!EditHistoryBeginSetupEdit(&g_EditHistory,&g_CurrentSetup,"Assign Guard Patrol",&transaction,&why)) { goto fail; }
+    SetupFileFree(&g_CurrentSetup); g_CurrentSetup=edited; ZeroMemory(&edited,sizeof(edited));
+    if (!GEditorReloadCurrentObjectsAndViewport(&why)
+        || !EditHistoryCommitEdit(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,&transaction,&why))
+    {
+        EditHistoryRollbackEdit(&transaction,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan);
+        GEditorReloadCurrentObjectsAndViewport(&restorewhy);
+        ViewportSelectSetupModel(g_Viewport,selected); goto fail;
+    }
+    ViewportSelectSetupModel(g_Viewport,selected); GEditorRefreshHistoryMenu(hwnd); return TRUE;
+fail:
+    SetupFileFree(&edited); EditHistoryCancelEdit(&transaction);
+    GEditorRefreshHistoryMenu(hwnd); MessageBox(hwnd,why,GEDITOR_TITLE,MB_ICONERROR); return FALSE;
+}
+
 static BOOL GEditorSetObjectProperty(HWND hwnd, const SetupObjectPropertyEdit *edit)
 {
     EditHistoryTransaction transaction = {0};
@@ -4791,6 +4845,13 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     case CHARACTERPROPERTIES_WM_BEHAVIOR_CHANGED:
     {
         BOOL ok = GEditorSetCharacterBehavior(hwnd, (const SetupCharacterBehaviorEdit *)lparam);
+        GEditorRefreshSelectionDetails();
+        return ok;
+    }
+
+    case CHARACTERPROPERTIES_WM_PATROL_CHANGED:
+    {
+        BOOL ok = GEditorSetCharacterPatrol(hwnd, (const PatrolAssignment *)lparam);
         GEditorRefreshSelectionDetails();
         return ok;
     }
@@ -5461,6 +5522,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         EnableMenuItem((HMENU)wparam, ID_FILE_REBASE_PROJECT, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_FILE_IMPORT_IMAGE, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_ACTION_BLOCKS, MF_BYCOMMAND | (g_CurrentSetup.data ? MF_ENABLED : MF_GRAYED));
+        EnableMenuItem((HMENU)wparam, ID_TOOLS_PATROL_PATHS, MF_BYCOMMAND | (g_CurrentSetup.data ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_CREATE_ROM, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         GEditorUpdateHistoryMenu((HMENU)wparam);
         EnableMenuItem((HMENU)wparam, ID_VIEW_ZOOM_SELECTED, MF_BYCOMMAND |
@@ -5767,6 +5829,10 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
             case ID_TOOLS_ACTION_BLOCKS:
                 GEditorOpenActionBlocks(hwnd);
+                return 0;
+
+            case ID_TOOLS_PATROL_PATHS:
+                GEditorOpenPatrolPaths(hwnd);
                 return 0;
 
             case ID_TOOLS_UV_EDITOR:
