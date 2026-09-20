@@ -26,6 +26,20 @@ static void Repack(void)
     assert(Get(rom.data+64+24+8)==2352);
     assert(Get(rom.data+276)==2096 && Get(rom.data+288)==2096);
     for(DWORD i=2096;i<2352;i++) { assert(rom.data[i]==0x5a); }
+    for(DWORD i=2352;i<2560;i++) { assert(!rom.data[i]); }
+    /* Later edits reuse the padding reclaimed by an earlier export. */
+    slots[0].offset=slots[0].newoffset;slots[0].length=48;
+    slots[1].offset=slots[1].newoffset;
+    free(slots[0].replacement);slots[0].replacement=calloc(64,1);slots[0].replacementlength=64;
+    assert(RomExportRepackResources(&rom,obsg,ftbl,slots,2,&why));
+    assert(obsg->romstart==2048&&obsg->romend==2368&&rom.size==8192);
+    /* A neighboring segment is protected even if its payload is all zero. */
+    rom.info.entrycount=3;rom.info.entries[2].romstart=2368;rom.info.entries[2].romend=2384;
+    slots[0].offset=slots[0].newoffset;slots[0].length=64;slots[1].offset=slots[1].newoffset;
+    free(slots[0].replacement);slots[0].replacement=calloc(80,1);slots[0].replacementlength=80;
+    assert(RomExportRepackResources(&rom,obsg,ftbl,slots,2,&why));
+    assert(obsg->romstart==8192&&obsg->romend==8528);
+    for(DWORD i=2368;i<2384;i++) { assert(!rom.data[i]); }
     free(slots[0].replacement);free(rom.data);
 }
 int main(int argc,char **argv)

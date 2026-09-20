@@ -131,6 +131,9 @@ BOOL BgSaveProjectFile(const char *projectdir, const BgFile *bg,
 BOOL BgFileRemoveUnusedVertices(const BgFile *source, BgFile *out,
                                 const char **reasonout);
 void BgFileFree(BgFile *bg);
+/* Serialize only reachable metadata and room streams. Output offsets are new;
+ * use the copy for disk/ROM, never as the source for a live undo history. */
+BOOL BgFileCompact(const BgFile *source, BgFile *out, const char **reasonout);
 
 /* Same native BG-unit margin used by bgGetPortalMargin in the game. */
 float BgPortalGetMargin(const BgPortal *portal);

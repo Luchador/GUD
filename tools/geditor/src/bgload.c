@@ -792,6 +792,145 @@ BOOL BgLoadProjectFile(const char *projectdir, const char *bgname,
 }
 
 
+typedef struct BgPackedBlock { DWORD old, size, relocated; } BgPackedBlock;
+typedef struct BgPacking {
+    const BgFile *source;
+    BgFile *out;
+    BgPackedBlock blocks[2048];
+    DWORD count, capacity;
+} BgPacking;
+
+static void BgPackedWrite32(unsigned char *p, DWORD value)
+{
+    p[0] = value >> 24; p[1] = value >> 16; p[2] = value >> 8; p[3] = value;
+}
+
+/* Copy a reachable allocation once, retaining intentional aliases. Reject
+ * overlapping allocations rather than guessing at an unfamiliar layout. */
+static BOOL BgPackBlock(BgPacking *pack, DWORD old, DWORD size,
+                        DWORD alignment, DWORD *relocated)
+{
+    DWORD at = (pack->out->size + alignment - 1) & ~(alignment - 1);
+    if (old > pack->source->size || size > pack->source->size - old) { return FALSE; }
+    for (DWORD i = 0; i < pack->count; i++)
+    {
+        const BgPackedBlock *b = &pack->blocks[i];
+        if (b->old == old && b->size == size) { *relocated = b->relocated; return TRUE; }
+        if (old < b->old + b->size && b->old < old + size) { return FALSE; }
+    }
+    if (pack->count == 2048 || at > pack->capacity || size > pack->capacity - at
+        || at + size > 0xffffffu) { return FALSE; }
+    memcpy(pack->out->data + at, pack->source->data + old, size);
+    pack->blocks[pack->count++] = (BgPackedBlock){old, size, at};
+    pack->out->size = at + size;
+    *relocated = at;
+    return TRUE;
+}
+
+static BOOL BgPackPolygon(BgPacking *pack, DWORD pointer, DWORD *result)
+{
+    DWORD old = pointer & 0xffffffu, at;
+    unsigned int count;
+    if (!old || old >= pack->source->size) { return FALSE; }
+    count = pack->source->data[old];
+    if (count < 3 || count > BG_PORTAL_MAX_POINTS
+        || !BgPackBlock(pack, old, 4 + count * 12, 4, &at)) { return FALSE; }
+    *result = (pointer & 0xff000000u) | at;
+    return TRUE;
+}
+
+BOOL BgFileCompact(const BgFile *source, BgFile *out, const char **reasonout)
+{
+    BgPacking pack = {0};
+    DWORD rooms, roomcount, portals, portalcount, vis, vissize = 0;
+    DWORD newrooms, newportals = 0, newvis = 0, at;
+    const unsigned char *data;
+    ZeroMemory(out, sizeof(*out));
+    *reasonout = "The background's live allocations could not be compacted safely.";
+    if (!source || !source->data || source->size < 20 || source->size > 0x1000000u) { return FALSE; }
+    data = source->data;
+    /* Single-display-list backgrounds have a different layout. */
+    if (bg32(data))
+    {
+        out->data = malloc(source->size);
+        if (!out->data) { goto fail; }
+        memcpy(out->data, data, source->size); out->size = source->size;
+        memcpy(out->name, source->name, sizeof(out->name)); *reasonout = "";
+        return TRUE;
+    }
+    if (bg32(data + 16)) { return FALSE; }
+    rooms = bg32(data + 4) & 0xffffffu;
+    portals = bg32(data + 8) & 0xffffffu;
+    vis = bg32(data + 12) & 0xffffffu;
+    if (rooms < 20) { return FALSE; }
+    for (roomcount = 1; roomcount < BG_MAX_ROOMS; roomcount++)
+    {
+        at = rooms + roomcount * BG_ROOM_RECORD_SIZE;
+        if (at > source->size || source->size - at < BG_ROOM_RECORD_SIZE) { return FALSE; }
+        if (!bg32(data + at + 4)) { break; }
+    }
+    if (roomcount == BG_MAX_ROOMS) { return FALSE; }
+    for (portalcount = 0; portals && portalcount < BG_MAX_PORTALS; portalcount++)
+    {
+        at = portals + portalcount * 8;
+        if (at > source->size || source->size - at < 8) { return FALSE; }
+        if (!bg32(data + at)) { break; }
+    }
+    if (portalcount == BG_MAX_PORTALS) { return FALSE; }
+    if (vis) for (;;)
+    {
+        if (vis > source->size || vissize > source->size - vis
+            || source->size - vis - vissize < 8) { return FALSE; }
+        vissize += 8;
+        if (!data[vis + vissize - 8]) { break; }
+    }
+    pack.source = source; pack.out = out;
+    pack.capacity = source->size + 32768; /* room stream alignment */
+    out->data = calloc(pack.capacity, 1);
+    if (!out->data) { goto fail; }
+    if (!BgPackBlock(&pack, 0, 20, 4, &at)
+        || !BgPackBlock(&pack, rooms, (roomcount + 1) * BG_ROOM_RECORD_SIZE, 4, &newrooms)
+        || (portals && !BgPackBlock(&pack, portals, (portalcount + 1) * 8, 4, &newportals))
+        || (vis && !BgPackBlock(&pack, vis, vissize, 4, &newvis))) { goto fail; }
+    BgPackedWrite32(out->data + 4, (bg32(data + 4) & 0xff000000u) | newrooms);
+    BgPackedWrite32(out->data + 8, portals ? (bg32(data + 8) & 0xff000000u) | newportals : 0);
+    BgPackedWrite32(out->data + 12, vis ? (bg32(data + 12) & 0xff000000u) | newvis : 0);
+    for (DWORD i = 0; i < portalcount; i++)
+    {
+        DWORD pointer;
+        if (!BgPackPolygon(&pack, bg32(data + portals + i * 8), &pointer)) { goto fail; }
+        BgPackedWrite32(out->data + newportals + i * 8, pointer);
+    }
+    /* ENVIRONMENTDATA_ALT is the native polygon-address operand. Other
+     * visibility operands are values, not file pointers. Keep script-only
+     * polygons as well, even if the portal table no longer names them. */
+    for (DWORD i = 0; i + 8 < vissize; i += 8) if (data[vis + i] == 0x64)
+    {
+        DWORD pointer;
+        if (!BgPackPolygon(&pack, bg32(data + vis + i + 4), &pointer)) { goto fail; }
+        BgPackedWrite32(out->data + newvis + i + 4, pointer);
+    }
+    for (DWORD room = 1; room < roomcount; room++) for (DWORD field = 0; field < 3; field++)
+    {
+        DWORD record = rooms + room * BG_ROOM_RECORD_SIZE + field * 4;
+        DWORD pointer = bg32(data + record), old = pointer & 0xffffffu, length;
+        if (!pointer) { continue; }
+        if (old < 4 || old > source->size) { goto fail; }
+        length = bg32(data + old - 4);
+        if (length > source->size - old
+            || !BgPackBlock(&pack, old - 4, length + 4, 16, &at)) { goto fail; }
+        BgPackedWrite32(out->data + newrooms + room * BG_ROOM_RECORD_SIZE + field * 4,
+                        (pointer & 0xff000000u) | (at + 4));
+    }
+    out->size = (out->size + 15) & ~15u;
+    memcpy(out->name, source->name, sizeof(out->name));
+    *reasonout = "";
+    return TRUE;
+fail:
+    BgFileFree(out);
+    return FALSE;
+}
+
 BOOL BgSaveProjectFile(const char *projectdir, const BgFile *bg,
                        const char **reasonout)
 {
@@ -799,6 +938,7 @@ BOOL BgSaveProjectFile(const char *projectdir, const BgFile *bg,
     HANDLE file;
     DWORD written;
     BOOL ok;
+    BgFile packed = {0};
 
     *reasonout = "";
 
@@ -809,16 +949,19 @@ BOOL BgSaveProjectFile(const char *projectdir, const BgFile *bg,
         return FALSE;
     }
 
+    if (!BgFileCompact(bg, &packed, reasonout)) { return FALSE; }
     file = CreateFile(path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
                       FILE_ATTRIBUTE_NORMAL, NULL);
     if (file == INVALID_HANDLE_VALUE)
     {
+        BgFileFree(&packed);
         *reasonout = "the project background could not be opened for writing.";
         return FALSE;
     }
 
-    ok = WriteFile(file, bg->data, bg->size, &written, NULL)
-      && written == bg->size;
+    ok = WriteFile(file, packed.data, packed.size, &written, NULL)
+      && written == packed.size;
+    BgFileFree(&packed);
     if (!CloseHandle(file))
     {
         ok = FALSE;

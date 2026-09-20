@@ -3,6 +3,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "stanload.h"
 
@@ -307,6 +308,29 @@ DWORD StanResolvePadTile(const StanFile *stan, const char *name, const float pos
         return best;
     }
     return STAN_TILE_NONE;
+}
+
+BOOL StanResolveSavedPadName(const StanFile *stan, const char *name,
+                            const float pos[3], char resolved[16])
+{
+    DWORD tile = StanResolvePadTile(stan, name, pos), id;
+    StanTile query;
+    resolved[0] = '\0';
+    if (tile == STAN_TILE_NONE) { return FALSE; }
+    id = stan->tiles[tile].id;
+    if (id > 0xffffffu || ((id >> 3) & 31u) >= 26) { return FALSE; }
+    StanQueryTile(stan, tile, &query);
+    if (!StanInsideTriple(&query, pos[0] * stan->levelscale, pos[2] * stan->levelscale)) { return FALSE; }
+    /* Duplicate native IDs must resolve to this exact tile on reload. */
+    for (DWORD i = 0; i < tile; i++) if (stan->tiles[i].id == id) { return FALSE; }
+    snprintf(resolved, 16, "%c%lu%c", id & 0x800000u ? 'q' : 'p',
+             (unsigned long)((id >> 8) & 32767u), 'a' + (int)((id >> 3) & 31u));
+    if (id & 7u)
+    {
+        size_t length = strlen(resolved);
+        resolved[length] = '0' + (id & 7u); resolved[length + 1] = '\0';
+    }
+    return StanTileIdFromName(resolved) == id;
 }
 
 /* Authoring fallback for props: a ceiling-height 3D nearest-sample search can

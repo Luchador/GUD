@@ -61,6 +61,13 @@ BOOL StanSaveProjectFile(const char *projectdir, const StanFile *stan,
                          const char **reasonout);
 
 void StanFileFree(StanFile *stan);
+BOOL StanLoadNative(const unsigned char *data, DWORD size, float levelscale,
+                    StanFile *out, const char **reasonout);
+/* Known native footer bounds the asset; unknown tails remain intact. */
+BOOL StanMeasureNative(const unsigned char *data, DWORD size, DWORD *sizeout,
+                       const char **reasonout);
+BOOL StanPrepareSave(const StanFile *stan, unsigned char **out, DWORD *sizeout,
+                     const char **reasonout);
 BOOL StanFileClone(const StanFile *source, StanFile *out, const char **reasonout);
 
 /* A point identity is local to its tile. The point map joins coincident
@@ -141,6 +148,10 @@ BOOL StanPaintTile(StanFile *stan, DWORD tile, const unsigned char rgba[4],
    nearest-walkable sample search and linked walk, without altering pos. */
 DWORD StanResolvePadTile(const StanFile *stan, const char *name,
                          const float pos[3]);
+/* Cache the runtime's existing placement choice without moving the pad or
+ * choosing a different floor. Requires a valid named-tile fast path. */
+BOOL StanResolveSavedPadName(const StanFile *stan, const char *name,
+                            const float pos[3], char resolved[16]);
 /* Preserve a moved prop's connected floor when below its destination. Otherwise
  * prefer the highest containing floor below, then legacy destination lookup.
  * For new props, pass an empty name and the pad position as both endpoints.

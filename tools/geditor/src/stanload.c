@@ -237,6 +237,38 @@ static BOOL StanParseTiles(StanFile *stan, float levelscale,
     return TRUE;
 }
 
+BOOL StanLoadNative(const unsigned char *data, DWORD size, float levelscale,
+                    StanFile *out, const char **reasonout)
+{
+    ZeroMemory(out, sizeof(*out));
+    *reasonout = "Invalid native stan data.";
+    if (!data || size < STAN_HEADER_MIN || size > STAN_FILE_MAX) { return FALSE; }
+    out->data = malloc(size);
+    if (!out->data) { *reasonout = "Out of memory reading stan."; return FALSE; }
+    memcpy(out->data, data, size); out->size = size;
+    if (!StanParseTiles(out, levelscale, reasonout)) { StanFileFree(out); return FALSE; }
+    *reasonout = ""; return TRUE;
+}
+
+BOOL StanMeasureNative(const unsigned char *data, DWORD size, DWORD *sizeout,
+                       const char **reasonout)
+{
+    DWORD at, count;
+    *sizeout = 0;
+    if (!data || !StanCountTiles(data, size, &at, &count, reasonout)) { return FALSE; }
+    for (DWORD i = 0; i < count; i++) { at += 8u + (data[at + 6] >> 4) * 8u; }
+    at += 8; /* native terminator */
+    *sizeout = size;
+    /* A standard StandFileFooter contains an eight-byte string and four
+     * NULL words. Everything beyond it belongs to the retired ROM slot.
+     * Preserve extensions with an unknown footer or non-NULL fields. */
+    if (at <= size && size - at >= 24 && !memcmp(data + at, "unstric\0", 8)
+        && !StanRead32(data + at + 8) && !StanRead32(data + at + 12)
+        && !StanRead32(data + at + 16) && !StanRead32(data + at + 20))
+    { *sizeout = at + 24; }
+    *reasonout = ""; return TRUE;
+}
+
 DWORD StanExtractAll(const RomFile *rom, const char *projectdir,
                      const char **reasonout)
 {
@@ -498,6 +530,23 @@ fail:
     return FALSE;
 }
 
+BOOL StanPrepareSave(const StanFile *stan, unsigned char **out, DWORD *sizeout,
+                     const char **reasonout)
+{
+    unsigned char *grouped = NULL;
+    *out = NULL; *sizeout = 0;
+    if (!StanGroupRoomsForSave(stan, &grouped, reasonout)) { return FALSE; }
+    if (!StanMeasureNative(grouped ? grouped : stan->data, stan->size, sizeout, reasonout))
+    { free(grouped); return FALSE; }
+    if (!grouped)
+    {
+        grouped = malloc(*sizeout);
+        if (!grouped) { *reasonout = "Out of memory preparing stan."; *sizeout = 0; return FALSE; }
+        memcpy(grouped, stan->data, *sizeout);
+    }
+    *out = grouped; return TRUE;
+}
+
 BOOL StanSaveProjectFile(const char *projectdir, const StanFile *stan,
                          const char **reasonout)
 {
@@ -506,6 +555,7 @@ BOOL StanSaveProjectFile(const char *projectdir, const StanFile *stan,
     DWORD written;
     BOOL ok;
     unsigned char *grouped = NULL;
+    DWORD savesize;
 
     *reasonout = "";
 
@@ -516,7 +566,7 @@ BOOL StanSaveProjectFile(const char *projectdir, const StanFile *stan,
         return FALSE;
     }
 
-    if (!StanGroupRoomsForSave(stan, &grouped, reasonout)) { return FALSE; }
+    if (!StanPrepareSave(stan, &grouped, &savesize, reasonout)) { return FALSE; }
     file = CreateFile(path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
                       FILE_ATTRIBUTE_NORMAL, NULL);
     if (file == INVALID_HANDLE_VALUE)
@@ -526,8 +576,8 @@ BOOL StanSaveProjectFile(const char *projectdir, const StanFile *stan,
         return FALSE;
     }
 
-    ok = WriteFile(file, grouped ? grouped : stan->data, stan->size, &written, NULL)
-      && written == stan->size;
+    ok = WriteFile(file, grouped ? grouped : stan->data, savesize, &written, NULL)
+      && written == savesize;
     free(grouped);
     if (!CloseHandle(file))
     {

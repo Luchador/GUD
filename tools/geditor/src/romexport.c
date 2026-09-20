@@ -28,6 +28,7 @@
 #include "imageedits.h"
 #include "bgdocument.h"
 #include "setupload.h"
+#include "setupstan.h"
 #include "actionblocks.h"
 
 #define ROM_EXPORT_FTBL_MAX_ROWS 1024u
@@ -48,9 +49,13 @@ typedef struct RomExportSlot {
     BOOL model;
     BOOL background;
     BOOL setup;
+    BOOL stan;
 } RomExportSlot;
 
 static char g_RomExportError[256];
+static char g_RomExportCleanupWarning[384];
+
+const char *RomExportCleanupWarning(void) { return g_RomExportCleanupWarning; }
 
 
 static void RomExportSetError(const char **reasonout, const char *format, ...)
@@ -752,6 +757,7 @@ static BOOL RomExportRepackResources(RomFile *rom,
     DWORD target;
     DWORD oldstart = obsg->romstart;
     DWORD oldend = obsg->romend;
+    DWORD inplacecapacity = oldend - oldstart;
     DWORD ftblend = 0;
     DWORD manifestend;
 
@@ -801,7 +807,8 @@ static BOOL RomExportRepackResources(RomFile *rom,
             return FALSE;
         }
         if (slots[slotindex].replacement != NULL
-            && (slots[slotindex].setup || slots[slotindex].replacementlength > payload))
+            && (slots[slotindex].setup || slots[slotindex].background || slots[slotindex].stan
+                || slots[slotindex].replacementlength > payload))
         {
             payload = slots[slotindex].replacementlength;
         }
@@ -828,7 +835,7 @@ static BOOL RomExportRepackResources(RomFile *rom,
         DWORD payload = slot->length;
 
         slot->newoffset = cursor;
-        if (slot->setup && slot->replacement != NULL)
+        if ((slot->setup || slot->background || slot->stan) && slot->replacement != NULL)
         {
             payload = slot->replacementlength;
             memcpy(packed + cursor, slot->replacement, payload);
@@ -847,10 +854,31 @@ static BOOL RomExportRepackResources(RomFile *rom,
         RomExportAlignSize(&cursor, 16);
     }
 
-    if (packedsize <= oldend - oldstart)
+    /* A previously compacted export can be imported as a new base. Reuse
+     * verified zero padding after OBSG before appending another whole bank,
+     * especially when the ROM already has the maximum supported capacity.
+     * Even an all-zero neighboring manifest segment is occupied space. */
+    if (packedsize > inplacecapacity && packedsize <= rom->size - oldstart)
+    {
+        DWORD end = oldstart + packedsize;
+        BOOL padding = !((ftbl->romstart < end && ftblend > oldend)
+            || (rom->info.manifestoffset < end && manifestend > oldend));
+        for (DWORD i = 0; padding && i < rom->info.entrycount; i++)
+        {
+            const RomManifestEntry *entry = &rom->info.entries[i];
+            if (entry != obsg && entry->romstart < entry->romend
+                && entry->romstart < end && entry->romend > oldend) { padding = FALSE; }
+        }
+        for (DWORD i = oldend; padding && i < end; i++)
+        { if (rom->data[i]) { padding = FALSE; } }
+        if (padding) { inplacecapacity = packedsize; }
+    }
+    if (packedsize <= inplacecapacity)
     {
         target = oldstart;
         memcpy(rom->data + target, packed, packedsize);
+        if (packedsize < oldend - oldstart)
+        { memset(rom->data + target + packedsize, 0, oldend - oldstart - packedsize); }
     }
     else
     {
@@ -921,6 +949,32 @@ static BOOL RomExportRepackResources(RomFile *rom,
 }
 
 
+/* Select the actual post-alias STAN bytes, including levels never opened in
+ * this session and the runtime's legacy multiplayer setup-name expansion. */
+static const RomLevel *RomExportSetupLevel(const GEditorProject *project,
+    const RomFile *rom, RomExportSlot *slot, DWORD *stanoffset)
+{
+    const RomLevel *match = NULL;
+    const char *why;
+    for (DWORD i = 0; i < project->levelcount; i++)
+    {
+        const RomLevel *level = &project->levels[i];
+        for (int multiplayer = 0; multiplayer < 2; multiplayer++)
+        {
+            char name[64]; DWORD offset, length, stan;
+            if (multiplayer && strncmp(level->setupname, "Usetup", 6)) { continue; }
+            snprintf(name, sizeof(name), multiplayer ? "Ump_%s" : "U%s", level->setupname + 1);
+            if (!RomFindFile(rom, name, &offset, &length, &why) || offset != slot->offset) { continue; }
+            if (!RomFindFile(rom, level->stanname, &stan, &length, &why)) { return NULL; }
+            /* Shared setups with different collision worlds cannot safely
+             * cache a single placement choice. Leave their names authored. */
+            if (match && (*stanoffset != stan || match->levelscale != level->levelscale)) { return NULL; }
+            match = level; *stanoffset = stan;
+        }
+    }
+    return match;
+}
+
 static BOOL RomExportReplaceProjectResources(const GEditorProject *project,
                                              RomFile *rom,
                                              const char **reasonout)
@@ -931,8 +985,10 @@ static BOOL RomExportReplaceProjectResources(const GEditorProject *project,
     DWORD slotcount = 0;
     DWORD index;
     BOOL needrepack = FALSE;
+    DWORD unresolved = 0, skipped = 0;
 
     ZeroMemory(slots, sizeof(slots));
+    g_RomExportCleanupWarning[0] = '\0';
 
     for (index = 0; index < rom->info.entrycount; index++)
     {
@@ -1002,6 +1058,7 @@ static BOOL RomExportReplaceProjectResources(const GEditorProject *project,
 
         slot->background |= strncmp(resource, "bg/", 3) == 0;
         slot->setup |= strncmp(resource, "Usetup", 6) == 0 || strncmp(resource, "Ump_setup", 9) == 0;
+        slot->stan |= strncmp(resource, "Tbg_", 4) == 0 && strstr(resource, "_stanZ") != NULL;
         managed = ModelEditsReadReplacement(project->dir, resource, rom->data + offset,
             maxlen, &data, &length, reasonout);
         if (managed < 0) { goto fail; }
@@ -1121,6 +1178,33 @@ have_replacement:
             slot->replacement = cleaned.data;
             slot->replacementlength = cleaned.size;
         }
+        source.data = slot->replacement ? slot->replacement : rom->data + slot->offset;
+        source.size = slot->replacement ? slot->replacementlength : slot->length;
+        if (!BgFileCompact(&source, &cleaned, reasonout)) { goto fail; }
+        free(slot->replacement);
+        slot->replacement = cleaned.data;
+        slot->replacementlength = cleaned.size;
+        if (((cleaned.size + 15) & ~15u) != slot->length) { needrepack = TRUE; }
+    }
+
+    for (index = 0; index < slotcount; index++) if (slots[index].stan)
+    {
+        RomExportSlot *slot = &slots[index];
+        const unsigned char *source = slot->replacement ? slot->replacement : rom->data + slot->offset;
+        DWORD size = slot->replacement ? slot->replacementlength : slot->length, length;
+        unsigned char *copy;
+        if (!StanMeasureNative(source, size, &length, reasonout))
+        {
+            /* Unimplemented stock maps can label a small opaque linker
+             * placeholder as STAN. Preserve it; edited invalid data fails. */
+            if (!slot->replacement) { *reasonout = ""; continue; }
+            goto fail;
+        }
+        copy = malloc(length);
+        if (!copy) { *reasonout = "Out of memory compacting stan."; goto fail; }
+        memcpy(copy, source, length); free(slot->replacement);
+        slot->replacement = copy; slot->replacementlength = length;
+        if (((length + 15) & ~15u) != slot->length) { needrepack = TRUE; }
     }
 
     /* Resolve aliases first, then compact the chosen setup. The runtime loads
@@ -1133,13 +1217,42 @@ have_replacement:
         DWORD size = slot->replacement ? slot->replacementlength : slot->length;
         unsigned char *packed;
         DWORD packedsize;
+        DWORD stanoffset = 0;
+        const RomLevel *level;
         /* Unused stock setup placeholders can share a tiny, opaque slot. */
         if (size < 40) { continue; }
-        if (!SetupCompactNative(source, size, &packed, &packedsize, reasonout)) { goto fail; }
+        level = RomExportSetupLevel(project, rom, slot, &stanoffset);
+        if (level && (RomExportRead32(source + 24) || RomExportRead32(source + 28)))
+        {
+            RomExportSlot *stanslot = RomExportFindSlot(slots, slotcount, stanoffset);
+            StanFile stan = {0}; SetupStanRefresh stats;
+            BOOL ok;
+            if (!stanslot) { *reasonout = "The setup's stan resource is missing."; goto fail; }
+            if (!StanLoadNative(stanslot->replacement ? stanslot->replacement : rom->data + stanslot->offset,
+                stanslot->replacement ? stanslot->replacementlength : stanslot->length,
+                level->levelscale, &stan, reasonout)) { goto fail; }
+            ok = SetupRefreshPadStanNative(source, size, &stan, &packed, &packedsize, &stats, reasonout);
+            StanFileFree(&stan);
+            if (!ok) { goto fail; }
+            unresolved += stats.unresolved;
+        }
+        else
+        {
+            if (RomExportRead32(source + 24) || RomExportRead32(source + 28)) { skipped++; }
+            if (!SetupCompactNative(source, size, &packed, &packedsize, reasonout)) { goto fail; }
+        }
         free(slot->replacement);
         slot->replacement = packed;
         slot->replacementlength = packedsize;
         if (packedsize != slot->length) { needrepack = TRUE; }
+    }
+
+    if (unresolved || skipped)
+    {
+        snprintf(g_RomExportCleanupWarning, sizeof(g_RomExportCleanupWarning),
+            "Pad reference cleanup: %lu pads could not be resolved; their names and positions were retained. "
+            "%lu setups have no unique level/STAN pairing and retained their authored pad references.",
+            (unsigned long)unresolved, (unsigned long)skipped);
     }
 
     if (needrepack)

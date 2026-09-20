@@ -62,8 +62,18 @@ static void CompileAndSave(const BgDocument *doc,const BgFile *source,const char
     snprintf(path,sizeof(path),"%s/bg",dir);CreateDirectory(path,NULL);
     assert(BgSaveProjectFile(dir,compiled,&why));
     assert(BgLoadProjectFile(dir,compiled->name,&saved,&why));
-    assert(saved.size==compiled->size && !memcmp(saved.data,compiled->data,saved.size));
-    assert(BgDocumentLoad(saved.data,saved.size,.5f,&reloaded,&why));SamePortals(doc,&reloaded);
+    assert(saved.size<compiled->size);
+    assert(BgDocumentLoad(saved.data,saved.size,.5f,&reloaded,&why));
+    assert(doc->portals.portalcount==reloaded.portals.portalcount);
+    for(DWORD i=0;i<doc->portals.portalcount;i++)
+    {
+        BgPortal p=reloaded.portals.portals[i];
+        p.geometryoffset=doc->portals.portals[i].geometryoffset;
+        assert(!memcmp(&p,&doc->portals.portals[i],sizeof(p)));
+        for(DWORD j=0;j<i;j++)
+            assert((doc->portals.portals[i].geometryoffset==doc->portals.portals[j].geometryoffset)
+                ==(reloaded.portals.portals[i].geometryoffset==reloaded.portals.portals[j].geometryoffset));
+    }
     assert(reloaded.facecount==doc->facecount && reloaded.roomcount==3);
     BgDocumentFree(&reloaded);BgFileFree(&saved);
 }

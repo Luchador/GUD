@@ -27,12 +27,15 @@ Each applied change is one **Change Portal Rooms** undo step and marks the
 project unsaved. BG history snapshots own the portal metadata, so portal edits
 and face edits can be interleaved, undone and redone, including after a save.
 The compiler writes the room IDs into the BG segment's native eight-byte table
-records, preserving surviving polygon addresses, flags, margin bytes, and
-other metadata. Deletion compacts table indices. Project saves and the existing ROM builder use that segment.
+records, preserving session polygon addresses, flags, margin bytes, and
+other metadata. Deletion compacts table indices. Saved files and ROM exports
+compact reachable polygon data and relocate visibility references in a copy;
+live history retains its original identities. See [Resource cleanup](RESOURCE_CLEANUP.md).
 No new project or game-engine changes are required.
 
 Malformed portal tables retain the existing load warning and remain uneditable;
-the editor can still open the level geometry and preserve the original table.
+the editor can still open the level geometry. Cleanup rejects malformed live
+references instead of guessing how to relocate them.
 
 ## Verification
 

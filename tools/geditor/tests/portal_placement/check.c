@@ -24,7 +24,11 @@ static void SamePortals(const BgDocument *a, const BgDocument *b, DWORD oldcount
     for (DWORD i = 0; i < a->portals.portalcount; i++)
     {
         const BgPortal *p=&a->portals.portals[i], *q=&b->portals.portals[i];
-        if (i < oldcount) { assert(!memcmp(p,q,sizeof(*p))); }
+        if (i < oldcount)
+        {
+            BgPortal relocated=*q;relocated.geometryoffset=p->geometryoffset;
+            assert(!memcmp(p,&relocated,sizeof(*p)));
+        }
         else
         {
             assert(p->connectedroom1==q->connectedroom1 && p->connectedroom2==q->connectedroom2);
@@ -45,10 +49,23 @@ static BgFile SaveReload(const BgDocument *doc, const BgFile *source, const char
     assert(BgFileValidateVertexBatches(&compiled,&why)); /* Create ROM's BG gate. */
     assert(BgSaveProjectFile(dir,&compiled,&why));
     assert(BgLoadProjectFile(dir,compiled.name,&saved,&why));
-    assert(saved.size==compiled.size && !memcmp(saved.data,compiled.data,saved.size));
+    assert(saved.size<compiled.size);
     assert(BgDocumentLoad(saved.data,saved.size,doc->levelscale,&reloaded,&why));
     assert(!reloaded.portalwarning && reloaded.facecount==doc->facecount);
     SamePortals(doc,&reloaded,originals);
+    for(DWORD i=0;i<doc->portals.portalcount;i++) for(DWORD j=0;j<i;j++)
+        assert((doc->portals.portals[i].geometryoffset==doc->portals.portals[j].geometryoffset)
+            ==(reloaded.portals.portals[i].geometryoffset==reloaded.portals.portals[j].geometryoffset));
+    if(Get(saved.data+12))
+    {
+        DWORD vis=Get(saved.data+12)&0xffffffu;
+        DWORD poly=Get(saved.data+vis+12)&0xffffffu;
+        assert(!memcmp(saved.data+poly,source->data+192,52));
+    }
+    BgFile twice={0};
+    assert(BgSaveProjectFile(dir,&saved,&why));
+    assert(BgLoadProjectFile(dir,saved.name,&twice,&why));
+    assert(twice.size==saved.size&&!memcmp(twice.data,saved.data,saved.size));BgFileFree(&twice);
     DWORD table=Get(compiled.data+8)&0xffffff;
     assert(Get(compiled.data+table+doc->portals.portalcount*8)==0);
     for(DWORD i=0;i<originals;i++)
@@ -102,7 +119,7 @@ static void Persistence(const char *dir)
     assert(BgDocumentLoad(source.data,source.size,.5f,&doc,&why));
     /* A real visibility-stream pointer to an original polygon must stay valid. */
     Put(source.data+12,0x0f0001a0);Put(source.data+416,0x1f020000);Put(source.data+420,0);
-    Put(source.data+424,0x04010000);Put(source.data+428,0x0f0000c0);Put(source.data+432,0x00010000);Put(source.data+436,0);
+    Put(source.data+424,0x64010000);Put(source.data+428,0x0f0000c0);Put(source.data+432,0x00010000);Put(source.data+436,0);
     EditHistoryReset(&h,&doc,&setup,&stan);
     BgPortalPlacement p={1,3,{15,-25,35},200,300,BG_PORTAL_XY};
     assert(EditHistoryBeginBgEdit(&h,&doc,"Add Portal",&tx,&why));
@@ -131,7 +148,7 @@ static void Persistence(const char *dir)
     BgFile branch=SaveReload(&doc,&again,dir,3);assert(branch.size==again.size);BgFileFree(&branch);
     EditHistoryFree(&h);BgDocumentFree(&doc);BgFileFree(&saved);BgFileFree(&again);BgFileFree(&undone);BgFileFree(&redone);
     /* Empty tables can grow, and every slot up to the native limit can save. */
-    Put(source.data+8,0x0e000090); /* An existing eight-byte zero sentinel. */
+    Put(source.data+8,0x0e000098); /* An independent eight-byte zero sentinel. */
     assert(BgDocumentLoad(source.data,source.size,.3f,&doc,&why));assert(!doc.portalwarning && !doc.portals.portalcount);
     for(DWORD i=0;i<BG_MAX_PORTALS-1;i++) { assert(BgDocumentAddPortal(&doc,&p,&index,&why) && index==i); }
     assert(!BgDocumentAddPortal(&doc,&p,&index,&why) && doc.portals.portalcount==199);

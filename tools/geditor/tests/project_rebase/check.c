@@ -115,6 +115,9 @@ static unsigned char *Fixture(DWORD shift,const unsigned char *model,DWORD model
     Put32(row+4,32);Put32(row+56,0x0e000080);Put32(row+60,0x0e000100);
     Put32(row+124,64);Put32(row+252,24);Put32(row+256,0x04200030);
     Put32(row+264,0xbf000000);Put32(row+268,0x00000a14);Put32(row+272,0xb8000000);
+    row=data+OBJECTS+shift+576; /* One real native STAN tile, terminator and footer. */
+    Put32(row+4,12);Put32(row+12,0x10001);row[18]=0x30;row[19]=0x12;
+    row[33]=100;row[37]=100;memcpy(row+52,"unstric",8);
     memcpy(data+MODEL+shift,model,modelsize);
     row=data+MODEL+modelsize+shift; /* Empty MP setup with valid list terminators. */
     Put32(row+8,40);Put32(row+40,9);Put32(row+24,44);Put32(row+28,88);
@@ -329,7 +332,10 @@ int main(int argc,char **argv)
     OK(RomExportCreate(&rebased,"Playable",argv[1],exported,sizeof(exported),&why));OK(RomLoad(exported,&output,&why));
     OK(output.data[0x2000]==0x22 && output.info.levels[0].music==12 && output.info.levels[0].bgsound==8);
     OK(RomGetFileByIndex(&output,1,path,sizeof(path),&offset,&span) && output.data[offset+52]==0x56);
-    OK(RomGetFileByIndex(&output,2,path,sizeof(path),&offset,&span) && output.data[offset+128]==1);
+    OK(RomGetFileByIndex(&output,2,path,sizeof(path),&offset,&span));
+    { DWORD rooms=Get32(output.data+offset+4)&0xffffffu;
+      DWORD vertices=Get32(output.data+offset+rooms+24)&0xffffffu;
+      OK(output.data[offset+vertices]==1); }
     OK(RomGetFileByIndex(&output,4,path,sizeof(path),&offset,&span) && span==modelsize && memcmp(output.data+offset,model,modelsize));
     OK(TexRomReadBank(&output,&bank,&why) && bank.count==4);
     {

@@ -42,6 +42,7 @@
 #include "primitiveoptions.h"
 #include "bghistory.h"
 #include "setupload.h"
+#include "setupstan.h"
 #include "stanload.h"
 #include "texload.h"
 #include "texencode.h"
@@ -1432,6 +1433,7 @@ static BOOL GEditorSaveProject(HWND hwnd)
 {
     const char *why = "";
     BOOL saved = FALSE;
+    SetupStanRefresh padstats = {0};
 
     if (!PatrolEditorApply()) { return FALSE; }
 
@@ -1493,7 +1495,8 @@ static BOOL GEditorSaveProject(HWND hwnd)
 
         if (g_CurrentSetup.data != NULL)
         {
-            if (!SetupSaveProjectFile(g_Project.dir, &g_CurrentSetup, &why))
+            if (!SetupSaveProjectFileWithStan(g_Project.dir, &g_CurrentSetup,
+                &g_CurrentStan, &padstats, &why))
             {
                 MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
                 goto done;
@@ -1532,6 +1535,15 @@ static BOOL GEditorSaveProject(HWND hwnd)
 
     g_ProjectMetadataDirty = FALSE;
     saved = TRUE;
+    if (padstats.unresolved)
+    {
+        char message[256];
+        snprintf(message, sizeof(message),
+            "Project saved. %lu pads could not be resolved against STAN; their names and positions were retained.\n"
+            "First unresolved: %s pad %lu.", (unsigned long)padstats.unresolved,
+            padstats.firstunresolved.bound ? "bound" : "ordinary", (unsigned long)padstats.firstunresolved.index);
+        MessageBox(hwnd, message, GEDITOR_TITLE, MB_ICONWARNING);
+    }
 
 done:
     GEditorRefreshHistoryMenu(hwnd);
@@ -1681,7 +1693,7 @@ static INT_PTR CALLBACK GEditorCreateRomProc(HWND hdlg, UINT msg,
             char name[ROM_EXPORT_NAME_MAX];
             char directory[MAX_PATH];
             char outputpath[MAX_PATH];
-            char message[MAX_PATH + 64];
+            char message[MAX_PATH + 512];
             const char *reason = "";
             DWORD attrs;
 
@@ -1731,8 +1743,8 @@ static INT_PTR CALLBACK GEditorCreateRomProc(HWND hdlg, UINT msg,
                 return TRUE;
             }
 
-            snprintf(message, sizeof(message), "ROM created successfully:\n%s",
-                     outputpath);
+            snprintf(message, sizeof(message), "ROM created successfully:\n%s%s%s",
+                     outputpath, RomExportCleanupWarning()[0] ? "\n\n" : "", RomExportCleanupWarning());
             MessageBox(hdlg, message, GEDITOR_TITLE, MB_ICONINFORMATION);
             EndDialog(hdlg, IDOK);
             return TRUE;
