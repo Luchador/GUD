@@ -8,9 +8,9 @@ static DWORD Read32(const unsigned char *p)
 static void Write32(unsigned char *p, DWORD v)
 { p[0] = v >> 24; p[1] = v >> 16; p[2] = v >> 8; p[3] = v; }
 
-BOOL SetupRefreshPadStanNative(const unsigned char *data, DWORD size,
+BOOL SetupRefreshPadStanNativeReport(const unsigned char *data, DWORD size,
     const StanFile *stan, unsigned char **out, DWORD *sizeout,
-    SetupStanRefresh *stats, const char **reasonout)
+    SetupStanRefresh *stats, SetupStanIssueFn report, void *context, const char **reasonout)
 {
     unsigned char *copy = NULL;
     DWORD length;
@@ -39,6 +39,8 @@ BOOL SetupRefreshPadStanNative(const unsigned char *data, DWORD size,
                 || !StanResolveSavedPadName(stan, (const char *)copy + link, pos, name))
             {
                 if (!stats->unresolved) { stats->firstunresolved = (SetupPadRef){index, bound != 0}; }
+                if (report && !report(context, (SetupPadRef){index, bound != 0}, pos, (const char *)copy + link))
+                { *reasonout = "Out of memory recording unresolved pads."; goto fail; }
                 stats->unresolved++; continue;
             }
             if (!strcmp((const char *)copy + link, name)) { continue; }
@@ -58,6 +60,13 @@ BOOL SetupRefreshPadStanNative(const unsigned char *data, DWORD size,
     free(copy); return TRUE;
 fail:
     free(copy); return FALSE;
+}
+
+BOOL SetupRefreshPadStanNative(const unsigned char *data, DWORD size,
+    const StanFile *stan, unsigned char **out, DWORD *sizeout,
+    SetupStanRefresh *stats, const char **reasonout)
+{
+    return SetupRefreshPadStanNativeReport(data, size, stan, out, sizeout, stats, NULL, NULL, reasonout);
 }
 
 BOOL SetupSaveProjectFileWithStan(const char *projectdir, const SetupFile *setup,

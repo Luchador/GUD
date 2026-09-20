@@ -5,6 +5,9 @@
 int ModelEditsReadReplacement(const char *dir, const char *name,
     const unsigned char *base, DWORD size, unsigned char **out, DWORD *length, const char **why)
 { return 0; }
+static BOOL fail_export_tail;
+BOOL NewPropsExportToRom(const char *dir,RomFile *rom,const char **why) { return !fail_export_tail; }
+BOOL ImageEditsExportToRom(const char *dir,RomFile *rom,const char **why) { return TRUE; }
 static const char *why;
 static void Require(BOOL ok) { if (!ok) { fprintf(stderr, "%s\n", why); abort(); } }
 static void Put(unsigned char *p, DWORD v) { RomExportWrite32(p, v); }
@@ -161,6 +164,7 @@ static void RealRom(const char *path,const char *dir)
     RomFile rom={0};GEditorProject project={0};char output[MAX_PATH];
     Require(RomLoad(path,&rom,&why)); strcpy(project.dir,dir);
     project.levelcount=rom.info.levelcount;memcpy(project.levels,rom.info.levels,sizeof(project.levels));
+    Require(RomExportStoreProjectBase(&project,&rom,&why));
     for(DWORD index=0;;index++)
     {
         char name[64];DWORD offset,length;
@@ -182,8 +186,29 @@ static void RealRom(const char *path,const char *dir)
     }
     for(int pass=0;pass<2;pass++)
     {
-        Require(RomExportReplaceProjectResources(&project,&rom,&why));
+        LevelIssueReport report={0};
+        Require(RomExportReplaceProjectResources(&project,&rom,&report,&why));
         printf("Export %d: %s\n",pass+1,RomExportCleanupWarning());
+        DWORD pads=0,skipped=0;
+        for(DWORD i=0;i<report.count;i++)
+        {
+            const LevelIssue *issue=&report.items[i];assert(issue->scope[0]);
+            if(issue->kind==LEVEL_ISSUE_UNRESOLVED_PAD)
+            {
+                pads++;assert(issue->exportsetup[0] && issue->subject[0]);
+                if(issue->exportlevel!=(DWORD)-1)
+                    assert(!strcmp(project.levels[issue->exportlevel].setupname,issue->exportsetup));
+                if(!pass)printf("PAD: %s | %s | %s\n",issue->scope,issue->subject,issue->exportstan);
+                for(DWORD j=0;j<i;j++)
+                    assert(strcmp(report.items[j].exportsetup,issue->exportsetup) || report.items[j].pad.index!=issue->pad.index || report.items[j].pad.bound!=issue->pad.bound);
+            }
+            else { skipped++;assert(issue->target==LEVEL_ISSUE_NOWHERE); }
+        }
+        unsigned long expectedpads,expectedskips;
+        assert(sscanf(RomExportCleanupWarning(),"Across all ROM setups: %lu pads could not be resolved; their names and positions were retained. %lu setups",&expectedpads,&expectedskips)==2);
+        assert(pads==expectedpads && skipped==expectedskips && !report.truncated);
+        LevelIssueReport clone={0};Require(LevelIssuesClone(&report,&clone));LevelIssuesFree(&report);
+        assert(clone.count==pads+skipped);LevelIssuesFree(&clone);
         snprintf(output,sizeof(output),"%s/pass%d.z64",dir,pass+1);Save(output,rom.data,rom.size);
     }
     /* An unopened level's edited STAN must win over its base-ROM copy when
@@ -204,12 +229,24 @@ static void RealRom(const char *path,const char *dir)
         strcpy(stan.name,level->stanname);Require(StanSaveProjectFile(dir,&stan,&why));
         Require(SetupRefreshPadStanNative(setup,length,&stan,&expected,&size,&stats,&why));
         assert(stats.updated);
-        Require(RomExportReplaceProjectResources(&project,&rom,&why));
+        Require(RomExportReplaceProjectResources(&project,&rom,NULL,&why));
         Require(RomFindFile(&rom,level->setupname,&offset,&length,&why));
         assert(length>=size&&!memcmp(rom.data+offset,expected,size));
         free(expected);StanFileFree(&stan);
         puts("PASS: unopened Depot setup references the edited STAN selected for export.");break;
     }
+    /* Only a successful write replaces the snapshot; validations and failed
+     * exports must not silently change what "Last ROM export" means. */
+    assert(!RomExportIssues());
+    Require(RomExportCreate(&project,"report-test",dir,output,sizeof(output),&why));
+    const LevelIssueReport *report=RomExportIssues();assert(report && report->count);
+    LevelIssue *items=report->items;DWORD count=report->count;
+    Require(RomExportValidateProject(&project,&why));assert(RomExportIssues()->items==items);
+    fail_export_tail=TRUE;
+    assert(!RomExportCreate(&project,"failed-export",dir,output,sizeof(output),&why));fail_export_tail=FALSE;
+    assert(RomExportIssues()->items==items && RomExportIssues()->count==count);
+    RomExportClearIssues();assert(!RomExportIssues());
+    puts("PASS: exact export pad list, direct/MP level mapping, copied report ownership and successful-export snapshot lifetime.");
     RomFree(&rom);
 }
 

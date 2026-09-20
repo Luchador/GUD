@@ -59,6 +59,8 @@ typedef struct BrowserObjectDrop {
 
 BOOL BrowserRegisterClass(HINSTANCE hinstance);
 HWND BrowserCreate(HWND parent, HINSTANCE hinstance);
+/* Synchronize the highlight after navigation from a report. */
+void BrowserSelectLevel(HWND browser, DWORD index);
 
 #include "texload.h"
 

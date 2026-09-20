@@ -12,7 +12,7 @@
 void LevelIssuesFree(LevelIssueReport *report)
 { free(report->items); memset(report, 0, sizeof(*report)); }
 
-static BOOL Add(LevelIssueReport *report, const LevelIssue *issue)
+BOOL LevelIssuesAdd(LevelIssueReport *report, const LevelIssue *issue)
 {
     if (report->count == ISSUE_LIMIT) { report->truncated = TRUE; return TRUE; }
     if (report->count == report->capacity)
@@ -26,6 +26,16 @@ static BOOL Add(LevelIssueReport *report, const LevelIssue *issue)
     report->items[report->count++] = *issue;
     if (issue->error) { report->errors++; } else { report->warnings++; }
     return TRUE;
+}
+
+BOOL LevelIssuesClone(const LevelIssueReport *source, LevelIssueReport *out)
+{
+    memset(out, 0, sizeof(*out));
+    if (!source) { return FALSE; }
+    LevelIssue *items = source->count ? malloc(source->count * sizeof(*items)) : NULL;
+    if (source->count && !items) { return FALSE; }
+    if (source->count) { memcpy(items, source->items, source->count * sizeof(*items)); }
+    *out = *source; out->items = items; out->capacity = source->count; return TRUE;
 }
 
 static const SetupPad *Pad(const SetupFile *setup, SetupPadRef ref)
@@ -78,6 +88,18 @@ static void PadOwner(const SetupFile *setup, LevelIssue *issue)
     }
 }
 
+BOOL LevelIssueResolveExport(const LevelIssue *issue, const SetupFile *setup,
+    float scale, LevelIssue *out)
+{
+    if (!issue || !setup || !out || !issue->exportsetup[0]
+        || strcmp(issue->exportsetup, setup->name) || scale != issue->exportscale) { return FALSE; }
+    const SetupPad *pad = Pad(setup, issue->pad); float position[3];
+    if (!Position(pad, scale, position) || strcmp(pad->stanname, issue->exportstan)
+        || memcmp(position, issue->exportposition, sizeof(position))) { return FALSE; }
+    *out = *issue; out->target = LEVEL_ISSUE_PAD;
+    PadOwner(setup, out); return TRUE;
+}
+
 BOOL LevelIssuesBuild(const BgDocument *bg, const SetupFile *setup,
     const StanFile *stan, float scale, LevelIssueReport *out, const char **why)
 {
@@ -103,7 +125,7 @@ BOOL LevelIssuesBuild(const BgDocument *bg, const SetupFile *setup,
             LevelIssue issue = {0}; issue.kind = LEVEL_ISSUE_STAN_DATA; issue.error = TRUE;
             strcpy(issue.subject, "STAN data");
             snprintf(issue.description, sizeof(issue.description), "Could not check the saved STAN layout: %s", reason);
-            if (!Add(out, &issue)) { goto memory; }
+            if (!LevelIssuesAdd(out, &issue)) { goto memory; }
         }
     }
     else if (setup->padcount || setup->boundpadcount)
@@ -111,7 +133,7 @@ BOOL LevelIssuesBuild(const BgDocument *bg, const SetupFile *setup,
         LevelIssue issue = {0}; issue.kind = LEVEL_ISSUE_MISSING_STAN;
         strcpy(issue.subject, "Pad resolution");
         strcpy(issue.description, "No STAN collision data is loaded. Pad references could not be checked.");
-        if (!Add(out, &issue)) { goto memory; }
+        if (!LevelIssuesAdd(out, &issue)) { goto memory; }
     }
     for (DWORD bound = 0; bound < 2; bound++)
     {
@@ -137,7 +159,7 @@ BOOL LevelIssuesBuild(const BgDocument *bg, const SetupFile *setup,
                     "Cannot resolve this pad against STAN (current reference: %s). Check floor coverage and the pad position. Save/export preserves it unchanged.",
                     pad->stanname[0] ? pad->stanname : "none");
             }
-            if (!Add(out, &issue)) { goto memory; }
+            if (!LevelIssuesAdd(out, &issue)) { goto memory; }
         }
     }
     for (DWORD i = 0; i < stan->tilecount; i++)
@@ -149,7 +171,7 @@ BOOL LevelIssuesBuild(const BgDocument *bg, const SetupFile *setup,
         {
             issue.kind = LEVEL_ISSUE_STAN_ROOM;
             snprintf(issue.description, sizeof(issue.description), "Room %u does not exist in the background.", tile->room);
-            if (!Add(out, &issue)) { goto memory; }
+            if (!LevelIssuesAdd(out, &issue)) { goto memory; }
         }
         for (DWORD edge = 0; edge < tile->pointcount && edge < STAN_TILE_MAX_POINTS; edge++)
         {
@@ -157,7 +179,7 @@ BOOL LevelIssuesBuild(const BgDocument *bg, const SetupFile *setup,
             {
                 issue.kind = LEVEL_ISSUE_STAN_LINK;
                 snprintf(issue.description, sizeof(issue.description), "Edge %lu links to a missing STAN tile (0x%04X).", (unsigned long)edge, tile->points[edge].link);
-                if (!Add(out, &issue)) { goto memory; }
+                if (!LevelIssuesAdd(out, &issue)) { goto memory; }
                 break;
             }
         }
@@ -167,7 +189,7 @@ BOOL LevelIssuesBuild(const BgDocument *bg, const SetupFile *setup,
         LevelIssue issue = {0}; issue.kind = LEVEL_ISSUE_PORTAL; issue.error = TRUE;
         strcpy(issue.subject, "Portal data");
         snprintf(issue.description, sizeof(issue.description), "%s", bg->portalwarning);
-        if (!Add(out, &issue)) { goto memory; }
+        if (!LevelIssuesAdd(out, &issue)) { goto memory; }
     }
     for (DWORD i = 0; i < bg->portals.portalcount; i++)
     {
@@ -180,7 +202,7 @@ BOOL LevelIssuesBuild(const BgDocument *bg, const SetupFile *setup,
             issue.target = LEVEL_ISSUE_PORTAL_FACE; issue.index = i;
             snprintf(issue.subject, sizeof(issue.subject), "Portal %lu", (unsigned long)i);
             snprintf(issue.description, sizeof(issue.description), "Invalid room connection: %u to %u.", portal->connectedroom1, portal->connectedroom2);
-            if (!Add(out, &issue)) { goto memory; }
+            if (!LevelIssuesAdd(out, &issue)) { goto memory; }
         }
     }
     if (setup->data)
@@ -191,13 +213,13 @@ BOOL LevelIssuesBuild(const BgDocument *bg, const SetupFile *setup,
         {
             issue.error = TRUE; strcpy(issue.subject, "Patrol paths / waypoints");
             snprintf(issue.description, sizeof(issue.description), "%s", reason);
-            if (!Add(out, &issue)) { goto memory; }
+            if (!LevelIssuesAdd(out, &issue)) { goto memory; }
         }
         else for (DWORD i = 0; i < patrol.count; i++) if (!patrol.paths[i].count)
         {
             snprintf(issue.subject, sizeof(issue.subject), "Patrol path %u", patrol.paths[i].id);
             strcpy(issue.description, "This patrol path has no waypoints. Add pads in Tools > Patrol Paths before assigning guards to it.");
-            if (!Add(out, &issue)) { PatrolDocumentFree(&patrol); goto memory; }
+            if (!LevelIssuesAdd(out, &issue)) { PatrolDocumentFree(&patrol); goto memory; }
         }
         PatrolDocumentFree(&patrol);
     }
@@ -211,7 +233,7 @@ BOOL LevelIssuesBuild(const BgDocument *bg, const SetupFile *setup,
                 && Position(Pad(setup, issue.pad), scale, position)) { issue.target = LEVEL_ISSUE_MODEL; }
             snprintf(issue.subject, sizeof(issue.subject), "Guard %u (character %lu)", setup->characters[i].chrnum, (unsigned long)i);
             snprintf(issue.description, sizeof(issue.description), "This guard shares its ID with character %lu. AI and equipment ownership may be ambiguous.", (unsigned long)j);
-            if (!Add(out, &issue)) { goto memory; }
+            if (!LevelIssuesAdd(out, &issue)) { goto memory; }
             break;
         }
     StanFileFree(&saved); *why = ""; return TRUE;

@@ -600,6 +600,7 @@ static void GEditorRefreshProjectAssets(void)
 static void GEditorCloseProject(HWND hwnd)
 {
     IssuesWindowClose();
+    RomExportClearIssues();
     PatrolEditorClose();
     if (g_Project.name[0] == '\0')
     {
@@ -1780,6 +1781,15 @@ static void GEditorPromptForRomExport(HWND hwnd)
     {
         MessageBox(hwnd, "Create ROM dialog resource missing (build problem).",
                    GEDITOR_TITLE, MB_ICONERROR);
+    }
+    else if (result == IDOK && RomExportIssues())
+    {
+        const char *why = "";
+        if (RomExportIssues()->count)
+        {
+            if (!IssuesWindowShow(hwnd, TRUE, &why)) { MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR); }
+        }
+        else { IssuesWindowRefreshExport(); }
     }
 }
 
@@ -4789,17 +4799,46 @@ fail:
 static BOOL GEditorScanIssues(IssuesScanRequest *request)
 {
     if (!request) { return FALSE; }
+    if (request->exported)
+    {
+        request->reason = RomExportIssues() ? "Out of memory opening the export report."
+            : "No ROM has been created in this project session. Create ROM to capture pad findings across all setups.";
+        return LevelIssuesClone(RomExportIssues(), &request->report);
+    }
     request->reason = "Open a level and finish any active transform before checking for issues.";
     if (g_CurrentLevelIndex >= g_Project.levelcount || ViewportIsTransforming(g_Viewport)) { return FALSE; }
-    return LevelIssuesBuild(&g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan,
-        g_Project.levels[g_CurrentLevelIndex].levelscale, &request->report, &request->reason);
+    const RomLevel *level = &g_Project.levels[g_CurrentLevelIndex];
+    if (!LevelIssuesBuild(&g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan,
+        level->levelscale, &request->report, &request->reason)) { return FALSE; }
+    for (DWORD i = 0; i < request->report.count; i++)
+        snprintf(request->report.items[i].scope, sizeof(request->report.items[i].scope), "%s / %s", level->name, level->setupname);
+    return TRUE;
 }
 
 static BOOL GEditorLocateIssue(HWND hwnd, const LevelIssue *issue)
 {
-    LevelIssueLocation location;
-    if (g_CurrentLevelIndex >= g_Project.levelcount || ViewportIsTransforming(g_Viewport)
-        || ViewportIsFlying(g_Viewport) || !LevelIssueLocate(issue, &g_CurrentBgDocument, &g_CurrentSetup,
+    LevelIssueLocation location; LevelIssue resolved;
+    if (!issue || ViewportIsTransforming(g_Viewport) || ViewportIsFlying(g_Viewport)) { return FALSE; }
+    if (issue->exportsetup[0])
+    {
+        DWORD index = issue->exportlevel;
+        if (index >= g_Project.levelcount || strcmp(issue->exportsetup, g_Project.levels[index].setupname)) { return FALSE; }
+        if (g_CurrentLevelIndex != index)
+        {
+            if (GEditorHasUnsavedChanges())
+            {
+                int choice = MessageBox(hwnd, "Save current changes before opening the level from this report?",
+                    GEDITOR_TITLE, MB_ICONQUESTION | MB_YESNOCANCEL);
+                if (choice != IDYES && choice != IDNO) { return FALSE; }
+                if (choice == IDYES && !GEditorSaveProject(hwnd)) { return FALSE; }
+            }
+            SendMessage(hwnd, BROWSER_WM_LEVEL_OPEN, index, 0);
+            if (g_CurrentLevelIndex != index) { return FALSE; }
+        }
+        if (!LevelIssueResolveExport(issue, &g_CurrentSetup, g_Project.levels[index].levelscale, &resolved)) { return FALSE; }
+        issue = &resolved;
+    }
+    if (g_CurrentLevelIndex >= g_Project.levelcount || !LevelIssueLocate(issue, &g_CurrentBgDocument, &g_CurrentSetup,
             &g_CurrentStan, g_Project.levels[g_CurrentLevelIndex].levelscale, &location)) { return FALSE; }
     PatrolEditorSetPicking(FALSE); ViewportSetColorPick(g_Viewport, FALSE);
     ViewportSetTool(g_Viewport, EDITOR_TOOL_FACE_SELECT);
@@ -5386,7 +5425,6 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         }
 
         if (!PatrolEditorConfirmClose(TRUE)) { return 0; }
-        IssuesWindowClose();
         level = &g_Project.levels[index];
 
         document.levelscale = level->levelscale;
@@ -5535,6 +5573,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         EditHistoryReset(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
         g_SelectionHistoryReset = TRUE;
         g_CurrentLevelIndex = index;
+        BrowserSelectLevel(g_Browser, index);
+        IssuesWindowInvalidate();
 
         ViewportSetBackgroundColor(g_Viewport, level->hasbackgroundcolor ? level->backgroundcolor : NULL);
         ViewportSetLevelFog(g_Viewport, level->hasbackgroundcolor ? &level->fog : NULL, level->renderScale);
@@ -5648,7 +5688,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         EnableMenuItem((HMENU)wparam, ID_FILE_IMPORT_IMAGE, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_ACTION_BLOCKS, MF_BYCOMMAND | (g_CurrentSetup.data ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_PATROL_PATHS, MF_BYCOMMAND | (g_CurrentSetup.data ? MF_ENABLED : MF_GRAYED));
-        EnableMenuItem((HMENU)wparam, ID_TOOLS_CHECK_ISSUES, MF_BYCOMMAND | (g_CurrentLevelIndex < g_Project.levelcount ? MF_ENABLED : MF_GRAYED));
+        EnableMenuItem((HMENU)wparam, ID_TOOLS_CHECK_ISSUES, MF_BYCOMMAND | (g_CurrentLevelIndex < g_Project.levelcount || RomExportIssues() ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_CREATE_ROM, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         GEditorUpdateHistoryMenu((HMENU)wparam);
         EnableMenuItem((HMENU)wparam, ID_VIEW_ZOOM_SELECTED, MF_BYCOMMAND |
@@ -5965,8 +6005,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             case ID_TOOLS_CHECK_ISSUES:
             {
                 const char *why = "";
-                if (g_CurrentLevelIndex < g_Project.levelcount
-                    && !IssuesWindowShow(hwnd, g_Project.levels[g_CurrentLevelIndex].name, &why))
+                if ((g_CurrentLevelIndex < g_Project.levelcount || RomExportIssues())
+                    && !IssuesWindowShow(hwnd, g_CurrentLevelIndex >= g_Project.levelcount, &why))
                     MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
                 return 0;
             }
@@ -6011,6 +6051,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
     case WM_DESTROY:
         IssuesWindowClose();
+        RomExportClearIssues();
         PatrolEditorClose();
         KnifeDialogClose();
         /* The window is gone; ask the message loop to stop. Without

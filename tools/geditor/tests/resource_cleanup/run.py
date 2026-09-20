@@ -32,7 +32,7 @@ with tempfile.TemporaryDirectory(prefix='geditor-cleanup-') as folder:
         '-Wno-unused-parameter','-Wno-format','-ffunction-sections','-fdata-sections',
         '-fsanitize=address,undefined',f'-I{here.parent/"project_rebase"}',f'-I{src}',f'-I{root}',
         str(here/'check.c'),str(here.parent/'project_rebase/platform.c')]
-    command += [str(src/name) for name in ('rom.c','setupload.c','setupstan.c','actionblocks.c',
+    command += [str(src/name) for name in ('rom.c','setupload.c','setupstan.c','actionblocks.c','levelissues.c',
         'stanload.c','stanquery.c','bgload.c','bgdocument.c','bgcompile.c','bgmaterial.c','bgrender.c')]
     subprocess.run(command+['-Wl,--gc-sections','-lm','-o',str(binary)],check=True)
     subprocess.run([str(binary),str(work)]+sys.argv[1:],check=True,

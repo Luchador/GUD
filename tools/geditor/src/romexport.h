@@ -6,6 +6,7 @@
 
 #include "project.h"
 #include "rom.h"
+#include "levelissues.h"
 
 #define ROM_EXPORT_NAME_MAX 128
 #define ROM_EXPORT_BASE_FILENAME "base.z64"
@@ -24,6 +25,10 @@ int RomExportProjectResourcePath(const GEditorProject *project, const char *reso
 BOOL RomExportValidateProject(const GEditorProject *project, const char **reasonout);
 /* Nonfatal placement findings from the most recent export/validation. */
 const char *RomExportCleanupWarning(void);
+/* Snapshot of the last successfully written ROM, never a rebase validation
+ * or failed export. NULL until an export succeeds. Reset on project close. */
+const LevelIssueReport *RomExportIssues(void);
+void RomExportClearIssues(void);
 
 /* Shared by the dialog's live validation and the exporter itself. */
 BOOL RomExportNameIsValid(const char *name, const char **reasonout);

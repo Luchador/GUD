@@ -1897,6 +1897,14 @@ HWND BrowserCreate(HWND parent, HINSTANCE hinstance)
 }
 
 
+void BrowserSelectLevel(HWND browser, DWORD index)
+{
+    BrowserState *state = BrowserGetState(browser);
+    if (!state || index >= (DWORD)state->levelcount) { return; }
+    state->selectedlevel = (int)index;
+    InvalidateRect(browser, NULL, FALSE);
+}
+
 void BrowserSetLevels(HWND browser, const BrowserLevelItem *items, int count)
 {
     BrowserState *state = BrowserGetState(browser);

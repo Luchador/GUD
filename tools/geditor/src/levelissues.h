@@ -19,6 +19,11 @@ typedef struct LevelIssue {
     BOOL error;
     DWORD index;
     SetupPadRef pad;
+    char scope[112]; /* level/setup label */
+    char exportsetup[64]; /* nonempty only for a last-export snapshot */
+    char exportstan[16];
+    float exportposition[3], exportscale;
+    DWORD exportlevel; /* (DWORD)-1 when no directly openable setup exists */
     char subject[96], description[320];
 } LevelIssue;
 typedef struct LevelIssueReport {
@@ -38,6 +43,12 @@ typedef struct LevelIssueLocation {
 BOOL LevelIssuesBuild(const BgDocument *bg, const SetupFile *setup,
     const StanFile *stan, float scale, LevelIssueReport *out, const char **why);
 void LevelIssuesFree(LevelIssueReport *report);
+BOOL LevelIssuesAdd(LevelIssueReport *report, const LevelIssue *issue);
+BOOL LevelIssuesClone(const LevelIssueReport *source, LevelIssueReport *out);
+/* Reject changed/reused pad indices in a last-export snapshot, then resolve
+ * the current owner for normal viewport selection. */
+BOOL LevelIssueResolveExport(const LevelIssue *issue, const SetupFile *setup,
+    float scale, LevelIssue *out);
 BOOL LevelIssueLocate(const LevelIssue *issue, const BgDocument *bg,
     const SetupFile *setup, const StanFile *stan, float scale, LevelIssueLocation *out);
 #endif

@@ -29,7 +29,7 @@ with tempfile.TemporaryDirectory(prefix='geditor-issues-') as folder:
     (work / 'navigation.inc').write_text(extract.function(editor, 'GEditorLocateIssue'))
     (work / 'ui_type.inc').write_text(re.search(r'typedef struct IssuesWindow \{.*?\} IssuesWindow;', ui, re.S)[0])
     (work / 'ui_logic.inc').write_text(''.join(extract.function(ui, n) for n in
-        ('State', 'Selected', 'Details', 'Clear', 'Check', 'Locate', 'IssuesWindowInvalidate', 'IssuesWindowHandleMessage')))
+        ('State', 'Selected', 'Details', 'Clear', 'Check', 'Locate', 'IssuesWindowInvalidate', 'IssuesWindowRefreshExport', 'IssuesWindowHandleMessage')))
     args = []
     if len(sys.argv) > 1:
         audit = Path(sys.argv[1])

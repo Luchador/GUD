@@ -17,6 +17,7 @@
  */
 
 #include <windows.h>
+#include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -50,12 +51,18 @@ typedef struct RomExportSlot {
     BOOL background;
     BOOL setup;
     BOOL stan;
+    char setupname[64];
 } RomExportSlot;
 
 static char g_RomExportError[256];
 static char g_RomExportCleanupWarning[384];
+static LevelIssueReport g_RomExportIssues;
+static BOOL g_RomExportHasIssues;
 
 const char *RomExportCleanupWarning(void) { return g_RomExportCleanupWarning; }
+const LevelIssueReport *RomExportIssues(void) { return g_RomExportHasIssues ? &g_RomExportIssues : NULL; }
+void RomExportClearIssues(void)
+{ LevelIssuesFree(&g_RomExportIssues); g_RomExportHasIssues = FALSE; }
 
 
 static void RomExportSetError(const char **reasonout, const char *format, ...)
@@ -952,10 +959,11 @@ static BOOL RomExportRepackResources(RomFile *rom,
 /* Select the actual post-alias STAN bytes, including levels never opened in
  * this session and the runtime's legacy multiplayer setup-name expansion. */
 static const RomLevel *RomExportSetupLevel(const GEditorProject *project,
-    const RomFile *rom, RomExportSlot *slot, DWORD *stanoffset)
+    const RomFile *rom, RomExportSlot *slot, DWORD *stanoffset, char setupname[64], DWORD *levelindex)
 {
     const RomLevel *match = NULL;
     const char *why;
+    *levelindex = (DWORD)-1;
     for (DWORD i = 0; i < project->levelcount; i++)
     {
         const RomLevel *level = &project->levels[i];
@@ -969,14 +977,47 @@ static const RomLevel *RomExportSetupLevel(const GEditorProject *project,
             /* Shared setups with different collision worlds cannot safely
              * cache a single placement choice. Leave their names authored. */
             if (match && (*stanoffset != stan || match->levelscale != level->levelscale)) { return NULL; }
-            match = level; *stanoffset = stan;
+            if (!match || !multiplayer)
+            {
+                match = level; strcpy(setupname, name);
+                *levelindex = multiplayer ? (DWORD)-1 : i;
+            }
+            *stanoffset = stan;
         }
     }
     return match;
 }
 
+typedef struct RomExportPadContext {
+    LevelIssueReport *report;
+    const RomLevel *level;
+    DWORD levelindex;
+    const char *setupname;
+} RomExportPadContext;
+
+static BOOL RomExportPadIssue(void *context, SetupPadRef pad, const float position[3], const char *stanname)
+{
+    RomExportPadContext *c = context; LevelIssue issue = {0};
+    if (!c->report) { return TRUE; }
+    issue.kind = LEVEL_ISSUE_UNRESOLVED_PAD; issue.pad = pad;
+    issue.exportlevel = c->levelindex; issue.exportscale = c->level->levelscale;
+    memcpy(issue.exportposition, position, sizeof(issue.exportposition));
+    snprintf(issue.exportstan, sizeof(issue.exportstan), "%s", stanname);
+    snprintf(issue.exportsetup, sizeof(issue.exportsetup), "%s", c->setupname);
+    snprintf(issue.scope, sizeof(issue.scope), "%s / %s", c->level->name, c->setupname);
+    snprintf(issue.subject, sizeof(issue.subject), "%s pad %lu", pad.bound ? "Bound" : "Ordinary", (unsigned long)pad.index);
+    if (c->levelindex != (DWORD)-1 && isfinite(position[0]) && isfinite(position[1]) && isfinite(position[2]))
+        issue.target = LEVEL_ISSUE_PAD;
+    snprintf(issue.description, sizeof(issue.description),
+        "Unresolved in the last ROM export (STAN reference: %s). Position: %.7g, %.7g, %.7g. Names and positions were retained.%s",
+        stanname[0] ? stanname : "none", position[0], position[1], position[2],
+        c->levelindex == (DWORD)-1 ? " This setup has no directly openable level entry." : "");
+    return LevelIssuesAdd(c->report, &issue);
+}
+
 static BOOL RomExportReplaceProjectResources(const GEditorProject *project,
                                              RomFile *rom,
+                                             LevelIssueReport *report,
                                              const char **reasonout)
 {
     RomExportSlot slots[ROM_EXPORT_FTBL_MAX_ROWS];
@@ -1058,6 +1099,7 @@ static BOOL RomExportReplaceProjectResources(const GEditorProject *project,
 
         slot->background |= strncmp(resource, "bg/", 3) == 0;
         slot->setup |= strncmp(resource, "Usetup", 6) == 0 || strncmp(resource, "Ump_setup", 9) == 0;
+        if (slot->setup && !slot->setupname[0]) { strcpy(slot->setupname, resource); }
         slot->stan |= strncmp(resource, "Tbg_", 4) == 0 && strstr(resource, "_stanZ") != NULL;
         managed = ModelEditsReadReplacement(project->dir, resource, rom->data + offset,
             maxlen, &data, &length, reasonout);
@@ -1218,10 +1260,12 @@ have_replacement:
         unsigned char *packed;
         DWORD packedsize;
         DWORD stanoffset = 0;
+        DWORD levelindex;
+        char setupname[64];
         const RomLevel *level;
         /* Unused stock setup placeholders can share a tiny, opaque slot. */
         if (size < 40) { continue; }
-        level = RomExportSetupLevel(project, rom, slot, &stanoffset);
+        level = RomExportSetupLevel(project, rom, slot, &stanoffset, setupname, &levelindex);
         if (level && (RomExportRead32(source + 24) || RomExportRead32(source + 28)))
         {
             RomExportSlot *stanslot = RomExportFindSlot(slots, slotcount, stanoffset);
@@ -1231,14 +1275,28 @@ have_replacement:
             if (!StanLoadNative(stanslot->replacement ? stanslot->replacement : rom->data + stanslot->offset,
                 stanslot->replacement ? stanslot->replacementlength : stanslot->length,
                 level->levelscale, &stan, reasonout)) { goto fail; }
-            ok = SetupRefreshPadStanNative(source, size, &stan, &packed, &packedsize, &stats, reasonout);
+            RomExportPadContext context = {report, level, levelindex, setupname};
+            ok = SetupRefreshPadStanNativeReport(source, size, &stan, &packed, &packedsize, &stats,
+                RomExportPadIssue, &context, reasonout);
             StanFileFree(&stan);
             if (!ok) { goto fail; }
             unresolved += stats.unresolved;
         }
         else
         {
-            if (RomExportRead32(source + 24) || RomExportRead32(source + 28)) { skipped++; }
+            if (RomExportRead32(source + 24) || RomExportRead32(source + 28))
+            {
+                skipped++;
+                if (report)
+                {
+                    LevelIssue issue = {0}; issue.kind = LEVEL_ISSUE_MISSING_STAN;
+                    snprintf(issue.scope, sizeof(issue.scope), "%s", slot->setupname);
+                    strcpy(issue.subject, "Pad references not checked");
+                    strcpy(issue.description, "This setup has no unique level/STAN pairing. Its authored pad references were retained; no unresolved-pad count is available for it.");
+                    if (!LevelIssuesAdd(report, &issue))
+                    { *reasonout = "Out of memory recording unchecked setups."; goto fail; }
+                }
+            }
             if (!SetupCompactNative(source, size, &packed, &packedsize, reasonout)) { goto fail; }
         }
         free(slot->replacement);
@@ -1250,8 +1308,9 @@ have_replacement:
     if (unresolved || skipped)
     {
         snprintf(g_RomExportCleanupWarning, sizeof(g_RomExportCleanupWarning),
-            "Pad reference cleanup: %lu pads could not be resolved; their names and positions were retained. "
-            "%lu setups have no unique level/STAN pairing and retained their authored pad references.",
+            "Across all ROM setups: %lu pads could not be resolved; their names and positions were retained. "
+            "%lu setups have no unique level/STAN pairing. "
+            "See Check for Issues > Last ROM export for the level, setup and pad list.",
             (unsigned long)unresolved, (unsigned long)skipped);
     }
 
@@ -1424,6 +1483,7 @@ static BOOL RomExportUpdateChecksum(RomFile *rom, const char **reasonout)
 
 
 static BOOL RomExportBuild(const GEditorProject *project, RomFile *rom,
+                            LevelIssueReport *report,
                             const char **reasonout)
 {
     char basepath[MAX_PATH];
@@ -1435,7 +1495,7 @@ static BOOL RomExportBuild(const GEditorProject *project, RomFile *rom,
         return FALSE;
     }
     return RomExportProjectMatchesRom(project, rom, reasonout)
-        && RomExportReplaceProjectResources(project, rom, reasonout)
+        && RomExportReplaceProjectResources(project, rom, report, reasonout)
         && RomExportUpdateLevelTable(project, rom, reasonout)
         && NewPropsExportToRom(project->dir, rom, reasonout)
         && ImageEditsExportToRom(project->dir, rom, reasonout)
@@ -1445,7 +1505,7 @@ static BOOL RomExportBuild(const GEditorProject *project, RomFile *rom,
 BOOL RomExportValidateProject(const GEditorProject *project, const char **reasonout)
 {
     RomFile rom;
-    BOOL ok = RomExportBuild(project, &rom, reasonout);
+    BOOL ok = RomExportBuild(project, &rom, NULL, reasonout);
     RomFree(&rom);
     return ok;
 }
@@ -1457,10 +1517,16 @@ BOOL RomExportCreate(const GEditorProject *project,
 {
     RomFile rom;
     BOOL ok;
+    LevelIssueReport report = {0};
     if (!RomExportDestinationIsValid(project, directory, name,
                                      pathout, pathmax, reasonout)) { return FALSE; }
-    ok = RomExportBuild(project, &rom, reasonout)
+    ok = RomExportBuild(project, &rom, &report, reasonout)
         && RomExportWriteFile(pathout, rom.data, rom.size, reasonout);
     RomFree(&rom);
+    if (ok)
+    {
+        RomExportClearIssues(); g_RomExportIssues = report; g_RomExportHasIssues = TRUE;
+    }
+    else { LevelIssuesFree(&report); }
     return ok;
 }
