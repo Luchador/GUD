@@ -6026,6 +6026,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 {
                     MessageBox(hwnd, "Could not open the Level Settings window.", GEDITOR_TITLE, MB_ICONERROR);
                 }
+                LevelManagerRefreshRooms(&g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
                 return 0;
 
             case ID_SETTINGS_PROJECT:
@@ -6153,6 +6154,10 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         if (bg != g_EditHistory.currentbgrevision || setup != g_EditHistory.currentsetuprevision
             || stan != g_EditHistory.currentstanrevision || scale != g_CurrentBgDocument.levelscale)
         { IssuesWindowInvalidate(); }
+        if (g_SelectionHistoryReset || bg != g_EditHistory.currentbgrevision
+            || setup != g_EditHistory.currentsetuprevision || stan != g_EditHistory.currentstanrevision
+            || scale != g_CurrentBgDocument.levelscale)
+        { LevelManagerRefreshRooms(&g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan); }
         if (g_SelectionHistoryPending || g_SelectionHistoryReset
             || revision != g_EditHistory.currentstaterevision
             || (g_Viewport && ViewportGetTool(g_Viewport) != EDITOR_TOOL_FACE_SELECT)) { KnifeDialogClose(); }

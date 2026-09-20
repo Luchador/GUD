@@ -14,6 +14,9 @@ static DWORD g_IntroCount;
 static BOOL g_IntroValid, g_IntroUpdating;
 static unsigned g_IntroGeneration;
 static char g_IntroSetupName[64];
+static RoomStats g_RoomStats;
+static int g_RoomSortColumn;
+static BOOL g_RoomSortDescending;
 
 static const char *g_IntroAmmoNames[AMMOTYPE_MAX] = {
     [AMMO_9MM] = "9mm", [AMMO_RIFLE] = "Rifle rounds", [AMMO_SHOTGUN] = "Shotgun shells",
@@ -49,6 +52,109 @@ static void LevelManagerButtons(HWND hwnd)
         EnableWindow(GetDlgItem(hwnd, first + 3), g_IntroValid && row > 0);
         EnableWindow(GetDlgItem(hwnd, first + 4), g_IntroValid && row >= 0 && row + 1 < ListView_GetItemCount(list));
     }
+}
+
+static int CALLBACK LevelManagerCompareRooms(LPARAM left, LPARAM right, LPARAM unused)
+{
+    DWORD a = (DWORD)left, b = (DWORD)right;
+    if (!a || !b) { return !a ? (!b ? 0 : 1) : -1; } /* Unassigned stays last. */
+    DWORD x = a, y = b;
+    if (g_RoomSortColumn)
+    {
+        x = g_RoomStats.rooms[a].values[g_RoomSortColumn - 1];
+        y = g_RoomStats.rooms[b].values[g_RoomSortColumn - 1];
+    }
+    int order = x < y ? -1 : x > y;
+    if (order) { return g_RoomSortDescending ? -order : order; }
+    return a < b ? -1 : a > b;
+}
+
+static void LevelManagerSortRooms(HWND hwnd)
+{
+    HWND list = GetDlgItem(hwnd, IDC_LEVEL_ROOMS_LIST);
+    ListView_SortItems(list, LevelManagerCompareRooms, 0);
+    HWND header = ListView_GetHeader(list);
+    for (int i = 0; i <= ROOM_COUNT_COLUMNS; i++)
+    {
+        HDITEM item = {0}; item.mask = HDI_FORMAT;
+        if (Header_GetItem(header, i, &item))
+        {
+            item.fmt &= ~(HDF_SORTUP | HDF_SORTDOWN);
+            if (i == g_RoomSortColumn) { item.fmt |= g_RoomSortDescending ? HDF_SORTDOWN : HDF_SORTUP; }
+            Header_SetItem(header, i, &item);
+        }
+    }
+}
+
+void LevelManagerRefreshRooms(const BgDocument *bg, const SetupFile *setup, const StanFile *stan)
+{
+    RoomStats counts = {0};
+    const char *why;
+    char text[384];
+    if (!g_LevelManager) { return; }
+    HWND list = GetDlgItem(g_LevelManager, IDC_LEVEL_ROOMS_LIST);
+    if (!RoomStatsBuild(bg, setup, stan, &counts, &why))
+    {
+        ListView_DeleteAllItems(list); RoomStatsFree(&g_RoomStats);
+        SetDlgItemText(g_LevelManager, IDC_LEVEL_ROOMS_STATUS, why);
+        SetDlgItemText(g_LevelManager, IDC_LEVEL_ROOMS_TOTALS, "");
+        return;
+    }
+    if (g_RoomStats.rooms && counts.roomcount == g_RoomStats.roomcount
+        && !memcmp(counts.rooms, g_RoomStats.rooms, ((size_t)counts.roomcount + 1) * sizeof(*counts.rooms)))
+    { RoomStatsFree(&counts); return; }
+    LVITEM selected = {0}; selected.mask = LVIF_PARAM;
+    selected.iItem = ListView_GetNextItem(list, -1, LVNI_SELECTED);
+    BOOL keepselection = selected.iItem >= 0 && ListView_GetItem(list, &selected);
+    int top = ListView_GetTopIndex(list);
+    BOOL visible = IsWindowVisible(list);
+    if (visible) { SendMessage(list, WM_SETREDRAW, FALSE, 0); }
+    ListView_DeleteAllItems(list);
+    RoomStatsFree(&g_RoomStats); g_RoomStats = counts;
+    /* List every BG room, including empty ones. Room zero is reserved for
+     * placements / tiles without a valid BG room, and only appears if needed. */
+    for (DWORD row = 1; row <= counts.roomcount + 1; row++)
+    {
+        DWORD room = row <= counts.roomcount ? row : 0;
+        if (!room)
+        {
+            BOOL nonzero = FALSE;
+            for (int c = 0; c < ROOM_COUNT_COLUMNS; c++) { nonzero |= counts.rooms[0].values[c] != 0; }
+            if (!nonzero) { continue; }
+        }
+        if (room) { snprintf(text, sizeof(text), "%lu", (unsigned long)room); }
+        else { strcpy(text, "Unassigned"); }
+        LVITEM item = {0}; item.mask = LVIF_TEXT | LVIF_PARAM;
+        item.iItem = ListView_GetItemCount(list); item.pszText = text; item.lParam = room;
+        int at = ListView_InsertItem(list, &item);
+        if (at < 0)
+        {
+            ListView_DeleteAllItems(list); RoomStatsFree(&g_RoomStats);
+            if (visible) { SendMessage(list, WM_SETREDRAW, TRUE, 0); }
+            SetDlgItemText(g_LevelManager, IDC_LEVEL_ROOMS_STATUS, "Out of memory displaying room counts.");
+            SetDlgItemText(g_LevelManager, IDC_LEVEL_ROOMS_TOTALS, "");
+            return;
+        }
+        for (int c = 0; c < ROOM_COUNT_COLUMNS; c++)
+        {
+            snprintf(text, sizeof(text), "%lu", (unsigned long)counts.rooms[room].values[c]);
+            ListView_SetItemText(list, at, c + 1, text);
+        }
+        if (keepselection && (DWORD)selected.lParam == room)
+        { ListView_SetItemState(list, at, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED); }
+    }
+    LevelManagerSortRooms(g_LevelManager);
+    if (ListView_GetItemCount(list)) { ListView_EnsureVisible(list, min(top, ListView_GetItemCount(list) - 1), FALSE); }
+    if (visible) { SendMessage(list, WM_SETREDRAW, TRUE, 0); }
+    InvalidateRect(list, NULL, TRUE);
+    SetDlgItemText(g_LevelManager, IDC_LEVEL_ROOMS_STATUS, counts.roomcount
+        ? "Authored counts, including hidden geometry and all difficulties. Models use their placement room; carried/contained items are excluded.\r\nUnassigned means no valid room. Click a column heading to sort."
+        : "Open a level with background rooms to view room counts. Unassigned entries have no valid background room.");
+    snprintf(text, sizeof(text), "%lu rooms. Totals - Primary tris: %lu   Secondary tris: %lu   STAN tiles: %lu   Objects: %lu   Characters: %lu",
+        (unsigned long)counts.roomcount, (unsigned long)counts.total.values[ROOM_PRIMARY_TRIS],
+        (unsigned long)counts.total.values[ROOM_SECONDARY_TRIS], (unsigned long)counts.total.values[ROOM_STAN_TILES],
+        (unsigned long)counts.total.values[ROOM_OBJECTS], (unsigned long)counts.total.values[ROOM_CHARACTERS]);
+    SetDlgItemText(g_LevelManager, IDC_LEVEL_ROOMS_TOTALS, text);
 }
 
 static void LevelManagerLayout(HWND hwnd)
@@ -91,6 +197,20 @@ static void LevelManagerLayout(HWND hwnd)
     BOOL intro = TabCtrl_GetCurSel(tab) == 1;
     for (int id = IDC_INTRO_STATUS; id <= IDC_INTRO_AMMO_DOWN; id++)
     { ShowWindow(GetDlgItem(hwnd, id), intro ? SW_SHOW : SW_HIDE); }
+    BOOL rooms = TabCtrl_GetCurSel(tab) == 3;
+    int helpheight = line * 2, totalsheight = line * 2;
+    HWND roomlist = GetDlgItem(hwnd, IDC_LEVEL_ROOMS_LIST);
+    MoveWindow(GetDlgItem(hwnd, IDC_LEVEL_ROOMS_STATUS), page.left, page.top, width, helpheight, TRUE);
+    MoveWindow(roomlist, page.left, page.top + helpheight + gap, width,
+        max(1, page.bottom - page.top - helpheight - totalsheight - gap * 2), TRUE);
+    MoveWindow(GetDlgItem(hwnd, IDC_LEVEL_ROOMS_TOTALS), page.left, page.bottom - totalsheight, width, totalsheight, TRUE);
+    int available = max(1, width - GetSystemMetrics(SM_CXVSCROLL) - 8), roomwidth = units.right;
+    ListView_SetColumnWidth(roomlist, 0, roomwidth);
+    for (int i = 1; i <= ROOM_COUNT_COLUMNS; i++)
+    { ListView_SetColumnWidth(roomlist, i, max(units.right, (available - roomwidth) / ROOM_COUNT_COLUMNS)); }
+    ShowWindow(GetDlgItem(hwnd, IDC_LEVEL_ROOMS_STATUS), rooms ? SW_SHOW : SW_HIDE);
+    ShowWindow(roomlist, rooms ? SW_SHOW : SW_HIDE);
+    ShowWindow(GetDlgItem(hwnd, IDC_LEVEL_ROOMS_TOTALS), rooms ? SW_SHOW : SW_HIDE);
     RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
 }
 
@@ -117,12 +237,15 @@ void LevelManagerRefresh(const SetupFile *setup, const char *levelname)
     { free(entries); return; }
     BOOL samelevel = !strcmp(name, g_IntroSetupName);
     int selected[2];
+    BOOL visible[2];
     g_IntroUpdating = TRUE;
     for (int table = 0; table < 2; table++)
     {
         HWND list = GetDlgItem(g_LevelManager, table ? IDC_INTRO_AMMO : IDC_INTRO_WEAPONS);
         selected[table] = samelevel ? ListView_GetNextItem(list, -1, LVNI_SELECTED) : -1;
-        SendMessage(list, WM_SETREDRAW, FALSE, 0); ListView_DeleteAllItems(list);
+        visible[table] = IsWindowVisible(list);
+        if (visible[table]) { SendMessage(list, WM_SETREDRAW, FALSE, 0); }
+        ListView_DeleteAllItems(list);
     }
     free(g_IntroEntries); g_IntroEntries = entries; g_IntroCount = count; g_IntroValid = valid;
     lstrcpyn(g_IntroSetupName, name, sizeof(g_IntroSetupName));
@@ -157,7 +280,8 @@ void LevelManagerRefresh(const SetupFile *setup, const char *levelname)
         HWND list = GetDlgItem(g_LevelManager, table ? IDC_INTRO_AMMO : IDC_INTRO_WEAPONS);
         int row = min(selected[table], ListView_GetItemCount(list) - 1);
         if (row >= 0) { ListView_SetItemState(list, row, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED); }
-        SendMessage(list, WM_SETREDRAW, TRUE, 0); InvalidateRect(list, NULL, TRUE);
+        if (visible[table]) { SendMessage(list, WM_SETREDRAW, TRUE, 0); }
+        InvalidateRect(list, NULL, TRUE);
     }
     g_IntroUpdating = FALSE; LevelManagerButtons(g_LevelManager);
 }
@@ -292,6 +416,16 @@ static INT_PTR CALLBACK LevelManagerDialogProc(HWND hwnd, UINT message, WPARAM w
     {
         NMHDR *notice = (NMHDR *)lparam;
         if (notice->idFrom == IDC_LEVEL_MANAGER_TABS && notice->code == TCN_SELCHANGE) { LevelManagerLayout(hwnd); }
+        if (notice->idFrom == IDC_LEVEL_ROOMS_LIST && notice->code == LVN_COLUMNCLICK)
+        {
+            int column = ((NMLISTVIEW *)notice)->iSubItem;
+            if (column >= 0 && column <= ROOM_COUNT_COLUMNS)
+            {
+                g_RoomSortDescending = column == g_RoomSortColumn ? !g_RoomSortDescending : column != 0;
+                g_RoomSortColumn = column;
+                LevelManagerSortRooms(hwnd);
+            }
+        }
         if (notice->idFrom == IDC_INTRO_WEAPONS || notice->idFrom == IDC_INTRO_AMMO)
         {
             BOOL ammo = notice->idFrom == IDC_INTRO_AMMO;
@@ -323,6 +457,7 @@ static INT_PTR CALLBACK LevelManagerDialogProc(HWND hwnd, UINT message, WPARAM w
     }
     case WM_CLOSE: DestroyWindow(hwnd); return TRUE;
     case WM_NCDESTROY:
+        RoomStatsFree(&g_RoomStats); g_RoomSortColumn = 0; g_RoomSortDescending = FALSE;
         free(g_IntroEntries); g_IntroEntries = NULL; g_IntroCount = 0;
         g_IntroValid = FALSE; g_IntroSetupName[0] = 0; g_LevelManager = NULL;
         break;
@@ -355,6 +490,15 @@ BOOL LevelManagerShow(HWND owner, HINSTANCE instance, const SetupFile *setup, co
                 LVCOLUMN column = {0}; column.mask = LVCF_TEXT; column.pszText = (LPSTR)columns[i];
                 if (ListView_InsertColumn(list, i, &column) == -1) { DestroyWindow(g_LevelManager); return FALSE; }
             }
+        }
+        HWND roomlist = GetDlgItem(g_LevelManager, IDC_LEVEL_ROOMS_LIST);
+        const char *roomcolumns[] = {"Room", "Primary tris", "Secondary tris", "STAN tiles", "Objects", "Characters"};
+        ListView_SetExtendedListViewStyle(roomlist, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES | LVS_EX_DOUBLEBUFFER);
+        for (int i = 0; i <= ROOM_COUNT_COLUMNS; i++)
+        {
+            LVCOLUMN column = {0}; column.mask = LVCF_TEXT | LVCF_FMT;
+            column.pszText = (LPSTR)roomcolumns[i]; column.fmt = i ? LVCFMT_RIGHT : LVCFMT_LEFT;
+            if (ListView_InsertColumn(roomlist, i, &column) == -1) { DestroyWindow(g_LevelManager); return FALSE; }
         }
         TabCtrl_SetCurSel(GetDlgItem(g_LevelManager, IDC_LEVEL_MANAGER_TABS), 0);
         LevelManagerLayout(g_LevelManager);

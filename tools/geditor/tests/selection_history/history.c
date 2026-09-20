@@ -52,6 +52,11 @@ static void PatrolEditorRefresh(void) {}
 static void IssuesWindowInvalidate(void) {}
 static SetupFile setup;
 static StanFile stan;
+static SetupFile g_CurrentSetup;
+static StanFile g_CurrentStan;
+static unsigned int roomrefreshes;
+static void LevelManagerRefreshRooms(const BgDocument *bg, const SetupFile *setup, const StanFile *stan)
+{ roomrefreshes++; }
 static BOOL g_SelectionHistoryPending, g_SelectionHistoryReset, g_SelectionHistoryNavigation;
 static DWORD selected;
 static unsigned int errors;
@@ -130,7 +135,10 @@ int main(void)
     GEditorWndProc(1, 1, 0, 0);
     GEditorWndProc(1, 1, 3, 0);
     assert(!EditHistoryCanUndo(&g_EditHistory)); /* New level baseline. */
+    assert(roomrefreshes == 2); /* A level reload at the same revision refreshes counts. */
+    unsigned int before = roomrefreshes;
     Selection(1);
+    assert(roomrefreshes == before); /* Selection alone must not rerun spatial queries. */
     Selection(2);
     Selection(2); /* No-op, including repeated notifications and previews. */
     assert(g_EditHistory.undocount == 2); Clean();
@@ -142,7 +150,9 @@ int main(void)
     Step(FALSE); assert(selected == 2 && bg.roomcount == 0); Clean();
     Step(FALSE); assert(selected == 1); Clean();
     Step(TRUE); assert(selected == 2); Clean();
+    before = roomrefreshes;
     Step(TRUE); assert(selected == 0 && bg.roomcount == 1 && bg.dirty);
+    assert(roomrefreshes == before + 1);
     EditHistoryMarkBgSaved(&g_EditHistory, &bg); Clean();
     Selection(9); Clean();
     Step(FALSE); assert(selected == 0); Clean();
