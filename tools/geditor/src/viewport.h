@@ -120,6 +120,8 @@ BOOL ViewportGetSelectionPosition(HWND hwnd, double position[3], DWORD *countout
  * Preserve yaw/pitch. No selection leaves the camera unchanged. */
 BOOL ViewportCanZoomToSelected(HWND hwnd);
 BOOL ViewportZoomToSelected(HWND hwnd);
+/* View-only navigation for reports whose item has no rendered geometry. */
+BOOL ViewportZoomToBounds(HWND hwnd, const double min[3], const double max[3]);
 
 void ViewportSetBackgroundColor(HWND viewport, const unsigned char rgb[3]);
 
@@ -265,6 +267,7 @@ DWORD ViewportGetStanSelectionCount(HWND hwnd, DWORD *singletile);
 /* Reads exactly count visible, selected stan tiles in Face mode. */
 BOOL ViewportGetSelectedStanTiles(HWND hwnd, DWORD *out, DWORD count);
 BOOL ViewportSelectStanTiles(HWND hwnd, const DWORD *indices, DWORD count);
+BOOL ViewportRevealStanTile(HWND hwnd, DWORD index);
 BOOL ViewportGetSelectedStanEdge(HWND hwnd, StanEdgeRef *out);
 /* Reads exactly count visible native perimeter edges in Edge mode. */
 BOOL ViewportGetSelectedStanEdges(HWND hwnd, StanEdgeRef *out, DWORD count);

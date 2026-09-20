@@ -33,7 +33,8 @@ def main():
              'ViewportCompareStanIds', 'ViewportStanTileHidden', 'ViewportCompareStanRefs',
              'ViewportStanPointRef', 'ViewportFindStanComponent', 'ViewportPortalComponentMask',
              'ViewportPortalPointMask', 'ViewportExtendSelectionBounds', 'ViewportSelectionBounds',
-             'ViewportCanZoomToSelected', 'ViewportCancelZoom', 'ViewportZoomFrame', 'ViewportZoomToSelected')
+             'ViewportCanZoomToSelected', 'ViewportCancelZoom', 'ViewportZoomFrame', 'ViewportZoomToBounds', 'ViewportZoomToSelected',
+             'ViewportRevealStanTile')
     # The cancellation prefix is compiled with stubbed window calls below.
     wnd = function(viewport, 'ViewportWndProc')
     cancel = wnd[wnd.index('    if (msg == WM_SIZE'):wnd.index('    switch (msg)')]

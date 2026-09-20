@@ -270,6 +270,21 @@ void RightPanelShowPrimaryBackground(HWND panel)
     RightPanelNotifyVisibility(panel, state);
 }
 
+void RightPanelShowStan(HWND panel)
+{
+    RightPanelState *state = RightPanelGetState(panel);
+    if (!state) { return; }
+    SendMessage(state->stan, BM_SETCHECK, BST_CHECKED, 0);
+    EnableWindow(state->stanopacity, TRUE);
+    if (SendMessage(state->stanopacity, TBM_GETPOS, 0, 0) == 0)
+    {
+        SendMessage(state->stanopacity, TBM_SETPOS, TRUE, 44);
+        SetWindowText(state->stanopacitylabel, "Opacity: 44%");
+        SendMessage(GetParent(panel), RIGHTPANEL_WM_STAN_OPACITY, 44, 0);
+    }
+    RightPanelNotifyVisibility(panel, state);
+}
+
 void RightPanelShowPortals(HWND panel)
 {
     RightPanelState *state = RightPanelGetState(panel);

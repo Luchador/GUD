@@ -39,6 +39,7 @@ HWND RightPanelCreate(HWND parent, HINSTANCE hinstance);
 void RightPanelShowObjects(HWND panel);
 void RightPanelShowPrimaryBackground(HWND panel);
 void RightPanelShowPortals(HWND panel);
+void RightPanelShowStan(HWND panel);
 /* A NULL position clears the fields; a noneditable position remains visible. */
 void RightPanelSetTransformState(HWND panel, const double position[3],
                                  DWORD count, BOOL editable, double gridstep);

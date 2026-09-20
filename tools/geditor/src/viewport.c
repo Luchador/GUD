@@ -4366,6 +4366,21 @@ BOOL ViewportHideSelectedStanTiles(HWND hwnd)
     return TRUE;
 }
 
+BOOL ViewportRevealStanTile(HWND hwnd, DWORD index)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    if (!state || !state->stan.tiles || index >= state->stan.tilecount) { return FALSE; }
+    DWORD id = state->stan.tiles[index].editorid;
+    for (DWORD i = 0; i < state->stanhiddencount; i++) if (state->stanhiddenids[i] == id)
+    {
+        memmove(state->stanhiddenids + i, state->stanhiddenids + i + 1,
+                (state->stanhiddencount - i - 1) * sizeof(*state->stanhiddenids));
+        state->stanhiddencount--;
+        ViewportRefreshStanOverlay(state); InvalidateRect(hwnd, NULL, FALSE); break;
+    }
+    return TRUE;
+}
+
 void ViewportUnhideAllStanTiles(HWND hwnd)
 {
     ViewportState *state = ViewportGetState(hwnd);
@@ -4608,13 +4623,14 @@ BOOL ViewportCanZoomToSelected(HWND hwnd)
     return ViewportSelectionBounds(ViewportGetState(hwnd), min, max);
 }
 
-BOOL ViewportZoomToSelected(HWND hwnd)
+BOOL ViewportZoomToBounds(HWND hwnd, const double min[3], const double max[3])
 {
     ViewportState *state = ViewportGetState(hwnd);
     CameraFrame frame;
-    double min[3], max[3], eye[3];
+    double eye[3];
     LARGE_INTEGER start, frequency;
-    if (!ViewportSelectionBounds(state, min, max)) { return FALSE; }
+    if (!state || state->orbit || state->flying || state->dragaxis >= 0 || state->boxpending
+        || state->width < 1 || state->height < 1) { return FALSE; }
     eye[0] = state->posx; eye[1] = state->posy; eye[2] = state->posz;
     if (!CameraFrameBegin(&frame, min, max, eye, state->yaw, state->pitch,
         (double)state->width/state->height, VIEWPORT_FOV_Y, VIEWPORT_NEAR_Z)
@@ -4627,6 +4643,12 @@ BOOL ViewportZoomToSelected(HWND hwnd)
     state->selectionfar = fmax(state->selectionfar, frame.farclip);
     ViewportResizeGL(state, state->width, state->height);
     return TRUE;
+}
+
+BOOL ViewportZoomToSelected(HWND hwnd)
+{
+    double min[3], max[3];
+    return ViewportSelectionBounds(ViewportGetState(hwnd), min, max) && ViewportZoomToBounds(hwnd, min, max);
 }
 
 static DWORD ViewportFindPickedStan(const ViewportState *state, const ViewportPickRay *ray,

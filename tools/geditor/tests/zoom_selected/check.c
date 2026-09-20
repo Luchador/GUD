@@ -58,6 +58,7 @@ static int SetTimer(HWND h, int id, int interval, void *callback) { return failt
 static void KillTimer(HWND h, int id) { assert(id == timer); timer = 0; }
 static void InvalidateRect(HWND h, void *r, BOOL erase) { repaints++; }
 static void ViewportResizeGL(ViewportState *s, int w, int h) {}
+static void ViewportRefreshStanOverlay(ViewportState *s) {}
 #include "logic.inc"
 enum { WM_SIZE = 1, WM_LBUTTONDOWN, WM_LBUTTONDBLCLK, WM_RBUTTONDOWN, WM_RBUTTONDBLCLK,
        WM_MBUTTONDOWN, WM_MOUSEWHEEL, WM_CANCELMODE, WM_CAPTURECHANGED, WM_KILLFOCUS,
@@ -274,9 +275,27 @@ static void TestAnimationAndInput(void)
     assert(commands==1);
 }
 
+static void TestIssueFraming(void)
+{
+    ViewportState s=Empty();
+    StanTile tiles[3]={{.editorid=10},{.editorid=20},{.editorid=30}};
+    DWORD hidden[3]={10,20,30};
+    s.stan.tiles=tiles;s.stan.tilecount=3;s.stanhiddenids=hidden;s.stanhiddencount=3;
+    assert(ViewportRevealStanTile(&s,1) && s.stanhiddencount==2 && hidden[0]==10 && hidden[1]==30);
+    assert(ViewportRevealStanTile(&s,1) && s.stanhiddencount==2);
+    assert(!ViewportRevealStanTile(&s,3) && !ViewportRevealStanTile(NULL,0));
+    const double min[]={100,-10,200},max[]={150,10,250};
+    assert(!ViewportCanZoomToSelected(&s)); /* A report can frame a location without geometry. */
+    assert(ViewportZoomToBounds(&s,min,max) && s.zooming);
+    ViewportCancelZoom(&s,&s);
+    s.flying=TRUE;assert(!ViewportZoomToBounds(&s,min,max));s.flying=FALSE;
+    s.dragaxis=0;assert(!ViewportZoomToBounds(&s,min,max));s.dragaxis=-1;
+    s.width=0;assert(!ViewportZoomToBounds(&s,min,max));
+}
+
 int main(void)
 {
-    TestFraming(); TestSelection(); TestAnimationAndInput();
+    TestFraming(); TestSelection(); TestAnimationAndInput(); TestIssueFraming();
     puts("Zoom to Selected: framing, timing, selections, cancellation and shortcut checks passed.");
     return 0;
 }

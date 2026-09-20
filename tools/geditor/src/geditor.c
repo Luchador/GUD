@@ -43,6 +43,7 @@
 #include "bghistory.h"
 #include "setupload.h"
 #include "setupstan.h"
+#include "issueswindow.h"
 #include "stanload.h"
 #include "texload.h"
 #include "texencode.h"
@@ -598,6 +599,7 @@ static void GEditorRefreshProjectAssets(void)
 /* Creating or opening another project implicitly closes the current one. */
 static void GEditorCloseProject(HWND hwnd)
 {
+    IssuesWindowClose();
     PatrolEditorClose();
     if (g_Project.name[0] == '\0')
     {
@@ -675,6 +677,7 @@ enum {
     ID_TOOLS_MODEL_EDITOR,
     ID_TOOLS_ACTION_BLOCKS,
     ID_TOOLS_PATROL_PATHS,
+    ID_TOOLS_CHECK_ISSUES,
     ID_SETTINGS_LEVEL,
     ID_SETTINGS_PROJECT,
 
@@ -858,6 +861,8 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_UV_EDITOR, "&UV Editor\tCtrl+T");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_MODEL_EDITOR, "&Model Editor");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_CREATE_ROM, "&Create ROM...");
+    AppendMenu(toolsmenu, MF_SEPARATOR, 0, NULL);
+    AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_CHECK_ISSUES, "Check for &Issues...");
 
     AppendMenu(settingsmenu, MF_STRING, ID_SETTINGS_LEVEL, "&Level Settings");
     AppendMenu(settingsmenu, MF_STRING, ID_SETTINGS_PROJECT, "&Project Settings");
@@ -4781,10 +4786,65 @@ fail:
     return FALSE;
 }
 
+static BOOL GEditorScanIssues(IssuesScanRequest *request)
+{
+    if (!request) { return FALSE; }
+    request->reason = "Open a level and finish any active transform before checking for issues.";
+    if (g_CurrentLevelIndex >= g_Project.levelcount || ViewportIsTransforming(g_Viewport)) { return FALSE; }
+    return LevelIssuesBuild(&g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan,
+        g_Project.levels[g_CurrentLevelIndex].levelscale, &request->report, &request->reason);
+}
+
+static BOOL GEditorLocateIssue(HWND hwnd, const LevelIssue *issue)
+{
+    LevelIssueLocation location;
+    if (g_CurrentLevelIndex >= g_Project.levelcount || ViewportIsTransforming(g_Viewport)
+        || ViewportIsFlying(g_Viewport) || !LevelIssueLocate(issue, &g_CurrentBgDocument, &g_CurrentSetup,
+            &g_CurrentStan, g_Project.levels[g_CurrentLevelIndex].levelscale, &location)) { return FALSE; }
+    PatrolEditorSetPicking(FALSE); ViewportSetColorPick(g_Viewport, FALSE);
+    ViewportSetTool(g_Viewport, EDITOR_TOOL_FACE_SELECT);
+    ToolToolbarSetTool(g_ToolToolbar, EDITOR_TOOL_FACE_SELECT);
+    switch (location.target)
+    {
+    case LEVEL_ISSUE_MODEL:
+    {
+        DWORD selected;
+        RightPanelShowObjects(g_RightPanel);
+        ViewportSelectSetupModel(g_Viewport, location.index);
+        if (ViewportGetSelectedObject(g_Viewport, &selected) && selected == location.index
+            && ViewportCanZoomToSelected(g_Viewport)) { break; }
+        /* A bad placement or missing model can prevent rendering. The pad
+         * remains selectable so the author can still repair its position. */
+        ViewportSelectSetupPad(g_Viewport, &location.pad); break;
+    }
+    case LEVEL_ISSUE_PAD:
+        ViewportSelectSetupPad(g_Viewport, &location.pad); break;
+    case LEVEL_ISSUE_STAN:
+        RightPanelShowStan(g_RightPanel);
+        if (!ViewportRevealStanTile(g_Viewport, location.index)
+            || !ViewportSelectStanTiles(g_Viewport, &location.index, 1)) { return FALSE; }
+        break;
+    case LEVEL_ISSUE_PORTAL_FACE:
+        RightPanelShowPortals(g_RightPanel);
+        if (!ViewportSelectPortal(g_Viewport, location.index)) { return FALSE; }
+        break;
+    default: return FALSE;
+    }
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    BOOL moved = ViewportZoomToSelected(g_Viewport)
+        || ViewportZoomToBounds(g_Viewport, location.min, location.max);
+    if (moved) { SetFocus(g_Viewport); }
+    return moved;
+}
+
 static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     switch (msg)
     {
+    case ISSUES_WM_SCAN:
+        return GEditorScanIssues((IssuesScanRequest *)lparam);
+    case ISSUES_WM_LOCATE:
+        return GEditorLocateIssue(hwnd, (const LevelIssue *)lparam);
     case KNIFE_WM_APPLY:
         return GEditorKnifeFaces(hwnd, (const BgKnifePlane *)lparam);
 
@@ -5326,6 +5386,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         }
 
         if (!PatrolEditorConfirmClose(TRUE)) { return 0; }
+        IssuesWindowClose();
         level = &g_Project.levels[index];
 
         document.levelscale = level->levelscale;
@@ -5587,6 +5648,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         EnableMenuItem((HMENU)wparam, ID_FILE_IMPORT_IMAGE, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_ACTION_BLOCKS, MF_BYCOMMAND | (g_CurrentSetup.data ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_PATROL_PATHS, MF_BYCOMMAND | (g_CurrentSetup.data ? MF_ENABLED : MF_GRAYED));
+        EnableMenuItem((HMENU)wparam, ID_TOOLS_CHECK_ISSUES, MF_BYCOMMAND | (g_CurrentLevelIndex < g_Project.levelcount ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_CREATE_ROM, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         GEditorUpdateHistoryMenu((HMENU)wparam);
         EnableMenuItem((HMENU)wparam, ID_VIEW_ZOOM_SELECTED, MF_BYCOMMAND |
@@ -5900,6 +5962,15 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 GEditorOpenPatrolPaths(hwnd);
                 return 0;
 
+            case ID_TOOLS_CHECK_ISSUES:
+            {
+                const char *why = "";
+                if (g_CurrentLevelIndex < g_Project.levelcount
+                    && !IssuesWindowShow(hwnd, g_Project.levels[g_CurrentLevelIndex].name, &why))
+                    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+                return 0;
+            }
+
             case ID_TOOLS_UV_EDITOR:
                 if (!UVEditorShow(hwnd, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE)))
                 {
@@ -5939,6 +6010,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         return 0;
 
     case WM_DESTROY:
+        IssuesWindowClose();
         PatrolEditorClose();
         KnifeDialogClose();
         /* The window is gone; ask the message loop to stop. Without
@@ -5968,6 +6040,9 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 {
     static unsigned int depth;
     ULONGLONG revision = g_EditHistory.currentstaterevision;
+    ULONGLONG bg = g_EditHistory.currentbgrevision, setup = g_EditHistory.currentsetuprevision,
+              stan = g_EditHistory.currentstanrevision;
+    float scale = g_CurrentBgDocument.levelscale;
     LRESULT result;
     depth++;
     result = GEditorDispatchMessage(hwnd, msg, wparam, lparam);
@@ -5993,6 +6068,9 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             GEditorRefreshHistoryMenu(hwnd);
         }
         if (revision != g_EditHistory.currentstaterevision) { PatrolEditorRefresh(); }
+        if (bg != g_EditHistory.currentbgrevision || setup != g_EditHistory.currentsetuprevision
+            || stan != g_EditHistory.currentstanrevision || scale != g_CurrentBgDocument.levelscale)
+        { IssuesWindowInvalidate(); }
         if (g_SelectionHistoryPending || g_SelectionHistoryReset
             || revision != g_EditHistory.currentstaterevision
             || (g_Viewport && ViewportGetTool(g_Viewport) != EDITOR_TOOL_FACE_SELECT)) { KnifeDialogClose(); }
@@ -6342,7 +6420,8 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                     CoUninitialize();
                     return (int)msg.wParam;
                 }
-                if (!PatrolEditorHandleMessage(&msg)
+                if (!IssuesWindowHandleMessage(&msg)
+                    && !PatrolEditorHandleMessage(&msg)
                     && !KnifeDialogHandleMessage(&msg)
                     && !LevelManagerHandleMessage(&msg)
                     && !ProjectSettingsHandleMessage(&msg)
@@ -6380,7 +6459,8 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
             {
                 break;
             }
-            if (!PatrolEditorHandleMessage(&msg)
+            if (!IssuesWindowHandleMessage(&msg)
+                && !PatrolEditorHandleMessage(&msg)
                 && !KnifeDialogHandleMessage(&msg)
                 && !LevelManagerHandleMessage(&msg)
                 && !ProjectSettingsHandleMessage(&msg)
