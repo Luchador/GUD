@@ -150,7 +150,7 @@ bool bgTestBulletHitBackground(coord3d *from, coord3d *to, s32 roomnum, struct H
 void bgFreeRoomData(s32 roomID);
 /* Forget optional lists only after their allocations are safe to reclaim. */
 void bgClearRoomRenderCaches(void);
-void bgLoadFile(LEVEL_INDEX stagenum);
+void bgLoadFile(LEVELID stagenum);
 s8 bgSwapConnectedRooms(s32 index);
 void bgToggleDataPortalsContrlBytes1Bit1(s32 index, s32 toggle);
 void bgTick(void);

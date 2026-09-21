@@ -22,7 +22,7 @@ def main():
         files = []
         for path in sorted((here.parents[3] / 'assets/obseg/bg').glob('*.c')):
             if path.stem not in ('bg_depo_all_p', 'bg_jun_all_p', 'bg_sev_all_p',
-                                 'bg_tra_all_p', 'bg_run_all_p', 'bg_wax_all_p'):
+                                 'bg_tra_all_p', 'bg_run_all_p'):
                 continue
             source = path.read_text()
             if 'point_table_binary_1[]' not in source:

@@ -64,12 +64,33 @@ rows block the rebase. Level names refresh from the new ROM. An incoming world
 coordinate scale change is rejected because it
 requires coordinated geometry conversion.
 
+## Removed unused levels
+
+New GUD builds omit SHO, ELD, LUE, RIT, EAR, LEE, LIP, WAX and PAM. Rebase
+removes those placeholder rows from the new project's level list. Unedited
+local copies of their retired BG/stan/setup resources are removed from the
+new copy; resources shared with surviving levels remain available under their
+surviving names. The compatibility report includes the removal counts.
+
+Saved edits to a retired level's settings or resource block the rebase and
+identify the affected entry. An asset without an old base for comparison also
+blocks removal. Nonempty retired language banks require manual migration.
+The original project remains available with all of its files.
+
+The ROM file table is compacted, so its runtime indices can change. GEditor
+matches complete, unique resource names across the two ROMs and uses the new
+locations when exporting. Stage IDs, model IDs, image IDs and encoded text-bank
+IDs retain their values. This preserves setup, environment and model references.
+
 ## Compatibility limits
 
 Rebasing is intended primarily for code and compatible asset updates. Both
-ROMs must use the current GUD manifest format, with matching level/resource IDs
-and names, compatible model catalogs, unchanged native model resources, and an
-compatible texture banks as described above. Other changed resource types without a merge
+ROMs must use the current GUD manifest format, with matching surviving stage
+IDs and resource names, compatible model catalogs, unchanged native model
+resources, and compatible texture banks as described above. File-table indices
+may change; every named row must still have the correct index and a unique
+name. Unexpected resource additions/removals and removal of other stages are
+rejected. Other changed resource types without a merge
 schema are rejected too. It does not remap model IDs or texture IDs, migrate
 older project/ROM formats, or merge conflicting binary geometry automatically.
 
@@ -110,5 +131,7 @@ repository's Jungle tree model, actual image/model export code, and a POSIX
 shim for Windows file operations. It covers relocated tables, preserved edits,
 three-way merging, compatibility conflicts, missing/corrupt assets, repeated
 rebasing, larger/smaller base image banks, imported-ID collisions, retained
-texture flags, preview generation, and copy/write/publication failures. It does not exercise the Windows
+texture flags, preview generation, removal of the nine unused stages and their
+26 file records, shifted file indices, retained shared assets, removal conflicts,
+and copy/write/publication failures. It does not exercise the Windows
 dialog or run the exported fixture on an N64.

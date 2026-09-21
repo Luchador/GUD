@@ -37,7 +37,7 @@ struct LevelEntry
 };
 
 /* Complete catalog, including Title, multiplayer overrides, default and MAX. */
-#define LEVEL_INFO_COUNT 45
+#define LEVEL_INFO_COUNT (LEVEL_INDEX_MAX + 1)
 extern struct LevelEntry g_LevelInfoTable[LEVEL_INFO_COUNT];
 extern stagesetup *g_ptrStageSetupFile;
 

@@ -259,6 +259,8 @@ $(CODEOBJECTS) $(GAMEOBJECTS): src/bondtypes.h src/game/bondview.h
 $(BUILD_DIR)/src/boss.o $(addprefix $(BUILD_DIR)/src/game/,lv.o bg.o musicselect.o setup.o gedmanifest.o): src/game/lv.h
 
 $(addprefix $(BUILD_DIR)/src/game/,bg.o bgdebug.o bondview.o lv.o sky.o rendercache.o): src/game/bg.h
+$(addprefix $(BUILD_DIR)/src/game/,ob.o pobjdata.o): assets/obseg/file_resource_id_enums.h
+$(BUILD_DIR)/src/game/ob.o: assets/obseg/file_resource_table.inc.c assets/obseg/obseg.h
 $(addprefix $(BUILD_DIR)/src/game/,bg.o bgonecycle.o model.o modelonecycle.o): src/game/bgonecycle.h
 $(addprefix $(BUILD_DIR)/src/game/,model.o modelonecycle.o dyn.o tex.o rendercache.o): src/game/modelonecycle.h
 $(BUILD_DIR)/src/game/modelonecycle.o: src/game/dyn.h

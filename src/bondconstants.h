@@ -1449,22 +1449,14 @@ typedef enum LEVELID
     LEVELID_CAVERNS,
     LEVELID_CITADEL,
     LEVELID_CRADLE,
-    LEVELID_SHO,
-    LEVELID_SURFACE2,
-    LEVELID_ELD,
-    LEVELID_BASEMENT,
+    /* Retired stages leave gaps: persisted stage IDs must not move. */
+    LEVELID_SURFACE2 = 43,
+    LEVELID_BASEMENT = 45,
     LEVELID_STACK,
-    LEVELID_LUE,
-    LEVELID_LIBRARY,
-    LEVELID_RIT,
-    LEVELID_CAVES,
-    LEVELID_EAR,
-    LEVELID_LEE,
-    LEVELID_LIP,
-    LEVELID_CUBA,
-    LEVELID_WAX,
-    LEVELID_PAM,
-    LEVELID_MAX,
+    LEVELID_LIBRARY = 48,
+    LEVELID_CAVES = 50,
+    LEVELID_CUBA = 54,
+    LEVELID_MAX = 57,
     LEVELID_TITLE = 90,
     LEVELID_BUNKER2_MP  = LEVELID_BUNKER2 + ENVIRONMENTDATA_PLAYERS_4,
     LEVELID_ARCHIVES_MP = LEVELID_ARCHIVES + ENVIRONMENTDATA_PLAYERS_4,
@@ -1517,21 +1509,21 @@ char *LEVELID_ToString[] = {
     "LEVELID_CAVERNS",
     "LEVELID_CITADEL",
     "LEVELID_CRADLE",
-    "LEVELID_SHO",
+    "42",
     "LEVELID_SURFACE2",
-    "LEVELID_ELD",
+    "44",
     "LEVELID_BASEMENT",
     "LEVELID_STACK",
-    "LEVELID_LUE",
+    "47",
     "LEVELID_LIBRARY",
-    "LEVELID_RIT",
+    "49",
     "LEVELID_CAVES",
-    "LEVELID_EAR",
-    "LEVELID_LEE",
-    "LEVELID_LIP",
+    "51",
+    "52",
+    "53",
     "LEVELID_CUBA",
-    "LEVELID_WAX",
-    "LEVELID_PAM",
+    "55",
+    "56",
     "LEVELID_MAX"};
 
 #endif
@@ -1585,21 +1577,19 @@ typedef enum LEVEL_INDEX
     LEVEL_INDEX_CAVE,
     LEVEL_INDEX_CAT,
     LEVEL_INDEX_CRAD,
-    LEVEL_INDEX_SHO,
     LEVEL_INDEX_SEVXB,
-    LEVEL_INDEX_ELD,
     LEVEL_INDEX_IMP,
     LEVEL_INDEX_ASH,
-    LEVEL_INDEX_LUE,
     LEVEL_INDEX_AME,
-    LEVEL_INDEX_RIT,
     LEVEL_INDEX_OAT,
-    LEVEL_INDEX_EAR,
-    LEVEL_INDEX_LEE,
-    LEVEL_INDEX_LIP,
     LEVEL_INDEX_LEN,
-    LEVEL_INDEX_WAX,
-    LEVEL_INDEX_PAM,
+    LEVEL_INDEX_TITLE,
+    LEVEL_INDEX_BUNKER2_MP,
+    LEVEL_INDEX_ARCHIVES_MP,
+    LEVEL_INDEX_CAVERNS_MP,
+    LEVEL_INDEX_FACILITY_MP,
+    LEVEL_INDEX_EGYPT_MP,
+    LEVEL_INDEX_DEFAULT,
     LEVEL_INDEX_X,
     LEVEL_INDEX_MAX = LEVEL_INDEX_X
 } LEVEL_INDEX;
@@ -2439,6 +2429,7 @@ typedef enum STAGESTATUS
     STAGESTATUS_COMPLETED
 } STAGESTATUS;
 
+/* Bank IDs are encoded in setup strings; retain gaps for retired banks. */
 typedef enum TEXTBANK_LEVEL_INDEX
 {
     LNULL,       /* Null (unused) */
@@ -2456,30 +2447,21 @@ typedef enum TEXTBANK_LEVEL_INDEX
     LDEPO,       /* Depot */
     LDEST,       /* Frigate */
     LDISH,       /* Temple (multi) */
-    LEAR,        /* Ear (unused) */
-    LELD,        /* Eld (unused) */
-    LIMP,        /* Basement (multi) */
+    LIMP = 17,   /* Basement (multi) */
     LJUN,        /* Jungle */
-    LLEE,        /* Lee (unused) */
-    LLEN,        /* Cuba */
-    LLIP,        /* Lip (unused) */
-    LLUE,        /* Lue (unused) */
-    LOAT,        /* Cave (multi) */
-    LPAM,        /* Pam (unused) */
-    LPETE,       /* Streets */
+    LLEN = 20,   /* Cuba */
+    LOAT = 23,   /* Cave (multi) */
+    LPETE = 25,  /* Streets */
     LREF,        /* Complex (multi) */
-    LRIT,        /* Rit (unused) */
-    LRUN,        /* Runway */
+    LRUN = 28,   /* Runway */
     LSEVB,       /* Bunker 2 */
     LSEV,        /* Bunker 1 */
     LSEVX,       /* Surface 1 */
     LSEVXB,      /* Surface 2 */
-    LSHO,        /* Sho (unused) */
-    LSILO,       /* Silo */
+    LSILO = 34,  /* Silo */
     LSTAT,       /* Statue */
     LTRA,        /* Train */
-    LWAX,        /* Wax (unused) */
-    LGUN,        /* Guns */
+    LGUN = 38,   /* Guns */
     LTITLE,      /* Stage and menu titles */
     LMPMENU,     /* Multi menus */
     LPROPOBJ,    /* In-game pickups */
@@ -2505,29 +2487,29 @@ char *TEXTBANK_LEVEL_INDEX_ToString[] =
         "LDEPO",      /* Depot */
         "LDEST",      /* Frigate */
         "LDISH",      /* Temple (multi) */
-        "LEAR",       /* Ear (unused) */
-        "LELD",       /* Eld (unused) */
+        "15",         /* Retired bank */
+        "16",         /* Retired bank */
         "LIMP",       /* Basement (multi) */
         "LJUN",       /* Jungle */
-        "LLEE",       /* Lee (unused) */
+        "19",         /* Retired bank */
         "LLEN",       /* Cuba */
-        "LLIP",       /* Lip (unused) */
-        "LLUE",       /* Lue (unused) */
+        "21",         /* Retired bank */
+        "22",         /* Retired bank */
         "LOAT",       /* Cave (multi) */
-        "LPAM",       /* Pam (unused) */
+        "24",         /* Retired bank */
         "LPETE",      /* Streets */
         "LREF",       /* Complex (multi) */
-        "LRIT",       /* Rit (unused) */
+        "27",         /* Retired bank */
         "LRUN",       /* Runway */
         "LSEVB",      /* Bunker 2 */
         "LSEV",       /* Bunker 1 */
         "LSEVX",      /* Surface 1 */
         "LSEVXB",     /* Surface 2 */
-        "LSHO",       /* Sho (unused) */
+        "33",         /* Retired bank */
         "LSILO",      /* Silo */
         "LSTAT",      /* Statue */
         "LTRA",       /* Train */
-        "LWAX",       /* Wax (unused) */
+        "37",         /* Retired bank */
         "LGUN",       /* Guns */
         "LTITLE",     /* Stage and menu titles */
         "LMPMENU",    /* Multi menus */

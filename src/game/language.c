@@ -23,29 +23,29 @@ char *g_TextBankNames[45] = {
     "LdepoE",       /* Depot */
     "LdestE",       /* Frigate */
     "LdishE",       /* Temple (multi) */
-    "LearE",        /* Ear (unused) */
-    "LeldE",        /* Eld (unused) */
+    NULL,           /* Retired bank; preserve encoded string IDs. */
+    NULL,           /* Retired bank; preserve encoded string IDs. */
     "LimpE",        /* Basement (multi) */
     "LjunE",        /* Jungle */
-    "LleeE",        /* Lee (unused) */
+    NULL,           /* Retired bank; preserve encoded string IDs. */
     "LlenE",        /* Cuba */
-    "LlipE",        /* Lip (unused) */
-    "LlueE",        /* Lue (unused) */
+    NULL,           /* Retired bank; preserve encoded string IDs. */
+    NULL,           /* Retired bank; preserve encoded string IDs. */
     "LoatE",        /* Cave (multi) */
-    "LpamE",        /* Pam (unused) */
+    NULL,           /* Retired bank; preserve encoded string IDs. */
     "LpeteE",       /* Streets */
     "LrefE",        /* Complex (multi) */
-    "LritE",        /* Rit (unused) */
+    NULL,           /* Retired bank; preserve encoded string IDs. */
     "LrunE",        /* Runway */
     "LsevbE",       /* Bunker 2 */
     "LsevE",        /* Bunker 1 */
     "LsevxE",       /* Surface 1 */
     "LsevxbE",      /* Surface 2 */
-    "LshoE",        /* Shooting Range (unused) */
+    NULL,           /* Retired bank; preserve encoded string IDs. */
     "LsiloE",       /* Silo */
     "LstatE",       /* Statue */
     "LtraE",        /* Train */
-    "LwaxE",        /* Wax (unused) */
+    NULL,           /* Retired bank; preserve encoded string IDs. */
     "LgunE",        /* Guns */
     "LtitleE",      /* Stage and menu titles */
     "LmpmenuE",     /* Multi menus */

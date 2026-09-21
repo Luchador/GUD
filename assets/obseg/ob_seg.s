@@ -54,16 +54,9 @@ bg_file_seg bg_cat_all_p_seg, bg_cat_all_p
 bg_file_seg bg_crad_all_p_seg, bg_crad_all_p
 bg_file_seg bg_imp_all_p_seg, bg_imp_all_p
 bg_file_seg bg_ash_all_p_seg, bg_ash_all_p
-bg_file_seg bg_sho_all_p_seg, bg_sho_all_p
 bg_file_seg bg_ame_all_p_seg, bg_ame_all_p
-bg_file_seg bg_rit_all_p_seg, bg_rit_all_p
 bg_file_seg bg_oat_all_p_seg, bg_oat_all_p
-bg_file_seg bg_lip_all_p_seg, bg_lip_all_p
-bg_file_seg bg_lee_all_p_seg, bg_lee_all_p
-bg_file_seg bg_ear_all_p_seg, bg_ear_all_p
 bg_file_seg bg_len_all_p_seg, bg_len_all_p
-bg_file_seg bg_pam_all_p_seg, bg_pam_all_p
-bg_file_seg bg_wax_all_p_seg, bg_wax_all_p
 
 obseg_file_raw chr, CarmourguardZ
 obseg_file_raw chr, CbaronsamediZ
@@ -684,36 +677,27 @@ obseg_file_raw text, LdamE
 obseg_file_raw text, LdepoE
 obseg_file_raw text, LdestE
 obseg_file_raw text, LdishE
-obseg_file_raw text, LearE
-obseg_file_raw text, LeldE
 obseg_file_raw text, LgunE
 obseg_file_raw text, LimpE
 obseg_file_raw text, LjunE
-obseg_file_raw text, LleeE
 obseg_file_raw text, LlenE
-obseg_file_raw text, LlipE
-obseg_file_raw text, LlueE
 obseg_file_raw text, LmiscE
 obseg_file_raw text, LmpmenuE
 obseg_file_raw text, LmpweaponsE
 obseg_file_raw text, LoatE
 obseg_file_raw text, LoptionsE
-obseg_file_raw text, LpamE
 obseg_file_raw text, LpeteE
 obseg_file_raw text, LpropobjE
 obseg_file_raw text, LrefE
-obseg_file_raw text, LritE
 obseg_file_raw text, LrunE
 obseg_file_raw text, LsevE
 obseg_file_raw text, LsevbE
 obseg_file_raw text, LsevxE
 obseg_file_raw text, LsevxbE
-obseg_file_raw text, LshoE
 obseg_file_raw text, LsiloE
 obseg_file_raw text, LstatE
 obseg_file_raw text, LtitleE
 obseg_file_raw text, LtraE
-obseg_file_raw text, LwaxE
 
 .global ob__ob_end_seg
 ob__ob_end_seg:

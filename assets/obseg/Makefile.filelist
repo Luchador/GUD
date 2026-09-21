@@ -12,26 +12,19 @@ LEVELNAMELIST = ame \
 				depo \
 				dest \
 				dish \
-				ear \
 				imp \
 				jun \
-				lee \
 				len \
-				lip \
 				oat \
-				pam \
 				pete \
 				ref \
-				rit \
 				run \
 				sev \
 				sevb \
 				sevx \
-				sho \
 				silo \
 				stat \
-				tra \
-				wax
+				tra
 
 BRIEFNAMELIST = arch \
 				ark \
@@ -78,7 +71,6 @@ STANNAMELIST := ame \
 				sev \
 				sevb \
 				sevx \
-				sho \
 				silo \
 				stat \
 				tra
@@ -97,36 +89,27 @@ TEXTNAMELIST := ame \
 				depo \
 				dest \
 				dish \
-				ear \
-				eld \
 				gun \
 				imp \
 				jun \
-				lee \
 				len \
-				lip \
-				lue \
 				misc \
 				mpmenu \
 				mpweapons \
 				oat \
 				options \
-				pam \
 				pete \
 				propobj \
 				ref \
-				rit \
 				run \
 				sev \
 				sevb \
 				sevx \
 				sevxb \
-				sho \
 				silo \
 				stat \
 				title \
-				tra \
-				wax
+				tra
 
 SETUPNAMELIST := setuparch \
 				setupark \

@@ -268,6 +268,9 @@ static void ImageRebases(const GEditorProject *source,const char *incoming,const
     NoTemps(parent);OK(RomExportValidateProject(source,&why));
     puts("PASS: larger/smaller image banks, stable model/BG references, imported/deleted slots, exact native flags, source paths, new previews, further imports, repeat rebase and image collision rollback.");
 }
+
+#include "retired.c"
+
 int main(int argc,char **argv)
 {
     unsigned char *model,*old,*next,*edited;DWORD modelsize,i,offset,span,size,id;
@@ -418,5 +421,6 @@ int main(int argc,char **argv)
     Path(path,project.dir,"base.z64");OK(Hash(path)==Hash(oldpath));OK(RomExportValidateProject(&project,&why));
     puts("PASS: copy/write/publish failures, destination race, existing/reserved/nested paths and reparse-point rejection; original project remains exportable.");
     CatalogRebase(&project,nextpath,argv[1]);
+    RetiredRebases(&project,nextpath,argv[1]);
     free(model);free(old);free(next);RomFree(&rom);return 0;
 }

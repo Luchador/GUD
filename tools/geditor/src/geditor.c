@@ -1899,9 +1899,11 @@ static INT_PTR CALLBACK GEditorRebaseProjectProc(HWND hdlg, UINT msg,
                 "Compatible. Ready to create the new project.\r\n\r\n"
                 "%lu ROM resources checked.\r\n%lu edited level resources retained.\r\n"
                 "%lu level resources updated from the new ROM.\r\n"
+                "%lu unused levels and %lu unused ROM resources removed.\r\n"
                 "%lu base images carried forward; %lu incoming image slots added.\r\n"
                 "Model edits and imported images will be retained.\r\n\r\nDestination:\r\n%s",
                 (unsigned long)report.checked,(unsigned long)report.kept,(unsigned long)report.updated,
+                (unsigned long)report.levelsremoved,(unsigned long)report.resourcesremoved,
                 (unsigned long)report.imagesretained,(unsigned long)report.imagesadded,destination);
             SetDlgItemText(hdlg,IDC_REBASE_REPORT,message);
             info->checked=TRUE;

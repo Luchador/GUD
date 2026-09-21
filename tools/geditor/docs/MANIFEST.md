@@ -47,8 +47,15 @@ Title is a named, selectable stage with null setup/BG/Stan pointers. Projects
 preserve these as empty fields, and selecting/saving Title does not try to load
 or create level files. It is a stage entry for future settings; the game's
 existing menu models/rendering remain in use. This does not add a 3D title scene.
-Rebase accepts added named rows while preserving existing stage edits and still
-rejecting removed IDs or changed resource names.
+The nine unused stages (SHO, ELD, LUE, RIT, EAR, LEE, LIP, WAX and PAM) are
+absent from the current catalog. Their old stage IDs stay unused. The complete
+catalog has 36 rows, of which 34 are named/editor-visible. Retired text-bank
+slots are null to preserve string IDs encoded in setups; file-table records
+are compacted because their indices are runtime lookups by filename.
+
+Rebase accepts added named rows and retirement of the unused placeholders while
+preserving surviving stage edits. Other removed IDs or changed resource names
+are rejected.
 The row stride is `(STGT.romend - STGT.romstart) / STGT.flags`. Current rows are
 40 bytes: level ID at 0; name, setup, BG and Stan pointers at 4/8/12/16;
 `memoryAllocationString` pointer at 20; scale floats at 24/28; and music,

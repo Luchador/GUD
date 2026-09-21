@@ -535,7 +535,7 @@ s32 getPointTableBinCount(s32 room)
 }
 
 
-void bgLoadFile(LEVEL_INDEX levelid)
+void bgLoadFile(LEVELID levelid)
 {
     s32 bgDataOffsets;
 

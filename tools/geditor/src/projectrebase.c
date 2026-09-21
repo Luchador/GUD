@@ -1,5 +1,5 @@
-/* Rebase saved edits onto a compatible GUD ROM. ROM addresses may move;
- * resource names/IDs and native model content may not. Image banks may gain
+/* Rebase saved edits onto a compatible GUD ROM. ROM addresses and file-table
+ * indices may move; resource names and native model IDs/content may not. Image banks may gain
  * or lose an appended suffix; surviving image IDs must still agree.
  * BG/setup/stan files and editable level fields use a three-way merge.
  * Binary conflicts are reported, never guessed or merged byte by byte. */
@@ -18,11 +18,17 @@
 typedef struct RebaseUpdate {
     char path[MAX_PATH];
     DWORD offset, size;
+    BOOL remove;
 } RebaseUpdate;
+typedef struct RebaseFile {
+    const char *name;
+    DWORD offset, size;
+} RebaseFile;
 typedef struct RebasePlan {
     RomFile oldrom, newrom;
     GEditorProject project;
     RebaseUpdate updates[REBASE_MAX_FILES];
+    RebaseFile oldfiles[REBASE_MAX_FILES], newfiles[REBASE_MAX_FILES];
     DWORD count;
 } RebasePlan;
 static char g_RebaseError[512];
@@ -216,6 +222,45 @@ static const RomLevel *Level(const RomInfo *info, LONG id)
     { if (found) { return NULL; } found=&info->levels[i]; }
     return found;
 }
+/* Migration identities from older GUD builds. Only these unused placeholders
+ * may disappear automatically; losing a playable/custom stage is an error. */
+static const struct { LONG id; const char *stem; } g_RetiredLevels[] = {
+    {42,"sho"}, {44,"eld"}, {47,"lue"}, {49,"rit"}, {51,"ear"},
+    {52,"lee"}, {53,"lip"}, {55,"wax"}, {56,"pam"}
+};
+static BOOL RetiredStage(const RomLevel *level)
+{
+    unsigned int i;
+    char name[64];
+    for (i=0;i<sizeof(g_RetiredLevels)/sizeof(g_RetiredLevels[0]);i++)
+    {
+        const char *stem=g_RetiredLevels[i].stem;
+        if (level->levelID!=g_RetiredLevels[i].id) { continue; }
+        snprintf(name,sizeof(name),"Usetup%sZ",stem);
+        if (strcmp(name,level->setupname)) { return FALSE; }
+        snprintf(name,sizeof(name),"bg/bg_%s_all_p.seg",stem);
+        if (strcmp(name,level->bgname)) { return FALSE; }
+        snprintf(name,sizeof(name),"Tbg_%s_all_p_stanZ",stem);
+        return !strcmp(name,level->stanname);
+    }
+    return FALSE;
+}
+static BOOL RetiredResource(const RomInfo *incoming, const char *resource)
+{
+    static const char *formats[]={"Usetup%sZ","bg/bg_%s_all_p.seg","Tbg_%s_all_p_stanZ","L%sE"};
+    unsigned int i,j;
+    char name[64];
+    for (i=0;i<sizeof(g_RetiredLevels)/sizeof(g_RetiredLevels[0]);i++)
+    {
+        if (Level(incoming,g_RetiredLevels[i].id)) { continue; }
+        for (j=0;j<sizeof(formats)/sizeof(formats[0]);j++)
+        {
+            snprintf(name,sizeof(name),formats[j],g_RetiredLevels[i].stem);
+            if (!strcmp(resource,name)) { return TRUE; }
+        }
+    }
+    return FALSE;
+}
 static BOOL Levels(RebasePlan *plan, const GEditorProject *source,
     ProjectRebaseReport *report, const char **why)
 {
@@ -224,14 +269,49 @@ static BOOL Levels(RebasePlan *plan, const GEditorProject *source,
     if (!source->levelcount || source->levelcount != plan->oldrom.info.levelcount
         || plan->newrom.info.levelcount > ROM_MAX_LEVELS)
     { return Fail(why, "The project's level table does not match its base ROM."); }
+    for (i=0;i<plan->newrom.info.levelcount;i++)
+    {
+        if (!Level(&plan->newrom.info,plan->newrom.info.levels[i].levelID))
+        { return Fail(why,"The new ROM contains duplicate level IDs."); }
+    }
+    plan->project.levelcount=0;
     for (i=0;i<source->levelcount;i++)
     {
-        RomLevel *p=&plan->project.levels[i];
+        RomLevel *p=&plan->project.levels[plan->project.levelcount];
+        *p=source->levels[i];
         const RomLevel *a=Level(&plan->oldrom.info,p->levelID), *b=Level(&plan->newrom.info,p->levelID);
         DWORD j;
         for (j=0;j<i;j++) if (source->levels[j].levelID==p->levelID)
         { return Fail(why,"The project contains duplicate level IDs."); }
-        if (!a || !b || !LevelNames(a,b) || !LevelNames(a,p))
+        if (!a || !LevelNames(a,p))
+        { return Fail(why, "Level %ld has missing, duplicate or changed resource names.", (long)p->levelID); }
+        if (!b && RetiredStage(a))
+        {
+            const char *names[]={a->bgname,a->setupname,a->stanname};
+            if (p->levelscale!=a->levelscale || p->renderScale!=a->renderScale
+                || p->music!=a->music || p->bgsound!=a->bgsound || p->xtrack!=a->xtrack)
+            { Conflict(report,p->name,"removed from the new ROM but has edited level settings"); }
+            /* Some placeholders never had a setup/stan resource. A local
+             * file without an old base cannot safely be classified as unused. */
+            for (j=0;j<sizeof(names)/sizeof(names[0]);j++)
+            {
+                char path[MAX_PATH];
+                DWORD offset,size;
+                const char *unused;
+                if (!RomFindFile(&plan->oldrom,names[j],&offset,&size,&unused)
+                    && RomExportProjectResourcePath(source,names[j],path,sizeof(path))==1)
+                {
+                    DWORD attrs=GetFileAttributes(path), error=GetLastError();
+                    if (attrs!=INVALID_FILE_ATTRIBUTES)
+                    { Conflict(report,names[j],"removed level has a saved asset with no base to compare"); }
+                    else if (error!=ERROR_FILE_NOT_FOUND && error!=ERROR_PATH_NOT_FOUND)
+                    { return Fail(why,"Cannot inspect project asset: %s",path); }
+                }
+            }
+            report->levelsremoved++;
+            continue;
+        }
+        if (!b || !LevelNames(a,b))
         { return Fail(why, "Level %ld has missing, duplicate or changed resource names.", (long)p->levelID); }
         /* Coordinate scale affects BG/setup/stan as a group. Do not merge
          * it independently and silently change the meaning of saved positions. */
@@ -249,9 +329,10 @@ static BOOL Levels(RebasePlan *plan, const GEditorProject *source,
         lstrcpyn(p->world,b->world,sizeof(p->world));
         p->hasbackgroundcolor=b->hasbackgroundcolor;
         memcpy(p->backgroundcolor,b->backgroundcolor,sizeof(p->backgroundcolor)); p->fog=b->fog; p->clouds=b->clouds;
+        plan->project.levelcount++;
     }
-    /* New named rows (MP variants and Title) can be added without changing
-     * any existing resource IDs. Resources() still verifies the file catalog. */
+    /* New named rows (MP variants and Title) retain existing stage IDs.
+     * Resources() separately verifies the file catalog by resource name. */
     for (i = 0; i < plan->newrom.info.levelcount; i++)
     {
         const RomLevel *level = &plan->newrom.info.levels[i];
@@ -303,16 +384,33 @@ static BOOL WriteFileBytes(const char *path, const unsigned char *data, DWORD si
 }
 static BOOL Equal(const unsigned char *a, DWORD asize, const unsigned char *b, DWORD bsize)
 { return asize==bsize && !memcmp(a,b,asize); }
-static BOOL FileCount(const RomFile *rom, DWORD *count, const char **why)
+static const RebaseFile *File(const RebaseFile *files, DWORD count, const char *name)
+{
+    DWORD i;
+    for (i=0;i<count;i++) if (!strcmp(files[i].name,name)) { return &files[i]; }
+    return NULL;
+}
+static BOOL Files(const RomFile *rom, RebaseFile *files, DWORD *count, const char **why)
 {
     const RomManifestEntry *table=Entry(rom,0x4654424cu);
     const RomManifestEntry *map=Entry(rom,0x434d4150u);
-    DWORD i;
+    DWORD i,j;
     if (table && map && table->romstart>=map->romstart) for (i=0;i<REBASE_MAX_FILES;i++)
     {
         DWORD at=table->romstart+i*12;
+        char name[64];
         if (at>map->romend || map->romend-at<12) { break; }
         if (!Read32(rom->data+at+4)) { *count=i; return TRUE; }
+        files[i].name=MappedString(rom,Read32(rom->data+at+4));
+        /* File IDs are runtime table indices, distinct from persistent stage,
+         * model and image IDs. Validate each catalog before matching names. */
+        if (Read32(rom->data+at)!=i || !files[i].name || strlen(files[i].name)>=sizeof(name))
+        { return Fail(why,"ROM resource ID %lu has an invalid index or name.",(unsigned long)i); }
+        for (j=0;j<i;j++) if (!lstrcmpi(files[i].name,files[j].name))
+        { return Fail(why,"Duplicate ROM resource name: %s",files[i].name); }
+        if (!files[i].name[0]) { continue; }
+        if (!RomGetFileByIndex(rom,i,name,sizeof(name),&files[i].offset,&files[i].size))
+        { return Fail(why,"Invalid ROM resource: %s",files[i].name); }
     }
     return Fail(why,"The ROM file table has no valid terminator.");
 }
@@ -320,29 +418,38 @@ static BOOL Resources(RebasePlan *plan, const GEditorProject *source,
     ProjectRebaseReport *report, const char **why)
 {
     DWORD count, newcount, i;
-    const RomManifestEntry *oldtable=Entry(&plan->oldrom,0x4654424cu), *newtable=Entry(&plan->newrom,0x4654424cu);
-    if (!FileCount(&plan->oldrom,&count,why) || !FileCount(&plan->newrom,&newcount,why)) { return FALSE; }
-    if (count!=newcount) { return Fail(why,"The ROM file IDs changed. This version does not remap resource IDs."); }
+    if (!Files(&plan->oldrom,plan->oldfiles,&count,why)
+        || !Files(&plan->newrom,plan->newfiles,&newcount,why)) { return FALSE; }
+    for (i=0;i<newcount;i++)
+    {
+        if (!File(plan->oldfiles,count,plan->newfiles[i].name))
+        { return Fail(why,"The new ROM introduced resource %s; this rebase needs asset migration.",plan->newfiles[i].name); }
+    }
     for (i=0;i<count;i++)
     {
-        char name[64], newname[64], path[MAX_PATH];
-        const char *full=MappedString(&plan->oldrom,Read32(plan->oldrom.data+oldtable->romstart+i*12+4));
-        const char *newfull=MappedString(&plan->newrom,Read32(plan->newrom.data+newtable->romstart+i*12+4));
-        DWORD oldat,oldsize,newat,newsize,size,attrs;
+        const RebaseFile *a=&plan->oldfiles[i], *b=File(plan->newfiles,newcount,a->name);
+        const char *name=a->name;
+        char path[MAX_PATH];
+        DWORD size,attrs;
         unsigned char *data;
         int managed;
         BOOL changed;
-        if (!full || !newfull || strlen(full)>=sizeof(name) || strlen(newfull)>=sizeof(newname)
-            || !RomGetFileByIndex(&plan->oldrom,i,name,sizeof(name),NULL,NULL)
-            || !RomGetFileByIndex(&plan->newrom,i,newname,sizeof(newname),NULL,NULL)
-            || strcmp(name,newname) || memcmp(plan->oldrom.data+oldtable->romstart+i*12,plan->newrom.data+newtable->romstart+i*12,4))
-        { return Fail(why,"ROM resource ID %lu is missing or has changed names.",(unsigned long)i); }
         if (!name[0]) { continue; }
-        if (!RomGetFileByIndex(&plan->oldrom,i,name,sizeof(name),&oldat,&oldsize)
-            || !RomGetFileByIndex(&plan->newrom,i,newname,sizeof(newname),&newat,&newsize))
-        { return Fail(why,"Invalid ROM resource: %s",name); }
+        if (!b)
+        {
+            DWORD j;
+            if (!RetiredResource(&plan->newrom.info,name))
+            { return Fail(why,"ROM resource %s is missing; only unused level resources can be retired automatically.",name); }
+            for (j=0;j<plan->newrom.info.levelcount;j++)
+            {
+                const RomLevel *level=&plan->newrom.info.levels[j];
+                if (!strcmp(level->bgname,name) || !strcmp(level->setupname,name) || !strcmp(level->stanname,name))
+                { return Fail(why,"Removed resource %s is still used by %s.",name,level->name); }
+            }
+            report->resourcesremoved++;
+        }
         report->checked++;
-        changed=!Equal(plan->oldrom.data+oldat,oldsize,plan->newrom.data+newat,newsize);
+        changed=b && !Equal(plan->oldrom.data+a->offset,a->size,plan->newrom.data+b->offset,b->size);
         managed=RomExportProjectResourcePath(source,name,path,sizeof(path));
         if (managed<0) { return Fail(why,"Invalid project resource path: %s",name); }
         if (!managed)
@@ -350,6 +457,15 @@ static BOOL Resources(RebasePlan *plan, const GEditorProject *source,
             /* Includes native models and other resources for which the editor
              * has no complete merge schema. Keep model fingerprints intact. */
             if (changed) { Conflict(report,name,"base asset changed; this version supports code and level-resource updates only"); }
+            if (!b)
+            {
+                DWORD j;
+                /* Retired language banks were empty. Customized contents may
+                 * still be referenced by saved setup string IDs. */
+                for (j=0;j<a->size && !plan->oldrom.data[a->offset+j];j++) {}
+                if (j!=a->size)
+                { Conflict(report,name,"removed text bank contains data; string migration required"); }
+            }
             continue;
         }
         attrs=GetFileAttributes(path);
@@ -360,16 +476,27 @@ static BOOL Resources(RebasePlan *plan, const GEditorProject *source,
             return Fail(why,"Cannot inspect project asset: %s",path);
         }
         if ((attrs & FILE_ATTRIBUTE_DIRECTORY) || !ReadFileBytes(path,&data,&size,why)) { return Fail(why,"Cannot read project asset: %s",path); }
-        if (changed && !Equal(data,size,plan->oldrom.data+oldat,oldsize)
-            && !Equal(data,size,plan->newrom.data+newat,newsize))
+        if (!b)
+        {
+            if (!Equal(data,size,plan->oldrom.data+a->offset,a->size))
+            { Conflict(report,name,"removed from the new ROM but has saved project edits"); }
+            else
+            {
+                RebaseUpdate *update=&plan->updates[plan->count++];
+                lstrcpyn(update->path,path+strlen(source->dir)+1,sizeof(update->path));
+                update->remove=TRUE;
+            }
+        }
+        else if (changed && !Equal(data,size,plan->oldrom.data+a->offset,a->size)
+            && !Equal(data,size,plan->newrom.data+b->offset,b->size))
         { Conflict(report,name,"changed differently in the project and the new ROM"); }
         else if (changed)
         {
             RebaseUpdate *update=&plan->updates[plan->count++];
             lstrcpyn(update->path,path+strlen(source->dir)+1,sizeof(update->path));
-            update->offset=newat; update->size=newsize; report->updated++;
+            update->offset=b->offset; update->size=b->size; report->updated++;
         }
-        else if (!Equal(data,size,plan->oldrom.data+oldat,oldsize)) { report->kept++; }
+        else if (!Equal(data,size,plan->oldrom.data+a->offset,a->size)) { report->kept++; }
         free(data);
     }
     return TRUE;
@@ -501,8 +628,12 @@ BOOL ProjectRebaseCreate(const GEditorProject *source, const char *rompath,
     for (i=0;i<plan->count;i++)
     {
         RebaseUpdate *update=&plan->updates[i];
-        if (!Join(path,staging,update->path,why)
-            || !WriteFileBytes(path,plan->newrom.data+update->offset,update->size,why)) { goto done; }
+        if (!Join(path,staging,update->path,why)) { goto done; }
+        if (update->remove)
+        {
+            if (!DeleteFile(path)) { Fail(why,"Cannot remove retired project asset: %s",path); goto done; }
+        }
+        else if (!WriteFileBytes(path,plan->newrom.data+update->offset,update->size,why)) { goto done; }
     }
     lstrcpyn(plan->project.name,name,sizeof(plan->project.name));
     snprintf(filename,sizeof(filename),"%s.gep",name);
