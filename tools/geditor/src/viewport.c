@@ -5967,25 +5967,27 @@ BOOL ViewportSelectRoom(HWND hwnd)
     return ViewportChangeBgSelection(hwnd, VIEWPORT_BG_SELECT_ROOM);
 }
 
-static BOOL ViewportGetSelectedBgTexture(HWND hwnd, unsigned short *textureout)
+static BOOL ViewportGetSelectedBgTextures(HWND hwnd, unsigned char *textures)
 {
     const ViewportState *state = ViewportGetState(hwnd);
     BOOL found = FALSE;
     int i, tri;
     if (!ViewportCanSelectBackground(hwnd, TRUE) || state->tool != EDITOR_TOOL_FACE_SELECT)
     { return FALSE; }
-    /* Layer toggles can leave faces selected. Include those seeds too, so
-       hiding a layer never makes a mixed-texture selection appear uniform. */
+    if (textures != NULL) { memset(textures, 0, BG_TEX_NONE + 1); }
+    /* Snapshot every selected material before replacing the selection. Layer
+       toggles can leave faces selected; those still contribute seed materials.
+       NULL is the menu's allocation-free check for any eligible seed. */
     for (i = 0; i < state->batchcount; i++)
     {
         const SceneBatch *batch = &state->batches[i];
-        if (batch->object) { continue; }
+        if (batch->object || batch->textureid > BG_TEX_NONE) { continue; }
         for (tri = batch->first / 3; tri < (batch->first + batch->count) / 3; tri++)
         {
             if (!state->selectedtris[tri] || state->scenefacerefs[tri].faceid == BG_FACE_ID_NONE
                 || ViewportTriangleHidden(state, tri)) { continue; }
-            if (found && *textureout != batch->textureid) { return FALSE; }
-            *textureout = batch->textureid;
+            if (textures == NULL) { return TRUE; }
+            textures[batch->textureid] = 1;
             found = TRUE;
         }
     }
@@ -5994,21 +5996,21 @@ static BOOL ViewportGetSelectedBgTexture(HWND hwnd, unsigned short *textureout)
 
 BOOL ViewportCanSelectSameMaterial(HWND hwnd)
 {
-    unsigned short texture;
-    return ViewportGetSelectedBgTexture(hwnd, &texture);
+    return ViewportGetSelectedBgTextures(hwnd, NULL);
 }
 
 void ViewportSelectSameMaterial(HWND hwnd)
 {
     ViewportState *state = ViewportGetState(hwnd);
-    unsigned short texture;
+    unsigned char textures[BG_TEX_NONE + 1];
     int i, tri;
-    if (!ViewportGetSelectedBgTexture(hwnd, &texture)) { return; }
+    if (!ViewportGetSelectedBgTextures(hwnd, textures)) { return; }
     ViewportClearAllSelection(state);
     for (i = 0; i < state->batchcount; i++)
     {
         const SceneBatch *batch = &state->batches[i];
-        if (batch->textureid != texture || !ViewportBatchIsPickable(state, batch)) { continue; }
+        if (batch->textureid > BG_TEX_NONE || !textures[batch->textureid]
+            || !ViewportBatchIsPickable(state, batch)) { continue; }
         for (tri = batch->first / 3; tri < (batch->first + batch->count) / 3; tri++)
         {
             if (state->scenefacerefs[tri].faceid == BG_FACE_ID_NONE

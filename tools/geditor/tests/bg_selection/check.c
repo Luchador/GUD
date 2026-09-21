@@ -252,9 +252,9 @@ static void Geometry(void)
 
 static void SameMaterial(void)
 {
-    Vertex vertices[30]={0}; VertexColor colors[30]={0};
-    BgDocumentVertexRef refs[30]={0}; BgFaceRef faces[10]={0};
-    unsigned char selected[10]={0}, hidden[10]={0};
+    Vertex vertices[33]={0}; VertexColor colors[33]={0};
+    BgDocumentVertexRef refs[33]={0}; BgFaceRef faces[11]={0};
+    unsigned char selected[11]={0}, hidden[11]={0};
     SceneBatch batches[]={
         {.first=0, .count=6, .textureid=17}, /* Two faces in one draw batch. */
         {.first=6, .count=3, .textureid=23},
@@ -263,14 +263,15 @@ static void SameMaterial(void)
         {.first=15, .count=3, .textureid=17},
         {.first=18, .count=3, .textureid=17, .object=TRUE},
         {.first=21, .count=6, .textureid=BG_TEX_NONE},
-        {.first=27, .count=3, .textureid=17}
+        {.first=27, .count=3, .textureid=17},
+        {.first=30, .count=3, .textureid=23}
     };
     ViewportState s={.tool=EDITOR_TOOL_FACE_SELECT,.showbgprimary=TRUE,.dragaxis=-1,
-        .scene=vertices,.scenecolors=colors,.scenecount=30,.scenevertexrefs=refs,.scenefacerefs=faces,
-        .selectedtris=selected,.hiddentris=hidden,.batches=batches,.batchcount=8,
+        .scene=vertices,.scenecolors=colors,.scenecount=33,.scenevertexrefs=refs,.scenefacerefs=faces,
+        .selectedtris=selected,.hiddentris=hidden,.batches=batches,.batchcount=9,
         .selectedobject=VIEWPORT_OBJECT_NONE};
-    for (int i=0; i<10; i++) { faces[i].faceid=i+1; faces[i].room=i/3+1; }
-    for (int i=0; i<30; i++) { vertices[i].z=1000000; } /* Includes off-screen geometry. */
+    for (int i=0; i<11; i++) { faces[i].faceid=i+1; faces[i].room=i/3+1; }
+    for (int i=0; i<33; i++) { vertices[i].z=1000000; } /* Includes off-screen geometry. */
     hidden[5]=1; faces[6].faceid=faces[9].faceid=BG_FACE_ID_NONE;
     unsigned before=notifications;
     assert(!ViewportCanSelectSameMaterial(NULL) && !ViewportCanSelectSameMaterial(&s));
@@ -285,13 +286,23 @@ static void SameMaterial(void)
     ViewportSelectSameMaterial(&s); assert(s.selectedtricount==3); /* No duplicates. */
     selected[2]=1; s.selectedtricount++;
     before=notifications;
-    assert(!ViewportCanSelectSameMaterial(&s));
+    assert(ViewportCanSelectSameMaterial(&s));
     ViewportSelectSameMaterial(&s);
-    assert(s.selectedtricount==4 && selected[2] && notifications==before);
-    selected[2]=0; s.selectedtricount--;
-    /* Hidden layer selections still count when checking for mixed textures. */
+    assert(s.selectedtricount==5 && selected[0] && selected[1] && selected[2]
+        && selected[4] && selected[10] && notifications==before+1);
+    assert(!selected[3] && !selected[5] && !selected[6] && !selected[7] && !selected[9]);
+    ViewportSelectSameMaterial(&s); assert(s.selectedtricount==5); /* Union stays deduplicated. */
+    selected[7]=1; s.selectedtricount++;
+    ViewportSelectSameMaterial(&s);
+    assert(s.selectedtricount==7 && selected[7] && selected[8] && selected[10]); /* Textures plus untextured. */
+    /* A selected face on a disabled layer still contributes its material,
+       while results continue to respect which layers are enabled. */
+    Seed(&s,EDITOR_TOOL_FACE_SELECT);
     selected[3]=1; s.selectedtricount++; batches[2].textureid=23;
-    assert(!ViewportCanSelectSameMaterial(&s));
+    assert(ViewportCanSelectSameMaterial(&s));
+    ViewportSelectSameMaterial(&s);
+    assert(s.selectedtricount==5 && selected[2] && selected[10] && !selected[3]);
+    Seed(&s,EDITOR_TOOL_FACE_SELECT);
     batches[2].textureid=17; assert(ViewportCanSelectSameMaterial(&s));
     s.showbgsecondary=TRUE;
     ViewportSelectSameMaterial(&s);
@@ -301,6 +312,11 @@ static void SameMaterial(void)
     ViewportClearAllSelection(&s); selected[7]=1; s.selectedtricount=1;
     assert(ViewportCanSelectSameMaterial(&s));
     ViewportSelectSameMaterial(&s); assert(s.selectedtricount==2 && selected[7] && selected[8]);
+    ViewportClearAllSelection(&s); selected[5]=1; s.selectedtricount=1;
+    assert(!ViewportCanSelectSameMaterial(&s)); /* Individually hidden faces are not seeds. */
+    ViewportClearAllSelection(&s); selected[6]=1; s.selectedtricount=1; faces[6].faceid=7;
+    assert(!ViewportCanSelectSameMaterial(&s)); /* Objects cannot supply BG materials. */
+    faces[6].faceid=BG_FACE_ID_NONE;
     Seed(&s,EDITOR_TOOL_FACE_SELECT);
     s.flying=TRUE; assert(!ViewportCanSelectSameMaterial(&s)); s.flying=FALSE;
     s.orbit=TRUE; assert(!ViewportCanSelectSameMaterial(&s)); s.orbit=FALSE;
@@ -312,7 +328,7 @@ static void SameMaterial(void)
     s.tool=EDITOR_TOOL_VERTEX_PAINT; assert(!ViewportCanSelectSameMaterial(&s));
     s.tool=EDITOR_TOOL_FACE_SELECT; ViewportClearAllSelection(&s); s.selectedobject=0;
     assert(!ViewportCanSelectSameMaterial(&s));
-    puts("PASS: same-material selection, mixed-texture rejection, room/batch/layer boundaries, untextured faces and input guards.");
+    puts("PASS: same-material selection, multiple-material union, room/batch/layer boundaries, untextured faces and input guards.");
 }
 
 typedef struct { HWND hwnd; unsigned message, wParam; LPARAM lParam; } MSG;
