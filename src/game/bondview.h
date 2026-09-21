@@ -312,16 +312,16 @@ struct player
 
   /* 0x0074 0x800c67d4 */ f32 stanHeight;
 
-  /* 0x0078 */ f32 field_78;
+  /* 0x0078 */ f32 unused_78; /* Only reset to zero; never read. */
 
   /**
-   * Collision / clipping related.
-   * Used when descending down stairs/ramp.
+   * Vertical velocity used by gravity and the landing camera bounce.
+   * World units per 60 Hz tick; negative values move downwards.
    * Offset 0x007c.
    */
-  /* 0x007c */ f32 field_7C;
+  /* 0x007c */ f32 verticalVelocity;
 
-  /* 0x0080 */ f32 field_80;
+  /* 0x0080 */ f32 unused_80; /* Only reset to zero; never read. */
 
   /**
    * Collision / clipping related.

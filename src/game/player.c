@@ -253,9 +253,9 @@ void playerInitData(s32 player_num)
     g_playerPointers[player_num]->field_6C = 0.0f;
     g_playerPointers[player_num]->field_70 = 0.0f;
     g_playerPointers[player_num]->stanHeight = 0.0f;
-    g_playerPointers[player_num]->field_78 = 0.0f;
-    g_playerPointers[player_num]->field_7C = 0.0f;
-    g_playerPointers[player_num]->field_80 = 0.0f;
+    g_playerPointers[player_num]->unused_78 = 0.0f;
+    g_playerPointers[player_num]->verticalVelocity = 0.0f;
+    g_playerPointers[player_num]->unused_80 = 0.0f;
     g_playerPointers[player_num]->field_84 = 0.0f;
     g_playerPointers[player_num]->field_88 = 0.0f;
     g_playerPointers[player_num]->field_8C = 0;

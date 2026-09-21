@@ -4284,7 +4284,7 @@ void bondviewUpdatePlayerY(s32 use_stanHeight, f32 stanHeight_offset)
     f32 always_30;
     f32 temp_f0;
     f32 new_field_70;
-    f32 new_field_7c;
+    f32 newVerticalVelocity;
     f32 ftemp2;
     f32 sp40;
 
@@ -4348,7 +4348,7 @@ void bondviewUpdatePlayerY(s32 use_stanHeight, f32 stanHeight_offset)
             g_CurrentPlayer->stanHeight = sp64;
         }
 
-        if ((g_CurrentPlayer->field_7C >= 0.0f) || (g_CurrentPlayer->field_70 < g_CurrentPlayer->stanHeight))
+        if ((g_CurrentPlayer->verticalVelocity >= 0.0f) || (g_CurrentPlayer->field_70 < g_CurrentPlayer->stanHeight))
         {
             g_CurrentPlayer->field_6C = g_CurrentPlayer->field_70 / (1.0f - TANK_UNKD0_SCALE);
 
@@ -4365,7 +4365,7 @@ void bondviewUpdatePlayerY(s32 use_stanHeight, f32 stanHeight_offset)
 
         if (g_CurrentPlayer->stanHeight < g_CurrentPlayer->field_70)
         {
-            new_field_7c = g_CurrentPlayer->field_7C;
+            newVerticalVelocity = g_CurrentPlayer->verticalVelocity;
             new_field_70 = g_CurrentPlayer->field_70;
 
             if ((getTurboModeEnabled() != 0) && (g_ForceBondMoveOffset.f[0] == 0.0f) && (g_ForceBondMoveOffset.f[2] == 0.0f))
@@ -4377,34 +4377,34 @@ void bondviewUpdatePlayerY(s32 use_stanHeight, f32 stanHeight_offset)
                 sp40 = 0.27777779f;
             }
 
-            ftemp2 = new_field_7c - (g_GlobalTimerDelta * sp40);
-            new_field_70 += (g_GlobalTimerDelta * (new_field_7c + ftemp2) * 0.5f);
-            new_field_7c = ftemp2;
+            ftemp2 = newVerticalVelocity - (g_GlobalTimerDelta * sp40);
+            new_field_70 += (g_GlobalTimerDelta * (newVerticalVelocity + ftemp2) * 0.5f);
+            newVerticalVelocity = ftemp2;
 
             if (new_field_70 < g_CurrentPlayer->stanHeight)
             {
                 new_field_70 = g_CurrentPlayer->stanHeight;
-                new_field_7c = -sqrtf((g_CurrentPlayer->field_7C * g_CurrentPlayer->field_7C) + (((2.0f * (g_CurrentPlayer->field_70 - g_CurrentPlayer->stanHeight) * 0.27777779f) / 60.0f) * 60.0f));
+                newVerticalVelocity = -sqrtf((g_CurrentPlayer->verticalVelocity * g_CurrentPlayer->verticalVelocity) + (((2.0f * (g_CurrentPlayer->field_70 - g_CurrentPlayer->stanHeight) * 0.27777779f) / 60.0f) * 60.0f));
             }
 
             g_CurrentPlayer->field_70 = new_field_70;
-            g_CurrentPlayer->field_7C = new_field_7c;
+            g_CurrentPlayer->verticalVelocity = newVerticalVelocity;
         }
 
-        if ((g_CurrentPlayer->field_7C < 0.0f) && (g_CurrentPlayer->field_70 <= g_CurrentPlayer->stanHeight))
+        if ((g_CurrentPlayer->verticalVelocity < 0.0f) && (g_CurrentPlayer->field_70 <= g_CurrentPlayer->stanHeight))
         {
-            if (g_CurrentPlayer->field_7C < -13.333333f)
+            if (g_CurrentPlayer->verticalVelocity < -13.333333f)
             {
                 g_CurrentPlayer->field_8C = CLIPPING_FIELD8C_VALUE;
                 g_CurrentPlayer->vertical_bounce_adjust = -90.0f;
             }
-            else if (g_CurrentPlayer->field_7C < -5.0f)
+            else if (g_CurrentPlayer->verticalVelocity < -5.0f)
             {
                 g_CurrentPlayer->field_8C = CLIPPING_FIELD8C_VALUE;
-                g_CurrentPlayer->vertical_bounce_adjust = ((-5.0f - g_CurrentPlayer->field_7C) * -90.0f) / 8.333333f;
+                g_CurrentPlayer->vertical_bounce_adjust = ((-5.0f - g_CurrentPlayer->verticalVelocity) * -90.0f) / 8.333333f;
             }
 
-            g_CurrentPlayer->field_7C = 0.0f;
+            g_CurrentPlayer->verticalVelocity = 0.0f;
         }
     }
 
@@ -8466,9 +8466,9 @@ void mp_respawn_handler(void)
         }
     }
 
-    g_CurrentPlayer->field_78 = 0.0f;
-    g_CurrentPlayer->field_7C = -0.0001f;
-    g_CurrentPlayer->field_80 = 0.0f;
+    g_CurrentPlayer->unused_78 = 0.0f;
+    g_CurrentPlayer->verticalVelocity = -0.0001f;
+    g_CurrentPlayer->unused_80 = 0.0f;
     currentPlayerStartChrFade(120.0f, 1.0f);
 }
 

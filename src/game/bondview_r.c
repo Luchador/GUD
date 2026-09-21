@@ -335,9 +335,9 @@ void bondviewLoadSetupIntroSection(void)
         g_StartingWeapons[GUNRIGHT] = ITEM_FIST;
     }
 
-    g_CurrentPlayer->field_78 = 0.0f;
-    g_CurrentPlayer->field_7C = -0.0001f;
-    g_CurrentPlayer->field_80 = 0.0f;
+    g_CurrentPlayer->unused_78 = 0.0f;
+    g_CurrentPlayer->verticalVelocity = -0.0001f;
+    g_CurrentPlayer->unused_80 = 0.0f;
 
     if (startpadcount > 0)
     {
