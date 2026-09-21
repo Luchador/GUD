@@ -38,6 +38,8 @@
 #include "uvcanvas.h"
 #include "rom.h"
 #include "romexport.h"
+#include "romexportsettings.h"
+#include "editorpath.h"
 #include "bgload.h"
 #include "bgdocument.h"
 #include "primitiveoptions.h"
@@ -1648,6 +1650,7 @@ static void GEditorUpdateRomExportValidity(HWND hdlg)
 
     GetDlgItemText(hdlg, IDC_ROM_NAME, name, sizeof(name));
     GetDlgItemText(hdlg, IDC_ROM_OUTPUT_DIR, directory, sizeof(directory));
+    EditorPathNormalize(directory);
 
     valid = RomExportDestinationIsValid(&g_Project, directory, name,
                                         outputpath, sizeof(outputpath),
@@ -1666,6 +1669,8 @@ static INT_PTR CALLBACK GEditorCreateRomProc(HWND hdlg, UINT msg,
     switch (msg)
     {
     case WM_INITDIALOG:
+    {
+        char name[ROM_EXPORT_NAME_MAX], directory[MAX_PATH];
         info = (CreateRomInfo *)lparam;
         SetWindowLongPtr(hdlg, DWLP_USER, (LONG_PTR)info);
 
@@ -1673,10 +1678,12 @@ static INT_PTR CALLBACK GEditorCreateRomProc(HWND hdlg, UINT msg,
                            ROM_EXPORT_NAME_MAX - 1, 0);
         SendDlgItemMessage(hdlg, IDC_ROM_OUTPUT_DIR, EM_LIMITTEXT,
                            MAX_PATH - 1, 0);
-        SetDlgItemText(hdlg, IDC_ROM_NAME, info->project->name);
-        SetDlgItemText(hdlg, IDC_ROM_OUTPUT_DIR, info->project->dir);
+        RomExportSettingsLoad(info->project, name, directory);
+        SetDlgItemText(hdlg, IDC_ROM_NAME, name);
+        SetDlgItemText(hdlg, IDC_ROM_OUTPUT_DIR, directory);
         GEditorUpdateRomExportValidity(hdlg);
         return TRUE;
+    }
 
     case WM_CTLCOLORSTATIC:
         if (GetDlgCtrlID((HWND)lparam) == IDC_ROM_WARNING)
@@ -1706,6 +1713,7 @@ static INT_PTR CALLBACK GEditorCreateRomProc(HWND hdlg, UINT msg,
             if (GEditorPromptForFolder(hdlg, L"Choose ROM Output Directory",
                                        folder, sizeof(folder)))
             {
+                EditorPathNormalize(folder);
                 SetDlgItemText(hdlg, IDC_ROM_OUTPUT_DIR, folder);
             }
             return TRUE;
@@ -1724,6 +1732,8 @@ static INT_PTR CALLBACK GEditorCreateRomProc(HWND hdlg, UINT msg,
             GetDlgItemText(hdlg, IDC_ROM_NAME, name, sizeof(name));
             GetDlgItemText(hdlg, IDC_ROM_OUTPUT_DIR, directory,
                            sizeof(directory));
+            EditorPathNormalize(directory);
+            SetDlgItemText(hdlg, IDC_ROM_OUTPUT_DIR, directory);
 
             if (!RomExportDestinationIsValid(info->project, directory, name,
                                              outputpath, sizeof(outputpath),
@@ -1766,6 +1776,7 @@ static INT_PTR CALLBACK GEditorCreateRomProc(HWND hdlg, UINT msg,
                 return TRUE;
             }
 
+            RomExportSettingsRemember(name, directory);
             snprintf(message, sizeof(message), "ROM created successfully:\n%s%s%s",
                      outputpath, RomExportCleanupWarning()[0] ? "\n\n" : "", RomExportCleanupWarning());
             MessageBox(hdlg, message, GEDITOR_TITLE, MB_ICONINFORMATION);

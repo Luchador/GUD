@@ -24,6 +24,7 @@
 #include <string.h>
 
 #include "romexport.h"
+#include "editorpath.h"
 #include "modeledits.h"
 #include "newprops.h"
 #include "imageedits.h"
@@ -427,7 +428,7 @@ BOOL RomExportBuildOutputPath(const char *directory, const char *name,
                               const char **reasonout)
 {
     const char *extension;
-    int written;
+    char filename[ROM_EXPORT_NAME_MAX + 4];
 
     *reasonout = "";
 
@@ -443,9 +444,8 @@ BOOL RomExportBuildOutputPath(const char *directory, const char *name,
     }
 
     extension = RomExportEndsWithNoCase(name, ".z64") ? "" : ".z64";
-    written = snprintf(pathout, pathmax, "%s\\%s%s", directory, name,
-                       extension);
-    if (written < 0 || written >= (int)pathmax)
+    snprintf(filename, sizeof(filename), "%s%s", name, extension);
+    if (!EditorPathJoin(pathout, pathmax, directory, filename))
     {
         *reasonout = "The ROM output path is too long.";
         return FALSE;

@@ -13,6 +13,7 @@
 #include "texrom.h"
 #include "imageedits.h"
 #include "newprops.h"
+#include "editorpath.h"
 
 #define REBASE_MAX_FILES 1024u
 typedef struct RebaseUpdate {
@@ -67,8 +68,8 @@ static const RomManifestEntry *Entry(const RomFile *rom, DWORD kind)
 }
 static BOOL Join(char path[MAX_PATH], const char *dir, const char *name, const char **why)
 {
-    int n = snprintf(path, MAX_PATH, "%s\\%s", dir, name);
-    return (n >= 0 && n < MAX_PATH) || Fail(why, "A project path is too long: %s", name);
+    return EditorPathJoin(path, MAX_PATH, dir, name)
+        || Fail(why, "A project path is too long: %s", name);
 }
 static BOOL DirectoryPath(const char *path, char canonical[MAX_PATH], const char **why)
 {

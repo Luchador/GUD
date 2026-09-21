@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "project.h"
+#include "editorpath.h"
 
 #define GEP_MAGIC   "GEditor Project"
 #define GEP_VERSION 3
@@ -103,9 +104,7 @@ BOOL ProjectCreate(const char *name, const char *location,
      * Build the two paths, refusing anything snprintf had to truncate:
      * a cut-off path would point somewhere else entirely.
      */
-    written = snprintf(proj->dir, sizeof(proj->dir), "%s\\%s", location, name);
-
-    if (written < 0 || written >= (int)sizeof(proj->dir))
+    if (!EditorPathJoin(proj->dir, sizeof(proj->dir), location, name))
     {
         goto fail;
     }
