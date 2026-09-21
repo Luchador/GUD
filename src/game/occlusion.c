@@ -129,7 +129,9 @@ int occlusionTestCharacter(struct ModelHitEntry *entry)
              * vertex rounding. Deliberately includes the flash's full extent. */
             radius = 2.0f;
             for (i = 0; i < 3; i++) {
-                radius += 2.0f * fabsf(node->Data->Gunfire.Size.f[i]);
+                f32 size = node->Data->Gunfire.Size.f[i];
+                if (size < 0.0f) { size = -size; }
+                radius += 2.0f * size;
             }
             break;
         case MODELNODE_OPCODE_SHADOW:
