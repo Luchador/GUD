@@ -17,12 +17,8 @@
 #include "ramromreplay.h"
 #include "stan.h"
 
-#define FLOAT_INIT 0
 #define FIELD_6C_FACTOR 0.170000016689f
 #define CAMERA_POSITION_ACCUMULATOR_SCALE 0.100000023842f
-
-struct coord3d default_start_position = { 0 };
-
 
 u32 weaponLoadProjectileModels(ITEM_IDS modelid)
 {
@@ -78,22 +74,19 @@ u32 weaponLoadProjectileModels(ITEM_IDS modelid)
 
 void bondviewLoadSetupIntroSection(void)
 {
-    struct coord3d start_pos;
+    struct coord3d start_pos = { 0 };
     f32 start_look_angle;
     StandTile *start_stan;
     struct SetupIntroEmpty *intro_record;
     s32 set_starting_weapon;
     s32 rand_camera_index;
-    CreditsEntry *credits;
     s32 rand_pad_index;
     f32 stan_height;
-    s32 i;
     struct SetupIntroItem *intro_item;
     struct SetupIntroSwirl *intro_swirl;
     struct SetupIntroWatch *intro_watch;
     struct SetupIntroCredits *intro_credits;
 
-    start_pos = default_start_position;
     intro_record = (struct SetupIntroEmpty *)g_CurrentSetup.intro;
     g_isBondKIA = 0;
     g_bondviewForceDisarm = 0;
@@ -102,7 +95,7 @@ void bondviewLoadSetupIntroSection(void)
     g_HiResEnterDelay = 0;
     set_starting_weapon = 0;
     g_HiResExitDelay = 0;
-    start_look_angle = FLOAT_INIT;
+    start_look_angle = 0.0f;
 
     if (bossGetStageNum() == LEVELID_CUBA)
     {
@@ -114,27 +107,27 @@ void bondviewLoadSetupIntroSection(void)
     g_CreditsRollTimer = 0;
     g_CreditsState = CREDIT_STATE_START;
     credits_pointer = NULL;
-    g_ForceBondMoveOffset.f[0] = FLOAT_INIT;
-    g_ForceBondMoveOffset.f[1] = FLOAT_INIT;
-    g_ForceBondMoveOffset.f[2] = FLOAT_INIT;
+    g_ForceBondMoveOffset.f[0] = 0.0f;
+    g_ForceBondMoveOffset.f[1] = 0.0f;
+    g_ForceBondMoveOffset.f[2] = 0.0f;
     g_SurroundBondWithExplosionsFlag = 0;
     startpadcount = 0;
     g_PlayerIsInTank = FALSE;
     g_WorldTankProp = 0;
     g_PlayerTankProp = NULL;
-    g_PlayerTankYOffset = FLOAT_INIT;
+    g_PlayerTankYOffset = 0.0f;
     g_TankSfxState[0] = NULL;
     g_TankSfxState[1] = NULL;
-    g_TankTurnSpeed = FLOAT_INIT;
-    g_TankOrientationAngle = FLOAT_INIT;
-    g_TankTurretVerticalAngle = FLOAT_INIT;
-    g_TankTurretVerticalAngleRelated = FLOAT_INIT;
-    g_TankTurretOrientationAngleRad = FLOAT_INIT;
-    g_TankTurretOrientationAngleDeg = FLOAT_INIT;
-    tank_turret_turn_speed = FLOAT_INIT;
+    g_TankTurnSpeed = 0.0f;
+    g_TankOrientationAngle = 0.0f;
+    g_TankTurretVerticalAngle = 0.0f;
+    g_TankTurretVerticalAngleRelated = 0.0f;
+    g_TankTurretOrientationAngleRad = 0.0f;
+    g_TankTurretOrientationAngleDeg = 0.0f;
+    tank_turret_turn_speed = 0.0f;
     g_BondCanEnterTank = FALSE;
-    g_TankTurretAngle = FLOAT_INIT;
-    g_TankTurretTurn = FLOAT_INIT;
+    g_TankTurretAngle = 0.0f;
+    g_TankTurretTurn = 0.0f;
     g_ExplodeTankOnDeathFlag = 0;
     is_timer_active = 1;
     g_PlayerInvincible = FALSE;
@@ -142,7 +135,7 @@ void bondviewLoadSetupIntroSection(void)
     g_CameraAfterCinema = 0;
     camera_fade_active = 0;
     stop_time_flag = 0;
-    camera_transition_timer = FLOAT_INIT;
+    camera_transition_timer = 0.0f;
     intro_camera_index = CAMERAMODE_INTRO;
     g_IntroSwirl = NULL;
     ptr_random06cam_entry = NULL;
@@ -170,7 +163,7 @@ void bondviewLoadSetupIntroSection(void)
                         startpadcount++;
                     }
 
-                    intro_record = (struct SetupIntroEmpty*)((s32)intro_record + sizeof(struct SetupIntroSpawn));
+                    intro_record = (struct SetupIntroEmpty*)((u8 *)intro_record + sizeof(struct SetupIntroSpawn));
                 }
                 break;
 
@@ -196,8 +189,6 @@ void bondviewLoadSetupIntroSection(void)
                         {
                             g_StartingWeapons[GUNRIGHT] = intro_item->item_right;
 
-                            if(intro_item->item_left);
-
                             set_starting_weapon = 1;
 
                             if (intro_item->item_left >= 0)
@@ -207,7 +198,7 @@ void bondviewLoadSetupIntroSection(void)
                         }
                     }
 
-                    intro_record = (struct SetupIntroEmpty*)((s32)intro_record + sizeof(struct SetupIntroItem));
+                    intro_record = (struct SetupIntroEmpty*)((u8 *)intro_record + sizeof(struct SetupIntroItem));
                 }
                 break;
 
@@ -218,7 +209,7 @@ void bondviewLoadSetupIntroSection(void)
                         give_cur_player_ammo(((struct SetupIntroAmmo*)intro_record)->ammo_type, ((struct SetupIntroAmmo*)intro_record)->ammo_amount);
                     }
 
-                    intro_record = (struct SetupIntroEmpty*)((s32)intro_record + sizeof(struct SetupIntroAmmo));
+                    intro_record = (struct SetupIntroEmpty*)((u8 *)intro_record + sizeof(struct SetupIntroAmmo));
                 }
                 break;
 
@@ -237,7 +228,7 @@ void bondviewLoadSetupIntroSection(void)
                     intro_swirl->unk14.fval = intro_swirl->unk14.ival / M_U16_MAX_VALUE_F;
                     intro_swirl->unk18.fval = intro_swirl->unk18.ival / M_U16_MAX_VALUE_F;
 
-                    intro_record = (struct SetupIntroEmpty*)((s32)intro_record + sizeof(struct SetupIntroSwirl));
+                    intro_record = (struct SetupIntroEmpty*)((u8 *)intro_record + sizeof(struct SetupIntroSwirl));
                 }
                 break;
 
@@ -245,7 +236,7 @@ void bondviewLoadSetupIntroSection(void)
                 {
                     g_IntroAnimationIndex = ((struct SetupIntroAnim*)intro_record)->intro_anim;
 
-                    intro_record = (struct SetupIntroEmpty*)((s32)intro_record + sizeof(struct SetupIntroAnim));
+                    intro_record = (struct SetupIntroEmpty*)((u8 *)intro_record + sizeof(struct SetupIntroAnim));
                 }
                 break;
 
@@ -253,7 +244,7 @@ void bondviewLoadSetupIntroSection(void)
                 {
                     g_CurrentPlayer->bondtype = ((struct SetupIntroCuff*)intro_record)->bondtype;
 
-                    intro_record = (struct SetupIntroEmpty*)((s32)intro_record + sizeof(struct SetupIntroCuff));
+                    intro_record = (struct SetupIntroEmpty*)((u8 *)intro_record + sizeof(struct SetupIntroCuff));
                 }
                 break;
 
@@ -279,7 +270,7 @@ void bondviewLoadSetupIntroSection(void)
                         }
                     }
 
-                    intro_record = (struct SetupIntroEmpty*)((s32)intro_record + sizeof(struct SetupIntroCamera));
+                    intro_record = (struct SetupIntroEmpty*)((u8 *)intro_record + sizeof(struct SetupIntroCamera));
                 }
                 break;
 
@@ -299,9 +290,7 @@ void bondviewLoadSetupIntroSection(void)
                         watch_time_0 += ((intro_watch->hours % 12) * (60*60*60));
                     }
 
-                    if (watch_time_0);
-
-                    intro_record = (struct SetupIntroEmpty*)((s32)intro_record + sizeof(struct SetupIntroWatch));
+                    intro_record = (struct SetupIntroEmpty*)((u8 *)intro_record + sizeof(struct SetupIntroWatch));
                 }
                 break;
 
@@ -309,24 +298,17 @@ void bondviewLoadSetupIntroSection(void)
                 {
                     intro_credits = (struct SetupIntroCredits*)intro_record;
 
-                    // hack: bad address math
-                    credits = (CreditsEntry*)((s32)g_ptrStageSetupFile + (s32)intro_credits->unk04);
-                    credits_pointer = credits;
+                    /* The credits table offset is in bytes from the start of the setup file. */
+                    credits_pointer = (CreditsEntry *)((u8 *)g_ptrStageSetupFile + intro_credits->unk04);
 
-                    // what is the point of this?
-                    while (credits->TextId1 != 0 || credits->TextId2 != 0)
-                    {
-                        credits++;
-                    }
-
-                    intro_record = (struct SetupIntroEmpty*)((s32)intro_record + sizeof(struct SetupIntroCredits));
+                    intro_record = (struct SetupIntroEmpty*)((u8 *)intro_record + sizeof(struct SetupIntroCredits));
                 }
                 break;
 
                 // Invalid intro type.
                 default:
                 {
-                    intro_record = (struct SetupIntroEmpty*)((s32)intro_record + sizeof(struct SetupIntroEmpty));
+                    intro_record = (struct SetupIntroEmpty*)((u8 *)intro_record + sizeof(struct SetupIntroEmpty));
                 }
                 break;
 
@@ -353,13 +335,13 @@ void bondviewLoadSetupIntroSection(void)
         g_StartingWeapons[GUNRIGHT] = ITEM_FIST;
     }
 
-    g_CurrentPlayer->field_78 = FLOAT_INIT;
+    g_CurrentPlayer->field_78 = 0.0f;
     g_CurrentPlayer->field_7C = -0.0001f;
-    g_CurrentPlayer->field_80 = FLOAT_INIT;
+    g_CurrentPlayer->field_80 = 0.0f;
 
     if (startpadcount > 0)
     {
-        if ((getPlayerCount() >= 2) && (startpadcount > 0))
+        if (getPlayerCount() >= 2)
         {
             rand_pad_index = bviewGetRandomSpawnPadIndex();
         }
@@ -392,7 +374,7 @@ void bondviewLoadSetupIntroSection(void)
     g_CurrentPlayer->field_6C = stan_height / FIELD_6C_FACTOR;
     change_player_pos_to_target(&g_CurrentPlayer->spatialState, &start_pos, start_stan);
     g_CurrentPlayer->spatialState.facingDirection.f[0] = -sinf(start_look_angle);
-    g_CurrentPlayer->spatialState.facingDirection.f[1] = FLOAT_INIT;
+    g_CurrentPlayer->spatialState.facingDirection.f[1] = 0.0f;
     g_CurrentPlayer->spatialState.facingDirection.f[2] = cosf(start_look_angle);
     sub_GAME_7F089718(D_800364D0);
 
