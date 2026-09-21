@@ -8663,10 +8663,9 @@ Gfx *bondviewRenderCredits(Gfx *gdl)
             /* textMeasure counts a line's height at its newline. */
             text = "Hold Z to skip.\n";
             textMeasure(&textheight, &textwidth, text, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
-            x = viGetViewLeft() + 30;
-            y = viGetViewTop() + viGetViewHeight() - textheight - 12;
-            gdl = textRenderOutlined(gdl, &x, &y, text, ptrFontZurichBoldChars, ptrFontZurichBold,
-                0xFFFFFFFF, 0x000000FF, viGetX(), viGetY(), 0, 0);
+            x = viGetViewLeft() + 12;
+            y = viGetViewTop() + viGetViewHeight() - textheight - 8;
+            gdl = textRenderOutlined(gdl, &x, &y, text, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFFFFFFFF, 0x000000FF, viGetX(), viGetY(), 0, 0);
         }
 
         gdl = gfxRestore3DRenderMode(gdl);
