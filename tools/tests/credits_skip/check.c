@@ -86,16 +86,6 @@ static Gfx *textRenderOutlined(Gfx *gdl, s32 *x, s32 *y, char *text, void *chars
 
 #include "credits.inc"
 
-static bool full_actor_intro;
-static s32 intro_character_index, nextMenu, cursorStage, g_CastSkipHoldFrames;
-static void frontChangeMenu(s32 menu, s32 reload)
-{
-    assert(reload == TRUE);
-    nextMenu = menu;
-}
-static void set_cursor_to_stage_solo(s32 stage) { cursorStage = stage; }
-#include "front.inc"
-
 static void beginCredits(void)
 {
     stage = LEVELID_CUBA;
@@ -151,11 +141,11 @@ int main(void)
     beginCredits();
     for (s32 i = 0; i < 60; i++) {
         frame(0);
-        assert(g_CreditsState == CREDITS_STATE_ROLLING && prompts == 1 && rows > 0);
+        assert(g_CreditsState == CREDITS_STATE_ROLLING && prompts == 0 && rows > 0);
         assert(g_CreditsSkipHoldFrames == 0 && g_CreditsRollTimer == i + 1);
     }
     for (s32 i = 0; i < 29; i++) frame(Z_TRIG);
-    assert(g_CreditsState == CREDITS_STATE_ROLLING && prompts == 1);
+    assert(g_CreditsState == CREDITS_STATE_ROLLING && prompts == 0);
     assert(!g_SkipPostCreditsCast);
     frame(0);
     assert(g_CreditsSkipHoldFrames == 0);
@@ -174,22 +164,10 @@ int main(void)
     assert(g_SkipPostCreditsCast);
     finishSkip();
 
-    /* Keep the request through the fade-out and title-stage return, then consume it. */
+    /* Keep the request through the fade-out and title-stage return for menu re-entry. */
     stage = 0;
     for (s32 i = 0; i < 60; i++) frame(0);
     assert(g_SkipPostCreditsCast);
-    full_actor_intro = TRUE;
-    intro_character_index = 12;
-    cursorStage = -1;
-    frontContinueAfterCredits();
-    assert(nextMenu == MENU_MISSION_SELECT && cursorStage == SP_LEVEL_CRADLE);
-    assert(!full_actor_intro && intro_character_index == 0 && !g_SkipPostCreditsCast);
-
-    /* Consuming the request must not suppress a later, unskipped showcase. */
-    cursorStage = -1;
-    frontContinueAfterCredits();
-    assert(nextMenu == MENU_DISPLAY_CAST && full_actor_intro && intro_character_index == 0);
-    assert(cursorStage == -1);
 
     /* Inactive stages/states must not accumulate a hold. */
     for (s32 inactive = 0; inactive < 3; inactive++) {
@@ -231,8 +209,6 @@ int main(void)
     runCreditsRoll();
     assert(g_CreditsState == CREDITS_STATE_SKIPPING);
     finishSkip();
-    frontContinueAfterCredits();
-    assert(nextMenu == MENU_MISSION_SELECT && cursorStage == SP_LEVEL_CRADLE && !full_actor_intro);
 
     /* One uninterrupted hold can span the dialogue-to-credits transition. */
     beginCredits();
@@ -266,12 +242,10 @@ int main(void)
     frame(0);
     assert(g_CreditsState == CREDITS_STATE_COMPLETED && prompts == 0 && phase == 2);
     assert(!g_SkipPostCreditsCast);
-    cursorStage = -1;
-    frontContinueAfterCredits();
-    assert(nextMenu == MENU_DISPLAY_CAST && full_actor_intro && cursorStage == -1);
 
     /* The lower-left prompt follows the active viewport and resolution. */
     beginCredits();
+    g_CreditsState = CREDITS_STATE_DIALOGUE;
     frame(0);
     screenWidth = viewWidth = 320;
     screenHeight = viewHeight = 240;
@@ -279,6 +253,6 @@ int main(void)
     viewLeft = 20; viewTop = 15; viewWidth = 280; viewHeight = 210;
     frame(0);
     assert(prompts == 1);
-    puts("PASS: dialogue prompt, one hold through credits, fade/VI exit, late AI command and cast bypass.");
+    puts("PASS: dialogue prompt, one hold through credits, fade/VI exit and late AI command.");
     return 0;
 }

@@ -40,10 +40,14 @@ static u16 buttons, pressed, previousButtons;
 static struct { s32 body, flag, text1, text2, text3; } intro_char_table[4];
 static s32 screenWidth, screenHeight, viewLeft, viewTop, viewHeight;
 static s32 prompts;
+static s32 selected_difficulty, requestedStage;
+static s32 folder_selection_screen_option_icon, folder_selected_for_deletion, folder_selected_for_deletion_choice;
+static bool tab_start_highlight, tab_next_highlight, tab_prev_highlight, maybe_is_in_menu, prev_keypresses;
 static void *ptrFontZurichBoldChars, *ptrFontZurichBold;
 static u16 framebuffer[2], menuBuffer;
 static u16 *cfb_16[2] = { &framebuffer[0], &framebuffer[1] };
 static u16 *ptr_menu_videobuffer = &menuBuffer;
+static u16 *viFrameBuffer = &menuBuffer;
 static Gfx buffer[128];
 
 static u16 joyGetButtons(s32 player, u16 mask) { assert(player == PLAYER_1); return buttons & mask; }
@@ -52,8 +56,8 @@ static void viSetFovY(float fov) {}
 static void viSetAspect(float aspect) {}
 static void viSetZRange(float near, float far) {}
 static void viSetUseZBuf(s32 enabled) {}
-static u16 *viGetFrameBuf2(void) { return ptr_menu_videobuffer; }
-static void viSetFrameBuf2(u16 *buffer) {}
+static u16 *viGetFrameBuf2(void) { return viFrameBuffer; }
+static void viSetFrameBuf2(u16 *buffer) { viFrameBuffer = buffer; }
 static void viSetXY(s32 width, s32 height) { screenWidth = width; screenHeight = height; }
 static void viSetBuf(s32 width, s32 height) {}
 static void viSetViewSize(s32 width, s32 height) { viewHeight = height; }
@@ -71,12 +75,15 @@ static bool ramromIsDemoLaunchPending(void) { return FALSE; }
 static void ramromSelectDemoAndPlay(void) { demoStarts++; }
 static u32 randomGetNext(void) { return 1; }
 static void set_cursor_to_stage_solo(s32 stage) { cursorStage = stage; }
+static void bossSetLoadedStage(s32 stage) { requestedStage = stage; }
+static void lvSetSelectedDifficulty(s32 difficulty) {}
 /* Model allocation/cleanup are mocked; menu transitions and input are production code. */
 static void init_menu18_displaycast(void) { g_MenuTimer = 0; castLoads++; }
 static void update_menu18_displaycast(void) { castUnloads++; }
 static void init_menu07_missionselect(void) { selected_stage = -1; missionLoads++; }
 
 #include "cast_menu.inc"
+#include "menu_reset.inc"
 
 static char *langGet(u16 id) { return "Cast name\n"; }
 static void textMeasure(s32 *height, s32 *width, char *text, void *chars, void *font, s32 lineheight)
@@ -110,6 +117,9 @@ static void beginCast(bool extended)
     castLoads = castUnloads = missionLoads = demoStarts = 0;
     cursorStage = -1;
     previousButtons = 0;
+    viFrameBuffer = ptr_menu_videobuffer;
+    prev_keypresses = FALSE;
+    requestedStage = -1;
     memset(intro_char_table, 0, sizeof(intro_char_table));
     intro_char_table[3].body = -1;
     do_extended_cast_display(extended);
@@ -130,8 +140,38 @@ static void finishMenuTransition(void)
     assert(missionLoads == 1 && !full_actor_intro && g_CastSkipHoldFrames == 0);
 }
 
+static void cubaRoundTrip(bool skip)
+{
+    beginCast(FALSE);
+    current_menu = MENU_MISSION_COMPLETE;
+    maybe_prev_menu = MENU_RUN_STAGE;
+    menuFrame(0);
+    assert(requestedStage == LEVELID_CUBA);
+    /* The return destination is selected on launch, before a skip can be requested. */
+    assert(current_menu == MENU_RUN_STAGE && menu_update == MENU_DISPLAY_CAST && castLoads == 0);
+
+    g_SkipPostCreditsCast = skip; /* Accepted in Cuba by the separately tested hold/fade path. */
+    init_menus_or_reset();
+    assert(current_menu == MENU_INVALID && menu_update == MENU_DISPLAY_CAST);
+    viFrameBuffer = cfb_16[1];
+    for (s32 i = 0; i < 6; i++) {
+        menuFrame(0); /* Z has already been released; the accepted request must suffice. */
+        if (skip) assert(castLoads == 0);
+    }
+    if (skip) {
+        assert(current_menu == MENU_MISSION_SELECT && cursorStage == SP_LEVEL_CRADLE);
+        assert(missionLoads == 1 && !full_actor_intro && !g_SkipPostCreditsCast);
+    } else {
+        assert(current_menu == MENU_DISPLAY_CAST && castLoads == 1 && full_actor_intro);
+        assert(missionLoads == 0);
+    }
+}
+
 int main(void)
 {
+    cubaRoundTrip(TRUE);
+    cubaRoundTrip(FALSE);
+
     beginCast(TRUE);
     for (s32 i = 0; i < 29; i++) menuFrame(Z_TRIG);
     assert(full_actor_intro && menu_update == MENU_INVALID && g_CastSkipHoldFrames == 29);
@@ -198,19 +238,6 @@ int main(void)
     menuFrame(0);
     finishMenuTransition();
 
-    /* Run the actual menu dispatcher for both paths out of the Cuba credits stage. */
-    beginCast(FALSE);
-    current_menu = MENU_RUN_STAGE;
-    g_SkipPostCreditsCast = TRUE;
-    menuFrame(0);
-    finishMenuTransition();
-    assert(castLoads == 0 && !g_SkipPostCreditsCast);
-    beginCast(FALSE);
-    current_menu = MENU_RUN_STAGE;
-    menuFrame(0);
-    for (s32 i = 0; i < 5; i++) menuFrame(0);
-    assert(current_menu == MENU_DISPLAY_CAST && full_actor_intro && castLoads == 1);
-
-    puts("PASS: actual cast/menu input, hold/release across character transitions, prompt, cleanup and credits routing.");
+    puts("PASS: Cuba launch/return without loading cast after a skip, normal ending, cast input and cleanup.");
     return 0;
 }

@@ -47,19 +47,20 @@ with tempfile.TemporaryDirectory(prefix='gud-credits-skip-') as directory:
           '    typedef struct { unsigned char opcode; } AiCreditsRollRecord;\n'
           '    s32 Offset = 0;\n    switch (0) {\n' + roll_case
         + '\n    }\n    assert(Offset == sizeof(AiCreditsRollRecord));\n}\n')
-    (work / 'front.inc').write_text(function(front, 'do_extended_cast_display')
-                                   + function(front, 'frontFinishPostCreditsCast')
-                                   + function(front, 'frontContinueAfterCredits'))
     menu_init = function(front, 'menu_init')
     real_menu_functions = {'interface_menu17_switchscreens', 'interface_menu18_displaycast',
                            'init_menu18_displaycast', 'update_menu18_displaycast',
-                           'init_menu07_missionselect'}
+                           'init_menu07_missionselect', 'init_menu0B_runstage'}
     stubs = ''.join('static void ' + name + '(void) {}\n' for name in sorted(set(
         re.findall(r'\b((?:init|update|interface)_menu\w+)\(\)', menu_init)) - real_menu_functions))
     (work / 'cast_menu.inc').write_text(stubs + '\n'.join(function(front, name) for name in (
-        'frontChangeMenu', 'reset_menutimer', 'do_extended_cast_display',
-        'frontFinishPostCreditsCast', 'frontUpdateCastSkip', 'frontContinueAfterCredits',
+        'frontChangeMenu', 'reset_menutimer', 'init_menu0B_runstage', 'do_extended_cast_display',
+        'frontFinishPostCreditsCast', 'frontUpdateCastSkip',
         'interface_menu17_switchscreens', 'interface_menu18_displaycast', 'menu_init')))
+    # Run the real title-stage menu reset; omit only its N64 memory allocations.
+    reset = function((ROOT / 'src/game/initmenus.c').read_text(), 'init_menus_or_reset')
+    reset = reset[:reset.index('    ptr_logo_and_walletbond_DL =')] + '    (void)i;\n}\n'
+    (work / 'menu_reset.inc').write_text(reset)
     # Exercise the actual text-overlay tail without mocking the model renderer's many dependencies.
     cast_renderer = function(front, 'constructor_menu18_displaycast')
     cast_text = cast_renderer[cast_renderer.rindex('    DL = gfxSetup2DTextureMode(DL);'):]

@@ -7256,20 +7256,6 @@ static void frontUpdateCastSkip(void)
 }
 
 
-static void frontContinueAfterCredits(void)
-{
-    if (g_SkipPostCreditsCast)
-    {
-        frontFinishPostCreditsCast();
-    }
-    else
-    {
-        do_extended_cast_display(TRUE);
-        frontChangeMenu(MENU_DISPLAY_CAST, TRUE);
-    }
-}
-
-
 //********************************************************************************************************
 //CAST SCREEN
 //********************************************************************************************************
@@ -7890,6 +7876,14 @@ void frontChangeMenu(MENU menu, s32 reload)
 
 void menu_init(void)
 {
+    /* MENU_RUN_STAGE queues the cast before Cuba loads. Apply a skip made in
+     * Cuba on menu re-entry, before the queued cast can be initialized. */
+    if (g_SkipPostCreditsCast)
+    {
+        maybe_prev_menu = MENU_INVALID;
+        frontFinishPostCreditsCast();
+    }
+
     frontUpdateCastSkip();
 
     if (current_menu == MENU_SWITCH_SCREENS)
@@ -8050,7 +8044,8 @@ void menu_init(void)
              */
             else if (selected_stage == LEVELID_CUBA)
             {
-                frontContinueAfterCredits();
+                do_extended_cast_display(TRUE);
+                frontChangeMenu(MENU_DISPLAY_CAST, TRUE);
             }
             else
             {
