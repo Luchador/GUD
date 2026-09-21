@@ -1166,6 +1166,7 @@ extern s32 g_HiResModeActive;
 extern s32 g_HiResEnterDelay;
 extern s32 g_HiResExitDelay;
 extern s32 g_CreditsRollTimer;
+extern s32 g_CreditsSkipHoldFrames;
 extern enum CREDITS_STATE g_CreditsState;
 extern CreditsEntry *credits_pointer;
 extern s32 g_SurroundBondWithExplosionsFlag;

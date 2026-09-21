@@ -51,6 +51,7 @@
 
 
 #define BONDVIEW_AUTOAIM_TIME 30
+#define CREDITS_SKIP_HOLD_FRAMES 30
 
 #define BONDVIEW_INTRO_CAMERA_BONDMESSCNT_A 0x1f
 #define BONDVIEW_INTRO_CAMERA_BONDMESSCNT_B 0x1e
@@ -327,6 +328,7 @@ s32 g_HiResModeActive = 0;
 s32 g_HiResEnterDelay = 0;
 s32 g_HiResExitDelay = 0;
 s32 g_CreditsRollTimer = 0;
+s32 g_CreditsSkipHoldFrames = 0;
 CREDITS_STATE g_CreditsState = CREDIT_STATE_START;
 CreditsEntry *credits_pointer = NULL;
 s32 g_SurroundBondWithExplosionsFlag = 0;
@@ -8494,6 +8496,24 @@ Gfx *bondviewRenderCredits(Gfx *gdl)
 
     if (bossGetStageNum() == LEVELID_CUBA && g_CreditsState == CREDITS_STATE_ROLLING && credits_pointer != NULL)
     {
+        /* Count rendered frames, like the credits scroll; gameplay time is paused here. */
+        if (joyGetButtons(PLAYER_1, Z_TRIG))
+        {
+            g_CreditsSkipHoldFrames++;
+
+            if (g_CreditsSkipHoldFrames >= CREDITS_SKIP_HOLD_FRAMES)
+            {
+                /* Let the credits script perform its normal fade-out and level exit. */
+                g_CreditsState = CREDITS_STATE_COMPLETED;
+                g_CreditsSkipHoldFrames = 0;
+                return gdl;
+            }
+        }
+        else
+        {
+            g_CreditsSkipHoldFrames = 0;
+        }
+
         xpos1 = 220;
         xpos2 = 220;
         align1 = CREDITS_ALIGN_RIGHT;
@@ -8638,7 +8658,22 @@ Gfx *bondviewRenderCredits(Gfx *gdl)
             }
         }
 
+        if (g_CreditsState == CREDITS_STATE_ROLLING)
+        {
+            /* textMeasure counts a line's height at its newline. */
+            text = "Hold Z to skip.\n";
+            textMeasure(&textheight, &textwidth, text, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
+            x = viGetViewLeft() + 30;
+            y = viGetViewTop() + viGetViewHeight() - textheight - 12;
+            gdl = textRenderOutlined(gdl, &x, &y, text, ptrFontZurichBoldChars, ptrFontZurichBold,
+                0xFFFFFFFF, 0x000000FF, viGetX(), viGetY(), 0, 0);
+        }
+
         gdl = gfxRestore3DRenderMode(gdl);
+    }
+    else
+    {
+        g_CreditsSkipHoldFrames = 0;
     }
 
     return gdl;

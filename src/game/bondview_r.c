@@ -105,6 +105,7 @@ void bondviewLoadSetupIntroSection(void)
     }
 
     g_CreditsRollTimer = 0;
+    g_CreditsSkipHoldFrames = 0;
     g_CreditsState = CREDIT_STATE_START;
     credits_pointer = NULL;
     g_ForceBondMoveOffset.f[0] = 0.0f;
