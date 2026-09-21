@@ -1173,7 +1173,7 @@ void RightPanelSetSetupPad(HWND panel, const SetupFile *setup, const SetupPadRef
             "Use the handles or transform fields.\r\n\r\n"
             "Fit the entire box inside permanent opaque geometry.\r\n"
             "Do not use moving doors or destructible crates as cover.\r\n\r\n"
-            "Hides fully covered ordinary props during rendering.\r\n"
+            "Hides fully covered props and characters during rendering.\r\n"
             "Delete removes this occluder.", (unsigned long)ref->index);
     }
     RightPanelShowFaceProperties(panel, state, FALSE);

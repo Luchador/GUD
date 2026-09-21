@@ -157,6 +157,8 @@ Gfx *explosionRenderScorchBuffer(Gfx *arg0);
 Gfx *explosionRender(PropRecord *prop, Gfx *gdl, s32 withalpha);
 Gfx *explosionRenderPropSmoke(PropRecord *arg0, Gfx *arg1, s32 withalpha);
 Gfx *explosionRenderBulletImpactOnProp(Gfx *arg0, PropRecord *arg1, s32 arg2);
+/* Keep empty-impact bookkeeping even when an occluded attachment is not drawn. */
+Gfx *explosionRenderBulletImpactOnPropFiltered(Gfx *gdl, PropRecord *prop, s32 pass, bool render);
 void explosionCreateSmoke(coord3d *pos, StandTile *stan, s16 smoke_type, u8 *rooms, s32 flags);
 void explosionUpdateCornflakes(void);
 u8 explosionChrpropSmokeTick(PropRecord* prop);

@@ -20,6 +20,9 @@
 /* World-character pass: RSP fog is off; room/fog shading uses FOG_PRIM_A. */
 #define MODEL_RENDER_CHARACTER          0x10
 
+/* Preserve relation updates and effect RNG while omitting character geometry. */
+#define MODEL_RENDER_OCCLUDED           0x20
+
 /*
  * The original game budgets 0xc0 bytes per animated model even though Model
  * has a 0xbc-byte stride. Preserve that unexplained pool tail padding.

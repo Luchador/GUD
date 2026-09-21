@@ -1932,7 +1932,7 @@ void explosionCreateBulletImpact(struct coord3d *pos, struct coord3d *arg1, s16 
 /***
  * Perfect Dark Gfx *smokeRender(struct prop *prop, Gfx *gdl, bool xlupass)
 */
-Gfx *explosionRenderBulletImpactOnProp(Gfx *gdl, PropRecord *arg1, s32 arg2)
+Gfx *explosionRenderBulletImpactOnPropFiltered(Gfx *gdl, PropRecord *arg1, s32 arg2, bool render)
 {
     s32 i;
     s32 sp50;
@@ -1953,8 +1953,11 @@ Gfx *explosionRenderBulletImpactOnProp(Gfx *gdl, PropRecord *arg1, s32 arg2)
         sp4C = arg1->scorch;
     }
 
-    gSPClearGeometryMode(gdl++, G_CULL_BOTH);
-    gDPSetColorDither(gdl++, G_CD_NOISE);
+    if (render)
+    {
+        gSPClearGeometryMode(gdl++, G_CULL_BOTH);
+        gDPSetColorDither(gdl++, G_CD_NOISE);
+    }
 
     for (i = 0; i < BULLET_IMPACT_BUFFER_LEN; i++)
     {
@@ -1978,6 +1981,7 @@ Gfx *explosionRenderBulletImpactOnProp(Gfx *gdl, PropRecord *arg1, s32 arg2)
                     if (var_v0)
                     {
                         sp50 = 1;
+                        if (!render) { continue; }
 
                         if (arg1 != NULL)
                         {
@@ -2016,9 +2020,15 @@ Gfx *explosionRenderBulletImpactOnProp(Gfx *gdl, PropRecord *arg1, s32 arg2)
         sp4C->unk02 &= ~(1 << arg2);
     }
 
-    gDPSetColorDither(gdl++, G_CD_BAYER);
+    if (render) { gDPSetColorDither(gdl++, G_CD_BAYER); }
 
     return gdl;
+}
+
+
+Gfx *explosionRenderBulletImpactOnProp(Gfx *gdl, PropRecord *prop, s32 pass)
+{
+    return explosionRenderBulletImpactOnPropFiltered(gdl, prop, pass, TRUE);
 }
 
 

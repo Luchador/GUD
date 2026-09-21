@@ -648,6 +648,7 @@ void modelHitRenderNodeList(ModelRenderData *renderData, ModelHitEntry *entry)
     ModelNodeRenderCache renderCache = {NULL, NULL, FALSE};
     s32 renderPrimary = renderData->flags & 1;
     s32 renderSecondary = renderData->flags & 2;
+    s32 occluded = renderData->flags & MODEL_RENDER_OCCLUDED;
     s32 descend;
     s32 opcode;
 
@@ -657,7 +658,7 @@ void modelHitRenderNodeList(ModelRenderData *renderData, ModelHitEntry *entry)
         root = entry->rootnode;
         node = root;
 
-        if (matrixSegment != model->render_pos)
+        if (!occluded && matrixSegment != model->render_pos)
         {
             matrixSegment = model->render_pos;
             gSPSegment(renderData->gdl++, SPSEGMENT_MODEL_MTX, osVirtualToPhysical(matrixSegment));
@@ -721,11 +722,11 @@ void modelHitRenderNodeList(ModelRenderData *renderData, ModelHitEntry *entry)
                     }
                     break;
                 case MODELNODE_OPCODE_DL:
-                    if ((renderPrimary && node->Data->DisplayList.Primary)
+                    if (!occluded && ((renderPrimary && node->Data->DisplayList.Primary)
                             || (renderSecondary
                                 && node->Data->DisplayList.Primary
                                 && node->Data->DisplayList.ModelType == 4
-                                && node->Data->DisplayList.Secondary))
+                                && node->Data->DisplayList.Secondary)))
                     {
                         renderCache.colorSegmentBase = NULL;
                         renderCache.vertexSegmentBase = NULL;
@@ -734,10 +735,10 @@ void modelHitRenderNodeList(ModelRenderData *renderData, ModelHitEntry *entry)
                     }
                     break;
                 case MODELNODE_OPCODE_DLCOLLISION:
-                    if (renderPrimary
+                    if (!occluded && (renderPrimary
                             || (renderSecondary
                                 && node->Data->DisplayListCollisions.ModelType == 4
-                                && node->Data->DisplayListCollisions.Secondary))
+                                && node->Data->DisplayListCollisions.Secondary)))
                     {
                         modelRenderNodeDlWithCache(renderData, model, node, &renderCache);
                     }

@@ -4166,6 +4166,18 @@ void modelRenderRotatingTexture(ModelRenderData *renderdata, ModelNode *node)
             Vertex *src;
             Vertex *dst;
 
+            if (renderdata->flags & MODEL_RENDER_OCCLUDED)
+            {
+                /* Match the three draws per quad without allocating vertices. */
+                for (i = 0; i < rodata->numVertices; i++)
+                {
+                    randomGetNext();
+                    randomGetNext();
+                    randomGetNext();
+                }
+                return;
+            }
+
             src = (Vertex *) rodata->Vertices;
             dst = g_ModelVertexAllocator(rodata->numVertices * 4);
 
@@ -4287,6 +4299,13 @@ bool modelRenderGunfire(ModelRenderData *renderdata, Model *model, ModelNode *no
     if (rwdata->Gunfire.visible)
     {
         s32 index = modelFindNodeMtxIndex(node, 0);
+        if (renderdata->flags & MODEL_RENDER_OCCLUDED)
+        {
+            /* Keep the gameplay RNG stream identical to a rendered flash. */
+            randomGetNext();
+            if (rodata->Image) { randomGetNext(); }
+            return FALSE;
+        }
         mtx = &model->render_pos[index].pos;
 
         toCamera.x = -(rodata->Offset.x * mtx->m[0][0] + rodata->Offset.y * mtx->m[1][0] + rodata->Offset.z * mtx->m[2][0] + mtx->m[3][0]);

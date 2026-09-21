@@ -29,6 +29,7 @@
 #include "language.h"
 #include "matrixmath.h"
 #include "objecthandler.h"
+#include "occlusion.h"
 #include "player.h"
 #include "propobj.h"
 #include "stan.h"
@@ -2701,6 +2702,7 @@ Gfx *chrRenderChr(PropRecord *prop, Gfx *gdl, s32 withalpha)
     ObjectRecord *held_right_obj;
     ObjectRecord *held_left_obj;
     ObjectRecord *held_hat_obj;
+    bool occluded;
 
     chr = prop->chr;
     chrmodel = chr->model;
@@ -2768,16 +2770,20 @@ Gfx *chrRenderChr(PropRecord *prop, Gfx *gdl, s32 withalpha)
                 held_hat_obj = prop_held_hat->obj;
             }
 
-            if ((getPropCombinedRoomsBBox2D(prop, &sp60) > 0) && !(chr->chrflags & CHRFLAG_CULL_USING_HITBOX))
+            occluded = occlusionTestCharacter(chr->hitChain);
+            if (!occluded)
             {
-                gdl = bgScissorCurrentPlayerViewF(gdl, sp60.left, sp60.top, sp60.width, sp60.height);
-            }
-            else
-            {
-                gdl = bgScissorCurrentPlayerViewDefault(gdl);
+                if ((getPropCombinedRoomsBBox2D(prop, &sp60) > 0) && !(chr->chrflags & CHRFLAG_CULL_USING_HITBOX))
+                {
+                    gdl = bgScissorCurrentPlayerViewF(gdl, sp60.left, sp60.top, sp60.width, sp60.height);
+                }
+                else
+                {
+                    gdl = bgScissorCurrentPlayerViewDefault(gdl);
+                }
             }
 
-            mrData.flags = spB8;
+            mrData.flags = spB8 | (occluded ? MODEL_RENDER_OCCLUDED : 0);
             mrData.zbufferenabled = TRUE;
             mrData.gdl = gdl;
 
@@ -2815,7 +2821,7 @@ Gfx *chrRenderChr(PropRecord *prop, Gfx *gdl, s32 withalpha)
             g_playerPerm->time_other_players_on_screen += 1;
             /* Vertex alpha is blood strength, not RSP fog. Establish this
              * explicitly before opting untouched parts into one-cycle. */
-            gSPClearGeometryMode(mrData.gdl++, G_FOG);
+            if (!occluded) { gSPClearGeometryMode(mrData.gdl++, G_FOG); }
             mrData.flags |= MODEL_RENDER_CHARACTER;
             modelHitRenderNodeList(&mrData, chr->hitChain);
 
@@ -2823,17 +2829,17 @@ Gfx *chrRenderChr(PropRecord *prop, Gfx *gdl, s32 withalpha)
 
             if ((held_right_obj != NULL) && (( held_right_obj->state & ((u8)(1 << withalpha) )) ))
             {
-                gdl = explosionRenderBulletImpactOnProp(gdl, prop_held_right, withalpha);
+                gdl = explosionRenderBulletImpactOnPropFiltered(gdl, prop_held_right, withalpha, !occluded);
             }
 
             if ((held_left_obj != NULL) && (( held_left_obj->state & ((u8)(1 << withalpha) )) ))
             {
-                gdl = explosionRenderBulletImpactOnProp(gdl, prop_held_left, withalpha);
+                gdl = explosionRenderBulletImpactOnPropFiltered(gdl, prop_held_left, withalpha, !occluded);
             }
 
             if ((held_hat_obj != NULL) && (( held_hat_obj->state & ((u8)(1 << withalpha) )) ))
             {
-                gdl = explosionRenderBulletImpactOnProp(gdl, prop_held_hat, withalpha);
+                gdl = explosionRenderBulletImpactOnPropFiltered(gdl, prop_held_hat, withalpha, !occluded);
             }
 
             if (withalpha != 0)
