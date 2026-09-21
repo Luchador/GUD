@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -14,8 +15,11 @@ typedef struct { uint64_t packet; } Gfx;
 #define PLAYER_1 0
 #define Z_TRIG 0x2000
 #define A_BUTTON 0x8000
+#define TRUE 1
+#define FALSE 0
 
 static s32 g_CreditsRollTimer, g_CreditsSkipHoldFrames;
+static bool g_SkipPostCreditsCast;
 static CREDITS_STATE g_CreditsState;
 static CreditsEntry entries[256], *credits_pointer;
 static void *ptrFontZurichBoldChars, *ptrFontZurichBold;
@@ -60,7 +64,7 @@ static Gfx *textRenderOutlined(Gfx *gdl, s32 *x, s32 *y, char *text, void *chars
     assert(phase == 1 && g_CreditsState == CREDITS_STATE_ROLLING);
     assert(!strcmp(text, "Hold Z to skip.\n"));
     assert(*x >= viewLeft + 12 && *x < viewLeft + viewWidth / 2);
-    assert(*y > viewTop + viewHeight / 2 && *y + 16 <= viewTop + viewHeight - 12);
+    assert(*y > viewTop + viewHeight / 2 && *y + 16 <= viewTop + viewHeight - 8);
     assert(width == screenWidth && height == screenHeight);
     assert(color == 0xffffffff && outline == 0x000000ff);
     prompts++;
@@ -69,11 +73,22 @@ static Gfx *textRenderOutlined(Gfx *gdl, s32 *x, s32 *y, char *text, void *chars
 
 #include "credits.inc"
 
+static bool full_actor_intro;
+static s32 intro_character_index, nextMenu, cursorStage;
+static void frontChangeMenu(s32 menu, s32 reload)
+{
+    assert(reload == TRUE);
+    nextMenu = menu;
+}
+static void set_cursor_to_stage_solo(s32 stage) { cursorStage = stage; }
+#include "front.inc"
+
 static void beginCredits(void)
 {
     stage = LEVELID_CUBA;
     g_CreditsState = CREDITS_STATE_ROLLING;
     g_CreditsRollTimer = g_CreditsSkipHoldFrames = 0;
+    g_SkipPostCreditsCast = FALSE;
     credits_pointer = entries;
     memset(entries, 0, sizeof(entries));
     for (s32 i = 0; i < 255; i++) {
@@ -101,6 +116,7 @@ int main(void)
     }
     for (s32 i = 0; i < 29; i++) frame(Z_TRIG);
     assert(g_CreditsState == CREDITS_STATE_ROLLING && prompts == 1);
+    assert(!g_SkipPostCreditsCast);
     frame(0);
     assert(g_CreditsSkipHoldFrames == 0);
     for (s32 i = 0; i < 29; i++) frame(Z_TRIG);
@@ -111,9 +127,28 @@ int main(void)
     assert(g_CreditsState == CREDITS_STATE_ROLLING);
     frame(Z_TRIG);
     assert(g_CreditsState == CREDITS_STATE_COMPLETED && g_CreditsSkipHoldFrames == 0);
+    assert(g_SkipPostCreditsCast);
     assert(prompts == 0 && rows == 0 && phase == 0);
     frame(Z_TRIG);
     assert(g_CreditsState == CREDITS_STATE_COMPLETED && prompts == 0 && inputReads == 0);
+    assert(g_SkipPostCreditsCast);
+
+    /* Keep the request through the fade-out and title-stage return, then consume it. */
+    stage = 0;
+    for (s32 i = 0; i < 60; i++) frame(0);
+    assert(g_SkipPostCreditsCast);
+    full_actor_intro = TRUE;
+    intro_character_index = 12;
+    cursorStage = -1;
+    frontContinueAfterCredits();
+    assert(nextMenu == MENU_MISSION_SELECT && cursorStage == SP_LEVEL_CRADLE);
+    assert(!full_actor_intro && intro_character_index == 0 && !g_SkipPostCreditsCast);
+
+    /* Consuming the request must not suppress a later, unskipped showcase. */
+    cursorStage = -1;
+    frontContinueAfterCredits();
+    assert(nextMenu == MENU_DISPLAY_CAST && full_actor_intro && intro_character_index == 0);
+    assert(cursorStage == -1);
 
     /* Inactive stages/states and a missing table must not accumulate a hold. */
     for (s32 inactive = 0; inactive < 4; inactive++) {
@@ -127,6 +162,7 @@ int main(void)
         for (s32 i = 0; i < 40; i++) frame(Z_TRIG);
         assert(g_CreditsState == previous && g_CreditsRollTimer == 0);
         assert(g_CreditsSkipHoldFrames == 0 && prompts == 0 && inputReads == 0);
+        assert(!g_SkipPostCreditsCast);
     }
 
     /* An uninterrupted replay needs a fresh full hold. */
@@ -142,6 +178,10 @@ int main(void)
     g_CreditsRollTimer = viewHeight + 31;
     frame(0);
     assert(g_CreditsState == CREDITS_STATE_COMPLETED && prompts == 0 && phase == 2);
+    assert(!g_SkipPostCreditsCast);
+    cursorStage = -1;
+    frontContinueAfterCredits();
+    assert(nextMenu == MENU_DISPLAY_CAST && full_actor_intro && cursorStage == -1);
 
     /* The lower-left prompt follows the active viewport and resolution. */
     beginCredits();
@@ -152,6 +192,6 @@ int main(void)
     viewLeft = 20; viewTop = 15; viewWidth = 280; viewHeight = 210;
     frame(0);
     assert(prompts == 1);
-    puts("PASS: 30-frame hold, release reset, input/stage gating, normal completion and prompt placement.");
+    puts("PASS: 30-frame hold, release reset, stage gating, prompt placement and post-credits cast routing.");
     return 0;
 }

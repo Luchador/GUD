@@ -329,6 +329,8 @@ s32 g_HiResEnterDelay = 0;
 s32 g_HiResExitDelay = 0;
 s32 g_CreditsRollTimer = 0;
 s32 g_CreditsSkipHoldFrames = 0;
+/* Survives the return to the title stage until the post-credits menu is chosen. */
+bool g_SkipPostCreditsCast = FALSE;
 CREDITS_STATE g_CreditsState = CREDIT_STATE_START;
 CreditsEntry *credits_pointer = NULL;
 s32 g_SurroundBondWithExplosionsFlag = 0;
@@ -8504,6 +8506,7 @@ Gfx *bondviewRenderCredits(Gfx *gdl)
             if (g_CreditsSkipHoldFrames >= CREDITS_SKIP_HOLD_FRAMES)
             {
                 /* Let the credits script perform its normal fade-out and level exit. */
+                g_SkipPostCreditsCast = TRUE;
                 g_CreditsState = CREDITS_STATE_COMPLETED;
                 g_CreditsSkipHoldFrames = 0;
                 return gdl;

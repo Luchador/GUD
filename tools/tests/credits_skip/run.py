@@ -23,10 +23,11 @@ def function(source, name):
 
 
 source = (ROOT / 'src/game/bondview.c').read_text()
+front = (ROOT / 'src/game/front.c').read_text()
 constants = (ROOT / 'src/bondconstants.h').read_text()
 types = (ROOT / 'src/bondtypes.h').read_text()
 declarations = re.search(r'^#define CREDITS_SKIP_HOLD_FRAMES .*$', source, re.M)[0] + '\n'
-for name in ('CREDITS_ALIGNMENT', 'CREDITS_STATE'):
+for name in ('CREDITS_ALIGNMENT', 'CREDITS_STATE', 'MENU', 'LEVEL_SOLO_SEQUENCE'):
     declarations += re.search(r'typedef enum ' + name + r'\s*\{.*?\}\s*' + name + ';', constants, re.S)[0] + '\n'
 declarations += re.search(r'typedef struct CreditsEntry_s\s*\{.*?\}\s*CreditsEntry;', types, re.S)[0] + '\n'
 
@@ -34,6 +35,8 @@ with tempfile.TemporaryDirectory(prefix='gud-credits-skip-') as directory:
     work = Path(directory)
     (work / 'declarations.inc').write_text(declarations)
     (work / 'credits.inc').write_text(function(source, 'bondviewRenderCredits'))
+    (work / 'front.inc').write_text(function(front, 'do_extended_cast_display')
+                                   + function(front, 'frontContinueAfterCredits'))
     command = shlex.split(os.environ.get('CC', 'cc')) + [
         '-std=c99', '-O1', '-g', '-Wall', '-Wextra', '-Werror',
         '-Wno-unused-parameter', '-fsanitize=address,undefined',

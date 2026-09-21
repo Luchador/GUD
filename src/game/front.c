@@ -7222,6 +7222,24 @@ void do_extended_cast_display(bool doExtended)
 }
 
 
+static void frontContinueAfterCredits(void)
+{
+    if (g_SkipPostCreditsCast)
+    {
+        g_SkipPostCreditsCast = FALSE;
+        full_actor_intro = FALSE;
+        intro_character_index = 0;
+        frontChangeMenu(MENU_MISSION_SELECT, TRUE);
+        set_cursor_to_stage_solo(SP_LEVEL_CRADLE);
+    }
+    else
+    {
+        do_extended_cast_display(TRUE);
+        frontChangeMenu(MENU_DISPLAY_CAST, TRUE);
+    }
+}
+
+
 //********************************************************************************************************
 //CAST SCREEN
 //********************************************************************************************************
@@ -7988,8 +8006,7 @@ void menu_init(void)
              */
             else if (selected_stage == LEVELID_CUBA)
             {
-                do_extended_cast_display(TRUE);
-                frontChangeMenu(MENU_DISPLAY_CAST, 1);
+                frontContinueAfterCredits();
             }
             else
             {
