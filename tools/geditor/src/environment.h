@@ -4,9 +4,9 @@
 #include <stdio.h>
 #include "rom.h"
 
-#define ENVIRONMENT_RECORD_SIZE 104u
+#define ENVIRONMENT_RECORD_SIZE ROM_ENVIRONMENT_ROW_SIZE
 #define ENVIRONMENT_MAX_RECORDS 128u
-#define ENVIRONMENT_FIELD_COUNT 28
+#define ENVIRONMENT_FIELD_COUNT 24
 #define ENVIRONMENT_MAX_CHOICES 6
 
 /* Retain the native bytes so reserved fields and unrelated ROM defaults are
@@ -14,6 +14,7 @@
 typedef struct EditorEnvironment { unsigned char data[ENVIRONMENT_RECORD_SIZE]; } EditorEnvironment;
 typedef struct EnvironmentTable {
     DWORD count;
+    DWORD recordsize; /* Source ROM stride; rows always use the current layout. */
     EditorEnvironment rows[ENVIRONMENT_MAX_RECORDS];
 } EnvironmentTable;
 typedef struct EnvironmentOverride {
@@ -28,7 +29,7 @@ typedef enum EnvironmentFieldType {
     ENV_FLOAT, ENV_U32, ENV_S32, ENV_BYTE, ENV_SHORT, ENV_BOOL32, ENV_BOOL8
 } EnvironmentFieldType;
 typedef struct EnvironmentField {
-    const char *key, *label; /* NULL label: retained project data, no control */
+    const char *key, *label;
     unsigned offset, size;
     EnvironmentFieldType type;
     double minimum, maximum;

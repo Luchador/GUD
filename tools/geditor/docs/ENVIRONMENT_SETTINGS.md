@@ -23,7 +23,7 @@ a representable, increasing range. A positive prop fade start requires a lower
 fade end. Zero start uses engine defaults; a negative start disables prop fading.
 
 **Revert edits** discards un-applied text changes. **Use ROM defaults** removes
-that row's visible project overrides and restores the current base ROM's values.
+that row's project overrides and restores the current base ROM's values.
 Save Project, Create ROM, switching levels/variants/tabs, and closing Level
 Settings apply valid pending edits. Invalid values leave the draft in place
 and block that operation until corrected or reverted. Applied changes mark the
@@ -57,43 +57,38 @@ when a transition changes it. Rebuild GUD and rebase existing projects onto that
 ROM to use the runtime fix. Updating GEditor alone cannot update code retained
 inside an existing project's base ROM.
 
-## Experiment: remove legacy prop fading
+## Environment format and older projects
 
-The experimental patch removes **Max visibility**, **Max obfuscation** and
-**Min visibility** from the form. **Near fog** is also removed because it
-belongs exclusively to the same retired distance-based prop-fade system.
-Their runtime calculations, early size-adjusted cutoff, cached settings
-pointer and unused function arguments are removed. Objects and characters
-retain GUD's screen-size fading. Fog color/start/end, clipping, far-fog culling,
-glass/door opacity and portal updates, and item respawn fading remain active.
+Distance-based prop fading is permanently removed. **Near fog**, **Max
+visibility**, **Max obfuscation** and **Min visibility** no longer exist in the
+game's structs or default table. Objects and characters retain screen-size
+fading; normal fog, clipping, glass/door opacity and item respawn fading retain
+their existing behavior.
 
-For reversal, the four old floats remain reserved in the 104-byte `ENVT`
-record. Their default bytes and saved project overrides are retained, including
-when editing other fields or using **Use ROM defaults**. No project/manifest
-version changes are required, and rebuilding does not change default assets.
+Native `EnvironmentRecord` entries are now **88 bytes**, down from 104. The
+`ENVT` manifest entry advertises the native stride, so no manifest version
+change is needed. All surviving defaults, row IDs/order, sky/water padding and
+the terminator remain intact. The editor uses the compact layout internally.
 
-Rebuild GUD and GEditor, then rebase a project onto the experimental ROM before
-exporting the test ROM. Compare Jungle at the same locations, camera angles and
-settings, watching distant props/guards, fade/pop-in and FPS. Removing the old
-cutoff saves its calculations but can leave more models visible, so performance
-can improve or worsen depending on which fade system was limiting that scene.
+GEditor can still read 104-byte base ROMs and export active fields back into
+them without changing the old slots. On opening older `.gep` files, it discards
+`nearfog`, `maxvisrng`, `maxobfnrng` and `minvisrng` overrides; saving omits them.
+No project version bump is needed because active fields keep their names.
+Rebase merges the surviving fields between either ROM layout normally.
 
-To undo the source patch (from the repository root):
-
-```sh
-git apply -R GUD-remove-legacy-prop-fade-experiment.patch
-```
-
-Then rebuild both GUD and GEditor and rebase onto that restored GUD ROM.
-Existing exports retain their embedded game code; reversing only the source
-patch cannot change them. The preserved legacy settings become active again.
+**Rebuild both GUD and GEditor, then rebase existing projects onto the rebuilt
+GUD ROM.** The new editor accepts the old base ROM so projects can reach that
+rebase step, but export alone cannot shrink its native structs or update its
+embedded game code. Older editors do not support the compact ROM layout.
 
 ## Verification
 
 ```sh
 python3 tools/geditor/tests/environment/run.py
+python3 tools/geditor/tests/cloud_preview/run.py
 python3 tools/geditor/tests/current_formats/run.py
 python3 tools/geditor/tests/project_rebase/run.py
+python3 tools/tests/cam_optimizations/run.py
 make -C tools/geditor/src
 ```
 
@@ -101,7 +96,8 @@ Native ASan/UBSan checks cover every field's byte layout and round trip,
 validation, reset/compaction, unchanged ROM bytes, repeated export, form draft
 lifetime, previews, three-way merges and runtime transitions. The rebase suite
 also saves/reopens overrides and exports them through the complete ROM builder
-with relocated tables. The experiment checks Jungle's removed size-adjusted
-cutoff, retained fog/screen-size fading and preservation of hidden overrides.
+with relocated tables and the 104-to-88-byte environment migration. Checks
+cover removal of obsolete project overrides, retained Jungle fog/screen-size
+fading, and preview/export of both ROM layouts.
 Interactive layout/focus and in-game visuals require
 Windows and emulator/hardware testing.

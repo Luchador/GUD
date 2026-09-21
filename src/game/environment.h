@@ -32,9 +32,6 @@ typedef struct EnvironmentVisibilitySettings
 {
     f32 NearClipDistance;
     f32 FarClipDistance;
-    /* Keep the old four prop-fade values for the reversible experiment.
-     * They have no runtime consumers; ENVT offsets remain unchanged. */
-    f32 ReservedLegacyPropFade[4];
     u32 Intensity;
     s32 FogStart;
     s32 FogEnd;

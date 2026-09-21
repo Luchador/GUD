@@ -26,18 +26,17 @@ static void viSetZRange(f32 near,f32 far) { clipNear=near;clipFar=far; }
 #include "fade.inc"
 int main(void)
 {
-    /* The experiment must retain the native ROM layout for rebasing/reversal. */
-    assert(sizeof(EnvironmentRecord)==104&&offsetof(EnvironmentRecord,Sky)==44);
-    assert(offsetof(EnvironmentRecord,PropVisibility)==96);
+    /* Native layout must match the compact ENVT format. */
+    assert(sizeof(EnvironmentRecord)==88&&offsetof(EnvironmentRecord,Sky)==28);
+    assert(offsetof(EnvironmentRecord,PropVisibility)==80);
     EnvironmentRecord jungle={.FogEnabled=1,
         .Visibility={.NearClipDistance=10,.FarClipDistance=2500,
-            .ReservedLegacyPropFade={1500,2500,1000,0},.FogStart=996,.FogEnd=1000},
+            .FogStart=996,.FogEnd=1000},
         .Sky={.Red=24,.Green=32},.PropVisibility={20,17}};
     envLoadCurrentEnvironment(&jungle);view.m[0][0]=1;
     assert(clipNear==10&&clipFar==2500&&worldFar==2500);
     coord3d offset={1600,0,0};
-    /* The former Jungle cutoff culled a radius-25 prop here: adjusted depth
-     * was 3400, above MaxVisRange 2500. Actual far fog still permits it. */
+    /* A small distant prop remains visible until the actual far-fog limit. */
     assert(envIsPropVisibleThroughFog(&offset,25));
     offset.x=2525;assert(envIsPropVisibleThroughFog(&offset,25));
     offset.x=2525.25f;assert(!envIsPropVisibleThroughFog(&offset,25));
@@ -45,9 +44,6 @@ int main(void)
     PropRecord prop={.zDepth=1600};rgba_f32 color;
     assert(envGetPropDistColor(&prop,&color)==1&&color.rgba[3]>0&&color.rgba[3]<1);
     assert(fabsf(color.rgba[0]-24/255.0f)<1e-6f);
-    for(int i=0;i<4;i++)jungle.Visibility.ReservedLegacyPropFade[i]=NAN;
-    envLoadCurrentEnvironment(&jungle);assert(envIsPropVisibleThroughFog(&offset,0));
-    assert(envGetPropDistColor(&prop,&color)==1&&isfinite(color.rgba[3]));
     renderScale=.5f;envLoadCurrentEnvironment(&jungle);assert(worldFar==5000);
     offset.x=5026;assert(!envIsPropVisibleThroughFog(&offset,25));
     jungle.FogEnabled=0;envLoadCurrentEnvironment(&jungle);
@@ -67,6 +63,6 @@ int main(void)
     prop.pos.z=3000;assert(chrCalcScreenFadeAlpha(&prop)==0&&objCalcScreenFadeAlpha(&prop,200)==0);
     g_PropFadeStartPx=-1;
     assert(chrCalcScreenFadeAlpha(&prop)==255&&objCalcScreenFadeAlpha(&prop,200)==255);
-    puts("PASS: old Jungle size-adjusted cutoff removed; hardware-fog coloring/far culling, render scale and screen-size fade preserved; native layout unchanged.");
+    puts("PASS: Jungle prop visibility; hardware-fog coloring/far culling, render scale and screen-size fade preserved; compact native layout.");
     return 0;
 }

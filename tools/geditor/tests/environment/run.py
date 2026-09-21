@@ -28,7 +28,7 @@ with tempfile.TemporaryDirectory(prefix='geditor-environment-') as folder:
     (work/'ui_types.inc').write_text(panel[panel.index('enum { ENV_VARIANT_LABEL'):panel.index('static EnvironmentPanel *State')])
     (work/'ui.inc').write_text(''.join(function(editor, name) for name in
         ('GEditorPreviewEnvironment', 'GEditorApplyEnvironment')) + ''.join(function(panel, name) for name in
-        ('State', 'Owner', 'Visible', 'Checkbox', 'Ready', 'Preview', 'Status', 'Load', 'Commit', 'Reset', 'EnvironmentPanelApply',
+        ('State', 'Owner', 'Checkbox', 'Ready', 'Preview', 'Status', 'Load', 'Commit', 'Reset', 'EnvironmentPanelApply',
          'EnvironmentPanelHasDraft', 'EnvironmentPanelRefresh', 'EnvironmentPanelShow')) + function(editor, 'GEditorOpenProject'))
     command = [os.environ.get('CC', 'cc'), '-std=c99', '-O1', '-g', '-Wall', '-Wextra', '-Werror',
         '-Wno-unused-parameter', '-ffunction-sections', '-fdata-sections', '-fsanitize=address,undefined',
@@ -54,5 +54,5 @@ with tempfile.TemporaryDirectory(prefix='geditor-environment-') as folder:
     (work/'fade.inc').write_text(fogtypes + defines + '\n' + ''.join(function(engine, name) for name in
         ('envLoadCurrentEnvironment', 'envIsPropVisibleThroughFog', 'envGetPropDistColor'))
         + function(character, 'chrCalcScreenFadeAlpha') + function(prop, 'objCalcScreenFadeAlpha'))
-    subprocess.run(command + [str(here/'fade_experiment.c'), '-lm', '-o', str(work/'fade')], check=True)
+    subprocess.run(command + [str(here/'visibility.c'), '-lm', '-o', str(work/'fade')], check=True)
     subprocess.run([str(work/'fade')], env=env, check=True)

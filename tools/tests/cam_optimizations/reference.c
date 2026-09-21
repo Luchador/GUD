@@ -1,4 +1,4 @@
-/* Frozen pre-optimization functions, with only profiler hooks removed.
+/* Pre-optimization reference, without profiler hooks or retired prop fading.
  * Included by run.py for differential checks against the live source. */
 void reference_camSetPlayerCameraScale(void)
 {
@@ -133,42 +133,7 @@ s32 reference_envPositionIsVisibleThroughFog(coord3d *pos, f32 range)
     return TRUE;
 }
 
-bool reference_camIsPosInObjFadeDistance(coord3d *coord, f32 arg1)
-{
-    bool result = TRUE;
-    NearFogSettings *nearFogSettings = envGetNearFogValues();
-    coord3d diff;
-    f32 distSquared;
-
-    if (nearFogSettings != NULL)
-    {
-        coord3d *campos = bondviewGetPlayerPosition();
-        Mtxf *mtx = camGetWorldToViewMtxf();
-
-        diff.x = coord->x - campos->x;
-        diff.y = coord->y - campos->y;
-        diff.z = coord->z - campos->z;
-
-        distSquared = diff.f[0] * mtx->m[0][0] + diff.f[1] * mtx->m[0][1] + diff.f[2] * mtx->m[0][2];
-
-        if (distSquared > nearFogSettings->MaxObfuscationRange)
-        {
-            f32 scalez = getPlayer_c_lodscalez();
-
-            distSquared = ((distSquared - nearFogSettings->MaxObfuscationRange) * 100 / arg1
-                    + nearFogSettings->MaxObfuscationRange) * scalez;
-
-            if (distSquared >= nearFogSettings->MaxVisRange)
-            {
-                result = FALSE;
-            }
-        }
-    }
-
-    return result;
-}
-
-bool reference_camIsPosOnScreen(PropRecord *prop, coord3d *pos, f32 modelInstSize, bool applyFogCull)
+bool reference_camIsPosOnScreen(PropRecord *prop, coord3d *pos, f32 modelInstSize)
 {
     s32 room_ids[8];
     s32 *rooms;
@@ -205,7 +170,7 @@ bool reference_camIsPosOnScreen(PropRecord *prop, coord3d *pos, f32 modelInstSiz
     {
         if (bgIsRoomRendered(roomnum))
         {
-            if (reference_envPositionIsVisibleThroughFog(pos, modelInstSize) && (!applyFogCull || reference_camIsPosInObjFadeDistance(pos, modelInstSize)))
+            if (reference_envPositionIsVisibleThroughFog(pos, modelInstSize))
             {
                 if ((singleRoom ? bgGet2dBboxByRoomId(roomnum, &bbox) : getPropCombinedRoomsBBox2D(prop, &bbox)) != 0)
                 {

@@ -12,33 +12,27 @@ const EnvironmentField g_EnvironmentFields[ENVIRONMENT_FIELD_COUNT] = {
     {"fogEnabled", "Fog enabled", 4, 4, ENV_BOOL32, 0, 1},
     {"nearclip", "Near clip", 8, 4, ENV_FLOAT, 0, FLT_MAX},
     {"farclip", "Far clip", 12, 4, ENV_FLOAT, 0, FLT_MAX},
-    /* No controls/runtime consumers. Retain serialized keys and values so
-     * existing projects survive this experiment and can be reverted intact. */
-    {"nearfog", NULL, 16, 4, ENV_FLOAT, 0, FLT_MAX},
-    {"maxvisrng", NULL, 20, 4, ENV_FLOAT, 0, FLT_MAX},
-    {"maxobfnrng", NULL, 24, 4, ENV_FLOAT, 0, FLT_MAX},
-    {"minvisrng", NULL, 28, 4, ENV_FLOAT, 0, FLT_MAX},
-    {"intensity", "Intensity", 32, 4, ENV_U32, 0, UINT32_MAX},
-    {"fogstart", "Fog start", 36, 4, ENV_S32, INT32_MIN, INT32_MAX},
-    {"fogend", "Fog end", 40, 4, ENV_S32, INT32_MIN, INT32_MAX},
-    {"fogRed", "Fog red", 44, 1, ENV_BYTE, 0, 255},
-    {"fogGreen", "Fog green", 45, 1, ENV_BYTE, 0, 255},
-    {"fogBlue", "Fog blue", 46, 1, ENV_BYTE, 0, 255},
-    {"clouds", "Clouds", 47, 1, ENV_BOOL8, 0, 1},
-    {"skyheight", "Sky height", 48, 4, ENV_FLOAT, -FLT_MAX, FLT_MAX},
-    {"skyid", "Sky image (0-2)", 52, 2, ENV_SHORT, 0, 2},
-    {"cloudRed", "Cloud red", 56, 4, ENV_FLOAT, 0, 255},
-    {"cloudGreen", "Cloud green", 60, 4, ENV_FLOAT, 0, 255},
-    {"cloudBlue", "Cloud blue", 64, 4, ENV_FLOAT, 0, 255},
-    {"iswater", "Water", 68, 1, ENV_BOOL8, 0, 1},
-    {"waterheight", "Water height", 72, 4, ENV_FLOAT, -FLT_MAX, FLT_MAX},
-    {"waterid", "Water image (0-2)", 76, 2, ENV_SHORT, 0, 2},
-    {"waterRed", "Water red", 80, 4, ENV_FLOAT, 0, 255},
-    {"waterGreen", "Water green", 84, 4, ENV_FLOAT, 0, 255},
-    {"waterBlue", "Water blue", 88, 4, ENV_FLOAT, 0, 255},
-    {"horizonyoffset", "Horizon Y offset", 92, 4, ENV_FLOAT, -FLT_MAX, FLT_MAX},
-    {"propStartFade", "Prop fade start (px)", 96, 4, ENV_FLOAT, -FLT_MAX, FLT_MAX},
-    {"propEndFade", "Prop fade end (px)", 100, 4, ENV_FLOAT, 0, FLT_MAX}
+    {"intensity", "Intensity", 16, 4, ENV_U32, 0, UINT32_MAX},
+    {"fogstart", "Fog start", 20, 4, ENV_S32, INT32_MIN, INT32_MAX},
+    {"fogend", "Fog end", 24, 4, ENV_S32, INT32_MIN, INT32_MAX},
+    {"fogRed", "Fog red", 28, 1, ENV_BYTE, 0, 255},
+    {"fogGreen", "Fog green", 29, 1, ENV_BYTE, 0, 255},
+    {"fogBlue", "Fog blue", 30, 1, ENV_BYTE, 0, 255},
+    {"clouds", "Clouds", 31, 1, ENV_BOOL8, 0, 1},
+    {"skyheight", "Sky height", 32, 4, ENV_FLOAT, -FLT_MAX, FLT_MAX},
+    {"skyid", "Sky image (0-2)", 36, 2, ENV_SHORT, 0, 2},
+    {"cloudRed", "Cloud red", 40, 4, ENV_FLOAT, 0, 255},
+    {"cloudGreen", "Cloud green", 44, 4, ENV_FLOAT, 0, 255},
+    {"cloudBlue", "Cloud blue", 48, 4, ENV_FLOAT, 0, 255},
+    {"iswater", "Water", 52, 1, ENV_BOOL8, 0, 1},
+    {"waterheight", "Water height", 56, 4, ENV_FLOAT, -FLT_MAX, FLT_MAX},
+    {"waterid", "Water image (0-2)", 60, 2, ENV_SHORT, 0, 2},
+    {"waterRed", "Water red", 64, 4, ENV_FLOAT, 0, 255},
+    {"waterGreen", "Water green", 68, 4, ENV_FLOAT, 0, 255},
+    {"waterBlue", "Water blue", 72, 4, ENV_FLOAT, 0, 255},
+    {"horizonyoffset", "Horizon Y offset", 76, 4, ENV_FLOAT, -FLT_MAX, FLT_MAX},
+    {"propStartFade", "Prop fade start (px)", 80, 4, ENV_FLOAT, -FLT_MAX, FLT_MAX},
+    {"propEndFade", "Prop fade end (px)", 84, 4, ENV_FLOAT, 0, FLT_MAX}
 };
 static char g_EnvironmentError[256];
 static BOOL Fail(const char **why, const char *message)
@@ -113,18 +107,24 @@ BOOL EnvironmentReadRom(const RomFile *rom, EnvironmentTable *table, DWORD *offs
         if (e->kind == 0x454e5654u) { if (env) { return Fail(why, "Duplicate environment manifest."); } env = e; }
         if (e->kind == 0x434d4150u) { cmap = e; }
     }
-    if (!env || !cmap || env->flags != ENVIRONMENT_RECORD_SIZE || env->romend
+    if (!env || !cmap || (env->flags != ENVIRONMENT_RECORD_SIZE && env->flags != ROM_ENVIRONMENT_ROW_LEGACY_SIZE) || env->romend
         || cmap->romstart >= cmap->romend || cmap->romend > rom->size
         || env->romstart < cmap->romstart || env->romstart >= cmap->romend)
     { return Fail(why, "The base ROM has no supported environment table."); }
+    table->recordsize = env->flags;
     DWORD at = env->romstart;
-    while (cmap->romend - at >= ENVIRONMENT_RECORD_SIZE)
+    while (cmap->romend - at >= table->recordsize)
     {
         DWORD id = Read32(rom->data + at);
         if (!id) { if (offset) { *offset = env->romstart; } return TRUE; }
         if (table->count == ENVIRONMENT_MAX_RECORDS || EnvironmentFind(table, id)) { break; }
-        memcpy(table->rows[table->count++].data, rom->data + at, ENVIRONMENT_RECORD_SIZE);
-        at += ENVIRONMENT_RECORD_SIZE;
+        unsigned char *row = table->rows[table->count++].data;
+        /* The old format stores four retired floats between farclip and
+         * intensity. Normalize here so editing/rebase only sees live fields. */
+        DWORD gap = table->recordsize - ENVIRONMENT_RECORD_SIZE;
+        memcpy(row, rom->data + at, 16);
+        memcpy(row + 16, rom->data + at + 16 + gap, ENVIRONMENT_RECORD_SIZE - 16);
+        at += table->recordsize;
     }
     memset(table, 0, sizeof(*table));
     return Fail(why, "The environment table is incomplete, too large, or contains duplicate IDs.");
@@ -155,9 +155,9 @@ BOOL EnvironmentValidate(const EditorEnvironment *value, const char **why)
     { if (!FieldValid(i, Value(value, i), why)) { return FALSE; } }
     if (Value(value, 1) <= 0 || Value(value, 2) <= Value(value, 1))
     { return Fail(why, "nearclip must be positive and farclip must be greater than nearclip."); }
-    if (Value(value, 0) && !FogConfigure(&curve, Value(value, 1), Value(value, 2), 1, (int)Value(value, 8), (int)Value(value, 9)))
+    if (Value(value, 0) && !FogConfigure(&curve, Value(value, 1), Value(value, 2), 1, (int)Value(value, 4), (int)Value(value, 5)))
     { return Fail(why, "Fog needs fogend greater than fogstart and a range that the N64 fog calculation can represent (for example, 996 to 1000)."); }
-    if (Value(value, 26) > 0 && Value(value, 27) >= Value(value, 26))
+    if (Value(value, 22) > 0 && Value(value, 23) >= Value(value, 22))
     { return Fail(why, "propEndFade must be less than a positive propStartFade. A zero start uses engine defaults; a negative start disables fading."); }
     return TRUE;
 }
@@ -224,7 +224,10 @@ BOOL EnvironmentApplyRom(RomFile *rom, const EnvironmentOverrides *overrides, co
     {
         EditorEnvironment row;
         EnvironmentGet(&table, overrides, EnvironmentId(&table.rows[i]), &row);
-        memcpy(rom->data + offset + i * ENVIRONMENT_RECORD_SIZE, row.data, ENVIRONMENT_RECORD_SIZE);
+        unsigned char *target = rom->data + offset + i * table.recordsize;
+        DWORD gap = table.recordsize - ENVIRONMENT_RECORD_SIZE;
+        memcpy(target, row.data, 16);
+        memcpy(target + 16 + gap, row.data + 16, ENVIRONMENT_RECORD_SIZE - 16);
     }
     return TRUE;
 }
@@ -270,7 +273,23 @@ BOOL EnvironmentReadOverride(EnvironmentOverrides *overrides, const char *text)
     for (field = 0; field < ENVIRONMENT_FIELD_COUNT; field++)
         if (strlen(g_EnvironmentFields[field].key) == (size_t)(separator - end)
             && !memcmp(end, g_EnvironmentFields[field].key, separator - end)) { break; }
-    if (field == ENVIRONMENT_FIELD_COUNT) { return FALSE; }
+    if (field == ENVIRONMENT_FIELD_COUNT)
+    {
+        /* Migrate old .gep files: consume retired overrides without keeping
+         * them in memory or writing them on the next save. Unknown keys fail. */
+        static const char *retired[] = {"nearfog", "maxvisrng", "maxobfnrng", "minvisrng"};
+        for (unsigned i = 0; i < sizeof(retired) / sizeof(retired[0]); i++)
+            if (strlen(retired[i]) == (size_t)(separator - end) && !memcmp(end, retired[i], separator - end))
+            {
+                char *tail;
+                errno = 0;
+                float number = strtof(separator + 1, &tail);
+                if (tail == separator + 1 || errno == ERANGE || !isfinite(number) || number < 0) { return FALSE; }
+                while (isspace((unsigned char)*tail)) { tail++; }
+                return !*tail;
+            }
+        return FALSE;
+    }
     EditorEnvironment value = {0};
     Write32(value.data, (DWORD)id);
     if (!EnvironmentParseField(&value, field, separator + 1, &why)) { return FALSE; }
@@ -338,16 +357,16 @@ int EnvironmentChoices(const EnvironmentTable *table, LONG levelid, EnvironmentC
 void EnvironmentPreview(const EditorEnvironment *value, unsigned char rgb[3], RomFog *fog, RomClouds *clouds)
 {
     static const DWORD images[] = {0x08b4u, 0x05e4u, 0x05e5u};
-    memcpy(rgb, value->data + 44, 3);
-    *fog = (RomFog){Value(value, 0) != 0, (float)Value(value, 1), (float)Value(value, 2), (LONG)Value(value, 8), (LONG)Value(value, 9)};
+    memcpy(rgb, value->data + 28, 3);
+    *fog = (RomFog){Value(value, 0) != 0, (float)Value(value, 1), (float)Value(value, 2), (LONG)Value(value, 4), (LONG)Value(value, 5)};
     memset(clouds, 0, sizeof(*clouds));
-    int image = (int)Value(value, 15);
-    if (!Value(value, 13) || image < 0 || image >= 3 || !isfinite(Value(value, 14)) || !isfinite(Value(value, 25))) { return; }
+    int image = (int)Value(value, 11);
+    if (!Value(value, 9) || image < 0 || image >= 3 || !isfinite(Value(value, 10)) || !isfinite(Value(value, 21))) { return; }
     for (int i = 0; i < 3; i++)
-    { if (!isfinite(Value(value, 16 + i)) || Value(value, 16 + i) < 0 || Value(value, 16 + i) > 255) { return; } }
-    clouds->enabled = TRUE; clouds->textureid = images[image]; clouds->height = (float)Value(value, 14);
-    clouds->horizonoffset = (float)Value(value, 25);
-    for (int i = 0; i < 3; i++) { clouds->color[i] = (float)Value(value, 16 + i); }
+    { if (!isfinite(Value(value, 12 + i)) || Value(value, 12 + i) < 0 || Value(value, 12 + i) > 255) { return; } }
+    clouds->enabled = TRUE; clouds->textureid = images[image]; clouds->height = (float)Value(value, 10);
+    clouds->horizonoffset = (float)Value(value, 21);
+    for (int i = 0; i < 3; i++) { clouds->color[i] = (float)Value(value, 12 + i); }
 }
 void EnvironmentRefreshLevels(const EnvironmentTable *table, const EnvironmentOverrides *overrides, RomLevel *levels, DWORD count)
 {

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare live camera math with the frozen baseline using native float32 C."""
+"""Compare camera math with its pre-optimization reference (without retired prop fading)."""
 import os
 from pathlib import Path
 import re

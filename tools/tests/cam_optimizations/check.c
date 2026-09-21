@@ -85,17 +85,17 @@ static void checkInvalidationAndCaching(void)
     assert(scaleSineCalls == 9);
 }
 
-static void compareVisibility(PropRecord *prop, coord3d *pos, f32 radius, bool fade)
+static void compareVisibility(PropRecord *prop, coord3d *pos, f32 radius)
 {
     bool expected, actual;
     s32 oldRooms, oldBoxes;
     roomQueries = boxQueries = 0;
     g_CamScreenBoxCache.valid = FALSE;
-    expected = reference_camIsPosOnScreen(prop, pos, radius, fade);
+    expected = reference_camIsPosOnScreen(prop, pos, radius);
     oldRooms = roomQueries; oldBoxes = boxQueries;
     roomQueries = boxQueries = matrixQueries = 0;
     g_CamScreenBoxCache.valid = FALSE;
-    actual = camIsPosOnScreen(prop, pos, radius, fade);
+    actual = camIsPosOnScreen(prop, pos, radius);
     assert(actual == expected);
     assert(roomQueries == oldRooms && boxQueries == oldBoxes);
     assert(matrixQueries <= 1);
@@ -105,7 +105,6 @@ static void checkVisibility(void)
 {
     s32 i;
     static Mtxf matrix = {{{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}}};
-    static NearFogSettings fog = {3000, 4000, 600};
     PropRecord prop;
     coord3d pos;
     f32 boundaries[] = {-32000, -4100, -4000, -600, 0, 600, 4000, 4100, 32000};
@@ -129,7 +128,6 @@ static void checkVisibility(void)
         roomRendered = (i & 32) != 0;
         useScreenBox = (i & 64) != 0;
         g_CurrentEnvironment.FogEnabled = (i & 128) != 0;
-        g_NearFogValuesP = (i & 256) ? &fog : NULL;
         g_ScaledFarFogIntensity = randomFloat(2000, 32000);
         g_CurrentPlayer->c_lodscalez = randomFloat(0.2f, 5);
         roomBox.min.x = randomFloat(0, 120); roomBox.min.y = randomFloat(0, 100);
@@ -141,29 +139,29 @@ static void checkVisibility(void)
         worldToView.m[0][0] = randomFloat(-1, 1);
         worldToView.m[0][1] = randomFloat(-1, 1);
         worldToView.m[0][2] = randomFloat(-1, 1);
-        compareVisibility(&prop, &pos, i % 5 == 0 ? 0 : randomFloat(1, 500), (i & 512) != 0);
+        compareVisibility(&prop, &pos, i % 5 == 0 ? 0 : randomFloat(1, 500));
     }
-    /* Exercise equality and adjacent float values at fog/fade/far limits. */
+    /* Exercise equality and adjacent float values at fog/far limits. */
     worldToView = matrix;
     worldToView.m[0][0] = 0; worldToView.m[0][2] = -1;
     memset(&cameraPos, 0, sizeof(cameraPos));
     g_CurrentPlayer->c_lodscalez = 1;
     g_ScaledFarFogIntensity = 4000;
-    g_CurrentEnvironment.FogEnabled = TRUE; g_NearFogValuesP = &fog;
+    g_CurrentEnvironment.FogEnabled = TRUE;
     prop.rooms[0] = 1; prop.rooms[1] = 0xff;
     roomRendered = TRUE; useScreenBox = FALSE;
     pos.x = pos.y = 0;
     for (i = 0; i < (s32)(sizeof(boundaries) / sizeof(boundaries[0])); i++)
     {
-        s32 side, fade;
-        for (side = -1; side <= 1; side++) for (fade = 0; fade <= 1; fade++)
+        s32 side;
+        for (side = -1; side <= 1; side++)
         {
             pos.z = side ? nextafterf(boundaries[i], side < 0 ? -INFINITY : INFINITY) : boundaries[i];
-            compareVisibility(&prop, &pos, 0, fade);
-            compareVisibility(&prop, &pos, 100, fade);
-            g_CurrentEnvironment.FogEnabled = FALSE; g_NearFogValuesP = NULL;
-            compareVisibility(&prop, &pos, 100, fade);
-            g_CurrentEnvironment.FogEnabled = TRUE; g_NearFogValuesP = &fog;
+            compareVisibility(&prop, &pos, 0);
+            compareVisibility(&prop, &pos, 100);
+            g_CurrentEnvironment.FogEnabled = FALSE;
+            compareVisibility(&prop, &pos, 100);
+            g_CurrentEnvironment.FogEnabled = TRUE;
         }
     }
 }
@@ -173,6 +171,6 @@ int main(void)
     checkScaleAndFrustum();
     checkInvalidationAndCaching();
     checkVisibility();
-    puts("cam_optimizations: 12000 bit-exact scale/frustum comparisons; 100162 visibility comparisons; cache lifetime and skipped scale work passed");
+    puts("cam_optimizations: 12000 bit-exact scale/frustum comparisons; 100081 visibility comparisons; cache lifetime and skipped scale work passed");
     return 0;
 }

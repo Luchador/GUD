@@ -23,7 +23,6 @@ typedef struct { f32 x, y; } coord2d;
 typedef struct { coord2d min, max; } bbox2d;
 typedef struct { f32 m[4][4]; } Mtxf;
 typedef struct { void *stan; s32 type; void *obj; u8 rooms[8]; } PropRecord;
-typedef struct { f32 NearFog, MaxVisRange, MaxObfuscationRange; } NearFogSettings;
 
 struct player {
     f32 c_screenwidth, c_screenheight, c_halfwidth, c_halfheight;
@@ -42,7 +41,6 @@ static coord3d cameraPos;
 static Mtxf worldToView;
 static struct { bool FogEnabled; } g_CurrentEnvironment;
 static f32 g_ScaledFarFogIntensity;
-static NearFogSettings *g_NearFogValuesP;
 static bool roomRendered, useScreenBox;
 static bbox2d roomBox;
 static s32 roomQueries, boxQueries, matrixQueries;
@@ -53,8 +51,6 @@ static u32 scaleSineCalls;
 static f32 countScaleSinf(f32 angle) { scaleSineCalls++; return sinf(angle); }
 static coord3d *bondviewGetPlayerPosition(void) { return &cameraPos; }
 static Mtxf *camGetWorldToViewMtxf(void) { matrixQueries++; return &worldToView; }
-static f32 getPlayer_c_lodscalez(void) { return g_CurrentPlayer->c_lodscalez; }
-static NearFogSettings *envGetNearFogValues(void) { return g_NearFogValuesP; }
 static void chraiGetPropRoomIds(PropRecord *prop, s32 *rooms)
 {
     s32 i;
@@ -71,4 +67,4 @@ static bool getPropCombinedRoomsBBox2D(PropRecord *prop, bbox2d *box)
     (void)prop; boxQueries++; *box = roomBox; return useScreenBox;
 }
 
-bool envIsPropVisibleThroughFog(coord3d *offset, f32 radius, bool applyFade);
+bool envIsPropVisibleThroughFog(coord3d *offset, f32 radius);

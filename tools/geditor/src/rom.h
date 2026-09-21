@@ -8,6 +8,8 @@
 #define ROM_MAX_LEVELS  64
 #define ROM_LEVEL_ROW_SIZE 40u
 #define ROM_LEVEL_ROW_LEGACY_SIZE 36u
+#define ROM_ENVIRONMENT_ROW_SIZE 88u
+#define ROM_ENVIRONMENT_ROW_LEGACY_SIZE 104u
 
 typedef struct RomManifestEntry {
     DWORD kind;      /* fourcc, e.g. 'IMGS'  */

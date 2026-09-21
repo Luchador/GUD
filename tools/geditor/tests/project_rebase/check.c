@@ -96,6 +96,13 @@ static unsigned char *Fixture(DWORD shift,const unsigned char *model,DWORD model
     Put32(data+CMAP+shift+0x824,996);Put32(data+CMAP+shift+0x828,1000);
     data[CMAP+shift+0x82f]=1;Float(data+CMAP+shift+0x830,shift ? 7500 : 5000);
     Float(data+CMAP+shift+0x838,70);Float(data+CMAP+shift+0x83c,199);Float(data+CMAP+shift+0x840,186);
+    if (shift)
+    {
+        /* Rebase an old 104-byte environment onto the compact native format. */
+        Entry(data,shift,6,"ENVT",CMAP+0x800,0,88);
+        memmove(data+CMAP+shift+0x810,data+CMAP+shift+0x820,72);
+        memset(data+CMAP+shift+0x858,0,16);
+    }
     Put32(data+CONFIG+shift,IMAGES+shift);Put32(data+CONFIG+shift+4,1);
     Put32(data+TEXTURES+shift,0x12000000|size);Put32(data+TEXTURES+shift+8,0xffff);
     /* First file is the named empty placeholder, then setup/BG/stan/model. */
@@ -287,7 +294,7 @@ int main(int argc,char **argv)
     OK(RomExportRefreshProjectLevelMetadata(&project,&why));
     EditorEnvironment environment=project.environments.rows[0];
     OK(EnvironmentParseField(&environment,2,"6000",&why));
-    OK(EnvironmentParseField(&environment,10,"25",&why));
+    OK(EnvironmentParseField(&environment,6,"25",&why));
     OK(EnvironmentSet(&project.environments,&project.environmentOverrides,&environment,&why));
     Folder(project.dir,"bg");Folder(project.dir,"setup");Folder(project.dir,"stan");Folder(project.dir,"images");
     Folder(project.dir,"models");Folder(project.dir,"models/native");Folder(project.dir,"models/objects");Folder(project.dir,"notes");

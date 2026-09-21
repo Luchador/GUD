@@ -454,7 +454,7 @@ void RomFree(RomFile *rom)
 #define ROM_KIND_ENVT 0x454E5654u /* 'ENVT' */
 #define ROM_FTBL_MAX_ROWS 1024
 
-static const unsigned char *RomFindLevelEnvironment(const RomFile *rom, LONG levelid)
+static const unsigned char *RomFindLevelEnvironment(const RomFile *rom, LONG levelid, DWORD *skyoffset)
 {
     const RomManifestEntry *envt = NULL;
     const RomManifestEntry *cmap = NULL;
@@ -482,11 +482,13 @@ static const unsigned char *RomFindLevelEnvironment(const RomFile *rom, LONG lev
         }
     }
 
-    /* Current N64 EnvironmentRecord: 104 bytes; Sky RGB starts at 44. */
-    if (envt == NULL || cmap == NULL || envt->flags != 104u || envt->romend != 0 || cmap->romstart >= cmap->romend || cmap->romend > rom->size || envt->romstart < cmap->romstart || envt->romstart >= cmap->romend)
+    /* Legacy rows have four removed floats before the live fog/sky fields. */
+    if (envt == NULL || cmap == NULL || (envt->flags != ROM_ENVIRONMENT_ROW_SIZE && envt->flags != ROM_ENVIRONMENT_ROW_LEGACY_SIZE) || envt->romend != 0 || cmap->romstart >= cmap->romend || cmap->romend > rom->size || envt->romstart < cmap->romstart || envt->romstart >= cmap->romend)
     {
         return NULL;
     }
+
+    *skyoffset = 28 + envt->flags - ROM_ENVIRONMENT_ROW_SIZE;
 
     /* +400 selects a catalog variant, not necessarily a four-player match. */
     BOOL multiplayer = levelid >= 400 && levelid < 500;
@@ -541,17 +543,18 @@ static float RomEnvironmentFloat(const unsigned char *p)
 
 BOOL RomGetLevelEnvironment(const RomFile *rom, LONG levelid, unsigned char rgb[3], RomFog *fog)
 {
-    const unsigned char *row = RomFindLevelEnvironment(rom, levelid);
+    DWORD skyoffset;
+    const unsigned char *row = RomFindLevelEnvironment(rom, levelid, &skyoffset);
     if (fog) { ZeroMemory(fog, sizeof(*fog)); }
     if (!row || !rgb) { return FALSE; }
-    memcpy(rgb, row + 44, 3);
+    memcpy(rgb, row + skyoffset, 3);
     if (fog)
     {
         fog->enabled = be32(row + 4) != 0;
         fog->nearclip = RomEnvironmentFloat(row + 8);
         fog->farclip = RomEnvironmentFloat(row + 12);
-        fog->start = (LONG)be32(row + 36);
-        fog->end = (LONG)be32(row + 40);
+        fog->start = (LONG)be32(row + skyoffset - 8);
+        fog->end = (LONG)be32(row + skyoffset - 4);
     }
     return TRUE;
 }
@@ -561,22 +564,24 @@ BOOL RomGetLevelClouds(const RomFile *rom, LONG levelid, RomClouds *clouds)
     /* s_skywaterimages in assets/oddtextures.c. These image IDs are stable
      * across current GUD ROMs; no new manifest or project version is needed. */
     static const DWORD images[] = {0x08b4u, 0x05e4u, 0x05e5u};
-    const unsigned char *row = RomFindLevelEnvironment(rom, levelid);
+    DWORD skyoffset;
+    const unsigned char *row = RomFindLevelEnvironment(rom, levelid, &skyoffset);
     RomClouds result = {0};
     unsigned int image, i;
     if (!clouds) { return FALSE; }
     ZeroMemory(clouds, sizeof(*clouds));
     if (!row) { return FALSE; }
-    if (!row[47]) { return TRUE; }
-    image = (unsigned int)row[52] << 8 | row[53];
+    row += skyoffset;
+    if (!row[3]) { return TRUE; }
+    image = (unsigned int)row[8] << 8 | row[9];
     if (image >= sizeof(images) / sizeof(images[0])) { return FALSE; }
     result.textureid = images[image];
-    result.height = RomEnvironmentFloat(row + 48);
-    result.horizonoffset = RomEnvironmentFloat(row + 92);
+    result.height = RomEnvironmentFloat(row + 4);
+    result.horizonoffset = RomEnvironmentFloat(row + 48);
     if (!isfinite(result.height) || !isfinite(result.horizonoffset)) { return FALSE; }
     for (i = 0; i < 3; i++)
     {
-        result.color[i] = RomEnvironmentFloat(row + 56 + i * 4);
+        result.color[i] = RomEnvironmentFloat(row + 12 + i * 4);
         if (!isfinite(result.color[i]) || result.color[i] < 0 || result.color[i] > 255) { return FALSE; }
     }
     result.enabled = TRUE;

@@ -81,24 +81,12 @@ static void UI(const char *dir)
     strcpy(controls[ENV_FIELD_FIRST+2-3000],"6000");assert(EnvironmentPanelApply(hwnd));
     assert(!panel.draft&&g_ProjectMetadataDirty&&g_Project.environmentOverrides.count==1&&previewfog.farclip==6000);
     assert(g_Project.levels[0].fog.farclip==6000&&F32(g_Project.environments.rows[0].data+12)==3000);
-    strcpy(controls[ENV_FIELD_FIRST+9-3000],"996");panel.draft=TRUE;
+    strcpy(controls[ENV_FIELD_FIRST+5-3000],"996");panel.draft=TRUE;
     assert(!EnvironmentPanelApply(hwnd)&&panel.draft&&errors==2&&g_Project.levels[0].fog.end==1000);
-    Load(hwnd);assert(!panel.draft&&!strcmp(controls[ENV_FIELD_FIRST+9-3000],"1000"));
+    Load(hwnd);assert(!panel.draft&&!strcmp(controls[ENV_FIELD_FIRST+5-3000],"1000"));
     panel.selected=1;Load(hwnd);Preview(hwnd);assert(previewfog.farclip==9000);
     EnvironmentPanelShow(hwnd,FALSE);assert(previewfog.farclip==6000);
     panel.selected=0;Load(hwnd);assert(Reset(hwnd));assert(!g_Project.environmentOverrides.count&&!panel.draft);
-    /* Legacy fade values have no controls, but existing overrides survive
-     * ordinary edits and Use ROM defaults so the experiment can be reverted. */
-    EditorEnvironment legacy=g_Project.environments.rows[0];
-    Edit(&legacy,"nearfog","888");Edit(&legacy,"maxvisrng","999");
-    Edit(&legacy,"maxobfnrng","777");Edit(&legacy,"minvisrng","66");
-    OK(EnvironmentSet(&g_Project.environments,&g_Project.environmentOverrides,&legacy,&why));
-    EnvironmentPanelRefresh(hwnd,&g_Project,0);
-    for(int i=3;i<=6;i++)assert(!Visible(i)&&!enabled[ENV_FIELD_FIRST+i-3000]&&!controls[ENV_FIELD_FIRST+i-3000][0]);
-    strcpy(controls[ENV_FIELD_FIRST+2-3000],"6000");panel.draft=TRUE;assert(EnvironmentPanelApply(hwnd));
-    assert(!memcmp(panel.committed.data+16,legacy.data+16,16));
-    assert(Reset(hwnd)&&F32(panel.committed.data+12)==3000&&!memcmp(panel.committed.data+16,legacy.data+16,16));
-    assert(g_Project.environmentOverrides.count==1&&g_Project.environmentOverrides.rows[0].fields==0x78);
     EnvironmentPanelRefresh(hwnd,NULL,(DWORD)-1);assert(!enabled[ENV_APPLY-3000]&&!panel.count&&!panel.project);
     assert(EnvironmentPanelApply(NULL)&&!EnvironmentPanelHasDraft(NULL));
     /* Reopening this same project after choosing Save must read the new
@@ -110,5 +98,5 @@ static void UI(const char *dir)
     g_ProjectMetadataDirty=TRUE;diskdefaults=g_Project.environments;
     GEditorOpenProject((HWND)4,g_Project.geppath);
     assert(g_Project.levelcount==1&&g_Project.environmentOverrides.count==1&&g_Project.levels[0].fog.farclip==7000);
-    puts("PASS: form apply/revert/reset, hidden legacy values retained for reversal, invalid-draft retention, refresh protection, dirty state, variant previews and reopening after Save.");
+    puts("PASS: form apply/revert/reset, invalid-draft retention, refresh protection, dirty state, variant previews and reopening after Save.");
 }
