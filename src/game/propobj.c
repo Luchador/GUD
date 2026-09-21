@@ -4854,7 +4854,7 @@ void objTickAircraft(PropRecord *prop)
 }
 
 
-bool objTickUpdateOpacityAndPortal(PropRecord *prop, s32 playerCount)
+static void objTickUpdateOpacityAndPortal(PropRecord *prop, s32 playerCount)
 {
     ObjectRecord *obj = prop->obj;
 
@@ -4871,7 +4871,7 @@ bool objTickUpdateOpacityAndPortal(PropRecord *prop, s32 playerCount)
                 glass->portalnum, glass->calculatedopacity == 0xff ? 0 : 1);
         }
 
-        return FALSE;
+        return;
     }
 
     if (obj->type == PROPDEF_DOOR && ((DoorRecord *) obj)->doorFlags & DOORFLAG_WINDOWED)
@@ -4901,10 +4901,7 @@ bool objTickUpdateOpacityAndPortal(PropRecord *prop, s32 playerCount)
             }
         }
     }
-
-    return TRUE;
 }
-
 
 
 void objTickBuildDoorMatrices(PropRecord *prop, Mtxf *mtxs, f32 previousOpenPosition, bool isSimOwner)
@@ -6248,7 +6245,6 @@ s32 objTick(struct PropRecord *prop, s32 playerCount, bool isSimOwner)
     TICKOP tickop;
     f32 previousOpenPosition;
 
-    bool applyFogCull;
     bool isOnScreen;
 
 	obj = prop->obj;
@@ -6311,14 +6307,12 @@ s32 objTick(struct PropRecord *prop, s32 playerCount, bool isSimOwner)
 		}
 	}
 
-	applyFogCull = TRUE;
-
 	if (obj->type == PROPDEF_TINTED_GLASS || obj->type == PROPDEF_DOOR)
 	{
-		applyFogCull = objTickUpdateOpacityAndPortal(prop, playerCount);
+		objTickUpdateOpacityAndPortal(prop, playerCount);
 	}
 
-	isOnScreen = !(obj->runtime_bitflags & RUNTIMEBITFLAG_00000800) && !(obj->flags2 & PROPFLAG2_ONLYEXPLOSIONDAMAGE) && camIsPosOnScreen(prop, &obj->position, modelGetInstSize(model), applyFogCull);
+	isOnScreen = !(obj->runtime_bitflags & RUNTIMEBITFLAG_00000800) && !(obj->flags2 & PROPFLAG2_ONLYEXPLOSIONDAMAGE) && camIsPosOnScreen(prop, &obj->position, modelGetInstSize(model));
 
 	if (isOnScreen)
 	{
@@ -7258,7 +7252,6 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
     ObjectRecord *obj;
     s32 objAlpha;
     f32 modelSize;
-    f32 temp_f0;
     s32 temp_v0_4;
     s32 phi_a0;
 
@@ -7275,14 +7268,11 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
     if ((u8) obj->type != PROPDEF_TINTED_GLASS)
     {
         modelSize = modelGetInstSize(obj->model);
-        temp_f0 = chrobjFogVisRangeRelated(prop, modelSize);
 
         if (((s32) prop->timetoregen > 0) && ((s32) prop->timetoregen < CHROBJ_TIMETOREGEN))
         {
-            temp_f0 *= ((CHROBJ_TIMETOREGEN_F - (f32) prop->timetoregen) / CHROBJ_TIMETOREGEN_F);
+            objAlpha = (s32) (((CHROBJ_TIMETOREGEN_F - (f32) prop->timetoregen) / CHROBJ_TIMETOREGEN_F) * 255.0f);
         }
-
-        objAlpha = (s32) (temp_f0 * 255.0f);
 
         /* GUD screen-size fade (see objCalcScreenFadeAlpha above) */
         objAlpha = (objAlpha * objCalcScreenFadeAlpha(prop, 2.0f * modelSize)) / 255;
@@ -12827,38 +12817,6 @@ s32 getPropCombinedRoomsBBox2D(PropRecord *prop, bbox2d *bbox)
     }
 
     return result;
-}
-
-
-f32 chrobjFogVisRangeRelated(PropRecord *prop, f32 size)
-{
-    f32 ret;
-    NearFogSettings *nfd;
-
-    f32 temp_f12;
-
-    ret = 1.0f;
-    nfd = envGetNearFogValues();
-
-    if ((nfd != NULL) && (nfd->MaxObfuscationRange < prop->zDepth))
-    {
-        temp_f12 = getPlayer_c_lodscalez();
-        temp_f12 = ((((prop->zDepth - nfd->MaxObfuscationRange) * 100.0f) / size) + nfd->MaxObfuscationRange) * temp_f12;
-
-        if (nfd->MaxVisRange <= temp_f12)
-        {
-            ret = 0.0f; //im invisible
-        }
-        else
-        {
-            if (nfd->NearFog < temp_f12)
-            {
-                ret = (nfd->MaxVisRange - temp_f12) / (nfd->MaxVisRange - nfd->NearFog);// power of fog (0 - 1 ) where 0 is full fog, and 1 is no fog
-            }
-        }
-    }
-
-    return ret;
 }
 
 

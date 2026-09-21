@@ -28,7 +28,7 @@ typedef enum EnvironmentFieldType {
     ENV_FLOAT, ENV_U32, ENV_S32, ENV_BYTE, ENV_SHORT, ENV_BOOL32, ENV_BOOL8
 } EnvironmentFieldType;
 typedef struct EnvironmentField {
-    const char *key, *label;
+    const char *key, *label; /* NULL label: retained project data, no control */
     unsigned offset, size;
     EnvironmentFieldType type;
     double minimum, maximum;

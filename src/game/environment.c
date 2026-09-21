@@ -16,8 +16,6 @@
 f32 g_PropFadeStartPx = 0.0f;
 f32 g_PropFadeEndPx = 0.0f;
 
-static NearFogSettings *g_NearFogValuesP;
-
 static struct FogDetails
 {
     f32 g_CurFogDetails;
@@ -41,8 +39,7 @@ static EnvironmentRecord g_CurrentEnvironment = {
     {
         15.0f,
         10000.0f,
-        {0.0f, 0.0f, 0.0f},
-        0.0f,
+        {0.0f, 0.0f, 0.0f, 0.0f},
         0,
         0x384,
         0x3e8,
@@ -56,7 +53,7 @@ static EnvironmentRecord g_CurrentEnvironment = {
  * standard 15/10000 clipping range and skip only the fog calculations.
  */
 EnvironmentRecord g_EnvTable[] = {
-     //stageID                                           fogEnabled  nearclip  farclip   nearfog  maxvisrng  maxobfnrng  minvisrng  intensity  fogstart  fogend     red     green     blue    clouds   skyheight skyimid reserved  cloudred   green    blue   iswater  padding[3]  waterheight  waterid reserved2 water red,    green,   blue    horizonyoffset    propStartFade       propEndFade
+     //stageID                                           fogEnabled  nearclip  farclip        legacy prop fade (reserved)        intensity  fogstart  fogend     red     green     blue    clouds   skyheight skyimid reserved  cloudred   green    blue   iswater  padding[3]  waterheight  waterid reserved2 water red,    green,   blue    horizonyoffset    propStartFade       propEndFade
     {LEVELID_STATUE                             ,        TRUE,        15,      3500,     2000,     2500,    2000,        0,         0x3E7,    0x3E4,    0x3E8,       0,       0,       8,        1,      5000,    0,        0,        170,    100,     40,        0,    0,0,0,         -1000,       0,        0,        0,        0,      0,     30.0 ,            20.0f,              15.0f},
     {LEVELID_CONTROL                            ,        TRUE,        10,     10000,     2500,     5000,     800,        0,         0x3E7,    0x3E4,    0x3E8,       0,       0,       0,        0,         0,    0,        0,          0,      0,      0,        0,    0,0,0,             0,       0,        0,        0,        0,      0,      0.0 ,            16.0f,              13.0f},
     {LEVELID_ARCHIVES                           ,        TRUE,        10,      3000,     2000,     3000,     500,        0,         0x3E7,    0x3E4,    0x3E8,       0,       0,       0,        1,      5000,    0,        0,        255,    255,    255,        0,    0,0,0,         -1000,       0,        0,        0,        0,      0,      0.0 ,            22.0f,              20.0f},
@@ -168,7 +165,6 @@ static void envLoadCurrentEnvironment(EnvironmentRecord *record)
         g_FarFogIntensity = 0.0f;
         g_DifferenceFromFarFogIntensity = 0.0f;
         g_ScaledFarFogIntensity = FLT_MAX;
-        g_NearFogValuesP = NULL;
         return;
     }
 
@@ -190,14 +186,6 @@ static void envLoadCurrentEnvironment(EnvironmentRecord *record)
     g_CurFogDetails.far_fog_dist_scaled = ((pk4 * -sp20 * (pk0 + 1.0f)) / (pk4 - pk0)) / 255.0f;
     g_CurFogDetails.near_fog_dist_scaled = ((sp20 * (pk4 + 1.0f) / (pk4 - pk0)) + sp1C) / 255.0f;
 
-    if (record->Visibility.NearFog.NearFog == 0.0f)
-    {
-        g_NearFogValuesP = NULL;
-    }
-    else
-    {
-        g_NearFogValuesP = &g_CurrentEnvironment.Visibility.NearFog;
-    }
 }
 
 
@@ -419,17 +407,14 @@ s32 envPositionIsVisibleThroughFog(coord3d *pos, f32 range)
 }
 
 
-/* cameraOffset is pos - camera position in world axes. Share its projection
- * between the far-fog and optional object-fade tests; the caller also reuses
- * the offset for the 32000-unit distance cap. Keep the original comparisons
- * and arithmetic order at the fog/fade boundaries. */
-bool envIsPropVisibleThroughFog(coord3d *cameraOffset, f32 radius, bool applyFade)
+/* cameraOffset is pos - camera position in world axes. The caller also
+ * reuses the offset for the 32000-unit distance cap. */
+bool envIsPropVisibleThroughFog(coord3d *cameraOffset, f32 radius)
 {
-    NearFogSettings *nearFog = applyFade ? g_NearFogValuesP : NULL;
     Mtxf *mtx;
     f32 depth;
 
-    if (!g_CurrentEnvironment.FogEnabled && nearFog == NULL)
+    if (!g_CurrentEnvironment.FogEnabled)
     {
         return TRUE;
     }
@@ -438,29 +423,12 @@ bool envIsPropVisibleThroughFog(coord3d *cameraOffset, f32 radius, bool applyFad
     depth = cameraOffset->x * mtx->m[0][0] + cameraOffset->y * mtx->m[0][1]
             + cameraOffset->z * mtx->m[0][2];
 
-    if (g_CurrentEnvironment.FogEnabled && depth > g_ScaledFarFogIntensity + radius)
+    if (depth > g_ScaledFarFogIntensity + radius)
     {
         return FALSE;
     }
 
-    if (nearFog != NULL && depth > nearFog->MaxObfuscationRange)
-    {
-        depth = ((depth - nearFog->MaxObfuscationRange) * 100 / radius
-                + nearFog->MaxObfuscationRange) * getPlayer_c_lodscalez();
-
-        if (depth >= nearFog->MaxVisRange)
-        {
-            return FALSE;
-        }
-    }
-
     return TRUE;
-}
-
-
-NearFogSettings *envGetNearFogValues(void)
-{
-    return g_NearFogValuesP;
 }
 
 

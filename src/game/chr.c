@@ -2446,7 +2446,7 @@ s32 chrTick(PropRecord *prop)
         {
             if (((chr->actiontype == ACT_PATROL) && (chr->act_patrol.waydata.mode == WAYMODE_MAGIC)) || ((chr->actiontype == ACT_GOPOS) && (chr->act_gopos.waydata.mode == WAYMODE_MAGIC)))
             {
-                isOnScreen = camIsPosOnScreen(prop, &prop->pos, modelGetInstSize(model), 1);
+                isOnScreen = camIsPosOnScreen(prop, &prop->pos, modelGetInstSize(model));
 
                 // Former debug comment here: "VISIBLE MAGIC MODE!!!!"
                 if (isOnScreen)
@@ -2461,7 +2461,7 @@ s32 chrTick(PropRecord *prop)
             else
             {
                 chrUpdateAnim(chr, tickamount);
-                isOnScreen = camIsPosOnScreen(prop, &prop->pos, modelGetInstSize(model), 1);
+                isOnScreen = camIsPosOnScreen(prop, &prop->pos, modelGetInstSize(model));
 
                 if (isOnScreen)
                 {
@@ -2478,7 +2478,7 @@ s32 chrTick(PropRecord *prop)
         }
         else if ((chr->actiontype == ACT_ANIM) && (chr->act_anim.unk02c == 0))
         {
-            isOnScreen = camIsPosOnScreen(prop, &prop->pos, modelGetInstSize(model), 1);
+            isOnScreen = camIsPosOnScreen(prop, &prop->pos, modelGetInstSize(model));
 
             if (isOnScreen && (chr->act_anim.noTranslate == 0))
             {
@@ -2491,7 +2491,7 @@ s32 chrTick(PropRecord *prop)
         }
         else if (chr->actiontype == ACT_STAND)
         {
-            isOnScreen = camIsPosOnScreen(prop, &prop->pos, modelGetInstSize(model), 1);
+            isOnScreen = camIsPosOnScreen(prop, &prop->pos, modelGetInstSize(model));
 
             if (isOnScreen || (chr->chrflags & CHRFLAG_INIT))
             {
@@ -2513,7 +2513,7 @@ s32 chrTick(PropRecord *prop)
                 chrUpdateAnim(chr, tickamount);
             }
 
-            isOnScreen = camIsPosOnScreen(prop, &prop->pos, modelGetInstSize(model), 1);
+            isOnScreen = camIsPosOnScreen(prop, &prop->pos, modelGetInstSize(model));
         }
     }
 
@@ -2708,9 +2708,6 @@ Gfx *chrRenderChr(PropRecord *prop, Gfx *gdl, s32 withalpha)
 
     if (!(chr->chrflags & CHRFLAG_NOFADE))
     {
-        f32 f = chrobjFogVisRangeRelated(prop, modelGetInstSize(chrmodel)); //0-1
-        chrfadealpha = (s32) (f * (f32) chrfadealpha);
-
         /* GUD screen-size fade (see chrCalcScreenFadeAlpha) */
         chrfadealpha = (chrfadealpha * chrCalcScreenFadeAlpha(prop)) / 255;
     }

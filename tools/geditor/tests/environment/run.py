@@ -28,7 +28,7 @@ with tempfile.TemporaryDirectory(prefix='geditor-environment-') as folder:
     (work/'ui_types.inc').write_text(panel[panel.index('enum { ENV_VARIANT_LABEL'):panel.index('static EnvironmentPanel *State')])
     (work/'ui.inc').write_text(''.join(function(editor, name) for name in
         ('GEditorPreviewEnvironment', 'GEditorApplyEnvironment')) + ''.join(function(panel, name) for name in
-        ('State', 'Owner', 'Checkbox', 'Ready', 'Preview', 'Status', 'Load', 'Commit', 'EnvironmentPanelApply',
+        ('State', 'Owner', 'Visible', 'Checkbox', 'Ready', 'Preview', 'Status', 'Load', 'Commit', 'Reset', 'EnvironmentPanelApply',
          'EnvironmentPanelHasDraft', 'EnvironmentPanelRefresh', 'EnvironmentPanelShow')) + function(editor, 'GEditorOpenProject'))
     command = [os.environ.get('CC', 'cc'), '-std=c99', '-O1', '-g', '-Wall', '-Wextra', '-Werror',
         '-Wno-unused-parameter', '-ffunction-sections', '-fdata-sections', '-fsanitize=address,undefined',
@@ -41,8 +41,18 @@ with tempfile.TemporaryDirectory(prefix='geditor-environment-') as folder:
 
     engine = (root/'src/game/environment.c').read_text()
     header = (root/'src/game/environment.h').read_text()
-    (work/'types.inc').write_text(header[header.index('typedef struct NearFogSettings'):header.index('extern EnvironmentRecord')])
+    (work/'types.inc').write_text(header[header.index('typedef struct SkySettings'):header.index('extern EnvironmentRecord')])
     (work/'engine.inc').write_text(''.join(function(engine, name) for name in
         ('envFindEnvironment', 'envLoadLevelEnvironment', 'envSwitchToSoloSky2')))
     subprocess.run(command + [str(here/'engine.c'), '-o', str(work/'engine')], check=True)
     subprocess.run([str(work/'engine')], env=env, check=True)
+
+    character = (root/'src/game/chr.c').read_text()
+    prop = (root/'src/game/propobj.c').read_text()
+    fogtypes = engine[engine.index('static struct FogDetails'):engine.index('static f32 g_FarFogIntensity')]
+    defines = '\n'.join(re.findall(r'^#define (?:CHRFADE|OBJFADE)_.*$', character + '\n' + prop, re.M))
+    (work/'fade.inc').write_text(fogtypes + defines + '\n' + ''.join(function(engine, name) for name in
+        ('envLoadCurrentEnvironment', 'envIsPropVisibleThroughFog', 'envGetPropDistColor'))
+        + function(character, 'chrCalcScreenFadeAlpha') + function(prop, 'objCalcScreenFadeAlpha'))
+    subprocess.run(command + [str(here/'fade_experiment.c'), '-lm', '-o', str(work/'fade')], check=True)
+    subprocess.run([str(work/'fade')], env=env, check=True)

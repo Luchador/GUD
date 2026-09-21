@@ -15,6 +15,7 @@ typedef struct EnvironmentPanel {
 } EnvironmentPanel;
 static EnvironmentPanel *State(HWND hwnd) { return (EnvironmentPanel *)GetWindowLongPtr(hwnd, DWLP_USER); }
 static HWND Owner(HWND hwnd) { return GetWindow(GetParent(hwnd), GW_OWNER); }
+static BOOL Visible(int field) { return g_EnvironmentFields[field].label != NULL; }
 static BOOL Checkbox(int field)
 { return g_EnvironmentFields[field].type == ENV_BOOL32 || g_EnvironmentFields[field].type == ENV_BOOL8; }
 static BOOL Ready(EnvironmentPanel *s) { return s && s->project && s->selected >= 0 && s->selected < s->count; }
@@ -45,7 +46,8 @@ static void Status(HWND hwnd)
     EnableWindow(GetDlgItem(hwnd, ENV_APPLY), ready && s->draft);
     EnableWindow(GetDlgItem(hwnd, ENV_REVERT), ready && s->draft);
     EnableWindow(GetDlgItem(hwnd, ENV_RESET), ready);
-    for (int i = 0; i < ENVIRONMENT_FIELD_COUNT; i++) { EnableWindow(GetDlgItem(hwnd, ENV_FIELD_FIRST + i), ready); }
+    for (int i = 0; i < ENVIRONMENT_FIELD_COUNT; i++)
+        if (Visible(i)) { EnableWindow(GetDlgItem(hwnd, ENV_FIELD_FIRST + i), ready); }
 }
 static void Load(HWND hwnd)
 {
@@ -55,6 +57,7 @@ static void Load(HWND hwnd)
     if (Ready(s)) { EnvironmentGet(&s->project->environments, &s->project->environmentOverrides, s->choices[s->selected].id, &s->committed); }
     for (int i = 0; i < ENVIRONMENT_FIELD_COUNT; i++)
     {
+        if (!Visible(i)) { continue; }
         char text[64] = "";
         if (Ready(s)) { EnvironmentFormatField(&s->committed, i, text, sizeof(text)); }
         if (Checkbox(i)) { CheckDlgButton(hwnd, ENV_FIELD_FIRST + i, text[0] == '1' ? BST_CHECKED : BST_UNCHECKED); }
@@ -70,6 +73,20 @@ static BOOL Commit(HWND hwnd, const EditorEnvironment *value)
     { MessageBox(hwnd, request.why[0] ? request.why : "The environment could not be applied.", "GEditor", MB_ICONERROR); return FALSE; }
     Load(hwnd); Preview(hwnd); return TRUE;
 }
+static BOOL Reset(HWND hwnd)
+{
+    EnvironmentPanel *s = State(hwnd);
+    const EditorEnvironment *base = EnvironmentFind(&s->project->environments, s->choices[s->selected].id);
+    EditorEnvironment value = s->committed;
+    /* Restoring the visible controls must not discard the hidden values
+     * that make this experiment reversible. */
+    for (int i = 0; i < ENVIRONMENT_FIELD_COUNT; i++) if (Visible(i))
+    {
+        const EnvironmentField *field = &g_EnvironmentFields[i];
+        memcpy(value.data + field->offset, base->data + field->offset, field->size);
+    }
+    return Commit(hwnd, &value);
+}
 BOOL EnvironmentPanelApply(HWND hwnd)
 {
     EnvironmentPanel *s = hwnd ? State(hwnd) : NULL;
@@ -78,6 +95,7 @@ BOOL EnvironmentPanelApply(HWND hwnd)
     EditorEnvironment value = s->committed;
     for (int i = 0; i < ENVIRONMENT_FIELD_COUNT; i++)
     {
+        if (!Visible(i)) { continue; }
         char text[64];
         if (Checkbox(i)) { strcpy(text, IsDlgButtonChecked(hwnd, ENV_FIELD_FIRST + i) == BST_CHECKED ? "1" : "0"); }
         else { GetDlgItemText(hwnd, ENV_FIELD_FIRST + i, text, sizeof(text)); }
@@ -142,9 +160,11 @@ static void Layout(HWND hwnd)
     {
         int x = column * 170;
         Place(hwnd, ENV_GROUP_FIRST + column, x, 24, 162, 14);
+        int row = 0;
         for (int i = first[column]; i < last[column]; i++)
         {
-            int y = 42 + (i - first[column]) * 18;
+            if (!Visible(i)) { continue; }
+            int y = 42 + row++ * 18;
             if (Checkbox(i)) { Place(hwnd, ENV_FIELD_FIRST + i, x, y, 162, 15); }
             else
             { Place(hwnd, ENV_LABEL_FIRST + i, x, y + 2, 93, 14); Place(hwnd, ENV_FIELD_FIRST + i, x + 94, y, 68, 15); }
@@ -177,6 +197,7 @@ static INT_PTR CALLBACK Dialog(HWND hwnd, UINT message, WPARAM wp, LPARAM lp)
         for (int i = 0; ok && i < 3; i++) { ok = Control(hwnd, "STATIC", groups[i], ENV_GROUP_FIRST + i, 0, 0); }
         for (int i = 0; ok && i < ENVIRONMENT_FIELD_COUNT; i++)
         {
+            if (!Visible(i)) { continue; }
             if (!Checkbox(i)) { ok = Control(hwnd, "STATIC", g_EnvironmentFields[i].label, ENV_LABEL_FIRST + i, 0, 0); }
             ok = ok && Control(hwnd, Checkbox(i) ? "BUTTON" : "EDIT", Checkbox(i) ? g_EnvironmentFields[i].label : "",
                 ENV_FIELD_FIRST + i, WS_TABSTOP | (Checkbox(i) ? BS_AUTOCHECKBOX : ES_AUTOHSCROLL), Checkbox(i) ? 0 : WS_EX_CLIENTEDGE);
@@ -196,7 +217,7 @@ static INT_PTR CALLBACK Dialog(HWND hwnd, UINT message, WPARAM wp, LPARAM lp)
         if (id == ENV_APPLY || id == IDOK) { EnvironmentPanelApply(hwnd); return TRUE; }
         if (id == ENV_REVERT) { Load(hwnd); return TRUE; }
         if (id == ENV_RESET && Ready(s))
-        { Commit(hwnd, EnvironmentFind(&s->project->environments, s->choices[s->selected].id)); return TRUE; }
+        { Reset(hwnd); return TRUE; }
         if (id == ENV_VARIANT && code == CBN_SELCHANGE)
         {
             int selected = (int)SendDlgItemMessage(hwnd, ENV_VARIANT, CB_GETCURSEL, 0, 0);
@@ -205,6 +226,7 @@ static INT_PTR CALLBACK Dialog(HWND hwnd, UINT message, WPARAM wp, LPARAM lp)
             return TRUE;
         }
         if (id >= ENV_FIELD_FIRST && id < ENV_FIELD_FIRST + ENVIRONMENT_FIELD_COUNT && Ready(s)
+            && Visible(id - ENV_FIELD_FIRST)
             && (code == EN_CHANGE || (Checkbox(id - ENV_FIELD_FIRST) && code == BN_CLICKED)))
         { s->draft = TRUE; Status(hwnd); SendMessage(Owner(hwnd), ENVIRONMENT_WM_DRAFT, 0, 0); return TRUE; }
         break;

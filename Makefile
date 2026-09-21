@@ -267,7 +267,7 @@ $(BUILD_DIR)/src/game/modelonecycle.o: src/game/dyn.h
 $(addprefix $(BUILD_DIR)/src/game/,model.o modelonecycle.o gunfire.o propobj.o initunk_0009E0.o): src/game/model.h
 $(addprefix $(BUILD_DIR)/src/game/,bgonecycle.o tex.o bgapply.o): src/bgtransparency.h
 
-$(addprefix $(BUILD_DIR)/src/game/,cam.o player.o): src/game/cam.h
+$(addprefix $(BUILD_DIR)/src/game/,cam.o player.o chr.o propobj.o): src/game/cam.h
 $(addprefix $(BUILD_DIR)/src/game/,cam.o environment.o): src/game/environment.h
 
 # Graphics-task layout and persistent render settings.

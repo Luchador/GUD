@@ -624,7 +624,7 @@ void camSetPlayerFrozenCam(bool isFrozen)
     g_CurrentPlayer->frozencam = isFrozen;
 }
 
-bool camIsPosOnScreen(PropRecord *prop, coord3d *pos, f32 modelInstSize, bool applyFogCull)
+bool camIsPosOnScreen(PropRecord *prop, coord3d *pos, f32 modelInstSize)
 {
     s32 room_ids[8];
     s32 *rooms;
@@ -667,7 +667,7 @@ bool camIsPosOnScreen(PropRecord *prop, coord3d *pos, f32 modelInstSize, bool ap
             cameraOffset.y = pos->y - campos->y;
             cameraOffset.z = pos->z - campos->z;
 
-            if (envIsPropVisibleThroughFog(&cameraOffset, modelInstSize, applyFogCull))
+            if (envIsPropVisibleThroughFog(&cameraOffset, modelInstSize))
             {
                 if ((singleRoom ? bgGet2dBboxByRoomId(roomnum, &bbox) : getPropCombinedRoomsBBox2D(prop, &bbox)) != 0)
                 {

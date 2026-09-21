@@ -12,10 +12,12 @@ const EnvironmentField g_EnvironmentFields[ENVIRONMENT_FIELD_COUNT] = {
     {"fogEnabled", "Fog enabled", 4, 4, ENV_BOOL32, 0, 1},
     {"nearclip", "Near clip", 8, 4, ENV_FLOAT, 0, FLT_MAX},
     {"farclip", "Far clip", 12, 4, ENV_FLOAT, 0, FLT_MAX},
-    {"nearfog", "Near fog", 16, 4, ENV_FLOAT, 0, FLT_MAX},
-    {"maxvisrng", "Max visibility", 20, 4, ENV_FLOAT, 0, FLT_MAX},
-    {"maxobfnrng", "Max obfuscation", 24, 4, ENV_FLOAT, 0, FLT_MAX},
-    {"minvisrng", "Min visibility", 28, 4, ENV_FLOAT, 0, FLT_MAX},
+    /* No controls/runtime consumers. Retain serialized keys and values so
+     * existing projects survive this experiment and can be reverted intact. */
+    {"nearfog", NULL, 16, 4, ENV_FLOAT, 0, FLT_MAX},
+    {"maxvisrng", NULL, 20, 4, ENV_FLOAT, 0, FLT_MAX},
+    {"maxobfnrng", NULL, 24, 4, ENV_FLOAT, 0, FLT_MAX},
+    {"minvisrng", NULL, 28, 4, ENV_FLOAT, 0, FLT_MAX},
     {"intensity", "Intensity", 32, 4, ENV_U32, 0, UINT32_MAX},
     {"fogstart", "Fog start", 36, 4, ENV_S32, INT32_MIN, INT32_MAX},
     {"fogend", "Fog end", 40, 4, ENV_S32, INT32_MIN, INT32_MAX},

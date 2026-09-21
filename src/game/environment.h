@@ -5,12 +5,6 @@
 #include <bondtypes.h>
 
 
-typedef struct NearFogSettings {
-    f32 NearFog;
-    f32 MaxVisRange;
-    f32 MaxObfuscationRange;
-} NearFogSettings;
-
 typedef struct SkySettings
 {
     u8 Red;
@@ -38,8 +32,9 @@ typedef struct EnvironmentVisibilitySettings
 {
     f32 NearClipDistance;
     f32 FarClipDistance;
-    NearFogSettings NearFog;
-    f32 MinVisRange;
+    /* Keep the old four prop-fade values for the reversible experiment.
+     * They have no runtime consumers; ENVT offsets remain unchanged. */
+    f32 ReservedLegacyPropFade[4];
     u32 Intensity;
     s32 FogStart;
     s32 FogEnd;
@@ -82,13 +77,12 @@ f32 envGetScaledFarFogIntensitySquared(void);
 void envLoadLevelEnvironment(s32 level_id, s32 arg1);
 s32 envPositionIsVisibleThroughFog(coord3d *pos, f32 range);
 /* cameraOffset is the world-space position minus the camera position. */
-bool envIsPropVisibleThroughFog(coord3d *cameraOffset, f32 radius, bool applyFade);
+bool envIsPropVisibleThroughFog(coord3d *cameraOffset, f32 radius);
 Gfx *envBeginWorldFog(Gfx *gdl);
 Gfx *envRestoreFogAlphaDither(Gfx *gdl);
 Gfx *envSetRenderFogColor(Gfx *gdl);
 Gfx *envRenderClearFogMode(Gfx *gdl);
 s32 envGetPropDistColor(PropRecord *prop, struct rgba_f32 *color);
 void envSwitchToSoloSky2(f32 transitionTime);
-NearFogSettings *envGetNearFogValues(void);
 
 #endif
