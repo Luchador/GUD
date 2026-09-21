@@ -14,6 +14,7 @@
 /*these*/
 #define MAXTALKMESSLEN 150
 #define MAXMESSAGELEN 100
+#define CREDITS_SKIP_HOLD_FRAMES 30
 
 typedef struct invitem_weap
 {
@@ -1288,6 +1289,7 @@ void setFontTables(s32 arg0, s32 arg1);
 Gfx *bviewRenderCameraView(Gfx *arg0);
 s32 bond_pressed_reload_activate(void);
 Gfx *bondviewRenderPlayerView(Gfx *gdl);
+Gfx *bondviewRenderCreditsSkipPrompt(Gfx *gdl);
 bool camIsPosInScreen(coord3d *vec_scale, f32 norm_scale);
 bool camIsPosInScreenBox(coord3d *, f32, struct bbox2d *);
 s32 getMissiontimer(void);

@@ -51,7 +51,6 @@
 
 
 #define BONDVIEW_AUTOAIM_TIME 30
-#define CREDITS_SKIP_HOLD_FRAMES 30
 
 #define BONDVIEW_INTRO_CAMERA_BONDMESSCNT_A 0x1f
 #define BONDVIEW_INTRO_CAMERA_BONDMESSCNT_B 0x1e
@@ -8477,6 +8476,24 @@ void mp_respawn_handler(void)
 }
 
 
+/* The caller has already selected the 2D text render state. */
+Gfx *bondviewRenderCreditsSkipPrompt(Gfx *gdl)
+{
+    s32 x;
+    s32 y;
+    s32 textheight;
+    s32 textwidth;
+    /* textMeasure counts a line's height at its newline. */
+    char *text = "Hold Z to skip.\n";
+
+    textMeasure(&textheight, &textwidth, text, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
+    x = viGetViewLeft() + 12;
+    y = viGetViewTop() + viGetViewHeight() - textheight - 8;
+    return textRenderOutlined(gdl, &x, &y, text, ptrFontZurichBoldChars, ptrFontZurichBold,
+        0xFFFFFFFF, 0x000000FF, viGetX(), viGetY(), 0, 0);
+}
+
+
 Gfx *bondviewRenderCredits(Gfx *gdl)
 {
     s32 rollFramesElapsed;
@@ -8663,12 +8680,7 @@ Gfx *bondviewRenderCredits(Gfx *gdl)
 
         if (g_CreditsState == CREDITS_STATE_ROLLING)
         {
-            /* textMeasure counts a line's height at its newline. */
-            text = "Hold Z to skip.\n";
-            textMeasure(&textheight, &textwidth, text, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
-            x = viGetViewLeft() + 12;
-            y = viGetViewTop() + viGetViewHeight() - textheight - 8;
-            gdl = textRenderOutlined(gdl, &x, &y, text, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFFFFFFFF, 0x000000FF, viGetX(), viGetY(), 0, 0);
+            gdl = bondviewRenderCreditsSkipPrompt(gdl);
         }
 
         gdl = gfxRestore3DRenderMode(gdl);

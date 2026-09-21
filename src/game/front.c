@@ -511,6 +511,7 @@ u32 intro_animation_count = 0;
 struct Model *cast_model = NULL;
 struct Model *cast_model_weapon = NULL;
 u32 full_actor_intro = 0;
+static s32 g_CastSkipHoldFrames = 0;
 
 struct intro_char intro_char_table[] = {
     {BODY_Brosnan_Tuxedo,             HEAD_Male_Brosnan_Tuxedo, getStringID(LTITLE, TITLE_STR_227_LF),            getStringID(LTITLE, TITLE_STR_228_THEACTORS),             getStringID(LTITLE, TITLE_STR_227_LF),               0, 1},
@@ -7212,6 +7213,7 @@ Gfx *constructor_menu16_nocontrollers(Gfx *DL)
 
 void do_extended_cast_display(bool doExtended)
 {
+    g_CastSkipHoldFrames = 0;
     full_actor_intro = doExtended;
     if (doExtended)
     {
@@ -7222,15 +7224,43 @@ void do_extended_cast_display(bool doExtended)
 }
 
 
+static void frontFinishPostCreditsCast(void)
+{
+    g_SkipPostCreditsCast = FALSE;
+    g_CastSkipHoldFrames = 0;
+    full_actor_intro = FALSE;
+    intro_character_index = 0;
+    frontChangeMenu(MENU_MISSION_SELECT, TRUE);
+    set_cursor_to_stage_solo(SP_LEVEL_CRADLE);
+}
+
+
+/* Sample every menu frame, including the transitions between cast members. */
+static void frontUpdateCastSkip(void)
+{
+    if (!full_actor_intro)
+    {
+        g_CastSkipHoldFrames = 0;
+    }
+    else if (g_CastSkipHoldFrames < CREDITS_SKIP_HOLD_FRAMES)
+    {
+        if (joyGetButtons(PLAYER_1, Z_TRIG))
+        {
+            g_CastSkipHoldFrames++;
+        }
+        else
+        {
+            g_CastSkipHoldFrames = 0;
+        }
+    }
+}
+
+
 static void frontContinueAfterCredits(void)
 {
     if (g_SkipPostCreditsCast)
     {
-        g_SkipPostCreditsCast = FALSE;
-        full_actor_intro = FALSE;
-        intro_character_index = 0;
-        frontChangeMenu(MENU_MISSION_SELECT, TRUE);
-        set_cursor_to_stage_solo(SP_LEVEL_CRADLE);
+        frontFinishPostCreditsCast();
     }
     else
     {
@@ -7463,6 +7493,13 @@ void interface_menu18_displaycast(void)
     set_cur_player_viewport_size(0, 0);
     viSetViewPosition(0, 0);
 
+    /* Complete a latched hold once any in-flight character transition has finished. */
+    if (full_actor_intro && g_CastSkipHoldFrames >= CREDITS_SKIP_HOLD_FRAMES)
+    {
+        frontFinishPostCreditsCast();
+        return;
+    }
+
     g_MenuTimer += g_ClockTimer;
 
     #define INTERFACE_MENU18_TIMER 181
@@ -7533,9 +7570,7 @@ void interface_menu18_displaycast(void)
         }
         else if (full_actor_intro != 0)
         {
-            frontChangeMenu(MENU_MISSION_SELECT, 1);
-            set_cursor_to_stage_solo(SP_LEVEL_CRADLE);
-            full_actor_intro = 0;
+            frontFinishPostCreditsCast();
         }
         else
         {
@@ -7825,7 +7860,14 @@ Gfx *constructor_menu18_displaycast(Gfx *DL)
  
     DL = gfxDrawTranslucentRect(DL, x, 174, x + textwidth + 1, textheight + 175, 0);
  
-    return textRender(DL, &x, &y, text, ptrFontZurichBoldChars, ptrFontZurichBold, (u32)(255.0f * fade) | 0xFFFFFF00, viGetX(), viGetY(), 0, 0);
+    DL = textRender(DL, &x, &y, text, ptrFontZurichBoldChars, ptrFontZurichBold, (u32)(255.0f * fade) | 0xFFFFFF00, viGetX(), viGetY(), 0, 0);
+
+    if (full_actor_intro)
+    {
+        DL = bondviewRenderCreditsSkipPrompt(DL);
+    }
+
+    return DL;
 }
 
 
@@ -7848,6 +7890,8 @@ void frontChangeMenu(MENU menu, s32 reload)
 
 void menu_init(void)
 {
+    frontUpdateCastSkip();
+
     if (current_menu == MENU_SWITCH_SCREENS)
     {
         if (g_HiResSwitchPending)

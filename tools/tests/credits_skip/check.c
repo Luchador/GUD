@@ -74,7 +74,7 @@ static Gfx *textRenderOutlined(Gfx *gdl, s32 *x, s32 *y, char *text, void *chars
 #include "credits.inc"
 
 static bool full_actor_intro;
-static s32 intro_character_index, nextMenu, cursorStage;
+static s32 intro_character_index, nextMenu, cursorStage, g_CastSkipHoldFrames;
 static void frontChangeMenu(s32 menu, s32 reload)
 {
     assert(reload == TRUE);

@@ -26,7 +26,8 @@ source = (ROOT / 'src/game/bondview.c').read_text()
 front = (ROOT / 'src/game/front.c').read_text()
 constants = (ROOT / 'src/bondconstants.h').read_text()
 types = (ROOT / 'src/bondtypes.h').read_text()
-declarations = re.search(r'^#define CREDITS_SKIP_HOLD_FRAMES .*$', source, re.M)[0] + '\n'
+header = (ROOT / 'src/game/bondview.h').read_text()
+declarations = re.search(r'^#define CREDITS_SKIP_HOLD_FRAMES .*$', header, re.M)[0] + '\n'
 for name in ('CREDITS_ALIGNMENT', 'CREDITS_STATE', 'MENU', 'LEVEL_SOLO_SEQUENCE'):
     declarations += re.search(r'typedef enum ' + name + r'\s*\{.*?\}\s*' + name + ';', constants, re.S)[0] + '\n'
 declarations += re.search(r'typedef struct CreditsEntry_s\s*\{.*?\}\s*CreditsEntry;', types, re.S)[0] + '\n'
@@ -34,14 +35,34 @@ declarations += re.search(r'typedef struct CreditsEntry_s\s*\{.*?\}\s*CreditsEnt
 with tempfile.TemporaryDirectory(prefix='gud-credits-skip-') as directory:
     work = Path(directory)
     (work / 'declarations.inc').write_text(declarations)
-    (work / 'credits.inc').write_text(function(source, 'bondviewRenderCredits'))
+    prompt = function(source, 'bondviewRenderCreditsSkipPrompt')
+    (work / 'credits.inc').write_text(prompt + function(source, 'bondviewRenderCredits'))
     (work / 'front.inc').write_text(function(front, 'do_extended_cast_display')
+                                   + function(front, 'frontFinishPostCreditsCast')
                                    + function(front, 'frontContinueAfterCredits'))
+    menu_init = function(front, 'menu_init')
+    real_menu_functions = {'interface_menu17_switchscreens', 'interface_menu18_displaycast',
+                           'init_menu18_displaycast', 'update_menu18_displaycast',
+                           'init_menu07_missionselect'}
+    stubs = ''.join('static void ' + name + '(void) {}\n' for name in sorted(set(
+        re.findall(r'\b((?:init|update|interface)_menu\w+)\(\)', menu_init)) - real_menu_functions))
+    (work / 'cast_menu.inc').write_text(stubs + '\n'.join(function(front, name) for name in (
+        'frontChangeMenu', 'reset_menutimer', 'do_extended_cast_display',
+        'frontFinishPostCreditsCast', 'frontUpdateCastSkip', 'frontContinueAfterCredits',
+        'interface_menu17_switchscreens', 'interface_menu18_displaycast', 'menu_init')))
+    # Exercise the actual text-overlay tail without mocking the model renderer's many dependencies.
+    cast_renderer = function(front, 'constructor_menu18_displaycast')
+    cast_text = cast_renderer[cast_renderer.rindex('    DL = gfxSetup2DTextureMode(DL);'):]
+    (work / 'cast_text.inc').write_text(prompt + '\nstatic Gfx *drawCastText(Gfx *DL)\n{\n'
+        '    s32 x, y, textheight, textwidth;\n    char *text;\n    float fade = 1.0f;\n' + cast_text)
     command = shlex.split(os.environ.get('CC', 'cc')) + [
         '-std=c99', '-O1', '-g', '-Wall', '-Wextra', '-Werror',
         '-Wno-unused-parameter', '-fsanitize=address,undefined',
-        '-I', str(work), str(HERE / 'check.c'), '-o', str(work / 'check')]
-    subprocess.run(command, check=True)
-    subprocess.run([str(work / 'check')], check=True,
-                   env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0',
-                            UBSAN_OPTIONS='halt_on_error=1'))
+        '-I', str(work)]
+    for test in ('check', 'cast'):
+        # The existing menu dispatcher intentionally splits enum cases across several switches.
+        flags = ['-Wno-switch'] if test == 'cast' else []
+        subprocess.run(command + flags + [str(HERE / (test + '.c')), '-o', str(work / test)], check=True)
+        subprocess.run([str(work / test)], check=True,
+                       env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0',
+                                UBSAN_OPTIONS='halt_on_error=1'))
