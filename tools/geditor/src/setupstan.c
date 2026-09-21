@@ -29,7 +29,8 @@ BOOL SetupRefreshPadStanNativeReport(const unsigned char *data, DWORD size,
             float pos[3]; char name[16];
             DWORD link = Read32(copy + at + 36);
             /* Deleted pads retain their native stable-index placeholder. */
-            if (Read32(copy + at + 40) == 0x47455044u) { continue; }
+            if (Read32(copy + at + 40) == 0x47455044u
+                || (bound && Read32(copy + at + 40) == OCCLUDER_PAD_TAG)) { continue; }
             for (int axis = 0; axis < 3; axis++)
             {
                 union { DWORD bits; float value; } f;

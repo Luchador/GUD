@@ -1154,7 +1154,7 @@ void RightPanelSetSetupPad(HWND panel, const SetupFile *setup, const SetupPadRef
     if (state == NULL || setup == NULL || ref == NULL
         || ref->index >= (ref->bound ? setup->boundpadcount : setup->padcount)) { return; }
     pad = ref->bound ? &setup->boundpads[ref->index].pad : &setup->pads[ref->index];
-    lstrcpyn(state->detailtitle, ref->bound ? "Bound Pad" : "Pad", sizeof(state->detailtitle));
+    lstrcpyn(state->detailtitle, pad->occluder ? "Occluder" : ref->bound ? "Bound Pad" : "Pad", sizeof(state->detailtitle));
     snprintf(state->detailtext, sizeof(state->detailtext),
         "Pad index: %lu\r\n"
         "Stan link: %s\r\n"
@@ -1165,6 +1165,17 @@ void RightPanelSetSetupPad(HWND panel, const SetupFile *setup, const SetupPadRef
         "Delete removes an unused pad.",
         (unsigned long)ref->index, pad->stanname[0] ? pad->stanname : "Automatic",
         pad->up[0], pad->up[1], pad->up[2], pad->look[0], pad->look[1], pad->look[2]);
+    if (pad->occluder)
+    {
+        snprintf(state->detailtext, sizeof(state->detailtext),
+            "Occluder (bound pad %lu)\r\n\r\n"
+            "W: Move   E: Rotate   R: Scale\r\n"
+            "Use the handles or transform fields.\r\n\r\n"
+            "Fit the entire box inside permanent opaque geometry.\r\n"
+            "Do not use moving doors or destructible crates as cover.\r\n\r\n"
+            "Hides fully covered ordinary props during rendering.\r\n"
+            "Delete removes this occluder.", (unsigned long)ref->index);
+    }
     RightPanelShowFaceProperties(panel, state, FALSE);
     SetWindowText(state->details, state->detailtext);
     InvalidateRect(panel, NULL, FALSE);

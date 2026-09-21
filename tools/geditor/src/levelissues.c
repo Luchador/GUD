@@ -143,7 +143,7 @@ BOOL LevelIssuesBuild(const BgDocument *bg, const SetupFile *setup,
             LevelIssue issue = {0}; float pos[3]; char name[16];
             issue.pad = (SetupPadRef){i, bound != 0};
             const SetupPad *pad = Pad(setup, issue.pad);
-            if (pad->deleted) { continue; }
+            if (pad->deleted || pad->occluder) { continue; }
             snprintf(issue.subject, sizeof(issue.subject), "%s pad %lu", bound ? "Bound" : "Ordinary", (unsigned long)i);
             if (!Position(pad, scale, pos))
             {

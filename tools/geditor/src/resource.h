@@ -122,6 +122,7 @@
 #define IDR_VERTEX_COLOR_BRUSH    341
 #define IDR_OBJECT_PAD            342
 #define IDR_EYEDROPPER            343
+#define IDR_OBJECT_OCCLUDER       344
 
 /* Controls inside IDD_NEW_PROJECT */
 #define IDC_PROJECT_NAME     1001

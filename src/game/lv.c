@@ -904,7 +904,7 @@ void lvlViewMoveTick(void)
     cheatButtonSampleInput();
 
     if (getPlayerCount() == 1) {
-        bgDebugInput(joyGetButtonsPressedThisFrame(local_player_number, U_JPAD | D_JPAD),
+        bgDebugInput(joyGetButtonsPressedThisFrame(local_player_number, U_JPAD | D_JPAD | L_JPAD),
                 !g_ControlsLockedFlag && g_CameraMode == CAMERAMODE_FP
                 && g_CurrentPlayer->outside_watch_menu && !g_CurrentPlayer->pausing_flag
                 && !g_CurrentPlayer->pause_state);

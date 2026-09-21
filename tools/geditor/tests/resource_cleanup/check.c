@@ -187,7 +187,7 @@ static void RealRom(const char *path,const char *dir)
     for(int pass=0;pass<2;pass++)
     {
         LevelIssueReport report={0};
-        Require(RomExportReplaceProjectResources(&project,&rom,&report,&why));
+        Require(RomExportReplaceProjectResources(&project,&rom,&report,NULL,&why));
         printf("Export %d: %s\n",pass+1,RomExportCleanupWarning());
         DWORD pads=0,skipped=0;
         for(DWORD i=0;i<report.count;i++)
@@ -229,7 +229,7 @@ static void RealRom(const char *path,const char *dir)
         strcpy(stan.name,level->stanname);Require(StanSaveProjectFile(dir,&stan,&why));
         Require(SetupRefreshPadStanNative(setup,length,&stan,&expected,&size,&stats,&why));
         assert(stats.updated);
-        Require(RomExportReplaceProjectResources(&project,&rom,NULL,&why));
+        Require(RomExportReplaceProjectResources(&project,&rom,NULL,NULL,&why));
         Require(RomFindFile(&rom,level->setupname,&offset,&length,&why));
         assert(length>=size&&!memcmp(rom.data+offset,expected,size));
         free(expected);StanFileFree(&stan);

@@ -7,6 +7,7 @@
   ---------------------------------------------------------------------*/
 
 #include <ultra64.h>
+#include "occlusion.h"
 #include <math.h>
 #include <PR/libaudio.h>
 #include <assets/oddtextures.h>
@@ -7256,6 +7257,25 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
     s32 phi_a0;
 
     obj = prop->obj;
+
+    /* Rendering only: retain normal tick/AI, targeting and onscreen flags.
+     * Start with standalone, unanimated generic props. Attachments and special
+     * articulated models need bounds covering their entire rendered hierarchy. */
+    if (occlusionCount() && occlusionEnabled() && prop->type == PROP_TYPE_OBJ && obj->type == PROPDEF_PROP
+        && !prop->parent && !prop->child && !obj->model->anim
+        && obj->model->obj->numMatrices == 1)
+    {
+        f32 norm = 0.0f;
+        s32 row, col;
+        /* Frobenius norm bounds every scale/shear in the actual render matrix.
+         * modelGetInstSize alone misses non-uniform bound-pad scaling. */
+        for (row = 0; row < 3; row++) for (col = 0; col < 3; col++) {
+            norm += obj->mtx.m[row][col] * obj->mtx.m[row][col];
+        }
+        if (occlusionTestSphere(obj->position.f, obj->model->obj->BoundingVolumeRadius * sqrtf(norm))) {
+            return gdl;
+        }
+    }
 
     objAlpha = 0xFF;
     spAC = envGetPropDistColor(prop, &spB0);

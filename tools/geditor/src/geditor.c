@@ -4278,18 +4278,23 @@ fail:
 static BOOL GEditorDropPad(HWND hwnd, const BrowserObjectDrop *request)
 {
     double position[3]; float point[3],height; char name[16];
+    BOOL occluder = request && request->type == BROWSER_OBJECT_OCCLUDER;
     SetupPadRef pad; EditHistoryTransaction transaction={0};
     const char *why="", *restorewhy="";
     if (!request || !g_CurrentSetup.data || WindowFromPoint(request->screen)!=g_Viewport
         || !ViewportGetModelDropPosition(g_Viewport,request->screen,position)) { return FALSE; }
-    for (int axis=0;axis<3;axis++) { point[axis]=(float)position[axis]; }
-    DWORD tile=StanResolvePadTile(&g_CurrentStan,"",point);
-    if (tile==STAN_TILE_NONE || !StanGetTileHeight(&g_CurrentStan,tile,point[0],point[2],&height))
-    { MessageBox(hwnd,"Place the pad over a walkable Stan floor.",GEDITOR_TITLE,MB_ICONINFORMATION); return FALSE; }
-    position[1]=point[1]=height;
-    if (!StanResolveMovedPadName(&g_CurrentStan,"",point,point,name)) { return FALSE; }
-    if (!EditHistoryBeginSetupEdit(&g_EditHistory,&g_CurrentSetup,"Add Pad",&transaction,&why)) { goto fail; }
-    if (!SetupFileAddPad(&g_CurrentSetup,g_CurrentBgDocument.levelscale,position,name,&pad,&why)
+    if (!occluder)
+    {
+        for (int axis=0;axis<3;axis++) { point[axis]=(float)position[axis]; }
+        DWORD tile=StanResolvePadTile(&g_CurrentStan,"",point);
+        if (tile==STAN_TILE_NONE || !StanGetTileHeight(&g_CurrentStan,tile,point[0],point[2],&height))
+        { MessageBox(hwnd,"Place the pad over a walkable Stan floor.",GEDITOR_TITLE,MB_ICONINFORMATION); return FALSE; }
+        position[1]=point[1]=height;
+        if (!StanResolveMovedPadName(&g_CurrentStan,"",point,point,name)) { return FALSE; }
+    }
+    if (!EditHistoryBeginSetupEdit(&g_EditHistory,&g_CurrentSetup,occluder ? "Add Occluder" : "Add Pad",&transaction,&why)) { goto fail; }
+    if (!(occluder ? SetupFileAddOccluder(&g_CurrentSetup,g_CurrentBgDocument.levelscale,position,&pad,&why)
+                  : SetupFileAddPad(&g_CurrentSetup,g_CurrentBgDocument.levelscale,position,name,&pad,&why))
         || !GEditorReloadCurrentObjectsAndViewport(&why)
         || !EditHistoryCommitEdit(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,&transaction,&why))
     {
@@ -5434,7 +5439,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             ViewportCancelTransform(g_Viewport);
             return TRUE;
         }
-        if ((wparam != BROWSER_OBJECT_PAD && wparam != BROWSER_OBJECT_SPAWN && wparam != BROWSER_OBJECT_INTRO_CAMERA && wparam != BROWSER_OBJECT_OUTRO_CAMERA
+        if ((wparam != BROWSER_OBJECT_OCCLUDER && wparam != BROWSER_OBJECT_PAD && wparam != BROWSER_OBJECT_SPAWN && wparam != BROWSER_OBJECT_INTRO_CAMERA && wparam != BROWSER_OBJECT_OUTRO_CAMERA
                 && wparam != BROWSER_OBJECT_DOOR && wparam != BROWSER_OBJECT_GLASS
                 && wparam != BROWSER_OBJECT_CCTV && wparam != BROWSER_OBJECT_ALARM && wparam != BROWSER_OBJECT_DRONE_GUN
                 && wparam != BROWSER_OBJECT_ARMOR && wparam != BROWSER_OBJECT_TANK)
@@ -5453,7 +5458,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     case BROWSER_WM_OBJECT_DROP:
     {
         const BrowserObjectDrop *drop = (const BrowserObjectDrop *)lparam;
-        if (drop && drop->type == BROWSER_OBJECT_PAD) { return GEditorDropPad(hwnd, drop); }
+        if (drop && (drop->type == BROWSER_OBJECT_PAD || drop->type == BROWSER_OBJECT_OCCLUDER)) { return GEditorDropPad(hwnd, drop); }
         if (drop && drop->type == BROWSER_OBJECT_PORTAL) { return GEditorDropPortal(hwnd, drop); }
         if (drop && (drop->type == BROWSER_OBJECT_TRIANGLE || drop->type == BROWSER_OBJECT_QUAD
             || drop->type == BROWSER_OBJECT_CIRCLE || drop->type == BROWSER_OBJECT_CYLINDER))

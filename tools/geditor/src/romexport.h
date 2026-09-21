@@ -22,6 +22,7 @@ BOOL RomExportRefreshProjectLevelMetadata(GEditorProject *project, const char **
 /* Shared resource mapping and an in-memory export check for project rebasing. */
 int RomExportProjectResourcePath(const GEditorProject *project, const char *resource,
                                  char *pathout, size_t pathmax);
+BOOL RomExportValidateRebaseSource(const GEditorProject *project, const RomFile *target, const char **reasonout);
 BOOL RomExportValidateProject(const GEditorProject *project, const char **reasonout);
 /* Nonfatal placement findings from the most recent export/validation. */
 const char *RomExportCleanupWarning(void);

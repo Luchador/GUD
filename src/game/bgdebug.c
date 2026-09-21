@@ -3,6 +3,7 @@
 #include <fr.h>
 #include "bg.h"
 #include "bgdebug.h"
+#include "occlusion.h"
 #include "bgroomtrans.h"
 #include "bondview.h"
 #include "cam.h"
@@ -45,6 +46,7 @@ void bgDebugReset(void)
 
 void bgDebugInput(u16 pressed, bool allowEnable)
 {
+    if (allowEnable && g_BgDebugEnabled && (pressed & L_JPAD)) { occlusionToggle(); }
     /* Down always wins, including during watch/cutscene transitions. */
     if (pressed & D_JPAD) g_BgDebugEnabled = FALSE;
     else if (allowEnable && (pressed & U_JPAD)) g_BgDebugEnabled = TRUE;
@@ -297,6 +299,12 @@ Gfx *bgDebugDrawHud(Gfx *gdl)
     } else if (shown < g_BgDebugRoomCount) {
         sprintf(text, "+%d ROOMS (LEGEND)", g_BgDebugRoomCount - shown);
         gdl = bgDebugText(gdl, 14, 86, text, 0xffffffff);
+    }
+    if (occlusionCount()) {
+        sprintf(text, "OCCL %s: %d BOXES  %d SKIPS", occlusionEnabled() ? "ON" : "OFF",
+            occlusionCount(), occlusionRejected());
+        gdl = bgDebugText(gdl, 14, 100, text, 0x60ffffff);
+        gdl = bgDebugText(gdl, 14, 112, "D-LEFT: TOGGLE OCCLUSION", 0xffffffff);
     }
     return gdl;
 }

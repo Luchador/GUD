@@ -32,8 +32,9 @@ with tempfile.TemporaryDirectory(prefix='geditor-cleanup-') as folder:
         '-Wno-unused-parameter','-Wno-format','-ffunction-sections','-fdata-sections',
         '-fsanitize=address,undefined',f'-I{here.parent/"project_rebase"}',f'-I{src}',f'-I{root}',
         str(here/'check.c'),str(here.parent/'project_rebase/platform.c')]
-    command += [str(src/name) for name in ('rom.c','environment.c','fog.c','setupload.c','setupstan.c','actionblocks.c','levelissues.c',
+    command += [str(src/name) for name in ('occluders.c','levelmemory.c','rom.c','environment.c','fog.c','setupload.c','setupstan.c','actionblocks.c','levelissues.c',
         'stanload.c','stanquery.c','bgload.c','bgdocument.c','bgcompile.c','bgmaterial.c','bgrender.c')]
+    command += [str(root/'src/game/occlusionmath.c')]
     subprocess.run(command+['-Wl,--gc-sections','-lm','-o',str(binary)],check=True)
     subprocess.run([str(binary),str(work)]+sys.argv[1:],check=True,
         env=dict(os.environ,ASAN_OPTIONS='detect_leaks=0',UBSAN_OPTIONS='halt_on_error=1'))

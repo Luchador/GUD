@@ -110,3 +110,5 @@
       build/OUTCODE/src/game/musicselect.o (.rodata);
       build/OUTCODE/src/game/gedmanifest.o (.rodata);
       build/OUTCODE/src/game/renderconfig.o (.rodata);
+      build/OUTCODE/src/game/occlusion.o (.rodata);
+      build/OUTCODE/src/game/occlusionmath.o (.rodata);

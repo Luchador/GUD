@@ -1243,7 +1243,7 @@ static BOOL SetupPadExists(const SetupFile *setup, DWORD value)
 {
     return value < 10000
         ? setup->pads && value < setup->padcount && !setup->pads[value].deleted
-        : setup->boundpads && value - 10000 < setup->boundpadcount && !setup->boundpads[value - 10000].pad.deleted;
+        : setup->boundpads && value - 10000 < setup->boundpadcount && !setup->boundpads[value - 10000].pad.deleted && !setup->boundpads[value - 10000].pad.occluder;
 }
 
 static BOOL SetupActionParameterIsCharacter(const ActionInstruction *ins, DWORD parameter)
@@ -1523,6 +1523,56 @@ fail:
     SetupFileFree(&copy); return FALSE;
 }
 
+BOOL SetupFileAddOccluder(SetupFile *setup, float levelscale, const double position[3],
+    SetupPadRef *out, const char **reasonout)
+{
+    SetupFile copy = {0};
+    DWORD count = 0, old, index, total, start, size;
+    *reasonout = "Invalid occluder position or setup.";
+    if (!setup || !setup->data || setup->size < SETUP_HEADER_SIZE || setup->size > SETUP_FILE_MAX
+        || !out || !position || !isfinite(levelscale) || levelscale <= 0) { return FALSE; }
+    for (int axis = 0; axis < 3; axis++)
+    { if (!isfinite(position[axis]) || fabs(position[axis]*levelscale) > 100000000.0) { return FALSE; } }
+    for (DWORD i = 0; i < setup->boundpadcount; i++)
+    { if (setup->boundpads[i].pad.occluder && !setup->boundpads[i].pad.deleted) { count++; } }
+    if (count >= OCCLUDER_MAX) { *reasonout = "A setup can contain at most 32 occluders."; return FALSE; }
+    old = SetupRead32(setup->data + SETUP_BOUNDPAD_POINTER);
+    if ((setup->boundpadcount && (old < SETUP_HEADER_SIZE || (old & 3)))
+        || old > setup->size || setup->boundpadcount > (setup->size-old)/SETUP_BOUNDPAD_SIZE) { return FALSE; }
+    index = SetupFindFreePad(setup, TRUE, (DWORD)-1);
+    total = setup->boundpadcount > index ? setup->boundpadcount : index+1;
+    start = (setup->size+3u)&~3u;
+    size = start+(total+1)*SETUP_BOUNDPAD_SIZE;
+    if (total > SETUP_PAD_MAX || size > SETUP_FILE_MAX)
+    { *reasonout = "There is no room for another occluder."; return FALSE; }
+    if (!SetupFileClone(setup, &copy, reasonout)) { return FALSE; }
+    unsigned char *data = calloc(size, 1);
+    if (!data) { *reasonout = "Out of memory adding an occluder."; goto fail; }
+    memcpy(data, copy.data, copy.size);
+    memcpy(data+start, copy.data+old, copy.boundpadcount*SETUP_BOUNDPAD_SIZE);
+    unsigned char *record = data+start+index*SETUP_BOUNDPAD_SIZE;
+    memset(record, 0, SETUP_BOUNDPAD_SIZE);
+    for (int axis = 0; axis < 3; axis++)
+    {
+        union { float f; DWORD u; } value;
+        value.f = (float)(position[axis]*levelscale); SetupWrite32(record+axis*4, value.u);
+        value.f = (axis == 1 ? 0 : -50)*levelscale; SetupWrite32(record+44+axis*8, value.u);
+        value.f = (axis == 1 ? 100 : 50)*levelscale; SetupWrite32(record+48+axis*8, value.u);
+    }
+    SetupWrite32(record+16, 0x3f800000u); SetupWrite32(record+32, 0x3f800000u);
+    SetupWrite32(record+36, start+total*SETUP_BOUNDPAD_SIZE+SETUP_PAD_LINK);
+    SetupWrite32(record+40, OCCLUDER_PAD_TAG);
+    SetupWrite32(data+SETUP_BOUNDPAD_POINTER, start);
+    free(copy.data); copy.data = data; copy.size = size;
+    free(copy.pads); copy.pads = NULL; copy.padcount = 0;
+    free(copy.boundpads); copy.boundpads = NULL; copy.boundpadcount = 0;
+    if (!SetupParsePads(&copy, reasonout) || !SetupFileCompact(&copy, reasonout)) { goto fail; }
+    copy.dirty = TRUE; SetupFileFree(setup); *setup = copy;
+    *out = (SetupPadRef){index, TRUE}; *reasonout = ""; return TRUE;
+fail:
+    SetupFileFree(&copy); return FALSE;
+}
+
 BOOL SetupFileDeletePad(SetupFile *setup, const SetupPadRef *ref,
                        const RomFile *rom, const char **reasonout)
 {
@@ -1543,6 +1593,7 @@ BOOL SetupFileDeletePad(SetupFile *setup, const SetupPadRef *ref,
     if (!SetupPadUnused(setup, ref, rom, reasonout)) { return FALSE; }
     SetupWrite32(setup->data + record + 40, SETUP_DELETED_PAD_STAN);
     pad->deleted = TRUE;
+    pad->occluder = FALSE;
     setup->dirty = TRUE;
     *reasonout = "";
     return TRUE;
@@ -1556,6 +1607,7 @@ static BOOL SetupReadPad(const SetupFile *setup, const unsigned char *record,
     const unsigned char *end;
 
     pad->deleted = SetupRead32(record + 40) == SETUP_DELETED_PAD_STAN;
+    pad->occluder = SetupRead32(record + 40) == OCCLUDER_PAD_TAG;
     if (link >= setup->size) { return FALSE; }
     end = (const unsigned char *)memchr(setup->data + link, 0, setup->size - link);
     if (end == NULL) { return FALSE; }
@@ -4018,6 +4070,7 @@ static BOOL SetupAppendBoundPad(SetupFile *setup, const SetupPadRef *source, Set
                  table + newcount * SETUP_BOUNDPAD_SIZE + SETUP_PAD_LINK);
     SetupWrite32(data + table + index * SETUP_BOUNDPAD_SIZE + 40, SETUP_PRIVATE_PAD_STAN);
     pads[index].pad.deleted = FALSE;
+    pads[index].pad.occluder = FALSE;
     pads[index].pad.stanname[0] = '\0';
     SetupWrite32(data + SETUP_BOUNDPAD_POINTER, table);
     free(setup->data);

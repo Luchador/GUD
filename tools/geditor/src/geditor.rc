@@ -14,6 +14,7 @@ IDR_MARKER_INTRO_SPLINE RCDATA "../geditorassets/intro_spline_point.glb"
 IDR_NO_TEXTURE RCDATA "../geditorassets/no_texture.png"
 
 IDR_OBJECT_PAD RCDATA "../geditorassets/icon_pad.png"
+IDR_OBJECT_OCCLUDER RCDATA "../geditorassets/icon_occluder.png"
 IDR_EYEDROPPER RCDATA "../geditorassets/icon_eyedropper.png"
 IDR_OBJECT_TRIANGLE RCDATA "../geditorassets/icon_tri.png"
 IDR_OBJECT_QUAD RCDATA "../geditorassets/icon_quad.png"

@@ -220,7 +220,7 @@ typedef struct ViewportPad {
     SetupPadRef ref;
     float position[3]; /* authored origin in world units */
     float previewposition[3]; /* grounded origin, never written to the setup */
-    BOOL occupied, path, deleted;
+    BOOL occupied, path, deleted, occluder;
 } ViewportPad;
 
 /* Per-viewport state, allocated at WM_CREATE, freed at WM_DESTROY,
@@ -467,14 +467,15 @@ static void ViewportRefreshPadColors(ViewportState *state)
     for (i = 0; i < state->padcount; i++)
     {
         int vertex;
+        BOOL occluder = state->pads[i].occluder;
         BOOL white = (int)i == selected, bound = state->pads[i].ref.bound, path = state->pads[i].path;
         for (vertex = 0; vertex < VIEWPORT_BOX_VERTICES; vertex++)
         {
             Vertex *v = &state->padmarkers[i * VIEWPORT_BOX_VERTICES + vertex];
             static const unsigned char blue[3] = {VIEWPORT_PATH_COLOR};
-            v->r = white ? 255 : path ? blue[0] : bound ? 255 : 32;
-            v->g = white ? 255 : path ? blue[1] : bound ? 48 : 255;
-            v->b = white ? 255 : path ? blue[2] : bound ? 48 : 64;
+            v->r = white ? 255 : occluder ? 48 : path ? blue[0] : bound ? 255 : 32;
+            v->g = white ? 255 : occluder ? 220 : path ? blue[1] : bound ? 48 : 255;
+            v->b = white ? 255 : occluder ? 255 : path ? blue[2] : bound ? 48 : 64;
         }
     }
 }
@@ -1346,6 +1347,7 @@ static void ViewportPreviewGuidePoint(const ViewportState *state, double point[3
  * Keep X/Z and leave unresolved pads at their authored height. */
 static void ViewportGroundPadPosition(const ViewportState *state, const SetupPad *pad, double position[3])
 {
+    if (pad->occluder) { return; }
     float world[3] = {(float)position[0], (float)position[1], (float)position[2]}, height;
     DWORD tile = StanResolvePadTile(&state->stan, pad->stanname, world);
     if (StanGetTileHeight(&state->stan, tile, world[0], world[2], &height)) { position[1] = height; }
@@ -1363,7 +1365,7 @@ static BOOL ViewportPadPosition(const ViewportState *state, const SetupPadRef *r
     pad = ref->bound ? &setup->boundpads[ref->index].pad : &setup->pads[ref->index];
     slot = ref->bound ? setup->padcount + ref->index : ref->index;
     for (int axis = 0; axis < 3; axis++) { position[axis] = pad->pos[axis] / (double)state->markerlevelscale; }
-    if (preview && state->padpreview)
+    if (preview && state->padpreview && !pad->occluder)
     {
         /* Cached for normal painting; a moved pad must resolve its new X/Z. */
         if (dragging && !state->dragrotation && !state->dragscaling && state->dragaxis >= 0 && state->dragaxis < 3)
@@ -2230,13 +2232,24 @@ static void ViewportPaintGL(ViewportState *state)
         while (first < state->padcount)
         {
             DWORD end;
-            if (!ViewportPadVisible(state, first)) { first++; continue; }
+            if (!ViewportPadVisible(state, first) || state->pads[first].occluder) { first++; continue; }
             end = first + 1;
-            while (end < state->padcount && ViewportPadVisible(state, end)) { end++; }
+            while (end < state->padcount && ViewportPadVisible(state, end) && !state->pads[end].occluder) { end++; }
             glDrawArrays(GL_LINES, first * VIEWPORT_BOX_VERTICES,
                          (end - first) * VIEWPORT_BOX_VERTICES);
             first = end;
         }
+        /* Occluders live inside solid geometry. Their wire boxes must remain
+         * visible/pickable there so authors can resize or remove them. */
+        glDisable(GL_DEPTH_TEST);
+        glDepthMask(GL_FALSE);
+        for (DWORD i = 0; i < state->padcount; i++)
+        {
+            if (state->pads[i].occluder && !state->pads[i].deleted)
+            { glDrawArrays(GL_LINES, i * VIEWPORT_BOX_VERTICES, VIEWPORT_BOX_VERTICES); }
+        }
+        glDepthMask(GL_TRUE);
+        glEnable(GL_DEPTH_TEST);
         glLineWidth(1.0f);
     }
 
@@ -5020,7 +5033,7 @@ static BOOL ViewportTryPickPad(HWND hwnd, ViewportState *state, int x, int y, BO
             distance = (point.x-state->posx)*(double)(point.x-state->posx)
                      + (point.y-state->posy)*(double)(point.y-state->posy)
                      + (point.z-state->posz)*(double)(point.z-state->posz);
-            if (distance < nearest && ViewportStanComponentVisible(state, &point))
+            if (distance < nearest && (state->pads[i].occluder || ViewportStanComponentVisible(state, &point)))
             {
                 nearest = distance; hit = (int)i;
             }
@@ -9206,7 +9219,7 @@ static void ViewportRefreshPadPreview(ViewportState *state)
         if (view->ref.index >= (view->ref.bound ? setup->boundpadcount : setup->padcount)) { continue; }
         pad = view->ref.bound ? &setup->boundpads[view->ref.index].pad : &setup->pads[view->ref.index];
         for (int axis = 0; axis < 3; axis++) { position[axis] = view->position[axis]; }
-        if (state->padpreview) { ViewportGroundPadPosition(state, pad, position); }
+        if (state->padpreview && !pad->occluder) { ViewportGroundPadPosition(state, pad, position); }
         float height = (float)position[1], dy = height - view->previewposition[1];
         for (int j = 0; j < VIEWPORT_BOX_VERTICES; j++) { state->padmarkers[i * VIEWPORT_BOX_VERTICES + j].y += dy; }
         view->previewposition[1] = height;
@@ -9440,6 +9453,7 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup, float levelscale, c
         int axis;
         pads[i].ref.index = i; pads[i].ref.bound = FALSE;
         pads[i].deleted = setup->pads[i].deleted;
+        pads[i].occluder = FALSE;
         pads[i].path = pathpads && pathpads[i];
         pads[i].occupied = occupiedpads != NULL && occupiedpads[i];
         for (axis = 0; axis < 3; axis++) { pads[i].position[axis] = setup->pads[i].pos[axis] * worldscale; }
@@ -9458,6 +9472,7 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup, float levelscale, c
         int axis;
         preview->ref.index = i; preview->ref.bound = TRUE;
         preview->deleted = pad->pad.deleted;
+        preview->occluder = pad->pad.occluder;
         preview->path = FALSE;
         preview->occupied = occupiedboundpads != NULL && occupiedboundpads[i];
         for (axis = 0; axis < 3; axis++) { preview->position[axis] = pad->pad.pos[axis] * worldscale; }

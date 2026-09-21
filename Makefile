@@ -514,3 +514,5 @@ tools/mktex/build/tex2png:
 $(BUILD_DIR)/src/game/propobj.o $(BUILD_DIR)/src/game/gedmanifest.o $(BUILD_DIR)/assets/oddtextures.o: src/game/monitorconstants.h
 
 $(BUILD_DIR)/src/game/lv.o: src/game/renderconfig.h
+
+$(addprefix $(BUILD_DIR)/src/game/,setup.o bg.o propobj.o bgdebug.o gedmanifest.o occlusion.o occlusionmath.o): src/occluderformat.h src/game/occlusion.h src/game/occlusionmath.h

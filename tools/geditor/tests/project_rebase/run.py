@@ -34,9 +34,10 @@ def main():
                    '-Wno-unused-parameter', '-Wno-format', '-ffunction-sections', '-fdata-sections',
                    '-fsanitize=address,undefined', '-Dfopen=TestFopen', f'-I{here}', f'-I{src}', f'-I{root}',
                    str(here / 'check.c'), str(here / 'platform.c'), str(work / 'texture.c')]
-        command += [str(src / name) for name in ('projectrebase.c', 'project.c', 'levelmemory.c', 'environment.c', 'fog.c', 'rom.c', 'romexport.c', 'levelissues.c',
+        command += [str(src / name) for name in ('occluders.c', 'projectrebase.c', 'project.c', 'levelmemory.c', 'environment.c', 'fog.c', 'rom.c', 'romexport.c', 'levelissues.c',
                    'texrom.c', 'texinfo.c', 'texencode.c', 'imageedits.c', 'modeledits.c', 'modelload.c', 'modelmaterials.c',
                    'setupload.c', 'setupstan.c', 'stanload.c', 'stanquery.c', 'actionblocks.c', 'gltf.c', 'bgrender.c', 'bgcompile.c', 'bgdocument.c', 'bgload.c', 'modelcompile.c', 'bgmaterial.c', 'newprops.c', 'propcompile.c')]
+        command += [str(root / 'src/game/occlusionmath.c')]
         command += ['-Wl,--gc-sections', '-lm', '-o', str(work / 'check')]
         subprocess.run(command, check=True)
         env = dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1')

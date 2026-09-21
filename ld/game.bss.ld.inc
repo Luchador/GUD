@@ -109,3 +109,5 @@
       build/OUTCODE/src/game/musicselect.o (.bss);
       build/OUTCODE/src/game/gedmanifest.o (.bss);
       build/OUTCODE/src/game/renderconfig.o (.bss);
+      build/OUTCODE/src/game/occlusion.o (.bss);
+      build/OUTCODE/src/game/occlusionmath.o (.bss);

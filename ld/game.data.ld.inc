@@ -108,3 +108,5 @@
       build/OUTCODE/src/game/musicselect.o (.data);
       build/OUTCODE/src/game/gedmanifest.o (.data);
       build/OUTCODE/src/game/renderconfig.o (.data);
+      build/OUTCODE/src/game/occlusion.o (.data);
+      build/OUTCODE/src/game/occlusionmath.o (.data);

@@ -1,4 +1,5 @@
 #include "setupmeta.h"
+#include "occluders.h"
 /*
  * GEditor ROM export.
  *
@@ -1033,6 +1034,7 @@ static BOOL RomExportPadIssue(void *context, SetupPadRef pad, const float positi
 static BOOL RomExportReplaceProjectResources(const GEditorProject *project,
                                              RomFile *rom,
                                              LevelIssueReport *report,
+                                             const RomFile *featureRom,
                                              const char **reasonout)
 {
     RomExportSlot slots[ROM_EXPORT_FTBL_MAX_ROWS];
@@ -1314,6 +1316,8 @@ have_replacement:
             }
             if (!SetupCompactNative(source, size, &packed, &packedsize, reasonout)) { goto fail; }
         }
+        if (!OccludersValidateNative(packed, packedsize, featureRom ? featureRom : rom, reasonout))
+        { free(packed); goto fail; }
         free(slot->replacement);
         slot->replacement = packed;
         slot->replacementlength = packedsize;
@@ -1498,7 +1502,7 @@ static BOOL RomExportUpdateChecksum(RomFile *rom, const char **reasonout)
 
 
 static BOOL RomExportBuild(const GEditorProject *project, RomFile *rom,
-                            LevelIssueReport *report,
+                            LevelIssueReport *report, const RomFile *featureRom,
                             const char **reasonout)
 {
     char basepath[MAX_PATH];
@@ -1512,7 +1516,7 @@ static BOOL RomExportBuild(const GEditorProject *project, RomFile *rom,
     return RomExportProjectMatchesRom(project, rom, reasonout)
         && EnvironmentApplyRom(rom, &project->environmentOverrides, reasonout)
         && LevelMemoryApplyRom(rom, &project->memoryOverrides, reasonout)
-        && RomExportReplaceProjectResources(project, rom, report, reasonout)
+        && RomExportReplaceProjectResources(project, rom, report, featureRom, reasonout)
         && RomExportUpdateLevelTable(project, rom, reasonout)
         && NewPropsExportToRom(project->dir, rom, reasonout)
         && ImageEditsExportToRom(project->dir, rom, reasonout)
@@ -1522,7 +1526,17 @@ static BOOL RomExportBuild(const GEditorProject *project, RomFile *rom,
 BOOL RomExportValidateProject(const GEditorProject *project, const char **reasonout)
 {
     RomFile rom;
-    BOOL ok = RomExportBuild(project, &rom, NULL, reasonout);
+    BOOL ok = RomExportBuild(project, &rom, NULL, NULL, reasonout);
+    RomFree(&rom);
+    return ok;
+}
+
+/* Rebase validates assets against the old base but new runtime capabilities
+ * against the destination. This lets an authored occluder project upgrade. */
+BOOL RomExportValidateRebaseSource(const GEditorProject *project, const RomFile *target, const char **reasonout)
+{
+    RomFile rom;
+    BOOL ok = RomExportBuild(project, &rom, NULL, target, reasonout);
     RomFree(&rom);
     return ok;
 }
@@ -1537,7 +1551,7 @@ BOOL RomExportCreate(const GEditorProject *project,
     LevelIssueReport report = {0};
     if (!RomExportDestinationIsValid(project, directory, name,
                                      pathout, pathmax, reasonout)) { return FALSE; }
-    ok = RomExportBuild(project, &rom, &report, reasonout)
+    ok = RomExportBuild(project, &rom, &report, NULL, reasonout)
         && RomExportWriteFile(pathout, rom.data, rom.size, reasonout);
     RomFree(&rom);
     if (ok)

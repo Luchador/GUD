@@ -660,6 +660,7 @@ BOOL ActionDocumentValidate(const ActionDocument *d, const SetupFile *setup,
                     const SetupPad *pad = value>=10000
                         ? (value-10000<setup->boundpadcount ? &setup->boundpads[value-10000].pad : NULL)
                         : (value<setup->padcount ? &setup->pads[value] : NULL);
+                    if (pad && pad->occluder && !Issue(out,count,b,i,TRUE,"Occluders cannot be used as gameplay pads.")) { goto memory; }
                     if (pad && pad->deleted && !Issue(out,count,b,i,TRUE,"This instruction references a deleted pad.")) { goto memory; }
                 }
             }

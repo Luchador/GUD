@@ -8,6 +8,7 @@
 #include <memp.h>
 #include "bg.h"
 #include "bgdebug.h"
+#include "occlusion.h"
 #include "bgonecycle.h"
 #include "bgroomtrans.h"
 #include "bondview.h"
@@ -398,6 +399,7 @@ Gfx *bgRender(Gfx *gdl)
     s32 b_min;
     bool renderEnabled;
 
+    occlusionBeginView();
     renderEnabled = lvGetBgRenderEnabled();
 
     if (renderEnabled && g_BgRoomsScheduledToBeDrawn > 0)

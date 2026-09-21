@@ -1,5 +1,6 @@
 #include <ultra64.h>
 #include "customprops.h"
+#include "occlusion.h"
 #include <memp.h>
 #include "game/mp_weapon.h"
 #include "game/bondview_r.h"
@@ -1170,6 +1171,7 @@ void setupLoadFiles(enum LEVELID stageId)
     ItemModelFileRecord *itemModel;
     struct LevelEntry *levelInfo;
 
+    occlusionReset();
     g_DoorScale = 1.0f;
     g_MpSetupWeaponSlot = -1;
 
@@ -1321,9 +1323,13 @@ void setupLoadFiles(enum LEVELID stageId)
                 boundPad->bbox.zmin *= roomScale;
                 boundPad->bbox.zmax *= roomScale;
 
-                padAssignStanTile((struct PadRecord *) boundPad, boundPad->plink, &boundPad->stan);
+                if ((u32)boundPad->stan != OCCLUDER_PAD_TAG) {
+                    padAssignStanTile((struct PadRecord *) boundPad, boundPad->plink, &boundPad->stan);
+                }
             }
         }
+
+        occlusionLoad(g_CurrentSetup.boundpads);
 
         if (g_CurrentSetup.padnames)
         {

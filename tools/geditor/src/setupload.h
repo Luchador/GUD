@@ -8,6 +8,7 @@
 #include "rom.h"
 #include "../../../src/ammoconstants.h"
 #include "../../../src/doorconstants.h"
+#include "../../../src/occluderformat.h"
 
 /* Host-native views of the pad data parsed from the big-endian setup. */
 typedef struct SetupPad {
@@ -17,6 +18,7 @@ typedef struct SetupPad {
     /* Authored plink tile name. Resolving it must not move the pad itself. */
     char stanname[16];
     BOOL deleted; /* Stable-index tombstone; hidden by the editor. */
+    BOOL occluder; /* Dedicated render-only bound pad, never floor-snapped. */
 } SetupPad;
 
 typedef struct SetupBoundPad {
@@ -343,6 +345,9 @@ BOOL SetupLoadProjectFile(const char *projectdir, const char *setupname,
 BOOL SetupFileClone(const SetupFile *source, SetupFile *out,
                     const char **reasonout);
 
+/* Dedicated bound pad; initial box is 100 world units per side. */
+BOOL SetupFileAddOccluder(SetupFile *setup, float levelscale, const double position[3],
+    SetupPadRef *out, const char **reasonout);
 /* Standalone ordinary pad, owned by the user (never recycled as a private
  * object pad). Atomic and compacted; position is in gameplay world units. */
 BOOL SetupFileAddPad(SetupFile *setup, float levelscale, const double position[3],

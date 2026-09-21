@@ -64,7 +64,7 @@ def main():
     manifest = Object(build / "src/game/gedmanifest.o")
     blob = manifest.bytes("g_GedManifest")
     version, count = struct.unpack_from(">II", blob, 16)
-    assert blob[:16] == b"GUDGEDITORMANIF\0" and version == 3 and count == 28
+    assert blob[:16] == b"GUDGEDITORMANIF\0" and version == 3 and count == 32
     # IDO's ELF symbol size excludes the leading initialized char array here;
     # the complete manifest bytes and relocations are present in the section.
     blob = manifest.bytes("g_GedManifest", 24 + count * 16)
@@ -75,7 +75,8 @@ def main():
         assert tag not in entries, f"Duplicate manifest kind: {tag}"
         entries[tag] = offset
     assert set(entries) == set("IMGS OBSG MUSF STGT CMAP FTBL ENVT TXTB TXCF MONA MONT MOND "
-                               "SFXC SFXT INSC INST MUST MUSD MUSV ANID ANIF ANIC ANIO CHRM PROP ITEM AIGL TXBK".split())
+                               "SFXC SFXT INSC INST MUST MUSD MUSV ANID ANIF ANIC ANIO CHRM PROP ITEM AIGL TXBK NPRP NPMD LMEM OCCL".split())
+    assert struct.unpack_from(">III", blob, entries["OCCL"] + 4) == (0, 0, 1)
     for tag, unit, desc, table, stride, terminators, alias in catalogs:
         obj = Object(build / f"src/{unit}.o")
         metadata = obj.bytes(desc)
@@ -115,7 +116,7 @@ def main():
         manifest.pointer("g_GedManifest", offset + 4, start)
         manifest.pointer("g_GedManifest", offset + 8, end)
         assert struct.unpack_from(">I", blob, offset + 12)[0] == flags, tag
-    print("PASS: 28 manifest kinds, catalog ABI/counts/terminators, native pointer relocations and raw segment anchors.")
+    print("PASS: 32 manifest kinds, catalog ABI/counts/terminators, native pointer relocations and raw segment anchors.")
 
 
 if __name__ == "__main__":

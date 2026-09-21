@@ -525,7 +525,7 @@ static BOOL Prepare(RebasePlan *plan, const GEditorProject *source, const char *
     if (report->conflicts) { return Fail(why,"Rebase blocked by %lu conflict(s). See the report.",(unsigned long)report->conflicts); }
     /* Validate against the original base before new stock IDs can turn an
      * orphan BMP or a gap in imported IDs into an apparently valid asset. */
-    return RomExportValidateProject(source,why)
+    return RomExportValidateRebaseSource(source,&plan->newrom,why)
         && ImageEditsRebase(source->dir,&plan->oldrom,&plan->newrom,FALSE,why);
 }
 static void FreePlan(RebasePlan *plan)
