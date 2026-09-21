@@ -835,6 +835,24 @@ void sub_GAME_7F05D690(void)
 }
 
 
+void gunCycleGadget(void)
+{
+    /* B may have started a reload before Z was pressed. Cycle from an already
+     * queued switch even while that reload is still finishing. */
+    ITEM_IDS current = g_CurrentPlayer->hands[GUNRIGHT].weapon_current_animation == GUN_ANIM_STATE_SWITCH_LOWER
+        ? g_CurrentPlayer->hands[GUNRIGHT].weapon_next_weapon
+        : get_next_weapon_in_cycle_for_hand(GUNRIGHT, 0);
+    ITEM_IDS next = bondinvGetNextGadget(current);
+
+    if (next != ITEM_NOTHING
+        && (next != current || get_next_weapon_in_cycle_for_hand(GUNLEFT, 0) != ITEM_UNARMED))
+    {
+        gunRequestHandWeaponChange(GUNRIGHT, next, 1);
+        gunRequestHandWeaponChange(GUNLEFT, ITEM_UNARMED, 1);
+    }
+}
+
+
 void advance_through_inventory(void)
 {
     ITEM_IDS nextright;

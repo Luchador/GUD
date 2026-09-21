@@ -363,6 +363,7 @@ void camera_sniper_zoom_in(f32 zoom);
 void camera_sniper_zoom_out(f32 zoom);
 f32 get_item_in_hand_zoom(void);
 void advance_through_inventory(void);
+void gunCycleGadget(void);
 void backstep_through_inventory(void);
 void sub_GAME_7F067FBC(f32 turn_x, f32 turn_y);
 void gunTickGameplay(s32 arg0);

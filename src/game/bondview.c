@@ -4924,6 +4924,41 @@ static void bviewUpdateTankTurnSpeed(struct MoveData *moveData)
 }
 
 
+/* Keep a shortcut's Z press consumed until release, even if B is released first.
+ * Each player's primary and secondary controllers retain their own latch. */
+static bool bviewConsumeGadgetCycleInput(u16 *buttons, u16 *pressedButtons, s32 controller)
+{
+    static u8 blocked[MAX_PLAYER_COUNT][2];
+    u8 *block = &blocked[get_cur_playernum()][controller];
+
+    if ((*buttons & Z_TRIG) == 0)
+    {
+        *block = FALSE;
+    }
+    else if ((*buttons & B_BUTTON) && (*pressedButtons & Z_TRIG)
+        && g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0x0
+        && g_CurrentPlayer->bondstate == BONDSTATE_ALIVE
+        && g_bondviewForceDisarm <= 0
+        && !lvGetControlsLockedFlag()
+        && disablePlayerActionsWhenPausedOrInMpMenu()
+        && (getPlayerCount() == 1 || (!g_stopPlayFlag && !g_gameOverFlag))
+        && !(getPlayerCount() >= 2 && get_scenario() == 2 && bondinvIsAliveWithFlag()))
+    {
+        gunCycleGadget();
+        *block = TRUE;
+    }
+
+    if (*block)
+    {
+        *buttons &= ~(B_BUTTON | Z_TRIG);
+        *pressedButtons &= ~(B_BUTTON | Z_TRIG);
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+
 void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 {
     struct MoveData moveData;
@@ -4935,6 +4970,7 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
     u16 secondButtons;
     u16 secondOldButtons;
     u16 secondPressedButtons;
+    bool gadgetInputConsumed;
     s32 secondStickXSafe;
     s32 secondStickYSafe;
     bool triggerHeld;
@@ -5025,6 +5061,8 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         trigger_solo_watch_menu(0);
     }
 
+    gadgetInputConsumed = bviewConsumeGadgetCycleInput(&buttons, &pressedButtons, 0);
+
     if (g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0x0 && g_CurrentPlayer->bondstate == BONDSTATE_ALIVE && (playerCount == 1 || (g_stopPlayFlag == 0 && g_gameOverFlag == 0)))
     {
         controlType = cur_player_get_control_type();
@@ -5040,6 +5078,12 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
             secondButtons = joyGetButtons(get_cur_playernum() + playerCount, (u32) ANY_BUTTON);
             secondOldButtons = g_CurrentPlayer->prev_buttons_pressed;
             secondPressedButtons = secondButtons & ~secondOldButtons;
+            /* Preserve raw history so a consumed held Z cannot become a fresh press. */
+            g_CurrentPlayer->prev_buttons_pressed = secondButtons;
+            if (bviewConsumeGadgetCycleInput(&secondButtons, &secondPressedButtons, 1))
+            {
+                gadgetInputConsumed = TRUE;
+            }
 
             if (secondStickX < -5)
             {
@@ -5232,7 +5276,6 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
             moveData.triggerOn = triggerHeld && (g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0x0) && ((buttons & A_BUTTON) == 0) && ((secondButtons & A_BUTTON) == 0);
 
             moveData.disableLookAhead = 1;
-            g_CurrentPlayer->prev_buttons_pressed = secondButtons;
         }
         else
         {
@@ -5460,6 +5503,15 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                 moveData.disableLookAhead = 1;
             }
         }
+    }
+
+    if (gadgetInputConsumed)
+    {
+        moveData.triggerOn = 0;
+        moveData.btap = 0;
+        moveData.weaponBackOffset = 0;
+        moveData.weaponForwardOffset = 0;
+        moveData.detonating = 0;
     }
 
     g_CurrentPlayer->field_D0 = 0;

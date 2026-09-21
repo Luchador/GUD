@@ -508,6 +508,49 @@ s32 bondinvAddWeaponByProp(PropRecord *prop)
 }
 
 
+ITEM_IDS bondinvGetNextGadget(ITEM_IDS current)
+{
+    static const ITEM_IDS gadgets[] = {
+        ITEM_PLASTIQUE,
+        ITEM_DOORDECODER,
+        ITEM_BOMBDEFUSER,
+        ITEM_CAMERA,
+        ITEM_KEYANALYSERCASE,
+        ITEM_BUG,
+        ITEM_DATATHIEF,
+        ITEM_WATCHMAGNETATTRACT,
+        ITEM_EXPLOSIVEFLOPPY
+    };
+    s32 count = sizeof(gadgets) / sizeof(gadgets[0]);
+    s32 index;
+    s32 remaining;
+
+    /* Start at the first gadget when switching from a weapon or another item. */
+    for (index = 0; index < count; index++)
+    {
+        if (gadgets[index] == current)
+        {
+            break;
+        }
+    }
+
+    for (remaining = count; remaining > 0; remaining--)
+    {
+        if (++index >= count)
+        {
+            index = 0;
+        }
+
+        if (bondinvHasInvItem(gadgets[index]))
+        {
+            return gadgets[index];
+        }
+    }
+
+    return ITEM_NOTHING;
+}
+
+
 void bondinvCycleForward(s32 *nextright, s32 *nextleft, s32 requireammo)
 {
     s32      weapon1 = *nextright;
