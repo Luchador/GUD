@@ -201,7 +201,8 @@ static void fxUpdateBulletSparks(void)
 }
 
 
-static void fxRenderBulletSpark(BulletSpark *spark, Gfx **gdl, s32 zbufferMode)
+static void fxRenderBulletSpark(BulletSpark *spark, Gfx **gdl, s32 zbufferMode,
+    sImageTableEntry **boundImage)
 {
     Vtx vertexTemplate;
     Mtxf *viewToWorld;
@@ -294,7 +295,11 @@ static void fxRenderBulletSpark(BulletSpark *spark, Gfx **gdl, s32 zbufferMode)
     gSPSetGeometryMode(displayList++, G_CULL_BACK);
     gSPMatrix(displayList++, osVirtualToPhysical((void *)camGetPlayerProjViewMtx()), G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
     displayList = applyRoomMatrixToDisplayList(displayList, spark->room);
-    texSelect(&displayList, imageFrame, 4, zbufferMode, 2);
+    if (*boundImage != imageFrame)
+    {
+        texSelect(&displayList, imageFrame, 4, zbufferMode, 2);
+        *boundImage = imageFrame;
+    }
     gSPVertex(displayList++, osVirtualToPhysical(vertices), 4, 0);
     gSP2Triangles(displayList++, 0, 1, 2, 0, 0, 2, 3, 0);
     gSPMatrix(displayList++, osVirtualToPhysical(camGetPlayerProjMtx()), G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
@@ -302,14 +307,14 @@ static void fxRenderBulletSpark(BulletSpark *spark, Gfx **gdl, s32 zbufferMode)
 }
 
 
-static void fxRenderBulletSparks(Gfx **gdl, s32 zbufferMode)
+static void fxRenderBulletSparks(Gfx **gdl, s32 zbufferMode, sImageTableEntry **boundImage)
 {
     BulletSpark *spark;
     BulletSpark *end = g_BulletSparks + BULLET_SPARKS_MAX;
 
     for (spark = &g_BulletSparks[0]; spark < end; spark++)
     {
-        fxRenderBulletSpark(spark, gdl, zbufferMode);
+        fxRenderBulletSpark(spark, gdl, zbufferMode, boundImage);
     }
 }
 
@@ -357,14 +362,14 @@ static void fxUpdateMovingSparks(void)
 }
 
 
-static void fxRenderMovingSparks(Gfx **gdl, s32 zbufferMode)
+static void fxRenderMovingSparks(Gfx **gdl, s32 zbufferMode, sImageTableEntry **boundImage)
 {
     MovingBulletSpark *movingSpark;
     MovingBulletSpark *end = &g_MovingBulletSparks[BULLET_MOVING_SPARKS_MAX];
 
     for (movingSpark = &g_MovingBulletSparks[0]; movingSpark < end; movingSpark++)
     {
-        fxRenderBulletSpark(&movingSpark->spark, gdl, zbufferMode);
+        fxRenderBulletSpark(&movingSpark->spark, gdl, zbufferMode, boundImage);
     }
 }
 
@@ -385,6 +390,12 @@ void fxUpdateAllSparks(void)
 
 void fxRenderAllSparks(Gfx **gdl, s32 zbufferMode)
 {
-    fxRenderBulletSparks(gdl, zbufferMode);
-    fxRenderMovingSparks(gdl, zbufferMode);
+    sImageTableEntry *boundImage = NULL;
+
+    /* Only matrices, vertices and culling change between these draws. Image
+     * descriptors stay fixed, and render style, depth mode and tile offset
+     * are shared by this pass, so a matching descriptor needs no new setup.
+     * Start fresh on every call: other effects and player views change TMEM. */
+    fxRenderBulletSparks(gdl, zbufferMode, &boundImage);
+    fxRenderMovingSparks(gdl, zbufferMode, &boundImage);
 }
