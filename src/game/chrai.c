@@ -4226,7 +4226,11 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                 }
                 case AI_CreditsRoll:
                 {
-                    g_CreditsState = CREDITS_STATE_ROLLING;
+                    /* An early ending skip owns the fade and exit, even if this command arrives later. */
+                    if (g_CreditsState != CREDITS_STATE_SKIPPING)
+                    {
+                        g_CreditsState = CREDITS_STATE_ROLLING;
+                    }
                     Offset += sizeof(AiCreditsRollRecord);
                     break;
                 }

@@ -28,6 +28,7 @@ constants = (ROOT / 'src/bondconstants.h').read_text()
 types = (ROOT / 'src/bondtypes.h').read_text()
 header = (ROOT / 'src/game/bondview.h').read_text()
 declarations = re.search(r'^#define CREDITS_SKIP_HOLD_FRAMES .*$', header, re.M)[0] + '\n'
+declarations += re.search(r'^#define BONDVIEW_HUD_MSG_TOP_BUFFER_LENGTH .*$', header, re.M)[0] + '\n'
 for name in ('CREDITS_ALIGNMENT', 'CREDITS_STATE', 'MENU', 'LEVEL_SOLO_SEQUENCE'):
     declarations += re.search(r'typedef enum ' + name + r'\s*\{.*?\}\s*' + name + ';', constants, re.S)[0] + '\n'
 declarations += re.search(r'typedef struct CreditsEntry_s\s*\{.*?\}\s*CreditsEntry;', types, re.S)[0] + '\n'
@@ -36,7 +37,16 @@ with tempfile.TemporaryDirectory(prefix='gud-credits-skip-') as directory:
     work = Path(directory)
     (work / 'declarations.inc').write_text(declarations)
     prompt = function(source, 'bondviewRenderCreditsSkipPrompt')
-    (work / 'credits.inc').write_text(prompt + function(source, 'bondviewRenderCredits'))
+    ai = (ROOT / 'src/game/chrai.c').read_text()
+    roll_case = re.search(r'case AI_CreditsRoll:\s*\{.*?(?=\n\s*case AI_IFCreditsHasCompleted:)', ai, re.S)[0]
+    (work / 'credits.inc').write_text('\n'.join(function(source, name) for name in (
+        'currentPlayerAdjustFade', 'currentPlayerIsFadeComplete', 'currentPlayerUpdateColourScreenProperties',
+        'bviewShowUpperMessage')) + prompt + function(source, 'bondviewRenderCredits')
+        + '\nstatic void runCreditsRoll(void)\n{\n'
+          '    enum { AI_CreditsRoll = 0 };\n'
+          '    typedef struct { unsigned char opcode; } AiCreditsRollRecord;\n'
+          '    s32 Offset = 0;\n    switch (0) {\n' + roll_case
+        + '\n    }\n    assert(Offset == sizeof(AiCreditsRollRecord));\n}\n')
     (work / 'front.inc').write_text(function(front, 'do_extended_cast_display')
                                    + function(front, 'frontFinishPostCreditsCast')
                                    + function(front, 'frontContinueAfterCredits'))

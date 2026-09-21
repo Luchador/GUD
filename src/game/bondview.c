@@ -8513,19 +8513,48 @@ Gfx *bondviewRenderCredits(Gfx *gdl)
     s16 viewheight;
     char *text;
 
-    if (bossGetStageNum() == LEVELID_CUBA && g_CreditsState == CREDITS_STATE_ROLLING && credits_pointer != NULL)
+    if (bossGetStageNum() != LEVELID_CUBA)
     {
-        /* Count rendered frames, like the credits scroll; gameplay time is paused here. */
+        g_CreditsSkipHoldFrames = 0;
+        return gdl;
+    }
+
+    if (g_CreditsState == CREDITS_STATE_SKIPPING)
+    {
+        if (currentPlayerIsFadeComplete())
+        {
+            /* Match AI_EndLevel: finish the safe hi-res buffer switch before unloading Cuba. */
+            if (g_HiResModeActive)
+            {
+                if (!g_HiResExitDelay)
+                {
+                    g_HiResExitDelay = 1;
+                }
+            }
+            else
+            {
+                g_CreditsState = CREDITS_STATE_COMPLETED;
+                bossReturnTitleStage();
+            }
+        }
+
+        return gdl;
+    }
+
+    if (g_CreditsState == CREDITS_STATE_DIALOGUE || g_CreditsState == CREDITS_STATE_ROLLING)
+    {
+        /* A single hold covers the dialogue and the scrolling credits. */
         if (joyGetButtons(PLAYER_1, Z_TRIG))
         {
             g_CreditsSkipHoldFrames++;
 
             if (g_CreditsSkipHoldFrames >= CREDITS_SKIP_HOLD_FRAMES)
             {
-                /* Let the credits script perform its normal fade-out and level exit. */
                 g_SkipPostCreditsCast = TRUE;
-                g_CreditsState = CREDITS_STATE_COMPLETED;
+                g_CreditsState = CREDITS_STATE_SKIPPING;
                 g_CreditsSkipHoldFrames = 0;
+                /* Do not wait for the dialogue script to reach its credits-completed check. */
+                currentPlayerAdjustFade(60.0f, 0, 0, 0, 1.0f);
                 return gdl;
             }
         }
@@ -8533,7 +8562,15 @@ Gfx *bondviewRenderCredits(Gfx *gdl)
         {
             g_CreditsSkipHoldFrames = 0;
         }
+    }
+    else
+    {
+        g_CreditsSkipHoldFrames = 0;
+        return gdl;
+    }
 
+    if (g_CreditsState == CREDITS_STATE_ROLLING && credits_pointer != NULL)
+    {
         xpos1 = 220;
         xpos2 = 220;
         align1 = CREDITS_ALIGN_RIGHT;
@@ -8687,7 +8724,10 @@ Gfx *bondviewRenderCredits(Gfx *gdl)
     }
     else
     {
-        g_CreditsSkipHoldFrames = 0;
+        /* Dialogue has no credit rows; the skip prompt is visible from its first line. */
+        gdl = gfxSetup2DTextureMode(gdl);
+        gdl = bondviewRenderCreditsSkipPrompt(gdl);
+        gdl = gfxRestore3DRenderMode(gdl);
     }
 
     return gdl;
@@ -9548,6 +9588,11 @@ void bviewShowUpperMessage(char* msg)
     strncpy(stringbuffer_top[index], msg, (BONDVIEW_HUD_MSG_TOP_BUFFER_LENGTH-1));
     g_UpperTextMsgQueued += 1;
     stringbuffer_top[index][(BONDVIEW_HUD_MSG_TOP_BUFFER_LENGTH-1)] = 0;
+
+    if (bossGetStageNum() == LEVELID_CUBA && g_CreditsState == CREDIT_STATE_START)
+    {
+        g_CreditsState = CREDITS_STATE_DIALOGUE;
+    }
 }
 
 
