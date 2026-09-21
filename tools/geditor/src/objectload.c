@@ -399,14 +399,14 @@ static void ObjectPlaceModel(ObjectBuilder *builder,
 
         builder->tritags[outfirst] =
             (unsigned short)(model->tritags[tri] | BG_TRI_OBJECT);
-        builder->renderflags[outfirst] = model->renderflags[tri];
+        builder->renderflags[outfirst] = BgRenderResolveModelCulling(model->renderflags[tri], flip);
         builder->objectindices[outfirst] = objectindex;
 
         for (corner = 0; corner < 3; corner++)
         {
-            /* The game mirrors local Z for DOORFLAG_FLIP and swaps front/back
-               culling. Reverse winding here so rendering and picking retain
-               the model's usual culling rules. Keep UVs/colors with vertices. */
+            /* The game mirrors local Z for DOORFLAG_FLIP. Reverse winding
+               together with the resolved cull mode above, so explicit model
+               overrides and inherited door defaults both match the game. */
             int sourcecorner = flip && corner != 0 ? 3 - corner : corner;
             const BgVertex *source = &model->tris[tri * 3 + sourcecorner];
             BgVertex *dest = &builder->tris[outfirst * 3 + corner];

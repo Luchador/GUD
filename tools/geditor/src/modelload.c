@@ -428,9 +428,7 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
                         }
                     }
                     b->renderflags[b->count / 3 - 1] = (BgRenderStateFlags(state) & ~BG_RENDER_ENVIRONMENT_MASK)
-                        | (((state->geometryknown & 0x3000) == 0x3000) ? BG_RENDER_CULL_EXPLICIT : 0)
-                        | ((state->geometrymode & 0x2000) ? BG_RENDER_CULL_BACK : 0)
-                        | ((state->geometrymode & 0x1000) ? BG_RENDER_CULL_FRONT : 0)
+                        | BgRenderModelCulling(state)
                         | cacheflags[idx[0]]
                         | (alpha.texture ? 0 : BG_RENDER_IGNORE_TEXTURE_ALPHA)
                         | (((state->geometryknown & 0x10000u) && !(state->geometrymode & 0x10000u)) ? BG_RENDER_NO_FOG : 0)
@@ -1391,5 +1389,12 @@ BgVertex *ModelLoadProjectNamedGeometry(const char *projectdir, const char *fold
         return NULL;
     }
 
-    return GltfLoadModel(path, projectdir, tricount, tritags, renderflags, reasonout);
+    result = GltfLoadModel(path, projectdir, tricount, tritags, renderflags, reasonout);
+    if (result != NULL)
+    {
+        DWORD tri;
+        for (tri = 0; tri < *tricount; tri++)
+        { (*renderflags)[tri] = BgRenderResolveModelCulling((*renderflags)[tri], FALSE); }
+    }
+    return result;
 }

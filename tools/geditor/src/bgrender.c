@@ -23,6 +23,38 @@
 #define BG_CVG_X_ALPHA 0x1000u
 #define BG_ALPHA_COMPARE_MASK 3u
 
+BgRenderFlags BgRenderResolveModelCulling(BgRenderFlags flags, BOOL flippeddoor)
+{
+    BOOL back = (flags & BG_RENDER_CULL_BACK) != 0;
+    BOOL front = (flags & BG_RENDER_CULL_FRONT) != 0;
+    /* Older glTF previews only recorded fully explicit culling. A known set
+       bit still wins; otherwise apply the ordinary world-model default. New
+       exports also retain partial clears via the per-bit inheritance flags. */
+    if (!(flags & BG_RENDER_CULL_EXPLICIT))
+    {
+        if (!back) { flags |= BG_RENDER_CULL_BACK_INHERITED; }
+        if (!front) { flags |= BG_RENDER_CULL_FRONT_INHERITED; }
+    }
+    if (flags & BG_RENDER_CULL_BACK_INHERITED) { back = !flippeddoor; }
+    if (flags & BG_RENDER_CULL_FRONT_INHERITED) { front = flippeddoor; }
+    /* ObjectPlaceModel mirrors Z and reverses triangle winding. Swap the
+       resolved cull sides as well, including explicitly authored overrides. */
+    if (flippeddoor) { BOOL swap = back; back = front; front = swap; }
+    flags &= ~(BG_RENDER_CULL_BACK | BG_RENDER_CULL_FRONT);
+    return flags | BG_RENDER_CULL_EXPLICIT
+        | (back ? BG_RENDER_CULL_BACK : 0) | (front ? BG_RENDER_CULL_FRONT : 0);
+}
+
+BgRenderFlags BgRenderModelCulling(const BgRenderState *state)
+{
+    BgRenderFlags flags = BG_RENDER_CULL_EXPLICIT;
+    if (state->geometrymode & 0x2000u) { flags |= BG_RENDER_CULL_BACK; }
+    if (state->geometrymode & 0x1000u) { flags |= BG_RENDER_CULL_FRONT; }
+    if (!(state->geometryknown & 0x2000u)) { flags |= BG_RENDER_CULL_BACK_INHERITED; }
+    if (!(state->geometryknown & 0x1000u)) { flags |= BG_RENDER_CULL_FRONT_INHERITED; }
+    return BgRenderResolveModelCulling(flags, FALSE);
+}
+
 void BgRenderStateInit(BgRenderState *state, BOOL secondary)
 {
     state->environmentalpha = state->primitivealpha = 255;
