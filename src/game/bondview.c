@@ -8489,8 +8489,8 @@ Gfx *bondviewRenderCreditsSkipPrompt(Gfx *gdl)
     textMeasure(&textheight, &textwidth, text, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
     x = viGetViewLeft() + 12;
     y = viGetViewTop() + viGetViewHeight() - textheight - 8;
-    return textRenderOutlined(gdl, &x, &y, text, ptrFontZurichBoldChars, ptrFontZurichBold,
-        0xFFFFFFFF, 0x000000FF, viGetX(), viGetY(), 0, 0);
+
+    return textRenderOutlined(gdl, &x, &y, text, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFFFFFFFF, 0x000000FF, viGetX(), viGetY(), 0, 0);
 }
 
 
@@ -8713,11 +8713,6 @@ Gfx *bondviewRenderCredits(Gfx *gdl)
 
                 gdl = textRender(gdl, &x, &y, text, ptrFontZurichBoldChars, ptrFontZurichBold, -1, viGetX(), viGetY(), 0, 0);
             }
-        }
-
-        if (g_CreditsState == CREDITS_STATE_ROLLING)
-        {
-            gdl = bondviewRenderCreditsSkipPrompt(gdl);
         }
 
         gdl = gfxRestore3DRenderMode(gdl);
