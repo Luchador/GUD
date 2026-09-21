@@ -43,9 +43,10 @@ field name in the `.gep`. Export changes those fields in the ROM's native
 The project's `base.z64` is unchanged. Repeated edits/exports do not append data;
 restoring defaults removes obsolete overrides.
 
-Projects with overrides use **GEditor Project 3**, so older editors reject them
-instead of silently dropping the settings. Projects without overrides still
-save as version 2, and both versions open in this editor. The GUD ROM manifest
+Projects with environment overrides use **GEditor Project 3** (or version 4
+when memory overrides are also present), so older editors reject them instead
+of silently dropping the settings. Projects without overrides still save as
+version 2, and all three versions open in this editor. The GUD ROM manifest
 version does not change. Rebase merges each environment field separately:
 project-only edits survive, untouched values adopt new ROM defaults, matching
 edits are accepted, and conflicting edits or removed edited rows stop rebase.

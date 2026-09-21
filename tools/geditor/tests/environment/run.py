@@ -34,7 +34,7 @@ with tempfile.TemporaryDirectory(prefix='geditor-environment-') as folder:
         '-Wno-unused-parameter', '-ffunction-sections', '-fdata-sections', '-fsanitize=address,undefined',
         '-Dfopen=TestFopen', f'-I{here.parent / "image_import"}', f'-I{src}', f'-I{work}']
     sources = [str(here/'check.c'), str(here.parent/'image_import/platform.c')]
-    sources += [str(src/name) for name in ('environment.c', 'fog.c', 'project.c')]
+    sources += [str(src/name) for name in ('environment.c', 'fog.c', 'project.c', 'levelmemory.c')]
     subprocess.run(command + sources + ['-Wl,--gc-sections', '-lm', '-o', str(work/'check')], check=True)
     env = dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1')
     subprocess.run([str(work/'check'), str(work)], env=env, check=True)

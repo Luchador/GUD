@@ -20,7 +20,7 @@ and `MultiAmmoCrateRecord` contains twelve slots (176 bytes total). IDs after
 bump prevents older readers from misinterpreting these setup resources.
 Rebuild GUD and create a fresh project with the matching editor; old base ROMs
 and setup files are not compatible.
-There are currently 30 entries; the current GEditor accepts up to 32. The
+There are currently 31 entries; the current GEditor accepts up to 32. The
 16 new discovery entries below are optional to existing editor features.
 Readers must find entries by kind rather than position and bounds-check even
 unrecognized kinds. Changes to a catalog record layout require a new catalog
@@ -64,6 +64,18 @@ GEditor also accepts the previous 36-byte rows, which omit the allocation
 pointer and place the scale/track fields four bytes earlier. Export preserves
 the base ROM's stride and allocation pointers. Older editors that require a
 36-byte stride reject rebuilt ROMs; rebuild GEditor with the matching sources.
+
+`LMEM` optionally exposes fixed-size level allocation strings. Its bounded
+range contains independent 64-byte slots; `flags` gives that slot size. The
+40-byte `STGT` rows point to their slots through `memoryAllocationString`,
+resolved with `CMAP`. The current table reserves one slot per catalog row;
+the last placeholder's pointer remains null. GEditor uses stage IDs and the
+pointers, not positional correspondence, when reading or exporting these
+settings. Each editable slot contains `-ml0 -me0 -mgfxN -mvtxN -mtN -maN`
+and a null terminator. The four stage budgets use KiB. Export zero-fills the
+remainder of an edited slot, preserving all other slots and linked pointers.
+See [Level memory allocations](LEVEL_MEMORY.md) for the controls and rebase
+workflow. ROMs without `LMEM` remain supported but cannot edit these budgets.
 
 `CMAP` gives the ROM range and linked RAM base of the game's data segment.
 For a linked RAM address `p`, resolve it as:

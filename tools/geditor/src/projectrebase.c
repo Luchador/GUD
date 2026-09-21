@@ -355,6 +355,15 @@ static BOOL Levels(RebasePlan *plan, const GEditorProject *source,
     }
     EnvironmentRefreshLevels(&plan->project.environments, &plan->project.environmentOverrides,
         plan->project.levels, plan->project.levelcount);
+    const char *memorywhy = "";
+    available = LevelMemoryReadRom(&plan->newrom, &plan->project.memory, &memorywhy);
+    if (source->memoryOverrides.count)
+    {
+        LevelMemoryTable oldbase;
+        if (!available || !LevelMemoryReadRom(&plan->oldrom, &oldbase, &memorywhy)
+            || !LevelMemoryRebase(&oldbase, &plan->project.memory, &plan->project.memoryOverrides, &memorywhy))
+        { Conflict(report, "Level memory", memorywhy); }
+    }
     return TRUE;
 }
 static BOOL ReadFileBytes(const char *path, unsigned char **data, DWORD *size, const char **why)

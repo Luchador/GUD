@@ -41,7 +41,7 @@ def main():
                    "-ffunction-sections", "-fdata-sections", "-fsanitize=address,undefined",
                    "-Dfopen=TestFopen", f"-I{shim}", f"-I{src}", str(here / "check.c"),
                    str(shim / "platform.c"), str(work / "export.c")]
-        command += [str(src / name) for name in ("rom.c", "project.c", "environment.c", "fog.c", "bgcompile.c")]
+        command += [str(src / name) for name in ("rom.c", "project.c", "levelmemory.c", "environment.c", "fog.c", "bgcompile.c")]
         command += ["-Wl,--gc-sections", "-lm", "-o", str(work / "check")]
         subprocess.run(command, check=True)
         env = dict(os.environ, ASAN_OPTIONS="detect_leaks=0", UBSAN_OPTIONS="halt_on_error=1")

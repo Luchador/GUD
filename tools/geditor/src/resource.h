@@ -21,6 +21,7 @@
 #define IDD_PATROL_PATHS      117
 #define IDD_CHECK_ISSUES      118
 #define IDD_ENVIRONMENT       119
+#define IDD_STAGE_OPTIONS     120
 #define IDC_ISSUES_LIST       1260
 #define IDC_ISSUES_STATUS     1261
 #define IDC_ISSUES_DETAILS    1262

@@ -48,7 +48,7 @@ static void SetFocus(HWND hwnd) { focus=hwnd; }
 static void MessageBox(HWND hwnd,const char *text,const char *title,unsigned flags) { assert(text[0]);errors++; }
 static void ShowWindow(HWND hwnd,int show) {}
 static EnvironmentTable diskdefaults;
-static BOOL LevelManagerHasEnvironmentDraft(void) { return EnvironmentPanelHasDraft((HWND)1); }
+static BOOL LevelManagerHasSettingsDraft(void) { return EnvironmentPanelHasDraft((HWND)1); }
 static BOOL GEditorConfirmExit(HWND hwnd)
 { OK(ProjectSave(&g_Project,&why));g_ProjectMetadataDirty=FALSE;return TRUE; }
 static BOOL RomExportRefreshProjectLevelMetadata(GEditorProject *project,const char **error)

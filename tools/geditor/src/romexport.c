@@ -265,6 +265,13 @@ BOOL RomExportRefreshProjectLevelMetadata(GEditorProject *project, const char **
     }
     if (matches)
     {
+        BOOL available = LevelMemoryReadRom(&rom, &project->memory, reasonout);
+        if (project->memoryOverrides.count && (!available
+            || !LevelMemoryValidateOverrides(&project->memory, &project->memoryOverrides, reasonout))) { matches = FALSE; }
+        else { *reasonout = ""; }
+    }
+    if (matches)
+    {
         for (i = 0; i < project->levelcount; i++)
         {
             RomLevel *level = &project->levels[i];
@@ -1504,6 +1511,7 @@ static BOOL RomExportBuild(const GEditorProject *project, RomFile *rom,
     }
     return RomExportProjectMatchesRom(project, rom, reasonout)
         && EnvironmentApplyRom(rom, &project->environmentOverrides, reasonout)
+        && LevelMemoryApplyRom(rom, &project->memoryOverrides, reasonout)
         && RomExportReplaceProjectResources(project, rom, report, reasonout)
         && RomExportUpdateLevelTable(project, rom, reasonout)
         && NewPropsExportToRom(project->dir, rom, reasonout)

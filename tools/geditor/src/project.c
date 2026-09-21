@@ -10,7 +10,7 @@
 #include "editorpath.h"
 
 #define GEP_MAGIC   "GEditor Project"
-#define GEP_VERSION 3
+#define GEP_VERSION 4
 
 
 /**
@@ -31,7 +31,8 @@ static BOOL ProjectWrite(const GEditorProject *proj)
 
     /* Old editors must reject a project containing overrides rather than
      * silently dropping them. Projects without overrides remain version 2. */
-    ok = ok && fprintf(f, "%s %d\n", GEP_MAGIC, proj->environmentOverrides.count ? GEP_VERSION : 2) >= 0;
+    ok = ok && fprintf(f, "%s %d\n", GEP_MAGIC,
+        proj->memoryOverrides.count ? GEP_VERSION : proj->environmentOverrides.count ? 3 : 2) >= 0;
     ok = ok && fprintf(f, "name = %s\n", proj->name) >= 0;
 
     /* Keep the ROM's level table with the project. The pipe separator
@@ -52,6 +53,7 @@ static BOOL ProjectWrite(const GEditorProject *proj)
     }
 
     ok = ok && EnvironmentWriteOverrides(f, &proj->environmentOverrides);
+    ok = ok && LevelMemoryWriteOverrides(f, &proj->memoryOverrides);
     return fclose(f) == 0 && ok;
 }
 
@@ -68,6 +70,8 @@ BOOL ProjectSave(const GEditorProject *proj, const char **reasonout)
 
     if (proj->environmentOverrides.count
         && !EnvironmentValidateOverrides(&proj->environments, &proj->environmentOverrides, reasonout)) { return FALSE; }
+    if (proj->memoryOverrides.count
+        && !LevelMemoryValidateOverrides(&proj->memory, &proj->memoryOverrides, reasonout)) { return FALSE; }
 
     if (!ProjectWrite(proj))
     {
@@ -226,7 +230,8 @@ BOOL ProjectRead(const char *geppath, GEditorProject *proj)
     }
  
     /**
-     * Version 3 adds environment overrides; version 2 remains readable.
+     * Version 3 adds environment overrides; version 4 adds memory overrides.
+     * Older projects remain readable.
      */
     if (fgets(line, sizeof(line), f) == NULL || sscanf(line, GEP_MAGIC " %d %c", &version, &tail) != 1 || version < 2 || version > GEP_VERSION)
     {
@@ -274,6 +279,11 @@ BOOL ProjectRead(const char *geppath, GEditorProject *proj)
         else if (strcmp(key, "environment") == 0)
         {
             if (version < 3 || !EnvironmentReadOverride(&proj->environmentOverrides, value))
+            { fclose(f); ZeroMemory(proj, sizeof(*proj)); return FALSE; }
+        }
+        else if (strcmp(key, "memory") == 0)
+        {
+            if (version < 4 || !LevelMemoryReadOverride(&proj->memoryOverrides, value))
             { fclose(f); ZeroMemory(proj, sizeof(*proj)); return FALSE; }
         }
         /* unknown keys: ignored */

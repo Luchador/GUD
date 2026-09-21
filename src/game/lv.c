@@ -124,43 +124,84 @@ bool g_BgRenderEnabled = TRUE;
 extern u8* _fontdlSegmentRomStart;
 extern u8* _fontdlSegmentRomEnd;
 
+/* Fixed-size, independent slots let GEditor replace a stage budget without
+ * moving linked data or modifying another stage with the same defaults. */
+const char g_LevelMemoryAllocationStrings[LEVEL_INFO_COUNT][LEVEL_MEMORY_STRING_SIZE] = {
+    "-ml0 -me0 -mgfx100 -mvtx50 -mt700  -ma150", /* LEVEL_INDEX_SEVBUNKER */
+    "-ml0 -me0 -mgfx70  -mvtx50 -mt660  -ma150", /* LEVEL_INDEX_SILO */
+    "-ml0 -me0 -mgfx70  -mvtx50 -mt750  -ma220", /* LEVEL_INDEX_STATUE */
+    "-ml0 -me0 -mgfx70  -mvtx50 -mt671  -ma200", /* LEVEL_INDEX_CONTROL */
+    "-ml0 -me0 -mgfx70  -mvtx50 -mt600  -ma250", /* LEVEL_INDEX_ARCH */
+    "-ml0 -me0 -mgfx100 -mvtx50 -mt600  -ma200", /* LEVEL_INDEX_TRA */
+    "-ml0 -me0 -mgfx70  -mvtx50 -mt750  -ma225", /* LEVEL_INDEX_DEST */
+    "-ml0 -me0 -mgfx100 -mvtx50 -mt725  -ma150", /* LEVEL_INDEX_SEVB */
+    "-ml0 -me0 -mgfx60  -mvtx40 -mt855  -ma135", /* LEVEL_INDEX_AZT */
+    "-ml0 -me0 -mgfx60  -mvtx40 -mt635  -ma290", /* LEVEL_INDEX_PETE */
+    "-ml0 -me0 -mgfx60  -mvtx50 -mt710  -ma300", /* LEVEL_INDEX_DEPO */
+    "-ml0 -me0 -mgfx130 -mvtx100 -mt400 -ma100", /* LEVEL_INDEX_REF */
+    "-ml0 -me0 -mgfx100 -mvtx50 -mt600  -ma250", /* LEVEL_INDEX_CRYP */
+    "-ml0 -me0 -mgfx70  -mvtx50 -mt625  -ma275", /* LEVEL_INDEX_DAM */
+    "-ml0 -me0 -mgfx70  -mvtx50 -mt650  -ma160", /* LEVEL_INDEX_ARK */
+    "-ml0 -me0 -mgfx100 -mvtx50 -mt610  -ma300", /* LEVEL_INDEX_RUN */
+    "-ml0 -me0 -mgfx70  -mvtx50 -mt600  -ma300", /* LEVEL_INDEX_SEVX */
+    "-ml0 -me0 -mgfx70  -mvtx50 -mt500  -ma200", /* LEVEL_INDEX_JUN */
+    "-ml0 -me0 -mgfx130 -mvtx100 -mt390 -ma100", /* LEVEL_INDEX_DISH */
+    "-ml0 -me0 -mgfx100 -mvtx50 -mt530  -ma250", /* LEVEL_INDEX_CAVE */
+    "-ml0 -me0 -mgfx100 -mvtx50 -mt650  -ma150", /* LEVEL_INDEX_CAT */
+    "-ml0 -me0 -mgfx100 -mvtx50 -mt650  -ma250", /* LEVEL_INDEX_CRAD */
+    "-ml0 -me0 -mgfx100 -mvtx50 -mt550 -ma350", /* LEVEL_INDEX_SEVXB */
+    "-ml0 -me0 -mgfx130 -mvtx100 -mt400 -ma100", /* LEVEL_INDEX_IMP */
+    "-ml0 -me0 -mgfx130 -mvtx100 -mt400 -ma100", /* LEVEL_INDEX_ASH */
+    "-ml0 -me0 -mgfx130 -mvtx100 -mt400 -ma100", /* LEVEL_INDEX_AME */
+    "-ml0 -me0 -mgfx130 -mvtx100 -mt400 -ma300", /* LEVEL_INDEX_OAT */
+    "-ml0 -me0 -mgfx100 -mvtx50 -mt300 -ma300", /* LEVEL_INDEX_LEN */
+    "-ml0 -me0 -mgfx80 -mvtx20 -mt646 -ma001", /* LEVEL_INDEX_TITLE */
+    "-ml0 -me0 -mgfx130 -mvtx100 -mt550 -ma170", /* LEVEL_INDEX_BUNKER2_MP */
+    "-ml0 -me0 -mgfx80  -mvtx100 -mt550 -ma250", /* LEVEL_INDEX_ARCHIVES_MP */
+    "-ml0 -me0 -mgfx130 -mvtx100 -mt440 -ma220", /* LEVEL_INDEX_CAVERNS_MP */
+    "-ml0 -me0 -mgfx90  -mvtx100 -mt550 -ma230", /* LEVEL_INDEX_FACILITY_MP */
+    "-ml0 -me0 -mgfx110 -mvtx100 -mt350 -ma400", /* LEVEL_INDEX_EGYPT_MP */
+    "-ml0 -me0 -mgfx100 -mvtx50 -mt700 -ma400", /* LEVEL_INDEX_DEFAULT */
+    "" /* LEVEL_INDEX_X: no allocation override */
+};
+
 struct LevelEntry g_LevelInfoTable[] = {
 /*  levelID;            levelName                setupFileName;               bg_seg_filename;        bg_stan_filename;      memoryAllocationString;                      levelscale;  renderScale;    main track;      bg_sound;     xtrack;  */
-    {LEVELID_BUNKER1,     "Bunker 1",              "UsetupsevbunkerZ",         "bg/bg_sev_all_p.seg",  "Tbg_sev_all_p_stanZ",  "-ml0 -me0 -mgfx100 -mvtx50 -mt700  -ma150",  0.53931433,  1.0,            M_BUNKER1,       0xFFFF,       M_BUNKER1X         },
-    {LEVELID_SILO,        "Silo",                  "UsetupsiloZ",              "bg/bg_silo_all_p.seg", "Tbg_silo_all_p_stanZ", "-ml0 -me0 -mgfx70  -mvtx50 -mt660  -ma150",  0.47256002,  1.0,            M_SILO,          0xFFFF,       M_SILOX            },
-    {LEVELID_STATUE,      "Statue",                "UsetupstatueZ",            "bg/bg_stat_all_p.seg", "Tbg_stat_all_p_stanZ", "-ml0 -me0 -mgfx70  -mvtx50 -mt750  -ma220",  0.107202865, 1.0,            M_STATUE,        0xFFFF,       M_STATUEPART       },
-    {LEVELID_CONTROL,     "Control",               "UsetupcontrolZ",           "bg/bg_arec_all_p.seg", "Tbg_arec_all_p_stanZ", "-ml0 -me0 -mgfx70  -mvtx50 -mt671  -ma200",  0.49886572,  1.0,            M_CONTROL,       0xFFFF,       M_ELEVATOR_CONTROL },
-    {LEVELID_ARCHIVES,    "Archives",              "UsetuparchZ",              "bg/bg_arch_all_p.seg", "Tbg_arch_all_p_stanZ", "-ml0 -me0 -mgfx70  -mvtx50 -mt600  -ma250",  0.50678575,  1.0,            M_ARCHIVES,      0xFFFF,       M_ARCHIVESX        },
-    {LEVELID_TRAIN,       "Train",                 "UsetuptraZ",               "bg/bg_tra_all_p.seg",  "Tbg_tra_all_p_stanZ",  "-ml0 -me0 -mgfx100 -mvtx50 -mt600  -ma200",  0.15019713,  1.0,            M_TRAIN,         0xFFFF,       M_TRAINX           },
-    {LEVELID_FRIGATE,     "Frigate",               "UsetupdestZ",              "bg/bg_dest_all_p.seg", "Tbg_dest_all_p_stanZ", "-ml0 -me0 -mgfx70  -mvtx50 -mt750  -ma225",  0.44757429,  1.0,            M_FRIGATE,       0xFFFF,       M_END_SOMETHING    },
-    {LEVELID_BUNKER2,     "Bunker 2",              "UsetupsevbZ",              "bg/bg_sevb_all_p.seg", "Tbg_sevb_all_p_stanZ", "-ml0 -me0 -mgfx100 -mvtx50 -mt725  -ma150",  0.53931433,  1.0,            M_BUNKER2,       0xFFFF,       M_BUNKER2X         },
-    {LEVELID_AZTEC,       "Aztec",                 "UsetupaztZ",               "bg/bg_azt_all_p.seg",  "Tbg_azt_all_p_stanZ",  "-ml0 -me0 -mgfx60  -mvtx40 -mt855  -ma135",  0.35300568,  1.0,            M_AZTEC,         0xFFFF,       M_AZTECX           },
-    {LEVELID_STREETS,     "Streets",               "UsetuppeteZ",              "bg/bg_pete_all_p.seg", "Tbg_pete_all_p_stanZ", "-ml0 -me0 -mgfx60  -mvtx40 -mt635  -ma290",  0.34187999,  1.0,            M_STREETS,       0xFFFF,       M_STREETSX         },
-    {LEVELID_DEPOT,       "Depot",                 "UsetupdepoZ",              "bg/bg_depo_all_p.seg", "Tbg_depo_all_p_stanZ", "-ml0 -me0 -mgfx60  -mvtx50 -mt710  -ma300",  0.21847887,  1.0,            M_DEPOT,         0xFFFF,       M_DEPOTX           },
-    {LEVELID_COMPLEX,     "Complex",               "UsetuprefZ",               "bg/bg_ref_all_p.seg",  "Tbg_ref_all_p_stanZ",  "-ml0 -me0 -mgfx130 -mvtx100 -mt400 -ma100",  0.94285715,  1.0,            0xFFFF,          0xFFFF,       0xFFFF             },
-    {LEVELID_EGYPT,       "Egypt",                 "UsetupcrypZ",              "bg/bg_cryp_all_p.seg", "Tbg_cryp_all_p_stanZ", "-ml0 -me0 -mgfx100 -mvtx50 -mt600  -ma250",  0.25608,     1.0,            M_EGYPTIAN,      0xFFFF,       M_EGYPTX           },
-    {LEVELID_DAM,         "Dam",                   "UsetupdamZ",               "bg/bg_dam_all_p.seg",  "Tbg_dam_all_p_stanZ",  "-ml0 -me0 -mgfx70  -mvtx50 -mt625  -ma275",  0.23363999,  0.2,            M_DAM,           0xFFFF,       M_WIND             },
-    {LEVELID_FACILITY,    "Facility",              "UsetuparkZ",               "bg/bg_ark_all_p.seg",  "Tbg_ark_all_p_stanZ",  "-ml0 -me0 -mgfx70  -mvtx50 -mt650  -ma160",  1.20648,     1.0,            M_FACILITY,      0xFFFF,       M_FACILITYX        },
-    {LEVELID_RUNWAY,      "Runway",                "UsetuprunZ",               "bg/bg_run_all_p.seg",  "Tbg_run_all_p_stanZ",  "-ml0 -me0 -mgfx100 -mvtx50 -mt610  -ma300",  0.089571431, 1.0,            M_RUNWAY,        0xFFFF,       M_RUNWAYPLANE      },
-    {LEVELID_SURFACE,     "Surface 1",             "UsetupsevxZ",              "bg/bg_sevx_all_p.seg", "Tbg_sevx_all_p_stanZ", "-ml0 -me0 -mgfx70  -mvtx50 -mt600  -ma300",  0.45445713,  0.2,            M_SURFACE1,      0xFFFF,       M_WIND             },
-    {LEVELID_JUNGLE,      "Jungle",                "UsetupjunZ",               "bg/bg_jun_all_p.seg",  "Tbg_jun_all_p_stanZ",  "-ml0 -me0 -mgfx70  -mvtx50 -mt500  -ma200",  0.094662853, 1.0,            M_JUNGLE,        0xFFFF,       M_JUNGLEX          },
-    {LEVELID_TEMPLE,      "Temple",                "UsetupdishZ",              "bg/bg_dish_all_p.seg", "Tbg_dish_all_p_stanZ", "-ml0 -me0 -mgfx130 -mvtx100 -mt390 -ma100",  0.47142857,  1.0,            0xFFFF,          0xFFFF,       0xFFFF             },
-    {LEVELID_CAVERNS,     "Caverns",               "UsetupcaveZ",              "bg/bg_cave_all_p.seg", "Tbg_cave_all_p_stanZ", "-ml0 -me0 -mgfx100 -mvtx50 -mt530  -ma250",  0.26824287,  1.0,            M_WATERCAVERNS,  0xFFFF,       M_ELEVATOR_WC      },
-    {LEVELID_CITADEL,     "Citadel",               "UsetupcatZ",               "bg/bg_cat_all_p.seg",  "Tbg_cat_all_p_stanZ",  "-ml0 -me0 -mgfx100 -mvtx50 -mt650  -ma150",  0.76852286,  1.0,            M_CITADEL,       0xFFFF,       0xFFFF             },
-    {LEVELID_CRADLE,      "Cradle",                "UsetupcradZ",              "bg/bg_crad_all_p.seg", "Tbg_crad_all_p_stanZ", "-ml0 -me0 -mgfx100 -mvtx50 -mt650  -ma250",  0.23571429,  1.0,            M_CRADLE,        0xFFFF,       M_CRADLEX          },
-    {LEVELID_SURFACE2,    "Surface 2",             "UsetupsevxbZ",             "bg/bg_sevx_all_p.seg", "Tbg_sevx_all_p_stanZ", "-ml0 -me0 -mgfx100 -mvtx50 -mt550 -ma350" ,  0.45445713,  0.2,            M_SURFACE2,      M_WIND,       M_SURFACE2END      },
-    {LEVELID_BASEMENT,    "Basement",              "UsetupimpZ",               "bg/bg_ame_all_p.seg",  "Tbg_ame_all_p_stanZ",  "-ml0 -me0 -mgfx130 -mvtx100 -mt400 -ma100",  0.65999997,  1.0,            0xFFFF,          0xFFFF,       0xFFFF             },
-    {LEVELID_STACK,       "Stack",                 "UsetupashZ",               "bg/bg_ame_all_p.seg",  "Tbg_ame_all_p_stanZ",  "-ml0 -me0 -mgfx130 -mvtx100 -mt400 -ma100",  0.65999997,  1.0,            0xFFFF,          0xFFFF,       0xFFFF             },
-    {LEVELID_LIBRARY,     "Library",               "UsetupameZ",               "bg/bg_ame_all_p.seg",  "Tbg_ame_all_p_stanZ",  "-ml0 -me0 -mgfx130 -mvtx100 -mt400 -ma100",  0.65999997,  1.0,            0xFFFF,          0xFFFF,       0xFFFF             },
-    {LEVELID_CAVES,       "Caves",                 "UsetupoatZ",               "bg/bg_oat_all_p.seg",  "Tbg_oat_all_p_stanZ",  "-ml0 -me0 -mgfx130 -mvtx100 -mt400 -ma300",  0.14142857,  1.0,            0xFFFF,          0xFFFF,       0xFFFF             },
-    {LEVELID_CUBA,        "Cuba",                  "UsetuplenZ",               "bg/bg_len_all_p.seg",  "Tbg_len_all_p_stanZ",  "-ml0 -me0 -mgfx100 -mvtx50 -mt300 -ma300" ,  0.094662853, 1.0,            M_CUBA,          0xFFFF,       0xFFFF             },
-    {LEVELID_TITLE,       "Title",                 NULL        ,               NULL                 ,  NULL                 ,  "-ml0 -me0 -mgfx80 -mvtx20 -mt646 -ma001"  ,  1.0       ,  1.0,            0xFFFF,          0xFFFF,       0xFFFF             },
-    {LEVELID_BUNKER2_MP,  "Bunker 2 (MP)",         "Ump_setupsevbZ",           "bg/bg_sevb_all_p.seg", "Tbg_sevb_all_p_stanZ", "-ml0 -me0 -mgfx130 -mvtx100 -mt550 -ma170",  0.53931433,  1.0,            M_BUNKER2,       0xFFFF,       M_BUNKER2X         },
-    {LEVELID_ARCHIVES_MP, "Archives (MP)",         "Ump_setuparchZ",           "bg/bg_arch_all_p.seg", "Tbg_arch_all_p_stanZ", "-ml0 -me0 -mgfx80  -mvtx100 -mt550 -ma250",  0.50678575,  1.0,            M_ARCHIVES,      0xFFFF,       M_ARCHIVESX        },
-    {LEVELID_CAVERNS_MP,  "Caverns (MP)",          "Ump_setupcaveZ",           "bg/bg_cave_all_p.seg", "Tbg_cave_all_p_stanZ", "-ml0 -me0 -mgfx130 -mvtx100 -mt440 -ma220",  0.26824287,  1.0,            M_WATERCAVERNS,  0xFFFF,       M_ELEVATOR_WC      },
-    {LEVELID_FACILITY_MP, "Facility (MP)",         "Ump_setuparkZ",            "bg/bg_ark_all_p.seg",  "Tbg_ark_all_p_stanZ",  "-ml0 -me0 -mgfx90  -mvtx100 -mt550 -ma230",  1.20648,     1.0,            M_FACILITY,      0xFFFF,       M_FACILITYX        },
-    {LEVELID_EGYPT_MP,    "Egypt (MP)",            "Ump_setupcrypZ",           "bg/bg_cryp_all_p.seg", "Tbg_cryp_all_p_stanZ", "-ml0 -me0 -mgfx110 -mvtx100 -mt350 -ma400",  0.25608,     1.0,            M_EGYPTIAN,      0xFFFF,       M_EGYPTX           },
-    {LEVELID_DEFAULT,      NULL,                   NULL,                       NULL,                   NULL,                   "-ml0 -me0 -mgfx100 -mvtx50 -mt700 -ma400" ,  1.0,         1.0,            0xFFFF,          0xFFFF,       0xFFFF             },
+    {LEVELID_BUNKER1,     "Bunker 1",              "UsetupsevbunkerZ",         "bg/bg_sev_all_p.seg",  "Tbg_sev_all_p_stanZ",  g_LevelMemoryAllocationStrings[LEVEL_INDEX_SEVBUNKER],  0.53931433,  1.0,            M_BUNKER1,       0xFFFF,       M_BUNKER1X         },
+    {LEVELID_SILO,        "Silo",                  "UsetupsiloZ",              "bg/bg_silo_all_p.seg", "Tbg_silo_all_p_stanZ", g_LevelMemoryAllocationStrings[LEVEL_INDEX_SILO],  0.47256002,  1.0,            M_SILO,          0xFFFF,       M_SILOX            },
+    {LEVELID_STATUE,      "Statue",                "UsetupstatueZ",            "bg/bg_stat_all_p.seg", "Tbg_stat_all_p_stanZ", g_LevelMemoryAllocationStrings[LEVEL_INDEX_STATUE],  0.107202865, 1.0,            M_STATUE,        0xFFFF,       M_STATUEPART       },
+    {LEVELID_CONTROL,     "Control",               "UsetupcontrolZ",           "bg/bg_arec_all_p.seg", "Tbg_arec_all_p_stanZ", g_LevelMemoryAllocationStrings[LEVEL_INDEX_CONTROL],  0.49886572,  1.0,            M_CONTROL,       0xFFFF,       M_ELEVATOR_CONTROL },
+    {LEVELID_ARCHIVES,    "Archives",              "UsetuparchZ",              "bg/bg_arch_all_p.seg", "Tbg_arch_all_p_stanZ", g_LevelMemoryAllocationStrings[LEVEL_INDEX_ARCH],  0.50678575,  1.0,            M_ARCHIVES,      0xFFFF,       M_ARCHIVESX        },
+    {LEVELID_TRAIN,       "Train",                 "UsetuptraZ",               "bg/bg_tra_all_p.seg",  "Tbg_tra_all_p_stanZ",  g_LevelMemoryAllocationStrings[LEVEL_INDEX_TRA],  0.15019713,  1.0,            M_TRAIN,         0xFFFF,       M_TRAINX           },
+    {LEVELID_FRIGATE,     "Frigate",               "UsetupdestZ",              "bg/bg_dest_all_p.seg", "Tbg_dest_all_p_stanZ", g_LevelMemoryAllocationStrings[LEVEL_INDEX_DEST],  0.44757429,  1.0,            M_FRIGATE,       0xFFFF,       M_END_SOMETHING    },
+    {LEVELID_BUNKER2,     "Bunker 2",              "UsetupsevbZ",              "bg/bg_sevb_all_p.seg", "Tbg_sevb_all_p_stanZ", g_LevelMemoryAllocationStrings[LEVEL_INDEX_SEVB],  0.53931433,  1.0,            M_BUNKER2,       0xFFFF,       M_BUNKER2X         },
+    {LEVELID_AZTEC,       "Aztec",                 "UsetupaztZ",               "bg/bg_azt_all_p.seg",  "Tbg_azt_all_p_stanZ",  g_LevelMemoryAllocationStrings[LEVEL_INDEX_AZT],  0.35300568,  1.0,            M_AZTEC,         0xFFFF,       M_AZTECX           },
+    {LEVELID_STREETS,     "Streets",               "UsetuppeteZ",              "bg/bg_pete_all_p.seg", "Tbg_pete_all_p_stanZ", g_LevelMemoryAllocationStrings[LEVEL_INDEX_PETE],  0.34187999,  1.0,            M_STREETS,       0xFFFF,       M_STREETSX         },
+    {LEVELID_DEPOT,       "Depot",                 "UsetupdepoZ",              "bg/bg_depo_all_p.seg", "Tbg_depo_all_p_stanZ", g_LevelMemoryAllocationStrings[LEVEL_INDEX_DEPO],  0.21847887,  1.0,            M_DEPOT,         0xFFFF,       M_DEPOTX           },
+    {LEVELID_COMPLEX,     "Complex",               "UsetuprefZ",               "bg/bg_ref_all_p.seg",  "Tbg_ref_all_p_stanZ",  g_LevelMemoryAllocationStrings[LEVEL_INDEX_REF],  0.94285715,  1.0,            0xFFFF,          0xFFFF,       0xFFFF             },
+    {LEVELID_EGYPT,       "Egypt",                 "UsetupcrypZ",              "bg/bg_cryp_all_p.seg", "Tbg_cryp_all_p_stanZ", g_LevelMemoryAllocationStrings[LEVEL_INDEX_CRYP],  0.25608,     1.0,            M_EGYPTIAN,      0xFFFF,       M_EGYPTX           },
+    {LEVELID_DAM,         "Dam",                   "UsetupdamZ",               "bg/bg_dam_all_p.seg",  "Tbg_dam_all_p_stanZ",  g_LevelMemoryAllocationStrings[LEVEL_INDEX_DAM],  0.23363999,  0.2,            M_DAM,           0xFFFF,       M_WIND             },
+    {LEVELID_FACILITY,    "Facility",              "UsetuparkZ",               "bg/bg_ark_all_p.seg",  "Tbg_ark_all_p_stanZ",  g_LevelMemoryAllocationStrings[LEVEL_INDEX_ARK],  1.20648,     1.0,            M_FACILITY,      0xFFFF,       M_FACILITYX        },
+    {LEVELID_RUNWAY,      "Runway",                "UsetuprunZ",               "bg/bg_run_all_p.seg",  "Tbg_run_all_p_stanZ",  g_LevelMemoryAllocationStrings[LEVEL_INDEX_RUN],  0.089571431, 1.0,            M_RUNWAY,        0xFFFF,       M_RUNWAYPLANE      },
+    {LEVELID_SURFACE,     "Surface 1",             "UsetupsevxZ",              "bg/bg_sevx_all_p.seg", "Tbg_sevx_all_p_stanZ", g_LevelMemoryAllocationStrings[LEVEL_INDEX_SEVX],  0.45445713,  0.2,            M_SURFACE1,      0xFFFF,       M_WIND             },
+    {LEVELID_JUNGLE,      "Jungle",                "UsetupjunZ",               "bg/bg_jun_all_p.seg",  "Tbg_jun_all_p_stanZ",  g_LevelMemoryAllocationStrings[LEVEL_INDEX_JUN],  0.094662853, 1.0,            M_JUNGLE,        0xFFFF,       M_JUNGLEX          },
+    {LEVELID_TEMPLE,      "Temple",                "UsetupdishZ",              "bg/bg_dish_all_p.seg", "Tbg_dish_all_p_stanZ", g_LevelMemoryAllocationStrings[LEVEL_INDEX_DISH],  0.47142857,  1.0,            0xFFFF,          0xFFFF,       0xFFFF             },
+    {LEVELID_CAVERNS,     "Caverns",               "UsetupcaveZ",              "bg/bg_cave_all_p.seg", "Tbg_cave_all_p_stanZ", g_LevelMemoryAllocationStrings[LEVEL_INDEX_CAVE],  0.26824287,  1.0,            M_WATERCAVERNS,  0xFFFF,       M_ELEVATOR_WC      },
+    {LEVELID_CITADEL,     "Citadel",               "UsetupcatZ",               "bg/bg_cat_all_p.seg",  "Tbg_cat_all_p_stanZ",  g_LevelMemoryAllocationStrings[LEVEL_INDEX_CAT],  0.76852286,  1.0,            M_CITADEL,       0xFFFF,       0xFFFF             },
+    {LEVELID_CRADLE,      "Cradle",                "UsetupcradZ",              "bg/bg_crad_all_p.seg", "Tbg_crad_all_p_stanZ", g_LevelMemoryAllocationStrings[LEVEL_INDEX_CRAD],  0.23571429,  1.0,            M_CRADLE,        0xFFFF,       M_CRADLEX          },
+    {LEVELID_SURFACE2,    "Surface 2",             "UsetupsevxbZ",             "bg/bg_sevx_all_p.seg", "Tbg_sevx_all_p_stanZ", g_LevelMemoryAllocationStrings[LEVEL_INDEX_SEVXB] ,  0.45445713,  0.2,            M_SURFACE2,      M_WIND,       M_SURFACE2END      },
+    {LEVELID_BASEMENT,    "Basement",              "UsetupimpZ",               "bg/bg_ame_all_p.seg",  "Tbg_ame_all_p_stanZ",  g_LevelMemoryAllocationStrings[LEVEL_INDEX_IMP],  0.65999997,  1.0,            0xFFFF,          0xFFFF,       0xFFFF             },
+    {LEVELID_STACK,       "Stack",                 "UsetupashZ",               "bg/bg_ame_all_p.seg",  "Tbg_ame_all_p_stanZ",  g_LevelMemoryAllocationStrings[LEVEL_INDEX_ASH],  0.65999997,  1.0,            0xFFFF,          0xFFFF,       0xFFFF             },
+    {LEVELID_LIBRARY,     "Library",               "UsetupameZ",               "bg/bg_ame_all_p.seg",  "Tbg_ame_all_p_stanZ",  g_LevelMemoryAllocationStrings[LEVEL_INDEX_AME],  0.65999997,  1.0,            0xFFFF,          0xFFFF,       0xFFFF             },
+    {LEVELID_CAVES,       "Caves",                 "UsetupoatZ",               "bg/bg_oat_all_p.seg",  "Tbg_oat_all_p_stanZ",  g_LevelMemoryAllocationStrings[LEVEL_INDEX_OAT],  0.14142857,  1.0,            0xFFFF,          0xFFFF,       0xFFFF             },
+    {LEVELID_CUBA,        "Cuba",                  "UsetuplenZ",               "bg/bg_len_all_p.seg",  "Tbg_len_all_p_stanZ",  g_LevelMemoryAllocationStrings[LEVEL_INDEX_LEN] ,  0.094662853, 1.0,            M_CUBA,          0xFFFF,       0xFFFF             },
+    {LEVELID_TITLE,       "Title",                 NULL        ,               NULL                 ,  NULL                 ,  g_LevelMemoryAllocationStrings[LEVEL_INDEX_TITLE]  ,  1.0       ,  1.0,            0xFFFF,          0xFFFF,       0xFFFF             },
+    {LEVELID_BUNKER2_MP,  "Bunker 2 (MP)",         "Ump_setupsevbZ",           "bg/bg_sevb_all_p.seg", "Tbg_sevb_all_p_stanZ", g_LevelMemoryAllocationStrings[LEVEL_INDEX_BUNKER2_MP],  0.53931433,  1.0,            M_BUNKER2,       0xFFFF,       M_BUNKER2X         },
+    {LEVELID_ARCHIVES_MP, "Archives (MP)",         "Ump_setuparchZ",           "bg/bg_arch_all_p.seg", "Tbg_arch_all_p_stanZ", g_LevelMemoryAllocationStrings[LEVEL_INDEX_ARCHIVES_MP],  0.50678575,  1.0,            M_ARCHIVES,      0xFFFF,       M_ARCHIVESX        },
+    {LEVELID_CAVERNS_MP,  "Caverns (MP)",          "Ump_setupcaveZ",           "bg/bg_cave_all_p.seg", "Tbg_cave_all_p_stanZ", g_LevelMemoryAllocationStrings[LEVEL_INDEX_CAVERNS_MP],  0.26824287,  1.0,            M_WATERCAVERNS,  0xFFFF,       M_ELEVATOR_WC      },
+    {LEVELID_FACILITY_MP, "Facility (MP)",         "Ump_setuparkZ",            "bg/bg_ark_all_p.seg",  "Tbg_ark_all_p_stanZ",  g_LevelMemoryAllocationStrings[LEVEL_INDEX_FACILITY_MP],  1.20648,     1.0,            M_FACILITY,      0xFFFF,       M_FACILITYX        },
+    {LEVELID_EGYPT_MP,    "Egypt (MP)",            "Ump_setupcrypZ",           "bg/bg_cryp_all_p.seg", "Tbg_cryp_all_p_stanZ", g_LevelMemoryAllocationStrings[LEVEL_INDEX_EGYPT_MP],  0.25608,     1.0,            M_EGYPTIAN,      0xFFFF,       M_EGYPTX           },
+    {LEVELID_DEFAULT,      NULL,                   NULL,                       NULL,                   NULL,                   g_LevelMemoryAllocationStrings[LEVEL_INDEX_DEFAULT] ,  1.0,         1.0,            0xFFFF,          0xFFFF,       0xFFFF             },
     /* The placeholder must remain last. It is excluded for the GEditor. */
     {LEVELID_MAX,          NULL,                   NULL,                      "bg/bgx.seg",           "TbgxZ"                , NULL                                       ,  1.0,         1.0,            0xFFFF,          0xFFFF,       0xFFFF             },
 };
