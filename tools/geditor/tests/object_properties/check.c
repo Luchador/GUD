@@ -62,6 +62,10 @@ static void CheckSpecificEdit(const char *dir, const SetupFile *source,
     assert(SetupFileGetObjectProperties(&setup, edit.objectindex, &properties, &why));
     switch (edit.property)
     {
+    case SETUP_OBJECT_FADE_DISTANCES:
+        assert(properties.customfade == (edit.value2 > 0));
+        assert(fabs(properties.fadestart-edit.value)<=0.005 && fabs(properties.fadeend-edit.value2)<=0.005);
+        break;
     case SETUP_OBJECT_ARMOR_STRENGTH: assert(fabs(properties.armorstrength - edit.value) <= 50.0 / 65536.0); break;
     case SETUP_OBJECT_DOOR_KEY_FLAGS:
     case SETUP_OBJECT_KEY_FLAGS: assert(properties.keyflags == (DWORD)edit.value); break;
@@ -402,6 +406,46 @@ static void CheckArmor(const char *dir, const SetupFile *source)
     puts("PASS: armor strength fixed-point encoding, untouched runtime amount, persistence, no-ops, undo/redo and validation.");
 }
 
+static void CheckFade(const char *dir, const SetupFile *source)
+{
+    SetupFile setup={0}, before={0}; SetupObjectProperties view; const char *why; BOOL changed;
+    RomFile rom={0};
+    rom.info.entrycount=1;
+    rom.info.entries[0]=(RomManifestEntry){OBJECT_FADE_MANIFEST_KIND,0,0,OBJECT_FADE_VERSION};
+    assert(SetupValidateObjectFadeNative(source->data,source->size,NULL,&why));
+    /* Every ObjectRecord subtype uses the same encoding; no character bytes change. */
+    for(DWORD i=0;i<source->objectcount;i++)
+    {
+        SetupObjectPropertyEdit edit=Request(source,i,SETUP_OBJECT_FADE_DISTANCES,20.12);
+        edit.value2=25.34;
+        CheckSpecificEdit(dir,source,edit,OBJECT_FADE_TAG_OFFSET,8);
+    }
+    assert(SetupFileClone(source,&setup,&why));
+    DWORD index=FindType(&setup,PROPDEF_AUTOGUN);
+    SetupObjectPropertyEdit edit=Request(&setup,index,SETUP_OBJECT_FADE_DISTANCES,0);
+    edit.value2=655.35;
+    assert(SetupFileSetObjectProperty(&setup,&edit,&changed,&why) && changed);
+    assert(SetupFileGetObjectProperties(&setup,index,&view,&why) && view.customfade && view.fadestart==0 && view.fadeend==655.35);
+    assert(!SetupValidateObjectFadeNative(setup.data,setup.size,NULL,&why) && strstr(why,"Rebase"));
+    assert(SetupValidateObjectFadeNative(setup.data,setup.size,&rom,&why));
+    assert(SetupFileClone(&setup,&before,&why));
+    const double invalid[][2]={{-1,25},{20,NAN},{NAN,25},{20,INFINITY},{20,20},{25,20},{655,655.36},{0,0.001},{20.001,20.002}};
+    for(unsigned i=0;i<sizeof(invalid)/sizeof(*invalid);i++)
+    {
+        edit.value=invalid[i][0]; edit.value2=invalid[i][1];
+        assert(!SetupFileSetObjectProperty(&setup,&edit,&changed,&why) && !changed); Same(&setup,&before);
+    }
+    edit.value=edit.value2=0;
+    CheckSpecificEdit(dir,&setup,edit,OBJECT_FADE_TAG_OFFSET,8); /* Removing an override is undoable. */
+    assert(SetupFileSetObjectProperty(&setup,&edit,&changed,&why) && changed);
+    assert(!Read32(setup.data+edit.sourceoffset+OBJECT_FADE_TAG_OFFSET));
+    assert(!Read32(setup.data+edit.sourceoffset+OBJECT_FADE_DISTANCES_OFFSET));
+    assert(SetupValidateObjectFadeNative(setup.data,setup.size,NULL,&why));
+    assert(SetupFileSetObjectProperty(&setup,&edit,&changed,&why) && !changed);
+    SetupFileFree(&before); SetupFileFree(&setup);
+    puts("PASS: per-object fade pairs, all subtypes, centimetre limits, atomic validation, save/reopen, no-ops, undo/redo and runtime capability.");
+}
+
 int main(int argc, char **argv)
 {
     SetupFile source = {0}, setup = {0}; const char *why;
@@ -412,6 +456,7 @@ int main(int argc, char **argv)
     CheckCctv(argv[1], &source);
     CheckDrone(argv[1], &source);
     CheckArmor(argv[1], &source);
+    CheckFade(argv[1], &source);
     for (DWORD index = 0; index < source.objectcount; index++)
     {
         SetupObjectProperties view;

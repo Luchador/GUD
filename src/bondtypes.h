@@ -2167,7 +2167,10 @@ typedef union
         struct PropRecord *prev;                            /*0x24*/
         struct PropRecord *next;                            /*0x28*/
         u8                 rooms[PROPRECORD_STAN_ROOM_LEN]; /*0x2c*/
-        s32                unk30;
+        /* Object-only distance override in centimetres; end == 0 uses the
+         * environment screen-size fade. Reuses the unused word at 0x30. */
+        u16                objectFadeStart;                /*0x30*/
+        u16                objectFadeEnd;                  /*0x32*/
 
         // u16 unk38;         /*0x38* /
         // s16 unk3a;         /*0x3a* /

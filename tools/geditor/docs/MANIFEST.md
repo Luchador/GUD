@@ -20,7 +20,7 @@ and `MultiAmmoCrateRecord` contains twelve slots (176 bytes total). IDs after
 bump prevents older readers from misinterpreting these setup resources.
 Rebuild GUD and create a fresh project with the matching editor; old base ROMs
 and setup files are not compatible.
-There are currently 32 entries; the current GEditor accepts up to 32. The
+There are currently 33 entries; the current GEditor accepts up to 64. The
 16 new discovery entries below are optional to existing editor features.
 Readers must find entries by kind rather than position and bounds-check even
 unrecognized kinds. Changes to a catalog record layout require a new catalog
@@ -30,6 +30,11 @@ version; incompatible envelope changes require a new manifest version.
 It declares support for the `GEOC` bound-pad occluder format documented in
 [OCCLUDERS.md](OCCLUDERS.md). No ROM data range is associated with this entry.
 An editor must require this capability when exporting setups with occluders.
+
+`OFAD` is a capability entry with zero `romstart`/`romend` and `flags = 1`.
+It declares support for per-object camera-distance fades described in
+[OBJECT_FADE.md](OBJECT_FADE.md). Export and rebase require it only when
+setups contain tagged overrides; unmodified setups remain compatible.
 
 ## Existing entries
 

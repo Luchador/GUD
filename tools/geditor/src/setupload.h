@@ -9,6 +9,7 @@
 #include "../../../src/ammoconstants.h"
 #include "../../../src/doorconstants.h"
 #include "../../../src/occluderformat.h"
+#include "../../../src/objectfadeformat.h"
 
 /* Host-native views of the pad data parsed from the big-endian setup. */
 typedef struct SetupPad {
@@ -66,7 +67,7 @@ typedef enum SetupObjectProperty {
     SETUP_OBJECT_CCTV_SWEEP_MAX, SETUP_OBJECT_CCTV_SPEED, SETUP_OBJECT_CCTV_RANGE,
     SETUP_OBJECT_DRONE_AIM_PAD, SETUP_OBJECT_DRONE_YAW_MIN,
     SETUP_OBJECT_DRONE_YAW_MAX, SETUP_OBJECT_DRONE_SPEED, SETUP_OBJECT_DRONE_RANGE,
-    SETUP_OBJECT_ARMOR_STRENGTH
+    SETUP_OBJECT_ARMOR_STRENGTH, SETUP_OBJECT_FADE_DISTANCES
 } SetupObjectProperty;
 /* Movement uses native fractions/degrees/animation units per 60 Hz tick.
  * The inspector converts these to percentages/degrees and seconds. */
@@ -94,6 +95,8 @@ typedef struct SetupDroneProperties {
 typedef struct SetupObjectProperties {
     SetupObject object;
     double health;
+    BOOL customfade;
+    double fadestart, fadeend; /* Camera distances in metres; native values use centimetres. */
     double armorstrength; /* Percentage, decoded from BodyArmourRecord.initialamount. */
     DWORD keyflags, ammotype; /* keyflags: supplied by a key, required by a door */
     SetupDoorProperties door;
@@ -106,8 +109,14 @@ typedef struct SetupObjectPropertyEdit {
     unsigned char type;
     SetupObjectProperty property;
     double value;
+    double value2; /* Fade end distance for SETUP_OBJECT_FADE_DISTANCES; otherwise ignored. */
     DWORD slot; /* Zero-based multi-ammo slot; ignored by other properties. */
 } SetupObjectPropertyEdit;
+
+/* Validate tagged object distances and destination runtime support on export
+ * and rebase. Untagged setup records remain compatible with older runtimes. */
+BOOL SetupValidateObjectFadeNative(const unsigned char *data, DWORD size,
+                                 const RomFile *rom, const char **reasonout);
 
 /* GuardRecord uses a different layout from ObjectRecord. Keep its source
    values separate so prop editing cannot overwrite character commands. */

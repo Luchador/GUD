@@ -7,6 +7,7 @@
 #include "gedmanifest.h"
 #include "customprops.h"
 #include <occluderformat.h>
+#include <objectfadeformat.h>
 
 extern u8 _imagesSegmentRomStart[], _imagesSegmentRomEnd[];
 extern u8 _obsegSegmentRomStart[], _obsegSegmentRomEnd[];
@@ -34,7 +35,7 @@ extern u8 _gedCustomPropsRom[];
 #define GEDM_KIND(a, b, c, d) \
     (((u32)(a) << 24) | ((u32)(b) << 16) | ((u32)(c) << 8) | (u32)(d))
 
-#define GEDM_ENTRY_COUNT 32
+#define GEDM_ENTRY_COUNT 33
 
 /* A bounded, versioned descriptor. The native table's size comes from its
  * defining translation unit, avoiding duplicate hard-coded catalog counts. */
@@ -100,6 +101,7 @@ const GedManifest g_GedManifest = {
             (u32)_gedCustomPropsRom + sizeof(CustomPropRomConfig), CUSTOM_PROP_CONFIG_VERSION },
         { CUSTOM_PROP_DATA_KIND, 0, 0, CUSTOM_PROP_CONFIG_VERSION },
         { OCCLUDER_MANIFEST_KIND, 0, 0, OCCLUDER_VERSION },
+        { OBJECT_FADE_MANIFEST_KIND, 0, 0, OBJECT_FADE_VERSION },
         { GEDM_KIND('L','M','E','M'), (u32)_gedLevelMemoryRom,
             (u32)_gedLevelMemoryRom + sizeof(g_LevelMemoryAllocationStrings), LEVEL_MEMORY_STRING_SIZE },
     },

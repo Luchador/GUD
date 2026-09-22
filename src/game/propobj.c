@@ -8,7 +8,9 @@
 
 #include <ultra64.h>
 #include "occlusion.h"
+#include <objectfadeformat.h>
 #include <math.h>
+#include <string.h>
 #include <PR/libaudio.h>
 #include <assets/oddtextures.h>
 #include <bondgame.h>
@@ -568,6 +570,25 @@ void objUpdateCollisionVolume(ObjectRecord *obj)
 }
 
 
+/* Read authored words before placement replaces the object's matrix. */
+static void objInitFadeDistances(PropRecord *prop, const ObjectRecord *obj)
+{
+    u32 tag, distances, start, end;
+    prop->objectFadeStart = 0;
+    prop->objectFadeEnd = 0;
+    /* Copy integer bits; the packed payload may not represent a finite float. */
+    memcpy(&tag, &obj->mtx.m[1][0], sizeof(tag));
+    if (tag != OBJECT_FADE_TAG) { return; }
+    memcpy(&distances, &obj->mtx.m[1][1], sizeof(distances));
+    start = distances >> 16;
+    end = distances & 0xffff;
+    if (start < end)
+    {
+        prop->objectFadeStart = start;
+        prop->objectFadeEnd = end;
+    }
+}
+
 PropRecord* objInit(ObjectRecord* obj, ModelFileHeader* model_header, PropRecord* prop, Model* model)
 {
     if (prop == NULL)
@@ -589,6 +610,7 @@ PropRecord* objInit(ObjectRecord* obj, ModelFileHeader* model_header, PropRecord
 
     if ((prop != NULL) && (model != NULL))
     {
+        objInitFadeDistances(prop, obj);
         obj->model = model;
         obj->collisionBlock = NULL;
 
@@ -7241,6 +7263,25 @@ static s32 objCalcScreenFadeAlpha(PropRecord *prop, f32 diameter)
 }
 
 
+/* Linear fade over true camera distance in gameplay centimetres. Squared
+ * endpoint tests avoid a square root outside the transition band. Uses the
+ * active view, including cutscenes and each multiplayer viewport. */
+static s32 objCalcDistanceFadeAlpha(const PropRecord *prop)
+{
+    Mtxf *camera = currentPlayerGetViewToWorldMtxf();
+    f32 dx, dy, dz, distance2;
+    f32 start = prop->objectFadeStart;
+    f32 end = prop->objectFadeEnd;
+    if (!camera || end <= start) { return 255; }
+    dx = prop->pos.x - camera->m[3][0];
+    dy = prop->pos.y - camera->m[3][1];
+    dz = prop->pos.z - camera->m[3][2];
+    distance2 = dx * dx + dy * dy + dz * dz;
+    if (distance2 >= end * end) { return 0; }
+    if (distance2 <= start * start) { return 255; }
+    return (s32)(255.0f * (end - sqrtf(distance2)) / (end - start));
+}
+
 Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
 {
     struct rgba_f32 spB0;
@@ -7287,21 +7328,22 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
 
     if ((u8) obj->type != PROPDEF_TINTED_GLASS)
     {
-        modelSize = modelGetInstSize(obj->model);
-
         if (((s32) prop->timetoregen > 0) && ((s32) prop->timetoregen < CHROBJ_TIMETOREGEN))
         {
             objAlpha = (s32) (((CHROBJ_TIMETOREGEN_F - (f32) prop->timetoregen) / CHROBJ_TIMETOREGEN_F) * 255.0f);
         }
 
-        /* GUD screen-size fade (see objCalcScreenFadeAlpha above) */
-        objAlpha = (objAlpha * objCalcScreenFadeAlpha(prop, 2.0f * modelSize)) / 255;
-
-        if (objAlpha <= 0)
+        if (!prop->objectFadeEnd)
         {
-            return gdl;
+            modelSize = modelGetInstSize(obj->model);
+            objAlpha = (objAlpha * objCalcScreenFadeAlpha(prop, 2.0f * modelSize)) / 255;
         }
     }
+    /* A custom distance replaces screen-size fading for this object only.
+     * Keep regeneration, fog, shading and the normal alpha render passes. */
+    if (prop->objectFadeEnd)
+    { objAlpha = (objAlpha * objCalcDistanceFadeAlpha(prop)) / 255; }
+    if (objAlpha <= 0) { return gdl; }
 
     if ((objAlpha < 0xFF) || (obj->flags2 & PROPFLAG2_DISABLE_ZBUFFER))
     {

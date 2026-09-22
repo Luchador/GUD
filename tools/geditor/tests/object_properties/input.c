@@ -15,11 +15,15 @@ typedef struct { unsigned int message; WPARAM wParam; } MSG;
 enum { WM_KEYDOWN = 1, EM_EMPTYUNDOBUFFER, EM_CANUNDO, WM_UNDO,
        OBJECTPROPERTIES_WM_CHANGED, VK_CONTROL, VK_RETURN, VK_ESCAPE,
        CB_RESETCONTENT, CB_GETCOUNT, CB_ADDSTRING, CB_SETITEMDATA, CB_GETITEMDATA,
-       CB_SETCURSEL, CB_GETCURSEL };
+       CB_SETCURSEL, CB_GETCURSEL, BM_GETCHECK, BM_SETCHECK };
+#define BST_CHECKED 1
+#define BST_UNCHECKED 0
 #define min(a,b) ((a) < (b) ? (a) : (b))
 #include "input-types.inc"
 static ObjectPropertiesState state;
 static char text[64], status[256];
+static char fadeText[2][64];
+static BOOL fadeChecked, fadeEnabled[OBJECT_CONTROL_COUNT];
 static HWND focus;
 static int commits, textundos;
 static BOOL control, canundo, reject;
@@ -29,8 +33,14 @@ static ObjectPropertiesState *ObjectPropertiesGetState(HWND hwnd) { return &stat
 static HWND GetFocus(void) { return focus; }
 static HWND GetParent(HWND hwnd) { return 1; }
 static short GetKeyState(int key) { return control ? (short)0x8000 : 0; }
-static void GetWindowText(HWND hwnd, char *out, size_t size) { snprintf(out, size, "%s", text); }
-static void SetWindowText(HWND hwnd, const char *value) { snprintf(text, sizeof(text), "%s", value); }
+static int FadeField(HWND hwnd)
+{ return hwnd==state.controls[OBJECT_FADE_START] ? 0 : hwnd==state.controls[OBJECT_FADE_END] ? 1 : -1; }
+static void GetWindowText(HWND hwnd, char *out, size_t size)
+{ int f=FadeField(hwnd); snprintf(out, size, "%s", f>=0 ? fadeText[f] : text); }
+static void SetWindowText(HWND hwnd, const char *value)
+{ int f=FadeField(hwnd); if(f>=0) { snprintf(fadeText[f],64,"%s",value); } else { snprintf(text,sizeof(text),"%s",value); } }
+static void EnableWindow(HWND hwnd, BOOL enabled)
+{ for(int i=0;i<OBJECT_CONTROL_COUNT;i++) if(hwnd==state.controls[i]) { fadeEnabled[i]=enabled; } }
 static void ObjectPropertiesStatus(HWND hwnd, ObjectPropertiesState *s, const char *value)
 { snprintf(status, sizeof(status), "%s", value); }
 static LRESULT SendMessage(HWND hwnd, unsigned int msg, WPARAM wparam, LPARAM lparam);
@@ -38,6 +48,8 @@ static LRESULT SendMessage(HWND hwnd, unsigned int msg, WPARAM wparam, LPARAM lp
 
 static LRESULT SendMessage(HWND hwnd, unsigned int msg, WPARAM wparam, LPARAM lparam)
 {
+    if(msg==BM_GETCHECK) { return fadeChecked ? BST_CHECKED : BST_UNCHECKED; }
+    if(msg==BM_SETCHECK) { fadeChecked=wparam==BST_CHECKED; return 0; }
     if (hwnd == state.controls[OBJECT_AIM_PAD] && msg >= CB_RESETCONTENT && msg <= CB_GETCURSEL)
     {
         switch (msg)
@@ -69,8 +81,15 @@ static LRESULT SendMessage(HWND hwnd, unsigned int msg, WPARAM wparam, LPARAM lp
     for (int field = 0; field < OBJECT_DOOR_FIELD_COUNT; field++) { ObjectPropertiesApplyDoor(0, &state, field); }
     for (int field = 0; field < OBJECT_AIM_FIELD_COUNT; field++) { ObjectPropertiesApplyAim(0, &state, field); }
     ObjectPropertiesApplyAimPad(0, &state);
+    ObjectPropertiesApplyFade(0, &state);
     if (reject) { return FALSE; }
-    if (edit->property == SETUP_OBJECT_KEY_FLAGS || edit->property == SETUP_OBJECT_DOOR_KEY_FLAGS) { state.properties.keyflags = (DWORD)edit->value; }
+    if (edit->property == SETUP_OBJECT_FADE_DISTANCES)
+    {
+        state.properties.customfade=edit->value2>0;
+        state.properties.fadestart=round(edit->value*100)/100;
+        state.properties.fadeend=round(edit->value2*100)/100;
+    }
+    else if (edit->property == SETUP_OBJECT_KEY_FLAGS || edit->property == SETUP_OBJECT_DOOR_KEY_FLAGS) { state.properties.keyflags = (DWORD)edit->value; }
     else if (edit->property == SETUP_OBJECT_ARMOR_STRENGTH)
     { state.properties.armorstrength = floor(edit->value * (65536.0 / 100.0) + 0.5) * (100.0 / 65536.0); }
     else if (edit->property == SETUP_OBJECT_AMMO_QUANTITY)
@@ -129,6 +148,34 @@ static void Type(const char *value)
 { snprintf(text, sizeof(text), "%s", value); state.edited = TRUE; canundo = TRUE; }
 static BOOL Key(WPARAM key)
 { MSG msg = {WM_KEYDOWN, key}; return ObjectPropertiesHandleMessage(0, &msg); }
+
+static void CheckFade(void)
+{
+    state.properties.object.type=PROPDEF_AUTOGUN;
+    state.properties.customfade=FALSE;
+    ObjectPropertiesResetFade(&state);
+    assert(!fadeChecked && !fadeEnabled[OBJECT_FADE_START] && !fadeEnabled[OBJECT_FADE_APPLY]);
+    assert(!strcmp(fadeText[0],"20.00") && !strcmp(fadeText[1],"25.00"));
+    fadeChecked=TRUE; state.fadeedited=TRUE; ObjectPropertiesEnableFade(&state);
+    assert(fadeEnabled[OBJECT_FADE_START] && fadeEnabled[OBJECT_FADE_END] && fadeEnabled[OBJECT_FADE_APPLY]);
+    strcpy(fadeText[0],"30"); strcpy(fadeText[1],"25");
+    focus=state.controls[OBJECT_FADE_START]; int before=commits;
+    assert(Key(VK_RETURN) && commits==before && state.fadeedited); /* Retain incomplete pair. */
+    strcpy(fadeText[1],"40.25");
+    assert(Key(VK_RETURN) && commits==before+1 && !state.fadeedited);
+    assert(state.properties.customfade && state.properties.fadestart==30 && state.properties.fadeend==40.25);
+    state.fadeedited=TRUE; strcpy(fadeText[0],"nan");
+    assert(Key(VK_RETURN) && commits==before+1 && state.fadeedited);
+    focus=state.controls[OBJECT_FADE_END]; assert(Key(VK_ESCAPE) && !state.fadeedited);
+    assert(!strcmp(fadeText[0],"30.00") && !strcmp(fadeText[1],"40.25"));
+    fadeChecked=FALSE; state.fadeedited=TRUE; ObjectPropertiesApplyFade(0,&state);
+    assert(commits==before+2 && !state.properties.customfade && !fadeEnabled[OBJECT_FADE_START]);
+    double value;
+    assert(ObjectPropertiesParseFade(" 655.35 ",&value) && value==655.35);
+    assert(!ObjectPropertiesParseFade("655.36",&value) && !ObjectPropertiesParseFade("-1",&value));
+    assert(!ObjectPropertiesParseFade("",&value) && !ObjectPropertiesParseFade("12m",&value));
+    puts("PASS: fade input pairs, enable/default state, validation, Enter/Apply, Escape and reentrant commits.");
+}
 
 static void CheckContents(void)
 {
@@ -360,6 +407,7 @@ static void CheckArmor(void)
 
 int main(void)
 {
+    for (int i=0;i<OBJECT_CONTROL_COUNT;i++) { state.controls[i]=1000+i; }
     CheckContents();
     double value;
     const char *invalid[] = {"", " ", "-1", "nan", "inf", "1e999", "12 units", "3 + 4", "32768"};
@@ -480,5 +528,6 @@ int main(void)
     CheckCctv();
     CheckDrone();
     CheckArmor();
+    CheckFade();
     return 0;
 }

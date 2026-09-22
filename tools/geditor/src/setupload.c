@@ -1040,6 +1040,41 @@ static BOOL SetupTypeCreatesObject(unsigned char type)
     return FALSE;
 }
 
+BOOL SetupValidateObjectFadeNative(const unsigned char *data, DWORD size,
+                                 const RomFile *rom, const char **reasonout)
+{
+    DWORD at;
+    BOOL supported = FALSE;
+    *reasonout = "Invalid object list while checking fade distances.";
+    if (!data || size < SETUP_HEADER_SIZE) { return FALSE; }
+    at = SetupRead32(data + SETUP_OBJECT_POINTER);
+    if (!at) { *reasonout = ""; return TRUE; }
+    if (at < SETUP_HEADER_SIZE || (at & 3)) { return FALSE; }
+    for (DWORD i = 0; rom && i < rom->info.entrycount; i++)
+    {
+        const RomManifestEntry *entry = &rom->info.entries[i];
+        if (entry->kind == OBJECT_FADE_MANIFEST_KIND && entry->flags == OBJECT_FADE_VERSION) { supported = TRUE; }
+    }
+    for (DWORD command = 0; command < SETUP_OBJECT_MAX; command++)
+    {
+        if (at > size || size - at < 4) { return FALSE; }
+        unsigned char type = data[at + 3];
+        if (type == SETUP_PROP_END) { *reasonout = ""; return TRUE; }
+        DWORD bytes = SetupObjectWordCount(type) * 4;
+        if (bytes > size - at) { return FALSE; }
+        if (SetupTypeCreatesObject(type) && SetupRead32(data + at + OBJECT_FADE_TAG_OFFSET) == OBJECT_FADE_TAG)
+        {
+            DWORD distances = SetupRead32(data + at + OBJECT_FADE_DISTANCES_OFFSET);
+            if ((distances >> 16) >= (distances & 0xffffu))
+            { *reasonout = "An object has invalid fade distances. Fade end must be greater than fade start."; return FALSE; }
+            if (!supported)
+            { *reasonout = "This setup has custom object fade distances. Rebase onto a GUD ROM with object fade support before exporting."; return FALSE; }
+        }
+        at += bytes;
+    }
+    return FALSE;
+}
+
 static BOOL SetupParseObjects(SetupFile *setup, const char **reasonout)
 {
     DWORD offset;
@@ -4604,6 +4639,13 @@ BOOL SetupFileGetObjectProperties(const SetupFile *setup, DWORD index,
     memset(out, 0, sizeof(*out));
     out->object = setup->objects[index];
     out->health = (LONG)SetupRead32(record + 0x74) / 65536.0;
+    out->customfade = SetupRead32(record + OBJECT_FADE_TAG_OFFSET) == OBJECT_FADE_TAG;
+    if (out->customfade)
+    {
+        DWORD distances = SetupRead32(record + OBJECT_FADE_DISTANCES_OFFSET);
+        out->fadestart = (distances >> 16) / 100.0;
+        out->fadeend = (distances & 0xffffu) / 100.0;
+    }
     if (out->object.type == PROPDEF_ARMOUR)
     { out->armorstrength = (LONG)SetupRead32(record + 0x80) * (100.0 / 65536.0); }
     if (out->object.type == PROPDEF_CCTV)
@@ -4709,6 +4751,25 @@ BOOL SetupFileSetObjectProperty(SetupFile *setup, const SetupObjectPropertyEdit 
     { *reasonout = "Drone gun settings can only be edited on a drone gun."; return FALSE; }
     switch (edit->property)
     {
+    case SETUP_OBJECT_FADE_DISTANCES:
+    {
+        DWORD start, end;
+        if (!isfinite(edit->value2) || edit->value < 0 || edit->value2 < 0
+            || edit->value > OBJECT_FADE_MAX_CM / 100.0 || edit->value2 > OBJECT_FADE_MAX_CM / 100.0)
+        { *reasonout = "Fade distances must be between 0 and 655.35 metres."; return FALSE; }
+        start = (DWORD)floor(edit->value * 100.0 + 0.5);
+        end = (DWORD)floor(edit->value2 * 100.0 + 0.5);
+        BOOL clear = edit->value == 0 && edit->value2 == 0;
+        if (!clear && start >= end)
+        { *reasonout = "Fade end must be at least 0.01 metres beyond fade start."; return FALSE; }
+        previous = SetupRead32(record + OBJECT_FADE_TAG_OFFSET);
+        encoded = (start << 16) | end;
+        if ((clear && previous != OBJECT_FADE_TAG) || (!clear && previous == OBJECT_FADE_TAG
+            && encoded == SetupRead32(record + OBJECT_FADE_DISTANCES_OFFSET))) { return TRUE; }
+        SetupWrite32(setup->data + edit->sourceoffset + OBJECT_FADE_TAG_OFFSET, clear ? 0 : OBJECT_FADE_TAG);
+        SetupWrite32(setup->data + edit->sourceoffset + OBJECT_FADE_DISTANCES_OFFSET, encoded);
+        break;
+    }
     case SETUP_OBJECT_ARMOR_STRENGTH:
         if (record[3] != PROPDEF_ARMOUR)
         { *reasonout = "Armor strength can only be edited on an armor pickup."; return FALSE; }

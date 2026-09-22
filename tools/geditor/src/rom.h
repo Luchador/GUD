@@ -9,7 +9,7 @@ static inline BOOL RomScaleIsValid(float scale)
 { return isfinite(scale) && scale > 0.0f && isfinite(1.0f / scale); }
 
 
-#define ROM_MAX_ENTRIES 32
+#define ROM_MAX_ENTRIES 64
 #define ROM_MAX_LEVELS  64
 #define ROM_LEVEL_ROW_SIZE 40u
 #define ROM_LEVEL_ROW_LEGACY_SIZE 36u

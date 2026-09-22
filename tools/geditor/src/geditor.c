@@ -4780,6 +4780,7 @@ static BOOL GEditorSetObjectProperty(HWND hwnd, const SetupObjectPropertyEdit *e
     case SETUP_OBJECT_MODEL: action = "Change Object Model"; break;
     case SETUP_OBJECT_HEALTH: action = "Change Object Health"; break;
     case SETUP_OBJECT_ARMOR_STRENGTH: action = "Change Armor Strength"; break;
+    case SETUP_OBJECT_FADE_DISTANCES: action = "Change Object Fade Distances"; break;
     case SETUP_OBJECT_KEY_FLAGS: action = "Change Key Unlock Flags"; break;
     case SETUP_OBJECT_AMMO_TYPE: action = "Change Ammo Type"; break;
     case SETUP_OBJECT_AMMO_QUANTITY: action = "Change Ammo Quantity"; break;

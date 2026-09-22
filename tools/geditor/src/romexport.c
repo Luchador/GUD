@@ -1316,7 +1316,8 @@ have_replacement:
             }
             if (!SetupCompactNative(source, size, &packed, &packedsize, reasonout)) { goto fail; }
         }
-        if (!OccludersValidateNative(packed, packedsize, featureRom ? featureRom : rom, reasonout))
+        if (!OccludersValidateNative(packed, packedsize, featureRom ? featureRom : rom, reasonout)
+            || !SetupValidateObjectFadeNative(packed, packedsize, featureRom ? featureRom : rom, reasonout))
         { free(packed); goto fail; }
         free(slot->replacement);
         slot->replacement = packed;

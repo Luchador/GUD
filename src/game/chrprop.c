@@ -279,6 +279,8 @@ PropRecord* chrpropAllocate(void)
         prop->flags = 0;
         prop->stan = NULL;
         prop->timetoregen = 0;
+        prop->objectFadeStart = 0;
+        prop->objectFadeEnd = 0;
         prop->rooms[0] = 0xFF;
         return prop;
     }

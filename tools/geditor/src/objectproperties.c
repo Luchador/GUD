@@ -19,6 +19,8 @@
 #define OBJECT_AIM_FIELD_COUNT 4
 enum { OBJECT_TYPE, OBJECT_MODEL_LABEL, OBJECT_MODEL, OBJECT_MODEL_HELP,
        OBJECT_HEALTH_LABEL, OBJECT_HEALTH, OBJECT_HEALTH_HELP,
+       OBJECT_FADE_ENABLED, OBJECT_FADE_START_LABEL, OBJECT_FADE_START,
+       OBJECT_FADE_END_LABEL, OBJECT_FADE_END, OBJECT_FADE_APPLY, OBJECT_FADE_HELP,
        OBJECT_ARMOR_LABEL, OBJECT_ARMOR, OBJECT_ARMOR_HELP,
        OBJECT_AIM_PAD_LABEL, OBJECT_AIM_PAD, OBJECT_AIM_PAD_HELP,
        OBJECT_AIM_FIRST, OBJECT_AIM_LAST = OBJECT_AIM_FIRST + OBJECT_AIM_FIELD_COUNT * 3 - 1,
@@ -53,6 +55,7 @@ typedef struct ObjectPropertiesState {
     SetupObjectProperties properties;
     BOOL selected, updating, edited, committing;
     BOOL keyedited, quantityedited, armoredited, multiplayer;
+    BOOL fadeedited;
     BOOL dooredited[OBJECT_DOOR_FIELD_COUNT];
     BOOL aimedited[OBJECT_AIM_FIELD_COUNT];
     DWORD aimpadcount, aimboundpadcount;
@@ -249,10 +252,12 @@ static BOOL ObjectPropertiesIsCombo(int id)
 { return id == OBJECT_MODEL || id == OBJECT_AMMO_TYPE || id == OBJECT_DOOR_TYPE || id == OBJECT_DOOR_SOUND || id == OBJECT_AIM_PAD; }
 static BOOL ObjectPropertiesIsEdit(int id)
 { return id == OBJECT_HEALTH || id == OBJECT_ARMOR || id == OBJECT_KEY_MASK || id == OBJECT_QUANTITY
+    || id == OBJECT_FADE_START || id == OBJECT_FADE_END
     || ObjectPropertiesDoorField(id) >= 0 || ObjectPropertiesAimField(id) >= 0; }
 static BOOL ObjectPropertiesControlVisible(const ObjectPropertiesState *state, int id)
 {
     unsigned char type = state->properties.object.type;
+    if (id >= OBJECT_FADE_ENABLED && id <= OBJECT_FADE_HELP) { return state->selected; }
     if (id >= OBJECT_ARMOR_LABEL && id <= OBJECT_ARMOR_HELP) { return state->selected && type == PROPDEF_ARMOUR; }
     if (id >= OBJECT_AIM_PAD_LABEL && id <= OBJECT_AIM_LAST) { return state->selected && ObjectPropertiesHasAim(type); }
     if (id >= OBJECT_KEY_LABEL && id <= OBJECT_KEY_LAST) { return state->selected && (type == PROPDEF_KEY || type == PROPDEF_DOOR); }
@@ -286,9 +291,9 @@ static void ObjectPropertiesLayout(HWND hwnd, ObjectPropertiesState *state)
             if (column == 3) { y += height; }
             continue;
         }
-        if (!ObjectPropertiesIsCombo(i) && !ObjectPropertiesIsEdit(i))
+        if (!ObjectPropertiesIsCombo(i) && !ObjectPropertiesIsEdit(i) && i != OBJECT_FADE_APPLY)
         {
-            BOOL checkbox = i >= OBJECT_DOOR_FLAG_FIRST && i <= OBJECT_DOOR_FLAG_LAST;
+            BOOL checkbox = i == OBJECT_FADE_ENABLED || (i >= OBJECT_DOOR_FLAG_FIRST && i <= OBJECT_DOOR_FLAG_LAST);
             char text[OBJECT_CONTENTS_TEXT_MAX]; RECT rect = {0, 0, max(1, width - (checkbox ? 20 : 0)), 0};
             GetWindowText(state->controls[i], text, sizeof(text));
             DrawText(dc, text, -1, &rect, DT_CALCRECT | DT_WORDBREAK | DT_NOPREFIX);
@@ -371,6 +376,65 @@ static void ObjectPropertiesApply(HWND hwnd, ObjectPropertiesState *state,
     state->committing = TRUE;
     SendMessage(GetParent(hwnd), OBJECTPROPERTIES_WM_CHANGED, 0, (LPARAM)&edit);
     state->committing = FALSE;
+}
+
+static void ObjectPropertiesEnableFade(ObjectPropertiesState *state)
+{
+    BOOL enabled = state->selected && SendMessage(state->controls[OBJECT_FADE_ENABLED], BM_GETCHECK, 0, 0) == BST_CHECKED;
+    EnableWindow(state->controls[OBJECT_FADE_START], enabled);
+    EnableWindow(state->controls[OBJECT_FADE_END], enabled);
+    EnableWindow(state->controls[OBJECT_FADE_APPLY], state->selected && state->fadeedited);
+}
+
+static void ObjectPropertiesResetFade(ObjectPropertiesState *state)
+{
+    char text[64];
+    BOOL enabled = state->selected && state->properties.customfade;
+    state->updating = TRUE;
+    SendMessage(state->controls[OBJECT_FADE_ENABLED], BM_SETCHECK, enabled ? BST_CHECKED : BST_UNCHECKED, 0);
+    snprintf(text, sizeof(text), "%.2f", enabled ? state->properties.fadestart : 20.0);
+    SetWindowText(state->controls[OBJECT_FADE_START], text);
+    snprintf(text, sizeof(text), "%.2f", enabled ? state->properties.fadeend : 25.0);
+    SetWindowText(state->controls[OBJECT_FADE_END], text);
+    SendMessage(state->controls[OBJECT_FADE_START], EM_EMPTYUNDOBUFFER, 0, 0);
+    SendMessage(state->controls[OBJECT_FADE_END], EM_EMPTYUNDOBUFFER, 0, 0);
+    state->fadeedited = FALSE;
+    state->updating = FALSE;
+    ObjectPropertiesEnableFade(state);
+}
+
+static BOOL ObjectPropertiesParseFade(const char *text, double *value)
+{
+    char *end;
+    errno = 0; *value = strtod(text, &end);
+    if (end == text || errno || !isfinite(*value)) { return FALSE; }
+    while (isspace((unsigned char)*end)) { end++; }
+    return !*end && *value >= 0 && *value <= OBJECT_FADE_MAX_CM / 100.0;
+}
+
+/* Commit the pair together so either endpoint can be typed first. */
+static void ObjectPropertiesApplyFade(HWND hwnd, ObjectPropertiesState *state)
+{
+    SetupObjectPropertyEdit edit = {0};
+    char start[64], end[64];
+    if (!state->selected || state->updating || state->committing || !state->fadeedited) { return; }
+    if (SendMessage(state->controls[OBJECT_FADE_ENABLED], BM_GETCHECK, 0, 0) == BST_CHECKED)
+    {
+        GetWindowText(state->controls[OBJECT_FADE_START], start, sizeof(start));
+        GetWindowText(state->controls[OBJECT_FADE_END], end, sizeof(end));
+        if (!ObjectPropertiesParseFade(start, &edit.value) || !ObjectPropertiesParseFade(end, &edit.value2)
+            || floor(edit.value * 100.0 + 0.5) >= floor(edit.value2 * 100.0 + 0.5))
+        {
+            ObjectPropertiesStatus(hwnd, state, "Use distances from 0 to 655.35 m, with fade end at least 0.01 m beyond fade start. Then Apply fade distances.");
+            return;
+        }
+    }
+    edit.objectindex = state->objectindex; edit.sourceoffset = state->properties.object.sourceoffset;
+    edit.type = state->properties.object.type; edit.property = SETUP_OBJECT_FADE_DISTANCES;
+    state->committing = TRUE;
+    SendMessage(GetParent(hwnd), OBJECTPROPERTIES_WM_CHANGED, 0, (LPARAM)&edit);
+    state->committing = FALSE;
+    ObjectPropertiesResetFade(state);
 }
 
 static BOOL ObjectPropertiesParseAim(const ObjectPropertiesState *state, int field, const char *text, double *value)
@@ -803,12 +867,13 @@ static LRESULT CALLBACK ObjectPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
         for (int i = 0; i < OBJECT_CONTROL_COUNT; i++)
         {
             BOOL combo = ObjectPropertiesIsCombo(i), edit = ObjectPropertiesIsEdit(i);
-            BOOL key = (i >= OBJECT_KEY_FIRST && i <= OBJECT_KEY_LAST)
+            BOOL key = i == OBJECT_FADE_ENABLED || (i >= OBJECT_KEY_FIRST && i <= OBJECT_KEY_LAST)
                 || (i >= OBJECT_DOOR_FLAG_FIRST && i <= OBJECT_DOOR_FLAG_LAST);
             state->controls[i] = CreateWindowEx(edit ? WS_EX_CLIENTEDGE : 0,
-                combo ? "COMBOBOX" : edit ? "EDIT" : key ? "BUTTON" : "STATIC", "",
+                combo ? "COMBOBOX" : edit ? "EDIT" : key || i == OBJECT_FADE_APPLY ? "BUTTON" : "STATIC", "",
                 WS_CHILD | WS_VISIBLE | (combo ? WS_TABSTOP | CBS_DROPDOWNLIST | WS_VSCROLL
-                    : edit ? WS_TABSTOP | ES_AUTOHSCROLL : key ? WS_TABSTOP | BS_AUTOCHECKBOX | BS_MULTILINE : SS_NOPREFIX),
+                    : edit ? WS_TABSTOP | ES_AUTOHSCROLL : key ? WS_TABSTOP | BS_AUTOCHECKBOX | BS_MULTILINE
+                    : i == OBJECT_FADE_APPLY ? WS_TABSTOP | BS_PUSHBUTTON : SS_NOPREFIX),
                 0, 0, 1, 1, hwnd, (HMENU)(INT_PTR)(100 + i), cs->hInstance, NULL);
             if (!state->controls[i]) { return -1; }
             SendMessage(state->controls[i], WM_SETFONT, (WPARAM)font, FALSE);
@@ -824,6 +889,11 @@ static LRESULT CALLBACK ObjectPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
             if (ObjectPropertiesIsEdit(i)) { SendMessage(state->controls[i], EM_SETLIMITTEXT, 63, 0); }
         }
         SetWindowText(state->controls[OBJECT_ARMOR_LABEL], "Armor strength (%)");
+        SetWindowText(state->controls[OBJECT_FADE_ENABLED], "Use custom fade distances");
+        SetWindowText(state->controls[OBJECT_FADE_START_LABEL], "Fade start (m)");
+        SetWindowText(state->controls[OBJECT_FADE_END_LABEL], "Fade end (m)");
+        SetWindowText(state->controls[OBJECT_FADE_APPLY], "Apply fade distances");
+        SetWindowText(state->controls[OBJECT_FADE_HELP], "Distance from the camera. Fully visible through start, invisible at end. Uncheck and Apply to use the level's screen-size fade.");
         SetWindowText(state->controls[OBJECT_DOOR_TYPE_LABEL], "Door movement");
         SetWindowText(state->controls[OBJECT_DOOR_SOUND_LABEL], "Door sounds");
         SetWindowText(state->controls[OBJECT_DOOR_SOUND_HELP], "Preset for opening, moving and closing sounds.");
@@ -859,6 +929,14 @@ static LRESULT CALLBACK ObjectPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
         return 0;
     case WM_COMMAND:
         if (!state || state->updating) { return 0; }
+        if (((HWND)lparam == state->controls[OBJECT_FADE_ENABLED] && HIWORD(wparam) == BN_CLICKED)
+            || (((HWND)lparam == state->controls[OBJECT_FADE_START] || (HWND)lparam == state->controls[OBJECT_FADE_END])
+                && HIWORD(wparam) == EN_CHANGE))
+        { state->fadeedited = TRUE; ObjectPropertiesEnableFade(state); }
+        if ((HWND)lparam == state->controls[OBJECT_FADE_APPLY] && HIWORD(wparam) == BN_CLICKED)
+        { ObjectPropertiesApplyFade(hwnd, state); }
+        if (((HWND)lparam == state->controls[OBJECT_FADE_START] || (HWND)lparam == state->controls[OBJECT_FADE_END])
+            && HIWORD(wparam) == EN_SETFOCUS) { ObjectPropertiesRevealControl(hwnd, state, (HWND)lparam); }
         if ((HWND)lparam == state->controls[OBJECT_HEALTH])
         {
             if (HIWORD(wparam) == EN_CHANGE) { state->edited = TRUE; }
@@ -1016,6 +1094,7 @@ BOOL ObjectPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD inde
         memset(state->aimedited, 0, sizeof(state->aimedited));
         ObjectPropertiesResetHealth(state);
         ObjectPropertiesResetArmor(state);
+        ObjectPropertiesResetFade(state);
         return FALSE;
     }
     same = state->selected && state->objectindex == index && state->document == (ULONG_PTR)setup->data
@@ -1033,6 +1112,9 @@ BOOL ObjectPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD inde
     { state->quantityedited = FALSE; }
     if (state->properties.health != properties.health) { state->edited = FALSE; }
     if (state->properties.armorstrength != properties.armorstrength) { state->armoredited = FALSE; }
+    if (!same || state->properties.customfade != properties.customfade
+        || state->properties.fadestart != properties.fadestart || state->properties.fadeend != properties.fadeend)
+    { state->fadeedited = FALSE; }
     for (int field = 0; field < OBJECT_AIM_FIELD_COUNT; field++)
     {
         if (!same || ObjectPropertiesAimValue(&state->properties, field) != ObjectPropertiesAimValue(&properties, field))
@@ -1076,6 +1158,7 @@ BOOL ObjectPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD inde
         : "Choose the flags this key supplies. Doors require all their flags, which can come from several keys. Numbers below are flag positions, not door IDs.");
     if (!state->edited) { ObjectPropertiesResetHealth(state); }
     if (!state->armoredited) { ObjectPropertiesResetArmor(state); }
+    if (!state->fadeedited) { ObjectPropertiesResetFade(state); }
     if (!state->keyedited) { ObjectPropertiesResetExtra(state, OBJECT_KEY_MASK); }
     state->updating = TRUE;
     for (int bit = 0; bit < 32; bit++)
@@ -1115,7 +1198,7 @@ BOOL ObjectPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD inde
     snprintf(text, sizeof(text), "Object index: %lu\r\n%s\r\nExtra scale: %.6g",
         (unsigned long)index, placement, properties.object.extrascale / 256.0);
     SetWindowText(state->controls[OBJECT_IDENTITY], text);
-    if (!state->edited && !state->keyedited && !state->quantityedited && !state->armoredited
+    if (!state->edited && !state->keyedited && !state->quantityedited && !state->armoredited && !state->fadeedited
         && !ObjectPropertiesDoorPending(state) && !ObjectPropertiesAimPending(state))
     { SetWindowText(state->controls[OBJECT_STATUS], "Enter or leave a field to apply. Escape cancels typing."); }
     ObjectPropertiesLayout(panel, state);
@@ -1135,6 +1218,7 @@ BOOL ObjectPropertiesHandleMessage(HWND panel, MSG *message)
     {
         if (id == OBJECT_HEALTH) { ObjectPropertiesApplyHealth(panel, state); }
         else if (id == OBJECT_ARMOR) { ObjectPropertiesApplyArmor(panel, state); }
+        else if (id == OBJECT_FADE_START || id == OBJECT_FADE_END) { ObjectPropertiesApplyFade(panel, state); }
         else if (ObjectPropertiesAimField(id) >= 0) { ObjectPropertiesApplyAim(panel, state, ObjectPropertiesAimField(id)); }
         else if (ObjectPropertiesDoorField(id) >= 0) { ObjectPropertiesApplyDoor(panel, state, ObjectPropertiesDoorField(id)); }
         else { ObjectPropertiesApplyExtra(panel, state, id); }
@@ -1144,6 +1228,7 @@ BOOL ObjectPropertiesHandleMessage(HWND panel, MSG *message)
     {
         if (id == OBJECT_HEALTH) { ObjectPropertiesResetHealth(state); }
         else if (id == OBJECT_ARMOR) { ObjectPropertiesResetArmor(state); }
+        else if (id == OBJECT_FADE_START || id == OBJECT_FADE_END) { ObjectPropertiesResetFade(state); }
         else if (ObjectPropertiesAimField(id) >= 0) { ObjectPropertiesResetAim(state, ObjectPropertiesAimField(id)); }
         else if (ObjectPropertiesDoorField(id) >= 0) { ObjectPropertiesResetDoor(state, ObjectPropertiesDoorField(id)); }
         else { ObjectPropertiesResetExtra(state, id); }

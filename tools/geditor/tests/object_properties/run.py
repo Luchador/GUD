@@ -23,6 +23,8 @@ def main():
     here = Path(__file__).resolve().parent
     src = here.parents[1] / 'src'
     root = src.parents[2]
+    # The frame must admit the new property into its setup/history transaction.
+    assert 'case SETUP_OBJECT_FADE_DISTANCES:' in function((src / 'geditor.c').read_text(), 'GEditorSetObjectProperty')
     shim = here.parent / 'image_import'
     # Every parsed ObjectRecord subtype, with recognizable specialized data.
     sizes = {1:64, 3:32, 4:33, 5:32, 6:59, 7:33, 8:34, 10:64, 11:149,
@@ -88,6 +90,8 @@ def main():
                  'ObjectPropertiesResetHealth', 'ObjectPropertiesParseHealth',
                  'ObjectPropertiesResetArmor', 'ObjectPropertiesParseArmor',
                  'ObjectPropertiesApply', 'ObjectPropertiesParseAim', 'ObjectPropertiesApplyAim',
+                 'ObjectPropertiesEnableFade', 'ObjectPropertiesResetFade',
+                 'ObjectPropertiesParseFade', 'ObjectPropertiesApplyFade',
                  'ObjectPropertiesModelChoice', 'ObjectPropertiesLoadAimPads',
                  'ObjectPropertiesRefreshAim', 'ObjectPropertiesApplyAimPad',
                  'ObjectPropertiesParseDoor', 'ObjectPropertiesApplyDoor',

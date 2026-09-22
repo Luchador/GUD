@@ -279,6 +279,7 @@ static void ImageRebases(const GEditorProject *source,const char *incoming,const
 #include "retired.c"
 #include "memory.c"
 #include "occluders.c"
+#include "objectfade.c"
 
 int main(int argc,char **argv)
 {
@@ -436,5 +437,6 @@ int main(int argc,char **argv)
     RetiredRebases(&project,nextpath,argv[1]);
     MemoryRebases(&project,nextpath,argv[1]);
     OccluderRebases(&project,nextpath,argv[1]);
+    ObjectFadeRebases(&project,nextpath,argv[1]);
     free(model);free(old);free(next);RomFree(&rom);return 0;
 }
