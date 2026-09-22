@@ -6,12 +6,14 @@
 typedef struct SfxEntry {
     DWORD id; /* GUD IDs are one-based; zero means no sound. */
     DWORD sampleOffset, sampleBytes;
+    DWORD definitionOffset;
     unsigned char format;
 } SfxEntry;
 
 typedef struct SfxCatalog {
     SfxEntry *entries;
     DWORD count;
+    DWORD controlOffset, controlBytes, sampleRate;
 } SfxCatalog;
 
 /* Initialize to zero. Owns metadata only, never retains the RomFile buffer. */

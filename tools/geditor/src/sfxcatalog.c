@@ -66,12 +66,16 @@ BOOL SfxCatalogReadRom(const RomFile *rom, SfxCatalog *catalog, const char **rea
         DWORD offset = SfxRead32(data + wave), bytes = SfxRead32(data + wave + 4);
         if (bytes > 0x7fffffffu || !SfxSpan(offset, bytes, samples)) { goto fail; }
         entries[i].id = i + 1;
+        entries[i].definitionOffset = ctl->romstart + sound;
         entries[i].sampleOffset = tbl->romstart + offset;
         entries[i].sampleBytes = bytes;
         entries[i].format = data[wave + 8];
     }
     catalog->entries = entries;
     catalog->count = count;
+    catalog->controlOffset = ctl->romstart;
+    catalog->controlBytes = length;
+    catalog->sampleRate = SfxRead32(data + bank + 4);
     if (reason) { *reason = ""; }
     return TRUE;
 fail:
