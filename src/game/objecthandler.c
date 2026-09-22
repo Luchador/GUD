@@ -641,6 +641,15 @@ ModelHitEntry *modelHitSortByDepth(ModelHitEntry *head)
 
 void modelHitRenderNodeList(ModelRenderData *renderData, ModelHitEntry *entry)
 {
+    modelHitRenderNodeListFiltered(renderData, entry, NULL, NULL, NULL);
+}
+
+/* Filter draws without removing hit-list entries or changing persistent model
+ * switches. Hidden effects still consume their normal RNG through the existing
+ * occluded path; relations and post-render matrix conversion remain intact. */
+void modelHitRenderNodeListFiltered(ModelRenderData *renderData, ModelHitEntry *entry,
+    Model *visibleModel, ModelNode *hiddenBranch, ModelNode *visibleBranch)
+{
     ModelNode *root;
     ModelNode *node;
     Model *model;
@@ -648,7 +657,12 @@ void modelHitRenderNodeList(ModelRenderData *renderData, ModelHitEntry *entry)
     ModelNodeRenderCache renderCache = {NULL, NULL, FALSE};
     s32 renderPrimary = renderData->flags & 1;
     s32 renderSecondary = renderData->flags & 2;
-    s32 occluded = renderData->flags & MODEL_RENDER_OCCLUDED;
+    s32 originalOccluded = renderData->flags & MODEL_RENDER_OCCLUDED;
+    s32 occluded;
+    s32 entryOccluded;
+    s32 filterBranch;
+    ModelNode *hiddenRoot;
+    ModelNode *originalVisibleChild = visibleBranch ? visibleBranch->Child : NULL;
     s32 descend;
     s32 opcode;
 
@@ -657,6 +671,22 @@ void modelHitRenderNodeList(ModelRenderData *renderData, ModelHitEntry *entry)
         model = entry->model;
         root = entry->rootnode;
         node = root;
+
+        entryOccluded = originalOccluded || (visibleModel && model != visibleModel);
+        filterBranch = hiddenBranch && model == visibleModel;
+        hiddenRoot = NULL;
+        if (filterBranch)
+        {
+            /* A sunglasses subtree can have independently sorted joint roots. */
+            ModelNode *parent;
+            for (parent = root; parent; parent = parent->Parent)
+            {
+                if (parent == hiddenBranch) { hiddenRoot = root; break; }
+            }
+        }
+        occluded = entryOccluded || hiddenRoot != NULL;
+        renderData->flags = (renderData->flags & ~MODEL_RENDER_OCCLUDED)
+            | (occluded ? MODEL_RENDER_OCCLUDED : 0);
 
         if (!occluded && matrixSegment != model->render_pos)
         {
@@ -668,6 +698,13 @@ void modelHitRenderNodeList(ModelRenderData *renderData, ModelHitEntry *entry)
         {
             do
             {
+                if (filterBranch)
+                {
+                    if (node == hiddenBranch) { hiddenRoot = node; }
+                    occluded = entryOccluded || hiddenRoot != NULL;
+                    renderData->flags = (renderData->flags & ~MODEL_RENDER_OCCLUDED)
+                        | (occluded ? MODEL_RENDER_OCCLUDED : 0);
+                }
                 descend = 1;
                 opcode = node->Opcode & 0xff;
 
@@ -761,6 +798,8 @@ void modelHitRenderNodeList(ModelRenderData *renderData, ModelHitEntry *entry)
                     break;
                 case MODELNODE_OPCODE_SWITCH:
                     modelApplyToggleRelations(model, node);
+                    if (node == visibleBranch && model == visibleModel)
+                    { node->Child = node->Data->Switch.Controls; }
                     break;
                 case MODELNODE_OPCODE_HEAD:
                     modelApplyHeadRelations(model, node);
@@ -789,6 +828,8 @@ void modelHitRenderNodeList(ModelRenderData *renderData, ModelHitEntry *entry)
                             break;
                         }
 
+                        if (node == hiddenRoot) { hiddenRoot = NULL; }
+
                         if (node->Next != NULL)
                         {
                             node = node->Next;
@@ -805,6 +846,8 @@ void modelHitRenderNodeList(ModelRenderData *renderData, ModelHitEntry *entry)
 
         entry = entry->next;
     }
+    renderData->flags = (renderData->flags & ~MODEL_RENDER_OCCLUDED) | originalOccluded;
+    if (visibleBranch) { visibleBranch->Child = originalVisibleChild; }
 }
 
 

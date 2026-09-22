@@ -76,13 +76,17 @@ for name in ('modelFindNodeMtxIndex', 'getjointsize'):
 source += re.search(r'static const s16 g_GunfireUvOffsets32.*?\n};', model, re.S)[0] + '\n'
 for name in ('modelRenderGunfire', 'modelRenderRotatingTexture'):
     source += function(model, name)
-source += function((ROOT / 'src/game/objecthandler.c').read_text(), 'modelHitRenderNodeList')
+for name in ('modelHitRenderNodeListFiltered', 'modelHitRenderNodeList'):
+    source += function((ROOT / 'src/game/objecthandler.c').read_text(), name)
 source += function((ROOT / 'src/game/explosion.c').read_text(), 'explosionRenderBulletImpactOnPropFiltered')
 occlusion = (ROOT / 'src/game/occlusion.c').read_text()
 source += occlusion[occlusion.index('static OcclusionBox *g_Occluders;'):occlusion.index('void occlusionReset')]
 source += function(occlusion, 'occlusionTestCharacter')
-source += function(chr, 'chrRenderChr')
+source += re.search(r'^#define CHR_ATTACHMENT_RENDER_DISTANCE .*$', chr, re.M)[0] + '\n'
+for name in ('chrHideDistantAttachments', 'chrGetHeadSwitch', 'chrGetHatCoveredHeadNode', 'chrRenderChr'):
+    source += function(chr, name)
 source += (HERE / 'check.c').read_text()
+source += (HERE / 'attachments.c').read_text()
 assert 'occlusion' not in function(chr, 'chrTick')
 with tempfile.TemporaryDirectory(prefix='gud-character-occlusion-') as directory:
     work = Path(directory)

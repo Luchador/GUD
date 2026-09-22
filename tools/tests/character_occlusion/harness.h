@@ -33,6 +33,7 @@ typedef struct { f32 Scale; } ModelRoData_Op14Record;
 typedef struct { f32 Scale; } ModelRoData_InterlinkageRecord;
 typedef struct { f32 Scale; } ModelNode_Op16Record;
 union ModelRoData {
+    struct { ModelNode *Controls; } Switch;
     ModelRoData_HeaderRecord Header;
     ModelRoData_GroupRecord Group;
     ModelRoData_GroupSimpleRecord GroupSimple;
@@ -45,9 +46,9 @@ union ModelRoData {
     ModelRoData_DisplayListPrimaryRecord DisplayListPrimary;
     ModelRoData_GunfireRecord Gunfire;
 };
-union ModelRwData { struct { int visible; } Gunfire; };
-struct ModelNode { int Opcode; union ModelRoData *Data; ModelNode *Parent,*Next,*Child; };
-typedef struct ModelFileHeader { ModelNode *RootNode; f32 BoundingVolumeRadius; int numMatrices; } ModelFileHeader;
+union ModelRwData { struct { int visible; } Gunfire,Switch; struct { struct ModelFileHeader *ModelFileHeader; } HeadPlaceholder; };
+struct ModelNode { int Opcode; union ModelRoData *Data; ModelNode *Parent,*Next,*Child; union ModelRwData *rwData; int testId; };
+typedef struct ModelFileHeader { ModelNode *RootNode; f32 BoundingVolumeRadius; int numMatrices; ModelNode **Switches; int numSwitches; } ModelFileHeader;
 typedef struct Model { ModelFileHeader *obj; RenderPosView *render_pos; f32 scale; union ModelRwData rw; } Model;
 typedef struct ModelHitEntry { Model *model; ModelNode *rootnode; float sortvalue; struct ModelHitEntry *next,*prev; } ModelHitEntry;
 typedef union Colour { u32 word; u8 rgba[4]; } Colour;
@@ -61,11 +62,13 @@ struct rgba_s32 { union { struct { s32 r,g,b,a; }; s32 rgba[4]; }; };
 struct rgba_f32 { float r,g,b,a; };
 struct view4f { float left,top,width,height; };
 typedef struct ChrRecord { Model *model; u32 chrflags; int fadealpha; rgba_u8 shadecol; PropRecord *weapons_held[2],*handle_positiondata_hat; ModelHitEntry *hitChain; int action,health,animation; } ChrRecord;
-struct PropRecord { ChrRecord *chr; ObjectRecord *obj; struct Scorch *scorch; int flags; };
+struct PropRecord { ChrRecord *chr; ObjectRecord *obj; struct Scorch *scorch; int flags; coord3d pos; };
 static Mtxf view;
-static Mtxf *currentPlayerGetViewToWorldMtxf(void) { return &view; }
-static union ModelRwData *modelGetNodeRwData(Model *model, ModelNode *node) { (void)node; return &model->rw; }
+static int missingCamera;
+static Mtxf *currentPlayerGetViewToWorldMtxf(void) { return missingCamera?NULL:&view; }
+static union ModelRwData *modelGetNodeRwData(Model *model, ModelNode *node) { return node->rwData?node->rwData:&model->rw; }
 static int emitted,allocations,relations,conversions,freed,shadowAlpha;
+static int nodeDraws[5];
 static u32 rng;
 static u32 randomGetNext(void) { rng=rng*1664525U+1013904223U; return rng; }
 static Vertex allocated[256];
@@ -84,12 +87,15 @@ static void command(Gfx *gdl) { emitted++; *gdl=1; }
 static s32 coss(u16 a) { return (s32)(cos(a*6.283185307179586/65536)*32767); }
 static s32 sins(u16 a) { return (s32)(sin(a*6.283185307179586/65536)*32767); }
 static void sub_GAME_7F073038(ModelRenderData *rd,sImageTableEntry *im,s32 arg) { (void)im; (void)arg; command(rd->gdl++); }
-static void modelRenderNodeGundl(ModelRenderData *rd,ModelNode *node) { (void)node; command(rd->gdl++); }
-static void modelRenderNodeDlWithCache(ModelRenderData *rd,Model *m,ModelNode *n,ModelNodeRenderCache *c) { (void)m;(void)n;(void)c;command(rd->gdl++); }
+static void modelRenderNodeGundl(ModelRenderData *rd,ModelNode *node) { nodeDraws[node->testId]++; command(rd->gdl++); }
+static void modelRenderNodeDlWithCache(ModelRenderData *rd,Model *m,ModelNode *n,ModelNodeRenderCache *c) { (void)m;(void)c;nodeDraws[n->testId]++;command(rd->gdl++); }
 #define RELATION(name) static void name(Model *m,ModelNode *n) { (void)m; (void)n; relations++; }
 RELATION(modelApplyDistanceRelations)
 RELATION(modelApplyReorderRelations)
-RELATION(modelApplyToggleRelations)
+static void modelApplyToggleRelations(Model *m,ModelNode *n) {
+    relations++;
+    if(n->Data->Switch.Controls) n->Child=modelGetNodeRwData(m,n)->Switch.visible?n->Data->Switch.Controls:NULL;
+}
 RELATION(modelApplyHeadRelations)
 static void modelSetShadowAlpha(int n) { shadowAlpha=n; }
 static int chrCalcScreenFadeAlpha(PropRecord *p) { (void)p; return 255; }

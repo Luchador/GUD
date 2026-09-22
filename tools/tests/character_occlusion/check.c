@@ -67,11 +67,11 @@ static void reset(void)
     nodes[13].Opcode=MODELNODE_OPCODE_BBOX;
     weapon=(ObjectRecord){&models[1],3,0};hat=(ObjectRecord){&models[2],3,0};
     scorch=(struct Scorch){&models[1],3};hatScorch=(struct Scorch){&models[2],3};
-    weaponProp=(PropRecord){NULL,&weapon,&scorch,0x55};
-    hatProp=(PropRecord){NULL,&hat,&hatScorch,0xaa};
+    weaponProp=(PropRecord){.obj=&weapon,.scorch=&scorch,.flags=0x55};
+    hatProp=(PropRecord){.obj=&hat,.scorch=&hatScorch,.flags=0xaa};
     chr.model=&models[0];chr.fadealpha=255;chr.weapons_held[0]=&weaponProp;
     chr.handle_positiondata_hat=&hatProp;chr.hitChain=chain;chr.action=42;chr.health=123;chr.animation=72;
-    prop=(PropRecord){&chr,NULL,NULL,0x9876};
+    prop=(PropRecord){.chr=&chr,.flags=0x9876};
     emitted=allocations=relations=conversions=freed=0;playerStats.time_other_players_on_screen=0;
     rng=123;envColor=2;
 }
@@ -182,9 +182,10 @@ static void render(void)
     assert(chrRenderChr(&prop,commands,1)>commands);assert(g_OcclusionRejected==0 && freed==1);
 }
 
+static void attachment_checks(void);
 int main(void)
 {
-    bounds();effects();render();
+    bounds();effects();render();attachment_checks();
     puts("character occlusion: bounds, attachments, RNG, relations, decals and render lifecycle passed");
     return 0;
 }

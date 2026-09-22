@@ -57,6 +57,9 @@ extern f32 g_PropFadeEndPx;
 
 #define CHR_LOD_DISTANCE_FACTOR 1.2f
 
+/* Render-only experiment. World coordinates are centimetres. */
+#define CHR_ATTACHMENT_RENDER_DISTANCE 2000.0f
+
 // Begin forward declarations.
 
 void chrUpdateAimProperties(ChrRecord *arg0);
@@ -2683,6 +2686,41 @@ void chrDropItems(ChrRecord *self)
 }
 
 
+static bool chrHideDistantAttachments(PropRecord *prop)
+{
+    Mtxf *camera = currentPlayerGetViewToWorldMtxf();
+    f32 x, y, z;
+    if (!camera) { return FALSE; }
+    x = prop->pos.x - camera->m[3][0];
+    y = prop->pos.y - camera->m[3][1];
+    z = prop->pos.z - camera->m[3][2];
+    return x*x + y*y + z*z > CHR_ATTACHMENT_RENDER_DISTANCE * CHR_ATTACHMENT_RENDER_DISTANCE;
+}
+
+static ModelNode *chrGetHeadSwitch(Model *model, s32 part)
+{
+    ModelFileHeader *body = model->obj;
+    ModelFileHeader *head;
+    ModelNode *node;
+    if (!body->Switches || body->numSwitches <= 4) { return NULL; }
+    node = body->Switches[4];
+    if (!node || (node->Opcode & 0xff) != MODELNODE_OPCODE_HEAD) { return NULL; }
+    head = modelGetNodeRwData(model, node)->HeadPlaceholder.ModelFileHeader;
+    if (!head || !head->Switches || head->numSwitches <= part) { return NULL; }
+    node = head->Switches[part]; /* 0: sunglasses; 1: head surface beneath a peaked cap. */
+    return node && (node->Opcode & 0xff) == MODELNODE_OPCODE_SWITCH ? node : NULL;
+}
+
+static ModelNode *chrGetHatCoveredHeadNode(Model *model)
+{
+    ModelNode *node = chrGetHeadSwitch(model, 1);
+    ModelNode *draw = node ? node->Data->Switch.Controls : NULL;
+    /* Stock caps hide one static head DL. Do not expose custom joints whose
+     * matrices may not have been built while the switch was disabled. */
+    return draw && (draw->Opcode & 0xff) == MODELNODE_OPCODE_DLCOLLISION
+        && !draw->Child && !draw->Next ? node : NULL;
+}
+
 Gfx *chrRenderChr(PropRecord *prop, Gfx *gdl, s32 withalpha)
 {
     ChrRecord *chr;
@@ -2703,6 +2741,7 @@ Gfx *chrRenderChr(PropRecord *prop, Gfx *gdl, s32 withalpha)
     ObjectRecord *held_left_obj;
     ObjectRecord *held_hat_obj;
     bool occluded;
+    bool hideAttachments;
 
     chr = prop->chr;
     chrmodel = chr->model;
@@ -2771,6 +2810,7 @@ Gfx *chrRenderChr(PropRecord *prop, Gfx *gdl, s32 withalpha)
             }
 
             occluded = occlusionTestCharacter(chr->hitChain);
+            hideAttachments = chrHideDistantAttachments(prop);
             if (!occluded)
             {
                 if ((getPropCombinedRoomsBBox2D(prop, &sp60) > 0) && !(chr->chrflags & CHRFLAG_CULL_USING_HITBOX))
@@ -2823,23 +2863,31 @@ Gfx *chrRenderChr(PropRecord *prop, Gfx *gdl, s32 withalpha)
              * explicitly before opting untouched parts into one-cycle. */
             if (!occluded) { gSPClearGeometryMode(mrData.gdl++, G_FOG); }
             mrData.flags |= MODEL_RENDER_CHARACTER;
-            modelHitRenderNodeList(&mrData, chr->hitChain);
+            if (hideAttachments)
+            {
+                modelHitRenderNodeListFiltered(&mrData, chr->hitChain, chrmodel,
+                    chrGetHeadSwitch(chrmodel, 0), held_hat_obj ? chrGetHatCoveredHeadNode(chrmodel) : NULL);
+            }
+            else
+            {
+                modelHitRenderNodeList(&mrData, chr->hitChain);
+            }
 
             gdl = mrData.gdl;
 
             if ((held_right_obj != NULL) && (( held_right_obj->state & ((u8)(1 << withalpha) )) ))
             {
-                gdl = explosionRenderBulletImpactOnPropFiltered(gdl, prop_held_right, withalpha, !occluded);
+                gdl = explosionRenderBulletImpactOnPropFiltered(gdl, prop_held_right, withalpha, !occluded && !hideAttachments);
             }
 
             if ((held_left_obj != NULL) && (( held_left_obj->state & ((u8)(1 << withalpha) )) ))
             {
-                gdl = explosionRenderBulletImpactOnPropFiltered(gdl, prop_held_left, withalpha, !occluded);
+                gdl = explosionRenderBulletImpactOnPropFiltered(gdl, prop_held_left, withalpha, !occluded && !hideAttachments);
             }
 
             if ((held_hat_obj != NULL) && (( held_hat_obj->state & ((u8)(1 << withalpha) )) ))
             {
-                gdl = explosionRenderBulletImpactOnPropFiltered(gdl, prop_held_hat, withalpha, !occluded);
+                gdl = explosionRenderBulletImpactOnPropFiltered(gdl, prop_held_hat, withalpha, !occluded && !hideAttachments);
             }
 
             if (withalpha != 0)

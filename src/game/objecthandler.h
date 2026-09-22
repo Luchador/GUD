@@ -40,6 +40,8 @@ void modelHitFreeChain(ModelHitEntry *entry);
 void modelHitCalculateNodeDepths(ModelHitEntry *head);
 ModelHitEntry *modelHitSortByDepth(ModelHitEntry *head);
 void modelHitRenderNodeList(ModelRenderData *renderData, ModelHitEntry *head);
+void modelHitRenderNodeListFiltered(ModelRenderData *renderData, ModelHitEntry *head,
+    Model *visibleModel, ModelNode *hiddenBranch, ModelNode *visibleBranch);
 s32 modelHitFindNextBBoxHit(ModelHitEntry **entry, coord3d *rayOrigin, coord3d *rayDirection, Model **hitModel, ModelNode **hitNode);
 s32 modelHitFindFirstBBoxHit(ModelHitEntry **entry, coord3d *rayOrigin, coord3d *rayDirection, Model **hitModel, ModelNode **hitNode);
 
