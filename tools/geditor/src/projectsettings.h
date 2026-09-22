@@ -3,7 +3,8 @@
 
 #include <windows.h>
 
-BOOL ProjectSettingsShow(HWND owner, HINSTANCE instance);
+BOOL ProjectSettingsShow(HWND owner, HINSTANCE instance, const char *projectdir);
+void ProjectSettingsRefresh(const char *projectdir);
 BOOL ProjectSettingsHandleMessage(MSG *message);
 
 #endif

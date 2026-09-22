@@ -528,6 +528,8 @@ static void GEditorRefreshProjectAssets(void)
     DWORD count;
     DWORD i;
 
+    ProjectSettingsRefresh(g_Project.dir);
+
     for (i = 0; i < g_Project.levelcount; i++)
     {
         lstrcpyn(levels[i].label, g_Project.levels[i].name, sizeof(levels[i].label));
@@ -608,6 +610,7 @@ static void GEditorRefreshProjectAssets(void)
 /* Creating or opening another project implicitly closes the current one. */
 static void GEditorCloseProject(HWND hwnd)
 {
+    ProjectSettingsRefresh(NULL);
     LevelManagerRefreshSettings(NULL, GEDITOR_NO_LEVEL);
     IssuesWindowClose();
     RomExportClearIssues();
@@ -6130,7 +6133,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 return 0;
 
             case ID_SETTINGS_PROJECT:
-                if (!ProjectSettingsShow(hwnd, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE)))
+                if (!ProjectSettingsShow(hwnd, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), g_Project.dir))
                 {
                     MessageBox(hwnd, "Could not open the Project Settings window.", GEDITOR_TITLE, MB_ICONERROR);
                 }

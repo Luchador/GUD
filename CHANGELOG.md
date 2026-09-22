@@ -1,8 +1,9 @@
 # Changelog
 
 ### Added
-- AA and VI Smoothing options
-- Frame rate display option
+- Cycle gadgets with B+Z.
+- AA and VI Smoothing options.
+- Frame rate display option.
 - Hold Z to skip credits.
 - Added three more intro cameras to Silo taken from the PAL version.
 
@@ -15,6 +16,6 @@
 - Fix the possibility of the "Escort Natalya" objective on Jungle completing prematurely.
 
 ### Removed
-- ZX Spectrum Emulator
-- Indy workstation communications remnants
-- Lots of useless debug code
+- ZX Spectrum Emulator.
+- Indy workstation communications remnants.
+- Lots of useless debug code.
