@@ -40,6 +40,7 @@ void bgApplyDynamicCCRMLUT(Gfx *start, Gfx *end, enum CCRMLUT lutIndex)
     Gfx *curGfx;
     Gfx *lutPair;
     u32 alphaSource = BG_ALPHA_AUTO;
+    u32 surfacePolicy = BG_SURFACE_AUTO;
     u32 low = 0;
     u32 high = 0;
     u32 fog = envGetCurrent()->FogEnabled ? G_FOG : 0;
@@ -84,6 +85,14 @@ void bgApplyDynamicCCRMLUT(Gfx *start, Gfx *end, enum CCRMLUT lutIndex)
              * state. Retain the policy marker for the one-cycle converter. */
             curGfx++;
             continue;
+        }
+        if (BG_SURFACE_IS_MARKER(curGfx->words.w0, curGfx->words.w1))
+        { surfacePolicy = BG_SURFACE_TAG_POLICY(curGfx->words.w1); }
+        if (surfacePolicy == BG_SURFACE_CUTOUT && alphaSource == BG_ALPHA_AUTO)
+        {
+            u32 w0 = curGfx->words.w0, w1 = curGfx->words.w1;
+            curGfx->words.w0 = BG_CUTOUT_COMBINE_W0(w0, w1);
+            curGfx->words.w1 = BG_CUTOUT_COMBINE_W1(w0, w1);
         }
         for (lutPair = ptrDynamic_CC_RM_LUT[(s32)lutIndex]; lutPair->words.w0 != 0; lutPair += 2)
         {

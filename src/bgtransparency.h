@@ -23,6 +23,16 @@
     (BG_SURFACE_TAG | ((policy) << 20) | ((mode) & BG_SURFACE_MODE_MASK))
 #define BG_SURFACE_TAG_POLICY(w1) (((w1) >> 20) & 3u)
 
+/* Explicit Cutout enables texture alpha on the standard opaque textured
+ * combiners. Keep the authored words in the asset so Auto restores them;
+ * apply this before the environment LUT, in both the loader and preview.
+ * Custom equations and untextured SHADE materials are left alone. */
+#define BG_CUTOUT_COMBINE_W0(w0, w1) \
+    (((w0) == 0xfc127e24u && (w1) == 0xfffff9fcu) ? 0xfc121824u : (w0))
+#define BG_CUTOUT_COMBINE_W1(w0, w1) \
+    (((w0) == 0xfc26a004u && (w1) == 0x1ffc93fcu) ? 0x1f1093ffu : \
+     ((w0) == 0xfc127e24u && (w1) == 0xfffff9fcu) ? 0xff33ffffu : (w1))
+
 /* Per-face alpha scopes. Keep the authored combiner in the asset so Auto can
  * restore it exactly. The loader replaces reserved packets with a pipe sync,
  * fog geometry state and four first-cycle blender fields in place.

@@ -330,9 +330,115 @@ static void Decals(const char *dir)
     puts("PASS decals: native one/two-cycle modes, mixed TRI4/room/layer selection, independent transparency, save/reload, undo/redo and Off restoration.");
 }
 
+/* A surface tag can split a material without another authored FC command.
+ * The loader must receive that FC again after entry AND exit, including tails. */
+static void CutoutScopes(const BgFile *bg)
+{
+    BgDocument doc={0}; const char *why="";
+    assert(BgDocumentLoad(bg->data,bg->size,1,&doc,&why));
+    for (DWORD r=1;r<=doc.roomcount;r++) for (int l=0;l<2;l++)
+    {
+        const BgDocumentLayerData *layer=&doc.rooms[r].layers[l];
+        DWORD policy=BG_SURFACE_AUTO, muxpolicy=BG_SURFACE_AUTO;
+        BOOL opaque=FALSE;
+        for (DWORD g=0;g<layer->groupcount;g++)
+        {
+            const BgDocumentDrawGroup *group=&layer->groups[g];
+            for (DWORD c=0;c<group->commandsize;c+=8)
+            {
+                DWORD a=BgDocumentRead32(group->commands+c), b=BgDocumentRead32(group->commands+c+4);
+                if (BG_SURFACE_IS_MARKER(a,b)) { policy=BG_SURFACE_TAG_POLICY(b); }
+                if (a>>24==0xfc)
+                {
+                    muxpolicy=policy;
+                    opaque=(a==0xfc26a004u && b==0x1ffc93fcu)
+                        || (a==0xfc127e24u && b==0xfffff9fcu);
+                }
+            }
+            if (opaque) { assert((policy==BG_SURFACE_CUTOUT)==(muxpolicy==BG_SURFACE_CUTOUT)); }
+        }
+    }
+    BgDocumentFree(&doc);
+}
+
+static void CutoutAlpha(const char *dir)
+{
+    for (int mip=0;mip<2;mip++)
+    {
+        BgFile source=Fixture(), compiled={0}, optimized={0}; BgDocument doc={0}, loaded={0};
+        BgFaceRef refs[20]; const char *why=""; BOOL changed;
+        assert(BgDocumentLoad(source.data,source.size,1,&doc,&why)); Refs(&doc,refs);
+        DWORD a=mip?0xfc26a004u:0xfc127e24u, b=mip?0x1ffc93fcu:0xfffff9fcu;
+        for (DWORD r=1;r<=doc.roomcount;r++) for (DWORD f=0;f<doc.rooms[r].facecount;f++)
+        { doc.rooms[r].faces[f].material.combineword0=a; doc.rooms[r].faces[f].material.combineword1=b; }
+        BgFaceRef selected[]={refs[1],refs[3],refs[6],refs[14],refs[19]};
+        BgFacePropertiesEdit edit={.fields=BG_FACE_PROPERTY_TRANSPARENCY,.transparency=BG_TRANSPARENCY_CUTOUT};
+        assert(BgDocumentSetFaceProperties(&doc,selected,5,&edit,&changed,&why) && changed);
+        BgDocumentRenderMesh mesh={0}; assert(BgDocumentBuildRenderMesh(&doc,&mesh,&why));
+        for (DWORD f=0;f<mesh.facecount;f++)
+        {
+            BOOL picked=f==1 || f==3 || f==6 || f==14 || f==19;
+            assert(!!(mesh.renderflags[f]&BG_RENDER_ALPHA_TEST)==picked);
+            assert(!!(mesh.renderflags[f]&BG_RENDER_IGNORE_TEXTURE_ALPHA)==!picked);
+        }
+        BgDocumentRenderMeshFree(&mesh);
+        RoundTrip(&doc,&source,dir);
+        assert(BgDocumentCompile(&doc,&source,&compiled,&why)); CutoutScopes(&compiled);
+        assert(BgFileOptimize(&compiled,&optimized,&why));
+        CutoutScopes(optimized.data?&optimized:&compiled);
+        assert(BgDocumentLoad(compiled.data,compiled.size,1,&loaded,&why));
+        Refs(&loaded,refs);
+        edit.transparency=BG_TRANSPARENCY_AUTO;
+        assert(BgDocumentSetFaceProperties(&loaded,refs,20,&edit,&changed,&why) && changed);
+        for (DWORD r=1;r<=loaded.roomcount;r++) for (DWORD f=0;f<loaded.rooms[r].facecount;f++)
+        {
+            const BgMaterial *m=&loaded.rooms[r].faces[f].material;
+            assert(m->combineword0==a && m->combineword1==b);
+            BgRenderState state={0}; state.surfacepolicy=BG_SURFACE_CUTOUT; state.environmentalpha=173;
+            BgMaterial vertex=*m; vertex.alphasource=BG_ALPHA_VERTEX;
+            BgRenderAlpha alpha=BgRenderGetAlpha(&state,&vertex);
+            assert(alpha.shade && !alpha.texture && alpha.constant==255);
+        }
+        BgDocumentFree(&loaded); BgDocumentFree(&doc);
+        BgFileFree(&source); BgFileFree(&compiled); BgFileFree(&optimized);
+    }
+    puts("PASS Cutout alpha: opaque textured combiners, both layers, shared material boundaries, tail restoration, export and Auto round-trip.");
+}
+
+static void LegacyCutout(void)
+{
+    BgFile source=Fixture(), packed={0}, out={0}; const char *why="";
+    /* Reproduce an old saved override: four Auto faces and one Cutout face
+     * inherit the same I2 command, with no FC at either policy boundary. */
+    for (DWORD r=1;r<=2;r++) for (DWORD l=0;l<2;l++)
+    {
+        DWORD start=BgDocumentRead32(source.data+36+r*24+l*4)&0xffffffu;
+        DWORD size=BgDocumentRead32(source.data+start-4);
+        for (DWORD c=start;c<start+size;c+=8)
+        {
+            unsigned char *p=source.data+c; DWORD a=BgDocumentRead32(p);
+            if (a==0xb900031du) { Put(p+4,0x0c193078u); }
+            if (a==0xfc26a004u) { Put(p+4,0x1ffc93fcu); }
+            if (a==0xfb000000u || a==0xfa000000u)
+            {
+                Put(p,BG_SURFACE_MARKER);
+                Put(p+4,BG_SURFACE_TAG_VALUE(a==0xfb000000u?BG_SURFACE_CUTOUT:BG_SURFACE_AUTO,0));
+            }
+        }
+    }
+    assert(BgFileCompact(&source,&packed,&why));
+    assert(BgFileOptimize(&packed,&out,&why) && out.data); CutoutScopes(&out);
+    BgDocument before={0},after={0};
+    assert(BgDocumentLoad(packed.data,packed.size,1,&before,&why));
+    assert(BgDocumentLoad(out.data,out.size,1,&after,&why)); Equivalent(&before,&after);
+    BgDocumentFree(&before); BgDocumentFree(&after);
+    BgFileFree(&source); BgFileFree(&packed); BgFileFree(&out);
+    puts("PASS legacy Cutout: unopened-level export repairs inherited opaque combiners and closing scopes.");
+}
+
 int main(int argc, char **argv)
 {
-    assert(argc==3); Presets(); Jungle(argv[2],argv[1]); Overrides(argv[1]); Decals(argv[1]);
+    assert(argc==3); Presets(); Jungle(argv[2],argv[1]); Overrides(argv[1]); Decals(argv[1]); CutoutAlpha(argv[1]); LegacyCutout();
     BgFile source=Fixture(); BgDocument doc={0},original={0}; BgFaceRef refs[20]; BgRenderState states[20];
     const char *why=""; BOOL changed=FALSE;
     assert(BgDocumentLoad(source.data,source.size,1,&doc,&why));

@@ -324,6 +324,11 @@ BgRenderAlpha BgRenderGetAlpha(const BgRenderState *state, const BgMaterial *mat
         BgRenderAlpha alpha = {255, TRUE, FALSE};
         return alpha;
     }
+    if (state->surfacepolicy == BG_SURFACE_CUTOUT)
+    {
+        w0 = BG_CUTOUT_COMBINE_W0(material->combineword0, material->combineword1);
+        w1 = BG_CUTOUT_COMBINE_W1(material->combineword0, material->combineword1);
+    }
     for (i = 0; i < sizeof(remapped) / sizeof(remapped[0]); i++)
     {
         if (w0 == remapped[i].word0 && w1 == remapped[i].word1)

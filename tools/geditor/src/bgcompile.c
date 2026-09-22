@@ -208,7 +208,8 @@ static BOOL BgCompileAppendStream(BgCompileBuffer *output,
  * marker could load an unused image or retain an obsolete alpha scope. */
 static BOOL BgCompileWriteGroupState(BgCompileBuffer *gdl,
                                      const unsigned char *commands, DWORD size,
-                                     BOOL *cullbackfaces, BgRenderState *renderstate)
+                                     BOOL *cullbackfaces, BgRenderState *renderstate,
+                                     const BgMaterial *material)
 {
     DWORD offset;
 
@@ -217,6 +218,7 @@ static BOOL BgCompileWriteGroupState(BgCompileBuffer *gdl,
         const unsigned char *command = commands + offset;
         DWORD word0 = BgCompileRead32(command);
         DWORD word1 = BgCompileRead32(command + 4);
+        DWORD oldpolicy = renderstate->surfacepolicy;
 
         BgRenderStateRead(renderstate, word0, word1);
         if ((command[0] == BG_G_SETTEXTURE && !BG_SURFACE_IS_MARKER(word0, word1))
@@ -226,6 +228,17 @@ static BOOL BgCompileWriteGroupState(BgCompileBuffer *gdl,
             continue;
         }
         if (!BgCompileWriteCommand(gdl, word0, word1)) { return FALSE; }
+        /* The runtime resolves Cutout's alpha without changing the authored
+         * mux. Re-emit it on both scope boundaries, even when adjacent faces
+         * share a material or the restoring group has no faces. */
+        if (oldpolicy != renderstate->surfacepolicy
+            && (oldpolicy == BG_SURFACE_CUTOUT || renderstate->surfacepolicy == BG_SURFACE_CUTOUT)
+            && (material->combineword0 >> 24) == BG_G_SETCOMBINE)
+        {
+            if ((!gdl->pipesynced && !BgCompileWriteCommand(gdl, BG_G_PIPESYNC << 24, 0))
+                || !BgCompileWriteCommand(gdl, material->combineword0, material->combineword1))
+            { return FALSE; }
+        }
         if (command[0] == BGCOMPILE_G_SETGEOMETRYMODE
             && (word1 & BGCOMPILE_G_CULL_BACK))
         {
@@ -825,7 +838,7 @@ static BOOL BgCompileLayer(const BgDocumentRoom *room,
                 return FALSE;
             }
             if (!BgCompileWriteGroupState(gdl, group->commands, group->commandsize,
-                                           &cullbackfaces, &renderstate))
+                                           &cullbackfaces, &renderstate, &material))
             {
                 return FALSE;
             }
@@ -1581,6 +1594,7 @@ BOOL BgFileOptimize(const BgFile *source, BgFile *out, const char **reasonout)
     BgDocument document = {0};
     BgFile compiled = {0}, compact = {0};
     BgCompileCost before, after;
+    BOOL cutoutalpha = FALSE;
     BOOL ok = FALSE;
     if (!out || out == source) { *reasonout = "Invalid background optimization output."; return FALSE; }
     ZeroMemory(out, sizeof(*out));
@@ -1590,6 +1604,15 @@ BOOL BgFileOptimize(const BgFile *source, BgFile *out, const char **reasonout)
     for (DWORD r = 1; r <= document.roomcount; r++) for (int layer = 0; layer < 2; layer++)
     {
         const BgDocumentLayerData *data = &document.rooms[r].layers[layer];
+        BgRenderState state;
+        BgRenderStateInit(&state, layer == BG_GEOMETRY_SECONDARY);
+        for (DWORD g = 0; g < data->groupcount; g++)
+        {
+            const BgDocumentDrawGroup *group = &data->groups[g];
+            for (DWORD c = 0; c + 8 <= group->commandsize; c += 8)
+            { BgRenderStateRead(&state, BgCompileRead32(group->commands + c), BgCompileRead32(group->commands + c + 4)); }
+            if (state.surfacepolicy == BG_SURFACE_CUTOUT) { cutoutalpha = TRUE; }
+        }
         for (DWORD g = 0; g < data->groupcount; g++) if (!BgCompileRelocatableGroup(&data->groups[g]))
         {
             BgDocumentFree(&document);
@@ -1600,8 +1623,10 @@ BOOL BgFileOptimize(const BgFile *source, BgFile *out, const char **reasonout)
         || !BgFileValidateVertexBatches(&compiled, reasonout)
         || !BgFileCompact(&compiled, &compact, reasonout)) { goto done; }
     before = BgCompileFileCost(source); after = BgCompileFileCost(&compact);
-    if (after.textures <= before.textures && after.loads <= before.loads
-        && after.vertices <= before.vertices && compact.size <= source->size)
+    /* Older Cutout overrides may inherit an opaque mux across their tags.
+     * Scope restoration is a correctness fix, even if it adds a few packets. */
+    if (cutoutalpha || (after.textures <= before.textures && after.loads <= before.loads
+        && after.vertices <= before.vertices && compact.size <= source->size))
     {
         if (compact.size != source->size || memcmp(compact.data, source->data, source->size))
         { *out = compact; ZeroMemory(&compact, sizeof(compact)); }

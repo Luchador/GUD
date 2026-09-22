@@ -128,6 +128,74 @@ static void override_checks(void)
     puts("BG overrides: explicit Blend/Opaque/Cutout, Auto resets, mixed draws, tagged no-op loading and AA preservation pass");
 }
 
+static void cutout_combiner_checks(void)
+{
+    const Gfx authored[] = {
+        gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEI2),
+        gsDPSetCombineMode(G_CC_MODULATEI, G_CC_MODULATEI),
+        gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEIA2),
+        gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
+        gsDPSetCombineLERP(TEXEL0,0,SHADE,0,0,0,0,PRIMITIVE,
+                          TEXEL0,0,SHADE,0,0,0,0,PRIMITIVE)
+    };
+    const Gfx cutout[] = {
+        gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEIA2),
+        gsDPSetCombineMode(G_CC_MODULATEIA, G_CC_MODULATEIA)
+    };
+    for (int layer=0;layer<2;layer++) for (int fog=0;fog<2;fog++)
+    for (unsigned int m=0;m<sizeof(authored)/sizeof(authored[0]);m++)
+    {
+        Gfx raw[32], expanded[64], expected[3], *p=raw;
+        enum CCRMLUT lut=fog?(layer?CCRMLUT_SECONDARY_ADDFOG:CCRMLUT_PRIMARY_ADDFOG)
+            :(layer?CCRMLUT_SECONDARY:CCRMLUT_PRIMARY);
+        g_TestEnvironment.FogEnabled=fog;
+        for (int scope=0;scope<3;scope++)
+        {
+            gDPPipeSync(p++);
+            gDPNoOpTag(p++,BG_SURFACE_TAG_VALUE(scope==1?BG_SURFACE_CUTOUT:BG_SURFACE_AUTO,0));
+            *p++=authored[m];
+            gSP1Triangle(p++,0,1,2,0);
+            expected[scope]=scope==1 && m<2?cutout[m]:authored[m];
+            bgApplyDynamicCCRMLUT(&expected[scope],&expected[scope]+1,lut);
+        }
+        gSPEndDisplayList(p++);
+        int bytes=texLoadFromGdl(raw,(p-raw)*8,expanded,NULL), draws=0;
+        bgApplyDynamicCCRMLUT(expanded,expanded+bytes/8,lut);
+        BgOneCycleState state; bgOneCycleResetState(&state);
+        for (int i=0;i<bytes/8;i++)
+        {
+            assert(bgOneCycleReadState(&state,expanded[i],layer));
+            if (expanded[i].words.w0>>24==(u8)G_TRI1)
+            { assert(!memcmp(&state.combine,&expected[draws++],sizeof(Gfx))); }
+        }
+        assert(draws==3);
+    }
+    /* A soft-alpha texture using I2 becomes eligible only under explicit
+     * Cutout. Verify the real LUT -> one-cycle path and AA toggles. */
+    for (int fog=0;fog<2;fog++)
+    {
+        Gfx src[128], out[256]; Snapshot states[8];
+        int size=make_cutout(src,fog);
+        gDPNoOpTag(&src[0],BG_SURFACE_TAG_VALUE(BG_SURFACE_CUTOUT,0));
+        src[2].words.w1=G_RM_PASS|G_RM_AA_ZB_TEX_EDGE2;
+        src[3]=authored[0];
+        g_TestTexture.hasBinaryAlpha=0;
+        bgApplyDynamicCCRMLUT(src,src+size/8,fog?CCRMLUT_SECONDARY_ADDFOG:CCRMLUT_SECONDARY);
+        int bytes=bgBuildCutoutGdl(src,size,out,sizeof(out)); assert(bytes>0);
+        for (int aa=0;aa<2;aa++)
+        {
+            Gfx *runtime=(Gfx *)(g_TestRam+0x20000);
+            memcpy(runtime,out,bytes);
+            renderSetAaEnabled(aa); renderApplySettings(); renderInvalidateDisplayListCache();
+            assert(renderApplyDisplayListSettings(runtime,runtime+bytes/8));
+            snapshots(runtime,bytes/8,states);
+            assert((states[0].h&(3u<<20))==G_CYC_1CYCLE && (states[0].l&3)==G_AC_THRESHOLD);
+        }
+    }
+    g_TestTexture.hasBinaryAlpha=1;
+    puts("Cutout combiner: texture alpha, custom/SHADE preservation, fog, both layers, Auto restoration and AA/one-cycle conversion pass");
+}
+
 static void cutout_checks(void)
 {
     Gfx src[256], saved[256], out[512], *p;
@@ -140,6 +208,7 @@ static void cutout_checks(void)
     g_TestTexture.gbiformat = G_IM_FMT_RGBA;
     g_TestTexture.depth = G_IM_SIZ_16b;
     g_TestTexture.hasBinaryAlpha = 1;
+    cutout_combiner_checks();
     override_checks();
     for (fog = 0; fog < 2; fog++) for (j = 0; j < 3; j++) {
         size = make_cutout(src, fog);
