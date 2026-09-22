@@ -1567,7 +1567,7 @@ static BOOL GltfLoadPrimitive(const char *json,
     BOOL hascolors = FALSE;
     BOOL hastexcoords = FALSE;
     int nativeuvs = 1;
-    BOOL hasindices = FALSE;
+    BOOL hasindices = FALSE, hasidentities = FALSE;
     unsigned short tag;
     BgRenderFlags renderflags;
     double basecolor[4] = {1,1,1,1};
@@ -1619,13 +1619,14 @@ static BOOL GltfLoadPrimitive(const char *json,
     if (builder->importing)
     {
         int ids = GltfJsonObjectGet(json,tokens,tokencount,attributes,"_GUD_VERTEX");
-        if (ids < 0 || !GltfJsonUnsigned(json,&tokens[ids],&accessorindex)
+        if (ids >= 0 && (!GltfJsonUnsigned(json,&tokens[ids],&accessorindex)
             || !GltfResolveAccessor(json,tokens,tokencount,root,accessorindex,buffercount,&sourceids)
-            || sourceids.components != 1 || sourceids.count != positions.count)
+            || sourceids.components != 1 || sourceids.count != positions.count))
         {
-            *reasonout = "The model has lost its GUD vertex identities. Export from GEditor's Model Editor, and enable Data > Mesh > Attributes in Blender's glTF exporter.";
+            *reasonout = "The model has a malformed GUD vertex-identity accessor.";
             return FALSE;
         }
+        hasidentities = ids >= 0;
     }
 
     colortoken = GltfJsonObjectGet(json, tokens, tokencount,
@@ -1842,11 +1843,13 @@ static BOOL GltfLoadPrimitive(const char *json,
 
         if (builder->importing)
         {
-            float id;
-            if (!GltfAccessorFloats(&sourceids,buffers,sourceindex,&id,1)
-                || id < 0 || id >= GLTF_MAX_FACES * 3 || floorf(id) != id)
+            float id = -1;
+            if (hasidentities && !GltfAccessorFloats(&sourceids,buffers,sourceindex,&id,1))
             { *reasonout = "A GUD vertex identity is invalid."; return FALSE; }
-            builder->sourcevertices[destination] = (DWORD)id;
+            /* DCC topology operations can remove or interpolate identities.
+             * Material slots still identify rigid native parts for rebuilding. */
+            builder->sourcevertices[destination] = isfinite(id) && id >= 0
+                && id < GLTF_MAX_FACES * 3 && floorf(id) == id ? (DWORD)id : 0xffffffffu;
         }
         ZeroMemory(vertex, sizeof(*vertex));
         vertex->x = values[0];

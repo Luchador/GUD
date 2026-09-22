@@ -3,7 +3,8 @@
  * Compatible edits update Vtx records in place. UV/color seams allocate native
  * variants and rebuild their loads, preserving load-time matrix/render state.
  * Triangle topology, local positions, lighting normals and model nodes remain
- * authored; a seam never welds vertices or averages the imported attributes. */
+ * authored; a seam never welds vertices or averages the imported attributes.
+ * A separate retopology path rebuilds rigid parts using their material slots. */
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -294,7 +295,7 @@ static void Triangles(ModelOutput *out, unsigned char indices[4][3], int count)
     }
     Append(out,cmd,8);
 }
-static void Material(ModelOutput *out, BgMaterial *current, const BgMaterial *desired)
+static void MaterialWithSync(ModelOutput *out, BgMaterial *current, const BgMaterial *desired, BOOL sync)
 {
     BgMaterial untextured;
     BOOL textured=BgMaterialTextureId(desired)!=BG_TEX_NONE;
@@ -303,7 +304,7 @@ static void Material(ModelOutput *out, BgMaterial *current, const BgMaterial *de
         untextured=*desired;untextured.textureword0=untextured.textureword1=0;desired=&untextured;
     }
     if (BgMaterialEqual(current,desired)) { return; }
-    Command(out,0xe7000000u,0);
+    if (sync) { Command(out,0xe7000000u,0); }
     if (current->modeword0!=desired->modeword0 || current->modeword1!=desired->modeword1)
     { Command(out,desired->modeword0,desired->modeword1); }
     if (textured && (current->textureword0!=desired->textureword0 || current->textureword1!=desired->textureword1))
@@ -312,6 +313,8 @@ static void Material(ModelOutput *out, BgMaterial *current, const BgMaterial *de
     { Command(out,desired->combineword0,desired->combineword1); }
     *current=*desired;
 }
+static void Material(ModelOutput *out, BgMaterial *current, const BgMaterial *desired)
+{ MaterialWithSync(out, current, desired, TRUE); }
 
 /* Collision display-list nodes can replace segment 4 with a deformed copy at
  * runtime. Grow their whole contiguous vertex array, retain the old indices,
@@ -645,6 +648,469 @@ static BOOL SplitList(ModelOutput *out, const unsigned char *data,
     ok = !out->failed;
 done:
     free(firstuses); return ok;
+}
+
+/* Retopology uses material slots as native draw anchors. The original vertex
+ * cache recipes still supply matrix and load-time state; each new
+ * corner gets its own native attributes, independent of obsolete corner IDs. */
+int ModelImportKeepsTopology(const ModelSource *source, const GltfModelImport *imported)
+{
+    unsigned char *seen;
+    BOOL same = FALSE;
+    if (!imported->count) { return TRUE; }
+    if (!imported->sourcevertices || imported->count > source->count) { return FALSE; }
+    seen = calloc(source->count ? source->count : 1, 1);
+    if (!seen) { return -1; }
+    for (DWORD i = 0; i < imported->count; i++)
+    {
+        DWORD id = imported->sourcevertices[i * 3], face = id / 3;
+        if (face >= source->count || seen[face]) { goto done; }
+        seen[face] = 1;
+        for (DWORD k = 0; k < 3; k++)
+        {
+            DWORD corner = imported->sourcevertices[i * 3 + k];
+            if (corner / 3 != face || corner % 3 != (id % 3 + k) % 3) { goto done; }
+        }
+    }
+    same = TRUE;
+done:
+    free(seen); return same;
+}
+
+typedef struct ModelTopologyFace { DWORD reference, imported; } ModelTopologyFace;
+static int TopologyFaceCompare(const void *a, const void *b)
+{
+    const ModelTopologyFace *x = a, *y = b;
+    if (x->reference != y->reference) { return x->reference < y->reference ? -1 : 1; }
+    return x->imported < y->imported ? -1 : x->imported > y->imported;
+}
+
+static BOOL TopologyStateEqual(const BgRenderState *a, const BgRenderState *b)
+{
+    return a->othermode == b->othermode && a->othermodehigh == b->othermodehigh
+        && a->othermodeknown == b->othermodeknown && a->othermodehighknown == b->othermodehighknown
+        && a->geometryknown == b->geometryknown && a->geometrymode == b->geometrymode && a->zbuffer == b->zbuffer
+        && a->environmentalpha == b->environmentalpha && a->primitivealpha == b->primitivealpha
+        && a->primitiveword0 == b->primitiveword0 && a->primitiveword1 == b->primitiveword1
+        && a->surfacepolicy == b->surfacepolicy && a->surfacebasemode == b->surfacebasemode;
+}
+
+static BOOL TopologyRigid(const unsigned char *data, const ModelSource *source, DWORD list, const char **why)
+{
+    const ModelSourceList *part = &source->lists[list];
+    DWORD matrix = 0;
+    double translation[3] = {0}; BOOL first = TRUE;
+    *why = "Retriangulation requires a rigid, vertex-colored part without generated reflection UVs. Keep the original topology for skinned or normal-lit parts.";
+    if (part->preserve) { return FALSE; }
+    for (DWORD pc = part->offset; pc < part->end; pc += 8)
+        if (data[pc] == 1)
+        {
+            DWORD next = Read32(data + pc + 4);
+            if (matrix && matrix != next) { return FALSE; }
+            matrix = next;
+        }
+    for (DWORD f = 0; f < source->count; f++) if (source->faces[f].list == list)
+    {
+        if (source->faces[f].normalmask || (source->flags[f] & BG_RENDER_ENVIRONMENT_MASK)) { return FALSE; }
+        for (DWORD k = 0; k < 3; k++)
+        {
+            DWORD id = f * 3 + k, at = source->vertexoffsets[id];
+            const BgVertex *v = &source->vertices[id];
+            double position[3] = {v->x, v->y, v->z};
+            if (at > source->lists[0].offset || source->lists[0].offset - at < 16) { return FALSE; }
+            for (int axis = 0; axis < 3; axis++)
+            {
+                double delta = position[axis] - Read16(data + at + axis * 2);
+                if (!isfinite(delta) || (!first && fabs(delta - translation[axis]) > .001)) { return FALSE; }
+                if (first) { translation[axis] = delta; }
+            }
+            first = FALSE;
+        }
+    }
+    return !first;
+}
+
+static BOOL TopologySpan(DWORD offset, DWORD count, DWORD stride, DWORD limit)
+{ return offset <= limit && count <= (limit - offset) / stride; }
+
+/* Reuse the existing allocation for reductions and same-sized reimports.
+ * Larger arrays get a new bounded allocation before the display lists. */
+static DWORD TopologyStore(ModelOutput *out, DWORD old, DWORD capacity,
+    const unsigned char *bytes, DWORD count, DWORD stride)
+{
+    DWORD at = old;
+    if (count <= capacity)
+    {
+        if (capacity) { memset(out->data + at, 0, (size_t)capacity * stride); }
+        if (count) { memcpy(out->data + at, bytes, (size_t)count * stride); }
+    }
+    else
+    {
+        static const unsigned char zero[16] = {0};
+        Append(out, zero, (16 - out->size % 16) % 16); at = out->size;
+        Append(out, bytes, count * stride);
+    }
+    return at;
+}
+
+/* Collision-point indices are also used by character blood-stain propagation.
+ * Regenerate their XYZ groups and acyclic per-vertex chains with the new Vtx
+ * numbering. Cross-node associations require a joint-aware remesher. */
+static BOOL TopologyBuffers(ModelOutput *out, const unsigned char *data, const ModelSource *source,
+    ModelVertexEdit *edits, const DWORD *owners, DWORD editcount, ModelVertexBuffer *buffers, const char **why)
+{
+    DWORD limit = source->lists[0].offset;
+    for (DWORD list = 0; list < source->listcount; list++)
+    {
+        const ModelSourceList *part = &source->lists[list];
+        ModelVertexBuffer *buffer = &buffers[list];
+        DWORD previous, count = 0, oldcount, pointcount = 0, pointbase = 0, linkbase = 0;
+        for (previous = 0; previous < list; previous++)
+            if (source->lists[previous].vertexpointer == part->vertexpointer) { break; }
+        if (previous < list) { *buffer = buffers[previous]; continue; }
+        for (DWORD v = 0; v < editcount; v++) { count += owners[v] == part->vertexpointer; }
+        if (!count) { continue; }
+        *why = "This part's native vertex or collision tables cannot be safely rebuilt.";
+        if (part->preserve || !TopologySpan(part->vertexpointer, 1, 6, limit)) { return FALSE; }
+        oldcount = (DWORD)(unsigned short)Read16(data + part->vertexpointer + 4);
+        if (count > 32767 || !TopologySpan(part->vertexbase, oldcount, 16, limit)) { return FALSE; }
+        /* A dynamic/other node must never lose the buffer it still references. */
+        for (DWORD other = 0; other < source->listcount; other++)
+        {
+            const ModelSourceList *p = &source->lists[other];
+            if (p->preserve && p->vertexpointer == part->vertexpointer) { return FALSE; }
+            if (p->vertexpointer == part->vertexpointer || !TopologySpan(p->vertexpointer, 1, 6, limit)) { continue; }
+            DWORD n = (unsigned short)Read16(data + p->vertexpointer + 4);
+            if (p->vertexbase < part->vertexbase + oldcount * 16
+                && part->vertexbase < p->vertexbase + n * 16) { return FALSE; }
+        }
+        if (part->pointusagepointer)
+        {
+            if (part->pointusagepointer != part->vertexpointer + 12 || !TopologySpan(part->vertexpointer, 1, 16, limit)) { return FALSE; }
+            pointcount = (unsigned short)Read16(data + part->vertexpointer + 6);
+            DWORD points = Read32(data + part->vertexpointer + 8), links = Read32(data + part->pointusagepointer);
+            pointbase = points & 0xffffffu; linkbase = links & 0xffffffu;
+            if ((pointcount && (points >> 24) != 5) || (links && (links >> 24) != 5)
+                || !TopologySpan(pointbase, pointcount, 16, limit)
+                || (links && !TopologySpan(linkbase, oldcount, 2, limit))) { return FALSE; }
+            /* Check every part for incoming as well as outgoing associations. */
+            for (DWORD other = 0; other < source->listcount; other++)
+            {
+                const ModelSourceList *p = &source->lists[other];
+                if (!p->pointusagepointer) { continue; }
+                if (!TopologySpan(p->vertexpointer, 1, 12, limit)) { return FALSE; }
+                DWORD n = (unsigned short)Read16(data + p->vertexpointer + 6);
+                DWORD at = Read32(data + p->vertexpointer + 8) & 0xffffffu;
+                if (!TopologySpan(at, n, 16, limit)) { return FALSE; }
+                for (DWORD i = 0; i < n; i++) if (Read32(data + at + i * 16 + 8))
+                { *why = "Retriangulation cannot yet rebuild collision-point links between model parts. Keep this model's original topology."; return FALSE; }
+            }
+        }
+        unsigned char *vertices = malloc((size_t)count * 16), *points = calloc(count, 16), *links = malloc((size_t)count * 2);
+        DWORD *last = malloc((size_t)count * sizeof(*last));
+        DWORD slots = 1; while (slots < count * 2) { slots *= 2; }
+        DWORD *groups = calloc(slots, sizeof(*groups));
+        if (!vertices || !points || !links || !last || !groups)
+        { free(vertices); free(points); free(links); free(last); free(groups); *why = "Out of memory rebuilding model vertex tables."; return FALSE; }
+        DWORD cursor = 0, unique = 0;
+        memset(links, 0xff, (size_t)count * 2);
+        for (DWORD v = 0; v < editcount; v++) if (owners[v] == part->vertexpointer)
+        {
+            memcpy(vertices + cursor * 16, edits[v].bytes, 16);
+            edits[v].target = cursor * 16; cursor++;
+        }
+        for (DWORD v = 0; v < count; v++)
+        {
+            DWORD h = ModelDataHash(vertices + v * 16, 6) & (slots - 1);
+            while (groups[h] && memcmp(points + (groups[h] - 1) * 16, vertices + v * 16, 6)) { h = (h + 1) & (slots - 1); }
+            DWORD p = groups[h] ? groups[h] - 1 : unique;
+            if (!groups[h])
+            {
+                memcpy(points + p * 16, vertices + v * 16, 6);
+                WriteRounded16(points + p * 16 + 6, v);
+                WriteRounded16(points + p * 16 + 12, -1); groups[h] = ++unique;
+            }
+            else { WriteRounded16(links + last[p] * 2, v); }
+            last[p] = v;
+        }
+        buffer->base = part->vertexbase; buffer->count = oldcount;
+        buffer->newbase = TopologyStore(out, part->vertexbase, oldcount, vertices, count, 16);
+        buffer->newcount = count;
+        if (!out->failed)
+        {
+            Write32(out->data + part->vertexpointer, 0x05000000u | buffer->newbase);
+            WriteRounded16(out->data + part->vertexpointer + 4, count);
+            for (DWORD v = 0; v < editcount; v++) if (owners[v] == part->vertexpointer) { edits[v].target += buffer->newbase; }
+            if (part->pointusagepointer)
+            {
+                DWORD p = TopologyStore(out, pointbase, pointcount, points, unique, 16);
+                DWORD l = TopologyStore(out, linkbase, Read32(data + part->pointusagepointer) ? oldcount : 0, links, count, 2);
+                if (!out->failed)
+                {
+                    WriteRounded16(out->data + part->vertexpointer + 6, unique);
+                    Write32(out->data + part->vertexpointer + 8, 0x05000000u | p);
+                    Write32(out->data + part->pointusagepointer, 0x05000000u | l);
+                }
+            }
+        }
+        free(vertices); free(points); free(links); free(last); free(groups);
+        if (out->failed) { *why = "Out of memory rebuilding model vertex tables."; return FALSE; }
+    }
+    return TRUE;
+}
+
+static BOOL TopologyList(ModelOutput *out, const unsigned char *data, const ModelSource *source,
+    DWORD list, DWORD *cursor, const unsigned short *choices, const ModelVertexEdit *edits,
+    const DWORD *corners, const ModelVertexBuffer *buffer, const char **why)
+{
+    const ModelSourceList *part = &source->lists[list];
+    BgMaterial original = part->initial, current = part->initial;
+    ModelLoadState state = {0}, recipes[16] = {{0}};
+    unsigned valid = 0; BOOL synced = FALSE;
+    state.mode0 = current.modeword0; state.mode1 = current.modeword1;
+    current.textureword0 = current.textureword1 = 0;
+    current.combineword0 = current.combineword1 = 0;
+    if (out->failed || part->pointer + 4 > out->size) { return FALSE; }
+    Write32(out->data + part->pointer, 0x05000000u | out->size);
+    for (DWORD pc = part->offset; pc < part->end; pc += 8)
+    {
+        const unsigned char *cmd = data + pc;
+        if (cmd[0] == 4)
+        {
+            int first = cmd[1] & 15, end = first + (cmd[1] >> 4) + 1;
+            if (end > 16) { return FALSE; }
+            for (int slot = first; slot < end; slot++)
+            {
+                recipes[slot] = state; recipes[slot].mode0 = original.modeword0;
+                recipes[slot].mode1 = original.modeword1; valid |= 1u << slot;
+            }
+            continue;
+        }
+        if (cmd[0] == 0xbf || cmd[0] == 0xb1)
+        {
+            while (*cursor < source->count && source->faces[*cursor].list == list && source->faces[*cursor].command == pc)
+            {
+                DWORD first = *cursor, end = first, variants[16], count = 0;
+                unsigned char idx[3];
+                Indices(cmd, source->faces[first].slot, idx);
+                for (int k = 0; k < 3; k++)
+                    if (idx[k] >= 16 || !(valid & (1u << idx[k]))
+                        || memcmp(&recipes[idx[0]], &recipes[idx[k]], sizeof(state)))
+                    { *why = "Retriangulation cannot combine this part's different vertex-load states."; return FALSE; }
+                BgMaterial desired = source->faces[first].material;
+                if (choices[first] != BG_TEX_ID(source->tags[first])) { BgMaterialSetTexture(&desired, choices[first]); }
+                /* Build a working set of at most 16 exact vertices. Keep face
+                 * order, including intentionally doubled/reversed triangles. */
+                for (; end < source->count && source->faces[end].list == list && source->faces[end].command == pc; end++)
+                {
+                    BgMaterial next = source->faces[end].material;
+                    unsigned char nextidx[3]; Indices(cmd, source->faces[end].slot, nextidx);
+                    if (choices[end] != BG_TEX_ID(source->tags[end])) { BgMaterialSetTexture(&next, choices[end]); }
+                    if (!BgMaterialEqual(&next, &desired)) { break; }
+                    for (int k = 0; k < 3; k++)
+                        if (nextidx[k] >= 16 || !(valid & (1u << nextidx[k]))
+                            || memcmp(&recipes[idx[0]], &recipes[nextidx[k]], sizeof(state)))
+                        { *why = "Retriangulation cannot combine this part's different vertex-load states."; return FALSE; }
+                    DWORD missing = 0;
+                    for (DWORD k = 0; k < 3; k++)
+                    {
+                        DWORD v = 0; while (v < count && variants[v] != corners[end * 3 + k]) { v++; }
+                        missing += v == count;
+                    }
+                    if (count + missing > 16) { break; }
+                    for (DWORD k = 0; k < 3; k++)
+                    {
+                        DWORD v = 0; while (v < count && variants[v] != corners[end * 3 + k]) { v++; }
+                        if (v == count) { variants[count++] = corners[end * 3 + k]; }
+                    }
+                }
+                if (end == first) { return FALSE; }
+                /* Sorting the working set coalesces adjacent native records
+                 * into multi-vertex G_VTX commands, instead of loading seams
+                 * one vertex at a time. It never changes triangle order. */
+                for (DWORD i = 1; i < count; i++)
+                {
+                    DWORD v = variants[i], j = i;
+                    while (j && edits[variants[j - 1]].target > edits[v].target)
+                    { variants[j] = variants[j - 1]; j--; }
+                    variants[j] = v;
+                }
+                ModelLoadState saved = state, load = recipes[idx[0]];
+                if (choices[first] != BG_TEX_NONE) { load.mode0 |= 1u; }
+                if (!LoadState(out, &state, &load, &current, why)) { return FALSE; }
+                for (DWORD slot = 0; slot < count;)
+                {
+                    DWORD start = slot++, address;
+                    while (slot < count && edits[variants[slot]].target == edits[variants[slot - 1]].target + 16) { slot++; }
+                    DWORD n = slot - start;
+                    if (!SplitVertexAddress(buffer, &edits[variants[start]], variants[start], 4, &address, why)) { return FALSE; }
+                    Command(out, 0x04000000u | ((n - 1) << 20) | (start << 16) | (n * 16), address);
+                }
+                if (!LoadState(out, &state, &saved, &current, why)) { return FALSE; }
+                /* Reuse a retained pipe sync so repeated topology imports do
+                 * not accumulate an extra barrier before every material. */
+                BOOL change = !BgMaterialEqual(&current, &desired);
+                MaterialWithSync(out, &current, &desired, !synced);
+                if (change) { synced = TRUE; }
+                state.mode0 = current.modeword0; state.mode1 = current.modeword1;
+                unsigned char triangles[4][3]; int pending = 0;
+                for (DWORD f = first; f < end; f++)
+                {
+                    for (DWORD k = 0; k < 3; k++)
+                    {
+                        DWORD slot = 0; while (slot < count && variants[slot] != corners[f * 3 + k]) { slot++; }
+                        if (slot == count) { return FALSE; }
+                        triangles[pending][k] = (unsigned char)slot;
+                    }
+                    if (++pending == 4) { Triangles(out, triangles, pending); pending = 0; }
+                }
+                Triangles(out, triangles, pending); *cursor = end; synced = FALSE;
+            }
+            continue;
+        }
+        if (BgMaterialReadCommand(&original, Read32(cmd), Read32(cmd + 4))) { continue; }
+        if (cmd[0] == 0xbe || cmd[0] == 0xbd || cmd[0] == 0xb2 || (cmd[0] == 0xbc && cmd[3] == 0x0c))
+        { *why = "Retriangulation cannot preserve this part's vertex-cache or matrix-stack modifications."; return FALSE; }
+        Append(out, cmd, 8);
+        if (cmd[0] == 0xe7) { synced = TRUE; }
+        if (cmd[0] == 1) { state.matrix = Read32(cmd + 4); }
+        else if (cmd[0] == 0xb6 || cmd[0] == 0xb7)
+        {
+            DWORD bits = Read32(cmd + 4) & 0x001f0004u; state.known |= bits;
+            if (cmd[0] == 0xb6) { state.geometry &= ~bits; } else { state.geometry |= bits; }
+        }
+        else if (cmd[0] < 0xc0 && cmd[0] != 0xb8 && cmd[0] != 0xb9 && cmd[0] != 0xba && cmd[0] != 0) { state.epoch++; }
+    }
+    return !out->failed;
+}
+
+BOOL ModelCompileRetopology(const unsigned char *data, DWORD size, const ModelSource *source,
+    const GltfModelImport *imported, const char *projectdir, ModelMaterials *ordered,
+    unsigned char **result, DWORD *resultsize, const char **why)
+{
+    ModelSource expanded = *source;
+    ModelTopologyFace *order = NULL;
+    ModelVertexEdit *edits = NULL;
+    ModelVertexBuffer *buffers = NULL;
+    DWORD *references = NULL, *corners = NULL, *owners = NULL, *hashes = NULL;
+    unsigned short *choices = NULL;
+    ModelOutput out = {0}; BOOL ok = FALSE;
+    DWORD editcount = 0, hashcount = 1, facecursor = 0;
+    *result = NULL; *resultsize = 0;
+    expanded.faces = NULL; expanded.tags = NULL;
+    size = ModelMaterialsNativeSize(data, size);
+    *why = "Retriangulated imports must contain 1 to 10000 faces and retain their exported material slots.";
+    if (!imported->count || imported->count > 10000 || !source->listcount
+        || source->lists[0].offset > size || size > MODEL_LIMIT
+        || !source->materials.count || imported->materials.facecount != imported->count) { goto done; }
+    references = malloc((size_t)imported->materials.count * sizeof(*references));
+    order = malloc((size_t)imported->count * sizeof(*order));
+    expanded.faces = malloc((size_t)imported->count * sizeof(*expanded.faces));
+    expanded.tags = malloc((size_t)imported->count * sizeof(*expanded.tags));
+    choices = malloc((size_t)imported->count * sizeof(*choices));
+    edits = malloc((size_t)imported->count * 3 * sizeof(*edits));
+    corners = malloc((size_t)imported->count * 3 * sizeof(*corners));
+    owners = malloc((size_t)imported->count * 3 * sizeof(*owners));
+    buffers = calloc(source->listcount, sizeof(*buffers));
+    while (hashcount < imported->count * 6) { hashcount *= 2; }
+    hashes = calloc(hashcount, sizeof(*hashes));
+    *why = "Out of memory rebuilding model topology.";
+    if (!references || !order || !expanded.faces || !expanded.tags || !choices || !edits || !corners || !owners || !buffers || !hashes) { goto done; }
+    for (DWORD slot = 0; slot < imported->materials.count; slot++)
+    {
+        DWORD original = MODEL_NO_VERTEX, reference = MODEL_NO_VERTEX;
+        for (DWORD s = 0; s < source->materials.count; s++)
+            if (!strcmp(imported->materials.slots[slot].name, source->materials.slots[s].name))
+            {
+                if (original != MODEL_NO_VERTEX) { goto ambiguous; }
+                original = s;
+            }
+        for (DWORD f = 0; f < source->count; f++) if (source->materials.faces[f].slot == original)
+        {
+            if (reference == MODEL_NO_VERTEX) { reference = f; }
+            else if (source->faces[f].list != source->faces[reference].list
+                || source->flags[f] != source->flags[reference]
+                || !TopologyStateEqual(&source->faces[f].state, &source->faces[reference].state)
+                || !BgMaterialEqual(&source->faces[f].material, &source->faces[reference].material)) { goto ambiguous; }
+        }
+        if (reference == MODEL_NO_VERTEX) { goto ambiguous; }
+        references[slot] = reference;
+    }
+    for (DWORD f = 0; f < imported->count; f++)
+    {
+        DWORD slot = imported->materials.faces[f].slot;
+        if (slot >= imported->materials.count) { goto ambiguous; }
+        order[f] = (ModelTopologyFace){references[slot], f};
+    }
+    qsort(order, imported->count, sizeof(*order), TopologyFaceCompare);
+    if (!ModelMaterialsCopy(ordered, &imported->materials, why)) { goto done; }
+    for (DWORD list = 0; list < source->listcount; list++)
+    {
+        BOOL used = FALSE;
+        for (DWORD f = 0; f < imported->count; f++) { used |= source->faces[order[f].reference].list == list; }
+        if (used && !TopologyRigid(data, source, list, why)) { goto done; }
+    }
+    for (DWORD f = 0; f < imported->count; f++)
+    {
+        DWORD ref = order[f].reference, input = order[f].imported;
+        const ModelSourceFace *face = &source->faces[ref];
+        const ModelSourceList *part = &source->lists[face->list];
+        BgMaterial material = face->material; int width = 1, height = 1;
+        unsigned short texture = BG_TEX_ID(imported->tags[input]);
+        expanded.faces[f] = *face; expanded.tags[f] = source->tags[ref]; choices[f] = texture;
+        ordered->faces[f] = imported->materials.faces[input];
+        if (texture != BG_TEX_ID(source->tags[ref])) { BgMaterialSetTexture(&material, texture); }
+        if (texture != BG_TEX_NONE && !TexGetProjectImageSize(projectdir, texture, &width, &height))
+        { *why = "An assigned model image is missing from the project."; goto done; }
+        BgRenderAlpha alpha = BgRenderGetMaterialAlpha(&face->state, &material);
+        for (DWORD k = 0; k < 3; k++)
+        {
+            ModelVertexEdit edit = {0};
+            if (!PrepareVertexEdit(&edit, data, source, ref * 3 + k, &imported->vertices[input * 3 + k],
+                width, height, texture != BG_TEX_NONE, alpha, why)) { goto done; }
+            /* Only native records owned by this part may use its segment 4. */
+            DWORD count = (unsigned short)Read16(data + part->vertexpointer + 4);
+            if (edit.offset < part->vertexbase || edit.offset - part->vertexbase >= count * 16)
+            { *why = "Retriangulation cannot remap this part's externally shared vertices."; goto done; }
+            DWORD h = (ModelDataHash(edit.bytes, 16) ^ part->vertexpointer) & (hashcount - 1);
+            while (hashes[h] && (owners[hashes[h] - 1] != part->vertexpointer
+                || memcmp(edits[hashes[h] - 1].bytes, edit.bytes, 16))) { h = (h + 1) & (hashcount - 1); }
+            if (!hashes[h]) { owners[editcount] = part->vertexpointer; edits[editcount] = edit; hashes[h] = ++editcount; }
+            else { edits[hashes[h] - 1].textured |= edit.textured; }
+            corners[f * 3 + k] = hashes[h] - 1;
+        }
+        const unsigned char *a = edits[corners[f * 3]].bytes, *b = edits[corners[f * 3 + 1]].bytes, *c = edits[corners[f * 3 + 2]].bytes;
+        double ab[3], ac[3];
+        for (int axis = 0; axis < 3; axis++) { ab[axis] = Read16(b + axis * 2) - Read16(a + axis * 2); ac[axis] = Read16(c + axis * 2) - Read16(a + axis * 2); }
+        if (ab[0] * ac[1] == ab[1] * ac[0] && ab[0] * ac[2] == ab[2] * ac[0] && ab[1] * ac[2] == ab[2] * ac[1])
+        { *why = "A rebuilt triangle collapses at native integer precision."; goto done; }
+    }
+    expanded.count = imported->count;
+    Append(&out, data, source->lists[0].offset);
+    if (out.failed || !TopologyBuffers(&out, data, source, edits, owners, editcount, buffers, why)) { goto done; }
+    /* PointUsage is an s16 array; pad its tail for native Gfx DMA alignment. */
+    static const unsigned char padding[8] = {0};
+    Append(&out, padding, (8 - out.size % 8) % 8);
+    if (out.failed) { goto done; }
+    for (DWORD list = 0; list < source->listcount; list++)
+    {
+        const ModelSourceList *part = &source->lists[list];
+        if (part->preserve)
+        {
+            Write32(out.data + part->pointer, 0x05000000u | out.size);
+            Append(&out, data + part->offset, part->end - part->offset);
+        }
+        else if (!TopologyList(&out, data, &expanded, list, &facecursor, choices, edits, corners, &buffers[list], why)) { goto done; }
+    }
+    if (out.failed || facecursor != imported->count) { goto done; }
+    *result = out.data; *resultsize = out.size; out.data = NULL; *why = ""; ok = TRUE;
+    goto done;
+ambiguous:
+    *why = "New triangles cannot be matched to one native part. Retain the exported material slot names and keep each slot within its original part.";
+done:
+    if (!ok) { ModelMaterialsFree(ordered); }
+    free(out.data); free(references); free(order); free(expanded.faces); free(expanded.tags);
+    free(choices); free(edits); free(corners); free(owners); free(hashes); free(buffers); return ok;
 }
 
 BOOL ModelCompileImport(const unsigned char *data, DWORD size, const ModelSource *source,

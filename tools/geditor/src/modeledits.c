@@ -385,8 +385,14 @@ BOOL ModelEditsImport(const char *project, const char *name, const char *path,
     ModelMaterialsMatch(&imported.materials,&source.materials);
     for (i=0;i<imported.count;i++)
         imported.tags[i]=(imported.tags[i]&~BG_TEX_ID_MASK)|imported.materials.slots[imported.materials.faces[i].slot].texture;
-    if (!ModelCompileImport(data,size,&source,&imported,project,&compiled,&compiledsize,why)
-        || !ImportMaterials(&source,&imported,&ordered,why)) goto done;
+    int topology = ModelImportKeepsTopology(&source,&imported);
+    if (topology < 0) { *why="Out of memory matching imported faces."; goto done; }
+    if (topology)
+    {
+        if (!ModelCompileImport(data,size,&source,&imported,project,&compiled,&compiledsize,why)
+            || !ImportMaterials(&source,&imported,&ordered,why)) goto done;
+    }
+    else if (!ModelCompileRetopology(data,size,&source,&imported,project,&ordered,&compiled,&compiledsize,why)) goto done;
     if (compiledsize==ModelMaterialsNativeSize(data,size) && !memcmp(data,compiled,compiledsize)
         && ordered.count==source.materials.count && ordered.facecount==source.materials.facecount
         && !memcmp(ordered.slots,source.materials.slots,(size_t)ordered.count*sizeof(*ordered.slots))

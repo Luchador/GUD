@@ -24,8 +24,8 @@ BOOL GltfWriteEditableModel(const char *path, const char *projectdir,
                             const struct ModelSource *source, DWORD sourcehash,
                             const char **reasonout);
 
-/* Import source identities through Blender's generic underscore attributes.
- * Positions are transformed through the selected scene; UVs stay normalized. */
+/* Source identities are optional after retopology (missing/interpolated IDs
+ * become 0xffffffff). Positions use scene transforms; UVs stay normalized. */
 typedef struct GltfModelImport {
     BgVertex *vertices;
     unsigned short *tags;
