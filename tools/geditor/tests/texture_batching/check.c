@@ -80,22 +80,28 @@ static FaceKey Key(const BgDocument *doc,DWORD room,DWORD f)
     key.layer=face->layer;key.cull=face->cullbackfaces;return key;
 }
 static int Compare(const void *a,const void *b) { return memcmp(a,b,sizeof(FaceKey)); }
-static void Equivalent(const BgFile *a,const BgFile *b)
+static void EquivalentDocuments(const BgDocument *x,const BgDocument *y)
 {
-    BgDocument x={0},y={0};OK(BgDocumentLoad(a->data,a->size,1,&x,&why));OK(BgDocumentLoad(b->data,b->size,1,&y,&why));
-    OK(x.roomcount==y.roomcount && x.facecount==y.facecount);
-    for (DWORD r=1;r<=x.roomcount;r++)
+    OK(x->roomcount==y->roomcount && x->facecount==y->facecount);
+    for (DWORD r=1;r<=x->roomcount;r++)
     {
-        DWORD count=x.rooms[r].facecount;OK(count==y.rooms[r].facecount);
+        DWORD count=x->rooms[r].facecount;OK(count==y->rooms[r].facecount);
+        OK(!memcmp(x->rooms[r].origin,y->rooms[r].origin,sizeof(x->rooms[r].origin)));
         FaceKey *left=calloc(count?count:1,sizeof(*left)),*right=calloc(count?count:1,sizeof(*right));OK(left&&right);
         for (DWORD f=0;f<count;f++)
         {
-            left[f]=Key(&x,r,f);right[f]=Key(&y,r,f);
-            if (left[f].layer) OK(!memcmp(&left[f],&right[f],sizeof(*left)));
+            left[f]=Key(x,r,f);right[f]=Key(y,r,f);
+            if (left[f].layer || (left[f].state[0]&0x5c00u) || left[f].state[6]>=BG_SURFACE_CUTOUT)
+                OK(!memcmp(&left[f],&right[f],sizeof(*left)));
         }
         qsort(left,count,sizeof(*left),Compare);qsort(right,count,sizeof(*right),Compare);
         OK(!memcmp(left,right,count*sizeof(*left)));free(left);free(right);
     }
+}
+static void Equivalent(const BgFile *a,const BgFile *b)
+{
+    BgDocument x={0},y={0};OK(BgDocumentLoad(a->data,a->size,1,&x,&why));OK(BgDocumentLoad(b->data,b->size,1,&y,&why));
+    EquivalentDocuments(&x,&y);
     BgDocumentFree(&x);BgDocumentFree(&y);
 }
 static void Synthetic(void)
@@ -170,16 +176,146 @@ static void StateAndCosts(void)
         free(room->vertices);room->vertices=vertices;room->vertexcount=80;
         OK(BgDocumentCompile(&doc,&source,&compiled,&why));
         DWORD primary=Get(compiled.data+60)&0xffffff;
-        /* Sorting would turn three shared loads into six; retain this order. */
-        OK(Textures(compiled.data+primary,Get(compiled.data+primary-4))==6);
+        /* Dense remapping and exact attribute reuse recover the eight native
+         * vertices despite widely spaced editor IDs, so sorting now wins. */
+        OK(Textures(compiled.data+primary,Get(compiled.data+primary-4))==3);
+        DWORD loads=0;
+        for(DWORD pc=primary;compiled.data[pc]!=0xb8;pc+=8) if(compiled.data[pc]==4)
+        { loads++;OK(((Get(compiled.data+pc)>>20)&15)+1==8); }
+        OK(loads==1);Equivalent(&source,&compiled);
         OK(BgFileValidateVertexBatches(&compiled,&why));
         BgDocumentFree(&doc);BgFileFree(&source);BgFileFree(&compiled);
     }
     puts("PASS: distinct wrapping/detail bindings, dynamic/nested-list barriers and vertex-load cost fallback.");
 }
+static DWORD Commands(const BgFile *bg, DWORD room, DWORD layer, unsigned char opcode)
+{
+    DWORD table=Get(bg->data+4)&0xffffffu;
+    DWORD pc=Get(bg->data+table+room*24+4+layer*4)&0xffffffu,count=0;
+    if (!pc) return 0;
+    for (;bg->data[pc]!=0xb8;pc+=8) count+=bg->data[pc]==opcode;
+    return count;
+}
+
+static void VertexReuse(void)
+{
+    /* Equal positions alone must never merge UV seams, flags, normals/colors
+     * or alpha. Only variant zero is a byte-identical duplicate. */
+    for (int variant=0;variant<11;variant++)
+    {
+        BgFile source=Fixture(0x00552078,FALSE,FALSE),out={0};
+        BgDocument doc={0},snapshot={0},loaded={0};
+        OK(BgDocumentLoad(source.data,source.size,1,&doc,&why));
+        BgDocumentRoom *room=&doc.rooms[1];
+        room->facecount=doc.facecount=2;
+        room->faces[1]=room->faces[0];room->faces[1].id++;
+        room->faces[1].vertexindices[0]=7;room->vertices[7]=room->vertices[0];
+        room->vertices[7].id=900;room->vertices[7].usecount=1;
+        BgDocumentVertex *v=&room->vertices[7];
+        switch(variant)
+        {
+        case 1:v->x++;break;case 2:v->y++;break;case 3:v->z++;break;
+        case 4:v->flag++;break;case 5:v->s++;break;case 6:v->t++;break;
+        case 7:v->r++;break;case 8:v->g++;break;case 9:v->b++;break;case 10:v->a--;break;
+        }
+        OK(BgDocumentClone(&doc,&snapshot,&why));
+        OK(BgDocumentCompile(&doc,&source,&out,&why));
+        OK(BgFileValidateVertexBatches(&out,&why));
+        OK(BgDocumentLoad(out.data,out.size,1,&loaded,&why));
+        EquivalentDocuments(&doc,&loaded);
+        OK(loaded.rooms[1].vertexcount==(variant?4u:3u));
+        OK(Commands(&out,1,0,4)==1);
+        OK(!memcmp(room->vertices,snapshot.rooms[1].vertices,room->vertexcount*sizeof(*room->vertices)));
+        OK(!memcmp(room->faces,snapshot.rooms[1].faces,room->facecount*sizeof(*room->faces)));
+        for(int layer=0;layer<2;layer++)for(DWORD g=0;g<room->layers[layer].groupcount;g++)
+        {
+            BgDocumentDrawGroup *a=&room->layers[layer].groups[g],*b=&snapshot.rooms[1].layers[layer].groups[g];
+            OK(a->commandsize==b->commandsize && !memcmp(a->commands,b->commands,a->commandsize));
+        }
+        BgDocumentFree(&doc);BgDocumentFree(&snapshot);BgDocumentFree(&loaded);BgFileFree(&out);BgFileFree(&source);
+    }
+    puts("PASS: exact XYZ/flag/UV/RGBA reuse, seam/alpha differences and unchanged live IDs/state.");
+}
+
+static void MutableAliases(void)
+{
+    for(int water=0;water<2;water++)
+    {
+        DWORD image=water?1508:201;
+        BgFile source=Fixture(0x00552078,FALSE,FALSE),out={0};BgDocument doc={0},loaded={0};
+        OK(BgDocumentLoad(source.data,source.size,1,&doc,&why));
+        BgDocumentRoom *room=&doc.rooms[1];
+        room->vertices=realloc(room->vertices,16*sizeof(*room->vertices));OK(room->vertices);
+        memcpy(room->vertices+8,room->vertices,8*sizeof(*room->vertices));room->vertexcount=16;
+        room->faces[0].textureid=image;BgMaterialSetTexture(&room->faces[0].material,image);
+        /* A separate ordinary triangle has the same bytes as the light/water.
+         * The first secondary triangle intentionally shares the mutable IDs. */
+        for(int c=0;c<3;c++)room->faces[1].vertexindices[c]=8+c;
+        OK(BgDocumentCompile(&doc,&source,&out,&why));OK(BgFileValidateVertexBatches(&out,&why));
+        OK(BgDocumentLoad(out.data,out.size,1,&loaded,&why));EquivalentDocuments(&doc,&loaded);
+        BgDocumentRoom *result=&loaded.rooms[1];
+        const BgDocumentFace *mutable=NULL,*independent=NULL,*shared=NULL;
+        for(DWORD f=0;f<result->facecount;f++)
+        {
+            const BgDocumentFace *face=&result->faces[f];
+            if(!face->layer && face->textureid==image)mutable=face;
+            if(!face->layer && face->textureid==0x32
+                && result->vertices[face->vertexindices[0]].x==0)independent=face;
+            if(face->layer && !shared)shared=face;
+        }
+        OK(mutable && independent && shared);
+        for(int c=0;c<3;c++)
+        {
+            OK(mutable->vertexindices[c]==shared->vertexindices[c]);
+            for(int d=0;d<3;d++)OK(mutable->vertexindices[c]!=independent->vertexindices[d]);
+        }
+        BgDocumentFree(&doc);BgDocumentFree(&loaded);BgFileFree(&source);BgFileFree(&out);
+    }
+    puts("PASS: mutable light/water aliases survive across layers without absorbing identical static vertices.");
+}
+
+static void RedundantState(void)
+{
+    BgFile source=Fixture(0x00552078,FALSE,FALSE),out={0};BgDocument doc={0},loaded={0};
+    OK(BgDocumentLoad(source.data,source.size,1,&doc,&why));
+    BgDocumentRoom *room=&doc.rooms[1];
+    for(DWORD f=0;f<room->facecount;f++)
+    {
+        BgDocumentFace *face=&room->faces[f];
+        BgDocumentDrawGroup *group=&room->layers[face->layer].groups[face->drawgroup];
+        group->commands=realloc(group->commands,group->commandsize+24);OK(group->commands);
+        Cmd(group->commands+group->commandsize,0xb900031d,face->layer?0x005049d8:0x00552078);
+        /* Two partial writes share the low-mode register. The first alpha
+         * compare write must survive even though its value equals a default. */
+        Cmd(group->commands+group->commandsize+8,0xb9000002,0);
+        Cmd(group->commands+group->commandsize+16,0xfb000000,0x123456ff);
+        group->commandsize+=24;group->commandcapacity=group->commandsize;
+    }
+    OK(BgDocumentCompile(&doc,&source,&out,&why));OK(BgDocumentLoad(out.data,out.size,1,&loaded,&why));
+    EquivalentDocuments(&doc,&loaded);OK(BgFileValidateVertexBatches(&out,&why));
+    for(int layer=0;layer<2;layer++)
+    { OK(Commands(&out,1,layer,0xb9)==2);OK(Commands(&out,1,layer,0xfb)==1);OK(Commands(&out,1,layer,4)==1); }
+    BgDocumentFree(&doc);BgDocumentFree(&loaded);BgFileFree(&source);BgFileFree(&out);
+    puts("PASS: redundant full/partial state writes, full environment color and ordered secondary batching.");
+}
+
+static void WholeFile(const BgFile *source)
+{
+    BgFile out={0},again={0};
+    unsigned char *snapshot=malloc(source->size);OK(snapshot);memcpy(snapshot,source->data,source->size);
+    OK(BgFileOptimize(source,&out,&why));OK(!memcmp(snapshot,source->data,source->size));
+    if(out.data)
+    {
+        Equivalent(source,&out);OK(BgFileValidateVertexBatches(&out,&why));
+        OK(BgFileOptimize(&out,&again,&why));OK(!again.data);
+        printf("Full export: %u -> %u bytes; decoded geometry/materials and secondary order preserved.\n",source->size,out.size);
+    }
+    free(snapshot);BgFileFree(&out);BgFileFree(&again);
+}
+
 int main(int argc,char **argv)
 {
-    Synthetic();StateAndCosts();
+    Synthetic();StateAndCosts();VertexReuse();MutableAliases();RedundantState();
     for (int a=1;a<argc;a++)
     {
         FILE *f=fopen(argv[a],"rb");BgFile source={0},out={0},again={0};DWORD before=0,after=0;
@@ -201,6 +337,7 @@ int main(int argc,char **argv)
             if (secondary) OK(!memcmp(data+secondary-4,source.data+secondary-4,Get(source.data+secondary-4)+4));
         }
         printf("%s: texture selections %u -> %u; BG size %u bytes (unchanged).\n",argv[a],before,after,source.size);
+        WholeFile(&source);
         BgFileFree(&source);BgFileFree(&out);
     }
     return 0;

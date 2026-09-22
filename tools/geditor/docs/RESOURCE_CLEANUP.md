@@ -20,6 +20,10 @@ Compaction operates on serialization copies. Live selections, portal identities
 and undo/redo snapshots continue to use their original offsets. A fresh load
 uses the compact file's offsets. Repeated saves and exports are stable.
 
+The [batch compiler](TEXTURE_BATCHING.md) also packs static vertex loads, reuses
+exact native vertex attributes, and removes redundant state writes. Transparent
+and decal triangle order is preserved. Empty-room bounds remain unchanged.
+
 STAN cleanup retains all tiles, the terminator and the recognized `unstric`
 footer. It discards old bytes beyond that footer when its four pointer fields
 are NULL. Unknown footer extensions remain intact. Untouched stock placeholder

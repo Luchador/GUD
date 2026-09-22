@@ -36,6 +36,8 @@ typedef struct BgCompileBuffer {
     DWORD capacity;
     BOOL failed;
     BOOL pipesynced;
+    BOOL packvertices;
+    const unsigned char *pinnedvertices;
 } BgCompileBuffer;
 
 
@@ -157,11 +159,9 @@ static BOOL BgCompileWriteCommand(BgCompileBuffer *buffer,
 }
 
 
-static BOOL BgCompileWriteVertex(BgCompileBuffer *buffer,
-                                 const BgDocumentVertex *vertex)
+static void BgCompileEncodeVertex(unsigned char encoded[16],
+                                   const BgDocumentVertex *vertex)
 {
-    unsigned char encoded[16];
-
     encoded[0] = (unsigned char)((unsigned short)vertex->x >> 8);
     encoded[1] = (unsigned char)vertex->x;
     encoded[2] = (unsigned char)((unsigned short)vertex->y >> 8);
@@ -178,6 +178,13 @@ static BOOL BgCompileWriteVertex(BgCompileBuffer *buffer,
     encoded[13] = vertex->g;
     encoded[14] = vertex->b;
     encoded[15] = vertex->a;
+}
+
+static BOOL BgCompileWriteVertex(BgCompileBuffer *buffer,
+                                 const BgDocumentVertex *vertex)
+{
+    unsigned char encoded[16];
+    BgCompileEncodeVertex(encoded, vertex);
     return BgCompileAppend(buffer, encoded, sizeof(encoded));
 }
 
@@ -296,12 +303,18 @@ static BOOL BgCompileEmitVertexLoad(BgCompileBuffer *gdl,
     DWORD span = vertices[*count - 1] - first + 1;
     DWORD offset = first * 16;
     DWORD index;
+    BOOL dense = vertexdata->packvertices;
+
+    for (index = 0; dense && index < *count; index++)
+    {
+        if (vertexdata->pinnedvertices && vertexdata->pinnedvertices[vertices[index]]) { dense = FALSE; }
+    }
 
     /* The CPU's BG bullet tests use the most recent G_VTX as a contiguous
      * array, not the RSP's accumulated cache. Every triangle in a batch must
-     * therefore use vertices from ONE load (including gaps in source indices).
-     * Keep the original vertex array/identities whenever the span fits. */
-    if (span <= 16)
+     * therefore use vertices from ONE load. Static batches can use an exact
+     * dense copy; mutable vertices retain their original shared addresses. */
+    if (!dense && span <= 16)
     {
         *count = span;
         for (index = 0; index < span; index++)
@@ -311,9 +324,9 @@ static BOOL BgCompileEmitVertexLoad(BgCompileBuffer *gdl,
     }
     else
     {
-        /* A face imported from partial cache loads can itself span more than
-         * 16 source vertices. Give that batch a contiguous copy in the output;
-         * leave the live document and its undo/selection identities intact. */
+        /* Source index distance is not a cache limit. Remap up to sixteen
+         * distinct vertices into consecutive output records without changing
+         * the live document's selection, seam or undo identities. */
         offset = vertexdata->size;
         if (offset > 0x01000000u - *count * 16)
         {
@@ -536,6 +549,7 @@ static BOOL BgCompileEmitGroupFaces(BgCompileBuffer *gdl,
         DWORD batchend = batchstart;
         DWORD minvertex = (DWORD)-1;
         DWORD maxvertex = 0;
+        BOOL batchdense = vertexdata->packvertices;
 
         while (batchend < facecount)
         {
@@ -544,6 +558,7 @@ static BOOL BgCompileEmitGroupFaces(BgCompileBuffer *gdl,
             DWORD additioncount = 0;
             DWORD nextmin = minvertex;
             DWORD nextmax = maxvertex;
+            BOOL facedense = vertexdata->packvertices;
             int corner;
             const BgMaterial *firstmaterial = &room->faces[faceindices[batchstart]].material;
 
@@ -565,6 +580,7 @@ static BOOL BgCompileEmitGroupFaces(BgCompileBuffer *gdl,
                     *reasonout = "a bg face references a vertex outside its room.";
                     return FALSE;
                 }
+                if (vertexdata->pinnedvertices && vertexdata->pinnedvertices[vertex]) { facedense = FALSE; }
                 if (vertex < nextmin) { nextmin = vertex; }
                 if (vertex > nextmax) { nextmax = vertex; }
                 if (BgCompileFindVertex(vertices, vertexcount, vertex) < 0
@@ -576,7 +592,8 @@ static BOOL BgCompileEmitGroupFaces(BgCompileBuffer *gdl,
             }
 
             if (vertexcount + additioncount > 16
-                || (batchend > batchstart && nextmax - nextmin >= 16))
+                || (batchend > batchstart && (facedense != batchdense
+                    || (!batchdense && nextmax - nextmin >= 16))))
             {
                 break;
             }
@@ -586,6 +603,7 @@ static BOOL BgCompileEmitGroupFaces(BgCompileBuffer *gdl,
             }
             minvertex = nextmin;
             maxvertex = nextmax;
+            batchdense = facedense;
             batchend++;
         }
 
@@ -595,7 +613,9 @@ static BOOL BgCompileEmitGroupFaces(BgCompileBuffer *gdl,
             return FALSE;
         }
 
-        BgCompileSortVertices(vertices, vertexcount);
+        /* Dense blocks use first-reference order, independent of editor or
+         * previously exported indices. This makes save/reload deterministic. */
+        if (!batchdense) { BgCompileSortVertices(vertices, vertexcount); }
         if (!BgCompileEmitFaceState(gdl, &room->faces[faceindices[batchstart]],
                                      material, cullbackfaces, reasonout)
             || !BgCompileEmitVertexLoad(gdl, vertexdata, room,
@@ -739,6 +759,8 @@ static BOOL BgCompileBatchFaces(BgCompileBuffer *gdl, BgCompileBuffer *vertexdat
         lists[i].pipesynced = gdl->pipesynced;
         /* Only appended bytes are consumed; existing vertex offsets stay valid. */
         vertices[i].size = vertexdata->size;
+        vertices[i].packvertices = vertexdata->packvertices;
+        vertices[i].pinnedvertices = vertexdata->pinnedvertices;
         if (!BgCompileEmitGroupFaces(&lists[i], &vertices[i], room, i ? order : indices,
                 count, &states[i], &culls[i], reasonout)) { goto done; }
     }
@@ -811,7 +833,9 @@ static BOOL BgCompileLayer(const BgDocumentRoom *room,
         }
 
         batch = layer == BG_GEOMETRY_PRIMARY && knownstate && BgCompileOpaqueState(&renderstate);
-        if (batch && layerdata->groupcount)
+        /* Secondary/decal faces may share a load across material-only groups,
+         * but only the opaque primary path is allowed to reorder triangles. */
+        if ((batch || (vertexdata->packvertices && knownstate)) && layerdata->groupcount)
         {
             while (groupend < groupcount && BgCompileMaterialGroup(&layerdata->groups[groupend])) { groupend++; }
         }
@@ -1114,6 +1138,231 @@ mismatch:
 }
 
 
+/* Compile a private view of each room. Native vertex attributes may merge,
+ * while the editable document, source IDs and history remain untouched. */
+typedef struct BgCompileRoom {
+    BgDocumentRoom room;
+    unsigned char *pinned;
+    BOOL packvertices;
+} BgCompileRoom;
+
+typedef struct BgCompileVertexKey {
+    unsigned char bytes[16];
+    DWORD index;
+} BgCompileVertexKey;
+
+static int BgCompileCompareVertices(const void *aa, const void *bb)
+{
+    const BgCompileVertexKey *a = aa, *b = bb;
+    int compare = memcmp(a->bytes, b->bytes, sizeof(a->bytes));
+    return compare ? compare : a->index < b->index ? -1 : a->index != b->index;
+}
+
+static BOOL BgCompileMutableTexture(DWORD image)
+{
+    /* Keep in sync with check_if_imageID_is_light and texLoadFromGdl's
+     * dynamic water bindings. Light darkening records physical vertex IDs. */
+    switch (image)
+    {
+    case 201: case 203: case 205: case 252: case 253: case 254:
+    case 255: case 256: case 428: case 982: case 1383:
+    case 1508: case 1511:
+        return TRUE;
+    }
+    return FALSE;
+}
+
+/* These flat state commands have no untracked references into room streams.
+ * Keep nested lists, matrix/light DMA and vertex-dependent commands out of
+ * automatic relocation/reuse; manual compilation retains the existing path. */
+static BOOL BgCompileRelocatableGroup(const BgDocumentDrawGroup *group)
+{
+    if ((group->commandsize & 7) || (group->commandsize && !group->commands)) { return FALSE; }
+    for (DWORD i = 0; i < group->commandsize; i += 8)
+    {
+        switch (group->commands[i])
+        {
+        case 0xb6: case 0xb7: case 0xb9: case 0xba: case 0xef:
+        case 0xfa: case 0xfb: case 0xe7: case 0xe8:
+        case BG_G_TEXTURE: case BG_G_SETTEXTURE: case BG_G_SETCOMBINE:
+            break;
+        default: return FALSE;
+        }
+    }
+    return TRUE;
+}
+
+typedef struct BgCompileStateCache {
+    DWORD value[5], known[5]; /* other H/L, geometry, environment, policy */
+} BgCompileStateCache;
+
+static BOOL BgCompileKeepState(BgCompileStateCache *state, DWORD a, DWORD b)
+{
+    DWORD op = a >> 24, mask = 0, value = b;
+    int reg = -1;
+    BOOL keep;
+    if (op == 0xba || op == 0xb9)
+    {
+        DWORD shift = (a >> 8) & 255, count = a & 255;
+        if (!count || shift >= 32 || count > 32 - shift)
+        { ZeroMemory(state, sizeof(*state)); return TRUE; }
+        reg = op == 0xba ? 0 : 1;
+        mask = count == 32 ? 0xffffffffu : ((1u << count) - 1) << shift;
+    }
+    else if (op == 0xb6 || op == 0xb7)
+    {
+        reg = 2; mask = b; value = op == 0xb6 ? 0 : b;
+        /* Culling belongs to editable faces and may change between groups. */
+        state->known[2] &= ~BGCOMPILE_G_CULL_BACK;
+    }
+    else if (op == 0xfb) { reg = 3; mask = 0xffffffffu; }
+    else if (BG_SURFACE_IS_MARKER(a, b)) { reg = 4; mask = 0xffffffffu; }
+    else if (op == 0xef)
+    {
+        /* Track both registers, but retain this combined write as a barrier. */
+        state->value[0] = a & 0xffffffu; state->known[0] = 0xffffffu;
+        state->value[1] = b; state->known[1] = 0xffffffffu;
+    }
+    else if (op == BG_G_SETTEXTURE && !BG_EDITOR_IS_MARKER(a, b))
+    {
+        /* Texture expansion can write the LUT mode and primitive color/LOD.
+         * Primitive commands are deliberately never removed by this pass. */
+        state->known[0] &= ~(3u << 14);
+        if (BgCompileMutableTexture(b & 0xfffu) || (a & 7) > 4)
+        { ZeroMemory(state, sizeof(*state)); }
+    }
+    else if (op != BG_G_TEXTURE && op != BG_G_SETCOMBINE
+        && op != BG_G_PIPESYNC && op != 0xe8 && op != 0xfa
+        && !BG_ALPHA_IS_MARKER(a, b))
+    { ZeroMemory(state, sizeof(*state)); }
+    if (reg < 0) { return TRUE; }
+    keep = (state->known[reg] & mask) != mask || ((state->value[reg] ^ value) & mask) != 0;
+    state->value[reg] = (state->value[reg] & ~mask) | (value & mask);
+    state->known[reg] |= mask;
+    return keep;
+}
+
+static void BgCompileFreeRoom(BgCompileRoom *prepared)
+{
+    free(prepared->room.faces);
+    free(prepared->pinned);
+    for (int layer = 0; layer < 2; layer++)
+    {
+        BgDocumentLayerData *data = &prepared->room.layers[layer];
+        for (DWORD g = 0; data->groups && g < data->groupcount; g++) { free(data->groups[g].commands); }
+        free(data->groups);
+    }
+    ZeroMemory(prepared, sizeof(*prepared));
+}
+
+static BOOL BgCompilePrepareRoom(const BgDocumentRoom *source,
+    BgCompileRoom *prepared, const char **reasonout)
+{
+    BgCompileVertexKey *keys = NULL;
+    DWORD *map = NULL, keycount = 0;
+    unsigned char *used = NULL;
+    *reasonout = "out of memory preparing background batches.";
+    prepared->room = *source;
+    prepared->room.faces = NULL;
+    for (int layer = 0; layer < 2; layer++) { prepared->room.layers[layer].groups = NULL; }
+    prepared->packvertices = TRUE;
+    if (source->facecount)
+    {
+        prepared->room.faces = malloc((size_t)source->facecount * sizeof(*source->faces));
+        if (!prepared->room.faces) { goto fail; }
+        memcpy(prepared->room.faces, source->faces, (size_t)source->facecount * sizeof(*source->faces));
+    }
+    for (int layer = 0; layer < 2; layer++)
+    {
+        BgCompileStateCache state = {0};
+        const BgDocumentLayerData *from = &source->layers[layer];
+        BgDocumentLayerData *to = &prepared->room.layers[layer];
+        if (!from->groupcount) { continue; }
+        if (!from->groups) { *reasonout = "a bg layer references missing draw groups."; goto fail; }
+        to->groups = calloc(from->groupcount, sizeof(*to->groups));
+        if (!to->groups) { goto fail; }
+        for (DWORD g = 0; g < from->groupcount; g++)
+        {
+            const BgDocumentDrawGroup *old = &from->groups[g];
+            BgDocumentDrawGroup *group = &to->groups[g];
+            if ((old->commandsize & 7) || (old->commandsize && !old->commands))
+            { *reasonout = "a bg draw group contains malformed display-list state."; goto fail; }
+            prepared->packvertices &= BgCompileRelocatableGroup(old);
+            if (old->commandsize)
+            {
+                group->commands = malloc(old->commandsize);
+                if (!group->commands) { goto fail; }
+                group->commandcapacity = old->commandsize;
+            }
+            for (DWORD pc = 0; pc < old->commandsize; pc += 8)
+            {
+                const unsigned char *command = old->commands + pc;
+                if (BgCompileKeepState(&state, BgCompileRead32(command), BgCompileRead32(command + 4)))
+                { memcpy(group->commands + group->commandsize, command, 8); group->commandsize += 8; }
+            }
+            /* Face edits, rather than the old captured commands, determine
+             * the actual texture bindings written at this group boundary. */
+            for (DWORD f = 0; f < source->facecount; f++)
+            {
+                const BgDocumentFace *face = &source->faces[f];
+                if (face->layer != layer || face->drawgroup != g) { continue; }
+                state.known[2] &= ~BGCOMPILE_G_CULL_BACK;
+                if (face->textureid != BG_TEX_NONE) { state.known[0] &= ~(3u << 14); }
+                if (BgCompileMutableTexture(face->textureid)
+                    || (face->textureid != BG_TEX_NONE && (face->material.textureword0 & 7) > 4))
+                { ZeroMemory(&state, sizeof(state)); }
+            }
+        }
+    }
+    if (!source->vertexcount) { *reasonout = ""; return TRUE; }
+    used = calloc(source->vertexcount, 1);
+    prepared->pinned = calloc(source->vertexcount, 1);
+    map = malloc((size_t)source->vertexcount * sizeof(*map));
+    keys = malloc((size_t)source->vertexcount * sizeof(*keys));
+    if (!used || !prepared->pinned || !map || !keys) { goto fail; }
+    for (DWORD f = 0; f < source->facecount; f++)
+    {
+        const BgDocumentFace *face = &source->faces[f];
+        /* An untextured face can inherit a light texture for CPU bullet hits.
+         * Preserve those addresses too, even if their bytes match a wall. */
+        BOOL pinned = !prepared->packvertices || BgCompileMutableTexture(face->textureid)
+            || face->textureid == BG_TEX_NONE || (face->material.textureword0 & 7) > 4;
+        for (int c = 0; c < 3; c++)
+        {
+            DWORD v = face->vertexindices[c];
+            if (v >= source->vertexcount) { *reasonout = "a bg face references a vertex outside its room."; goto fail; }
+            used[v] = TRUE; prepared->pinned[v] |= pinned;
+        }
+    }
+    for (DWORD v = 0; v < source->vertexcount; v++)
+    {
+        map[v] = v;
+        if (!used[v] || prepared->pinned[v]) { continue; }
+        BgCompileEncodeVertex(keys[keycount].bytes, &source->vertices[v]);
+        keys[keycount++].index = v;
+    }
+    qsort(keys, keycount, sizeof(*keys), BgCompileCompareVertices);
+    for (DWORD k = 1; k < keycount; k++)
+    {
+        if (!memcmp(keys[k - 1].bytes, keys[k].bytes, sizeof(keys[k].bytes)))
+        { map[keys[k].index] = map[keys[k - 1].index]; }
+    }
+    for (DWORD f = 0; f < source->facecount; f++)
+    {
+        BgDocumentFace *face = &prepared->room.faces[f];
+        /* Keep the whole source triangle contiguous if any corner has a
+         * mutable alias, including its otherwise ordinary neighbor corners. */
+        if (prepared->pinned[face->vertexindices[0]] || prepared->pinned[face->vertexindices[1]]
+            || prepared->pinned[face->vertexindices[2]]) { continue; }
+        for (int c = 0; c < 3; c++) { face->vertexindices[c] = map[face->vertexindices[c]]; }
+    }
+    free(keys); free(map); free(used); *reasonout = "";
+    return TRUE;
+fail:
+    free(keys); free(map); free(used); BgCompileFreeRoom(prepared);
+    return FALSE;
+}
+
 BOOL BgDocumentCompile(const BgDocument *document, const BgFile *source,
                        BgFile *out, const char **reasonout)
 {
@@ -1145,6 +1394,7 @@ BOOL BgDocumentCompile(const BgDocument *document, const BgFile *source,
     for (roomindex = 1; roomindex <= document->roomcount; roomindex++)
     {
         const BgDocumentRoom *room = &document->rooms[roomindex];
+        BgCompileRoom prepared = {0};
         DWORD record = roomtable + roomindex * BGCOMPILE_ROOM_RECORD_SIZE;
         BgCompileBuffer vertices;
         BgCompileBuffer primary;
@@ -1192,6 +1442,11 @@ BOOL BgDocumentCompile(const BgDocument *document, const BgFile *source,
                 goto room_failed;
             }
         }
+
+        if (!BgCompilePrepareRoom(room, &prepared, reasonout)) { goto room_failed; }
+        room = &prepared.room;
+        vertices.packvertices = prepared.packvertices;
+        vertices.pinnedvertices = prepared.pinned;
 
         if (!BgCompileLayer(room, BG_GEOMETRY_PRIMARY, &primary, &vertices, reasonout))
         {
@@ -1256,12 +1511,14 @@ BOOL BgDocumentCompile(const BgDocument *document, const BgFile *source,
         free(vertices.data);
         free(primary.data);
         free(secondary.data);
+        BgCompileFreeRoom(&prepared);
         continue;
 
 room_failed:
         free(vertices.data);
         free(primary.data);
         free(secondary.data);
+        BgCompileFreeRoom(&prepared);
         free(output.data);
         return FALSE;
     }
@@ -1286,6 +1543,75 @@ room_failed:
     return TRUE;
 }
 
+
+static BgCompileCost BgCompileFileCost(const BgFile *file)
+{
+    BgCompileCost total = {0};
+    DWORD table = BgCompileRead32(file->data + 4) & 0xffffffu;
+    for (DWORD record = table + 24; BgCompileRead32(file->data + record + 4); record += 24)
+    {
+        for (int layer = 0; layer < 2; layer++)
+        {
+            DWORD offset = BgCompileRead32(file->data + record + 4 + layer * 4) & 0xffffffu;
+            BgCompileCost cost;
+            if (!offset) { continue; }
+            cost = BgCompileMeasure(file->data + offset, BgCompileRead32(file->data + offset - 4));
+            total.textures += cost.textures; total.loads += cost.loads; total.vertices += cost.vertices;
+        }
+    }
+    return total;
+}
+
+static BOOL BgCompileOptimizeInPlace(const BgFile *source, BgFile *out, const char **reasonout)
+{
+    BgFile cleaned = {0};
+    BOOL ok;
+    if (!BgFileRemoveUnusedVertices(source, &cleaned, reasonout)) { return FALSE; }
+    ok = BgFileBatchOpaque(cleaned.data ? &cleaned : source, out, reasonout);
+    if (ok && !out->data) { *out = cleaned; ZeroMemory(&cleaned, sizeof(cleaned)); }
+    BgFileFree(&cleaned);
+    return ok;
+}
+
+/* Apply the same compiler to unchanged/unopened levels during save/export.
+ * Unknown pointer-bearing commands keep the existing in-place optimization;
+ * known flat streams may relocate both layers while retaining their order. */
+BOOL BgFileOptimize(const BgFile *source, BgFile *out, const char **reasonout)
+{
+    BgDocument document = {0};
+    BgFile compiled = {0}, compact = {0};
+    BgCompileCost before, after;
+    BOOL ok = FALSE;
+    if (!out || out == source) { *reasonout = "Invalid background optimization output."; return FALSE; }
+    ZeroMemory(out, sizeof(*out));
+    if (!BgFileValidateVertexBatches(source, reasonout)) { return FALSE; }
+    if (source->size < 8 || BgCompileRead32(source->data)) { return TRUE; }
+    if (!BgDocumentLoad(source->data, source->size, 1.0f, &document, reasonout)) { return FALSE; }
+    for (DWORD r = 1; r <= document.roomcount; r++) for (int layer = 0; layer < 2; layer++)
+    {
+        const BgDocumentLayerData *data = &document.rooms[r].layers[layer];
+        for (DWORD g = 0; g < data->groupcount; g++) if (!BgCompileRelocatableGroup(&data->groups[g]))
+        {
+            BgDocumentFree(&document);
+            return BgCompileOptimizeInPlace(source, out, reasonout);
+        }
+    }
+    if (!BgDocumentCompile(&document, source, &compiled, reasonout)
+        || !BgFileValidateVertexBatches(&compiled, reasonout)
+        || !BgFileCompact(&compiled, &compact, reasonout)) { goto done; }
+    before = BgCompileFileCost(source); after = BgCompileFileCost(&compact);
+    if (after.textures <= before.textures && after.loads <= before.loads
+        && after.vertices <= before.vertices && compact.size <= source->size)
+    {
+        if (compact.size != source->size || memcmp(compact.data, source->data, source->size))
+        { *out = compact; ZeroMemory(&compact, sizeof(compact)); }
+        ok = TRUE;
+    }
+    else { ok = BgCompileOptimizeInPlace(source, out, reasonout); }
+done:
+    BgDocumentFree(&document); BgFileFree(&compiled); BgFileFree(&compact);
+    return ok;
+}
 
 /* Validate assets without changing them. The last-load mask also catches
  * triangles whose vertices happen to resolve correctly but lie outside the

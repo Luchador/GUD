@@ -1230,7 +1230,7 @@ have_replacement:
         }
         source.data = slot->replacement ? slot->replacement : rom->data + slot->offset;
         source.size = slot->replacement ? slot->replacementlength : slot->length;
-        if (!BgFileBatchOpaque(&source, &cleaned, reasonout)) { goto fail; }
+        if (!BgFileOptimize(&source, &cleaned, reasonout)) { goto fail; }
         if (cleaned.data)
         {
             free(slot->replacement);

@@ -17,7 +17,20 @@ static BgFile Read(const char *path)
     return bg;
 }
 
-static void Equivalent(const BgDocument *a, const BgDocument *b)
+static BOOL SameFace(const BgDocumentRoom *x, DWORD f, const BgDocumentRoom *y, DWORD g)
+{
+    const BgDocumentFace *p=&x->faces[f],*q=&y->faces[g];
+    if(p->layer!=q->layer || p->cullbackfaces!=q->cullbackfaces || !BgMaterialEqual(&p->material,&q->material)) return FALSE;
+    for(DWORD c=0;c<3;c++)
+    {
+        BgDocumentVertex v=x->vertices[p->vertexindices[c]],w=y->vertices[q->vertexindices[c]];
+        v.id=w.id=v.usecount=w.usecount=0;
+        if(memcmp(&v,&w,sizeof(v))) return FALSE;
+    }
+    return TRUE;
+}
+
+static void Equivalent(const BgDocument *a, const BgDocument *b, BOOL compile)
 {
     assert(a->roomcount == b->roomcount && a->facecount == b->facecount);
     assert(a->portals.portalcount == b->portals.portalcount);
@@ -27,18 +40,23 @@ static void Equivalent(const BgDocument *a, const BgDocument *b)
     {
         const BgDocumentRoom *x = &a->rooms[r], *y = &b->rooms[r];
         assert(x->facecount == y->facecount && !memcmp(x->origin, y->origin, sizeof(x->origin)));
+        unsigned char *matched=calloc(y->facecount?y->facecount:1,1);assert(matched);
         for (DWORD f = 0; f < x->facecount; f++)
         {
             const BgDocumentFace *p = &x->faces[f], *q = &y->faces[f];
-            assert(p->id == q->id && p->layer == q->layer && p->cullbackfaces == q->cullbackfaces);
-            assert(BgMaterialEqual(&p->material, &q->material));
-            for (DWORD c = 0; c < 3; c++)
+            BgFaceRef ref={p->id,(unsigned short)r,p->layer,0};BgRenderState state;
+            assert(BgDocumentGetFaceRenderStates(a,&ref,1,&state));
+            /* Compilation can reorder opaque faces after dense remapping.
+             * The orphan-removal pass itself must remain exactly ordered. */
+            if(compile && !p->layer && !(state.othermode&0x5c00u) && state.surfacepolicy<BG_SURFACE_CUTOUT)
             {
-                BgDocumentVertex v = x->vertices[p->vertexindices[c]], w = y->vertices[q->vertexindices[c]];
-                v.id = w.id = v.usecount = w.usecount = 0;
-                assert(!memcmp(&v, &w, sizeof(v)));
+                DWORD g;
+                for(g=0;g<y->facecount;g++) if(!matched[g] && SameFace(x,f,y,g)) break;
+                assert(g<y->facecount);matched[g]=TRUE;
             }
+            else { assert(!matched[f] && p->id==q->id && SameFace(x,f,y,f));matched[f]=TRUE; }
         }
+        free(matched);
         /* Empty room bounds are a native engine input, not editable geometry. */
         if (!x->facecount)
         {
@@ -74,7 +92,7 @@ static void Check(const BgFile *source, BOOL depot)
     {
         assert(clean.size == source->size && BgFileValidateVertexBatches(&clean, &why));
         assert(BgDocumentLoad(clean.data, clean.size, 1, &after, &why));
-        Equivalent(&before, &after);
+        Equivalent(&before, &after, FALSE);
         assert(BgFileRemoveUnusedVertices(&clean, &again, &why) && !again.data);
     }
     if (depot)
@@ -91,7 +109,7 @@ static void Check(const BgFile *source, BOOL depot)
     assert(!memcmp(original, source->data, source->size));
     BgDocumentFree(&after);
     assert(BgDocumentLoad(compiled.data, compiled.size, 1, &after, &why));
-    Equivalent(&before, &after);
+    Equivalent(&before, &after, TRUE);
     if (depot) { assert(CenterX(&after.rooms[42]) == 30.5f); }
     BgDocumentFree(&before); BgDocumentFree(&after);
     BgFileFree(&clean); BgFileFree(&compiled); free(original);

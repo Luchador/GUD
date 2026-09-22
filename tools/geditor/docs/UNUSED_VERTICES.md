@@ -9,7 +9,9 @@ Cleanup operates on a copy of the saved data. It preserves live vertex indices,
 viewport and UV selections, and undo/redo snapshots. It checks both primary and
 secondary triangles, compacts each room's vertex block, and updates vertex loads
 and triangle cache indices together. Surviving native positions, UVs, colors,
-flags and vertex sharing are unchanged. It never merges coincident vertices.
+flags and vertex sharing are unchanged by orphan removal itself. The separate
+[batch compiler](TEXTURE_BATCHING.md) can reuse completely identical static
+vertex records; matching positions alone are insufficient.
 
 Room IDs stay unchanged. The vertex pass clears removed records and excludes
 them from the block length. The subsequent [resource cleanup](RESOURCE_CLEANUP.md)

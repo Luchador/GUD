@@ -17,8 +17,9 @@ spec.loader.exec_module(native)
 with tempfile.TemporaryDirectory(prefix='geditor-texture-batching-') as directory:
     work = Path(directory)
     assets = []
-    for name in ('depo', 'ark', 'arch', 'sev', 'cryp', 'silo'):
+    for name in ('depo', 'ark', 'arch', 'sev', 'cryp', 'silo', 'dam', 'jun'):
         path = ROOT / f'assets/obseg/bg/bg_{name}_all_p.c'
+        if name == 'jun': path = ROOT / 'assets/obseg/bg/u/bg_jun_all_p.c'
         target = work / f'{name}.seg'
         target.write_bytes(native.jungle_fixture(path.read_text()))
         assets.append(str(target))
@@ -29,5 +30,5 @@ with tempfile.TemporaryDirectory(prefix='geditor-texture-batching-') as director
     subprocess.run(command + [str(HERE / 'check.c'), str(HERE.parent / 'image_import/platform.c')]
                    + [str(SRC / file) for file in sources]
                    + ['-Wl,--gc-sections', '-lm', '-o', str(work / 'check')], check=True)
-    subprocess.run([str(work / 'check')] + assets, check=True,
+    subprocess.run([str(work / 'check')] + assets + sys.argv[1:], check=True,
                    env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))

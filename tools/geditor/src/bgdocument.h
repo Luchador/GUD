@@ -394,6 +394,11 @@ BOOL BgFileValidateVertexBatches(const BgFile *bg, const char **reasonout);
  * worthwhile change. Keeps original vertex/secondary streams and offsets. */
 BOOL BgFileBatchOpaque(const BgFile *source, BgFile *out, const char **reasonout);
 
+/* Save/export optimization for unchanged backgrounds, including both layers.
+ * Dense batches and exact vertex reuse are confined to known flat streams.
+ * NULL out->data means the original file should be retained. */
+BOOL BgFileOptimize(const BgFile *source, BgFile *out, const char **reasonout);
+
 /* Resolve a painted corner's preview alpha from the same inherited draw
  * state and per-face material as a full rebuild. Raw vertex RGBA stays intact. */
 unsigned char BgDocumentPreviewVertexAlpha(const BgDocumentRoom *room,

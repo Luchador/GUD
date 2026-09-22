@@ -1491,9 +1491,9 @@ static BOOL GEditorSaveProject(HWND hwnd)
             }
             else
             {
-                /* Repair older project files even when no new edit was made.
-                 * File cleanup does not renumber live selections or undo data. */
-                if (!BgFileRemoveUnusedVertices(&g_CurrentBg, &compiled, &why))
+                /* Optimize older files even without an edit. Export-only
+                 * remapping leaves live selections and undo data intact. */
+                if (!BgFileOptimize(&g_CurrentBg, &compiled, &why))
                 {
                     MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
                     goto done;
