@@ -611,8 +611,11 @@ static void ModelEditorProperties(void)
 {
     static const char *culls[] = {"Disabled (two-sided)", "Cull front faces", "Cull back faces", "Cull both sides", "Inherited", "Mixed"};
     static const char *surfaces[] = {"Opaque", "Cutout", "Alpha blend", "Custom / decal", "Cutout + blend", "Mixed"};
+    static const char *wraps[] = {"Repeat", "Clamp", "Mirror", "Mixed", "No texture"};
     int count = g_ModelViewport ? ViewportGetSelectedBgFaceCount(g_ModelViewport) : 0, cull = -1, surface = -1, i;
     int depthtest = -1, depthwrite = -1;
+    int wrapu = -1, wrapv = -1;
+    BOOL wrapeditable = FALSE;
     BOOL cullingeditable = TRUE;
     BgFaceRef *refs = count ? malloc((size_t)count * sizeof(*refs)) : NULL;
     char text[240];
@@ -621,8 +624,16 @@ static void ModelEditorProperties(void)
         for (i = 0; i < count; i++)
         {
             DWORD face = refs[i].faceid - 1;
-            int c, r, test, write;
+            int c, r, test, write, u = 4, v = 4;
             if (face >= g_ModelSource.count) { continue; }
+            if (BgMaterialTextureId(&g_ModelSource.faces[face].material) != BG_TEX_NONE)
+            {
+                u = BgMaterialGetWrap(&g_ModelSource.faces[face].material, FALSE);
+                v = BgMaterialGetWrap(&g_ModelSource.faces[face].material, TRUE);
+                wrapeditable = TRUE;
+            }
+            wrapu = wrapu < 0 ? u : wrapu == u ? wrapu : 3;
+            wrapv = wrapv < 0 ? v : wrapv == v ? wrapv : 3;
             c = ModelEditorCulling(&g_ModelSource.faces[face]); r = ModelEditorSurface(g_ModelSource.flags[face]);
             cullingeditable &= c != 4;
             test = !!(g_ModelSource.flags[face] & BG_RENDER_DEPTH_TEST);
@@ -639,15 +650,19 @@ static void ModelEditorProperties(void)
     if (cull >= 0 && surface >= 0)
     {
         static const char *depth[] = {"off", "on", "mixed"};
-        snprintf(text, sizeof(text), "Culling: %s\r\nRender mode: %s\r\nDepth test: %s; write: %s",
-            culls[cull], surfaces[surface], depth[depthtest], depth[depthwrite]);
+        snprintf(text, sizeof(text), "Culling: %s\r\nRender mode: %s\r\nDepth test: %s; write: %s\r\nWrap U: %s; V: %s",
+            culls[cull], surfaces[surface], depth[depthtest], depth[depthwrite], wraps[wrapu], wraps[wrapv]);
     }
     else { lstrcpyn(text, "Select faces to inspect their settings.", sizeof(text)); }
     SetDlgItemText(g_ModelEditor, IDC_MODEL_CURRENT, text);
     SendDlgItemMessage(g_ModelEditor, IDC_MODEL_CULL, CB_SETCURSEL, 0, 0);
     SendDlgItemMessage(g_ModelEditor, IDC_MODEL_SURFACE, CB_SETCURSEL, 0, 0);
+    SendDlgItemMessage(g_ModelEditor, IDC_MODEL_WRAP_U, CB_SETCURSEL, 0, 0);
+    SendDlgItemMessage(g_ModelEditor, IDC_MODEL_WRAP_V, CB_SETCURSEL, 0, 0);
     EnableWindow(GetDlgItem(g_ModelEditor, IDC_MODEL_CULL), cull >= 0 && cullingeditable);
     EnableWindow(GetDlgItem(g_ModelEditor, IDC_MODEL_SURFACE), cull >= 0);
+    EnableWindow(GetDlgItem(g_ModelEditor, IDC_MODEL_WRAP_U), wrapeditable);
+    EnableWindow(GetDlgItem(g_ModelEditor, IDC_MODEL_WRAP_V), wrapeditable);
     EnableWindow(GetDlgItem(g_ModelEditor, IDC_MODEL_APPLY), FALSE);
 }
 static void ModelEditorSelectGroup(BOOL all)
@@ -706,18 +721,20 @@ static void ModelEditorApplyProperties(void)
     int count = ViewportGetSelectedBgFaceCount(g_ModelViewport), i;
     int cull = (int)SendDlgItemMessage(g_ModelEditor, IDC_MODEL_CULL, CB_GETCURSEL, 0, 0) - 1;
     int surface = (int)SendDlgItemMessage(g_ModelEditor, IDC_MODEL_SURFACE, CB_GETCURSEL, 0, 0) - 1;
+    int wrapu = (int)SendDlgItemMessage(g_ModelEditor, IDC_MODEL_WRAP_U, CB_GETCURSEL, 0, 0) - 1;
+    int wrapv = (int)SendDlgItemMessage(g_ModelEditor, IDC_MODEL_WRAP_V, CB_GETCURSEL, 0, 0) - 1;
     BgFaceRef *refs;
     DWORD *faces;
     const char *why = "";
     BOOL ok = FALSE;
-    if (g_ModelSelected < 0 || count < 1 || (cull < 0 && surface < 0)) { return; }
+    if (g_ModelSelected < 0 || count < 1 || (cull < 0 && surface < 0 && wrapu < 0 && wrapv < 0)) { return; }
     refs = malloc((size_t)count * sizeof(*refs)); faces = malloc((size_t)count * sizeof(*faces));
     if (!refs || !faces) { why = "Out of memory editing model properties."; }
     else if (ViewportGetSelectedBgFaces(g_ModelViewport, refs, count))
     {
         for (i = 0; i < count; i++) { faces[i] = refs[i].faceid - 1; }
         ok = ModelEditsSetProperties(g_ModelProject, g_ModelEntries[g_ModelSelected].name,
-            g_ModelRevision, faces, count, cull, surface, &why);
+            g_ModelRevision, faces, count, cull, surface, wrapu, wrapv, &why);
     }
     free(refs); free(faces);
     if (!ok) { MessageBox(g_ModelEditor, why, "Model Editor", MB_ICONERROR); return; }
@@ -847,12 +864,14 @@ static void ModelEditorLayout(HWND hwnd)
     {
         static const struct {int id,x,y,w,h;} controls[] = {
             {IDC_MODEL_SELECTION,8,16,98,12},{IDC_MODEL_SELECT_ALL,114,12,62,18},
-            {IDC_MODEL_CURRENT,8,36,168,30},
-            {IDC_MODEL_CULL_LABEL,8,70,80,12},{IDC_MODEL_CULL,8,84,80,100},
-            {IDC_MODEL_SURFACE_LABEL,96,70,80,12},{IDC_MODEL_SURFACE,96,84,80,100},
-            {IDC_MODEL_APPLY,8,110,168,20},{IDC_MODEL_LODS,8,138,168,16}
+            {IDC_MODEL_CURRENT,8,36,168,42},
+            {IDC_MODEL_CULL_LABEL,8,82,80,12},{IDC_MODEL_CULL,8,96,80,100},
+            {IDC_MODEL_SURFACE_LABEL,96,82,80,12},{IDC_MODEL_SURFACE,96,96,80,100},
+            {IDC_MODEL_WRAP_U_LABEL,8,122,80,12},{IDC_MODEL_WRAP_U,8,136,80,100},
+            {IDC_MODEL_WRAP_V_LABEL,96,122,80,12},{IDC_MODEL_WRAP_V,96,136,80,100},
+            {IDC_MODEL_APPLY,8,162,168,20},{IDC_MODEL_LODS,8,190,168,16}
         };
-        RECT dimensions={8,16,168,156},row={0,0,0,44};
+        RECT dimensions={8,16,168,208},row={0,0,0,44};
         int facey,colory,colorheight,materialheight;
         size_t i;
         MapDialogRect(hwnd,&dimensions);MapDialogRect(hwnd,&row);
@@ -908,11 +927,14 @@ static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wp
         {
             static const char *culls[] = {"Keep current", "Disabled (two-sided)", "Cull back faces", "Cull front faces"};
             static const char *surfaces[] = {"Keep current", "Opaque", "Cutout", "Alpha blend"};
+            static const char *wraps[] = {"Keep current", "Repeat", "Clamp", "Mirror"};
             int i;
             for (i = 0; i < 4; i++)
             {
                 SendDlgItemMessage(hwnd, IDC_MODEL_CULL, CB_ADDSTRING, 0, (LPARAM)culls[i]);
                 SendDlgItemMessage(hwnd, IDC_MODEL_SURFACE, CB_ADDSTRING, 0, (LPARAM)surfaces[i]);
+                SendDlgItemMessage(hwnd, IDC_MODEL_WRAP_U, CB_ADDSTRING, 0, (LPARAM)wraps[i]);
+                SendDlgItemMessage(hwnd, IDC_MODEL_WRAP_V, CB_ADDSTRING, 0, (LPARAM)wraps[i]);
             }
         }
         g_ModelAllLods = FALSE;
@@ -931,7 +953,7 @@ static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wp
     case WM_GETMINMAXINFO:
     {
         MINMAXINFO *limits = (MINMAXINFO *)lparam;
-        RECT minimum = { 0, 0, 660, 540 };
+        RECT minimum = { 0, 0, 660, 592 };
         MapDialogRect(hwnd, &minimum);
         AdjustWindowRectEx(&minimum, (DWORD)GetWindowLongPtr(hwnd, GWL_STYLE),
                            FALSE, (DWORD)GetWindowLongPtr(hwnd, GWL_EXSTYLE));
@@ -978,10 +1000,13 @@ static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wp
             ModelEditorRefreshImages(); return TRUE;
         }
         if (LOWORD(wparam) == IDC_MODEL_APPLY) { ModelEditorApplyProperties(); return TRUE; }
-        if ((LOWORD(wparam) == IDC_MODEL_CULL || LOWORD(wparam) == IDC_MODEL_SURFACE) && HIWORD(wparam) == CBN_SELCHANGE)
+        if ((LOWORD(wparam) == IDC_MODEL_CULL || LOWORD(wparam) == IDC_MODEL_SURFACE
+            || LOWORD(wparam) == IDC_MODEL_WRAP_U || LOWORD(wparam) == IDC_MODEL_WRAP_V) && HIWORD(wparam) == CBN_SELCHANGE)
         {
             BOOL edit = SendDlgItemMessage(hwnd, IDC_MODEL_CULL, CB_GETCURSEL, 0, 0) > 0
-                || SendDlgItemMessage(hwnd, IDC_MODEL_SURFACE, CB_GETCURSEL, 0, 0) > 0;
+                || SendDlgItemMessage(hwnd, IDC_MODEL_SURFACE, CB_GETCURSEL, 0, 0) > 0
+                || SendDlgItemMessage(hwnd, IDC_MODEL_WRAP_U, CB_GETCURSEL, 0, 0) > 0
+                || SendDlgItemMessage(hwnd, IDC_MODEL_WRAP_V, CB_GETCURSEL, 0, 0) > 0;
             EnableWindow(GetDlgItem(hwnd, IDC_MODEL_APPLY), edit && ViewportGetSelectedBgFaceCount(g_ModelViewport) > 0);
             return TRUE;
         }

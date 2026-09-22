@@ -524,16 +524,16 @@ static void PropertyGuards(const unsigned char *data, DWORD size, const ModelSou
     unsigned char *out = NULL;
     DWORD length = 0, face = 0, invalid = source->count;
     ModelSource custom = {0};
-    CHECK(!ModelCompileProperties(data, size, source, &invalid, 1, -1, 1, &out, &length, &why));
+    CHECK(!ModelCompileProperties(data, size, source, &invalid, 1, -1, 1, -1, -1, &out, &length, &why));
     CHECK(out == NULL && length == 0);
     CHECK((source->faces[0].state.geometryknown & 0x3000) != 0x3000);
-    CHECK(!ModelCompileProperties(data, size, source, &face, 1, 0, -1, &out, &length, &why));
+    CHECK(!ModelCompileProperties(data, size, source, &face, 1, 0, -1, -1, -1, &out, &length, &why));
     CHECK(strstr(why, "inherit culling") && out == NULL && length == 0);
-    CHECK(ModelCompileProperties(data, size, source, &face, 1, -1, 1, &out, &length, &why));
+    CHECK(ModelCompileProperties(data, size, source, &face, 1, -1, 1, -1, -1, &out, &length, &why));
     free(out); out = NULL;
     CHECK(ModelReadSource(data, size, &custom, &why));
     custom.faces[0].state.othermodehigh = 0x00300000; /* fill cycle has no surface preset */
-    CHECK(!ModelCompileProperties(data, size, &custom, &face, 1, -1, 1, &out, &length, &why));
+    CHECK(!ModelCompileProperties(data, size, &custom, &face, 1, -1, 1, -1, -1, &out, &length, &why));
     CHECK(strstr(why, "custom render pipeline") && out == NULL && length == 0);
     ModelFreeSource(&custom);
     puts("PASS property validation and inherited-culling/custom-cycle guards");
@@ -557,7 +557,7 @@ static void Properties(const unsigned char *data, DWORD size, const ModelSource 
     CHECK(count == 2);
     for (int mode = 0; mode < 3; mode++)
     {
-        CHECK(ModelCompileProperties(data, size, source, chosen, count, 1, mode, &out, &length, &why));
+        CHECK(ModelCompileProperties(data, size, source, chosen, count, 1, mode, 1, 2, &out, &length, &why));
         CHECK(ModelReadSource(out, length, &check, &why));
         CHECK(check.count == source->count);
         for (i = 0; i < source->count; i++)
@@ -572,6 +572,7 @@ static void Properties(const unsigned char *data, DWORD size, const ModelSource 
             {
                 DWORD mask = ((source->faces[i].state.othermodehigh & 0x00300000u) == 0 ? 0xF0000u : 0x30000u) | 0xFFF8u;
                 CHECK((check.faces[i].state.geometrymode & 0x3000) == 0x2000);
+                CHECK((check.flags[i] & BG_RENDER_WRAP_MASK) == (BG_RENDER_CLAMP_S | BG_RENDER_MIRROR_T));
                 CHECK((check.faces[i].state.othermode & ~mask) == (source->faces[i].state.othermode & ~mask));
                 CHECK(!!(check.flags[i] & BG_RENDER_BLEND) == (mode == 2));
                 CHECK(!!(check.flags[i] & BG_RENDER_ALPHA_TEST) == (mode == 1));
@@ -585,7 +586,7 @@ static void Properties(const unsigned char *data, DWORD size, const ModelSource 
             }
         }
         /* Reapplying the same settings is byte-exact and never grows the DL. */
-        CHECK(ModelCompileProperties(out, length, &check, chosen, count, 1, mode, &again, &savedsize, &why));
+        CHECK(ModelCompileProperties(out, length, &check, chosen, count, 1, mode, 1, 2, &again, &savedsize, &why));
         CHECK(savedsize == length && !memcmp(again, out, length)); free(again); again = NULL;
         /* Source identity and native state survive the geometry compiler too. */
         roundtrip = Copy(&check);
@@ -597,9 +598,9 @@ static void Properties(const unsigned char *data, DWORD size, const ModelSource 
         ModelFreeSource(&check); free(out); out = NULL;
     }
     CHECK(ModelEditsReadSource(project, "Pjungle3_treeZ", &loaded, &revision, &why)); ModelFreeSource(&loaded);
-    CHECK(ModelEditsSetProperties(project, "Pjungle3_treeZ", revision, chosen, count, 1, 1, &why));
+    CHECK(ModelEditsSetProperties(project, "Pjungle3_treeZ", revision, chosen, count, 1, 1, 1, 2, &why));
     CHECK(ModelEditsHasUnsaved());
-    CHECK(!ModelEditsSetProperties(project, "Pjungle3_treeZ", revision, chosen, count, 0, 2, &why));
+    CHECK(!ModelEditsSetProperties(project, "Pjungle3_treeZ", revision, chosen, count, 0, 2, -1, -1, &why));
     CHECK(strstr(why, "revision"));
     CHECK(ModelEditsSave(project, &why)); ModelEditsReset();
     saved = ModelEditsGetData(project, "Pjungle3_treeZ", &savedsize, &why); CHECK(saved != NULL);
@@ -616,6 +617,125 @@ static void Properties(const unsigned char *data, DWORD size, const ModelSource 
     CHECK(length == ModelMaterialsNativeSize(saved,savedsize) && !memcmp(again, saved, length)); free(again);
     GltfFreeModelImport(&roundtrip); ModelFreeSource(&check); ModelEditsReset();
     printf("PASS selected-face properties, TRI4 splitting, unchanged neighbours, save/reload/ROM and Blender round trip: %s\n", assetpath);
+}
+
+/* Per-face wrap edits must retain every other native property, including the
+ * other axis, authored repeat alias 3, detail texture IDs and vertex loads. */
+static void CheckWrapping(const ModelSource *base, const ModelSource *edited,
+    const DWORD *chosen, DWORD count, int u, int v)
+{
+    CHECK(base->count == edited->count && base->listcount == edited->listcount);
+    for (DWORD i = 0; i < base->count; i++)
+    {
+        BgMaterial expected = base->faces[i].material;
+        BOOL selected = FALSE;
+        for (DWORD j = 0; j < count; j++) { selected |= chosen[j] == i; }
+        if (selected && BgMaterialTextureId(&expected) != BG_TEX_NONE)
+        {
+            if (u >= 0) { BgMaterialSetWrap(&expected, FALSE, u); }
+            if (v >= 0) { BgMaterialSetWrap(&expected, TRUE, v); }
+        }
+        CHECK(!memcmp(&expected, &edited->faces[i].material, sizeof(expected)));
+        CHECK(!memcmp(&base->faces[i].state, &edited->faces[i].state, sizeof(BgRenderState)));
+        CHECK(!memcmp(base->vertices + i*3, edited->vertices + i*3, 3*sizeof(BgVertex)));
+        CHECK(!memcmp(base->vertexoffsets + i*3, edited->vertexoffsets + i*3, 3*sizeof(DWORD)));
+        CHECK(base->tags[i] == edited->tags[i]);
+        CHECK(base->faces[i].normalmask == edited->faces[i].normalmask);
+        CHECK((base->flags[i] & ~BG_RENDER_WRAP_MASK) == (edited->flags[i] & ~BG_RENDER_WRAP_MASK));
+        /* These are the flags used by both the viewport sampler and glTF. */
+        if (BgMaterialTextureId(&expected) != BG_TEX_NONE)
+        {
+            int s = BgMaterialGetWrap(&expected, FALSE), t = BgMaterialGetWrap(&expected, TRUE);
+            CHECK(!!(edited->flags[i] & BG_RENDER_CLAMP_S) == (s == 1));
+            CHECK(!!(edited->flags[i] & BG_RENDER_MIRROR_S) == (s == 2));
+            CHECK(!!(edited->flags[i] & BG_RENDER_CLAMP_T) == (t == 1));
+            CHECK(!!(edited->flags[i] & BG_RENDER_MIRROR_T) == (t == 2));
+        }
+    }
+}
+static void Wrapping(const unsigned char *data, DWORD size, const ModelSource *source, const char *project)
+{
+    DWORD chosen[3] = {0, source->count > 3 ? 3 : 1, source->count-1};
+    DWORD length = 0, againlength = 0, revision, romsize, stable[3] = {0};
+    unsigned char *out = NULL, *again = NULL, *rom = NULL;
+    const unsigned char *saved;
+    ModelSource check = {0}, loaded = {0};
+    char path[MAX_PATH];
+    GltfModelImport roundtrip = {0};
+    for (int u = -1; u < 3; u++) for (int v = -1; v < 3; v++)
+    {
+        CHECK(ModelCompileProperties(data,size,source,chosen,3,-1,-1,u,v,&out,&length,&why));
+        CHECK(ModelReadSource(out,length,&check,&why));
+        CheckWrapping(source,&check,chosen,3,u,v);
+        CHECK(ModelCompileProperties(out,length,&check,chosen,3,-1,-1,u,v,&again,&againlength,&why));
+        CHECK(againlength == length && !memcmp(again,out,length));
+        free(again); again = NULL; free(out); out = NULL; ModelFreeSource(&check);
+    }
+    CHECK(!ModelCompileProperties(data,size,source,chosen,3,-1,-1,3,0,&out,&length,&why));
+    CHECK(!out && !length);
+    CHECK(!ModelCompileProperties(data,size,source,chosen,3,-1,-1,0,-2,&out,&length,&why));
+    CHECK(!out && !length);
+    for (DWORD i=0;i<source->count;i++) if (BgMaterialTextureId(&source->faces[i].material) == BG_TEX_NONE)
+    {
+        CHECK(ModelCompileProperties(data,size,source,&i,1,-1,-1,1,2,&out,&length,&why));
+        CHECK(length == size && !memcmp(out,data,size)); free(out); out = NULL;
+    }
+    /* Repeated changes must not accumulate obsolete wrap restores/binds. */
+    out = malloc(size); CHECK(out); memcpy(out,data,size); length = size;
+    for (int pass = 0; pass < 30; pass++)
+    {
+        int u = pass%3, v = (pass+1)%3;
+        CHECK(ModelReadSource(out,length,&check,&why));
+        CHECK(ModelCompileProperties(out,length,&check,chosen,3,-1,-1,u,v,&again,&againlength,&why));
+        free(out); out = again; length = againlength; again = NULL;
+        CHECK(ModelReadSource(out,length,&loaded,&why));
+        CheckWrapping(&check,&loaded,chosen,3,u,v);
+        ModelFreeSource(&loaded);
+        if (pass >= 6) { CHECK(length == stable[u]); }
+        stable[u] = length;
+        ModelFreeSource(&check);
+    }
+    free(out); out = NULL;
+    CHECK(ModelEditsReadSource(project,"Pjungle3_treeZ",&check,&revision,&why));
+    /* Force a change even if this fixture starts mirrored on both axes. */
+    int u = (BgMaterialGetWrap(&check.faces[0].material,FALSE)+1)%3;
+    int v = (BgMaterialGetWrap(&check.faces[0].material,TRUE)+2)%3;
+    CHECK(ModelEditsSetProperties(project,"Pjungle3_treeZ",revision,chosen,3,-1,-1,u,v,&why));
+    CHECK(ModelEditsHasUnsaved());
+    CHECK(!ModelEditsSetProperties(project,"Pjungle3_treeZ",revision,chosen,3,-1,-1,1,1,&why));
+    CHECK(strstr(why,"revision"));
+    ModelFreeSource(&check);
+    CHECK(ModelEditsReadSource(project,"Pjungle3_treeZ",&check,&revision,&why));
+    CheckWrapping(source,&check,chosen,3,u,v);
+    ModelUVEdit uv = {0,{.125f,-.125f}};
+    CHECK(ModelEditsSetUVs(project,"Pjungle3_treeZ",revision,&uv,1,NULL,&why));
+    CHECK(ModelEditsReadSource(project,"Pjungle3_treeZ",&loaded,&revision,&why));
+    for (DWORD i=0;i<check.count;i++) { CHECK(check.flags[i] == loaded.flags[i]); }
+    CHECK(ModelEditsSetMaterial(project,"Pjungle3_treeZ",revision,loaded.materials.faces[0].slot,0xddd,&why));
+    ModelFreeSource(&loaded);
+    CHECK(ModelEditsSave(project,&why)); ModelEditsReset();
+    saved = ModelEditsGetData(project,"Pjungle3_treeZ",&length,&why); CHECK(saved);
+    CHECK(ModelReadSource(saved,length,&loaded,&why));
+    for (DWORD i=0;i<check.count;i++)
+    {
+        CHECK((check.flags[i] & BG_RENDER_WRAP_MASK) == (loaded.flags[i] & BG_RENDER_WRAP_MASK));
+        /* Untextured draws need no C0 bind in the UV/image compiler. */
+        if (BgMaterialTextureId(&check.faces[i].material) != BG_TEX_NONE)
+        { CHECK((check.faces[i].material.textureword0 & 0x00f00000) ==
+                (loaded.faces[i].material.textureword0 & 0x00f00000)); }
+    }
+    CHECK(ModelEditsReadReplacement(project,"Pjungle3_treeZ",data,size,&rom,&romsize,&why) == 1);
+    CHECK(romsize == ModelMaterialsNativeSize(saved,length) && !memcmp(rom,saved,romsize)); free(rom);
+    snprintf(path,sizeof(path),"%s/models/objects/Pjungle3_treeZ.gltf",project);
+    CHECK(GltfReadModelImport(path,ModelDataHash(saved,length),&roundtrip,&why));
+    ModelMaterialsMatch(&roundtrip.materials,&loaded.materials);
+    for (DWORD i=0;i<roundtrip.count;i++)
+    { roundtrip.tags[i]=roundtrip.materials.slots[roundtrip.materials.faces[i].slot].texture; }
+    CHECK(ModelCompileImport(saved,length,&loaded,&roundtrip,project,&out,&againlength,&why));
+    CHECK(againlength == ModelMaterialsNativeSize(saved,length) && !memcmp(out,saved,againlength));
+    free(out); GltfFreeModelImport(&roundtrip);
+    ModelFreeSource(&check); ModelFreeSource(&loaded); ModelEditsReset();
+    printf("PASS U/V wraps, neighbours, native state, bounded size, UV/image edits, save/reload/ROM/glTF: %s\n",assetpath);
 }
 
 static void MaterialSlots(const unsigned char *base,DWORD basesize,const char *project)
@@ -744,6 +864,7 @@ int main(int argc, char **argv)
     if (!strcmp(argv[1], "brush")) { Brush(data,size,&source,argv[3]); }
     else if (!strcmp(argv[1], "brush-guards")) { BrushGuards(data,size,&source,argv[3]); }
     else if (!strcmp(argv[1], "property-guards")) { PropertyGuards(data, size, &source); }
+    else if (!strcmp(argv[1], "wrapping")) { Wrapping(data,size,&source,argv[3]); }
     else if (!strcmp(argv[1], "slots")) { MaterialSlots(data,size,argv[3]); }
     else if (!strcmp(argv[1], "properties")) { Properties(data, size, &source, argv[3]); }
     else if (!strcmp(argv[1], "dynamic")) { Dynamic(data, size, &source); }

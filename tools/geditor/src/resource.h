@@ -201,6 +201,10 @@
 #define IDC_MODEL_MATERIAL_LIST    1065
 #define IDC_MODEL_COLORS           1066
 #define IDC_MODEL_UV               1067
+#define IDC_MODEL_WRAP_U_LABEL     1068
+#define IDC_MODEL_WRAP_U           1069
+#define IDC_MODEL_WRAP_V_LABEL     1070
+#define IDC_MODEL_WRAP_V           1071
 
 /* Image import settings. The thirteen texture types form one radio group. */
 #define IDC_IMAGE_SUMMARY     1100

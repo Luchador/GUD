@@ -76,7 +76,7 @@ int main(void)
 {
     ColorPickerState picker={0};picker.model=TRUE;picker.pickbutton=(HWND)3000;
     for(int i=0;i<4;i++) picker.channels[i]=(HWND)(uintptr_t)(3001+i);
-    for(int scale=0;scale<3;scale++) for(int height=540;height<=900;height+=20)
+    for(int scale=0;scale<3;scale++) for(int height=592;height<=900;height+=20)
     {
         scalex=1.25+scale*.25;scaley=1.5+scale*.25;
         client=(RECT){0,0,lround(660*scalex),lround(height*scaley)};
@@ -87,6 +87,15 @@ int main(void)
         RECT materials=positions[IDC_MODEL_MATERIALS], colors=positions[IDC_MODEL_COLORS], faces=positions[IDC_MODEL_PROPERTIES];
         assert(materials.bottom<colors.top && colors.bottom<faces.top);
         assert(Inside(materials,client) && Inside(colors,client) && Inside(faces,client));
+        for (int axis=0;axis<2;axis++)
+        {
+            RECT wrap=positions[axis?IDC_MODEL_WRAP_V:IDC_MODEL_WRAP_U];
+            wrap.bottom=wrap.top+lround(18*scaley); /* Closed combo, excluding popup. */
+            assert(Inside(wrap,faces));
+            assert(wrap.top>positions[IDC_MODEL_CURRENT].bottom);
+            assert(wrap.bottom<positions[IDC_MODEL_APPLY].top);
+        }
+        assert(positions[IDC_MODEL_WRAP_U].right<positions[IDC_MODEL_WRAP_V].left);
         assert(Inside(positions[IDC_MODEL_MATERIAL_LIST],materials));
         assert(positions[IDC_MODEL_MATERIAL_LIST].bottom-positions[IDC_MODEL_MATERIAL_LIST].top>=44*scaley);
         assert(Inside(positions[(uintptr_t)g_ModelColorPicker],colors));

@@ -1346,8 +1346,29 @@ static void PropertyState(ModelOutput *out, DWORD fromcull, DWORD tocull,
         { Command(out, modeltype == 1 ? 0xb9001004u : 0xb9001002u, tomode & blender); }
     }
 }
+static BgMaterial PropertyWrap(BgMaterial material, int wrapu, int wrapv)
+{
+    /* Wrapping an untextured face must not enable texturing. */
+    if (BgMaterialTextureId(&material) != BG_TEX_NONE)
+    {
+        if (wrapu >= 0) { BgMaterialSetWrap(&material, FALSE, wrapu); }
+        if (wrapv >= 0) { BgMaterialSetWrap(&material, TRUE, wrapv); }
+    }
+    return material;
+}
+static void PropertyTexture(ModelOutput *out, BgMaterial *live, const BgMaterial *desired)
+{
+    if ((desired->textureword0 >> 24) == 0xc0 &&
+        (live->textureword0 != desired->textureword0 || live->textureword1 != desired->textureword1))
+    {
+        /* texLoadFromGdl supplies the pipe sync when expanding this marker. */
+        Command(out, desired->textureword0, desired->textureword1);
+        live->textureword0 = desired->textureword0;
+        live->textureword1 = desired->textureword1;
+    }
+}
 BOOL ModelCompileProperties(const unsigned char *data, DWORD size, const ModelSource *source,
-    const DWORD *faces, DWORD count, int culling, int surface,
+    const DWORD *faces, DWORD count, int culling, int surface, int wrapu, int wrapv,
     unsigned char **result, DWORD *resultsize, const char **reasonout)
 {
     ModelOutput out = {0};
@@ -1358,13 +1379,15 @@ BOOL ModelCompileProperties(const unsigned char *data, DWORD size, const ModelSo
     size=ModelMaterialsNativeSize(data,size);
     *reasonout = "Invalid model face properties.";
     if (!data || !source || !source->listcount || !faces || !count
-        || culling < -1 || culling > 2 || surface < -1 || surface > 2) { return FALSE; }
+        || culling < -1 || culling > 2 || surface < -1 || surface > 2
+        || wrapu < -1 || wrapu > 2 || wrapv < -1 || wrapv > 2) { return FALSE; }
     changed = calloc(source->count, 1);
     if (!changed) { *reasonout = "Out of memory editing model properties."; return FALSE; }
     for (i = 0; i < count; i++)
     {
         const ModelSourceFace *face;
         DWORD cull, mode;
+        BgMaterial material;
         int type;
         if (faces[i] >= source->count) { goto done; }
         face = &source->faces[faces[i]];
@@ -1384,6 +1407,8 @@ BOOL ModelCompileProperties(const unsigned char *data, DWORD size, const ModelSo
             || (face->state.othermodehigh & 0x00200000u)))
         { *reasonout = "This part inherits a custom render pipeline. Surface presets require a standard model part using one-cycle or two-cycle rendering."; goto done; }
         changed[faces[i]] = cull != (face->state.geometrymode & 0x3000u) || mode != face->state.othermode;
+        material = PropertyWrap(face->material, wrapu, wrapv);
+        if (material.textureword0 != face->material.textureword0) { changed[faces[i]] |= 2; }
         any |= changed[faces[i]];
     }
     if (!any) { Append(&out, data, size); goto finish; }
@@ -1393,7 +1418,11 @@ BOOL ModelCompileProperties(const unsigned char *data, DWORD size, const ModelSo
         const ModelSourceList *part = &source->lists[list];
         DWORD pc, livecull = 0, livemode = 0, savedcull = 0, savedmode = 0;
         BOOL active = FALSE;
+        BOOL wraplist = FALSE;
+        BgMaterial originaltexture = part->initial, livetexture = part->initial;
         int activetype = 4;
+        for (i = cursor; i < source->count && source->faces[i].list == list; i++)
+        { wraplist |= (changed[i] & 2) != 0; }
         if (part->offset < previous || part->end < part->offset || part->end > size) { goto done; }
         Append(&out, data + previous, part->offset - previous);
         if (out.failed || part->pointer + 4 > out.size) { goto done; }
@@ -1409,6 +1438,32 @@ BOOL ModelCompileProperties(const unsigned char *data, DWORD size, const ModelSo
             if (!editcommand)
             {
                 if (active) { PropertyState(&out, livecull, savedcull, livemode, savedmode, activetype); active = FALSE; }
+                if (wraplist)
+                {
+                    unsigned char op = data[pc];
+                    if (op == 0xc0)
+                    {
+                        originaltexture.textureword0 = Read32(data + pc);
+                        originaltexture.textureword1 = Read32(data + pc + 4);
+                        /* Fold wrap-only restores/rebinds until the next draw.
+                         * Keep other texture bindings in their authored place,
+                         * including detail images, mip levels and tile shifts. */
+                        if (((livetexture.textureword0 ^ originaltexture.textureword0) & ~0x00f00000u)
+                            || livetexture.textureword1 != originaltexture.textureword1)
+                        { PropertyTexture(&out, &livetexture, &originaltexture); }
+                        continue;
+                    }
+                    if (first < end) { PropertyTexture(&out, &livetexture, &source->faces[first].material); }
+                    else if (op != 0x01 && op != 0x04 && op != 0xe7 && op != 0xb6
+                        && op != 0xb7 && op != 0xb9 && op != 0xba && op != 0xfc)
+                    {
+                        /* Preserve exit state and ordering at other commands.
+                         * In particular, the loader patches the preceding BB
+                         * texture command, so never fold a bind across it. */
+                        PropertyTexture(&out, &livetexture, &originaltexture);
+                        livetexture.textureword0 = 0;
+                    }
+                }
                 Append(&out, data + pc, 8); continue;
             }
             while (first < end)
@@ -1427,6 +1482,12 @@ BOOL ModelCompileProperties(const unsigned char *data, DWORD size, const ModelSo
                 }
                 PropertyState(&out, active ? livecull : oldcull, cull,
                     active ? livemode : face->state.othermode, mode, type);
+                if (wraplist)
+                {
+                    BgMaterial material = (changed[first] & 2)
+                        ? PropertyWrap(face->material, wrapu, wrapv) : face->material;
+                    PropertyTexture(&out, &livetexture, &material);
+                }
                 for (i = first; i < stop; i++) { Indices(data + pc, source->faces[i].slot, triangles[n++]); }
                 Triangles(&out, triangles, n);
                 savedcull = oldcull; savedmode = face->state.othermode;

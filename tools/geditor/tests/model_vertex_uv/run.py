@@ -263,6 +263,32 @@ def main():
             project = work / f"properties{index}"
             (project / "models/objects").mkdir(parents=True)
             run("properties", asset, project)
+        # Real TRI4 streams, multiple materials/parts, and BB scale barriers.
+        wraps = work / "wrap-alias-detail.bin"
+        mixed_fixture(wraps)
+        data = bytearray(wraps.read_bytes()[:0x120])
+        commands = [(0xc0f9dc01, 0x28003001), (0x01020040, 0x03000000),
+                    (0x04300040, 0x04000000), (0xbf000000, 0x00000a14),
+                    (0xbb002800, 0xffffffff), (0xbf000000, 0x000a1e14),
+                    (0xbb002801, 0xffffffff), (0xbf000000, 0x00001e14),
+                    (0xb8000000, 0)]
+        for command in commands:
+            data += struct.pack(">II", *command)
+        wraps.write_bytes(data)
+        wrap_assets = assets + [root / "assets/obseg/prop/PsevdoormetslideZ.bin", wraps]
+        for index, asset in enumerate(wrap_assets):
+            project = work / f"wrapping{index}"
+            (project / "models/objects").mkdir(parents=True)
+            run("wrapping", asset, project)
+            doc = json.loads((project / "models/objects/Pjungle3_treeZ.gltf").read_text())
+            for material in doc["materials"]:
+                texture = material["pbrMetallicRoughness"].get("baseColorTexture")
+                if texture is None:
+                    continue
+                sampler = doc["samplers"][doc["textures"][texture["index"]]["sampler"]]
+                flags = material["extras"]["goldeneyeRenderFlags"]
+                assert sampler["wrapS"] == (33071 if flags & 64 else 33648 if flags & 128 else 10497)
+                assert sampler["wrapT"] == (33071 if flags & 256 else 33648 if flags & 512 else 10497)
         for index, asset in enumerate(assets):
             exported = work / f"export{index}.gltf"
             run("export", asset, exported)

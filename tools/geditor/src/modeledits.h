@@ -16,7 +16,7 @@ BOOL ModelEditsImport(const char *projectdir, const char *name, const char *path
 BOOL ModelEditsReadSource(const char *project, const char *name, ModelSource *source,
     DWORD *revision, const char **reasonout);
 BOOL ModelEditsSetProperties(const char *project, const char *name, DWORD revision,
-    const DWORD *faces, DWORD count, int culling, int surface, const char **reasonout);
+    const DWORD *faces, DWORD count, int culling, int surface, int wrapu, int wrapv, const char **reasonout);
 BOOL ModelEditsSetMaterial(const char *project, const char *name, DWORD revision,
     DWORD slot, DWORD texture, const char **reasonout);
 typedef struct ModelVertexPaint {

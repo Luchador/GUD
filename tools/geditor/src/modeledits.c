@@ -142,7 +142,7 @@ BOOL ModelEditsReadSource(const char *project, const char *name, ModelSource *so
     free(data); return ok;
 }
 BOOL ModelEditsSetProperties(const char *project, const char *name, DWORD revision,
-    const DWORD *faces, DWORD count, int culling, int surface, const char **why)
+    const DWORD *faces, DWORD count, int culling, int surface, int wrapu, int wrapv, const char **why)
 {
     unsigned char *data = NULL, *compiled = NULL;
     DWORD size, basehash, compiledsize;
@@ -154,7 +154,7 @@ BOOL ModelEditsSetProperties(const char *project, const char *name, DWORD revisi
     { *why = "The model revision changed. Reload the model and select its faces again."; goto done; }
     if (!ModelReadSource(data, size, &source, why)
         || !ModelMaterialsEnsure(&source,project,why)
-        || !ModelCompileProperties(data, size, &source, faces, count, culling, surface,
+        || !ModelCompileProperties(data, size, &source, faces, count, culling, surface, wrapu, wrapv,
             &compiled, &compiledsize, why)
         || !ModelMaterialsAttach(&compiled,&compiledsize,&source.materials,why)
         || !ModelReadSource(compiled, compiledsize, &check, why)) { goto done; }

@@ -5,6 +5,8 @@
 #include <strings.h>
 #include <string.h>
 #include "modelload.h"
+#include "bgdocument.h"
+#include "resource.h"
 #include "orbitcamera.h"
 typedef unsigned int GLenum, GLuint, UINT;
 typedef int GLsizei;
@@ -18,7 +20,7 @@ typedef struct {int left,top,right,bottom;} RECT;
 #define LOWORD(n) ((uintptr_t)(n)&0xffff)
 #define MAKELPARAM(x,y) ((unsigned short)(x)|((LPARAM)(unsigned short)(y)<<16))
 #define LB_ERR (-1)
-enum {IDC_MODEL_MATERIAL_LIST=10,IDC_MODEL_STATUS,LB_ITEMFROMPOINT,LB_GETITEMRECT,LB_SETCURSEL,MB_ICONERROR,GW_OWNER,MODELEDITOR_CHANGED};
+enum {LB_ITEMFROMPOINT=10,LB_GETITEMRECT,LB_SETCURSEL,MB_ICONERROR,GW_OWNER,MODELEDITOR_CHANGED};
 #define GL_FRONT 0x0404
 #define GL_BACK 0x0405
 #define GL_FRONT_AND_BACK 0x0408
@@ -41,7 +43,8 @@ enum {WM_LBUTTONDOWN=0x201, WM_LBUTTONUP, WM_LBUTTONDBLCLK,
     WM_KILLFOCUS=8, WM_KEYDOWN=0x100, WM_KEYUP};
 #include "types.inc"
 #define lstrcmpi strcasecmp
-enum {CB_GETCOUNT, CB_GETITEMDATA, CB_SETCURSEL};
+#define lstrcpyn(dst,src,size) snprintf(dst,size,"%s",src)
+enum {CB_GETCOUNT, CB_GETITEMDATA, CB_SETCURSEL, CB_GETCURSEL};
 static const int g_ModelCombos[] = {0, 1, 2};
 static HWND g_ModelEditor = (HWND)(uintptr_t)1, g_ModelViewport = (HWND)(uintptr_t)5;
 static ModelEditorEntry g_ModelEntries[] = {
@@ -65,12 +68,33 @@ static BOOL GetClientRect(HWND hwnd,RECT *r) {*r=(RECT){0,0,200,300};return TRUE
 static BOOL PtInRect(const RECT *r,POINT p) {return p.x>=r->left && p.x<r->right && p.y>=r->top && p.y<r->bottom;}
 static HWND GetWindow(HWND hwnd,int type) {return (HWND)(uintptr_t)99;}
 static void MessageBox(HWND hwnd,const char *why,const char *title,int type) {errors++;}
-static void SetDlgItemText(HWND hwnd,int id,const char *text) {}
+static int choices[1200], selectedfaces, properties;
+static BOOL enabled[1200];
+static char current[256];
+static BgFaceRef faceselection[2];
+static void EnableWindow(HWND hwnd,BOOL enable) {enabled[(uintptr_t)hwnd-2]=enable;}
+static LRESULT SendDlgItemMessage(HWND hwnd,int id,UINT message,WPARAM wp,LPARAM lp)
+{
+    if(message==CB_GETCURSEL) return choices[id];
+    assert(message==CB_SETCURSEL);choices[id]=wp;return 0;
+}
+static int ViewportGetSelectedBgFaceCount(HWND hwnd) {return selectedfaces;}
+static BOOL ViewportGetSelectedBgFaces(HWND hwnd,BgFaceRef *refs,int count)
+{assert(count==selectedfaces);memcpy(refs,faceselection,count*sizeof(*refs));return TRUE;}
+static void SetDlgItemText(HWND hwnd,int id,const char *text)
+{if(id==IDC_MODEL_CURRENT) snprintf(current,sizeof(current),"%s",text);}
+static BOOL ModelEditsSetProperties(const char *project,const char *name,DWORD revision,
+    const DWORD *faces,DWORD count,int cull,int surface,int u,int v,const char **why)
+{
+    assert(!strcmp(project,"project") && !strcmp(name,"Gpp7Z") && revision==123);
+    assert(count==2 && faces[0]==1 && faces[1]==0);
+    assert(cull==-1 && surface==-1 && u==2 && v==1);properties++;return assignok;
+}
 static void ModelEditorRefreshImages(void) {refreshed++;}
 static void ModelEditorSelectGroup(BOOL all) {assert(!all);}
 static BOOL ModelEditsSetMaterial(const char *project,const char *name,DWORD revision,DWORD slot,DWORD texture,const char **why)
 {assert(!strcmp(project,"project") && !strcmp(name,"Gpp7Z") && revision==123);assigned++;assignedslot=slot;assignedtexture=texture;return assignok;}
-static HWND GetDlgItem(HWND hwnd, int item) {return (HWND)(uintptr_t)(item+2);}
+static HWND GetDlgItem(HWND hwnd, int item) {return (HWND)(uintptr_t)(item==IDC_MODEL_MATERIAL_LIST?12:item+2);}
 static LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     if(hwnd==(HWND)(uintptr_t)99) {assert(msg==MODELEDITOR_CHANGED);notified++;return 0;}
@@ -239,6 +263,34 @@ int main(void)
     assert(assigned==2);
     assignok=FALSE;assert(ModelEditorDropImage(0xbad,(POINT){-950,20}));
     assert(assigned==3 && errors==1 && refreshed==2 && notified==2); /* Consume failed model drop; no BG fallthrough. */
+    ModelSourceFace wrapfaces[2]={0}; BgRenderFlags wrapflags[2]={0};
+    g_ModelSource.faces=wrapfaces;g_ModelSource.flags=wrapflags;g_ModelSource.count=2;
+    for(int i=0;i<2;i++)
+    {
+        BgMaterialInit(&wrapfaces[i].material);
+        BgMaterialSetTexture(&wrapfaces[i].material,1);
+    }
+    BgMaterialSetWrap(&wrapfaces[1].material,FALSE,BG_TEXTURE_MIRROR);
+    faceselection[0].faceid=2;faceselection[1].faceid=1;selectedfaces=2;
+    ModelEditorProperties();
+    assert(strstr(current,"Wrap U: Mixed; V: Repeat"));
+    assert(enabled[IDC_MODEL_WRAP_U] && enabled[IDC_MODEL_WRAP_V]);
+    assert(!enabled[IDC_MODEL_CULL] && !enabled[IDC_MODEL_APPLY]); /* Inherited culling permits wrapping. */
+    assert(choices[IDC_MODEL_WRAP_U]==0 && choices[IDC_MODEL_WRAP_V]==0);
+    ModelEditorApplyProperties();assert(properties==0);
+    choices[IDC_MODEL_WRAP_U]=3;choices[IDC_MODEL_WRAP_V]=2;assignok=TRUE;
+    ModelEditorApplyProperties();assert(properties==1 && refreshed==3 && notified==3);
+    assignok=FALSE;ModelEditorApplyProperties();
+    assert(properties==2 && refreshed==3 && notified==3 && errors==2);
+    BgMaterialSetTexture(&wrapfaces[0].material,BG_TEX_NONE);
+    ModelEditorProperties();assert(enabled[IDC_MODEL_WRAP_U] && strstr(current,"Wrap U: Mixed"));
+    BgMaterialSetTexture(&wrapfaces[1].material,BG_TEX_NONE);
+    ModelEditorProperties();assert(!enabled[IDC_MODEL_WRAP_U] && !enabled[IDC_MODEL_WRAP_V]);
+    assert(strstr(current,"Wrap U: No texture; V: No texture"));
+    selectedfaces=0;ModelEditorProperties();
+    assert(!enabled[IDC_MODEL_WRAP_U] && !enabled[IDC_MODEL_WRAP_V]);
+    assert(strstr(current,"Select faces"));
+    puts("PASS wrap inspector mixed/untextured/empty selections, independent U/V application and failed-edit refresh guards.");
     puts("PASS material drop targeting, negative screen coordinates, No Texture, invalid targets and failed assignment.");
     puts("PASS model viewer click/double-click/orbit, sorted asset opening/reuse, culling and inspector labels (ASan + UBSan)");
     return 0;

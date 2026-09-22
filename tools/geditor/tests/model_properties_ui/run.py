@@ -24,7 +24,8 @@ def main():
                     ('ViewportBatchCullMode', 'ViewportOrbitInput'))
     logic += ''.join(helpers.function(editor, name) for name in
                      ('ModelEditorCulling', 'ModelEditorSurface', 'ModelEditorOpenModel',
-                      'ModelEditorCanAssignImages', 'ModelEditorDropImage'))
+                      'ModelEditorCanAssignImages', 'ModelEditorDropImage',
+                      'ModelEditorProperties', 'ModelEditorApplyProperties'))
     with tempfile.TemporaryDirectory(prefix='geditor-model-ui-') as temp:
         work = Path(temp)
         (work / 'types.inc').write_text(declarations)
@@ -32,7 +33,7 @@ def main():
         subprocess.run([os.environ.get('CC', 'cc'), '-O1', '-g', '-std=c99', '-Wall', '-Wextra',
                         '-Werror', '-Wno-unused-parameter', '-fsanitize=address,undefined',
                         f'-I{here.parent / "image_import"}', f'-I{src}', f'-I{work}',
-                        str(here / 'check.c'), str(src / 'orbitcamera.c'), '-lm',
+                        str(here / 'check.c'), str(src / 'orbitcamera.c'), str(src / 'bgmaterial.c'), '-lm',
                         '-o', str(work / 'check')], check=True)
         subprocess.run([str(work / 'check')], check=True,
                        env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))
