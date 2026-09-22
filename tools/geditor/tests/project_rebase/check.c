@@ -307,7 +307,7 @@ int main(int argc,char **argv)
     }
     OK(RomExportProjectResourcePath(&project,"bg/bg_test.seg",path,sizeof(path))==1);
     edited=Read(path,&size);edited[128]=1;Save(path,edited,size);free(edited);
-    project.levels[0].music=12;OK(ProjectSave(&project,&why));
+    project.levels[0].music=12;project.levels[0].levelscale=.375f;project.levels[0].renderScale=.875f;OK(ProjectSave(&project,&why));
     Path(path,project.dir,"notes/.artist-note");Save(path,"keep me",7);
     /* A real parsed native model, with a changed position and original fingerprint. */
     OK(ModelReadSource(model,modelsize,&native,&why));OK(native.count>0);offset=native.vertexoffsets[0];
@@ -338,6 +338,7 @@ int main(int argc,char **argv)
     OK(rebased.levels[0].clouds.enabled && rebased.levels[0].clouds.height==7500);
     OK(ProjectRead(rebased.geppath,&loaded));OK(!strcmp(loaded.name,"Updated"));
     OK(RomExportRefreshProjectLevelMetadata(&loaded,&why));
+    OK(loaded.levels[0].levelscale==.375f&&loaded.levels[0].renderScale==.875f);
     OK(loaded.levels[0].fog.farclip==6000&&loaded.levels[0].backgroundcolor[0]==25&&loaded.levels[0].clouds.height==7500);
     OK(loaded.levels[0].music==12 && loaded.levels[0].bgsound==8);
     Same(project.dir,rebased.dir,"bg/bg_test.seg");Same(project.dir,rebased.dir,"stan/Tbg_test_stanZ.stan");
@@ -350,6 +351,7 @@ int main(int argc,char **argv)
     Path(path,rebased.dir,"Original.gep");OK(GetFileAttributes(path)==INVALID_FILE_ATTRIBUTES);
     Path(path,rebased.dir,"base.z64");OK(Hash(path)==Hash(nextpath));Path(path,project.dir,"base.z64");OK(Hash(path)==Hash(oldpath));
     OK(RomExportCreate(&rebased,"Playable",argv[1],exported,sizeof(exported),&why));OK(RomLoad(exported,&output,&why));
+    OK(output.info.levels[0].levelscale==.375f&&output.info.levels[0].renderScale==.875f);
     OK(output.data[0x2000]==0x22 && output.info.levels[0].music==12 && output.info.levels[0].bgsound==8);
     OK(output.info.levels[0].fog.farclip==6000&&output.info.levels[0].backgroundcolor[0]==25&&output.info.levels[0].clouds.height==7500);
     OK(RomGetFileByIndex(&output,1,path,sizeof(path),&offset,&span) && output.data[offset+52]==0x56);
@@ -368,7 +370,8 @@ int main(int argc,char **argv)
     }
     RomFree(&output);
     OK(ProjectRebaseCreate(&rebased,nextpath,argv[1],"Again",&again,&report,&why));
-    puts("PASS: relocated ROM tables/code, three-way asset/settings merge, native model edits, imported/deleted images, source settings, sidecars, reopen, ROM export and repeat rebase.");
+    OK(again.levels[0].levelscale==.375f&&again.levels[0].renderScale==.875f);
+    puts("PASS: project scale edits, relocated ROM tables/code, three-way asset/settings merge, native model edits, imported/deleted images, source settings, sidecars, reopen, ROM export and repeat rebase.");
     ImageRebases(&project,nextpath,argv[1]);
     Float(next+CMAP+SHIFT+0x80c,5000);Save(nextpath,next,SIZE);
     OK(!ProjectRebaseCheck(&project,nextpath,&report,&why)&&report.conflicts&&strstr(report.details,"farclip"));

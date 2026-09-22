@@ -1393,7 +1393,7 @@ static BOOL RomExportUpdateLevelTable(const GEditorProject *project,
         unsigned char *row = NULL;
         DWORD j;
 
-        if (!(level->levelscale > 0.0f) || !(level->renderScale > 0.0f))
+        if (!RomScaleIsValid(level->levelscale) || !RomScaleIsValid(level->renderScale))
         {
             RomExportSetError(reasonout,
                               "level %s has an invalid scale.", level->name);

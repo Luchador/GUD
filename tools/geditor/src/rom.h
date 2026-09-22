@@ -2,6 +2,11 @@
 #define GEDITOR_ROM_H
 
 #include <windows.h>
+#include <math.h>
+
+/* Both scales are positive floats; their inverses must also be representable. */
+static inline BOOL RomScaleIsValid(float scale)
+{ return isfinite(scale) && scale > 0.0f && isfinite(1.0f / scale); }
 
 
 #define ROM_MAX_ENTRIES 32

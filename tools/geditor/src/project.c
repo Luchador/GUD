@@ -73,6 +73,10 @@ BOOL ProjectSave(const GEditorProject *proj, const char **reasonout)
     if (proj->memoryOverrides.count
         && !LevelMemoryValidateOverrides(&proj->memory, &proj->memoryOverrides, reasonout)) { return FALSE; }
 
+    for (DWORD i = 0; i < proj->levelcount; i++)
+        if (!RomScaleIsValid(proj->levels[i].levelscale) || !RomScaleIsValid(proj->levels[i].renderScale))
+        { *reasonout = "Level scale and render scale must be finite numbers greater than zero."; return FALSE; }
+
     if (!ProjectWrite(proj))
     {
         *reasonout = "the project file could not be fully written.";
@@ -197,6 +201,7 @@ static BOOL ProjectReadLevel(const char *value, RomLevel *level)
     if (!level->name[0] || sscanf(value, "%f|%f|%d|%d|%d%c",
         &level->levelscale, &level->renderScale, &music, &bgsound, &xtrack, &tail) != 5)
     { return FALSE; }
+    if (!RomScaleIsValid(level->levelscale) || !RomScaleIsValid(level->renderScale)) { return FALSE; }
 
     level->levelID = (LONG)levelid;
     level->music = (short)music;

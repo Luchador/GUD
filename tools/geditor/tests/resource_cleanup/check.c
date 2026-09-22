@@ -250,9 +250,35 @@ static void RealRom(const char *path,const char *dir)
     RomFree(&rom);
 }
 
+static void ScaleTable(void)
+{
+    for(DWORD rowSize=36;rowSize<=40;rowSize+=4)
+    {
+        unsigned char data[128],expected[128];memset(data,0xa5,sizeof(data));
+        RomFile rom={.data=data,.size=sizeof(data)};rom.info.entrycount=1;
+        rom.info.entries[0]=(RomManifestEntry){ROM_KIND_STGT,16,16+rowSize,1};
+        GEditorProject project={.levelcount=1};
+        project.levels[0]=(RomLevel){.levelID=22,.levelscale=.333333343f,.renderScale=.875f,.music=3,.bgsound=4,.xtrack=5};
+        Put(data+16,22);memcpy(expected,data,sizeof(data));
+        DWORD fields=16+20+(rowSize-36);
+        Float(expected+fields,project.levels[0].levelscale);Float(expected+fields+4,.875f);
+        RomExportWrite16(expected+fields+8,3);RomExportWrite16(expected+fields+10,4);RomExportWrite16(expected+fields+12,5);
+        Require(RomExportUpdateLevelTable(&project,&rom,&why));assert(!memcmp(expected,data,sizeof(data)));
+        const float bad[]={0,-1,NAN,INFINITY,1e-40f};
+        for(unsigned i=0;i<sizeof(bad)/sizeof(*bad);i++)
+        {
+            project.levels[0].levelscale=bad[i];assert(!RomExportUpdateLevelTable(&project,&rom,&why));
+            project.levels[0].levelscale=.333333343f;project.levels[0].renderScale=bad[i];
+            assert(!RomExportUpdateLevelTable(&project,&rom,&why));project.levels[0].renderScale=.875f;
+            assert(!memcmp(expected,data,sizeof(data)));
+        }
+    }
+    puts("PASS: scale export in both STGT layouts, invalid-scale rejection and unchanged allocation pointers/adjacent bytes.");
+}
+
 int main(int argc,char **argv)
 {
-    assert(argc==2||argc==3);Background(argv[1]);Pads(argv[1]);
+    assert(argc==2||argc==3);ScaleTable();Background(argv[1]);Pads(argv[1]);
     if(argc==3) { RealRom(argv[2],argv[1]); }
     puts("PASS: live BG reachability, shared/script-only polygons, save identity, pad refresh, unresolved/deleted pads, STAN tail and repeat stability.");
     return 0;

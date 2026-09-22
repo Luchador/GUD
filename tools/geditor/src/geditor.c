@@ -44,6 +44,7 @@
 #include "bgdocument.h"
 #include "primitiveoptions.h"
 #include "bghistory.h"
+#include "levelscale.h"
 #include "setupload.h"
 #include "setupstan.h"
 #include "issueswindow.h"
@@ -4982,15 +4983,64 @@ static BOOL GEditorApplyEnvironment(HWND hwnd, EnvironmentEditRequest *request)
     return TRUE;
 }
 
+static BOOL GEditorStageOptionsDefaults(StageOptionsEditRequest *request)
+{
+    RomInfo info;
+    char path[MAX_PATH];
+    if (!EditorPathJoin(path, sizeof(path), g_Project.dir, ROM_EXPORT_BASE_FILENAME))
+    { request->why = "The base ROM path is too long."; return FALSE; }
+    if (!RomValidate(path, &info, &request->why)) { return FALSE; }
+    for (DWORD i = 0; i < info.levelcount; i++)
+        if ((DWORD)info.levels[i].levelID == request->value.id)
+        {
+            request->levelscale = info.levels[i].levelscale;
+            request->renderScale = info.levels[i].renderScale;
+            const LevelMemory *memory = LevelMemoryFind(&g_Project.memory, request->value.id);
+            if (memory) { request->value = *memory; }
+            return TRUE;
+        }
+    request->why = "This level was not found in the project's base ROM.";
+    return FALSE;
+}
+
 static BOOL GEditorApplyStageOptions(HWND hwnd, StageOptionsEditRequest *request)
 {
     if (!request || g_CurrentLevelIndex >= g_Project.levelcount
         || request->value.id != (DWORD)g_Project.levels[g_CurrentLevelIndex].levelID) { return FALSE; }
     LevelMemoryOverrides next = g_Project.memoryOverrides;
-    if (!LevelMemorySet(&g_Project.memory, &next, &request->value, &request->why)) { return FALSE; }
-    if (memcmp(&next, &g_Project.memoryOverrides, sizeof(next)))
+    if (request->defaults && !GEditorStageOptionsDefaults(request)) { return FALSE; }
+    if (!RomScaleIsValid(request->levelscale) || !RomScaleIsValid(request->renderScale))
+    { request->why = "Level scale and render scale must be finite numbers greater than zero."; return FALSE; }
+    if (LevelMemoryFind(&g_Project.memory, request->value.id)
+        && !LevelMemorySet(&g_Project.memory, &next, &request->value, &request->why)) { return FALSE; }
+    RomLevel *level = &g_Project.levels[g_CurrentLevelIndex];
+    BOOL scalechanged = level->levelscale != request->levelscale;
+    if (scalechanged)
+    {
+        SetupObjectGeometry clipboard = {0};
+        ViewportCancelTransform(g_Viewport); UVEditorCancelInteraction();
+        if (!LevelScaleApply(&g_CurrentBgDocument, &g_CurrentStan, &g_EditHistory,
+            &g_FaceClipboard, &g_PortalClipboard, request->levelscale, &request->why)) { return FALSE; }
+        if ((g_ObjectClipboard.data && !ObjectLoadSetupGeometry(g_Project.dir, &g_ObjectClipboard,
+                &g_CurrentStan, request->levelscale, &clipboard, &request->why))
+            || !GEditorReloadCurrentObjectsAndViewport(&request->why))
+        {
+            const char *restorewhy = "";
+            ObjectGeometryFree(&clipboard);
+            LevelScaleApply(&g_CurrentBgDocument, &g_CurrentStan, &g_EditHistory,
+                &g_FaceClipboard, &g_PortalClipboard, level->levelscale, &restorewhy);
+            GEditorRebuildCurrentViewport(&restorewhy);
+            return FALSE;
+        }
+        ObjectGeometryFree(&g_ObjectClipboardPose); g_ObjectClipboardPose = clipboard;
+    }
+    if (scalechanged || level->renderScale != request->renderScale
+        || memcmp(&next, &g_Project.memoryOverrides, sizeof(next)))
     {
         g_Project.memoryOverrides = next; g_ProjectMetadataDirty = TRUE;
+        level->levelscale = request->levelscale; level->renderScale = request->renderScale;
+        GEditorPreviewEnvironment(0, FALSE);
+        LevelManagerRefreshRooms(&g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
         GEditorSetTitleForProject(hwnd);
     }
     return TRUE;

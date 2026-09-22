@@ -20,7 +20,7 @@ static void Fixture(RomFile *rom, unsigned char data[2048])
     {
         Put32(data+128+40*i,ids[i]);Put32(data+148+40*i,0x80000000+512+64*i-64);
         strcpy((char *)data+512+64*i,tokens[i]);
-        if(i<3) { rom->info.levels[i].levelID=ids[i]; }
+        if(i<3) { rom->info.levels[i].levelID=ids[i]; rom->info.levels[i].levelscale=rom->info.levels[i].renderScale=1; }
     }
 }
 static void Data(const char *dir)
@@ -35,9 +35,10 @@ static void Data(const char *dir)
     GEditorProject project={0},loaded={0};strcpy(project.name,"Memory");strcpy(project.dir,dir);
     snprintf(project.geppath,sizeof(project.geppath),"%s/memory.gep",dir);
     project.levelcount=1;project.levels[0]=rom.info.levels[0];strcpy(project.levels[0].name,"Bunker 2");
-    project.levels[0].levelscale=project.levels[0].renderScale=1;project.memory=base;project.memoryOverrides=changes;
+    project.levels[0].levelscale=0.333333343f;project.levels[0].renderScale=0.875f;project.memory=base;project.memoryOverrides=changes;
     OK(ProjectSave(&project,&why)&&ProjectRead(project.geppath,&loaded));
     OK(!memcmp(&changes,&loaded.memoryOverrides,sizeof(changes)));
+    OK(loaded.levels[0].levelscale==project.levels[0].levelscale&&loaded.levels[0].renderScale==project.levels[0].renderScale);
     char line[128];FILE *f=fopen(project.geppath,"r");OK(f&&fgets(line,sizeof(line),f));fclose(f);OK(!strcmp(line,"GEditor Project 4\n"));
     memcpy(before,data,sizeof(data));OK(LevelMemoryApplyRom(&rom,&changes,&why));
     memset(before+512,0,64);strcpy((char *)before+512,"-ml0 -me0 -mgfx200 -mvtx75 -mt1000 -ma400");
