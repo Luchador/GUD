@@ -153,8 +153,10 @@ void ViewportRedraw(HWND viewport);
 
 /* Vertex mode: left-drag selects through geometry in the visible layers;
    Shift adds and Control subtracts. BG and stan remain separate selections.
-   Face selection is the initial tool. Changing tools clears the current
-   selection; undo restores the selection and its tool together. */
+   Face selection is the initial tool. Switching selection tools transfers
+   BG, stan and portal selection: children of selected faces/edges are selected;
+   edges/faces require all their vertices/boundary edges. Entering or leaving
+   vertex paint clears selection. Undo restores selection and tool together. */
 EditorTool ViewportGetTool(HWND viewport);
 void ViewportSetTool(HWND viewport, EditorTool tool);
 BOOL ViewportGetVertexSnap(HWND viewport);

@@ -7834,6 +7834,219 @@ EditorTool ViewportGetTool(HWND viewport)
     return state != NULL ? state->tool : EDITOR_TOOL_FACE_SELECT;
 }
 
+typedef struct ViewportModeSelection
+{
+    ViewportBoxComponent *components;
+    int count;
+    unsigned char *faces;
+} ViewportModeSelection;
+
+/* Downward conversion includes every child; upward conversion requires the
+ * complete boundary. Source identities keep seams and rooms independent. */
+static void ViewportConvertPolygonSelection(const ViewportBoxPoint *points, int count,
+    EditorTool from, EditorTool to, BOOL face, const ViewportBoxComponent *seeds,
+    int seedcount, ViewportModeSelection *out, DWORD polygon)
+{
+    BOOL selected[STAN_TILE_MAX_POINTS], complete = TRUE;
+    for (int i = 0; i < count; i++)
+    {
+        ViewportBoxComponent key = ViewportBoxComponentKey(points[i],
+            points[from == EDITOR_TOOL_EDGE_SELECT && to == EDITOR_TOOL_FACE_SELECT ? (i+1)%count : i]);
+        selected[i] = from == EDITOR_TOOL_FACE_SELECT ? face : seedcount &&
+            bsearch(&key, seeds, seedcount, sizeof(*seeds), ViewportCompareBoxComponents) != NULL;
+        if (!selected[i]) { complete = FALSE; }
+    }
+    if (to == EDITOR_TOOL_FACE_SELECT) { out->faces[polygon] = complete; return; }
+    for (int i = 0; i < count; i++)
+    {
+        int other = to == EDITOR_TOOL_EDGE_SELECT ? (i+1)%count : i;
+        if (selected[i] && selected[other] && (i == other || ViewportCompareBoxPoints(&points[i], &points[other])))
+        { out->components[out->count++] = ViewportBoxComponentKey(points[i], points[other]); }
+    }
+}
+
+static BOOL ViewportCollectModeSelection(const ViewportState *state, EditorTool tool,
+                                       BOOL stan, ViewportModeSelection *out)
+{
+    ViewportBoxComponent *seeds = NULL;
+    int sourcecount = stan ? state->stancomponentcount : state->componentcount, seedcount = 0;
+    BOOL face = state->tool == EDITOR_TOOL_FACE_SELECT;
+    size_t polygons = stan ? state->stan.tilecount : (size_t)state->scenecount / 3;
+    size_t capacity = polygons * (stan ? STAN_TILE_MAX_POINTS : 3);
+    size_t seedcapacity = face ? 0 : (size_t)sourcecount * 2;
+    BOOL ok = FALSE;
+    if (!polygons || (stan ? !ViewportStanVisible(state) || !state->stanpointmap || !state->stanselected
+        : !state->scenevertexrefs || !state->scenefacerefs || !state->selectedtris)) { return TRUE; }
+    if (face)
+    {
+        sourcecount = 0;
+        const unsigned char *selected = stan ? state->stanselected : state->selectedtris;
+        for (size_t i = 0; i < polygons; i++) { sourcecount += selected[i] != 0; }
+    }
+    if (!sourcecount) { return TRUE; }
+    if (capacity > INT_MAX || capacity > SIZE_MAX / sizeof(*out->components)
+        || seedcapacity > INT_MAX || seedcapacity > SIZE_MAX / sizeof(*seeds)) { return FALSE; }
+    if (tool == EDITOR_TOOL_FACE_SELECT) { out->faces = calloc(polygons, 1); }
+    else { out->components = malloc(capacity * sizeof(*out->components)); }
+    if (seedcapacity) { seeds = malloc(seedcapacity * sizeof(*seeds)); }
+    if ((tool == EDITOR_TOOL_FACE_SELECT ? !out->faces : !out->components)
+        || (seedcapacity && !seeds)) { goto done; }
+    if (!face)
+    {
+        for (int i = 0; i < sourcecount; i++)
+        {
+            ViewportBoxPoint ends[2];
+            for (int e = 0; e < 2; e++)
+            {
+                if (stan)
+                {
+                    StanPointRef ref = state->stancomponents[i].refs[e];
+                    ends[e] = (ViewportBoxPoint){ref.tile, ref.point, 0};
+                }
+                else
+                {
+                    const ViewportComponent *c = &state->components[i];
+                    ends[e] = (ViewportBoxPoint){c->refs[e].room, c->refs[e].index, c->corners[e]};
+                }
+            }
+            if (state->tool == EDITOR_TOOL_EDGE_SELECT && tool == EDITOR_TOOL_FACE_SELECT)
+            { seeds[seedcount++] = ViewportBoxComponentKey(ends[0], ends[1]); }
+            else
+            {
+                seeds[seedcount++] = ViewportBoxComponentKey(ends[0], ends[0]);
+                if (state->tool == EDITOR_TOOL_EDGE_SELECT)
+                { seeds[seedcount++] = ViewportBoxComponentKey(ends[1], ends[1]); }
+            }
+        }
+        qsort(seeds, seedcount, sizeof(*seeds), ViewportCompareBoxComponents);
+    }
+    if (stan)
+    {
+        for (DWORD tile = 0; tile < state->stan.tilecount; tile++)
+        {
+            ViewportBoxPoint points[STAN_TILE_MAX_POINTS];
+            const StanTile *polygon = &state->stan.tiles[tile];
+            if (ViewportStanTileHidden(state, tile)) { continue; }
+            for (unsigned int i = 0; i < polygon->pointcount; i++)
+            {
+                StanPointRef ref = ViewportStanPointRef(state, tile, i);
+                points[i] = (ViewportBoxPoint){ref.tile, ref.point, 0};
+            }
+            ViewportConvertPolygonSelection(points, polygon->pointcount, state->tool, tool,
+                state->stanselected[tile], seeds, seedcount, out, tile);
+        }
+    }
+    else
+    {
+        for (int batch = 0; batch < state->batchcount; batch++)
+        {
+            const SceneBatch *b = &state->batches[batch];
+            if (b->object || !ViewportBatchIsPickable(state, b)) { continue; }
+            for (int tri = b->first / 3; tri < (b->first + b->count) / 3; tri++)
+            {
+                ViewportBoxPoint points[3];
+                if (ViewportTriangleHidden(state, tri) || state->scenefacerefs[tri].faceid == BG_FACE_ID_NONE)
+                { continue; }
+                for (int i = 0; i < 3; i++) { points[i] = ViewportBgSelectionPoint(state, tri*3+i); }
+                if (!points[0].owner || !points[1].owner || !points[2].owner) { continue; }
+                ViewportConvertPolygonSelection(points, 3, state->tool, tool,
+                    state->selectedtris[tri], seeds, seedcount, out, tri);
+            }
+        }
+    }
+    if (out->count)
+    {
+        int unique = 0;
+        qsort(out->components, out->count, sizeof(*out->components), ViewportCompareBoxComponents);
+        for (int i = 0; i < out->count; i++)
+        {
+            if (!unique || ViewportCompareBoxComponents(&out->components[i], &out->components[unique-1]))
+            { out->components[unique++] = out->components[i]; }
+        }
+        out->count = unique;
+    }
+    ok = TRUE;
+done:
+    free(seeds);
+    return ok;
+}
+
+/* Prepare both domains before replacing anything, including on allocation
+ * failure. Portal masks use native perimeter edges, never fan diagonals. */
+static BOOL ViewportTransferSelection(ViewportState *state, EditorTool tool)
+{
+    ViewportModeSelection bg = {0}, stan = {0};
+    ViewportComponent *components = NULL;
+    ViewportStanComponent *stancomponents = NULL;
+    unsigned char portals[BG_MAX_PORTALS] = {0};
+    BOOL ok = FALSE;
+    if (!ViewportCollectModeSelection(state, tool, FALSE, &bg)
+        || !ViewportCollectModeSelection(state, tool, TRUE, &stan)) { goto done; }
+    if (bg.count) { components = malloc((size_t)bg.count * sizeof(*components)); }
+    if (stan.count) { stancomponents = malloc((size_t)stan.count * sizeof(*stancomponents)); }
+    if ((bg.count && !components) || (stan.count && !stancomponents)) { goto done; }
+    for (int i = 0; i < bg.count; i++)
+    {
+        for (int e = 0; e < 2; e++)
+        {
+            ViewportBoxPoint p = bg.components[i].ends[e];
+            components[i].refs[e] = (BgDocumentVertexRef){p.owner, p.index};
+            components[i].corners[e] = p.corner;
+        }
+    }
+    for (int i = 0; i < stan.count; i++)
+    {
+        for (int e = 0; e < 2; e++)
+        {
+            ViewportBoxPoint p = stan.components[i].ends[e];
+            stancomponents[i].refs[e] = (StanPointRef){p.owner, p.index};
+        }
+    }
+    for (DWORD i = 0; state->showportals && i < state->portals.portalcount; i++)
+    {
+        const BgPortal *portal = &state->portals.portals[i];
+        if (!ViewportPortalGeometryIsFirst(&state->portals, i)) { continue; }
+        unsigned int mask = ViewportPortalComponentMask(state, i);
+        unsigned int full = (1u << portal->pointcount) - 1;
+        if (state->tool == EDITOR_TOOL_FACE_SELECT) { portals[i] = mask ? full : 0; }
+        else if (tool == EDITOR_TOOL_FACE_SELECT) { portals[i] = (mask & full) == full; }
+        else if (tool == EDITOR_TOOL_VERTEX_SELECT) { portals[i] = ViewportPortalPointMask(state, i); }
+        else
+        {
+            for (unsigned int p = 0; p < portal->pointcount; p++)
+            {
+                unsigned int ends = (1u << p) | (1u << ((p+1)%portal->pointcount));
+                if ((mask & ends) == ends) { portals[i] |= 1u << p; }
+            }
+        }
+    }
+    ViewportClearAllSelection(state);
+    state->tool = tool;
+    free(state->components); state->components = components; components = NULL;
+    state->componentcount = state->componentcapacity = bg.count;
+    free(state->stancomponents); state->stancomponents = stancomponents; stancomponents = NULL;
+    state->stancomponentcount = state->stancomponentcapacity = stan.count;
+    if (bg.faces)
+    {
+        for (int i = 0; i < state->scenecount / 3; i++)
+        {
+            if (!bg.faces[i]) { continue; }
+            state->selectedtris[i] = 1; state->selectedtricount++;
+            ViewportSetTriangleColor(state, i, TRUE);
+        }
+    }
+    if (stan.faces) { memcpy(state->stanselected, stan.faces, state->stan.tilecount); }
+    memcpy(state->portalselection, portals, sizeof(portals));
+    ViewportResolveActivePortal(state);
+    ViewportRefreshPortalColors(state);
+    ViewportRefreshStanOverlay(state);
+    ok = TRUE;
+done:
+    free(bg.components); free(bg.faces); free(stan.components); free(stan.faces);
+    free(components); free(stancomponents);
+    return ok;
+}
+
 
 void ViewportSetTool(HWND viewport, EditorTool tool)
 {
@@ -7844,11 +8057,23 @@ void ViewportSetTool(HWND viewport, EditorTool tool)
         return;
     }
     ViewportSetColorPick(viewport, FALSE);
-    state->tool = tool;
-    state->vertexsnap = FALSE;
-    /* Clear the previous tool's selection before starting a new one. */
     ViewportCancelTransform(viewport);
-    ViewportClearAllSelection(state);
+    if (state->tool != EDITOR_TOOL_VERTEX_PAINT && tool != EDITOR_TOOL_VERTEX_PAINT)
+    {
+        if (!ViewportTransferSelection(state, tool))
+        {
+            MessageBox(viewport, TEXT("Not enough memory to transfer the selection."),
+                       TEXT("GEditor"), MB_OK | MB_ICONERROR);
+            return;
+        }
+    }
+    else
+    {
+        ViewportClearAllSelection(state);
+        state->tool = tool;
+    }
+    state->vertexsnap = FALSE;
+    ViewportUpdateGizmo(state);
     ViewportRefreshCursor(viewport, state);
     ViewportRedraw(viewport);
     SendMessage(GetParent(viewport), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
