@@ -27,6 +27,21 @@ BOOL ModelEditsSetVertexColor(const char *project, const char *name, DWORD revis
     DWORD corner, const unsigned char rgba[4], ModelVertexPaint *change, const char **reasonout);
 BOOL ModelEditsRestoreVertexColor(const char *project, const char *name,
     const ModelVertexPaint *change, BOOL redo, const char **reasonout);
+typedef struct ModelUVEdit {
+    DWORD corner; /* face * 3 + corner, in ModelSource order */
+    float uv[2];  /* normalized authored coordinates */
+} ModelUVEdit;
+typedef struct ModelUVChange {
+    unsigned char *before, *after; /* Owned exact snapshots, including material UVs. */
+    DWORD beforeSize, afterSize, beforeRevision, afterRevision;
+} ModelUVChange;
+/* Atomic corner edits. Conflicting shared UVs split native vertices; all other
+ * attributes, unselected faces, model parts and material assignments survive. */
+BOOL ModelEditsSetUVs(const char *project, const char *name, DWORD revision,
+    const ModelUVEdit *edits, DWORD count, ModelUVChange *change, const char **reasonout);
+BOOL ModelEditsRestoreUVs(const char *project, const char *name,
+    const ModelUVChange *change, BOOL redo, const char **reasonout);
+void ModelEditsFreeUVChange(ModelUVChange *change);
 BOOL ModelEditsSave(const char *projectdir, const char **reasonout);
 /* Returns 1 for a replacement, 0 if absent, -1 on a corrupt/mismatched edit.
    ROM builds read saved overrides only; save-before-build is owned by GEditor. */

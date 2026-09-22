@@ -315,6 +315,7 @@ BEGIN
     PUSHBUTTON      "Export Model...", IDC_MODEL_EXPORT, 8, 52, 88, 18, WS_TABSTOP
     PUSHBUTTON      "Import Model...", IDC_MODEL_IMPORT, 104, 52, 88, 18, WS_TABSTOP
     PUSHBUTTON      "Add Prop Model...", IDC_MODEL_ADD, 200, 52, 96, 18, WS_TABSTOP
+    PUSHBUTTON      "UV Editor (Ctrl+T)", IDC_MODEL_UV, 304, 52, 96, 18, WS_TABSTOP
     LTEXT           "Choose a model.", IDC_MODEL_STATUS, 8, 514, 680, 18, SS_ENDELLIPSIS
     PUSHBUTTON      "&Close", IDCANCEL, 702, 514, 70, 18
     /* Let the dialog erase behind these frames despite WS_CLIPCHILDREN. */

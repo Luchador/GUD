@@ -16,7 +16,7 @@ HWND UVCanvasCreate(HWND parent, HINSTANCE instance);
 typedef struct UVCanvasTriangle {
     BgFaceRef face;
     double uv[3][2]; /* normalized, unwrapped UV coordinates at each corner */
-    double position[3][3]; /* world positions for UV projection */
+    double position[3][3]; /* world (BG) or model rest-pose positions for projection */
     BgDocumentUVEdit source[3];
     unsigned char seams; /* marked geometric edges, one bit per corner */
     int width, height;

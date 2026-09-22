@@ -14,6 +14,7 @@
 #include "modelload.h"
 #include "viewport.h"
 #include "uveditor.h"
+#include "modeluv.h"
 #include "resource.h"
 #include "browser.h"
 #include "colorpicker.h"
@@ -35,9 +36,41 @@ static DWORD g_ModelRevision;
 static BOOL g_ModelAllLods;
 static BOOL g_ModelCompleting;
 static BOOL g_ModelSampling;
-#define MODEL_PAINT_HISTORY_LIMIT 256
-static ModelVertexPaint g_ModelPaintHistory[MODEL_PAINT_HISTORY_LIMIT];
-static int g_ModelPaintCount, g_ModelPaintPosition;
+#define MODEL_HISTORY_LIMIT 256
+#define MODEL_HISTORY_BYTES (64u * 1024u * 1024u)
+typedef struct ModelEditorHistoryStep {
+    ModelVertexPaint paint;
+    ModelUVChange uv;
+} ModelEditorHistoryStep;
+static ModelEditorHistoryStep g_ModelHistory[MODEL_HISTORY_LIMIT];
+static int g_ModelHistoryCount, g_ModelHistoryPosition;
+static void ModelEditorRefreshUV(void);
+static DWORD ModelEditorHistoryRevision(const ModelEditorHistoryStep *step, BOOL after)
+{
+    return step->uv.before ? (after ? step->uv.afterRevision : step->uv.beforeRevision)
+        : (after ? step->paint.afterRevision : step->paint.beforeRevision);
+}
+static void ModelEditorClearHistory(void)
+{
+    for (int i = 0; i < g_ModelHistoryCount; i++) ModelEditsFreeUVChange(&g_ModelHistory[i].uv);
+    g_ModelHistoryCount = g_ModelHistoryPosition = 0;
+}
+static void ModelEditorRecord(ModelEditorHistoryStep step)
+{
+    size_t bytes = (size_t)step.uv.beforeSize + step.uv.afterSize;
+    for (int i = g_ModelHistoryPosition; i < g_ModelHistoryCount; i++) ModelEditsFreeUVChange(&g_ModelHistory[i].uv);
+    g_ModelHistoryCount = g_ModelHistoryPosition;
+    for (int i = 0; i < g_ModelHistoryCount; i++)
+        bytes += (size_t)g_ModelHistory[i].uv.beforeSize + g_ModelHistory[i].uv.afterSize;
+    while (g_ModelHistoryCount && (g_ModelHistoryCount == MODEL_HISTORY_LIMIT || bytes > MODEL_HISTORY_BYTES))
+    {
+        bytes -= (size_t)g_ModelHistory[0].uv.beforeSize + g_ModelHistory[0].uv.afterSize;
+        ModelEditsFreeUVChange(&g_ModelHistory[0].uv);
+        memmove(g_ModelHistory, g_ModelHistory + 1, (size_t)--g_ModelHistoryCount * sizeof(*g_ModelHistory));
+    }
+    g_ModelHistory[g_ModelHistoryCount++] = step;
+    g_ModelHistoryPosition = g_ModelHistoryCount;
+}
 static void ModelEditorProperties(void);
 static void ModelEditorGroups(void);
 static BOOL ModelEditorFaceVisible(DWORD face)
@@ -98,12 +131,13 @@ static LRESULT CALLBACK ModelEditorNameEditProc(HWND hwnd, UINT message, WPARAM 
 
 static void ModelEditorClearViewport(void)
 {
-    g_ModelPaintCount = g_ModelPaintPosition = 0;
+    ModelEditorClearHistory();
     if (g_ModelViewport != NULL)
     {
         ViewportSetScene(g_ModelViewport, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0, NULL, TRUE);
     }
     ModelFreeSource(&g_ModelSource); g_ModelRevision = 0;
+    UVEditorSetOverlay(g_ModelEditor, NULL, 0, NULL, BG_TEX_NONE, TRUE, "UV Editor - Model");
     SetWindowText(g_ModelEditor, "Model Editor");
     ModelEditorGroups(); ModelEditorProperties();
 }
@@ -218,11 +252,11 @@ static void ModelEditorLoad(int index, BOOL framecamera)
         && g_ModelSource.count <= INT_MAX / 3)
     {
         DWORD face;
-        /* Material/topology edits invalidate the old native paint offsets.
-           Changing only the preview's LOD or saving keeps history usable. */
-        if (g_ModelPaintCount && g_ModelRevision != (g_ModelPaintPosition
-            ? g_ModelPaintHistory[g_ModelPaintPosition-1].afterRevision : g_ModelPaintHistory[0].beforeRevision))
-        { g_ModelPaintCount = g_ModelPaintPosition = 0; }
+        /* External material/topology changes invalidate UV/paint history.
+         * Saving and preview LOD changes keep the same revision. */
+        if (g_ModelHistoryCount && g_ModelRevision != ModelEditorHistoryRevision(
+            &g_ModelHistory[g_ModelHistoryPosition ? g_ModelHistoryPosition - 1 : 0], g_ModelHistoryPosition != 0))
+        { ModelEditorClearHistory(); }
         for (face = 0; face < g_ModelSource.count; face++) { count += ModelEditorFaceVisible(face); }
         vertices = malloc((size_t)max(count, 1) * 3 * sizeof(*vertices));
         tags = malloc((size_t)max(count, 1) * sizeof(*tags)); flags = malloc((size_t)max(count, 1) * sizeof(*flags));
@@ -270,7 +304,90 @@ static void ModelEditorLoad(int index, BOOL framecamera)
     SetWindowText(g_ModelEditor, text);
     snprintf(text, sizeof(text), "%lu visible triangles. Click to select faces; left/right drag to orbit; middle drag to pan; scroll to zoom.", (unsigned long)count);
     SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS, text);
+    ModelEditorRefreshUV();
     if (framecamera) { SetFocus(g_ModelViewport); }
+}
+
+static BOOL ModelEditorUVSelection(UVCanvasTriangle **triangles, DWORD *count, const char **why)
+{
+    BgFaceRef *refs = NULL;
+    BOOL ok = TRUE;
+    *triangles = NULL; *count = 0; *why = "";
+    if (!g_ModelSource.count || ViewportGetTool(g_ModelViewport) != EDITOR_TOOL_FACE_SELECT) return TRUE;
+    *count = ViewportGetSelectedBgFaceCount(g_ModelViewport);
+    if (!*count) return TRUE;
+    refs = malloc((size_t)*count * sizeof(*refs));
+    if (!refs) { *why = "Out of memory reading selected model faces."; return FALSE; }
+    ok = ViewportGetSelectedBgFaces(g_ModelViewport, refs, *count)
+        && ModelUVBuild(&g_ModelSource, refs, *count, g_ModelProject, triangles, why);
+    free(refs); return ok;
+}
+
+static void ModelEditorRefreshUV(void)
+{
+    UVCanvasTriangle *triangles = NULL;
+    DWORD count = 0;
+    const char *why = "";
+    unsigned short texture = BG_TEX_NONE;
+    BOOL shared = TRUE;
+    char title[MAX_PATH + 32];
+    if (!UVEditorIsOpen(g_ModelEditor)) return;
+    snprintf(title, sizeof(title), "UV Editor - %s", g_ModelSelected >= 0 ? g_ModelEntries[g_ModelSelected].name : "Model");
+    if (!ModelEditorUVSelection(&triangles, &count, &why))
+    {
+        count = 0;
+        if (*why) SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS, why);
+    }
+    for (DWORD i = 0; i < count; i++)
+    {
+        DWORD face = triangles[i].face.faceid - 1;
+        DWORD image = g_ModelSource.materials.slots[g_ModelSource.materials.faces[face].slot].texture;
+        if (!i) texture = image;
+        else if (texture != image) shared = FALSE;
+    }
+    UVEditorSetOverlay(g_ModelEditor, triangles, count, g_ModelProject, texture, shared, title);
+}
+
+static void ModelEditorShowUV(void)
+{
+    if (!g_ModelSource.count) return;
+    if (ViewportGetTool(g_ModelViewport) != EDITOR_TOOL_FACE_SELECT)
+    {
+        ViewportSetTool(g_ModelViewport, EDITOR_TOOL_FACE_SELECT);
+        ToolToolbarSetTool(g_ModelPaintToolbar, EDITOR_TOOL_FACE_SELECT);
+    }
+    if (!UVEditorShow(g_ModelEditor, (HINSTANCE)GetWindowLongPtr(g_ModelEditor, GWLP_HINSTANCE)))
+    { MessageBox(g_ModelEditor, "Could not open the UV Editor.", "Model Editor", MB_ICONERROR); return; }
+    ModelEditorRefreshUV();
+}
+
+static BOOL ModelEditorApplyUV(const UVCanvasEdit *vertices, const UVCanvasFaceEdit *faces)
+{
+    UVCanvasTriangle *triangles = NULL;
+    ModelUVEdit *edits = NULL;
+    ModelUVChange change = {0};
+    DWORD count = 0, editcount = 0;
+    const char *why = "";
+    BOOL ok = FALSE;
+    if (!UVEditorIsOpen(g_ModelEditor) || g_ModelSelected < 0) return FALSE;
+    if (!ModelEditorUVSelection(&triangles, &count, &why)
+        || !ModelUVConvert(triangles, count, vertices, faces, &edits, &editcount, &why)
+        || !ModelEditsSetUVs(g_ModelProject, g_ModelEntries[g_ModelSelected].name,
+            g_ModelRevision, edits, editcount, &change, &why)) goto done;
+    ok = TRUE;
+    if (!change.before) { ModelEditorRefreshUV(); goto done; }
+    ModelEditorRecord((ModelEditorHistoryStep){.uv = change}); memset(&change, 0, sizeof(change));
+    ModelEditorLoad(g_ModelSelected, FALSE);
+    SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS, "Model UVs updated. Save Project to keep the changes.");
+    SendMessage(GetWindow(g_ModelEditor, GW_OWNER), MODELEDITOR_CHANGED, 0, 0);
+done:
+    free(triangles); free(edits); ModelEditsFreeUVChange(&change);
+    if (!ok)
+    {
+        ModelEditorRefreshUV();
+        MessageBox(g_ModelEditor, *why ? why : "The model UV edit could not be applied.", "Model UV Editor", MB_ICONERROR);
+    }
+    return ok;
 }
 
 static void ModelEditorSelect(int category, BOOL framecamera)
@@ -293,6 +410,7 @@ static void ModelEditorSetPaint(BOOL enabled)
     SendMessage(g_ModelViewport, WM_CANCELMODE, 0, 0);
     ViewportSetTool(g_ModelViewport, tool);
     ToolToolbarSetTool(g_ModelPaintToolbar, tool);
+    ModelEditorRefreshUV();
     SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS, enabled
         ? "Click a face to paint its nearest vertex. Left/right drag to orbit; middle drag to pan. 4 exits painting. Save Project to keep edits."
         : "Click to select faces; left/right drag to orbit; middle drag to pan. 4 toggles vertex painting.");
@@ -327,38 +445,35 @@ static BOOL ModelEditorVertexColor(const ViewportBgVertexHit *hit, BOOL sample)
         return FALSE;
     }
     if (!memcmp(change.before, change.after, 4)) { return TRUE; }
-    if (g_ModelPaintPosition == MODEL_PAINT_HISTORY_LIMIT)
-    {
-        memmove(g_ModelPaintHistory, g_ModelPaintHistory+1,
-                (MODEL_PAINT_HISTORY_LIMIT-1)*sizeof(*g_ModelPaintHistory));
-        g_ModelPaintPosition--;
-    }
-    g_ModelPaintHistory[g_ModelPaintPosition++] = change;
-    g_ModelPaintCount = g_ModelPaintPosition; /* A new stroke replaces redo. */
+    ModelEditorRecord((ModelEditorHistoryStep){.paint = change});
     ModelEditorLoad(g_ModelSelected, FALSE);
     SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS, "Vertex RGBA painted. Save Project to keep the model changes.");
     SendMessage(GetWindow(g_ModelEditor, GW_OWNER), MODELEDITOR_CHANGED, 0, 0);
     return TRUE;
 }
 
-static void ModelEditorUndoPaint(BOOL redo)
+static void ModelEditorUndo(BOOL redo)
 {
     const char *why = "";
-    int position = redo ? g_ModelPaintPosition : g_ModelPaintPosition-1;
-    if (g_ModelSelected < 0 || position < 0 || position >= g_ModelPaintCount) { return; }
+    int position = redo ? g_ModelHistoryPosition : g_ModelHistoryPosition - 1;
+    if (g_ModelSelected < 0 || position < 0 || position >= g_ModelHistoryCount) return;
     SendMessage(g_ModelViewport, WM_CANCELMODE, 0, 0);
-    if (!ModelEditsRestoreVertexColor(g_ModelProject, g_ModelEntries[g_ModelSelected].name,
-                                      &g_ModelPaintHistory[position], redo, &why))
+    UVEditorCancelInteraction(g_ModelEditor);
+    ModelEditorHistoryStep *step = &g_ModelHistory[position];
+    BOOL ok = step->uv.before
+        ? ModelEditsRestoreUVs(g_ModelProject, g_ModelEntries[g_ModelSelected].name, &step->uv, redo, &why)
+        : ModelEditsRestoreVertexColor(g_ModelProject, g_ModelEntries[g_ModelSelected].name, &step->paint, redo, &why);
+    if (!ok)
     {
-        g_ModelPaintCount = g_ModelPaintPosition = 0;
+        ModelEditorClearHistory();
         SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS, why);
         return;
     }
-    g_ModelPaintPosition += redo ? 1 : -1;
+    g_ModelHistoryPosition += redo ? 1 : -1;
     ModelEditorLoad(g_ModelSelected, FALSE);
     SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS, redo
-        ? "Vertex paint redone. Save Project to keep model changes."
-        : "Vertex paint undone. Save Project to keep model changes.");
+        ? "Model edit redone. Save Project to keep model changes."
+        : "Model edit undone. Save Project to keep model changes.");
     SendMessage(GetWindow(g_ModelEditor, GW_OWNER), MODELEDITOR_CHANGED, 0, 0);
 }
 
@@ -378,7 +493,7 @@ static BOOL ModelEditorPaintKey(MSG *message)
         GetClassName(message->hwnd, classname, sizeof(classname));
         if (lstrcmpi(classname, "Edit") != 0)
         {
-            ModelEditorUndoPaint(message->wParam == 'Y' || (GetKeyState(VK_SHIFT) & 0x8000));
+            ModelEditorUndo(message->wParam == 'Y' || (GetKeyState(VK_SHIFT) & 0x8000));
             return TRUE;
         }
     }
@@ -435,6 +550,7 @@ static void ModelEditorGroups(void)
     SendMessage(list,WM_SETREDRAW,TRUE,0);InvalidateRect(list,NULL,TRUE);
     EnableWindow(list,g_ModelSource.materials.count!=0);
     EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_SELECT_ALL),g_ModelSource.count!=0);
+    EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_UV),g_ModelSource.count!=0);
     EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_LODS),g_ModelSource.closestpreview);
 }
 
@@ -720,8 +836,9 @@ static void ModelEditorLayout(HWND hwnd)
     ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_EXPORT),margin,margin*2+units.bottom*2,units.right,units.bottom);
     ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_IMPORT),margin*2+units.right,margin*2+units.bottom*2,units.right,units.bottom);
     ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_ADD),margin*3+units.right*2,margin*2+units.bottom*2,units.right+margin,units.bottom);
+    ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_UV),margin*5+units.right*3,margin*2+units.bottom*2,units.right+margin,units.bottom);
     if (g_ModelPaintToolbar)
-        ModelEditorPlaceControl(g_ModelPaintToolbar, margin*5+units.right*3,
+        ModelEditorPlaceControl(g_ModelPaintToolbar, margin*7+units.right*4,
                                 units.top-TOOLTOOLBAR_HEIGHT-margin/2, TOOLTOOLBAR_HEIGHT, TOOLTOOLBAR_HEIGHT);
     if (g_ModelViewport != NULL)
     {
@@ -823,7 +940,15 @@ static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wp
         return TRUE;
     }
     case VIEWPORT_WM_SELECTION_CHANGED:
-        ModelEditorProperties(); return TRUE;
+        ModelEditorProperties(); ModelEditorRefreshUV(); return TRUE;
+    case UVEDITOR_WM_APPLY:
+    case UVEDITOR_WM_APPLY_FACES:
+        SetWindowLongPtr(hwnd, DWLP_MSGRESULT, message == UVEDITOR_WM_APPLY
+            ? ModelEditorApplyUV((const UVCanvasEdit *)lparam, NULL)
+            : ModelEditorApplyUV(NULL, (const UVCanvasFaceEdit *)lparam));
+        return TRUE;
+    case UVEDITOR_WM_HISTORY:
+        ModelEditorUndo((BOOL)wparam); return TRUE;
     case EDITTOOL_WM_SELECT:
         if (wparam == EDITOR_TOOL_VERTEX_PAINT)
             ModelEditorSetPaint(ViewportGetTool(g_ModelViewport) != EDITOR_TOOL_VERTEX_PAINT);
@@ -842,6 +967,8 @@ static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wp
             ModelEditorVertexColor((const ViewportBgVertexHit *)lparam, message == VIEWPORT_WM_SAMPLE_VERTEX));
         return TRUE;
     case WM_COMMAND:
+        if (LOWORD(wparam) == IDC_MODEL_UV)
+        { ModelEditorShowUV(); return TRUE; }
         if ((LOWORD(wparam)==IDC_MODEL_MATERIAL_LIST && HIWORD(wparam)==LBN_SELCHANGE)
             || LOWORD(wparam)==IDC_MODEL_SELECT_ALL)
         { ModelEditorSelectGroup(LOWORD(wparam)==IDC_MODEL_SELECT_ALL); return TRUE; }
@@ -876,6 +1003,7 @@ static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wp
         DestroyWindow(hwnd);
         return TRUE;
     case WM_NCDESTROY:
+        ModelEditorClearHistory();
         ModelFreeSource(&g_ModelSource); g_ModelRevision = 0;
         free(g_ModelEntries); g_ModelEntries = NULL; g_ModelCount = 0; g_ModelSelected = -1;
         g_ModelViewport = NULL; g_ModelEditor = NULL;
@@ -976,9 +1104,13 @@ BOOL ModelEditorHandleMessage(MSG *message)
     /* Consume Enter in the combo's edit child before dialog navigation can
      * treat it as a default-button click. Typing itself never loads a model. */
     if (ModelEditorNameKey(message)) { return TRUE; }
-    /* Project shortcuts are shared with the main frame's accelerators. */
+    if (message->message == WM_KEYDOWN && message->wParam == 'T'
+        && (GetKeyState(VK_CONTROL) & 0x8000)
+        && !(GetKeyState(VK_MENU) & 0x8000) && !(GetKeyState(VK_SHIFT) & 0x8000))
+    { ModelEditorShowUV(); return TRUE; }
+    /* Save Project is shared with the main frame's accelerators. */
     if (message->message == WM_KEYDOWN
-        && (message->wParam == 'S' || message->wParam == 'T')
+        && message->wParam == 'S'
         && (GetKeyState(VK_CONTROL) & 0x8000)
         && !(GetKeyState(VK_MENU) & 0x8000) && !(GetKeyState(VK_SHIFT) & 0x8000))
     { return FALSE; }

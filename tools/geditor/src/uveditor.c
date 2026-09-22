@@ -287,7 +287,7 @@ static INT_PTR CALLBACK UVEditorDialogProc(HWND hwnd, UINT message,
             const char *reason = "";
             double size;
             if (!UVEditorReadCoordinate(IDC_UV_CYLINDER_SIZE, &size) || size <= 0)
-            { MessageBox(hwnd, "Enter a positive texel size in world centimetres.", "UV Editor", MB_ICONERROR); return TRUE; }
+            { MessageBox(hwnd, "Enter a positive texel size.", "UV Editor", MB_ICONERROR); return TRUE; }
             g_UVCylinderTexelSize = size;
             g_UVCylinderAxis = (int)SendDlgItemMessage(hwnd, IDC_UV_CYLINDER_AXIS, CB_GETCURSEL, 0, 0);
             if (!UVCanvasProjectCylinder(g_UVCanvas, g_UVCylinderAxis, size, &reason) && reason[0])
@@ -344,6 +344,9 @@ static INT_PTR CALLBACK UVEditorDialogProc(HWND hwnd, UINT message,
 
 BOOL UVEditorShow(HWND owner, HINSTANCE instance)
 {
+    /* A different editor starts a fresh context: no stale BG/model corner
+     * identities, selection history, drags or notifications cross owners. */
+    if (g_UVEditor && !UVEditorIsOpen(owner)) { DestroyWindow(g_UVEditor); }
     if (g_UVEditor == NULL)
     {
         /* A top-level owned window always stays above its owner and follows
@@ -376,7 +379,7 @@ void UVEditorRefreshSelection(HWND viewport, const BgDocument *document, const c
     unsigned short textureid = BG_TEX_NONE;
     BOOL shared = TRUE;
 
-    if (g_UVCanvas == NULL) { return; }
+    if (!UVEditorIsOpen(GetParent(viewport)) || g_UVCanvas == NULL) { return; }
     if (ViewportGetTool(viewport) != EDITOR_TOOL_FACE_SELECT)
     { UVCanvasSetTriangles(g_UVCanvas, NULL, 0); UVEditorRefreshTexture(NULL, BG_TEX_NONE, TRUE, 0); return; }
     count = ViewportGetSelectedBgFaceCount(viewport);
@@ -453,6 +456,20 @@ void UVEditorRefreshSelection(HWND viewport, const BgDocument *document, const c
     else { UVEditorRefreshTexture(projectdir, textureid, shared, output); }
 }
 
+void UVEditorSetOverlay(HWND owner, UVCanvasTriangle *triangles, int count,
+    const char *projectdir, unsigned short texture, BOOL shared, const char *title)
+{
+    if (!UVEditorIsOpen(owner) || !g_UVCanvas) { free(triangles); return; }
+    SetWindowText(g_UVEditor, title ? title : "UV Editor");
+    SetDlgItemText(g_UVEditor, IDC_UV_CYLINDER_SIZE_LABEL, "Texel size (units):");
+    if (!UVCanvasSetTriangles(g_UVCanvas, triangles, count))
+    {
+        UVEditorRefreshTexture(NULL, BG_TEX_NONE, TRUE, 0);
+        MessageBox(g_UVEditor, "Out of memory displaying model UVs.", "UV Editor", MB_ICONERROR);
+    }
+    else UVEditorRefreshTexture(projectdir, texture, shared, count);
+}
+
 BOOL UVEditorHandleMessage(MSG *message)
 {
     BOOL uvmessage;
@@ -484,9 +501,17 @@ BOOL UVEditorHandleMessage(MSG *message)
         }
     }
     if (!uvmessage) { return FALSE; }
-    /* Project shortcuts are shared with the main frame's accelerators. */
+    /* Ctrl+T stays with the current model/background owner. */
+    if (message->message == WM_KEYDOWN && message->wParam == 'T'
+        && (GetKeyState(VK_CONTROL) & 0x8000)
+        && !(GetKeyState(VK_MENU) & 0x8000) && !(GetKeyState(VK_SHIFT) & 0x8000))
+    {
+        SetForegroundWindow(g_UVEditor);
+        return TRUE;
+    }
+    /* Save Project is shared with the main frame's accelerators. */
     if (message->message == WM_KEYDOWN
-        && (message->wParam == 'S' || message->wParam == 'T')
+        && message->wParam == 'S'
         && (GetKeyState(VK_CONTROL) & 0x8000)
         && !(GetKeyState(VK_MENU) & 0x8000) && !(GetKeyState(VK_SHIFT) & 0x8000))
     { return FALSE; }
@@ -532,22 +557,26 @@ BOOL UVEditorHandleMessage(MSG *message)
     return TRUE;
 }
 
-BOOL UVEditorIsOpen(void)
+BOOL UVEditorIsOpen(HWND owner)
 {
-    return g_UVEditor != NULL;
+    return g_UVEditor != NULL && GetWindow(g_UVEditor, GW_OWNER) == owner;
 }
 
-BOOL UVEditorCaptureSelection(void **data, size_t *size)
+BOOL UVEditorCaptureSelection(HWND owner, void **data, size_t *size)
 {
+    *data = NULL; *size = 0;
+    if (!UVEditorIsOpen(owner)) return TRUE;
     return UVCanvasCaptureSelection(g_UVCanvas, data, size);
 }
 
-BOOL UVEditorRestoreSelection(const void *data, size_t size)
+BOOL UVEditorRestoreSelection(HWND owner, const void *data, size_t size)
 {
+    if (!UVEditorIsOpen(owner)) return size == 0;
     return UVCanvasRestoreSelection(g_UVCanvas, data, size);
 }
 
-void UVEditorCancelInteraction(void)
+void UVEditorCancelInteraction(HWND owner)
 {
+    if (!UVEditorIsOpen(owner)) return;
     UVCanvasCancelInteraction(g_UVCanvas);
 }

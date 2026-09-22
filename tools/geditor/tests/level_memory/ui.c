@@ -38,7 +38,7 @@ static EditHistory g_EditHistory;
 static int rebuilds, previews;
 static BOOL fail_rebuild, fail_defaults;
 static void ViewportCancelTransform(HWND hwnd) {}
-static void UVEditorCancelInteraction(void) {}
+static void UVEditorCancelInteraction(HWND owner) {}
 static void GEditorPreviewEnvironment(DWORD id, BOOL selected) { previews++; }
 static void LevelManagerRefreshRooms(const BgDocument *bg,const SetupFile *setup,const StanFile *stan) {}
 static BOOL GEditorReloadCurrentObjectsAndViewport(const char **reason) { rebuilds++; *reason="Rebuild failed."; return !fail_rebuild; }

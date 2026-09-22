@@ -130,6 +130,36 @@ Unused texture images remain in the project images folder, GEditor's image
 browser and the ROM. Removing a model's texture usage does not delete any
 shared texture asset. Edited glTF exports embed the textures they still use.
 
+## Editing model UVs in GEditor
+
+Open a model in the Model Editor, select faces in its viewport (or click a
+material slot to select its faces), then click **UV Editor (Ctrl+T)**. The
+window title identifies the model being edited. Selecting background faces
+does not replace this model UV session. Opening the UV editor from the main
+window switches it back to background geometry.
+
+The shared UV workspace supports vertex selection, U/V coordinate entry,
+Move/Rotate/Scale, X/Y/Z and Best Fit projection, and cylindrical unwrapping
+with automatic seam selection. Cylindrical texel size uses model coordinate
+units; background mapping continues to use world centimetres. The background
+image and opacity controls use the selected model faces' assigned texture.
+
+UV changes affect selected model faces only. Conflicts with unselected faces
+create native UV seams while retaining positions, colors, normals, material
+assignments and model parts. Generated reflection coordinates remain read-only.
+**No Texture** slots can also be mapped before assigning an image; their UVs
+are retained in the editor data, using a virtual 32-by-32 texture as the
+workspace's coordinate basis until an image is assigned.
+
+Ctrl+Z and Ctrl+Y undo/redo UV edits and vertex paint in order within the Model
+Editor. History is limited to 256 edits and 64 MiB of UV snapshots; changing
+models or making an external material/topology edit clears it. Save Project
+keeps the edited UVs and includes them in subsequent ROM exports.
+
+`python3 tools/geditor/tests/model_uv/run.py` exercises the production UV canvas,
+model adapter, native compiler, history and save path. It covers stock props,
+a character, mixed-joint/normal-lit fixtures, and a new cylindrical prop.
+
 ## Saved data
 
 `models/native/<name>.gmodel` is the authoritative saved native replacement.

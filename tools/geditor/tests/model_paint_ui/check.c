@@ -37,7 +37,7 @@ static double scalex,scaley;
 static int toggles,control,shift,alt;
 static int undos,redos,cancels;
 static BOOL g_ModelSampling;
-static void ModelEditorUndoPaint(BOOL redo) { if(redo) redos++; else undos++; }
+static void ModelEditorUndo(BOOL redo) { if(redo) redos++; else undos++; }
 static const char *focusclass="GEditorViewport";
 static BOOL IsChild(HWND parent, HWND child)
 { return parent==(HWND)1 ? (uintptr_t)child>1 && (uintptr_t)child<4000 : parent==(HWND)2 && child==(HWND)3; }
@@ -81,6 +81,9 @@ int main(void)
         scalex=1.25+scale*.25;scaley=1.5+scale*.25;
         client=(RECT){0,0,lround(660*scalex),lround(height*scaley)};
         ModelEditorLayout(g_ModelEditor);
+        assert(Inside(positions[IDC_MODEL_UV],client));
+        assert(positions[IDC_MODEL_ADD].right<positions[IDC_MODEL_UV].left);
+        assert(positions[IDC_MODEL_UV].right<positions[(uintptr_t)g_ModelPaintToolbar].left);
         RECT materials=positions[IDC_MODEL_MATERIALS], colors=positions[IDC_MODEL_COLORS], faces=positions[IDC_MODEL_PROPERTIES];
         assert(materials.bottom<colors.top && colors.bottom<faces.top);
         assert(Inside(materials,client) && Inside(colors,client) && Inside(faces,client));

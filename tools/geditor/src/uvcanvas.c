@@ -1119,7 +1119,7 @@ BOOL UVCanvasProjectFaces(HWND canvas, UVProjection projection, const char **rea
     UVCanvasEdit request;
     int triangle, corner, i;
     BOOL result = FALSE;
-    *reason = "Select background faces to project.";
+    *reason = "Select faces to project.";
     if (state == NULL || state->nodecount == 0 || projection < 0 || projection >= UV_PROJECTION_COUNT) { return FALSE; }
     UVCanvasCancelInteraction(canvas);
     vertices = calloc((size_t)state->nodecount, sizeof(*vertices));

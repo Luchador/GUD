@@ -38,6 +38,10 @@ typedef struct { BITMAPINFOHEADER bmiHeader; DWORD color; } BITMAPINFO;
 
 static UVCanvasState state;
 static HWND g_UVCanvas=&state, g_UVEditor=(HWND)1;
+static HWND activeowner=(HWND)2;
+#define GW_OWNER 4
+static HWND GetWindow(HWND hwnd,int which) { assert(which==GW_OWNER); return activeowner; }
+static HWND GetParent(HWND hwnd) { return (HWND)2; }
 static RECT client={0,0,1170,877}, controls[1300];
 static unsigned char *screenpixels;
 static unsigned pencolor;
@@ -128,6 +132,12 @@ static void Selection(void)
     assert(loads==1 && state.texture && state.trianglecount==2 && sliderenabled && !doc.dirty);
     assert(!strcmp(statustext,"Image 0558 (3 x 2)"));
     assert(state.triangles[0].uv[1][0]==1 && state.triangles[0].uv[2][1]==1);
+    /* A model UV session must ignore background selection/texture refreshes. */
+    activeowner=(HWND)3; selectioncount=0;
+    UVCanvasTriangle *before=state.triangles;
+    UVEditorRefreshSelection(NULL,&doc,"project");
+    assert(state.triangles==before && state.texture && loads==1);
+    activeowner=(HWND)2; selectioncount=2;
     faces[1].textureid=0x123;
     UVEditorRefreshSelection(NULL,&doc,"project");
     assert(loads==1 && !state.texture && !sliderenabled && !strcmp(statustext,"Mixed textures"));

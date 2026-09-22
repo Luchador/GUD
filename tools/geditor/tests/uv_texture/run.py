@@ -26,7 +26,7 @@ with tempfile.TemporaryDirectory(prefix='geditor-uv-texture-') as temp:
          'UVCanvasProject', 'UVCanvasClipCoordinate', 'UVCanvasClipEdge', 'UVCanvasDrawEdge',
          'UVCanvasDrawTexture', 'UVCanvasDrawLimits', 'UVCanvasDraw')))
     (work / 'editor.inc').write_text(''.join(extract.function(editor, name) for name in
-        ('UVEditorRefreshTexture', 'UVEditorRefreshSelection', 'UVEditorLayout')))
+        ('UVEditorIsOpen', 'UVEditorRefreshTexture', 'UVEditorRefreshSelection', 'UVEditorLayout')))
     subprocess.run([os.environ.get('CC', 'cc'), '-std=c99', '-O1', '-g', '-Wall', '-Wextra',
         '-Werror', '-Wno-unused-parameter', '-ffunction-sections', '-fdata-sections',
         '-fsanitize=address,undefined', f'-I{HERE.parent / "image_import"}', f'-I{SRC}', f'-I{work}',

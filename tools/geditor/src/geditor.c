@@ -2067,7 +2067,7 @@ static BOOL GEditorCaptureSelection(void **data, size_t *size)
     GEditorSelectionSnapshot *snapshot;
     *data = NULL; *size = 0;
     if (!ViewportCaptureSelection(g_Viewport, &view, &viewsize)
-        || !UVEditorCaptureSelection(&uv, &uvsize))
+        || !UVEditorCaptureSelection(GetParent(g_Viewport), &uv, &uvsize))
     { free(view); free(uv); return FALSE; }
     *size = sizeof(*snapshot) + viewsize + uvsize;
     snapshot = malloc(*size);
@@ -2091,10 +2091,10 @@ static BOOL GEditorRestoreHistorySelection(HWND hwnd)
     if (!ViewportRestoreSelection(g_Viewport, snapshot + 1, snapshot->viewsize)) { return FALSE; }
     ToolToolbarSetTool(g_ToolToolbar, ViewportGetTool(g_Viewport));
     ToolToolbarSetVertexSnap(g_ToolToolbar, ViewportGetVertexSnap(g_Viewport));
-    if (snapshot->uvsize && !UVEditorIsOpen() && !UVEditorShow(hwnd, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE)))
+    if (snapshot->uvsize && !UVEditorIsOpen(hwnd) && !UVEditorShow(hwnd, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE)))
     { return FALSE; }
     GEditorRefreshSelectionDetails();
-    return UVEditorRestoreSelection((const char *)(snapshot + 1) + snapshot->viewsize, snapshot->uvsize);
+    return UVEditorRestoreSelection(hwnd, (const char *)(snapshot + 1) + snapshot->viewsize, snapshot->uvsize);
 }
 
 static void GEditorApplyHistoryStep(HWND hwnd, BOOL redo)
@@ -2107,7 +2107,7 @@ static void GEditorApplyHistoryStep(HWND hwnd, BOOL redo)
 
     g_SelectionHistoryNavigation = TRUE;
     ViewportCancelTransform(g_Viewport);
-    UVEditorCancelInteraction();
+    UVEditorCancelInteraction(GetParent(g_Viewport));
     changed = redo
         ? EditHistoryRedo(&g_EditHistory, &g_CurrentBgDocument,
                           &g_CurrentSetup, &g_CurrentStan, &asset, &why)
@@ -5018,7 +5018,7 @@ static BOOL GEditorApplyStageOptions(HWND hwnd, StageOptionsEditRequest *request
     if (scalechanged)
     {
         SetupObjectGeometry clipboard = {0};
-        ViewportCancelTransform(g_Viewport); UVEditorCancelInteraction();
+        ViewportCancelTransform(g_Viewport); UVEditorCancelInteraction(GetParent(g_Viewport));
         if (!LevelScaleApply(&g_CurrentBgDocument, &g_CurrentStan, &g_EditHistory,
             &g_FaceClipboard, &g_PortalClipboard, request->levelscale, &request->why)) { return FALSE; }
         if ((g_ObjectClipboard.data && !ObjectLoadSetupGeometry(g_Project.dir, &g_ObjectClipboard,

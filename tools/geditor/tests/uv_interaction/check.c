@@ -34,7 +34,8 @@ static HWND g_Viewport = (HWND)1, g_RightPanel = (HWND)2, g_Browser = (HWND)3;
 static BgDocument g_CurrentBgDocument;
 static SetupFile g_CurrentSetup;
 static StanFile g_CurrentStan;
-static struct { char dir[MAX_PATH]; } g_Project;
+static struct { char dir[MAX_PATH]; int levelcount; struct { const char *name; } levels[1]; } g_Project;
+static int g_CurrentLevelIndex;
 
 static UVCanvasState *UVCanvasGetState(HWND hwnd) { return hwnd; }
 static HWND GetParent(HWND hwnd) { return (HWND)4; }
@@ -60,6 +61,8 @@ static int ViewportGetSelectedBgFaceCount(HWND hwnd) { return 1; }
 static BOOL ViewportGetSelectedBgFaces(HWND hwnd, BgFaceRef *refs, int count)
 { refs[0] = source.face; return TRUE; }
 static BOOL ViewportGetSelectedObject(HWND hwnd, DWORD *index) { *index = 0; return objectSelected; }
+static DWORD ViewportGetSelectedModelCount(HWND hwnd) { return objectSelected ? 1 : 0; }
+static BOOL ViewportGetSelectedModels(HWND hwnd, DWORD *models, DWORD count) { models[0]=0; return TRUE; }
 static int ViewportGetSelectedComponentCount(HWND hwnd) { return 0; }
 static DWORD ViewportGetStanSelectionCount(HWND hwnd, DWORD *tile) { *tile = 0; return 0; }
 static BOOL ViewportGetSelectedStanTiles(HWND hwnd, DWORD *tiles, DWORD count) { return FALSE; }
@@ -78,6 +81,9 @@ static void Ignore(HWND hwnd, ...) {}
 #define RightPanelSetBgComponentSelection Ignore
 #define RightPanelSetBgFaces Ignore
 #define RightPanelSetBgSelectionCount Ignore
+#define RightPanelSetModelSelectionCount Ignore
+static void LevelManagerRefresh(const SetupFile *setup,const char *name) {}
+static void LevelManagerRefreshSettings(const void *project,int index) {}
 static void RightPanelSetSetupObject(HWND hwnd, const SetupFile *setup, DWORD index, const char *dir)
 { inspectorUpdates++; inspectorOffset = setup->objects[index].sourceoffset; }
 static void GEditorRefreshTransformFields(void) {}

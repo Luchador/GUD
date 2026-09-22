@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include <ctype.h>
 #include "modeledits.h"
 #include "modelcompile.h"
@@ -181,7 +182,7 @@ done:
 }
 
 /* Takes ownership on success, matching NewPropsReplace. */
-static BOOL RetainPaint(const char *project, const char *name, DWORD basehash,
+static BOOL RetainModel(const char *project, const char *name, DWORD basehash,
     unsigned char *data, DWORD size, const char **why)
 {
     DWORD customsize;
@@ -192,7 +193,7 @@ static BOOL RetainPaint(const char *project, const char *name, DWORD basehash,
     if (!edit)
     {
         edit = calloc(1, sizeof(*edit));
-        if (!edit) { *why = "Out of memory retaining the painted model."; return FALSE; }
+        if (!edit) { *why = "Out of memory retaining the edited model."; return FALSE; }
         lstrcpyn(edit->name, name, sizeof(edit->name)); edit->next = g_ModelEdits; g_ModelEdits = edit;
     }
     free(edit->data); edit->data = data;
@@ -219,7 +220,7 @@ BOOL ModelEditsSetVertexColor(const char *project, const char *name, DWORD revis
     memcpy(step.before, data + step.offset + 12, 4);
     memcpy(step.after, painted + step.offset + 12, 4);
     if (!memcmp(step.before, step.after, 4)) { ok = TRUE; goto done; }
-    ok = RetainPaint(project, name, basehash, painted, size, why);
+    ok = RetainModel(project, name, basehash, painted, size, why);
     if (ok) { painted = NULL; }
 done:
     if (ok && change) { *change = step; }
@@ -239,11 +240,125 @@ BOOL ModelEditsRestoreVertexColor(const char *project, const char *name,
     memcpy(data+change->offset+12, redo ? change->after : change->before, 4);
     if (ModelDataHash(data, size) != (redo ? change->afterRevision : change->beforeRevision))
     { *why = "The model's paint history does not match its vertex data."; goto done; }
-    ok = RetainPaint(project, name, basehash, data, size, why);
+    ok = RetainModel(project, name, basehash, data, size, why);
     if (ok) { data = NULL; }
 done:
     free(data); return ok;
 }
+void ModelEditsFreeUVChange(ModelUVChange *change)
+{
+    if (!change) return;
+    free(change->before); free(change->after); memset(change, 0, sizeof(*change));
+}
+
+BOOL ModelEditsSetUVs(const char *project, const char *name, DWORD revision,
+    const ModelUVEdit *edits, DWORD count, ModelUVChange *change, const char **why)
+{
+    unsigned char *data = NULL, *compiled = NULL, *seen = NULL;
+    DWORD size, basehash, compiledsize;
+    ModelSource source = {0}, check = {0}; GltfModelImport imported = {0};
+    ModelUVChange step = {0};
+    BOOL ok = FALSE, changed = FALSE;
+    if (change) memset(change, 0, sizeof(*change));
+    if (!LoadSource(project, name, &data, &size, &basehash, why)) goto done;
+    if (ModelDataHash(data, size) != revision)
+    { *why = "The model changed. Reload it before editing its UVs."; goto done; }
+    if (!ModelReadSource(data, size, &source, why) || !ModelMaterialsEnsure(&source, project, why)) goto done;
+    *why = "A UV edit no longer identifies a valid model corner.";
+    if (count > source.count * 3 || (count && !edits)) goto done;
+    imported.count = source.count;
+    imported.vertices = malloc((size_t)(source.count ? source.count : 1) * 3 * sizeof(*imported.vertices));
+    imported.tags = malloc((size_t)(source.count ? source.count : 1) * sizeof(*imported.tags));
+    imported.sourcevertices = malloc((size_t)(source.count ? source.count : 1) * 3 * sizeof(*imported.sourcevertices));
+    seen = calloc(source.count ? source.count * 3 : 1, 1);
+    if (!imported.vertices || !imported.tags || !imported.sourcevertices || !seen)
+    { *why = "Out of memory editing model UVs."; goto done; }
+    for (DWORD f = 0; f < source.count; f++)
+    {
+        int width = 1, height = 1;
+        DWORD texture = BG_TEX_ID(source.tags[f]);
+        if (texture != BG_TEX_NONE && !TexGetProjectImageSize(project, texture, &width, &height))
+        { *why = "A model image is unavailable in this project."; goto done; }
+        imported.tags[f] = source.tags[f];
+        for (DWORD k = 0; k < 3; k++)
+        {
+            DWORD corner = f * 3 + k;
+            imported.sourcevertices[corner] = corner;
+            imported.vertices[corner] = source.vertices[corner];
+            /* Unedited corners use actual native S/T, including hidden
+             * reflection UVs. Only requested corners use the authored UVs. */
+            imported.vertices[corner].s /= width;
+            imported.vertices[corner].t /= height;
+        }
+    }
+    for (DWORD i = 0; i < count; i++)
+    {
+        DWORD corner = edits[i].corner, face = corner / 3;
+        if (face >= source.count || seen[corner]++) goto done;
+        if (source.flags[face] & BG_RENDER_ENVIRONMENT_MASK)
+        { *why = "Reflection UVs are generated in game and cannot be edited here."; goto done; }
+        if (!isfinite(edits[i].uv[0]) || !isfinite(edits[i].uv[1]))
+        { *why = "Model UV coordinates must be finite."; goto done; }
+        int width = 32, height = 32;
+        DWORD texture = BG_TEX_ID(source.tags[face]);
+        if (texture != BG_TEX_NONE && !TexGetProjectImageSize(project, texture, &width, &height))
+        { *why = "A model image is unavailable in this project."; goto done; }
+        double s = round((double)edits[i].uv[0] * 32 * width), t = round((double)edits[i].uv[1] * 32 * height);
+        if (s < -32768 || s > 32767 || t < -32768 || t > 32767)
+        { *why = "A model UV exceeds the signed 16-bit texture-coordinate range."; goto done; }
+        float *uv = source.materials.faces[face].uv + corner % 3 * 2;
+        changed |= uv[0] != edits[i].uv[0] || uv[1] != edits[i].uv[1];
+        uv[0] = imported.vertices[corner].s = edits[i].uv[0];
+        uv[1] = imported.vertices[corner].t = edits[i].uv[1];
+    }
+    step.beforeRevision = step.afterRevision = revision;
+    if (!changed) { *why = ""; ok = TRUE; goto done; }
+    if (!ModelCompileImport(data, size, &source, &imported, project, &compiled, &compiledsize, why)
+        || !ModelMaterialsAttach(&compiled, &compiledsize, &source.materials, why)
+        || !ModelReadSource(compiled, compiledsize, &check, why)) goto done;
+    if (check.count != source.count)
+    { *why = "The UV edit changed the model's face count."; goto done; }
+    if (size == compiledsize && !memcmp(data, compiled, size)) { *why = ""; ok = TRUE; goto done; }
+    if (change)
+    {
+        step.after = malloc(compiledsize);
+        if (!step.after) { *why = "Out of memory retaining model UV history."; goto done; }
+        memcpy(step.after, compiled, compiledsize);
+        step.afterSize = compiledsize; step.afterRevision = ModelDataHash(compiled, compiledsize);
+        step.before = data; data = NULL; step.beforeSize = size;
+    }
+    ok = RetainModel(project, name, basehash, compiled, compiledsize, why);
+    if (ok) compiled = NULL;
+done:
+    if (ok && change) { *change = step; memset(&step, 0, sizeof(step)); }
+    ModelEditsFreeUVChange(&step);
+    free(data); free(compiled); free(seen); ModelFreeSource(&source); ModelFreeSource(&check);
+    GltfFreeModelImport(&imported); return ok;
+}
+
+BOOL ModelEditsRestoreUVs(const char *project, const char *name,
+    const ModelUVChange *change, BOOL redo, const char **why)
+{
+    unsigned char *data = NULL, *copy = NULL;
+    DWORD size, basehash;
+    BOOL ok = FALSE;
+    if (!change || !LoadSource(project, name, &data, &size, &basehash, why)) goto done;
+    DWORD expected = redo ? change->beforeRevision : change->afterRevision;
+    DWORD targetsize = redo ? change->afterSize : change->beforeSize;
+    DWORD targetrevision = redo ? change->afterRevision : change->beforeRevision;
+    const unsigned char *target = redo ? change->after : change->before;
+    if (ModelDataHash(data, size) != expected || !target || !targetsize
+        || ModelDataHash(target, targetsize) != targetrevision)
+    { *why = "The model changed since this UV edit. Its history can no longer be applied."; goto done; }
+    copy = malloc(targetsize);
+    if (!copy) { *why = "Out of memory restoring model UVs."; goto done; }
+    memcpy(copy, target, targetsize);
+    ok = RetainModel(project, name, basehash, copy, targetsize, why);
+    if (ok) copy = NULL;
+done:
+    free(data); free(copy); return ok;
+}
+
 BOOL ModelEditsSetMaterial(const char *project,const char *name,DWORD revision,
     DWORD slot,DWORD texture,const char **why)
 {
