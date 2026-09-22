@@ -30,6 +30,8 @@ static void reset(void)
     memset(models,0,sizeof(models)); memset(&chr,0,sizeof(chr));
     memset(g_BulletImpactBuffer,0,sizeof(g_BulletImpactBuffer));
     identity(&view);
+    testPlayer.c_perspfovy=60.0f;testPlayer.c_halfheight=120.0f;
+    testPlayer.c_scaley=tanf(3.14159265358979323846f/6.0f)/120.0f;
     assert(occlusionBoxInit(&boxes[0],p,up,look,bounds));
     occlusionBoxView(&boxes[0],view.m[3],NULL);
     g_Occluders=boxes;g_OccluderCount=1;g_OcclusionEnabled=1;g_OcclusionRejected=0;

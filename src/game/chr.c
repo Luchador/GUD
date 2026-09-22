@@ -57,7 +57,7 @@ extern f32 g_PropFadeEndPx;
 
 #define CHR_LOD_DISTANCE_FACTOR 1.2f
 
-/* Render-only experiment. World coordinates are centimetres. */
+/* Render-only cutoff at the normal 60-degree FOV, in world centimetres. */
 #define CHR_ATTACHMENT_RENDER_DISTANCE 2000.0f
 
 // Begin forward declarations.
@@ -2690,11 +2690,22 @@ static bool chrHideDistantAttachments(PropRecord *prop)
 {
     Mtxf *camera = currentPlayerGetViewToWorldMtxf();
     f32 x, y, z;
+    f32 distanceScale = 1.0f;
     if (!camera) { return FALSE; }
     x = prop->pos.x - camera->m[3][0];
     y = prop->pos.y - camera->m[3][1];
     z = prop->pos.z - camera->m[3][2];
-    return x*x + y*y + z*z > CHR_ATTACHMENT_RENDER_DISTANCE * CHR_ATTACHMENT_RENDER_DISTANCE;
+    if (g_CurrentPlayer->c_perspfovy < 60.0f)
+    {
+        /* tan(FOV/2) / tan(60/2), using the current camera's cached scale.
+         * Multiplying out viewport height makes this independent of resolution
+         * and split-screen. Scaling distance avoids division or trig per chr
+         * and follows the actual animated FOV, not a weapon's target zoom. */
+        f32 scale = g_CurrentPlayer->c_scaley * g_CurrentPlayer->c_halfheight * 1.7320508f;
+        if (scale > 0.0f && scale < 1.0f) { distanceScale = scale; }
+    }
+    return (x*x + y*y + z*z) * distanceScale * distanceScale
+        > CHR_ATTACHMENT_RENDER_DISTANCE * CHR_ATTACHMENT_RENDER_DISTANCE;
 }
 
 static ModelNode *chrGetHeadSwitch(Model *model, s32 part)

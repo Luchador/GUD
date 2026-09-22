@@ -64,6 +64,7 @@ struct view4f { float left,top,width,height; };
 typedef struct ChrRecord { Model *model; u32 chrflags; int fadealpha; rgba_u8 shadecol; PropRecord *weapons_held[2],*handle_positiondata_hat; ModelHitEntry *hitChain; int action,health,animation; } ChrRecord;
 struct PropRecord { ChrRecord *chr; ObjectRecord *obj; struct Scorch *scorch; int flags; coord3d pos; };
 static Mtxf view;
+static struct { f32 c_perspfovy,c_scaley,c_halfheight; } testPlayer,*g_CurrentPlayer=&testPlayer;
 static int missingCamera;
 static Mtxf *currentPlayerGetViewToWorldMtxf(void) { return missingCamera?NULL:&view; }
 static union ModelRwData *modelGetNodeRwData(Model *model, ModelNode *node) { return node->rwData?node->rwData:&model->rw; }

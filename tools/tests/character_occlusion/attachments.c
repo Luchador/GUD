@@ -14,6 +14,28 @@ static void attachment_checks(void)
     assert(!chrHideDistantAttachments(&prop)); /* Render scale does not change metres. */
     missingCamera=1;prop.pos.y=30000;assert(!chrHideDistantAttachments(&prop));missingCamera=0;
 
+    /* Independent projection oracle across zoom levels and viewport heights.
+     * The 60-degree baseline remains exact; zoom only extends the cutoff. */
+    const float fovs[]={60,59,50,45,40,30,20,15,7,75};
+    const float heights[]={240,224,120,112,480};
+    for(unsigned int f=0;f<sizeof(fovs)/sizeof(fovs[0]);f++)
+    for(unsigned int h=0;h<sizeof(heights)/sizeof(heights[0]);h++) {
+        double tangent=tan(fovs[f]*3.14159265358979323846/360.0);
+        float cutoff=(float)(2000.0*tan(3.14159265358979323846/6.0)/tangent);
+        if(cutoff<2000.0f)cutoff=2000.0f;
+        reset();
+        testPlayer.c_perspfovy=fovs[f];testPlayer.c_halfheight=heights[h]*0.5f;
+        testPlayer.c_scaley=(float)(tangent/testPlayer.c_halfheight);
+        view.m[3][0]=1000;view.m[3][1]=-500;view.m[3][2]=250;
+        prop.pos=(coord3d){{{1000,-500,250+cutoff*0.9999f}}};
+        assert(!chrHideDistantAttachments(&prop));
+        prop.pos.z=250+cutoff*1.0001f;assert(chrHideDistantAttachments(&prop));
+    }
+    /* An invalid/uninitialized cached projection falls back to 20 metres. */
+    reset();testPlayer.c_perspfovy=30;testPlayer.c_scaley=0;prop.pos.z=2001;
+    assert(chrHideDistantAttachments(&prop));
+
+    for(int zoom=0;zoom<2;zoom++)
     for(int glasses=0;glasses<2;glasses++) for(int faded=0;faded<2;faded++) {
         u32 expectedRng=0;int expectedBody=0,expectedRelations=0,expectedScorch=0;
         for(int pass=0;pass<3;pass++) {
@@ -22,7 +44,13 @@ static void attachment_checks(void)
             ModelFileHeader head={0};ModelHitEntry joint={0};
             ChrRecord before;ModelHitEntry links[6];
             reset();g_OcclusionEnabled=0;chr.fadealpha=faded?120:255;
-            prop.pos.z=pass==1?2001:1999;models[1].rw.Gunfire.visible=1;
+            prop.pos.z=zoom?3000:pass==1?2001:1999;
+            if(zoom) {
+                /* Fixed 30m guard: zoom in, zoom out, zoom in again. */
+                testPlayer.c_perspfovy=pass==1?60:30;
+                testPlayer.c_scaley=tanf(testPlayer.c_perspfovy*3.14159265358979323846f/360.0f)/testPlayer.c_halfheight;
+            }
+            models[1].rw.Gunfire.visible=1;
             memset(nodeDraws,0,sizeof(nodeDraws));
             for(int n=0;n<7;n++) {
                 extra[n].Opcode=MODELNODE_OPCODE_DL;extra[n].Data=&ro[n];
@@ -70,5 +98,5 @@ static void attachment_checks(void)
         }
     }
     reset();assert(!chrGetHeadSwitch(&models[0],0));
-    puts("attachment distance: 20m boundary, diagonal/vertical/camera distances, both passes, sunglasses joints, cap-covered heads, near/far restoration, RNG and hit/matrix lifecycle passed");
+    puts("attachment distance: 20m baseline, FOV magnification, viewport independence, zoom transitions, both passes, sunglasses/cap restoration, RNG and hit/matrix lifecycle passed");
 }
