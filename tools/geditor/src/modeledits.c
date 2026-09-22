@@ -141,6 +141,52 @@ BOOL ModelEditsReadSource(const char *project, const char *name, ModelSource *so
     else ModelFreeSource(source);
     free(data); return ok;
 }
+static BOOL ValidateWrapSize(const char *project, const ModelSource *source,
+    const DWORD *faces, DWORD count, int wrapu, int wrapv, const char **why)
+{
+    static char reason[384];
+    DWORD previous = BG_TEX_NONE;
+    int width = 0, height = 0;
+    if (wrapu == -1 && wrapv == -1) { return TRUE; }
+    *why = "Invalid model texture wrapping selection.";
+    if (!faces || !count || wrapu < -1 || wrapu > 2 || wrapv < -1 || wrapv > 2) { return FALSE; }
+    for (DWORD i = 0; i < count; i++)
+    {
+        const BgMaterial *material;
+        DWORD texture;
+        int u, v;
+        BOOL unsafeu, unsafev;
+        if (faces[i] >= source->count) { return FALSE; }
+        material = &source->faces[faces[i]].material;
+        texture = BgMaterialTextureId(material);
+        if (texture == BG_TEX_NONE) { continue; }
+        if (texture != previous)
+        {
+            if (!TexGetProjectImageSize(project, texture, &width, &height) || width <= 0 || height <= 0)
+            { *why = "A model image is unavailable. Restore its image before changing texture wrapping."; return FALSE; }
+            previous = texture;
+        }
+        u = wrapu < 0 ? (int)BgMaterialGetWrap(material, FALSE) : wrapu;
+        v = wrapv < 0 ? (int)BgMaterialGetWrap(material, TRUE) : wrapv;
+        /* The RDP wraps/mirrors with a bit mask, not modulo image size.
+         * texDimensionToMask rounds up: repeating a 33-row CI8 image reads
+         * rows 33..63 from unrelated TMEM, including undefined palette IDs.
+         * Check BOTH resulting axes, including a retained Keep current axis. */
+        unsafeu = u != BG_TEXTURE_CLAMP && (width & (width - 1));
+        unsafev = v != BG_TEXTURE_CLAMP && (height & (height - 1));
+        if (unsafeu || unsafev)
+        {
+            const char *axes = unsafeu && unsafev ? "U and V" : unsafeu ? "U" : "V";
+            snprintf(reason, sizeof(reason),
+                "Image %04lX is %d x %d pixels. %s wrapping would sample beyond the image in game.\n\n"
+                "Repeat and Mirror require a power-of-two image dimension on their axis (for example, 16, 32 or 64). "
+                "Set %s to Clamp, or resize and reimport the image. No face settings were changed.",
+                (unsigned long)texture, width, height, axes, axes);
+            *why = reason; return FALSE;
+        }
+    }
+    return TRUE;
+}
 BOOL ModelEditsSetProperties(const char *project, const char *name, DWORD revision,
     const DWORD *faces, DWORD count, int culling, int surface, int wrapu, int wrapv, const char **why)
 {
@@ -154,6 +200,7 @@ BOOL ModelEditsSetProperties(const char *project, const char *name, DWORD revisi
     { *why = "The model revision changed. Reload the model and select its faces again."; goto done; }
     if (!ModelReadSource(data, size, &source, why)
         || !ModelMaterialsEnsure(&source,project,why)
+        || !ValidateWrapSize(project, &source, faces, count, wrapu, wrapv, why)
         || !ModelCompileProperties(data, size, &source, faces, count, culling, surface, wrapu, wrapv,
             &compiled, &compiledsize, why)
         || !ModelMaterialsAttach(&compiled,&compiledsize,&source.materials,why)

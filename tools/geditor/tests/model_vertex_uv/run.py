@@ -191,6 +191,7 @@ def write_model(path, doc, binary):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--blender-glb", type=Path, help="also test the original Pjungle3_treeZ Blender export")
+    parser.add_argument("--door-model", type=Path, help="also test wrapping repair on an exported PsevdoormetslideZ native model")
     args = parser.parse_args()
     tests = Path(__file__).resolve().parent
     src = tests.parent.parent / "src"
@@ -289,6 +290,13 @@ def main():
                 flags = material["extras"]["goldeneyeRenderFlags"]
                 assert sampler["wrapS"] == (33071 if flags & 64 else 33648 if flags & 128 else 10497)
                 assert sampler["wrapT"] == (33071 if flags & 256 else 33648 if flags & 512 else 10497)
+        door_models = [root / "assets/obseg/prop/PsevdoormetslideZ.bin"]
+        if args.door_model:
+            door_models.append(args.door_model.resolve())
+        for index, asset in enumerate(door_models):
+            project = work / f"wrap-size{index}"
+            (project / "models/objects").mkdir(parents=True)
+            run("wrap-size", asset, project)
         for index, asset in enumerate(assets):
             exported = work / f"export{index}.gltf"
             run("export", asset, exported)

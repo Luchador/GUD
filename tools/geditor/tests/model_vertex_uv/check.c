@@ -12,6 +12,8 @@
 static const char *why = "";
 static const char *assetpath;
 static BOOL realtextures;
+static BOOL wrapsizes;
+static int wrapwidth=32, wrapheight=33;
 #define CHECK(expr) do { if (!(expr)) { fprintf(stderr, "%s:%d: %s (%s)\n", __FILE__, __LINE__, #expr, why); exit(1); } } while (0)
 
 static unsigned char *Read(const char *path, DWORD *size)
@@ -31,6 +33,7 @@ static unsigned char *Read(const char *path, DWORD *size)
 BOOL TexGetProjectImageSize(const char *project, DWORD id, int *w, int *h)
 {
     (void)project;
+    if (wrapsizes && id==0x237) { *w=wrapwidth;*h=wrapheight;return *w>0 && *h>0; }
     *w = id == 0xeee ? 64 : 32; *h = 16;
     if (realtextures) { *w = *h = id == 0x9b6 ? 64 : 32; }
     return TRUE;
@@ -738,6 +741,60 @@ static void Wrapping(const unsigned char *data, DWORD size, const ModelSource *s
     printf("PASS U/V wraps, neighbours, native state, bounded size, UV/image edits, save/reload/ROM/glTF: %s\n",assetpath);
 }
 
+static void WrapSizeGuards(const unsigned char *data, DWORD size, const ModelSource *source, const char *project)
+{
+    DWORD *chosen=malloc(source->count*sizeof(*chosen)), count=0, revision, savedsize, romsize;
+    ModelSource check={0}; const unsigned char *saved; unsigned char *rom=NULL;
+    CHECK(chosen);
+    for(DWORD i=0;i<source->count;i++)
+        if(BgMaterialTextureId(&source->faces[i].material)==0x237) chosen[count++]=i;
+    CHECK(count);
+    CHECK(ModelEditsReadSource(project,"PsevdoormetslideZ",&check,&revision,&why));ModelFreeSource(&check);
+    const int invalid[][5]={{32,33,2,0,1},{32,33,2,2,1},{33,32,0,2,0},{33,32,2,2,0},{33,33,2,0,2}};
+    for(unsigned i=0;i<sizeof(invalid)/sizeof(*invalid);i++)
+    {
+        wrapwidth=invalid[i][0];wrapheight=invalid[i][1];
+        CHECK(!ModelEditsSetProperties(project,"PsevdoormetslideZ",revision,chosen,count,-1,2,
+            invalid[i][2],invalid[i][3],&why)); /* Render mode must remain unchanged too. */
+        CHECK(strstr(why,"0237") && strstr(why,"power-of-two"));
+        CHECK(strstr(why,invalid[i][4]==2?"U and V":invalid[i][4]==1?"V wrapping":"U wrapping"));
+        CHECK(!ModelEditsHasUnsaved());
+    }
+    wrapwidth=wrapheight=0;
+    CHECK(!ModelEditsSetProperties(project,"PsevdoormetslideZ",revision,chosen,count,-1,-1,2,1,&why));
+    CHECK((strstr(why,"unavailable") || strstr(why,"missing")) && !ModelEditsHasUnsaved());
+    /* Correct the reported door: U mirror on its 32 columns, V clamp on its
+     * 33 rows. The other material, UVs, and all non-wrap native state survive. */
+    wrapwidth=32;wrapheight=33;
+    CHECK(ModelEditsSetProperties(project,"PsevdoormetslideZ",revision,chosen,count,-1,-1,2,1,&why));
+    CHECK(ModelEditsReadSource(project,"PsevdoormetslideZ",&check,&revision,&why));
+    CheckWrapping(source,&check,chosen,count,2,1);ModelFreeSource(&check);
+    CHECK(ModelEditsSave(project,&why));ModelEditsReset();
+    saved=ModelEditsGetData(project,"PsevdoormetslideZ",&savedsize,&why);CHECK(saved);
+    CHECK(ModelEditsReadReplacement(project,"PsevdoormetslideZ",data,size,&rom,&romsize,&why)==1);
+    CHECK(romsize==ModelMaterialsNativeSize(saved,savedsize) && !memcmp(rom,saved,romsize));
+    CHECK(ModelReadSource(rom,romsize,&check,&why));CheckWrapping(source,&check,chosen,count,2,1);
+    ModelFreeSource(&check);free(rom);
+    CHECK(ModelEditsReadSource(project,"PsevdoormetslideZ",&check,&revision,&why));ModelFreeSource(&check);
+    CHECK(ModelEditsSetProperties(project,"PsevdoormetslideZ",revision,chosen,count,-1,-1,2,-1,&why));
+    CHECK(!ModelEditsHasUnsaved()); /* Safe Keep current and no-op. */
+    /* A later image replacement can leave a legacy invalid mode. The retained
+     * axis must be checked even when only its other axis is being edited. */
+    wrapheight=32;
+    CHECK(ModelEditsSetProperties(project,"PsevdoormetslideZ",revision,chosen,count,-1,-1,2,0,&why));
+    CHECK(ModelEditsReadSource(project,"PsevdoormetslideZ",&check,&revision,&why));ModelFreeSource(&check);
+    saved=ModelEditsGetData(project,"PsevdoormetslideZ",&savedsize,&why);CHECK(saved);
+    DWORD hash=ModelDataHash(saved,savedsize);
+    wrapheight=33;
+    CHECK(!ModelEditsSetProperties(project,"PsevdoormetslideZ",revision,chosen,count,-1,-1,1,-1,&why));
+    CHECK(strstr(why,"V wrapping"));
+    saved=ModelEditsGetData(project,"PsevdoormetslideZ",&savedsize,&why);CHECK(saved);
+    CHECK(ModelDataHash(saved,savedsize)==hash);
+    CHECK(ModelEditsSetProperties(project,"PsevdoormetslideZ",revision,chosen,count,-1,-1,2,1,&why));
+    ModelEditsReset();free(chosen);
+    puts("PASS non-power-of-two U/V guards, atomic rejection, retained axes, unavailable images and door repair/save/ROM.");
+}
+
 static void MaterialSlots(const unsigned char *base,DWORD basesize,const char *project)
 {
     ModelSource original={0},current={0};DWORD revision,i,k,nativesize,size;
@@ -858,12 +915,14 @@ int main(int argc, char **argv)
     ModelSource source = {0};
     CHECK(argc >= 4); assetpath = argv[2];
     realtextures = !strcmp(argv[1], "blender");
+    wrapsizes = !strcmp(argv[1], "wrap-size");
     data = Read(assetpath, &size);
     CHECK(ModelReadSource(data, size, &source, &why));
     CHECK(source.count >= 2);
     if (!strcmp(argv[1], "brush")) { Brush(data,size,&source,argv[3]); }
     else if (!strcmp(argv[1], "brush-guards")) { BrushGuards(data,size,&source,argv[3]); }
     else if (!strcmp(argv[1], "property-guards")) { PropertyGuards(data, size, &source); }
+    else if (wrapsizes) { WrapSizeGuards(data,size,&source,argv[3]); }
     else if (!strcmp(argv[1], "wrapping")) { Wrapping(data,size,&source,argv[3]); }
     else if (!strcmp(argv[1], "slots")) { MaterialSlots(data,size,argv[3]); }
     else if (!strcmp(argv[1], "properties")) { Properties(data, size, &source, argv[3]); }
