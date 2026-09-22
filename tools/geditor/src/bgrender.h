@@ -83,9 +83,12 @@ typedef enum BgTransparency {
 /* Classify the authored render mode using the preview decoder. Inherited
    layer defaults alone do not establish a known asset transparency type. */
 BgTransparency BgRenderGetTransparency(const BgRenderState *state);
+/* Transparency and coplanar depth handling are independent face properties. */
+BgTransparency BgRenderGetSurfaceTransparency(const BgRenderState *state);
 /* Safe surface presets for explicit, ordinary one/two-cycle BG pipelines.
    Preserve the combiner, first-cycle fog, alpha/depth source and cycle type. */
 BOOL BgRenderSurfacePreset(const BgRenderState *state, BgTransparency surface, DWORD *modeout);
+BOOL BgRenderDecalPreset(const BgRenderState *state, BOOL decal, DWORD *modeout);
 BOOL BgRenderSupportsVertexAlpha(const BgRenderState *state);
 
 /* Matches texModeToGbiMode: mode 3, like mode 0, means ordinary repeat. */

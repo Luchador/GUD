@@ -152,6 +152,84 @@ static void vertex_alpha_surface_override_checks(void)
     puts("PASS vertex-alpha surface overrides: TERR/SURF inheritance, both cycles/layers, mixed optimized draws and repeated AA toggles.");
 }
 
+/* GEditor's decal-only spans write Z_UPD and coverage/Z mode separately.
+ * Run them through the real LUT, AA walker and alternate-list compiler so
+ * neither fog changes nor optimized neighboring draws can erase ZMODE_DEC. */
+static void decal_depth_checks(void)
+{
+    for (int fog=0;fog<2;fog++) for (int onecycle=0;onecycle<2;onecycle++)
+    for (int layer=0;layer<2;layer++)
+    {
+        Gfx raw[32], expanded[64], alternate[128], *p=raw;
+        Gfx *runtime=(Gfx *)(g_TestRam+0x30000);
+        Gfx *altRuntime=(Gfx *)(g_TestRam+0x40000);
+        enum CCRMLUT lut=fog?(layer?CCRMLUT_SECONDARY_ADDFOG:CCRMLUT_PRIMARY_ADDFOG)
+            :(layer?CCRMLUT_SECONDARY:CCRMLUT_PRIMARY);
+        g_TestEnvironment.FogEnabled=fog;
+        gDPPipeSync(p++);
+        gDPSetCycleType(p++,onecycle?G_CYC_1CYCLE:G_CYC_2CYCLE);
+        gDPSetRenderMode(p++,onecycle?G_RM_AA_ZB_OPA_SURF:G_RM_PASS,
+            onecycle?G_RM_NOOP2:G_RM_AA_ZB_OPA_SURF2);
+        gSPTexture(p++,0xffff,0xffff,0,0,0);
+        gDPSetCombineMode(p++,G_CC_SHADE,G_CC_SHADE);
+        gSP1Triangle(p++,0,1,2,0);
+        gDPPipeSync(p++);
+        gSPSetOtherMode(p++,G_SETOTHERMODE_L,5,1,0);
+        gSPSetOtherMode(p++,G_SETOTHERMODE_L,8,4,CVG_DST_WRAP|ZMODE_DEC);
+        gSP1Triangle(p++,0,1,2,0);
+        gDPPipeSync(p++);
+        gSPSetOtherMode(p++,G_SETOTHERMODE_L,5,1,Z_UPD);
+        gSPSetOtherMode(p++,G_SETOTHERMODE_L,8,4,CVG_DST_CLAMP|ZMODE_OPA);
+        gSP1Triangle(p++,0,1,2,0);
+        gSPEndDisplayList(p++);
+        int bytes=texLoadFromGdl(raw,(p-raw)*8,expanded,NULL);
+        bgApplyDynamicCCRMLUT(expanded,expanded+bytes/8,lut);
+        int altBytes=layer?bgBuildCutoutGdl(expanded,bytes,alternate,sizeof(alternate))
+            :bgBuildOneCycleGdl(expanded,bytes,alternate,sizeof(alternate));
+        assert((altBytes>0)==!onecycle);
+        memcpy(runtime,expanded,bytes);
+        if (altBytes>0) { memcpy(altRuntime,alternate,altBytes); }
+        for (int toggle=0;toggle<5;toggle++)
+        {
+            renderSetAaEnabled(!(toggle&1)); renderApplySettings();
+            assert(renderApplyDisplayListSettings(runtime,runtime+bytes/8));
+            if (altBytes>0) { assert(renderApplyDisplayListSettings(altRuntime,altRuntime+altBytes/8)); }
+            for (int variant=0;variant<2;variant++)
+            {
+                Gfx *list=variant?altRuntime:runtime;
+                int size=variant?altBytes:bytes, draws=0;
+                BgOneCycleState state;
+                if (size<=0 || (variant && !(toggle&1))) { continue; }
+                bgOneCycleResetState(&state);
+                for (int i=0;i<size/8;i++)
+                {
+                    assert(bgOneCycleReadState(&state,list[i],layer));
+                    if (list[i].words.w0>>24!=(u8)G_TRI1) { continue; }
+                    assert(state.low&Z_CMP);
+                    assert((state.low&ZMODE_DEC)==(draws==1?ZMODE_DEC:ZMODE_OPA));
+                    assert(!!(state.low&Z_UPD)==(draws!=1));
+                    if (draws==1)
+                    {
+                        BgOneCycleState chosen;
+                        assert(!bgOneCycleChooseState(&state,&chosen,FALSE,layer,FALSE));
+                        assert((state.high&BG_CYCLE_MASK)==(onecycle?G_CYC_1CYCLE:G_CYC_2CYCLE));
+                        if (!onecycle)
+                        {
+                            /* The secondary LUT leaves opaque PASS unchanged. */
+                            assert((state.low&0xcccc0000u)==(fog&&!layer?G_RM_FOG_SHADE_A:G_RM_PASS));
+                            if (!variant) { assert(!!(state.low&AA_EN)==!(toggle&1)); }
+                        }
+                    }
+                    draws++;
+                }
+                assert(draws==3);
+            }
+        }
+        assert(!memcmp(runtime,expanded,bytes));
+    }
+    puts("PASS decal depth: scoped Z mode, neighboring depth writes, fog, both layers/cycles, one-cycle barriers and repeated AA toggles.");
+}
+
 static void vertex_alpha_checks(void)
 {
     Gfx raw[64], expanded[128], autoState[3], *p;
@@ -255,4 +333,5 @@ static void vertex_alpha_checks(void)
     }
     puts("PASS vertex alpha: fog/no-fog LUTs, explicit fog restoration, RGB retention, both cycles/layers, texture-marker dispatch and AA/one-cycle safety.");
     vertex_alpha_surface_override_checks();
+    decal_depth_checks();
 }

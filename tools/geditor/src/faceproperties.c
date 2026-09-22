@@ -15,6 +15,7 @@
 enum { FACE_SUMMARY, FACE_ROOM_LABEL, FACE_ROOM, FACE_LAYER_LABEL, FACE_LAYER, FACE_TEXTURE_LABEL, FACE_TEXTURE_THUMB, FACE_TEXTURE_FIND,
        FACE_RENDER_INFO, FACE_RENDER, FACE_RENDER_HELP,
        FACE_CULL_LABEL, FACE_CULL,
+       FACE_DECAL_LABEL, FACE_DECAL, FACE_DECAL_HELP,
        FACE_WRAP_LABEL, FACE_U_LABEL, FACE_U, FACE_V_LABEL, FACE_V,
        FACE_DETAIL_LABEL, FACE_DETAIL_MODE, FACE_DETAIL_IMAGE_LABEL, FACE_DETAIL_IMAGE,
        FACE_DETAIL_THUMB, FACE_DETAIL_FIND, FACE_DETAIL_INFO,
@@ -66,7 +67,7 @@ static BOOL FacePropertiesRenderText(const BgDocument *document, const BgFaceRef
     for (i = 0; i < count; i++)
     {
         DWORD mode;
-        int s = BgRenderGetTransparency(&states[i]);
+        int s = BgRenderGetSurfaceTransparency(&states[i]);
         surface = surface < 0 ? s : surface == s ? surface : 6;
         policy = i == 0 ? states[i].surfacepolicy
             : policy == states[i].surfacepolicy ? policy : BG_SURFACE_UNKNOWN;
@@ -75,6 +76,26 @@ static BOOL FacePropertiesRenderText(const BgDocument *document, const BgFaceRef
     if (choiceout && policy <= BG_SURFACE_BLEND) { *choiceout = policy + 1; }
     if (policy == BG_SURFACE_AUTO) { snprintf(text, size, "Transparency: Auto (%s)", types[surface]); }
     else { snprintf(text, size, "Transparency: %s", policy <= BG_SURFACE_BLEND ? types[policy - 1] : "Mixed"); }
+    free(states);
+    return editable;
+}
+
+static BOOL FacePropertiesDecalSelection(const BgDocument *document, const BgFaceRef *refs,
+                                         DWORD count, int *choiceout)
+{
+    size_t bytes = (size_t)count * sizeof(BgRenderState);
+    BgRenderState *states = count && bytes / sizeof(*states) == count ? malloc(bytes) : NULL;
+    BOOL editable = TRUE;
+    *choiceout = 0;
+    if (!states || !BgDocumentGetFaceRenderStates(document, refs, count, states))
+    { free(states); return FALSE; }
+    for (DWORD i = 0; i < count; i++)
+    {
+        DWORD mode;
+        int choice = BgRenderStateFlags(&states[i]) & BG_RENDER_DECAL ? 1 : 2;
+        *choiceout = i == 0 ? choice : *choiceout == choice ? choice : 0;
+        editable &= BgRenderDecalPreset(&states[i], TRUE, &mode);
+    }
     free(states);
     return editable;
 }
@@ -178,7 +199,7 @@ static BOOL FacePropertiesIsCombo(int id)
 {
     return id == FACE_ROOM || id == FACE_LAYER || id == FACE_RENDER || id == FACE_CULL || id == FACE_U || id == FACE_V
         || id == FACE_DETAIL_MODE || id == FACE_DETAIL_U || id == FACE_DETAIL_V || id == FACE_DETAIL_OFFSET
-        || id == FACE_ALPHA;
+        || id == FACE_ALPHA || id == FACE_DECAL;
 }
 
 static BOOL FacePropertiesIsEdit(int id)
@@ -450,6 +471,7 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
             "", "Room", "", "Layer", "", "Texture", "", "Find",
             "", "", "",
             "Backface culling", "",
+            "Decal", "", "",
             "Texture wrapping", "U", "", "V", "",
             "Detail texture", "", "Detail image (hex ID, Enter to apply)", "", "", "Find", "",
             "Detail U scale", "", "Detail V scale", "", "Minimum LOD (0-255, Enter to apply)", "", "Tile offset", "",
@@ -530,9 +552,9 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
                     continue;
                 }
                 SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Mixed");
-                SendMessage(control, CB_ADDSTRING, 0, (LPARAM)(i == FACE_CULL ? "On" : "Repeat"));
-                SendMessage(control, CB_ADDSTRING, 0, (LPARAM)(i == FACE_CULL ? "Off" : "Clamp"));
-                if (i != FACE_CULL) { SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Mirror"); }
+                SendMessage(control, CB_ADDSTRING, 0, (LPARAM)(i == FACE_CULL || i == FACE_DECAL ? "On" : "Repeat"));
+                SendMessage(control, CB_ADDSTRING, 0, (LPARAM)(i == FACE_CULL || i == FACE_DECAL ? "Off" : "Clamp"));
+                if (i != FACE_CULL && i != FACE_DECAL) { SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Mirror"); }
                 SendMessage(control, CB_SETDROPPEDWIDTH, 180, 0);
             }
         }
@@ -611,6 +633,8 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
                     { edit.fields = BG_FACE_PROPERTY_ALPHA_SOURCE; edit.alphasource = choice - 1; }
                     else if (control == state->controls[FACE_CULL])
                     { edit.fields = BG_FACE_PROPERTY_CULL; edit.cullbackfaces = choice == 1; }
+                    else if (control == state->controls[FACE_DECAL])
+                    { edit.fields = BG_FACE_PROPERTY_DECAL; edit.decal = choice == 1; }
                     else if (control == state->controls[FACE_U])
                     { edit.fields = BG_FACE_PROPERTY_WRAP_U; edit.wrapu = (BgTextureWrap)(choice - 1); }
                     else if (control == state->controls[FACE_V])
@@ -778,6 +802,15 @@ BOOL FacePropertiesSetSelection(HWND panel, const BgDocument *document,
         ? "Auto allows game optimizations. Explicit choices take priority. Auto restores the pre-override material. The current layer is kept."
         : "Read-only: the selection includes inherited or custom render state.");
     SetWindowText(state->controls[FACE_RENDER_INFO], render);
+    {
+        int choice;
+        BOOL decaleditable = FacePropertiesDecalSelection(document, refs, count, &choice);
+        SendMessage(state->controls[FACE_DECAL], CB_SETCURSEL, choice, 0);
+        EnableWindow(state->controls[FACE_DECAL], decaleditable);
+        SetWindowText(state->controls[FACE_DECAL_HELP], decaleditable
+            ? "Draws on a coplanar surface without depth flicker. The supporting surface must draw first; normally place the decal in Secondary over Primary geometry."
+            : "Read-only: Decal requires ordinary render state with depth testing enabled.");
+    }
     SetWindowText(state->controls[FACE_TEXTURE_LABEL], texture);
     EnableWindow(state->controls[FACE_TEXTURE_FIND], state->hasthumbnail);
     InvalidateRect(state->controls[FACE_TEXTURE_THUMB], NULL, FALSE);

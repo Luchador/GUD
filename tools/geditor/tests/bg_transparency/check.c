@@ -102,6 +102,14 @@ static void Inspector(void)
     assert(!strcmp(text,"Transparency: Mixed"));
     groups[1]=(BgDocumentDrawGroup){0};
     assert(!document.dirty && !memcmp(commands,original,sizeof(commands)));
+    assert(FacePropertiesDecalSelection(&document,refs,3,&choice) && choice==2);
+    WriteCommand(commands+16,0xB900031D,0x00504DD8);
+    assert(FacePropertiesDecalSelection(&document,refs+2,1,&choice) && choice==1);
+    assert(FacePropertiesDecalSelection(&document,refs,3,&choice) && choice==0);
+    assert(FacePropertiesRenderText(&document,refs+2,1,text,sizeof(text),NULL));
+    assert(strstr(text,"Translucent (alpha blend)"));
+    assert(!FacePropertiesDecalSelection(&document,refs+4,1,&choice));
+    memcpy(commands,original,sizeof(commands));
     faces[1].drawgroup=99;
     assert(!BgDocumentGetFaceRenderStates(&document,refs,2,states));
     FacePropertiesRenderText(&document,refs,2,text,sizeof(text),NULL);
@@ -109,6 +117,7 @@ static void Inspector(void)
     assert(!BgDocumentGetFaceRenderStates(NULL,refs,1,states));
     assert(!BgDocumentGetFaceRenderStates(&document,NULL,1,states));
     assert(!BgDocumentGetFaceRenderStates(&document,refs,0,states));
+    assert(!FacePropertiesDecalSelection(&document,refs,2,&choice) && choice==0);
 }
 
 int main(void)

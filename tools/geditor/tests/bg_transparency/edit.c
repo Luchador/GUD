@@ -84,16 +84,21 @@ static void Equivalent(const BgDocument *a, const BgDocument *b)
 }
 static void RoundTrip(const BgDocument *doc, const BgFile *source, const char *dir)
 {
-    BgFile compiled={0},saved={0},again={0}; BgDocument loaded={0}; const char *why="";
+    BgFile compiled={0},saved={0},again={0},packed={0}; BgDocument loaded={0}; const char *why="";
     assert(BgDocumentCompile(doc,source,&compiled,&why));
     assert(BgFileValidateVertexBatches(&compiled,&why));
     char path[MAX_PATH]; snprintf(path,sizeof(path),"%s/bg",dir); CreateDirectory(path,NULL);
     assert(BgSaveProjectFile(dir,&compiled,&why));
     assert(BgLoadProjectFile(dir,compiled.name,&saved,&why));
-    assert(saved.size==compiled.size && !memcmp(saved.data,compiled.data,saved.size));
+    /* Saving now packs live allocations, including their pointer locations. */
+    assert(BgFileCompact(&compiled,&packed,&why));
+    assert(saved.size==packed.size && !memcmp(saved.data,packed.data,saved.size));
+    BgFileFree(&packed);
     assert(BgDocumentLoad(saved.data,saved.size,doc->levelscale,&loaded,&why));
     Equivalent(doc,&loaded);
     assert(BgDocumentCompile(&loaded,&saved,&again,&why));
+    assert(BgFileCompact(&again,&packed,&why));
+    BgFileFree(&again); again=packed; memset(&packed,0,sizeof(packed));
     /* Unused-vertex cleanup can leave padding which the next save packs out.
        Re-saving must preserve geometry/materials and must not grow the file. */
     assert(again.size <= saved.size);
@@ -166,7 +171,8 @@ static void Presets(void)
     BgRenderStateRead(&s,0xb900031d,0x005849d8); /* Additive final blender. */
     assert(!BgRenderSurfacePreset(&s,BG_TRANSPARENCY_CUTOUT,&mode));
     BgRenderStateRead(&s,0xb900031d,0x00504dd8); /* Decal. */
-    assert(!BgRenderSurfacePreset(&s,BG_TRANSPARENCY_CUTOUT,&mode));
+    assert(BgRenderSurfacePreset(&s,BG_TRANSPARENCY_CUTOUT,&mode));
+    assert(mode==0x00543d58); /* Transparency changes retain coplanar depth. */
     BgRenderStateRead(&s,0xb900031d,0x005049d8);
     BgRenderStateRead(&s,0xba001402,0x00200000); /* Copy cycle. */
     assert(!BgRenderSurfacePreset(&s,BG_TRANSPARENCY_CUTOUT,&mode));
@@ -248,9 +254,85 @@ static void Overrides(const char *dir)
     puts("PASS explicit BG choices: same-mode locks, repeated overrides, Auto restoration and per-face saved metadata.");
 }
 
+static void Decals(const char *dir)
+{
+    /* Native AA opaque/cutout/translucent render words (PASS + second cycle)
+       and the corresponding no-AA opaque surface/decal from gbi.h. */
+    const DWORD surfaces[]={0x0c192078,0x0c193078,0x0c1849d8,0x0c192330};
+    const DWORD decals[]={0x0c192d58,0x0c193d58,0x0c184dd8,0x0c192f10};
+    for (unsigned int k=0;k<4;k++) for (unsigned int cycle=0;cycle<2;cycle++)
+    {
+        BgRenderState state; DWORD mode;
+        BgRenderStateInit(&state,FALSE);
+        BgRenderStateRead(&state,0xba001402,cycle?0x100000:0);
+        /* Mirror the second blender into the first for one-cycle fixtures. */
+        DWORD surface=cycle?surfaces[k]:(surfaces[k]&0xffffu)|0x00500000u|(k==2?0:0x40000u);
+        DWORD decal=cycle?decals[k]:(decals[k]&0xffffu)|0x00500000u|(k==2?0:0x40000u);
+        BgRenderStateRead(&state,0xb900031d,surface);
+        assert(BgRenderDecalPreset(&state,TRUE,&mode) && mode==decal);
+        state.othermode=mode;
+        assert((BgRenderStateFlags(&state)&(BG_RENDER_DECAL|BG_RENDER_DEPTH_TEST|BG_RENDER_DEPTH_WRITE))
+            ==(BG_RENDER_DECAL|BG_RENDER_DEPTH_TEST));
+        assert(BgRenderDecalPreset(&state,FALSE,&mode) && mode==surface);
+    }
+    BgFile source=Fixture(); BgDocument doc={0},original={0}; BgFaceRef refs[20];
+    BgRenderState before[20],after[20]; const char *why=""; BOOL changed;
+    assert(BgDocumentLoad(source.data,source.size,1,&doc,&why));
+    assert(Refs(&doc,refs)==20 && BgDocumentGetFaceRenderStates(&doc,refs,20,before));
+    assert(BgDocumentClone(&doc,&original,&why));
+    BgFaceRef selected[]={refs[1],refs[3],refs[6],refs[11]};
+    BgFacePropertiesEdit edit={.fields=BG_FACE_PROPERTY_DECAL,.decal=TRUE};
+    EditHistory history={0}; EditHistoryTransaction tx={0}; EditHistoryAsset asset;
+    SetupFile setup={0}; StanFile stan={0}; EditHistoryReset(&history,&doc,&setup,&stan);
+    assert(EditHistoryBeginBgEdit(&history,&doc,"Change BG Decal",&tx,&why));
+    assert(BgDocumentSetFaceProperties(&doc,selected,4,&edit,&changed,&why) && changed);
+    assert(EditHistoryCommitEdit(&history,&doc,&setup,&stan,&tx,&why));
+    assert(BgDocumentGetFaceRenderStates(&doc,refs,20,after));
+    for (int i=0;i<20;i++)
+    {
+        BOOL picked=i==1 || i==3 || i==6 || i==11;
+        assert(after[i].othermode==(picked?0x0c184dd8:before[i].othermode));
+        assert(after[i].surfacepolicy==before[i].surfacepolicy);
+        assert(after[i].othermodehigh==before[i].othermodehigh);
+        assert(after[i].geometrymode==before[i].geometrymode);
+    }
+    assert(BgDocumentSetFaceProperties(&doc,selected,4,&edit,&changed,&why) && !changed);
+    RoundTrip(&doc,&source,dir);
+    assert(EditHistoryUndo(&history,&doc,&setup,&stan,&asset,&why)); Equivalent(&doc,&original);
+    assert(EditHistoryRedo(&history,&doc,&setup,&stan,&asset,&why));
+    /* Switching transparency, including Auto, keeps Decal enabled. */
+    const BgTransparency choices[]={BG_TRANSPARENCY_OPAQUE,BG_TRANSPARENCY_CUTOUT,
+        BG_TRANSPARENCY_BLEND,BG_TRANSPARENCY_AUTO};
+    edit.fields=BG_FACE_PROPERTY_TRANSPARENCY;
+    for (unsigned int c=0;c<4;c++)
+    {
+        edit.transparency=choices[c];
+        assert(BgDocumentSetFaceProperties(&doc,selected,4,&edit,&changed,&why));
+        assert(BgDocumentGetFaceRenderStates(&doc,selected,4,after));
+        for (int i=0;i<4;i++)
+        {
+            assert(BgRenderStateFlags(&after[i])&BG_RENDER_DECAL);
+            assert(BgRenderGetSurfaceTransparency(&after[i])==(c==3?BG_TRANSPARENCY_BLEND:choices[c]));
+        }
+        RoundTrip(&doc,&source,dir);
+    }
+    /* Off restores a normal surface. Auto must not revive the decal bit
+       saved before an intervening transparency override. */
+    edit.transparency=BG_TRANSPARENCY_OPAQUE;
+    assert(BgDocumentSetFaceProperties(&doc,selected,4,&edit,&changed,&why));
+    edit.fields=BG_FACE_PROPERTY_DECAL; edit.decal=FALSE;
+    assert(BgDocumentSetFaceProperties(&doc,selected,4,&edit,&changed,&why));
+    edit.fields=BG_FACE_PROPERTY_TRANSPARENCY; edit.transparency=BG_TRANSPARENCY_AUTO;
+    assert(BgDocumentSetFaceProperties(&doc,selected,4,&edit,&changed,&why));
+    Equivalent(&doc,&original);
+    RoundTrip(&doc,&source,dir);
+    EditHistoryFree(&history); BgDocumentFree(&doc); BgDocumentFree(&original); BgFileFree(&source);
+    puts("PASS decals: native one/two-cycle modes, mixed TRI4/room/layer selection, independent transparency, save/reload, undo/redo and Off restoration.");
+}
+
 int main(int argc, char **argv)
 {
-    assert(argc==3); Presets(); Jungle(argv[2],argv[1]); Overrides(argv[1]);
+    assert(argc==3); Presets(); Jungle(argv[2],argv[1]); Overrides(argv[1]); Decals(argv[1]);
     BgFile source=Fixture(); BgDocument doc={0},original={0}; BgFaceRef refs[20]; BgRenderState states[20];
     const char *why=""; BOOL changed=FALSE;
     assert(BgDocumentLoad(source.data,source.size,1,&doc,&why));
@@ -291,7 +373,7 @@ int main(int argc, char **argv)
     assert(BgDocumentClone(&original,&doc,&why));
     /* Unsupported state in a second room rejects the first room's edit too. */
     BgDocumentDrawGroup *custom=&doc.rooms[2].layers[0].groups[0];
-    Put(custom->commands+20,0x0c184dd8); /* Explicit translucent decal. */
+    Put(custom->commands+20,0x0c1a4dd8); /* Decal with an unsupported custom final blender. */
     selected[4]=refs[1];
     assert(!BgDocumentSetFaceProperties(&doc,selected,5,&edit,&changed,&why) && !changed && !doc.dirty);
     assert(BgDocumentGetFaceRenderStates(&doc,refs,20,states));

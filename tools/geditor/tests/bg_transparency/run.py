@@ -43,7 +43,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix='geditor-bg-transparency-') as temp:
         work = Path(temp)
         (work / 'inspector.inc').write_text(''.join(helpers.function(source, name) for name in
-            ('FacePropertiesRenderText',)))
+            ('FacePropertiesRenderText', 'FacePropertiesDecalSelection')))
         subprocess.run([os.environ.get('CC', 'cc'), '-O2', '-g', '-std=c99', '-Wall', '-Wextra',
                         '-Werror', '-Wno-unused-parameter', '-ffunction-sections', '-fdata-sections',
                         '-fsanitize=address,undefined', f'-I{here.parent / "image_import"}',

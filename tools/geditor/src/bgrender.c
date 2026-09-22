@@ -14,11 +14,14 @@
 #define BG_G_LIGHTING 0x00020000u
 #define BG_G_TEXTURE_GEN 0x00040000u
 #define BG_G_TEXTURE_GEN_LINEAR 0x00080000u
+#define BG_AA_EN 0x8u
 #define BG_Z_CMP 0x10u
 #define BG_Z_UPD 0x20u
 #define BG_ZMODE_MASK 0xC00u
 #define BG_ZMODE_DEC 0xC00u
 #define BG_ZMODE_XLU 0x800u
+#define BG_CVG_DST_MASK 0x300u
+#define BG_CVG_DST_WRAP 0x100u
 #define BG_FORCE_BL 0x4000u
 #define BG_CVG_X_ALPHA 0x1000u
 #define BG_ALPHA_COMPARE_MASK 3u
@@ -195,6 +198,27 @@ BgTransparency BgRenderGetTransparency(const BgRenderState *state)
     return flags & BG_RENDER_BLEND ? BG_TRANSPARENCY_BLEND : BG_TRANSPARENCY_OPAQUE;
 }
 
+BgTransparency BgRenderGetSurfaceTransparency(const BgRenderState *state)
+{
+    BgRenderState surface;
+    if (!state) { return BG_TRANSPARENCY_UNKNOWN; }
+    surface = *state;
+    surface.othermode &= ~BG_ZMODE_MASK;
+    return BgRenderGetTransparency(&surface);
+}
+
+static DWORD BgRenderSetDecalMode(DWORD mode, BOOL decal)
+{
+    BOOL blend = (mode & BG_FORCE_BL) != 0;
+    DWORD coverage = !(mode & BG_AA_EN) ? BG_CVG_DST_MASK
+        : decal || blend ? BG_CVG_DST_WRAP : 0;
+    mode &= ~(BG_ZMODE_MASK | BG_Z_UPD | BG_CVG_DST_MASK);
+    /* Decals compare against the supporting surface without replacing its
+     * depth. Native decals use wrap coverage with AA, full coverage without it. Retain the
+     * alpha test, blender, AA, fog and all unrelated other-mode bits. */
+    return mode | coverage | (decal ? BG_ZMODE_DEC : blend ? BG_ZMODE_XLU : BG_Z_UPD);
+}
+
 BOOL BgRenderSurfacePreset(const BgRenderState *state, BgTransparency surface, DWORD *modeout)
 {
     DWORD bits, blender, fixedmask, fixedvalue;
@@ -204,11 +228,11 @@ BOOL BgRenderSurfacePreset(const BgRenderState *state, BgTransparency surface, D
     { return FALSE; }
     if ((state->othermodehighknown & 0x00300000u) != 0x00300000u
         || (state->othermodehigh & 0x00200000u)
-        || BgRenderGetTransparency(state) > BG_TRANSPARENCY_BLEND
+        || BgRenderGetSurfaceTransparency(state) > BG_TRANSPARENCY_BLEND
         || (state->othermode & 3u)) { return FALSE; }
     onecycle = !(state->othermodehigh & 0x00100000u);
     /* Ordinary final blender: input colour/alpha and framebuffer colour.
-       Decals, additive/custom blenders and alpha-compare pipelines stay read-only. */
+       Additive/custom blenders and alpha-compare pipelines stay read-only. */
     fixedmask = onecycle ? 0xCCC00000u : 0x33300000u;
     fixedvalue = onecycle ? 0x00400000u : 0x00100000u;
     if ((state->othermode & fixedmask) != fixedvalue) { return FALSE; }
@@ -221,6 +245,13 @@ BOOL BgRenderSurfacePreset(const BgRenderState *state, BgTransparency surface, D
         *modeout = state->surfacepolicy == BG_SURFACE_AUTO ? state->othermode
             : (state->othermode & ~(0xFFF8u | blender))
                 | (state->surfacebasemode & (0xFFF8u | blender));
+        /* Auto restores transparency, not the separately edited Decal choice. */
+        if ((state->othermode & BG_ZMODE_MASK) == BG_ZMODE_DEC
+            && (*modeout & BG_ZMODE_MASK) != BG_ZMODE_DEC)
+        { *modeout = BgRenderSetDecalMode(*modeout, TRUE); }
+        else if ((state->othermode & BG_ZMODE_MASK) != BG_ZMODE_DEC
+            && (*modeout & BG_ZMODE_MASK) == BG_ZMODE_DEC)
+        { *modeout = BgRenderSetDecalMode(*modeout, FALSE); }
         return TRUE;
     }
     bits = surface == BG_TRANSPARENCY_OPAQUE ? 0x2078u
@@ -228,6 +259,19 @@ BOOL BgRenderSurfacePreset(const BgRenderState *state, BgTransparency surface, D
     if (!(state->othermode & BG_Z_CMP)) { bits &= ~0x830u; }
     if (surface != BG_TRANSPARENCY_BLEND) { bits |= onecycle ? 0x00040000u : 0x00010000u; }
     *modeout = (state->othermode & ~(0xFFF8u | blender)) | bits;
+    if ((state->othermode & BG_ZMODE_MASK) == BG_ZMODE_DEC)
+    { *modeout = BgRenderSetDecalMode(*modeout, TRUE); }
+    return TRUE;
+}
+
+BOOL BgRenderDecalPreset(const BgRenderState *state, BOOL decal, DWORD *modeout)
+{
+    DWORD unused;
+    if (!state || !modeout || (decal != FALSE && decal != TRUE)
+        || !state->zbuffer || !(state->othermode & BG_Z_CMP)
+        || !BgRenderSurfacePreset(state, BG_TRANSPARENCY_AUTO, &unused)) { return FALSE; }
+    *modeout = ((state->othermode & BG_ZMODE_MASK) == BG_ZMODE_DEC) == decal
+        ? state->othermode : BgRenderSetDecalMode(state->othermode, decal);
     return TRUE;
 }
 

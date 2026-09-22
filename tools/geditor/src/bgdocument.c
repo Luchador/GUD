@@ -1445,8 +1445,19 @@ static BOOL BgDocumentSurfaceTransition(BgDocumentDrawGroup *group,
     if (difference)
     {
         if (!BgDocumentSurfaceCommand(group, 0xE7000000u, 0)) { return FALSE; }
-        if ((difference & 0xFFF8u)
-            && !BgDocumentSurfaceCommand(group, 0xB900030Du, to->othermode & 0xFFF8u)) { return FALSE; }
+        if (difference & 0xFFF8u)
+        {
+            if (!(difference & 0xF0D8u))
+            {
+                /* A decal-only edit changes Z update, coverage destination
+                 * and Z mode. Keep the runtime AA choice and blender intact. */
+                if ((difference & 0x20u)
+                    && !BgDocumentSurfaceCommand(group, 0xB9000501u, to->othermode & 0x20u)) { return FALSE; }
+                if ((difference & 0xF00u)
+                    && !BgDocumentSurfaceCommand(group, 0xB9000804u, to->othermode & 0xF00u)) { return FALSE; }
+            }
+            else if (!BgDocumentSurfaceCommand(group, 0xB900030Du, to->othermode & 0xFFF8u)) { return FALSE; }
+        }
         if ((difference & 0x000C0000u)
             && !BgDocumentSurfaceCommand(group, 0xB9001202u, to->othermode & 0x000C0000u)) { return FALSE; }
         if ((difference & 0x00030000u)
@@ -1554,6 +1565,15 @@ static BOOL BgDocumentSetRenderProperties(BgDocument *document, const BgFaceRef 
             target.surfacepolicy = surface == BG_TRANSPARENCY_AUTO ? BG_SURFACE_AUTO : (DWORD)surface + 1;
             target.surfacebasemode = target.surfacepolicy == BG_SURFACE_AUTO ? 0
                 : states[i].surfacepolicy == BG_SURFACE_AUTO ? states[i].othermode & BG_SURFACE_MODE_MASK : states[i].surfacebasemode;
+        }
+        if (edit->fields & BG_FACE_PROPERTY_DECAL)
+        {
+            if (!BgRenderDecalPreset(&target, edit->decal, &mode))
+            {
+                *reasonout = "Decal changes require ordinary one-cycle or two-cycle render modes with depth testing enabled. The selection includes inherited or custom state.";
+                goto done;
+            }
+            target.othermode = mode;
         }
         if (edit->fields & BG_FACE_PROPERTY_DETAIL_MASK)
         {
@@ -1665,7 +1685,8 @@ BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
     *changedout = FALSE;
     *reasonout = "";
     if (document == NULL || refs == NULL || count == 0 || edit == NULL
-        || edit->fields == 0 || (edit->fields & ~2047u)
+        || edit->fields == 0 || (edit->fields & ~4095u)
+        || ((edit->fields & BG_FACE_PROPERTY_DECAL) && edit->decal != FALSE && edit->decal != TRUE)
         || ((edit->fields & BG_FACE_PROPERTY_ALPHA_SOURCE) && edit->alphasource > BG_ALPHA_VERTEX)
         || ((edit->fields & BG_FACE_PROPERTY_DETAIL_MODE) && (unsigned int)edit->detail.mode > BG_DETAIL_SEPARATE_IMAGE)
         || ((edit->fields & BG_FACE_PROPERTY_DETAIL_IMAGE) && edit->detail.textureid >= BG_TEX_NONE)
@@ -1722,7 +1743,7 @@ BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
             return FALSE;
         }
     }
-    if ((edit->fields & (BG_FACE_PROPERTY_TRANSPARENCY | BG_FACE_PROPERTY_DETAIL_MASK))
+    if ((edit->fields & (BG_FACE_PROPERTY_TRANSPARENCY | BG_FACE_PROPERTY_DETAIL_MASK | BG_FACE_PROPERTY_DECAL))
         && !BgDocumentSetRenderProperties(document, refs, count, edit, changedout, reasonout))
     { return FALSE; }
     for (i = 0; i < count; i++)
