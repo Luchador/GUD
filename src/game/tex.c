@@ -543,7 +543,11 @@ Gfx *texWriteLoadToTmemZero(Gfx *gdl, struct tex *tex)
 	s32 len;
 	s32 dxt;
 
-	dxt = sub_GAME_7F0CCB38((s32 *)tex);
+	/* texLoadRaw already interleaves odd rows whenever maxlod is nonzero,
+	 * including GEditor imports with just one level. A nonzero LoadBlock
+	 * DXT would swap those rows a second time. Zero-count textures retain
+	 * their original upload layout, including special tile banks. */
+	dxt = tex->maxlod ? 0 : sub_GAME_7F0CCB38((s32 *)tex);
 	texGetDepthAndSize(tex, &depth, &len);
 
 	if (tex->lutmodeindex == 0)
@@ -1297,6 +1301,13 @@ void texSelect(Gfx **gdlptr, struct sImageTableEntry *tconfig, TEXTURE_RENDER_ST
                     sp138 = ceil8000(width);
                     line = (s32) (width + 0xF) >> 4;
                     break;
+            }
+
+            /* A base-only draw can still reference a preswapped pool image.
+             * Raw pointers and zero-count textures still need the width DXT. */
+            if (tex != NULL && tex->maxlod != 0)
+            {
+                sp138 = 0;
             }
 
             texSetRenderMode(&gdl, renderStyle, 1, arg3);
