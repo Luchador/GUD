@@ -38,7 +38,7 @@ typedef struct FacePropertiesState {
     char detailimagetext[32], detaillodtext[32];
     BOOL hasdetailthumbnail, mixeddetailtexture, showdetail;
     int scroll, wheelremainder;
-    BOOL updating;
+    BOOL updating, advanced;
 } FacePropertiesState;
 
 static FacePropertiesState *FacePropertiesGetState(HWND hwnd)
@@ -205,6 +205,14 @@ static BOOL FacePropertiesIsCombo(int id)
 static BOOL FacePropertiesIsEdit(int id)
 { return id == FACE_DETAIL_IMAGE || id == FACE_DETAIL_LOD; }
 
+static BOOL FacePropertiesIsAdvanced(int id)
+{
+    return (id >= FACE_RENDER_INFO && id <= FACE_RENDER_HELP)
+        || (id >= FACE_DECAL_LABEL && id <= FACE_DECAL_HELP)
+        || (id >= FACE_DETAIL_LABEL && id <= FACE_DETAIL_OFFSET)
+        || (id >= FACE_ALPHA_LABEL && id <= FACE_ALPHA_HELP);
+}
+
 static int FacePropertiesTextHeight(HWND control, int width)
 {
     char text[512];
@@ -229,7 +237,8 @@ static void FacePropertiesLayout(HWND hwnd, FacePropertiesState *state)
     for (i = 0; i < FACE_CONTROL_COUNT; i++)
     {
         int x = FACEPROPERTIES_MARGIN, w = width, height;
-        BOOL visible = state->showdetail || i < FACE_DETAIL_THUMB || i > FACE_DETAIL_OFFSET;
+        BOOL visible = (i == FACE_SUMMARY || FacePropertiesIsAdvanced(i) == state->advanced)
+            && (state->showdetail || i < FACE_DETAIL_THUMB || i > FACE_DETAIL_OFFSET);
         ShowWindow(state->controls[i], visible ? SW_SHOWNA : SW_HIDE);
         if (!visible) { continue; }
         if (i == FACE_TEXTURE_THUMB || i == FACE_DETAIL_THUMB)
@@ -721,6 +730,15 @@ HWND FacePropertiesCreate(HWND parent, HINSTANCE instance)
 {
     return CreateWindowEx(WS_EX_CONTROLPARENT, FACEPROPERTIES_CLASS, NULL,
         WS_CHILD | WS_VSCROLL | WS_CLIPCHILDREN, 0, 0, 1, 1, parent, NULL, instance, NULL);
+}
+
+void FacePropertiesSetAdvanced(HWND panel, BOOL advanced)
+{
+    FacePropertiesState *state = FacePropertiesGetState(panel);
+    if (!state || state->advanced == advanced) { return; }
+    state->advanced = advanced;
+    state->scroll = state->wheelremainder = 0;
+    FacePropertiesLayout(panel, state);
 }
 
 BOOL FacePropertiesSetSelection(HWND panel, const BgDocument *document,

@@ -16,6 +16,8 @@
 BOOL FacePropertiesHandleMessage(HWND panel, MSG *message);
 BOOL FacePropertiesRegisterClass(HINSTANCE instance);
 HWND FacePropertiesCreate(HWND parent, HINSTANCE instance);
+/* Switch the visible controls without changing the selection or its values. */
+void FacePropertiesSetAdvanced(HWND panel, BOOL advanced);
 BOOL FacePropertiesSetSelection(HWND panel, const BgDocument *document,
                                 const BgFaceRef *refs, DWORD count, HWND browser);
 

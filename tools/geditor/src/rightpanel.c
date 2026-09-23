@@ -83,7 +83,7 @@ typedef struct RightPanelState {
     HWND faceproperties;
     HWND portalproperties;
     HWND propertytabs, objectflags, objectproperties, characterproperties;
-    BOOL flagstab;
+    BOOL secondarytab; /* Advanced for background faces; Flags otherwise. */
     BOOL showingfaces, showingportals, showingobjects, showingcharacters;
     BOOL vertexpaint;
     BOOL transformenabled;
@@ -162,6 +162,11 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
                    RIGHTPANEL_TRANSFORM_TOP + 80 + axis * 28,
                    width > 24 ? width - 24 : 1, 23, TRUE);
     }
+    {
+        TCITEM item = {0}; item.mask = TCIF_TEXT;
+        item.pszText = state->showingfaces ? "Advanced" : "Flags";
+        SendMessage(state->propertytabs, TCM_SETITEM, 1, (LPARAM)&item);
+    }
     MoveWindow(state->propertytabs, RIGHTPANEL_MARGIN,
                state->topheight + RIGHTPANEL_SPLITTER_H + 2, width, 26, TRUE);
     SendMessage(state->propertytabs, TCM_SETITEMSIZE, 0, MAKELPARAM(max(1, (width - 4) / 2), 22));
@@ -170,9 +175,9 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
     detailheight = client.bottom - RIGHTPANEL_MARGIN - detailtop;
     {
         BOOL showroom = detailheight > 52 && state->showingstanroom
-            && !state->vertexpaint && !state->flagstab;
+            && !state->vertexpaint && !state->secondarytab;
         BOOL showpad = detailheight >= 84 && state->showingpadmodel
-            && !state->vertexpaint && !state->flagstab;
+            && !state->vertexpaint && !state->secondarytab;
         MoveWindow(state->stanroomlabel, RIGHTPANEL_MARGIN, detailtop, width, 18, TRUE);
         MoveWindow(state->stanroom, RIGHTPANEL_MARGIN, detailtop + 20, width, 240, TRUE);
         ShowWindow(state->stanroomlabel, showroom ? SW_SHOW : SW_HIDE);
@@ -190,22 +195,23 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
         MoveWindow(state->details, RIGHTPANEL_MARGIN, detailtop + (showroom ? 52 : showpad ? 84 : 0), width,
                    max(0, detailheight - (showroom ? 52 : showpad ? 84 : 0)), TRUE);
     }
-    ShowWindow(state->details, detailheight > 0 && !state->vertexpaint && !state->flagstab && !state->showingfaces && !state->showingportals && !state->showingobjects && !state->showingcharacters ? SW_SHOW : SW_HIDE);
+    ShowWindow(state->details, detailheight > 0 && !state->vertexpaint && !state->secondarytab && !state->showingfaces && !state->showingportals && !state->showingobjects && !state->showingcharacters ? SW_SHOW : SW_HIDE);
+    FacePropertiesSetAdvanced(state->faceproperties, state->secondarytab);
     MoveWindow(state->faceproperties, RIGHTPANEL_MARGIN, detailtop, width,
                detailheight > 0 ? detailheight : 0, TRUE);
-    ShowWindow(state->faceproperties, detailheight > 0 && !state->vertexpaint && !state->flagstab && state->showingfaces ? SW_SHOW : SW_HIDE);
+    ShowWindow(state->faceproperties, detailheight > 0 && !state->vertexpaint && state->showingfaces ? SW_SHOW : SW_HIDE);
     MoveWindow(state->portalproperties, RIGHTPANEL_MARGIN, detailtop, width,
                detailheight > 0 ? detailheight : 0, TRUE);
-    ShowWindow(state->portalproperties, detailheight > 0 && !state->vertexpaint && !state->flagstab && state->showingportals ? SW_SHOW : SW_HIDE);
+    ShowWindow(state->portalproperties, detailheight > 0 && !state->vertexpaint && !state->secondarytab && state->showingportals ? SW_SHOW : SW_HIDE);
     MoveWindow(state->objectproperties, RIGHTPANEL_MARGIN, detailtop, width,
                detailheight > 0 ? detailheight : 0, TRUE);
-    ShowWindow(state->objectproperties, detailheight > 0 && !state->vertexpaint && !state->flagstab && state->showingobjects ? SW_SHOW : SW_HIDE);
+    ShowWindow(state->objectproperties, detailheight > 0 && !state->vertexpaint && !state->secondarytab && state->showingobjects ? SW_SHOW : SW_HIDE);
     MoveWindow(state->characterproperties, RIGHTPANEL_MARGIN, detailtop, width,
                detailheight > 0 ? detailheight : 0, TRUE);
-    ShowWindow(state->characterproperties, detailheight > 0 && !state->vertexpaint && !state->flagstab && state->showingcharacters ? SW_SHOW : SW_HIDE);
+    ShowWindow(state->characterproperties, detailheight > 0 && !state->vertexpaint && !state->secondarytab && state->showingcharacters ? SW_SHOW : SW_HIDE);
     MoveWindow(state->objectflags, RIGHTPANEL_MARGIN, detailtop, width,
                detailheight > 0 ? detailheight : 0, TRUE);
-    ShowWindow(state->objectflags, detailheight > 0 && !state->vertexpaint && state->flagstab ? SW_SHOW : SW_HIDE);
+    ShowWindow(state->objectflags, detailheight > 0 && !state->vertexpaint && state->secondarytab && !state->showingfaces ? SW_SHOW : SW_HIDE);
     detailtop = state->topheight + RIGHTPANEL_SPLITTER_H + 32;
     detailheight = client.bottom - detailtop;
     MoveWindow(state->colorpicker, 4, detailtop, client.right > 8 ? client.right - 8 : 1,
@@ -702,7 +708,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         if (state && ((NMHDR *)lparam)->hwndFrom == state->propertytabs
             && ((NMHDR *)lparam)->code == TCN_SELCHANGE)
         {
-            state->flagstab = SendMessage(state->propertytabs, TCM_GETCURSEL, 0, 0) == 1;
+            state->secondarytab = SendMessage(state->propertytabs, TCM_GETCURSEL, 0, 0) == 1;
             RightPanelLayout(hwnd, state);
             return 0;
         }
@@ -838,7 +844,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
                 }
                 return 0;
             }
-            if (state->flagstab)
+            if (state->secondarytab && !state->showingfaces)
             {
                 GetWindowRect(state->objectflags, &bounds);
                 if (PtInRect(&bounds, point)) { SendMessage(state->objectflags, WM_MOUSEWHEEL, wparam, lparam); }
@@ -1007,11 +1013,11 @@ BOOL RightPanelHandleMessage(HWND panel, MSG *message)
     {
         return TRUE;
     }
-    if (!state->vertexpaint && !state->flagstab && state->showingportals
+    if (!state->vertexpaint && !state->secondarytab && state->showingportals
         && PortalPropertiesHandleMessage(state->portalproperties, message)) { return TRUE; }
-    if (!state->vertexpaint && !state->flagstab && state->showingcharacters
+    if (!state->vertexpaint && !state->secondarytab && state->showingcharacters
         && CharacterPropertiesHandleMessage(state->characterproperties, message)) { return TRUE; }
-    if (!state->vertexpaint && !state->flagstab && state->showingobjects
+    if (!state->vertexpaint && !state->secondarytab && state->showingobjects
         && ObjectPropertiesHandleMessage(state->objectproperties, message)) { return TRUE; }
     if (IsWindowVisible(state->faceproperties)
         && FacePropertiesHandleMessage(state->faceproperties, message)) { return TRUE; }
