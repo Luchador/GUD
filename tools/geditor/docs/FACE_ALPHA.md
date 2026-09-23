@@ -40,6 +40,10 @@ how the chosen alpha is used; reducing opacity alone does not enable blending.
 - **Glass or uniform transparency:** use Constant opacity to ignore texture
   alpha, or Texture x opacity to retain it.
 
+Fog participation can also be set independently to Auto, On or Off; see
+[Face fog participation](FACE_FOG.md). Fog On cannot be combined with either
+vertex-alpha preset.
+
 The N64 uses vertex alpha for fog. Both presets using painted A disable fog
 for those faces and restore it for following geometry. Constant and texture
 presets retain the original fog behavior. The viewport and painting preview

@@ -41,6 +41,7 @@ enum BgRenderFlag
 typedef struct BgRenderState
 {
     DWORD othermode, othermodehigh;
+    DWORD fogothermode; /* Low mode after the fog LUT, including partial writes. */
     DWORD othermodeknown; /* Low-mode bits explicitly written by the asset. */
     DWORD othermodehighknown;
     BOOL zbuffer;
@@ -92,6 +93,8 @@ BOOL BgRenderSurfacePreset(const BgRenderState *state, BgTransparency surface, D
 BOOL BgRenderDecalPreset(const BgRenderState *state, BOOL decal, DWORD *modeout);
 BOOL BgRenderSupportsVertexAlpha(const BgRenderState *state);
 BOOL BgRenderSupportsAlphaPreset(const BgRenderState *state, const BgMaterial *material, DWORD source);
+BOOL BgRenderSupportsFog(const BgRenderState *state, const BgMaterial *material);
+BOOL BgRenderUsesFog(const BgRenderState *state, const BgMaterial *material);
 
 /* Matches texModeToGbiMode: mode 3, like mode 0, means ordinary repeat. */
 BgRenderFlags BgRenderMaterialWrap(const BgMaterial *material);

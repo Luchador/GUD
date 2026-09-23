@@ -305,6 +305,7 @@ BOOL BgDocumentSetFaceTexture(BgDocument *document, const BgFaceRef *refs,
 #define BG_FACE_PROPERTY_ALPHA_SOURCE 1024u
 #define BG_FACE_PROPERTY_DECAL 2048u
 #define BG_FACE_PROPERTY_OPACITY 4096u
+#define BG_FACE_PROPERTY_FOG 8192u
 typedef struct BgFacePropertiesEdit {
     unsigned int fields; /* only explicitly changed controls are applied */
     BOOL cullbackfaces;
@@ -314,6 +315,7 @@ typedef struct BgFacePropertiesEdit {
     DWORD alphasource;
     BOOL decal;
     DWORD opacity; /* Native environment alpha, 0..255. */
+    DWORD fog; /* BG_FOG_AUTO/ON/OFF, independent of alpha and transparency. */
 } BgFacePropertiesEdit;
 
 /* Resolve partial detail edits without modifying the document. Used for image
@@ -333,6 +335,8 @@ BOOL BgDocumentDetailMaterial(const BgMaterial *source, const BgFacePropertiesEd
  * Presets using vertex alpha disable fog within the compiler's face scope.
  * Auto retains the authored combiner. Opacity edits preserve environment RGB
  * and restore surrounding faces' constants without changing their presets.
+ * Fog On promotes standard one-cycle materials at runtime and cannot combine
+ * with vertex-alpha presets. Fog Auto restores the authored pipeline exactly.
  * Explicit choices override runtime optimization; Auto restores the native
  * surface saved by the first explicit choice and permits optimization again. */
 BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,

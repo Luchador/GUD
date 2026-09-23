@@ -76,6 +76,7 @@ void BgRenderStateInit(BgRenderState *state, BOOL secondary)
     state->surfacepolicy = BG_SURFACE_AUTO;
     state->surfacebasemode = 0;
     state->othermode = BG_Z_CMP | (secondary ? BG_ZMODE_XLU | BG_FORCE_BL : BG_Z_UPD);
+    state->fogothermode = state->othermode;
 }
 
 void BgRenderStateRead(BgRenderState *state, DWORD word0, DWORD word1)
@@ -113,12 +114,31 @@ void BgRenderStateRead(BgRenderState *state, DWORD word0, DWORD word1)
         }
         mask = count == 32 ? 0xFFFFFFFFu : ((1u << count) - 1u) << shift;
         *mode = (*mode & ~mask) | (word1 & mask);
-        if ((word0 >> 24) == BG_G_SETOTHERMODE_L) { state->othermodeknown |= mask; }
+        if ((word0 >> 24) == BG_G_SETOTHERMODE_L)
+        {
+            /* Exact full-command matches from both BG fog LUTs. Partial
+             * surface edits retain the inherited first-cycle fog blender. */
+            DWORD fogmode = word1;
+            if (word0 == 0xB900031Du)
+            {
+                switch (word1)
+                {
+                case 0x0c192078u: case 0x0c182078u: case 0x0c192d58u:
+                case 0x0c184dd8u: case 0x0c1849d8u: case 0x0c193078u:
+                case 0x0c192048u: case 0x0c182048u:
+                    fogmode = (word1 & ~0xcccc0000u) | 0xc8080000u;
+                    break;
+                }
+            }
+            state->fogothermode = (state->fogothermode & ~mask) | (fogmode & mask);
+            state->othermodeknown |= mask;
+        }
         else { state->othermodehighknown |= mask; }
         break;
     }
     case BG_G_RDPSETOTHERMODE:
         state->othermode = word1;
+        state->fogothermode = word1;
         state->othermodeknown = 0xFFFFFFFFu;
         state->othermodehigh = word0 & 0x00FFFFFFu;
         state->othermodehighknown = 0x00FFFFFFu;
@@ -299,6 +319,41 @@ BOOL BgRenderSupportsAlphaPreset(const BgRenderState *state, const BgMaterial *m
         && (material->textureword0 & 7u) <= 4
         && (!(state->othermodehigh & 0x00100000u)
             || (state->othermodehighknown & 0x00070000u) == 0x00070000u);
+}
+
+BOOL BgRenderSupportsFog(const BgRenderState *state, const BgMaterial *material)
+{
+    DWORD unused;
+    DWORD texture = BgMaterialTextureId(material);
+    if (material->fog > BG_FOG_OFF) { return FALSE; }
+    if (material->fog == BG_FOG_AUTO) { return TRUE; }
+    /* Animated water injects a nested display list with its own render state.
+     * Unknown texture-marker types may do the same. They cannot be scoped here. */
+    if (texture != BG_TEX_NONE && ((material->textureword0 & 7u) > 4
+        || texture == 1508 || texture == 1511)) { return FALSE; }
+    if (material->fog == BG_FOG_ON && BG_ALPHA_USES_VERTEX(material->alphasource)) { return FALSE; }
+    if (material->fog == BG_FOG_ON && BgRenderGetAlpha(state, material).shade) { return FALSE; }
+    if (!BgRenderSupportsVertexAlpha(state)
+        || !BgRenderSurfacePreset(state, BG_TRANSPARENCY_AUTO, &unused)) { return FALSE; }
+    if (material->fog != BG_FOG_ON || (state->othermodehigh & 0x00100000u)) { return TRUE; }
+    if (!BG_FOG_CAN_PROMOTE(material->combineword0, material->combineword1)) { return FALSE; }
+    /* Custom Auto alpha may deliberately consume SHADE, which fog replaces.
+     * Require the standard equations or an explicit independent alpha preset. */
+    return material->alphasource != BG_ALPHA_AUTO
+        || (material->combineword0 == 0xfc127e24u && material->combineword1 == 0xfffff9fcu)
+        || (material->combineword0 == 0xfc121824u && material->combineword1 == 0xff33ffffu)
+        || (material->combineword0 == 0xfcffffffu && material->combineword1 == 0xfffe793cu);
+}
+
+BOOL BgRenderUsesFog(const BgRenderState *state, const BgMaterial *material)
+{
+    if (material->fog == BG_FOG_OFF || BG_ALPHA_USES_VERTEX(material->alphasource)) { return FALSE; }
+    if (material->fog == BG_FOG_ON) { return TRUE; }
+    if ((state->geometryknown & 0x10000u) && !(state->geometrymode & 0x10000u)) { return FALSE; }
+    /* The viewport's global toggle still decides whether level fog is active.
+     * A native pass blender, including Runway's one-cycle material, skips it. */
+    return !(state->othermodeknown & 0xcccc0000u)
+        || (state->fogothermode & 0xcccc0000u) == 0xc8080000u;
 }
 
 /* Alpha combiner mux values from gbi.h. The multiplier slot uses 0 and 6

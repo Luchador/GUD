@@ -253,20 +253,31 @@ static BOOL BgCompileWriteGroupState(BgCompileBuffer *gdl,
     return TRUE;
 }
 
-static BOOL BgCompileAlphaScope(BgCompileBuffer *gdl, BgMaterial *current, DWORD source)
+static BOOL BgCompileMaterialScope(BgCompileBuffer *gdl, BgMaterial *current, DWORD source, DWORD fog)
 {
     DWORD slot;
-    if (current->alphasource == source) { return TRUE; }
-    if (!BgCompileWriteCommand(gdl, BG_SURFACE_MARKER, BG_ALPHA_TAG | source)) { return FALSE; }
+    BOOL fogscope = fog != BG_FOG_AUTO || current->fog != BG_FOG_AUTO;
+    if (current->alphasource == source && current->fog == fog) { return TRUE; }
+    if (current->alphasource != source
+        && !BgCompileWriteCommand(gdl, BG_SURFACE_MARKER, BG_ALPHA_TAG | source)) { return FALSE; }
+    if (current->fog != fog
+        && !BgCompileWriteCommand(gdl, BG_SURFACE_MARKER, BG_FOG_TAG | fog)) { return FALSE; }
     for (slot = BG_ALPHA_SYNC; slot <= BG_ALPHA_LAST_SLOT; slot++)
     {
         if (!BgCompileWriteCommand(gdl, BG_SURFACE_MARKER, BG_ALPHA_TAG | slot)) { return FALSE; }
+        if (fogscope && slot == BG_ALPHA_SYNC
+            && !BgCompileWriteCommand(gdl, BG_SURFACE_MARKER, BG_FOG_TAG | BG_FOG_CYCLE)) { return FALSE; }
+    }
+    if (fogscope) for (slot = BG_FOG_BLENDER; slot <= BG_FOG_LAST_SLOT; slot++)
+    {
+        if (!BgCompileWriteCommand(gdl, BG_SURFACE_MARKER, BG_FOG_TAG | slot)) { return FALSE; }
     }
     gdl->pipesynced = TRUE;
     current->alphasource = source;
+    current->fog = fog;
     /* Leaving a scope must also restore the authored combiner at a list's
      * end, even if there are no more faces. Entry writes the next face's mux. */
-    return source != BG_ALPHA_AUTO
+    return source != BG_ALPHA_AUTO || fog != BG_FOG_AUTO
         || BgCompileWriteCommand(gdl, current->combineword0, current->combineword1);
 }
 
@@ -373,18 +384,19 @@ static BOOL BgCompileEmitFaceState(BgCompileBuffer *gdl,
                     || material->modeword1 != current->modeword1;
     BOOL combinechanged = material->combineword0 != current->combineword0
                        || material->combineword1 != current->combineword1
-                       || material->alphasource != current->alphasource;
+                       || material->alphasource != current->alphasource
+                       || material->fog != current->fog;
     BOOL textured = face->textureid != BG_TEX_NONE;
 
     if ((material->modeword0 >> 24) != BG_G_TEXTURE
         || (material->combineword0 >> 24) != BG_G_SETCOMBINE
         || face->textureid != BgMaterialTextureId(material)
-        || !BG_ALPHA_IS_PRESET(material->alphasource))
+        || !BG_ALPHA_IS_PRESET(material->alphasource) || material->fog > BG_FOG_OFF)
     {
         *reasonout = "a bg face contains invalid material state.";
         return FALSE;
     }
-    if (!BgCompileAlphaScope(gdl, current, material->alphasource)) { return FALSE; }
+    if (!BgCompileMaterialScope(gdl, current, material->alphasource, material->fog)) { return FALSE; }
     /* Reuse a preserved sync until more triangles are drawn. Otherwise each
      * save/reload would retain the old sync and insert another before it. */
     if (combinechanged && !gdl->pipesynced
@@ -580,7 +592,8 @@ static BOOL BgCompileEmitGroupFaces(BgCompileBuffer *gdl,
             if (batchend > batchstart
                 && (face->material.modeword0 != firstmaterial->modeword0
                     || face->material.modeword1 != firstmaterial->modeword1
-                    || face->material.alphasource != firstmaterial->alphasource))
+                    || face->material.alphasource != firstmaterial->alphasource
+                    || face->material.fog != firstmaterial->fog))
             {
                 break;
             }
@@ -699,7 +712,8 @@ static BOOL BgCompileBatchableFace(const BgDocumentFace *face)
 {
     /* The runtime water bindings inject extra state outside BgMaterial.
      * Alpha scopes and diagnostic point triangles are also ordering barriers. */
-    return face->material.alphasource == BG_ALPHA_AUTO && !BgCompileFaceIsPoint(face)
+    return face->material.alphasource == BG_ALPHA_AUTO && face->material.fog == BG_FOG_AUTO
+        && !BgCompileFaceIsPoint(face)
         && face->textureid != BG_TEX_NONE
         && face->textureid != 1508 && face->textureid != 1511
         && (face->textureid == BG_TEX_NONE || (face->material.textureword0 & 7) <= 4);
@@ -716,7 +730,7 @@ static int BgCompileCompareFaces(const void *left, const void *right)
     COMPARE(material.textureword0) COMPARE(material.textureword1)
     COMPARE(material.modeword0) COMPARE(material.modeword1)
     COMPARE(material.combineword0) COMPARE(material.combineword1)
-    COMPARE(material.alphasource) COMPARE(cullbackfaces)
+    COMPARE(material.alphasource) COMPARE(material.fog) COMPARE(cullbackfaces)
 #undef COMPARE
     return a->position < b->position ? -1 : a->position != b->position;
 }
@@ -828,7 +842,7 @@ static BOOL BgCompileLayer(const BgDocumentRoom *room,
 
         /* Scope only face draws, never the following group's authored state.
          * Old generated alpha packets are discarded by WriteGroupState. */
-        if (!BgCompileAlphaScope(gdl, &material, BG_ALPHA_AUTO)) { return FALSE; }
+        if (!BgCompileMaterialScope(gdl, &material, BG_ALPHA_AUTO, BG_FOG_AUTO)) { return FALSE; }
         if (group != NULL)
         {
             if ((group->commandsize & 7) != 0
@@ -880,9 +894,10 @@ static BOOL BgCompileLayer(const BgDocumentRoom *room,
             }
             if (face->drawgroup == drawgroup)
             {
-                if (!BgRenderSupportsAlphaPreset(&renderstate, &face->material, face->material.alphasource))
+                if (!BgRenderSupportsAlphaPreset(&renderstate, &face->material, face->material.alphasource)
+                    || !BgRenderSupportsFog(&renderstate, &face->material))
                 {
-                    *reasonout = "an alpha-preset face has unsupported or inherited render/texture state.";
+                    *reasonout = "an alpha/fog-preset face has unsupported or inherited render/texture state.";
                     free(faceindices);
                     return FALSE;
                 }
@@ -902,7 +917,7 @@ static BOOL BgCompileLayer(const BgDocumentRoom *room,
         groupindex = groupend - 1;
     }
 
-    return BgCompileAlphaScope(gdl, &material, BG_ALPHA_AUTO)
+    return BgCompileMaterialScope(gdl, &material, BG_ALPHA_AUTO, BG_FOG_AUTO)
         && BgCompileWriteCommand(gdl,
                     (DWORD)BGCOMPILE_G_ENDDL << 24, 0);
 }
@@ -1245,7 +1260,7 @@ static BOOL BgCompileKeepState(BgCompileStateCache *state, DWORD a, DWORD b)
     }
     else if (op != BG_G_TEXTURE && op != BG_G_SETCOMBINE
         && op != BG_G_PIPESYNC && op != 0xe8 && op != 0xfa
-        && !BG_ALPHA_IS_MARKER(a, b))
+        && !BG_ALPHA_IS_MARKER(a, b) && !BG_FOG_IS_MARKER(a, b))
     { ZeroMemory(state, sizeof(*state)); }
     if (reg < 0) { return TRUE; }
     keep = (state->known[reg] & mask) != mask || ((state->value[reg] ^ value) & mask) != 0;

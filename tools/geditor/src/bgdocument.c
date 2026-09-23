@@ -1704,7 +1704,8 @@ BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
     *changedout = FALSE;
     *reasonout = "";
     if (document == NULL || refs == NULL || count == 0 || edit == NULL
-        || edit->fields == 0 || (edit->fields & ~8191u)
+        || edit->fields == 0 || (edit->fields & ~16383u)
+        || ((edit->fields & BG_FACE_PROPERTY_FOG) && edit->fog > BG_FOG_OFF)
         || ((edit->fields & BG_FACE_PROPERTY_OPACITY) && edit->opacity > 255)
         || ((edit->fields & BG_FACE_PROPERTY_DECAL) && edit->decal != FALSE && edit->decal != TRUE)
         || ((edit->fields & BG_FACE_PROPERTY_ALPHA_SOURCE) && !BG_ALPHA_IS_PRESET(edit->alphasource))
@@ -1742,7 +1743,7 @@ BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
             return FALSE;
         }
     }
-    if ((edit->fields & BG_FACE_PROPERTY_ALPHA_SOURCE) && edit->alphasource != BG_ALPHA_AUTO)
+    if (edit->fields & (BG_FACE_PROPERTY_ALPHA_SOURCE | BG_FACE_PROPERTY_FOG))
     {
         size_t bytes = (size_t)count * sizeof(BgRenderState);
         BgRenderState *states = bytes / sizeof(*states) == count ? malloc(bytes) : NULL;
@@ -1755,12 +1756,23 @@ BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
         }
         supported = TRUE;
         for (i = 0; supported && i < count; i++)
-        { supported = BgRenderSupportsAlphaPreset(&states[i],
-            &BgDocumentFindFace(document, &refs[i], NULL)->material, edit->alphasource); }
+        {
+            BgMaterial material = BgDocumentFindFace(document, &refs[i], NULL)->material;
+            if (edit->fields & BG_FACE_PROPERTY_ALPHA_SOURCE) { material.alphasource = edit->alphasource; }
+            if (edit->fields & BG_FACE_PROPERTY_FOG) { material.fog = edit->fog; }
+            if (material.fog == BG_FOG_ON && BG_ALPHA_USES_VERTEX(material.alphasource))
+            {
+                free(states);
+                *reasonout = "Fog and painted vertex alpha share the N64 vertex alpha channel. Choose Auto or Off for fog, or use a texture/constant alpha preset.";
+                return FALSE;
+            }
+            supported = BgRenderSupportsAlphaPreset(&states[i], &material, material.alphasource)
+                && BgRenderSupportsFog(&states[i], &material);
+        }
         free(states);
         if (!supported)
         {
-            *reasonout = "Alpha presets require explicit one- or two-cycle render state with a standard fog/pass blender. Texture presets also require a base image and explicit LOD/detail settings in two-cycle mode.";
+            *reasonout = "Alpha and fog presets require an explicit, supported render pipeline. Fog On can promote standard one-cycle shaded/texture materials; custom equations are not supported. Texture alpha also requires a base image and explicit two-cycle LOD/detail settings.";
             return FALSE;
         }
     }
@@ -1779,6 +1791,7 @@ BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
         if (edit->fields & BG_FACE_PROPERTY_WRAP_U) { BgMaterialSetWrap(&material, FALSE, edit->wrapu); }
         if (edit->fields & BG_FACE_PROPERTY_WRAP_V) { BgMaterialSetWrap(&material, TRUE, edit->wrapv); }
         if (edit->fields & BG_FACE_PROPERTY_ALPHA_SOURCE) { material.alphasource = edit->alphasource; }
+        if (edit->fields & BG_FACE_PROPERTY_FOG) { material.fog = edit->fog; }
         if (face->cullbackfaces != cull || !BgMaterialEqual(&face->material, &material))
         {
             face->cullbackfaces = (unsigned char)cull;
@@ -1994,7 +2007,7 @@ BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
             out->renderflags[outputface] = BgRenderStateFlags(renderstate)
                 | BgRenderMaterialWrap(&face->material);
             if (!alpha.texture) { out->renderflags[outputface] |= BG_RENDER_IGNORE_TEXTURE_ALPHA; }
-            if (BG_ALPHA_USES_VERTEX(face->material.alphasource))
+            if (!BgRenderUsesFog(renderstate, &face->material))
             { out->renderflags[outputface] |= BG_RENDER_NO_FOG; }
             out->tags[outputface] = tag;
             out->facerefs[outputface].faceid = face->id;

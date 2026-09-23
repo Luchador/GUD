@@ -58,6 +58,23 @@ static void bgApplyAlphaPreset(Gfx *command, u32 source, u32 high)
         | (a1 << 21) | (c1 << 18) | (b0 << 12) | (d0 << 9) | (b1 << 3) | d1;
 }
 
+/* A supported one-cycle material repeats its active equation in both mux
+ * cycles. Keep the first equation and make cycle two pass COMBINED, avoiding
+ * the two-cycle TEXEL0/TEXEL1 swap. Fog needs SHADE alpha, so standard authored
+ * alpha references use ENVIRONMENT just as the ordinary BG alpha LUT does. */
+static void bgPromoteFogCombine(Gfx *command)
+{
+    u32 w0 = command->words.w0, w1 = command->words.w1;
+    u32 a = (w1 >> 21) & 7, c = (w1 >> 18) & 7;
+    u32 b = (w1 >> 3) & 7, d = w1 & 7;
+    if (a == G_ACMUX_SHADE) { a = G_ACMUX_ENVIRONMENT; }
+    if (b == G_ACMUX_SHADE) { b = G_ACMUX_ENVIRONMENT; }
+    if (c == G_ACMUX_SHADE) { c = G_ACMUX_ENVIRONMENT; }
+    if (d == G_ACMUX_SHADE) { d = G_ACMUX_ENVIRONMENT; }
+    command->words.w0 = (w0 & ~0x00007fffu) | (a << 12) | (c << 9) | 0x1ffu;
+    command->words.w1 = (w1 & 0xf0038000u) | (b << 12) | (d << 9) | 0x0ffc0038u;
+}
+
 
 /**
  * Scan the Gfx commands in the range starting at 'start'. If 'end' is non-NULL
@@ -82,10 +99,12 @@ void bgApplyDynamicCCRMLUT(Gfx *start, Gfx *end, enum CCRMLUT lutIndex)
     Gfx *curGfx;
     Gfx *lutPair;
     u32 alphaSource = BG_ALPHA_AUTO;
+    u32 fogPolicy = BG_FOG_AUTO;
     u32 surfacePolicy = BG_SURFACE_AUTO;
     u32 low = 0;
     u32 high = 0;
-    u32 fog = envGetCurrent()->FogEnabled ? G_FOG : 0;
+    u32 levelFog = envGetCurrent()->FogEnabled;
+    u32 fog = levelFog ? G_FOG : 0;
     u32 opcode;
     u32 kind;
     u32 shift;
@@ -100,6 +119,23 @@ void bgApplyDynamicCCRMLUT(Gfx *start, Gfx *end, enum CCRMLUT lutIndex)
     /* Loop until end pointer or sentinel G_ENDDL (when end==NULL) */
     while (((end != NULL) && (curGfx < end)) || ((end == NULL) && ((curGfx->words.w0 >> 24) != (u8)G_ENDDL)))
     {
+        u32 promote = fogPolicy == BG_FOG_ON && levelFog
+            && (high & (3u << G_MDSFT_CYCLETYPE)) == G_CYC_1CYCLE;
+        if (BG_FOG_IS_MARKER(curGfx->words.w0, curGfx->words.w1))
+        {
+            kind = curGfx->words.w1 & 255u;
+            if (kind <= BG_FOG_OFF) { fogPolicy = kind; }
+            else if (kind == BG_FOG_CYCLE)
+            { gDPSetCycleType(curGfx, promote ? G_CYC_2CYCLE : high & (3u << G_MDSFT_CYCLETYPE)); }
+            else if (kind >= BG_FOG_BLENDER && kind <= BG_FOG_LAST_SLOT)
+            {
+                u32 blender = promote ? (low & 0xcccc0000u) >> 2 : low;
+                shift = 16 + 4 * (kind - BG_FOG_BLENDER);
+                gSPSetOtherMode(curGfx, G_SETOTHERMODE_L, shift, 2, blender & (3u << shift));
+            }
+            curGfx++;
+            continue;
+        }
         if (BG_ALPHA_IS_MARKER(curGfx->words.w0, curGfx->words.w1))
         {
             kind = BG_ALPHA_TAG_KIND(curGfx->words.w1);
@@ -107,7 +143,9 @@ void bgApplyDynamicCCRMLUT(Gfx *start, Gfx *end, enum CCRMLUT lutIndex)
             else if (kind == BG_ALPHA_SYNC) { gDPPipeSync(curGfx); }
             else if (kind == BG_ALPHA_FOG)
             {
-                if (!BG_ALPHA_USES_VERTEX(alphaSource) && fog) { gSPSetGeometryMode(curGfx, G_FOG); }
+                u32 enabled = fogPolicy == BG_FOG_AUTO ? fog
+                    : fogPolicy == BG_FOG_ON && levelFog;
+                if (!BG_ALPHA_USES_VERTEX(alphaSource) && enabled) { gSPSetGeometryMode(curGfx, G_FOG); }
                 else { gSPClearGeometryMode(curGfx, G_FOG); }
             }
             else if (kind >= BG_ALPHA_BLENDER && kind <= BG_ALPHA_LAST_SLOT)
@@ -116,12 +154,16 @@ void bgApplyDynamicCCRMLUT(Gfx *start, Gfx *end, enum CCRMLUT lutIndex)
                  * Write them separately so later AA toggles can still change
                  * the final surface blender. One-cycle draws need only the
                  * geometry fog change; leave their final blender untouched. */
-                if ((high & (3u << G_MDSFT_CYCLETYPE)) == G_CYC_2CYCLE)
+                u32 blender = low;
+                if (promote || (high & (3u << G_MDSFT_CYCLETYPE)) == G_CYC_2CYCLE)
                 {
-                    u32 blender = BG_ALPHA_USES_VERTEX(alphaSource) ? G_RM_PASS : low;
-                    shift = 18 + 4 * (kind - BG_ALPHA_BLENDER);
-                    gSPSetOtherMode(curGfx, G_SETOTHERMODE_L, shift, 2, blender & (3u << shift));
+                    if (BG_ALPHA_USES_VERTEX(alphaSource) || fogPolicy == BG_FOG_OFF)
+                    { blender = G_RM_PASS; }
+                    else if (fogPolicy == BG_FOG_ON)
+                    { blender = levelFog ? G_RM_FOG_SHADE_A : G_RM_PASS; }
                 }
+                shift = 18 + 4 * (kind - BG_ALPHA_BLENDER);
+                gSPSetOtherMode(curGfx, G_SETOTHERMODE_L, shift, 2, blender & (3u << shift));
             }
             /* Slots are generated commands, not changes to the authored
              * state. Retain the policy marker for the one-cycle converter. */
@@ -162,9 +204,28 @@ void bgApplyDynamicCCRMLUT(Gfx *start, Gfx *end, enum CCRMLUT lutIndex)
         { low = curGfx->words.w1; high = curGfx->words.w0 & 0xffffff; }
         else if (opcode == (u8)G_SETGEOMETRYMODE) { fog |= curGfx->words.w1 & G_FOG; }
         else if (opcode == (u8)G_CLEARGEOMETRYMODE) { fog &= ~curGfx->words.w1; }
-        else if (opcode == (u8)G_SETCOMBINE && alphaSource != BG_ALPHA_AUTO)
+        else if (opcode == (u8)G_SETCOMBINE)
         {
-            bgApplyAlphaPreset(curGfx, alphaSource, high);
+            /* An explicit fog choice must not turn standard material opacity
+             * into the RSP fog factor (or painted A when fog is disabled).
+             * Use the ordinary BG alpha LUT for Auto as the preview does.
+             * Its entries change alpha only; custom equations stay intact. */
+            if (fogPolicy != BG_FOG_AUTO && alphaSource == BG_ALPHA_AUTO)
+            {
+                for (lutPair = ptrDynamic_CC_RM_LUT[CCRMLUT_PRIMARY]; lutPair->words.w0; lutPair += 2)
+                {
+                    if (lutPair->words.w0 == curGfx->words.w0 && lutPair->words.w1 == curGfx->words.w1)
+                    { *curGfx = *(lutPair + 1); break; }
+                }
+            }
+            if (promote) { bgPromoteFogCombine(curGfx); }
+            if (alphaSource != BG_ALPHA_AUTO)
+            {
+                /* Promoted one-cycle draws still sample only their original
+                 * base tile; promotion must not introduce mip interpolation. */
+                u32 alphahigh = promote ? (high & ~(G_TL_LOD | (3u << G_MDSFT_TEXTDETAIL))) | G_CYC_2CYCLE : high;
+                bgApplyAlphaPreset(curGfx, alphaSource, alphahigh);
+            }
         }
         curGfx++;
     }

@@ -77,6 +77,7 @@ source += expander
 source += (HERE / 'check.c').read_text()
 source += (HERE / 'cutouts.c').read_text()
 source += (HERE / 'alpha.c').read_text()
+source += (HERE / 'fog.c').read_text()
 
 # Classification precedes row swaps/mip generation, using the existing spare
 # descriptor bit (no N64 layout growth or change to texture pointer prefixes).

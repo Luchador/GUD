@@ -67,8 +67,26 @@
      (source) == BG_ALPHA_TEXTURE_VERTEX ? BG_ALPHA_VERTEX : \
      (source) == BG_ALPHA_TEXTURE_CONSTANT ? BG_ALPHA_CONSTANT : (source))
 #define BG_ALPHA_TAG_KIND(w1) ((w1) & 0xffu)
+/* Fog participation is independent of alpha. Extra scope slots restore the
+ * cycle and second blender when a one-cycle face is promoted for fog. */
+#define BG_FOG_TAG 0x47c00000u
+#define BG_FOG_IS_MARKER(w0, w1) \
+    ((w0) == BG_SURFACE_MARKER && ((w1) & 0xffffff00u) == BG_FOG_TAG)
+#define BG_FOG_AUTO 0u
+#define BG_FOG_ON 1u
+#define BG_FOG_OFF 2u
+#define BG_FOG_CYCLE 3u
+#define BG_FOG_BLENDER 4u
+#define BG_FOG_LAST_SLOT 7u
+/* Supported one-cycle RGB equations repeat MODULATEI/IA or SHADE. Alpha
+ * fields are independent; the runtime preserves/replaces them separately. */
+#define BG_FOG_CAN_PROMOTE(w0, w1) \
+    ((((w0) & ~0x00007e00u) == (0xfc127e24u & ~0x00007e00u) \
+       && ((w1) & ~0x00fc7e3fu) == (0xfffff9fcu & ~0x00fc7e3fu)) \
+     || (((w0) & ~0x00007e00u) == (0xfcffffffu & ~0x00007e00u) \
+       && ((w1) & ~0x00fc7e3fu) == (0xfffe793cu & ~0x00fc7e3fu)))
 #define BG_EDITOR_IS_MARKER(w0, w1) \
-    (BG_SURFACE_IS_MARKER(w0, w1) || BG_ALPHA_IS_MARKER(w0, w1))
+    (BG_SURFACE_IS_MARKER(w0, w1) || BG_ALPHA_IS_MARKER(w0, w1) || BG_FOG_IS_MARKER(w0, w1))
 
 /* (0 - 0) * 0 + SHADE in both alpha cycles; RGB mux bits are untouched. */
 #define BG_ALPHA_COMBINE_W0(w0) ((w0) | 0x00007e00u)
