@@ -3499,8 +3499,27 @@ BOOL SetupFileSetPadStanName(SetupFile *setup, const SetupPadRef *ref,
     setup->dirty = TRUE; *reasonout = ""; return TRUE;
 }
 
-/* Reuse a model's pad if no other consumer refers to it; otherwise detach
- * its placement first. Physical table order is unrelated to pad ownership. */
+/* Bound-pad consumers such as Action Blocks and aim targets must follow an
+ * authored object when it is transformed. Only another placed object needs
+ * an independent copy; script references are not placement ownership. Keep
+ * the full reference checks in deletion/recycling and for ordinary pads,
+ * which can also anchor navigation, spawns and character placements. */
+static BOOL SetupBoundPadHasOtherPlacement(const SetupFile *setup, DWORD index, DWORD owner)
+{
+    for (DWORD i = 0; i < setup->objectcount; i++)
+    {
+        const SetupObject *object = &setup->objects[i];
+        SetupPadRef ref;
+        if (i == owner || object->deleted) { continue; }
+        if (object->type != PROPDEF_DOOR
+            && (object->flags & (PROPFLAG_INSIDEANOTHEROBJ | PROPFLAG_ASSIGNEDTOCHR))) { continue; }
+        if (SetupFileGetModelPad(setup, i, &ref) && ref.bound && ref.index == index) { return TRUE; }
+    }
+    return FALSE;
+}
+
+/* Preserve the bound-pad ID used by scripts while editing its placement.
+ * Physical table order is unrelated to pad ownership. */
 BOOL SetupFileTranslateModel(SetupFile *setup, DWORD selection,
                               float levelscale, const double offset[3],
                               const char **reasonout)
@@ -3559,10 +3578,11 @@ BOOL SetupFileTranslateModel(SetupFile *setup, DWORD selection,
         }
         position[axis] = (float)value;
     }
-    /* Ownership follows references, not the pad's physical byte position. */
+    /* A script watching this volume must keep watching the moved volume. */
     {
         SetupPadRef ref = {index, bound};
-        reuse = SetupPadUnusedExcept(setup, &ref, NULL, sourceoffset + 6, reasonout);
+        reuse = bound ? !SetupBoundPadHasOtherPlacement(setup, index, owner)
+            : SetupPadUnusedExcept(setup, &ref, NULL, sourceoffset + 6, reasonout);
     }
     if (!reuse)
     {

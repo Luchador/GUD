@@ -452,9 +452,10 @@ BOOL SetupFileAddDroneGun(SetupFile *setup, int modelid, float levelscale,
 
 
 /* Used within an edit transaction. Accepts a prop index or a character index
-   tagged with SETUP_CHARACTER_SELECTION_BIT. Allocates a private pad without
-   changing existing command/pad indices. Props gain explicit placement flags;
-   characters retain their flags and the game's stan-grounded placement. */
+   tagged with SETUP_CHARACTER_SELECTION_BIT. Bound-pad IDs remain stable for
+   scripts unless another placed object shares the pad. Ordinary pads retain
+   reference-aware detachment. Props gain explicit placement flags; characters
+   retain their flags and the game's stan-grounded placement. */
 BOOL SetupFileTranslateModel(SetupFile *setup, DWORD selection,
                               float levelscale, const double offset[3],
                               const char **reasonout);
