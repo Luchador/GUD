@@ -15,8 +15,8 @@ enum { WM_KEYDOWN = 256, VK_RETURN = 13, VK_ESCAPE = 27,
     FACEPROPERTIES_WM_ROOM_CHANGED = 0x803b, MB_ICONERROR = 16,
     FVIRTKEY = 1, FCONTROL = 8, FSHIFT = 4,
     ID_EDIT_UNDO = 20, ID_EDIT_REDO, ID_FILE_SAVE_PROJECT, ID_TOOLS_UV_EDITOR, ID_TOOLS_CREATE_ROM,
-    FACE_ROOM = 2, FACE_CONTROL_COUNT = 3, FACE_DETAIL_IMAGE = 3 };
-typedef struct { HWND controls[3]; DWORD roomcount; char roomtext[32], detailimagetext[32], detaillodtext[32]; } FacePropertiesState;
+    FACE_ROOM = 2, FACE_CONTROL_COUNT = 3, FACE_DETAIL_IMAGE = 3, FACE_OPACITY = 4 };
+typedef struct { HWND controls[3]; DWORD roomcount; char roomtext[32], detailimagetext[32], detaillodtext[32], opacitytext[32]; } FacePropertiesState;
 static FacePropertiesState state = {.controls = {0,0,20}, .roomcount = 90, .roomtext = "22"};
 static char text[32] = "22";
 static HWND focus = 21;
@@ -50,6 +50,7 @@ static HACCEL CreateAcceleratorTable(const ACCEL *entries,int count)
 }
 static BOOL FacePropertiesIsEdit(int id) { return FALSE; }
 static void FacePropertiesApplyDetailNumber(HWND hwnd, FacePropertiesState *state, int id) { assert(0); }
+static void FacePropertiesApplyOpacity(HWND hwnd, FacePropertiesState *state) { assert(0); }
 #include "input.inc"
 int main(void)
 {

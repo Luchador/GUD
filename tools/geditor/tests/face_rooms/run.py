@@ -26,9 +26,15 @@ def main():
     with tempfile.TemporaryDirectory(prefix='geditor-face-rooms-') as temp:
         work = Path(temp)
         fixture = (here.parent / 'bg_transparency/edit.c').read_text()
-        (work / 'fixture.inc').write_text(''.join(helpers.function(fixture, n) for n in ('Put', 'Fixture', 'Refs', 'Equivalent')))
+        (work / 'fixture.inc').write_text(''.join(helpers.function(fixture, n) for n in ('Put', 'Fixture', 'Refs')))
         common = (here.parent / 'bg_disconnect/check.c').read_text()
         (work / 'common.inc').write_text(''.join(helpers.function(common, n) for n in ('Same', 'UseCounts')))
+        # Round trips may batch opaque triangles into a different order.
+        batching = (here.parent / 'texture_batching/check.c').read_text()
+        comparison = re.search(r'typedef struct FaceKey\s*\{.*?\} FaceKey;', batching, re.S)[0]
+        comparison += '\n' + ''.join(helpers.function(batching, name) for name in
+                                     ('Key', 'Compare', 'EquivalentDocuments'))
+        (work / 'comparison.inc').write_text(comparison.replace('OK(', 'assert('))
         (work / 'editor.inc').write_text(helpers.function((src / 'geditor.c').read_text(), 'GEditorMoveSelectedFacesToRoom'))
         depot = (here.parents[3] / 'assets/obseg/bg/bg_depo_all_p.c').read_text()
         data = native.jungle_fixture(depot)

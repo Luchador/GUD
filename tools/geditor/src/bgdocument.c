@@ -1424,6 +1424,7 @@ static BOOL BgDocumentSameSurface(const BgRenderState *a, const BgRenderState *b
 {
     return a->othermode == b->othermode && a->surfacepolicy == b->surfacepolicy
         && a->surfacebasemode == b->surfacebasemode
+        && a->environmentword1 == b->environmentword1
         && !((a->othermodehigh ^ b->othermodehigh) & 0x00073000u);
 }
 
@@ -1432,6 +1433,11 @@ static BOOL BgDocumentSurfaceTransition(BgDocumentDrawGroup *group,
 {
     DWORD difference = from->othermode ^ to->othermode;
     DWORD highdifference = (from->othermodehigh ^ to->othermodehigh) & 0x00073000u;
+    if (from->environmentword1 != to->environmentword1)
+    {
+        if (!BgDocumentSurfaceCommand(group, 0xE7000000u, 0)
+            || !BgDocumentSurfaceCommand(group, 0xFB000000u, to->environmentword1)) { return FALSE; }
+    }
     if (highdifference)
     {
         if (!BgDocumentSurfaceCommand(group, 0xE7000000u, 0)) { return FALSE; }
@@ -1553,6 +1559,11 @@ static BOOL BgDocumentSetRenderProperties(BgDocument *document, const BgFaceRef 
     {
         DWORD mode;
         BgRenderState target = states[i];
+        if (edit->fields & BG_FACE_PROPERTY_OPACITY)
+        {
+            target.environmentalpha = (unsigned char)edit->opacity;
+            target.environmentword1 = (target.environmentword1 & 0xFFFFFF00u) | edit->opacity;
+        }
         if (edit->fields & BG_FACE_PROPERTY_TRANSPARENCY)
         {
             BgTransparency surface = edit->transparency;
@@ -1629,6 +1640,14 @@ static BOOL BgDocumentSetRenderProperties(BgDocument *document, const BgFaceRef 
         free(selected); free(targets);
         if (!ok) { goto done; }
         ok = FALSE;
+        /* Consecutive opacity edits replace state before the same faces.
+         * Discard superseded writes now, rather than retaining them until
+         * the project is closed and loaded again. */
+        if (edit->fields & BG_FACE_PROPERTY_OPACITY)
+        {
+            BOOL compacted;
+            if (!BgDocumentCompactRoomState(room, &compacted, reasonout)) { goto done; }
+        }
     }
     BgDocumentFree(document);
     *document = copy;
@@ -1685,9 +1704,10 @@ BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
     *changedout = FALSE;
     *reasonout = "";
     if (document == NULL || refs == NULL || count == 0 || edit == NULL
-        || edit->fields == 0 || (edit->fields & ~4095u)
+        || edit->fields == 0 || (edit->fields & ~8191u)
+        || ((edit->fields & BG_FACE_PROPERTY_OPACITY) && edit->opacity > 255)
         || ((edit->fields & BG_FACE_PROPERTY_DECAL) && edit->decal != FALSE && edit->decal != TRUE)
-        || ((edit->fields & BG_FACE_PROPERTY_ALPHA_SOURCE) && edit->alphasource > BG_ALPHA_VERTEX)
+        || ((edit->fields & BG_FACE_PROPERTY_ALPHA_SOURCE) && !BG_ALPHA_IS_PRESET(edit->alphasource))
         || ((edit->fields & BG_FACE_PROPERTY_DETAIL_MODE) && (unsigned int)edit->detail.mode > BG_DETAIL_SEPARATE_IMAGE)
         || ((edit->fields & BG_FACE_PROPERTY_DETAIL_IMAGE) && edit->detail.textureid >= BG_TEX_NONE)
         || ((edit->fields & BG_FACE_PROPERTY_DETAIL_U) && edit->detail.shiftu > 15)
@@ -1722,7 +1742,7 @@ BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
             return FALSE;
         }
     }
-    if ((edit->fields & BG_FACE_PROPERTY_ALPHA_SOURCE) && edit->alphasource == BG_ALPHA_VERTEX)
+    if ((edit->fields & BG_FACE_PROPERTY_ALPHA_SOURCE) && edit->alphasource != BG_ALPHA_AUTO)
     {
         size_t bytes = (size_t)count * sizeof(BgRenderState);
         BgRenderState *states = bytes / sizeof(*states) == count ? malloc(bytes) : NULL;
@@ -1730,20 +1750,21 @@ BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
         if (!states || !BgDocumentGetFaceRenderStates(document, refs, count, states))
         {
             free(states);
-            *reasonout = "Could not read the selected faces' render state for vertex alpha.";
+            *reasonout = "Could not read the selected faces' render state for the alpha preset.";
             return FALSE;
         }
         supported = TRUE;
         for (i = 0; supported && i < count; i++)
-        { supported = BgRenderSupportsVertexAlpha(&states[i]); }
+        { supported = BgRenderSupportsAlphaPreset(&states[i],
+            &BgDocumentFindFace(document, &refs[i], NULL)->material, edit->alphasource); }
         free(states);
         if (!supported)
         {
-            *reasonout = "Vertex alpha requires explicit one- or two-cycle render state with a standard fog/pass blender.";
+            *reasonout = "Alpha presets require explicit one- or two-cycle render state with a standard fog/pass blender. Texture presets also require a base image and explicit LOD/detail settings in two-cycle mode.";
             return FALSE;
         }
     }
-    if ((edit->fields & (BG_FACE_PROPERTY_TRANSPARENCY | BG_FACE_PROPERTY_DETAIL_MASK | BG_FACE_PROPERTY_DECAL))
+    if ((edit->fields & (BG_FACE_PROPERTY_TRANSPARENCY | BG_FACE_PROPERTY_DETAIL_MASK | BG_FACE_PROPERTY_DECAL | BG_FACE_PROPERTY_OPACITY))
         && !BgDocumentSetRenderProperties(document, refs, count, edit, changedout, reasonout))
     { return FALSE; }
     for (i = 0; i < count; i++)
@@ -1973,7 +1994,7 @@ BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
             out->renderflags[outputface] = BgRenderStateFlags(renderstate)
                 | BgRenderMaterialWrap(&face->material);
             if (!alpha.texture) { out->renderflags[outputface] |= BG_RENDER_IGNORE_TEXTURE_ALPHA; }
-            if (face->material.alphasource == BG_ALPHA_VERTEX)
+            if (BG_ALPHA_USES_VERTEX(face->material.alphasource))
             { out->renderflags[outputface] |= BG_RENDER_NO_FOG; }
             out->tags[outputface] = tag;
             out->facerefs[outputface].faceid = face->id;

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Vertex-alpha edits, shared vertices, history and native save/reload."""
+"""Alpha presets, opacity input, shared vertices, history and native save/reload."""
 import importlib.util
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -36,4 +37,11 @@ with tempfile.TemporaryDirectory(prefix='geditor-face-alpha-') as temp:
     (work / 'depot.seg').write_bytes(native.jungle_fixture(
         (HERE.parents[3] / 'assets/obseg/bg/bg_depo_all_p.c').read_text()))
     subprocess.run([str(work / 'check'), str(work), str(work / 'depot.seg')], check=True,
+        env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))
+    inspector = (SRC / 'faceproperties.c').read_text()
+    (work / 'controls.inc').write_text(re.search(r'enum \{ FACE_SUMMARY,.*?\};', inspector, re.S)[0])
+    (work / 'input.inc').write_text(''.join(extract.function(inspector, name) for name in
+        ('FacePropertiesIsEdit', 'FacePropertiesParseOpacity', 'FacePropertiesApplyOpacity', 'FacePropertiesHandleMessage')))
+    subprocess.run(command + [str(HERE / 'input.c'), '-lm', '-o', str(work / 'input')], check=True)
+    subprocess.run([str(work / 'input')], check=True,
         env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))

@@ -304,6 +304,7 @@ BOOL BgDocumentSetFaceTexture(BgDocument *document, const BgFaceRef *refs,
 #define BG_FACE_PROPERTY_DETAIL_MASK 1008u
 #define BG_FACE_PROPERTY_ALPHA_SOURCE 1024u
 #define BG_FACE_PROPERTY_DECAL 2048u
+#define BG_FACE_PROPERTY_OPACITY 4096u
 typedef struct BgFacePropertiesEdit {
     unsigned int fields; /* only explicitly changed controls are applied */
     BOOL cullbackfaces;
@@ -312,6 +313,7 @@ typedef struct BgFacePropertiesEdit {
     BgDetailTexture detail;
     DWORD alphasource;
     BOOL decal;
+    DWORD opacity; /* Native environment alpha, 0..255. */
 } BgFacePropertiesEdit;
 
 /* Resolve partial detail edits without modifying the document. Used for image
@@ -326,8 +328,11 @@ BOOL BgDocumentDetailMaterial(const BgMaterial *source, const BgFacePropertiesEd
  * retain transparency and use the native coplanar depth mode without Z writes.
  * Detail switches require supported combiners and explicit texture state;
  * sampling edits retain the existing combiner and change only requested fields.
- * Vertex alpha requires explicit one/two-cycle state; its fog override is
- * scoped by the compiler and Auto retains the authored combiner unchanged.
+ * Alpha presets require explicit one/two-cycle state; texture presets also
+ * require a base image and explicit LOD/detail settings in two-cycle mode.
+ * Presets using vertex alpha disable fog within the compiler's face scope.
+ * Auto retains the authored combiner. Opacity edits preserve environment RGB
+ * and restore surrounding faces' constants without changing their presets.
  * Explicit choices override runtime optimization; Auto restores the native
  * surface saved by the first explicit choice and permits optimization again. */
 BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,

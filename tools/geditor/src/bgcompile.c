@@ -379,7 +379,7 @@ static BOOL BgCompileEmitFaceState(BgCompileBuffer *gdl,
     if ((material->modeword0 >> 24) != BG_G_TEXTURE
         || (material->combineword0 >> 24) != BG_G_SETCOMBINE
         || face->textureid != BgMaterialTextureId(material)
-        || material->alphasource > BG_ALPHA_VERTEX)
+        || !BG_ALPHA_IS_PRESET(material->alphasource))
     {
         *reasonout = "a bg face contains invalid material state.";
         return FALSE;
@@ -880,10 +880,9 @@ static BOOL BgCompileLayer(const BgDocumentRoom *room,
             }
             if (face->drawgroup == drawgroup)
             {
-                if (face->material.alphasource == BG_ALPHA_VERTEX
-                    && !BgRenderSupportsVertexAlpha(&renderstate))
+                if (!BgRenderSupportsAlphaPreset(&renderstate, &face->material, face->material.alphasource))
                 {
-                    *reasonout = "a vertex-alpha face has unsupported or inherited render state.";
+                    *reasonout = "an alpha-preset face has unsupported or inherited render/texture state.";
                     free(faceindices);
                     return FALSE;
                 }

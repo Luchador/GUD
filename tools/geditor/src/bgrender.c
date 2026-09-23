@@ -61,6 +61,7 @@ BgRenderFlags BgRenderModelCulling(const BgRenderState *state)
 void BgRenderStateInit(BgRenderState *state, BOOL secondary)
 {
     state->environmentalpha = state->primitivealpha = 255;
+    state->environmentword1 = 0x000000FFu;
     state->primitiveword0 = 0xFA000000u;
     state->primitiveword1 = 0xFFFFFFFFu;
     state->zbuffer = TRUE;
@@ -90,6 +91,7 @@ void BgRenderStateRead(BgRenderState *state, DWORD word0, DWORD word1)
     {
     case BG_G_SETENVCOLOR:
         state->environmentalpha = (unsigned char)word1;
+        state->environmentword1 = word1;
         break;
     case BG_G_SETPRIMCOLOR:
         state->primitivealpha = (unsigned char)word1;
@@ -285,6 +287,20 @@ BOOL BgRenderSupportsVertexAlpha(const BgRenderState *state)
             || first == 0x0c080000u || first == 0xc8080000u);
 }
 
+BOOL BgRenderSupportsAlphaPreset(const BgRenderState *state, const BgMaterial *material, DWORD source)
+{
+    if (!BG_ALPHA_IS_PRESET(source)) { return FALSE; }
+    if (source == BG_ALPHA_AUTO) { return TRUE; }
+    if (!BgRenderSupportsVertexAlpha(state)) { return FALSE; }
+    if (!BG_ALPHA_USES_TEXTURE(source)) { return TRUE; }
+    /* The runtime samples the base tile, mip pair, or base behind a detail
+     * tile according to the explicit native LOD/detail state. */
+    return BgMaterialTextureId(material) != BG_TEX_NONE
+        && (material->textureword0 & 7u) <= 4
+        && (!(state->othermodehigh & 0x00100000u)
+            || (state->othermodehighknown & 0x00070000u) == 0x00070000u);
+}
+
 /* Alpha combiner mux values from gbi.h. The multiplier slot uses 0 and 6
  * for LOD fractions instead of COMBINED and ONE. */
 enum BgAlphaInput
@@ -319,9 +335,13 @@ BgRenderAlpha BgRenderGetAlpha(const BgRenderState *state, const BgMaterial *mat
     DWORD w0 = material->combineword0, w1 = material->combineword1;
     unsigned int i;
 
-    if (material->alphasource == BG_ALPHA_VERTEX)
+    if (material->alphasource != BG_ALPHA_AUTO && BG_ALPHA_IS_PRESET(material->alphasource))
     {
-        BgRenderAlpha alpha = {255, TRUE, FALSE};
+        BgRenderAlpha alpha = {
+            BG_ALPHA_USES_CONSTANT(material->alphasource) ? state->environmentalpha : 255,
+            BG_ALPHA_USES_VERTEX(material->alphasource),
+            BG_ALPHA_USES_TEXTURE(material->alphasource)
+        };
         return alpha;
     }
     if (state->surfacepolicy == BG_SURFACE_CUTOUT)

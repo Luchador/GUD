@@ -26,7 +26,7 @@ BOOL BgMaterialReadCommand(BgMaterial *material, DWORD word0, DWORD word1)
     if (BG_ALPHA_IS_MARKER(word0, word1))
     {
         DWORD kind = BG_ALPHA_TAG_KIND(word1);
-        if (kind <= BG_ALPHA_VERTEX) { material->alphasource = kind; }
+        if (BG_ALPHA_IS_PRESET(kind)) { material->alphasource = kind; }
         return TRUE;
     }
     if (BG_SURFACE_IS_MARKER(word0, word1)) { return FALSE; }
@@ -59,6 +59,7 @@ void BgMaterialSetTexture(BgMaterial *material, DWORD textureid)
 {
     if (textureid == BG_TEX_NONE)
     {
+        material->alphasource = BG_ALPHA_WITHOUT_TEXTURE(material->alphasource);
         /* G_OFF plus SHADE in both cycles: no stale TEXEL0/TEXEL1 sampling.
          * This shade combination also participates in BG's existing fog LUT. */
         material->modeword0 &= ~0xFFu;

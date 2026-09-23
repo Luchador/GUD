@@ -30,6 +30,13 @@ def main():
                        env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))
 
         (work / 'validation.inc').write_text(helpers.function((src / 'geditor.c').read_text(), 'GEditorValidateDetailImages'))
+        # Native opaque compilation can reorder faces to batch textures.
+        # Reuse the geometry/material/state comparison from its own tests.
+        batching = (here.parent / 'texture_batching/check.c').read_text()
+        comparison = re.search(r'typedef struct FaceKey\s*\{.*?\} FaceKey;', batching, re.S)[0]
+        comparison += '\n' + ''.join(helpers.function(batching, name) for name in
+                                     ('Key', 'Compare', 'EquivalentDocuments'))
+        (work / 'comparison.inc').write_text(comparison.replace('OK(', 'assert('))
         spec = importlib.util.spec_from_file_location('fixture' , here.parent / 'bg_transparency/run.py')
         fixture = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(fixture)

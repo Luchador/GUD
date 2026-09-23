@@ -39,6 +39,7 @@ BOOL BrowserCopyImageThumbnail(HWND browser, DWORD id, TexThumb *thumb, unsigned
     return TRUE;
 }
 #include "validation.inc"
+#include "comparison.inc"
 
 static void Put(unsigned char *p, DWORD v) { p[0]=v>>24; p[1]=v>>16; p[2]=v>>8; p[3]=v; }
 static BgFile Fixture(void)
@@ -116,12 +117,17 @@ static void RoundTrip(const BgDocument *doc, const BgFile *source, const char *d
     BgFile compiled={0}, saved={0}; BgDocument loaded={0}; const char *why="";
     assert(BgDocumentCompile(doc, source, &compiled, &why));
     assert(BgFileValidateVertexBatches(&compiled, &why));
+    /* Project saves pack reachable streams; compilation can leave unused
+       source slots when a changed stream must be relocated. */
+    BgFile packed={0};
+    assert(BgFileCompact(&compiled, &packed, &why));
+    BgFileFree(&compiled); compiled=packed;
     char path[MAX_PATH]; snprintf(path,sizeof(path),"%s/bg",dir); CreateDirectory(path,NULL);
     assert(BgSaveProjectFile(dir, &compiled, &why));
     assert(BgLoadProjectFile(dir, compiled.name, &saved, &why));
     assert(saved.size == compiled.size && !memcmp(saved.data, compiled.data, saved.size));
     assert(BgDocumentLoad(saved.data, saved.size, doc->levelscale, &loaded, &why));
-    Equivalent(doc, &loaded);
+    EquivalentDocuments(doc, &loaded);
     BgDocumentFree(&loaded); BgFileFree(&compiled); BgFileFree(&saved);
 }
 static void CheckSelection(const BgDocument *doc, const BgDocument *original, const BgFaceRef *refs)

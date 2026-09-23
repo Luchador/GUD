@@ -16,6 +16,48 @@
 #include "explosion.h"
 #include "bgroomtrans.h"
 
+/* Override only alpha after the material LUT. In two-cycle materials the
+ * first alpha cycle samples the base image (including mip interpolation),
+ * and the second applies the requested factor. Detail alpha comes from the
+ * base tile, never the separate detail image. RGB remains authored. */
+static void bgApplyAlphaPreset(Gfx *command, u32 source, u32 high)
+{
+    u32 factor = BG_ALPHA_USES_VERTEX(source) ? G_ACMUX_SHADE
+        : BG_ALPHA_USES_CONSTANT(source) ? G_ACMUX_ENVIRONMENT : G_ACMUX_1;
+    u32 a0 = G_ACMUX_0, b0 = G_ACMUX_0, c0 = G_ACMUX_0, d0 = factor;
+    u32 a1 = G_ACMUX_0, b1 = G_ACMUX_0, c1 = G_ACMUX_0, d1 = factor;
+
+    if (BG_ALPHA_USES_TEXTURE(source))
+    {
+        if ((high & (3u << G_MDSFT_CYCLETYPE)) == G_CYC_2CYCLE)
+        {
+            d0 = G_ACMUX_TEXEL0;
+            if (high & G_TL_LOD)
+            {
+                if ((high & (3u << G_MDSFT_TEXTDETAIL)) == G_TD_DETAIL)
+                { d0 = G_ACMUX_TEXEL1; }
+                else
+                {
+                    a0 = G_ACMUX_TEXEL1; b0 = G_ACMUX_TEXEL0;
+                    c0 = G_ACMUX_LOD_FRACTION;
+                }
+            }
+            d1 = G_ACMUX_COMBINED;
+            if (source != BG_ALPHA_TEXTURE)
+            { a1 = G_ACMUX_COMBINED; c1 = factor; d1 = G_ACMUX_0; }
+        }
+        else
+        {
+            d0 = d1 = G_ACMUX_TEXEL0;
+            if (source != BG_ALPHA_TEXTURE)
+            { a0 = a1 = G_ACMUX_TEXEL0; c0 = c1 = factor; d0 = d1 = G_ACMUX_0; }
+        }
+    }
+    command->words.w0 = (command->words.w0 & ~0x00007e00u) | (a0 << 12) | (c0 << 9);
+    command->words.w1 = (command->words.w1 & ~0x00fc7e3fu)
+        | (a1 << 21) | (c1 << 18) | (b0 << 12) | (d0 << 9) | (b1 << 3) | d1;
+}
+
 
 /**
  * Scan the Gfx commands in the range starting at 'start'. If 'end' is non-NULL
@@ -61,11 +103,11 @@ void bgApplyDynamicCCRMLUT(Gfx *start, Gfx *end, enum CCRMLUT lutIndex)
         if (BG_ALPHA_IS_MARKER(curGfx->words.w0, curGfx->words.w1))
         {
             kind = BG_ALPHA_TAG_KIND(curGfx->words.w1);
-            if (kind <= BG_ALPHA_VERTEX) { alphaSource = kind; }
+            if (BG_ALPHA_IS_PRESET(kind)) { alphaSource = kind; }
             else if (kind == BG_ALPHA_SYNC) { gDPPipeSync(curGfx); }
             else if (kind == BG_ALPHA_FOG)
             {
-                if (alphaSource == BG_ALPHA_AUTO && fog) { gSPSetGeometryMode(curGfx, G_FOG); }
+                if (!BG_ALPHA_USES_VERTEX(alphaSource) && fog) { gSPSetGeometryMode(curGfx, G_FOG); }
                 else { gSPClearGeometryMode(curGfx, G_FOG); }
             }
             else if (kind >= BG_ALPHA_BLENDER && kind <= BG_ALPHA_LAST_SLOT)
@@ -76,7 +118,7 @@ void bgApplyDynamicCCRMLUT(Gfx *start, Gfx *end, enum CCRMLUT lutIndex)
                  * geometry fog change; leave their final blender untouched. */
                 if ((high & (3u << G_MDSFT_CYCLETYPE)) == G_CYC_2CYCLE)
                 {
-                    u32 blender = alphaSource == BG_ALPHA_VERTEX ? G_RM_PASS : low;
+                    u32 blender = BG_ALPHA_USES_VERTEX(alphaSource) ? G_RM_PASS : low;
                     shift = 18 + 4 * (kind - BG_ALPHA_BLENDER);
                     gSPSetOtherMode(curGfx, G_SETOTHERMODE_L, shift, 2, blender & (3u << shift));
                 }
@@ -120,10 +162,9 @@ void bgApplyDynamicCCRMLUT(Gfx *start, Gfx *end, enum CCRMLUT lutIndex)
         { low = curGfx->words.w1; high = curGfx->words.w0 & 0xffffff; }
         else if (opcode == (u8)G_SETGEOMETRYMODE) { fog |= curGfx->words.w1 & G_FOG; }
         else if (opcode == (u8)G_CLEARGEOMETRYMODE) { fog &= ~curGfx->words.w1; }
-        else if (opcode == (u8)G_SETCOMBINE && alphaSource == BG_ALPHA_VERTEX)
+        else if (opcode == (u8)G_SETCOMBINE && alphaSource != BG_ALPHA_AUTO)
         {
-            curGfx->words.w0 = BG_ALPHA_COMBINE_W0(curGfx->words.w0);
-            curGfx->words.w1 = BG_ALPHA_COMBINE_W1(curGfx->words.w1);
+            bgApplyAlphaPreset(curGfx, alphaSource, high);
         }
         curGfx++;
     }

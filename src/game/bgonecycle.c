@@ -162,7 +162,7 @@ static s32 bgOneCycleReadState(BgOneCycleState *state, Gfx command, bool cutouts
     if (BG_SURFACE_IS_MARKER(command.words.w0, command.words.w1)) {
         state->surfacePolicy = BG_SURFACE_TAG_POLICY(command.words.w1);
     } else if (BG_ALPHA_IS_MARKER(command.words.w0, command.words.w1)) {
-        if (BG_ALPHA_TAG_KIND(command.words.w1) <= BG_ALPHA_VERTEX)
+        if (BG_ALPHA_IS_PRESET(BG_ALPHA_TAG_KIND(command.words.w1)))
             state->alphaSource = BG_ALPHA_TAG_KIND(command.words.w1);
     } else if (opcode == (u8)G_SETOTHERMODE_H || opcode == (u8)G_SETOTHERMODE_L) {
         shift = (command.words.w0 >> 8) & 0xff;

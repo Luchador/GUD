@@ -230,6 +230,117 @@ static void decal_depth_checks(void)
     puts("PASS decal depth: scoped Z mode, neighboring depth writes, fog, both layers/cycles, one-cycle barriers and repeated AA toggles.");
 }
 
+/* Independent alpha-mux evaluator. Values are normalized; the hardware's
+ * final fixed-point quantization is not part of this equation comparison. */
+static double preset_alpha_cycle(Gfx combine, int cycle, double combined,
+    double texture0, double texture1, double vertex, double opacity, double lod)
+{
+    u32 w0 = combine.words.w0, w1 = combine.words.w1;
+    int a = cycle ? (w1 >> 21) & 7 : (w0 >> 12) & 7;
+    int b = cycle ? (w1 >> 3) & 7 : (w1 >> 12) & 7;
+    int c = cycle ? (w1 >> 18) & 7 : (w0 >> 9) & 7;
+    int d = cycle ? w1 & 7 : (w1 >> 9) & 7;
+    double inputs[] = {combined, texture0, texture1, .7, vertex, opacity, 1, 0};
+    double multiplier[] = {lod, texture0, texture1, .7, vertex, opacity, .6, 0};
+    double value = (inputs[a] - inputs[b]) * multiplier[c] + inputs[d];
+    return value < 0 ? 0 : value > 1 ? 1 : value;
+}
+
+static void alpha_preset_checks(void)
+{
+    const u32 presets[] = {BG_ALPHA_OPAQUE, BG_ALPHA_TEXTURE, BG_ALPHA_VERTEX,
+        BG_ALPHA_TEXTURE_VERTEX, BG_ALPHA_CONSTANT, BG_ALPHA_TEXTURE_CONSTANT};
+    const double values[] = {0, 1.0 / 255, .25, .5, 1};
+    for (int layout = 0; layout < 5; layout++)
+    for (int fog = 0; fog < 2; fog++) for (int layer = 0; layer < 2; layer++)
+    for (unsigned int preset = 0; preset < sizeof(presets) / sizeof(*presets); preset++)
+    {
+        Gfx raw[96], expanded[128], expectedAuto[3], *p = raw;
+        Gfx *runtime = (Gfx *)(g_TestRam + 0x30000);
+        u32 policy = presets[preset];
+        u32 high = layout ? G_CYC_2CYCLE : G_CYC_1CYCLE;
+        int usesVertex = policy == BG_ALPHA_VERTEX || policy == BG_ALPHA_TEXTURE_VERTEX;
+        int usesTexture = policy == BG_ALPHA_TEXTURE || policy == BG_ALPHA_TEXTURE_VERTEX || policy == BG_ALPHA_TEXTURE_CONSTANT;
+        enum CCRMLUT lut = fog ? (layer ? CCRMLUT_SECONDARY_ADDFOG : CCRMLUT_PRIMARY_ADDFOG)
+            : (layer ? CCRMLUT_SECONDARY : CCRMLUT_PRIMARY);
+        if (layout >= 2) high |= G_TL_LOD;
+        if (layout == 3) high |= G_TD_DETAIL;
+        if (layout == 4) high |= G_TD_SHARPEN;
+        g_TestEnvironment.FogEnabled = fog;
+        gDPPipeSync(p++);
+        gSPSetOtherMode(p++, G_SETOTHERMODE_H, 0, 23, high);
+        gDPSetRenderMode(p++, layout ? G_RM_PASS : G_RM_AA_ZB_XLU_SURF,
+            layout ? G_RM_AA_ZB_XLU_SURF2 : G_RM_NOOP2);
+        gSPTexture(p++, 0xffff, 0xffff, 0, 0, 1);
+        gDPSetEnvColor(p++, 0x12, 0x34, 0x56, 128);
+        gDPSetCombineMode(p++, G_CC_TRILERP, G_CC_MODULATEIA2);
+        expectedAuto[0] = raw[2]; expectedAuto[1] = raw[5];
+        gSPEndDisplayList(&expectedAuto[2]);
+        bgApplyDynamicCCRMLUT(expectedAuto, NULL, lut);
+        p = alpha_scope(p, policy);
+        gDPSetCombineMode(p++, G_CC_TRILERP, G_CC_MODULATEIA2);
+        p->words.w0 = 0x04200030; p++->words.w1 = 0x0e000000;
+        gSP1Triangle(p++, 0, 1, 2, 0);
+        p = alpha_scope(p, BG_ALPHA_AUTO);
+        gDPSetCombineMode(p++, G_CC_TRILERP, G_CC_MODULATEIA2);
+        p->words.w0 = 0x04200030; p++->words.w1 = 0x0e000000;
+        gSP1Triangle(p++, 0, 1, 2, 0);
+        gSPEndDisplayList(p++);
+        int requests = g_TestTextureRequests;
+        int bytes = texLoadFromGdl(raw, (p - raw) * 8, expanded, NULL);
+        assert(bytes == (p - raw) * 8 && g_TestTextureRequests == requests);
+        bgApplyDynamicCCRMLUT(expanded, expanded + bytes / 8, lut);
+        memcpy(runtime, expanded, bytes);
+        for (int aa = 0; aa < 3; aa++)
+        {
+            BgOneCycleState state;
+            int draws = 0, activeFog = fog;
+            renderSetAaEnabled(aa != 1); renderApplySettings();
+            assert(renderApplyDisplayListSettings(runtime, runtime + bytes / 8));
+            bgOneCycleResetState(&state);
+            for (int i = 0; i < bytes / 8; i++)
+            {
+                Gfx cmd = runtime[i]; u32 op = cmd.words.w0 >> 24;
+                assert(bgOneCycleReadState(&state, cmd, TRUE));
+                if (op == (u8)G_SETGEOMETRYMODE && (cmd.words.w1 & G_FOG)) activeFog = 1;
+                if (op == (u8)G_CLEARGEOMETRYMODE && (cmd.words.w1 & G_FOG)) activeFog = 0;
+                if (op == (u8)G_SETENVCOLOR) assert(cmd.words.w1 == 0x12345680);
+                if (op == (u8)G_VTX) assert(activeFog == (draws == 0 && usesVertex ? 0 : fog));
+                if (op != (u8)G_TRI1) continue;
+                if (draws++ == 0)
+                {
+                    BgOneCycleState chosen;
+                    assert(state.alphaSource == policy);
+                    assert(!bgOneCycleChooseState(&state, &chosen, FALSE, TRUE, FALSE));
+                    assert((state.combine.words.w0 & ~0x00007e00u) == (expectedAuto[1].words.w0 & ~0x00007e00u));
+                    assert((state.combine.words.w1 & ~0x00fc7e3fu) == (expectedAuto[1].words.w1 & ~0x00fc7e3fu));
+                    if (layout) assert((state.low & 0xcccc0000u) == (fog && !usesVertex ? G_RM_FOG_SHADE_A : G_RM_PASS));
+                    for (unsigned int t = 0; t < sizeof(values) / sizeof(*values); t++)
+                    for (unsigned int v = 0; v < sizeof(values) / sizeof(*values); v++)
+                    for (int level = 0; level < 3; level++)
+                    {
+                        double tex0 = values[t], tex1 = 1 - values[t], vertex = values[v], lod = level * .5;
+                        double base = layout == 3 ? tex1 : layout >= 2 ? tex0 + (tex1 - tex0) * lod : tex0;
+                        double expected = usesTexture ? base : 1;
+                        if (usesVertex) expected *= vertex;
+                        if (policy == BG_ALPHA_CONSTANT || policy == BG_ALPHA_TEXTURE_CONSTANT) expected *= 128.0 / 255;
+                        double first = preset_alpha_cycle(state.combine, 0, 0, tex0, tex1, vertex, 128.0 / 255, lod);
+                        double result = preset_alpha_cycle(state.combine, 1, layout ? first : 0, tex0, tex1, vertex, 128.0 / 255, lod);
+                        assert(result - expected < 1e-12 && expected - result < 1e-12);
+                    }
+                }
+                else
+                {
+                    assert(state.alphaSource == BG_ALPHA_AUTO && activeFog == fog);
+                    assert(!memcmp(&state.combine, &expectedAuto[1], sizeof(Gfx)));
+                }
+            }
+            assert(draws == 2 && activeFog == fog);
+        }
+    }
+    puts("PASS expanded alpha presets: independently evaluated equations, base/detail/mip/sharpen sampling, fog scope, RGB/constants, all LUTs/cycles and AA toggles.");
+}
+
 static void vertex_alpha_checks(void)
 {
     Gfx raw[64], expanded[128], autoState[3], *p;
@@ -334,4 +445,5 @@ static void vertex_alpha_checks(void)
     puts("PASS vertex alpha: fog/no-fog LUTs, explicit fog restoration, RGB retention, both cycles/layers, texture-marker dispatch and AA/one-cycle safety.");
     vertex_alpha_surface_override_checks();
     decal_depth_checks();
+    alpha_preset_checks();
 }

@@ -16,7 +16,7 @@ typedef struct BgMaterial {
     DWORD textureword0, textureword1; /* complete GoldenEye texture marker */
     DWORD modeword0, modeword1;       /* gSPTexture: scale, tile, LOD, enable */
     DWORD combineword0, combineword1;
-    DWORD alphasource; /* BG_ALPHA_AUTO or BG_ALPHA_VERTEX; authored mux stays intact */
+    DWORD alphasource; /* BG_ALPHA_* preset; authored mux stays intact */
 } BgMaterial;
 
 /* GoldenEye C0 texture-marker modes, before conversion to RDP tile flags. */

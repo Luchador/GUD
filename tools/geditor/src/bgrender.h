@@ -47,6 +47,7 @@ typedef struct BgRenderState
     DWORD geometryknown; /* Bits explicitly set/cleared by the native stream. */
     DWORD geometrymode; /* lighting and texture generation, including partial clears */
     unsigned char environmentalpha, primitivealpha;
+    DWORD environmentword1; /* Preserve RGB when editing constant opacity. */
     DWORD primitiveword0, primitiveword1; /* Full color/LOD state for detail-tile restoration. */
     DWORD surfacepolicy; /* Auto for streams without an editor override. */
     DWORD surfacebasemode; /* Native mode to restore when returning to Auto. */
@@ -90,6 +91,7 @@ BgTransparency BgRenderGetSurfaceTransparency(const BgRenderState *state);
 BOOL BgRenderSurfacePreset(const BgRenderState *state, BgTransparency surface, DWORD *modeout);
 BOOL BgRenderDecalPreset(const BgRenderState *state, BOOL decal, DWORD *modeout);
 BOOL BgRenderSupportsVertexAlpha(const BgRenderState *state);
+BOOL BgRenderSupportsAlphaPreset(const BgRenderState *state, const BgMaterial *material, DWORD source);
 
 /* Matches texModeToGbiMode: mode 3, like mode 0, means ordinary repeat. */
 BgRenderFlags BgRenderMaterialWrap(const BgMaterial *material);

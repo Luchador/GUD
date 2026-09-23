@@ -4,6 +4,8 @@
 #include <commctrl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
+#include <math.h>
 
 #include "faceproperties.h"
 #include "browser.h"
@@ -21,7 +23,28 @@ enum { FACE_SUMMARY, FACE_ROOM_LABEL, FACE_ROOM, FACE_LAYER_LABEL, FACE_LAYER, F
        FACE_DETAIL_THUMB, FACE_DETAIL_FIND, FACE_DETAIL_INFO,
        FACE_DETAIL_U_LABEL, FACE_DETAIL_U, FACE_DETAIL_V_LABEL, FACE_DETAIL_V,
        FACE_DETAIL_LOD_LABEL, FACE_DETAIL_LOD, FACE_DETAIL_OFFSET_LABEL, FACE_DETAIL_OFFSET,
-       FACE_SELECTION_HELP, FACE_ALPHA_LABEL, FACE_ALPHA, FACE_ALPHA_HELP, FACE_CONTROL_COUNT };
+       FACE_SELECTION_HELP, FACE_ALPHA_LABEL, FACE_ALPHA, FACE_ALPHA_HELP,
+       FACE_OPACITY_LABEL, FACE_OPACITY, FACE_OPACITY_HELP, FACE_CONTROL_COUNT };
+
+static const struct {
+    DWORD source;
+    const char *name, *help;
+} FaceAlphaPresets[] = {
+    {BG_ALPHA_AUTO, "Auto (preserve original)", "Keeps the material's original alpha behavior."},
+    {BG_ALPHA_OPAQUE, "Fully opaque", "Output alpha is 100%. Fog remains available."},
+    {BG_ALPHA_TEXTURE, "Texture alpha", "Uses only the base texture's alpha. Fog remains available."},
+    {BG_ALPHA_VERTEX, "Vertex alpha", "Uses painted vertex alpha. Fog is disabled on these faces."},
+    {BG_ALPHA_TEXTURE_VERTEX, "Texture x vertex alpha", "Multiplies base texture alpha by painted vertex alpha. Fog is disabled on these faces."},
+    {BG_ALPHA_CONSTANT, "Constant opacity", "Uses the opacity value below. Fog remains available."},
+    {BG_ALPHA_TEXTURE_CONSTANT, "Texture x opacity", "Multiplies base texture alpha by the opacity below. Fog remains available."}
+};
+
+static int FacePropertiesAlphaChoice(DWORD source)
+{
+    for (unsigned int i = 0; i < sizeof(FaceAlphaPresets) / sizeof(FaceAlphaPresets[0]); i++)
+    { if (FaceAlphaPresets[i].source == source) { return (int)i + 1; } }
+    return 0;
+}
 
 typedef struct FacePropertiesState {
     HWND controls[FACE_CONTROL_COUNT];
@@ -36,6 +59,7 @@ typedef struct FacePropertiesState {
     DWORD detailtextureid;
     HWND browser;
     char detailimagetext[32], detaillodtext[32];
+    char opacitytext[32];
     BOOL hasdetailthumbnail, mixeddetailtexture, showdetail;
     int scroll, wheelremainder;
     BOOL updating, advanced;
@@ -203,14 +227,14 @@ static BOOL FacePropertiesIsCombo(int id)
 }
 
 static BOOL FacePropertiesIsEdit(int id)
-{ return id == FACE_DETAIL_IMAGE || id == FACE_DETAIL_LOD; }
+{ return id == FACE_DETAIL_IMAGE || id == FACE_DETAIL_LOD || id == FACE_OPACITY; }
 
 static BOOL FacePropertiesIsAdvanced(int id)
 {
     return (id >= FACE_RENDER_INFO && id <= FACE_RENDER_HELP)
         || (id >= FACE_DECAL_LABEL && id <= FACE_DECAL_HELP)
         || (id >= FACE_DETAIL_LABEL && id <= FACE_DETAIL_OFFSET)
-        || (id >= FACE_ALPHA_LABEL && id <= FACE_ALPHA_HELP);
+        || (id >= FACE_ALPHA_LABEL && id <= FACE_OPACITY_HELP);
 }
 
 static int FacePropertiesTextHeight(HWND control, int width)
@@ -440,6 +464,33 @@ static void FacePropertiesApplyDetailNumber(HWND hwnd, FacePropertiesState *stat
     SendMessage(GetParent(hwnd), FACEPROPERTIES_WM_CHANGED, 0, (LPARAM)&edit);
 }
 
+static BOOL FacePropertiesParseOpacity(const char *text, DWORD *opacity)
+{
+    char *end;
+    double percent = strtod(text, &end);
+    if (end == text || !isfinite(percent) || percent < 0 || percent > 100) { return FALSE; }
+    while (isspace((unsigned char)*end)) { end++; }
+    if (*end) { return FALSE; }
+    *opacity = (DWORD)(percent * 255.0 / 100.0 + 0.5);
+    return TRUE;
+}
+
+static void FacePropertiesApplyOpacity(HWND hwnd, FacePropertiesState *state)
+{
+    char text[32];
+    BgFacePropertiesEdit edit = {0};
+    GetWindowText(state->controls[FACE_OPACITY], text, sizeof(text));
+    if (!lstrcmp(text, state->opacitytext)) { return; }
+    if (!FacePropertiesParseOpacity(text, &edit.opacity))
+    {
+        MessageBox(hwnd, "Enter an opacity percentage from 0 to 100.", "GEditor", MB_ICONERROR);
+        SetWindowText(state->controls[FACE_OPACITY], state->opacitytext);
+        return;
+    }
+    edit.fields = BG_FACE_PROPERTY_OPACITY;
+    SendMessage(GetParent(hwnd), FACEPROPERTIES_WM_CHANGED, 0, (LPARAM)&edit);
+}
+
 BOOL FacePropertiesHandleMessage(HWND panel, MSG *message)
 {
     FacePropertiesState *state = FacePropertiesGetState(panel);
@@ -451,9 +502,17 @@ BOOL FacePropertiesHandleMessage(HWND panel, MSG *message)
         if (FacePropertiesIsEdit(id) && focus == state->controls[id])
         {
             if (message->wParam == VK_RETURN)
-            { FacePropertiesApplyDetailNumber(panel, state, id); return TRUE; }
+            {
+                if (id == FACE_OPACITY) { FacePropertiesApplyOpacity(panel, state); }
+                else { FacePropertiesApplyDetailNumber(panel, state, id); }
+                return TRUE;
+            }
             if (message->wParam == VK_ESCAPE)
-            { SetWindowText(focus, id == FACE_DETAIL_IMAGE ? state->detailimagetext : state->detaillodtext); return TRUE; }
+            {
+                SetWindowText(focus, id == FACE_OPACITY ? state->opacitytext
+                    : id == FACE_DETAIL_IMAGE ? state->detailimagetext : state->detaillodtext);
+                return TRUE;
+            }
             return FALSE;
         }
     }
@@ -484,7 +543,8 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
             "Texture wrapping", "U", "", "V", "",
             "Detail texture", "", "Detail image (hex ID, Enter to apply)", "", "", "Find", "",
             "Detail U scale", "", "Detail V scale", "", "Minimum LOD (0-255, Enter to apply)", "", "Tile offset", "",
-            "", "Alpha Source", "", "Vertex alpha uses the painted A value (0-255) and disables fog on these faces. For soft transparency, use Translucent and the Secondary layer."
+            "", "Alpha preset", "", "",
+            "Opacity (%, Enter to apply)", "", "Used by Constant opacity and Texture x opacity. For soft fades, use Translucent and the Secondary layer."
         };
         int i;
         state = (FacePropertiesState *)calloc(1, sizeof(*state));
@@ -545,9 +605,9 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
                 if (i == FACE_ALPHA)
                 {
                     SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Mixed / Keep current");
-                    SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Auto");
-                    SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Vertex alpha");
-                    SendMessage(control, CB_SETDROPPEDWIDTH, 180, 0);
+                    for (unsigned int preset = 0; preset < sizeof(FaceAlphaPresets) / sizeof(FaceAlphaPresets[0]); preset++)
+                    { SendMessage(control, CB_ADDSTRING, 0, (LPARAM)FaceAlphaPresets[preset].name); }
+                    SendMessage(control, CB_SETDROPPEDWIDTH, 240, 0);
                     continue;
                 }
                 if (i == FACE_RENDER)
@@ -639,7 +699,7 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
                     if (control == state->controls[FACE_RENDER])
                     { edit.fields = BG_FACE_PROPERTY_TRANSPARENCY; edit.transparency = choice == 1 ? BG_TRANSPARENCY_AUTO : (BgTransparency)(choice - 2); }
                     else if (control == state->controls[FACE_ALPHA])
-                    { edit.fields = BG_FACE_PROPERTY_ALPHA_SOURCE; edit.alphasource = choice - 1; }
+                    { edit.fields = BG_FACE_PROPERTY_ALPHA_SOURCE; edit.alphasource = FaceAlphaPresets[choice - 1].source; }
                     else if (control == state->controls[FACE_CULL])
                     { edit.fields = BG_FACE_PROPERTY_CULL; edit.cullbackfaces = choice == 1; }
                     else if (control == state->controls[FACE_DECAL])
@@ -758,7 +818,7 @@ BOOL FacePropertiesSetSelection(HWND panel, const BgDocument *document,
     cull = first->cullbackfaces ? 1 : 2;
     wrapu = BgMaterialGetWrap(&first->material, FALSE) + 1;
     wrapv = BgMaterialGetWrap(&first->material, TRUE) + 1;
-    alphasource = first->material.alphasource + 1;
+    alphasource = FacePropertiesAlphaChoice(first->material.alphasource);
     for (i = 0; i < count; i++)
     {
         const BgDocumentFace *face = BgDocumentFindFace(document, &refs[i], NULL);
@@ -768,7 +828,7 @@ BOOL FacePropertiesSetSelection(HWND panel, const BgDocument *document,
         if (cull != (face->cullbackfaces ? 1 : 2)) { cull = 0; }
         if (wrapu != (int)BgMaterialGetWrap(&face->material, FALSE) + 1) { wrapu = 0; }
         if (wrapv != (int)BgMaterialGetWrap(&face->material, TRUE) + 1) { wrapv = 0; }
-        if (alphasource != (int)face->material.alphasource + 1) { alphasource = 0; }
+        if (alphasource != FacePropertiesAlphaChoice(face->material.alphasource)) { alphasource = 0; }
         if (face->textureid == BG_TEX_NONE) { textured = FALSE; }
         if (face->textureid != first->textureid) { sametexture = FALSE; }
     }
@@ -837,6 +897,25 @@ BOOL FacePropertiesSetSelection(HWND panel, const BgDocument *document,
     EnableWindow(state->controls[FACE_DETAIL_IMAGE], textured);
     SendMessage(state->controls[FACE_CULL], CB_SETCURSEL, cull, 0);
     SendMessage(state->controls[FACE_ALPHA], CB_SETCURSEL, alphasource, 0);
+    SetWindowText(state->controls[FACE_ALPHA_HELP], alphasource
+        ? FaceAlphaPresets[alphasource - 1].help : "The selected faces use different alpha presets.");
+    {
+        size_t bytes = (size_t)count * sizeof(BgRenderState);
+        BgRenderState *states = bytes / sizeof(*states) == count ? malloc(bytes) : NULL;
+        BOOL available = states && BgDocumentGetFaceRenderStates(document, refs, count, states);
+        BOOL opacityeditable = available;
+        int opacity = available ? states[0].environmentalpha : -1;
+        for (i = 0; available && i < count; i++)
+        {
+            if (opacity != states[i].environmentalpha) { opacity = -1; }
+            opacityeditable &= BG_ALPHA_USES_CONSTANT(BgDocumentFindFace(document, &refs[i], NULL)->material.alphasource);
+        }
+        if (opacity >= 0) { snprintf(state->opacitytext, sizeof(state->opacitytext), "%.1f", opacity * 100.0 / 255.0); }
+        else { lstrcpyn(state->opacitytext, available ? "Mixed" : "Unavailable", sizeof(state->opacitytext)); }
+        SetWindowText(state->controls[FACE_OPACITY], state->opacitytext);
+        EnableWindow(state->controls[FACE_OPACITY], opacityeditable);
+        free(states);
+    }
     SendMessage(state->controls[FACE_U], CB_SETCURSEL, textured ? wrapu : -1, 0);
     SendMessage(state->controls[FACE_V], CB_SETCURSEL, textured ? wrapv : -1, 0);
     EnableWindow(state->controls[FACE_U], textured);

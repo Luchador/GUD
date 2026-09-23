@@ -47,6 +47,25 @@
 #define BG_ALPHA_FOG 3u
 #define BG_ALPHA_BLENDER 4u
 #define BG_ALPHA_LAST_SLOT 7u
+/* 2..7 are reserved runtime packets, not selectable alpha presets. Keep the
+ * original Auto/Vertex values compatible with existing projects. */
+#define BG_ALPHA_OPAQUE 8u
+#define BG_ALPHA_TEXTURE 9u
+#define BG_ALPHA_TEXTURE_VERTEX 10u
+#define BG_ALPHA_CONSTANT 11u
+#define BG_ALPHA_TEXTURE_CONSTANT 12u
+#define BG_ALPHA_IS_PRESET(source) \
+    ((source) <= BG_ALPHA_VERTEX || ((source) >= BG_ALPHA_OPAQUE && (source) <= BG_ALPHA_TEXTURE_CONSTANT))
+#define BG_ALPHA_USES_VERTEX(source) \
+    ((source) == BG_ALPHA_VERTEX || (source) == BG_ALPHA_TEXTURE_VERTEX)
+#define BG_ALPHA_USES_TEXTURE(source) \
+    ((source) == BG_ALPHA_TEXTURE || (source) == BG_ALPHA_TEXTURE_VERTEX || (source) == BG_ALPHA_TEXTURE_CONSTANT)
+#define BG_ALPHA_USES_CONSTANT(source) \
+    ((source) == BG_ALPHA_CONSTANT || (source) == BG_ALPHA_TEXTURE_CONSTANT)
+#define BG_ALPHA_WITHOUT_TEXTURE(source) \
+    ((source) == BG_ALPHA_TEXTURE ? BG_ALPHA_OPAQUE : \
+     (source) == BG_ALPHA_TEXTURE_VERTEX ? BG_ALPHA_VERTEX : \
+     (source) == BG_ALPHA_TEXTURE_CONSTANT ? BG_ALPHA_CONSTANT : (source))
 #define BG_ALPHA_TAG_KIND(w1) ((w1) & 0xffu)
 #define BG_EDITOR_IS_MARKER(w0, w1) \
     (BG_SURFACE_IS_MARKER(w0, w1) || BG_ALPHA_IS_MARKER(w0, w1))

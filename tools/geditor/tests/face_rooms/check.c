@@ -23,6 +23,7 @@ static void *TestRealloc(void *p, size_t n) { return Fail() ? NULL : realloc(p,n
 #undef realloc
 #include "fixture.inc"
 #include "common.inc"
+#include "comparison.inc"
 
 /* Face identity is stable during editing; draw order/room ownership may change. */
 static void Appearance(const BgDocument *before, const BgDocument *after)
@@ -67,7 +68,7 @@ static void RoundTrip(const BgDocument *doc, const BgFile *source, const char *d
     assert(BgSaveProjectFile(dir,&compiled,&why) && BgLoadProjectFile(dir,compiled.name,&saved,&why));
     assert(BgDocumentLoad(saved.data,saved.size,doc->levelscale,&loaded,&why));
     assert(loaded.roomcount == doc->roomcount);
-    Equivalent(doc,&loaded); UseCounts(&loaded);
+    EquivalentDocuments(doc,&loaded); UseCounts(&loaded);
     for (DWORD r = 1; r <= doc->roomcount; r++)
     {
         assert(doc->rooms[r].facecount == loaded.rooms[r].facecount);
@@ -77,11 +78,14 @@ static void RoundTrip(const BgDocument *doc, const BgFile *source, const char *d
         { assert(loaded.rooms[r].vertexcount == doc->rooms[r].vertexcount); }
     }
     assert(BgDocumentCompile(&loaded,&saved,&again,&why));
+    BgFile packed = {0};
+    assert(BgFileCompact(&again,&packed,&why));
+    BgFileFree(&again); again = packed;
     /* Reload/recompile may reclaim the cleared space left by cleanup. */
     assert(again.size <= saved.size && BgFileValidateVertexBatches(&again,&why));
     BgDocumentFree(&loaded);
     assert(BgDocumentLoad(again.data,again.size,doc->levelscale,&loaded,&why));
-    Equivalent(doc,&loaded); UseCounts(&loaded);
+    EquivalentDocuments(doc,&loaded); UseCounts(&loaded);
     BgDocumentFree(&loaded); BgFileFree(&saved); BgFileFree(&compiled); BgFileFree(&again);
 }
 
@@ -319,7 +323,13 @@ static void LegacyRepair(const char *dir)
     assert(EditHistoryCommitEdit(&history,&loaded,NULL,NULL,&tx,&why));
     assert(EditHistoryUndo(&history,&loaded,&setup,&stan,NULL,&why) && loaded.dirty);
     assert(BgDocumentCompile(&loaded,&bloated,&saved,&why));
-    assert(saved.size + 30000 < bloated.size);
+    BgFile packed = {0};
+    assert(BgFileCompact(&saved,&packed,&why));
+    BgFileFree(&saved); saved = packed;
+    /* Compilation already removes some redundant packets. Measure the
+       repaired state itself and require a substantial packed-file reduction. */
+    assert(StateBytes(&loaded) + 30000 < StateBytes(&original));
+    assert(saved.size < bloated.size / 2);
     EditHistoryMarkBgSaved(&history,&loaded); assert(!loaded.dirty);
     RoundTrip(&loaded,&saved,dir);
     EditHistoryFree(&history); BgDocumentFree(&doc); BgDocumentFree(&original); BgDocumentFree(&loaded);
