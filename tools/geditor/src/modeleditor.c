@@ -33,7 +33,7 @@ static int g_ModelCount;
 static int g_ModelSelected = -1;
 static ModelSource g_ModelSource;
 static DWORD g_ModelRevision;
-static BOOL g_ModelAllLods;
+static ModelLod g_ModelLod;
 static BOOL g_ModelCompleting;
 static BOOL g_ModelSampling;
 #define MODEL_HISTORY_LIMIT 256
@@ -75,7 +75,7 @@ static void ModelEditorProperties(void);
 static void ModelEditorGroups(void);
 static BOOL ModelEditorFaceVisible(DWORD face)
 {
-    return !g_ModelSource.closestpreview || g_ModelAllLods || g_ModelSource.faces[face].closest;
+    return ModelSourceFaceInLod(&g_ModelSource, face, g_ModelLod);
 }
 static const int g_ModelCombos[] = { IDC_MODEL_CHARACTERS, IDC_MODEL_ITEMS, IDC_MODEL_PROPS };
 
@@ -540,30 +540,85 @@ static void ModelEditorGroups(void)
 {
     HWND list=GetDlgItem(g_ModelEditor,IDC_MODEL_MATERIAL_LIST);
     LRESULT old=SendMessage(list,LB_GETCURSEL,0,0),top=SendMessage(list,LB_GETTOPINDEX,0,0);
-    DWORD slot;
+    LRESULT oldslot=old>=0 ? SendMessage(list,LB_GETITEMDATA,old,0) : LB_ERR;
+    DWORD slot, shared=0, textured=0;
+    unsigned char *visible=calloc(g_ModelSource.materials.count?g_ModelSource.materials.count:1,1);
+    BOOL include=IsDlgButtonChecked(g_ModelEditor,IDC_MODEL_SHARED)==BST_CHECKED;
+    if (!g_ModelSource.haslods) g_ModelLod=MODEL_LOD_HIGH;
+    SendDlgItemMessage(g_ModelEditor,IDC_MODEL_LODS,CB_SETCURSEL,g_ModelLod,0);
+    for (DWORD face=0;face<g_ModelSource.count;face++)
+    {
+        if (!ModelEditorFaceVisible(face)) continue;
+        BOOL common=g_ModelSource.haslods && g_ModelSource.faces[face].closest && g_ModelSource.faces[face].farthest;
+        shared+=common;
+        textured+=BG_TEX_ID(g_ModelSource.tags[face])!=BG_TEX_NONE
+            && (include || !common || g_ModelLod==MODEL_LOD_ALL);
+        if (visible) visible[g_ModelSource.materials.faces[face].slot]=1;
+    }
     SendMessage(list,WM_SETREDRAW,FALSE,0);
     SendMessage(list,LB_RESETCONTENT,0,0);
     for (slot=0;slot<g_ModelSource.materials.count;slot++)
-        SendMessage(list,LB_ADDSTRING,0,(LPARAM)g_ModelSource.materials.slots[slot].name);
-    if (old>=0 && (DWORD)old<g_ModelSource.materials.count) SendMessage(list,LB_SETCURSEL,old,0);
+    {
+        if (!visible || !visible[slot]) continue;
+        LRESULT row=SendMessage(list,LB_ADDSTRING,0,(LPARAM)g_ModelSource.materials.slots[slot].name);
+        if (row>=0)
+        {
+            SendMessage(list,LB_SETITEMDATA,row,slot);
+            if ((LRESULT)slot==oldslot) SendMessage(list,LB_SETCURSEL,row,0);
+        }
+    }
+    free(visible);
     if (top>=0) SendMessage(list,LB_SETTOPINDEX,top,0);
     SendMessage(list,WM_SETREDRAW,TRUE,0);InvalidateRect(list,NULL,TRUE);
     EnableWindow(list,g_ModelSource.materials.count!=0);
     EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_SELECT_ALL),g_ModelSource.count!=0);
     EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_UV),g_ModelSource.count!=0);
-    EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_LODS),g_ModelSource.closestpreview);
+    EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_LODS),g_ModelSource.haslods);
+    EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_UNTEXTURED),textured!=0);
+    EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_SHARED),shared!=0 && g_ModelLod!=MODEL_LOD_ALL);
+    char caption[80];
+    snprintf(caption,sizeof(caption),"Include %lu shared faces",(unsigned long)shared);
+    SetDlgItemText(g_ModelEditor,IDC_MODEL_SHARED,caption);
+    SetDlgItemText(g_ModelEditor,IDC_MODEL_UNTEXTURED,g_ModelLod==MODEL_LOD_ALL
+        ? "Make all LODs untextured" : "Make LOD untextured");
+    SetDlgItemText(g_ModelEditor,IDC_MODEL_HINT,shared && g_ModelLod!=MODEL_LOD_ALL
+        ? "Shared faces also change in the other LOD.\nDrag an image onto a material to assign it."
+        : "Drag an image onto a material.\nDrop No Texture to clear its image.");
+}
+
+static void ModelEditorMakeUntextured(void)
+{
+    ModelUVChange change = {0};
+    const char *why = "";
+    DWORD changed = 0;
+    char text[192];
+    if (g_ModelSelected < 0 || !g_ModelSource.count) return;
+    SendMessage(g_ModelViewport, WM_CANCELMODE, 0, 0);
+    UVEditorCancelInteraction(g_ModelEditor);
+    BOOL shared = IsDlgButtonChecked(g_ModelEditor, IDC_MODEL_SHARED) == BST_CHECKED;
+    if (!ModelEditsMakeUntextured(g_ModelProject, g_ModelEntries[g_ModelSelected].name,
+        g_ModelRevision, g_ModelLod, shared, &change, &changed, &why))
+    { MessageBox(g_ModelEditor, why, "Make LOD untextured", MB_ICONERROR); return; }
+    if (!change.before)
+    { SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS, "These faces are already untextured."); return; }
+    ModelEditorRecord((ModelEditorHistoryStep){.uv = change});
+    ModelEditorLoad(g_ModelSelected, FALSE);
+    snprintf(text, sizeof(text), "%lu faces made untextured. Vertex colors retained. Ctrl+Z undoes this edit; Save Project to keep it.",
+        (unsigned long)changed);
+    SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS, text);
+    SendMessage(GetWindow(g_ModelEditor, GW_OWNER), MODELEDITOR_CHANGED, 0, 0);
 }
 
 static void ModelEditorDrawMaterial(const DRAWITEMSTRUCT *draw)
 {
-    DWORD slot=draw->itemID;
+    DWORD slot=(DWORD)draw->itemData;
     RECT r=draw->rcItem,thumbrect,textrect;
     TexThumb thumb={0};unsigned char pixels[TEX_THUMB_MAX*TEX_THUMB_MAX*4];
     BITMAPINFO bmi={0};
     BOOL selected=(draw->itemState & ODS_SELECTED)!=0;
     char caption[192],image[64];WCHAR label[192];
     int pad=6,side=max(16,r.bottom-r.top-pad*2);
-    if (slot>=g_ModelSource.materials.count) return;
+    if (draw->itemID==(UINT)-1 || slot>=g_ModelSource.materials.count) return;
     const ModelMaterialSlot *material=&g_ModelSource.materials.slots[slot];
     FillRect(draw->hDC,&r,GetSysColorBrush(selected?COLOR_HIGHLIGHT:COLOR_WINDOW));
     SetBkMode(draw->hDC,TRANSPARENT);
@@ -669,6 +724,7 @@ static void ModelEditorSelectGroup(BOOL all)
 {
     DWORD face,count=0;
     LRESULT slot=SendDlgItemMessage(g_ModelEditor,IDC_MODEL_MATERIAL_LIST,LB_GETCURSEL,0,0);
+    if (slot>=0) slot=SendDlgItemMessage(g_ModelEditor,IDC_MODEL_MATERIAL_LIST,LB_GETITEMDATA,slot,0);
     BgFaceRef *refs=calloc(g_ModelSource.count?g_ModelSource.count:1,sizeof(*refs));
     if (!refs) return;
     for (face=0;face<g_ModelSource.count;face++)
@@ -688,7 +744,7 @@ BOOL ModelEditorDropImage(DWORD texture,POINT screen)
 {
     HWND list;
     RECT client;
-    LRESULT hit;
+    LRESULT hit,slot;
     const char *why="";
     BOOL ok;
     if (!ModelEditorCanAssignImages()) return FALSE;
@@ -697,12 +753,14 @@ BOOL ModelEditorDropImage(DWORD texture,POINT screen)
     ScreenToClient(list,&screen);GetClientRect(list,&client);
     if (!PtInRect(&client,screen)) return FALSE; /* Scrollbar and border are not slots. */
     hit=SendMessage(list,LB_ITEMFROMPOINT,0,MAKELPARAM(screen.x,screen.y));
-    if (HIWORD(hit) || (DWORD)LOWORD(hit)>=g_ModelSource.materials.count) return FALSE;
+    if (HIWORD(hit)) return FALSE;
     { RECT item;
       if (SendMessage(list,LB_GETITEMRECT,LOWORD(hit),(LPARAM)&item)==LB_ERR || !PtInRect(&item,screen)) return FALSE; }
+    slot=SendMessage(list,LB_GETITEMDATA,LOWORD(hit),0);
+    if (slot<0 || (DWORD)slot>=g_ModelSource.materials.count) return FALSE;
     SendMessage(list,LB_SETCURSEL,LOWORD(hit),0);
     ok=ModelEditsSetMaterial(g_ModelProject,g_ModelEntries[g_ModelSelected].name,
-        g_ModelRevision,LOWORD(hit),texture,&why);
+        g_ModelRevision,(DWORD)slot,texture,&why);
     if (!ok) { MessageBox(g_ModelEditor,why,"Assign Material Image",MB_ICONERROR);return TRUE; }
     ModelEditorRefreshImages();ModelEditorSelectGroup(FALSE);
     SetDlgItemText(g_ModelEditor,IDC_MODEL_STATUS,"Material image updated. Save Project to keep the assignment.");
@@ -869,19 +927,24 @@ static void ModelEditorLayout(HWND hwnd)
             {IDC_MODEL_SURFACE_LABEL,96,82,80,12},{IDC_MODEL_SURFACE,96,96,80,100},
             {IDC_MODEL_WRAP_U_LABEL,8,122,80,12},{IDC_MODEL_WRAP_U,8,136,80,100},
             {IDC_MODEL_WRAP_V_LABEL,96,122,80,12},{IDC_MODEL_WRAP_V,96,136,80,100},
-            {IDC_MODEL_APPLY,8,162,168,20},{IDC_MODEL_LODS,8,190,168,16}
+            {IDC_MODEL_APPLY,8,162,168,20},{IDC_MODEL_LOD_LABEL,8,194,30,12},{IDC_MODEL_LODS,42,190,134,80}
         };
-        RECT dimensions={8,16,168,208},row={0,0,0,44};
+        RECT dimensions={8,16,168,212},row={0,0,0,44},footer={0,18,0,72},checkbox={0,20,0,14};
         int facey,colory,colorheight,materialheight;
         size_t i;
         MapDialogRect(hwnd,&dimensions);MapDialogRect(hwnd,&row);
+        MapDialogRect(hwnd,&footer);MapDialogRect(hwnd,&checkbox);
         facey=bottom-dimensions.bottom;
         colorheight=COLORPICKER_MODEL_HEIGHT+dimensions.top+margin;
         colory=facey-margin-colorheight;
         materialheight=max(0,colory-units.top-margin);
         ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_MATERIALS),panelx,units.top,panel.right-margin,materialheight);
         ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_MATERIAL_LIST),panelx+dimensions.left,units.top+dimensions.top,
-            dimensions.right,max(0,materialheight-dimensions.top*3));
+            dimensions.right,max(0,materialheight-dimensions.top-footer.bottom));
+        ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_UNTEXTURED),panelx+dimensions.left,units.top+materialheight-footer.bottom+margin/2,
+            dimensions.right,footer.top);
+        ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_SHARED),panelx+dimensions.left,units.top+materialheight-footer.bottom+checkbox.top+margin/2,
+            dimensions.right,checkbox.bottom);
         ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_HINT),panelx+dimensions.left,units.top+materialheight-dimensions.top*2,
             dimensions.right,dimensions.top*2-margin);
         SendDlgItemMessage(hwnd,IDC_MODEL_MATERIAL_LIST,LB_SETITEMHEIGHT,0,row.bottom);
@@ -937,7 +1000,11 @@ static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wp
                 SendDlgItemMessage(hwnd, IDC_MODEL_WRAP_V, CB_ADDSTRING, 0, (LPARAM)wraps[i]);
             }
         }
-        g_ModelAllLods = FALSE;
+        g_ModelLod = MODEL_LOD_HIGH;
+        SendDlgItemMessage(hwnd, IDC_MODEL_LODS, CB_ADDSTRING, 0, (LPARAM)"High LOD");
+        SendDlgItemMessage(hwnd, IDC_MODEL_LODS, CB_ADDSTRING, 0, (LPARAM)"Low LOD");
+        SendDlgItemMessage(hwnd, IDC_MODEL_LODS, CB_ADDSTRING, 0, (LPARAM)"All LODs");
+        SendDlgItemMessage(hwnd, IDC_MODEL_LODS, CB_SETCURSEL, MODEL_LOD_HIGH, 0);
         return TRUE;
     case WM_MEASUREITEM:
         if (((MEASUREITEMSTRUCT *)lparam)->CtlID==IDC_MODEL_MATERIAL_LIST)
@@ -953,7 +1020,7 @@ static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wp
     case WM_GETMINMAXINFO:
     {
         MINMAXINFO *limits = (MINMAXINFO *)lparam;
-        RECT minimum = { 0, 0, 660, 592 };
+        RECT minimum = { 0, 0, 660, 636 };
         MapDialogRect(hwnd, &minimum);
         AdjustWindowRectEx(&minimum, (DWORD)GetWindowLongPtr(hwnd, GWL_STYLE),
                            FALSE, (DWORD)GetWindowLongPtr(hwnd, GWL_EXSTYLE));
@@ -994,9 +1061,15 @@ static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wp
         if ((LOWORD(wparam)==IDC_MODEL_MATERIAL_LIST && HIWORD(wparam)==LBN_SELCHANGE)
             || LOWORD(wparam)==IDC_MODEL_SELECT_ALL)
         { ModelEditorSelectGroup(LOWORD(wparam)==IDC_MODEL_SELECT_ALL); return TRUE; }
-        if (LOWORD(wparam) == IDC_MODEL_LODS)
+        if (LOWORD(wparam) == IDC_MODEL_UNTEXTURED)
+        { ModelEditorMakeUntextured(); return TRUE; }
+        if (LOWORD(wparam) == IDC_MODEL_SHARED)
+        { ModelEditorGroups(); return TRUE; }
+        if (LOWORD(wparam) == IDC_MODEL_LODS && HIWORD(wparam) == CBN_SELCHANGE)
         {
-            g_ModelAllLods = IsDlgButtonChecked(hwnd, IDC_MODEL_LODS) == BST_CHECKED;
+            SendMessage(g_ModelViewport, WM_CANCELMODE, 0, 0);
+            UVEditorCancelInteraction(g_ModelEditor);
+            g_ModelLod = (ModelLod)SendDlgItemMessage(hwnd, IDC_MODEL_LODS, CB_GETCURSEL, 0, 0);
             ModelEditorRefreshImages(); return TRUE;
         }
         if (LOWORD(wparam) == IDC_MODEL_APPLY) { ModelEditorApplyProperties(); return TRUE; }

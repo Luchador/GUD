@@ -32,9 +32,14 @@ typedef struct ModelUVEdit {
     float uv[2];  /* normalized authored coordinates */
 } ModelUVEdit;
 typedef struct ModelUVChange {
-    unsigned char *before, *after; /* Owned exact snapshots, including material UVs. */
+    unsigned char *before, *after; /* Owned exact snapshots, also used by bulk material edits. */
     DWORD beforeSize, afterSize, beforeRevision, afterRevision;
 } ModelUVChange;
+/* Clear image bindings on the chosen LOD, coalesce them into one No Texture
+ * slot, and remove unused slots. Shared faces can be excluded to leave the
+ * other LOD unchanged. Does not delete project images or change vertex colors. */
+BOOL ModelEditsMakeUntextured(const char *project, const char *name, DWORD revision,
+    ModelLod lod, BOOL shared, ModelUVChange *change, DWORD *changed, const char **reasonout);
 /* Atomic corner edits. Conflicting shared UVs split native vertices; all other
  * attributes, unselected faces, model parts and material assignments survive. */
 BOOL ModelEditsSetUVs(const char *project, const char *name, DWORD revision,

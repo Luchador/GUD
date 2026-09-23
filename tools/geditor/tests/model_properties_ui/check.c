@@ -20,7 +20,7 @@ typedef struct {int left,top,right,bottom;} RECT;
 #define LOWORD(n) ((uintptr_t)(n)&0xffff)
 #define MAKELPARAM(x,y) ((unsigned short)(x)|((LPARAM)(unsigned short)(y)<<16))
 #define LB_ERR (-1)
-enum {LB_ITEMFROMPOINT=10,LB_GETITEMRECT,LB_SETCURSEL,MB_ICONERROR,GW_OWNER,MODELEDITOR_CHANGED};
+enum {LB_ITEMFROMPOINT=10,LB_GETITEMRECT,LB_SETCURSEL,LB_GETITEMDATA,MB_ICONERROR,GW_OWNER,MODELEDITOR_CHANGED};
 #define GL_FRONT 0x0404
 #define GL_BACK 0x0405
 #define GL_FRONT_AND_BACK 0x0408
@@ -102,6 +102,7 @@ static LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
     {
         if(msg==LB_ITEMFROMPOINT) return HIWORD(lparam)<132?HIWORD(lparam)/66:1;
         if(msg==LB_GETITEMRECT) {*(RECT *)lparam=(RECT){0,(int)wparam*66,200,(int)(wparam+1)*66};return 0;}
+        if(msg==LB_GETITEMDATA) return wparam==0?4:2; /* Filtered rows are native slot IDs, not row numbers. */
         assert(msg==LB_SETCURSEL);selectedslot=wparam;return 0;
     }
     int category = (int)(uintptr_t)hwnd-2;
@@ -249,12 +250,12 @@ int main(void)
         assert(loads==4);
         assert(!ModelEditorOpenModel(hwnd,NULL,"project",NULL,&why) && why[0]);
     }
-    g_ModelSource.materials.count=2;
+    g_ModelSource.materials.count=5;
     assert(ModelEditorCanAssignImages());
     assert(ModelEditorDropImage(0xa93,(POINT){-950,80}));
-    assert(assigned==1 && assignedslot==1 && assignedtexture==0xa93 && selectedslot==1 && refreshed==1 && notified==1);
+    assert(assigned==1 && assignedslot==2 && assignedtexture==0xa93 && selectedslot==1 && refreshed==1 && notified==1);
     assert(ModelEditorDropImage(BG_TEX_NONE,(POINT){-950,5}));
-    assert(assigned==2 && assignedslot==0 && assignedtexture==BG_TEX_NONE && refreshed==2 && notified==2);
+    assert(assigned==2 && assignedslot==4 && assignedtexture==BG_TEX_NONE && refreshed==2 && notified==2);
     assert(!ModelEditorDropImage(0xd4,(POINT){-950,250})); /* Empty area below slots. */
     assert(!ModelEditorDropImage(0xd4,(POINT){-795,20})); /* Scrollbar. */
     assert(!ModelEditorDropImage(0xd4,(POINT){-1001,20})); /* Border. */

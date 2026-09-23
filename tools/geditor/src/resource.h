@@ -205,6 +205,9 @@
 #define IDC_MODEL_WRAP_U           1069
 #define IDC_MODEL_WRAP_V_LABEL     1070
 #define IDC_MODEL_WRAP_V           1071
+#define IDC_MODEL_LOD_LABEL        1072
+#define IDC_MODEL_UNTEXTURED       1073
+#define IDC_MODEL_SHARED           1074
 
 /* Image import settings. The thirteen texture types form one radio group. */
 #define IDC_IMAGE_SUMMARY     1100

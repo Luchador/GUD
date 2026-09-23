@@ -40,7 +40,7 @@ BOOL ModelApplyCharacterPose(const unsigned char *data, DWORD size, int switchco
 typedef struct ModelSourceFace {
     DWORD command, list;
     unsigned char slot, normalmask; /* RGB holds normals for these corner bits. */
-    BOOL closest;
+    BOOL closest, farthest;
     BgMaterial material;
     BgRenderState state; /* Draw-time constants used to interpret vertex alpha. */
 } ModelSourceFace;
@@ -63,8 +63,18 @@ typedef struct ModelSource {
     ModelSourceList *lists;
     DWORD count, listcount;
     BOOL closestpreview;
+    BOOL haslods;
     ModelMaterials materials;
 } ModelSource;
+
+typedef enum ModelLod {
+    MODEL_LOD_HIGH,
+    MODEL_LOD_LOW,
+    MODEL_LOD_ALL
+} ModelLod;
+/* Shared faces are visible at both preview distances. Models without distance
+ * branches have a single LOD, regardless of their filename/class. */
+BOOL ModelSourceFaceInLod(const ModelSource *source, DWORD face, ModelLod lod);
 
 BOOL ModelReadSource(const unsigned char *data, DWORD size, ModelSource *source,
                       const char **reasonout);

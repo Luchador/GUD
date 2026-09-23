@@ -84,7 +84,7 @@ typedef struct MdlBuilder {
     const char     *error;
     ModelSource *source;
     DWORD list;
-    BOOL closest;
+    BOOL closest, farthest;
 } MdlBuilder;
 
 static DWORD md32(const unsigned char *p)
@@ -421,6 +421,7 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
                         ModelSourceFace *face = &b->source->faces[b->count / 3 - 1];
                         face->command = pc; face->list = b->list; face->slot = (unsigned char)tri;
                         face->material = *material; face->closest = b->closest;
+                        face->farthest = b->farthest;
                         face->state = *state; face->normalmask = 0;
                         for (k = 0; k < 3; k++)
                         {
@@ -622,10 +623,9 @@ BOOL ModelReadPlacementBounds(const unsigned char *data, DWORD size,
     return FALSE;
 }
 
-/* Character assets contain several distance variants of the same body part.
-   Export the distance-zero branch so flattened glTFs contain one visible
-   surface per part, rather than overlapping near and far meshes. */
-static BOOL MdlNodeInClosestLod(const unsigned char *data, DWORD size, DWORD node)
+/* Match the native distance test across every parent LOD branch. Faces
+ * without a distance parent remain visible in both near and far previews. */
+static BOOL MdlNodeInLod(const unsigned char *data, DWORD size, DWORD node, float distance)
 {
     int visited = 0;
 
@@ -641,7 +641,7 @@ static BOOL MdlNodeInClosestLod(const unsigned char *data, DWORD size, DWORD nod
             minimum.bits = md32(data + offset);
             maximum.bits = md32(data + offset + 4);
             if (!isfinite(minimum.value) || !isfinite(maximum.value)
-                || minimum.value > 0.0f || maximum.value < 0.0f)
+                || (minimum.value != 0.0f && distance <= minimum.value) || distance > maximum.value)
             {
                 return FALSE;
             }
@@ -649,6 +649,13 @@ static BOOL MdlNodeInClosestLod(const unsigned char *data, DWORD size, DWORD nod
         node = mdoff(md32(data + node + 8));
     }
     return TRUE;
+}
+
+BOOL ModelSourceFaceInLod(const ModelSource *source, DWORD face, ModelLod lod)
+{
+    if (!source || face >= source->count || lod < MODEL_LOD_HIGH || lod > MODEL_LOD_ALL) return FALSE;
+    return !source->haslods || lod == MODEL_LOD_ALL
+        || (lod == MODEL_LOD_HIGH ? source->faces[face].closest : source->faces[face].farthest);
 }
 
 BOOL ModelReadHeadAttachment(const unsigned char *data, DWORD size, float position[3])
@@ -1057,6 +1064,24 @@ static BgVertex *MdlLoadGeometry(const unsigned char *data, DWORD maxlen,
     /* Detached heads borrow matrix 0 from their character in-game. Export
        these standalone models at the origin until attached to a body. */
     if (!pose.hasmatrices) { pose.matrices[0].valid = TRUE; }
+    /* Sample just beyond the last authored transition, not at infinity:
+     * even the lowest-detail branches have a finite maximum distance. */
+    float lowdistance = 0.0f;
+    if (source != NULL)
+    {
+        for (i = 0; i < nodecount; i++)
+        {
+            DWORD node = nodes[i], offset = mdoff(md32(data + node + 4));
+            if ((md16(data + node) & 0xff) == 0x08 && offset && offset <= maxlen - 8)
+            {
+                union { DWORD bits; float value; } minimum, maximum;
+                minimum.bits = md32(data + offset); maximum.bits = md32(data + offset + 4);
+                if (isfinite(minimum.value) && isfinite(maximum.value)
+                    && minimum.value > 0.0f && maximum.value > minimum.value)
+                    lowdistance = fmaxf(lowdistance, nextafterf(minimum.value, maximum.value));
+            }
+        }
+    }
     for (i = 0; i < nodecount && b.error == NULL; i++)
     {
         DWORD node = nodes[i];
@@ -1069,7 +1094,7 @@ static BgVertex *MdlLoadGeometry(const unsigned char *data, DWORD maxlen,
             b.error = "model has an invalid node transform.";
             break;
         }
-        if (!closestlod || MdlNodeInClosestLod(data, maxlen, node))
+        if (!closestlod || MdlNodeInLod(data, maxlen, node, 0.0f))
         {
             if (animated != NULL)
             {
@@ -1080,7 +1105,8 @@ static BgVertex *MdlLoadGeometry(const unsigned char *data, DWORD maxlen,
                     break;
                 }
             }
-            b.closest = MdlNodeInClosestLod(data, maxlen, node);
+            b.closest = MdlNodeInLod(data, maxlen, node, 0.0f);
+            b.farthest = source != NULL && MdlNodeInLod(data, maxlen, node, lowdistance);
             MdlNodeMeshes(&b, data, maxlen, flags & 0xff, dataoff, &pose, origin);
         }
     }
@@ -1144,6 +1170,8 @@ BOOL ModelReadSource(const unsigned char *data, DWORD size, ModelSource *source,
     source->vertices = MdlLoadGeometry(data, ModelMaterialsNativeSize(data,size), &source->count, &source->tags,
         &source->flags, reasonout, FALSE, NULL, source, 0);
     if (source->vertices == NULL) { ModelFreeSource(source); return FALSE; }
+    for (DWORD face = 0; face < source->count; face++)
+        source->haslods |= source->faces[face].closest != source->faces[face].farthest;
     if (!ModelMaterialsRead(data,size,source->count,&source->materials,reasonout))
     { ModelFreeSource(source); return FALSE; }
     return TRUE;

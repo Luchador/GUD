@@ -396,14 +396,106 @@ BOOL ModelEditsRestoreUVs(const char *project, const char *name,
     const unsigned char *target = redo ? change->after : change->before;
     if (ModelDataHash(data, size) != expected || !target || !targetsize
         || ModelDataHash(target, targetsize) != targetrevision)
-    { *why = "The model changed since this UV edit. Its history can no longer be applied."; goto done; }
+    { *why = "The model changed since this edit. Its history can no longer be applied."; goto done; }
     copy = malloc(targetsize);
-    if (!copy) { *why = "Out of memory restoring model UVs."; goto done; }
+    if (!copy) { *why = "Out of memory restoring the model edit."; goto done; }
     memcpy(copy, target, targetsize);
     ok = RetainModel(project, name, basehash, copy, targetsize, why);
     if (ok) copy = NULL;
 done:
     free(data); free(copy); return ok;
+}
+
+BOOL ModelEditsMakeUntextured(const char *project, const char *name, DWORD revision,
+    ModelLod lod, BOOL shared, ModelUVChange *change, DWORD *changed, const char **why)
+{
+    unsigned char *data = NULL, *compiled = NULL;
+    DWORD size, basehash, compiledsize, count = 0, *slots = NULL;
+    ModelSource source = {0}, check = {0};
+    GltfModelImport imported = {0};
+    ModelUVChange step = {0};
+    BOOL ok = FALSE;
+    if (change) memset(change, 0, sizeof(*change));
+    if (changed) *changed = 0;
+    *why = "Invalid model LOD.";
+    if (lod < MODEL_LOD_HIGH || lod > MODEL_LOD_ALL) goto done;
+    if (!LoadSource(project, name, &data, &size, &basehash, why)) goto done;
+    if (ModelDataHash(data, size) != revision)
+    { *why = "The model changed. Reload it before removing its textures."; goto done; }
+    if (!ModelReadSource(data, size, &source, why) || !ModelMaterialsEnsure(&source, project, why)) goto done;
+    imported.count = source.count;
+    imported.vertices = malloc((size_t)(source.count ? source.count : 1) * 3 * sizeof(*imported.vertices));
+    imported.tags = malloc((size_t)(source.count ? source.count : 1) * sizeof(*imported.tags));
+    imported.sourcevertices = malloc((size_t)(source.count ? source.count : 1) * 3 * sizeof(*imported.sourcevertices));
+    imported.rebind = calloc(source.count ? source.count : 1, 1);
+    slots = malloc((size_t)(source.materials.count + 1) * sizeof(*slots));
+    ModelMaterialSlot *grown = realloc(source.materials.slots,
+        (size_t)(source.materials.count + 1) * sizeof(*grown));
+    if (grown) source.materials.slots = grown;
+    if (!imported.vertices || !imported.tags || !imported.sourcevertices || !imported.rebind || !slots || !grown)
+    { *why = "Out of memory removing model textures."; goto done; }
+    DWORD untextured = source.materials.count++;
+    memset(&grown[untextured], 0, sizeof(*grown));
+    strcpy(grown[untextured].name, "No Texture"); grown[untextured].texture = BG_TEX_NONE;
+    for (DWORD face = 0; face < source.count; face++)
+    {
+        BOOL clear = ModelSourceFaceInLod(&source, face, lod)
+            && (shared || !source.haslods || lod == MODEL_LOD_ALL
+                || !(source.faces[face].closest && source.faces[face].farthest));
+        DWORD texture = BG_TEX_ID(source.tags[face]);
+        int width = 1, height = 1;
+        imported.tags[face] = source.tags[face];
+        if (clear)
+        {
+            source.materials.faces[face].slot = untextured;
+            imported.tags[face] = (source.tags[face] & ~BG_TEX_ID_MASK) | BG_TEX_NONE;
+            imported.rebind[face] = texture != BG_TEX_NONE;
+            count += imported.rebind[face];
+        }
+        /* Retain native S/T on untouched textured faces, including reflection
+         * coordinates. Cleared faces keep their stored UVs for later reuse. */
+        if (!clear && texture != BG_TEX_NONE && !TexGetProjectImageSize(project, texture, &width, &height))
+        { *why = "A model image is unavailable in this project."; goto done; }
+        for (DWORD k = 0; k < 3; k++)
+        {
+            DWORD corner = face * 3 + k;
+            imported.sourcevertices[corner] = corner;
+            imported.vertices[corner] = source.vertices[corner];
+            imported.vertices[corner].s /= width; imported.vertices[corner].t /= height;
+        }
+    }
+    if (!count) { *why = ""; ok = TRUE; goto done; }
+    /* Compact only unused slots. Other LODs retain their assignments even
+     * when an imported slot originally spanned both LODs. */
+    memset(slots, 0xff, (size_t)source.materials.count * sizeof(*slots));
+    for (DWORD face = 0; face < source.count; face++) slots[source.materials.faces[face].slot] = 0;
+    DWORD used = 0;
+    for (DWORD slot = 0; slot < source.materials.count; slot++)
+        if (slots[slot] != 0xffffffffu)
+        { slots[slot] = used; source.materials.slots[used++] = source.materials.slots[slot]; }
+    for (DWORD face = 0; face < source.count; face++)
+        source.materials.faces[face].slot = slots[source.materials.faces[face].slot];
+    source.materials.count = used;
+    if (!ModelCompileImport(data, size, &source, &imported, project, &compiled, &compiledsize, why)
+        || !ModelMaterialsAttach(&compiled, &compiledsize, &source.materials, why)
+        || !ModelReadSource(compiled, compiledsize, &check, why)) goto done;
+    if (check.count != source.count)
+    { *why = "Removing textures changed the model's geometry."; goto done; }
+    if (change)
+    {
+        step.after = malloc(compiledsize);
+        if (!step.after) { *why = "Out of memory retaining model edit history."; goto done; }
+        memcpy(step.after, compiled, compiledsize);
+        step.afterSize = compiledsize; step.afterRevision = ModelDataHash(compiled, compiledsize);
+        step.before = data; data = NULL; step.beforeSize = size; step.beforeRevision = revision;
+    }
+    ok = RetainModel(project, name, basehash, compiled, compiledsize, why);
+    if (ok) { compiled = NULL; if (changed) *changed = count; }
+done:
+    if (ok && change) { *change = step; memset(&step, 0, sizeof(step)); }
+    ModelEditsFreeUVChange(&step);
+    free(data); free(compiled); free(slots); ModelFreeSource(&source); ModelFreeSource(&check);
+    GltfFreeModelImport(&imported); return ok;
 }
 
 BOOL ModelEditsSetMaterial(const char *project,const char *name,DWORD revision,

@@ -89,7 +89,10 @@ this import does not recalculate model lighting or accept new normals.
 Exports separate native draw parts/material groups into objects. Distant
 character LOD objects are labeled **(distant LOD)**. Edit those too when a change
 should also appear at a distance; their topology can differ from the closest
-LOD. The GEditor character preview continues to show the closest LOD. The
+LOD. The Model Editor's **LOD** selector previews **High LOD**, **Low LOD**, or
+**All LODs**. High/low previews include geometry shared between both distances;
+All LODs overlays every authored variant. The main level viewport continues to
+show the closest character LOD. The
 import footer counts all exported LODs, while the viewport counts displayed
 geometry.
 
@@ -129,6 +132,32 @@ Import, save, and test the new ROM on N64 to measure the effect on overdraw.
 Unused texture images remain in the project images folder, GEditor's image
 browser and the ROM. Removing a model's texture usage does not delete any
 shared texture asset. Edited glTF exports embed the textures they still use.
+
+## Removing textures from a LOD
+
+Choose **Low LOD**, then click **Make LOD untextured**. This clears texture
+bindings on that LOD, combines its cleared material slots into **No Texture**,
+and removes slots that no remaining faces use. Vertex colors, native lighting
+normals, geometry, UVs, animation bindings and distance thresholds stay intact.
+The materials list and Select all follow the displayed LOD. Export Model still
+exports every LOD so a later import retains the complete model.
+
+**Include shared faces** starts unchecked. Leave it unchecked to preserve the
+high LOD's appearance. Check it to clear textures from every visible low-LOD
+face, including geometry also used by the high LOD. For CtrevguardZ, the low
+preview has 174 triangles: 116 low-only triangles and 58 shared triangles.
+The shared checkbox affects this bulk command, not individual material drops
+or vertex edits, which still affect every use of their native slot/vertex.
+
+The command is undoable with Ctrl+Z and redoable with Ctrl+Y. Save Project keeps
+the changes and includes them in Create ROM. Removed texture loads are omitted
+from the affected native display lists; shared image assets remain available
+elsewhere in the project. Models without LOD variants use the same command on
+their complete model. All LODs applies it to every variant.
+
+`python3 tools/geditor/tests/model_lods/run.py` checks LOD isolation, shared-face
+handling, native geometry/color/UV preservation, material cleanup, undo/redo,
+save/reopen and the ROM replacement path.
 
 ## Editing model UVs in GEditor
 
