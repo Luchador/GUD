@@ -328,7 +328,7 @@ static void GEditorRefreshSelectionInspector(void)
     }
     else if (ViewportGetSelectedPad(g_Viewport, &padref))
     {
-        RightPanelSetSetupPad(g_RightPanel, &g_CurrentSetup, &padref);
+        RightPanelSetSetupPad(g_RightPanel, &g_CurrentSetup, &padref, g_Project.dir);
     }
     else if (stancount > 0)
     {
@@ -4619,6 +4619,64 @@ fail:
     GEditorRefreshHistoryMenu(hwnd);
     return FALSE;
 }
+static BOOL GEditorCreateBoundPadModel(HWND hwnd, const RightPanelPadModel *request)
+{
+    EditHistoryTransaction transaction = {0};
+    SetupObjectGeometry objects = {0};
+    SetupPadRef ref;
+    const char *why = "", *restorewhy = "";
+    DWORD selection;
+    BOOL found = FALSE;
+    if (!request || g_CurrentLevelIndex == GEDITOR_NO_LEVEL
+        || request->document != (ULONG_PTR)g_CurrentSetup.data
+        || !ViewportGetSelectedPad(g_Viewport, &ref) || !ref.bound
+        || !request->pad.bound || ref.index != request->pad.index) { return FALSE; }
+    if (!SetupFileCanAddBoundPadModel(&g_CurrentSetup, ref.index, &why)) { goto fail; }
+    ViewportCancelTransform(g_Viewport);
+    if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup,
+        "Create Object on Bound Pad", &transaction, &why)) { goto fail; }
+    if (!SetupFileAddBoundPadModel(&g_CurrentSetup, ref.index, request->modelid, &selection, &why)) { goto rollback; }
+    /* Resolve the existing anchor without moving or duplicating its pad. */
+    if (g_CurrentStan.data)
+    {
+        const SetupPad *pad = &g_CurrentSetup.boundpads[ref.index].pad;
+        float point[3];
+        char name[16];
+        for (int axis = 0; axis < 3; axis++) { point[axis] = pad->pos[axis] / g_CurrentBgDocument.levelscale; }
+        if (!StanResolveMovedPadName(&g_CurrentStan, pad->stanname, point, point, name))
+        { why = "This bound pad cannot be resolved to a Stan tile. Move its anchor over a walkable floor."; goto rollback; }
+        if (!SetupFileSetPadStanName(&g_CurrentSetup, &ref, name, &why)) { goto rollback; }
+    }
+    if (!ObjectLoadSetupGeometry(g_Project.dir, &g_CurrentSetup, &g_CurrentStan,
+        g_CurrentBgDocument.levelscale, &objects, &why)) { goto rollback; }
+    for (DWORD i = 0; i < objects.tricount; i++)
+    { if (objects.objectindices[i] == selection) { found = TRUE; break; } }
+    if (!found)
+    {
+        why = "The model could not be placed on this pad. Check its bounds, Stan link and model files.";
+        goto rollback;
+    }
+    if (!GEditorRebuildCurrentViewportWithObjects(&objects, &why)
+        || !EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+            &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    ObjectGeometryFree(&g_CurrentObjects); g_CurrentObjects = objects;
+    RightPanelShowObjects(g_RightPanel);
+    ViewportSetTool(g_Viewport, EDITOR_TOOL_FACE_SELECT);
+    ToolToolbarSetTool(g_ToolToolbar, ViewportGetTool(g_Viewport));
+    ViewportSelectSetupModel(g_Viewport, selection);
+    GEditorRefreshHistoryMenu(hwnd);
+    SetFocus(g_Viewport);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    ObjectGeometryFree(&objects);
+    GEditorReloadCurrentObjectsAndViewport(&restorewhy);
+fail:
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    GEditorRefreshHistoryMenu(hwnd);
+    return FALSE;
+}
+
 static BOOL GEditorSetCharacterWeapon(HWND hwnd, const SetupCharacterWeaponEdit *edit)
 {
     EditHistoryTransaction transaction = {0};
@@ -5196,6 +5254,13 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         GEditorRefreshSelectionDetails();
         /* Aim guides read the target pad from the live setup on each draw. */
         if (ok) { ViewportRedraw(g_Viewport); }
+        return ok;
+    }
+
+    case RIGHTPANEL_WM_BOUND_PAD_MODEL:
+    {
+        BOOL ok = GEditorCreateBoundPadModel(hwnd, (const RightPanelPadModel *)lparam);
+        GEditorRefreshSelectionDetails();
         return ok;
     }
 

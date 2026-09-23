@@ -813,12 +813,9 @@ static void ObjectPropertiesApplyAmmoChoice(HWND hwnd, ObjectPropertiesState *st
     }
 }
 
-static BOOL ObjectPropertiesLoadModels(ObjectPropertiesState *state, const char *projectdir)
+BOOL ObjectPropertiesFillModelList(HWND combo, const char *projectdir)
 {
-    HWND combo = state->controls[OBJECT_MODEL];
     if (!projectdir) { projectdir = ""; }
-    if (!lstrcmpi(projectdir, state->projectdir) && state->newmodelcount==NewPropsCount()) { return TRUE; }
-    state->updating = TRUE;
     SendMessage(combo, CB_RESETCONTENT, 0, 0);
     for (int model = 0; *projectdir && model<CUSTOM_PROP_BASE+CUSTOM_PROP_CAPACITY; model++)
     {
@@ -832,12 +829,23 @@ static BOOL ObjectPropertiesLoadModels(ObjectPropertiesState *state, const char 
         attributes = GetFileAttributes(path);
         if (model<CUSTOM_PROP_BASE && (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_DIRECTORY))) { continue; }
         choice = (int)SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)name);
-        if (choice < 0) { state->updating = FALSE; state->projectdir[0] = '\0'; return FALSE; }
+        if (choice < 0) { SendMessage(combo, CB_RESETCONTENT, 0, 0); return FALSE; }
         SendMessage(combo, CB_SETITEMDATA, choice, model);
     }
+    return TRUE;
+}
+
+static BOOL ObjectPropertiesLoadModels(ObjectPropertiesState *state, const char *projectdir)
+{
+    BOOL loaded;
+    if (!projectdir) { projectdir = ""; }
+    if (!lstrcmpi(projectdir, state->projectdir) && state->newmodelcount==NewPropsCount()) { return TRUE; }
+    state->updating = TRUE;
+    loaded = ObjectPropertiesFillModelList(state->controls[OBJECT_MODEL], projectdir);
+    state->updating = FALSE;
+    if (!loaded) { state->projectdir[0] = '\0'; return FALSE; }
     lstrcpyn(state->projectdir, projectdir, sizeof(state->projectdir));
     state->newmodelcount=NewPropsCount();
-    state->updating = FALSE;
     return TRUE;
 }
 

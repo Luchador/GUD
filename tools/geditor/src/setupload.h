@@ -389,6 +389,14 @@ BOOL SetupFileAddModel(SetupFile *setup, BOOL character, int modelid,
                       float levelscale, const double position[3],
                       DWORD *selectionout, const char **reasonout);
 
+/* Create a solid ordinary prop fitted to an existing bound pad. The pad's
+ * index, placement, bounds and other references are retained. Atomic; no new
+ * pad is allocated. Occupied pads and render-only occluders are rejected. */
+BOOL SetupFileCanAddBoundPadModel(const SetupFile *setup, DWORD padindex,
+                                 const char **reasonout);
+BOOL SetupFileAddBoundPadModel(SetupFile *setup, DWORD padindex, int modelid,
+                              DWORD *selectionout, const char **reasonout);
+
 #define SETUP_DEFAULT_ARMOR_MODEL "PbodyarmourZ"
 /* Add a full-strength armor pickup at the stock 1.5x model scale, with a
  * private normal pad. Uses normal floor/support placement and can fall if

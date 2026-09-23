@@ -23,6 +23,7 @@
 #include "objectflags.h"
 #include "objectproperties.h"
 #include "characterproperties.h"
+#include "newprops.h"
 
 #define RIGHTPANEL_CLASS "GEditorRightPanel"
 
@@ -49,7 +50,9 @@ enum {
     RIGHTPANEL_ID_ROTATE_MODE,
     RIGHTPANEL_ID_SCALE_MODE,
     RIGHTPANEL_ID_PROPERTY_TABS,
-    RIGHTPANEL_ID_STAN_ROOM
+    RIGHTPANEL_ID_STAN_ROOM,
+    RIGHTPANEL_ID_PAD_MODEL,
+    RIGHTPANEL_ID_PAD_CREATE
 };
 
 typedef struct RightPanelState {
@@ -69,6 +72,12 @@ typedef struct RightPanelState {
     BOOL showingstanroom, updatingstanroom;
     DWORD stanroomcount;
     char stanroomtext[32];
+    HWND padmodellabel, padmodel, padcreate;
+    BOOL showingpadmodel, padavailable;
+    SetupPadRef padref;
+    ULONG_PTR paddocument;
+    char padproject[MAX_PATH];
+    int padnewmodelcount;
     HWND colorpicker;
     HWND faceproperties;
     HWND portalproperties;
@@ -161,12 +170,20 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
     {
         BOOL showroom = detailheight > 52 && state->showingstanroom
             && !state->vertexpaint && !state->flagstab;
+        BOOL showpad = detailheight >= 84 && state->showingpadmodel
+            && !state->vertexpaint && !state->flagstab;
         MoveWindow(state->stanroomlabel, RIGHTPANEL_MARGIN, detailtop, width, 18, TRUE);
         MoveWindow(state->stanroom, RIGHTPANEL_MARGIN, detailtop + 20, width, 240, TRUE);
         ShowWindow(state->stanroomlabel, showroom ? SW_SHOW : SW_HIDE);
         ShowWindow(state->stanroom, showroom ? SW_SHOW : SW_HIDE);
-        MoveWindow(state->details, RIGHTPANEL_MARGIN, detailtop + (showroom ? 52 : 0), width,
-                   max(0, detailheight - (showroom ? 52 : 0)), TRUE);
+        MoveWindow(state->padmodellabel, RIGHTPANEL_MARGIN, detailtop, width, 18, TRUE);
+        MoveWindow(state->padmodel, RIGHTPANEL_MARGIN, detailtop + 20, width, 300, TRUE);
+        MoveWindow(state->padcreate, RIGHTPANEL_MARGIN, detailtop + 50, width, 26, TRUE);
+        ShowWindow(state->padmodellabel, showpad ? SW_SHOW : SW_HIDE);
+        ShowWindow(state->padmodel, showpad ? SW_SHOW : SW_HIDE);
+        ShowWindow(state->padcreate, showpad ? SW_SHOW : SW_HIDE);
+        MoveWindow(state->details, RIGHTPANEL_MARGIN, detailtop + (showroom ? 52 : showpad ? 84 : 0), width,
+                   max(0, detailheight - (showroom ? 52 : showpad ? 84 : 0)), TRUE);
     }
     ShowWindow(state->details, detailheight > 0 && !state->vertexpaint && !state->flagstab && !state->showingfaces && !state->showingportals && !state->showingobjects && !state->showingcharacters ? SW_SHOW : SW_HIDE);
     MoveWindow(state->faceproperties, RIGHTPANEL_MARGIN, detailtop, width,
@@ -195,12 +212,13 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
 
 static void RightPanelShowFaceProperties(HWND panel, RightPanelState *state, BOOL show)
 {
-    if (state->showingfaces == show && !state->showingportals && !state->showingobjects && !state->showingstanroom && !state->showingcharacters) { return; }
+    if (state->showingfaces == show && !state->showingportals && !state->showingobjects && !state->showingstanroom && !state->showingcharacters && !state->showingpadmodel) { return; }
     ObjectPropertiesSetSelection(state->objectproperties, NULL, 0, NULL);
     CharacterPropertiesSetSelection(state->characterproperties, NULL, 0);
     state->showingcharacters = FALSE;
     state->showingobjects = FALSE;
     state->showingstanroom = FALSE;
+    state->showingpadmodel = FALSE;
     state->showingfaces = show;
     state->showingportals = FALSE;
     RightPanelLayout(panel, state);
@@ -486,6 +504,17 @@ static void RightPanelApplyStanRoom(HWND hwnd, RightPanelState *state, BOOL from
     SendMessage(GetParent(hwnd), RIGHTPANEL_WM_STAN_ROOM_CHANGED, room, 0);
 }
 
+static void RightPanelCreatePadModel(HWND hwnd, RightPanelState *state)
+{
+    RightPanelPadModel request;
+    int choice = (int)SendMessage(state->padmodel, CB_GETCURSEL, 0, 0);
+    if (!state->showingpadmodel || !state->padavailable || choice < 0) { return; }
+    request.pad = state->padref;
+    request.document = state->paddocument;
+    request.modelid = (int)SendMessage(state->padmodel, CB_GETITEMDATA, choice, 0);
+    SendMessage(GetParent(hwnd), RIGHTPANEL_WM_BOUND_PAD_MODEL, 0, (LPARAM)&request);
+}
+
 static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
                                            WPARAM wparam, LPARAM lparam)
 {
@@ -581,6 +610,16 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         SendMessage(state->stanroomlabel, WM_SETFONT, (WPARAM)font, TRUE);
         SendMessage(state->stanroom, WM_SETFONT, (WPARAM)font, TRUE);
         SendMessage(state->stanroom, CB_LIMITTEXT, 10, 0);
+        state->padmodellabel = CreateWindowEx(0, "STATIC", "Model", WS_CHILD | SS_NOPREFIX,
+            0, 0, 1, 1, hwnd, NULL, cs->hInstance, NULL);
+        state->padmodel = CreateWindowEx(0, "COMBOBOX", "",
+            WS_CHILD | WS_TABSTOP | WS_VSCROLL | CBS_DROPDOWNLIST | CBS_SORT,
+            0, 0, 1, 300, hwnd, (HMENU)(INT_PTR)RIGHTPANEL_ID_PAD_MODEL, cs->hInstance, NULL);
+        state->padcreate = CreateWindowEx(0, "BUTTON", "Create Object", WS_CHILD | WS_TABSTOP | BS_PUSHBUTTON,
+            0, 0, 1, 1, hwnd, (HMENU)(INT_PTR)RIGHTPANEL_ID_PAD_CREATE, cs->hInstance, NULL);
+        SendMessage(state->padmodellabel, WM_SETFONT, (WPARAM)font, TRUE);
+        SendMessage(state->padmodel, WM_SETFONT, (WPARAM)font, TRUE);
+        SendMessage(state->padcreate, WM_SETFONT, (WPARAM)font, TRUE);
         state->colorpicker = ColorPickerCreate(hwnd, cs->hInstance);
         state->faceproperties = FacePropertiesCreate(hwnd, cs->hInstance);
         state->portalproperties = PortalPropertiesCreate(hwnd, cs->hInstance);
@@ -603,6 +642,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         if (state->bgprimary == NULL || state->bgsecondary == NULL
             || state->stan == NULL || state->stanopacity == NULL || state->stanopacitylabel == NULL
             || state->portals == NULL || state->stanroom == NULL || state->stanroomlabel == NULL
+            || state->padmodellabel == NULL || state->padmodel == NULL || state->padcreate == NULL
             || state->positions[0] == NULL || state->positions[1] == NULL
             || state->positions[2] == NULL || state->objects == NULL || state->details == NULL
             || state->movemode == NULL || state->rotatemode == NULL || state->scalebutton == NULL
@@ -660,6 +700,14 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         break;
 
     case WM_COMMAND:
+        if (state && LOWORD(wparam) == RIGHTPANEL_ID_PAD_MODEL && HIWORD(wparam) == CBN_SELCHANGE)
+        {
+            EnableWindow(state->padcreate, state->padavailable
+                && SendMessage(state->padmodel, CB_GETCURSEL, 0, 0) != CB_ERR);
+            return 0;
+        }
+        if (state && LOWORD(wparam) == RIGHTPANEL_ID_PAD_CREATE && HIWORD(wparam) == BN_CLICKED)
+        { RightPanelCreatePadModel(hwnd, state); return 0; }
         if (state && LOWORD(wparam) == RIGHTPANEL_ID_STAN_ROOM
             && HIWORD(wparam) == CBN_SELENDOK && !state->updatingstanroom)
         { RightPanelApplyStanRoom(hwnd, state, TRUE); return 0; }
@@ -963,6 +1011,13 @@ BOOL RightPanelHandleMessage(HWND panel, MSG *message)
         if (message->wParam == VK_ESCAPE)
         { SetWindowText(state->stanroom, state->stanroomtext); return TRUE; }
     }
+    if (state->showingpadmodel && IsWindowVisible(state->padmodel)
+        && (focus == state->padmodel || focus == state->padcreate)
+        && message->wParam == VK_RETURN)
+    {
+        if (SendMessage(state->padmodel, CB_GETDROPPEDSTATE, 0, 0)) { return FALSE; }
+        RightPanelCreatePadModel(panel, state); return TRUE;
+    }
     isposition = focus == state->positions[0] || focus == state->positions[1]
             || focus == state->positions[2];
     if (message->wParam == VK_TAB)
@@ -1142,11 +1197,13 @@ void RightPanelSetSetupObject(HWND panel, const SetupFile *setup,
     CharacterPropertiesSetSelection(state->characterproperties, NULL, 0);
     state->showingcharacters = FALSE;
     state->showingobjects = TRUE;
+    state->showingpadmodel = FALSE;
     RightPanelLayout(panel, state);
 }
 
 
-void RightPanelSetSetupPad(HWND panel, const SetupFile *setup, const SetupPadRef *ref)
+void RightPanelSetSetupPad(HWND panel, const SetupFile *setup, const SetupPadRef *ref,
+                          const char *projectdir)
 {
     RightPanelState *state = RightPanelGetState(panel);
     const SetupPad *pad;
@@ -1176,7 +1233,35 @@ void RightPanelSetSetupPad(HWND panel, const SetupFile *setup, const SetupPadRef
             "Hides fully covered props and characters during rendering.\r\n"
             "Delete removes this occluder.", (unsigned long)ref->index);
     }
+    /* An ordinary selection refresh must not hide the active model picker. */
+    state->showingpadmodel = FALSE;
     RightPanelShowFaceProperties(panel, state, FALSE);
+    if (ref->bound && !pad->occluder && !pad->deleted)
+    {
+        const char *why = "";
+        if (!projectdir) { projectdir = ""; }
+        state->padavailable = SetupFileCanAddBoundPadModel(setup, ref->index, &why);
+        if (lstrcmpi(projectdir, state->padproject) || state->padnewmodelcount != NewPropsCount())
+        {
+            if (ObjectPropertiesFillModelList(state->padmodel, projectdir))
+            {
+                lstrcpyn(state->padproject, projectdir, sizeof(state->padproject));
+                state->padnewmodelcount = NewPropsCount();
+            }
+            else { state->padproject[0] = '\0'; why = "The model list could not be loaded."; }
+        }
+        state->showingpadmodel = TRUE;
+        state->padref = *ref; state->paddocument = (ULONG_PTR)setup->data;
+        EnableWindow(state->padmodel, state->padavailable);
+        EnableWindow(state->padcreate, state->padavailable
+            && SendMessage(state->padmodel, CB_GETCURSEL, 0, 0) != CB_ERR);
+        if (*why)
+        {
+            size_t used = strlen(state->detailtext);
+            snprintf(state->detailtext + used, sizeof(state->detailtext) - used, "\r\n\r\n%s", why);
+        }
+    }
+    RightPanelLayout(panel, state);
     SetWindowText(state->details, state->detailtext);
     InvalidateRect(panel, NULL, FALSE);
 }
@@ -1217,6 +1302,7 @@ void RightPanelSetSetupCharacter(HWND panel, const SetupFile *setup, DWORD index
     ObjectPropertiesSetSelection(state->objectproperties, NULL, 0, NULL);
     state->showingfaces = state->showingportals = state->showingstanroom = state->showingobjects = FALSE;
     state->showingcharacters = TRUE;
+    state->showingpadmodel = FALSE;
     RightPanelLayout(panel, state);
 }
 
@@ -1286,6 +1372,7 @@ void RightPanelSetPortal(HWND panel, const BgDocument *document, DWORD index)
     state->showingcharacters = FALSE;
     state->showingobjects = FALSE;
     state->showingfaces = state->showingstanroom = FALSE; state->showingportals = TRUE;
+    state->showingpadmodel = FALSE;
     RightPanelLayout(panel, state);
 }
 

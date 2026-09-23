@@ -2212,6 +2212,95 @@ BOOL SetupFileAddModel(SetupFile *setup, BOOL character, int modelid, float leve
         modelid, levelscale, position, NULL, NULL, selectionout, reasonout);
 }
 
+BOOL SetupFileCanAddBoundPadModel(const SetupFile *setup, DWORD padindex,
+                                 const char **reasonout)
+{
+    const SetupBoundPad *bound;
+    DWORD table;
+    *reasonout = "Select an available bound pad.";
+    if (!setup || !setup->data || setup->size < SETUP_HEADER_SIZE || setup->size > SETUP_FILE_MAX
+        || !setup->boundpads || padindex >= setup->boundpadcount
+        || (setup->objectcount && !setup->objects)) { return FALSE; }
+    bound = &setup->boundpads[padindex];
+    if (bound->pad.deleted) { return FALSE; }
+    if (bound->pad.occluder)
+    { *reasonout = "Occluders cannot be used as object placement pads."; return FALSE; }
+    if (padindex > 22767)
+    { *reasonout = "This bound pad index is too large for an ordinary object."; return FALSE; }
+    table = SetupRead32(setup->data + SETUP_BOUNDPAD_POINTER);
+    if (table < SETUP_HEADER_SIZE || (table & 3) || table > setup->size
+        || padindex >= (setup->size - table) / SETUP_BOUNDPAD_SIZE) { return FALSE; }
+    for (DWORD i = 0; i < setup->objectcount; i++)
+    {
+        SetupPadRef ref;
+        if (setup->objects[i].type != PROPDEF_DOOR
+            && (setup->objects[i].flags & (PROPFLAG_ASSIGNEDTOCHR | PROPFLAG_INSIDEANOTHEROBJ))) { continue; }
+        if (SetupFileGetModelPad(setup, i, &ref) && ref.bound && ref.index == padindex)
+        { *reasonout = "This pad already has an object. Select that object to change its model."; return FALSE; }
+    }
+    *reasonout = "";
+    return TRUE;
+}
+
+BOOL SetupFileAddBoundPadModel(SetupFile *setup, DWORD padindex, int modelid,
+                              DWORD *selectionout, const char **reasonout)
+{
+    SetupFile copy = {0};
+    DWORD start, end, commands = 0, reused, unused, newstart, record, size;
+    unsigned char *data;
+    if (!SetupFileCanAddBoundPadModel(setup, padindex, reasonout)) { return FALSE; }
+    *reasonout = "Choose an available object model.";
+    if (!selectionout || modelid < 0 || modelid > 32767
+        || !ModelGetPropDefinition(modelid, NULL, NULL)) { return FALSE; }
+    if (!SetupFileClone(setup, &copy, reasonout)) { return FALSE; }
+    /* Reuse an unreferenced tombstone where possible. All command and pad
+     * indices stay stable, including door-specific raw bound-pad indices. */
+    reused = SetupFindFreeCommand(&copy, PROPDEF_PROP, &unused);
+    start = SetupRead32(copy.data + SETUP_OBJECT_POINTER); end = start;
+    if (start && (start < SETUP_HEADER_SIZE || (start & 3) || start > copy.size - 4)) { goto malformed; }
+    while (start && copy.data[end + 3] != SETUP_PROP_END)
+    {
+        DWORD length = SetupObjectWordCount(copy.data[end + 3]) * 4;
+        if (++commands >= SETUP_OBJECT_MAX - (reused ? 0u : 1u)
+            || length > copy.size - end || copy.size - end - length < 4) { goto malformed; }
+        end += length;
+    }
+    newstart = (copy.size + 3u) & ~3u;
+    record = newstart + (reused ? reused - start : end - start);
+    size = newstart + end - start + (reused ? 0 : 0x80u) + 4;
+    if (size > SETUP_FILE_MAX) { *reasonout = "The setup size limit has been reached."; goto fail; }
+    data = calloc(size, 1);
+    if (!data) { *reasonout = "Out of memory creating the object."; goto fail; }
+    memcpy(data, copy.data, copy.size);
+    memcpy(data + newstart, copy.data + start, end - start);
+    memset(data + record, 0, 0x80);
+    SetupWrite32(data + SETUP_OBJECT_POINTER, newstart);
+    SetupWrite32(data + size - 4, SETUP_PROP_END);
+    SetupWrite32(data + record, (256u << 16) | PROPDEF_PROP);
+    SetupWrite32(data + record + 4, ((DWORD)modelid << 16) | (padindex + 10000u));
+    /* Use the same per-axis fitting as scaled props. Keep the authored
+     * height rather than snapping this existing volume onto the floor. */
+    SetupWrite32(data + record + 8, PROPFLAG_FORCE_COLLISIONS | PROPFLAG_ABSOLUTEPOSITION
+        | PROPFLAG_INAIR | PROPFLAG_SCALE_TO_X_BOUNDS | PROPFLAG_SCALE_TO_Y_BOUNDS | PROPFLAG_SCALE_TO_Z_BOUNDS);
+    SetupWrite32(data + record + 0x74, 1000u << 16);
+    free(copy.data); copy.data = data; copy.size = size;
+    free(copy.objects); copy.objects = NULL; copy.objectcount = 0;
+    free(copy.characters); copy.characters = NULL; copy.charactercount = 0;
+    if (!SetupParseObjects(&copy, reasonout)) { goto fail; }
+    for (DWORD i = 0; i < copy.objectcount; i++)
+    {
+        if (copy.objects[i].sourceoffset != record) { continue; }
+        copy.dirty = TRUE;
+        SetupFileFree(setup); *setup = copy; *selectionout = i;
+        return TRUE;
+    }
+malformed:
+    *reasonout = "The setup command list is malformed or full.";
+fail:
+    SetupFileFree(&copy);
+    return FALSE;
+}
+
 BOOL SetupFileAddArmor(SetupFile *setup, int modelid, float levelscale,
                        const double position[3], DWORD *selectionout,
                        const char **reasonout)

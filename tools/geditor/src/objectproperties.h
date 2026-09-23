@@ -4,6 +4,9 @@
 #include <windows.h>
 #include "setupload.h"
 
+/* Shared project model choices, including newly imported props. */
+BOOL ObjectPropertiesFillModelList(HWND combo, const char *projectdir);
+
 /* Synchronous, stack-owned SetupObjectPropertyEdit, forwarded by RightPanel.
  * The frame owns validation against selection, history, and scene rebuilding. */
 #define OBJECTPROPERTIES_WM_CHANGED (WM_APP + 46)

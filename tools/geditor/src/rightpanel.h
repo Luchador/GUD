@@ -15,6 +15,12 @@
 #define RIGHTPANEL_WM_STAN_OPACITY (WM_APP + 10)
 /* Assign all selected stan faces to the existing room in wparam. */
 #define RIGHTPANEL_WM_STAN_ROOM_CHANGED (WM_APP + 73)
+#define RIGHTPANEL_WM_BOUND_PAD_MODEL (WM_APP + 91)
+typedef struct RightPanelPadModel {
+    SetupPadRef pad;
+    ULONG_PTR document;
+    int modelid;
+} RightPanelPadModel;
 
 /* Synchronous absolute-position request. axismask marks edited X/Y/Z fields;
    the frame translates the selection's average position, then refreshes it. */
@@ -68,7 +74,8 @@ void RightPanelSetSetupObject(HWND panel, const SetupFile *setup,
 /* Clear with NULL whenever the selection is not an ObjectRecord. */
 void RightPanelSetObjectFlags(HWND panel, const SetupFile *setup, const DWORD *ids, DWORD count);
 void RightPanelSetSetupCharacter(HWND panel, const SetupFile *setup, DWORD index);
-void RightPanelSetSetupPad(HWND panel, const SetupFile *setup, const SetupPadRef *ref);
+void RightPanelSetSetupPad(HWND panel, const SetupFile *setup, const SetupPadRef *ref,
+                          const char *projectdir);
 void RightPanelSetSetupMarker(HWND panel, const SetupMarkerRef *ref);
 void RightPanelSetPortal(HWND panel, const BgDocument *document, DWORD index);
 
