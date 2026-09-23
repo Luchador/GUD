@@ -406,6 +406,35 @@ done:
     free(data); free(copy); return ok;
 }
 
+BOOL ModelEditsSeparateLods(const char *project, const char *name, DWORD revision,
+    ModelUVChange *change, DWORD *separated, const char **why)
+{
+    unsigned char *data=NULL,*compiled=NULL;
+    DWORD size,basehash,compiledsize,count=0;
+    ModelSource source={0};ModelUVChange step={0};BOOL ok=FALSE;
+    if (change) memset(change,0,sizeof(*change));
+    if (separated) *separated=0;
+    if (!LoadSource(project,name,&data,&size,&basehash,why)) goto done;
+    if (ModelDataHash(data,size)!=revision)
+    { *why="The model changed. Reload it before separating its LODs.";goto done; }
+    if (!ModelReadSource(data,size,&source,why) || !ModelMaterialsEnsure(&source,project,why)
+        || !ModelCompileSeparateLods(data,size,&source,&compiled,&compiledsize,&count,why)) goto done;
+    if (!count) { ok=TRUE;goto done; }
+    if (change)
+    {
+        step.after=malloc(compiledsize);
+        if (!step.after) { *why="Out of memory retaining model LOD history.";goto done; }
+        memcpy(step.after,compiled,compiledsize);
+        step.afterSize=compiledsize;step.afterRevision=ModelDataHash(compiled,compiledsize);
+        step.before=data;data=NULL;step.beforeSize=size;step.beforeRevision=revision;
+    }
+    ok=RetainModel(project,name,basehash,compiled,compiledsize,why);
+    if (ok) { compiled=NULL;if (separated) *separated=count; }
+done:
+    if (ok && change) { *change=step;memset(&step,0,sizeof(step)); }
+    ModelEditsFreeUVChange(&step);ModelFreeSource(&source);free(data);free(compiled);return ok;
+}
+
 BOOL ModelEditsMakeUntextured(const char *project, const char *name, DWORD revision,
     ModelLod lod, BOOL shared, ModelUVChange *change, DWORD *changed, const char **why)
 {

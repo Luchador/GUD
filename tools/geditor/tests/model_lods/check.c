@@ -85,6 +85,137 @@ static void CheckEdit(const ModelSource *before,const unsigned char *base,ModelL
     free(used);ModelFreeSource(&after);
 }
 
+static DWORD Word(const unsigned char *p)
+{ return (DWORD)p[0]<<24 | (DWORD)p[1]<<16 | (DWORD)p[2]<<8 | p[3]; }
+static DWORD MatrixNode(const unsigned char *data,DWORD node)
+{
+    for (int i=0;node && i<512;i++,node=Word(data+node+8)&0xffffffu)
+    { unsigned type=data[node+1];if (type==1 || type==2 || type==3 || type==0x15) return node; }
+    return 0;
+}
+static BOOL Visible(const unsigned char *data,DWORD node,float distance)
+{
+    for (int i=0;node && i<512;i++,node=Word(data+node+8)&0xffffffu)
+    {
+        if (data[node+1]!=8) continue;
+        DWORD ro=Word(data+node+4)&0xffffffu,a=Word(data+ro),b=Word(data+ro+4);
+        float minimum,maximum;memcpy(&minimum,&a,4);memcpy(&maximum,&b,4);
+        if ((minimum!=0 && distance<=minimum) || distance>maximum) return FALSE;
+    }
+    return TRUE;
+}
+static void Separate(const ModelSource *before,const unsigned char *base,DWORD basesize,DWORD revision)
+{
+    ModelUVChange step={0},clear={0};DWORD separated;
+    OK(ModelEditsSeparateLods(project,name,revision,&step,&separated,&why));
+    if (!before->haslods) { OK(!separated && !step.before && !ModelEditsHasUnsaved());return; }
+    OK(separated==58 && step.before && step.after);
+    OK(!ModelEditsSeparateLods(project,name,revision,NULL,NULL,&why));
+    ModelSource after={0};DWORD rev,size;OK(ModelEditsReadSource(project,name,&after,&rev,&why));
+    const unsigned char *data=ModelEditsGetData(project,name,&size,&why);OK(data);
+    OK(after.count==493 && after.root==before->root && after.lodsplit==before->lodsplit);
+    for (DWORD f=0;f<after.count;f++) OK(!(after.faces[f].closest && after.faces[f].farthest));
+    for (int lod=MODEL_LOD_HIGH;lod<=MODEL_LOD_LOW;lod++)
+    {
+        DWORD b=0,seen=0;
+        for (DWORD a=0;a<after.count;a++) if (ModelSourceFaceInLod(&after,a,lod))
+        {
+            while (b<before->count && !ModelSourceFaceInLod(before,b,lod)) b++;
+            OK(b<before->count);seen++;
+            OK(before->tags[b]==after.tags[a] && before->flags[b]==after.flags[a]);
+            OK(BgMaterialEqual(&before->faces[b].material,&after.faces[a].material));
+            OK(!memcmp(before->materials.faces[b].uv,after.materials.faces[a].uv,6*sizeof(float)));
+            DWORD oldnode=before->lists[before->faces[b].list].node,newnode=after.lists[after.faces[a].list].node;
+            OK(MatrixNode(base,oldnode)==MatrixNode(data,newnode));
+            for (DWORD k=0;k<3;k++)
+            {
+                OK(!memcmp(&before->vertices[b*3+k],&after.vertices[a*3+k],sizeof(BgVertex)));
+                OK(!memcmp(base+before->vertexoffsets[b*3+k],data+after.vertexoffsets[a*3+k],16));
+            }
+            if (lod==MODEL_LOD_LOW && before->faces[b].closest)
+            {
+                OK(oldnode!=newnode);
+                OK(after.materials.faces[a].slot>=before->materials.count);
+                const ModelSourceList *old=&before->lists[before->faces[b].list],*copy=&after.lists[after.faces[a].list];
+                OK(old->vertexbase!=copy->vertexbase && copy->pointusagepointer);
+                DWORD oldro=Word(base+oldnode+4)&0xffffffu,newro=Word(data+newnode+4)&0xffffffu;
+                DWORD nv=(DWORD)base[oldro+12]*256+base[oldro+13],np=(DWORD)base[oldro+14]*256+base[oldro+15];
+                DWORD oldpoints=Word(base+oldro+16)&0xffffffu,newpoints=Word(data+newro+16)&0xffffffu;
+                DWORD oldlinks=Word(base+oldro+20)&0xffffffu,newlinks=Word(data+newro+20)&0xffffffu;
+                OK(oldpoints!=newpoints && oldlinks!=newlinks);
+                OK(!memcmp(base+oldpoints,data+newpoints,np*16)); /* All stock links target unmodified neighboring nodes. */
+                OK(!memcmp(base+oldlinks,data+newlinks,nv*2));
+            }
+            b++;
+        }
+        OK(seen==(lod==MODEL_LOD_HIGH?319:174));
+    }
+    /* Adjacent joint/LOD data must not alias any low-LOD vertex storage. */
+    for (DWORD a=0;a<after.count;a++) if (after.faces[a].closest)
+        for (DWORD b=0;b<after.count;b++) if (after.faces[b].farthest)
+            for (DWORD k=0;k<3;k++) for (DWORD j=0;j<3;j++)
+                OK(after.vertexoffsets[a*3+k]!=after.vertexoffsets[b*3+j]);
+    float distances[]={0,before->lodsplit-1,before->lodsplit,before->lodsplit+1,before->lodsplit*2};
+    for (unsigned i=0;i<sizeof(distances)/sizeof(*distances);i++)
+    {
+        DWORD a=0,b=0;
+        for (DWORD f=0;f<before->count;f++) a+=Visible(base,before->lists[before->faces[f].list].node,distances[i]);
+        for (DWORD f=0;f<after.count;f++) b+=Visible(data,after.lists[after.faces[f].list].node,distances[i]);
+        OK(a==b); /* No double draw or hole at the transition boundary. */
+    }
+    /* Character posing still uses the original skeleton and attachment nodes. */
+    unsigned short angles[45];for (int i=0;i<45;i++) angles[i]=(unsigned short)(i*137);
+    BgVertex *posed[2];unsigned short *tags;BgRenderFlags *flags;DWORD triangles[2];
+    ModelCharacterAttachments attachments[2];
+    posed[0]=ModelLoadCharacterGeometry(base,basesize,&triangles[0],&tags,&flags,&why);free(tags);free(flags);
+    posed[1]=ModelLoadCharacterGeometry(data,size,&triangles[1],&tags,&flags,&why);free(tags);free(flags);
+    OK(posed[0] && posed[1] && triangles[0]==triangles[1]);
+    OK(ModelApplyCharacterPose(base,basesize,7,angles,FALSE,posed[0],triangles[0],&attachments[0]));
+    OK(ModelApplyCharacterPose(data,size,7,angles,FALSE,posed[1],triangles[1],&attachments[1]));
+    OK(!memcmp(posed[0],posed[1],triangles[0]*3*sizeof(BgVertex)));
+    OK(!memcmp(&attachments[0],&attachments[1],sizeof(attachments[0])));free(posed[0]);free(posed[1]);
+    DWORD uvface=0;while (uvface<after.count && !after.faces[uvface].farthest) uvface++;
+    OK(uvface<after.count);
+    ModelUVEdit uvedit={.corner=uvface*3};ModelUVChange uv={0};
+    memcpy(uvedit.uv,after.materials.faces[uvface].uv,sizeof(uvedit.uv));uvedit.uv[0]+=.25f;
+    OK(ModelEditsSetUVs(project,name,rev,&uvedit,1,&uv,&why) && uv.before);
+    OK(ModelEditsRestoreUVs(project,name,&uv,FALSE,&why));ModelEditsFreeUVChange(&uv);
+    OK(ModelEditsMakeUntextured(project,name,rev,MODEL_LOD_LOW,FALSE,&clear,&separated,&why));
+    OK(separated==174);CheckEdit(&after,step.after,MODEL_LOD_LOW,FALSE);
+    /* Paint a formerly shared boot vertex, then prove no high-LOD bytes changed. */
+    ModelSource painted={0};DWORD paintrev;OK(ModelEditsReadSource(project,name,&painted,&paintrev,&why));
+    DWORD lowface=0;while (lowface<painted.count && !painted.faces[lowface].farthest) lowface++;
+    OK(lowface<painted.count);
+    const unsigned char rgb[4]={16,24,32,255};ModelVertexPaint paint;
+    OK(ModelEditsSetVertexColor(project,name,paintrev,lowface*3,rgb,&paint,&why));
+    data=ModelEditsGetData(project,name,&size,&why);OK(data);
+    for (DWORD f=0;f<after.count;f++) if (after.faces[f].closest)
+        for (DWORD k=0;k<3;k++) OK(!memcmp(step.after+after.vertexoffsets[f*3+k],data+painted.vertexoffsets[f*3+k],16));
+    OK(ModelEditsRestoreVertexColor(project,name,&paint,FALSE,&why));ModelFreeSource(&painted);
+    OK(ModelEditsSave(project,&why));ModelEditsReset();
+    char path[MAX_PATH];snprintf(path,sizeof(path),"%s/roundtrip.gltf",project);
+    DWORD importedbefore,importedafter;
+    OK(ModelEditsExport(project,name,path,&why));
+    OK(ModelEditsImport(project,name,path,&importedbefore,&importedafter,&why));
+    OK(importedbefore==493 && importedafter==493 && !ModelEditsHasUnsaved());
+    unsigned char *replacement=NULL;DWORD length;
+    OK(ModelEditsReadReplacement(project,name,base,basesize,&replacement,&length,&why)==1);
+    ModelSource exported={0};OK(ModelReadSource(replacement,length,&exported,&why));
+    OK(exported.count==493 && exported.materials.count==0);
+    for (DWORD f=0;f<exported.count;f++)
+        OK(BG_TEX_ID(exported.tags[f])==(exported.faces[f].farthest?BG_TEX_NONE:BG_TEX_ID(after.tags[f])));
+    free(replacement);ModelFreeSource(&exported);
+    ModelUVChange noop={0};OK(ModelEditsSeparateLods(project,name,clear.afterRevision,&noop,&separated,&why));
+    OK(!separated && !noop.before && !ModelEditsHasUnsaved());
+    OK(ModelEditsRestoreUVs(project,name,&clear,FALSE,&why));
+    OK(ModelEditsRestoreUVs(project,name,&step,FALSE,&why));
+    data=ModelEditsGetData(project,name,&size,&why);OK(data && size==basesize && !memcmp(data,base,size));
+    OK(ModelEditsRestoreUVs(project,name,&step,TRUE,&why));
+    OK(ModelEditsRestoreUVs(project,name,&step,FALSE,&why));
+    ModelFreeSource(&after);ModelEditsFreeUVChange(&step);ModelEditsFreeUVChange(&clear);
+    puts("PASS: independent LOD meshes, materials, vertices, collision tables, skeleton/pose/attachments, transition boundaries, paint isolation, undo/redo and ROM export.");
+}
+
 int main(int argc,char **argv)
 {
     OK(argc==4);asset=argv[1];project=argv[2];name=argv[3];
@@ -101,12 +232,27 @@ int main(int argc,char **argv)
     else OK(!original.haslods && high==original.count && low==high);
     OK(!ModelSourceFaceInLod(&original,original.count,MODEL_LOD_LOW));
     printf("%s: high %lu, low %lu, shared %lu\n",name,(unsigned long)high,(unsigned long)low,(unsigned long)shared);
+    Separate(&original,base,basesize,revision);
     for (int include=0;include<2;include++)
     {
         ModelUVChange step={0};
         OK(ModelEditsMakeUntextured(project,name,revision,MODEL_LOD_LOW,include,&step,&changed,&why));
         OK(step.before && step.after && changed==low-(!include && original.haslods?shared:0));
         CheckEdit(&original,base,MODEL_LOD_LOW,include);
+        if (!include && original.haslods)
+        {
+            /* The user's current model has already had its low-only textures
+             * removed. Separation must preserve those pending edits too. */
+            ModelUVChange split={0};DWORD faces;
+            OK(ModelEditsSeparateLods(project,name,step.afterRevision,&split,&faces,&why) && faces==58);
+            ModelSource current={0};DWORD currentrev,hightextures=0,lowtextures=0;
+            OK(ModelEditsReadSource(project,name,&current,&currentrev,&why));
+            for (DWORD f=0;f<current.count;f++) if (BG_TEX_ID(current.tags[f])!=BG_TEX_NONE)
+            { hightextures+=current.faces[f].closest;lowtextures+=current.faces[f].farthest; }
+            OK(hightextures==319 && lowtextures==58);
+            ModelFreeSource(&current);
+            OK(ModelEditsRestoreUVs(project,name,&split,FALSE,&why));ModelEditsFreeUVChange(&split);
+        }
         OK(!ModelEditsMakeUntextured(project,name,revision,MODEL_LOD_LOW,include,NULL,NULL,&why));
         OK(ModelEditsRestoreUVs(project,name,&step,FALSE,&why));
         DWORD size;const unsigned char *data=ModelEditsGetData(project,name,&size,&why);

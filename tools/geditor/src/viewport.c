@@ -9229,6 +9229,16 @@ BOOL ViewportSelectBgEdges(HWND hwnd, const BgDocumentEdgeRef *edges, DWORD coun
     return TRUE;
 }
 
+void ViewportClearSelection(HWND hwnd)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    if (!state) return;
+    ViewportClearAllSelection(state);
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd, NULL, FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+}
+
 BOOL ViewportSelectBgFaces(HWND hwnd, const BgFaceRef *refs, DWORD count)
 {
     ViewportState *state = ViewportGetState(hwnd);

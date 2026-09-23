@@ -46,6 +46,7 @@ typedef struct ModelSourceFace {
 } ModelSourceFace;
 
 typedef struct ModelSourceList {
+    DWORD node; /* Owning mesh node, before runtime pointer promotion. */
     DWORD pointer, offset, end, vertexbase;
     DWORD vertexpointer; /* Native Vertices field; its count follows at +4. */
     DWORD pointusagepointer; /* Collision node's per-vertex blood-stain links. */
@@ -62,6 +63,8 @@ typedef struct ModelSource {
     ModelSourceFace *faces;
     ModelSourceList *lists;
     DWORD count, listcount;
+    DWORD root;
+    float lodsplit; /* Last authored positive transition, in native model units. */
     BOOL closestpreview;
     BOOL haslods;
     ModelMaterials materials;

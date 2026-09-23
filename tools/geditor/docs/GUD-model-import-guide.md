@@ -149,6 +149,28 @@ preview has 174 triangles: 116 low-only triangles and 58 shared triangles.
 The shared checkbox affects this bulk command, not individual material drops
 or vertex edits, which still affect every use of their native slot/vertex.
 
+To keep the high LOD textured while making the complete low LOD untextured:
+
+1. Choose **Low LOD**, then **Separate shared LOD geometry**.
+2. Click **Make LOD untextured**, with **Include shared faces** left unchecked.
+3. Paint the low LOD's vertices as desired, then **Save Project** and **Create ROM**.
+
+Separation creates independent low-LOD vertices, material slots and native draw
+lists for the shared parts. It preserves their current appearance, existing
+edits, joint bindings, attachment points and collision data. New distance
+branches use the model's last authored LOD transition; they add no animation
+matrices. Only one copy renders at a given distance. For CtrevguardZ, high/low
+previews remain 319/174 triangles, but All LODs now contains 493 stored triangles
+and neither preview has shared faces. Its low body can use zero textures while
+the high body retains its textures. Separately attached heads/weapons are their
+own models.
+
+Separation supports leaf display-list parts with their own native vertex
+buffers. Unsupported layouts fail without modifying the model. The command
+disables once no shared faces remain; repeating it does not accumulate copies.
+Separation is undoable, and undo/redo clears face selection because native
+face IDs change. Model exports/imports retain both independent LODs.
+
 The command is undoable with Ctrl+Z and redoable with Ctrl+Y. Save Project keeps
 the changes and includes them in Create ROM. Removed texture loads are omitted
 from the affected native display lists; shared image assets remain available
@@ -157,7 +179,9 @@ their complete model. All LODs applies it to every variant.
 
 `python3 tools/geditor/tests/model_lods/run.py` checks LOD isolation, shared-face
 handling, native geometry/color/UV preservation, material cleanup, undo/redo,
-save/reopen and the ROM replacement path.
+save/reopen and the ROM replacement path. Separation checks also cover posed
+geometry/attachments, collision tables, LOD transition boundaries, independent
+paint, UV edits and glTF round trips.
 
 ## Editing model UVs in GEditor
 

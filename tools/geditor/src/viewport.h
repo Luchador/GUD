@@ -233,6 +233,7 @@ BOOL ViewportGetPrimitiveDrop(HWND hwnd, POINT screen, double position[3],
     double right[3], DWORD *room);
 /* Select newly created faces by stable identity; caller sets face mode. */
 BOOL ViewportSelectBgFaces(HWND hwnd, const BgFaceRef *refs, DWORD count);
+void ViewportClearSelection(HWND hwnd);
 BOOL ViewportGetCameraDirection(HWND hwnd, double look[3]);
 void ViewportSelectSetupModel(HWND hwnd, DWORD selection);
 DWORD ViewportGetSelectedModelCount(HWND hwnd);

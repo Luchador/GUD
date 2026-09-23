@@ -84,6 +84,7 @@ typedef struct MdlBuilder {
     const char     *error;
     ModelSource *source;
     DWORD list;
+    DWORD node;
     BOOL closest, farthest;
 } MdlBuilder;
 
@@ -455,6 +456,7 @@ static void MdlSourceWalk(MdlBuilder *b, const unsigned char *data, DWORD size,
         grown = realloc(source->lists, (source->listcount + 1) * sizeof(*grown));
         if (grown == NULL) { b->error = "out of memory retaining model parts."; return; }
         source->lists = grown; b->list = source->listcount++;
+        grown[b->list].node = b->node;
         grown[b->list].pointer = pointer; grown[b->list].offset = offset;
         grown[b->list].end = 0; grown[b->list].vertexbase = vertices;
         grown[b->list].vertexpointer = vertexpointer;
@@ -1017,6 +1019,7 @@ static BgVertex *MdlLoadGeometry(const unsigned char *data, DWORD maxlen,
 
     ZeroMemory(&b, sizeof(b));
     b.source = source;
+    if (source) source->root = rootoff;
     ZeroMemory(&pose, sizeof(pose));
     pose.animated = animated;
     stack[sp++] = rootoff;
@@ -1078,7 +1081,10 @@ static BgVertex *MdlLoadGeometry(const unsigned char *data, DWORD maxlen,
                 minimum.bits = md32(data + offset); maximum.bits = md32(data + offset + 4);
                 if (isfinite(minimum.value) && isfinite(maximum.value)
                     && minimum.value > 0.0f && maximum.value > minimum.value)
+                {
                     lowdistance = fmaxf(lowdistance, nextafterf(minimum.value, maximum.value));
+                    source->lodsplit = fmaxf(source->lodsplit, minimum.value);
+                }
             }
         }
     }
@@ -1107,6 +1113,7 @@ static BgVertex *MdlLoadGeometry(const unsigned char *data, DWORD maxlen,
             }
             b.closest = MdlNodeInLod(data, maxlen, node, 0.0f);
             b.farthest = source != NULL && MdlNodeInLod(data, maxlen, node, lowdistance);
+            b.node = node;
             MdlNodeMeshes(&b, data, maxlen, flags & 0xff, dataoff, &pose, origin);
         }
     }

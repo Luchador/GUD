@@ -41,6 +41,7 @@ static BOOL g_ModelSampling;
 typedef struct ModelEditorHistoryStep {
     ModelVertexPaint paint;
     ModelUVChange uv;
+    BOOL topology;
 } ModelEditorHistoryStep;
 static ModelEditorHistoryStep g_ModelHistory[MODEL_HISTORY_LIMIT];
 static int g_ModelHistoryCount, g_ModelHistoryPosition;
@@ -470,6 +471,7 @@ static void ModelEditorUndo(BOOL redo)
         return;
     }
     g_ModelHistoryPosition += redo ? 1 : -1;
+    if (step->topology) ViewportClearSelection(g_ModelViewport);
     ModelEditorLoad(g_ModelSelected, FALSE);
     SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS, redo
         ? "Model edit redone. Save Project to keep model changes."
@@ -575,6 +577,7 @@ static void ModelEditorGroups(void)
     EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_UV),g_ModelSource.count!=0);
     EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_LODS),g_ModelSource.haslods);
     EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_UNTEXTURED),textured!=0);
+    EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_SEPARATE_LODS),shared!=0);
     EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_SHARED),shared!=0 && g_ModelLod!=MODEL_LOD_ALL);
     char caption[80];
     snprintf(caption,sizeof(caption),"Include %lu shared faces",(unsigned long)shared);
@@ -584,6 +587,27 @@ static void ModelEditorGroups(void)
     SetDlgItemText(g_ModelEditor,IDC_MODEL_HINT,shared && g_ModelLod!=MODEL_LOD_ALL
         ? "Shared faces also change in the other LOD.\nDrag an image onto a material to assign it."
         : "Drag an image onto a material.\nDrop No Texture to clear its image.");
+}
+
+static void ModelEditorSeparateLods(void)
+{
+    ModelUVChange change={0};DWORD separated=0;
+    const char *why="";char text[192];
+    if (g_ModelSelected<0 || !g_ModelSource.count) return;
+    SendMessage(g_ModelViewport,WM_CANCELMODE,0,0);
+    UVEditorCancelInteraction(g_ModelEditor);
+    if (!ModelEditsSeparateLods(g_ModelProject,g_ModelEntries[g_ModelSelected].name,
+        g_ModelRevision,&change,&separated,&why))
+    { MessageBox(g_ModelEditor,why,"Separate shared LOD geometry",MB_ICONERROR);return; }
+    if (!change.before)
+    { SetDlgItemText(g_ModelEditor,IDC_MODEL_STATUS,"This model has no shared LOD geometry to separate.");return; }
+    ModelEditorRecord((ModelEditorHistoryStep){.uv=change,.topology=TRUE});
+    ViewportClearSelection(g_ModelViewport);
+    ModelEditorLoad(g_ModelSelected,FALSE);
+    snprintf(text,sizeof(text),"Separated %lu shared faces. Low-LOD textures and vertex colors can now be edited independently. Ctrl+Z undoes; Save Project keeps changes.",
+        (unsigned long)separated);
+    SetDlgItemText(g_ModelEditor,IDC_MODEL_STATUS,text);
+    SendMessage(GetWindow(g_ModelEditor,GW_OWNER),MODELEDITOR_CHANGED,0,0);
 }
 
 static void ModelEditorMakeUntextured(void)
@@ -929,11 +953,12 @@ static void ModelEditorLayout(HWND hwnd)
             {IDC_MODEL_WRAP_V_LABEL,96,122,80,12},{IDC_MODEL_WRAP_V,96,136,80,100},
             {IDC_MODEL_APPLY,8,162,168,20},{IDC_MODEL_LOD_LABEL,8,194,30,12},{IDC_MODEL_LODS,42,190,134,80}
         };
-        RECT dimensions={8,16,168,212},row={0,0,0,44},footer={0,18,0,72},checkbox={0,20,0,14};
+        RECT dimensions={8,16,168,212},row={0,0,0,44},footer={0,18,0,94},checkbox={0,42,0,14},clearrow={0,22,0,0};
         int facey,colory,colorheight,materialheight;
         size_t i;
         MapDialogRect(hwnd,&dimensions);MapDialogRect(hwnd,&row);
         MapDialogRect(hwnd,&footer);MapDialogRect(hwnd,&checkbox);
+        MapDialogRect(hwnd,&clearrow);
         facey=bottom-dimensions.bottom;
         colorheight=COLORPICKER_MODEL_HEIGHT+dimensions.top+margin;
         colory=facey-margin-colorheight;
@@ -941,7 +966,9 @@ static void ModelEditorLayout(HWND hwnd)
         ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_MATERIALS),panelx,units.top,panel.right-margin,materialheight);
         ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_MATERIAL_LIST),panelx+dimensions.left,units.top+dimensions.top,
             dimensions.right,max(0,materialheight-dimensions.top-footer.bottom));
-        ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_UNTEXTURED),panelx+dimensions.left,units.top+materialheight-footer.bottom+margin/2,
+        ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_SEPARATE_LODS),panelx+dimensions.left,units.top+materialheight-footer.bottom+margin/2,
+            dimensions.right,footer.top);
+        ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_UNTEXTURED),panelx+dimensions.left,units.top+materialheight-footer.bottom+clearrow.top+margin/2,
             dimensions.right,footer.top);
         ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_SHARED),panelx+dimensions.left,units.top+materialheight-footer.bottom+checkbox.top+margin/2,
             dimensions.right,checkbox.bottom);
@@ -1020,7 +1047,7 @@ static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wp
     case WM_GETMINMAXINFO:
     {
         MINMAXINFO *limits = (MINMAXINFO *)lparam;
-        RECT minimum = { 0, 0, 660, 636 };
+        RECT minimum = { 0, 0, 660, 660 };
         MapDialogRect(hwnd, &minimum);
         AdjustWindowRectEx(&minimum, (DWORD)GetWindowLongPtr(hwnd, GWL_STYLE),
                            FALSE, (DWORD)GetWindowLongPtr(hwnd, GWL_EXSTYLE));
@@ -1063,6 +1090,8 @@ static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wp
         { ModelEditorSelectGroup(LOWORD(wparam)==IDC_MODEL_SELECT_ALL); return TRUE; }
         if (LOWORD(wparam) == IDC_MODEL_UNTEXTURED)
         { ModelEditorMakeUntextured(); return TRUE; }
+        if (LOWORD(wparam) == IDC_MODEL_SEPARATE_LODS)
+        { ModelEditorSeparateLods(); return TRUE; }
         if (LOWORD(wparam) == IDC_MODEL_SHARED)
         { ModelEditorGroups(); return TRUE; }
         if (LOWORD(wparam) == IDC_MODEL_LODS && HIWORD(wparam) == CBN_SELCHANGE)

@@ -3,6 +3,11 @@
 #include "modelload.h"
 #include "gltf.h"
 DWORD ModelDataHash(const unsigned char *data, DWORD size);
+/* Give shared leaf meshes independent near/far branches, vertex buffers and
+ * material slots. Keep native joints, collision links and existing offsets.
+ * A successful no-op returns NULL, zero bytes and zero separated faces. */
+BOOL ModelCompileSeparateLods(const unsigned char *data, DWORD size, const ModelSource *source,
+    unsigned char **result, DWORD *resultsize, DWORD *separated, const char **reasonout);
 /* Paint one native vertex, including every corner sharing its storage.
    Only RGBA bytes change; normals, dynamic effects and material alpha remain
    subject to the same constraints as Blender edits. Result retains size. */

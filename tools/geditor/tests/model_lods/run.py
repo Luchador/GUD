@@ -14,7 +14,7 @@ with tempfile.TemporaryDirectory(prefix='geditor-model-lods-') as folder:
         '-Werror', '-Wno-unused-parameter', '-Dfopen=TestFopen', '-ffunction-sections', '-fdata-sections',
         '-fsanitize=address,undefined', f'-I{here.parent / "image_import"}', f'-I{src}', f'-I{root}',
         str(here / 'check.c'), str(here.parent / 'image_import/platform.c')]
-    command += [str(src / n) for n in ('modelload.c', 'modelmaterials.c', 'modelcompile.c',
+    command += [str(src / n) for n in ('modelload.c', 'modelmaterials.c', 'modelcompile.c', 'modellod.c',
         'modeledits.c', 'gltf.c', 'newprops.c', 'propcompile.c', 'bgmaterial.c', 'bgrender.c')]
     subprocess.run(command + ['-Wl,--gc-sections', '-lm', '-o', str(work / 'check')], check=True)
     env = dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1')

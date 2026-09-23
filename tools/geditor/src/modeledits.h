@@ -40,6 +40,8 @@ typedef struct ModelUVChange {
  * other LOD unchanged. Does not delete project images or change vertex colors. */
 BOOL ModelEditsMakeUntextured(const char *project, const char *name, DWORD revision,
     ModelLod lod, BOOL shared, ModelUVChange *change, DWORD *changed, const char **reasonout);
+BOOL ModelEditsSeparateLods(const char *project, const char *name, DWORD revision,
+    ModelUVChange *change, DWORD *separated, const char **reasonout);
 /* Atomic corner edits. Conflicting shared UVs split native vertices; all other
  * attributes, unselected faces, model parts and material assignments survive. */
 BOOL ModelEditsSetUVs(const char *project, const char *name, DWORD revision,
