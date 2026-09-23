@@ -215,8 +215,8 @@ static void decal_depth_checks(void)
                         assert((state.high&BG_CYCLE_MASK)==(onecycle?G_CYC_1CYCLE:G_CYC_2CYCLE));
                         if (!onecycle)
                         {
-                            /* The secondary LUT leaves opaque PASS unchanged. */
-                            assert((state.low&0xcccc0000u)==(fog&&!layer?G_RM_FOG_SHADE_A:G_RM_PASS));
+                            /* Both layers retain fog through partial decal writes. */
+                            assert((state.low&0xcccc0000u)==(fog?G_RM_FOG_SHADE_A:G_RM_PASS));
                             if (!variant) { assert(!!(state.low&AA_EN)==!(toggle&1)); }
                         }
                     }

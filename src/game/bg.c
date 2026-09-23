@@ -1601,6 +1601,20 @@ Gfx DL_LUT_PRIMARY_ADDFOG[] = {
 
 
 Gfx DL_LUT_SECONDARY_ADDFOG[] = {
+    // Secondary streams may contain opaque surfaces, including the base mode
+    // of editor Cutout overrides. Those overrides only write surface bits;
+    // establish fog here so their partial writes retain the fog blender.
+    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_OPA_SURF2),
+    gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_OPA_SURF2),
+    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_OPA_TERR2),
+    gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_OPA_TERR2),
+    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_OPA_DECAL2),
+    gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_OPA_DECAL2),
+    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_OPA_SURF2),
+    gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_OPA_SURF2),
+    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_OPA_TERR2),
+    gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_OPA_TERR2),
+
     //Add FOG to Rendermodes
     //Transparent DECAL to  FOG Transparent DECAL
     gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_XLU_DECAL2),

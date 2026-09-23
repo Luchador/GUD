@@ -196,6 +196,82 @@ static void cutout_combiner_checks(void)
     puts("Cutout combiner: texture alpha, custom/SHADE preservation, fog, both layers, Auto restoration and AA/one-cycle conversion pass");
 }
 
+static void secondary_fog_checks(void)
+{
+    /* Secondary geometry can use any ordinary surface. Its fog mapping must
+     * agree with primary geometry, including opaque bases edited to Cutout. */
+    for (Gfx *pair = DL_LUT_PRIMARY_ADDFOG; pair->words.w0; pair += 2) {
+        Gfx mode = *pair;
+        bgApplyDynamicCCRMLUT(&mode, &mode + 1, CCRMLUT_SECONDARY_ADDFOG);
+        assert(!memcmp(&mode, pair + 1, sizeof(mode)));
+    }
+    for (int fog = 0; fog < 2; fog++) for (int opaque = 0; opaque < 2; opaque++) {
+        Gfx src[128], out[256], *p;
+        Snapshot states[8];
+        const u32 base = opaque ? G_RM_AA_ZB_OPA_SURF2 : G_RM_AA_ZB_OPA_TERR2;
+        const u32 first = fog ? G_RM_FOG_SHADE_A : G_RM_PASS;
+        const Gfx combine = gsDPSetCombineMode(G_CC_MODULATEIFADEA, G_CC_MODULATEIFADEA);
+        int size = make_cutout(src, 0);
+        g_TestEnvironment.FogEnabled = fog;
+        gDPSetRenderMode(&src[2], G_RM_PASS, base);
+        /* Cradle rooms 20/35: opaque-terrain command, partial Cutout writes,
+         * then a full opaque reset and more Cutout writes in the same scope.
+         * Neither partial packet can match a full render-mode LUT entry. */
+        p = src + size / 8 - 2;
+        gSPSetOtherMode(p++, G_SETOTHERMODE_L, 3, 13, 0x3078);
+        gSPSetOtherMode(p++, G_SETOTHERMODE_L, 16, 2, 0x10000);
+        gDPNoOpTag(p++, BG_SURFACE_TAG_VALUE(BG_SURFACE_CUTOUT, base));
+        gDPSetCombineMode(p++, G_CC_TRILERP, G_CC_MODULATEI2);
+        gSP1Triangle(p++, 0, 1, 2, 0);
+        gDPPipeSync(p++);
+        gDPSetRenderMode(p++, G_RM_PASS, base);
+        gSPSetOtherMode(p++, G_SETOTHERMODE_L, 3, 13, 0x3078);
+        gSPSetOtherMode(p++, G_SETOTHERMODE_L, 16, 2, 0x10000);
+        gSP1Triangle(p++, 0, 1, 2, 0);
+        gDPPipeSync(p++);
+        gSPSetOtherMode(p++, G_SETOTHERMODE_L, 3, 13, base & 0xfff8);
+        gSPSetOtherMode(p++, G_SETOTHERMODE_L, 16, 2, base & 0x30000);
+        gDPNoOpTag(p++, BG_SURFACE_TAG_VALUE(BG_SURFACE_AUTO, 0));
+        gDPSetCombineMode(p++, G_CC_TRILERP, G_CC_MODULATEI2);
+        gSP1Triangle(p++, 0, 1, 2, 0);
+        gSPEndDisplayList(p++);
+        size = (p - src) * sizeof(Gfx);
+        bgApplyDynamicCCRMLUT(src, p, fog ? CCRMLUT_SECONDARY_ADDFOG : CCRMLUT_SECONDARY);
+        assert(snapshots(src, size / 8, states) == 4);
+        for (int i = 0; i < 3; i++) {
+            assert(states[i].l == (first | (i < 2 ? G_RM_AA_ZB_TEX_EDGE2 : base)));
+        }
+        /* Test both the original two-cycle list and the AA-Off alternate.
+         * The alternate keeps texture alpha for rejection and shade alpha
+         * for fog, with no framebuffer colour bleeding through solid texels. */
+        int bytes = bgBuildCutoutGdl(src, size, out, sizeof(out));
+        assert(bytes > 0 && snapshots(out, bytes / 8, states) == 4);
+        for (int i = 0; i < 2; i++) {
+            assert((states[i].h & BG_CYCLE_MASK) == G_CYC_1CYCLE);
+            assert((states[i].l & 3) == G_AC_THRESHOLD);
+            assert(!(states[i].l & (CVG_X_ALPHA | ALPHA_CVG_SEL)));
+            assert((states[i].l & (Z_CMP | Z_UPD)) == (Z_CMP | Z_UPD));
+            assert(states[i].c0 == combine.words.w0 && states[i].c1 == combine.words.w1);
+            if (fog) assert((states[i].l & BG_FIRST_BLENDER_MASK) == first && (states[i].l & FORCE_BL));
+            else assert(!(states[i].l & FORCE_BL));
+        }
+        assert(!(states[2].l & 3)); /* Auto restores ordinary opaque rendering. */
+        for (int aa = 0; aa < 2; aa++) {
+            Gfx *runtime = (Gfx *)(g_TestRam + 0x20000);
+            int count = (aa ? size : bytes) / 8;
+            memcpy(runtime, aa ? src : out, count * sizeof(Gfx));
+            renderSetAaEnabled(aa); renderApplySettings(); renderInvalidateDisplayListCache();
+            assert(renderApplyDisplayListSettings(runtime, runtime + count));
+            assert(snapshots(runtime, count, states) == 4);
+            for (int i = 0; i < 2; i++) {
+                if (fog) assert((states[i].l & BG_FIRST_BLENDER_MASK) == first);
+                assert((states[i].l & 3) == (aa ? G_AC_NONE : G_AC_THRESHOLD));
+            }
+        }
+    }
+    puts("Secondary fog: opaque bases, partial Cutout overrides, repeated resets, Auto, texture alpha, fog on/off and both AA paths pass");
+}
+
 static void cutout_checks(void)
 {
     Gfx src[256], saved[256], out[512], *p;
@@ -209,6 +285,7 @@ static void cutout_checks(void)
     g_TestTexture.depth = G_IM_SIZ_16b;
     g_TestTexture.hasBinaryAlpha = 1;
     cutout_combiner_checks();
+    secondary_fog_checks();
     override_checks();
     for (fog = 0; fog < 2; fog++) for (j = 0; j < 3; j++) {
         size = make_cutout(src, fog);
