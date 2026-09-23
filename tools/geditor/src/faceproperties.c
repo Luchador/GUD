@@ -25,7 +25,7 @@ enum { FACE_SUMMARY, FACE_ROOM_LABEL, FACE_ROOM, FACE_LAYER_LABEL, FACE_LAYER, F
        FACE_DETAIL_LOD_LABEL, FACE_DETAIL_LOD, FACE_DETAIL_OFFSET_LABEL, FACE_DETAIL_OFFSET,
        FACE_SELECTION_HELP, FACE_ALPHA_LABEL, FACE_ALPHA, FACE_ALPHA_HELP,
        FACE_OPACITY_LABEL, FACE_OPACITY, FACE_OPACITY_HELP,
-       FACE_FOG_LABEL, FACE_FOG, FACE_FOG_HELP, FACE_CONTROL_COUNT };
+       FACE_FOG_LABEL, FACE_FOG, FACE_FOG_HELP, FACE_ENV_LABEL, FACE_ENV, FACE_ENV_HELP, FACE_CONTROL_COUNT };
 
 static const struct {
     DWORD source;
@@ -224,7 +224,7 @@ static BOOL FacePropertiesIsCombo(int id)
 {
     return id == FACE_ROOM || id == FACE_LAYER || id == FACE_RENDER || id == FACE_CULL || id == FACE_U || id == FACE_V
         || id == FACE_DETAIL_MODE || id == FACE_DETAIL_U || id == FACE_DETAIL_V || id == FACE_DETAIL_OFFSET
-        || id == FACE_ALPHA || id == FACE_DECAL || id == FACE_FOG;
+        || id == FACE_ALPHA || id == FACE_DECAL || id == FACE_FOG || id == FACE_ENV;
 }
 
 static BOOL FacePropertiesIsEdit(int id)
@@ -235,7 +235,7 @@ static BOOL FacePropertiesIsAdvanced(int id)
     return (id >= FACE_RENDER_INFO && id <= FACE_RENDER_HELP)
         || (id >= FACE_DECAL_LABEL && id <= FACE_DECAL_HELP)
         || (id >= FACE_DETAIL_LABEL && id <= FACE_DETAIL_OFFSET)
-        || (id >= FACE_ALPHA_LABEL && id <= FACE_FOG_HELP);
+        || (id >= FACE_ALPHA_LABEL && id <= FACE_ENV_HELP);
 }
 
 static int FacePropertiesTextHeight(HWND control, int width)
@@ -546,7 +546,8 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
             "Detail U scale", "", "Detail V scale", "", "Minimum LOD (0-255, Enter to apply)", "", "Tile offset", "",
             "", "Alpha preset", "", "",
             "Opacity (%, Enter to apply)", "", "Used by Constant opacity and Texture x opacity. For soft fades, use Translucent and the Secondary layer.",
-            "Fog participation", "", "On uses the level's fog, promoting supported one-cycle materials when necessary. Vertex-alpha presets require Auto or Off."
+            "Fog participation", "", "On uses the level's fog, promoting supported one-cycle materials when necessary. Vertex-alpha presets require Auto or Off.",
+            "Environment mapping", "", "Spherical and Linear use the triangle normal and assigned image, without painted RGB tint. Saved UVs and colors are preserved; Auto restores the original material."
         };
         int i;
         state = (FacePropertiesState *)calloc(1, sizeof(*state));
@@ -602,6 +603,13 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
                     SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Mixed");
                     SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Primary");
                     SendMessage(control, CB_ADDSTRING, 0, (LPARAM)"Secondary");
+                    continue;
+                }
+                if (i == FACE_ENV)
+                {
+                    const char *modes[] = {"Mixed / Keep current", "Auto (preserve original)", "Off", "Spherical", "Linear"};
+                    for (unsigned int m = 0; m < 5; m++) { SendMessage(control, CB_ADDSTRING, 0, (LPARAM)modes[m]); }
+                    SendMessage(control, CB_SETDROPPEDWIDTH, 240, 0);
                     continue;
                 }
                 if (i == FACE_FOG)
@@ -711,6 +719,8 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
                     { edit.fields = BG_FACE_PROPERTY_TRANSPARENCY; edit.transparency = choice == 1 ? BG_TRANSPARENCY_AUTO : (BgTransparency)(choice - 2); }
                     else if (control == state->controls[FACE_ALPHA])
                     { edit.fields = BG_FACE_PROPERTY_ALPHA_SOURCE; edit.alphasource = FaceAlphaPresets[choice - 1].source; }
+                    else if (control == state->controls[FACE_ENV])
+                    { edit.fields = BG_FACE_PROPERTY_ENVIRONMENT; edit.environment = choice - 1; }
                     else if (control == state->controls[FACE_FOG])
                     { edit.fields = BG_FACE_PROPERTY_FOG; edit.fog = choice - 1; }
                     else if (control == state->controls[FACE_CULL])
@@ -819,7 +829,7 @@ BOOL FacePropertiesSetSelection(HWND panel, const BgDocument *document,
 {
     FacePropertiesState *state = FacePropertiesGetState(panel);
     const BgDocumentFace *first;
-    int cull, wrapu, wrapv, layer, alphasource, fog;
+    int cull, wrapu, wrapv, layer, alphasource, fog, environment;
     unsigned short room;
     BOOL textured = TRUE, sametexture = TRUE, editable;
     DWORD i;
@@ -833,6 +843,7 @@ BOOL FacePropertiesSetSelection(HWND panel, const BgDocument *document,
     wrapv = BgMaterialGetWrap(&first->material, TRUE) + 1;
     alphasource = FacePropertiesAlphaChoice(first->material.alphasource);
     fog = (int)first->material.fog + 1;
+    environment = (int)first->material.environment + 1;
     for (i = 0; i < count; i++)
     {
         const BgDocumentFace *face = BgDocumentFindFace(document, &refs[i], NULL);
@@ -843,6 +854,7 @@ BOOL FacePropertiesSetSelection(HWND panel, const BgDocument *document,
         if (wrapu != (int)BgMaterialGetWrap(&face->material, FALSE) + 1) { wrapu = 0; }
         if (wrapv != (int)BgMaterialGetWrap(&face->material, TRUE) + 1) { wrapv = 0; }
         if (alphasource != FacePropertiesAlphaChoice(face->material.alphasource)) { alphasource = 0; }
+        if (environment != (int)face->material.environment + 1) { environment = 0; }
         if (fog != (int)face->material.fog + 1) { fog = 0; }
         if (face->textureid == BG_TEX_NONE) { textured = FALSE; }
         if (face->textureid != first->textureid) { sametexture = FALSE; }
@@ -913,6 +925,7 @@ BOOL FacePropertiesSetSelection(HWND panel, const BgDocument *document,
     SendMessage(state->controls[FACE_CULL], CB_SETCURSEL, cull, 0);
     SendMessage(state->controls[FACE_ALPHA], CB_SETCURSEL, alphasource, 0);
     SendMessage(state->controls[FACE_FOG], CB_SETCURSEL, fog, 0);
+    SendMessage(state->controls[FACE_ENV], CB_SETCURSEL, environment, 0);
     SetWindowText(state->controls[FACE_ALPHA_HELP], alphasource
         ? FaceAlphaPresets[alphasource - 1].help : "The selected faces use different alpha presets.");
     {

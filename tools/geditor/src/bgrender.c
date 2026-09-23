@@ -536,6 +536,22 @@ int BgRenderWrapTexel(int texel, int size, BgRenderFlags flags, BOOL t)
     return (texel % size + size) % size;
 }
 
+DWORD BgRenderTriangleNormal(const double a[3], const double b[3], const double c[3])
+{
+    double u[3] = {b[0]-a[0], b[1]-a[1], b[2]-a[2]};
+    double v[3] = {c[0]-a[0], c[1]-a[1], c[2]-a[2]};
+    double n[3] = {u[1]*v[2]-u[2]*v[1], u[2]*v[0]-u[0]*v[2], u[0]*v[1]-u[1]*v[0]};
+    double length = sqrt(n[0]*n[0]+n[1]*n[1]+n[2]*n[2]);
+    DWORD normal = 0;
+    if (!length) { return 127; } /* A zero-area triangle remains invisible. */
+    for (int i = 0; i < 3; i++)
+    {
+        int value = (int)round(n[i] * 127.0 / length);
+        normal = (normal << 8) | (unsigned char)value;
+    }
+    return normal;
+}
+
 void BgRenderPrepareEnvironment(BgVertex *vertex, BgRenderFlags flags, const BgMaterial *material)
 {
     unsigned char rgb[3] = {vertex->r, vertex->g, vertex->b};

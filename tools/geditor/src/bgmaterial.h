@@ -17,6 +17,7 @@ typedef struct BgMaterial {
     DWORD modeword0, modeword1;       /* gSPTexture: scale, tile, LOD, enable */
     DWORD combineword0, combineword1;
     DWORD alphasource; /* BG_ALPHA_* preset; authored mux stays intact */
+    DWORD environment; /* BG_ENV_* coordinate generation override */
     DWORD fog; /* BG_FOG_* participation; authored pipeline stays intact */
 } BgMaterial;
 
@@ -43,6 +44,7 @@ typedef struct BgDetailTexture {
 
 void BgMaterialInit(BgMaterial *material);
 BOOL BgMaterialReadCommand(BgMaterial *material, DWORD word0, DWORD word1);
+BOOL BgMaterialEnvironmentImageSupported(const BgMaterial *material);
 unsigned short BgMaterialTextureId(const BgMaterial *material);
 void BgMaterialSetTexture(BgMaterial *material, DWORD textureid);
 BOOL BgMaterialEqual(const BgMaterial *a, const BgMaterial *b);

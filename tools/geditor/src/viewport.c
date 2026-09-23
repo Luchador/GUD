@@ -1091,7 +1091,23 @@ static void ViewportEnvironmentCoordinates(const ViewportState *state, int index
                                            const float up[3], float uv[2])
 {
     BgEnvironmentVertex environment = state->scene[index].environment;
-    if (state->dragrotation && !state->dragstan && !state->dragpad && state->dragmask &&
+    if ((flags & BG_RENDER_ENVIRONMENT_FACE) && state->dragaxis >= 0
+        && !state->dragstan && !state->dragpad && state->dragmask)
+    {
+        /* A moved corner also changes unselected corners' face normal. Read
+         * the deformed triangle, using the same signed-byte packing as export. */
+        const Vertex *tri = &state->scene[index - index % 3];
+        double p[3][3];
+        for (int c = 0; c < 3; c++)
+        { p[c][0] = tri[c].x; p[c][1] = tri[c].y; p[c][2] = tri[c].z; }
+        DWORD normal = BgRenderTriangleNormal(p[0], p[1], p[2]);
+        for (int c = 0; c < 3; c++)
+        {
+            unsigned int value = (normal >> (16 - c * 8)) & 255u;
+            environment.normal[c] = value < 128 ? (float)value : (float)((int)value - 256);
+        }
+    }
+    else if (state->dragrotation && !state->dragstan && !state->dragpad && state->dragmask &&
         state->dragmask[index])
     {
         Rotation rotation;
@@ -1105,7 +1121,7 @@ static void ViewportEnvironmentCoordinates(const ViewportState *state, int index
             environment.normal[axis] = (float)rotated[axis];
         }
     }
-    if (state->dragscaling && state->selectedobject != VIEWPORT_OBJECT_NONE
+    if (!(flags & BG_RENDER_ENVIRONMENT_FACE) && state->dragscaling && state->selectedobject != VIEWPORT_OBJECT_NONE
         && !state->dragstan && !state->dragpad && state->dragaxis >= 0
         && state->dragmask && state->dragmask[index])
     {
@@ -3011,6 +3027,13 @@ void ViewportRefreshBgVertexColor(HWND viewport, const BgDocument *document,
         }
         BgRenderFlags flags = state->batches[batchindex].renderflags;
         BgVertex preview = {.r = source->r, .g = source->g, .b = source->b};
+        if (BG_ENV_GENERATED(face->material.environment))
+        {
+            DWORD normal = BgDocumentEnvironmentNormal(room, face);
+            preview.r = (unsigned char)(normal >> 16);
+            preview.g = (unsigned char)(normal >> 8);
+            preview.b = (unsigned char)normal;
+        }
         BgRenderPrepareEnvironment(&preview, flags, &face->material);
         for (corner = 0; corner < 3; corner++)
         {
@@ -8988,8 +9011,8 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
                 dst[k].s = src[k].s * invw;   /* texels -> normalized */
                 dst[k].t = src[k].t * invh;
                 dst[k].environment = src[k].environment;
-                dst[k].environment.scale[0] *= invw;
-                dst[k].environment.scale[1] *= invh;
+                dst[k].environment.scale[0] = src[k].environment.scale[0] < 0 ? 1 : src[k].environment.scale[0] * invw;
+                dst[k].environment.scale[1] = src[k].environment.scale[1] < 0 ? 1 : src[k].environment.scale[1] * invh;
                 dst[k].r = src[k].r;
                 dst[k].g = src[k].g;
                 dst[k].b = src[k].b;

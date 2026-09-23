@@ -2170,6 +2170,15 @@ void bgLoadRoomModelData(s32 roomID)
         }
     }
 
+    bgApplyEnvironmentMapping(g_BgRoomInfo[roomID].primaryGdl,
+        (Gfx *)((u8 *)g_BgRoomInfo[roomID].primaryGdl + g_BgRoomInfo[roomID].primaryGdlSize),
+        g_BgRoomInfo[roomID].vertices, g_BgRoomInfo[roomID].verticesSize);
+    if (g_BgRoomInfo[roomID].secondaryGdl)
+    {
+        bgApplyEnvironmentMapping(g_BgRoomInfo[roomID].secondaryGdl,
+            (Gfx *)((u8 *)g_BgRoomInfo[roomID].secondaryGdl + g_BgRoomInfo[roomID].secondaryGdlSize),
+            g_BgRoomInfo[roomID].vertices, g_BgRoomInfo[roomID].verticesSize);
+    }
     bgBuildRoomVtxBounds(roomID);
     /* Texture expansion and the environment LUT must finish before conversion.
      * Allocate the collision cache first; one-cycle rendering is optional. */

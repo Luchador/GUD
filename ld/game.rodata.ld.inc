@@ -86,6 +86,7 @@
       build/OUTCODE/src/game/bg.o (.rodata);
       build/OUTCODE/src/game/bgdebug.o (.rodata);
       build/OUTCODE/src/game/bgapply.o (.rodata);
+      build/OUTCODE/src/game/bgenvironment.o (.rodata);
       build/OUTCODE/src/game/bgonecycle.o (.rodata);
       build/OUTCODE/src/game/environment.o (.rodata);
       build/OUTCODE/src/game/lightfixture.o (.rodata);

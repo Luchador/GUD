@@ -10,12 +10,17 @@ static struct tex *texFindInPool(int id, void *pool)
 { (void)id; (void)pool; return &g_TestTexture; }
 static Gfx *testTextureCommand(Gfx *out, ...)
 { return out; }
+static Gfx *testTextureUpload(Gfx *out, ...)
+{
+    if (getenv("GUD_ENV_FIXTURE")) { out->words.w0=0xfd100000u; out++->words.w1=0x123450; }
+    return out;
+}
 #define texWriteTextureCmd testTextureCommand
-#define texHandleType0 testTextureCommand
-#define texHandleType1 testTextureCommand
-#define texHandleType2 testTextureCommand
-#define texHandleType3 testTextureCommand
-#define texHandleType4 testTextureCommand
+#define texHandleType0 testTextureUpload
+#define texHandleType1 testTextureUpload
+#define texHandleType2 testTextureUpload
+#define texHandleType3 testTextureUpload
+#define texHandleType4 testTextureUpload
 #define dyntexConfigureTwoLayerWater testTextureCommand
 #define dyntexConfigureTwoLayerCiWater testTextureCommand
 static int check_if_imageID_is_light(int id) { return id == 123; }

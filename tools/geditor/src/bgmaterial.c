@@ -15,6 +15,7 @@ void BgMaterialInit(BgMaterial *material)
 {
     material->alphasource = BG_ALPHA_AUTO;
     material->fog = BG_FOG_AUTO;
+    material->environment = BG_ENV_AUTO;
     material->textureword0 = material->textureword1 = 0;
     material->modeword0 = (BG_G_TEXTURE << 24) | 1u;
     material->modeword1 = 0xFFFFFFFFu;
@@ -24,6 +25,13 @@ void BgMaterialInit(BgMaterial *material)
 
 BOOL BgMaterialReadCommand(BgMaterial *material, DWORD word0, DWORD word1)
 {
+    if (BG_ENV_IS_NORMAL(word0, word1)) { return TRUE; }
+    if (BG_ENV_IS_MARKER(word0, word1))
+    {
+        DWORD kind = word1 & 255u;
+        if (kind <= BG_ENV_LINEAR) { material->environment = kind; }
+        return TRUE;
+    }
     if (BG_FOG_IS_MARKER(word0, word1))
     {
         DWORD kind = word1 & 255u;
@@ -62,11 +70,26 @@ unsigned short BgMaterialTextureId(const BgMaterial *material)
         ? (unsigned short)(material->textureword1 & BG_TEX_ID_MASK) : BG_TEX_NONE;
 }
 
+BOOL BgMaterialEnvironmentImageSupported(const BgMaterial *material)
+{
+    if (!BG_ENV_GENERATED(material->environment)) { return TRUE; }
+    if (BgMaterialTextureId(material) == BG_TEX_NONE || (material->textureword0 & 7u) > 4) { return FALSE; }
+    /* Keep synchronized with runtime light fixtures and animated water. */
+    switch (BgMaterialTextureId(material))
+    {
+    case 201: case 203: case 205: case 252: case 253: case 254:
+    case 255: case 256: case 428: case 982: case 1383: case 1508: case 1511:
+        return FALSE;
+    }
+    return TRUE;
+}
+
 void BgMaterialSetTexture(BgMaterial *material, DWORD textureid)
 {
     if (textureid == BG_TEX_NONE)
     {
         material->alphasource = BG_ALPHA_WITHOUT_TEXTURE(material->alphasource);
+        material->environment = BG_ENV_AUTO;
         /* G_OFF plus SHADE in both cycles: no stale TEXEL0/TEXEL1 sampling.
          * This shade combination also participates in BG's existing fog LUT. */
         material->modeword0 &= ~0xFFu;
@@ -108,7 +131,8 @@ BOOL BgMaterialEqual(const BgMaterial *a, const BgMaterial *b)
     return a->textureword0 == b->textureword0 && a->textureword1 == b->textureword1
         && a->modeword0 == b->modeword0 && a->modeword1 == b->modeword1
         && a->combineword0 == b->combineword0 && a->combineword1 == b->combineword1
-        && a->alphasource == b->alphasource && a->fog == b->fog;
+        && a->alphasource == b->alphasource && a->fog == b->fog
+        && a->environment == b->environment;
 }
 
 BgTextureWrap BgMaterialGetWrap(const BgMaterial *material, BOOL t)

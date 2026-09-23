@@ -48,14 +48,15 @@ with tempfile.TemporaryDirectory(prefix='geditor-uniform-scale-') as temp:
     (work / 'types.inc').write_text(''.join(re.search(
         r'typedef struct ' + name + r' \{.*?\} ' + name + ';', viewport, re.S)[0] + '\n' for name in types))
     defines = ('VIEWPORT_UNIFORM_SCALE_AXIS', 'VIEWPORT_PICK_EPSILON', 'VIEWPORT_PICK_BARY_EPSILON')
-    names = ('ViewportCompareVertexRefs', 'ViewportGetMoveVertices', 'ViewportRayTriangleDistance',
+    names = ('ViewportObjectCount', 'ViewportCompareVertexRefs', 'ViewportGetMoveVertices', 'ViewportRayTriangleDistance',
              'ViewportArrowVertex', 'ViewportDrawGizmoHandles', 'ViewportPickGizmo',
              'ViewportShouldExtrudeEdges', 'ViewportPreviewEdgeExtrusion',
              'ViewportBeginTransform', 'ViewportDragTransform', 'ViewportCancelTransform',
              'ViewportEndTransform', 'ViewportGetScaling', 'ViewportPreviewGuidePoint',
              'ViewportEnvironmentCoordinates')
     (work / 'functions.inc').write_text(''.join(re.search(r'^#define ' + name + r' .*$', viewport, re.M)[0] + '\n'
-        for name in defines) + ''.join(extract.function(viewport, name) for name in names))
+        for name in defines) + extract.function((src / 'bgrender.c').read_text(), 'BgRenderTriangleNormal')
+        + ''.join(extract.function(viewport, name) for name in names))
     (work / 'asset.inc').write_text('static BgVertex handle[] = {\n' + ''.join(
         '{.x=%.12g,.y=%.12g,.z=%.12g},\n' % tuple(n / size for n in v) for v in vertices) + '};\n')
     executable = work / 'check'

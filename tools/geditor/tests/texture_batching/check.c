@@ -55,7 +55,7 @@ static BgFile Fixture(DWORD mode,BOOL barrier,BOOL untextured)
  * order changes. Group numbers and parser-assigned face IDs are not geometry. */
 typedef struct FaceKey {
     unsigned char vertices[3][16];
-    DWORD material[8],state[7];
+    DWORD material[9],state[7];
     DWORD layer,cull;
 } FaceKey;
 static FaceKey Key(const BgDocument *doc,DWORD room,DWORD f)

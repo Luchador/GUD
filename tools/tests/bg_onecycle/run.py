@@ -59,6 +59,8 @@ static struct TestEnvironment { int FogEnabled; } g_TestEnvironment;
 static struct TestEnvironment *envGetCurrent(void) { return &g_TestEnvironment; }
 '''
 source += strip_includes((ROOT / 'src/game/bgapply.c').read_text())
+source += 'Lights1 GlobalLight = gdSPDefLights1(150,150,150,255,255,255,77,77,46);\n'
+source += strip_includes((ROOT / 'src/game/bgenvironment.c').read_text())
 source += (HERE / 'harness.h').read_text()
 for name in ('bgBuildRoomOneCycleGdl', 'bgFreeRoomData', 'bgRenderRoomPrimary', 'bgRenderRoomSecondary'):
     source += function(bg, name)
@@ -78,6 +80,7 @@ source += (HERE / 'check.c').read_text()
 source += (HERE / 'cutouts.c').read_text()
 source += (HERE / 'alpha.c').read_text()
 source += (HERE / 'fog.c').read_text()
+source += (HERE / 'environment.c').read_text()
 
 # Classification precedes row swaps/mip generation, using the existing spare
 # descriptor bit (no N64 layout growth or change to texture pointer prefixes).
@@ -89,11 +92,13 @@ assert 'u32 hasBinaryAlpha : 1' in image_header
 # Check the real integration ordering, including all manually ordered sections.
 load = function(bg, 'bgLoadRoomModelData')
 assert load.rindex('bgApplyDynamicCCRMLUT(') < load.index('bgBuildRoomVtxBounds(roomID)') < load.index('bgBuildRoomOneCycleGdl(roomID)')
+assert load.rindex('bgApplyDynamicCCRMLUT(') < load.index('bgApplyEnvironmentMapping(') < load.index('bgBuildRoomVtxBounds(roomID)')
 assert 'g_BgOneCycleRooms[i].gdl = NULL' in function(bg, 'bgLoadFile')
 assert 'g_BgOneCycleRooms[i].secondaryGdl = NULL' in function(bg, 'bgLoadFile')
 assert 'BG_CUTOUT_THRESHOLD' in function(bg, 'bgRenderRoomSecondary')
 for section in ('text', 'data', 'rodata', 'bss'):
     assert f'bgonecycle.o (.{section})' in (ROOT / f'ld/game.{section}.ld.inc').read_text()
+    assert f'bgenvironment.o (.{section})' in (ROOT / f'ld/game.{section}.ld.inc').read_text()
 
 with tempfile.TemporaryDirectory(prefix='gud-bg-onecycle-') as directory:
     work = Path(directory)

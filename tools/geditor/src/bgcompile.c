@@ -282,6 +282,21 @@ static BOOL BgCompileMaterialScope(BgCompileBuffer *gdl, BgMaterial *current, DW
 }
 
 
+/* Restore native geometry/texture state on every boundary. Light slots are
+ * needed only when entering/leaving generated normals, which use white light. */
+static BOOL BgCompileEnvironmentScope(BgCompileBuffer *gdl, BgMaterial *current, DWORD mode)
+{
+    DWORD slot;
+    BOOL lights = BG_ENV_GENERATED(mode) || BG_ENV_GENERATED(current->environment);
+    if (current->environment == mode) { return TRUE; }
+    if (!BgCompileWriteCommand(gdl, BG_SURFACE_MARKER, BG_ENV_TAG | mode)) { return FALSE; }
+    for (slot = BG_ENV_CLEAR; slot <= (lights ? BG_ENV_LIGHT_AMBIENT : BG_ENV_SET); slot++)
+        if (!BgCompileWriteCommand(gdl, BG_SURFACE_MARKER, BG_ENV_TAG | slot)) { return FALSE; }
+    if (!BgCompileWriteCommand(gdl, BG_SURFACE_MARKER, BG_ENV_TAG | BG_ENV_SCALE)) { return FALSE; }
+    current->environment = mode;
+    return TRUE;
+}
+
 static int BgCompileFindVertex(const DWORD *vertices, DWORD count,
                                DWORD vertex)
 {
@@ -381,21 +396,27 @@ static BOOL BgCompileEmitFaceState(BgCompileBuffer *gdl,
 {
     const BgMaterial *material = &face->material;
     BOOL modechanged = material->modeword0 != current->modeword0
-                    || material->modeword1 != current->modeword1;
+                    || material->modeword1 != current->modeword1
+                    || material->environment != current->environment;
     BOOL combinechanged = material->combineword0 != current->combineword0
                        || material->combineword1 != current->combineword1
                        || material->alphasource != current->alphasource
                        || material->fog != current->fog;
     BOOL textured = face->textureid != BG_TEX_NONE;
+    BOOL texturechanged = material->textureword0 != current->textureword0
+                       || material->textureword1 != current->textureword1;
 
     if ((material->modeword0 >> 24) != BG_G_TEXTURE
         || (material->combineword0 >> 24) != BG_G_SETCOMBINE
         || face->textureid != BgMaterialTextureId(material)
-        || !BG_ALPHA_IS_PRESET(material->alphasource) || material->fog > BG_FOG_OFF)
+        || !BG_ALPHA_IS_PRESET(material->alphasource) || material->fog > BG_FOG_OFF
+        || material->environment > BG_ENV_LINEAR
+        || !BgMaterialEnvironmentImageSupported(material))
     {
         *reasonout = "a bg face contains invalid material state.";
         return FALSE;
     }
+    if (!BgCompileEnvironmentScope(gdl, current, material->environment)) { return FALSE; }
     if (!BgCompileMaterialScope(gdl, current, material->alphasource, material->fog)) { return FALSE; }
     /* Reuse a preserved sync until more triangles are drawn. Otherwise each
      * save/reload would retain the old sync and insert another before it. */
@@ -413,9 +434,7 @@ static BOOL BgCompileEmitFaceState(BgCompileBuffer *gdl,
         current->modeword0 = material->modeword0;
         current->modeword1 = material->modeword1;
     }
-    if (textured && (modechanged
-        || material->textureword0 != current->textureword0
-        || material->textureword1 != current->textureword1))
+    if (textured && (modechanged || texturechanged))
     {
         if (!BgCompileWriteCommand(gdl, material->textureword0, material->textureword1))
         {
@@ -424,6 +443,8 @@ static BOOL BgCompileEmitFaceState(BgCompileBuffer *gdl,
         current->textureword0 = material->textureword0;
         current->textureword1 = material->textureword1;
     }
+    if (BG_ENV_GENERATED(material->environment) && (modechanged || texturechanged)
+        && !BgCompileWriteCommand(gdl, BG_SURFACE_MARKER, BG_ENV_TAG | BG_ENV_SCALE)) { return FALSE; }
     if (combinechanged)
     {
         if (!BgCompileWriteCommand(gdl, material->combineword0, material->combineword1))
@@ -569,6 +590,25 @@ static BOOL BgCompileEmitGroupFaces(BgCompileBuffer *gdl,
 
     while (batchstart < facecount)
     {
+        const BgDocumentFace *mapped = &room->faces[faceindices[batchstart]];
+        if (BG_ENV_GENERATED(mapped->material.environment))
+        {
+            DWORD indices[16], offset = vertexdata->size;
+            if (offset > 0x01000000u - 48u) { *reasonout = "The generated vertex stream is too large."; return FALSE; }
+            if (!BgCompileEmitFaceState(gdl, mapped, material, cullbackfaces, reasonout)
+                || !BgCompileWriteCommand(gdl, BG_ENV_NORMAL_MARKER,
+                    BG_ENV_NORMAL_TAG | BgDocumentEnvironmentNormal(room, mapped))) { return FALSE; }
+            for (DWORD c = 0; c < 3; c++)
+            {
+                indices[c] = mapped->vertexindices[c];
+                if (!BgCompileWriteVertex(vertexdata, &room->vertices[indices[c]])) { return FALSE; }
+            }
+            if (!BgCompileWriteCommand(gdl, 0x04200030u, BGCOMPILE_VERTEX_SEGMENT | offset)
+                || !BgCompileEmitTriangles(gdl, room, faceindices + batchstart, 1,
+                    indices, 3, material, cullbackfaces, reasonout)) { return FALSE; }
+            batchstart++;
+            continue;
+        }
         DWORD vertices[16];
         DWORD vertexcount = 0;
         DWORD batchend = batchstart;
@@ -593,7 +633,8 @@ static BOOL BgCompileEmitGroupFaces(BgCompileBuffer *gdl,
                 && (face->material.modeword0 != firstmaterial->modeword0
                     || face->material.modeword1 != firstmaterial->modeword1
                     || face->material.alphasource != firstmaterial->alphasource
-                    || face->material.fog != firstmaterial->fog))
+                    || face->material.fog != firstmaterial->fog
+                    || face->material.environment != firstmaterial->environment))
             {
                 break;
             }
@@ -712,7 +753,8 @@ static BOOL BgCompileBatchableFace(const BgDocumentFace *face)
 {
     /* The runtime water bindings inject extra state outside BgMaterial.
      * Alpha scopes and diagnostic point triangles are also ordering barriers. */
-    return face->material.alphasource == BG_ALPHA_AUTO && face->material.fog == BG_FOG_AUTO
+    return face->material.environment == BG_ENV_AUTO
+        && face->material.alphasource == BG_ALPHA_AUTO && face->material.fog == BG_FOG_AUTO
         && !BgCompileFaceIsPoint(face)
         && face->textureid != BG_TEX_NONE
         && face->textureid != 1508 && face->textureid != 1511
@@ -842,7 +884,8 @@ static BOOL BgCompileLayer(const BgDocumentRoom *room,
 
         /* Scope only face draws, never the following group's authored state.
          * Old generated alpha packets are discarded by WriteGroupState. */
-        if (!BgCompileMaterialScope(gdl, &material, BG_ALPHA_AUTO, BG_FOG_AUTO)) { return FALSE; }
+        if (!BgCompileEnvironmentScope(gdl, &material, BG_ENV_AUTO)
+            || !BgCompileMaterialScope(gdl, &material, BG_ALPHA_AUTO, BG_FOG_AUTO)) { return FALSE; }
         if (group != NULL)
         {
             if ((group->commandsize & 7) != 0
@@ -917,7 +960,8 @@ static BOOL BgCompileLayer(const BgDocumentRoom *room,
         groupindex = groupend - 1;
     }
 
-    return BgCompileMaterialScope(gdl, &material, BG_ALPHA_AUTO, BG_FOG_AUTO)
+    return BgCompileEnvironmentScope(gdl, &material, BG_ENV_AUTO)
+        && BgCompileMaterialScope(gdl, &material, BG_ALPHA_AUTO, BG_FOG_AUTO)
         && BgCompileWriteCommand(gdl,
                     (DWORD)BGCOMPILE_G_ENDDL << 24, 0);
 }
@@ -1260,7 +1304,7 @@ static BOOL BgCompileKeepState(BgCompileStateCache *state, DWORD a, DWORD b)
     }
     else if (op != BG_G_TEXTURE && op != BG_G_SETCOMBINE
         && op != BG_G_PIPESYNC && op != 0xe8 && op != 0xfa
-        && !BG_ALPHA_IS_MARKER(a, b) && !BG_FOG_IS_MARKER(a, b))
+        && !BG_EDITOR_IS_MARKER(a, b))
     { ZeroMemory(state, sizeof(*state)); }
     if (reg < 0) { return TRUE; }
     keep = (state->known[reg] & mask) != mask || ((state->value[reg] ^ value) & mask) != 0;

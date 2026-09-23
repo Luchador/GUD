@@ -31,9 +31,10 @@ enum BgRenderFlag
        door can resolve the caller's FRONT default before reversing winding. */
     BG_RENDER_CULL_BACK_INHERITED = 131072,
     BG_RENDER_CULL_FRONT_INHERITED = 262144,
+    BG_RENDER_ENVIRONMENT_FACE = 524288, /* Generated flat normal, updated during BG drags. */
     BG_RENDER_CULL_MASK = BG_RENDER_CULL_BACK | BG_RENDER_CULL_FRONT | BG_RENDER_CULL_EXPLICIT
                        | BG_RENDER_CULL_BACK_INHERITED | BG_RENDER_CULL_FRONT_INHERITED,
-    BG_RENDER_ENVIRONMENT_MASK = BG_RENDER_ENVIRONMENT | BG_RENDER_ENVIRONMENT_LINEAR,
+    BG_RENDER_ENVIRONMENT_MASK = BG_RENDER_ENVIRONMENT | BG_RENDER_ENVIRONMENT_LINEAR | BG_RENDER_ENVIRONMENT_FACE,
     BG_RENDER_WRAP_MASK = BG_RENDER_CLAMP_S | BG_RENDER_MIRROR_S
                        | BG_RENDER_CLAMP_T | BG_RENDER_MIRROR_T
 };
@@ -105,6 +106,7 @@ int BgRenderWrapTexel(int texel, int size, BgRenderFlags flags, BOOL t);
 
 /* Decode signed normal bytes without changing the editable/source vertex.
  * Generated surfaces use neutral RGB instead of treating normals as colors. */
+DWORD BgRenderTriangleNormal(const double a[3], const double b[3], const double c[3]);
 void BgRenderPrepareEnvironment(BgVertex *vertex, BgRenderFlags flags,
                                  const BgMaterial *material);
 void BgRenderEnvironmentCoordinates(const BgEnvironmentVertex *vertex, BgRenderFlags flags,

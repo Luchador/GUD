@@ -1253,6 +1253,10 @@ BOOL BgDocumentSetFaceTexture(BgDocument *document, const BgFaceRef *refs,
             *reasonout = "A background face to texture is no longer available.";
             return FALSE;
         }
+        BgMaterial material = face->material;
+        BgMaterialSetTexture(&material, textureid);
+        if (!BgMaterialEnvironmentImageSupported(&material))
+        { *reasonout = "Use a static base image for generated environment mapping, or restore Auto first."; return FALSE; }
     }
     for (i = 0; i < refcount; i++)
     {
@@ -1704,7 +1708,8 @@ BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
     *changedout = FALSE;
     *reasonout = "";
     if (document == NULL || refs == NULL || count == 0 || edit == NULL
-        || edit->fields == 0 || (edit->fields & ~16383u)
+        || edit->fields == 0 || (edit->fields & ~32767u)
+        || ((edit->fields & BG_FACE_PROPERTY_ENVIRONMENT) && edit->environment > BG_ENV_LINEAR)
         || ((edit->fields & BG_FACE_PROPERTY_FOG) && edit->fog > BG_FOG_OFF)
         || ((edit->fields & BG_FACE_PROPERTY_OPACITY) && edit->opacity > 255)
         || ((edit->fields & BG_FACE_PROPERTY_DECAL) && edit->decal != FALSE && edit->decal != TRUE)
@@ -1776,6 +1781,38 @@ BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
             return FALSE;
         }
     }
+    if ((edit->fields & BG_FACE_PROPERTY_ENVIRONMENT) && edit->environment != BG_ENV_AUTO)
+    {
+        size_t bytes = (size_t)count * sizeof(BgRenderState);
+        BgRenderState *states = bytes / sizeof(*states) == count ? malloc(bytes) : NULL;
+        BOOL supported = states && BgDocumentGetFaceRenderStates(document, refs, count, states);
+        for (i = 0; supported && i < count; i++)
+        {
+            const BgDocumentFace *face = BgDocumentFindFace(document, &refs[i], NULL);
+            /* Normal generation replaces RGB only in private runtime vertices.
+             * Native lighting/custom DMA and animated textures own those bytes. */
+            const BgDocumentLayerData *layer = &document->rooms[refs[i].room].layers[refs[i].layer];
+            for (DWORD g = 0; supported && g < layer->groupcount; g++)
+                for (DWORD pc = 0; pc < layer->groups[g].commandsize; pc += 8)
+                {
+                    unsigned char op = layer->groups[g].commands[pc];
+                    if (op == 0x01 || op == 0x03 || op == 0x06 || op == 0xbc) { supported = FALSE; }
+                }
+            supported &= !(states[i].geometrymode & 0x20000u);
+            if (BG_ENV_GENERATED(edit->environment))
+            {
+                BgMaterial material = face->material;
+                material.environment = edit->environment;
+                supported &= BgMaterialEnvironmentImageSupported(&material);
+            }
+        }
+        free(states);
+        if (!supported)
+        {
+            *reasonout = "Environment mapping requires ordinary background geometry and a static base image. Native lighting, custom matrices/lists and animated light/water materials must retain Auto.";
+            return FALSE;
+        }
+    }
     if ((edit->fields & (BG_FACE_PROPERTY_TRANSPARENCY | BG_FACE_PROPERTY_DETAIL_MASK | BG_FACE_PROPERTY_DECAL | BG_FACE_PROPERTY_OPACITY))
         && !BgDocumentSetRenderProperties(document, refs, count, edit, changedout, reasonout))
     { return FALSE; }
@@ -1792,6 +1829,7 @@ BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
         if (edit->fields & BG_FACE_PROPERTY_WRAP_V) { BgMaterialSetWrap(&material, TRUE, edit->wrapv); }
         if (edit->fields & BG_FACE_PROPERTY_ALPHA_SOURCE) { material.alphasource = edit->alphasource; }
         if (edit->fields & BG_FACE_PROPERTY_FOG) { material.fog = edit->fog; }
+        if (edit->fields & BG_FACE_PROPERTY_ENVIRONMENT) { material.environment = edit->environment; }
         if (face->cullbackfaces != cull || !BgMaterialEqual(&face->material, &material))
         {
             face->cullbackfaces = (unsigned char)cull;
@@ -1919,6 +1957,15 @@ unsigned char BgDocumentPreviewVertexAlpha(const BgDocumentRoom *room, const BgD
     return BgRenderVertexAlpha(BgRenderGetAlpha(&state, &face->material), vertexalpha);
 }
 
+DWORD BgDocumentEnvironmentNormal(const BgDocumentRoom *room, const BgDocumentFace *face)
+{
+    const BgDocumentVertex *a = &room->vertices[face->vertexindices[0]];
+    const BgDocumentVertex *b = &room->vertices[face->vertexindices[1]];
+    const BgDocumentVertex *c = &room->vertices[face->vertexindices[2]];
+    double p[3][3] = {{a->x,a->y,a->z}, {b->x,b->y,b->z}, {c->x,c->y,c->z}};
+    return BgRenderTriangleNormal(p[0], p[1], p[2]);
+}
+
 BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
                                BgDocumentRenderMesh *out,
                                const char **reasonout)
@@ -2006,6 +2053,13 @@ BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
             alpha = BgRenderGetAlpha(renderstate, &face->material);
             out->renderflags[outputface] = BgRenderStateFlags(renderstate)
                 | BgRenderMaterialWrap(&face->material);
+            if (face->material.environment != BG_ENV_AUTO)
+            {
+                out->renderflags[outputface] &= ~BG_RENDER_ENVIRONMENT_MASK;
+                if (BG_ENV_GENERATED(face->material.environment))
+                    out->renderflags[outputface] |= BG_RENDER_ENVIRONMENT | BG_RENDER_ENVIRONMENT_FACE
+                        | (face->material.environment == BG_ENV_LINEAR ? BG_RENDER_ENVIRONMENT_LINEAR : 0);
+            }
             if (!alpha.texture) { out->renderflags[outputface] |= BG_RENDER_IGNORE_TEXTURE_ALPHA; }
             if (!BgRenderUsesFog(renderstate, &face->material))
             { out->renderflags[outputface] |= BG_RENDER_NO_FOG; }
@@ -2034,7 +2088,16 @@ BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
                 target->g = source->g;
                 target->b = source->b;
                 target->a = BgRenderVertexAlpha(alpha, source->a);
+                if (BG_ENV_GENERATED(face->material.environment))
+                {
+                    DWORD normal = BgDocumentEnvironmentNormal(room, face);
+                    target->r = (unsigned char)(normal >> 16);
+                    target->g = (unsigned char)(normal >> 8);
+                    target->b = (unsigned char)normal;
+                }
                 BgRenderPrepareEnvironment(target, out->renderflags[outputface], &face->material);
+                if (BG_ENV_GENERATED(face->material.environment))
+                { target->environment.scale[0] = target->environment.scale[1] = -1; } /* Fit base image. */
             }
 
             outputface++;

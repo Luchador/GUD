@@ -258,14 +258,15 @@ $(CODEOBJECTS) $(GAMEOBJECTS): src/bondtypes.h src/game/bondview.h
 # LevelEntry is shared by the loader, BG/music/setup lookups and ROM manifest.
 $(BUILD_DIR)/src/boss.o $(addprefix $(BUILD_DIR)/src/game/,lv.o bg.o musicselect.o setup.o gedmanifest.o): src/game/lv.h
 
-$(addprefix $(BUILD_DIR)/src/game/,bg.o bgdebug.o bondview.o lv.o sky.o rendercache.o): src/game/bg.h
+$(addprefix $(BUILD_DIR)/src/game/,bg.o bgdebug.o bgenvironment.o bondview.o lv.o sky.o rendercache.o): src/game/bg.h
+$(BUILD_DIR)/src/game/bgenvironment.o: src/game/image.h
 $(addprefix $(BUILD_DIR)/src/game/,ob.o pobjdata.o): assets/obseg/file_resource_id_enums.h
 $(BUILD_DIR)/src/game/ob.o: assets/obseg/file_resource_table.inc.c assets/obseg/obseg.h
 $(addprefix $(BUILD_DIR)/src/game/,bg.o bgonecycle.o model.o modelonecycle.o): src/game/bgonecycle.h
 $(addprefix $(BUILD_DIR)/src/game/,model.o modelonecycle.o dyn.o tex.o rendercache.o): src/game/modelonecycle.h
 $(BUILD_DIR)/src/game/modelonecycle.o: src/game/dyn.h
 $(addprefix $(BUILD_DIR)/src/game/,model.o modelonecycle.o gunfire.o propobj.o initunk_0009E0.o): src/game/model.h
-$(addprefix $(BUILD_DIR)/src/game/,bgonecycle.o tex.o bgapply.o): src/bgtransparency.h
+$(addprefix $(BUILD_DIR)/src/game/,bgonecycle.o tex.o bgapply.o bgenvironment.o bg.o): src/bgtransparency.h
 
 $(addprefix $(BUILD_DIR)/src/game/,cam.o player.o chr.o propobj.o): src/game/cam.h
 $(addprefix $(BUILD_DIR)/src/game/,bg.o bgapply.o cam.o chraction.o chrai.o chrprop.o environment.o gedmanifest.o propobj.o sky.o): src/game/environment.h

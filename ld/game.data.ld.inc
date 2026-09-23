@@ -84,6 +84,7 @@
       build/OUTCODE/src/game/bg.o (.data);
       build/OUTCODE/src/game/bgdebug.o (.data);
       build/OUTCODE/src/game/bgapply.o (.data);
+      build/OUTCODE/src/game/bgenvironment.o (.data);
       build/OUTCODE/src/game/bgonecycle.o (.data);
       build/OUTCODE/src/game/environment.o (.data);
       build/OUTCODE/src/game/lightfixture.o (.data);

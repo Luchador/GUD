@@ -306,6 +306,7 @@ BOOL BgDocumentSetFaceTexture(BgDocument *document, const BgFaceRef *refs,
 #define BG_FACE_PROPERTY_DECAL 2048u
 #define BG_FACE_PROPERTY_OPACITY 4096u
 #define BG_FACE_PROPERTY_FOG 8192u
+#define BG_FACE_PROPERTY_ENVIRONMENT 16384u
 typedef struct BgFacePropertiesEdit {
     unsigned int fields; /* only explicitly changed controls are applied */
     BOOL cullbackfaces;
@@ -315,6 +316,7 @@ typedef struct BgFacePropertiesEdit {
     DWORD alphasource;
     BOOL decal;
     DWORD opacity; /* Native environment alpha, 0..255. */
+    DWORD environment; /* BG_ENV_* */
     DWORD fog; /* BG_FOG_AUTO/ON/OFF, independent of alpha and transparency. */
 } BgFacePropertiesEdit;
 
@@ -342,6 +344,9 @@ BOOL BgDocumentDetailMaterial(const BgMaterial *source, const BgFacePropertiesEd
 BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
     DWORD count, const BgFacePropertiesEdit *edit, BOOL *changedout,
     const char **reasonout);
+
+/* Signed native normal packed in RGB byte order, derived from face winding. */
+DWORD BgDocumentEnvironmentNormal(const BgDocumentRoom *room, const BgDocumentFace *face);
 
 /* Move selected faces to an existing room, retaining world coordinates,
  * UVs, colors, layers, face IDs and shared vertices within the moved set.

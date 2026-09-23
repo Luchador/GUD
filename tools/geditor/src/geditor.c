@@ -3753,6 +3753,7 @@ static BOOL GEditorSetFaceProperties(HWND hwnd, const BgFacePropertiesEdit *edit
         : edit->fields == BG_FACE_PROPERTY_TRANSPARENCY ? "Change BG Transparency"
         : edit->fields == BG_FACE_PROPERTY_ALPHA_SOURCE ? "Change BG Alpha Preset"
         : edit->fields == BG_FACE_PROPERTY_OPACITY ? "Change BG Opacity"
+        : edit->fields == BG_FACE_PROPERTY_ENVIRONMENT ? "Change BG Environment Mapping"
         : edit->fields == BG_FACE_PROPERTY_FOG ? "Change BG Fog Participation"
         : edit->fields == BG_FACE_PROPERTY_DECAL ? "Change BG Decal"
         : "Change BG Texture Wrapping";

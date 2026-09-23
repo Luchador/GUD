@@ -85,8 +85,29 @@
        && ((w1) & ~0x00fc7e3fu) == (0xfffff9fcu & ~0x00fc7e3fu)) \
      || (((w0) & ~0x00007e00u) == (0xfcffffffu & ~0x00007e00u) \
        && ((w1) & ~0x00fc7e3fu) == (0xfffe793cu & ~0x00fc7e3fu)))
+/* Normal-based face mapping. Policy/slots use a reserved C0 tag; the normal
+ * packet also sets unused texture-marker bit 8, so no real image request can
+ * collide with its 24-bit payload. Authored vertices retain their RGBA/UVs. */
+#define BG_ENV_TAG 0x48400000u
+#define BG_ENV_NORMAL_TAG 0x48000000u
+#define BG_ENV_IS_MARKER(w0, w1) \
+    ((w0) == BG_SURFACE_MARKER && ((w1) & 0xffffff00u) == BG_ENV_TAG)
+#define BG_ENV_NORMAL_MARKER 0xc0000100u
+#define BG_ENV_IS_NORMAL(w0, w1) \
+    ((w0) == BG_ENV_NORMAL_MARKER && ((w1) & 0xff000000u) == BG_ENV_NORMAL_TAG)
+#define BG_ENV_AUTO 0u
+#define BG_ENV_OFF 1u
+#define BG_ENV_SPHERICAL 2u
+#define BG_ENV_LINEAR 3u
+#define BG_ENV_CLEAR 4u
+#define BG_ENV_SET 5u
+#define BG_ENV_LIGHTS 6u
+#define BG_ENV_LIGHT_DIRECTION 7u
+#define BG_ENV_LIGHT_AMBIENT 8u
+#define BG_ENV_SCALE 9u
+#define BG_ENV_GENERATED(mode) ((mode) == BG_ENV_SPHERICAL || (mode) == BG_ENV_LINEAR)
 #define BG_EDITOR_IS_MARKER(w0, w1) \
-    (BG_SURFACE_IS_MARKER(w0, w1) || BG_ALPHA_IS_MARKER(w0, w1) || BG_FOG_IS_MARKER(w0, w1))
+    (BG_SURFACE_IS_MARKER(w0, w1) || BG_ALPHA_IS_MARKER(w0, w1) || BG_FOG_IS_MARKER(w0, w1) || BG_ENV_IS_MARKER(w0, w1) || BG_ENV_IS_NORMAL(w0, w1))
 
 /* (0 - 0) * 0 + SHADE in both alpha cycles; RGB mux bits are untouched. */
 #define BG_ALPHA_COMBINE_W0(w0) ((w0) | 0x00007e00u)

@@ -110,6 +110,7 @@ typedef struct BgOneCycleState {
     s32 paletteLoaded;
     u32 surfacePolicy;
     u32 fogPolicy;
+    u32 environmentPolicy;
     u32 alphaSource;
     struct tex *loadedTexture;
 } BgOneCycleState;
@@ -146,6 +147,7 @@ static void bgOneCycleResetState(BgOneCycleState *state)
     state->paletteLoaded = FALSE;
     state->surfacePolicy = BG_SURFACE_AUTO;
     state->fogPolicy = BG_FOG_AUTO;
+    state->environmentPolicy = BG_ENV_AUTO;
     state->alphaSource = BG_ALPHA_AUTO;
     for (i = 0; i < 8; i++) state->tiles[i] = state->palettes[i] = 0;
     state->loadedTexture = NULL;
@@ -163,6 +165,9 @@ static s32 bgOneCycleReadState(BgOneCycleState *state, Gfx command, bool cutouts
     struct tex *tex;
     if (BG_SURFACE_IS_MARKER(command.words.w0, command.words.w1)) {
         state->surfacePolicy = BG_SURFACE_TAG_POLICY(command.words.w1);
+    } else if (BG_ENV_IS_MARKER(command.words.w0, command.words.w1)) {
+        if ((command.words.w1 & 255u) <= BG_ENV_LINEAR)
+            state->environmentPolicy = command.words.w1 & 255u;
     } else if (BG_FOG_IS_MARKER(command.words.w0, command.words.w1)) {
         if ((command.words.w1 & 255u) <= BG_FOG_OFF)
             state->fogPolicy = command.words.w1 & 255u;
@@ -257,7 +262,7 @@ static s32 bgOneCycleChooseState(const BgOneCycleState *source, BgOneCycleState 
      * Invalid/unknown policies also retain the original pipeline. */
     if (source->surfacePolicy == BG_SURFACE_BLEND || source->surfacePolicy > BG_SURFACE_BLEND) return FALSE;
     if (source->alphaSource != BG_ALPHA_AUTO) return FALSE;
-    if (source->fogPolicy != BG_FOG_AUTO) return FALSE;
+    if (source->fogPolicy != BG_FOG_AUTO || source->environmentPolicy != BG_ENV_AUTO) return FALSE;
     if ((source->highKnown & BG_CYCLE_MASK) != BG_CYCLE_MASK
             || (source->high & BG_CYCLE_MASK) != G_CYC_2CYCLE
             || (source->lowKnown & BG_RENDER_MASK) != BG_RENDER_MASK
@@ -403,6 +408,7 @@ static s32 bgOneCycleBuild(const Gfx *src, s32 size, Gfx *dst, s32 capacity,
     u32 policy;
     u32 alphaSource;
     u32 fogPolicy;
+    u32 environmentPolicy;
     s32 i;
     if (!src || size <= 0 || (size & 7) || size > BG_MAX_ONE_CYCLE_BYTES
             || capacity < 0 || dst == src || initialSize < 0 || (initialSize & 7)
@@ -454,8 +460,10 @@ static s32 bgOneCycleBuild(const Gfx *src, s32 size, Gfx *dst, s32 capacity,
             policy = source.surfacePolicy;
             alphaSource = source.alphaSource;
             fogPolicy = source.fogPolicy;
+            environmentPolicy = source.environmentPolicy;
             bgOneCycleResetState(&source);
             source.fogPolicy = fogPolicy;
+            source.environmentPolicy = environmentPolicy;
             source.surfacePolicy = policy;
             source.alphaSource = alphaSource;
             actual = source;
