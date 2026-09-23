@@ -16,13 +16,27 @@ static DWORD Read(const unsigned char *p)
 static void Write(unsigned char *p, DWORD v)
 { p[0] = v >> 24; p[1] = v >> 16; p[2] = v >> 8; p[3] = v; }
 static void Near(double a, double b) { assert(fabs(a-b) < .0003); }
+static void SamePad(const SetupPad *a, const SetupPad *b)
+{
+    /* Saving canonicalizes -0 direction components to +0. Compare their
+     * numeric values; a raw struct memcmp rejects that valid round trip. */
+    for (int i=0;i<3;i++)
+    { assert(a->pos[i]==b->pos[i] && a->up[i]==b->up[i] && a->look[i]==b->look[i]); }
+    assert(!strcmp(a->stanname,b->stanname) && a->deleted==b->deleted && a->occluder==b->occluder);
+}
 static void Same(const SetupFile *a, const SetupFile *b)
 {
     assert(a->objectcount == b->objectcount && a->padcount == b->padcount
         && a->boundpadcount == b->boundpadcount && a->charactercount == b->charactercount);
     SetupAssertNativeEqual(a,b);
-    assert(!memcmp(a->pads, b->pads, a->padcount * sizeof(*a->pads)));
-    assert(!memcmp(a->boundpads, b->boundpads, a->boundpadcount * sizeof(*a->boundpads)));
+    for (DWORD i=0;i<a->padcount;i++) { SamePad(a->pads+i,b->pads+i); }
+    for (DWORD i=0;i<a->boundpadcount;i++)
+    {
+        const SetupBoundPad *x=a->boundpads+i,*y=b->boundpads+i;
+        SamePad(&x->pad,&y->pad);
+        assert(x->xmin==y->xmin && x->xmax==y->xmax && x->ymin==y->ymin
+            && x->ymax==y->ymax && x->zmin==y->zmin && x->zmax==y->zmax);
+    }
 }
 static void RoundTrip(const char *dir, const SetupFile *setup)
 {

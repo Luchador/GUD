@@ -20,6 +20,7 @@ typedef struct RightPanelPadModel {
     SetupPadRef pad;
     ULONG_PTR document;
     int modelid;
+    BOOL door;
 } RightPanelPadModel;
 
 /* Synchronous absolute-position request. axismask marks edited X/Y/Z fields;

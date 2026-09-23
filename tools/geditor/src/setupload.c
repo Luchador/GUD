@@ -1855,6 +1855,28 @@ static DWORD SetupFindFreeCommand(const SetupFile *s, unsigned char type, DWORD 
     return 0;
 }
 
+/* Shared native defaults for dragged doors and doors on existing bound pads.
+ * A DoorRecord is 64 words and uses the raw bound-pad index. */
+static void SetupInitializeDoor(unsigned char *record, int modelid, DWORD padindex)
+{
+    SetupWrite32(record, (256u << 16) | PROPDEF_DOOR);
+    SetupWrite32(record + 4, ((DWORD)modelid << 16) | padindex);
+    /* Register both adjacent rooms where possible, but don't close an
+     * existing visibility portal merely because a new door is nearby. */
+    SetupWrite32(record + 8, PROPFLAG_FORCE_COLLISIONS | PROPFLAG_NO_PORTAL_CLOSE);
+    SetupWrite32(record + 0x74, 1000u << 16);
+    /* Standalone, unlocked slider. All links, runtime pointers/caches and
+     * exclusion flags start at zero in this complete 64-word DoorRecord. */
+    SetupWrite32(record + 0x84, 65536); /* 100% travel */
+    SetupWrite32(record + 0x88, 62259); /* 95% collision clearance */
+    SetupWrite32(record + 0x8c, 66); /* about 360%/s squared */
+    SetupWrite32(record + 0x90, 66);
+    SetupWrite32(record + 0x94, 1311); /* about 120%/s */
+    SetupWrite32(record + 0x98, DOORTYPE_SLIDING);
+    SetupWrite32(record + 0xa0, 5 * 60);
+    SetupWrite32(record + 0xa4, DOOR_OPEN_SOUND_METAL);
+}
+
 /* Copy the command stream before extending it: growing it in place could
  * overwrite another section. Commit discards the abandoned table copies. */
 static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid, float levelscale,
@@ -2070,22 +2092,7 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
     }
     if (door)
     {
-        SetupWrite32(added.data + newrecord, (256u << 16) | PROPDEF_DOOR);
-        SetupWrite32(added.data + newrecord + 4, ((DWORD)modelid << 16) | padindex);
-        /* Register both adjacent rooms where possible, but don't close an
-         * existing visibility portal merely because a new door is nearby. */
-        SetupWrite32(added.data + newrecord + 8, PROPFLAG_FORCE_COLLISIONS | PROPFLAG_NO_PORTAL_CLOSE);
-        SetupWrite32(added.data + newrecord + 0x74, 1000u << 16);
-        /* Standalone, unlocked slider. All links, runtime pointers/caches and
-         * exclusion flags start at zero in this complete 64-word DoorRecord. */
-        SetupWrite32(added.data + newrecord + 0x84, 65536); /* 100% travel */
-        SetupWrite32(added.data + newrecord + 0x88, 62259); /* 95% collision clearance */
-        SetupWrite32(added.data + newrecord + 0x8c, 66); /* about 360%/s squared */
-        SetupWrite32(added.data + newrecord + 0x90, 66);
-        SetupWrite32(added.data + newrecord + 0x94, 1311); /* about 120%/s */
-        SetupWrite32(added.data + newrecord + 0x98, DOORTYPE_SLIDING);
-        SetupWrite32(added.data + newrecord + 0xa0, 5 * 60);
-        SetupWrite32(added.data + newrecord + 0xa4, DOOR_OPEN_SOUND_METAL);
+        SetupInitializeDoor(added.data + newrecord, modelid, padindex);
     }
     else if (character)
     {
@@ -2212,7 +2219,7 @@ BOOL SetupFileAddModel(SetupFile *setup, BOOL character, int modelid, float leve
         modelid, levelscale, position, NULL, NULL, selectionout, reasonout);
 }
 
-BOOL SetupFileCanAddBoundPadModel(const SetupFile *setup, DWORD padindex,
+BOOL SetupFileCanAddBoundPadModel(const SetupFile *setup, DWORD padindex, BOOL door,
                                  const char **reasonout)
 {
     const SetupBoundPad *bound;
@@ -2225,8 +2232,8 @@ BOOL SetupFileCanAddBoundPadModel(const SetupFile *setup, DWORD padindex,
     if (bound->pad.deleted) { return FALSE; }
     if (bound->pad.occluder)
     { *reasonout = "Occluders cannot be used as object placement pads."; return FALSE; }
-    if (padindex > 22767)
-    { *reasonout = "This bound pad index is too large for an ordinary object."; return FALSE; }
+    if (padindex > (door ? 32767u : 22767u))
+    { *reasonout = "This bound pad index is too large for this object type."; return FALSE; }
     table = SetupRead32(setup->data + SETUP_BOUNDPAD_POINTER);
     if (table < SETUP_HEADER_SIZE || (table & 3) || table > setup->size
         || padindex >= (setup->size - table) / SETUP_BOUNDPAD_SIZE) { return FALSE; }
@@ -2242,20 +2249,22 @@ BOOL SetupFileCanAddBoundPadModel(const SetupFile *setup, DWORD padindex,
     return TRUE;
 }
 
-BOOL SetupFileAddBoundPadModel(SetupFile *setup, DWORD padindex, int modelid,
+BOOL SetupFileAddBoundPadModel(SetupFile *setup, DWORD padindex, int modelid, BOOL door,
                               DWORD *selectionout, const char **reasonout)
 {
     SetupFile copy = {0};
     DWORD start, end, commands = 0, reused, unused, newstart, record, size;
     unsigned char *data;
-    if (!SetupFileCanAddBoundPadModel(setup, padindex, reasonout)) { return FALSE; }
+    const unsigned char type = door ? PROPDEF_DOOR : PROPDEF_PROP;
+    const DWORD recordsize = door ? 0x100u : 0x80u;
+    if (!SetupFileCanAddBoundPadModel(setup, padindex, door, reasonout)) { return FALSE; }
     *reasonout = "Choose an available object model.";
     if (!selectionout || modelid < 0 || modelid > 32767
         || !ModelGetPropDefinition(modelid, NULL, NULL)) { return FALSE; }
     if (!SetupFileClone(setup, &copy, reasonout)) { return FALSE; }
     /* Reuse an unreferenced tombstone where possible. All command and pad
      * indices stay stable, including door-specific raw bound-pad indices. */
-    reused = SetupFindFreeCommand(&copy, PROPDEF_PROP, &unused);
+    reused = SetupFindFreeCommand(&copy, type, &unused);
     start = SetupRead32(copy.data + SETUP_OBJECT_POINTER); end = start;
     if (start && (start < SETUP_HEADER_SIZE || (start & 3) || start > copy.size - 4)) { goto malformed; }
     while (start && copy.data[end + 3] != SETUP_PROP_END)
@@ -2267,22 +2276,26 @@ BOOL SetupFileAddBoundPadModel(SetupFile *setup, DWORD padindex, int modelid,
     }
     newstart = (copy.size + 3u) & ~3u;
     record = newstart + (reused ? reused - start : end - start);
-    size = newstart + end - start + (reused ? 0 : 0x80u) + 4;
+    size = newstart + end - start + (reused ? 0 : recordsize) + 4;
     if (size > SETUP_FILE_MAX) { *reasonout = "The setup size limit has been reached."; goto fail; }
     data = calloc(size, 1);
     if (!data) { *reasonout = "Out of memory creating the object."; goto fail; }
     memcpy(data, copy.data, copy.size);
     memcpy(data + newstart, copy.data + start, end - start);
-    memset(data + record, 0, 0x80);
+    memset(data + record, 0, recordsize);
     SetupWrite32(data + SETUP_OBJECT_POINTER, newstart);
     SetupWrite32(data + size - 4, SETUP_PROP_END);
-    SetupWrite32(data + record, (256u << 16) | PROPDEF_PROP);
-    SetupWrite32(data + record + 4, ((DWORD)modelid << 16) | (padindex + 10000u));
-    /* Use the same per-axis fitting as scaled props. Keep the authored
-     * height rather than snapping this existing volume onto the floor. */
-    SetupWrite32(data + record + 8, PROPFLAG_FORCE_COLLISIONS | PROPFLAG_ABSOLUTEPOSITION
-        | PROPFLAG_INAIR | PROPFLAG_SCALE_TO_X_BOUNDS | PROPFLAG_SCALE_TO_Y_BOUNDS | PROPFLAG_SCALE_TO_Z_BOUNDS);
-    SetupWrite32(data + record + 0x74, 1000u << 16);
+    if (door) { SetupInitializeDoor(data + record, modelid, padindex); }
+    else
+    {
+        SetupWrite32(data + record, (256u << 16) | PROPDEF_PROP);
+        SetupWrite32(data + record + 4, ((DWORD)modelid << 16) | (padindex + 10000u));
+        /* Use the same per-axis fitting as scaled props. Keep the authored
+         * height rather than snapping this existing volume onto the floor. */
+        SetupWrite32(data + record + 8, PROPFLAG_FORCE_COLLISIONS | PROPFLAG_ABSOLUTEPOSITION
+            | PROPFLAG_INAIR | PROPFLAG_SCALE_TO_X_BOUNDS | PROPFLAG_SCALE_TO_Y_BOUNDS | PROPFLAG_SCALE_TO_Z_BOUNDS);
+        SetupWrite32(data + record + 0x74, 1000u << 16);
+    }
     free(copy.data); copy.data = data; copy.size = size;
     free(copy.objects); copy.objects = NULL; copy.objectcount = 0;
     free(copy.characters); copy.characters = NULL; copy.charactercount = 0;

@@ -52,7 +52,8 @@ enum {
     RIGHTPANEL_ID_PROPERTY_TABS,
     RIGHTPANEL_ID_STAN_ROOM,
     RIGHTPANEL_ID_PAD_MODEL,
-    RIGHTPANEL_ID_PAD_CREATE
+    RIGHTPANEL_ID_PAD_CREATE,
+    RIGHTPANEL_ID_PAD_CREATE_DOOR
 };
 
 typedef struct RightPanelState {
@@ -72,8 +73,8 @@ typedef struct RightPanelState {
     BOOL showingstanroom, updatingstanroom;
     DWORD stanroomcount;
     char stanroomtext[32];
-    HWND padmodellabel, padmodel, padcreate;
-    BOOL showingpadmodel, padavailable;
+    HWND padmodellabel, padmodel, padcreate, padcreatedoor;
+    BOOL showingpadmodel, padavailable, paddooravailable;
     SetupPadRef padref;
     ULONG_PTR paddocument;
     char padproject[MAX_PATH];
@@ -178,10 +179,14 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
         ShowWindow(state->stanroom, showroom ? SW_SHOW : SW_HIDE);
         MoveWindow(state->padmodellabel, RIGHTPANEL_MARGIN, detailtop, width, 18, TRUE);
         MoveWindow(state->padmodel, RIGHTPANEL_MARGIN, detailtop + 20, width, 300, TRUE);
-        MoveWindow(state->padcreate, RIGHTPANEL_MARGIN, detailtop + 50, width, 26, TRUE);
+        int buttonwidth = max(0, (width - 4) / 2);
+        MoveWindow(state->padcreate, RIGHTPANEL_MARGIN, detailtop + 50, buttonwidth, 26, TRUE);
+        MoveWindow(state->padcreatedoor, RIGHTPANEL_MARGIN + buttonwidth + 4, detailtop + 50,
+                   max(0, width - buttonwidth - 4), 26, TRUE);
         ShowWindow(state->padmodellabel, showpad ? SW_SHOW : SW_HIDE);
         ShowWindow(state->padmodel, showpad ? SW_SHOW : SW_HIDE);
         ShowWindow(state->padcreate, showpad ? SW_SHOW : SW_HIDE);
+        ShowWindow(state->padcreatedoor, showpad ? SW_SHOW : SW_HIDE);
         MoveWindow(state->details, RIGHTPANEL_MARGIN, detailtop + (showroom ? 52 : showpad ? 84 : 0), width,
                    max(0, detailheight - (showroom ? 52 : showpad ? 84 : 0)), TRUE);
     }
@@ -504,14 +509,15 @@ static void RightPanelApplyStanRoom(HWND hwnd, RightPanelState *state, BOOL from
     SendMessage(GetParent(hwnd), RIGHTPANEL_WM_STAN_ROOM_CHANGED, room, 0);
 }
 
-static void RightPanelCreatePadModel(HWND hwnd, RightPanelState *state)
+static void RightPanelCreatePadModel(HWND hwnd, RightPanelState *state, BOOL door)
 {
     RightPanelPadModel request;
     int choice = (int)SendMessage(state->padmodel, CB_GETCURSEL, 0, 0);
-    if (!state->showingpadmodel || !state->padavailable || choice < 0) { return; }
+    if (!state->showingpadmodel || !(door ? state->paddooravailable : state->padavailable) || choice < 0) { return; }
     request.pad = state->padref;
     request.document = state->paddocument;
     request.modelid = (int)SendMessage(state->padmodel, CB_GETITEMDATA, choice, 0);
+    request.door = door;
     SendMessage(GetParent(hwnd), RIGHTPANEL_WM_BOUND_PAD_MODEL, 0, (LPARAM)&request);
 }
 
@@ -617,9 +623,12 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
             0, 0, 1, 300, hwnd, (HMENU)(INT_PTR)RIGHTPANEL_ID_PAD_MODEL, cs->hInstance, NULL);
         state->padcreate = CreateWindowEx(0, "BUTTON", "Create Object", WS_CHILD | WS_TABSTOP | BS_PUSHBUTTON,
             0, 0, 1, 1, hwnd, (HMENU)(INT_PTR)RIGHTPANEL_ID_PAD_CREATE, cs->hInstance, NULL);
+        state->padcreatedoor = CreateWindowEx(0, "BUTTON", "Create Door", WS_CHILD | WS_TABSTOP | BS_PUSHBUTTON,
+            0, 0, 1, 1, hwnd, (HMENU)(INT_PTR)RIGHTPANEL_ID_PAD_CREATE_DOOR, cs->hInstance, NULL);
         SendMessage(state->padmodellabel, WM_SETFONT, (WPARAM)font, TRUE);
         SendMessage(state->padmodel, WM_SETFONT, (WPARAM)font, TRUE);
         SendMessage(state->padcreate, WM_SETFONT, (WPARAM)font, TRUE);
+        SendMessage(state->padcreatedoor, WM_SETFONT, (WPARAM)font, TRUE);
         state->colorpicker = ColorPickerCreate(hwnd, cs->hInstance);
         state->faceproperties = FacePropertiesCreate(hwnd, cs->hInstance);
         state->portalproperties = PortalPropertiesCreate(hwnd, cs->hInstance);
@@ -642,7 +651,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         if (state->bgprimary == NULL || state->bgsecondary == NULL
             || state->stan == NULL || state->stanopacity == NULL || state->stanopacitylabel == NULL
             || state->portals == NULL || state->stanroom == NULL || state->stanroomlabel == NULL
-            || state->padmodellabel == NULL || state->padmodel == NULL || state->padcreate == NULL
+            || state->padmodellabel == NULL || state->padmodel == NULL || state->padcreate == NULL || state->padcreatedoor == NULL
             || state->positions[0] == NULL || state->positions[1] == NULL
             || state->positions[2] == NULL || state->objects == NULL || state->details == NULL
             || state->movemode == NULL || state->rotatemode == NULL || state->scalebutton == NULL
@@ -704,10 +713,14 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         {
             EnableWindow(state->padcreate, state->padavailable
                 && SendMessage(state->padmodel, CB_GETCURSEL, 0, 0) != CB_ERR);
+            EnableWindow(state->padcreatedoor, state->paddooravailable
+                && SendMessage(state->padmodel, CB_GETCURSEL, 0, 0) != CB_ERR);
             return 0;
         }
         if (state && LOWORD(wparam) == RIGHTPANEL_ID_PAD_CREATE && HIWORD(wparam) == BN_CLICKED)
-        { RightPanelCreatePadModel(hwnd, state); return 0; }
+        { RightPanelCreatePadModel(hwnd, state, FALSE); return 0; }
+        if (state && LOWORD(wparam) == RIGHTPANEL_ID_PAD_CREATE_DOOR && HIWORD(wparam) == BN_CLICKED)
+        { RightPanelCreatePadModel(hwnd, state, TRUE); return 0; }
         if (state && LOWORD(wparam) == RIGHTPANEL_ID_STAN_ROOM
             && HIWORD(wparam) == CBN_SELENDOK && !state->updatingstanroom)
         { RightPanelApplyStanRoom(hwnd, state, TRUE); return 0; }
@@ -1012,11 +1025,11 @@ BOOL RightPanelHandleMessage(HWND panel, MSG *message)
         { SetWindowText(state->stanroom, state->stanroomtext); return TRUE; }
     }
     if (state->showingpadmodel && IsWindowVisible(state->padmodel)
-        && (focus == state->padmodel || focus == state->padcreate)
+        && (focus == state->padcreate || focus == state->padcreatedoor)
         && message->wParam == VK_RETURN)
     {
         if (SendMessage(state->padmodel, CB_GETDROPPEDSTATE, 0, 0)) { return FALSE; }
-        RightPanelCreatePadModel(panel, state); return TRUE;
+        RightPanelCreatePadModel(panel, state, focus == state->padcreatedoor); return TRUE;
     }
     isposition = focus == state->positions[0] || focus == state->positions[1]
             || focus == state->positions[2];
@@ -1240,7 +1253,8 @@ void RightPanelSetSetupPad(HWND panel, const SetupFile *setup, const SetupPadRef
     {
         const char *why = "";
         if (!projectdir) { projectdir = ""; }
-        state->padavailable = SetupFileCanAddBoundPadModel(setup, ref->index, &why);
+        state->padavailable = SetupFileCanAddBoundPadModel(setup, ref->index, FALSE, &why);
+        state->paddooravailable = SetupFileCanAddBoundPadModel(setup, ref->index, TRUE, &why);
         if (lstrcmpi(projectdir, state->padproject) || state->padnewmodelcount != NewPropsCount())
         {
             if (ObjectPropertiesFillModelList(state->padmodel, projectdir))
@@ -1252,9 +1266,12 @@ void RightPanelSetSetupPad(HWND panel, const SetupFile *setup, const SetupPadRef
         }
         state->showingpadmodel = TRUE;
         state->padref = *ref; state->paddocument = (ULONG_PTR)setup->data;
-        EnableWindow(state->padmodel, state->padavailable);
+        EnableWindow(state->padmodel, state->padavailable || state->paddooravailable);
         EnableWindow(state->padcreate, state->padavailable
             && SendMessage(state->padmodel, CB_GETCURSEL, 0, 0) != CB_ERR);
+        EnableWindow(state->padcreatedoor, state->paddooravailable
+            && SendMessage(state->padmodel, CB_GETCURSEL, 0, 0) != CB_ERR);
+        if (!*why) { why = "For door models, use Create Door to fit the model with the door's orientation and behavior."; }
         if (*why)
         {
             size_t used = strlen(state->detailtext);

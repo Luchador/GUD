@@ -4631,11 +4631,11 @@ static BOOL GEditorCreateBoundPadModel(HWND hwnd, const RightPanelPadModel *requ
         || request->document != (ULONG_PTR)g_CurrentSetup.data
         || !ViewportGetSelectedPad(g_Viewport, &ref) || !ref.bound
         || !request->pad.bound || ref.index != request->pad.index) { return FALSE; }
-    if (!SetupFileCanAddBoundPadModel(&g_CurrentSetup, ref.index, &why)) { goto fail; }
+    if (!SetupFileCanAddBoundPadModel(&g_CurrentSetup, ref.index, request->door, &why)) { goto fail; }
     ViewportCancelTransform(g_Viewport);
     if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup,
-        "Create Object on Bound Pad", &transaction, &why)) { goto fail; }
-    if (!SetupFileAddBoundPadModel(&g_CurrentSetup, ref.index, request->modelid, &selection, &why)) { goto rollback; }
+        request->door ? "Create Door on Bound Pad" : "Create Object on Bound Pad", &transaction, &why)) { goto fail; }
+    if (!SetupFileAddBoundPadModel(&g_CurrentSetup, ref.index, request->modelid, request->door, &selection, &why)) { goto rollback; }
     /* Resolve the existing anchor without moving or duplicating its pad. */
     if (g_CurrentStan.data)
     {

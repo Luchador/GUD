@@ -389,12 +389,12 @@ BOOL SetupFileAddModel(SetupFile *setup, BOOL character, int modelid,
                       float levelscale, const double position[3],
                       DWORD *selectionout, const char **reasonout);
 
-/* Create a solid ordinary prop fitted to an existing bound pad. The pad's
+/* Create an ordinary prop or native door fitted to an existing bound pad. The pad's
  * index, placement, bounds and other references are retained. Atomic; no new
  * pad is allocated. Occupied pads and render-only occluders are rejected. */
-BOOL SetupFileCanAddBoundPadModel(const SetupFile *setup, DWORD padindex,
+BOOL SetupFileCanAddBoundPadModel(const SetupFile *setup, DWORD padindex, BOOL door,
                                  const char **reasonout);
-BOOL SetupFileAddBoundPadModel(SetupFile *setup, DWORD padindex, int modelid,
+BOOL SetupFileAddBoundPadModel(SetupFile *setup, DWORD padindex, int modelid, BOOL door,
                               DWORD *selectionout, const char **reasonout);
 
 #define SETUP_DEFAULT_ARMOR_MODEL "PbodyarmourZ"
