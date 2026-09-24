@@ -41,8 +41,14 @@ object; it does not recreate the old background faces.
 
 There may be up to 64 live Door Shadows per setup. They render in their original
 room and geometry layer, with the level's existing fog and material settings.
-They add no collision or gameplay prop. Room statistics count them as objects
-in their stored room. The editor's Objects / Characters visibility toggle also
+Bullets and projectiles hit the full original surface in either geometry layer,
+using the normal background triangle tests. Opening the door changes only the
+lighting; it never opens a hole in the shadow surface. The original texture
+selects impact sounds and effects, including the normal non-colliding exception
+for Archives light-shaft texture `0x4FD`. Collision is available before the first
+render and after render-cache eviction. They do not add a gameplay prop or alter
+Stan geometry for character movement. Room statistics count them as objects in
+their stored room. The editor's Objects / Characters visibility toggle also
 controls their preview.
 
 Save Project writes both the edited BG and setup. As with other BG edits, a BG
@@ -62,6 +68,11 @@ Door Shadow implementation. It requires a clean GUD build and project rebase
 onto that new ROM before export. Existing Door Shadows automatically use the
 finer coordinates; their saved format and editor controls are unchanged, so
 rebuilding GEditor or recreating the objects is unnecessary for this update.
+
+The **Door Shadow collision** patch also changes only the runtime. Perform a
+clean GUD build, then rebase the project onto that ROM and export. Existing Door
+Shadows gain collision automatically; no editor rebuild, format change or object
+recreation is required.
 
 ## Implementation and checks
 
@@ -92,3 +103,11 @@ render scales, room-origin changes, multiple shadows, matrix restoration, and
 insufficient matrix/vertex memory. They decode matrices produced by the game's
 actual fixed-point converter. Host tests do not rasterize an N64 frame;
 emulator visual verification is still required.
+
+Collision checks execute the game's triangle intersection, shared BG hit query
+and bullet room/range checks. They cover both layers and sides, all opening
+fractions and directions, outer edges and the diagonal, misses, scaled positions
+and saved room origins, base/detail texture IDs, nearest-hit ordering with other
+shadows and ordinary BG (including the light-fixture bias), unavailable render
+memory, cache eviction, deletion and level reset. Ordinary BG and object impact
+material lookup is also covered by `python3 tools/tests/hit_textures/run.py`.

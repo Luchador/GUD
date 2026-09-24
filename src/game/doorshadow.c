@@ -3,6 +3,7 @@
 #include <bondconstants.h>
 #include <mema.h>
 #include <string.h>
+#include "bgtransparency.h"
 #include "doorshadowformat.h"
 #include "doorshadow.h"
 #include "bg.h"
@@ -10,6 +11,7 @@
 #include "dyn.h"
 #include "environment.h"
 #include "loadobjectmodel.h"
+#include "line_tri_intersect.h"
 #include "tex.h"
 #include "renderconfig.h"
 #include "rendercache.h"
@@ -30,6 +32,7 @@ typedef struct DoorShadowRuntime {
     DoorRecord *door;
     Gfx *gdl;
     s32 size, next;
+    s16 hitTexture;
     DoorShadowPoint source[6];
     f32 center[3], vertexScale[3];
     DoorShadowMapping mapping[2];
@@ -39,6 +42,22 @@ static s16 g_DoorShadowRooms[MAXROOMCOUNT];
 static s32 g_DoorShadowCount;
 
 static u32 doorShadowWord(u8 *p,s32 offset) { return *(u32 *)(p+offset); }
+static s16 doorShadowHitTexture(u8 *record)
+{
+    Gfx *gdl=(Gfx *)(record+DOOR_SHADOW_GDL);
+    s32 count=doorShadowWord(record,DOOR_SHADOW_GDL_SIZE)/sizeof(Gfx),i;
+    s16 texture=-1;
+    /* Read the compact material before texture expansion. This keeps hits
+     * independent of rendering, room-cache eviction and allocation failure.
+     * Detail materials also load the base image last, just like normal BG. */
+    for(i=0;i<count;i++) {
+        u32 op=gdl[i].words.w0>>24;
+        if(op==G_VTX||op==(u8)G_ENDDL)break;
+        if(op==G_NOOP&&!BG_EDITOR_IS_MARKER(gdl[i].words.w0,gdl[i].words.w1))
+            texture=gdl[i].words.w1&0xfff;
+    }
+    return texture;
+}
 static void doorShadowPrepareGeometry(DoorShadowRuntime *s)
 {
     s32 a,v,t;
@@ -80,6 +99,10 @@ void doorShadowReset(void)
     g_DoorShadowCount=0;
     for(i=0;i<MAXROOMCOUNT;i++)g_DoorShadowRooms[i]=-1;
 }
+s32 doorShadowHasRoom(s32 room)
+{
+    return g_DoorShadowCount&&room>0&&room<MAXROOMCOUNT&&g_DoorShadowRooms[room]>=0;
+}
 void doorShadowExpandRoomBounds(s32 room)
 {
     s32 i,v,a;
@@ -110,6 +133,7 @@ void doorShadowInit(PropDefHeaderRecord *commands)
                 ObjectRecord *door=setupGetPtrToCommandByIndex((s32)doorShadowWord(p,DOOR_SHADOW_DOOR));
                 s->record=p;s->door=door&&door->type==PROPDEF_DOOR?(DoorRecord *)door:NULL;
                 s->gdl=NULL;s->size=0;s->next=g_DoorShadowRooms[room];
+                s->hitTexture=doorShadowHitTexture(p);
                 for(v=0;v<6;v++) {
                     u8 *vertex=p+DOOR_SHADOW_VERTICES+v*16;
                     for(a=0;a<3;a++)s->source[v].position[a]=*(s16 *)(vertex+a*2);
@@ -123,6 +147,41 @@ void doorShadowInit(PropDefHeaderRecord *commands)
         cmd+=sizepropdef(cmd);
     }
     for(i=1;i<g_MaxNumRooms;i++)doorShadowExpandRoomBounds(i);
+}
+bool doorShadowTestHit(s32 room,coord3d *from,coord3d *to,coord3d *dir,HitThing *hit)
+{
+    s32 i,t,found=FALSE;
+    f32 bestdist=0;
+    if(!g_DoorShadowCount||room<=0||room>=MAXROOMCOUNT)return FALSE;
+    for(i=g_DoorShadowRooms[room];i>=0;i=g_DoorShadows[i].next) {
+        DoorShadowRuntime *s=&g_DoorShadows[i];
+        Vertex *vertices=(Vertex *)(s->record+DOOR_SHADOW_VERTICES);
+        coord3d *origin=(coord3d *)(s->record+DOOR_SHADOW_ORIGIN);
+        /* Preserve the normal BG exception for Archives light-shaft images. */
+        if(s->hitTexture==0x4fd)continue;
+        for(t=0;t<2;t++) {
+            HitThing candidate;
+            Vertex *v=vertices+t*3;
+            f32 dx,dy,dz,distance;
+            /* Collision uses both original triangles, never the animated
+             * light/dark split or the renderer's rescaled vertex buffer.
+             * Use the saved origin even if later edits recenter the BG room. */
+            if(!intersectRayTriangle(v,v+1,v+2,origin,from,to,dir,&candidate))continue;
+            dx=candidate.hitpos.x-from->x;dy=candidate.hitpos.y-from->y;dz=candidate.hitpos.z-from->z;
+            distance=dx*dx+dy*dy+dz*dz;
+            if(!found||distance<bestdist) {
+                found=TRUE;bestdist=distance;
+                candidate.vtx0=v;candidate.vtx1=v+1;candidate.vtx2=v+2;
+                candidate.texturenum=s->hitTexture;
+                /* Shadows cannot contain breakable light fixtures and have
+                 * no static BG triangle command or resident tile binding. */
+                candidate.tricmd=NULL;candidate.unk28=0;
+                candidate.tileformat=-1;candidate.tilesize=-1;
+                *hit=candidate;
+            }
+        }
+    }
+    return found;
 }
 void doorShadowFreeRoom(s32 room)
 {

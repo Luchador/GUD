@@ -262,7 +262,7 @@ int main(int argc,char **argv)
     }
     for(int t=0;t<6;t++)if(area(frameVertices+t*3)>0)assert(frameVertices[t*3].v.cn[0]==64);
     doorShadowFreeRoom(1);assert(allocations==frees);
-    precisionChecks(p);multipleShadowChecks(p);assert(allocations==frees);
+    precisionChecks(p);multipleShadowChecks(p);collisionChecks(p);assert(allocations==frees);
     word(p,12,0xf8);doorShadowInit((PropDefHeaderRecord *)p);assert(!g_DoorShadowCount);
     doorShadowReset();assert(renderFrame(output,1,0)==output);
     puts("PASS runtime: real texture expansion/fog LUT, sliding/swinging travel, closed/missing doors, room bounds, both passes, cache reuse/unload, allocation failure and vertex budget.");

@@ -1,5 +1,6 @@
 #include <ultra64.h>
 #include <bondtypes.h>
+#include "line_tri_intersect.h"
 
 /**
  * Tests whether an infinite line intersects a triangle, writing the hit position and unnormalized

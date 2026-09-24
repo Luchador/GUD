@@ -9,6 +9,7 @@
 #include <random.h>
 #include <snd.h>
 #include "bg.h"
+#include "doorshadow.h"
 #include "environment.h"
 #include "bondview.h"
 #include "cam.h"
@@ -549,21 +550,25 @@ Gfx *chrpropsRenderPass(Gfx *gdl, s32 roomid, s32 renderpass)
 */
 s32 chrpropRayIntersectsRoomBbox(s32 room, coord3d* start, coord3d* dir)
 {
+    s32 axis;
     s32 max[3];
     s32 min[3];
     RoomInfo* roominfo;
 
     roominfo = &g_BgRoomInfo[room];
 
-    // Skip check if room has no collision data
-    if (roominfo->vtx_batch_bounds != NULL)
+    // Shadow source triangles remain available without a loaded BG batch cache.
+    if (roominfo->vtx_batch_bounds != NULL || doorShadowHasRoom(room))
     {
-        min[0] = roominfo->minbounds.f[0];
-        min[1] = roominfo->minbounds.f[1];
-        min[2] = roominfo->minbounds.f[2];
-        max[0] = roominfo->maxbounds.f[0];
-        max[1] = roominfo->maxbounds.f[1];
-        max[2] = roominfo->maxbounds.f[2];
+        for (axis = 0; axis < 3; axis++)
+        {
+            /* Saved shadow origins can be fractional. Round outward so the
+             * integer broad phase cannot discard a hit at a surface edge. */
+            min[axis] = roominfo->minbounds.f[axis];
+            max[axis] = roominfo->maxbounds.f[axis];
+            if (min[axis] > roominfo->minbounds.f[axis]) min[axis]--;
+            if (max[axis] < roominfo->maxbounds.f[axis]) max[axis]++;
+        }
 
         if (bgTestRayIntersectsBbox(start, dir, min, max))
         {
@@ -580,9 +585,10 @@ s32 chrpropRayIntersectsRoomBbox(s32 room, coord3d* start, coord3d* dir)
  * and triangle tests use BG coordinates; the returned hit position is in world
  * coordinates, like the shot origin and endpoint.
  *
- * Test every loaded room whose bounds intersect the ray. A horizontal stan walk
- * cannot choose the correct room when a shot crosses a floor or ceiling before
- * reaching a portal, and room traversal order does not imply hit distance.
+ * Test every room with collision data whose bounds intersect the ray. A
+ * horizontal stan walk cannot choose the correct room when a shot crosses a
+ * floor or ceiling before reaching a portal, and room traversal order does
+ * not imply hit distance.
  */
 static s32 chrpropFindNearestBgHit(coord3d *origin, coord3d *endpoint, HitThing *nearestHit)
 {

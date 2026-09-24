@@ -8,6 +8,7 @@
 #include <memp.h>
 #include "bg.h"
 #include "doorshadow.h"
+#include "line_tri_intersect.h"
 #include "bgdebug.h"
 #include "occlusion.h"
 #include "bgonecycle.h"
@@ -3027,25 +3028,6 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
 }
 
 
-/**
- * In order to make bgTestBulletHitBackground match, 4 bytes had to dropped from the regular HitThing struct.
- * There might be an alternate way of matching this that doesn't require the sub-struct.
- */
-struct HitThingSub {
-    coord3d hitpos;     // 0x00
-    coord3d normal;     // 0x0c
-
-    Vertex *vtx0;       // 0x18
-    Vertex *vtx1;       // 0x1c
-    Vertex *vtx2;       // 0x20
-
-    Gfx *tricmd;        // 0x24 - display-list command associated with hit triangle
-
-    s16 unk28;          // 0x28
-    s16 texturenum;     // 0x2a
-};
-
-
 bool bgTestBulletHitBackground(coord3d *from, coord3d *to, s32 roomnum, struct HitThing *hit)
 {
     RoomVtxBatchBounds *point;
@@ -3054,7 +3036,7 @@ bool bgTestBulletHitBackground(coord3d *from, coord3d *to, s32 roomnum, struct H
     coord3d toscaled;
     coord3d dir;
     s32 i;
-    struct HitThingSub tmp;
+    HitThing tmp;
     f32 scale;
     f32 bestdist;
     f32 dist;
@@ -3078,14 +3060,10 @@ bool bgTestBulletHitBackground(coord3d *from, coord3d *to, s32 roomnum, struct H
     dir.y = toscaled.y - fromscaled.y;
     dir.z = toscaled.z - fromscaled.z;
     point = g_BgRoomInfo[roomnum].vtx_batch_bounds;
-    point = g_BgRoomInfo[roomnum].vtx_batch_bounds;
 
-    if (point == NULL)
-    {
-        return FALSE;
-    }
-
-    numpoints = g_BgRoomInfo[roomnum].num_vtx_batch_bounds;
+    /* A shadow may be the room's only surface, or its BG batch cache may
+     * be unavailable. Its persistent source geometry still accepts hits. */
+    numpoints = point ? g_BgRoomInfo[roomnum].num_vtx_batch_bounds : 0;
 
     for (i = 0; i < numpoints; i++) 
     {
@@ -3153,6 +3131,22 @@ bool bgTestBulletHitBackground(coord3d *from, coord3d *to, s32 roomnum, struct H
         {
             hit->tileformat = ((u32)((u8 *)((Gfx*)point))[1]) >> 5;
             hit->tilesize = (((Gfx*)point)->words.w0 << 11) >> 30;
+        }
+    }
+
+    /* Do this after resolving native BG tile state: a shadow hit does not
+     * point into primaryGdl. Bullets and detailed projectile collision share
+     * this path and retain their existing range and prop-occlusion checks. */
+    if (doorShadowTestHit(roomnum, &fromscaled, &toscaled, &dir, &tmp))
+    {
+        dx = tmp.hitpos.x - fromscaled.x;
+        dy = tmp.hitpos.y - fromscaled.y;
+        dz = tmp.hitpos.z - fromscaled.z;
+        dist = dx * dx + dy * dy + dz * dz;
+        if (!found || dist < bestdist)
+        {
+            *hit = tmp;
+            found = TRUE;
         }
     }
 

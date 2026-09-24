@@ -55,6 +55,7 @@ expander = expander.replace('((s32)out) - ((s32)dst)', '(s32)((u8 *)out - (u8 *)
 expander = re.sub(r'    s32\s+pad;\n', '', expander)
 source += expander
 source += (HERE / 'runtime_harness.h').read_text()
+source += strip((ROOT / 'src/game/line_tri_intersect.c').read_text())
 matrixmath = (ROOT / 'src/game/matrixmath.c').read_text()
 source += function(matrixmath, 'matrix_4x4_set_identity')
 # Keep the production converter; express its bit packing with unsigned shifts
@@ -62,6 +63,17 @@ source += function(matrixmath, 'matrix_4x4_set_identity')
 source += function(matrixmath, 'matrix_4x4_f32_to_s32').replace('(e1 << 16)', '((u32)e1 << 16)')
 source += strip((ROOT / 'src/game/doorshadowmath.c').read_text())
 source += strip((ROOT / 'src/game/doorshadow.c').read_text()).replace('(s32)memory', '(intptr_t)memory')
+source += (HERE / 'collision_harness.h').read_text()
+source += function(bg, 'bgTestRayIntersectsBbox')
+collision = function(bg, 'bgTestBulletHitBackground')
+# Only adapt byte reads of native big-endian display-list words.
+collision = collision.replace('((u8 *)((Gfx*)point))[0]', '(((Gfx*)point)->words.w0 >> 24)')
+collision = collision.replace('((u8 *)((Gfx*)point))[1]', '((((Gfx*)point)->words.w0 >> 16) & 255)')
+source += collision
+chrprop = (ROOT / 'src/game/chrprop.c').read_text()
+source += function(chrprop, 'chrpropRayIntersectsRoomBbox')
+source += function(chrprop, 'chrpropFindNearestBgHit')
+source += (HERE / 'collision_check.c').read_text()
 source += (HERE / 'runtime_check.c').read_text()
 with tempfile.TemporaryDirectory(prefix='gud-door-shadow-') as directory:
     work = Path(directory)

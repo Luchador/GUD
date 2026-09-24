@@ -7,15 +7,35 @@ typedef ObjectRecord DoorRecord;
 static DoorRecord g_TestDoor;
 static ObjectRecord *setupGetPtrToCommandByIndex(s32 index) { return index==1?&g_TestDoor:NULL; }
 static s32 sizepropdef(PropDefHeaderRecord *p) { assert(p->type==PROPDEF_DOOR_SHADOW);return DOOR_SHADOW_BYTES/4; }
-typedef union { f32 f[3]; } coord3d;
+typedef union { struct { f32 x,y,z; }; f32 f[3]; } coord3d;
+typedef struct { struct { s16 x,y,z; } coord; s16 index,s,t; u8 r,g,b,a; } Vertex;
+typedef struct HitThing {
+    coord3d hitpos,normal;
+    Vertex *vtx0,*vtx1,*vtx2;
+    Gfx *tricmd;
+    s16 unk28,texturenum,tileformat,tilesize;
+} HitThing;
+typedef struct { s32 xmin,ymin,zmin,xmax,ymax,zmax; } RoomVtxBatchBounds;
 typedef union { f32 m[4][4]; s32 unused; } Mtxf;
 static struct TestPlayer { coord3d current_model_pos; } testPlayer;
 static struct TestPlayer *g_CurrentPlayer=&testPlayer;
 static f32 g_LevelInverseScale=1;
+static f32 g_LevelScale=1;
 static f32 g_MtxConversionScale[2]={65536,65536};
-static struct {coord3d minbounds,maxbounds;Vtx *vertices;} g_BgRoomInfo[MAXROOMCOUNT];
+typedef struct {
+    coord3d minbounds,maxbounds;
+    Vtx *vertices;
+    Gfx *primaryGdl;
+    RoomVtxBatchBounds *vtx_batch_bounds;
+    s16 num_vtx_batch_bounds;
+} RoomInfo;
+static RoomInfo g_BgRoomInfo[MAXROOMCOUNT];
 static struct {coord3d pos;} ptr_bgdata_room_fileposition_list[MAXROOMCOUNT];
 static s32 g_MaxNumRooms=MAXROOMCOUNT;
+#define SQ(x) ((x)*(x))
+static f32 bgGetRoomScale(void) { return g_LevelScale; }
+static f32 bgGetRoomInverseScale(void) { return 1/g_LevelScale; }
+static s32 bgGetMaxNumRooms(void) { return g_MaxNumRooms; }
 static int allocations, frees, failalloc, reclaim, verticesAllocated, matricesAllocated, freeBytes;
 static int frameVertexCount,frameMatrixCount,frameBytes;
 static void *memaAlloc(s32 bytes) { if(failalloc)return NULL;allocations++;return malloc(bytes); }
