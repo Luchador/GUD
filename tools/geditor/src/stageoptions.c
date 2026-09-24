@@ -6,7 +6,8 @@
 
 enum { MEMORY_HEADING = 3200, MEMORY_HELP, MEMORY_TOTAL, MEMORY_STATUS, MEMORY_APPLY, MEMORY_REVERT, MEMORY_RESET,
        MEMORY_LABEL_FIRST = 3220, MEMORY_FIELD_FIRST = 3230, MEMORY_UNIT_FIRST = 3240,
-       SCALE_HEADING = 3250, SCALE_HELP, SCALE_LABEL_FIRST = 3260, SCALE_FIELD_FIRST = 3270 };
+       SCALE_HEADING = 3250, SCALE_HELP, SCALE_LABEL_FIRST = 3260, SCALE_FIELD_FIRST = 3270,
+       LOD_LABEL = 3280, LOD_FIELD, LOD_HELP };
 typedef struct StageOptions {
     const GEditorProject *project;
     DWORD level;
@@ -14,6 +15,7 @@ typedef struct StageOptions {
     BOOL ready, memoryready, loading, draft;
     LevelMemory committed;
     float scales[2];
+    float chrLODDistance;
 } StageOptions;
 static StageOptions *State(HWND hwnd) { return (StageOptions *)GetWindowLongPtr(hwnd, DWLP_USER); }
 static HWND Owner(HWND hwnd) { return GetWindow(GetParent(hwnd), GW_OWNER); }
@@ -32,6 +34,14 @@ static BOOL ReadFields(HWND hwnd, StageOptionsEditRequest *request, int *failed,
         if (*end) { *failed = SCALE_FIELD_FIRST + f; *why = "Enter a number for the scale, such as 0.1 or 1."; return FALSE; }
     }
     request->levelscale = scales[0]; request->renderScale = scales[1];
+    {
+        char text[64], *end; GetDlgItemText(hwnd, LOD_FIELD, text, sizeof(text));
+        errno = 0; request->chrLODDistance = strtof(text, &end);
+        if (end == text || errno == ERANGE || !RomChrLodDistanceIsValid(request->chrLODDistance))
+        { *failed = LOD_FIELD; *why = "Character LOD factor must be a finite number greater than zero."; return FALSE; }
+        while (isspace((unsigned char)*end)) { end++; }
+        if (*end) { *failed = LOD_FIELD; *why = "Enter a number for the character LOD factor, such as 0.8 or 1."; return FALSE; }
+    }
     for (int f = 0; s->memoryready && f < LEVEL_MEMORY_FIELDS; f++)
     {
         char text[32]; GetDlgItemText(hwnd, MEMORY_FIELD_FIRST + f, text, sizeof(text));
@@ -48,7 +58,7 @@ static void Status(HWND hwnd)
         text = s->draft ? "Unapplied changes." : "Project settings applied.";
         if (!s->memoryready)
             text = s->draft ? "Unapplied changes. Rebase onto a rebuilt GUD ROM to edit memory allocations."
-                           : "Rebase onto a rebuilt GUD ROM to edit memory allocations. Scales remain editable.";
+                           : "Rebase onto a rebuilt GUD ROM to edit memory allocations. Scales and LOD remain editable.";
     }
     SetDlgItemText(hwnd, MEMORY_STATUS, text);
     EnableWindow(GetDlgItem(hwnd, MEMORY_APPLY), s->ready && s->draft);
@@ -56,6 +66,7 @@ static void Status(HWND hwnd)
     EnableWindow(GetDlgItem(hwnd, MEMORY_RESET), s->ready);
     for (int f = 0; f < LEVEL_MEMORY_FIELDS; f++) { EnableWindow(GetDlgItem(hwnd, MEMORY_FIELD_FIRST + f), s->memoryready); }
     for (int f = 0; f < 2; f++) { EnableWindow(GetDlgItem(hwnd, SCALE_FIELD_FIRST + f), s->ready); }
+    EnableWindow(GetDlgItem(hwnd, LOD_FIELD), s->ready);
     char total[128] = ""; StageOptionsEditRequest request; int failed; const char *why;
     if (s->memoryready && ReadFields(hwnd, &request, &failed, &why))
         snprintf(total, sizeof(total), "Reserved by these pools: %lu KiB", (unsigned long)(2 * request.value.kib[0] + 2 * request.value.kib[1] + request.value.kib[2] + request.value.kib[3]));
@@ -71,6 +82,12 @@ static void Load(HWND hwnd)
     if (s->ready) { s->committed.id = s->project->levels[s->level].levelID; }
     s->scales[0] = s->ready ? s->project->levels[s->level].levelscale : 0;
     s->scales[1] = s->ready ? s->project->levels[s->level].renderScale : 0;
+    s->chrLODDistance = s->ready ? s->project->levels[s->level].chrLODDistance : 0;
+    {
+        char text[64] = "";
+        if (s->ready) { snprintf(text, sizeof(text), "%.9g", s->chrLODDistance); }
+        SetDlgItemText(hwnd, LOD_FIELD, text);
+    }
     for (int f = 0; f < 2; f++)
     {
         char text[64] = "";
@@ -116,7 +133,8 @@ void StageOptionsRefresh(HWND hwnd, const GEditorProject *project, DWORD level)
         LevelMemory value;
         BOOL memoryready = LevelMemoryGet(&project->memory, &project->memoryOverrides, project->levels[level].levelID, &value);
         if (s->draft || (memoryready == s->memoryready && (!memoryready || !memcmp(&value, &s->committed, sizeof(value)))
-            && s->scales[0] == project->levels[level].levelscale && s->scales[1] == project->levels[level].renderScale)) { return; }
+            && s->scales[0] == project->levels[level].levelscale && s->scales[1] == project->levels[level].renderScale
+            && s->chrLODDistance == project->levels[level].chrLODDistance)) { return; }
     }
     s->project = valid ? project : NULL; s->level = level;
     lstrcpyn(s->projectpath, valid ? project->geppath : "", sizeof(s->projectpath)); Load(hwnd);
@@ -163,10 +181,15 @@ static INT_PTR CALLBACK Dialog(HWND hwnd, UINT message, WPARAM wp, LPARAM lp)
             SendDlgItemMessage(hwnd, SCALE_FIELD_FIRST + f, EM_SETLIMITTEXT, 63, 0);
         }
         ok = ok && Control(hwnd, "STATIC", "", MEMORY_TOTAL, 0, 0, 175, 306, 14)
-            && Control(hwnd, "STATIC", "", MEMORY_STATUS, 0, 0, 207, 490, 24)
+            && Control(hwnd, "STATIC", "Character LOD factor", LOD_LABEL, 0, 0, 205, 125, 14)
+            && Control(hwnd, "EDIT", "", LOD_FIELD, WS_TABSTOP | ES_AUTOHSCROLL, 128, 203, 70, 16)
+            && Control(hwnd, "STATIC", "1 = model default. Larger values switch to low LOD sooner; smaller values keep high detail farther away.",
+                LOD_HELP, 0, 206, 201, 294, 28)
+            && Control(hwnd, "STATIC", "", MEMORY_STATUS, 0, 0, 232, 500, 14)
             && Control(hwnd, "BUTTON", "&Apply", MEMORY_APPLY, WS_TABSTOP | BS_PUSHBUTTON, 0, 249, 64, 18)
             && Control(hwnd, "BUTTON", "&Revert edits", MEMORY_REVERT, WS_TABSTOP | BS_PUSHBUTTON, 72, 249, 78, 18)
             && Control(hwnd, "BUTTON", "Use ROM &defaults", MEMORY_RESET, WS_TABSTOP | BS_PUSHBUTTON, 158, 249, 122, 18);
+        SendDlgItemMessage(hwnd, LOD_FIELD, EM_SETLIMITTEXT, 63, 0);
         if (!ok) { DestroyWindow(hwnd); return FALSE; }
         Load(hwnd); return TRUE;
     }
@@ -182,7 +205,8 @@ static INT_PTR CALLBACK Dialog(HWND hwnd, UINT message, WPARAM wp, LPARAM lp)
             Commit(hwnd, &request); return TRUE;
         }
         if (((id >= MEMORY_FIELD_FIRST && id < MEMORY_FIELD_FIRST + LEVEL_MEMORY_FIELDS && s->memoryready)
-            || (id >= SCALE_FIELD_FIRST && id < SCALE_FIELD_FIRST + 2 && s->ready)) && HIWORD(wp) == EN_CHANGE)
+            || (id >= SCALE_FIELD_FIRST && id < SCALE_FIELD_FIRST + 2 && s->ready)
+            || (id == LOD_FIELD && s->ready)) && HIWORD(wp) == EN_CHANGE)
         { s->draft = TRUE; Status(hwnd); SendMessage(Owner(hwnd), STAGEOPTIONS_WM_DRAFT, 0, 0); return TRUE; }
         break;
     }

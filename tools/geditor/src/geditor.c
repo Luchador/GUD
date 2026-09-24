@@ -5129,6 +5129,7 @@ static BOOL GEditorStageOptionsDefaults(StageOptionsEditRequest *request)
         {
             request->levelscale = info.levels[i].levelscale;
             request->renderScale = info.levels[i].renderScale;
+            request->chrLODDistance = info.levels[i].chrLODDistance;
             const LevelMemory *memory = LevelMemoryFind(&g_Project.memory, request->value.id);
             if (memory) { request->value = *memory; }
             return TRUE;
@@ -5145,6 +5146,8 @@ static BOOL GEditorApplyStageOptions(HWND hwnd, StageOptionsEditRequest *request
     if (request->defaults && !GEditorStageOptionsDefaults(request)) { return FALSE; }
     if (!RomScaleIsValid(request->levelscale) || !RomScaleIsValid(request->renderScale))
     { request->why = "Level scale and render scale must be finite numbers greater than zero."; return FALSE; }
+    if (!RomChrLodDistanceIsValid(request->chrLODDistance))
+    { request->why = "Character LOD distance must be a finite number greater than zero."; return FALSE; }
     if (LevelMemoryFind(&g_Project.memory, request->value.id)
         && !LevelMemorySet(&g_Project.memory, &next, &request->value, &request->why)) { return FALSE; }
     RomLevel *level = &g_Project.levels[g_CurrentLevelIndex];
@@ -5169,10 +5172,12 @@ static BOOL GEditorApplyStageOptions(HWND hwnd, StageOptionsEditRequest *request
         ObjectGeometryFree(&g_ObjectClipboardPose); g_ObjectClipboardPose = clipboard;
     }
     if (scalechanged || level->renderScale != request->renderScale
+        || level->chrLODDistance != request->chrLODDistance
         || memcmp(&next, &g_Project.memoryOverrides, sizeof(next)))
     {
         g_Project.memoryOverrides = next; g_ProjectMetadataDirty = TRUE;
         level->levelscale = request->levelscale; level->renderScale = request->renderScale;
+        level->chrLODDistance = request->chrLODDistance;
         GEditorPreviewEnvironment(0, FALSE);
         LevelManagerRefreshRooms(&g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
         GEditorSetTitleForProject(hwnd);

@@ -9,10 +9,12 @@ static inline BOOL RomScaleIsValid(float scale)
 { return isfinite(scale) && scale > 0.0f && isfinite(1.0f / scale); }
 
 
+static inline BOOL RomChrLodDistanceIsValid(float distance)
+{ return isfinite(distance) && distance > 0.0f; }
+
 #define ROM_MAX_ENTRIES 64
 #define ROM_MAX_LEVELS  64
-#define ROM_LEVEL_ROW_SIZE 40u
-#define ROM_LEVEL_ROW_LEGACY_SIZE 36u
+#define ROM_LEVEL_ROW_SIZE 44u
 #define ROM_ENVIRONMENT_ROW_SIZE 88u
 #define ROM_ENVIRONMENT_ROW_LEGACY_SIZE 104u
 
@@ -50,6 +52,7 @@ typedef struct RomLevel {
     char  world[24];       /* display stem of the shared bg/stan pair */
     float levelscale;
     float renderScale;
+    float chrLODDistance; /* Multiplies character LOD depth; greater values switch sooner. */
     short music;
     short bgsound;
     short xtrack;
@@ -85,7 +88,7 @@ typedef struct RomFile {
     RomInfo info;
 } RomFile;
 
-/* Accept LevelEntry with or without the memoryAllocationString pointer. */
+/* Current LevelEntry includes memoryAllocationString and chrLODDistance. */
 BOOL RomLevelTableIsValid(const RomManifestEntry *stgt, DWORD romsize);
 
 /*

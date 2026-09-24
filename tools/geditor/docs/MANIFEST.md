@@ -67,17 +67,17 @@ Rebase accepts added named rows and retirement of the unused placeholders while
 preserving surviving stage edits. Other removed IDs or changed resource names
 are rejected.
 The row stride is `(STGT.romend - STGT.romstart) / STGT.flags`. Current rows are
-40 bytes: level ID at 0; name, setup, BG and Stan pointers at 4/8/12/16;
-`memoryAllocationString` pointer at 20; scale floats at 24/28; and music,
-ambient and action track IDs (`s16`) at 32/34/36, followed by two padding bytes.
-GEditor also accepts the previous 36-byte rows, which omit the allocation
-pointer and place the scale/track fields four bytes earlier. Export preserves
-the base ROM's stride and allocation pointers. Older editors that require a
-36-byte stride reject rebuilt ROMs; rebuild GEditor with the matching sources.
+44 bytes: level ID at 0; name, setup, BG and Stan pointers at 4/8/12/16;
+`memoryAllocationString` pointer at 20; scale floats at 24/28;
+`chrLODDistance` float at 32; and music, ambient and action track IDs (`s16`)
+at 36/38/40, followed by two padding bytes. GEditor requires this layout.
+Export preserves the resource/allocation pointers and padding. The manifest's
+range uses `sizeof(g_LevelInfoTable)`, so a clean GUD build updates its size.
+See [Character LOD distance](CHARACTER_LOD.md) for the control and runtime meaning.
 
 `LMEM` optionally exposes fixed-size level allocation strings. Its bounded
 range contains independent 64-byte slots; `flags` gives that slot size. The
-40-byte `STGT` rows point to their slots through `memoryAllocationString`,
+44-byte `STGT` rows point to their slots through `memoryAllocationString`,
 resolved with `CMAP`. The current table reserves one slot per catalog row;
 the last placeholder's pointer remains null. GEditor uses stage IDs and the
 pointers, not positional correspondence, when reading or exporting these

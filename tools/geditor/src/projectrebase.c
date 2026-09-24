@@ -289,7 +289,7 @@ static BOOL Levels(RebasePlan *plan, const GEditorProject *source,
         if (!b && RetiredStage(a))
         {
             const char *names[]={a->bgname,a->setupname,a->stanname};
-            if (p->levelscale!=a->levelscale || p->renderScale!=a->renderScale
+            if (p->levelscale!=a->levelscale || p->renderScale!=a->renderScale || p->chrLODDistance!=a->chrLODDistance
                 || p->music!=a->music || p->bgsound!=a->bgsound || p->xtrack!=a->xtrack)
             { Conflict(report,p->name,"removed from the new ROM but has edited level settings"); }
             /* Some placeholders never had a setup/stan resource. A local
@@ -322,6 +322,7 @@ static BOOL Levels(RebasePlan *plan, const GEditorProject *source,
         if (p->field == a->field) { p->field=b->field; } \
         else if (b->field != a->field && p->field != b->field) { Conflict(report,p->name,#field " changed in both project and ROM"); }
         MERGE_FIELD(renderScale)
+        MERGE_FIELD(chrLODDistance)
         MERGE_FIELD(music)
         MERGE_FIELD(bgsound)
         MERGE_FIELD(xtrack)

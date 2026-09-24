@@ -1368,7 +1368,7 @@ static BOOL RomExportUpdateLevelTable(const GEditorProject *project,
                                       const char **reasonout)
 {
     const RomManifestEntry *stgt = NULL;
-    DWORD rowSize, layoutShift;
+    DWORD rowSize;
     DWORD i;
 
     for (i = 0; i < rom->info.entrycount; i++)
@@ -1387,8 +1387,6 @@ static BOOL RomExportUpdateLevelTable(const GEditorProject *project,
     }
 
     rowSize = (stgt->romend - stgt->romstart) / stgt->flags;
-    /* Preserve the allocation string pointer when writing the new layout. */
-    layoutShift = rowSize - ROM_LEVEL_ROW_LEGACY_SIZE;
 
     for (i = 0; i < project->levelcount; i++)
     {
@@ -1400,6 +1398,12 @@ static BOOL RomExportUpdateLevelTable(const GEditorProject *project,
         {
             RomExportSetError(reasonout,
                               "level %s has an invalid scale.", level->name);
+            return FALSE;
+        }
+
+        if (!RomChrLodDistanceIsValid(level->chrLODDistance))
+        {
+            RomExportSetError(reasonout, "level %s has an invalid character LOD distance factor.", level->name);
             return FALSE;
         }
 
@@ -1430,14 +1434,16 @@ static BOOL RomExportUpdateLevelTable(const GEditorProject *project,
             union { DWORD u; float f; } bits;
 
             bits.f = level->levelscale;
-            RomExportWrite32(row + 20 + layoutShift, bits.u);
+            RomExportWrite32(row + 24, bits.u);
             bits.f = level->renderScale;
-            RomExportWrite32(row + 24 + layoutShift, bits.u);
+            RomExportWrite32(row + 28, bits.u);
+            bits.f = level->chrLODDistance;
+            RomExportWrite32(row + 32, bits.u);
         }
 
-        RomExportWrite16(row + 28 + layoutShift, (unsigned short)level->music);
-        RomExportWrite16(row + 30 + layoutShift, (unsigned short)level->bgsound);
-        RomExportWrite16(row + 32 + layoutShift, (unsigned short)level->xtrack);
+        RomExportWrite16(row + 36, (unsigned short)level->music);
+        RomExportWrite16(row + 38, (unsigned short)level->bgsound);
+        RomExportWrite16(row + 40, (unsigned short)level->xtrack);
     }
 
     return TRUE;

@@ -67,7 +67,7 @@ static unsigned char *Fixture(DWORD shift,const unsigned char *model,DWORD model
     Entry(data,shift,0,"IMGS",IMAGES,IMAGES+size,0);
     Entry(data,shift,1,"OBSG",OBJECTS,MODEL+modelsize+156,0);
     Entry(data,shift,2,"MUSF",0x180000,0x181000,0);
-    Entry(data,shift,3,"STGT",LEVELS,LEVELS+36,1);
+    Entry(data,shift,3,"STGT",LEVELS,LEVELS+44,1);
     Entry(data,shift,4,"CMAP",CMAP,CMAP+0x10000,vbase);
     Entry(data,shift,5,"FTBL",TABLE,0,0);
     Entry(data,shift,6,"ENVT",CMAP+0x800,0,104);
@@ -90,7 +90,7 @@ static unsigned char *Fixture(DWORD shift,const unsigned char *model,DWORD model
         if(i==2) { Put32(data+rows+12,vbase+0xe100); }
     }
     Put32(row,21);for(i=0;i<4;i++) { Put32(row+4+i*4,names[i]); }
-    Float(row+20,1.0f);Float(row+24,1.0f);row[29]=5;row[31]=6;row[33]=7;
+    Float(row+24,1.0f);Float(row+28,1.0f);Float(row+32,1.0f);row[37]=5;row[39]=6;row[41]=7;
     Put32(data+CMAP+shift+0x800,21);Put32(data+CMAP+shift+0x804,1);
     Float(data+CMAP+shift+0x808,10);Float(data+CMAP+shift+0x80c,1000);
     Put32(data+CMAP+shift+0x824,996);Put32(data+CMAP+shift+0x828,1000);
@@ -140,19 +140,19 @@ static void CatalogRebase(const GEditorProject *source,const char *incoming,cons
 {
     DWORD size,offset,span,soloHash;unsigned char *data=Read(incoming,&size);
     DWORD vbase=0x80000000u+SHIFT*2;
-    unsigned char *solo=data+LEVELS+SHIFT,*mp=solo+36,*title=mp+36,*last=title+36;
+    unsigned char *solo=data+LEVELS+SHIFT,*mp=solo+44,*title=mp+44,*last=title+44;
     char path[MAX_PATH],expanded[MAX_PATH],exported[MAX_PATH];
     GEditorProject updated,loaded,again;ProjectRebaseReport report;RomFile rom={0};
     SetupFile setup={0};SetupIntroEntry *entries=NULL;DWORD count;BOOL changed;
     SetupIntroEdit edit={SETUP_INTRO_ADD,{0,SETUP_INTRO_AMMO,{AMMO_9MM,100}}};
-    memcpy(mp,solo,36);Put32(mp,421);Put32(mp+4,vbase+0x480);Put32(mp+8,vbase+0x4e0);
+    memcpy(mp,solo,44);Put32(mp,421);Put32(mp+4,vbase+0x480);Put32(mp+8,vbase+0x4e0);
     strcpy((char *)data+CMAP+SHIFT+0x480,"Jungle (MP)");
-    memset(title,0,72);Put32(title,90);Put32(title+4,vbase+0x490);
+    memset(title,0,88);Put32(title,90);Put32(title+4,vbase+0x490);
     strcpy((char *)data+CMAP+SHIFT+0x490,"Title");
-    Float(title+20,1);Float(title+24,1);memset(title+28,0xff,6);
+    Float(title+24,1);Float(title+28,1);Float(title+32,1);memset(title+36,0xff,6);
     Put32(last,57);Put32(last+12,vbase+0x4a0);
     strcpy((char *)data+CMAP+SHIFT+0x4a0,"bg/bgx.seg");
-    Entry(data,SHIFT,3,"STGT",LEVELS,LEVELS+4*36,4);
+    Entry(data,SHIFT,3,"STGT",LEVELS,LEVELS+4*44,4);
     Path(expanded,parent,"expanded.z64");Save(expanded,data,size);
     OK(ProjectRebaseCheck(source,expanded,&report,&why));
     OK(ProjectRebaseCreate(source,expanded,parent,"Expanded",&updated,&report,&why));
@@ -290,7 +290,7 @@ int main(int argc,char **argv)
     assert(argc==4);model=Read(argv[2],&modelsize);old=Fixture(0,model,modelsize);next=Fixture(SHIFT,model,modelsize);
     Path(oldpath,argv[1],"old.z64");Path(nextpath,argv[1],"new.z64");Save(oldpath,old,SIZE);
     /* Incoming setup and sound changes; our BG/music changes must survive. */
-    next[OBJECTS+SHIFT+52]=0x56;next[LEVELS+SHIFT+31]=8;Save(nextpath,next,SIZE);
+    next[OBJECTS+SHIFT+52]=0x56;next[LEVELS+SHIFT+39]=8;Save(nextpath,next,SIZE);
     OK(RomLoad(oldpath,&rom,&why));OK(ProjectCreate("Original",argv[1],&rom.info,&project,&why));
     OK(RomExportStoreProjectBase(&project,&rom,&why));
     OK(RomExportRefreshProjectLevelMetadata(&project,&why));
@@ -308,7 +308,7 @@ int main(int argc,char **argv)
     }
     OK(RomExportProjectResourcePath(&project,"bg/bg_test.seg",path,sizeof(path))==1);
     edited=Read(path,&size);edited[128]=1;Save(path,edited,size);free(edited);
-    project.levels[0].music=12;project.levels[0].levelscale=.375f;project.levels[0].renderScale=.875f;OK(ProjectSave(&project,&why));
+    project.levels[0].music=12;project.levels[0].levelscale=.375f;project.levels[0].renderScale=.875f;project.levels[0].chrLODDistance=1.375f;OK(ProjectSave(&project,&why));
     Path(path,project.dir,"notes/.artist-note");Save(path,"keep me",7);
     /* A real parsed native model, with a changed position and original fingerprint. */
     OK(ModelReadSource(model,modelsize,&native,&why));OK(native.count>0);offset=native.vertexoffsets[0];
@@ -339,7 +339,7 @@ int main(int argc,char **argv)
     OK(rebased.levels[0].clouds.enabled && rebased.levels[0].clouds.height==7500);
     OK(ProjectRead(rebased.geppath,&loaded));OK(!strcmp(loaded.name,"Updated"));
     OK(RomExportRefreshProjectLevelMetadata(&loaded,&why));
-    OK(loaded.levels[0].levelscale==.375f&&loaded.levels[0].renderScale==.875f);
+    OK(loaded.levels[0].levelscale==.375f&&loaded.levels[0].renderScale==.875f&&loaded.levels[0].chrLODDistance==1.375f);
     OK(loaded.levels[0].fog.farclip==6000&&loaded.levels[0].backgroundcolor[0]==25&&loaded.levels[0].clouds.height==7500);
     OK(loaded.levels[0].music==12 && loaded.levels[0].bgsound==8);
     Same(project.dir,rebased.dir,"bg/bg_test.seg");Same(project.dir,rebased.dir,"stan/Tbg_test_stanZ.stan");
@@ -352,7 +352,7 @@ int main(int argc,char **argv)
     Path(path,rebased.dir,"Original.gep");OK(GetFileAttributes(path)==INVALID_FILE_ATTRIBUTES);
     Path(path,rebased.dir,"base.z64");OK(Hash(path)==Hash(nextpath));Path(path,project.dir,"base.z64");OK(Hash(path)==Hash(oldpath));
     OK(RomExportCreate(&rebased,"Playable",argv[1],exported,sizeof(exported),&why));OK(RomLoad(exported,&output,&why));
-    OK(output.info.levels[0].levelscale==.375f&&output.info.levels[0].renderScale==.875f);
+    OK(output.info.levels[0].levelscale==.375f&&output.info.levels[0].renderScale==.875f&&output.info.levels[0].chrLODDistance==1.375f);
     OK(output.data[0x2000]==0x22 && output.info.levels[0].music==12 && output.info.levels[0].bgsound==8);
     OK(output.info.levels[0].fog.farclip==6000&&output.info.levels[0].backgroundcolor[0]==25&&output.info.levels[0].clouds.height==7500);
     OK(RomGetFileByIndex(&output,1,path,sizeof(path),&offset,&span) && output.data[offset+52]==0x56);
@@ -371,7 +371,7 @@ int main(int argc,char **argv)
     }
     RomFree(&output);
     OK(ProjectRebaseCreate(&rebased,nextpath,argv[1],"Again",&again,&report,&why));
-    OK(again.levels[0].levelscale==.375f&&again.levels[0].renderScale==.875f);
+    OK(again.levels[0].levelscale==.375f&&again.levels[0].renderScale==.875f&&again.levels[0].chrLODDistance==1.375f);
     puts("PASS: project scale edits, relocated ROM tables/code, three-way asset/settings merge, native model edits, imported/deleted images, source settings, sidecars, reopen, ROM export and repeat rebase.");
     ImageRebases(&project,nextpath,argv[1]);
     Float(next+CMAP+SHIFT+0x80c,5000);Save(nextpath,next,SIZE);
@@ -382,7 +382,7 @@ int main(int argc,char **argv)
     next[OBJECTS+SHIFT+64+128]=2;Save(nextpath,next,SIZE);
     OK(!ProjectRebaseCheck(&project,nextpath,&report,&why) && report.conflicts==1 && strstr(report.details,"bg/bg_test.seg"));
     Reject(&project,nextpath,argv[1],"Conflict");next[OBJECTS+SHIFT+64+128]=0;
-    next[LEVELS+SHIFT+29]=13;Save(nextpath,next,SIZE);Reject(&project,nextpath,argv[1],"MusicConflict");next[LEVELS+SHIFT+29]=5;
+    next[LEVELS+SHIFT+37]=13;Save(nextpath,next,SIZE);Reject(&project,nextpath,argv[1],"MusicConflict");next[LEVELS+SHIFT+37]=5;
     next[MODEL+SHIFT+modelsize-1]^=1;Save(nextpath,next,SIZE);Reject(&project,nextpath,argv[1],"ModelConflict");next[MODEL+SHIFT+modelsize-1]^=1;
     next[TEXTURES+SHIFT]=0x23;Save(nextpath,next,SIZE);Reject(&project,nextpath,argv[1],"TextureConflict");next[TEXTURES+SHIFT]=0x12;
     /* Different new stock data at an imported ID remains a real conflict. */
@@ -396,7 +396,18 @@ int main(int argc,char **argv)
     Put32(next+TEXTURES+SHIFT+8,0xffff);Put32(next+TEXTURES+SHIFT+16,0);
     Put32(next+MANIFEST+SHIFT+24+8,IMAGES+SHIFT+bank.imagebytes);
     next[CMAP+SHIFT+0xc108]^=1;Save(nextpath,next,SIZE);Reject(&project,nextpath,argv[1],"CatalogConflict");next[CMAP+SHIFT+0xc108]^=1;
-    Float(next+LEVELS+SHIFT+20,2);Save(nextpath,next,SIZE);Reject(&project,nextpath,argv[1],"ScaleConflict");Float(next+LEVELS+SHIFT+20,1);
+    Float(next+LEVELS+SHIFT+24,2);Save(nextpath,next,SIZE);Reject(&project,nextpath,argv[1],"ScaleConflict");Float(next+LEVELS+SHIFT+24,1);
+    Float(next+LEVELS+SHIFT+32,2);Save(nextpath,next,SIZE);
+    OK(!ProjectRebaseCheck(&project,nextpath,&report,&why)&&strstr(report.details,"chrLODDistance"));
+    Reject(&project,nextpath,argv[1],"LodConflict");
+    Float(next+LEVELS+SHIFT+32,1.375f);Save(nextpath,next,SIZE);
+    OK(ProjectRebaseCheck(&project,nextpath,&report,&why)); // matching edits merge
+    project.levels[0].chrLODDistance=1;
+    Path(path,argv[1],"LodDefaults");
+    { GEditorProject adopted;OK(ProjectRebaseCreate(&project,nextpath,argv[1],"LodDefaults",&adopted,&report,&why));
+      OK(adopted.levels[0].chrLODDistance==1.375f); }
+    project.levels[0].chrLODDistance=1.375f;
+    Float(next+LEVELS+SHIFT+32,1);
     Put32(next+MANIFEST+SHIFT+16,2);Save(nextpath,next,SIZE);Reject(&project,nextpath,argv[1],"OldFormat");Put32(next+MANIFEST+SHIFT+16,3);
     /* Corrupt file names must not match by a truncated 63-byte prefix. */
     Put32(next+TABLE+SHIFT+16,0x80000000u+SHIFT*2+0xf000);

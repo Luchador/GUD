@@ -68,6 +68,7 @@ char ramrom_data_target[0x380];
 s32 record_slot_num;
 u8 * address_demo_loaded;
 s32 g_CurrentStageToLoad = 0;
+f32 g_ChrLodDistance = 1.0f;
 s32 g_ControlsLockedFlag = 0;
 s32 g_ClockTimer = 0;
 f32 g_GlobalTimerDelta = 0;
@@ -298,7 +299,13 @@ void lvlStageLoad(s32 stage)
 {
     s32 i;
     struct player_data *player_data;
+    struct LevelEntry *levelInfo = lvFindStageInfo(stage, getPlayerCount());
+    union { f32 value; u32 bits; } lod;
 
+    /* Cache once per stage, including the multiplayer override. */
+    lod.value = levelInfo ? levelInfo->chrLODDistance : 1.0f;
+    g_ChrLodDistance = lod.value > 0.0f && (lod.bits & 0x7f800000u) != 0x7f800000u
+        ? lod.value : 1.0f;
     g_CurrentStageToLoad = stage;
     g_BgRenderEnabled = TRUE;
     g_ControlsLockedFlag = 0;

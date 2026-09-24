@@ -11,16 +11,16 @@ static void Fixture(RomFile *rom, unsigned char data[2048])
     memset(rom,0,sizeof(*rom));memset(data,0xa5,2048);rom->data=data;rom->size=2048;
     rom->info.entrycount=3;rom->info.levelcount=3;
     rom->info.entries[0]=(RomManifestEntry){0x434d4150,64,2048,0x80000000};
-    rom->info.entries[1]=(RomManifestEntry){0x53544754,128,288,4};
+    rom->info.entries[1]=(RomManifestEntry){0x53544754,128,304,4};
     rom->info.entries[2]=(RomManifestEntry){0x4c4d454d,512,768,64};
     const DWORD ids[]={27,427,90,0};
     const char *tokens[]={"-ml0 -me0 -mgfx100 -mvtx50 -mt725 -ma150", "-ml0 -me0 -mgfx130 -mvtx100 -mt550 -ma170",
         "-ml0 -me0 -mgfx80 -mvtx20 -mt646 -ma001", "-ml0 -me0 -mgfx100 -mvtx50 -mt700 -ma400"};
     for(int i=0;i<4;i++)
     {
-        Put32(data+128+40*i,ids[i]);Put32(data+148+40*i,0x80000000+512+64*i-64);
+        Put32(data+128+44*i,ids[i]);Put32(data+148+44*i,0x80000000+512+64*i-64);
         strcpy((char *)data+512+64*i,tokens[i]);
-        if(i<3) { rom->info.levels[i].levelID=ids[i]; rom->info.levels[i].levelscale=rom->info.levels[i].renderScale=1; }
+        if(i<3) { rom->info.levels[i].levelID=ids[i]; rom->info.levels[i].levelscale=rom->info.levels[i].renderScale=rom->info.levels[i].chrLODDistance=1; }
     }
 }
 static void Data(const char *dir)
@@ -35,11 +35,12 @@ static void Data(const char *dir)
     GEditorProject project={0},loaded={0};strcpy(project.name,"Memory");strcpy(project.dir,dir);
     snprintf(project.geppath,sizeof(project.geppath),"%s/memory.gep",dir);
     project.levelcount=1;project.levels[0]=rom.info.levels[0];strcpy(project.levels[0].name,"Bunker 2");
-    project.levels[0].levelscale=0.333333343f;project.levels[0].renderScale=0.875f;project.memory=base;project.memoryOverrides=changes;
+    project.levels[0].levelscale=0.333333343f;project.levels[0].renderScale=0.875f;project.levels[0].chrLODDistance=0.825000048f;project.memory=base;project.memoryOverrides=changes;
     OK(ProjectSave(&project,&why)&&ProjectRead(project.geppath,&loaded));
     OK(!memcmp(&changes,&loaded.memoryOverrides,sizeof(changes)));
     OK(loaded.levels[0].levelscale==project.levels[0].levelscale&&loaded.levels[0].renderScale==project.levels[0].renderScale);
-    char line[128];FILE *f=fopen(project.geppath,"r");OK(f&&fgets(line,sizeof(line),f));fclose(f);OK(!strcmp(line,"GEditor Project 4\n"));
+    OK(loaded.levels[0].chrLODDistance==project.levels[0].chrLODDistance);
+    char line[128];FILE *f=fopen(project.geppath,"r");OK(f&&fgets(line,sizeof(line),f));fclose(f);OK(!strcmp(line,"GEditor Project 5\n"));
     memcpy(before,data,sizeof(data));OK(LevelMemoryApplyRom(&rom,&changes,&why));
     memset(before+512,0,64);strcpy((char *)before+512,"-ml0 -me0 -mgfx200 -mvtx75 -mt1000 -ma400");
     OK(!memcmp(data,before,sizeof(data))); /* Only one independently allocated slot changes. */
@@ -47,7 +48,7 @@ static void Data(const char *dir)
     OK(LevelMemoryApplyRom(&rom,&changes,&why)&&!memcmp(data,before,sizeof(data)));
     OK(LevelMemorySet(&base,&changes,&base.rows[0],&why)&&!changes.count);
     project.memoryOverrides=changes;OK(ProjectSave(&project,&why));
-    f=fopen(project.geppath,"r");OK(f&&fgets(line,sizeof(line),f));fclose(f);OK(!strcmp(line,"GEditor Project 2\n"));
+    f=fopen(project.geppath,"r");OK(f&&fgets(line,sizeof(line),f));fclose(f);OK(!strcmp(line,"GEditor Project 5\n"));
     const char *bad[]={"", "0", "-1", "8193", "1.5", "64KiB", "0x100", "99999999999999999999999999"};
     for(unsigned i=0;i<sizeof(bad)/sizeof(*bad);i++) { OK(!LevelMemoryParseField(&value,0,bad[i],&why)); }
     OK(LevelMemoryParseField(&value,0," 8192 ",&why)&&value.kib[0]==8192);
@@ -66,7 +67,7 @@ static void Data(const char *dir)
         case 0: rom.info.entrycount=2;break;
         case 1: rom.info.entries[2].romend=2049;break;
         case 2: Put32(data+148,0xffffffff);break;
-        case 3: Put32(data+188,0x800001c0);break; /* alias first slot */
+        case 3: Put32(data+192,0x800001c0);break; /* alias first slot */
         case 4: memset(data+512,'a',64);break;
         case 5: strcpy((char *)data+512,"-ml0 -me0 -mgfx100 -mvtx50 -mt725 -ma150 -unknown1");break;
         case 6: rom.info.entries[2].flags=32;break;

@@ -67,7 +67,7 @@ static void UI(const char *dir)
     HWND hwnd=(HWND)1;
     g_Project.environments.count=2;g_Project.environments.rows[0]=Row(29);g_Project.environments.rows[1]=Row(129);
     Edit(&g_Project.environments.rows[1],"farclip","9000");
-    g_Project.levelcount=1;g_Project.levels[0].levelID=29;g_Project.levels[0].levelscale=g_Project.levels[0].renderScale=1;
+    g_Project.levelcount=1;g_Project.levels[0].levelID=29;g_Project.levels[0].levelscale=g_Project.levels[0].renderScale=g_Project.levels[0].chrLODDistance=1;
     strcpy(g_Project.levels[0].name,"Depot");
     strcpy(g_Project.name,"Drafts");strcpy(g_Project.geppath,"drafts.gep");
     EnvironmentRefreshLevels(&g_Project.environments,&g_Project.environmentOverrides,g_Project.levels,1);

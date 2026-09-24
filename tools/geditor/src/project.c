@@ -10,7 +10,7 @@
 #include "editorpath.h"
 
 #define GEP_MAGIC   "GEditor Project"
-#define GEP_VERSION 4
+#define GEP_VERSION 5
 
 
 /**
@@ -29,10 +29,8 @@ static BOOL ProjectWrite(const GEditorProject *proj)
         return FALSE;
     }
 
-    /* Old editors must reject a project containing overrides rather than
-     * silently dropping them. Projects without overrides remain version 2. */
-    ok = ok && fprintf(f, "%s %d\n", GEP_MAGIC,
-        proj->memoryOverrides.count ? GEP_VERSION : proj->environmentOverrides.count ? 3 : 2) >= 0;
+    /* Version 5 adds chrLODDistance to every level row. */
+    ok = ok && fprintf(f, "%s %d\n", GEP_MAGIC, GEP_VERSION) >= 0;
     ok = ok && fprintf(f, "name = %s\n", proj->name) >= 0;
 
     /* Keep the ROM's level table with the project. The pipe separator
@@ -43,11 +41,11 @@ static BOOL ProjectWrite(const GEditorProject *proj)
         const RomLevel *level = &proj->levels[i];
 
         ok = fprintf(f,
-            "level = %ld|%s|%s|%s|%s|%s|%.9g|%.9g|%d|%d|%d\n",
+            "level = %ld|%s|%s|%s|%s|%s|%.9g|%.9g|%.9g|%d|%d|%d\n",
             (long)level->levelID,
             level->setupname, level->bgname, level->stanname,
             level->name, level->world,
-            level->levelscale, level->renderScale,
+            level->levelscale, level->renderScale, level->chrLODDistance,
             (int)level->music, (int)level->bgsound,
             (int)level->xtrack) >= 0;
     }
@@ -76,6 +74,10 @@ BOOL ProjectSave(const GEditorProject *proj, const char **reasonout)
     for (DWORD i = 0; i < proj->levelcount; i++)
         if (!RomScaleIsValid(proj->levels[i].levelscale) || !RomScaleIsValid(proj->levels[i].renderScale))
         { *reasonout = "Level scale and render scale must be finite numbers greater than zero."; return FALSE; }
+
+    for (DWORD i = 0; i < proj->levelcount; i++)
+        if (!RomChrLodDistanceIsValid(proj->levels[i].chrLODDistance))
+        { *reasonout = "Character LOD distance must be a finite number greater than zero."; return FALSE; }
 
     if (!ProjectWrite(proj))
     {
@@ -107,6 +109,10 @@ BOOL ProjectCreate(const char *name, const char *location,
     proj->levelcount = rominfo->levelcount;
     memcpy(proj->levels, rominfo->levels,
            proj->levelcount * sizeof(proj->levels[0]));
+
+    for (DWORD i = 0; i < proj->levelcount; i++)
+        if (!RomChrLodDistanceIsValid(proj->levels[i].chrLODDistance))
+        { *reasonout = "Character LOD distance must be a finite number greater than zero."; goto fail; }
 
     /**
      * Build the two paths, refusing anything snprintf had to truncate:
@@ -198,10 +204,11 @@ static BOOL ProjectReadLevel(const char *value, RomLevel *level)
         memcpy(fields[i], value, end - value);
         value = end + 1;
     }
-    if (!level->name[0] || sscanf(value, "%f|%f|%d|%d|%d%c",
-        &level->levelscale, &level->renderScale, &music, &bgsound, &xtrack, &tail) != 5)
+    if (!level->name[0] || sscanf(value, "%f|%f|%f|%d|%d|%d%c",
+        &level->levelscale, &level->renderScale, &level->chrLODDistance, &music, &bgsound, &xtrack, &tail) != 6)
     { return FALSE; }
-    if (!RomScaleIsValid(level->levelscale) || !RomScaleIsValid(level->renderScale)) { return FALSE; }
+    if (!RomScaleIsValid(level->levelscale) || !RomScaleIsValid(level->renderScale)
+        || !RomChrLodDistanceIsValid(level->chrLODDistance)) { return FALSE; }
 
     level->levelID = (LONG)levelid;
     level->music = (short)music;
@@ -235,10 +242,10 @@ BOOL ProjectRead(const char *geppath, GEditorProject *proj)
     }
  
     /**
-     * Version 3 adds environment overrides; version 4 adds memory overrides.
-     * Older projects remain readable.
+     * Version 5 stores character LOD distance alongside the level scales.
+     * Earlier project versions are intentionally unsupported.
      */
-    if (fgets(line, sizeof(line), f) == NULL || sscanf(line, GEP_MAGIC " %d %c", &version, &tail) != 1 || version < 2 || version > GEP_VERSION)
+    if (fgets(line, sizeof(line), f) == NULL || sscanf(line, GEP_MAGIC " %d %c", &version, &tail) != 1 || version != GEP_VERSION)
     {
         fclose(f);
         return FALSE;
@@ -283,12 +290,12 @@ BOOL ProjectRead(const char *geppath, GEditorProject *proj)
         }
         else if (strcmp(key, "environment") == 0)
         {
-            if (version < 3 || !EnvironmentReadOverride(&proj->environmentOverrides, value))
+            if (!EnvironmentReadOverride(&proj->environmentOverrides, value))
             { fclose(f); ZeroMemory(proj, sizeof(*proj)); return FALSE; }
         }
         else if (strcmp(key, "memory") == 0)
         {
-            if (version < 4 || !LevelMemoryReadOverride(&proj->memoryOverrides, value))
+            if (!LevelMemoryReadOverride(&proj->memoryOverrides, value))
             { fclose(f); ZeroMemory(proj, sizeof(*proj)); return FALSE; }
         }
         /* unknown keys: ignored */

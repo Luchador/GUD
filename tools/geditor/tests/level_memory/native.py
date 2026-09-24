@@ -15,7 +15,7 @@ spec.loader.exec_module(objects)
 manifest = objects.Object(build / 'src/game/gedmanifest.o')
 header = manifest.bytes('g_GedManifest', 24)
 version, count = struct.unpack_from('>II', header, 16)
-assert version == 3 and count <= 32
+assert version == 3 and count <= 64
 data = manifest.bytes('g_GedManifest', 24 + count * 16)
 entries = {data[24+i*16:28+i*16].decode(): 24+i*16 for i in range(count)}
 assert len(entries) == count
@@ -26,19 +26,22 @@ memory = entries['LMEM']
 assert struct.unpack_from('>I', data, memory + 12)[0] == 64
 manifest.pointer('g_GedManifest', memory + 4, '_gedLevelMemoryRom')
 manifest.pointer('g_GedManifest', memory + 8, '_gedLevelMemoryRom', levels * 64)
+manifest.pointer('g_GedManifest', stage + 4, '_gedLevelTableRom')
+manifest.pointer('g_GedManifest', stage + 8, '_gedLevelTableRom', levels * 44)
 lv = objects.Object(build / 'src/game/lv.o')
 # IDO symbol sizes for initialized nested aggregates are incomplete; the
 # manifest's sizeof-derived spans cover the full emitted bytes.
-rows = lv.bytes('g_LevelInfoTable', levels * 40)
+rows = lv.bytes('g_LevelInfoTable', levels * 44)
 slots = lv.bytes('g_LevelMemoryAllocationStrings', levels * 64)
 expected = {30: (60, 50, 710, 300), 90: (80, 20, 646, 1),
             27: (100, 50, 725, 150), 427: (130, 100, 550, 170)}
 for i in range(levels):
-    level = struct.unpack_from('>I', rows, i * 40)[0]
+    level = struct.unpack_from('>I', rows, i * 44)[0]
+    assert struct.unpack_from('>f', rows, i * 44 + 32)[0] == 1.0
     if level == 57:
-        assert struct.unpack_from('>I', rows, i * 40 + 20)[0] == 0
+        assert struct.unpack_from('>I', rows, i * 44 + 20)[0] == 0
         continue
-    lv.pointer('g_LevelInfoTable', i * 40 + 20, 'g_LevelMemoryAllocationStrings', i * 64)
+    lv.pointer('g_LevelInfoTable', i * 44 + 20, 'g_LevelMemoryAllocationStrings', i * 64)
     slot = slots[i*64:(i+1)*64]
     assert 0 in slot
     tokens = slot.split(b'\0', 1)[0].decode().split()

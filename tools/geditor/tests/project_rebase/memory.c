@@ -8,8 +8,8 @@ static void MemoryRebases(const GEditorProject *source,const char *incoming,cons
     Put32(data+MANIFEST+SHIFT+20,18);
     Entry(data,SHIFT,17,"LMEM",slot-SHIFT,slot-SHIFT+64,64);
     unsigned char *row=data+LEVELS+SHIFT;
-    memmove(row+24,row+20,16);Put32(row+20,0x80000000+SHIFT*2+0xe800);
-    Entry(data,SHIFT,3,"STGT",LEVELS,LEVELS+40,1);
+    Put32(row+20,0x80000000+SHIFT*2+0xe800);
+    Entry(data,SHIFT,3,"STGT",LEVELS,LEVELS+44,1);
     memset(data+slot,0,64);strcpy((char *)data+slot,"-ml0 -me0 -mgfx70 -mvtx50 -mt500 -ma200");
     Path(path,parent,"memory.z64");Save(path,data,size);
     /* Upgrade an older project without losing its existing edits. */
@@ -41,5 +41,5 @@ static void MemoryRebases(const GEditorProject *source,const char *incoming,cons
     strcpy((char *)data+slot,"-ml0 -me0 -mgfx1000 -mvtx50 -mt600 -ma200");Save(path,data,size);
     OK(ProjectRebaseCreate(&supported,path,parent,"MemoryMatched",&again,&report,&why)&&!again.memoryOverrides.count);
     OK(RomExportValidateProject(&supported,&why));NoTemps(parent);free(data);
-    puts("PASS: legacy project upgrade, memory save/reopen/export, new defaults, repeat rebase, matching override cleanup and conflict/unsupported-ROM rollback.");
+    puts("PASS: memory manifest upgrade, memory save/reopen/export, new defaults, repeat rebase, matching override cleanup and conflict/unsupported-ROM rollback.");
 }

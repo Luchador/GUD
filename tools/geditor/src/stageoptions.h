@@ -7,7 +7,7 @@
 typedef struct StageOptionsEditRequest {
     LevelMemory value;
     const char *why;
-    float levelscale, renderScale;
+    float levelscale, renderScale, chrLODDistance;
     BOOL defaults;
 } StageOptionsEditRequest;
 HWND StageOptionsCreate(HWND parent, HINSTANCE instance);

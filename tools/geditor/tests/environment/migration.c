@@ -43,7 +43,7 @@ static void Migration(const char *dir)
     GEditorProject project={0},loaded={0};
     strcpy(project.name,"Migration");strcpy(project.dir,dir);
     project.levelcount=1;project.levels[0].levelID=29;strcpy(project.levels[0].name,"Depot");
-    project.levels[0].levelscale=project.levels[0].renderScale=1;
+    project.levels[0].levelscale=project.levels[0].renderScale=project.levels[0].chrLODDistance=1;
     snprintf(project.geppath,sizeof(project.geppath),"%s/migration.gep",dir);
     project.environments=next;project.environmentOverrides=changes;
     OK(ProjectSave(&project,&why));
@@ -57,14 +57,14 @@ static void Migration(const char *dir)
     char line[512];while(fgets(line,sizeof(line),f))
         for(int i=0;i<4;i++)OK(!strstr(line,keys[i]));
     fclose(f);
-    /* A project with only retired overrides becomes a clean version-2 file. */
+    /* A project with only retired overrides becomes a clean version-5 file. */
     memset(&project.environmentOverrides,0,sizeof(project.environmentOverrides));
     OK(ProjectSave(&project,&why));
-    f=fopen(project.geppath,"r+");OK(f);fseek(f,16,SEEK_SET);fputc('3',f);fseek(f,0,SEEK_END);
+    f=fopen(project.geppath,"r+");OK(f);fseek(f,0,SEEK_END);
     for(int i=0;i<4;i++)fprintf(f,"environment = 29|%s|0\n",keys[i]);
     OK(!fclose(f)&&ProjectRead(project.geppath,&loaded)&&!loaded.environmentOverrides.count);
     OK(ProjectSave(&loaded,&why));f=fopen(project.geppath,"r");OK(f&&fgets(line,sizeof(line),f));fclose(f);
-    OK(!strcmp(line,"GEditor Project 2\n"));
+    OK(!strcmp(line,"GEditor Project 5\n"));
     OK(!EnvironmentReadOverride(&changes,"29|nearfog|NaN"));
     OK(!EnvironmentReadOverride(&changes,"29|maxvisrng|1junk"));
     OK(!EnvironmentReadOverride(&changes,"29|unknown|1"));

@@ -46,12 +46,12 @@ static void RoundTrip(const char *dir)
     GEditorProject project={0},loaded={0};
     strcpy(project.name,"Environment");snprintf(project.geppath,sizeof(project.geppath),"%s/environment.gep",dir);
     strcpy(project.dir,dir);project.levelcount=1;project.levels[0].levelID=29;strcpy(project.levels[0].name,"Depot");
-    project.levels[0].levelscale=project.levels[0].renderScale=1;
+    project.levels[0].levelscale=project.levels[0].renderScale=project.levels[0].chrLODDistance=1;
     project.environments=base;project.environmentOverrides=changes;
     OK(ProjectSave(&project,&why)&&ProjectRead(project.geppath,&loaded));
     OK(!memcmp(&loaded.environmentOverrides,&changes,sizeof(changes)));
     FILE *f=fopen(project.geppath,"r");char header[80];OK(f&&fgets(header,sizeof(header),f));fclose(f);
-    OK(!strcmp(header,"GEditor Project 3\n"));
+    OK(!strcmp(header,"GEditor Project 5\n"));
     /* All fields have independent, known native offsets/types. */
     OK(!U32(actual.data+4)&&F32(actual.data+8)==5.25f&&F32(actual.data+12)==6400.5f);
     OK(U32(actual.data+16)==UINT32_MAX&&U32(actual.data+20)==995&&U32(actual.data+24)==1050);
@@ -75,7 +75,7 @@ static void RoundTrip(const char *dir)
     /* Reserved data, row order/IDs, other variants, sentinel and surrounding code remain byte-identical. */
     OK(EnvironmentSet(&base,&changes,&base.rows[0],&why)&&!changes.count);
     project.environmentOverrides=changes;OK(ProjectSave(&project,&why)&&ProjectRead(project.geppath,&loaded));
-    f=fopen(project.geppath,"r");OK(f&&fgets(header,sizeof(header),f));fclose(f);OK(!strcmp(header,"GEditor Project 2\n"));
+    f=fopen(project.geppath,"r");OK(f&&fgets(header,sizeof(header),f));fclose(f);OK(!strcmp(header,"GEditor Project 5\n"));
     puts("PASS: every environment field, exact native bytes, integer/float round trips, project versions, reset/compaction, untouched ROM data and repeat exports.");
 
     EnvironmentChoice choices[ENVIRONMENT_MAX_CHOICES];

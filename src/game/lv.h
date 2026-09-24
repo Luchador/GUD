@@ -31,7 +31,7 @@ struct LevelEntry
     const char *memoryAllocationString; /* NULL uses LEVELID_DEFAULT. */
     f32 levelscale;
     f32 renderScale;
-    f32 chrLODDistance;
+    f32 chrLODDistance; /* Multiplies character LOD depth: larger switches sooner. */
     s16 main_music;
     s16 bg_sound;
     s16 xtrack;
@@ -44,6 +44,7 @@ extern const char g_LevelMemoryAllocationStrings[LEVEL_INFO_COUNT][LEVEL_MEMORY_
 extern struct LevelEntry g_LevelInfoTable[LEVEL_INFO_COUNT];
 extern stagesetup *g_ptrStageSetupFile;
 
+extern f32 g_ChrLodDistance; /* Cached current stage character LOD multiplier. */
 extern s32 g_ClockTimer;
 extern s32 g_GlobalTimer;
 extern f32 g_GlobalTimerDelta;

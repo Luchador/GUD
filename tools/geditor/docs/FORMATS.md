@@ -5,9 +5,9 @@ migrate files produced by older editors.
 
 | Data | Required format |
 | --- | --- |
-| Project | `.gep` versions 2–4 with a saved level table and matching `base.z64`; version 3 adds environment overrides, version 4 adds memory overrides |
+| Project | `.gep` version 5 with a saved level table (including `chrLODDistance`), environment/memory overrides and matching `base.z64` |
 | Base ROM | GUD manifest version 3, with `IMGS`, `OBSG`, `MUSF`, `STGT`, `CMAP`, `FTBL`, `ENVT`, `TXTB`, `TXCF`, `MONA`, `MONT`, and `MOND` entries |
-| Level table | 36- or 40-byte rows with authored level names; the final sentinel may have a NULL name |
+| Level table | 44-byte rows with authored level names and `chrLODDistance`; the final sentinel may have a NULL name |
 | Level memory allocations | Optional bounded `LMEM` string slots in the base ROM; see [Level memory](LEVEL_MEMORY.md) |
 | Model assets | glTF 2.0 with normalized UV coordinates and the current GEditor metadata |
 | Added prop models | `models/newprops.gnp` (`GNP1`), with `NPRP`/`NPMD` support in the base ROM; see [New prop models](../NEW_PROP_MODELS.md) |
@@ -33,8 +33,8 @@ up to 15 zero padding bytes before the footer. Existing native data without
 this trailer derives its slots from its draw states. ROM export strips the
 trailer; no game runtime change is needed for material slots.
 
-Removed compatibility paths include version-1 projects and manifests, unnamed
-32-byte level rows, the prompt to supply a missing base ROM, image-table
+Removed compatibility paths include project versions 1–4, old manifests,
+32-, 36- and 40-byte level rows, the prompt to supply a missing base ROM, image-table
 discovery by scanning old ROMs, earlier image metadata, and early model exports
 that encoded texel UVs or texture IDs in material names. Model loading and model
 browser enumeration now use glTF assets exclusively.

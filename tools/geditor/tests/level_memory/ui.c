@@ -50,7 +50,7 @@ static BOOL TestRomValidate(const char *path,RomInfo *info,const char **reason)
     assert(strstr(path,"base.z64"));
     if(fail_defaults) { *reason="Could not read base ROM."; return FALSE; }
     *info=(RomInfo){.levelcount=1};
-    info->levels[0]=(RomLevel){.levelID=27,.levelscale=1,.renderScale=2}; return TRUE;
+    info->levels[0]=(RomLevel){.levelID=27,.levelscale=1,.renderScale=2,.chrLODDistance=.8f}; return TRUE;
 }
 #define RomValidate TestRomValidate
 #include "ui.inc"
@@ -74,7 +74,7 @@ static void UI(void)
     OK(!panel.draft&&!strcmp(controls[MEMORY_FIELD_FIRST-3200],"200"));
     StageOptionsEditRequest reset={.value=g_Project.memory.rows[0],.why="",.defaults=TRUE};
     OK(Commit(hwnd,&reset)&&!g_Project.memoryOverrides.count);
-    OK(g_Project.levels[0].levelscale==1&&g_Project.levels[0].renderScale==2);
+    OK(g_Project.levels[0].levelscale==1&&g_Project.levels[0].renderScale==2&&g_Project.levels[0].chrLODDistance==.8f);
     /* Parse, retain and round-trip each float without converting native data. */
     const char *badscales[]={"", "0", "-0.1", "nan", "inf", "1e40", "1e-50", "0.25junk", "1 2"};
     g_ProjectMetadataDirty=FALSE;
@@ -92,6 +92,18 @@ static void UI(void)
     OK(StageOptionsApply(hwnd)&&rebuilds==before&&!g_ProjectMetadataDirty);
     strcpy(controls[SCALE_FIELD_FIRST+1-3200],"2");panel.draft=TRUE;
     OK(StageOptionsApply(hwnd)&&rebuilds==before&&g_ProjectMetadataDirty);
+    g_ProjectMetadataDirty=FALSE;
+    for(unsigned i=0;i<sizeof(badscales)/sizeof(*badscales);i++) {
+        strcpy(controls[LOD_FIELD-3200],badscales[i]);panel.draft=TRUE;
+        OK(!StageOptionsApply(hwnd)&&!g_ProjectMetadataDirty&&g_Project.levels[0].chrLODDistance==.8f);
+        OK(focus==GetDlgItem(hwnd,LOD_FIELD));
+    }
+    strcpy(controls[LOD_FIELD-3200]," 1.375 ");panel.draft=TRUE;
+    OK(StageOptionsApply(hwnd)&&g_ProjectMetadataDirty&&rebuilds==before&&g_Project.levels[0].chrLODDistance==1.375f);
+    strcpy(controls[LOD_FIELD-3200],"2");panel.draft=TRUE;Load(hwnd);
+    OK(!panel.draft&&!strcmp(controls[LOD_FIELD-3200],"1.375"));
+    g_Project.levels[0].chrLODDistance=1.25f;StageOptionsRefresh(hwnd,&g_Project,0);
+    OK(!strcmp(controls[LOD_FIELD-3200],"1.25"));
     float oldscale=g_Project.levels[0].levelscale;
     strcpy(controls[SCALE_FIELD_FIRST-3200],"0.5");
     strcpy(controls[MEMORY_FIELD_FIRST-3200],"250");panel.draft=TRUE;fail_rebuild=TRUE;g_ProjectMetadataDirty=FALSE;
@@ -99,7 +111,7 @@ static void UI(void)
     OK(g_Project.levels[0].levelscale==oldscale&&g_CurrentBgDocument.levelscale==oldscale);
     fail_rebuild=FALSE;fail_defaults=TRUE;
     OK(!Commit(hwnd,&reset)&&panel.draft&&g_Project.levels[0].levelscale==oldscale);
-    fail_defaults=FALSE;OK(Commit(hwnd,&reset)&&!panel.draft&&g_Project.levels[0].levelscale==1);
+    fail_defaults=FALSE;OK(Commit(hwnd,&reset)&&!panel.draft&&g_Project.levels[0].levelscale==1&&g_Project.levels[0].chrLODDistance==.8f);
     /* Scale controls work on bases lacking the memory-allocation manifest. */
     LevelMemoryTable savedmemory=g_Project.memory;g_Project.memory=(LevelMemoryTable){0};
     StageOptionsRefresh(hwnd,&g_Project,0);OK(panel.ready&&!panel.memoryready);

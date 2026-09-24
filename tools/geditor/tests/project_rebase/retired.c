@@ -12,9 +12,9 @@ static unsigned char *WithRetired(const unsigned char *incoming)
     OK(data);memcpy(data,incoming,SIZE);
     textstart=Get32(data+MANIFEST+SHIFT+24+1*16+8);
     Entry(data,SHIFT,1,"OBSG",OBJECTS,textstart-SHIFT+9*32,0);
-    Entry(data,SHIFT,3,"STGT",levels-SHIFT,levels-SHIFT+10*36,10);
+    Entry(data,SHIFT,3,"STGT",levels-SHIFT,levels-SHIFT+10*44,10);
     Entry(data,SHIFT,5,"FTBL",table-SHIFT,0,0);
-    memcpy(data+levels,data+LEVELS+SHIFT,36);
+    memcpy(data+levels,data+LEVELS+SHIFT,44);
     memcpy(data+table,data+TABLE+SHIFT,12);
     for (DWORD i=0;i<9;i++)
     {
@@ -28,9 +28,9 @@ static unsigned char *WithRetired(const unsigned char *incoming)
             ptr[field]=vbase+strings-CMAP-SHIFT;
             strcpy((char *)data+strings,name);strings+=strlen(name)+1;
         }
-        rows=data+levels+(i+1)*36;Put32(rows,ids[i]);
+        rows=data+levels+(i+1)*44;Put32(rows,ids[i]);
         for (DWORD field=0;field<4;field++) { Put32(rows+4+field*4,ptr[field]); }
-        Float(rows+20,1);Float(rows+24,1);memset(rows+28,0xff,6);
+        Float(rows+24,1);Float(rows+28,1);Float(rows+32,1);memset(rows+36,0xff,6);
         rows=data+table+index*12;Put32(rows,index++);Put32(rows+4,ptr[2]);Put32(rows+8,OBJECTS+SHIFT+64);
         /* SHO never had a stan file-table entry; the others alias real data. */
         if (i)
