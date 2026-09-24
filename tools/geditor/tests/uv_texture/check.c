@@ -290,6 +290,18 @@ static void Layout(void)
             if(i)assert(controls[preview[i-1]].bottom<=r.top);
         }
         assert(controls[IDC_UV_HINT].bottom<=controls[IDC_UV_TEXTURE_LABEL].top);
+        const int mapping[]={IDC_UV_CYLINDER_AXIS,IDC_UV_USE_TEXEL_SIZE,
+            IDC_UV_CYLINDER_SIZE_LABEL,IDC_UV_CYLINDER_SIZE};
+        for(unsigned i=0;i<sizeof(mapping)/sizeof(mapping[0]);i++)
+        {
+            RECT r=controls[mapping[i]];
+            assert(r.left>=0 && r.right<=state.width && r.top>=0);
+            if(mapping[i]!=IDC_UV_CYLINDER_AXIS) assert(r.bottom<=client.bottom-state.height);
+            if(i) {
+                RECT previous=controls[mapping[i-1]];
+                assert(r.top>previous.top || r.left>=previous.right);
+            }
+        }
     }
 }
 

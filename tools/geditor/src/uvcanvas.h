@@ -62,7 +62,8 @@ TransformMode UVCanvasGetTransform(HWND canvas, double values[2], BOOL *limited)
 BOOL UVCanvasApplyTransform(HWND canvas, const double values[2], const char **reason);
 BOOL UVCanvasCancelInteraction(HWND canvas);
 BOOL UVCanvasHasFaces(HWND canvas);
-BOOL UVCanvasProjectFaces(HWND canvas, UVProjection projection, const char **reason);
+/* Zero keeps fit-to-0-1 mapping; positive sizes are world units per texel. */
+BOOL UVCanvasProjectFaces(HWND canvas, UVProjection projection, double unitspertexel, const char **reason);
 BOOL UVCanvasProjectCylinder(HWND canvas, int axis, double unitspertexel, const char **reason);
 
 #endif /* GEDITOR_UVCANVAS_H */

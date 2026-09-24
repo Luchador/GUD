@@ -26,12 +26,36 @@ Zoom out or pan towards a limit to see its border. For mixed texture sizes,
 the border encloses the range valid for every displayed face. It remains
 visible without a shared texture preview and with opacity set to 0%.
 
+## Planar mapping at a fixed texel size
+
+**Use texel size** sits between **Axis** and **Texel size**. It starts unchecked
+and retains its state while GEditor is running. When checked, **X-axis**,
+**Y-axis**, **Z-axis**, and **Best Fit** use the entered physical texel size
+instead of fitting the selected faces into 0-1.
+
+The existing **Texel size (cm)** value is centimeters per texel, the reciprocal
+of texels/cm. For example, **4** means 0.25 texels/cm: a 32 x 32 image repeats
+every 128 cm. Texture width and height affect the number of UV repeats; the
+physical texel scale is the same in both directions, including rectangular
+images and selections with different texture dimensions. BG positions include
+room origins and level scale. Model UVs use the model's units, as indicated
+by the field label.
+
+Projection uses all displayed faces. The projected minimum starts at U=V=0;
+Best Fit measures distances on its fitted plane. Angled faces can still be
+foreshortened by planar projection. Unchecking the box restores the existing
+uniform fit centered in 0-1, and ignores the size field for planar operations.
+Changing the checkbox alone does not edit UVs. Each mapping uses normal
+Undo/Redo and Save Project. Out-of-range mappings are rejected together;
+increase Texel size or project a smaller selection to fit native S/T limits.
+
 ## Cylindrical unwrap
 
 Select the complete **uncapped side wall** of one cylinder in face mode, open
 Tools > UV Editor, choose **Axis** and **Texel size (cm)**, then click
 **Cylindrical**. The operation uses all faces displayed in the UV Editor,
 independently of the selected UV vertices.
+It always uses Texel size; the checkbox controls planar mapping only.
 
 - **Auto** derives the axis from the two open rims, using their area centroids
   and rim planes to handle both tall and short cylinders.

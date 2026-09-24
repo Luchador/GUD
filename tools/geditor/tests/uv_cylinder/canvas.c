@@ -24,6 +24,9 @@ typedef struct { int x,y; } POINT;
 static UVCanvasState state;
 static HWND g_UVEditor=(HWND)1,g_UVCanvas=&state,focus;
 static char fields[2][96];
+static char texelsize[64] = "4";
+static double g_UVTexelSize = 4;
+static BOOL usetexelsize;
 static BOOL enabled[2];
 static int messages,errors,transforms;
 static BgDocumentUVEdit captured[64];
@@ -59,7 +62,9 @@ static HWND GetFocus(void) { return focus; }
 static HWND GetDlgItem(HWND hwnd,int id) { return (HWND)(intptr_t)id; }
 static void SetFocus(HWND hwnd) { focus=hwnd; }
 static void GetDlgItemText(HWND hwnd,int id,char *text,int size)
-{ snprintf(text,size,"%s",fields[id==IDC_UV_V]); }
+{ snprintf(text,size,"%s",id==IDC_UV_CYLINDER_SIZE ? texelsize : fields[id==IDC_UV_V]); }
+static int IsDlgButtonChecked(HWND hwnd,int id)
+{ assert(id==IDC_UV_USE_TEXEL_SIZE); return usetexelsize ? BST_CHECKED : BST_UNCHECKED; }
 static void SetDlgItemText(HWND hwnd,int id,const char *text)
 { if (id==IDC_UV_U || id==IDC_UV_V) { snprintf(fields[id==IDC_UV_V],96,"%s",text); } }
 static void EnableWindow(HWND hwnd,BOOL value)
@@ -110,6 +115,65 @@ static void Coordinates(void)
     free(state.nodes); memset(&state,0,sizeof(state));
     puts("PASS: actual U/V fields show averages; Enter changes only the focused axis; multiple texture sizes, native limits, no-op input and existing rotate/scale controls.");
 }
+static void Planar(void)
+{
+    const int corners[2][3]={{0,1,2},{0,2,3}};
+    const double points[4][2]={{0,0},{128,0},{128,64},{0,64}};
+    const double bases[4][2][3]={{{0,0,-1},{0,1,0}},{{1,0,0},{0,0,-1}},
+        {{1,0,0},{0,1,0}},{{.6,0,-.8},{0,1,0}}};
+    const char *why="";
+    for(int projection=0;projection<UV_PROJECTION_COUNT;projection++)
+    {
+        state.nodecount=4; state.trianglecount=2;
+        state.nodes=calloc(4,sizeof(*state.nodes)); state.triangles=calloc(2,sizeof(*state.triangles));
+        assert(state.nodes && state.triangles);
+        for(int i=0;i<4;i++) state.nodes[i]=(UVCanvasNode){.width=i%2?64:32,.height=i%2?32:16,
+            .source={.vertex={1,(DWORD)i},.vertexid=(DWORD)(10+i)}};
+        for(int f=0;f<2;f++) for(int c=0;c<3;c++)
+        {
+            int n=corners[f][c]; state.triangles[f].nodes[c]=n;
+            for(int a=0;a<3;a++) state.triangles[f].position[c][a]=1000000
+                + points[n][0]*bases[projection][0][a]+points[n][1]*bases[projection][1][a];
+        }
+        usetexelsize=TRUE; strcpy(texelsize,"4"); int before=messages, olderrors=errors;
+        UVEditorProjectPlanar(g_UVEditor,projection);
+        assert(messages==before+1 && errors==olderrors && capturedcount==3);
+        for(int n=0;n<4;n++)
+        {
+            assert(state.nodes[n].source.s==(int)(points[n][0]*8));
+            assert(state.nodes[n].source.t==(int)(points[n][1]*8));
+        }
+        UVEditorProjectPlanar(g_UVEditor,projection); assert(messages==before+1); /* No-op mapping. */
+        for(int f=0;f<2;f++) for(int c=0;c<3;c++) for(int a=0;a<3;a++)
+            state.triangles[f].position[c][a]*=2;
+        UVEditorProjectPlanar(g_UVEditor,projection); assert(messages==before+2);
+        for(int n=0;n<4;n++)
+        {
+            assert(state.nodes[n].source.s==(int)(points[n][0]*16));
+            assert(state.nodes[n].source.t==(int)(points[n][1]*16));
+        }
+        before=messages;
+        const char *bad[]={"0","-1","nan","inf","junk","0.001"};
+        for(unsigned b=0;b<sizeof(bad)/sizeof(bad[0]);b++)
+        { strcpy(texelsize,bad[b]); UVEditorProjectPlanar(g_UVEditor,projection); }
+        assert(messages==before && errors==olderrors+6 && state.nodes[2].source.s==2048);
+        assert(!UVCanvasProjectFaces(g_UVCanvas,projection,-1,&why) && why[0] && messages==before);
+        /* Unchecked ignores invalid size text and retains the old centered fit. */
+        usetexelsize=FALSE; strcpy(texelsize,"invalid");
+        UVEditorProjectPlanar(g_UVEditor,projection); assert(messages==before+1 && errors==olderrors+6);
+        for(int n=0;n<4;n++)
+        {
+            assert(state.nodes[n].source.s==(int)round(points[n][0]/128*32*state.nodes[n].width));
+            assert(state.nodes[n].source.t==(int)round((points[n][1]/128+.25)*32*state.nodes[n].height));
+        }
+        /* The owner may synchronously replace the canvas during a mapping commit. */
+        destroyoncommit=TRUE;
+        assert(UVCanvasProjectFaces(g_UVCanvas,projection,4,&why));
+        assert(!state.nodes && !state.triangles); destroyoncommit=FALSE;
+    }
+    puts("PASS: planar X/Y/Z/tilted Best Fit preserve physical texel density across geometry and image sizes; checkbox routing, normalized fallback, no-op edits, range rejection and synchronous rebuild.");
+}
+
 static void Cylinder(void)
 {
     state.nodecount=16; state.trianglecount=16;
@@ -149,4 +213,4 @@ static void Cylinder(void)
     }
     puts("PASS: actual cylindrical button operation produces native per-corner UVs and face identities, rejects range overflow, and survives synchronous canvas replacement.");
 }
-int main(void) { Coordinates(); Cylinder(); }
+int main(void) { Coordinates(); Planar(); Cylinder(); }

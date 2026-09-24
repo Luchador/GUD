@@ -14,7 +14,8 @@
 static HWND g_UVEditor;
 static HWND g_UVCanvas;
 static int g_UVCylinderAxis;
-static double g_UVCylinderTexelSize = 4.0;
+static double g_UVTexelSize = 4.0;
+static BOOL g_UVUseTexelSize; /* Retained when the window is reopened. */
 static int g_UVTextureOpacity = 50; /* Retained when the window is reopened. */
 
 static void UVEditorUpdateOpacity(void)
@@ -114,6 +115,22 @@ static BOOL UVEditorReadCoordinate(int id, double *value)
     return *end == '\0';
 }
 
+static void UVEditorProjectPlanar(HWND hwnd, UVProjection projection)
+{
+    const char *reason = "";
+    double size = 0;
+    if (IsDlgButtonChecked(hwnd, IDC_UV_USE_TEXEL_SIZE) == BST_CHECKED)
+    {
+        if (!UVEditorReadCoordinate(IDC_UV_CYLINDER_SIZE, &size) || size <= 0)
+        { MessageBox(hwnd, "Enter a positive texel size.", "UV Editor", MB_ICONERROR); return; }
+        g_UVTexelSize = size;
+    }
+    if (!UVCanvasProjectFaces(g_UVCanvas, projection, size, &reason) && reason[0])
+    { MessageBox(hwnd, reason, "UV Editor", MB_ICONERROR); }
+    UVEditorUpdateFields();
+    SetFocus(g_UVCanvas);
+}
+
 static void UVEditorApplyFields(void)
 {
     double uv[2] = {0, 0};
@@ -158,8 +175,9 @@ static void UVEditorLayout(HWND hwnd)
 {
     static const int tools[] = { IDC_UV_MOVE, IDC_UV_ROTATE, IDC_UV_SCALE, IDC_UV_PROJECT_LABEL, IDC_UV_PROJECT_X,
                                 IDC_UV_PROJECT_Y, IDC_UV_PROJECT_Z, IDC_UV_PROJECT_BEST, IDC_UV_PROJECT_CYLINDER,
-                                IDC_UV_CYLINDER_AXIS_LABEL, IDC_UV_CYLINDER_AXIS, IDC_UV_CYLINDER_SIZE_LABEL, IDC_UV_CYLINDER_SIZE };
-    static const int widths[] = { 8, 9, 8, 5, 6, 6, 6, 8, 11, 5, 9, 14, 7 };
+                                IDC_UV_CYLINDER_AXIS_LABEL, IDC_UV_CYLINDER_AXIS, IDC_UV_USE_TEXEL_SIZE,
+                                IDC_UV_CYLINDER_SIZE_LABEL, IDC_UV_CYLINDER_SIZE };
+    static const int widths[] = { 8, 9, 8, 5, 6, 6, 6, 8, 11, 5, 9, 14, 14, 7 };
     RECT client;
     RECT units = { 8, 32, 140, 16 };
     HWND closebutton = GetDlgItem(hwnd, IDCANCEL);
@@ -227,8 +245,9 @@ static INT_PTR CALLBACK UVEditorDialogProc(HWND hwnd, UINT message,
         for (int i = 0; i < 4; i++)
         { SendDlgItemMessage(hwnd, IDC_UV_CYLINDER_AXIS, CB_ADDSTRING, 0, (LPARAM)(const char *[]){"Auto", "X", "Y", "Z"}[i]); }
         SendDlgItemMessage(hwnd, IDC_UV_CYLINDER_AXIS, CB_SETCURSEL, g_UVCylinderAxis, 0);
-        char size[64]; snprintf(size, sizeof(size), "%.9g", g_UVCylinderTexelSize);
+        char size[64]; snprintf(size, sizeof(size), "%.9g", g_UVTexelSize);
         SetDlgItemText(hwnd, IDC_UV_CYLINDER_SIZE, size);
+        CheckDlgButton(hwnd, IDC_UV_USE_TEXEL_SIZE, g_UVUseTexelSize ? BST_CHECKED : BST_UNCHECKED);
         SendDlgItemMessage(hwnd, IDC_UV_CYLINDER_SIZE, EM_LIMITTEXT, 63, 0);
         CheckDlgButton(hwnd, IDC_UV_MOVE, BST_CHECKED);
         SendDlgItemMessage(hwnd, IDC_UV_U, EM_LIMITTEXT, 63, 0);
@@ -282,13 +301,18 @@ static INT_PTR CALLBACK UVEditorDialogProc(HWND hwnd, UINT message,
     }
 
     case WM_COMMAND:
+        if (LOWORD(wparam) == IDC_UV_USE_TEXEL_SIZE && HIWORD(wparam) == BN_CLICKED)
+        {
+            g_UVUseTexelSize = IsDlgButtonChecked(hwnd, IDC_UV_USE_TEXEL_SIZE) == BST_CHECKED;
+            return TRUE;
+        }
         if (LOWORD(wparam) == IDC_UV_PROJECT_CYLINDER)
         {
             const char *reason = "";
             double size;
             if (!UVEditorReadCoordinate(IDC_UV_CYLINDER_SIZE, &size) || size <= 0)
             { MessageBox(hwnd, "Enter a positive texel size.", "UV Editor", MB_ICONERROR); return TRUE; }
-            g_UVCylinderTexelSize = size;
+            g_UVTexelSize = size;
             g_UVCylinderAxis = (int)SendDlgItemMessage(hwnd, IDC_UV_CYLINDER_AXIS, CB_GETCURSEL, 0, 0);
             if (!UVCanvasProjectCylinder(g_UVCanvas, g_UVCylinderAxis, size, &reason) && reason[0])
             { MessageBox(hwnd, reason, "UV Editor", MB_ICONERROR); }
@@ -298,12 +322,8 @@ static INT_PTR CALLBACK UVEditorDialogProc(HWND hwnd, UINT message,
         }
         if (LOWORD(wparam) >= IDC_UV_PROJECT_X && LOWORD(wparam) <= IDC_UV_PROJECT_BEST)
         {
-            const char *reason = "";
             UVProjection projection = (UVProjection)(LOWORD(wparam) - IDC_UV_PROJECT_X);
-            if (!UVCanvasProjectFaces(g_UVCanvas, projection, &reason) && reason[0] != '\0')
-            { MessageBox(hwnd, reason, "UV Editor", MB_ICONERROR); }
-            UVEditorUpdateFields();
-            SetFocus(g_UVCanvas);
+            UVEditorProjectPlanar(hwnd, projection);
             return TRUE;
         }
         if (LOWORD(wparam) == IDC_UV_MOVE || LOWORD(wparam) == IDC_UV_ROTATE || LOWORD(wparam) == IDC_UV_SCALE)

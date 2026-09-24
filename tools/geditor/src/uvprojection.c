@@ -15,7 +15,7 @@ static double UVProjectionLength(const double vector[3])
 
 int UVProjectionMap(UVProjectionVertex *vertices, int vertexcount,
                     const UVProjectionFace *faces, int facecount,
-                    UVProjection projection, const char **reason)
+                    UVProjection projection, double unitspertexel, const char **reason)
 {
     double u[3] = {0}, v[3] = {0}, normal[3] = {0};
     double minimum[2] = {0}, maximum[2] = {0}, span[2], extent;
@@ -23,6 +23,8 @@ int UVProjectionMap(UVProjectionVertex *vertices, int vertexcount,
     *reason = "Select background faces to project.";
     if (vertices == 0 || faces == 0 || vertexcount <= 0 || facecount <= 0
         || projection < 0 || projection >= UV_PROJECTION_COUNT) { return 0; }
+    if (!isfinite(unitspertexel) || unitspertexel < 0)
+    { *reason = "Enter a positive texel size, or turn off Use texel size."; return 0; }
     for (i = 0; i < vertexcount; i++)
     {
         for (axis = 0; axis < 3; axis++)
@@ -99,7 +101,9 @@ int UVProjectionMap(UVProjectionVertex *vertices, int vertexcount,
     {
         for (axis = 0; axis < 2; axis++)
         {
-            vertices[i].uv[axis] = extent > 0
+            vertices[i].uv[axis] = unitspertexel > 0
+                ? (vertices[i].uv[axis] - minimum[axis]) / unitspertexel
+                : extent > 0
                 ? (vertices[i].uv[axis] - minimum[axis]) / extent + (1 - span[axis] / extent) * 0.5
                 : 0.5;
         }

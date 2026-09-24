@@ -18,13 +18,15 @@ typedef struct UVProjectionFace {
     int vertices[3];
 } UVProjectionFace;
 
-/* Projects all vertices using one plane and uniform scale, centered in 0-1.
+/* Projects all vertices using one plane. With unitspertexel == 0, use the
+   existing uniform fit centered in 0-1. A positive value returns texels at
+   that world scale, with the projected minimum at 0 on each axis.
    Best Fit averages unit face normals; zero-area faces do not contribute.
    Returns zero with a reason when a meaningful plane cannot be formed.
    Only the scratch UV outputs are modified; positions remain untouched. */
 int UVProjectionMap(UVProjectionVertex *vertices, int vertexcount,
                     const UVProjectionFace *faces, int facecount,
-                    UVProjection projection, const char **reason);
+                    UVProjection projection, double unitspertexel, const char **reason);
 
 /* Unwrap one uncapped side wall. Geometric adjacency joins native UV/color
  * duplicates; seams has one three-bit edge mask per face (or NULL for auto).

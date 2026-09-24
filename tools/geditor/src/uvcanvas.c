@@ -1107,7 +1107,7 @@ BOOL UVCanvasHasFaces(HWND canvas)
     return state != NULL && state->trianglecount > 0;
 }
 
-BOOL UVCanvasProjectFaces(HWND canvas, UVProjection projection, const char **reason)
+BOOL UVCanvasProjectFaces(HWND canvas, UVProjection projection, double unitspertexel, const char **reason)
 {
     static const char *actions[UV_PROJECTION_COUNT] = {
         "Planar UV Projection X", "Planar UV Projection Y", "Planar UV Projection Z", "Best Fit UV Projection"
@@ -1136,22 +1136,23 @@ BOOL UVCanvasProjectFaces(HWND canvas, UVProjection projection, const char **rea
             memcpy(vertices[node].position, state->triangles[triangle].position[corner], sizeof(vertices[node].position));
         }
     }
-    if (!UVProjectionMap(vertices, state->nodecount, faces, state->trianglecount, projection, reason)) { goto done; }
+    if (!UVProjectionMap(vertices, state->nodecount, faces, state->trianglecount, projection, unitspertexel, reason)) { goto done; }
     request.vertices = edits; request.count = 0; request.action = actions[projection];
     for (i = 0; i < state->nodecount; i++)
     {
         const UVCanvasNode *node = &state->nodes[i];
-        double s = round(vertices[i].uv[0] * 32.0 * node->width);
-        double t = round(vertices[i].uv[1] * 32.0 * node->height);
+        double s = round(vertices[i].uv[0] * 32.0 * (unitspertexel > 0 ? 1 : node->width));
+        double t = round(vertices[i].uv[1] * 32.0 * (unitspertexel > 0 ? 1 : node->height));
         if (!isfinite(s) || !isfinite(t) || s < -32768 || s > 32767 || t < -32768 || t > 32767)
-        { *reason = "The projected UVs exceed GoldenEye's texture coordinate range."; goto done; }
+        { *reason = "The projected UVs exceed GoldenEye's texture coordinate range. Increase Texel size or project fewer faces."; goto done; }
         if (s == node->source.s && t == node->source.t) { continue; }
         edits[request.count] = node->source;
         edits[request.count].s = (int)s; edits[request.count].t = (int)t;
         request.count++;
     }
-    /* Like movement, projection edits each shared source vertex once using
-       its current texture-size basis. Rebuilding may replace state below. */
+    /* Edit each shared source vertex once. World-scaled projection writes
+       native texels directly, so different image dimensions retain the same
+       physical density. Rebuilding may replace state below. */
     result = request.count == 0 || (BOOL)SendMessage(GetParent(canvas), UVCANVAS_WM_COMMIT, 0, (LPARAM)&request);
 done:
     free(vertices); free(faces); free(edits);

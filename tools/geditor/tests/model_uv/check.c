@@ -141,7 +141,10 @@ int main(int argc,char **argv)
     /* Real planar tools, rotation and scale feed the model owner, retaining
      * all other native attributes and unselected faces after each operation. */
     for(int p=UV_PROJECTION_X;p<UV_PROJECTION_COUNT;p++)
-    { OK(UVCanvasProjectFaces(&state,p,&why));SameGeometry(&original,base); }
+    {
+        OK(UVCanvasProjectFaces(&state,p,0,&why));SameGeometry(&original,base);
+        OK(UVCanvasProjectFaces(&state,p,4,&why));SameGeometry(&original,base);
+    }
     AllNodes();UVCanvasSetTransformMode(&state,TRANSFORM_ROTATE);
     double values[2]={90,0};OK(UVCanvasApplyTransform(&state,values,&why));SameGeometry(&original,base);
     AllNodes();UVCanvasSetTransformMode(&state,TRANSFORM_SCALE);values[0]=.5;values[1]=2;

@@ -277,6 +277,7 @@
 #define IDC_UV_CYLINDER_AXIS       1231
 #define IDC_UV_CYLINDER_SIZE_LABEL 1232
 #define IDC_UV_CYLINDER_SIZE       1233
+#define IDC_UV_USE_TEXEL_SIZE      1234
 
 /* Longest project name we accept, including the terminator. */
 #define GEDITOR_NAME_MAX       64
