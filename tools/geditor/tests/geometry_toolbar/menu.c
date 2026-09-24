@@ -125,10 +125,21 @@ int main(void)
     Hotkey();
     BgDocumentRoom room = {0};
     Show(TOOLTOOLBAR_MENU_VERTEX); assert(!Enabled(ID_GEOMETRY_PAINT_VERTEX));
+    assert(!Enabled(ID_GEOMETRY_SNAP_VERTEX));
     Show(TOOLTOOLBAR_MENU_EDGE); assert(!Enabled(ID_GEOMETRY_SPLIT_EDGE) && !Enabled(ID_GEOMETRY_BRIDGE_EDGES));
     g_CurrentBgDocument.rooms = &room;
     selectedtool = EDITOR_TOOL_VERTEX_SELECT; snap = TRUE;
     Show(TOOLTOOLBAR_MENU_VERTEX); assert(Enabled(ID_GEOMETRY_PAINT_VERTEX));
+    assert(Enabled(ID_GEOMETRY_SNAP_VERTEX) && (Find(ID_GEOMETRY_SNAP_VERTEX)->flags & MF_CHECKED));
+    assert(!strcmp(Find(ID_GEOMETRY_SNAP_VERTEX)->label,"&Snap to Vertex\tV"));
+    snap=FALSE; Show(TOOLTOOLBAR_MENU_VERTEX);
+    assert(!(Find(ID_GEOMETRY_SNAP_VERTEX)->flags & MF_CHECKED));
+    choose=ID_GEOMETRY_SNAP_VERTEX; Show(TOOLTOOLBAR_MENU_VERTEX);
+    assert(dispatched==choose); choose=0; focuscalls=0;
+    for(int mode=EDITOR_TOOL_EDGE_SELECT;mode<EDITOR_TOOL_COUNT;mode++) {
+        selectedtool=(EditorTool)mode; Show(TOOLTOOLBAR_MENU_VERTEX);
+        assert(!Enabled(ID_GEOMETRY_SNAP_VERTEX));
+    }
     assert(!strcmp(Find(ID_GEOMETRY_PAINT_VERTEX)->label,"&Paint Vertices\t5"));
     selectedtool = EDITOR_TOOL_EDGE_SELECT; edgecount = 1; snap = FALSE;
     Show(TOOLTOOLBAR_MENU_EDGE); assert(Enabled(ID_GEOMETRY_SPLIT_EDGE) && !Enabled(ID_GEOMETRY_BRIDGE_EDGES));
@@ -150,6 +161,7 @@ int main(void)
     for (int mode = 0; mode < 2; mode++)
     {
         flying = mode == 0; transforming = mode == 1;
+        selectedtool=EDITOR_TOOL_VERTEX_SELECT; Show(TOOLTOOLBAR_MENU_VERTEX); assert(!Enabled(ID_GEOMETRY_SNAP_VERTEX));
         selectedtool = EDITOR_TOOL_EDGE_SELECT; Show(TOOLTOOLBAR_MENU_EDGE); assert(!Enabled(ID_GEOMETRY_BRIDGE_EDGES));
         selectedtool = EDITOR_TOOL_FACE_SELECT; facecount = 1; Show(TOOLTOOLBAR_MENU_FACE); assert(!Enabled(ID_EDIT_FLIP_FACE) && !Enabled(ID_GEOMETRY_KNIFE));
     }

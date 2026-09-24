@@ -2,8 +2,9 @@
 
 The main viewport modes are Vertex (1), Edge (2), Face (3), Room (4), and
 Vertex Paint (5). The room button uses `room_select_off/on.png`. Model Editor
-painting also uses 5. The Vertex Snap toolbar button, Vertex menu entry, and
-V shortcut are removed. Numeric shortcuts leave edit fields and combo boxes alone.
+painting also uses 5. Snap to Vertex is a toggle under the Vertex menu, with
+shortcut V while in Vertex mode. Entering Room mode turns snapping off.
+Numeric shortcuts leave edit fields and combo boxes alone.
 
 Press 4 and click a background face, object, or character. The whole room is
 selected, including both background layers, its Stan tiles, connected portal

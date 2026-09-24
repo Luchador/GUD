@@ -7,9 +7,17 @@ Buttons support mouse click, Tab/Space/Enter, and Down to open a dropdown.
 
 | Menu | Operations |
 | --- | --- |
-| Vertex | Merge Vertices (M), Paint Vertices (5) |
+| Vertex | Merge Vertices (M), Snap to Vertex (V), Paint Vertices (5) |
 | Edge | Bisect Edge (Ctrl+Q), Split Edge, Bridge Edges (B) |
 | Face | Knife (K), Flip Face (Alt+N), Disconnect Face, Edit UVs, Hide Selected (H), Unhide All (Alt+H) |
+
+**Snap to Vertex** is a checked toggle available in Vertex mode (1). Press **V**
+or choose the menu item to turn it on or off. Click the source vertex, then
+the destination vertex. Switching selection modes turns snapping off; Room
+remains 4 and Vertex Paint remains 5. There is no separate snap toolbar button.
+The shortcut ignores text inputs, modified V shortcuts, and key auto-repeat;
+snapping cannot be toggled during camera flight or a transform drag. Undo/Redo
+restores the snap selection and toggle together.
 
 Merge Vertices requires at least two selected BG vertices in vertex mode,
 within one room. It creates one shared vertex at their average position and

@@ -683,6 +683,7 @@ enum {
     ID_EDIT_REDO,
     ID_EDIT_FLIP_FACE,
     ID_GEOMETRY_MERGE_VERTICES,
+    ID_GEOMETRY_SNAP_VERTEX,
     ID_GEOMETRY_PAINT_VERTEX,
     ID_GEOMETRY_SPLIT_EDGE,
     ID_GEOMETRY_BISECT_EDGE,
@@ -3627,6 +3628,9 @@ static void GEditorShowGeometryMenu(HWND hwnd, ToolToolbarMenu kind, HWND button
         AppendMenu(menu, MF_STRING | ((GEditorCanMergeSelectedBgVertices() || GEditorCanMergeSelectedStanVertices()) ? MF_ENABLED : MF_GRAYED),
             ID_GEOMETRY_MERGE_VERTICES, "&Merge Vertices\tM");
         AppendMenu(menu, MF_SEPARATOR, 0, NULL);
+        AppendMenu(menu, MF_STRING | (idle && tool == EDITOR_TOOL_VERTEX_SELECT ? MF_ENABLED : MF_GRAYED)
+            | (ViewportGetVertexSnap(g_Viewport) ? MF_CHECKED : MF_UNCHECKED),
+            ID_GEOMETRY_SNAP_VERTEX, "&Snap to Vertex\tV");
         AppendMenu(menu, MF_STRING | (idle ? MF_ENABLED : MF_GRAYED)
             | (tool == EDITOR_TOOL_VERTEX_PAINT ? MF_CHECKED : MF_UNCHECKED),
             ID_GEOMETRY_PAINT_VERTEX, "&Paint Vertices\t5");
@@ -5554,6 +5558,15 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         return 0;
 
 
+    case EDITTOOL_WM_TOGGLE_VERTEX_SNAP:
+        if (g_CurrentBgDocument.rooms && ViewportGetTool(g_Viewport) == EDITOR_TOOL_VERTEX_SELECT
+            && !ViewportIsFlying(g_Viewport) && !ViewportIsTransforming(g_Viewport))
+        {
+            ViewportSetVertexSnap(g_Viewport, !ViewportGetVertexSnap(g_Viewport));
+            SetFocus(g_Viewport);
+        }
+        return 0;
+
     case RIGHTPANEL_WM_TRANSFORM_MODE:
         if (wparam > TRANSFORM_SCALE) { return 0; }
         if (ViewportGetTool(g_Viewport) == EDITOR_TOOL_ROOM_SELECT) { wparam = TRANSFORM_MOVE; }
@@ -6376,6 +6389,10 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             case ID_GEOMETRY_MERGE_VERTICES:
                 if (ViewportGetStanSelectionCount(g_Viewport,NULL)) { GEditorEditStanTopology(hwnd,NULL); }
                 else { GEditorMergeSelectedBgVertices(hwnd); }
+                return 0;
+
+            case ID_GEOMETRY_SNAP_VERTEX:
+                SendMessage(hwnd, EDITTOOL_WM_TOGGLE_VERTEX_SNAP, 0, 0);
                 return 0;
 
             case ID_GEOMETRY_PAINT_VERTEX:

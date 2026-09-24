@@ -34,6 +34,10 @@ and place both new and existing portals:
   Vertex/edge box selection also works. Select a portal component first to
   keep a marquee on portals; otherwise the marquee prefers background hits.
 - **Escape** cancels a live drag; a second Escape clears the selection.
+- **Vertex > Snap to Vertex (V):** in Vertex mode, click a portal corner,
+  then a background vertex. Only the portal corner moves. A missed target
+  keeps the source selected; a successful snap clears it for the next pair.
+  Press V again to turn snapping off.
 
 Translation and component selection participate in **Undo/Redo**.
 Live previews do not modify the document until the drag is released. Moving

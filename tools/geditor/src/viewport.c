@@ -10419,7 +10419,7 @@ BOOL ViewportRestoreSelection(HWND hwnd, const void *data, size_t size)
     ViewportClearStanSelection(state);
     state->tool = s->tool;
     state->selectedroom = 0;
-    state->vertexsnap = FALSE;
+    state->vertexsnap = s->vertexsnap && s->tool == EDITOR_TOOL_VERTEX_SELECT;
     free(state->components);
     state->components = newcomponents;
     state->componentcount = state->componentcapacity = s->components;

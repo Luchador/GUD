@@ -156,7 +156,7 @@ int main(void)
     snapshot = Capture(&state, &size);
     state.tool = EDITOR_TOOL_FACE_SELECT; state.vertexsnap = FALSE;
     assert(ViewportRestoreSelection(&state, snapshot, size));
-    assert(state.tool == EDITOR_TOOL_VERTEX_SELECT && !state.vertexsnap && state.componentcount == 1);
+    assert(state.tool == EDITOR_TOOL_VERTEX_SELECT && state.vertexsnap && state.componentcount == 1);
     assert(state.components[0].corners[0] == 1 && state.components[0].corners[1] == 1);
     free(snapshot);
 

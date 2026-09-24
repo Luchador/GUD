@@ -408,6 +408,13 @@ BOOL ToolToolbarHandleMessage(HWND toolbar, MSG *message)
         GetClassName(message->hwnd, classname, sizeof(classname));
         if (lstrcmpi(classname, "Edit") == 0 || lstrcmpi(classname, "ComboBox") == 0
             || lstrcmpi(classname, "ComboLBox") == 0) { return FALSE; }
+        if (state && !state->paintonly && state->tool == EDITOR_TOOL_VERTEX_SELECT
+            && message->wParam == 'V')
+        {
+            if (!(message->lParam & ((LPARAM)1 << 30)))
+            { SendMessage(frame, EDITTOOL_WM_TOGGLE_VERTEX_SNAP, 0, 0); }
+            return TRUE;
+        }
         if (state && state->paintonly)
         {
             if (message->wParam == '5' || message->wParam == VK_NUMPAD5)

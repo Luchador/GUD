@@ -36,6 +36,7 @@ static RECT positions[4000], client;
 static double scalex,scaley;
 static int toggles,control,shift,alt;
 static EditorTool lasttool;
+static int snaptoggles;
 static int undos,redos,cancels;
 static BOOL g_ModelSampling;
 static void ModelEditorUndo(BOOL redo) { if(redo) redos++; else undos++; }
@@ -51,6 +52,7 @@ static BOOL IsDialogMessage(HWND hwnd,MSG *message) { return FALSE; }
 static void SendMessage(HWND hwnd,UINT message,WPARAM wparam,LPARAM lparam)
 {
     if(message==WM_CANCELMODE) { assert(hwnd==g_ModelViewport);g_ModelSampling=FALSE;cancels++;return; }
+    if(message==EDITTOOL_WM_TOGGLE_VERTEX_SNAP) { snaptoggles++; return; }
     assert(message==EDITTOOL_WM_SELECT && wparam<EDITOR_TOOL_COUNT); lasttool=(EditorTool)wparam; toggles++;
 }
 static void GetClientRect(HWND hwnd,RECT *rect)
@@ -153,7 +155,24 @@ int main(void)
         message.wParam='4'; assert(!ToolToolbarHandleMessage(g_ModelPaintToolbar,&message));
     }
     focusclass="GEditorViewport";
-    message.wParam='V'; assert(!ToolToolbarHandleMessage(g_ModelPaintToolbar,&message));
+    message.wParam='V'; toolbar.tool=EDITOR_TOOL_VERTEX_SELECT;
+    assert(ToolToolbarHandleMessage(g_ModelPaintToolbar,&message) && snaptoggles==1);
+    message.lParam=(LPARAM)1<<30;
+    assert(ToolToolbarHandleMessage(g_ModelPaintToolbar,&message) && snaptoggles==1);
+    message.lParam=0;
+    for(int i=0;i<3;i++) {
+        focusclass=i==0 ? "Edit" : i==1 ? "ComboBox" : "ComboLBox";
+        assert(!ToolToolbarHandleMessage(g_ModelPaintToolbar,&message));
+    }
+    focusclass="GEditorViewport";
+    control=1;assert(!ToolToolbarHandleMessage(g_ModelPaintToolbar,&message));control=0;
+    alt=1;assert(!ToolToolbarHandleMessage(g_ModelPaintToolbar,&message));alt=0;
+    shift=1;assert(!ToolToolbarHandleMessage(g_ModelPaintToolbar,&message));shift=0;
+    for(int i=EDITOR_TOOL_EDGE_SELECT;i<EDITOR_TOOL_COUNT;i++) {
+        toolbar.tool=(EditorTool)i;
+        assert(!ToolToolbarHandleMessage(g_ModelPaintToolbar,&message));
+    }
+    assert(snaptoggles==1);
     message.wParam='6'; assert(!ToolToolbarHandleMessage(g_ModelPaintToolbar,&message));
     message.hwnd=g_ModelViewport;message.wParam=VK_ESCAPE;g_ModelSampling=TRUE;
     assert(ModelEditorPaintKey(&message) && !g_ModelSampling && cancels==1);
