@@ -72,6 +72,7 @@ BOOL SetupSelectionFlags(const SetupFile *s, const DWORD *ids, DWORD count, Setu
         else
         {
             const SetupObject *o = &s->objects[ids[i]];
+            if (o->type == PROPDEF_DOOR_SHADOW) { continue; }
             if (!out->objects) { out->objecttype = o->type; }
             else if (out->objecttype != o->type) { out->objecttype = -1; }
             out->objects++;
@@ -110,7 +111,7 @@ BOOL SetupSelectionSetFlag(SetupFile *s, const DWORD *ids, DWORD count,
     for (DWORD i = 0; i < count; i++)
     {
         BOOL character = (ids[i] & SETUP_CHARACTER_SELECTION_BIT) != 0, edited = FALSE;
-        if (character != (bank == 2)) { continue; }
+        if (character != (bank == 2) || (!character && s->objects[ids[i]].type == PROPDEF_DOOR_SHADOW)) { continue; }
         BOOL ok = character ? CharacterFlag(&copy, ids[i] & ~SETUP_CHARACTER_SELECTION_BIT, mask, enabled, &edited, why)
             : SetupFileSetObjectFlag(&copy, ids[i], bank, mask, enabled, &edited, why);
         if (!ok) { SetupFileFree(&copy); return FALSE; }

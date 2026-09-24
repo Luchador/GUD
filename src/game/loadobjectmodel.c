@@ -1,6 +1,7 @@
 #include <ultra64.h>
 #include <bondtypes.h>
 #include "chrai.h"
+#include "doorshadowformat.h"
 #include "chrobjdata.h"
 #include "propobj.h"
 #include "loadobjectmodel.h"
@@ -40,6 +41,8 @@ s32 sizepropdef(PropDefHeaderRecord *pdef)
 {
     switch (pdef->type)
     {
+        case PROPDEF_DOOR_SHADOW:
+            return DOOR_SHADOW_BYTES / 4;
         case PROPDEF_GUARD:
             return sizeof(GuardRecord) / 4;
         case PROPDEF_DOOR:

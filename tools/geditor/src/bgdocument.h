@@ -347,6 +347,9 @@ BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
 
 /* Signed native normal packed in RGB byte order, derived from face winding. */
 DWORD BgDocumentEnvironmentNormal(const BgDocumentRoom *room, const BgDocumentFace *face);
+/* Self-contained material plus two nine-vertex batches for a Door Shadow. */
+BOOL BgCompileDoorShadow(const BgDocumentFace *face, const BgRenderState *state,
+    unsigned char **data, DWORD *size, const char **why);
 
 /* Move selected faces to an existing room, retaining world coordinates,
  * UVs, colors, layers, face IDs and shared vertices within the moved set.

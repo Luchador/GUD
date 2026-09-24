@@ -21,6 +21,7 @@
 #include "weaponchoices.h"
 #include "hatchoices.h"
 #include "introchoices.h"
+#include "doorshadow.h"
 
 #define SETUP_FILE_MAX (16u * 1024u * 1024u)
 #define SETUP_HEADER_SIZE       40u
@@ -131,6 +132,7 @@ static DWORD SetupObjectWordCount(unsigned char type)
 {
     switch (type)
     {
+    case PROPDEF_DOOR_SHADOW: return DOOR_SHADOW_BYTES / 4;
     case 1:  return 64;  /* DoorRecord */
     case 2:  return 2;   /* GlobalDoorScaleRecord */
     case 3:  return 32;  /* ObjectRecord */
@@ -333,7 +335,7 @@ static BOOL SetupCompactRoot(SetupCompact *c, DWORD root, DWORD at)
             break;
         case 3: /* prop commands contain indices/IDs, not file pointers */
             value &= 255;
-            if (value > SETUP_PROP_END) { return FALSE; }
+            if (value > SETUP_PROP_END && value != PROPDEF_DOOR_SHADOW) { return FALSE; }
             bytes = SetupObjectWordCount((unsigned char)value) * 4;
             if (!SetupCompactKeep(c, at, bytes)) { return FALSE; }
             if (value == SETUP_PROP_END) { return TRUE; }
@@ -1013,6 +1015,7 @@ static BOOL SetupTypeCreatesObject(unsigned char type)
 {
     switch (type)
     {
+    case PROPDEF_DOOR_SHADOW:
     case 1:  /* door */
     case 3:  /* ordinary prop */
     case 4:  /* key */
@@ -1769,7 +1772,8 @@ static BOOL SetupCommandReferenced(const SetupFile *s, DWORD target)
         type = s->data[at + 3]; bytes = SetupObjectWordCount((unsigned char)type) * 4;
         if (bytes > s->size - at) { return TRUE; }
         if (type == SETUP_PROP_END) { return FALSE; }
-        if (type > SETUP_PROP_END || type == 0 || type == 15 || type == 16 || type == 41) { return TRUE; }
+        if ((type > SETUP_PROP_END && type != PROPDEF_DOOR_SHADOW) || type == 0 || type == 15 || type == 16 || type == 41) { return TRUE; }
+        if (type == PROPDEF_DOOR_SHADOW && SetupRead32(s->data + at + DOOR_SHADOW_DOOR) == wanted) { return TRUE; }
         if (type == PROPDEF_LINK || type == PROPDEF_SWITCH || type == PROPDEF_LOCK_DOOR) { fields = 2; }
         if (type == PROPDEF_SAFE_ITEM) { fields = 3; }
         if (type == PROPDEF_RENAME) { fields = 1; }
@@ -4823,6 +4827,7 @@ const char *SetupObjectTypeName(unsigned char type)
     switch (type)
     {
     case PROPDEF_DOOR: return "Door";
+    case PROPDEF_DOOR_SHADOW: return "Door Shadow";
     case PROPDEF_PROP: return "Prop";
     case PROPDEF_KEY: return "Key";
     case PROPDEF_ALARM: return "Alarm";
@@ -5075,4 +5080,116 @@ BOOL SetupFileSetObjectProperty(SetupFile *setup, const SetupObjectPropertyEdit 
     setup->dirty = TRUE;
     *changedout = TRUE;
     return TRUE;
+}
+
+LONG SetupFileObjectCommand(const SetupFile *s,DWORD objectindex)
+{
+    DWORD at,index=0;
+    if(!s||!s->data||s->size<40||objectindex>=s->objectcount)return -1;
+    at=SetupRead32(s->data+SETUP_OBJECT_POINTER);
+    while(at&&at<=s->size-4&&s->data[at+3]!=SETUP_PROP_END) {
+        DWORD bytes=SetupObjectWordCount(s->data[at+3])*4;
+        if(bytes>s->size-at)return -1;
+        if(at==s->objects[objectindex].sourceoffset)return (LONG)index;
+        at+=bytes;index++;
+    }
+    return -1;
+}
+LONG SetupFileCommandObject(const SetupFile *s,LONG command)
+{
+    DWORD at,index=0;
+    if(!s||!s->data||s->size<40||command<0)return -1;
+    at=SetupRead32(s->data+SETUP_OBJECT_POINTER);
+    while(at&&at<=s->size-4&&s->data[at+3]!=SETUP_PROP_END) {
+        DWORD bytes=SetupObjectWordCount(s->data[at+3])*4;
+        if(bytes>s->size-at)return -1;
+        if(index==(DWORD)command){for(DWORD i=0;i<s->objectcount;i++)if(s->objects[i].sourceoffset==at)return (LONG)i;return -1;}
+        at+=bytes;index++;
+    }
+    return -1;
+}
+BOOL SetupFileAddDoorShadow(SetupFile *s,const unsigned char record[DOOR_SHADOW_BYTES],DWORD *selection,const char **why)
+{
+    SetupFile copy={0};DWORD start,end,commands=0,active=0,reused,unused,newstart,at,size;
+    unsigned char *data=NULL;
+    for(DWORD i=0;i<s->objectcount;i++)if(s->objects[i].type==PROPDEF_DOOR_SHADOW&&!s->objects[i].deleted)active++;
+    *why="A level can contain at most 64 Door Shadows.";if(active>=DOOR_SHADOW_MAX)return FALSE;
+    if(!SetupFileClone(s,&copy,why))return FALSE;
+    start=SetupRead32(copy.data+SETUP_OBJECT_POINTER);end=start;
+    reused=SetupFindFreeCommand(&copy,PROPDEF_DOOR_SHADOW,&unused);
+    *why="The setup command list is malformed or full.";
+    while(start&&end<=copy.size-4&&copy.data[end+3]!=SETUP_PROP_END) {
+        DWORD length=SetupObjectWordCount(copy.data[end+3])*4;
+        if(++commands>=SETUP_OBJECT_MAX-1||length>copy.size-end||copy.size-end-length<4)goto fail;
+        end+=length;
+    }
+    if(start&&(start<40||end>copy.size-4))goto fail;
+    newstart=(copy.size+3u)&~3u;at=newstart+(reused?reused-start:end-start);
+    size=newstart+end-start+(reused?0:DOOR_SHADOW_BYTES)+4;
+    *why="Out of memory adding the Door Shadow.";
+    if(size>SETUP_FILE_MAX||!(data=calloc(size,1)))goto fail;
+    memcpy(data,copy.data,copy.size);
+    if(start)memcpy(data+newstart,copy.data+start,end-start);
+    memcpy(data+at,record,DOOR_SHADOW_BYTES);
+    SetupWrite32(data+SETUP_OBJECT_POINTER,newstart);SetupWrite32(data+size-4,SETUP_PROP_END);
+    free(copy.data);copy.data=data;copy.size=size;data=NULL;
+    free(copy.objects);copy.objects=NULL;copy.objectcount=0;
+    free(copy.characters);copy.characters=NULL;copy.charactercount=0;
+    if(!SetupParseObjects(&copy,why))goto fail;
+    *selection=(DWORD)-1;
+    for(DWORD i=0;i<copy.objectcount;i++)if(copy.objects[i].sourceoffset==at)*selection=i;
+    if(*selection==(DWORD)-1||!SetupFileCompact(&copy,why))goto fail;
+    copy.dirty=TRUE;SetupFileFree(s);*s=copy;*why="";return TRUE;
+fail:
+    free(data);SetupFileFree(&copy);return FALSE;
+}
+
+BOOL DoorShadowValidateNative(const unsigned char *data,DWORD size,const RomFile *rom,const char **why)
+{
+    DWORD at,count=0;BOOL supported=FALSE;
+    *why="Invalid Door Shadow setup data.";
+    if(!data||size<40)return FALSE;
+    for(DWORD i=0;rom&&i<rom->info.entrycount;i++)
+        if(rom->info.entries[i].kind==DOOR_SHADOW_MANIFEST_KIND&&rom->info.entries[i].flags==DOOR_SHADOW_VERSION)supported=TRUE;
+    at=SetupRead32(data+SETUP_OBJECT_POINTER);
+    if(!at){*why="";return TRUE;}
+    for(DWORD command=0;command<SETUP_OBJECT_MAX;command++) {
+        if(at>size||size-at<4)return FALSE;
+        unsigned type=data[at+3];DWORD bytes=SetupObjectWordCount(type)*4;
+        if(type==SETUP_PROP_END){*why="";return TRUE;}
+        if(bytes>size-at)return FALSE;
+        if(type==PROPDEF_DOOR_SHADOW&&!supported) {
+            *why="This setup contains Door Shadows. Rebase onto a GUD ROM built with Door Shadow support before exporting.";return FALSE;
+        }
+        if(type==PROPDEF_DOOR_SHADOW&&(SetupRead32(data+at+12)&SETUP_OBJECT_DELETED_FLAGS2)!=SETUP_OBJECT_DELETED_FLAGS2) {
+            const unsigned char *p=data+at;DWORD gdl=SetupRead32(p+DOOR_SHADOW_GDL_SIZE);
+            if(++count>DOOR_SHADOW_MAX||SetupRead32(p+DOOR_SHADOW_FORMAT)!=DOOR_SHADOW_VERSION
+                ||!SetupRead32(p+DOOR_SHADOW_ROOM)||SetupRead32(p+DOOR_SHADOW_DIRECTION)>3
+                ||SetupRead32(p+DOOR_SHADOW_LAYER)>1||!gdl||gdl>DOOR_SHADOW_GDL_CAPACITY||(gdl&7)
+                ||SetupRead32(p+DOOR_SHADOW_LIGHT)>0xffffff||SetupRead32(p+DOOR_SHADOW_DARK)>0xffffff)return FALSE;
+            for(DWORD axis=0;axis<3;axis++) {
+                union {DWORD u;float f;} origin;origin.u=SetupRead32(p+DOOR_SHADOW_ORIGIN+axis*4);
+                if(!isfinite(origin.f))return FALSE;
+            }
+            /* Fixed vertex batches and a bounded, terminated material list. */
+            DWORD loads=0,triangles=0;
+            if(SetupRead32(p+DOOR_SHADOW_GDL+gdl-8)!=0xb8000000u
+                ||SetupRead32(p+DOOR_SHADOW_GDL+gdl-4))return FALSE;
+            for(DWORD pc=0;pc<gdl;pc+=8) {
+                DWORD a=SetupRead32(p+DOOR_SHADOW_GDL+pc),b=SetupRead32(p+DOOR_SHADOW_GDL+pc+4),op=a>>24;
+                if(op==4) {
+                    if(a!=0x04800090u||loads>=2||b!=0x0e000000u+loads*144||triangles!=loads*3)return FALSE;
+                    loads++;
+                } else if(op==0xbf) {
+                    if(!loads||triangles>=loads*3||a!=0xbf000000u||(b&0xff000000u))return FALSE;
+                    for(int corner=0;corner<3;corner++)if(((b>>(corner*8))&255)>80||((b>>(corner*8))&255)%10)return FALSE;
+                    triangles++;
+                } else if(op==0xb8) {if(pc!=gdl-8)return FALSE;}
+                else if(op!=0xb8&&op!=0xba&&op!=0xb9&&op!=0xb6&&op!=0xb7&&op!=0xe7&&op!=0xe8&&op!=0xfa&&op!=0xfb&&op!=0xfc&&op!=0xbb&&op!=0xc0)return FALSE;
+            }
+            if(loads!=2||triangles!=6)return FALSE;
+        }
+        at+=bytes;
+    }
+    return FALSE;
 }

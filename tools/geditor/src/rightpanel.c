@@ -165,7 +165,15 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
     {
         TCITEM item = {0}; item.mask = TCIF_TEXT;
         item.pszText = state->showingfaces ? "Advanced" : "Flags";
-        SendMessage(state->propertytabs, TCM_SETITEM, 1, (LPARAM)&item);
+        BOOL shadow = state->showingobjects && ObjectPropertiesIsDoorShadow(state->objectproperties);
+        int count = (int)SendMessage(state->propertytabs, TCM_GETITEMCOUNT, 0, 0);
+        if (shadow) {
+            if (count > 1) { SendMessage(state->propertytabs, TCM_DELETEITEM, 1, 0); }
+            state->secondarytab = FALSE;
+            SendMessage(state->propertytabs, TCM_SETCURSEL, 0, 0);
+        } else {
+            SendMessage(state->propertytabs, count < 2 ? TCM_INSERTITEM : TCM_SETITEM, 1, (LPARAM)&item);
+        }
     }
     MoveWindow(state->propertytabs, RIGHTPANEL_MARGIN,
                state->topheight + RIGHTPANEL_SPLITTER_H + 2, width, 26, TRUE);

@@ -12,6 +12,7 @@
 
 #include "modelload.h"
 #include "objectload.h"
+#include "doorshadow.h"
 #include "objectshade.h"
 #include "characterload.h"
 #include "modeledits.h"
@@ -824,6 +825,21 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
         BOOL isbound;
         BOOL isdoor = object->type == PROPDEF_DOOR;
         unsigned short doorflags = 0;
+
+        if (!object->deleted && object->type == PROPDEF_DOOR_SHADOW)
+        {
+            BgVertex vertices[18]; unsigned short tag; BgRenderFlags flags;
+            if (!DoorShadowBuildPreview(setup, i, levelscale, vertices, &tag, &flags, reasonout)
+                || !ObjectBuilderReserve(&builder, 6)) { goto fail; }
+            memcpy(builder.tris + builder.tricount * 3, vertices, sizeof(vertices));
+            for (DWORD t = 0; t < 6; t++) {
+                builder.tritags[builder.tricount + t] = tag;
+                builder.renderflags[builder.tricount + t] = flags;
+                builder.objectindices[builder.tricount + t] = i;
+            }
+            builder.tricount += 6; out->objectcount++;
+            continue;
+        }
 
         if (object->deleted
             || (object->flags & (PROPFLAG_ASSIGNEDTOCHR

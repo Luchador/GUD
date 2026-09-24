@@ -234,7 +234,7 @@ typedef struct ViewportState {
     BOOL vertexsnap;
     BOOL portalsnaptarget; /* BG-only destination picking; ignore editor overlays. */
     BOOL colorpick;
-    BOOL padpick;
+    BOOL padpick, doorpick;
     BOOL knifeactive, knifepreview, dragknife;
     BgKnifePlane knifeplane, dragknifeplane;
     Rotation knifeframe, dragknifeframe;
@@ -553,7 +553,7 @@ static HCURSOR ViewportLoadPaintCursor(HINSTANCE instance)
 
 static HCURSOR ViewportToolCursor(const ViewportState *state)
 {
-    if (state->colorpick || state->padpick) { return LoadCursor(NULL, IDC_CROSS); }
+    if (state->colorpick || state->padpick || state->doorpick) { return LoadCursor(NULL, IDC_CROSS); }
     if (state->tool == EDITOR_TOOL_VERTEX_PAINT && state->paintcursor)
     { return state->paintcursor; }
     return LoadCursor(NULL, IDC_ARROW);
@@ -7173,7 +7173,9 @@ show_menu:
         && (!message || AppendMenu(menu, MF_STRING, 1, label))
         && (message != VIEWPORT_WM_SPLIT_STAN_EDGE || AppendMenu(menu, MF_STRING, 2, "Link Tiles"))
         && (message != VIEWPORT_WM_SPLIT_EDGE || AppendMenu(menu, MF_STRING, 3,
-            (edge.face.seams & (1u << edge.corner)) ? "Clear Seam" : "Mark Seam")))
+            (edge.face.seams & (1u << edge.corner)) ? "Clear Seam" : "Mark Seam"))
+        && (message != VIEWPORT_WM_DISCONNECT_FACES || ViewportGetSelectedBgFaceCount(hwnd) != 2
+            || AppendMenu(menu, MF_STRING, 5, "Create Door Shadow")))
     {
         ClientToScreen(hwnd, &screen);
         command=TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY | TPM_RIGHTBUTTON,
@@ -7186,6 +7188,8 @@ show_menu:
         { SendMessage(GetParent(hwnd), VIEWPORT_WM_MARK_SEAM, !(edge.face.seams & (1u << edge.corner)), (LPARAM)&edge); }
         else if (command == 2 && message == VIEWPORT_WM_SPLIT_STAN_EDGE)
         { SendMessage(GetParent(hwnd), VIEWPORT_WM_LINK_STAN_EDGE, 0, (LPARAM)&stanedge); }
+        else if (command == 5 && message == VIEWPORT_WM_DISCONNECT_FACES)
+        { SendMessage(GetParent(hwnd), VIEWPORT_WM_CREATE_DOOR_SHADOW, 0, 0); }
         else if (command == 4 && paste)
         { SendMessage(GetParent(hwnd), VIEWPORT_WM_PASTE_OBJECT_HERE, 0, (LPARAM)&target); }
     }
@@ -7425,7 +7429,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         return 0;
 
     case WM_LBUTTONDBLCLK:
-        if (state && state->padpick) { return 0; }
+        if (state && (state->padpick || state->doorpick)) { return 0; }
         if (state != NULL && state->colorsampleclick)
         {
             state->colorsampleclick = FALSE;
@@ -7435,6 +7439,16 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         { return 0; }
         /* fall through */
     case WM_LBUTTONDOWN:
+        if (state && state->doorpick && !state->flying) {
+            ViewportPickRay ray; double distance;
+            state->colorsampleclick = TRUE; /* Consume the second click if linking ends pick mode. */
+            SetFocus(hwnd);
+            if (ViewportBuildPickRay(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam), &ray)) {
+                DWORD object = ViewportFindPickedObject(state, &ray, &distance);
+                SendMessage(GetParent(hwnd), VIEWPORT_WM_PICK_DOOR, object, 0);
+            }
+            return 0;
+        }
         if (state && state->padpick && !state->flying)
         {
             SetFocus(hwnd);
@@ -7537,6 +7551,8 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
             return 0;
         }
         if (state && state->flying) { state->contextpending=FALSE; }
+        if (state && state->doorpick && wparam == VK_ESCAPE)
+        { ViewportSetDoorPick(hwnd, FALSE); return 0; }
         if (state && state->padpick && wparam == VK_ESCAPE)
         { ViewportSetPadPick(hwnd, FALSE); return 0; }
         if (state != NULL && state->colorpick && wparam == VK_ESCAPE)
@@ -8121,11 +8137,25 @@ void ViewportSelectSetupPad(HWND viewport, const SetupPadRef *pad)
     SendMessage(GetParent(viewport), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
 }
 
+void ViewportSetDoorPick(HWND viewport, BOOL enabled)
+{
+    ViewportState *state = ViewportGetState(viewport);
+    if (!state || state->doorpick == enabled) { return; }
+    if (enabled) {
+        ViewportCancelTransform(viewport);
+        ViewportSetColorPick(viewport, FALSE); ViewportSetPadPick(viewport, FALSE);
+    }
+    state->doorpick = enabled; state->hoveraxis = -1;
+    ViewportRefreshCursor(viewport, state);
+    InvalidateRect(viewport, NULL, FALSE);
+    SendMessage(GetParent(viewport), VIEWPORT_WM_DOOR_PICK_CHANGED, enabled, 0);
+}
+
 void ViewportSetPadPick(HWND viewport, BOOL enabled)
 {
     ViewportState *state = ViewportGetState(viewport);
     if (!state || state->padpick == enabled) { return; }
-    if (enabled) { ViewportCancelTransform(viewport); ViewportSetColorPick(viewport, FALSE); }
+    if (enabled) { ViewportCancelTransform(viewport); ViewportSetColorPick(viewport, FALSE); ViewportSetDoorPick(viewport, FALSE); }
     state->padpick = enabled;
     state->hoveraxis = -1;
     InvalidateRect(viewport, NULL, FALSE);
@@ -8137,7 +8167,7 @@ void ViewportSetColorPick(HWND viewport, BOOL enabled)
 {
     ViewportState *state = ViewportGetState(viewport);
     if (state == NULL) { return; }
-    if (enabled) { ViewportSetPadPick(viewport, FALSE); }
+    if (enabled) { ViewportSetPadPick(viewport, FALSE); ViewportSetDoorPick(viewport, FALSE); }
     enabled = enabled && state->tool == EDITOR_TOOL_VERTEX_PAINT
         && !state->flying && state->dragaxis < 0 && !state->boxpending;
     if (state->colorpick == enabled) { return; }

@@ -44,6 +44,10 @@ void ViewportSetRenderMode(HWND viewport, ViewportRenderMode mode);
 #define VIEWPORT_WM_MARK_SEAM (WM_APP + 78)
 void ViewportShowUVSeams(HWND viewport, BOOL show);
 #define VIEWPORT_WM_DISCONNECT_FACES (WM_APP + 52)
+#define VIEWPORT_WM_CREATE_DOOR_SHADOW (WM_APP + 100)
+#define VIEWPORT_WM_PICK_DOOR (WM_APP + 101) /* wparam: setup object index */
+#define VIEWPORT_WM_DOOR_PICK_CHANGED (WM_APP + 102)
+void ViewportSetDoorPick(HWND viewport, BOOL enabled);
 /* Link the two currently selected stan faces without replacing the selection. */
 #define VIEWPORT_WM_LINK_STAN_TILES (WM_APP + 71)
 /* lparam is a synchronous, stack-owned StanEdgeRef. */

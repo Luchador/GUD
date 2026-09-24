@@ -11,6 +11,7 @@
 #include <math.h>
 #include <src/propconstants.h>
 #include "objectproperties.h"
+#include "doorshadowproperties.h"
 #include "modelload.h"
 
 #define OBJECTPROPERTIES_CLASS "GEditorObjectProperties"
@@ -50,6 +51,8 @@ static const struct {
 
 typedef struct ObjectPropertiesState {
     HWND controls[OBJECT_CONTROL_COUNT];
+    HWND shadowpanel;
+    BOOL shadowselected;
     DWORD objectindex;
     ULONG_PTR document;
     SetupObjectProperties properties;
@@ -276,6 +279,15 @@ static void ObjectPropertiesLayout(HWND hwnd, ObjectPropertiesState *state)
     RECT client, bounds[OBJECT_CONTROL_COUNT] = {{0}};
     SCROLLINFO info = {0};
     int width, y = 4;
+    if (state->shadowselected) {
+        GetClientRect(hwnd, &client);
+        for (int i = 0; i < OBJECT_CONTROL_COUNT; i++) { ShowWindow(state->controls[i], SW_HIDE); }
+        ShowScrollBar(hwnd, SB_VERT, FALSE);
+        MoveWindow(state->shadowpanel, 0, 0, client.right, client.bottom, TRUE);
+        ShowWindow(state->shadowpanel, SW_SHOWNA);
+        return;
+    }
+    ShowWindow(state->shadowpanel, SW_HIDE);
     HDC dc = GetDC(hwnd);
     HFONT old = (HFONT)SelectObject(dc, GetStockObject(DEFAULT_GUI_FONT));
     GetClientRect(hwnd, &client);
@@ -872,6 +884,8 @@ static LRESULT CALLBACK ObjectPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
         state = calloc(1, sizeof(*state));
         if (!state) { return -1; }
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
+        state->shadowpanel = DoorShadowPropertiesCreate(hwnd, cs->hInstance);
+        if (!state->shadowpanel) { return -1; }
         for (int i = 0; i < OBJECT_CONTROL_COUNT; i++)
         {
             BOOL combo = ObjectPropertiesIsCombo(i), edit = ObjectPropertiesIsEdit(i);
@@ -1050,6 +1064,7 @@ static LRESULT CALLBACK ObjectPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
         }
         return 0;
     case WM_MOUSEWHEEL:
+        if (state && state->shadowselected) { return SendMessage(state->shadowpanel, msg, wparam, lparam); }
         if (state)
         {
             state->wheelremainder += GET_WHEEL_DELTA_WPARAM(wparam);
@@ -1073,6 +1088,7 @@ static LRESULT CALLBACK ObjectPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
 BOOL ObjectPropertiesRegisterClass(HINSTANCE instance)
 {
     WNDCLASS wc = {0};
+    if (!DoorShadowPropertiesRegisterClass(instance)) { return FALSE; }
     wc.lpfnWndProc = ObjectPropertiesWndProc; wc.hInstance = instance;
     wc.hCursor = LoadCursor(NULL, IDC_ARROW); wc.hbrBackground = GetSysColorBrush(COLOR_WINDOW);
     wc.lpszClassName = OBJECTPROPERTIES_CLASS;
@@ -1094,6 +1110,15 @@ BOOL ObjectPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD inde
     BOOL same;
     int choice;
     if (!state) { return FALSE; }
+    state->shadowselected = setup && index < setup->objectcount
+        && !setup->objects[index].deleted && setup->objects[index].type == PROPDEF_DOOR_SHADOW;
+    if (state->shadowselected) {
+        state->selected = FALSE; /* No ordinary object fields apply to this record. */
+        DoorShadowPropertiesSetSelection(state->shadowpanel, setup, index);
+        ObjectPropertiesLayout(panel, state);
+        return TRUE;
+    }
+    ShowWindow(state->shadowpanel, SW_HIDE);
     if (!setup || !SetupFileGetObjectProperties(setup, index, &properties, &why))
     {
         state->selected = FALSE; state->edited = FALSE; state->document = 0;
@@ -1247,4 +1272,10 @@ BOOL ObjectPropertiesHandleMessage(HWND panel, MSG *message)
         && SendMessage(focus, EM_CANUNDO, 0, 0))
     { SendMessage(focus, WM_UNDO, 0, 0); return TRUE; }
     return FALSE;
+}
+
+BOOL ObjectPropertiesIsDoorShadow(HWND panel)
+{
+    ObjectPropertiesState *state = ObjectPropertiesGetState(panel);
+    return state && state->shadowselected;
 }

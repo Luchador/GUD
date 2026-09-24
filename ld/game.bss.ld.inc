@@ -86,6 +86,8 @@
       build/OUTCODE/src/game/bgdebug.o (.bss);
       build/OUTCODE/src/game/bgapply.o (.bss);
       build/OUTCODE/src/game/bgenvironment.o (.bss);
+      build/OUTCODE/src/game/doorshadow.o (.bss);
+      build/OUTCODE/src/game/doorshadowmath.o (.bss);
       build/OUTCODE/src/game/bgonecycle.o (.bss);
       build/OUTCODE/src/game/environment.o (.bss);
       build/OUTCODE/src/game/lightfixture.o (.bss);

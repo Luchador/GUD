@@ -15,7 +15,8 @@ typedef enum EditHistoryAsset {
     EDIT_HISTORY_ASSET_BG,
     EDIT_HISTORY_ASSET_SETUP,
     EDIT_HISTORY_ASSET_STAN,
-    EDIT_HISTORY_ASSET_SELECTION
+    EDIT_HISTORY_ASSET_SELECTION,
+    EDIT_HISTORY_ASSET_BG_SETUP
 } EditHistoryAsset;
 
 /* An entry owns its selection snapshot and, for edits, one asset document. */
@@ -28,6 +29,7 @@ typedef struct EditHistoryEntry {
     StanFile stan;
     ULONGLONG staterevision;
     ULONGLONG assetrevision;
+    ULONGLONG setuprevision; /* Second revision for a combined BG/setup edit. */
     char action[EDIT_HISTORY_ACTION_MAX];
 } EditHistoryEntry;
 
@@ -60,6 +62,7 @@ typedef struct EditHistoryTransaction {
     StanFile beforestan;
     ULONGLONG staterevision;
     ULONGLONG assetrevision;
+    ULONGLONG setuprevision; /* Second revision for a combined BG/setup edit. */
     char action[EDIT_HISTORY_ACTION_MAX];
     BOOL active;
 } EditHistoryTransaction;
@@ -72,6 +75,8 @@ BOOL EditHistoryBeginBgEdit(const EditHistory *history,
                             const BgDocument *document, const char *action,
                             EditHistoryTransaction *transaction,
                             const char **reasonout);
+BOOL EditHistoryBeginBgSetupEdit(const EditHistory *history, const BgDocument *bg,
+    const SetupFile *setup, const char *action, EditHistoryTransaction *transaction, const char **why);
 BOOL EditHistoryBeginSetupEdit(const EditHistory *history,
                                const SetupFile *setup, const char *action,
                                EditHistoryTransaction *transaction,

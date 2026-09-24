@@ -517,3 +517,6 @@ $(BUILD_DIR)/src/game/propobj.o $(BUILD_DIR)/src/game/gedmanifest.o $(BUILD_DIR)
 $(BUILD_DIR)/src/game/lv.o: src/game/renderconfig.h
 
 $(addprefix $(BUILD_DIR)/src/game/,setup.o bg.o propobj.o bgdebug.o gedmanifest.o occlusion.o occlusionmath.o): src/occluderformat.h src/game/occlusion.h src/game/occlusionmath.h
+
+$(addprefix $(BUILD_DIR)/src/game/,doorshadow.o doorshadowmath.o loadobjectmodel.o setup.o bg.o gedmanifest.o): src/doorshadowformat.h src/game/doorshadow.h
+$(addprefix $(BUILD_DIR)/src/game/,doorshadow.o dyn.o): src/game/dyn.h

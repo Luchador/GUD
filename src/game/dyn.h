@@ -7,6 +7,7 @@ void dynInitMemory(void);
 Gfx *dynGetMasterDisplayList(void);
 s32 dynGetFreeGfx2(Gfx *gdl);
 Vtx *dynAllocateVertices(s32 count);
+s32 dynGetFreeVertexBytes(void);
 Mtx *dynAllocateMatrix(void);
 Light *dynAllocateLights(s32 count);
 void *dynAllocate(s32 size);

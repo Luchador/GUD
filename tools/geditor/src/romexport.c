@@ -1,5 +1,6 @@
 #include "setupmeta.h"
 #include "occluders.h"
+#include "doorshadow.h"
 /*
  * GEditor ROM export.
  *
@@ -1317,7 +1318,8 @@ have_replacement:
             if (!SetupCompactNative(source, size, &packed, &packedsize, reasonout)) { goto fail; }
         }
         if (!OccludersValidateNative(packed, packedsize, featureRom ? featureRom : rom, reasonout)
-            || !SetupValidateObjectFadeNative(packed, packedsize, featureRom ? featureRom : rom, reasonout))
+            || !SetupValidateObjectFadeNative(packed, packedsize, featureRom ? featureRom : rom, reasonout)
+            || !DoorShadowValidateNative(packed, packedsize, featureRom ? featureRom : rom, reasonout))
         { free(packed); goto fail; }
         free(slot->replacement);
         slot->replacement = packed;

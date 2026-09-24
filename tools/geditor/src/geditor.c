@@ -23,6 +23,8 @@
 #include "objectflags.h"
 #include "setupselection.h"
 #include "objectproperties.h"
+#include "doorshadowproperties.h"
+#include <src/propconstants.h>
 #include "characterproperties.h"
 #include "tooltoolbar.h"
 #include "uveditor.h"
@@ -196,6 +198,8 @@ static BOOL GEditorAppendObjectGeometry(BgDocumentRenderMesh *mesh,
 }
 
 
+static DWORD g_DoorShadowPicking = (DWORD)-1;
+
 static BOOL GEditorCanMoveSetupModel(DWORD selection)
 {
     if (selection & SETUP_CHARACTER_SELECTION_BIT)
@@ -203,7 +207,8 @@ static BOOL GEditorCanMoveSetupModel(DWORD selection)
         DWORD index = selection & ~SETUP_CHARACTER_SELECTION_BIT;
         return index < g_CurrentSetup.charactercount && !g_CurrentSetup.characters[index].deleted;
     }
-    return selection < g_CurrentSetup.objectcount && !g_CurrentSetup.objects[selection].deleted;
+    return selection < g_CurrentSetup.objectcount && !g_CurrentSetup.objects[selection].deleted
+        && g_CurrentSetup.objects[selection].type != PROPDEF_DOOR_SHADOW;
 }
 
 static void GEditorRefreshTransformFields(void)
@@ -308,6 +313,8 @@ static void GEditorRefreshSelectionInspector(void)
     DWORD selectedobject, portal;
     int count = ViewportGetSelectedBgFaceCount(g_Viewport);
     BOOL objectselected = ViewportGetSelectedObject(g_Viewport, &selectedobject);
+    if (g_DoorShadowPicking != (DWORD)-1 && (!objectselected || selectedobject != g_DoorShadowPicking))
+    { ViewportSetDoorPick(g_Viewport, FALSE); }
     int components = ViewportGetSelectedComponentCount(g_Viewport);
     DWORD stantile, stancount = ViewportGetStanSelectionCount(g_Viewport, &stantile);
     DWORD modelcount = ViewportGetSelectedModelCount(g_Viewport);
@@ -640,6 +647,8 @@ static void GEditorCloseProject(HWND hwnd)
     BrowserSetLevels(g_Browser, NULL, 0);
     BrowserSetImages(g_Browser, NULL, 0, NULL);
     BrowserSetModels(g_Browser, NULL, 0);
+    ViewportSetDoorPick(g_Viewport, FALSE);
+    DoorShadowSetPreview((DWORD)-1, 0);
     ViewportSetScene(g_Viewport, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0, NULL, FALSE);
     ViewportSetBackgroundColor(g_Viewport, NULL);
     ViewportSetLevelFog(g_Viewport, NULL, 1.0f);
@@ -2106,6 +2115,8 @@ static void GEditorApplyHistoryStep(HWND hwnd, BOOL redo)
     BOOL changed;
 
     g_SelectionHistoryNavigation = TRUE;
+    ViewportSetDoorPick(g_Viewport, FALSE);
+    DoorShadowSetPreview((DWORD)-1, 0);
     ViewportCancelTransform(g_Viewport);
     UVEditorCancelInteraction(GetParent(g_Viewport));
     changed = redo
@@ -2120,7 +2131,7 @@ static void GEditorApplyHistoryStep(HWND hwnd, BOOL redo)
     }
 
     if ((asset != EDIT_HISTORY_ASSET_SELECTION
-         && !((asset == EDIT_HISTORY_ASSET_SETUP || asset == EDIT_HISTORY_ASSET_STAN)
+         && !((asset == EDIT_HISTORY_ASSET_SETUP || asset == EDIT_HISTORY_ASSET_STAN || asset == EDIT_HISTORY_ASSET_BG_SETUP)
             ? GEditorReloadCurrentObjectsAndViewport(&why)
             : GEditorRebuildCurrentViewport(&why)))
         || !GEditorRestoreHistorySelection(hwnd))
@@ -2139,7 +2150,7 @@ static void GEditorApplyHistoryStep(HWND hwnd, BOOL redo)
                             &g_CurrentSetup, &g_CurrentStan, &restoreasset, &restorewhy);
         }
 
-        if (restoreasset == EDIT_HISTORY_ASSET_SETUP || restoreasset == EDIT_HISTORY_ASSET_STAN)
+        if (restoreasset == EDIT_HISTORY_ASSET_SETUP || restoreasset == EDIT_HISTORY_ASSET_STAN || restoreasset == EDIT_HISTORY_ASSET_BG_SETUP)
         {
             GEditorReloadCurrentObjectsAndViewport(&restorewhy);
         }
@@ -4079,7 +4090,9 @@ static void GEditorDeleteSelectedObject(HWND hwnd, DWORD objectindex)
     const char *restorewhy = "";
     BOOL character = (objectindex & SETUP_CHARACTER_SELECTION_BIT) != 0;
 
-    if (!GEditorCanMoveSetupModel(objectindex))
+    if (!GEditorCanMoveSetupModel(objectindex)
+        && !(objectindex < g_CurrentSetup.objectcount && !g_CurrentSetup.objects[objectindex].deleted
+            && g_CurrentSetup.objects[objectindex].type == PROPDEF_DOOR_SHADOW))
     {
         return;
     }
@@ -4825,6 +4838,65 @@ fail:
     GEditorRefreshHistoryMenu(hwnd); MessageBox(hwnd,why,GEDITOR_TITLE,MB_ICONERROR); return FALSE;
 }
 
+/* Refresh only generated shadow meshes: sliding the preview must not reload
+ * every model and texture from the project. */
+static BOOL GEditorRefreshDoorShadows(const char **why)
+{
+    for (DWORD i = 0; i < g_CurrentSetup.objectcount; i++) {
+        if (g_CurrentSetup.objects[i].deleted || g_CurrentSetup.objects[i].type != PROPDEF_DOOR_SHADOW) { continue; }
+        BgVertex vertices[18]; unsigned short tag; BgRenderFlags flags; DWORD corner = 0;
+        if (!DoorShadowBuildPreview(&g_CurrentSetup, i, g_CurrentBgDocument.levelscale, vertices, &tag, &flags, why)) { return FALSE; }
+        for (DWORD t = 0; t < g_CurrentObjects.tricount; t++) {
+            if (g_CurrentObjects.objectindices[t] != i) { continue; }
+            if (corner >= 18) { *why = "Invalid Door Shadow preview mesh."; return FALSE; }
+            memcpy(g_CurrentObjects.tris + t * 3, vertices + corner, 3 * sizeof(*vertices));
+            g_CurrentObjects.tritags[t] = tag; g_CurrentObjects.renderflags[t] = flags; corner += 3;
+        }
+    }
+    return GEditorRebuildCurrentViewport(why);
+}
+static BOOL GEditorSetDoorShadow(HWND hwnd, const DoorShadowEdit *edit)
+{
+    EditHistoryTransaction transaction = {0}; DWORD selected; BOOL changed;
+    const char *why = "", *restorewhy = "";
+    if (!edit || !ViewportGetSelectedObject(g_Viewport, &selected) || selected != edit->objectindex) { return FALSE; }
+    if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup, "Edit Door Shadow", &transaction, &why)) { goto fail; }
+    if (!DoorShadowSet(&g_CurrentSetup, edit, &changed, &why)) { goto rollback; }
+    if (!changed) { EditHistoryCancelEdit(&transaction); return TRUE; }
+    if (!GEditorRefreshDoorShadows(&why)
+        || !EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+            &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd); return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    GEditorRefreshDoorShadows(&restorewhy); GEditorRestoreHistorySelection(hwnd);
+fail:
+    EditHistoryCancelEdit(&transaction); GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR); return FALSE;
+}
+static BOOL GEditorCreateDoorShadow(HWND hwnd)
+{
+    EditHistoryTransaction transaction = {0}; BgFaceRef faces[2]; DWORD selection;
+    const char *why = "", *restorewhy = "";
+    if (ViewportGetTool(g_Viewport) != EDITOR_TOOL_FACE_SELECT || ViewportGetSelectedBgFaceCount(g_Viewport) != 2
+        || !ViewportGetSelectedBgFaces(g_Viewport, faces, 2)) { return FALSE; }
+    ViewportCancelTransform(g_Viewport);
+    if (!EditHistoryBeginBgSetupEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+        "Create Door Shadow", &transaction, &why)) { goto fail; }
+    if (!DoorShadowCreate(&g_CurrentBgDocument, &g_CurrentSetup, faces, &selection, &why)) { goto rollback; }
+    if (!GEditorReloadCurrentObjectsAndViewport(&why)) { goto rollback; }
+    ViewportSelectSetupModel(g_Viewport, selection);
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+        &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd); return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    GEditorReloadCurrentObjectsAndViewport(&restorewhy); GEditorRestoreHistorySelection(hwnd);
+fail:
+    EditHistoryCancelEdit(&transaction); GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR); return FALSE;
+}
+
 static BOOL GEditorSetObjectProperty(HWND hwnd, const SetupObjectPropertyEdit *edit)
 {
     EditHistoryTransaction transaction = {0};
@@ -5457,6 +5529,41 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     case VIEWPORT_WM_SPLIT_STAN_EDGE:
         return lparam && GEditorEditStanTopology(hwnd,(const StanEdgeRef *)lparam);
 
+    case VIEWPORT_WM_CREATE_DOOR_SHADOW:
+        return GEditorCreateDoorShadow(hwnd);
+    case DOORSHADOW_WM_CHANGED:
+        return GEditorSetDoorShadow(hwnd, (const DoorShadowEdit *)lparam);
+    case DOORSHADOW_WM_PREVIEW: {
+        DWORD selected; const char *why = "";
+        if (!ViewportGetSelectedObject(g_Viewport, &selected) || selected != (DWORD)wparam) { return FALSE; }
+        DoorShadowProperties properties;
+        if (!DoorShadowGet(&g_CurrentSetup, selected, &properties)) { return FALSE; }
+        int previous = DoorShadowGetPreview(&g_CurrentSetup, selected);
+        DoorShadowSetPreview(selected, (int)lparam);
+        if (!GEditorRefreshDoorShadows(&why)) {
+            DoorShadowSetPreview(selected, previous);
+            GEditorRefreshDoorShadows(&why); return FALSE;
+        }
+        return TRUE;
+    }
+    case DOORSHADOW_WM_PICK: {
+        DWORD selected; DoorShadowProperties properties;
+        if (!ViewportGetSelectedObject(g_Viewport, &selected) || selected != (DWORD)wparam
+            || !DoorShadowGet(&g_CurrentSetup, selected, &properties)) { return FALSE; }
+        g_DoorShadowPicking = selected; KnifeDialogClose();
+        ViewportSetDoorPick(g_Viewport, TRUE); SetFocus(g_Viewport); return TRUE;
+    }
+    case VIEWPORT_WM_PICK_DOOR: {
+        if (g_DoorShadowPicking == (DWORD)-1) { return FALSE; }
+        if ((DWORD)wparam >= g_CurrentSetup.objectcount || g_CurrentSetup.objects[wparam].deleted
+            || g_CurrentSetup.objects[wparam].type != PROPDEF_DOOR) { MessageBeep(MB_ICONINFORMATION); return FALSE; }
+        DoorShadowEdit edit = {g_DoorShadowPicking, DOOR_SHADOW_EDIT_DOOR, (LONG)wparam};
+        if (!GEditorSetDoorShadow(hwnd, &edit)) { return FALSE; }
+        ViewportSetDoorPick(g_Viewport, FALSE); return TRUE;
+    }
+    case VIEWPORT_WM_DOOR_PICK_CHANGED:
+        if (!wparam) { g_DoorShadowPicking = (DWORD)-1; }
+        return 0;
     case VIEWPORT_WM_DISCONNECT_FACES:
         return GEditorSeparateBgVertices(hwnd, NULL);
 

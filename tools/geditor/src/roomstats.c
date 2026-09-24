@@ -5,6 +5,7 @@
 #include <string.h>
 #include <src/propconstants.h>
 #include "roomstats.h"
+#include <src/doorshadowformat.h>
 
 #define ROOM_UNKNOWN ((DWORD)-1)
 
@@ -99,6 +100,12 @@ BOOL RoomStatsBuild(const BgDocument *bg, const SetupFile *setup, const StanFile
     for (DWORD i = 0; i < setup->objectcount; i++)
     {
         const SetupObject *object = &setup->objects[i];
+        if (object->type == PROPDEF_DOOR_SHADOW && object->sourceoffset <= setup->size
+            && setup->size - object->sourceoffset >= DOOR_SHADOW_BYTES) {
+            DWORD room = Read32(setup->data + object->sourceoffset + DOOR_SHADOW_ROOM);
+            objectrooms[i] = room <= bg->roomcount ? room : 0;
+            continue;
+        }
         objectrooms[i] = !PlacedObject(object) ? 0
             : object->type == PROPDEF_MONITOR && object->pad < 0 ? ROOM_UNKNOWN
             : PadRoom(bg, setup, stan, i, padrooms);

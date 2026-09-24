@@ -41,3 +41,7 @@ static void bgLoadRoomModelData(s32 room) { (void)room; }
 static Gfx *applyRoomMatrixToDisplayList(Gfx *gdl, s32 room) { (void)room; return gdl; }
 #define SPSEGMENT_BG_VTX 14
 #define OS_K0_TO_PHYSICAL(p) ((u32)(uintptr_t)(p) & 0x1fffffffu)
+
+static void doorShadowFreeRoom(s32 room) { (void)room; }
+static Gfx *doorShadowRenderRoom(Gfx *gdl, s32 room, s32 layer)
+{ (void)room; (void)layer; return gdl; }

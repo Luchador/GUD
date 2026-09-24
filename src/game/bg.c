@@ -7,6 +7,7 @@
 #include <mema.h>
 #include <memp.h>
 #include "bg.h"
+#include "doorshadow.h"
 #include "bgdebug.h"
 #include "occlusion.h"
 #include "bgonecycle.h"
@@ -475,7 +476,7 @@ Gfx *bgRender(Gfx *gdl)
 
                 roomid = g_BgDrawSlots[j].roomid;
 
-                if (renderEnabled && roomid < g_MaxNumRooms && g_BgRoomInfo[roomid].secondaryGdl != NULL)
+                if (renderEnabled && roomid < g_MaxNumRooms && (g_BgRoomInfo[roomid].secondaryGdl != NULL || doorShadowHasSecondary(roomid)))
                 {
                     gSPMatrix(gdl++, osVirtualToPhysical(camGetPlayerProjViewMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
                     gdl = envSetRenderFogColor(bgScissorCurrentPlayerViewF(gdl, g_BgDrawSlots[j].bbox.min.x, g_BgDrawSlots[j].bbox.min.y, g_BgDrawSlots[j].bbox.max.x, g_BgDrawSlots[j].bbox.max.y));
@@ -552,6 +553,9 @@ void bgLoadFile(LEVELID levelid)
     u8 headerBuffer[0x40 + 0xf];
     s32 *data;
  
+    /* Level pools have reset; discard previous-stage shadow pointers before
+     * room loading/bounds queries can visit them. */
+    doorShadowReset();
     bgDebugReset();
     levelentry_index = 0;
 
@@ -2210,6 +2214,7 @@ void bgFreeRoomData(s32 roomID)
     s32 size2;
     Vtx *pointindex;
 
+    doorShadowFreeRoom(roomID);
     if (g_BgOneCycleRooms[roomID].secondaryGdl)
     {
         renderCacheFree(g_BgOneCycleRooms[roomID].secondaryGdl);
@@ -2338,6 +2343,7 @@ Gfx *bgRenderRoomPrimary(Gfx *gdl, s32 room_index)
             primary = g_BgOneCycleRooms[room_index].gdl;
         }
         gSPDisplayList(gdl++, OS_K0_TO_PHYSICAL(primary));
+        gdl = doorShadowRenderRoom(gdl, room_index, 0);
         if (g_BgDebugEnabled) bgDebugRecordRoom(room_index, BG_DEBUG_PRIMARY);
 
         // Set the room's state to "loaded"
@@ -2360,9 +2366,14 @@ Gfx *bgRenderRoomSecondary(Gfx *gdl, s32 room_index)
         return gdl;
     }
 
-    // Return if the room has no secondary geometry.
+    // Door Shadows can be the only secondary surface left in a room.
     if (g_BgRoomInfo[room_index].secondaryGdl == 0)
     {
+        if (g_BgRoomInfo[room_index].unloadAge != 0)
+        {
+            gdl = applyRoomMatrixToDisplayList(gdl, room_index);
+            gdl = doorShadowRenderRoom(gdl, room_index, 1);
+        }
         return gdl;
     }
     else
@@ -2384,6 +2395,7 @@ Gfx *bgRenderRoomSecondary(Gfx *gdl, s32 room_index)
                 gDPSetBlendColor(gdl++, 0, 0, 0, BG_CUTOUT_THRESHOLD);
             }
             gSPDisplayList(gdl++, OS_K0_TO_PHYSICAL(secondary));
+            gdl = doorShadowRenderRoom(gdl, room_index, 1);
             if (g_BgDebugEnabled) bgDebugRecordRoom(room_index, BG_DEBUG_SECONDARY);
 
             // Set the room's state to "loaded"
@@ -3969,6 +3981,7 @@ void bgRoomCalcBB(s32 room)
             }
         }
 
+        doorShadowExpandRoomBounds(room);
         return;
     }
 
@@ -4011,6 +4024,7 @@ void bgRoomCalcBB(s32 room)
     g_BgRoomInfo[room].maxbounds.x = roomdata->pos.x + limits.maxX;
     g_BgRoomInfo[room].maxbounds.y = roomdata->pos.y + limits.maxY;
     g_BgRoomInfo[room].maxbounds.z = roomdata->pos.z + limits.maxZ;
+    doorShadowExpandRoomBounds(room);
 
     if (wasloaded == 0)
     {

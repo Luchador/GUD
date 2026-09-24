@@ -148,6 +148,7 @@ typedef enum PROPDEF_TYPE
     PROPDEF_CAMERAPOS,
     PROPDEF_TINTED_GLASS,
     PROPDEF_END,
+    PROPDEF_DOOR_SHADOW, /* Render-only replacement for a BG quadrilateral. */
     PROPDEF_MAX
 } PROPDEF_TYPE;
 

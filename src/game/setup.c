@@ -1,6 +1,7 @@
 #include <ultra64.h>
 #include "customprops.h"
 #include "occlusion.h"
+#include "doorshadow.h"
 #include <memp.h>
 #include "game/mp_weapon.h"
 #include "game/bondview_r.h"
@@ -1172,6 +1173,7 @@ void setupLoadFiles(enum LEVELID stageId)
     struct LevelEntry *levelInfo;
 
     occlusionReset();
+    doorShadowReset();
     g_DoorScale = 1.0f;
     g_MpSetupWeaponSlot = -1;
 
@@ -1832,5 +1834,6 @@ void setupLoadFiles(enum LEVELID stageId)
         modelmgrAllocateAnimModelSlots(0);
     }
 
+    doorShadowInit(g_CurrentSetup.propDefs);
     allocBackgroundAiChrs();
 }
