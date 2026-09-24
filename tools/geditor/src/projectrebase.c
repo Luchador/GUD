@@ -10,6 +10,7 @@
 #include <stdarg.h>
 #include <math.h>
 #include "projectrebase.h"
+#include "textbank.h"
 #include "romexport.h"
 #include "texrom.h"
 #include "imageedits.h"
@@ -409,6 +410,10 @@ static BOOL WriteFileBytes(const char *path, const unsigned char *data, DWORD si
 }
 static BOOL Equal(const unsigned char *a, DWORD asize, const unsigned char *b, DWORD bsize)
 { return asize==bsize && !memcmp(a,b,asize); }
+static BOOL EqualResource(const char *name, const unsigned char *a, DWORD asize, const unsigned char *b, DWORD bsize)
+{
+    return Equal(a,asize,b,bsize) || (TextBankIsResource(name) && TextBankEqual(a,asize,b,bsize));
+}
 static const RebaseFile *File(const RebaseFile *files, DWORD count, const char *name)
 {
     DWORD i;
@@ -474,7 +479,15 @@ static BOOL Resources(RebasePlan *plan, const GEditorProject *source,
             report->resourcesremoved++;
         }
         report->checked++;
-        changed=b && !Equal(plan->oldrom.data+a->offset,a->size,plan->newrom.data+b->offset,b->size);
+        changed=b && !EqualResource(name,plan->oldrom.data+a->offset,a->size,plan->newrom.data+b->offset,b->size);
+        if (!b && TextBankIsResource(name))
+        {
+            DWORD j;
+            /* Retired language banks were empty. Customized contents may
+             * still be referenced by saved setup string IDs. */
+            for (j=0;j<a->size && !plan->oldrom.data[a->offset+j];j++) {}
+            if (j!=a->size) { Conflict(report,name,"removed text bank contains data; string migration required"); }
+        }
         managed=RomExportProjectResourcePath(source,name,path,sizeof(path));
         if (managed<0) { return Fail(why,"Invalid project resource path: %s",name); }
         if (!managed)
@@ -482,15 +495,6 @@ static BOOL Resources(RebasePlan *plan, const GEditorProject *source,
             /* Includes native models and other resources for which the editor
              * has no complete merge schema. Keep model fingerprints intact. */
             if (changed) { Conflict(report,name,"base asset changed; this version supports code and level-resource updates only"); }
-            if (!b)
-            {
-                DWORD j;
-                /* Retired language banks were empty. Customized contents may
-                 * still be referenced by saved setup string IDs. */
-                for (j=0;j<a->size && !plan->oldrom.data[a->offset+j];j++) {}
-                if (j!=a->size)
-                { Conflict(report,name,"removed text bank contains data; string migration required"); }
-            }
             continue;
         }
         attrs=GetFileAttributes(path);
@@ -503,7 +507,7 @@ static BOOL Resources(RebasePlan *plan, const GEditorProject *source,
         if ((attrs & FILE_ATTRIBUTE_DIRECTORY) || !ReadFileBytes(path,&data,&size,why)) { return Fail(why,"Cannot read project asset: %s",path); }
         if (!b)
         {
-            if (!Equal(data,size,plan->oldrom.data+a->offset,a->size))
+            if (!EqualResource(name,data,size,plan->oldrom.data+a->offset,a->size))
             { Conflict(report,name,"removed from the new ROM but has saved project edits"); }
             else
             {
@@ -512,8 +516,8 @@ static BOOL Resources(RebasePlan *plan, const GEditorProject *source,
                 update->remove=TRUE;
             }
         }
-        else if (changed && !Equal(data,size,plan->oldrom.data+a->offset,a->size)
-            && !Equal(data,size,plan->newrom.data+b->offset,b->size))
+        else if (changed && !EqualResource(name,data,size,plan->oldrom.data+a->offset,a->size)
+            && !EqualResource(name,data,size,plan->newrom.data+b->offset,b->size))
         { Conflict(report,name,"changed differently in the project and the new ROM"); }
         else if (changed)
         {
@@ -521,7 +525,7 @@ static BOOL Resources(RebasePlan *plan, const GEditorProject *source,
             lstrcpyn(update->path,path+strlen(source->dir)+1,sizeof(update->path));
             update->offset=b->offset; update->size=b->size; report->updated++;
         }
-        else if (!Equal(data,size,plan->oldrom.data+a->offset,a->size)) { report->kept++; }
+        else if (!EqualResource(name,data,size,plan->oldrom.data+a->offset,a->size)) { report->kept++; }
         free(data);
     }
     return TRUE;

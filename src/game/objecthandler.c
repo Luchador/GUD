@@ -744,14 +744,14 @@ void modelHitRenderNodeListFiltered(ModelRenderData *renderData, ModelHitEntry *
                 case MODELNODE_OPCODE_SHADOW:
                     if (node == root)
                     {
-                        /*if (renderSecondary)
+                        if (renderSecondary)
                         {
                             renderData->flags &= ~MODEL_RENDER_CHARACTER;
                             renderCache.colorSegmentBase = NULL;
                             renderCache.vertexSegmentBase = NULL;
                             renderCache.type3PipelineReady = FALSE;
                             modelRenderShadow(renderData, model, node);
-                        }*/
+                        }
                     }
                     else
                     {

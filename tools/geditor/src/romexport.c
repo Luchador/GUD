@@ -34,6 +34,7 @@
 #include "setupload.h"
 #include "setupstan.h"
 #include "actionblocks.h"
+#include "textbank.h"
 
 #define ROM_EXPORT_FTBL_MAX_ROWS 1024u
 #define ROM_EXPORT_CHECKSUM_END  0x101000u
@@ -54,6 +55,7 @@ typedef struct RomExportSlot {
     BOOL background;
     BOOL setup;
     BOOL stan;
+    BOOL text;
     char setupname[64];
 } RomExportSlot;
 
@@ -574,6 +576,10 @@ int RomExportProjectResourcePath(const GEditorProject *project,
         filename = resource;
         extension = ".stan";
     }
+    else if (TextBankIsResource(resource))
+    {
+        return TextBankProjectPath(project->dir, resource, pathout, pathmax) ? 1 : -1;
+    }
     else
     {
         return 0;
@@ -831,7 +837,7 @@ static BOOL RomExportRepackResources(RomFile *rom,
             return FALSE;
         }
         if (slots[slotindex].replacement != NULL
-            && (slots[slotindex].setup || slots[slotindex].background || slots[slotindex].stan
+            && (slots[slotindex].setup || slots[slotindex].background || slots[slotindex].stan || slots[slotindex].text
                 || slots[slotindex].replacementlength > payload))
         {
             payload = slots[slotindex].replacementlength;
@@ -859,7 +865,7 @@ static BOOL RomExportRepackResources(RomFile *rom,
         DWORD payload = slot->length;
 
         slot->newoffset = cursor;
-        if ((slot->setup || slot->background || slot->stan) && slot->replacement != NULL)
+        if ((slot->setup || slot->background || slot->stan || slot->text) && slot->replacement != NULL)
         {
             payload = slot->replacementlength;
             memcpy(packed + cursor, slot->replacement, payload);
@@ -1119,6 +1125,7 @@ static BOOL RomExportReplaceProjectResources(const GEditorProject *project,
         slot->setup |= strncmp(resource, "Usetup", 6) == 0 || strncmp(resource, "Ump_setup", 9) == 0;
         if (slot->setup && !slot->setupname[0]) { strcpy(slot->setupname, resource); }
         slot->stan |= strncmp(resource, "Tbg_", 4) == 0 && strstr(resource, "_stanZ") != NULL;
+        slot->text |= TextBankIsResource(resource);
         managed = ModelEditsReadReplacement(project->dir, resource, rom->data + offset,
             maxlen, &data, &length, reasonout);
         if (managed < 0) { goto fail; }
@@ -1155,6 +1162,20 @@ static BOOL RomExportReplaceProjectResources(const GEditorProject *project,
         if (data == NULL)
         {
             goto fail;
+        }
+
+        if (TextBankIsResource(resource))
+        {
+            DWORD originalcount, editedcount; const char *why = "";
+            if (!TextBankValidate(rom->data + offset, maxlen, &originalcount, &why)
+                || !TextBankValidate(data, length, &editedcount, &why))
+            {
+                free(data); RomExportSetError(reasonout, "%s: %s", resource, why); goto fail;
+            }
+            if (originalcount != editedcount)
+            {
+                free(data); RomExportSetError(reasonout, "%s: the saved text must preserve the original string IDs.", resource); goto fail;
+            }
         }
 
         if (strncmp(resource, "bg/", 3) == 0)
@@ -1212,6 +1233,13 @@ have_replacement:
         }
 
         free(data);
+    }
+
+    /* Shorter banks must also shrink their FTBL spans: the game allocates
+     * and reads the entire slot. Never leave old text beyond a replacement. */
+    for (index = 0; index < slotcount; index++) if (slots[index].text && slots[index].replacement)
+    {
+        if (((slots[index].replacementlength + 15) & ~15u) != slots[index].length) { needrepack = TRUE; }
     }
 
     /* Resolve resource aliases before cleanup so unchanged copies do not
@@ -1348,7 +1376,7 @@ have_replacement:
     {
         if (slots[index].replacement != NULL)
         {
-            if (slots[index].model) { memset(rom->data + slots[index].offset, 0, slots[index].length); }
+            if (slots[index].model || slots[index].text) { memset(rom->data + slots[index].offset, 0, slots[index].length); }
             memcpy(rom->data + slots[index].offset,
                    slots[index].replacement,
                    slots[index].replacementlength);

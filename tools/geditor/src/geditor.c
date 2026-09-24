@@ -32,6 +32,7 @@
 #include "levelmanager.h"
 #include "projectsettings.h"
 #include "actioneditor.h"
+#include "texteditor.h"
 #include "patroleditor.h"
 #include "modeledits.h"
 #include "newprops.h"
@@ -697,6 +698,7 @@ enum {
     ID_SELECT_ROOM,
     ID_SELECT_SIMILAR,
 
+    ID_TOOLS_TEXT_EDITOR,
     ID_TOOLS_CREATE_ROM,
     ID_TOOLS_UV_EDITOR,
     ID_TOOLS_MODEL_EDITOR,
@@ -885,6 +887,7 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_ROOM, "Select &Room\tShift+R");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_SIMILAR, "Select &Similar\tShift+S");
 
+    AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_TEXT_EDITOR, "&Text Editor...");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_ACTION_BLOCKS, "&Action Blocks...");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_PATROL_PATHS, "&Patrol Paths...");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_UV_EDITOR, "&UV Editor\tCtrl+T");
@@ -6055,6 +6058,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         EnableMenuItem((HMENU)wparam, ID_FILE_SAVE_PROJECT, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_FILE_REBASE_PROJECT, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_FILE_IMPORT_IMAGE, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
+        EnableMenuItem((HMENU)wparam, ID_TOOLS_TEXT_EDITOR, MF_BYCOMMAND | (g_Project.name[0] ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_ACTION_BLOCKS, MF_BYCOMMAND | (g_CurrentSetup.data ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_PATROL_PATHS, MF_BYCOMMAND | (g_CurrentSetup.data ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_CHECK_ISSUES, MF_BYCOMMAND | (g_CurrentLevelIndex < g_Project.levelcount || RomExportIssues() ? MF_ENABLED : MF_GRAYED));
@@ -6377,6 +6381,15 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 }
                 return 0;
 
+            case ID_TOOLS_TEXT_EDITOR:
+            {
+                const char *why="";
+                if (!g_Project.name[0]) { return 0; }
+                ViewportCancelTransform(g_Viewport);
+                if (!TextEditorShow(hwnd,&g_Project,g_CurrentLevelIndex,&why))
+                { MessageBox(hwnd,why,GEDITOR_TITLE,MB_ICONERROR); }
+                return 0;
+            }
             case ID_TOOLS_ACTION_BLOCKS:
                 GEditorOpenActionBlocks(hwnd);
                 return 0;

@@ -53,6 +53,7 @@ static void RetiredRebases(const GEditorProject *source,const char *incoming,con
     RomFile rom={0},output={0};DWORD size,offset,span,oldhash;char path[MAX_PATH],base[MAX_PATH],exported[MAX_PATH],bad[MAX_PATH];
     unsigned char *next=Read(incoming,&size),*old=WithRetired(next),*edited;
     OK(ProjectRebaseCreate(source,incoming,FALSE,parent,"WithUnused",&legacy,&report,&why));
+    Folder(legacy.dir,"text");
     RomLevel saved=legacy.levels[0];
     Path(base,legacy.dir,"base.z64");Save(base,old,SIZE);oldhash=Hash(base);
     OK(RomLoad(base,&rom,&why) && rom.info.levelcount==10);

@@ -281,6 +281,7 @@ static void ImageRebases(const GEditorProject *source,const char *incoming,const
 #include "memory.c"
 #include "occluders.c"
 #include "objectfade.c"
+#include "text.c"
 
 int main(int argc,char **argv)
 {
@@ -289,6 +290,7 @@ int main(int argc,char **argv)
     GEditorProject project,rebased,loaded,again;ProjectRebaseReport report;RomFile rom,output;ModelSource native;
     TexPixel pixels[64];TexImportOptions options={1,1,3,4};TexRomBank bank;
     assert(argc==4);model=Read(argv[2],&modelsize);old=Fixture(0,model,modelsize);next=Fixture(SHIFT,model,modelsize);
+    TextEditing(argv[1],model,modelsize);
     Path(oldpath,argv[1],"old.z64");Path(nextpath,argv[1],"new.z64");Save(oldpath,old,SIZE);
     /* Incoming setup and sound changes; our BG/music changes must survive. */
     next[OBJECTS+SHIFT+52]=0x56;next[LEVELS+SHIFT+39]=8;Save(nextpath,next,SIZE);

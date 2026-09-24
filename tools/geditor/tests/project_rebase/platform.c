@@ -99,6 +99,15 @@ DWORD GetFullPathName(const char *path,DWORD max,char *out,char **part)
 { (void)part; return Canonical(path,out,max); }
 DWORD GetCurrentProcessId(void) { return getpid(); }
 DWORD GetTickCount(void) { return 42; }
+DWORD GetTempFileName(const char *dir,const char *prefix,unsigned int unique,char *out)
+{
+    char path[MAX_PATH]; int fd;
+    (void)unique;
+    if (snprintf(path,sizeof(path),"%s/%sXXXXXX",dir,prefix)>=(int)sizeof(path)) { return 0; }
+    Path(out,path); fd=mkstemp(out);
+    if (fd<0) { Error(); return 0; }
+    close(fd); return 1;
+}
 static BOOL Next(Search *s,WIN32_FIND_DATA *result)
 {
     struct dirent *entry;
