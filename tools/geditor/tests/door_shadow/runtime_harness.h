@@ -8,14 +8,48 @@ static DoorRecord g_TestDoor;
 static ObjectRecord *setupGetPtrToCommandByIndex(s32 index) { return index==1?&g_TestDoor:NULL; }
 static s32 sizepropdef(PropDefHeaderRecord *p) { assert(p->type==PROPDEF_DOOR_SHADOW);return DOOR_SHADOW_BYTES/4; }
 typedef union { f32 f[3]; } coord3d;
+typedef union { f32 m[4][4]; s32 unused; } Mtxf;
+static struct TestPlayer { coord3d current_model_pos; } testPlayer;
+static struct TestPlayer *g_CurrentPlayer=&testPlayer;
+static f32 g_LevelInverseScale=1;
+static f32 g_MtxConversionScale[2]={65536,65536};
 static struct {coord3d minbounds,maxbounds;Vtx *vertices;} g_BgRoomInfo[MAXROOMCOUNT];
 static struct {coord3d pos;} ptr_bgdata_room_fileposition_list[MAXROOMCOUNT];
 static s32 g_MaxNumRooms=MAXROOMCOUNT;
-static int allocations, frees, failalloc, reclaim, verticesAllocated, freeBytes;
+static int allocations, frees, failalloc, reclaim, verticesAllocated, matricesAllocated, freeBytes;
+static int frameVertexCount,frameMatrixCount,frameBytes;
 static void *memaAlloc(s32 bytes) { if(failalloc)return NULL;allocations++;return malloc(bytes); }
 static void memaFree(void *ptr,s32 bytes) { assert(ptr&&bytes>0);frees++;free(ptr); }
 static void memaRealloc(intptr_t ptr,s32 old,s32 size) { assert(ptr&&size<=old&&size>0); }
 static void renderCacheRequestReclaim(void) { reclaim++; }
-static Vtx frameVertices[18];
-static Vtx *dynAllocateVertices(s32 count) { assert(count==18);verticesAllocated++;return frameVertices; }
-static s32 dynGetFreeVertexBytes(void) { return freeBytes; }
+static Vtx frameVertexBuffers[DOOR_SHADOW_MAX][18];
+static Mtx frameMatrixBuffers[DOOR_SHADOW_MAX],roomMatrix;
+#define frameVertices frameVertexBuffers[0]
+#define frameMatrix frameMatrixBuffers[0]
+#define SHADOW_FRAME_BYTES (sizeof(frameVertices)+sizeof(Mtx))
+static Vtx *dynAllocateVertices(s32 count) {
+    assert(count==18&&frameVertexCount<DOOR_SHADOW_MAX&&frameBytes>=(int)sizeof(frameVertices));
+    frameBytes-=sizeof(frameVertices);verticesAllocated++;return frameVertexBuffers[frameVertexCount++];
+}
+static Mtx *dynAllocateMatrix(void) {
+    assert(frameMatrixCount<DOOR_SHADOW_MAX&&frameBytes>=(int)sizeof(Mtx));
+    frameBytes-=sizeof(Mtx);matricesAllocated++;return &frameMatrixBuffers[frameMatrixCount++];
+}
+static s32 dynGetFreeVertexBytes(void) { return frameBytes; }
+static Gfx *applyRoomMatrixToDisplayList(Gfx *gdl,s32 room) {
+    assert(room==1);
+    gSPMatrix(gdl++,OS_K0_TO_PHYSICAL(&roomMatrix),G_MTX_MODELVIEW|G_MTX_LOAD|G_MTX_NOPUSH);
+    return gdl;
+}
+static double matrixValue(const Mtx *matrix,int row,int column) {
+    const u32 *words=(const u32 *)matrix->m;
+    int i=row*4+column,pair=i/2;
+    u32 value=i&1?(words[pair]<<16)|(words[pair+8]&0xffff)
+        :(words[pair]&0xffff0000)|(words[pair+8]>>16);
+    return (s32)value/65536.0;
+}
+static double transformedPosition(const Vtx *vertex,const Mtx *matrix,int axis) {
+    double result=matrixValue(matrix,3,axis);
+    for(int a=0;a<3;a++)result+=vertex->v.ob[a]*matrixValue(matrix,a,axis);
+    return result;
+}

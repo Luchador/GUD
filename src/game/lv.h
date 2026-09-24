@@ -31,6 +31,7 @@ struct LevelEntry
     const char *memoryAllocationString; /* NULL uses LEVELID_DEFAULT. */
     f32 levelscale;
     f32 renderScale;
+    f32 chrLODDistance;
     s16 main_music;
     s16 bg_sound;
     s16 xtrack;

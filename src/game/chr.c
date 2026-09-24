@@ -55,7 +55,7 @@ extern f32 g_PropFadeEndPx;
 #define CHRFADE_END_PX   10.0f
 #define CHRFADE_DIAMETER 200.0f
 
-#define CHR_LOD_DISTANCE_FACTOR 1.0f
+#define CHR_LOD_DISTANCE_FACTOR 0.8f
 
 /* Render-only cutoff at the normal 60-degree FOV, in world centimetres. */
 #define CHR_ATTACHMENT_RENDER_DISTANCE 2000.0f

@@ -6,12 +6,24 @@
 #include "doorshadowformat.h"
 #include "doorshadow.h"
 #include "bg.h"
+#include "bgroomtrans.h"
 #include "dyn.h"
 #include "environment.h"
 #include "loadobjectmodel.h"
 #include "tex.h"
 #include "renderconfig.h"
 #include "rendercache.h"
+#include "matrixmath.h"
+#include "player.h"
+
+/* Recenter before increasing precision: a shadow far from its room origin
+ * should have the same precision as an equally sized shadow near it. */
+#define DOOR_SHADOW_VERTEX_SCALE 64.0f
+
+typedef struct DoorShadowMapping {
+    s32 axis[2];
+    f32 weight[2][2];
+} DoorShadowMapping;
 
 typedef struct DoorShadowRuntime {
     u8 *record;
@@ -19,12 +31,49 @@ typedef struct DoorShadowRuntime {
     Gfx *gdl;
     s32 size, next;
     DoorShadowPoint source[6];
+    f32 center[3], vertexScale[3];
+    DoorShadowMapping mapping[2];
 } DoorShadowRuntime;
 static DoorShadowRuntime g_DoorShadows[DOOR_SHADOW_MAX];
 static s16 g_DoorShadowRooms[MAXROOMCOUNT];
 static s32 g_DoorShadowCount;
 
 static u32 doorShadowWord(u8 *p,s32 offset) { return *(u32 *)(p+offset); }
+static void doorShadowPrepareGeometry(DoorShadowRuntime *s)
+{
+    s32 a,v,t;
+    for(a=0;a<3;a++) {
+        f32 low=s->source[0].position[a],high=low,scale=1;
+        for(v=1;v<6;v++) {
+            if(s->source[v].position[a]<low)low=s->source[v].position[a];
+            if(s->source[v].position[a]>high)high=s->source[v].position[a];
+        }
+        /* An integer center preserves the original corners exactly, including
+         * the full asymmetric s16 range. Use powers of two for exact inverses. */
+        s->center[a]=(s32)((low+high)*0.5f);
+        low-=s->center[a];high-=s->center[a];
+        while(scale<DOOR_SHADOW_VERTEX_SCALE&&low*scale*2>=-32768&&high*scale*2<=32767)scale*=2;
+        s->vertexScale[a]=scale;
+    }
+    for(t=0;t<2;t++) {
+        DoorShadowMapping *m=&s->mapping[t];
+        DoorShadowPoint *p=s->source+t*3;
+        f32 u[3],v[3],best=0;
+        for(a=0;a<3;a++) {u[a]=p[1].position[a]-p[0].position[a];v[a]=p[2].position[a]-p[0].position[a];}
+        memset(m,0,sizeof(*m));
+        /* Project onto the plane with the largest determinant, so vertical
+         * and sloping surfaces work as well as horizontal floors. */
+        for(a=0;a<3;a++) {
+            s32 b=(a+1)%3;
+            f32 det=u[a]*v[b]-u[b]*v[a],magnitude=det<0?-det:det;
+            if(magnitude>best) {
+                best=magnitude;m->axis[0]=a;m->axis[1]=b;
+                m->weight[0][0]=v[b]/det;m->weight[0][1]=-v[a]/det;
+                m->weight[1][0]=-u[b]/det;m->weight[1][1]=u[a]/det;
+            }
+        }
+    }
+}
 void doorShadowReset(void)
 {
     s32 i;
@@ -67,6 +116,7 @@ void doorShadowInit(PropDefHeaderRecord *commands)
                     s->source[v].uv[0]=*(s16 *)(vertex+8);s->source[v].uv[1]=*(s16 *)(vertex+10);
                     s->source[v].alpha=vertex[15];s->source[v].rgb=0;
                 }
+                doorShadowPrepareGeometry(s);
                 g_DoorShadowRooms[room]=g_DoorShadowCount++;
             }
         }
@@ -106,6 +156,35 @@ static void doorShadowLoad(DoorShadowRuntime *s)
     memaRealloc((s32)memory,allocation,s->size);
 }
 static s16 doorShadowRound(f32 value) { return (s16)(value<0?value-0.5f:value+0.5f); }
+static s16 doorShadowRoundClamped(f32 value,f32 low,f32 high)
+{
+    if(value<low)value=low;
+    if(value>high)value=high;
+    return doorShadowRound(value);
+}
+static void doorShadowWriteVertex(DoorShadowRuntime *s,s32 index,DoorShadowPoint *point,Vtx *vertex)
+{
+    DoorShadowMapping *m=&s->mapping[index/9];
+    DoorShadowPoint *p=s->source+(index/9)*3;
+    f32 position[3],delta[2],w1,w2;
+    s32 a;
+    for(a=0;a<3;a++) {
+        vertex->v.ob[a]=doorShadowRound((point->position[a]-s->center[a])*s->vertexScale[a]);
+        position[a]=vertex->v.ob[a]/s->vertexScale[a]+s->center[a];
+    }
+    for(a=0;a<2;a++)delta[a]=position[m->axis[a]]-p[0].position[m->axis[a]];
+    w1=delta[0]*m->weight[0][0]+delta[1]*m->weight[0][1];
+    w2=delta[0]*m->weight[1][0]+delta[1]*m->weight[1][1];
+    /* Evaluate UVs at the positions actually sent to the RSP. Independent
+     * rounding of an unsnapped UV and a snapped position makes textures swim.
+     * Each original triangle keeps its own mapping, including diagonal seams. */
+    for(a=0;a<2;a++)vertex->v.tc[a]=doorShadowRoundClamped(p[0].uv[a]
+        +w1*(p[1].uv[a]-p[0].uv[a])+w2*(p[2].uv[a]-p[0].uv[a]),-32768,32767);
+    vertex->v.flag=0;
+    vertex->v.cn[0]=point->rgb>>16;vertex->v.cn[1]=point->rgb>>8;vertex->v.cn[2]=point->rgb;
+    vertex->v.cn[3]=doorShadowRoundClamped(p[0].alpha
+        +w1*(p[1].alpha-p[0].alpha)+w2*(p[2].alpha-p[0].alpha),0,255);
+}
 Gfx *doorShadowRenderRoom(Gfx *gdl,s32 room,s32 layer)
 {
     s32 i,drew=FALSE;
@@ -114,28 +193,34 @@ Gfx *doorShadowRenderRoom(Gfx *gdl,s32 room,s32 layer)
         DoorShadowRuntime *s=&g_DoorShadows[i];
         DoorShadowPoint points[DOOR_SHADOW_OUTPUT_VERTICES];
         Vtx *vertices;
+        Mtx *matrix;
+        Mtxf transform;
         f32 opening=0;
         s32 v,a;
         if(doorShadowWord(s->record,DOOR_SHADOW_LAYER)!=layer)continue;
         if(!s->gdl)doorShadowLoad(s);
-        if(!s->gdl||dynGetFreeVertexBytes()<DOOR_SHADOW_OUTPUT_VERTICES*sizeof(Vtx))continue;
+        if(!s->gdl||dynGetFreeVertexBytes()<DOOR_SHADOW_OUTPUT_VERTICES*sizeof(Vtx)+sizeof(Mtx))continue;
         if(s->door&&s->door->prop&&s->door->maxFrac>0)opening=s->door->openPosition/s->door->maxFrac;
         doorShadowSplit(s->source,doorShadowWord(s->record,DOOR_SHADOW_DIRECTION),opening,
             doorShadowWord(s->record,DOOR_SHADOW_LIGHT),doorShadowWord(s->record,DOOR_SHADOW_DARK),points);
         vertices=dynAllocateVertices(DOOR_SHADOW_OUTPUT_VERTICES);
-        for(v=0;v<DOOR_SHADOW_OUTPUT_VERTICES;v++) {
-            for(a=0;a<3;a++)vertices[v].v.ob[a]=doorShadowRound(points[v].position[a]
-                +*(f32 *)(s->record+DOOR_SHADOW_ORIGIN+a*4)
-                -ptr_bgdata_room_fileposition_list[room].pos.f[a]);
-            vertices[v].v.flag=0;
-            vertices[v].v.tc[0]=doorShadowRound(points[v].uv[0]);vertices[v].v.tc[1]=doorShadowRound(points[v].uv[1]);
-            vertices[v].v.cn[0]=points[v].rgb>>16;vertices[v].v.cn[1]=points[v].rgb>>8;
-            vertices[v].v.cn[2]=points[v].rgb;vertices[v].v.cn[3]=doorShadowRound(points[v].alpha);
+        for(v=0;v<DOOR_SHADOW_OUTPUT_VERTICES;v++)doorShadowWriteVertex(s,v,&points[v],&vertices[v]);
+        matrix=dynAllocateMatrix();
+        matrix_4x4_set_identity(&transform);
+        for(a=0;a<3;a++) {
+            transform.m[a][a]=g_LevelInverseScale/s->vertexScale[a];
+            transform.m[3][a]=(s->center[a]+*(f32 *)(s->record+DOOR_SHADOW_ORIGIN+a*4))
+                *g_LevelInverseScale-g_CurrentPlayer->current_model_pos.f[a];
         }
+        matrix_4x4_f32_to_s32(transform.m,matrix->m);
+        gSPMatrix(gdl++,OS_K0_TO_PHYSICAL(matrix),G_MTX_MODELVIEW|G_MTX_LOAD|G_MTX_NOPUSH);
         gSPSegment(gdl++,SPSEGMENT_BG_VTX,OS_K0_TO_PHYSICAL(vertices));
         gSPDisplayList(gdl++,OS_K0_TO_PHYSICAL(s->gdl));drew=TRUE;
     }
-    if(drew) { gSPSegment(gdl++,SPSEGMENT_BG_VTX,OS_K0_TO_PHYSICAL(g_BgRoomInfo[room].vertices)); }
+    if(drew) {
+        gdl=applyRoomMatrixToDisplayList(gdl,room);
+        gSPSegment(gdl++,SPSEGMENT_BG_VTX,OS_K0_TO_PHYSICAL(g_BgRoomInfo[room].vertices));
+    }
     return gdl;
 }
 

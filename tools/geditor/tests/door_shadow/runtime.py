@@ -55,6 +55,11 @@ expander = expander.replace('((s32)out) - ((s32)dst)', '(s32)((u8 *)out - (u8 *)
 expander = re.sub(r'    s32\s+pad;\n', '', expander)
 source += expander
 source += (HERE / 'runtime_harness.h').read_text()
+matrixmath = (ROOT / 'src/game/matrixmath.c').read_text()
+source += function(matrixmath, 'matrix_4x4_set_identity')
+# Keep the production converter; express its bit packing with unsigned shifts
+# to avoid the original signed-shift UB in the host sanitizer build.
+source += function(matrixmath, 'matrix_4x4_f32_to_s32').replace('(e1 << 16)', '((u32)e1 << 16)')
 source += strip((ROOT / 'src/game/doorshadowmath.c').read_text())
 source += strip((ROOT / 'src/game/doorshadow.c').read_text()).replace('(s32)memory', '(intptr_t)memory')
 source += (HERE / 'runtime_check.c').read_text()
