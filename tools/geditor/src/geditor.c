@@ -45,6 +45,7 @@
 #include "editorpath.h"
 #include "bgload.h"
 #include "bgdocument.h"
+#include "bgcommandswindow.h"
 #include "primitiveoptions.h"
 #include "bghistory.h"
 #include "levelscale.h"
@@ -622,6 +623,7 @@ static void GEditorCloseProject(HWND hwnd)
     ProjectSettingsRefresh(NULL);
     LevelManagerRefreshSettings(NULL, GEDITOR_NO_LEVEL);
     IssuesWindowClose();
+    BgCommandsWindowClose();
     RomExportClearIssues();
     PatrolEditorClose();
     if (g_Project.name[0] == '\0')
@@ -704,6 +706,7 @@ enum {
     ID_TOOLS_MODEL_EDITOR,
     ID_TOOLS_ACTION_BLOCKS,
     ID_TOOLS_PATROL_PATHS,
+    ID_TOOLS_BG_COMMANDS,
     ID_TOOLS_CHECK_ISSUES,
     ID_SETTINGS_LEVEL,
     ID_SETTINGS_PROJECT,
@@ -890,6 +893,7 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_TEXT_EDITOR, "&Text Editor...");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_ACTION_BLOCKS, "&Action Blocks...");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_PATROL_PATHS, "&Patrol Paths...");
+    AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_BG_COMMANDS, "&BG Commands...");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_UV_EDITOR, "&UV Editor\tCtrl+T");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_MODEL_EDITOR, "&Model Editor");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_CREATE_ROM, "&Create ROM...\tCtrl+R");
@@ -1053,6 +1057,8 @@ static void GEditorRefreshHistoryMenu(HWND hwnd)
     LevelManagerRefresh(&g_CurrentSetup,
         g_CurrentLevelIndex < g_Project.levelcount ? g_Project.levels[g_CurrentLevelIndex].name : NULL);
     LevelManagerRefreshSettings(&g_Project, g_CurrentLevelIndex);
+    BgCommandsWindowRefresh(&g_CurrentBg,&g_CurrentBgDocument,
+        g_CurrentLevelIndex<g_Project.levelcount ? g_Project.levels[g_CurrentLevelIndex].name : NULL);
     GEditorSetTitleForProject(hwnd);
     menubar = GetMenu(hwnd);
     if (menubar == NULL)
@@ -5107,6 +5113,24 @@ static BOOL GEditorFrameRoom(DWORD room)
     return TRUE;
 }
 
+static BOOL GEditorLocateBgCommand(HWND hwnd, BOOL portal, DWORD index)
+{
+    if (!g_Viewport || (portal && index >= g_CurrentBgDocument.portals.portalcount)) { return FALSE; }
+    ViewportCancelTransform(g_Viewport);
+    PatrolEditorSetPicking(FALSE);
+    ViewportSetColorPick(g_Viewport, FALSE);
+    if (!portal) { return GEditorFrameRoom(index); }
+    ViewportSetTool(g_Viewport, EDITOR_TOOL_FACE_SELECT);
+    ToolToolbarSetTool(g_ToolToolbar, EDITOR_TOOL_FACE_SELECT);
+    RightPanelShowPortals(g_RightPanel);
+    if (!ViewportSelectPortal(g_Viewport, index)) { return FALSE; }
+    GEditorRefreshSelectionDetails();
+    GEditorRefreshHistoryMenu(hwnd);
+    BOOL moved = ViewportZoomToSelected(g_Viewport);
+    if (moved) { SetFocus(g_Viewport); }
+    return moved;
+}
+
 static void GEditorPreviewEnvironment(DWORD id, BOOL selected)
 {
     if (g_CurrentLevelIndex >= g_Project.levelcount) { return; }
@@ -5214,6 +5238,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 {
     switch (msg)
     {
+    case BGCOMMANDS_WM_LOCATE:
+        return GEditorLocateBgCommand(hwnd,wparam!=0,(DWORD)lparam);
     case BRIEFING_WM_APPLY:
         return GEditorApplyBriefing(hwnd,(BriefingEditRequest *)lparam);
     case BRIEFING_WM_DRAFT:
@@ -6081,6 +6107,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         EnableMenuItem((HMENU)wparam, ID_TOOLS_TEXT_EDITOR, MF_BYCOMMAND | (g_Project.name[0] ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_ACTION_BLOCKS, MF_BYCOMMAND | (g_CurrentSetup.data ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_PATROL_PATHS, MF_BYCOMMAND | (g_CurrentSetup.data ? MF_ENABLED : MF_GRAYED));
+        EnableMenuItem((HMENU)wparam, ID_TOOLS_BG_COMMANDS, MF_BYCOMMAND | (g_CurrentBg.data ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_CHECK_ISSUES, MF_BYCOMMAND | (g_CurrentLevelIndex < g_Project.levelcount || RomExportIssues() ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_CREATE_ROM, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         GEditorUpdateHistoryMenu((HMENU)wparam);
@@ -6414,6 +6441,15 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 GEditorOpenActionBlocks(hwnd);
                 return 0;
 
+            case ID_TOOLS_BG_COMMANDS:
+            {
+                const char *why="";
+                if (g_CurrentBg.data && !BgCommandsWindowShow(hwnd,&g_CurrentBg,&g_CurrentBgDocument,
+                    g_CurrentLevelIndex<g_Project.levelcount ? g_Project.levels[g_CurrentLevelIndex].name : NULL,&why))
+                { MessageBox(hwnd,why,GEDITOR_TITLE,MB_ICONERROR); }
+                return 0;
+            }
+
             case ID_TOOLS_PATROL_PATHS:
                 GEditorOpenPatrolPaths(hwnd);
                 return 0;
@@ -6467,6 +6503,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
     case WM_DESTROY:
         IssuesWindowClose();
+        BgCommandsWindowClose();
         RomExportClearIssues();
         PatrolEditorClose();
         KnifeDialogClose();
@@ -6881,7 +6918,8 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                     CoUninitialize();
                     return (int)msg.wParam;
                 }
-                if (!IssuesWindowHandleMessage(&msg)
+                if (!BgCommandsWindowHandleMessage(&msg)
+                    && !IssuesWindowHandleMessage(&msg)
                     && !PatrolEditorHandleMessage(&msg)
                     && !KnifeDialogHandleMessage(&msg)
                     && !LevelManagerHandleMessage(&msg)
@@ -6920,7 +6958,8 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
             {
                 break;
             }
-            if (!IssuesWindowHandleMessage(&msg)
+            if (!BgCommandsWindowHandleMessage(&msg)
+                && !IssuesWindowHandleMessage(&msg)
                 && !PatrolEditorHandleMessage(&msg)
                 && !KnifeDialogHandleMessage(&msg)
                 && !LevelManagerHandleMessage(&msg)
