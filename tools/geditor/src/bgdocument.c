@@ -596,6 +596,26 @@ BOOL BgDocumentLoad(const unsigned char *data, DWORD size, float levelscale,
      * inspecting the rest of a level. Such tables cannot be edited. */
     if (BgLoadPortals(data, size, levelscale, &out->portals, &out->portalwarning))
     { out->portalwarning = NULL; }
+    DWORD vis = BgDocumentRead32(data + 12) & 0xffffffu;
+    if (!BgDocumentRead32(data + 12)) { out->viscommandsloaded = TRUE; }
+    else if (vis >= 20 && !(vis & 3) && vis <= size)
+    {
+        DWORD bytes = 0;
+        while (bytes < 65536u * 8 && size - vis - bytes >= 8)
+        {
+            bytes += 8;
+            if (!data[vis + bytes - 8])
+            {
+                out->viscommands = malloc(bytes);
+                if (!out->viscommands)
+                { BgDocumentFree(out); *reasonout = "Out of memory copying BG commands."; return FALSE; }
+                memcpy(out->viscommands, data + vis, bytes);
+                out->viscommandssize = bytes;
+                out->viscommandsloaded = TRUE;
+                break;
+            }
+        }
+    }
     return TRUE;
 }
 
@@ -629,6 +649,15 @@ BOOL BgDocumentClone(const BgDocument *source, BgDocument *out,
     out->levelscale = source->levelscale;
     out->dirty = source->dirty;
     out->portalwarning = source->portalwarning;
+    out->viscommandsloaded = source->viscommandsloaded;
+    if (source->viscommandssize)
+    {
+        out->viscommands = malloc(source->viscommandssize);
+        if (!out->viscommands)
+        { BgDocumentFree(out); *reasonout = "Out of memory copying BG commands."; return FALSE; }
+        memcpy(out->viscommands, source->viscommands, source->viscommandssize);
+        out->viscommandssize = source->viscommandssize;
+    }
     if (source->portals.portalcount)
     {
         out->portals.portals = malloc(source->portals.portalcount * sizeof(*out->portals.portals));
@@ -770,6 +799,7 @@ void BgDocumentFree(BgDocument *document)
         free(document->rooms[room].faces);
     }
     free(document->rooms);
+    free(document->viscommands);
     BgPortalFileFree(&document->portals);
     ZeroMemory(document, sizeof(*document));
 }

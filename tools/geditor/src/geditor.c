@@ -1498,7 +1498,9 @@ static BOOL GEditorSaveProject(HWND hwnd)
 
             ZeroMemory(&compiled, sizeof(compiled));
 
-            if (g_CurrentBgDocument.dirty)
+            /* Compile from the live document even on a clean save: native
+             * portal/command identities in undo snapshots must not relocate. */
+            if (g_CurrentBgDocument.rooms)
             {
                 if (!BgDocumentCompile(&g_CurrentBgDocument, &g_CurrentBg,
                                        &compiled, &why))
@@ -5113,6 +5115,35 @@ static BOOL GEditorFrameRoom(DWORD room)
     return TRUE;
 }
 
+static BOOL GEditorEditBgCommand(HWND hwnd, BgVisEditRequest *request)
+{
+    EditHistoryTransaction transaction = {0};
+    if (!request) { return FALSE; }
+    request->why = "Open a level with an editable background first.";
+    if (!g_CurrentBg.data || !g_CurrentBgDocument.rooms) { return FALSE; }
+    ViewportCancelTransform(g_Viewport);
+    const char *action = request->operation == BG_VIS_INSERT ? "Add BG Command"
+        : request->operation == BG_VIS_DELETE ? "Delete BG Command" : "Edit BG Command";
+    if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument, action, &transaction, &request->why)) { return FALSE; }
+    if (!BgVisEdit(&g_CurrentBgDocument, &g_CurrentBg, request))
+    { EditHistoryCancelEdit(&transaction); return FALSE; }
+    if (transaction.beforebg.viscommandssize == g_CurrentBgDocument.viscommandssize
+        && (!g_CurrentBgDocument.viscommandssize || !memcmp(transaction.beforebg.viscommands,
+            g_CurrentBgDocument.viscommands, g_CurrentBgDocument.viscommandssize)))
+    {
+        g_CurrentBgDocument.dirty = transaction.beforebg.dirty;
+        EditHistoryCancelEdit(&transaction); return TRUE;
+    }
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+        &g_CurrentStan, &transaction, &request->why))
+    {
+        EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+        GEditorRefreshHistoryMenu(hwnd); return FALSE;
+    }
+    GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+}
+
 static BOOL GEditorLocateBgCommand(HWND hwnd, BOOL portal, DWORD index)
 {
     if (!g_Viewport || (portal && index >= g_CurrentBgDocument.portals.portalcount)) { return FALSE; }
@@ -5238,6 +5269,12 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 {
     switch (msg)
     {
+    case BGCOMMANDS_WM_EDIT:
+        return GEditorEditBgCommand(hwnd, (BgVisEditRequest *)lparam);
+    case BGCOMMANDS_WM_HISTORY:
+        GEditorApplyHistoryStep(hwnd, wparam != 0); return TRUE;
+    case BGCOMMANDS_WM_CANHISTORY:
+        return wparam ? EditHistoryCanRedo(&g_EditHistory) : EditHistoryCanUndo(&g_EditHistory);
     case BGCOMMANDS_WM_LOCATE:
         return GEditorLocateBgCommand(hwnd,wparam!=0,(DWORD)lparam);
     case BRIEFING_WM_APPLY:

@@ -2,7 +2,7 @@
 #define GEDITOR_BGCOMMANDS_H
 #include "bgload.h"
 
-/* Read-only view of the native eight-byte visibility cells. Data cells belong
+/* Decoded view of the native eight-byte visibility cells. Data cells belong
  * to the preceding instruction; 0x64 is a polygon address, 0x65 a value. */
 #define BG_VIS_NO_TARGET ((DWORD)-1)
 #define BG_VIS_UNKNOWN 1u
@@ -25,11 +25,27 @@ typedef struct BgVisProgram {
     unsigned char *data;
     BgVisInstruction *instructions;
     DWORD offset, size, count, warnings;
-    BOOL present, complete, singleDisplayList;
+    BOOL present, complete, singleDisplayList, relativeOffsets;
     char problem[192];
 } BgVisProgram;
 BOOL BgVisDecode(const BgFile *bg,const BgPortalFile *portals,DWORD roomcount,
     BgVisProgram *out,const char **why);
+struct BgDocument;
+BOOL BgVisDecodeDocument(const BgFile *bg,const struct BgDocument *doc,BgVisProgram *out,const char **why);
+BOOL BgVisCanEdit(const BgVisProgram *program);
+BOOL BgVisReturnCell(const BgVisProgram *program,DWORD row);
+BOOL BgVisDeleteRange(const BgVisProgram *program,DWORD row,DWORD *first,DWORD *last);
+BgVisArgument BgVisArgumentType(unsigned int opcode);
+typedef enum BgVisEditOperation { BG_VIS_INSERT, BG_VIS_REPLACE, BG_VIS_DELETE } BgVisEditOperation;
+typedef struct BgVisEditRequest {
+    BgVisEditOperation operation;
+    DWORD row, opcode, arg[2]; /* portal arguments are current table indices */
+    BOOL after, withElse;
+    DWORD selected; /* result: row to select after a successful edit */
+    const char *why;
+} BgVisEditRequest;
+/* Atomic document edit. The caller owns the usual BG history transaction. */
+BOOL BgVisEdit(struct BgDocument *document,const BgFile *source,BgVisEditRequest *request);
 void BgVisFree(BgVisProgram *program);
 const char *BgVisName(unsigned int opcode);
 const char *BgVisExplanation(unsigned int opcode);

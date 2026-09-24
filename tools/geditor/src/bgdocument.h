@@ -85,6 +85,12 @@ typedef struct BgDocument {
     DWORD roomcount;
     BgPortalFile portals; /* native table order; shared polygons remain distinct entries */
     const char *portalwarning; /* static loader error, or NULL; geometry remains editable */
+    /* Owned native visibility cells, including END. Polygon arguments retain
+     * stable geometry identities (including unsaved editor portal identities).
+     * Captured even before an edit so Undo remains valid after Save Project. */
+    unsigned char *viscommands;
+    DWORD viscommandssize;
+    BOOL viscommandsloaded; /* FALSE preserves malformed source data verbatim */
     DWORD facecount;
     DWORD nextvertexid;
     DWORD nextfaceid;

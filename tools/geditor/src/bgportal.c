@@ -109,6 +109,7 @@ BOOL BgDocumentDeletePortals(BgDocument *document, const BgFile *source,
 {
     unsigned char removed[BG_MAX_PORTALS] = {0};
     DWORD total, kept = 0, vis;
+    const unsigned char *commands; DWORD commandsize, start;
     *reasonout = "The selected portals could not be read.";
     if (!document || document->portalwarning || !document->portals.portals
         || !indices || !count || !source || !source->data || source->size < 16) { return FALSE; }
@@ -123,21 +124,37 @@ BOOL BgDocumentDeletePortals(BgDocument *document, const BgFile *source,
      * missing polygon silently resolves to portal 0, changing the script.
      * Keep those references valid; deleting one of several aliases is safe. */
     vis = BgPortalRead32(source->data + 12) & 0x00ffffffu;
-    if (vis)
+    commands = document->viscommandsloaded ? document->viscommands : source->data;
+    commandsize = document->viscommandsloaded ? document->viscommandssize : source->size;
+    if (document->viscommandsloaded) { vis = 0; }
+    start = vis;
+    if ((document->viscommandsloaded && commandsize) || (!document->viscommandsloaded && vis))
     {
         for (;; vis += 8)
         {
             DWORD geometry;
             BOOL deleted = FALSE, survives = FALSE;
-            if (vis > source->size || source->size - vis < 8)
+            if (vis > commandsize || commandsize - vis < 8)
             { *reasonout = "The background visibility script is invalid; portals cannot be deleted safely."; return FALSE; }
-            if (!source->data[vis]) { break; }
-            if (source->data[vis] != BG_VIS_PORTAL_REFERENCE) { continue; }
-            geometry = BgPortalRead32(source->data + vis + 4) & 0x00ffffffu;
+            if (!commands[vis]) { break; }
+            /* Literal portal indices must retain the same table entry when
+             * earlier unrelated entries are deleted. Validate before mutation. */
+            if (commands[vis] == 0x65 && vis >= start + 8
+                && (commands[vis-8] == 0x1f || commands[vis-8] == 0x22 || commands[vis-8] == 0x23))
+            {
+                DWORD index = BgPortalRead32(commands + vis + 4);
+                if (index >= total || removed[index])
+                { *reasonout = "A BG command names a selected portal index. Update that command first."; return FALSE; }
+                if (!document->viscommandsloaded)
+                { *reasonout = "The visibility stream must be editable to remap its portal indices."; return FALSE; }
+            }
+            if (commands[vis] != BG_VIS_PORTAL_REFERENCE) { continue; }
+            geometry = BgPortalRead32(commands + vis + 4);
+            if (!(geometry & BG_PORTAL_NEW_GEOMETRY)) { geometry &= 0xffffffu; }
             for (DWORD i = 0; i < total; i++)
             {
                 DWORD address = document->portals.portals[i].geometryoffset;
-                if (address & BG_PORTAL_NEW_GEOMETRY)
+                if (!(geometry & BG_PORTAL_NEW_GEOMETRY) && (address & BG_PORTAL_NEW_GEOMETRY))
                 {
                     DWORD slot = address & ~BG_PORTAL_NEW_GEOMETRY;
                     address = slot < BG_MAX_PORTALS ? source->newportaloffsets[slot] : 0;
@@ -151,6 +168,18 @@ BOOL BgDocumentDeletePortals(BgDocument *document, const BgFile *source,
                     "Its last connection cannot be deleted until that script is updated.";
                 return FALSE;
             }
+        }
+    }
+    if (document->viscommandsloaded)
+    {
+        for (DWORD pc = 8; pc + 8 <= document->viscommandssize && document->viscommands[pc]; pc += 8)
+        {
+            unsigned char *p = document->viscommands + pc;
+            if (p[0] != 0x65 || (p[-8] != 0x1f && p[-8] != 0x22 && p[-8] != 0x23)) { continue; }
+            DWORD old = BgPortalRead32(p + 4), index = old;
+            for (DWORD n = 0; n < old; n++) { if (removed[n]) { index--; } }
+            p[4] = (unsigned char)(index >> 24); p[5] = (unsigned char)(index >> 16);
+            p[6] = (unsigned char)(index >> 8); p[7] = (unsigned char)index;
         }
     }
     for (DWORD i = 0; i < total; i++)

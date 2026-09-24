@@ -17,8 +17,14 @@ static void Same(const BgPortalFile *a, const BgPortalFile *b, BOOL native)
     for (DWORD i = 0; i < a->portalcount; i++)
     {
         BgPortal expected = a->portals[i];
-        if (native && (expected.geometryoffset & BG_PORTAL_NEW_GEOMETRY))
+        if (native)
+        {
+            /* Disk compaction relocates native as well as editor polygons. */
             expected.geometryoffset = b->portals[i].geometryoffset;
+            for (DWORD j = 0; j < i; j++)
+                assert((a->portals[i].geometryoffset == a->portals[j].geometryoffset)
+                    == (b->portals[i].geometryoffset == b->portals[j].geometryoffset));
+        }
         assert(!memcmp(&expected, &b->portals[i], sizeof(expected)));
     }
 }
@@ -34,7 +40,7 @@ static BgFile Persist(const BgDocument *doc, const BgFile *source, const char *d
     assert(BgFileValidateVertexBatches(&saved, &why)); /* Create ROM's BG gate. */
     assert(BgSaveProjectFile(dir, &saved, &why));
     assert(BgLoadProjectFile(dir, saved.name, &disk, &why));
-    assert(saved.size == disk.size && !memcmp(saved.data, disk.data, disk.size));
+    assert(disk.size <= saved.size); /* The disk saver compacts the live source. */
     assert(BgDocumentLoad(disk.data, disk.size, doc->levelscale, &loaded, &why));
     assert(!loaded.portalwarning && loaded.facecount == doc->facecount);
     Same(&doc->portals, &loaded.portals, TRUE);
@@ -75,6 +81,8 @@ static void NativeDeletion(const char *dir)
     Put(source.data + 416, 0x1f020000); Put(source.data + 420, 0);
     Put(source.data + 424, 0x64000000); Put(source.data + 428, 0x0f0000c0);
     Put(source.data + 432, 0x00010000); Put(source.data + 436, 0);
+    BgDocumentFree(&doc);
+    assert(BgDocumentLoad(source.data, source.size, .5f, &doc, &why));
     assert(!BgDocumentDeletePortals(&doc, &source, both, 2, &why));
     assert(strstr(why, "visibility script")); Same(&original.portals, &doc.portals, FALSE);
     assert(BgDocumentDeletePortals(&doc, &source, &one, 1, &why));

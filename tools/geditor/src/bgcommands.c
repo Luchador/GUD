@@ -1,4 +1,5 @@
 #include "bgcommands.h"
+#include "bgdocument.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -52,56 +53,55 @@ static void ResolvePortal(const BgFile *bg,const BgPortalFile *portals,BgVisInst
     for (DWORD p=0;portals && portals->portals && p<portals->portalcount;p++)
     {
         const BgPortal *portal=portals->portals+p;DWORD geometry=portal->geometryoffset;
-        if (geometry&BG_PORTAL_NEW_GEOMETRY)
-        { DWORD slot=geometry&~BG_PORTAL_NEW_GEOMETRY;geometry=slot<BG_MAX_PORTALS ? bg->newportaloffsets[slot] : 0; }
-        if (!geometry || geometry!=wanted) { continue; }
+        if (i->arg[0]&BG_PORTAL_NEW_GEOMETRY)
+        { if (geometry!=i->arg[0]) { continue; } }
+        else if (geometry&BG_PORTAL_NEW_GEOMETRY)
+        { DWORD slot=geometry&~BG_PORTAL_NEW_GEOMETRY;geometry=slot<BG_MAX_PORTALS ? (bg ? bg->newportaloffsets[slot] : 0) : 0; }
+        if (!(i->arg[0]&BG_PORTAL_NEW_GEOMETRY) && (!geometry || geometry!=wanted)) { continue; }
         if (!i->matches) { i->portal=p;i->room1=portal->connectedroom1;i->room2=portal->connectedroom2; }i->matches++;
     }
     if (i->portal==BG_VIS_NO_TARGET) { i->warnings|=BG_VIS_PORTAL; }
 }
-BOOL BgVisDecode(const BgFile *bg,const BgPortalFile *portals,DWORD rooms,BgVisProgram *out,const char **why)
+static BOOL DecodeCells(const unsigned char *data, DWORD size, DWORD at,
+    const BgFile *bg, const BgPortalFile *portals, DWORD rooms, BgVisProgram *out, const char **why)
 {
-    DWORD at,capacity=0,depth=0;unsigned char stack[BG_VIS_NESTING_LIMIT],otherwise[BG_VIS_NESTING_LIMIT];
+    DWORD capacity=0,depth=0;unsigned char stack[BG_VIS_NESTING_LIMIT],otherwise[BG_VIS_NESTING_LIMIT];
     memset(out,0,sizeof(*out));*why="";
-    if (!bg || !bg->data || bg->size<20) { *why="Open a level with a valid background to inspect its commands.";return FALSE; }
-    if (Read32(bg->data)) { out->singleDisplayList=TRUE;out->complete=TRUE;return TRUE; }
-    DWORD pointer=Read32(bg->data+12);if (!pointer) { out->complete=TRUE;return TRUE; }
-    out->present=TRUE;out->offset=at=pointer&0xffffffu;
-    if (at<20 || at>bg->size || (at&3)) { strcpy(out->problem,"The visibility stream pointer is invalid.");return TRUE; }
+    out->present=TRUE;out->offset=at;
     while (out->size/8<BG_VIS_CELL_LIMIT)
     {
-        if (at>bg->size || bg->size-at<8) { strcpy(out->problem,"The visibility stream is truncated or has no END cell.");break; }
+        if (at>size || size-at<8) { strcpy(out->problem,"The visibility stream is truncated or has no END cell.");break; }
         if (out->count==capacity)
         {
             DWORD next=capacity ? capacity*2 : 64;BgVisInstruction *grown=realloc(out->instructions,next*sizeof(*grown));
             if (!grown) { BgVisFree(out);*why="Out of memory decoding BG commands.";return FALSE; }out->instructions=grown;capacity=next;
         }
         BgVisInstruction *i=out->instructions+out->count++;memset(i,0,sizeof(*i));
-        i->offset=at;i->opcode=bg->data[at];i->length=bg->data[at+1];i->portal=BG_VIS_NO_TARGET;i->depth=depth;i->bytes=8;
+        i->offset=at;i->opcode=data[at];i->length=data[at+1];i->portal=BG_VIS_NO_TARGET;i->depth=depth;i->bytes=8;
         const Opcode *op=Find(i->opcode);if (op) { i->argument=op->argument; }else { i->warnings|=BG_VIS_UNKNOWN; }
         if (!i->opcode)
         {
             if (depth) { i->warnings|=BG_VIS_FLOW; }out->complete=TRUE;out->size=at-out->offset+8;
             out->warnings+=i->warnings!=0;break;
         }
-        if (!i->length || (DWORD)i->length*8>bg->size-at || (op && i->length<op->length))
+        if (!i->length || (DWORD)i->length*8>size-at || (op && i->length<op->length))
         {
             i->warnings|=BG_VIS_LENGTH;out->warnings++;out->size=at-out->offset+8;
             strcpy(out->problem,"Stopped at an invalid instruction length; remaining cells cannot be decoded safely.");break;
         }
         i->bytes=(DWORD)i->length*8;
         if (op && i->length!=op->length) { i->warnings|=BG_VIS_LENGTH; }
-        if (i->argument==BG_VIS_VALUE) { i->arg[0]=Read32(bg->data+at+4); }
+        if (i->argument==BG_VIS_VALUE) { i->arg[0]=Read32(data+at+4); }
         for (DWORD a=1;a<i->length;a++)
         {
-            unsigned char type=bg->data[at+a*8];
+            unsigned char type=data[at+a*8];
             if (!type)
             {
                 i->warnings|=BG_VIS_OPERAND;strcpy(out->problem,"An END cell appears inside an instruction. The native loader stops here before resolving later portal operands.");
             }
             if (op && a<op->length)
             {
-                i->arg[a-1]=Read32(bg->data+at+a*8+4);i->operandType[a-1]=type;
+                i->arg[a-1]=Read32(data+at+a*8+4);i->operandType[a-1]=type;
                 if (type!=0x65 && !(type==0x64 && i->argument==BG_VIS_ONE_PORTAL)) { i->warnings|=BG_VIS_OPERAND; }
             }
         }
@@ -137,10 +137,32 @@ BOOL BgVisDecode(const BgFile *bg,const BgPortalFile *portals,DWORD rooms,BgVisP
     if (out->size)
     {
         out->data=malloc(out->size);if (!out->data) { BgVisFree(out);*why="Out of memory copying BG commands.";return FALSE; }
-        memcpy(out->data,bg->data+out->offset,out->size);
+        memcpy(out->data,data+out->offset,out->size);
     }
     return TRUE;
 }
+BOOL BgVisDecode(const BgFile *bg,const BgPortalFile *portals,DWORD rooms,BgVisProgram *out,const char **why)
+{
+    memset(out,0,sizeof(*out));*why="";
+    if (!bg || !bg->data || bg->size<20) { *why="Open a level with a valid background to inspect its commands.";return FALSE; }
+    if (Read32(bg->data)) { out->singleDisplayList=TRUE;out->complete=TRUE;return TRUE; }
+    DWORD pointer=Read32(bg->data+12);if (!pointer) { out->complete=TRUE;return TRUE; }
+    DWORD at=pointer&0xffffffu;
+    if (at<20 || at>bg->size || (at&3))
+    { out->present=TRUE;out->offset=at;strcpy(out->problem,"The visibility stream pointer is invalid.");return TRUE; }
+    return DecodeCells(bg->data,bg->size,at,bg,portals,rooms,out,why);
+}
+BOOL BgVisDecodeDocument(const BgFile *bg,const BgDocument *doc,BgVisProgram *out,const char **why)
+{
+    if (!doc || !doc->viscommandsloaded)
+    { return BgVisDecode(bg,doc && !doc->portalwarning ? &doc->portals : NULL,doc ? doc->roomcount : 0,out,why); }
+    if (!doc->viscommandssize) { memset(out,0,sizeof(*out));out->complete=TRUE;*why=""; }
+    else if (!DecodeCells(doc->viscommands,doc->viscommandssize,0,bg,
+        doc->portalwarning ? NULL : &doc->portals,doc->roomcount,out,why)) { return FALSE; }
+    out->relativeOffsets=TRUE;
+    return TRUE;
+}
+
 void BgVisSummary(const BgVisInstruction *i,char *out,size_t size)
 {
     switch (i->argument)
@@ -175,7 +197,7 @@ void BgVisWarnings(const BgVisInstruction *i,char *out,size_t size)
 char *BgVisReport(const BgVisProgram *p,const char *name)
 {
     size_t size=1024+(size_t)p->count*1536+(size_t)p->size*8;char *text=calloc(size,1);if (!text) { return NULL; }
-    Append(text,size,"BG Commands - %s\r\n%lu instructions; %lu bytes; stream offset 0x%06lX\r\n",name ? name : "",(unsigned long)p->count,(unsigned long)p->size,(unsigned long)p->offset);
+    Append(text,size,"BG Commands - %s\r\n%lu instructions; %lu bytes; %s offset 0x%06lX\r\n",name ? name : "",(unsigned long)p->count,(unsigned long)p->size,p->relativeOffsets ? "command stream" : "BG file",(unsigned long)p->offset);
     if (!p->present) { Append(text,size,"%s\r\n",p->singleDisplayList ? "Single-display-list background: no visibility stream." : "This background has no special visibility commands."); }
     if (p->problem[0]) { Append(text,size,"%s\r\n",p->problem); }
     for (DWORD n=0;n<p->count;n++)
@@ -187,4 +209,140 @@ char *BgVisReport(const BgVisProgram *p,const char *name)
         { const unsigned char *cell=p->data+i->offset-p->offset+b;Append(text,size,"  %06lX: %02X %02X %02X %02X  %02X %02X %02X %02X\r\n",(unsigned long)i->offset+b,cell[0],cell[1],cell[2],cell[3],cell[4],cell[5],cell[6],cell[7]); }
     }
     return text;
+}
+
+BgVisArgument BgVisArgumentType(unsigned int opcode)
+{ const Opcode *op=Find(opcode);return op ? op->argument : BG_VIS_NONE; }
+BOOL BgVisCanEdit(const BgVisProgram *p)
+{
+    if (!p || !p->complete || p->singleDisplayList || p->problem[0]) { return FALSE; }
+    for (DWORD n=0;n<p->count;n++)
+    {
+        if (p->instructions[n].warnings&(BG_VIS_UNKNOWN|BG_VIS_LENGTH|BG_VIS_OPERAND|BG_VIS_FLOW)) { return FALSE; }
+    }
+    return TRUE;
+}
+BOOL BgVisReturnCell(const BgVisProgram *p,DWORD row)
+{
+    /* BRANCH advances over the instruction returned by CATCH. Keep that cell
+     * attached to its block so edits cannot accidentally skip a new command. */
+    return row>0 && row<p->count && p->instructions[row-1].opcode==0x52;
+}
+BOOL BgVisDeleteRange(const BgVisProgram *p,DWORD row,DWORD *first,DWORD *last)
+{
+    if (row>=p->count || !p->instructions[row].opcode || BgVisReturnCell(p,row)) { return FALSE; }
+    *first=*last=row;
+    unsigned op=p->instructions[row].opcode;
+    if (op==0x5c || op==0x52)
+    {
+        unsigned open=op==0x5c ? 0x5a : 0x50;
+        while (*first && !(p->instructions[*first].opcode==open && p->instructions[*first].depth==p->instructions[row].depth)) { --*first; }
+        if (p->instructions[*first].opcode!=open) { return FALSE; }
+        op=open;
+    }
+    if (op==0x5a || op==0x50)
+    {
+        unsigned close=op==0x5a ? 0x5c : 0x52;
+        *last=*first+1;
+        while (*last<p->count && !(p->instructions[*last].opcode==close && p->instructions[*last].depth==p->instructions[*first].depth)) { ++*last; }
+        if (*last>=p->count) { return FALSE; }
+        if (op==0x50 && *last+1<p->count && p->instructions[*last+1].opcode) { ++*last; }
+    }
+    return TRUE;
+}
+static void Write32(unsigned char *p,DWORD v)
+{ p[0]=(unsigned char)(v>>24);p[1]=(unsigned char)(v>>16);p[2]=(unsigned char)(v>>8);p[3]=(unsigned char)v; }
+static void WriteCell(unsigned char *p,unsigned type,unsigned length,DWORD arg)
+{ memset(p,0,8);p[0]=(unsigned char)type;p[1]=(unsigned char)length;Write32(p+4,arg); }
+BOOL BgVisEdit(BgDocument *doc,const BgFile *bg,BgVisEditRequest *r)
+{
+    BgVisProgram p={0},check={0};unsigned char added[32]={0},*data=NULL;
+    DWORD at=0,remove=0,add=0,size,first,last;
+    r->why="This background's commands cannot be edited safely.";
+    if (!doc || !doc->rooms || !doc->viscommandsloaded) { return FALSE; }
+    if (!BgVisDecodeDocument(bg,doc,&p,&r->why)) { return FALSE; }
+    if (!BgVisCanEdit(&p)) { r->why="Fix malformed or unsupported command structure before editing this stream.";goto fail; }
+    if ((p.count && r->row>=p.count) || (!p.count && (r->row || r->operation!=BG_VIS_INSERT)))
+    { r->why="The selected command is no longer available.";goto fail; }
+    if (p.count) { at=p.instructions[r->row].offset; }
+    if (r->operation==BG_VIS_DELETE)
+    {
+        if (!BgVisDeleteRange(&p,r->row,&first,&last))
+        { r->why="The final END and branch return cells are managed with their blocks.";goto fail; }
+        at=p.instructions[first].offset;
+        remove=p.instructions[last].offset+p.instructions[last].bytes-at;
+    }
+    else
+    {
+        const Opcode *op=Find(r->opcode);
+        if (!op || !r->opcode || r->opcode==0x5c || r->opcode==0x52)
+        { r->why="END, END IF, and CATCH are managed automatically with their blocks.";goto fail; }
+        if (r->operation==BG_VIS_REPLACE)
+        {
+            unsigned old=p.instructions[r->row].opcode;
+            if (!old || old==0x5a || old==0x5b || old==0x5c || old==0x50 || old==0x52
+                || r->opcode==0x5a || r->opcode==0x5b || r->opcode==0x50 || BgVisReturnCell(&p,r->row))
+            { r->why="Add or delete control blocks as a unit.";goto fail; }
+            remove=p.instructions[r->row].bytes;
+        }
+        else if (r->operation==BG_VIS_INSERT)
+        {
+            if (p.count && r->after && p.instructions[r->row].opcode)
+            { at+=p.instructions[r->row].bytes; }
+            /* Insertion at a branch return cell goes after it, even when
+             * 'before' was chosen: the runtime must continue to skip it. */
+            for (DWORD n=1;n<p.count;n++) if (p.instructions[n].offset==at && BgVisReturnCell(&p,n))
+            {
+                if (!p.instructions[n].opcode)
+                { r->why="This legacy branch returns through END. Insert inside the branch, before CATCH.";goto fail; }
+                at+=p.instructions[n].bytes;break;
+            }
+        }
+        else { r->why="Invalid BG command edit.";goto fail; }
+        if (op->argument==BG_VIS_ONE_ROOM || op->argument==BG_VIS_ROOM_RANGE)
+        {
+            if (!r->arg[0] || r->arg[0]>doc->roomcount
+                || (op->argument==BG_VIS_ROOM_RANGE && (r->arg[1]<r->arg[0] || r->arg[1]>doc->roomcount)))
+            { r->why="Choose an existing room, or an inclusive range with the first room no greater than the last.";goto fail; }
+        }
+        WriteCell(added,r->opcode,op->length,op->argument==BG_VIS_VALUE ? r->arg[0] : 0);
+        add=op->length*8;
+        for (DWORD n=1;n<op->length;n++) { WriteCell(added+n*8,0x65,0,r->arg[n-1]); }
+        if (op->argument==BG_VIS_ONE_PORTAL)
+        {
+            if (doc->portalwarning || r->arg[0]>=doc->portals.portalcount)
+            { r->why="Choose an existing portal.";goto fail; }
+            DWORD geometry=doc->portals.portals[r->arg[0]].geometryoffset;
+            WriteCell(added+8,0x64,0,(geometry&BG_PORTAL_NEW_GEOMETRY) ? geometry : 0x0f000000u|geometry);
+        }
+        if (r->opcode==0x5a)
+        {
+            if (r->withElse) { WriteCell(added+add,0x5b,1,0);add+=8; }
+            WriteCell(added+add,0x5c,1,0);add+=8;
+        }
+        if (r->opcode==0x50)
+        {
+            WriteCell(added+add,0x52,1,0);add+=8;
+            WriteCell(added+add,0x02,1,0);add+=8; /* skipped return cell */
+        }
+    }
+    size=p.size-remove+add+(p.count ? 0 : 8);
+    if (size>BG_VIS_CELL_LIMIT*8) { r->why="The edited command stream is too large.";goto fail; }
+    data=calloc(size,1);if (!data) { r->why="Out of memory editing BG commands.";goto fail; }
+    if (at) { memcpy(data,p.data,at); }
+    if (add) { memcpy(data+at,added,add); }
+    if (p.size>at+remove) { memcpy(data+at+add,p.data+at+remove,p.size-at-remove); }
+    if (!DecodeCells(data,size,0,bg,doc->portalwarning ? NULL : &doc->portals,doc->roomcount,&check,&r->why)) { goto fail; }
+    if (!BgVisCanEdit(&check))
+    { r->why="That position would break the command structure. ELSE must be inside an IF block that has no ELSE.";goto fail; }
+    DWORD rooms=0;
+    for (DWORD n=0;n<check.count;n++) { rooms+=check.instructions[n].opcode==0x20; }
+    if (rooms>152)
+    { r->why="The game has 152 explicit visible-room slots. Use at most 152 ADD ROOM commands in a stream.";goto fail; }
+    r->selected=check.count ? check.count-1 : 0;
+    for (DWORD n=0;n<check.count;n++) if (check.instructions[n].offset>=at) { r->selected=n;break; }
+    free(doc->viscommands);doc->viscommands=data;doc->viscommandssize=size;doc->dirty=TRUE;
+    BgVisFree(&p);BgVisFree(&check);r->why="";return TRUE;
+fail:
+    free(data);BgVisFree(&p);BgVisFree(&check);return FALSE;
 }

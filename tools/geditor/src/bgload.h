@@ -40,6 +40,9 @@ typedef struct BgFile {
     /* Session-only addresses for editor-created polygons. Keep retired slots
      * for undo after saving; reloading makes all saved polygons native IDs. */
     DWORD newportaloffsets[BG_MAX_PORTALS];
+    /* Reusable visibility allocation in the unrelocated live source. Disk
+     * saves/ROM export compact it; history keeps stable polygon addresses. */
+    DWORD visoffset, viscapacity;
 } BgFile;
 
 #define BG_PORTAL_MAX_POINTS 8

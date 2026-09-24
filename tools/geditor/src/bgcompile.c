@@ -1476,6 +1476,61 @@ fail:
     return FALSE;
 }
 
+/* Keep command storage reusable within a live editing session. The file saver
+ * compacts this private allocation on disk without relocating history IDs. */
+static BOOL BgCompileVisCommands(const BgDocument *document, const BgFile *source,
+    BgCompileBuffer *output, const DWORD portals[BG_MAX_PORTALS],
+    DWORD *offset, DWORD *capacity, const char **why)
+{
+    *offset = source->visoffset; *capacity = source->viscapacity;
+    if (!document->viscommandsloaded) { return TRUE; }
+    DWORD size = document->viscommandssize;
+    if (size && (!document->viscommands || (size & 7) || size > 65536u * 8
+        || document->viscommands[size - 8]))
+    { *why = "The BG command stream is incomplete."; return FALSE; }
+    if (!*capacity)
+    {
+        *offset = BgCompileRead32(source->data + 12) & 0xffffffu;
+        if (*offset)
+        {
+            while (*offset <= output->size && *capacity <= output->size - *offset
+                && output->size - *offset - *capacity >= 8)
+            {
+                *capacity += 8;
+                if (!output->data[*offset + *capacity - 8]) { break; }
+            }
+        }
+    }
+    if (*offset > output->size || *capacity > output->size - *offset)
+    { *why = "The source BG command allocation is invalid."; return FALSE; }
+    if (size > *capacity)
+    {
+        DWORD next = 64; while (next < size) { next *= 2; }
+        if (!BgCompileAlign(output, 4)) { return FALSE; }
+        *offset = output->size; *capacity = next;
+        for (DWORD n = 0; n < next; n += 4)
+        { if (!BgCompileWrite32(output, 0)) { return FALSE; } }
+    }
+    if (size)
+    {
+        if (*offset > 0xffffffu) { *why = "BG commands exceed segmented address space."; return FALSE; }
+        memcpy(output->data + *offset, document->viscommands, size);
+        for (DWORD at = 0; at < size; at += 8)
+        {
+            if (output->data[*offset + at] != 0x64) { continue; }
+            DWORD arg = BgCompileRead32(output->data + *offset + at + 4);
+            if (arg & BG_PORTAL_NEW_GEOMETRY)
+            {
+                DWORD slot = arg & ~BG_PORTAL_NEW_GEOMETRY;
+                if (slot >= BG_MAX_PORTALS || !portals[slot])
+                { *why = "A BG command refers to an unsaved portal that was removed. Restore the portal or remove that command."; return FALSE; }
+                BgCompilePatch32(output, *offset + at + 4, BGCOMPILE_SEGMENT | portals[slot]);
+            }
+        }
+    }
+    return BgCompilePatch32(output, 12, size ? BGCOMPILE_SEGMENT | *offset : 0);
+}
+
 BOOL BgDocumentCompile(const BgDocument *document, const BgFile *source,
                        BgFile *out, const char **reasonout)
 {
@@ -1484,6 +1539,7 @@ BOOL BgDocumentCompile(const BgDocument *document, const BgFile *source,
     DWORD prefixsize;
     DWORD roomindex;
     DWORD newoffsets[BG_MAX_PORTALS];
+    DWORD visoffset, viscapacity;
 
     ZeroMemory(out, sizeof(*out));
     ZeroMemory(&output, sizeof(output));
@@ -1494,7 +1550,9 @@ BOOL BgDocumentCompile(const BgDocument *document, const BgFile *source,
     if (!BgCompileValidateSource(document, source, &roomtable,
                                  &prefixsize, reasonout)
         || !BgCompileAppend(&output, source->data, prefixsize)
-        || !BgCompilePortalRooms(document, &output, newoffsets, reasonout))
+        || !BgCompilePortalRooms(document, &output, newoffsets, reasonout)
+        || !BgCompileVisCommands(document, source, &output, newoffsets,
+            &visoffset, &viscapacity, reasonout))
     {
         if (output.failed && (*reasonout)[0] == '\0')
         {
@@ -1645,6 +1703,8 @@ room_failed:
 
     out->data = output.data;
     out->size = output.size;
+    out->visoffset = visoffset;
+    out->viscapacity = viscapacity;
     memcpy(out->newportaloffsets, newoffsets, sizeof(newoffsets));
     lstrcpyn(out->name, source->name, sizeof(out->name));
     {
