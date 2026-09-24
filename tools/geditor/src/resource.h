@@ -239,6 +239,7 @@
 #define IDC_REBASE_REPORT     1165
 #define IDC_REBASE_CHECK      1166
 #define IDC_REBASE_CREATE     1167
+#define IDC_REBASE_KEEP_IMAGES 1168
 
 /* Knife plane fields are contiguous, position followed by normal. */
 #define IDC_KNIFE_PX          1200

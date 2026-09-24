@@ -52,7 +52,7 @@ static void RetiredRebases(const GEditorProject *source,const char *incoming,con
     GEditorProject legacy,updated,loaded,again;ProjectRebaseReport report;
     RomFile rom={0},output={0};DWORD size,offset,span,oldhash;char path[MAX_PATH],base[MAX_PATH],exported[MAX_PATH],bad[MAX_PATH];
     unsigned char *next=Read(incoming,&size),*old=WithRetired(next),*edited;
-    OK(ProjectRebaseCreate(source,incoming,parent,"WithUnused",&legacy,&report,&why));
+    OK(ProjectRebaseCreate(source,incoming,FALSE,parent,"WithUnused",&legacy,&report,&why));
     RomLevel saved=legacy.levels[0];
     Path(base,legacy.dir,"base.z64");Save(base,old,SIZE);oldhash=Hash(base);
     OK(RomLoad(base,&rom,&why) && rom.info.levelcount==10);
@@ -63,9 +63,9 @@ static void RetiredRebases(const GEditorProject *source,const char *incoming,con
         char name[64];OK(RomGetFileByIndex(&rom,i,name,sizeof(name),&offset,&span));
         if (RomExportProjectResourcePath(&legacy,name,path,sizeof(path))==1) { Save(path,rom.data+offset,span); }
     }
-    OK(ProjectRebaseCheck(&legacy,incoming,&report,&why));
+    OK(ProjectRebaseCheck(&legacy,incoming,FALSE,&report,&why));
     OK(report.levelsremoved==9 && report.resourcesremoved==26 && !report.conflicts);
-    OK(ProjectRebaseCreate(&legacy,incoming,parent,"Retired",&updated,&report,&why));
+    OK(ProjectRebaseCreate(&legacy,incoming,FALSE,parent,"Retired",&updated,&report,&why));
     OK(updated.levelcount==1 && updated.levels[0].levelID==saved.levelID && updated.levels[0].music==saved.music);
     OK(ProjectRead(updated.geppath,&loaded) && RomExportRefreshProjectLevelMetadata(&loaded,&why));
     OK(loaded.levelcount==1 && loaded.levels[0].fog.farclip==6000);
@@ -87,35 +87,35 @@ static void RetiredRebases(const GEditorProject *source,const char *incoming,con
     OK(RomFindFile(&output,"Pjungle3_treeZ",&offset,&span,&why));
     OK(!RomFindFile(&output,"bg/bg_sho_all_p.seg",&offset,&span,&why));
     RomFree(&output);
-    OK(ProjectRebaseCreate(&updated,incoming,parent,"RetiredAgain",&again,&report,&why));
+    OK(ProjectRebaseCreate(&updated,incoming,FALSE,parent,"RetiredAgain",&again,&report,&why));
     OK(again.levelcount==1 && !report.levelsremoved && !report.resourcesremoved);
     /* Never discard authored data/settings just because its level is retired. */
     legacy.levels[1].music=12;
-    OK(!ProjectRebaseCheck(&legacy,incoming,&report,&why) && report.conflicts && strstr(report.details,"level settings"));
+    OK(!ProjectRebaseCheck(&legacy,incoming,FALSE,&report,&why) && report.conflicts && strstr(report.details,"level settings"));
     Reject(&legacy,incoming,parent,"RetiredSettingsConflict");legacy.levels[1].music=-1;
     OK(RomExportProjectResourcePath(&legacy,"bg/bg_sho_all_p.seg",path,sizeof(path))==1);
     edited=Read(path,&size);edited[128]^=1;Save(path,edited,size);
-    OK(!ProjectRebaseCheck(&legacy,incoming,&report,&why) && strstr(report.details,"bg/bg_sho_all_p.seg"));
+    OK(!ProjectRebaseCheck(&legacy,incoming,FALSE,&report,&why) && strstr(report.details,"bg/bg_sho_all_p.seg"));
     Reject(&legacy,incoming,parent,"RetiredGeometryConflict");edited[128]^=1;Save(path,edited,size);free(edited);
     Path(path,legacy.dir,"setup/UsetupshoZ.set");Save(path,"custom",6);
-    OK(!ProjectRebaseCheck(&legacy,incoming,&report,&why) && strstr(report.details,"no base to compare"));
+    OK(!ProjectRebaseCheck(&legacy,incoming,FALSE,&report,&why) && strstr(report.details,"no base to compare"));
     Reject(&legacy,incoming,parent,"RetiredOrphanConflict");OK(DeleteFile(path));
     OK(RomFindFile(&rom,"LshoE",&offset,&span,&why));old[offset]=1;Save(base,old,SIZE);
-    OK(!ProjectRebaseCheck(&legacy,incoming,&report,&why) && strstr(report.details,"LshoE"));
+    OK(!ProjectRebaseCheck(&legacy,incoming,FALSE,&report,&why) && strstr(report.details,"LshoE"));
     old[offset]=0;Save(base,old,SIZE);
     Path(bad,parent,"retired-invalid.z64");
     Put32(next+TABLE+SHIFT+2*12+4,Get32(next+TABLE+SHIFT+12+4));Save(bad,next,SIZE);
-    OK(!ProjectRebaseCheck(&legacy,bad,&report,&why) && strstr(why,"Duplicate ROM resource"));
+    OK(!ProjectRebaseCheck(&legacy,bad,FALSE,&report,&why) && strstr(why,"Duplicate ROM resource"));
     Reject(&legacy,bad,parent,"DuplicateResource");
     free(next);next=Read(incoming,&size);Put32(next+TABLE+SHIFT+12,17);Save(bad,next,SIZE);
-    OK(!ProjectRebaseCheck(&legacy,bad,&report,&why) && strstr(why,"invalid index"));
+    OK(!ProjectRebaseCheck(&legacy,bad,FALSE,&report,&why) && strstr(why,"invalid index"));
     Reject(&legacy,bad,parent,"InvalidResourceIndex");
     free(next);next=Read(incoming,&size);
     memmove(next+TABLE+SHIFT+4*12,next+TABLE+SHIFT+5*12,12);Put32(next+TABLE+SHIFT+4*12,4);
     memset(next+TABLE+SHIFT+5*12,0,12);Save(bad,next,SIZE);
-    OK(!ProjectRebaseCheck(&legacy,bad,&report,&why) && strstr(why,"Pjungle3_treeZ"));
+    OK(!ProjectRebaseCheck(&legacy,bad,FALSE,&report,&why) && strstr(why,"Pjungle3_treeZ"));
     Reject(&legacy,bad,parent,"MissingRetainedModel");
-    OK(ProjectRebaseCheck(&legacy,incoming,&report,&why));
+    OK(ProjectRebaseCheck(&legacy,incoming,FALSE,&report,&why));
     OK(Hash(base)==oldhash);RomFree(&rom);free(old);free(next);
     puts("PASS: nine retired stages, 26 removed resources, shifted file IDs, shared aliases, model/image/environment edits, reopen/export/repeat rebase; authored retired data and malformed catalogs block without modifying the source.");
 }

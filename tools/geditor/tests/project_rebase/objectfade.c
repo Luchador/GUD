@@ -8,7 +8,7 @@ static void ObjectFadeRebases(const GEditorProject *source,const char *incoming,
     DWORD size,index,duplicate,offset,span;
     unsigned char *data=Read(incoming,&size);
     BOOL changed;
-    OK(ProjectRebaseCreate(source,incoming,parent,"FadeAuthoring",&authored,&report,&why));
+    OK(ProjectRebaseCreate(source,incoming,FALSE,parent,"FadeAuthoring",&authored,&report,&why));
     OK(SetupLoadProjectFile(authored.dir,"Ump_setuptestZ",&setup,&why));
     OK(SetupFileAddModel(&setup,FALSE,0,1,(double[]){50,0,50},&index,&why));
     SetupObjectPropertyEdit edit={.objectindex=index,.sourceoffset=setup.objects[index].sourceoffset,
@@ -28,7 +28,7 @@ static void ObjectFadeRebases(const GEditorProject *source,const char *incoming,
     Entry(data,SHIFT,32,"OFAD",0,0,OBJECT_FADE_VERSION);
     Put32(data+MANIFEST+SHIFT+24+32*16+4,0);
     Path(path,parent,"object-fade.z64"); Save(path,data,size); free(data);
-    OK(ProjectRebaseCreate(&authored,path,parent,"FadeSupported",&rebased,&report,&why));
+    OK(ProjectRebaseCreate(&authored,path,FALSE,parent,"FadeSupported",&rebased,&report,&why));
     OK(SetupLoadProjectFile(rebased.dir,"Ump_setuptestZ",&loaded,&why));
     for(DWORD i=0;i<loaded.objectcount;i++)
         OK(SetupFileGetObjectProperties(&loaded,i,&view,&why) && view.customfade && view.fadestart==20 && view.fadeend==30);
@@ -44,7 +44,7 @@ static void ObjectFadeRebases(const GEditorProject *source,const char *incoming,
         OK(Get32(record+OBJECT_FADE_DISTANCES_OFFSET)==((2000u<<16)|3000u));
     }
     RomFree(&rom);
-    OK(ProjectRebaseCreate(&rebased,path,parent,"FadeAgain",&again,&report,&why));
-    OK(!ProjectRebaseCheck(&rebased,incoming,&report,&why) && strstr(why,"object fade"));
+    OK(ProjectRebaseCreate(&rebased,path,FALSE,parent,"FadeAgain",&again,&report,&why));
+    OK(!ProjectRebaseCheck(&rebased,incoming,FALSE,&report,&why) && strstr(why,"object fade"));
     puts("PASS: fade duplication, compaction, save/reopen/export, 33-entry ROM, runtime upgrade, repeat rebase and unsupported downgrade rejection.");
 }

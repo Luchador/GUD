@@ -192,7 +192,7 @@ BEGIN
     PUSHBUTTON      "Cancel", IDCANCEL, 180, 102, 50, 16
 END
 
-IDD_REBASE_PROJECT DIALOGEX 0, 0, 380, 304
+IDD_REBASE_PROJECT DIALOGEX 0, 0, 380, 340
 STYLE DS_MODALFRAME | DS_CENTER | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Rebase Project"
 FONT 8, "MS Shell Dlg"
@@ -206,11 +206,13 @@ BEGIN
     LTEXT "Destination directory:", -1, 10, 101, 160, 10
     EDITTEXT IDC_REBASE_PARENT, 10, 113, 300, 14, ES_AUTOHSCROLL
     PUSHBUTTON "Browse...", IDC_REBASE_BROWSE_DIR, 316, 112, 54, 16
-    EDITTEXT IDC_REBASE_REPORT, 10, 138, 360, 110, ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY | WS_VSCROLL
-    LTEXT "Save and Check saves current edits. Create Copy opens the new project.", -1, 10, 254, 360, 12
-    DEFPUSHBUTTON "Save and Check", IDC_REBASE_CHECK, 136, 278, 88, 18
-    PUSHBUTTON "Create Copy", IDC_REBASE_CREATE, 230, 278, 76, 18
-    PUSHBUTTON "Cancel", IDCANCEL, 312, 278, 58, 18
+    CONTROL "Keep existing base images", IDC_REBASE_KEEP_IMAGES, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 10, 136, 200, 12
+    LTEXT "Use the project's base textures and image settings when the new ROM differs.", -1, 22, 151, 348, 18
+    EDITTEXT IDC_REBASE_REPORT, 10, 174, 360, 110, ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY | WS_VSCROLL
+    LTEXT "Save and Check saves current edits. Create Copy opens the new project.", -1, 10, 290, 360, 12
+    DEFPUSHBUTTON "Save and Check", IDC_REBASE_CHECK, 136, 314, 88, 18
+    PUSHBUTTON "Create Copy", IDC_REBASE_CREATE, 230, 314, 76, 18
+    PUSHBUTTON "Cancel", IDCANCEL, 312, 314, 58, 18
 END
 
 /* Closing this prompt or pressing Escape cancels exiting. */

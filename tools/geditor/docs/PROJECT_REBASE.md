@@ -5,6 +5,8 @@ GUD build, such as one containing character or rendering optimizations.
 
 1. Open the existing project.
 2. Choose the new GUD ROM, a new project name, and its destination directory.
+   If the project was created from an exported ROM containing replaced stock
+   textures, enable **Keep existing base images** to carry them forward.
 3. Select **Save and Check**. This saves the current project's edits and checks
    the retained `base.z64`, the incoming ROM, and the saved assets.
 4. Review the result, then select **Create Copy**. GEditor creates and opens the
@@ -24,8 +26,15 @@ missing original BMP source does not block rebasing if the project's saved
 image and native record are intact; a later Reimport still needs that source.
 External files referenced by absolute paths are not relocated or copied.
 
-Different base image counts are supported when the shared image IDs contain
-identical native textures and settings:
+By default, shared base image IDs must contain identical native textures and
+settings. **Keep existing base images** explicitly chooses the project's old
+base for every differing shared image ID. This retains replacements baked into
+an exported ROM, including dimensions, pixel format, alpha, mipmaps, and native
+surface/detail settings. Saved project image edits still apply on top. The
+option starts unchecked; changing it requires another **Save and Check**.
+The report lists the IDs being kept before **Create Copy** is enabled.
+
+Different base image counts are also supported:
 
 - If the incoming ROM has fewer images, the old base's extra images are carried
   into the new project's base at their existing IDs. This includes a lamp
@@ -94,7 +103,9 @@ rejected. Other changed resource types without a merge
 schema are rejected too. It does not remap model IDs or texture IDs, migrate
 older project/ROM formats, or merge conflicting binary geometry automatically.
 
-Inserting/reordering images or changing a shared base image is still rejected.
+Changing a shared base image is rejected unless **Keep existing base images**
+is selected. That option keeps the old ID-to-texture mapping; it does not migrate
+an incoming build that inserts/reorders texture IDs or rewrites their references.
 Conflicting imported IDs require separate migration; the rebase does not guess
 new IDs or rewrite arbitrary texture references. Native model fingerprints are
 unchanged, and corrupt or missing image metadata still blocks the operation.
@@ -131,7 +142,8 @@ repository's Jungle tree model, actual image/model export code, and a POSIX
 shim for Windows file operations. It covers relocated tables, preserved edits,
 three-way merging, compatibility conflicts, missing/corrupt assets, repeated
 rebasing, larger/smaller base image banks, imported-ID collisions, retained
-texture flags, preview generation, removal of the nine unused stages and their
+texture flags, the explicit choice to keep differing base images (formats,
+dimensions, data and settings), preview generation, removal of the nine unused stages and their
 26 file records, shifted file indices, retained shared assets, removal conflicts,
 and copy/write/publication failures. It does not exercise the Windows
 dialog or run the exported fixture on an N64.

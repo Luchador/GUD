@@ -154,8 +154,8 @@ static void CatalogRebase(const GEditorProject *source,const char *incoming,cons
     strcpy((char *)data+CMAP+SHIFT+0x4a0,"bg/bgx.seg");
     Entry(data,SHIFT,3,"STGT",LEVELS,LEVELS+4*44,4);
     Path(expanded,parent,"expanded.z64");Save(expanded,data,size);
-    OK(ProjectRebaseCheck(source,expanded,&report,&why));
-    OK(ProjectRebaseCreate(source,expanded,parent,"Expanded",&updated,&report,&why));
+    OK(ProjectRebaseCheck(source,expanded,FALSE,&report,&why));
+    OK(ProjectRebaseCreate(source,expanded,FALSE,parent,"Expanded",&updated,&report,&why));
     OK(source->levelcount==1&&updated.levelcount==3);
     OK(updated.levels[0].music==source->levels[0].music);
     OK(updated.levels[1].levelID==421&&!strcmp(updated.levels[1].setupname,"Ump_setuptestZ"));
@@ -173,11 +173,11 @@ static void CatalogRebase(const GEditorProject *source,const char *incoming,cons
     strcpy(setup.name,"Ump_setuptestZ");
     OK(SetupFileGetIntroEquipment(&setup,&entries,&count,&why)&&count==1&&entries[0].value[1]==100);
     free(entries);SetupFileFree(&setup);RomFree(&rom);
-    OK(ProjectRebaseCreate(&updated,expanded,parent,"ExpandedAgain",&again,&report,&why));
+    OK(ProjectRebaseCreate(&updated,expanded,FALSE,parent,"ExpandedAgain",&again,&report,&why));
     OK(again.levelcount==3);Same(updated.dir,again.dir,"setup/Ump_setuptestZ.set");
     /* Removing an old ID or introducing duplicates must still be rejected. */
-    Put32(solo,22);Save(expanded,data,size);OK(!ProjectRebaseCheck(source,expanded,&report,&why));
-    Put32(solo,21);Put32(mp,21);Save(expanded,data,size);OK(!ProjectRebaseCheck(source,expanded,&report,&why));
+    Put32(solo,22);Save(expanded,data,size);OK(!ProjectRebaseCheck(source,expanded,FALSE,&report,&why));
+    Put32(solo,21);Put32(mp,21);Save(expanded,data,size);OK(!ProjectRebaseCheck(source,expanded,FALSE,&report,&why));
     free(data);
     puts("PASS: additive MP/Title rebase, reopen, separate MP setup edits, playable export, repeat rebase and removed/duplicate-ID rejection.");
 }
@@ -185,7 +185,7 @@ static void Reject(const GEditorProject *project,const char *rom,const char *par
 {
     GEditorProject output;ProjectRebaseReport report;char dest[MAX_PATH],base[MAX_PATH];DWORD hash;
     Path(base,project->dir,"base.z64");hash=Hash(base);
-    OK(!ProjectRebaseCreate(project,rom,parent,name,&output,&report,&why));OK(why[0] && !output.dir[0]);
+    OK(!ProjectRebaseCreate(project,rom,FALSE,parent,name,&output,&report,&why));OK(why[0] && !output.dir[0]);
     Path(dest,parent,name);OK(GetFileAttributes(dest)==INVALID_FILE_ATTRIBUTES);OK(Hash(base)==hash);NoTemps(parent);
 }
 static void ImageRebases(const GEditorProject *source,const char *incoming,const char *parent)
@@ -208,9 +208,9 @@ static void ImageRebases(const GEditorProject *source,const char *incoming,const
     }
     Path(large,parent,"larger-images.z64");Save(large,rom.data,rom.size);RomFree(&rom);
     Path(saved,source->dir,"images/native/0001.gtex");sourcehash=Hash(saved);romhash=Hash(large);
-    OK(ProjectRebaseCheck(source,large,&report,&why) && report.imagesadded==4 && !report.imagesretained);
+    OK(ProjectRebaseCheck(source,large,FALSE,&report,&why) && report.imagesadded==4 && !report.imagesretained);
     OK(Hash(saved)==sourcehash && Hash(large)==romhash);NoTemps(parent);
-    OK(ProjectRebaseCreate(source,large,parent,"MoreImages",&grown,&report,&why));
+    OK(ProjectRebaseCreate(source,large,FALSE,parent,"MoreImages",&grown,&report,&why));
     Path(path,grown.dir,"base.z64");OK(Hash(path)==romhash);
     OK(RomLoad(path,&rom,&why));OK(TexRomReadBank(&rom,&bank,&why) && bank.count==5);
     /* Only the eight fingerprint bytes change, including GTI3 source paths,
@@ -242,8 +242,8 @@ static void ImageRebases(const GEditorProject *source,const char *incoming,const
     OK(RomLoad(exported,&before,&why));OK(TexRomReadBank(&before,&a,&why) && a.count==6);
     /* This is the lamp case: rebase onto a clean build lacking baked images.
      * The retained suffix must not become an override that loses detail flags. */
-    OK(ProjectRebaseCheck(&grown,incoming,&report,&why) && report.imagesretained==4 && !report.imagesadded);
-    OK(ProjectRebaseCreate(&grown,incoming,parent,"FewerImages",&shrunk,&report,&why));
+    OK(ProjectRebaseCheck(&grown,incoming,FALSE,&report,&why) && report.imagesretained==4 && !report.imagesadded);
+    OK(ProjectRebaseCreate(&grown,incoming,FALSE,parent,"FewerImages",&shrunk,&report,&why));
     Path(path,shrunk.dir,"base.z64");OK(RomLoad(path,&after,&why));OK(TexRomReadBank(&after,&b,&why));
     OK(b.count==bank.count && b.hash==bank.hash && b.imagebytes==bank.imagebytes);
     OK(!memcmp(after.data+b.images,rom.data+bank.images,bank.imagebytes));
@@ -257,13 +257,13 @@ static void ImageRebases(const GEditorProject *source,const char *incoming,const
     OK(!memcmp(before.data+a.images,after.data+b.images,a.imagebytes));
     OK(!memcmp(before.data+a.table,after.data+b.table,(a.count+1)*8));RomFree(&before);RomFree(&after);
     OK(ImageEditsNextId(shrunk.dir,&id,&why) && id==6);
-    OK(ProjectRebaseCreate(&shrunk,incoming,parent,"RepeatImages",&again,&report,&why));
+    OK(ProjectRebaseCreate(&shrunk,incoming,FALSE,parent,"RepeatImages",&again,&report,&why));
     /* Edited BMPs, settings and missing metadata must not be silently absorbed
      * by incoming stock IDs, even if their older native payload would match. */
     Path(path,source->dir,"images/0001.bmp");data=Read(path,&size);
     for(i=0;i<64;i++) { preview[i]=(TexPixel){255,0,255,255}; }
     OK(TexWriteBmp(path,preview,8,8));
-    OK(!ProjectRebaseCheck(source,large,&report,&why) && strstr(why,"Image 0001"));
+    OK(!ProjectRebaseCheck(source,large,FALSE,&report,&why) && strstr(why,"Image 0001"));
     Reject(source,large,parent,"BmpCollision");Save(path,data,size);free(data);
     Path(path,source->dir,"images/native/0001.gtex");data=Read(path,&size);data[28]^=1;Save(path,data,size);
     Reject(source,large,parent,"SettingsCollision");data[28]^=1;Save(path,data,size);free(data);
@@ -277,6 +277,7 @@ static void ImageRebases(const GEditorProject *source,const char *incoming,const
 }
 
 #include "retired.c"
+#include "image_bases.c"
 #include "memory.c"
 #include "occluders.c"
 #include "objectfade.c"
@@ -333,8 +334,8 @@ int main(int argc,char **argv)
       OK(ModelEditsSetMaterial(project.dir,"PpendantZ",revision,1,1,&why)); }
     OK(ImageEditsSave(project.dir,&why));
     OK(NewPropsSave(project.dir,&why));
-    OK(ProjectRebaseCheck(&project,nextpath,&report,&why));OK(report.kept==1 && report.updated==1 && !report.conflicts);
-    OK(ProjectRebaseCreate(&project,nextpath,argv[1],"Updated",&rebased,&report,&why));NoTemps(argv[1]);
+    OK(ProjectRebaseCheck(&project,nextpath,FALSE,&report,&why));OK(report.kept==1 && report.updated==1 && !report.conflicts);
+    OK(ProjectRebaseCreate(&project,nextpath,FALSE,argv[1],"Updated",&rebased,&report,&why));NoTemps(argv[1]);
     OK(project.levels[0].clouds.enabled && project.levels[0].clouds.height==5000);
     OK(rebased.levels[0].clouds.enabled && rebased.levels[0].clouds.height==7500);
     OK(ProjectRead(rebased.geppath,&loaded));OK(!strcmp(loaded.name,"Updated"));
@@ -370,17 +371,18 @@ int main(int argc,char **argv)
         OK(NewPropsCheckRebase(rebased.dir,&output,&why));
     }
     RomFree(&output);
-    OK(ProjectRebaseCreate(&rebased,nextpath,argv[1],"Again",&again,&report,&why));
+    OK(ProjectRebaseCreate(&rebased,nextpath,FALSE,argv[1],"Again",&again,&report,&why));
     OK(again.levels[0].levelscale==.375f&&again.levels[0].renderScale==.875f&&again.levels[0].chrLODDistance==1.375f);
     puts("PASS: project scale edits, relocated ROM tables/code, three-way asset/settings merge, native model edits, imported/deleted images, source settings, sidecars, reopen, ROM export and repeat rebase.");
     ImageRebases(&project,nextpath,argv[1]);
+    ExistingImageBases(&project,nextpath,argv[1]);
     Float(next+CMAP+SHIFT+0x80c,5000);Save(nextpath,next,SIZE);
-    OK(!ProjectRebaseCheck(&project,nextpath,&report,&why)&&report.conflicts&&strstr(report.details,"farclip"));
+    OK(!ProjectRebaseCheck(&project,nextpath,FALSE,&report,&why)&&report.conflicts&&strstr(report.details,"farclip"));
     Reject(&project,nextpath,argv[1],"EnvironmentConflict");Float(next+CMAP+SHIFT+0x80c,1000);Save(nextpath,next,SIZE);
     puts("PASS: saved environment overrides survive reopen, relocated ROM export and repeated rebases; untouched sky defaults update and conflicting field changes block publication.");
     /* Conflicts and format changes must fail without touching the source. */
     next[OBJECTS+SHIFT+64+128]=2;Save(nextpath,next,SIZE);
-    OK(!ProjectRebaseCheck(&project,nextpath,&report,&why) && report.conflicts==1 && strstr(report.details,"bg/bg_test.seg"));
+    OK(!ProjectRebaseCheck(&project,nextpath,FALSE,&report,&why) && report.conflicts==1 && strstr(report.details,"bg/bg_test.seg"));
     Reject(&project,nextpath,argv[1],"Conflict");next[OBJECTS+SHIFT+64+128]=0;
     next[LEVELS+SHIFT+37]=13;Save(nextpath,next,SIZE);Reject(&project,nextpath,argv[1],"MusicConflict");next[LEVELS+SHIFT+37]=5;
     next[MODEL+SHIFT+modelsize-1]^=1;Save(nextpath,next,SIZE);Reject(&project,nextpath,argv[1],"ModelConflict");next[MODEL+SHIFT+modelsize-1]^=1;
@@ -390,7 +392,7 @@ int main(int argc,char **argv)
     memcpy(next+IMAGES+SHIFT+bank.imagebytes,next+IMAGES+SHIFT,bank.imagebytes);
     Put32(next+CONFIG+SHIFT+4,2);Put32(next+TEXTURES+SHIFT+8,0x12000000|bank.imagebytes);
     Put32(next+TEXTURES+SHIFT+16,0xffff);Put32(next+MANIFEST+SHIFT+24+8,IMAGES+SHIFT+bank.imagebytes*2);
-    Save(nextpath,next,SIZE);OK(!ProjectRebaseCheck(&project,nextpath,&report,&why) && strstr(why,"Image 0001"));
+    Save(nextpath,next,SIZE);OK(!ProjectRebaseCheck(&project,nextpath,FALSE,&report,&why) && strstr(why,"Image 0001"));
     Reject(&project,nextpath,argv[1],"ImageIds");
     memset(next+IMAGES+SHIFT+bank.imagebytes,0,bank.imagebytes);Put32(next+CONFIG+SHIFT+4,1);
     Put32(next+TEXTURES+SHIFT+8,0xffff);Put32(next+TEXTURES+SHIFT+16,0);
@@ -398,13 +400,13 @@ int main(int argc,char **argv)
     next[CMAP+SHIFT+0xc108]^=1;Save(nextpath,next,SIZE);Reject(&project,nextpath,argv[1],"CatalogConflict");next[CMAP+SHIFT+0xc108]^=1;
     Float(next+LEVELS+SHIFT+24,2);Save(nextpath,next,SIZE);Reject(&project,nextpath,argv[1],"ScaleConflict");Float(next+LEVELS+SHIFT+24,1);
     Float(next+LEVELS+SHIFT+32,2);Save(nextpath,next,SIZE);
-    OK(!ProjectRebaseCheck(&project,nextpath,&report,&why)&&strstr(report.details,"chrLODDistance"));
+    OK(!ProjectRebaseCheck(&project,nextpath,FALSE,&report,&why)&&strstr(report.details,"chrLODDistance"));
     Reject(&project,nextpath,argv[1],"LodConflict");
     Float(next+LEVELS+SHIFT+32,1.375f);Save(nextpath,next,SIZE);
-    OK(ProjectRebaseCheck(&project,nextpath,&report,&why)); // matching edits merge
+    OK(ProjectRebaseCheck(&project,nextpath,FALSE,&report,&why)); // matching edits merge
     project.levels[0].chrLODDistance=1;
     Path(path,argv[1],"LodDefaults");
-    { GEditorProject adopted;OK(ProjectRebaseCreate(&project,nextpath,argv[1],"LodDefaults",&adopted,&report,&why));
+    { GEditorProject adopted;OK(ProjectRebaseCreate(&project,nextpath,FALSE,argv[1],"LodDefaults",&adopted,&report,&why));
       OK(adopted.levels[0].chrLODDistance==1.375f); }
     project.levels[0].chrLODDistance=1.375f;
     Float(next+LEVELS+SHIFT+32,1);
@@ -416,15 +418,15 @@ int main(int argc,char **argv)
     { unsigned char *fresh=Fixture(SHIFT,model,modelsize);memcpy(next+TABLE+SHIFT+16,fresh+TABLE+SHIFT+16,4);free(fresh); }
     Save(nextpath,next,SIZE);
     /* The same BG change in both inputs is already resolved. */
-    next[OBJECTS+SHIFT+64+128]=1;Save(nextpath,next,SIZE);OK(ProjectRebaseCheck(&project,nextpath,&report,&why));
+    next[OBJECTS+SHIFT+64+128]=1;Save(nextpath,next,SIZE);OK(ProjectRebaseCheck(&project,nextpath,FALSE,&report,&why));
     next[OBJECTS+SHIFT+64+128]=0;Save(nextpath,next,SIZE);
     Path(path,project.dir,"images/0001.bmp");Path(backup,project.dir,"images/0001.hold");OK(MoveFileEx(path,backup,0));
     Reject(&project,nextpath,argv[1],"MissingBmp");OK(MoveFileEx(backup,path,0));
     Path(path,project.dir,"models/native/Pjungle3_treeZ.gmodel");edited=Read(path,&size);edited[4]^=1;Save(path,edited,size);
     Reject(&project,nextpath,argv[1],"Fingerprint");edited[4]^=1;Save(path,edited,size);free(edited);
-    OK(ProjectRebaseCheck(&project,nextpath,&report,&why));
+    OK(ProjectRebaseCheck(&project,nextpath,FALSE,&report,&why));
     Path(path,project.dir,"base.z64");Path(backup,project.dir,"base.hold");OK(MoveFileEx(path,backup,0));
-    OK(!ProjectRebaseCheck(&project,nextpath,&report,&why));OK(MoveFileEx(backup,path,0));
+    OK(!ProjectRebaseCheck(&project,nextpath,FALSE,&report,&why));OK(MoveFileEx(backup,path,0));
     puts("PASS: conflicts, changed native assets/catalogs/scales/image IDs, malformed names, obsolete ROM format, identical edits, missing base/image and corrupt model fingerprint.");
     /* Fail after staging has started; neither partial output nor temp leftovers. */
     test_fail_copy=2;Reject(&project,nextpath,argv[1],"CopyFail");
@@ -436,7 +438,7 @@ int main(int argc,char **argv)
     OK(!ProjectRebaseDestination(&project,argv[1],"old.z64",destination,&why));
     OK(!ProjectRebaseDestination(&project,argv[1],"../bad",destination,&why));
     OK(!ProjectRebaseDestination(&project,argv[1],"CON",destination,&why));
-    test_publish_race=1;OK(!ProjectRebaseCreate(&project,nextpath,argv[1],"Race",&loaded,&report,&why));
+    test_publish_race=1;OK(!ProjectRebaseCreate(&project,nextpath,FALSE,argv[1],"Race",&loaded,&report,&why));
     Path(path,argv[1],"Race");OK(GetFileAttributes(path)&FILE_ATTRIBUTE_DIRECTORY);OK(RemoveDirectory(path));NoTemps(argv[1]);
     /* POSIX symlinks stand in for Windows reparse points in this file shim. */
     { char source[MAX_PATH],alias[MAX_PATH];Path(source,argv[1],"Original");Path(alias,argv[1],"Alias");OK(!symlink(source,alias));

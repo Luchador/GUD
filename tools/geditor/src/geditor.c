@@ -1867,7 +1867,9 @@ static INT_PTR CALLBACK GEditorRebaseProjectProc(HWND hdlg, UINT msg,
         case IDC_REBASE_ROM:
         case IDC_REBASE_PARENT:
         case IDC_REBASE_NAME:
-            if (HIWORD(wparam)==EN_CHANGE && info)
+        case IDC_REBASE_KEEP_IMAGES:
+            if (info && ((LOWORD(wparam)==IDC_REBASE_KEEP_IMAGES && HIWORD(wparam)==BN_CLICKED)
+                || HIWORD(wparam)==EN_CHANGE))
             {
                 info->checked=FALSE;
                 EnableWindow(GetDlgItem(hdlg,IDC_REBASE_CREATE),FALSE);
@@ -1895,6 +1897,7 @@ static INT_PTR CALLBACK GEditorRebaseProjectProc(HWND hdlg, UINT msg,
             ProjectRebaseReport report={0};
             const char *why="";
             BOOL create=LOWORD(wparam)==IDC_REBASE_CREATE, ok;
+            BOOL keepBaseImages=IsDlgButtonChecked(hdlg,IDC_REBASE_KEEP_IMAGES)==BST_CHECKED;
             HCURSOR previous;
             if (!info || (create && !info->checked)) { return TRUE; }
             GetDlgItemText(hdlg,IDC_REBASE_ROM,rom,sizeof(rom));
@@ -1909,8 +1912,8 @@ static INT_PTR CALLBACK GEditorRebaseProjectProc(HWND hdlg, UINT msg,
             SetDlgItemText(hdlg,IDC_REBASE_REPORT,create ? "Creating and validating the new project..." : "Checking ROM compatibility and saved edits...");
             UpdateWindow(hdlg);
             previous=SetCursor(LoadCursor(NULL,IDC_WAIT));
-            ok=create ? ProjectRebaseCreate(&g_Project,rom,parent,name,&info->output,&report,&why)
-                      : ProjectRebaseCheck(&g_Project,rom,&report,&why);
+            ok=create ? ProjectRebaseCreate(&g_Project,rom,keepBaseImages,parent,name,&info->output,&report,&why)
+                      : ProjectRebaseCheck(&g_Project,rom,keepBaseImages,&report,&why);
             SetCursor(previous);
             if (!ok)
             {
@@ -1925,10 +1928,12 @@ static INT_PTR CALLBACK GEditorRebaseProjectProc(HWND hdlg, UINT msg,
                 "%lu level resources updated from the new ROM.\r\n"
                 "%lu unused levels and %lu unused ROM resources removed.\r\n"
                 "%lu base images carried forward; %lu incoming image slots added.\r\n"
-                "Model edits and imported images will be retained.\r\n\r\nDestination:\r\n%s",
+                "%lu differing base images kept from the existing project.\r\n"
+                "Model edits and imported images will be retained.\r\n\r\n%s\r\nDestination:\r\n%s",
                 (unsigned long)report.checked,(unsigned long)report.kept,(unsigned long)report.updated,
                 (unsigned long)report.levelsremoved,(unsigned long)report.resourcesremoved,
-                (unsigned long)report.imagesretained,(unsigned long)report.imagesadded,destination);
+                (unsigned long)report.imagesretained,(unsigned long)report.imagesadded,
+                (unsigned long)report.imagespreserved,report.details,destination);
             SetDlgItemText(hdlg,IDC_REBASE_REPORT,message);
             info->checked=TRUE;
             EnableWindow(GetDlgItem(hdlg,IDC_REBASE_CREATE),TRUE);
