@@ -1996,6 +1996,17 @@ DWORD BgDocumentEnvironmentNormal(const BgDocumentRoom *room, const BgDocumentFa
     return BgRenderTriangleNormal(p[0], p[1], p[2]);
 }
 
+static int BgDocumentComparePreviewFaces(const void *left, const void *right)
+{
+    const BgDocumentFace *a = *(const BgDocumentFace *const *)left;
+    const BgDocumentFace *b = *(const BgDocumentFace *const *)right;
+    if (a->layer != b->layer) { return a->layer < b->layer ? -1 : 1; }
+    if (a->drawgroup != b->drawgroup) { return a->drawgroup < b->drawgroup ? -1 : 1; }
+    /* Both pointers belong to the same room array. Keep its original order
+     * inside a group, including overlapping decals and translucent faces. */
+    return a < b ? -1 : a != b;
+}
+
 BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
                                BgDocumentRenderMesh *out,
                                const char **reasonout)
@@ -2045,6 +2056,7 @@ BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
     {
         const BgDocumentRoom *room = &document->rooms[roomindex];
         BgRenderState *groupstates[2];
+        const BgDocumentFace **order = NULL;
         DWORD faceindex;
         groupstates[0] = BgDocumentGroupRenderStates(&room->layers[0], FALSE);
         groupstates[1] = BgDocumentGroupRenderStates(&room->layers[1], TRUE);
@@ -2056,9 +2068,27 @@ BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
             return FALSE;
         }
 
+        /* Edits append triangles to the document array, but compilation emits
+         * them in layer/draw-group order. In particular, an appended wall must
+         * still write depth before a later decal group. Sort only this preview
+         * view: IDs, document order and history remain unchanged. */
+        if (room->facecount)
+        {
+            order = malloc((size_t)room->facecount * sizeof(*order));
+            if (!order)
+            {
+                free(groupstates[0]); free(groupstates[1]);
+                BgDocumentRenderMeshFree(out);
+                *reasonout = "out of memory ordering the bg preview.";
+                return FALSE;
+            }
+            for (faceindex = 0; faceindex < room->facecount; faceindex++)
+            { order[faceindex] = &room->faces[faceindex]; }
+            qsort(order, room->facecount, sizeof(*order), BgDocumentComparePreviewFaces);
+        }
         for (faceindex = 0; faceindex < room->facecount; faceindex++)
         {
-            const BgDocumentFace *face = &room->faces[faceindex];
+            const BgDocumentFace *face = order[faceindex];
             unsigned short tag = face->textureid;
             BgRenderAlpha alpha;
             int corner;
@@ -2074,6 +2104,7 @@ BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
 
             if (face->layer > 1 || face->drawgroup >= room->layers[face->layer].groupcount)
             {
+                free(order);
                 free(groupstates[0]); free(groupstates[1]);
                 BgDocumentRenderMeshFree(out);
                 *reasonout = "a bg face has an invalid draw group.";
@@ -2132,6 +2163,7 @@ BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
 
             outputface++;
         }
+        free(order);
         free(groupstates[0]); free(groupstates[1]);
     }
 
