@@ -36,6 +36,8 @@ typedef struct SetupPadRef {
 } SetupPadRef;
 #define SETUP_PAD_HALF_SIZE 5.0f /* ordinary-pad preview half extent, world units */
 #define SETUP_PAD_INDEX_NONE ((DWORD)-1)
+DWORD SetupObjectWordCount(unsigned char type);
+BOOL SetupTypeCreatesObject(unsigned char type);
 
 /* The placement fields shared by setup records which create a
    non-character object. Runtime pointers later overwrite much of the
@@ -151,6 +153,8 @@ typedef struct SetupFile {
     DWORD size;
     unsigned char *actionmeta; /* Project-only Action Block names and notes. */
     DWORD actionmetasize;
+    unsigned char *briefmeta; /* Briefing text/references and objective definitions. */
+    DWORD briefmetasize;
     char name[64];
     SetupPad *pads;
     DWORD padcount;

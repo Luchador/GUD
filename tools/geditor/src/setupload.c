@@ -128,7 +128,7 @@ static void SetupCleanNativePadDirections(unsigned char *data)
 /* Setup commands are variable length. These are their encoded source
    sizes; they must not use host sizeof because a 64-bit editor has
    different pointer sizes from the N64. */
-static DWORD SetupObjectWordCount(unsigned char type)
+DWORD SetupObjectWordCount(unsigned char type)
 {
     switch (type)
     {
@@ -1011,7 +1011,7 @@ empty:
     return TRUE;
 }
 
-static BOOL SetupTypeCreatesObject(unsigned char type)
+BOOL SetupTypeCreatesObject(unsigned char type)
 {
     switch (type)
     {
@@ -2205,6 +2205,8 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
     }
     added.dirty = TRUE;
     added.actionmeta = setup->actionmeta; added.actionmetasize = setup->actionmetasize;
+    added.briefmeta = setup->briefmeta; added.briefmetasize = setup->briefmetasize;
+    setup->briefmeta = NULL;
     added.globalrefs = setup->globalrefs; setup->globalrefs = NULL;
     setup->actionmeta = NULL;
     SetupFileFree(setup);
@@ -2598,6 +2600,8 @@ static BOOL SetupEditSpawns(SetupFile *setup, const SetupMarkerRef *remove,
     { SetupFileFree(&edited); return FALSE; }
     edited.dirty = TRUE;
     edited.actionmeta = setup->actionmeta; edited.actionmetasize = setup->actionmetasize;
+    edited.briefmeta = setup->briefmeta; edited.briefmetasize = setup->briefmetasize;
+    setup->briefmeta = NULL;
     edited.globalrefs = setup->globalrefs; setup->globalrefs = NULL;
     setup->actionmeta = NULL;
     SetupFileFree(setup); *setup = edited;
@@ -2828,7 +2832,7 @@ BOOL SetupLoadProjectFile(const char *projectdir, const char *setupname,
 
     out->size = GetFileSize(file, NULL);
     if (out->size == INVALID_FILE_SIZE || out->size == 0
-        || out->size > SETUP_FILE_MAX + SETUP_META_MAX + SETUP_META_FOOTER)
+        || out->size > SETUP_FILE_MAX + SETUP_META_MAX + SETUP_META_BRIEF_FOOTER)
     {
         CloseHandle(file);
         ZeroMemory(out, sizeof(*out));
@@ -2857,8 +2861,8 @@ BOOL SetupLoadProjectFile(const char *projectdir, const char *setupname,
     CloseHandle(file);
 
     {
-        DWORD native, meta;
-        if (!SetupMetaSplit(out->data, out->size, &native, &meta) || native > SETUP_FILE_MAX)
+        DWORD native, meta, brief;
+        if (!SetupMetaSplitAll(out->data, out->size, &native, &meta, &brief) || native > SETUP_FILE_MAX)
         { SetupFileFree(out); *reasonout = "the setup metadata trailer is invalid."; return FALSE; }
         if (meta)
         {
@@ -2867,6 +2871,12 @@ BOOL SetupLoadProjectFile(const char *projectdir, const char *setupname,
             { SetupFileFree(out); *reasonout = "out of memory reading setup notes."; return FALSE; }
             memcpy(out->actionmeta, out->data + native, meta);
             out->actionmetasize = meta;
+        }
+        if (brief)
+        {
+            out->briefmeta=malloc(brief);
+            if (!out->briefmeta) { SetupFileFree(out); *reasonout="Out of memory reading briefing edits."; return FALSE; }
+            memcpy(out->briefmeta,out->data+native+meta,brief); out->briefmetasize=brief;
         }
         out->size = native;
     }
@@ -2888,7 +2898,7 @@ BOOL SetupSaveProjectFile(const char *projectdir, const SetupFile *setup,
                           const char **reasonout)
 {
     char path[MAX_PATH], temporary[MAX_PATH];
-    unsigned char footer[SETUP_META_FOOTER];
+    unsigned char footer[SETUP_META_BRIEF_FOOTER];
     unsigned char *packed;
     DWORD packedsize;
     HANDLE file;
@@ -2897,6 +2907,8 @@ BOOL SetupSaveProjectFile(const char *projectdir, const SetupFile *setup,
     *reasonout = "";
     if (!setup || !setup->data || !setup->size || setup->actionmetasize > SETUP_META_MAX
         || (setup->actionmetasize && !setup->actionmeta)
+        || setup->briefmetasize > SETUP_META_MAX-setup->actionmetasize
+        || (setup->briefmetasize && !setup->briefmeta)
         || !SetupProjectPath(path, sizeof(path), projectdir, setup->name)
         || snprintf(temporary, sizeof(temporary), "%s.tmp", path) >= (int)sizeof(temporary))
     { *reasonout = "there is no valid setup loaded to save."; return FALSE; }
@@ -2906,14 +2918,16 @@ BOOL SetupSaveProjectFile(const char *projectdir, const SetupFile *setup,
     { free(packed); *reasonout = "the temporary setup file could not be opened for writing."; return FALSE; }
     ok = WriteFile(file, packed, packedsize, &written, NULL) && written == packedsize;
     free(packed);
-    if (ok && setup->actionmetasize)
+    if (ok && (setup->actionmetasize || setup->briefmetasize))
     {
-        memcpy(footer, SETUP_META_MAGIC, 8);
+        memcpy(footer, setup->briefmetasize ? SETUP_META_BRIEF_MAGIC : SETUP_META_MAGIC, 8);
         SetupMetaWrite32(footer + 8, packedsize);
         SetupMetaWrite32(footer + 12, setup->actionmetasize);
-        ok = WriteFile(file, setup->actionmeta, setup->actionmetasize, &written, NULL)
-          && written == setup->actionmetasize;
-        if (ok) { ok = WriteFile(file, footer, sizeof(footer), &written, NULL) && written == sizeof(footer); }
+        SetupMetaWrite32(footer + 16, setup->briefmetasize);
+        if (setup->actionmetasize) { ok = WriteFile(file, setup->actionmeta, setup->actionmetasize, &written, NULL) && written == setup->actionmetasize; }
+        if (ok && setup->briefmetasize) { ok=WriteFile(file,setup->briefmeta,setup->briefmetasize,&written,NULL) && written==setup->briefmetasize; }
+        DWORD footersize=setup->briefmetasize ? SETUP_META_BRIEF_FOOTER : SETUP_META_FOOTER;
+        if (ok) { ok = WriteFile(file, footer, footersize, &written, NULL) && written == footersize; }
     }
     if (!CloseHandle(file)) { ok = FALSE; }
     if (ok) { ok = MoveFileEx(temporary, path, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH); }
@@ -2938,7 +2952,8 @@ BOOL SetupFileClone(const SetupFile *source, SetupFile *out,
         || (source->boundpadcount > 0 && source->boundpads == NULL)
         || (source->objectcount > 0 && source->objects == NULL)
         || (source->charactercount > 0 && source->characters == NULL)
-        || (source->actionmetasize > 0 && source->actionmeta == NULL))
+        || (source->actionmetasize > 0 && source->actionmeta == NULL)
+        || (source->briefmetasize > 0 && source->briefmeta == NULL))
     {
         *reasonout = "the setup document is incomplete.";
         return FALSE;
@@ -2955,6 +2970,12 @@ BOOL SetupFileClone(const SetupFile *source, SetupFile *out,
         { SetupFileFree(out); *reasonout = "out of memory copying setup notes."; return FALSE; }
         memcpy(out->actionmeta, source->actionmeta, source->actionmetasize);
         out->actionmetasize = source->actionmetasize;
+    }
+    if (source->briefmetasize)
+    {
+        out->briefmeta=malloc(source->briefmetasize);
+        if (!out->briefmeta) { SetupFileFree(out); *reasonout="Out of memory copying briefing edits."; return FALSE; }
+        memcpy(out->briefmeta,source->briefmeta,source->briefmetasize); out->briefmetasize=source->briefmetasize;
     }
     if (source->padcount > 0)
     {
@@ -3670,6 +3691,7 @@ void SetupFileFree(SetupFile *setup)
 {
     if (setup->globalrefs && !--setup->globalrefs->owners) { free(setup->globalrefs); }
     free(setup->actionmeta);
+    free(setup->briefmeta);
     free(setup->characters);
     free(setup->objects);
     free(setup->boundpads);

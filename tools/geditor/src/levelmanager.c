@@ -11,6 +11,8 @@
 static HWND g_LevelManager;
 static HWND g_EnvironmentPanel;
 static HWND g_StageOptionsPanel;
+static HWND g_BriefingPanel;
+static const SetupFile *g_BriefingSetup;
 static SetupIntroEntry *g_IntroEntries;
 static DWORD g_IntroCount;
 static BOOL g_IntroValid, g_IntroUpdating;
@@ -25,11 +27,12 @@ void LevelManagerRefreshSettings(const GEditorProject *project, DWORD level)
 {
     StageOptionsRefresh(g_StageOptionsPanel, project, level);
     EnvironmentPanelRefresh(g_EnvironmentPanel, project, level);
+    BriefingPanelRefresh(g_BriefingPanel, project, level, g_BriefingSetup);
 }
 BOOL LevelManagerApplySettings(void)
-{ return StageOptionsApply(g_StageOptionsPanel) && EnvironmentPanelApply(g_EnvironmentPanel); }
+{ return StageOptionsApply(g_StageOptionsPanel) && BriefingPanelApply(g_BriefingPanel) && EnvironmentPanelApply(g_EnvironmentPanel); }
 BOOL LevelManagerHasSettingsDraft(void)
-{ return StageOptionsHasDraft(g_StageOptionsPanel) || EnvironmentPanelHasDraft(g_EnvironmentPanel); }
+{ return StageOptionsHasDraft(g_StageOptionsPanel) || BriefingPanelHasDraft(g_BriefingPanel) || EnvironmentPanelHasDraft(g_EnvironmentPanel); }
 
 static const char *g_IntroAmmoNames[AMMOTYPE_MAX] = {
     [AMMO_9MM] = "9mm", [AMMO_RIFLE] = "Rifle rounds", [AMMO_SHOTGUN] = "Shotgun shells",
@@ -211,7 +214,7 @@ static void LevelManagerLayout(HWND hwnd)
     BOOL intro = TabCtrl_GetCurSel(tab) == 1;
     for (int id = IDC_INTRO_STATUS; id <= IDC_INTRO_AMMO_DOWN; id++)
     { ShowWindow(GetDlgItem(hwnd, id), intro ? SW_SHOW : SW_HIDE); }
-    BOOL rooms = TabCtrl_GetCurSel(tab) == 3;
+    BOOL rooms = TabCtrl_GetCurSel(tab) == 4;
     int helpheight = GetWindowTextLength(GetDlgItem(hwnd, IDC_LEVEL_ROOMS_STATUS)) ? line * 2 : 0;
     int totalsheight = line * 2, statusgap = helpheight ? gap : 0;
     HWND roomlist = GetDlgItem(hwnd, IDC_LEVEL_ROOMS_LIST);
@@ -229,7 +232,12 @@ static void LevelManagerLayout(HWND hwnd)
     if (g_EnvironmentPanel)
     {
         MoveWindow(g_EnvironmentPanel, page.left, page.top, width, max(1, page.bottom - page.top), TRUE);
-        EnvironmentPanelShow(g_EnvironmentPanel, TabCtrl_GetCurSel(tab) == 2);
+        EnvironmentPanelShow(g_EnvironmentPanel, TabCtrl_GetCurSel(tab) == 3);
+    }
+    if (g_BriefingPanel)
+    {
+        MoveWindow(g_BriefingPanel,page.left,page.top,width,max(1,page.bottom-page.top),TRUE);
+        ShowWindow(g_BriefingPanel,TabCtrl_GetCurSel(tab)==2 ? SW_SHOW : SW_HIDE);
     }
     if (g_StageOptionsPanel)
     {
@@ -248,6 +256,7 @@ static void LevelManagerItemText(char *text, size_t size, int item)
 
 void LevelManagerRefresh(const SetupFile *setup, const char *levelname)
 {
+    g_BriefingSetup=setup;
     if (!g_LevelManager) { return; }
     char title[128];
     snprintf(title, sizeof(title), "Level Settings%s%s", levelname ? " - " : "", levelname ? levelname : "");
@@ -488,7 +497,8 @@ static INT_PTR CALLBACK LevelManagerDialogProc(HWND hwnd, UINT message, WPARAM w
             if (focus == GetDlgItem(hwnd, IDC_INTRO_WEAPONS) || focus == GetDlgItem(hwnd, IDC_INTRO_AMMO))
             { LevelManagerEdit(hwnd, focus == GetDlgItem(hwnd, IDC_INTRO_AMMO), SETUP_INTRO_UPDATE); }
             if (TabCtrl_GetCurSel(GetDlgItem(hwnd, IDC_LEVEL_MANAGER_TABS)) == 0
-                || TabCtrl_GetCurSel(GetDlgItem(hwnd, IDC_LEVEL_MANAGER_TABS)) == 2) { LevelManagerApplySettings(); }
+                || TabCtrl_GetCurSel(GetDlgItem(hwnd, IDC_LEVEL_MANAGER_TABS)) == 2
+                || TabCtrl_GetCurSel(GetDlgItem(hwnd, IDC_LEVEL_MANAGER_TABS)) == 3) { LevelManagerApplySettings(); }
             return TRUE;
         }
         if (HIWORD(wparam) == BN_CLICKED)
@@ -506,7 +516,7 @@ static INT_PTR CALLBACK LevelManagerDialogProc(HWND hwnd, UINT message, WPARAM w
         RoomStatsFree(&g_RoomStats); g_RoomSortColumn = 0; g_RoomSortDescending = FALSE;
         free(g_IntroEntries); g_IntroEntries = NULL; g_IntroCount = 0;
         g_IntroValid = FALSE; g_IntroSetupName[0] = 0; g_LevelManager = NULL; g_EnvironmentPanel = NULL;
-        g_StageOptionsPanel = NULL;
+        g_StageOptionsPanel = NULL; g_BriefingPanel = NULL; g_BriefingSetup = NULL;
         break;
     }
     return FALSE;
@@ -516,12 +526,12 @@ BOOL LevelManagerShow(HWND owner, HINSTANCE instance, const SetupFile *setup, co
 {
     if (!g_LevelManager)
     {
-        static const char *labels[] = {"Stage Options", "Intro", "Environment", "Rooms"};
+        static const char *labels[] = {"Stage Options", "Intro", "Briefing", "Environment", "Rooms"};
         INITCOMMONCONTROLSEX controls = {sizeof(controls), ICC_TAB_CLASSES | ICC_LISTVIEW_CLASSES};
         if (!InitCommonControlsEx(&controls)) { return FALSE; }
         g_LevelManager = CreateDialog(instance, MAKEINTRESOURCE(IDD_LEVEL_MANAGER), owner, LevelManagerDialogProc);
         if (!g_LevelManager) { return FALSE; }
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 5; i++)
         {
             TCITEM item = {0}; item.mask = TCIF_TEXT; item.pszText = (LPSTR)labels[i];
             if (TabCtrl_InsertItem(GetDlgItem(g_LevelManager, IDC_LEVEL_MANAGER_TABS), i, &item) == -1)
@@ -547,6 +557,8 @@ BOOL LevelManagerShow(HWND owner, HINSTANCE instance, const SetupFile *setup, co
             column.pszText = (LPSTR)roomcolumns[i]; column.fmt = i ? LVCFMT_RIGHT : LVCFMT_LEFT;
             if (ListView_InsertColumn(roomlist, i, &column) == -1) { DestroyWindow(g_LevelManager); return FALSE; }
         }
+        g_BriefingPanel=BriefingPanelCreate(g_LevelManager,instance);
+        if (!g_BriefingPanel) { DestroyWindow(g_LevelManager);return FALSE; }
         g_EnvironmentPanel = EnvironmentPanelCreate(g_LevelManager, instance);
         if (!g_EnvironmentPanel) { DestroyWindow(g_LevelManager); return FALSE; }
         g_StageOptionsPanel = StageOptionsCreate(g_LevelManager, instance);
@@ -567,7 +579,8 @@ BOOL LevelManagerHandleMessage(MSG *message)
     if (message->message == WM_KEYDOWN && (GetKeyState(VK_CONTROL) & 0x8000) && !(GetKeyState(VK_MENU) & 0x8000))
     {
         if (((g_EnvironmentPanel && IsChild(g_EnvironmentPanel, message->hwnd))
-             || (g_StageOptionsPanel && IsChild(g_StageOptionsPanel, message->hwnd)))
+             || (g_StageOptionsPanel && IsChild(g_StageOptionsPanel, message->hwnd))
+             || (g_BriefingPanel && IsChild(g_BriefingPanel, message->hwnd)))
             && (message->wParam == 'Z' || message->wParam == 'Y'))
         {
             /* Let settings edit boxes undo their text, without undoing

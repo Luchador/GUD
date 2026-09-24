@@ -35,6 +35,7 @@
 #include "setupstan.h"
 #include "actionblocks.h"
 #include "textbank.h"
+#include "briefing.h"
 
 #define ROM_EXPORT_FTBL_MAX_ROWS 1024u
 #define ROM_EXPORT_CHECKSUM_END  0x101000u
@@ -1051,6 +1052,7 @@ static BOOL RomExportReplaceProjectResources(const GEditorProject *project,
     DWORD index;
     BOOL needrepack = FALSE;
     DWORD unresolved = 0, skipped = 0;
+    BriefingResource *briefings=NULL; DWORD briefingcount=0;
 
     ZeroMemory(slots, sizeof(slots));
     g_RomExportCleanupWarning[0] = '\0';
@@ -1073,6 +1075,8 @@ static BOOL RomExportReplaceProjectResources(const GEditorProject *project,
         *reasonout = "the base ROM's resource segment is invalid.";
         return FALSE;
     }
+
+    if (!BriefingCollect(project,rom,featureRom,&briefings,&briefingcount,reasonout)) { return FALSE; }
 
     for (index = 0; index < ROM_EXPORT_FTBL_MAX_ROWS; index++)
     {
@@ -1126,6 +1130,11 @@ static BOOL RomExportReplaceProjectResources(const GEditorProject *project,
         if (slot->setup && !slot->setupname[0]) { strcpy(slot->setupname, resource); }
         slot->stan |= strncmp(resource, "Tbg_", 4) == 0 && strstr(resource, "_stanZ") != NULL;
         slot->text |= TextBankIsResource(resource);
+        for (DWORD b=0;b<briefingcount;b++) if (!strcmp(resource,briefings[b].name))
+        {
+            data=briefings[b].data;length=briefings[b].size;briefings[b].data=NULL;
+            goto have_replacement;
+        }
         managed = ModelEditsReadReplacement(project->dir, resource, rom->data + offset,
             maxlen, &data, &length, reasonout);
         if (managed < 0) { goto fail; }
@@ -1369,6 +1378,7 @@ have_replacement:
         BOOL ok = RomExportRepackResources(rom, obsg, ftbl, slots,
                                            slotcount, reasonout);
         RomExportFreeSlots(slots, slotcount);
+        BriefingFreeResources(briefings,briefingcount);
         return ok;
     }
 
@@ -1383,10 +1393,12 @@ have_replacement:
         }
     }
     RomExportFreeSlots(slots, slotcount);
+    BriefingFreeResources(briefings,briefingcount);
     return TRUE;
 
 fail:
     RomExportFreeSlots(slots, slotcount);
+    BriefingFreeResources(briefings,briefingcount);
     return FALSE;
 }
 

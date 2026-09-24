@@ -282,6 +282,7 @@ static void ImageRebases(const GEditorProject *source,const char *incoming,const
 #include "occluders.c"
 #include "objectfade.c"
 #include "text.c"
+#include "briefing.c"
 
 int main(int argc,char **argv)
 {
@@ -289,7 +290,9 @@ int main(int argc,char **argv)
     char oldpath[MAX_PATH],nextpath[MAX_PATH],path[MAX_PATH],backup[MAX_PATH],exported[MAX_PATH],destination[MAX_PATH];
     GEditorProject project,rebased,loaded,again;ProjectRebaseReport report;RomFile rom,output;ModelSource native;
     TexPixel pixels[64];TexImportOptions options={1,1,3,4};TexRomBank bank;
-    assert(argc==4);model=Read(argv[2],&modelsize);old=Fixture(0,model,modelsize);next=Fixture(SHIFT,model,modelsize);
+    assert(argc==4 || argc==5);model=Read(argv[2],&modelsize);old=Fixture(0,model,modelsize);next=Fixture(SHIFT,model,modelsize);
+    BriefingEditing(argv[1],model,modelsize);
+    if (argc==5) { BriefingCorpus(argv[4],argv[1]); }
     TextEditing(argv[1],model,modelsize);
     Path(oldpath,argv[1],"old.z64");Path(nextpath,argv[1],"new.z64");Save(oldpath,old,SIZE);
     /* Incoming setup and sound changes; our BG/music changes must survive. */

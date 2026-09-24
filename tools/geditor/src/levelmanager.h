@@ -6,6 +6,7 @@
 #include "roomstats.h"
 #include "environmentpanel.h"
 #include "stageoptions.h"
+#include "briefingpanel.h"
 
 #define LEVELMANAGER_WM_INTRO_EDIT (WM_APP + 0x250)
 #define LEVELMANAGER_WM_HISTORY (WM_APP + 0x251)

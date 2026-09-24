@@ -4070,6 +4070,22 @@ static void GEditorOpenPatrolPaths(HWND hwnd)
     { MessageBox(hwnd,why,GEDITOR_TITLE,MB_ICONERROR); }
 }
 
+static BOOL GEditorApplyBriefing(HWND hwnd,BriefingEditRequest *request)
+{
+    EditHistoryTransaction transaction={0};unsigned char *data=NULL;DWORD size=0;
+    if (!request || !g_CurrentSetup.data) { return FALSE; }
+    if (!BriefingValidate(request->document,request->bank,&request->why)
+        || !BriefingValidateSetup(request->document,&g_CurrentSetup,&request->why)
+        || !BriefingEncode(request->document,&data,&size,&request->why)) { return FALSE; }
+    if (size==g_CurrentSetup.briefmetasize && !memcmp(data,g_CurrentSetup.briefmeta,size)) { free(data);return TRUE; }
+    if (!EditHistoryBeginSetupEdit(&g_EditHistory,&g_CurrentSetup,"Edit Briefing and Objectives",&transaction,&request->why))
+    { free(data);return FALSE; }
+    free(g_CurrentSetup.briefmeta);g_CurrentSetup.briefmeta=data;g_CurrentSetup.briefmetasize=size;g_CurrentSetup.dirty=TRUE;
+    if (!EditHistoryCommitEdit(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,&transaction,&request->why))
+    { EditHistoryRollbackEdit(&transaction,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan);GEditorRefreshHistoryMenu(hwnd);return FALSE; }
+    GEditorRefreshHistoryMenu(hwnd);return TRUE;
+}
+
 static BOOL GEditorApplyPatrolPaths(HWND hwnd, const PatrolDocument *doc)
 {
     SetupFile edited={0}; EditHistoryTransaction transaction={0};
@@ -5198,6 +5214,10 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 {
     switch (msg)
     {
+    case BRIEFING_WM_APPLY:
+        return GEditorApplyBriefing(hwnd,(BriefingEditRequest *)lparam);
+    case BRIEFING_WM_DRAFT:
+        GEditorSetTitleForProject(hwnd);return 0;
     case STAGEOPTIONS_WM_APPLY:
         return GEditorApplyStageOptions(hwnd, (StageOptionsEditRequest *)lparam);
     case STAGEOPTIONS_WM_DRAFT:

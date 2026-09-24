@@ -23,6 +23,10 @@ closing with unsaved changes offers Save, Discard or Cancel. Text saves are
 independent of the level geometry undo history and do not require a second
 File > Save. Use **Tools > Create ROM** to include saved text in a playable ROM.
 
+For per-level menu/watch briefings and up to six objectives, use
+**Settings > Level Settings > Briefing**. See [BRIEFING.md](BRIEFING.md) for
+existing-string references, custom text and objective conditions.
+
 ## Text and IDs
 
 - Enter inserts a game newline. Visual wrapping in the editor does not insert

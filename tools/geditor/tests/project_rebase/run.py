@@ -5,6 +5,7 @@ No ROM download is needed. The fixture has a current GUD manifest, relocated
 tables, a real repository model, native textures and editable level resources.
 The Windows dialog itself is checked by the MinGW build, not this harness.
 """
+import argparse
 import importlib.util
 import os
 from pathlib import Path
@@ -14,6 +15,9 @@ import tempfile
 
 
 def main():
+    parser=argparse.ArgumentParser()
+    parser.add_argument("--rom", type=Path, help="Also verify all 20 briefings in a local GUD ROM")
+    args=parser.parse_args()
     here = Path(__file__).resolve().parent
     src = here.parent.parent / 'src'
     root = src.parents[2]
@@ -34,7 +38,7 @@ def main():
                    '-Wno-unused-parameter', '-Wno-format', '-ffunction-sections', '-fdata-sections',
                    '-fsanitize=address,undefined', '-Dfopen=TestFopen', f'-I{here}', f'-I{src}', f'-I{root}',
                    str(here / 'check.c'), str(here / 'platform.c'), str(work / 'texture.c')]
-        command += [str(src / name) for name in ('textbank.c', 'occluders.c', 'projectrebase.c', 'project.c', 'levelmemory.c', 'environment.c', 'fog.c', 'rom.c', 'romexport.c', 'levelissues.c',
+        command += [str(src / name) for name in ('briefing.c', 'textbank.c', 'occluders.c', 'projectrebase.c', 'project.c', 'levelmemory.c', 'environment.c', 'fog.c', 'rom.c', 'romexport.c', 'levelissues.c',
                    'texrom.c', 'texinfo.c', 'texencode.c', 'imageedits.c', 'modeledits.c', 'modelload.c', 'modelmaterials.c',
                    'setupload.c', 'setupstan.c', 'stanload.c', 'stanquery.c', 'actionblocks.c', 'gltf.c', 'bgrender.c', 'bgcompile.c', 'bgdocument.c', 'bgload.c', 'modelcompile.c', 'bgmaterial.c', 'newprops.c', 'propcompile.c')]
         command += [str(root / 'src/game/occlusionmath.c')]
@@ -49,7 +53,7 @@ def main():
         doc['images'][0]['name'] = 'GUD Image 0000'
         doc['images'][1]['name'] = 'GUD Image 0001'
         new_props.write(model, doc, data)
-        subprocess.run([str(work / 'check'), str(work), str(root / 'assets/obseg/prop/Pjungle3_treeZ.bin'), str(model)],
+        subprocess.run([str(work / 'check'), str(work), str(root / 'assets/obseg/prop/Pjungle3_treeZ.bin'), str(model)] + ([str(args.rom.resolve())] if args.rom else []),
                        env=env, check=True)
 
 
