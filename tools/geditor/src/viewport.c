@@ -25,6 +25,7 @@
 #include "orbitcamera.h"
 #include "cameraframe.h"
 #include "resource.h"
+#include "roomedit.h"
 #include <src/propconstants.h>
 
 #define VIEWPORT_MONITOR_TIMER 1001
@@ -225,10 +226,16 @@ typedef struct ViewportPad {
 
 /* Per-viewport state, allocated at WM_CREATE, freed at WM_DESTROY,
    reachable from the window via GWLP_USERDATA. */
+typedef struct ViewportRoomDragPoint { float *point; float original[3]; } ViewportRoomDragPoint;
+
 typedef struct ViewportState {
     HDC hdc;      /* private DC - stable for the window's lifetime (CS_OWNDC) */
     HGLRC hglrc;  /* the GL context rendering into it */
     EditorTool tool;
+    DWORD selectedroom;
+    BOOL dragroom;
+    ViewportRoomDragPoint *roomdragpoints;
+    size_t roomdragcount;
     HCURSOR paintcursor; /* owned by this viewport; shared tool logic for both editors */
     ViewportRenderMode rendermode;
     BOOL vertexsnap;
@@ -3250,6 +3257,7 @@ static void ViewportClearBgSelection(ViewportState *state)
 
 static void ViewportClearAllSelection(ViewportState *state)
 {
+    state->selectedroom = 0;
     ViewportClearPadSelection(state);
     ViewportClearBgSelection(state);
     ViewportClearObjectSelection(state);
@@ -3259,6 +3267,92 @@ static void ViewportClearAllSelection(ViewportState *state)
     state->hoveraxis = -1;
 }
 
+
+DWORD ViewportGetSelectedRoom(HWND hwnd)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    return state && state->tool == EDITOR_TOOL_ROOM_SELECT ? state->selectedroom : 0;
+}
+
+/* Whole-room membership is independent of visibility. Use a temporary model
+ * mask so hundreds of triangles sharing a model resolve its pad only once. */
+BOOL ViewportSelectWholeRoom(HWND hwnd, DWORD room)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    if (!state || state->tool != EDITOR_TOOL_ROOM_SELECT) { return FALSE; }
+    const SetupFile *setup = state->markersetup;
+    DWORD objects = setup ? setup->objectcount : 0, characters = setup ? setup->charactercount : 0;
+    unsigned char *models = calloc((size_t)objects + characters + 1, 1);
+    if (!models) { return FALSE; }
+    if (room)
+        for (DWORD i = 0; i < objects + characters; i++)
+        {
+            DWORD id = i < objects ? i : (i - objects) | SETUP_CHARACTER_SELECTION_BIT;
+            models[i] = RoomEditObjectRoom(setup, &state->stan, state->markerlevelscale, id) == room;
+        }
+    ViewportCancelTransform(hwnd);
+    ViewportClearAllSelection(state);
+    state->selectedroom = room;
+    for (int i = 0; room && i < state->scenecount / 3; i++)
+    {
+        DWORD model = state->sceneobjectindices ? state->sceneobjectindices[i] : VIEWPORT_OBJECT_NONE;
+        BOOL selected = state->scenefacerefs && state->scenefacerefs[i].faceid
+            && state->scenefacerefs[i].room == room;
+        if (model != VIEWPORT_OBJECT_NONE)
+        {
+            DWORD index = model & ~SETUP_CHARACTER_SELECTION_BIT;
+            selected = (model & SETUP_CHARACTER_SELECTION_BIT)
+                ? index < characters && models[objects + index] : index < objects && models[index];
+        }
+        state->selectedtris[i] = selected;
+        state->selectedtricount += selected;
+        ViewportSetTriangleColor(state, i, selected);
+    }
+    free(models);
+    for (DWORD i = 0; state->stanselected && i < state->stan.tilecount; i++)
+    { state->stanselected[i] = room && state->stan.tiles[i].room == room; }
+    for (DWORD i = 0; i < state->portals.portalcount; i++)
+    { state->portalselection[i] = RoomEditPortalConnected(&state->portals, i, room) ? 1 : 0; }
+    ViewportRefreshStanOverlay(state);
+    ViewportRefreshPortalColors(state);
+    ViewportUpdateGizmo(state);
+    ViewportRedraw(hwnd);
+    return TRUE;
+}
+
+static BOOL ViewportRoomPosition(const ViewportState *state, double position[3])
+{
+    if (!state || !state->selectedroom || state->tool != EDITOR_TOOL_ROOM_SELECT) { return FALSE; }
+    double low[3] = {DBL_MAX,DBL_MAX,DBL_MAX}, high[3] = {-DBL_MAX,-DBL_MAX,-DBL_MAX};
+    BOOL found = FALSE;
+    for (int i = 0; i < state->scenecount; i++)
+    {
+        if (!state->selectedtris[i / 3]) { continue; }
+        const Vertex *v = &state->scene[i];
+        const double point[3] = {v->x,v->y,v->z};
+        for (int a = 0; a < 3; a++) { low[a] = fmin(low[a],point[a]); high[a] = fmax(high[a],point[a]); }
+        found = TRUE;
+    }
+    for (int a = 0; a < 3; a++) { position[a] = (low[a] + high[a]) * .5; }
+    return found;
+}
+
+static void ViewportPickRoomAt(HWND hwnd, ViewportState *state, int x, int y, BOOL deselect)
+{
+    ViewportPickRay ray; double distance;
+    if (!state || state->flying || !ViewportBuildPickRay(hwnd, state, x, y, &ray)) { return; }
+    int triangle = ViewportFindVisibleSceneTriangle(state, &ray, &distance);
+    DWORD room = 0;
+    if (triangle >= 0)
+    {
+        DWORD model = state->sceneobjectindices ? state->sceneobjectindices[triangle] : VIEWPORT_OBJECT_NONE;
+        room = model == VIEWPORT_OBJECT_NONE ? state->scenefacerefs[triangle].room
+            : RoomEditObjectRoom(state->markersetup, &state->stan, state->markerlevelscale, model);
+    }
+    if (deselect) { room = 0; }
+    if (ViewportSelectWholeRoom(hwnd, room))
+    { SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0); }
+}
 
 /* Painting and texture drops always target the rendered winner, without cycling. */
 static int ViewportFindNearestBgTriangle(const ViewportState *state, const ViewportPickRay *ray,
@@ -3645,7 +3739,7 @@ static unsigned int ViewportPortalPointMask(const ViewportState *state, DWORD in
 {
     unsigned int mask = ViewportPortalComponentMask(state, index), result = 0;
     const BgPortal *portal = &state->portals.portals[index];
-    if (state->tool == EDITOR_TOOL_FACE_SELECT) { return mask ? (1u << portal->pointcount) - 1 : 0; }
+    if (state->tool == EDITOR_TOOL_FACE_SELECT || state->tool == EDITOR_TOOL_ROOM_SELECT) { return mask ? (1u << portal->pointcount) - 1 : 0; }
     if (state->tool == EDITOR_TOOL_VERTEX_SELECT) { return mask; }
     if (state->tool == EDITOR_TOOL_EDGE_SELECT)
     {
@@ -3659,7 +3753,8 @@ static BOOL ViewportPortalSelectionPosition(const ViewportState *state, double p
 {
     double sum[3] = {0};
     DWORD count = 0;
-    if (!state || !state->showportals || state->tool == EDITOR_TOOL_VERTEX_PAINT) { return FALSE; }
+    if (!state || !state->showportals || state->tool == EDITOR_TOOL_VERTEX_PAINT
+        || state->tool == EDITOR_TOOL_ROOM_SELECT) { return FALSE; }
     for (DWORD i = 0; i < state->portals.portalcount; i++)
     {
         const BgPortal *portal = &state->portals.portals[i];
@@ -3741,6 +3836,8 @@ BOOL ViewportGetSelectionPosition(HWND hwnd, double position[3], DWORD *countout
     int i, axis;
 
     *countout = 0;
+    if (state && state->tool == EDITOR_TOOL_ROOM_SELECT)
+    { BOOL valid = ViewportRoomPosition(state, position); *countout = valid ? 1 : 0; return valid; }
     if (ViewportObjectCount(state) > 1) { return FALSE; }
     if (state && state->knifeactive)
     {
@@ -3830,6 +3927,8 @@ static void ViewportUpdateGizmo(ViewportState *state)
     int i, axis;
     state->gizmovisible = FALSE;
     state->hoveraxis = -1;
+    if (state->tool == EDITOR_TOOL_ROOM_SELECT)
+    { state->gizmovisible = ViewportRoomPosition(state, state->gizmoposition); return; }
     if (state->knifeactive)
     {
         memcpy(state->gizmoposition, state->knifeplane.position, sizeof(state->gizmoposition));
@@ -6468,6 +6567,70 @@ static BOOL ViewportShouldExtrudeEdges(const ViewportState *state, BOOL shift)
         && !state->dragmarker && !state->dragportal && state->selectedobject==VIEWPORT_OBJECT_NONE;
 }
 
+/* Snapshot only preview coordinates. Document edits happen once, on release.
+ * Every target stays allocated until CancelTransform, which all rebuilds call. */
+static void ViewportRoomDragPointAdd(ViewportState *state, float *point)
+{
+    ViewportRoomDragPoint *p = &state->roomdragpoints[state->roomdragcount++];
+    p->point = point;
+    memcpy(p->original, point, sizeof(p->original));
+}
+
+static BOOL ViewportBeginRoomDrag(ViewportState *state)
+{
+    size_t capacity = (size_t)state->scenecount + state->stan.tilecount * STAN_TILE_MAX_POINTS
+        + state->portals.portalcount * BG_PORTAL_MAX_POINTS + state->padmarkercount;
+    state->roomdragpoints = malloc((capacity ? capacity : 1) * sizeof(*state->roomdragpoints));
+    state->roomdragcount = 0;
+    if (!state->roomdragpoints) { return FALSE; }
+    for (int i = 0; i < state->scenecount; i++)
+        if (state->selectedtris[i / 3]) { ViewportRoomDragPointAdd(state, &state->scene[i].x); }
+    for (DWORD t = 0; t < state->stan.tilecount; t++)
+        if (state->stan.tiles[t].room == state->selectedroom)
+            for (DWORD p = 0; p < state->stan.tiles[t].pointcount; p++)
+            { ViewportRoomDragPointAdd(state, &state->stan.tiles[t].points[p].x); }
+    for (DWORD i = 0; i < state->portals.portalcount; i++)
+        if (RoomEditPortalConnected(&state->portals, i, state->selectedroom))
+            for (DWORD p = 0; p < state->portals.portals[i].pointcount; p++)
+            { ViewportRoomDragPointAdd(state, &state->portals.portals[i].points[p].x); }
+    for (DWORD i = 0; state->markersetup && i < state->padcount; i++)
+    {
+        const SetupPadRef *ref = &state->pads[i].ref;
+        const SetupPad *pad = ref->bound ? &state->markersetup->boundpads[ref->index].pad
+            : &state->markersetup->pads[ref->index];
+        if (RoomEditPadRoom(&state->stan, pad, state->markerlevelscale) == state->selectedroom)
+            for (int p = 0; p < VIEWPORT_BOX_VERTICES; p++)
+            { ViewportRoomDragPointAdd(state, &state->padmarkers[i * VIEWPORT_BOX_VERTICES + p].x); }
+    }
+    return TRUE;
+}
+
+static void ViewportPreviewRoomDrag(HWND hwnd, ViewportState *state, double delta)
+{
+    double requested[3] = {0}, applied[3];
+    requested[state->dragaxis] = delta;
+    if (!RoomEditOffset(state->markerlevelscale, requested, applied)) { return; }
+    for (size_t i = 0; i < state->roomdragcount; i++)
+        for (int a = 0; a < 3; a++)
+        { state->roomdragpoints[i].point[a] = (float)(state->roomdragpoints[i].original[a] + applied[a]); }
+    state->dragdelta = applied[state->dragaxis];
+    ViewportRefreshStanOverlay(state);
+    ViewportRefreshPortalGeometry(state);
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd, NULL, FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_TRANSFORM_PREVIEW, 0, 0);
+}
+
+static void ViewportCancelRoomDrag(HWND hwnd, ViewportState *state)
+{
+    ViewportPreviewRoomDrag(hwnd, state, 0);
+    free(state->roomdragpoints); state->roomdragpoints = NULL; state->roomdragcount = 0;
+    state->dragroom = FALSE; state->dragaxis = -1;
+    if (GetCapture() == hwnd) { ReleaseCapture(); }
+    ViewportUpdateGizmo(state);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_TRANSFORM_PREVIEW, 0, 0);
+}
+
 static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y, BOOL shift)
 {
     ViewportPickRay ray;
@@ -6488,7 +6651,15 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
     state->dragrotation = state->rotationmode;
     state->dragscaling = state->scalemode;
     state->dragknife = state->knifeactive;
-    if (state->dragknife)
+    state->dragroom = state->tool == EDITOR_TOOL_ROOM_SELECT;
+    if (state->dragroom)
+    {
+        if (!state->selectedroom || !ViewportBeginRoomDrag(state))
+        { state->dragroom = FALSE; return TRUE; }
+        state->dragknife = state->dragrotation = state->dragscaling = FALSE;
+        state->dragmarker = state->dragportal = state->dragpad = state->dragstan = FALSE;
+    }
+    else if (state->dragknife)
     {
         if (state->dragscaling || !state->knifepreview) { return FALSE; }
         state->dragknifeplane = state->knifeplane;
@@ -6642,7 +6813,7 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
         state->rotationlast = ViewportRotationParameter(state, &ray, x, y);
     }
     state->dragextruding = ViewportShouldExtrudeEdges(state,shift);
-    state->dragduplicating = shift && !state->dragknife && !state->dragmarker && !state->dragportal
+    state->dragduplicating = !state->dragroom && shift && !state->dragknife && !state->dragmarker && !state->dragportal
         && !state->dragpad && !state->dragstan && state->selectedobject != VIEWPORT_OBJECT_NONE;
     if (state->dragextruding && !ViewportPrepareEdgeExtrusion(state))
     {
@@ -6743,6 +6914,7 @@ static void ViewportDragTransform(HWND hwnd, ViewportState *state, int x, int y)
     {
         return;
     }
+    if (state->dragroom) { ViewportPreviewRoomDrag(hwnd, state, delta); return; }
     if (state->dragknife)
     {
         state->knifeplane = state->dragknifeplane;
@@ -6869,6 +7041,7 @@ void ViewportCancelTransform(HWND hwnd)
     {
         return;
     }
+    if (state->dragroom) { ViewportCancelRoomDrag(hwnd, state); return; }
     if (state->dragknife) { ViewportFinishKnifeTransform(hwnd, state, TRUE); return; }
     if (state->dragmarker && state->markersetup)
     { ViewportSetSetupMarkers(hwnd, state, state->markersetup, state->markerlevelscale); }
@@ -7435,6 +7608,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
             state->colorsampleclick = FALSE;
             return 0;
         }
+        if (state && state->tool == EDITOR_TOOL_ROOM_SELECT) { return 0; }
         if (ViewportOpenModelAt(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam), wparam))
         { return 0; }
         /* fall through */
@@ -7472,6 +7646,8 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         {
             return 0;
         }
+        if (state && state->tool == EDITOR_TOOL_ROOM_SELECT)
+        { ViewportPickRoomAt(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam), (wparam & MK_CONTROL) != 0); return 0; }
         if (state != NULL && ViewportTryPickMarker(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam),
             (wparam & MK_CONTROL) != 0)) { return 0; }
         if (state != NULL && state->tool == EDITOR_TOOL_FACE_SELECT
@@ -8097,7 +8273,8 @@ void ViewportSetTool(HWND viewport, EditorTool tool)
     }
     ViewportSetColorPick(viewport, FALSE);
     ViewportCancelTransform(viewport);
-    if (state->tool != EDITOR_TOOL_VERTEX_PAINT && tool != EDITOR_TOOL_VERTEX_PAINT)
+    if (state->tool != EDITOR_TOOL_VERTEX_PAINT && tool != EDITOR_TOOL_VERTEX_PAINT
+        && state->tool != EDITOR_TOOL_ROOM_SELECT && tool != EDITOR_TOOL_ROOM_SELECT)
     {
         if (!ViewportTransferSelection(state, tool))
         {
@@ -8112,6 +8289,8 @@ void ViewportSetTool(HWND viewport, EditorTool tool)
         state->tool = tool;
     }
     state->vertexsnap = FALSE;
+    if (tool == EDITOR_TOOL_ROOM_SELECT)
+    { state->rotationmode = state->scalemode = FALSE; ViewportSetPadPick(viewport, FALSE); ViewportSetDoorPick(viewport, FALSE); }
     ViewportUpdateGizmo(state);
     ViewportRefreshCursor(viewport, state);
     ViewportRedraw(viewport);
@@ -8491,7 +8670,8 @@ static void ViewportRefreshPortalColors(ViewportState *state)
     {
         const BgPortal *portal = &state->portals.portals[i];
         DWORD fillcount = (portal->pointcount - 2) * 3, edgecount = portal->pointcount * 2;
-        BOOL selected = state->tool == EDITOR_TOOL_FACE_SELECT && ViewportPortalComponentMask(state, i);
+        BOOL selected = (state->tool == EDITOR_TOOL_FACE_SELECT || state->tool == EDITOR_TOOL_ROOM_SELECT)
+            && ViewportPortalComponentMask(state, i);
         if (!ViewportPortalGeometryIsFirst(&state->portals, i)) { continue; }
         for (DWORD v = 0; v < fillcount + edgecount; v++)
         {
@@ -8530,6 +8710,7 @@ static void ViewportRefreshPortalGeometry(ViewportState *state)
 BOOL ViewportGetSelectedPortal(HWND hwnd, DWORD *index)
 {
     const ViewportState *state = ViewportGetState(hwnd);
+    if (state && state->tool == EDITOR_TOOL_ROOM_SELECT) { return FALSE; }
     if (!state || !state->showportals || state->selectedportal >= state->portals.portalcount) { return FALSE; }
     if (index) { *index = state->selectedportal; }
     return TRUE;
@@ -8705,6 +8886,7 @@ void ViewportSetGeometryVisibility(HWND hwnd, BOOL bgprimary,
     }
     state->showobjects = objects;
     if (!objects) { ViewportClearObjectSelection(state); }
+    if (state->selectedroom) { ViewportSelectWholeRoom(hwnd, state->selectedroom); }
     ViewportBuildObjectSelectionBox(state);
     ViewportUpdateGizmo(state);
     InvalidateRect(hwnd, NULL, FALSE);
@@ -9093,7 +9275,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     KillTimer(hwnd, VIEWPORT_MONITOR_TIMER);
     if (state->monitors.count) { SetTimer(hwnd, VIEWPORT_MONITOR_TIMER, 16, NULL); }
     if (framecamera)
-    { state->selectedportal = BG_PORTAL_INDEX_NONE; ZeroMemory(state->portalselection, sizeof(state->portalselection)); }
+    { state->selectedroom = 0; state->selectedportal = BG_PORTAL_INDEX_NONE; ZeroMemory(state->portalselection, sizeof(state->portalselection)); }
     state->selectedpad = savedpad; /* resolved when the pad overlay is rebuilt */
     state->selectedmarker = savedmarker;
     state->markerselected = savedmarkerselection;
@@ -9329,6 +9511,7 @@ BOOL ViewportSelectBgFaces(HWND hwnd, const BgFaceRef *refs, DWORD count)
 int ViewportGetSelectedBgFaceCount(HWND hwnd)
 {
     const ViewportState *state = ViewportGetState(hwnd);
+    if (state && state->tool == EDITOR_TOOL_ROOM_SELECT) { return 0; }
     int count = 0;
     int triangle;
     int trianglecount;
@@ -9500,7 +9683,7 @@ static void ViewportAppendPadBox(Vertex *vertices, int *vertexcount,
 static void ViewportRefreshPadPreview(ViewportState *state)
 {
     const SetupFile *setup = state->markersetup;
-    if (!setup || !state->pads || !state->padmarkers || (state->dragpad && state->dragaxis >= 0)) { return; }
+    if (!setup || !state->pads || !state->padmarkers || state->dragroom || (state->dragpad && state->dragaxis >= 0)) { return; }
     for (DWORD i = 0; i < state->padcount; i++)
     {
         ViewportPad *view = &state->pads[i];
@@ -9997,6 +10180,7 @@ void ViewportSetTransformMode(HWND hwnd, TransformMode mode)
         return;
     }
     ViewportCancelTransform(hwnd);
+    if (s->tool == EDITOR_TOOL_ROOM_SELECT) { mode = TRANSFORM_MOVE; }
     s->rotationmode = mode == TRANSFORM_ROTATE;
     s->scalemode = mode == TRANSFORM_SCALE;
     ViewportUpdateGizmo(s);
@@ -10103,6 +10287,7 @@ void ViewportSelectPad(HWND hwnd, const SetupPadRef *ref)
  * visibility and live transform previews deliberately stay out of history. */
 typedef struct ViewportSelectionSnapshot {
     EditorTool tool;
+    DWORD room;
     BOOL vertexsnap;
     DWORD object, portal;
     unsigned char portalselection[BG_MAX_PORTALS];
@@ -10137,6 +10322,7 @@ BOOL ViewportCaptureSelection(HWND hwnd, void **data, size_t *size)
     *data = NULL; *size = 0;
     if (!state) { return FALSE; }
     header.tool = state->tool;
+    header.room = state->selectedroom;
     header.vertexsnap = state->vertexsnap;
     header.object = state->selectedobject;
     header.objects = ViewportObjectCount(state);
@@ -10197,6 +10383,15 @@ BOOL ViewportRestoreSelection(HWND hwnd, const void *data, size_t size)
         || s->faces < 0 || s->components < 0 || s->stantiles < 0 || s->stancomponents < 0
         || s->objects > 1000000u
         || size != ViewportSelectionSize(s)) { return FALSE; }
+    if (s->tool == EDITOR_TOOL_ROOM_SELECT)
+    {
+        EditorTool previous = state->tool;
+        state->tool = s->tool;
+        if (!ViewportSelectWholeRoom(hwnd, s->room)) { state->tool = previous; return FALSE; }
+        state->vertexsnap = state->rotationmode = state->scalemode = FALSE;
+        ViewportUpdateGizmo(state);
+        return TRUE;
+    }
     faces = (const BgFaceRef *)(s + 1);
     components = (const ViewportComponent *)(faces + s->faces);
     tiles = (const DWORD *)(components + s->components);
@@ -10223,7 +10418,8 @@ BOOL ViewportRestoreSelection(HWND hwnd, const void *data, size_t size)
     ViewportClearBgSelection(state);
     ViewportClearStanSelection(state);
     state->tool = s->tool;
-    state->vertexsnap = s->vertexsnap;
+    state->selectedroom = 0;
+    state->vertexsnap = FALSE;
     free(state->components);
     state->components = newcomponents;
     state->componentcount = state->componentcapacity = s->components;

@@ -22,7 +22,6 @@ HWND ToolToolbarCreate(HWND parent, HINSTANCE hinstance);
 /* Model Editor's single paint toggle; shares the main toolbar's icons. */
 HWND ToolToolbarCreatePaint(HWND parent, HINSTANCE hinstance);
 void ToolToolbarSetTool(HWND toolbar, EditorTool tool);
-void ToolToolbarSetVertexSnap(HWND toolbar, BOOL enabled);
 BOOL ToolToolbarCorrectFaceAttributes(HWND toolbar);
 /* Call from both frame message loops. Tool shortcuts leave text input
    alone; Tab/Space/Enter also support the toolbar's native buttons. */

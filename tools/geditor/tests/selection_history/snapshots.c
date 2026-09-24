@@ -21,6 +21,8 @@ typedef unsigned char GLubyte;
 
 typedef struct ViewportState {
     EditorTool tool;
+    DWORD selectedroom;
+    BOOL rotationmode, scalemode;
     BOOL vertexsnap, showbgprimary, showbgsecondary, showstan, showobjects, showportals;
     BOOL markerselected, gizmovisible;
     int hoveraxis, stanopacity, scenecount, batchcount;
@@ -45,6 +47,8 @@ typedef struct ViewportState {
     float posx, posy, posz; /* Restoring a selection must leave camera unchanged. */
 } ViewportState;
 
+static BOOL ViewportSelectWholeRoom(HWND hwnd, DWORD room)
+{ ((ViewportState *)hwnd)->selectedroom = room; return TRUE; }
 static ViewportState *ViewportGetState(HWND hwnd) { return hwnd; }
 static UVCanvasState *UVCanvasGetState(HWND hwnd) { return hwnd; }
 static void ViewportRefreshStanOverlay(ViewportState *state) {}
@@ -119,6 +123,13 @@ int main(void)
     state.showbgsecondary = TRUE;
     free(snapshot);
 
+    state.tool = EDITOR_TOOL_ROOM_SELECT; state.selectedroom = 14;
+    snapshot = Capture(&state, &size);
+    state.tool = EDITOR_TOOL_FACE_SELECT; state.selectedroom = 0;
+    assert(ViewportRestoreSelection(&state, snapshot, size));
+    assert(state.tool == EDITOR_TOOL_ROOM_SELECT && state.selectedroom == 14 && !state.vertexsnap);
+    free(snapshot);
+
     /* Component history stores native IDs, not cached scene-corner indices. */
     ViewportClearAllSelection(&state);
     state.tool = EDITOR_TOOL_EDGE_SELECT;
@@ -145,7 +156,7 @@ int main(void)
     snapshot = Capture(&state, &size);
     state.tool = EDITOR_TOOL_FACE_SELECT; state.vertexsnap = FALSE;
     assert(ViewportRestoreSelection(&state, snapshot, size));
-    assert(state.tool == EDITOR_TOOL_VERTEX_SELECT && state.vertexsnap && state.componentcount == 1);
+    assert(state.tool == EDITOR_TOOL_VERTEX_SELECT && !state.vertexsnap && state.componentcount == 1);
     assert(state.components[0].corners[0] == 1 && state.components[0].corners[1] == 1);
     free(snapshot);
 

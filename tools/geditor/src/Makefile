@@ -34,7 +34,6 @@ RCOBJ   := geditor_rc.o
 TOOL_IMAGES := $(wildcard ../geditorassets/*_select_*.png) \
                $(wildcard ../geditorassets/vertex_paint_*.png) \
                ../geditorassets/vertex_color_brush.png \
-               $(wildcard ../geditorassets/vertex_snap_*.png) \
                $(wildcard ../geditorassets/icon_*.png) \
                ../geditorassets/no_texture.png
 MARKER_MODELS := ../geditorassets/start.glb ../geditorassets/intro_camera.glb \

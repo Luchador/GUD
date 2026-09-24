@@ -478,6 +478,10 @@ BOOL SetupFileTranslatePad(SetupFile *setup, const SetupPadRef *ref,
                             float levelscale, const double offset[3],
                             BOOL *changedout, const char **reasonout);
 
+/* Whole-room moves retain the link because its Stan tile moves with the pad. */
+BOOL SetupFileTranslateRoomPad(SetupFile *setup, const SetupPadRef *ref,
+    float scale, const double offset[3], BOOL *changed, const char **why);
+
 /* Store a resolved native plink name without changing pad coordinates or
  * another pad's shared string. Caller owns pad isolation and the transaction. */
 BOOL SetupFileSetPadStanName(SetupFile *setup, const SetupPadRef *ref,

@@ -18,7 +18,7 @@ typedef struct { HWND hwnd; UINT message; WPARAM wParam; LPARAM lParam; } MSG;
 #define COLORPICKER_MODEL_HEIGHT 204
 enum { TOOLTOOLBAR_MENU_COUNT=3, GWLP_USERDATA=1, WM_KEYDOWN, BM_CLICK, VK_CONTROL,
        VK_MENU, VK_SHIFT, VK_RETURN, VK_DOWN, VK_ESCAPE, WM_CANCELMODE,
-       VK_NUMPAD1=0x61, VK_NUMPAD4=0x64 };
+       VK_NUMPAD1=0x61, VK_NUMPAD5=0x65 };
 enum { SIF_RANGE=1,SIF_PAGE=2,SIF_POS=4,SIF_DISABLENOSCROLL=8,SB_VERT=1,
        SWP_NOZORDER=1,SWP_NOACTIVATE=2,SWP_NOCOPYBITS=4,SWP_NOREDRAW=8,
        RDW_INVALIDATE=1,RDW_ERASE=2,RDW_FRAME=4,RDW_ALLCHILDREN=8,
@@ -35,6 +35,7 @@ static const int g_ModelCombos[]={IDC_MODEL_CHARACTERS,IDC_MODEL_ITEMS,IDC_MODEL
 static RECT positions[4000], client;
 static double scalex,scaley;
 static int toggles,control,shift,alt;
+static EditorTool lasttool;
 static int undos,redos,cancels;
 static BOOL g_ModelSampling;
 static void ModelEditorUndo(BOOL redo) { if(redo) redos++; else undos++; }
@@ -50,7 +51,7 @@ static BOOL IsDialogMessage(HWND hwnd,MSG *message) { return FALSE; }
 static void SendMessage(HWND hwnd,UINT message,WPARAM wparam,LPARAM lparam)
 {
     if(message==WM_CANCELMODE) { assert(hwnd==g_ModelViewport);g_ModelSampling=FALSE;cancels++;return; }
-    assert(message==EDITTOOL_WM_SELECT && wparam==EDITOR_TOOL_VERTEX_PAINT);toggles++;
+    assert(message==EDITTOOL_WM_SELECT && wparam<EDITOR_TOOL_COUNT); lasttool=(EditorTool)wparam; toggles++;
 }
 static void GetClientRect(HWND hwnd,RECT *rect)
 {
@@ -121,24 +122,39 @@ int main(void)
         assert(picker.scroll==0);
     }
     toolbar.paintonly=TRUE;
-    MSG message={g_ModelViewport,WM_KEYDOWN,'4',0};
+    MSG message={g_ModelViewport,WM_KEYDOWN,'5',0};
     assert(ToolToolbarHandleMessage(g_ModelPaintToolbar,&message) && toggles==1);
     message.lParam=1L<<30;assert(ToolToolbarHandleMessage(g_ModelPaintToolbar,&message) && toggles==1);
-    message.lParam=0;message.wParam=VK_NUMPAD4;
+    message.lParam=0;message.wParam=VK_NUMPAD5;
     assert(ToolToolbarHandleMessage(g_ModelPaintToolbar,&message) && toggles==2);
     for(int i=0;i<3;i++)
     {
         focusclass=i==0?"Edit":i==1?"ComboBox":"ComboLBox";
         assert(!ToolToolbarHandleMessage(g_ModelPaintToolbar,&message) && toggles==2);
     }
-    focusclass="GEditorViewport";message.wParam='4';
+    focusclass="GEditorViewport";message.wParam='5';
     control=1;assert(!ToolToolbarHandleMessage(g_ModelPaintToolbar,&message));control=0;
     alt=1;assert(!ToolToolbarHandleMessage(g_ModelPaintToolbar,&message));alt=0;
     shift=1;assert(!ToolToolbarHandleMessage(g_ModelPaintToolbar,&message));shift=0;
     message.wParam='1';assert(!ToolToolbarHandleMessage(g_ModelPaintToolbar,&message));
     message.wParam='V';assert(!ToolToolbarHandleMessage(g_ModelPaintToolbar,&message));
-    message.hwnd=(HWND)5000;message.wParam='4';assert(!ToolToolbarHandleMessage(g_ModelPaintToolbar,&message));
+    message.hwnd=(HWND)5000;message.wParam='5';assert(!ToolToolbarHandleMessage(g_ModelPaintToolbar,&message));
     assert(toggles==2);
+    toolbar.paintonly=FALSE; message.hwnd=g_ModelViewport;
+    for(int i=0;i<5;i++) {
+        message.wParam='1'+i;
+        assert(ToolToolbarHandleMessage(g_ModelPaintToolbar,&message) && lasttool==(EditorTool)i);
+        message.wParam=VK_NUMPAD1+i;
+        assert(ToolToolbarHandleMessage(g_ModelPaintToolbar,&message) && lasttool==(EditorTool)i);
+    }
+    assert(EDITOR_TOOL_ROOM_SELECT==3 && EDITOR_TOOL_VERTEX_PAINT==4);
+    for(int i=0;i<3;i++) {
+        focusclass=i==0 ? "Edit" : i==1 ? "ComboBox" : "ComboLBox";
+        message.wParam='4'; assert(!ToolToolbarHandleMessage(g_ModelPaintToolbar,&message));
+    }
+    focusclass="GEditorViewport";
+    message.wParam='V'; assert(!ToolToolbarHandleMessage(g_ModelPaintToolbar,&message));
+    message.wParam='6'; assert(!ToolToolbarHandleMessage(g_ModelPaintToolbar,&message));
     message.hwnd=g_ModelViewport;message.wParam=VK_ESCAPE;g_ModelSampling=TRUE;
     assert(ModelEditorPaintKey(&message) && !g_ModelSampling && cancels==1);
     assert(!ModelEditorPaintKey(&message)); /* Normal dialog Escape remains available. */

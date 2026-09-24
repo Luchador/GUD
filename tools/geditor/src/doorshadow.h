@@ -21,6 +21,7 @@ typedef struct DoorShadowEdit {
 BOOL DoorShadowCreate(BgDocument *bg, SetupFile *setup, const BgFaceRef faces[2],
     DWORD *selection, const char **why);
 BOOL DoorShadowGet(const SetupFile *setup, DWORD index, DoorShadowProperties *out);
+BOOL DoorShadowTranslate(SetupFile *setup, DWORD index, float scale, const double offset[3], const char **why);
 BOOL DoorShadowSet(SetupFile *setup, const DoorShadowEdit *edit, BOOL *changed, const char **why);
 BOOL DoorShadowBuildPreview(const SetupFile *setup, DWORD index, float levelscale,
     BgVertex vertices[18], unsigned short *tag, BgRenderFlags *flags, const char **why);

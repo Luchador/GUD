@@ -3429,7 +3429,7 @@ BOOL SetupFileDeleteCharacter(SetupFile *setup, DWORD characterindex,
     return TRUE;
 }
 
-BOOL SetupFileTranslatePad(SetupFile *setup, const SetupPadRef *ref,
+static BOOL SetupTranslatePad(SetupFile *setup, const SetupPadRef *ref, BOOL keeplink,
                             float levelscale, const double offset[3],
                             BOOL *changedout, const char **reasonout)
 {
@@ -3477,13 +3477,24 @@ BOOL SetupFileTranslatePad(SetupFile *setup, const SetupPadRef *ref,
         }
         /* Point to an existing null byte without editing a stan-name string
          * that other pads may share. A non-null plink keeps this record alive. */
-        SetupWrite32(setup->data + record + SETUP_PAD_LINK, terminator + SETUP_PAD_LINK);
-        pad->stanname[0] = '\0';
+        if (!keeplink)
+        {
+            SetupWrite32(setup->data + record + SETUP_PAD_LINK, terminator + SETUP_PAD_LINK);
+            pad->stanname[0] = '\0';
+        }
         setup->dirty = TRUE;
     }
     *reasonout = "";
     return TRUE;
 }
+
+BOOL SetupFileTranslatePad(SetupFile *setup, const SetupPadRef *ref,
+    float scale, const double offset[3], BOOL *changed, const char **why)
+{ return SetupTranslatePad(setup, ref, FALSE, scale, offset, changed, why); }
+
+BOOL SetupFileTranslateRoomPad(SetupFile *setup, const SetupPadRef *ref,
+    float scale, const double offset[3], BOOL *changed, const char **why)
+{ return SetupTranslatePad(setup, ref, TRUE, scale, offset, changed, why); }
 
 BOOL SetupFileSetPadStanName(SetupFile *setup, const SetupPadRef *ref,
     const char *name, const char **reasonout)

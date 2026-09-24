@@ -80,8 +80,8 @@ BOOL LevelScaleApply(BgDocument *bg, StanFile *stan, EditHistory *history,
             DWORD count = stack ? history->redocount : history->undocount;
             EditHistoryEntry *entries = stack ? history->redoentries : history->undoentries;
             for (DWORD i = 0; i < count; i++)
-                if (((entries[i].asset == EDIT_HISTORY_ASSET_BG || entries[i].asset == EDIT_HISTORY_ASSET_BG_SETUP) && !Background(&entries[i].bgdocument, scale, apply))
-                    || (entries[i].asset == EDIT_HISTORY_ASSET_STAN && !Stan(&entries[i].stan, scale, apply))) { return FALSE; }
+                if (((entries[i].asset == EDIT_HISTORY_ASSET_BG || (entries[i].asset == EDIT_HISTORY_ASSET_BG_SETUP || entries[i].asset == EDIT_HISTORY_ASSET_ROOM)) && !Background(&entries[i].bgdocument, scale, apply))
+                    || ((entries[i].asset == EDIT_HISTORY_ASSET_STAN || entries[i].asset == EDIT_HISTORY_ASSET_ROOM) && !Stan(&entries[i].stan, scale, apply))) { return FALSE; }
         }
     }
     *why = ""; return TRUE;

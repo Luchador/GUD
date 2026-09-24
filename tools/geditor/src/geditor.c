@@ -45,6 +45,7 @@
 #include "editorpath.h"
 #include "bgload.h"
 #include "bgdocument.h"
+#include "roomedit.h"
 #include "bgcommandswindow.h"
 #include "primitiveoptions.h"
 #include "bghistory.h"
@@ -226,6 +227,7 @@ static void GEditorRefreshTransformFields(void)
     BOOL stan = ViewportGetStanSelectionCount(g_Viewport, NULL) > 0;
     BOOL portal = ViewportGetPortalSelectionCount(g_Viewport) > 0;
     BOOL knife = ViewportKnifeActive(g_Viewport);
+    BOOL roommode = ViewportGetTool(g_Viewport) == EDITOR_TOOL_ROOM_SELECT;
     double scale = stan ? g_CurrentStan.levelscale : g_CurrentBgDocument.levelscale;
     BOOL editable = hasposition && (object ? GEditorCanMoveSetupModel(objectindex) : scale > 0);
     double precision = editable && !object && !pad && !marker && !portal ? 1.0 / scale : 0;
@@ -242,7 +244,7 @@ static void GEditorRefreshTransformFields(void)
             valid = ViewportGetGeometryRotation(g_Viewport, &frame);
             axes = 7;
         }
-        else if (editable && !portal && ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT)
+        else if (editable && !portal && !roommode && ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT)
         {
             if (marker)
             {
@@ -270,7 +272,7 @@ static void GEditorRefreshTransformFields(void)
     if (!ViewportIsTransforming(g_Viewport))
     {
         Rotation scaleaxes;
-        BOOL valid = editable && !knife && !marker && !portal && ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT;
+        BOOL valid = editable && !knife && !marker && !portal && !roommode && ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT;
         RotationAxis(&scaleaxes, 0, 0);
         if (object)
         {
@@ -324,9 +326,12 @@ static void GEditorRefreshSelectionInspector(void)
     if (models && !ViewportGetSelectedModels(g_Viewport, models, modelcount)) { free(models); models = NULL; }
     RightPanelSetObjectFlags(g_RightPanel, &g_CurrentSetup, models, models ? modelcount : 0);
     free(models);
+    RightPanelSetRoomMode(g_RightPanel, ViewportGetTool(g_Viewport) == EDITOR_TOOL_ROOM_SELECT);
     RightPanelSetVertexPaintMode(g_RightPanel,
         ViewportGetTool(g_Viewport) == EDITOR_TOOL_VERTEX_PAINT);
     GEditorRefreshTransformFields();
+    if (ViewportGetTool(g_Viewport) == EDITOR_TOOL_ROOM_SELECT)
+    { RightPanelSetRoomSelection(g_RightPanel, ViewportGetSelectedRoom(g_Viewport)); return; }
     if (ViewportGetSelectedPortal(g_Viewport, &portal))
     {
         RightPanelSetPortal(g_RightPanel, &g_CurrentBgDocument, portal);
@@ -398,6 +403,7 @@ static BOOL GEditorRebuildCurrentViewportWithObjects(
 {
     BgDocumentRenderMesh mesh;
     DWORD objectfirsttriangle;
+    DWORD selectedroom = ViewportGetSelectedRoom(g_Viewport);
 
     if (!BgDocumentBuildRenderMesh(&g_CurrentBgDocument, &mesh, reasonout))
     {
@@ -432,6 +438,8 @@ static BOOL GEditorRebuildCurrentViewportWithObjects(
         g_CurrentBgDocument.levelscale,
         objects->occupiedpads,
         objects->occupiedboundpads);
+    if (selectedroom && !ViewportSelectWholeRoom(g_Viewport, selectedroom))
+    { *reasonout = "Out of memory restoring the room selection."; return FALSE; }
     GEditorRefreshSelectionDetails();
     return TRUE;
 }
@@ -675,7 +683,6 @@ enum {
     ID_EDIT_REDO,
     ID_EDIT_FLIP_FACE,
     ID_GEOMETRY_MERGE_VERTICES,
-    ID_GEOMETRY_SNAP_VERTEX,
     ID_GEOMETRY_PAINT_VERTEX,
     ID_GEOMETRY_SPLIT_EDGE,
     ID_GEOMETRY_BISECT_EDGE,
@@ -2115,7 +2122,6 @@ static BOOL GEditorRestoreHistorySelection(HWND hwnd)
     { return FALSE; }
     if (!ViewportRestoreSelection(g_Viewport, snapshot + 1, snapshot->viewsize)) { return FALSE; }
     ToolToolbarSetTool(g_ToolToolbar, ViewportGetTool(g_Viewport));
-    ToolToolbarSetVertexSnap(g_ToolToolbar, ViewportGetVertexSnap(g_Viewport));
     if (snapshot->uvsize && !UVEditorIsOpen(hwnd) && !UVEditorShow(hwnd, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE)))
     { return FALSE; }
     GEditorRefreshSelectionDetails();
@@ -2147,7 +2153,7 @@ static void GEditorApplyHistoryStep(HWND hwnd, BOOL redo)
     }
 
     if ((asset != EDIT_HISTORY_ASSET_SELECTION
-         && !((asset == EDIT_HISTORY_ASSET_SETUP || asset == EDIT_HISTORY_ASSET_STAN || asset == EDIT_HISTORY_ASSET_BG_SETUP)
+         && !((asset == EDIT_HISTORY_ASSET_SETUP || asset == EDIT_HISTORY_ASSET_STAN || asset == EDIT_HISTORY_ASSET_BG_SETUP || asset == EDIT_HISTORY_ASSET_ROOM)
             ? GEditorReloadCurrentObjectsAndViewport(&why)
             : GEditorRebuildCurrentViewport(&why)))
         || !GEditorRestoreHistorySelection(hwnd))
@@ -2166,7 +2172,7 @@ static void GEditorApplyHistoryStep(HWND hwnd, BOOL redo)
                             &g_CurrentSetup, &g_CurrentStan, &restoreasset, &restorewhy);
         }
 
-        if (restoreasset == EDIT_HISTORY_ASSET_SETUP || restoreasset == EDIT_HISTORY_ASSET_STAN || restoreasset == EDIT_HISTORY_ASSET_BG_SETUP)
+        if (restoreasset == EDIT_HISTORY_ASSET_SETUP || restoreasset == EDIT_HISTORY_ASSET_STAN || restoreasset == EDIT_HISTORY_ASSET_BG_SETUP || restoreasset == EDIT_HISTORY_ASSET_ROOM)
         {
             GEditorReloadCurrentObjectsAndViewport(&restorewhy);
         }
@@ -2621,8 +2627,41 @@ fail:
     return FALSE;
 }
 
+static BOOL GEditorTranslateRoom(HWND hwnd, const double offset[3])
+{
+    DWORD room = ViewportGetSelectedRoom(g_Viewport);
+    EditHistoryTransaction transaction = {0};
+    SetupObjectGeometry objects = {0};
+    BOOL changed = FALSE;
+    const char *why = "Select a room first.", *restorewhy = "";
+    if (!room) { return FALSE; }
+    if (!EditHistoryBeginRoomEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+        &g_CurrentStan, "Move Room", &transaction, &why)) { goto fail; }
+    if (!RoomEditTranslate(&g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan, room, offset, &changed, &why)) { goto rollback; }
+    if (!changed) { EditHistoryCancelEdit(&transaction); return TRUE; }
+    if (!ObjectLoadSetupGeometry(g_Project.dir, &g_CurrentSetup, &g_CurrentStan,
+        g_CurrentBgDocument.levelscale, &objects, &why)
+        || !GEditorRebuildCurrentViewportWithObjects(&objects, &why)
+        || !EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+            &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    ObjectGeometryFree(&g_CurrentObjects); g_CurrentObjects = objects;
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    ObjectGeometryFree(&objects);
+    GEditorRebuildCurrentViewport(&restorewhy);
+    GEditorRestoreHistorySelection(hwnd);
+fail:
+    EditHistoryCancelEdit(&transaction);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
 static BOOL GEditorTranslateSelection(HWND hwnd, const double offset[3], BOOL snap)
 {
+    if (ViewportGetTool(g_Viewport) == EDITOR_TOOL_ROOM_SELECT) { return GEditorTranslateRoom(hwnd, offset); }
     if (ViewportKnifeActive(g_Viewport)) { return ViewportTransformKnife(g_Viewport, offset, NULL); }
     if (ViewportGetPortalSelectionCount(g_Viewport)) { return GEditorTranslatePortals(hwnd, offset, snap); }
     if (ViewportGetSelectedMarker(g_Viewport, NULL, NULL)) { return GEditorTransformMarker(hwnd, offset, NULL); }
@@ -3588,12 +3627,9 @@ static void GEditorShowGeometryMenu(HWND hwnd, ToolToolbarMenu kind, HWND button
         AppendMenu(menu, MF_STRING | ((GEditorCanMergeSelectedBgVertices() || GEditorCanMergeSelectedStanVertices()) ? MF_ENABLED : MF_GRAYED),
             ID_GEOMETRY_MERGE_VERTICES, "&Merge Vertices\tM");
         AppendMenu(menu, MF_SEPARATOR, 0, NULL);
-        AppendMenu(menu, MF_STRING | (idle && tool == EDITOR_TOOL_VERTEX_SELECT ? MF_ENABLED : MF_GRAYED)
-            | (ViewportGetVertexSnap(g_Viewport) ? MF_CHECKED : MF_UNCHECKED),
-            ID_GEOMETRY_SNAP_VERTEX, "&Snap to Vertex\tV");
         AppendMenu(menu, MF_STRING | (idle ? MF_ENABLED : MF_GRAYED)
             | (tool == EDITOR_TOOL_VERTEX_PAINT ? MF_CHECKED : MF_UNCHECKED),
-            ID_GEOMETRY_PAINT_VERTEX, "&Paint Vertices\t4");
+            ID_GEOMETRY_PAINT_VERTEX, "&Paint Vertices\t5");
         break;
     case TOOLTOOLBAR_MENU_EDGE:
         AppendMenu(menu, MF_STRING | (idle && !ViewportGetVertexSnap(g_Viewport)
@@ -5517,17 +5553,10 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         }
         return 0;
 
-    case EDITTOOL_WM_TOGGLE_VERTEX_SNAP:
-        if (ViewportGetTool(g_Viewport) == EDITOR_TOOL_VERTEX_SELECT)
-        {
-            ViewportSetVertexSnap(g_Viewport, !ViewportGetVertexSnap(g_Viewport));
-            ToolToolbarSetVertexSnap(g_ToolToolbar, ViewportGetVertexSnap(g_Viewport));
-            SetFocus(g_Viewport);
-        }
-        return 0;
 
     case RIGHTPANEL_WM_TRANSFORM_MODE:
         if (wparam > TRANSFORM_SCALE) { return 0; }
+        if (ViewportGetTool(g_Viewport) == EDITOR_TOOL_ROOM_SELECT) { wparam = TRANSFORM_MOVE; }
         ViewportSetTransformMode(g_Viewport, (TransformMode)wparam);
         RightPanelSetTransformMode(g_RightPanel, (TransformMode)wparam);
         GEditorRefreshTransformFields();
@@ -6347,11 +6376,6 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             case ID_GEOMETRY_MERGE_VERTICES:
                 if (ViewportGetStanSelectionCount(g_Viewport,NULL)) { GEditorEditStanTopology(hwnd,NULL); }
                 else { GEditorMergeSelectedBgVertices(hwnd); }
-                return 0;
-
-            case ID_GEOMETRY_SNAP_VERTEX:
-                if (g_CurrentBgDocument.rooms && !ViewportIsFlying(g_Viewport))
-                { SendMessage(hwnd, EDITTOOL_WM_TOGGLE_VERTEX_SNAP, 0, 0); }
                 return 0;
 
             case ID_GEOMETRY_PAINT_VERTEX:

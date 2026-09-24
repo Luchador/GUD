@@ -45,11 +45,11 @@ IDR_EDGE_SELECT_OFF   RCDATA "../geditorassets/edges_select_off.png"
 IDR_EDGE_SELECT_ON    RCDATA "../geditorassets/edges_select_on.png"
 IDR_FACE_SELECT_OFF   RCDATA "../geditorassets/faces_select_off.png"
 IDR_FACE_SELECT_ON    RCDATA "../geditorassets/faces_select_on.png"
+IDR_ROOM_SELECT_OFF RCDATA "../geditorassets/room_select_off.png"
+IDR_ROOM_SELECT_ON RCDATA "../geditorassets/room_select_on.png"
 IDR_VERTEX_PAINT_OFF  RCDATA "../geditorassets/vertex_paint_off.png"
 IDR_VERTEX_PAINT_ON   RCDATA "../geditorassets/vertex_paint_on.png"
 IDR_VERTEX_COLOR_BRUSH RCDATA "../geditorassets/vertex_color_brush.png"
-IDR_VERTEX_SNAP_OFF   RCDATA "../geditorassets/vertex_snap_off.png"
-IDR_VERTEX_SNAP_ON    RCDATA "../geditorassets/vertex_snap_on.png"
 
 /*
  * New Project dialog. Units here are dialog units, not pixels: they

@@ -174,7 +174,7 @@ void StanUpdateRepresentativeTriangle(StanFile *stan, DWORD index)
                        | (tile->extreme[1] << 4) | tile->extreme[2]));
 }
 
-BOOL StanTranslatePoints(StanFile *stan, const StanPointRef *points, DWORD count,
+static BOOL StanTranslateSelectedPoints(StanFile *stan, const StanPointRef *points, DWORD count, BOOL linked,
                           const double offset[3], DWORD *movedout,
                           const char **reasonout)
 {
@@ -200,7 +200,13 @@ BOOL StanTranslatePoints(StanFile *stan, const StanPointRef *points, DWORD count
         }
     }
     if (delta[0] == 0 && delta[1] == 0 && delta[2] == 0) { return TRUE; }
-    map = StanBuildPointMap(stan, reasonout);
+    if (linked) { map = StanBuildPointMap(stan, reasonout); }
+    else
+    {
+        map = malloc((size_t)stan->tilecount * STAN_TILE_MAX_POINTS * sizeof(*map));
+        if (map) for (DWORD j = 0; j < stan->tilecount * STAN_TILE_MAX_POINTS; j++) { map[j] = j; }
+        else { *reasonout = "out of memory collecting room Stan points."; }
+    }
     if (map == NULL) { return FALSE; }
     selected = calloc((size_t)stan->tilecount * STAN_TILE_MAX_POINTS, 1);
     if (selected == NULL)
@@ -265,6 +271,22 @@ BOOL StanTranslatePoints(StanFile *stan, const StanPointRef *points, DWORD count
 fail:
     free(selected); free(map);
     return FALSE;
+}
+
+BOOL StanTranslatePoints(StanFile *stan, const StanPointRef *points, DWORD count,
+    const double offset[3], DWORD *moved, const char **why)
+{ return StanTranslateSelectedPoints(stan, points, count, TRUE, offset, moved, why); }
+
+BOOL StanTranslateRoom(StanFile *stan, DWORD room, const double offset[3], const char **why)
+{
+    DWORD count = 0, moved;
+    if (!stan->tilecount) { return TRUE; }
+    StanPointRef *points = malloc((size_t)stan->tilecount * STAN_TILE_MAX_POINTS * sizeof(*points));
+    if (!points) { *why = "out of memory collecting room Stan points."; return FALSE; }
+    for (DWORD t = 0; t < stan->tilecount; t++) if (stan->tiles[t].room == room)
+        for (DWORD p = 0; p < stan->tiles[t].pointcount; p++) { points[count++] = (StanPointRef){t,p}; }
+    BOOL ok = !count || StanTranslateSelectedPoints(stan, points, count, FALSE, offset, &moved, why);
+    free(points); return ok;
 }
 
 BOOL StanPaintTile(StanFile *stan, DWORD index, const unsigned char rgba[4],

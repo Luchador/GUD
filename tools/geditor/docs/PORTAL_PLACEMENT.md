@@ -33,17 +33,13 @@ and place both new and existing portals:
 - **Shift-click** adds components or faces; **Ctrl-click** removes them.
   Vertex/edge box selection also works. Select a portal component first to
   keep a marquee on portals; otherwise the marquee prefers background hits.
-- **Snap to Vertex (V):** click a portal corner, then a background vertex.
-  Only the portal corner moves. A missed target keeps the source selected;
-  a successful snap clears it, ready for another pair. Portals and Stan do
-  not steal the destination click. Press V again to leave snapping.
 - **Escape** cancels a live drag; a second Escape clears the selection.
 
-Translation, snapping and component selection participate in **Undo/Redo**.
+Translation and component selection participate in **Undo/Redo**.
 Live previews do not modify the document until the drag is released. Moving
 several selected edges translates their shared vertices only once. Rotation,
 scaling, extrusion and other BG topology operations remain separate tools;
-this portal extension adds translation and vertex snapping.
+portal components support translation.
 
 Portal copies retain their shape, winding, room links, flags and margin. Entries
 that share a polygon within the copied group continue to share the new polygon;
@@ -114,14 +110,13 @@ python3 tools/geditor/tests/portal_deletion/run.py
 python3 tools/geditor/tests/portal_editing/run.py
 python3 tools/geditor/tests/portal_placement/run.py
 python3 tools/geditor/tests/portals/run.py
-python3 tools/geditor/tests/vertex_snap/run.py
 python3 tools/geditor/tests/selection_history/run.py
 python3 tools/geditor/tests/box_selection/run.py
 ```
 
 Native tests cover component picks, modifiers, shared geometry, preview
-restoration, controller rollback, snapping, native BG persistence, byte-exact
+restoration, controller rollback, native BG persistence, byte-exact
 undo/save/redo, original metadata, 3–8-point polygons and capacity limits.
 Window messages are stubbed; Windows UI and real N64 visibility need manual
-checks. Try creating a portal, moving an edge, snapping its corners, saving
+checks. Try creating a portal, moving an edge, positioning its corners, saving
 and reopening, then exporting a ROM and viewing the opening from both rooms.

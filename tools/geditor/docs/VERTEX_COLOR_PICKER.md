@@ -1,6 +1,6 @@
 # Vertex color picker
 
-Choose **Paint Vertices** (4), then click **Pick Color** above the HSV controls
+Choose **Paint Vertices** (5), then click **Pick Color** above the HSV controls
 in the right panel. The viewport cursor becomes a crosshair. Click a background
 face near the vertex whose color you want to copy. The brush, swatch and RGBA
 fields update, and the tool returns to painting with that color.

@@ -117,8 +117,6 @@
 #define IDR_GIZMO_ARROW       309
 #define IDR_NO_TEXTURE        310
 #define IDR_GIZMO_CYLINDER    311
-#define IDR_VERTEX_SNAP_OFF   312
-#define IDR_VERTEX_SNAP_ON    313
 #define IDR_GIZMO_SCALE       314
 
 /* Object palette icons (embedded PNGs). */
@@ -284,3 +282,6 @@
 #define GEDITOR_NAME_MAX       64
 
 #endif /* GEDITOR_RESOURCE_H */
+
+#define IDR_ROOM_SELECT_OFF 390
+#define IDR_ROOM_SELECT_ON 391

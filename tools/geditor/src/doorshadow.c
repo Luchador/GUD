@@ -44,6 +44,23 @@ BOOL DoorShadowGet(const SetupFile *s,DWORD i,DoorShadowProperties *out)
     if(out->door>=0&&(s->objects[out->door].type!=PROPDEF_DOOR||s->objects[out->door].deleted))out->door=-1;
     return TRUE;
 }
+BOOL DoorShadowTranslate(SetupFile *setup, DWORD index, float scale, const double offset[3], const char **why)
+{
+    const unsigned char *record = Record(setup, index);
+    float origin[3];
+    *why = "The Door Shadow or translation is invalid.";
+    if (!record || !(scale > 0)) { return FALSE; }
+    for (int a = 0; a < 3; a++)
+    {
+        double value = ReadFloat(record + DOOR_SHADOW_ORIGIN + a * 4) + offset[a] * scale;
+        if (!isfinite(value) || fabs(value) > 100000000) { return FALSE; }
+        origin[a] = (float)value;
+    }
+    for (int a = 0; a < 3; a++)
+    { WriteFloat(setup->data + setup->objects[index].sourceoffset + DOOR_SHADOW_ORIGIN + a * 4, origin[a]); }
+    setup->dirty = TRUE; *why = ""; return TRUE;
+}
+
 BOOL DoorShadowSet(SetupFile *s,const DoorShadowEdit *edit,BOOL *changed,const char **why)
 {
     const unsigned char *p=edit?Record(s,edit->objectindex):NULL;DWORD offset,value;

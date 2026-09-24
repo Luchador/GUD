@@ -2,7 +2,7 @@
 
 **Correct Face Attributes** is a toolbar checkbox, enabled when GEditor starts.
 With it enabled, committing a background vertex or edge move also corrects the
-affected UVs. This includes gizmo moves, typed positions, and vertex snaps.
+affected UVs. This includes gizmo moves and typed positions.
 The position and UV changes share one undo/redo entry and are saved normally.
 Turn it off to retain the original UV coordinates while moving geometry.
 

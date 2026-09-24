@@ -1176,6 +1176,28 @@ void RightPanelSetModelSelectionCount(HWND panel, DWORD count)
     InvalidateRect(panel, NULL, FALSE);
 }
 
+void RightPanelSetRoomSelection(HWND panel, DWORD room)
+{
+    RightPanelState *state = RightPanelGetState(panel);
+    if (!state) { return; }
+    lstrcpyn(state->detailtitle, "Room", sizeof(state->detailtitle));
+    if (room) snprintf(state->detailtext, sizeof(state->detailtext),
+        "Room %lu selected.\r\n\r\nMove includes both background layers, Stan tiles, connected portals, characters, objects and pads, including hidden items.\r\n\r\nDrag an arrow to move, or enter a world position above. Escape cancels a drag.", (unsigned long)room);
+    else lstrcpyn(state->detailtext, "Click a background face or an object to select its room.", sizeof(state->detailtext));
+    RightPanelShowFaceProperties(panel, state, FALSE);
+    SetWindowText(state->details, state->detailtext);
+    InvalidateRect(panel, NULL, FALSE);
+}
+
+void RightPanelSetRoomMode(HWND panel, BOOL enabled)
+{
+    RightPanelState *state = RightPanelGetState(panel);
+    if (!state) { return; }
+    EnableWindow(state->rotatemode, !enabled);
+    EnableWindow(state->scalebutton, !enabled);
+    if (enabled) { RightPanelSetTransformMode(panel, TRANSFORM_MOVE); }
+}
+
 void RightPanelSetBgSelectionCount(HWND panel, int count)
 {
     RightPanelState *state = RightPanelGetState(panel);

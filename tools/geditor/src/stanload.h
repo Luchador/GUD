@@ -115,6 +115,8 @@ DWORD *StanBuildPointMap(const StanFile *stan, const char **reasonout);
 BOOL StanTranslatePoints(StanFile *stan, const StanPointRef *points, DWORD count,
                           const double offset[3], DWORD *movedout,
                           const char **reasonout);
+/* Whole-room translation leaves neighboring rooms, including shared endpoints, unchanged. */
+BOOL StanTranslateRoom(StanFile *stan, DWORD room, const double offset[3], const char **why);
 /* Atomic tile removal: compact records and relocate edge/header pointers.
  * Links to deleted tiles become boundaries. At least one tile must remain. */
 BOOL StanDeleteTiles(StanFile *stan, const DWORD *selected, DWORD count,

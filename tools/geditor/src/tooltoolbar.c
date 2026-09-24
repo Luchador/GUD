@@ -11,8 +11,7 @@
 #define TOOLTOOLBAR_BUTTON_SIZE 32
 #define TOOLTOOLBAR_MARGIN 4
 #define TOOLTOOLBAR_FIRST_ID 3001
-#define TOOLTOOLBAR_SNAP_INDEX EDITOR_TOOL_COUNT
-#define TOOLTOOLBAR_BUTTON_COUNT (EDITOR_TOOL_COUNT + 1)
+#define TOOLTOOLBAR_BUTTON_COUNT EDITOR_TOOL_COUNT
 #define TOOLTOOLBAR_MENU_FIRST_ID 3101
 #define TOOLTOOLBAR_MENU_WIDTH 80
 #define TOOLTOOLBAR_CORRECT_ID 3201
@@ -25,14 +24,13 @@ static const struct {
     { "Vertex Select (1)", { IDR_VERTEX_SELECT_OFF, IDR_VERTEX_SELECT_ON } },
     { "Edge Select (2)",   { IDR_EDGE_SELECT_OFF, IDR_EDGE_SELECT_ON } },
     { "Face Select (3)",   { IDR_FACE_SELECT_OFF, IDR_FACE_SELECT_ON } },
-    { "Vertex Paint (4)",  { IDR_VERTEX_PAINT_OFF, IDR_VERTEX_PAINT_ON } },
-    { "Vertex Snap (V; vertex mode only)", { IDR_VERTEX_SNAP_OFF, IDR_VERTEX_SNAP_ON } }
+    { "Room Select (4)", { IDR_ROOM_SELECT_OFF, IDR_ROOM_SELECT_ON } },
+    { "Vertex Paint (5)",  { IDR_VERTEX_PAINT_OFF, IDR_VERTEX_PAINT_ON } }
 };
 
 typedef struct ToolToolbarState {
     EditorTool tool;
     BOOL paintonly;
-    BOOL vertexsnap;
     HWND buttons[TOOLTOOLBAR_BUTTON_COUNT];
     HWND menus[TOOLTOOLBAR_MENU_COUNT];
     HWND correctattributes;
@@ -212,13 +210,12 @@ static LRESULT CALLBACK ToolToolbarWndProc(HWND hwnd, UINT message,
                 TOOLTOOLBAR_MARGIN, TOOLTOOLBAR_BUTTON_SIZE, TOOLTOOLBAR_BUTTON_SIZE,
                 hwnd, (HMENU)(INT_PTR)(TOOLTOOLBAR_FIRST_ID + tool), instance, NULL);
             if (state->buttons[tool] == NULL) { return -1; }
-            if (tool == TOOLTOOLBAR_SNAP_INDEX) { EnableWindow(state->buttons[tool], FALSE); }
             ZeroMemory(&tip, sizeof(tip));
             tip.cbSize = sizeof(tip);
             tip.uFlags = TTF_IDISHWND | TTF_SUBCLASS;
             tip.hwnd = hwnd;
             tip.uId = (UINT_PTR)state->buttons[tool];
-            tip.lpszText = (char *)g_Tools[tool].name;
+            tip.lpszText = state->paintonly ? "Vertex Paint (5)" : (char *)g_Tools[tool].name;
             SendMessage(state->tooltip, TTM_ADDTOOL, 0, (LPARAM)&tip);
         }
         if (state->paintonly) { return 0; }
@@ -258,14 +255,7 @@ static LRESULT CALLBACK ToolToolbarWndProc(HWND hwnd, UINT message,
         tool = LOWORD(wparam) - TOOLTOOLBAR_FIRST_ID;
         if (HIWORD(wparam) == BN_CLICKED && tool >= 0 && tool < TOOLTOOLBAR_BUTTON_COUNT)
         {
-            if (tool == TOOLTOOLBAR_SNAP_INDEX)
-            {
-                SendMessage(GetParent(hwnd), EDITTOOL_WM_TOGGLE_VERTEX_SNAP, 0, 0);
-            }
-            else
-            {
-                SendMessage(GetParent(hwnd), EDITTOOL_WM_SELECT, (WPARAM)tool, 0);
-            }
+            SendMessage(GetParent(hwnd), EDITTOOL_WM_SELECT, (WPARAM)tool, 0);
             return 0;
         }
         break;
@@ -282,8 +272,7 @@ static LRESULT CALLBACK ToolToolbarWndProc(HWND hwnd, UINT message,
                 HGDIOBJ previous;
 
                 if (source == NULL) { return FALSE; }
-                previous = SelectObject(source, state->images[tool][tool == TOOLTOOLBAR_SNAP_INDEX
-                    ? state->vertexsnap : state->tool == (EditorTool)tool]);
+                previous = SelectObject(source, state->images[tool][state->tool == (EditorTool)tool]);
                 BitBlt(draw->hDC, draw->rcItem.left, draw->rcItem.top,
                     TOOLTOOLBAR_BUTTON_SIZE, TOOLTOOLBAR_BUTTON_SIZE, source, 0, 0, SRCCOPY);
                 SelectObject(source, previous);
@@ -348,7 +337,7 @@ HWND ToolToolbarCreate(HWND parent, HINSTANCE hinstance)
 
 HWND ToolToolbarCreatePaint(HWND parent, HINSTANCE hinstance)
 {
-    return CreateWindowEx(WS_EX_CONTROLPARENT, TOOLTOOLBAR_CLASS, "Vertex Paint (4)",
+    return CreateWindowEx(WS_EX_CONTROLPARENT, TOOLTOOLBAR_CLASS, "Vertex Paint (5)",
         WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN,
         0, 0, TOOLTOOLBAR_HEIGHT, TOOLTOOLBAR_HEIGHT, parent, NULL, hinstance, (void *)1);
 }
@@ -363,21 +352,10 @@ void ToolToolbarSetTool(HWND toolbar, EditorTool tool)
         return;
     }
     state->tool = tool;
-    if (tool != EDITOR_TOOL_VERTEX_SELECT) { state->vertexsnap = FALSE; }
-    EnableWindow(state->buttons[TOOLTOOLBAR_SNAP_INDEX], tool == EDITOR_TOOL_VERTEX_SELECT);
     for (index = 0; index < TOOLTOOLBAR_BUTTON_COUNT; index++)
     {
         if (state->buttons[index]) { InvalidateRect(state->buttons[index], NULL, FALSE); }
     }
-}
-
-void ToolToolbarSetVertexSnap(HWND toolbar, BOOL enabled)
-{
-    ToolToolbarState *state = (ToolToolbarState *)GetWindowLongPtr(toolbar, GWLP_USERDATA);
-
-    if (state == NULL) { return; }
-    state->vertexsnap = enabled && state->tool == EDITOR_TOOL_VERTEX_SELECT;
-    InvalidateRect(state->buttons[TOOLTOOLBAR_SNAP_INDEX], NULL, FALSE);
 }
 
 BOOL ToolToolbarCorrectFaceAttributes(HWND toolbar)
@@ -407,32 +385,22 @@ BOOL ToolToolbarHandleMessage(HWND toolbar, MSG *message)
         /* The Transform fields must still accept numbers, as must any
            other native edit controls added to the editor in future. */
         GetClassName(message->hwnd, classname, sizeof(classname));
-        if (lstrcmpi(classname, "Edit") == 0) { return FALSE; }
+        if (lstrcmpi(classname, "Edit") == 0 || lstrcmpi(classname, "ComboBox") == 0
+            || lstrcmpi(classname, "ComboLBox") == 0) { return FALSE; }
         if (state && state->paintonly)
         {
-            if (lstrcmpi(classname, "ComboBox") == 0 || lstrcmpi(classname, "ComboLBox") == 0)
-            { return FALSE; }
-            if (message->wParam == '4' || message->wParam == VK_NUMPAD4)
+            if (message->wParam == '5' || message->wParam == VK_NUMPAD5)
             {
                 if (!(message->lParam & (1L << 30)))
                 { SendMessage(frame, EDITTOOL_WM_SELECT, EDITOR_TOOL_VERTEX_PAINT, 0); }
                 return TRUE;
             }
         }
-        else if (message->wParam == 'V')
-        {
-            /* Holding V must not repeatedly toggle the mode. */
-            if (!(message->lParam & (1L << 30)))
-            {
-                SendMessage(frame, EDITTOOL_WM_TOGGLE_VERTEX_SNAP, 0, 0);
-            }
-            return TRUE;
-        }
-        if ((!state || !state->paintonly) && message->wParam >= '1' && message->wParam <= '4')
+        if ((!state || !state->paintonly) && message->wParam >= '1' && message->wParam <= '5')
         {
             tool = (int)(message->wParam - '1');
         }
-        else if ((!state || !state->paintonly) && message->wParam >= VK_NUMPAD1 && message->wParam <= VK_NUMPAD4)
+        else if ((!state || !state->paintonly) && message->wParam >= VK_NUMPAD1 && message->wParam <= VK_NUMPAD5)
         {
             tool = (int)(message->wParam - VK_NUMPAD1);
         }

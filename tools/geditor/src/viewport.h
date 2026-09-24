@@ -160,7 +160,7 @@ void ViewportRedraw(HWND viewport);
    Face selection is the initial tool. Switching selection tools transfers
    BG, stan and portal selection: children of selected faces/edges are selected;
    edges/faces require all their vertices/boundary edges. Entering or leaving
-   vertex paint clears selection. Undo restores selection and tool together. */
+   vertex paint or room mode clears selection. Undo restores selection and tool together. */
 EditorTool ViewportGetTool(HWND viewport);
 void ViewportSetTool(HWND viewport, EditorTool tool);
 BOOL ViewportGetVertexSnap(HWND viewport);
@@ -212,6 +212,9 @@ BOOL ViewportSelectBackground(HWND hwnd, BOOL grow);
    vertex/edge/face mode. Includes disconnected/off-screen geometry, respecting
    hidden faces and visible layers. Uses the same availability check as Grow. */
 BOOL ViewportSelectRoom(HWND hwnd);
+/* Whole-room tool: independent of per-layer visibility; no frame notification. */
+DWORD ViewportGetSelectedRoom(HWND hwnd);
+BOOL ViewportSelectWholeRoom(HWND hwnd, DWORD room);
 /* Face mode only: all selected BG faces must use the same texture ID.
    Select matching faces across rooms in visible layers, excluding hidden faces.
    UV wrapping, render flags and culling do not affect the texture match. */

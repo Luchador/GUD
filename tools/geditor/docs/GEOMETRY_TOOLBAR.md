@@ -7,7 +7,7 @@ Buttons support mouse click, Tab/Space/Enter, and Down to open a dropdown.
 
 | Menu | Operations |
 | --- | --- |
-| Vertex | Merge Vertices (M), Snap to Vertex (V), Paint Vertices (4) |
+| Vertex | Merge Vertices (M), Paint Vertices (5) |
 | Edge | Bisect Edge (Ctrl+Q), Split Edge, Bridge Edges (B) |
 | Face | Knife (K), Flip Face (Alt+N), Disconnect Face, Edit UVs, Hide Selected (H), Unhide All (Alt+H) |
 
@@ -23,7 +23,7 @@ If triangles collapse, OK merges and removes those faces; Cancel leaves the
 geometry unchanged. Existing degenerate faces are retained. The surviving
 vertex stays selected when it has a visible incident face; otherwise selection
 clears. Undo restores the geometry and original selection together. M does not
-operate during camera flight, transform drags or vertex snapping, or while
+operate during camera flight, transform drags, or while
 editing text or working in the floating UV/model windows. Stan is not merged.
 
 Split Edge requires one selected BG edge and separates its endpoint vertices

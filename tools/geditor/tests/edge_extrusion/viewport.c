@@ -36,6 +36,7 @@ typedef struct ViewportObjectDuplicate {
     ViewportRotation rotation; Scaling scaling;
 } ViewportObjectDuplicate;
 typedef struct ViewportState {
+    BOOL dragroom;
     EditorTool tool;
     int scenecount,batchcount,componentcount,componentcapacity,dragaxis;
     Vertex *scene,*padmarkers;
@@ -122,6 +123,7 @@ static intptr_t SendMessage(HWND hwnd,int msg,int wparam,LPARAM lparam)
 /* Spy on the input to the independently tested rotation math. */
 void RotationAxis(Rotation *rotation,int axis,double degrees)
 { memset(rotation,0,sizeof(*rotation)); rotation->m[axis][axis]=degrees; }
+static void ViewportCancelRoomDrag(HWND hwnd, ViewportState *state) { abort(); }
 #include "viewport.inc"
 
 static void Begin(ViewportState *s,BOOL extrude,double delta)

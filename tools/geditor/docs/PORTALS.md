@@ -4,13 +4,14 @@ Enable **Portals** in Visibility, then click a visible portal in face, edge, or
 vertex selection mode. The selected polygon turns gold. Picking is double-sided
 and respects foreground level geometry and objects. The translucent stan
 overlay does not block portal selection.
-Vertex paint and vertex snapping keep their existing click behavior.
+Vertex Paint targets the background. Room mode selects connected portals
+together with their room when clicking a background face or object.
 
 Properties shows the native portal index, polygon point count, extra-margin
 status and value, and the number of connections sharing the polygon. The margin
 is decoded using the game's `bgGetPortalMargin` formula and converted from BG
 units to world units using the level scale. See [Portal creation and editing](PORTAL_PLACEMENT.md)
-for margin editing, movement, snapping, creation and deletion.
+for margin editing, movement, creation and deletion.
 
 Use the **Room 1** and **Room 2** lists and click **Apply connections** (or press
 Enter with a closed list). Both endpoints are applied together, so they can be
