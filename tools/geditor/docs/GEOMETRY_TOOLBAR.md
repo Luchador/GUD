@@ -33,9 +33,10 @@ an edge. Disconnect Face works on one or more selected BG faces.
 Press **B** to bridge the selected edges. The shortcut ignores text fields,
 floating editors, camera flight, active transforms and key auto-repeat.
 
-Bridge Edges requires exactly two disjoint BG boundary edges in the same room
-and layer. It adds two triangles, with winding opposite each adjoining source
-edge. Interior edges, shared endpoints, and twisted or zero-area bridges are
+Bridge Edges requires exactly two BG boundary edges on different faces in the
+same room and layer. Edges sharing one vertex add one triangle; disjoint edges
+add two. The new winding runs opposite each adjoining source edge. Interior
+edges, coincident edges, incompatible winding, and twisted or zero-area bridges are
 rejected. The first edge in the selection supplies the new faces' material, culling and
 draw state. Existing endpoint UVs and RGBA are retained; Edit UVs can adjust the
 new surface afterward. The new faces are selected in face mode. Undo restores

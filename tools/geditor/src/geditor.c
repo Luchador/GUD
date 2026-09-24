@@ -3415,16 +3415,17 @@ static BOOL GEditorBridgeSelectedBgEdges(HWND hwnd)
     EditHistoryTransaction transaction = {0};
     BgDocumentEdgeRef edges[2];
     BgFaceRef faces[2];
+    DWORD count;
     const char *why = "", *restorewhy = "";
     if (ViewportIsFlying(g_Viewport) || ViewportIsTransforming(g_Viewport)
         || !ViewportGetSelectedBgEdges(g_Viewport, edges, 2)) { return FALSE; }
     if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
         "Bridge Edges", &transaction, &why)) { goto fail; }
-    if (!BgDocumentBridgeEdges(&g_CurrentBgDocument, edges, faces, &why)) { goto fail; }
+    if (!BgDocumentBridgeEdges(&g_CurrentBgDocument, edges, faces, &count, &why)) { goto fail; }
     if (!GEditorRebuildCurrentViewport(&why)) { goto rollback; }
     /* Show the new surface immediately and include its selection/tool in undo. */
     ViewportSetTool(g_Viewport, EDITOR_TOOL_FACE_SELECT);
-    if (!ViewportSelectBgFaces(g_Viewport, faces, 2))
+    if (!ViewportSelectBgFaces(g_Viewport, faces, count))
     { why = "Could not select the bridge faces."; goto rollback; }
     if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
         &g_CurrentStan, &transaction, &why)) { goto rollback; }

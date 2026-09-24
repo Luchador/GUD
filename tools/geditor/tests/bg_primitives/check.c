@@ -74,7 +74,7 @@ static void CheckNew(const BgDocument *doc, const BgFaceRef *refs, DWORD count)
 
 static void RoundTrip(const BgDocument *doc, const BgFile *source, const char *dir)
 {
-    BgFile compiled={0}, saved={0}, again={0}; BgDocument loaded={0};
+    BgFile compiled={0}, packed={0}, saved={0}, again={0}; BgDocument loaded={0};
     BgDocumentRenderMesh a={0},b={0}; const char *why=""; char path[MAX_PATH];
     assert(BgDocumentCompile(doc,source,&compiled,&why));
     /* The ROM builder runs this same native batch validator. */
@@ -82,7 +82,10 @@ static void RoundTrip(const BgDocument *doc, const BgFile *source, const char *d
     snprintf(path,sizeof(path),"%s/bg",dir); CreateDirectory(path,NULL);
     assert(BgSaveProjectFile(dir,&compiled,&why));
     assert(BgLoadProjectFile(dir,compiled.name,&saved,&why));
-    assert(saved.size==compiled.size && !memcmp(saved.data,compiled.data,saved.size));
+    /* Saving compacts live allocations, including alignment padding that
+     * changes when a bridge adds one triangle instead of two. */
+    assert(BgFileCompact(&compiled,&packed,&why));
+    assert(saved.size==packed.size && !memcmp(saved.data,packed.data,saved.size));
     assert(BgDocumentLoad(saved.data,saved.size,doc->levelscale,&loaded,&why));
     assert(loaded.facecount==doc->facecount && loaded.roomcount==doc->roomcount);
     assert(BgDocumentBuildRenderMesh(doc,&a,&why) && BgDocumentBuildRenderMesh(&loaded,&b,&why));
@@ -101,7 +104,7 @@ static void RoundTrip(const BgDocument *doc, const BgFile *source, const char *d
     /* The original room/portal/visibility metadata is not rewritten. */
     assert(!memcmp(source->data+8,compiled.data+8,24));
     BgDocumentRenderMeshFree(&a); BgDocumentRenderMeshFree(&b); BgDocumentFree(&loaded);
-    BgFileFree(&compiled); BgFileFree(&saved); BgFileFree(&again);
+    BgFileFree(&compiled); BgFileFree(&packed); BgFileFree(&saved); BgFileFree(&again);
 }
 
 static void CheckRound(const BgDocument *doc, BOOL cylinder, DWORD sides, double radius,
