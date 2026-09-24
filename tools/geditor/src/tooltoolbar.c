@@ -39,7 +39,8 @@ typedef struct ToolToolbarState {
 } ToolToolbarState;
 
 /* Decode embedded PNGs once at creation, so installed copies of the exe
-   never need to locate the source asset folder. The supplied buttons are
+   never need to locate the source asset folder. Scale artwork to the button
+   size; the room icons, for example, are 48x48. The supplied buttons are
    opaque; a top-down BGR DIB can be drawn directly by GDI. */
 static HBITMAP ToolToolbarLoadImage(HINSTANCE instance,
                                    IWICImagingFactory *factory, int id)
@@ -51,6 +52,8 @@ static HBITMAP ToolToolbarLoadImage(HINSTANCE instance,
     IWICStream *stream = NULL;
     IWICBitmapDecoder *decoder = NULL;
     IWICBitmapFrameDecode *frame = NULL;
+    IWICBitmapScaler *scaler = NULL;
+    IWICBitmapSource *source;
     IWICFormatConverter *converter = NULL;
     HBITMAP bitmap = NULL;
     BITMAPINFO info;
@@ -70,10 +73,27 @@ static HBITMAP ToolToolbarLoadImage(HINSTANCE instance,
             (IStream *)stream, NULL, WICDecodeMetadataCacheOnLoad, &decoder))
         || FAILED(IWICBitmapDecoder_GetFrame(decoder, 0, &frame))
         || FAILED(IWICBitmapFrameDecode_GetSize(frame, &width, &height))
-        || width != TOOLTOOLBAR_BUTTON_SIZE || height != TOOLTOOLBAR_BUTTON_SIZE
-        || FAILED(IWICImagingFactory_CreateFormatConverter(factory, &converter))
+        || width == 0 || height == 0)
+    {
+        goto done;
+    }
+
+    source = (IWICBitmapSource *)frame;
+    if (width != TOOLTOOLBAR_BUTTON_SIZE || height != TOOLTOOLBAR_BUTTON_SIZE)
+    {
+        if (FAILED(IWICImagingFactory_CreateBitmapScaler(factory, &scaler))
+            || FAILED(IWICBitmapScaler_Initialize(scaler, source,
+                TOOLTOOLBAR_BUTTON_SIZE, TOOLTOOLBAR_BUTTON_SIZE,
+                WICBitmapInterpolationModeFant)))
+        {
+            goto done;
+        }
+        source = (IWICBitmapSource *)scaler;
+        width = height = TOOLTOOLBAR_BUTTON_SIZE;
+    }
+    if (FAILED(IWICImagingFactory_CreateFormatConverter(factory, &converter))
         || FAILED(IWICFormatConverter_Initialize(converter,
-            (IWICBitmapSource *)frame, &GUID_WICPixelFormat32bppBGR,
+            source, &GUID_WICPixelFormat32bppBGR,
             WICBitmapDitherTypeNone, NULL, 0.0, WICBitmapPaletteTypeCustom)))
     {
         goto done;
@@ -93,6 +113,7 @@ static HBITMAP ToolToolbarLoadImage(HINSTANCE instance,
 
 done:
     if (converter != NULL) { IWICFormatConverter_Release(converter); }
+    if (scaler != NULL) { IWICBitmapScaler_Release(scaler); }
     if (frame != NULL) { IWICBitmapFrameDecode_Release(frame); }
     if (decoder != NULL) { IWICBitmapDecoder_Release(decoder); }
     if (stream != NULL) { IWICStream_Release(stream); }
