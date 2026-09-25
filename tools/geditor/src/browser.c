@@ -100,9 +100,11 @@ static const BrowserObjectType g_BrowserObjectOrder[BROWSER_OBJECT_COUNT] = {
 #define BROWSER_MODEL_CHARACTERS 0
 #define BROWSER_MODEL_ITEMS 1
 #define BROWSER_MODEL_PROPS 2
-#define BROWSER_IMAGE_CELL_W (TEX_THUMB_MAX + 40) /* room for "No Texture" */
+#define BROWSER_IMAGE_DISPLAY_SCALE 2
+#define BROWSER_IMAGE_PREVIEW_SIZE (TEX_THUMB_MAX * BROWSER_IMAGE_DISPLAY_SCALE)
+#define BROWSER_IMAGE_CELL_W (BROWSER_IMAGE_PREVIEW_SIZE + 16) /* preview and label padding */
 #define BROWSER_IMAGE_LABEL_H 16
-#define BROWSER_IMAGE_CELL_H (TEX_THUMB_MAX + BROWSER_IMAGE_LABEL_H + 8)
+#define BROWSER_IMAGE_CELL_H (BROWSER_IMAGE_PREVIEW_SIZE + BROWSER_IMAGE_LABEL_H + 8)
 #define BROWSER_IMAGE_MARGIN 4
 #define BROWSER_MAX_LEVELS 64
 #define BROWSER_ROW_H 16
@@ -770,6 +772,7 @@ static void BrowserPaintImageGrid(BrowserState *state, HDC hdc, const RECT *body
     int firstrow = scroll > BROWSER_IMAGE_MARGIN
         ? (scroll - BROWSER_IMAGE_MARGIN) / BROWSER_IMAGE_CELL_H : 0;
     int i;
+    int oldstretch = SetStretchBltMode(hdc, COLORONCOLOR);
     BITMAPINFO bmi;
 
     ZeroMemory(&bmi, sizeof(bmi));
@@ -809,26 +812,30 @@ static void BrowserPaintImageGrid(BrowserState *state, HDC hdc, const RECT *body
 
         if (t->w > 0 && t->h > 0)
         {
+            int displaywidth = t->w * BROWSER_IMAGE_DISPLAY_SCALE;
+            int displayheight = t->h * BROWSER_IMAGE_DISPLAY_SCALE;
             /* The thumb block is stored in GDI's native BGRA order,
-               so this call needs no channel gymnastics. */
+               so this call needs no channel gymnastics. Enlarge only the
+               destination; the shared thumbnails and image data stay native. */
             bmi.bmiHeader.biWidth = TEX_THUMB_MAX;
             bmi.bmiHeader.biHeight = -t->h; /* negative: top-down */
 
             StretchDIBits(hdc,
-                          rc.left + (rc.right - rc.left - t->w) / 2,
-                          y + (TEX_THUMB_MAX - t->h) / 2,
-                          t->w, t->h,
+                          rc.left + (rc.right - rc.left - displaywidth) / 2,
+                          y + (BROWSER_IMAGE_PREVIEW_SIZE - displayheight) / 2,
+                          displaywidth, displayheight,
                           0, 0, t->w, t->h,
                           pixels,
                           &bmi, DIB_RGB_COLORS, SRCCOPY);
         }
 
-        rc.top = y + TEX_THUMB_MAX + 4;
+        rc.top = y + BROWSER_IMAGE_PREVIEW_SIZE + 4;
         rc.bottom = rc.top + BROWSER_IMAGE_LABEL_H;
 
         DrawText(hdc, t->label, -1, &rc,
                  DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
     }
+    if (oldstretch) { SetStretchBltMode(hdc, oldstretch); }
 }
 
 static void BrowserPaintTab(HDC hdc, RECT rect, const char *name, BOOL active)
