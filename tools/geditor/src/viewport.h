@@ -210,9 +210,11 @@ BOOL ViewportGetSelectedBgFaces(HWND hwnd, BgFaceRef *out, int count);
    Never includes temporarily hidden faces or edits document/dirty state. */
 BOOL ViewportCanSelectBackground(HWND hwnd, BOOL grow);
 BOOL ViewportSelectBackground(HWND hwnd, BOOL grow);
-/* Expand to all BG geometry in the selected source rooms, retaining the active
-   vertex/edge/face mode. Includes disconnected/off-screen geometry, respecting
-   hidden faces and visible layers. Uses the same availability check as Grow. */
+/* Expand to all stan tiles in the selected tiles' rooms in face mode, or BG
+   geometry in the selected source rooms, retaining vertex/edge/face mode.
+   Includes disconnected/off-screen geometry, respecting hidden geometry and
+   visible layers. Stan selection is independent of BG visibility. */
+BOOL ViewportCanSelectRoom(HWND hwnd);
 BOOL ViewportSelectRoom(HWND hwnd);
 /* Whole-room tool: independent of per-layer visibility; no frame notification. */
 DWORD ViewportGetSelectedRoom(HWND hwnd);

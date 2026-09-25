@@ -6245,7 +6245,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         EnableMenuItem((HMENU)wparam, ID_SELECT_ALL, MF_BYCOMMAND |
             (ViewportCanSelectBackground(g_Viewport, FALSE) ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_SELECT_ROOM, MF_BYCOMMAND |
-            (ViewportCanSelectBackground(g_Viewport, TRUE) ? MF_ENABLED : MF_GRAYED));
+            (ViewportCanSelectRoom(g_Viewport) ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_SELECT_SAME_MATERIAL, MF_BYCOMMAND |
             (ViewportCanSelectSameMaterial(g_Viewport) ? MF_ENABLED : MF_GRAYED));
         return 0;

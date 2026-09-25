@@ -34,8 +34,13 @@ def main():
         'ViewportClearBgSelection', 'ViewportClearAllSelection', 'ViewportCompareBoxPoints',
         'ViewportCompareBoxComponents', 'ViewportBoxComponentKey', 'ViewportApplyBoxComponents',
         'ViewportBgSelectionPoint', 'ViewportCanSelectBackground', 'ViewportBgRoomKey',
-        'ViewportChangeBgSelection', 'ViewportSelectBackground', 'ViewportSelectRoom',
+        'ViewportChangeBgSelection', 'ViewportSelectBackground',
+        'ViewportStanVisible', 'ViewportCompareStanIds', 'ViewportStanTileHidden',
+        'ViewportGetSelectedStanRooms', 'ViewportCanSelectRoom', 'ViewportSelectRoom',
         'ViewportGetSelectedBgTextures', 'ViewportCanSelectSameMaterial', 'ViewportSelectSameMaterial'))
+    editor = (src / 'geditor.c').read_text()
+    menu = editor.split('EnableMenuItem((HMENU)wparam, ID_SELECT_ROOM,')[1].split(';', 1)[0]
+    assert 'ViewportCanSelectRoom(g_Viewport)' in menu
     hotkeys = function((src / 'geditor.c').read_text(), 'GEditorHandleSelectionHotkey')
     with tempfile.TemporaryDirectory(prefix='geditor-bg-selection-') as temp:
         temp = Path(temp)

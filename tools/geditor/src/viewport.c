@@ -6180,8 +6180,48 @@ BOOL ViewportSelectBackground(HWND hwnd, BOOL grow)
     return ViewportChangeBgSelection(hwnd, grow ? VIEWPORT_BG_SELECT_GROW : VIEWPORT_BG_SELECT_ALL);
 }
 
+static BOOL ViewportGetSelectedStanRooms(HWND hwnd, unsigned char rooms[256])
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    BOOL found = FALSE;
+    if (!state || state->orbit || state->flying || state->dragaxis >= 0 || state->boxpending
+        || state->tool != EDITOR_TOOL_FACE_SELECT || !ViewportStanVisible(state)
+        || !state->stanselected) { return FALSE; }
+    if (rooms) { memset(rooms, 0, 256); }
+    for (DWORD tile = 0; tile < state->stan.tilecount; tile++)
+    {
+        if (!state->stanselected[tile] || ViewportStanTileHidden(state, tile)) { continue; }
+        if (!rooms) { return TRUE; }
+        rooms[state->stan.tiles[tile].room] = 1;
+        found = TRUE;
+    }
+    return found;
+}
+
+BOOL ViewportCanSelectRoom(HWND hwnd)
+{
+    return ViewportGetSelectedStanRooms(hwnd, NULL) || ViewportCanSelectBackground(hwnd, TRUE);
+}
+
 BOOL ViewportSelectRoom(HWND hwnd)
 {
+    unsigned char rooms[256];
+    if (ViewportGetSelectedStanRooms(hwnd, rooms))
+    {
+        ViewportState *state = ViewportGetState(hwnd);
+        /* Freeze the seed rooms before extending selection. Include disconnected
+         * and off-screen tiles, while retaining explicitly hidden tiles. */
+        for (DWORD tile = 0; tile < state->stan.tilecount; tile++)
+        {
+            if (rooms[state->stan.tiles[tile].room] && !ViewportStanTileHidden(state, tile))
+            { state->stanselected[tile] = 1; }
+        }
+        ViewportRefreshStanOverlay(state);
+        ViewportUpdateGizmo(state);
+        InvalidateRect(hwnd, NULL, FALSE);
+        SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+        return TRUE;
+    }
     return ViewportChangeBgSelection(hwnd, VIEWPORT_BG_SELECT_ROOM);
 }
 

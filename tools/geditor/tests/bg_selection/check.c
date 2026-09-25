@@ -31,17 +31,23 @@ typedef struct ViewportState {
     unsigned char *selectedtris, *hiddentris;
     ViewportComponent *components;
     ViewportStanComponent *stancomponents;
-    DWORD selectedobject;
+    DWORD selectedobject, selectedroom;
+    StanFile stan;
+    BOOL showstan;
+    int stanopacity;
+    unsigned char *stanselected;
+    DWORD stanhiddencount, *stanhiddenids;
     BOOL padselected;
 } ViewportState;
 
-static unsigned notifications;
+static unsigned notifications, stanrefreshes;
 static ViewportState *ViewportGetState(HWND hwnd) { return hwnd; }
 static void ViewportUpdateGizmo(ViewportState *state) {}
-static void ViewportRefreshStanOverlay(ViewportState *state) {}
+static void ViewportRefreshStanOverlay(ViewportState *state) { stanrefreshes++; }
 static void ViewportClearPadSelection(ViewportState *state) { state->padselected=FALSE; }
 static void ViewportClearObjectSelection(ViewportState *state) { state->selectedobject=VIEWPORT_OBJECT_NONE; }
-static void ViewportClearStanSelection(ViewportState *state) { state->stancomponentcount=0; }
+static void ViewportClearStanSelection(ViewportState *state)
+{ state->stancomponentcount=0; if(state->stanselected) memset(state->stanselected,0,state->stan.tilecount); }
 static void InvalidateRect(HWND hwnd, const void *rect, BOOL erase) {}
 static HWND GetParent(HWND hwnd) { return (HWND)1; }
 static unsigned command;
@@ -331,6 +337,52 @@ static void SameMaterial(void)
     puts("PASS: same-material selection, multiple-material union, room/batch/layer boundaries, untextured faces and input guards.");
 }
 
+static void StanRooms(void)
+{
+    StanTile tiles[7]={0}, original[7];
+    unsigned char selected[7]={1,0,0,0,0,0,0}; DWORD hidden=4;
+    const unsigned char rooms[]={14,14,29,14,0,0,138};
+    for(int i=0;i<7;i++)
+    {
+        tiles[i].editorid=i+1; tiles[i].room=rooms[i]; tiles[i].pointcount=3;
+        tiles[i].points[0].z=1000000; /* Selection is independent of camera position. */
+    }
+    memcpy(original,tiles,sizeof(tiles));
+    ViewportState s={.tool=EDITOR_TOOL_FACE_SELECT,.dragaxis=-1,
+        .showstan=TRUE,.stanopacity=44,.stan={.tiles=tiles,.tilecount=7},
+        .stanselected=selected,.stanhiddencount=1,.stanhiddenids=&hidden,
+        .selectedobject=VIEWPORT_OBJECT_NONE};
+    /* No BG mesh or visible BG layer is needed. Select disconnected tiles,
+       excluding a hidden tile from the same room. No asset mutation occurs. */
+    assert(ViewportCanSelectRoom(&s) && !ViewportCanSelectBackground(&s,TRUE));
+    unsigned before=notifications, refresh=stanrefreshes;
+    allocations=0; assert(ViewportSelectRoom(&s)); allocations=-1;
+    assert(notifications==before+1 && stanrefreshes==refresh+1);
+    assert(selected[0] && selected[1] && !selected[2] && !selected[3] && !selected[4]);
+    assert(ViewportSelectRoom(&s));
+    selected[2]=selected[4]=selected[6]=1;
+    assert(ViewportCanSelectRoom(&s) && ViewportSelectRoom(&s));
+    for(int i=0;i<7;i++) assert(selected[i]==(i!=3));
+    assert(!memcmp(original,tiles,sizeof(tiles)) && !s.stan.dirty);
+    /* Input/menu guards agree and don't consume a selection while editing. */
+    before=notifications;
+    s.showstan=FALSE; assert(!ViewportCanSelectRoom(&s) && ViewportSelectRoom(&s)); s.showstan=TRUE;
+    s.stanopacity=0; assert(!ViewportCanSelectRoom(&s) && ViewportSelectRoom(&s)); s.stanopacity=44;
+    s.flying=TRUE; assert(!ViewportCanSelectRoom(&s) && ViewportSelectRoom(&s)); s.flying=FALSE;
+    s.orbit=TRUE; assert(!ViewportCanSelectRoom(&s) && ViewportSelectRoom(&s)); s.orbit=FALSE;
+    s.dragaxis=1; assert(!ViewportCanSelectRoom(&s) && ViewportSelectRoom(&s)); s.dragaxis=-1;
+    s.boxpending=TRUE; assert(!ViewportCanSelectRoom(&s) && ViewportSelectRoom(&s)); s.boxpending=FALSE;
+    s.tool=EDITOR_TOOL_EDGE_SELECT; assert(!ViewportCanSelectRoom(&s) && ViewportSelectRoom(&s));
+    s.tool=EDITOR_TOOL_VERTEX_SELECT; assert(!ViewportCanSelectRoom(&s) && ViewportSelectRoom(&s));
+    s.tool=EDITOR_TOOL_FACE_SELECT;
+    memset(selected,0,sizeof(selected)); selected[3]=1; /* Hidden-only seed. */
+    assert(!ViewportCanSelectRoom(&s) && ViewportSelectRoom(&s));
+    selected[3]=0; assert(!ViewportCanSelectRoom(&s) && ViewportSelectRoom(&s));
+    s.stanselected=NULL; assert(!ViewportCanSelectRoom(&s) && ViewportSelectRoom(&s));
+    assert(notifications==before && !ViewportCanSelectRoom(NULL));
+    puts("PASS: stan room expansion, disconnected/off-screen tiles, room unions, hidden tiles, BG-independent availability, input guards and unchanged assets.");
+}
+
 typedef struct { HWND hwnd; unsigned message, wParam; LPARAM lParam; } MSG;
 #define WM_KEYDOWN 2
 #define WM_COMMAND 3
@@ -402,4 +454,4 @@ static void Hotkeys(void)
     puts("PASS: Q/Ctrl+A/Shift+R/Shift+S/Shift+M routing, repeat suppression, text fields, camera flight and window scope.");
 }
 
-int main(void) { Geometry(); SameMaterial(); Hotkeys(); return 0; }
+int main(void) { Geometry(); SameMaterial(); StanRooms(); Hotkeys(); return 0; }
