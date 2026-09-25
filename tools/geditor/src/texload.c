@@ -554,7 +554,9 @@ DWORD TexExtractImages(const RomFile *rom, const char *projectdir, const char **
 /*
  * Reads one of our own extracted BMPs (32-bit, bottom-up, BI_RGB) and
  * scales it to a thumbnail with nearest-neighbour sampling, writing
- * top-down RGBA into dst. Files that are not ours are skipped.
+ * top-down BGRA into dst. Files that are not ours are skipped.
+ * Project BMPs include a legacy horizontal mirror. Undo that only for
+ * thumbnails, preserving the stored image/UV convention for existing projects.
  */
 static BOOL TexReadBmpThumb(const char *path, unsigned char *dst,
                             TexThumb *thumb)
@@ -608,12 +610,12 @@ static BOOL TexReadBmpThumb(const char *path, unsigned char *dst,
 
                     for (x = 0; x < sw; x++)
                     {
-                        const unsigned char *s = srow + (LONG)x * w / sw * 4;
+                        const unsigned char *s = srow + (w - 1 - (LONG)x * w / sw) * 4;
 
                         /* Keep BGRA byte order: the BMP already
                            stores it, and StretchDIBits expects it.
-                           The only transform here is the row flip
-                           to top-down. */
+                           Rows become top-down and columns retain
+                           native left-to-right texel order. */
                         drow[x * 4 + 0] = s[0];
                         drow[x * 4 + 1] = s[1];
                         drow[x * 4 + 2] = s[2];

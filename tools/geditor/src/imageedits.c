@@ -530,7 +530,9 @@ void ImageEditsUpdateThumbnails(const char *project,TexThumb **items,unsigned ch
         ZeroMemory(*pixels+thumb->pixeloffset,TEX_THUMB_MAX*TEX_THUMB_MAX*4);
         for(y=0;y<thumb->h;y++) for(x=0;x<thumb->w;x++)
         {
-            TexPixel p=edit->pixels[(edit->height-1-y*edit->height/thumb->h)*edit->width+edit->width-1-x*edit->width/thumb->w];
+            /* Match saved-image thumbnails: flip rows for display, keep
+               native columns so text is not horizontally mirrored. */
+            TexPixel p=edit->pixels[(edit->height-1-y*edit->height/thumb->h)*edit->width+x*edit->width/thumb->w];
             unsigned char *dst=*pixels+thumb->pixeloffset+(y*TEX_THUMB_MAX+x)*4;
             dst[0]=p.b;dst[1]=p.g;dst[2]=p.r;dst[3]=p.a;
         }

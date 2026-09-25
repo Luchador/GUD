@@ -122,9 +122,9 @@ static void Pipeline(const char *project)
     count=TexLoadProjectThumbnails(project,&thumbs,&thumbpixels,&why);
     assert(count==BASE_COUNT+13);
     for(i=0;i<13;i++) {assert(strtoul(thumbs[BASE_COUNT+i].label,NULL,16)==BASE_COUNT+i);assert(thumbs[BASE_COUNT+i].info.format==i);assert(thumbs[BASE_COUNT+i].info.hitsound==i&&thumbs[BASE_COUNT+i].info.hittexture==12-i);}
-    /* Orientation: top-left thumbnail is the last native texel, not a mirror. */
+    /* Top-left thumbnail is the first texel of the last native row. */
     assert(TexLoadProjectImage(project,BASE_COUNT,decoded,&w,&h));
-    {unsigned char *p=thumbpixels+thumbs[BASE_COUNT].pixeloffset;assert(p[0]==decoded[63].b&&p[1]==decoded[63].g&&p[2]==decoded[63].r);}
+    {unsigned char *p=thumbpixels+thumbs[BASE_COUNT].pixeloffset;assert(p[0]==decoded[56].b&&p[1]==decoded[56].g&&p[2]==decoded[56].r);}
     free(thumbs);free(thumbpixels);
     assert(ImageEditsExportToRom(project,&rom,&why)&&TexDataHash(rom.data,rom.size)==basehash);
     test_fail_move=1;assert(!ImageEditsSave(project,&why)&&ImageEditsHasUnsaved());
@@ -314,7 +314,7 @@ static void ImageActions(const char *project)
         DWORD tid=strtoul(thumbs[i].label,NULL,16);const unsigned char *px=thumbpixels+thumbs[i].pixeloffset;
         assert(tid!=0&&tid!=3&&tid!=BASE_COUNT+1);
         assert(TexLoadProjectImage(project,tid,decoded,&w,&h));
-        assert(px[0]==decoded[w*h-1].b&&px[1]==decoded[w*h-1].g&&px[2]==decoded[w*h-1].r);
+        assert(px[0]==decoded[w*(h-1)].b&&px[1]==decoded[w*(h-1)].g&&px[2]==decoded[w*(h-1)].r);
     }
     free(thumbs);free(thumbpixels);
     assert(ImageEditsSave(project,&why));ImageEditsReset();
@@ -339,6 +339,55 @@ static void ImageActions(const char *project)
     puts("PASS: base/imported/pending replacement and deletion, unchanged IDs/records, all settings, discard, saved-only export, save rollback, thumbnail compaction, blank slots and rejection of unsupported metadata.");
 }
 
+static void ThumbnailOrientation(const char *project)
+{
+    const int sizes[][2] = {{7,3}, {64,16}};
+    TexImportOptions options = {0,0,1,1};
+    const char *why = "";
+    char path[MAX_PATH + 32];
+    DWORD id;
+    for (unsigned int size = 0; size < sizeof(sizes)/sizeof(*sizes); size++)
+    {
+        int width = sizes[size][0], height = sizes[size][1];
+        for (int y = 0; y < height; y++) for (int x = 0; x < width; x++)
+            source[y*width+x] = (TexPixel){x*3, y*13, x+y, (x*7+y*11)%256};
+        /* The same asymmetric RGBA image takes both the pending and saved
+           thumbnail paths. Cover odd dimensions and downsampling as well. */
+        assert(ImageEditsReplace(project, 3, source, width, height, &options, NULL, &why));
+        assert(ImageEditsImport(project, source, width, height, &options, NULL, &id, &why));
+        for (int saved = 0; saved < 2; saved++)
+        {
+            TexThumb *thumbs;
+            unsigned char *pixels;
+            DWORD count, before;
+            int w, h;
+            snprintf(path,sizeof(path),"%s\\images\\0003.bmp",project);
+            before = FileHash(path);
+            count = TexLoadProjectThumbnails(project,&thumbs,&pixels,&why);
+            assert(count > id);
+            for (DWORD i = 0; i < count; i++)
+            {
+                DWORD texture = strtoul(thumbs[i].label,NULL,16);
+                if (texture != 3 && texture != id) { continue; }
+                const TexThumb *thumb = &thumbs[i];
+                for (int y = 0; y < thumb->h; y++) for (int x = 0; x < thumb->w; x++)
+                {
+                    int sx = x*width/thumb->w, sy = height-1-y*height/thumb->h;
+                    TexPixel p = source[sy*width+sx];
+                    const unsigned char *actual = pixels+thumb->pixeloffset+(y*TEX_THUMB_MAX+x)*4;
+                    assert(actual[0]==p.b && actual[1]==p.g && actual[2]==p.r && actual[3]==p.a);
+                }
+                assert(TexLoadProjectImage(project,texture,decoded,&w,&h));
+                assert(w==width && h==height && !memcmp(source,decoded,width*height*sizeof(*source)));
+            }
+            free(thumbs); free(pixels);
+            assert(FileHash(path)==before && ImageEditsHasUnsaved()==!saved);
+            if (!saved) { assert(ImageEditsSave(project,&why)); ImageEditsReset(); }
+        }
+    }
+    puts("PASS: thumbnail left-to-right columns, vertical orientation, alpha, odd sizes, downsampling, pending import/replacement, save/reopen and unchanged source pixels/BMPs.");
+}
+
 void CheckBmpAlpha(const char *, const char *);
 void CheckReimport(const char *);
 int main(int argc,char **argv)
@@ -346,5 +395,6 @@ int main(int argc,char **argv)
     char actions[MAX_PATH];assert(argc==2 || argc==3);Encoders();Fixture(argv[1]);
     CheckBmpAlpha(argv[1],argc==3?argv[2]:NULL);Pipeline(argv[1]);Limits(argv[1]);
     snprintf(actions,sizeof(actions),"%s-actions",argv[1]);Fixture(actions);ImageActions(actions);
-    snprintf(actions,sizeof(actions),"%s-reimport",argv[1]);Fixture(actions);CheckReimport(actions);return 0;
+    snprintf(actions,sizeof(actions),"%s-reimport",argv[1]);Fixture(actions);CheckReimport(actions);
+    snprintf(actions,sizeof(actions),"%s-thumbnails",argv[1]);Fixture(actions);ThumbnailOrientation(actions);return 0;
 }
