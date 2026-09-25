@@ -7,6 +7,7 @@
 #include "doorshadow.h"
 #include "bghistory.h"
 #include "setupmeta.h"
+#include "rsp_othermode.h"
 
 #define OK(x) do { if (!(x)) { fprintf(stderr,"%s:%d: %s (%s)\n",__FILE__,__LINE__,#x,why); abort(); } } while (0)
 static const char *why = "";
@@ -77,10 +78,16 @@ static void CompilerDithering(void)
         state.othermodehigh=(state.othermodehigh&~0xf0u)|(authored?dither:0);
         OK(BgCompileDoorShadow(&bg.rooms[1].faces[0],&state,&gdl,&size,&why));
         BgRenderStateInit(&draw,FALSE);draw.othermodehigh=dither^0xf0;
+        DWORD rspHigh=0xef000000u|draw.othermodehigh;
         int tris=0;
         for(DWORD i=0;i<size;i+=8) {
             DWORD a=SetupMetaRead32(gdl+i),b=SetupMetaRead32(gdl+i+4);
             BgRenderStateRead(&draw,a,b);
+            if((a>>24)==0xba) {
+                rspHigh=shadowRspOtherMode(rspHigh,a,b);
+                assert((rspHigh>>24)==0xef);
+                assert((rspHigh&0x00ffffffu)==draw.othermodehigh);
+            }
             if((a>>24)==0xbf) {
                 assert((draw.othermodehigh&0xf0u)==(authored?dither:(dither^0xf0)));
                 tris++;
@@ -89,7 +96,7 @@ static void CompilerDithering(void)
         assert(tris==6);free(gdl);
     }
     BgDocumentFree(&bg);BgFileFree(&source);
-    puts("PASS compiler: inherited world dithering and explicitly authored dither modes.");
+    puts("PASS compiler: RSP OtherMode opcode preserved, inherited world dithering and explicitly authored dither modes.");
 }
 static void Conversion(const char *dir)
 {

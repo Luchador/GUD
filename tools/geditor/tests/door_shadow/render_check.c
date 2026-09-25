@@ -7,12 +7,18 @@ static void checkShadowDraws(Gfx *gdl,int oneCycle,int fog,u32 dither)
 {
     BgOneCycleState state;
     u32 geometry=0;
+    u32 rspHigh=0xef000000u|dither;
     int triangles=0;
     bgOneCycleResetState(&state);
     state.high=dither;
     for(Gfx *p=gdl;(p->words.w0>>24)!=(u8)G_ENDDL;p++) {
         u32 op=p->words.w0>>24;
         assert(bgOneCycleReadState(&state,*p,FALSE));
+        if(op==(u8)G_SETOTHERMODE_H) {
+            rspHigh=shadowRspOtherMode(rspHigh,p->words.w0,p->words.w1);
+            assert((rspHigh>>24)==0xef);
+            assert((rspHigh&0x00ffffffu)==state.high);
+        }
         if(op==(u8)G_SETGEOMETRYMODE)geometry|=p->words.w1;
         if(op==(u8)G_CLEARGEOMETRYMODE)geometry&=~p->words.w1;
         if(op==(u8)G_VTX)assert(!!(geometry&G_FOG)==fog);
@@ -27,6 +33,17 @@ static void checkShadowDraws(Gfx *gdl,int oneCycle,int fog,u32 dither)
         triangles++;
     }
     assert(triangles==6);
+    /* HUD setup uses further partial writes; none can repair a lost EF
+     * opcode. Exercise the production setup after each shadow variant. */
+    Gfx hud[32],*end=gfxSetup2DTextureMode(hud);
+    for(Gfx *p=hud;p<end;p++) {
+        u32 op=p->words.w0>>24;
+        if(op==(u8)G_SETOTHERMODE_H)
+            rspHigh=shadowRspOtherMode(rspHigh,p->words.w0,p->words.w1);
+        if(op==(u8)G_SETOTHERMODE_H||op==(u8)G_SETOTHERMODE_L)
+            assert((rspHigh>>24)==0xef);
+    }
+    assert(!(rspHigh&(BG_CYCLE_MASK|BG_LOD_MASK|G_TP_PERSP|(3u<<G_MDSFT_TEXTLUT))));
 }
 
 static Gfx *drawShadow(Gfx *output,int layer,int oneCycle)
@@ -41,14 +58,15 @@ static void renderChecks(u8 *fixture)
     u32 storage[DOOR_SHADOW_BYTES/4+1]={0};
     u8 *p=(u8 *)storage;
     Gfx output[32];
-    for(int legacy=0;legacy<2;legacy++) for(int fog=0;fog<2;fog++) for(int layer=0;layer<2;layer++) {
+    const u32 headers[]={0xba000020u,0xba000818u,0xba000810u};
+    for(int version=0;version<3;version++) for(int fog=0;fog<2;fog++) for(int layer=0;layer<2;layer++) {
         u8 saved[DOOR_SHADOW_BYTES];
         memcpy(p,fixture,DOOR_SHADOW_BYTES);
         p[DOOR_SHADOW_BYTES+3]=PROPDEF_END;
         word(p,DOOR_SHADOW_LAYER,layer);
         Gfx *raw=(Gfx *)(p+DOOR_SHADOW_GDL);
         /* Depot's ordinary mipmapped, opaque terrain material. */
-        raw[4].words.w0=legacy?0xba000020u:0xba000818u;
+        raw[4].words.w0=headers[version];
         raw[4].words.w1=G_CYC_2CYCLE|G_TL_LOD|G_TP_PERSP|G_TF_BILERP|G_TC_FILT;
         gDPSetRenderMode(&raw[5],G_RM_PASS,G_RM_AA_ZB_OPA_TERR2);
         memcpy(saved,p,DOOR_SHADOW_BYTES);
@@ -103,7 +121,7 @@ static void renderChecks(u8 *fixture)
         assert(drawShadow(output,layer,TRUE)==output+5&&!s->oneCycleGdl);
         doorShadowFreeRoom(1);assert(allocations==frees);
     }
-    puts("PASS render parity: legacy/new templates, inherited colour/fog dithering, AA On/Off mip selection, both passes, fog blender, cache reclaim/reload/failure and custom-material fallback.");
+    puts("PASS render parity: all three header versions, RSP opcode and subsequent HUD setup, inherited colour/fog dithering, AA On/Off mip selection, both passes, fog blender, cache reclaim/reload/failure and custom-material fallback.");
 }
 
 /* Optional real saved records, read-only. Keep ROM/setup assets out of tests. */

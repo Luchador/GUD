@@ -215,13 +215,16 @@ static void doorShadowLoad(DoorShadowRuntime *s)
     if(!memory){renderCacheRequestReclaim();return;}
     input=(Gfx *)((u8 *)memory+capacity);
     memcpy(input,s->record+DOOR_SHADOW_GDL,bytes);
-    /* Older editor templates wrote all of OtherMode H here, accidentally
-     * replacing world colour/alpha dithering with zero (MAGICSQ/PATTERN).
-     * Repair the generated header in RAM so saved shadows need no rebuild.
-     * Later authored commands still apply normally. */
-    if(bytes>=5*sizeof(Gfx)&&input[4].words.w0==0xba000020u) {
-        input[4].words.w0=0xba000818u;
-        input[4].words.w1&=0xffffff00u;
+    /* Repair both historical generated headers in the RAM copy. A 32-bit
+     * length wraps the RSP's variable shift; shift 8/length 24 instead
+     * clears the EF opcode stored above OtherMode H's 24 data bits. Once
+     * lost, later mode changes (including weapon/HUD setup) cannot reach
+     * the RDP. Write only bits 8..23, preserving the opcode and dithering.
+     * Later authored commands still apply normally; saved assets stay put. */
+    if(bytes>=5*sizeof(Gfx)&&(input[4].words.w0==0xba000020u
+            ||input[4].words.w0==0xba000818u)) {
+        input[4].words.w0=0xba000810u;
+        input[4].words.w1&=0x00ffff00u;
     }
     size=texLoadFromGdl(input,bytes,memory,NULL);
     if(size<=0||size>capacity){memaFree(memory,allocation);return;}

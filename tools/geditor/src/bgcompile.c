@@ -769,9 +769,10 @@ BOOL BgCompileDoorShadow(const BgDocumentFace *face, const BgRenderState *state,
         /* Resolve inherited fog to the level's actual runtime setting before
          * loading vertices, even if the preceding BG material disabled it. */
         || !BgCompileWriteCommand(&gdl, BG_SURFACE_MARKER, BG_ALPHA_TAG | BG_ALPHA_FOG)
-        /* Dithering belongs to the world pass. Do not turn inherited values
-         * into zero when making the texture pipeline self-contained. */
-        || !BgCompileWriteCommand(&gdl, 0xba000818u, high & 0xffffff00u)
+        /* OtherMode H has 24 data bits; the RSP keeps the EF opcode above
+         * them. Write bits 8..23 only, preserving that opcode and the
+         * world pass's inherited dithering below bit 8. */
+        || !BgCompileWriteCommand(&gdl, 0xba000810u, high & 0x00ffff00u)
         || !BgCompileWriteCommand(&gdl, 0xb900031du, state->othermode & 0xfffffff8u)
         || !BgCompileWriteCommand(&gdl, 0xb9000003u, state->othermode & 7u)
         || !BgCompileWriteCommand(&gdl, 0xfb000000u, state->environmentword1)
