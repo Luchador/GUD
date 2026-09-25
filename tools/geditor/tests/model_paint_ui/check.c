@@ -96,7 +96,7 @@ int main(void)
             wrap.bottom=wrap.top+lround(18*scaley); /* Closed combo, excluding popup. */
             assert(Inside(wrap,faces));
             assert(wrap.top>positions[IDC_MODEL_CURRENT].bottom);
-            assert(wrap.bottom<positions[IDC_MODEL_APPLY].top);
+            assert(wrap.bottom<positions[IDC_MODEL_LODS].top);
         }
         assert(positions[IDC_MODEL_WRAP_U].right<positions[IDC_MODEL_WRAP_V].left);
         assert(Inside(positions[IDC_MODEL_MATERIAL_LIST],materials));
@@ -108,7 +108,7 @@ int main(void)
         assert(positions[IDC_MODEL_UNTEXTURED].bottom<positions[IDC_MODEL_SHARED].top);
         assert(positions[IDC_MODEL_SHARED].bottom<=positions[IDC_MODEL_HINT].top);
         RECT lod=positions[IDC_MODEL_LODS];lod.bottom=lod.top+lround(18*scaley);
-        assert(Inside(lod,faces) && lod.top>positions[IDC_MODEL_APPLY].bottom);
+        assert(Inside(lod,faces));
         assert(positions[IDC_MODEL_MATERIAL_LIST].bottom-positions[IDC_MODEL_MATERIAL_LIST].top>=44*scaley);
         assert(Inside(positions[(uintptr_t)g_ModelColorPicker],colors));
         ColorPickerLayout(g_ModelColorPicker,&picker);

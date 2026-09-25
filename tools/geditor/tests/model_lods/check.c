@@ -104,6 +104,100 @@ static BOOL Visible(const unsigned char *data,DWORD node,float distance)
     }
     return TRUE;
 }
+static DWORD VertexLoads(const unsigned char *data,const ModelSource *source)
+{
+    DWORD vertices=0;
+    for (DWORD list=0;list<source->listcount;list++)
+        for (DWORD pc=source->lists[list].offset;pc<source->lists[list].end;pc+=8)
+            if (data[pc]==4) vertices+=(data[pc+1]>>4)+1;
+    return vertices;
+}
+static void DeleteFaces(const ModelSource *before,const unsigned char *base,DWORD basesize,DWORD revision)
+{
+    DWORD *faces=malloc((before->count+1)*sizeof(*faces));OK(faces);
+    unsigned char *deleted=calloc(before->count,1);OK(deleted);
+    for (int pass=0;pass<3;pass++)
+    {
+        DWORD count=0,unique;
+        memset(deleted,0,before->count);
+        for (DWORD f=0;f<before->count;f++)
+            if (pass==2 || (pass==0 && f%3==0)
+                || (pass==1 && before->faces[f].farthest && !before->faces[f].closest))
+            { faces[count++]=f;deleted[f]=1; }
+        if (!count) continue;
+        unique=count;faces[count++]=faces[0]; /* Duplicate selections delete only once. */
+        ModelUVChange step={0};
+        OK(!ModelEditsDeleteFaces(project,name,revision^1,faces,count,&step,&why) && !step.before);
+        DWORD invalid=before->count;
+        OK(!ModelEditsDeleteFaces(project,name,revision,&invalid,1,&step,&why) && !step.before);
+        OK(ModelEditsDeleteFaces(project,name,revision,faces,count,&step,&why) && step.before && step.after);
+        OK(step.beforeSize==basesize && !memcmp(step.before,base,basesize));
+        ModelSource after={0};DWORD rev;
+        OK(ModelEditsReadSource(project,name,&after,&rev,&why));
+        OK(rev==step.afterRevision && after.count==before->count-unique && after.root==before->root);
+        OK(after.listcount==before->listcount);
+        /* All non-display-list bytes retain their addresses, including the
+         * skeleton, joints, bounds, collision tables and native vertex arrays. */
+        DWORD prefix=before->lists[0].offset;
+        unsigned char *pointers=calloc(prefix,1);OK(pointers);
+        for (DWORD list=0;list<before->listcount;list++)
+        {
+            OK(before->lists[list].pointer==after.lists[list].pointer);
+            OK(before->lists[list].pointer+4<=prefix);
+            memset(pointers+before->lists[list].pointer,1,4);
+        }
+        for (DWORD b=0;b<prefix;b++) if (!pointers[b]) OK(base[b]==step.after[b]);
+        free(pointers);
+        DWORD kept=0;
+        for (DWORD f=0;f<before->count;f++) if (!deleted[f])
+        {
+            OK(before->tags[f]==after.tags[kept] && before->flags[f]==after.flags[kept]);
+            OK(before->faces[f].closest==after.faces[kept].closest);
+            OK(before->faces[f].farthest==after.faces[kept].farthest);
+            OK(BgMaterialEqual(&before->faces[f].material,&after.faces[kept].material));
+            OK(!memcmp(&before->faces[f].state,&after.faces[kept].state,sizeof(before->faces[f].state)));
+            OK(!memcmp(before->vertices+f*3,after.vertices+kept*3,3*sizeof(BgVertex)));
+            OK(!memcmp(before->materials.faces+f,after.materials.faces+kept,sizeof(ModelMaterialFace)));
+            for (DWORD k=0;k<3;k++)
+                OK(before->vertexoffsets[f*3+k]==after.vertexoffsets[kept*3+k]);
+            kept++;
+        }
+        OK(kept==after.count);
+        OK(VertexLoads(step.after,&after)<=VertexLoads(base,before));
+        if (pass==2) OK(!after.count && VertexLoads(step.after,&after)==0);
+        OK(ModelEditsSave(project,&why));ModelEditsReset();
+        DWORD savedsize;const unsigned char *saved=ModelEditsGetData(project,name,&savedsize,&why);
+        OK(saved && savedsize==step.afterSize && !memcmp(saved,step.after,savedsize));
+        DWORD romsize;unsigned char *rombase=Read(asset,&romsize),*replacement=NULL;DWORD length;
+        OK(ModelEditsReadReplacement(project,name,rombase,romsize,&replacement,&length,&why)==1);
+        OK(length==ModelMaterialsNativeSize(step.after,step.afterSize) && !memcmp(replacement,step.after,length));
+        free(rombase);free(replacement);
+        OK(ModelEditsRestoreUVs(project,name,&step,FALSE,&why));
+        saved=ModelEditsGetData(project,name,&savedsize,&why);
+        OK(savedsize==basesize && !memcmp(saved,base,savedsize));
+        OK(ModelEditsRestoreUVs(project,name,&step,TRUE,&why));
+        saved=ModelEditsGetData(project,name,&savedsize,&why);
+        OK(savedsize==step.afterSize && !memcmp(saved,step.after,savedsize));
+        OK(ModelEditsRestoreUVs(project,name,&step,FALSE,&why));
+        ModelFreeSource(&after);ModelEditsFreeUVChange(&step);
+    }
+    free(faces);free(deleted);
+    puts("PASS: sparse, low-LOD-only and all-face deletion; untouched vertices/state/UVs/skeleton/bounds; pruned vertex loads, save/reload, ROM data and exact undo/redo.");
+}
+
+static void PropertyHistory(DWORD revision)
+{
+    DWORD face=0;ModelUVChange step={0},noop={0};
+    OK(ModelEditsSetPropertiesWithHistory(project,name,revision,&face,1,-1,-1,2,-1,&step,&why));
+    OK(step.before && step.after);
+    OK(!ModelEditsSetPropertiesWithHistory(project,name,revision,&face,1,-1,-1,1,-1,&noop,&why));
+    OK(ModelEditsSetPropertiesWithHistory(project,name,step.afterRevision,&face,1,-1,-1,2,-1,&noop,&why) && !noop.before);
+    OK(ModelEditsRestoreUVs(project,name,&step,FALSE,&why));
+    OK(ModelEditsRestoreUVs(project,name,&step,TRUE,&why));
+    OK(ModelEditsRestoreUVs(project,name,&step,FALSE,&why));
+    ModelEditsFreeUVChange(&step);
+}
+
 static void Separate(const ModelSource *before,const unsigned char *base,DWORD basesize,DWORD revision)
 {
     ModelUVChange step={0},clear={0};DWORD separated;
@@ -180,6 +274,7 @@ static void Separate(const ModelSource *before,const unsigned char *base,DWORD b
     memcpy(uvedit.uv,after.materials.faces[uvface].uv,sizeof(uvedit.uv));uvedit.uv[0]+=.25f;
     OK(ModelEditsSetUVs(project,name,rev,&uvedit,1,&uv,&why) && uv.before);
     OK(ModelEditsRestoreUVs(project,name,&uv,FALSE,&why));ModelEditsFreeUVChange(&uv);
+    DeleteFaces(&after,step.after,step.afterSize,rev);
     OK(ModelEditsMakeUntextured(project,name,rev,MODEL_LOD_LOW,FALSE,&clear,&separated,&why));
     OK(separated==174);CheckEdit(&after,step.after,MODEL_LOD_LOW,FALSE);
     /* Paint a formerly shared boot vertex, then prove no high-LOD bytes changed. */
@@ -233,6 +328,8 @@ int main(int argc,char **argv)
     OK(!ModelSourceFaceInLod(&original,original.count,MODEL_LOD_LOW));
     printf("%s: high %lu, low %lu, shared %lu\n",name,(unsigned long)high,(unsigned long)low,(unsigned long)shared);
     Separate(&original,base,basesize,revision);
+    DeleteFaces(&original,base,basesize,revision);
+    PropertyHistory(revision);
     for (int include=0;include<2;include++)
     {
         ModelUVChange step={0};

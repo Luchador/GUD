@@ -190,11 +190,21 @@ static BOOL ValidateWrapSize(const char *project, const ModelSource *source,
 BOOL ModelEditsSetProperties(const char *project, const char *name, DWORD revision,
     const DWORD *faces, DWORD count, int culling, int surface, int wrapu, int wrapv, const char **why)
 {
+    return ModelEditsSetPropertiesWithHistory(project, name, revision, faces, count,
+        culling, surface, wrapu, wrapv, NULL, why);
+}
+static BOOL RetainModel(const char *project, const char *name, DWORD basehash,
+    unsigned char *data, DWORD size, const char **why);
+BOOL ModelEditsSetPropertiesWithHistory(const char *project, const char *name, DWORD revision,
+    const DWORD *faces, DWORD count, int culling, int surface, int wrapu, int wrapv,
+    ModelUVChange *change, const char **why)
+{
     unsigned char *data = NULL, *compiled = NULL;
     DWORD size, basehash, compiledsize;
     ModelSource source = {0}, check = {0};
-    ModelEdit *edit;
+    ModelUVChange step = {0};
     BOOL ok = FALSE;
+    if (change) memset(change, 0, sizeof(*change));
     if (!LoadSource(project, name, &data, &size, &basehash, why)) { goto done; }
     if (ModelDataHash(data, size) != revision)
     { *why = "The model revision changed. Reload the model and select its faces again."; goto done; }
@@ -208,23 +218,19 @@ BOOL ModelEditsSetProperties(const char *project, const char *name, DWORD revisi
     if (source.count != check.count)
     { *why = "The property edit changed the model's face count."; goto done; }
     if (size == compiledsize && !memcmp(data, compiled, size)) { ok = TRUE; goto done; }
-    if (NewPropsData(project,name,&basehash))
+    if (change)
     {
-        ok=NewPropsReplace(name,compiled,compiledsize,why);
-        if (ok) compiled=NULL;
-        goto done;
+        step.after = malloc(compiledsize);
+        if (!step.after) { *why = "Out of memory retaining model property history."; goto done; }
+        memcpy(step.after, compiled, compiledsize);
+        step.afterSize = compiledsize; step.afterRevision = ModelDataHash(compiled, compiledsize);
+        step.before = data; data = NULL; step.beforeSize = size; step.beforeRevision = revision;
     }
-    for (edit = g_ModelEdits; edit && strcmp(edit->name, name); edit = edit->next) {}
-    if (!edit)
-    {
-        edit = calloc(1, sizeof(*edit));
-        if (!edit) { *why = "Out of memory retaining model properties."; goto done; }
-        lstrcpyn(edit->name, name, sizeof(edit->name)); edit->next = g_ModelEdits; g_ModelEdits = edit;
-    }
-    free(edit->data); edit->data = compiled; compiled = NULL;
-    edit->size = compiledsize; edit->basehash = basehash; edit->dirty = TRUE;
-    ok = TRUE; *why = "";
+    ok = RetainModel(project, name, basehash, compiled, compiledsize, why);
+    if (ok) compiled = NULL;
 done:
+    if (ok && change) { *change = step; memset(&step, 0, sizeof(step)); }
+    ModelEditsFreeUVChange(&step);
     free(data); free(compiled); ModelFreeSource(&source); ModelFreeSource(&check); return ok;
 }
 
@@ -246,6 +252,49 @@ static BOOL RetainModel(const char *project, const char *name, DWORD basehash,
     free(edit->data); edit->data = data;
     edit->size = size; edit->basehash = basehash; edit->dirty = TRUE;
     *why = ""; return TRUE;
+}
+
+BOOL ModelEditsDeleteFaces(const char *project, const char *name, DWORD revision,
+    const DWORD *faces, DWORD count, ModelUVChange *change, const char **why)
+{
+    unsigned char *data = NULL, *compiled = NULL, *deleted = NULL;
+    DWORD size, basehash, compiledsize;
+    ModelSource source = {0}, check = {0};
+    ModelUVChange step = {0};
+    BOOL ok = FALSE;
+    if (change) memset(change, 0, sizeof(*change));
+    if (!LoadSource(project, name, &data, &size, &basehash, why)) goto done;
+    if (ModelDataHash(data, size) != revision)
+    { *why = "The model changed. Reload it before deleting faces."; goto done; }
+    if (!ModelReadSource(data, size, &source, why)
+        || !ModelMaterialsEnsure(&source, project, why)
+        || !ModelCompileDeleteFaces(data, size, &source, faces, count, &compiled, &compiledsize, why)) goto done;
+    deleted = calloc(source.count, 1);
+    if (!deleted) { *why = "Out of memory deleting model faces."; goto done; }
+    for (DWORD i = 0; i < count; i++) deleted[faces[i]] = 1; /* Validated by compiler. */
+    DWORD kept = 0;
+    for (DWORD face = 0; face < source.count; face++)
+        if (!deleted[face]) source.materials.faces[kept++] = source.materials.faces[face];
+    source.materials.facecount = kept;
+    if (!ModelMaterialsAttach(&compiled, &compiledsize, &source.materials, why)
+        || !ModelReadSource(compiled, compiledsize, &check, why)) goto done;
+    if (check.count != kept)
+    { *why = "Deleting faces produced an unexpected model face count."; goto done; }
+    if (change)
+    {
+        step.after = malloc(compiledsize);
+        if (!step.after) { *why = "Out of memory retaining model deletion history."; goto done; }
+        memcpy(step.after, compiled, compiledsize);
+        step.afterSize = compiledsize; step.afterRevision = ModelDataHash(compiled, compiledsize);
+        step.before = data; data = NULL; step.beforeSize = size; step.beforeRevision = revision;
+    }
+    ok = RetainModel(project, name, basehash, compiled, compiledsize, why);
+    if (ok) compiled = NULL;
+done:
+    if (ok && change) { *change = step; memset(&step, 0, sizeof(step)); }
+    ModelEditsFreeUVChange(&step);
+    free(data); free(compiled); free(deleted); ModelFreeSource(&source); ModelFreeSource(&check);
+    return ok;
 }
 
 BOOL ModelEditsSetVertexColor(const char *project, const char *name, DWORD revision,

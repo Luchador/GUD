@@ -734,15 +734,15 @@ static void ModelEditorProperties(void)
     }
     else { lstrcpyn(text, "Select faces to inspect their settings.", sizeof(text)); }
     SetDlgItemText(g_ModelEditor, IDC_MODEL_CURRENT, text);
-    SendDlgItemMessage(g_ModelEditor, IDC_MODEL_CULL, CB_SETCURSEL, 0, 0);
-    SendDlgItemMessage(g_ModelEditor, IDC_MODEL_SURFACE, CB_SETCURSEL, 0, 0);
-    SendDlgItemMessage(g_ModelEditor, IDC_MODEL_WRAP_U, CB_SETCURSEL, 0, 0);
-    SendDlgItemMessage(g_ModelEditor, IDC_MODEL_WRAP_V, CB_SETCURSEL, 0, 0);
+    SendDlgItemMessage(g_ModelEditor, IDC_MODEL_CULL, CB_SETCURSEL,
+        cull == 0 ? 1 : cull == 2 ? 2 : cull == 1 ? 3 : 0, 0);
+    SendDlgItemMessage(g_ModelEditor, IDC_MODEL_SURFACE, CB_SETCURSEL, surface >= 0 && surface <= 2 ? surface + 1 : 0, 0);
+    SendDlgItemMessage(g_ModelEditor, IDC_MODEL_WRAP_U, CB_SETCURSEL, wrapu >= 0 && wrapu <= 2 ? wrapu + 1 : 0, 0);
+    SendDlgItemMessage(g_ModelEditor, IDC_MODEL_WRAP_V, CB_SETCURSEL, wrapv >= 0 && wrapv <= 2 ? wrapv + 1 : 0, 0);
     EnableWindow(GetDlgItem(g_ModelEditor, IDC_MODEL_CULL), cull >= 0 && cullingeditable);
     EnableWindow(GetDlgItem(g_ModelEditor, IDC_MODEL_SURFACE), cull >= 0);
     EnableWindow(GetDlgItem(g_ModelEditor, IDC_MODEL_WRAP_U), wrapeditable);
     EnableWindow(GetDlgItem(g_ModelEditor, IDC_MODEL_WRAP_V), wrapeditable);
-    EnableWindow(GetDlgItem(g_ModelEditor, IDC_MODEL_APPLY), FALSE);
 }
 static void ModelEditorSelectGroup(BOOL all)
 {
@@ -798,30 +798,65 @@ void ModelEditorRefreshImages(void)
     ModelEditorLoad(g_ModelSelected, FALSE);
 }
 
-static void ModelEditorApplyProperties(void)
+static void ModelEditorApplyProperties(int control)
 {
     int count = ViewportGetSelectedBgFaceCount(g_ModelViewport), i;
-    int cull = (int)SendDlgItemMessage(g_ModelEditor, IDC_MODEL_CULL, CB_GETCURSEL, 0, 0) - 1;
-    int surface = (int)SendDlgItemMessage(g_ModelEditor, IDC_MODEL_SURFACE, CB_GETCURSEL, 0, 0) - 1;
-    int wrapu = (int)SendDlgItemMessage(g_ModelEditor, IDC_MODEL_WRAP_U, CB_GETCURSEL, 0, 0) - 1;
-    int wrapv = (int)SendDlgItemMessage(g_ModelEditor, IDC_MODEL_WRAP_V, CB_GETCURSEL, 0, 0) - 1;
+    int value = (int)SendDlgItemMessage(g_ModelEditor, control, CB_GETCURSEL, 0, 0) - 1;
+    /* Only the changed control applies, even when the selection has mixed settings. */
+    int cull = control == IDC_MODEL_CULL ? value : -1;
+    int surface = control == IDC_MODEL_SURFACE ? value : -1;
+    int wrapu = control == IDC_MODEL_WRAP_U ? value : -1;
+    int wrapv = control == IDC_MODEL_WRAP_V ? value : -1;
     BgFaceRef *refs;
     DWORD *faces;
     const char *why = "";
     BOOL ok = FALSE;
-    if (g_ModelSelected < 0 || count < 1 || (cull < 0 && surface < 0 && wrapu < 0 && wrapv < 0)) { return; }
+    ModelUVChange change = {0};
+    if (g_ModelSelected < 0 || count < 1 || value < 0) { ModelEditorProperties(); return; }
+    SendMessage(g_ModelViewport, WM_CANCELMODE, 0, 0);
+    UVEditorCancelInteraction(g_ModelEditor);
     refs = malloc((size_t)count * sizeof(*refs)); faces = malloc((size_t)count * sizeof(*faces));
     if (!refs || !faces) { why = "Out of memory editing model properties."; }
     else if (ViewportGetSelectedBgFaces(g_ModelViewport, refs, count))
     {
         for (i = 0; i < count; i++) { faces[i] = refs[i].faceid - 1; }
-        ok = ModelEditsSetProperties(g_ModelProject, g_ModelEntries[g_ModelSelected].name,
-            g_ModelRevision, faces, count, cull, surface, wrapu, wrapv, &why);
+        ok = ModelEditsSetPropertiesWithHistory(g_ModelProject, g_ModelEntries[g_ModelSelected].name,
+            g_ModelRevision, faces, count, cull, surface, wrapu, wrapv, &change, &why);
     }
     free(refs); free(faces);
-    if (!ok) { MessageBox(g_ModelEditor, why, "Model Editor", MB_ICONERROR); return; }
+    if (!ok) { MessageBox(g_ModelEditor, why, "Model Editor", MB_ICONERROR); ModelEditorProperties(); return; }
+    if (!change.before) { ModelEditorProperties(); return; }
+    ModelEditorRecord((ModelEditorHistoryStep){.uv = change});
     ModelEditorRefreshImages();
     SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS, "Face properties updated. Save Project to keep the native model changes.");
+    SendMessage(GetWindow(g_ModelEditor, GW_OWNER), MODELEDITOR_CHANGED, 0, 0);
+}
+
+static void ModelEditorDeleteFaces(void)
+{
+    int count = ViewportGetSelectedBgFaceCount(g_ModelViewport);
+    const char *why = "";
+    ModelUVChange change = {0};
+    BOOL ok = FALSE;
+    if (g_ModelSelected < 0 || count < 1 || ViewportGetTool(g_ModelViewport) != EDITOR_TOOL_FACE_SELECT) return;
+    SendMessage(g_ModelViewport, WM_CANCELMODE, 0, 0);
+    UVEditorCancelInteraction(g_ModelEditor);
+    BgFaceRef *refs = malloc((size_t)count * sizeof(*refs));
+    DWORD *faces = malloc((size_t)count * sizeof(*faces));
+    if (!refs || !faces) why = "Out of memory deleting model faces.";
+    else if (ViewportGetSelectedBgFaces(g_ModelViewport, refs, count))
+    {
+        for (int i = 0; i < count; i++) faces[i] = refs[i].faceid - 1;
+        ok = ModelEditsDeleteFaces(g_ModelProject, g_ModelEntries[g_ModelSelected].name,
+            g_ModelRevision, faces, count, &change, &why);
+    }
+    free(refs); free(faces);
+    if (!ok) { MessageBox(g_ModelEditor, why, "Delete Model Faces", MB_ICONERROR); return; }
+    ModelEditorRecord((ModelEditorHistoryStep){.uv = change, .topology = TRUE});
+    /* Source face IDs are compacted, so old selections cannot survive a delete. */
+    ViewportClearSelection(g_ModelViewport);
+    ModelEditorRefreshImages();
+    SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS, "Selected faces deleted. Ctrl+Z to undo. Save Project to keep the model changes.");
     SendMessage(GetWindow(g_ModelEditor, GW_OWNER), MODELEDITOR_CHANGED, 0, 0);
 }
 
@@ -951,9 +986,9 @@ static void ModelEditorLayout(HWND hwnd)
             {IDC_MODEL_SURFACE_LABEL,96,82,80,12},{IDC_MODEL_SURFACE,96,96,80,100},
             {IDC_MODEL_WRAP_U_LABEL,8,122,80,12},{IDC_MODEL_WRAP_U,8,136,80,100},
             {IDC_MODEL_WRAP_V_LABEL,96,122,80,12},{IDC_MODEL_WRAP_V,96,136,80,100},
-            {IDC_MODEL_APPLY,8,162,168,20},{IDC_MODEL_LOD_LABEL,8,194,30,12},{IDC_MODEL_LODS,42,190,134,80}
+            {IDC_MODEL_LOD_LABEL,8,162,30,12},{IDC_MODEL_LODS,42,158,134,80}
         };
-        RECT dimensions={8,16,168,212},row={0,0,0,44},footer={0,18,0,94},checkbox={0,42,0,14},clearrow={0,22,0,0};
+        RECT dimensions={8,16,168,180},row={0,0,0,44},footer={0,18,0,94},checkbox={0,42,0,14},clearrow={0,22,0,0};
         int facey,colory,colorheight,materialheight;
         size_t i;
         MapDialogRect(hwnd,&dimensions);MapDialogRect(hwnd,&row);
@@ -1057,6 +1092,8 @@ static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wp
     }
     case VIEWPORT_WM_SELECTION_CHANGED:
         ModelEditorProperties(); ModelEditorRefreshUV(); return TRUE;
+    case VIEWPORT_WM_DELETE_SELECTION:
+        ModelEditorDeleteFaces(); return TRUE;
     case UVEDITOR_WM_APPLY:
     case UVEDITOR_WM_APPLY_FACES:
         SetWindowLongPtr(hwnd, DWLP_MSGRESULT, message == UVEDITOR_WM_APPLY
@@ -1101,15 +1138,10 @@ static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wp
             g_ModelLod = (ModelLod)SendDlgItemMessage(hwnd, IDC_MODEL_LODS, CB_GETCURSEL, 0, 0);
             ModelEditorRefreshImages(); return TRUE;
         }
-        if (LOWORD(wparam) == IDC_MODEL_APPLY) { ModelEditorApplyProperties(); return TRUE; }
         if ((LOWORD(wparam) == IDC_MODEL_CULL || LOWORD(wparam) == IDC_MODEL_SURFACE
             || LOWORD(wparam) == IDC_MODEL_WRAP_U || LOWORD(wparam) == IDC_MODEL_WRAP_V) && HIWORD(wparam) == CBN_SELCHANGE)
         {
-            BOOL edit = SendDlgItemMessage(hwnd, IDC_MODEL_CULL, CB_GETCURSEL, 0, 0) > 0
-                || SendDlgItemMessage(hwnd, IDC_MODEL_SURFACE, CB_GETCURSEL, 0, 0) > 0
-                || SendDlgItemMessage(hwnd, IDC_MODEL_WRAP_U, CB_GETCURSEL, 0, 0) > 0
-                || SendDlgItemMessage(hwnd, IDC_MODEL_WRAP_V, CB_GETCURSEL, 0, 0) > 0;
-            EnableWindow(GetDlgItem(hwnd, IDC_MODEL_APPLY), edit && ViewportGetSelectedBgFaceCount(g_ModelViewport) > 0);
+            ModelEditorApplyProperties(LOWORD(wparam));
             return TRUE;
         }
         if (LOWORD(wparam)==IDC_MODEL_EXPORT || LOWORD(wparam)==IDC_MODEL_IMPORT)

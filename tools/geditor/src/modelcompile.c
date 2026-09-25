@@ -295,6 +295,119 @@ static void Triangles(ModelOutput *out, unsigned char indices[4][3], int count)
     }
     Append(out,cmd,8);
 }
+BOOL ModelCompileDeleteFaces(const unsigned char *data, DWORD size, const ModelSource *source,
+    const DWORD *faces, DWORD count, unsigned char **result, DWORD *resultsize, const char **reasonout)
+{
+    ModelOutput out = {0};
+    unsigned char *deleted = NULL;
+    unsigned short *needed = NULL;
+    DWORD cursor = 0, previous = 0;
+    BOOL ok = FALSE;
+    *result = NULL; *resultsize = 0;
+    *reasonout = "Invalid model face selection.";
+    if (!data || !source || !source->listcount || !source->count || !faces || !count) return FALSE;
+    size = ModelMaterialsNativeSize(data, size);
+    deleted = calloc(source->count, 1);
+    if (!deleted) { *reasonout = "Out of memory deleting model faces."; goto done; }
+    for (DWORD i = 0; i < count; i++)
+    {
+        if (faces[i] >= source->count) goto done;
+        deleted[faces[i]] = 1;
+    }
+    *reasonout = "The model's display-list layout could not be rebuilt.";
+    for (DWORD list = 0; list < source->listcount; list++)
+    {
+        const ModelSourceList *part = &source->lists[list];
+        DWORD endface = cursor;
+        BOOL affected = FALSE;
+        while (endface < source->count && source->faces[endface].list == list)
+            affected |= deleted[endface++];
+        if (part->offset < previous || part->end < part->offset || part->end > size
+            || (part->end - part->offset) % 8) goto done;
+        Append(&out, data + previous, part->offset - previous);
+        if (out.failed || part->pointer > out.size || out.size - part->pointer < 4) goto done;
+        Write32(out.data + part->pointer, 0x05000000u | out.size);
+        previous = part->end;
+        if (!affected)
+        {
+            /* Includes dynamic lists which have no editable source faces. */
+            Append(&out, data + part->offset, part->end - part->offset);
+            cursor = endface;
+            continue;
+        }
+        DWORD commands = (part->end - part->offset) / 8, scan = cursor;
+        int owners[16];
+        needed = calloc(commands, sizeof(*needed));
+        if (!needed) { *reasonout = "Out of memory deleting model faces."; goto done; }
+        for (int slot = 0; slot < 16; slot++) owners[slot] = -1;
+        /* Keep each surviving vertex load at its original matrix/render state.
+         * Removing triangles alone would still transform their unused vertices. */
+        for (DWORD pc = part->offset; pc < part->end; pc += 8)
+        {
+            const unsigned char *cmd = data + pc;
+            if (cmd[0] == 4)
+            {
+                int begin = cmd[1] & 15, end = begin + (cmd[1] >> 4) + 1;
+                if (end > 16) goto done;
+                for (int slot = begin; slot < end; slot++) owners[slot] = (pc - part->offset) / 8;
+            }
+            while (scan < endface && source->faces[scan].command == pc)
+            {
+                if (!deleted[scan])
+                {
+                    unsigned char indices[3];
+                    Indices(cmd, source->faces[scan].slot, indices);
+                    for (int k = 0; k < 3; k++)
+                    {
+                        if (indices[k] >= 16 || owners[indices[k]] < 0) goto done;
+                        needed[owners[indices[k]]] |= 1u << indices[k];
+                    }
+                }
+                scan++;
+            }
+        }
+        if (scan != endface) goto done;
+        for (DWORD pc = part->offset; pc < part->end; pc += 8)
+        {
+            const unsigned char *cmd = data + pc;
+            if (cmd[0] == 0xb1 || cmd[0] == 0xbf)
+            {
+                unsigned char triangles[4][3];
+                int n = 0;
+                while (cursor < endface && source->faces[cursor].command == pc)
+                {
+                    if (!deleted[cursor]) Indices(cmd, source->faces[cursor].slot, triangles[n++]);
+                    cursor++;
+                }
+                Triangles(&out, triangles, n);
+            }
+            else if (cmd[0] == 4)
+            {
+                unsigned short mask = needed[(pc - part->offset) / 8];
+                int first = cmd[1] & 15, end = first + (cmd[1] >> 4) + 1;
+                for (int slot = first; slot < end;)
+                {
+                    if (!(mask & (1u << slot))) { slot++; continue; }
+                    int begin = slot++;
+                    while (slot < end && (mask & (1u << slot))) slot++;
+                    int n = slot - begin;
+                    Command(&out, 0x04000000u | ((n - 1) << 20) | (begin << 16) | (n * 16),
+                        Read32(cmd + 4) + (begin - first) * 16);
+                }
+            }
+            else Append(&out, cmd, 8);
+        }
+        free(needed); needed = NULL;
+    }
+    if (cursor != source->count) goto done;
+    Append(&out, data + previous, size - previous);
+    if (out.failed) { *reasonout = "The rebuilt model exceeded the supported size or available memory."; goto done; }
+    *result = out.data; *resultsize = out.size; out.data = NULL;
+    ok = TRUE; *reasonout = "";
+done:
+    free(needed); free(deleted); free(out.data); return ok;
+}
+
 static void MaterialWithSync(ModelOutput *out, BgMaterial *current, const BgMaterial *desired, BOOL sync)
 {
     BgMaterial untextured;

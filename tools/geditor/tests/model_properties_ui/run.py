@@ -19,13 +19,14 @@ def main():
     viewport = (src / 'viewport.c').read_text()
     editor = (src / 'modeleditor.c').read_text()
     declarations = re.search(r'typedef struct SceneBatch \{.*?\} SceneBatch;', viewport, re.S)[0]
+    declarations += '\n' + re.search(r'typedef struct ModelEditorHistoryStep \{.*?\} ModelEditorHistoryStep;', editor, re.S)[0]
     declarations += '\n' + re.search(r'typedef struct ModelEditorEntry \{.*?\} ModelEditorEntry;', editor, re.S)[0]
     logic = ''.join(helpers.function(viewport, name) for name in
                     ('ViewportBatchCullMode', 'ViewportOrbitInput'))
     logic += ''.join(helpers.function(editor, name) for name in
                      ('ModelEditorCulling', 'ModelEditorSurface', 'ModelEditorOpenModel',
                       'ModelEditorCanAssignImages', 'ModelEditorDropImage',
-                      'ModelEditorProperties', 'ModelEditorApplyProperties'))
+                      'ModelEditorProperties', 'ModelEditorApplyProperties', 'ModelEditorDeleteFaces'))
     with tempfile.TemporaryDirectory(prefix='geditor-model-ui-') as temp:
         work = Path(temp)
         (work / 'types.inc').write_text(declarations)

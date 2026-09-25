@@ -35,6 +35,11 @@ typedef struct ModelUVChange {
     unsigned char *before, *after; /* Owned exact snapshots, also used by bulk material edits. */
     DWORD beforeSize, afterSize, beforeRevision, afterRevision;
 } ModelUVChange;
+BOOL ModelEditsSetPropertiesWithHistory(const char *project, const char *name, DWORD revision,
+    const DWORD *faces, DWORD count, int culling, int surface, int wrapu, int wrapv,
+    ModelUVChange *change, const char **reasonout);
+BOOL ModelEditsDeleteFaces(const char *project, const char *name, DWORD revision,
+    const DWORD *faces, DWORD count, ModelUVChange *change, const char **reasonout);
 /* Clear image bindings on the chosen LOD, coalesce them into one No Texture
  * slot, and remove unused slots. Shared faces can be excluded to leave the
  * other LOD unchanged. Does not delete project images or change vertex colors. */

@@ -4,7 +4,8 @@
 #include <stdint.h>
 #include <strings.h>
 #include <string.h>
-#include "modelload.h"
+#include "modeledits.h"
+#include "edittool.h"
 #include "bgdocument.h"
 #include "resource.h"
 #include "orbitcamera.h"
@@ -32,7 +33,6 @@ enum {LB_ITEMFROMPOINT=10,LB_GETITEMRECT,LB_SETCURSEL,LB_GETITEMDATA,MB_ICONERRO
 #define VIEWPORT_FOV_Y 60
 #define WHEEL_DELTA 120
 #define VK_ESCAPE 27
-#define EDITOR_TOOL_VERTEX_PAINT 3
 #define GET_X_LPARAM(l) ((short)(l))
 #define GET_Y_LPARAM(l) ((short)((l) >> 16))
 #define GET_WHEEL_DELTA_WPARAM(w) ((short)((w) >> 16))
@@ -83,20 +83,40 @@ static BOOL ViewportGetSelectedBgFaces(HWND hwnd,BgFaceRef *refs,int count)
 {assert(count==selectedfaces);memcpy(refs,faceselection,count*sizeof(*refs));return TRUE;}
 static void SetDlgItemText(HWND hwnd,int id,const char *text)
 {if(id==IDC_MODEL_CURRENT) snprintf(current,sizeof(current),"%s",text);}
-static BOOL ModelEditsSetProperties(const char *project,const char *name,DWORD revision,
-    const DWORD *faces,DWORD count,int cull,int surface,int u,int v,const char **why)
+static int expectedcontrol, expectedvalue, records, deletions, cleared;
+static BOOL nochange;
+static ModelEditorHistoryStep recorded;
+static int tool = EDITOR_TOOL_FACE_SELECT;
+static void UVEditorCancelInteraction(HWND hwnd) {}
+static int ViewportGetTool(HWND hwnd) {return tool;}
+static void ViewportClearSelection(HWND hwnd) {cleared++;selectedfaces=0;}
+static void ModelEditorRecord(ModelEditorHistoryStep step) {recorded=step;records++;}
+BOOL ModelEditsDeleteFaces(const char *project,const char *name,DWORD revision,
+    const DWORD *faces,DWORD count,ModelUVChange *change,const char **why)
 {
     assert(!strcmp(project,"project") && !strcmp(name,"Gpp7Z") && revision==123);
     assert(count==2 && faces[0]==1 && faces[1]==0);
-    assert(cull==-1 && surface==-1 && u==2 && v==1);properties++;return assignok;
+    deletions++;if(assignok) change->before=(unsigned char *)"snapshot";return assignok;
+}
+BOOL ModelEditsSetPropertiesWithHistory(const char *project,const char *name,DWORD revision,
+    const DWORD *faces,DWORD count,int cull,int surface,int u,int v,ModelUVChange *change,const char **why)
+{
+    assert(!strcmp(project,"project") && !strcmp(name,"Gpp7Z") && revision==123);
+    assert(count==2 && faces[0]==1 && faces[1]==0);
+    assert(cull==(expectedcontrol==IDC_MODEL_CULL?expectedvalue:-1));
+    assert(surface==(expectedcontrol==IDC_MODEL_SURFACE?expectedvalue:-1));
+    assert(u==(expectedcontrol==IDC_MODEL_WRAP_U?expectedvalue:-1));
+    assert(v==(expectedcontrol==IDC_MODEL_WRAP_V?expectedvalue:-1));
+    properties++;if(assignok && !nochange) change->before=(unsigned char *)"snapshot";return assignok;
 }
 static void ModelEditorRefreshImages(void) {refreshed++;}
 static void ModelEditorSelectGroup(BOOL all) {assert(!all);}
-static BOOL ModelEditsSetMaterial(const char *project,const char *name,DWORD revision,DWORD slot,DWORD texture,const char **why)
+BOOL ModelEditsSetMaterial(const char *project,const char *name,DWORD revision,DWORD slot,DWORD texture,const char **why)
 {assert(!strcmp(project,"project") && !strcmp(name,"Gpp7Z") && revision==123);assigned++;assignedslot=slot;assignedtexture=texture;return assignok;}
 static HWND GetDlgItem(HWND hwnd, int item) {return (HWND)(uintptr_t)(item==IDC_MODEL_MATERIAL_LIST?12:item+2);}
 static LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
+    if(hwnd==g_ModelViewport) {assert(msg==WM_CANCELMODE);return 0;}
     if(hwnd==(HWND)(uintptr_t)99) {assert(msg==MODELEDITOR_CHANGED);notified++;return 0;}
     if(hwnd==(HWND)(uintptr_t)12)
     {
@@ -276,13 +296,38 @@ int main(void)
     ModelEditorProperties();
     assert(strstr(current,"Wrap U: Mixed; V: Repeat"));
     assert(enabled[IDC_MODEL_WRAP_U] && enabled[IDC_MODEL_WRAP_V]);
-    assert(!enabled[IDC_MODEL_CULL] && !enabled[IDC_MODEL_APPLY]); /* Inherited culling permits wrapping. */
-    assert(choices[IDC_MODEL_WRAP_U]==0 && choices[IDC_MODEL_WRAP_V]==0);
-    ModelEditorApplyProperties();assert(properties==0);
-    choices[IDC_MODEL_WRAP_U]=3;choices[IDC_MODEL_WRAP_V]=2;assignok=TRUE;
-    ModelEditorApplyProperties();assert(properties==1 && refreshed==3 && notified==3);
-    assignok=FALSE;ModelEditorApplyProperties();
-    assert(properties==2 && refreshed==3 && notified==3 && errors==2);
+    assert(!enabled[IDC_MODEL_CULL]); /* Inherited culling permits wrapping. */
+    assert(choices[IDC_MODEL_WRAP_U]==0 && choices[IDC_MODEL_WRAP_V]==1);
+    ModelEditorApplyProperties(IDC_MODEL_WRAP_U);assert(properties==0 && records==0);
+    const int controls[]={IDC_MODEL_CULL,IDC_MODEL_SURFACE,IDC_MODEL_WRAP_U,IDC_MODEL_WRAP_V};
+    assignok=TRUE;
+    for(int i=0;i<4;i++)
+    {
+        /* Other controls show actual values; never reapply those to mixed faces. */
+        for(int k=0;k<4;k++) choices[controls[k]]=3;
+        expectedcontrol=controls[i];expectedvalue=i%3;choices[expectedcontrol]=expectedvalue+1;
+        ModelEditorApplyProperties(expectedcontrol);
+        assert(properties==i+1 && records==i+1 && refreshed==i+3 && notified==i+3);
+        assert(recorded.uv.before && !recorded.topology);
+    }
+    assignok=FALSE;ModelEditorApplyProperties(expectedcontrol);
+    assert(properties==5 && refreshed==6 && notified==6 && errors==2 && records==4);
+    assert(choices[IDC_MODEL_WRAP_V]==1); /* Rejected choice returns to the actual value. */
+    assignok=TRUE;nochange=TRUE;expectedvalue=0;ModelEditorApplyProperties(expectedcontrol);
+    assert(properties==6 && refreshed==6 && notified==6 && records==4);nochange=FALSE;
+    wrapfaces[0].state.geometryknown=wrapfaces[1].state.geometryknown=0x3000;
+    wrapfaces[0].state.geometrymode=wrapfaces[1].state.geometrymode=0x2000;
+    ModelEditorProperties();assert(choices[IDC_MODEL_CULL]==2 && enabled[IDC_MODEL_CULL]);
+    wrapfaces[0].state.geometrymode=0x1000;
+    ModelEditorProperties();assert(choices[IDC_MODEL_CULL]==0 && strstr(current,"Culling: Mixed"));
+    tool=EDITOR_TOOL_VERTEX_PAINT;ModelEditorDeleteFaces();assert(!deletions);
+    tool=EDITOR_TOOL_FACE_SELECT;assignok=FALSE;ModelEditorDeleteFaces();
+    assert(deletions==1 && errors==3 && selectedfaces==2 && !cleared && records==4);
+    assignok=TRUE;ModelEditorDeleteFaces();
+    assert(deletions==2 && !selectedfaces && cleared==1 && records==5 && recorded.topology);
+    assert(refreshed==7 && notified==7);
+    ModelEditorDeleteFaces();assert(deletions==2); /* No selection is a no-op. */
+    selectedfaces=2;
     BgMaterialSetTexture(&wrapfaces[0].material,BG_TEX_NONE);
     ModelEditorProperties();assert(enabled[IDC_MODEL_WRAP_U] && strstr(current,"Wrap U: Mixed"));
     BgMaterialSetTexture(&wrapfaces[1].material,BG_TEX_NONE);
@@ -291,7 +336,7 @@ int main(void)
     selectedfaces=0;ModelEditorProperties();
     assert(!enabled[IDC_MODEL_WRAP_U] && !enabled[IDC_MODEL_WRAP_V]);
     assert(strstr(current,"Select faces"));
-    puts("PASS wrap inspector mixed/untextured/empty selections, independent U/V application and failed-edit refresh guards.");
+    puts("PASS automatic properties, per-setting history, deletion routing and selection clearing; wrap inspector mixed/untextured/empty selections, independent U/V application and failed-edit refresh guards.");
     puts("PASS material drop targeting, negative screen coordinates, No Texture, invalid targets and failed assignment.");
     puts("PASS model viewer click/double-click/orbit, sorted asset opening/reuse, culling and inspector labels (ASan + UBSan)");
     return 0;

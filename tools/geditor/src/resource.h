@@ -216,7 +216,6 @@
 #define IDC_MODEL_CULL             1058
 #define IDC_MODEL_SURFACE_LABEL    1059
 #define IDC_MODEL_SURFACE          1060
-#define IDC_MODEL_APPLY            1061
 #define IDC_MODEL_LODS             1062
 #define IDC_MODEL_HINT             1063
 #define IDC_MODEL_MATERIALS        1064

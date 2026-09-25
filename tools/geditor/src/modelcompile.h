@@ -3,6 +3,10 @@
 #include "modelload.h"
 #include "gltf.h"
 DWORD ModelDataHash(const unsigned char *data, DWORD size);
+/* Delete source face IDs and prune unused vertex loads. Keep native vertex
+ * data, joints, bounds, collision links and all non-triangle render commands. */
+BOOL ModelCompileDeleteFaces(const unsigned char *data, DWORD size, const ModelSource *source,
+    const DWORD *faces, DWORD count, unsigned char **result, DWORD *resultsize, const char **reasonout);
 /* Give shared leaf meshes independent near/far branches, vertex buffers and
  * material slots. Keep native joints, collision links and existing offsets.
  * A successful no-op returns NULL, zero bytes and zero separated faces. */
