@@ -6225,6 +6225,123 @@ BOOL ViewportSelectRoom(HWND hwnd)
     return ViewportChangeBgSelection(hwnd, VIEWPORT_BG_SELECT_ROOM);
 }
 
+typedef struct ViewportBgPlane {
+    double origin[3], normal[3];
+} ViewportBgPlane;
+
+static BOOL ViewportBgFacePlane(const Vertex *vertices, ViewportBgPlane *plane)
+{
+    double a[3] = {(double)vertices[1].x - vertices[0].x,
+                   (double)vertices[1].y - vertices[0].y,
+                   (double)vertices[1].z - vertices[0].z};
+    double b[3] = {(double)vertices[2].x - vertices[0].x,
+                   (double)vertices[2].y - vertices[0].y,
+                   (double)vertices[2].z - vertices[0].z};
+    double length;
+    plane->origin[0] = vertices[0].x; plane->origin[1] = vertices[0].y; plane->origin[2] = vertices[0].z;
+    plane->normal[0] = a[1]*b[2] - a[2]*b[1];
+    plane->normal[1] = a[2]*b[0] - a[0]*b[2];
+    plane->normal[2] = a[0]*b[1] - a[1]*b[0];
+    length = hypot(hypot(plane->normal[0], plane->normal[1]), plane->normal[2]);
+    if (!isfinite(length) || length < 1e-12) { return FALSE; }
+    for (int axis = 0; axis < 3; axis++) { plane->normal[axis] /= length; }
+    return TRUE;
+}
+
+static int ViewportGetSelectedBgPlanes(HWND hwnd, ViewportBgPlane *planes)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    int count = 0;
+    if (!ViewportCanSelectBackground(hwnd, TRUE) || state->tool != EDITOR_TOOL_FACE_SELECT) { return 0; }
+    /* Selected faces on a disabled layer still provide reference planes,
+     * just as they provide reference rooms/materials for other commands. */
+    for (int i = 0; i < state->batchcount; i++)
+    {
+        const SceneBatch *batch = &state->batches[i];
+        if (batch->object) { continue; }
+        for (int tri = batch->first / 3; tri < (batch->first + batch->count) / 3; tri++)
+        {
+            ViewportBgPlane plane;
+            if (!state->selectedtris[tri] || state->scenefacerefs[tri].faceid == BG_FACE_ID_NONE
+                || ViewportTriangleHidden(state, tri) || !ViewportBgFacePlane(&state->scene[tri*3], &plane)) { continue; }
+            if (planes) { planes[count] = plane; }
+            count++;
+        }
+    }
+    return count;
+}
+
+BOOL ViewportCanSelectCoplanar(HWND hwnd)
+{
+    return ViewportGetSelectedBgPlanes(hwnd, NULL) > 0;
+}
+
+static BOOL ViewportBgFaceCoplanar(const Vertex *vertices, const ViewportBgPlane *plane,
+    const ViewportBgPlane *seed, double tolerance)
+{
+    double dot = 0;
+    for (int axis = 0; axis < 3; axis++) { dot += plane->normal[axis] * seed->normal[axis]; }
+    /* One degree, accepting either winding. Parallel alone is insufficient:
+     * all three corners must lie near the seed plane, not just the center. */
+    if (fabs(dot) < 0.9998476951563913) { return FALSE; }
+    for (int corner = 0; corner < 3; corner++)
+    {
+        const Vertex *v = &vertices[corner];
+        double distance = ((double)v->x - seed->origin[0]) * seed->normal[0]
+                        + ((double)v->y - seed->origin[1]) * seed->normal[1]
+                        + ((double)v->z - seed->origin[2]) * seed->normal[2];
+        if (fabs(distance) > tolerance) { return FALSE; }
+    }
+    return TRUE;
+}
+
+BOOL ViewportSelectCoplanar(HWND hwnd)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    int count = ViewportGetSelectedBgPlanes(hwnd, NULL);
+    ViewportBgPlane *seeds;
+    BOOL changed = FALSE;
+    double tolerance;
+    if (!count) { return TRUE; }
+    seeds = malloc((size_t)count * sizeof(*seeds));
+    if (!seeds) { return FALSE; }
+    ViewportGetSelectedBgPlanes(hwnd, seeds);
+    /* World positions are centimeters; allow one native integer vertex step
+     * for authored rounding. Freeze seeds so matches cannot spread to a
+     * progressively tilted/offset surface during this selection command. */
+    tolerance = isfinite(state->markerlevelscale) && state->markerlevelscale > 0
+        ? 1.0 / state->markerlevelscale : 1.0;
+    tolerance += 1e-5;
+    for (int i = 0; i < state->batchcount; i++)
+    {
+        const SceneBatch *batch = &state->batches[i];
+        if (!ViewportBatchIsPickable(state, batch)) { continue; }
+        for (int tri = batch->first / 3; tri < (batch->first + batch->count) / 3; tri++)
+        {
+            ViewportBgPlane plane;
+            if (state->selectedtris[tri] || state->scenefacerefs[tri].faceid == BG_FACE_ID_NONE
+                || ViewportTriangleHidden(state, tri) || !ViewportBgFacePlane(&state->scene[tri*3], &plane)) { continue; }
+            for (int seed = 0; seed < count; seed++)
+            {
+                if (!ViewportBgFaceCoplanar(&state->scene[tri*3], &plane, &seeds[seed], tolerance)) { continue; }
+                state->selectedtris[tri] = 1;
+                state->selectedtricount++;
+                ViewportSetTriangleColor(state, tri, TRUE);
+                changed = TRUE;
+                break;
+            }
+        }
+    }
+    free(seeds);
+    if (changed)
+    {
+        ViewportUpdateGizmo(state);
+        InvalidateRect(hwnd, NULL, FALSE);
+        SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+    }
+    return TRUE;
+}
+
 static BOOL ViewportGetSelectedBgTextures(HWND hwnd, unsigned char *textures)
 {
     const ViewportState *state = ViewportGetState(hwnd);

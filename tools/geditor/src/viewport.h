@@ -210,6 +210,11 @@ BOOL ViewportGetSelectedBgFaces(HWND hwnd, BgFaceRef *out, int count);
    Never includes temporarily hidden faces or edits document/dirty state. */
 BOOL ViewportCanSelectBackground(HWND hwnd, BOOL grow);
 BOOL ViewportSelectBackground(HWND hwnd, BOOL grow);
+/* Face mode: expand to unhidden BG faces near any selected face's world plane.
+   Includes disconnected/off-screen faces in visible layers, with either winding.
+   Tolerances: one degree and one native vertex unit. Degenerate faces are ignored. */
+BOOL ViewportCanSelectCoplanar(HWND hwnd);
+BOOL ViewportSelectCoplanar(HWND hwnd);
 /* Expand to all stan tiles in the selected tiles' rooms in face mode, or BG
    geometry in the selected source rooms, retaining vertex/edge/face mode.
    Includes disconnected/off-screen geometry, respecting hidden geometry and

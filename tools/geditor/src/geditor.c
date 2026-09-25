@@ -706,6 +706,7 @@ enum {
 
     ID_SELECT_GROW,
     ID_SELECT_ALL,
+    ID_SELECT_COPLANAR,
     ID_SELECT_SAME_MATERIAL,
     ID_SELECT_ROOM,
     ID_SELECT_SIMILAR,
@@ -896,6 +897,7 @@ static HMENU GEditorCreateMenuBar(void)
 
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_GROW, "&Grow Selection\tQ");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_ALL, "Select &All\tCtrl+A");
+    AppendMenu(selectmenu, MF_STRING, ID_SELECT_COPLANAR, "Select &Coplanar\tShift+C");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_SAME_MATERIAL, "Select Same &Material\tShift+M");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_ROOM, "Select &Room\tShift+R");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_SIMILAR, "Select &Similar\tShift+S");
@@ -6278,6 +6280,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             (ViewportCanSelectBackground(g_Viewport, FALSE) ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_SELECT_ROOM, MF_BYCOMMAND |
             (ViewportCanSelectRoom(g_Viewport) ? MF_ENABLED : MF_GRAYED));
+        EnableMenuItem((HMENU)wparam, ID_SELECT_COPLANAR, MF_BYCOMMAND |
+            (ViewportCanSelectCoplanar(g_Viewport) ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_SELECT_SAME_MATERIAL, MF_BYCOMMAND |
             (ViewportCanSelectSameMaterial(g_Viewport) ? MF_ENABLED : MF_GRAYED));
         return 0;
@@ -6548,6 +6552,11 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             case ID_SELECT_ROOM:
                 if (!ViewportSelectRoom(g_Viewport))
                 { MessageBox(hwnd, "Not enough memory to select the rooms' geometry.", GEDITOR_TITLE, MB_ICONERROR); }
+                return 0;
+
+            case ID_SELECT_COPLANAR:
+                if (!ViewportSelectCoplanar(g_Viewport))
+                { MessageBox(hwnd, "Not enough memory to select coplanar faces.", GEDITOR_TITLE, MB_ICONERROR); }
                 return 0;
 
             case ID_SELECT_SAME_MATERIAL:
@@ -6959,19 +6968,19 @@ static BOOL GEditorHandleSelectionHotkey(HWND frame, const MSG *message)
     char classname[32] = "";
     BOOL control, shift;
     if (!message || !g_Viewport || message->message != WM_KEYDOWN
-        || (message->wParam != 'Q' && message->wParam != 'A' && message->wParam != 'R' && message->wParam != 'S' && message->wParam != 'M')
+        || (message->wParam != 'Q' && message->wParam != 'A' && message->wParam != 'R' && message->wParam != 'S' && message->wParam != 'M' && message->wParam != 'C')
         || ViewportIsFlying(g_Viewport)
         || (message->hwnd != frame && !IsChild(frame, message->hwnd))
         || (GetKeyState(VK_MENU) & 0x8000)) { return FALSE; }
     control = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
     shift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
-    if (control != (message->wParam == 'A') || shift != (message->wParam == 'R' || message->wParam == 'S' || message->wParam == 'M')) { return FALSE; }
+    if (control != (message->wParam == 'A') || shift != (message->wParam == 'R' || message->wParam == 'S' || message->wParam == 'M' || message->wParam == 'C')) { return FALSE; }
     GetClassName(message->hwnd, classname, sizeof(classname));
     if (lstrcmpi(classname, "Edit") == 0 || lstrcmpi(classname, "ComboBox") == 0
         || lstrcmpi(classname, "ComboLBox") == 0) { return FALSE; }
     /* Run once per physical press; holding Q must not grow more rings. */
     if (!(message->lParam & ((LPARAM)1 << 30)))
-    { SendMessage(frame, WM_COMMAND, message->wParam == 'M' ? ID_SELECT_SAME_MATERIAL : message->wParam == 'S' ? ID_SELECT_SIMILAR : shift ? ID_SELECT_ROOM : control ? ID_SELECT_ALL : ID_SELECT_GROW, 0); }
+    { SendMessage(frame, WM_COMMAND, message->wParam == 'C' ? ID_SELECT_COPLANAR : message->wParam == 'M' ? ID_SELECT_SAME_MATERIAL : message->wParam == 'S' ? ID_SELECT_SIMILAR : shift ? ID_SELECT_ROOM : control ? ID_SELECT_ALL : ID_SELECT_GROW, 0); }
     return TRUE;
 }
 

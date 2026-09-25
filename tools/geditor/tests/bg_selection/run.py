@@ -25,7 +25,7 @@ def main():
     viewport = (src / 'viewport.c').read_text()
     types = re.search(r'^#define VIEWPORT_SELECTION_GOLD .*', viewport, re.M)[0] + '\n'
     for name in ('SceneBatch', 'Vertex', 'VertexColor', 'ViewportComponent',
-                 'ViewportStanComponent', 'ViewportBoxPoint', 'ViewportBoxComponent'):
+                 'ViewportStanComponent', 'ViewportBoxPoint', 'ViewportBoxComponent', 'ViewportBgPlane'):
         types += re.search(r'typedef struct ' + name + r'\s*\{.*?\} ' + name + ';', viewport, re.S)[0] + '\n'
     types += re.search(r'typedef enum ViewportBgSelectionScope\s*\{.*?\} ViewportBgSelectionScope;', viewport, re.S)[0] + '\n'
     logic = ''.join(function(viewport, name) for name in (
@@ -37,10 +37,16 @@ def main():
         'ViewportChangeBgSelection', 'ViewportSelectBackground',
         'ViewportStanVisible', 'ViewportCompareStanIds', 'ViewportStanTileHidden',
         'ViewportGetSelectedStanRooms', 'ViewportCanSelectRoom', 'ViewportSelectRoom',
+        'ViewportBgFacePlane', 'ViewportGetSelectedBgPlanes', 'ViewportCanSelectCoplanar',
+        'ViewportBgFaceCoplanar', 'ViewportSelectCoplanar',
         'ViewportGetSelectedBgTextures', 'ViewportCanSelectSameMaterial', 'ViewportSelectSameMaterial'))
     editor = (src / 'geditor.c').read_text()
     menu = editor.split('EnableMenuItem((HMENU)wparam, ID_SELECT_ROOM,')[1].split(';', 1)[0]
     assert 'ViewportCanSelectRoom(g_Viewport)' in menu
+    menu = editor.split('EnableMenuItem((HMENU)wparam, ID_SELECT_COPLANAR,')[1].split(';', 1)[0]
+    assert 'ViewportCanSelectCoplanar(g_Viewport)' in menu
+    items = re.findall(r'AppendMenu\(selectmenu, MF_STRING, (ID_SELECT_\w+),', editor)
+    assert items[items.index('ID_SELECT_ALL') + 1] == 'ID_SELECT_COPLANAR'
     hotkeys = function((src / 'geditor.c').read_text(), 'GEditorHandleSelectionHotkey')
     with tempfile.TemporaryDirectory(prefix='geditor-bg-selection-') as temp:
         temp = Path(temp)

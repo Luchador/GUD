@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <limits.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -38,6 +39,7 @@ typedef struct ViewportState {
     unsigned char *stanselected;
     DWORD stanhiddencount, *stanhiddenids;
     BOOL padselected;
+    float markerlevelscale;
 } ViewportState;
 
 static unsigned notifications, stanrefreshes;
@@ -394,6 +396,7 @@ typedef struct { HWND hwnd; unsigned message, wParam; LPARAM lParam; } MSG;
 #define ID_SELECT_ROOM 12
 #define ID_SELECT_SIMILAR 13
 #define ID_SELECT_SAME_MATERIAL 14
+#define ID_SELECT_COPLANAR 15
 static HWND g_Viewport=(HWND)2;
 static int keys[3]; static BOOL flying;
 static const char *classname="Viewport";
@@ -451,7 +454,101 @@ static void Hotkeys(void)
     keys[VK_MENU]=0x8000; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg)); keys[VK_MENU]=0;
     for (unsigned i=0; i<3; i++) { classname=inputs[i]; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg)); }
     classname="Viewport"; msg.hwnd=(HWND)4; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg));
-    puts("PASS: Q/Ctrl+A/Shift+R/Shift+S/Shift+M routing, repeat suppression, text fields, camera flight and window scope.");
+    msg.hwnd=(HWND)2; keys[VK_SHIFT]=0; msg.wParam='C';
+    assert(!GEditorHandleSelectionHotkey((HWND)1,&msg));
+    keys[VK_CONTROL]=0x8000; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg)); /* Ctrl+C stays copy. */
+    keys[VK_CONTROL]=0; keys[VK_SHIFT]=0x8000;
+    assert(GEditorHandleSelectionHotkey((HWND)1,&msg) && command==ID_SELECT_COPLANAR);
+    command=0; msg.lParam=(LPARAM)1<<30;
+    assert(GEditorHandleSelectionHotkey((HWND)1,&msg) && !command); msg.lParam=0;
+    flying=TRUE; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg)); flying=FALSE;
+    keys[VK_CONTROL]=0x8000; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg)); keys[VK_CONTROL]=0;
+    keys[VK_MENU]=0x8000; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg)); keys[VK_MENU]=0;
+    for (unsigned i=0; i<3; i++) { classname=inputs[i]; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg)); }
+    classname="Viewport"; msg.hwnd=(HWND)4; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg));
+    puts("PASS: Q/Ctrl+A/Shift+R/Shift+S/Shift+M/Shift+C routing, repeat suppression, text fields, camera flight and window scope.");
 }
 
-int main(void) { Geometry(); SameMaterial(); StanRooms(); Hotkeys(); return 0; }
+static void Coplanar(void)
+{
+    enum { count=16 };
+    Vertex vertices[count*3]={0}, original[count*3]; VertexColor colors[count*3]={0};
+    BgDocumentVertexRef refs[count*3]={0}; BgFaceRef faces[count]={0};
+    unsigned char selected[count]={0}, hidden[count]={0}; SceneBatch batches[count]={0};
+    ViewportState s={.tool=EDITOR_TOOL_FACE_SELECT,.showbgprimary=TRUE,.dragaxis=-1,.markerlevelscale=1,
+        .scene=vertices,.scenecolors=colors,.scenecount=count*3,.scenevertexrefs=refs,.scenefacerefs=faces,
+        .selectedtris=selected,.hiddentris=hidden,.batches=batches,.batchcount=count,
+        .selectedobject=VIEWPORT_OBJECT_NONE};
+    for(int i=0;i<count;i++)
+    {
+        faces[i]=(BgFaceRef){.faceid=i+1,.room=i+1};
+        batches[i]=(SceneBatch){.first=i*3,.count=3,.textureid=i,.cullbackfaces=TRUE};
+        vertices[i*3]=(Vertex){.x=i*1000,.y=10,.z=1000000,.a=71};
+        vertices[i*3+1]=vertices[i*3+2]=vertices[i*3];
+        vertices[i*3+1].x+=100; vertices[i*3+2].z+=100;
+    }
+    for(int c=0;c<3;c++) { vertices[2*3+c].y=11; vertices[3*3+c].y=12.1f; vertices[6*3+c].y=40; vertices[15*3+c].y=11.8f; }
+    vertices[4*3+2].y+=.87266f; /* 0.5 degrees, all corners within one unit. */
+    vertices[5*3+2].z=vertices[5*3].z+10; vertices[5*3+2].y+=.34921f; /* Two degrees, but within distance tolerance. */
+    Vertex swapped=vertices[7*3+1]; vertices[7*3+1]=vertices[7*3+2]; vertices[7*3+2]=swapped;
+    hidden[8]=1; batches[9].secondary=TRUE; batches[10].object=TRUE; faces[11].faceid=BG_FACE_ID_NONE;
+    vertices[12*3+2]=vertices[12*3+1]; /* Degenerate triangles must not define/match a plane. */
+    vertices[13*3].y=vertices[13*3+1].y=-10; vertices[13*3+2].y=50; vertices[13*3+2].z+=10000;
+    vertices[14*3].x=NAN;
+    memcpy(original,vertices,sizeof(vertices));
+    unsigned before=notifications;
+    assert(!ViewportCanSelectCoplanar(NULL) && ViewportSelectCoplanar(NULL));
+    assert(!ViewportCanSelectCoplanar(&s) && ViewportSelectCoplanar(&s) && notifications==before);
+    Seed(&s,EDITOR_TOOL_FACE_SELECT);
+    allocations=0; assert(ViewportCanSelectCoplanar(&s)); /* Availability allocates nothing. */
+    assert(!ViewportSelectCoplanar(&s)); allocations=-1;
+    assert(s.selectedtricount==1 && selected[0] && notifications==before);
+    assert(ViewportSelectCoplanar(&s) && notifications==before+1);
+    for(int i=0;i<count;i++) assert(selected[i]==(i==0 || i==1 || i==2 || i==4 || i==7));
+    assert(s.selectedtricount==5 && !selected[15]); /* No spreading via newly selected y=11. */
+    /* Vertex positions, UVs and alpha are untouched; only selection RGB changes. */
+    for(int i=0;i<count*3;i++)
+    {
+        assert(!memcmp(&vertices[i].x,&original[i].x,3*sizeof(float)));
+        assert(vertices[i].s==original[i].s && vertices[i].t==original[i].t && vertices[i].a==original[i].a);
+    }
+    Seed(&s,EDITOR_TOOL_FACE_SELECT); s.showbgsecondary=TRUE;
+    assert(ViewportSelectCoplanar(&s) && selected[9] && s.selectedtricount==6);
+    /* All original seeds contribute, even in disabled layers, across rooms. */
+    Seed(&s,EDITOR_TOOL_FACE_SELECT); selected[6]=1; s.selectedtricount++;
+    for(int c=0;c<3;c++) vertices[3*3+c].y=40;
+    assert(ViewportSelectCoplanar(&s) && selected[3]);
+    ViewportClearAllSelection(&s); selected[9]=1; s.selectedtricount=1; s.showbgsecondary=FALSE;
+    assert(ViewportCanSelectCoplanar(&s) && ViewportSelectCoplanar(&s) && selected[0] && selected[9]);
+    /* Native level scale controls positional tolerance, not the angular test. */
+    Seed(&s,EDITOR_TOOL_FACE_SELECT); s.markerlevelscale=.25f;
+    assert(ViewportSelectCoplanar(&s) && selected[15] && !selected[5] && !selected[13]);
+    Seed(&s,EDITOR_TOOL_FACE_SELECT); s.markerlevelscale=2;
+    assert(ViewportSelectCoplanar(&s) && !selected[2] && !selected[4]);
+    /* Sloping planes use world-space normals/distances, not a dominant axis. */
+    for(int i=0;i<count*3;i++) { float y=vertices[i].y,z=vertices[i].z; vertices[i].y=(y-z)*.70710678f; vertices[i].z=(y+z)*.70710678f; }
+    Seed(&s,EDITOR_TOOL_FACE_SELECT); s.markerlevelscale=1;
+    assert(ViewportSelectCoplanar(&s) && selected[1] && selected[7] && !selected[6]);
+    /* No history entry when all matches are already selected. */
+    assert(ViewportSelectBackground(&s,FALSE)); before=notifications;
+    assert(ViewportSelectCoplanar(&s) && notifications==before);
+    for(int seed=8;seed<=14;seed++)
+    {
+        if(seed==9 || seed==13) continue;
+        ViewportClearAllSelection(&s); selected[seed]=1; s.selectedtricount=1;
+        assert(!ViewportCanSelectCoplanar(&s) && ViewportSelectCoplanar(&s));
+    }
+    Seed(&s,EDITOR_TOOL_FACE_SELECT); before=notifications;
+    s.flying=TRUE; assert(!ViewportCanSelectCoplanar(&s) && ViewportSelectCoplanar(&s)); s.flying=FALSE;
+    s.orbit=TRUE; assert(!ViewportCanSelectCoplanar(&s) && ViewportSelectCoplanar(&s)); s.orbit=FALSE;
+    s.dragaxis=1; assert(!ViewportCanSelectCoplanar(&s) && ViewportSelectCoplanar(&s)); s.dragaxis=-1;
+    s.boxpending=TRUE; assert(!ViewportCanSelectCoplanar(&s) && ViewportSelectCoplanar(&s)); s.boxpending=FALSE;
+    s.showbgprimary=FALSE; assert(!ViewportCanSelectCoplanar(&s) && ViewportSelectCoplanar(&s)); s.showbgprimary=TRUE;
+    const EditorTool modes[]={EDITOR_TOOL_VERTEX_SELECT,EDITOR_TOOL_EDGE_SELECT,EDITOR_TOOL_VERTEX_PAINT,EDITOR_TOOL_ROOM_SELECT};
+    for(unsigned i=0;i<sizeof(modes)/sizeof(*modes);i++)
+    { s.tool=modes[i]; assert(!ViewportCanSelectCoplanar(&s) && ViewportSelectCoplanar(&s)); }
+    assert(notifications==before && s.selectedtricount==1 && selected[0]);
+    puts("PASS: coplanar world planes, angle/distance/native-scale tolerances, reversed winding, disconnected/off-screen rooms, multiple frozen seeds, hidden/layer filters, degenerate/non-finite faces, no-op and allocation failure.");
+}
+
+int main(void) { Geometry(); SameMaterial(); StanRooms(); Coplanar(); Hotkeys(); return 0; }
