@@ -27,13 +27,13 @@ def main():
         work = Path(temp)
         fixture = (here.parent / 'bg_transparency/edit.c').read_text()
         (work / 'fixture.inc').write_text(''.join(helpers.function(fixture, n) for n in
-            ('Put', 'Fixture', 'Refs', 'Equivalent', 'RoundTrip')))
+            ('Put', 'Fixture', 'Refs', 'RoundTrip')))
         common = (here.parent / 'bg_disconnect/check.c').read_text()
         (work / 'common.inc').write_text(''.join(helpers.function(common, n) for n in ('Same', 'UseCounts')))
         editor = (src / 'geditor.c').read_text()
         (work / 'editor.inc').write_text(''.join(helpers.function(editor, n) for n in
             ('GEditorCanFlipSelectedBgFaces', 'GEditorCanPasteBgFaces',
-             'GEditorCopySelectedBgFaces', 'GEditorPasteBgFaces')))
+             'GEditorCopySelectedBgFaces', 'GEditorPasteBgFaceSnapshot', 'GEditorPasteBgFaces', 'GEditorDuplicateBgFaces')))
         paths = []
         for name in ('depo', 'run'):
             source = (here.parents[3] / f'assets/obseg/bg/bg_{name}_all_p.c').read_text()

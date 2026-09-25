@@ -50,9 +50,9 @@ with tempfile.TemporaryDirectory(prefix='geditor-uniform-scale-') as temp:
     defines = ('VIEWPORT_UNIFORM_SCALE_AXIS', 'VIEWPORT_PICK_EPSILON', 'VIEWPORT_PICK_BARY_EPSILON')
     names = ('ViewportObjectCount', 'ViewportCompareVertexRefs', 'ViewportGetMoveVertices', 'ViewportRayTriangleDistance',
              'ViewportArrowVertex', 'ViewportDrawGizmoHandles', 'ViewportPickGizmo',
-             'ViewportShouldExtrudeEdges', 'ViewportPreviewEdgeExtrusion',
+             'ViewportShouldDuplicateBgFaces', 'ViewportPrepareBgFaceDuplicate', 'ViewportShouldExtrudeEdges', 'ViewportPreviewEdgeExtrusion',
              'ViewportBeginTransform', 'ViewportDragTransform', 'ViewportCancelTransform',
-             'ViewportFinishPortalDuplicate', 'ViewportEndTransform', 'ViewportGetScaling', 'ViewportPreviewGuidePoint',
+             'ViewportFinishPortalDuplicate', 'ViewportFinishBgFaceDuplicate', 'ViewportEndTransform', 'ViewportGetScaling', 'ViewportPreviewGuidePoint',
              'ViewportEnvironmentCoordinates')
     (work / 'functions.inc').write_text(''.join(re.search(r'^#define ' + name + r' .*$', viewport, re.M)[0] + '\n'
         for name in defines) + extract.function((src / 'bgrender.c').read_text(), 'BgRenderTriangleNormal')

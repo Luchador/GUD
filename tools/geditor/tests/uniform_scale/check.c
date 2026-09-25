@@ -21,6 +21,7 @@ typedef struct { int x,y; } POINT;
 /* Unused native rendering fields retain the production viewport structure. */
 typedef int HDC,HGLRC,HCURSOR,GLuint,GLsizei,FogCurve,ViewportTexture,LARGE_INTEGER,FogCoordPointerFn;
 typedef int OrbitCamera,ModelLighting,VertexColor,ViewportAimGuide,ViewportMonitors,ViewportStanComponent;
+typedef int ViewportRoomDragPoint;
 typedef float GLfloat;
 typedef unsigned char GLubyte;
 typedef struct { double previewposition[3]; } ViewportPad;
@@ -30,7 +31,8 @@ typedef struct { double previewposition[3]; } ViewportPad;
 static HWND capture;
 static double parameter, eye[3]={100,150,200};
 static Vertex original[9];
-static int commits, copies;
+static int commits, copies, facecopies, moves;
+static ViewportTranslation facecopy;
 static Scaling committed;
 static ViewportObjectDuplicate copied;
 static int groups, drawn[4], colors[4][3], color[3];
@@ -52,6 +54,8 @@ static LRESULT SendMessage(HWND hwnd,int message,int wparam,LPARAM lparam)
     assert(!memcmp(s->scene,original,sizeof(original)));
     if (message==VIEWPORT_WM_SCALE_SELECTION) { committed=*(Scaling *)lparam;commits++; }
     else if (message==VIEWPORT_WM_DUPLICATE_OBJECT) { copied=*(ViewportObjectDuplicate *)lparam;copies++; }
+    else if (message==VIEWPORT_WM_DUPLICATE_BG_FACES) { assert(!s->dragfaceduplicating); facecopy=*(ViewportTranslation *)lparam;facecopies++; }
+    else if (message==VIEWPORT_WM_TRANSLATE_SELECTION) { moves++; }
     else abort();
     return TRUE;
 }
@@ -62,7 +66,8 @@ static void glEnd(void) { groups++; }
 BOOL SetupFileCanDuplicateObject(const SetupFile *s,DWORD i) { return TRUE; }
 static BOOL ViewportSelectedMarker(const ViewportState *s,SetupMarker *m) { return FALSE; }
 static int ViewportSelectedPadIndex(const ViewportState *s) { return -1; }
-static BOOL ViewportCornerVisible(const ViewportState *s,int corner) { return corner>=0 && corner<s->scenecount; }
+static BOOL ViewportCornerVisible(const ViewportState *s,int corner)
+{ return corner>=0 && corner<s->scenecount && (!s->hiddentris || !s->hiddentris[corner/3]); }
 static BOOL ViewportBuildPickRay(HWND h,const ViewportState *s,int x,int y,ViewportPickRay *r)
 {
     /* Orthographic ray fixture; camera orientation varies independently of the
@@ -98,6 +103,9 @@ static StanPointRef ViewportStanPointRef(const ViewportState *s,DWORD t,DWORD p)
 static int ViewportCompareStanRefs(const void *a,const void *b) { abort(); }
 static BOOL ViewportProject(const ViewportState *s,const Vertex *v,double out[2]) { return FALSE; }
 static BOOL ViewportPrepareEdgeExtrusion(ViewportState *s) { abort(); }
+static BOOL ViewportBeginRoomDrag(ViewportState *s) { abort(); }
+static void ViewportPreviewRoomDrag(HWND h,ViewportState *s,double delta) { abort(); }
+static void ViewportCancelRoomDrag(HWND h,ViewportState *s) { abort(); }
 void BgRenderEnvironmentCoordinates(const BgEnvironmentVertex *v,BgRenderFlags f,const float r[3],const float u[3],float uv[2]) { environment=*v; }
 #include "functions.inc"
 
@@ -207,6 +215,63 @@ static void AxisDrag(ViewportState *s)
     }
     abort();
 }
+static void FaceDrags(ViewportState *s)
+{
+    s->tool=EDITOR_TOOL_FACE_SELECT; s->selectedobject=VIEWPORT_OBJECT_NONE;
+    s->scalemode=FALSE; s->componentcount=0;
+    unsigned char hidden[3]={0}; s->hiddentris=hidden;
+    for (int axis=0;axis<3;axis++)
+    {
+        int px=-1,py=-1;
+        for(int y=0;y<200 && px<0;y+=2)for(int x=0;x<200;x+=2)
+            if(ViewportPickGizmo(s,s,x,y)==axis) { px=x;py=y;break; }
+        assert(px>=0);
+        for(int mode=0;mode<5;mode++)
+        {
+            /* One face, then multiple, hidden selection, cancellation and no movement. */
+            s->selectedtris[1]=mode>0; hidden[1]=mode==2;
+            parameter=0;
+            assert(ViewportBeginTransform(s,s,px,py,TRUE));
+            assert(s->dragfaceduplicating && !s->dragduplicating && !s->dragportalduplicating && capture==s);
+            for(int i=0;i<9;i++)
+                assert(s->dragmask[i]==(i<3 || (i<6 && mode>0 && mode!=2)));
+            parameter=axis==1 ? -25 : 25;
+            ViewportDragTransform(s,s,px,py);
+            for(int i=0;i<9;i++) for(int a=0;a<3;a++)
+            {
+                double old= a==0 ? original[i].x : a==1 ? original[i].y : original[i].z;
+                double now= a==0 ? s->scene[i].x : a==1 ? s->scene[i].y : s->scene[i].z;
+                Near(now,old+(a==axis && s->dragmask[i] ? parameter : 0));
+            }
+            int before=facecopies;
+            if(mode==3) { ViewportCancelTransform(s); }
+            else
+            {
+                if(mode==4) { parameter=0; ViewportDragTransform(s,s,px,py); }
+                ViewportEndTransform(s,s);
+            }
+            assert(facecopies==before+(mode<3));
+            assert(!s->dragfaceduplicating && !capture && !memcmp(s->scene,original,sizeof(original)));
+            if(mode<3) for(int a=0;a<3;a++) Near(facecopy.offset[a],a==axis ? parameter : 0);
+        }
+        s->selectedtris[1]=0; hidden[1]=0; parameter=0;
+        assert(ViewportBeginTransform(s,s,px,py,TRUE));
+        ViewportEndTransform(s,s); /* Click without any move. */
+        assert(!capture && !s->dragfaceduplicating);
+        parameter=0;
+        assert(ViewportBeginTransform(s,s,px,py,FALSE));
+        assert(!s->dragfaceduplicating && s->dragmask[6]); /* Ordinary move keeps shared-vertex behavior. */
+        parameter=25; ViewportDragTransform(s,s,px,py); ViewportEndTransform(s,s);
+    }
+    assert(facecopies==9 && moves==3);
+    s->hiddentris=NULL;
+    s->dragrotation=TRUE; assert(!ViewportShouldDuplicateBgFaces(s,TRUE)); s->dragrotation=FALSE;
+    s->dragscaling=TRUE; assert(!ViewportShouldDuplicateBgFaces(s,TRUE)); s->dragscaling=FALSE;
+    s->dragstan=TRUE; assert(!ViewportShouldDuplicateBgFaces(s,TRUE)); s->dragstan=FALSE;
+    s->dragportal=TRUE; assert(!ViewportShouldDuplicateBgFaces(s,TRUE)); s->dragportal=FALSE;
+    s->tool=EDITOR_TOOL_ROOM_SELECT; assert(!ViewportShouldDuplicateBgFaces(s,TRUE));
+    puts("PASS: actual face Shift-drag on XYZ, independent preview despite shared vertices, multiple/hidden faces, click/no-op/cancel, restored originals before one clone request, ordinary moves unchanged.");
+}
 int main(void)
 {
     Vertex scene[9]={0};BgDocumentVertexRef refs[9];unsigned char selected[3]={1,0,0};
@@ -236,6 +301,7 @@ int main(void)
         }
     }
     AxisDrag(&s);
+    FaceDrags(&s);
     puts("PASS: object/face/edge masks, rotated axes, screen directions, snapshot preview, proportional XYZ factors, guides/normals, no-op, clamp, cancellation, one commit and Shift duplication; axis scaling unchanged.");
     return 0;
 }

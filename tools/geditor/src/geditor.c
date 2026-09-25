@@ -3071,17 +3071,16 @@ static BOOL GEditorCopySelectedBgFaces(HWND hwnd)
     return ok;
 }
 
-static BOOL GEditorPasteBgFaces(HWND hwnd)
+static BOOL GEditorPasteBgFaceSnapshot(HWND hwnd, const BgDocument *clipboard,
+    const double offset[3], const char *action)
 {
     EditHistoryTransaction transaction = {0};
     BgFaceRef *faces = NULL;
     DWORD count = 0;
-    const double offset[3] = {0, 10, 0};
     const char *why = "", *restorewhy = "";
-    if (!GEditorCanPasteBgFaces()) { return FALSE; }
     if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
-        g_FaceClipboard.facecount == 1 ? "Paste Face" : "Paste Faces", &transaction, &why)) { goto fail; }
-    if (!BgDocumentPasteFaces(&g_CurrentBgDocument, &g_FaceClipboard, offset, &faces, &count, &why))
+        action, &transaction, &why)) { goto fail; }
+    if (!BgDocumentPasteFaces(&g_CurrentBgDocument, clipboard, offset, &faces, &count, &why))
     { goto fail; }
     if (!GEditorRebuildCurrentViewport(&why)) { goto rollback; }
     if (!ViewportSelectBgFaces(g_Viewport, faces, count))
@@ -3100,6 +3099,37 @@ fail:
     GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
     MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
     return FALSE;
+}
+
+static BOOL GEditorPasteBgFaces(HWND hwnd)
+{
+    const double offset[3] = {0, 10, 0};
+    return GEditorCanPasteBgFaces() && GEditorPasteBgFaceSnapshot(hwnd, &g_FaceClipboard, offset,
+        g_FaceClipboard.facecount == 1 ? "Paste Face" : "Paste Faces");
+}
+
+static BOOL GEditorDuplicateBgFaces(HWND hwnd, const double offset[3])
+{
+    BgDocument copy = {0};
+    BgFaceRef *faces = NULL;
+    const char *why = "Out of memory reading the background selection.";
+    BOOL result = FALSE;
+    int count;
+    if (!offset || !GEditorCanFlipSelectedBgFaces() || (!offset[0] && !offset[1] && !offset[2])) { return FALSE; }
+    count = ViewportGetSelectedBgFaceCount(g_Viewport);
+    faces = malloc((size_t)count * sizeof(*faces));
+    if (!faces) { goto fail; }
+    why = "The selected background faces could not be read.";
+    if (!ViewportGetSelectedBgFaces(g_Viewport, faces, count)
+        || !BgDocumentCopyFaces(&g_CurrentBgDocument, faces, (DWORD)count, &copy, &why)) { goto fail; }
+    /* Use a private snapshot so a drag leaves all scene clipboards intact. */
+    result = GEditorPasteBgFaceSnapshot(hwnd, &copy, offset, count == 1 ? "Duplicate Face" : "Duplicate Faces");
+    goto done;
+fail:
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+done:
+    free(faces); BgDocumentFree(&copy);
+    return result;
 }
 
 static BOOL GEditorCopyPortals(HWND hwnd)
@@ -5753,6 +5783,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
     case VIEWPORT_WM_DUPLICATE_PORTALS:
         return lparam && GEditorDuplicatePortals(hwnd, ((const ViewportTranslation *)lparam)->offset);
+    case VIEWPORT_WM_DUPLICATE_BG_FACES:
+        return lparam && GEditorDuplicateBgFaces(hwnd, ((const ViewportTranslation *)lparam)->offset);
 
     case VIEWPORT_WM_CAN_PASTE_OBJECT:
         return GEditorCanPasteObject();

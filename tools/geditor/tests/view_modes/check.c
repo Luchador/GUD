@@ -38,7 +38,7 @@ typedef struct ViewportState {
     EditorTool tool;
     BOOL orbit, cullbackfaces, showbgprimary, showbgsecondary, showobjects;
     int batchcount, bghiddentris;
-    BOOL dragduplicating;
+    BOOL dragduplicating, dragfaceduplicating;
     float (*dragvertices)[3];
     unsigned char *dragmask;
     Vertex *scene;
@@ -301,6 +301,16 @@ static void Wireframe(void)
     assert(draws[3].first==9 && draws[3].count==3 && draws[3].vertices==&vertices[0].x);
     assert(draws[4].first==12 && draws[4].vertices==&vertices[0].x);
     s.dragduplicating=FALSE;
+    memset(mask,0,sizeof(mask));
+    mask[0]=mask[1]=mask[2]=mask[6]=mask[7]=mask[8]=1;
+    s.dragfaceduplicating=TRUE;
+    Overlay(&s,6);
+    assert(draws[0].first==0 && draws[0].count==3 && draws[0].vertices==original);
+    assert(draws[1].first==0 && draws[1].count==3 && draws[1].vertices==&vertices[0].x);
+    assert(draws[2].first==6 && draws[2].count==3 && draws[2].vertices==original);
+    assert(draws[3].first==6 && draws[3].count==3 && draws[3].vertices==&vertices[0].x);
+    assert(draws[4].first==9 && draws[5].first==12); /* Object batches never duplicate. */
+    s.dragfaceduplicating=FALSE;
     s.tool=EDITOR_TOOL_EDGE_SELECT; Overlay(&s,4); /* No duplicate BG wire pass. */
     s.rendermode=VIEWPORT_RENDER_NORMAL; Overlay(&s,2); assert(!previews);
     s.rendermode=VIEWPORT_RENDER_WIREFRAME; s.tool=EDITOR_TOOL_VERTEX_SELECT; Overlay(&s,6);

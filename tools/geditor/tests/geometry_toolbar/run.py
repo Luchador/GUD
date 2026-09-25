@@ -41,7 +41,7 @@ def main():
                  'ViewportStanPointRef', 'ViewportFindStanComponent', 'ViewportPrepareStanEdgeExtrusion',
                  'ViewportShouldExtrudeEdges', 'ViewportPreviewEdgeExtrusion',
                  'ViewportPrepareEdgeExtrusion', 'ViewportSelectBgEdges',
-                 'ViewportCancelTransform', 'ViewportFinishPortalDuplicate', 'ViewportEndTransform')
+                 'ViewportCancelTransform', 'ViewportFinishPortalDuplicate', 'ViewportFinishBgFaceDuplicate', 'ViewportEndTransform')
         (work / 'viewport.inc').write_text(''.join(helpers.function(viewport, n) for n in names))
         harness = (here.parent / 'edge_extrusion/viewport.c').read_text()
         # The shared fixture already includes the portal cancellation stubs.

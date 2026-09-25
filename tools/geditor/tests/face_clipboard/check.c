@@ -21,11 +21,57 @@ static void *TestRealloc(void *p, size_t n) { return Fail() ? NULL : realloc(p,n
 #undef malloc
 #undef calloc
 #undef realloc
+/* Opaque texture batching may reorder native faces (notably Depot room 50).
+ * Compare all geometry/material output, retaining the order of secondary,
+ * decal, alpha-tested and blended faces and the opaque runs between them. */
+typedef struct SavedFace {
+    DWORD room, surfacepolicy, surfacebasemode;
+    unsigned short tag;
+    BgRenderFlags flags;
+    BgVertex vertices[3];
+} SavedFace;
+static int CompareSavedFaces(const void *a,const void *b) { return memcmp(a,b,sizeof(SavedFace)); }
+static BOOL SavedFaceOpaque(const SavedFace *f)
+{
+    return !BG_TRI_IS_SECONDARY(f->tag)
+        && (f->flags & (BG_RENDER_DEPTH_TEST|BG_RENDER_DEPTH_WRITE|BG_RENDER_DECAL|BG_RENDER_BLEND|BG_RENDER_ALPHA_TEST))
+            == (BG_RENDER_DEPTH_TEST|BG_RENDER_DEPTH_WRITE);
+}
+static SavedFace *SavedFaces(const BgDocument *doc)
+{
+    BgDocumentRenderMesh mesh={0}; const char *why="";
+    assert(BgDocumentBuildRenderMesh(doc,&mesh,&why));
+    SavedFace *out=calloc(mesh.facecount,sizeof(*out)); assert(out);
+    for(DWORD i=0;i<mesh.facecount;i++)
+    {
+        BgRenderState state;
+        assert(BgDocumentGetFaceRenderStates(doc,&mesh.facerefs[i],1,&state));
+        out[i].room=mesh.facerefs[i].room; out[i].tag=mesh.tags[i]; out[i].flags=mesh.renderflags[i];
+        out[i].surfacepolicy=state.surfacepolicy; out[i].surfacebasemode=state.surfacebasemode;
+        memcpy(out[i].vertices,mesh.vertices+i*3,sizeof(out[i].vertices));
+    }
+    for(DWORD start=0,end;start<mesh.facecount;start=end)
+    {
+        end=start+1;
+        if(!SavedFaceOpaque(&out[start])) continue;
+        while(end<mesh.facecount && out[end].room==out[start].room && SavedFaceOpaque(&out[end])) end++;
+        qsort(out+start,end-start,sizeof(*out),CompareSavedFaces);
+    }
+    BgDocumentRenderMeshFree(&mesh);
+    return out;
+}
+static void Equivalent(const BgDocument *a,const BgDocument *b)
+{
+    assert(a->facecount==b->facecount);
+    SavedFace *x=SavedFaces(a), *y=SavedFaces(b);
+    assert(!memcmp(x,y,a->facecount*sizeof(*x)));
+    free(x);free(y);
+}
 #include "fixture.inc"
 #include "common.inc"
 
 static void Copies(const BgDocument *original, const BgFaceRef *refs,
-    const BgDocument *doc, const BgFaceRef *copies, DWORD count, int offset)
+    const BgDocument *doc, const BgFaceRef *copies, DWORD count, const int offset[3])
 {
     for (DWORD i = 0; i < count; i++)
     {
@@ -38,7 +84,7 @@ static void Copies(const BgDocument *original, const BgFaceRef *refs,
         {
             const BgDocumentVertex *v = &a->vertices[x->vertexindices[c]], *w = &b->vertices[y->vertexindices[c]];
             assert(v->id != w->id && y->vertexindices[c] >= a->vertexcount);
-            assert(v->x == w->x && v->y + offset == w->y && v->z == w->z);
+            assert(v->x + offset[0] == w->x && v->y + offset[1] == w->y && v->z + offset[2] == w->z);
             assert(v->s == w->s && v->t == w->t && v->flag == w->flag && !memcmp(&v->r,&w->r,4));
         }
         BgRenderState s,t;
@@ -70,7 +116,7 @@ static void Geometry(const char *dir)
     assert(BgDocumentCopyFaces(&doc,selection,6,&clip,&why) && clip.facecount == 5);
     Same(&doc,&original); UseCounts(&clip);
     assert(BgDocumentPasteFaces(&doc,&clip,offset,&pasted,&count,&why) && count == 5);
-    Copies(&original,selection,&doc,pasted,count,5); UseCounts(&doc);
+    Copies(&original,selection,&doc,pasted,count,(int[]){0,5,0}); UseCounts(&doc);
     assert(doc.rooms[1].vertexcount == original.rooms[1].vertexcount + 3); /* Sharing within the copied set. */
     for (DWORD r = 1; r <= original.roomcount; r++)
     { assert(!memcmp(doc.rooms[r].vertices,original.rooms[r].vertices,original.rooms[r].vertexcount*sizeof(BgDocumentVertex))); }
@@ -83,10 +129,10 @@ static void Geometry(const char *dir)
     assert(BgDocumentSetFaceProperties(&doc,selection,1,&edit,&changed,&why));
     DWORD deleted; assert(BgDocumentDeleteFaces(&doc,selection,5,&deleted,&why) && deleted == 5);
     assert(BgDocumentPasteFaces(&doc,&clip,offset,&pasted,&count,&why));
-    Copies(&original,selection,&doc,pasted,count,5); RoundTrip(&doc,&source,dir);
+    Copies(&original,selection,&doc,pasted,count,(int[]){0,5,0}); RoundTrip(&doc,&source,dir);
     free(pasted);
     assert(BgDocumentPasteFaces(&doc,&clip,offset,&pasted,&count,&why));
-    Copies(&original,selection,&doc,pasted,count,5); UseCounts(&doc); free(pasted); BgDocumentFree(&doc);
+    Copies(&original,selection,&doc,pasted,count,(int[]){0,5,0}); UseCounts(&doc); free(pasted); BgDocumentFree(&doc);
     /* Every allocation failure is atomic, including a partly prepared later room. */
     assert(BgDocumentClone(&clip,&clipbefore,&why));
     BOOL succeeded = FALSE;
@@ -143,7 +189,7 @@ static void Native(const char *path, const char *dir)
         assert(BgDocumentCopyFaces(&doc,refs,room->facecount,&clip,&why));
         if (!BgDocumentPasteFaces(&doc,&clip,offset,&pasted,&count,&why))
         { fprintf(stderr,"%s room %lu: %s\n",path,(unsigned long)r,why); abort(); }
-        assert(count == room->facecount); Copies(&original,refs,&doc,pasted,count,2);
+        assert(count == room->facecount); Copies(&original,refs,&doc,pasted,count,(int[]){0,2,0});
         if (r == 1) { RoundTrip(&doc,&source,dir); }
         checked += count; free(refs); free(pasted); BgDocumentFree(&clip); BgDocumentFree(&doc);
     }
@@ -207,5 +253,71 @@ static void Commands(void)
     BgDocumentFree(&original); BgDocumentFree(&pasted); BgFileFree(&source);
     puts("PASS: actual copy/paste commands, no copy history, pasted selection, undo/redo, empty clipboard, edit gates and failed paste rollback.");
 }
+static void DuplicateCommands(const char *dir)
+{
+    BgFile source = Fixture(); BgDocument original = {0}, copied = {0}, clipboard = {0};
+    BgFaceRef refs[20], seeds[3]; const char *why = "";
+    assert(BgDocumentLoad(source.data,source.size,.5f,&g_CurrentBgDocument,&why));
+    assert(BgDocumentClone(&g_CurrentBgDocument,&original,&why)); Refs(&original,refs);
+    tool = EDITOR_TOOL_FACE_SELECT;
+    selection[0] = refs[9]; selection[1] = refs[19]; selectedcount = 2;
+    assert(GEditorCopySelectedBgFaces((HWND)1));
+    assert(BgDocumentClone(&g_FaceClipboard,&clipboard,&why));
+    /* Different rooms/layers, one face and multiple faces, both directions. */
+    seeds[0]=refs[1]; seeds[1]=refs[6]; seeds[2]=refs[11];
+    for (int axis=0;axis<3;axis++)
+    {
+        double offset[3]={0}; int native[3]={0};
+        offset[axis]=axis==1 ? -26 : 26; native[axis]=(int)(offset[axis]*.5);
+        selectedcount=axis+1; memcpy(selection,seeds,selectedcount*sizeof(*seeds));
+        EditHistoryReset(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan);
+        assert(GEditorDuplicateBgFaces((HWND)1,offset));
+        assert(g_EditHistory.undocount==1 && selectedcount==axis+1);
+        assert(!strcmp(EditHistoryGetUndoAction(&g_EditHistory),axis ? "Duplicate Faces" : "Duplicate Face"));
+        Copies(&original,seeds,&g_CurrentBgDocument,selection,selectedcount,native);
+        UseCounts(&g_CurrentBgDocument); Same(&g_FaceClipboard,&clipboard);
+        for (DWORD r=1;r<=original.roomcount;r++)
+        {
+            const BgDocumentRoom *a=&original.rooms[r], *b=&g_CurrentBgDocument.rooms[r];
+            assert(!memcmp(a->vertices,b->vertices,a->vertexcount*sizeof(*a->vertices)));
+            for (DWORD f=0;f<a->facecount;f++)
+            {
+                const BgDocumentFace *face=&a->faces[f];
+                BgFaceRef ref={face->id,face->room,face->layer,0};
+                const BgDocumentFace *after=BgDocumentFindFace(&g_CurrentBgDocument,&ref,NULL);
+                assert(after && !memcmp(face->vertexindices,after->vertexindices,sizeof(face->vertexindices)));
+            }
+        }
+        RoundTrip(&g_CurrentBgDocument,&source,dir);
+        assert(BgDocumentClone(&g_CurrentBgDocument,&copied,&why));
+        assert(EditHistoryUndo(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,NULL,&why));
+        Same(&g_CurrentBgDocument,&original);
+        assert(EditHistoryRedo(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,NULL,&why));
+        Same(&g_CurrentBgDocument,&copied);
+        assert(EditHistoryUndo(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,NULL,&why));
+        BgDocumentFree(&copied);
+    }
+    memcpy(selection,seeds,sizeof(seeds)); selectedcount=3;
+    const double offset[3]={0,20,0};
+    EditHistoryReset(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan);
+    errors=restores=0;
+    assert(!GEditorDuplicateBgFaces((HWND)1,(double[]){0,0,0}));
+    failrebuild=TRUE; assert(!GEditorDuplicateBgFaces((HWND)1,offset)); Same(&g_CurrentBgDocument,&original);
+    failselection=TRUE; assert(!GEditorDuplicateBgFaces((HWND)1,offset)); failselection=FALSE; Same(&g_CurrentBgDocument,&original);
+    ULONGLONG revision=g_EditHistory.nextrevision; g_EditHistory.nextrevision=0;
+    assert(!GEditorDuplicateBgFaces((HWND)1,offset)); g_EditHistory.nextrevision=revision; Same(&g_CurrentBgDocument,&original);
+    assert(errors==3 && restores==3 && !g_EditHistory.undocount);
+    allocations=0; assert(!GEditorDuplicateBgFaces((HWND)1,offset)); allocations=-1;
+    assert(errors==4 && !g_EditHistory.undocount); Same(&g_CurrentBgDocument,&original);
+    assert(!GEditorDuplicateBgFaces((HWND)1,(double[]){1e8,0,0})); Same(&g_CurrentBgDocument,&original);
+    selectedcount=0; assert(!GEditorDuplicateBgFaces((HWND)1,offset)); selectedcount=3;
+    flying=TRUE; assert(!GEditorDuplicateBgFaces((HWND)1,offset)); flying=FALSE;
+    transforming=TRUE; assert(!GEditorDuplicateBgFaces((HWND)1,offset)); transforming=FALSE;
+    tool=EDITOR_TOOL_EDGE_SELECT; assert(!GEditorDuplicateBgFaces((HWND)1,offset)); tool=EDITOR_TOOL_FACE_SELECT;
+    Same(&g_FaceClipboard,&clipboard);
+    EditHistoryFree(&g_EditHistory); BgDocumentFree(&g_CurrentBgDocument); BgDocumentFree(&g_FaceClipboard);
+    BgDocumentFree(&original); BgDocumentFree(&clipboard); BgFileFree(&source);
+    puts("PASS: face drag duplication on XYZ, single/multiple selections, preserved source/clipboard/materials, native save/reload, one undo/redo step, no-op and failure rollback.");
+}
 int main(int argc,char **argv)
-{ assert(argc == 4); Geometry(argv[1]); Native(argv[2],argv[1]); Native(argv[3],argv[1]); Commands(); return 0; }
+{ setvbuf(stdout,NULL,_IONBF,0); assert(argc == 4); Geometry(argv[1]); Commands(); DuplicateCommands(argv[1]); Native(argv[2],argv[1]); Native(argv[3],argv[1]); return 0; }

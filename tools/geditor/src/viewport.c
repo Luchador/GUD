@@ -349,7 +349,7 @@ typedef struct ViewportState {
     DWORD extrudecount;
     double extrudeoffset[3];
     float (*dragvertices)[3];
-    BOOL dragduplicating;
+    BOOL dragduplicating, dragfaceduplicating;
     unsigned char *dragmask;
     int selectedtricount;
     DWORD selectedobject;
@@ -863,10 +863,10 @@ static BOOL ViewportTriangleHidden(const ViewportState *state, int triangle)
 static void ViewportDrawVisibleBatch(const ViewportState *state, const SceneBatch *batch)
 {
     int first = batch->first, end = first + batch->count, corner;
-    if (batch->object && state->dragduplicating)
+    if (batch->object ? state->dragduplicating : state->dragfaceduplicating)
     {
         /* Keep the original visible while the selected mesh previews the
-         * copy. Only the frame's mouse-up transaction changes the setup. */
+         * copy. Only the frame's mouse-up transaction edits the document. */
         glVertexPointer(3, GL_FLOAT, sizeof(*state->dragvertices), state->dragvertices);
         for (corner = first; corner < end;)
         {
@@ -6703,6 +6703,27 @@ static BOOL ViewportShouldExtrudeEdges(const ViewportState *state, BOOL shift)
         && !state->dragmarker && !state->dragportal && state->selectedobject==VIEWPORT_OBJECT_NONE;
 }
 
+static BOOL ViewportShouldDuplicateBgFaces(const ViewportState *state, BOOL shift)
+{
+    return shift && state->tool == EDITOR_TOOL_FACE_SELECT && !state->dragknife
+        && !state->dragrotation && !state->dragscaling && !state->dragmarker
+        && !state->dragportal && !state->dragpad && !state->dragstan
+        && state->selectedobject == VIEWPORT_OBJECT_NONE;
+}
+
+static void ViewportPrepareBgFaceDuplicate(ViewportState *state)
+{
+    /* A copy has independent vertices: never pull unselected neighboring
+     * triangles along just because they share a native vertex reference. */
+    for (int i = 0; i < state->scenecount; i++)
+    {
+        state->dragvertices[i][0] = state->scene[i].x;
+        state->dragvertices[i][1] = state->scene[i].y;
+        state->dragvertices[i][2] = state->scene[i].z;
+        state->dragmask[i] = state->selectedtris[i / 3] && ViewportCornerVisible(state, i);
+    }
+}
+
 /* Snapshot only preview coordinates. Document edits happen once, on release.
  * Every target stays allocated until CancelTransform, which all rebuilds call. */
 static void ViewportRoomDragPointAdd(ViewportState *state, float *point)
@@ -6772,6 +6793,7 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
     ViewportPickRay ray;
     BgDocumentVertexRef *refs = NULL;
     DWORD refcount = 0;
+    BOOL duplicatefaces = FALSE;
     int axis = ViewportPickGizmo(hwnd, state, x, y), i, vertexcount;
     double length = 0;
     if (axis < 0 || ViewportObjectCount(state) > 1)
@@ -6810,6 +6832,7 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
         if (state->dragportal && (state->dragrotation || state->dragscaling)) { return FALSE; }
         state->dragpad = ViewportSelectedPadIndex(state) >= 0;
         state->dragstan = ViewportGetStanSelectionCount(hwnd, NULL) > 0;
+        duplicatefaces = ViewportShouldDuplicateBgFaces(state, shift);
         vertexcount = state->dragportal ? (int)(state->portals.portalcount * BG_PORTAL_MAX_POINTS)
                       : state->dragmarker ? 1 : state->dragpad    ? VIEWPORT_BOX_VERTICES
                       : state->dragstan ? (int)(state->stan.tilecount * STAN_TILE_MAX_POINTS)
@@ -6863,6 +6886,7 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
             }
             free(stanrefs);
         }
+        else if (duplicatefaces) { ViewportPrepareBgFaceDuplicate(state); }
         else
         {
             if (state->selectedobject == VIEWPORT_OBJECT_NONE)
@@ -6950,6 +6974,7 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
     }
     state->dragextruding = ViewportShouldExtrudeEdges(state,shift);
     state->dragportalduplicating = shift && state->dragportal && state->tool == EDITOR_TOOL_FACE_SELECT;
+    state->dragfaceduplicating = duplicatefaces;
     state->dragduplicating = !state->dragroom && shift && !state->dragknife && !state->dragmarker && !state->dragportal
         && !state->dragpad && !state->dragstan && state->selectedobject != VIEWPORT_OBJECT_NONE;
     if (state->dragextruding && !ViewportPrepareEdgeExtrusion(state))
@@ -7218,6 +7243,7 @@ void ViewportCancelTransform(HWND hwnd)
     state->dragaxis = -1;
     state->dragextruding = state->extrudepreviewvalid = FALSE;
     state->dragduplicating = FALSE;
+    state->dragfaceduplicating = FALSE;
     state->dragportalduplicating = FALSE;
     free(state->extrudeedges); state->extrudeedges = NULL;
     free(state->stanextrudeedges); state->stanextrudeedges = NULL;
@@ -7255,6 +7281,17 @@ static BOOL ViewportFinishPortalDuplicate(HWND hwnd, ViewportState *state)
     return TRUE;
 }
 
+static BOOL ViewportFinishBgFaceDuplicate(HWND hwnd, ViewportState *state)
+{
+    ViewportTranslation request = {{0}};
+    if (!state->dragfaceduplicating) { return FALSE; }
+    request.offset[state->dragaxis] = state->dragdelta;
+    ViewportCancelTransform(hwnd);
+    if (request.offset[0] || request.offset[1] || request.offset[2])
+    { SendMessage(GetParent(hwnd), VIEWPORT_WM_DUPLICATE_BG_FACES, 0, (LPARAM)&request); }
+    return TRUE;
+}
+
 static void ViewportEndTransform(HWND hwnd, ViewportState *state)
 {
     ViewportTranslation request;
@@ -7264,6 +7301,7 @@ static void ViewportEndTransform(HWND hwnd, ViewportState *state)
     }
     if (state->dragknife) { ViewportFinishKnifeTransform(hwnd, state, FALSE); return; }
     if (ViewportFinishPortalDuplicate(hwnd, state)) { return; }
+    if (ViewportFinishBgFaceDuplicate(hwnd, state)) { return; }
     if (state->dragduplicating)
     {
         ViewportObjectDuplicate copy = {0};
