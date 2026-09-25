@@ -102,6 +102,9 @@ typedef struct { int left,top,right,bottom; } RECT;
 #define min(a,b) ((a)<(b)?(a):(b))
 #define max(a,b) ((a)>(b)?(a):(b))
 #define VIEWPORT_WM_SELECTION_CHANGED 1
+#define VIEWPORT_WM_DUPLICATE_PORTALS 2
+#define GL_TRIANGLES 4
+#define GL_LINES 1
 #define MB_ICONERROR 1
 #define GEDITOR_TITLE "GEditor"
 #include "types.inc"
@@ -112,13 +115,33 @@ typedef struct ViewportState {
     BgPortalFile portals;DWORD selectedportal;unsigned char portalselection[BG_MAX_PORTALS];
     Vertex *portalfill,*portaledges;GLsizei portalfillcount,portaledgecount;
     float (*dragvertices)[3];unsigned char *dragmask;
+    BOOL dragportalduplicating;
+    double dragdelta;
     SetupPadRef selectedpad;
 } ViewportState;
 static ViewportState *ViewportGetState(HWND hwnd) { return hwnd; }
 static BOOL GetClientRect(HWND hwnd,RECT *rect) { ViewportState *s=hwnd;*rect=(RECT){0,0,s->width,s->height};return TRUE; }
 static HWND GetParent(HWND hwnd) { return hwnd; }
 static void InvalidateRect(HWND hwnd,const RECT *rect,BOOL erase) {}
-static int SendMessage(HWND hwnd,unsigned msg,unsigned wparam,LPARAM lparam) { return TRUE; }
+static int duplicatecommits, originaldraws;
+static ViewportTranslation duplication;
+static BgPortalPoint drawn[100];
+static int SendMessage(HWND hwnd,unsigned msg,unsigned wparam,LPARAM lparam)
+{
+    if(msg==VIEWPORT_WM_DUPLICATE_PORTALS)
+    {
+        ViewportState *s=hwnd;
+        assert(s->dragaxis==-1 && !s->dragportalduplicating && !s->dragmask && !s->dragvertices);
+        duplication=*(ViewportTranslation *)lparam; duplicatecommits++;
+    }
+    return TRUE;
+}
+static void ViewportCancelTransform(HWND hwnd);
+static void glColor4ub(int r,int g,int b,int a) { assert(r==0 && g==255 && b==255 && a>0); }
+static void glBegin(int mode) { assert(mode==GL_TRIANGLES || mode==GL_LINES); originaldraws=0; }
+static void glVertex3fv(const float *v)
+{ assert(originaldraws<100); drawn[originaldraws++]=(BgPortalPoint){v[0],v[1],v[2]}; }
+static void glEnd(void) {}
 static void ViewportUpdateGizmo(ViewportState *s) {}
 static void ViewportRefreshPadColors(ViewportState *s) {}
 static void ViewportClearBgSelection(ViewportState *s) {}
@@ -129,6 +152,16 @@ static void ViewportClearAllSelection(ViewportState *s)
 static double occluder=DBL_MAX;
 static double ViewportSceneHitDistance(const ViewportState *s,const ViewportPickRay *ray) { return occluder; }
 #include "viewport.inc"
+
+/* Only platform drag teardown is stubbed; restoration uses the production
+ * portal snapshot path, and FinishPortalDuplicate must run it before dispatch. */
+static void ViewportCancelTransform(HWND hwnd)
+{
+    ViewportState *s=hwnd;
+    ViewportPreviewPortalDrag(s,0);
+    s->dragaxis=-1; s->dragportalduplicating=FALSE;
+    free(s->dragvertices); free(s->dragmask); s->dragvertices=NULL; s->dragmask=NULL;
+}
 
 static ViewportState viewport;
 static HWND g_Viewport=&viewport;
@@ -188,6 +221,35 @@ static void ViewportEdits(void)
     ViewportPreviewPortalDrag(&viewport,0);assert(!memcmp(before,viewport.portals.portals,sizeof(before)));
     free(viewport.dragvertices);free(viewport.dragmask);viewport.dragvertices=NULL;viewport.dragmask=NULL;viewport.dragaxis=-1;
     viewport.tool=EDITOR_TOOL_FACE_SELECT;ViewportClearAllSelection(&viewport);
+    /* Clone preview keeps the sources visible, with one draw per shared
+     * polygon. All three translation axes commit once, after restoration. */
+    for(int axis=0;axis<3;axis++)
+    {
+        viewport.portalselection[0]=viewport.portalselection[1]=1;
+        viewport.dragaxis=axis; viewport.dragdelta=-17.5; viewport.dragportalduplicating=TRUE;
+        viewport.dragvertices=calloc(3*BG_PORTAL_MAX_POINTS,sizeof(*viewport.dragvertices));
+        viewport.dragmask=calloc(3*BG_PORTAL_MAX_POINTS,1);
+        ViewportPreparePortalDrag(&viewport); ViewportPreviewPortalDrag(&viewport,viewport.dragdelta);
+        ViewportDrawPortalOriginals(&viewport,TRUE); assert(originaldraws==6);
+        assert(!memcmp(drawn,&before[0].points[0],sizeof(*drawn)));
+        ViewportDrawPortalOriginals(&viewport,FALSE); assert(originaldraws==8);
+        for(int p=0;p<4;p++) assert(!memcmp(&drawn[p*2],&before[0].points[p],sizeof(*drawn)));
+        assert(ViewportFinishPortalDuplicate(&viewport,&viewport) && duplicatecommits==axis+1);
+        for(int a=0;a<3;a++) assert(duplication.offset[a]==(a==axis ? -17.5 : 0));
+        assert(!memcmp(before,viewport.portals.portals,sizeof(before)));
+        assert(!ViewportFinishPortalDuplicate(&viewport,&viewport));
+    }
+    /* No-motion release and cancellation leave the document unchanged. */
+    for(int cancel=0;cancel<2;cancel++)
+    {
+        viewport.dragaxis=1; viewport.dragdelta=0; viewport.dragportalduplicating=TRUE;
+        viewport.dragvertices=calloc(3*BG_PORTAL_MAX_POINTS,sizeof(*viewport.dragvertices));
+        viewport.dragmask=calloc(3*BG_PORTAL_MAX_POINTS,1); ViewportPreparePortalDrag(&viewport);
+        if(cancel) { ViewportPreviewPortalDrag(&viewport,50); ViewportCancelTransform(&viewport); }
+        else assert(ViewportFinishPortalDuplicate(&viewport,&viewport));
+        assert(duplicatecommits==3 && !memcmp(before,viewport.portals.portals,sizeof(before)));
+    }
+    ViewportClearAllSelection(&viewport);
     assert(ViewportTryPickPortal(&viewport,&viewport,320,240,FALSE,FALSE));assert(viewport.selectedportal==0);
     assert(ViewportTryPickPortal(&viewport,&viewport,320,240,FALSE,FALSE));assert(viewport.selectedportal==1); /* aliased table entries cycle */
     refs=ViewportGetMovePortalPoints(&viewport,&count);assert(refs && count==4);free(refs);
@@ -209,5 +271,6 @@ static void ViewportEdits(void)
     EditHistoryFree(&g_EditHistory);BgDocumentFree(&g_CurrentBgDocument);BgFileFree(&source);
     ViewportSetPortals(&viewport,NULL);
     puts("PASS: real portal corner/edge/face picks, occlusion, aliases, modifier/marquee selection, translation previews/restoration, controller rollback and undo.");
+    puts("PASS: clone preview draws unchanged originals once per polygon; X/Y/Z release restores before commit; no-motion/cancel do not clone.");
 }
 int main(void) { NativeEdits();ViewportEdits();return 0; }

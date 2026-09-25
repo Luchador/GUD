@@ -3116,19 +3116,17 @@ static BOOL GEditorCopyPortals(HWND hwnd)
     return TRUE;
 }
 
-static BOOL GEditorPastePortals(HWND hwnd)
+static BOOL GEditorPastePortalSnapshot(HWND hwnd, const BgPortalFile *clipboard,
+    const double offset[3], const char *action)
 {
     EditHistoryTransaction transaction = {0};
     DWORD indices[BG_MAX_PORTALS];
-    const double offset[3] = {0, 10, 0};
     const char *why = "";
-    if (!GEditorCanPastePortals()) { return FALSE; }
-    if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
-        g_PortalClipboard.portalcount == 1 ? "Paste Portal" : "Paste Portals", &transaction, &why)) { goto fail; }
-    if (!BgDocumentPastePortals(&g_CurrentBgDocument, &g_PortalClipboard, offset, indices, &why)) { goto fail; }
+    if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument, action, &transaction, &why)) { goto fail; }
+    if (!BgDocumentPastePortals(&g_CurrentBgDocument, clipboard, offset, indices, &why)) { goto fail; }
     ViewportSetPortals(g_Viewport, &g_CurrentBgDocument.portals);
     RightPanelShowPortals(g_RightPanel);
-    if (!ViewportSelectPortalFaces(g_Viewport, indices, g_PortalClipboard.portalcount))
+    if (!ViewportSelectPortalFaces(g_Viewport, indices, clipboard->portalcount))
     { why = "Could not display the pasted portals."; goto rollback; }
     if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
         &g_CurrentStan, &transaction, &why)) { goto rollback; }
@@ -3144,6 +3142,29 @@ fail:
     GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
     MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
     return FALSE;
+}
+
+static BOOL GEditorPastePortals(HWND hwnd)
+{
+    const double offset[3] = {0, 10, 0};
+    return GEditorCanPastePortals() && GEditorPastePortalSnapshot(hwnd, &g_PortalClipboard, offset,
+        g_PortalClipboard.portalcount == 1 ? "Paste Portal" : "Paste Portals");
+}
+
+static BOOL GEditorDuplicatePortals(HWND hwnd, const double offset[3])
+{
+    BgPortalFile copy = {0};
+    DWORD indices[BG_MAX_PORTALS], count;
+    const char *why = "";
+    BOOL result;
+    if (!offset || !GEditorCanCopyPortals() || (!offset[0] && !offset[1] && !offset[2])) { return FALSE; }
+    count = ViewportGetSelectedPortalFaces(g_Viewport, indices);
+    if (!BgDocumentCopyPortals(&g_CurrentBgDocument, indices, count, &copy, &why))
+    { MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR); return FALSE; }
+    /* A drag never replaces the user's clipboard or edits the source links. */
+    result = GEditorPastePortalSnapshot(hwnd, &copy, offset, count == 1 ? "Duplicate Portal" : "Duplicate Portals");
+    BgPortalFileFree(&copy);
+    return result;
 }
 
 static BOOL GEditorCopyObject(HWND hwnd)
@@ -5729,6 +5750,9 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
     case VIEWPORT_WM_DUPLICATE_OBJECT:
         return lparam && GEditorDuplicateObject(hwnd, (const ViewportObjectDuplicate *)lparam, NULL);
+
+    case VIEWPORT_WM_DUPLICATE_PORTALS:
+        return lparam && GEditorDuplicatePortals(hwnd, ((const ViewportTranslation *)lparam)->offset);
 
     case VIEWPORT_WM_CAN_PASTE_OBJECT:
         return GEditorCanPasteObject();

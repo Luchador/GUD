@@ -377,7 +377,7 @@ typedef struct ViewportState {
     BgPortalFile portals;
     DWORD selectedportal;
     unsigned char portalselection[BG_MAX_PORTALS]; /* vertices, perimeter edges, or bit 0 for faces */
-    BOOL dragportal;
+    BOOL dragportal, dragportalduplicating;
     Vertex *portalfill;  /* half-transparent cyan portal polygons */
     GLsizei portalfillcount;
     Vertex *portaledges; /* opaque cyan GL_LINES around portals */
@@ -2073,6 +2073,37 @@ static void ViewportDrawGlass(const ViewportState *state, const SceneBatch *batc
     ViewportApplyRenderFlags(batch->renderflags);
 }
 
+/* The moving, selected polygons use the normal portal overlay. Keep the
+ * originals visible at the mouse-down coordinates until the copy commits.
+ * Aliased room links share a polygon, so draw each source geometry once. */
+static void ViewportDrawPortalOriginals(const ViewportState *state, BOOL fill)
+{
+    if (!state->dragportalduplicating || !state->dragvertices || !state->dragmask) { return; }
+    glColor4ub(0, 255, 255, fill ? VIEWPORT_PORTAL_FILL_ALPHA : VIEWPORT_PORTAL_EDGE_ALPHA);
+    glBegin(fill ? GL_TRIANGLES : GL_LINES);
+    for (DWORD i = 0; i < state->portals.portalcount; i++)
+    {
+        DWORD first = i * BG_PORTAL_MAX_POINTS;
+        const BgPortal *portal = &state->portals.portals[i];
+        if (!state->dragmask[first] || !ViewportPortalGeometryIsFirst(&state->portals, i)) { continue; }
+        if (fill)
+        {
+            for (DWORD p = 1; p + 1 < portal->pointcount; p++)
+            {
+                glVertex3fv(state->dragvertices[first]);
+                glVertex3fv(state->dragvertices[first + p]);
+                glVertex3fv(state->dragvertices[first + p + 1]);
+            }
+        }
+        else for (DWORD p = 0; p < portal->pointcount; p++)
+        {
+            glVertex3fv(state->dragvertices[first + p]);
+            glVertex3fv(state->dragvertices[first + (p + 1) % portal->pointcount]);
+        }
+    }
+    glEnd();
+}
+
 static void ViewportPaintGL(ViewportState *state)
 {
     wglMakeCurrent(state->hdc, state->hglrc);
@@ -2272,6 +2303,7 @@ static void ViewportPaintGL(ViewportState *state)
         glVertexPointer(3, GL_FLOAT, sizeof(Vertex), &state->portalfill[0].x);
         glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex), &state->portalfill[0].r);
         glDrawArrays(GL_TRIANGLES, 0, state->portalfillcount);
+        ViewportDrawPortalOriginals(state, TRUE);
 
         glDisable(GL_BLEND);
         glDepthMask(GL_TRUE);
@@ -2291,6 +2323,7 @@ static void ViewportPaintGL(ViewportState *state)
         glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex), &state->portaledges[0].r);
         glLineWidth(2.0f);
         glDrawArrays(GL_LINES, 0, state->portaledgecount);
+        ViewportDrawPortalOriginals(state, FALSE);
         glLineWidth(1.0f);
 
         glDepthMask(GL_TRUE);
@@ -6876,6 +6909,7 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
         state->rotationlast = ViewportRotationParameter(state, &ray, x, y);
     }
     state->dragextruding = ViewportShouldExtrudeEdges(state,shift);
+    state->dragportalduplicating = shift && state->dragportal && state->tool == EDITOR_TOOL_FACE_SELECT;
     state->dragduplicating = !state->dragroom && shift && !state->dragknife && !state->dragmarker && !state->dragportal
         && !state->dragpad && !state->dragstan && state->selectedobject != VIEWPORT_OBJECT_NONE;
     if (state->dragextruding && !ViewportPrepareEdgeExtrusion(state))
@@ -7144,6 +7178,7 @@ void ViewportCancelTransform(HWND hwnd)
     state->dragaxis = -1;
     state->dragextruding = state->extrudepreviewvalid = FALSE;
     state->dragduplicating = FALSE;
+    state->dragportalduplicating = FALSE;
     free(state->extrudeedges); state->extrudeedges = NULL;
     free(state->stanextrudeedges); state->stanextrudeedges = NULL;
     free(state->stanextrudepreview); state->stanextrudepreview = NULL;
@@ -7168,6 +7203,18 @@ void ViewportCancelTransform(HWND hwnd)
     SendMessage(GetParent(hwnd), VIEWPORT_WM_TRANSFORM_PREVIEW, 0, 0);
 }
 
+static BOOL ViewportFinishPortalDuplicate(HWND hwnd, ViewportState *state)
+{
+    ViewportTranslation request = {{0}};
+    if (!state->dragportalduplicating) { return FALSE; }
+    request.offset[state->dragaxis] = state->dragdelta;
+    /* Restore the originals before the frame takes its history snapshot. */
+    ViewportCancelTransform(hwnd);
+    if (request.offset[0] || request.offset[1] || request.offset[2])
+    { SendMessage(GetParent(hwnd), VIEWPORT_WM_DUPLICATE_PORTALS, 0, (LPARAM)&request); }
+    return TRUE;
+}
+
 static void ViewportEndTransform(HWND hwnd, ViewportState *state)
 {
     ViewportTranslation request;
@@ -7176,6 +7223,7 @@ static void ViewportEndTransform(HWND hwnd, ViewportState *state)
         return;
     }
     if (state->dragknife) { ViewportFinishKnifeTransform(hwnd, state, FALSE); return; }
+    if (ViewportFinishPortalDuplicate(hwnd, state)) { return; }
     if (state->dragduplicating)
     {
         ViewportObjectDuplicate copy = {0};

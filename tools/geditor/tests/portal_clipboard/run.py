@@ -24,7 +24,8 @@ with tempfile.TemporaryDirectory(prefix='geditor-portal-clipboard-') as director
     editor = (src / 'geditor.c').read_text()
     (work / 'controller.inc').write_text(''.join(extract.function(editor, n) for n in
         ('GEditorCanUsePortalClipboard', 'GEditorCanCopyPortals', 'GEditorCanPastePortals',
-         'GEditorCopyPortals', 'GEditorPastePortals')))
+         'GEditorCopyPortals', 'GEditorPastePortalSnapshot', 'GEditorPastePortals', 'GEditorDuplicatePortals')))
+    assert 'GEditorDuplicatePortals(hwnd,' in editor.split('case VIEWPORT_WM_DUPLICATE_PORTALS:')[1].split('case ',1)[0]
     dispatch = editor.split('case ID_EDIT_COPY_FACES:')[1].split('case ID_GEOMETRY_MERGE_VERTICES:')[0]
     assert 'GEditorCopyPortals(hwnd)' in dispatch and 'GEditorPastePortals(hwnd)' in dispatch
     assert 'BgPortalFileFree(&g_PortalClipboard)' in dispatch

@@ -29,6 +29,7 @@ def main():
         (work / 'fixture.inc').write_text(''.join(function(fixture, n) for n in ('Put', 'Get', 'Float', 'Fixture')))
         types = ''.join(re.search(r'typedef struct ' + n + r' \{.*?\} ' + n + ';', viewport, re.S)[0] + '\n'
                         for n in ('Vertex', 'ViewportPickRay'))
+        types += re.search(r'typedef struct ViewportTranslation \{.*?\} ViewportTranslation;', (src / 'viewport.h').read_text())[0] + '\n'
         types += '\n'.join(l for l in viewport.splitlines() if l.startswith(('#define VIEWPORT_PICK_', '#define VIEWPORT_PORTAL_', '#define VIEWPORT_SELECTION_GOLD')))
         for name in ('FOV_Y', 'NEAR_Z', 'FAR_Z', 'DEG_TO_RAD'):
             types += '\n' + re.search(r'^#define VIEWPORT_' + name + r' .*', viewport, re.M)[0]
@@ -40,7 +41,8 @@ def main():
                  'ViewportPortalPointVisible', 'ViewportFindPortalComponent', 'ViewportResolveActivePortal',
                  'ViewportSetPortalVertex', 'ViewportRefreshPortalColors', 'ViewportRefreshPortalGeometry',
                  'ViewportTryPickPortal', 'ViewportVertexInBox', 'ViewportEdgeInBox', 'ViewportApplyPortalBox',
-                 'ViewportPreparePortalDrag', 'ViewportPreviewPortalDrag', 'ViewportSetPortals')
+                 'ViewportPreparePortalDrag', 'ViewportPreviewPortalDrag', 'ViewportDrawPortalOriginals',
+                 'ViewportFinishPortalDuplicate', 'ViewportSetPortals')
         (work / 'viewport.inc').write_text(''.join(function(viewport, n) for n in names))
         (work / 'controller.inc').write_text(function((src/'geditor.c').read_text(), 'GEditorTranslatePortals'))
         command = [os.environ.get('CC', 'cc'), '-std=c99', '-O1', '-g', '-Wall', '-Wextra', '-Werror',

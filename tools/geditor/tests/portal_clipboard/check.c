@@ -24,7 +24,11 @@ static void Same(const BgPortalFile *a, const BgPortalFile *b, BOOL native)
         BgPortal expected = a->portals[i], actual = b->portals[i];
         if (native)
         {
-            if (expected.geometryoffset & BG_PORTAL_NEW_GEOMETRY) expected.geometryoffset = actual.geometryoffset;
+            /* Saving compacts both original and newly authored polygons. */
+            expected.geometryoffset = actual.geometryoffset;
+            for (DWORD j = 0; j < i; j++)
+                assert((a->portals[i].geometryoffset == a->portals[j].geometryoffset)
+                    == (b->portals[i].geometryoffset == b->portals[j].geometryoffset));
             /* Unused point slots are not serialized. */
             for (DWORD p = expected.pointcount; p < BG_PORTAL_MAX_POINTS; p++)
             {
@@ -260,4 +264,67 @@ static void Controller(const char *dir)
     puts("PASS: production selection/controller, mode guards, mutually exclusive copy, failure rollback, pasted selection, repeated paste and undo/save/redo.");
 }
 
-int main(int argc, char **argv) { assert(argc == 2); Native(argv[1]); Scaled(argv[1]); Controller(argv[1]); return 0; }
+static void Duplicate(const char *dir)
+{
+    const char *why=""; BgFile source=Fixture(); BgDocument original={0};
+    DWORD pair[]={0,1}, clipboardindex=2, selected[BG_MAX_PORTALS];
+    const double offset[]={-12.5,25,3.75}, zero[]={0,0,0}, bad[]={NAN,0,0};
+    assert(BgDocumentLoad(source.data,source.size,.3f,&g_CurrentBgDocument,&why));
+    assert(BgDocumentClone(&g_CurrentBgDocument,&original,&why));
+    view.tool=EDITOR_TOOL_FACE_SELECT; view.showportals=TRUE;
+    ViewportSetPortals(g_Viewport,&g_CurrentBgDocument.portals);
+    assert(ViewportSelectPortalFaces(g_Viewport,pair,2));
+    EditHistoryReset(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan);
+    assert(EditHistorySetSelection(&g_EditHistory,view.portalselection,sizeof(view.portalselection),FALSE,&why));
+    assert(BgDocumentCopyPortals(&g_CurrentBgDocument,&clipboardindex,1,&g_PortalClipboard,&why));
+    BgPortal clipboard=g_PortalClipboard.portals[0]; objectclipboard=TRUE;
+    assert(BgDocumentClone(&original,&g_FaceClipboard,&why));
+    assert(!GEditorDuplicatePortals(NULL,zero) && !GEditorDuplicatePortals(NULL,NULL));
+    view.tool=EDITOR_TOOL_EDGE_SELECT; assert(!GEditorDuplicatePortals(NULL,offset));
+    view.tool=EDITOR_TOOL_FACE_SELECT;
+    assert(!GEditorDuplicatePortals(NULL,bad));
+    for(int failure=0;failure<5;failure++)
+    {
+        ULONGLONG revision=g_EditHistory.nextrevision;
+        allocation=failure<3 ? failure : -1;
+        faildisplay=failure==3;
+        if(failure==4) g_EditHistory.nextrevision=0;
+        assert(!GEditorDuplicatePortals(NULL,offset)); allocation=-1; g_EditHistory.nextrevision=revision;
+        Same(&original.portals,&g_CurrentBgDocument.portals,FALSE);
+        assert(!g_CurrentBgDocument.dirty && !g_EditHistory.undocount);
+        assert(view.portalselection[0] && view.portalselection[1]);
+    }
+    assert(GEditorDuplicatePortals(NULL,offset));
+    assert(g_EditHistory.undocount==1 && !strcmp(EditHistoryGetUndoAction(&g_EditHistory),"Duplicate Portals"));
+    assert(ViewportGetSelectedPortalFaces(g_Viewport,selected)==2 && selected[0]==3 && selected[1]==4);
+    assert(!memcmp(original.portals.portals,g_CurrentBgDocument.portals.portals,3*sizeof(BgPortal)));
+    assert(objectclipboard && g_FaceClipboard.rooms && g_PortalClipboard.portalcount==1
+        && !memcmp(&clipboard,g_PortalClipboard.portals,sizeof(clipboard)));
+    for(int i=0;i<2;i++)
+    {
+        const BgPortal *a=&original.portals.portals[i], *b=&g_CurrentBgDocument.portals.portals[3+i];
+        assert(a->connectedroom1==b->connectedroom1 && a->connectedroom2==b->connectedroom2
+            && a->controlbytes1==b->controlbytes1 && a->controlbytes2==b->controlbytes2);
+        for(DWORD p=0;p<a->pointcount;p++) for(int axis=0;axis<3;axis++)
+            assert(fabs((&b->points[p].x)[axis]-(&a->points[p].x)[axis]-offset[axis])<.0001);
+    }
+    assert(g_CurrentBgDocument.portals.portals[3].geometryoffset==g_CurrentBgDocument.portals.portals[4].geometryoffset);
+    assert(EditHistorySetSelection(&g_EditHistory,view.portalselection,sizeof(view.portalselection),FALSE,&why));
+    BgFile saved=Persist(&g_CurrentBgDocument,&source,dir);
+    assert(EditHistoryUndo(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,NULL,&why));
+    ViewportSetPortals(g_Viewport,&g_CurrentBgDocument.portals); GEditorRestoreHistorySelection(NULL);
+    Same(&original.portals,&g_CurrentBgDocument.portals,FALSE);
+    assert(view.portalselection[0] && view.portalselection[1]);
+    assert(EditHistoryRedo(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,NULL,&why));
+    ViewportSetPortals(g_Viewport,&g_CurrentBgDocument.portals); GEditorRestoreHistorySelection(NULL);
+    assert(view.portalselection[3] && view.portalselection[4]);
+    BgFile redone=Persist(&g_CurrentBgDocument,&saved,dir);
+    assert(ViewportSelectPortalFaces(g_Viewport,selected,1) && GEditorDuplicatePortals(NULL,offset));
+    assert(!strcmp(EditHistoryGetUndoAction(&g_EditHistory),"Duplicate Portal") && g_CurrentBgDocument.portals.portalcount==6);
+    BgFileFree(&source); BgFileFree(&saved); BgFileFree(&redone);
+    BgDocumentFree(&original); BgDocumentFree(&g_CurrentBgDocument); BgDocumentFree(&g_FaceClipboard);
+    BgPortalFileFree(&g_PortalClipboard); EditHistoryFree(&g_EditHistory);
+    puts("PASS: gizmo duplicate controller, one/multiple portals, original links, untouched clipboards, allocation/display/commit rollback, save/reload and single-step undo/redo.");
+}
+
+int main(int argc, char **argv) { assert(argc == 2); Native(argv[1]); Scaled(argv[1]); Controller(argv[1]); Duplicate(argv[1]); return 0; }

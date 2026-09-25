@@ -19,6 +19,7 @@ typedef intptr_t LPARAM;
 #define VIEWPORT_WM_ROTATE_SELECTION 5
 #define VIEWPORT_WM_SCALE_SELECTION 6
 #define VIEWPORT_WM_DUPLICATE_OBJECT 7
+#define VIEWPORT_WM_DUPLICATE_PORTALS 8
 #define VIEWPORT_WM_PREVIEW_EDGE_EXTRUSION 8
 #define VIEWPORT_OBJECT_NONE ((DWORD)-1)
 typedef struct Vertex { float x,y,z; } Vertex;
@@ -46,7 +47,7 @@ typedef struct ViewportState {
     BgDocumentVertexRef *scenevertexrefs;
     BgFaceRef *scenefacerefs;
     BOOL showbgsecondary,showbgprimary,dragmarker,dragpad,dragstan,dragscaling,dragrotation;
-    BOOL dragknife,dragportal;
+    BOOL dragknife,dragportal,dragportalduplicating;
     BOOL dragextruding,extrudepreviewvalid,dragduplicating;
     DWORD selectedobject;
     BgDocumentEdgeRef *extrudeedges;

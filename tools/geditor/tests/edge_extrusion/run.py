@@ -36,7 +36,7 @@ def main():
                  'ViewportStanVisible', 'ViewportCompareStanIds', 'ViewportStanTileHidden', 'ViewportCompareStanRefs',
                  'ViewportStanPointRef', 'ViewportFindStanComponent', 'ViewportPrepareStanEdgeExtrusion',
                  'ViewportShouldExtrudeEdges', 'ViewportPreviewEdgeExtrusion', 'ViewportPrepareEdgeExtrusion', 'ViewportSelectBgEdges',
-                 'ViewportCancelTransform', 'ViewportEndTransform')
+                 'ViewportCancelTransform', 'ViewportFinishPortalDuplicate', 'ViewportEndTransform')
         (work / 'viewport.inc').write_text(''.join(helpers.function(viewport, n) for n in names))
         subprocess.run(command + [str(here / 'viewport.c'), '-Wl,--gc-sections', '-lm',
                                   '-o', str(work / 'viewport')], check=True)
