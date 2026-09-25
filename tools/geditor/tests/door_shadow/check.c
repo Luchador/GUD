@@ -66,6 +66,31 @@ static void Refs(const BgDocument *bg, DWORD room, DWORD a, DWORD b, BgFaceRef r
     refs[0]=(BgFaceRef){.room=room,.faceid=bg->rooms[room].faces[a].id,.layer=bg->rooms[room].faces[a].layer};
     refs[1]=(BgFaceRef){.room=room,.faceid=bg->rooms[room].faces[b].id,.layer=bg->rooms[room].faces[b].layer};
 }
+static void CompilerDithering(void)
+{
+    BgFile source=Fixture();BgDocument bg={0};BgFaceRef refs[2];BgRenderState state;
+    OK(BgDocumentLoad(source.data,source.size,1,&bg,&why));Refs(&bg,1,0,1,refs);
+    OK(BgDocumentGetFaceRenderStates(&bg,refs,1,&state));
+    for(int authored=0;authored<2;authored++)for(DWORD dither=0;dither<=0xf0;dither+=0x10) {
+        unsigned char *gdl;DWORD size;BgRenderState draw;
+        state.othermodehighknown=(state.othermodehighknown&~0xf0u)|(authored?0xf0u:0);
+        state.othermodehigh=(state.othermodehigh&~0xf0u)|(authored?dither:0);
+        OK(BgCompileDoorShadow(&bg.rooms[1].faces[0],&state,&gdl,&size,&why));
+        BgRenderStateInit(&draw,FALSE);draw.othermodehigh=dither^0xf0;
+        int tris=0;
+        for(DWORD i=0;i<size;i+=8) {
+            DWORD a=SetupMetaRead32(gdl+i),b=SetupMetaRead32(gdl+i+4);
+            BgRenderStateRead(&draw,a,b);
+            if((a>>24)==0xbf) {
+                assert((draw.othermodehigh&0xf0u)==(authored?dither:(dither^0xf0)));
+                tris++;
+            }
+        }
+        assert(tris==6);free(gdl);
+    }
+    BgDocumentFree(&bg);BgFileFree(&source);
+    puts("PASS compiler: inherited world dithering and explicitly authored dither modes.");
+}
 static void Conversion(const char *dir)
 {
     BgFile source=Fixture(),compiled={0}; BgDocument bg={0},loaded={0}; SetupFile setup={0},saved={0};
@@ -131,6 +156,12 @@ static void Depot(const char *dir,const char *path)
     BgDocument bg={0}; SetupFile setup={0}; DWORD count=0,shadow;
     OK(BgDocumentLoad(data,size,1,&bg,&why)); free(data);
     OK(SetupLoadProjectFile(dir,"UsetupdepotZ",&setup,&why));
+    for(DWORD i=0;i<setup.objectcount;i++)if(setup.objects[i].type==PROPDEF_DOOR_SHADOW&&!setup.objects[i].deleted) {
+        char path[MAX_PATH];snprintf(path,sizeof(path),"%s/saved-shadow-%lu.bin",dir,(unsigned long)i);
+        FILE *out=fopen(path,"wb");assert(out);
+        assert(fwrite(setup.data+setup.objects[i].sourceoffset,1,DOOR_SHADOW_BYTES,out)==DOOR_SHADOW_BYTES);
+        fclose(out);
+    }
     DWORD faces=bg.facecount,objects=setup.objectcount,door=(DWORD)-1;
     for (DWORD i=0;i<objects;i++) if (setup.objects[i].type==PROPDEF_DOOR&&!setup.objects[i].deleted) { door=i; break; }
     assert(door!=(DWORD)-1);
@@ -157,7 +188,7 @@ static void Depot(const char *dir,const char *path)
 }
 int main(int argc,char **argv)
 {
-    assert(argc>=2); Math(); Conversion(argv[1]);
+    assert(argc>=2); Math(); CompilerDithering(); Conversion(argv[1]);
     if (argc>2) { Depot(argv[1],argv[2]); }
     puts("PASS: clipping in four directions, fixed UVs, endpoints, conversion, link, colors, save/reload, atomic undo/redo, deletion and command recycling.");
     return 0;

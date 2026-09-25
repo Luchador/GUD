@@ -38,4 +38,5 @@ with tempfile.TemporaryDirectory(prefix='geditor-door-shadow-') as temp:
     subprocess.run(command, check=True)
     subprocess.run([str(work / 'check'), str(work)] + sys.argv[1:2], check=True,
         env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))
-    subprocess.run([sys.executable, str(HERE / 'runtime.py'), str(work / 'shadow.bin')], check=True)
+    subprocess.run([sys.executable, str(HERE / 'runtime.py'), str(work / 'shadow.bin')]
+        + [str(p) for p in sorted(work.glob('saved-shadow-*.bin'))], check=True)

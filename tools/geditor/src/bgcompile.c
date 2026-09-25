@@ -769,14 +769,19 @@ BOOL BgCompileDoorShadow(const BgDocumentFace *face, const BgRenderState *state,
         /* Resolve inherited fog to the level's actual runtime setting before
          * loading vertices, even if the preceding BG material disabled it. */
         || !BgCompileWriteCommand(&gdl, BG_SURFACE_MARKER, BG_ALPHA_TAG | BG_ALPHA_FOG)
-        || !BgCompileWriteCommand(&gdl, 0xba000020u, high)
+        /* Dithering belongs to the world pass. Do not turn inherited values
+         * into zero when making the texture pipeline self-contained. */
+        || !BgCompileWriteCommand(&gdl, 0xba000818u, high & 0xffffff00u)
         || !BgCompileWriteCommand(&gdl, 0xb900031du, state->othermode & 0xfffffff8u)
         || !BgCompileWriteCommand(&gdl, 0xb9000003u, state->othermode & 7u)
         || !BgCompileWriteCommand(&gdl, 0xfb000000u, state->environmentword1)
         || !BgCompileWriteCommand(&gdl, state->primitiveword0, state->primitiveword1)
         || !BgCompileWriteCommand(&gdl, BG_SURFACE_MARKER,
-            BG_SURFACE_TAG_VALUE(state->surfacepolicy, state->surfacebasemode))
-        || !BgCompileEmitFaceState(&gdl, face, &current, &cull, why)) goto done;
+            BG_SURFACE_TAG_VALUE(state->surfacepolicy, state->surfacebasemode))) goto done;
+    for (DWORD bit = 0; bit < 8; bit++)
+        if ((state->othermodehighknown & (1u << bit))
+            && !BgCompileWriteCommand(&gdl, 0xba000001u | (bit << 8), high & (1u << bit))) goto done;
+    if (!BgCompileEmitFaceState(&gdl, face, &current, &cull, why)) goto done;
     for (DWORD batch = 0; batch < 2; batch++)
     {
         if (!BgCompileWriteCommand(&gdl, 0x04800090u, BGCOMPILE_VERTEX_SEGMENT | (batch * 144))) goto done;

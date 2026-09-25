@@ -7,6 +7,7 @@
 #include "doorshadowformat.h"
 #include "doorshadow.h"
 #include "bg.h"
+#include "bgonecycle.h"
 #include "bgroomtrans.h"
 #include "dyn.h"
 #include "environment.h"
@@ -31,6 +32,7 @@ typedef struct DoorShadowRuntime {
     u8 *record;
     DoorRecord *door;
     Gfx *gdl;
+    Gfx *oneCycleGdl;
     s32 size, next;
     s16 hitTexture;
     DoorShadowPoint source[6];
@@ -132,7 +134,7 @@ void doorShadowInit(PropDefHeaderRecord *commands)
                 s32 v,a;
                 ObjectRecord *door=setupGetPtrToCommandByIndex((s32)doorShadowWord(p,DOOR_SHADOW_DOOR));
                 s->record=p;s->door=door&&door->type==PROPDEF_DOOR?(DoorRecord *)door:NULL;
-                s->gdl=NULL;s->size=0;s->next=g_DoorShadowRooms[room];
+                s->gdl=NULL;s->oneCycleGdl=NULL;s->size=0;s->next=g_DoorShadowRooms[room];
                 s->hitTexture=doorShadowHitTexture(p);
                 for(v=0;v<6;v++) {
                     u8 *vertex=p+DOOR_SHADOW_VERTICES+v*16;
@@ -189,8 +191,16 @@ void doorShadowFreeRoom(s32 room)
     if(!g_DoorShadowCount||room<=0||room>=MAXROOMCOUNT)return;
     for(i=g_DoorShadowRooms[room];i>=0;i=g_DoorShadows[i].next) {
         DoorShadowRuntime *s=&g_DoorShadows[i];
+        if(s->oneCycleGdl){renderCacheFree(s->oneCycleGdl);s->oneCycleGdl=NULL;renderInvalidateDisplayListCache();}
         if(s->gdl){memaFree(s->gdl,s->size);s->gdl=NULL;s->size=0;renderInvalidateDisplayListCache();}
     }
+}
+/* The shared cache owns these allocations and releases them after the RSP
+ * queue drains. Drop references before that memory can be reused. */
+void doorShadowClearRenderCaches(void)
+{
+    s32 i;
+    for(i=0;i<g_DoorShadowCount;i++)g_DoorShadows[i].oneCycleGdl=NULL;
 }
 static void doorShadowLoad(DoorShadowRuntime *s)
 {
@@ -205,6 +215,14 @@ static void doorShadowLoad(DoorShadowRuntime *s)
     if(!memory){renderCacheRequestReclaim();return;}
     input=(Gfx *)((u8 *)memory+capacity);
     memcpy(input,s->record+DOOR_SHADOW_GDL,bytes);
+    /* Older editor templates wrote all of OtherMode H here, accidentally
+     * replacing world colour/alpha dithering with zero (MAGICSQ/PATTERN).
+     * Repair the generated header in RAM so saved shadows need no rebuild.
+     * Later authored commands still apply normally. */
+    if(bytes>=5*sizeof(Gfx)&&input[4].words.w0==0xba000020u) {
+        input[4].words.w0=0xba000818u;
+        input[4].words.w1&=0xffffff00u;
+    }
     size=texLoadFromGdl(input,bytes,memory,NULL);
     if(size<=0||size>capacity){memaFree(memory,allocation);return;}
     lut=doorShadowWord(s->record,DOOR_SHADOW_LAYER)
@@ -213,6 +231,22 @@ static void doorShadowLoad(DoorShadowRuntime *s)
     bgApplyDynamicCCRMLUT(memory,(Gfx *)((u8 *)memory+size),lut);
     s->size=(size+15)&~15;s->gdl=memory;
     memaRealloc((s32)memory,allocation,s->size);
+    /* Use the same converter as the owning BG pass. Otherwise AA-Off rooms
+     * sample the base texture while their shadows keep blending distant mips. */
+    if(renderCacheIsEnabled()) {
+        s32 layer=doorShadowWord(s->record,DOOR_SHADOW_LAYER);
+        s32 alternateSize=layer?bgBuildCutoutGdl(memory,size,NULL,0)
+            :bgBuildOneCycleGdl(memory,size,NULL,0);
+        if(alternateSize>0) {
+            Gfx *alternate=renderCacheAlloc(alternateSize);
+            if(alternate) {
+                if((layer?bgBuildCutoutGdl(memory,size,alternate,alternateSize)
+                        :bgBuildOneCycleGdl(memory,size,alternate,alternateSize))>0)
+                    s->oneCycleGdl=alternate;
+                else renderCacheFree(alternate);
+            }
+        }
+    }
 }
 static s16 doorShadowRound(f32 value) { return (s16)(value<0?value-0.5f:value+0.5f); }
 static s16 doorShadowRoundClamped(f32 value,f32 low,f32 high)
@@ -244,7 +278,7 @@ static void doorShadowWriteVertex(DoorShadowRuntime *s,s32 index,DoorShadowPoint
     vertex->v.cn[3]=doorShadowRoundClamped(p[0].alpha
         +w1*(p[1].alpha-p[0].alpha)+w2*(p[2].alpha-p[0].alpha),0,255);
 }
-Gfx *doorShadowRenderRoom(Gfx *gdl,s32 room,s32 layer)
+Gfx *doorShadowRenderRoom(Gfx *gdl,s32 room,s32 layer,bool oneCycle)
 {
     s32 i,drew=FALSE;
     if(!g_DoorShadowCount||room<=0||room>=MAXROOMCOUNT)return gdl;
@@ -274,7 +308,17 @@ Gfx *doorShadowRenderRoom(Gfx *gdl,s32 room,s32 layer)
         matrix_4x4_f32_to_s32(transform.m,matrix->m);
         gSPMatrix(gdl++,OS_K0_TO_PHYSICAL(matrix),G_MTX_MODELVIEW|G_MTX_LOAD|G_MTX_NOPUSH);
         gSPSegment(gdl++,SPSEGMENT_BG_VTX,OS_K0_TO_PHYSICAL(vertices));
-        gSPDisplayList(gdl++,OS_K0_TO_PHYSICAL(s->gdl));drew=TRUE;
+        if(oneCycle&&s->oneCycleGdl) {
+            if(layer) {
+                gDPPipeSync(gdl++);
+                gDPSetAlphaCompare(gdl++,G_AC_NONE);
+                gDPSetBlendColor(gdl++,0,0,0,BG_CUTOUT_THRESHOLD);
+            }
+            gSPDisplayList(gdl++,OS_K0_TO_PHYSICAL(s->oneCycleGdl));
+        } else {
+            gSPDisplayList(gdl++,OS_K0_TO_PHYSICAL(s->gdl));
+        }
+        drew=TRUE;
     }
     if(drew) {
         gdl=applyRoomMatrixToDisplayList(gdl,room);

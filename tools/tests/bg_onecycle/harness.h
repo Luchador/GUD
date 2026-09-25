@@ -43,5 +43,10 @@ static Gfx *applyRoomMatrixToDisplayList(Gfx *gdl, s32 room) { (void)room; retur
 #define OS_K0_TO_PHYSICAL(p) ((u32)(uintptr_t)(p) & 0x1fffffffu)
 
 static void doorShadowFreeRoom(s32 room) { (void)room; }
-static Gfx *doorShadowRenderRoom(Gfx *gdl, s32 room, s32 layer)
-{ (void)room; (void)layer; return gdl; }
+static Gfx *doorShadowRenderRoom(Gfx *gdl, s32 room, s32 layer, bool oneCycle)
+{
+    assert(oneCycle == (renderUseOneCycle()
+        && (layer ? g_BgOneCycleRooms[room].secondaryGdl != NULL || !g_BgRoomInfo[room].secondaryGdl
+                  : g_BgOneCycleRooms[room].gdl != NULL)));
+    return gdl;
+}

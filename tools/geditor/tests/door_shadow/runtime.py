@@ -29,6 +29,10 @@ source += (ROOT / 'src/doorshadowformat.h').read_text()
 source += (ROOT / 'src/propconstants.h').read_text()
 source += 'static void renderRestoreDisplayListSettings(Gfx *a,Gfx *b) {(void)a;(void)b;}\n'
 source += 'static void renderInvalidateDisplayListCache(void) {}\n'
+config = (ROOT / 'src/game/renderconfig.c').read_text()
+source += config[config.index('#define AA_FIRST_BLENDER_MASK'):config.index('static Gfx *g_RenderLeafCache')]
+source += function(config, 'renderDisableAaCommand')
+source += function(config, 'renderGetAaOffCommand')
 bg = (ROOT / 'src/game/bg.c').read_text()
 assert function(bg, 'bgLoadFile').index('doorShadowReset()') < function(bg, 'bgLoadFile').index('bgRoomCalcBB(')
 for name in ('DL_LUT_PRIMARY', 'DL_LUT_PRIMARY_ADDFOG', 'DL_LUT_SECONDARY', 'DL_LUT_SECONDARY_ADDFOG'):
@@ -46,6 +50,9 @@ source += strip((ROOT / 'src/game/bgapply.c').read_text())
 image = (ROOT / 'src/game/image.h').read_text()
 source += re.search(r'struct tex \{.*?\n};', image, re.S)[0] + '\n'
 source += 'static struct tex g_TestTexture;\n'
+source += 'static struct tex *texFindByData(u32 address) { (void)address; return &g_TestTexture; }\n'
+source += strip((ROOT / 'src/game/bgonecycle.h').read_text())
+source += strip((ROOT / 'src/game/bgonecycle.c').read_text())
 source += '\n'.join(re.findall(r'^#define TEXFORMAT_.*$', image, re.M)) + '\n'
 source += re.search(r'typedef enum\s*\{[^}]*\}\s*TextureTypes;', (ROOT / 'include/gbi_extension.h').read_text(), re.S)[0] + '\n'
 source += (TESTS / 'bg_onecycle/texture_markers.h').read_text()
@@ -55,6 +62,13 @@ expander = expander.replace('((s32)out) - ((s32)dst)', '(s32)((u8 *)out - (u8 *)
 expander = re.sub(r'    s32\s+pad;\n', '', expander)
 source += expander
 source += (HERE / 'runtime_harness.h').read_text()
+source += '''
+void doorShadowClearRenderCaches(void);
+static void bgClearRoomRenderCaches(void) { doorShadowClearRenderCaches(); }
+static void modelOneCycleResetCache(void) {}
+'''
+assert 'doorShadowClearRenderCaches();' in function(bg, 'bgClearRoomRenderCaches')
+source += strip((ROOT / 'src/game/rendercache.c').read_text())
 source += strip((ROOT / 'src/game/line_tri_intersect.c').read_text())
 matrixmath = (ROOT / 'src/game/matrixmath.c').read_text()
 source += function(matrixmath, 'matrix_4x4_set_identity')
@@ -74,6 +88,7 @@ chrprop = (ROOT / 'src/game/chrprop.c').read_text()
 source += function(chrprop, 'chrpropRayIntersectsRoomBbox')
 source += function(chrprop, 'chrpropFindNearestBgHit')
 source += (HERE / 'collision_check.c').read_text()
+source += (HERE / 'render_check.c').read_text()
 source += (HERE / 'runtime_check.c').read_text()
 with tempfile.TemporaryDirectory(prefix='gud-door-shadow-') as directory:
     work = Path(directory)
@@ -87,5 +102,5 @@ with tempfile.TemporaryDirectory(prefix='gud-door-shadow-') as directory:
         '-Wno-sign-compare', '-Wno-pointer-to-int-cast', '-Wno-int-to-pointer-cast', '-Wno-missing-braces',
         '-Wno-unused-function', '-Wno-unused-variable', '-fsanitize=address,undefined', '-I', str(work),
         '-idirafter', str(ROOT / 'include'), str(work / 'check.c'), '-lm', '-o', str(work / 'check')], check=True)
-    subprocess.run([str(work / 'check'), sys.argv[1]], check=True,
+    subprocess.run([str(work / 'check')] + sys.argv[1:], check=True,
         env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))

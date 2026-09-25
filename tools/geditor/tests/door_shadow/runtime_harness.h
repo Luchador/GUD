@@ -36,12 +36,11 @@ static s32 g_MaxNumRooms=MAXROOMCOUNT;
 static f32 bgGetRoomScale(void) { return g_LevelScale; }
 static f32 bgGetRoomInverseScale(void) { return 1/g_LevelScale; }
 static s32 bgGetMaxNumRooms(void) { return g_MaxNumRooms; }
-static int allocations, frees, failalloc, reclaim, verticesAllocated, matricesAllocated, freeBytes;
+static int allocations, frees, failalloc, failAfter=-1, verticesAllocated, matricesAllocated, freeBytes;
 static int frameVertexCount,frameMatrixCount,frameBytes;
-static void *memaAlloc(s32 bytes) { if(failalloc)return NULL;allocations++;return malloc(bytes); }
+static void *memaAlloc(s32 bytes) { if(failalloc||failAfter==0)return NULL;if(failAfter>0)failAfter--;allocations++;return malloc(bytes); }
 static void memaFree(void *ptr,s32 bytes) { assert(ptr&&bytes>0);frees++;free(ptr); }
 static void memaRealloc(intptr_t ptr,s32 old,s32 size) { assert(ptr&&size<=old&&size>0); }
-static void renderCacheRequestReclaim(void) { reclaim++; }
 static Vtx frameVertexBuffers[DOOR_SHADOW_MAX][18];
 static Mtx frameMatrixBuffers[DOOR_SHADOW_MAX],roomMatrix;
 #define frameVertices frameVertexBuffers[0]

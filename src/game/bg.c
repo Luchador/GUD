@@ -1975,6 +1975,7 @@ void bgClearRoomRenderCaches(void)
 {
     s32 i;
 
+    doorShadowClearRenderCaches();
     for (i = 0; i < MAXROOMCOUNT; i++)
     {
         g_BgOneCycleRooms[i].gdl = NULL;
@@ -2344,7 +2345,7 @@ Gfx *bgRenderRoomPrimary(Gfx *gdl, s32 room_index)
             primary = g_BgOneCycleRooms[room_index].gdl;
         }
         gSPDisplayList(gdl++, OS_K0_TO_PHYSICAL(primary));
-        gdl = doorShadowRenderRoom(gdl, room_index, 0);
+        gdl = doorShadowRenderRoom(gdl, room_index, 0, primary != g_BgRoomInfo[room_index].primaryGdl);
         if (g_BgDebugEnabled) bgDebugRecordRoom(room_index, BG_DEBUG_PRIMARY);
 
         // Set the room's state to "loaded"
@@ -2373,7 +2374,7 @@ Gfx *bgRenderRoomSecondary(Gfx *gdl, s32 room_index)
         if (g_BgRoomInfo[room_index].unloadAge != 0)
         {
             gdl = applyRoomMatrixToDisplayList(gdl, room_index);
-            gdl = doorShadowRenderRoom(gdl, room_index, 1);
+            gdl = doorShadowRenderRoom(gdl, room_index, 1, renderUseOneCycle());
         }
         return gdl;
     }
@@ -2396,7 +2397,7 @@ Gfx *bgRenderRoomSecondary(Gfx *gdl, s32 room_index)
                 gDPSetBlendColor(gdl++, 0, 0, 0, BG_CUTOUT_THRESHOLD);
             }
             gSPDisplayList(gdl++, OS_K0_TO_PHYSICAL(secondary));
-            gdl = doorShadowRenderRoom(gdl, room_index, 1);
+            gdl = doorShadowRenderRoom(gdl, room_index, 1, secondary != g_BgRoomInfo[room_index].secondaryGdl);
             if (g_BgDebugEnabled) bgDebugRecordRoom(room_index, BG_DEBUG_SECONDARY);
 
             // Set the room's state to "loaded"

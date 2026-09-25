@@ -1,7 +1,7 @@
 static Gfx *renderFrame(Gfx *gdl,s32 room,s32 layer)
 {
     frameVertexCount=frameMatrixCount=0;frameBytes=freeBytes;
-    Gfx *end=doorShadowRenderRoom(gdl,room,layer);
+    Gfx *end=doorShadowRenderRoom(gdl,room,layer,FALSE);
     if(end!=gdl) {
         assert(frameVertexCount==frameMatrixCount);
         assert(end==gdl+3*frameVertexCount+2);
@@ -183,7 +183,7 @@ static void multipleShadowChecks(u8 *p)
 
 int main(int argc,char **argv)
 {
-    assert(argc==2);
+    assert(argc>=2);
     // Adapt only disk endianness and the host ABI; execute the production renderer.
     u32 storage[DOOR_SHADOW_BYTES/4+1]={0}; u8 *p=(u8 *)storage, raw[DOOR_SHADOW_BYTES];
     FILE *fp=fopen(argv[1],"rb");assert(fp&&fread(raw,1,sizeof(raw),fp)==sizeof(raw));fclose(fp);
@@ -243,7 +243,7 @@ int main(int argc,char **argv)
         }
         freeBytes=SHADOW_FRAME_BYTES;
         doorShadowFreeRoom(1);assert(!g_DoorShadows[0].gdl);
-        failalloc=1;assert(renderFrame(output,1,layer)==output&&reclaim);failalloc=0;
+        failalloc=1;assert(renderFrame(output,1,layer)==output&&!renderCacheIsEnabled());failalloc=0;
         assert(renderFrame(output,1,layer)==output+5);doorShadowFreeRoom(1);
     }
     Gfx output[16];word(p,DOOR_SHADOW_LAYER,0);word(p,DOOR_SHADOW_DOOR,0xffffffffu);
@@ -263,6 +263,8 @@ int main(int argc,char **argv)
     for(int t=0;t<6;t++)if(area(frameVertices+t*3)>0)assert(frameVertices[t*3].v.cn[0]==64);
     doorShadowFreeRoom(1);assert(allocations==frees);
     precisionChecks(p);multipleShadowChecks(p);collisionChecks(p);assert(allocations==frees);
+    renderChecks(p);
+    for(int i=2;i<argc;i++)savedShadowChecks(argv[i]);
     word(p,12,0xf8);doorShadowInit((PropDefHeaderRecord *)p);assert(!g_DoorShadowCount);
     doorShadowReset();assert(renderFrame(output,1,0)==output);
     puts("PASS runtime: real texture expansion/fog LUT, sliding/swinging travel, closed/missing doors, room bounds, both passes, cache reuse/unload, allocation failure and vertex budget.");

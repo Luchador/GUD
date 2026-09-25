@@ -84,7 +84,7 @@ static void collisionChecks(const u8 *fixture)
     assert(shadowRay(25,100,75,-100,&hit)&&hit.texturenum==-1);
     *request=saved;doorShadowInit((PropDefHeaderRecord *)p);
     frameVertexCount=frameMatrixCount=0;frameBytes=freeBytes;
-    assert(doorShadowRenderRoom(output,1,1)==output+5);
+    assert(doorShadowRenderRoom(output,1,1,FALSE)==output+5);
     doorShadowFreeRoom(1);assert(!g_DoorShadows[0].gdl);
     assert(shadowRay(25,100,75,-100,&hit)); // cache eviction leaves collision intact
 
