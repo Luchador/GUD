@@ -134,3 +134,50 @@ BOOL ImageReimportShow(HWND owner,const char *projectdir,DWORD id)
     }
     return ok;
 }
+
+BOOL ImageExportShow(HWND owner, const char *projectdir, DWORD id)
+{
+    OPENFILENAME ofn = {0};
+    char path[MAX_PATH], error[MAX_PATH + 160];
+    TexPixel *pixels = (TexPixel *)malloc(256 * 256 * sizeof(*pixels));
+    int width, height;
+    BOOL ok;
+
+    /* Export the full current image, including pending imports/replacements.
+       The BMP writer converts native texel order to display orientation. */
+    if (!pixels || !TexLoadProjectImage(projectdir, id, pixels, &width, &height))
+    {
+        free(pixels);
+        snprintf(error, sizeof(error), "Image %04lX could not be loaded for export.", (unsigned long)id);
+        MessageBox(owner, error, "Export Image", MB_OK | MB_ICONERROR);
+        return FALSE;
+    }
+
+    snprintf(path, sizeof(path), "%04lX.bmp", (unsigned long)id);
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner = owner;
+    ofn.lpstrTitle = "Export Image";
+    ofn.lpstrFile = path;
+    ofn.nMaxFile = sizeof(path);
+    ofn.lpstrFilter = "Bitmap images (*.bmp)\0*.bmp\0";
+    ofn.nFilterIndex = 1;
+    ofn.lpstrDefExt = "bmp";
+    ofn.Flags = OFN_EXPLORER | OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST
+        | OFN_HIDEREADONLY | OFN_NOCHANGEDIR;
+    if (!GetSaveFileName(&ofn))
+    {
+        free(pixels);
+        if (CommDlgExtendedError())
+        { MessageBox(owner, "The save dialog could not be opened.", "Export Image", MB_OK | MB_ICONERROR); }
+        return FALSE;
+    }
+
+    ok = TexWriteBmp(path, pixels, (DWORD)width, (DWORD)height);
+    free(pixels);
+    if (!ok)
+    {
+        snprintf(error, sizeof(error), "The image could not be exported to:\r\n%s\r\n\r\nCheck that the folder is writable and has enough free space.", path);
+        MessageBox(owner, error, "Export Image", MB_OK | MB_ICONERROR);
+    }
+    return ok;
+}

@@ -18,6 +18,7 @@
 #define BROWSER_WM_IMAGE_DELETE     (WM_APP + 27)
 #define BROWSER_WM_IMAGE_REPLACE    (WM_APP + 28)
 #define BROWSER_WM_IMAGE_REIMPORT   (WM_APP + 50)
+#define BROWSER_WM_IMAGE_EXPORT     (WM_APP + 108)
 typedef struct BrowserImageDrop {
     DWORD textureid;
     POINT screen;

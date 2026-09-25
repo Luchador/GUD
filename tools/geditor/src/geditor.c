@@ -5585,6 +5585,11 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         GEditorEditImage(hwnd, (DWORD)wparam, msg);
         return 0;
 
+    case BROWSER_WM_IMAGE_EXPORT:
+        if (g_Project.name[0] != '\0')
+        { ImageExportShow(hwnd, g_Project.dir, (DWORD)wparam); }
+        return 0;
+
     case FACEPROPERTIES_WM_REVEAL_IMAGE:
         return BrowserRevealImage(g_Browser, (DWORD)wparam);
 
