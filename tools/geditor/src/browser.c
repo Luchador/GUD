@@ -1762,26 +1762,66 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             }
             else
             {
+                RECT body = BrowserContentRect(state, BROWSER_SECTION_IMAGES);
                 point = screen; ScreenToClient(hwnd, &point);
+                /* Empty-space actions belong only to the image content,
+                   not section headers, other panels, or the scrollbar. */
+                body.right -= BROWSER_SCROLLBAR_W + 2;
+                if (!state->sections[BROWSER_SECTION_IMAGES].expanded
+                    || !PtInRect(&body, point)) { return 0; }
                 index = BrowserHitImage(state, point);
+                if (index >= 0)
+                {
+                    /* Right-click gaps around a thumbnail as empty space.
+                       Its image and label still open the image's own menu. */
+                    const unsigned char *pixels;
+                    const TexThumb *thumb = BrowserImageAt(state, index, &pixels);
+                    const RECT *grid = &state->sections[BROWSER_SECTION_IMAGES].bodyrc;
+                    int columns = BrowserImageColumns(grid), width = BrowserImageGridWidth(grid);
+                    int column = index % columns;
+                    int left = grid->left + BROWSER_IMAGE_MARGIN + column * width / columns;
+                    int right = grid->left + BROWSER_IMAGE_MARGIN + (column + 1) * width / columns;
+                    int top = grid->top + BROWSER_IMAGE_MARGIN
+                        + (index / columns) * BROWSER_IMAGE_CELL_H - state->scroll[BROWSER_SECTION_IMAGES];
+                    int imagewidth = thumb->w * BROWSER_IMAGE_DISPLAY_SCALE;
+                    int imageheight = thumb->h * BROWSER_IMAGE_DISPLAY_SCALE;
+                    RECT image = {left + (right - left - imagewidth) / 2,
+                                  top + (BROWSER_IMAGE_PREVIEW_SIZE - imageheight) / 2, 0, 0};
+                    RECT label = {left, top + BROWSER_IMAGE_PREVIEW_SIZE + 4,
+                                  right, top + BROWSER_IMAGE_PREVIEW_SIZE + 4 + BROWSER_IMAGE_LABEL_H};
+                    image.right = image.left + imagewidth;
+                    image.bottom = image.top + imageheight;
+                    if (!PtInRect(&image, point) && !PtInRect(&label, point)) { index = -1; }
+                }
             }
-            /* The permanent No Texture item and empty grid cells have no actions. */
-            if (index <= 0 || index > state->imagecount) { return 0; }
-            textureid = (DWORD)strtoul(state->images[index - 1].label, NULL, 16);
+            /* No Texture has no image actions; blank space offers import. */
+            if (index == 0 || index > state->imagecount) { return 0; }
+            textureid = index > 0 ? (DWORD)strtoul(state->images[index - 1].label, NULL, 16) : BG_TEX_NONE;
             BrowserHideImageTooltip(hwnd, state);
             BrowserEndAssetDrag(hwnd, state);
-            state->selectedimage = index;
+            if (index > 0) { state->selectedimage = index; }
             SetFocus(hwnd); InvalidateRect(hwnd, NULL, FALSE);
             menu = CreatePopupMenu();
             if (menu == NULL) { return 0; }
-            AppendMenu(menu, MF_STRING, 1, "Delete image");
-            AppendMenu(menu, MF_STRING, 2, "Replace image");
-            AppendMenu(menu, MF_STRING, 3, "Reimport");
-            AppendMenu(menu, MF_STRING, 4, "Export image");
+            if (index < 0)
+            {
+                AppendMenu(menu, MF_STRING, 5, "Import image");
+            }
+            else
+            {
+                AppendMenu(menu, MF_STRING, 1, "Delete image");
+                AppendMenu(menu, MF_STRING, 2, "Replace image");
+                AppendMenu(menu, MF_STRING, 3, "Reimport");
+                AppendMenu(menu, MF_STRING, 4, "Export image");
+            }
             command = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON,
                                      screen.x, screen.y, 0, hwnd, NULL);
             DestroyMenu(menu);
-            if (command >= 1 && command <= 4)
+            if (command == 5)
+            {
+                SendMessage(GetParent(hwnd), BROWSER_WM_IMAGE_IMPORT, 0, 0);
+            }
+            else if (command >= 1 && command <= 4)
             {
                 SendMessage(GetParent(hwnd), command == 1 ? BROWSER_WM_IMAGE_DELETE
                     : command == 2 ? BROWSER_WM_IMAGE_REPLACE

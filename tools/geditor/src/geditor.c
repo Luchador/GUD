@@ -5590,6 +5590,10 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         { ImageExportShow(hwnd, g_Project.dir, (DWORD)wparam); }
         return 0;
 
+    case BROWSER_WM_IMAGE_IMPORT:
+        SendMessage(hwnd, WM_COMMAND, ID_FILE_IMPORT_IMAGE, 0);
+        return 0;
+
     case FACEPROPERTIES_WM_REVEAL_IMAGE:
         return BrowserRevealImage(g_Browser, (DWORD)wparam);
 
