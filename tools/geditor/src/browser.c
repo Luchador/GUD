@@ -355,6 +355,20 @@ static void BrowserClampScroll(BrowserState *state, int section)
     }
 }
 
+static void BrowserScrollTo(HWND hwnd, BrowserState *state, int section, int position)
+{
+    int previous = state->scroll[section];
+    state->scroll[section] = position;
+    BrowserClampScroll(state, section);
+    if (state->scroll[section] != previous)
+    {
+        /* Tabs and the other accordion sections have not changed. The
+         * content rectangle includes this section's scrollbar as well. */
+        RECT content = BrowserContentRect(state, section);
+        InvalidateRect(hwnd, &content, FALSE);
+    }
+}
+
 static void BrowserSelectModelTab(HWND hwnd, BrowserState *state, int tab)
 {
     if (tab == state->modeltab) { return; }
@@ -930,14 +944,16 @@ static void BrowserPaint(HWND hwnd, HDC hdc)
         BrowserSection *sec = &state->sections[i];
         RECT text = sec->headerrc;
 
-        FillRect(hdc, &sec->headerrc, GetSysColorBrush(COLOR_BTNFACE));
-        BrowserPaintArrow(hdc, &sec->headerrc, sec->expanded);
+        if (RectVisible(hdc, &sec->headerrc))
+        {
+            FillRect(hdc, &sec->headerrc, GetSysColorBrush(COLOR_BTNFACE));
+            BrowserPaintArrow(hdc, &sec->headerrc, sec->expanded);
+            text.left += 26;
+            SetTextColor(hdc, GetSysColor(COLOR_BTNTEXT));
+            DrawText(hdc, sec->name, -1, &text, DT_SINGLELINE | DT_VCENTER | DT_LEFT);
+        }
 
-        text.left += 26;
-        SetTextColor(hdc, GetSysColor(COLOR_BTNTEXT));
-        DrawText(hdc, sec->name, -1, &text, DT_SINGLELINE | DT_VCENTER | DT_LEFT);
-
-        if (sec->expanded && sec->bodyrc.bottom > sec->bodyrc.top)
+        if (sec->expanded && sec->bodyrc.bottom > sec->bodyrc.top && RectVisible(hdc, &sec->bodyrc))
         {
             RECT body = BrowserContentRect(state, i);
 
@@ -988,6 +1004,39 @@ static void BrowserPaint(HWND hwnd, HDC hdc)
     }
 
     SelectObject(hdc, oldfont);
+}
+
+static void BrowserPaintBuffered(HWND hwnd, HDC hdc, const RECT *dirty)
+{
+    int width = dirty->right - dirty->left, height = dirty->bottom - dirty->top;
+    HDC buffer;
+    HBITMAP bitmap;
+    BOOL copied = FALSE;
+    if (width <= 0 || height <= 0) { return; }
+    buffer = CreateCompatibleDC(hdc);
+    bitmap = buffer ? CreateCompatibleBitmap(hdc, width, height) : NULL;
+    if (bitmap)
+    {
+        HGDIOBJ previous = SelectObject(buffer, bitmap);
+        if (previous && previous != HGDI_ERROR)
+        {
+            /* Paint in client coordinates into a buffer covering only the
+             * dirty rectangle, then present the finished image in one copy.
+             * The paint DC retains Windows' actual update-region clipping. */
+            if (SetWindowOrgEx(buffer, dirty->left, dirty->top, NULL))
+            {
+                IntersectClipRect(buffer, dirty->left, dirty->top, dirty->right, dirty->bottom);
+                BrowserPaint(hwnd, buffer);
+                copied = BitBlt(hdc, dirty->left, dirty->top, width, height,
+                    buffer, dirty->left, dirty->top, SRCCOPY);
+            }
+            SelectObject(buffer, previous);
+        }
+        DeleteObject(bitmap);
+    }
+    if (buffer) { DeleteDC(buffer); }
+    /* Keep the browser usable if GDI cannot allocate the temporary buffer. */
+    if (!copied) { BrowserPaint(hwnd, hdc); }
 }
 
 static int BrowserHitImage(const BrowserState *state, POINT point)
@@ -1509,9 +1558,7 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                 {
                     int page = body.bottom - body.top;
 
-                    state->scroll[i] += (y < thumb.top) ? -page : page;
-                    BrowserClampScroll(state, i);
-                    InvalidateRect(hwnd, NULL, FALSE);
+                    BrowserScrollTo(hwnd, state, i, state->scroll[i] + ((y < thumb.top) ? -page : page));
                     return 0;
                 }
             }
@@ -1611,9 +1658,7 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
                 /* thumb pixels -> content pixels, same ratio the
                    painter uses in the other direction */
-                state->scroll[i] = state->dragstartscroll + dy * maxscroll / range;
-                BrowserClampScroll(state, i);
-                InvalidateRect(hwnd, NULL, FALSE);
+                BrowserScrollTo(hwnd, state, i, state->dragstartscroll + dy * maxscroll / range);
             }
         }
         return 0;
@@ -1757,7 +1802,6 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             POINT p;
             int i;
 
-            state->hoverobject = -1;
             /* Wheel coordinates are screen coordinates. */
             p.x = GET_X_LPARAM(lparam);
             p.y = GET_Y_LPARAM(lparam);
@@ -1765,6 +1809,11 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
             GetClientRect(hwnd, &client);
             BrowserLayoutSections(state, &client);
+            if (state->hoverobject >= 0)
+            {
+                state->hoverobject = -1;
+                InvalidateRect(hwnd, &state->sections[BROWSER_SECTION_OBJECTS].bodyrc, FALSE);
+            }
 
             for (i = 0; i < BROWSER_SECTION_COUNT; i++)
             {
@@ -1776,9 +1825,7 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                     int step = i == BROWSER_SECTION_IMAGES
                         ? BROWSER_IMAGE_CELL_H : 3 * BROWSER_ROW_H;
 
-                    state->scroll[i] -= notches * step;
-                    BrowserClampScroll(state, i);
-                    InvalidateRect(hwnd, NULL, FALSE);
+                    BrowserScrollTo(hwnd, state, i, state->scroll[i] - notches * step);
                     break;
                 }
             }
@@ -1842,7 +1889,7 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
         if (dragging) { ImageList_DragShowNolock(FALSE); }
         hdc = BeginPaint(hwnd, &ps);
-        BrowserPaint(hwnd, hdc);
+        BrowserPaintBuffered(hwnd, hdc, &ps.rcPaint);
         EndPaint(hwnd, &ps);
         if (dragging) { ImageList_DragShowNolock(TRUE); }
         return 0;
