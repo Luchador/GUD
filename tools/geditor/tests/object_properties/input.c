@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "setupload.h"
+#include "bgload.h"
 #include <src/propconstants.h>
 
 typedef uintptr_t HWND, ULONG_PTR, WPARAM;
@@ -22,7 +23,9 @@ enum { WM_KEYDOWN = 1, EM_EMPTYUNDOBUFFER, EM_CANUNDO, WM_UNDO,
 #include "input-types.inc"
 static ObjectPropertiesState state;
 static char text[64], status[256];
-static char fadeText[2][64];
+static char fadeText[2][64], glassText[3][64];
+static BOOL glassPortal;
+static int glassType;
 static BOOL fadeChecked, fadeEnabled[OBJECT_CONTROL_COUNT];
 static HWND focus;
 static int commits, textundos;
@@ -35,10 +38,12 @@ static HWND GetParent(HWND hwnd) { return 1; }
 static short GetKeyState(int key) { return control ? (short)0x8000 : 0; }
 static int FadeField(HWND hwnd)
 { return hwnd==state.controls[OBJECT_FADE_START] ? 0 : hwnd==state.controls[OBJECT_FADE_END] ? 1 : -1; }
+static int GlassField(HWND hwnd)
+{ return hwnd==state.controls[OBJECT_GLASS_START] ? 0 : hwnd==state.controls[OBJECT_GLASS_END] ? 1 : hwnd==state.controls[OBJECT_GLASS_MIN] ? 2 : -1; }
 static void GetWindowText(HWND hwnd, char *out, size_t size)
-{ int f=FadeField(hwnd); snprintf(out, size, "%s", f>=0 ? fadeText[f] : text); }
+{ int f=FadeField(hwnd), g=GlassField(hwnd); snprintf(out, size, "%s", g>=0 ? glassText[g] : f>=0 ? fadeText[f] : text); }
 static void SetWindowText(HWND hwnd, const char *value)
-{ int f=FadeField(hwnd); if(f>=0) { snprintf(fadeText[f],64,"%s",value); } else { snprintf(text,sizeof(text),"%s",value); } }
+{ int f=FadeField(hwnd),g=GlassField(hwnd); if(g>=0) { snprintf(glassText[g],64,"%s",value); } else if(f>=0) { snprintf(fadeText[f],64,"%s",value); } else { snprintf(text,sizeof(text),"%s",value); } }
 static void EnableWindow(HWND hwnd, BOOL enabled)
 { for(int i=0;i<OBJECT_CONTROL_COUNT;i++) if(hwnd==state.controls[i]) { fadeEnabled[i]=enabled; } }
 static void ObjectPropertiesStatus(HWND hwnd, ObjectPropertiesState *s, const char *value)
@@ -48,6 +53,10 @@ static LRESULT SendMessage(HWND hwnd, unsigned int msg, WPARAM wparam, LPARAM lp
 
 static LRESULT SendMessage(HWND hwnd, unsigned int msg, WPARAM wparam, LPARAM lparam)
 {
+    if(hwnd==state.controls[OBJECT_GLASS_TYPE])
+    { if(msg==CB_SETCURSEL) glassType=(int)wparam; else assert(msg==CB_GETCURSEL); return glassType; }
+    if(hwnd==state.controls[OBJECT_GLASS_AUTO_PORTAL])
+    { if(msg==BM_SETCHECK) glassPortal=wparam==BST_CHECKED; else assert(msg==BM_GETCHECK); return glassPortal; }
     if(msg==BM_GETCHECK) { return fadeChecked ? BST_CHECKED : BST_UNCHECKED; }
     if(msg==BM_SETCHECK) { fadeChecked=wparam==BST_CHECKED; return 0; }
     if (hwnd == state.controls[OBJECT_AIM_PAD] && msg >= CB_RESETCONTENT && msg <= CB_GETCURSEL)
@@ -82,8 +91,15 @@ static LRESULT SendMessage(HWND hwnd, unsigned int msg, WPARAM wparam, LPARAM lp
     for (int field = 0; field < OBJECT_AIM_FIELD_COUNT; field++) { ObjectPropertiesApplyAim(0, &state, field); }
     ObjectPropertiesApplyAimPad(0, &state);
     ObjectPropertiesApplyFade(0, &state);
+    for(int f=0;f<3;f++) ObjectPropertiesApplyGlass(0,&state,f);
     if (reject) { return FALSE; }
-    if (edit->property == SETUP_OBJECT_FADE_DISTANCES)
+    if (edit->property >= SETUP_OBJECT_GLASS_TINT_DISTANCE && edit->property <= SETUP_OBJECT_GLASS_MINIMUM_OPACITY)
+    {
+        if(edit->property==SETUP_OBJECT_GLASS_TINT_DISTANCE) state.properties.glass.tintdistance=edit->value;
+        else if(edit->property==SETUP_OBJECT_GLASS_OPAQUE_DISTANCE) state.properties.glass.opaquedistance=edit->value;
+        else state.properties.glass.minimumopacity=edit->value;
+    }
+    else if (edit->property == SETUP_OBJECT_FADE_DISTANCES)
     {
         state.properties.customfade=edit->value2>0;
         state.properties.fadestart=round(edit->value*100)/100;
@@ -148,6 +164,33 @@ static void Type(const char *value)
 { snprintf(text, sizeof(text), "%s", value); state.edited = TRUE; canundo = TRUE; }
 static BOOL Key(WPARAM key)
 { MSG msg = {WM_KEYDOWN, key}; return ObjectPropertiesHandleMessage(0, &msg); }
+
+static void CheckGlass(void)
+{
+    state.properties.object.type=PROPDEF_GLASS;
+    assert(ObjectPropertiesControlVisible(&state,OBJECT_GLASS_TYPE));
+    assert(!ObjectPropertiesControlVisible(&state,OBJECT_GLASS_MIN));
+    state.properties.object.type=PROPDEF_TINTED_GLASS;
+    assert(ObjectPropertiesControlVisible(&state,OBJECT_GLASS_MIN));
+    state.properties.glass.tintdistance=2; state.properties.glass.opaquedistance=6;
+    state.properties.glass.minimumopacity=25; state.properties.glass.autoportal=TRUE;
+    ObjectPropertiesResetGlass(&state); assert(glassType==1 && glassPortal);
+    const int ids[]={OBJECT_GLASS_START,OBJECT_GLASS_END,OBJECT_GLASS_MIN};
+    for(int f=0;f<3;f++)
+    {
+        focus=state.controls[ids[f]]; state.glassedited[f]=TRUE; int before=commits;
+        strcpy(glassText[f],"  "); assert(Key(VK_RETURN) && commits==before && state.glassedited[f]);
+        strcpy(glassText[f],"nan"); assert(Key(VK_RETURN) && commits==before);
+        strcpy(glassText[f],"-1"); assert(Key(VK_RETURN) && commits==before);
+        strcpy(glassText[f],f==2 ? "101" : "21474836.48"); assert(Key(VK_RETURN) && commits==before);
+        strcpy(glassText[f],f==2 ? "50" : "5");
+        assert(Key(VK_RETURN) && commits==before+1 && !state.glassedited[f]);
+        strcpy(glassText[f],"99"); state.glassedited[f]=TRUE;
+        assert(Key(VK_ESCAPE) && commits==before+1 && !state.glassedited[f]);
+        assert(atof(glassText[f])==(f==2 ? 50 : 5));
+    }
+    puts("PASS: glass input visibility, percentages/distances, empty/invalid values, Enter, Escape and reentrant commits.");
+}
 
 static void CheckFade(void)
 {
@@ -528,6 +571,7 @@ int main(void)
     CheckCctv();
     CheckDrone();
     CheckArmor();
+    CheckGlass();
     CheckFade();
     return 0;
 }

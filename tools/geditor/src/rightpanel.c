@@ -1434,3 +1434,9 @@ void RightPanelSetObjectFlags(HWND panel, const SetupFile *setup, const DWORD *i
     RightPanelState *state = RightPanelGetState(panel);
     if (state) { ObjectFlagsSetSelection(state->objectflags, setup, ids, count); }
 }
+
+void RightPanelSetGlassPortals(HWND panel, const BgPortalFile *portals, float levelscale)
+{
+    RightPanelState *state = RightPanelGetState(panel);
+    if (state) ObjectPropertiesSetGlassPortals(state->objectproperties, portals, levelscale);
+}

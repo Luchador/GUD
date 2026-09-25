@@ -26,6 +26,7 @@ enum BgRenderFlag
     BG_RENDER_CULL_BACK = 8192,
     BG_RENDER_CULL_FRONT = 16384,
     BG_RENDER_CULL_EXPLICIT = 32768, /* Resolved preview sides, including two-sided. */
+    BG_RENDER_TINTED_GLASS = 0x10000000u, /* Editor-only dynamic primitive alpha. */
     BG_RENDER_NO_FOG = 65536, /* Vertex alpha needs the shade alpha channel. */
     /* Model preview metadata: retain each unwritten native bit so a flipped
        door can resolve the caller's FRONT default before reversing winding. */

@@ -33,6 +33,8 @@ def main():
         'ViewportTextureKey', 'ViewportCoplanarPickTolerance', 'ViewportRayTriangleDistance',
         'ViewportRayBatchTriangleGeometry', 'ViewportRayBatchTriangleDistance',
         'ViewportRaySelectableTriangleDistance', 'ViewportFindSceneTriangle'))
+    # These fixtures contain no setup glass; the GL glass suite covers its alpha.
+    logic = 'static int ViewportGlassAlpha(const ViewportState *s, const SceneBatch *b) { return 0; }\n' + logic
     with tempfile.TemporaryDirectory(prefix='geditor-bg-preview-order-') as temp:
         work = Path(temp)
         (work / 'types.inc').write_text(types)

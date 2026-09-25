@@ -57,6 +57,8 @@ def main():
                  'ViewportFindContextEdge', 'ViewportShowGeometryContextMenu',
                  'ViewportBeginFly', 'ViewportEndFly', 'ViewportFlyLook', 'ViewportFlyFrame',
                  'ViewportBeginRightGesture', 'ViewportEndRightGesture')
+        # No setup glass in this BG fixture.
+        logic = 'static int ViewportGlassAlpha(const ViewportState *s, const SceneBatch *b) { return 0; }\n' + logic
         (work / 'input.inc').write_text(logic + ''.join(helpers.function(viewport, name) for name in names))
         subprocess.run(command + [str(here / 'input.c'), '-Wl,--gc-sections', '-lm',
                                   '-o', str(work / 'input')], check=True)

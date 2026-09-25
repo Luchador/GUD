@@ -810,6 +810,9 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
     if (!RomLoad(basepath, &rom, &basewhy))
     { *reasonout = basewhy; goto fail; }
 
+    out->glass = calloc(setup->objectcount ? setup->objectcount : 1, sizeof(*out->glass));
+    if (!out->glass) { *reasonout = "Out of memory previewing glass."; goto fail; }
+    out->glasscount = setup->objectcount;
     for (i = 0; i < setup->objectcount; i++)
     {
         const SetupObject *object = &setup->objects[i];
@@ -980,6 +983,21 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
             object->type == PROPDEF_MONITOR ? 1 : object->type == PROPDEF_MULTI_MONITOR ? 4 : 0);
         if (builder.tricount > firsttriangle)
         { ObjectShadeModel(&builder,firsttriangle,object->modelid,&placements[i].shade); }
+        if (object->type == PROPDEF_TINTED_GLASS)
+        {
+            SetupObjectProperties properties;
+            if (!SetupFileGetObjectProperties(setup, i, &properties, reasonout)) goto fail;
+            GlassPreview *glass = &out->glass[i];
+            glass->active = TRUE;
+            for (int a = 0; a < 3; a++)
+                glass->position[a] = basis.pos[a] - basis.side[a]*center[0]*scale[0]
+                    - basis.up[a]*center[1]*scale[1] - basis.look[a]*center[2]*scale[2];
+            glass->tintdistance = (float)(properties.glass.tintdistance * 100.0);
+            glass->opaquedistance = (float)(properties.glass.opaquedistance * 100.0);
+            glass->minimumopacity = (float)(properties.glass.minimumopacity / 100.0);
+            for (DWORD tri = firsttriangle; tri < builder.tricount; tri++)
+                builder.renderflags[tri] |= BG_RENDER_TINTED_GLASS;
+        }
         /* Dynamic screens are emissive; tint the cabinet before adding them. */
         if (!ObjectPlaceMonitorScreens(&builder, &out->monitors, setup, i, model,
             &placements[i], &rom, reasonout)) { goto fail; }
@@ -1126,6 +1144,7 @@ fail:
 void ObjectGeometryFree(SetupObjectGeometry *geometry)
 {
     MonitorGeometryFree(&geometry->monitors);
+    free(geometry->glass);
     free(geometry->occupiedboundpads);
     free(geometry->occupiedpads);
     free(geometry->tritags);

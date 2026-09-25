@@ -11,6 +11,7 @@
 #include "stanload.h"
 #include "texload.h"
 #include "monitorload.h"
+#include "glasspreview.h"
 
 /* Knife preview is editor-only; point picking samples the visible BG surface. */
 /* Positive radius keeps knife mode active even while its fields are invalid. */
@@ -187,6 +188,7 @@ void ViewportFlyFrame(HWND viewport);
  * selected and hidden BG faces are retained when framecamera is FALSE. Object
  * indices parallel the triangle suffix beginning at objectfirsttriangle.
  */
+BOOL ViewportSetGlass(HWND hwnd, const GlassPreview *glass, DWORD count);
 BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
                       const unsigned short *tritags,
                       const BgRenderFlags *renderflags,

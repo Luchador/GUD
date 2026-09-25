@@ -1489,6 +1489,7 @@ void setupLoadFiles(enum LEVELID stageId)
 
                         if (setupShouldLoadObject((ObjectRecord *) glass, exclusionFlags))
                         {
+                            glass->portalnum = -1;
                             if ((glass->flags & PROPFLAG_GLASS_HASPORTAL) && (glass->pad >= 10000))
                             {
                                 struct coord3d lineStart;
@@ -1504,9 +1505,9 @@ void setupLoadFiles(enum LEVELID stageId)
                                 lineStart.z -= 10.0f * boundPad->up.z;
 
                                 glass->portalnum = bgFindPortalCrossedByLine(&lineStart, &lineEnd);
-                                glass->unk90 = *(s32 *) &glass->unk90 / M_U16_MAX_VALUE_F;
                             }
 
+                            glass->minimumOpacity = *(s32 *) &glass->minimumOpacity / M_U16_MAX_VALUE_F;
                             domakedefaultobj(stageId, (struct ObjectRecord *) glass, commandIndex);
                         }
                         break;

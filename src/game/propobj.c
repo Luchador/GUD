@@ -37,6 +37,7 @@
 #include "fr.h"
 #include "fx.h"
 #include "glass.h"
+#include "glassmath.h"
 #include "gmath.h"
 #include "gun.h"
 #include "hud.h"
@@ -3994,30 +3995,14 @@ s32 sub_GAME_7F044B38(ObjectRecord *obj)
 }
 
 
-s32 glassCalculateOpacity(coord3d *pos, f32 xludist, f32 opadist, f32 arg3)
+s32 glassCalculateOpacity(coord3d *pos, f32 xludist, f32 opadist, f32 minimumOpacity)
 {
     coord3d *campos = &getCurrentPlayerProp()->pos;
-    s32 opacity;
     f32 xdiff = pos->x - campos->x;
     f32 ydiff = pos->y - campos->y;
     f32 zdiff = pos->z - campos->z;
-
     f32 distance = sqrtf(xdiff * xdiff + ydiff * ydiff + zdiff * zdiff);
-
-    if (distance > opadist)
-    {
-        opacity = 255;
-    } 
-    else if (distance < xludist)
-    {
-        opacity = arg3 * 255;
-    }
-    else
-    {
-        opacity = (((distance - xludist) * (1.0f - arg3)) / (opadist - xludist) + arg3) * 255;
-    }
-
-    return opacity;
+    return glassOpacityAtDistance(distance, xludist, opadist, minimumOpacity);
 }
 
 
@@ -4886,7 +4871,7 @@ static void objTickUpdateOpacityAndPortal(PropRecord *prop, s32 playerCount)
         TintedGlassRecord *glass = (TintedGlassRecord *) obj;
 
         glass->calculatedopacity = glassCalculateOpacity(
-            &obj->position, glass->TintDist, glass->CullDist, glass->unk90);
+            &obj->position, glass->TintDist, glass->CullDist, glass->minimumOpacity);
 
         if (glass->portalnum >= 0 && playerCount == 1)
         {

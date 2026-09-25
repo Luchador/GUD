@@ -4805,6 +4805,13 @@ BOOL SetupFileGetObjectProperties(const SetupFile *setup, DWORD index,
         out->fadestart = (distances >> 16) / 100.0;
         out->fadeend = (distances & 0xffffu) / 100.0;
     }
+    if (out->object.type == PROPDEF_TINTED_GLASS)
+    {
+        out->glass.tintdistance = (LONG)SetupRead32(record + 0x80) / 100.0;
+        out->glass.opaquedistance = (LONG)SetupRead32(record + 0x84) / 100.0;
+        out->glass.minimumopacity = (LONG)SetupRead32(record + 0x90) * (100.0 / 65536.0);
+        out->glass.autoportal = (out->object.flags & PROPFLAG_GLASS_HASPORTAL) != 0;
+    }
     if (out->object.type == PROPDEF_ARMOUR)
     { out->armorstrength = (LONG)SetupRead32(record + 0x80) * (100.0 / 65536.0); }
     if (out->object.type == PROPDEF_CCTV)
@@ -4885,6 +4892,57 @@ const char *SetupObjectTypeName(unsigned char type)
     }
 }
 
+/* The two glass records differ by five words. Relocate the entire command
+ * stream, keeping every command index/relative link, then compact immediately
+ * so repeated conversions never accumulate obsolete setup data. */
+static BOOL SetupSetGlassType(SetupFile *setup, DWORD index, unsigned char type, const char **why)
+{
+    SetupFile copy = {0};
+    DWORD start = SetupRead32(setup->data + SETUP_OBJECT_POINTER), end = start, commands = 0;
+    DWORD oldrecord = setup->objects[index].sourceoffset;
+    DWORD oldbytes = SetupObjectWordCount(setup->objects[index].type) * 4;
+    DWORD newbytes = SetupObjectWordCount(type) * 4;
+    BOOL terminated = FALSE;
+    while (end < setup->size && setup->size - end >= 4 && ++commands <= SETUP_OBJECT_MAX)
+    {
+        DWORD bytes = SetupObjectWordCount(setup->data[end + 3]) * 4;
+        if (!bytes || bytes > setup->size - end) break;
+        if (setup->data[end + 3] == SETUP_PROP_END) { end += 4; terminated = TRUE; break; }
+        end += bytes;
+    }
+    if (!start || !terminated || oldrecord < start || end < oldrecord + oldbytes + 4)
+    { *why = "The setup object list is malformed."; return FALSE; }
+    DWORD table = (setup->size + 3u) & ~3u;
+    DWORD size = table + (end - start) - oldbytes + newbytes;
+    if (size > SETUP_FILE_MAX) { *why = "The setup is too large to convert this glass."; return FALSE; }
+    if (!SetupFileClone(setup, &copy, why)) return FALSE;
+    unsigned char *data = calloc(size, 1);
+    if (!data) { *why = "Out of memory converting the glass."; goto fail; }
+    memcpy(data, copy.data, copy.size);
+    memcpy(data + table, copy.data + start, oldrecord - start);
+    DWORD record = table + oldrecord - start;
+    memcpy(data + record, copy.data + oldrecord, 0x80);
+    data[record + 3] = type;
+    if (type == PROPDEF_TINTED_GLASS)
+    {
+        SetupWrite32(data + record + 0x80, 200); /* 2 m to 6 m, stock pane defaults. */
+        SetupWrite32(data + record + 0x84, 600);
+        SetupWrite32(data + record + 0x8c, 0xffffffffu); /* runtime portal cache */
+        SetupWrite32(data + record + 8, SetupRead32(data + record + 8) | PROPFLAG_GLASS_HASPORTAL);
+    }
+    else SetupWrite32(data + record + 8, SetupRead32(data + record + 8) & ~PROPFLAG_GLASS_HASPORTAL);
+    memcpy(data + record + newbytes, copy.data + oldrecord + oldbytes, end - oldrecord - oldbytes);
+    SetupWrite32(data + SETUP_OBJECT_POINTER, table);
+    free(copy.data); copy.data = data; copy.size = size;
+    free(copy.objects); copy.objects = NULL; copy.objectcount = 0;
+    free(copy.characters); copy.characters = NULL; copy.charactercount = 0;
+    if (!SetupParseObjects(&copy, why) || !SetupFileCompact(&copy, why)) goto fail;
+    copy.dirty = TRUE;
+    SetupFileFree(setup); *setup = copy; *why = ""; return TRUE;
+fail:
+    SetupFileFree(&copy); return FALSE;
+}
+
 BOOL SetupFileSetObjectProperty(SetupFile *setup, const SetupObjectPropertyEdit *edit,
                                 BOOL *changedout, const char **reasonout)
 {
@@ -4909,8 +4967,46 @@ BOOL SetupFileSetObjectProperty(SetupFile *setup, const SetupObjectPropertyEdit 
     if (edit->property >= SETUP_OBJECT_DRONE_AIM_PAD && edit->property <= SETUP_OBJECT_DRONE_RANGE
         && record[3] != PROPDEF_AUTOGUN)
     { *reasonout = "Drone gun settings can only be edited on a drone gun."; return FALSE; }
+    if (edit->property >= SETUP_OBJECT_GLASS_TYPE && edit->property <= SETUP_OBJECT_GLASS_AUTO_PORTAL
+        && (record[3] != PROPDEF_TINTED_GLASS
+            && (record[3] != PROPDEF_GLASS || edit->property != SETUP_OBJECT_GLASS_TYPE)))
+    { *reasonout = "These settings require a glass object."; return FALSE; }
     switch (edit->property)
     {
+    case SETUP_OBJECT_GLASS_TYPE:
+        if (edit->value != PROPDEF_GLASS && edit->value != PROPDEF_TINTED_GLASS)
+        { *reasonout = "Choose regular or tinted glass."; return FALSE; }
+        if (record[3] == (unsigned char)edit->value) return TRUE;
+        if (!SetupSetGlassType(setup, edit->objectindex, (unsigned char)edit->value, reasonout)) return FALSE;
+        *changedout = TRUE; return TRUE;
+    case SETUP_OBJECT_GLASS_TINT_DISTANCE:
+    case SETUP_OBJECT_GLASS_OPAQUE_DISTANCE:
+        if (edit->value < 0 || edit->value > 21474836.47)
+        { *reasonout = "Enter a glass distance from 0 to 21474836.47 metres."; return FALSE; }
+        encoded = (DWORD)floor(edit->value * 100.0 + 0.5);
+        offset = edit->property == SETUP_OBJECT_GLASS_TINT_DISTANCE ? 0x80 : 0x84;
+        if (offset == 0x80 ? (LONG)encoded >= (LONG)SetupRead32(record + 0x84)
+            : (LONG)encoded <= (LONG)SetupRead32(record + 0x80))
+        { *reasonout = "Fully opaque distance must be at least 0.01 m beyond tint start."; return FALSE; }
+        if (encoded == SetupRead32(record + offset)) return TRUE;
+        SetupWrite32(setup->data + edit->sourceoffset + offset, encoded);
+        break;
+    case SETUP_OBJECT_GLASS_MINIMUM_OPACITY:
+        if (edit->value < 0 || edit->value > 100)
+        { *reasonout = "Enter minimum tint opacity from 0 to 100 percent."; return FALSE; }
+        encoded = (DWORD)floor(edit->value * (65536.0 / 100.0) + 0.5);
+        if (encoded == SetupRead32(record + 0x90)) return TRUE;
+        SetupWrite32(setup->data + edit->sourceoffset + 0x90, encoded);
+        break;
+    case SETUP_OBJECT_GLASS_AUTO_PORTAL:
+        if (edit->value != 0 && edit->value != 1) return FALSE;
+        encoded = edit->value ? PROPFLAG_GLASS_HASPORTAL : 0;
+        previous = SetupRead32(record + 8);
+        if ((previous & PROPFLAG_GLASS_HASPORTAL) == encoded && SetupRead32(record + 0x8c) == 0xffffffffu) return TRUE;
+        SetupWrite32(setup->data + edit->sourceoffset + 8, (previous & ~PROPFLAG_GLASS_HASPORTAL) | encoded);
+        SetupWrite32(setup->data + edit->sourceoffset + 0x8c, 0xffffffffu);
+        setup->objects[edit->objectindex].flags = (previous & ~PROPFLAG_GLASS_HASPORTAL) | encoded;
+        break;
     case SETUP_OBJECT_FADE_DISTANCES:
     {
         DWORD start, end;

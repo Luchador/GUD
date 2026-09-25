@@ -69,7 +69,10 @@ typedef enum SetupObjectProperty {
     SETUP_OBJECT_CCTV_SWEEP_MAX, SETUP_OBJECT_CCTV_SPEED, SETUP_OBJECT_CCTV_RANGE,
     SETUP_OBJECT_DRONE_AIM_PAD, SETUP_OBJECT_DRONE_YAW_MIN,
     SETUP_OBJECT_DRONE_YAW_MAX, SETUP_OBJECT_DRONE_SPEED, SETUP_OBJECT_DRONE_RANGE,
-    SETUP_OBJECT_ARMOR_STRENGTH, SETUP_OBJECT_FADE_DISTANCES
+    SETUP_OBJECT_ARMOR_STRENGTH, SETUP_OBJECT_FADE_DISTANCES,
+    SETUP_OBJECT_GLASS_TYPE, SETUP_OBJECT_GLASS_TINT_DISTANCE,
+    SETUP_OBJECT_GLASS_OPAQUE_DISTANCE, SETUP_OBJECT_GLASS_MINIMUM_OPACITY,
+    SETUP_OBJECT_GLASS_AUTO_PORTAL
 } SetupObjectProperty;
 /* Movement uses native fractions/degrees/animation units per 60 Hz tick.
  * The inspector converts these to percentages/degrees and seconds. */
@@ -101,6 +104,7 @@ typedef struct SetupObjectProperties {
     double fadestart, fadeend; /* Camera distances in metres; native values use centimetres. */
     double armorstrength; /* Percentage, decoded from BodyArmourRecord.initialamount. */
     DWORD keyflags, ammotype; /* keyflags: supplied by a key, required by a door */
+    struct { double tintdistance, opaquedistance, minimumopacity; BOOL autoportal; } glass; /* metres, metres, percent */
     SetupDoorProperties door;
     SetupCctvProperties cctv;
     SetupDroneProperties drone;

@@ -63,6 +63,8 @@ def main():
     # Compile actual dispatch cases, retaining their early returns and fallthrough.
     dispatch = wnd[wnd.index('    case WM_LBUTTONDBLCLK:'):wnd.index('    case WM_LBUTTONUP:')]
     dispatch += wnd[wnd.index('    case WM_KEYDOWN:'):wnd.index('    case WM_MOUSEWHEEL:')]
+    # These fixtures contain no setup glass; the GL glass suite covers its alpha.
+    logic = 'static int ViewportGlassAlpha(const ViewportState *s, const SceneBatch *b) { return 0; }\n' + logic
     with tempfile.TemporaryDirectory(prefix='geditor-eyedropper-') as temp:
         work = Path(temp)
         (work / 'types.inc').write_text(types)

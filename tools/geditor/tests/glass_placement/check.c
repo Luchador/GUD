@@ -7,6 +7,7 @@
 #include "setup_compare.h"
 #include "bghistory.h"
 #include "modelload.h"
+#include "glasspreview.h"
 #include <src/propconstants.h>
 
 void BgDocumentFree(BgDocument *d) { memset(d, 0, sizeof(*d)); }
@@ -112,6 +113,114 @@ static void Place(const char *dir, const SetupFile *source, int model, float sca
     SetupFileFree(&setup); SetupFileFree(&before); SetupFileFree(&placed); EditHistoryFree(&history);
 }
 
+static BOOL GlassEdit(SetupFile *setup, DWORD index, SetupObjectProperty property, double value)
+{
+    SetupObjectPropertyEdit edit = {0}; BOOL changed; const char *why;
+    edit.objectindex=index; edit.sourceoffset=setup->objects[index].sourceoffset;
+    edit.type=setup->objects[index].type; edit.property=property; edit.value=value;
+    return SetupFileSetObjectProperty(setup,&edit,&changed,&why);
+}
+static void Tinted(const char *dir, const SetupFile *source, int model)
+{
+    SetupFile setup={0}, before={0}, after={0}; const char *why;
+    double pos[3]={300,-20,-400}, facing[3]={0,0,-1}; DWORD first,second,target;
+    EditHistory history={0}; EditHistoryTransaction tx; EditHistoryAsset asset;
+    BgDocument bg={0}; StanFile stan={0};
+    assert(SetupFileClone(source,&setup,&why));
+    assert(SetupFileAddGlass(&setup,model,1,pos,facing,&first,&why));
+    assert(SetupFileAddGlass(&setup,model,1,pos,facing,&second,&why));
+    assert(SetupFileCompact(&setup,&why));
+    assert(SetupFileClone(&setup,&before,&why));
+    EditHistoryReset(&history,&bg,&setup,&stan);
+    assert(EditHistoryBeginSetupEdit(&history,&setup,"Tint glass",&tx,&why));
+    assert(GlassEdit(&setup,first,SETUP_OBJECT_GLASS_TYPE,PROPDEF_TINTED_GLASS));
+    assert(setup.size<=before.size+64 && setup.objects[first].type==PROPDEF_TINTED_GLASS);
+    DWORD tintedsize=setup.size;
+    assert(setup.objects[second].type==PROPDEF_GLASS);
+    assert(!memcmp(setup.data+setup.objects[second].sourceoffset,before.data+before.objects[second].sourceoffset,128));
+    assert(SetupObjectRelativeTarget(&setup,setup.objects[0].sourceoffset,2,&target) && target==1);
+    assert(SetupObjectRelativeTarget(&setup,setup.objects[1].sourceoffset,-2,&target) && target==0);
+    SetupObjectProperties properties;
+    assert(SetupFileGetObjectProperties(&setup,first,&properties,&why));
+    assert(properties.glass.tintdistance==2 && properties.glass.opaquedistance==6
+        && properties.glass.minimumopacity==0 && properties.glass.autoportal);
+    assert(GlassEdit(&setup,first,SETUP_OBJECT_GLASS_TINT_DISTANCE,3.25));
+    assert(GlassEdit(&setup,first,SETUP_OBJECT_GLASS_OPAQUE_DISTANCE,10.5));
+    assert(GlassEdit(&setup,first,SETUP_OBJECT_GLASS_MINIMUM_OPACITY,25));
+    assert(GlassEdit(&setup,first,SETUP_OBJECT_GLASS_AUTO_PORTAL,0));
+    const unsigned char *record=setup.data+setup.objects[first].sourceoffset;
+    assert(Read(record+0x80)==325 && Read(record+0x84)==1050 && Read(record+0x90)==16384);
+    assert(Read(record+0x8c)==0xffffffffu && !(Read(record+8)&PROPFLAG_GLASS_HASPORTAL));
+    assert(EditHistoryCommitEdit(&history,&bg,&setup,&stan,&tx,&why));
+    assert(SetupFileClone(&setup,&after,&why)); RoundTrip(dir,&setup);
+    assert(EditHistoryUndo(&history,&bg,&setup,&stan,&asset,&why)); Same(&setup,&before);
+    assert(EditHistoryRedo(&history,&bg,&setup,&stan,&asset,&why)); Same(&setup,&after);
+    assert(!GlassEdit(&setup,first,SETUP_OBJECT_GLASS_TINT_DISTANCE,10.5));
+    assert(!GlassEdit(&setup,first,SETUP_OBJECT_GLASS_OPAQUE_DISTANCE,3.25));
+    assert(!GlassEdit(&setup,first,SETUP_OBJECT_GLASS_MINIMUM_OPACITY,100.01));
+    assert(!GlassEdit(&setup,first,SETUP_OBJECT_GLASS_MINIMUM_OPACITY,NAN));
+    assert(!GlassEdit(&setup,second,SETUP_OBJECT_GLASS_MINIMUM_OPACITY,20));
+    assert(!GlassEdit(&setup,0,SETUP_OBJECT_GLASS_TYPE,PROPDEF_TINTED_GLASS)); Same(&setup,&after);
+    for(int i=0;i<20;i++)
+    {
+        assert(GlassEdit(&setup,first,SETUP_OBJECT_GLASS_TYPE,PROPDEF_GLASS));
+        assert(setup.objectcount==before.objectcount && setup.charactercount==before.charactercount);
+        for(DWORD n=0;n<setup.objectcount;n++)
+            assert(!memcmp(setup.data+setup.objects[n].sourceoffset,before.data+before.objects[n].sourceoffset,
+                n<2 ? 256 : 128));
+        assert(!memcmp(setup.boundpads,before.boundpads,setup.boundpadcount*sizeof(*setup.boundpads)));
+        assert(SetupObjectRelativeTarget(&setup,setup.objects[0].sourceoffset,2,&target) && target==1);
+        assert(GlassEdit(&setup,first,SETUP_OBJECT_GLASS_TYPE,PROPDEF_TINTED_GLASS));
+        assert(setup.size<=tintedsize);
+    }
+    RoundTrip(dir,&setup);
+    SetupFileFree(&setup); SetupFileFree(&before); SetupFileFree(&after); EditHistoryFree(&history);
+    puts("PASS: regular/tinted conversion, record resizing, links, fixed-point opacity, validation, persistence and undo/redo.");
+}
+static void Preview(void)
+{
+    GlassPreview glass={TRUE,{10,20,30},200,600,.25f};
+    float eye[3]={10,20,30}; assert(GlassPreviewAlpha(&glass,eye)==63);
+    eye[0]+=200; assert(GlassPreviewAlpha(&glass,eye)==63);
+    eye[0]+=200; assert(GlassPreviewAlpha(&glass,eye)==159);
+    eye[0]+=200; assert(GlassPreviewAlpha(&glass,eye)==255);
+    eye[0]=10; eye[1]+=600; assert(GlassPreviewAlpha(&glass,eye)==255);
+    glass.opaquedistance=glass.tintdistance; assert(GlassPreviewAlpha(&glass,eye)==255);
+    glass.active=FALSE; assert(GlassPreviewAlpha(&glass,eye)==0);
+    SetupObject object={0}; SetupBoundPad bound={0}; SetupFile setup={0};
+    BgPortal portals[3]={0}; BgPortalFile file={0};
+    object.type=PROPDEF_TINTED_GLASS; object.pad=10000;
+    setup.objects=&object; setup.objectcount=1; setup.boundpads=&bound; setup.boundpadcount=1;
+    bound.pad.up[2]=1; bound.pad.look[1]=1;
+    file.portals=portals; file.portalcount=3;
+    const float scales[]={.15f,.54f,1,1.2f};
+    for(int s=0;s<4;s++)
+    {
+        float scale=scales[s];
+        /* Last portal is closest to the pane; first is closest to probe start. */
+        for(int p=0;p<3;p++)
+        {
+            portals[p].pointcount=4;
+            for(int v=0;v<4;v++)
+            {
+                portals[p].nativepoints[v].x=(v==1||v==2 ? 50 : -50)*scale;
+                portals[p].nativepoints[v].y=(v>=2 ? 50 : -50)*scale;
+                portals[p].nativepoints[v].z=(-8+p*3)*scale;
+            }
+        }
+        assert(GlassFindPortal(&setup,0,&file,scale)==2);
+        bound.pad.pos[0]=60*scale; assert(GlassFindPortal(&setup,0,&file,scale)==-1);
+        bound.pad.pos[0]=0; bound.pad.pos[2]=20*scale;
+        assert(GlassFindPortal(&setup,0,&file,scale)==-1);
+        bound.pad.pos[2]=0;
+        bound.xmin=bound.xmax=120*scale; /* Center, rather than pad origin, must cross. */
+        assert(GlassFindPortal(&setup,0,&file,scale)==-1);
+        bound.xmin=bound.xmax=0;
+    }
+    object.type=PROPDEF_GLASS; assert(GlassFindPortal(&setup,0,&file,1)==-1);
+    puts("PASS: distance/height opacity ramp, minimum tint, endpoints and nearest intersected portal across level scales.");
+}
+
 int main(int argc, char **argv)
 {
     SetupFile source={0}, setup={0}; const char *why,*name; int model=-1; DWORD selection;
@@ -119,6 +228,7 @@ int main(int argc, char **argv)
     for (int i=0; ModelGetPropDefinition(i,&name,NULL); i++)
     { if (!strcmp(name,SETUP_DEFAULT_GLASS_MODEL)) { model=i; break; } }
     assert(model==104);
+    Tinted(argv[1],&source,model); Preview();
     const float scales[]={.15019713f,.53931433f,1.20648f,1};
     const double facing[][3]={{0,0,-1},{1,.5,1},{-1,0,0},{0,-1,0}};
     for (int mp=0;mp<2;mp++) for (int s=0;s<4;s++) for (int f=0;f<4;f++)

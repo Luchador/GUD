@@ -109,6 +109,7 @@ typedef struct SceneBatch {
     BOOL    cullbackfaces;
     BOOL    object;     /* setup model, independent of BG visibility */
     int monitor;        /* -1 for static geometry */
+    DWORD glassobject;   /* Stable setup ID, only for tinted batches. */
 } SceneBatch;
 
 /* Explicit model culling shares the batch flags with depth and blending.
@@ -298,6 +299,8 @@ typedef struct ViewportState {
     DWORD bghiddentris;          /* count of hidden faces currently in the scene */
     BgFaceRef *scenefacerefs;    /* stable document identity in the same order */
     DWORD *sceneobjectindices;   /* setup object identity in the same order */
+    GlassPreview *glass;
+    DWORD glasscount;
     BgDocumentVertexRef *scenevertexrefs;
     ViewportComponent *components; /* insertion order preserves the vertex anchor */
     int componentcount, componentcapacity;
@@ -732,6 +735,7 @@ static BOOL ViewportInitGL(HWND hwnd, ViewportState *state)
     pfd.dwFlags    = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
     pfd.iPixelType = PFD_TYPE_RGBA;
     pfd.cColorBits = 32;
+    pfd.cAlphaBits = 8; /* Scratch alpha for the N64 glass combiner. */
     pfd.cDepthBits = 24;
     pfd.iLayerType = PFD_MAIN_PLANE;
 
@@ -741,6 +745,8 @@ static BOOL ViewportInitGL(HWND hwnd, ViewportState *state)
         return FALSE;
     }
 
+    if (!DescribePixelFormat(state->hdc, format, sizeof(pfd), &pfd) || pfd.cAlphaBits < 8)
+        return FALSE;
     state->hglrc = wglCreateContext(state->hdc);
     if (state->hglrc == NULL)
     {
@@ -2013,6 +2019,60 @@ BOOL ViewportTransformKnife(HWND hwnd, const double offset[3], const Rotation *r
     return TRUE;
 }
 
+static int ViewportGlassAlpha(const ViewportState *state, const SceneBatch *batch)
+{
+    if (!(batch->renderflags & BG_RENDER_TINTED_GLASS) || batch->glassobject >= state->glasscount) return 0;
+    const float eye[3] = {state->posx, state->posy, state->posz};
+    return GlassPreviewAlpha(&state->glass[batch->glassobject], eye);
+}
+/* The N64 combiner adds primitive alpha AFTER texture * shade alpha and
+ * clamps the sum. Raising vertex alpha before GL_MODULATE loses the tint in
+ * transparent texels. Use the framebuffer's 8-bit alpha as scratch, per tri:
+ * write tint, add texture*shade, then blend RGB by that saturated alpha.
+ * This works on OpenGL 1.1, including the Windows software renderer. Depth
+ * is written only in the final pass; scratch passes never change RGB. */
+static void ViewportDrawGlassTriangle(const ViewportState *state, const SceneBatch *batch, int first, int tint)
+{
+    BOOL textured = state->rendermode != VIEWPORT_RENDER_UNTEXTURED && batch->gltex != 0;
+    glDepthMask(GL_FALSE);
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
+    glDisable(GL_ALPHA_TEST); glDisable(GL_BLEND); glDisable(GL_TEXTURE_2D);
+    glDisableClientState(GL_COLOR_ARRAY);
+    glColor4ub(255, 255, 255, (GLubyte)tint);
+    glDrawArrays(GL_TRIANGLES, first, 3);
+    glEnableClientState(GL_COLOR_ARRAY);
+    if (textured) glEnable(GL_TEXTURE_2D);
+    glEnable(GL_BLEND); glBlendFunc(GL_ONE, GL_ONE);
+    glDrawArrays(GL_TRIANGLES, first, 3);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE);
+    ViewportApplyRenderFlags(batch->renderflags);
+    if (batch->renderflags & BG_RENDER_BLEND) glBlendFunc(GL_DST_ALPHA, GL_ONE_MINUS_DST_ALPHA);
+    if (batch->renderflags & (BG_RENDER_BLEND | BG_RENDER_ALPHA_TEST))
+    {
+        float threshold = (batch->renderflags & BG_RENDER_ALPHA_TEST)
+            ? VIEWPORT_CUTOUT_ALPHA_THRESHOLD : VIEWPORT_BLEND_ALPHA_THRESHOLD;
+        threshold -= tint / 255.0f;
+        if (threshold < 0) glDisable(GL_ALPHA_TEST);
+        else glAlphaFunc(GL_GREATER, threshold);
+    }
+    glDrawArrays(GL_TRIANGLES, first, 3);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+}
+static void ViewportDrawGlass(const ViewportState *state, const SceneBatch *batch, int tint)
+{
+    for (int first = batch->first; first < batch->first + batch->count; first += 3)
+    {
+        if (state->dragduplicating && state->dragmask[first])
+        {
+            glVertexPointer(3, GL_FLOAT, sizeof(*state->dragvertices), state->dragvertices);
+            ViewportDrawGlassTriangle(state, batch, first, tint);
+            glVertexPointer(3, GL_FLOAT, sizeof(*state->scene), &state->scene[0].x);
+        }
+        ViewportDrawGlassTriangle(state, batch, first, tint);
+    }
+    ViewportApplyRenderFlags(batch->renderflags);
+}
+
 static void ViewportPaintGL(ViewportState *state)
 {
     wglMakeCurrent(state->hdc, state->hglrc);
@@ -2116,7 +2176,9 @@ static void ViewportPaintGL(ViewportState *state)
                     glDisable(GL_TEXTURE_2D);
                 }
 
-                ViewportDrawVisibleBatch(state, batch);
+                int tint = ViewportGlassAlpha(state, batch);
+                if (tint) ViewportDrawGlass(state, batch, tint);
+                else ViewportDrawVisibleBatch(state, batch);
                 ViewportDrawExtrusionBatch(state, batch);
             }
             if (!monitorsdrawn) { ViewportDrawMonitors(state); }
@@ -2798,6 +2860,7 @@ static BOOL ViewportRayBatchTriangleDistance(const ViewportState *state, const S
         }
         alpha *= sample / 255.0;
     }
+    alpha = fmin(1.0, alpha + ViewportGlassAlpha(state, batch) / 255.0);
     threshold = (batch->renderflags & BG_RENDER_ALPHA_TEST) ? VIEWPORT_CUTOUT_ALPHA_THRESHOLD
                                                                  : VIEWPORT_BLEND_ALPHA_THRESHOLD;
     return alpha > threshold;
@@ -8398,6 +8461,7 @@ static void ViewportFreeScene(struct ViewportState *state_)
 
     wglMakeCurrent(state->hdc, state->hglrc);
     ViewportFreeMonitors(&state->monitors);
+    free(state->glass); state->glass = NULL; state->glasscount = 0;
     ViewportFreeTextureCache(state->texturecache);
     state->texturecache = NULL;
     free(state->textures);
@@ -9193,12 +9257,15 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
                     textures[texturecount++] = texture->name;
                 }
             }
+            DWORD glassobject = (flags & BG_RENDER_TINTED_GLASS) ? sceneobjectindices[i] : VIEWPORT_OBJECT_NONE;
             if (i == 0 || order[i].tag != order[i - 1].tag
+                || glassobject != batches[batchcount - 1].glassobject
                 || flags != batches[batchcount - 1].renderflags
                 || monitorindex != batches[batchcount - 1].monitor)
             {
                 SceneBatch *batch = &batches[batchcount++];
                 batch->monitor = monitorindex;
+                batch->glassobject = glassobject;
                 batch->gltex = texture->name;
                 batch->textureid = textureid;
                 batch->renderflags = flags;
@@ -10469,4 +10536,15 @@ BOOL ViewportRestoreSelection(HWND hwnd, const void *data, size_t size)
     ViewportUpdateGizmo(state);
     ViewportRedraw(hwnd);
     return TRUE;
+}
+
+BOOL ViewportSetGlass(HWND hwnd, const GlassPreview *glass, DWORD count)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    if (!state || (count && !glass)) return FALSE;
+    GlassPreview *copy = count ? malloc((size_t)count * sizeof(*copy)) : NULL;
+    if (count && !copy) return FALSE;
+    if (count) memcpy(copy, glass, (size_t)count * sizeof(*copy));
+    free(state->glass); state->glass = copy; state->glasscount = count;
+    InvalidateRect(hwnd, NULL, FALSE); return TRUE;
 }

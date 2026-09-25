@@ -3427,7 +3427,7 @@ typedef union
         s32      CullDist;
         s32      calculatedopacity;
         s32      portalnum;
-        f32      unk90;
+        f32      minimumOpacity; /* 0..1 at runtime; signed 16.16 in setup. */
     } TintedGlassRecord;
     #define New_TintedGlassRecord(pad)              \
         {                                           \

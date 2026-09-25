@@ -324,6 +324,7 @@ static void GEditorRefreshSelectionInspector(void)
     DWORD modelcount = ViewportGetSelectedModelCount(g_Viewport);
     DWORD *models = modelcount ? malloc((size_t)modelcount * sizeof(*models)) : NULL;
     if (models && !ViewportGetSelectedModels(g_Viewport, models, modelcount)) { free(models); models = NULL; }
+    RightPanelSetGlassPortals(g_RightPanel, &g_CurrentBgDocument.portals, g_CurrentBgDocument.levelscale);
     RightPanelSetObjectFlags(g_RightPanel, &g_CurrentSetup, models, models ? modelcount : 0);
     free(models);
     RightPanelSetRoomMode(g_RightPanel, ViewportGetTool(g_Viewport) == EDITOR_TOOL_ROOM_SELECT);
@@ -418,7 +419,8 @@ static BOOL GEditorRebuildCurrentViewportWithObjects(
     if (!ViewportSetScene(g_Viewport, mesh.vertices, mesh.tags, mesh.renderflags, mesh.facerefs, mesh.vertexrefs,
                           objects->objectindices,
                           (int)objectfirsttriangle, &objects->monitors,
-                          (int)mesh.facecount, g_Project.dir, FALSE))
+                          (int)mesh.facecount, g_Project.dir, FALSE)
+        || !ViewportSetGlass(g_Viewport, objects->glass, objects->glasscount))
     {
         BgDocumentRenderMeshFree(&mesh);
         *reasonout = "out of memory rebuilding the viewport.";
@@ -4976,13 +4978,19 @@ static BOOL GEditorSetObjectProperty(HWND hwnd, const SetupObjectPropertyEdit *e
     SetupObjectGeometry objects = {0};
     const char *why = "", *restorewhy = "";
     DWORD selected;
-    BOOL changed = FALSE, model;
+    BOOL changed = FALSE, model, rebuild;
     const char *action;
     if (!edit || !ViewportGetSelectedObject(g_Viewport, &selected)
         || selected != edit->objectindex || selected >= g_CurrentSetup.objectcount) { return FALSE; }
     model = edit->property == SETUP_OBJECT_MODEL;
+    rebuild = model || (edit->property >= SETUP_OBJECT_GLASS_TYPE && edit->property <= SETUP_OBJECT_GLASS_AUTO_PORTAL);
     switch (edit->property)
     {
+    case SETUP_OBJECT_GLASS_TYPE: action = "Change Glass Type"; break;
+    case SETUP_OBJECT_GLASS_TINT_DISTANCE: action = "Change Glass Tint Start"; break;
+    case SETUP_OBJECT_GLASS_OPAQUE_DISTANCE: action = "Change Glass Opaque Distance"; break;
+    case SETUP_OBJECT_GLASS_MINIMUM_OPACITY: action = "Change Glass Minimum Opacity"; break;
+    case SETUP_OBJECT_GLASS_AUTO_PORTAL: action = "Change Glass Portal Detection"; break;
     case SETUP_OBJECT_MODEL: action = "Change Object Model"; break;
     case SETUP_OBJECT_HEALTH: action = "Change Object Health"; break;
     case SETUP_OBJECT_ARMOR_STRENGTH: action = "Change Armor Strength"; break;
@@ -5035,7 +5043,7 @@ static BOOL GEditorSetObjectProperty(HWND hwnd, const SetupObjectPropertyEdit *e
             goto rollback;
         }
     }
-    if (model)
+    if (rebuild)
     {
         if (!ObjectLoadSetupGeometry(g_Project.dir, &g_CurrentSetup, &g_CurrentStan,
                 g_CurrentBgDocument.levelscale, &objects, &why)
@@ -5043,7 +5051,7 @@ static BOOL GEditorSetObjectProperty(HWND hwnd, const SetupObjectPropertyEdit *e
     }
     if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
                                &g_CurrentStan, &transaction, &why)) { goto rollback; }
-    if (model)
+    if (rebuild)
     {
         ObjectGeometryFree(&g_CurrentObjects);
         g_CurrentObjects = objects;
@@ -5052,7 +5060,7 @@ static BOOL GEditorSetObjectProperty(HWND hwnd, const SetupObjectPropertyEdit *e
     return TRUE;
 rollback:
     EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
-    if (model)
+    if (rebuild)
     {
         GEditorRebuildCurrentViewport(&restorewhy);
         ViewportSelectSetupModel(g_Viewport, selected);
@@ -5993,7 +6001,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                               objectsLoaded ? objects.objectindices : NULL,
                               (int)objectfirsttriangle, objectsLoaded ? &objects.monitors : NULL,
                               (int)mesh.facecount,
-                              g_Project.dir, TRUE))
+                              g_Project.dir, TRUE)
+            || !ViewportSetGlass(g_Viewport, objectsLoaded ? objects.glass : NULL, objectsLoaded ? objects.glasscount : 0))
         {
             BgDocumentRenderMeshFree(&mesh);
             ObjectGeometryFree(&objects);

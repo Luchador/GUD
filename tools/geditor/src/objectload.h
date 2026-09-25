@@ -8,6 +8,7 @@
 #include "setupload.h"
 #include "stanload.h"
 #include "monitorload.h"
+#include "glasspreview.h"
 
 /* One level's placed prop and character models. The occupied arrays
    parallel SetupFile's pad arrays and tell the overlay not to draw a
@@ -22,6 +23,8 @@ typedef struct SetupObjectGeometry {
     unsigned char *occupiedboundpads;
     DWORD objectcount;
     MonitorGeometry monitors;
+    GlassPreview *glass; /* Indexed by setup object ID. */
+    DWORD glasscount;
 } SetupObjectGeometry;
 
 /* Resolves browser names through the game's model tables. Items, heads and
