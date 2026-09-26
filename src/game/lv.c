@@ -362,7 +362,7 @@ void lvlStageLoad(s32 stage)
         }
     }
 
-    something_with_stage_objectives();
+    objectiveReset();
     mpwatchUnpauseGame();
     vtxstoreReset();
     initModelHitEntryFreeList();

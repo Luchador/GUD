@@ -11,11 +11,11 @@
 
 struct objective_entry *objective_ptrs[OBJECTIVES_MAX];
 OBJECTIVESTATUS objectiveStatuses[OBJECTIVES_MAX];
-u32 *ptr_last_tag_entry_type16;
-struct watchMenuObjectiveText *ptr_last_briefing_setup_entry_type23;
-struct criteria_roomentered *ptr_last_enter_room_subobject_entry_type20;
-struct criteria_deposit *ptr_last_deposit_in_room_subobject_entry_type21;
-struct criteria_picture *ptr_last_photo_obj_in_room_subobject_entry_type1E;
+u32 *g_ObjectiveTagHead;
+struct watchMenuObjectiveText *g_ObjectiveBriefingTextHead;
+struct criteria_roomentered *g_ObjectiveRoomEnteredCriteriaHead;
+struct criteria_deposit *g_ObjectiveDepositInRoomCriteriaHead;
+struct criteria_picture *g_ObjectivePhotographCriteriaHead;
 s32 objective_count = 0xFFFFFFFF;
 s32 objective_status_display_disabled = FALSE;
 
@@ -26,7 +26,7 @@ s32 objective_status_display_disabled = FALSE;
 TagObjectRecord *getTagID(s32 TagID)
 {
     u16              ID  = TagID;
-    TagObjectRecord *tag = ptr_last_tag_entry_type16;
+    TagObjectRecord *tag = g_ObjectiveTagHead;
 
     while (tag)
     {
@@ -70,7 +70,7 @@ u8 *get_ptr_text_for_watch_breifing_page(WATCH_BRIEFING_PAGE page)
 
     textptr = NULL;
 
-    for (curentry = ptr_last_briefing_setup_entry_type23; curentry != 0; curentry = curentry->nextentry)
+    for (curentry = g_ObjectiveBriefingTextHead; curentry != 0; curentry = curentry->nextentry)
     {
         if (page == curentry->menu)
         {
@@ -340,8 +340,7 @@ void display_objective_status_text_on_status_change(void)
 
 
 /**
- * Iterate list of ptr_last_enter_room_subobject_entry_type20, if it's the same
- * room as the argument then set the `flag` property.
+ * Mark room-entry criteria complete when their pad belongs to this room.
 */
 void objectivestatusCheckRoomEntered(s32 roomid)
 {
@@ -349,7 +348,7 @@ void objectivestatusCheckRoomEntered(s32 roomid)
     struct PadRecord* setupPad;
     struct StandTile *stan;
     
-    var_v0 = ptr_last_enter_room_subobject_entry_type20;
+    var_v0 = g_ObjectiveRoomEnteredCriteriaHead;
     while (var_v0 != NULL)
     {
         if (var_v0->status == 0)
@@ -382,7 +381,7 @@ void objectivestatusCheckDeposit(s32 weaponnum, s32 roomid)
     s32 padid;
     PadRecord *pad;
 
-    for (dep = ptr_last_deposit_in_room_subobject_entry_type21; dep != NULL; dep = dep->next)
+    for (dep = g_ObjectiveDepositInRoomCriteriaHead; dep != NULL; dep = dep->next)
     {
         if (dep->flag == 0 && weaponnum == dep->weaponnum)
         {
@@ -416,7 +415,7 @@ void objectiveTakePictureHandler(void)
     struct rectbbox sp64;
     struct criteria_picture *criteria;
 
-    criteria = ptr_last_photo_obj_in_room_subobject_entry_type1E;
+    criteria = g_ObjectivePhotographCriteriaHead;
 
     for (; criteria != NULL; criteria = criteria->next)
     {

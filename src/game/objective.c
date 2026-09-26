@@ -5,14 +5,12 @@
 
 
 /*
- * Clears Objectives and states.
+ * Clear setup references for the next stage. Keep the previous mission's
+ * objective count and statuses when returning to the title screen.
  */
-void something_with_stage_objectives(void)
+void objectiveReset(void)
 {
     s32 i;
-
-    OBJECTIVESTATUS *start;
-    OBJECTIVESTATUS *end;
 
     if (bossGetStageNum() != LEVELID_TITLE)
     {
@@ -29,30 +27,31 @@ void something_with_stage_objectives(void)
     {
         objective_ptrs[i] = NULL;
     }
-    
-    ptr_last_tag_entry_type16 = NULL;
-    ptr_last_briefing_setup_entry_type23 = NULL;
-    ptr_last_enter_room_subobject_entry_type20 = NULL;
-    ptr_last_deposit_in_room_subobject_entry_type21 = NULL;
-    ptr_last_photo_obj_in_room_subobject_entry_type1E = NULL;
+
+    g_ObjectiveTagHead = NULL;
+    g_ObjectiveBriefingTextHead = NULL;
+    g_ObjectiveRoomEnteredCriteriaHead = NULL;
+    g_ObjectiveDepositInRoomCriteriaHead = NULL;
+    g_ObjectivePhotographCriteriaHead = NULL;
 }
 
 
-void set_parent_cur_tag_entry(struct TagObjectRecord *arg0)
+/* Setup records are prepended to their linked lists as they are loaded. */
+void objectiveAddTag(struct TagObjectRecord *tag)
 {
-    arg0->NextTag = ptr_last_tag_entry_type16;
-    ptr_last_tag_entry_type16 = arg0;
+    tag->NextTag = g_ObjectiveTagHead;
+    g_ObjectiveTagHead = tag;
 }
 
 
-void setup_briefing_text_entry_parent(struct setup_objective_text *arg0)
+void objectiveAddBriefingText(struct setup_objective_text *briefing)
 {
-    arg0->next = ptr_last_briefing_setup_entry_type23;
-    ptr_last_briefing_setup_entry_type23 = arg0;
+    briefing->next = g_ObjectiveBriefingTextHead;
+    g_ObjectiveBriefingTextHead = briefing;
 }
 
 
-void add_ptr_to_objective(struct objective_entry* objective)
+void objectiveAddEntry(struct objective_entry *objective)
 {
     objective_ptrs[objective->menu] = objective;
 
@@ -63,22 +62,22 @@ void add_ptr_to_objective(struct objective_entry* objective)
 }
 
 
-void set_parent_cur_obj_enter_room(struct criteria_roomentered *arg0)
+void objectiveAddRoomEnteredCriteria(struct criteria_roomentered *criteria)
 {
-    arg0->next = ptr_last_enter_room_subobject_entry_type20;
-    ptr_last_enter_room_subobject_entry_type20 = arg0;
+    criteria->next = g_ObjectiveRoomEnteredCriteriaHead;
+    g_ObjectiveRoomEnteredCriteriaHead = criteria;
 }
 
 
-void set_parent_cur_obj_deposited_in_room(struct criteria_deposit *arg0)
+void objectiveAddDepositInRoomCriteria(struct criteria_deposit *criteria)
 {
-    arg0->next = ptr_last_deposit_in_room_subobject_entry_type21;
-    ptr_last_deposit_in_room_subobject_entry_type21 = arg0;
+    criteria->next = g_ObjectiveDepositInRoomCriteriaHead;
+    g_ObjectiveDepositInRoomCriteriaHead = criteria;
 }
 
 
-void set_parent_cur_obj_photograph(struct criteria_picture *arg0)
+void objectiveAddPhotographCriteria(struct criteria_picture *criteria)
 {
-    arg0->next = ptr_last_photo_obj_in_room_subobject_entry_type1E;
-    ptr_last_photo_obj_in_room_subobject_entry_type1E = arg0;
+    criteria->next = g_ObjectivePhotographCriteriaHead;
+    g_ObjectivePhotographCriteriaHead = criteria;
 }

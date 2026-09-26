@@ -1647,7 +1647,7 @@ void setupLoadFiles(enum LEVELID stageId)
                             taggedObject->runtime_bitflags |= RUNTIMEBITFLAG_TAGGED;
                         }
 
-                        set_parent_cur_tag_entry(tag);
+                        objectiveAddTag(tag);
                         break;
                     }
                     case PROPDEF_RENAME:
@@ -1669,7 +1669,7 @@ void setupLoadFiles(enum LEVELID stageId)
                         break;
                     }
                     case PROPDEF_WATCH_MENU_OBJECTIVE_TEXT:
-                        setup_briefing_text_entry_parent((struct setup_objective_text *) command);
+                        objectiveAddBriefingText((struct setup_objective_text *) command);
                         break;
                     case PROPDEF_CAMERAPOS:
                     {
@@ -1683,16 +1683,16 @@ void setupLoadFiles(enum LEVELID stageId)
                         break;
                     }
                     case PROPDEF_OBJECTIVE_START:
-                        add_ptr_to_objective((struct objective_entry *) command);
+                        objectiveAddEntry((struct objective_entry *) command);
                         break;
                     case PROPDEF_OBJECTIVE_ENTER_ROOM:
-                        set_parent_cur_obj_enter_room((struct criteria_roomentered *) command);
+                        objectiveAddRoomEnteredCriteria((struct criteria_roomentered *) command);
                         break;
                     case PROPDEF_OBJECTIVE_DEPOSIT_OBJECT_IN_ROOM:
-                        set_parent_cur_obj_deposited_in_room((struct criteria_deposit *) command);
+                        objectiveAddDepositInRoomCriteria((struct criteria_deposit *) command);
                         break;
                     case PROPDEF_OBJECTIVE_PHOTOGRAPH:
-                        set_parent_cur_obj_photograph((struct criteria_picture *) command);
+                        objectiveAddPhotographCriteria((struct criteria_picture *) command);
                         break;
                 }
 

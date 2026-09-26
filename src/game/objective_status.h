@@ -6,11 +6,12 @@
 extern struct objective_entry *objective_ptrs[OBJECTIVES_MAX];
 extern  OBJECTIVESTATUS objectiveStatuses[OBJECTIVES_MAX];
 
-extern u32 *ptr_last_tag_entry_type16;
-extern struct watchMenuObjectiveText *ptr_last_briefing_setup_entry_type23;
-extern struct criteria_roomentered *ptr_last_enter_room_subobject_entry_type20;
-extern struct criteria_deposit *ptr_last_deposit_in_room_subobject_entry_type21;
-extern struct criteria_picture *ptr_last_photo_obj_in_room_subobject_entry_type1E;
+/* Heads of the linked setup-record lists populated by objectiveAdd*(). */
+extern u32 *g_ObjectiveTagHead;
+extern struct watchMenuObjectiveText *g_ObjectiveBriefingTextHead;
+extern struct criteria_roomentered *g_ObjectiveRoomEnteredCriteriaHead;
+extern struct criteria_deposit *g_ObjectiveDepositInRoomCriteriaHead;
+extern struct criteria_picture *g_ObjectivePhotographCriteriaHead;
 
 extern s32 objective_count;
 extern s32 objective_status_display_disabled;
