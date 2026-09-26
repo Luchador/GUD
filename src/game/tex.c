@@ -761,8 +761,19 @@ s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool)
 
                 if (tex != NULL)
                 {
-                    out          = texWriteTextureCmd(out, saved, tex, writeTexFlag);
-                    writeTexFlag = FALSE;
+                    Gfx *next = texWriteTextureCmd(out, saved, tex, writeTexFlag);
+
+                    /* Compare future LOD changes with the latest command,
+                     * including one generated here. The previous command may
+                     * already serve triangles with a different mip count.
+                     * If no command was emitted after a draw, it must remain
+                     * read-only even when another texture marker follows. */
+                    if (next != out)
+                    {
+                        saved = out;
+                        writeTexFlag = FALSE;
+                    }
+                    out = next;
 
                     switch (in->words.w0 & 7)
                     {
