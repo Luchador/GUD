@@ -37,7 +37,7 @@ typedef struct ViewportState {
     BOOL showstan;
     int stanopacity;
     unsigned char *stanselected;
-    DWORD stanhiddencount, *stanhiddenids;
+    DWORD stanhiddencount, *stanhiddenids, *stanpointmap;
     BOOL padselected;
     float markerlevelscale;
 } ViewportState;
@@ -385,6 +385,93 @@ static void StanRooms(void)
     puts("PASS: stan room expansion, disconnected/off-screen tiles, room unions, hidden tiles, BG-independent availability, input guards and unchanged assets.");
 }
 
+static void StanSeedComponent(ViewportState *s, BOOL edge)
+{
+    ViewportClearStanSelection(s);free(s->stancomponents);
+    s->stancomponents=calloc(1,sizeof(*s->stancomponents));assert(s->stancomponents);
+    s->stancomponentcount=s->stancomponentcapacity=1;
+    s->tool=edge?EDITOR_TOOL_EDGE_SELECT:EDITOR_TOOL_VERTEX_SELECT;
+    s->stancomponents[0]=(ViewportStanComponent){.refs={{0,1},{0,edge?2:1}}};
+}
+
+static BOOL StanHasPoint(const ViewportState *s,DWORD tile,DWORD point)
+{
+    for(int i=0;i<s->stancomponentcount;i++)
+        if(s->stancomponents[i].refs[0].tile==tile && s->stancomponents[i].refs[0].point==point) return TRUE;
+    return FALSE;
+}
+
+static void StanGrowth(void)
+{
+    StanTile tiles[6]={0},original[6];unsigned char selected[6]={1,0,0,0,0,0};
+    DWORD map[6*STAN_TILE_MAX_POINTS],hidden;
+    for(int i=0;i<6;i++)
+    {
+        tiles[i].editorid=i+1;tiles[i].room=i==0?1:i==3?3:i==4?4:2;tiles[i].pointcount=4;
+        for(int p=0;p<STAN_TILE_MAX_POINTS;p++) map[i*STAN_TILE_MAX_POINTS+p]=i*STAN_TILE_MAX_POINTS+p;
+    }
+    /* Three quads joined in a strip. Tile 3 touches only one vertex; tile 4
+     * occupies identical coordinates but has no shared topology. */
+    map[STAN_TILE_MAX_POINTS]=1;map[STAN_TILE_MAX_POINTS+3]=2;
+    map[2*STAN_TILE_MAX_POINTS]=STAN_TILE_MAX_POINTS+1;
+    map[2*STAN_TILE_MAX_POINTS+3]=STAN_TILE_MAX_POINTS+2;
+    map[3*STAN_TILE_MAX_POINTS]=0;
+    memcpy(original,tiles,sizeof(tiles));
+    ViewportState s={.tool=EDITOR_TOOL_FACE_SELECT,.dragaxis=-1,.showstan=TRUE,.stanopacity=100,
+        .stan={.tiles=tiles,.tilecount=6},.stanselected=selected,.stanpointmap=map,
+        .selectedobject=VIEWPORT_OBJECT_NONE};
+    assert(ViewportCanGrowSelection(&s) && !ViewportCanSelectBackground(&s,TRUE));
+    unsigned before=notifications;
+    for(int fail=0;fail<2;fail++)
+    {
+        allocations=fail;assert(!ViewportGrowSelection(&s));allocations=-1;
+        assert(selected[0] && !selected[1] && notifications==before);
+    }
+    assert(ViewportGrowSelection(&s) && notifications==before+1);
+    assert(selected[0] && selected[1] && !selected[2] && !selected[3] && !selected[4] && !selected[5]);
+    assert(ViewportGrowSelection(&s) && selected[2] && !selected[3] && !selected[4] && !selected[5]);
+    memset(selected,0,sizeof(selected));selected[0]=1;
+    hidden=2;s.stanhiddencount=1;s.stanhiddenids=&hidden;
+    assert(ViewportGrowSelection(&s) && !selected[1] && !selected[2]);s.stanhiddencount=0;
+    for(int edge=0;edge<2;edge++)
+    {
+        StanSeedComponent(&s,edge);
+        assert(ViewportCanGrowSelection(&s));
+        assert(ViewportGrowSelection(&s) && s.stancomponentcount==(edge?5:4));
+        if(!edge)
+        {
+            assert(StanHasPoint(&s,0,0) && StanHasPoint(&s,0,1) && StanHasPoint(&s,0,2) && StanHasPoint(&s,1,1));
+            assert(!StanHasPoint(&s,1,2)); /* Opposite corner of a quad is not adjacent. */
+        }
+        /* Shared components seed both rooms, including a disconnected tile in
+         * room 2. Keep the active component mode and deduplicate shared refs. */
+        StanSeedComponent(&s,edge);
+        assert(ViewportCanSelectRoom(&s) && ViewportSelectRoom(&s));
+        assert(s.stancomponentcount==(edge?14:12) && s.tool==(edge?EDITOR_TOOL_EDGE_SELECT:EDITOR_TOOL_VERTEX_SELECT));
+        /* A second vertex-mode invocation also sees the newly selected corner
+         * touching room 3; edge mode does not cross that point-only contact. */
+        assert(ViewportSelectRoom(&s) && s.stancomponentcount==(edge?14:15));
+        int count=s.stancomponentcount;assert(ViewportSelectRoom(&s) && s.stancomponentcount==count);
+        /* Root references on hidden tile 0 still identify visible room 2. */
+        StanSeedComponent(&s,edge);hidden=1;s.stanhiddencount=1;
+        assert(ViewportSelectRoom(&s) && s.stancomponentcount==(edge?11:10));s.stanhiddencount=0;
+        for(int fail=0;fail<4;fail++)
+        {
+            StanSeedComponent(&s,edge);ViewportStanComponent saved=s.stancomponents[0];before=notifications;
+            allocations=fail;assert(!ViewportGrowSelection(&s));allocations=-1;
+            assert(s.stancomponentcount==1 && !memcmp(&saved,s.stancomponents,sizeof(saved)) && notifications==before);
+        }
+    }
+    assert(!memcmp(original,tiles,sizeof(tiles)) && !s.stan.dirty);
+    s.showstan=FALSE;assert(!ViewportCanGrowSelection(&s));s.showstan=TRUE;
+    s.stanopacity=0;assert(!ViewportCanGrowSelection(&s));s.stanopacity=100;
+    s.flying=TRUE;assert(!ViewportCanGrowSelection(&s));s.flying=FALSE;
+    s.dragaxis=0;assert(!ViewportCanGrowSelection(&s));s.dragaxis=-1;
+    ViewportClearStanSelection(&s);assert(!ViewportCanGrowSelection(&s));free(s.stancomponents);
+    assert(!ViewportCanGrowSelection(NULL) && ViewportGrowSelection(NULL));
+    puts("PASS: stan face/edge/vertex growth, one-ring topology, no quad diagonals or coincident-floor leaks, room unions, hidden canonical roots, atomic failure and unchanged assets.");
+}
+
 typedef struct { HWND hwnd; unsigned message, wParam; LPARAM lParam; } MSG;
 #define WM_KEYDOWN 2
 #define WM_COMMAND 3
@@ -551,4 +638,4 @@ static void Coplanar(void)
     puts("PASS: coplanar world planes, angle/distance/native-scale tolerances, reversed winding, disconnected/off-screen rooms, multiple frozen seeds, hidden/layer filters, degenerate/non-finite faces, no-op and allocation failure.");
 }
 
-int main(void) { Geometry(); SameMaterial(); StanRooms(); Coplanar(); Hotkeys(); return 0; }
+int main(void) { Geometry(); SameMaterial(); StanRooms(); StanGrowth(); Coplanar(); Hotkeys(); return 0; }

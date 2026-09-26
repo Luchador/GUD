@@ -36,11 +36,17 @@ def main():
         'ViewportBgSelectionPoint', 'ViewportCanSelectBackground', 'ViewportBgRoomKey',
         'ViewportChangeBgSelection', 'ViewportSelectBackground',
         'ViewportStanVisible', 'ViewportCompareStanIds', 'ViewportStanTileHidden',
-        'ViewportGetSelectedStanRooms', 'ViewportCanSelectRoom', 'ViewportSelectRoom',
+        'ViewportStanPointRef', 'ViewportCanSelectStan', 'ViewportStanSelectionPoint',
+        'ViewportChangeStanSelection', 'ViewportCanGrowSelection', 'ViewportGrowSelection',
+        'ViewportCanSelectRoom', 'ViewportSelectRoom',
         'ViewportBgFacePlane', 'ViewportGetSelectedBgPlanes', 'ViewportCanSelectCoplanar',
         'ViewportBgFaceCoplanar', 'ViewportSelectCoplanar',
         'ViewportGetSelectedBgTextures', 'ViewportCanSelectSameMaterial', 'ViewportSelectSameMaterial'))
     editor = (src / 'geditor.c').read_text()
+    grow = editor.split('EnableMenuItem((HMENU)wparam, ID_SELECT_GROW,')[1].split(';', 1)[0]
+    assert 'ViewportCanGrowSelection(g_Viewport)' in grow
+    grow = editor.split('case ID_SELECT_GROW:')[1].split('case ID_SELECT_ALL:', 1)[0]
+    assert 'ViewportGrowSelection(g_Viewport)' in grow
     menu = editor.split('EnableMenuItem((HMENU)wparam, ID_SELECT_ROOM,')[1].split(';', 1)[0]
     assert 'ViewportCanSelectRoom(g_Viewport)' in menu
     menu = editor.split('EnableMenuItem((HMENU)wparam, ID_SELECT_COPLANAR,')[1].split(';', 1)[0]

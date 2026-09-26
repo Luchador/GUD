@@ -217,13 +217,17 @@ BOOL ViewportGetSelectedBgFaces(HWND hwnd, BgFaceRef *out, int count);
    Never includes temporarily hidden faces or edits document/dirty state. */
 BOOL ViewportCanSelectBackground(HWND hwnd, BOOL grow);
 BOOL ViewportSelectBackground(HWND hwnd, BOOL grow);
+/* Add one adjacent ring in the selected BG or stan domain. Stan growth uses
+ * linked point identities and polygon perimeters, never fan diagonals. */
+BOOL ViewportCanGrowSelection(HWND hwnd);
+BOOL ViewportGrowSelection(HWND hwnd);
 /* Face mode: expand to unhidden BG faces near any selected face's world plane.
    Includes disconnected/off-screen faces in visible layers, with either winding.
    Tolerances: one degree and one native vertex unit. Degenerate faces are ignored. */
 BOOL ViewportCanSelectCoplanar(HWND hwnd);
 BOOL ViewportSelectCoplanar(HWND hwnd);
-/* Expand to all stan tiles in the selected tiles' rooms in face mode, or BG
-   geometry in the selected source rooms, retaining vertex/edge/face mode.
+/* Expand to all stan or BG geometry in the selected source rooms, retaining
+   vertex/edge/face mode. Shared stan components seed every visible owner room.
    Includes disconnected/off-screen geometry, respecting hidden geometry and
    visible layers. Stan selection is independent of BG visibility. */
 BOOL ViewportCanSelectRoom(HWND hwnd);

@@ -1863,6 +1863,15 @@ static void ViewportDrawExtrusionBatch(const ViewportState *state, const SceneBa
     glPopClientAttrib();
 }
 
+/* Full opacity is a depth-writing surface; partial opacity remains an overlay. */
+static void ViewportApplyStanOpacity(const ViewportState *state, BOOL fill)
+{
+    BOOL opaque = state->stanopacity == 100;
+    if (opaque) { glDisable(GL_BLEND); }
+    else { glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); }
+    glDepthMask(opaque && fill ? GL_TRUE : GL_FALSE);
+}
+
 static void ViewportDrawStanExtrusion(const ViewportState *state)
 {
     if (!ViewportStanVisible(state) || !state->dragextruding || !state->dragstan
@@ -1871,8 +1880,7 @@ static void ViewportDrawStanExtrusion(const ViewportState *state)
     glPushClientAttrib(GL_CLIENT_VERTEX_ARRAY_BIT);
     glDisableClientState(GL_COLOR_ARRAY);
     glDisable(GL_TEXTURE_2D); glDisable(GL_ALPHA_TEST); glDisable(GL_CULL_FACE);
-    glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
-    glDepthMask(GL_FALSE); glDepthFunc(GL_LEQUAL);
+    ViewportApplyStanOpacity(state, TRUE); glDepthFunc(GL_LEQUAL);
     glEnable(GL_POLYGON_OFFSET_FILL); glPolygonOffset(-1,-1);
     glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
     GLubyte alpha=(GLubyte)(state->stanopacity*255/100);
@@ -1885,6 +1893,7 @@ static void ViewportDrawStanExtrusion(const ViewportState *state)
         { const StanPoint *v=&state->stanextrudepreview[e*6+p]; glVertex3f(v->x,v->y,v->z); }
         glEnd();
     }
+    glDepthMask(GL_FALSE);
     glDepthRange(0.0,0.99999); glLineWidth(1); glColor4ub(255,255,255,alpha);
     glBegin(GL_LINES);
     for (DWORD e=0;e<state->extrudecount;e++) for (int t=0;t<2;t++) for (int p=0;p<3;p++)
@@ -2148,6 +2157,57 @@ static void ViewportDrawPortalOriginals(const ViewportState *state, BOOL fill)
     glEnd();
 }
 
+static void ViewportDrawStanOverlay(const ViewportState *state)
+{
+    if (ViewportStanVisible(state) && state->stanfill != NULL && state->stanfillcount > 0)
+    {
+        /* Stan polygons commonly lie directly on their matching BG
+           floors. Pull the overlay infinitesimally toward the camera
+           to prevent z-fighting while retaining normal depth tests. */
+        glDisable(GL_TEXTURE_2D);
+        glDisable(GL_ALPHA_TEST);
+        glDisable(GL_CULL_FACE);
+        ViewportApplyStanOpacity(state, TRUE);
+        glDepthFunc(GL_LEQUAL);
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(-1.0f, -1.0f);
+
+        glVertexPointer(3, GL_FLOAT, sizeof(Vertex), &state->stanfill[0].x);
+        glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex), &state->stanfill[0].r);
+        glDrawArrays(GL_TRIANGLES, 0, state->stanfillcount);
+
+        glDisable(GL_POLYGON_OFFSET_FILL);
+        glDisable(GL_BLEND);
+        glDepthMask(GL_TRUE);
+        glDepthFunc(GL_LESS);
+    }
+
+    if (ViewportStanVisible(state) && state->stanedges != NULL && state->stanedgecount > 0)
+    {
+        /* Tile outlines make adjacent polygons readable even when they
+           share the same authored RGB value. */
+        glDisable(GL_TEXTURE_2D);
+        glDisable(GL_ALPHA_TEST);
+        glDisable(GL_CULL_FACE);
+        ViewportApplyStanOpacity(state, FALSE);
+        /* Keep outlines visible over their depth-writing, offset fill. */
+        if (state->stanopacity == 100) { glDepthRange(0.0, 0.99999); }
+        glDepthFunc(GL_LEQUAL);
+
+        glVertexPointer(3, GL_FLOAT, sizeof(Vertex), &state->stanedges[0].x);
+        glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex), &state->stanedges[0].r);
+        glLineWidth(1.0f);
+        glDrawArrays(GL_LINES, 0, state->stanedgecount);
+        glDepthRange(0.0, 1.0);
+
+        glDisable(GL_BLEND);
+        glDepthMask(GL_TRUE);
+        glDepthFunc(GL_LESS);
+    }
+
+    ViewportDrawStanExtrusion(state);
+}
+
 static void ViewportPaintGL(ViewportState *state)
 {
     wglMakeCurrent(state->hdc, state->hglrc);
@@ -2283,54 +2343,7 @@ static void ViewportPaintGL(ViewportState *state)
     ViewportDrawAimGuides(state);
     ViewportDrawSetupMarkers(state);
 
-    if (ViewportStanVisible(state) && state->stanfill != NULL && state->stanfillcount > 0)
-    {
-        /* Stan polygons commonly lie directly on their matching BG
-           floors. Pull the overlay infinitesimally toward the camera
-           to prevent z-fighting while retaining normal depth tests. */
-        glDisable(GL_TEXTURE_2D);
-        glDisable(GL_ALPHA_TEST);
-        glDisable(GL_CULL_FACE);
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glDepthMask(GL_FALSE);
-        glDepthFunc(GL_LEQUAL);
-        glEnable(GL_POLYGON_OFFSET_FILL);
-        glPolygonOffset(-1.0f, -1.0f);
-
-        glVertexPointer(3, GL_FLOAT, sizeof(Vertex), &state->stanfill[0].x);
-        glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex), &state->stanfill[0].r);
-        glDrawArrays(GL_TRIANGLES, 0, state->stanfillcount);
-
-        glDisable(GL_POLYGON_OFFSET_FILL);
-        glDisable(GL_BLEND);
-        glDepthMask(GL_TRUE);
-        glDepthFunc(GL_LESS);
-    }
-
-    if (ViewportStanVisible(state) && state->stanedges != NULL && state->stanedgecount > 0)
-    {
-        /* Tile outlines make adjacent polygons readable even when they
-           share the same authored RGB value. */
-        glDisable(GL_TEXTURE_2D);
-        glDisable(GL_ALPHA_TEST);
-        glDisable(GL_CULL_FACE);
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glDepthMask(GL_FALSE);
-        glDepthFunc(GL_LEQUAL);
-
-        glVertexPointer(3, GL_FLOAT, sizeof(Vertex), &state->stanedges[0].x);
-        glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex), &state->stanedges[0].r);
-        glLineWidth(1.0f);
-        glDrawArrays(GL_LINES, 0, state->stanedgecount);
-
-        glDisable(GL_BLEND);
-        glDepthMask(GL_TRUE);
-        glDepthFunc(GL_LESS);
-    }
-
-    ViewportDrawStanExtrusion(state);
+    ViewportDrawStanOverlay(state);
     if (state->showportals && state->portalfill != NULL && state->portalfillcount > 0)
     {
         /* Portals are editor-only, double-sided translucent surfaces.
@@ -6335,49 +6348,160 @@ BOOL ViewportSelectBackground(HWND hwnd, BOOL grow)
     return ViewportChangeBgSelection(hwnd, grow ? VIEWPORT_BG_SELECT_GROW : VIEWPORT_BG_SELECT_ALL);
 }
 
-static BOOL ViewportGetSelectedStanRooms(HWND hwnd, unsigned char rooms[256])
+/* Stan commands use canonical linked point identities, never coincident
+ * coordinates: stacked/unconnected floors must stay independent. */
+static BOOL ViewportCanSelectStan(HWND hwnd)
 {
     const ViewportState *state = ViewportGetState(hwnd);
-    BOOL found = FALSE;
     if (!state || state->orbit || state->flying || state->dragaxis >= 0 || state->boxpending
-        || state->tool != EDITOR_TOOL_FACE_SELECT || !ViewportStanVisible(state)
-        || !state->stanselected) { return FALSE; }
-    if (rooms) { memset(rooms, 0, 256); }
+        || !ViewportStanVisible(state) || !state->stanselected) { return FALSE; }
+    if (state->tool == EDITOR_TOOL_VERTEX_SELECT || state->tool == EDITOR_TOOL_EDGE_SELECT)
+    { return state->stanpointmap && state->stancomponents && state->stancomponentcount > 0; }
+    if (state->tool != EDITOR_TOOL_FACE_SELECT) { return FALSE; }
     for (DWORD tile = 0; tile < state->stan.tilecount; tile++)
+    { if (state->stanselected[tile] && !ViewportStanTileHidden(state, tile)) { return TRUE; } }
+    return FALSE;
+}
+
+static ViewportBoxPoint ViewportStanSelectionPoint(const ViewportState *state, DWORD tile, DWORD point)
+{
+    StanPointRef ref = ViewportStanPointRef(state, tile, point);
+    return (ViewportBoxPoint){ref.tile, ref.point, 0};
+}
+
+static BOOL ViewportChangeStanSelection(HWND hwnd, BOOL room)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    ViewportBoxComponent *seeds = NULL, *hits = NULL;
+    unsigned char rooms[256] = {0}, *faces = NULL;
+    int seedcount = 0, hitcount = 0, unique = 0;
+    BOOL ok = FALSE;
+    if (!ViewportCanSelectStan(hwnd)) { return TRUE; }
+    BOOL face = state->tool == EDITOR_TOOL_FACE_SELECT, edge = state->tool == EDITOR_TOOL_EDGE_SELECT;
+    size_t capacity = (size_t)state->stan.tilecount * STAN_TILE_MAX_POINTS;
+    size_t seedcapacity = face ? room ? 0 : capacity : (size_t)state->stancomponentcount * 2;
+    if ((!room || !face) && !state->stanpointmap) { return TRUE; }
+    if (capacity > INT_MAX || capacity > SIZE_MAX / sizeof(*hits)
+        || seedcapacity > INT_MAX || seedcapacity > SIZE_MAX / sizeof(*seeds)) { return FALSE; }
+    if (face && !room) { faces = calloc(state->stan.tilecount, 1); }
+    else if (!face) { hits = malloc(capacity * sizeof(*hits)); }
+    if (seedcapacity) { seeds = malloc(seedcapacity * sizeof(*seeds)); }
+    if ((face ? !room && !faces : !hits) || (seedcapacity && !seeds)) { goto done; }
+    if (face)
     {
-        if (!state->stanselected[tile] || ViewportStanTileHidden(state, tile)) { continue; }
-        if (!rooms) { return TRUE; }
-        rooms[state->stan.tiles[tile].room] = 1;
-        found = TRUE;
+        for (DWORD t = 0; t < state->stan.tilecount; t++)
+        {
+            const StanTile *tile = &state->stan.tiles[t];
+            if (!state->stanselected[t] || ViewportStanTileHidden(state, t)) { continue; }
+            if (room) { rooms[tile->room] = 1; continue; }
+            for (DWORD p = 0; p < tile->pointcount; p++)
+            {
+                ViewportBoxPoint a = ViewportStanSelectionPoint(state, t, p);
+                ViewportBoxPoint b = ViewportStanSelectionPoint(state, t, (p+1)%tile->pointcount);
+                if (ViewportCompareBoxPoints(&a, &b)) { seeds[seedcount++] = ViewportBoxComponentKey(a, b); }
+            }
+        }
     }
-    return found;
+    else for (int i = 0; i < state->stancomponentcount; i++)
+    {
+        const ViewportStanComponent *c = &state->stancomponents[i];
+        ViewportBoxPoint a = {c->refs[0].tile, c->refs[0].point, 0};
+        ViewportBoxPoint b = {c->refs[edge ? 1 : 0].tile, c->refs[edge ? 1 : 0].point, 0};
+        seeds[seedcount++] = ViewportBoxComponentKey(a, room ? b : a);
+        if (!room && edge) { seeds[seedcount++] = ViewportBoxComponentKey(b, b); }
+    }
+    if (seedcount) { qsort(seeds, seedcount, sizeof(*seeds), ViewportCompareBoxComponents); }
+    if (room && !face)
+    {
+        /* A shared boundary can belong to rooms on both sides, even when its
+         * canonical endpoint happens to live on a hidden tile. */
+        for (DWORD t = 0; t < state->stan.tilecount; t++)
+        {
+            const StanTile *tile = &state->stan.tiles[t];
+            if (ViewportStanTileHidden(state, t)) { continue; }
+            for (DWORD p = 0; p < tile->pointcount; p++)
+            {
+                ViewportBoxPoint a = ViewportStanSelectionPoint(state, t, p);
+                ViewportBoxPoint b = ViewportStanSelectionPoint(state, t, edge ? (p+1)%tile->pointcount : p);
+                ViewportBoxComponent key = ViewportBoxComponentKey(a, b);
+                if (bsearch(&key, seeds, seedcount, sizeof(*seeds), ViewportCompareBoxComponents))
+                { rooms[tile->room] = 1; break; }
+            }
+        }
+    }
+    /* Freeze seeds before expanding: one command adds exactly one ring. */
+    for (DWORD t = 0; t < state->stan.tilecount; t++)
+    {
+        const StanTile *tile = &state->stan.tiles[t];
+        ViewportBoxPoint points[STAN_TILE_MAX_POINTS];
+        BOOL touches[STAN_TILE_MAX_POINTS] = {0}, adjacent = room && rooms[tile->room];
+        if (ViewportStanTileHidden(state, t)) { continue; }
+        if (!face || !room)
+        {
+            for (DWORD p = 0; p < tile->pointcount; p++) { points[p] = ViewportStanSelectionPoint(state, t, p); }
+            if (!room) for (DWORD p = 0; p < tile->pointcount; p++)
+            {
+                ViewportBoxComponent key = ViewportBoxComponentKey(points[p], points[face ? (p+1)%tile->pointcount : p]);
+                if (seedcount && bsearch(&key, seeds, seedcount, sizeof(*seeds), ViewportCompareBoxComponents))
+                { touches[p] = adjacent = TRUE; }
+            }
+        }
+        if (face)
+        {
+            if (room) { if (adjacent) { state->stanselected[t] = 1; } }
+            else { faces[t] = adjacent; }
+            continue;
+        }
+        for (DWORD p = 0; p < tile->pointcount; p++)
+        {
+            DWORD next = (p+1)%tile->pointcount, previous = (p+tile->pointcount-1)%tile->pointcount;
+            BOOL include = room ? adjacent : touches[p] || touches[next] || (!edge && touches[previous]);
+            ViewportBoxPoint a = points[p], b = points[edge ? next : p];
+            if (include && (!edge || ViewportCompareBoxPoints(&a, &b)))
+            { hits[hitcount++] = ViewportBoxComponentKey(a, b); }
+        }
+    }
+    if (face)
+    {
+        if (!room) for (DWORD t = 0; t < state->stan.tilecount; t++)
+        { if (faces[t]) { state->stanselected[t] = 1; } }
+    }
+    else
+    {
+        qsort(hits, hitcount, sizeof(*hits), ViewportCompareBoxComponents);
+        for (int i = 0; i < hitcount; i++)
+        { if (!unique || ViewportCompareBoxComponents(&hits[i], &hits[unique-1])) { hits[unique++] = hits[i]; } }
+        if (!ViewportApplyBoxComponents(state, hits, unique, TRUE, TRUE, FALSE)) { goto done; }
+    }
+    ViewportRefreshStanOverlay(state);
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd, NULL, FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+    ok = TRUE;
+done:
+    free(seeds); free(hits); free(faces);
+    return ok;
+}
+
+BOOL ViewportCanGrowSelection(HWND hwnd)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    return (ViewportCanSelectStan(hwnd) && state->stanpointmap) || ViewportCanSelectBackground(hwnd, TRUE);
+}
+
+BOOL ViewportGrowSelection(HWND hwnd)
+{
+    return ViewportCanSelectStan(hwnd) ? ViewportChangeStanSelection(hwnd, FALSE)
+        : ViewportChangeBgSelection(hwnd, VIEWPORT_BG_SELECT_GROW);
 }
 
 BOOL ViewportCanSelectRoom(HWND hwnd)
-{
-    return ViewportGetSelectedStanRooms(hwnd, NULL) || ViewportCanSelectBackground(hwnd, TRUE);
-}
+{ return ViewportCanSelectStan(hwnd) || ViewportCanSelectBackground(hwnd, TRUE); }
 
 BOOL ViewportSelectRoom(HWND hwnd)
 {
-    unsigned char rooms[256];
-    if (ViewportGetSelectedStanRooms(hwnd, rooms))
-    {
-        ViewportState *state = ViewportGetState(hwnd);
-        /* Freeze the seed rooms before extending selection. Include disconnected
-         * and off-screen tiles, while retaining explicitly hidden tiles. */
-        for (DWORD tile = 0; tile < state->stan.tilecount; tile++)
-        {
-            if (rooms[state->stan.tiles[tile].room] && !ViewportStanTileHidden(state, tile))
-            { state->stanselected[tile] = 1; }
-        }
-        ViewportRefreshStanOverlay(state);
-        ViewportUpdateGizmo(state);
-        InvalidateRect(hwnd, NULL, FALSE);
-        SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
-        return TRUE;
-    }
-    return ViewportChangeBgSelection(hwnd, VIEWPORT_BG_SELECT_ROOM);
+    return ViewportCanSelectStan(hwnd) ? ViewportChangeStanSelection(hwnd, TRUE)
+        : ViewportChangeBgSelection(hwnd, VIEWPORT_BG_SELECT_ROOM);
 }
 
 typedef struct ViewportBgPlane {
@@ -6710,7 +6834,7 @@ static void ViewportDrawTransformTools(const ViewportState *state)
         {
             DWORD tile;
             glColor4ub(255,255,255,(GLubyte)(state->stanopacity*255/100));
-            glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+            ViewportApplyStanOpacity(state, FALSE);
             glPointSize(VIEWPORT_VERTEX_MARKER_SIZE);
             glBegin(GL_POINTS);
             for (tile=0; tile<state->stan.tilecount; tile++)

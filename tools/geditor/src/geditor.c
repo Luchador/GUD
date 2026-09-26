@@ -6420,7 +6420,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             (ViewportGetSelectedModelCount(g_Viewport) && !ViewportIsFlying(g_Viewport)
                 && !ViewportIsTransforming(g_Viewport) ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_SELECT_GROW, MF_BYCOMMAND |
-            (ViewportCanSelectBackground(g_Viewport, TRUE) ? MF_ENABLED : MF_GRAYED));
+            (ViewportCanGrowSelection(g_Viewport) ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_SELECT_ALL, MF_BYCOMMAND |
             (ViewportCanSelectBackground(g_Viewport, FALSE) ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_SELECT_ROOM, MF_BYCOMMAND |
@@ -6697,8 +6697,12 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 return 0;
 
             case ID_SELECT_GROW:
+                if (!ViewportGrowSelection(g_Viewport))
+                { MessageBox(hwnd, "Not enough memory to grow the selection.", GEDITOR_TITLE, MB_ICONERROR); }
+                return 0;
+
             case ID_SELECT_ALL:
-                if (!ViewportSelectBackground(g_Viewport, LOWORD(wparam) == ID_SELECT_GROW))
+                if (!ViewportSelectBackground(g_Viewport, FALSE))
                 { MessageBox(hwnd, "Not enough memory to change the background selection.", GEDITOR_TITLE, MB_ICONERROR); }
                 return 0;
 
