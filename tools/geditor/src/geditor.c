@@ -747,7 +747,8 @@ enum {
     ID_FILE_CLEAR_RECENT_PROJECTS,
     ID_FILE_REBASE_PROJECT,
     ID_EDIT_COPY_FACES,
-    ID_EDIT_PASTE_FACES
+    ID_EDIT_PASTE_FACES,
+    ID_FILE_NEW_LEVEL
 };
 
 
@@ -888,6 +889,7 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(filemenu, MF_STRING, ID_FILE_SAVE_PROJECT, "&Save Project\tCtrl+S");
     AppendMenu(filemenu, MF_STRING, ID_FILE_REBASE_PROJECT, "Re&base Project...");
     AppendMenu(filemenu, MF_SEPARATOR, 0, NULL);
+    AppendMenu(filemenu, MF_STRING, ID_FILE_NEW_LEVEL, "New &Level");
     AppendMenu(filemenu, MF_POPUP, (UINT_PTR)importmenu, "&Import...");
     AppendMenu(filemenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(filemenu, MF_STRING, ID_FILE_EXIT, "E&xit");
@@ -1901,6 +1903,7 @@ static INT_PTR CALLBACK GEditorRebaseProjectProc(HWND hdlg, UINT msg,
         if (slash) { slash[1]=0; } else { lstrcpyn(parent,".",sizeof(parent)); }
         SetDlgItemText(hdlg,IDC_REBASE_NAME,name);
         SetDlgItemText(hdlg,IDC_REBASE_PARENT,parent);
+        CheckDlgButton(hdlg,IDC_REBASE_KEEP_IMAGES,BST_CHECKED);
         SetDlgItemText(hdlg,IDC_REBASE_REPORT,"Choose a newer GUD ROM, then select Save and Check.\r\n\r\nCompatible project edits, imported images and model edits will be retained. Conflicts must be resolved before a copy can be created.");
         EnableWindow(GetDlgItem(hdlg,IDC_REBASE_CREATE),FALSE);
         return TRUE;
@@ -6457,6 +6460,10 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 if (g_Project.name[0]) { GEditorPromptForRebase(hwnd); }
                 return 0;
 
+            case ID_FILE_NEW_LEVEL:
+                /* Reserved for level creation. */
+                return 0;
+
             case ID_FILE_IMPORT_IMAGE:
             {
                 DWORD id;
@@ -7088,6 +7095,17 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
     ShowWindow(hwnd, showcmd);
     UpdateWindow(hwnd);
     accelerators = GEditorCreateAccelerators();
+
+    /* Restore the last successfully opened project after the UI is ready.
+     * A cleared history or missing project leaves the editor empty. */
+    if (g_RecentProjects.count > 0)
+    {
+        DWORD attrs = GetFileAttributes(g_RecentProjects.paths[0]);
+        if (attrs != INVALID_FILE_ATTRIBUTES && !(attrs & FILE_ATTRIBUTE_DIRECTORY))
+        {
+            GEditorOpenProject(hwnd, g_RecentProjects.paths[0]);
+        }
+    }
 
     /**
      * The message loop. GetMessage blocks until something happens, returns 0 when WM_QUIT arrives, and -1 on error. 
