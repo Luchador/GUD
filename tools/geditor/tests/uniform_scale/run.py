@@ -44,7 +44,7 @@ for primitive in gltf['meshes'][node['mesh']]['primitives']:
 size = max(v[0] for v in vertices)
 with tempfile.TemporaryDirectory(prefix='geditor-uniform-scale-') as temp:
     work = Path(temp)
-    types = ('Vertex', 'ViewportComponent', 'ViewportState', 'ViewportPickRay')
+    types = ('Vertex', 'ViewportComponent', 'ViewportStanComponent', 'ViewportState', 'ViewportPickRay')
     (work / 'types.inc').write_text(''.join(re.search(
         r'typedef struct ' + name + r' \{.*?\} ' + name + ';', viewport, re.S)[0] + '\n' for name in types))
     defines = ('VIEWPORT_UNIFORM_SCALE_AXIS', 'VIEWPORT_PICK_EPSILON', 'VIEWPORT_PICK_BARY_EPSILON')
@@ -53,6 +53,9 @@ with tempfile.TemporaryDirectory(prefix='geditor-uniform-scale-') as temp:
              'ViewportCompareVertexRefs', 'ViewportGetMoveVertices', 'ViewportRayTriangleDistance',
              'ViewportArrowVertex', 'ViewportDrawGizmoHandles', 'ViewportPickGizmo',
              'ViewportShouldDuplicateBgFaces', 'ViewportPrepareBgFaceDuplicate', 'ViewportShouldExtrudeEdges', 'ViewportPreviewEdgeExtrusion',
+             'ViewportPortalGeometryIsFirst', 'ViewportPortalComponentMask', 'ViewportPortalPointMask',
+             'ViewportPortalSelectionPosition', 'ViewportGetPortalSelectionCount', 'ViewportPreparePortalDrag',
+             'ViewportPreviewPortalDrag', 'ViewportTriangleRotation', 'ViewportGetComponentRotation', 'ViewportGetGeometryRotation',
              'ViewportBeginTransform', 'ViewportDragTransform', 'ViewportCancelTransform',
              'ViewportFinishPortalDuplicate', 'ViewportFinishBgFaceDuplicate', 'ViewportEndTransform', 'ViewportGetScaling', 'ViewportPreviewGuidePoint',
              'ViewportEnvironmentCoordinates')

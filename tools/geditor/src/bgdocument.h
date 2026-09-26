@@ -238,6 +238,10 @@ BOOL BgDocumentSetPortalMargin(BgDocument *document, DWORD portal, double margin
 typedef struct BgPortalPointRef { DWORD portal, point; } BgPortalPointRef;
 BOOL BgDocumentTranslatePortalPoints(BgDocument *document, const BgPortalPointRef *refs,
     DWORD count, const double offset[3], DWORD *movedout, const char **reasonout);
+BOOL BgDocumentRotatePortalPoints(BgDocument *document, const BgPortalPointRef *refs,
+    DWORD count, const Rotation *rotation, const double pivot[3], DWORD *movedout, const char **reasonout);
+BOOL BgDocumentScalePortalPoints(BgDocument *document, const BgPortalPointRef *refs,
+    DWORD count, const Scaling *scaling, DWORD *movedout, const char **reasonout);
 
 typedef enum BgPortalPlane { BG_PORTAL_XY, BG_PORTAL_YZ, BG_PORTAL_XZ } BgPortalPlane;
 typedef struct BgPortalPlacement {

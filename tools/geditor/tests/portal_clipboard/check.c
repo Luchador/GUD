@@ -202,6 +202,7 @@ static void GEditorRefreshHistoryMenu(HWND hwnd) {}
 static void SetFocus(HWND hwnd) {}
 static void MessageBox(HWND hwnd, const char *why, const char *title, int flags)
 { assert(why[0]); errors++; }
+static double GEditorCoordinateFactor(void) { return 1; } /* Clipboard fixture uses world units. */
 #include "controller.inc"
 
 static void Controller(const char *dir)

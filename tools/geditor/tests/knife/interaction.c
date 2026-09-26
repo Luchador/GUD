@@ -69,7 +69,7 @@ static BOOL ViewportBuildPickRay(HWND h,const ViewportState *s,int x,int y,Viewp
 static double ViewportRotationParameter(const ViewportState *s,const ViewportPickRay *r,int x,int y) { return parameter; }
 static double ViewportDragParameter(const ViewportState *s,const ViewportPickRay *r,int y) { return parameter; }
 static BOOL ViewportPreviewMarker(HWND h,ViewportState *s,double d,const Rotation *r) { abort(); }
-static void ViewportPreviewPortalDrag(ViewportState *s,double d) { abort(); }
+static void ViewportPreviewPortalDrag(ViewportState *s,double d,const Rotation *rotation,const Scaling *scaling) { abort(); }
 static BOOL ViewportPadPosition(const ViewportState *s,const SetupPadRef *p,BOOL preview,double out[3]) { abort(); }
 static void ViewportRefreshStanOverlay(ViewportState *s) {}
 static void ViewportBuildObjectSelectionBox(ViewportState *s) {}

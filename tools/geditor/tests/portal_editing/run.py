@@ -44,11 +44,11 @@ def main():
                  'ViewportPreparePortalDrag', 'ViewportPreviewPortalDrag', 'ViewportDrawPortalOriginals',
                  'ViewportFinishPortalDuplicate', 'ViewportSetPortals')
         (work / 'viewport.inc').write_text(''.join(function(viewport, n) for n in names))
-        (work / 'controller.inc').write_text(function((src/'geditor.c').read_text(), 'GEditorTranslatePortals'))
+        (work / 'controller.inc').write_text(''.join(function((src/'geditor.c').read_text(), n) for n in ('GEditorTransformPortals', 'GEditorTranslatePortals')))
         command = [os.environ.get('CC', 'cc'), '-std=c99', '-O1', '-g', '-Wall', '-Wextra', '-Werror',
                    '-Wno-unused-parameter', '-ffunction-sections', '-fdata-sections', '-fsanitize=address,undefined',
                    f'-I{here.parent / "image_import"}', f'-I{src}', f'-I{work}']
-        sources = ('bgload.c', 'bgdocument.c', 'bgcompile.c', 'bgmaterial.c', 'bgrender.c', 'bghistory.c')
+        sources = ('bgload.c', 'bgdocument.c', 'bgcompile.c', 'bgmaterial.c', 'bgrender.c', 'bghistory.c', 'rotation.c', 'scaling.c')
         subprocess.run(command + [str(here/'check.c'), str(here.parent/'image_import/platform.c')]
                        + [str(src/n) for n in sources] + ['-Wl,--gc-sections', '-lm', '-o', str(work/'check')], check=True)
         subprocess.run([str(work/'check')], check=True,

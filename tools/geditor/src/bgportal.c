@@ -192,19 +192,23 @@ BOOL BgDocumentDeletePortals(BgDocument *document, const BgFile *source,
 
 /* Portal points are floats, unlike quantized BG vertices. Resolve and validate
  * the complete edit first, including aliases of a shared native polygon. */
-BOOL BgDocumentTranslatePortalPoints(BgDocument *document, const BgPortalPointRef *refs,
-    DWORD count, const double offset[3], DWORD *movedout, const char **reasonout)
+static BOOL BgDocumentTransformPortalPoints(BgDocument *document, const BgPortalPointRef *refs,
+    DWORD count, const double offset[3], const Rotation *rotation, const double pivot[3],
+    const Scaling *scaling, DWORD *movedout, const char **reasonout)
 {
     unsigned char masks[BG_MAX_PORTALS] = {0};
     BgPortal *copy;
     DWORD moved = 0, total;
+    BOOL identity = TRUE;
     *movedout = 0;
     *reasonout = "There are no editable selected portal points.";
-    if (!document || document->portalwarning || !refs || !count || !offset
+    if (!document || document->portalwarning || !refs || !count
         || !document->portals.portals || !isfinite(document->levelscale)
         || document->levelscale <= 0) { return FALSE; }
     total = document->portals.portalcount;
     if (total >= BG_MAX_PORTALS) { return FALSE; }
+    if (scaling ? !ScalingValid(scaling) : rotation ? !RotationValid(rotation) || !pivot : !offset)
+    { *reasonout = "Enter a valid portal transform."; return FALSE; }
     for (DWORD i = 0; i < total; i++)
     {
         if (document->portals.portals[i].pointcount < 3
@@ -212,8 +216,15 @@ BOOL BgDocumentTranslatePortalPoints(BgDocument *document, const BgPortalPointRe
     }
     for (int axis = 0; axis < 3; axis++)
     {
-        if (!isfinite(offset[axis]))
-        { *reasonout = "Enter a finite portal displacement."; return FALSE; }
+        if ((offset && !isfinite(offset[axis])) || (rotation && !isfinite(pivot[axis])))
+        { *reasonout = "Enter a finite portal transform."; return FALSE; }
+        if (scaling) { identity = identity && scaling->factor[axis] == 1; }
+        else if (rotation)
+        {
+            for (int component = 0; component < 3; component++)
+            { identity = identity && rotation->m[axis][component] == (axis == component); }
+        }
+        else { identity = identity && offset[axis] == 0; }
     }
     for (DWORD r = 0; r < count; r++)
     {
@@ -228,23 +239,29 @@ BOOL BgDocumentTranslatePortalPoints(BgDocument *document, const BgPortalPointRe
             masks[i] |= 1u << refs[r].point;
         }
     }
+    if (identity) { *reasonout = ""; return TRUE; }
     copy = malloc(total * sizeof(*copy));
-    if (!copy) { *reasonout = "Out of memory moving portal points."; return FALSE; }
+    if (!copy) { *reasonout = "Out of memory transforming portal points."; return FALSE; }
     memcpy(copy, document->portals.portals, total * sizeof(*copy));
     for (DWORD i = 0; i < total; i++)
     {
         for (DWORD point = 0; point < copy[i].pointcount; point++)
         {
             float world[3], native[3];
+            double source[3], target[3];
             BgPortalPoint *p = &copy[i].points[point], *n = &copy[i].nativepoints[point];
             if (!(masks[i] & (1u << point))) { continue; }
             world[0] = p->x; world[1] = p->y; world[2] = p->z;
             native[0] = n->x; native[1] = n->y; native[2] = n->z;
+            for (int axis = 0; axis < 3; axis++) { source[axis] = world[axis]; }
+            if (scaling) { ScalingPoint(scaling, source, target); }
+            else if (rotation) { RotationPoint(rotation, pivot, source, target); }
+            else { for (int axis = 0; axis < 3; axis++) { target[axis] = source[axis] + offset[axis]; } }
             for (int axis = 0; axis < 3; axis++)
             {
                 double value;
-                if (offset[axis] == 0) { continue; } /* Preserve untouched native bits. */
-                value = ((double)world[axis] + offset[axis]) * document->levelscale;
+                if (target[axis] == source[axis]) { continue; } /* Preserve untouched native bits. */
+                value = target[axis] * document->levelscale;
                 if (!isfinite(value) || fabs(value) > FLT_MAX
                     || fabs((double)(float)value * (1.0f / document->levelscale)) > FLT_MAX)
                 {
@@ -273,6 +290,24 @@ BOOL BgDocumentTranslatePortalPoints(BgDocument *document, const BgPortalPointRe
     *movedout = moved;
     *reasonout = "";
     return TRUE;
+}
+
+BOOL BgDocumentTranslatePortalPoints(BgDocument *document, const BgPortalPointRef *refs,
+    DWORD count, const double offset[3], DWORD *movedout, const char **reasonout)
+{
+    return BgDocumentTransformPortalPoints(document, refs, count, offset, NULL, NULL, NULL, movedout, reasonout);
+}
+
+BOOL BgDocumentRotatePortalPoints(BgDocument *document, const BgPortalPointRef *refs,
+    DWORD count, const Rotation *rotation, const double pivot[3], DWORD *movedout, const char **reasonout)
+{
+    return BgDocumentTransformPortalPoints(document, refs, count, NULL, rotation, pivot, NULL, movedout, reasonout);
+}
+
+BOOL BgDocumentScalePortalPoints(BgDocument *document, const BgPortalPointRef *refs,
+    DWORD count, const Scaling *scaling, DWORD *movedout, const char **reasonout)
+{
+    return BgDocumentTransformPortalPoints(document, refs, count, NULL, NULL, NULL, scaling, movedout, reasonout);
 }
 
 BOOL BgDocumentCopyPortals(const BgDocument *document, const DWORD *indices,

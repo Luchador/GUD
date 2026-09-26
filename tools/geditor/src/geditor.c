@@ -265,7 +265,7 @@ static void GEditorRefreshTransformFields(void)
             valid = ViewportGetGeometryRotation(g_Viewport, &frame);
             axes = 7;
         }
-        else if (editable && !portal && !roommode && ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT)
+        else if (editable && !roommode && ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT)
         {
             if (marker)
             {
@@ -298,7 +298,7 @@ static void GEditorRefreshTransformFields(void)
     if (!ViewportIsTransforming(g_Viewport))
     {
         Rotation scaleaxes;
-        BOOL valid = editable && !knife && !marker && !portal && !roommode && ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT;
+        BOOL valid = editable && !knife && !marker && !roommode && ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT;
         RotationAxis(&scaleaxes, 0, 0);
         if (group) { valid = valid && groupaxes == 7; }
         else if (object)
@@ -2632,18 +2632,24 @@ fail:
     return FALSE;
 }
 
-static BOOL GEditorTranslatePortals(HWND hwnd, const double offset[3], BOOL snap)
+static BOOL GEditorTransformPortals(HWND hwnd, const double offset[3], const Rotation *rotation,
+    const double pivot[3], const Scaling *scaling, BOOL snap)
 {
     EditHistoryTransaction transaction = {0};
     DWORD count, moved;
     BgPortalPointRef *refs = ViewportGetMovePortalPoints(g_Viewport, &count);
     const char *why = "There are no editable selected portal points.";
     EditorTool tool = ViewportGetTool(g_Viewport);
-    const char *action = snap ? "Snap Portal Vertex" : tool == EDITOR_TOOL_VERTEX_SELECT ? "Move Portal Vertices"
-        : tool == EDITOR_TOOL_EDGE_SELECT ? "Move Portal Edges" : "Move Portal Faces";
+    char action[64];
+    snprintf(action, sizeof(action), "%s Portal %s", snap ? "Snap" : scaling ? "Scale" : rotation ? "Rotate" : "Move",
+        snap ? "Vertex" : tool == EDITOR_TOOL_VERTEX_SELECT ? "Vertices" : tool == EDITOR_TOOL_EDGE_SELECT ? "Edges" : "Faces");
     if (!refs) { goto fail; }
+    if ((rotation || scaling) && count < 2)
+    { why = "Select at least two vertices to rotate or scale."; goto fail; }
     if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument, action, &transaction, &why)) { goto fail; }
-    if (!BgDocumentTranslatePortalPoints(&g_CurrentBgDocument, refs, count, offset, &moved, &why)) { goto rollback; }
+    if (!(scaling ? BgDocumentScalePortalPoints(&g_CurrentBgDocument, refs, count, scaling, &moved, &why)
+        : rotation ? BgDocumentRotatePortalPoints(&g_CurrentBgDocument, refs, count, rotation, pivot, &moved, &why)
+        : BgDocumentTranslatePortalPoints(&g_CurrentBgDocument, refs, count, offset, &moved, &why))) { goto rollback; }
     free(refs); refs = NULL;
     if (!moved) { EditHistoryCancelEdit(&transaction); return TRUE; }
     ViewportSetPortals(g_Viewport, &g_CurrentBgDocument.portals);
@@ -2666,6 +2672,9 @@ fail:
     MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
     return FALSE;
 }
+
+static BOOL GEditorTranslatePortals(HWND hwnd, const double offset[3], BOOL snap)
+{ return GEditorTransformPortals(hwnd, offset, NULL, NULL, NULL, snap); }
 
 static BOOL GEditorTranslateRoom(HWND hwnd, const double offset[3])
 {
@@ -2884,7 +2893,8 @@ static BOOL GEditorTransformSelection(HWND hwnd, const ViewportRotation *request
     { return GEditorTransformModels(hwnd, NULL, request ? &request->rotation : NULL, request ? request->pivot : NULL, scaling); }
     if (ViewportKnifeActive(g_Viewport))
     { return !scaling && request && ViewportTransformKnife(g_Viewport, NULL, &request->rotation); }
-    if (ViewportGetPortalSelectionCount(g_Viewport)) { return FALSE; }
+    if (ViewportGetPortalSelectionCount(g_Viewport))
+    { return GEditorTransformPortals(hwnd, NULL, request ? &request->rotation : NULL, request ? request->pivot : NULL, scaling, FALSE); }
     if (ViewportGetSelectedMarker(g_Viewport, NULL, NULL))
     { return !scaling && request && GEditorTransformMarker(hwnd, NULL, &request->rotation); }
     EditHistoryTransaction transaction;

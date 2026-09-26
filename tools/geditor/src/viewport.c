@@ -4188,7 +4188,8 @@ static void ViewportUpdateGizmo(ViewportState *state)
         DWORD count;
         if (ViewportPortalSelectionPosition(state, state->gizmoposition, &count))
         {
-            state->gizmovisible = !state->rotationmode && !state->scalemode;
+            state->gizmovisible = (!state->rotationmode && !state->scalemode)
+                || state->tool != EDITOR_TOOL_VERTEX_SELECT || count >= 2;
             return;
         }
     }
@@ -6950,17 +6951,20 @@ static void ViewportPreparePortalDrag(ViewportState *state)
     }
 }
 
-/* Always preview from the mouse-down snapshot. Zero displacement restores it
- * before committing, or when Escape/focus/capture loss cancels the gesture. */
-static void ViewportPreviewPortalDrag(ViewportState *state, double delta)
+/* Always preview from the mouse-down snapshot. No rotation/scale and zero
+ * displacement restore it before commit or on Escape/focus/capture loss. */
+static void ViewportPreviewPortalDrag(ViewportState *state, double delta,
+    const Rotation *rotation, const Scaling *scaling)
 {
     for (DWORD i = 0; i < state->portals.portalcount * BG_PORTAL_MAX_POINTS; i++)
     {
         if (!state->dragmask[i]) { continue; }
         BgPortalPoint *point = &state->portals.portals[i / BG_PORTAL_MAX_POINTS].points[i % BG_PORTAL_MAX_POINTS];
-        point->x = state->dragvertices[i][0] + (state->dragaxis == 0 ? delta : 0);
-        point->y = state->dragvertices[i][1] + (state->dragaxis == 1 ? delta : 0);
-        point->z = state->dragvertices[i][2] + (state->dragaxis == 2 ? delta : 0);
+        double source[3] = {state->dragvertices[i][0], state->dragvertices[i][1], state->dragvertices[i][2]}, target[3];
+        if (scaling) { ScalingPoint(scaling, source, target); }
+        else if (rotation) { RotationPoint(rotation, state->dragorigin, source, target); }
+        else { for (int axis = 0; axis < 3; axis++) { target[axis] = source[axis] + (state->dragaxis == axis ? delta : 0); } }
+        *point = (BgPortalPoint){target[0], target[1], target[2]};
     }
     ViewportRefreshPortalGeometry(state);
 }
@@ -7098,7 +7102,6 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
         { SetupMarker marker; state->dragmarker = ViewportSelectedMarker(state, &marker); }
         if (state->dragmarker && state->dragscaling) { return FALSE; }
         state->dragportal = ViewportGetPortalSelectionCount(hwnd) > 0;
-        if (state->dragportal && (state->dragrotation || state->dragscaling)) { return FALSE; }
         state->dragpad = ViewportSelectedPadIndex(state) >= 0;
         state->dragstan = ViewportGetStanSelectionCount(hwnd, NULL) > 0;
         duplicatefaces = ViewportShouldDuplicateBgFaces(state, shift);
@@ -7242,7 +7245,8 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
         state->rotationlast = ViewportRotationParameter(state, &ray, x, y);
     }
     state->dragextruding = ViewportShouldExtrudeEdges(state,shift);
-    state->dragportalduplicating = shift && state->dragportal && state->tool == EDITOR_TOOL_FACE_SELECT;
+    state->dragportalduplicating = shift && state->dragportal && state->tool == EDITOR_TOOL_FACE_SELECT
+        && !state->dragrotation && !state->dragscaling;
     state->dragfaceduplicating = duplicatefaces;
     state->dragduplicating = !state->dragroom && shift && !state->dragknife && !state->dragmarker && !state->dragportal
         && !state->dragpad && !state->dragstan && state->selectedobject != VIEWPORT_OBJECT_NONE;
@@ -7384,7 +7388,8 @@ static void ViewportDragTransform(HWND hwnd, ViewportState *state, int x, int y)
     if (state->dragextruding) { ViewportPreviewEdgeExtrusion(hwnd,state,delta); return; }
     if (state->dragmarker && !ViewportPreviewMarker(hwnd, state, delta, state->dragrotation ? &rotation : NULL)) { return; }
     state->dragdelta = delta;
-    if (state->dragportal) { ViewportPreviewPortalDrag(state, delta); }
+    if (state->dragportal)
+    { ViewportPreviewPortalDrag(state, delta, state->dragrotation ? &rotation : NULL, state->dragscaling ? &scale : NULL); }
     for (i = 0; i < (state->dragportal || state->dragmarker ? 0 : state->dragpad    ? VIEWPORT_BOX_VERTICES
                      : state->dragstan ? (int)(state->stan.tilecount * STAN_TILE_MAX_POINTS)
                                        : state->scenecount);
@@ -7509,7 +7514,7 @@ void ViewportCancelTransform(HWND hwnd)
     if (state->dragknife) { ViewportFinishKnifeTransform(hwnd, state, TRUE); return; }
     if (state->dragmarker && state->markersetup)
     { ViewportSetSetupMarkers(hwnd, state, state->markersetup, state->markerlevelscale); }
-    if (state->dragportal) { ViewportPreviewPortalDrag(state, 0); }
+    if (state->dragportal) { ViewportPreviewPortalDrag(state, 0, NULL, NULL); }
     for (i = 0; i < (state->dragportal || state->dragmarker || state->dragextruding ? 0 : state->dragpad    ? VIEWPORT_BOX_VERTICES
                      : state->dragstan ? (int)(state->stan.tilecount * STAN_TILE_MAX_POINTS)
                                        : state->scenecount);
@@ -10538,9 +10543,11 @@ static BOOL ViewportTriangleRotation(const Vertex triangle[3], Rotation *frame)
 static BOOL ViewportGetComponentRotation(HWND hwnd, const ViewportState *state,
                                          Rotation *frame)
 {
-    BOOL stan = ViewportGetStanSelectionCount(hwnd, NULL) > 0;
-    int count = stan ? state->stancomponentcount : state->componentcount;
-    int ends = state->tool == EDITOR_TOOL_EDGE_SELECT ? 2 : 1;
+    BOOL portal = ViewportGetPortalSelectionCount(hwnd) > 0;
+    BOOL stan = !portal && ViewportGetStanSelectionCount(hwnd, NULL) > 0;
+    int count = portal ? (int)(state->portals.portalcount * BG_PORTAL_MAX_POINTS)
+        : stan ? state->stancomponentcount : state->componentcount;
+    int ends = !portal && state->tool == EDITOR_TOOL_EDGE_SELECT ? 2 : 1;
     double origin[3] = {0}, look[3] = {0}, up[3];
     double looklength = 0;
     BOOL haveorigin = FALSE;
@@ -10550,7 +10557,15 @@ static BOOL ViewportGetComponentRotation(HWND hwnd, const ViewportState *state,
     for (end = 0; end < ends; end++)
     {
         double point[3], delta[3], length = 0, crosslength = 0;
-        if (stan)
+        if (portal)
+        {
+            DWORD index = (DWORD)i / BG_PORTAL_MAX_POINTS, corner = (DWORD)i % BG_PORTAL_MAX_POINTS;
+            if (!ViewportPortalGeometryIsFirst(&state->portals, index)
+                || !(ViewportPortalPointMask(state, index) & (1u << corner))) { continue; }
+            const BgPortalPoint *vertex = &state->portals.portals[index].points[corner];
+            point[0] = vertex->x; point[1] = vertex->y; point[2] = vertex->z;
+        }
+        else if (stan)
         {
             const StanPointRef *ref = &state->stancomponents[i].refs[end];
             const StanPoint *vertex;
@@ -10620,7 +10635,8 @@ BOOL ViewportGetGeometryRotation(HWND hwnd, Rotation *frame)
     {
         return FALSE;
     }
-    if (state->tool == EDITOR_TOOL_VERTEX_SELECT || state->tool == EDITOR_TOOL_EDGE_SELECT)
+    if (ViewportGetPortalSelectionCount(hwnd)
+        || state->tool == EDITOR_TOOL_VERTEX_SELECT || state->tool == EDITOR_TOOL_EDGE_SELECT)
     {
         return ViewportGetComponentRotation(hwnd, state, frame);
     }

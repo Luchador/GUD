@@ -93,6 +93,66 @@ static void NativeEdits(void)
     puts("PASS: existing/new portal point edits, shared polygons, atomic rejection, exact native save/undo/save/redo, metadata preservation.");
 }
 
+static void NativeTransforms(void)
+{
+    const double pivot[3]={10,20,30};
+    for(int mode=0;mode<2;mode++)
+    {
+        BgFile source=Fixture(),saved={0};BgDocument doc={0},original={0},reloaded={0};
+        SetupFile setup={0};StanFile stan={0};EditHistory history={0};EditHistoryTransaction tx={0};
+        const char *why="";DWORD moved;Rotation r;Scaling scale={.pivot={10,20,30},.factor={2,.5,3}};
+        RotationAxis(&r,2,90);RotationAxis(&scale.axes,0,0);
+        assert(BgDocumentLoad(source.data,source.size,.3f,&doc,&why));
+        assert(BgDocumentClone(&doc,&original,&why));
+        EditHistoryReset(&history,&doc,&setup,&stan);
+        BgPortalPointRef refs[]={{0,0},{0,1},{0,2},{0,3},{1,0},{0,0}};
+        assert(EditHistoryBeginBgEdit(&history,&doc,mode?"Scale Portal Faces":"Rotate Portal Faces",&tx,&why));
+        assert(mode?BgDocumentScalePortalPoints(&doc,refs,6,&scale,&moved,&why)
+            :BgDocumentRotatePortalPoints(&doc,refs,6,&r,pivot,&moved,&why));
+        assert(moved==8);
+        for(int p=0;p<4;p++)
+        {
+            const BgPortalPoint *a=&original.portals.portals[0].points[p],*b=&doc.portals.portals[0].points[p];
+            double expected[3]={mode?10+(a->x-10)*2:10-(a->y-20),
+                mode?20+(a->y-20)*.5:20+(a->x-10),mode?30+(a->z-30)*3:a->z};
+            assert(fabs(b->x-expected[0])<1e-5 && fabs(b->y-expected[1])<1e-5 && fabs(b->z-expected[2])<1e-5);
+            assert(!memcmp(b,&doc.portals.portals[1].points[p],sizeof(*b)));
+        }
+        assert(!memcmp(&doc.portals.portals[2],&original.portals.portals[2],sizeof(BgPortal)));
+        assert(EditHistoryCommitEdit(&history,&doc,&setup,&stan,&tx,&why));
+        assert(BgDocumentCompile(&doc,&source,&saved,&why));
+        assert(!memcmp(source.data+160,saved.data+160,32)); /* complete connection table */
+        assert(!memcmp(source.data+416,saved.data+416,92)); /* visibility commands */
+        assert(BgDocumentLoad(saved.data,saved.size,.3f,&reloaded,&why));
+        assert(!memcmp(doc.portals.portals,reloaded.portals.portals,3*sizeof(BgPortal)));
+        EditHistoryMarkBgSaved(&history,&doc);
+        assert(EditHistoryUndo(&history,&doc,&setup,&stan,NULL,&why));
+        assert(!memcmp(doc.portals.portals,original.portals.portals,3*sizeof(BgPortal)));
+        assert(EditHistoryRedo(&history,&doc,&setup,&stan,NULL,&why));
+        assert(!memcmp(doc.portals.portals,reloaded.portals.portals,3*sizeof(BgPortal)));
+        /* Invalid requests and numeric overflow leave all portal records unchanged. */
+        BgPortal before[3];memcpy(before,doc.portals.portals,sizeof(before));BOOL dirty=doc.dirty;
+        failallocation=TRUE;assert(!BgDocumentScalePortalPoints(&doc,refs,6,&scale,&moved,&why));failallocation=FALSE;
+        refs[5].portal=3;assert(!BgDocumentRotatePortalPoints(&doc,refs,6,&r,pivot,&moved,&why));refs[5].portal=0;
+        scale.factor[0]=0;assert(!BgDocumentScalePortalPoints(&doc,refs,6,&scale,&moved,&why));
+        scale.factor[0]=NAN;assert(!BgDocumentScalePortalPoints(&doc,refs,6,&scale,&moved,&why));
+        scale.factor[0]=2;scale.pivot[0]=DBL_MAX;assert(!BgDocumentScalePortalPoints(&doc,refs,6,&scale,&moved,&why));
+        r.m[0][0]=2;assert(!BgDocumentRotatePortalPoints(&doc,refs,6,&r,pivot,&moved,&why));
+        assert(!memcmp(before,doc.portals.portals,sizeof(before)) && doc.dirty==dirty);
+        /* Identity transforms preserve every native bit, even with rotated scale axes. */
+        scale.pivot[0]=10;scale.factor[0]=scale.factor[1]=scale.factor[2]=1;RotationAxis(&scale.axes,1,37);
+        assert(BgDocumentScalePortalPoints(&doc,refs,6,&scale,&moved,&why) && !moved);
+        RotationAxis(&r,0,0);assert(BgDocumentRotatePortalPoints(&doc,refs,6,&r,pivot,&moved,&why) && !moved);
+        assert(!memcmp(before,doc.portals.portals,sizeof(before)));
+        /* A selected edge changes only its two corners and their shared aliases. */
+        RotationAxis(&r,1,30);assert(BgDocumentRotatePortalPoints(&doc,refs,2,&r,pivot,&moved,&why) && moved==4);
+        assert(!memcmp(&before[0].points[2],&doc.portals.portals[0].points[2],2*sizeof(BgPortalPoint)));
+        EditHistoryFree(&history);BgDocumentFree(&doc);BgDocumentFree(&original);BgDocumentFree(&reloaded);
+        BgFileFree(&source);BgFileFree(&saved);
+    }
+    puts("PASS: portal rotation/scaling, deduplicated aliases, edge masks, invalid/no-op transforms, native save/reload, metadata and undo/redo.");
+}
+
 typedef void *HWND;
 typedef float GLfloat;
 typedef unsigned char GLubyte;
@@ -116,7 +176,7 @@ typedef struct ViewportState {
     Vertex *portalfill,*portaledges;GLsizei portalfillcount,portaledgecount;
     float (*dragvertices)[3];unsigned char *dragmask;
     BOOL dragportalduplicating;
-    double dragdelta;
+    double dragdelta, dragorigin[3];
     SetupPadRef selectedpad;
 } ViewportState;
 static ViewportState *ViewportGetState(HWND hwnd) { return hwnd; }
@@ -158,7 +218,7 @@ static double ViewportSceneHitDistance(const ViewportState *s,const ViewportPick
 static void ViewportCancelTransform(HWND hwnd)
 {
     ViewportState *s=hwnd;
-    ViewportPreviewPortalDrag(s,0);
+    ViewportPreviewPortalDrag(s,0,NULL,NULL);
     s->dragaxis=-1; s->dragportalduplicating=FALSE;
     free(s->dragvertices); free(s->dragmask); s->dragvertices=NULL; s->dragmask=NULL;
 }
@@ -214,11 +274,11 @@ static void ViewportEdits(void)
     refs=ViewportGetMovePortalPoints(&viewport,&count);assert(refs && count==3);free(refs); /* shared corner dedup */
     viewport.dragaxis=0;viewport.dragvertices=calloc(3*BG_PORTAL_MAX_POINTS,sizeof(*viewport.dragvertices));viewport.dragmask=calloc(3*BG_PORTAL_MAX_POINTS,1);
     ViewportPreparePortalDrag(&viewport);BgPortal before[3];memcpy(before,viewport.portals.portals,sizeof(before));
-    ViewportPreviewPortalDrag(&viewport,11);ViewportPreviewPortalDrag(&viewport,17);
+    ViewportPreviewPortalDrag(&viewport,11,NULL,NULL);ViewportPreviewPortalDrag(&viewport,17,NULL,NULL);
     for(int i=0;i<3;i++)for(int p=0;p<4;p++)
     { assert(viewport.portals.portals[i].points[p].x==before[i].points[p].x+(i<2&&p<3?17:0)); }
     assert(viewport.portalfill[0].x==before[0].points[0].x+17);
-    ViewportPreviewPortalDrag(&viewport,0);assert(!memcmp(before,viewport.portals.portals,sizeof(before)));
+    ViewportPreviewPortalDrag(&viewport,0,NULL,NULL);assert(!memcmp(before,viewport.portals.portals,sizeof(before)));
     free(viewport.dragvertices);free(viewport.dragmask);viewport.dragvertices=NULL;viewport.dragmask=NULL;viewport.dragaxis=-1;
     viewport.tool=EDITOR_TOOL_FACE_SELECT;ViewportClearAllSelection(&viewport);
     /* Clone preview keeps the sources visible, with one draw per shared
@@ -229,7 +289,7 @@ static void ViewportEdits(void)
         viewport.dragaxis=axis; viewport.dragdelta=-17.5; viewport.dragportalduplicating=TRUE;
         viewport.dragvertices=calloc(3*BG_PORTAL_MAX_POINTS,sizeof(*viewport.dragvertices));
         viewport.dragmask=calloc(3*BG_PORTAL_MAX_POINTS,1);
-        ViewportPreparePortalDrag(&viewport); ViewportPreviewPortalDrag(&viewport,viewport.dragdelta);
+        ViewportPreparePortalDrag(&viewport); ViewportPreviewPortalDrag(&viewport,viewport.dragdelta,NULL,NULL);
         ViewportDrawPortalOriginals(&viewport,TRUE); assert(originaldraws==6);
         assert(!memcmp(drawn,&before[0].points[0],sizeof(*drawn)));
         ViewportDrawPortalOriginals(&viewport,FALSE); assert(originaldraws==8);
@@ -245,7 +305,7 @@ static void ViewportEdits(void)
         viewport.dragaxis=1; viewport.dragdelta=0; viewport.dragportalduplicating=TRUE;
         viewport.dragvertices=calloc(3*BG_PORTAL_MAX_POINTS,sizeof(*viewport.dragvertices));
         viewport.dragmask=calloc(3*BG_PORTAL_MAX_POINTS,1); ViewportPreparePortalDrag(&viewport);
-        if(cancel) { ViewportPreviewPortalDrag(&viewport,50); ViewportCancelTransform(&viewport); }
+        if(cancel) { ViewportPreviewPortalDrag(&viewport,50,NULL,NULL); ViewportCancelTransform(&viewport); }
         else assert(ViewportFinishPortalDuplicate(&viewport,&viewport));
         assert(duplicatecommits==3 && !memcmp(before,viewport.portals.portals,sizeof(before)));
     }
@@ -268,9 +328,25 @@ static void ViewportEdits(void)
     assert(viewport.portals.portals[0].points[0].x==g_CurrentBgDocument.portals.portals[0].points[0].x);
     assert(EditHistoryUndo(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,NULL,&why));
     assert(!memcmp(before,g_CurrentBgDocument.portals.portals,sizeof(before)));
+    /* Portal transform controller commits once, or restores everything on failure. */
+    viewport.tool=EDITOR_TOOL_FACE_SELECT;viewport.portalselection[0]=1;
+    Rotation rotation;RotationAxis(&rotation,2,90);
+    double pivot[3]={0,0,-100};
+    failcommit=TRUE;
+    assert(!GEditorTransformPortals(NULL,NULL,&rotation,pivot,NULL,FALSE));
+    failcommit=FALSE;
+    assert(!g_EditHistory.undocount && !memcmp(before,g_CurrentBgDocument.portals.portals,sizeof(before)));
+    assert(GEditorTransformPortals(NULL,NULL,&rotation,pivot,NULL,FALSE));
+    assert(g_EditHistory.undocount==1 && !strcmp(EditHistoryGetUndoAction(&g_EditHistory),"Rotate Portal Faces"));
+    assert(EditHistoryUndo(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,NULL,&why));
+    ViewportSetPortals(&viewport,&g_CurrentBgDocument.portals);
+    Scaling scale={.pivot={0,0,-100},.factor={2,2,2}};RotationAxis(&scale.axes,0,0);
+    assert(GEditorTransformPortals(NULL,NULL,NULL,NULL,&scale,FALSE));
+    assert(g_EditHistory.undocount==1 && !strcmp(EditHistoryGetUndoAction(&g_EditHistory),"Scale Portal Faces"));
+    assert(g_CurrentBgDocument.portals.portals[0].points[0].x==2*before[0].points[0].x);
     EditHistoryFree(&g_EditHistory);BgDocumentFree(&g_CurrentBgDocument);BgFileFree(&source);
     ViewportSetPortals(&viewport,NULL);
     puts("PASS: real portal corner/edge/face picks, occlusion, aliases, modifier/marquee selection, translation previews/restoration, controller rollback and undo.");
     puts("PASS: clone preview draws unchanged originals once per polygon; X/Y/Z release restores before commit; no-motion/cancel do not clone.");
 }
-int main(void) { NativeEdits();ViewportEdits();return 0; }
+int main(void) { NativeEdits();NativeTransforms();ViewportEdits();return 0; }

@@ -38,7 +38,7 @@ with tempfile.TemporaryDirectory(prefix='geditor-room-mode-') as temp:
         f'-I{root}', f'-I{root / "src"}', f'-I{work}', str(here / 'check.c'),
         str(here.parent / 'image_import/platform.c')]
     command += [str(src / name) for name in ('bgdocument.c', 'bgload.c', 'bgcompile.c',
-        'bgportal.c', 'bgmaterial.c', 'bgrender.c', 'bghistory.c', 'setupload.c',
+        'bgportal.c', 'bgmaterial.c', 'bgrender.c', 'bghistory.c', 'rotation.c', 'scaling.c', 'setupload.c',
         'actionblocks.c', 'stanload.c', 'stanedit.c', 'stanquery.c', 'doorshadow.c', 'roomedit.c')]
     command += [str(root / 'src/game/doorshadowmath.c'), '-Wl,--gc-sections', '-lm', '-o', str(work / 'check')]
     subprocess.run(command, check=True)

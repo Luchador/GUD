@@ -21,7 +21,7 @@ typedef struct { int x,y; } POINT;
 #define GL_TRIANGLES 4
 /* Unused native rendering fields retain the production viewport structure. */
 typedef int HDC,HGLRC,HCURSOR,GLuint,GLsizei,FogCurve,ViewportTexture,LARGE_INTEGER,FogCoordPointerFn;
-typedef int OrbitCamera,ModelLighting,VertexColor,ViewportAimGuide,ViewportMonitors,ViewportStanComponent;
+typedef int OrbitCamera,ModelLighting,VertexColor,ViewportAimGuide,ViewportMonitors;
 typedef int ViewportRoomDragPoint;
 typedef float GLfloat;
 typedef unsigned char GLubyte;
@@ -34,6 +34,8 @@ static double parameter, eye[3]={100,150,200};
 static Vertex original[9];
 static int commits, copies, facecopies, moves;
 static int rotations;
+static BgPortal portaloriginal[3];
+static ViewportRotation committedrotation;
 static ViewportTranslation facecopy;
 static Scaling committed;
 static ViewportObjectDuplicate copied;
@@ -54,11 +56,12 @@ static LRESULT SendMessage(HWND hwnd,int message,int wparam,LPARAM lparam)
     /* Preview must be restored before handing one transaction to the frame. */
     assert(!capture && s->dragaxis==-1 && !s->dragvertices && !s->dragmask);
     assert(!memcmp(s->scene,original,sizeof(original)));
+    if(s->dragportal) { assert(!memcmp(s->portals.portals,portaloriginal,sizeof(portaloriginal))); }
     if (message==VIEWPORT_WM_SCALE_SELECTION) { committed=*(Scaling *)lparam;commits++; }
     else if (message==VIEWPORT_WM_DUPLICATE_OBJECT) { copied=*(ViewportObjectDuplicate *)lparam;copies++; }
     else if (message==VIEWPORT_WM_DUPLICATE_BG_FACES) { assert(!s->dragfaceduplicating); facecopy=*(ViewportTranslation *)lparam;facecopies++; }
     else if (message==VIEWPORT_WM_TRANSLATE_SELECTION) { moves++; }
-    else if (message==VIEWPORT_WM_ROTATE_SELECTION) { rotations++; }
+    else if (message==VIEWPORT_WM_ROTATE_SELECTION) { committedrotation=*(ViewportRotation *)lparam;rotations++; }
     else abort();
     return TRUE;
 }
@@ -104,8 +107,8 @@ static double ViewportRotationParameter(const ViewportState *s,const ViewportPic
 static double ViewportDragParameter(const ViewportState *s,const ViewportPickRay *r,int y) { return parameter; }
 static double ViewportGizmoScale(const ViewportState *s) { return s->gizmovisible && s->scalevalid ? 90 : 0; }
 static BOOL ViewportPreviewMarker(HWND h,ViewportState *s,double d,const Rotation *r) { abort(); }
-static void ViewportPreviewPortalDrag(ViewportState *s,double d) { abort(); }
 static BOOL ViewportPadPosition(const ViewportState *s,const SetupPadRef *p,BOOL preview,double out[3]) { abort(); }
+static void ViewportRefreshPortalGeometry(ViewportState *s) {}
 static void ViewportRefreshStanOverlay(ViewportState *s) { abort(); }
 static void ViewportBuildObjectSelectionBox(ViewportState *s);
 static void ViewportUpdateGizmo(ViewportState *s) { s->hoveraxis=-1; }
@@ -113,9 +116,7 @@ static void ViewportRefreshKnifePlane(HWND h,ViewportState *s) { abort(); }
 static void ViewportFinishKnifeTransform(HWND h,ViewportState *s,BOOL cancel) { abort(); }
 static void ViewportCancelBoxSelection(HWND h,ViewportState *s) {}
 static void ViewportSetSetupMarkers(HWND h,ViewportState *s,const SetupFile *f,float scale) { abort(); }
-DWORD ViewportGetPortalSelectionCount(HWND h) { return 0; }
 DWORD ViewportGetStanSelectionCount(HWND h,DWORD *t) { return 0; }
-static void ViewportPreparePortalDrag(ViewportState *s) { abort(); }
 StanPointRef *ViewportGetMoveStanPoints(HWND h,DWORD *n) { abort(); }
 static StanPointRef ViewportStanPointRef(const ViewportState *s,DWORD t,DWORD p) { abort(); }
 static int ViewportCompareStanRefs(const void *a,const void *b) { abort(); }
@@ -125,6 +126,7 @@ static BOOL ViewportBeginRoomDrag(ViewportState *s) { abort(); }
 static void ViewportPreviewRoomDrag(HWND h,ViewportState *s,double delta) { abort(); }
 static void ViewportCancelRoomDrag(HWND h,ViewportState *s) { abort(); }
 void BgRenderEnvironmentCoordinates(const BgEnvironmentVertex *v,BgRenderFlags f,const float r[3],const float u[3],float uv[2]) { environment=*v; }
+static Vertex ViewportStanPointVertex(const StanPoint *p) { return (Vertex){.x=p->x,.y=p->y,.z=p->z}; }
 #include "functions.inc"
 
 static void Near(double a,double b) { assert(fabs(a-b)<.0001); }
@@ -390,6 +392,66 @@ static void GroupDrags(ViewportState *s, BOOL doors)
     puts("PASS: group world-axis size/spacing and normal previews, door pad permutations, rotated props, XYZ/uniform handles, membership, pivot, translation/rotation, commit/cancel and drag allocation cleanup.");
 }
 
+static void PortalDrags(ViewportState *s)
+{
+    BgPortal portals[3]={0};
+    s->selectedobject=VIEWPORT_OBJECT_NONE;s->selectedobjectcount=0;
+    s->componentcount=0;s->showportals=TRUE;s->portals=(BgPortalFile){.portals=portals,.portalcount=3};
+    for(int i=0;i<3;i++)
+    {
+        portals[i].geometryoffset=i<2?100:200;portals[i].pointcount=4;
+        portals[i].points[0]=(BgPortalPoint){-10,-20,30};portals[i].points[1]=(BgPortalPoint){10,-20,30};
+        portals[i].points[2]=(BgPortalPoint){10,20,30};portals[i].points[3]=(BgPortalPoint){-10,20,30};
+        if(i==2)for(int p=0;p<4;p++) { portals[i].points[p].x+=100;portals[i].points[p].z+=60; }
+    }
+    memcpy(portaloriginal,portals,sizeof(portals));
+    RotationAxis(&s->scaleaxes,0,0);
+    /* Vertex, edge and face masks; multiple independent portals and shared aliases. */
+    for(int tool=0;tool<3;tool++)for(int mode=0;mode<5;mode++)
+    {
+        s->tool=tool==0?EDITOR_TOOL_VERTEX_SELECT:tool==1?EDITOR_TOOL_EDGE_SELECT:EDITOR_TOOL_FACE_SELECT;
+        s->portalselection[0]=tool==0?3:1;s->portalselection[1]=0;s->portalselection[2]=tool==2?1:0;
+        DWORD count;assert(ViewportPortalSelectionPosition(s,s->gizmoposition,&count));
+        s->scalemode=mode>0;s->rotationmode=mode==0;s->rotationaxes=7;
+        Rotation frame;assert(ViewportGetGeometryRotation(s,&frame) && RotationValid(&frame));
+        parameter=0;int axis=mode==4?3:mode==0?2:mode-1,px=-1,py=-1;
+        for(int y=0;y<200&&px<0;y++)for(int x=0;x<200;x++)
+            if(ViewportPickGizmo(s,s,x,y)==axis) { px=x;py=y;break; }
+        assert(px>=0 && ViewportBeginTransform(s,s,px,py,TRUE));
+        assert(s->dragportal && !s->dragportalduplicating && s->dragaxis==axis);
+        int oldcommits=commits,oldrotations=rotations;
+        if(mode==0) parameter=90;else parameter=45;
+        ViewportDragTransform(s,s,px+(mode==4?45:0),py);
+        double pivot[3];memcpy(pivot,s->dragorigin,sizeof(pivot));
+        for(int i=0;i<3;i++)for(int p=0;p<4;p++)
+        {
+            BOOL selected=(i<2 || tool==2) && (tool==2 || p<2);
+            BgPortalPoint a=portaloriginal[i].points[p],b=portals[i].points[p];
+            double expected[3]={a.x,a.y,a.z};
+            if(selected)
+            {
+                if(mode==0) { expected[0]=pivot[0]-(a.y-pivot[1]);expected[1]=pivot[1]+(a.x-pivot[0]); }
+                else for(int k=0;k<3;k++) if(axis==3 || k==axis) { expected[k]=pivot[k]+(expected[k]-pivot[k])*1.5; }
+            }
+            Near(b.x,expected[0]);Near(b.y,expected[1]);Near(b.z,expected[2]);
+        }
+        ViewportEndTransform(s,s);
+        assert(commits==oldcommits+(mode>0) && rotations==oldrotations+(mode==0));
+        if(mode==0) { assert(!memcmp(committedrotation.pivot,pivot,sizeof(pivot))); }
+        else for(int k=0;k<3;k++) Near(committed.factor[k],axis==3 || k==axis?1.5:1);
+        assert(!memcmp(portals,portaloriginal,sizeof(portals)));
+        /* A canceled gesture restores the snapshot and dispatches nothing. */
+        parameter=0;assert(ViewportBeginTransform(s,s,px,py,FALSE));
+        parameter=30;ViewportDragTransform(s,s,px+30,py);ViewportCancelTransform(s);
+        assert(!memcmp(portals,portaloriginal,sizeof(portals)));
+        assert(commits==oldcommits+(mode>0) && rotations==oldrotations+(mode==0));
+    }
+    s->tool=EDITOR_TOOL_VERTEX_SELECT;s->portalselection[0]=1;s->portalselection[2]=0;
+    Rotation frame;assert(!ViewportGetGeometryRotation(s,&frame)); /* one corner has no orientation */
+    s->showportals=FALSE;s->portals=(BgPortalFile){0};
+    puts("PASS: portal vertex/edge/face rotation, XYZ/uniform scaling, group pivot, shared aliases, preview/commit restoration, Shift and cancellation.");
+}
+
 int main(void)
 {
     Vertex scene[9]={0};BgDocumentVertexRef refs[9];unsigned char selected[3]={1,0,0};
@@ -422,6 +484,7 @@ int main(void)
     FaceDrags(&s);
     GroupDrags(&s,FALSE);
     GroupDrags(&s,TRUE);
+    PortalDrags(&s);
     puts("PASS: object/face/edge masks, rotated axes, screen directions, snapshot preview, proportional XYZ factors, guides/normals, no-op, clamp, cancellation, one commit and Shift duplication; axis scaling unchanged.");
     return 0;
 }

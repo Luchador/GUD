@@ -86,7 +86,7 @@ static void InvalidateRect(HWND hwnd,void *rect,BOOL erase) {}
 static void ViewportUpdateGizmo(ViewportState *state) {}
 static void ViewportCancelBoxSelection(HWND hwnd,ViewportState *state) {}
 static void ViewportFinishKnifeTransform(HWND hwnd,ViewportState *state,BOOL cancel) { abort(); }
-static void ViewportPreviewPortalDrag(ViewportState *state,double delta) { abort(); }
+static void ViewportPreviewPortalDrag(ViewportState *state,double delta,const Rotation *rotation,const Scaling *scaling) { abort(); }
 static void ViewportSetSetupMarkers(HWND hwnd,ViewportState *state,const SetupFile *setup,float scale) { abort(); }
 static int ViewportSelectedPadIndex(ViewportState *state) { abort(); }
 static void ViewportRefreshStanOverlay(ViewportState *state) {}
