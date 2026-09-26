@@ -241,6 +241,10 @@ static void checkPortals(void)
         }
         portalData[count].portal = NULL;
         bgBuildPortalCache();
+        /* Compare legacy traversal with its original trusted-side assumption.
+         * Bounds-based opt-outs have separate portal_traversal regressions. */
+        memset(g_BgPortalPlaneCullMasks, BG_PORTAL_CULL_FROM_ROOM1 | BG_PORTAL_CULL_FROM_ROOM2,
+                sizeof(g_BgPortalPlaneCullMasks));
         /* Door flags and endpoint direction can change without rebuilding. */
         for (portalnum = 0; portalnum < count; portalnum++)
         {

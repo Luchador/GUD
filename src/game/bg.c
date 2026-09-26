@@ -186,6 +186,12 @@ struct PortalMetric g_PortalPlanes[PORTMAX];
 /* Portal endpoints are byte-sized room IDs, including room zero. */
 #define BG_PORTAL_ROOM_COUNT 256
 
+#define BG_PORTAL_CULL_FROM_ROOM1 1
+#define BG_PORTAL_CULL_FROM_ROOM2 2
+/* A room-center guess does not prove that the whole destination is beyond
+ * a portal. Re-roomed/concave rooms may extend across its plane. */
+static u8 g_BgPortalPlaneCullMasks[PORTMAX];
+
 typedef struct BgPortalBounds {
     coord3d min;
     coord3d max;
@@ -261,7 +267,10 @@ void bgMarkSpecialPortals(void)
     s32 i;
     s32 range;
     s32 portal;
+    s32 portalcount;
     const u8 *ranges;
+
+    for (portalcount = 0; portalcount < PORTMAX && g_BgPortals[portalcount].portal != NULL; portalcount++) {}
 
     for (i = 0; i < ARRAYCOUNT(specialportalarray); i++)
     {
@@ -273,9 +282,11 @@ void bgMarkSpecialPortals(void)
         for (range = 0; range + 1 < sizeof(specialportalarray[i].portallist)
                 && ranges[range] != 0xff; range += 2)
         {
-            for (portal = ranges[range]; portal <= ranges[range + 1]; portal++)
+            /* Edited levels can have fewer portals than the original table.
+             * Never let a legacy range write into the following BG data. */
+            for (portal = ranges[range]; portal <= ranges[range + 1] && portal < portalcount; portal++)
             {
-                ((u8 *)g_BgPortals)[(portal << 3) + 6] |= 2;
+                g_BgPortals[portal].controlbytes1 |= PORTALFLAG_SPECIAL;
             }
         }
     }
@@ -3291,7 +3302,8 @@ void bgProcessPortalTraversal(s32 value, s32 roomnum, s32 portalnum, s32 depth, 
     {
         otherroom = g_BgPortals[portalnum].connectedRoom2;
  
-        if (metric.max <= (playermetric - portalmetric))
+        if ((g_BgPortalPlaneCullMasks[portalnum] & BG_PORTAL_CULL_FROM_ROOM1)
+                && metric.max <= (playermetric - portalmetric))
         {
             return;
         }
@@ -3300,7 +3312,8 @@ void bgProcessPortalTraversal(s32 value, s32 roomnum, s32 portalnum, s32 depth, 
     {
         otherroom = g_BgPortals[portalnum].connectedRoom1;
  
-        if ((playermetric + portalmetric) <= metric.min)
+        if ((g_BgPortalPlaneCullMasks[portalnum] & BG_PORTAL_CULL_FROM_ROOM2)
+                && (playermetric + portalmetric) <= metric.min)
         {
             return;
         }
@@ -4376,6 +4389,31 @@ bool bgIsBboxOverlapping(coord3d *portalbbmin, coord3d *portalbbmax, coord3d *pr
 }
 
 
+/* Test the entire destination bound, not its center. Bounds already include
+ * every connected portal, so empty connecting spaces remain traversable too.
+ * Returning FALSE only skips the directional plane rejection; projection,
+ * parent-window clipping, closed doors and special-portal tests still apply. */
+static bool bgRoomFitsPortalSide(s32 roomnum, struct PortalMetric *metric, bool positive)
+{
+    RoomInfo *room;
+    f32 extreme = 0.0f;
+    s32 axis;
+
+    if ((u32)roomnum >= (u32)g_MaxNumRooms) return FALSE;
+    room = &g_BgRoomInfo[roomnum];
+    for (axis = 0; axis < 3; axis++)
+    {
+        f32 normal = metric->normal.f[axis];
+        if (room->minbounds.f[axis] > room->maxbounds.f[axis]) return FALSE;
+        if ((normal >= 0.0f) == positive)
+            extreme += normal * room->minbounds.f[axis];
+        else
+            extreme += normal * room->maxbounds.f[axis];
+    }
+    return positive ? extreme >= metric->min : extreme <= metric->max;
+}
+
+
 /**
  * Build immutable portal geometry and adjacency data after stage loading.
  * Each room's indices stay in original portal order, including self-links
@@ -4405,6 +4443,14 @@ static void bgBuildPortalCache(void)
         PortalData *data = &g_BgPortals[portalnum];
         Portal *portal = data->portal;
         BgPortalBounds *bounds = &g_BgPortalBounds[portalnum];
+
+        /* Room ordering is only a heuristic. Cache which directions can
+         * safely use it, after bgExpandRoomToPortals has finished. */
+        g_BgPortalPlaneCullMasks[portalnum] = 0;
+        if (bgRoomFitsPortalSide(data->connectedRoom2, &g_PortalPlanes[portalnum], TRUE))
+            g_BgPortalPlaneCullMasks[portalnum] |= BG_PORTAL_CULL_FROM_ROOM1;
+        if (bgRoomFitsPortalSide(data->connectedRoom1, &g_PortalPlanes[portalnum], FALSE))
+            g_BgPortalPlaneCullMasks[portalnum] |= BG_PORTAL_CULL_FROM_ROOM2;
 
         g_BgRoomPortalOffsets[data->connectedRoom1 + 1]++;
 

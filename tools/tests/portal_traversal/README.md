@@ -1,7 +1,34 @@
 # Portal visibility and bounded traversal
 
-Base: GUD `ba6fce2` (Room cache memory recovery). Apply this patch on top of that
-change. The exact intermittent Aztec gameplay event has not been reproduced.
+These tests cover the bounded traversal queue and safe directional plane
+culling. Camera projections are controlled host fixtures, not gameplay captures.
+
+## Edited Control rooms and shortened portal tables
+
+Portal 87 in the revised Control BG is horizontal at native Y = 329. Room 32's
+bounds are Y = 158..524; room 67's are Y = 0..524. Their centers therefore put
+room 32 above room 67, reversing the main lower/upper connection. The old
+directional test rejects both room 32 at Y = 240 and room 67 at Y = 430 before
+projecting the portal. This occurs with a single traversal, without queue load.
+
+The runtime now caches a two-bit mask per portal. A directional rejection is
+allowed only when the destination's entire bound is beyond the portal on the
+expected side. Bounds include all connected portals, preserving paths through
+empty connecting space. Otherwise the normal portal projection, parent-window
+intersection, door flags and special-portal checks decide visibility. This can
+conservatively include additional rooms; it does not force every room on screen.
+Classification runs once at stage load and the masks occupy 200 bytes.
+
+The revised BG also has only 105 portals. Control's original special-portal
+ranges include indices 114..118 and 121..122. Applying those indices without
+checking the table end writes into the following BG data (portal polygons 1
+and 2 in the supplied file). Special marking now stops at the actual count.
+Existing in-range legacy markings and authored flags are preserved.
+
+`planes.c` reproduces the room 32/67 failure in both directions and both polygon
+windings. It also covers one-sided destinations, connected openings outside a
+room's original bounds, oblique planes, clipping, closed/off-screen portals,
+and shortened special-portal tables with guarded trailing data.
 
 ## Defects addressed
 
@@ -30,7 +57,7 @@ copy, so a cycle can safely widen/requeue the same direction during processing.
 The traversal records plus ordering/state arrays use less memory than the old
 500-entry queue.
 
-Portal plane tests, disabled/special portal behavior, room visibility scripts,
+Disabled/special portal behavior, room visibility scripts,
 room loading budgets, and the previous memory recovery policy are preserved.
 Repeated work now terminates when windows stop growing rather than when a room
 hits an arbitrary visit limit. As with the existing room rectangle unions,
@@ -51,6 +78,15 @@ python3 tools/tests/portal_traversal/run.py
 python3 tools/tests/room_cache/run.py
 python3 tools/tests/bg_debug/run.py
 python3 tools/tests/gameplay_optimizations/run.py
+```
+
+An optional uncompressed Control `.seg` exercises its actual room bounds,
+portal geometry, ordering and adjacency. It checks portal 87 when it connects
+rooms 32/67, then compares traversal from every room center with the closure
+oracle using full visible portal rectangles:
+
+```sh
+python3 tools/tests/portal_traversal/run.py bg_arec_all_p.seg
 ```
 
 The new host test uses production queue/traversal/room-window functions with

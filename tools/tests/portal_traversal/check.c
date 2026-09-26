@@ -28,6 +28,8 @@ static void reset(void)
     player.screensize = box(0,0,100,100);
     bgResetPortalQueue(); bgResetPortalVisitCounts();
     for (int i = 0; i < PORTMAX; i++) {
+        /* Existing randomized graph tests assume trusted room-side ordering. */
+        g_BgPortalPlaneCullMasks[i] = BG_PORTAL_CULL_FROM_ROOM1 | BG_PORTAL_CULL_FROM_ROOM2;
         g_PortalPlanes[i] = (struct PortalMetric){{1,0,0},1,1};
         portalBoxes[i] = player.screensize;
         portalVisible[i] = TRUE;
@@ -61,7 +63,10 @@ static void adjacency(void)
 static void clear_view(int root)
 {
     rootRoom = root;
-    memset(g_BgRoomInfo, 0, sizeof(g_BgRoomInfo));
+    for (int i = 0; i < MAXROOMCOUNT; i++) {
+        g_BgRoomInfo[i].room_rendered = g_BgRoomInfo[i].room_loaded_mask = 0;
+        g_BgRoomInfo[i].unloadAge = 0;
+    }
     bgResetPortalQueue(); bgResetPortalVisitCounts();
     legacyRead = legacyWrite = dispatched = peak = maximumDepth = 0;
     bbox2d full = player.screensize;
@@ -186,9 +191,12 @@ static void oracle(int root, int *seen, bbox2d *windows)
             int to = side ? portals[p].connectedRoom1 : portals[p].connectedRoom2;
             if (!seen[from] || (portals[p].controlbytes1 & PORTALFLAG_DISABLED)) continue;
             float low = g_PortalPlanes[p].min, high = g_PortalPlanes[p].max;
-            if ((!side && high <= 0) || (side && low >= 0)) continue;
+            const coord3d *normal = &g_PortalPlanes[p].normal;
+            float distance = (normal->x * camera.x + normal->y * camera.y + normal->z * camera.z) * g_LevelScale;
+            if ((!side && (g_BgPortalPlaneCullMasks[p] & BG_PORTAL_CULL_FROM_ROOM1) && high <= distance)
+                || (side && (g_BgPortalPlaneCullMasks[p] & BG_PORTAL_CULL_FROM_ROOM2) && low >= distance)) continue;
             bbox2d b;
-            if (low < 0 && high > 0) b = player.screensize;
+            if (low < distance && high > distance) b = player.screensize;
             else {
                 if (!portalVisible[p]) continue;
                 b = portalBoxes[p];
@@ -244,9 +252,13 @@ static void check_native(const char *path)
     printf("PASS: %s: %d portals, %d camera-room/aperture cases match independent closure; peak queue %d, depth %d.\n",path,numPortals,total,maxpeak,maxdepth);
 }
 
+static void check_planes(void);
+static void check_geometry(const char *path);
+
 int main(int argc, char **argv)
 {
-    if (argc == 2) check_native(argv[1]);
-    else { check_cutoff(); check_ring_and_windows(); check_cycles_and_specials(); }
+    if (argc == 3 && !strcmp(argv[1], "--geometry")) check_geometry(argv[2]);
+    else if (argc == 2) check_native(argv[1]);
+    else { check_cutoff(); check_ring_and_windows(); check_cycles_and_specials(); check_planes(); }
     return 0;
 }
