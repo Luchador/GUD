@@ -27,15 +27,15 @@ extern ChrRecord *g_CurModelChr;
 u8 fileGetBondForFolder(u32 folder);
 void fileValidateSaves(void);
 bool fileGetIsCheatUnlocked(save_data *save, s32 cheat);
-STAGESTATUS fileIsStageUnlockedAtDifficulty(s32 foldernum, LEVEL_SOLO_SEQUENCE levelid, DIFFICULTY difficulty);
-void fileUnlockStageInFolderAtDifficulty(s32 foldernum, LEVEL_SOLO_SEQUENCE levelid, DIFFICULTY difficulty, s32 newtime);
+STAGESTATUS fileIsStageUnlockedAtDifficulty(s32 foldernum, LEVEL_SOLO_SLOT levelid, DIFFICULTY difficulty);
+void fileUnlockStageInFolderAtDifficulty(s32 foldernum, LEVEL_SOLO_SLOT levelid, DIFFICULTY difficulty, s32 newtime);
 void fileSaveFolderUnlockCheat(s32 foldernum, s32 cheat);
 void fileLoadSettingsForFolder(u32 folder);
 void fileDeleteSaveForFolder(s32 foldernum);
 
-void fileGetHighestStageDifficultyCompletedForFolder(s32 foldernum, LEVEL_SOLO_SEQUENCE *levelid, DIFFICULTY *difficulty);
+void fileGetHighestStageDifficultyCompletedForFolder(s32 foldernum, LEVEL_SOLO_SLOT *levelid, DIFFICULTY *difficulty);
 bool check_aztec_completed_any_folder_secret_00(void);
 bool fileIsEgyptCompletedOn00AnyFolder(void);
-LEVEL_SOLO_SEQUENCE fileGetHighestStageUnlockedAnyFolder(void);
+LEVEL_SOLO_SLOT fileGetHighestStageUnlockedAnyFolder(void);
 
 #endif

@@ -10,6 +10,7 @@ typedef int32_t s32;
 typedef uint32_t u32;
 typedef struct { uint64_t packet; } Gfx;
 #include "declarations.inc"
+static LEVEL_SOLO_SLOT campaignGetLastMain(void) { return SP_LEVEL_CRADLE; }
 
 #define TRUE 1
 #define FALSE 0

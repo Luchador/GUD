@@ -41,13 +41,13 @@ void end_of_mission_briefing(void)
 
     if ((-1 < briefingpage) && selected_difficulty != DIFFICULTY_007 && g_AppendCheatSinglePlayer == FALSE)
     {
-        var1 = solo_target_time_array[mission_folder_setup_entries[briefingpage].mission_num][selected_difficulty];
-        fileUnlockStageInFolderAtDifficulty(selected_folder_num, mission_folder_setup_entries[briefingpage].mission_num, selected_difficulty, getMissiontimer() / 0x3c);
+        var1 = campaignGetCheatTime(mission_folder_setup_entries[briefingpage].save_slot, selected_difficulty);
+        fileUnlockStageInFolderAtDifficulty(selected_folder_num, mission_folder_setup_entries[briefingpage].save_slot, selected_difficulty, getMissiontimer() / 0x3c);
         if ((getMissiontimer() / GAME_TICKRATE) <= var1)
         {
-            if (!fileGetIsCheatUnlocked(fileGetSaveForFoldernum(selected_folder_num), mission_folder_setup_entries[briefingpage].mission_num))
+            if (!fileGetIsCheatUnlocked(fileGetSaveForFoldernum(selected_folder_num), mission_folder_setup_entries[briefingpage].save_slot))
             {
-                fileSaveFolderUnlockCheat(selected_folder_num, mission_folder_setup_entries[briefingpage].mission_num);
+                fileSaveFolderUnlockCheat(selected_folder_num, mission_folder_setup_entries[briefingpage].save_slot);
                 g_NewCheatUnlocked = TRUE;
                 return;
             }
@@ -105,7 +105,7 @@ void set_solo_and_ptr_briefing(LEVELID stage)
 {
     gamemode = GAMEMODE_SOLO;
     selected_stage = stage;
-    briefingpage = pull_and_display_text_for_folder_a0(stage);
+    briefingpage = campaignGetEntryByLevel(stage);
 }
 
 

@@ -29,8 +29,9 @@ types = (ROOT / 'src/bondtypes.h').read_text()
 header = (ROOT / 'src/game/bondview.h').read_text()
 declarations = re.search(r'^#define CREDITS_SKIP_HOLD_FRAMES .*$', header, re.M)[0] + '\n'
 declarations += re.search(r'^#define BONDVIEW_HUD_MSG_TOP_BUFFER_LENGTH .*$', header, re.M)[0] + '\n'
-for name in ('CREDITS_ALIGNMENT', 'CREDITS_STATE', 'MENU', 'LEVEL_SOLO_SEQUENCE'):
+for name in ('CREDITS_ALIGNMENT', 'CREDITS_STATE', 'MENU'):
     declarations += re.search(r'typedef enum ' + name + r'\s*\{.*?\}\s*' + name + ';', constants, re.S)[0] + '\n'
+declarations += (ROOT / 'src/levelids.h').read_text() + '\n'
 declarations += re.search(r'typedef struct CreditsEntry_s\s*\{.*?\}\s*CreditsEntry;', types, re.S)[0] + '\n'
 
 with tempfile.TemporaryDirectory(prefix='gud-credits-skip-') as directory:

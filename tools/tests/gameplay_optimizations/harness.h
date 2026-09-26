@@ -24,6 +24,7 @@ typedef int bool;
 #define PORTALFLAG_DISABLED 1
 #define PORTALFLAG_SPECIAL 2
 #define LEVEL_INDEX_CRAD 19
+#define LEVELID_CRADLE 41
 #define CDTYPE_OBJS 1
 #define CDTYPE_DOORS 2
 #define CDTYPE_PATHBLOCKER 4
@@ -46,7 +47,7 @@ static struct { s32 room_rendered, room_loaded_mask; } g_BgRoomInfo[MAXROOMCOUNT
 static coord3d D_80044904 = {{{FLT_MAX, FLT_MAX, FLT_MAX}}};
 static coord3d D_80044910 = {{{-FLT_MAX, -FLT_MAX, -FLT_MAX}}};
 static s32 g_MaxNumRooms, g_BgRenderMode, g_BgCurrentRoom, g_RoomLoadBudget;
-static s32 g_BgGlobalVisAddedRoomCount, levelentry_index;
+static s32 g_BgGlobalVisAddedRoomCount, levelentry_index, g_CurrentBgLevelId;
 static f32 g_LevelScale;
 typedef struct GlobalVisCommand { s32 unused; } GlobalVisCommand;
 static GlobalVisCommand *g_BgGlobalVisCommands;

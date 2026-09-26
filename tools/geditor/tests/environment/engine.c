@@ -9,7 +9,7 @@ typedef uint32_t u32;
 typedef int32_t s32;
 #define bool int
 #include "types.inc"
-enum { ENVIRONMENTDATA_END=0, ENVIRONMENTDATA_ALT=100, ENVIRONMENTDATA_CINEMA=900, LEVELID_NONE=-1 };
+#include "../../../../src/levelids.h"
 static EnvironmentRecord *g_MainEnvironment,*g_AlternateEnvironment,active;
 static int players=1,loads;
 static int getPlayerCount(void) { return players; }

@@ -1,0 +1,96 @@
+#ifndef GUD_LEVELIDS_H
+#define GUD_LEVELIDS_H
+
+/* Persistent identities, shared by the game and GEditor. These values are
+ * stored in projects, AI bytecode and recordings: reordering declarations or
+ * catalog rows must never renumber them. LEVELID_MAX is a legacy placeholder,
+ * not a count or upper bound. */
+typedef enum ENVIRONMENTDATA_IDS
+{
+    ENVIRONMENTDATA_PLAYERS_1,
+    ENVIRONMENTDATA_ALT       = 100,
+    ENVIRONMENTDATA_PLAYERS_2 = 200,
+    ENVIRONMENTDATA_PLAYERS_3 = 300,
+    ENVIRONMENTDATA_PLAYERS_4 = 400,
+    ENVIRONMENTDATA_CINEMA    = 900
+
+} ENVIRONMENTDATA_IDS;
+
+#define ENVIRONMENTDATA_END 0
+
+typedef enum LEVELID
+{
+    LEVELID_NONE = -1,
+    LEVELID_DEFAULT = 0,
+    LEVELID_BUNKER1 = 9,
+    LEVELID_SILO = 20,
+    LEVELID_STATUE = 22,
+    LEVELID_CONTROL = 23,
+    LEVELID_ARCHIVES = 24,
+    LEVELID_TRAIN = 25,
+    LEVELID_FRIGATE = 26,
+    LEVELID_BUNKER2 = 27,
+    LEVELID_AZTEC = 28,
+    LEVELID_STREETS = 29,
+    LEVELID_DEPOT = 30,
+    LEVELID_COMPLEX = 31,
+    LEVELID_EGYPT = 32,
+    LEVELID_DAM = 33,
+    LEVELID_FACILITY = 34,
+    LEVELID_RUNWAY = 35,
+    LEVELID_SURFACE = 36,
+    LEVELID_JUNGLE = 37,
+    LEVELID_TEMPLE = 38,
+    LEVELID_CAVERNS = 39,
+    LEVELID_CITADEL = 40,
+    LEVELID_CRADLE = 41,
+    LEVELID_SURFACE2 = 43,
+    LEVELID_BASEMENT = 45,
+    LEVELID_STACK = 46,
+    LEVELID_LIBRARY = 48,
+    LEVELID_CAVES = 50,
+    LEVELID_CUBA = 54,
+    LEVELID_MAX = 57,
+    LEVELID_TITLE = 90,
+    LEVELID_BUNKER2_MP = LEVELID_BUNKER2 + ENVIRONMENTDATA_PLAYERS_4,
+    LEVELID_ARCHIVES_MP = LEVELID_ARCHIVES + ENVIRONMENTDATA_PLAYERS_4,
+    LEVELID_CAVERNS_MP = LEVELID_CAVERNS + ENVIRONMENTDATA_PLAYERS_4,
+    LEVELID_FACILITY_MP = LEVELID_FACILITY + ENVIRONMENTDATA_PLAYERS_4,
+    LEVELID_EGYPT_MP = LEVELID_EGYPT + ENVIRONMENTDATA_PLAYERS_4
+} LEVELID;
+
+/* Stable EEPROM/cheat slots. These are NOT campaign positions or displayed
+ * mission/part numbers. Keep existing values when the campaign is reordered. */
+typedef enum LEVEL_SOLO_SLOT
+{
+    SP_LEVEL_NONE = -1,
+    SP_LEVEL_DAM = 0,
+    SP_LEVEL_FACILITY = 1,
+    SP_LEVEL_RUNWAY = 2,
+    SP_LEVEL_SURFACE1 = 3,
+    SP_LEVEL_BUNKER1 = 4,
+    SP_LEVEL_SILO = 5,
+    SP_LEVEL_FRIGATE = 6,
+    SP_LEVEL_SURFACE2 = 7,
+    SP_LEVEL_BUNKER2 = 8,
+    SP_LEVEL_STATUE = 9,
+    SP_LEVEL_ARCHIVES = 10,
+    SP_LEVEL_STREETS = 11,
+    SP_LEVEL_DEPOT = 12,
+    SP_LEVEL_TRAIN = 13,
+    SP_LEVEL_JUNGLE = 14,
+    SP_LEVEL_CONTROL = 15,
+    SP_LEVEL_CAVERNS = 16,
+    SP_LEVEL_CRADLE = 17,
+    SP_LEVEL_AZTEC = 18,
+    SP_LEVEL_EGYPT = 19,
+    SP_LEVEL_MAX = 20
+} LEVEL_SOLO_SLOT;
+
+/* Serialized environment IDs reserve blocks of 100. This is an on-disk
+ * encoding, independent of catalog and campaign order. */
+#define ENVIRONMENTDATA_STRIDE 100
+#define LEVELID_IS_MP(id) ((id) >= ENVIRONMENTDATA_PLAYERS_4 && \
+    (id) < ENVIRONMENTDATA_PLAYERS_4 + ENVIRONMENTDATA_STRIDE)
+
+#endif

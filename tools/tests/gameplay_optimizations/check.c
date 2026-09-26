@@ -283,6 +283,7 @@ static void checkPortals(void)
         cameraMode = test % 9; currentPlayer = test % 4;
         cameraRoom = nextRandom() % MAXROOMCOUNT;
         levelentry_index = test % 6 == 0 ? LEVEL_INDEX_CRAD : 0;
+        g_CurrentBgLevelId = test % 6 == 0 ? LEVELID_CRADLE : 0;
         compareTraversal(0, 0, cameraRoom);
         compareTraversal(1, 0, cameraRoom);
         for (portalnum = 0; portalnum < count; portalnum++)

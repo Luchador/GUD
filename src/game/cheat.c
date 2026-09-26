@@ -975,6 +975,33 @@ void setTurboModeEnabled(s32 flag)
 }
 
 
+static bool cheatButtonUnlockMission(LEVEL_SOLO_SLOT slot)
+{
+    s32 order;
+    s32 count = campaignGetMissionCount();
+    s32 required = 0;
+    s32 completed = 0;
+    LEVEL_SOLO_SLOT prior;
+    LEVEL_SOLO_SLOT last = SP_LEVEL_NONE;
+
+    if (selected_folder_num < 0 || selected_folder_num >= 4) return FALSE;
+    for (order = 0; order < count; order++)
+    {
+        prior = campaignGetSaveSlotByOrder(order);
+        if (!campaignIsPrerequisite(slot, prior)) continue;
+        required++;
+        last = prior;
+        if (fileIsStageUnlockedAtDifficulty(selected_folder_num, prior, DIFFICULTY_AGENT) == STAGESTATUS_COMPLETED)
+            completed++;
+    }
+    if (required > 0 && completed == required - 1)
+    {
+        fileUnlockStageInFolderAtDifficulty(selected_folder_num, last, DIFFICULTY_AGENT, 0x5F5E0FF);
+        return TRUE;
+    }
+    return FALSE;
+}
+
 void cheatButtonHandleCheatsTurnedOn(CHEAT_ID cheat_id)
 {
     s32 mask;
@@ -1337,26 +1364,17 @@ void cheatButtonHandleCheatsTurnedOn(CHEAT_ID cheat_id)
         case CHEAT_UNLOCK_AZTEK:
         case CHEAT_UNLOCK_EGYPT:
             {
-                s32 max = cheat_id - CHEAT_UNLOCK_DAM;
-                s32 stagenum;
-                s32 unlock_count;
-                if (selected_folder_num >= 0 && selected_folder_num < 4)
+                /* Cheat IDs retain their original meaning when missions move. */
+                static const LEVEL_SOLO_SLOT slots[] = {
+                    SP_LEVEL_DAM, SP_LEVEL_FACILITY, SP_LEVEL_RUNWAY, SP_LEVEL_SURFACE1,
+                    SP_LEVEL_BUNKER1, SP_LEVEL_SILO, SP_LEVEL_FRIGATE, SP_LEVEL_SURFACE2,
+                    SP_LEVEL_BUNKER2, SP_LEVEL_STATUE, SP_LEVEL_ARCHIVES, SP_LEVEL_STREETS,
+                    SP_LEVEL_DEPOT, SP_LEVEL_TRAIN, SP_LEVEL_JUNGLE, SP_LEVEL_CONTROL,
+                    SP_LEVEL_CAVERNS, SP_LEVEL_CRADLE, SP_LEVEL_AZTEC, SP_LEVEL_EGYPT
+                };
+                if (cheatButtonUnlockMission(slots[cheat_id - CHEAT_UNLOCK_DAM]))
                 {
-                    unlock_count = 0;
-                    stagenum = 0;
-                    for (; stagenum < max; stagenum++)
-                    {
-                        if (fileIsStageUnlockedAtDifficulty(selected_folder_num, stagenum, DIFFICULTY_AGENT) == 3)
-                        {
-                            unlock_count++;
-                        }
-                    }
-
-                    if (max - 1 == (unlock_count))
-                    {
-                        fileUnlockStageInFolderAtDifficulty(selected_folder_num, max - 1, DIFFICULTY_AGENT, 0x5F5E0FF);
-                        sndPlaySfx(g_musicSfxBufferPtr, CAMERA_BEEP1_SFX, 0);
-                    }
+                    sndPlaySfx(g_musicSfxBufferPtr, CAMERA_BEEP1_SFX, 0);
                 }
             }
             return;

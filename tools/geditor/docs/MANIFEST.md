@@ -44,9 +44,10 @@ main music, ambient track and action track. `ENVT` includes sky/water and
 visibility data as well as fog.
 
 `STGT` covers the complete `g_LevelInfoTable`; its range and count come from
-`sizeof`/`ARRAYCOUNT` of the bounded declaration in `lv.h`. `LEVELID_MAX` is
-always the last row. GEditor excludes this BG placeholder and the unnamed
-default allocation row. The five shared-map MP variants have authored names,
+`sizeof`/`ARRAYCOUNT` of the bounded declaration in `lv.h`, generated from
+`leveltable.inc`. Row order has no identity meaning. GEditor excludes the
+`LEVELID_MAX` BG placeholder and the unnamed default allocation row by their
+metadata, regardless of position. The five shared-map MP variants have authored names,
 explicit `Ump_setup*` filenames, and the same BG/Stan resources as their solo
 counterparts. Their catalog IDs are the base stage ID + 400; gameplay keeps
 its base ID while selecting the MP row for setup/BG/music settings. The editor

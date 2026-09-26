@@ -1,3 +1,4 @@
+#include "../../../src/levelids.h"
 #include <ctype.h>
 #include <errno.h>
 #include <float.h>
@@ -324,18 +325,19 @@ BOOL EnvironmentWriteOverrides(FILE *file, const EnvironmentOverrides *overrides
 }
 static DWORD GameplayId(const EnvironmentTable *table, LONG levelid)
 {
-    BOOL mp = levelid >= 400 && levelid < 500;
-    DWORD id = mp ? (DWORD)levelid - 400u + 200u : (DWORD)levelid;
+    BOOL mp = LEVELID_IS_MP(levelid);
+    DWORD id = mp ? (DWORD)levelid - ENVIRONMENTDATA_PLAYERS_4 + ENVIRONMENTDATA_PLAYERS_2 : (DWORD)levelid;
     if (EnvironmentFind(table, id)) { return id; }
-    if (mp && EnvironmentFind(table, 200)) { return 200; }
+    if (mp && EnvironmentFind(table, ENVIRONMENTDATA_PLAYERS_2)) { return ENVIRONMENTDATA_PLAYERS_2; }
     return UINT32_MAX;
 }
 int EnvironmentChoices(const EnvironmentTable *table, LONG levelid, EnvironmentChoice choices[ENVIRONMENT_MAX_CHOICES])
 {
-    BOOL mp = levelid >= 400 && levelid < 500;
-    DWORD stage = mp ? (DWORD)levelid - 400 : (DWORD)levelid;
+    BOOL mp = LEVELID_IS_MP(levelid);
+    DWORD stage = mp ? (DWORD)levelid - ENVIRONMENTDATA_PLAYERS_4 : (DWORD)levelid;
     int count = 0;
-    static const DWORD offsets[] = {0, 100, 900, 200, 300, 400};
+    static const DWORD offsets[] = {ENVIRONMENTDATA_PLAYERS_1, ENVIRONMENTDATA_ALT, ENVIRONMENTDATA_CINEMA,
+        ENVIRONMENTDATA_PLAYERS_2, ENVIRONMENTDATA_PLAYERS_3, ENVIRONMENTDATA_PLAYERS_4};
     static const char *labels[] = {"Gameplay", "Alternate", "Cinema", "2 players", "3 players", "4 players"};
     for (int i = 0; i < ENVIRONMENT_MAX_CHOICES; i++)
     {

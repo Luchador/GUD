@@ -40,7 +40,7 @@ int main(void)
             assert(!strcmp(lvGetMemoryAllocationString(id, players), reference(id, players)));
 
     assert(ARRAYCOUNT(g_LevelInfoTable) == LEVEL_INFO_COUNT);
-    assert(g_LevelInfoTable[LEVEL_INFO_COUNT - 1].levelID == LEVELID_MAX);
+    assert(lvFindLevelInfo(LEVELID_MAX) != NULL);
     for (i = 0; i < ARRAYCOUNT(g_LevelInfoTable); i++)
     {
         entry = &g_LevelInfoTable[i];

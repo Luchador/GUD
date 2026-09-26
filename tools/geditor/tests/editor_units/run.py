@@ -22,8 +22,8 @@ with tempfile.TemporaryDirectory(prefix='geditor-units-') as temp:
     (work / 'logic.inc').write_text(''.join(extract.function(viewport, name) for name in (
         'ViewportEditorCornerPosition', 'ViewportEditorStanPosition', 'ViewportReadSelectionPosition',
         'ViewportGetSelectionPosition', 'ViewportGetEditorSelectionPosition')))
-    scales = re.findall(r'g_LevelMemoryAllocationStrings\[LEVEL_INDEX_\w+\],\s*([\d.]+)',
-                        (root / 'src/game/lv.c').read_text())
+    scales = re.findall(r'LEVEL\([^\n]*?"-ml[^"]*",\s*([\d.]+)',
+                        (root / 'src/game/leveltable.inc').read_text())
     assert len(scales) > 20
     (work / 'scales.inc').write_text(','.join(value + 'f' for value in sorted(set(scales))))
     cmd = [os.environ.get('CC', 'cc'), '-std=c99', '-O1', '-g', '-Wall', '-Wextra', '-Werror',

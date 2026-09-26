@@ -1,14 +1,21 @@
 static struct { void *pPointTableBin, *primaryGraphics, *secondaryGraphics; }
     ptr_bgdata_room_fileposition_list[MAXROOMCOUNT];
-static struct { char *bg_seg_filename; } g_LevelInfoTable[1];
+static struct { char *bg_seg_filename; } testLevel;
+#define g_CurrentBgLevel (&testLevel)
 static struct { int FogEnabled; } env;
 #define envGetCurrent() (&env)
-static s32 levelentry_index, g_MaxNumRooms = MAXROOMCOUNT, g_RoomLoadBudget;
+static s32 g_MaxNumRooms = MAXROOMCOUNT, g_RoomLoadBudget;
 static bool g_BgDebugEnabled, oneCycle = TRUE, settingsPending;
 static s32 g_MainStageNum = -1;
 static int conversions, rejectConversion, modelResets, leafInvalidations;
 static int primaryCacheSize = 256, secondaryCacheSize = 128;
 static Gfx *lastDrawn;
+static void doorShadowClearRenderCaches(void) {}
+static void doorShadowFreeRoom(int room) { (void)room; }
+static Gfx *doorShadowRenderRoom(Gfx *gdl, int room, int layer, bool oneCycle)
+{ (void)room; (void)layer; (void)oneCycle; return gdl; }
+static void bgApplyEnvironmentMapping(Gfx *start, Gfx *end, Vtx *vertices, u32 bytes)
+{ (void)start; (void)end; (void)vertices; (void)bytes; }
 static void modelOneCycleResetCache(void) { modelResets++; }
 static void renderInvalidateDisplayListCache(void) { leafInvalidations++; }
 static bool renderSettingsPending(void) { return settingsPending; }

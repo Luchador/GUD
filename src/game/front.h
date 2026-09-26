@@ -42,15 +42,7 @@ struct legal_screen_text {
     u16 anonymous_5;
 };
 
-struct mission_folder_setup {
-    void * string_ptr;
-    u16 folder_text_preset;
-    u16 icon_text_preset;
-    s32 stage_id;
-    s32 type;
-    s32 mission_num;
-    void * briefing_name_ptr;
-};
+#include "campaign.h"
 
 struct MP_game_length_settings {
     u16 text_preset;
@@ -319,7 +311,7 @@ extern s32 unlock_weapon_select;
 extern s32 unlock_handicap;
 extern s32 unlock_control_style;
 extern s32 unlock_aim_sight;
-extern s16 solo_target_time_array[20][3];
+
 
 extern s32 intro_character_index;
 extern u32 randomly_selected_intro_animation;
@@ -342,6 +334,6 @@ void menu_init(void);
 Gfx * menu_jump_constructor_handler(Gfx *DL);
 void unlock_all_mp_chars(void);
 u8 get_player_mp_char_gender(int player);
-s32 pull_and_display_text_for_folder_a0(s32 arg0);
+
 
 #endif

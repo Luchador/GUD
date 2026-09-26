@@ -321,7 +321,7 @@ void ramromSelectDemoAndPlay(void)
     s32 highestUnlockedStage;
 
     numUnlockedDemos = 0;
-    highestUnlockedStage = fileGetHighestStageUnlockedAnyFolder();
+    highestUnlockedStage = campaignGetOrderBySaveSlot(fileGetHighestStageUnlockedAnyFolder());
 
     /**
      * Prevent demo spoilers by only playing demos that take place in unlocked stages.

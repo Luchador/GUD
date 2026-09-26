@@ -207,12 +207,12 @@ void envLoadLevelEnvironment(s32 levelId, s32 useCinemaEnvironment)
 
     if (record == NULL)
     {
-        record = envFindEnvironment(levelId + (num_players * 100));
+        record = envFindEnvironment(levelId + (num_players * ENVIRONMENTDATA_STRIDE));
     }
 
     if (record == NULL && num_players >= 2)
     {
-        record = envFindEnvironment(num_players * 100);
+        record = envFindEnvironment(num_players * ENVIRONMENTDATA_STRIDE);
     }
 
     if (record == NULL)

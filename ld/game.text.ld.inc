@@ -113,3 +113,5 @@
       build/OUTCODE/src/game/gedmanifest.o (.text);
       build/OUTCODE/src/game/occlusion.o (.text);
       build/OUTCODE/src/game/occlusionmath.o (.text);
+
+      build/OUTCODE/src/game/campaign.o (.text);

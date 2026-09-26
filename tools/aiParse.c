@@ -1,3 +1,4 @@
+static const char *levelIdName(int id);
 // Include paths for <> type includes - remember for x86 we need to use "/usr/include/" for system includes now
 // x86 compile
 // gcc -m32 -fms-extensions -I ./include/ -I ./src/ -o build/aiparse tools/aiParse.c
@@ -2555,7 +2556,8 @@ void ai(unsigned char *AiList, short ID)
             case AI_IFLevelIdLessThan: // BYTE(LEVEL_ID), BYTE(GOTOLABEL)
             {
                 AiIFLevelIdLessThanRecord *ai = &AiList + Offset;
-                printf("%s,", LEVELID_ToString[AiList[Offset + 1] + 1]);
+                { const char *name = levelIdName(AiList[Offset + 1]);
+                  if (name) printf("%s,", name); else printf("%d,", AiList[Offset + 1]); }
 
                 hasLabel = TRUE;
                 break;
@@ -2563,7 +2565,8 @@ void ai(unsigned char *AiList, short ID)
             case AI_IFLevelIdGreaterThan: // BYTE(LEVEL_ID), BYTE(GOTOLABEL)
             {
                 AiIFLevelIdGreaterThanRecord *ai = &AiList + Offset;
-                printf("%d,", AiList[Offset + 1]);
+                { const char *name = levelIdName(AiList[Offset + 1]);
+                  if (name) printf("%s,", name); else printf("%d,", AiList[Offset + 1]); }
 
                 hasLabel = TRUE;
 
@@ -4250,4 +4253,44 @@ int main(int argc, char *argv[])
     free(g_ptrStageSetupFile);
 
     return 0;
+}
+
+static const char *levelIdName(int id)
+{
+    switch (id)
+    {
+        case LEVELID_NONE: return "LEVELID_NONE";
+        case LEVELID_DEFAULT: return "LEVELID_DEFAULT";
+        case LEVELID_BUNKER1: return "LEVELID_BUNKER1";
+        case LEVELID_SILO: return "LEVELID_SILO";
+        case LEVELID_STATUE: return "LEVELID_STATUE";
+        case LEVELID_CONTROL: return "LEVELID_CONTROL";
+        case LEVELID_ARCHIVES: return "LEVELID_ARCHIVES";
+        case LEVELID_TRAIN: return "LEVELID_TRAIN";
+        case LEVELID_FRIGATE: return "LEVELID_FRIGATE";
+        case LEVELID_BUNKER2: return "LEVELID_BUNKER2";
+        case LEVELID_AZTEC: return "LEVELID_AZTEC";
+        case LEVELID_STREETS: return "LEVELID_STREETS";
+        case LEVELID_DEPOT: return "LEVELID_DEPOT";
+        case LEVELID_COMPLEX: return "LEVELID_COMPLEX";
+        case LEVELID_EGYPT: return "LEVELID_EGYPT";
+        case LEVELID_DAM: return "LEVELID_DAM";
+        case LEVELID_FACILITY: return "LEVELID_FACILITY";
+        case LEVELID_RUNWAY: return "LEVELID_RUNWAY";
+        case LEVELID_SURFACE: return "LEVELID_SURFACE";
+        case LEVELID_JUNGLE: return "LEVELID_JUNGLE";
+        case LEVELID_TEMPLE: return "LEVELID_TEMPLE";
+        case LEVELID_CAVERNS: return "LEVELID_CAVERNS";
+        case LEVELID_CITADEL: return "LEVELID_CITADEL";
+        case LEVELID_CRADLE: return "LEVELID_CRADLE";
+        case LEVELID_SURFACE2: return "LEVELID_SURFACE2";
+        case LEVELID_BASEMENT: return "LEVELID_BASEMENT";
+        case LEVELID_STACK: return "LEVELID_STACK";
+        case LEVELID_LIBRARY: return "LEVELID_LIBRARY";
+        case LEVELID_CAVES: return "LEVELID_CAVES";
+        case LEVELID_CUBA: return "LEVELID_CUBA";
+        case LEVELID_MAX: return "LEVELID_MAX";
+        case LEVELID_TITLE: return "LEVELID_TITLE";
+        default: return NULL;
+    }
 }

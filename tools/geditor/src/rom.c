@@ -1,3 +1,4 @@
+#include "../../../src/levelids.h"
 /*
  * GUD ROM validation.
  *
@@ -209,7 +210,7 @@ static BOOL RomParseLevelTable(const unsigned char *data, DWORD size,
 
         /* Title is a named stage with no BG/setup; allocation-only rows and
          * the final BG placeholder are not selectable levels. */
-        if ((lvl->bgname[0] == '\0' && (lvl->levelID != 90 || !lvl->name[0]))
+        if ((lvl->bgname[0] == '\0' && (lvl->levelID != LEVELID_TITLE || !lvl->name[0]))
             || strcmp(lvl->bgname, "bg/bgx.seg") == 0)
         {
             continue;
@@ -495,8 +496,8 @@ static const unsigned char *RomFindLevelEnvironment(const RomFile *rom, LONG lev
     *skyoffset = 28 + envt->flags - ROM_ENVIRONMENT_ROW_SIZE;
 
     /* +400 selects a catalog variant, not necessarily a four-player match. */
-    BOOL multiplayer = levelid >= 400 && levelid < 500;
-    if (multiplayer) { levelid -= 400; }
+    BOOL multiplayer = LEVELID_IS_MP(levelid);
+    if (multiplayer) { levelid -= ENVIRONMENTDATA_PLAYERS_4; }
     offset = envt->romstart;
 
     while (cmap->romend - offset >= envt->flags)
@@ -505,7 +506,7 @@ static const unsigned char *RomFindLevelEnvironment(const RomFile *rom, LONG lev
         DWORD id = be32(row);
         int priority = 0;
 
-        if (id == 0) /* ENVIRONMENTDATA_END */
+        if (id == ENVIRONMENTDATA_END)
         {
             return selected;
         }
@@ -516,11 +517,11 @@ static const unsigned char *RomFindLevelEnvironment(const RomFile *rom, LONG lev
         {
             priority = multiplayer ? 2 : 3;
         }
-        else if (id == (DWORD)levelid + 200u)
+        else if (id == (DWORD)levelid + ENVIRONMENTDATA_PLAYERS_2)
         {
             priority = multiplayer ? 3 : 2;
         }
-        else if (id == 0xFFFFFFFFu)
+        else if (id == (DWORD)LEVELID_NONE)
         {
             priority = 1;
         }

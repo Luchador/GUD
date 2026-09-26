@@ -114,3 +114,5 @@
       build/OUTCODE/src/game/renderconfig.o (.bss);
       build/OUTCODE/src/game/occlusion.o (.bss);
       build/OUTCODE/src/game/occlusionmath.o (.bss);
+
+      build/OUTCODE/src/game/campaign.o (.bss);

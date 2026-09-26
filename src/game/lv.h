@@ -38,7 +38,14 @@ struct LevelEntry
 };
 
 /* Complete catalog, including Title, multiplayer overrides, default and MAX. */
-#define LEVEL_INFO_COUNT (LEVEL_INDEX_MAX + 1)
+enum LevelCatalogSlot {
+#define LEVEL(id, name, setup, bg, stan, memory, scale, render, lod, music, sound, extra) LEVEL_SLOT_##id,
+#define LEVEL_PLACEHOLDER LEVEL
+#include "leveltable.inc"
+#undef LEVEL_PLACEHOLDER
+#undef LEVEL
+    LEVEL_INFO_COUNT
+};
 #define LEVEL_MEMORY_STRING_SIZE 64
 extern const char g_LevelMemoryAllocationStrings[LEVEL_INFO_COUNT][LEVEL_MEMORY_STRING_SIZE];
 extern struct LevelEntry g_LevelInfoTable[LEVEL_INFO_COUNT];

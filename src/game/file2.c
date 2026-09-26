@@ -199,10 +199,10 @@ void fileSetSaveFlagDoReset(save_data *folder, bool enable)
  * @param difficulty
  * @return best time for stage at difficulty
  */
-s32 fileGetSaveStageDifficultyTime(save_data* save, LEVEL_SOLO_SEQUENCE levelid, DIFFICULTY difficulty)
+s32 fileGetSaveStageDifficultyTime(save_data* save, LEVEL_SOLO_SLOT levelid, DIFFICULTY difficulty)
 {
     s32 offset;
-    LEVEL_SOLO_SEQUENCE max_level;
+    LEVEL_SOLO_SLOT max_level;
     u32 time;
     s32 index;
 
@@ -257,11 +257,11 @@ s32 fileGetSaveStageDifficultyTime(save_data* save, LEVEL_SOLO_SEQUENCE levelid,
  * @param difficulty
  * @param newtime
  */
-void fileSetDifficultyStageTime(save_data *save, LEVEL_SOLO_SEQUENCE levelid, DIFFICULTY difficulty, s32 newtime)
+void fileSetDifficultyStageTime(save_data *save, LEVEL_SOLO_SLOT levelid, DIFFICULTY difficulty, s32 newtime)
 {
     s32 offset;
     s32 index;
-    LEVEL_SOLO_SEQUENCE max_level;
+    LEVEL_SOLO_SLOT max_level;
 
     max_level = SP_LEVEL_MAX;
     if ((levelid >= SP_LEVEL_DAM) && (levelid < SP_LEVEL_MAX ) && (difficulty >= DIFFICULTY_AGENT) && (difficulty < DIFFICULTY_007))
@@ -319,7 +319,7 @@ void fileSetDifficultyStageTime(save_data *save, LEVEL_SOLO_SEQUENCE levelid, DI
  * @param difficulty
  * @return is stage at diffiuclty completed
  */
-bool fileGetSaveStageCompletedForDifficulty(save_data *folder, LEVEL_SOLO_SEQUENCE levelid, DIFFICULTY difficulty)
+bool fileGetSaveStageCompletedForDifficulty(save_data *folder, LEVEL_SOLO_SLOT levelid, DIFFICULTY difficulty)
 {
     //TEMP: unlock all levels
     return TRUE;
@@ -340,7 +340,7 @@ bool fileGetSaveStageCompletedForDifficulty(save_data *folder, LEVEL_SOLO_SEQUEN
  * @param difficulty
  * @param arg4
  */
-void fileCheckSaveStageDifficultyTime(save_data *folder, LEVEL_SOLO_SEQUENCE levelid, DIFFICULTY difficulty, s32 newtime)
+void fileCheckSaveStageDifficultyTime(save_data *folder, LEVEL_SOLO_SLOT levelid, DIFFICULTY difficulty, s32 newtime)
 {
     if ((levelid >= SP_LEVEL_DAM) && (levelid < SP_LEVEL_MAX) && (difficulty >= DIFFICULTY_AGENT) && (difficulty <= DIFFICULTY_007))
     {
@@ -609,94 +609,67 @@ bool fileIsFolderValid(s32 folder)
  * @param difficulty
  * @return 0, 1, or 3 (STAGESTATUS_LOCKED, STAGESTATUS_UNLOCKED, STAGESTATUS_COMPLETED)
  */
-STAGESTATUS fileIsStageUnlockedAtDifficulty(s32 foldernum, LEVEL_SOLO_SEQUENCE levelid, DIFFICULTY difficulty)
+STAGESTATUS fileIsStageUnlockedAtDifficulty(s32 foldernum, LEVEL_SOLO_SLOT levelid, DIFFICULTY difficulty)
 {
-    save_data* save;
-    s32 i;
+    save_data *save;
+    s32 entry = campaignGetEntryBySaveSlot(levelid);
+    s32 count = campaignGetMissionCount();
+    s32 i, position;
+    LEVEL_SOLO_SLOT prior;
 
-    if (( fileIsFolderValid(foldernum)) && (levelid >= SP_LEVEL_DAM && levelid < SP_LEVEL_MAX) && (difficulty >= DIFFICULTY_AGENT && difficulty < DIFFICULTY_MAX))
+    if (!fileIsFolderValid(foldernum) || entry < 0
+            || difficulty < DIFFICULTY_AGENT || difficulty >= DIFFICULTY_MAX)
+        return STAGESTATUS_LOCKED;
+
+    save = fileGetSaveForFoldernum(foldernum);
+    if (save)
     {
-        save = fileGetSaveForFoldernum(foldernum);
+        if (fileGetSaveStageCompletedForDifficulty(save, levelid, difficulty))
+            return STAGESTATUS_COMPLETED;
+        if (difficulty < mission_folder_setup_entries[entry].minimum_difficulty)
+            return STAGESTATUS_LOCKED;
 
-        if (save)
+        /* Main missions follow main campaign order. Bonus missions require
+         * the main campaign and any earlier bonus missions, wherever their
+         * rows appear in the menu. Save-slot magnitude has no meaning here. */
+        for (i = difficulty; i < DIFFICULTY_MAX; i++)
         {
-            if ( fileGetSaveStageCompletedForDifficulty(save, levelid, difficulty))
+            for (position = 0; position < count; position++)
             {
-                return STAGESTATUS_COMPLETED; //found on first try, stage has been completed and a time saved.
+                prior = campaignGetSaveSlotByOrder(position);
+                if (!campaignIsPrerequisite(levelid, prior)) continue;
+                if (!fileGetSaveStageCompletedForDifficulty(save, prior, i)) break;
             }
+            if (position == count) return STAGESTATUS_UNLOCKED;
+        }
 
-            if ((levelid == SP_LEVEL_AZTEC && difficulty < DIFFICULTY_SECRET) ||
-                (levelid == SP_LEVEL_EGYPT && difficulty < DIFFICULTY_00))
-            {
-                return STAGESTATUS_LOCKED; //we cant possibly have a completed bonus stage below each set dificulty
-            }
-
-            //still cant find it, do a search (this is probably how a cheat can unlock stages without having to actualy do them all)
-            for (i = difficulty; i < DIFFICULTY_MAX ; i++)
-            {
-                LEVEL_SOLO_SEQUENCE istage;
-                for (istage = SP_LEVEL_DAM; istage < levelid; istage++)
-                {
-                    if (! fileGetSaveStageCompletedForDifficulty(save, istage, i))
-                    {
-                        break;
-                    }
-                }
-                //if the first uncomplete stage is not less than current
-                if (levelid <= istage)
-                {
+        if (difficulty < DIFFICULTY_007 && !campaignIsBonus(levelid))
+        {
+            prior = campaignGetPreviousMain(levelid);
+            for (i = difficulty; i < DIFFICULTY_MAX; i++)
+                if (prior != SP_LEVEL_NONE && fileGetSaveStageCompletedForDifficulty(save, prior, i))
                     return STAGESTATUS_UNLOCKED;
-                }
-            }
+        }
 
-            // if we still cant find it
-            if ((difficulty < DIFFICULTY_007) && (levelid < SP_LEVEL_AZTEC))
-            {
-                for (i = difficulty; i < DIFFICULTY_MAX; i++)
-                {
-                    if ( fileGetSaveStageCompletedForDifficulty(save, levelid - 1, i))
-                    {
-                        return STAGESTATUS_UNLOCKED;
-                    }
-                }
-            }
-
-            if (difficulty < DIFFICULTY_007)
-            {
-                for (i = SP_LEVEL_DAM; i < SP_LEVEL_AZTEC; i++)
-                {
-                    if (! fileGetSaveStageCompletedForDifficulty(save, i, DIFFICULTY_AGENT))
-                    {
-                        break;
-                    }
-                }
-                //this cant actually fire an it?
-                if (i >= SP_LEVEL_AZTEC)
-                {
-                    for (i = DIFFICULTY_AGENT; i < difficulty; i++)
-                    {
-                        if (! fileGetSaveStageCompletedForDifficulty(save, levelid, i))
-                        {
-                            break;
-                        }
-                    }
-
-                    if (difficulty <= i)
-                    {
-                        return STAGESTATUS_UNLOCKED;
-                    }
-                }
-            }// difficulty < DIFFICULTY_007
-        }// save
-
-        // no save, current level is dam, its unlocked.
-        if (levelid == SP_LEVEL_DAM)
+        if (difficulty < DIFFICULTY_007)
         {
-            return STAGESTATUS_UNLOCKED;
+            for (position = 0; position < count; position++)
+            {
+                prior = campaignGetSaveSlotByOrder(position);
+                if (!campaignIsBonus(prior)
+                        && !fileGetSaveStageCompletedForDifficulty(save, prior, DIFFICULTY_AGENT)) break;
+            }
+            if (position == count)
+            {
+                for (i = DIFFICULTY_AGENT; i < difficulty; i++)
+                    if (!fileGetSaveStageCompletedForDifficulty(save, levelid, i)) break;
+                if (i == difficulty) return STAGESTATUS_UNLOCKED;
+            }
         }
     }
 
-    // After all that the stage is not unlocked
+    if (!campaignIsBonus(levelid) && campaignGetPreviousMain(levelid) == SP_LEVEL_NONE)
+        return STAGESTATUS_UNLOCKED;
     return STAGESTATUS_LOCKED;
 }
 
@@ -740,7 +713,7 @@ void fileOverwriteSaveSlotWithNewSave(save_data *save1, save_data *save2)
  * @param difficulty
  * @param maxtime
  */
-void fileUnlockStageInFolderAtDifficulty(s32 foldernum, LEVEL_SOLO_SEQUENCE stage, DIFFICULTY difficulty, s32 newtime)
+void fileUnlockStageInFolderAtDifficulty(s32 foldernum, LEVEL_SOLO_SLOT stage, DIFFICULTY difficulty, s32 newtime)
 {
     if ((foldernum >= 0) && (foldernum < MAX_FOLDER_COUNT) &&
         (stage >= SP_LEVEL_DAM) && (stage < SP_LEVEL_MAX) &&
@@ -814,10 +787,11 @@ void fileSaveFolderUnlockCheat(s32 foldernum, s32 cheat)
  * @param stage
  * @param difficulty
  */
-void fileGetHighestStageDifficultyCompletedForFolder(s32 foldernum, LEVEL_SOLO_SEQUENCE *levelid, DIFFICULTY *difficulty)
+void fileGetHighestStageDifficultyCompletedForFolder(s32 foldernum, LEVEL_SOLO_SLOT *levelid, DIFFICULTY *difficulty)
 {
     save_data *folder;
-    LEVEL_SOLO_SEQUENCE stageid;
+    LEVEL_SOLO_SLOT stageid;
+    s32 order;
     DIFFICULTY difficultyid;
 
     folder = fileGetSaveForFoldernum(foldernum);
@@ -826,8 +800,9 @@ void fileGetHighestStageDifficultyCompletedForFolder(s32 foldernum, LEVEL_SOLO_S
     {
         for (difficultyid = DIFFICULTY_007; difficultyid >= DIFFICULTY_AGENT; difficultyid--)
         {
-            for (stageid = SP_LEVEL_EGYPT; stageid >= SP_LEVEL_DAM; stageid--)
+            for (order = campaignGetMissionCount() - 1; order >= 0; order--)
             {
+                stageid = campaignGetSaveSlotByOrder(order);
                 if ( fileGetSaveStageCompletedForDifficulty(folder, stageid, difficultyid))
                 {
                     *levelid = stageid;
@@ -837,7 +812,7 @@ void fileGetHighestStageDifficultyCompletedForFolder(s32 foldernum, LEVEL_SOLO_S
             }
         }
     }
-    *levelid = SP_LEVEL_DAM - 1;
+    *levelid = SP_LEVEL_NONE;
     *difficulty = DIFFICULTY_MULTI;
 }
 
@@ -845,17 +820,19 @@ void fileGetHighestStageDifficultyCompletedForFolder(s32 foldernum, LEVEL_SOLO_S
  * Get the highest stage unlocked in folder
  *
  * @param foldernum
- * @return LEVEL_SOLO_SEQUENCE
+ * @return LEVEL_SOLO_SLOT
  */
-LEVEL_SOLO_SEQUENCE fileGetHighestStageUnlockedForFolder(s32 foldernum)
+LEVEL_SOLO_SLOT fileGetHighestStageUnlockedForFolder(s32 foldernum)
 {
-    LEVEL_SOLO_SEQUENCE levelid;
+    LEVEL_SOLO_SLOT levelid;
     DIFFICULTY difficulty;
+    s32 order;
 
     if ( fileGetSaveForFoldernum(foldernum) != NULL)
     {
-        for (levelid = SP_LEVEL_EGYPT; levelid >= SP_LEVEL_DAM; levelid--)
+        for (order = campaignGetMissionCount() - 1; order >= 0; order--)
         {
+            levelid = campaignGetSaveSlotByOrder(order);
             for (difficulty = DIFFICULTY_AGENT; difficulty < DIFFICULTY_MAX; difficulty++)
             {
                 if ( fileIsStageUnlockedAtDifficulty(foldernum, levelid, difficulty))
@@ -865,7 +842,7 @@ LEVEL_SOLO_SEQUENCE fileGetHighestStageUnlockedForFolder(s32 foldernum)
             }
         }
     }
-    return SP_LEVEL_DAM;
+    return campaignGetFirstMain();
 }
 
 /**
@@ -873,16 +850,16 @@ LEVEL_SOLO_SEQUENCE fileGetHighestStageUnlockedForFolder(s32 foldernum)
  *
  * @return levelid
  */
-LEVEL_SOLO_SEQUENCE fileGetHighestStageUnlockedAnyFolder(void)
+LEVEL_SOLO_SLOT fileGetHighestStageUnlockedAnyFolder(void)
 {
     int folder;
-    LEVEL_SOLO_SEQUENCE isfound;
-    LEVEL_SOLO_SEQUENCE highest = SP_LEVEL_DAM;
+    LEVEL_SOLO_SLOT isfound;
+    LEVEL_SOLO_SLOT highest = campaignGetFirstMain();
 
     for (folder = FOLDER1; folder < MAX_FOLDER_COUNT; folder++)
     {
         isfound = fileGetHighestStageUnlockedForFolder(folder);
-        if (highest < isfound)
+        if (campaignGetOrderBySaveSlot(highest) < campaignGetOrderBySaveSlot(isfound))
         {
             highest = isfound;
         }
@@ -1034,7 +1011,7 @@ void fileSetSelectedBondTofolder(s32 folder, s32 bond)
 void fileDeleteSaveForFolder(s32 foldernum)
 {
     save_data *save;
-    LEVEL_SOLO_SEQUENCE levelid;
+    LEVEL_SOLO_SLOT levelid;
     DIFFICULTY difficulty;
 
     if (foldernum >= FOLDER1 && foldernum < MAX_FOLDER_COUNT)
@@ -1070,7 +1047,7 @@ void fileDeleteSaveForFolder(s32 foldernum)
 void fileCopyFolderToFirstFree(s32 foldernum)
 {
     save_data* save;
-    LEVEL_SOLO_SEQUENCE levelid;
+    LEVEL_SOLO_SLOT levelid;
     DIFFICULTY difficulty;
     s32 other;
 
@@ -1309,7 +1286,7 @@ void fileCopyDemoSaveToRamRomSave(u32 folder, save_data *save)
  */
 s32 fileIs007ModeUnlocked(u32 folder)
 {
-    LEVEL_SOLO_SEQUENCE levelid;
+    LEVEL_SOLO_SLOT levelid;
     save_data* save;
 
     save = fileGetSaveForFoldernum(folder);

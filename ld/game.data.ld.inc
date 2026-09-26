@@ -113,3 +113,5 @@
       build/OUTCODE/src/game/renderconfig.o (.data);
       build/OUTCODE/src/game/occlusion.o (.data);
       build/OUTCODE/src/game/occlusionmath.o (.data);
+
+      build/OUTCODE/src/game/campaign.o (.data);

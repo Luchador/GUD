@@ -112,7 +112,8 @@ f32 g_CurrentLevelRenderScale = 1.0;
  * many times per frame.
  */
 static f32 g_CurrentWorldFarClipDistance = 10000.0f;
-s32 levelentry_index = 1;
+static struct LevelEntry *g_CurrentBgLevel = NULL;
+static LEVELID g_CurrentBgLevelId = LEVELID_NONE;
 
 /**
  * Something related to player screen.
@@ -194,10 +195,10 @@ static BgPortalBounds g_BgPortalBounds[PORTMAX];
 static u16 g_BgRoomPortalOffsets[BG_PORTAL_ROOM_COUNT + 1];
 static u8 g_BgRoomPortalIndices[PORTMAX * 2];
 
-s_specialportal specialportalarray[] = {
-    {0x03,
+static const s_specialportal specialportalarray[] = {
+    {LEVELID_CONTROL,
         {0x2C,0x2E,0x32, 0x37,0x3E,0x3F,0x4E, 0x56,0x59,0x5D,0x72, 0x76,0x79,0x7A,0xFF}},
-    {0x11,
+    {LEVELID_JUNGLE,
         {0x00,0x3A,0xFF}}
 };
 
@@ -257,45 +258,27 @@ static const u8 *bgGetRoomPortalList(s32 room, const u8 **end)
 
 void bgMarkSpecialPortals(void)
 {
-    u8 *ptr;
-    u8 *end;
-    u8 portal;
-    u8 cur;
-    u32 masked;
+    s32 i;
+    s32 range;
+    s32 portal;
+    const u8 *ranges;
 
-    ptr = (u8 *)specialportalarray;
-    end = (u8 *)&g_BgCurrentRoom;
-
-    do
+    for (i = 0; i < ARRAYCOUNT(specialportalarray); i++)
     {
-        if (levelentry_index == *ptr++)
+        if (specialportalarray[i].levelid != g_CurrentBgLevelId)
         {
-            do
-            {
-                portal = ptr[0];
-
-                while (ptr[1] >= portal)
-                {
-                    ((u8 *)g_BgPortals)[(portal << 3) + 6] |= 2;
-                    portal++;
-                }
-
-                ptr += 2;
-            } 
-            while (ptr[0] != 0xff);
-        } 
-        else 
-        {
-            do 
-            {
-                ptr += 2;
-            } 
-            while (ptr[0] != 0xff);
+            continue;
         }
-
-        ptr++;
-    } 
-    while ((u32)ptr < (u32)end);
+        ranges = specialportalarray[i].portallist;
+        for (range = 0; range + 1 < sizeof(specialportalarray[i].portallist)
+                && ranges[range] != 0xff; range += 2)
+        {
+            for (portal = ranges[range]; portal <= ranges[range + 1]; portal++)
+            {
+                ((u8 *)g_BgPortals)[(portal << 3) + 6] |= 2;
+            }
+        }
+    }
 }
 
 
@@ -558,7 +541,8 @@ void bgLoadFile(LEVELID levelid)
      * room loading/bounds queries can visit them. */
     doorShadowReset();
     bgDebugReset();
-    levelentry_index = 0;
+    g_CurrentBgLevel = lvFindLevelInfo(LEVELID_BUNKER1);
+    g_CurrentBgLevelId = levelid;
 
     for (i = 0; i < MAXROOMCOUNT; i++) 
     {
@@ -574,7 +558,7 @@ void bgLoadFile(LEVELID levelid)
         if (levelInfo != NULL && levelInfo->bg_seg_filename != NULL
             && levelInfo->bg_stan_filename != NULL)
         {
-            levelentry_index = levelInfo - g_LevelInfoTable;
+            g_CurrentBgLevel = levelInfo;
         }
     }
  
@@ -583,7 +567,7 @@ void bgLoadFile(LEVELID levelid)
     /* PI DMA requires an 8-byte-aligned destination. Use a complete 16-byte
      * cache-line range as well: a plain s32 array can land at sp + 0x64. */
     g_BgData = (u8 *)(((u32)headerBuffer + 0xf) & ~0xf);
-    obLoadBGFileBytesAtOffset(g_LevelInfoTable[levelentry_index].bg_seg_filename, g_BgData, 0, 0x40);
+    obLoadBGFileBytesAtOffset(g_CurrentBgLevel->bg_seg_filename, g_BgData, 0, 0x40);
 
     bgDataOffsets = g_BgData;
     ptr_bgdata_room_fileposition_list = (BgRoomData *) BG_SEG_TO_PTR(g_BgData, ((s32 *)g_BgData)[1]);
@@ -591,17 +575,17 @@ void bgLoadFile(LEVELID levelid)
     size = (((((u32) ptr_bgdata_room_fileposition_list[1].pPointTableBin) & 0x00ffffff) - 1) | 0xf) + 1;
  
     g_BgData = mempAllocBytesInBank(size, 4);
-    obLoadBGFileBytesAtOffset(g_LevelInfoTable[levelentry_index].bg_seg_filename, g_BgData, 0, size);
+    obLoadBGFileBytesAtOffset(g_CurrentBgLevel->bg_seg_filename, g_BgData, 0, size);
 
-    g_StanData = (s32) _fileNameLoadToBank(g_LevelInfoTable[levelentry_index].bg_stan_filename, 2, 0, 4);
+    g_StanData = (s32) _fileNameLoadToBank(g_CurrentBgLevel->bg_stan_filename, 2, 0, 4);
  
     stanDetermineEOF((struct StanPrefixRecord *) g_StanData, 0, (u8 *) g_StanData);
     stanLoadFile((struct StanPrefixRecord *) g_StanData);
 
-    bgSetLevelScale(g_LevelInfoTable[levelentry_index].levelscale);
-    setLevelScale(g_LevelInfoTable[levelentry_index].levelscale);
+    bgSetLevelScale(g_CurrentBgLevel->levelscale);
+    setLevelScale(g_CurrentBgLevel->levelscale);
  
-    g_CurrentLevelRenderScale = g_LevelInfoTable[levelentry_index].renderScale;
+    g_CurrentLevelRenderScale = g_CurrentBgLevel->renderScale;
  
     bviewSetConversionScale(g_CurrentLevelRenderScale);
     matrixSetConversionScale(g_CurrentLevelRenderScale);
@@ -1836,7 +1820,7 @@ static s32 bgGetRoomStreamSize(s32 fileoffset)
     u8 buffer[0x20];
     u8 *aligned = (u8 *)(((u32)buffer + 0xf) & ~0xf);
 
-    obLoadBGFileBytesAtOffset(g_LevelInfoTable[levelentry_index].bg_seg_filename,
+    obLoadBGFileBytesAtOffset(g_CurrentBgLevel->bg_seg_filename,
             aligned, fileoffset - 4, 0x10);
 
     return *(s32 *)aligned;
@@ -1865,7 +1849,7 @@ s32 bgLoadRoomVtxData(s32 roomnum, u8 *dst, s32 len)
         return -1;
     }
 
-    obLoadBGFileBytesAtOffset(g_LevelInfoTable[levelentry_index].bg_seg_filename,
+    obLoadBGFileBytesAtOffset(g_CurrentBgLevel->bg_seg_filename,
             dst, fileoffset, (dataSize + 0xf) & ~0xf);
 
     room->vertices = (Vtx *)dst;
@@ -1898,7 +1882,7 @@ s32 bgLoadRoomPrimaryGdl(s32 roomnum, u8 *dst, s32 allocsize)
     }
 
     source = dst + allocsize - alignedSize;
-    obLoadBGFileBytesAtOffset(g_LevelInfoTable[levelentry_index].bg_seg_filename,
+    obLoadBGFileBytesAtOffset(g_CurrentBgLevel->bg_seg_filename,
             source, fileoffset, alignedSize);
 
     clear_light_fixturetable_in_room(roomnum);
@@ -1939,7 +1923,7 @@ s32 bgLoadRoomSecondaryGdl(s32 roomnum, u8 *dst, s32 allocsize)
     }
 
     source = dst + allocsize - alignedSize;
-    obLoadBGFileBytesAtOffset(g_LevelInfoTable[levelentry_index].bg_seg_filename,
+    obLoadBGFileBytesAtOffset(g_CurrentBgLevel->bg_seg_filename,
             source, fileoffset, alignedSize);
 
     processedSize = texLoadFromGdl((Gfx *)source, dataSize, (Gfx *)dst, NULL);
@@ -3782,9 +3766,9 @@ void bgDetermineVisibleRooms(void)
      * If the level is Cradle, or has no portals, skip the portal occlusion culling algorithm. Just add every room in the player's
      * screen bounds to the list of rooms to draw.
      */
-    if ((levelentry_index == LEVEL_INDEX_CRAD) || (g_BgPortals->portal == NULL)) 
+    if ((g_CurrentBgLevelId == LEVELID_CRADLE) || (g_BgPortals->portal == NULL))
     {
-        if (levelentry_index == LEVEL_INDEX_CRAD) 
+        if (g_CurrentBgLevelId == LEVELID_CRADLE)
         {
             bgSetRoomOnScreen(9, 0, &g_CurrentPlayer->screensize, 1);
         }
@@ -3818,7 +3802,7 @@ Gfx *bgRenderWrapper(Gfx *gdl)
 {
     s32 i;
 
-    if (levelentry_index == LEVEL_INDEX_DAM)
+    if (g_CurrentBgLevelId == LEVELID_DAM)
     {
         for (i=0; i<g_BgRoomsScheduledToBeDrawn; i++)
         {

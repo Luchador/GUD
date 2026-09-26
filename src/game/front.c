@@ -259,38 +259,40 @@ struct rectbbox folder_option_COPY_bound = { 0 };
 struct rectbbox folder_option_ERASE_bound = { 0 };
 
 struct mission_folder_setup mission_folder_setup_entries[] = {
-  /* string_ptr  folder_text_preset                                                         icon_text_preset                                            stage_id              type             mission_num briefing_name_ptr */
-    {"1",        getStringID(LTITLE, TITLE_STR_120_ARK)            /* Arkangelsk */,        0,                                                          LEVELID_NONE,         MISSION_HEADER,          -1, 0},
-    {"i",        getStringID(LTITLE, TITLE_STR_121_DAM)            /* Dam */,               0,                                                          LEVELID_DAM,          MISSION_PART,             0, "UbriefdamZ"},
-    {"ii",       getStringID(LTITLE, TITLE_STR_122_FAC)            /* Facility */,          0,                                                          LEVELID_FACILITY,     MISSION_PART,             1, "UbriefarkZ"},
-    {"iii",      getStringID(LTITLE, TITLE_STR_123_RUN)            /* Runway */,            0,                                                          LEVELID_RUNWAY,       MISSION_PART,             2, "UbriefrunZ"},
-    {"2",        getStringID(LTITLE, TITLE_STR_124_SEV)            /* Severnaya */,         0,                                                          LEVELID_NONE,         MISSION_HEADER,          -1, 0},
-    {"i",        getStringID(LTITLE, TITLE_STR_125_SURF)           /* Surface */,           0,                                                          LEVELID_SURFACE,      MISSION_PART,             3, "UbriefsevxZ"},
-    {"ii",       getStringID(LTITLE, TITLE_STR_126_BUNK)           /* Bunker */,            0,                                                          LEVELID_BUNKER1,      MISSION_PART,             4, "UbriefsevbunkerZ"},
-    {"3",        getStringID(LTITLE, TITLE_STR_127_KIRG)           /* Kirghizstan */,       0,                                                          LEVELID_NONE,         MISSION_HEADER,          -1, 0},
-    {"i",        getStringID(LTITLE, TITLE_STR_128_SILO4)          /* Launch Silo #4 */,    getStringID(LTITLE, TITLE_STR_129_SILO)     /* Silo */,     LEVELID_SILO,         MISSION_PART,             5, "UbriefsiloZ"},
-    {"4",        getStringID(LTITLE, TITLE_STR_130_MONTE)          /* Monte Carlo */,       0,                                                          LEVELID_NONE,         MISSION_HEADER,          -1, 0},
-    {"i",        getStringID(LTITLE, TITLE_STR_131_FRIG)           /* Frigate */,           0,                                                          LEVELID_FRIGATE,      MISSION_PART,             6, "UbriefdestZ"},
-    {"5",        getStringID(LTITLE, TITLE_STR_124_SEV)            /* Severnaya */,         0,                                                          LEVELID_NONE,         MISSION_HEADER,          -1, 0},
-    {"i",        getStringID(LTITLE, TITLE_STR_125_SURF)           /* Surface */,           0,                                                          LEVELID_SURFACE2,     MISSION_PART,             7, "UbriefsevxbZ"},
-    {"ii",       getStringID(LTITLE, TITLE_STR_126_BUNK)           /* Bunker */,            0,                                                          LEVELID_BUNKER2,      MISSION_PART,             8, "UbriefsevbZ"},
-    {"6",        getStringID(LTITLE, TITLE_STR_132_STPETER)        /* St. Petersburg */,    0,                                                          LEVELID_NONE,         MISSION_HEADER,          -1, 0},
-    {"i",        getStringID(LTITLE, TITLE_STR_133_STATPARK)       /* Statue Park */,       getStringID(LTITLE, TITLE_STR_134_STAT)     /* Statue */,   LEVELID_STATUE,       MISSION_PART,             9, "UbriefstatueZ"},
-    {"ii",       getStringID(LTITLE, TITLE_STR_135_MILARCH)        /* Military Archives */, getStringID(LTITLE, TITLE_STR_136_ARCH)     /* Archives */, LEVELID_ARCHIVES,     MISSION_PART,            10, "UbriefarchZ"},
-    {"iii",      getStringID(LTITLE, TITLE_STR_137_STREETS)        /* Streets */,           0,                                                          LEVELID_STREETS,      MISSION_PART,            11, "UbriefpeteZ"},
-    {"iv",       getStringID(LTITLE, TITLE_STR_138_DEPOT)          /* Depot */,             0,                                                          LEVELID_DEPOT,        MISSION_PART,            12, "UbriefdepoZ"},
-    {"v",        getStringID(LTITLE, TITLE_STR_139_TRAIN)          /* Train */,             0,                                                          LEVELID_TRAIN,        MISSION_PART,            13, "UbrieftraZ"},
-    {"7",        getStringID(LTITLE, TITLE_STR_140_CUBA)           /* Cuba */,              0,                                                          LEVELID_NONE,         MISSION_HEADER,          -1, 0},
-    {"i",        getStringID(LTITLE, TITLE_STR_141_JUN)            /* Jungle */,            0,                                                          LEVELID_JUNGLE,       MISSION_PART,            14, "UbriefjunZ"},
-    {"ii",       getStringID(LTITLE, TITLE_STR_142_CONCENTER)      /* Control Center */,    getStringID(LTITLE, TITLE_STR_143_CON)      /* Control */,  LEVELID_CONTROL,      MISSION_PART,            15, "UbriefcontrolZ"},
-    {"iii",      getStringID(LTITLE, TITLE_STR_144_WATERCAV)       /* Water Caverns */,     getStringID(LTITLE, TITLE_STR_145_CAV)      /* Caverns */,  LEVELID_CAVERNS,      MISSION_PART,            16, "UbriefcaveZ"},
-    {"iv",       getStringID(LTITLE, TITLE_STR_146_ANTENNA)        /* Antenna Cradle */,    getStringID(LTITLE, TITLE_STR_147_CRADLE)   /* Cradle */,   LEVELID_CRADLE,       MISSION_PART,            17, "UbriefcradZ"},
-    {"8",        getStringID(LTITLE, TITLE_STR_148_TEOTIHUACA)     /* Teotihuaca'n */,      0,                                                          LEVELID_NONE,         MISSION_HEADER,          -1, 0},
-    {"i",        getStringID(LTITLE, TITLE_STR_149_AZTECCOMPLEX)   /* Aztec Complex */,     getStringID(LTITLE, TITLE_STR_150_AZTEC)    /* Aztec */,    LEVELID_AZTEC,        MISSION_PART,            18, "UbriefaztZ"},
-    {"9",        getStringID(LTITLE, TITLE_STR_151_ELSAGHIRA)      /* el-Saghira */,        0,                                                          LEVELID_NONE,         MISSION_HEADER,          -1, 0},
-    {"i",        getStringID(LTITLE, TITLE_STR_152_EGYPTIANTEMPLE) /* Egyptian Temple */,   getStringID(LTITLE, TITLE_STR_153_EGYPTIAN) /* Egyptian */, LEVELID_EGYPT,        MISSION_PART,            19, "UbriefcrypZ"},
-    {NULL,       0,                                                                         0,                                                          LEVELID_NONE,         MISSION_PART,            -1, 0}
+    /* Presentation/order is independent of level IDs and persistent save slots.
+     * photo_switch and cheat_times belong to the mission, wherever it moves. */
+    {"1",        getStringID(LTITLE, TITLE_STR_120_ARK)            /* Arkangelsk */,        0,                                                          LEVELID_NONE,         MISSION_HEADER,          SP_LEVEL_NONE, NULL, -1, {0, 0, 0}, DIFFICULTY_AGENT, FALSE},
+    {"i",        getStringID(LTITLE, TITLE_STR_121_DAM)            /* Dam */,               0,                                                          LEVELID_DAM,          MISSION_PART,             SP_LEVEL_DAM, "UbriefdamZ", SW_BRIEF1, {0, 160, 0}, DIFFICULTY_AGENT, FALSE},
+    {"ii",       getStringID(LTITLE, TITLE_STR_122_FAC)            /* Facility */,          0,                                                          LEVELID_FACILITY,     MISSION_PART,             SP_LEVEL_FACILITY, "UbriefarkZ", SW_BRIEF2, {0, 0, 125}, DIFFICULTY_AGENT, FALSE},
+    {"iii",      getStringID(LTITLE, TITLE_STR_123_RUN)            /* Runway */,            0,                                                          LEVELID_RUNWAY,       MISSION_PART,             SP_LEVEL_RUNWAY, "UbriefrunZ", SW_BRIEF3, {300, 0, 0}, DIFFICULTY_AGENT, FALSE},
+    {"2",        getStringID(LTITLE, TITLE_STR_124_SEV)            /* Severnaya */,         0,                                                          LEVELID_NONE,         MISSION_HEADER,          SP_LEVEL_NONE, NULL, -1, {0, 0, 0}, DIFFICULTY_AGENT, FALSE},
+    {"i",        getStringID(LTITLE, TITLE_STR_125_SURF)           /* Surface */,           0,                                                          LEVELID_SURFACE,      MISSION_PART,             SP_LEVEL_SURFACE1, "UbriefsevxZ", SW_BRIEF4, {0, 210, 0}, DIFFICULTY_AGENT, FALSE},
+    {"ii",       getStringID(LTITLE, TITLE_STR_126_BUNK)           /* Bunker */,            0,                                                          LEVELID_BUNKER1,      MISSION_PART,             SP_LEVEL_BUNKER1, "UbriefsevbunkerZ", SW_BRIEF5, {0, 0, 240}, DIFFICULTY_AGENT, FALSE},
+    {"3",        getStringID(LTITLE, TITLE_STR_127_KIRG)           /* Kirghizstan */,       0,                                                          LEVELID_NONE,         MISSION_HEADER,          SP_LEVEL_NONE, NULL, -1, {0, 0, 0}, DIFFICULTY_AGENT, FALSE},
+    {"i",        getStringID(LTITLE, TITLE_STR_128_SILO4)          /* Launch Silo #4 */,    getStringID(LTITLE, TITLE_STR_129_SILO)     /* Silo */,     LEVELID_SILO,         MISSION_PART,             SP_LEVEL_SILO, "UbriefsiloZ", SW_BRIEF6, {180, 0, 0}, DIFFICULTY_AGENT, FALSE},
+    {"4",        getStringID(LTITLE, TITLE_STR_130_MONTE)          /* Monte Carlo */,       0,                                                          LEVELID_NONE,         MISSION_HEADER,          SP_LEVEL_NONE, NULL, -1, {0, 0, 0}, DIFFICULTY_AGENT, FALSE},
+    {"i",        getStringID(LTITLE, TITLE_STR_131_FRIG)           /* Frigate */,           0,                                                          LEVELID_FRIGATE,      MISSION_PART,             SP_LEVEL_FRIGATE, "UbriefdestZ", SW_BRIEF7, {0, 270, 0}, DIFFICULTY_AGENT, FALSE},
+    {"5",        getStringID(LTITLE, TITLE_STR_124_SEV)            /* Severnaya */,         0,                                                          LEVELID_NONE,         MISSION_HEADER,          SP_LEVEL_NONE, NULL, -1, {0, 0, 0}, DIFFICULTY_AGENT, FALSE},
+    {"i",        getStringID(LTITLE, TITLE_STR_125_SURF)           /* Surface */,           0,                                                          LEVELID_SURFACE2,     MISSION_PART,             SP_LEVEL_SURFACE2, "UbriefsevxbZ", SW_BRIEF8, {0, 0, 255}, DIFFICULTY_AGENT, FALSE},
+    {"ii",       getStringID(LTITLE, TITLE_STR_126_BUNK)           /* Bunker */,            0,                                                          LEVELID_BUNKER2,      MISSION_PART,             SP_LEVEL_BUNKER2, "UbriefsevbZ", SW_BRIEF9, {90, 0, 0}, DIFFICULTY_AGENT, FALSE},
+    {"6",        getStringID(LTITLE, TITLE_STR_132_STPETER)        /* St. Petersburg */,    0,                                                          LEVELID_NONE,         MISSION_HEADER,          SP_LEVEL_NONE, NULL, -1, {0, 0, 0}, DIFFICULTY_AGENT, FALSE},
+    {"i",        getStringID(LTITLE, TITLE_STR_133_STATPARK)       /* Statue Park */,       getStringID(LTITLE, TITLE_STR_134_STAT)     /* Statue */,   LEVELID_STATUE,       MISSION_PART,             SP_LEVEL_STATUE, "UbriefstatueZ", SW_BRIEF10, {0, 195, 0}, DIFFICULTY_AGENT, FALSE},
+    {"ii",       getStringID(LTITLE, TITLE_STR_135_MILARCH)        /* Military Archives */, getStringID(LTITLE, TITLE_STR_136_ARCH)     /* Archives */, LEVELID_ARCHIVES,     MISSION_PART,            SP_LEVEL_ARCHIVES, "UbriefarchZ", SW_BRIEF11, {0, 0, 80}, DIFFICULTY_AGENT, FALSE},
+    {"iii",      getStringID(LTITLE, TITLE_STR_137_STREETS)        /* Streets */,           0,                                                          LEVELID_STREETS,      MISSION_PART,            SP_LEVEL_STREETS, "UbriefpeteZ", SW_BRIEF12, {105, 0, 0}, DIFFICULTY_AGENT, FALSE},
+    {"iv",       getStringID(LTITLE, TITLE_STR_138_DEPOT)          /* Depot */,             0,                                                          LEVELID_DEPOT,        MISSION_PART,            SP_LEVEL_DEPOT, "UbriefdepoZ", SW_BRIEF13, {0, 100, 0}, DIFFICULTY_AGENT, FALSE},
+    {"v",        getStringID(LTITLE, TITLE_STR_139_TRAIN)          /* Train */,             0,                                                          LEVELID_TRAIN,        MISSION_PART,            SP_LEVEL_TRAIN, "UbrieftraZ", SW_BRIEF14, {0, 0, 325}, DIFFICULTY_AGENT, FALSE},
+    {"7",        getStringID(LTITLE, TITLE_STR_140_CUBA)           /* Cuba */,              0,                                                          LEVELID_NONE,         MISSION_HEADER,          SP_LEVEL_NONE, NULL, -1, {0, 0, 0}, DIFFICULTY_AGENT, FALSE},
+    {"i",        getStringID(LTITLE, TITLE_STR_141_JUN)            /* Jungle */,            0,                                                          LEVELID_JUNGLE,       MISSION_PART,            SP_LEVEL_JUNGLE, "UbriefjunZ", SW_BRIEF15, {225, 0, 0}, DIFFICULTY_AGENT, FALSE},
+    {"ii",       getStringID(LTITLE, TITLE_STR_142_CONCENTER)      /* Control Center */,    getStringID(LTITLE, TITLE_STR_143_CON)      /* Control */,  LEVELID_CONTROL,      MISSION_PART,            SP_LEVEL_CONTROL, "UbriefcontrolZ", SW_BRIEF16, {0, 600, 0}, DIFFICULTY_AGENT, FALSE},
+    {"iii",      getStringID(LTITLE, TITLE_STR_144_WATERCAV)       /* Water Caverns */,     getStringID(LTITLE, TITLE_STR_145_CAV)      /* Caverns */,  LEVELID_CAVERNS,      MISSION_PART,            SP_LEVEL_CAVERNS, "UbriefcaveZ", SW_BRIEF17, {0, 0, 570}, DIFFICULTY_AGENT, FALSE},
+    {"iv",       getStringID(LTITLE, TITLE_STR_146_ANTENNA)        /* Antenna Cradle */,    getStringID(LTITLE, TITLE_STR_147_CRADLE)   /* Cradle */,   LEVELID_CRADLE,       MISSION_PART,            SP_LEVEL_CRADLE, "UbriefcradZ", SW_BRIEF18, {135, 0, 0}, DIFFICULTY_AGENT, FALSE},
+    {"8",        getStringID(LTITLE, TITLE_STR_148_TEOTIHUACA)     /* Teotihuaca'n */,      0,                                                          LEVELID_NONE,         MISSION_HEADER,          SP_LEVEL_NONE, NULL, -1, {0, 0, 0}, DIFFICULTY_AGENT, FALSE},
+    {"i",        getStringID(LTITLE, TITLE_STR_149_AZTECCOMPLEX)   /* Aztec Complex */,     getStringID(LTITLE, TITLE_STR_150_AZTEC)    /* Aztec */,    LEVELID_AZTEC,        MISSION_PART,            SP_LEVEL_AZTEC, "UbriefaztZ", SW_BRIEF19, {0, 540, 0}, DIFFICULTY_SECRET, TRUE},
+    {"9",        getStringID(LTITLE, TITLE_STR_151_ELSAGHIRA)      /* el-Saghira */,        0,                                                          LEVELID_NONE,         MISSION_HEADER,          SP_LEVEL_NONE, NULL, -1, {0, 0, 0}, DIFFICULTY_AGENT, FALSE},
+    {"i",        getStringID(LTITLE, TITLE_STR_152_EGYPTIANTEMPLE) /* Egyptian Temple */,   getStringID(LTITLE, TITLE_STR_153_EGYPTIAN) /* Egyptian */, LEVELID_EGYPT,        MISSION_PART,            SP_LEVEL_EGYPT, "UbriefcrypZ", SW_BRIEF20, {0, 0, 360}, DIFFICULTY_00, TRUE},
+    {NULL,       0,                                                                         0,                                                          LEVELID_NONE,         MISSION_PART,            SP_LEVEL_NONE, NULL, -1, {0, 0, 0}, DIFFICULTY_AGENT, FALSE}
 };
+const int g_CampaignEntryCount = ARRAYCOUNT(mission_folder_setup_entries) - 1;
 
 struct FolderSelectColour unknown_folderselect_constructor = { 0x14, 0x14, 0x14 };
 struct FolderSelectColour unknown_folderselect_constructor_0 = { 0x32, 0x32, 0x32 };
@@ -479,28 +481,7 @@ s32 unlock_aim_sight = TRUE;
 
 u32 D_8002B560 = 0;
 
-s16 solo_target_time_array[20][3] = {
-    {0, 160, 0}, // Dam
-    {0, 0, 125}, // Facility
-    {300, 0, 0}, // Runway
-    {0, 210, 0}, // Surface 1
-    {0, 0, 240}, // Bunker 1
-    {180, 0, 0}, // Silo
-    {0, 270, 0}, // Frigate
-    {0, 0, 255}, // Surface 2
-    {90, 0, 0},  // Bunker 2
-    {0, 195, 0}, // Statue
-    {0, 0, 80},  // Archives
-    {105, 0, 0}, // Streets
-    {0, 100, 0}, // Depot
-    {0, 0, 325}, // Train
-    {225, 0, 0}, // Jungle
-    {0, 600, 0}, // Control
-    {0, 0, 570}, // Caverns
-    {135, 0, 0}, // Cradle
-    {0, 540, 0}, // Aztec
-    {0, 0, 360}  // Egyptian
-};
+
 
 s32 totalunlockedcheats = 0;
 s32 cheathighlighted = 0;
@@ -634,7 +615,7 @@ struct coord3d cast_camera_offset = { 0.0f, 40.0f, 25.0f }; // vec in constructo
 
 Gfx* frontAddPreviousTabText(Gfx* DL);
 s32 check_if_stage_completed_on_difficulty(int stage, DIFFICULTY difficulty);
-s32 get_highest_unlocked_difficulty_for_level(s32 arg0);
+s32 frontGetHighestUnlockedDifficulty(LEVEL_SOLO_SLOT slot);
 Gfx *constructor_menu00_legalscreen(Gfx *DL);
 Gfx *constructor_menu01_nintendo(Gfx *DL);
 Gfx *constructor_menu02_rareware(Gfx *DL);
@@ -661,7 +642,7 @@ Gfx *constructor_menu17_switchscreens(Gfx *DL);
 Gfx *constructor_menu18_displaycast(Gfx *DL);
 void disable_all_switches(Model *arg0);
 void set_item_visibility_in_objinstance(Model* objinstance, s32 item, s32 mode);
-void set_cursor_to_stage_solo(LEVEL_SOLO_SEQUENCE level);
+void set_cursor_to_stage_solo(LEVEL_SOLO_SLOT level);
 Gfx *display_aligned_white_text_to_screen(Gfx *dl, s32 arg1, s32 arg2, s32 halign, s32 valign, u8 *arg5, s32 arg6, s32 arg7);
 void setCursorPOSforMode(int mode);
 void set_cursor_pos_difficulty(int difficulty);
@@ -1968,7 +1949,7 @@ s32 interface_menu05_fileselect(void)
 
             struct rectbbox folderbbox;
 
-            LEVEL_SOLO_SEQUENCE higheststage;
+            LEVEL_SOLO_SLOT higheststage;
             DIFFICULTY highestdifficulty;
 
             modelGetXYExtents(walletinst[foldernum], &xmax, &xmin, &ymax, &ymin);
@@ -2107,7 +2088,7 @@ Gfx *constructor_menu05_fileselect(Gfx *DL)
     f32 folderx;
     struct point2d textpos;
     struct point2d textsize;
-    LEVEL_SOLO_SEQUENCE higheststage;
+    LEVEL_SOLO_SLOT higheststage;
     DIFFICULTY highestdifficulty;
     struct coord2d folderpos2d;             // folder position projected to screen space
 
@@ -2245,7 +2226,7 @@ Gfx *constructor_menu05_fileselect(Gfx *DL)
 
                     for (missionindex = 0; mission_folder_setup_entries[missionindex].folder_text_preset != 0; missionindex++)
                     {
-                        if (higheststage == mission_folder_setup_entries[missionindex].mission_num)
+                        if (higheststage == mission_folder_setup_entries[missionindex].save_slot)
                         {
                             chapterindex = get_chapter_briefing_entry(missionindex);
                             break;
@@ -2254,11 +2235,11 @@ Gfx *constructor_menu05_fileselect(Gfx *DL)
 
                     if (chapterindex >= 0)
                     {
-                        strcat((char *)missiontext, (char *)mission_folder_setup_entries[chapterindex].string_ptr);
+                        strcat((char *)missiontext, (char *)mission_folder_setup_entries[chapterindex].number_text);
                         strcat((char *)missiontext, ".");
                     }
 
-                    strcat((char *)missiontext, (char *)mission_folder_setup_entries[missionindex].string_ptr);
+                    strcat((char *)missiontext, (char *)mission_folder_setup_entries[missionindex].number_text);
                     strcat((char *)missiontext, "\n");
                     textsize.p[0] = 0;
                     textsize.p[1] = 0;
@@ -2453,7 +2434,7 @@ void interface_menu06_modesel(void)
     if (gamemode == GAMEMODE_SOLO)
     {
         frontChangeMenu(MENU_MISSION_SELECT, FALSE);
-        set_cursor_to_stage_solo(0);
+        set_cursor_to_stage_solo(campaignGetFirstMain());
         return;
     }
     if (gamemode == GAMEMODE_MULTI)
@@ -2615,27 +2596,13 @@ Gfx* constructor_menu06_modesel(Gfx* DL)
 }
 
 
-s32 pull_and_display_text_for_folder_a0(s32 arg0)
-{
-    int i;
-
-    for (i=0; mission_folder_setup_entries[i].folder_text_preset != 0 ; i++)
-    {
-        if (arg0 == mission_folder_setup_entries[i].mission_num)
-        {
-            return i;
-        }
-    }
-
-    return -1;
-}
 
 
 s32 check_if_stage_completed_on_difficulty(int stage, DIFFICULTY difficulty)
 {
     s32 num;
 
-    num = mission_folder_setup_entries[stage].mission_num;
+    num = mission_folder_setup_entries[stage].save_slot;
     if (num >= 0)
     {
         return fileIsStageUnlockedAtDifficulty(selected_folder_num, num, difficulty);
@@ -2647,13 +2614,13 @@ s32 check_if_stage_completed_on_difficulty(int stage, DIFFICULTY difficulty)
 
 
 
-s32 get_highest_unlocked_difficulty_for_level(s32 arg0)
+s32 frontGetHighestUnlockedDifficulty(LEVEL_SOLO_SLOT slot)
 {
     s32 num;
     s32 difficulty;
     s32 temp_v0;
 
-    if (mission_folder_setup_entries[pull_and_display_text_for_folder_a0(arg0)].stage_id >= 0)
+    if (campaignGetEntryBySaveSlot(slot) >= 0)
     {
         num = DIFFICULTY_00;
 
@@ -2664,7 +2631,7 @@ s32 get_highest_unlocked_difficulty_for_level(s32 arg0)
 
         for (difficulty=num; difficulty >= 0; difficulty--)
         {
-            temp_v0 = fileIsStageUnlockedAtDifficulty(selected_folder_num, arg0, difficulty);
+            temp_v0 = fileIsStageUnlockedAtDifficulty(selected_folder_num, slot, difficulty);
             if (g_AppendCheatSinglePlayer == 0)
             {
                 if (temp_v0 != DIFFICULTY_AGENT)
@@ -2769,7 +2736,7 @@ void interface_menu07_missionsel(void)
         {
             for (var_s1 = 0; var_s1 < 5; var_s1++)
             {
-                if (get_highest_unlocked_difficulty_for_level((var_s2 * 5) + var_s1) >= 0)
+                if (frontGetHighestUnlockedDifficulty(campaignGetSaveSlotByOrder((var_s2 * 5) + var_s1)) >= 0)
                 {
                     break;
                 }
@@ -2785,7 +2752,7 @@ void interface_menu07_missionsel(void)
 
         for ( ; var_s4 >= 0; var_s4--)
         {
-            if (get_highest_unlocked_difficulty_for_level((var_s2 * 5) + var_s4) >= 0)
+            if (frontGetHighestUnlockedDifficulty(campaignGetSaveSlotByOrder((var_s2 * 5) + var_s4)) >= 0)
             {
                 break;
             }
@@ -2795,7 +2762,7 @@ void interface_menu07_missionsel(void)
         {
             for (var_s4 = 0; var_s4 < 5; var_s4++)
             {
-                if (get_highest_unlocked_difficulty_for_level((var_s2 * 5) + var_s4) >= 0)
+                if (frontGetHighestUnlockedDifficulty(campaignGetSaveSlotByOrder((var_s2 * 5) + var_s4)) >= 0)
                 {
                     break;
                 }
@@ -2819,9 +2786,13 @@ void interface_menu07_missionsel(void)
             // struct copy
             temp_s1->Vertices[i] = temp_s4->Vertices[i];
 
-            temp_a0 = i / 4;
+            temp_a0 = campaignGetPhotoOrder(SW_BRIEF1 + i / 4);
+            if (temp_a0 >= 0 && temp_a0 * 4 + i % 4 < temp_s4->numVertices)
+            {
+                temp_s1->Vertices[i].coord = temp_s4->Vertices[temp_a0 * 4 + i % 4].coord;
+            }
 
-            if (get_highest_unlocked_difficulty_for_level(temp_a0) >= 0)
+            if (frontGetHighestUnlockedDifficulty(campaignGetSaveSlotByOrder(temp_a0)) >= 0)
             {
                 if (temp_a0 == mission_difficulty_highlighted)
                 {
@@ -2858,7 +2829,7 @@ void interface_menu07_missionsel(void)
         }
         else if (mission_difficulty_highlighted >= 0)
         {
-            briefingpage = pull_and_display_text_for_folder_a0(mission_difficulty_highlighted);
+            briefingpage = campaignGetEntryByOrder(mission_difficulty_highlighted);
             selected_stage = mission_folder_setup_entries[briefingpage].stage_id;
             tab_next_selected = 1;
 
@@ -2877,7 +2848,7 @@ void interface_menu07_missionsel(void)
     if (tab_next_selected != 0)
     {
         frontChangeMenu(MENU_DIFFICULTY, 0);
-        set_cursor_pos_difficulty(get_highest_unlocked_difficulty_for_level(mission_folder_setup_entries[briefingpage].mission_num));
+        set_cursor_pos_difficulty(frontGetHighestUnlockedDifficulty(mission_folder_setup_entries[briefingpage].save_slot));
         
     }
     else if (tab_prev_selected != 0)
@@ -2888,10 +2859,12 @@ void interface_menu07_missionsel(void)
 }
 
 
-void set_cursor_to_stage_solo(LEVEL_SOLO_SEQUENCE level)
+void set_cursor_to_stage_solo(LEVEL_SOLO_SLOT level)
 {
-    cursor_h_pos = cursor_xpos_table_mission_select[level % 5];
-    cursor_v_pos = cursor_ypos_table_mission_select[level / 5];
+    s32 order = campaignGetOrderBySaveSlot(level);
+    if (order < 0 || order >= 20) return;
+    cursor_h_pos = cursor_xpos_table_mission_select[order % 5];
+    cursor_v_pos = cursor_ypos_table_mission_select[order / 5];
 }
 
 // Address 0x7F00E458 NTSC
@@ -2924,9 +2897,9 @@ Gfx *constructor_menu07_missionsel(Gfx *DL)
 
         for (i = 0; i < 4 ; i++, var_s3 += 5)
         {
-            temp_s0 = pull_and_display_text_for_folder_a0(var_s3);
+            temp_s0 = campaignGetEntryByOrder(var_s3);
 
-            if (get_highest_unlocked_difficulty_for_level(var_s3) >= 0)
+            if (frontGetHighestUnlockedDifficulty(campaignGetSaveSlotByOrder(var_s3)) >= 0)
             {
                 var_s5 = 0x96969600;
 
@@ -3002,7 +2975,7 @@ void interface_menu08_difficulty(void)
 {
     s32 unlockedDifficulty;
 
-    unlockedDifficulty = get_highest_unlocked_difficulty_for_level(mission_folder_setup_entries[briefingpage].mission_num);
+    unlockedDifficulty = frontGetHighestUnlockedDifficulty(mission_folder_setup_entries[briefingpage].save_slot);
     viSetFovY(FOV_Y_F);
     viSetAspect(ASPECT_RATIO_SD);
     viSetZRange(100.0f, 10000.0f);
@@ -3081,7 +3054,7 @@ void interface_menu08_difficulty(void)
     if (tab_prev_selected)
     {
         frontChangeMenu(MENU_MISSION_SELECT, FALSE);
-        set_cursor_to_stage_solo(mission_folder_setup_entries[briefingpage].mission_num);
+        set_cursor_to_stage_solo(mission_folder_setup_entries[briefingpage].save_slot);
     }
 }
 
@@ -3106,7 +3079,7 @@ Gfx * print_current_solo_briefing_stage_name(Gfx *DL, char *text)
     if (chapter >=0 )
     {
         strcpy(text, langGet(getStringID(LTITLE, TITLE_STR_33_MISSION2)));
-        strcat(text, mission_folder_setup_entries[chapter].string_ptr);
+        strcat(text, mission_folder_setup_entries[chapter].number_text);
         strcat(text, ": ");
         strcat(text, langGet(mission_folder_setup_entries[chapter].folder_text_preset));
         strcat(text, "\n");
@@ -3116,7 +3089,7 @@ Gfx * print_current_solo_briefing_stage_name(Gfx *DL, char *text)
     }
 
     strcpy(text, langGet(getStringID(LTITLE, TITLE_STR_34_PART)));
-    strcat(text, mission_folder_setup_entries[briefingpage].string_ptr);
+    strcat(text, mission_folder_setup_entries[briefingpage].number_text);
     strcat(text, ": ");
     strcat(text, langGet(mission_folder_setup_entries[briefingpage].folder_text_preset));
     strcat(text, "\n");
@@ -3167,7 +3140,7 @@ Gfx *constructor_menu08_difficulty(Gfx *DL)
     struct sImageTableEntry *image;   // sp ??
     s32 i;
 
-    unlockedDifficulty = get_highest_unlocked_difficulty_for_level(mission_folder_setup_entries[briefingpage].mission_num);
+    unlockedDifficulty = frontGetHighestUnlockedDifficulty(mission_folder_setup_entries[briefingpage].save_slot);
 
     DL = viSetFillColor(DL, 0, 0, 0);
     DL = viFillScreen(DL);
@@ -6168,7 +6141,7 @@ void interface_menu0A_briefing(void)
     }
     disable_all_switches(walletinst[0]);
     set_item_visibility_in_objinstance(walletinst[0], SW_PHOTOBRIEF, current_menu_briefing_page == BRIEFING_TITLE);
-    set_item_visibility_in_objinstance(walletinst[0], mission_folder_setup_entries[briefingpage].mission_num + 0x16, current_menu_briefing_page == BRIEFING_TITLE);
+    set_item_visibility_in_objinstance(walletinst[0], mission_folder_setup_entries[briefingpage].photo_switch, current_menu_briefing_page == BRIEFING_TITLE);
     set_item_visibility_in_objinstance(walletinst[0], SW_TABS, 1);
     set_item_visibility_in_objinstance(walletinst[0], SW_PAPER, 1);
     set_item_visibility_in_objinstance(walletinst[0], SW_OHMSS, 1);
@@ -6182,7 +6155,7 @@ void interface_menu0A_briefing(void)
     if (tab_prev_selected)
     {
         frontChangeMenu(MENU_MISSION_SELECT, FALSE);
-        set_cursor_to_stage_solo(mission_folder_setup_entries[briefingpage].mission_num);
+        set_cursor_to_stage_solo(mission_folder_setup_entries[briefingpage].save_slot);
     }
 }
 
@@ -6463,7 +6436,7 @@ void interface_menu0C_missionfailed(void)
     if (tab_prev_selected)
     {
         frontChangeMenu(MENU_MISSION_SELECT, FALSE);
-        set_cursor_to_stage_solo(mission_folder_setup_entries[briefingpage].mission_num);
+        set_cursor_to_stage_solo(mission_folder_setup_entries[briefingpage].save_slot);
     }
 }
 
@@ -6636,36 +6609,26 @@ void interface_menu0D_missioncomplete()
     {
         if (frontCompleteAllObjectivesAliveSuccess() && (!g_AppendCheatSinglePlayer))
         {
-            if (mission_folder_setup_entries[briefingpage].mission_num == SP_LEVEL_CRADLE)
-            {
-                frontChangeMenu(MENU_RUN_STAGE, TRUE);
-                selected_stage = LEVELID_CUBA;
-            }
-            else if (mission_folder_setup_entries[briefingpage].mission_num >= SP_LEVEL_AZTEC)
+            if (campaignIsBonus(mission_folder_setup_entries[briefingpage].save_slot))
             {
                 frontChangeMenu(MENU_MISSION_SELECT, FALSE);
-                set_cursor_to_stage_solo((s32)mission_folder_setup_entries[briefingpage].mission_num);
+                set_cursor_to_stage_solo(mission_folder_setup_entries[briefingpage].save_slot);
             }
             else
             {
-                entry = briefingpage + 1;
-                while (mission_folder_setup_entries[entry].folder_text_preset)
+                entry = campaignGetEntryBySaveSlot(campaignGetNextMain(
+                    mission_folder_setup_entries[briefingpage].save_slot));
+                if (entry < 0)
                 {
-                    if (mission_folder_setup_entries[entry].stage_id >= 0)
-                    {
-                        break;
-                    }
-
-                    entry++;
+                    frontChangeMenu(MENU_RUN_STAGE, TRUE);
+                    selected_stage = LEVELID_CUBA;
                 }
-
-                if (mission_folder_setup_entries[entry].folder_text_preset)
+                else
                 {
                     briefingpage = entry;
                     selected_stage = mission_folder_setup_entries[entry].stage_id;
+                    frontChangeMenu(MENU_BRIEFING, FALSE);
                 }
-
-                frontChangeMenu(MENU_BRIEFING, FALSE);
             }
         }
         else
@@ -6676,7 +6639,7 @@ void interface_menu0D_missioncomplete()
     else if (tab_prev_selected)
     {
         frontChangeMenu(MENU_MISSION_SELECT, FALSE);
-        set_cursor_to_stage_solo((s32)mission_folder_setup_entries[briefingpage].mission_num);
+        set_cursor_to_stage_solo((s32)mission_folder_setup_entries[briefingpage].save_slot);
     }
 
     return;
@@ -6746,7 +6709,7 @@ Gfx *constructor_menu0D_missioncomplete(Gfx *DL)
     y = 0xA7;
     DL = frontPrintText(DL, &x, &y, text, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
 
-    besttime = fileGetSaveStageDifficultyTime( fileGetSaveForFoldernum(selected_folder_num), mission_folder_setup_entries[briefingpage].mission_num, selected_difficulty);
+    besttime = fileGetSaveStageDifficultyTime( fileGetSaveForFoldernum(selected_folder_num), mission_folder_setup_entries[briefingpage].save_slot, selected_difficulty);
     if ((besttime == 0) || (!(besttime < 0x3FF))) {
         besttime = -1;
     }
@@ -6758,7 +6721,7 @@ Gfx *constructor_menu0D_missioncomplete(Gfx *DL)
     }
     missiontime = missiontimer / 60;
     stagename[0] = '\0';
-    targettime = solo_target_time_array[mission_folder_setup_entries[briefingpage].mission_num][difficulty];
+    targettime = campaignGetCheatTime(mission_folder_setup_entries[briefingpage].save_slot, difficulty);
     sprintf(stagename, "%02d:%02d", missiontime / 60, missiontime % 60);
     x = 0x82;
     y = 0xA7;
@@ -7231,7 +7194,7 @@ static void frontFinishPostCreditsCast(void)
     full_actor_intro = FALSE;
     intro_character_index = 0;
     frontChangeMenu(MENU_MISSION_SELECT, TRUE);
-    set_cursor_to_stage_solo(SP_LEVEL_CRADLE);
+    set_cursor_to_stage_solo(campaignGetLastMain());
 }
 
 

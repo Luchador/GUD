@@ -1,3 +1,4 @@
+#include "../../../src/levelids.h"
 #include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,19 +23,19 @@ typedef struct TextEditor {
 /* Labels/default selection only. Encoded bank IDs come from the ROM's TXBK
  * catalog, and resources are enumerated from its file table. */
 static const struct { const char *file, *title; LONG level; } titles[]={
-    {"LameE","Library",48},{"LarchE","Archives",24},{"LarecE","Control",23},
-    {"LarkE","Facility",34},{"LashE","Stack",46},{"LaztE","Aztec",28},
-    {"LcatE","Citadel",40},{"LcaveE","Caverns",39},{"LcradE","Cradle",41},
-    {"LcrypE","Egypt",32},{"LdamE","Dam",33},{"LdepoE","Depot",30},
-    {"LdestE","Frigate",26},{"LdishE","Temple",38},{"LimpE","Basement",45},
-    {"LjunE","Jungle",37},{"LlenE","Cuba",54},{"LoatE","Caves",50},
-    {"LpeteE","Streets",29},{"LrefE","Complex",31},{"LrunE","Runway",35},
-    {"LsevE","Bunker 1",9},{"LsevbE","Bunker 2",27},{"LsevxE","Surface 1",36},
-    {"LsevxbE","Surface 2",43},{"LsiloE","Silo",20},{"LstatE","Statue",22},
-    {"LtraE","Train",25},{"LgunE","Weapons",-1},{"LtitleE","Stage and menu titles",-1},
-    {"LmpmenuE","Multiplayer menus",-1},{"LpropobjE","Pickups",-1},
-    {"LmpweaponsE","Multiplayer weapons",-1},{"LoptionsE","Solo menus",-1},
-    {"LmiscE","Cheat options",-1}
+    {"LameE","Library",LEVELID_LIBRARY},{"LarchE","Archives",LEVELID_ARCHIVES},{"LarecE","Control",LEVELID_CONTROL},
+    {"LarkE","Facility",LEVELID_FACILITY},{"LashE","Stack",LEVELID_STACK},{"LaztE","Aztec",LEVELID_AZTEC},
+    {"LcatE","Citadel",LEVELID_CITADEL},{"LcaveE","Caverns",LEVELID_CAVERNS},{"LcradE","Cradle",LEVELID_CRADLE},
+    {"LcrypE","Egypt",LEVELID_EGYPT},{"LdamE","Dam",LEVELID_DAM},{"LdepoE","Depot",LEVELID_DEPOT},
+    {"LdestE","Frigate",LEVELID_FRIGATE},{"LdishE","Temple",LEVELID_TEMPLE},{"LimpE","Basement",LEVELID_BASEMENT},
+    {"LjunE","Jungle",LEVELID_JUNGLE},{"LlenE","Cuba",LEVELID_CUBA},{"LoatE","Caves",LEVELID_CAVES},
+    {"LpeteE","Streets",LEVELID_STREETS},{"LrefE","Complex",LEVELID_COMPLEX},{"LrunE","Runway",LEVELID_RUNWAY},
+    {"LsevE","Bunker 1",LEVELID_BUNKER1},{"LsevbE","Bunker 2",LEVELID_BUNKER2},{"LsevxE","Surface 1",LEVELID_SURFACE},
+    {"LsevxbE","Surface 2",LEVELID_SURFACE2},{"LsiloE","Silo",LEVELID_SILO},{"LstatE","Statue",LEVELID_STATUE},
+    {"LtraE","Train",LEVELID_TRAIN},{"LgunE","Weapons",LEVELID_NONE},{"LtitleE","Stage and menu titles",LEVELID_NONE},
+    {"LmpmenuE","Multiplayer menus",LEVELID_NONE},{"LpropobjE","Pickups",LEVELID_NONE},
+    {"LmpweaponsE","Multiplayer weapons",LEVELID_NONE},{"LoptionsE","Solo menus",LEVELID_NONE},
+    {"LmiscE","Cheat options",LEVELID_NONE}
 };
 static HWND Control(TextEditor *e, int id) { return GetDlgItem(e->window,id); }
 static void Error(TextEditor *e, const char *why)
@@ -282,7 +283,7 @@ BOOL TextEditorShow(HWND owner, const GEditorProject *project, DWORD level, cons
     if (!e->count) { *why="This ROM has no English text banks."; goto done; }
     if (level<project->levelcount)
     {
-        LONG id=project->levels[level].levelID; if (id>=400 && id<500) { id-=400; }
+        LONG id=project->levels[level].levelID; if (LEVELID_IS_MP(id)) { id-=ENVIRONMENTDATA_PLAYERS_4; }
         for (size_t j=0;j<sizeof(titles)/sizeof(*titles);j++) if (titles[j].level==id)
         { for (DWORD i=0;i<e->count;i++) if (!strcmp(e->files[i].name,titles[j].file)) { e->file=i; break; } break; }
     }

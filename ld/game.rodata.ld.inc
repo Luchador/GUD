@@ -115,3 +115,5 @@
       build/OUTCODE/src/game/renderconfig.o (.rodata);
       build/OUTCODE/src/game/occlusion.o (.rodata);
       build/OUTCODE/src/game/occlusionmath.o (.rodata);
+
+      build/OUTCODE/src/game/campaign.o (.rodata);

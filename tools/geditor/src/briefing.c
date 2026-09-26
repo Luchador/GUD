@@ -1,3 +1,4 @@
+#include "../../../src/levelids.h"
 #include "briefing.h"
 #include "setupmeta.h"
 #include "editorpath.h"
@@ -15,13 +16,13 @@ static void W(unsigned char *p,DWORD v) { SetupMetaWrite32(p,v); }
 static DWORD R16(const unsigned char *p) { return (DWORD)p[0]*256+p[1]; }
 static void W16(unsigned char *p,DWORD v) { p[0]=v>>8;p[1]=v; }
 static const struct { LONG level; const char *bank,*brief; } missions[]={
-    {33,"LdamE","UbriefdamZ"},{34,"LarkE","UbriefarkZ"},{35,"LrunE","UbriefrunZ"},
-    {36,"LsevxE","UbriefsevxZ"},{9,"LsevE","UbriefsevbunkerZ"},{20,"LsiloE","UbriefsiloZ"},
-    {26,"LdestE","UbriefdestZ"},{43,"LsevxbE","UbriefsevxbZ"},{27,"LsevbE","UbriefsevbZ"},
-    {22,"LstatE","UbriefstatueZ"},{24,"LarchE","UbriefarchZ"},{29,"LpeteE","UbriefpeteZ"},
-    {30,"LdepoE","UbriefdepoZ"},{25,"LtraE","UbrieftraZ"},{37,"LjunE","UbriefjunZ"},
-    {23,"LarecE","UbriefcontrolZ"},{39,"LcaveE","UbriefcaveZ"},{41,"LcradE","UbriefcradZ"},
-    {28,"LaztE","UbriefaztZ"},{32,"LcrypE","UbriefcrypZ"}
+    {LEVELID_DAM,"LdamE","UbriefdamZ"},{LEVELID_FACILITY,"LarkE","UbriefarkZ"},{LEVELID_RUNWAY,"LrunE","UbriefrunZ"},
+    {LEVELID_SURFACE,"LsevxE","UbriefsevxZ"},{LEVELID_BUNKER1,"LsevE","UbriefsevbunkerZ"},{LEVELID_SILO,"LsiloE","UbriefsiloZ"},
+    {LEVELID_FRIGATE,"LdestE","UbriefdestZ"},{LEVELID_SURFACE2,"LsevxbE","UbriefsevxbZ"},{LEVELID_BUNKER2,"LsevbE","UbriefsevbZ"},
+    {LEVELID_STATUE,"LstatE","UbriefstatueZ"},{LEVELID_ARCHIVES,"LarchE","UbriefarchZ"},{LEVELID_STREETS,"LpeteE","UbriefpeteZ"},
+    {LEVELID_DEPOT,"LdepoE","UbriefdepoZ"},{LEVELID_TRAIN,"LtraE","UbrieftraZ"},{LEVELID_JUNGLE,"LjunE","UbriefjunZ"},
+    {LEVELID_CONTROL,"LarecE","UbriefcontrolZ"},{LEVELID_CAVERNS,"LcaveE","UbriefcaveZ"},{LEVELID_CRADLE,"LcradE","UbriefcradZ"},
+    {LEVELID_AZTEC,"LaztE","UbriefaztZ"},{LEVELID_EGYPT,"LcrypE","UbriefcrypZ"}
 };
 BOOL BriefingNames(LONG level,const char **bank,const char **brief)
 {

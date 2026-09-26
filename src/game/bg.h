@@ -115,8 +115,8 @@ typedef struct BgRoomData
 
 typedef struct s_specialportal
 {
-    u8 levelid;
-    u8 portallist[];
+    LEVELID levelid;
+    u8 portallist[15];
 } s_specialportal;
 
 typedef struct PortalCache {

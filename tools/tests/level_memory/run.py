@@ -34,11 +34,13 @@ typedef int16_t s16;
 typedef float f32;
 #define ARRAYCOUNT(a) (sizeof(a) / sizeof((a)[0]))
 '''
-for name in ('ENVIRONMENTDATA_IDS', 'LEVELID', 'MUSIC_TRACKS'):
+source += (ROOT / 'src/levelids.h').read_text() + '\n'
+for name in ('MUSIC_TRACKS',):
     source += re.search(r'typedef enum ' + name + r'\s*\{.*?\}[^;]*;', constants, re.S)[0] + '\n'
-source += re.search(r'#define LEVEL_INFO_COUNT \d+', header)[0] + '\n'
+source += re.search(r'enum LevelCatalogSlot\s*\{.*?\};', header, re.S)[0] + '\n'
+source += '#define LEVEL_MEMORY_STRING_SIZE 64\n'
 source += re.search(r'struct LevelEntry\s*\{.*?\};', header, re.S)[0] + '\n'
-source += re.search(r'struct LevelEntry g_LevelInfoTable\[\] = \{.*?\n\};', level, re.S)[0] + '\n'
+source += level[level.index('#define LEVEL('):level.index('struct LevelEntry *lvFindLevelInfo')]
 source += function(level, 'lvFindLevelInfo')
 source += function(level, 'lvFindStageInfo')
 source += function(level, 'lvGetMemoryAllocationString')
@@ -62,7 +64,7 @@ with tempfile.TemporaryDirectory(prefix='gud-level-memory-') as directory:
     (work / 'check.c').write_text(source)
     command = shlex.split(os.environ.get('CC', 'cc')) + [
         '-std=c99', '-O1', '-g', '-Wall', '-Wextra', '-Werror',
-        '-Wno-sign-compare', '-fsanitize=address,undefined', f'-I{HERE}',
+        '-Wno-sign-compare', '-fsanitize=address,undefined', f'-I{HERE}', f'-I{ROOT / "src/game"}',
         str(work / 'check.c'), '-o', str(work / 'check')]
     subprocess.run(command, check=True)
     subprocess.run([str(work / 'check')], check=True, env=dict(
