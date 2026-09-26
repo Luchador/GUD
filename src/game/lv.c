@@ -164,8 +164,6 @@ struct LevelEntry *lvFindLevelInfo(enum LEVELID levelId)
 }
 
 
-/* Gameplay retains the base stage ID; shared solo/MP maps select their own
- * catalog row without changing AI, language or environment stage IDs. */
 struct LevelEntry *lvFindStageInfo(enum LEVELID levelId, s32 numPlayers)
 {
     struct LevelEntry *levelInfo;
@@ -173,6 +171,7 @@ struct LevelEntry *lvFindStageInfo(enum LEVELID levelId, s32 numPlayers)
     if (levelId != LEVELID_TITLE && numPlayers >= 2)
     {
         levelInfo = lvFindLevelInfo(levelId + ENVIRONMENTDATA_PLAYERS_4);
+
         if (levelInfo != NULL)
         {
             return levelInfo;
@@ -244,8 +243,10 @@ void lvlStageLoad(s32 stage)
 
     /* Cache once per stage, including the multiplayer override. */
     lod.value = levelInfo ? levelInfo->chrLODDistance : 1.0f;
-    g_ChrLodDistance = lod.value > 0.0f && (lod.bits & 0x7f800000u) != 0x7f800000u
-        ? lod.value : 1.0f;
+
+    /* Accept the custom LOD value only if it is above 0 and a finite number. */
+    g_ChrLodDistance = lod.value > 0.0f && (lod.bits & 0x7f800000u) != 0x7f800000u ? lod.value : 1.0f;
+
     g_CurrentStageToLoad = stage;
     g_BgRenderEnabled = TRUE;
     g_ControlsLockedFlag = 0;

@@ -260,8 +260,6 @@ void set_missionstate(MISSION_STATE_ID arg0)
 }
 
 
-
-
 void sub_GAME_7F0C11FC(s32 stagenum)
 {
     musicTrack1Stop();
@@ -282,10 +280,12 @@ void sub_GAME_7F0C11FC(s32 stagenum)
     return;
 }
 
+
 void set_missionstate_zero(void)
 {
     set_missionstate(MISSION_STATE_0);
 }
+
 
 void sub_GAME_7F0C1288(void)
 {
@@ -299,6 +299,7 @@ void sub_GAME_7F0C1288(void)
     }
 }
 
+
 void sub_GAME_7F0C12CC(void)
 {
     if (musicGetAmbientTrackForStage(stageMusicID) < 0)
@@ -311,6 +312,7 @@ void sub_GAME_7F0C12CC(void)
     }
 }
 
+
 void sub_GAME_7F0C1310(void)
 {
     dword_CODE_bss_8008C604 = mission_state;
@@ -321,6 +323,7 @@ void sub_GAME_7F0C1340(void)
 {
     set_missionstate(dword_CODE_bss_8008C604);
 }
+
 
 void sub_GAME_7F0C1364(void)
 {
@@ -333,10 +336,6 @@ void sub_GAME_7F0C1364(void)
         music_slot_seconds_0[i] = 0;
     }
 }
-
-
-
-
 
 
 void reset_all_music_slots(void)
@@ -403,9 +402,6 @@ void reset_all_music_slots(void)
 }
 
 
-
-
-
 void musicPlaySlot(s32 slot, s32 min, s32 sec)
 {
     if ((music_slot_active_0)[slot] == FALSE)
@@ -415,6 +411,7 @@ void musicPlaySlot(s32 slot, s32 min, s32 sec)
         (music_slot_seconds_0)[slot] = sec * MP_MUSIC_FRAMERATE;
     }
 }
+
 
 void musicStopSlot(s32 slot)
 {
@@ -433,4 +430,3 @@ void musicStopSlot(s32 slot)
         music_slot_seconds_0[i] = 0;
     }
 }
-
