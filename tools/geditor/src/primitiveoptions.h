@@ -4,11 +4,11 @@
 #include <windows.h>
 
 typedef struct PrimitiveOptions {
-    double radius, height; /* Metres, converted to world centimetres by the caller. */
+    double radius, height; /* World units, converted from the chosen editor units by the dialog. */
     DWORD sides;
 } PrimitiveOptions;
 
-/* Defaults to radius/height 1 metre and 8 sides. Cancel leaves out unchanged. */
-BOOL PrimitiveOptionsPrompt(HWND parent, BOOL cylinder, PrimitiveOptions *out);
+/* Defaults to radius/height 100 editor units and 8 sides. Cancel leaves out unchanged. */
+BOOL PrimitiveOptionsPrompt(HWND parent, BOOL cylinder, double factor, PrimitiveOptions *out);
 
 #endif

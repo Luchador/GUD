@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <ctype.h>
 #include "portalproperties.h"
+#include "editorsettings.h"
 
 #define PORTALPROPERTIES_CLASS "GEditorPortalProperties"
 enum { PORTAL_SUMMARY, PORTAL_MARGIN_LABEL, PORTAL_MARGIN, PORTAL_MARGIN_APPLY, PORTAL_MARGIN_HELP,
@@ -17,6 +18,7 @@ typedef struct PortalPropertiesState {
     DWORD portal;
     int roomchoices[2];
     BOOL updating;
+    double coordinatefactor;
     char margintext[64];
     int scroll, wheelremainder;
 } PortalPropertiesState;
@@ -108,6 +110,7 @@ static void PortalPropertiesApplyMargin(HWND hwnd, PortalPropertiesState *state)
         SendMessage(state->controls[PORTAL_MARGIN], EM_SETSEL, 0, -1);
         return;
     }
+    edit.margin /= state->coordinatefactor;
     SendMessage(GetParent(hwnd), PORTALPROPERTIES_WM_CHANGED, 0, (LPARAM)&edit);
 }
 
@@ -221,7 +224,10 @@ BOOL PortalPropertiesSetSelection(HWND panel, const BgDocument *document, DWORD 
     for (DWORD i = 0; i < document->portals.portalcount; i++)
     { shared += document->portals.portals[i].geometryoffset == portal->geometryoffset; }
     /* bgGetPortalMargin is in BG units; the viewport uses world units. */
-    margin = (double)BgPortalGetMargin(portal) / document->levelscale;
+    state->coordinatefactor = EditorUnitsFactor(EditorSettingsGetUnits(), document->levelscale);
+    margin = (double)BgPortalGetMargin(portal) / document->levelscale * state->coordinatefactor;
+    SetWindowText(state->controls[PORTAL_MARGIN_LABEL], EditorSettingsGetUnits() == EDITOR_UNITS_NATIVE
+        ? "Extra margin (native level units)" : "Extra margin (world units)");
     snprintf(state->margintext, sizeof(state->margintext), "%.9g", margin);
     SetWindowText(state->controls[PORTAL_MARGIN], state->margintext);
     snprintf(text, sizeof(text), "Portal: %lu\r\nPoints: %u\r\nPolygon used by: %lu connection(s)",

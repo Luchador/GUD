@@ -65,7 +65,7 @@ typedef struct RightPanelState {
     HWND portals;
     HWND positions[3];
     HWND movemode, rotatemode, scalebutton;
-    BOOL rotationmode, scalemode, scaleislocal;
+    BOOL rotationmode, scalemode, scaleislocal, nativeunits;
     unsigned int rotationaxes;
     HWND objects;
     HWND details;
@@ -444,7 +444,7 @@ static void RightPanelPaint(HWND hwnd, RightPanelState *state, HDC hdc)
     DrawText(hdc, "Transform", -1, &transform, DT_SINGLELINE | DT_LEFT | DT_NOPREFIX);
     transform.top += 52;
     transform.bottom += 52;
-    DrawText(hdc, state->scalemode ? (state->scaleislocal ? "Scale factors (pad axes)" : "Scale factors (world axes)") : state->rotationmode ? "Rotation (degrees)" : state->selectioncount > 1 ? "Average world position" : "World position",
+    DrawText(hdc, state->scalemode ? (state->scaleislocal ? "Scale factors (pad axes)" : "Scale factors (world axes)") : state->rotationmode ? "Rotation (degrees)" : state->nativeunits ? (state->selectioncount > 1 ? "Average native level position" : "Native level position") : state->selectioncount > 1 ? "Average world position" : "World position",
              -1, &transform,
              DT_SINGLELINE | DT_LEFT | DT_NOPREFIX);
     for (axis = 0; axis < 3; axis++)
@@ -1005,6 +1005,13 @@ void RightPanelSetTransformState(HWND panel, const double position[3],
         lstrcpyn(state->transformhint, hint, sizeof(state->transformhint));
     }
     InvalidateRect(panel, NULL, FALSE);
+}
+
+void RightPanelSetNativeUnits(HWND panel, BOOL native)
+{
+    RightPanelState *state = RightPanelGetState(panel);
+    if (state && state->nativeunits != native)
+    { state->nativeunits = native; InvalidateRect(panel, NULL, FALSE); }
 }
 
 BOOL RightPanelHandleMessage(HWND panel, MSG *message)

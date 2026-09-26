@@ -8,5 +8,6 @@ BOOL KnifeDialogShow(HWND owner, HINSTANCE instance, HWND viewport,
     const double center[3], double radius);
 void KnifeDialogClose(void);
 void KnifeDialogSyncPreview(void);
+void KnifeDialogSetCoordinateScale(double factor, BOOL native);
 BOOL KnifeDialogHandleMessage(MSG *message);
 #endif

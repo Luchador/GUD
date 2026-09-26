@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include "browser.h"
 #include "viewport.h"
+#include "editorunits.h"
 #include "gltf.h"
 #include "modellighting.h"
 #include "fog.h"
@@ -230,6 +231,7 @@ typedef struct ViewportPad {
 typedef struct ViewportRoomDragPoint { float *point; float original[3]; } ViewportRoomDragPoint;
 
 typedef struct ViewportState {
+    double coordinatescale; /* display units per world unit; geometry stays in world units */
     HDC hdc;      /* private DC - stable for the window's lifetime (CS_OWNDC) */
     HGLRC hglrc;  /* the GL context rendering into it */
     EditorTool tool;
@@ -3923,7 +3925,55 @@ int ViewportGetSelectedComponentCount(HWND hwnd)
 
 /* Panel coordinates average the selected items equally. This is deliberately
  * separate from the gizmo's first-vertex anchor and length/area-weighted pivot. */
-BOOL ViewportGetSelectionPosition(HWND hwnd, double position[3], DWORD *countout)
+static void ViewportEditorCornerPosition(const ViewportState *state, const BgDocument *document,
+                                         int corner, double position[3])
+{
+    const Vertex *rendered = &state->scene[corner];
+    position[0] = rendered->x; position[1] = rendered->y; position[2] = rendered->z;
+    if (!document || !document->rooms || !state->scenevertexrefs
+        || !(document->levelscale > 0) || state->dragrotation || state->dragscaling) { return; }
+    const BgDocumentVertexRef *ref = &state->scenevertexrefs[corner];
+    if (!ref->room || ref->room > document->roomcount) { return; }
+    const BgDocumentRoom *room = &document->rooms[ref->room];
+    if (ref->index >= room->vertexcount) { return; }
+    const BgDocumentVertex *v = &room->vertices[ref->index];
+    const double local[3] = {v->x, v->y, v->z};
+    for (int axis = 0; axis < 3; axis++)
+    { position[axis] = (local[axis] + (double)room->origin[axis]) / document->levelscale; }
+    if (state->dragaxis >= 0 && state->dragaxis < 3 && state->dragmask && state->dragmask[corner])
+    { position[state->dragaxis] += state->dragdelta; }
+}
+
+static BOOL ViewportEditorStanPosition(const ViewportState *state, double position[3])
+{
+    const StanFile *stan = &state->stan;
+    double sum[3] = {0};
+    if (!stan->data || !(stan->levelscale > 0) || !state->stancomponentcount
+        || state->dragrotation || state->dragscaling
+        || (state->tool != EDITOR_TOOL_VERTEX_SELECT && state->tool != EDITOR_TOOL_EDGE_SELECT)) { return FALSE; }
+    int ends = state->tool == EDITOR_TOOL_EDGE_SELECT ? 2 : 1;
+    for (int i = 0; i < state->stancomponentcount; i++) for (int end = 0; end < ends; end++)
+    {
+        const StanPointRef *ref = &state->stancomponents[i].refs[end];
+        if (ref->tile >= stan->tilecount) { return FALSE; }
+        const StanTile *tile = &stan->tiles[ref->tile];
+        if (ref->point >= tile->pointcount || tile->sourceoffset > stan->size
+            || 8u + 8u * (ref->point + 1u) > stan->size - tile->sourceoffset) { return FALSE; }
+        const unsigned char *raw = stan->data + tile->sourceoffset + 8 + 8 * ref->point;
+        for (int axis = 0; axis < 3; axis++)
+        { sum[axis] += (short)((raw[axis * 2] << 8) | raw[axis * 2 + 1]); }
+    }
+    for (int axis = 0; axis < 3; axis++)
+    { position[axis] = sum[axis] / (state->stancomponentcount * (double)ends) / stan->levelscale; }
+    if (state->dragstan && state->dragaxis >= 0 && state->dragaxis < 3)
+    { position[state->dragaxis] += state->dragdelta; }
+    return TRUE;
+}
+
+/* Keep the snap tool's render-space positions separate from numeric entry:
+ * native fields read BG integers directly instead of undoing float rendering. */
+static BOOL ViewportReadSelectionPosition(HWND hwnd, const BgDocument *document,
+                                          double position[3], DWORD *countout)
 {
     const ViewportState *state = ViewportGetState(hwnd);
     double sum[3] = {0, 0, 0}, weight = 0;
@@ -3954,6 +4004,7 @@ BOOL ViewportGetSelectionPosition(HWND hwnd, double position[3], DWORD *countout
     if (state != NULL && ViewportPadSelectionPosition(state, position, FALSE)) { *countout = 1; return TRUE; }
     if (state != NULL && ViewportStanSelectionPosition(state, FALSE, position, countout))
     {
+        if (document) { ViewportEditorStanPosition(state, position); }
         if (state->dragextruding && state->extrudepreviewvalid)
         { for (axis=0;axis<3;axis++) { position[axis]+=state->extrudeoffset[axis]; } }
         return TRUE;
@@ -3975,10 +4026,9 @@ BOOL ViewportGetSelectionPosition(HWND hwnd, double position[3], DWORD *countout
                 || (ends == 2 && !ViewportCornerVisible(state, component->corners[1]))) { continue; }
             for (end = 0; end < ends; end++)
             {
-                const Vertex *v = &state->scene[component->corners[end]];
-                sum[0] += (double)v->x / ends;
-                sum[1] += (double)v->y / ends;
-                sum[2] += (double)v->z / ends;
+                double point[3];
+                ViewportEditorCornerPosition(state, document, component->corners[end], point);
+                for (axis = 0; axis < 3; axis++) { sum[axis] += point[axis] / ends; }
             }
             count++;
         }
@@ -4002,9 +4052,12 @@ BOOL ViewportGetSelectionPosition(HWND hwnd, double position[3], DWORD *countout
             }
             else if (state->selectedtris == NULL || !state->selectedtris[i / 3]
                 || !ViewportCornerVisible(state, i)) { continue; }
-            sum[0] += ((double)v[0].x + v[1].x + v[2].x) * triangleweight / 3;
-            sum[1] += ((double)v[0].y + v[1].y + v[2].y) * triangleweight / 3;
-            sum[2] += ((double)v[0].z + v[1].z + v[2].z) * triangleweight / 3;
+            for (int corner = 0; corner < 3; corner++)
+            {
+                double point[3];
+                ViewportEditorCornerPosition(state, object ? NULL : document, i + corner, point);
+                for (axis = 0; axis < 3; axis++) { sum[axis] += point[axis] * triangleweight / 3; }
+            }
             weight += triangleweight;
             count++;
         }
@@ -4015,6 +4068,19 @@ BOOL ViewportGetSelectionPosition(HWND hwnd, double position[3], DWORD *countout
     { for (axis = 0; axis < 3; axis++) { position[axis] += state->extrudeoffset[axis]; } }
     *countout = object ? 1 : count;
     return TRUE;
+}
+
+BOOL ViewportGetSelectionPosition(HWND hwnd, double position[3], DWORD *countout)
+{ return ViewportReadSelectionPosition(hwnd, NULL, position, countout); }
+
+BOOL ViewportGetEditorSelectionPosition(HWND hwnd, const BgDocument *document,
+                                        double position[3], DWORD *countout)
+{ return ViewportReadSelectionPosition(hwnd, document, position, countout); }
+
+void ViewportSetCoordinateScale(HWND hwnd, double factor)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    if (state) { state->coordinatescale = isfinite(factor) && factor > 0 ? factor : 1; }
 }
 
 static void ViewportUpdateGizmo(ViewportState *state)
@@ -7187,7 +7253,8 @@ static void ViewportDragTransform(HWND hwnd, ViewportState *state, int x, int y)
     }
     else
     {
-        delta = round(ViewportDragParameter(state, &ray, y) - state->dragparameter);
+        double factor = state->coordinatescale > 0 ? state->coordinatescale : 1;
+        delta = EditorUnitsSnap(ViewportDragParameter(state, &ray, y) - state->dragparameter, factor);
     }
     if (!isfinite(delta) || fabs(delta) > 1000000 || delta == state->dragdelta)
     {

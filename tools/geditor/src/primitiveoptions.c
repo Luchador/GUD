@@ -5,9 +5,11 @@
 #include "primitiveoptions.h"
 #include "resource.h"
 #include "bgdocument.h"
+#include "editorsettings.h"
 
 typedef struct PrimitiveOptionsDialog {
     BOOL cylinder;
+    double factor;
     PrimitiveOptions options;
 } PrimitiveOptionsDialog;
 
@@ -33,9 +35,12 @@ static INT_PTR CALLBACK PrimitiveOptionsProc(HWND dialog, UINT message, WPARAM w
     case WM_INITDIALOG:
         state = (PrimitiveOptionsDialog *)lparam;
         SetWindowLongPtr(dialog, DWLP_USER, (LONG_PTR)state);
-        SetDlgItemText(dialog, IDC_PRIMITIVE_RADIUS, "1");
+        SetWindowText(dialog, state->cylinder
+            ? (EditorSettingsGetUnits() == EDITOR_UNITS_NATIVE ? "Add Cylinder - Native level units" : "Add Cylinder - World units")
+            : (EditorSettingsGetUnits() == EDITOR_UNITS_NATIVE ? "Add Circle - Native level units" : "Add Circle - World units"));
+        SetDlgItemText(dialog, IDC_PRIMITIVE_RADIUS, "100");
         SetDlgItemText(dialog, IDC_PRIMITIVE_SIDES, "8");
-        if (state->cylinder) { SetDlgItemText(dialog, IDC_PRIMITIVE_HEIGHT, "1"); }
+        if (state->cylinder) { SetDlgItemText(dialog, IDC_PRIMITIVE_HEIGHT, "100"); }
         SendDlgItemMessage(dialog, IDC_PRIMITIVE_RADIUS, EM_LIMITTEXT, 63, 0);
         SendDlgItemMessage(dialog, IDC_PRIMITIVE_SIDES, EM_LIMITTEXT, 63, 0);
         if (state->cylinder) { SendDlgItemMessage(dialog, IDC_PRIMITIVE_HEIGHT, EM_LIMITTEXT, 63, 0); }
@@ -51,14 +56,15 @@ static INT_PTR CALLBACK PrimitiveOptionsProc(HWND dialog, UINT message, WPARAM w
         if (LOWORD(wparam) == IDOK && state)
         {
             const int controls[] = {IDC_PRIMITIVE_RADIUS, IDC_PRIMITIVE_SIDES, IDC_PRIMITIVE_HEIGHT};
-            const char *errors[] = {"Enter a positive radius in meters.",
-                "Enter a whole number of sides from 3 to 64.", "Enter a positive height in meters."};
-            double values[3] = {1, 8, 1};
+            const char *errors[] = {"Enter a positive radius in the selected coordinate units.",
+                "Enter a whole number of sides from 3 to 64.", "Enter a positive height in the selected coordinate units."};
+            double values[3] = {100, 8, 100};
             for (int i = 0; i < (state->cylinder ? 3 : 2); i++)
             {
                 char text[64];
                 GetDlgItemText(dialog, controls[i], text, sizeof(text));
-                if (!PrimitiveOptionsNumber(text, i == 1, &values[i]))
+                if (!PrimitiveOptionsNumber(text, i == 1, &values[i])
+                    || (i != 1 && !isfinite(values[i] / state->factor)))
                 {
                     MessageBox(dialog, errors[i], "Primitive size", MB_OK | MB_ICONINFORMATION);
                     SetFocus(GetDlgItem(dialog, controls[i]));
@@ -66,7 +72,7 @@ static INT_PTR CALLBACK PrimitiveOptionsProc(HWND dialog, UINT message, WPARAM w
                     return TRUE;
                 }
             }
-            state->options = (PrimitiveOptions){values[0], values[2], (DWORD)values[1]};
+            state->options = (PrimitiveOptions){values[0] / state->factor, values[2] / state->factor, (DWORD)values[1]};
             EndDialog(dialog, IDOK);
             return TRUE;
         }
@@ -75,9 +81,10 @@ static INT_PTR CALLBACK PrimitiveOptionsProc(HWND dialog, UINT message, WPARAM w
     return FALSE;
 }
 
-BOOL PrimitiveOptionsPrompt(HWND parent, BOOL cylinder, PrimitiveOptions *out)
+BOOL PrimitiveOptionsPrompt(HWND parent, BOOL cylinder, double factor, PrimitiveOptions *out)
 {
-    PrimitiveOptionsDialog state = {cylinder, {1, 1, 8}};
+    if (!isfinite(factor) || factor <= 0) { return FALSE; }
+    PrimitiveOptionsDialog state = {cylinder, factor, {100 / factor, 100 / factor, 8}};
     INT_PTR result = DialogBoxParam(GetModuleHandle(NULL),
         MAKEINTRESOURCE(cylinder ? IDD_ADD_CYLINDER : IDD_ADD_CIRCLE), parent,
         PrimitiveOptionsProc, (LPARAM)&state);

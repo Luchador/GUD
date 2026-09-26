@@ -21,6 +21,9 @@ typedef unsigned UINT;
 #define LOWORD(v) ((unsigned)(v) & 0xffff)
 #define MAKEINTRESOURCE(v) (v)
 #include "primitiveoptions.h"
+#define GEDITOR_EDITORSETTINGS_H
+#include "editorunits.h"
+static EditorCoordinateUnits EditorSettingsGetUnits(void) { return EDITOR_UNITS_NATIVE; }
 #include "resource.h"
 
 static LONG_PTR userdata;
@@ -29,6 +32,7 @@ static int result, errors, activecontrol, mode;
 enum { DEFAULTS, CUSTOM, BAD_RADIUS, BAD_SIDES, BAD_HEIGHT, CANCEL, CLOSE, MISSING };
 static LONG_PTR GetWindowLongPtr(HWND dialog, int index) { return userdata; }
 static void SetWindowLongPtr(HWND dialog, int index, LONG_PTR value) { userdata=value; }
+static void SetWindowText(HWND dialog, const char *text) {}
 static void SetDlgItemText(HWND dialog, int control, const char *text)
 { snprintf(fields[control-IDC_PRIMITIVE_RADIUS],64,"%s",text); }
 static void GetDlgItemText(HWND dialog, int control, char *text, int size)
@@ -52,8 +56,8 @@ static INT_PTR DialogBoxParam(HINSTANCE instance, int resource, HWND parent,
     if (mode==MISSING) { return -1; }
     assert(!proc(1,WM_INITDIALOG,0,state));
     assert(activecontrol==IDC_PRIMITIVE_RADIUS);
-    assert(!strcmp(fields[0],"1") && !strcmp(fields[1],"8"));
-    assert(!strcmp(fields[2],cylinder ? "1" : ""));
+    assert(!strcmp(fields[0],"100") && !strcmp(fields[1],"8"));
+    assert(!strcmp(fields[2],cylinder ? "100" : ""));
     if (mode==CANCEL || mode==CLOSE)
     { proc(1,mode==CLOSE ? WM_CLOSE : WM_COMMAND,IDCANCEL,0); return result; }
     if (mode==CUSTOM)
@@ -74,17 +78,20 @@ static INT_PTR DialogBoxParam(HINSTANCE instance, int resource, HWND parent,
 
 int main(void)
 {
+    const double factors[] = {1, .49886572f, .21847887f};
+    for (unsigned f=0; f<sizeof(factors)/sizeof(*factors); f++)
     for (BOOL cylinder=FALSE; cylinder<=TRUE; cylinder++)
     {
+        double factor = factors[f];
         PrimitiveOptions options={9,9,9}, before=options;
         for (mode=CANCEL; mode<=MISSING; mode++)
-        { assert(!PrimitiveOptionsPrompt(1,cylinder,&options)); assert(!memcmp(&before,&options,sizeof(options))); }
-        mode=DEFAULTS; assert(PrimitiveOptionsPrompt(1,cylinder,&options));
-        assert(options.radius==1 && options.height==1 && options.sides==8);
-        mode=CUSTOM; assert(PrimitiveOptionsPrompt(1,cylinder,&options));
-        assert(options.radius==2.5 && options.height==(cylinder ? .75 : 1) && options.sides==64);
+        { assert(!PrimitiveOptionsPrompt(1,cylinder,factor,&options)); assert(!memcmp(&before,&options,sizeof(options))); }
+        mode=DEFAULTS; assert(PrimitiveOptionsPrompt(1,cylinder,factor,&options));
+        assert(options.radius==100/factor && options.height==100/factor && options.sides==8);
+        mode=CUSTOM; assert(PrimitiveOptionsPrompt(1,cylinder,factor,&options));
+        assert(options.radius==2.5/factor && options.height==(cylinder ? .75 : 100)/factor && options.sides==64);
         for (mode=BAD_RADIUS; mode<=(cylinder ? BAD_HEIGHT : BAD_SIDES); mode++)
-        { assert(PrimitiveOptionsPrompt(1,cylinder,&options) && errors==1); }
+        { assert(PrimitiveOptionsPrompt(1,cylinder,factor,&options) && errors==1); }
     }
     double value;
     const char *bad[]={"", " ", "0", "-1", "nan", "inf", "1e999", "1e-999", "10m", "1 2", "1e308"};
@@ -94,6 +101,6 @@ int main(void)
     for (unsigned i=0; i<sizeof(badsides)/sizeof(*badsides); i++)
     { assert(!PrimitiveOptionsNumber(badsides[i],TRUE,&value)); }
     assert(PrimitiveOptionsNumber(" 0.125 ",FALSE,&value) && value==.125);
-    puts("PASS: primitive dialog defaults, meter inputs, side limits, corrections, cancel/close, and missing resource.");
+    puts("PASS: primitive dialog defaults, native/world inputs, side limits, corrections, cancel/close, and missing resource.");
     return 0;
 }

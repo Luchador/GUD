@@ -12,6 +12,8 @@
 static HWND g_Knife, g_KnifeViewport;
 static BgKnifePlane g_KnifePlane, g_KnifeBeforePick;
 static double g_KnifeRadius;
+static double g_KnifeCoordinateScale = 1;
+static BOOL g_KnifeNativeUnits;
 static BOOL g_KnifePick;
 static BOOL g_KnifeUpdating;
 
@@ -38,6 +40,7 @@ static BOOL KnifeReadPlane(BgKnifePlane *plane)
         double *out = i < 3 ? plane->position + i : plane->normal + i - 3;
         GetDlgItemText(g_Knife, IDC_KNIFE_PX + i, text, sizeof(text));
         if (!KnifeParseNumber(text, out)) { return FALSE; }
+        if (i < 3) { *out /= g_KnifeCoordinateScale; }
     }
     return BgKnifeNormalizePlane(plane, &normalized);
 }
@@ -61,12 +64,24 @@ static void KnifeWriteFields(void)
     char text[64];
     int i;
     g_KnifeUpdating = TRUE;
+    SetDlgItemText(g_Knife, IDC_KNIFE_UNITS_HELP, g_KnifeNativeUnits
+        ? "Position uses native level units. The normal points perpendicular to the cut."
+        : "Position uses world units. The normal points perpendicular to the cut.");
     for (i = 0; i < 6; i++)
     {
-        snprintf(text, sizeof(text), "%.12g", i < 3 ? g_KnifePlane.position[i] : g_KnifePlane.normal[i - 3]);
+        snprintf(text, sizeof(text), "%.12g", i < 3 ? g_KnifePlane.position[i] * g_KnifeCoordinateScale : g_KnifePlane.normal[i - 3]);
         SetDlgItemText(g_Knife, IDC_KNIFE_PX + i, text);
     }
     g_KnifeUpdating = FALSE;
+}
+
+void KnifeDialogSetCoordinateScale(double factor, BOOL native)
+{
+    if (!isfinite(factor) || factor <= 0) { factor = 1; }
+    if (g_KnifeCoordinateScale == factor && g_KnifeNativeUnits == native) { return; }
+    g_KnifeCoordinateScale = factor;
+    g_KnifeNativeUnits = native;
+    if (g_Knife) { KnifeWriteFields(); }
 }
 
 static void KnifeWritePlane(void)

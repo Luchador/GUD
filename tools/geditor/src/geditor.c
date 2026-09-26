@@ -31,6 +31,7 @@
 #include "modeleditor.h"
 #include "levelmanager.h"
 #include "projectsettings.h"
+#include "editorsettings.h"
 #include "actioneditor.h"
 #include "texteditor.h"
 #include "patroleditor.h"
@@ -214,12 +215,30 @@ static BOOL GEditorCanMoveSetupModel(DWORD selection)
         && g_CurrentSetup.objects[selection].type != PROPDEF_DOOR_SHADOW;
 }
 
+static double GEditorCoordinateFactor(void)
+{
+    return EditorUnitsFactor(EditorSettingsGetUnits(), g_CurrentBgDocument.levelscale);
+}
+
+static BOOL GEditorGetDisplayPosition(double position[3], DWORD *count)
+{
+    BOOL native = EditorSettingsGetUnits() == EDITOR_UNITS_NATIVE;
+    if (!ViewportGetEditorSelectionPosition(g_Viewport, native ? &g_CurrentBgDocument : NULL, position, count)) { return FALSE; }
+    double factor = GEditorCoordinateFactor();
+    for (int axis = 0; axis < 3; axis++) { position[axis] *= factor; }
+    return TRUE;
+}
+
 static void GEditorRefreshTransformFields(void)
 {
     double position[3];
     SetupPadRef padref;
     DWORD count, objectindex;
-    BOOL hasposition = ViewportGetSelectionPosition(g_Viewport, position, &count);
+    BOOL hasposition = GEditorGetDisplayPosition(position, &count);
+    double factor = GEditorCoordinateFactor();
+    ViewportSetCoordinateScale(g_Viewport, factor);
+    KnifeDialogSetCoordinateScale(factor, EditorSettingsGetUnits() == EDITOR_UNITS_NATIVE);
+    RightPanelSetNativeUnits(g_RightPanel, EditorSettingsGetUnits() == EDITOR_UNITS_NATIVE);
     BOOL object = ViewportGetSelectedObject(g_Viewport, &objectindex);
     BOOL pad = ViewportGetSelectedPad(g_Viewport, &padref);
     SetupMarkerRef markerref;
@@ -303,7 +322,7 @@ static void GEditorRefreshTransformFields(void)
     else
     {
         RightPanelSetTransformState(g_RightPanel, hasposition ? position : NULL, count, editable,
-                                    precision);
+                                    precision * factor);
     }
 }
 
@@ -721,6 +740,7 @@ enum {
     ID_TOOLS_CHECK_ISSUES,
     ID_SETTINGS_LEVEL,
     ID_SETTINGS_PROJECT,
+    ID_SETTINGS_EDITOR,
 
     ID_FILE_RECENT_PROJECT_FIRST,
     ID_FILE_RECENT_PROJECT_LAST = ID_FILE_RECENT_PROJECT_FIRST + RECENT_PROJECTS_MAX - 1,
@@ -914,6 +934,7 @@ static HMENU GEditorCreateMenuBar(void)
 
     AppendMenu(settingsmenu, MF_STRING, ID_SETTINGS_LEVEL, "&Level Settings");
     AppendMenu(settingsmenu, MF_STRING, ID_SETTINGS_PROJECT, "&Project Settings");
+    AppendMenu(settingsmenu, MF_STRING, ID_SETTINGS_EDITOR, "&Editor Settings");
 
     AppendMenu(menubar, MF_POPUP, (UINT_PTR)filemenu, "&File");
     AppendMenu(menubar, MF_POPUP, (UINT_PTR)editmenu, "&Edit");
@@ -3105,7 +3126,7 @@ fail:
 
 static BOOL GEditorPasteBgFaces(HWND hwnd)
 {
-    const double offset[3] = {0, 10, 0};
+    const double offset[3] = {0, 10 / GEditorCoordinateFactor(), 0};
     return GEditorCanPasteBgFaces() && GEditorPasteBgFaceSnapshot(hwnd, &g_FaceClipboard, offset,
         g_FaceClipboard.facecount == 1 ? "Paste Face" : "Paste Faces");
 }
@@ -3178,7 +3199,7 @@ fail:
 
 static BOOL GEditorPastePortals(HWND hwnd)
 {
-    const double offset[3] = {0, 10, 0};
+    const double offset[3] = {0, 10 / GEditorCoordinateFactor(), 0};
     return GEditorCanPastePortals() && GEditorPastePortalSnapshot(hwnd, &g_PortalClipboard, offset,
         g_PortalClipboard.portalcount == 1 ? "Paste Portal" : "Paste Portals");
 }
@@ -3225,7 +3246,7 @@ static BOOL GEditorDuplicateObject(HWND hwnd, const ViewportObjectDuplicate *dra
 {
     EditHistoryTransaction transaction = {0};
     SetupObjectGeometry objects = {0};
-    double pasteoffset[3] = {0, 10, 0};
+    double pasteoffset[3] = {0, 10 / GEditorCoordinateFactor(), 0};
     const SetupFile *source = drag ? &g_CurrentSetup : &g_ObjectClipboard;
     const SetupObjectGeometry *pose = drag ? &g_CurrentObjects : &g_ObjectClipboardPose;
     DWORD selected, index = drag ? drag->source : g_ObjectClipboardSelection;
@@ -3234,7 +3255,7 @@ static BOOL GEditorDuplicateObject(HWND hwnd, const ViewportObjectDuplicate *dra
     if (!GEditorCanUseObjectClipboard() || !SetupFileCanDuplicateObject(source, index)) { return FALSE; }
     if (paste && (drag || !GEditorCanPasteObject())) { return FALSE; }
     /* A vertical Ctrl+V offset would snap a character back onto its source. */
-    if (character) { pasteoffset[0] = 10; pasteoffset[1] = 0; }
+    if (character) { pasteoffset[0] = 10 / GEditorCoordinateFactor(); pasteoffset[1] = 0; }
     if (paste && !(character
         ? ObjectGetCharacterPasteOffset(source, &g_CurrentStan, g_CurrentBgDocument.levelscale,
             index, paste->position, pasteoffset, &why)
@@ -4563,14 +4584,14 @@ static BOOL GEditorDropPrimitive(HWND hwnd, const BrowserObjectDrop *drop)
     circular = drop->type == BROWSER_OBJECT_CIRCLE || drop->type == BROWSER_OBJECT_CYLINDER;
     /* Capture the drop position before opening the modal dialog. Cancel must
      * not create a history entry or modify background geometry. */
-    if (circular && !PrimitiveOptionsPrompt(hwnd, drop->type == BROWSER_OBJECT_CYLINDER, &options)) { return FALSE; }
+    if (circular && !PrimitiveOptionsPrompt(hwnd, drop->type == BROWSER_OBJECT_CYLINDER, GEditorCoordinateFactor(), &options)) { return FALSE; }
     action = drop->type == BROWSER_OBJECT_CYLINDER ? "Add BG Cylinder"
         : drop->type == BROWSER_OBJECT_CIRCLE ? "Add BG Circle" : quad ? "Add BG Quad" : "Add BG Triangle";
     if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
         action, &transaction, &why)) { goto fail; }
     added = circular
         ? BgDocumentAddRoundPrimitive(&g_CurrentBgDocument, drop->type == BROWSER_OBJECT_CYLINDER,
-            room, position, options.radius * 100, options.height * 100, options.sides, faces, &count, &why)
+            room, position, options.radius, options.height, options.sides, faces, &count, &why)
         : BgDocumentAddPrimitive(&g_CurrentBgDocument, quad, room, position, right, faces, &count, &why);
     if (!added || !GEditorRebuildCurrentViewport(&why)) { goto rollback; }
     ViewportSetTool(g_Viewport, EDITOR_TOOL_FACE_SELECT);
@@ -5691,6 +5712,12 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         GEditorRefreshTransformFields();return ok;
     }
 
+    case EDITORSETTINGS_WM_UNITS_CHANGED:
+        ViewportCancelTransform(g_Viewport);
+        EditorSettingsSetUnits((EditorCoordinateUnits)wparam);
+        GEditorRefreshSelectionInspector();
+        return 0;
+
     case RIGHTPANEL_WM_SET_POSITION:
     {
         const RightPanelPosition *request = (const RightPanelPosition *)lparam;
@@ -5700,13 +5727,13 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         int axis;
 
         if (request != NULL && !(request->axismask & ~7u)
-            && ViewportGetSelectionPosition(g_Viewport, position, &count))
+            && GEditorGetDisplayPosition(position, &count))
         {
             for (axis = 0; axis < 3; axis++)
             {
                 if (request->axismask & (1u << axis))
                 {
-                    offset[axis] = request->position[axis] - position[axis];
+                    offset[axis] = (request->position[axis] - position[axis]) / GEditorCoordinateFactor();
                     if (!isfinite(offset[axis])) { break; }
                 }
             }
@@ -6572,6 +6599,12 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 ViewportSelectSameMaterial(g_Viewport);
                 return 0;
 
+            case ID_SETTINGS_EDITOR:
+                ViewportCancelTransform(g_Viewport);
+                if (!EditorSettingsShow(hwnd, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE)))
+                { MessageBox(hwnd, "Could not open the Editor Settings window.", GEDITOR_TITLE, MB_ICONERROR); }
+                return 0;
+
             case ID_SETTINGS_LEVEL:
                 if (!LevelManagerShow(hwnd, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), &g_CurrentSetup,
                     g_CurrentLevelIndex < g_Project.levelcount ? g_Project.levels[g_CurrentLevelIndex].name : NULL))
@@ -6663,6 +6696,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         return 0;
 
     case WM_DESTROY:
+        EditorSettingsClose();
         IssuesWindowClose();
         BgCommandsWindowClose();
         RomExportClearIssues();
@@ -7039,6 +7073,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
         return 1;
     }
 
+    EditorSettingsLoad();
     RecentProjectsLoad(&g_RecentProjects);
     menubar = GEditorCreateMenuBar();
 
@@ -7079,7 +7114,8 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                     CoUninitialize();
                     return (int)msg.wParam;
                 }
-                if (!BgCommandsWindowHandleMessage(&msg)
+                if (!EditorSettingsHandleMessage(&msg)
+                    && !BgCommandsWindowHandleMessage(&msg)
                     && !IssuesWindowHandleMessage(&msg)
                     && !PatrolEditorHandleMessage(&msg)
                     && !KnifeDialogHandleMessage(&msg)
@@ -7119,7 +7155,8 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
             {
                 break;
             }
-            if (!BgCommandsWindowHandleMessage(&msg)
+            if (!EditorSettingsHandleMessage(&msg)
+                && !BgCommandsWindowHandleMessage(&msg)
                 && !IssuesWindowHandleMessage(&msg)
                 && !PatrolEditorHandleMessage(&msg)
                 && !KnifeDialogHandleMessage(&msg)

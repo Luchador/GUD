@@ -239,7 +239,7 @@ BOOL CharacterPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD i
     snprintf(details, sizeof(details),
         "Character ID: %u\r\nBody: %s\r\nHead: %s%s\r\nPad: %u\r\nAI list: 0x%04X\r\nFlags: 0x%04X\r\n\r\n"
         "Create routes in Tools > Patrol Paths. Choosing a patrol replaces the starting behavior. None returns a patrolling guard to Standard guard.\r\n\r\n"
-        "Drag an arrow or enter a world position.\r\nCharacters settle onto a stan floor when placed.",
+        "Drag an arrow or enter a position.\r\nCharacters settle onto a stan floor when placed.",
         chr->chrnum, bodyname, headname, randomhead ? " (random preview)" : "",
         chr->pad, chr->ailistid, chr->flags);
     SetWindowText(state->controls[CHARACTER_DETAILS], details);

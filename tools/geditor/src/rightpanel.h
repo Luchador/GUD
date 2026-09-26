@@ -51,6 +51,7 @@ void RightPanelShowStan(HWND panel);
 void RightPanelSetTransformState(HWND panel, const double position[3],
                                  DWORD count, BOOL editable, double gridstep);
 void RightPanelSetTransformMode(HWND panel, TransformMode mode);
+void RightPanelSetNativeUnits(HWND panel, BOOL native);
 void RightPanelSetScaleLocal(HWND panel, BOOL local);
 void RightPanelSetRotationAxes(HWND panel, unsigned int axes);
 BOOL RightPanelHandleMessage(HWND panel, MSG *message);

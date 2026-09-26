@@ -120,6 +120,10 @@ BOOL ViewportSelectBgVertex(HWND hwnd, const BgDocumentVertexRef *ref);
 /* Mean vertex positions, edge midpoints or face centers; a model uses its
    surface centroid. Includes the live drag preview, excludes hidden items. */
 BOOL ViewportGetSelectionPosition(HWND hwnd, double position[3], DWORD *countout);
+/* World-space output, using exact BG coordinates for numeric entry. */
+BOOL ViewportGetEditorSelectionPosition(HWND hwnd, const BgDocument *document,
+                                        double position[3], DWORD *countout);
+void ViewportSetCoordinateScale(HWND hwnd, double factor);
 
 /* Main viewport: smooth, view-only framing of every visible selected element.
  * Preserve yaw/pitch. No selection leaves the camera unchanged. */
