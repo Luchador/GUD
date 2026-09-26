@@ -142,6 +142,15 @@ BOOL BgDocumentBridgeEdges(BgDocument *document, const BgDocumentEdgeRef edges[2
 BOOL BgDocumentBisectEdge(BgDocument *document, const BgDocumentEdgeRef *edge,
     BgDocumentEdgeRef out[2], const char **reasonout);
 
+/* Replace the shared diagonal of two compatible triangles forming a convex
+ * quad. Retain native vertices/UV/RGBA, face IDs, draw state and boundary seams.
+ * CanReverse is read-only; Reverse validates before mutation and selects the
+ * opposite diagonal via out. Vertex and face counts remain unchanged. */
+BOOL BgDocumentCanReverseEdge(const BgDocument *document, const BgDocumentEdgeRef *edge,
+    const char **reasonout);
+BOOL BgDocumentReverseEdge(BgDocument *document, const BgDocumentEdgeRef *edge,
+    BgDocumentEdgeRef *out, const char **reasonout);
+
 /* Mark every geometrically matching edge; UV/color splits remain separate. */
 BOOL BgDocumentSetEdgeSeam(BgDocument *document, const BgDocumentEdgeRef *edge,
     BOOL marked, DWORD *changed, const char **reason);

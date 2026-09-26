@@ -41,6 +41,9 @@ void ViewportSetRenderMode(HWND viewport, ViewportRenderMode mode);
 /* Context commands. Split Edge carries a stack-owned BgDocumentEdgeRef in
    lparam; Disconnect Face uses the current BG face selection. */
 #define VIEWPORT_WM_SPLIT_EDGE (WM_APP + 51)
+/* Current single BG edge: read-only availability query and matching action. */
+#define VIEWPORT_WM_CAN_REVERSE_EDGE (WM_APP + 111)
+#define VIEWPORT_WM_REVERSE_EDGE (WM_APP + 112)
 /* Synchronous edge payload, wparam is TRUE to mark / FALSE to clear. */
 #define VIEWPORT_WM_MARK_SEAM (WM_APP + 78)
 void ViewportShowUVSeams(HWND viewport, BOOL show);

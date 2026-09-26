@@ -717,6 +717,7 @@ enum {
     ID_GEOMETRY_PAINT_VERTEX,
     ID_GEOMETRY_SPLIT_EDGE,
     ID_GEOMETRY_BISECT_EDGE,
+    ID_GEOMETRY_REVERSE_EDGE,
     ID_GEOMETRY_BRIDGE_EDGES,
     ID_GEOMETRY_DISCONNECT_FACE,
     ID_GEOMETRY_KNIFE,
@@ -3518,6 +3519,45 @@ fail:
 }
 
 
+static BOOL GEditorCanReverseSelectedEdge(void)
+{
+    BgDocumentEdgeRef edge;
+    return g_CurrentBgDocument.rooms && ViewportGetTool(g_Viewport) == EDITOR_TOOL_EDGE_SELECT
+        && !ViewportGetVertexSnap(g_Viewport) && !ViewportIsFlying(g_Viewport)
+        && !ViewportIsTransforming(g_Viewport) && ViewportGetSelectedBgEdges(g_Viewport, &edge, 1)
+        && BgDocumentCanReverseEdge(&g_CurrentBgDocument, &edge, NULL);
+}
+
+static BOOL GEditorReverseSelectedEdge(HWND hwnd)
+{
+    EditHistoryTransaction transaction = {0};
+    BgDocumentEdgeRef edge, reversed;
+    const char *why = "", *restorewhy = "";
+    if (ViewportGetTool(g_Viewport) != EDITOR_TOOL_EDGE_SELECT || ViewportGetVertexSnap(g_Viewport)
+        || ViewportIsFlying(g_Viewport) || ViewportIsTransforming(g_Viewport)
+        || !ViewportGetSelectedBgEdges(g_Viewport, &edge, 1)) { return FALSE; }
+    if (!BgDocumentCanReverseEdge(&g_CurrentBgDocument, &edge, &why)
+        || !EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument, "Reverse Edge", &transaction, &why))
+    { goto fail; }
+    if (!BgDocumentReverseEdge(&g_CurrentBgDocument, &edge, &reversed, &why)
+        || !GEditorRebuildCurrentViewport(&why)) { goto rollback; }
+    if (!ViewportSelectBgEdges(g_Viewport, &reversed, 1))
+    { why = "Could not select the reversed edge."; goto rollback; }
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+        &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    GEditorRebuildCurrentViewport(&restorewhy);
+    GEditorRestoreHistorySelection(hwnd);
+fail:
+    EditHistoryCancelEdit(&transaction);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
 static BOOL GEditorBisectSelectedEdge(HWND hwnd)
 {
     EditHistoryTransaction transaction = {0};
@@ -3763,6 +3803,8 @@ static void GEditorShowGeometryMenu(HWND hwnd, ToolToolbarMenu kind, HWND button
             ID_GEOMETRY_PAINT_VERTEX, "&Paint Vertices\t5");
         break;
     case TOOLTOOLBAR_MENU_EDGE:
+        AppendMenu(menu, MF_STRING | (GEditorCanReverseSelectedEdge() ? MF_ENABLED : MF_GRAYED),
+            ID_GEOMETRY_REVERSE_EDGE, "&Reverse Edge\tT");
         AppendMenu(menu, MF_STRING | (idle && !ViewportGetVertexSnap(g_Viewport)
             && (ViewportGetSelectedBgEdges(g_Viewport,edges,1) || ViewportGetSelectedStanEdge(g_Viewport,&stanedge))
             ? MF_ENABLED : MF_GRAYED), ID_GEOMETRY_BISECT_EDGE, "Bisect &Edge\tCtrl+Q");
@@ -5813,6 +5855,12 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     case VIEWPORT_WM_SPLIT_EDGE:
         return lparam && GEditorSeparateBgVertices(hwnd, (const BgDocumentEdgeRef *)lparam);
 
+    case VIEWPORT_WM_CAN_REVERSE_EDGE:
+        return GEditorCanReverseSelectedEdge();
+
+    case VIEWPORT_WM_REVERSE_EDGE:
+        return GEditorReverseSelectedEdge(hwnd);
+
     case VIEWPORT_WM_SPLIT_STAN_EDGE:
         return lparam && GEditorEditStanTopology(hwnd,(const StanEdgeRef *)lparam);
 
@@ -6572,6 +6620,10 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 GEditorBisectSelectedEdge(hwnd);
                 return 0;
 
+            case ID_GEOMETRY_REVERSE_EDGE:
+                GEditorReverseSelectedEdge(hwnd);
+                return 0;
+
             case ID_GEOMETRY_BRIDGE_EDGES:
                 if (ViewportGetStanSelectionCount(g_Viewport, NULL)) { GEditorBridgeSelectedStanEdges(hwnd); }
                 else { GEditorBridgeSelectedBgEdges(hwnd); }
@@ -6951,6 +7003,24 @@ static BOOL GEditorHandleBridgeEdgesHotkey(HWND frame, const MSG *message)
     return TRUE;
 }
 
+/* T reverses one diagonal, once per press. Ctrl+T remains the UV shortcut. */
+static BOOL GEditorHandleReverseEdgeHotkey(HWND frame, const MSG *message)
+{
+    char classname[32] = "";
+    if (!message || !g_Viewport || message->message != WM_KEYDOWN || message->wParam != 'T'
+        || ViewportGetTool(g_Viewport) != EDITOR_TOOL_EDGE_SELECT
+        || ViewportIsFlying(g_Viewport) || ViewportIsTransforming(g_Viewport)
+        || (message->hwnd != frame && !IsChild(frame, message->hwnd))
+        || (GetKeyState(VK_CONTROL) & 0x8000) || (GetKeyState(VK_MENU) & 0x8000)
+        || (GetKeyState(VK_SHIFT) & 0x8000)) { return FALSE; }
+    GetClassName(message->hwnd, classname, sizeof(classname));
+    if (lstrcmpi(classname, "Edit") == 0 || lstrcmpi(classname, "ComboBox") == 0
+        || lstrcmpi(classname, "ComboLBox") == 0) { return FALSE; }
+    if (!(message->lParam & ((LPARAM)1 << 30)))
+    { SendMessage(frame, WM_COMMAND, ID_GEOMETRY_REVERSE_EDGE, 0); }
+    return TRUE;
+}
+
 /* Ctrl+Q bisects one selected edge, once per physical key press. */
 static BOOL GEditorHandleBisectEdgeHotkey(HWND frame, const MSG *message)
 {
@@ -7198,6 +7268,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                     && !GEditorHandleMergeVerticesHotkey(hwnd, &msg)
                     && !GEditorHandleBridgeEdgesHotkey(hwnd, &msg)
                     && !GEditorHandleBisectEdgeHotkey(hwnd, &msg)
+                    && !GEditorHandleReverseEdgeHotkey(hwnd, &msg)
                     && !GEditorHandleKnifeHotkey(hwnd, &msg)
                     && !GEditorHandleTransformHotkey(hwnd, &msg)
                     && !GEditorHandleFaceClipboardHotkey(hwnd, &msg)
@@ -7239,6 +7310,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                 && !GEditorHandleMergeVerticesHotkey(hwnd, &msg)
                 && !GEditorHandleBridgeEdgesHotkey(hwnd, &msg)
                 && !GEditorHandleBisectEdgeHotkey(hwnd, &msg)
+                && !GEditorHandleReverseEdgeHotkey(hwnd, &msg)
                 && !GEditorHandleKnifeHotkey(hwnd, &msg)
                 && !GEditorHandleTransformHotkey(hwnd, &msg)
                 && !GEditorHandleFaceClipboardHotkey(hwnd, &msg)

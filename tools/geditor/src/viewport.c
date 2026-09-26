@@ -7837,6 +7837,9 @@ show_menu:
     if ((!paste || (AppendMenu(menu, MF_STRING, 4, "Paste Here")
             && (!message || AppendMenu(menu, MF_SEPARATOR, 0, NULL))))
         && (!message || AppendMenu(menu, MF_STRING, 1, label))
+        && (message != VIEWPORT_WM_SPLIT_EDGE || AppendMenu(menu, MF_STRING
+            | (SendMessage(GetParent(hwnd), VIEWPORT_WM_CAN_REVERSE_EDGE, 0, 0) ? MF_ENABLED : MF_GRAYED),
+            6, "Reverse Edge\tT"))
         && (message != VIEWPORT_WM_SPLIT_STAN_EDGE || AppendMenu(menu, MF_STRING, 2, "Link Tiles"))
         && (message != VIEWPORT_WM_SPLIT_EDGE || AppendMenu(menu, MF_STRING, 3,
             (edge.face.seams & (1u << edge.corner)) ? "Clear Seam" : "Mark Seam"))
@@ -7852,6 +7855,8 @@ show_menu:
             : message == VIEWPORT_WM_SPLIT_STAN_EDGE ? (LPARAM)&stanedge : 0); }
         else if (command == 3 && message == VIEWPORT_WM_SPLIT_EDGE)
         { SendMessage(GetParent(hwnd), VIEWPORT_WM_MARK_SEAM, !(edge.face.seams & (1u << edge.corner)), (LPARAM)&edge); }
+        else if (command == 6 && message == VIEWPORT_WM_SPLIT_EDGE)
+        { SendMessage(GetParent(hwnd), VIEWPORT_WM_REVERSE_EDGE, 0, 0); }
         else if (command == 2 && message == VIEWPORT_WM_SPLIT_STAN_EDGE)
         { SendMessage(GetParent(hwnd), VIEWPORT_WM_LINK_STAN_EDGE, 0, (LPARAM)&stanedge); }
         else if (command == 5 && message == VIEWPORT_WM_DISCONNECT_FACES)
