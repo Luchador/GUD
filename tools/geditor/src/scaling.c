@@ -27,6 +27,18 @@ void ScalingGroupMember(const Scaling *group, const Rotation *axes, const double
     local->axes = *axes;
     for (int i = 0; i < 3; i++)
     {
+        double length2 = 0;
+        /* Measure each pad axis after applying the group scale. Copying XYZ
+         * factors directly confuses world axes with pad axes (doors permute
+         * them). Keep the pad orthogonal: native placements cannot shear. */
+        for (int a = 0; a < 3; a++)
+        {
+            double component = 0;
+            for (int b = 0; b < 3; b++) { component += group->axes.m[b][a] * axes->m[b][i]; }
+            component *= group->factor[a];
+            length2 += component * component;
+        }
+        local->factor[i] = sqrt(length2);
         local->pivot[i] = center[i];
         offset[i] -= center[i];
     }

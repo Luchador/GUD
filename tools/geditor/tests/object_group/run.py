@@ -20,10 +20,18 @@ for kind in (3, 3, 1, 3):
     data += record
 data += struct.pack('>I', 48)
 struct.pack_into('>I', data, 12, start)
+doors = bytearray(data[:start])
+for kind in (1, 1, 3, 1):
+    record = bytearray((64 if kind == 1 else 32) * 4)
+    struct.pack_into('>4I', record, 0, 0x01000000 | kind, 1 << 16, 0, 0x100)
+    struct.pack_into('>I', record, 0x74, 777 << 16)
+    doors += record
+doors += struct.pack('>I', 48)
 with tempfile.TemporaryDirectory(prefix='geditor-object-group-') as temp:
     work = Path(temp)
     (work / 'setup').mkdir()
     (work / 'setup/UsetupgroupZ.set').write_bytes(data)
+    (work / 'setup/UsetupdoorgroupZ.set').write_bytes(doors)
     extract = runpy.run_path(str(here.parent / 'object_properties/run.py'))['function']
     character = (src / 'characterload.c').read_text()
     (work / 'character-placement.inc').write_text(''.join(extract(character, name) for name in

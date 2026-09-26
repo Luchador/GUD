@@ -9,11 +9,14 @@ Translation moves the selection together. Rotation turns its positions and
 orientations around the shared pivot in world space. Numeric group rotation
 fields specify a rotation to apply and return to zero after the edit.
 
-Group scaling changes spacing along the world axes and changes each prop's
-dimensions along its own pad axes. This keeps differently rotated props
-representable by native orthogonal placement pads. The center scale handle
-applies one factor to all three axes. The preview and saved placement use the
-same rules; ordinary pads become bound pads where needed.
+Group scaling changes spacing and dimensions along the world gizmo axes.
+Each prop's pad-axis factors are computed from the lengths of those axes after
+the world scale. This accounts for door axis permutations and rotated props:
+world-aligned members follow the gizmo exactly, regardless of pad orientation.
+Oblique members keep their orientation and use the resulting axis lengths,
+because native orthogonal placement pads cannot store shear. The center scale
+handle applies one factor to all three axes. The preview and saved placement
+use the same rules; ordinary pads become bound pads where needed.
 
 Characters retain their existing grounding rules, support only Y rotation,
 and cannot be scaled. A mixed selection containing characters follows those

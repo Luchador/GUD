@@ -69,8 +69,19 @@ static void glEnd(void) { groups++; }
 BOOL SetupFileCanDuplicateObject(const SetupFile *s,DWORD i) { return TRUE; }
 BOOL SetupFileGetModelPad(const SetupFile *s,DWORD i,SetupPadRef *ref)
 { ref->index=i; ref->bound=FALSE; return TRUE; }
+static BOOL groupDoorFrames;
 BOOL SetupFilePadRotation(const SetupFile *s,const SetupPadRef *ref,Rotation *out)
-{ RotationAxis(out,1,ref->index==8 ? 37 : 0); return TRUE; }
+{
+    RotationAxis(out,1,ref->index==8 ? 37 : 0);
+    if (groupDoorFrames)
+    {
+        Rotation door, yaw;
+        assert(RotationBasis(&door,(double[3]){1,0,0},(double[3]){0,1,0}));
+        RotationAxis(&yaw,1,ref->index==8 ? 90 : 0);
+        RotationMultiply(out,&yaw,&door);
+    }
+    return TRUE;
+}
 static BOOL ViewportSelectedMarker(const ViewportState *s,SetupMarker *m) { return FALSE; }
 static int ViewportSelectedPadIndex(const ViewportState *s) { return -1; }
 static BOOL ViewportCornerVisible(const ViewportState *s,int corner)
@@ -279,9 +290,17 @@ static void FaceDrags(ViewportState *s)
     s->tool=EDITOR_TOOL_ROOM_SELECT; assert(!ViewportShouldDuplicateBgFaces(s,TRUE));
     puts("PASS: actual face Shift-drag on XYZ, independent preview despite shared vertices, multiple/hidden faces, click/no-op/cancel, restored originals before one clone request, ordinary moves unchanged.");
 }
-static void GroupDrags(ViewportState *s)
+static double GroupAxisLength(const Scaling *group, const Rotation *axes, int axis)
+{
+    double tip[3], scaled[3], origin[3]={0}, moved[3];
+    for (int a=0;a<3;a++) tip[a]=axes->m[a][axis];
+    ScalingPoint(group,origin,moved); ScalingPoint(group,tip,scaled);
+    return hypot(hypot(scaled[0]-moved[0],scaled[1]-moved[1]),scaled[2]-moved[2]);
+}
+static void GroupDrags(ViewportState *s, BOOL doors)
 {
     DWORD ids[2]={7,8}; Vertex boxes[2*VIEWPORT_BOX_VERTICES];
+    groupDoorFrames=doors;
     s->tool=EDITOR_TOOL_FACE_SELECT; s->selectedobject=7;
     s->selectedobjects=ids; s->selectedobjectcount=2; s->objectselectionboxes=boxes;
     s->showobjects=TRUE; s->scalemode=TRUE; s->rotationmode=FALSE;
@@ -289,14 +308,14 @@ static void GroupDrags(ViewportState *s)
     ViewportBuildObjectSelectionBox(s);
     double pivot[3]; assert(ViewportGroupPosition(s,pivot));
     for (int a=0;a<3;a++) s->gizmoposition[a]=pivot[a];
-    for (int mode=0;mode<4;mode++)
+    for (int mode=0;mode<5;mode++)
     {
         int px=100,py=100;
         if (mode>0)
         {
             px=-1;
             for(int y=0;y<200 && px<0;y+=2)for(int x=0;x<200;x+=2)
-                if(ViewportPickGizmo(s,s,x,y)==0) { px=x;py=y;break; }
+                if(ViewportPickGizmo(s,s,x,y)==(mode-1)%3) { px=x;py=y;break; }
             assert(px>=0);
         }
         parameter=0; assert(ViewportBeginTransform(s,s,px,py,FALSE));
@@ -308,25 +327,43 @@ static void GroupDrags(ViewportState *s)
         {
             double p[3]={original[i].x,original[i].y,original[i].z}, expected[3];
             memcpy(expected,p,sizeof(p));
-            if(i<6)
+            if(i<6 && doors) ScalingPoint(&group,p,expected);
+            else if(i<6)
             {
                 int model=i/3;
                 double local[3]={0}, moved[3];
                 ScalingPoint(&group,s->dragmodelcenters[model],moved);
                 for(int a=0;a<3;a++)for(int b=0;b<3;b++)
                     local[a]+=s->dragmodelaxes[model].m[b][a]*(p[b]-s->dragmodelcenters[model][b]);
-                for(int a=0;a<3;a++)local[a]*=group.factor[a];
+                for(int a=0;a<3;a++)local[a]*=GroupAxisLength(&group,s->dragmodelaxes+model,a);
                 RotationVector(s->dragmodelaxes+model,local,expected);
                 for(int a=0;a<3;a++)expected[a]+=moved[a];
             }
             Near(s->scene[i].x,expected[0]); Near(s->scene[i].y,expected[1]); Near(s->scene[i].z,expected[2]);
+            double normal[3], localnormal[3]={0}, expectednormal[3];
+            for(int a=0;a<3;a++) normal[a]=original[i].environment.normal[a];
+            memcpy(expectednormal,normal,sizeof(normal));
+            if(i<6)
+            {
+                const Rotation *axes=s->dragmodelaxes+i/3;
+                for(int a=0;a<3;a++)
+                {
+                    for(int b=0;b<3;b++) localnormal[a]+=axes->m[b][a]*normal[b];
+                    localnormal[a]/=GroupAxisLength(&group,axes,a);
+                }
+                RotationVector(axes,localnormal,expectednormal);
+            }
+            float right[3]={1,0,0},up[3]={0,1,0},uv[2];
+            ViewportEnvironmentCoordinates(s,i,0,right,up,uv);
+            for(int a=0;a<3;a++) Near(environment.normal[a],expectednormal[a]);
         }
         int old=commits;
-        if(mode==3) ViewportCancelTransform(s); else ViewportEndTransform(s,s);
-        assert(commits==old+(mode!=3) && !capture && !s->dragmodelaxes && !s->dragmodelcenters);
+        if(mode==4) ViewportCancelTransform(s); else ViewportEndTransform(s,s);
+        assert(commits==old+(mode!=4) && !capture && !s->dragmodelaxes && !s->dragmodelcenters);
         assert(!memcmp(s->scene,original,sizeof(original)));
     }
     /* Translation and rotation use the same multi-object membership mask. */
+    int oldrotations=rotations;
     s->scalemode=FALSE; s->rotationaxes=7;
     for(int rotate=0;rotate<2;rotate++)
     {
@@ -347,9 +384,10 @@ static void GroupDrags(ViewportState *s)
         }
         ViewportEndTransform(s,s);
     }
-    assert(rotations==1);
+    assert(rotations==oldrotations+1);
     s->selectedobjects=NULL; s->selectedobjectcount=0; s->objectselectionboxes=NULL;
-    puts("PASS: group membership, equal-weight pivot, local-axis size/world spacing previews, translation/rotation, restored originals on commit/cancel, and drag allocation cleanup.");
+    groupDoorFrames=FALSE;
+    puts("PASS: group world-axis size/spacing and normal previews, door pad permutations, rotated props, XYZ/uniform handles, membership, pivot, translation/rotation, commit/cancel and drag allocation cleanup.");
 }
 
 int main(void)
@@ -382,7 +420,8 @@ int main(void)
     }
     AxisDrag(&s);
     FaceDrags(&s);
-    GroupDrags(&s);
+    GroupDrags(&s,FALSE);
+    GroupDrags(&s,TRUE);
     puts("PASS: object/face/edge masks, rotated axes, screen directions, snapshot preview, proportional XYZ factors, guides/normals, no-op, clamp, cancellation, one commit and Shift duplication; axis scaling unchanged.");
     return 0;
 }

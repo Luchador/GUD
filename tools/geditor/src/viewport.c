@@ -1157,15 +1157,22 @@ static void ViewportEnvironmentCoordinates(const ViewportState *state, int index
         double normal[3] = {environment.normal[0], environment.normal[1], environment.normal[2]};
         int axis;
         inverse.axes = state->scaleaxes;
+        for (axis = 0; axis < 3; axis++)
+        {
+            inverse.factor[axis] = (state->dragaxis == VIEWPORT_UNIFORM_SCALE_AXIS || axis == state->dragaxis) ? 1 + state->dragdelta : 1;
+        }
         if (state->dragmodelaxes)
         {
             int member = ViewportGroupMemberIndex(state, state->sceneobjectindices[index / 3]);
-            if (member >= 0) { inverse.axes = state->dragmodelaxes[member]; }
+            if (member >= 0)
+            {
+                Scaling group = inverse;
+                double center[3] = {0}, offset[3];
+                ScalingGroupMember(&group, state->dragmodelaxes + member, center, &inverse, offset);
+            }
         }
-        for (axis = 0; axis < 3; axis++)
-        {
-            inverse.factor[axis] = (state->dragaxis == VIEWPORT_UNIFORM_SCALE_AXIS || axis == state->dragaxis) ? 1.0 / (1 + state->dragdelta) : 1;
-        }
+        /* Normals use the reciprocal of the member's actual size change. */
+        for (axis = 0; axis < 3; axis++) { inverse.factor[axis] = 1.0 / inverse.factor[axis]; }
         ScalingPoint(&inverse, normal, normal);
         for (axis = 0; axis < 3; axis++) { environment.normal[axis] = (float)normal[axis]; }
     }

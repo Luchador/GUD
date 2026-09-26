@@ -11,8 +11,9 @@ typedef struct Scaling
 } Scaling;
 int ScalingValid(const Scaling *scale);
 void ScalingPoint(const Scaling *scale, const double in[3], double out[3]);
-/* Group spacing follows group axes; each member retains orthogonal local
- * axes because native placement pads cannot encode shear. */
+/* Group spacing follows group axes. Member factors are the lengths of its
+ * pad axes after group scaling; orientation stays fixed because native pads
+ * cannot encode shear. Axis-aligned members reproduce the group scale exactly. */
 void ScalingGroupMember(const Scaling *group, const Rotation *axes, const double center[3],
     Scaling *local, double offset[3]);
 #endif

@@ -51,7 +51,15 @@ static void CheckPose(const SetupObjectGeometry *before, const SetupObjectGeomet
                     double moved[3], local[3]={0}; ScalingPoint(scale,centers[id],moved);
                     for (int a=0;a<3;a++) for (int b=0;b<3;b++)
                         local[a]+=axes[id].m[b][a]*(p[b]-centers[id][b]);
-                    for (int a=0;a<3;a++) local[a]*=scale->factor[a];
+                    for (int a=0;a<3;a++)
+                    {
+                        /* The size change is the world-scaled length of a
+                         * unit edge along this member's original pad axis. */
+                        double tip[3], scaled[3];
+                        for (int b=0;b<3;b++) tip[b]=centers[id][b]+axes[id].m[b][a];
+                        ScalingPoint(scale,tip,scaled);
+                        local[a]*=hypot(hypot(scaled[0]-moved[0],scaled[1]-moved[1]),scaled[2]-moved[2]);
+                    }
                     RotationVector(axes+id,local,expected);
                     for (int a=0;a<3;a++) expected[a]+=moved[a];
                 }
@@ -120,9 +128,73 @@ static void Transform(int mode, float levelscale)
     ObjectGeometryFree(&before); ObjectGeometryFree(&after); ObjectGeometryFree(&reloaded);
     EditHistoryFree(&history); SetupFileFree(&setup); SetupFileFree(&baseline); SetupFileFree(&saved);
 }
+/* Upright doors use pad side/up/look = depth/width/height. Group handles
+ * must still scale world X/Y/Z, including doors facing different directions. */
+static void DoorGroupScale(int axis, DWORD count, float levelscale)
+{
+    SetupFile setup={0}, baseline={0}, saved={0};
+    SetupObjectGeometry before={0}, after={0}, reloaded={0};
+    EditHistory history={0}; EditHistoryTransaction tx={0}; EditHistoryAsset asset;
+    BgDocument bg={0}; StanFile stan={0};
+    DWORD ids[]={0,1,2}; Rotation yaw;
+    Scaling scale={.factor={1,1,1}};
+    Require(SetupLoadProjectFile(dir,"UsetupdoorgroupZ",&setup,&why));
+    RotationAxis(&scale.axes,0,0); RotationAxis(&yaw,1,90);
+    for (DWORD i=1;i<count;i++)
+    {
+        SetupPadRef ref; BOOL changed;
+        Require(SetupFileTranslateModel(&setup,i,levelscale,(double[3]){80.0*i,30.0*i,-40.0*i},&why));
+        Require(SetupFileGetModelPad(&setup,i,&ref));
+        Require(SetupFileRotatePad(&setup,&ref,&yaw,&changed,&why));
+    }
+    Require(ObjectLoadSetupGeometry(dir,&setup,NULL,levelscale,&before,&why));
+    for (DWORD i=0;i<count;i++)
+    {
+        double center[3]; Center(&before,i,center);
+        for (int a=0;a<3;a++) scale.pivot[a]+=center[a]/count;
+    }
+    if (axis==3) for (int a=0;a<3;a++) scale.factor[a]=1.75;
+    else scale.factor[axis]=axis==1 ? .6 : 1.5;
+    Require(SetupFileClone(&setup,&baseline,&why));
+    EditHistoryReset(&history,NULL,&setup,NULL);
+    Require(EditHistoryBeginSetupEdit(&history,&setup,"Scale Doors",&tx,&why));
+    Require(ObjectTransformSetupModels(dir,&setup,NULL,levelscale,&before,ids,count,
+        NULL,NULL,NULL,&scale,&after,&why));
+    Require(EditHistoryCommitEdit(&history,NULL,&setup,NULL,&tx,&why)); assert(history.undocount==1);
+    Require(EditHistoryUndo(&history,&bg,&setup,&stan,&asset,&why)); SetupAssertNativeEqual(&setup,&baseline);
+    Require(EditHistoryRedo(&history,&bg,&setup,&stan,&asset,&why));
+    Require(SetupSaveProjectFile(dir,&setup,&why));
+    Require(SetupLoadProjectFile(dir,setup.name,&saved,&why));
+    Require(ObjectLoadSetupGeometry(dir,&saved,NULL,levelscale,&reloaded,&why));
+    for (int pass=0;pass<2;pass++)
+    {
+        const SetupObjectGeometry *result=pass ? &reloaded : &after;
+        assert(result->tricount==before.tricount);
+        for (DWORD t=0;t<before.tricount;t++)
+        {
+            DWORD id=before.objectindices[t]; assert(result->objectindices[t]==id);
+            for (int c=0;c<3;c++)
+            {
+                const BgVertex *v=before.tris+t*3+c, *w=result->tris+t*3+c;
+                double p[3]={v->x,v->y,v->z}, expected[3];
+                memcpy(expected,p,sizeof(p));
+                /* Axis-aligned members must match an actual world transform,
+                 * without depending on any pad-axis conversion helper. */
+                if (id<count) ScalingPoint(&scale,p,expected);
+                Near(w->x,expected[0]); Near(w->y,expected[1]); Near(w->z,expected[2]);
+            }
+        }
+    }
+    Require(SetupSaveProjectFile(dir,&baseline,&why));
+    ObjectGeometryFree(&before); ObjectGeometryFree(&after); ObjectGeometryFree(&reloaded);
+    EditHistoryFree(&history); SetupFileFree(&setup); SetupFileFree(&baseline); SetupFileFree(&saved);
+}
 int main(int argc, char **argv)
 {
     assert(argc==2); dir=argv[1];
+    for (int s=0;s<2;s++) for (DWORD count=2;count<=3;count++) for (int axis=0;axis<4;axis++)
+        DoorGroupScale(axis,count,s ? .53931433f : 1);
+    puts("PASS: multi-door and mixed door/prop groups follow world XYZ and uniform scaling, including quarter-turn doors, shared pads, native units, undo/redo and save/reload.");
     for (int s=0;s<2;s++) for (int mode=0;mode<4;mode++) Transform(mode,s ? .53931433f : 1);
     puts("PASS: group translation, XYZ rotation, nonuniform/uniform scaling, differently oriented props/doors, shared pads, unselected props, native level scales, one-step undo/redo, save/reload and complete rollback after a later member fails.");
     return 0;
