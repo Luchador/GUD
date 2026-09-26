@@ -48,7 +48,9 @@ with tempfile.TemporaryDirectory(prefix='geditor-uniform-scale-') as temp:
     (work / 'types.inc').write_text(''.join(re.search(
         r'typedef struct ' + name + r' \{.*?\} ' + name + ';', viewport, re.S)[0] + '\n' for name in types))
     defines = ('VIEWPORT_UNIFORM_SCALE_AXIS', 'VIEWPORT_PICK_EPSILON', 'VIEWPORT_PICK_BARY_EPSILON')
-    names = ('ViewportObjectCount', 'ViewportCompareVertexRefs', 'ViewportGetMoveVertices', 'ViewportRayTriangleDistance',
+    names = ('ViewportObjectCount', 'ViewportCompareObjectIds', 'ViewportObjectSelected', 'ViewportGroupMemberIndex',
+             'ViewportBuildModelBox', 'ViewportBuildObjectSelectionBox', 'ViewportGroupPosition',
+             'ViewportCompareVertexRefs', 'ViewportGetMoveVertices', 'ViewportRayTriangleDistance',
              'ViewportArrowVertex', 'ViewportDrawGizmoHandles', 'ViewportPickGizmo',
              'ViewportShouldDuplicateBgFaces', 'ViewportPrepareBgFaceDuplicate', 'ViewportShouldExtrudeEdges', 'ViewportPreviewEdgeExtrusion',
              'ViewportBeginTransform', 'ViewportDragTransform', 'ViewportCancelTransform',

@@ -65,7 +65,7 @@ typedef struct RightPanelState {
     HWND portals;
     HWND positions[3];
     HWND movemode, rotatemode, scalebutton;
-    BOOL rotationmode, scalemode, scaleislocal, nativeunits;
+    BOOL rotationmode, scalemode, scaleislocal, scaleisgroup, nativeunits;
     unsigned int rotationaxes;
     HWND objects;
     HWND details;
@@ -444,7 +444,7 @@ static void RightPanelPaint(HWND hwnd, RightPanelState *state, HDC hdc)
     DrawText(hdc, "Transform", -1, &transform, DT_SINGLELINE | DT_LEFT | DT_NOPREFIX);
     transform.top += 52;
     transform.bottom += 52;
-    DrawText(hdc, state->scalemode ? (state->scaleislocal ? "Scale factors (pad axes)" : "Scale factors (world axes)") : state->rotationmode ? "Rotation (degrees)" : state->nativeunits ? (state->selectioncount > 1 ? "Average native level position" : "Native level position") : state->selectioncount > 1 ? "Average world position" : "World position",
+    DrawText(hdc, state->scalemode ? (state->scaleisgroup ? "Group scale factors" : state->scaleislocal ? "Scale factors (pad axes)" : "Scale factors (world axes)") : state->rotationmode ? "Rotation (degrees)" : state->nativeunits ? (state->selectioncount > 1 ? "Average native level position" : "Native level position") : state->selectioncount > 1 ? "Average world position" : "World position",
              -1, &transform,
              DT_SINGLELINE | DT_LEFT | DT_NOPREFIX);
     for (axis = 0; axis < 3; axis++)
@@ -1416,10 +1416,10 @@ void RightPanelSetTransformMode(HWND panel, TransformMode mode)
     InvalidateRect(panel, NULL, FALSE);
 }
 
-void RightPanelSetScaleLocal(HWND panel, BOOL local)
+void RightPanelSetScaleSpace(HWND panel, BOOL local, BOOL group)
 {
     RightPanelState *state = RightPanelGetState(panel);
-    if (state) { state->scaleislocal = local; }
+    if (state) { state->scaleislocal = local; state->scaleisgroup = group; }
 }
 
 void RightPanelSetPortal(HWND panel, const BgDocument *document, DWORD index)

@@ -82,4 +82,11 @@ BOOL ObjectScaleSetupModel(const char *projectdir, SetupFile *setup, const StanF
                            float levelscale, const SetupObjectGeometry *before, DWORD index,
                            const Scaling *scale, SetupObjectGeometry *out, const char **reasonout);
 
+/* Transform a selection from its original visible poses. One history
+ * transaction surrounds the whole call; the caller rolls back on failure. */
+BOOL ObjectTransformSetupModels(const char *projectdir, SetupFile *setup, const StanFile *stan,
+    float levelscale, const SetupObjectGeometry *before, const DWORD *ids, DWORD count,
+    const double offset[3], const Rotation *rotation, const double pivot[3], const Scaling *scaling,
+    SetupObjectGeometry *out, const char **why);
+
 #endif /* GEDITOR_OBJECTLOAD_H */

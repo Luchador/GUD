@@ -112,6 +112,7 @@ static const BrowserObjectType g_BrowserObjectOrder[BROWSER_OBJECT_COUNT] = {
 typedef struct BrowserState {
     BrowserSection sections[BROWSER_SECTION_COUNT];
     BrowserLevelItem levels[BROWSER_MAX_LEVELS];
+    DWORD levelindices[BROWSER_MAX_LEVELS]; /* Project indices, independent of display order. */
     int levelcount;
     TexThumb objecticons[BROWSER_OBJECT_COUNT];
     unsigned char objectpixels[BROWSER_OBJECT_COUNT][TEX_THUMB_MAX * TEX_THUMB_MAX * 4];
@@ -1464,7 +1465,7 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
             /* Tell the frame which level was opened. The label pointer
                is only valid for the duration of this SendMessage. */
-            SendMessage(GetParent(hwnd), BROWSER_WM_LEVEL_OPEN, (WPARAM)row, (LPARAM)state->levels[row].label);
+            SendMessage(GetParent(hwnd), BROWSER_WM_LEVEL_OPEN, (WPARAM)state->levelindices[row], (LPARAM)state->levels[row].label);
             return 0;
         }
 
@@ -1998,7 +1999,8 @@ void BrowserSelectLevel(HWND browser, DWORD index)
 {
     BrowserState *state = BrowserGetState(browser);
     if (!state || index >= (DWORD)state->levelcount) { return; }
-    state->selectedlevel = (int)index;
+    for (int row = 0; row < state->levelcount; row++)
+        if (state->levelindices[row] == index) { state->selectedlevel = row; break; }
     InvalidateRect(browser, NULL, FALSE);
 }
 
@@ -2023,7 +2025,15 @@ void BrowserSetLevels(HWND browser, const BrowserLevelItem *items, int count)
 
     for (i = 0; i < count; i++)
     {
-        state->levels[i] = items[i];
+        int row = i;
+        while (row > 0 && lstrcmpiA(state->levels[row - 1].label, items[i].label) > 0)
+        {
+            state->levels[row] = state->levels[row - 1];
+            state->levelindices[row] = state->levelindices[row - 1];
+            row--;
+        }
+        state->levels[row] = items[i];
+        state->levelindices[row] = (DWORD)i;
     }
 
     state->levelcount = count;

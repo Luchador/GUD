@@ -257,6 +257,7 @@ void ViewportClearSelection(HWND hwnd);
 BOOL ViewportGetCameraDirection(HWND hwnd, double look[3]);
 void ViewportSelectSetupModel(HWND hwnd, DWORD selection);
 DWORD ViewportGetSelectedModelCount(HWND hwnd);
+unsigned int ViewportGetSelectedModelTransformAxes(HWND hwnd);
 BOOL ViewportGetSelectedModels(HWND hwnd, DWORD *ids, DWORD count);
 BOOL ViewportSelectSetupModels(HWND hwnd, const DWORD *ids, DWORD count);
 BOOL ViewportGetSelectedPad(HWND hwnd, SetupPadRef *out);

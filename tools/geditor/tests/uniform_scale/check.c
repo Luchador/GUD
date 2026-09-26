@@ -15,6 +15,7 @@ typedef struct { int x,y; } POINT;
 #define MB_ICONINFORMATION 2
 #include "viewport.h"
 #include "cameraframe.h"
+#include "editorunits.h"
 #define VIEWPORT_BOX_VERTICES 24
 #define VIEWPORT_OBJECT_NONE 0xffffffffu
 #define GL_TRIANGLES 4
@@ -32,6 +33,7 @@ static HWND capture;
 static double parameter, eye[3]={100,150,200};
 static Vertex original[9];
 static int commits, copies, facecopies, moves;
+static int rotations;
 static ViewportTranslation facecopy;
 static Scaling committed;
 static ViewportObjectDuplicate copied;
@@ -56,6 +58,7 @@ static LRESULT SendMessage(HWND hwnd,int message,int wparam,LPARAM lparam)
     else if (message==VIEWPORT_WM_DUPLICATE_OBJECT) { copied=*(ViewportObjectDuplicate *)lparam;copies++; }
     else if (message==VIEWPORT_WM_DUPLICATE_BG_FACES) { assert(!s->dragfaceduplicating); facecopy=*(ViewportTranslation *)lparam;facecopies++; }
     else if (message==VIEWPORT_WM_TRANSLATE_SELECTION) { moves++; }
+    else if (message==VIEWPORT_WM_ROTATE_SELECTION) { rotations++; }
     else abort();
     return TRUE;
 }
@@ -64,6 +67,10 @@ static void glBegin(int mode) { assert(mode==GL_TRIANGLES && groups<4);memcpy(co
 static void glVertex3f(float x,float y,float z) { assert(isfinite(x)&&isfinite(y)&&isfinite(z));drawn[groups]++; }
 static void glEnd(void) { groups++; }
 BOOL SetupFileCanDuplicateObject(const SetupFile *s,DWORD i) { return TRUE; }
+BOOL SetupFileGetModelPad(const SetupFile *s,DWORD i,SetupPadRef *ref)
+{ ref->index=i; ref->bound=FALSE; return TRUE; }
+BOOL SetupFilePadRotation(const SetupFile *s,const SetupPadRef *ref,Rotation *out)
+{ RotationAxis(out,1,ref->index==8 ? 37 : 0); return TRUE; }
 static BOOL ViewportSelectedMarker(const ViewportState *s,SetupMarker *m) { return FALSE; }
 static int ViewportSelectedPadIndex(const ViewportState *s) { return -1; }
 static BOOL ViewportCornerVisible(const ViewportState *s,int corner)
@@ -89,7 +96,7 @@ static BOOL ViewportPreviewMarker(HWND h,ViewportState *s,double d,const Rotatio
 static void ViewportPreviewPortalDrag(ViewportState *s,double d) { abort(); }
 static BOOL ViewportPadPosition(const ViewportState *s,const SetupPadRef *p,BOOL preview,double out[3]) { abort(); }
 static void ViewportRefreshStanOverlay(ViewportState *s) { abort(); }
-static void ViewportBuildObjectSelectionBox(ViewportState *s) {}
+static void ViewportBuildObjectSelectionBox(ViewportState *s);
 static void ViewportUpdateGizmo(ViewportState *s) { s->hoveraxis=-1; }
 static void ViewportRefreshKnifePlane(HWND h,ViewportState *s) { abort(); }
 static void ViewportFinishKnifeTransform(HWND h,ViewportState *s,BOOL cancel) { abort(); }
@@ -272,6 +279,79 @@ static void FaceDrags(ViewportState *s)
     s->tool=EDITOR_TOOL_ROOM_SELECT; assert(!ViewportShouldDuplicateBgFaces(s,TRUE));
     puts("PASS: actual face Shift-drag on XYZ, independent preview despite shared vertices, multiple/hidden faces, click/no-op/cancel, restored originals before one clone request, ordinary moves unchanged.");
 }
+static void GroupDrags(ViewportState *s)
+{
+    DWORD ids[2]={7,8}; Vertex boxes[2*VIEWPORT_BOX_VERTICES];
+    s->tool=EDITOR_TOOL_FACE_SELECT; s->selectedobject=7;
+    s->selectedobjects=ids; s->selectedobjectcount=2; s->objectselectionboxes=boxes;
+    s->showobjects=TRUE; s->scalemode=TRUE; s->rotationmode=FALSE;
+    RotationAxis(&s->scaleaxes,0,0);
+    ViewportBuildObjectSelectionBox(s);
+    double pivot[3]; assert(ViewportGroupPosition(s,pivot));
+    for (int a=0;a<3;a++) s->gizmoposition[a]=pivot[a];
+    for (int mode=0;mode<4;mode++)
+    {
+        int px=100,py=100;
+        if (mode>0)
+        {
+            px=-1;
+            for(int y=0;y<200 && px<0;y+=2)for(int x=0;x<200;x+=2)
+                if(ViewportPickGizmo(s,s,x,y)==0) { px=x;py=y;break; }
+            assert(px>=0);
+        }
+        parameter=0; assert(ViewportBeginTransform(s,s,px,py,FALSE));
+        assert(s->dragmodelcenters && s->dragmodelaxes && capture==s);
+        for(int i=0;i<9;i++) assert(s->dragmask[i]==(i<6));
+        parameter=45; ViewportDragTransform(s,s,mode==0 ? px+45 : px,py);
+        Scaling group; assert(ViewportGetScaling(s,&group));
+        for (int i=0;i<9;i++)
+        {
+            double p[3]={original[i].x,original[i].y,original[i].z}, expected[3];
+            memcpy(expected,p,sizeof(p));
+            if(i<6)
+            {
+                int model=i/3;
+                double local[3]={0}, moved[3];
+                ScalingPoint(&group,s->dragmodelcenters[model],moved);
+                for(int a=0;a<3;a++)for(int b=0;b<3;b++)
+                    local[a]+=s->dragmodelaxes[model].m[b][a]*(p[b]-s->dragmodelcenters[model][b]);
+                for(int a=0;a<3;a++)local[a]*=group.factor[a];
+                RotationVector(s->dragmodelaxes+model,local,expected);
+                for(int a=0;a<3;a++)expected[a]+=moved[a];
+            }
+            Near(s->scene[i].x,expected[0]); Near(s->scene[i].y,expected[1]); Near(s->scene[i].z,expected[2]);
+        }
+        int old=commits;
+        if(mode==3) ViewportCancelTransform(s); else ViewportEndTransform(s,s);
+        assert(commits==old+(mode!=3) && !capture && !s->dragmodelaxes && !s->dragmodelcenters);
+        assert(!memcmp(s->scene,original,sizeof(original)));
+    }
+    /* Translation and rotation use the same multi-object membership mask. */
+    s->scalemode=FALSE; s->rotationaxes=7;
+    for(int rotate=0;rotate<2;rotate++)
+    {
+        s->rotationmode=rotate;
+        int px=-1,py=-1;
+        for(int y=0;y<200 && px<0;y+=2)for(int x=0;x<200;x+=2)
+            if(ViewportPickGizmo(s,s,x,y)==1) { px=x;py=y;break; }
+        assert(px>=0); parameter=0;
+        assert(ViewportBeginTransform(s,s,px,py,FALSE));
+        parameter=30; ViewportDragTransform(s,s,px,py);
+        Rotation r; RotationAxis(&r,1,30);
+        for(int i=0;i<9;i++)
+        {
+            double p[3]={original[i].x,original[i].y,original[i].z}, expected[3];
+            memcpy(expected,p,sizeof(p));
+            if(i<6) { if(rotate) RotationPoint(&r,s->dragorigin,p,expected); else expected[1]+=30; }
+            Near(s->scene[i].x,expected[0]); Near(s->scene[i].y,expected[1]); Near(s->scene[i].z,expected[2]);
+        }
+        ViewportEndTransform(s,s);
+    }
+    assert(rotations==1);
+    s->selectedobjects=NULL; s->selectedobjectcount=0; s->objectselectionboxes=NULL;
+    puts("PASS: group membership, equal-weight pivot, local-axis size/world spacing previews, translation/rotation, restored originals on commit/cancel, and drag allocation cleanup.");
+}
+
 int main(void)
 {
     Vertex scene[9]={0};BgDocumentVertexRef refs[9];unsigned char selected[3]={1,0,0};
@@ -302,6 +382,7 @@ int main(void)
     }
     AxisDrag(&s);
     FaceDrags(&s);
+    GroupDrags(&s);
     puts("PASS: object/face/edge masks, rotated axes, screen directions, snapshot preview, proportional XYZ factors, guides/normals, no-op, clamp, cancellation, one commit and Shift duplication; axis scaling unchanged.");
     return 0;
 }

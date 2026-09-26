@@ -19,6 +19,19 @@ int ScalingValid(const Scaling *scale)
     return 1;
 }
 
+void ScalingGroupMember(const Scaling *group, const Rotation *axes, const double center[3],
+    Scaling *local, double offset[3])
+{
+    ScalingPoint(group, center, offset);
+    *local = *group;
+    local->axes = *axes;
+    for (int i = 0; i < 3; i++)
+    {
+        local->pivot[i] = center[i];
+        offset[i] -= center[i];
+    }
+}
+
 void ScalingPoint(const Scaling *scale, const double in[3], double out[3])
 {
     double relative[3], local[3] = {0}, result[3];

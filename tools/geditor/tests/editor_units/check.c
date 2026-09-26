@@ -31,6 +31,7 @@ typedef struct ViewportState {
 } ViewportState;
 static const ViewportState *ViewportGetState(HWND hwnd) { return hwnd; }
 static BOOL ViewportRoomPosition(const ViewportState *s, double p[3]) { return FALSE; }
+static BOOL ViewportGroupPosition(const ViewportState *s, double p[3]) { return FALSE; }
 static int ViewportObjectCount(const ViewportState *s) { return s && s->selectedobject != VIEWPORT_OBJECT_NONE; }
 static BOOL ViewportSelectedMarker(const ViewportState *s, SetupMarker *marker) { return FALSE; }
 static BOOL ViewportPortalSelectionPosition(const ViewportState *s, double p[3], DWORD *count) { return FALSE; }

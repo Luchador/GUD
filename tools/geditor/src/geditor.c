@@ -240,6 +240,8 @@ static void GEditorRefreshTransformFields(void)
     KnifeDialogSetCoordinateScale(factor, EditorSettingsGetUnits() == EDITOR_UNITS_NATIVE);
     RightPanelSetNativeUnits(g_RightPanel, EditorSettingsGetUnits() == EDITOR_UNITS_NATIVE);
     BOOL object = ViewportGetSelectedObject(g_Viewport, &objectindex);
+    BOOL group = ViewportGetSelectedModelCount(g_Viewport) > 1;
+    unsigned int groupaxes = group ? ViewportGetSelectedModelTransformAxes(g_Viewport) : 0;
     BOOL pad = ViewportGetSelectedPad(g_Viewport, &padref);
     SetupMarkerRef markerref;
     BOOL marker = ViewportGetSelectedMarker(g_Viewport, &markerref, NULL);
@@ -248,8 +250,8 @@ static void GEditorRefreshTransformFields(void)
     BOOL knife = ViewportKnifeActive(g_Viewport);
     BOOL roommode = ViewportGetTool(g_Viewport) == EDITOR_TOOL_ROOM_SELECT;
     double scale = stan ? g_CurrentStan.levelscale : g_CurrentBgDocument.levelscale;
-    BOOL editable = hasposition && (object ? GEditorCanMoveSetupModel(objectindex) : scale > 0);
-    double precision = editable && !object && !pad && !marker && !portal ? 1.0 / scale : 0;
+    BOOL editable = hasposition && (group ? groupaxes != 0 : object ? GEditorCanMoveSetupModel(objectindex) : scale > 0);
+    double precision = editable && !group && !object && !pad && !marker && !portal ? 1.0 / scale : 0;
     if (knife) { editable = hasposition; precision = 0; }
 
     Rotation frame;
@@ -269,6 +271,11 @@ static void GEditorRefreshTransformFields(void)
             {
                 valid = ViewportGetMarkerRotation(g_Viewport, &frame);
                 axes = markerref.kind == SETUP_MARKER_SPAWN ? 2 : 7;
+            }
+            else if (group)
+            {
+                RotationAxis(&frame, 0, 0);
+                valid = TRUE; axes = groupaxes;
             }
             else if (object)
             {
@@ -293,7 +300,8 @@ static void GEditorRefreshTransformFields(void)
         Rotation scaleaxes;
         BOOL valid = editable && !knife && !marker && !portal && !roommode && ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT;
         RotationAxis(&scaleaxes, 0, 0);
-        if (object)
+        if (group) { valid = valid && groupaxes == 7; }
+        else if (object)
         {
             valid = valid && !(objectindex & SETUP_CHARACTER_SELECTION_BIT)
                 && SetupFileGetModelPad(&g_CurrentSetup, objectindex, &padref)
@@ -306,12 +314,13 @@ static void GEditorRefreshTransformFields(void)
     {
         Scaling scaling;
         BOOL valid = ViewportGetScaling(g_Viewport, &scaling);
-        RightPanelSetScaleLocal(g_RightPanel, object || pad);
+        RightPanelSetScaleSpace(g_RightPanel, object || pad, group);
         RightPanelSetTransformState(g_RightPanel, valid ? scaling.factor : NULL, count, valid, 0);
         return;
     }
     axes = (marker && markerref.kind == SETUP_MARKER_SPAWN)
         || (object && (objectindex & SETUP_CHARACTER_SELECTION_BIT)) ? 2 : 7;
+    if (group) { axes = groupaxes; }
     if (ViewportIsRotating(g_Viewport))
     {
         BOOL valid = ViewportGetRotation(g_Viewport, &frame, degrees, pivot);
@@ -890,6 +899,7 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(filemenu, MF_STRING, ID_FILE_REBASE_PROJECT, "Re&base Project...");
     AppendMenu(filemenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(filemenu, MF_STRING, ID_FILE_NEW_LEVEL, "New &Level");
+    AppendMenu(filemenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(filemenu, MF_POPUP, (UINT_PTR)importmenu, "&Import...");
     AppendMenu(filemenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(filemenu, MF_STRING, ID_FILE_EXIT, "E&xit");
@@ -2688,8 +2698,44 @@ fail:
     return FALSE;
 }
 
+static BOOL GEditorTransformModels(HWND hwnd, const double offset[3], const Rotation *rotation,
+    const double pivot[3], const Scaling *scaling)
+{
+    EditHistoryTransaction transaction = {0};
+    SetupObjectGeometry objects = {0};
+    DWORD count = ViewportGetSelectedModelCount(g_Viewport);
+    DWORD *ids = NULL;
+    const char *why = "Could not read the selected models.", *restorewhy = "";
+    const char *action = scaling ? "Scale Objects" : rotation ? "Rotate Objects" : "Move Objects";
+    if (count < 2 || ViewportGetTool(g_Viewport) == EDITOR_TOOL_VERTEX_PAINT) { return FALSE; }
+    if (offset && offset[0] == 0 && offset[1] == 0 && offset[2] == 0) { return TRUE; }
+    if (scaling && scaling->factor[0] == 1 && scaling->factor[1] == 1 && scaling->factor[2] == 1) { return TRUE; }
+    ids = malloc((size_t)count * sizeof(*ids));
+    if (!ids || !ViewportGetSelectedModels(g_Viewport, ids, count)) { goto fail; }
+    if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup, action, &transaction, &why)) { goto fail; }
+    if (!ObjectTransformSetupModels(g_Project.dir, &g_CurrentSetup, &g_CurrentStan,
+        g_CurrentBgDocument.levelscale, &g_CurrentObjects, ids, count, offset, rotation, pivot, scaling, &objects, &why)
+        || !GEditorRebuildCurrentViewportWithObjects(&objects, &why)
+        || !EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+            &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    ObjectGeometryFree(&g_CurrentObjects); g_CurrentObjects = objects;
+    free(ids);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    GEditorRebuildCurrentViewport(&restorewhy);
+    ViewportSelectSetupModels(g_Viewport, ids, count);
+fail:
+    ObjectGeometryFree(&objects); EditHistoryCancelEdit(&transaction); free(ids);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
 static BOOL GEditorTranslateSelection(HWND hwnd, const double offset[3], BOOL snap)
 {
+    if (ViewportGetSelectedModelCount(g_Viewport) > 1) { return GEditorTransformModels(hwnd, offset, NULL, NULL, NULL); }
     if (ViewportGetTool(g_Viewport) == EDITOR_TOOL_ROOM_SELECT) { return GEditorTranslateRoom(hwnd, offset); }
     if (ViewportKnifeActive(g_Viewport)) { return ViewportTransformKnife(g_Viewport, offset, NULL); }
     if (ViewportGetPortalSelectionCount(g_Viewport)) { return GEditorTranslatePortals(hwnd, offset, snap); }
@@ -2833,6 +2879,8 @@ fail:
 static BOOL GEditorTransformSelection(HWND hwnd, const ViewportRotation *request,
                                       const Scaling *scaling)
 {
+    if (ViewportGetSelectedModelCount(g_Viewport) > 1)
+    { return GEditorTransformModels(hwnd, NULL, request ? &request->rotation : NULL, request ? request->pivot : NULL, scaling); }
     if (ViewportKnifeActive(g_Viewport))
     { return !scaling && request && ViewportTransformKnife(g_Viewport, NULL, &request->rotation); }
     if (ViewportGetPortalSelectionCount(g_Viewport)) { return FALSE; }

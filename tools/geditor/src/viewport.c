@@ -27,6 +27,7 @@
 #include "cameraframe.h"
 #include "resource.h"
 #include "roomedit.h"
+#include "setupselection.h"
 #include <src/propconstants.h>
 
 #define VIEWPORT_MONITOR_TIMER 1001
@@ -351,6 +352,8 @@ typedef struct ViewportState {
     DWORD extrudecount;
     double extrudeoffset[3];
     float (*dragvertices)[3];
+    double (*dragmodelcenters)[3];
+    Rotation *dragmodelaxes;
     BOOL dragduplicating, dragfaceduplicating;
     unsigned char *dragmask;
     int selectedtricount;
@@ -424,6 +427,16 @@ static void ViewportDrawTransformTools(const ViewportState *state);
 static void ViewportUpdateGizmo(ViewportState *state);
 static void ViewportRestoreComponents(ViewportState *state);
 static void ViewportDrawBoxSelection(const ViewportState *state);
+static int ViewportCompareObjectIds(const void *a, const void *b);
+static BOOL ViewportObjectSelected(const ViewportState *state, DWORD id);
+
+static int ViewportGroupMemberIndex(const ViewportState *state, DWORD id)
+{
+    if (!state->dragmodelaxes) { return -1; }
+    const DWORD *member = bsearch(&id, state->selectedobjects, state->selectedobjectcount,
+        sizeof(id), ViewportCompareObjectIds);
+    return member ? (int)(member - state->selectedobjects) : -1;
+}
 
 static void ViewportSetSetupMarkers(HWND hwnd, ViewportState *state, const SetupFile *setup, float levelscale);
 
@@ -1144,6 +1157,11 @@ static void ViewportEnvironmentCoordinates(const ViewportState *state, int index
         double normal[3] = {environment.normal[0], environment.normal[1], environment.normal[2]};
         int axis;
         inverse.axes = state->scaleaxes;
+        if (state->dragmodelaxes)
+        {
+            int member = ViewportGroupMemberIndex(state, state->sceneobjectindices[index / 3]);
+            if (member >= 0) { inverse.axes = state->dragmodelaxes[member]; }
+        }
         for (axis = 0; axis < 3; axis++)
         {
             inverse.factor[axis] = (state->dragaxis == VIEWPORT_UNIFORM_SCALE_AXIS || axis == state->dragaxis) ? 1.0 / (1 + state->dragdelta) : 1;
@@ -1435,8 +1453,23 @@ static BOOL ViewportAimGuideEndpoints(const ViewportState *state, const Viewport
     SetupPadRef ref = {index, bound};
     if (!ViewportPadPosition(state, &ref, TRUE, end)) { return FALSE; }
     memcpy(start, guide->origin, sizeof(guide->origin));
-    if (!state->dragpad && !state->dragstan && !state->dragmarker && state->selectedobject == guide->objectindex)
-    { ViewportPreviewGuidePoint(state, start); }
+    if (!state->dragpad && !state->dragstan && !state->dragmarker && ViewportObjectSelected(state, guide->objectindex))
+    {
+        int member = ViewportGroupMemberIndex(state, guide->objectindex);
+        if (state->dragaxis >= 0 && state->dragscaling && member >= 0)
+        {
+            Scaling group = {0}, local;
+            double offset[3];
+            group.axes = state->scaleaxes;
+            memcpy(group.pivot, state->dragorigin, sizeof(group.pivot));
+            for (int a = 0; a < 3; a++)
+            { group.factor[a] = (state->dragaxis == VIEWPORT_UNIFORM_SCALE_AXIS || state->dragaxis == a) ? 1 + state->dragdelta : 1; }
+            ScalingGroupMember(&group, state->dragmodelaxes + member, state->dragmodelcenters[member], &local, offset);
+            ScalingPoint(&local, start, start);
+            for (int a = 0; a < 3; a++) { start[a] += offset[a]; }
+        }
+        else { ViewportPreviewGuidePoint(state, start); }
+    }
     for (int axis = 0; axis < 3; axis++)
     { if (!isfinite(start[axis]) || !isfinite(end[axis])) { return FALSE; } }
     return TRUE;
@@ -3163,6 +3196,41 @@ static DWORD ViewportObjectCount(const ViewportState *state)
     return !state || state->selectedobject == VIEWPORT_OBJECT_NONE ? 0
         : state->selectedobjectcount > 1 ? state->selectedobjectcount : 1;
 }
+
+static unsigned int ViewportModelTransformAxes(const ViewportState *state)
+{
+    DWORD count = ViewportObjectCount(state);
+    unsigned int axes = 7;
+    if (!state || !state->showobjects || !count) { return 0; }
+    for (DWORD i = 0; i < count; i++)
+    {
+        DWORD id = count > 1 ? state->selectedobjects[i] : state->selectedobject;
+        SetupPadRef ref;
+        Rotation frame;
+        if (!SetupSelectionValid(state->markersetup, id)
+            || !SetupFileGetModelPad(state->markersetup, id, &ref)
+            || !SetupFilePadRotation(state->markersetup, &ref, &frame)) { return 0; }
+        if (id & SETUP_CHARACTER_SELECTION_BIT) { axes = 2; }
+        else if (state->markersetup->objects[id].type == PROPDEF_DOOR_SHADOW) { return 0; }
+    }
+    return axes;
+}
+
+/* Every selected model contributes equally, regardless of mesh density. */
+static BOOL ViewportGroupPosition(const ViewportState *state, double position[3])
+{
+    DWORD count = ViewportObjectCount(state);
+    if (!state || !state->showobjects || count < 2 || !state->objectselectionboxes
+        || state->objectselectionboxescount != (GLsizei)(count * VIEWPORT_BOX_VERTICES)) { return FALSE; }
+    position[0] = position[1] = position[2] = 0;
+    for (int i = 0; i < state->objectselectionboxescount; i++)
+    {
+        const Vertex *v = state->objectselectionboxes + i;
+        position[0] += v->x; position[1] += v->y; position[2] += v->z;
+    }
+    for (int axis = 0; axis < 3; axis++) { position[axis] /= state->objectselectionboxescount; }
+    return TRUE;
+}
 static int ViewportCompareObjectIds(const void *a, const void *b)
 { DWORD x = *(const DWORD *)a, y = *(const DWORD *)b; return x < y ? -1 : x != y; }
 static BOOL ViewportObjectSelected(const ViewportState *state, DWORD id)
@@ -3984,7 +4052,11 @@ static BOOL ViewportReadSelectionPosition(HWND hwnd, const BgDocument *document,
     *countout = 0;
     if (state && state->tool == EDITOR_TOOL_ROOM_SELECT)
     { BOOL valid = ViewportRoomPosition(state, position); *countout = valid ? 1 : 0; return valid; }
-    if (ViewportObjectCount(state) > 1) { return FALSE; }
+    if (ViewportObjectCount(state) > 1)
+    {
+        if (!ViewportGroupPosition(state, position)) { return FALSE; }
+        *countout = ViewportObjectCount(state); return TRUE;
+    }
     if (state && state->knifeactive)
     {
         if (!state->knifepreview) { return FALSE; }
@@ -4097,7 +4169,14 @@ static void ViewportUpdateGizmo(ViewportState *state)
         state->gizmovisible = state->knifepreview && !state->scalemode;
         return;
     }
-    if (state->vertexsnap || ViewportObjectCount(state) > 1) { return; }
+    if (state->vertexsnap) { return; }
+    if (ViewportObjectCount(state) > 1)
+    {
+        unsigned int axes = ViewportModelTransformAxes(state);
+        state->gizmovisible = axes && (!state->scalemode || axes == 7)
+            && state->tool != EDITOR_TOOL_VERTEX_PAINT && ViewportGroupPosition(state, state->gizmoposition);
+        return;
+    }
     {
         DWORD count;
         if (ViewportPortalSelectionPosition(state, state->gizmoposition, &count))
@@ -6979,14 +7058,14 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
     BOOL duplicatefaces = FALSE;
     int axis = ViewportPickGizmo(hwnd, state, x, y), i, vertexcount;
     double length = 0;
-    if (axis < 0 || ViewportObjectCount(state) > 1)
+    if (axis < 0)
     {
         return FALSE;
     }
     if (shift && state->selectedobject != VIEWPORT_OBJECT_NONE
-        && !SetupFileCanDuplicateObject(state->markersetup, state->selectedobject))
+        && (ViewportObjectCount(state) > 1 || !SetupFileCanDuplicateObject(state->markersetup, state->selectedobject)))
     {
-        MessageBox(hwnd, "Select a placed object or character to duplicate.", "GEditor", MB_ICONINFORMATION);
+        MessageBox(hwnd, "Select one placed object or character to Shift-drag a duplicate.", "GEditor", MB_ICONINFORMATION);
         return TRUE;
     }
     state->dragrotation = state->rotationmode;
@@ -7090,7 +7169,7 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
                 state->dragvertices[i][1] = state->scene[i].y;
                 state->dragvertices[i][2] = state->scene[i].z;
                 state->dragmask[i] = state->selectedobject != VIEWPORT_OBJECT_NONE
-                                         ? state->sceneobjectindices[i / 3] == state->selectedobject
+                                         ? ViewportObjectSelected(state, state->sceneobjectindices[i / 3])
                                          : bsearch(&state->scenevertexrefs[i], refs, refcount,
                                                    sizeof(*refs), ViewportCompareVertexRefs) != NULL;
             }
@@ -7160,6 +7239,27 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
     state->dragfaceduplicating = duplicatefaces;
     state->dragduplicating = !state->dragroom && shift && !state->dragknife && !state->dragmarker && !state->dragportal
         && !state->dragpad && !state->dragstan && state->selectedobject != VIEWPORT_OBJECT_NONE;
+    if (state->dragscaling && ViewportObjectCount(state) > 1)
+    {
+        DWORD count = ViewportObjectCount(state);
+        state->dragmodelcenters = calloc(count, sizeof(*state->dragmodelcenters));
+        state->dragmodelaxes = calloc(count, sizeof(*state->dragmodelaxes));
+        if (!state->dragmodelcenters || !state->dragmodelaxes) { ViewportCancelTransform(hwnd); return TRUE; }
+        for (DWORD model = 0; model < count; model++)
+        {
+            SetupPadRef ref;
+            if (!SetupFileGetModelPad(state->markersetup, state->selectedobjects[model], &ref)
+                || !SetupFilePadRotation(state->markersetup, &ref, state->dragmodelaxes + model))
+            { ViewportCancelTransform(hwnd); return TRUE; }
+            for (int corner = 0; corner < VIEWPORT_BOX_VERTICES; corner++)
+            {
+                const Vertex *v = state->objectselectionboxes + model * VIEWPORT_BOX_VERTICES + corner;
+                state->dragmodelcenters[model][0] += v->x / (double)VIEWPORT_BOX_VERTICES;
+                state->dragmodelcenters[model][1] += v->y / (double)VIEWPORT_BOX_VERTICES;
+                state->dragmodelcenters[model][2] += v->z / (double)VIEWPORT_BOX_VERTICES;
+            }
+        }
+    }
     if (state->dragextruding && !ViewportPrepareEdgeExtrusion(state))
     {
         ViewportCancelTransform(hwnd);
@@ -7292,7 +7392,18 @@ static void ViewportDragTransform(HWND hwnd, ViewportState *state, int x, int y)
             double source[3] = {state->dragvertices[i][0], state->dragvertices[i][1],
                                 state->dragvertices[i][2]},
                    point[3];
-            if (state->dragscaling) { ScalingPoint(&scale, source, point); }
+            if (state->dragscaling && state->dragmodelaxes)
+            {
+                DWORD id = state->sceneobjectindices[i / 3];
+                Scaling local;
+                double offset[3];
+                int model = ViewportGroupMemberIndex(state, id);
+                if (model < 0) { continue; }
+                ScalingGroupMember(&scale, state->dragmodelaxes + model, state->dragmodelcenters[model], &local, offset);
+                ScalingPoint(&local, source, point);
+                for (int a = 0; a < 3; a++) { point[a] += offset[a]; }
+            }
+            else if (state->dragscaling) { ScalingPoint(&scale, source, point); }
             else { RotationPoint(&rotation, state->dragorigin, source, point); }
             if (state->dragpad)
             {
@@ -7437,6 +7548,8 @@ void ViewportCancelTransform(HWND hwnd)
     state->extrudecount = 0;
     free(state->dragvertices);
     free(state->dragmask);
+    free(state->dragmodelcenters); state->dragmodelcenters = NULL;
+    free(state->dragmodelaxes); state->dragmodelaxes = NULL;
     state->dragvertices = NULL;
     state->dragmask = NULL;
     if (GetCapture() == hwnd)
@@ -9967,6 +10080,9 @@ DWORD ViewportGetSelectedModelCount(HWND hwnd)
     const ViewportState *state = ViewportGetState(hwnd);
     return state && state->showobjects ? ViewportObjectCount(state) : 0;
 }
+
+unsigned int ViewportGetSelectedModelTransformAxes(HWND hwnd)
+{ return ViewportModelTransformAxes(ViewportGetState(hwnd)); }
 
 BOOL ViewportGetSelectedModels(HWND hwnd, DWORD *ids, DWORD count)
 {
