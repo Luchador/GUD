@@ -392,6 +392,40 @@ static void GroupDrags(ViewportState *s, BOOL doors)
     puts("PASS: group world-axis size/spacing and normal previews, door pad permutations, rotated props, XYZ/uniform handles, membership, pivot, translation/rotation, commit/cancel and drag allocation cleanup.");
 }
 
+static void PortalReflectionPreview(ViewportState *s)
+{
+    BgPortal portals[3]={0};
+    portals[0].pointcount=4;portals[0].geometryoffset=100;
+    portals[0].points[0]=(BgPortalPoint){-10,-20,30};portals[0].points[1]=(BgPortalPoint){10,-20,30};
+    portals[0].points[2]=(BgPortalPoint){10,20,30};portals[0].points[3]=(BgPortalPoint){-10,20,30};
+    memcpy(portaloriginal,portals,sizeof(portals));
+    s->selectedobject=VIEWPORT_OBJECT_NONE;s->selectedobjectcount=0;s->componentcount=0;
+    s->showportals=TRUE;s->portals=(BgPortalFile){.portals=portals,.portalcount=1};
+    memset(s->portalselection,0,sizeof(s->portalselection));s->portalselection[0]=1;
+    s->tool=EDITOR_TOOL_FACE_SELECT;s->rotationmode=TRUE;s->scalemode=FALSE;s->rotationaxes=7;
+    DWORD count;assert(ViewportPortalSelectionPosition(s,s->gizmoposition,&count));
+    int px=-1,py=-1;parameter=0;
+    for(int y=0;y<200&&px<0;y++)for(int x=0;x<200;x++)
+        if(ViewportPickGizmo(s,s,x,y)==2) { px=x;py=y;break; }
+    assert(px>=0 && ViewportBeginTransform(s,s,px,py,FALSE));
+    parameter=45;ViewportDragTransform(s,s,px,py);
+    /* A repaint updates reflected textures on the whole scene. The portal
+     * drag mask contains only eight entries; the scene has nine vertices. */
+    assert(s->scenecount>BG_PORTAL_MAX_POINTS);
+    float right[3]={1,0,0},up[3]={0,1,0},uv[2];
+    for(int i=s->scenecount-1;i>=0;i--)
+    {
+        ViewportEnvironmentCoordinates(s,i,BG_RENDER_ENVIRONMENT,right,up,uv);
+        assert(!memcmp(&environment,&original[i].environment,sizeof(environment)));
+        ViewportEnvironmentCoordinates(s,i,BG_RENDER_ENVIRONMENT|BG_RENDER_ENVIRONMENT_FACE,right,up,uv);
+        assert(!memcmp(&environment,&original[i].environment,sizeof(environment)));
+    }
+    ViewportCancelTransform(s);
+    assert(!memcmp(portals,portaloriginal,sizeof(portals)));
+    s->showportals=FALSE;s->portals=(BgPortalFile){0};
+    puts("PASS: portal rotation repaint preserves scene reflection normals and never indexes the portal mask as scene vertices.");
+}
+
 static void PortalDrags(ViewportState *s)
 {
     BgPortal portals[3]={0};
@@ -485,6 +519,7 @@ int main(void)
     GroupDrags(&s,FALSE);
     GroupDrags(&s,TRUE);
     PortalDrags(&s);
+    PortalReflectionPreview(&s);
     puts("PASS: object/face/edge masks, rotated axes, screen directions, snapshot preview, proportional XYZ factors, guides/normals, no-op, clamp, cancellation, one commit and Shift duplication; axis scaling unchanged.");
     return 0;
 }

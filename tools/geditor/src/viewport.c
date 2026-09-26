@@ -1119,8 +1119,12 @@ static void ViewportEnvironmentCoordinates(const ViewportState *state, int index
                                            const float up[3], float uv[2])
 {
     BgEnvironmentVertex environment = state->scene[index].environment;
-    if ((flags & BG_RENDER_ENVIRONMENT_FACE) && state->dragaxis >= 0
-        && !state->dragstan && !state->dragpad && state->dragmask)
+    /* Only BG/model drags index dragmask by scene vertex. Portals, stans,
+     * pads and markers have separate, often much smaller snapshot arrays. */
+    BOOL sceneDrag = state->dragaxis >= 0 && state->dragmask
+        && !state->dragportal && !state->dragstan && !state->dragpad
+        && !state->dragmarker && !state->dragknife;
+    if ((flags & BG_RENDER_ENVIRONMENT_FACE) && sceneDrag)
     {
         /* A moved corner also changes unselected corners' face normal. Read
          * the deformed triangle, using the same signed-byte packing as export. */
@@ -1135,8 +1139,7 @@ static void ViewportEnvironmentCoordinates(const ViewportState *state, int index
             environment.normal[c] = value < 128 ? (float)value : (float)((int)value - 256);
         }
     }
-    else if (state->dragrotation && !state->dragstan && !state->dragpad && state->dragmask &&
-        state->dragmask[index])
+    else if (sceneDrag && state->dragrotation && state->dragmask[index])
     {
         Rotation rotation;
         double normal[3] = {environment.normal[0], environment.normal[1], environment.normal[2]};
@@ -1149,9 +1152,8 @@ static void ViewportEnvironmentCoordinates(const ViewportState *state, int index
             environment.normal[axis] = (float)rotated[axis];
         }
     }
-    if (!(flags & BG_RENDER_ENVIRONMENT_FACE) && state->dragscaling && state->selectedobject != VIEWPORT_OBJECT_NONE
-        && !state->dragstan && !state->dragpad && state->dragaxis >= 0
-        && state->dragmask && state->dragmask[index])
+    if (!(flags & BG_RENDER_ENVIRONMENT_FACE) && sceneDrag && state->dragscaling
+        && state->selectedobject != VIEWPORT_OBJECT_NONE && state->dragmask[index])
     {
         Scaling inverse = {0};
         double normal[3] = {environment.normal[0], environment.normal[1], environment.normal[2]};
