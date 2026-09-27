@@ -1904,13 +1904,15 @@ static void ViewportDrawStanExtrusion(const ViewportState *state)
         glEnd();
     }
     glDepthMask(GL_FALSE);
-    glDepthRange(0.0,0.99999); glLineWidth(1); glColor4ub(255,255,255,alpha);
-    glBegin(GL_LINES);
-    for (DWORD e=0;e<state->extrudecount;e++) for (int t=0;t<2;t++) for (int p=0;p<3;p++)
+    glDisable(GL_POLYGON_OFFSET_FILL);
+    glEnable(GL_POLYGON_OFFSET_LINE); glPolygonOffset(-2,-2);
+    glPolygonMode(GL_FRONT_AND_BACK,GL_LINE);
+    glLineWidth(1); glColor4ub(255,255,255,alpha);
+    glBegin(GL_TRIANGLES);
+    for (DWORD e=0;e<state->extrudecount;e++) for (int p=0;p<6;p++)
     {
-        const StanPoint *a=&state->stanextrudepreview[e*6+t*3+p];
-        const StanPoint *b=&state->stanextrudepreview[e*6+t*3+(p+1)%3];
-        glVertex3f(a->x,a->y,a->z); glVertex3f(b->x,b->y,b->z);
+        const StanPoint *v=&state->stanextrudepreview[e*6+p];
+        glVertex3f(v->x,v->y,v->z);
     }
     glEnd(); glPopClientAttrib(); glPopAttrib();
 }
@@ -2190,6 +2192,8 @@ static void ViewportDrawStanTypeLabels(const ViewportState *state)
             center[1] += tile->points[p].y / tile->pointcount;
             center[2] += tile->points[p].z / tile->pointcount;
         }
+        /* Stan positions are world units; the marker lift is two native units. */
+        center[1] += 2.0f / state->stan.levelscale;
         /* Bitmap glyphs stay upright and readable on vertical ladder tiles.
            The raster position retains depth testing against scene geometry. */
         glColor4ub(0, 0, 0, 255); glRasterPos3fv(center);
@@ -2235,15 +2239,28 @@ static void ViewportDrawStanOverlay(const ViewportState *state)
         glDisable(GL_ALPHA_TEST);
         glDisable(GL_CULL_FACE);
         ViewportApplyStanOpacity(state, FALSE);
-        /* Keep outlines visible over their depth-writing, offset fill. */
-        if (state->stanopacity == 100) { glDepthRange(0.0, 0.99999); }
         glDepthFunc(GL_LEQUAL);
-
-        glVertexPointer(3, GL_FLOAT, sizeof(Vertex), &state->stanedges[0].x);
-        glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex), &state->stanedges[0].r);
+        /* A fixed depth-range bias loses to the fill's slope offset up close.
+           Rasterize polygon perimeters with a stronger slope offset instead.
+           GL_LINES cannot use GL_POLYGON_OFFSET_LINE. */
+        glPushAttrib(GL_POLYGON_BIT);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        glEnable(GL_POLYGON_OFFSET_LINE);
+        glPolygonOffset(-2.0f, -2.0f);
+        /* The edge buffer stores (a,b), (b,c), ...; every other vertex is
+           the original tile perimeter, with no triangulation diagonals. */
+        glVertexPointer(3, GL_FLOAT, 2 * sizeof(Vertex), &state->stanedges[0].x);
+        glColorPointer(4, GL_UNSIGNED_BYTE, 2 * sizeof(Vertex), &state->stanedges[0].r);
         glLineWidth(1.0f);
-        glDrawArrays(GL_LINES, 0, state->stanedgecount);
-        glDepthRange(0.0, 1.0);
+        int first = 0;
+        for (DWORD tile = 0; tile < state->stan.tilecount; tile++)
+        {
+            if (ViewportStanTileHidden(state, tile)) { continue; }
+            int count = state->stan.tiles[tile].pointcount;
+            glDrawArrays(GL_POLYGON, first, count);
+            first += count;
+        }
+        glPopAttrib();
 
         glDisable(GL_BLEND);
         glDepthMask(GL_TRUE);

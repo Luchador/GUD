@@ -23,21 +23,21 @@ enum { GL_FALSE, GL_TRUE, GL_BLEND, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,
     GL_LINE_BIT=128, GL_POLYGON_BIT=256, GL_CLIENT_VERTEX_ARRAY_BIT=512,
     GL_COLOR_ARRAY, GL_TEXTURE_2D, GL_ALPHA_TEST, GL_CULL_FACE, GL_LEQUAL, GL_LESS,
     GL_POLYGON_OFFSET_FILL, GL_FRONT_AND_BACK, GL_FILL, GL_TRIANGLES, GL_LINES, GL_FLOAT, GL_UNSIGNED_BYTE,
-    GL_LIST_BIT=1024, GL_LIGHTING, GL_FOG, GL_DEPTH_TEST };
-typedef struct RenderState { BOOL blend, write, offset; int depth; double far; } RenderState;
+    GL_LIST_BIT=1024, GL_LIGHTING, GL_FOG, GL_DEPTH_TEST, GL_POLYGON_OFFSET_LINE, GL_LINE, GL_POLYGON };
+typedef struct RenderState { BOOL blend, write, offset, offsetline, line; int depth; double far; float factor, units; } RenderState;
 static RenderState gl, stack, draws[8];
 static int drawcount, modes[8], alpha;
-static void glEnable(int flag) { if(flag==GL_BLEND)gl.blend=TRUE; if(flag==GL_POLYGON_OFFSET_FILL)gl.offset=TRUE; }
-static void glDisable(int flag) { if(flag==GL_BLEND)gl.blend=FALSE; if(flag==GL_POLYGON_OFFSET_FILL)gl.offset=FALSE; }
+static void glEnable(int flag) { if(flag==GL_BLEND)gl.blend=TRUE; if(flag==GL_POLYGON_OFFSET_FILL)gl.offset=TRUE; if(flag==GL_POLYGON_OFFSET_LINE)gl.offsetline=TRUE; }
+static void glDisable(int flag) { if(flag==GL_BLEND)gl.blend=FALSE; if(flag==GL_POLYGON_OFFSET_FILL)gl.offset=FALSE; if(flag==GL_POLYGON_OFFSET_LINE)gl.offsetline=FALSE; }
 static void glBlendFunc(int a,int b) { assert(a==GL_SRC_ALPHA && b==GL_ONE_MINUS_SRC_ALPHA); }
 static void glDepthMask(int value) { gl.write=value; }
 static void glDepthFunc(int value) { gl.depth=value; }
 static void glDepthRange(double near,double far) { assert(near==0);gl.far=far; }
-static void glPolygonOffset(float factor,float units) { assert(factor<0 && units<0); }
-static void glPolygonMode(int a,int b) {}
+static void glPolygonOffset(float factor,float units) { assert(factor<0 && units<0);gl.factor=factor;gl.units=units; }
+static void glPolygonMode(int a,int b) { assert(a==GL_FRONT_AND_BACK);gl.line=b==GL_LINE; }
 static void glLineWidth(float value) {}
-static void glVertexPointer(int a,int b,size_t stride,const void *p) { assert(stride==sizeof(Vertex) && p); }
-static void glColorPointer(int a,int b,size_t stride,const void *p) { assert(stride==sizeof(Vertex) && p); }
+static void glVertexPointer(int a,int b,size_t stride,const void *p) { assert(stride==(gl.line?2:1)*sizeof(Vertex) && p); }
+static void glColorPointer(int a,int b,size_t stride,const void *p) { assert(stride==(gl.line?2:1)*sizeof(Vertex) && p); }
 static void glPushAttrib(int flags) { stack=gl; }
 static void glPopAttrib(void) { gl=stack; }
 static void glPushClientAttrib(int flags) {}
@@ -67,8 +67,8 @@ static void glCallLists(int n,int type,const void *text)
 
 int main(void)
 {
-    Vertex fill[6]={0},edges[8]={0};StanTile tile={0};StanEdgeRef ref={0};StanPoint preview[6]={0};
-    ViewportState s={.showstan=TRUE,.stan={.tiles=&tile,.tilecount=1},.stanfill=fill,.stanedges=edges,
+    Vertex fill[6]={0},edges[8]={0};StanTile tile={.pointcount=4};StanEdgeRef ref={0};StanPoint preview[6]={0};
+    ViewportState s={.showstan=TRUE,.stan={.tiles=&tile,.tilecount=1,.levelscale=.25f},.stanfill=fill,.stanedges=edges,
         .stanfillcount=6,.stanedgecount=8,.extrudecount=1,.stanextrudeedges=&ref,.stanextrudepreview=preview};
     const int opacity[]={0,44,99,100};
     for(int extrude=0;extrude<2;extrude++)for(int i=0;i<4;i++)
@@ -79,23 +79,29 @@ int main(void)
         assert(drawcount==(opacity[i] ? extrude?4:2 : 0));
         for(int d=0;d<drawcount;d++)
         {
-            BOOL opaque=opacity[i]==100,fillpass=modes[d]==GL_TRIANGLES;
+            BOOL opaque=opacity[i]==100,fillpass=!draws[d].line;
             assert(draws[d].blend==!opaque && draws[d].write==(opaque && fillpass));
             assert(draws[d].depth==GL_LEQUAL);
             if(fillpass)assert(draws[d].offset);
-            else if(opaque)assert(draws[d].far<1); /* outlines survive their own opaque fill */
+            else
+            {
+                assert(modes[d]==GL_POLYGON || modes[d]==GL_TRIANGLES); /* GL_LINES ignores polygon offset. */
+                assert(draws[d].offsetline && draws[d].factor<draws[d-1].factor && draws[d].units<draws[d-1].units);
+            }
         }
         if(extrude && opacity[i])assert(alpha==opacity[i]*255/100);
-        assert(!gl.blend && gl.write && gl.depth==GL_LESS && gl.far==1 && !gl.offset);
+        assert(!gl.blend && gl.write && gl.depth==GL_LESS && gl.far==1 && !gl.offset && !gl.offsetline && !gl.line);
     }
     /* Vertical quad: screen-facing labels use all four corners, not XZ alone. */
     tile.pointcount=4;
     tile.points[0]=(StanPoint){10,0,20,0};tile.points[1]=(StanPoint){10,12,20,0};
     tile.points[2]=(StanPoint){10,12,40,0};tile.points[3]=(StanPoint){10,0,40,0};
     s.statisticsfont=1;
+    const float scales[]={.25f,.5f,1.0f,2.0f};
+    for(unsigned scale=0;scale<sizeof(scales)/sizeof(*scales);scale++)
     for(int type=0;type<6;type++)for(int i=0;i<4;i++)for(int hide=0;hide<2;hide++)
     {
-        tile.special=type;s.stanopacity=opacity[i];hidden=hide;labels=0;
+        tile.special=type;s.stanopacity=opacity[i];hidden=hide;labels=0;s.stan.levelscale=scales[scale];
         gl=(RenderState){.write=TRUE,.depth=GL_LESS,.far=1};
         ViewportDrawStanTypeLabels(&s);
         int expected=!hide && opacity[i] && (type==STAN_TYPE_LADDER || type==STAN_TYPE_FORCED_CROUCH) ? 2:0;
@@ -103,13 +109,13 @@ int main(void)
         for(int j=0;j<labels;j++)
         {
             assert(letters[j]==(type==STAN_TYPE_LADDER?'L':'C'));
-            assert(centers[j][0]==10 && centers[j][1]==6 && centers[j][2]==30);
+            assert(centers[j][0]==10 && centers[j][1]==6+2/scales[scale] && centers[j][2]==30);
         }
         assert(!gl.blend && gl.write && gl.depth==GL_LESS && gl.far==1);
     }
     hidden=FALSE;tile.special=STAN_TYPE_LADDER;labels=0;s.showstan=FALSE;
     ViewportDrawStanTypeLabels(&s);assert(!labels);
     s.showstan=TRUE;s.statisticsfont=0;ViewportDrawStanTypeLabels(&s);assert(!labels);
-    puts("PASS: stan opacity/depth, outline bias, extrusion previews, centered L/C labels, hidden/normal/unknown suppression and restored GL state.");
+    puts("PASS: stan opacity/depth, slope-biased perimeters and extrusion previews, L/C lift in native units across level scales, hidden/normal/unknown suppression and restored GL state.");
     return 0;
 }
