@@ -197,10 +197,10 @@ static void CheckFade(void)
     state.properties.object.type=PROPDEF_AUTOGUN;
     state.properties.customfade=FALSE;
     ObjectPropertiesResetFade(&state);
-    assert(!fadeChecked && !fadeEnabled[OBJECT_FADE_START] && !fadeEnabled[OBJECT_FADE_APPLY]);
+    assert(!fadeChecked && !fadeEnabled[OBJECT_FADE_START] && !fadeEnabled[OBJECT_FADE_END]);
     assert(!strcmp(fadeText[0],"20.00") && !strcmp(fadeText[1],"25.00"));
     fadeChecked=TRUE; state.fadeedited=TRUE; ObjectPropertiesEnableFade(&state);
-    assert(fadeEnabled[OBJECT_FADE_START] && fadeEnabled[OBJECT_FADE_END] && fadeEnabled[OBJECT_FADE_APPLY]);
+    assert(fadeEnabled[OBJECT_FADE_START] && fadeEnabled[OBJECT_FADE_END]);
     strcpy(fadeText[0],"30"); strcpy(fadeText[1],"25");
     focus=state.controls[OBJECT_FADE_START]; int before=commits;
     assert(Key(VK_RETURN) && commits==before && state.fadeedited); /* Retain incomplete pair. */
@@ -217,7 +217,7 @@ static void CheckFade(void)
     assert(ObjectPropertiesParseFade(" 655.35 ",&value) && value==655.35);
     assert(!ObjectPropertiesParseFade("655.36",&value) && !ObjectPropertiesParseFade("-1",&value));
     assert(!ObjectPropertiesParseFade("",&value) && !ObjectPropertiesParseFade("12m",&value));
-    puts("PASS: fade input pairs, enable/default state, validation, Enter/Apply, Escape and reentrant commits.");
+    puts("PASS: fade input pairs, enable/default state, validation, Enter, Escape and reentrant commits.");
 }
 
 static void CheckContents(void)

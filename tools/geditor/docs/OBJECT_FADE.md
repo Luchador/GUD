@@ -1,9 +1,10 @@
 # Per-object fade distances
 
-Select an object, check **Use custom fade distances**, enter **Fade start (m)**
-and **Fade end (m)**, then click **Apply fade distances** (or press Enter in
-either distance field). Both values apply together. Escape in either field
-restores the saved pair. Uncheck the option and Apply to restore level defaults.
+Select an object and check **Use custom fade distances** to enable the override
+immediately. Edit **Fade start (m)** and **Fade end (m)**; pressing Enter or
+leaving either field applies both values together when the pair is valid.
+Escape in either field restores the last applied pair. Unchecking the option
+immediately restores level defaults.
 
 The object is fully visible through the start distance, fades linearly between
 the two distances, and stops rendering at the end distance. Distances measure
