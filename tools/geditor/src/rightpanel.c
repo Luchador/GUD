@@ -51,6 +51,7 @@ enum {
     RIGHTPANEL_ID_SCALE_MODE,
     RIGHTPANEL_ID_PROPERTY_TABS,
     RIGHTPANEL_ID_STAN_ROOM,
+    RIGHTPANEL_ID_STAN_TYPE,
     RIGHTPANEL_ID_PAD_MODEL,
     RIGHTPANEL_ID_PAD_CREATE,
     RIGHTPANEL_ID_PAD_CREATE_DOOR
@@ -70,6 +71,8 @@ typedef struct RightPanelState {
     HWND objects;
     HWND details;
     HWND stanroom, stanroomlabel;
+    HWND stantype, stantypelabel;
+    BOOL showingstantype, updatingstantype;
     BOOL showingstanroom, updatingstanroom;
     DWORD stanroomcount;
     char stanroomtext[32];
@@ -182,12 +185,20 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
     detailtop = state->topheight + RIGHTPANEL_SPLITTER_H + 56;
     detailheight = client.bottom - RIGHTPANEL_MARGIN - detailtop;
     {
-        BOOL showroom = detailheight > 52 && state->showingstanroom
+        BOOL showtype = detailheight > 52 && state->showingstantype
+            && !state->vertexpaint && !state->secondarytab;
+        int typeheight = showtype ? 52 : 0;
+        BOOL showroom = detailheight > typeheight + 52 && state->showingstanroom
             && !state->vertexpaint && !state->secondarytab;
         BOOL showpad = detailheight >= 84 && state->showingpadmodel
             && !state->vertexpaint && !state->secondarytab;
-        MoveWindow(state->stanroomlabel, RIGHTPANEL_MARGIN, detailtop, width, 18, TRUE);
-        MoveWindow(state->stanroom, RIGHTPANEL_MARGIN, detailtop + 20, width, 240, TRUE);
+        int propertyheight = typeheight + (showroom ? 52 : showpad ? 84 : 0);
+        MoveWindow(state->stantypelabel, RIGHTPANEL_MARGIN, detailtop, width, 18, TRUE);
+        MoveWindow(state->stantype, RIGHTPANEL_MARGIN, detailtop + 20, width, 160, TRUE);
+        ShowWindow(state->stantypelabel, showtype ? SW_SHOW : SW_HIDE);
+        ShowWindow(state->stantype, showtype ? SW_SHOW : SW_HIDE);
+        MoveWindow(state->stanroomlabel, RIGHTPANEL_MARGIN, detailtop + typeheight, width, 18, TRUE);
+        MoveWindow(state->stanroom, RIGHTPANEL_MARGIN, detailtop + typeheight + 20, width, 240, TRUE);
         ShowWindow(state->stanroomlabel, showroom ? SW_SHOW : SW_HIDE);
         ShowWindow(state->stanroom, showroom ? SW_SHOW : SW_HIDE);
         MoveWindow(state->padmodellabel, RIGHTPANEL_MARGIN, detailtop, width, 18, TRUE);
@@ -200,8 +211,8 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
         ShowWindow(state->padmodel, showpad ? SW_SHOW : SW_HIDE);
         ShowWindow(state->padcreate, showpad ? SW_SHOW : SW_HIDE);
         ShowWindow(state->padcreatedoor, showpad ? SW_SHOW : SW_HIDE);
-        MoveWindow(state->details, RIGHTPANEL_MARGIN, detailtop + (showroom ? 52 : showpad ? 84 : 0), width,
-                   max(0, detailheight - (showroom ? 52 : showpad ? 84 : 0)), TRUE);
+        MoveWindow(state->details, RIGHTPANEL_MARGIN, detailtop + propertyheight, width,
+                   max(0, detailheight - propertyheight), TRUE);
     }
     ShowWindow(state->details, detailheight > 0 && !state->vertexpaint && !state->secondarytab && !state->showingfaces && !state->showingportals && !state->showingobjects && !state->showingcharacters ? SW_SHOW : SW_HIDE);
     FacePropertiesSetAdvanced(state->faceproperties, state->secondarytab);
@@ -231,12 +242,12 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
 
 static void RightPanelShowFaceProperties(HWND panel, RightPanelState *state, BOOL show)
 {
-    if (state->showingfaces == show && !state->showingportals && !state->showingobjects && !state->showingstanroom && !state->showingcharacters && !state->showingpadmodel) { return; }
+    if (state->showingfaces == show && !state->showingportals && !state->showingobjects && !state->showingstanroom && !state->showingstantype && !state->showingcharacters && !state->showingpadmodel) { return; }
     ObjectPropertiesSetSelection(state->objectproperties, NULL, 0, NULL);
     CharacterPropertiesSetSelection(state->characterproperties, NULL, 0);
     state->showingcharacters = FALSE;
     state->showingobjects = FALSE;
-    state->showingstanroom = FALSE;
+    state->showingstanroom = state->showingstantype = FALSE;
     state->showingpadmodel = FALSE;
     state->showingfaces = show;
     state->showingportals = FALSE;
@@ -523,6 +534,15 @@ static void RightPanelApplyStanRoom(HWND hwnd, RightPanelState *state, BOOL from
     SendMessage(GetParent(hwnd), RIGHTPANEL_WM_STAN_ROOM_CHANGED, room, 0);
 }
 
+static void RightPanelApplyStanType(HWND hwnd, RightPanelState *state)
+{
+    if (!state->showingstantype || state->updatingstantype) { return; }
+    LRESULT item = SendMessage(state->stantype, CB_GETCURSEL, 0, 0);
+    LRESULT type = item == CB_ERR ? CB_ERR : SendMessage(state->stantype, CB_GETITEMDATA, item, 0);
+    if (type == STAN_TYPE_NORMAL || type == STAN_TYPE_LADDER || type == STAN_TYPE_FORCED_CROUCH)
+    { SendMessage(GetParent(hwnd), RIGHTPANEL_WM_STAN_TYPE_CHANGED, (WPARAM)type, 0); }
+}
+
 static void RightPanelCreatePadModel(HWND hwnd, RightPanelState *state, BOOL door)
 {
     RightPanelPadModel request;
@@ -622,6 +642,13 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
             0, "EDIT", state->detailtext,
             WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL,
             0, 0, 1, 1, hwnd, NULL, cs->hInstance, NULL);
+        state->stantypelabel = CreateWindowEx(0, "STATIC", "Type", WS_CHILD | SS_NOPREFIX,
+            0, 0, 1, 1, hwnd, NULL, cs->hInstance, NULL);
+        state->stantype = CreateWindowEx(0, "COMBOBOX", "",
+            WS_CHILD | WS_TABSTOP | WS_VSCROLL | CBS_DROPDOWNLIST,
+            0, 0, 1, 160, hwnd, (HMENU)(INT_PTR)RIGHTPANEL_ID_STAN_TYPE, cs->hInstance, NULL);
+        SendMessage(state->stantypelabel, WM_SETFONT, (WPARAM)font, TRUE);
+        SendMessage(state->stantype, WM_SETFONT, (WPARAM)font, TRUE);
         state->stanroomlabel = CreateWindowEx(0, "STATIC", "Room", WS_CHILD | SS_NOPREFIX,
             0, 0, 1, 1, hwnd, NULL, cs->hInstance, NULL);
         state->stanroom = CreateWindowEx(0, "COMBOBOX", "",
@@ -665,6 +692,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         if (state->bgprimary == NULL || state->bgsecondary == NULL
             || state->stan == NULL || state->stanopacity == NULL || state->stanopacitylabel == NULL
             || state->portals == NULL || state->stanroom == NULL || state->stanroomlabel == NULL
+            || state->stantype == NULL || state->stantypelabel == NULL
             || state->padmodellabel == NULL || state->padmodel == NULL || state->padcreate == NULL || state->padcreatedoor == NULL
             || state->positions[0] == NULL || state->positions[1] == NULL
             || state->positions[2] == NULL || state->objects == NULL || state->details == NULL
@@ -738,6 +766,9 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         if (state && LOWORD(wparam) == RIGHTPANEL_ID_STAN_ROOM
             && HIWORD(wparam) == CBN_SELENDOK && !state->updatingstanroom)
         { RightPanelApplyStanRoom(hwnd, state, TRUE); return 0; }
+        if (state && LOWORD(wparam) == RIGHTPANEL_ID_STAN_TYPE
+            && HIWORD(wparam) == CBN_SELENDOK)
+        { RightPanelApplyStanType(hwnd, state); return 0; }
         if (state != NULL && HIWORD(wparam) == EN_CHANGE
             && LOWORD(wparam) >= RIGHTPANEL_ID_POSITION_X
             && LOWORD(wparam) <= RIGHTPANEL_ID_POSITION_Z)
@@ -1101,6 +1132,41 @@ void RightPanelSetColorSampling(HWND panel, BOOL enabled)
 }
 
 
+static void RightPanelUpdateStanType(RightPanelState *state, const StanFile *stan,
+                                    const DWORD *selected, DWORD count)
+{
+    static const struct { const char *name; StanTileType type; } types[] = {
+        {"Normal", STAN_TYPE_NORMAL}, {"Ladder", STAN_TYPE_LADDER},
+        {"Forced Crouch", STAN_TYPE_FORCED_CROUCH}
+    };
+    unsigned char type = stan->tiles[selected[0]].special;
+    BOOL mixed = FALSE, known = FALSE;
+    LRESULT current = 0;
+    for (DWORD i = 1; i < count; i++)
+    { if (stan->tiles[selected[i]].special != type) { mixed = TRUE; break; } }
+    for (unsigned int i = 0; i < ARRAYSIZE(types); i++)
+    { if (types[i].type == type) { known = TRUE; break; } }
+    state->updatingstantype = TRUE;
+    SendMessage(state->stantype, CB_RESETCONTENT, 0, 0);
+    if (mixed || !known)
+    {
+        char text[32];
+        if (mixed) { lstrcpyn(text, "Mixed", sizeof(text)); }
+        else { snprintf(text, sizeof(text), "Unknown (0x%X)", type); }
+        LRESULT item = SendMessage(state->stantype, CB_ADDSTRING, 0, (LPARAM)text);
+        SendMessage(state->stantype, CB_SETITEMDATA, item, (LPARAM)-1);
+    }
+    for (unsigned int i = 0; i < ARRAYSIZE(types); i++)
+    {
+        LRESULT item = SendMessage(state->stantype, CB_ADDSTRING, 0, (LPARAM)types[i].name);
+        SendMessage(state->stantype, CB_SETITEMDATA, item, types[i].type);
+        if (!mixed && types[i].type == type) { current = item; }
+    }
+    SendMessage(state->stantype, CB_SETCURSEL, current, 0);
+    state->updatingstantype = FALSE;
+    state->showingstantype = TRUE;
+}
+
 void RightPanelSetStanSelection(HWND panel, const StanFile *stan, EditorTool tool,
                                  DWORD count, DWORD singletile,
                                  const DWORD *selected, DWORD roomcount)
@@ -1124,9 +1190,11 @@ void RightPanelSetStanSelection(HWND panel, const StanFile *stan, EditorTool too
             "%lu stan %s selected.\r\n\r\nShift-click to add.\r\nControl-click to remove.\r\nDrag an arrow or enter a world position.",
             (unsigned long)count, kind);
     }
-    /* Refresh an active room field without hiding it and losing focus. */
-    state->showingstanroom = FALSE;
+    /* Refresh active stan fields without hiding them and losing focus. */
+    state->showingstanroom = state->showingstantype = FALSE;
     RightPanelShowFaceProperties(panel, state, FALSE);
+    if (tool == EDITOR_TOOL_FACE_SELECT && selected && count)
+    { RightPanelUpdateStanType(state, stan, selected, count); }
     if (tool == EDITOR_TOOL_FACE_SELECT && selected && count && roomcount)
     {
         DWORD room = stan->tiles[selected[0]].room;
@@ -1249,7 +1317,7 @@ void RightPanelSetSetupObject(HWND panel, const SetupFile *setup,
         SetWindowText(state->details, "The object's properties could not be loaded.");
         return;
     }
-    state->showingfaces = state->showingportals = state->showingstanroom = FALSE;
+    state->showingfaces = state->showingportals = state->showingstanroom = state->showingstantype = FALSE;
     CharacterPropertiesSetSelection(state->characterproperties, NULL, 0);
     state->showingcharacters = FALSE;
     state->showingobjects = TRUE;
@@ -1360,7 +1428,7 @@ void RightPanelSetSetupCharacter(HWND panel, const SetupFile *setup, DWORD index
         return;
     }
     ObjectPropertiesSetSelection(state->objectproperties, NULL, 0, NULL);
-    state->showingfaces = state->showingportals = state->showingstanroom = state->showingobjects = FALSE;
+    state->showingfaces = state->showingportals = state->showingstanroom = state->showingstantype = state->showingobjects = FALSE;
     state->showingcharacters = TRUE;
     state->showingpadmodel = FALSE;
     RightPanelLayout(panel, state);
@@ -1431,7 +1499,7 @@ void RightPanelSetPortal(HWND panel, const BgDocument *document, DWORD index)
     CharacterPropertiesSetSelection(state->characterproperties, NULL, 0);
     state->showingcharacters = FALSE;
     state->showingobjects = FALSE;
-    state->showingfaces = state->showingstanroom = FALSE; state->showingportals = TRUE;
+    state->showingfaces = state->showingstanroom = state->showingstantype = FALSE; state->showingportals = TRUE;
     state->showingpadmodel = FALSE;
     RightPanelLayout(panel, state);
 }

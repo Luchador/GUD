@@ -30,8 +30,8 @@ with tempfile.TemporaryDirectory(prefix='geditor-reverse-') as temp:
                    + [str(src / n) for n in sources] + ['-Wl,--gc-sections', '-lm', '-o', str(work / 'check')], check=True)
     subprocess.run([str(work / 'check'), str(work)], check=True,
                    env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))
-    (work / 'context.inc').write_text(helpers.function((src / 'viewport.c').read_text(),
-                                                       'ViewportShowGeometryContextMenu'))
+    (work / 'context.inc').write_text(''.join(helpers.function((src / 'viewport.c').read_text(), n) for n in
+        ('ViewportStanVisible', 'ViewportContextStanType', 'ViewportShowGeometryContextMenu')))
     subprocess.run(cmd + [str(here / 'context.c'), '-Wl,--gc-sections', '-lm',
                            '-o', str(work / 'context')], check=True)
     subprocess.run([str(work / 'context')], check=True,

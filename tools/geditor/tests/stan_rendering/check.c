@@ -10,6 +10,7 @@ typedef int GLsizei;
 typedef struct ViewportState {
     BOOL showstan, dragextruding, dragstan, extrudepreviewvalid;
     int stanopacity;
+    unsigned statisticsfont;
     StanFile stan;
     Vertex *stanfill, *stanedges;
     GLsizei stanfillcount, stanedgecount;
@@ -21,7 +22,8 @@ enum { GL_FALSE, GL_TRUE, GL_BLEND, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,
     GL_CURRENT_BIT=8, GL_ENABLE_BIT=16, GL_COLOR_BUFFER_BIT=32, GL_DEPTH_BUFFER_BIT=64,
     GL_LINE_BIT=128, GL_POLYGON_BIT=256, GL_CLIENT_VERTEX_ARRAY_BIT=512,
     GL_COLOR_ARRAY, GL_TEXTURE_2D, GL_ALPHA_TEST, GL_CULL_FACE, GL_LEQUAL, GL_LESS,
-    GL_POLYGON_OFFSET_FILL, GL_FRONT_AND_BACK, GL_FILL, GL_TRIANGLES, GL_LINES, GL_FLOAT, GL_UNSIGNED_BYTE };
+    GL_POLYGON_OFFSET_FILL, GL_FRONT_AND_BACK, GL_FILL, GL_TRIANGLES, GL_LINES, GL_FLOAT, GL_UNSIGNED_BYTE,
+    GL_LIST_BIT=1024, GL_LIGHTING, GL_FOG, GL_DEPTH_TEST };
 typedef struct RenderState { BOOL blend, write, offset; int depth; double far; } RenderState;
 static RenderState gl, stack, draws[8];
 static int drawcount, modes[8], alpha;
@@ -46,6 +48,21 @@ static void glVertex3f(float x,float y,float z) {}
 static void glBegin(int mode) { assert(drawcount<8);modes[drawcount]=mode;draws[drawcount++]=gl; }
 static void glEnd(void) {}
 static void glDrawArrays(int mode,int first,int count) { assert(first==0 && count>0);glBegin(mode); }
+static int labels;
+static char letters[8];
+static float position[3], centers[8][3];
+static BOOL hidden;
+static BOOL ViewportStanTileHidden(const ViewportState *s,DWORD tile) { return hidden; }
+static void glListBase(unsigned font) { assert(font); }
+static void glRasterPos3fv(const float *p) { memcpy(position,p,sizeof(position)); }
+static void glBitmap(int w,int h,float x,float y,float dx,float dy,const void *data)
+{ assert(!w && !h && !data && dx<0 && dy<0); }
+static void glCallLists(int n,int type,const void *text)
+{
+    assert(n==1 && type==GL_UNSIGNED_BYTE && labels<8);
+    assert(!gl.blend && !gl.write && gl.depth==GL_LEQUAL && gl.far<1);
+    letters[labels]=*(const char *)text;memcpy(centers[labels++],position,sizeof(position));
+}
 #include "draw.inc"
 
 int main(void)
@@ -71,6 +88,28 @@ int main(void)
         if(extrude && opacity[i])assert(alpha==opacity[i]*255/100);
         assert(!gl.blend && gl.write && gl.depth==GL_LESS && gl.far==1 && !gl.offset);
     }
-    puts("PASS: 0% hidden, partial stan blending, 100% opaque depth writes, outline bias, extrusion previews and restored GL state.");
+    /* Vertical quad: screen-facing labels use all four corners, not XZ alone. */
+    tile.pointcount=4;
+    tile.points[0]=(StanPoint){10,0,20,0};tile.points[1]=(StanPoint){10,12,20,0};
+    tile.points[2]=(StanPoint){10,12,40,0};tile.points[3]=(StanPoint){10,0,40,0};
+    s.statisticsfont=1;
+    for(int type=0;type<6;type++)for(int i=0;i<4;i++)for(int hide=0;hide<2;hide++)
+    {
+        tile.special=type;s.stanopacity=opacity[i];hidden=hide;labels=0;
+        gl=(RenderState){.write=TRUE,.depth=GL_LESS,.far=1};
+        ViewportDrawStanTypeLabels(&s);
+        int expected=!hide && opacity[i] && (type==STAN_TYPE_LADDER || type==STAN_TYPE_FORCED_CROUCH) ? 2:0;
+        assert(labels==expected);
+        for(int j=0;j<labels;j++)
+        {
+            assert(letters[j]==(type==STAN_TYPE_LADDER?'L':'C'));
+            assert(centers[j][0]==10 && centers[j][1]==6 && centers[j][2]==30);
+        }
+        assert(!gl.blend && gl.write && gl.depth==GL_LESS && gl.far==1);
+    }
+    hidden=FALSE;tile.special=STAN_TYPE_LADDER;labels=0;s.showstan=FALSE;
+    ViewportDrawStanTypeLabels(&s);assert(!labels);
+    s.showstan=TRUE;s.statisticsfont=0;ViewportDrawStanTypeLabels(&s);assert(!labels);
+    puts("PASS: stan opacity/depth, outline bias, extrusion previews, centered L/C labels, hidden/normal/unknown suppression and restored GL state.");
     return 0;
 }

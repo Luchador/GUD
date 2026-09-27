@@ -20,7 +20,8 @@ with tempfile.TemporaryDirectory(prefix='geditor-stan-rendering-') as temp:
     vertex = re.search(r'typedef struct Vertex \{.*?\} Vertex;', viewport, re.S)[0]
     (work / 'types.inc').write_text(vertex + '\n')
     (work / 'draw.inc').write_text(''.join(extract.function(viewport, name) for name in (
-        'ViewportStanVisible', 'ViewportApplyStanOpacity', 'ViewportDrawStanExtrusion', 'ViewportDrawStanOverlay')))
+        'ViewportStanVisible', 'ViewportApplyStanOpacity', 'ViewportDrawStanExtrusion',
+        'ViewportDrawStanTypeLabels', 'ViewportDrawStanOverlay')))
     # Check that the live repaint and component markers use these tested paths.
     assert 'ViewportDrawStanOverlay(state);' in extract.function(viewport, 'ViewportPaintGL')
     assert 'ViewportApplyStanOpacity(state, FALSE);' in extract.function(viewport, 'ViewportDrawTransformTools')

@@ -12,6 +12,13 @@
 /* The runtime room index has 139 slots, including reserved room zero. */
 #define STAN_MAX_ROOM 138u
 
+/* Native special-field values: these are types, not combinable flags. */
+typedef enum StanTileType {
+    STAN_TYPE_NORMAL = 0,
+    STAN_TYPE_FORCED_CROUCH = 1,
+    STAN_TYPE_LADDER = 3
+} StanTileType;
+
 /* Host-native form of one point from a variable-length stan tile.
    Positions are converted to gameplay world units while the authored
    edge link is retained for future editing and inspection tools. */
@@ -141,6 +148,8 @@ BOOL StanLinkEdgeTiles(StanFile *stan, const StanEdgeRef *edge,
  * native links in a copy for the runtime's contiguous room scans. */
 BOOL StanSetTileRooms(StanFile *stan, const DWORD *selected, DWORD count,
     DWORD room, DWORD roomcount, DWORD *changedout, const char **reasonout);
+BOOL StanSetTileTypes(StanFile *stan, const DWORD *selected, DWORD count,
+    StanTileType type, DWORD *changedout, const char **reasonout);
 /* RGB is quantized to the format's 4-bit channels; stan has no stored alpha. */
 BOOL StanPaintTile(StanFile *stan, DWORD tile, const unsigned char rgba[4],
                    BOOL *changedout, const char **reasonout);

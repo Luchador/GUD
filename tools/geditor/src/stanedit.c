@@ -48,6 +48,47 @@ BOOL StanSetTileRooms(StanFile *stan, const DWORD *selected, DWORD count,
     return TRUE;
 }
 
+BOOL StanSetTileTypes(StanFile *stan, const DWORD *selected, DWORD count,
+    StanTileType type, DWORD *changedout, const char **reasonout)
+{
+    *changedout = 0;
+    *reasonout = "";
+    if (!stan || !stan->data || !stan->tiles || !selected || !count || count > stan->tilecount)
+    { *reasonout = "Select stan tiles in Face mode."; return FALSE; }
+    if (type != STAN_TYPE_NORMAL && type != STAN_TYPE_LADDER && type != STAN_TYPE_FORCED_CROUCH)
+    { *reasonout = "Choose Normal, Ladder, or Forced Crouch."; return FALSE; }
+    /* Validate every record first so a stale selection cannot partly apply. */
+    for (DWORD i = 0; i < count; i++)
+    {
+        const StanTile *tile;
+        const unsigned char *raw;
+        DWORD size;
+        if (selected[i] >= stan->tilecount)
+        { *reasonout = "A selected stan tile no longer exists."; return FALSE; }
+        tile = stan->tiles + selected[i];
+        size = 8u + tile->pointcount * 8u;
+        if (tile->pointcount < 3 || tile->pointcount > STAN_TILE_MAX_POINTS
+            || tile->sourceoffset > stan->size || size > stan->size - tile->sourceoffset)
+        { *reasonout = "A selected stan tile has an invalid record."; return FALSE; }
+        raw = stan->data + tile->sourceoffset;
+        if (((DWORD)raw[0] << 16 | (DWORD)raw[1] << 8 | raw[2]) != tile->id
+            || raw[3] != tile->room || raw[4] >> 4 != tile->special
+            || raw[6] >> 4 != tile->pointcount)
+        { *reasonout = "The selected stan tile records are inconsistent."; return FALSE; }
+    }
+    for (DWORD i = 0; i < count; i++)
+    {
+        StanTile *tile = stan->tiles + selected[i];
+        unsigned char *raw = stan->data + tile->sourceoffset + 4;
+        if (tile->special == type) { continue; }
+        tile->special = (unsigned char)type;
+        *raw = (*raw & 0x0f) | ((unsigned char)type << 4);
+        (*changedout)++;
+    }
+    if (*changedout) { stan->dirty = TRUE; }
+    return TRUE;
+}
+
 static DWORD StanPointRoot(DWORD *map, DWORD point)
 {
     while (map[point] != point)

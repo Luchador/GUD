@@ -421,6 +421,7 @@ static void ViewportRefreshPadPreview(ViewportState *state);
 static BOOL ViewportPadPosition(const ViewportState *state, const SetupPadRef *ref, BOOL preview, double position[3]);
 static void ViewportGetBasis(const ViewportState *state, float fwd[3], float right[3]);
 static BOOL ViewportStanVisible(const ViewportState *state);
+static BOOL ViewportStanTileHidden(const ViewportState *state, DWORD tile);
 static void ViewportClearStanSelection(ViewportState *state);
 static void ViewportRefreshPortalColors(ViewportState *state);
 static void ViewportRefreshPortalGeometry(ViewportState *state);
@@ -2166,6 +2167,41 @@ static void ViewportDrawPortalOriginals(const ViewportState *state, BOOL fill)
     glEnd();
 }
 
+static void ViewportDrawStanTypeLabels(const ViewportState *state)
+{
+    if (!ViewportStanVisible(state) || !state->statisticsfont) { return; }
+    glPushAttrib(GL_CURRENT_BIT | GL_ENABLE_BIT | GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_LIST_BIT);
+    glDisable(GL_TEXTURE_2D); glDisable(GL_ALPHA_TEST); glDisable(GL_BLEND);
+    glDisable(GL_LIGHTING); glDisable(GL_FOG);
+    glEnable(GL_DEPTH_TEST); glDepthFunc(GL_LEQUAL); glDepthMask(GL_FALSE);
+    /* Like the outlines, labels must clear the opaque, offset stan fill. */
+    glDepthRange(0.0, 0.99999);
+    glListBase(state->statisticsfont);
+    for (DWORD i = 0; i < state->stan.tilecount; i++)
+    {
+        const StanTile *tile = &state->stan.tiles[i];
+        char label = tile->special == STAN_TYPE_LADDER ? 'L'
+            : tile->special == STAN_TYPE_FORCED_CROUCH ? 'C' : 0;
+        float center[3] = {0};
+        if (!label || tile->pointcount < 3 || ViewportStanTileHidden(state, i)) { continue; }
+        for (unsigned int p = 0; p < tile->pointcount; p++)
+        {
+            center[0] += tile->points[p].x / tile->pointcount;
+            center[1] += tile->points[p].y / tile->pointcount;
+            center[2] += tile->points[p].z / tile->pointcount;
+        }
+        /* Bitmap glyphs stay upright and readable on vertical ladder tiles.
+           The raster position retains depth testing against scene geometry. */
+        glColor4ub(0, 0, 0, 255); glRasterPos3fv(center);
+        glBitmap(0, 0, 0, 0, -3, -6, NULL);
+        glCallLists(1, GL_UNSIGNED_BYTE, &label);
+        glColor4ub(255, 255, 255, 255); glRasterPos3fv(center);
+        glBitmap(0, 0, 0, 0, -4, -5, NULL);
+        glCallLists(1, GL_UNSIGNED_BYTE, &label);
+    }
+    glPopAttrib();
+}
+
 static void ViewportDrawStanOverlay(const ViewportState *state)
 {
     if (ViewportStanVisible(state) && state->stanfill != NULL && state->stanfillcount > 0)
@@ -2215,6 +2251,7 @@ static void ViewportDrawStanOverlay(const ViewportState *state)
     }
 
     ViewportDrawStanExtrusion(state);
+    ViewportDrawStanTypeLabels(state);
 }
 
 static void ViewportPaintGL(ViewportState *state)
@@ -8314,12 +8351,37 @@ static BOOL ViewportObjectPasteTarget(HWND hwnd, const ViewportState *state, int
     return TRUE;
 }
 
+static DWORD ViewportContextStanType(HWND hwnd, ViewportState *state, int x, int y, int *type)
+{
+    ViewportPickRay ray;
+    *type = -1;
+    if (!ViewportStanVisible(state) || !state->stanselected) { return 0; }
+    if (ViewportBuildPickRay(hwnd, state, x, y, &ray))
+    {
+        double distance;
+        DWORD hit = ViewportFindPickedStan(state, &ray, &distance);
+        if (hit != STAN_TILE_NONE && distance <= ViewportSceneHitDistance(state, &ray)
+            + ViewportCoplanarPickTolerance(distance) && !state->stanselected[hit])
+        { ViewportSelectStanTiles(hwnd, &hit, 1); }
+    }
+    DWORD count = ViewportGetStanSelectionCount(hwnd, NULL), seen = 0;
+    for (DWORD i = 0; count && i < state->stan.tilecount; i++)
+    {
+        if (!state->stanselected[i]) { continue; }
+        if (!seen++) { *type = state->stan.tiles[i].special; }
+        else if (*type != state->stan.tiles[i].special) { *type = -1; break; }
+    }
+    return count;
+}
+
 static void ViewportShowGeometryContextMenu(HWND hwnd, ViewportState *state, int x, int y)
 {
     BgDocumentEdgeRef edge;
     StanEdgeRef stanedge;
     ViewportObjectPaste target;
     BOOL paste;
+    DWORD stancount = 0;
+    int stantype = -1;
     POINT screen = {x,y};
     UINT message = 0, command;
     HMENU menu;
@@ -8329,6 +8391,8 @@ static void ViewportShowGeometryContextMenu(HWND hwnd, ViewportState *state, int
     { return; }
     paste = SendMessage(GetParent(hwnd), VIEWPORT_WM_CAN_PASTE_OBJECT, 0, 0)
         && ViewportObjectPasteTarget(hwnd, state, x, y, &target);
+    if (state->tool == EDITOR_TOOL_FACE_SELECT)
+    { stancount = ViewportContextStanType(hwnd, state, x, y, &stantype); }
     if (state->tool == EDITOR_TOOL_EDGE_SELECT)
     {
         if (ViewportTryPickStan(hwnd,state,x,y,FALSE,FALSE))
@@ -8344,11 +8408,11 @@ static void ViewportShowGeometryContextMenu(HWND hwnd, ViewportState *state, int
         }
         label="Split Edge";
     }
-    else if (state->tool == EDITOR_TOOL_FACE_SELECT && ViewportGetStanSelectionCount(hwnd, NULL))
+    else if (state->tool == EDITOR_TOOL_FACE_SELECT && stancount)
     {
         /* A stan context click must not pick the BG underneath the tiles or
          * replace the pair that the user has already selected. */
-        if (ViewportGetStanSelectionCount(hwnd, NULL) != 2) { goto show_menu; }
+        if (stancount != 2) { goto show_menu; }
         message=VIEWPORT_WM_LINK_STAN_TILES; label="Link Stan Tiles";
     }
     else if (state->tool == EDITOR_TOOL_FACE_SELECT)
@@ -8366,11 +8430,11 @@ static void ViewportShowGeometryContextMenu(HWND hwnd, ViewportState *state, int
         message=VIEWPORT_WM_DISCONNECT_FACES; label="Disconnect Face";
     }
 show_menu:
-    if (!message && !paste) { return; }
+    if (!message && !paste && !stancount) { return; }
     menu=CreatePopupMenu();
     if (!menu) { return; }
     if ((!paste || (AppendMenu(menu, MF_STRING, 4, "Paste Here")
-            && (!message || AppendMenu(menu, MF_SEPARATOR, 0, NULL))))
+            && (!(message || stancount) || AppendMenu(menu, MF_SEPARATOR, 0, NULL))))
         && (!message || AppendMenu(menu, MF_STRING, 1, label))
         && (message != VIEWPORT_WM_SPLIT_EDGE || AppendMenu(menu, MF_STRING
             | (SendMessage(GetParent(hwnd), VIEWPORT_WM_CAN_REVERSE_EDGE, 0, 0) ? MF_ENABLED : MF_GRAYED),
@@ -8379,7 +8443,11 @@ show_menu:
         && (message != VIEWPORT_WM_SPLIT_EDGE || AppendMenu(menu, MF_STRING, 3,
             (edge.face.seams & (1u << edge.corner)) ? "Clear Seam" : "Mark Seam"))
         && (message != VIEWPORT_WM_DISCONNECT_FACES || ViewportGetSelectedBgFaceCount(hwnd) != 2
-            || AppendMenu(menu, MF_STRING, 5, "Create Door Shadow")))
+            || AppendMenu(menu, MF_STRING, 5, "Create Door Shadow"))
+        && (!stancount || ((!message || AppendMenu(menu, MF_SEPARATOR, 0, NULL))
+            && AppendMenu(menu, MF_STRING | (stantype == STAN_TYPE_NORMAL ? MF_CHECKED : 0), 7, "Normal")
+            && AppendMenu(menu, MF_STRING | (stantype == STAN_TYPE_LADDER ? MF_CHECKED : 0), 8, "Ladder")
+            && AppendMenu(menu, MF_STRING | (stantype == STAN_TYPE_FORCED_CROUCH ? MF_CHECKED : 0), 9, "Forced Crouch"))))
     {
         ClientToScreen(hwnd, &screen);
         command=TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY | TPM_RIGHTBUTTON,
@@ -8398,6 +8466,12 @@ show_menu:
         { SendMessage(GetParent(hwnd), VIEWPORT_WM_CREATE_DOOR_SHADOW, 0, 0); }
         else if (command == 4 && paste)
         { SendMessage(GetParent(hwnd), VIEWPORT_WM_PASTE_OBJECT_HERE, 0, (LPARAM)&target); }
+        else if (stancount && command >= 7 && command <= 9)
+        {
+            StanTileType type = command == 7 ? STAN_TYPE_NORMAL
+                : command == 8 ? STAN_TYPE_LADDER : STAN_TYPE_FORCED_CROUCH;
+            SendMessage(GetParent(hwnd), VIEWPORT_WM_STAN_TYPE_CHANGED, type, 0);
+        }
     }
     else { DestroyMenu(menu); }
 }

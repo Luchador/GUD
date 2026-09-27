@@ -54,6 +54,7 @@ void ViewportShowUVSeams(HWND viewport, BOOL show);
 void ViewportSetDoorPick(HWND viewport, BOOL enabled);
 /* Link the two currently selected stan faces without replacing the selection. */
 #define VIEWPORT_WM_LINK_STAN_TILES (WM_APP + 71)
+#define VIEWPORT_WM_STAN_TYPE_CHANGED (WM_APP + 114) /* wparam: StanTileType */
 /* lparam is a synchronous, stack-owned StanEdgeRef. */
 #define VIEWPORT_WM_SPLIT_STAN_EDGE (WM_APP + 75)
 #define VIEWPORT_WM_LINK_STAN_EDGE (WM_APP + 76)

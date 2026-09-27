@@ -15,6 +15,7 @@
 #define RIGHTPANEL_WM_STAN_OPACITY (WM_APP + 10)
 /* Assign all selected stan faces to the existing room in wparam. */
 #define RIGHTPANEL_WM_STAN_ROOM_CHANGED (WM_APP + 73)
+#define RIGHTPANEL_WM_STAN_TYPE_CHANGED (WM_APP + 113) /* wparam: StanTileType */
 #define RIGHTPANEL_WM_BOUND_PAD_MODEL (WM_APP + 91)
 typedef struct RightPanelPadModel {
     SetupPadRef pad;

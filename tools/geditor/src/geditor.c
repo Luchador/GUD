@@ -2268,6 +2268,40 @@ fail:
     return FALSE;
 }
 
+static BOOL GEditorSetSelectedStanType(HWND hwnd, StanTileType type)
+{
+    EditHistoryTransaction transaction = {0};
+    DWORD *selected = NULL, count, changed = 0;
+    const char *why = "Out of memory reading the stan selection.", *restorewhy = "";
+    if (ViewportGetTool(g_Viewport) != EDITOR_TOOL_FACE_SELECT
+        || ViewportIsFlying(g_Viewport) || ViewportIsTransforming(g_Viewport)) { return FALSE; }
+    count = ViewportGetStanSelectionCount(g_Viewport, NULL);
+    if (!count) { return FALSE; }
+    selected = malloc((size_t)count * sizeof(*selected));
+    if (!selected) { goto fail; }
+    if (!ViewportGetSelectedStanTiles(g_Viewport, selected, count))
+    { why = "The selected stan tiles could not be read."; goto fail; }
+    if (!EditHistoryBeginStanEdit(&g_EditHistory, &g_CurrentStan,
+        "Change Stan Type", &transaction, &why)) { goto fail; }
+    if (!StanSetTileTypes(&g_CurrentStan, selected, count, type, &changed, &why)) { goto fail; }
+    if (!changed) { free(selected); EditHistoryCancelEdit(&transaction); return TRUE; }
+    if (!GEditorReloadCurrentObjectsAndViewport(&why)) { goto rollback; }
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+        &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    free(selected);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    GEditorReloadCurrentObjectsAndViewport(&restorewhy);
+    GEditorRestoreHistorySelection(hwnd);
+fail:
+    free(selected); EditHistoryCancelEdit(&transaction);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
 static BOOL GEditorLinkStanTiles(HWND hwnd, const StanEdgeRef *edge)
 {
     EditHistoryTransaction transaction = {0};
@@ -5682,6 +5716,14 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     case FACEPROPERTIES_WM_LAYER_CHANGED:
     {
         BOOL ok = GEditorSetSelectedFaceLayer(hwnd, (BgGeometryLayer)wparam);
+        GEditorRefreshSelectionDetails();
+        return ok;
+    }
+
+    case RIGHTPANEL_WM_STAN_TYPE_CHANGED:
+    case VIEWPORT_WM_STAN_TYPE_CHANGED:
+    {
+        BOOL ok = GEditorSetSelectedStanType(hwnd, (StanTileType)wparam);
         GEditorRefreshSelectionDetails();
         return ok;
     }
