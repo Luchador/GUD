@@ -17,6 +17,7 @@
 #include <windowsx.h>  /* GET_X_LPARAM / GET_Y_LPARAM */
 #include <commctrl.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "browser.h"
 #include "bgload.h"
@@ -110,6 +111,7 @@ static const BrowserObjectType g_BrowserObjectOrder[BROWSER_OBJECT_COUNT] = {
 #define BROWSER_ROW_H 16
 
 typedef struct BrowserState {
+    BOOL fileimages; /* Standalone studio grid: filename identity, no game actions. */
     BrowserSection sections[BROWSER_SECTION_COUNT];
     BrowserLevelItem levels[BROWSER_MAX_LEVELS];
     DWORD levelindices[BROWSER_MAX_LEVELS]; /* Project indices, independent of display order. */
@@ -147,6 +149,9 @@ typedef struct BrowserState {
 } BrowserState;
 
 #define BROWSER_SCROLLBAR_W 8
+
+static int BrowserImageCount(const BrowserState *state)
+{ return state->imagecount + (state->fileimages ? 0 : 1); }
 
 /* Classify by the model name, independently of its project folder. */
 static int BrowserModelCategory(const char *name)
@@ -276,7 +281,7 @@ static int BrowserContentHeight(const BrowserState *state, int section)
     if (section == BROWSER_SECTION_IMAGES)
     {
         int columns = BrowserImageColumns(&state->sections[section].bodyrc);
-        int count = state->imagecount + 1; /* include the permanent No Texture item */
+        int count = BrowserImageCount(state);
         int rows = count / columns + (count % columns != 0);
 
         return rows > 0 ? rows * BROWSER_IMAGE_CELL_H + BROWSER_IMAGE_MARGIN * 2 : 0;
@@ -408,6 +413,17 @@ static void BrowserLayoutSections(BrowserState *state, const RECT *client)
 {
     int expandedcount = 0, bodyspace, perbody = 0, objectheight = 0;
     int remaining, y = 0, i;
+    if (state->fileimages)
+    {
+        for (i = 0; i < BROWSER_SECTION_COUNT; i++)
+        {
+            SetRectEmpty(&state->sections[i].headerrc);
+            SetRectEmpty(&state->sections[i].bodyrc);
+            state->sections[i].expanded = i == BROWSER_SECTION_IMAGES;
+        }
+        state->sections[BROWSER_SECTION_IMAGES].bodyrc = *client;
+        return;
+    }
     for (i = 0; i < BROWSER_SECTION_COUNT; i++)
     {
         if (state->sections[i].expanded) { expandedcount++; }
@@ -741,18 +757,20 @@ static void BrowserPaintLevelRows(BrowserState *state, HDC hdc, const RECT *body
 static const TexThumb *BrowserImageAt(const BrowserState *state, int index,
                                      const unsigned char **pixels)
 {
-    if (index == 0)
+    if (!state->fileimages && index == 0)
     {
         *pixels = state->notexturepixels;
         return &state->notexture;
     }
-    *pixels = state->imagepixels + state->images[index - 1].pixeloffset;
-    return &state->images[index - 1];
+    if (!state->fileimages) { index--; }
+    *pixels = state->imagepixels + state->images[index].pixeloffset;
+    return &state->images[index];
 }
 
 static int BrowserFindImage(const BrowserState *state, DWORD textureid)
 {
     int i;
+    if (state->fileimages) { return -1; }
     if (textureid == BG_TEX_NONE) { return 0; }
     if (textureid > BG_TEX_NONE) { return -1; }
     for (i = 0; i < state->imagecount; i++)
@@ -784,7 +802,7 @@ static void BrowserPaintImageGrid(BrowserState *state, HDC hdc, const RECT *body
 
     SetTextColor(hdc, GetSysColor(COLOR_WINDOWTEXT));
 
-    for (i = firstrow * columns; i < state->imagecount + 1; i++)
+    for (i = firstrow * columns; i < BrowserImageCount(state); i++)
     {
         const TexThumb *t;
         const unsigned char *pixels;
@@ -828,6 +846,11 @@ static void BrowserPaintImageGrid(BrowserState *state, HDC hdc, const RECT *body
                           0, 0, t->w, t->h,
                           pixels,
                           &bmi, DIB_RGB_COLORS, SRCCOPY);
+        }
+        else if (state->fileimages)
+        {
+            RECT preview = rc; preview.bottom = y + BROWSER_IMAGE_PREVIEW_SIZE;
+            DrawText(hdc, "No preview", -1, &preview, DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_NOPREFIX);
         }
 
         rc.top = y + BROWSER_IMAGE_PREVIEW_SIZE + 4;
@@ -970,7 +993,7 @@ static void BrowserPaint(HWND hwnd, HDC hdc)
             if (body.bottom <= body.top) { continue; }
             if (i == BROWSER_SECTION_OBJECTS
                 || (i == BROWSER_SECTION_LEVELS && state->levelcount > 0)
-                || i == BROWSER_SECTION_IMAGES
+                || (i == BROWSER_SECTION_IMAGES && BrowserImageCount(state) > 0)
                 || (i == BROWSER_SECTION_MODELS && state->modelcounts[state->modeltab] > 0))
             {
                 int saved = SaveDC(hdc);
@@ -1065,7 +1088,7 @@ static int BrowserHitImage(const BrowserState *state, POINT point)
     /* Invert the painter's rounded column boundaries exactly. */
     image = (y / BROWSER_IMAGE_CELL_H) * columns
           + ((x + 1) * columns - 1) / width;
-    return image < state->imagecount + 1 ? image : -1;
+    return image < BrowserImageCount(state) ? image : -1;
 }
 
 static void BrowserUpdateImageTooltip(HWND hwnd, BrowserState *state, WPARAM wparam, LPARAM lparam)
@@ -1088,7 +1111,16 @@ static void BrowserUpdateImageTooltip(HWND hwnd, BrowserState *state, WPARAM wpa
             RECT body = BrowserContentRect(state, BROWSER_SECTION_IMAGES);
             int columns = BrowserImageColumns(&body), width = BrowserImageGridWidth(&body);
             int column = index % columns;
-            if (index == 0)
+            if (state->fileimages)
+            {
+                const TexThumb *thumb = &state->images[index];
+                if (thumb->w && thumb->h)
+                    snprintf(state->tooltiptext, sizeof(state->tooltiptext), "%s\r\n%d x %d pixels",
+                        thumb->label, thumb->imagewidth, thumb->imageheight);
+                else
+                    snprintf(state->tooltiptext, sizeof(state->tooltiptext), "%s\r\nPreview unavailable.", thumb->label);
+            }
+            else if (index == 0)
             {
                 lstrcpyn(state->tooltiptext, "No Texture\r\nRemoves the texture from a face.", sizeof(state->tooltiptext));
             }
@@ -1405,6 +1437,7 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             return -1;
         }
 
+        state->fileimages = ((CREATESTRUCT *)lparam)->lpCreateParams != NULL;
         state->sections[BROWSER_SECTION_OBJECTS].name = "Objects";
         state->sections[BROWSER_SECTION_LEVELS].name = "Levels";
         state->sections[BROWSER_SECTION_IMAGES].name = "Images";
@@ -1414,7 +1447,7 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         {
             int i;
             for (i = 0; i < BROWSER_SECTION_COUNT; i++) { state->sections[i].expanded = TRUE; }
-            for (i = 0; i < BROWSER_OBJECT_COUNT; i++)
+            for (i = 0; !state->fileimages && i < BROWSER_OBJECT_COUNT; i++)
             {
                 if (!TexLoadResourceThumbnail(((CREATESTRUCT *)lparam)->hInstance,
                     g_BrowserObjects[i].icon, &state->objecticons[i], state->objectpixels[i]))
@@ -1431,7 +1464,7 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         state->tooltipimage = -1;
 
         lstrcpyn(state->notexture.label, "No Texture", sizeof(state->notexture.label));
-        if (!TexLoadResourceThumbnail(((CREATESTRUCT *)lparam)->hInstance,
+        if (!state->fileimages && !TexLoadResourceThumbnail(((CREATESTRUCT *)lparam)->hInstance,
                 IDR_NO_TEXTURE, &state->notexture, state->notexturepixels))
         {
             free(state);
@@ -1586,7 +1619,8 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             {
                 state->selectedimage = hit;
                 InvalidateRect(hwnd, &state->sections[BROWSER_SECTION_IMAGES].bodyrc, FALSE);
-                BrowserBeginImageDrag(hwnd, state, hit, p);
+                if (!state->fileimages) { BrowserBeginImageDrag(hwnd, state, hit, p); }
+                else { SetFocus(hwnd); }
                 return 0;
             }
             hit = BrowserHitModel(state, p);
@@ -1737,6 +1771,7 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         return 0;
 
     case WM_CONTEXTMENU:
+        if (state && state->fileimages) { return 0; }
         if (state != NULL)
         {
             POINT screen = { GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam) }, point;
@@ -1994,6 +2029,12 @@ HWND BrowserCreate(HWND parent, HINSTANCE hinstance)
         parent, NULL, hinstance, NULL);
 }
 
+HWND BrowserCreateImagePanel(HWND parent, HINSTANCE hinstance, int controlid)
+{
+    return CreateWindowEx(WS_EX_CLIENTEDGE, BROWSER_CLASS, NULL,
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP, 0, 0, 16, 16,
+        parent, (HMENU)(INT_PTR)controlid, hinstance, (void *)1);
+}
 
 void BrowserSelectLevel(HWND browser, DWORD index)
 {
@@ -2049,6 +2090,7 @@ void BrowserSetImages(HWND browser, TexThumb *items, int count,
 {
     BrowserState *state = BrowserGetState(browser);
     DWORD selectedid = BG_TEX_NONE;
+    char selectedfile[MAX_PATH] = "";
     BOOL hadselection = FALSE;
 
     if (state == NULL)
@@ -2059,7 +2101,9 @@ void BrowserSetImages(HWND browser, TexThumb *items, int count,
         return;
     }
 
-    if (state->selectedimage >= 0 && state->selectedimage <= state->imagecount)
+    if (state->fileimages && state->selectedimage >= 0 && state->selectedimage < state->imagecount)
+        lstrcpyn(selectedfile, state->images[state->selectedimage].label, sizeof(selectedfile));
+    else if (!state->fileimages && state->selectedimage >= 0 && state->selectedimage <= state->imagecount)
     {
         hadselection = TRUE;
         if (state->selectedimage > 0)
@@ -2075,6 +2119,9 @@ void BrowserSetImages(HWND browser, TexThumb *items, int count,
     state->imagecount = items != NULL ? count : 0;
     if (items == NULL) { state->scroll[BROWSER_SECTION_IMAGES] = 0; }
     state->selectedimage = hadselection && items != NULL ? BrowserFindImage(state, selectedid) : -1;
+    if (selectedfile[0])
+        for (int i = 0; i < state->imagecount; i++)
+            if (!lstrcmpi(selectedfile, state->images[i].label)) { state->selectedimage = i; break; }
     BrowserClampScroll(state, BROWSER_SECTION_IMAGES);
 
     InvalidateRect(browser, NULL, TRUE);

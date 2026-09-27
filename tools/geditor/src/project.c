@@ -14,8 +14,9 @@
 
 BOOL ProjectEnsureStudioFolders(const char *projectdir, const char **reasonout)
 {
-    static const char *folders[] = {"studio", "studio\\model", "studio\\images", "studio\\scenes"};
+    static const char *folders[] = {"studio", "studio\\models", "studio\\images", "studio\\scenes"};
     char paths[sizeof(folders) / sizeof(*folders)][MAX_PATH];
+    char legacy[MAX_PATH];
     DWORD attrs;
     *reasonout = "";
     if (!projectdir || !projectdir[0]
@@ -26,8 +27,22 @@ BOOL ProjectEnsureStudioFolders(const char *projectdir, const char **reasonout)
     for (size_t i = 0; i < sizeof(folders) / sizeof(*folders); i++)
         if (!EditorPathJoin(paths[i], sizeof(paths[i]), projectdir, folders[i]))
         { *reasonout = "The project path is too long for Render Studio's asset folders."; return FALSE; }
+    if (!EditorPathJoin(legacy, sizeof(legacy), projectdir, "studio\\model"))
+    { *reasonout = "The project path is too long for Render Studio's asset folders."; return FALSE; }
     for (size_t i = 0; i < sizeof(folders) / sizeof(*folders); i++)
     {
+        /* Rename the whole directory so glTF buffers and relative image paths
+         * move with the models. Never replace or merge an existing models folder. */
+        if (i == 1 && GetFileAttributes(paths[i]) == INVALID_FILE_ATTRIBUTES
+            && (attrs = GetFileAttributes(legacy)) != INVALID_FILE_ATTRIBUTES
+            && (attrs & FILE_ATTRIBUTE_DIRECTORY))
+        {
+            if (!MoveFileEx(legacy, paths[i], MOVEFILE_WRITE_THROUGH))
+            {
+                *reasonout = "Could not rename studio/model to studio/models. Check the folder's permissions and close any programs using it.";
+                return FALSE;
+            }
+        }
         if (CreateDirectory(paths[i], NULL)) { continue; }
         attrs = GetFileAttributes(paths[i]);
         if (attrs == INVALID_FILE_ATTRIBUTES || !(attrs & FILE_ATTRIBUTE_DIRECTORY))

@@ -50,7 +50,7 @@ BOOL TexGetProjectImageSize(const char *projectdir, DWORD id,
 
 /*
  * One browser thumbnail: a small top-down BGRA image (GDI-native, ready for StretchDIBits) plus its label
- * (the texture ID, i.e. the file stem).
+ * (a game texture ID or a studio filename).
  */
 typedef struct TexImageInfo {
     BOOL valid, surfacevalid;
@@ -68,7 +68,7 @@ const char *TexInfoSurfaceName(unsigned int type);
 const char *TexInfoFormatName(unsigned int format);
 
 typedef struct TexThumb {
-    char label[16];
+    char label[MAX_PATH];
     int  w, h;                    /* actual thumb size, <= TEX_THUMB_MAX */
     unsigned int pixeloffset;     /* byte offset into the shared block */
     int imagewidth, imageheight;   /* full project image, before thumbnail scaling */
@@ -81,6 +81,10 @@ typedef struct TexThumb {
  * Caller supplies that block and the thumbnail; its label is left intact. */
 BOOL TexLoadResourceThumbnail(HINSTANCE instance, int resourceid,
                               TexThumb *thumb, unsigned char *pixels);
+
+/* Read an ordinary BMP without the game's size limits, mirroring or rotation.
+ * Uses the browser's fixed-stride BGRA block; label is left intact. */
+BOOL TexLoadFileThumbnail(const char *path, TexThumb *thumb, unsigned char *pixels);
 
 /*
  * Scans <projectdir>\images for the extracted BMPs and builds

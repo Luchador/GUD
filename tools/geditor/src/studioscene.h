@@ -1,9 +1,10 @@
 #ifndef GEDITOR_STUDIOSCENE_H
 #define GEDITOR_STUDIOSCENE_H
 #include <windows.h>
+#include "studioassets.h"
 
 #define STUDIO_SCENE_NAME_MAX 128 /* Includes the terminator, excludes .rnd. */
-typedef struct StudioSceneEntry { char filename[MAX_PATH]; } StudioSceneEntry;
+typedef StudioFileEntry StudioSceneEntry;
 
 /* Create a versioned empty scene, publishing only a complete file and never
  * replacing an existing scene. filename receives its leaf name, including .rnd. */

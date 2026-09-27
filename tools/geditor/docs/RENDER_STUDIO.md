@@ -26,10 +26,25 @@ The Scene panel lists the project's `.rnd` filenames in alphabetical order and
 selects a newly created scene. The list refreshes when Render Studio is opened,
 regains focus, or changes projects. Selecting a filename does not yet load it.
 
-Each project has `studio/model`, `studio/images`, and `studio/scenes` folders.
+The Models panel lists `.gltf` files in `studio/models`. The Images panel displays
+`.bmp` files in `studio/images` using the main editor's thumbnail grid, scrolling,
+selection highlight, and hover tooltips. Filenames are sorted alphabetically;
+extension matching is case-insensitive. Lists refresh when Render Studio opens,
+regains focus, or switches projects, so files copied in Explorer appear when you
+return to the window. Only files directly in these folders are listed.
+
+Studio thumbnails preserve ordinary BMP orientation and aspect ratio, including
+images larger than the game's texture limits. Hover over a thumbnail to see its
+full filename and dimensions. An unreadable BMP remains listed with **No preview**.
+These panels browse assets; placement and material assignment will be added later.
+
+Each project has `studio/models`, `studio/images`, and `studio/scenes` folders.
 New projects create them automatically. Opening an older project adds missing
 folders without changing existing files. Opening Render Studio also checks
-these folders. The existing `.gep` format is unchanged.
+these folders. An existing `studio/model` folder is renamed to `studio/models`,
+moving its complete contents, including glTF dependencies. If both folders already
+exist, both are preserved and the Models panel uses `studio/models`; consolidate
+the legacy folder manually if needed. The existing `.gep` format is unchanged.
 
 Studio assets are separate from the game's `models` and `images` folders and
 are not compiled into a ROM. Rebase Project preserves the entire `studio`
@@ -37,6 +52,8 @@ folder with the other project files. Switching projects resets the studio
 workspace to the newly opened project; switching game levels does not.
 
 `renderstudio.c` owns the window, layout, and project context.
+`studioassets.c` enumerates studio files and builds the image thumbnail catalog.
+`browser.c` provides the same image grid for the main editor and Render Studio.
 `studioscene.c` owns scene filenames, creation, and enumeration. An empty `.rnd`
 is a UTF-8 JSON document with `"format": "GEditor Render Studio"`, `"version": 1`,
 and `"objects": []`. Its name is supplied by the filename. The version field

@@ -78,50 +78,7 @@ BOOL StudioSceneCreate(const char *projectdir, const char *name, char filename[M
     return TRUE;
 }
 
-static int StudioSceneCompare(const void *a, const void *b)
-{
-    const StudioSceneEntry *left = a, *right = b;
-    int order = lstrcmpi(left->filename, right->filename);
-    return order ? order : strcmp(left->filename, right->filename);
-}
-
 BOOL StudioSceneList(const char *projectdir, StudioSceneEntry **entries, DWORD *count, const char **why)
 {
-    char pattern[MAX_PATH]; WIN32_FIND_DATA found; HANDLE search;
-    StudioSceneEntry *items = NULL; size_t used = 0, capacity = 0;
-    DWORD error;
-    *entries = NULL; *count = 0; *why = "";
-    if (!projectdir || !projectdir[0]) { return TRUE; }
-    if (!EditorPathJoin(pattern, sizeof(pattern), projectdir, "studio\\scenes\\*"))
-        return StudioSceneFail(why, "The project path is too long to list scenes.");
-    search = FindFirstFile(pattern, &found);
-    if (search == INVALID_HANDLE_VALUE)
-        return GetLastError() == ERROR_FILE_NOT_FOUND
-            || StudioSceneFail(why, "Could not read the studio/scenes folder.");
-    do
-    {
-        size_t length = strlen(found.cFileName);
-        if ((found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) || length <= 4
-            || lstrcmpi(found.cFileName + length - 4, ".rnd")) { continue; }
-        if (used == capacity)
-        {
-            size_t next = capacity ? capacity * 2 : 16;
-            StudioSceneEntry *grown;
-            if (next < capacity || next > SIZE_MAX / sizeof(*items) || next > UINT32_MAX) { goto memory; }
-            grown = realloc(items, next * sizeof(*items));
-            if (!grown) { goto memory; }
-            items = grown; capacity = next;
-        }
-        lstrcpyn(items[used++].filename, found.cFileName, MAX_PATH);
-    }
-    while (FindNextFile(search, &found));
-    error = GetLastError(); FindClose(search);
-    if (error != ERROR_NO_MORE_FILES)
-    { free(items); return StudioSceneFail(why, "Could not finish reading the studio/scenes folder."); }
-    if (used > 1) { qsort(items, used, sizeof(*items), StudioSceneCompare); }
-    *entries = items; *count = (DWORD)used;
-    return TRUE;
-memory:
-    FindClose(search); free(items);
-    return StudioSceneFail(why, "Not enough memory to list studio scenes.");
+    return StudioFileList(projectdir, "studio\\scenes", ".rnd", entries, count, why);
 }

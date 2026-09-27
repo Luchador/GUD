@@ -7,6 +7,7 @@
 #include "renderstudio.h"
 #include "studioviewport.h"
 #include "studioscene.h"
+#include "browser.h"
 
 static HWND g_Studio, g_StudioViewport;
 static char g_StudioProject[MAX_PATH];
@@ -39,17 +40,14 @@ static LRESULT CALLBACK RenderStudioGroupProc(HWND hwnd, UINT message, WPARAM wp
     return DefSubclassProc(hwnd, message, wparam, lparam);
 }
 
-static void RenderStudioRefreshScenes(const char *select)
+static void RenderStudioFillList(HWND list, const StudioFileEntry *entries, DWORD count,
+    const char *select, const char **why)
 {
-    HWND list = GetDlgItem(g_Studio, IDC_STUDIO_SCENE);
-    StudioSceneEntry *entries = NULL; DWORD count = 0;
-    const char *why = ""; char previous[MAX_PATH] = "";
+    char previous[MAX_PATH] = "";
     LRESULT row = SendMessage(list, LB_GETCURSEL, 0, 0);
     if (select) { lstrcpyn(previous, select, sizeof(previous)); }
     else if (row != LB_ERR && SendMessage(list, LB_GETTEXTLEN, row, 0) < MAX_PATH)
     { SendMessage(list, LB_GETTEXT, row, (LPARAM)previous); }
-    if (!StudioSceneList(g_StudioProject, &entries, &count, &why))
-    { SetDlgItemText(g_Studio, IDC_STUDIO_STATUS, why); return; }
     SendMessage(list, WM_SETREDRAW, FALSE, 0);
     SendMessage(list, LB_RESETCONTENT, 0, 0);
     int widest = 0; HDC dc = GetDC(list);
@@ -58,7 +56,7 @@ static void RenderStudioRefreshScenes(const char *select)
     {
         LRESULT added = SendMessage(list, LB_ADDSTRING, 0, (LPARAM)entries[i].filename);
         if (added == LB_ERR || added == LB_ERRSPACE)
-        { why = "Not enough memory to list all studio scenes."; break; }
+        { *why = "Not enough memory to list all studio files."; break; }
         if (dc)
         {
             SIZE size;
@@ -67,7 +65,6 @@ static void RenderStudioRefreshScenes(const char *select)
         }
     }
     if (dc) { if (oldfont) { SelectObject(dc, oldfont); } ReleaseDC(list, dc); }
-    free(entries);
     SendMessage(list, LB_SETHORIZONTALEXTENT, widest, 0);
     if (previous[0])
     {
@@ -76,7 +73,28 @@ static void RenderStudioRefreshScenes(const char *select)
     }
     SendMessage(list, WM_SETREDRAW, TRUE, 0);
     RedrawWindow(list, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME);
+}
+
+static void RenderStudioRefreshScenes(const char *select)
+{
+    StudioSceneEntry *entries = NULL; DWORD count = 0; const char *why = "";
+    if (StudioSceneList(g_StudioProject, &entries, &count, &why))
+        RenderStudioFillList(GetDlgItem(g_Studio, IDC_STUDIO_SCENE), entries, count, select, &why);
+    free(entries);
     SetDlgItemText(g_Studio, IDC_STUDIO_STATUS, why[0] ? why : g_StudioNavigation);
+}
+
+static void RenderStudioRefreshAssets(void)
+{
+    StudioFileEntry *models = NULL; TexThumb *images = NULL; unsigned char *pixels = NULL;
+    DWORD count = 0; const char *why = "", *modelwhy = "";
+    if (StudioFileList(g_StudioProject, "studio\\models", ".gltf", &models, &count, &modelwhy))
+        RenderStudioFillList(GetDlgItem(g_Studio, IDC_STUDIO_MODELS), models, count, NULL, &modelwhy);
+    free(models);
+    if (StudioLoadImages(g_StudioProject, &images, &pixels, &count, &why))
+        BrowserSetImages(GetDlgItem(g_Studio, IDC_STUDIO_IMAGES), images, (int)count, pixels);
+    if (modelwhy[0] || why[0])
+        SetDlgItemText(g_Studio, IDC_STUDIO_STATUS, modelwhy[0] ? modelwhy : why);
 }
 
 typedef struct StudioNewScene {
@@ -191,7 +209,7 @@ void RenderStudioSetProject(const GEditorProject *project)
     /* Scene state belongs to this project, never to the selected game level. */
     StudioViewportReset(g_StudioViewport);
     SendDlgItemMessage(g_Studio, IDC_STUDIO_SCENE, LB_RESETCONTENT, 0, 0);
-    SendDlgItemMessage(g_Studio, IDC_STUDIO_IMAGES, LB_RESETCONTENT, 0, 0);
+    BrowserSetImages(GetDlgItem(g_Studio, IDC_STUDIO_IMAGES), NULL, 0, NULL);
     SendDlgItemMessage(g_Studio, IDC_STUDIO_MODELS, LB_RESETCONTENT, 0, 0);
     TreeView_DeleteAllItems(GetDlgItem(g_Studio, IDC_STUDIO_OUTLINER));
     if (dir[0])
@@ -202,6 +220,7 @@ void RenderStudioSetProject(const GEditorProject *project)
         TreeView_InsertItem(GetDlgItem(g_Studio, IDC_STUDIO_OUTLINER), &root);
     }
     RenderStudioRefreshScenes(NULL);
+    RenderStudioRefreshAssets();
     SetDlgItemText(g_Studio, IDC_STUDIO_PROPERTIES, "Nothing selected.");
     EnableWindow(GetDlgItem(g_Studio, IDC_STUDIO_SCENE), dir[0] != 0);
     EnableWindow(GetDlgItem(g_Studio, IDC_STUDIO_IMAGES), dir[0] != 0);
@@ -226,7 +245,8 @@ static INT_PTR CALLBACK RenderStudioProc(HWND hwnd, UINT message, WPARAM wparam,
     }
     case WM_SIZE: RenderStudioLayout(hwnd); return TRUE;
     case WM_ACTIVATE:
-        if (LOWORD(wparam) != WA_INACTIVE && g_StudioProject[0]) { RenderStudioRefreshScenes(NULL); }
+        if (LOWORD(wparam) != WA_INACTIVE && g_StudioProject[0])
+        { RenderStudioRefreshScenes(NULL); RenderStudioRefreshAssets(); }
         break; /* Let the dialog manager restore keyboard focus normally. */
     case WM_INITMENUPOPUP:
         EnableMenuItem((HMENU)wparam, ID_STUDIO_NEW_SCENE, MF_BYCOMMAND | (g_StudioProject[0] ? MF_ENABLED : MF_GRAYED));
@@ -266,6 +286,13 @@ BOOL RenderStudioShow(HWND owner, HINSTANCE instance, const GEditorProject *proj
         if (!InitCommonControlsEx(&controls)) { *why = "Could not initialize the scene outliner."; return FALSE; }
         g_Studio = CreateDialog(instance, MAKEINTRESOURCE(IDD_RENDER_STUDIO), owner, RenderStudioProc);
         if (!g_Studio) { *why = "Could not open the Render Studio window."; return FALSE; }
+        DestroyWindow(GetDlgItem(g_Studio, IDC_STUDIO_IMAGES));
+        if (!BrowserCreateImagePanel(g_Studio, instance, IDC_STUDIO_IMAGES))
+        {
+            DestroyWindow(g_Studio);
+            *why = "Could not initialize Render Studio's image browser.";
+            return FALSE;
+        }
         g_StudioViewport = StudioViewportCreate(g_Studio, instance);
         if (!g_StudioViewport)
         {
@@ -277,6 +304,7 @@ BOOL RenderStudioShow(HWND owner, HINSTANCE instance, const GEditorProject *proj
     }
     RenderStudioSetProject(project);
     RenderStudioRefreshScenes(NULL);
+    RenderStudioRefreshAssets();
     ShowWindow(g_Studio, IsIconic(g_Studio) ? SW_RESTORE : SW_SHOW);
     SetForegroundWindow(g_Studio);
     return TRUE;

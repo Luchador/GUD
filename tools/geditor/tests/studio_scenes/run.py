@@ -21,7 +21,7 @@ def main():
                    '-Wno-unused-parameter', '-Wno-format', '-ffunction-sections', '-fdata-sections',
                    '-fsanitize=address,undefined', '-Dfopen=TestFopen', f'-I{platform}', f'-I{src}',
                    f'-I{src.parents[2]}', str(here / 'check.c'), str(platform / 'platform.c'),
-                   str(src / 'project.c'), str(src / 'studioscene.c'), '-Wl,--gc-sections',
+                   str(src / 'project.c'), str(src / 'studioscene.c'), str(src / 'studioassets.c'), '-Wl,--gc-sections',
                    '-Wl,--wrap=WriteFile,--wrap=FlushFileBuffers,--wrap=CloseHandle', '-o', str(work / 'check')]
         subprocess.run(command, check=True)
         subprocess.run([str(work / 'check'), str(work)], check=True,

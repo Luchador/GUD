@@ -63,6 +63,10 @@ typedef struct BrowserObjectDrop {
 
 BOOL BrowserRegisterClass(HINSTANCE hinstance);
 HWND BrowserCreate(HWND parent, HINSTANCE hinstance);
+/* Images-only browser for ordinary filenames. Shares the main thumbnail grid,
+ * scrolling and tooltips, without game texture IDs or game editing actions.
+ * Populate with BrowserSetImages; the child uses the supplied control ID. */
+HWND BrowserCreateImagePanel(HWND parent, HINSTANCE hinstance, int controlid);
 /* Synchronize the highlight after navigation from a report. */
 void BrowserSelectLevel(HWND browser, DWORD index);
 

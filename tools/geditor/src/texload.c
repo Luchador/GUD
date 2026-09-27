@@ -18,6 +18,7 @@
 #include <wincodec.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <limits.h>
 #include <string.h>
 
 #include "texload.h"
@@ -637,6 +638,69 @@ static BOOL TexReadBmpThumb(const char *path, unsigned char *dst,
     return ok;
 }
 
+/* Shared WIC thumbnail conversion for embedded icons and ordinary studio BMPs.
+ * Decode at thumbnail resolution, preserving aspect and top-down orientation. */
+static BOOL TexDecodeThumbnail(IWICImagingFactory *factory, IWICBitmapSource *source,
+    TexThumb *thumb, unsigned char *pixels)
+{
+    IWICBitmapScaler *scaler = NULL;
+    IWICFormatConverter *converter = NULL;
+    UINT width, height, scaledw, scaledh, longest;
+    BOOL success = FALSE;
+    if (FAILED(IWICBitmapSource_GetSize(source, &width, &height)) || !width || !height
+        || width > INT_MAX || height > INT_MAX) { return FALSE; }
+    scaledw = width; scaledh = height; longest = max(width, height);
+    if (longest > TEX_THUMB_MAX)
+    {
+        scaledw = max(1, (UINT)((ULONGLONG)width * TEX_THUMB_MAX / longest));
+        scaledh = max(1, (UINT)((ULONGLONG)height * TEX_THUMB_MAX / longest));
+    }
+    if (FAILED(IWICImagingFactory_CreateBitmapScaler(factory, &scaler))
+        || FAILED(IWICBitmapScaler_Initialize(scaler, source, scaledw, scaledh, WICBitmapInterpolationModeNearestNeighbor))
+        || FAILED(IWICImagingFactory_CreateFormatConverter(factory, &converter))
+        || FAILED(IWICFormatConverter_Initialize(converter, (IWICBitmapSource *)scaler,
+            &GUID_WICPixelFormat32bppBGRA, WICBitmapDitherTypeNone,
+            NULL, 0.0, WICBitmapPaletteTypeCustom))) { goto done; }
+    ZeroMemory(pixels, TEX_THUMB_MAX * TEX_THUMB_MAX * 4);
+    success = SUCCEEDED(IWICFormatConverter_CopyPixels(converter, NULL,
+        TEX_THUMB_MAX * 4, TEX_THUMB_MAX * TEX_THUMB_MAX * 4, pixels));
+    if (success)
+    {
+        thumb->w = (int)scaledw; thumb->h = (int)scaledh; thumb->pixeloffset = 0;
+        thumb->imagewidth = (int)width; thumb->imageheight = (int)height;
+    }
+done:
+    if (converter) { IWICFormatConverter_Release(converter); }
+    if (scaler) { IWICBitmapScaler_Release(scaler); }
+    return success;
+}
+
+BOOL TexLoadFileThumbnail(const char *path, TexThumb *thumb, unsigned char *pixels)
+{
+    HRESULT initialized = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    IWICImagingFactory *factory = NULL;
+    IWICBitmapDecoder *decoder = NULL;
+    IWICBitmapFrameDecode *frame = NULL;
+    WCHAR wide[MAX_PATH]; GUID format; BOOL success = FALSE;
+    thumb->w = thumb->h = thumb->imagewidth = thumb->imageheight = 0;
+    if (FAILED(initialized) && initialized != RPC_E_CHANGED_MODE) { return FALSE; }
+    if (!MultiByteToWideChar(CP_ACP, 0, path, -1, wide, MAX_PATH)
+        || FAILED(CoCreateInstance(&CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER,
+            &IID_IWICImagingFactory, (void **)&factory))
+        || FAILED(IWICImagingFactory_CreateDecoderFromFilename(factory, wide, NULL,
+            GENERIC_READ, WICDecodeMetadataCacheOnDemand, &decoder))
+        || FAILED(IWICBitmapDecoder_GetContainerFormat(decoder, &format))
+        || !IsEqualGUID(&format, &GUID_ContainerFormatBmp)
+        || FAILED(IWICBitmapDecoder_GetFrame(decoder, 0, &frame))) { goto done; }
+    success = TexDecodeThumbnail(factory, (IWICBitmapSource *)frame, thumb, pixels);
+done:
+    if (frame) { IWICBitmapFrameDecode_Release(frame); }
+    if (decoder) { IWICBitmapDecoder_Release(decoder); }
+    if (factory) { IWICImagingFactory_Release(factory); }
+    if (SUCCEEDED(initialized)) { CoUninitialize(); }
+    return success;
+}
+
 /* Decode a built-in browser image using the same fixed-stride BGRA layout
  * as project thumbnails. The executable owns the PNG; no project copy is
  * needed, including when the Images folder is empty. */
@@ -648,13 +712,10 @@ BOOL TexLoadResourceThumbnail(HINSTANCE instance, int resourceid,
     IWICStream *stream = NULL;
     IWICBitmapDecoder *decoder = NULL;
     IWICBitmapFrameDecode *frame = NULL;
-    IWICBitmapScaler *scaler = NULL;
-    IWICFormatConverter *converter = NULL;
     HRSRC resource;
     HGLOBAL data;
     BYTE *bytes;
     DWORD size;
-    UINT width, height, longest;
     BOOL success = FALSE;
 
     if (FAILED(initialized) && initialized != RPC_E_CHANGED_MODE) { return FALSE; }
@@ -670,34 +731,10 @@ BOOL TexLoadResourceThumbnail(HINSTANCE instance, int resourceid,
         || FAILED(IWICStream_InitializeFromMemory(stream, bytes, size))
         || FAILED(IWICImagingFactory_CreateDecoderFromStream(factory,
             (IStream *)stream, NULL, WICDecodeMetadataCacheOnLoad, &decoder))
-        || FAILED(IWICBitmapDecoder_GetFrame(decoder, 0, &frame))
-        || FAILED(IWICBitmapFrameDecode_GetSize(frame, &width, &height))
-        || width == 0 || height == 0) { goto done; }
-
-    longest = width > height ? width : height;
-    if (longest > TEX_THUMB_MAX)
-    {
-        width = (UINT)((ULONGLONG)width * TEX_THUMB_MAX / longest);
-        height = (UINT)((ULONGLONG)height * TEX_THUMB_MAX / longest);
-        if (width == 0) { width = 1; }
-        if (height == 0) { height = 1; }
-    }
-    if (FAILED(IWICImagingFactory_CreateBitmapScaler(factory, &scaler))
-        || FAILED(IWICBitmapScaler_Initialize(scaler, (IWICBitmapSource *)frame,
-            width, height, WICBitmapInterpolationModeNearestNeighbor))
-        || FAILED(IWICImagingFactory_CreateFormatConverter(factory, &converter))
-        || FAILED(IWICFormatConverter_Initialize(converter, (IWICBitmapSource *)scaler,
-            &GUID_WICPixelFormat32bppBGRA, WICBitmapDitherTypeNone,
-            NULL, 0.0, WICBitmapPaletteTypeCustom))) { goto done; }
-
-    ZeroMemory(pixels, TEX_THUMB_MAX * TEX_THUMB_MAX * 4);
-    success = SUCCEEDED(IWICFormatConverter_CopyPixels(converter, NULL,
-        TEX_THUMB_MAX * 4, TEX_THUMB_MAX * TEX_THUMB_MAX * 4, pixels));
-    if (success) { thumb->w = (int)width; thumb->h = (int)height; thumb->pixeloffset = 0; }
+        || FAILED(IWICBitmapDecoder_GetFrame(decoder, 0, &frame))) { goto done; }
+    success = TexDecodeThumbnail(factory, (IWICBitmapSource *)frame, thumb, pixels);
 
 done:
-    if (converter != NULL) { IWICFormatConverter_Release(converter); }
-    if (scaler != NULL) { IWICBitmapScaler_Release(scaler); }
     if (frame != NULL) { IWICBitmapFrameDecode_Release(frame); }
     if (decoder != NULL) { IWICBitmapDecoder_Release(decoder); }
     if (stream != NULL) { IWICStream_Release(stream); }
