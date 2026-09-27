@@ -280,7 +280,10 @@ static LRESULT CALLBACK RenderStudioModelDragProc(HWND hwnd,UINT message,WPARAM 
         {
             g_StudioDragPress=(POINT){GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam)};
             SendMessage(hwnd,LB_GETTEXT,LOWORD(hit),(LPARAM)g_StudioDragModel); g_StudioDragArmed=TRUE; g_StudioDragging=FALSE;
-            SetCapture(hwnd);
+            /* The native list box normally captured during DefSubclassProc.
+             * Capturing it again sends WM_CAPTURECHANGED back to this callback,
+             * which cancels the drag we just armed. Keep its existing capture. */
+            if (GetCapture()!=hwnd) { SetCapture(hwnd); }
         }
         return result;
     }

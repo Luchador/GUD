@@ -113,6 +113,8 @@ owns the preview camera, rendering, image textures, and its own OpenGL context.
 
 Run `python3 tools/geditor/tests/studio_materials/run.py` for glTF/material,
 scene persistence, failure rollback, picking, and lighting regression coverage.
+Run `python3 tools/geditor/tests/studio_drag/run.py` for the Models-list mouse
+callback, including native list-box capture notifications and drag cancellation.
 The suite uses production code with a filesystem shim and ASan/UBSan. Native
 Windows interaction, WIC texture decoding, and window layout need a Windows
 smoke test: drop a three-material model twice, edit one instance, change selection,
