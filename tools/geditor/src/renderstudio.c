@@ -1,6 +1,8 @@
 #include <windows.h>
 #include <windowsx.h>
 #include <commctrl.h>
+#include <commdlg.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,7 +11,15 @@
 #include "studioscene.h"
 #include "browser.h"
 
-static HWND g_Studio, g_StudioViewport;
+static HWND g_Studio, g_StudioViewport, g_StudioProperties;
+static StudioScene g_StudioScene;
+static int g_StudioObject=-1,g_StudioMaterial=-1;
+static BOOL g_StudioUpdating,g_StudioDragArmed,g_StudioDragging;
+static unsigned g_StudioGeneration;
+static BOOL g_StudioLoading,g_StudioTriedInitialScene;
+static POINT g_StudioDragPress;
+static char g_StudioDragModel[MAX_PATH];
+static void RenderStudioNewScene(HWND hwnd);
 static char g_StudioProject[MAX_PATH];
 static const char g_StudioNavigation[] = "Left/right drag: orbit    Middle drag: pan    Wheel: zoom";
 
@@ -75,13 +85,245 @@ static void RenderStudioFillList(HWND list, const StudioFileEntry *entries, DWOR
     RedrawWindow(list, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME);
 }
 
+static StudioMaterial *RenderStudioMaterial(void)
+{
+    if (g_StudioObject<0 || (DWORD)g_StudioObject>=g_StudioScene.count) { return NULL; }
+    StudioInstance *o=&g_StudioScene.objects[g_StudioObject];
+    return g_StudioMaterial>=0 && (DWORD)g_StudioMaterial<o->materialcount ? &o->materials[g_StudioMaterial] : NULL;
+}
+
+static void RenderStudioProperties(void)
+{
+    StudioMaterial *m=RenderStudioMaterial(); char text[64];
+    g_StudioUpdating=TRUE;
+    for (int id=IDC_STUDIO_BASE_LABEL;id<=IDC_STUDIO_SHININESS;id++)
+        ShowWindow(GetDlgItem(g_StudioProperties,id),m ? SW_SHOW : SW_HIDE);
+    ShowWindow(GetDlgItem(g_StudioProperties,IDC_STUDIO_MATERIAL_HINT),m ? SW_HIDE : SW_SHOW);
+    if (m)
+    {
+        snprintf(text,sizeof(text),"%.6g",m->intensity); SetDlgItemText(g_StudioProperties,IDC_STUDIO_INTENSITY,text);
+        snprintf(text,sizeof(text),"%.6g",m->shininess); SetDlgItemText(g_StudioProperties,IDC_STUDIO_SHININESS,text);
+        HWND image=GetDlgItem(g_StudioProperties,IDC_STUDIO_BASE_IMAGE);
+        LRESULT row=m->image[0] ? SendMessage(image,CB_FINDSTRINGEXACT,(WPARAM)-1,(LPARAM)m->image) : 0;
+        if (row==CB_ERR) { row=SendMessage(image,CB_ADDSTRING,0,(LPARAM)m->image); }
+        SendMessage(image,CB_SETCURSEL,row,0);
+        InvalidateRect(GetDlgItem(g_StudioProperties,IDC_STUDIO_BASE_COLOR),NULL,TRUE);
+        InvalidateRect(GetDlgItem(g_StudioProperties,IDC_STUDIO_SPEC_COLOR),NULL,TRUE);
+    }
+    g_StudioUpdating=FALSE;
+}
+
+static void RenderStudioSelect(int object, int material)
+{
+    g_StudioObject=object>=0 && (DWORD)object<g_StudioScene.count ? object : -1;
+    g_StudioMaterial=-1; HWND list=GetDlgItem(g_Studio,IDC_STUDIO_MATERIALS);
+    g_StudioUpdating=TRUE; SendMessage(list,WM_SETREDRAW,FALSE,0); SendMessage(list,LB_RESETCONTENT,0,0);
+    int widest=0; HDC dc=GetDC(list); HFONT font=(HFONT)SendMessage(list,WM_GETFONT,0,0),old=dc ? SelectObject(dc,font) : NULL;
+    if (g_StudioObject>=0)
+    {
+        StudioInstance *o=&g_StudioScene.objects[g_StudioObject];
+        for (DWORD i=0;i<o->materialcount;i++)
+        {
+            SendMessage(list,LB_ADDSTRING,0,(LPARAM)o->materials[i].name);
+            SIZE size; if (dc && GetTextExtentPoint32(dc,o->materials[i].name,(int)strlen(o->materials[i].name),&size)) { widest=max(widest,size.cx+8); }
+        }
+        g_StudioMaterial=material>=0 && (DWORD)material<o->materialcount ? material : o->materialcount ? 0 : -1;
+    }
+    if (dc) { if (old) { SelectObject(dc,old); } ReleaseDC(list,dc); }
+    SendMessage(list,LB_SETHORIZONTALEXTENT,widest,0); SendMessage(list,LB_SETCURSEL,g_StudioMaterial,0);
+    SendMessage(list,WM_SETREDRAW,TRUE,0); InvalidateRect(list,NULL,TRUE);
+    HWND tree=GetDlgItem(g_Studio,IDC_STUDIO_OUTLINER);
+    HTREEITEM root=TreeView_GetRoot(tree),item=TreeView_GetChild(tree,root),choice=root;
+    for (int i=0;item;item=TreeView_GetNextSibling(tree,item),i++) if (i==g_StudioObject) { choice=item; break; }
+    TreeView_SelectItem(tree,choice); g_StudioUpdating=FALSE;
+    StudioViewportSelect(g_StudioViewport,g_StudioObject); RenderStudioProperties();
+}
+
+static void RenderStudioOutliner(void)
+{
+    HWND tree=GetDlgItem(g_Studio,IDC_STUDIO_OUTLINER); TVINSERTSTRUCT insert={0}; char label[MAX_PATH+48];
+    g_StudioUpdating=TRUE; TreeView_DeleteAllItems(tree);
+    if (g_StudioScene.filename[0])
+    {
+        insert.hParent=TVI_ROOT; insert.hInsertAfter=TVI_LAST; insert.item.mask=TVIF_TEXT | TVIF_PARAM;
+        insert.item.pszText=g_StudioScene.filename; insert.item.lParam=-1;
+        HTREEITEM root=TreeView_InsertItem(tree,&insert); insert.hParent=root;
+        for (DWORD i=0;i<g_StudioScene.count;i++)
+        {
+            snprintf(label,sizeof(label),"%s (%lu)%s",g_StudioScene.objects[i].model,(unsigned long)i+1,g_StudioScene.objects[i].asset ? "" : " - unavailable");
+            insert.item.pszText=label; insert.item.lParam=i; TreeView_InsertItem(tree,&insert);
+        }
+        TreeView_Expand(tree,root,TVE_EXPAND);
+    }
+    g_StudioUpdating=FALSE; RenderStudioSelect(g_StudioObject,g_StudioMaterial);
+}
+
+static BOOL RenderStudioLoadScene(const char *filename)
+{
+    const char *why="";
+    if (g_StudioLoading) { return FALSE; } g_StudioLoading=TRUE;
+    if (!StudioSceneLoad(g_StudioProject,filename,&g_StudioScene,&why))
+    {
+        SetDlgItemText(g_Studio,IDC_STUDIO_STATUS,why);
+        MessageBox(g_Studio,why,"Open Scene",MB_ICONERROR);
+        LRESULT row=SendDlgItemMessage(g_Studio,IDC_STUDIO_SCENE,LB_FINDSTRINGEXACT,(WPARAM)-1,(LPARAM)g_StudioScene.filename);
+        SendDlgItemMessage(g_Studio,IDC_STUDIO_SCENE,LB_SETCURSEL,row,0); g_StudioLoading=FALSE; return FALSE;
+    }
+    g_StudioGeneration++;
+    g_StudioObject=g_StudioScene.count ? 0 : -1; g_StudioMaterial=-1;
+    StudioViewportRefreshImages(g_StudioViewport); StudioViewportSetScene(g_StudioViewport,&g_StudioScene,TRUE);
+    RenderStudioOutliner(); SetDlgItemText(g_Studio,IDC_STUDIO_STATUS,why[0] ? why : g_StudioNavigation); g_StudioLoading=FALSE; return TRUE;
+}
+
+static void RenderStudioCommitMaterial(StudioMaterial *material, const StudioMaterial *previous)
+{
+    const char *why="";
+    if (!StudioMaterialValid(material) || !StudioSceneSave(&g_StudioScene,&why))
+    {
+        *material=*previous;
+        MessageBox(g_Studio,why[0] ? why : "Enter a finite intensity from 0 to 1 and shininess from 1 to 128.","Material",MB_ICONERROR);
+    }
+    else { SetDlgItemText(g_Studio,IDC_STUDIO_STATUS,"Scene saved."); InvalidateRect(g_StudioViewport,NULL,FALSE); }
+    RenderStudioProperties();
+}
+
+static INT_PTR CALLBACK RenderStudioPropertiesProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
+{
+    StudioMaterial *m=RenderStudioMaterial();
+    switch (message)
+    {
+    case WM_INITDIALOG:
+        SendDlgItemMessage(hwnd,IDC_STUDIO_INTENSITY,EM_LIMITTEXT,32,0);
+        SendDlgItemMessage(hwnd,IDC_STUDIO_SHININESS,EM_LIMITTEXT,32,0); return TRUE;
+    case WM_DRAWITEM:
+    {
+        const DRAWITEMSTRUCT *draw=(const DRAWITEMSTRUCT *)lparam;
+        if (!m || (draw->CtlID!=IDC_STUDIO_BASE_COLOR && draw->CtlID!=IDC_STUDIO_SPEC_COLOR)) { break; }
+        const float *color=draw->CtlID==IDC_STUDIO_BASE_COLOR ? m->base : m->specular;
+        HBRUSH brush=CreateSolidBrush(RGB((int)(color[0]*255+.5f),(int)(color[1]*255+.5f),(int)(color[2]*255+.5f)));
+        FillRect(draw->hDC,&draw->rcItem,brush); DeleteObject(brush); RECT rect=draw->rcItem;
+        DrawEdge(draw->hDC,&rect,(draw->itemState&ODS_SELECTED) ? EDGE_SUNKEN : EDGE_RAISED,BF_RECT);
+        if (draw->itemState&ODS_FOCUS) { InflateRect(&rect,-3,-3); DrawFocusRect(draw->hDC,&rect); } return TRUE;
+    }
+    case WM_COMMAND:
+    {
+        int id=LOWORD(wparam),code=HIWORD(wparam); if (g_StudioUpdating || !m) { break; }
+        StudioMaterial previous=*m;
+        if ((id==IDC_STUDIO_BASE_COLOR || id==IDC_STUDIO_SPEC_COLOR) && code==BN_CLICKED)
+        {
+            static COLORREF custom[16]; float *color=id==IDC_STUDIO_BASE_COLOR ? m->base : m->specular;
+            unsigned generation=g_StudioGeneration;
+            CHOOSECOLOR choice={0}; choice.lStructSize=sizeof(choice); choice.hwndOwner=g_Studio;
+            choice.rgbResult=RGB((int)(color[0]*255+.5f),(int)(color[1]*255+.5f),(int)(color[2]*255+.5f));
+            choice.lpCustColors=custom; choice.Flags=CC_FULLOPEN | CC_RGBINIT;
+            if (ChooseColor(&choice) && generation==g_StudioGeneration && g_Studio)
+            { color[0]=GetRValue(choice.rgbResult)/255.f; color[1]=GetGValue(choice.rgbResult)/255.f; color[2]=GetBValue(choice.rgbResult)/255.f; RenderStudioCommitMaterial(m,&previous); }
+            return TRUE;
+        }
+        if (id==IDC_STUDIO_BASE_IMAGE && code==CBN_SELCHANGE)
+        {
+            LRESULT row=SendDlgItemMessage(hwnd,id,CB_GETCURSEL,0,0);
+            if (row==0) { m->image[0]=0; }
+            else if (row>0 && SendDlgItemMessage(hwnd,id,CB_GETLBTEXTLEN,row,0)<MAX_PATH)
+                SendDlgItemMessage(hwnd,id,CB_GETLBTEXT,row,(LPARAM)m->image);
+            RenderStudioCommitMaterial(m,&previous); return TRUE;
+        }
+        if ((id==IDC_STUDIO_INTENSITY || id==IDC_STUDIO_SHININESS) && code==EN_KILLFOCUS)
+        {
+            char text[64],*end; GetDlgItemText(hwnd,id,text,sizeof(text)); double value=strtod(text,&end); BOOL parsed=end!=text;
+            while (*end==' ' || *end=='\t') { end++; }
+            if (!parsed || *end || !isfinite(value))
+            { RenderStudioProperties(); SetDlgItemText(g_Studio,IDC_STUDIO_STATUS,"Enter a valid material value."); return TRUE; }
+            if (id==IDC_STUDIO_INTENSITY) { m->intensity=(float)value; } else { m->shininess=(float)value; }
+            if (memcmp(m,&previous,sizeof(previous))) { RenderStudioCommitMaterial(m,&previous); }
+            return TRUE;
+        }
+        break;
+    }
+    }
+    return FALSE;
+}
+
+static void RenderStudioImageChoices(const TexThumb *images,DWORD count)
+{
+    HWND combo=GetDlgItem(g_StudioProperties,IDC_STUDIO_BASE_IMAGE);
+    g_StudioUpdating=TRUE; SendMessage(combo,CB_RESETCONTENT,0,0); SendMessage(combo,CB_ADDSTRING,0,(LPARAM)"None");
+    for (DWORD i=0;i<count;i++) { SendMessage(combo,CB_ADDSTRING,0,(LPARAM)images[i].label); }
+    SendMessage(combo,CB_SETDROPPEDWIDTH,360,0); g_StudioUpdating=FALSE; RenderStudioProperties();
+}
+
+static void RenderStudioDropModel(const char *filename,POINT point)
+{
+    const char *why=""; double position[3];
+    if (WindowFromPoint(point)!=g_StudioViewport || !StudioViewportDropPoint(g_StudioViewport,point,position)) { return; }
+    if (!g_StudioScene.filename[0]) { RenderStudioNewScene(g_Studio); if (!g_StudioScene.filename[0]) { return; } }
+    if (!StudioSceneAddModel(&g_StudioScene,filename,position,&why)) { MessageBox(g_Studio,why,"Add Model",MB_ICONERROR); return; }
+    StudioInstance *o=&g_StudioScene.objects[g_StudioScene.count-1];
+    /* Drop the model's base at the ground-plane hit, regardless of its origin. */
+    o->position[0]-=(o->asset->lower[0]+o->asset->upper[0])*0.5;
+    o->position[1]-=o->asset->lower[1]; o->position[2]-=(o->asset->lower[2]+o->asset->upper[2])*0.5;
+    if (!StudioSceneSave(&g_StudioScene,&why))
+    { StudioSceneRemove(&g_StudioScene,g_StudioScene.count-1); MessageBox(g_Studio,why,"Add Model",MB_ICONERROR); return; }
+    g_StudioObject=(int)g_StudioScene.count-1; g_StudioMaterial=0;
+    StudioViewportSetScene(g_StudioViewport,&g_StudioScene,g_StudioScene.count==1); RenderStudioOutliner();
+    SetDlgItemText(g_Studio,IDC_STUDIO_STATUS,"Model instance added. Scene saved."); SetFocus(g_StudioViewport);
+}
+
+static LRESULT CALLBACK RenderStudioModelDragProc(HWND hwnd,UINT message,WPARAM wparam,LPARAM lparam,UINT_PTR subclass,DWORD_PTR unused)
+{
+    if (message==WM_LBUTTONDOWN)
+    {
+        LRESULT result=DefSubclassProc(hwnd,message,wparam,lparam);
+        LRESULT hit=SendMessage(hwnd,LB_ITEMFROMPOINT,0,lparam);
+        LRESULT length=SendMessage(hwnd,LB_GETTEXTLEN,LOWORD(hit),0);
+        if (!HIWORD(hit) && length>0 && length<MAX_PATH)
+        {
+            g_StudioDragPress=(POINT){GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam)};
+            SendMessage(hwnd,LB_GETTEXT,LOWORD(hit),(LPARAM)g_StudioDragModel); g_StudioDragArmed=TRUE; g_StudioDragging=FALSE;
+            SetCapture(hwnd);
+        }
+        return result;
+    }
+    if (message==WM_MOUSEMOVE && g_StudioDragArmed)
+    {
+        POINT point={GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam)};
+        if (abs(point.x-g_StudioDragPress.x)>GetSystemMetrics(SM_CXDRAG) || abs(point.y-g_StudioDragPress.y)>GetSystemMetrics(SM_CYDRAG)) { g_StudioDragging=TRUE; }
+        if (g_StudioDragging)
+        { ClientToScreen(hwnd,&point); SetCursor(LoadCursor(NULL,WindowFromPoint(point)==g_StudioViewport ? IDC_CROSS : IDC_NO)); return 0; }
+    }
+    if (message==WM_LBUTTONUP && g_StudioDragArmed)
+    {
+        BOOL drop=g_StudioDragging; char name[MAX_PATH]; POINT point={GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam)};
+        lstrcpyn(name,g_StudioDragModel,sizeof(name)); ClientToScreen(hwnd,&point);
+        g_StudioDragArmed=g_StudioDragging=FALSE;
+        LRESULT result=DefSubclassProc(hwnd,message,wparam,lparam);
+        if (GetCapture()==hwnd) { ReleaseCapture(); } SetCursor(LoadCursor(NULL,IDC_ARROW));
+        if (drop) { RenderStudioDropModel(name,point); } return result;
+    }
+    if (message==WM_CANCELMODE || message==WM_CAPTURECHANGED || (message==WM_KEYDOWN && wparam==VK_ESCAPE))
+    {
+        BOOL armed=g_StudioDragArmed; g_StudioDragArmed=g_StudioDragging=FALSE;
+        if (GetCapture()==hwnd) { ReleaseCapture(); }
+        if (message==WM_KEYDOWN && armed) { return 0; }
+    }
+    if (message==WM_NCDESTROY) { RemoveWindowSubclass(hwnd,RenderStudioModelDragProc,subclass); }
+    return DefSubclassProc(hwnd,message,wparam,lparam);
+}
+
 static void RenderStudioRefreshScenes(const char *select)
 {
     StudioSceneEntry *entries = NULL; DWORD count = 0; const char *why = "";
     if (StudioSceneList(g_StudioProject, &entries, &count, &why))
         RenderStudioFillList(GetDlgItem(g_Studio, IDC_STUDIO_SCENE), entries, count, select, &why);
-    free(entries);
     SetDlgItemText(g_Studio, IDC_STUDIO_STATUS, why[0] ? why : g_StudioNavigation);
+    if (!why[0] && count && (select || (!g_StudioScene.filename[0] && !g_StudioTriedInitialScene)))
+    {
+        g_StudioTriedInitialScene=TRUE;
+        const char *filename=select ? select : entries[0].filename;
+        LRESULT row=SendDlgItemMessage(g_Studio,IDC_STUDIO_SCENE,LB_FINDSTRINGEXACT,(WPARAM)-1,(LPARAM)filename);
+        SendDlgItemMessage(g_Studio,IDC_STUDIO_SCENE,LB_SETCURSEL,row,0); RenderStudioLoadScene(filename);
+    }
+    free(entries);
 }
 
 static void RenderStudioRefreshAssets(void)
@@ -92,7 +334,11 @@ static void RenderStudioRefreshAssets(void)
         RenderStudioFillList(GetDlgItem(g_Studio, IDC_STUDIO_MODELS), models, count, NULL, &modelwhy);
     free(models);
     if (StudioLoadImages(g_StudioProject, &images, &pixels, &count, &why))
+    {
+        RenderStudioImageChoices(images,count);
         BrowserSetImages(GetDlgItem(g_Studio, IDC_STUDIO_IMAGES), images, (int)count, pixels);
+        StudioViewportRefreshImages(g_StudioViewport);
+    }
     if (modelwhy[0] || why[0])
         SetDlgItemText(g_Studio, IDC_STUDIO_STATUS, modelwhy[0] ? modelwhy : why);
 }
@@ -168,15 +414,15 @@ static void RenderStudioPanel(HWND hwnd, int group, int content,
 
 static void RenderStudioLayout(HWND hwnd)
 {
-    RECT client, units = {8, 16, 144, 0}, panel = {0, 0, 168, 88};
+    RECT client, units = {8, 16, 144, 0}, panel = {0, 0, 168, 88}, properties={0,0,0,184};
     int margin, height, left, right, rightx, scenesize, imagesize, outline;
-    GetClientRect(hwnd, &client); MapDialogRect(hwnd, &units); MapDialogRect(hwnd, &panel);
+    GetClientRect(hwnd, &client); MapDialogRect(hwnd, &units); MapDialogRect(hwnd, &panel); MapDialogRect(hwnd,&properties);
     margin = units.left; left = units.right; right = panel.right;
     height = max(0, client.bottom - units.top - margin * 3);
     rightx = client.right - margin - right;
     scenesize = min(panel.bottom, height / 3);
     imagesize = max(0, (height - scenesize - margin * 2) / 2);
-    outline = max(0, (height - margin) / 2);
+    outline = max(0, (height - properties.bottom - margin * 2) / 2);
     RenderStudioPanel(hwnd, IDC_STUDIO_SCENE_PANEL, IDC_STUDIO_SCENE, margin, margin,
         left, scenesize, margin, units.top);
     RenderStudioPanel(hwnd, IDC_STUDIO_IMAGES_PANEL, IDC_STUDIO_IMAGES, margin, margin * 2 + scenesize,
@@ -185,8 +431,10 @@ static void RenderStudioLayout(HWND hwnd)
         left, height - scenesize - imagesize - margin * 2, margin, units.top);
     RenderStudioPanel(hwnd, IDC_STUDIO_OUTLINER_PANEL, IDC_STUDIO_OUTLINER, rightx, margin,
         right, outline, margin, units.top);
-    RenderStudioPanel(hwnd, IDC_STUDIO_PROPERTIES_PANEL, IDC_STUDIO_PROPERTIES, rightx, margin * 2 + outline,
-        right, height - outline - margin, margin, units.top);
+    RenderStudioPanel(hwnd, IDC_STUDIO_MATERIALS_PANEL, IDC_STUDIO_MATERIALS, rightx, margin * 2 + outline,
+        right, outline, margin, units.top);
+    RenderStudioPanel(hwnd, IDC_STUDIO_PROPERTIES_PANEL, IDC_STUDIO_PROPERTIES, rightx, margin * 3 + outline * 2,
+        right, height - outline * 2 - margin * 2, margin, units.top);
     if (g_StudioViewport)
         RenderStudioPlace(g_StudioViewport, left + margin * 2, margin,
             rightx - left - margin * 3, height);
@@ -207,21 +455,15 @@ void RenderStudioSetProject(const GEditorProject *project)
     SetWindowText(g_Studio, title);
     if (!changed) { return; }
     /* Scene state belongs to this project, never to the selected game level. */
-    StudioViewportReset(g_StudioViewport);
+    g_StudioGeneration++; g_StudioTriedInitialScene=FALSE; StudioSceneFree(&g_StudioScene); g_StudioObject=g_StudioMaterial=-1;
+    StudioViewportSetScene(g_StudioViewport,&g_StudioScene,TRUE);
     SendDlgItemMessage(g_Studio, IDC_STUDIO_SCENE, LB_RESETCONTENT, 0, 0);
     BrowserSetImages(GetDlgItem(g_Studio, IDC_STUDIO_IMAGES), NULL, 0, NULL);
     SendDlgItemMessage(g_Studio, IDC_STUDIO_MODELS, LB_RESETCONTENT, 0, 0);
-    TreeView_DeleteAllItems(GetDlgItem(g_Studio, IDC_STUDIO_OUTLINER));
-    if (dir[0])
-    {
-        TVINSERTSTRUCT root = {0};
-        root.hParent = TVI_ROOT; root.hInsertAfter = TVI_LAST;
-        root.item.mask = TVIF_TEXT; root.item.pszText = "Scene";
-        TreeView_InsertItem(GetDlgItem(g_Studio, IDC_STUDIO_OUTLINER), &root);
-    }
+    RenderStudioOutliner();
     RenderStudioRefreshScenes(NULL);
     RenderStudioRefreshAssets();
-    SetDlgItemText(g_Studio, IDC_STUDIO_PROPERTIES, "Nothing selected.");
+    RenderStudioProperties();
     EnableWindow(GetDlgItem(g_Studio, IDC_STUDIO_SCENE), dir[0] != 0);
     EnableWindow(GetDlgItem(g_Studio, IDC_STUDIO_IMAGES), dir[0] != 0);
     EnableWindow(GetDlgItem(g_Studio, IDC_STUDIO_MODELS), dir[0] != 0);
@@ -237,7 +479,7 @@ static INT_PTR CALLBACK RenderStudioProc(HWND hwnd, UINT message, WPARAM wparam,
         static const int panels[][2] = {
             {IDC_STUDIO_SCENE_PANEL, IDC_STUDIO_SCENE}, {IDC_STUDIO_IMAGES_PANEL, IDC_STUDIO_IMAGES},
             {IDC_STUDIO_MODELS_PANEL, IDC_STUDIO_MODELS}, {IDC_STUDIO_OUTLINER_PANEL, IDC_STUDIO_OUTLINER},
-            {IDC_STUDIO_PROPERTIES_PANEL, IDC_STUDIO_PROPERTIES}};
+            {IDC_STUDIO_PROPERTIES_PANEL, IDC_STUDIO_PROPERTIES}, {IDC_STUDIO_MATERIALS_PANEL,IDC_STUDIO_MATERIALS}};
         g_Studio = hwnd;
         for (size_t i = 0; i < sizeof(panels) / sizeof(*panels); i++)
             SetWindowSubclass(GetDlgItem(hwnd, panels[i][0]), RenderStudioGroupProc, 1, panels[i][1]);
@@ -245,7 +487,7 @@ static INT_PTR CALLBACK RenderStudioProc(HWND hwnd, UINT message, WPARAM wparam,
     }
     case WM_SIZE: RenderStudioLayout(hwnd); return TRUE;
     case WM_ACTIVATE:
-        if (LOWORD(wparam) != WA_INACTIVE && g_StudioProject[0])
+        if (LOWORD(wparam) != WA_INACTIVE && g_StudioProject[0] && !g_StudioLoading)
         { RenderStudioRefreshScenes(NULL); RenderStudioRefreshAssets(); }
         break; /* Let the dialog manager restore keyboard focus normally. */
     case WM_INITMENUPOPUP:
@@ -254,7 +496,7 @@ static INT_PTR CALLBACK RenderStudioProc(HWND hwnd, UINT message, WPARAM wparam,
     case WM_GETMINMAXINFO:
     {
         MINMAXINFO *limits = (MINMAXINFO *)lparam;
-        RECT minimum = {0, 0, 640, 320};
+        RECT minimum = {0, 0, 640, 400};
         MapDialogRect(hwnd, &minimum);
         AdjustWindowRectEx(&minimum, (DWORD)GetWindowLongPtr(hwnd, GWL_STYLE),
             GetMenu(hwnd) != NULL, (DWORD)GetWindowLongPtr(hwnd, GWL_EXSTYLE));
@@ -265,11 +507,27 @@ static INT_PTR CALLBACK RenderStudioProc(HWND hwnd, UINT message, WPARAM wparam,
     case WM_COMMAND:
         if (LOWORD(wparam) == ID_STUDIO_NEW_SCENE) { RenderStudioNewScene(hwnd); return TRUE; }
         if (LOWORD(wparam) == IDCANCEL) { DestroyWindow(hwnd); return TRUE; }
-        if (LOWORD(wparam) == IDOK) { return TRUE; }
+        if (LOWORD(wparam) == IDOK) { SetFocus(GetDlgItem(g_Studio,IDC_STUDIO_MATERIALS)); return TRUE; }
+        if (LOWORD(wparam)==IDC_STUDIO_SCENE && HIWORD(wparam)==LBN_SELCHANGE)
+        {
+            char filename[MAX_PATH]; LRESULT row=SendDlgItemMessage(hwnd,IDC_STUDIO_SCENE,LB_GETCURSEL,0,0);
+            if (row!=LB_ERR && SendDlgItemMessage(hwnd,IDC_STUDIO_SCENE,LB_GETTEXTLEN,row,0)<MAX_PATH)
+            { SendDlgItemMessage(hwnd,IDC_STUDIO_SCENE,LB_GETTEXT,row,(LPARAM)filename); RenderStudioLoadScene(filename); }
+            return TRUE;
+        }
+        if (LOWORD(wparam)==IDC_STUDIO_MATERIALS && HIWORD(wparam)==LBN_SELCHANGE && !g_StudioUpdating)
+        { g_StudioMaterial=(int)SendDlgItemMessage(hwnd,IDC_STUDIO_MATERIALS,LB_GETCURSEL,0,0); RenderStudioProperties(); return TRUE; }
         break;
+    case WM_NOTIFY:
+        if (((NMHDR *)lparam)->idFrom==IDC_STUDIO_OUTLINER && ((NMHDR *)lparam)->code==TVN_SELCHANGED && !g_StudioUpdating)
+        { RenderStudioSelect((int)((NMTREEVIEW *)lparam)->itemNew.lParam,-1); return TRUE; }
+        break;
+    case STUDIO_WM_SELECT: RenderStudioSelect((int)(INT_PTR)wparam,(int)lparam); return TRUE;
     case WM_CLOSE: DestroyWindow(hwnd); return TRUE;
     case WM_NCDESTROY:
-        g_Studio = g_StudioViewport = NULL; g_StudioProject[0] = '\0';
+        g_StudioGeneration++; g_StudioTriedInitialScene=FALSE; StudioSceneFree(&g_StudioScene);
+        g_Studio = g_StudioViewport = g_StudioProperties = NULL; g_StudioProject[0] = '\0';
+        g_StudioObject=g_StudioMaterial=-1; g_StudioDragArmed=g_StudioDragging=FALSE;
         break;
     }
     return FALSE;
@@ -293,6 +551,12 @@ BOOL RenderStudioShow(HWND owner, HINSTANCE instance, const GEditorProject *proj
             *why = "Could not initialize Render Studio's image browser.";
             return FALSE;
         }
+        DestroyWindow(GetDlgItem(g_Studio,IDC_STUDIO_PROPERTIES));
+        g_StudioProperties=CreateDialog(instance,MAKEINTRESOURCE(IDD_STUDIO_PROPERTIES),g_Studio,RenderStudioPropertiesProc);
+        if (!g_StudioProperties)
+        { DestroyWindow(g_Studio); *why="Could not create the studio material properties panel."; return FALSE; }
+        SetWindowLongPtr(g_StudioProperties,GWLP_ID,IDC_STUDIO_PROPERTIES); ShowWindow(g_StudioProperties,SW_SHOW);
+        SetWindowSubclass(GetDlgItem(g_Studio,IDC_STUDIO_MODELS),RenderStudioModelDragProc,2,0);
         g_StudioViewport = StudioViewportCreate(g_Studio, instance);
         if (!g_StudioViewport)
         {
@@ -333,10 +597,13 @@ BOOL RenderStudioHandleMessage(MSG *message)
         if (own && (target == GetDlgItem(g_Studio, IDC_STUDIO_SCENE)
             || target == GetDlgItem(g_Studio, IDC_STUDIO_IMAGES)
             || target == GetDlgItem(g_Studio, IDC_STUDIO_MODELS)
-            || target == GetDlgItem(g_Studio, IDC_STUDIO_OUTLINER)))
+            || target == GetDlgItem(g_Studio, IDC_STUDIO_OUTLINER)
+            || target == GetDlgItem(g_Studio, IDC_STUDIO_MATERIALS)))
         { SendMessage(target, WM_MOUSEWHEEL, message->wParam, message->lParam); return TRUE; }
     }
     if (!own) { return FALSE; }
+    if (message->message==WM_KEYDOWN && message->wParam==VK_ESCAPE && g_StudioDragArmed)
+    { SendDlgItemMessage(g_Studio,IDC_STUDIO_MODELS,WM_KEYDOWN,VK_ESCAPE,0); return TRUE; }
     /* The main window remains usable; studio input never reaches its game
      * selection, transform or save accelerators. */
     if (!IsDialogMessage(g_Studio, message)) { TranslateMessage(message); DispatchMessage(message); }

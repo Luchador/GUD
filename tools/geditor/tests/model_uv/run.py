@@ -41,7 +41,7 @@ with tempfile.TemporaryDirectory(prefix='geditor-model-uv-') as folder:
         f'-I{here.parent / "image_import"}', f'-I{src}', f'-I{root}', f'-I{work}',
         str(here / 'check.c'), str(here.parent / 'image_import/platform.c')]
     command += [str(src / n) for n in ('modeluv.c', 'modelload.c', 'modelmaterials.c', 'modelcompile.c',
-        'modeledits.c', 'gltf.c', 'newprops.c', 'propcompile.c', 'bgmaterial.c', 'bgrender.c',
+        'modeledits.c', 'gltf.c', 'gltfjson.c', 'newprops.c', 'propcompile.c', 'bgmaterial.c', 'bgrender.c',
         'rotation.c', 'uvprojection.c', 'uvcylinder.c')]
     subprocess.run(command + ['-Wl,--gc-sections', '-lm', '-o', str(work / 'check')], check=True)
     assets = [root / 'assets/obseg/prop/PsevdoormetslideZ.bin', root / 'assets/obseg/prop/Pbook1Z.bin',

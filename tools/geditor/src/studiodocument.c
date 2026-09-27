@@ -1,0 +1,263 @@
+/* Persistent studio instances and material overrides. All writes replace a
+ * completed sibling temporary file; failed loads leave the open scene intact. */
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+#include "studioscene.h"
+#include "gltfjson.h"
+#include "editorpath.h"
+
+#define STUDIO_MAX_OBJECTS 1024
+#define STUDIO_MAX_SCENE_BYTES (16u * 1024u * 1024u)
+
+BOOL StudioAssetFilename(const char *name, const char *extension)
+{
+    size_t length = name ? strlen(name) : 0, suffix = strlen(extension);
+    if (length <= suffix || length >= MAX_PATH || lstrcmpi(name + length - suffix, extension)) { return FALSE; }
+    if (name[length-1] == ' ' || name[0] == ' ') { return FALSE; }
+    for (size_t i=0;i<length;i++)
+        if ((unsigned char)name[i]<32 || strchr("\\/:*?\"<>|",name[i])) { return FALSE; }
+    return TRUE;
+}
+
+BOOL StudioMaterialValid(const StudioMaterial *m)
+{
+    if (!m->name[0] || (m->image[0] && !StudioAssetFilename(m->image,".bmp"))) { return FALSE; }
+    for (int i=0;i<3;i++)
+        if (!isfinite(m->base[i]) || m->base[i]<0 || m->base[i]>1
+            || !isfinite(m->specular[i]) || m->specular[i]<0 || m->specular[i]>1) { return FALSE; }
+    return isfinite(m->intensity) && m->intensity>=0 && m->intensity<=1
+        && isfinite(m->shininess) && m->shininess>=1 && m->shininess<=128;
+}
+
+void StudioSceneFree(StudioScene *scene)
+{
+    for (DWORD i=0;i<scene->count;i++) { free(scene->objects[i].materials); }
+    free(scene->objects);
+    while (scene->assets)
+    {
+        StudioModel *asset=scene->assets; scene->assets=asset->next;
+        GltfFreeModelImport(&asset->mesh); free(asset->basecolors); free(asset);
+    }
+    memset(scene,0,sizeof(*scene));
+}
+
+static StudioModel *StudioLoadModel(StudioScene *scene, const char *filename, const char **why)
+{
+    char folder[MAX_PATH], path[MAX_PATH]; StudioModel *asset;
+    for (asset=scene->assets;asset;asset=asset->next)
+        if (!lstrcmpi(asset->filename,filename)) { return asset; }
+    if (!StudioAssetFilename(filename,".gltf")
+        || !EditorPathJoin(folder,sizeof(folder),scene->project,"studio\\models")
+        || !EditorPathJoin(path,sizeof(path),folder,filename))
+    { *why="The studio model filename or path is invalid."; return NULL; }
+    asset=calloc(1,sizeof(*asset));
+    if (!asset) { *why="Out of memory loading the studio model."; return NULL; }
+    if (!GltfReadStudioModel(path,&asset->mesh,&asset->basecolors,why) || !asset->mesh.count)
+    {
+        GltfFreeModelImport(&asset->mesh); free(asset->basecolors); free(asset);
+        if (!(*why)[0]) { *why="The model contains no triangle meshes."; }
+        return NULL;
+    }
+    for (DWORD i=0;i<asset->mesh.count*3;i++)
+    {
+        const BgVertex *v=&asset->mesh.vertices[i]; double p[3]={v->x,v->y,v->z};
+        for (int k=0;k<3;k++)
+        {
+            if (!i || p[k]<asset->lower[k]) { asset->lower[k]=p[k]; }
+            if (!i || p[k]>asset->upper[k]) { asset->upper[k]=p[k]; }
+        }
+    }
+    lstrcpyn(asset->filename,filename,sizeof(asset->filename));
+    asset->next=scene->assets; scene->assets=asset;
+    return asset;
+}
+
+static BOOL StudioDefaultMaterials(StudioInstance *object, StudioModel *asset)
+{
+    object->materialcount=asset->mesh.materials.count;
+    object->materials=calloc(object->materialcount ? object->materialcount : 1,sizeof(*object->materials));
+    if (!object->materials) { return FALSE; }
+    for (DWORD i=0;i<object->materialcount;i++)
+    {
+        StudioMaterial *m=&object->materials[i];
+        lstrcpyn(m->name,asset->mesh.materials.slots[i].name,sizeof(m->name));
+        for (int k=0;k<3;k++) { m->base[k]=asset->basecolors[i][k]; m->specular[k]=1; }
+        m->intensity=0.25f; m->shininess=32;
+    }
+    return TRUE;
+}
+
+BOOL StudioSceneAddModel(StudioScene *scene, const char *filename, const double position[3], const char **why)
+{
+    StudioInstance item={0}, *grown;
+    *why="";
+    if (!scene->filename[0] || scene->count>=STUDIO_MAX_OBJECTS)
+    { *why="Select a scene with fewer than 1024 instances before adding a model."; return FALSE; }
+    for (int k=0;k<3;k++) if (!isfinite(position[k]) || fabs(position[k])>1e9)
+    { *why="The model position is outside the studio's supported range."; return FALSE; }
+    item.asset=StudioLoadModel(scene,filename,why);
+    if (!item.asset) { return FALSE; }
+    if (!StudioDefaultMaterials(&item,item.asset)) { *why="Out of memory creating instance materials."; return FALSE; }
+    grown=realloc(scene->objects,(scene->count+1)*sizeof(*grown));
+    if (!grown) { free(item.materials); *why="Out of memory creating a model instance."; return FALSE; }
+    scene->objects=grown; lstrcpyn(item.model,filename,sizeof(item.model));
+    memcpy(item.position,position,sizeof(item.position)); scene->objects[scene->count++]=item;
+    return TRUE;
+}
+
+void StudioSceneRemove(StudioScene *scene, DWORD index)
+{
+    if (index>=scene->count) { return; }
+    free(scene->objects[index].materials); scene->count--;
+    memmove(scene->objects+index,scene->objects+index+1,(scene->count-index)*sizeof(*scene->objects));
+}
+
+static BOOL StudioScenePath(const StudioScene *scene, char folder[MAX_PATH], char path[MAX_PATH])
+{
+    return scene->project[0] && StudioAssetFilename(scene->filename,".rnd")
+        && EditorPathJoin(folder,MAX_PATH,scene->project,"studio\\scenes")
+        && EditorPathJoin(path,MAX_PATH,folder,scene->filename);
+}
+
+BOOL StudioSceneSave(const StudioScene *scene, const char **why)
+{
+    char folder[MAX_PATH], path[MAX_PATH], temporary[MAX_PATH]; FILE *file; BOOL ok;
+    *why="";
+    if (!StudioScenePath(scene,folder,path) || scene->count>STUDIO_MAX_OBJECTS)
+    { *why="The studio scene path or instance count is invalid."; return FALSE; }
+    for (DWORD i=0;i<scene->count;i++)
+    {
+        const StudioInstance *o=&scene->objects[i];
+        if (!StudioAssetFilename(o->model,".gltf") || o->materialcount>4096) { goto invalid; }
+        for (int k=0;k<3;k++) if (!isfinite(o->position[k]) || fabs(o->position[k])>1e9) { goto invalid; }
+        for (DWORD m=0;m<o->materialcount;m++) if (!StudioMaterialValid(&o->materials[m])) { goto invalid; }
+    }
+    if (!GetTempFileName(folder,"rnd",0,temporary))
+    { *why="Could not create a temporary scene file."; return FALSE; }
+    file=fopen(temporary,"wb");
+    if (!file) { DeleteFile(temporary); *why="Could not open the temporary scene file."; return FALSE; }
+    ok=fprintf(file,"{\n  \"format\": \"GEditor Render Studio\",\n  \"version\": 1,\n  \"objects\": [")>=0;
+    for (DWORD i=0;ok && i<scene->count;i++)
+    {
+        const StudioInstance *o=&scene->objects[i];
+        ok=fprintf(file,"%s\n    {\"model\": ",i ? "," : "")>=0 && GltfJsonWriteString(file,o->model)
+            && fprintf(file,", \"position\": [%.17g, %.17g, %.17g], \"materials\": [",o->position[0],o->position[1],o->position[2])>=0;
+        for (DWORD j=0;ok && j<o->materialcount;j++)
+        {
+            const StudioMaterial *m=&o->materials[j];
+            ok=fprintf(file,"%s\n      {\"name\": ",j ? "," : "")>=0 && GltfJsonWriteString(file,m->name)
+                && fputs(", \"image\": ",file)!=EOF && GltfJsonWriteString(file,m->image)
+                && fprintf(file,", \"base\": [%.9g, %.9g, %.9g], \"specular\": [%.9g, %.9g, %.9g], \"intensity\": %.9g, \"shininess\": %.9g}",
+                    m->base[0],m->base[1],m->base[2],m->specular[0],m->specular[1],m->specular[2],m->intensity,m->shininess)>=0;
+        }
+        ok=ok && fputs("\n    ]}",file)!=EOF;
+    }
+    ok=ok && fputs("\n  ]\n}\n",file)!=EOF && !ferror(file);
+    if (fclose(file)) { ok=FALSE; }
+    if (!ok || !MoveFileEx(temporary,path,MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+    { DeleteFile(temporary); *why="The scene could not be saved. Check free space and folder permissions. The previous file was preserved."; return FALSE; }
+    return TRUE;
+invalid:
+    *why="The scene contains invalid instance or material settings."; return FALSE;
+}
+
+typedef struct StudioJson { const char *text; GltfJsonToken *tokens; int count; } StudioJson;
+static int Field(const StudioJson *j,int object,const char *name)
+{ return GltfJsonObjectGet(j->text,j->tokens,j->count,object,name); }
+static BOOL String(const StudioJson *j,int token,char *out,size_t capacity)
+{
+    char *text=token>=0 ? GltfJsonCopyString(j->text,&j->tokens[token]) : NULL;
+    if (!text) { return FALSE; }
+    size_t length=strlen(text); BOOL ok=length<capacity;
+    if (ok) { memcpy(out,text,length+1); } free(text); return ok;
+}
+static BOOL Number(const StudioJson *j,int token,double *value)
+{
+    char *end;
+    if (token<0 || j->tokens[token].type!=GLTF_JSON_PRIMITIVE) { return FALSE; }
+    *value=strtod(j->text+j->tokens[token].start,&end);
+    return end==j->text+j->tokens[token].end && end!=j->text+j->tokens[token].start && isfinite(*value);
+}
+static BOOL Vector(const StudioJson *j,int token,double *value,DWORD size)
+{
+    if (token<0 || j->tokens[token].type!=GLTF_JSON_ARRAY || GltfJsonArrayCount(j->tokens,j->count,token)!=size) { return FALSE; }
+    for (DWORD i=0;i<size;i++) if (!Number(j,GltfJsonArrayGet(j->tokens,j->count,token,i),value+i)) { return FALSE; }
+    return TRUE;
+}
+
+BOOL StudioSceneLoad(const char *projectdir, const char *filename, StudioScene *scene, const char **why)
+{
+    StudioScene next={0}; StudioJson j={0}; char folder[MAX_PATH], path[MAX_PATH], *text=NULL, format[64];
+    FILE *file=NULL; long length; DWORD version; int array, token; BOOL ok=FALSE, missing=FALSE;
+    *why="The studio scene is invalid or uses an unsupported format.";
+    if (!projectdir || strlen(projectdir)>=MAX_PATH || !filename || strlen(filename)>=MAX_PATH) { goto done; }
+    lstrcpyn(next.project,projectdir,sizeof(next.project)); lstrcpyn(next.filename,filename,sizeof(next.filename));
+    if (!StudioScenePath(&next,folder,path) || !(file=fopen(path,"rb"))) { goto done; }
+    if (fseek(file,0,SEEK_END) || (length=ftell(file))<0 || (unsigned long)length>STUDIO_MAX_SCENE_BYTES || fseek(file,0,SEEK_SET)) { goto done; }
+    text=calloc((size_t)length+1,1);
+    if (!text || fread(text,1,length,file)!=(size_t)length) { goto done; }
+    j.text=text;
+    if (!GltfJsonParse(text,length,&j.tokens,&j.count,why) || !j.count || j.tokens[0].type!=GLTF_JSON_OBJECT) { goto done; }
+    *why="The studio scene is invalid or uses an unsupported format.";
+    if (!String(&j,Field(&j,0,"format"),format,sizeof(format)) || strcmp(format,"GEditor Render Studio")) { goto done; }
+    token=Field(&j,0,"version");
+    if (token<0 || !GltfJsonUnsigned(text,&j.tokens[token],&version) || version!=1) { goto done; }
+    array=Field(&j,0,"objects");
+    if (array<0 || j.tokens[array].type!=GLTF_JSON_ARRAY) { goto done; }
+    next.count=GltfJsonArrayCount(j.tokens,j.count,array);
+    if (next.count>STUDIO_MAX_OBJECTS) { next.count=0; goto done; }
+    next.objects=calloc(next.count ? next.count : 1,sizeof(*next.objects));
+    if (!next.objects) { next.count=0; goto done; }
+    for (DWORD i=0;i<next.count;i++)
+    {
+        StudioInstance *o=&next.objects[i]; int object=GltfJsonArrayGet(j.tokens,j.count,array,i);
+        if (!String(&j,Field(&j,object,"model"),o->model,sizeof(o->model)) || !StudioAssetFilename(o->model,".gltf")
+            || !Vector(&j,Field(&j,object,"position"),o->position,3)) { goto done; }
+        for (int k=0;k<3;k++) if (fabs(o->position[k])>1e9) { goto done; }
+        int materials=Field(&j,object,"materials");
+        if (materials<0 || j.tokens[materials].type!=GLTF_JSON_ARRAY) { goto done; }
+        o->materialcount=GltfJsonArrayCount(j.tokens,j.count,materials);
+        if (o->materialcount>4096) { goto done; }
+        o->materials=calloc(o->materialcount ? o->materialcount : 1,sizeof(*o->materials));
+        if (!o->materials) { goto done; }
+        for (DWORD m=0;m<o->materialcount;m++)
+        {
+            StudioMaterial *mat=&o->materials[m]; double base[3], specular[3], intensity, shine;
+            token=GltfJsonArrayGet(j.tokens,j.count,materials,m);
+            if (!String(&j,Field(&j,token,"name"),mat->name,sizeof(mat->name))
+                || !String(&j,Field(&j,token,"image"),mat->image,sizeof(mat->image))
+                || !Vector(&j,Field(&j,token,"base"),base,3) || !Vector(&j,Field(&j,token,"specular"),specular,3)
+                || !Number(&j,Field(&j,token,"intensity"),&intensity) || !Number(&j,Field(&j,token,"shininess"),&shine)) { goto done; }
+            for (int k=0;k<3;k++) { mat->base[k]=(float)base[k]; mat->specular[k]=(float)specular[k]; }
+            mat->intensity=(float)intensity; mat->shininess=(float)shine;
+            if (!StudioMaterialValid(mat)) { goto done; }
+        }
+        const char *assetwhy="";
+        o->asset=StudioLoadModel(&next,o->model,&assetwhy);
+        if (!o->asset) { missing=TRUE; continue; }
+        /* Match overrides by slot/name, then by unique name if an asset's slots
+         * were reordered externally. Distinct equal-named slots stay distinct. */
+        StudioInstance defaults={0};
+        if (!StudioDefaultMaterials(&defaults,o->asset)) { goto done; }
+        for (DWORD m=0;m<defaults.materialcount;m++)
+        {
+            int found=-1, matches=0;
+            if (m<o->materialcount && !strcmp(defaults.materials[m].name,o->materials[m].name)) { found=(int)m; }
+            else
+            {
+                for (DWORD n=0;n<o->materialcount;n++) if (!strcmp(defaults.materials[m].name,o->materials[n].name)) { found=(int)n; matches++; }
+                for (DWORD n=0;n<defaults.materialcount;n++) if (n!=m && !strcmp(defaults.materials[m].name,defaults.materials[n].name)) { matches=2; }
+                if (matches!=1) { found=-1; }
+            }
+            if (found>=0) { defaults.materials[m]=o->materials[found]; }
+        }
+        free(o->materials); o->materials=defaults.materials; o->materialcount=defaults.materialcount;
+    }
+    StudioSceneFree(scene); *scene=next; memset(&next,0,sizeof(next));
+    *why=missing ? "Some scene models are missing or unreadable. Their instances and material settings were retained." : ""; ok=TRUE;
+done:
+    if (file) { fclose(file); } free(text); free(j.tokens); StudioSceneFree(&next);
+    return ok;
+}

@@ -1,23 +1,92 @@
-/* The studio's empty-scene preview. Scene rendering can grow here independently
- * of the game's display-list renderer and its native asset formats. */
+/* Studio scene preview, independent of the game's display-list renderer. */
 #include <windows.h>
 #include <windowsx.h>
 #include <GL/gl.h>
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 #include "studioviewport.h"
 #include "orbitcamera.h"
+#include "studiomath.h"
+#include "editorpath.h"
 
 #define STUDIO_VIEWPORT_CLASS "GEditorStudioViewport"
-#define STUDIO_FOV 45.0
+
+typedef struct StudioTexture { char name[MAX_PATH]; GLuint id; struct StudioTexture *next; } StudioTexture;
 
 typedef struct StudioViewport {
     HDC dc;
     HGLRC context;
     OrbitCamera camera;
     POINT mouse;
+    POINT press;
+    BOOL moved;
     unsigned buttons;
+    const StudioScene *scene;
+    int selected;
+    StudioTexture *textures;
 } StudioViewport;
+
+static void StudioViewportTextures(StudioViewport *state)
+{
+    while (state->textures)
+    {
+        StudioTexture *texture=state->textures; state->textures=texture->next;
+        if (texture->id) { glDeleteTextures(1,&texture->id); } free(texture);
+    }
+}
+
+void StudioViewportRefreshImages(HWND viewport)
+{
+    StudioViewport *state=(StudioViewport *)GetWindowLongPtr(viewport,GWLP_USERDATA);
+    HDC dc=wglGetCurrentDC(); HGLRC context=wglGetCurrentContext();
+    if (!state) { return; }
+    if (wglMakeCurrent(state->dc,state->context)) { StudioViewportTextures(state); wglMakeCurrent(dc,context); }
+    InvalidateRect(viewport,NULL,FALSE);
+}
+
+static void StudioViewportFrame(HWND viewport, StudioViewport *state, int selected)
+{
+    double lower[3],upper[3]; RECT client;
+    if (!StudioBounds(state->scene,selected,lower,upper)) { return; }
+    GetClientRect(viewport,&client);
+    OrbitCameraFrame(&state->camera,lower,upper,client.bottom>0 ? (double)client.right/client.bottom : 1,STUDIO_FOV);
+    InvalidateRect(viewport,NULL,FALSE);
+}
+
+void StudioViewportSetScene(HWND viewport, const StudioScene *scene, BOOL frame)
+{
+    StudioViewport *state=(StudioViewport *)GetWindowLongPtr(viewport,GWLP_USERDATA);
+    double lower[3],upper[3];
+    if (!state) { return; } state->scene=scene;
+    if (frame) { StudioViewportReset(viewport); StudioViewportFrame(viewport,state,-1); }
+    else if (StudioBounds(scene,-1,lower,upper))
+    {
+        double squared=0;
+        for (int k=0;k<3;k++) { state->camera.boundscenter[k]=(lower[k]+upper[k])*0.5; squared+=(upper[k]-lower[k])*(upper[k]-lower[k])*0.25; }
+        state->camera.radius=fmax(0.001,sqrt(squared));
+    }
+    InvalidateRect(viewport,NULL,FALSE);
+}
+
+void StudioViewportSelect(HWND viewport, int index)
+{
+    StudioViewport *state=(StudioViewport *)GetWindowLongPtr(viewport,GWLP_USERDATA);
+    if (state) { state->selected=index; InvalidateRect(viewport,NULL,FALSE); }
+}
+
+BOOL StudioViewportDropPoint(HWND viewport, POINT screen, double position[3])
+{
+    StudioViewport *state=(StudioViewport *)GetWindowLongPtr(viewport,GWLP_USERDATA);
+    RECT client; double origin[3],direction[3],t;
+    if (!state) { return FALSE; }
+    ScreenToClient(viewport,&screen); GetClientRect(viewport,&client);
+    if (!PtInRect(&client,screen) || !StudioRay(&state->camera,client.right,client.bottom,screen.x,screen.y,origin,direction)) { return FALSE; }
+    t=fabs(direction[1])>1e-8 ? -origin[1]/direction[1] : -1;
+    if (t<0 || t>state->camera.distance*100) { t=state->camera.distance; }
+    for (int k=0;k<3;k++) { position[k]=origin[k]+direction[k]*t; }
+    position[1]=0; return TRUE;
+}
 
 void StudioViewportReset(HWND viewport)
 {
@@ -25,6 +94,7 @@ void StudioViewportReset(HWND viewport)
     const double lower[3] = {-10, 0, -10}, upper[3] = {10, 0, 10};
     if (!state) { return; }
     state->buttons = 0;
+    state->selected = -1;
     if (GetCapture() == viewport) { ReleaseCapture(); }
     OrbitCameraFrame(&state->camera, lower, upper, 1, STUDIO_FOV);
     state->camera.pitch = -25;
@@ -51,7 +121,77 @@ static BOOL StudioViewportInit(HWND hwnd, StudioViewport *state)
     return TRUE;
 }
 
-static void StudioViewportDraw(const StudioViewport *state, int width, int height)
+static GLuint StudioViewportTexture(StudioViewport *state, const char *filename)
+{
+    if (!filename[0] || !state->scene) { return 0; }
+    StudioTexture *texture; char folder[MAX_PATH],path[MAX_PATH]; TexPixel *pixels=NULL; int w,h; GLint maximum;
+    for (texture=state->textures;texture;texture=texture->next) if (!lstrcmpi(filename,texture->name)) { return texture->id; }
+    texture=calloc(1,sizeof(*texture)); if (!texture) { return 0; }
+    lstrcpyn(texture->name,filename,sizeof(texture->name)); texture->next=state->textures; state->textures=texture;
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE,&maximum); maximum=min(4096,maximum);
+    if (!EditorPathJoin(folder,sizeof(folder),state->scene->project,"studio\\images")
+        || !EditorPathJoin(path,sizeof(path),folder,filename) || !TexLoadStudioTexture(path,maximum,&pixels,&w,&h)) { return 0; }
+    glGenTextures(1,&texture->id); glBindTexture(GL_TEXTURE_2D,texture->id);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR); glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT); glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
+    glTexImage2D(GL_TEXTURE_2D,0,GL_RGB,w,h,0,GL_RGBA,GL_UNSIGNED_BYTE,pixels); free(pixels);
+    return texture->id;
+}
+
+static void StudioViewportObjects(StudioViewport *state, const double eye[3])
+{
+    if (!state->scene) { return; }
+    glShadeModel(GL_SMOOTH);
+    /* The diffuse/base-image and additive specular passes keep Phong highlights
+     * independent of the base image. CPU vertex lighting works on OpenGL 1.1. */
+    for (int pass=0;pass<2;pass++)
+    {
+        if (pass) { glEnable(GL_BLEND); glBlendFunc(GL_ONE,GL_ONE); glDepthMask(GL_FALSE); glDepthFunc(GL_EQUAL); }
+        for (DWORD i=0;i<state->scene->count;i++)
+        {
+            const StudioInstance *o=&state->scene->objects[i]; if (!o->asset) { continue; }
+            const GltfModelImport *mesh=&o->asset->mesh;
+            glPushMatrix(); glTranslated(o->position[0],o->position[1],o->position[2]);
+            for (DWORD first=0;first<mesh->count;)
+            {
+                DWORD slot=mesh->materials.faces[first].slot, end=first+1;
+                while (end<mesh->count && mesh->materials.faces[end].slot==slot) { end++; }
+                if (slot<o->materialcount)
+                {
+                    const StudioMaterial *m=&o->materials[slot]; GLuint texture=pass ? 0 : StudioViewportTexture(state,m->image);
+                    if (texture) { glEnable(GL_TEXTURE_2D); glBindTexture(GL_TEXTURE_2D,texture); glTexEnvi(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_MODULATE); }
+                    else { glDisable(GL_TEXTURE_2D); }
+                    glBegin(GL_TRIANGLES);
+                    for (DWORD v=first*3;v<end*3;v++)
+                    {
+                        const BgVertex *vertex=&mesh->vertices[v]; float diffuse[3],specular[3];
+                        StudioShade(m,vertex,o->position,eye,diffuse,specular); glColor3fv(pass ? specular : diffuse);
+                        glTexCoord2f(vertex->s,vertex->t); glVertex3f(vertex->x,vertex->y,vertex->z);
+                    }
+                    glEnd();
+                }
+                first=end;
+            }
+            glPopMatrix();
+        }
+    }
+    glDisable(GL_BLEND); glDisable(GL_TEXTURE_2D); glDepthMask(GL_TRUE); glDepthFunc(GL_LEQUAL);
+    double lo[3],hi[3];
+    if (state->selected>=0 && StudioBounds(state->scene,state->selected,lo,hi))
+    {
+        glColor3ub(242,194,70); glLineWidth(1.5f); glBegin(GL_LINES);
+        for (int k=0;k<3;k++) for (int edge=0;edge<4;edge++)
+        {
+            double a[3],b[3]; for (int j=0;j<3;j++) { a[j]=b[j]=lo[j]; }
+            a[(k+1)%3]=b[(k+1)%3]=(edge&1) ? hi[(k+1)%3] : lo[(k+1)%3];
+            a[(k+2)%3]=b[(k+2)%3]=(edge&2) ? hi[(k+2)%3] : lo[(k+2)%3]; b[k]=hi[k];
+            glVertex3dv(a); glVertex3dv(b);
+        }
+        glEnd(); glLineWidth(1);
+    }
+}
+
+static void StudioViewportDraw(StudioViewport *state, int width, int height)
 {
     double nearz, farz, eye[3], halfheight;
     if (width < 1 || height < 1) { return; }
@@ -87,6 +227,7 @@ static void StudioViewportDraw(const StudioViewport *state, int width, int heigh
     glColor3ub(90, 175, 111); glVertex3i(0, 0, 0); glVertex3i(0, 3, 0);
     glColor3ub(88, 130, 205); glVertex3i(0, 0, -10); glVertex3i(0, 0, 10);
     glEnd(); glLineWidth(1);
+    StudioViewportObjects(state,eye);
 }
 
 static LRESULT CALLBACK StudioViewportProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
@@ -125,6 +266,7 @@ static LRESULT CALLBACK StudioViewportProc(HWND hwnd, UINT message, WPARAM wpara
         SetFocus(hwnd); SetCapture(hwnd);
         state->buttons |= message == WM_LBUTTONDOWN ? MK_LBUTTON : message == WM_MBUTTONDOWN ? MK_MBUTTON : MK_RBUTTON;
         state->mouse = (POINT){GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
+        state->press=state->mouse; state->moved=FALSE;
         return 0;
     case WM_LBUTTONUP:
     case WM_RBUTTONUP:
@@ -132,6 +274,14 @@ static LRESULT CALLBACK StudioViewportProc(HWND hwnd, UINT message, WPARAM wpara
         if (!state) { break; }
         state->buttons &= ~(message == WM_LBUTTONUP ? MK_LBUTTON : message == WM_MBUTTONUP ? MK_MBUTTON : MK_RBUTTON);
         if (!state->buttons && GetCapture() == hwnd) { ReleaseCapture(); }
+        if (message==WM_LBUTTONUP && !state->moved)
+        {
+            RECT client; double origin[3],direction[3]; int material=-1,index=-1;
+            GetClientRect(hwnd,&client);
+            if (StudioRay(&state->camera,client.right,client.bottom,GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam),origin,direction))
+                index=StudioPick(state->scene,origin,direction,&material);
+            SendMessage(GetParent(hwnd),STUDIO_WM_SELECT,(WPARAM)(INT_PTR)index,(LPARAM)material);
+        }
         return 0;
     case WM_MOUSEMOVE:
         if (state && state->buttons)
@@ -139,6 +289,7 @@ static LRESULT CALLBACK StudioViewportProc(HWND hwnd, UINT message, WPARAM wpara
             RECT client;
             POINT mouse = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
             GetClientRect(hwnd, &client);
+            if (abs(mouse.x-state->press.x)>GetSystemMetrics(SM_CXDRAG) || abs(mouse.y-state->press.y)>GetSystemMetrics(SM_CYDRAG)) { state->moved=TRUE; }
             if (state->buttons & MK_MBUTTON)
                 OrbitCameraPan(&state->camera, mouse.x - state->mouse.x, mouse.y - state->mouse.y, client.bottom, STUDIO_FOV);
             else
@@ -153,6 +304,9 @@ static LRESULT CALLBACK StudioViewportProc(HWND hwnd, UINT message, WPARAM wpara
             InvalidateRect(hwnd, NULL, FALSE);
         }
         return 0;
+    case WM_KEYDOWN:
+        if (state && wparam=='Z') { StudioViewportFrame(hwnd,state,state->selected); return 0; }
+        break;
     case WM_CANCELMODE:
     case WM_KILLFOCUS:
     case WM_CAPTURECHANGED:
@@ -165,6 +319,9 @@ static LRESULT CALLBACK StudioViewportProc(HWND hwnd, UINT message, WPARAM wpara
             if (GetCapture() == hwnd) { ReleaseCapture(); }
             if (state->context)
             {
+                HDC dc=wglGetCurrentDC(); HGLRC context=wglGetCurrentContext();
+                if (wglMakeCurrent(state->dc,state->context))
+                { StudioViewportTextures(state); wglMakeCurrent(dc,context); }
                 if (wglGetCurrentContext() == state->context) { wglMakeCurrent(NULL, NULL); }
                 wglDeleteContext(state->context);
             }

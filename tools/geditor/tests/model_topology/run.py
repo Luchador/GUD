@@ -17,7 +17,7 @@ with tempfile.TemporaryDirectory(prefix='geditor-topology-') as folder:
     command=[os.environ.get('CC','cc'),'-O1','-g','-std=c99','-Wall','-Wextra','-Werror','-Wno-unused-parameter',
         '-ffunction-sections','-fdata-sections','-fsanitize=address,undefined','-Dfopen=TestFopen',
         f'-I{here.parent/"image_import"}',f'-I{src}',f'-I{root}',str(here/'check.c'),str(here.parent/'image_import/platform.c')]
-    command += [str(src/name) for name in ('modelload.c','modelmaterials.c','modelcompile.c','gltf.c','modeledits.c','bgmaterial.c','bgrender.c','newprops.c','propcompile.c')]
+    command += [str(src/name) for name in ('modelload.c','modelmaterials.c','modelcompile.c','gltf.c', 'gltfjson.c','modeledits.c','bgmaterial.c','bgrender.c','newprops.c','propcompile.c')]
     subprocess.run(command+['-lm','-Wl,--gc-sections','-o',str(binary)],check=True)
     env=dict(os.environ,ASAN_OPTIONS='detect_leaks=0',UBSAN_OPTIONS='halt_on_error=1')
     asset=root/'assets/obseg/prop/PsevdoormetslideZ.bin'

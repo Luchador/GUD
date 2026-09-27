@@ -67,4 +67,10 @@ BgVertex *GltfLoadGlbMesh(const unsigned char *data, DWORD size,
 BgVertex *GltfLoadGlbLitMesh(const unsigned char *data, DWORD size, const char *nodename,
                             DWORD *tricount, const char **reasonout);
 
+/* Static studio scene: named material slots, normalized UVs, transformed normals
+ * (generated flat when absent), and separate material base-color defaults.
+ * Free model with GltfFreeModelImport and free the returned basecolors array. */
+BOOL GltfReadStudioModel(const char *path, GltfModelImport *model,
+    float (**basecolors)[4], const char **why);
+
 #endif /* GEDITOR_GLTF_H */

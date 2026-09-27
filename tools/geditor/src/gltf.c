@@ -18,6 +18,7 @@
 #include <string.h>
 
 #include "gltf.h"
+#include "gltfjson.h"
 #include "modelload.h"
 #include "bgrender.h"
 #include "texload.h"
@@ -34,20 +35,6 @@
 #define GLTF_MODE_TRIANGLES              4
 #define GLTF_VERTEX_STRIDE               48u
 #define GLTF_MAX_FACES              1000000u
-
-typedef enum GltfJsonType {
-    GLTF_JSON_OBJECT,
-    GLTF_JSON_ARRAY,
-    GLTF_JSON_STRING,
-    GLTF_JSON_PRIMITIVE
-} GltfJsonType;
-
-typedef struct GltfJsonToken {
-    GltfJsonType type;
-    size_t start;
-    size_t end;
-    int parent;
-} GltfJsonToken;
 
 typedef struct GltfBuffer {
     unsigned char *data;
@@ -79,6 +66,7 @@ typedef struct GltfBuilder {
     BOOL importing;
     BOOL lit;
     BOOL newprop;
+    BOOL studio;
     const char *projectdir;
     const char *nodename; /* optional exact mesh-node filter for editor resources */
     DWORD *sourcevertices;
@@ -109,391 +97,6 @@ typedef struct GltfImage {
     unsigned char *png;
     DWORD pngsize;
 } GltfImage;
-
-
-static BOOL GltfJsonPushToken(GltfJsonToken **tokens, int *count,
-                              int *capacity, GltfJsonType type,
-                              size_t start, size_t end, int parent)
-{
-    GltfJsonToken *grown;
-    int next;
-
-    if (*count == *capacity)
-    {
-        if (*capacity > INT_MAX / 2)
-        {
-            return FALSE;
-        }
-
-        next = *capacity != 0 ? *capacity * 2 : 256;
-        if ((size_t)next > (size_t)-1 / sizeof(**tokens))
-        {
-            return FALSE;
-        }
-
-        grown = (GltfJsonToken *)realloc(*tokens,
-                    (size_t)next * sizeof(**tokens));
-        if (grown == NULL)
-        {
-            return FALSE;
-        }
-        *tokens = grown;
-        *capacity = next;
-    }
-
-    (*tokens)[*count].type = type;
-    (*tokens)[*count].start = start;
-    (*tokens)[*count].end = end;
-    (*tokens)[*count].parent = parent;
-    (*count)++;
-    return TRUE;
-}
-
-
-static BOOL GltfJsonParse(const char *json, size_t length,
-                          GltfJsonToken **tokensout, int *countout,
-                          const char **reasonout)
-{
-    GltfJsonToken *tokens = NULL;
-    int count = 0;
-    int capacity = 0;
-    int parent = -1;
-    size_t position = 0;
-
-    while (position < length)
-    {
-        unsigned char ch = (unsigned char)json[position];
-
-        if (isspace(ch) || ch == ':' || ch == ',')
-        {
-            position++;
-            continue;
-        }
-
-        if (ch == '{' || ch == '[')
-        {
-            int index = count;
-            GltfJsonType type = ch == '{' ? GLTF_JSON_OBJECT
-                                           : GLTF_JSON_ARRAY;
-
-            if (!GltfJsonPushToken(&tokens, &count, &capacity, type,
-                                   position, 0, parent))
-            {
-                goto out_of_memory;
-            }
-            parent = index;
-            position++;
-            continue;
-        }
-
-        if (ch == '}' || ch == ']')
-        {
-            GltfJsonType expected = ch == '}' ? GLTF_JSON_OBJECT
-                                               : GLTF_JSON_ARRAY;
-
-            if (parent < 0 || tokens[parent].type != expected)
-            {
-                *reasonout = "the glTF JSON has mismatched containers.";
-                goto fail;
-            }
-            tokens[parent].end = position + 1;
-            parent = tokens[parent].parent;
-            position++;
-            continue;
-        }
-
-        if (ch == '"')
-        {
-            size_t start = ++position;
-
-            while (position < length && json[position] != '"')
-            {
-                if (json[position] == '\\')
-                {
-                    position++;
-                    if (position >= length)
-                    {
-                        break;
-                    }
-                }
-                position++;
-            }
-
-            if (position >= length)
-            {
-                *reasonout = "the glTF JSON contains an unfinished string.";
-                goto fail;
-            }
-
-            if (!GltfJsonPushToken(&tokens, &count, &capacity,
-                                   GLTF_JSON_STRING, start, position,
-                                   parent))
-            {
-                goto out_of_memory;
-            }
-            position++;
-            continue;
-        }
-
-        {
-            size_t start = position;
-
-            while (position < length
-                && !isspace((unsigned char)json[position])
-                && json[position] != ',' && json[position] != ']'
-                && json[position] != '}')
-            {
-                position++;
-            }
-
-            if (position == start
-                || !GltfJsonPushToken(&tokens, &count, &capacity,
-                                      GLTF_JSON_PRIMITIVE, start, position,
-                                      parent))
-            {
-                if (position == start)
-                {
-                    *reasonout = "the glTF JSON contains an invalid token.";
-                    goto fail;
-                }
-                goto out_of_memory;
-            }
-        }
-    }
-
-    if (parent >= 0 || count == 0 || tokens[0].type != GLTF_JSON_OBJECT)
-    {
-        *reasonout = "the glTF JSON has an incomplete root object.";
-        goto fail;
-    }
-
-    *tokensout = tokens;
-    *countout = count;
-    return TRUE;
-
-out_of_memory:
-    *reasonout = "out of memory parsing the glTF JSON.";
-fail:
-    free(tokens);
-    return FALSE;
-}
-
-
-static int GltfJsonNext(const GltfJsonToken *tokens, int count, int index)
-{
-    size_t end = tokens[index].end;
-
-    index++;
-    while (index < count && tokens[index].start < end)
-    {
-        index++;
-    }
-    return index;
-}
-
-
-static BOOL GltfJsonTokenEquals(const char *json,
-                                const GltfJsonToken *token,
-                                const char *text)
-{
-    size_t length = token->end - token->start;
-
-    return token->type == GLTF_JSON_STRING
-        && strlen(text) == length
-        && memcmp(json + token->start, text, length) == 0;
-}
-
-
-static int GltfJsonObjectGet(const char *json,
-                             const GltfJsonToken *tokens, int count,
-                             int object, const char *key)
-{
-    int index;
-
-    if (object < 0 || object >= count
-        || tokens[object].type != GLTF_JSON_OBJECT)
-    {
-        return -1;
-    }
-
-    index = object + 1;
-    while (index + 1 < count && tokens[index].start < tokens[object].end)
-    {
-        int value = index + 1;
-
-        if (tokens[index].parent != object
-            || tokens[index].type != GLTF_JSON_STRING
-            || tokens[value].parent != object)
-        {
-            index++;
-            continue;
-        }
-
-        if (GltfJsonTokenEquals(json, &tokens[index], key))
-        {
-            return value;
-        }
-        index = GltfJsonNext(tokens, count, value);
-    }
-
-    return -1;
-}
-
-
-static int GltfJsonArrayGet(const GltfJsonToken *tokens, int count,
-                            int array, DWORD wanted)
-{
-    DWORD found = 0;
-    int index;
-
-    if (array < 0 || array >= count
-        || tokens[array].type != GLTF_JSON_ARRAY)
-    {
-        return -1;
-    }
-
-    index = array + 1;
-    while (index < count && tokens[index].start < tokens[array].end)
-    {
-        if (tokens[index].parent == array)
-        {
-            if (found == wanted)
-            {
-                return index;
-            }
-            found++;
-            index = GltfJsonNext(tokens, count, index);
-        }
-        else
-        {
-            index++;
-        }
-    }
-
-    return -1;
-}
-
-
-static DWORD GltfJsonArrayCount(const GltfJsonToken *tokens, int count,
-                                int array)
-{
-    DWORD result = 0;
-
-    while (GltfJsonArrayGet(tokens, count, array, result) >= 0)
-    {
-        result++;
-    }
-    return result;
-}
-
-
-static BOOL GltfJsonUnsigned(const char *json,
-                             const GltfJsonToken *token, DWORD *out)
-{
-    char text[32];
-    char *end;
-    unsigned long long value;
-    size_t length;
-
-    if (token->type != GLTF_JSON_PRIMITIVE)
-    {
-        return FALSE;
-    }
-
-    length = token->end - token->start;
-    if (length == 0 || length >= sizeof(text)
-        || json[token->start] == '-')
-    {
-        return FALSE;
-    }
-
-    memcpy(text, json + token->start, length);
-    text[length] = '\0';
-    value = strtoull(text, &end, 10);
-    if (*end != '\0' || value > 0xffffffffull)
-    {
-        return FALSE;
-    }
-
-    *out = (DWORD)value;
-    return TRUE;
-}
-
-
-static BOOL GltfJsonBool(const char *json, const GltfJsonToken *token,
-                         BOOL *out)
-{
-    size_t length = token->end - token->start;
-
-    if (token->type != GLTF_JSON_PRIMITIVE)
-    {
-        return FALSE;
-    }
-    if (length == 4 && memcmp(json + token->start, "true", 4) == 0)
-    {
-        *out = TRUE;
-        return TRUE;
-    }
-    if (length == 5 && memcmp(json + token->start, "false", 5) == 0)
-    {
-        *out = FALSE;
-        return TRUE;
-    }
-    return FALSE;
-}
-
-
-static char *GltfJsonCopyString(const char *json,
-                                const GltfJsonToken *token)
-{
-    size_t input;
-    size_t output = 0;
-    size_t length;
-    char *copy;
-
-    if (token->type != GLTF_JSON_STRING)
-    {
-        return NULL;
-    }
-
-    length = token->end - token->start;
-    copy = (char *)malloc(length + 1);
-    if (copy == NULL)
-    {
-        return NULL;
-    }
-
-    for (input = 0; input < length; input++)
-    {
-        char ch = json[token->start + input];
-
-        if (ch == '\\')
-        {
-            if (++input >= length)
-            {
-                free(copy);
-                return NULL;
-            }
-            ch = json[token->start + input];
-            switch (ch)
-            {
-            case '"': case '\\': case '/': break;
-            case 'b': ch = '\b'; break;
-            case 'f': ch = '\f'; break;
-            case 'n': ch = '\n'; break;
-            case 'r': ch = '\r'; break;
-            case 't': ch = '\t'; break;
-            default:
-                free(copy);
-                return NULL;
-            }
-        }
-        copy[output++] = ch;
-    }
-
-    copy[output] = '\0';
-    return copy;
-}
 
 
 static char *GltfReadTextFile(const char *path, size_t *sizeout)
@@ -1120,7 +723,7 @@ static BOOL GltfBuilderReserve(GltfBuilder *builder, DWORD add)
         if (ids == NULL) { return FALSE; }
         builder->sourcevertices = ids;
     }
-    if (builder->importing || builder->newprop)
+    if (builder->importing || builder->newprop || builder->studio)
     {
         ModelMaterialFace *faces=realloc(builder->materials.faces,(size_t)capacity*sizeof(*faces));
         if (!faces) return FALSE;
@@ -1208,7 +811,7 @@ static BOOL GltfImportMaterial(const char *json, const GltfJsonToken *tokens,
     key=index;
     token=GltfJsonObjectGet(json,tokens,count,
         GltfJsonObjectGet(json,tokens,count,material,"extras"),"goldeneyeMaterialSlot");
-    if (token>=0)
+    if (token>=0 && !builder->studio)
     {
         if (!GltfJsonUnsigned(json,&tokens[token],&key) || key>=4096) { free(name); return FALSE; }
         key|=0x80000000u;
@@ -1567,9 +1170,9 @@ static BOOL GltfLoadPrimitive(const char *json,
     BOOL hascolors = FALSE;
     BOOL hastexcoords = FALSE;
     int nativeuvs = 1;
-    BOOL hasindices = FALSE, hasidentities = FALSE;
-    unsigned short tag;
-    BgRenderFlags renderflags;
+    BOOL hasindices = FALSE, hasidentities = FALSE, hasnormals = FALSE;
+    unsigned short tag = BG_TEX_NONE;
+    BgRenderFlags renderflags = 0;
     double basecolor[4] = {1,1,1,1};
     int texturewidth = 1;
     int textureheight = 1;
@@ -1598,7 +1201,7 @@ static BOOL GltfLoadPrimitive(const char *json,
         }
     }
 
-    if (builder->newprop && GltfJsonObjectGet(json,tokens,tokencount,primitive,"targets") >= 0)
+    if ((builder->newprop || builder->studio) && GltfJsonObjectGet(json,tokens,tokencount,primitive,"targets") >= 0)
     { *reasonout="Apply morph targets before importing a static prop."; return FALSE; }
 
     attributes = GltfJsonObjectGet(json, tokens, tokencount,
@@ -1643,7 +1246,7 @@ static BOOL GltfLoadPrimitive(const char *json,
         }
         hascolors = TRUE;
     }
-    if (builder->importing || (builder->newprop && hascolors))
+    if (builder->importing || ((builder->newprop || builder->studio) && hascolors))
     {
         if (!hascolors)
         {
@@ -1712,27 +1315,27 @@ static BOOL GltfLoadPrimitive(const char *json,
         *reasonout = "the glTF contains too many triangles or could not be allocated.";
         return FALSE;
     }
-    if (!GltfPrimitiveTag(json, tokens, tokencount, root,
+    if (!builder->studio && !GltfPrimitiveTag(json, tokens, tokencount, root,
                           primitive, &tag))
     {
         *reasonout = "a glTF primitive has an invalid GoldenEye texture tag.";
         return FALSE;
     }
 
-    if (builder->importing || builder->newprop)
+    if (builder->importing || builder->newprop || builder->studio)
     {
         if (!GltfImportMaterial(json,tokens,tokencount,primitive,builder,&materialslot,reasonout)) return FALSE;
         tag=(tag & ~BG_TEX_ID_MASK) | BG_TEX_NONE;
     }
 
-    if ((builder->importing || builder->newprop) && BG_TEX_ID(tag) != BG_TEX_NONE && !hastexcoords)
+    if ((builder->importing || builder->newprop || builder->studio) && BG_TEX_ID(tag) != BG_TEX_NONE && !hastexcoords)
     {
         *reasonout = "A textured model part has no UVs. Enable UVs in Blender's glTF exporter.";
         return FALSE;
     }
 
-    if (!GltfPrimitiveRenderFlags(json, tokens, tokencount, root, primitive, &renderflags)
-        || !GltfPrimitiveWrapFlags(json, tokens, tokencount, root, primitive, &renderflags))
+    if (!builder->studio && (!GltfPrimitiveRenderFlags(json, tokens, tokencount, root, primitive, &renderflags)
+        || !GltfPrimitiveWrapFlags(json, tokens, tokencount, root, primitive, &renderflags)))
     {
         *reasonout = "a glTF primitive has invalid material render settings.";
         return FALSE;
@@ -1814,14 +1417,15 @@ static BOOL GltfLoadPrimitive(const char *json,
 
     if (builder->lit)
     {
-        if (!GltfLitBaseColor(json, tokens, tokencount, root, primitive, basecolor))
+        if (!builder->studio && !GltfLitBaseColor(json, tokens, tokencount, root, primitive, basecolor))
         { *reasonout = "A lit editor model has an invalid base color."; return FALSE; }
         int normal = GltfJsonObjectGet(json, tokens, tokencount, attributes, "NORMAL");
-        if (normal < 0 || !GltfJsonUnsigned(json, &tokens[normal], &accessorindex)
+        hasnormals = normal >= 0;
+        if ((!hasnormals && !builder->studio) || (hasnormals && (!GltfJsonUnsigned(json, &tokens[normal], &accessorindex)
             || !GltfResolveAccessor(json, tokens, tokencount, root, accessorindex, buffercount, &normals)
             || normals.componenttype != GLTF_COMPONENT_FLOAT || normals.components != 3
-            || normals.count != positions.count)
-        { *reasonout = "A lit editor model needs vertex normals."; return FALSE; }
+            || normals.count != positions.count)))
+        { *reasonout = "A lit editor model needs valid vertex normals."; return FALSE; }
     }
 
     for (outputindex = 0; outputindex < elementcount; outputindex++)
@@ -1880,7 +1484,7 @@ static BOOL GltfLoadPrimitive(const char *json,
                 return FALSE;
             }
         }
-        if (builder->lit && !GltfAccessorFloats(&normals, buffers, sourceindex, vertex->environment.normal, 3))
+        if (builder->lit && hasnormals && !GltfAccessorFloats(&normals, buffers, sourceindex, vertex->environment.normal, 3))
         { *reasonout = "A lit editor model has invalid normals."; return FALSE; }
         values[0] = values[1] = values[2] = values[3] = 1.0f;
         if (hascolors)
@@ -1892,7 +1496,7 @@ static BOOL GltfLoadPrimitive(const char *json,
                 return FALSE;
             }
         }
-        if (builder->importing || builder->newprop)
+        if (builder->importing || builder->newprop || builder->studio)
         {
             int channel;
             for (channel = 0; channel < 4; channel++)
@@ -1907,11 +1511,23 @@ static BOOL GltfLoadPrimitive(const char *json,
         vertex->a = GltfColorByte(values[3] * basecolor[3]);
     }
 
+    /* A static glTF without NORMAL uses flat face normals in the studio. */
+    if (builder->studio && !hasnormals)
+        for (outputindex = 0; outputindex < trianglecount; outputindex++)
+        {
+            BgVertex *v = &builder->vertices[(builder->tricount + outputindex) * 3];
+            double a[3] = {v[1].x-v[0].x, v[1].y-v[0].y, v[1].z-v[0].z};
+            double b[3] = {v[2].x-v[0].x, v[2].y-v[0].y, v[2].z-v[0].z};
+            double n[3] = {a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]};
+            double length = sqrt(n[0]*n[0]+n[1]*n[1]+n[2]*n[2]);
+            if (!(length > 1e-20)) { n[0]=0; n[1]=1; n[2]=0; length=1; }
+            for (int k=0;k<3;k++) for (int axis=0;axis<3;axis++) v[k].environment.normal[axis]=(float)(n[axis]/length);
+        }
     for (outputindex = 0; outputindex < trianglecount; outputindex++)
     {
         builder->tags[builder->tricount + outputindex] = tag;
         builder->renderflags[builder->tricount + outputindex] = renderflags;
-        if (builder->importing || builder->newprop)
+        if (builder->importing || builder->newprop || builder->studio)
             builder->materials.faces[builder->tricount+outputindex].slot=materialslot;
     }
     builder->tricount += trianglecount;
@@ -2077,7 +1693,7 @@ static BOOL GltfLoadGlbNode(const char *json, const GltfJsonToken *tokens,
     double local[16] = {1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1}, world[16];
     double t[3] = {0,0,0}, s[3] = {1,1,1}, q[4] = {0,0,0,1};
     if (node < 0 || depth > 64 || ++*visited > 4096) { return FALSE; }
-    if (builder->newprop && (GltfJsonObjectGet(json,tokens,tokencount,node,"skin") >= 0
+    if ((builder->newprop || builder->studio) && (GltfJsonObjectGet(json,tokens,tokencount,node,"skin") >= 0
         || GltfJsonObjectGet(json,tokens,tokencount,node,"weights") >= 0))
     { *reasonout = "New prop imports must be static meshes without skinning or morph targets."; return FALSE; }
     token = GltfJsonObjectGet(json, tokens, tokencount, node, "matrix");
@@ -2146,7 +1762,7 @@ static BOOL GltfLoadGlbNode(const char *json, const GltfJsonToken *tokens,
             v->x=result[0]; v->y=result[1]; v->z=result[2];
             if (builder->lit && !GltfTransformLitNormal(world, v->environment.normal)) { return FALSE; }
         }
-        if (builder->newprop)
+        if (builder->newprop || builder->studio)
         {
             double determinant = world[0]*(world[5]*world[10]-world[9]*world[6])
                 - world[4]*(world[1]*world[10]-world[9]*world[2])
@@ -2428,19 +2044,6 @@ static BOOL GltfWriteTextures(FILE *file, const GltfGroup *groups, DWORD groupco
     return fprintf(file, "\n  ],\n") >= 0;
 }
 
-static BOOL GltfWriteString(FILE *file,const char *text)
-{
-    const unsigned char *p=(const unsigned char *)text;
-    if (fputc('"',file)==EOF) return FALSE;
-    for (;*p;p++)
-    {
-        if (*p=='"' || *p=='\\') { if (fputc('\\',file)==EOF) return FALSE; }
-        if (*p<32) { if (fprintf(file,"\\u%04x",*p)<0) return FALSE; }
-        else if (fputc(*p,file)==EOF) return FALSE;
-    }
-    return fputc('"',file)!=EOF;
-}
-
 static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
                           DWORD binarysize, const GltfGroup *groups,
                           DWORD groupcount, const GltfImage *images, DWORD imagecount, const ModelSource *source, DWORD sourcehash)
@@ -2538,7 +2141,7 @@ static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
             snprintf(texture, sizeof(texture), ", \"baseColorTexture\": {\"index\": %d, \"texCoord\": 0}", item->textureindex);
         }
 
-        if (fprintf(file,"    {\"name\": ")<0 || !GltfWriteString(file,label) || fprintf(file,
+        if (fprintf(file,"    {\"name\": ")<0 || !GltfJsonWriteString(file,label) || fprintf(file,
             ", \"doubleSided\": %s%s, \"pbrMetallicRoughness\": {\"baseColorFactor\": [1, 1, 1, 1], \"metallicFactor\": 0, \"roughnessFactor\": 1%s}, \"extensions\": {\"KHR_materials_unlit\": {}}, \"extras\": {%s\"goldeneyeRenderFlags\": %u, \"goldeneyeTextureTag\": %u, \"goldeneyeUvUnits\": \"normalized\", \"goldeneyeUvOrientation\": \"native\", \"goldeneyeTextureSize\": [%d, %d]}}%s\n",
             (item->renderflags & BG_RENDER_CULL_BACK)
                 && !(item->renderflags & BG_RENDER_CULL_FRONT) ? "false" : "true",
@@ -2755,7 +2358,7 @@ void GltfFreeModelImport(GltfModelImport *model)
 }
 
 static BOOL GltfReadImport(const char *path, DWORD sourcehash, const char *projectdir, BOOL newprop,
-    GltfModelImport *model, BgRenderFlags **flags, const char **reasonout)
+    GltfModelImport *model, BgRenderFlags **flags, float (**studiocolors)[4], const char **reasonout)
 {
     char *file = NULL, *json = NULL;
     size_t size, jsonsize;
@@ -2769,7 +2372,9 @@ static BOOL GltfReadImport(const char *path, DWORD sourcehash, const char *proje
     BOOL foundhash = FALSE, ok = FALSE;
     const double identity[16] = {1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1};
     ZeroMemory(model,sizeof(*model)); ZeroMemory(&builder,sizeof(builder));
-    builder.importing = !newprop; builder.newprop = newprop; builder.projectdir = projectdir;
+    builder.studio = studiocolors != NULL; builder.lit = builder.studio;
+    builder.importing = !newprop && !builder.studio; builder.newprop = newprop; builder.projectdir = projectdir;
+    if (studiocolors) { *studiocolors = NULL; }
     *reasonout = "The model import file is invalid or unsupported.";
     file = GltfReadTextFile(path,&size);
     if (file == NULL) { goto done; }
@@ -2802,12 +2407,12 @@ static BOOL GltfReadImport(const char *path, DWORD sourcehash, const char *proje
     token=GltfJsonObjectGet(json,tokens,tokencount,0,"asset");
     token=GltfJsonObjectGet(json,tokens,tokencount,token,"version");
     if (token<0 || !GltfJsonTokenEquals(json,&tokens[token],"2.0")) { goto done; }
-    if (newprop && GltfJsonArrayCount(tokens,tokencount,
+    if ((newprop || builder.studio) && GltfJsonArrayCount(tokens,tokencount,
         GltfJsonObjectGet(json,tokens,tokencount,0,"animations")))
     { *reasonout="New props must be exported without animations."; goto done; }
     /* Blender preserves object/scene extras when Custom Properties is enabled.
        Check all occurrences so mixed exports cannot replace the wrong model. */
-    for (token=0; !newprop && token<tokencount; token++)
+    for (token=0; builder.importing && token<tokencount; token++)
     {
         if (tokens[token].type == GLTF_JSON_OBJECT)
         {
@@ -2829,7 +2434,7 @@ static BOOL GltfReadImport(const char *path, DWORD sourcehash, const char *proje
             }
         }
     }
-    if (!newprop && !foundhash)
+    if (builder.importing && !foundhash)
     { *reasonout="The model has no GUD source identity. Use Export Model in GEditor and enable Include > Custom Properties in Blender."; goto done; }
     token=GltfJsonObjectGet(json,tokens,tokencount,0,"buffers");
     if (GltfJsonArrayCount(tokens,tokencount,token)>0
@@ -2860,6 +2465,26 @@ static BOOL GltfReadImport(const char *path, DWORD sourcehash, const char *proje
             builder.materials.faces[i].uv[k*2+1]=builder.vertices[i*3+k].t;
         }
     }
+    if (builder.studio)
+    {
+        float (*colors)[4] = calloc(builder.materials.count ? builder.materials.count : 1, sizeof(*colors));
+        if (!colors) { *reasonout="Out of memory reading studio materials."; goto done; }
+        for (i=0;i<builder.materials.count;i++)
+        {
+            double color[4]={1,1,1,1};
+            int material=GltfJsonArrayGet(tokens,tokencount,GltfJsonObjectGet(json,tokens,tokencount,0,"materials"),builder.materialkeys[i]);
+            int pbr=GltfJsonObjectGet(json,tokens,tokencount,material,"pbrMetallicRoughness");
+            if (!GltfNodeArray(json,tokens,tokencount,pbr,"baseColorFactor",color,4))
+            { free(colors); *reasonout="A studio material has an invalid base color."; goto done; }
+            for (int axis=0;axis<4;axis++)
+            {
+                if (!isfinite(color[axis]) || color[axis]<0 || color[axis]>1)
+                { free(colors); *reasonout="A studio material has an invalid base color."; goto done; }
+                colors[i][axis]=(float)color[axis];
+            }
+        }
+        *studiocolors=colors;
+    }
     model->materials=builder.materials; memset(&builder.materials,0,sizeof(builder.materials));
     model->vertices=builder.vertices; builder.vertices=NULL;
     model->tags=builder.tags; builder.tags=NULL;
@@ -2877,7 +2502,7 @@ done:
 BOOL GltfReadModelImport(const char *path, DWORD sourcehash,
     GltfModelImport *model, const char **reasonout)
 {
-    return GltfReadImport(path,sourcehash,NULL,FALSE,model,NULL,reasonout);
+    return GltfReadImport(path,sourcehash,NULL,FALSE,model,NULL,NULL,reasonout);
 }
 
 BgVertex *GltfReadNewProp(const char *path, const char *projectdir, DWORD *count,
@@ -2885,8 +2510,13 @@ BgVertex *GltfReadNewProp(const char *path, const char *projectdir, DWORD *count
 {
     GltfModelImport model={0};
     *count=0; *tags=NULL; *flags=NULL;
-    if (!GltfReadImport(path,0,projectdir,TRUE,&model,flags,reasonout)) return NULL;
+    if (!GltfReadImport(path,0,projectdir,TRUE,&model,flags,NULL,reasonout)) return NULL;
     *count=model.count; *tags=model.tags; *materials=model.materials;
     free(model.sourcevertices);
     return model.vertices;
+}
+
+BOOL GltfReadStudioModel(const char *path, GltfModelImport *model, float (**basecolors)[4], const char **why)
+{
+    return GltfReadImport(path,0,NULL,FALSE,model,NULL,basecolors,why);
 }

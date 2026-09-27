@@ -1096,3 +1096,37 @@ BOOL TexGetProjectImageSize(const char *projectdir, DWORD id,
     *h = rawheight < 0 ? (int)-rawheight : (int)rawheight;
     return TRUE;
 }
+
+BOOL TexLoadStudioTexture(const char *path, int limit, TexPixel **pixels, int *width, int *height)
+{
+    HRESULT initialized=CoInitializeEx(NULL,COINIT_APARTMENTTHREADED);
+    IWICImagingFactory *factory=NULL; IWICBitmapDecoder *decoder=NULL;
+    IWICBitmapFrameDecode *frame=NULL; IWICBitmapScaler *scaler=NULL; IWICFormatConverter *converter=NULL;
+    WCHAR wide[MAX_PATH]; GUID format; UINT w,h,sw=1,sh=1; TexPixel *data=NULL; BOOL ok=FALSE;
+    *pixels=NULL; *width=*height=0;
+    if (FAILED(initialized) && initialized!=RPC_E_CHANGED_MODE) { return FALSE; }
+    if (limit<1 || limit>4096 || !MultiByteToWideChar(CP_ACP,0,path,-1,wide,MAX_PATH)
+        || FAILED(CoCreateInstance(&CLSID_WICImagingFactory,NULL,CLSCTX_INPROC_SERVER,&IID_IWICImagingFactory,(void **)&factory))
+        || FAILED(IWICImagingFactory_CreateDecoderFromFilename(factory,wide,NULL,GENERIC_READ,WICDecodeMetadataCacheOnDemand,&decoder))
+        || FAILED(IWICBitmapDecoder_GetContainerFormat(decoder,&format)) || !IsEqualGUID(&format,&GUID_ContainerFormatBmp)
+        || FAILED(IWICBitmapDecoder_GetFrame(decoder,0,&frame)) || FAILED(IWICBitmapFrameDecode_GetSize(frame,&w,&h)) || !w || !h) { goto done; }
+    while (sw<w && sw<=(UINT)limit/2) { sw*=2; }
+    while (sh<h && sh<=(UINT)limit/2) { sh*=2; }
+    data=malloc((size_t)sw*sh*sizeof(*data));
+    if (!data || FAILED(IWICImagingFactory_CreateBitmapScaler(factory,&scaler))
+        || FAILED(IWICBitmapScaler_Initialize(scaler,(IWICBitmapSource *)frame,sw,sh,WICBitmapInterpolationModeFant))
+        || FAILED(IWICImagingFactory_CreateFormatConverter(factory,&converter))
+        || FAILED(IWICFormatConverter_Initialize(converter,(IWICBitmapSource *)scaler,&GUID_WICPixelFormat32bppRGBA,
+            WICBitmapDitherTypeNone,NULL,0,WICBitmapPaletteTypeCustom))
+        || FAILED(IWICFormatConverter_CopyPixels(converter,NULL,sw*4,sw*sh*4,(BYTE *)data))) { goto done; }
+    *pixels=data; data=NULL; *width=(int)sw; *height=(int)sh; ok=TRUE;
+done:
+    free(data);
+    if (converter) { IWICFormatConverter_Release(converter); }
+    if (scaler) { IWICBitmapScaler_Release(scaler); }
+    if (frame) { IWICBitmapFrameDecode_Release(frame); }
+    if (decoder) { IWICBitmapDecoder_Release(decoder); }
+    if (factory) { IWICImagingFactory_Release(factory); }
+    if (SUCCEEDED(initialized)) { CoUninitialize(); }
+    return ok;
+}

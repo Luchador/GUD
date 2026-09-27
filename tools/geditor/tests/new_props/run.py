@@ -120,7 +120,7 @@ def main():
                    '-Wno-unused-parameter', '-ffunction-sections', '-fdata-sections', '-fsanitize=address,undefined',
                    '-Dfopen=TestFopen', f'-I{shim}', f'-I{src}', f'-I{root}', str(here / 'check.c'), str(shim / 'platform.c')]
         command += [str(src / n) for n in ('newprops.c', 'propcompile.c', 'modelload.c', 'modelmaterials.c', 'modelcompile.c',
-                                          'modeledits.c', 'gltf.c', 'bgmaterial.c', 'bgrender.c', 'objectshade.c')]
+                                          'modeledits.c', 'gltf.c', 'gltfjson.c', 'bgmaterial.c', 'bgrender.c', 'objectshade.c')]
         command += ['-Wl,--gc-sections', '-lm', '-o', str(work / 'check')]
         subprocess.run(command, check=True)
         doc, data = fixture(work / 'pendant.glb')

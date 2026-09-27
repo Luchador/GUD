@@ -85,6 +85,9 @@ BOOL TexLoadResourceThumbnail(HINSTANCE instance, int resourceid,
 /* Read an ordinary BMP without the game's size limits, mirroring or rotation.
  * Uses the browser's fixed-stride BGRA block; label is left intact. */
 BOOL TexLoadFileThumbnail(const char *path, TexThumb *thumb, unsigned char *pixels);
+/* Ordinary studio BMP -> top-down RGBA, resized to powers of two up to limit
+ * for compatibility with the preview's OpenGL context. Caller frees pixels. */
+BOOL TexLoadStudioTexture(const char *path, int limit, TexPixel **pixels, int *width, int *height);
 
 /*
  * Scans <projectdir>\images for the extracted BMPs and builds
