@@ -760,7 +760,8 @@ enum {
     ID_FILE_REBASE_PROJECT,
     ID_EDIT_COPY_FACES,
     ID_EDIT_PASTE_FACES,
-    ID_FILE_NEW_LEVEL
+    ID_FILE_NEW_LEVEL,
+    ID_TOOLS_RENDER_STUDIO
 };
 
 
@@ -935,7 +936,7 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_INVERSE, "Select &Inverse\tShift+I");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_COPLANAR, "Select &Coplanar\tShift+C");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_SAME_MATERIAL, "Select Same &Material\tShift+M");
-    AppendMenu(selectmenu, MF_STRING, ID_SELECT_MATERIAL_IN_ROOM, "Select Material in Room");
+    AppendMenu(selectmenu, MF_STRING, ID_SELECT_MATERIAL_IN_ROOM, "Select Material in Room\tAlt+M");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_ROOM, "Select &Room\tShift+R");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_SIMILAR, "Select &Similar\tShift+S");
 
@@ -945,6 +946,9 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_BG_COMMANDS, "&BG Commands...");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_UV_EDITOR, "&UV Editor\tCtrl+T");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_MODEL_EDITOR, "&Model Editor");
+    AppendMenu(toolsmenu, MF_SEPARATOR, 0, NULL);
+    AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_RENDER_STUDIO, "&Render Studio");
+    AppendMenu(toolsmenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_CREATE_ROM, "&Create ROM...\tCtrl+R");
     AppendMenu(toolsmenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_CHECK_ISSUES, "Check for &Issues...");
@@ -6856,6 +6860,10 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 }
                 return 0;
 
+            case ID_TOOLS_RENDER_STUDIO:
+                /* Reserved for Render Studio. */
+                return 0;
+
             case ID_TOOLS_CREATE_ROM:
                 if (g_Project.name[0]) { GEditorPromptForRomExport(hwnd); }
                 return 0;
@@ -7207,21 +7215,26 @@ static BOOL GEditorHandleFaceClipboardHotkey(HWND frame, const MSG *message)
 static BOOL GEditorHandleSelectionHotkey(HWND frame, const MSG *message)
 {
     char classname[32] = "";
-    BOOL control, shift;
-    if (!message || !g_Viewport || message->message != WM_KEYDOWN
+    BOOL control, shift, alt;
+    if (!message || !g_Viewport
+        || (message->message != WM_KEYDOWN && message->message != WM_SYSKEYDOWN)
         || (message->wParam != 'Q' && message->wParam != 'A' && message->wParam != 'R' && message->wParam != 'S' && message->wParam != 'M' && message->wParam != 'C' && message->wParam != 'I')
         || ViewportIsFlying(g_Viewport)
-        || (message->hwnd != frame && !IsChild(frame, message->hwnd))
-        || (GetKeyState(VK_MENU) & 0x8000)) { return FALSE; }
+        || (message->hwnd != frame && !IsChild(frame, message->hwnd))) { return FALSE; }
     control = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
     shift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
-    if (control != (message->wParam == 'A') || shift != (message->wParam == 'R' || message->wParam == 'S' || message->wParam == 'M' || message->wParam == 'C' || message->wParam == 'I')) { return FALSE; }
+    alt = (GetKeyState(VK_MENU) & 0x8000) != 0;
+    if (alt)
+    {
+        if (message->wParam != 'M' || control || shift) { return FALSE; }
+    }
+    else if (control != (message->wParam == 'A') || shift != (message->wParam == 'R' || message->wParam == 'S' || message->wParam == 'M' || message->wParam == 'C' || message->wParam == 'I')) { return FALSE; }
     GetClassName(message->hwnd, classname, sizeof(classname));
     if (lstrcmpi(classname, "Edit") == 0 || lstrcmpi(classname, "ComboBox") == 0
         || lstrcmpi(classname, "ComboLBox") == 0) { return FALSE; }
     /* Run once per physical press; holding Q must not grow more rings. */
     if (!(message->lParam & ((LPARAM)1 << 30)))
-    { SendMessage(frame, WM_COMMAND, message->wParam == 'I' ? ID_SELECT_INVERSE : message->wParam == 'C' ? ID_SELECT_COPLANAR : message->wParam == 'M' ? ID_SELECT_SAME_MATERIAL : message->wParam == 'S' ? ID_SELECT_SIMILAR : shift ? ID_SELECT_ROOM : control ? ID_SELECT_ALL : ID_SELECT_GROW, 0); }
+    { SendMessage(frame, WM_COMMAND, alt ? ID_SELECT_MATERIAL_IN_ROOM : message->wParam == 'I' ? ID_SELECT_INVERSE : message->wParam == 'C' ? ID_SELECT_COPLANAR : message->wParam == 'M' ? ID_SELECT_SAME_MATERIAL : message->wParam == 'S' ? ID_SELECT_SIMILAR : shift ? ID_SELECT_ROOM : control ? ID_SELECT_ALL : ID_SELECT_GROW, 0); }
     return TRUE;
 }
 

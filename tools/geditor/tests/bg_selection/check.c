@@ -695,6 +695,7 @@ static void StanGrowth(void)
 
 typedef struct { HWND hwnd; unsigned message, wParam; LPARAM lParam; } MSG;
 #define WM_KEYDOWN 2
+#define WM_SYSKEYDOWN 4
 #define WM_COMMAND 3
 #define VK_CONTROL 0
 #define VK_MENU 1
@@ -706,6 +707,7 @@ typedef struct { HWND hwnd; unsigned message, wParam; LPARAM lParam; } MSG;
 #define ID_SELECT_SIMILAR 13
 #define ID_SELECT_SAME_MATERIAL 14
 #define ID_SELECT_COPLANAR 15
+#define ID_SELECT_MATERIAL_IN_ROOM 17
 static HWND g_Viewport=(HWND)2;
 static int keys[3]; static BOOL flying;
 static const char *classname="Viewport";

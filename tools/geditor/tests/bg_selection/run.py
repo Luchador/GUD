@@ -66,7 +66,7 @@ def main():
     command = editor.split('case ID_SELECT_INVERSE:')[1].split('case ID_SELECT_ROOM:', 1)[0]
     assert 'ViewportSelectInverse(g_Viewport)' in command
     assert items[items.index('ID_SELECT_SAME_MATERIAL') + 1] == 'ID_SELECT_MATERIAL_IN_ROOM'
-    assert 'ID_SELECT_MATERIAL_IN_ROOM, "Select Material in Room"' in editor
+    assert 'ID_SELECT_MATERIAL_IN_ROOM, "Select Material in Room\\tAlt+M"' in editor
     menu = editor.split('EnableMenuItem((HMENU)wparam, ID_SELECT_MATERIAL_IN_ROOM,')[1].split(';', 1)[0]
     assert 'ViewportCanSelectSameMaterial(g_Viewport)' in menu
     command = editor.split('case ID_SELECT_MATERIAL_IN_ROOM:')[1].split('return 0;', 1)[0]
