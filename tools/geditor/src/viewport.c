@@ -529,9 +529,41 @@ static void ViewportClearPadSelection(ViewportState *state)
     ViewportRefreshPadColors(state);
 }
 
+/* Occupancy describes rendered geometry, not setup ownership. A live model
+ * with no geometry still needs its pad box as an editable fallback. */
+static BOOL ViewportPadHasMissingModel(const ViewportState *state, DWORD index)
+{
+    const SetupFile *setup = state->markersetup;
+    const ViewportPad *pad = &state->pads[index];
+    if (!setup || !state->showobjects || pad->occupied || pad->deleted || pad->occluder) { return FALSE; }
+    for (DWORD i = 0; i < setup->objectcount + setup->charactercount; i++)
+    {
+        SetupPadRef ref;
+        DWORD model = i < setup->objectcount ? i : (i - setup->objectcount) | SETUP_CHARACTER_SELECTION_BIT;
+        if (SetupFileGetModelPad(setup, model, &ref)
+            && ref.index == pad->ref.index && ref.bound == pad->ref.bound) { return TRUE; }
+    }
+    return FALSE;
+}
+
 static BOOL ViewportPadSelectionPosition(const ViewportState *state, double position[3], BOOL preview)
 {
-    if (ViewportSelectedPadIndex(state) < 0 || state->tool != EDITOR_TOOL_FACE_SELECT) { return FALSE; }
+    int index = ViewportSelectedPadIndex(state);
+    if (index < 0 || state->tool != EDITOR_TOOL_FACE_SELECT) { return FALSE; }
+    if (preview && state->padmarkers && ViewportPadHasMissingModel(state, (DWORD)index))
+    {
+        /* Keep the gizmo on the visible fallback box. Its native pad anchor
+           can be far outside its bounds. Numeric fields still edit the anchor. */
+        position[0] = position[1] = position[2] = 0;
+        for (int i = 0; i < VIEWPORT_BOX_VERTICES; i++)
+        {
+            const Vertex *v = &state->padmarkers[index * VIEWPORT_BOX_VERTICES + i];
+            position[0] += v->x / (double)VIEWPORT_BOX_VERTICES;
+            position[1] += v->y / (double)VIEWPORT_BOX_VERTICES;
+            position[2] += v->z / (double)VIEWPORT_BOX_VERTICES;
+        }
+        return TRUE;
+    }
     return ViewportPadPosition(state, &state->selectedpad, preview, position);
 }
 
@@ -5428,7 +5460,7 @@ static BOOL ViewportTryPickMarker(HWND hwnd, ViewportState *state, int x, int y,
     return TRUE;
 }
 
-static BOOL ViewportStanComponentVisible(const ViewportState *state, const Vertex *point)
+static BOOL ViewportOverlayPointVisible(const ViewportState *state, const Vertex *point, BOOL teststan)
 {
     ViewportPickRay ray;
     double length, stan, scene;
@@ -5441,49 +5473,99 @@ static BOOL ViewportStanComponentVisible(const ViewportState *state, const Verte
     ray.direction[0] /= length; ray.direction[1] /= length; ray.direction[2] /= length;
     ray.mindistance = 0; ray.maxdistance = DBL_MAX;
     scene = ViewportSceneHitDistance(state, &ray);
-    ViewportFindPickedStan(state, &ray, &stan);
+    stan = DBL_MAX;
+    if (teststan) { ViewportFindPickedStan(state, &ray, &stan); }
     return scene >= length-ViewportCoplanarPickTolerance(length)
         && stan >= length-ViewportCoplanarPickTolerance(length);
 }
 
-/* Pick visible wire edges, not the empty interiors of large bound pads.
- * Visibility is checked at the perspective-correct point on the edge, using
- * the same scene/stan occlusion test as the other editor overlays. */
+static BOOL ViewportStanComponentVisible(const ViewportState *state, const Vertex *point)
+{ return ViewportOverlayPointVisible(state, point, TRUE); }
+
+/* Clip before projecting: a rendered edge can cross the near plane even
+ * though one endpoint is behind the camera and cannot be projected. */
+static BOOL ViewportPadEdgePoint(const ViewportState *state, const Vertex *a, const Vertex *b,
+    int x, int y, Vertex *point, double screen[2])
+{
+    float forward[3], right[3];
+    double depths[2], lo = 0, hi = 1;
+    double clipnear = VIEWPORT_NEAR_Z * (1 + 1e-6), clipfar = fmax(VIEWPORT_FAR_Z, state->selectionfar) * (1 - 1e-6);
+    Vertex clipped[2] = {*a, *b};
+    ViewportGetBasis(state, forward, right);
+    for (int i = 0; i < 2; i++)
+    {
+        const Vertex *v = i ? b : a;
+        depths[i] = ((double)v->x-state->posx)*forward[0]
+            + ((double)v->y-state->posy)*forward[1] + ((double)v->z-state->posz)*forward[2];
+    }
+    if (depths[0] == depths[1])
+    { if (depths[0] < clipnear || depths[0] > clipfar) { return FALSE; } }
+    else
+    {
+        double first = (clipnear-depths[0])/(depths[1]-depths[0]);
+        double last = (clipfar-depths[0])/(depths[1]-depths[0]);
+        lo = fmax(0, fmin(first, last)); hi = fmin(1, fmax(first, last));
+        if (lo > hi) { return FALSE; }
+    }
+    for (int i = 0; i < 2; i++)
+    {
+        double t = i ? hi : lo;
+        clipped[i].x = (float)(a->x + ((double)b->x-a->x)*t);
+        clipped[i].y = (float)(a->y + ((double)b->y-a->y)*t);
+        clipped[i].z = (float)(a->z + ((double)b->z-a->z)*t);
+    }
+    return ViewportProjectEdgePoint(state, clipped, clipped+1, x, y, point, screen);
+}
+
+/* Ordinary pads use wire-edge picking. A missing model's box also accepts
+ * interior clicks, so repairing it does not require hitting a thin outline. */
 static BOOL ViewportTryPickPad(HWND hwnd, ViewportState *state, int x, int y, BOOL remove)
 {
     double nearest = DBL_MAX;
     int hit = -1;
     DWORD i;
-    float forward[3], right[3];
+    ViewportPickRay ray;
+    BOOL rayvalid, teststan = state->stanopacity == 100;
 
     if (state->flying || (!state->padpick && state->tool != EDITOR_TOOL_FACE_SELECT)) { return FALSE; }
-    ViewportGetBasis(state, forward, right);
+    rayvalid = ViewportBuildPickRay(hwnd, state, x, y, &ray);
     for (i = 0; i < state->padcount; i++)
     {
         int edge;
         if (!ViewportPadVisible(state, i) || (state->padpick && state->pads[i].ref.bound)) { continue; }
+        if (!state->padpick && rayvalid && ViewportPadHasMissingModel(state, i))
+        {
+            /* AppendPadBox stores the eight corners in its first four edges. */
+            static const unsigned char triangles[12][3] = {
+                {0,2,3},{0,3,1},{4,5,7},{4,7,6}, {0,1,5},{0,5,4},
+                {2,6,7},{2,7,3},{0,4,6},{0,6,2}, {1,3,7},{1,7,5}
+            };
+            for (int t = 0; t < 12; t++)
+            {
+                Vertex vertices[3], point = {0}; double distance;
+                for (int c = 0; c < 3; c++)
+                { vertices[c] = state->padmarkers[i * VIEWPORT_BOX_VERTICES + triangles[t][c]]; }
+                if (!ViewportRayTriangleDistance(&ray, vertices, FALSE, &distance)
+                    || !isfinite(distance) || distance*distance >= nearest) { continue; }
+                point.x = (float)(ray.origin[0] + distance*ray.direction[0]);
+                point.y = (float)(ray.origin[1] + distance*ray.direction[1]);
+                point.z = (float)(ray.origin[2] + distance*ray.direction[2]);
+                if (ViewportOverlayPointVisible(state, &point, teststan))
+                { nearest = distance*distance; hit = (int)i; }
+            }
+        }
         for (edge = 0; edge < VIEWPORT_BOX_VERTICES; edge += 2)
         {
             const Vertex *a = &state->padmarkers[i * VIEWPORT_BOX_VERTICES + edge], *b = a + 1;
-            double screen[2], other[2], dx, dy, length, t, deptha, depthb, worldt, distance;
-            Vertex point = *a;
-            if (!ViewportProject(state, a, screen) || !ViewportProject(state, b, other)) { continue; }
-            dx = other[0] - screen[0]; dy = other[1] - screen[1]; length = dx * dx + dy * dy;
-            t = length > 0 ? ((x - screen[0]) * dx + (y - screen[1]) * dy) / length : 0;
-            if (t < 0) { t = 0; }
-            if (t > 1) { t = 1; }
-            dx = x - screen[0] - t * dx; dy = y - screen[1] - t * dy;
+            double screen[2], dx, dy, distance;
+            Vertex point;
+            if (!ViewportPadEdgePoint(state, a, b, x, y, &point, screen)) { continue; }
+            dx = x - screen[0]; dy = y - screen[1];
             if (dx * dx + dy * dy > 36) { continue; }
-            deptha = (a->x-state->posx)*forward[0] + (a->y-state->posy)*forward[1] + (a->z-state->posz)*forward[2];
-            depthb = (b->x-state->posx)*forward[0] + (b->y-state->posy)*forward[1] + (b->z-state->posz)*forward[2];
-            worldt = t * deptha / (t * deptha + (1 - t) * depthb);
-            point.x = a->x + (b->x-a->x)*worldt;
-            point.y = a->y + (b->y-a->y)*worldt;
-            point.z = a->z + (b->z-a->z)*worldt;
             distance = (point.x-state->posx)*(double)(point.x-state->posx)
                      + (point.y-state->posy)*(double)(point.y-state->posy)
                      + (point.z-state->posz)*(double)(point.z-state->posz);
-            if (distance < nearest && (state->pads[i].occluder || ViewportStanComponentVisible(state, &point)))
+            if (distance < nearest && (state->pads[i].occluder || ViewportOverlayPointVisible(state, &point, teststan)))
             {
                 nearest = distance; hit = (int)i;
             }
@@ -8060,7 +8142,7 @@ static void ViewportDragTransform(HWND hwnd, ViewportState *state, int x, int y)
         {
             double dy = position[1] - state->pads[index].previewposition[1] - (state->dragaxis == 1 ? delta : 0);
             for (i = 0; i < VIEWPORT_BOX_VERTICES; i++) { state->padmarkers[index * VIEWPORT_BOX_VERTICES + i].y += dy; }
-            memcpy(state->gizmoposition, position, sizeof(position));
+            ViewportPadSelectionPosition(state, state->gizmoposition, TRUE);
         }
     }
     if (state->dragstan)

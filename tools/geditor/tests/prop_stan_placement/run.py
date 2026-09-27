@@ -3,6 +3,7 @@
 import os
 from pathlib import Path
 import re
+import runpy
 import struct
 import subprocess
 import tempfile
@@ -49,13 +50,18 @@ def main():
         depot += bytes(24)
         (work / 'stan/Tbg_depo_all_p_stanZ.stan').write_bytes(depot)
         # Reuse the deterministic model/ROM IO stubs, but load real Stan bytes.
+        extract = runpy.run_path(str(here.parent / 'object_properties/run.py'))['function']
+        character = (src / 'characterload.c').read_text()
+        (work / 'character-placement.inc').write_text(''.join(extract(character, name) for name in
+            ('CharacterGetPadPlacement', 'CharacterGetPadPosition')))
         (work / 'assets.c').write_text('#define StanFileFree FixtureUnusedStanFree\n'
             f'#include "{here.parent / "object_duplicate/assets.c"}"\n')
         sources = ('setupload.c', 'actionblocks.c', 'bghistory.c', 'objectload.c',
-                   'objectshade.c', 'rotation.c', 'scaling.c', 'stanload.c', 'stanquery.c')
+                   'objectshade.c', 'rotation.c', 'scaling.c', 'stanload.c', 'stanquery.c',
+                   'bgrender.c', 'bgmaterial.c', 'doorshadow.c', '../../../src/game/doorshadowmath.c')
         subprocess.run([os.environ.get('CC', 'cc'), '-std=c99', '-O1', '-g', '-Wall', '-Wextra',
                         '-Werror', '-Wno-unused-parameter', '-ffunction-sections', '-fdata-sections',
-                        '-fsanitize=address,undefined', f'-I{shim}', f'-I{src}', f'-I{root}',
+                        '-fsanitize=address,undefined', f'-I{shim}', f'-I{src}', f'-I{root}', f'-I{work}',
                         str(here / 'check.c'), str(work / 'assets.c'), str(shim / 'platform.c'),
                         *[str(src / f) for f in sources], '-Wl,--gc-sections', '-lm',
                         '-o', str(work / 'check')], check=True)

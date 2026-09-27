@@ -413,6 +413,50 @@ static void OffStan(BOOL bound, DWORD orientation)
     EditHistoryFree(&history);
 }
 
+/* Missing geometry is repaired through its selectable pad, not the model
+ * transform path (which correctly needs a rendered pose to preserve). */
+static void RecoverMissingPad(const StanFile *stan, BOOL bound)
+{
+    SetupFile setup={0},reloaded={0};SetupObjectGeometry geometry={0};
+    EditHistory history={0};EditHistoryTransaction tx={0};BgDocument bg={0};StanFile historystan={0};
+    SetupPadRef ref;BOOL changed;double original[3],offset[3];
+    Require(SetupLoadProjectFile(dir,"UsetupmoveZ",&setup,&why));
+    Require(SetupFileDeleteObject(&setup,1,&why));
+    if(bound)
+    {
+        setup.objects[0].pad=10000;
+        setup.data[setup.objects[0].sourceoffset+6]=10000>>8;
+        setup.data[setup.objects[0].sourceoffset+7]=10000&255;
+    }
+    Require(SetupFileGetModelPad(&setup,0,&ref));
+    for(int a=0;a<3;a++)original[a]=Pad(&setup,0)->pos[a]/levelscale;
+    offset[0]=offset[2]=100000;offset[1]=0;
+    Require(SetupFileTranslatePad(&setup,&ref,levelscale,offset,&changed,&why));assert(changed);
+    Require(ObjectLoadSetupGeometry(dir,&setup,stan,levelscale,&geometry,&why));
+    assert(!geometry.tricount && Resolve(stan,Pad(&setup,0))==STAN_TILE_NONE);
+    ObjectGeometryFree(&geometry);
+    EditHistoryReset(&history,&bg,&setup,&historystan);
+    for(int step=0;step<2;step++)
+    {
+        Require(EditHistoryBeginSetupEdit(&history,&setup,"Move Pad",&tx,&why));
+        for(int a=0;a<3;a++)offset[a]=step?original[a]-Pad(&setup,0)->pos[a]/levelscale:(a==0?-10:0);
+        Require(SetupFileTranslatePad(&setup,&ref,levelscale,offset,&changed,&why));assert(changed);
+        Require(ObjectLoadSetupGeometry(dir,&setup,stan,levelscale,&geometry,&why));
+        assert(step?geometry.tricount>0:geometry.tricount==0);ObjectGeometryFree(&geometry);
+        Require(EditHistoryCommitEdit(&history,&bg,&setup,&historystan,&tx,&why));
+    }
+    Require(SetupSaveProjectFile(dir,&setup,&why));
+    Require(SetupLoadProjectFile(dir,setup.name,&reloaded,&why));
+    Require(ObjectLoadSetupGeometry(dir,&reloaded,stan,levelscale,&geometry,&why));assert(geometry.tricount>0);
+    ObjectGeometryFree(&geometry);SetupFileFree(&reloaded);
+    Require(EditHistoryUndo(&history,&bg,&setup,&historystan,NULL,&why));
+    Require(ObjectLoadSetupGeometry(dir,&setup,stan,levelscale,&geometry,&why));assert(!geometry.tricount);
+    ObjectGeometryFree(&geometry);
+    Require(EditHistoryRedo(&history,&bg,&setup,&historystan,NULL,&why));
+    Require(ObjectLoadSetupGeometry(dir,&setup,stan,levelscale,&geometry,&why));assert(geometry.tricount>0);
+    ObjectGeometryFree(&geometry);EditHistoryFree(&history);SetupFileFree(&setup);
+}
+
 int main(int argc, char **argv)
 {
     StanFile stan = {0}; SetupFile fixture = {0};
@@ -420,6 +464,11 @@ int main(int argc, char **argv)
     DisconnectedMoves();
     Require(StanLoadProjectFile(dir, "Tbg_depo_all_p_stanZ", levelscale, &stan, &why));
     Require(SetupLoadProjectFile(dir, "UsetupmoveZ", &fixture, &why));
+    for(int bound=0;bound<2;bound++)
+    {
+        RecoverMissingPad(&stan,bound);
+        Require(SetupSaveProjectFile(dir,&fixture,&why));
+    }
     for (int bound = 0; bound < 2; bound++) for (int named = 0; named < 2; named++)
     {
         Depot(&stan, bound, named);
@@ -442,6 +491,7 @@ int main(int argc, char **argv)
         Require(SetupSaveProjectFile(dir,&fixture,&why));
     }
     SetupFileFree(&fixture); StanFileFree(&stan);
+    puts("PASS missing-model recovery: ordinary/bound pads move while unresolved, restore their model on valid Stan, save/reload and undo/redo.");
     puts("PASS Depot elevated prop: same/linked floor, preserved height, ordinary/bound/shared pads, native save/reload, undo/redo, 800 repeated moves and invalid-move rollback.");
     puts("PASS elevated copies: clipboard snapshots and live duplication, translation/rotation/scale, normal/bound pads, unchanged source, undo/redo and native save/reload.");
     puts("PASS Depot stacked rooms: downstairs prop placement/repair, upstairs reference retained, normal/bound pads and native save/reload.");
