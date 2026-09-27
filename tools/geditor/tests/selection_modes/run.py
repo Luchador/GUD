@@ -28,6 +28,7 @@ def main():
                  'ViewportStanComponent', 'ViewportBoxPoint', 'ViewportBoxComponent',
                  'ViewportModeSelection'):
         types += re.search(r'typedef struct ' + name + r'\s*\{.*?\} ' + name + ';', viewport, re.S)[0] + '\n'
+    types += re.search(r'typedef enum ViewportSelectionDomain\s*\{.*?\} ViewportSelectionDomain;', viewport, re.S)[0] + '\n'
     logic = ''.join(function(viewport, name) for name in (
         'ViewportTriangleHidden', 'ViewportBatchIsPickable',
         'ViewportSetFullbrightColor', 'ViewportSetTriangleColor',

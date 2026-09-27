@@ -8,6 +8,7 @@
 #include "bgdocument.h"
 #include "stanload.h"
 #include "edittool.h"
+#include "setupload.h"
 
 typedef void *HWND;
 typedef unsigned int GLuint;
@@ -15,12 +16,14 @@ typedef int GLsizei;
 typedef float GLfloat;
 typedef unsigned char GLubyte;
 typedef intptr_t LPARAM;
+#define VIEWPORT_BOX_VERTICES 24
 #define VIEWPORT_OBJECT_NONE ((DWORD)-1)
 #define VIEWPORT_WM_SELECTION_CHANGED 1
 #include "types.inc"
 
 typedef struct ViewportState {
     EditorTool tool;
+    ViewportSelectionDomain inversedomain;
     BOOL orbit, flying, boxpending, showbgprimary, showbgsecondary, gizmovisible;
     int dragaxis, hoveraxis, scenecount, batchcount, selectedtricount;
     int componentcount, componentcapacity, stancomponentcount, stancomponentcapacity;
@@ -38,7 +41,13 @@ typedef struct ViewportState {
     int stanopacity;
     unsigned char *stanselected;
     DWORD stanhiddencount, *stanhiddenids, *stanpointmap;
-    BOOL padselected;
+    BOOL padselected, markerselected, showportals, showobjects;
+    SetupPadRef selectedpad;
+    BgPortalFile portals;
+    DWORD selectedportal, *sceneobjectindices, *selectedobjects, selectedobjectcount;
+    unsigned char portalselection[BG_MAX_PORTALS];
+    Vertex *objectselectionboxes;
+    GLsizei objectselectionboxescount, objectselectionboxcount;
     float markerlevelscale;
 } ViewportState;
 
@@ -46,8 +55,14 @@ static unsigned notifications, stanrefreshes;
 static ViewportState *ViewportGetState(HWND hwnd) { return hwnd; }
 static void ViewportUpdateGizmo(ViewportState *state) {}
 static void ViewportRefreshStanOverlay(ViewportState *state) { stanrefreshes++; }
-static void ViewportClearPadSelection(ViewportState *state) { state->padselected=FALSE; }
-static void ViewportClearObjectSelection(ViewportState *state) { state->selectedobject=VIEWPORT_OBJECT_NONE; }
+static void ViewportClearPadSelection(ViewportState *state)
+{
+    state->padselected=state->markerselected=FALSE;
+    state->selectedpad.index=SETUP_PAD_INDEX_NONE; state->selectedportal=BG_PORTAL_INDEX_NONE;
+    memset(state->portalselection,0,sizeof(state->portalselection));
+}
+static void ViewportRefreshPortalColors(ViewportState *state) {}
+static void ViewportBuildObjectSelectionBox(ViewportState *state) {}
 static void ViewportClearStanSelection(ViewportState *state)
 { state->stancomponentcount=0; if(state->stanselected) memset(state->stanselected,0,state->stan.tilecount); }
 static void InvalidateRect(HWND hwnd, const void *rect, BOOL erase) {}
@@ -169,6 +184,55 @@ static void Rooms(ViewportState *s)
     puts("PASS: room expansion in all modes, multiple rooms, disconnected geometry, preserved seeds, layer filters and atomic failure.");
 }
 
+static void InverseBg(ViewportState *s)
+{
+    const int totals[]={14,18,7};
+    for (int tool=EDITOR_TOOL_VERTEX_SELECT; tool<=EDITOR_TOOL_FACE_SELECT; tool++)
+    {
+        Seed(s,tool);
+        unsigned before=notifications;
+        assert(ViewportCanSelectInverse(s) && ViewportSelectInverse(s));
+        assert(notifications==before+1 && s->tool==(EditorTool)tool);
+        assert((tool==EDITOR_TOOL_FACE_SELECT?s->selectedtricount:s->componentcount)==totals[tool]-1);
+        if (tool==EDITOR_TOOL_FACE_SELECT)
+        { assert(!s->selectedtris[0] && !s->selectedtris[7] && !s->selectedtris[8] && !s->selectedtris[9]); }
+        assert(ViewportSelectInverse(s));
+        if (tool==EDITOR_TOOL_FACE_SELECT) { assert(s->selectedtricount==1 && s->selectedtris[0]); }
+        else
+        {
+            assert(s->componentcount==1 && s->components[0].refs[0].room==1);
+            assert(s->components[0].refs[0].index==(tool==EDITOR_TOOL_EDGE_SELECT?0:1));
+            assert(s->components[0].refs[1].index==1);
+        }
+        ViewportClearAllSelection(s);
+        assert(ViewportSelectInverse(s)); /* None -> all -> none -> all. */
+        assert((tool==EDITOR_TOOL_FACE_SELECT?s->selectedtricount:s->componentcount)==totals[tool]);
+        assert(ViewportSelectInverse(s) && !s->selectedtricount && !s->componentcount);
+        assert(ViewportSelectInverse(s));
+        assert((tool==EDITOR_TOOL_FACE_SELECT?s->selectedtricount:s->componentcount)==totals[tool]);
+        for (int fail=0; fail<(tool==EDITOR_TOOL_FACE_SELECT?2:4); fail++)
+        {
+            Seed(s,tool); before=notifications;
+            allocations=fail; assert(!ViewportSelectInverse(s)); allocations=-1;
+            assert(notifications==before);
+            if (tool==EDITOR_TOOL_FACE_SELECT) { assert(s->selectedtricount==1 && s->selectedtris[0]); }
+            else { assert(s->componentcount==1 && s->components[0].refs[0].index==1); }
+        }
+    }
+    Seed(s,EDITOR_TOOL_FACE_SELECT);
+    unsigned before=notifications;
+    s->flying=TRUE; assert(!ViewportCanSelectInverse(s) && ViewportSelectInverse(s)); s->flying=FALSE;
+    s->orbit=TRUE; assert(!ViewportCanSelectInverse(s)); s->orbit=FALSE;
+    s->dragaxis=0; assert(!ViewportCanSelectInverse(s)); s->dragaxis=-1;
+    s->boxpending=TRUE; assert(!ViewportCanSelectInverse(s)); s->boxpending=FALSE;
+    s->selectedpad.index=0; assert(!ViewportCanSelectInverse(s)); s->selectedpad.index=SETUP_PAD_INDEX_NONE;
+    s->markerselected=TRUE; assert(!ViewportCanSelectInverse(s)); s->markerselected=FALSE;
+    s->tool=EDITOR_TOOL_ROOM_SELECT; assert(!ViewportCanSelectInverse(s));
+    s->tool=EDITOR_TOOL_VERTEX_PAINT; assert(!ViewportCanSelectInverse(s));
+    assert(!ViewportCanSelectInverse(NULL) && ViewportSelectInverse(NULL) && notifications==before);
+    puts("PASS: BG inverse in every component mode, double inversion, empty/full selection, hidden/layer filters and atomic failure.");
+}
+
 static void Geometry(void)
 {
     /* Four triangles form a chain. A fifth touches only one vertex. Other
@@ -254,6 +318,7 @@ static void Geometry(void)
     s.dragaxis=0; assert(!ViewportCanSelectBackground(&s,TRUE)); s.dragaxis=-1;
     s.boxpending=TRUE; assert(!ViewportCanSelectBackground(&s,FALSE)); s.boxpending=FALSE;
     s.tool=EDITOR_TOOL_VERTEX_PAINT; assert(!ViewportCanSelectBackground(&s,FALSE));
+    InverseBg(&s);
     free(s.components); free(s.stancomponents);
     puts("PASS: per-mode counts, one-ring growth, hidden/layer filters, source identity, and atomic failure.");
 }
@@ -401,6 +466,96 @@ static BOOL StanHasPoint(const ViewportState *s,DWORD tile,DWORD point)
     return FALSE;
 }
 
+static void InverseStans(void)
+{
+    StanTile tiles[3]={0}; unsigned char selected[3]={0}; DWORD map[3*STAN_TILE_MAX_POINTS], hidden=3;
+    for (int t=0; t<3; t++)
+    {
+        tiles[t].editorid=t+1; tiles[t].pointcount=4;
+        for (int p=0; p<STAN_TILE_MAX_POINTS; p++) { map[t*STAN_TILE_MAX_POINTS+p]=t*STAN_TILE_MAX_POINTS+p; }
+    }
+    map[STAN_TILE_MAX_POINTS]=1; map[STAN_TILE_MAX_POINTS+3]=2;
+    ViewportState s={.dragaxis=-1,.showstan=TRUE,.stanopacity=100,
+        .stan={.tiles=tiles,.tilecount=3},.stanselected=selected,.stanpointmap=map,
+        .stanhiddenids=&hidden,.stanhiddencount=1};
+    const int totals[]={6,7,2};
+    for (int tool=EDITOR_TOOL_VERTEX_SELECT; tool<=EDITOR_TOOL_FACE_SELECT; tool++)
+    {
+        ViewportClearAllSelection(&s); s.tool=tool;
+        if (tool==EDITOR_TOOL_FACE_SELECT) { selected[0]=1; }
+        else { StanSeedComponent(&s,tool==EDITOR_TOOL_EDGE_SELECT); }
+        assert(ViewportCanSelectInverse(&s) && ViewportSelectInverse(&s));
+        if (tool==EDITOR_TOOL_FACE_SELECT) { assert(!selected[0] && selected[1] && !selected[2]); }
+        else { assert(s.stancomponentcount==totals[tool]-1); }
+        assert(ViewportSelectInverse(&s));
+        if (tool==EDITOR_TOOL_FACE_SELECT) { assert(selected[0] && !selected[1] && !selected[2]); }
+        else
+        {
+            assert(s.stancomponentcount==1 && s.stancomponents[0].refs[0].tile==0);
+            assert(s.stancomponents[0].refs[0].point==1 && s.stancomponents[0].refs[1].point==(tool==EDITOR_TOOL_EDGE_SELECT?2:1));
+            for (int fail=0; fail<3; fail++)
+            {
+                unsigned before=notifications; allocations=fail;
+                assert(!ViewportSelectInverse(&s)); allocations=-1;
+                assert(s.stancomponentcount==1 && notifications==before);
+            }
+        }
+        /* Preserve the stan target when the entire selection becomes empty. */
+        ViewportClearStanSelection(&s);
+        assert(ViewportSelectInverse(&s));
+        assert((tool==EDITOR_TOOL_FACE_SELECT?selected[0]+selected[1]:s.stancomponentcount)==totals[tool]);
+        assert(ViewportSelectInverse(&s) && !selected[0] && !selected[1] && !s.stancomponentcount);
+        assert(ViewportSelectInverse(&s));
+        assert((tool==EDITOR_TOOL_FACE_SELECT?selected[0]+selected[1]:s.stancomponentcount)==totals[tool]);
+        assert(!selected[2]);
+    }
+    s.showstan=FALSE; assert(!ViewportCanSelectInverse(&s)); s.showstan=TRUE;
+    s.stanopacity=0; assert(!ViewportCanSelectInverse(&s));
+    free(s.stancomponents);
+    puts("PASS: stan inverse uses linked identities and perimeter edges, excludes hidden tiles, and retains the domain through empty results.");
+}
+
+static void InversePortalsAndModels(void)
+{
+    BgPortal portals[3]={{.geometryoffset=10,.pointcount=4},{.geometryoffset=10,.pointcount=4},{.geometryoffset=20,.pointcount=3}};
+    ViewportState s={.dragaxis=-1,.showportals=TRUE,.portals={.portals=portals,.portalcount=3}};
+    for (int tool=EDITOR_TOOL_VERTEX_SELECT; tool<=EDITOR_TOOL_FACE_SELECT; tool++)
+    {
+        ViewportClearAllSelection(&s); s.tool=tool; s.selectedportal=1;
+        s.portalselection[1]=tool==EDITOR_TOOL_FACE_SELECT?1:5;
+        assert(ViewportCanSelectInverse(&s) && ViewportSelectInverse(&s));
+        assert(s.portalselection[0]==(tool==EDITOR_TOOL_FACE_SELECT?1:10));
+        assert(!s.portalselection[1] && s.portalselection[2]==(tool==EDITOR_TOOL_FACE_SELECT?1:7));
+        assert(ViewportSelectInverse(&s));
+        assert(s.portalselection[tool==EDITOR_TOOL_FACE_SELECT?1:0]==(tool==EDITOR_TOOL_FACE_SELECT?1:5));
+        assert(!s.portalselection[2]);
+        memset(s.portalselection,0,sizeof(s.portalselection)); ViewportResolveActivePortal(&s);
+        assert(ViewportSelectInverse(&s));
+        assert(ViewportSelectInverse(&s) && s.selectedportal==BG_PORTAL_INDEX_NONE);
+        assert(ViewportSelectInverse(&s) && s.selectedportal==0);
+        s.showportals=FALSE; assert(!ViewportCanSelectInverse(&s)); s.showportals=TRUE;
+    }
+    ViewportClearAllSelection(&s);
+    DWORD ids[]={VIEWPORT_OBJECT_NONE,5,5,SETUP_CHARACTER_SELECTION_BIT|2,SETUP_CHARACTER_SELECTION_BIT|2,9,9};
+    s.sceneobjectindices=ids; s.scenecount=21; s.showobjects=TRUE; s.selectedobject=5;
+    for (int fail=0; fail<3; fail++)
+    {
+        unsigned before=notifications; allocations=fail;
+        assert(!ViewportSelectInverse(&s)); allocations=-1;
+        assert(s.selectedobject==5 && notifications==before);
+    }
+    assert(ViewportSelectInverse(&s) && s.selectedobjectcount==2);
+    assert(!ViewportObjectSelected(&s,5) && ViewportObjectSelected(&s,9) && ViewportObjectSelected(&s,SETUP_CHARACTER_SELECTION_BIT|2));
+    assert(ViewportSelectInverse(&s) && s.selectedobjectcount==1 && s.selectedobject==5);
+    ViewportClearObjectSelection(&s);
+    assert(ViewportSelectInverse(&s) && s.selectedobjectcount==3);
+    assert(ViewportSelectInverse(&s) && s.selectedobject==VIEWPORT_OBJECT_NONE);
+    assert(ViewportSelectInverse(&s) && s.selectedobjectcount==3);
+    s.showobjects=FALSE; assert(!ViewportCanSelectInverse(&s));
+    ViewportClearObjectSelection(&s);
+    puts("PASS: portal faces, shared portal components, object/character identities, empty/full inversion and atomic model allocation failure.");
+}
+
 static void StanGrowth(void)
 {
     StanTile tiles[6]={0},original[6];unsigned char selected[6]={1,0,0,0,0,0};
@@ -478,6 +633,7 @@ typedef struct { HWND hwnd; unsigned message, wParam; LPARAM lParam; } MSG;
 #define VK_CONTROL 0
 #define VK_MENU 1
 #define VK_SHIFT 2
+#define ID_SELECT_INVERSE 16
 #define ID_SELECT_ALL 10
 #define ID_SELECT_GROW 11
 #define ID_SELECT_ROOM 12
@@ -553,7 +709,18 @@ static void Hotkeys(void)
     keys[VK_MENU]=0x8000; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg)); keys[VK_MENU]=0;
     for (unsigned i=0; i<3; i++) { classname=inputs[i]; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg)); }
     classname="Viewport"; msg.hwnd=(HWND)4; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg));
-    puts("PASS: Q/Ctrl+A/Shift+R/Shift+S/Shift+M/Shift+C routing, repeat suppression, text fields, camera flight and window scope.");
+    msg.hwnd=(HWND)2; keys[VK_SHIFT]=0; msg.wParam='I';
+    assert(!GEditorHandleSelectionHotkey((HWND)1,&msg));
+    keys[VK_SHIFT]=0x8000;
+    assert(GEditorHandleSelectionHotkey((HWND)1,&msg) && command==ID_SELECT_INVERSE);
+    command=0; msg.lParam=(LPARAM)1<<30;
+    assert(GEditorHandleSelectionHotkey((HWND)1,&msg) && !command); msg.lParam=0;
+    flying=TRUE; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg)); flying=FALSE;
+    keys[VK_CONTROL]=0x8000; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg)); keys[VK_CONTROL]=0;
+    keys[VK_MENU]=0x8000; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg)); keys[VK_MENU]=0;
+    for (unsigned i=0; i<3; i++) { classname=inputs[i]; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg)); }
+    classname="Viewport"; msg.hwnd=(HWND)4; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg));
+    puts("PASS: Q/Ctrl+A/Shift+R/Shift+S/Shift+M/Shift+C/Shift+I routing, repeat suppression, text fields, camera flight and window scope.");
 }
 
 static void Coplanar(void)
@@ -638,4 +805,4 @@ static void Coplanar(void)
     puts("PASS: coplanar world planes, angle/distance/native-scale tolerances, reversed winding, disconnected/off-screen rooms, multiple frozen seeds, hidden/layer filters, degenerate/non-finite faces, no-op and allocation failure.");
 }
 
-int main(void) { Geometry(); SameMaterial(); StanRooms(); StanGrowth(); Coplanar(); Hotkeys(); return 0; }
+int main(void) { Geometry(); SameMaterial(); StanRooms(); StanGrowth(); InverseStans(); InversePortalsAndModels(); Coplanar(); Hotkeys(); return 0; }

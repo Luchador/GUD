@@ -21,7 +21,9 @@ typedef unsigned char GLubyte;
 
 typedef struct ViewportState {
     EditorTool tool;
+    ViewportSelectionDomain inversedomain;
     BOOL showbgprimary, showbgsecondary, gizmovisible, vertexsnap;
+    BOOL rotationmode, scalemode;
     int dragaxis, hoveraxis, scenecount, batchcount, selectedtricount;
     int componentcount, componentcapacity, stancomponentcount, stancomponentcapacity;
     Vertex *scene;
@@ -39,7 +41,7 @@ typedef struct ViewportState {
     int stanopacity;
     BgPortalFile portals;
     unsigned char portalselection[BG_MAX_PORTALS];
-    DWORD selectedportal, selectedobject;
+    DWORD selectedportal, selectedobject, selectedroom;
 } ViewportState;
 
 static unsigned notifications, errors, gizmos;
@@ -54,6 +56,8 @@ static void ViewportClearPadSelection(ViewportState *state)
 }
 static void ViewportClearObjectSelection(ViewportState *state) { state->selectedobject=VIEWPORT_OBJECT_NONE; }
 static void ViewportSetColorPick(HWND hwnd, BOOL enabled) {}
+static void ViewportSetPadPick(HWND hwnd, BOOL enabled) {}
+static void ViewportSetDoorPick(HWND hwnd, BOOL enabled) {}
 static void ViewportCancelTransform(HWND hwnd)
 {
     ViewportState *s=hwnd;

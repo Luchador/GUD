@@ -31,6 +31,7 @@ def main():
                               (uv, ("UVCanvasNode", "UVCanvasState"))):
             for name in names:
                 types += re.search(r"typedef struct " + name + r" \{.*?\} " + name + ";", source, re.S)[0] + "\n"
+        types += re.search(r'typedef enum ViewportSelectionDomain\s*\{.*?\} ViewportSelectionDomain;', viewport, re.S)[0] + '\n'
         (work / "types.inc").write_text(types)
         logic = ""
         for name in ("ViewportObjectCount", "ViewportCompareObjectIds", "ViewportObjectSelected",
@@ -41,7 +42,9 @@ def main():
                      "ViewportStanVisible", "ViewportCompareStanIds", "ViewportStanTileHidden",
                      "ViewportCompareStanRefs", "ViewportStanPointRef", "ViewportFindStanComponent", "ViewportSelectedPadIndex", "ViewportResolveActivePortal", "ViewportClearAllSelection"):
             logic += function(viewport, name)
-        logic += viewport[viewport.index("/* Pointer-free, level-local history snapshot."):]
+        logic += re.search(r'typedef struct ViewportSelectionSnapshot\s*\{.*?\} ViewportSelectionSnapshot;', viewport, re.S)[0] + '\n'
+        for name in ("ViewportSelectionSize", "ViewportCaptureSelection", "ViewportRestoreSelection"):
+            logic += function(viewport, name)
         logic += function(uv, "UVCanvasNodeCompare")
         logic += uv[uv.index("/* Source identity and the selected texture's coordinate basis,"):]
         (work / "snapshots.inc").write_text(logic)

@@ -231,11 +231,20 @@ typedef struct ViewportPad {
    reachable from the window via GWLP_USERDATA. */
 typedef struct ViewportRoomDragPoint { float *point; float original[3]; } ViewportRoomDragPoint;
 
+typedef enum ViewportSelectionDomain {
+    VIEWPORT_SELECTION_BG,
+    VIEWPORT_SELECTION_STAN,
+    VIEWPORT_SELECTION_PORTAL,
+    VIEWPORT_SELECTION_MODEL
+} ViewportSelectionDomain;
+
 typedef struct ViewportState {
     double coordinatescale; /* display units per world unit; geometry stays in world units */
     HDC hdc;      /* private DC - stable for the window's lifetime (CS_OWNDC) */
     HGLRC hglrc;  /* the GL context rendering into it */
     EditorTool tool;
+    /* Retain the target of inverse when its result is empty (all -> none -> all). */
+    ViewportSelectionDomain inversedomain;
     DWORD selectedroom;
     BOOL dragroom;
     ViewportRoomDragPoint *roomdragpoints;
@@ -3445,6 +3454,7 @@ static void ViewportClearBgSelection(ViewportState *state)
 
 static void ViewportClearAllSelection(ViewportState *state)
 {
+    state->inversedomain = VIEWPORT_SELECTION_BG;
     state->selectedroom = 0;
     ViewportClearPadSelection(state);
     ViewportClearBgSelection(state);
@@ -6181,6 +6191,43 @@ static ViewportBoxPoint ViewportBgSelectionPoint(const ViewportState *state, int
     return (ViewportBoxPoint){ref->room, ref->index, corner};
 }
 
+/* Candidate keys are sorted. Filter against a frozen selection before replacing
+ * it, using native identities so coincident, unlinked geometry stays distinct. */
+static BOOL ViewportApplyInverseComponents(ViewportState *state, ViewportBoxComponent *hits,
+    int hitcount, BOOL stan)
+{
+    int count = stan ? state->stancomponentcount : state->componentcount, kept = 0;
+    BOOL edge = state->tool == EDITOR_TOOL_EDGE_SELECT;
+    ViewportBoxComponent *selected = count ? malloc((size_t)count * sizeof(*selected)) : NULL;
+    if (count && !selected) { return FALSE; }
+    for (int i = 0; i < count; i++)
+    {
+        ViewportBoxPoint a, b;
+        if (stan)
+        {
+            const StanPointRef *refs = state->stancomponents[i].refs;
+            a = (ViewportBoxPoint){refs[0].tile, refs[0].point, 0};
+            b = (ViewportBoxPoint){refs[edge ? 1 : 0].tile, refs[edge ? 1 : 0].point, 0};
+        }
+        else
+        {
+            const ViewportComponent *c = &state->components[i];
+            a = (ViewportBoxPoint){c->refs[0].room, c->refs[0].index, c->corners[0]};
+            b = (ViewportBoxPoint){c->refs[edge ? 1 : 0].room, c->refs[edge ? 1 : 0].index, c->corners[edge ? 1 : 0]};
+        }
+        selected[i] = ViewportBoxComponentKey(a, b);
+    }
+    if (count) { qsort(selected, count, sizeof(*selected), ViewportCompareBoxComponents); }
+    for (int i = 0; i < hitcount; i++)
+    {
+        if ((!kept || ViewportCompareBoxComponents(&hits[i], &hits[kept-1]))
+            && (!count || !bsearch(&hits[i], selected, count, sizeof(*selected), ViewportCompareBoxComponents)))
+        { hits[kept++] = hits[i]; }
+    }
+    free(selected);
+    return ViewportApplyBoxComponents(state, hits, kept, stan, FALSE, FALSE);
+}
+
 BOOL ViewportCanSelectBackground(HWND hwnd, BOOL grow)
 {
     const ViewportState *s = ViewportGetState(hwnd);
@@ -6195,6 +6242,7 @@ BOOL ViewportCanSelectBackground(HWND hwnd, BOOL grow)
 typedef enum ViewportBgSelectionScope
 {
     VIEWPORT_BG_SELECT_ALL,
+    VIEWPORT_BG_SELECT_INVERSE,
     VIEWPORT_BG_SELECT_GROW,
     VIEWPORT_BG_SELECT_ROOM
 } ViewportBgSelectionScope;
@@ -6215,7 +6263,8 @@ static BOOL ViewportChangeBgSelection(HWND hwnd, ViewportBgSelectionScope scope)
     unsigned char *visible = NULL, *faces = NULL;
     size_t seedcapacity;
     int seedcount = 0, hitcount = 0, unique = 0, i, tri;
-    BOOL extend = scope != VIEWPORT_BG_SELECT_ALL;
+    BOOL inverse = scope == VIEWPORT_BG_SELECT_INVERSE;
+    BOOL extend = scope == VIEWPORT_BG_SELECT_GROW || scope == VIEWPORT_BG_SELECT_ROOM;
     BOOL room = scope == VIEWPORT_BG_SELECT_ROOM;
     BOOL face, edge, ok = FALSE;
     if (!ViewportCanSelectBackground(hwnd, extend)) { return TRUE; }
@@ -6300,7 +6349,7 @@ static BOOL ViewportChangeBgSelection(HWND hwnd, ViewportBgSelectionScope scope)
         }
         if (face)
         {
-            faces[tri] = adjacent;
+            faces[tri] = inverse ? !state->selectedtris[tri] : adjacent;
             continue;
         }
         for (i = 0; i < 3; i++)
@@ -6332,11 +6381,15 @@ static BOOL ViewportChangeBgSelection(HWND hwnd, ViewportBgSelectionScope scope)
             if (!unique || ViewportCompareBoxComponents(&hits[i], &hits[unique-1]))
             { hits[unique++] = hits[i]; }
         }
-        if (!ViewportApplyBoxComponents(state, hits, unique, FALSE, extend, FALSE)) { goto done; }
+        if (inverse ? !ViewportApplyInverseComponents(state, hits, unique, FALSE)
+            : !ViewportApplyBoxComponents(state, hits, unique, FALSE, extend, FALSE)) { goto done; }
     }
-    ViewportUpdateGizmo(state);
-    InvalidateRect(hwnd, NULL, FALSE);
-    SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+    if (!inverse)
+    {
+        ViewportUpdateGizmo(state);
+        InvalidateRect(hwnd, NULL, FALSE);
+        SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+    }
     ok = TRUE;
 done:
     free(visible); free(faces); free(seeds); free(hits);
@@ -6367,6 +6420,144 @@ static ViewportBoxPoint ViewportStanSelectionPoint(const ViewportState *state, D
 {
     StanPointRef ref = ViewportStanPointRef(state, tile, point);
     return (ViewportBoxPoint){ref.tile, ref.point, 0};
+}
+
+static ViewportSelectionDomain ViewportInverseDomain(const ViewportState *state)
+{
+    if (state->selectedportal != BG_PORTAL_INDEX_NONE) { return VIEWPORT_SELECTION_PORTAL; }
+    if (state->selectedobject != VIEWPORT_OBJECT_NONE) { return VIEWPORT_SELECTION_MODEL; }
+    if (state->stancomponentcount) { return VIEWPORT_SELECTION_STAN; }
+    for (DWORD t = 0; state->stanselected && t < state->stan.tilecount; t++)
+    { if (state->stanselected[t]) { return VIEWPORT_SELECTION_STAN; } }
+    if (state->selectedtricount || state->componentcount) { return VIEWPORT_SELECTION_BG; }
+    return state->inversedomain;
+}
+
+BOOL ViewportCanSelectInverse(HWND hwnd)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    if (!state || state->orbit || state->flying || state->dragaxis >= 0 || state->boxpending
+        || state->markerselected || state->selectedpad.index != SETUP_PAD_INDEX_NONE
+        || (state->tool != EDITOR_TOOL_VERTEX_SELECT && state->tool != EDITOR_TOOL_EDGE_SELECT
+            && state->tool != EDITOR_TOOL_FACE_SELECT)) { return FALSE; }
+    switch (ViewportInverseDomain(state))
+    {
+    case VIEWPORT_SELECTION_BG: return ViewportCanSelectBackground(hwnd, FALSE);
+    case VIEWPORT_SELECTION_STAN:
+        return ViewportStanVisible(state) && state->stanselected
+            && (state->tool == EDITOR_TOOL_FACE_SELECT || state->stanpointmap);
+    case VIEWPORT_SELECTION_PORTAL:
+        return state->showportals && state->portals.portals && state->portals.portalcount
+            && state->portals.portalcount < BG_MAX_PORTALS;
+    case VIEWPORT_SELECTION_MODEL:
+        return state->showobjects && state->sceneobjectindices && state->scenecount > 0;
+    }
+    return FALSE;
+}
+
+static BOOL ViewportInvertStanSelection(ViewportState *state)
+{
+    if (state->tool == EDITOR_TOOL_FACE_SELECT)
+    {
+        /* Only this domain is active. Toggle in place; no allocation can fail. */
+        for (DWORD t = 0; t < state->stan.tilecount; t++)
+        { state->stanselected[t] = !state->stanselected[t] && !ViewportStanTileHidden(state, t); }
+    }
+    else
+    {
+        size_t capacity = (size_t)state->stan.tilecount * STAN_TILE_MAX_POINTS;
+        if (capacity > INT_MAX || capacity > SIZE_MAX / sizeof(ViewportBoxComponent)) { return FALSE; }
+        ViewportBoxComponent *hits = malloc(capacity * sizeof(*hits));
+        int count = 0;
+        if (!hits) { return FALSE; }
+        for (DWORD t = 0; t < state->stan.tilecount; t++)
+        {
+            const StanTile *tile = &state->stan.tiles[t];
+            if (ViewportStanTileHidden(state, t)) { continue; }
+            for (DWORD p = 0; p < tile->pointcount; p++)
+            {
+                BOOL edge = state->tool == EDITOR_TOOL_EDGE_SELECT;
+                ViewportBoxPoint a = ViewportStanSelectionPoint(state, t, p);
+                ViewportBoxPoint b = ViewportStanSelectionPoint(state, t, edge ? (p+1)%tile->pointcount : p);
+                if (!edge || ViewportCompareBoxPoints(&a, &b)) { hits[count++] = ViewportBoxComponentKey(a, b); }
+            }
+        }
+        qsort(hits, count, sizeof(*hits), ViewportCompareBoxComponents);
+        BOOL ok = ViewportApplyInverseComponents(state, hits, count, TRUE);
+        free(hits);
+        if (!ok) { return FALSE; }
+    }
+    ViewportRefreshStanOverlay(state);
+    return TRUE;
+}
+
+static void ViewportInvertPortalSelection(ViewportState *state)
+{
+    unsigned char selected[BG_MAX_PORTALS] = {0};
+    for (DWORD i = 0; i < state->portals.portalcount; i++)
+    {
+        if (state->tool == EDITOR_TOOL_FACE_SELECT) { selected[i] = !state->portalselection[i]; }
+        else if (ViewportPortalGeometryIsFirst(&state->portals, i))
+        {
+            unsigned int all = (1u << state->portals.portals[i].pointcount) - 1;
+            selected[i] = all & ~ViewportPortalComponentMask(state, i);
+        }
+    }
+    ViewportClearAllSelection(state);
+    memcpy(state->portalselection, selected, sizeof(selected));
+    ViewportResolveActivePortal(state);
+    ViewportRefreshPortalColors(state);
+}
+
+static BOOL ViewportInvertModelSelection(ViewportState *state)
+{
+    size_t capacity = (size_t)state->scenecount / 3;
+    if (capacity > SIZE_MAX / sizeof(DWORD)) { return FALSE; }
+    DWORD *ids = malloc(capacity * sizeof(*ids)), count = 0, unique = 0;
+    if (!ids) { return FALSE; }
+    /* Only rendered setup models are selectable; each may span many batches. */
+    for (int tri = 0; tri < state->scenecount / 3; tri++)
+    {
+        DWORD id = state->sceneobjectindices[tri];
+        if (id != VIEWPORT_OBJECT_NONE && !ViewportObjectSelected(state, id)) { ids[count++] = id; }
+    }
+    qsort(ids, count, sizeof(*ids), ViewportCompareObjectIds);
+    for (DWORD i = 0; i < count; i++)
+    { if (!unique || ids[i] != ids[unique-1]) { ids[unique++] = ids[i]; } }
+    BOOL ok = ViewportSetObjectIds(state, ids, unique);
+    free(ids);
+    if (!ok) { return FALSE; }
+    ViewportClearPadSelection(state);
+    ViewportClearBgSelection(state);
+    ViewportClearStanSelection(state);
+    state->componentcount = 0;
+    ViewportBuildObjectSelectionBox(state);
+    return TRUE;
+}
+
+BOOL ViewportSelectInverse(HWND hwnd)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    if (!ViewportCanSelectInverse(hwnd)) { return TRUE; }
+    ViewportSelectionDomain domain = ViewportInverseDomain(state);
+    switch (domain)
+    {
+    case VIEWPORT_SELECTION_BG:
+        if (!ViewportChangeBgSelection(hwnd, VIEWPORT_BG_SELECT_INVERSE)) { return FALSE; }
+        break;
+    case VIEWPORT_SELECTION_STAN:
+        if (!ViewportInvertStanSelection(state)) { return FALSE; }
+        break;
+    case VIEWPORT_SELECTION_PORTAL: ViewportInvertPortalSelection(state); break;
+    case VIEWPORT_SELECTION_MODEL:
+        if (!ViewportInvertModelSelection(state)) { return FALSE; }
+        break;
+    }
+    state->inversedomain = domain;
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd, NULL, FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+    return TRUE;
 }
 
 static BOOL ViewportChangeStanSelection(HWND hwnd, BOOL room)
@@ -9904,6 +10095,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     state->objectselectionboxes = savedobjectboxes;
     state->selectedobject = savedobject;
     state->monitors = monitorpreview;
+    if (framecamera || !scene) { state->inversedomain = VIEWPORT_SELECTION_BG; }
     if (framecamera || !tris || tricount <= 0) { ViewportSetLevelClouds(hwnd, NULL, NULL); }
     KillTimer(hwnd, VIEWPORT_MONITOR_TIMER);
     if (state->monitors.count) { SetTimer(hwnd, VIEWPORT_MONITOR_TIMER, 16, NULL); }
@@ -10934,6 +11126,7 @@ void ViewportSelectPad(HWND hwnd, const SetupPadRef *ref)
  * visibility and live transform previews deliberately stay out of history. */
 typedef struct ViewportSelectionSnapshot {
     EditorTool tool;
+    ViewportSelectionDomain inversedomain;
     DWORD room;
     BOOL vertexsnap;
     DWORD object, portal;
@@ -10969,6 +11162,7 @@ BOOL ViewportCaptureSelection(HWND hwnd, void **data, size_t *size)
     *data = NULL; *size = 0;
     if (!state) { return FALSE; }
     header.tool = state->tool;
+    header.inversedomain = state->inversedomain;
     header.room = state->selectedroom;
     header.vertexsnap = state->vertexsnap;
     header.object = state->selectedobject;
@@ -11065,6 +11259,7 @@ BOOL ViewportRestoreSelection(HWND hwnd, const void *data, size_t size)
     ViewportClearBgSelection(state);
     ViewportClearStanSelection(state);
     state->tool = s->tool;
+    state->inversedomain = s->inversedomain;
     state->selectedroom = 0;
     state->vertexsnap = s->vertexsnap && s->tool == EDITOR_TOOL_VERTEX_SELECT;
     free(state->components);

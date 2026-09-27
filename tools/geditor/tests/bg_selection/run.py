@@ -8,7 +8,7 @@ import tempfile
 
 
 def function(source, name):
-    match = re.search(r'^(?:static )?\w+ ' + name + r'\([^;{}]*\)\s*\{', source, re.M)
+    match = re.search(r'^(?:static )?(?:unsigned )?\w+ ' + name + r'\([^;{}]*\)\s*\{', source, re.M)
     if match is None:
         raise RuntimeError(f'Missing production function: {name}')
     start = source.index('{', match.start())
@@ -28,15 +28,20 @@ def main():
                  'ViewportStanComponent', 'ViewportBoxPoint', 'ViewportBoxComponent', 'ViewportBgPlane'):
         types += re.search(r'typedef struct ' + name + r'\s*\{.*?\} ' + name + ';', viewport, re.S)[0] + '\n'
     types += re.search(r'typedef enum ViewportBgSelectionScope\s*\{.*?\} ViewportBgSelectionScope;', viewport, re.S)[0] + '\n'
+    types += re.search(r'typedef enum ViewportSelectionDomain\s*\{.*?\} ViewportSelectionDomain;', viewport, re.S)[0] + '\n'
     logic = ''.join(function(viewport, name) for name in (
         'ViewportTriangleHidden', 'ViewportBatchIsPickable',
         'ViewportSetFullbrightColor', 'ViewportSetTriangleColor',
-        'ViewportClearBgSelection', 'ViewportClearAllSelection', 'ViewportCompareBoxPoints',
-        'ViewportCompareBoxComponents', 'ViewportBoxComponentKey', 'ViewportApplyBoxComponents',
+        'ViewportCompareObjectIds', 'ViewportObjectSelected', 'ViewportSetObjectIds',
+        'ViewportClearObjectSelection', 'ViewportPortalComponentMask', 'ViewportPortalGeometryIsFirst',
+        'ViewportResolveActivePortal', 'ViewportClearBgSelection', 'ViewportClearAllSelection', 'ViewportCompareBoxPoints',
+        'ViewportCompareBoxComponents', 'ViewportBoxComponentKey', 'ViewportApplyBoxComponents', 'ViewportApplyInverseComponents',
         'ViewportBgSelectionPoint', 'ViewportCanSelectBackground', 'ViewportBgRoomKey',
         'ViewportChangeBgSelection', 'ViewportSelectBackground',
         'ViewportStanVisible', 'ViewportCompareStanIds', 'ViewportStanTileHidden',
         'ViewportStanPointRef', 'ViewportCanSelectStan', 'ViewportStanSelectionPoint',
+        'ViewportInverseDomain', 'ViewportCanSelectInverse', 'ViewportInvertStanSelection',
+        'ViewportInvertPortalSelection', 'ViewportInvertModelSelection', 'ViewportSelectInverse',
         'ViewportChangeStanSelection', 'ViewportCanGrowSelection', 'ViewportGrowSelection',
         'ViewportCanSelectRoom', 'ViewportSelectRoom',
         'ViewportBgFacePlane', 'ViewportGetSelectedBgPlanes', 'ViewportCanSelectCoplanar',
@@ -52,7 +57,13 @@ def main():
     menu = editor.split('EnableMenuItem((HMENU)wparam, ID_SELECT_COPLANAR,')[1].split(';', 1)[0]
     assert 'ViewportCanSelectCoplanar(g_Viewport)' in menu
     items = re.findall(r'AppendMenu\(selectmenu, MF_STRING, (ID_SELECT_\w+),', editor)
-    assert items[items.index('ID_SELECT_ALL') + 1] == 'ID_SELECT_COPLANAR'
+    assert items[items.index('ID_SELECT_ALL') + 1] == 'ID_SELECT_INVERSE'
+    assert items[items.index('ID_SELECT_INVERSE') + 1] == 'ID_SELECT_COPLANAR'
+    assert 'Select &Inverse\\tShift+I' in editor
+    menu = editor.split('EnableMenuItem((HMENU)wparam, ID_SELECT_INVERSE,')[1].split(';', 1)[0]
+    assert 'ViewportCanSelectInverse(g_Viewport)' in menu
+    command = editor.split('case ID_SELECT_INVERSE:')[1].split('case ID_SELECT_ROOM:', 1)[0]
+    assert 'ViewportSelectInverse(g_Viewport)' in command
     hotkeys = function((src / 'geditor.c').read_text(), 'GEditorHandleSelectionHotkey')
     with tempfile.TemporaryDirectory(prefix='geditor-bg-selection-') as temp:
         temp = Path(temp)

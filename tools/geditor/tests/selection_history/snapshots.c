@@ -21,6 +21,7 @@ typedef unsigned char GLubyte;
 
 typedef struct ViewportState {
     EditorTool tool;
+    ViewportSelectionDomain inversedomain;
     DWORD selectedroom;
     BOOL rotationmode, scalemode;
     BOOL vertexsnap, showbgprimary, showbgsecondary, showstan, showobjects, showportals;
@@ -129,6 +130,20 @@ int main(void)
     assert(ViewportRestoreSelection(&state, snapshot, size));
     assert(state.tool == EDITOR_TOOL_ROOM_SELECT && state.selectedroom == 14 && !state.vertexsnap);
     free(snapshot);
+
+    /* Undo/redo must retain the domain of an empty inverse selection. */
+    for (int domain=VIEWPORT_SELECTION_BG; domain<=VIEWPORT_SELECTION_MODEL; domain++)
+    {
+        ViewportClearAllSelection(&state); state.tool=EDITOR_TOOL_FACE_SELECT;
+        state.inversedomain=domain;
+        snapshot=Capture(&state,&size);
+        ViewportClearAllSelection(&state);
+        assert(ViewportRestoreSelection(&state,snapshot,size));
+        assert(state.inversedomain==(ViewportSelectionDomain)domain && !state.selectedtricount
+            && !state.componentcount && !state.stancomponentcount && !ViewportObjectCount(&state));
+        other=Capture(&state,&other_size);
+        assert(size==other_size && !memcmp(snapshot,other,size)); free(other); free(snapshot);
+    }
 
     /* Component history stores native IDs, not cached scene-corner indices. */
     ViewportClearAllSelection(&state);

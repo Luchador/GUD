@@ -217,6 +217,11 @@ BOOL ViewportGetSelectedBgFaces(HWND hwnd, BgFaceRef *out, int count);
    Never includes temporarily hidden faces or edits document/dirty state. */
 BOOL ViewportCanSelectBackground(HWND hwnd, BOOL grow);
 BOOL ViewportSelectBackground(HWND hwnd, BOOL grow);
+/* Complement the current BG, stan, portal or model selection, respecting
+   visible layers and hidden geometry. Empty selections default to BG.
+   Single-selection pads, markers and the whole-room tool are excluded. */
+BOOL ViewportCanSelectInverse(HWND hwnd);
+BOOL ViewportSelectInverse(HWND hwnd);
 /* Add one adjacent ring in the selected BG or stan domain. Stan growth uses
  * linked point identities and polygon perimeters, never fan diagonals. */
 BOOL ViewportCanGrowSelection(HWND hwnd);
