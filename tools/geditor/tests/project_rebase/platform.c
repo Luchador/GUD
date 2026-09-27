@@ -79,6 +79,8 @@ BOOL WriteFile(HANDLE h,const void *data,DWORD size,DWORD *got,void *o)
 { File *f=h; (void)o; if(test_fail_write && --test_fail_write==0) { *got=0; return FALSE; } *got=fwrite(data,1,size,f->file); return !ferror(f->file); }
 BOOL CloseHandle(HANDLE h)
 { File *f=h; BOOL ok=!fclose(f->file); free(f); return ok; }
+BOOL FlushFileBuffers(HANDLE h)
+{ File *f=h; return !fflush(f->file) && !fsync(fileno(f->file)); }
 static DWORD Canonical(const char *path,char *out,DWORD max)
 {
     char native[1024],resolved[PATH_MAX],*end; size_t size;

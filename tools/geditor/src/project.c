@@ -14,8 +14,8 @@
 
 BOOL ProjectEnsureStudioFolders(const char *projectdir, const char **reasonout)
 {
-    static const char *folders[] = {"studio", "studio\\model", "studio\\images"};
-    char paths[3][MAX_PATH];
+    static const char *folders[] = {"studio", "studio\\model", "studio\\images", "studio\\scenes"};
+    char paths[sizeof(folders) / sizeof(*folders)][MAX_PATH];
     DWORD attrs;
     *reasonout = "";
     if (!projectdir || !projectdir[0]
@@ -23,16 +23,16 @@ BOOL ProjectEnsureStudioFolders(const char *projectdir, const char **reasonout)
         || !(attrs & FILE_ATTRIBUTE_DIRECTORY))
     { *reasonout = "Render Studio needs an existing project folder."; return FALSE; }
     /* Validate all paths before creating any folders. */
-    for (int i = 0; i < 3; i++)
+    for (size_t i = 0; i < sizeof(folders) / sizeof(*folders); i++)
         if (!EditorPathJoin(paths[i], sizeof(paths[i]), projectdir, folders[i]))
         { *reasonout = "The project path is too long for Render Studio's asset folders."; return FALSE; }
-    for (int i = 0; i < 3; i++)
+    for (size_t i = 0; i < sizeof(folders) / sizeof(*folders); i++)
     {
         if (CreateDirectory(paths[i], NULL)) { continue; }
         attrs = GetFileAttributes(paths[i]);
         if (attrs == INVALID_FILE_ATTRIBUTES || !(attrs & FILE_ATTRIBUTE_DIRECTORY))
         {
-            *reasonout = "Could not create Render Studio's studio, model, and images folders. Check the project folder's permissions and whether a file is using one of those names.";
+            *reasonout = "Could not create Render Studio's asset and scene folders. Check the project folder's permissions and whether a file is using one of those names.";
             return FALSE;
         }
     }

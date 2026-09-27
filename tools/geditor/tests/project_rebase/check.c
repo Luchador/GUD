@@ -62,6 +62,7 @@ static void StudioFolders(const char *dir)
     DWORD studio=Hash(path);
     OK(ProjectEnsureStudioFolders(project,&why));assert(Hash(path)==studio);
     Path(path,project,"studio/model");assert(GetFileAttributes(path)&FILE_ATTRIBUTE_DIRECTORY);
+    Path(path,project,"studio/scenes");assert(GetFileAttributes(path)&FILE_ATTRIBUTE_DIRECTORY);
     /* Existing files must not be mistaken for directories or overwritten. */
     Folder(dir,"StudioBlocked");Path(project,dir,"StudioBlocked");
     Path(path,project,"studio");Save(path,"keep",4);original=Hash(path);
@@ -329,8 +330,10 @@ int main(int argc,char **argv)
     OK(RomLoad(oldpath,&rom,&why));OK(ProjectCreate("Original",argv[1],&rom.info,&project,&why));
     Path(path,project.dir,"studio/model");OK(GetFileAttributes(path)&FILE_ATTRIBUTE_DIRECTORY);
     Path(path,project.dir,"studio/images");OK(GetFileAttributes(path)&FILE_ATTRIBUTE_DIRECTORY);
+    Path(path,project.dir,"studio/scenes");OK(GetFileAttributes(path)&FILE_ATTRIBUTE_DIRECTORY);
     Path(path,project.dir,"studio/model/Pjungle3_treeZ.glb");Save(path,"studio model",12);
     Path(path,project.dir,"studio/images/0000.bmp");Save(path,"studio image",12);
+    Path(path,project.dir,"studio/scenes/Control.rnd");Save(path,"studio scene",12);
     OK(RomExportStoreProjectBase(&project,&rom,&why));
     OK(RomExportRefreshProjectLevelMetadata(&project,&why));
     EditorEnvironment environment=project.environments.rows[0];
@@ -390,6 +393,7 @@ int main(int argc,char **argv)
     Same(project.dir,rebased.dir,"images/0001.bmp");Same(project.dir,rebased.dir,"notes/.artist-note");
     Same(project.dir,rebased.dir,"studio/model/Pjungle3_treeZ.glb");
     Same(project.dir,rebased.dir,"studio/images/0000.bmp");
+    Same(project.dir,rebased.dir,"studio/scenes/Control.rnd");
     Path(path,rebased.dir,"Original.gep");OK(GetFileAttributes(path)==INVALID_FILE_ATTRIBUTES);
     Path(path,rebased.dir,"base.z64");OK(Hash(path)==Hash(nextpath));Path(path,project.dir,"base.z64");OK(Hash(path)==Hash(oldpath));
     OK(RomExportCreate(&rebased,"Playable",argv[1],exported,sizeof(exported),&why));OK(RomLoad(exported,&output,&why));

@@ -16,5 +16,6 @@ DWORD GetFullPathName(const char *, DWORD, char *, char **);
 DWORD GetCurrentProcessId(void);
 DWORD GetTickCount(void);
 DWORD GetTempFileName(const char *, const char *, unsigned int, char *);
+BOOL FlushFileBuffers(HANDLE);
 extern int test_fail_copy, test_fail_write, test_publish_race;
 #endif
