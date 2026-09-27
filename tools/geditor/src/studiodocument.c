@@ -21,6 +21,15 @@ BOOL StudioAssetFilename(const char *name, const char *extension)
     return TRUE;
 }
 
+BOOL StudioTransformValid(const StudioTransform *t)
+{
+    for (int k=0;k<3;k++)
+        if (!isfinite(t->position[k]) || fabs(t->position[k])>1e9
+            || !isfinite(t->rotation[k]) || fabs(t->rotation[k])>1e9
+            || !isfinite(t->scale[k]) || t->scale[k]<0.0001 || t->scale[k]>10000) { return FALSE; }
+    return TRUE;
+}
+
 BOOL StudioMaterialValid(const StudioMaterial *m)
 {
     if (!m->name[0] || (m->image[0] && !StudioAssetFilename(m->image,".bmp"))) { return FALSE; }
@@ -97,13 +106,14 @@ BOOL StudioSceneAddModel(StudioScene *scene, const char *filename, const double 
     { *why="Select a scene with fewer than 1024 instances before adding a model."; return FALSE; }
     for (int k=0;k<3;k++) if (!isfinite(position[k]) || fabs(position[k])>1e9)
     { *why="The model position is outside the studio's supported range."; return FALSE; }
+    for (int k=0;k<3;k++) { item.transform.scale[k]=1; }
     item.asset=StudioLoadModel(scene,filename,why);
     if (!item.asset) { return FALSE; }
     if (!StudioDefaultMaterials(&item,item.asset)) { *why="Out of memory creating instance materials."; return FALSE; }
     grown=realloc(scene->objects,(scene->count+1)*sizeof(*grown));
     if (!grown) { free(item.materials); *why="Out of memory creating a model instance."; return FALSE; }
     scene->objects=grown; lstrcpyn(item.model,filename,sizeof(item.model));
-    memcpy(item.position,position,sizeof(item.position)); scene->objects[scene->count++]=item;
+    memcpy(item.transform.position,position,sizeof(item.transform.position)); scene->objects[scene->count++]=item;
     return TRUE;
 }
 
@@ -131,19 +141,22 @@ BOOL StudioSceneSave(const StudioScene *scene, const char **why)
     {
         const StudioInstance *o=&scene->objects[i];
         if (!StudioAssetFilename(o->model,".gltf") || o->materialcount>4096) { goto invalid; }
-        for (int k=0;k<3;k++) if (!isfinite(o->position[k]) || fabs(o->position[k])>1e9) { goto invalid; }
+        if (!StudioTransformValid(&o->transform)) { goto invalid; }
         for (DWORD m=0;m<o->materialcount;m++) if (!StudioMaterialValid(&o->materials[m])) { goto invalid; }
     }
     if (!GetTempFileName(folder,"rnd",0,temporary))
     { *why="Could not create a temporary scene file."; return FALSE; }
     file=fopen(temporary,"wb");
     if (!file) { DeleteFile(temporary); *why="Could not open the temporary scene file."; return FALSE; }
-    ok=fprintf(file,"{\n  \"format\": \"GEditor Render Studio\",\n  \"version\": 1,\n  \"objects\": [")>=0;
+    ok=fprintf(file,"{\n  \"format\": \"GEditor Render Studio\",\n  \"version\": 2,\n  \"objects\": [")>=0;
     for (DWORD i=0;ok && i<scene->count;i++)
     {
         const StudioInstance *o=&scene->objects[i];
         ok=fprintf(file,"%s\n    {\"model\": ",i ? "," : "")>=0 && GltfJsonWriteString(file,o->model)
-            && fprintf(file,", \"position\": [%.17g, %.17g, %.17g], \"materials\": [",o->position[0],o->position[1],o->position[2])>=0;
+            && fprintf(file,", \"position\": [%.17g, %.17g, %.17g], \"rotation\": [%.17g, %.17g, %.17g], \"scale\": [%.17g, %.17g, %.17g], \"materials\": [",
+                o->transform.position[0],o->transform.position[1],o->transform.position[2],
+                o->transform.rotation[0],o->transform.rotation[1],o->transform.rotation[2],
+                o->transform.scale[0],o->transform.scale[1],o->transform.scale[2])>=0;
         for (DWORD j=0;ok && j<o->materialcount;j++)
         {
             const StudioMaterial *m=&o->materials[j];
@@ -203,7 +216,7 @@ BOOL StudioSceneLoad(const char *projectdir, const char *filename, StudioScene *
     *why="The studio scene is invalid or uses an unsupported format.";
     if (!String(&j,Field(&j,0,"format"),format,sizeof(format)) || strcmp(format,"GEditor Render Studio")) { goto done; }
     token=Field(&j,0,"version");
-    if (token<0 || !GltfJsonUnsigned(text,&j.tokens[token],&version) || version!=1) { goto done; }
+    if (token<0 || !GltfJsonUnsigned(text,&j.tokens[token],&version) || (version!=1 && version!=2)) { goto done; }
     array=Field(&j,0,"objects");
     if (array<0 || j.tokens[array].type!=GLTF_JSON_ARRAY) { goto done; }
     next.count=GltfJsonArrayCount(j.tokens,j.count,array);
@@ -214,8 +227,11 @@ BOOL StudioSceneLoad(const char *projectdir, const char *filename, StudioScene *
     {
         StudioInstance *o=&next.objects[i]; int object=GltfJsonArrayGet(j.tokens,j.count,array,i);
         if (!String(&j,Field(&j,object,"model"),o->model,sizeof(o->model)) || !StudioAssetFilename(o->model,".gltf")
-            || !Vector(&j,Field(&j,object,"position"),o->position,3)) { goto done; }
-        for (int k=0;k<3;k++) if (fabs(o->position[k])>1e9) { goto done; }
+            || !Vector(&j,Field(&j,object,"position"),o->transform.position,3)) { goto done; }
+        for (int k=0;k<3;k++) { o->transform.scale[k]=1; }
+        if (version>=2 && (!Vector(&j,Field(&j,object,"rotation"),o->transform.rotation,3)
+            || !Vector(&j,Field(&j,object,"scale"),o->transform.scale,3))) { goto done; }
+        if (!StudioTransformValid(&o->transform)) { goto done; }
         int materials=Field(&j,object,"materials");
         if (materials<0 || j.tokens[materials].type!=GLTF_JSON_ARRAY) { goto done; }
         o->materialcount=GltfJsonArrayCount(j.tokens,j.count,materials);

@@ -28,9 +28,13 @@ typedef struct StudioModel {
     struct StudioModel *next;
 } StudioModel;
 
+typedef struct StudioTransform {
+    double position[3], rotation[3], scale[3];
+} StudioTransform;
+
 typedef struct StudioInstance {
     char model[MAX_PATH];
-    double position[3];
+    StudioTransform transform;
     StudioModel *asset; /* Shared immutable geometry, owned by scene.assets. */
     StudioMaterial *materials; /* Independent overrides for this instance. */
     DWORD materialcount;
@@ -48,6 +52,7 @@ BOOL StudioSceneLoad(const char *projectdir, const char *filename, StudioScene *
 BOOL StudioSceneSave(const StudioScene *scene, const char **why);
 BOOL StudioSceneAddModel(StudioScene *scene, const char *filename, const double position[3], const char **why);
 void StudioSceneRemove(StudioScene *scene, DWORD index);
+BOOL StudioTransformValid(const StudioTransform *transform);
 BOOL StudioMaterialValid(const StudioMaterial *material);
 BOOL StudioAssetFilename(const char *filename, const char *extension);
 

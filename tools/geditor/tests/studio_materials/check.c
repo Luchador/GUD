@@ -63,18 +63,19 @@ static void Math(const StudioScene *scene)
     for (int k=0;k<3;k++) CHECK(NEAR(origin[k]+direction[k]*10,camera.center[k]));
     CHECK(!StudioRay(&camera,0,600,0,0,origin,direction));
     StudioMaterial m={0}; BgVertex v={0}; float diffuse[3],specular[3],wide;
-    double position[3]={0},eye[3]={-.348742916,.813733471,-.464990554};
+    StudioTransform identity={{0},{0},{1,1,1}}; StudioMatrix matrix; StudioMatrixBuild(&identity,&matrix);
+    double eye[3]={-.348742916,.813733471,-.464990554};
     v.environment.normal[1]=1; v.r=v.g=v.b=255;
     for(int k=0;k<3;k++) { m.base[k]=.5; m.specular[k]=1; }
     m.intensity=.75; m.shininess=32;
-    StudioShade(&m,&v,position,eye,diffuse,specular);
+    StudioShade(&m,&v,&matrix,eye,diffuse,specular);
     CHECK(NEAR(diffuse[0],.5*(.2+.8*.813733471)) && NEAR(specular[0],.75));
     m.base[0]=0; m.specular[1]=0;
-    StudioShade(&m,&v,position,eye,diffuse,specular);
+    StudioShade(&m,&v,&matrix,eye,diffuse,specular);
     CHECK(diffuse[0]==0 && NEAR(specular[0],.75) && specular[1]==0); /* Independent specular color. */
-    eye[0]+=.3; m.shininess=4; StudioShade(&m,&v,position,eye,diffuse,specular); wide=specular[0];
-    m.shininess=64; StudioShade(&m,&v,position,eye,diffuse,specular); CHECK(specular[0]<wide && specular[0]>0);
-    m.intensity=0; StudioShade(&m,&v,position,eye,diffuse,specular); CHECK(specular[0]==0);
+    eye[0]+=.3; m.shininess=4; StudioShade(&m,&v,&matrix,eye,diffuse,specular); wide=specular[0];
+    m.shininess=64; StudioShade(&m,&v,&matrix,eye,diffuse,specular); CHECK(specular[0]<wide && specular[0]>0);
+    m.intensity=0; StudioShade(&m,&v,&matrix,eye,diffuse,specular); CHECK(specular[0]==0);
     puts("PASS: instance bounds, nearest face/material picking, camera rays and independent Phong color/intensity/shininess.");
 }
 
@@ -102,7 +103,7 @@ int main(int argc,char **argv)
     Math(&scene);
     CHECK(StudioSceneLoad(project,"Main.rnd",&loaded,&why) && !why[0] && loaded.count==2);
     CHECK(!memcmp(m,&loaded.objects[0].materials[1],sizeof(*m)));
-    CHECK(loaded.objects[1].materials[1].base[0]==1 && NEAR(loaded.objects[1].position[2],2));
+    CHECK(loaded.objects[1].materials[1].base[0]==1 && NEAR(loaded.objects[1].transform.position[2],2));
     scene.objects[0].materials[1].shininess=9; test_fail_move=1;
     CHECK(!StudioSceneSave(&scene,&why));
     CHECK(StudioSceneLoad(project,"Main.rnd",&loaded,&why) && loaded.objects[0].materials[1].shininess==87);
@@ -110,7 +111,7 @@ int main(int argc,char **argv)
     CHECK(!StudioSceneAddModel(&scene,"../Light.gltf",position,&why) && scene.count==2);
     m->intensity=NAN; CHECK(!StudioSceneSave(&scene,&why)); m->intensity=.875;
     snprintf(path,sizeof(path),"%s/studio/scenes/Bad.rnd",project);
-    const char *bad[]={"{\"format\":\"GEditor Render Studio\",\"version\":2,\"objects\":[]}",
+    const char *bad[]={"{\"format\":\"GEditor Render Studio\",\"version\":3,\"objects\":[]}",
         "{\"format\":\"GEditor Render Studio\",\"version\":1,\"objects\":[{\"model\":\"../Light.gltf\"}]}",
         "{\"format\":\"GEditor Render Studio\",\"version\":1,\"objects\":[{\"model\":\"Light.gltf\",\"position\":[NaN,0,0],\"materials\":[]}]}",
         "{\"format\":\"GEditor Render Studio\",\"version\":1,\"objects\":[{\"model\":\"Light.gltf\",\"position\":[0,0,0],\"materials\":[{}]}]}"};
@@ -130,7 +131,7 @@ int main(int argc,char **argv)
     snprintf(source,sizeof(source),"%s/studio/models/original.gltf",project); CHECK(CopyFile(source,asset,FALSE));
     Write(path,"{\"format\":\"GEditor Render Studio\",\"version\":1,\"objects\":[]}");
     CHECK(StudioSceneLoad(project,"Bad.rnd",&loaded,&why) && loaded.count==0);
-    StudioSceneRemove(&scene,0); CHECK(scene.count==1 && NEAR(scene.objects[0].position[2],2));
+    StudioSceneRemove(&scene,0); CHECK(scene.count==1 && NEAR(scene.objects[0].transform.position[2],2));
     StudioSceneFree(&scene); StudioSceneFree(&loaded);
     puts("PASS: independent materials, scene roundtrip, atomic-save failure, invalid-load rollback, missing assets, reordered slots and legacy empty scenes.");
     return 0;

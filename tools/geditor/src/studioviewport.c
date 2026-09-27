@@ -9,6 +9,7 @@
 #include "orbitcamera.h"
 #include "studiomath.h"
 #include "editorpath.h"
+#include "studiogizmo.h"
 
 #define STUDIO_VIEWPORT_CLASS "GEditorStudioViewport"
 
@@ -22,10 +23,61 @@ typedef struct StudioViewport {
     POINT press;
     BOOL moved;
     unsigned buttons;
-    const StudioScene *scene;
+    StudioScene *scene;
+    StudioGizmo gizmo;
+    StudioDrag drag;
+    BOOL transforming;
+    int tool,hover,dragobject;
     int selected;
     StudioTexture *textures;
 } StudioViewport;
+
+static void StudioViewportEndTransform(HWND hwnd,StudioViewport *state,BOOL commit)
+{
+    if (!state->transforming) { return; }
+    StudioTransform before=state->drag.before;
+    state->transforming=FALSE; state->buttons=0; state->hover=-1;
+    if (!commit && state->scene && state->dragobject>=0 && (DWORD)state->dragobject<state->scene->count)
+        state->scene->objects[state->dragobject].transform=before;
+    if (GetCapture()==hwnd) { ReleaseCapture(); }
+    SendMessage(GetParent(hwnd),STUDIO_WM_TRANSFORM,commit ? 1 : 2,(LPARAM)&before);
+    InvalidateRect(hwnd,NULL,FALSE);
+}
+
+BOOL StudioViewportCancelTransform(HWND viewport)
+{
+    StudioViewport *state=(StudioViewport *)GetWindowLongPtr(viewport,GWLP_USERDATA);
+    if (!state || !state->transforming) { return FALSE; }
+    StudioViewportEndTransform(viewport,state,FALSE); return TRUE;
+}
+
+void StudioViewportCommitTransform(HWND viewport)
+{
+    StudioViewport *state=(StudioViewport *)GetWindowLongPtr(viewport,GWLP_USERDATA);
+    if (state) { StudioViewportEndTransform(viewport,state,TRUE); }
+}
+
+void StudioViewportSetTool(HWND viewport,int tool)
+{
+    StudioViewport *state=(StudioViewport *)GetWindowLongPtr(viewport,GWLP_USERDATA);
+    if (state && tool>=STUDIO_TRANSLATE && tool<=STUDIO_SCALE)
+    { StudioViewportCancelTransform(viewport); state->tool=tool; state->hover=-1; InvalidateRect(viewport,NULL,FALSE); }
+}
+
+static BOOL StudioViewportGizmoFrame(StudioViewport *state,int width,int height,StudioGizmoFrame *frame)
+{
+    return state->scene && state->selected>=0 && (DWORD)state->selected<state->scene->count
+        && state->scene->objects[state->selected].asset
+        && StudioGizmoPlace(&state->scene->objects[state->selected].transform,&state->camera,width,height,state->tool,frame);
+}
+
+static int StudioViewportGizmoHit(HWND hwnd,StudioViewport *state,int x,int y,StudioGizmoFrame *frame,double hit[3])
+{
+    RECT client; double eye[3],direction[3]; GetClientRect(hwnd,&client);
+    if (!StudioViewportGizmoFrame(state,client.right,client.bottom,frame)
+        || !StudioRay(&state->camera,client.right,client.bottom,x,y,eye,direction)) { return -1; }
+    return StudioGizmoPick(&state->gizmo,frame,eye,direction,hit);
+}
 
 static void StudioViewportTextures(StudioViewport *state)
 {
@@ -54,7 +106,7 @@ static void StudioViewportFrame(HWND viewport, StudioViewport *state, int select
     InvalidateRect(viewport,NULL,FALSE);
 }
 
-void StudioViewportSetScene(HWND viewport, const StudioScene *scene, BOOL frame)
+void StudioViewportSetScene(HWND viewport, StudioScene *scene, BOOL frame)
 {
     StudioViewport *state=(StudioViewport *)GetWindowLongPtr(viewport,GWLP_USERDATA);
     double lower[3],upper[3];
@@ -72,7 +124,7 @@ void StudioViewportSetScene(HWND viewport, const StudioScene *scene, BOOL frame)
 void StudioViewportSelect(HWND viewport, int index)
 {
     StudioViewport *state=(StudioViewport *)GetWindowLongPtr(viewport,GWLP_USERDATA);
-    if (state) { state->selected=index; InvalidateRect(viewport,NULL,FALSE); }
+    if (state) { StudioViewportCancelTransform(viewport); state->selected=index; state->hover=-1; InvalidateRect(viewport,NULL,FALSE); }
 }
 
 BOOL StudioViewportDropPoint(HWND viewport, POINT screen, double position[3])
@@ -93,7 +145,8 @@ void StudioViewportReset(HWND viewport)
     StudioViewport *state = (StudioViewport *)GetWindowLongPtr(viewport, GWLP_USERDATA);
     const double lower[3] = {-10, 0, -10}, upper[3] = {10, 0, 10};
     if (!state) { return; }
-    state->buttons = 0;
+    StudioViewportCancelTransform(viewport);
+    state->buttons = 0; state->hover=-1;
     state->selected = -1;
     if (GetCapture() == viewport) { ReleaseCapture(); }
     OrbitCameraFrame(&state->camera, lower, upper, 1, STUDIO_FOV);
@@ -151,7 +204,8 @@ static void StudioViewportObjects(StudioViewport *state, const double eye[3])
         {
             const StudioInstance *o=&state->scene->objects[i]; if (!o->asset) { continue; }
             const GltfModelImport *mesh=&o->asset->mesh;
-            glPushMatrix(); glTranslated(o->position[0],o->position[1],o->position[2]);
+            StudioMatrix matrix; StudioMatrixBuild(&o->transform,&matrix);
+            glPushMatrix(); glMultMatrixd(matrix.m);
             for (DWORD first=0;first<mesh->count;)
             {
                 DWORD slot=mesh->materials.faces[first].slot, end=first+1;
@@ -165,7 +219,7 @@ static void StudioViewportObjects(StudioViewport *state, const double eye[3])
                     for (DWORD v=first*3;v<end*3;v++)
                     {
                         const BgVertex *vertex=&mesh->vertices[v]; float diffuse[3],specular[3];
-                        StudioShade(m,vertex,o->position,eye,diffuse,specular); glColor3fv(pass ? specular : diffuse);
+                        StudioShade(m,vertex,&matrix,eye,diffuse,specular); glColor3fv(pass ? specular : diffuse);
                         glTexCoord2f(vertex->s,vertex->t); glVertex3f(vertex->x,vertex->y,vertex->z);
                     }
                     glEnd();
@@ -228,6 +282,9 @@ static void StudioViewportDraw(StudioViewport *state, int width, int height)
     glColor3ub(88, 130, 205); glVertex3i(0, 0, -10); glVertex3i(0, 0, 10);
     glEnd(); glLineWidth(1);
     StudioViewportObjects(state,eye);
+    StudioGizmoFrame frame;
+    if (StudioViewportGizmoFrame(state,width,height,&frame))
+        StudioGizmoDraw(&state->gizmo,&frame,state->transforming ? state->drag.axis : state->hover);
 }
 
 static LRESULT CALLBACK StudioViewportProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
@@ -239,11 +296,12 @@ static LRESULT CALLBACK StudioViewportProc(HWND hwnd, UINT message, WPARAM wpara
         state = calloc(1, sizeof(*state));
         if (!state) { return -1; }
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
-        if (!StudioViewportInit(hwnd, state)) { return -1; }
+        if (!StudioViewportInit(hwnd, state)
+            || !StudioGizmoLoad(&state->gizmo,(HINSTANCE)GetWindowLongPtr(hwnd,GWLP_HINSTANCE))) { return -1; }
         StudioViewportReset(hwnd);
         return 0;
     case WM_ERASEBKGND: return 1;
-    case WM_SIZE: InvalidateRect(hwnd, NULL, FALSE); return 0;
+    case WM_SIZE: StudioViewportCancelTransform(hwnd); InvalidateRect(hwnd, NULL, FALSE); return 0;
     case WM_PAINT:
     {
         PAINTSTRUCT paint; RECT client;
@@ -263,7 +321,22 @@ static LRESULT CALLBACK StudioViewportProc(HWND hwnd, UINT message, WPARAM wpara
     case WM_RBUTTONDOWN:
     case WM_MBUTTONDOWN:
         if (!state) { break; }
-        SetFocus(hwnd); SetCapture(hwnd);
+        if (state->transforming) { return 0; }
+        SetFocus(hwnd);
+        if (message==WM_LBUTTONDOWN)
+        {
+            StudioGizmoFrame frame; double hit[3]; RECT client;
+            int axis=StudioViewportGizmoHit(hwnd,state,GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam),&frame,hit);
+            GetClientRect(hwnd,&client);
+            if (axis>=0 && StudioDragBegin(&state->drag,&state->scene->objects[state->selected].transform,
+                &state->camera,client.right,client.bottom,GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam),&frame,axis,hit))
+            {
+                state->transforming=TRUE; state->dragobject=state->selected; state->moved=TRUE;
+                if (GetCapture()!=hwnd) { SetCapture(hwnd); }
+                InvalidateRect(hwnd,NULL,FALSE); return 0;
+            }
+        }
+        if (GetCapture()!=hwnd) { SetCapture(hwnd); }
         state->buttons |= message == WM_LBUTTONDOWN ? MK_LBUTTON : message == WM_MBUTTONDOWN ? MK_MBUTTON : MK_RBUTTON;
         state->mouse = (POINT){GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
         state->press=state->mouse; state->moved=FALSE;
@@ -272,6 +345,8 @@ static LRESULT CALLBACK StudioViewportProc(HWND hwnd, UINT message, WPARAM wpara
     case WM_RBUTTONUP:
     case WM_MBUTTONUP:
         if (!state) { break; }
+        if (state->transforming)
+        { if (message==WM_LBUTTONUP) { StudioViewportEndTransform(hwnd,state,TRUE); } return 0; }
         state->buttons &= ~(message == WM_LBUTTONUP ? MK_LBUTTON : message == WM_MBUTTONUP ? MK_MBUTTON : MK_RBUTTON);
         if (!state->buttons && GetCapture() == hwnd) { ReleaseCapture(); }
         if (message==WM_LBUTTONUP && !state->moved)
@@ -284,6 +359,18 @@ static LRESULT CALLBACK StudioViewportProc(HWND hwnd, UINT message, WPARAM wpara
         }
         return 0;
     case WM_MOUSEMOVE:
+        if (state && state->transforming)
+        {
+            if (StudioDragUpdate(&state->drag,GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam),(GetKeyState(VK_CONTROL)&0x8000)!=0,
+                &state->scene->objects[state->dragobject].transform))
+            { SendMessage(GetParent(hwnd),STUDIO_WM_TRANSFORM,0,0); InvalidateRect(hwnd,NULL,FALSE); }
+            return 0;
+        }
+        if (state && !state->buttons)
+        {
+            StudioGizmoFrame frame; double hit[3]; int hover=StudioViewportGizmoHit(hwnd,state,GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam),&frame,hit);
+            if (hover!=state->hover) { state->hover=hover; InvalidateRect(hwnd,NULL,FALSE); }
+        }
         if (state && state->buttons)
         {
             RECT client;
@@ -298,19 +385,21 @@ static LRESULT CALLBACK StudioViewportProc(HWND hwnd, UINT message, WPARAM wpara
         }
         return 0;
     case WM_MOUSEWHEEL:
-        if (state)
+        if (state && !state->transforming)
         {
             OrbitCameraDolly(&state->camera, (double)GET_WHEEL_DELTA_WPARAM(wparam) / WHEEL_DELTA);
             InvalidateRect(hwnd, NULL, FALSE);
         }
         return 0;
     case WM_KEYDOWN:
-        if (state && wparam=='Z') { StudioViewportFrame(hwnd,state,state->selected); return 0; }
+        if (wparam==VK_ESCAPE && StudioViewportCancelTransform(hwnd)) { return 0; }
+        if (state && !state->transforming && wparam=='Z') { StudioViewportFrame(hwnd,state,state->selected); return 0; }
         break;
     case WM_CANCELMODE:
     case WM_KILLFOCUS:
     case WM_CAPTURECHANGED:
-        if (state) { state->buttons = 0; }
+        StudioViewportCancelTransform(hwnd);
+        if (state) { state->buttons = 0; state->hover=-1; }
         if (GetCapture() == hwnd) { ReleaseCapture(); }
         return 0;
     case WM_NCDESTROY:
@@ -326,6 +415,7 @@ static LRESULT CALLBACK StudioViewportProc(HWND hwnd, UINT message, WPARAM wpara
                 wglDeleteContext(state->context);
             }
             if (state->dc) { ReleaseDC(hwnd, state->dc); }
+            StudioGizmoFree(&state->gizmo);
             free(state); SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
         }
         break;

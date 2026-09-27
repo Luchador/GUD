@@ -8,7 +8,7 @@ The workspace contains:
 
 - Scene, Images, and Models panels on the left.
 - An independent OpenGL viewport in the center.
-- Scene Outliner, Materials, and Properties panels on the right, in that order.
+- Scene Outliner, Transform, Materials, and Properties panels on the right, in that order.
 
 Drag with either the left or right mouse button to orbit, drag with the middle
 button to pan, and use the wheel to zoom. Click a model to select its instance
@@ -43,9 +43,36 @@ full filename and dimensions. An unreadable BMP remains listed with **No preview
 Drag a model from **Models** into the viewport to create an instance. Its base
 rests on the ground plane at the drop point, and the first placement is framed
 automatically. If there is no open scene, the New Scene prompt appears first.
-Each drop creates a separate instance with independent material settings, while
+Each drop creates a separate instance with independent transforms and material settings, while
 instances of the same file share loaded geometry. The scene outliner identifies
 each instance by model filename and instance number.
+
+Choose **File > Save Scene** or press **Ctrl+S** in Render Studio to save the
+current scene's model instances, transforms, and material properties. Pending
+numeric edits are applied before saving. Completed placements and edits also
+continue to save automatically.
+
+Select a model in the viewport or Scene Outliner to show its transform gizmo and
+**Transform** panel. Use the panel buttons or **W** for translation, **E** for
+rotation, and **R** for scaling. These shortcuts belong to Render Studio and do
+not activate while typing in a text field or using a drop-down.
+
+- Drag the red, green, or blue handle to transform along/about X, Y, or Z.
+- Translation and rotation use world axes. Scaling follows the model's rotated
+  local axes. The white center cube scales all three axes proportionally.
+- Hold **Ctrl** while rotating to snap to 10-degree increments.
+- **Escape** cancels an active transform and restores its starting values.
+  Losing capture/focus or switching scenes also cancels an unfinished drag.
+- The Transform panel provides Position, Rotation, and Scale X/Y/Z values.
+  Rotation is in degrees (Euler order Z * Y * X); scale is a multiplier, with 1
+  meaning the original size. Scale stays positive, between 0.0001 and 10000.
+  Press Enter or leave a numeric field to apply it.
+
+Transforms use the model's imported origin as their pivot. Gizmos stay a usable
+size as the camera zooms and remain visible over the model. Dragging previews the
+transform continuously; releasing the mouse saves it. Bounds, face picking,
+texture coordinates, and lighting follow the transformed instance, including
+correct normals under nonuniform scale. Failed saves restore the previous transform.
 
 Static glTF meshes retain their material names, UVs, vertex colors (when present),
 base colors, and transformed normals. Missing normals are generated per face.
@@ -101,21 +128,30 @@ workspace to the newly opened project; switching game levels does not.
 `studioscene.c` owns scene filenames, creation, and enumeration.
 `studiodocument.c` owns scene loading, atomic replacement, instances, shared model
 assets, and per-instance materials. A `.rnd` is a UTF-8 JSON document with
-`"format": "GEditor Render Studio"`, `"version": 1`, and an `objects` array.
-Existing empty version-1 scenes remain supported. Each object stores its model
-leaf filename, three-component position, and material overrides (`name`, `image`,
+`"format": "GEditor Render Studio"`, `"version": 2`, and an `objects` array.
+Version-1 scenes remain supported: existing positions and material settings are
+retained, rotation defaults to zero, and scale defaults to one. An empty scene
+created by New Scene starts as version 1; saving upgrades it to version 2.
+Each object stores its model leaf filename, three-component `position`, `rotation`
+(in degrees), `scale` (multipliers), and material overrides (`name`, `image`,
 `base`, `specular`, `intensity`, and `shininess`). Paths are relative to the
 project's studio folders. The scene name comes from its filename.
 `gltf.c` provides a separate studio import mode using the shared JSON codec in
 `gltfjson.c`; it does not require game source identities or game texture tags.
-`studiomath.c` owns ray picking, bounds, and preview shading. `studioviewport.c`
+`studiomath.c` owns model matrices, ray picking, transformed bounds, and preview
+shading. `studiodrag.c` handles transform interaction math; `studiogizmo.c` loads,
+draws, and picks the same arrow/ring/scale assets used by the main editor. `studioviewport.c`
 owns the preview camera, rendering, image textures, and its own OpenGL context.
 
 Run `python3 tools/geditor/tests/studio_materials/run.py` for glTF/material,
 scene persistence, failure rollback, picking, and lighting regression coverage.
+Run `python3 tools/geditor/tests/studio_transforms/run.py` for transform
+persistence, legacy-scene loading, transformed picking/lighting, drag math,
+actual gizmo assets, hotkey routing, and Save Scene input ordering.
 Run `python3 tools/geditor/tests/studio_drag/run.py` for the Models-list mouse
 callback, including native list-box capture notifications and drag cancellation.
 The suite uses production code with a filesystem shim and ASan/UBSan. Native
 Windows interaction, WIC texture decoding, and window layout need a Windows
 smoke test: drop a three-material model twice, edit one instance, change selection,
-reopen the scene, and resize the window while an image is assigned.
+move/rotate/scale it using both handles and numeric fields, save and reopen the
+scene, and resize the window while an image is assigned.

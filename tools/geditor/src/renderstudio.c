@@ -9,19 +9,21 @@
 #include "renderstudio.h"
 #include "studioviewport.h"
 #include "studioscene.h"
+#include "studiogizmo.h"
 #include "browser.h"
 
-static HWND g_Studio, g_StudioViewport, g_StudioProperties;
+static HWND g_Studio, g_StudioViewport, g_StudioProperties, g_StudioTransform;
 static StudioScene g_StudioScene;
 static int g_StudioObject=-1,g_StudioMaterial=-1;
 static BOOL g_StudioUpdating,g_StudioDragArmed,g_StudioDragging;
-static unsigned g_StudioGeneration;
+static unsigned g_StudioGeneration,g_StudioTransformDirty;
+static int g_StudioTool=STUDIO_TRANSLATE;
 static BOOL g_StudioLoading,g_StudioTriedInitialScene;
 static POINT g_StudioDragPress;
 static char g_StudioDragModel[MAX_PATH];
 static void RenderStudioNewScene(HWND hwnd);
 static char g_StudioProject[MAX_PATH];
-static const char g_StudioNavigation[] = "Left/right drag: orbit    Middle drag: pan    Wheel: zoom";
+static const char g_StudioNavigation[] = "W: move    E: rotate    R: scale    Z: frame    Drag handles to transform    Ctrl+S: save";
 
 /* Group boxes normally leave their interiors to the parent's background.
  * WS_CLIPCHILDREN protects our GL viewport, but also prevents the parent from
@@ -113,6 +115,90 @@ static void RenderStudioProperties(void)
     g_StudioUpdating=FALSE;
 }
 
+static StudioInstance *RenderStudioObject(void)
+{
+    return g_StudioObject>=0 && (DWORD)g_StudioObject<g_StudioScene.count ? &g_StudioScene.objects[g_StudioObject] : NULL;
+}
+
+static void RenderStudioTransformPanel(void)
+{
+    StudioInstance *o=RenderStudioObject(); char text[64]; g_StudioUpdating=TRUE;
+    for (int field=0;field<9;field++)
+    {
+        int id=IDC_STUDIO_POSITION_X+field; text[0]=0;
+        if (o)
+        {
+            const double *values=field<3 ? o->transform.position : field<6 ? o->transform.rotation : o->transform.scale;
+            snprintf(text,sizeof(text),"%.9g",values[field%3]);
+        }
+        SetDlgItemText(g_StudioTransform,id,text); EnableWindow(GetDlgItem(g_StudioTransform,id),o!=NULL);
+    }
+    CheckRadioButton(g_StudioTransform,IDC_STUDIO_MOVE,IDC_STUDIO_SCALE,IDC_STUDIO_MOVE+g_StudioTool);
+    g_StudioTransformDirty=0; g_StudioUpdating=FALSE;
+}
+
+static void RenderStudioTool(int tool)
+{
+    StudioViewportSetTool(g_StudioViewport,tool); g_StudioTool=tool;
+    CheckRadioButton(g_StudioTransform,IDC_STUDIO_MOVE,IDC_STUDIO_SCALE,IDC_STUDIO_MOVE+tool);
+}
+
+static void RenderStudioCommitTransform(const StudioTransform *previous)
+{
+    StudioInstance *o=RenderStudioObject(); const char *why="";
+    if (!o) { return; }
+    if (!StudioTransformValid(&o->transform) || !StudioSceneSave(&g_StudioScene,&why))
+    {
+        o->transform=*previous;
+        MessageBox(g_Studio,why[0] ? why : "Enter finite position/rotation values within +/-1 billion and scale values from 0.0001 to 10000.","Transform",MB_ICONERROR);
+    }
+    else { SetDlgItemText(g_Studio,IDC_STUDIO_STATUS,"Transform saved."); }
+    StudioViewportSetScene(g_StudioViewport,&g_StudioScene,FALSE); RenderStudioTransformPanel();
+}
+
+static INT_PTR CALLBACK RenderStudioTransformProc(HWND hwnd,UINT message,WPARAM wparam,LPARAM lparam)
+{
+    if (message==WM_INITDIALOG)
+    {
+        for (int id=IDC_STUDIO_POSITION_X;id<=IDC_STUDIO_SCALE_Z;id++) { SendDlgItemMessage(hwnd,id,EM_LIMITTEXT,48,0); }
+        return TRUE;
+    }
+    if (message==WM_COMMAND && !g_StudioUpdating)
+    {
+        int id=LOWORD(wparam),code=HIWORD(wparam),field=id-IDC_STUDIO_POSITION_X;
+        if (id>=IDC_STUDIO_MOVE && id<=IDC_STUDIO_SCALE && code==BN_CLICKED)
+        { RenderStudioTool(id-IDC_STUDIO_MOVE); SetFocus(g_StudioViewport); return TRUE; }
+        StudioInstance *o=RenderStudioObject();
+        if (o && field>=0 && field<9)
+        {
+            if (code==EN_CHANGE) { g_StudioTransformDirty|=1u<<field; return TRUE; }
+            if (code==EN_KILLFOCUS && (g_StudioTransformDirty&(1u<<field)))
+            {
+                char text[64],*end; GetDlgItemText(hwnd,id,text,sizeof(text)); double value=strtod(text,&end); BOOL parsed=end!=text;
+                while (*end==' ' || *end=='\t') { end++; }
+                if (!parsed || *end || !isfinite(value))
+                { RenderStudioTransformPanel(); SetDlgItemText(g_Studio,IDC_STUDIO_STATUS,"Enter a valid transform value."); return TRUE; }
+                StudioTransform previous=o->transform;
+                double *values=field<3 ? o->transform.position : field<6 ? o->transform.rotation : o->transform.scale;
+                values[field%3]=value;
+                RenderStudioCommitTransform(&previous); return TRUE;
+            }
+        }
+    }
+    return FALSE;
+}
+
+static void RenderStudioSaveScene(void)
+{
+    const char *why="";
+    /* End text editing first so File > Save includes the current field. */
+    StudioViewportCommitTransform(g_StudioViewport);
+    SetFocus(g_StudioViewport);
+    if (!g_StudioScene.filename[0]) { return; }
+    if (!StudioSceneSave(&g_StudioScene,&why)) { MessageBox(g_Studio,why,"Save Scene",MB_ICONERROR); }
+    else { SetDlgItemText(g_Studio,IDC_STUDIO_STATUS,"Scene saved."); }
+}
+
 static void RenderStudioSelect(int object, int material)
 {
     g_StudioObject=object>=0 && (DWORD)object<g_StudioScene.count ? object : -1;
@@ -136,7 +222,7 @@ static void RenderStudioSelect(int object, int material)
     HTREEITEM root=TreeView_GetRoot(tree),item=TreeView_GetChild(tree,root),choice=root;
     for (int i=0;item;item=TreeView_GetNextSibling(tree,item),i++) if (i==g_StudioObject) { choice=item; break; }
     TreeView_SelectItem(tree,choice); g_StudioUpdating=FALSE;
-    StudioViewportSelect(g_StudioViewport,g_StudioObject); RenderStudioProperties();
+    StudioViewportSelect(g_StudioViewport,g_StudioObject); RenderStudioProperties(); RenderStudioTransformPanel();
 }
 
 static void RenderStudioOutliner(void)
@@ -162,6 +248,7 @@ static BOOL RenderStudioLoadScene(const char *filename)
 {
     const char *why="";
     if (g_StudioLoading) { return FALSE; } g_StudioLoading=TRUE;
+    StudioViewportCancelTransform(g_StudioViewport);
     if (!StudioSceneLoad(g_StudioProject,filename,&g_StudioScene,&why))
     {
         SetDlgItemText(g_Studio,IDC_STUDIO_STATUS,why);
@@ -260,8 +347,8 @@ static void RenderStudioDropModel(const char *filename,POINT point)
     if (!StudioSceneAddModel(&g_StudioScene,filename,position,&why)) { MessageBox(g_Studio,why,"Add Model",MB_ICONERROR); return; }
     StudioInstance *o=&g_StudioScene.objects[g_StudioScene.count-1];
     /* Drop the model's base at the ground-plane hit, regardless of its origin. */
-    o->position[0]-=(o->asset->lower[0]+o->asset->upper[0])*0.5;
-    o->position[1]-=o->asset->lower[1]; o->position[2]-=(o->asset->lower[2]+o->asset->upper[2])*0.5;
+    o->transform.position[0]-=(o->asset->lower[0]+o->asset->upper[0])*0.5;
+    o->transform.position[1]-=o->asset->lower[1]; o->transform.position[2]-=(o->asset->lower[2]+o->asset->upper[2])*0.5;
     if (!StudioSceneSave(&g_StudioScene,&why))
     { StudioSceneRemove(&g_StudioScene,g_StudioScene.count-1); MessageBox(g_Studio,why,"Add Model",MB_ICONERROR); return; }
     g_StudioObject=(int)g_StudioScene.count-1; g_StudioMaterial=0;
@@ -417,15 +504,15 @@ static void RenderStudioPanel(HWND hwnd, int group, int content,
 
 static void RenderStudioLayout(HWND hwnd)
 {
-    RECT client, units = {8, 16, 144, 0}, panel = {0, 0, 168, 88}, properties={0,0,0,184};
+    RECT client, units = {8, 16, 144, 0}, panel = {0, 0, 168, 88}, properties={0,0,0,184}, transform={0,0,0,112};
     int margin, height, left, right, rightx, scenesize, imagesize, outline;
-    GetClientRect(hwnd, &client); MapDialogRect(hwnd, &units); MapDialogRect(hwnd, &panel); MapDialogRect(hwnd,&properties);
+    GetClientRect(hwnd, &client); MapDialogRect(hwnd, &units); MapDialogRect(hwnd, &panel); MapDialogRect(hwnd,&properties); MapDialogRect(hwnd,&transform);
     margin = units.left; left = units.right; right = panel.right;
     height = max(0, client.bottom - units.top - margin * 3);
     rightx = client.right - margin - right;
     scenesize = min(panel.bottom, height / 3);
     imagesize = max(0, (height - scenesize - margin * 2) / 2);
-    outline = max(0, (height - properties.bottom - margin * 2) / 2);
+    outline = max(0, (height - properties.bottom - transform.bottom - margin * 3) / 2);
     RenderStudioPanel(hwnd, IDC_STUDIO_SCENE_PANEL, IDC_STUDIO_SCENE, margin, margin,
         left, scenesize, margin, units.top);
     RenderStudioPanel(hwnd, IDC_STUDIO_IMAGES_PANEL, IDC_STUDIO_IMAGES, margin, margin * 2 + scenesize,
@@ -434,10 +521,12 @@ static void RenderStudioLayout(HWND hwnd)
         left, height - scenesize - imagesize - margin * 2, margin, units.top);
     RenderStudioPanel(hwnd, IDC_STUDIO_OUTLINER_PANEL, IDC_STUDIO_OUTLINER, rightx, margin,
         right, outline, margin, units.top);
-    RenderStudioPanel(hwnd, IDC_STUDIO_MATERIALS_PANEL, IDC_STUDIO_MATERIALS, rightx, margin * 2 + outline,
+    RenderStudioPanel(hwnd, IDC_STUDIO_TRANSFORM_PANEL, IDC_STUDIO_TRANSFORM, rightx, margin * 2 + outline,
+        right, transform.bottom, margin, units.top);
+    RenderStudioPanel(hwnd, IDC_STUDIO_MATERIALS_PANEL, IDC_STUDIO_MATERIALS, rightx, margin * 3 + outline + transform.bottom,
         right, outline, margin, units.top);
-    RenderStudioPanel(hwnd, IDC_STUDIO_PROPERTIES_PANEL, IDC_STUDIO_PROPERTIES, rightx, margin * 3 + outline * 2,
-        right, height - outline * 2 - margin * 2, margin, units.top);
+    RenderStudioPanel(hwnd, IDC_STUDIO_PROPERTIES_PANEL, IDC_STUDIO_PROPERTIES, rightx, margin * 4 + outline * 2 + transform.bottom,
+        right, height - outline * 2 - transform.bottom - margin * 3, margin, units.top);
     if (g_StudioViewport)
         RenderStudioPlace(g_StudioViewport, left + margin * 2, margin,
             rightx - left - margin * 3, height);
@@ -458,6 +547,7 @@ void RenderStudioSetProject(const GEditorProject *project)
     SetWindowText(g_Studio, title);
     if (!changed) { return; }
     /* Scene state belongs to this project, never to the selected game level. */
+    StudioViewportCancelTransform(g_StudioViewport);
     g_StudioGeneration++; g_StudioTriedInitialScene=FALSE; StudioSceneFree(&g_StudioScene); g_StudioObject=g_StudioMaterial=-1;
     StudioViewportSetScene(g_StudioViewport,&g_StudioScene,TRUE);
     SendDlgItemMessage(g_Studio, IDC_STUDIO_SCENE, LB_RESETCONTENT, 0, 0);
@@ -482,7 +572,8 @@ static INT_PTR CALLBACK RenderStudioProc(HWND hwnd, UINT message, WPARAM wparam,
         static const int panels[][2] = {
             {IDC_STUDIO_SCENE_PANEL, IDC_STUDIO_SCENE}, {IDC_STUDIO_IMAGES_PANEL, IDC_STUDIO_IMAGES},
             {IDC_STUDIO_MODELS_PANEL, IDC_STUDIO_MODELS}, {IDC_STUDIO_OUTLINER_PANEL, IDC_STUDIO_OUTLINER},
-            {IDC_STUDIO_PROPERTIES_PANEL, IDC_STUDIO_PROPERTIES}, {IDC_STUDIO_MATERIALS_PANEL,IDC_STUDIO_MATERIALS}};
+            {IDC_STUDIO_PROPERTIES_PANEL, IDC_STUDIO_PROPERTIES}, {IDC_STUDIO_MATERIALS_PANEL,IDC_STUDIO_MATERIALS},
+            {IDC_STUDIO_TRANSFORM_PANEL,IDC_STUDIO_TRANSFORM}};
         g_Studio = hwnd;
         for (size_t i = 0; i < sizeof(panels) / sizeof(*panels); i++)
             SetWindowSubclass(GetDlgItem(hwnd, panels[i][0]), RenderStudioGroupProc, 1, panels[i][1]);
@@ -495,11 +586,12 @@ static INT_PTR CALLBACK RenderStudioProc(HWND hwnd, UINT message, WPARAM wparam,
         break; /* Let the dialog manager restore keyboard focus normally. */
     case WM_INITMENUPOPUP:
         EnableMenuItem((HMENU)wparam, ID_STUDIO_NEW_SCENE, MF_BYCOMMAND | (g_StudioProject[0] ? MF_ENABLED : MF_GRAYED));
+        EnableMenuItem((HMENU)wparam, ID_STUDIO_SAVE_SCENE, MF_BYCOMMAND | (g_StudioScene.filename[0] ? MF_ENABLED : MF_GRAYED));
         return TRUE;
     case WM_GETMINMAXINFO:
     {
         MINMAXINFO *limits = (MINMAXINFO *)lparam;
-        RECT minimum = {0, 0, 640, 400};
+        RECT minimum = {0, 0, 640, 480};
         MapDialogRect(hwnd, &minimum);
         AdjustWindowRectEx(&minimum, (DWORD)GetWindowLongPtr(hwnd, GWL_STYLE),
             GetMenu(hwnd) != NULL, (DWORD)GetWindowLongPtr(hwnd, GWL_EXSTYLE));
@@ -508,6 +600,7 @@ static INT_PTR CALLBACK RenderStudioProc(HWND hwnd, UINT message, WPARAM wparam,
         return TRUE;
     }
     case WM_COMMAND:
+        if (LOWORD(wparam) == ID_STUDIO_SAVE_SCENE) { RenderStudioSaveScene(); return TRUE; }
         if (LOWORD(wparam) == ID_STUDIO_NEW_SCENE) { RenderStudioNewScene(hwnd); return TRUE; }
         if (LOWORD(wparam) == IDCANCEL) { DestroyWindow(hwnd); return TRUE; }
         if (LOWORD(wparam) == IDOK) { SetFocus(GetDlgItem(g_Studio,IDC_STUDIO_MATERIALS)); return TRUE; }
@@ -525,11 +618,15 @@ static INT_PTR CALLBACK RenderStudioProc(HWND hwnd, UINT message, WPARAM wparam,
         if (((NMHDR *)lparam)->idFrom==IDC_STUDIO_OUTLINER && ((NMHDR *)lparam)->code==TVN_SELCHANGED && !g_StudioUpdating)
         { RenderStudioSelect((int)((NMTREEVIEW *)lparam)->itemNew.lParam,-1); return TRUE; }
         break;
+    case STUDIO_WM_TRANSFORM:
+        if (wparam==1) { RenderStudioCommitTransform((const StudioTransform *)lparam); }
+        else { RenderStudioTransformPanel(); StudioViewportSetScene(g_StudioViewport,&g_StudioScene,FALSE); }
+        return TRUE;
     case STUDIO_WM_SELECT: RenderStudioSelect((int)(INT_PTR)wparam,(int)lparam); return TRUE;
-    case WM_CLOSE: DestroyWindow(hwnd); return TRUE;
+    case WM_CLOSE: StudioViewportCancelTransform(g_StudioViewport); DestroyWindow(hwnd); return TRUE;
     case WM_NCDESTROY:
         g_StudioGeneration++; g_StudioTriedInitialScene=FALSE; StudioSceneFree(&g_StudioScene);
-        g_Studio = g_StudioViewport = g_StudioProperties = NULL; g_StudioProject[0] = '\0';
+        g_Studio = g_StudioViewport = g_StudioProperties = g_StudioTransform = NULL; g_StudioTool=STUDIO_TRANSLATE; g_StudioProject[0] = '\0';
         g_StudioObject=g_StudioMaterial=-1; g_StudioDragArmed=g_StudioDragging=FALSE;
         break;
     }
@@ -559,6 +656,11 @@ BOOL RenderStudioShow(HWND owner, HINSTANCE instance, const GEditorProject *proj
         if (!g_StudioProperties)
         { DestroyWindow(g_Studio); *why="Could not create the studio material properties panel."; return FALSE; }
         SetWindowLongPtr(g_StudioProperties,GWLP_ID,IDC_STUDIO_PROPERTIES); ShowWindow(g_StudioProperties,SW_SHOW);
+        DestroyWindow(GetDlgItem(g_Studio,IDC_STUDIO_TRANSFORM));
+        g_StudioTransform=CreateDialog(instance,MAKEINTRESOURCE(IDD_STUDIO_TRANSFORM),g_Studio,RenderStudioTransformProc);
+        if (!g_StudioTransform)
+        { DestroyWindow(g_Studio); *why="Could not create the Transform panel."; return FALSE; }
+        SetWindowLongPtr(g_StudioTransform,GWLP_ID,IDC_STUDIO_TRANSFORM); ShowWindow(g_StudioTransform,SW_SHOW);
         SetWindowSubclass(GetDlgItem(g_Studio,IDC_STUDIO_MODELS),RenderStudioModelDragProc,2,0);
         g_StudioViewport = StudioViewportCreate(g_Studio, instance);
         if (!g_StudioViewport)
@@ -605,6 +707,18 @@ BOOL RenderStudioHandleMessage(MSG *message)
         { SendMessage(target, WM_MOUSEWHEEL, message->wParam, message->lParam); return TRUE; }
     }
     if (!own) { return FALSE; }
+    if (message->message==WM_KEYDOWN)
+    {
+        if (message->wParam==VK_ESCAPE && StudioViewportCancelTransform(g_StudioViewport)) { return TRUE; }
+        if (message->wParam=='S' && (GetKeyState(VK_CONTROL)&0x8000)) { RenderStudioSaveScene(); return TRUE; }
+        char kind[32]=""; GetClassName(GetFocus(),kind,sizeof(kind));
+        if (!(GetKeyState(VK_CONTROL)&0x8000) && !(GetKeyState(VK_MENU)&0x8000)
+            && lstrcmpi(kind,"Edit") && lstrcmpi(kind,"ComboBox"))
+        {
+            int tool=message->wParam=='W' ? STUDIO_TRANSLATE : message->wParam=='E' ? STUDIO_ROTATE : message->wParam=='R' ? STUDIO_SCALE : -1;
+            if (tool>=0) { RenderStudioTool(tool); return TRUE; }
+        }
+    }
     if (message->message==WM_KEYDOWN && message->wParam==VK_ESCAPE && g_StudioDragArmed)
     { SendDlgItemMessage(g_Studio,IDC_STUDIO_MODELS,WM_KEYDOWN,VK_ESCAPE,0); return TRUE; }
     /* The main window remains usable; studio input never reaches its game
