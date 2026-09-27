@@ -46,7 +46,8 @@ def main():
         'ViewportCanSelectRoom', 'ViewportSelectRoom',
         'ViewportBgFacePlane', 'ViewportGetSelectedBgPlanes', 'ViewportCanSelectCoplanar',
         'ViewportBgFaceCoplanar', 'ViewportSelectCoplanar',
-        'ViewportGetSelectedBgTextures', 'ViewportCanSelectSameMaterial', 'ViewportSelectSameMaterial'))
+        'ViewportGetSelectedBgTextures', 'ViewportCanSelectSameMaterial', 'ViewportSelectBgMaterial',
+        'ViewportSelectSameMaterial', 'ViewportSelectMaterialInRoom'))
     editor = (src / 'geditor.c').read_text()
     grow = editor.split('EnableMenuItem((HMENU)wparam, ID_SELECT_GROW,')[1].split(';', 1)[0]
     assert 'ViewportCanGrowSelection(g_Viewport)' in grow
@@ -64,6 +65,12 @@ def main():
     assert 'ViewportCanSelectInverse(g_Viewport)' in menu
     command = editor.split('case ID_SELECT_INVERSE:')[1].split('case ID_SELECT_ROOM:', 1)[0]
     assert 'ViewportSelectInverse(g_Viewport)' in command
+    assert items[items.index('ID_SELECT_SAME_MATERIAL') + 1] == 'ID_SELECT_MATERIAL_IN_ROOM'
+    assert 'ID_SELECT_MATERIAL_IN_ROOM, "Select Material in Room"' in editor
+    menu = editor.split('EnableMenuItem((HMENU)wparam, ID_SELECT_MATERIAL_IN_ROOM,')[1].split(';', 1)[0]
+    assert 'ViewportCanSelectSameMaterial(g_Viewport)' in menu
+    command = editor.split('case ID_SELECT_MATERIAL_IN_ROOM:')[1].split('return 0;', 1)[0]
+    assert 'ViewportSelectMaterialInRoom(g_Viewport)' in command
     hotkeys = function((src / 'geditor.c').read_text(), 'GEditorHandleSelectionHotkey')
     with tempfile.TemporaryDirectory(prefix='geditor-bg-selection-') as temp:
         temp = Path(temp)

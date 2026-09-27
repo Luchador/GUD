@@ -240,11 +240,14 @@ BOOL ViewportSelectRoom(HWND hwnd);
 /* Whole-room tool: independent of per-layer visibility; no frame notification. */
 DWORD ViewportGetSelectedRoom(HWND hwnd);
 BOOL ViewportSelectWholeRoom(HWND hwnd, DWORD room);
-/* Face mode only: all selected BG faces must use the same texture ID.
+/* Face mode only: match any selected BG face's texture ID.
    Select matching faces across rooms in visible layers, excluding hidden faces.
    UV wrapping, render flags and culling do not affect the texture match. */
 BOOL ViewportCanSelectSameMaterial(HWND hwnd);
 void ViewportSelectSameMaterial(HWND hwnd);
+/* Same material matching, restricted to the union of the selected faces' rooms.
+   Uses the same availability check and records one selection-history step. */
+void ViewportSelectMaterialInRoom(HWND hwnd);
 /* Temporary viewport visibility only: never edits assets or history. Hidden
    identities survive scene rebuilds; opening/closing a level resets them. */
 BOOL ViewportHideSelectedBgFaces(HWND hwnd);

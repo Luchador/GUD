@@ -323,6 +323,71 @@ static void Geometry(void)
     puts("PASS: per-mode counts, one-ring growth, hidden/layer filters, source identity, and atomic failure.");
 }
 
+static void MaterialInRoom(ViewportState *s)
+{
+    Seed(s,EDITOR_TOOL_FACE_SELECT);
+    unsigned before=notifications;
+    allocations=0; ViewportSelectMaterialInRoom(s); allocations=-1;
+    assert(s->selectedtricount==2 && s->selectedtris[0] && s->selectedtris[1]);
+    assert(!s->selectedtris[2] && !s->selectedtris[4] && notifications==before+1);
+    ViewportSelectMaterialInRoom(s); assert(s->selectedtricount==2); /* Stable on repeat. */
+
+    /* Membership is per face, even when a texture batch spans rooms. */
+    s->scenefacerefs[1].room=2;
+    Seed(s,EDITOR_TOOL_FACE_SELECT); ViewportSelectMaterialInRoom(s);
+    assert(s->selectedtricount==1 && s->selectedtris[0]);
+    s->scenefacerefs[1].room=1;
+
+    /* Multiple rooms and materials form frozen unions. A matching texture in
+       an unselected room is excluded; either texture matches in either room. */
+    Seed(s,EDITOR_TOOL_FACE_SELECT); s->selectedtris[10]=1; s->selectedtricount++;
+    ViewportSelectMaterialInRoom(s);
+    assert(s->selectedtricount==4 && s->selectedtris[0] && s->selectedtris[1]
+        && s->selectedtris[2] && s->selectedtris[10] && !s->selectedtris[4]);
+    Seed(s,EDITOR_TOOL_FACE_SELECT); s->selectedtris[4]=1; s->selectedtricount++;
+    ViewportSelectMaterialInRoom(s);
+    assert(s->selectedtricount==3 && s->selectedtris[4] && !s->selectedtris[3] && !s->selectedtris[5]);
+    s->showbgsecondary=TRUE; ViewportSelectMaterialInRoom(s);
+    assert(s->selectedtricount==4 && s->selectedtris[3]); /* Render flags don't affect material matching. */
+    s->showbgsecondary=FALSE;
+    ViewportClearAllSelection(s); s->selectedtris[3]=1; s->selectedtricount=1;
+    ViewportSelectMaterialInRoom(s);
+    assert(s->selectedtricount==1 && s->selectedtris[4]); /* Disabled-layer seed supplies its room too. */
+
+    ViewportClearAllSelection(s); s->selectedtris[7]=1; s->selectedtricount=1;
+    s->batches[8].textureid=BG_TEX_NONE;
+    ViewportSelectMaterialInRoom(s);
+    assert(s->selectedtricount==2 && s->selectedtris[7] && s->selectedtris[8] && !s->selectedtris[10]);
+    s->batches[8].textureid=23;
+    /* The bitmap uses source room IDs, not a narrowed byte or draw order. */
+    s->scenefacerefs[0].room=s->scenefacerefs[1].room=USHRT_MAX;
+    Seed(s,EDITOR_TOOL_FACE_SELECT); ViewportSelectMaterialInRoom(s);
+    assert(s->selectedtricount==2 && s->selectedtris[0] && s->selectedtris[1]);
+    s->scenefacerefs[0].room=s->scenefacerefs[1].room=1;
+
+    /* Missing, hidden and object-only seeds leave selection/history alone. */
+    ViewportClearAllSelection(s); before=notifications;
+    ViewportSelectMaterialInRoom(NULL); ViewportSelectMaterialInRoom(s);
+    s->selectedtris[5]=1; s->selectedtricount=1;
+    ViewportSelectMaterialInRoom(s); assert(s->selectedtricount==1 && s->selectedtris[5]);
+    ViewportClearAllSelection(s); s->selectedtris[6]=1; s->selectedtricount=1;
+    s->scenefacerefs[6].faceid=7;
+    ViewportSelectMaterialInRoom(s); assert(s->selectedtricount==1 && s->selectedtris[6]);
+    s->scenefacerefs[6].faceid=BG_FACE_ID_NONE;
+    assert(notifications==before);
+    Seed(s,EDITOR_TOOL_FACE_SELECT);
+    s->flying=TRUE; ViewportSelectMaterialInRoom(s); s->flying=FALSE;
+    s->orbit=TRUE; ViewportSelectMaterialInRoom(s); s->orbit=FALSE;
+    s->dragaxis=0; ViewportSelectMaterialInRoom(s); s->dragaxis=-1;
+    s->boxpending=TRUE; ViewportSelectMaterialInRoom(s); s->boxpending=FALSE;
+    s->showbgprimary=FALSE; ViewportSelectMaterialInRoom(s); s->showbgprimary=TRUE;
+    const EditorTool modes[]={EDITOR_TOOL_VERTEX_SELECT,EDITOR_TOOL_EDGE_SELECT,EDITOR_TOOL_VERTEX_PAINT,EDITOR_TOOL_ROOM_SELECT};
+    for (unsigned i=0; i<sizeof(modes)/sizeof(*modes); i++) { s->tool=modes[i]; ViewportSelectMaterialInRoom(s); }
+    s->tool=EDITOR_TOOL_FACE_SELECT;
+    assert(notifications==before && s->selectedtricount==1 && s->selectedtris[0]);
+    puts("PASS: material-in-room selection, room/material unions, batch boundaries, hidden/layer filters, untextured faces, source room IDs, input guards and one history notification.");
+}
+
 static void SameMaterial(void)
 {
     Vertex vertices[33]={0}; VertexColor colors[33]={0};
@@ -401,6 +466,7 @@ static void SameMaterial(void)
     s.tool=EDITOR_TOOL_VERTEX_PAINT; assert(!ViewportCanSelectSameMaterial(&s));
     s.tool=EDITOR_TOOL_FACE_SELECT; ViewportClearAllSelection(&s); s.selectedobject=0;
     assert(!ViewportCanSelectSameMaterial(&s));
+    MaterialInRoom(&s);
     puts("PASS: same-material selection, multiple-material union, room/batch/layer boundaries, untextured faces and input guards.");
 }
 

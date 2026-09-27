@@ -6812,7 +6812,8 @@ BOOL ViewportSelectCoplanar(HWND hwnd)
     return TRUE;
 }
 
-static BOOL ViewportGetSelectedBgTextures(HWND hwnd, unsigned char *textures)
+/* Optional room bitmap covers the full unsigned-short BgFaceRef room ID. */
+static BOOL ViewportGetSelectedBgTextures(HWND hwnd, unsigned char *textures, unsigned char *rooms)
 {
     const ViewportState *state = ViewportGetState(hwnd);
     BOOL found = FALSE;
@@ -6820,8 +6821,9 @@ static BOOL ViewportGetSelectedBgTextures(HWND hwnd, unsigned char *textures)
     if (!ViewportCanSelectBackground(hwnd, TRUE) || state->tool != EDITOR_TOOL_FACE_SELECT)
     { return FALSE; }
     if (textures != NULL) { memset(textures, 0, BG_TEX_NONE + 1); }
-    /* Snapshot every selected material before replacing the selection. Layer
-       toggles can leave faces selected; those still contribute seed materials.
+    if (rooms != NULL) { memset(rooms, 0, (USHRT_MAX + 1u) / 8); }
+    /* Snapshot selected materials and rooms before replacing the selection. Layer
+       toggles can leave faces selected; those still contribute seed materials/rooms.
        NULL is the menu's allocation-free check for any eligible seed. */
     for (i = 0; i < state->batchcount; i++)
     {
@@ -6833,6 +6835,11 @@ static BOOL ViewportGetSelectedBgTextures(HWND hwnd, unsigned char *textures)
                 || ViewportTriangleHidden(state, tri)) { continue; }
             if (textures == NULL) { return TRUE; }
             textures[batch->textureid] = 1;
+            if (rooms != NULL)
+            {
+                unsigned short room = state->scenefacerefs[tri].room;
+                rooms[room / 8] |= 1u << (room % 8);
+            }
             found = TRUE;
         }
     }
@@ -6841,15 +6848,15 @@ static BOOL ViewportGetSelectedBgTextures(HWND hwnd, unsigned char *textures)
 
 BOOL ViewportCanSelectSameMaterial(HWND hwnd)
 {
-    return ViewportGetSelectedBgTextures(hwnd, NULL);
+    return ViewportGetSelectedBgTextures(hwnd, NULL, NULL);
 }
 
-void ViewportSelectSameMaterial(HWND hwnd)
+static void ViewportSelectBgMaterial(HWND hwnd, BOOL inrooms)
 {
     ViewportState *state = ViewportGetState(hwnd);
-    unsigned char textures[BG_TEX_NONE + 1];
+    unsigned char textures[BG_TEX_NONE + 1], rooms[(USHRT_MAX + 1u) / 8];
     int i, tri;
-    if (!ViewportGetSelectedBgTextures(hwnd, textures)) { return; }
+    if (!ViewportGetSelectedBgTextures(hwnd, textures, inrooms ? rooms : NULL)) { return; }
     ViewportClearAllSelection(state);
     for (i = 0; i < state->batchcount; i++)
     {
@@ -6858,6 +6865,8 @@ void ViewportSelectSameMaterial(HWND hwnd)
             || !ViewportBatchIsPickable(state, batch)) { continue; }
         for (tri = batch->first / 3; tri < (batch->first + batch->count) / 3; tri++)
         {
+            unsigned short room = state->scenefacerefs[tri].room;
+            if (inrooms && !(rooms[room / 8] & (1u << (room % 8)))) { continue; }
             if (state->scenefacerefs[tri].faceid == BG_FACE_ID_NONE
                 || ViewportTriangleHidden(state, tri)) { continue; }
             state->selectedtris[tri] = 1;
@@ -6869,6 +6878,12 @@ void ViewportSelectSameMaterial(HWND hwnd)
     InvalidateRect(hwnd, NULL, FALSE);
     SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
 }
+
+void ViewportSelectSameMaterial(HWND hwnd)
+{ ViewportSelectBgMaterial(hwnd, FALSE); }
+
+void ViewportSelectMaterialInRoom(HWND hwnd)
+{ ViewportSelectBgMaterial(hwnd, TRUE); }
 
 static BgVertex *ViewportLoadHandle(int id, DWORD *count, BOOL radial)
 {

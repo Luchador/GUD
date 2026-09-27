@@ -738,6 +738,7 @@ enum {
     ID_SELECT_INVERSE,
     ID_SELECT_COPLANAR,
     ID_SELECT_SAME_MATERIAL,
+    ID_SELECT_MATERIAL_IN_ROOM,
     ID_SELECT_ROOM,
     ID_SELECT_SIMILAR,
 
@@ -934,6 +935,7 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_INVERSE, "Select &Inverse\tShift+I");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_COPLANAR, "Select &Coplanar\tShift+C");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_SAME_MATERIAL, "Select Same &Material\tShift+M");
+    AppendMenu(selectmenu, MF_STRING, ID_SELECT_MATERIAL_IN_ROOM, "Select Material in Room");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_ROOM, "Select &Room\tShift+R");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_SIMILAR, "Select &Similar\tShift+S");
 
@@ -6433,6 +6435,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             (ViewportCanSelectCoplanar(g_Viewport) ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_SELECT_SAME_MATERIAL, MF_BYCOMMAND |
             (ViewportCanSelectSameMaterial(g_Viewport) ? MF_ENABLED : MF_GRAYED));
+        EnableMenuItem((HMENU)wparam, ID_SELECT_MATERIAL_IN_ROOM, MF_BYCOMMAND |
+            (ViewportCanSelectSameMaterial(g_Viewport) ? MF_ENABLED : MF_GRAYED));
         return 0;
 
     case MODELEDITOR_CHANGED:
@@ -6727,6 +6731,10 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
             case ID_SELECT_SAME_MATERIAL:
                 ViewportSelectSameMaterial(g_Viewport);
+                return 0;
+
+            case ID_SELECT_MATERIAL_IN_ROOM:
+                ViewportSelectMaterialInRoom(g_Viewport);
                 return 0;
 
             case ID_SETTINGS_EDITOR:
