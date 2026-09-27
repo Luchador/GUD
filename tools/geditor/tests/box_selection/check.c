@@ -33,6 +33,9 @@ typedef struct ViewportState {
     BgDocumentVertexRef *scenevertexrefs;
     SceneBatch *batches;
     unsigned char *hiddentris;
+    unsigned char *selectedtris, *stanselected;
+    BgFaceRef *scenefacerefs;
+    int selectedtricount;
     StanFile stan;
     DWORD *stanhiddenids, stanhiddencount;
     DWORD *stanpointmap;
@@ -49,7 +52,8 @@ typedef struct ViewportState {
 
 static HWND capture;
 static ViewportState *capturedstate;
-static int clicks, notifications;
+static int clicks, notifications, faceclicks, errors;
+static int picktarget, pickcalls;
 static BOOL clickadd, clickremove;
 static HWND GetCapture(void) { return capture; }
 static void SetCapture(HWND hwnd) { capture = hwnd; }
@@ -64,25 +68,40 @@ static int GetSystemMetrics(int index) { return 4; }
 static void InvalidateRect(HWND hwnd, const RECT *rect, BOOL erase) {}
 static HWND GetParent(HWND hwnd) { return 2; }
 static void SendMessage(HWND hwnd, int msg, int wparam, int lparam) { notifications++; }
-static void MessageBox(HWND hwnd, const char *text, const char *title, int flags) { assert(0); }
+static void MessageBox(HWND hwnd, const char *text, const char *title, int flags) { errors++; }
 static void ViewportUpdateGizmo(ViewportState *state) {}
 static void ViewportRefreshStanOverlay(ViewportState *state) {}
+static void ViewportSetTriangleColor(ViewportState *state, int tri, BOOL selected) {}
 static void ViewportClearAllSelection(ViewportState *state)
 {
     state->componentcount = state->stancomponentcount = 0;
+    state->selectedtricount=0;
+    if (state->selectedtris) { memset(state->selectedtris,0,state->scenecount/3); }
+    if (state->stanselected) { memset(state->stanselected,0,state->stan.tilecount); }
     state->selectedportal = BG_PORTAL_INDEX_NONE; memset(state->portalselection,0,sizeof(state->portalselection));
 }
 static BOOL ViewportTryPickStan(HWND hwnd, ViewportState *state, int x, int y, BOOL add, BOOL remove)
 {
-    return FALSE;
+    pickcalls|=8; return picktarget==4;
 }
 static void ViewportRefreshPortalColors(ViewportState *state) {}
-static BOOL ViewportTryPickPortal(HWND hwnd, ViewportState *state, int x, int y, BOOL add, BOOL remove) { return FALSE; }
+static BOOL ViewportTryPickMarker(HWND hwnd, ViewportState *state, int x, int y, BOOL remove)
+{ pickcalls|=1; return picktarget==1; }
+static BOOL ViewportTryPickPortal(HWND hwnd, ViewportState *state, int x, int y, BOOL add, BOOL remove)
+{ pickcalls|=2; return picktarget==2; }
+static BOOL ViewportTryPickPad(HWND hwnd, ViewportState *state, int x, int y, BOOL remove)
+{ pickcalls|=4; return picktarget==3; }
+static void ViewportPickAt(HWND hwnd, ViewportState *state, int x, int y, BOOL add, BOOL remove)
+{ faceclicks++; clickadd=add; clickremove=remove; }
 static void ViewportPickComponent(HWND hwnd, ViewportState *state, int x, int y, BOOL add, BOOL remove)
 {
     clicks++; clickadd = add; clickremove = remove;
 }
+static BOOL failalloc;
+static void *TestCalloc(size_t count, size_t size) { return failalloc ? NULL : calloc(count,size); }
+#define calloc TestCalloc
 #include "logic.inc"
+#undef calloc
 
 static void ExpectHits(ViewportState *state, RECT box, BOOL stan, int expected)
 {
@@ -91,6 +110,165 @@ static void ExpectHits(ViewportState *state, RECT box, BOOL stan, int expected)
     assert(ViewportCollectBoxComponents(state, &box, stan, &hits, &count));
     assert(count == expected);
     free(hits);
+}
+
+static void FaceIntersection(void)
+{
+    ViewportState state={.width=200,.height=200};
+    RECT center={90,90,110,110}, corner={100,100,120,120};
+    ViewportBoxFrustum box;
+    assert(ViewportBuildBoxFrustum(&state,&center,&box));
+    const struct { Vertex vertices[3]; BOOL hit; } cases[]={
+        {{{.x=-2,.y=-2,.z=-100},{.x=2,.y=-2,.z=-100},{.x=0,.y=2,.z=-100}},TRUE},
+        /* All vertices and edges lie outside: only the triangle interior hits. */
+        {{{.x=-50,.y=-30,.z=-100},{.x=50,.y=-30,.z=-100},{.x=0,.y=50,.z=-100}},TRUE},
+        {{{.x=-20,.y=0,.z=-100},{.x=20,.y=0,.z=-100},{.x=20,.y=1,.z=-100}},TRUE},
+        {{{.x=-20,.y=-20,.z=-100},{.x=20,.y=-20,.z=-100},{.x=0,.y=40,.z=100}},TRUE},
+        {{{.x=-20,.y=-20,.z=-100},{.x=20,.y=-20,.z=-100},{.x=0,.y=40000,.z=-200000}},TRUE},
+        {{{.x=0,.y=0,.z=100},{.x=20,.y=0,.z=100},{.x=0,.y=20,.z=100}},FALSE},
+        {{{.x=0,.y=0,.z=-1},{.x=20,.y=0,.z=-1},{.x=0,.y=20,.z=-1}},FALSE},
+        {{{.x=0,.y=0,.z=-200000},{.x=20,.y=0,.z=-200000},{.x=0,.y=20,.z=-200000}},FALSE},
+        {{{.x=NAN,.y=0,.z=-100},{.x=20,.y=0,.z=-100},{.x=0,.y=20,.z=-100}},FALSE},
+        {{{.x=0,.y=0,.z=-100},{.x=0,.y=0,.z=-100},{.x=0,.y=0,.z=-100}},TRUE}
+    };
+    for (unsigned i=0;i<sizeof(cases)/sizeof(cases[0]);i++)
+    {
+        assert(ViewportTriangleInBox(cases[i].vertices,&box)==cases[i].hit);
+        Vertex reversed[]={cases[i].vertices[2],cases[i].vertices[1],cases[i].vertices[0]};
+        assert(ViewportTriangleInBox(reversed,&box)==cases[i].hit);
+    }
+    for (int i=0;i<3;i++)
+    {
+        assert(!ViewportVertexInBox(&state,&cases[1].vertices[i],&center));
+        assert(!ViewportEdgeInBox(&state,&cases[1].vertices[i],&cases[1].vertices[(i+1)%3],&center));
+    }
+    assert(ViewportBuildBoxFrustum(&state,&corner,&box));
+    Vertex tangent[]={{.x=-10,.y=10,.z=-100},{.x=-10,.y=0,.z=-100},{.x=0,.y=0,.z=-100}};
+    Vertex miss[]={{.x=-20,.y=-10,.z=-100},{.x=10,.y=20,.z=-100},{.x=-20,.y=20,.z=-100}};
+    assert(ViewportTriangleInBox(tangent,&box));
+    assert(!ViewportTriangleInBox(miss,&box)); /* Bounding rectangles overlap, actual faces don't. */
+    state.selectionfar=300000;
+    assert(ViewportBuildBoxFrustum(&state,&center,&box) && ViewportTriangleInBox(cases[7].vertices,&box));
+    state.posx=1000;state.posy=-200;state.posz=50;state.yaw=37;state.pitch=21;
+    float forward[3],right[3];double up[3];Vertex rotated[3]={0};
+    ViewportGetBasis(&state,forward,right);
+    up[0]=right[1]*forward[2]-right[2]*forward[1];
+    up[1]=right[2]*forward[0]-right[0]*forward[2];
+    up[2]=right[0]*forward[1]-right[1]*forward[0];
+    for(int i=0;i<3;i++)
+    {
+        const Vertex *v=&cases[1].vertices[i];
+        rotated[i].x=state.posx+v->x*right[0]+v->y*up[0]-v->z*forward[0];
+        rotated[i].y=state.posy+v->x*right[1]+v->y*up[1]-v->z*forward[1];
+        rotated[i].z=state.posz+v->x*right[2]+v->y*up[2]-v->z*forward[2];
+    }
+    assert(ViewportBuildBoxFrustum(&state,&center,&box) && ViewportTriangleInBox(rotated,&box));
+    assert(!ViewportBuildBoxFrustum(&state,&(RECT){110,90,90,110},&box));
+    state.width=0;assert(!ViewportBuildBoxFrustum(&state,&center,&box));
+    puts("PASS: triangle/box overlap, enclosing faces, boundary contacts, both windings, near/far crossings, extended range, camera rotation and non-finite rejection.");
+}
+
+static void FaceSelection(void)
+{
+    Vertex scene[21]={0};BgFaceRef refs[7]={0};SceneBatch batches[7]={0};
+    unsigned char selected[7]={0},hidden[7]={0};
+    Vertex triangle[]={{.x=-50,.y=-30,.z=-100},{.x=50,.y=-30,.z=-100},{.x=0,.y=50,.z=-100}};
+    for(int i=0;i<7;i++)
+    {
+        memcpy(&scene[i*3],triangle,sizeof(triangle));
+        refs[i]=(BgFaceRef){.faceid=i+1,.room=i+1};
+        batches[i]=(SceneBatch){.first=i*3,.count=3,.cullbackfaces=TRUE};
+    }
+    for(int i=3;i<6;i++){scene[i].x*=2;scene[i].y*=2;scene[i].z*=2;}
+    Vertex swapped=scene[3];scene[3]=scene[5];scene[5]=swapped;
+    for(int i=6;i<9;i++){scene[i].x+=500;}
+    hidden[3]=1;batches[4].secondary=TRUE;batches[5].object=TRUE;refs[6].faceid=BG_FACE_ID_NONE;
+    ViewportState state={.tool=EDITOR_TOOL_FACE_SELECT,.width=200,.height=200,.showbgprimary=TRUE,
+        .scene=scene,.scenecount=21,.scenefacerefs=refs,.batches=batches,.batchcount=7,
+        .selectedtris=selected,.hiddentris=hidden,.selectedportal=BG_PORTAL_INDEX_NONE};
+    capturedstate=&state;
+    unsigned char *hits;int count;RECT center={90,90,110,110},empty={0,0,5,5};
+    assert(ViewportCollectBoxFaces(&state,&center,FALSE,&hits,&count) && count==2);
+    assert(hits[0] && hits[1] && !hits[2] && !hits[3] && !hits[4] && !hits[5] && !hits[6]);free(hits);
+    int before=notifications;
+    ViewportBeginBoxSelection(1,&state,110,110,FALSE,FALSE);
+    ViewportUpdateBoxSelection(1,&state,90,90);
+    assert(!state.selectedtricount); /* No changes until mouse-up. */
+    ViewportEndBoxSelection(1,&state,90,90);
+    assert(state.selectedtricount==2 && selected[0] && selected[1] && notifications==before+1 && !capture);
+    selected[2]=1;state.selectedtricount++;
+    assert(ViewportApplyFaceBox(&state,&center,TRUE,FALSE) && state.selectedtricount==3);
+    assert(ViewportApplyFaceBox(&state,&center,TRUE,TRUE) && state.selectedtricount==1 && selected[2]);
+    assert(ViewportApplyFaceBox(&state,&empty,TRUE,FALSE) && state.selectedtricount==1);
+    assert(ViewportApplyFaceBox(&state,&empty,FALSE,TRUE) && state.selectedtricount==1);
+    assert(ViewportApplyFaceBox(&state,&empty,FALSE,FALSE) && !state.selectedtricount);
+    state.showbgsecondary=TRUE;
+    assert(ViewportApplyFaceBox(&state,&center,FALSE,FALSE) && state.selectedtricount==3 && selected[4]);
+    state.showbgprimary=FALSE;
+    assert(ViewportApplyFaceBox(&state,&center,FALSE,FALSE) && state.selectedtricount==1 && selected[4]);
+    state.showbgprimary=TRUE;state.showbgsecondary=FALSE;
+    ViewportBeginBoxSelection(1,&state,90,90,FALSE,FALSE);
+    ViewportUpdateBoxSelection(1,&state,110,110);ViewportCancelBoxSelection(1,&state);
+    assert(state.selectedtricount==1 && selected[4]);
+    before=notifications;int errorbefore=errors;
+    failalloc=TRUE;
+    ViewportBeginBoxSelection(1,&state,90,90,FALSE,FALSE);ViewportEndBoxSelection(1,&state,110,110);
+    failalloc=FALSE;
+    assert(state.selectedtricount==1 && selected[4] && notifications==before && errors==errorbefore+1 && !capture);
+    /* A click below the drag threshold retains the old marker/portal/pad/stan
+       priority, and otherwise uses face/object picking, not component picking. */
+    int oldclicks=clicks,oldfaces=faceclicks;
+    for(int target=0;target<=4;target++)
+    {
+        picktarget=target;pickcalls=0;
+        ViewportBeginBoxSelection(1,&state,90,90,TRUE,TRUE);ViewportEndBoxSelection(1,&state,91,91);
+        assert(pickcalls==(target?(1<<target)-1:15));
+    }
+    picktarget=0;
+    assert(faceclicks==oldfaces+1 && clicks==oldclicks && clickadd && clickremove);
+
+    StanTile tiles[3]={0};unsigned char stanselected[3]={0};DWORD hiddenstan=3;
+    for(int t=0;t<3;t++)
+    {
+        tiles[t].editorid=t+1;tiles[t].pointcount=4;
+        for(int p=0;p<4;p++)
+        {
+            tiles[t].points[p].x=(p==1||p==2?30:-30)*(t==1?2:1);
+            tiles[t].points[p].y=(p>=2?30:-30)*(t==1?2:1);
+            tiles[t].points[p].z=t==1?-200:-100;
+        }
+    }
+    state.stan=(StanFile){.tiles=tiles,.tilecount=3};state.stanselected=stanselected;
+    state.showstan=TRUE;state.stanopacity=100;state.stanhiddenids=&hiddenstan;state.stanhiddencount=1;
+    ViewportClearAllSelection(&state);stanselected[0]=1;
+    assert(ViewportApplyFaceBox(&state,&center,FALSE,FALSE));
+    assert(stanselected[0] && stanselected[1] && !stanselected[2] && !state.selectedtricount);
+    assert(ViewportApplyFaceBox(&state,&center,TRUE,TRUE) && !stanselected[0] && !stanselected[1]);
+    state.showbgprimary=FALSE;
+    assert(ViewportApplyFaceBox(&state,&center,FALSE,FALSE)); /* No BG hits: fallback to stan faces. */
+    assert(stanselected[0] && stanselected[1] && !stanselected[2]);
+    state.stanopacity=0;
+    assert(ViewportApplyFaceBox(&state,&center,FALSE,FALSE) && !stanselected[0] && !stanselected[1]);
+
+    BgPortal portals[3]={0};
+    for(int i=0;i<3;i++)
+    {
+        portals[i].geometryoffset=i<2?5:8;portals[i].pointcount=4;
+        for(int p=0;p<4;p++)
+        { portals[i].points[p]=(BgPortalPoint){p==1||p==2?30:-30,p>=2?30:-30,i==2?100:-100}; }
+    }
+    state.portals=(BgPortalFile){.portals=portals,.portalcount=3};state.showportals=TRUE;
+    state.stanopacity=100;
+    assert(ViewportApplyFaceBox(&state,&center,FALSE,FALSE)); /* Portal fallback precedes stans. */
+    assert(state.selectedportal==0 && state.portalselection[0]==1 && state.portalselection[1]==1
+        && !state.portalselection[2] && !stanselected[0]);
+    before=notifications;
+    ViewportBeginBoxSelection(1,&state,90,90,TRUE,TRUE);ViewportEndBoxSelection(1,&state,110,110);
+    assert(state.selectedportal==BG_PORTAL_INDEX_NONE && !state.portalselection[0]
+        && !state.portalselection[1] && notifications==before+1);
+    assert(ViewportApplyPortalBox(&state,&center,FALSE,FALSE));
+    assert(ViewportApplyPortalBox(&state,&empty,FALSE,FALSE) && state.selectedportal==BG_PORTAL_INDEX_NONE);
+    puts("PASS: occluded BG/stan/portal face boxes, hidden/layer filters, modifiers, asset priorities, click/cancel/reverse drag and atomic allocation failure.");
 }
 
 int main(void)
@@ -250,5 +428,6 @@ int main(void)
     state.stanhiddencount=0;ExpectHits(&state, wide, TRUE, 6);
     free(state.components); free(state.stancomponents);
     puts("PASS: BG/stan edge boxes, identities, visibility/clipping, modifiers, drag/cancel/click, vertex regression.");
+    FaceIntersection();FaceSelection();
     return 0;
 }

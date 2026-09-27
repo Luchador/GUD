@@ -5779,14 +5779,109 @@ static BOOL ViewportEdgeInBox(const ViewportState *state, const Vertex *a, const
     return TRUE;
 }
 
+typedef struct ViewportBoxFrustum {
+    double planes[6][4];
+} ViewportBoxFrustum;
+
+/* Build the rectangle's six inward-facing world-space clipping planes once
+ * per scan. No depth buffer, raycast or face-winding test is involved. */
+static BOOL ViewportBuildBoxFrustum(const ViewportState *state, const RECT *box,
+    ViewportBoxFrustum *out)
+{
+    float forward[3], right[3];
+    double up[3], focal;
+    if (state->width <= 0 || state->height <= 0
+        || box->left > box->right || box->top > box->bottom) { return FALSE; }
+    ViewportGetBasis(state, forward, right);
+    up[0] = right[1]*forward[2] - right[2]*forward[1];
+    up[1] = right[2]*forward[0] - right[0]*forward[2];
+    up[2] = right[0]*forward[1] - right[1]*forward[0];
+    focal = state->height / (2.0*tan(VIEWPORT_FOV_Y*0.5*VIEWPORT_DEG_TO_RAD));
+    for (int axis = 0; axis < 3; axis++)
+    {
+        out->planes[0][axis] = forward[axis];
+        out->planes[1][axis] = -forward[axis];
+        out->planes[2][axis] = focal*right[axis] + (state->width*0.5-box->left)*forward[axis];
+        out->planes[3][axis] = (box->right-state->width*0.5)*forward[axis] - focal*right[axis];
+        out->planes[4][axis] = (state->height*0.5-box->top)*forward[axis] - focal*up[axis];
+        out->planes[5][axis] = focal*up[axis] + (box->bottom-state->height*0.5)*forward[axis];
+    }
+    for (int plane = 0; plane < 6; plane++)
+    {
+        double *p = out->planes[plane];
+        p[3] = -(p[0]*state->posx + p[1]*state->posy + p[2]*state->posz);
+    }
+    out->planes[0][3] -= VIEWPORT_NEAR_Z;
+    out->planes[1][3] += fmax(VIEWPORT_FAR_Z, state->selectionfar);
+    return TRUE;
+}
+
+static BOOL ViewportTriangleInBox(const Vertex triangle[3], const ViewportBoxFrustum *box)
+{
+    /* Clipping a convex polygon adds at most two points per plane, including
+     * duplicate boundary contacts. Six planes fit in these fixed buffers. */
+    double polygon[2][16][3];
+    int count = 3, buffer = 0;
+    for (int i = 0; i < 3; i++)
+    {
+        polygon[0][i][0] = triangle[i].x;
+        polygon[0][i][1] = triangle[i].y;
+        polygon[0][i][2] = triangle[i].z;
+        if (!isfinite(triangle[i].x) || !isfinite(triangle[i].y) || !isfinite(triangle[i].z)) { return FALSE; }
+    }
+    /* Clip the face itself: checking only vertices/edges misses a box lying
+     * entirely inside a face. Clipping before projection handles near-plane
+     * crossings and faces extending behind the camera without mirrored hits. */
+    for (int plane = 0; plane < 6 && count; plane++, buffer = 1-buffer)
+    {
+        const double *p = box->planes[plane];
+        double (*input)[3] = polygon[buffer], (*output)[3] = polygon[1-buffer];
+        int written = 0;
+        for (int i = 0; i < count; i++)
+        {
+            const double *a = input[(i+count-1)%count], *b = input[i];
+            double da = p[0]*a[0] + p[1]*a[1] + p[2]*a[2] + p[3];
+            double db = p[0]*b[0] + p[1]*b[1] + p[2]*b[2] + p[3];
+            if (!isfinite(da) || !isfinite(db)) { return FALSE; }
+            if ((da < 0) != (db < 0))
+            {
+                double t = da / (da-db);
+                for (int axis = 0; axis < 3; axis++)
+                { output[written][axis] = a[axis] + t*(b[axis]-a[axis]); }
+                written++;
+            }
+            if (db >= 0) { memcpy(output[written++], b, sizeof(output[0])); }
+        }
+        count = written;
+    }
+    /* Inclusive boundaries: even a point or edge touching the box qualifies. */
+    return count != 0;
+}
+
 static BOOL ViewportApplyPortalBox(ViewportState *state, const RECT *box, BOOL add, BOOL remove)
 {
     unsigned char hits[BG_MAX_PORTALS] = {0};
+    ViewportBoxFrustum frustum;
+    BOOL face = state->tool == EDITOR_TOOL_FACE_SELECT;
     BOOL found = FALSE, selected = state->selectedportal != BG_PORTAL_INDEX_NONE;
     if (!state->showportals) { return FALSE; }
+    BOOL valid = !face || ViewportBuildBoxFrustum(state, box, &frustum);
     for (DWORD i = 0; i < state->portals.portalcount; i++)
     {
         const BgPortal *portal = &state->portals.portals[i];
+        if (face)
+        {
+            /* Face selection names room-link entries, including aliases. */
+            for (unsigned int point = 1; valid && point+1 < portal->pointcount; point++)
+            {
+                const BgPortalPoint *p[3] = {&portal->points[0], &portal->points[point], &portal->points[point+1]};
+                Vertex triangle[3] = {0};
+                for (int c = 0; c < 3; c++)
+                { triangle[c].x = p[c]->x; triangle[c].y = p[c]->y; triangle[c].z = p[c]->z; }
+                if (ViewportTriangleInBox(triangle, &frustum)) { hits[i] = 1; found = TRUE; break; }
+            }
+            continue;
+        }
         if (!ViewportPortalGeometryIsFirst(&state->portals, i)) { continue; }
         for (unsigned int point = 0; point < portal->pointcount; point++)
         {
@@ -5799,7 +5894,7 @@ static BOOL ViewportApplyPortalBox(ViewportState *state, const RECT *box, BOOL a
         }
     }
     if (!found && !selected) { return FALSE; }
-    if (!add && !remove) { ViewportClearAllSelection(state); }
+    if ((!add && !remove) || (face && !selected)) { ViewportClearAllSelection(state); }
     for (DWORD i = 0; i < state->portals.portalcount; i++)
     {
         if (remove) { state->portalselection[i] &= ~hits[i]; }
@@ -6078,6 +6173,94 @@ static BOOL ViewportApplyBoxComponents(ViewportState *state, const ViewportBoxCo
     return TRUE;
 }
 
+static BOOL ViewportCollectBoxFaces(const ViewportState *state, const RECT *box, BOOL stan,
+    unsigned char **out, int *countout)
+{
+    ViewportBoxFrustum frustum;
+    size_t capacity = stan ? state->stan.tilecount : (size_t)state->scenecount / 3;
+    *out = NULL; *countout = 0;
+    if (!capacity || (stan ? !ViewportStanVisible(state) || !state->stanselected
+        : !state->scene || !state->scenefacerefs || !state->selectedtris)) { return TRUE; }
+    if (capacity > INT_MAX) { return FALSE; }
+    unsigned char *hits = calloc(capacity, 1);
+    if (!hits) { return FALSE; }
+    *out = hits;
+    if (!ViewportBuildBoxFrustum(state, box, &frustum)) { return TRUE; }
+    if (stan)
+    {
+        for (DWORD tile = 0; tile < state->stan.tilecount; tile++)
+        {
+            const StanTile *polygon = &state->stan.tiles[tile];
+            if (ViewportStanTileHidden(state, tile)) { continue; }
+            for (DWORD point = 1; point+1 < polygon->pointcount; point++)
+            {
+                Vertex triangle[3] = {ViewportStanPointVertex(&polygon->points[0]),
+                    ViewportStanPointVertex(&polygon->points[point]), ViewportStanPointVertex(&polygon->points[point+1])};
+                if (ViewportTriangleInBox(triangle, &frustum)) { hits[tile] = 1; (*countout)++; break; }
+            }
+        }
+    }
+    else for (int i = 0; i < state->batchcount; i++)
+    {
+        const SceneBatch *batch = &state->batches[i];
+        if (!ViewportBatchIsPickable(state, batch)) { continue; }
+        for (int tri = batch->first / 3; tri < (batch->first+batch->count) / 3; tri++)
+        {
+            if (!hits[tri] && state->scenefacerefs[tri].faceid != BG_FACE_ID_NONE
+                && !ViewportTriangleHidden(state, tri) && ViewportTriangleInBox(&state->scene[tri*3], &frustum))
+            { hits[tri] = 1; (*countout)++; }
+        }
+    }
+    return TRUE;
+}
+
+static void ViewportApplyBoxFaces(ViewportState *state, unsigned char *hits, BOOL stan, BOOL add, BOOL remove)
+{
+    size_t count = stan ? state->stan.tilecount : (size_t)state->scenecount / 3;
+    const unsigned char *selected = stan ? state->stanselected : state->selectedtris;
+    /* Reserve and compute the result before clearing any selection. Ctrl takes
+     * precedence over Shift, as with component boxes and ordinary face clicks. */
+    for (size_t i = 0; hits && i < count; i++)
+    { hits[i] = remove ? selected[i] && !hits[i] : add ? selected[i] || hits[i] : hits[i]; }
+    ViewportClearAllSelection(state);
+    for (size_t i = 0; hits && i < count; i++)
+    {
+        if (!hits[i]) { continue; }
+        if (stan) { state->stanselected[i] = 1; }
+        else
+        {
+            state->selectedtris[i] = 1;
+            state->selectedtricount++;
+            ViewportSetTriangleColor(state, (int)i, TRUE);
+        }
+    }
+    if (stan) { ViewportRefreshStanOverlay(state); }
+}
+
+static BOOL ViewportApplyFaceBox(ViewportState *state, const RECT *box, BOOL add, BOOL remove)
+{
+    unsigned char *hits = NULL;
+    int count = 0;
+    BOOL stan = FALSE;
+    for (DWORD tile = 0; ViewportStanVisible(state) && state->stanselected && tile < state->stan.tilecount; tile++)
+    { if (state->stanselected[tile]) { stan = TRUE; break; } }
+    BOOL ok = ViewportCollectBoxFaces(state, box, stan, &hits, &count);
+    /* Preserve the active asset type. With no face selection, prefer BG,
+     * then portals and stans, just like vertex/edge box selection. */
+    if (ok && !count && !stan && !state->selectedtricount)
+    {
+        if (ViewportApplyPortalBox(state, box, add, remove)) { free(hits); return TRUE; }
+        if (ViewportStanVisible(state))
+        {
+            free(hits); stan = TRUE;
+            ok = ViewportCollectBoxFaces(state, box, stan, &hits, &count);
+        }
+    }
+    if (ok) { ViewportApplyBoxFaces(state, hits, stan, add, remove); }
+    free(hits);
+    return ok;
+}
+
 static void ViewportEndBoxSelection(HWND hwnd, ViewportState *state, int x, int y)
 {
     BOOL add = state->boxadd, remove = state->boxremove;
@@ -6090,6 +6273,15 @@ static void ViewportEndBoxSelection(HWND hwnd, ViewportState *state, int x, int 
     ViewportCancelBoxSelection(hwnd, state);
     if (!dragged)
     {
+        if (state->tool == EDITOR_TOOL_FACE_SELECT)
+        {
+            if (!ViewportTryPickMarker(hwnd, state, start.x, start.y, remove)
+                && !ViewportTryPickPortal(hwnd, state, start.x, start.y, add, remove)
+                && !ViewportTryPickPad(hwnd, state, start.x, start.y, remove)
+                && !ViewportTryPickStan(hwnd, state, start.x, start.y, add, remove))
+            { ViewportPickAt(hwnd, state, start.x, start.y, add, remove); }
+            return;
+        }
         if (!ViewportTryPickPortal(hwnd, state, start.x, start.y, add, remove)
             && !ViewportTryPickStan(hwnd, state, start.x, start.y, add, remove))
         {
@@ -6099,6 +6291,12 @@ static void ViewportEndBoxSelection(HWND hwnd, ViewportState *state, int x, int 
     }
     if (state->selectedportal != BG_PORTAL_INDEX_NONE
         && ViewportApplyPortalBox(state, &box, add, remove)) { goto done; }
+    if (state->tool == EDITOR_TOOL_FACE_SELECT)
+    {
+        if (!ViewportApplyFaceBox(state, &box, add, remove))
+        { MessageBox(hwnd, "Not enough memory to select these faces.", "GEditor", MB_ICONERROR); return; }
+        goto done;
+    }
     {
         ViewportBoxComponent *hits = NULL;
         int count = 0;
@@ -8483,11 +8681,14 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         }
         if (state && state->tool == EDITOR_TOOL_ROOM_SELECT)
         { ViewportPickRoomAt(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam), (wparam & MK_CONTROL) != 0); return 0; }
+        if (state != NULL && !state->flying && state->tool == EDITOR_TOOL_FACE_SELECT)
+        {
+            ViewportBeginBoxSelection(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam),
+                                      (wparam & MK_SHIFT) != 0, (wparam & MK_CONTROL) != 0);
+            return 0;
+        }
         if (state != NULL && ViewportTryPickMarker(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam),
             (wparam & MK_CONTROL) != 0)) { return 0; }
-        if (state != NULL && state->tool == EDITOR_TOOL_FACE_SELECT
-            && ViewportTryPickPortal(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam),
-                (wparam & MK_SHIFT) != 0, (wparam & MK_CONTROL) != 0)) { return 0; }
         if (state != NULL && !state->flying
             && (state->tool == EDITOR_TOOL_VERTEX_SELECT || state->tool == EDITOR_TOOL_EDGE_SELECT))
         {

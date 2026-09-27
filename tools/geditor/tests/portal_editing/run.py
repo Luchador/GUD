@@ -28,7 +28,7 @@ def main():
         fixture = (here.parent / 'portals/check.c').read_text()
         (work / 'fixture.inc').write_text(''.join(function(fixture, n) for n in ('Put', 'Get', 'Float', 'Fixture')))
         types = ''.join(re.search(r'typedef struct ' + n + r' \{.*?\} ' + n + ';', viewport, re.S)[0] + '\n'
-                        for n in ('Vertex', 'ViewportPickRay'))
+                        for n in ('Vertex', 'ViewportPickRay', 'ViewportBoxFrustum'))
         types += re.search(r'typedef struct ViewportTranslation \{.*?\} ViewportTranslation;', (src / 'viewport.h').read_text())[0] + '\n'
         types += '\n'.join(l for l in viewport.splitlines() if l.startswith(('#define VIEWPORT_PICK_', '#define VIEWPORT_PORTAL_', '#define VIEWPORT_SELECTION_GOLD')))
         for name in ('FOV_Y', 'NEAR_Z', 'FAR_Z', 'DEG_TO_RAD'):
@@ -40,7 +40,8 @@ def main():
                  'ViewportGetPortalSelectionCount', 'ViewportGetMovePortalPoints', 'ViewportFindPickedPortal',
                  'ViewportPortalPointVisible', 'ViewportFindPortalComponent', 'ViewportResolveActivePortal',
                  'ViewportSetPortalVertex', 'ViewportRefreshPortalColors', 'ViewportRefreshPortalGeometry',
-                 'ViewportTryPickPortal', 'ViewportVertexInBox', 'ViewportEdgeInBox', 'ViewportApplyPortalBox',
+                 'ViewportTryPickPortal', 'ViewportVertexInBox', 'ViewportEdgeInBox',
+                 'ViewportBuildBoxFrustum', 'ViewportTriangleInBox', 'ViewportApplyPortalBox',
                  'ViewportPreparePortalDrag', 'ViewportPreviewPortalDrag', 'ViewportDrawPortalOriginals',
                  'ViewportFinishPortalDuplicate', 'ViewportSetPortals')
         (work / 'viewport.inc').write_text(''.join(function(viewport, n) for n in names))

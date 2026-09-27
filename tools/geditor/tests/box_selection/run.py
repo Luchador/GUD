@@ -27,6 +27,11 @@ def main():
     here = Path(__file__).resolve().parent
     src = here.parent.parent / "src"
     source = (src / "viewport.c").read_text()
+    mouse = source.split('static LRESULT CALLBACK ViewportWndProc(', 1)[1]
+    mouse = mouse.split('case WM_LBUTTONDOWN:', 1)[1].split('case WM_LBUTTONUP:', 1)[0]
+    face = mouse.index('!state->flying && state->tool == EDITOR_TOOL_FACE_SELECT')
+    assert mouse.index('ViewportBeginTransform(') < face < mouse.index('ViewportTryPickMarker(')
+    assert 'ViewportBeginBoxSelection(' in mouse[face:mouse.index('ViewportTryPickMarker(')]
     types = ""
     for name in ("SceneBatch", "Vertex", "ViewportComponent", "ViewportStanComponent"):
         types += re.search(r"typedef struct " + name + r" \{.*?\} " + name + ";", source, re.S)[0] + "\n"
