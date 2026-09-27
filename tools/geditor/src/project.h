@@ -24,6 +24,9 @@ BOOL ProjectCreate(const char *name, const char *location,
                    const char **reasonout);
 BOOL ProjectRead(const char *geppath, GEditorProject *proj);
 BOOL ProjectSave(const GEditorProject *proj, const char **reasonout);
+/* Render Studio owns these folders; game asset loading/export never scans them.
+ * Safe to call for existing projects. Existing files are not overwritten. */
+BOOL ProjectEnsureStudioFolders(const char *projectdir, const char **reasonout);
 void ProjectClose(GEditorProject *proj);
 
 #endif

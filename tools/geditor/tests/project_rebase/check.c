@@ -48,6 +48,34 @@ static DWORD Hash(const char *path)
 { DWORD size,hash;unsigned char *p=Read(path,&size);hash=TexDataHash(p,size);free(p);return hash; }
 static void Same(const char *a,const char *b,const char *name)
 { char x[MAX_PATH],y[MAX_PATH];Path(x,a,name);Path(y,b,name);OK(Hash(x)==Hash(y)); }
+static void StudioFolders(const char *dir)
+{
+    char project[MAX_PATH],path[MAX_PATH],longname[MAX_PATH];
+    assert(!ProjectEnsureStudioFolders(NULL,&why) && why[0]);
+    Path(project,dir,"Missing");assert(!ProjectEnsureStudioFolders(project,&why) && why[0]);
+    Folder(dir,"StudioExisting");Path(project,dir,"StudioExisting");
+    Folder(project,"images");Path(path,project,"images/0000.bmp");Save(path,"game image",10);
+    DWORD original=Hash(path);
+    OK(ProjectEnsureStudioFolders(project,&why));
+    assert(Hash(path)==original);
+    Path(path,project,"studio/images/source.png");Save(path,"studio image",12);
+    DWORD studio=Hash(path);
+    OK(ProjectEnsureStudioFolders(project,&why));assert(Hash(path)==studio);
+    Path(path,project,"studio/model");assert(GetFileAttributes(path)&FILE_ATTRIBUTE_DIRECTORY);
+    /* Existing files must not be mistaken for directories or overwritten. */
+    Folder(dir,"StudioBlocked");Path(project,dir,"StudioBlocked");
+    Path(path,project,"studio");Save(path,"keep",4);original=Hash(path);
+    assert(!ProjectEnsureStudioFolders(project,&why) && why[0] && Hash(path)==original);
+    Folder(dir,"StudioChildBlocked");Path(project,dir,"StudioChildBlocked");Folder(project,"studio");
+    Path(path,project,"studio/model");Save(path,"keep",4);original=Hash(path);
+    assert(!ProjectEnsureStudioFolders(project,&why) && why[0] && Hash(path)==original);
+    /* Long-but-valid project roots must fail before creating truncated paths. */
+    size_t length=MAX_PATH-6-strlen(dir)-1;assert(length<sizeof(longname));
+    memset(longname,'s',length);longname[length]=0;
+    Folder(dir,longname);Path(project,dir,longname);
+    assert(!ProjectEnsureStudioFolders(project,&why) && why[0]);
+    puts("PASS: studio folders for existing projects, idempotent setup, separate game assets, preserved studio files, file collisions and long-path rejection.");
+}
 static void Entry(unsigned char *data,DWORD shift,int i,const char *kind,DWORD start,DWORD end,DWORD flags)
 {
     unsigned char *p=data+MANIFEST+shift+24+i*16;
@@ -291,6 +319,7 @@ int main(int argc,char **argv)
     GEditorProject project,rebased,loaded,again;ProjectRebaseReport report;RomFile rom,output;ModelSource native;
     TexPixel pixels[64];TexImportOptions options={1,1,3,4};TexRomBank bank;
     assert(argc==4 || argc==5);model=Read(argv[2],&modelsize);old=Fixture(0,model,modelsize);next=Fixture(SHIFT,model,modelsize);
+    StudioFolders(argv[1]);
     BriefingEditing(argv[1],model,modelsize);
     if (argc==5) { BriefingCorpus(argv[4],argv[1]); }
     TextEditing(argv[1],model,modelsize);
@@ -298,6 +327,10 @@ int main(int argc,char **argv)
     /* Incoming setup and sound changes; our BG/music changes must survive. */
     next[OBJECTS+SHIFT+52]=0x56;next[LEVELS+SHIFT+39]=8;Save(nextpath,next,SIZE);
     OK(RomLoad(oldpath,&rom,&why));OK(ProjectCreate("Original",argv[1],&rom.info,&project,&why));
+    Path(path,project.dir,"studio/model");OK(GetFileAttributes(path)&FILE_ATTRIBUTE_DIRECTORY);
+    Path(path,project.dir,"studio/images");OK(GetFileAttributes(path)&FILE_ATTRIBUTE_DIRECTORY);
+    Path(path,project.dir,"studio/model/Pjungle3_treeZ.glb");Save(path,"studio model",12);
+    Path(path,project.dir,"studio/images/0000.bmp");Save(path,"studio image",12);
     OK(RomExportStoreProjectBase(&project,&rom,&why));
     OK(RomExportRefreshProjectLevelMetadata(&project,&why));
     EditorEnvironment environment=project.environments.rows[0];
@@ -355,6 +388,8 @@ int main(int argc,char **argv)
     Same(project.dir,rebased.dir,"images/native/0001.gtex");Same(project.dir,rebased.dir,"images/native/0002.gtex");
     Same(project.dir,rebased.dir,"images/native/0003.gtex");
     Same(project.dir,rebased.dir,"images/0001.bmp");Same(project.dir,rebased.dir,"notes/.artist-note");
+    Same(project.dir,rebased.dir,"studio/model/Pjungle3_treeZ.glb");
+    Same(project.dir,rebased.dir,"studio/images/0000.bmp");
     Path(path,rebased.dir,"Original.gep");OK(GetFileAttributes(path)==INVALID_FILE_ATTRIBUTES);
     Path(path,rebased.dir,"base.z64");OK(Hash(path)==Hash(nextpath));Path(path,project.dir,"base.z64");OK(Hash(path)==Hash(oldpath));
     OK(RomExportCreate(&rebased,"Playable",argv[1],exported,sizeof(exported),&why));OK(RomLoad(exported,&output,&why));

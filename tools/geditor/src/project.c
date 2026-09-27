@@ -12,6 +12,33 @@
 #define GEP_MAGIC   "GEditor Project"
 #define GEP_VERSION 5
 
+BOOL ProjectEnsureStudioFolders(const char *projectdir, const char **reasonout)
+{
+    static const char *folders[] = {"studio", "studio\\model", "studio\\images"};
+    char paths[3][MAX_PATH];
+    DWORD attrs;
+    *reasonout = "";
+    if (!projectdir || !projectdir[0]
+        || (attrs = GetFileAttributes(projectdir)) == INVALID_FILE_ATTRIBUTES
+        || !(attrs & FILE_ATTRIBUTE_DIRECTORY))
+    { *reasonout = "Render Studio needs an existing project folder."; return FALSE; }
+    /* Validate all paths before creating any folders. */
+    for (int i = 0; i < 3; i++)
+        if (!EditorPathJoin(paths[i], sizeof(paths[i]), projectdir, folders[i]))
+        { *reasonout = "The project path is too long for Render Studio's asset folders."; return FALSE; }
+    for (int i = 0; i < 3; i++)
+    {
+        if (CreateDirectory(paths[i], NULL)) { continue; }
+        attrs = GetFileAttributes(paths[i]);
+        if (attrs == INVALID_FILE_ATTRIBUTES || !(attrs & FILE_ATTRIBUTE_DIRECTORY))
+        {
+            *reasonout = "Could not create Render Studio's studio, model, and images folders. Check the project folder's permissions and whether a file is using one of those names.";
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+
 
 /**
  * Writes the project metadata to its .gep path. Returns FALSE if the
@@ -145,6 +172,8 @@ BOOL ProjectCreate(const char *name, const char *location,
         *reasonout = "A project with that name already exists in that location.";
         goto fail;
     }
+
+    if (!ProjectEnsureStudioFolders(proj->dir, reasonout)) { goto fail; }
 
     if (!ProjectWrite(proj))
     {

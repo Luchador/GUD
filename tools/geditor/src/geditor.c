@@ -29,6 +29,7 @@
 #include "tooltoolbar.h"
 #include "uveditor.h"
 #include "modeleditor.h"
+#include "renderstudio.h"
 #include "levelmanager.h"
 #include "projectsettings.h"
 #include "editorsettings.h"
@@ -653,11 +654,13 @@ static void GEditorRefreshProjectAssets(void)
         BrowserSetModels(g_Browser, modelcount > 0 ? models : NULL, modelcount);
     }
     ModelEditorSetProject(g_Project.dir);
+    RenderStudioSetProject(&g_Project);
 }
 
 /* Creating or opening another project implicitly closes the current one. */
 static void GEditorCloseProject(HWND hwnd)
 {
+    RenderStudioSetProject(NULL);
     ProjectSettingsRefresh(NULL);
     LevelManagerRefreshSettings(NULL, GEDITOR_NO_LEVEL);
     IssuesWindowClose();
@@ -863,6 +866,8 @@ static void GEditorOpenProject(HWND hwnd, const char *path)
         return;
     }
     if (!PatrolEditorConfirmClose(TRUE)) { return; }
+    if (!ProjectEnsureStudioFolders(project.dir, &why))
+    { MessageBox(hwnd, why, "Render Studio", MB_ICONWARNING); }
     GEditorCloseProject(hwnd);
     g_Project = project;
     GEditorRefreshProjectAssets();
@@ -6451,6 +6456,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         EnableMenuItem((HMENU)wparam, ID_TOOLS_BG_COMMANDS, MF_BYCOMMAND | (g_CurrentBg.data ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_CHECK_ISSUES, MF_BYCOMMAND | (g_CurrentLevelIndex < g_Project.levelcount || RomExportIssues() ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_CREATE_ROM, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
+        EnableMenuItem((HMENU)wparam, ID_TOOLS_RENDER_STUDIO, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         GEditorUpdateHistoryMenu((HMENU)wparam);
         EnableMenuItem((HMENU)wparam, ID_VIEW_ZOOM_SELECTED, MF_BYCOMMAND |
             (ViewportCanZoomToSelected(g_Viewport) ? MF_ENABLED : MF_GRAYED));
@@ -6861,8 +6867,12 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 return 0;
 
             case ID_TOOLS_RENDER_STUDIO:
-                /* Reserved for Render Studio. */
+            {
+                const char *why = "";
+                if (!RenderStudioShow(hwnd, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), &g_Project, &why))
+                { MessageBox(hwnd, why, "Render Studio", MB_ICONERROR); }
                 return 0;
+            }
 
             case ID_TOOLS_CREATE_ROM:
                 if (g_Project.name[0]) { GEditorPromptForRomExport(hwnd); }
@@ -6884,6 +6894,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         return 0;
 
     case WM_DESTROY:
+        RenderStudioClose();
         EditorSettingsClose();
         IssuesWindowClose();
         BgCommandsWindowClose();
@@ -7336,7 +7347,8 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                     CoUninitialize();
                     return (int)msg.wParam;
                 }
-                if (!EditorSettingsHandleMessage(&msg)
+                if (!RenderStudioHandleMessage(&msg)
+                    && !EditorSettingsHandleMessage(&msg)
                     && !BgCommandsWindowHandleMessage(&msg)
                     && !IssuesWindowHandleMessage(&msg)
                     && !PatrolEditorHandleMessage(&msg)
@@ -7378,7 +7390,8 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
             {
                 break;
             }
-            if (!EditorSettingsHandleMessage(&msg)
+            if (!RenderStudioHandleMessage(&msg)
+                && !EditorSettingsHandleMessage(&msg)
                 && !BgCommandsWindowHandleMessage(&msg)
                 && !IssuesWindowHandleMessage(&msg)
                 && !PatrolEditorHandleMessage(&msg)
