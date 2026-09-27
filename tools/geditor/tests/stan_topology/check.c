@@ -85,6 +85,7 @@ typedef struct ViewportState {
     unsigned char *stanselected;ViewportStanComponent *stancomponents;
     int stancomponentcount,stancomponentcapacity,componentcount,stanopacity;
     BOOL showstan;EditorTool tool;Vertex *stanfill,*stanedges;GLsizei stanfillcount,stanedgecount;
+    StanDiscontinuity *standiscontinuities;DWORD standiscontinuitycount;
 } ViewportState;
 #define VIEWPORT_WM_SELECTION_CHANGED 3
 static ViewportState *ViewportGetState(HWND hwnd) { return hwnd; }
@@ -207,6 +208,7 @@ static void EdgeLinkController(const StanFile *source,const char *dir)
     Require(StanFileClone(&g_CurrentStan,&unlinked,&why),why);
     view=(ViewportState){.showstan=TRUE,.stanopacity=44,.tool=EDITOR_TOOL_EDGE_SELECT};
     assert(ViewportSetStanTiles(&view,&g_CurrentStan));assert(ViewportSelectStanEdge(&view,&edge));
+    assert(view.standiscontinuitycount==1);
     assert(view.stancomponents[0].refs[0].tile==1); /* This canonical owner changes when linked. */
     EditHistoryReset(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan);
     unsigned olderrors=errors,oldrestores=restores;
@@ -221,6 +223,7 @@ static void EdgeLinkController(const StanFile *source,const char *dir)
     transforming=TRUE;assert(!GEditorLinkStanTiles(NULL,&edge));transforming=FALSE;
     view.tool=EDITOR_TOOL_FACE_SELECT;assert(!GEditorLinkStanTiles(NULL,&edge));view.tool=EDITOR_TOOL_EDGE_SELECT;
     assert(GEditorLinkStanTiles(NULL,&edge) && g_EditHistory.undocount==1);Walk(&g_CurrentStan,TRUE);
+    assert(!view.standiscontinuitycount);
     assert(ViewportGetSelectedStanEdge(&view,&read) && read.tile==0 && read.point==2);
     assert(view.stancomponents[0].refs[0].tile==0 && view.stancomponents[0].refs[1].tile==0);
     assert(!strcmp(EditHistoryGetUndoAction(&g_EditHistory),"Link Stan Tiles"));
@@ -228,8 +231,10 @@ static void EdgeLinkController(const StanFile *source,const char *dir)
     assert(GEditorLinkStanTiles(NULL,&edge) && g_EditHistory.undocount==1 && !g_CurrentStan.dirty);
     Require(EditHistoryUndo(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,NULL,&why),why);
     Walk(&g_CurrentStan,FALSE);
+    assert(GEditorReloadCurrentObjectsAndViewport(&why) && view.standiscontinuitycount==1);
     Require(EditHistoryRedo(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,NULL,&why),why);
     Walk(&g_CurrentStan,TRUE);assert(!g_CurrentStan.dirty);
+    assert(GEditorReloadCurrentObjectsAndViewport(&why) && !view.standiscontinuitycount);
     EditHistoryFree(&g_EditHistory);StanFileFree(&g_CurrentStan);StanFileFree(&unlinked);FreeView(&view);
 }
 static void BisectWalk(const StanFile *s)

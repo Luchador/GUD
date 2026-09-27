@@ -388,6 +388,8 @@ typedef struct ViewportState {
     GLsizei stanfillcount;
     Vertex *stanedges;   /* colored GL_LINES around each tile */
     GLsizei stanedgecount;
+    StanDiscontinuity *standiscontinuities;
+    DWORD standiscontinuitycount;
     BgPortalFile portals;
     DWORD selectedportal;
     unsigned char portalselection[BG_MAX_PORTALS]; /* vertices, perimeter edges, or bit 0 for faces */
@@ -2238,6 +2240,36 @@ static void ViewportDrawStanTypeLabels(const ViewportState *state)
     glPopAttrib();
 }
 
+static void ViewportDrawStanDiscontinuities(const ViewportState *state)
+{
+    if (!ViewportStanVisible(state) || !state->standiscontinuitycount) { return; }
+    glPushAttrib(GL_CURRENT_BIT | GL_ENABLE_BIT | GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_LINE_BIT | GL_POLYGON_BIT);
+    glDisable(GL_TEXTURE_2D); glDisable(GL_ALPHA_TEST); glDisable(GL_BLEND);
+    glDisable(GL_LIGHTING); glDisable(GL_FOG); glDisable(GL_CULL_FACE);
+    glEnable(GL_DEPTH_TEST); glDepthFunc(GL_LEQUAL); glDepthMask(GL_FALSE);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    glEnable(GL_POLYGON_OFFSET_LINE); glPolygonOffset(-3.0f, -3.0f);
+    glLineWidth(2.0f); glColor4ub(255, 0, 0, 255);
+    glBegin(GL_TRIANGLES);
+    for (DWORD i = 0; i < state->standiscontinuitycount; i++)
+    {
+        const StanDiscontinuity *gap = &state->standiscontinuities[i];
+        for (int side = 0; side < 2; side++)
+        {
+            if (ViewportStanTileHidden(state, gap->tiles[side])) { continue; }
+            /* Only the shared interval is drawn, not the helper triangle's
+             * other sides. Each incident plane supplies its own depth bias. */
+            glEdgeFlag(GL_TRUE);
+            glVertex3f(gap->ends[0].x, gap->ends[0].y, gap->ends[0].z);
+            glEdgeFlag(GL_FALSE);
+            glVertex3f(gap->ends[1].x, gap->ends[1].y, gap->ends[1].z);
+            glVertex3f(gap->interior[side].x, gap->interior[side].y, gap->interior[side].z);
+        }
+    }
+    glEnd();
+    glPopAttrib();
+}
+
 static void ViewportDrawStanOverlay(const ViewportState *state)
 {
     if (ViewportStanVisible(state) && state->stanfill != NULL && state->stanfillcount > 0)
@@ -2299,6 +2331,7 @@ static void ViewportDrawStanOverlay(const ViewportState *state)
         glDepthFunc(GL_LESS);
     }
 
+    ViewportDrawStanDiscontinuities(state);
     ViewportDrawStanExtrusion(state);
     ViewportDrawStanTypeLabels(state);
 }
@@ -9689,6 +9722,11 @@ static void ViewportRefreshStanOverlay(ViewportState *state)
     unsigned char alpha=(unsigned char)(state->stanopacity*255/100);
     unsigned char *linked;
     ViewportRefreshPadPreview(state);
+    /* Rebuild on editor changes (including move previews, links and undo),
+     * never in the per-frame drawing path. Hidden tiles keep their topology. */
+    free(state->standiscontinuities);
+    state->standiscontinuities = NULL; state->standiscontinuitycount = 0;
+    StanBuildDiscontinuities(&state->stan, &state->standiscontinuities, &state->standiscontinuitycount);
     if (state->stanfill == NULL || state->stanedges == NULL) { return; }
     linked=calloc(state->stan.tilecount,1);
     if (linked != NULL)

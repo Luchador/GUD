@@ -44,18 +44,21 @@ try:
                                                (here/'check.c').read_text(),re.S)[0])
         (work/'draw.inc').write_text(''.join(extract.function(viewport,n) for n in
             ('ViewportStanVisible','ViewportApplyStanOpacity','ViewportDrawStanExtrusion',
-             'ViewportDrawStanTypeLabels','ViewportDrawStanOverlay')))
+             'ViewportDrawStanTypeLabels','ViewportDrawStanDiscontinuities','ViewportDrawStanOverlay')))
         subprocess.run([os.environ.get('CC','cc'),'-std=c99','-O1','-g','-Wall','-Wextra',
             '-Werror','-Wno-unused-parameter','-shared','-fPIC',f'-I{work}',
             f'-I{here.parent/"image_import"}',f'-I{src}',str(here/'pixels.c'),
             '-l:libGL.so.1','-o',str(work/'render.so')],check=True)
         render=c.CDLL(str(work/'render.so')).Render
-        render.argtypes=[c.c_float,c.c_float,integer,integer,integer,integer,c.POINTER(c.c_ubyte)]
+        render.argtypes=[c.c_float,c.c_float,integer,integer,integer,integer,integer,c.POINTER(c.c_ubyte)]
         render.restype=None
         pixels=(c.c_ubyte*(256*256*3))()
         def white(distance,angle,opacity,fill,wall=0,extrusion=0):
-            render(distance,angle,opacity,fill,wall,extrusion,pixels)
+            render(distance,angle,opacity,fill,wall,extrusion,0,pixels)
             return {i for i in range(256*256) if min(pixels[i*3:i*3+3])>=250}
+        def red(distance,angle,opacity=100,fill=1,wall=0,warning=1):
+            render(distance,angle,opacity,fill,wall,0,warning,pixels)
+            return {i for i in range(256*256) if pixels[i*3]>=250 and max(pixels[i*3+1:i*3+3])<5}
         cases=0
         for distance in (2.5,4,10,50):
             for angle in (10,30,60,85):
@@ -69,8 +72,15 @@ try:
                 preview=white(distance,angle,100,1,extrusion=1)
                 assert reference<=preview, (distance,angle,'hidden preview perimeter')
                 assert not white(distance,angle,100,1,wall=1,extrusion=1)
+                reference=red(distance,angle,warning=2)
+                assert len(reference)>5
+                for opacity in (44,100):
+                    assert reference==red(distance,angle,opacity), (distance,angle,'hidden or extra warning edges')
+                assert not red(distance,angle,wall=1)
+                assert not red(distance,angle,opacity=0)
+                assert not red(distance,angle,warning=3)
                 cases+=1
-        print(f'PASS: real GL pixels in {cases} close/distant/angled views: complete opaque perimeters, extrusion edges, no quad diagonals, foreground occlusion and 0% visibility.')
+        print(f'PASS: real GL pixels in {cases} close/distant/angled views: complete opaque perimeters, extrusion edges, red discontinuities without helper edges, hidden/0% suppression and foreground occlusion.')
 finally:
     api('eglMakeCurrent',uint,ptr,ptr,ptr,ptr)(display,None,None,None)
     api('eglDestroyContext',uint,ptr,ptr)(display,context)

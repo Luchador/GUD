@@ -82,6 +82,15 @@ BOOL StanFileClone(const StanFile *source, StanFile *out, const char **reasonout
 typedef struct StanPointRef { DWORD tile, point; } StanPointRef;
 /* Directed perimeter edge: point -> (point + 1) % pointcount. */
 typedef struct StanEdgeRef { DWORD tile, point; } StanEdgeRef;
+/* Shared boundary intervals without reciprocal links. Endpoints and one
+ * off-edge point per tile let the viewport draw slope-biased warning lines.
+ * Exact native XYZ matching also handles a long edge meeting several shorter
+ * edges. Outer boundaries and point-only contacts are not discontinuities. */
+typedef struct StanDiscontinuity {
+    DWORD tiles[2];
+    StanPoint ends[2], interior[2];
+} StanDiscontinuity;
+BOOL StanBuildDiscontinuities(const StanFile *stan, StanDiscontinuity **out, DWORD *countout);
 /* Extrude open boundaries by a quantized world offset. Preview writes six
  * world-space points per edge without mutation. Commit appends two triangles
  * per edge and returns count outer edges for continued extrusion. Neighboring

@@ -29,12 +29,15 @@ with tempfile.TemporaryDirectory(prefix='geditor-stan-extrusion-') as directory:
     (work/'viewport_harness.inc').write_text(topology[topology.index('typedef void *HWND;'):topology.index('static void Visibility(')])
     (work/'controller.inc').write_text(extract.function((src/'geditor.c').read_text(),'GEditorExtrudeStanEdges'))
     export=(src/'romexport.c').read_text()
-    (work/'export.inc').write_text('#include "actionblocks.h"\n'+''.join(extract.function(export,n) for n in
+    (work/'export.inc').write_text('#include "actionblocks.h"\n#include "textbank.h"\n#include "editorpath.h"\n'+''.join(extract.function(export,n) for n in
         ('RomExportSetError','RomExportEndsWith','RomExportSimpleResourceName','RomExportProjectResourcePath','RomExportReadResource')))
+    textbank=(src/'textbank.c').read_text()
+    with (work/'export.inc').open('a') as out:
+        out.write(''.join(extract.function(textbank,n) for n in ('TextBankIsResource','TextBankProjectPath')))
     binary=work/'check'
     subprocess.run([os.environ.get('CC','cc'),'-std=c99','-O1','-g','-Wall','-Wextra','-Werror','-Wno-unused-parameter',
         '-ffunction-sections','-fdata-sections','-fsanitize=address,undefined',
         f'-I{here.parent/"image_import"}',f'-I{src}',f'-I{work}',str(here/'check.c'),str(here.parent/'image_import/platform.c'),
-        *[str(src/n) for n in ('actionblocks.c','stanload.c','stantopology.c','stanedit.c','standelete.c','stanquery.c','bghistory.c')],
+        *[str(src/n) for n in ('actionblocks.c','stanload.c','stantopology.c','stanedit.c','standelete.c','stanquery.c','standiscontinuity.c','bghistory.c')],
         '-Wl,--gc-sections','-Wl,--wrap=malloc','-Wl,--wrap=calloc','-lm','-o',str(binary)],check=True)
     subprocess.run([str(binary),str(work)],check=True,env=dict(os.environ,ASAN_OPTIONS='detect_leaks=0',UBSAN_OPTIONS='halt_on_error=1'))

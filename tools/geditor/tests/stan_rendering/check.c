@@ -14,6 +14,8 @@ typedef struct ViewportState {
     StanFile stan;
     Vertex *stanfill, *stanedges;
     GLsizei stanfillcount, stanedgecount;
+    StanDiscontinuity *standiscontinuities;
+    DWORD standiscontinuitycount;
     DWORD extrudecount;
     StanEdgeRef *stanextrudeedges;
     StanPoint *stanextrudepreview;
@@ -24,7 +26,7 @@ enum { GL_FALSE, GL_TRUE, GL_BLEND, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,
     GL_COLOR_ARRAY, GL_TEXTURE_2D, GL_ALPHA_TEST, GL_CULL_FACE, GL_LEQUAL, GL_LESS,
     GL_POLYGON_OFFSET_FILL, GL_FRONT_AND_BACK, GL_FILL, GL_TRIANGLES, GL_LINES, GL_FLOAT, GL_UNSIGNED_BYTE,
     GL_LIST_BIT=1024, GL_LIGHTING, GL_FOG, GL_DEPTH_TEST, GL_POLYGON_OFFSET_LINE, GL_LINE, GL_POLYGON };
-typedef struct RenderState { BOOL blend, write, offset, offsetline, line; int depth; double far; float factor, units; } RenderState;
+typedef struct RenderState { BOOL blend, write, offset, offsetline, line, edgeflag; int depth; double far; float factor, units; } RenderState;
 static RenderState gl, stack, draws[8];
 static int drawcount, modes[8], alpha;
 static void glEnable(int flag) { if(flag==GL_BLEND)gl.blend=TRUE; if(flag==GL_POLYGON_OFFSET_FILL)gl.offset=TRUE; if(flag==GL_POLYGON_OFFSET_LINE)gl.offsetline=TRUE; }
@@ -43,8 +45,10 @@ static void glPopAttrib(void) { gl=stack; }
 static void glPushClientAttrib(int flags) {}
 static void glPopClientAttrib(void) {}
 static void glDisableClientState(int flag) {}
-static void glColor4ub(int r,int g,int b,int a) { alpha=a; }
-static void glVertex3f(float x,float y,float z) {}
+static int color[3],vertices,boundaries;
+static void glColor4ub(int r,int g,int b,int a) { alpha=a;color[0]=r;color[1]=g;color[2]=b; }
+static void glEdgeFlag(int value) { gl.edgeflag=value; }
+static void glVertex3f(float x,float y,float z) { vertices++;boundaries+=gl.edgeflag; }
 static void glBegin(int mode) { assert(drawcount<8);modes[drawcount]=mode;draws[drawcount++]=gl; }
 static void glEnd(void) {}
 static void glDrawArrays(int mode,int first,int count) { assert(first==0 && count>0);glBegin(mode); }
@@ -116,6 +120,22 @@ int main(void)
     hidden=FALSE;tile.special=STAN_TYPE_LADDER;labels=0;s.showstan=FALSE;
     ViewportDrawStanTypeLabels(&s);assert(!labels);
     s.showstan=TRUE;s.statisticsfont=0;ViewportDrawStanTypeLabels(&s);assert(!labels);
+    StanDiscontinuity gap={.tiles={0,0}};
+    s.standiscontinuities=&gap;s.standiscontinuitycount=1;
+    for(int hide=0;hide<2;hide++)for(int show=0;show<2;show++)for(int i=0;i<4;i++)
+    {
+        hidden=hide;s.showstan=show;s.stanopacity=opacity[i];vertices=boundaries=drawcount=0;
+        gl=(RenderState){.write=TRUE,.depth=GL_LESS,.far=1,.edgeflag=TRUE};
+        ViewportDrawStanDiscontinuities(&s);
+        assert(vertices==(!hide && show && opacity[i]?6:0) && boundaries==vertices/3);
+        if(vertices)
+        {
+            assert(drawcount==1 && modes[0]==GL_TRIANGLES && draws[0].line && draws[0].offsetline);
+            assert(!draws[0].blend && !draws[0].write && draws[0].depth==GL_LEQUAL && draws[0].factor<-2);
+            assert(color[0]==255 && !color[1] && !color[2] && alpha==255);
+        }
+        assert(gl.edgeflag && !gl.blend && gl.write && gl.depth==GL_LESS && gl.far==1 && !gl.line && !gl.offsetline);
+    }
     puts("PASS: stan opacity/depth, slope-biased perimeters and extrusion previews, L/C lift in native units across level scales, hidden/normal/unknown suppression and restored GL state.");
     return 0;
 }

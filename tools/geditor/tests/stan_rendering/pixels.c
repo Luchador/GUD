@@ -9,11 +9,12 @@
 #include "bgrender.h"
 #include "types.inc"
 #include "state.inc"
-static BOOL ViewportStanTileHidden(const ViewportState *state, DWORD tile) { return FALSE; }
+static BOOL hidden;
+static BOOL ViewportStanTileHidden(const ViewportState *state, DWORD tile) { return hidden; }
 #include "draw.inc"
 
 void Render(float distance, float angle, int opacity, int fill, int wall,
-            int extrusion, unsigned char *pixels)
+            int extrusion, int warning, unsigned char *pixels)
 {
     static const int corners[6]={0,1,2,0,2,3};
     StanTile tile={.pointcount=4};
@@ -39,6 +40,10 @@ void Render(float distance, float angle, int opacity, int fill, int wall,
     ViewportState state={.showstan=TRUE,.stanopacity=opacity,.stan={.tiles=&tile,.tilecount=1,.levelscale=1},
         .stanfill=vertices,.stanfillcount=fill?6:0,.stanedges=edges,.stanedgecount=8,
         .extrudecount=1,.stanextrudeedges=&edge,.stanextrudepreview=preview};
+    StanDiscontinuity gap={.tiles={0,0},.ends={tile.points[0],tile.points[2]},
+        .interior={tile.points[1],tile.points[3]}};
+    hidden=warning==3;
+    if(warning) { state.standiscontinuities=&gap;state.standiscontinuitycount=1; }
     glViewport(0,0,256,256);
     glDepthMask(GL_TRUE); glDepthFunc(GL_LESS); glDepthRange(0,1); glEnable(GL_DEPTH_TEST);
     glDisable(GL_BLEND); glDisable(GL_CULL_FACE); glDisable(GL_LINE_SMOOTH); glDisable(GL_DITHER);
@@ -55,7 +60,14 @@ void Render(float distance, float angle, int opacity, int fill, int wall,
     }
     glTranslatef(0,0,-distance); glRotatef(angle,1,0,0);
     glEnableClientState(GL_VERTEX_ARRAY); glEnableClientState(GL_COLOR_ARRAY);
-    if(extrusion)
+    if(warning==2)
+    {
+        /* Reference: only the intended diagonal, without helper sides. */
+        glLineWidth(2);glColor3ub(255,0,0);glBegin(GL_LINES);
+        glVertex3f(gap.ends[0].x,gap.ends[0].y,gap.ends[0].z);
+        glVertex3f(gap.ends[1].x,gap.ends[1].y,gap.ends[1].z);glEnd();
+    }
+    else if(extrusion)
     {
         state.dragextruding=state.dragstan=state.extrudepreviewvalid=TRUE;
         ViewportDrawStanExtrusion(&state);
