@@ -5828,6 +5828,145 @@ void ViewportSnapVertexAt(HWND hwnd, int x, int y)
     SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
 }
 
+/* RGB identifies the last visible surface at each pixel. A zero ID denotes an
+ * occluder which cannot be selected in the current asset type. GL_BLEND texture
+ * environment keeps RGB fixed when primary and constant colors are equal, but
+ * still multiplies texture and vertex alpha, even on OpenGL 1.1. */
+typedef enum ViewportBoxFaceKind { VIEWPORT_BOX_BG, VIEWPORT_BOX_STAN, VIEWPORT_BOX_PORTAL } ViewportBoxFaceKind;
+
+static void ViewportBoxFaceColor(unsigned int id, GLfloat color[4])
+{
+    color[0]=(id & 255)/255.0f; color[1]=((id>>8) & 255)/255.0f;
+    color[2]=((id>>16) & 255)/255.0f; color[3]=1;
+    glTexEnvfv(GL_TEXTURE_ENV,GL_TEXTURE_ENV_COLOR,color);
+}
+
+static void ViewportDrawBoxFaceIds(ViewportState *state,ViewportBoxFaceKind kind,const unsigned char *hits)
+{
+    ViewportUpdateEnvironmentMapping(state);
+    glTexEnvi(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_BLEND);
+    for (int i=0;state->scene && i<state->batchcount;i++)
+    {
+        const SceneBatch *batch=&state->batches[i];
+        if (!ViewportBatchIsPickable(state,batch) && !(batch->object && state->showobjects)) { continue; }
+        ViewportApplyRenderFlags(batch->renderflags); glDisable(GL_BLEND);
+        ViewportApplyCullMode(ViewportBatchCullMode(batch,state->cullbackfaces));
+        /* Match face clicking in wireframe mode: the whole face is editable. */
+        if (state->rendermode==VIEWPORT_RENDER_WIREFRAME && !batch->object) { glDisable(GL_ALPHA_TEST); }
+        else if (batch->renderflags & (BG_RENDER_BLEND|BG_RENDER_ALPHA_TEST))
+        {
+            float threshold=(batch->renderflags & BG_RENDER_ALPHA_TEST)
+                ? VIEWPORT_CUTOUT_ALPHA_THRESHOLD : VIEWPORT_BLEND_ALPHA_THRESHOLD;
+            threshold-=ViewportGlassAlpha(state,batch)/255.0f;
+            if (threshold<0) { glDisable(GL_ALPHA_TEST); } else { glAlphaFunc(GL_GREATER,threshold); }
+        }
+        if (state->rendermode!=VIEWPORT_RENDER_UNTEXTURED && batch->gltex)
+        {
+            glEnable(GL_TEXTURE_2D); glBindTexture(GL_TEXTURE_2D,batch->gltex);
+            ViewportApplyTextureWrap(state,batch);
+        }
+        else { glDisable(GL_TEXTURE_2D); }
+        for (int first=batch->first;first<batch->first+batch->count;first+=3)
+        {
+            if (ViewportTriangleHidden(state,first/3)) { continue; }
+            unsigned int id=kind==VIEWPORT_BOX_BG && !batch->object && hits[first/3] ? (unsigned int)first/3+1 : 0;
+            GLfloat color[4]; ViewportBoxFaceColor(id,color);
+            glBegin(GL_TRIANGLES);
+            for (int c=0;c<3;c++)
+            {
+                const Vertex *v=&state->scene[first+c];
+                glColor4f(color[0],color[1],color[2],v->a/255.0f);
+                glTexCoord2f(v->s,v->t); glVertex3f(v->x,v->y,v->z);
+            }
+            glEnd();
+        }
+    }
+    if (kind==VIEWPORT_BOX_BG) { return; }
+    /* Overlay faces still respect the scene's walls and objects. Resolve the
+     * nearest overlay surface, as click picking does, without editor guides. */
+    glDisable(GL_TEXTURE_2D); glDisable(GL_ALPHA_TEST); glDisable(GL_BLEND); glDisable(GL_CULL_FACE);
+    glEnable(GL_DEPTH_TEST); glDepthFunc(GL_LEQUAL); glDepthMask(GL_TRUE);
+    if (kind==VIEWPORT_BOX_STAN) { glEnable(GL_POLYGON_OFFSET_FILL); glPolygonOffset(-1,-1); }
+    else { glDisable(GL_POLYGON_OFFSET_FILL); }
+    DWORD count=kind==VIEWPORT_BOX_STAN ? state->stan.tilecount : state->portals.portalcount;
+    for (DWORD i=0;i<count;i++)
+    {
+        if (kind==VIEWPORT_BOX_STAN ? ViewportStanTileHidden(state,i) : !ViewportPortalGeometryIsFirst(&state->portals,i)) { continue; }
+        GLfloat color[4]; ViewportBoxFaceColor(hits[i] ? i+1 : 0,color); glColor4fv(color);
+        DWORD points=kind==VIEWPORT_BOX_STAN ? state->stan.tiles[i].pointcount : state->portals.portals[i].pointcount;
+        glBegin(GL_TRIANGLE_FAN);
+        for (DWORD p=0;p<points;p++)
+        {
+            if (kind==VIEWPORT_BOX_STAN)
+            { const StanPoint *v=&state->stan.tiles[i].points[p]; glVertex3f(v->x,v->y,v->z); }
+            else
+            { const BgPortalPoint *v=&state->portals.portals[i].points[p]; glVertex3f(v->x,v->y,v->z); }
+        }
+        glEnd();
+    }
+}
+
+static BOOL ViewportFilterBoxFacesGL(ViewportState *state,const RECT *box,ViewportBoxFaceKind kind,
+    unsigned char *hits,size_t capacity,int *countout)
+{
+    int left=max(0,box->left),right=min(state->width-1,box->right);
+    int top=max(0,box->top),bottom=min(state->height-1,box->bottom);
+    int width=right-left+1,height=bottom-top+1;
+    if (width<=0 || height<=0) { memset(hits,0,capacity); *countout=0; return TRUE; }
+    if (capacity>0xffffffu || (size_t)width>SIZE_MAX/3/(size_t)height) { return FALSE; }
+    size_t bytes=(size_t)width*height*3;
+    unsigned char *pixels=malloc(bytes); if (!pixels) { return FALSE; }
+    while (glGetError()!=GL_NO_ERROR) { }
+    glPushAttrib(GL_ALL_ATTRIB_BITS); glPushClientAttrib(GL_CLIENT_ALL_ATTRIB_BITS);
+    glDrawBuffer(GL_BACK); glReadBuffer(GL_BACK);
+    glViewport(0,0,state->width,state->height);
+    glEnable(GL_SCISSOR_TEST); glScissor(left,state->height-1-bottom,width,height);
+    glColorMask(GL_TRUE,GL_TRUE,GL_TRUE,GL_TRUE); glDepthMask(GL_TRUE); glDepthRange(0,1);
+    glClearColor(0,0,0,0); glClearDepth(1); glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+    glDisable(GL_FOG); glDisable(GL_LIGHTING); glDisable(GL_DITHER); glDisable(GL_COLOR_LOGIC_OP);
+    glDisable(GL_STENCIL_TEST); glDisable(GL_POLYGON_STIPPLE); glDisable(GL_POLYGON_SMOOTH);
+    glPolygonMode(GL_FRONT_AND_BACK,GL_FILL); glFrontFace(GL_CCW); glShadeModel(GL_SMOOTH);
+    GLdouble nearz=VIEWPORT_NEAR_Z,farz=fmax(VIEWPORT_FAR_Z,state->selectionfar);
+    if (state->orbit) { OrbitCameraClip(&state->orbitcamera,&nearz,&farz); }
+    GLdouble half=tan(VIEWPORT_FOV_Y*.5*VIEWPORT_DEG_TO_RAD)*nearz,aspect=(double)state->width/state->height;
+    glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); glFrustum(-half*aspect,half*aspect,-half,half,nearz,farz);
+    glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity();
+    glRotatef(-state->pitch,1,0,0); glRotatef(-state->yaw,0,1,0); glTranslatef(-state->posx,-state->posy,-state->posz);
+    ViewportDrawBoxFaceIds(state,kind,hits);
+    glPixelStorei(GL_PACK_ALIGNMENT,1); glPixelStorei(GL_PACK_ROW_LENGTH,0);
+    glPixelStorei(GL_PACK_SKIP_ROWS,0); glPixelStorei(GL_PACK_SKIP_PIXELS,0); glPixelStorei(GL_PACK_SWAP_BYTES,GL_FALSE);
+    glReadPixels(left,state->height-1-bottom,width,height,GL_RGB,GL_UNSIGNED_BYTE,pixels);
+    BOOL ok=glGetError()==GL_NO_ERROR;
+    glMatrixMode(GL_MODELVIEW); glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix();
+    glPopClientAttrib(); glPopAttrib();
+    if (ok)
+    {
+        for (size_t p=0;p<bytes;p+=3)
+        {
+            unsigned int id=pixels[p] | ((unsigned int)pixels[p+1]<<8) | ((unsigned int)pixels[p+2]<<16);
+            if (id && id<=capacity && hits[id-1]) { hits[id-1]=2; }
+        }
+        /* Distinct portal room links can share the same visible polygon. */
+        if (kind==VIEWPORT_BOX_PORTAL) for (size_t i=0;i<capacity;i++) if (hits[i]==2)
+            for (size_t j=i+1;j<capacity;j++)
+                if (hits[j] && state->portals.portals[j].geometryoffset==state->portals.portals[i].geometryoffset) { hits[j]=2; }
+        *countout=0;
+        for (size_t i=0;i<capacity;i++) { hits[i]=hits[i]==2; *countout+=hits[i]; }
+    }
+    free(pixels); return ok;
+}
+
+static BOOL ViewportFilterBoxFaces(ViewportState *state,const RECT *box,ViewportBoxFaceKind kind,
+    unsigned char *hits,size_t capacity,int *countout)
+{
+    HDC previousdc=wglGetCurrentDC(); HGLRC previous=wglGetCurrentContext();
+    if (!state->hglrc || !wglMakeCurrent(state->hdc,state->hglrc)) { return FALSE; }
+    BOOL ok=ViewportFilterBoxFacesGL(state,box,kind,hits,capacity,countout);
+    wglMakeCurrent(previousdc,previous);
+    /* Never swap the ID image to the screen. The normal paint redraws it. */
+    return ok;
+}
+
 /* A marquee holds the click until mouse-up, so a drag never changes the
  * existing selection before it commits (or is cancelled). */
 static void ViewportCancelBoxSelection(HWND hwnd, ViewportState *state)
@@ -6027,7 +6166,8 @@ static BOOL ViewportTriangleInBox(const Vertex triangle[3], const ViewportBoxFru
     return count != 0;
 }
 
-static BOOL ViewportApplyPortalBox(ViewportState *state, const RECT *box, BOOL add, BOOL remove)
+/* -1 preserves the selection when visibility readback fails. */
+static int ViewportApplyPortalBox(ViewportState *state, const RECT *box, BOOL add, BOOL remove)
 {
     unsigned char hits[BG_MAX_PORTALS] = {0};
     ViewportBoxFrustum frustum;
@@ -6061,6 +6201,12 @@ static BOOL ViewportApplyPortalBox(ViewportState *state, const RECT *box, BOOL a
                 : ViewportVertexInBox(state, &a, box))
             { hits[i] |= 1u << point; found = TRUE; }
         }
+    }
+    if (face && found)
+    {
+        int visible=0;
+        if (!ViewportFilterBoxFaces(state,box,VIEWPORT_BOX_PORTAL,hits,state->portals.portalcount,&visible)) { return -1; }
+        found=visible>0;
     }
     if (!found && !selected) { return FALSE; }
     if ((!add && !remove) || (face && !selected)) { ViewportClearAllSelection(state); }
@@ -6342,7 +6488,7 @@ static BOOL ViewportApplyBoxComponents(ViewportState *state, const ViewportBoxCo
     return TRUE;
 }
 
-static BOOL ViewportCollectBoxFaces(const ViewportState *state, const RECT *box, BOOL stan,
+static BOOL ViewportCollectBoxFaces(ViewportState *state, const RECT *box, BOOL stan,
     unsigned char **out, int *countout)
 {
     ViewportBoxFrustum frustum;
@@ -6380,7 +6526,7 @@ static BOOL ViewportCollectBoxFaces(const ViewportState *state, const RECT *box,
             { hits[tri] = 1; (*countout)++; }
         }
     }
-    return TRUE;
+    return !*countout || ViewportFilterBoxFaces(state,box,stan ? VIEWPORT_BOX_STAN : VIEWPORT_BOX_BG,hits,capacity,countout);
 }
 
 static void ViewportApplyBoxFaces(ViewportState *state, unsigned char *hits, BOOL stan, BOOL add, BOOL remove)
@@ -6418,7 +6564,8 @@ static BOOL ViewportApplyFaceBox(ViewportState *state, const RECT *box, BOOL add
      * then portals and stans, just like vertex/edge box selection. */
     if (ok && !count && !stan && !state->selectedtricount)
     {
-        if (ViewportApplyPortalBox(state, box, add, remove)) { free(hits); return TRUE; }
+        int portals=ViewportApplyPortalBox(state, box, add, remove);
+        if (portals) { free(hits); return portals>0; }
         if (ViewportStanVisible(state))
         {
             free(hits); stan = TRUE;
@@ -6458,12 +6605,16 @@ static void ViewportEndBoxSelection(HWND hwnd, ViewportState *state, int x, int 
         }
         return;
     }
-    if (state->selectedportal != BG_PORTAL_INDEX_NONE
-        && ViewportApplyPortalBox(state, &box, add, remove)) { goto done; }
+    if (state->selectedportal != BG_PORTAL_INDEX_NONE)
+    {
+        int portals=ViewportApplyPortalBox(state,&box,add,remove);
+        if (portals<0) { goto visibilityfailed; }
+        if (portals) { goto done; }
+    }
     if (state->tool == EDITOR_TOOL_FACE_SELECT)
     {
         if (!ViewportApplyFaceBox(state, &box, add, remove))
-        { MessageBox(hwnd, "Not enough memory to select these faces.", "GEditor", MB_ICONERROR); return; }
+        { goto visibilityfailed; }
         goto done;
     }
     {
@@ -6497,6 +6648,9 @@ done:
     ViewportUpdateGizmo(state);
     InvalidateRect(hwnd, NULL, FALSE);
     SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+    return;
+visibilityfailed:
+    MessageBox(hwnd,"Could not determine the visible faces. Check available memory and the OpenGL viewport.","GEditor",MB_ICONERROR);
 }
 
 static void ViewportDrawBoxSelection(const ViewportState *state)

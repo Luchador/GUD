@@ -11,6 +11,36 @@ Buttons support mouse click, Tab/Space/Enter, and Down to open a dropdown.
 | Edge | Bisect Edge (Ctrl+Q), Split Edge, Bridge Edges (B) |
 | Face | Knife (K), Flip Face (Alt+N), Disconnect Face, Edit UVs, Hide Selected (H), Unhide All (Alt+H) |
 
+In **Face mode**, left-drag a selection box to select faces with a visible pixel
+inside the box. Partly exposed faces qualify; faces fully covered within that
+box do not, even if another part is visible elsewhere. The test respects the
+current Primary/Secondary visibility, hidden faces, backface culling, object
+occlusion, texture cutouts and decal draw order. It also applies to stan tiles
+and portal faces when those are the active selection type. Shared portal room
+links remain selected together.
+
+**Shift** adds visible hits and **Ctrl** removes them. A click without dragging
+keeps ordinary click selection; Escape cancels an unfinished box. Vertex and
+edge boxes still select through geometry. In Wireframe mode, face boxes follow
+face clicking and treat texture holes as part of the editable face; Untextured
+mode uses vertex alpha without sampling images. Selection outlines, gizmos and
+other editor guides do not obscure selectable faces.
+
+The viewport renders face IDs into its back buffer and reads only the box area,
+using the same clipping, depth, culling and alpha rules as the surface pass.
+The ID buffer is never displayed. GL state is restored afterward, and a failed
+visibility readback leaves the existing selection intact. Run the CPU lifecycle
+and real OpenGL pixel regressions with:
+
+```sh
+python3 tools/geditor/tests/box_selection/run.py
+python3 tools/geditor/tests/box_selection/run_visible.py
+```
+
+The pixel tests need Mesa EGL/OpenGL and GL headers on Linux; `GL_INCLUDE` can
+point to an alternative include directory. Native drag/highlight behavior still
+needs a Windows UI smoke test.
+
 **Snap to Vertex** is a checked toggle available in Vertex mode (1). Press **V**
 or choose the menu item to turn it on or off. Click the source vertex, then
 the destination vertex. Switching selection modes turns snapping off; Room

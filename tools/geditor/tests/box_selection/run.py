@@ -2,7 +2,8 @@
 """Exercise the viewport's real marquee code without a Windows desktop.
 
 Projection, geometry collection, selection updates and drag lifecycle come
-from viewport.c. Only window messages and UI refreshes are stubbed.
+from viewport.c. Window/UI calls and the GPU visibility filter are stubbed;
+run_visible.py tests that filter with real OpenGL pixels.
 """
 import os
 from pathlib import Path
@@ -37,6 +38,7 @@ def main():
         types += re.search(r"typedef struct " + name + r" \{.*?\} " + name + ";", source, re.S)[0] + "\n"
     for name in ("FOV_Y", "NEAR_Z", "FAR_Z", "DEG_TO_RAD"):
         types += re.search(r"^#define VIEWPORT_" + name + r" .*", source, re.M)[0] + "\n"
+    types += re.search(r'typedef enum ViewportBoxFaceKind \{.*?\} ViewportBoxFaceKind;', source, re.S)[0] + "\n"
     logic = ""
     for name in ("ViewportGetBasis", "ViewportProject", "ViewportTriangleHidden",
                  "ViewportBatchIsPickable", "ViewportCompareVertexRefs",

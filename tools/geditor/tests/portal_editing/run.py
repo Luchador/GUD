@@ -29,6 +29,7 @@ def main():
         (work / 'fixture.inc').write_text(''.join(function(fixture, n) for n in ('Put', 'Get', 'Float', 'Fixture')))
         types = ''.join(re.search(r'typedef struct ' + n + r' \{.*?\} ' + n + ';', viewport, re.S)[0] + '\n'
                         for n in ('Vertex', 'ViewportPickRay', 'ViewportBoxFrustum'))
+        types += re.search(r'typedef enum ViewportBoxFaceKind \{.*?\} ViewportBoxFaceKind;', viewport, re.S)[0] + '\n'
         types += re.search(r'typedef struct ViewportTranslation \{.*?\} ViewportTranslation;', (src / 'viewport.h').read_text())[0] + '\n'
         types += '\n'.join(l for l in viewport.splitlines() if l.startswith(('#define VIEWPORT_PICK_', '#define VIEWPORT_PORTAL_', '#define VIEWPORT_SELECTION_GOLD')))
         for name in ('FOV_Y', 'NEAR_Z', 'FAR_Z', 'DEG_TO_RAD'):

@@ -211,6 +211,10 @@ static void ViewportClearAllSelection(ViewportState *s)
 { memset(s->portalselection,0,sizeof(s->portalselection));s->selectedportal=BG_PORTAL_INDEX_NONE;s->componentcount=0; }
 static double occluder=DBL_MAX;
 static double ViewportSceneHitDistance(const ViewportState *s,const ViewportPickRay *ray) { return occluder; }
+/* Pixel visibility has its own GL suite; this fixture covers component boxes. */
+static BOOL ViewportFilterBoxFaces(ViewportState *state,const RECT *box,ViewportBoxFaceKind kind,
+    unsigned char *hits,size_t capacity,int *countout)
+{ *countout=0; for(size_t i=0;i<capacity;i++) { *countout+=hits[i]!=0; } return TRUE; }
 #include "viewport.inc"
 
 /* Only platform drag teardown is stubbed; restoration uses the production

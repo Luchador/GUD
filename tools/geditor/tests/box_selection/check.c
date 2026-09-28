@@ -97,6 +97,13 @@ static void ViewportPickComponent(HWND hwnd, ViewportState *state, int x, int y,
 {
     clicks++; clickadd = add; clickremove = remove;
 }
+/* Visibility itself is exercised by run_visible.py with an actual GL context.
+ * This suite keeps all geometric candidates to isolate selection transactions. */
+static BOOL failvisibility;
+static BOOL ViewportFilterBoxFaces(ViewportState *state,const RECT *box,ViewportBoxFaceKind kind,
+    unsigned char *hits,size_t capacity,int *countout)
+{ if(failvisibility) return FALSE; *countout=0; for(size_t i=0;i<capacity;i++) { *countout+=hits[i]!=0; } return TRUE; }
+
 static BOOL failalloc;
 static void *TestCalloc(size_t count, size_t size) { return failalloc ? NULL : calloc(count,size); }
 #define calloc TestCalloc
@@ -215,6 +222,10 @@ static void FaceSelection(void)
     ViewportBeginBoxSelection(1,&state,90,90,FALSE,FALSE);ViewportEndBoxSelection(1,&state,110,110);
     failalloc=FALSE;
     assert(state.selectedtricount==1 && selected[4] && notifications==before && errors==errorbefore+1 && !capture);
+    failvisibility=TRUE; errorbefore=errors;
+    ViewportBeginBoxSelection(1,&state,90,90,FALSE,FALSE);ViewportEndBoxSelection(1,&state,110,110);
+    failvisibility=FALSE;
+    assert(state.selectedtricount==1 && selected[4] && notifications==before && errors==errorbefore+1 && !capture);
     /* A click below the drag threshold retains the old marker/portal/pad/stan
        priority, and otherwise uses face/object picking, not component picking. */
     int oldclicks=clicks,oldfaces=faceclicks;
@@ -267,8 +278,12 @@ static void FaceSelection(void)
     assert(state.selectedportal==BG_PORTAL_INDEX_NONE && !state.portalselection[0]
         && !state.portalselection[1] && notifications==before+1);
     assert(ViewportApplyPortalBox(&state,&center,FALSE,FALSE));
+    failvisibility=TRUE; errorbefore=errors;
+    ViewportBeginBoxSelection(1,&state,90,90,FALSE,FALSE);ViewportEndBoxSelection(1,&state,110,110);
+    failvisibility=FALSE;
+    assert(state.selectedportal==0 && state.portalselection[0]==1 && state.portalselection[1]==1 && errors==errorbefore+1);
     assert(ViewportApplyPortalBox(&state,&empty,FALSE,FALSE) && state.selectedportal==BG_PORTAL_INDEX_NONE);
-    puts("PASS: occluded BG/stan/portal face boxes, hidden/layer filters, modifiers, asset priorities, click/cancel/reverse drag and atomic allocation failure.");
+    puts("PASS: BG/stan/portal candidate boxes, hidden/layer filters, modifiers, asset priorities, click/cancel/reverse drag and atomic allocation failure.");
 }
 
 int main(void)
