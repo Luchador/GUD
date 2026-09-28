@@ -81,7 +81,7 @@ def main():
         subprocess.run([str(work / 'check'), str(work)], check=True,
                        env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))
         scene = json.loads((work / 'studio/scenes/Main.rnd').read_text())
-        assert scene['version'] == 2 and len(scene['objects']) == 2
+        assert scene['version'] == 3 and len(scene['objects']) == 2
         first, second = scene['objects']
         assert first['materials'][0]['name'] == 'Housing "blue"'
         assert first['materials'][1]['name'] == 'Réflecteur'

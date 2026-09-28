@@ -13,7 +13,9 @@ BOOL StudioRayTriangle(const double origin[3],const double direction[3],const do
 BOOL StudioBounds(const StudioScene *scene, int selected, double lower[3], double upper[3]);
 BOOL StudioRay(const OrbitCamera *camera, int width, int height, double x, double y, double origin[3], double direction[3]);
 int StudioPick(const StudioScene *scene, const double origin[3], const double direction[3], int *material);
+/* Return the light's attenuated intensity and the unit surface-to-light vector. */
+double StudioLightSample(const StudioLight *light, BOOL spotlight, const double point[3], double direction[3]);
 /* Separate diffuse and Phong specular terms so a base image never tints the highlight. */
-void StudioShade(const StudioMaterial *material, const BgVertex *vertex, const StudioMatrix *matrix,
+void StudioShade(const StudioScene *scene, const StudioMaterial *material, const BgVertex *vertex, const StudioMatrix *matrix,
     const double eye[3], float diffuse[3], float specular[3]);
 #endif

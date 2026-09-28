@@ -1,4 +1,4 @@
-/* Persistent studio instances and material overrides. All writes replace a
+/* Persistent studio instances, materials and lights. All writes replace a
  * completed sibling temporary file; failed loads leave the open scene intact. */
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,6 +38,44 @@ BOOL StudioMaterialValid(const StudioMaterial *m)
             || !isfinite(m->specular[i]) || m->specular[i]<0 || m->specular[i]>1) { return FALSE; }
     return isfinite(m->intensity) && m->intensity>=0 && m->intensity<=1
         && isfinite(m->shininess) && m->shininess>=1 && m->shininess<=128;
+}
+
+BOOL StudioLightValid(const StudioLight *light, BOOL spotlight)
+{
+    double length=0;
+    for (int k=0;k<3;k++)
+    {
+        if (!isfinite(light->position[k]) || fabs(light->position[k])>1e9
+            || !isfinite(light->color[k]) || light->color[k]<0 || light->color[k]>1) { return FALSE; }
+        if (spotlight)
+        {
+            if (!isfinite(light->direction[k]) || fabs(light->direction[k])>1e9) { return FALSE; }
+            length+=light->direction[k]*light->direction[k];
+        }
+    }
+    if (!isfinite(light->intensity) || light->intensity<0 || light->intensity>10000) { return FALSE; }
+    if (!spotlight) { return isfinite(light->radius) && light->radius>=0.0001 && light->radius<=1e9; }
+    return length>1e-24 && isfinite(light->inner) && isfinite(light->outer)
+        && light->inner>=0 && light->inner<=light->outer && light->outer>0 && light->outer<=90;
+}
+
+int StudioSceneLightSlot(const StudioScene *scene, BOOL spotlight)
+{
+    for (int i=spotlight ? 0 : 1;i<(spotlight ? 1 : STUDIO_LIGHT_COUNT);i++)
+        if (!scene->lights[i].enabled) { return i; }
+    return -1;
+}
+
+int StudioSceneAddLight(StudioScene *scene, BOOL spotlight, const char **why)
+{
+    int slot=StudioSceneLightSlot(scene,spotlight); *why="";
+    if (!scene->filename[0]) { *why="Create or open a scene before adding a light."; return -1; }
+    if (slot<0) { *why=spotlight ? "A scene supports one spotlight." : "A scene supports two point lights."; return -1; }
+    StudioLight light={0}; light.enabled=TRUE; light.position[1]=5; light.intensity=1;
+    for (int k=0;k<3;k++) { light.color[k]=1; }
+    if (spotlight) { light.direction[1]=-1; light.inner=20; light.outer=30; }
+    else { light.radius=10; }
+    scene->lights[slot]=light; return slot;
 }
 
 void StudioSceneFree(StudioScene *scene)
@@ -144,11 +182,13 @@ BOOL StudioSceneSave(const StudioScene *scene, const char **why)
         if (!StudioTransformValid(&o->transform)) { goto invalid; }
         for (DWORD m=0;m<o->materialcount;m++) if (!StudioMaterialValid(&o->materials[m])) { goto invalid; }
     }
+    for (int i=0;i<STUDIO_LIGHT_COUNT;i++)
+        if (scene->lights[i].enabled && !StudioLightValid(&scene->lights[i],i==0)) { goto invalid; }
     if (!GetTempFileName(folder,"rnd",0,temporary))
     { *why="Could not create a temporary scene file."; return FALSE; }
     file=fopen(temporary,"wb");
     if (!file) { DeleteFile(temporary); *why="Could not open the temporary scene file."; return FALSE; }
-    ok=fprintf(file,"{\n  \"format\": \"GEditor Render Studio\",\n  \"version\": 2,\n  \"objects\": [")>=0;
+    ok=fprintf(file,"{\n  \"format\": \"GEditor Render Studio\",\n  \"version\": 3,\n  \"objects\": [")>=0;
     for (DWORD i=0;ok && i<scene->count;i++)
     {
         const StudioInstance *o=&scene->objects[i];
@@ -167,13 +207,27 @@ BOOL StudioSceneSave(const StudioScene *scene, const char **why)
         }
         ok=ok && fputs("\n    ]}",file)!=EOF;
     }
+    ok=ok && fputs("\n  ],\n  \"lights\": [",file)!=EOF;
+    BOOL comma=FALSE;
+    for (int i=0;ok && i<STUDIO_LIGHT_COUNT;i++)
+    {
+        const StudioLight *light=&scene->lights[i]; if (!light->enabled) { continue; }
+        ok=fprintf(file,"%s\n    {\"type\": \"%s\", \"position\": [%.17g, %.17g, %.17g], \"color\": [%.9g, %.9g, %.9g], \"intensity\": %.17g",
+            comma ? "," : "",i==0 ? "spotlight" : "point",light->position[0],light->position[1],light->position[2],
+            light->color[0],light->color[1],light->color[2],light->intensity)>=0;
+        if (i==0)
+            ok=ok && fprintf(file,", \"direction\": [%.17g, %.17g, %.17g], \"inner\": %.17g, \"outer\": %.17g}",
+                light->direction[0],light->direction[1],light->direction[2],light->inner,light->outer)>=0;
+        else { ok=ok && fprintf(file,", \"radius\": %.17g}",light->radius)>=0; }
+        comma=TRUE;
+    }
     ok=ok && fputs("\n  ]\n}\n",file)!=EOF && !ferror(file);
     if (fclose(file)) { ok=FALSE; }
     if (!ok || !MoveFileEx(temporary,path,MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
     { DeleteFile(temporary); *why="The scene could not be saved. Check free space and folder permissions. The previous file was preserved."; return FALSE; }
     return TRUE;
 invalid:
-    *why="The scene contains invalid instance or material settings."; return FALSE;
+    *why="The scene contains invalid instance, material, or light settings."; return FALSE;
 }
 
 typedef struct StudioJson { const char *text; GltfJsonToken *tokens; int count; } StudioJson;
@@ -216,7 +270,7 @@ BOOL StudioSceneLoad(const char *projectdir, const char *filename, StudioScene *
     *why="The studio scene is invalid or uses an unsupported format.";
     if (!String(&j,Field(&j,0,"format"),format,sizeof(format)) || strcmp(format,"GEditor Render Studio")) { goto done; }
     token=Field(&j,0,"version");
-    if (token<0 || !GltfJsonUnsigned(text,&j.tokens[token],&version) || (version!=1 && version!=2)) { goto done; }
+    if (token<0 || !GltfJsonUnsigned(text,&j.tokens[token],&version) || (version!=1 && version!=2 && version!=3)) { goto done; }
     array=Field(&j,0,"objects");
     if (array<0 || j.tokens[array].type!=GLTF_JSON_ARRAY) { goto done; }
     next.count=GltfJsonArrayCount(j.tokens,j.count,array);
@@ -270,6 +324,38 @@ BOOL StudioSceneLoad(const char *projectdir, const char *filename, StudioScene *
             if (found>=0) { defaults.materials[m]=o->materials[found]; }
         }
         free(o->materials); o->materials=defaults.materials; o->materialcount=defaults.materialcount;
+    }
+    if (version>=3)
+    {
+        int lights=Field(&j,0,"lights");
+        if (lights<0 || j.tokens[lights].type!=GLTF_JSON_ARRAY) { goto done; }
+        DWORD count=GltfJsonArrayCount(j.tokens,j.count,lights);
+        if (count>STUDIO_LIGHT_COUNT) { goto done; }
+        for (DWORD i=0;i<count;i++)
+        {
+            int object=GltfJsonArrayGet(j.tokens,j.count,lights,i); char type[16]; double color[3];
+            if (!String(&j,Field(&j,object,"type"),type,sizeof(type))) { goto done; }
+            BOOL spotlight=!strcmp(type,"spotlight");
+            if (!spotlight && strcmp(type,"point")) { goto done; }
+            int slot=StudioSceneLightSlot(&next,spotlight); if (slot<0) { goto done; }
+            StudioLight *light=&next.lights[slot]; light->enabled=TRUE;
+            if (!Vector(&j,Field(&j,object,"position"),light->position,3)
+                || !Vector(&j,Field(&j,object,"color"),color,3)
+                || !Number(&j,Field(&j,object,"intensity"),&light->intensity)) { goto done; }
+            for (int k=0;k<3;k++)
+            {
+                if (color[k]<0 || color[k]>1) { goto done; }
+                light->color[k]=(float)color[k];
+            }
+            if (spotlight)
+            {
+                if (!Vector(&j,Field(&j,object,"direction"),light->direction,3)
+                    || !Number(&j,Field(&j,object,"inner"),&light->inner)
+                    || !Number(&j,Field(&j,object,"outer"),&light->outer)) { goto done; }
+            }
+            else if (!Number(&j,Field(&j,object,"radius"),&light->radius)) { goto done; }
+            if (!StudioLightValid(light,spotlight)) { goto done; }
+        }
     }
     StudioSceneFree(scene); *scene=next; memset(&next,0,sizeof(next));
     *why=missing ? "Some scene models are missing or unreadable. Their instances and material settings were retained." : ""; ok=TRUE;

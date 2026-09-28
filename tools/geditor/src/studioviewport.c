@@ -219,7 +219,7 @@ static void StudioViewportObjects(StudioViewport *state, const double eye[3])
                     for (DWORD v=first*3;v<end*3;v++)
                     {
                         const BgVertex *vertex=&mesh->vertices[v]; float diffuse[3],specular[3];
-                        StudioShade(m,vertex,&matrix,eye,diffuse,specular); glColor3fv(pass ? specular : diffuse);
+                        StudioShade(state->scene,m,vertex,&matrix,eye,diffuse,specular); glColor3fv(pass ? specular : diffuse);
                         glTexCoord2f(vertex->s,vertex->t); glVertex3f(vertex->x,vertex->y,vertex->z);
                     }
                     glEnd();

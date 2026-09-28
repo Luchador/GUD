@@ -14,9 +14,9 @@
 
 static HWND g_Studio, g_StudioViewport, g_StudioProperties, g_StudioTransform;
 static StudioScene g_StudioScene;
-static int g_StudioObject=-1,g_StudioMaterial=-1;
+static int g_StudioObject=-1,g_StudioMaterial=-1,g_StudioLight=-1;
 static BOOL g_StudioUpdating,g_StudioDragArmed,g_StudioDragging;
-static unsigned g_StudioGeneration,g_StudioTransformDirty;
+static unsigned g_StudioGeneration,g_StudioTransformDirty,g_StudioLightDirty;
 static int g_StudioTool=STUDIO_TRANSLATE;
 static BOOL g_StudioLoading,g_StudioTriedInitialScene;
 static POINT g_StudioDragPress;
@@ -94,13 +94,33 @@ static StudioMaterial *RenderStudioMaterial(void)
     return g_StudioMaterial>=0 && (DWORD)g_StudioMaterial<o->materialcount ? &o->materials[g_StudioMaterial] : NULL;
 }
 
+/* Outliner IDs: model indices >= 0, scene root -1, light slots -2..-4. */
+static int RenderStudioSelection(void)
+{ return g_StudioLight>=0 ? -2-g_StudioLight : g_StudioObject; }
+
+static StudioLight *RenderStudioLight(void)
+{
+    return g_StudioLight>=0 && g_StudioLight<STUDIO_LIGHT_COUNT && g_StudioScene.lights[g_StudioLight].enabled
+        ? &g_StudioScene.lights[g_StudioLight] : NULL;
+}
+
+static double *RenderStudioLightField(StudioLight *light,int field,BOOL spotlight)
+{
+    if (field<0 || field>8) { return NULL; }
+    if (field<3) { return &light->position[field]; }
+    if (field<6) { return spotlight ? &light->direction[field-3] : NULL; }
+    if (field==6) { return &light->intensity; }
+    if (field==7) { return spotlight ? &light->inner : &light->radius; }
+    return spotlight ? &light->outer : NULL;
+}
+
 static void RenderStudioProperties(void)
 {
-    StudioMaterial *m=RenderStudioMaterial(); char text[64];
+    StudioMaterial *m=RenderStudioMaterial(); StudioLight *light=RenderStudioLight(); char text[64];
     g_StudioUpdating=TRUE;
     for (int id=IDC_STUDIO_BASE_LABEL;id<=IDC_STUDIO_SHININESS;id++)
         ShowWindow(GetDlgItem(g_StudioProperties,id),m ? SW_SHOW : SW_HIDE);
-    ShowWindow(GetDlgItem(g_StudioProperties,IDC_STUDIO_MATERIAL_HINT),m ? SW_HIDE : SW_SHOW);
+    ShowWindow(GetDlgItem(g_StudioProperties,IDC_STUDIO_MATERIAL_HINT),m || light ? SW_HIDE : SW_SHOW);
     if (m)
     {
         snprintf(text,sizeof(text),"%.6g",m->intensity); SetDlgItemText(g_StudioProperties,IDC_STUDIO_INTENSITY,text);
@@ -112,7 +132,24 @@ static void RenderStudioProperties(void)
         InvalidateRect(GetDlgItem(g_StudioProperties,IDC_STUDIO_BASE_COLOR),NULL,TRUE);
         InvalidateRect(GetDlgItem(g_StudioProperties,IDC_STUDIO_SPEC_COLOR),NULL,TRUE);
     }
-    g_StudioUpdating=FALSE;
+    for (int id=IDC_STUDIO_LIGHT_POSITION_LABEL;id<=IDC_STUDIO_LIGHT_OUTER;id++)
+    {
+        BOOL spotonly=id==IDC_STUDIO_LIGHT_DIRECTION_LABEL || id==IDC_STUDIO_LIGHT_OUTER_LABEL
+            || (id>=IDC_STUDIO_LIGHT_DIRECTION_X && id<=IDC_STUDIO_LIGHT_DIRECTION_Z) || id==IDC_STUDIO_LIGHT_OUTER;
+        ShowWindow(GetDlgItem(g_StudioProperties,id),light && (!spotonly || g_StudioLight==0) ? SW_SHOW : SW_HIDE);
+    }
+    if (light)
+    {
+        for (int field=0;field<9;field++)
+        {
+            const double *value=RenderStudioLightField(light,field,g_StudioLight==0); text[0]=0;
+            if (value) { snprintf(text,sizeof(text),"%.9g",*value); }
+            SetDlgItemText(g_StudioProperties,IDC_STUDIO_LIGHT_POSITION_X+field,text);
+        }
+        SetDlgItemText(g_StudioProperties,IDC_STUDIO_LIGHT_RANGE_LABEL,g_StudioLight==0 ? "Inner angle (deg)" : "Radius");
+        InvalidateRect(GetDlgItem(g_StudioProperties,IDC_STUDIO_LIGHT_COLOR),NULL,TRUE);
+    }
+    g_StudioLightDirty=0; g_StudioUpdating=FALSE;
 }
 
 static StudioInstance *RenderStudioObject(void)
@@ -133,6 +170,7 @@ static void RenderStudioTransformPanel(void)
         }
         SetDlgItemText(g_StudioTransform,id,text); EnableWindow(GetDlgItem(g_StudioTransform,id),o!=NULL);
     }
+    for (int id=IDC_STUDIO_MOVE;id<=IDC_STUDIO_SCALE;id++) { EnableWindow(GetDlgItem(g_StudioTransform,id),o!=NULL); }
     CheckRadioButton(g_StudioTransform,IDC_STUDIO_MOVE,IDC_STUDIO_SCALE,IDC_STUDIO_MOVE+g_StudioTool);
     g_StudioTransformDirty=0; g_StudioUpdating=FALSE;
 }
@@ -201,6 +239,8 @@ static void RenderStudioSaveScene(void)
 
 static void RenderStudioSelect(int object, int material)
 {
+    g_StudioLight=object<=-2 && object>=-1-STUDIO_LIGHT_COUNT ? -2-object : -1;
+    if (g_StudioLight>=0 && !g_StudioScene.lights[g_StudioLight].enabled) { g_StudioLight=-1; }
     g_StudioObject=object>=0 && (DWORD)object<g_StudioScene.count ? object : -1;
     g_StudioMaterial=-1; HWND list=GetDlgItem(g_Studio,IDC_STUDIO_MATERIALS);
     g_StudioUpdating=TRUE; SendMessage(list,WM_SETREDRAW,FALSE,0); SendMessage(list,LB_RESETCONTENT,0,0);
@@ -220,7 +260,11 @@ static void RenderStudioSelect(int object, int material)
     SendMessage(list,WM_SETREDRAW,TRUE,0); InvalidateRect(list,NULL,TRUE);
     HWND tree=GetDlgItem(g_Studio,IDC_STUDIO_OUTLINER);
     HTREEITEM root=TreeView_GetRoot(tree),item=TreeView_GetChild(tree,root),choice=root;
-    for (int i=0;item;item=TreeView_GetNextSibling(tree,item),i++) if (i==g_StudioObject) { choice=item; break; }
+    for (;item;item=TreeView_GetNextSibling(tree,item))
+    {
+        TVITEM entry={0}; entry.mask=TVIF_PARAM; entry.hItem=item;
+        if (TreeView_GetItem(tree,&entry) && entry.lParam==RenderStudioSelection()) { choice=item; break; }
+    }
     TreeView_SelectItem(tree,choice); g_StudioUpdating=FALSE;
     StudioViewportSelect(g_StudioViewport,g_StudioObject); RenderStudioProperties(); RenderStudioTransformPanel();
 }
@@ -239,9 +283,14 @@ static void RenderStudioOutliner(void)
             snprintf(label,sizeof(label),"%s (%lu)%s",g_StudioScene.objects[i].model,(unsigned long)i+1,g_StudioScene.objects[i].asset ? "" : " - unavailable");
             insert.item.pszText=label; insert.item.lParam=i; TreeView_InsertItem(tree,&insert);
         }
+        for (int i=0;i<STUDIO_LIGHT_COUNT;i++) if (g_StudioScene.lights[i].enabled)
+        {
+            if (i==0) { lstrcpy(label,"Spotlight"); } else { snprintf(label,sizeof(label),"Point Light %d",i); }
+            insert.item.pszText=label; insert.item.lParam=-2-i; TreeView_InsertItem(tree,&insert);
+        }
         TreeView_Expand(tree,root,TVE_EXPAND);
     }
-    g_StudioUpdating=FALSE; RenderStudioSelect(g_StudioObject,g_StudioMaterial);
+    g_StudioUpdating=FALSE; RenderStudioSelect(RenderStudioSelection(),g_StudioMaterial);
 }
 
 static BOOL RenderStudioLoadScene(const char *filename)
@@ -257,7 +306,7 @@ static BOOL RenderStudioLoadScene(const char *filename)
         SendDlgItemMessage(g_Studio,IDC_STUDIO_SCENE,LB_SETCURSEL,row,0); g_StudioLoading=FALSE; return FALSE;
     }
     g_StudioGeneration++;
-    g_StudioObject=g_StudioScene.count ? 0 : -1; g_StudioMaterial=-1;
+    g_StudioObject=g_StudioScene.count ? 0 : -1; g_StudioMaterial=g_StudioLight=-1;
     StudioViewportRefreshImages(g_StudioViewport); StudioViewportSetScene(g_StudioViewport,&g_StudioScene,TRUE);
     RenderStudioOutliner(); SetDlgItemText(g_Studio,IDC_STUDIO_STATUS,why[0] ? why : g_StudioNavigation); g_StudioLoading=FALSE; return TRUE;
 }
@@ -274,6 +323,52 @@ static void RenderStudioCommitMaterial(StudioMaterial *material, const StudioMat
     RenderStudioProperties();
 }
 
+static void RenderStudioCommitLight(StudioLight *light,const StudioLight *previous)
+{
+    const char *why="";
+    if (!StudioLightValid(light,g_StudioLight==0) || !StudioSceneSave(&g_StudioScene,&why))
+    {
+        *light=*previous;
+        MessageBox(g_Studio,why[0] ? why :
+            "Use finite positions within +/-1 billion and intensity from 0 to 10000. Point radius must be from 0.0001 to 1 billion. "
+            "Spotlight direction must be nonzero, with 0 <= inner <= outer <= 90 degrees and outer > 0.","Light",MB_ICONERROR);
+    }
+    else { SetDlgItemText(g_Studio,IDC_STUDIO_STATUS,"Light saved."); }
+    InvalidateRect(g_StudioViewport,NULL,FALSE); RenderStudioProperties();
+}
+
+static BOOL RenderStudioLightCommand(HWND hwnd,int id,int code)
+{
+    StudioLight *light=RenderStudioLight(); if (!light || g_StudioUpdating) { return FALSE; }
+    StudioLight previous=*light;
+    if (id==IDC_STUDIO_LIGHT_COLOR && code==BN_CLICKED)
+    {
+        static COLORREF custom[16]; unsigned generation=g_StudioGeneration; int selected=g_StudioLight;
+        CHOOSECOLOR choice={0}; choice.lStructSize=sizeof(choice); choice.hwndOwner=g_Studio;
+        choice.rgbResult=RGB((int)(light->color[0]*255+.5f),(int)(light->color[1]*255+.5f),(int)(light->color[2]*255+.5f));
+        choice.lpCustColors=custom; choice.Flags=CC_FULLOPEN | CC_RGBINIT;
+        if (ChooseColor(&choice) && generation==g_StudioGeneration && selected==g_StudioLight && g_Studio)
+        {
+            light->color[0]=GetRValue(choice.rgbResult)/255.f; light->color[1]=GetGValue(choice.rgbResult)/255.f;
+            light->color[2]=GetBValue(choice.rgbResult)/255.f; RenderStudioCommitLight(light,&previous);
+        }
+        return TRUE;
+    }
+    int field=id-IDC_STUDIO_LIGHT_POSITION_X;
+    double *value=RenderStudioLightField(light,field,g_StudioLight==0);
+    if (!value) { return FALSE; }
+    if (code==EN_CHANGE) { g_StudioLightDirty|=1u<<field; return TRUE; }
+    if (code==EN_KILLFOCUS && (g_StudioLightDirty&(1u<<field)))
+    {
+        char text[64],*end; GetDlgItemText(hwnd,id,text,sizeof(text)); double number=strtod(text,&end); BOOL parsed=end!=text;
+        while (*end==' ' || *end=='\t') { end++; }
+        if (!parsed || *end || !isfinite(number))
+        { RenderStudioProperties(); SetDlgItemText(g_Studio,IDC_STUDIO_STATUS,"Enter a valid light value."); return TRUE; }
+        *value=number; RenderStudioCommitLight(light,&previous); return TRUE;
+    }
+    return FALSE;
+}
+
 static INT_PTR CALLBACK RenderStudioPropertiesProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
 {
     StudioMaterial *m=RenderStudioMaterial();
@@ -281,12 +376,17 @@ static INT_PTR CALLBACK RenderStudioPropertiesProc(HWND hwnd, UINT message, WPAR
     {
     case WM_INITDIALOG:
         SendDlgItemMessage(hwnd,IDC_STUDIO_INTENSITY,EM_LIMITTEXT,32,0);
-        SendDlgItemMessage(hwnd,IDC_STUDIO_SHININESS,EM_LIMITTEXT,32,0); return TRUE;
+        SendDlgItemMessage(hwnd,IDC_STUDIO_SHININESS,EM_LIMITTEXT,32,0);
+        for (int id=IDC_STUDIO_LIGHT_POSITION_X;id<=IDC_STUDIO_LIGHT_OUTER;id++) { SendDlgItemMessage(hwnd,id,EM_LIMITTEXT,48,0); }
+        return TRUE;
     case WM_DRAWITEM:
     {
         const DRAWITEMSTRUCT *draw=(const DRAWITEMSTRUCT *)lparam;
-        if (!m || (draw->CtlID!=IDC_STUDIO_BASE_COLOR && draw->CtlID!=IDC_STUDIO_SPEC_COLOR)) { break; }
-        const float *color=draw->CtlID==IDC_STUDIO_BASE_COLOR ? m->base : m->specular;
+        StudioLight *light=RenderStudioLight(); const float *color=NULL;
+        if (light && draw->CtlID==IDC_STUDIO_LIGHT_COLOR) { color=light->color; }
+        else if (m && draw->CtlID==IDC_STUDIO_BASE_COLOR) { color=m->base; }
+        else if (m && draw->CtlID==IDC_STUDIO_SPEC_COLOR) { color=m->specular; }
+        if (!color) { break; }
         HBRUSH brush=CreateSolidBrush(RGB((int)(color[0]*255+.5f),(int)(color[1]*255+.5f),(int)(color[2]*255+.5f)));
         FillRect(draw->hDC,&draw->rcItem,brush); DeleteObject(brush); RECT rect=draw->rcItem;
         DrawEdge(draw->hDC,&rect,(draw->itemState&ODS_SELECTED) ? EDGE_SUNKEN : EDGE_RAISED,BF_RECT);
@@ -294,7 +394,9 @@ static INT_PTR CALLBACK RenderStudioPropertiesProc(HWND hwnd, UINT message, WPAR
     }
     case WM_COMMAND:
     {
-        int id=LOWORD(wparam),code=HIWORD(wparam); if (g_StudioUpdating || !m) { break; }
+        int id=LOWORD(wparam),code=HIWORD(wparam);
+        if (RenderStudioLightCommand(hwnd,id,code)) { return TRUE; }
+        if (g_StudioUpdating || !m) { break; }
         StudioMaterial previous=*m;
         if ((id==IDC_STUDIO_BASE_COLOR || id==IDC_STUDIO_SPEC_COLOR) && code==BN_CLICKED)
         {
@@ -339,6 +441,33 @@ static void RenderStudioImageChoices(const TexThumb *images,DWORD count)
     SendMessage(combo,CB_SETDROPPEDWIDTH,360,0); g_StudioUpdating=FALSE; RenderStudioProperties();
 }
 
+static void RenderStudioAddLight(BOOL spotlight)
+{
+    const char *why="";
+    SetFocus(g_StudioViewport); /* Commit any current numeric edit. */
+    if (!g_StudioScene.filename[0]) { RenderStudioNewScene(g_Studio); }
+    if (!g_StudioScene.filename[0]) { return; }
+    int slot=StudioSceneAddLight(&g_StudioScene,spotlight,&why);
+    if (slot<0) { MessageBox(g_Studio,why,"Add Light",MB_ICONERROR); return; }
+    /* Start above the models, pointing into their center, at a useful scale. */
+    StudioLight *light=&g_StudioScene.lights[slot]; double lower[3],upper[3];
+    if (StudioBounds(&g_StudioScene,-1,lower,upper))
+    {
+        double span=1;
+        for (int k=0;k<3;k++) { span=fmax(span,upper[k]-lower[k]); light->position[k]=(lower[k]+upper[k])*.5; }
+        light->position[1]=upper[1]+span;
+        if (!spotlight) { light->radius=fmin(1e9,span*4); }
+        for (int k=0;k<3;k++) { light->position[k]=fmax(-1e9,fmin(1e9,light->position[k])); }
+    }
+    if (!StudioSceneSave(&g_StudioScene,&why))
+    {
+        memset(light,0,sizeof(*light)); MessageBox(g_Studio,why,"Add Light",MB_ICONERROR); return;
+    }
+    g_StudioLight=slot; g_StudioObject=g_StudioMaterial=-1;
+    RenderStudioOutliner(); InvalidateRect(g_StudioViewport,NULL,FALSE);
+    SetDlgItemText(g_Studio,IDC_STUDIO_STATUS,"Light added. Edit its settings in Properties.");
+}
+
 static void RenderStudioDropModel(const char *filename,POINT point)
 {
     const char *why=""; double position[3];
@@ -351,7 +480,7 @@ static void RenderStudioDropModel(const char *filename,POINT point)
     o->transform.position[1]-=o->asset->lower[1]; o->transform.position[2]-=(o->asset->lower[2]+o->asset->upper[2])*0.5;
     if (!StudioSceneSave(&g_StudioScene,&why))
     { StudioSceneRemove(&g_StudioScene,g_StudioScene.count-1); MessageBox(g_Studio,why,"Add Model",MB_ICONERROR); return; }
-    g_StudioObject=(int)g_StudioScene.count-1; g_StudioMaterial=0;
+    g_StudioObject=(int)g_StudioScene.count-1; g_StudioMaterial=0; g_StudioLight=-1;
     StudioViewportSetScene(g_StudioViewport,&g_StudioScene,g_StudioScene.count==1); RenderStudioOutliner();
     SetDlgItemText(g_Studio,IDC_STUDIO_STATUS,"Model instance added. Scene saved."); SetFocus(g_StudioViewport);
 }
@@ -548,7 +677,7 @@ void RenderStudioSetProject(const GEditorProject *project)
     if (!changed) { return; }
     /* Scene state belongs to this project, never to the selected game level. */
     StudioViewportCancelTransform(g_StudioViewport);
-    g_StudioGeneration++; g_StudioTriedInitialScene=FALSE; StudioSceneFree(&g_StudioScene); g_StudioObject=g_StudioMaterial=-1;
+    g_StudioGeneration++; g_StudioTriedInitialScene=FALSE; StudioSceneFree(&g_StudioScene); g_StudioObject=g_StudioMaterial=g_StudioLight=-1;
     StudioViewportSetScene(g_StudioViewport,&g_StudioScene,TRUE);
     SendDlgItemMessage(g_Studio, IDC_STUDIO_SCENE, LB_RESETCONTENT, 0, 0);
     BrowserSetImages(GetDlgItem(g_Studio, IDC_STUDIO_IMAGES), NULL, 0, NULL);
@@ -587,6 +716,8 @@ static INT_PTR CALLBACK RenderStudioProc(HWND hwnd, UINT message, WPARAM wparam,
     case WM_INITMENUPOPUP:
         EnableMenuItem((HMENU)wparam, ID_STUDIO_NEW_SCENE, MF_BYCOMMAND | (g_StudioProject[0] ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_STUDIO_SAVE_SCENE, MF_BYCOMMAND | (g_StudioScene.filename[0] ? MF_ENABLED : MF_GRAYED));
+        EnableMenuItem((HMENU)wparam, ID_STUDIO_ADD_SPOTLIGHT, MF_BYCOMMAND | (g_StudioProject[0] && StudioSceneLightSlot(&g_StudioScene,TRUE)>=0 ? MF_ENABLED : MF_GRAYED));
+        EnableMenuItem((HMENU)wparam, ID_STUDIO_ADD_POINT_LIGHT, MF_BYCOMMAND | (g_StudioProject[0] && StudioSceneLightSlot(&g_StudioScene,FALSE)>=0 ? MF_ENABLED : MF_GRAYED));
         return TRUE;
     case WM_GETMINMAXINFO:
     {
@@ -600,6 +731,8 @@ static INT_PTR CALLBACK RenderStudioProc(HWND hwnd, UINT message, WPARAM wparam,
         return TRUE;
     }
     case WM_COMMAND:
+        if (LOWORD(wparam) == ID_STUDIO_ADD_SPOTLIGHT) { RenderStudioAddLight(TRUE); return TRUE; }
+        if (LOWORD(wparam) == ID_STUDIO_ADD_POINT_LIGHT) { RenderStudioAddLight(FALSE); return TRUE; }
         if (LOWORD(wparam) == ID_STUDIO_SAVE_SCENE) { RenderStudioSaveScene(); return TRUE; }
         if (LOWORD(wparam) == ID_STUDIO_NEW_SCENE) { RenderStudioNewScene(hwnd); return TRUE; }
         if (LOWORD(wparam) == IDCANCEL) { DestroyWindow(hwnd); return TRUE; }
@@ -627,7 +760,7 @@ static INT_PTR CALLBACK RenderStudioProc(HWND hwnd, UINT message, WPARAM wparam,
     case WM_NCDESTROY:
         g_StudioGeneration++; g_StudioTriedInitialScene=FALSE; StudioSceneFree(&g_StudioScene);
         g_Studio = g_StudioViewport = g_StudioProperties = g_StudioTransform = NULL; g_StudioTool=STUDIO_TRANSLATE; g_StudioProject[0] = '\0';
-        g_StudioObject=g_StudioMaterial=-1; g_StudioDragArmed=g_StudioDragging=FALSE;
+        g_StudioObject=g_StudioMaterial=g_StudioLight=-1; g_StudioDragArmed=g_StudioDragging=FALSE;
         break;
     }
     return FALSE;
@@ -654,7 +787,7 @@ BOOL RenderStudioShow(HWND owner, HINSTANCE instance, const GEditorProject *proj
         DestroyWindow(GetDlgItem(g_Studio,IDC_STUDIO_PROPERTIES));
         g_StudioProperties=CreateDialog(instance,MAKEINTRESOURCE(IDD_STUDIO_PROPERTIES),g_Studio,RenderStudioPropertiesProc);
         if (!g_StudioProperties)
-        { DestroyWindow(g_Studio); *why="Could not create the studio material properties panel."; return FALSE; }
+        { DestroyWindow(g_Studio); *why="Could not create the studio properties panel."; return FALSE; }
         SetWindowLongPtr(g_StudioProperties,GWLP_ID,IDC_STUDIO_PROPERTIES); ShowWindow(g_StudioProperties,SW_SHOW);
         DestroyWindow(GetDlgItem(g_Studio,IDC_STUDIO_TRANSFORM));
         g_StudioTransform=CreateDialog(instance,MAKEINTRESOURCE(IDD_STUDIO_TRANSFORM),g_Studio,RenderStudioTransformProc);

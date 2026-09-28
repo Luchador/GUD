@@ -125,7 +125,7 @@ int main(int argc,char **argv)
     CHECK(StudioPick(&scene,eye,ray,&material)==1 && material==1); /* World distances despite very different scales. */
     StudioMaterial m={0}; BgVertex v={0}; float diffuse[3],specular[3];
     m.base[0]=m.base[1]=m.base[2]=1; m.shininess=32; v.r=v.g=v.b=255; v.environment.normal[0]=v.environment.normal[1]=1;
-    StudioShade(&m,&v,&matrix,eye,diffuse,specular);
+    StudioShade(NULL,&m,&v,&matrix,eye,diffuse,specular);
     double nl=(-.348742916/3+.813733471/2)/sqrt(1.0/9+.25);
     CHECK(NEAR(diffuse[0],.2+.8*nl));
     CHECK(StudioSceneSave(&scene,&why) && StudioSceneLoad(argv[1],"Main.rnd",&loaded,&why));
@@ -141,6 +141,6 @@ int main(int argc,char **argv)
     CHECK(!StudioSceneLoad(argv[1],"Legacy.rnd",&loaded,&why) && loaded.objects[0].transform.scale[1]==1);
     scene.objects[0].transform.scale[0]=NAN; CHECK(!StudioSceneSave(&scene,&why));
     StudioSceneFree(&scene); StudioSceneFree(&loaded);
-    puts("PASS: transformed bounds/picking, inverse-transpose lighting, v2 save/reload, v1 defaults and failed-save/invalid-load rollback.");
+    puts("PASS: transformed bounds/picking, inverse-transpose lighting, versioned save/reload, v1 defaults and failed-save/invalid-load rollback.");
     Dragging(); Gizmos(argv[2]); return 0;
 }

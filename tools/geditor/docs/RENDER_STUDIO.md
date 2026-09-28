@@ -48,7 +48,7 @@ instances of the same file share loaded geometry. The scene outliner identifies
 each instance by model filename and instance number.
 
 Choose **File > Save Scene** or press **Ctrl+S** in Render Studio to save the
-current scene's model instances, transforms, and material properties. Pending
+current scene's model instances, transforms, material properties, and lights. Pending
 numeric edits are applied before saving. Completed placements and edits also
 continue to save automatically.
 
@@ -97,10 +97,42 @@ Enter or leaving the field. Completed edits and placements automatically save
 the `.rnd` scene. Invalid edits and failed saves restore the previous setting;
 an existing scene file is replaced only after its complete replacement is written.
 
-The interactive preview uses a directional light, ambient fill, and per-vertex
-Phong lighting. Base images affect diffuse color without tinting the separate
+Choose **Add > Spotlight** or **Add > Point Light** next to the File menu. Each
+scene supports **one spotlight and two point lights**; an item is disabled when
+its limit is reached. If no scene is open, the New Scene prompt appears first.
+New lights start above the models (or at 0, 5, 0 in an empty scene), white, with
+intensity 1. The spotlight points down, with inner/outer angles of 20/30 degrees.
+Point lights start with a radius sized to the models, or 10 in an empty scene.
+
+Select **Spotlight**, **Point Light 1**, or **Point Light 2** in the Scene Outliner
+to edit the light in **Properties**:
+
+- Both types have **Position X/Y/Z**, **Color**, and **Intensity** (0–10000).
+  Intensity 0 turns off that light's contribution.
+- A spotlight also has a nonzero **Direction X/Y/Z**, an **Inner angle**, and an
+  **Outer angle**, in degrees from the direction axis (half the full cone width).
+  Direction is normalized for rendering; it is a vector, not a target position.
+  The inner angle must be between 0 and the outer angle; the outer angle must be
+  greater than 0 and no more than 90. Brightness is full inside the inner cone,
+  fades smoothly between the cones, and is zero outside. Equal angles make a
+  hard cone edge. Spotlight brightness has no distance falloff.
+- A point light has a **Radius** in scene units, from 0.0001 to 1 billion.
+  Brightness fades as `(1 - distance / radius)^2`, reaching zero at the radius.
+
+Light positions use the same units as model positions. Edit them in Properties;
+the Transform panel and viewport gizmos currently operate on models. Color changes
+apply immediately; press Enter or leave a numeric field to apply it. Light
+creation and edits save automatically, and File > Save Scene/Ctrl+S includes them.
+Invalid edits or failed saves restore the previous settings.
+
+The interactive preview uses ambient fill and per-vertex Phong lighting. Once a
+light is added, the scene's lights supply the diffuse and specular illumination.
+Scenes without added lights retain the original default directional light.
+The preview interpolates lighting across triangles, so cone edges and small
+point-light footprints are more accurate on meshes with sufficient vertices.
+Base images affect diffuse color without tinting the separate
 specular highlight. This is an opaque preview; glTF PBR roughness/metallic maps,
-transparency, scene light editing, and the final SGI-style renderer are future work.
+transparency, shadows, and the final SGI-style renderer are future work.
 BMP preview textures use power-of-two dimensions up to 4096 for OpenGL compatibility.
 
 Scene loading preserves unavailable model instances and their material settings,
@@ -127,15 +159,22 @@ workspace to the newly opened project; switching game levels does not.
 `browser.c` provides the same image grid for the main editor and Render Studio.
 `studioscene.c` owns scene filenames, creation, and enumeration.
 `studiodocument.c` owns scene loading, atomic replacement, instances, shared model
-assets, and per-instance materials. A `.rnd` is a UTF-8 JSON document with
-`"format": "GEditor Render Studio"`, `"version": 2`, and an `objects` array.
-Version-1 scenes remain supported: existing positions and material settings are
+assets, per-instance materials, and fixed light slots. A `.rnd` is a UTF-8 JSON
+document with
+`"format": "GEditor Render Studio"`, `"version": 3`, an `objects` array, and a
+`lights` array. Version-1 and version-2 scenes remain supported without lights.
+For version-1 scenes, existing positions and material settings are
 retained, rotation defaults to zero, and scale defaults to one. An empty scene
-created by New Scene starts as version 1; saving upgrades it to version 2.
+created by New Scene starts as version 1; saving upgrades it to version 3.
 Each object stores its model leaf filename, three-component `position`, `rotation`
 (in degrees), `scale` (multipliers), and material overrides (`name`, `image`,
 `base`, `specular`, `intensity`, and `shininess`). Paths are relative to the
 project's studio folders. The scene name comes from its filename.
+Each light stores `type` (`spotlight` or `point`), `position`, `color`, and
+`intensity`. Spotlights also store `direction`, `inner`, and `outer`; point lights
+store `radius`. Invalid light data or exceeded limits reject the entire load
+without changing the open scene. Older editor builds reject version-3 scenes
+rather than silently discarding their lights.
 `gltf.c` provides a separate studio import mode using the shared JSON codec in
 `gltfjson.c`; it does not require game source identities or game texture tags.
 `studiomath.c` owns model matrices, ray picking, transformed bounds, and preview
@@ -145,6 +184,10 @@ owns the preview camera, rendering, image textures, and its own OpenGL context.
 
 Run `python3 tools/geditor/tests/studio_materials/run.py` for glTF/material,
 scene persistence, failure rollback, picking, and lighting regression coverage.
+Run `python3 tools/geditor/tests/studio_lights/run.py` for light limits, properties,
+roundtrip persistence, legacy migration, invalid-document/save rollback, cone and
+radius falloff, colored diffuse/specular contributions, and outliner/property
+callback coverage with stand-in native controls.
 Run `python3 tools/geditor/tests/studio_transforms/run.py` for transform
 persistence, legacy-scene loading, transformed picking/lighting, drag math,
 actual gizmo assets, hotkey routing, and Save Scene input ordering.
@@ -154,4 +197,6 @@ The suite uses production code with a filesystem shim and ASan/UBSan. Native
 Windows interaction, WIC texture decoding, and window layout need a Windows
 smoke test: drop a three-material model twice, edit one instance, change selection,
 move/rotate/scale it using both handles and numeric fields, save and reopen the
-scene, and resize the window while an image is assigned.
+scene, and resize the window while an image is assigned. Add one spotlight and
+two point lights, confirm the Add menu limits, edit every light property, switch
+between models/materials/lights, then save and reopen the scene.

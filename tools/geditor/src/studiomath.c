@@ -111,12 +111,49 @@ int StudioPick(const StudioScene *scene, const double origin[3], const double di
     return result;
 }
 
-void StudioShade(const StudioMaterial *m, const BgVertex *vertex, const StudioMatrix *matrix,
+/* direction points from the shaded surface toward the light. Cone angles are
+ * measured from the spotlight's outward axis, not across the full cone. */
+double StudioLightSample(const StudioLight *light, BOOL spotlight, const double point[3], double direction[3])
+{
+    double distance=0;
+    for (int k=0;k<3;k++) { direction[k]=light->position[k]-point[k]; distance+=direction[k]*direction[k]; }
+    distance=sqrt(distance);
+    if (!light->enabled || light->intensity<=0 || distance<=1e-12) { return 0; }
+    for (int k=0;k<3;k++) { direction[k]/=distance; }
+    if (!spotlight)
+    {
+        double falloff=fmax(0,1-distance/light->radius);
+        return light->intensity*falloff*falloff;
+    }
+    double length=0,alignment=0;
+    for (int k=0;k<3;k++) { length+=light->direction[k]*light->direction[k]; alignment-=light->direction[k]*direction[k]; }
+    if (length<=1e-24) { return 0; }
+    alignment/=sqrt(length);
+    double inner=cos(light->inner*3.14159265358979323846/180),outer=cos(light->outer*3.14159265358979323846/180);
+    if (alignment<outer) { return 0; }
+    if (alignment>=inner || inner==outer) { return light->intensity; }
+    double blend=(alignment-outer)/(inner-outer);
+    return light->intensity*blend*blend*(3-2*blend);
+}
+
+static void StudioIlluminate(const StudioMaterial *m,const double normal[3],const double view[3],
+    const double light[3],const float color[3],double diffusepower,double specularpower,
+    double illumination[3],double highlights[3])
+{
+    double nl=0,rv=0;
+    for (int k=0;k<3;k++) { nl+=normal[k]*light[k]; }
+    if (nl<=0) { return; }
+    for (int k=0;k<3;k++) { rv+=(2*normal[k]*nl-light[k])*view[k]; }
+    double highlight=m->intensity*pow(fmax(0,fmin(1,rv)),m->shininess)*specularpower;
+    for (int k=0;k<3;k++) { illumination[k]+=color[k]*nl*diffusepower; highlights[k]+=color[k]*highlight; }
+}
+
+void StudioShade(const StudioScene *scene,const StudioMaterial *m, const BgVertex *vertex, const StudioMatrix *matrix,
     const double eye[3], float diffuse[3], float specular[3])
 {
-    const double light[3]={0.348742916,0.813733471,0.464990554};
-    double normal[3]={0},view[3],length=0,viewlength=0,nl=0,rv=0;
-    double color[3]={vertex->r/255.0,vertex->g/255.0,vertex->b/255.0},p[3]={vertex->x,vertex->y,vertex->z};
+    double normal[3]={0},view[3],length=0,viewlength=0;
+    double p[3]={vertex->x,vertex->y,vertex->z};
+    double illumination[3]={.2,.2,.2},highlights[3]={0}; BOOL authored=FALSE;
     StudioPoint(matrix,p,p);
     for (int k=0;k<3;k++)
     {
@@ -124,8 +161,22 @@ void StudioShade(const StudioMaterial *m, const BgVertex *vertex, const StudioMa
         length+=normal[k]*normal[k]; view[k]=eye[k]-p[k]; viewlength+=view[k]*view[k];
     }
     length=sqrt(length); viewlength=sqrt(viewlength);
-    for (int k=0;k<3;k++) { normal[k]=length>1e-12 ? normal[k]/length : (k==1); view[k]=viewlength>1e-12 ? view[k]/viewlength : 0; nl+=normal[k]*light[k]; }
-    if (nl>0) for (int k=0;k<3;k++) { rv+=(2*normal[k]*nl-light[k])*view[k]; }
-    double highlight=nl>0 ? m->intensity*pow(fmax(0,fmin(1,rv)),m->shininess) : 0;
-    for (int k=0;k<3;k++) { diffuse[k]=(float)(m->base[k]*color[k]*(0.2+0.8*fmax(0,nl))); specular[k]=(float)(m->specular[k]*highlight); }
+    for (int k=0;k<3;k++) { normal[k]=length>1e-12 ? normal[k]/length : (k==1); view[k]=viewlength>1e-12 ? view[k]/viewlength : 0; }
+    if (scene) for (int i=0;i<STUDIO_LIGHT_COUNT;i++)
+    {
+        const StudioLight *light=&scene->lights[i]; if (!light->enabled) { continue; } authored=TRUE;
+        double direction[3],power=StudioLightSample(light,i==0,p,direction);
+        if (power>0) { StudioIlluminate(m,normal,view,direction,light->color,power,power,illumination,highlights); }
+    }
+    if (!authored)
+    {
+        const double direction[3]={0.348742916,0.813733471,0.464990554}; const float white[3]={1,1,1};
+        StudioIlluminate(m,normal,view,direction,white,.8,1,illumination,highlights);
+    }
+    double color[3]={vertex->r/255.0,vertex->g/255.0,vertex->b/255.0};
+    for (int k=0;k<3;k++)
+    {
+        diffuse[k]=(float)fmin(1,m->base[k]*color[k]*illumination[k]);
+        specular[k]=(float)fmin(1,m->specular[k]*highlights[k]);
+    }
 }

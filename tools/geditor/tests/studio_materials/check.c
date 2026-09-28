@@ -68,14 +68,14 @@ static void Math(const StudioScene *scene)
     v.environment.normal[1]=1; v.r=v.g=v.b=255;
     for(int k=0;k<3;k++) { m.base[k]=.5; m.specular[k]=1; }
     m.intensity=.75; m.shininess=32;
-    StudioShade(&m,&v,&matrix,eye,diffuse,specular);
+    StudioShade(NULL,&m,&v,&matrix,eye,diffuse,specular);
     CHECK(NEAR(diffuse[0],.5*(.2+.8*.813733471)) && NEAR(specular[0],.75));
     m.base[0]=0; m.specular[1]=0;
-    StudioShade(&m,&v,&matrix,eye,diffuse,specular);
+    StudioShade(NULL,&m,&v,&matrix,eye,diffuse,specular);
     CHECK(diffuse[0]==0 && NEAR(specular[0],.75) && specular[1]==0); /* Independent specular color. */
-    eye[0]+=.3; m.shininess=4; StudioShade(&m,&v,&matrix,eye,diffuse,specular); wide=specular[0];
-    m.shininess=64; StudioShade(&m,&v,&matrix,eye,diffuse,specular); CHECK(specular[0]<wide && specular[0]>0);
-    m.intensity=0; StudioShade(&m,&v,&matrix,eye,diffuse,specular); CHECK(specular[0]==0);
+    eye[0]+=.3; m.shininess=4; StudioShade(NULL,&m,&v,&matrix,eye,diffuse,specular); wide=specular[0];
+    m.shininess=64; StudioShade(NULL,&m,&v,&matrix,eye,diffuse,specular); CHECK(specular[0]<wide && specular[0]>0);
+    m.intensity=0; StudioShade(NULL,&m,&v,&matrix,eye,diffuse,specular); CHECK(specular[0]==0);
     puts("PASS: instance bounds, nearest face/material picking, camera rays and independent Phong color/intensity/shininess.");
 }
 
@@ -111,7 +111,7 @@ int main(int argc,char **argv)
     CHECK(!StudioSceneAddModel(&scene,"../Light.gltf",position,&why) && scene.count==2);
     m->intensity=NAN; CHECK(!StudioSceneSave(&scene,&why)); m->intensity=.875;
     snprintf(path,sizeof(path),"%s/studio/scenes/Bad.rnd",project);
-    const char *bad[]={"{\"format\":\"GEditor Render Studio\",\"version\":3,\"objects\":[]}",
+    const char *bad[]={"{\"format\":\"GEditor Render Studio\",\"version\":4,\"objects\":[]}",
         "{\"format\":\"GEditor Render Studio\",\"version\":1,\"objects\":[{\"model\":\"../Light.gltf\"}]}",
         "{\"format\":\"GEditor Render Studio\",\"version\":1,\"objects\":[{\"model\":\"Light.gltf\",\"position\":[NaN,0,0],\"materials\":[]}]}",
         "{\"format\":\"GEditor Render Studio\",\"version\":1,\"objects\":[{\"model\":\"Light.gltf\",\"position\":[0,0,0],\"materials\":[{}]}]}"};

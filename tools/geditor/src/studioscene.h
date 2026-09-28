@@ -40,11 +40,21 @@ typedef struct StudioInstance {
     DWORD materialcount;
 } StudioInstance;
 
+/* Fixed slots: one spotlight followed by two point lights. */
+#define STUDIO_LIGHT_COUNT 3
+typedef struct StudioLight {
+    BOOL enabled;
+    double position[3], direction[3];
+    float color[3];
+    double intensity, radius, inner, outer;
+} StudioLight;
+
 typedef struct StudioScene {
     char project[MAX_PATH], filename[MAX_PATH];
     StudioInstance *objects;
     DWORD count;
     StudioModel *assets;
+    StudioLight lights[STUDIO_LIGHT_COUNT];
 } StudioScene;
 
 void StudioSceneFree(StudioScene *scene);
@@ -54,6 +64,9 @@ BOOL StudioSceneAddModel(StudioScene *scene, const char *filename, const double 
 void StudioSceneRemove(StudioScene *scene, DWORD index);
 BOOL StudioTransformValid(const StudioTransform *transform);
 BOOL StudioMaterialValid(const StudioMaterial *material);
+BOOL StudioLightValid(const StudioLight *light, BOOL spotlight);
+int StudioSceneLightSlot(const StudioScene *scene, BOOL spotlight);
+int StudioSceneAddLight(StudioScene *scene, BOOL spotlight, const char **why);
 BOOL StudioAssetFilename(const char *filename, const char *extension);
 
 #endif
