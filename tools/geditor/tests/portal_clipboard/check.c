@@ -9,7 +9,8 @@
 
 BOOL SetupFileCompact(SetupFile *setup, const char **why) { abort(); }
 void SetupFileFree(SetupFile *setup) { abort(); }
-void StanFileFree(StanFile *stan) { abort(); }
+void StanFileFree(StanFile *stan) { assert(!stan->data); }
+static StanFile g_StanClipboard;
 static int allocation = -1;
 static void *TestMalloc(size_t size)
 { if (allocation == 0) return NULL; if (allocation > 0) allocation--; return malloc(size); }

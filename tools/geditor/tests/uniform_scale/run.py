@@ -52,12 +52,12 @@ with tempfile.TemporaryDirectory(prefix='geditor-uniform-scale-') as temp:
              'ViewportBuildModelBox', 'ViewportBuildObjectSelectionBox', 'ViewportGroupPosition',
              'ViewportCompareVertexRefs', 'ViewportGetMoveVertices', 'ViewportRayTriangleDistance',
              'ViewportArrowVertex', 'ViewportDrawGizmoHandles', 'ViewportPickGizmo',
-             'ViewportShouldDuplicateBgFaces', 'ViewportPrepareBgFaceDuplicate', 'ViewportShouldExtrudeEdges', 'ViewportPreviewEdgeExtrusion',
+             'ViewportShouldDuplicateStanTiles', 'ViewportPrepareStanDrag', 'ViewportShouldDuplicateBgFaces', 'ViewportPrepareBgFaceDuplicate', 'ViewportShouldExtrudeEdges', 'ViewportPreviewEdgeExtrusion',
              'ViewportPortalGeometryIsFirst', 'ViewportPortalComponentMask', 'ViewportPortalPointMask',
              'ViewportPortalSelectionPosition', 'ViewportGetPortalSelectionCount', 'ViewportPreparePortalDrag',
              'ViewportPreviewPortalDrag', 'ViewportTriangleRotation', 'ViewportGetComponentRotation', 'ViewportGetGeometryRotation',
              'ViewportBeginTransform', 'ViewportDragTransform', 'ViewportCancelTransform',
-             'ViewportFinishPortalDuplicate', 'ViewportFinishBgFaceDuplicate', 'ViewportEndTransform', 'ViewportGetScaling', 'ViewportPreviewGuidePoint',
+             'ViewportFinishPortalDuplicate', 'ViewportFinishBgFaceDuplicate', 'ViewportFinishStanDuplicate', 'ViewportEndTransform', 'ViewportGetScaling', 'ViewportPreviewGuidePoint',
              'ViewportEnvironmentCoordinates')
     (work / 'functions.inc').write_text(''.join(re.search(r'^#define ' + name + r' .*$', viewport, re.M)[0] + '\n'
         for name in defines) + extract.function((src / 'bgrender.c').read_text(), 'BgRenderTriangleNormal')

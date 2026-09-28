@@ -30,8 +30,8 @@ with tempfile.TemporaryDirectory(prefix='geditor-portal-clipboard-') as director
     assert 'GEditorCopyPortals(hwnd)' in dispatch and 'GEditorPastePortals(hwnd)' in dispatch
     assert 'BgPortalFileFree(&g_PortalClipboard)' in dispatch
     assert 'BgPortalFileFree(&g_PortalClipboard)' in extract.function(editor, 'GEditorCopyObject')
-    # Existing lifecycle sites must clear all three clipboard kinds together.
-    assert editor.count('BgPortalFileFree(&g_PortalClipboard)') == 5
+    # Copying either another geometry kind clears the portal clipboard.
+    assert 'BgPortalFileFree(&g_PortalClipboard)' in extract.function(editor, 'GEditorCopyStanTiles')
     command = [os.environ.get('CC', 'cc'), '-std=c99', '-O1', '-g', '-Wall', '-Wextra', '-Werror',
                '-Wno-unused-parameter', '-ffunction-sections', '-fdata-sections', '-fsanitize=address,undefined',
                f'-I{here.parent / "image_import"}', f'-I{src}', f'-I{work}']

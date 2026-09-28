@@ -363,7 +363,7 @@ typedef struct ViewportState {
     float (*dragvertices)[3];
     double (*dragmodelcenters)[3];
     Rotation *dragmodelaxes;
-    BOOL dragduplicating, dragfaceduplicating;
+    BOOL dragduplicating, dragfaceduplicating, dragstanduplicating;
     unsigned char *dragmask;
     int selectedtricount;
     DWORD selectedobject;
@@ -2270,8 +2270,40 @@ static void ViewportDrawStanDiscontinuities(const ViewportState *state)
     glPopAttrib();
 }
 
+/* Preview moves only the future copies. Keep their source tiles visible at
+ * the press-time coordinates until release commits the native duplication. */
+static void ViewportDrawStanOriginals(const ViewportState *state)
+{
+    if (!state->dragstanduplicating || !state->dragvertices || !state->dragmask
+        || !ViewportStanVisible(state)) { return; }
+    glPushAttrib(GL_CURRENT_BIT | GL_ENABLE_BIT | GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_POLYGON_BIT);
+    glDisable(GL_TEXTURE_2D); glDisable(GL_ALPHA_TEST); glDisable(GL_CULL_FACE);
+    glDepthFunc(GL_LEQUAL);
+    for (int wire = 0; wire < 2; wire++)
+    {
+        ViewportApplyStanOpacity(state, !wire);
+        glPolygonMode(GL_FRONT_AND_BACK, wire ? GL_LINE : GL_FILL);
+        glEnable(wire ? GL_POLYGON_OFFSET_LINE : GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(wire ? -2.0f : -1.0f, wire ? -2.0f : -1.0f);
+        for (DWORD t = 0; t < state->stan.tilecount; t++)
+        {
+            const StanTile *tile = &state->stan.tiles[t];
+            DWORD first = t * STAN_TILE_MAX_POINTS;
+            if (!state->dragmask[first] || ViewportStanTileHidden(state, t)) { continue; }
+            glColor4ub(wire ? 0 : tile->red, wire ? 0 : tile->green,
+                wire ? 0 : tile->blue, (unsigned char)(state->stanopacity * 255 / 100));
+            glBegin(GL_POLYGON);
+            for (DWORD p = 0; p < tile->pointcount; p++) { glVertex3fv(state->dragvertices[first + p]); }
+            glEnd();
+        }
+        glDisable(wire ? GL_POLYGON_OFFSET_LINE : GL_POLYGON_OFFSET_FILL);
+    }
+    glPopAttrib();
+}
+
 static void ViewportDrawStanOverlay(const ViewportState *state)
 {
+    ViewportDrawStanOriginals(state);
     if (ViewportStanVisible(state) && state->stanfill != NULL && state->stanfillcount > 0)
     {
         /* Stan polygons commonly lie directly on their matching BG
@@ -7837,6 +7869,33 @@ static BOOL ViewportShouldDuplicateBgFaces(const ViewportState *state, BOOL shif
         && state->selectedobject == VIEWPORT_OBJECT_NONE;
 }
 
+static BOOL ViewportShouldDuplicateStanTiles(const ViewportState *state, BOOL shift)
+{
+    return shift && state->dragstan && state->tool == EDITOR_TOOL_FACE_SELECT
+        && !state->dragknife && !state->dragroom && !state->dragmarker
+        && !state->dragportal && !state->dragpad && state->selectedobject == VIEWPORT_OBJECT_NONE;
+}
+
+static BOOL ViewportPrepareStanDrag(HWND hwnd, ViewportState *state, BOOL duplicate)
+{
+    DWORD refcount = 0;
+    StanPointRef *refs = duplicate ? NULL : ViewportGetMoveStanPoints(hwnd, &refcount);
+    if (!duplicate && !refs) { return FALSE; }
+    for (DWORD tile = 0; tile < state->stan.tilecount; tile++)
+    for (DWORD point = 0; point < state->stan.tiles[tile].pointcount; point++)
+    {
+        DWORD i = tile * STAN_TILE_MAX_POINTS + point;
+        const StanPoint *v = &state->stan.tiles[tile].points[point];
+        StanPointRef ref = ViewportStanPointRef(state, tile, point);
+        state->dragvertices[i][0] = v->x; state->dragvertices[i][1] = v->y; state->dragvertices[i][2] = v->z;
+        /* A duplicate is detached from unselected neighbors, even when the
+         * original endpoints belong to the same linked editing component. */
+        state->dragmask[i] = duplicate ? state->stanselected[tile] && !ViewportStanTileHidden(state, tile)
+            : bsearch(&ref, refs, refcount, sizeof(*refs), ViewportCompareStanRefs) != NULL;
+    }
+    free(refs); return TRUE;
+}
+
 static void ViewportPrepareBgFaceDuplicate(ViewportState *state)
 {
     /* A copy has independent vertices: never pull unselected neighboring
@@ -7919,7 +7978,7 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
     ViewportPickRay ray;
     BgDocumentVertexRef *refs = NULL;
     DWORD refcount = 0;
-    BOOL duplicatefaces = FALSE;
+    BOOL duplicatefaces = FALSE, duplicatestan = FALSE;
     int axis = ViewportPickGizmo(hwnd, state, x, y), i, vertexcount;
     double length = 0;
     if (axis < 0)
@@ -7958,6 +8017,7 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
         state->dragpad = ViewportSelectedPadIndex(state) >= 0;
         state->dragstan = ViewportGetStanSelectionCount(hwnd, NULL) > 0;
         duplicatefaces = ViewportShouldDuplicateBgFaces(state, shift);
+        duplicatestan = ViewportShouldDuplicateStanTiles(state, shift);
         vertexcount = state->dragportal ? (int)(state->portals.portalcount * BG_PORTAL_MAX_POINTS)
                       : state->dragmarker ? 1 : state->dragpad    ? VIEWPORT_BOX_VERTICES
                       : state->dragstan ? (int)(state->stan.tilecount * STAN_TILE_MAX_POINTS)
@@ -7988,28 +8048,12 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
         }
         else if (state->dragstan)
         {
-            StanPointRef *stanrefs = ViewportGetMoveStanPoints(hwnd, &refcount);
-            if (stanrefs == NULL)
+            if (!ViewportPrepareStanDrag(hwnd, state, duplicatestan))
             {
-                free(state->dragvertices);
-                free(state->dragmask);
-                state->dragvertices = NULL;
-                state->dragmask = NULL;
+                free(state->dragvertices); free(state->dragmask);
+                state->dragvertices = NULL; state->dragmask = NULL;
                 return TRUE;
             }
-            for (i = 0; i < vertexcount; i++)
-            {
-                DWORD tile = (DWORD)i / STAN_TILE_MAX_POINTS, point = (DWORD)i % STAN_TILE_MAX_POINTS;
-                const StanPoint *v = &state->stan.tiles[tile].points[point];
-                StanPointRef ref = ViewportStanPointRef(state, tile, point);
-                state->dragvertices[i][0] = v->x;
-                state->dragvertices[i][1] = v->y;
-                state->dragvertices[i][2] = v->z;
-                state->dragmask[i] = point < state->stan.tiles[tile].pointcount &&
-                                     bsearch(&ref, stanrefs, refcount, sizeof(*stanrefs),
-                                             ViewportCompareStanRefs) != NULL;
-            }
-            free(stanrefs);
         }
         else if (duplicatefaces) { ViewportPrepareBgFaceDuplicate(state); }
         else
@@ -8101,6 +8145,7 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
     state->dragportalduplicating = shift && state->dragportal && state->tool == EDITOR_TOOL_FACE_SELECT
         && !state->dragrotation && !state->dragscaling;
     state->dragfaceduplicating = duplicatefaces;
+    state->dragstanduplicating = duplicatestan;
     state->dragduplicating = !state->dragroom && shift && !state->dragknife && !state->dragmarker && !state->dragportal
         && !state->dragpad && !state->dragstan && state->selectedobject != VIEWPORT_OBJECT_NONE;
     if (state->dragscaling && ViewportObjectCount(state) > 1)
@@ -8404,6 +8449,7 @@ void ViewportCancelTransform(HWND hwnd)
     state->dragextruding = state->extrudepreviewvalid = FALSE;
     state->dragduplicating = FALSE;
     state->dragfaceduplicating = FALSE;
+    state->dragstanduplicating = FALSE;
     state->dragportalduplicating = FALSE;
     free(state->extrudeedges); state->extrudeedges = NULL;
     free(state->stanextrudeedges); state->stanextrudeedges = NULL;
@@ -8454,6 +8500,25 @@ static BOOL ViewportFinishBgFaceDuplicate(HWND hwnd, ViewportState *state)
     return TRUE;
 }
 
+static BOOL ViewportFinishStanDuplicate(HWND hwnd, ViewportState *state)
+{
+    ViewportStanDuplicate copy = {0};
+    if (!state->dragstanduplicating) { return FALSE; }
+    double delta = state->dragdelta;
+    copy.mode = state->dragscaling ? TRANSFORM_SCALE : state->dragrotation ? TRANSFORM_ROTATE : TRANSFORM_MOVE;
+    if (copy.mode == TRANSFORM_MOVE) { copy.translation.offset[state->dragaxis] = delta; }
+    if (copy.mode == TRANSFORM_ROTATE) { RotationAxis(&copy.rotation.rotation, state->dragaxis, delta); }
+    memcpy(copy.rotation.pivot, state->dragorigin, sizeof(copy.rotation.pivot));
+    copy.scaling.axes = state->scaleaxes;
+    memcpy(copy.scaling.pivot, state->dragorigin, sizeof(copy.scaling.pivot));
+    for (int axis = 0; axis < 3; axis++)
+    { copy.scaling.factor[axis] = (state->dragaxis == VIEWPORT_UNIFORM_SCALE_AXIS || axis == state->dragaxis) ? 1 + delta : 1; }
+    /* Restore preview coordinates before the controller snapshots the source. */
+    ViewportCancelTransform(hwnd);
+    if (delta != 0) { SendMessage(GetParent(hwnd), VIEWPORT_WM_DUPLICATE_STAN_TILES, 0, (LPARAM)&copy); }
+    return TRUE;
+}
+
 static void ViewportEndTransform(HWND hwnd, ViewportState *state)
 {
     ViewportTranslation request;
@@ -8464,6 +8529,7 @@ static void ViewportEndTransform(HWND hwnd, ViewportState *state)
     if (state->dragknife) { ViewportFinishKnifeTransform(hwnd, state, FALSE); return; }
     if (ViewportFinishPortalDuplicate(hwnd, state)) { return; }
     if (ViewportFinishBgFaceDuplicate(hwnd, state)) { return; }
+    if (ViewportFinishStanDuplicate(hwnd, state)) { return; }
     if (state->dragduplicating)
     {
         ViewportObjectDuplicate copy = {0};

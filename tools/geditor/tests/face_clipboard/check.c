@@ -224,6 +224,7 @@ static void GEditorRefreshSelectionDetails(void) {}
 static void GEditorRefreshHistoryMenu(HWND hwnd) {}
 static void GEditorRestoreHistorySelection(HWND hwnd) { restores++; }
 static void MessageBox(HWND hwnd,const char *why,const char *title,unsigned flags) { assert(why[0]); errors++; }
+static double GEditorCoordinateFactor(void) { return 1; }
 #include "editor.inc"
 static void Commands(void)
 {

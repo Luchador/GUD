@@ -44,10 +44,12 @@ def main():
                    '-Werror', '-Wno-unused-parameter', '-ffunction-sections', '-fdata-sections',
                    '-fsanitize=address,undefined', f'-I{shim}', f'-I{src}', f'-I{src.parents[2]}', f'-I{work}']
         sources = ('setupload.c', 'actionblocks.c', 'bghistory.c', 'objectload.c',
-                   'objectshade.c', 'rotation.c', 'scaling.c', 'stanquery.c')
+                   'objectshade.c', 'rotation.c', 'scaling.c', 'stanquery.c',
+                   'bgrender.c', 'bgmaterial.c', 'doorshadow.c')
         subprocess.run(command + [str(here / 'check.c'), str(here / 'assets.c'), str(shim / 'platform.c')]
                        + [str(src / name) for name in sources]
-                       + ['-Wl,--gc-sections', '-lm', '-o', str(work / 'check')], check=True)
+                       + [str(src.parents[2] / 'src/game/doorshadowmath.c'),
+                          '-Wl,--gc-sections', '-lm', '-o', str(work / 'check')], check=True)
         subprocess.run([str(work / 'check'), str(work)], check=True,
                        env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))
 

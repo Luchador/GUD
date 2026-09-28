@@ -805,3 +805,114 @@ BOOL StanExtrudeEdges(StanFile *s,const StanEdgeRef *edges,DWORD count,
     }
     free(quads);free(s->data);free(s->tiles);*s=staged;s->dirty=TRUE;*extrudedout=count;*why="";return TRUE;
 }
+
+BOOL StanCopyTiles(const StanFile *s, const DWORD *selected, DWORD count,
+    StanFile *clipboard, const char **why)
+{
+    StanFile copy = {0};
+    unsigned char *keep = NULL;
+    DWORD end, *removed = NULL, removedcount = 0, deleted;
+    BOOL ok = FALSE;
+    if (!clipboard || clipboard == s || !Validate(s, &end, why)) { return FALSE; }
+    if (!selected || !count || count > s->tilecount)
+    { *why = "Select stan tiles to copy."; return FALSE; }
+    *why = "Out of memory copying stan tiles.";
+    keep = calloc(s->tilecount, 1);
+    removed = malloc((size_t)s->tilecount * sizeof(*removed));
+    if (!keep || !removed) { goto done; }
+    for (DWORD i = 0; i < count; i++)
+    {
+        if (selected[i] >= s->tilecount || keep[selected[i]])
+        { *why = "The stan tile selection is invalid."; goto done; }
+        keep[selected[i]] = 1;
+    }
+    for (DWORD i = 0; i < s->tilecount; i++)
+    { if (!keep[i]) { removed[removedcount++] = i; } }
+    if (!StanFileClone(s, &copy, why)
+        || (removedcount && !StanDeleteTiles(&copy, removed, removedcount, &deleted, why))) { goto done; }
+    StanFileFree(clipboard); *clipboard = copy; memset(&copy, 0, sizeof(copy));
+    *why = ""; ok = TRUE;
+done:
+    free(keep); free(removed); StanFileFree(&copy); return ok;
+}
+
+BOOL StanPasteTiles(StanFile *s, const StanFile *clipboard, const double offset[3],
+    DWORD *out, const char **why)
+{
+    DWORD end, copyend, nextid = 0, nexteditor = 0;
+    double delta[3];
+    StanFile staged = {0};
+    if (!Validate(s, &end, why) || !Validate(clipboard, &copyend, why)) { return FALSE; }
+    if (!offset || !out) { *why = "The stan paste request is invalid."; return FALSE; }
+    for (int axis = 0; axis < 3; axis++)
+    {
+        delta[axis] = round(offset[axis] * s->levelscale);
+        if (!isfinite(delta[axis]) || fabs(delta[axis]) > 65535)
+        { *why = "The paste exceeds the native stan coordinate range."; return FALSE; }
+    }
+    for (DWORD t = 0; t < s->tilecount; t++)
+    {
+        DWORD number = (s->tiles[t].id >> 8) & 0x7fffu;
+        if (number > nextid) { nextid = number; }
+        if (s->tiles[t].editorid > nexteditor) { nexteditor = s->tiles[t].editorid; }
+    }
+    DWORD count = clipboard->tilecount, first = s->tiles[0].sourceoffset;
+    DWORD copyfirst = clipboard->tiles[0].sourceoffset, bytes = copyend - copyfirst;
+    if (count > 0x7fffu || s->tilecount > 65536u - count || nextid > 0x7fffu - count
+        || nexteditor > UINT32_MAX - count || end > 0xffffffu - bytes || s->size > UINT32_MAX - bytes
+        || (end + bytes - first) / 8 + 0x10 > 0x10000u)
+    { *why = "The paste exceeds the native stan tile, identity or edge-link limits."; return FALSE; }
+    staged = *s;
+    staged.data = malloc(s->size + bytes);
+    staged.tiles = malloc((size_t)(s->tilecount + count) * sizeof(*staged.tiles));
+    if (!staged.data || !staged.tiles)
+    { *why = "Out of memory pasting stan tiles."; goto fail; }
+    staged.size += bytes; staged.tilecount += count;
+    memcpy(staged.data, s->data, end);
+    memcpy(staged.data + end + bytes, s->data + end, s->size - end);
+    memcpy(staged.tiles, s->tiles, (size_t)s->tilecount * sizeof(*s->tiles));
+    for (DWORD t = 0; t < count; t++)
+    {
+        const StanTile *source = &clipboard->tiles[t];
+        StanTile *tile = &staged.tiles[s->tilecount + t];
+        *tile = *source;
+        if (tile->room > STAN_MAX_ROOM)
+        { *why = "A copied stan tile has an invalid room."; goto fail; }
+        tile->id = (++nextid << 8) | (source->id & 0x8000ffu);
+        tile->editorid = ++nexteditor;
+        tile->sourceoffset = end + source->sourceoffset - copyfirst;
+        unsigned char *rawtile = staged.data + tile->sourceoffset;
+        memcpy(rawtile, clipboard->data + source->sourceoffset, 8 + tile->pointcount * 8);
+        Write32(rawtile, tile->id << 8 | tile->room);
+        for (DWORD p = 0; p < tile->pointcount; p++)
+        {
+            unsigned char *raw = rawtile + 8 + p * 8;
+            for (int axis = 0; axis < 3; axis++)
+            {
+                double value = (short)Read16(raw + axis * 2) + delta[axis];
+                if (value < -32768 || value > 32767)
+                { *why = "A pasted vertex exceeds the native stan coordinate range."; goto fail; }
+                Write16(raw + axis * 2, (unsigned short)(short)value);
+            }
+            unsigned short link = source->points[p].link;
+            if (link >= 0x10)
+            {
+                DWORD target = StanLinkedTile(clipboard, link);
+                DWORD targetoffset = end + clipboard->tiles[target].sourceoffset - copyfirst;
+                link = (unsigned short)((targetoffset - first) / 8 + 0x10);
+            }
+            Write16(raw + 6, link);
+            float scale = 1.0f / s->levelscale;
+            tile->points[p] = (StanPoint){(short)Read16(raw) * scale,
+                (short)Read16(raw + 2) * scale, (short)Read16(raw + 4) * scale, link};
+        }
+        if (!StanPointsHaveArea(rawtile + 8, tile->pointcount))
+        { *why = "The duplicate would contain a collapsed stan tile. Use a larger transform."; goto fail; }
+        StanUpdateRepresentativeTriangle(&staged, s->tilecount + t);
+    }
+    for (DWORD t = 0; t < count; t++) { out[t] = s->tilecount + t; }
+    free(s->data); free(s->tiles); *s = staged; s->dirty = TRUE;
+    *why = ""; return TRUE;
+fail:
+    StanFileFree(&staged); return FALSE;
+}

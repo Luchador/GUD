@@ -21,7 +21,7 @@ typedef struct { int x,y; } POINT;
 #define GL_TRIANGLES 4
 /* Unused native rendering fields retain the production viewport structure. */
 typedef int HDC,HGLRC,HCURSOR,GLuint,GLsizei,FogCurve,ViewportTexture,LARGE_INTEGER,FogCoordPointerFn;
-typedef int OrbitCamera,ModelLighting,VertexColor,ViewportAimGuide,ViewportMonitors;
+typedef int OrbitCamera,ModelLighting,VertexColor,ViewportAimGuide,ViewportMonitors,ViewportSelectionDomain;
 typedef int ViewportRoomDragPoint;
 typedef float GLfloat;
 typedef unsigned char GLubyte;
@@ -33,7 +33,9 @@ static HWND capture;
 static double parameter, eye[3]={100,150,200};
 static Vertex original[9];
 static int commits, copies, facecopies, moves;
-static int rotations;
+static int rotations, stancopies;
+static ViewportStanDuplicate stancopy;
+static StanTile stanoriginal[2];
 static BgPortal portaloriginal[3];
 static ViewportRotation committedrotation;
 static ViewportTranslation facecopy;
@@ -60,6 +62,7 @@ static LRESULT SendMessage(HWND hwnd,int message,int wparam,LPARAM lparam)
     if (message==VIEWPORT_WM_SCALE_SELECTION) { committed=*(Scaling *)lparam;commits++; }
     else if (message==VIEWPORT_WM_DUPLICATE_OBJECT) { copied=*(ViewportObjectDuplicate *)lparam;copies++; }
     else if (message==VIEWPORT_WM_DUPLICATE_BG_FACES) { assert(!s->dragfaceduplicating); facecopy=*(ViewportTranslation *)lparam;facecopies++; }
+    else if (message==VIEWPORT_WM_DUPLICATE_STAN_TILES) { assert(!s->dragstanduplicating && !memcmp(s->stan.tiles,stanoriginal,sizeof(stanoriginal))); stancopy=*(ViewportStanDuplicate *)lparam; stancopies++; }
     else if (message==VIEWPORT_WM_TRANSLATE_SELECTION) { moves++; }
     else if (message==VIEWPORT_WM_ROTATE_SELECTION) { committedrotation=*(ViewportRotation *)lparam;rotations++; }
     else abort();
@@ -108,17 +111,20 @@ static double ViewportDragParameter(const ViewportState *s,const ViewportPickRay
 static double ViewportGizmoScale(const ViewportState *s) { return s->gizmovisible && s->scalevalid ? 90 : 0; }
 static BOOL ViewportPreviewMarker(HWND h,ViewportState *s,double d,const Rotation *r) { abort(); }
 static BOOL ViewportPadPosition(const ViewportState *s,const SetupPadRef *p,BOOL preview,double out[3]) { abort(); }
+static BOOL ViewportPadSelectionPosition(const ViewportState *s,double out[3],BOOL gizmo) { abort(); }
 static void ViewportRefreshPortalGeometry(ViewportState *s) {}
-static void ViewportRefreshStanOverlay(ViewportState *s) { abort(); }
+static void ViewportRefreshStanOverlay(ViewportState *s) {}
 static void ViewportBuildObjectSelectionBox(ViewportState *s);
 static void ViewportUpdateGizmo(ViewportState *s) { s->hoveraxis=-1; }
 static void ViewportRefreshKnifePlane(HWND h,ViewportState *s) { abort(); }
 static void ViewportFinishKnifeTransform(HWND h,ViewportState *s,BOOL cancel) { abort(); }
 static void ViewportCancelBoxSelection(HWND h,ViewportState *s) {}
 static void ViewportSetSetupMarkers(HWND h,ViewportState *s,const SetupFile *f,float scale) { abort(); }
-DWORD ViewportGetStanSelectionCount(HWND h,DWORD *t) { return 0; }
+DWORD ViewportGetStanSelectionCount(HWND h,DWORD *t)
+{ ViewportState *s=h; DWORD n=0; for(DWORD i=0;i<s->stan.tilecount;i++) n+=s->stanselected[i]!=0; return n; }
+static BOOL ViewportStanTileHidden(const ViewportState *s,DWORD t) { return FALSE; }
 StanPointRef *ViewportGetMoveStanPoints(HWND h,DWORD *n) { abort(); }
-static StanPointRef ViewportStanPointRef(const ViewportState *s,DWORD t,DWORD p) { abort(); }
+static StanPointRef ViewportStanPointRef(const ViewportState *s,DWORD t,DWORD p) { return (StanPointRef){t,p}; }
 static int ViewportCompareStanRefs(const void *a,const void *b) { abort(); }
 static BOOL ViewportProject(const ViewportState *s,const Vertex *v,double out[2]) { return FALSE; }
 static BOOL ViewportPrepareEdgeExtrusion(ViewportState *s) { abort(); }
@@ -486,6 +492,48 @@ static void PortalDrags(ViewportState *s)
     puts("PASS: portal vertex/edge/face rotation, XYZ/uniform scaling, group pivot, shared aliases, preview/commit restoration, Shift and cancellation.");
 }
 
+static void StanDrags(ViewportState *s)
+{
+    StanTile tiles[2]={0}; unsigned char selected[2]={1,0};
+    for(int t=0;t<2;t++) {
+        tiles[t].pointcount=4;
+        for(int p=0;p<4;p++) tiles[t].points[p]=(StanPoint){(p/2)*20+t*20,0,(p==1||p==2)*20,0};
+    }
+    memcpy(stanoriginal,tiles,sizeof(tiles));
+    s->selectedobject=VIEWPORT_OBJECT_NONE; s->selectedobjectcount=0;
+    s->tool=EDITOR_TOOL_FACE_SELECT; s->stan=(StanFile){.tiles=tiles,.tilecount=2}; s->stanselected=selected;
+    s->dragportal=FALSE; s->showportals=FALSE; s->portals=(BgPortalFile){0};
+    s->coordinatescale=.25; s->gizmovisible=TRUE; s->scalevalid=TRUE;
+    RotationAxis(&s->scaleaxes,1,0);
+    for(int mode=0;mode<3;mode++) for(int cancel=0;cancel<3;cancel++) {
+        s->scalemode=mode==2; s->rotationmode=mode==1;
+        s->gizmoposition[0]=10; s->gizmoposition[1]=0; s->gizmoposition[2]=10;
+        int px=-1,py=-1;
+        for(int x=0;x<200 && px<0;x++) for(int y=0;y<200;y++)
+            if(ViewportPickGizmo(s,s,x,y)==(mode==2?3:0)) { px=x;py=y;break; }
+        assert(px>=0); parameter=0;
+        int before=stancopies;
+        assert(ViewportBeginTransform(s,s,px,py,TRUE) && s->dragstanduplicating);
+        for(int p=0;p<4;p++) assert(s->dragmask[p] && !s->dragmask[STAN_TILE_MAX_POINTS+p]);
+        if(cancel!=2) {
+            parameter=mode==1?90:40; ViewportDragTransform(s,s,px+90,py);
+            assert(memcmp(&tiles[0],&stanoriginal[0],sizeof(tiles[0])));
+            assert(!memcmp(&tiles[1],&stanoriginal[1],sizeof(tiles[1])));
+        }
+        if(cancel==1) ViewportCancelTransform(s); else ViewportEndTransform(s,s);
+        assert(!capture && !s->dragstanduplicating && !memcmp(tiles,stanoriginal,sizeof(tiles)));
+        assert(stancopies==before+(cancel==0));
+        if(!cancel) {
+            assert(stancopy.mode==(TransformMode)mode);
+            if(!mode) Near(stancopy.translation.offset[0],40);
+            if(mode==1) { Rotation r;RotationAxis(&r,0,90);assert(!memcmp(&r,&stancopy.rotation.rotation,sizeof(r))); }
+            if(mode==2) Factors(&stancopy.scaling,2);
+        }
+    }
+    s->stan=(StanFile){0};s->stanselected=NULL;s->dragstan=FALSE;
+    puts("PASS: stan move/rotate/uniform-scale duplication, isolated preview masks, source restoration, cancellation and zero-motion drags.");
+}
+
 int main(void)
 {
     Vertex scene[9]={0};BgDocumentVertexRef refs[9];unsigned char selected[3]={1,0,0};
@@ -520,6 +568,7 @@ int main(void)
     GroupDrags(&s,TRUE);
     PortalDrags(&s);
     PortalReflectionPreview(&s);
+    StanDrags(&s);
     puts("PASS: object/face/edge masks, rotated axes, screen directions, snapshot preview, proportional XYZ factors, guides/normals, no-op, clamp, cancellation, one commit and Shift duplication; axis scaling unchanged.");
     return 0;
 }

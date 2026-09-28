@@ -92,6 +92,21 @@ arrow. Each selected Stan boundary edge creates two linked triangular tiles;
 the outer edges stay selected for continued extrusion. See
 [Extruding Stan edges](STAN_EXTRUSION.md).
 
+In **Face** mode, selected **Stan tiles** support **Ctrl+C** and **Ctrl+V**
+(and Edit → Copy/Paste). Pasted tiles appear **10 native units above** their
+copied positions, including when Editor Settings displays world units. Copies
+retain room, tile type, color and links between copied tiles; links to tiles
+outside the selection become open boundaries. Each copy gets fresh identities.
+The clipboard is a snapshot and is cleared when switching levels or projects.
+
+Hold **Shift** when pressing a Move, Rotate or Scale gizmo with Stan tiles
+selected to duplicate and transform them. This includes the uniform-scale
+center handle. The originals stay in place, and the copies are selected on
+release. A complete gesture is one Undo action; Escape, right-click, capture
+loss or a drag ending at its starting value creates no copies. Duplication
+does not replace the clipboard. Transforms outside the native coordinate
+range, or those collapsing a tile to a line/point, are rejected atomically.
+
 In **Scale** mode, the white cube at the gizmo center scales all three axes
 together around the existing selection pivot. It turns gold on hover. Hold the
 left mouse button and drag right or up to enlarge, or left or down to shrink.
@@ -197,3 +212,7 @@ subdivision, attributes, seams, native save/reload, history, rollback and Ctrl+Q
 `python3 tools/geditor/tests/stan_topology/run.py` covers Stan bisection, linked
 neighbors, both-way walking, native ID flags, room regrouping and export, and
 Depot's actual floor/stair link. `geometry_toolbar/run.py` checks menu routing.
+
+Stan clipboard validation: `python3 tools/geditor/tests/stan_clipboard/run.py`
+checks native links, attributes, save/reload, coordinate scale, history and
+failure rollback. `uniform_scale/run.py` also checks Stan duplicate gestures.

@@ -77,6 +77,17 @@ BOOL StanPrepareSave(const StanFile *stan, unsigned char **out, DWORD *sizeout,
                      const char **reasonout);
 BOOL StanFileClone(const StanFile *source, StanFile *out, const char **reasonout);
 
+/* Owned, level-local tile clipboard. Copy keeps native coordinates, attributes
+ * and links within the selection; external links become boundaries. Initialize
+ * to zero and release with StanFileFree. Failures preserve the old clipboard.
+ * Paste appends independent tiles with fresh native/editor identities and a
+ * quantized world offset, using the destination level scale. It is atomic;
+ * out must have room for clipboard->tilecount new tile indices. */
+BOOL StanCopyTiles(const StanFile *stan, const DWORD *selected, DWORD count,
+    StanFile *clipboard, const char **reasonout);
+BOOL StanPasteTiles(StanFile *stan, const StanFile *clipboard, const double offset[3],
+    DWORD *out, const char **reasonout);
+
 /* A point identity is local to its tile. The point map joins coincident
    endpoints only through authored tile links, never unrelated stacked floors. */
 typedef struct StanPointRef { DWORD tile, point; } StanPointRef;

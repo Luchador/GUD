@@ -97,6 +97,7 @@ static BgFile g_CurrentBg;
 static BgDocument g_CurrentBgDocument;
 /* Scene clipboards own snapshots, independent of later edits/undo. Cleared
  * on level changes so room numbers and image IDs stay local to the level. */
+static StanFile g_StanClipboard;
 static BgDocument g_FaceClipboard;
 static BgPortalFile g_PortalClipboard;
 static SetupFile g_ObjectClipboard;
@@ -677,7 +678,7 @@ static void GEditorCloseProject(HWND hwnd)
     ObjectGeometryFree(&g_CurrentObjects);
     EditHistoryFree(&g_EditHistory);
     BgDocumentFree(&g_CurrentBgDocument);
-    BgDocumentFree(&g_FaceClipboard);
+    StanFileFree(&g_StanClipboard); BgDocumentFree(&g_FaceClipboard);
     BgPortalFileFree(&g_PortalClipboard);
     GEditorClearObjectClipboard();
     BgFileFree(&g_CurrentBg);
@@ -1016,6 +1017,24 @@ static BOOL GEditorCanPasteBgFaces(void)
 }
 
 
+static BOOL GEditorCanUseStanClipboard(void)
+{
+    return g_Viewport && g_CurrentStan.data && g_CurrentStan.tiles
+        && ViewportGetTool(g_Viewport) == EDITOR_TOOL_FACE_SELECT
+        && !ViewportKnifeActive(g_Viewport)
+        && !ViewportIsTransforming(g_Viewport) && !ViewportIsFlying(g_Viewport);
+}
+
+static BOOL GEditorCanCopyStanTiles(void)
+{
+    return GEditorCanUseStanClipboard() && ViewportGetStanSelectionCount(g_Viewport, NULL) > 0;
+}
+
+static BOOL GEditorCanPasteStanTiles(void)
+{
+    return GEditorCanUseStanClipboard() && g_StanClipboard.tilecount > 0;
+}
+
 static BOOL GEditorCanUsePortalClipboard(void)
 {
     return g_Viewport && g_CurrentBgDocument.rooms && !g_CurrentBgDocument.portalwarning
@@ -1096,10 +1115,11 @@ static void GEditorUpdateHistoryMenu(HMENU menu)
     EnableMenuItem(menu, ID_EDIT_REDO, MF_BYCOMMAND
         | (EditHistoryCanRedo(&g_EditHistory) ? MF_ENABLED : MF_GRAYED));
     EnableMenuItem(menu, ID_EDIT_COPY_FACES, MF_BYCOMMAND
-        | (GEditorCanCopyObject() || GEditorCanCopyPortals() || GEditorCanFlipSelectedBgFaces() ? MF_ENABLED : MF_GRAYED));
+        | (GEditorCanCopyObject() || GEditorCanCopyPortals() || GEditorCanCopyStanTiles() || GEditorCanFlipSelectedBgFaces() ? MF_ENABLED : MF_GRAYED));
     EnableMenuItem(menu, ID_EDIT_PASTE_FACES, MF_BYCOMMAND
         | ((g_ObjectClipboard.data ? GEditorCanUseObjectClipboard()
-            : g_PortalClipboard.portalcount ? GEditorCanPastePortals() : GEditorCanPasteBgFaces()) ? MF_ENABLED : MF_GRAYED));
+            : g_PortalClipboard.portalcount ? GEditorCanPastePortals()
+            : g_StanClipboard.tilecount ? GEditorCanPasteStanTiles() : GEditorCanPasteBgFaces()) ? MF_ENABLED : MF_GRAYED));
 }
 
 
@@ -3182,6 +3202,104 @@ fail:
 }
 
 
+static BOOL GEditorSnapshotStanTiles(StanFile *copy, const char **why)
+{
+    DWORD count = ViewportGetStanSelectionCount(g_Viewport, NULL);
+    DWORD *selected = malloc((size_t)count * sizeof(*selected));
+    BOOL ok = FALSE;
+    *why = "Out of memory reading the stan selection.";
+    if (selected)
+    {
+        *why = "The selected stan tiles could not be read.";
+        if (ViewportGetSelectedStanTiles(g_Viewport, selected, count))
+        { ok = StanCopyTiles(&g_CurrentStan, selected, count, copy, why); }
+    }
+    free(selected); return ok;
+}
+
+static BOOL GEditorCopyStanTiles(HWND hwnd)
+{
+    const char *why = "";
+    if (!GEditorCanCopyStanTiles()) { return FALSE; }
+    if (!GEditorSnapshotStanTiles(&g_StanClipboard, &why))
+    { MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR); return FALSE; }
+    GEditorClearObjectClipboard(); BgDocumentFree(&g_FaceClipboard); BgPortalFileFree(&g_PortalClipboard);
+    GEditorRefreshHistoryMenu(hwnd); return TRUE;
+}
+
+static BOOL GEditorPasteStanSnapshot(HWND hwnd, const StanFile *clipboard,
+    const double offset[3], const char *action)
+{
+    EditHistoryTransaction transaction = {0};
+    DWORD *selected = malloc((size_t)clipboard->tilecount * sizeof(*selected));
+    const char *why = "Out of memory pasting stan tiles.", *restorewhy = "";
+    if (!selected) { goto fail; }
+    if (!EditHistoryBeginStanEdit(&g_EditHistory, &g_CurrentStan, action, &transaction, &why)
+        || !StanPasteTiles(&g_CurrentStan, clipboard, offset, selected, &why)) { goto fail; }
+    if (!GEditorReloadCurrentObjectsAndViewport(&why)) { goto rollback; }
+    if (!ViewportSelectStanTiles(g_Viewport, selected, clipboard->tilecount))
+    { why = "Could not select the pasted stan tiles. Enable stan rendering before pasting."; goto rollback; }
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+        &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    free(selected);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd); return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    GEditorReloadCurrentObjectsAndViewport(&restorewhy); GEditorRestoreHistorySelection(hwnd);
+fail:
+    free(selected); EditHistoryCancelEdit(&transaction);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR); return FALSE;
+}
+
+static BOOL GEditorPasteStanTiles(HWND hwnd)
+{
+    if (!GEditorCanPasteStanTiles()) { return FALSE; }
+    const double offset[3] = {0, 10.0 / g_CurrentStan.levelscale, 0};
+    return GEditorPasteStanSnapshot(hwnd, &g_StanClipboard, offset,
+        g_StanClipboard.tilecount == 1 ? "Paste Stan Tile" : "Paste Stan Tiles");
+}
+
+static BOOL GEditorDuplicateStanTiles(HWND hwnd, const ViewportStanDuplicate *request)
+{
+    StanFile copy = {0};
+    StanPointRef *points = NULL;
+    DWORD count = 0, moved;
+    BOOL ok = FALSE;
+    const char *why = "";
+    const double zero[3] = {0};
+    if (!request || !GEditorCanCopyStanTiles()) { return FALSE; }
+    if (!GEditorSnapshotStanTiles(&copy, &why)) { goto fail; }
+    /* Transform a private native snapshot. The source and clipboard stay
+     * intact, and the committed copy has no links back to its neighbors. */
+    if (request->mode != TRANSFORM_MOVE)
+    {
+        points = malloc((size_t)copy.tilecount * STAN_TILE_MAX_POINTS * sizeof(*points));
+        if (!points) { why = "Out of memory transforming duplicate stan tiles."; goto fail; }
+        for (DWORD t = 0; t < copy.tilecount; t++)
+            for (DWORD p = 0; p < copy.tiles[t].pointcount; p++)
+            { points[count++] = (StanPointRef){t, p}; }
+        if (request->mode == TRANSFORM_ROTATE)
+        {
+            if (!StanRotatePoints(&copy, points, count, &request->rotation.rotation,
+                request->rotation.pivot, &moved, &why)) { goto fail; }
+        }
+        else if (request->mode == TRANSFORM_SCALE)
+        {
+            if (!StanScalePoints(&copy, points, count, &request->scaling, &moved, &why)) { goto fail; }
+        }
+        else { why = "The stan duplicate transform is invalid."; goto fail; }
+    }
+    ok = GEditorPasteStanSnapshot(hwnd, &copy,
+        request->mode == TRANSFORM_MOVE ? request->translation.offset : zero,
+        copy.tilecount == 1 ? "Duplicate Stan Tile" : "Duplicate Stan Tiles");
+    goto done;
+fail:
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+done:
+    free(points); StanFileFree(&copy); return ok;
+}
+
 static BOOL GEditorCopySelectedBgFaces(HWND hwnd)
 {
     BgFaceRef *faces;
@@ -3273,7 +3391,7 @@ static BOOL GEditorCopyPortals(HWND hwnd)
     if (!BgDocumentCopyPortals(&g_CurrentBgDocument, indices, count, &g_PortalClipboard, &why))
     { MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR); return FALSE; }
     GEditorClearObjectClipboard();
-    BgDocumentFree(&g_FaceClipboard);
+    StanFileFree(&g_StanClipboard); BgDocumentFree(&g_FaceClipboard);
     GEditorRefreshHistoryMenu(hwnd);
     return TRUE;
 }
@@ -3343,7 +3461,7 @@ static BOOL GEditorCopyObject(HWND hwnd)
         MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
         return FALSE;
     }
-    GEditorClearObjectClipboard(); BgDocumentFree(&g_FaceClipboard);
+    GEditorClearObjectClipboard(); StanFileFree(&g_StanClipboard); BgDocumentFree(&g_FaceClipboard);
     BgPortalFileFree(&g_PortalClipboard);
     g_ObjectClipboard = snapshot; g_ObjectClipboardPose = pose; g_ObjectClipboardSelection = selected;
     GEditorRefreshHistoryMenu(hwnd);
@@ -5985,6 +6103,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
     case VIEWPORT_WM_DUPLICATE_PORTALS:
         return lparam && GEditorDuplicatePortals(hwnd, ((const ViewportTranslation *)lparam)->offset);
+    case VIEWPORT_WM_DUPLICATE_STAN_TILES:
+        return GEditorDuplicateStanTiles(hwnd, (const ViewportStanDuplicate *)lparam);
     case VIEWPORT_WM_DUPLICATE_BG_FACES:
         return lparam && GEditorDuplicateBgFaces(hwnd, ((const ViewportTranslation *)lparam)->offset);
 
@@ -6277,7 +6397,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         BgFileFree(&g_CurrentBg);
         g_CurrentBg = bg;
         BgDocumentFree(&g_CurrentBgDocument);
-        BgDocumentFree(&g_FaceClipboard);
+        StanFileFree(&g_StanClipboard); BgDocumentFree(&g_FaceClipboard);
         BgPortalFileFree(&g_PortalClipboard);
         GEditorClearObjectClipboard();
         g_CurrentBgDocument = document;
@@ -6651,9 +6771,10 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             case ID_EDIT_COPY_FACES:
                 if (GEditorCanCopyObject()) { GEditorCopyObject(hwnd); }
                 else if (GEditorCanCopyPortals()) { GEditorCopyPortals(hwnd); }
+                else if (GEditorCanCopyStanTiles()) { GEditorCopyStanTiles(hwnd); }
                 else if (GEditorCopySelectedBgFaces(hwnd))
                 {
-                    GEditorClearObjectClipboard(); BgPortalFileFree(&g_PortalClipboard);
+                    GEditorClearObjectClipboard(); BgPortalFileFree(&g_PortalClipboard); StanFileFree(&g_StanClipboard);
                     GEditorRefreshHistoryMenu(hwnd);
                 }
                 return 0;
@@ -6661,6 +6782,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             case ID_EDIT_PASTE_FACES:
                 if (g_ObjectClipboard.data) { GEditorDuplicateObject(hwnd, NULL, NULL); }
                 else if (g_PortalClipboard.portalcount) { GEditorPastePortals(hwnd); }
+                else if (g_StanClipboard.tilecount) { GEditorPasteStanTiles(hwnd); }
                 else { GEditorPasteBgFaces(hwnd); }
                 return 0;
 
@@ -6908,7 +7030,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         ObjectGeometryFree(&g_CurrentObjects);
         EditHistoryFree(&g_EditHistory);
         BgDocumentFree(&g_CurrentBgDocument);
-        BgDocumentFree(&g_FaceClipboard);
+        StanFileFree(&g_StanClipboard); BgDocumentFree(&g_FaceClipboard);
         BgPortalFileFree(&g_PortalClipboard);
         GEditorClearObjectClipboard();
         BgFileFree(&g_CurrentBg);
