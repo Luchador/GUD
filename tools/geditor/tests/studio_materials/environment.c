@@ -47,7 +47,7 @@ static void Mapping(void)
 }
 int main(int argc,char **argv)
 {
-    CHECK(argc==3); Mapping(); StudioScene scene={0},loaded={0}; StudioSceneDefaultLighting(&scene);
+    CHECK(argc==3); Mapping(); StudioScene scene={0},loaded={0}; StudioSceneDefaultLighting(&scene); scene.camera=g_StudioDefaultCamera;
     lstrcpyn(scene.project,argv[1],sizeof(scene.project)); strcpy(scene.filename,"Environment.rnd");
     strcpy(scene.environment,"Studio 360.bmp"); CHECK(StudioSceneSave(&scene,&why));
     CHECK(StudioSceneLoad(argv[1],scene.filename,&loaded,&why) && !strcmp(loaded.environment,scene.environment));

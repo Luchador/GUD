@@ -81,7 +81,7 @@ static void Math(const StudioScene *scene)
 
 static void EmissionMetalness(void)
 {
-    StudioScene scene={0}; StudioSceneDefaultLighting(&scene); scene.ambient.intensity=0;
+    StudioScene scene={0}; StudioSceneDefaultLighting(&scene); scene.camera=g_StudioDefaultCamera; scene.ambient.intensity=0;
     scene.directional.intensity=.5; scene.directional.direction[0]=scene.directional.direction[2]=0; scene.directional.direction[1]=-1;
     StudioMaterial m={0}; m.base[0]=.8f; m.base[1]=.4f; m.base[2]=.1f;
     m.intensity=.5f; m.shininess=32; for(int k=0;k<3;k++) m.specular[k]=1;
@@ -128,7 +128,7 @@ static void Json(void)
 
 int main(int argc,char **argv)
 {
-    CHECK(argc==3); const char *project=argv[1]; StudioScene scene={0},loaded={0}; StudioSceneDefaultLighting(&scene);
+    CHECK(argc==3); const char *project=argv[1]; StudioScene scene={0},loaded={0}; StudioSceneDefaultLighting(&scene); scene.camera=g_StudioDefaultCamera;
     double position[3]={0}; char path[MAX_PATH],asset[MAX_PATH],source[MAX_PATH];
     Import(project); Json(); EmissionMetalness();
     lstrcpyn(scene.project,project,sizeof(scene.project)); lstrcpyn(scene.filename,"Main.rnd",sizeof(scene.filename));
@@ -150,7 +150,7 @@ int main(int argc,char **argv)
     CHECK(!StudioSceneAddModel(&scene,"../Light.gltf",position,&why) && scene.count==2);
     m->intensity=NAN; CHECK(!StudioSceneSave(&scene,&why)); m->intensity=.875;
     snprintf(path,sizeof(path),"%s/studio/scenes/Bad.rnd",project);
-    const char *bad[]={"{\"format\":\"GEditor Render Studio\",\"version\":8,\"objects\":[]}",
+    const char *bad[]={"{\"format\":\"GEditor Render Studio\",\"version\":9,\"objects\":[]}",
         "{\"format\":\"GEditor Render Studio\",\"version\":1,\"objects\":[{\"model\":\"../Light.gltf\"}]}",
         "{\"format\":\"GEditor Render Studio\",\"version\":1,\"objects\":[{\"model\":\"Light.gltf\",\"position\":[NaN,0,0],\"materials\":[]}]}",
         "{\"format\":\"GEditor Render Studio\",\"version\":1,\"objects\":[{\"model\":\"Light.gltf\",\"position\":[0,0,0],\"materials\":[{}]}]}"};

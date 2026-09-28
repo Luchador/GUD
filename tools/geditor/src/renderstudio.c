@@ -16,7 +16,7 @@
 static HWND g_Studio, g_StudioViewport, g_StudioProperties, g_StudioTransform;
 static StudioScene g_StudioScene;
 static int g_StudioObject=-1,g_StudioMaterial=-1,g_StudioLight=-1,g_StudioGlobal=-1;
-static BOOL g_StudioUpdating,g_StudioDragArmed,g_StudioDragging;
+static BOOL g_StudioUpdating,g_StudioDragArmed,g_StudioDragging,g_StudioCameraDirty;
 static unsigned g_StudioGeneration,g_StudioTransformDirty,g_StudioLightDirty;
 static StudioMaterial *g_StudioSliderMaterial;
 static StudioMaterial g_StudioSliderBefore;
@@ -101,7 +101,7 @@ static StudioMaterial *RenderStudioMaterial(void)
     return g_StudioMaterial>=0 && (DWORD)g_StudioMaterial<o->materialcount ? &o->materials[g_StudioMaterial] : NULL;
 }
 
-/* Outliner IDs: model indices >= 0, scene root -1, local lights -2..-4, permanent lights -5/-6. */
+/* Outliner IDs: model indices >= 0, scene root -1, local lights -2..-4, permanent lights -5/-6, camera -7. */
 static int RenderStudioSelection(void)
 {
     if (g_StudioGlobal>=0) { return g_StudioGlobal==0 ? STUDIO_SELECT_AMBIENT : STUDIO_SELECT_DIRECTIONAL; }
@@ -119,6 +119,9 @@ static StudioGlobalLight *RenderStudioGlobalLight(void)
     if (!g_StudioScene.filename[0]) { return NULL; }
     return g_StudioGlobal==0 ? &g_StudioScene.ambient : g_StudioGlobal==1 ? &g_StudioScene.directional : NULL;
 }
+
+static StudioCamera *RenderStudioCamera(void)
+{ return g_StudioScene.filename[0] && g_StudioObject==STUDIO_SELECT_CAMERA ? &g_StudioScene.camera : NULL; }
 
 static double *RenderStudioLightField(StudioLight *light,int field,BOOL spotlight)
 {
@@ -143,7 +146,7 @@ static BOOL RenderStudioEnvironmentAvailable(const char *filename)
 static void RenderStudioProperties(void)
 {
     StudioMaterial *m=RenderStudioMaterial(); StudioLight *light=RenderStudioLight();
-    StudioGlobalLight *global=RenderStudioGlobalLight(); char text[64];
+    StudioGlobalLight *global=RenderStudioGlobalLight(); StudioCamera *camera=RenderStudioCamera(); char text[64];
     g_StudioUpdating=TRUE;
     for (int id=IDC_STUDIO_BASE_LABEL;id<=IDC_STUDIO_SHININESS;id++)
         ShowWindow(GetDlgItem(g_StudioProperties,id),m ? SW_SHOW : SW_HIDE);
@@ -151,10 +154,15 @@ static void RenderStudioProperties(void)
         ShowWindow(GetDlgItem(g_StudioProperties,id),m ? SW_SHOW : SW_HIDE);
     for (int id=IDC_STUDIO_ENV_BLUR_LABEL;id<=IDC_STUDIO_ENV_BLUR;id++)
         ShowWindow(GetDlgItem(g_StudioProperties,id),m ? SW_SHOW : SW_HIDE);
+    for (int id=IDC_STUDIO_CAMERA_SIZE_LABEL;id<=IDC_STUDIO_CAMERA_HINT;id++)
+        ShowWindow(GetDlgItem(g_StudioProperties,id),camera ? SW_SHOW : SW_HIDE);
+    if (camera)
+    { snprintf(text,sizeof(text),"%.9g",camera->size); SetDlgItemText(g_StudioProperties,IDC_STUDIO_CAMERA_SIZE,text); }
+    g_StudioCameraDirty=FALSE;
     BOOL scene=RenderStudioSceneSelected();
     for (int id=IDC_STUDIO_ENVIRONMENT_LABEL;id<=IDC_STUDIO_ENVIRONMENT_HINT;id++)
         ShowWindow(GetDlgItem(g_StudioProperties,id),scene ? SW_SHOW : SW_HIDE);
-    ShowWindow(GetDlgItem(g_StudioProperties,IDC_STUDIO_MATERIAL_HINT),m || light || global || scene ? SW_HIDE : SW_SHOW);
+    ShowWindow(GetDlgItem(g_StudioProperties,IDC_STUDIO_MATERIAL_HINT),m || light || global || camera || scene ? SW_HIDE : SW_SHOW);
     if (scene)
     {
         HWND combo=GetDlgItem(g_StudioProperties,IDC_STUDIO_ENVIRONMENT);
@@ -226,6 +234,8 @@ static double *RenderStudioTransformField(int field)
         double *values=field<3 ? object->transform.position : field<6 ? object->transform.rotation : object->transform.scale;
         return &values[field%3];
     }
+    StudioCamera *camera=RenderStudioCamera();
+    if (camera && field<6) { return field<3 ? &camera->transform.position[field] : &camera->transform.rotation[field-3]; }
     StudioGlobalLight *global=RenderStudioGlobalLight();
     if (global && g_StudioGlobal==1 && field>=3 && field<6) { return &global->direction[field-3]; }
     if (light && field<3) { return &light->position[field]; }
@@ -243,21 +253,35 @@ static void RenderStudioTransformPanel(void)
         SetDlgItemText(g_StudioTransform,id,text); EnableWindow(GetDlgItem(g_StudioTransform,id),value!=NULL);
     }
     for (int id=IDC_STUDIO_MOVE;id<=IDC_STUDIO_SCALE;id++)
-        EnableWindow(GetDlgItem(g_StudioTransform,id),o || (light && StudioLightToolAllowed(g_StudioLight,id-IDC_STUDIO_MOVE)));
+        EnableWindow(GetDlgItem(g_StudioTransform,id),o || (RenderStudioCamera() && id!=IDC_STUDIO_SCALE) || (light && StudioLightToolAllowed(g_StudioLight,id-IDC_STUDIO_MOVE)));
     CheckRadioButton(g_StudioTransform,IDC_STUDIO_MOVE,IDC_STUDIO_SCALE,g_StudioGlobal>=0 ? 0 : IDC_STUDIO_MOVE+g_StudioTool);
     g_StudioTransformDirty=0; g_StudioUpdating=FALSE;
 }
 
 static void RenderStudioTool(int tool)
 {
-    if (RenderStudioGlobalLight() || (RenderStudioLight() && !StudioLightToolAllowed(g_StudioLight,tool))) { return; }
+    if ((RenderStudioCamera() && tool==STUDIO_SCALE) || RenderStudioGlobalLight() || (RenderStudioLight() && !StudioLightToolAllowed(g_StudioLight,tool))) { return; }
     StudioViewportSetTool(g_StudioViewport,tool); g_StudioTool=tool;
     CheckRadioButton(g_StudioTransform,IDC_STUDIO_MOVE,IDC_STUDIO_SCALE,IDC_STUDIO_MOVE+tool);
+}
+
+static void RenderStudioCommitCamera(const StudioCamera *previous)
+{
+    const char *why="";
+    if (!StudioCameraValid(&g_StudioScene.camera) || !StudioSceneSave(&g_StudioScene,&why))
+    {
+        g_StudioScene.camera=*previous;
+        MessageBox(g_Studio,why[0] ? why : "Use finite position/rotation values within +/-1 billion and orthographic size from 0.0001 to 1 billion.","Camera",MB_ICONERROR);
+    }
+    else { SetDlgItemText(g_Studio,IDC_STUDIO_STATUS,"Camera saved."); }
+    StudioViewportSetScene(g_StudioViewport,&g_StudioScene,FALSE); RenderStudioTransformPanel(); RenderStudioProperties();
 }
 
 static void RenderStudioCommitTransform(const StudioTransform *previous)
 {
     StudioInstance *o=RenderStudioObject(); const char *why="";
+    StudioCamera *camera=RenderStudioCamera();
+    if (camera) { StudioCamera before=*camera; before.transform=*previous; RenderStudioCommitCamera(&before); return; }
     if (!o) { return; }
     if (!StudioTransformValid(&o->transform) || !StudioSceneSave(&g_StudioScene,&why))
     {
@@ -295,6 +319,8 @@ static INT_PTR CALLBACK RenderStudioTransformProc(HWND hwnd,UINT message,WPARAM 
                 { StudioGlobalLight previous=*global; *target=value; RenderStudioCommitGlobalLight(global,&previous); }
                 else if (light)
                 { StudioLight previous=*light; *target=value; RenderStudioCommitLight(light,&previous); }
+                else if (RenderStudioCamera())
+                { StudioCamera previous=g_StudioScene.camera; *target=value; RenderStudioCommitCamera(&previous); }
                 else if (o)
                 { StudioTransform previous=o->transform; *target=value; RenderStudioCommitTransform(&previous); }
                 return TRUE;
@@ -322,7 +348,7 @@ static void RenderStudioSelect(int object, int material)
     StudioViewportCancelTransform(g_StudioViewport);
     g_StudioGlobal=g_StudioScene.filename[0] ? (object==STUDIO_SELECT_AMBIENT ? 0 : object==STUDIO_SELECT_DIRECTIONAL ? 1 : -1) : -1;
     g_StudioLight=StudioSceneLightIndex(&g_StudioScene,object);
-    g_StudioObject=object>=0 && (DWORD)object<g_StudioScene.count ? object : -1;
+    g_StudioObject=(object==STUDIO_SELECT_CAMERA && g_StudioScene.filename[0]) || (object>=0 && (DWORD)object<g_StudioScene.count) ? object : -1;
     g_StudioMaterial=-1; HWND list=GetDlgItem(g_Studio,IDC_STUDIO_MATERIALS);
     g_StudioUpdating=TRUE; SendMessage(list,WM_SETREDRAW,FALSE,0); SendMessage(list,LB_RESETCONTENT,0,0);
     int widest=0; HDC dc=GetDC(list); HFONT font=(HFONT)SendMessage(list,WM_GETFONT,0,0),old=dc ? SelectObject(dc,font) : NULL;
@@ -348,7 +374,7 @@ static void RenderStudioSelect(int object, int material)
     }
     TreeView_SelectItem(tree,choice); g_StudioUpdating=FALSE;
     StudioViewportSelect(g_StudioViewport,RenderStudioSelection());
-    if (g_StudioLight>=0 && !StudioLightToolAllowed(g_StudioLight,g_StudioTool)) { RenderStudioTool(STUDIO_TRANSLATE); }
+    if ((RenderStudioCamera() && g_StudioTool==STUDIO_SCALE) || (g_StudioLight>=0 && !StudioLightToolAllowed(g_StudioLight,g_StudioTool))) { RenderStudioTool(STUDIO_TRANSLATE); }
     RenderStudioProperties(); RenderStudioTransformPanel();
 }
 
@@ -363,6 +389,7 @@ static void RenderStudioOutliner(void)
         HTREEITEM root=TreeView_InsertItem(tree,&insert); insert.hParent=root;
         insert.item.pszText="Ambient Light"; insert.item.lParam=STUDIO_SELECT_AMBIENT; TreeView_InsertItem(tree,&insert);
         insert.item.pszText="Directional Light"; insert.item.lParam=STUDIO_SELECT_DIRECTIONAL; TreeView_InsertItem(tree,&insert);
+        insert.item.pszText="Camera"; insert.item.lParam=STUDIO_SELECT_CAMERA; TreeView_InsertItem(tree,&insert);
         for (DWORD i=0;i<g_StudioScene.count;i++)
         {
             snprintf(label,sizeof(label),"%s (%lu)%s",g_StudioScene.objects[i].model,(unsigned long)i+1,g_StudioScene.objects[i].asset ? "" : " - unavailable");
@@ -588,12 +615,26 @@ static BOOL RenderStudioEnvironmentCommand(HWND hwnd,int id,int code)
     InvalidateRect(g_StudioViewport,NULL,FALSE); RenderStudioProperties(); return TRUE;
 }
 
+static BOOL RenderStudioCameraCommand(HWND hwnd,int id,int code)
+{
+    StudioCamera *camera=RenderStudioCamera();
+    if (g_StudioUpdating || !camera || id!=IDC_STUDIO_CAMERA_SIZE) { return FALSE; }
+    if (code==EN_CHANGE) { g_StudioCameraDirty=TRUE; return TRUE; }
+    if (code!=EN_KILLFOCUS || !g_StudioCameraDirty) { return FALSE; }
+    char text[64],*end; GetDlgItemText(hwnd,id,text,sizeof(text)); double value=strtod(text,&end); BOOL parsed=end!=text;
+    while (*end==' ' || *end=='\t') { end++; }
+    if (!parsed || *end || !isfinite(value))
+    { RenderStudioProperties(); SetDlgItemText(g_Studio,IDC_STUDIO_STATUS,"Enter a valid orthographic size."); return TRUE; }
+    StudioCamera previous=*camera; camera->size=value; RenderStudioCommitCamera(&previous); return TRUE;
+}
+
 static INT_PTR CALLBACK RenderStudioPropertiesProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
 {
     StudioMaterial *m=RenderStudioMaterial();
     switch (message)
     {
     case WM_INITDIALOG:
+        SendDlgItemMessage(hwnd,IDC_STUDIO_CAMERA_SIZE,EM_LIMITTEXT,48,0);
         SendDlgItemMessage(hwnd,IDC_STUDIO_METALNESS,TBM_SETRANGE,TRUE,MAKELONG(0,100));
         SendDlgItemMessage(hwnd,IDC_STUDIO_METALNESS,TBM_SETPAGESIZE,0,10);
         SendDlgItemMessage(hwnd,IDC_STUDIO_ENV_BLUR,TBM_SETRANGE,TRUE,MAKELONG(0,100));
@@ -629,6 +670,7 @@ static INT_PTR CALLBACK RenderStudioPropertiesProc(HWND hwnd, UINT message, WPAR
     case WM_COMMAND:
     {
         int id=LOWORD(wparam),code=HIWORD(wparam);
+        if (RenderStudioCameraCommand(hwnd,LOWORD(wparam),HIWORD(wparam))) { return TRUE; }
         if (RenderStudioEnvironmentCommand(hwnd,id,code) || RenderStudioGlobalLightCommand(hwnd,id,code) || RenderStudioLightCommand(hwnd,id,code)) { return TRUE; }
         return RenderStudioMaterialCommand(hwnd,id,code);
     }

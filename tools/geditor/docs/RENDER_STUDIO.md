@@ -89,6 +89,30 @@ As with the preview's vertex lighting, the mapping is interpolated across
 triangles; sufficient mesh detail improves curved reflections. Reflections of
 other scene objects are not implemented.
 
+Each scene has one permanent **Camera** in the Scene Outliner. A **256 × 256
+pixel orthographic render preview** sits in the bottom-right of the main viewport,
+with an eight-pixel inset and a one-pixel border. Its size stays fixed when the
+window resizes. Orbiting, panning, or zooming the main view does not move this
+camera or change its composition.
+
+Select **Camera** in the outliner, click its `intro_camera.glb` model in the main
+view, or click the small preview. **W** moves it and **E** rotates it using the
+existing gizmos; Ctrl retains rotation snapping. Position and rotation are also
+editable in **Transform**, including camera roll. Camera scaling is disabled;
+use **Orthographic size** in Properties to set the square view's width and height
+in studio units. Smaller values zoom in. Moving the camera toward a subject does
+not change its apparent size under orthographic projection.
+
+The preview displays models with the scene's materials, lights, emission and
+environment reflections. Its viewing rays are parallel, including for specular
+highlights and reflections. Grid lines, light icons, the camera model, selection
+outlines and transform gizmos stay in the main view. Clicking the preview selects
+the camera; it does not orbit the editor camera or select/place models behind it.
+The Camera cannot be deleted. Completed camera edits save with the scene, and
+failed saves restore the previous settings. New and older scenes start with the
+camera at (0, 3, 8), rotation (-20, 0, 0), and size 10, looking toward the origin.
+This is a live preview; image export is not implemented yet.
+
 Select a model in the viewport or Scene Outliner to show its transform gizmo and
 **Transform** panel. Use the panel buttons or **W** for translation, **E** for
 rotation, and **R** for scaling. These shortcuts belong to Render Studio and do
@@ -260,12 +284,12 @@ workspace to the newly opened project; switching game levels does not.
 `studiodocument.c` owns scene loading, atomic replacement, instances, shared model
 assets, per-instance materials, fixed local-light slots, and permanent lighting. A `.rnd` is a UTF-8 JSON
 document with
-`"format": "GEditor Render Studio"`, `"version": 7`, `objects` and `lights` arrays,
+`"format": "GEditor Render Studio"`, `"version": 8`, `objects` and `lights` arrays,
 required `ambient` and `directional` objects, and an `environment` string.
 The environment is a BMP leaf filename relative to `studio/images`, or an empty
-string for None. Versions 6–7 require it; versions 1–5 default to None. Each permanent-light object
+string for None. Versions 6–8 require it; versions 1–5 default to None. Each permanent-light object
 stores `color` (RGB, 0–1) and `intensity`; `directional` also stores `direction`.
-Versions 1–6 remain supported. Versions 1–3 use the legacy lighting defaults:
+Versions 1–7 remain supported. Versions 1–3 use the legacy lighting defaults:
 their ambient light defaults to white at 0.2.
 Their directional light preserves the original preview direction and is white
 at intensity 1 if there are no local lights, or intensity 0 if any local light
@@ -273,23 +297,25 @@ exists (including one with zero intensity). This preserves their previous
 appearance. After loading, the permanent lights can be edited independently.
 For version-1 scenes, existing positions and material settings are
 retained, rotation defaults to zero, and scale defaults to one. An empty scene
-created by New Scene starts as version 1; saving upgrades it to version 7.
+created by New Scene starts as version 1; saving upgrades it to version 8.
 Each object stores its model leaf filename, three-component `position`, `rotation`
 (in degrees), `scale` (multipliers), and material overrides (`name`, `image`,
 `base`, `specular`, `intensity`, `shininess`, `emission`, `metalness`, and `environmentBlur`).
-Versions 5–7 require `emission` (three RGB values, 0–1) and `metalness` (0–1) on each
+Versions 5–8 require `emission` (three RGB values, 0–1) and `metalness` (0–1) on each
 saved material. Versions 1–4 default both to zero, preserving their appearance;
 version 4 retains its saved global-light settings. New imported material slots
 also start with black emission and zero metalness, irrespective of glTF PBR
-material settings. Version 7 requires `environmentBlur` (0–1) per material;
+material settings. Versions 7–8 require `environmentBlur` (0–1) per material;
 versions 1–6 and new imports default to zero. Paths are relative to the
 project's studio folders. The scene name comes from its filename.
 Each light stores `type` (`spotlight` or `point`), `slot`, `position`, `color`,
 and `intensity`. The optional `slot` preserves point-light identity after deletions;
 older version-3 scenes without it assign slots in file order. Spotlights also store `direction`, `inner`, and `outer`; point lights
 store `radius`. Invalid light data or exceeded limits reject the entire load
-without changing the open scene. Older editor builds reject version-7 scenes
-rather than silently discarding the blur setting.
+without changing the open scene. Version 8 requires a `camera` object with three-component `position` and
+`rotation` (degrees), and a positive `size` (0.0001–1 billion). Camera scale is
+always one. Versions 1–7 receive the default camera. Older editor builds reject
+version-8 scenes rather than silently discarding the camera settings.
 `gltf.c` provides a separate studio import mode using the shared JSON codec in
 `gltfjson.c`; it does not require game source identities or game texture tags.
 `studiomath.c` owns model matrices, ray picking, transformed bounds, and preview
@@ -308,6 +334,16 @@ The sharp environment retains the existing 4096-pixel limit. Blur variants are
 cached per image/whole percentage and shared across materials; changing images,
 scenes, or projects releases them.
 
+`studiocamera.c` owns orthographic view matrices, clipping, and preview placement.
+`studiocameraview.c` loads/draws/picks the embedded intro camera marker, mapping
+its authored +X lens direction to the render camera's local -Z. The preview uses
+the studio OpenGL context and texture cache with separate matrices, viewport,
+scissor clear and depth buffer region, restoring state afterward. It hides only
+when the viewport is too small to fit 256 × 256 pixels and its margins.
+
+Run `python3 tools/geditor/tests/studio_camera/run.py` for camera view/roll math,
+orthographic depth invariance, parallel lighting/reflections, fixed preview
+placement, clipping, v1–v7 defaults and camera persistence/invalid-load rollback.
 Run `python3 tools/geditor/tests/studio_materials/run.py` for glTF/material,
 scene persistence, failure rollback, picking, and lighting regression coverage,
 including emission, metalness blending, material validation, v1–v4 material
@@ -363,3 +399,11 @@ Try Env Map Blur at 0%, 50%, and 100%, including two materials with different
 blur values. Confirm changing one leaves the other sharp, and save/reopen retains
 both. Orbit close to the X/Z horizon and resize the viewport; nearby and distant
 grid lines should remain visible without changing model depth or reflection passes.
+
+For the camera preview, select Camera and test W/E, numeric position/rotation,
+roll, and Orthographic size. Save/reopen and change scenes/projects. The 256 × 256
+preview should stay anchored through window resizing and stay unchanged when
+orbiting the main view. Its contents should contain no editor overlays. Click
+and scroll over the inset and confirm nothing behind it is selected, moved or
+placed. Check the intro camera model's lens points in the preview's viewing
+direction, including after rotation; test Escape during a camera gizmo drag.

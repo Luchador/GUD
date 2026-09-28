@@ -33,7 +33,7 @@ static StudioMaterial *g_StudioSliderMaterial;
 static StudioMaterial g_StudioSliderBefore;
 static int g_StudioSliderId;
 static void RenderStudioFinishMaterialSlider(void);
-static BOOL g_StudioUpdating;
+static BOOL g_StudioUpdating,g_StudioCameraDirty;
 static unsigned g_StudioGeneration,g_StudioLightDirty,g_StudioTransformDirty;
 static int g_StudioTool=STUDIO_SCALE;
 char *lstrcpyn(char *out,const char *in,int capacity) { snprintf(out,capacity,"%s",in); return out; }
@@ -116,7 +116,7 @@ static BOOL ChooseColor(CHOOSECOLOR *choice)
 { if(choose_switch) g_StudioGeneration++; choice->rgbResult=RGB(17,85,204); return !choose_cancel; }
 BOOL StudioSceneSave(const StudioScene *scene,const char **why)
 { if(fail_save) { *why="Test failure"; return FALSE; } saved++; return TRUE; }
-static void RenderStudioNewScene(HWND hwnd) { if(!new_cancel) { strcpy(g_StudioScene.filename,"New.rnd"); StudioSceneDefaultLighting(&g_StudioScene); } }
+static void RenderStudioNewScene(HWND hwnd) { if(!new_cancel) { strcpy(g_StudioScene.filename,"New.rnd"); StudioSceneDefaultLighting(&g_StudioScene); g_StudioScene.camera=g_StudioDefaultCamera; } }
 BOOL StudioBounds(const StudioScene *scene,int selected,double lower[3],double upper[3])
 { for(int k=0;k<3;k++) { lower[k]=-2; upper[k]=2; } return scene_bounds; }
 #include "ui.inc"
@@ -144,7 +144,7 @@ int main(void)
     new_cancel=1; RenderStudioAddLight(TRUE); assert(!g_StudioScene.filename[0] && !g_StudioScene.lights[0].enabled);
     new_cancel=0; fail_save=1; RenderStudioAddLight(TRUE); assert(!g_StudioScene.lights[0].enabled && errors==1);
     fail_save=0; scene_bounds=1; RenderStudioAddLight(FALSE);
-    assert(g_StudioLight==1 && treeselected->id==-3 && nodecount==4 && !strcmp(treeselected->name,"Point Light 1"));
+    assert(g_StudioLight==1 && treeselected->id==-3 && nodecount==5 && !strcmp(treeselected->name,"Point Light 1"));
     assert(g_StudioScene.lights[1].position[1]==6 && g_StudioScene.lights[1].radius==16);
     assert(enabled[IDC_STUDIO_POSITION_X] && !enabled[IDC_STUDIO_ROTATION_X] && !enabled[IDC_STUDIO_SCALE_X]);
     assert(enabled[IDC_STUDIO_MOVE] && !enabled[IDC_STUDIO_ROTATE] && !enabled[IDC_STUDIO_SCALE]);
@@ -175,13 +175,13 @@ int main(void)
     assert(g_StudioScene.lights[0].direction[0]==1 && g_StudioScene.lights[0].direction[1]==0);
     Edit(IDC_STUDIO_LIGHT_OUTER,"50"); Edit(IDC_STUDIO_LIGHT_RANGE,"40");
     assert(g_StudioScene.lights[0].inner==40 && g_StudioScene.lights[0].outer==50);
-    RenderStudioAddLight(FALSE); assert(g_StudioLight==2 && treeselected->id==-4 && nodecount==6);
+    RenderStudioAddLight(FALSE); assert(g_StudioLight==2 && treeselected->id==-4 && nodecount==7);
     int count=nodecount,attempts=saved; RenderStudioAddLight(FALSE); RenderStudioAddLight(TRUE);
     assert(nodecount==count && saved==attempts && g_StudioLight==2);
     StudioMaterial material={0}; strcpy(material.name,"Material"); material.shininess=32;
     StudioInstance model={0}; strcpy(model.model,"Fixture.gltf"); model.materials=&material; model.materialcount=1;
     g_StudioScene.objects=&model; g_StudioScene.count=1; RenderStudioOutliner();
-    assert(nodecount==7 && treeselected->id==-4); /* Light identity survives inserted model rows. */
+    assert(nodecount==8 && treeselected->id==-4); /* Light identity survives inserted model rows. */
     RenderStudioSelect(0,0); assert(g_StudioLight==-1 && viewportselection==0 && treeselected->id==0 && materialcount==1);
     assert(visible[IDC_STUDIO_BASE_COLOR] && !visible[IDC_STUDIO_LIGHT_COLOR]);
     RenderStudioSelect(-2,-1); assert(g_StudioObject==-1 && g_StudioMaterial==-1 && materialcount==0 && viewportselection==-2);
@@ -189,7 +189,7 @@ int main(void)
     RenderStudioSelect(-3,-1); StudioLight retained=g_StudioScene.lights[1],second=g_StudioScene.lights[2];
     fail_save=1; RenderStudioDeleteLight(); fail_save=0;
     assert(g_StudioLight==1 && !memcmp(&retained,&g_StudioScene.lights[1],sizeof(retained)));
-    RenderStudioDeleteLight(); assert(g_StudioLight==-1 && !g_StudioScene.lights[1].enabled && nodecount==6);
+    RenderStudioDeleteLight(); assert(g_StudioLight==-1 && !g_StudioScene.lights[1].enabled && nodecount==7);
     assert(!memcmp(&second,&g_StudioScene.lights[2],sizeof(second)) && viewportselection==-1);
     assert(StudioSceneLightSlot(&g_StudioScene,FALSE)==1); RenderStudioAddLight(FALSE); assert(g_StudioLight==1);
     RenderStudioSelect(-2,-1); RenderStudioDeleteLight(); assert(!g_StudioScene.lights[0].enabled);
@@ -307,6 +307,34 @@ int main(void)
     RenderStudioSelect(-1,-1); choicerow[1]=0;
     RenderStudioEnvironmentCommand(g_StudioProperties,IDC_STUDIO_ENVIRONMENT,CBN_SELCHANGE);
     assert(!g_StudioScene.environment[0] && choicerow[1]==0);
+    RenderStudioSelect(STUDIO_SELECT_CAMERA,-1);
+    assert(viewportselection==STUDIO_SELECT_CAMERA && treeselected->id==STUDIO_SELECT_CAMERA && !strcmp(treeselected->name,"Camera"));
+    assert(visible[IDC_STUDIO_CAMERA_SIZE] && !visible[IDC_STUDIO_ENVIRONMENT] && !visible[IDC_STUDIO_METALNESS]);
+    assert(enabled[IDC_STUDIO_MOVE] && enabled[IDC_STUDIO_ROTATE] && !enabled[IDC_STUDIO_SCALE]);
+    for(int field=0;field<9;field++) assert(enabled[IDC_STUDIO_POSITION_X+field]==(field<6));
+    RenderStudioTool(STUDIO_ROTATE); RenderStudioTool(STUDIO_SCALE); assert(g_StudioTool==STUDIO_ROTATE);
+    Edit(IDC_STUDIO_POSITION_X,"12.5"); Edit(IDC_STUDIO_ROTATION_Z,"37");
+    assert(g_StudioScene.camera.transform.position[0]==12.5 && g_StudioScene.camera.transform.rotation[2]==37);
+    StudioCamera camera=g_StudioScene.camera; fail_save=1;
+    Edit(IDC_STUDIO_POSITION_X,"100"); assert(!memcmp(&camera,&g_StudioScene.camera,sizeof(camera))); fail_save=0;
+    strcpy(text[IDC_STUDIO_CAMERA_SIZE],"4.5");
+    assert(RenderStudioCameraCommand(g_StudioProperties,IDC_STUDIO_CAMERA_SIZE,EN_CHANGE));
+    assert(RenderStudioCameraCommand(g_StudioProperties,IDC_STUDIO_CAMERA_SIZE,EN_KILLFOCUS));
+    assert(g_StudioScene.camera.size==4.5);
+    const char *invalidsizes[]={"0","-1","nan","1000000001","5oops"};
+    for(unsigned i=0;i<sizeof(invalidsizes)/sizeof(*invalidsizes);i++) {
+        strcpy(text[IDC_STUDIO_CAMERA_SIZE],invalidsizes[i]);
+        RenderStudioCameraCommand(g_StudioProperties,IDC_STUDIO_CAMERA_SIZE,EN_CHANGE);
+        RenderStudioCameraCommand(g_StudioProperties,IDC_STUDIO_CAMERA_SIZE,EN_KILLFOCUS);
+        assert(g_StudioScene.camera.size==4.5);
+    }
+    fail_save=1; strcpy(text[IDC_STUDIO_CAMERA_SIZE],"8");
+    RenderStudioCameraCommand(g_StudioProperties,IDC_STUDIO_CAMERA_SIZE,EN_CHANGE);
+    RenderStudioCameraCommand(g_StudioProperties,IDC_STUDIO_CAMERA_SIZE,EN_KILLFOCUS); fail_save=0;
+    assert(g_StudioScene.camera.size==4.5 && !strcmp(text[IDC_STUDIO_CAMERA_SIZE],"4.5"));
+    attempts=saved; RenderStudioDeleteLight(); assert(saved==attempts && RenderStudioCamera());
+    RenderStudioSelect(0,0); assert(!visible[IDC_STUDIO_CAMERA_SIZE] && visible[IDC_STUDIO_METALNESS]);
+    puts("PASS: permanent Camera outliner identity, move/rotate controls, scale rejection, position/rotation/size persistence callbacks, validation and failed-save rollback.");
     assert(invalidated>0);
     puts("PASS: shared image catalog, scene-only selector, validation, save rollback, cache refresh, missing-image retention and None.");
     puts("PASS: emission picker/cancel/rollback, live metalness/blur previews, one save per drag, keyboard adjustment, selection-change commit and light-control isolation.");

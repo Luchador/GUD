@@ -37,6 +37,7 @@ static void SendMessage(HWND hwnd,int message,WPARAM phase,LPARAM previous)
     if (phase==1 && cancel_save)
     {
         if (message==STUDIO_WM_LIGHT_TRANSFORM) { state.scene->lights[-2-state.dragobject]=*(StudioLight *)previous; }
+        else if (state.dragobject==STUDIO_SELECT_CAMERA) { state.scene->camera.transform=*(StudioTransform *)previous; }
         else { state.scene->objects[state.dragobject].transform=*(StudioTransform *)previous; }
     }
 }
@@ -73,6 +74,16 @@ int main(void)
         state.transforming=TRUE; state.buttons=1; capture=2; scene.lights[slot].position[0]=42;
         cancel_save=FALSE; StudioViewportCommitTransform(2); assert(scene.lights[slot].position[0]==42);
     }
+    state.dragobject=STUDIO_SELECT_CAMERA;
+    scene.camera.transform=(StudioTransform){{1,2,3},{0},{1,1,1}}; state.drag.before=scene.camera.transform;
+    scene.camera.transform.position[0]=99; state.transforming=TRUE; state.buttons=1; capture=2;
+    assert(StudioViewportCancelTransform(2) && !memcmp(&scene.camera.transform,&state.drag.before,sizeof(StudioTransform)));
+    scene.camera.transform.rotation[1]=45; state.transforming=TRUE; state.buttons=1; capture=2;
+    cancel_save=TRUE; StudioViewportCommitTransform(2);
+    assert(!memcmp(&scene.camera.transform,&state.drag.before,sizeof(StudioTransform)));
+    scene.camera.transform.rotation[1]=45; state.transforming=TRUE; state.buttons=1; capture=2;
+    cancel_save=FALSE; StudioViewportCommitTransform(2); assert(scene.camera.transform.rotation[1]==45);
+    puts("PASS: camera drag cancellation, failed-save rollback and successful commit.");
     puts("PASS: model/light drag commit, full-transform cancellation, failed-save rollback and reentrant capture release.");
     return 0;
 }

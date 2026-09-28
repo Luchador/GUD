@@ -13,7 +13,7 @@ BOOL TexGetProjectImageSize(const char *project,DWORD id,int *w,int *h) { return
 
 static void Lighting(void)
 {
-    StudioScene scene={0}; StudioSceneDefaultLighting(&scene); strcpy(scene.filename,"Global.rnd");
+    StudioScene scene={0}; StudioSceneDefaultLighting(&scene); scene.camera=g_StudioDefaultCamera; strcpy(scene.filename,"Global.rnd");
     StudioMaterial material={0}; BgVertex vertex={0}; float diffuse[3],specular[3],lit[3],highlight[3];
     StudioTransform transform={{0},{0},{1,1,1}}; StudioMatrix matrix; StudioMatrixBuild(&transform,&matrix);
     double eye[3]={0,10,0}; vertex.environment.normal[1]=1; vertex.r=vertex.g=vertex.b=255;
@@ -64,7 +64,7 @@ static void Lighting(void)
 
 int main(int argc,char **argv)
 {
-    CHECK(argc==3); Lighting(); StudioScene scene={0},loaded={0}; StudioSceneDefaultLighting(&scene);
+    CHECK(argc==3); Lighting(); StudioScene scene={0},loaded={0}; StudioSceneDefaultLighting(&scene); scene.camera=g_StudioDefaultCamera;
     lstrcpyn(scene.project,argv[1],sizeof(scene.project)); strcpy(scene.filename,"Globals.rnd");
     scene.ambient.color[0]=.125f; scene.ambient.color[1]=.25f; scene.ambient.intensity=0;
     scene.directional.color[2]=.75f; scene.directional.intensity=2.5;

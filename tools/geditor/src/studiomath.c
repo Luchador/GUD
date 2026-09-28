@@ -59,6 +59,16 @@ BOOL StudioViewBounds(const StudioScene *scene,int selected,double lower[3],doub
         }
         found=TRUE;
     }
+    /* A new, empty scene keeps the origin/grid framing for model placement. */
+    if (scene->filename[0] && StudioCameraValid(&scene->camera) && (selected==STUDIO_SELECT_CAMERA || (selected==-1 && found)))
+    {
+        for (int k=0;k<3;k++)
+        {
+            double lo=scene->camera.transform.position[k]-1,hi=lo+2;
+            if (!found || lo<lower[k]) { lower[k]=lo; } if (!found || hi>upper[k]) { upper[k]=hi; }
+        }
+        found=TRUE;
+    }
     return found;
 }
 
@@ -106,9 +116,9 @@ BOOL StudioRayTriangle(const double origin[3],const double direction[3],const do
     *distance=t; return TRUE;
 }
 
-int StudioPick(const StudioScene *scene, const double origin[3], const double direction[3], int *material)
+int StudioPickDistance(const StudioScene *scene, const double origin[3], const double direction[3], int *material,double *distanceout)
 {
-    double nearest=DBL_MAX; int result=-1; *material=-1;
+    double nearest=DBL_MAX; int result=-1; *material=-1; *distanceout=DBL_MAX;
     if (!scene) { return -1; }
     for (DWORD i=0;i<scene->count;i++)
     {
@@ -126,8 +136,11 @@ int StudioPick(const StudioScene *scene, const double origin[3], const double di
             { nearest=distance; result=(int)i; *material=(int)o->asset->mesh.materials.faces[f].slot; }
         }
     }
-    return result;
+    *distanceout=nearest; return result;
 }
+
+int StudioPick(const StudioScene *scene,const double origin[3],const double direction[3],int *material)
+{ double distance; return StudioPickDistance(scene,origin,direction,material,&distance); }
 
 /* direction points from the shaded surface toward the light. Cone angles are
  * measured from the spotlight's outward axis, not across the full cone. */
@@ -166,8 +179,8 @@ static void StudioIlluminate(const StudioMaterial *m,const double normal[3],cons
     for (int k=0;k<3;k++) { illumination[k]+=color[k]*nl*diffusepower; highlights[k]+=color[k]*highlight; }
 }
 
-void StudioShade(const StudioScene *scene,const StudioMaterial *m, const BgVertex *vertex, const StudioMatrix *matrix,
-    const double eye[3], float diffuse[3], float additive[3], float metallic[3])
+void StudioShadeView(const StudioScene *scene,const StudioMaterial *m, const BgVertex *vertex, const StudioMatrix *matrix,
+    const double eye[3], BOOL parallel, float diffuse[3], float additive[3], float metallic[3])
 {
     double normal[3]={0},view[3],length=0,viewlength=0;
     double p[3]={vertex->x,vertex->y,vertex->z};
@@ -179,7 +192,7 @@ void StudioShade(const StudioScene *scene,const StudioMaterial *m, const BgVerte
     for (int k=0;k<3;k++)
     {
         for (int j=0;j<3;j++) { normal[k]+=matrix->normal[j*3+k]*vertex->environment.normal[j]; }
-        length+=normal[k]*normal[k]; view[k]=eye[k]-p[k]; viewlength+=view[k]*view[k];
+        length+=normal[k]*normal[k]; view[k]=parallel ? eye[k] : eye[k]-p[k]; viewlength+=view[k]*view[k];
     }
     length=sqrt(length); viewlength=sqrt(viewlength);
     for (int k=0;k<3;k++) { normal[k]=length>1e-12 ? normal[k]/length : (k==1); view[k]=viewlength>1e-12 ? view[k]/viewlength : 0; }
@@ -212,8 +225,8 @@ void StudioShade(const StudioScene *scene,const StudioMaterial *m, const BgVerte
     }
 }
 
-void StudioEnvironmentCoordinates(const BgVertex vertices[3],const StudioMatrix *matrix,
-    const double eye[3],double uv[3][2])
+void StudioEnvironmentCoordinatesView(const BgVertex vertices[3],const StudioMatrix *matrix,
+    const double eye[3],BOOL parallel,double uv[3][2])
 {
     BOOL pole[3]; int anchor=-1;
     for (int i=0;i<3;i++)
@@ -223,7 +236,7 @@ void StudioEnvironmentCoordinates(const BgVertex vertices[3],const StudioMatrix 
         for (int k=0;k<3;k++)
         {
             for (int j=0;j<3;j++) { n[k]+=matrix->normal[j*3+k]*vertices[i].environment.normal[j]; }
-            nn+=n[k]*n[k]; v[k]=eye[k]-p[k]; vv+=v[k]*v[k];
+            nn+=n[k]*n[k]; v[k]=parallel ? eye[k] : eye[k]-p[k]; vv+=v[k]*v[k];
         }
         nn=sqrt(nn); vv=sqrt(vv);
         for (int k=0;k<3;k++)
@@ -251,3 +264,10 @@ void StudioEnvironmentCoordinates(const BgVertex vertices[3],const StudioMatrix 
         uv[i][0]=sum/count;
     }
 }
+
+void StudioShade(const StudioScene *scene,const StudioMaterial *material,const BgVertex *vertex,const StudioMatrix *matrix,
+    const double eye[3],float diffuse[3],float additive[3],float metallic[3])
+{ StudioShadeView(scene,material,vertex,matrix,eye,FALSE,diffuse,additive,metallic); }
+
+void StudioEnvironmentCoordinates(const BgVertex vertices[3],const StudioMatrix *matrix,const double eye[3],double uv[3][2])
+{ StudioEnvironmentCoordinatesView(vertices,matrix,eye,FALSE,uv); }

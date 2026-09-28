@@ -15,6 +15,8 @@ const StudioGlobalLight g_StudioDefaultAmbientLight={{1,1,1},.2,{0,0,0}};
 /* Direction follows the light's travel, matching spotlight direction semantics. */
 const StudioGlobalLight g_StudioDefaultDirectionalLight={{1,1,1},1,{-0.348742916,-0.813733471,-0.464990554}};
 
+const StudioCamera g_StudioDefaultCamera={{{0,3,8},{-20,0,0},{1,1,1}},10};
+
 void StudioSceneDefaultLighting(StudioScene *scene)
 {
     scene->ambient=g_StudioDefaultAmbientLight; scene->directional=g_StudioDefaultDirectionalLight;
@@ -53,6 +55,12 @@ BOOL StudioTransformValid(const StudioTransform *t)
             || !isfinite(t->rotation[k]) || fabs(t->rotation[k])>1e9
             || !isfinite(t->scale[k]) || t->scale[k]<0.0001 || t->scale[k]>10000) { return FALSE; }
     return TRUE;
+}
+
+BOOL StudioCameraValid(const StudioCamera *camera)
+{
+    return StudioTransformValid(&camera->transform) && isfinite(camera->size) && camera->size>=.0001 && camera->size<=1e9
+        && camera->transform.scale[0]==1 && camera->transform.scale[1]==1 && camera->transform.scale[2]==1;
 }
 
 BOOL StudioMaterialValid(const StudioMaterial *m)
@@ -203,6 +211,7 @@ BOOL StudioSceneSave(const StudioScene *scene, const char **why)
     *why="";
     if (!StudioScenePath(scene,folder,path) || scene->count>STUDIO_MAX_OBJECTS)
     { *why="The studio scene path or instance count is invalid."; return FALSE; }
+    if (!StudioCameraValid(&scene->camera)) { goto invalid; }
     if (scene->environment[0] && !StudioAssetFilename(scene->environment,".bmp")) { goto invalid; }
     for (DWORD i=0;i<scene->count;i++)
     {
@@ -218,8 +227,10 @@ BOOL StudioSceneSave(const StudioScene *scene, const char **why)
     { *why="Could not create a temporary scene file."; return FALSE; }
     file=fopen(temporary,"wb");
     if (!file) { DeleteFile(temporary); *why="Could not open the temporary scene file."; return FALSE; }
-    ok=fputs("{\n  \"format\": \"GEditor Render Studio\",\n  \"version\": 7,\n  \"environment\": ",file)!=EOF
+    ok=fputs("{\n  \"format\": \"GEditor Render Studio\",\n  \"version\": 8,\n  \"environment\": ",file)!=EOF
         && GltfJsonWriteString(file,scene->environment) && fputs(",\n  \"objects\": [",file)!=EOF;
+    const StudioCamera *camera=&scene->camera;
+    /* Camera is independent of instances and cannot be removed or reordered. */
     for (DWORD i=0;ok && i<scene->count;i++)
     {
         const StudioInstance *o=&scene->objects[i];
@@ -255,16 +266,19 @@ BOOL StudioSceneSave(const StudioScene *scene, const char **why)
     }
     const StudioGlobalLight *ambient=&scene->ambient,*directional=&scene->directional;
     ok=ok && fprintf(file,"\n  ],\n  \"ambient\": {\"color\": [%.9g, %.9g, %.9g], \"intensity\": %.17g},"
-        "\n  \"directional\": {\"color\": [%.9g, %.9g, %.9g], \"intensity\": %.17g, \"direction\": [%.17g, %.17g, %.17g]}\n}\n",
+        "\n  \"directional\": {\"color\": [%.9g, %.9g, %.9g], \"intensity\": %.17g, \"direction\": [%.17g, %.17g, %.17g]},",
         ambient->color[0],ambient->color[1],ambient->color[2],ambient->intensity,
         directional->color[0],directional->color[1],directional->color[2],directional->intensity,
-        directional->direction[0],directional->direction[1],directional->direction[2])>=0 && !ferror(file);
+        directional->direction[0],directional->direction[1],directional->direction[2])>=0;
+    ok=ok && fprintf(file,"\n  \"camera\": {\"position\": [%.17g, %.17g, %.17g], \"rotation\": [%.17g, %.17g, %.17g], \"size\": %.17g}\n}\n",
+        camera->transform.position[0],camera->transform.position[1],camera->transform.position[2],
+        camera->transform.rotation[0],camera->transform.rotation[1],camera->transform.rotation[2],camera->size)>=0 && !ferror(file);
     if (fclose(file)) { ok=FALSE; }
     if (!ok || !MoveFileEx(temporary,path,MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
     { DeleteFile(temporary); *why="The scene could not be saved. Check free space and folder permissions. The previous file was preserved."; return FALSE; }
     return TRUE;
 invalid:
-    *why="The scene contains invalid instance, material, or light settings."; return FALSE;
+    *why="The scene contains invalid instance, material, light, or camera settings."; return FALSE;
 }
 
 typedef struct StudioJson { const char *text; GltfJsonToken *tokens; int count; } StudioJson;
@@ -319,7 +333,7 @@ BOOL StudioSceneLoad(const char *projectdir, const char *filename, StudioScene *
     *why="The studio scene is invalid or uses an unsupported format.";
     if (!String(&j,Field(&j,0,"format"),format,sizeof(format)) || strcmp(format,"GEditor Render Studio")) { goto done; }
     token=Field(&j,0,"version");
-    if (token<0 || !GltfJsonUnsigned(text,&j.tokens[token],&version) || (version<1 || version>7)) { goto done; }
+    if (token<0 || !GltfJsonUnsigned(text,&j.tokens[token],&version) || (version<1 || version>8)) { goto done; }
     if (version>=6 && (!String(&j,Field(&j,0,"environment"),next.environment,sizeof(next.environment))
         || (next.environment[0] && !StudioAssetFilename(next.environment,".bmp")))) { goto done; }
     array=Field(&j,0,"objects");
@@ -444,6 +458,14 @@ BOOL StudioSceneLoad(const char *projectdir, const char *filename, StudioScene *
          * whenever any local light existed, even with zero local intensity. */
         StudioSceneDefaultLighting(&next);
         for (int i=0;i<STUDIO_LIGHT_COUNT;i++) if (next.lights[i].enabled) { next.directional.intensity=0; }
+    }
+    next.camera=g_StudioDefaultCamera;
+    if (version>=8)
+    {
+        int camera=Field(&j,0,"camera");
+        if (!Vector(&j,Field(&j,camera,"position"),next.camera.transform.position,3)
+            || !Vector(&j,Field(&j,camera,"rotation"),next.camera.transform.rotation,3)
+            || !Number(&j,Field(&j,camera,"size"),&next.camera.size) || !StudioCameraValid(&next.camera)) { goto done; }
     }
     StudioSceneFree(scene); *scene=next; memset(&next,0,sizeof(next));
     *why=missing ? "Some scene models are missing or unreadable. Their instances and material settings were retained." : ""; ok=TRUE;

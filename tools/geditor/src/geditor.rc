@@ -385,6 +385,9 @@ EXSTYLE WS_EX_CONTROLPARENT
 FONT 8, "MS Shell Dlg"
 BEGIN
     LTEXT "Create or open a scene.", IDC_STUDIO_MATERIAL_HINT, 0, 0, 152, 24
+    LTEXT "Orthographic size", IDC_STUDIO_CAMERA_SIZE_LABEL, 0, 2, 90, 10
+    EDITTEXT IDC_STUDIO_CAMERA_SIZE, 94, 0, 58, 14, ES_AUTOHSCROLL | WS_TABSTOP
+    LTEXT "256 x 256 render preview. Size is the view width and height in studio units. Edit position and rotation in Transform.", IDC_STUDIO_CAMERA_HINT, 0, 26, 152, 60
     LTEXT "Environment map", IDC_STUDIO_ENVIRONMENT_LABEL, 0, 0, 152, 10
     COMBOBOX IDC_STUDIO_ENVIRONMENT, 0, 14, 152, 160, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     LTEXT "Use a 2:1 BMP panorama. Material metalness controls reflection strength.", IDC_STUDIO_ENVIRONMENT_HINT, 0, 38, 152, 48

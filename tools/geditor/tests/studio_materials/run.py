@@ -138,9 +138,9 @@ def main():
         assert json.loads((work / 'studio/scenes/EnvironmentNone.rnd').read_text())['environment'] == ''
         for version in range(1, 6):
             legacy = json.loads((work / f'studio/scenes/EnvironmentLegacy{version}.rnd').read_text())
-            assert legacy['version'] == 7 and legacy['environment'] == ''
+            assert legacy['version'] == 8 and legacy['environment'] == ''
         scene = json.loads((work / 'studio/scenes/Main.rnd').read_text())
-        assert scene['version'] == 7 and len(scene['objects']) == 2
+        assert scene['version'] == 8 and len(scene['objects']) == 2
         first, second = scene['objects']
         assert first['materials'][0]['name'] == 'Housing "blue"'
         assert first['materials'][1]['name'] == 'Réflecteur'
@@ -153,7 +153,7 @@ def main():
         assert second['materials'][1]['emission'] == [0, 0, 0] and second['materials'][1]['metalness'] == 0
         for version in range(1, 7):
             legacy = json.loads((work / f'studio/scenes/Legacy{version}.rnd').read_text())
-            assert legacy['version'] == 7
+            assert legacy['version'] == 8
             assert legacy['objects'][0]['materials'][0]['environmentBlur'] == 0
             assert legacy['objects'][0]['materials'][0]['metalness'] == (0 if version < 5 else .5)
             if version < 5:

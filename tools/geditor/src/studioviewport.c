@@ -12,6 +12,7 @@
 #include "studiogizmo.h"
 #include "studiolightview.h"
 #include "studioenvironment.h"
+#include "studiocameraview.h"
 
 #define STUDIO_VIEWPORT_CLASS "GEditorStudioViewport"
 
@@ -34,6 +35,7 @@ typedef struct StudioViewport {
     StudioDrag drag;
     StudioLight lightbefore;
     StudioLightIcons lighticons;
+    StudioCameraModel cameramodel;
     BOOL transforming;
     int tool,hover,dragobject;
     int selected;
@@ -48,6 +50,7 @@ static void StudioViewportEndTransform(HWND hwnd,StudioViewport *state,BOOL comm
     state->transforming=FALSE; state->buttons=0; state->hover=-1;
     if (!commit && state->scene && state->dragobject>=0 && (DWORD)state->dragobject<state->scene->count)
         state->scene->objects[state->dragobject].transform=before;
+    if (!commit && state->scene && state->dragobject==STUDIO_SELECT_CAMERA) { state->scene->camera.transform=before; }
     if (!commit && slot>=0) { state->scene->lights[slot]=lightbefore; }
     if (GetCapture()==hwnd) { ReleaseCapture(); }
     SendMessage(GetParent(hwnd),slot>=0 ? STUDIO_WM_LIGHT_TRANSFORM : STUDIO_WM_TRANSFORM,
@@ -77,6 +80,8 @@ void StudioViewportSetTool(HWND viewport,int tool)
 
 static BOOL StudioViewportTransform(StudioViewport *state,StudioTransform *transform)
 {
+    if (state->scene && state->scene->filename[0] && state->selected==STUDIO_SELECT_CAMERA)
+    { if (state->tool==STUDIO_SCALE) { return FALSE; } *transform=state->scene->camera.transform; return TRUE; }
     int slot=StudioSceneLightIndex(state->scene,state->selected);
     if (slot>=0)
     {
@@ -94,10 +99,17 @@ static BOOL StudioViewportGizmoFrame(StudioViewport *state,int width,int height,
     return StudioViewportTransform(state,&transform) && StudioGizmoPlace(&transform,&state->camera,width,height,state->tool,frame);
 }
 
+static BOOL StudioViewportOverPreview(HWND hwnd,StudioViewport *state,int x,int y)
+{
+    RECT client; StudioPreviewRect preview; GetClientRect(hwnd,&client);
+    if (!state->scene || !state->scene->filename[0] || !StudioCameraPreviewRect(client.right,client.bottom,&preview)) { return FALSE; }
+    return x>=preview.left-1 && x<=preview.right && y>=preview.top-1 && y<=preview.bottom;
+}
+
 static int StudioViewportGizmoHit(HWND hwnd,StudioViewport *state,int x,int y,StudioGizmoFrame *frame,double hit[3])
 {
     RECT client; double eye[3],direction[3]; GetClientRect(hwnd,&client);
-    if (!StudioViewportGizmoFrame(state,client.right,client.bottom,frame)
+    if (StudioViewportOverPreview(hwnd,state,x,y) || !StudioViewportGizmoFrame(state,client.right,client.bottom,frame)
         || !StudioRay(&state->camera,client.right,client.bottom,x,y,eye,direction)) { return -1; }
     return StudioGizmoPick(&state->gizmo,frame,eye,direction,hit);
 }
@@ -156,7 +168,7 @@ BOOL StudioViewportDropPoint(HWND viewport, POINT screen, double position[3])
     RECT client; double origin[3],direction[3],t;
     if (!state) { return FALSE; }
     ScreenToClient(viewport,&screen); GetClientRect(viewport,&client);
-    if (!PtInRect(&client,screen) || !StudioRay(&state->camera,client.right,client.bottom,screen.x,screen.y,origin,direction)) { return FALSE; }
+    if (StudioViewportOverPreview(viewport,state,screen.x,screen.y) || !PtInRect(&client,screen) || !StudioRay(&state->camera,client.right,client.bottom,screen.x,screen.y,origin,direction)) { return FALSE; }
     t=fabs(direction[1])>1e-8 ? -origin[1]/direction[1] : -1;
     if (t<0 || t>state->camera.distance*100) { t=state->camera.distance; }
     for (int k=0;k<3;k++) { position[k]=origin[k]+direction[k]*t; }
@@ -228,7 +240,7 @@ static StudioTexture *StudioViewportTexture(StudioViewport *state, const char *f
     return texture;
 }
 
-static void StudioViewportObjects(StudioViewport *state, const double eye[3])
+static void StudioViewportObjects(StudioViewport *state, const double eye[3],BOOL parallel)
 {
     if (!state->scene) { return; }
     glShadeModel(GL_SMOOTH);
@@ -280,7 +292,7 @@ static void StudioViewportObjects(StudioViewport *state, const double eye[3])
                     for (DWORD face=first;face<end;face++)
                     {
                         const BgVertex *triangle=&mesh->vertices[face*3]; double uv[3][2];
-                        if (kind==ENVIRONMENT) { StudioEnvironmentCoordinates(triangle,&matrix,eye,uv); }
+                        if (kind==ENVIRONMENT) { StudioEnvironmentCoordinatesView(triangle,&matrix,eye,parallel,uv); }
                         for (int k=0;k<3;k++)
                         {
                             const BgVertex *vertex=&triangle[k];
@@ -297,7 +309,7 @@ static void StudioViewportObjects(StudioViewport *state, const double eye[3])
                                 else
                                 {
                                     float diffuse[3],additive[3],metallic[3];
-                                    StudioShade(state->scene,m,vertex,&matrix,eye,diffuse,additive,metallic);
+                                    StudioShadeView(state->scene,m,vertex,&matrix,eye,parallel,diffuse,additive,metallic);
                                     glColor3fv(kind==METALLIC ? metallic : kind==ADDITIVE ? additive : diffuse);
                                 }
                                 glTexCoord2f(vertex->s,vertex->t);
@@ -314,7 +326,7 @@ static void StudioViewportObjects(StudioViewport *state, const double eye[3])
     }
     glDisable(GL_BLEND); glDisable(GL_TEXTURE_2D); glDepthMask(GL_TRUE); glDepthFunc(GL_LEQUAL);
     double lo[3],hi[3];
-    if (state->selected>=0 && StudioBounds(state->scene,state->selected,lo,hi))
+    if (!parallel && state->selected>=0 && StudioBounds(state->scene,state->selected,lo,hi))
     {
         glColor3ub(242,194,70); glLineWidth(1.5f); glBegin(GL_LINES);
         for (int k=0;k<3;k++) for (int edge=0;edge<4;edge++)
@@ -326,6 +338,33 @@ static void StudioViewportObjects(StudioViewport *state, const double eye[3])
         }
         glEnd(); glLineWidth(1);
     }
+}
+
+static void StudioViewportPreview(StudioViewport *state,int width,int height)
+{
+    StudioPreviewRect rect;
+    if (!state->scene || !state->scene->filename[0] || !StudioCameraValid(&state->scene->camera)
+        || !StudioCameraPreviewRect(width,height,&rect)) { return; }
+    double viewmatrix[16],view[3],nearz,farz,half=state->scene->camera.size*.5;
+    StudioCameraView(&state->scene->camera,viewmatrix,view); StudioCameraClip(state->scene,&nearz,&farz);
+    /* Reuse the context/textures, but isolate the inset's matrices, clear, depth,
+     * viewport and GL state. Drawing guides never enter this render preview. */
+    glPushAttrib(GL_ALL_ATTRIB_BITS);
+    glEnable(GL_SCISSOR_TEST); glDepthMask(GL_TRUE);
+    glScissor(rect.left-1,height-rect.bottom-1,STUDIO_PREVIEW_SIZE+2,STUDIO_PREVIEW_SIZE+2);
+    if (state->selected==STUDIO_SELECT_CAMERA) { glClearColor(.95f,.76f,.27f,1); }
+    else { glClearColor(.45f,.47f,.5f,1); }
+    glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+    glViewport(rect.left,height-rect.bottom,STUDIO_PREVIEW_SIZE,STUDIO_PREVIEW_SIZE);
+    glScissor(rect.left,height-rect.bottom,STUDIO_PREVIEW_SIZE,STUDIO_PREVIEW_SIZE);
+    glClearColor(.13f,.14f,.16f,1); glClear(GL_COLOR_BUFFER_BIT);
+    glEnable(GL_DEPTH_TEST); glDepthFunc(GL_LEQUAL); glDisable(GL_BLEND);
+    glDisable(GL_LIGHTING); glDisable(GL_TEXTURE_2D); glDisable(GL_CULL_FACE); glDisable(GL_FOG);
+    glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); glOrtho(-half,half,-half,half,nearz,farz);
+    glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadMatrixd(viewmatrix);
+    StudioViewportObjects(state,view,TRUE);
+    glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix(); glMatrixMode(GL_MODELVIEW);
+    glPopAttrib();
 }
 
 /* The grid is a background guide, not part of the model's depth bounds.
@@ -380,11 +419,14 @@ static void StudioViewportDraw(StudioViewport *state, int width, int height)
     glTranslated(-eye[0], -eye[1], -eye[2]);
 
     StudioViewportGrid(eye,width,height);
-    StudioViewportObjects(state,eye);
+    StudioViewportObjects(state,eye,FALSE);
+    if (state->scene && state->scene->filename[0])
+        StudioCameraModelDraw(&state->cameramodel,&state->scene->camera,state->selected==STUDIO_SELECT_CAMERA);
     StudioLightIconsDraw(&state->lighticons,state->scene,&state->camera,width,height,state->selected);
     StudioGizmoFrame frame;
     if (StudioViewportGizmoFrame(state,width,height,&frame))
         StudioGizmoDraw(&state->gizmo,&frame,state->transforming ? state->drag.axis : state->hover);
+    StudioViewportPreview(state,width,height);
 }
 
 static LRESULT CALLBACK StudioViewportProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
@@ -397,7 +439,8 @@ static LRESULT CALLBACK StudioViewportProc(HWND hwnd, UINT message, WPARAM wpara
         if (!state) { return -1; }
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
         if (!StudioViewportInit(hwnd, state)
-            || !StudioGizmoLoad(&state->gizmo,(HINSTANCE)GetWindowLongPtr(hwnd,GWLP_HINSTANCE))) { return -1; }
+            || !StudioGizmoLoad(&state->gizmo,(HINSTANCE)GetWindowLongPtr(hwnd,GWLP_HINSTANCE))
+            || !StudioCameraModelLoad(&state->cameramodel,(HINSTANCE)GetWindowLongPtr(hwnd,GWLP_HINSTANCE))) { return -1; }
         StudioViewportReset(hwnd);
         return 0;
     case WM_ERASEBKGND: return 1;
@@ -423,6 +466,12 @@ static LRESULT CALLBACK StudioViewportProc(HWND hwnd, UINT message, WPARAM wpara
         if (!state) { break; }
         if (state->transforming) { return 0; }
         SetFocus(hwnd);
+        if (StudioViewportOverPreview(hwnd,state,GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam)))
+        {
+            state->moved=TRUE;
+            if (message==WM_LBUTTONDOWN) { SendMessage(GetParent(hwnd),STUDIO_WM_SELECT,(WPARAM)(INT_PTR)STUDIO_SELECT_CAMERA,-1); }
+            return 0;
+        }
         if (message==WM_LBUTTONDOWN)
         {
             StudioGizmoFrame frame; StudioTransform transform; double hit[3]; RECT client;
@@ -451,13 +500,19 @@ static LRESULT CALLBACK StudioViewportProc(HWND hwnd, UINT message, WPARAM wpara
         { if (message==WM_LBUTTONUP) { StudioViewportEndTransform(hwnd,state,TRUE); } return 0; }
         state->buttons &= ~(message == WM_LBUTTONUP ? MK_LBUTTON : message == WM_MBUTTONUP ? MK_MBUTTON : MK_RBUTTON);
         if (!state->buttons && GetCapture() == hwnd) { ReleaseCapture(); }
-        if (message==WM_LBUTTONUP && !state->moved)
+        if (message==WM_LBUTTONUP && !state->moved && !StudioViewportOverPreview(hwnd,state,GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam)))
         {
             RECT client; double origin[3],direction[3]; int material=-1,index=-1;
             GetClientRect(hwnd,&client);
             index=StudioLightIconPick(state->scene,&state->camera,client.right,client.bottom,GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam));
             if (index==-1 && StudioRay(&state->camera,client.right,client.bottom,GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam),origin,direction))
-                index=StudioPick(state->scene,origin,direction,&material);
+            {
+                double distance,cameradistance;
+                index=StudioPickDistance(state->scene,origin,direction,&material,&distance);
+                if (state->scene && state->scene->filename[0]
+                    && StudioCameraModelPick(&state->cameramodel,&state->scene->camera,origin,direction,&cameradistance) && cameradistance<distance)
+                { index=STUDIO_SELECT_CAMERA; material=-1; }
+            }
             SendMessage(GetParent(hwnd),STUDIO_WM_SELECT,(WPARAM)(INT_PTR)index,(LPARAM)material);
         }
         return 0;
@@ -470,6 +525,8 @@ static LRESULT CALLBACK StudioViewportProc(HWND hwnd, UINT message, WPARAM wpara
                 int slot=StudioSceneLightIndex(state->scene,state->dragobject); BOOL applied=FALSE;
                 if (slot>=0)
                     applied=StudioLightDragApply(&state->lightbefore,&transform,slot,state->drag.mode,&state->scene->lights[slot]);
+                else if (state->scene && state->dragobject==STUDIO_SELECT_CAMERA)
+                { state->scene->camera.transform=transform; applied=TRUE; }
                 else if (state->scene && state->dragobject>=0 && (DWORD)state->dragobject<state->scene->count)
                 { state->scene->objects[state->dragobject].transform=transform; applied=TRUE; }
                 if (applied)
@@ -498,6 +555,8 @@ static LRESULT CALLBACK StudioViewportProc(HWND hwnd, UINT message, WPARAM wpara
     case WM_MOUSEWHEEL:
         if (state && !state->transforming)
         {
+            POINT point={GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam)}; ScreenToClient(hwnd,&point);
+            if (StudioViewportOverPreview(hwnd,state,point.x,point.y)) { return 0; }
             OrbitCameraDolly(&state->camera, (double)GET_WHEEL_DELTA_WPARAM(wparam) / WHEEL_DELTA);
             InvalidateRect(hwnd, NULL, FALSE);
         }
@@ -526,7 +585,7 @@ static LRESULT CALLBACK StudioViewportProc(HWND hwnd, UINT message, WPARAM wpara
                 wglDeleteContext(state->context);
             }
             if (state->dc) { ReleaseDC(hwnd, state->dc); }
-            StudioGizmoFree(&state->gizmo);
+            StudioGizmoFree(&state->gizmo); StudioCameraModelFree(&state->cameramodel);
             free(state); SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
         }
         break;

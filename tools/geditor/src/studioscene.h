@@ -34,6 +34,13 @@ typedef struct StudioTransform {
     double position[3], rotation[3], scale[3];
 } StudioTransform;
 
+/* One permanent orthographic render camera. Local -Z looks forward, +Y is up.
+ * Scale stays at one; size is the square view's width/height in studio units. */
+typedef struct StudioCamera { StudioTransform transform; double size; } StudioCamera;
+extern const StudioCamera g_StudioDefaultCamera;
+#define STUDIO_SELECT_CAMERA (-7)
+BOOL StudioCameraValid(const StudioCamera *camera);
+
 typedef struct StudioInstance {
     char model[MAX_PATH];
     StudioTransform transform;
@@ -68,6 +75,7 @@ typedef struct StudioScene {
     StudioModel *assets;
     StudioLight lights[STUDIO_LIGHT_COUNT];
     StudioGlobalLight ambient, directional;
+    StudioCamera camera;
 } StudioScene;
 
 /* Shared viewport/outliner selection IDs: models >= 0, none/root -1. */
