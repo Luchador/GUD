@@ -171,7 +171,10 @@ void StudioShade(const StudioScene *scene,const StudioMaterial *m, const BgVerte
 {
     double normal[3]={0},view[3],length=0,viewlength=0;
     double p[3]={vertex->x,vertex->y,vertex->z};
-    double illumination[3]={.2,.2,.2},highlights[3]={0}; BOOL authored=FALSE;
+    const StudioGlobalLight *ambient=scene ? &scene->ambient : &g_StudioDefaultAmbientLight;
+    const StudioGlobalLight *directional=scene ? &scene->directional : &g_StudioDefaultDirectionalLight;
+    double illumination[3],highlights[3]={0};
+    for (int k=0;k<3;k++) { illumination[k]=ambient->color[k]*ambient->intensity; }
     StudioPoint(matrix,p,p);
     for (int k=0;k<3;k++)
     {
@@ -182,14 +185,22 @@ void StudioShade(const StudioScene *scene,const StudioMaterial *m, const BgVerte
     for (int k=0;k<3;k++) { normal[k]=length>1e-12 ? normal[k]/length : (k==1); view[k]=viewlength>1e-12 ? view[k]/viewlength : 0; }
     if (scene) for (int i=0;i<STUDIO_LIGHT_COUNT;i++)
     {
-        const StudioLight *light=&scene->lights[i]; if (!light->enabled) { continue; } authored=TRUE;
+        const StudioLight *light=&scene->lights[i]; if (!light->enabled) { continue; }
         double direction[3],power=StudioLightSample(light,i==0,p,direction);
         if (power>0) { StudioIlluminate(m,normal,view,direction,light->color,power,power,illumination,highlights); }
     }
-    if (!authored)
+    if (directional->intensity>0)
     {
-        const double direction[3]={0.348742916,0.813733471,0.464990554}; const float white[3]={1,1,1};
-        StudioIlluminate(m,normal,view,direction,white,.8,1,illumination,highlights);
+        double direction[3],length=0;
+        for (int k=0;k<3;k++) { length+=directional->direction[k]*directional->direction[k]; }
+        if (length>1e-24)
+        {
+            length=sqrt(length);
+            for (int k=0;k<3;k++) { direction[k]=-directional->direction[k]/length; }
+            /* Intensity 1 retains the preview's original diffuse/specular balance. */
+            StudioIlluminate(m,normal,view,direction,directional->color,.8*directional->intensity,
+                directional->intensity,illumination,highlights);
+        }
     }
     double color[3]={vertex->r/255.0,vertex->g/255.0,vertex->b/255.0};
     for (int k=0;k<3;k++)

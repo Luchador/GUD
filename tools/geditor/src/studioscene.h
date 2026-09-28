@@ -49,12 +49,22 @@ typedef struct StudioLight {
     double intensity, radius, inner, outer;
 } StudioLight;
 
+/* Permanent lighting has no position, radius, enabled flag, or Add/Delete slot. */
+typedef struct StudioGlobalLight {
+    float color[3];
+    double intensity, direction[3]; /* direction is only used by the directional light. */
+} StudioGlobalLight;
+extern const StudioGlobalLight g_StudioDefaultAmbientLight, g_StudioDefaultDirectionalLight;
+#define STUDIO_SELECT_AMBIENT (-5)
+#define STUDIO_SELECT_DIRECTIONAL (-6)
+
 typedef struct StudioScene {
     char project[MAX_PATH], filename[MAX_PATH];
     StudioInstance *objects;
     DWORD count;
     StudioModel *assets;
     StudioLight lights[STUDIO_LIGHT_COUNT];
+    StudioGlobalLight ambient, directional;
 } StudioScene;
 
 /* Shared viewport/outliner selection IDs: models >= 0, none/root -1. */
@@ -66,6 +76,9 @@ static inline int StudioSceneLightIndex(const StudioScene *scene,int selection)
     return scene->lights[slot].enabled ? slot : -1;
 }
 
+/* Initialize lighting when constructing a scene directly; Load also supplies legacy defaults. */
+void StudioSceneDefaultLighting(StudioScene *scene);
+BOOL StudioGlobalLightValid(const StudioGlobalLight *light,BOOL directional);
 void StudioSceneFree(StudioScene *scene);
 BOOL StudioSceneLoad(const char *projectdir, const char *filename, StudioScene *scene, const char **why);
 BOOL StudioSceneSave(const StudioScene *scene, const char **why);

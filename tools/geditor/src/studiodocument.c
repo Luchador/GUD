@@ -11,6 +11,31 @@
 #define STUDIO_MAX_OBJECTS 1024
 #define STUDIO_MAX_SCENE_BYTES (16u * 1024u * 1024u)
 
+const StudioGlobalLight g_StudioDefaultAmbientLight={{1,1,1},.2,{0,0,0}};
+/* Direction follows the light's travel, matching spotlight direction semantics. */
+const StudioGlobalLight g_StudioDefaultDirectionalLight={{1,1,1},1,{-0.348742916,-0.813733471,-0.464990554}};
+
+void StudioSceneDefaultLighting(StudioScene *scene)
+{
+    scene->ambient=g_StudioDefaultAmbientLight; scene->directional=g_StudioDefaultDirectionalLight;
+}
+
+BOOL StudioGlobalLightValid(const StudioGlobalLight *light,BOOL directional)
+{
+    double length=0;
+    if (!isfinite(light->intensity) || light->intensity<0 || light->intensity>10000) { return FALSE; }
+    for (int k=0;k<3;k++)
+    {
+        if (!isfinite(light->color[k]) || light->color[k]<0 || light->color[k]>1) { return FALSE; }
+        if (directional)
+        {
+            if (!isfinite(light->direction[k]) || fabs(light->direction[k])>1e9) { return FALSE; }
+            length+=light->direction[k]*light->direction[k];
+        }
+    }
+    return !directional || length>1e-24;
+}
+
 BOOL StudioAssetFilename(const char *name, const char *extension)
 {
     size_t length = name ? strlen(name) : 0, suffix = strlen(extension);
@@ -184,11 +209,12 @@ BOOL StudioSceneSave(const StudioScene *scene, const char **why)
     }
     for (int i=0;i<STUDIO_LIGHT_COUNT;i++)
         if (scene->lights[i].enabled && !StudioLightValid(&scene->lights[i],i==0)) { goto invalid; }
+    if (!StudioGlobalLightValid(&scene->ambient,FALSE) || !StudioGlobalLightValid(&scene->directional,TRUE)) { goto invalid; }
     if (!GetTempFileName(folder,"rnd",0,temporary))
     { *why="Could not create a temporary scene file."; return FALSE; }
     file=fopen(temporary,"wb");
     if (!file) { DeleteFile(temporary); *why="Could not open the temporary scene file."; return FALSE; }
-    ok=fprintf(file,"{\n  \"format\": \"GEditor Render Studio\",\n  \"version\": 3,\n  \"objects\": [")>=0;
+    ok=fprintf(file,"{\n  \"format\": \"GEditor Render Studio\",\n  \"version\": 4,\n  \"objects\": [")>=0;
     for (DWORD i=0;ok && i<scene->count;i++)
     {
         const StudioInstance *o=&scene->objects[i];
@@ -221,7 +247,12 @@ BOOL StudioSceneSave(const StudioScene *scene, const char **why)
         else { ok=ok && fprintf(file,", \"radius\": %.17g}",light->radius)>=0; }
         comma=TRUE;
     }
-    ok=ok && fputs("\n  ]\n}\n",file)!=EOF && !ferror(file);
+    const StudioGlobalLight *ambient=&scene->ambient,*directional=&scene->directional;
+    ok=ok && fprintf(file,"\n  ],\n  \"ambient\": {\"color\": [%.9g, %.9g, %.9g], \"intensity\": %.17g},"
+        "\n  \"directional\": {\"color\": [%.9g, %.9g, %.9g], \"intensity\": %.17g, \"direction\": [%.17g, %.17g, %.17g]}\n}\n",
+        ambient->color[0],ambient->color[1],ambient->color[2],ambient->intensity,
+        directional->color[0],directional->color[1],directional->color[2],directional->intensity,
+        directional->direction[0],directional->direction[1],directional->direction[2])>=0 && !ferror(file);
     if (fclose(file)) { ok=FALSE; }
     if (!ok || !MoveFileEx(temporary,path,MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
     { DeleteFile(temporary); *why="The scene could not be saved. Check free space and folder permissions. The previous file was preserved."; return FALSE; }
@@ -254,6 +285,18 @@ static BOOL Vector(const StudioJson *j,int token,double *value,DWORD size)
     return TRUE;
 }
 
+static BOOL StudioReadGlobalLight(const StudioJson *j,int object,BOOL directional,StudioGlobalLight *light)
+{
+    double color[3];
+    if (object<0 || j->tokens[object].type!=GLTF_JSON_OBJECT
+        || !Vector(j,Field(j,object,"color"),color,3)
+        || !Number(j,Field(j,object,"intensity"),&light->intensity)) { return FALSE; }
+    for (int k=0;k<3;k++)
+    { if (color[k]<0 || color[k]>1) { return FALSE; } light->color[k]=(float)color[k]; }
+    if (directional && !Vector(j,Field(j,object,"direction"),light->direction,3)) { return FALSE; }
+    return StudioGlobalLightValid(light,directional);
+}
+
 BOOL StudioSceneLoad(const char *projectdir, const char *filename, StudioScene *scene, const char **why)
 {
     StudioScene next={0}; StudioJson j={0}; char folder[MAX_PATH], path[MAX_PATH], *text=NULL, format[64];
@@ -270,7 +313,7 @@ BOOL StudioSceneLoad(const char *projectdir, const char *filename, StudioScene *
     *why="The studio scene is invalid or uses an unsupported format.";
     if (!String(&j,Field(&j,0,"format"),format,sizeof(format)) || strcmp(format,"GEditor Render Studio")) { goto done; }
     token=Field(&j,0,"version");
-    if (token<0 || !GltfJsonUnsigned(text,&j.tokens[token],&version) || (version!=1 && version!=2 && version!=3)) { goto done; }
+    if (token<0 || !GltfJsonUnsigned(text,&j.tokens[token],&version) || (version<1 || version>4)) { goto done; }
     array=Field(&j,0,"objects");
     if (array<0 || j.tokens[array].type!=GLTF_JSON_ARRAY) { goto done; }
     next.count=GltfJsonArrayCount(j.tokens,j.count,array);
@@ -364,6 +407,18 @@ BOOL StudioSceneLoad(const char *projectdir, const char *filename, StudioScene *
             else if (!Number(&j,Field(&j,object,"radius"),&light->radius)) { goto done; }
             if (!StudioLightValid(light,spotlight)) { goto done; }
         }
+    }
+    if (version>=4)
+    {
+        if (!StudioReadGlobalLight(&j,Field(&j,0,"ambient"),FALSE,&next.ambient)
+            || !StudioReadGlobalLight(&j,Field(&j,0,"directional"),TRUE,&next.directional)) { goto done; }
+    }
+    else
+    {
+        /* Preserve the old preview: its fallback directional light was off
+         * whenever any local light existed, even with zero local intensity. */
+        StudioSceneDefaultLighting(&next);
+        for (int i=0;i<STUDIO_LIGHT_COUNT;i++) if (next.lights[i].enabled) { next.directional.intensity=0; }
     }
     StudioSceneFree(scene); *scene=next; memset(&next,0,sizeof(next));
     *why=missing ? "Some scene models are missing or unreadable. Their instances and material settings were retained." : ""; ok=TRUE;

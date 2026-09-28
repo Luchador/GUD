@@ -36,7 +36,7 @@ static void Lighting(void)
     light->enabled=FALSE; point[1]=1; CHECK(StudioLightSample(light,FALSE,point,direction)==0);
     puts("PASS: spotlight direction/inner cone/penumbra/outer cone, hard cones, point radius/falloff, and coincident positions.");
 
-    memset(&scene,0,sizeof(scene));
+    memset(&scene,0,sizeof(scene)); StudioSceneDefaultLighting(&scene);
     StudioMaterial material={0}; BgVertex vertex={0}; float diffuse[3],specular[3],legacy[3],legacyspec[3];
     StudioTransform transform={{0},{0},{1,1,1}}; StudioMatrix matrix; StudioMatrixBuild(&transform,&matrix);
     double eye[3]={0,10,0}; vertex.environment.normal[1]=1; vertex.r=vertex.g=vertex.b=255;
@@ -46,6 +46,7 @@ static void Lighting(void)
     StudioShade(&scene,&material,&vertex,&matrix,eye,diffuse,specular);
     CHECK(!memcmp(legacy,diffuse,sizeof(diffuse)) && !memcmp(legacyspec,specular,sizeof(specular)));
     strcpy(scene.filename,"Light.rnd"); CHECK(StudioSceneAddLight(&scene,FALSE,&why)==1);
+    scene.directional.intensity=0;
     light=&scene.lights[1]; light->color[1]=light->color[2]=0; /* Red at half radius. */
     StudioShade(&scene,&material,&vertex,&matrix,eye,diffuse,specular);
     CHECK(NEAR(diffuse[0],.225) && NEAR(diffuse[1],.1) && NEAR(specular[0],.125) && specular[1]==0);
@@ -90,7 +91,7 @@ static void Validation(void)
 
 int main(int argc,char **argv)
 {
-    CHECK(argc==3); const char *project=argv[1]; StudioScene scene={0},loaded={0};
+    CHECK(argc==3); const char *project=argv[1]; StudioScene scene={0},loaded={0}; StudioSceneDefaultLighting(&scene);
     Lighting(); Validation();
     CHECK(StudioSceneAddLight(&scene,TRUE,&why)==-1 && !scene.lights[0].enabled);
     lstrcpyn(scene.project,project,sizeof(scene.project)); strcpy(scene.filename,"Lights.rnd");

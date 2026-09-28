@@ -97,6 +97,20 @@ Enter or leaving the field. Completed edits and placements automatically save
 the `.rnd` scene. Invalid edits and failed saves restore the previous setting;
 an existing scene file is replaced only after its complete replacement is written.
 
+Every scene has permanent **Ambient Light** and **Directional Light** entries
+in the Scene Outliner. They cannot be added or deleted. Select either entry to
+edit **Color** and **Intensity** (0–10000) in **Properties**; intensity 0 turns
+that light off. New scenes start with white ambient light at 0.2 and white
+directional light at 1. Ambient light fills all surfaces equally and has no
+specular highlight. Directional light has no position or distance falloff.
+
+Select **Directional Light** to edit **Direction X/Y/Z** in **Transform**.
+This nonzero vector points in the direction the light travels, as with a
+spotlight, and is normalized for rendering. The permanent lights have no
+viewport icons or transform gizmos; their position and scale fields are disabled.
+All light contributions are independent: adding or removing a spotlight or point
+light does not change the ambient or directional light's settings.
+
 Choose **Add > Spotlight** or **Add > Point Light** next to the File menu. Each
 scene supports **one spotlight and two point lights**; an item is disabled when
 its limit is reached. If no scene is open, the New Scene prompt appears first.
@@ -141,14 +155,12 @@ edits save automatically, and File > Save Scene/Ctrl+S includes them. Invalid
 edits or failed saves restore the previous settings.
 
 Press **Delete** with the viewport or Scene Outliner focused to remove the
-selected light and save the scene. Delete still edits text normally in numeric
+selected spotlight or point light and save the scene. Delete still edits text normally in numeric
 fields. A failed save restores the light and its selection. Deleting a light
 frees its Add-menu slot; the other lights retain their identities and settings.
-Deleting the last light restores the default preview lighting.
 
-The interactive preview uses ambient fill and per-vertex Phong lighting. Once a
-light is added, the scene's lights supply the diffuse and specular illumination.
-Scenes without added lights retain the original default directional light.
+The interactive preview combines the scene's ambient fill with per-vertex
+Phong lighting from its directional light, spotlight, and point lights.
 The preview interpolates lighting across triangles, so cone edges and small
 point-light footprints are more accurate on meshes with sufficient vertices.
 Base images affect diffuse color without tinting the separate
@@ -180,13 +192,19 @@ workspace to the newly opened project; switching game levels does not.
 `browser.c` provides the same image grid for the main editor and Render Studio.
 `studioscene.c` owns scene filenames, creation, and enumeration.
 `studiodocument.c` owns scene loading, atomic replacement, instances, shared model
-assets, per-instance materials, and fixed light slots. A `.rnd` is a UTF-8 JSON
+assets, per-instance materials, fixed local-light slots, and permanent lighting. A `.rnd` is a UTF-8 JSON
 document with
-`"format": "GEditor Render Studio"`, `"version": 3`, an `objects` array, and a
-`lights` array. Version-1 and version-2 scenes remain supported without lights.
+`"format": "GEditor Render Studio"`, `"version": 4`, `objects` and `lights` arrays,
+and required `ambient` and `directional` objects. Each permanent-light object
+stores `color` (RGB, 0–1) and `intensity`; `directional` also stores `direction`.
+Versions 1–3 remain supported. Their ambient light defaults to white at 0.2.
+Their directional light preserves the original preview direction and is white
+at intensity 1 if there are no local lights, or intensity 0 if any local light
+exists (including one with zero intensity). This preserves their previous
+appearance. After loading, the permanent lights can be edited independently.
 For version-1 scenes, existing positions and material settings are
 retained, rotation defaults to zero, and scale defaults to one. An empty scene
-created by New Scene starts as version 1; saving upgrades it to version 3.
+created by New Scene starts as version 1; saving upgrades it to version 4.
 Each object stores its model leaf filename, three-component `position`, `rotation`
 (in degrees), `scale` (multipliers), and material overrides (`name`, `image`,
 `base`, `specular`, `intensity`, and `shininess`). Paths are relative to the
@@ -195,8 +213,8 @@ Each light stores `type` (`spotlight` or `point`), `slot`, `position`, `color`,
 and `intensity`. The optional `slot` preserves point-light identity after deletions;
 older version-3 scenes without it assign slots in file order. Spotlights also store `direction`, `inner`, and `outer`; point lights
 store `radius`. Invalid light data or exceeded limits reject the entire load
-without changing the open scene. Older editor builds reject version-3 scenes
-rather than silently discarding their lights.
+without changing the open scene. Older editor builds reject version-4 scenes
+rather than silently discarding their permanent-light settings.
 `gltf.c` provides a separate studio import mode using the shared JSON codec in
 `gltfjson.c`; it does not require game source identities or game texture tags.
 `studiomath.c` owns model matrices, ray picking, transformed bounds, and preview
@@ -212,7 +230,8 @@ Run `python3 tools/geditor/tests/studio_lights/run.py` for light limits, propert
 roundtrip persistence, legacy migration, invalid-document/save rollback, cone and
 radius falloff, colored diffuse/specular contributions, and outliner/property
 callback coverage with stand-in native controls, light transforms, icon picking,
-framing, deletion, and stable slot reuse.
+framing, deletion, stable slot reuse, permanent-light controls/non-deletion,
+colored ambient/directional illumination, and v1–v3 appearance migration.
 Run `python3 tools/geditor/tests/studio_transforms/run.py` for transform
 persistence, legacy-scene loading, transformed picking/lighting, drag math,
 actual gizmo assets, hotkey routing, and Save Scene input ordering.
@@ -228,3 +247,9 @@ between models/materials/lights, click each light icon, move it with W, rotate t
 spotlight with E, cancel a drag with Escape, and edit Position/Direction in
 Transform. Delete a light from both the viewport and outliner, add a replacement,
 then save and reopen the scene. Confirm Delete in a numeric field only edits text.
+
+Select Ambient Light and Directional Light, change their colors and intensities,
+edit Direction in Transform, and confirm Delete cannot remove either. Set both
+intensities to zero and remove local lights to check the model becomes unlit;
+restore directional intensity, add a point light, then save/reopen and confirm
+both contributions and settings are retained.

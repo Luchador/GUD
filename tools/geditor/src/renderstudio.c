@@ -14,7 +14,7 @@
 
 static HWND g_Studio, g_StudioViewport, g_StudioProperties, g_StudioTransform;
 static StudioScene g_StudioScene;
-static int g_StudioObject=-1,g_StudioMaterial=-1,g_StudioLight=-1;
+static int g_StudioObject=-1,g_StudioMaterial=-1,g_StudioLight=-1,g_StudioGlobal=-1;
 static BOOL g_StudioUpdating,g_StudioDragArmed,g_StudioDragging;
 static unsigned g_StudioGeneration,g_StudioTransformDirty,g_StudioLightDirty;
 static int g_StudioTool=STUDIO_TRANSLATE;
@@ -23,6 +23,7 @@ static POINT g_StudioDragPress;
 static char g_StudioDragModel[MAX_PATH];
 static void RenderStudioNewScene(HWND hwnd);
 static void RenderStudioCommitLight(StudioLight *light,const StudioLight *previous);
+static void RenderStudioCommitGlobalLight(StudioGlobalLight *light,const StudioGlobalLight *previous);
 static char g_StudioProject[MAX_PATH];
 static const char g_StudioNavigation[] = "W: move    E: rotate    R: scale    Z: frame    Drag handles to transform    Ctrl+S: save";
 
@@ -95,14 +96,23 @@ static StudioMaterial *RenderStudioMaterial(void)
     return g_StudioMaterial>=0 && (DWORD)g_StudioMaterial<o->materialcount ? &o->materials[g_StudioMaterial] : NULL;
 }
 
-/* Outliner IDs: model indices >= 0, scene root -1, light slots -2..-4. */
+/* Outliner IDs: model indices >= 0, scene root -1, local lights -2..-4, permanent lights -5/-6. */
 static int RenderStudioSelection(void)
-{ return g_StudioLight>=0 ? STUDIO_LIGHT_SELECTION(g_StudioLight) : g_StudioObject; }
+{
+    if (g_StudioGlobal>=0) { return g_StudioGlobal==0 ? STUDIO_SELECT_AMBIENT : STUDIO_SELECT_DIRECTIONAL; }
+    return g_StudioLight>=0 ? STUDIO_LIGHT_SELECTION(g_StudioLight) : g_StudioObject;
+}
 
 static StudioLight *RenderStudioLight(void)
 {
     return g_StudioLight>=0 && g_StudioLight<STUDIO_LIGHT_COUNT && g_StudioScene.lights[g_StudioLight].enabled
         ? &g_StudioScene.lights[g_StudioLight] : NULL;
+}
+
+static StudioGlobalLight *RenderStudioGlobalLight(void)
+{
+    if (!g_StudioScene.filename[0]) { return NULL; }
+    return g_StudioGlobal==0 ? &g_StudioScene.ambient : g_StudioGlobal==1 ? &g_StudioScene.directional : NULL;
 }
 
 static double *RenderStudioLightField(StudioLight *light,int field,BOOL spotlight)
@@ -114,11 +124,12 @@ static double *RenderStudioLightField(StudioLight *light,int field,BOOL spotligh
 
 static void RenderStudioProperties(void)
 {
-    StudioMaterial *m=RenderStudioMaterial(); StudioLight *light=RenderStudioLight(); char text[64];
+    StudioMaterial *m=RenderStudioMaterial(); StudioLight *light=RenderStudioLight();
+    StudioGlobalLight *global=RenderStudioGlobalLight(); char text[64];
     g_StudioUpdating=TRUE;
     for (int id=IDC_STUDIO_BASE_LABEL;id<=IDC_STUDIO_SHININESS;id++)
         ShowWindow(GetDlgItem(g_StudioProperties,id),m ? SW_SHOW : SW_HIDE);
-    ShowWindow(GetDlgItem(g_StudioProperties,IDC_STUDIO_MATERIAL_HINT),m || light ? SW_HIDE : SW_SHOW);
+    ShowWindow(GetDlgItem(g_StudioProperties,IDC_STUDIO_MATERIAL_HINT),m || light || global ? SW_HIDE : SW_SHOW);
     if (m)
     {
         snprintf(text,sizeof(text),"%.6g",m->intensity); SetDlgItemText(g_StudioProperties,IDC_STUDIO_INTENSITY,text);
@@ -135,7 +146,9 @@ static void RenderStudioProperties(void)
     for (size_t i=0;i<sizeof(controls)/sizeof(*controls);i++)
     {
         int id=controls[i]; BOOL spotonly=id==IDC_STUDIO_LIGHT_OUTER_LABEL || id==IDC_STUDIO_LIGHT_OUTER;
-        ShowWindow(GetDlgItem(g_StudioProperties,id),light && (!spotonly || g_StudioLight==0) ? SW_SHOW : SW_HIDE);
+        BOOL common=id==IDC_STUDIO_LIGHT_COLOR_LABEL || id==IDC_STUDIO_LIGHT_COLOR
+            || id==IDC_STUDIO_LIGHT_INTENSITY_LABEL || id==IDC_STUDIO_LIGHT_INTENSITY;
+        ShowWindow(GetDlgItem(g_StudioProperties,id),(global && common) || (light && (!spotonly || g_StudioLight==0)) ? SW_SHOW : SW_HIDE);
     }
     if (light)
     {
@@ -146,6 +159,11 @@ static void RenderStudioProperties(void)
             SetDlgItemText(g_StudioProperties,IDC_STUDIO_LIGHT_INTENSITY+field,text);
         }
         SetDlgItemText(g_StudioProperties,IDC_STUDIO_LIGHT_RANGE_LABEL,g_StudioLight==0 ? "Inner angle (deg)" : "Radius");
+        InvalidateRect(GetDlgItem(g_StudioProperties,IDC_STUDIO_LIGHT_COLOR),NULL,TRUE);
+    }
+    if (global)
+    {
+        snprintf(text,sizeof(text),"%.9g",global->intensity); SetDlgItemText(g_StudioProperties,IDC_STUDIO_LIGHT_INTENSITY,text);
         InvalidateRect(GetDlgItem(g_StudioProperties,IDC_STUDIO_LIGHT_COLOR),NULL,TRUE);
     }
     g_StudioLightDirty=0; g_StudioUpdating=FALSE;
@@ -165,6 +183,8 @@ static double *RenderStudioTransformField(int field)
         double *values=field<3 ? object->transform.position : field<6 ? object->transform.rotation : object->transform.scale;
         return &values[field%3];
     }
+    StudioGlobalLight *global=RenderStudioGlobalLight();
+    if (global && g_StudioGlobal==1 && field>=3 && field<6) { return &global->direction[field-3]; }
     if (light && field<3) { return &light->position[field]; }
     return light && g_StudioLight==0 && field<6 ? &light->direction[field-3] : NULL;
 }
@@ -172,7 +192,7 @@ static double *RenderStudioTransformField(int field)
 static void RenderStudioTransformPanel(void)
 {
     StudioInstance *o=RenderStudioObject(); StudioLight *light=RenderStudioLight(); char text[64]; g_StudioUpdating=TRUE;
-    SetDlgItemText(g_StudioTransform,IDC_STUDIO_ROTATION_LABEL,light ? "Direction" : "Rotation");
+    SetDlgItemText(g_StudioTransform,IDC_STUDIO_ROTATION_LABEL,light || RenderStudioGlobalLight() ? "Direction" : "Rotation");
     for (int field=0;field<9;field++)
     {
         int id=IDC_STUDIO_POSITION_X+field; const double *value=RenderStudioTransformField(field); text[0]=0;
@@ -181,13 +201,13 @@ static void RenderStudioTransformPanel(void)
     }
     for (int id=IDC_STUDIO_MOVE;id<=IDC_STUDIO_SCALE;id++)
         EnableWindow(GetDlgItem(g_StudioTransform,id),o || (light && StudioLightToolAllowed(g_StudioLight,id-IDC_STUDIO_MOVE)));
-    CheckRadioButton(g_StudioTransform,IDC_STUDIO_MOVE,IDC_STUDIO_SCALE,IDC_STUDIO_MOVE+g_StudioTool);
+    CheckRadioButton(g_StudioTransform,IDC_STUDIO_MOVE,IDC_STUDIO_SCALE,g_StudioGlobal>=0 ? 0 : IDC_STUDIO_MOVE+g_StudioTool);
     g_StudioTransformDirty=0; g_StudioUpdating=FALSE;
 }
 
 static void RenderStudioTool(int tool)
 {
-    if (RenderStudioLight() && !StudioLightToolAllowed(g_StudioLight,tool)) { return; }
+    if (RenderStudioGlobalLight() || (RenderStudioLight() && !StudioLightToolAllowed(g_StudioLight,tool))) { return; }
     StudioViewportSetTool(g_StudioViewport,tool); g_StudioTool=tool;
     CheckRadioButton(g_StudioTransform,IDC_STUDIO_MOVE,IDC_STUDIO_SCALE,IDC_STUDIO_MOVE+tool);
 }
@@ -217,7 +237,7 @@ static INT_PTR CALLBACK RenderStudioTransformProc(HWND hwnd,UINT message,WPARAM 
         int id=LOWORD(wparam),code=HIWORD(wparam),field=id-IDC_STUDIO_POSITION_X;
         if (id>=IDC_STUDIO_MOVE && id<=IDC_STUDIO_SCALE && code==BN_CLICKED)
         { RenderStudioTool(id-IDC_STUDIO_MOVE); SetFocus(g_StudioViewport); return TRUE; }
-        StudioInstance *o=RenderStudioObject(); StudioLight *light=RenderStudioLight();
+        StudioInstance *o=RenderStudioObject(); StudioLight *light=RenderStudioLight(); StudioGlobalLight *global=RenderStudioGlobalLight();
         double *target=RenderStudioTransformField(field);
         if (target)
         {
@@ -228,7 +248,9 @@ static INT_PTR CALLBACK RenderStudioTransformProc(HWND hwnd,UINT message,WPARAM 
                 while (*end==' ' || *end=='\t') { end++; }
                 if (!parsed || *end || !isfinite(value))
                 { RenderStudioTransformPanel(); SetDlgItemText(g_Studio,IDC_STUDIO_STATUS,"Enter a valid transform value."); return TRUE; }
-                if (light)
+                if (global)
+                { StudioGlobalLight previous=*global; *target=value; RenderStudioCommitGlobalLight(global,&previous); }
+                else if (light)
                 { StudioLight previous=*light; *target=value; RenderStudioCommitLight(light,&previous); }
                 else if (o)
                 { StudioTransform previous=o->transform; *target=value; RenderStudioCommitTransform(&previous); }
@@ -253,6 +275,7 @@ static void RenderStudioSaveScene(void)
 static void RenderStudioSelect(int object, int material)
 {
     StudioViewportCancelTransform(g_StudioViewport);
+    g_StudioGlobal=g_StudioScene.filename[0] ? (object==STUDIO_SELECT_AMBIENT ? 0 : object==STUDIO_SELECT_DIRECTIONAL ? 1 : -1) : -1;
     g_StudioLight=StudioSceneLightIndex(&g_StudioScene,object);
     g_StudioObject=object>=0 && (DWORD)object<g_StudioScene.count ? object : -1;
     g_StudioMaterial=-1; HWND list=GetDlgItem(g_Studio,IDC_STUDIO_MATERIALS);
@@ -293,6 +316,8 @@ static void RenderStudioOutliner(void)
         insert.hParent=TVI_ROOT; insert.hInsertAfter=TVI_LAST; insert.item.mask=TVIF_TEXT | TVIF_PARAM;
         insert.item.pszText=g_StudioScene.filename; insert.item.lParam=-1;
         HTREEITEM root=TreeView_InsertItem(tree,&insert); insert.hParent=root;
+        insert.item.pszText="Ambient Light"; insert.item.lParam=STUDIO_SELECT_AMBIENT; TreeView_InsertItem(tree,&insert);
+        insert.item.pszText="Directional Light"; insert.item.lParam=STUDIO_SELECT_DIRECTIONAL; TreeView_InsertItem(tree,&insert);
         for (DWORD i=0;i<g_StudioScene.count;i++)
         {
             snprintf(label,sizeof(label),"%s (%lu)%s",g_StudioScene.objects[i].model,(unsigned long)i+1,g_StudioScene.objects[i].asset ? "" : " - unavailable");
@@ -321,7 +346,7 @@ static BOOL RenderStudioLoadScene(const char *filename)
         SendDlgItemMessage(g_Studio,IDC_STUDIO_SCENE,LB_SETCURSEL,row,0); g_StudioLoading=FALSE; return FALSE;
     }
     g_StudioGeneration++;
-    g_StudioObject=g_StudioScene.count ? 0 : -1; g_StudioMaterial=g_StudioLight=-1;
+    g_StudioObject=g_StudioScene.count ? 0 : -1; g_StudioMaterial=g_StudioLight=g_StudioGlobal=-1;
     StudioViewportRefreshImages(g_StudioViewport); StudioViewportSetScene(g_StudioViewport,&g_StudioScene,TRUE);
     RenderStudioOutliner(); SetDlgItemText(g_Studio,IDC_STUDIO_STATUS,why[0] ? why : g_StudioNavigation); g_StudioLoading=FALSE; return TRUE;
 }
@@ -350,6 +375,48 @@ static void RenderStudioCommitLight(StudioLight *light,const StudioLight *previo
     }
     else { SetDlgItemText(g_Studio,IDC_STUDIO_STATUS,"Light saved."); }
     StudioViewportSetScene(g_StudioViewport,&g_StudioScene,FALSE); RenderStudioProperties(); RenderStudioTransformPanel();
+}
+
+static void RenderStudioCommitGlobalLight(StudioGlobalLight *light,const StudioGlobalLight *previous)
+{
+    const char *why="";
+    if (!StudioGlobalLightValid(light,g_StudioGlobal==1) || !StudioSceneSave(&g_StudioScene,&why))
+    {
+        *light=*previous;
+        MessageBox(g_Studio,why[0] ? why : "Use an intensity from 0 to 10000 and a finite, nonzero direction within +/-1 billion.","Light",MB_ICONERROR);
+    }
+    else { SetDlgItemText(g_Studio,IDC_STUDIO_STATUS,"Light saved."); }
+    InvalidateRect(g_StudioViewport,NULL,FALSE); RenderStudioProperties(); RenderStudioTransformPanel();
+}
+
+static BOOL RenderStudioGlobalLightCommand(HWND hwnd,int id,int code)
+{
+    StudioGlobalLight *light=RenderStudioGlobalLight(); if (!light || g_StudioUpdating) { return FALSE; }
+    StudioGlobalLight previous=*light;
+    if (id==IDC_STUDIO_LIGHT_COLOR && code==BN_CLICKED)
+    {
+        static COLORREF custom[16]; unsigned generation=g_StudioGeneration; int selected=g_StudioGlobal;
+        CHOOSECOLOR choice={0}; choice.lStructSize=sizeof(choice); choice.hwndOwner=g_Studio;
+        choice.rgbResult=RGB((int)(light->color[0]*255+.5f),(int)(light->color[1]*255+.5f),(int)(light->color[2]*255+.5f));
+        choice.lpCustColors=custom; choice.Flags=CC_FULLOPEN | CC_RGBINIT;
+        if (ChooseColor(&choice) && generation==g_StudioGeneration && selected==g_StudioGlobal && g_Studio)
+        {
+            light->color[0]=GetRValue(choice.rgbResult)/255.f; light->color[1]=GetGValue(choice.rgbResult)/255.f;
+            light->color[2]=GetBValue(choice.rgbResult)/255.f; RenderStudioCommitGlobalLight(light,&previous);
+        }
+        return TRUE;
+    }
+    if (id!=IDC_STUDIO_LIGHT_INTENSITY) { return FALSE; }
+    if (code==EN_CHANGE) { g_StudioLightDirty|=1; return TRUE; }
+    if (code==EN_KILLFOCUS && (g_StudioLightDirty&1))
+    {
+        char text[64],*end; GetDlgItemText(hwnd,id,text,sizeof(text)); double value=strtod(text,&end); BOOL parsed=end!=text;
+        while (*end==' ' || *end=='\t') { end++; }
+        if (!parsed || *end || !isfinite(value))
+        { RenderStudioProperties(); SetDlgItemText(g_Studio,IDC_STUDIO_STATUS,"Enter a valid light value."); return TRUE; }
+        light->intensity=value; RenderStudioCommitGlobalLight(light,&previous); return TRUE;
+    }
+    return FALSE;
 }
 
 static BOOL RenderStudioLightCommand(HWND hwnd,int id,int code)
@@ -397,8 +464,9 @@ static INT_PTR CALLBACK RenderStudioPropertiesProc(HWND hwnd, UINT message, WPAR
     case WM_DRAWITEM:
     {
         const DRAWITEMSTRUCT *draw=(const DRAWITEMSTRUCT *)lparam;
-        StudioLight *light=RenderStudioLight(); const float *color=NULL;
-        if (light && draw->CtlID==IDC_STUDIO_LIGHT_COLOR) { color=light->color; }
+        StudioLight *light=RenderStudioLight(); StudioGlobalLight *global=RenderStudioGlobalLight(); const float *color=NULL;
+        if (global && draw->CtlID==IDC_STUDIO_LIGHT_COLOR) { color=global->color; }
+        else if (light && draw->CtlID==IDC_STUDIO_LIGHT_COLOR) { color=light->color; }
         else if (m && draw->CtlID==IDC_STUDIO_BASE_COLOR) { color=m->base; }
         else if (m && draw->CtlID==IDC_STUDIO_SPEC_COLOR) { color=m->specular; }
         if (!color) { break; }
@@ -410,7 +478,7 @@ static INT_PTR CALLBACK RenderStudioPropertiesProc(HWND hwnd, UINT message, WPAR
     case WM_COMMAND:
     {
         int id=LOWORD(wparam),code=HIWORD(wparam);
-        if (RenderStudioLightCommand(hwnd,id,code)) { return TRUE; }
+        if (RenderStudioGlobalLightCommand(hwnd,id,code) || RenderStudioLightCommand(hwnd,id,code)) { return TRUE; }
         if (g_StudioUpdating || !m) { break; }
         StudioMaterial previous=*m;
         if ((id==IDC_STUDIO_BASE_COLOR || id==IDC_STUDIO_SPEC_COLOR) && code==BN_CLICKED)
@@ -478,7 +546,7 @@ static void RenderStudioAddLight(BOOL spotlight)
     {
         memset(light,0,sizeof(*light)); MessageBox(g_Studio,why,"Add Light",MB_ICONERROR); return;
     }
-    g_StudioLight=slot; g_StudioObject=g_StudioMaterial=-1;
+    g_StudioLight=slot; g_StudioObject=g_StudioMaterial=g_StudioGlobal=-1;
     StudioViewportSetScene(g_StudioViewport,&g_StudioScene,FALSE); RenderStudioOutliner();
     SetDlgItemText(g_Studio,IDC_STUDIO_STATUS,"Light added. Edit Transform and Properties, or drag the gizmo.");
 }
@@ -492,7 +560,7 @@ static void RenderStudioDeleteLight(void)
     StudioLight previous=*light; memset(light,0,sizeof(*light));
     if (!StudioSceneSave(&g_StudioScene,&why))
     { *light=previous; MessageBox(g_Studio,why,"Delete Light",MB_ICONERROR); return; }
-    g_StudioLight=-1; g_StudioObject=g_StudioMaterial=-1;
+    g_StudioLight=-1; g_StudioObject=g_StudioMaterial=g_StudioGlobal=-1;
     StudioViewportSetScene(g_StudioViewport,&g_StudioScene,FALSE); RenderStudioOutliner();
     SetDlgItemText(g_Studio,IDC_STUDIO_STATUS,"Light deleted. Scene saved.");
 }
@@ -509,7 +577,7 @@ static void RenderStudioDropModel(const char *filename,POINT point)
     o->transform.position[1]-=o->asset->lower[1]; o->transform.position[2]-=(o->asset->lower[2]+o->asset->upper[2])*0.5;
     if (!StudioSceneSave(&g_StudioScene,&why))
     { StudioSceneRemove(&g_StudioScene,g_StudioScene.count-1); MessageBox(g_Studio,why,"Add Model",MB_ICONERROR); return; }
-    g_StudioObject=(int)g_StudioScene.count-1; g_StudioMaterial=0; g_StudioLight=-1;
+    g_StudioObject=(int)g_StudioScene.count-1; g_StudioMaterial=0; g_StudioLight=g_StudioGlobal=-1;
     StudioViewportSetScene(g_StudioViewport,&g_StudioScene,g_StudioScene.count==1); RenderStudioOutliner();
     SetDlgItemText(g_Studio,IDC_STUDIO_STATUS,"Model instance added. Scene saved."); SetFocus(g_StudioViewport);
 }
@@ -706,7 +774,7 @@ void RenderStudioSetProject(const GEditorProject *project)
     if (!changed) { return; }
     /* Scene state belongs to this project, never to the selected game level. */
     StudioViewportCancelTransform(g_StudioViewport);
-    g_StudioGeneration++; g_StudioTriedInitialScene=FALSE; StudioSceneFree(&g_StudioScene); g_StudioObject=g_StudioMaterial=g_StudioLight=-1;
+    g_StudioGeneration++; g_StudioTriedInitialScene=FALSE; StudioSceneFree(&g_StudioScene); g_StudioObject=g_StudioMaterial=g_StudioLight=g_StudioGlobal=-1;
     StudioViewportSetScene(g_StudioViewport,&g_StudioScene,TRUE);
     SendDlgItemMessage(g_Studio, IDC_STUDIO_SCENE, LB_RESETCONTENT, 0, 0);
     BrowserSetImages(GetDlgItem(g_Studio, IDC_STUDIO_IMAGES), NULL, 0, NULL);
@@ -794,7 +862,7 @@ static INT_PTR CALLBACK RenderStudioProc(HWND hwnd, UINT message, WPARAM wparam,
     case WM_NCDESTROY:
         g_StudioGeneration++; g_StudioTriedInitialScene=FALSE; StudioSceneFree(&g_StudioScene);
         g_Studio = g_StudioViewport = g_StudioProperties = g_StudioTransform = NULL; g_StudioTool=STUDIO_TRANSLATE; g_StudioProject[0] = '\0';
-        g_StudioObject=g_StudioMaterial=g_StudioLight=-1; g_StudioDragArmed=g_StudioDragging=FALSE;
+        g_StudioObject=g_StudioMaterial=g_StudioLight=g_StudioGlobal=-1; g_StudioDragArmed=g_StudioDragging=FALSE;
         break;
     }
     return FALSE;

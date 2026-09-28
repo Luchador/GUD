@@ -27,7 +27,7 @@ static HTREEITEM treeselected;
 static char text[1600][128]; static BOOL visible[1600],enabled[1600];
 static HWND g_Studio=1,g_StudioViewport=2,g_StudioProperties=3,g_StudioTransform=4;
 static StudioScene g_StudioScene;
-static int g_StudioObject=-1,g_StudioMaterial=-1,g_StudioLight=-1;
+static int g_StudioObject=-1,g_StudioMaterial=-1,g_StudioLight=-1,g_StudioGlobal=-1;
 static BOOL g_StudioUpdating;
 static unsigned g_StudioGeneration,g_StudioLightDirty,g_StudioTransformDirty;
 static int g_StudioTool=STUDIO_SCALE;
@@ -78,13 +78,14 @@ static void EnableWindow(HWND hwnd,BOOL value) { enabled[hwnd]=value; }
 static void CheckRadioButton(HWND hwnd,int first,int last,int value) {}
 static LRESULT SendDlgItemMessage(HWND hwnd,int id,UINT message,WPARAM wparam,LPARAM lparam) { return 0; }
 static void RenderStudioCommitLight(StudioLight *light,const StudioLight *previous);
+static void RenderStudioCommitGlobalLight(StudioGlobalLight *light,const StudioGlobalLight *previous);
 static void SetFocus(HWND hwnd) {}
 static void MessageBox(HWND hwnd,const char *message,const char *title,int flags) { errors++; }
 static BOOL ChooseColor(CHOOSECOLOR *choice)
 { if(choose_switch) g_StudioGeneration++; choice->rgbResult=RGB(17,85,204); return !choose_cancel; }
 BOOL StudioSceneSave(const StudioScene *scene,const char **why)
 { if(fail_save) { *why="Test failure"; return FALSE; } saved++; return TRUE; }
-static void RenderStudioNewScene(HWND hwnd) { if(!new_cancel) strcpy(g_StudioScene.filename,"New.rnd"); }
+static void RenderStudioNewScene(HWND hwnd) { if(!new_cancel) { strcpy(g_StudioScene.filename,"New.rnd"); StudioSceneDefaultLighting(&g_StudioScene); } }
 BOOL StudioBounds(const StudioScene *scene,int selected,double lower[3],double upper[3])
 { for(int k=0;k<3;k++) { lower[k]=-2; upper[k]=2; } return scene_bounds; }
 #include "ui.inc"
@@ -95,6 +96,11 @@ static void Edit(int id,const char *value)
     {
         assert(RenderStudioTransformProc(g_StudioTransform,WM_COMMAND,id|(EN_CHANGE<<16),0));
         assert(RenderStudioTransformProc(g_StudioTransform,WM_COMMAND,id|(EN_KILLFOCUS<<16),0));
+    }
+    else if (g_StudioGlobal>=0)
+    {
+        assert(RenderStudioGlobalLightCommand(g_StudioProperties,id,EN_CHANGE));
+        assert(RenderStudioGlobalLightCommand(g_StudioProperties,id,EN_KILLFOCUS));
     }
     else
     {
@@ -107,7 +113,7 @@ int main(void)
     new_cancel=1; RenderStudioAddLight(TRUE); assert(!g_StudioScene.filename[0] && !g_StudioScene.lights[0].enabled);
     new_cancel=0; fail_save=1; RenderStudioAddLight(TRUE); assert(!g_StudioScene.lights[0].enabled && errors==1);
     fail_save=0; scene_bounds=1; RenderStudioAddLight(FALSE);
-    assert(g_StudioLight==1 && treeselected->id==-3 && nodecount==2 && !strcmp(treeselected->name,"Point Light 1"));
+    assert(g_StudioLight==1 && treeselected->id==-3 && nodecount==4 && !strcmp(treeselected->name,"Point Light 1"));
     assert(g_StudioScene.lights[1].position[1]==6 && g_StudioScene.lights[1].radius==16);
     assert(enabled[IDC_STUDIO_POSITION_X] && !enabled[IDC_STUDIO_ROTATION_X] && !enabled[IDC_STUDIO_SCALE_X]);
     assert(enabled[IDC_STUDIO_MOVE] && !enabled[IDC_STUDIO_ROTATE] && !enabled[IDC_STUDIO_SCALE]);
@@ -138,13 +144,13 @@ int main(void)
     assert(g_StudioScene.lights[0].direction[0]==1 && g_StudioScene.lights[0].direction[1]==0);
     Edit(IDC_STUDIO_LIGHT_OUTER,"50"); Edit(IDC_STUDIO_LIGHT_RANGE,"40");
     assert(g_StudioScene.lights[0].inner==40 && g_StudioScene.lights[0].outer==50);
-    RenderStudioAddLight(FALSE); assert(g_StudioLight==2 && treeselected->id==-4 && nodecount==4);
+    RenderStudioAddLight(FALSE); assert(g_StudioLight==2 && treeselected->id==-4 && nodecount==6);
     int count=nodecount,attempts=saved; RenderStudioAddLight(FALSE); RenderStudioAddLight(TRUE);
     assert(nodecount==count && saved==attempts && g_StudioLight==2);
     StudioMaterial material={0}; strcpy(material.name,"Material");
     StudioInstance model={0}; strcpy(model.model,"Fixture.gltf"); model.materials=&material; model.materialcount=1;
     g_StudioScene.objects=&model; g_StudioScene.count=1; RenderStudioOutliner();
-    assert(nodecount==5 && treeselected->id==-4); /* Light identity survives inserted model rows. */
+    assert(nodecount==7 && treeselected->id==-4); /* Light identity survives inserted model rows. */
     RenderStudioSelect(0,0); assert(g_StudioLight==-1 && viewportselection==0 && treeselected->id==0 && materialcount==1);
     assert(visible[IDC_STUDIO_BASE_COLOR] && !visible[IDC_STUDIO_LIGHT_COLOR]);
     RenderStudioSelect(-2,-1); assert(g_StudioObject==-1 && g_StudioMaterial==-1 && materialcount==0 && viewportselection==-2);
@@ -152,14 +158,54 @@ int main(void)
     RenderStudioSelect(-3,-1); StudioLight retained=g_StudioScene.lights[1],second=g_StudioScene.lights[2];
     fail_save=1; RenderStudioDeleteLight(); fail_save=0;
     assert(g_StudioLight==1 && !memcmp(&retained,&g_StudioScene.lights[1],sizeof(retained)));
-    RenderStudioDeleteLight(); assert(g_StudioLight==-1 && !g_StudioScene.lights[1].enabled && nodecount==4);
+    RenderStudioDeleteLight(); assert(g_StudioLight==-1 && !g_StudioScene.lights[1].enabled && nodecount==6);
     assert(!memcmp(&second,&g_StudioScene.lights[2],sizeof(second)) && viewportselection==-1);
     assert(StudioSceneLightSlot(&g_StudioScene,FALSE)==1); RenderStudioAddLight(FALSE); assert(g_StudioLight==1);
     RenderStudioSelect(-2,-1); RenderStudioDeleteLight(); assert(!g_StudioScene.lights[0].enabled);
     assert(StudioSceneLightSlot(&g_StudioScene,TRUE)==0);
     RenderStudioSelect(0,0); attempts=saved; RenderStudioDeleteLight(); assert(saved==attempts && g_StudioScene.count==1);
     g_StudioScene.lights[2].enabled=FALSE; RenderStudioSelect(-4,-1); assert(g_StudioLight==-1 && treeselected==nodes);
+    RenderStudioSelect(STUDIO_SELECT_AMBIENT,-1);
+    assert(g_StudioGlobal==0 && g_StudioLight==-1 && g_StudioObject==-1 && materialcount==0);
+    assert(viewportselection==STUDIO_SELECT_AMBIENT && !strcmp(treeselected->name,"Ambient Light"));
+    assert(visible[IDC_STUDIO_LIGHT_COLOR] && visible[IDC_STUDIO_LIGHT_INTENSITY] && !visible[IDC_STUDIO_LIGHT_RANGE]);
+    assert(!visible[IDC_STUDIO_LIGHT_OUTER] && !visible[IDC_STUDIO_BASE_COLOR]);
+    for(int id=IDC_STUDIO_POSITION_X;id<=IDC_STUDIO_SCALE_Z;id++) assert(!enabled[id]);
+    for(int id=IDC_STUDIO_MOVE;id<=IDC_STUDIO_SCALE;id++) assert(!enabled[id]);
+    int tool=g_StudioTool; RenderStudioTool(STUDIO_SCALE); assert(g_StudioTool==tool);
+    Edit(IDC_STUDIO_LIGHT_INTENSITY,"0"); assert(g_StudioScene.ambient.intensity==0);
+    RenderStudioGlobalLightCommand(g_StudioProperties,IDC_STUDIO_LIGHT_COLOR,BN_CLICKED);
+    assert(fabs(g_StudioScene.ambient.color[1]-1.0/3)<1e-6);
+    RenderStudioOutliner(); assert(treeselected->id==STUDIO_SELECT_AMBIENT);
+    attempts=saved; count=nodecount; RenderStudioDeleteLight();
+    assert(saved==attempts && nodecount==count && g_StudioGlobal==0);
+    StudioGlobalLight global=g_StudioScene.ambient; fail_save=1;
+    Edit(IDC_STUDIO_LIGHT_INTENSITY,"2"); assert(!memcmp(&global,&g_StudioScene.ambient,sizeof(global))); fail_save=0;
+    Edit(IDC_STUDIO_LIGHT_INTENSITY,"-1"); assert(!memcmp(&global,&g_StudioScene.ambient,sizeof(global)));
+    Edit(IDC_STUDIO_LIGHT_INTENSITY,"NaN"); assert(!memcmp(&global,&g_StudioScene.ambient,sizeof(global)));
+    RenderStudioSelect(STUDIO_SELECT_DIRECTIONAL,-1);
+    assert(g_StudioGlobal==1 && viewportselection==STUDIO_SELECT_DIRECTIONAL && !strcmp(treeselected->name,"Directional Light"));
+    assert(!strcmp(text[IDC_STUDIO_ROTATION_LABEL],"Direction"));
+    for(int field=0;field<9;field++) assert(enabled[IDC_STUDIO_POSITION_X+field]==(field>=3 && field<6));
+    for(int id=IDC_STUDIO_MOVE;id<=IDC_STUDIO_SCALE;id++) assert(!enabled[id]);
+    Edit(IDC_STUDIO_ROTATION_X,"0"); Edit(IDC_STUDIO_ROTATION_Z,"0"); Edit(IDC_STUDIO_ROTATION_Y,"-7");
+    assert(g_StudioScene.directional.direction[1]==-7);
+    Edit(IDC_STUDIO_ROTATION_Y,"0"); assert(g_StudioScene.directional.direction[1]==-7);
+    Edit(IDC_STUDIO_LIGHT_INTENSITY,"0"); assert(g_StudioScene.directional.intensity==0);
+    global=g_StudioScene.directional; fail_save=1;
+    Edit(IDC_STUDIO_ROTATION_X,"1"); assert(!memcmp(&global,&g_StudioScene.directional,sizeof(global)));
+    RenderStudioGlobalLightCommand(g_StudioProperties,IDC_STUDIO_LIGHT_COLOR,BN_CLICKED);
+    assert(!memcmp(&global,&g_StudioScene.directional,sizeof(global))); fail_save=0;
+    choose_cancel=1; RenderStudioGlobalLightCommand(g_StudioProperties,IDC_STUDIO_LIGHT_COLOR,BN_CLICKED);
+    assert(!memcmp(&global,&g_StudioScene.directional,sizeof(global))); choose_cancel=0;
+    choose_switch=1; RenderStudioGlobalLightCommand(g_StudioProperties,IDC_STUDIO_LIGHT_COLOR,BN_CLICKED);
+    assert(!memcmp(&global,&g_StudioScene.directional,sizeof(global))); choose_switch=0;
+    RenderStudioGlobalLightCommand(g_StudioProperties,IDC_STUDIO_LIGHT_COLOR,BN_CLICKED);
+    assert(fabs(g_StudioScene.directional.color[2]-.8)<1e-6);
+    attempts=saved; RenderStudioDeleteLight(); assert(saved==attempts && g_StudioGlobal==1);
+    RenderStudioSelect(0,0); assert(g_StudioGlobal==-1 && visible[IDC_STUDIO_BASE_COLOR] && !visible[IDC_STUDIO_LIGHT_COLOR]);
     assert(invalidated>0);
+    puts("PASS: permanent globals, isolated controls, direction validation, zero intensity, color dialogs, non-deletion and save rollback.");
     puts("PASS: add/cancel/failure, outliner identities, material/light isolation, Transform/Properties controls, tool availability, numeric/color edits, deletion/slot reuse and rollback.");
     return 0;
 }

@@ -84,18 +84,66 @@ def main():
         subprocess.run([str(work / 'check'), str(work), str(len(bad))], check=True,
                        env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))
         saved = json.loads((scenes / 'Lights.rnd').read_text())
-        assert saved['version'] == 3 and len(saved['objects']) == 1
+        assert saved['version'] == 4 and len(saved['objects']) == 1
         assert [light['type'] for light in saved['lights']] == ['spotlight', 'point', 'point']
         assert saved['lights'][0]['inner'] == 12.75 and saved['lights'][0]['direction'] == [1, -1, 0]
         assert saved['lights'][2]['radius'] == 1/3
         for version in (1, 2):
             migrated = json.loads((scenes / f'Legacy{version}.rnd').read_text())
-            assert migrated['version'] == 3 and migrated['lights'] == []
+            assert migrated['version'] == 4 and migrated['lights'] == []
         assert [light['slot'] for light in json.loads((scenes / 'Sparse.rnd').read_text())['lights']] == [0, 2]
         assert [light['slot'] for light in json.loads((scenes / 'Reused.rnd').read_text())['lights']] == [0, 1, 2]
         assert json.loads((scenes / 'Empty.rnd').read_text())['lights'] == []
         assert not list(scenes.glob('rnd*.tmp'))
         print(f'PASS: independent JSON verification, {len(bad)} invalid light documents, legacy migration, no leaked temporary files.')
+        globals_doc = dict(format='GEditor Render Studio', version=4, objects=[], lights=[],
+                           ambient=dict(color=[1, 1, 1], intensity=.2),
+                           directional=dict(color=[1, 1, 1], intensity=1, direction=[0, -1, 0]))
+        invalid = []
+        for key in ('ambient', 'directional'):
+            for field, value in (('color', [1, -1, 0]), ('color', [1, 1, 1.00000001]),
+                                 ('color', [1, 1]), ('color', [1, float('nan'), 1]),
+                                 ('intensity', -1), ('intensity', 10001), ('intensity', 'one'),
+                                 ('intensity', float('inf'))):
+                doc = copy.deepcopy(globals_doc)
+                doc[key][field] = value
+                invalid.append(doc)
+            for field in globals_doc[key]:
+                doc = copy.deepcopy(globals_doc)
+                del doc[key][field]
+                invalid.append(doc)
+            for value in (None, [], 1):
+                doc = copy.deepcopy(globals_doc)
+                doc[key] = value
+                invalid.append(doc)
+            doc = copy.deepcopy(globals_doc)
+            del doc[key]
+            invalid.append(doc)
+        for direction in ([0, 0, 0], [0, 1], [1e10, 0, 0], [0, float('nan'), 0]):
+            doc = copy.deepcopy(globals_doc)
+            doc['directional']['direction'] = direction
+            invalid.append(doc)
+        invalid.append(dict(globals_doc, version=5))
+        for index, doc in enumerate(invalid):
+            (scenes / f'BadGlobal{index}.rnd').write_text(json.dumps(doc))
+        for index, version in enumerate((1, 2, 3, 3, 3)):
+            doc = dict(format='GEditor Render Studio', version=version, objects=[])
+            if version == 3:
+                doc['lights'] = [] if index == 2 else [dict(point, intensity=0 if index == 4 else 1)]
+            (scenes / f'GlobalLegacy{index}.rnd').write_text(json.dumps(doc))
+        global_command = [arg.replace(str(here / 'check.c'), str(here / 'globals.c'))
+                          .replace(str(work / 'check'), str(work / 'globals')) for arg in command]
+        subprocess.run(global_command, check=True)
+        subprocess.run([str(work / 'globals'), str(work), str(len(invalid))], check=True,
+                       env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))
+        saved_globals = json.loads((scenes / 'Globals.rnd').read_text())
+        assert saved_globals['ambient'] == dict(color=[.125, .25, 1], intensity=0)
+        assert saved_globals['directional'] == dict(color=[1, 1, .75], intensity=2.5, direction=[7, -3, .125])
+        for index in range(5):
+            migrated = json.loads((scenes / f'GlobalLegacy{index}.rnd').read_text())
+            assert migrated['version'] == 4 and migrated['directional']['intensity'] == (1 if index < 3 else 0)
+        assert not list(scenes.glob('rnd*.tmp'))
+        print(f'PASS: independent global-light JSON verification and {len(invalid)} malformed documents.')
         icons = (src / 'studiolightview.c').read_text()
         (work / 'icons.inc').write_text('\n'.join(extract(icons, name) for name in ('StudioLightIconRect', 'StudioLightIconPick')))
         subprocess.run([os.environ.get('CC', 'cc'), '-O1', '-g', '-std=c99', '-Wall', '-Wextra', '-Werror',
@@ -108,14 +156,14 @@ def main():
                        env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))
         source = (src / 'renderstudio.c').read_text()
         document = (src / 'studiodocument.c').read_text()
-        (work / 'ui.inc').write_text('\n'.join(extract(document, name) for name in (
-            'StudioTransformValid', 'StudioLightValid', 'StudioSceneLightSlot', 'StudioSceneAddLight')) + '\n' +
+        (work / 'ui.inc').write_text('\n'.join(line for line in document.splitlines() if line.startswith('const StudioGlobalLight ')) + '\n' + '\n'.join(extract(document, name) for name in (
+            'StudioSceneDefaultLighting', 'StudioGlobalLightValid', 'StudioTransformValid', 'StudioLightValid', 'StudioSceneLightSlot', 'StudioSceneAddLight')) + '\n' +
             extract((src / 'studiodrag.c').read_text(), 'StudioLightToolAllowed') + '\n' + '\n'.join(
                 extract(source, name) for name in ('RenderStudioMaterial', 'RenderStudioSelection',
-                'RenderStudioLight', 'RenderStudioLightField', 'RenderStudioProperties', 'RenderStudioObject',
+                'RenderStudioLight', 'RenderStudioGlobalLight', 'RenderStudioLightField', 'RenderStudioProperties', 'RenderStudioObject',
                 'RenderStudioTransformField', 'RenderStudioTransformPanel', 'RenderStudioTool',
                 'RenderStudioCommitTransform', 'RenderStudioTransformProc', 'RenderStudioSelect',
-                'RenderStudioOutliner', 'RenderStudioCommitLight', 'RenderStudioLightCommand', 'RenderStudioAddLight',
+                'RenderStudioOutliner', 'RenderStudioCommitGlobalLight', 'RenderStudioGlobalLightCommand', 'RenderStudioCommitLight', 'RenderStudioLightCommand', 'RenderStudioAddLight',
                 'RenderStudioDeleteLight')))
         subprocess.run([os.environ.get('CC', 'cc'), '-std=c99', '-Wall', '-Wextra', '-Werror',
                         '-Wno-unused-parameter', '-fsanitize=address,undefined', f'-I{shim}', f'-I{src}', f'-I{work}',

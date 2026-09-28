@@ -90,7 +90,7 @@ static void Json(void)
 
 int main(int argc,char **argv)
 {
-    CHECK(argc==2); const char *project=argv[1]; StudioScene scene={0},loaded={0};
+    CHECK(argc==2); const char *project=argv[1]; StudioScene scene={0},loaded={0}; StudioSceneDefaultLighting(&scene);
     double position[3]={0}; char path[MAX_PATH],asset[MAX_PATH],source[MAX_PATH];
     Import(project); Json();
     lstrcpyn(scene.project,project,sizeof(scene.project)); lstrcpyn(scene.filename,"Main.rnd",sizeof(scene.filename));
@@ -111,7 +111,7 @@ int main(int argc,char **argv)
     CHECK(!StudioSceneAddModel(&scene,"../Light.gltf",position,&why) && scene.count==2);
     m->intensity=NAN; CHECK(!StudioSceneSave(&scene,&why)); m->intensity=.875;
     snprintf(path,sizeof(path),"%s/studio/scenes/Bad.rnd",project);
-    const char *bad[]={"{\"format\":\"GEditor Render Studio\",\"version\":4,\"objects\":[]}",
+    const char *bad[]={"{\"format\":\"GEditor Render Studio\",\"version\":5,\"objects\":[]}",
         "{\"format\":\"GEditor Render Studio\",\"version\":1,\"objects\":[{\"model\":\"../Light.gltf\"}]}",
         "{\"format\":\"GEditor Render Studio\",\"version\":1,\"objects\":[{\"model\":\"Light.gltf\",\"position\":[NaN,0,0],\"materials\":[]}]}",
         "{\"format\":\"GEditor Render Studio\",\"version\":1,\"objects\":[{\"model\":\"Light.gltf\",\"position\":[0,0,0],\"materials\":[{}]}]}"};

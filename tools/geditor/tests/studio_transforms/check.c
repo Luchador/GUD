@@ -112,7 +112,7 @@ static void Dragging(void)
 
 int main(int argc,char **argv)
 {
-    CHECK(argc==3); StudioScene scene={0},loaded={0}; double position[3]={0}; char path[MAX_PATH];
+    CHECK(argc==3); StudioScene scene={0},loaded={0}; StudioSceneDefaultLighting(&scene); double position[3]={0}; char path[MAX_PATH];
     lstrcpyn(scene.project,argv[1],sizeof(scene.project)); lstrcpyn(scene.filename,"Main.rnd",sizeof(scene.filename));
     CHECK(StudioSceneAddModel(&scene,"Light.gltf",position,&why)); CHECK(StudioSceneAddModel(&scene,"Light.gltf",position,&why));
     StudioTransform transform={{10,20,30},{0,0,90},{2,3,4}}; scene.objects[0].transform=transform;
