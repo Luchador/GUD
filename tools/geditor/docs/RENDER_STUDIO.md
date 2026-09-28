@@ -52,6 +52,36 @@ current scene's model instances, transforms, material properties, and lights. Pe
 numeric edits are applied before saving. Completed placements and edits also
 continue to save automatically.
 
+For environment reflections, put a **2:1 equirectangular BMP panorama** in
+`studio/images`, for example 1024 × 512 or 2048 × 1024. It appears in **Images**
+with the same thumbnails as every other BMP. Return to Render Studio after
+copying the file to refresh the image list.
+
+Select the scene's top entry (its `.rnd` filename) in **Scene Outliner**. In
+**Properties**, choose the panorama from **Environment map**, or **None** to
+remove it. This uses the same image list as material base images; images that
+are unreadable or do not have a 2:1 aspect ratio are rejected when selected.
+The choice saves automatically and is included in File > Save Scene/Ctrl+S.
+If a saved image goes missing, its filename remains selected and the scene
+properties show an unavailable message. Restore the image and return to the
+window to reload it, or choose a replacement. The rest of the scene still loads.
+
+Each material's **Metalness** controls reflection strength: 0% adds no environment
+reflection, 50% uses half strength, and 100% uses full strength. Base color,
+vertex colors, and the material's base image tint the reflection. It remains
+visible with the scene lights off and specular intensity at zero; specular
+intensity and shininess continue to control highlights from the scene lights.
+Emission is added separately. The panorama supplies reflections, without
+changing the viewport background or lighting nonmetallic surfaces.
+
+The environment stays aligned with the world as the camera or model moves.
+The image's top is +Y and bottom is -Y; its center faces +Z, with +X at three
+quarters of the width and -X at one quarter. The left/right edges wrap at -Z.
+The reflection uses transformed normals, including nonuniform model scales.
+As with the preview's vertex lighting, the mapping is interpolated across
+triangles; sufficient mesh detail improves curved reflections. Reflection blur
+and reflections of other scene objects are not implemented.
+
 Select a model in the viewport or Scene Outliner to show its transform gizmo and
 **Transform** panel. Use the panel buttons or **W** for translation, **E** for
 rotation, and **R** for scaling. These shortcuts belong to Render Studio and do
@@ -99,7 +129,7 @@ a slot exposes these controls in **Properties**:
 - **Metalness:** a 0–100% slider, initially 0%. Increasing it reduces diffuse
   lighting and blends from the chosen specular color toward the base color,
   vertex colors, and base image for the highlight. At 100%, the material has
-  only metallic highlights plus any emission. Specular intensity still controls
+  only metallic highlights, environment reflections, and any emission. Specular intensity still controls
   highlight strength, and shininess controls its width. Intermediate values
   mix the nonmetallic and metallic responses. The slider displays its percentage,
   previews while dragging, and saves when released; arrow keys adjust by 1% and
@@ -107,8 +137,8 @@ a slot exposes these controls in **Properties**:
 
 Metalness is an artistic extension of the Phong preview, not a PBR renderer.
 Place lights where they produce visible highlights, and adjust specular intensity
-and shininess for the finish you want. There are no environment or scene
-reflections yet, so fully metallic surfaces can be dark away from highlights.
+and shininess for the finish you want. Choose a studio panorama to supply broader reflections. Without an environment
+map, fully metallic surfaces can be dark away from direct-light highlights.
 
 Color and image choices apply immediately. Numeric values apply when pressing
 Enter or leaving the field. Completed edits and placements automatically save
@@ -185,6 +215,12 @@ Base images tint diffuse color and the metallic portion of highlights. The
 nonmetallic highlights and emission remain independent of that image.
 The renderer draws diffuse first, then adds nonmetallic highlights/emission,
 then textured metallic highlights only for materials with nonzero metalness.
+With a usable environment and metallic materials, the OpenGL 1.1 path instead
+adds diffuse lighting, metallic highlights, and panorama reflections, multiplies
+that result by the base image, then adds nonmetallic highlights and emission.
+Separate texture-cache entries keep panorama vertical clamping independent of
+base-image wrapping. Panorama loading preserves the 2:1 ratio even at the
+4096-pixel preview limit.
 This is an opaque preview; glTF PBR roughness/metallic maps,
 transparency, shadows, and the final SGI-style renderer are future work.
 BMP preview textures use power-of-two dimensions up to 4096 for OpenGL compatibility.
@@ -215,10 +251,12 @@ workspace to the newly opened project; switching game levels does not.
 `studiodocument.c` owns scene loading, atomic replacement, instances, shared model
 assets, per-instance materials, fixed local-light slots, and permanent lighting. A `.rnd` is a UTF-8 JSON
 document with
-`"format": "GEditor Render Studio"`, `"version": 5`, `objects` and `lights` arrays,
-and required `ambient` and `directional` objects. Each permanent-light object
+`"format": "GEditor Render Studio"`, `"version": 6`, `objects` and `lights` arrays,
+required `ambient` and `directional` objects, and an `environment` string.
+The environment is a BMP leaf filename relative to `studio/images`, or an empty
+string for None. Version 6 requires it; versions 1–5 default to None. Each permanent-light object
 stores `color` (RGB, 0–1) and `intensity`; `directional` also stores `direction`.
-Versions 1–4 remain supported. Versions 1–3 use the legacy lighting defaults:
+Versions 1–5 remain supported. Versions 1–3 use the legacy lighting defaults:
 their ambient light defaults to white at 0.2.
 Their directional light preserves the original preview direction and is white
 at intensity 1 if there are no local lights, or intensity 0 if any local light
@@ -226,11 +264,11 @@ exists (including one with zero intensity). This preserves their previous
 appearance. After loading, the permanent lights can be edited independently.
 For version-1 scenes, existing positions and material settings are
 retained, rotation defaults to zero, and scale defaults to one. An empty scene
-created by New Scene starts as version 1; saving upgrades it to version 5.
+created by New Scene starts as version 1; saving upgrades it to version 6.
 Each object stores its model leaf filename, three-component `position`, `rotation`
 (in degrees), `scale` (multipliers), and material overrides (`name`, `image`,
 `base`, `specular`, `intensity`, `shininess`, `emission`, and `metalness`).
-Version 5 requires `emission` (three RGB values, 0–1) and `metalness` (0–1) on each
+Versions 5 and 6 require `emission` (three RGB values, 0–1) and `metalness` (0–1) on each
 saved material. Versions 1–4 default both to zero, preserving their appearance;
 version 4 retains its saved global-light settings. New imported material slots
 also start with black emission and zero metalness, irrespective of glTF PBR
@@ -240,8 +278,8 @@ Each light stores `type` (`spotlight` or `point`), `slot`, `position`, `color`,
 and `intensity`. The optional `slot` preserves point-light identity after deletions;
 older version-3 scenes without it assign slots in file order. Spotlights also store `direction`, `inner`, and `outer`; point lights
 store `radius`. Invalid light data or exceeded limits reject the entire load
-without changing the open scene. Older editor builds reject version-5 scenes
-rather than silently discarding the new material settings.
+without changing the open scene. Older editor builds reject version-6 scenes
+rather than silently discarding the environment setting.
 `gltf.c` provides a separate studio import mode using the shared JSON codec in
 `gltfjson.c`; it does not require game source identities or game texture tags.
 `studiomath.c` owns model matrices, ray picking, transformed bounds, and preview
@@ -253,14 +291,17 @@ owns the preview camera, rendering, image textures, and its own OpenGL context.
 
 Run `python3 tools/geditor/tests/studio_materials/run.py` for glTF/material,
 scene persistence, failure rollback, picking, and lighting regression coverage,
-including emission, metalness blending, material validation, and v1–v4 migration.
+including emission, metalness blending, material validation, v1–v4 material
+migration, panorama orientation/seam/pole math, environment persistence, and
+v1–v5 environment defaults.
 Run `python3 tools/geditor/tests/studio_lights/run.py` for light limits, properties,
 roundtrip persistence, legacy migration, invalid-document/save rollback, cone and
 radius falloff, colored diffuse/specular contributions, and outliner/property
 callback coverage with stand-in native controls, light transforms, icon picking,
 framing, deletion, stable slot reuse, permanent-light controls/non-deletion,
 colored ambient/directional illumination, v1–v3 appearance migration, and the
-emission picker/metalness slider callbacks with drag commit and save rollback.
+emission picker/metalness slider callbacks with drag commit and save rollback,
+and the scene environment selector with shared image choices and failure handling.
 Run `python3 tools/geditor/tests/studio_transforms/run.py` for transform
 persistence, legacy-scene loading, transformed picking/lighting, drag math,
 actual gizmo assets, hotkey routing, and Save Scene input ordering.
@@ -289,3 +330,11 @@ Try metalness at 0%, 50%, and 100% under a directional or local light, with and
 without a base image, then adjust intensity and shininess. Drag the slider,
 change material/scene, and save/reopen to confirm settings stay with the selected
 material instance. Confirm the controls disappear when selecting a light.
+
+For environment mapping, select the scene root, choose a 2:1 BMP from Images,
+and orbit/rotate a metallic model. Check metalness 0%, 50%, and 100%, with and
+without a base image; turn off lights and confirm emission remains independent.
+Save/reopen, switch scenes/projects, select None, and temporarily move/restore
+the panorama file. Try an ordinary square BMP and confirm it is rejected while
+remaining available as a base image. Native WIC decoding and control layout
+still require this Windows smoke test.

@@ -150,7 +150,7 @@ int main(int argc,char **argv)
     CHECK(!StudioSceneAddModel(&scene,"../Light.gltf",position,&why) && scene.count==2);
     m->intensity=NAN; CHECK(!StudioSceneSave(&scene,&why)); m->intensity=.875;
     snprintf(path,sizeof(path),"%s/studio/scenes/Bad.rnd",project);
-    const char *bad[]={"{\"format\":\"GEditor Render Studio\",\"version\":6,\"objects\":[]}",
+    const char *bad[]={"{\"format\":\"GEditor Render Studio\",\"version\":7,\"objects\":[]}",
         "{\"format\":\"GEditor Render Studio\",\"version\":1,\"objects\":[{\"model\":\"../Light.gltf\"}]}",
         "{\"format\":\"GEditor Render Studio\",\"version\":1,\"objects\":[{\"model\":\"Light.gltf\",\"position\":[NaN,0,0],\"materials\":[]}]}",
         "{\"format\":\"GEditor Render Studio\",\"version\":1,\"objects\":[{\"model\":\"Light.gltf\",\"position\":[0,0,0],\"materials\":[{}]}]}"};

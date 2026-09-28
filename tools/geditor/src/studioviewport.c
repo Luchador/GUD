@@ -14,7 +14,7 @@
 
 #define STUDIO_VIEWPORT_CLASS "GEditorStudioViewport"
 
-typedef struct StudioTexture { char name[MAX_PATH]; GLuint id; struct StudioTexture *next; } StudioTexture;
+typedef struct StudioTexture { char name[MAX_PATH]; GLuint id; BOOL environment; int height; struct StudioTexture *next; } StudioTexture;
 
 typedef struct StudioViewport {
     HDC dc;
@@ -193,33 +193,49 @@ static BOOL StudioViewportInit(HWND hwnd, StudioViewport *state)
     return loaded;
 }
 
-static GLuint StudioViewportTexture(StudioViewport *state, const char *filename)
+static StudioTexture *StudioViewportTexture(StudioViewport *state, const char *filename,BOOL environment)
 {
-    if (!filename[0] || !state->scene) { return 0; }
+    if (!filename[0] || !state->scene) { return NULL; }
     StudioTexture *texture; char folder[MAX_PATH],path[MAX_PATH]; TexPixel *pixels=NULL; int w,h; GLint maximum;
-    for (texture=state->textures;texture;texture=texture->next) if (!lstrcmpi(filename,texture->name)) { return texture->id; }
-    texture=calloc(1,sizeof(*texture)); if (!texture) { return 0; }
+    for (texture=state->textures;texture;texture=texture->next) if (texture->environment==environment && !lstrcmpi(filename,texture->name)) { return texture; }
+    texture=calloc(1,sizeof(*texture)); if (!texture) { return NULL; }
+    texture->environment=environment;
     lstrcpyn(texture->name,filename,sizeof(texture->name)); texture->next=state->textures; state->textures=texture;
     glGetIntegerv(GL_MAX_TEXTURE_SIZE,&maximum); maximum=min(4096,maximum);
     if (!EditorPathJoin(folder,sizeof(folder),state->scene->project,"studio\\images")
-        || !EditorPathJoin(path,sizeof(path),folder,filename) || !TexLoadStudioTexture(path,maximum,&pixels,&w,&h)) { return 0; }
+        || !EditorPathJoin(path,sizeof(path),folder,filename)
+        || !(environment ? TexLoadStudioEnvironment(path,maximum,&pixels,&w,&h)
+            : TexLoadStudioTexture(path,maximum,&pixels,&w,&h))) { return texture; }
+    texture->height=h;
     glGenTextures(1,&texture->id); glBindTexture(GL_TEXTURE_2D,texture->id);
     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR); glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT); glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT); glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,environment ? GL_CLAMP : GL_REPEAT);
     glTexImage2D(GL_TEXTURE_2D,0,GL_RGB,w,h,0,GL_RGBA,GL_UNSIGNED_BYTE,pixels); free(pixels);
-    return texture->id;
+    return texture;
 }
 
 static void StudioViewportObjects(StudioViewport *state, const double eye[3])
 {
     if (!state->scene) { return; }
     glShadeModel(GL_SMOOTH);
-    /* Diffuse uses the base image. Dielectric highlights/emission are untextured;
-     * metallic highlights use the base image as their reflection tint. The third
-     * pass is skipped for nonmetals. This remains compatible with OpenGL 1.1. */
-    for (int pass=0;pass<3;pass++)
+    StudioTexture *environment=StudioViewportTexture(state,state->scene->environment,TRUE);
+    BOOL reflect=FALSE;
+    if (environment && environment->id) for (DWORD i=0;i<state->scene->count;i++)
+        for (DWORD j=0;j<state->scene->objects[i].materialcount;j++)
+            if (state->scene->objects[i].materials[j].metalness>0) { reflect=TRUE; }
+    enum { DIFFUSE, ADDITIVE, METALLIC, ENVIRONMENT, BASE_IMAGE };
+    const int reflected[]={DIFFUSE,METALLIC,ENVIRONMENT,BASE_IMAGE,ADDITIVE};
+    /* A base-image multiplication pass tints both lighting and reflections without
+     * multitexturing. Emission/dielectric highlights are added afterward. With no
+     * usable environment, retain the original three-pass rendering exactly. */
+    for (int pass=0;pass<(reflect ? 5 : 3);pass++)
     {
-        if (pass) { glEnable(GL_BLEND); glBlendFunc(GL_ONE,GL_ONE); glDepthMask(GL_FALSE); glDepthFunc(GL_EQUAL); }
+        int kind=reflect ? reflected[pass] : pass;
+        if (pass)
+        {
+            glEnable(GL_BLEND); glDepthMask(GL_FALSE); glDepthFunc(GL_EQUAL);
+            glBlendFunc(kind==BASE_IMAGE ? GL_ZERO : GL_ONE,kind==BASE_IMAGE ? GL_SRC_COLOR : GL_ONE);
+        }
         for (DWORD i=0;i<state->scene->count;i++)
         {
             const StudioInstance *o=&state->scene->objects[i]; if (!o->asset) { continue; }
@@ -228,22 +244,46 @@ static void StudioViewportObjects(StudioViewport *state, const double eye[3])
             glPushMatrix(); glMultMatrixd(matrix.m);
             for (DWORD first=0;first<mesh->count;)
             {
-                DWORD slot=mesh->materials.faces[first].slot, end=first+1;
+                DWORD slot=mesh->materials.faces[first].slot,end=first+1;
                 while (end<mesh->count && mesh->materials.faces[end].slot==slot) { end++; }
                 if (slot<o->materialcount)
                 {
                     const StudioMaterial *m=&o->materials[slot];
-                    if (pass==2 && m->metalness==0) { first=end; continue; }
-                    GLuint texture=pass==1 ? 0 : StudioViewportTexture(state,m->image);
-                    if (texture) { glEnable(GL_TEXTURE_2D); glBindTexture(GL_TEXTURE_2D,texture); glTexEnvi(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_MODULATE); }
+                    if ((kind==METALLIC || kind==ENVIRONMENT) && m->metalness==0) { first=end; continue; }
+                    StudioTexture *texture=kind==ENVIRONMENT ? environment : kind==BASE_IMAGE || (!reflect && kind!=ADDITIVE)
+                        ? StudioViewportTexture(state,m->image,FALSE) : NULL;
+                    if (kind==BASE_IMAGE && (!texture || !texture->id)) { first=end; continue; }
+                    if (texture && texture->id)
+                    { glEnable(GL_TEXTURE_2D); glBindTexture(GL_TEXTURE_2D,texture->id); glTexEnvi(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_MODULATE); }
                     else { glDisable(GL_TEXTURE_2D); }
                     glBegin(GL_TRIANGLES);
-                    for (DWORD v=first*3;v<end*3;v++)
+                    for (DWORD face=first;face<end;face++)
                     {
-                        const BgVertex *vertex=&mesh->vertices[v]; float diffuse[3],additive[3],metallic[3];
-                        StudioShade(state->scene,m,vertex,&matrix,eye,diffuse,additive,metallic);
-                        glColor3fv(pass==2 ? metallic : pass==1 ? additive : diffuse);
-                        glTexCoord2f(vertex->s,vertex->t); glVertex3f(vertex->x,vertex->y,vertex->z);
+                        const BgVertex *triangle=&mesh->vertices[face*3]; double uv[3][2];
+                        if (kind==ENVIRONMENT) { StudioEnvironmentCoordinates(triangle,&matrix,eye,uv); }
+                        for (int k=0;k<3;k++)
+                        {
+                            const BgVertex *vertex=&triangle[k];
+                            if (kind==ENVIRONMENT)
+                            {
+                                float strength=m->metalness/255.f;
+                                glColor3f(m->base[0]*vertex->r*strength,m->base[1]*vertex->g*strength,m->base[2]*vertex->b*strength);
+                                double edge=.5/environment->height;
+                                glTexCoord2d(uv[k][0],fmax(edge,fmin(1-edge,uv[k][1])));
+                            }
+                            else
+                            {
+                                if (kind==BASE_IMAGE) { glColor3f(1,1,1); }
+                                else
+                                {
+                                    float diffuse[3],additive[3],metallic[3];
+                                    StudioShade(state->scene,m,vertex,&matrix,eye,diffuse,additive,metallic);
+                                    glColor3fv(kind==METALLIC ? metallic : kind==ADDITIVE ? additive : diffuse);
+                                }
+                                glTexCoord2f(vertex->s,vertex->t);
+                            }
+                            glVertex3f(vertex->x,vertex->y,vertex->z);
+                        }
                     }
                     glEnd();
                 }

@@ -202,6 +202,7 @@ BOOL StudioSceneSave(const StudioScene *scene, const char **why)
     *why="";
     if (!StudioScenePath(scene,folder,path) || scene->count>STUDIO_MAX_OBJECTS)
     { *why="The studio scene path or instance count is invalid."; return FALSE; }
+    if (scene->environment[0] && !StudioAssetFilename(scene->environment,".bmp")) { goto invalid; }
     for (DWORD i=0;i<scene->count;i++)
     {
         const StudioInstance *o=&scene->objects[i];
@@ -216,7 +217,8 @@ BOOL StudioSceneSave(const StudioScene *scene, const char **why)
     { *why="Could not create a temporary scene file."; return FALSE; }
     file=fopen(temporary,"wb");
     if (!file) { DeleteFile(temporary); *why="Could not open the temporary scene file."; return FALSE; }
-    ok=fprintf(file,"{\n  \"format\": \"GEditor Render Studio\",\n  \"version\": 5,\n  \"objects\": [")>=0;
+    ok=fputs("{\n  \"format\": \"GEditor Render Studio\",\n  \"version\": 6,\n  \"environment\": ",file)!=EOF
+        && GltfJsonWriteString(file,scene->environment) && fputs(",\n  \"objects\": [",file)!=EOF;
     for (DWORD i=0;ok && i<scene->count;i++)
     {
         const StudioInstance *o=&scene->objects[i];
@@ -316,7 +318,9 @@ BOOL StudioSceneLoad(const char *projectdir, const char *filename, StudioScene *
     *why="The studio scene is invalid or uses an unsupported format.";
     if (!String(&j,Field(&j,0,"format"),format,sizeof(format)) || strcmp(format,"GEditor Render Studio")) { goto done; }
     token=Field(&j,0,"version");
-    if (token<0 || !GltfJsonUnsigned(text,&j.tokens[token],&version) || (version<1 || version>5)) { goto done; }
+    if (token<0 || !GltfJsonUnsigned(text,&j.tokens[token],&version) || (version<1 || version>6)) { goto done; }
+    if (version>=6 && (!String(&j,Field(&j,0,"environment"),next.environment,sizeof(next.environment))
+        || (next.environment[0] && !StudioAssetFilename(next.environment,".bmp")))) { goto done; }
     array=Field(&j,0,"objects");
     if (array<0 || j.tokens[array].type!=GLTF_JSON_ARRAY) { goto done; }
     next.count=GltfJsonArrayCount(j.tokens,j.count,array);

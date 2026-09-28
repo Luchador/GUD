@@ -8,6 +8,7 @@
 #include <string.h>
 #include "studiogizmo.h"
 #include "resource.h"
+#include "editorpath.h"
 typedef intptr_t HWND,LPARAM,LRESULT,INT_PTR;
 #define CALLBACK
 #define LOWORD(n) ((unsigned)(n)&65535)
@@ -34,6 +35,7 @@ static void RenderStudioFinishMetalness(void);
 static BOOL g_StudioUpdating;
 static unsigned g_StudioGeneration,g_StudioLightDirty,g_StudioTransformDirty;
 static int g_StudioTool=STUDIO_SCALE;
+char *lstrcpyn(char *out,const char *in,int capacity) { snprintf(out,capacity,"%s",in); return out; }
 #define lstrcpy strcpy
 #define min(a,b) ((a)<(b)?(a):(b))
 #define lstrcmpi strcmp
@@ -45,7 +47,7 @@ static int g_StudioTool=STUDIO_SCALE;
 #define TVI_ROOT ((HTREEITEM)(intptr_t)-1)
 #define TVI_LAST ((HTREEITEM)(intptr_t)-2)
 enum { SW_HIDE=0,SW_SHOW,WM_SETREDRAW,WM_GETFONT,LB_RESETCONTENT,LB_ADDSTRING,LB_SETHORIZONTALEXTENT,
-       TBM_GETPOS,TBM_SETPOS,TB_THUMBTRACK,TB_THUMBPOSITION,TB_ENDTRACK,TB_LINEUP,CBN_SELCHANGE,CB_GETCURSEL,CB_GETLBTEXTLEN,CB_GETLBTEXT,
+       TBM_GETPOS,TBM_SETPOS,TB_THUMBTRACK,TB_THUMBPOSITION,TB_ENDTRACK,TB_LINEUP,CBN_SELCHANGE,CB_RESETCONTENT,CB_SETDROPPEDWIDTH,CB_GETCURSEL,CB_GETLBTEXTLEN,CB_GETLBTEXT,
        LB_SETCURSEL,CB_FINDSTRINGEXACT,CB_ADDSTRING,CB_SETCURSEL,TVIF_TEXT,TVIF_PARAM,TVE_EXPAND,
        MB_ICONERROR,BN_CLICKED,EN_CHANGE,EN_KILLFOCUS,WM_INITDIALOG,WM_COMMAND,EM_LIMITTEXT,CC_FULLOPEN=64,CC_RGBINIT=128,CB_ERR=-1 };
 static HWND GetDlgItem(HWND hwnd,int id) { return id; }
@@ -57,8 +59,20 @@ static HDC GetDC(HWND hwnd) { return NULL; }
 static HFONT SelectObject(HDC dc,HFONT font) { return NULL; }
 static void ReleaseDC(HWND hwnd,HDC dc) {}
 static BOOL GetTextExtentPoint32(HDC dc,const char *value,int n,SIZE *size) { return FALSE; }
+static char choices[2][16][MAX_PATH]; static int choicecount[2],choicerow[2],bad_environment,refreshes;
 static LRESULT SendMessage(HWND hwnd,UINT message,WPARAM wparam,LPARAM lparam)
 {
+    int combo=hwnd==IDC_STUDIO_BASE_IMAGE ? 0 : hwnd==IDC_STUDIO_ENVIRONMENT ? 1 : -1;
+    if(combo>=0)
+    {
+        if(message==CB_RESETCONTENT) { choicecount[combo]=0; return 0; }
+        if(message==CB_ADDSTRING) { int row=choicecount[combo]++; assert(row<16); strcpy(choices[combo][row],(const char *)lparam); return row; }
+        if(message==CB_SETCURSEL) { choicerow[combo]=(int)wparam; return 0; }
+        if(message==CB_GETCURSEL) return choicerow[combo];
+        if(message==CB_GETLBTEXTLEN) return strlen(choices[combo][wparam]);
+        if(message==CB_GETLBTEXT) { strcpy((char *)lparam,choices[combo][wparam]); return 0; }
+        if(message==CB_FINDSTRINGEXACT) { for(int i=0;i<choicecount[combo];i++) if(!strcmp(choices[combo][i],(const char *)lparam)) return i; return CB_ERR; }
+    }
     if (message==LB_RESETCONTENT) { materialcount=0; }
     if (message==LB_ADDSTRING) { return materialcount++; }
     if (message==LB_SETCURSEL) { selectedrow=(int)wparam; }
@@ -86,8 +100,11 @@ static int metalness_slider;
 static LRESULT SendDlgItemMessage(HWND hwnd,int id,UINT message,WPARAM wparam,LPARAM lparam)
 {
     if (id==IDC_STUDIO_METALNESS && message==TBM_SETPOS) { metalness_slider=(int)lparam; }
-    return id==IDC_STUDIO_METALNESS && message==TBM_GETPOS ? metalness_slider : 0;
+    return id==IDC_STUDIO_METALNESS && message==TBM_GETPOS ? metalness_slider : SendMessage(id,message,wparam,lparam);
 }
+static void StudioViewportRefreshImages(HWND hwnd) { refreshes++; }
+BOOL TexLoadStudioEnvironment(const char *path,int limit,TexPixel **pixels,int *w,int *h)
+{ *pixels=NULL; *w=2; *h=1; return !bad_environment; }
 static void RenderStudioCommitLight(StudioLight *light,const StudioLight *previous);
 static void RenderStudioCommitGlobalLight(StudioGlobalLight *light,const StudioGlobalLight *previous);
 static void SetFocus(HWND hwnd) {}
@@ -165,7 +182,7 @@ int main(void)
     RenderStudioSelect(0,0); assert(g_StudioLight==-1 && viewportselection==0 && treeselected->id==0 && materialcount==1);
     assert(visible[IDC_STUDIO_BASE_COLOR] && !visible[IDC_STUDIO_LIGHT_COLOR]);
     RenderStudioSelect(-2,-1); assert(g_StudioObject==-1 && g_StudioMaterial==-1 && materialcount==0 && viewportselection==-2);
-    RenderStudioSelect(-1,-1); assert(g_StudioLight==-1 && visible[IDC_STUDIO_MATERIAL_HINT]);
+    RenderStudioSelect(-1,-1); assert(g_StudioLight==-1 && visible[IDC_STUDIO_ENVIRONMENT]);
     RenderStudioSelect(-3,-1); StudioLight retained=g_StudioScene.lights[1],second=g_StudioScene.lights[2];
     fail_save=1; RenderStudioDeleteLight(); fail_save=0;
     assert(g_StudioLight==1 && !memcmp(&retained,&g_StudioScene.lights[1],sizeof(retained)));
@@ -242,7 +259,27 @@ int main(void)
     assert(!memcmp(&prior,&material,sizeof(prior))); fail_save=0;
     RenderStudioMaterialCommand(g_StudioProperties,IDC_STUDIO_EMISSION_COLOR,BN_CLICKED);
     assert(fabs(material.emission[2]-.8)<1e-6 && material.base[2]==prior.base[2]);
+    RenderStudioSelect(-1,-1); assert(visible[IDC_STUDIO_ENVIRONMENT] && !visible[IDC_STUDIO_METALNESS]);
+    TexThumb images[2]={0}; strcpy(images[0].label,"Panorama.bmp"); strcpy(images[1].label,"Other.bmp");
+    RenderStudioImageChoices(images,2); assert(choicecount[0]==3 && choicecount[1]==3);
+    assert(!strcmp(choices[1][0],"None") && !strcmp(choices[1][1],"Panorama.bmp"));
+    attempts=saved; choicerow[1]=1; bad_environment=1;
+    assert(RenderStudioEnvironmentCommand(g_StudioProperties,IDC_STUDIO_ENVIRONMENT,CBN_SELCHANGE));
+    assert(saved==attempts && !g_StudioScene.environment[0] && choicerow[1]==0); bad_environment=0;
+    choicerow[1]=1; fail_save=1; RenderStudioEnvironmentCommand(g_StudioProperties,IDC_STUDIO_ENVIRONMENT,CBN_SELCHANGE);
+    assert(saved==attempts && !g_StudioScene.environment[0] && choicerow[1]==0); fail_save=0;
+    choicerow[1]=1; RenderStudioEnvironmentCommand(g_StudioProperties,IDC_STUDIO_ENVIRONMENT,CBN_SELCHANGE);
+    assert(!strcmp(g_StudioScene.environment,"Panorama.bmp") && saved==attempts+1 && refreshes>0);
+    bad_environment=1; RenderStudioImageChoices(images+1,1); assert(!strcmp(g_StudioScene.environment,"Panorama.bmp"));
+    assert(choicecount[1]==3 && choicerow[1]==2 && strstr(text[IDC_STUDIO_ENVIRONMENT_HINT],"unavailable")); bad_environment=0;
+    RenderStudioSelect(STUDIO_SELECT_AMBIENT,-1); assert(!visible[IDC_STUDIO_ENVIRONMENT]);
+    assert(!RenderStudioEnvironmentCommand(g_StudioProperties,IDC_STUDIO_ENVIRONMENT,CBN_SELCHANGE));
+    RenderStudioSelect(0,0); assert(!visible[IDC_STUDIO_ENVIRONMENT] && visible[IDC_STUDIO_METALNESS]);
+    RenderStudioSelect(-1,-1); choicerow[1]=0;
+    RenderStudioEnvironmentCommand(g_StudioProperties,IDC_STUDIO_ENVIRONMENT,CBN_SELCHANGE);
+    assert(!g_StudioScene.environment[0] && choicerow[1]==0);
     assert(invalidated>0);
+    puts("PASS: shared image catalog, scene-only selector, validation, save rollback, cache refresh, missing-image retention and None.");
     puts("PASS: emission picker/cancel/rollback, live metalness previews, one save per drag, keyboard adjustment, selection-change commit and light-control isolation.");
     puts("PASS: permanent globals, isolated controls, direction validation, zero intensity, color dialogs, non-deletion and save rollback.");
     puts("PASS: add/cancel/failure, outliner identities, material/light isolation, Transform/Properties controls, tool availability, numeric/color edits, deletion/slot reuse and rollback.");

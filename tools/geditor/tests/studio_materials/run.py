@@ -106,8 +106,33 @@ def main():
         subprocess.run(command, check=True)
         subprocess.run([str(work / 'check'), str(work), str(len(invalid))], check=True,
                        env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))
+        environment_doc = dict(format='GEditor Render Studio', version=6, objects=[], lights=[], environment='Studio 360.bmp',
+                               ambient=dict(color=[1, 1, 1], intensity=.2),
+                               directional=dict(color=[1, 1, 1], intensity=1, direction=[0, -1, 0]))
+        bad_environments = [dict(environment_doc, environment=value) for value in
+                            (None, 42, [], '../Escape.bmp', 'C:\\Escape.bmp', 'sub/Map.bmp', 'Map.png', 'x'*300+'.bmp')]
+        missing = copy.deepcopy(environment_doc)
+        del missing['environment']
+        bad_environments.append(missing)
+        for index, bad in enumerate(bad_environments):
+            (work / f'studio/scenes/BadEnvironment{index}.rnd').write_text(json.dumps(bad))
+        for version in range(1, 6):
+            legacy = copy.deepcopy(environment_doc)
+            legacy['version'] = version
+            del legacy['environment']
+            (work / f'studio/scenes/EnvironmentLegacy{version}.rnd').write_text(json.dumps(legacy))
+        environment_command = [arg.replace(str(here / 'check.c'), str(here / 'environment.c'))
+                               .replace(str(work / 'check'), str(work / 'environment')) for arg in command]
+        subprocess.run(environment_command, check=True)
+        subprocess.run([str(work / 'environment'), str(work), str(len(bad_environments))], check=True,
+                       env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))
+        assert json.loads((work / 'studio/scenes/Environment.rnd').read_text())['environment'] == 'Studio 360.bmp'
+        assert json.loads((work / 'studio/scenes/EnvironmentNone.rnd').read_text())['environment'] == ''
+        for version in range(1, 6):
+            legacy = json.loads((work / f'studio/scenes/EnvironmentLegacy{version}.rnd').read_text())
+            assert legacy['version'] == 6 and legacy['environment'] == ''
         scene = json.loads((work / 'studio/scenes/Main.rnd').read_text())
-        assert scene['version'] == 5 and len(scene['objects']) == 2
+        assert scene['version'] == 6 and len(scene['objects']) == 2
         first, second = scene['objects']
         assert first['materials'][0]['name'] == 'Housing "blue"'
         assert first['materials'][1]['name'] == 'Réflecteur'
@@ -118,7 +143,7 @@ def main():
         assert second['materials'][1]['emission'] == [0, 0, 0] and second['materials'][1]['metalness'] == 0
         for version in range(1, 5):
             legacy = json.loads((work / f'studio/scenes/Legacy{version}.rnd').read_text())
-            assert legacy['version'] == 5
+            assert legacy['version'] == 6
             assert legacy['objects'][0]['materials'][0]['metalness'] == 0
             assert legacy['objects'][0]['materials'][0]['emission'] == [0, 0, 0]
         assert first['materials'][1]['base'] != second['materials'][1]['base']

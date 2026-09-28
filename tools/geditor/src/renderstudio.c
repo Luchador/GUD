@@ -11,6 +11,7 @@
 #include "studioscene.h"
 #include "studiogizmo.h"
 #include "browser.h"
+#include "editorpath.h"
 
 static HWND g_Studio, g_StudioViewport, g_StudioProperties, g_StudioTransform;
 static StudioScene g_StudioScene;
@@ -125,6 +126,19 @@ static double *RenderStudioLightField(StudioLight *light,int field,BOOL spotligh
     return field==2 && spotlight ? &light->outer : NULL;
 }
 
+static BOOL RenderStudioSceneSelected(void)
+{ return g_StudioScene.filename[0] && RenderStudioSelection()==-1; }
+
+static BOOL RenderStudioEnvironmentAvailable(const char *filename)
+{
+    char folder[MAX_PATH],path[MAX_PATH]; TexPixel *pixels=NULL; int width,height;
+    BOOL ok=StudioAssetFilename(filename,".bmp")
+        && EditorPathJoin(folder,sizeof(folder),g_StudioScene.project,"studio\\images")
+        && EditorPathJoin(path,sizeof(path),folder,filename)
+        && TexLoadStudioEnvironment(path,2,&pixels,&width,&height);
+    free(pixels); return ok;
+}
+
 static void RenderStudioProperties(void)
 {
     StudioMaterial *m=RenderStudioMaterial(); StudioLight *light=RenderStudioLight();
@@ -134,7 +148,21 @@ static void RenderStudioProperties(void)
         ShowWindow(GetDlgItem(g_StudioProperties,id),m ? SW_SHOW : SW_HIDE);
     for (int id=IDC_STUDIO_EMISSION_LABEL;id<=IDC_STUDIO_METALNESS;id++)
         ShowWindow(GetDlgItem(g_StudioProperties,id),m ? SW_SHOW : SW_HIDE);
-    ShowWindow(GetDlgItem(g_StudioProperties,IDC_STUDIO_MATERIAL_HINT),m || light || global ? SW_HIDE : SW_SHOW);
+    BOOL scene=RenderStudioSceneSelected();
+    for (int id=IDC_STUDIO_ENVIRONMENT_LABEL;id<=IDC_STUDIO_ENVIRONMENT_HINT;id++)
+        ShowWindow(GetDlgItem(g_StudioProperties,id),scene ? SW_SHOW : SW_HIDE);
+    ShowWindow(GetDlgItem(g_StudioProperties,IDC_STUDIO_MATERIAL_HINT),m || light || global || scene ? SW_HIDE : SW_SHOW);
+    if (scene)
+    {
+        HWND combo=GetDlgItem(g_StudioProperties,IDC_STUDIO_ENVIRONMENT);
+        LRESULT row=g_StudioScene.environment[0] ? SendMessage(combo,CB_FINDSTRINGEXACT,(WPARAM)-1,(LPARAM)g_StudioScene.environment) : 0;
+        if (row==CB_ERR) { row=SendMessage(combo,CB_ADDSTRING,0,(LPARAM)g_StudioScene.environment); }
+        SendMessage(combo,CB_SETCURSEL,row,0);
+        SetDlgItemText(g_StudioProperties,IDC_STUDIO_ENVIRONMENT_HINT,
+            g_StudioScene.environment[0] && !RenderStudioEnvironmentAvailable(g_StudioScene.environment)
+            ? "Environment unavailable. Restore a readable 2:1 BMP in studio/images, or select another image."
+            : "Use a 2:1 BMP panorama. Material metalness controls reflection strength.");
+    }
     if (m)
     {
         snprintf(text,sizeof(text),"%.6g",m->intensity); SetDlgItemText(g_StudioProperties,IDC_STUDIO_INTENSITY,text);
@@ -522,6 +550,32 @@ static BOOL RenderStudioMaterialCommand(HWND hwnd,int id,int code)
     return FALSE;
 }
 
+static BOOL RenderStudioEnvironmentCommand(HWND hwnd,int id,int code)
+{
+    if (g_StudioUpdating || !RenderStudioSceneSelected() || id!=IDC_STUDIO_ENVIRONMENT || code!=CBN_SELCHANGE) { return FALSE; }
+    char filename[MAX_PATH]="",previous[MAX_PATH]; const char *why="";
+    LRESULT row=SendDlgItemMessage(hwnd,id,CB_GETCURSEL,0,0);
+    if (row<0) { return TRUE; }
+    if (row>0)
+    {
+        LRESULT length=SendDlgItemMessage(hwnd,id,CB_GETLBTEXTLEN,row,0);
+        if (length<1 || length>=MAX_PATH) { RenderStudioProperties(); return TRUE; }
+        SendDlgItemMessage(hwnd,id,CB_GETLBTEXT,row,(LPARAM)filename);
+        if (!RenderStudioEnvironmentAvailable(filename))
+        {
+            MessageBox(g_Studio,"Choose a readable BMP panorama whose width is twice its height, such as 1024 x 512.","Environment Map",MB_ICONERROR);
+            RenderStudioProperties(); return TRUE;
+        }
+    }
+    if (!strcmp(filename,g_StudioScene.environment)) { return TRUE; }
+    lstrcpyn(previous,g_StudioScene.environment,sizeof(previous)); lstrcpyn(g_StudioScene.environment,filename,sizeof(g_StudioScene.environment));
+    if (!StudioSceneSave(&g_StudioScene,&why))
+    { lstrcpyn(g_StudioScene.environment,previous,sizeof(g_StudioScene.environment)); MessageBox(g_Studio,why,"Environment Map",MB_ICONERROR); }
+    else
+    { StudioViewportRefreshImages(g_StudioViewport); SetDlgItemText(g_Studio,IDC_STUDIO_STATUS,"Environment map saved."); }
+    InvalidateRect(g_StudioViewport,NULL,FALSE); RenderStudioProperties(); return TRUE;
+}
+
 static INT_PTR CALLBACK RenderStudioPropertiesProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
 {
     StudioMaterial *m=RenderStudioMaterial();
@@ -559,7 +613,7 @@ static INT_PTR CALLBACK RenderStudioPropertiesProc(HWND hwnd, UINT message, WPAR
     case WM_COMMAND:
     {
         int id=LOWORD(wparam),code=HIWORD(wparam);
-        if (RenderStudioGlobalLightCommand(hwnd,id,code) || RenderStudioLightCommand(hwnd,id,code)) { return TRUE; }
+        if (RenderStudioEnvironmentCommand(hwnd,id,code) || RenderStudioGlobalLightCommand(hwnd,id,code) || RenderStudioLightCommand(hwnd,id,code)) { return TRUE; }
         return RenderStudioMaterialCommand(hwnd,id,code);
     }
     }
@@ -568,10 +622,16 @@ static INT_PTR CALLBACK RenderStudioPropertiesProc(HWND hwnd, UINT message, WPAR
 
 static void RenderStudioImageChoices(const TexThumb *images,DWORD count)
 {
-    HWND combo=GetDlgItem(g_StudioProperties,IDC_STUDIO_BASE_IMAGE);
-    g_StudioUpdating=TRUE; SendMessage(combo,CB_RESETCONTENT,0,0); SendMessage(combo,CB_ADDSTRING,0,(LPARAM)"None");
-    for (DWORD i=0;i<count;i++) { SendMessage(combo,CB_ADDSTRING,0,(LPARAM)images[i].label); }
-    SendMessage(combo,CB_SETDROPPEDWIDTH,360,0); g_StudioUpdating=FALSE; RenderStudioProperties();
+    const int ids[]={IDC_STUDIO_BASE_IMAGE,IDC_STUDIO_ENVIRONMENT};
+    g_StudioUpdating=TRUE;
+    for (size_t c=0;c<sizeof(ids)/sizeof(*ids);c++)
+    {
+        HWND combo=GetDlgItem(g_StudioProperties,ids[c]);
+        SendMessage(combo,CB_RESETCONTENT,0,0); SendMessage(combo,CB_ADDSTRING,0,(LPARAM)"None");
+        for (DWORD i=0;i<count;i++) { SendMessage(combo,CB_ADDSTRING,0,(LPARAM)images[i].label); }
+        SendMessage(combo,CB_SETDROPPEDWIDTH,360,0);
+    }
+    g_StudioUpdating=FALSE; RenderStudioProperties();
 }
 
 static void RenderStudioAddLight(BOOL spotlight)

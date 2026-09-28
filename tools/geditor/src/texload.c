@@ -1097,7 +1097,7 @@ BOOL TexGetProjectImageSize(const char *projectdir, DWORD id,
     return TRUE;
 }
 
-BOOL TexLoadStudioTexture(const char *path, int limit, TexPixel **pixels, int *width, int *height)
+static BOOL TexLoadStudioBitmap(const char *path, int limit, BOOL environment, TexPixel **pixels, int *width, int *height)
 {
     HRESULT initialized=CoInitializeEx(NULL,COINIT_APARTMENTTHREADED);
     IWICImagingFactory *factory=NULL; IWICBitmapDecoder *decoder=NULL;
@@ -1110,8 +1110,10 @@ BOOL TexLoadStudioTexture(const char *path, int limit, TexPixel **pixels, int *w
         || FAILED(IWICImagingFactory_CreateDecoderFromFilename(factory,wide,NULL,GENERIC_READ,WICDecodeMetadataCacheOnDemand,&decoder))
         || FAILED(IWICBitmapDecoder_GetContainerFormat(decoder,&format)) || !IsEqualGUID(&format,&GUID_ContainerFormatBmp)
         || FAILED(IWICBitmapDecoder_GetFrame(decoder,0,&frame)) || FAILED(IWICBitmapFrameDecode_GetSize(frame,&w,&h)) || !w || !h) { goto done; }
+    if (environment && (limit<2 || w%2 || w/2!=h)) { goto done; }
     while (sw<w && sw<=(UINT)limit/2) { sw*=2; }
     while (sh<h && sh<=(UINT)limit/2) { sh*=2; }
+    if (environment) { sh=sw/2; }
     data=malloc((size_t)sw*sh*sizeof(*data));
     if (!data || FAILED(IWICImagingFactory_CreateBitmapScaler(factory,&scaler))
         || FAILED(IWICBitmapScaler_Initialize(scaler,(IWICBitmapSource *)frame,sw,sh,WICBitmapInterpolationModeFant))
@@ -1130,3 +1132,9 @@ done:
     if (SUCCEEDED(initialized)) { CoUninitialize(); }
     return ok;
 }
+
+BOOL TexLoadStudioTexture(const char *path, int limit, TexPixel **pixels, int *width, int *height)
+{ return TexLoadStudioBitmap(path,limit,FALSE,pixels,width,height); }
+
+BOOL TexLoadStudioEnvironment(const char *path, int limit, TexPixel **pixels, int *width, int *height)
+{ return TexLoadStudioBitmap(path,limit,TRUE,pixels,width,height); }

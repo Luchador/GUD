@@ -211,3 +211,43 @@ void StudioShade(const StudioScene *scene,const StudioMaterial *m, const BgVerte
         if (metallic) { metallic[k]=(float)fmin(1,base*highlights[k]*m->metalness); }
     }
 }
+
+void StudioEnvironmentCoordinates(const BgVertex vertices[3],const StudioMatrix *matrix,
+    const double eye[3],double uv[3][2])
+{
+    BOOL pole[3]; int anchor=-1;
+    for (int i=0;i<3;i++)
+    {
+        double p[3]={vertices[i].x,vertices[i].y,vertices[i].z},n[3]={0},v[3],r[3],nn=0,vv=0,nv=0;
+        StudioPoint(matrix,p,p);
+        for (int k=0;k<3;k++)
+        {
+            for (int j=0;j<3;j++) { n[k]+=matrix->normal[j*3+k]*vertices[i].environment.normal[j]; }
+            nn+=n[k]*n[k]; v[k]=eye[k]-p[k]; vv+=v[k]*v[k];
+        }
+        nn=sqrt(nn); vv=sqrt(vv);
+        for (int k=0;k<3;k++)
+        { n[k]=nn>1e-12 ? n[k]/nn : (k==1); v[k]=vv>1e-12 ? v[k]/vv : n[k]; nv+=n[k]*v[k]; }
+        for (int k=0;k<3;k++) { r[k]=2*nv*n[k]-v[k]; }
+        pole[i]=r[0]*r[0]+r[2]*r[2]<1e-20;
+        if (!pole[i]) { anchor=i; }
+        uv[i][0]=.5+atan2(r[0],r[2])/(2*3.14159265358979323846);
+        uv[i][1]=.5-asin(fmax(-1,fmin(1,r[1])))/3.14159265358979323846;
+    }
+    /* A pole has no longitude. Borrow a neighbor before finding the shortest
+     * circular interval, then center it between the unwrapped neighbors. */
+    for (int i=0;i<3;i++) if (pole[i]) { uv[i][0]=anchor>=0 ? uv[anchor][0] : .5; }
+    double sorted[3]={uv[0][0],uv[1][0],uv[2][0]};
+    for (int i=0;i<2;i++) for (int j=i+1;j<3;j++) if (sorted[i]>sorted[j])
+    { double swap=sorted[i]; sorted[i]=sorted[j]; sorted[j]=swap; }
+    double gap=sorted[0]+1-sorted[2],start=sorted[0];
+    for (int i=0;i<2;i++) if (sorted[i+1]-sorted[i]>gap)
+    { gap=sorted[i+1]-sorted[i]; start=sorted[i+1]; }
+    for (int i=0;i<3;i++) if (uv[i][0]<start) { uv[i][0]+=1; }
+    for (int i=0;i<3;i++) if (pole[i] && anchor>=0)
+    {
+        double sum=0; int count=0;
+        for (int j=0;j<3;j++) if (!pole[j]) { sum+=uv[j][0]; count++; }
+        uv[i][0]=sum/count;
+    }
+}

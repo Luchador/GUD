@@ -17,6 +17,10 @@ BOOL StudioRay(const OrbitCamera *camera, int width, int height, double x, doubl
 int StudioPick(const StudioScene *scene, const double origin[3], const double direction[3], int *material);
 /* Return the light's attenuated intensity and the unit surface-to-light vector. */
 double StudioLightSample(const StudioLight *light, BOOL spotlight, const double point[3], double direction[3]);
+/* World-aligned reflection UVs for a triangle. Image top is +Y, center is +Z;
+ * U wraps across the panorama seam. Coordinates may exceed 1 after unwrapping. */
+void StudioEnvironmentCoordinates(const BgVertex vertices[3],const StudioMatrix *matrix,
+    const double eye[3],double uv[3][2]);
 /* Diffuse and metallic highlights are modulated by the base image; additive
  * contains untextured dielectric highlights plus emission. metallic may be NULL. */
 void StudioShade(const StudioScene *scene, const StudioMaterial *material, const BgVertex *vertex, const StudioMatrix *matrix,

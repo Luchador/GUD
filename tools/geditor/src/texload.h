@@ -88,6 +88,8 @@ BOOL TexLoadFileThumbnail(const char *path, TexThumb *thumb, unsigned char *pixe
 /* Ordinary studio BMP -> top-down RGBA, resized to powers of two up to limit
  * for compatibility with the preview's OpenGL context. Caller frees pixels. */
 BOOL TexLoadStudioTexture(const char *path, int limit, TexPixel **pixels, int *width, int *height);
+/* As above, requiring an original 2:1 panorama and preserving that ratio. */
+BOOL TexLoadStudioEnvironment(const char *path, int limit, TexPixel **pixels, int *width, int *height);
 
 /*
  * Scans <projectdir>\images for the extracted BMPs and builds

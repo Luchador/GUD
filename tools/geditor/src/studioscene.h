@@ -61,6 +61,7 @@ extern const StudioGlobalLight g_StudioDefaultAmbientLight, g_StudioDefaultDirec
 
 typedef struct StudioScene {
     char project[MAX_PATH], filename[MAX_PATH];
+    char environment[MAX_PATH]; /* Optional equirectangular BMP in studio/images. */
     StudioInstance *objects;
     DWORD count;
     StudioModel *assets;
