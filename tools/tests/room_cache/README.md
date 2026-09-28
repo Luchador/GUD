@@ -74,3 +74,32 @@ appeared late. Turn away and back, and cross the adjoining portals repeatedly.
 Check with AA both enabled and disabled. If the long delays persist, investigate
 partial room loads and portal traversal separately; this patch isolates cache
 pressure rather than claiming to fix all possible missing-room conditions.
+
+## Visible-room loading priority
+
+Room loads now happen before room rendering, in visibility discovery order,
+with the player's current visible room first. The three-attempt frame budget
+and existing geometry/prop/transparency draw order are unchanged. Already
+resident rooms do not consume the budget, and only scheduled rooms are loaded.
+
+The revised Control entry through door object 140 connects room 86 to 35 via
+portal 66; portal 71 connects 35 to the main room, 45. Replaying production
+portal projection and traversal against the supplied September 28 BG, from
+native position (-800, 266, 177.5) looking along +X with a 60-degree vertical
+field of view, produces 29 visible rooms. Room 45 is the fourth discovery, but
+cycles raise its draw order to 8, after every other visible room. Loading during
+the opaque draw pass therefore loads far rooms before the main room ahead.
+
+`check_visible_room_priority` captures that actual discovery/draw order and
+exercises production room loading, allocation and primary rendering with
+controlled stream sizes and ample memory. With room 86 already resident, the
+old order loads room 45 on frame 10; the new order loads 35, 53 and 45 on frame
+1. It also checks current-room priority when a visibility command inserts other
+rooms first, invalid room IDs, zero/one-attempt budgets, resident-room skipping,
+and unchanged draw slots. Run `python3 tools/tests/room_cache/run.py`.
+
+This isolates loading priority, not the total memory requirement of a live
+Control session. The supplied assets match those in the supplied ROM, and the
+entry's portal and stan connections are valid. No level asset or memory-budget
+change is part of this fix. A rebuilt ROM still needs a gameplay check at door
+140; persistent delays after that would require runtime allocation diagnostics.

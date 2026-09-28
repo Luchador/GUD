@@ -387,6 +387,37 @@ s32 bgGet2dBboxByRoomId(s32 room_id, struct bbox2d *result)
 }
 
 
+static void bgLoadVisibleRooms(void)
+{
+    s32 pass;
+    s32 i;
+    s32 room;
+
+    /* Loading priority must not follow draworder. A room reached again
+     * through a portal cycle can acquire a large draworder even when it is
+     * the first room ahead of the player. With only three loads per frame,
+     * distant rooms would consume its budget (and available heap) first.
+     * Load the current room first, then use first-discovery order. Keep the
+     * existing render order for geometry, props and transparency. */
+    for (pass = 0; pass < 2 && g_RoomLoadBudget > 0; pass++)
+    {
+        for (i = 0; i < g_BgRoomsScheduledToBeDrawn && g_RoomLoadBudget > 0; i++)
+        {
+            room = g_BgDrawSlots[i].roomid;
+            if ((u32)room >= (u32)g_MaxNumRooms
+                    || (room == g_BgCurrentRoom) != (pass == 0)
+                    || g_BgRoomInfo[room].unloadAge != 0)
+            {
+                continue;
+            }
+
+            g_RoomLoadBudget--;
+            bgLoadRoomModelData(room);
+        }
+    }
+}
+
+
 Gfx *bgRender(Gfx *gdl)
 {
     s32 i;
@@ -400,6 +431,7 @@ Gfx *bgRender(Gfx *gdl)
 
     if (renderEnabled && g_BgRoomsScheduledToBeDrawn > 0)
     {
+        bgLoadVisibleRooms();
         chrpropsBuildRoomRenderLists();
     }
 

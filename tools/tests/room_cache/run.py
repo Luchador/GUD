@@ -42,7 +42,7 @@ typedef uint16_t u16;
 typedef int bool;
 #define TRUE 1
 #define FALSE 0
-#define MAXROOMCOUNT 8
+#define MAXROOMCOUNT 139
 #define SPSEGMENT_BG_VTX 14
 #define BG_DEBUG_PRIMARY 1
 #define BG_DEBUG_SECONDARY 2
@@ -59,6 +59,8 @@ source += strip_includes((ROOT / 'src/mema.c').read_text())
 source += strip_includes((ROOT / 'src/game/rendercache.h').read_text())
 source += '''
 static RoomInfo g_BgRoomInfo[MAXROOMCOUNT];
+static struct { s32 roomid, draworder; } g_BgDrawSlots[204];
+static s32 g_BgRoomsScheduledToBeDrawn, g_BgCurrentRoom;
 '''
 source += re.search(r'static struct \{[^{}]*\} g_BgOneCycleRooms\[MAXROOMCOUNT\];', bg)[0] + '\n'
 source += (HERE / 'harness.h').read_text()
@@ -66,8 +68,13 @@ source += function(bg, 'bgClearRoomRenderCaches')
 source += strip_includes((ROOT / 'src/game/rendercache.c').read_text())
 for name in ('bgLoadRoomVtxData', 'bgLoadRoomPrimaryGdl', 'bgLoadRoomSecondaryGdl',
              'bgBuildRoomOneCycleGdl', 'bgLoadRoomModelData', 'bgFreeRoomData',
-             'bgRenderRoomPrimary', 'bgRenderRoomSecondary'):
+             'bgRenderRoomPrimary', 'bgRenderRoomSecondary', 'bgLoadVisibleRooms'):
     source += function(bg, name)
+
+render = function(bg, 'bgRender')
+assert render.index('bgLoadVisibleRooms();') < render.index('chrpropsBuildRoomRenderLists();')
+assert render.index('bgLoadVisibleRooms();') < render.index('bgRenderRoomPrimary(')
+assert re.search(r'if \(renderEnabled && g_BgRoomsScheduledToBeDrawn > 0\)\s*\{\s*bgLoadVisibleRooms\(\);', render)
 
 # Exercise the actual boss admission condition, including two queued tasks and
 # pending settings. Check that reclamation precedes any new tick/display list.

@@ -8,6 +8,7 @@ static void reset(int bytes)
     oneCycle = TRUE; settingsPending = FALSE; g_MainStageNum = -1;
     streamSizes[0] = streamSizes[1] = streamSizes[2] = 64;
     lastDrawn = NULL;
+    g_BgRoomsScheduledToBeDrawn = g_BgCurrentRoom = 0;
     memset(g_BgRoomInfo, 0, sizeof(g_BgRoomInfo));
     bgClearRoomRenderCaches();
     for (int i = 1; i < MAXROOMCOUNT; i++) {
@@ -182,6 +183,74 @@ static void check_partial_room_failure(void)
     puts("PASS: failure at each room stream rolls back the allocation, leaves no published partial room and recovers on retry.");
 }
 
+static void check_visible_room_priority(void)
+{
+    /* Production traversal of the revised Control doorway: room 45 is the
+     * fourth discovery but acquires draworder 8 through portal cycles. All
+     * other visible rooms sort ahead of it. Room 86 is already resident. */
+    static const int view[][2] = {
+        {86,0}, {35,1}, {53,6}, {45,8}, {44,7}, {47,6}, {61,6},
+        {55,6}, {32,6}, {67,6}, {69,7}, {73,6}, {34,6}, {42,6},
+        {43,6}, {38,6}, {39,6}, {46,7}, {33,7}, {50,6}, {40,6},
+        {30,5}, {37,5}, {48,5}, {65,7}, {62,7}, {20,5}, {36,7}, {31,6}
+    };
+    int legacyFrame = 0;
+    for (int priority = 0; priority < 2; priority++) {
+        reset(0x10000);
+        renderCacheRequestReclaim(); /* Focus on required geometry. */
+        g_BgCurrentRoom = 86;
+        bgLoadRoomModelData(86);
+        g_BgRoomsScheduledToBeDrawn = sizeof(view) / sizeof(view[0]);
+        for (int i = 0; i < g_BgRoomsScheduledToBeDrawn; i++) {
+            g_BgDrawSlots[i].roomid = view[i][0];
+            g_BgDrawSlots[i].draworder = view[i][1];
+        }
+        int frame;
+        for (frame = 1; frame <= 10; frame++) {
+            Gfx out[128], *gdl = out;
+            g_RoomLoadBudget = 3;
+            if (priority) bgLoadVisibleRooms();
+            for (int depth = 0; depth <= 8; depth++) {
+                for (int i = 0; i < g_BgRoomsScheduledToBeDrawn; i++) {
+                    if (g_BgDrawSlots[i].draworder == depth)
+                        gdl = bgRenderRoomPrimary(gdl, g_BgDrawSlots[i].roomid);
+                }
+            }
+            assert(g_RoomLoadBudget >= 0 && g_RoomLoadBudget <= 3);
+            int loaded = 0;
+            for (int i = 0; i < g_BgRoomsScheduledToBeDrawn; i++)
+                loaded += g_BgRoomInfo[view[i][0]].unloadAge != 0;
+            assert(loaded <= 1 + frame * 3);
+            if (g_BgRoomInfo[45].unloadAge) break;
+        }
+        if (priority) assert(frame == 1 && g_BgRoomInfo[35].unloadAge && g_BgRoomInfo[53].unloadAge);
+        else { legacyFrame = frame; assert(frame == 10); }
+        for (int i = 0; i < g_BgRoomsScheduledToBeDrawn; i++) {
+            assert(g_BgDrawSlots[i].roomid == view[i][0] && g_BgDrawSlots[i].draworder == view[i][1]);
+            if (g_BgRoomInfo[view[i][0]].unloadAge) bgFreeRoomData(view[i][0]);
+        }
+        assert_full_heap(0x10000);
+    }
+    /* Visibility commands can insert rooms before the player's room.
+     * Prioritize the player explicitly, skip invalid/unlisted rooms, and
+     * honor zero budget and an already loaded room. */
+    reset(4096); renderCacheRequestReclaim();
+    g_BgCurrentRoom = 3; g_BgRoomsScheduledToBeDrawn = 4;
+    g_BgDrawSlots[0].roomid = -1;
+    g_BgDrawSlots[1].roomid = 2;
+    g_BgDrawSlots[2].roomid = 3;
+    g_BgDrawSlots[3].roomid = MAXROOMCOUNT;
+    g_RoomLoadBudget = 0; bgLoadVisibleRooms();
+    assert(!g_BgRoomInfo[2].unloadAge && !g_BgRoomInfo[3].unloadAge);
+    g_RoomLoadBudget = 1; bgLoadVisibleRooms();
+    assert(g_BgRoomInfo[3].unloadAge && !g_BgRoomInfo[2].unloadAge && !g_RoomLoadBudget);
+    g_RoomLoadBudget = 1; bgLoadVisibleRooms();
+    assert(g_BgRoomInfo[2].unloadAge && !g_BgRoomInfo[1].unloadAge && !g_RoomLoadBudget);
+    g_RoomLoadBudget = 1; bgLoadVisibleRooms(); assert(g_RoomLoadBudget == 1);
+    bgFreeRoomData(2); bgFreeRoomData(3); assert_full_heap(4096);
+    printf("PASS: Control doorway loads room 45 on frame 1 instead of %d; draw order, current-room priority and the load budget are preserved.\n", legacyFrame);
+}
+
 int main(void)
 {
     /* Keep production mema's N64 32-bit addresses intact on the host. */
@@ -191,6 +260,7 @@ int main(void)
     check_allocation_lifetime();
     check_short_list_reload();
     check_partial_room_failure();
+    check_visible_room_priority();
     assert(munmap(heap, 0x10000) == 0);
     return 0;
 }
