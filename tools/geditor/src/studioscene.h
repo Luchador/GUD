@@ -57,6 +57,15 @@ typedef struct StudioScene {
     StudioLight lights[STUDIO_LIGHT_COUNT];
 } StudioScene;
 
+/* Shared viewport/outliner selection IDs: models >= 0, none/root -1. */
+#define STUDIO_LIGHT_SELECTION(slot) (-2-(slot))
+static inline int StudioSceneLightIndex(const StudioScene *scene,int selection)
+{
+    if (!scene || selection>-2 || selection<STUDIO_LIGHT_SELECTION(STUDIO_LIGHT_COUNT-1)) { return -1; }
+    int slot=-2-selection;
+    return scene->lights[slot].enabled ? slot : -1;
+}
+
 void StudioSceneFree(StudioScene *scene);
 BOOL StudioSceneLoad(const char *projectdir, const char *filename, StudioScene *scene, const char **why);
 BOOL StudioSceneSave(const StudioScene *scene, const char **why);

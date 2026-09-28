@@ -134,6 +134,16 @@ int main(int argc,char **argv)
         CHECK(loaded.count==1 && loaded.objects[0].transform.position[1]==2);
         CHECK(StudioSceneSave(&loaded,&why));
     }
+    /* Deleting a lower point-light slot must not renumber the surviving light. */
+    strcpy(scene.filename,"Sparse.rnd"); memset(&scene.lights[1],0,sizeof(scene.lights[1]));
+    CHECK(StudioSceneSave(&scene,&why) && StudioSceneLoad(project,"Sparse.rnd",&loaded,&why));
+    CHECK(!loaded.lights[1].enabled && loaded.lights[2].enabled && loaded.lights[2].radius==1.0/3);
+    CHECK(StudioSceneLightSlot(&loaded,FALSE)==1 && StudioSceneAddLight(&loaded,FALSE,&why)==1);
+    CHECK(loaded.lights[2].intensity==4.75 && loaded.lights[1].intensity==1);
+    strcpy(loaded.filename,"Reused.rnd"); CHECK(StudioSceneSave(&loaded,&why));
+    memset(loaded.lights,0,sizeof(loaded.lights)); strcpy(loaded.filename,"Empty.rnd");
+    CHECK(StudioSceneSave(&loaded,&why));
+    CHECK(StudioSceneLoad(project,"Empty.rnd",&loaded,&why) && StudioSceneLightSlot(&loaded,TRUE)==0);
     StudioSceneFree(&scene); StudioSceneFree(&loaded);
     puts("PASS: one spotlight/two point limits, every light property persisted alongside models/materials, validation, failed-save/load rollback and v1/v2 migration.");
     return 0;

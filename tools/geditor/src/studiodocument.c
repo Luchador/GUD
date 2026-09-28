@@ -212,8 +212,8 @@ BOOL StudioSceneSave(const StudioScene *scene, const char **why)
     for (int i=0;ok && i<STUDIO_LIGHT_COUNT;i++)
     {
         const StudioLight *light=&scene->lights[i]; if (!light->enabled) { continue; }
-        ok=fprintf(file,"%s\n    {\"type\": \"%s\", \"position\": [%.17g, %.17g, %.17g], \"color\": [%.9g, %.9g, %.9g], \"intensity\": %.17g",
-            comma ? "," : "",i==0 ? "spotlight" : "point",light->position[0],light->position[1],light->position[2],
+        ok=fprintf(file,"%s\n    {\"type\": \"%s\", \"slot\": %d, \"position\": [%.17g, %.17g, %.17g], \"color\": [%.9g, %.9g, %.9g], \"intensity\": %.17g",
+            comma ? "," : "",i==0 ? "spotlight" : "point",i,light->position[0],light->position[1],light->position[2],
             light->color[0],light->color[1],light->color[2],light->intensity)>=0;
         if (i==0)
             ok=ok && fprintf(file,", \"direction\": [%.17g, %.17g, %.17g], \"inner\": %.17g, \"outer\": %.17g}",
@@ -337,7 +337,15 @@ BOOL StudioSceneLoad(const char *projectdir, const char *filename, StudioScene *
             if (!String(&j,Field(&j,object,"type"),type,sizeof(type))) { goto done; }
             BOOL spotlight=!strcmp(type,"spotlight");
             if (!spotlight && strcmp(type,"point")) { goto done; }
-            int slot=StudioSceneLightSlot(&next,spotlight); if (slot<0) { goto done; }
+            int slot=StudioSceneLightSlot(&next,spotlight),savedslot=Field(&j,object,"slot");
+            if (savedslot>=0)
+            {
+                DWORD value;
+                if (!GltfJsonUnsigned(text,&j.tokens[savedslot],&value) || value>=STUDIO_LIGHT_COUNT
+                    || (spotlight ? value!=0 : value==0) || next.lights[value].enabled) { goto done; }
+                slot=(int)value;
+            }
+            if (slot<0) { goto done; }
             StudioLight *light=&next.lights[slot]; light->enabled=TRUE;
             if (!Vector(&j,Field(&j,object,"position"),light->position,3)
                 || !Vector(&j,Field(&j,object,"color"),color,3)

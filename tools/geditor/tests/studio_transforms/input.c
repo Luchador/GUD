@@ -17,12 +17,12 @@ typedef struct { HWND hwnd; UINT message; WPARAM wParam; LPARAM lParam; } MSG;
 #define GET_X_LPARAM(n) ((short)(n))
 #define GET_Y_LPARAM(n) ((short)((uintptr_t)(n)>>16))
 #define lstrcmpi strcasecmp
-enum { WM_KEYDOWN=10,WM_MOUSEWHEEL, VK_ESCAPE=27,VK_CONTROL=40,VK_MENU,GW_OWNER,MB_ICONERROR,
+enum { WM_KEYDOWN=10,WM_MOUSEWHEEL, VK_ESCAPE=27,VK_DELETE=46,VK_CONTROL=40,VK_MENU,GW_OWNER,MB_ICONERROR,
        STUDIO_TRANSLATE,STUDIO_ROTATE,STUDIO_SCALE };
 static HWND g_Studio=1,g_StudioViewport=2,focus=2;
 static BOOL g_StudioDragArmed,dragging,control,alt;
 static struct { char filename[32]; int value; } g_StudioScene={"Main.rnd",0};
-static int tool=-1,forwarded,cancelled,saved,lastsaved,pending;
+static int tool=-1,forwarded,cancelled,saved,lastsaved,pending,deleted;
 static const char *focusclass="Viewport";
 static BOOL IsChild(HWND parent,HWND child) { return parent==g_Studio && child>=2 && child<=10; }
 static HWND GetFocus(void) { return focus; }
@@ -44,6 +44,7 @@ static void DispatchMessage(MSG *message) { forwarded++; }
 static BOOL StudioViewportCancelTransform(HWND hwnd)
 { if(!dragging) return FALSE; dragging=FALSE; cancelled++; return TRUE; }
 static void StudioViewportCommitTransform(HWND hwnd) { dragging=FALSE; }
+static void RenderStudioDeleteLight(void) { deleted++; }
 static void RenderStudioTool(int mode) { tool=mode; }
 static BOOL StudioSceneSave(const void *scene,const char **why)
 { assert(!dragging && !pending); saved++; lastsaved=g_StudioScene.value; return TRUE; }
@@ -64,7 +65,12 @@ int main(void)
     assert(saved==1 && lastsaved==87 && !pending && !dragging && forwarded==3);
     pending=99; RenderStudioSaveScene(); assert(saved==2 && lastsaved==99);
     g_StudioScene.filename[0]=0; RenderStudioSaveScene(); assert(saved==2);
+    focus=2; Key(VK_DELETE); assert(deleted==1);
+    focus=IDC_STUDIO_OUTLINER; Key(VK_DELETE); assert(deleted==2);
+    focus=3; focusclass="Edit"; Key(VK_DELETE); assert(deleted==2);
+    focus=2; control=TRUE; Key(VK_DELETE); assert(deleted==2); control=FALSE;
+    alt=TRUE; Key(VK_DELETE); assert(deleted==2); alt=FALSE;
     MSG foreign={99,WM_KEYDOWN,'E',0}; assert(!RenderStudioHandleMessage(&foreign) && tool==STUDIO_TRANSLATE);
-    puts("PASS: W/E/R, edit/combo input isolation, Escape cancellation, studio ownership and save after pending edits/drags.");
+    puts("PASS: W/E/R, edit/combo input isolation, Escape cancellation, studio ownership, Delete focus isolation and save after pending edits/drags.");
     return 0;
 }

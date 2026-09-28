@@ -35,6 +35,7 @@ TOOL_IMAGES := $(wildcard ../geditorassets/*_select_*.png) \
                $(wildcard ../geditorassets/vertex_paint_*.png) \
                ../geditorassets/vertex_color_brush.png \
                $(wildcard ../geditorassets/icon_*.png) \
+               $(wildcard ../geditorassets/render_studio_*.png) \
                ../geditorassets/no_texture.png
 MARKER_MODELS := ../geditorassets/start.glb ../geditorassets/intro_camera.glb \
                  ../geditorassets/outro_camera.glb ../geditorassets/intro_spline_point.glb

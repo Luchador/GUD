@@ -9,12 +9,14 @@ typedef intptr_t HWND,LPARAM,LONG_PTR;
 typedef uintptr_t WPARAM;
 #define GWLP_USERDATA 0
 #define STUDIO_WM_TRANSFORM 141
+#define STUDIO_WM_LIGHT_TRANSFORM 142
 static HWND capture=2;
 typedef struct {
     BOOL transforming;
     unsigned buttons;
     int hover,dragobject;
     StudioDrag drag;
+    StudioLight lightbefore;
     StudioScene *scene;
 } StudioViewport;
 static StudioViewport state;
@@ -30,9 +32,13 @@ static void InvalidateRect(HWND hwnd,void *rect,BOOL erase) {}
 static void SendMessage(HWND hwnd,int message,WPARAM phase,LPARAM previous)
 {
     assert(!state.transforming && !state.buttons && capture!=2);
-    assert(message==STUDIO_WM_TRANSFORM && previous);
+    assert((message==STUDIO_WM_TRANSFORM || message==STUDIO_WM_LIGHT_TRANSFORM) && previous);
     lastphase=phase; notifications++;
-    if (phase==1 && cancel_save) { state.scene->objects[state.dragobject].transform=*(StudioTransform *)previous; }
+    if (phase==1 && cancel_save)
+    {
+        if (message==STUDIO_WM_LIGHT_TRANSFORM) { state.scene->lights[-2-state.dragobject]=*(StudioLight *)previous; }
+        else { state.scene->objects[state.dragobject].transform=*(StudioTransform *)previous; }
+    }
 }
 #include "transaction.inc"
 static void Begin(void)
@@ -54,6 +60,19 @@ int main(void)
     Begin(); capture=9; assert(StudioViewportCancelTransform(2)); assert(capture==9 && object.transform.position[0]==11);
     assert(!memcmp(&object.transform,&state.drag.before,sizeof(object.transform)));
     assert(!StudioViewportCancelTransform(0));
-    puts("PASS: drag commit, full-transform cancellation, failed-save rollback and reentrant capture release.");
+    for (int slot=0;slot<STUDIO_LIGHT_COUNT;slot++)
+    {
+        scene.lights[slot]=(StudioLight){.enabled=TRUE,.position={1,2,3},.direction={0,-7,0},.intensity=2,.radius=5};
+        state.dragobject=STUDIO_LIGHT_SELECTION(slot); state.lightbefore=scene.lights[slot];
+        scene.lights[slot].position[0]=99; scene.lights[slot].direction[2]=4;
+        state.transforming=TRUE; state.buttons=1; capture=2;
+        assert(StudioViewportCancelTransform(2) && !memcmp(&scene.lights[slot],&state.lightbefore,sizeof(StudioLight)));
+        state.transforming=TRUE; state.buttons=1; capture=2; scene.lights[slot].position[0]=99;
+        cancel_save=TRUE; StudioViewportCommitTransform(2);
+        assert(!memcmp(&scene.lights[slot],&state.lightbefore,sizeof(StudioLight)));
+        state.transforming=TRUE; state.buttons=1; capture=2; scene.lights[slot].position[0]=42;
+        cancel_save=FALSE; StudioViewportCommitTransform(2); assert(scene.lights[slot].position[0]==42);
+    }
+    puts("PASS: model/light drag commit, full-transform cancellation, failed-save rollback and reentrant capture release.");
     return 0;
 }

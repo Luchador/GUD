@@ -109,3 +109,31 @@ BOOL StudioDragUpdate(StudioDrag *d,double x,double y,BOOL snap,StudioTransform 
     if (!StudioTransformValid(&next)) { return FALSE; }
     *transform=next; return TRUE;
 }
+
+BOOL StudioLightToolAllowed(int slot,int tool)
+{
+    return slot>=0 && slot<STUDIO_LIGHT_COUNT && (tool==STUDIO_TRANSLATE || (slot==0 && tool==STUDIO_ROTATE));
+}
+
+void StudioLightTransform(const StudioLight *light,StudioTransform *transform)
+{
+    *transform=(StudioTransform){{0},{0},{1,1,1}};
+    memcpy(transform->position,light->position,sizeof(transform->position));
+}
+
+BOOL StudioLightDragApply(const StudioLight *before,const StudioTransform *transform,int slot,int tool,StudioLight *light)
+{
+    if (!StudioLightToolAllowed(slot,tool) || !StudioTransformValid(transform)) { return FALSE; }
+    StudioLight next=*before;
+    if (tool==STUDIO_TRANSLATE) { memcpy(next.position,transform->position,sizeof(next.position)); }
+    else
+    {
+        /* The drag starts at identity; its rotation is a world-space delta.
+         * Apply it to the original vector, preserving its length and avoiding
+         * accumulated rounding or a direction-to-Euler singularity. */
+        Rotation rotation; RotationEuler(&rotation,transform->rotation);
+        RotationVector(&rotation,before->direction,next.direction);
+    }
+    if (!StudioLightValid(&next,slot==0)) { return FALSE; }
+    *light=next; return TRUE;
+}

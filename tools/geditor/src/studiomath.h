@@ -10,6 +10,8 @@ void StudioMatrixBuild(const StudioTransform *transform, StudioMatrix *matrix);
 void StudioPoint(const StudioMatrix *matrix, const double in[3], double out[3]);
 BOOL StudioProject(const OrbitCamera *camera,int width,int height,const double world[3],double screen[2]);
 BOOL StudioRayTriangle(const double origin[3],const double direction[3],const double vertices[3][3],double *distance);
+/* View bounds include lights; model bounds stay separate for model placement. */
+BOOL StudioViewBounds(const StudioScene *scene, int selected, double lower[3], double upper[3]);
 BOOL StudioBounds(const StudioScene *scene, int selected, double lower[3], double upper[3]);
 BOOL StudioRay(const OrbitCamera *camera, int width, int height, double x, double y, double origin[3], double direction[3]);
 int StudioPick(const StudioScene *scene, const double origin[3], const double direction[3], int *material);

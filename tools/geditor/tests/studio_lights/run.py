@@ -4,15 +4,17 @@ import copy
 import importlib.util
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import tempfile
 
 
 def extract(source, name):
-    marker = source.index(name + '(')
-    start = source.rfind('\n', 0, marker) + 1
-    end = source.index('{', marker) + 1
+    definition = re.search(r'^\w[^;\n]*\b' + re.escape(name) + r'\([^;]*?\)\s*\n\{', source, re.M)
+    assert definition, name
+    start = definition.start()
+    end = definition.end()
     depth = 1
     while depth:
         depth += (source[end] == '{') - (source[end] == '}')
@@ -49,6 +51,8 @@ def main():
             item = copy.deepcopy(base)
             item[field] = value
             bad.append([item])
+        bad += [[dict(point, slot=0)], [dict(spot, slot=1)], [dict(point, slot=3)],
+                [dict(point, slot=-1)], [dict(point, slot=1.5)], [dict(point, slot=1)]*2]
         for base in (spot, point):
             for field in base:
                 item = copy.deepcopy(base)
@@ -87,15 +91,32 @@ def main():
         for version in (1, 2):
             migrated = json.loads((scenes / f'Legacy{version}.rnd').read_text())
             assert migrated['version'] == 3 and migrated['lights'] == []
+        assert [light['slot'] for light in json.loads((scenes / 'Sparse.rnd').read_text())['lights']] == [0, 2]
+        assert [light['slot'] for light in json.loads((scenes / 'Reused.rnd').read_text())['lights']] == [0, 1, 2]
+        assert json.loads((scenes / 'Empty.rnd').read_text())['lights'] == []
         assert not list(scenes.glob('rnd*.tmp'))
         print(f'PASS: independent JSON verification, {len(bad)} invalid light documents, legacy migration, no leaked temporary files.')
+        icons = (src / 'studiolightview.c').read_text()
+        (work / 'icons.inc').write_text('\n'.join(extract(icons, name) for name in ('StudioLightIconRect', 'StudioLightIconPick')))
+        subprocess.run([os.environ.get('CC', 'cc'), '-O1', '-g', '-std=c99', '-Wall', '-Wextra', '-Werror',
+                        '-Wno-unused-parameter', '-Wno-format', '-ffunction-sections', '-fdata-sections',
+                        '-fsanitize=address,undefined', f'-I{shim}', f'-I{src}', f'-I{work}',
+                        str(here / 'interaction.c'), str(src / 'studiodrag.c'), str(src / 'studiomath.c'),
+                        str(src / 'studiodocument.c'), str(src / 'orbitcamera.c'), str(src / 'rotation.c'),
+                        '-Wl,--gc-sections', '-lm', '-o', str(work / 'interaction')], check=True)
+        subprocess.run([str(work / 'interaction')], check=True,
+                       env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))
         source = (src / 'renderstudio.c').read_text()
         document = (src / 'studiodocument.c').read_text()
         (work / 'ui.inc').write_text('\n'.join(extract(document, name) for name in (
-            'StudioLightValid', 'StudioSceneLightSlot', 'StudioSceneAddLight')) + '\n' + '\n'.join(
+            'StudioTransformValid', 'StudioLightValid', 'StudioSceneLightSlot', 'StudioSceneAddLight')) + '\n' +
+            extract((src / 'studiodrag.c').read_text(), 'StudioLightToolAllowed') + '\n' + '\n'.join(
                 extract(source, name) for name in ('RenderStudioMaterial', 'RenderStudioSelection',
-                'RenderStudioLight', 'RenderStudioLightField', 'RenderStudioProperties', 'RenderStudioSelect',
-                'RenderStudioOutliner', 'RenderStudioCommitLight', 'RenderStudioLightCommand', 'RenderStudioAddLight')))
+                'RenderStudioLight', 'RenderStudioLightField', 'RenderStudioProperties', 'RenderStudioObject',
+                'RenderStudioTransformField', 'RenderStudioTransformPanel', 'RenderStudioTool',
+                'RenderStudioCommitTransform', 'RenderStudioTransformProc', 'RenderStudioSelect',
+                'RenderStudioOutliner', 'RenderStudioCommitLight', 'RenderStudioLightCommand', 'RenderStudioAddLight',
+                'RenderStudioDeleteLight')))
         subprocess.run([os.environ.get('CC', 'cc'), '-std=c99', '-Wall', '-Wextra', '-Werror',
                         '-Wno-unused-parameter', '-fsanitize=address,undefined', f'-I{shim}', f'-I{src}', f'-I{work}',
                         str(here / 'ui.c'), '-lm', '-o', str(work / 'ui')], check=True)

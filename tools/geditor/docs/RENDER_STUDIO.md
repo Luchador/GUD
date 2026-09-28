@@ -13,8 +13,8 @@ The workspace contains:
 Drag with either the left or right mouse button to orbit, drag with the middle
 button to pan, and use the wheel to zoom. Click a model to select its instance
 and the material under the cursor, or select its entry in the Scene Outliner.
-Press **Z** with the viewport focused to frame the selected instance; with no
-instance selected, it frames the whole scene. The grid and colored X/Y/Z axes
+Press **Z** with the viewport focused to frame the selected model or light; with
+nothing selected, it frames the whole scene, including its lights. The grid and colored X/Y/Z axes
 are preview guides.
 
 Choose **File > New Scene...** in Render Studio, enter a name, then click **OK**
@@ -104,14 +104,30 @@ New lights start above the models (or at 0, 5, 0 in an empty scene), white, with
 intensity 1. The spotlight points down, with inner/outer angles of 20/30 degrees.
 Point lights start with a radius sized to the models, or 10 in an empty scene.
 
-Select **Spotlight**, **Point Light 1**, or **Point Light 2** in the Scene Outliner
-to edit the light in **Properties**:
+Select **Spotlight**, **Point Light 1**, or **Point Light 2** in the Scene Outliner,
+or click its icon in the viewport. The supplied spotlight and point-light icons
+are embedded in GEditor, centered on each light's position, and remain 32 pixels
+wide while zooming. They stay visible over geometry; the closest icon wins when
+icons overlap. The selected icon is gold. A selected spotlight also shows an
+arrow indicating its direction.
 
-- Both types have **Position X/Y/Z**, **Color**, and **Intensity** (0–10000).
-  Intensity 0 turns off that light's contribution.
-- A spotlight also has a nonzero **Direction X/Y/Z**, an **Inner angle**, and an
-  **Outer angle**, in degrees from the direction axis (half the full cone width).
-  Direction is normalized for rendering; it is a vector, not a target position.
+The **Transform** panel shows **Position X/Y/Z** for both light types and
+**Direction X/Y/Z** for spotlights. Direction is a nonzero vector, not a target
+position or Euler angles; it is normalized for rendering. Light positions use
+the same units as model positions. Use **W** and the move gizmo for either type.
+Use **E** and the rotation gizmo to aim the spotlight, with **Ctrl** for 10-degree
+snapping. The direction fields update during the drag. **Escape**, loss of focus
+or capture, resizing, or switching selection/scene cancels an unfinished drag.
+Point lights have no orientation, and lights have no model scale, so their
+unsupported rotation/scale controls are disabled. Models retain W/E/R and the
+usual Position, Rotation, and Scale fields.
+
+**Properties** contains the remaining light settings:
+
+- Both types have **Color** and **Intensity** (0–10000). Intensity 0 turns off
+  that light's contribution.
+- A spotlight has an **Inner angle** and an **Outer angle**, in degrees from the
+  direction axis (half the full cone width).
   The inner angle must be between 0 and the outer angle; the outer angle must be
   greater than 0 and no more than 90. Brightness is full inside the inner cone,
   fades smoothly between the cones, and is zero outside. Equal angles make a
@@ -119,11 +135,16 @@ to edit the light in **Properties**:
 - A point light has a **Radius** in scene units, from 0.0001 to 1 billion.
   Brightness fades as `(1 - distance / radius)^2`, reaching zero at the radius.
 
-Light positions use the same units as model positions. Edit them in Properties;
-the Transform panel and viewport gizmos currently operate on models. Color changes
-apply immediately; press Enter or leave a numeric field to apply it. Light
-creation and edits save automatically, and File > Save Scene/Ctrl+S includes them.
-Invalid edits or failed saves restore the previous settings.
+Color changes apply immediately; press Enter or leave a numeric field to apply
+it. Gizmo edits preview continuously and save on release. Light creation and
+edits save automatically, and File > Save Scene/Ctrl+S includes them. Invalid
+edits or failed saves restore the previous settings.
+
+Press **Delete** with the viewport or Scene Outliner focused to remove the
+selected light and save the scene. Delete still edits text normally in numeric
+fields. A failed save restores the light and its selection. Deleting a light
+frees its Add-menu slot; the other lights retain their identities and settings.
+Deleting the last light restores the default preview lighting.
 
 The interactive preview uses ambient fill and per-vertex Phong lighting. Once a
 light is added, the scene's lights supply the diffuse and specular illumination.
@@ -170,8 +191,9 @@ Each object stores its model leaf filename, three-component `position`, `rotatio
 (in degrees), `scale` (multipliers), and material overrides (`name`, `image`,
 `base`, `specular`, `intensity`, and `shininess`). Paths are relative to the
 project's studio folders. The scene name comes from its filename.
-Each light stores `type` (`spotlight` or `point`), `position`, `color`, and
-`intensity`. Spotlights also store `direction`, `inner`, and `outer`; point lights
+Each light stores `type` (`spotlight` or `point`), `slot`, `position`, `color`,
+and `intensity`. The optional `slot` preserves point-light identity after deletions;
+older version-3 scenes without it assign slots in file order. Spotlights also store `direction`, `inner`, and `outer`; point lights
 store `radius`. Invalid light data or exceeded limits reject the entire load
 without changing the open scene. Older editor builds reject version-3 scenes
 rather than silently discarding their lights.
@@ -179,7 +201,9 @@ rather than silently discarding their lights.
 `gltfjson.c`; it does not require game source identities or game texture tags.
 `studiomath.c` owns model matrices, ray picking, transformed bounds, and preview
 shading. `studiodrag.c` handles transform interaction math; `studiogizmo.c` loads,
-draws, and picks the same arrow/ring/scale assets used by the main editor. `studioviewport.c`
+draws, and picks the same arrow/ring/scale assets used by the main editor.
+`studiolightview.c` owns the embedded light icons, projection, picking, and direction
+guide. `studioviewport.c`
 owns the preview camera, rendering, image textures, and its own OpenGL context.
 
 Run `python3 tools/geditor/tests/studio_materials/run.py` for glTF/material,
@@ -187,7 +211,8 @@ scene persistence, failure rollback, picking, and lighting regression coverage.
 Run `python3 tools/geditor/tests/studio_lights/run.py` for light limits, properties,
 roundtrip persistence, legacy migration, invalid-document/save rollback, cone and
 radius falloff, colored diffuse/specular contributions, and outliner/property
-callback coverage with stand-in native controls.
+callback coverage with stand-in native controls, light transforms, icon picking,
+framing, deletion, and stable slot reuse.
 Run `python3 tools/geditor/tests/studio_transforms/run.py` for transform
 persistence, legacy-scene loading, transformed picking/lighting, drag math,
 actual gizmo assets, hotkey routing, and Save Scene input ordering.
@@ -199,4 +224,7 @@ smoke test: drop a three-material model twice, edit one instance, change selecti
 move/rotate/scale it using both handles and numeric fields, save and reopen the
 scene, and resize the window while an image is assigned. Add one spotlight and
 two point lights, confirm the Add menu limits, edit every light property, switch
-between models/materials/lights, then save and reopen the scene.
+between models/materials/lights, click each light icon, move it with W, rotate the
+spotlight with E, cancel a drag with Escape, and edit Position/Direction in
+Transform. Delete a light from both the viewport and outliner, add a replacement,
+then save and reopen the scene. Confirm Delete in a numeric field only edits text.

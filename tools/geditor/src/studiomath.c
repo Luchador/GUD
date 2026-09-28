@@ -44,6 +44,24 @@ BOOL StudioBounds(const StudioScene *scene, int selected, double lower[3], doubl
     return found;
 }
 
+BOOL StudioViewBounds(const StudioScene *scene,int selected,double lower[3],double upper[3])
+{
+    if (!scene) { return FALSE; }
+    BOOL found=selected>=-1 && StudioBounds(scene,selected,lower,upper);
+    int slot=StudioSceneLightIndex(scene,selected);
+    for (int i=0;i<STUDIO_LIGHT_COUNT;i++)
+    {
+        if (!scene->lights[i].enabled || (selected!=-1 && slot!=i)) { continue; }
+        for (int k=0;k<3;k++)
+        {
+            double lo=scene->lights[i].position[k]-1,hi=scene->lights[i].position[k]+1;
+            if (!found || lo<lower[k]) { lower[k]=lo; } if (!found || hi>upper[k]) { upper[k]=hi; }
+        }
+        found=TRUE;
+    }
+    return found;
+}
+
 static void StudioCameraBasis(const OrbitCamera *camera,double right[3],double up[3],double forward[3])
 {
     double yaw=camera->yaw*3.14159265358979323846/180, pitch=camera->pitch*3.14159265358979323846/180;

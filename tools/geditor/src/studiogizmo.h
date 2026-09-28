@@ -14,6 +14,9 @@ typedef struct StudioDrag {
     BOOL fallback;
 } StudioDrag;
 
+BOOL StudioLightToolAllowed(int slot,int tool);
+void StudioLightTransform(const StudioLight *light,StudioTransform *transform);
+BOOL StudioLightDragApply(const StudioLight *before,const StudioTransform *transform,int slot,int tool,StudioLight *light);
 BOOL StudioGizmoLoad(StudioGizmo *gizmo,HINSTANCE instance);
 void StudioGizmoFree(StudioGizmo *gizmo);
 BOOL StudioGizmoPlace(const StudioTransform *transform,const OrbitCamera *camera,int width,int height,int mode,StudioGizmoFrame *frame);
