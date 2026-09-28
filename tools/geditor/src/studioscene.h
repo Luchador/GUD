@@ -18,6 +18,7 @@ BOOL StudioSceneList(const char *projectdir, StudioSceneEntry **entries, DWORD *
 typedef struct StudioMaterial {
     char name[128], image[MAX_PATH];
     float base[3], specular[3], intensity, shininess;
+    float emission[3], metalness; /* Black emission, nonmetallic by default. */
 } StudioMaterial;
 
 typedef struct StudioModel {

@@ -84,13 +84,13 @@ def main():
         subprocess.run([str(work / 'check'), str(work), str(len(bad))], check=True,
                        env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))
         saved = json.loads((scenes / 'Lights.rnd').read_text())
-        assert saved['version'] == 4 and len(saved['objects']) == 1
+        assert saved['version'] == 5 and len(saved['objects']) == 1
         assert [light['type'] for light in saved['lights']] == ['spotlight', 'point', 'point']
         assert saved['lights'][0]['inner'] == 12.75 and saved['lights'][0]['direction'] == [1, -1, 0]
         assert saved['lights'][2]['radius'] == 1/3
         for version in (1, 2):
             migrated = json.loads((scenes / f'Legacy{version}.rnd').read_text())
-            assert migrated['version'] == 4 and migrated['lights'] == []
+            assert migrated['version'] == 5 and migrated['lights'] == []
         assert [light['slot'] for light in json.loads((scenes / 'Sparse.rnd').read_text())['lights']] == [0, 2]
         assert [light['slot'] for light in json.loads((scenes / 'Reused.rnd').read_text())['lights']] == [0, 1, 2]
         assert json.loads((scenes / 'Empty.rnd').read_text())['lights'] == []
@@ -123,7 +123,7 @@ def main():
             doc = copy.deepcopy(globals_doc)
             doc['directional']['direction'] = direction
             invalid.append(doc)
-        invalid.append(dict(globals_doc, version=5))
+        invalid.append(dict(globals_doc, version=6))
         for index, doc in enumerate(invalid):
             (scenes / f'BadGlobal{index}.rnd').write_text(json.dumps(doc))
         for index, version in enumerate((1, 2, 3, 3, 3)):
@@ -141,7 +141,7 @@ def main():
         assert saved_globals['directional'] == dict(color=[1, 1, .75], intensity=2.5, direction=[7, -3, .125])
         for index in range(5):
             migrated = json.loads((scenes / f'GlobalLegacy{index}.rnd').read_text())
-            assert migrated['version'] == 4 and migrated['directional']['intensity'] == (1 if index < 3 else 0)
+            assert migrated['version'] == 5 and migrated['directional']['intensity'] == (1 if index < 3 else 0)
         assert not list(scenes.glob('rnd*.tmp'))
         print(f'PASS: independent global-light JSON verification and {len(invalid)} malformed documents.')
         icons = (src / 'studiolightview.c').read_text()
@@ -157,10 +157,11 @@ def main():
         source = (src / 'renderstudio.c').read_text()
         document = (src / 'studiodocument.c').read_text()
         (work / 'ui.inc').write_text('\n'.join(line for line in document.splitlines() if line.startswith('const StudioGlobalLight ')) + '\n' + '\n'.join(extract(document, name) for name in (
-            'StudioSceneDefaultLighting', 'StudioGlobalLightValid', 'StudioTransformValid', 'StudioLightValid', 'StudioSceneLightSlot', 'StudioSceneAddLight')) + '\n' +
+            'StudioAssetFilename', 'StudioMaterialValid', 'StudioSceneDefaultLighting', 'StudioGlobalLightValid', 'StudioTransformValid', 'StudioLightValid', 'StudioSceneLightSlot', 'StudioSceneAddLight')) + '\n' +
             extract((src / 'studiodrag.c').read_text(), 'StudioLightToolAllowed') + '\n' + '\n'.join(
                 extract(source, name) for name in ('RenderStudioMaterial', 'RenderStudioSelection',
-                'RenderStudioLight', 'RenderStudioGlobalLight', 'RenderStudioLightField', 'RenderStudioProperties', 'RenderStudioObject',
+                'RenderStudioLight', 'RenderStudioGlobalLight', 'RenderStudioLightField', 'RenderStudioProperties',
+                'RenderStudioCommitMaterial', 'RenderStudioFinishMetalness', 'RenderStudioMetalnessCommand', 'RenderStudioMaterialCommand', 'RenderStudioObject',
                 'RenderStudioTransformField', 'RenderStudioTransformPanel', 'RenderStudioTool',
                 'RenderStudioCommitTransform', 'RenderStudioTransformProc', 'RenderStudioSelect',
                 'RenderStudioOutliner', 'RenderStudioCommitGlobalLight', 'RenderStudioGlobalLightCommand', 'RenderStudioCommitLight', 'RenderStudioLightCommand', 'RenderStudioAddLight',

@@ -125,7 +125,7 @@ int main(int argc,char **argv)
     CHECK(StudioPick(&scene,eye,ray,&material)==1 && material==1); /* World distances despite very different scales. */
     StudioMaterial m={0}; BgVertex v={0}; float diffuse[3],specular[3];
     m.base[0]=m.base[1]=m.base[2]=1; m.shininess=32; v.r=v.g=v.b=255; v.environment.normal[0]=v.environment.normal[1]=1;
-    StudioShade(NULL,&m,&v,&matrix,eye,diffuse,specular);
+    StudioShade(NULL,&m,&v,&matrix,eye,diffuse,specular,NULL);
     double nl=(-.348742916/3+.813733471/2)/sqrt(1.0/9+.25);
     CHECK(NEAR(diffuse[0],.2+.8*nl));
     CHECK(StudioSceneSave(&scene,&why) && StudioSceneLoad(argv[1],"Main.rnd",&loaded,&why));

@@ -167,7 +167,7 @@ static void StudioIlluminate(const StudioMaterial *m,const double normal[3],cons
 }
 
 void StudioShade(const StudioScene *scene,const StudioMaterial *m, const BgVertex *vertex, const StudioMatrix *matrix,
-    const double eye[3], float diffuse[3], float specular[3])
+    const double eye[3], float diffuse[3], float additive[3], float metallic[3])
 {
     double normal[3]={0},view[3],length=0,viewlength=0;
     double p[3]={vertex->x,vertex->y,vertex->z};
@@ -205,7 +205,9 @@ void StudioShade(const StudioScene *scene,const StudioMaterial *m, const BgVerte
     double color[3]={vertex->r/255.0,vertex->g/255.0,vertex->b/255.0};
     for (int k=0;k<3;k++)
     {
-        diffuse[k]=(float)fmin(1,m->base[k]*color[k]*illumination[k]);
-        specular[k]=(float)fmin(1,m->specular[k]*highlights[k]);
+        double base=m->base[k]*color[k],nonmetal=1-m->metalness;
+        diffuse[k]=(float)fmin(1,base*illumination[k]*nonmetal);
+        additive[k]=(float)fmin(1,m->specular[k]*highlights[k]*nonmetal+m->emission[k]);
+        if (metallic) { metallic[k]=(float)fmin(1,base*highlights[k]*m->metalness); }
     }
 }

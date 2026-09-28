@@ -68,15 +68,53 @@ static void Math(const StudioScene *scene)
     v.environment.normal[1]=1; v.r=v.g=v.b=255;
     for(int k=0;k<3;k++) { m.base[k]=.5; m.specular[k]=1; }
     m.intensity=.75; m.shininess=32;
-    StudioShade(NULL,&m,&v,&matrix,eye,diffuse,specular);
+    StudioShade(NULL,&m,&v,&matrix,eye,diffuse,specular,NULL);
     CHECK(NEAR(diffuse[0],.5*(.2+.8*.813733471)) && NEAR(specular[0],.75));
     m.base[0]=0; m.specular[1]=0;
-    StudioShade(NULL,&m,&v,&matrix,eye,diffuse,specular);
+    StudioShade(NULL,&m,&v,&matrix,eye,diffuse,specular,NULL);
     CHECK(diffuse[0]==0 && NEAR(specular[0],.75) && specular[1]==0); /* Independent specular color. */
-    eye[0]+=.3; m.shininess=4; StudioShade(NULL,&m,&v,&matrix,eye,diffuse,specular); wide=specular[0];
-    m.shininess=64; StudioShade(NULL,&m,&v,&matrix,eye,diffuse,specular); CHECK(specular[0]<wide && specular[0]>0);
-    m.intensity=0; StudioShade(NULL,&m,&v,&matrix,eye,diffuse,specular); CHECK(specular[0]==0);
+    eye[0]+=.3; m.shininess=4; StudioShade(NULL,&m,&v,&matrix,eye,diffuse,specular,NULL); wide=specular[0];
+    m.shininess=64; StudioShade(NULL,&m,&v,&matrix,eye,diffuse,specular,NULL); CHECK(specular[0]<wide && specular[0]>0);
+    m.intensity=0; StudioShade(NULL,&m,&v,&matrix,eye,diffuse,specular,NULL); CHECK(specular[0]==0);
     puts("PASS: instance bounds, nearest face/material picking, camera rays and independent Phong color/intensity/shininess.");
+}
+
+static void EmissionMetalness(void)
+{
+    StudioScene scene={0}; StudioSceneDefaultLighting(&scene); scene.ambient.intensity=0;
+    scene.directional.intensity=.5; scene.directional.direction[0]=scene.directional.direction[2]=0; scene.directional.direction[1]=-1;
+    StudioMaterial m={0}; m.base[0]=.8f; m.base[1]=.4f; m.base[2]=.1f;
+    m.intensity=.5f; m.shininess=32; for(int k=0;k<3;k++) m.specular[k]=1;
+    StudioTransform identity={{0},{0},{1,1,1}}; StudioMatrix matrix; StudioMatrixBuild(&identity,&matrix);
+    BgVertex v={0}; v.environment.normal[1]=1; v.r=v.g=v.b=255; double eye[3]={0,10,0};
+    float diffuse[3],additive[3],metallic[3];
+    for(int step=0;step<=2;step++)
+    {
+        m.metalness=step*.5f; StudioShade(&scene,&m,&v,&matrix,eye,diffuse,additive,metallic);
+        for(int k=0;k<3;k++)
+        {
+            CHECK(NEAR(diffuse[k],m.base[k]*.4*(1-m.metalness)));
+            CHECK(NEAR(additive[k],.25*(1-m.metalness)));
+            CHECK(NEAR(metallic[k],m.base[k]*.25*m.metalness));
+        }
+    }
+    m.specular[0]=m.specular[1]=m.specular[2]=0;
+    StudioShade(&scene,&m,&v,&matrix,eye,diffuse,additive,metallic);
+    CHECK(NEAR(metallic[0],.2) && NEAR(metallic[1],.1) && NEAR(metallic[2],.025));
+    m.intensity=0; StudioShade(&scene,&m,&v,&matrix,eye,diffuse,additive,metallic);
+    for(int k=0;k<3;k++) CHECK(metallic[k]==0);
+    scene.directional.intensity=0; v.r=v.g=v.b=0; m.emission[0]=.125f; m.emission[1]=.25f; m.emission[2]=.5f;
+    for(int step=0;step<2;step++)
+    {
+        m.metalness=(float)step; StudioShade(&scene,&m,&v,&matrix,eye,diffuse,additive,metallic);
+        for(int k=0;k<3;k++) CHECK(additive[k]==m.emission[k] && diffuse[k]==0 && metallic[k]==0);
+    }
+    strcpy(m.name,"Validation"); CHECK(StudioMaterialValid(&m));
+    m.metalness=NAN; CHECK(!StudioMaterialValid(&m)); m.metalness=1.01f; CHECK(!StudioMaterialValid(&m));
+    m.metalness=-.01f; CHECK(!StudioMaterialValid(&m)); m.metalness=0;
+    m.emission[1]=INFINITY; CHECK(!StudioMaterialValid(&m)); m.emission[1]=-.1f; CHECK(!StudioMaterialValid(&m));
+    m.emission[1]=1.1f; CHECK(!StudioMaterialValid(&m));
+    puts("PASS: emission with all lights off and black vertex colors, 0/50/100% metalness, colored metallic highlights, retained intensity control and material validation.");
 }
 
 static void Json(void)
@@ -90,15 +128,16 @@ static void Json(void)
 
 int main(int argc,char **argv)
 {
-    CHECK(argc==2); const char *project=argv[1]; StudioScene scene={0},loaded={0}; StudioSceneDefaultLighting(&scene);
+    CHECK(argc==3); const char *project=argv[1]; StudioScene scene={0},loaded={0}; StudioSceneDefaultLighting(&scene);
     double position[3]={0}; char path[MAX_PATH],asset[MAX_PATH],source[MAX_PATH];
-    Import(project); Json();
+    Import(project); Json(); EmissionMetalness();
     lstrcpyn(scene.project,project,sizeof(scene.project)); lstrcpyn(scene.filename,"Main.rnd",sizeof(scene.filename));
     CHECK(StudioSceneAddModel(&scene,"Light.gltf",position,&why));
     position[2]=2; CHECK(StudioSceneAddModel(&scene,"Light.gltf",position,&why));
     CHECK(scene.objects[0].asset==scene.objects[1].asset && scene.objects[0].materials!=scene.objects[1].materials);
     StudioMaterial *m=&scene.objects[0].materials[1];
-    m->base[0]=.125; m->base[1]=.625; m->specular[0]=.375; m->intensity=.875; m->shininess=87;
+    CHECK(m->metalness==0 && m->emission[0]==0 && m->emission[1]==0 && m->emission[2]==0);
+    m->base[0]=.125; m->base[1]=.625; m->specular[0]=.375; m->intensity=.875; m->shininess=87; m->emission[0]=.125f; m->emission[1]=.25f; m->emission[2]=.5f; m->metalness=.625f;
     lstrcpyn(m->image,"Paint.bmp",sizeof(m->image)); CHECK(StudioSceneSave(&scene,&why));
     Math(&scene);
     CHECK(StudioSceneLoad(project,"Main.rnd",&loaded,&why) && !why[0] && loaded.count==2);
@@ -111,7 +150,7 @@ int main(int argc,char **argv)
     CHECK(!StudioSceneAddModel(&scene,"../Light.gltf",position,&why) && scene.count==2);
     m->intensity=NAN; CHECK(!StudioSceneSave(&scene,&why)); m->intensity=.875;
     snprintf(path,sizeof(path),"%s/studio/scenes/Bad.rnd",project);
-    const char *bad[]={"{\"format\":\"GEditor Render Studio\",\"version\":5,\"objects\":[]}",
+    const char *bad[]={"{\"format\":\"GEditor Render Studio\",\"version\":6,\"objects\":[]}",
         "{\"format\":\"GEditor Render Studio\",\"version\":1,\"objects\":[{\"model\":\"../Light.gltf\"}]}",
         "{\"format\":\"GEditor Render Studio\",\"version\":1,\"objects\":[{\"model\":\"Light.gltf\",\"position\":[NaN,0,0],\"materials\":[]}]}",
         "{\"format\":\"GEditor Render Studio\",\"version\":1,\"objects\":[{\"model\":\"Light.gltf\",\"position\":[0,0,0],\"materials\":[{}]}]}"};
@@ -120,6 +159,23 @@ int main(int argc,char **argv)
         Write(path,bad[i]); StudioInstance *before=loaded.objects;
         CHECK(!StudioSceneLoad(project,"Bad.rnd",&loaded,&why) && loaded.objects==before && loaded.count==2);
     }
+    for(int i=0;i<atoi(argv[2]);i++)
+    {
+        char name[64]; snprintf(name,sizeof(name),"BadMaterial%d.rnd",i); StudioScene before=loaded;
+        CHECK(!StudioSceneLoad(project,name,&loaded,&why) && !memcmp(&before,&loaded,sizeof(loaded)));
+    }
+    for(int version=1;version<=4;version++)
+    {
+        char name[64]; snprintf(name,sizeof(name),"Legacy%d.rnd",version);
+        CHECK(StudioSceneLoad(project,name,&loaded,&why) && loaded.count==1);
+        StudioMaterial *legacy=&loaded.objects[0].materials[0];
+        CHECK(legacy->metalness==0 && legacy->emission[0]==0 && legacy->emission[1]==0 && legacy->emission[2]==0);
+        CHECK(legacy->base[0]==.25f && legacy->shininess==64 && StudioSceneSave(&loaded,&why));
+    }
+    CHECK(StudioSceneLoad(project,"Main.rnd",&loaded,&why));
+    StudioMaterial retained=*m; m->emission[0]=NAN; CHECK(!StudioSceneSave(&scene,&why)); *m=retained;
+    m->metalness=2; CHECK(!StudioSceneSave(&scene,&why)); *m=retained;
+    CHECK(StudioSceneLoad(project,"Main.rnd",&loaded,&why) && !memcmp(m,&loaded.objects[0].materials[1],sizeof(*m)));
     snprintf(asset,sizeof(asset),"%s/studio/models/Light.gltf",project);
     CHECK(DeleteFile(asset));
     CHECK(StudioSceneLoad(project,"Main.rnd",&loaded,&why) && why[0] && loaded.count==2 && !loaded.objects[0].asset);

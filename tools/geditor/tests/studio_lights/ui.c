@@ -28,10 +28,15 @@ static char text[1600][128]; static BOOL visible[1600],enabled[1600];
 static HWND g_Studio=1,g_StudioViewport=2,g_StudioProperties=3,g_StudioTransform=4;
 static StudioScene g_StudioScene;
 static int g_StudioObject=-1,g_StudioMaterial=-1,g_StudioLight=-1,g_StudioGlobal=-1;
+static StudioMaterial *g_StudioMetalnessMaterial;
+static float g_StudioMetalnessBefore;
+static void RenderStudioFinishMetalness(void);
 static BOOL g_StudioUpdating;
 static unsigned g_StudioGeneration,g_StudioLightDirty,g_StudioTransformDirty;
 static int g_StudioTool=STUDIO_SCALE;
 #define lstrcpy strcpy
+#define min(a,b) ((a)<(b)?(a):(b))
+#define lstrcmpi strcmp
 #define max(a,b) ((a)>(b)?(a):(b))
 #define RGB(r,g,b) ((r)|((g)<<8)|((b)<<16))
 #define GetRValue(x) ((x)&255)
@@ -40,6 +45,7 @@ static int g_StudioTool=STUDIO_SCALE;
 #define TVI_ROOT ((HTREEITEM)(intptr_t)-1)
 #define TVI_LAST ((HTREEITEM)(intptr_t)-2)
 enum { SW_HIDE=0,SW_SHOW,WM_SETREDRAW,WM_GETFONT,LB_RESETCONTENT,LB_ADDSTRING,LB_SETHORIZONTALEXTENT,
+       TBM_GETPOS,TBM_SETPOS,TB_THUMBTRACK,TB_THUMBPOSITION,TB_ENDTRACK,TB_LINEUP,CBN_SELCHANGE,CB_GETCURSEL,CB_GETLBTEXTLEN,CB_GETLBTEXT,
        LB_SETCURSEL,CB_FINDSTRINGEXACT,CB_ADDSTRING,CB_SETCURSEL,TVIF_TEXT,TVIF_PARAM,TVE_EXPAND,
        MB_ICONERROR,BN_CLICKED,EN_CHANGE,EN_KILLFOCUS,WM_INITDIALOG,WM_COMMAND,EM_LIMITTEXT,CC_FULLOPEN=64,CC_RGBINIT=128,CB_ERR=-1 };
 static HWND GetDlgItem(HWND hwnd,int id) { return id; }
@@ -76,7 +82,12 @@ static void StudioViewportSetTool(HWND hwnd,int tool) {}
 static void StudioViewportSetScene(HWND hwnd,StudioScene *scene,BOOL frame) { invalidated++; }
 static void EnableWindow(HWND hwnd,BOOL value) { enabled[hwnd]=value; }
 static void CheckRadioButton(HWND hwnd,int first,int last,int value) {}
-static LRESULT SendDlgItemMessage(HWND hwnd,int id,UINT message,WPARAM wparam,LPARAM lparam) { return 0; }
+static int metalness_slider;
+static LRESULT SendDlgItemMessage(HWND hwnd,int id,UINT message,WPARAM wparam,LPARAM lparam)
+{
+    if (id==IDC_STUDIO_METALNESS && message==TBM_SETPOS) { metalness_slider=(int)lparam; }
+    return id==IDC_STUDIO_METALNESS && message==TBM_GETPOS ? metalness_slider : 0;
+}
 static void RenderStudioCommitLight(StudioLight *light,const StudioLight *previous);
 static void RenderStudioCommitGlobalLight(StudioGlobalLight *light,const StudioGlobalLight *previous);
 static void SetFocus(HWND hwnd) {}
@@ -147,7 +158,7 @@ int main(void)
     RenderStudioAddLight(FALSE); assert(g_StudioLight==2 && treeselected->id==-4 && nodecount==6);
     int count=nodecount,attempts=saved; RenderStudioAddLight(FALSE); RenderStudioAddLight(TRUE);
     assert(nodecount==count && saved==attempts && g_StudioLight==2);
-    StudioMaterial material={0}; strcpy(material.name,"Material");
+    StudioMaterial material={0}; strcpy(material.name,"Material"); material.shininess=32;
     StudioInstance model={0}; strcpy(model.model,"Fixture.gltf"); model.materials=&material; model.materialcount=1;
     g_StudioScene.objects=&model; g_StudioScene.count=1; RenderStudioOutliner();
     assert(nodecount==7 && treeselected->id==-4); /* Light identity survives inserted model rows. */
@@ -204,7 +215,35 @@ int main(void)
     assert(fabs(g_StudioScene.directional.color[2]-.8)<1e-6);
     attempts=saved; RenderStudioDeleteLight(); assert(saved==attempts && g_StudioGlobal==1);
     RenderStudioSelect(0,0); assert(g_StudioGlobal==-1 && visible[IDC_STUDIO_BASE_COLOR] && !visible[IDC_STUDIO_LIGHT_COLOR]);
+    assert(visible[IDC_STUDIO_EMISSION_COLOR] && visible[IDC_STUDIO_METALNESS]);
+    attempts=saved;
+    metalness_slider=37; assert(RenderStudioMetalnessCommand(g_StudioProperties,TB_THUMBTRACK));
+    assert(fabs(material.metalness-.37)<1e-6 && saved==attempts && !strcmp(text[IDC_STUDIO_METALNESS_LABEL],"Metalness: 37%"));
+    metalness_slider=75; assert(RenderStudioMetalnessCommand(g_StudioProperties,TB_THUMBTRACK));
+    assert(saved==attempts); assert(RenderStudioMetalnessCommand(g_StudioProperties,TB_THUMBPOSITION));
+    assert(saved==attempts+1 && material.metalness==.75f && !g_StudioMetalnessMaterial);
+    RenderStudioMetalnessCommand(g_StudioProperties,TB_ENDTRACK); assert(saved==attempts+1);
+    fail_save=1; metalness_slider=90; RenderStudioMetalnessCommand(g_StudioProperties,TB_THUMBTRACK);
+    RenderStudioMetalnessCommand(g_StudioProperties,TB_ENDTRACK); fail_save=0;
+    assert(material.metalness==.75f && metalness_slider==75);
+    metalness_slider=0; RenderStudioMetalnessCommand(g_StudioProperties,TB_LINEUP); assert(material.metalness==0);
+    metalness_slider=100; RenderStudioMetalnessCommand(g_StudioProperties,TB_THUMBTRACK); attempts=saved;
+    RenderStudioSelect(STUDIO_SELECT_AMBIENT,-1);
+    assert(material.metalness==1 && saved==attempts+1 && !g_StudioMetalnessMaterial);
+    assert(!visible[IDC_STUDIO_EMISSION_COLOR] && !visible[IDC_STUDIO_METALNESS]);
+    assert(!RenderStudioMetalnessCommand(g_StudioProperties,TB_THUMBTRACK));
+    RenderStudioSelect(0,0);
+    StudioMaterial prior=material; choose_cancel=1;
+    RenderStudioMaterialCommand(g_StudioProperties,IDC_STUDIO_EMISSION_COLOR,BN_CLICKED);
+    assert(!memcmp(&prior,&material,sizeof(prior))); choose_cancel=0; choose_switch=1;
+    RenderStudioMaterialCommand(g_StudioProperties,IDC_STUDIO_EMISSION_COLOR,BN_CLICKED);
+    assert(!memcmp(&prior,&material,sizeof(prior))); choose_switch=0; fail_save=1;
+    RenderStudioMaterialCommand(g_StudioProperties,IDC_STUDIO_EMISSION_COLOR,BN_CLICKED);
+    assert(!memcmp(&prior,&material,sizeof(prior))); fail_save=0;
+    RenderStudioMaterialCommand(g_StudioProperties,IDC_STUDIO_EMISSION_COLOR,BN_CLICKED);
+    assert(fabs(material.emission[2]-.8)<1e-6 && material.base[2]==prior.base[2]);
     assert(invalidated>0);
+    puts("PASS: emission picker/cancel/rollback, live metalness previews, one save per drag, keyboard adjustment, selection-change commit and light-control isolation.");
     puts("PASS: permanent globals, isolated controls, direction validation, zero intensity, color dialogs, non-deletion and save rollback.");
     puts("PASS: add/cancel/failure, outliner identities, material/light isolation, Transform/Properties controls, tool availability, numeric/color edits, deletion/slot reuse and rollback.");
     return 0;

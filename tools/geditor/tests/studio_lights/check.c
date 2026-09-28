@@ -42,30 +42,30 @@ static void Lighting(void)
     double eye[3]={0,10,0}; vertex.environment.normal[1]=1; vertex.r=vertex.g=vertex.b=255;
     material.intensity=.5; material.shininess=32;
     for (int k=0;k<3;k++) { material.base[k]=.5; material.specular[k]=1; }
-    StudioShade(NULL,&material,&vertex,&matrix,eye,legacy,legacyspec);
-    StudioShade(&scene,&material,&vertex,&matrix,eye,diffuse,specular);
+    StudioShade(NULL,&material,&vertex,&matrix,eye,legacy,legacyspec,NULL);
+    StudioShade(&scene,&material,&vertex,&matrix,eye,diffuse,specular,NULL);
     CHECK(!memcmp(legacy,diffuse,sizeof(diffuse)) && !memcmp(legacyspec,specular,sizeof(specular)));
     strcpy(scene.filename,"Light.rnd"); CHECK(StudioSceneAddLight(&scene,FALSE,&why)==1);
     scene.directional.intensity=0;
     light=&scene.lights[1]; light->color[1]=light->color[2]=0; /* Red at half radius. */
-    StudioShade(&scene,&material,&vertex,&matrix,eye,diffuse,specular);
+    StudioShade(&scene,&material,&vertex,&matrix,eye,diffuse,specular,NULL);
     CHECK(NEAR(diffuse[0],.225) && NEAR(diffuse[1],.1) && NEAR(specular[0],.125) && specular[1]==0);
     CHECK(StudioSceneAddLight(&scene,FALSE,&why)==2);
     scene.lights[2].color[0]=scene.lights[2].color[1]=0; /* Independent blue contribution. */
-    StudioShade(&scene,&material,&vertex,&matrix,eye,diffuse,specular);
+    StudioShade(&scene,&material,&vertex,&matrix,eye,diffuse,specular,NULL);
     CHECK(NEAR(diffuse[0],.225) && NEAR(diffuse[2],.225) && NEAR(specular[2],.125));
     CHECK(StudioSceneAddLight(&scene,TRUE,&why)==0); scene.lights[0].color[0]=scene.lights[0].color[2]=0;
-    StudioShade(&scene,&material,&vertex,&matrix,eye,diffuse,specular);
+    StudioShade(&scene,&material,&vertex,&matrix,eye,diffuse,specular,NULL);
     CHECK(NEAR(diffuse[1],.6) && NEAR(specular[1],.5)); /* All three sum with ambient. */
-    material.base[0]=0; StudioShade(&scene,&material,&vertex,&matrix,eye,diffuse,specular);
+    material.base[0]=0; StudioShade(&scene,&material,&vertex,&matrix,eye,diffuse,specular,NULL);
     CHECK(diffuse[0]==0 && NEAR(specular[0],.125)); /* Base color never tints specular. */
     for (int i=0;i<3;i++) { scene.lights[i].intensity=0; }
-    StudioShade(&scene,&material,&vertex,&matrix,eye,diffuse,specular);
+    StudioShade(&scene,&material,&vertex,&matrix,eye,diffuse,specular,NULL);
     CHECK(NEAR(diffuse[1],.1) && specular[1]==0); /* Zero lights don't enable fallback. */
-    light->intensity=10000; StudioShade(&scene,&material,&vertex,&matrix,eye,diffuse,specular);
+    light->intensity=10000; StudioShade(&scene,&material,&vertex,&matrix,eye,diffuse,specular,NULL);
     CHECK(isfinite(diffuse[0]) && specular[0]<=1);
     light->intensity=1; transform.position[0]=20; StudioMatrixBuild(&transform,&matrix);
-    StudioShade(&scene,&material,&vertex,&matrix,eye,diffuse,specular);
+    StudioShade(&scene,&material,&vertex,&matrix,eye,diffuse,specular,NULL);
     CHECK(NEAR(diffuse[1],.1) && specular[0]==0); /* World-space range follows transformed geometry. */
     puts("PASS: legacy preview fallback, all three colored lights, intensity, ambient-only zero lights, saturation, world transforms and independent specular.");
 }

@@ -60,8 +60,10 @@ BOOL StudioMaterialValid(const StudioMaterial *m)
     if (!m->name[0] || (m->image[0] && !StudioAssetFilename(m->image,".bmp"))) { return FALSE; }
     for (int i=0;i<3;i++)
         if (!isfinite(m->base[i]) || m->base[i]<0 || m->base[i]>1
+            || !isfinite(m->emission[i]) || m->emission[i]<0 || m->emission[i]>1
             || !isfinite(m->specular[i]) || m->specular[i]<0 || m->specular[i]>1) { return FALSE; }
-    return isfinite(m->intensity) && m->intensity>=0 && m->intensity<=1
+    return isfinite(m->metalness) && m->metalness>=0 && m->metalness<=1
+        && isfinite(m->intensity) && m->intensity>=0 && m->intensity<=1
         && isfinite(m->shininess) && m->shininess>=1 && m->shininess<=128;
 }
 
@@ -214,7 +216,7 @@ BOOL StudioSceneSave(const StudioScene *scene, const char **why)
     { *why="Could not create a temporary scene file."; return FALSE; }
     file=fopen(temporary,"wb");
     if (!file) { DeleteFile(temporary); *why="Could not open the temporary scene file."; return FALSE; }
-    ok=fprintf(file,"{\n  \"format\": \"GEditor Render Studio\",\n  \"version\": 4,\n  \"objects\": [")>=0;
+    ok=fprintf(file,"{\n  \"format\": \"GEditor Render Studio\",\n  \"version\": 5,\n  \"objects\": [")>=0;
     for (DWORD i=0;ok && i<scene->count;i++)
     {
         const StudioInstance *o=&scene->objects[i];
@@ -228,8 +230,9 @@ BOOL StudioSceneSave(const StudioScene *scene, const char **why)
             const StudioMaterial *m=&o->materials[j];
             ok=fprintf(file,"%s\n      {\"name\": ",j ? "," : "")>=0 && GltfJsonWriteString(file,m->name)
                 && fputs(", \"image\": ",file)!=EOF && GltfJsonWriteString(file,m->image)
-                && fprintf(file,", \"base\": [%.9g, %.9g, %.9g], \"specular\": [%.9g, %.9g, %.9g], \"intensity\": %.9g, \"shininess\": %.9g}",
-                    m->base[0],m->base[1],m->base[2],m->specular[0],m->specular[1],m->specular[2],m->intensity,m->shininess)>=0;
+                && fprintf(file,", \"base\": [%.9g, %.9g, %.9g], \"specular\": [%.9g, %.9g, %.9g], \"intensity\": %.9g, \"shininess\": %.9g, \"emission\": [%.9g, %.9g, %.9g], \"metalness\": %.9g}",
+                    m->base[0],m->base[1],m->base[2],m->specular[0],m->specular[1],m->specular[2],m->intensity,m->shininess,
+                    m->emission[0],m->emission[1],m->emission[2],m->metalness)>=0;
         }
         ok=ok && fputs("\n    ]}",file)!=EOF;
     }
@@ -313,7 +316,7 @@ BOOL StudioSceneLoad(const char *projectdir, const char *filename, StudioScene *
     *why="The studio scene is invalid or uses an unsupported format.";
     if (!String(&j,Field(&j,0,"format"),format,sizeof(format)) || strcmp(format,"GEditor Render Studio")) { goto done; }
     token=Field(&j,0,"version");
-    if (token<0 || !GltfJsonUnsigned(text,&j.tokens[token],&version) || (version<1 || version>4)) { goto done; }
+    if (token<0 || !GltfJsonUnsigned(text,&j.tokens[token],&version) || (version<1 || version>5)) { goto done; }
     array=Field(&j,0,"objects");
     if (array<0 || j.tokens[array].type!=GLTF_JSON_ARRAY) { goto done; }
     next.count=GltfJsonArrayCount(j.tokens,j.count,array);
@@ -345,6 +348,17 @@ BOOL StudioSceneLoad(const char *projectdir, const char *filename, StudioScene *
                 || !Number(&j,Field(&j,token,"intensity"),&intensity) || !Number(&j,Field(&j,token,"shininess"),&shine)) { goto done; }
             for (int k=0;k<3;k++) { mat->base[k]=(float)base[k]; mat->specular[k]=(float)specular[k]; }
             mat->intensity=(float)intensity; mat->shininess=(float)shine;
+            /* Older scenes retain their original appearance. New fields are
+             * required in v5; validate doubles before narrowing to floats. */
+            if (version>=5)
+            {
+                double emission[3],metalness;
+                if (!Vector(&j,Field(&j,token,"emission"),emission,3)
+                    || !Number(&j,Field(&j,token,"metalness"),&metalness) || metalness<0 || metalness>1) { goto done; }
+                for (int k=0;k<3;k++)
+                { if (emission[k]<0 || emission[k]>1) { goto done; } mat->emission[k]=(float)emission[k]; }
+                mat->metalness=(float)metalness;
+            }
             if (!StudioMaterialValid(mat)) { goto done; }
         }
         const char *assetwhy="";

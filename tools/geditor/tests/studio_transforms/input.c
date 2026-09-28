@@ -17,6 +17,7 @@ typedef struct { HWND hwnd; UINT message; WPARAM wParam; LPARAM lParam; } MSG;
 #define GET_X_LPARAM(n) ((short)(n))
 #define GET_Y_LPARAM(n) ((short)((uintptr_t)(n)>>16))
 #define lstrcmpi strcasecmp
+#define TRACKBAR_CLASS "msctls_trackbar32"
 enum { WM_KEYDOWN=10,WM_MOUSEWHEEL, VK_ESCAPE=27,VK_DELETE=46,VK_CONTROL=40,VK_MENU,GW_OWNER,MB_ICONERROR,
        STUDIO_TRANSLATE,STUDIO_ROTATE,STUDIO_SCALE };
 static HWND g_Studio=1,g_StudioViewport=2,focus=2;
@@ -45,6 +46,7 @@ static BOOL StudioViewportCancelTransform(HWND hwnd)
 { if(!dragging) return FALSE; dragging=FALSE; cancelled++; return TRUE; }
 static void StudioViewportCommitTransform(HWND hwnd) { dragging=FALSE; }
 static void RenderStudioDeleteLight(void) { deleted++; }
+static void RenderStudioFinishMetalness(void) {}
 static void RenderStudioTool(int mode) { tool=mode; }
 static BOOL StudioSceneSave(const void *scene,const char **why)
 { assert(!dragging && !pending); saved++; lastsaved=g_StudioScene.value; return TRUE; }
@@ -71,6 +73,7 @@ int main(void)
     focus=2; control=TRUE; Key(VK_DELETE); assert(deleted==2); control=FALSE;
     alt=TRUE; Key(VK_DELETE); assert(deleted==2); alt=FALSE;
     MSG foreign={99,WM_KEYDOWN,'E',0}; assert(!RenderStudioHandleMessage(&foreign) && tool==STUDIO_TRANSLATE);
+    int oldtool=tool; focusclass=TRACKBAR_CLASS; Key('E'); assert(tool==oldtool);
     puts("PASS: W/E/R, edit/combo input isolation, Escape cancellation, studio ownership, Delete focus isolation and save after pending edits/drags.");
     return 0;
 }

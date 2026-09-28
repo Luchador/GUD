@@ -88,9 +88,27 @@ a slot exposes these controls in **Properties**:
 - **Base image:** None or a `.bmp` from `studio/images`, sampled with the model's
   UVs and multiplied by its base color. Starts at None; glTF texture references
   are not automatically converted into studio image assignments.
-- **Phong specular color:** a color swatch, initially white.
+- **Emission:** a color swatch, initially black. Adds self-illumination even with
+  every light off. It is independent of base color, base image, vertex colors,
+  metalness, and the specular controls. Emission does not light other objects
+  or add a bloom/glow effect around the model.
+- **Phong specular color:** a color swatch, initially white. Controls the
+  nonmetallic portion of the highlight.
 - **Phong specular intensity:** 0–1, initially 0.25.
 - **Shininess:** 1–128, initially 32; higher values narrow the highlight.
+- **Metalness:** a 0–100% slider, initially 0%. Increasing it reduces diffuse
+  lighting and blends from the chosen specular color toward the base color,
+  vertex colors, and base image for the highlight. At 100%, the material has
+  only metallic highlights plus any emission. Specular intensity still controls
+  highlight strength, and shininess controls its width. Intermediate values
+  mix the nonmetallic and metallic responses. The slider displays its percentage,
+  previews while dragging, and saves when released; arrow keys adjust by 1% and
+  Page Up/Down by 10% while it has focus.
+
+Metalness is an artistic extension of the Phong preview, not a PBR renderer.
+Place lights where they produce visible highlights, and adjust specular intensity
+and shininess for the finish you want. There are no environment or scene
+reflections yet, so fully metallic surfaces can be dark away from highlights.
 
 Color and image choices apply immediately. Numeric values apply when pressing
 Enter or leaving the field. Completed edits and placements automatically save
@@ -163,8 +181,11 @@ The interactive preview combines the scene's ambient fill with per-vertex
 Phong lighting from its directional light, spotlight, and point lights.
 The preview interpolates lighting across triangles, so cone edges and small
 point-light footprints are more accurate on meshes with sufficient vertices.
-Base images affect diffuse color without tinting the separate
-specular highlight. This is an opaque preview; glTF PBR roughness/metallic maps,
+Base images tint diffuse color and the metallic portion of highlights. The
+nonmetallic highlights and emission remain independent of that image.
+The renderer draws diffuse first, then adds nonmetallic highlights/emission,
+then textured metallic highlights only for materials with nonzero metalness.
+This is an opaque preview; glTF PBR roughness/metallic maps,
 transparency, shadows, and the final SGI-style renderer are future work.
 BMP preview textures use power-of-two dimensions up to 4096 for OpenGL compatibility.
 
@@ -194,27 +215,33 @@ workspace to the newly opened project; switching game levels does not.
 `studiodocument.c` owns scene loading, atomic replacement, instances, shared model
 assets, per-instance materials, fixed local-light slots, and permanent lighting. A `.rnd` is a UTF-8 JSON
 document with
-`"format": "GEditor Render Studio"`, `"version": 4`, `objects` and `lights` arrays,
+`"format": "GEditor Render Studio"`, `"version": 5`, `objects` and `lights` arrays,
 and required `ambient` and `directional` objects. Each permanent-light object
 stores `color` (RGB, 0–1) and `intensity`; `directional` also stores `direction`.
-Versions 1–3 remain supported. Their ambient light defaults to white at 0.2.
+Versions 1–4 remain supported. Versions 1–3 use the legacy lighting defaults:
+their ambient light defaults to white at 0.2.
 Their directional light preserves the original preview direction and is white
 at intensity 1 if there are no local lights, or intensity 0 if any local light
 exists (including one with zero intensity). This preserves their previous
 appearance. After loading, the permanent lights can be edited independently.
 For version-1 scenes, existing positions and material settings are
 retained, rotation defaults to zero, and scale defaults to one. An empty scene
-created by New Scene starts as version 1; saving upgrades it to version 4.
+created by New Scene starts as version 1; saving upgrades it to version 5.
 Each object stores its model leaf filename, three-component `position`, `rotation`
 (in degrees), `scale` (multipliers), and material overrides (`name`, `image`,
-`base`, `specular`, `intensity`, and `shininess`). Paths are relative to the
+`base`, `specular`, `intensity`, `shininess`, `emission`, and `metalness`).
+Version 5 requires `emission` (three RGB values, 0–1) and `metalness` (0–1) on each
+saved material. Versions 1–4 default both to zero, preserving their appearance;
+version 4 retains its saved global-light settings. New imported material slots
+also start with black emission and zero metalness, irrespective of glTF PBR
+material settings. Paths are relative to the
 project's studio folders. The scene name comes from its filename.
 Each light stores `type` (`spotlight` or `point`), `slot`, `position`, `color`,
 and `intensity`. The optional `slot` preserves point-light identity after deletions;
 older version-3 scenes without it assign slots in file order. Spotlights also store `direction`, `inner`, and `outer`; point lights
 store `radius`. Invalid light data or exceeded limits reject the entire load
-without changing the open scene. Older editor builds reject version-4 scenes
-rather than silently discarding their permanent-light settings.
+without changing the open scene. Older editor builds reject version-5 scenes
+rather than silently discarding the new material settings.
 `gltf.c` provides a separate studio import mode using the shared JSON codec in
 `gltfjson.c`; it does not require game source identities or game texture tags.
 `studiomath.c` owns model matrices, ray picking, transformed bounds, and preview
@@ -225,13 +252,15 @@ guide. `studioviewport.c`
 owns the preview camera, rendering, image textures, and its own OpenGL context.
 
 Run `python3 tools/geditor/tests/studio_materials/run.py` for glTF/material,
-scene persistence, failure rollback, picking, and lighting regression coverage.
+scene persistence, failure rollback, picking, and lighting regression coverage,
+including emission, metalness blending, material validation, and v1–v4 migration.
 Run `python3 tools/geditor/tests/studio_lights/run.py` for light limits, properties,
 roundtrip persistence, legacy migration, invalid-document/save rollback, cone and
 radius falloff, colored diffuse/specular contributions, and outliner/property
 callback coverage with stand-in native controls, light transforms, icon picking,
 framing, deletion, stable slot reuse, permanent-light controls/non-deletion,
-colored ambient/directional illumination, and v1–v3 appearance migration.
+colored ambient/directional illumination, v1–v3 appearance migration, and the
+emission picker/metalness slider callbacks with drag commit and save rollback.
 Run `python3 tools/geditor/tests/studio_transforms/run.py` for transform
 persistence, legacy-scene loading, transformed picking/lighting, drag math,
 actual gizmo assets, hotkey routing, and Save Scene input ordering.
@@ -253,3 +282,10 @@ edit Direction in Transform, and confirm Delete cannot remove either. Set both
 intensities to zero and remove local lights to check the model becomes unlit;
 restore directional intensity, add a point light, then save/reopen and confirm
 both contributions and settings are retained.
+
+For the new material controls, choose a colored Emission with all lights off;
+confirm the color remains visible with a black base color or a dark base image.
+Try metalness at 0%, 50%, and 100% under a directional or local light, with and
+without a base image, then adjust intensity and shininess. Drag the slider,
+change material/scene, and save/reopen to confirm settings stay with the selected
+material instance. Confirm the controls disappear when selecting a light.

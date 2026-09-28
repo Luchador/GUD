@@ -214,9 +214,10 @@ static void StudioViewportObjects(StudioViewport *state, const double eye[3])
 {
     if (!state->scene) { return; }
     glShadeModel(GL_SMOOTH);
-    /* The diffuse/base-image and additive specular passes keep Phong highlights
-     * independent of the base image. CPU vertex lighting works on OpenGL 1.1. */
-    for (int pass=0;pass<2;pass++)
+    /* Diffuse uses the base image. Dielectric highlights/emission are untextured;
+     * metallic highlights use the base image as their reflection tint. The third
+     * pass is skipped for nonmetals. This remains compatible with OpenGL 1.1. */
+    for (int pass=0;pass<3;pass++)
     {
         if (pass) { glEnable(GL_BLEND); glBlendFunc(GL_ONE,GL_ONE); glDepthMask(GL_FALSE); glDepthFunc(GL_EQUAL); }
         for (DWORD i=0;i<state->scene->count;i++)
@@ -231,14 +232,17 @@ static void StudioViewportObjects(StudioViewport *state, const double eye[3])
                 while (end<mesh->count && mesh->materials.faces[end].slot==slot) { end++; }
                 if (slot<o->materialcount)
                 {
-                    const StudioMaterial *m=&o->materials[slot]; GLuint texture=pass ? 0 : StudioViewportTexture(state,m->image);
+                    const StudioMaterial *m=&o->materials[slot];
+                    if (pass==2 && m->metalness==0) { first=end; continue; }
+                    GLuint texture=pass==1 ? 0 : StudioViewportTexture(state,m->image);
                     if (texture) { glEnable(GL_TEXTURE_2D); glBindTexture(GL_TEXTURE_2D,texture); glTexEnvi(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_MODULATE); }
                     else { glDisable(GL_TEXTURE_2D); }
                     glBegin(GL_TRIANGLES);
                     for (DWORD v=first*3;v<end*3;v++)
                     {
-                        const BgVertex *vertex=&mesh->vertices[v]; float diffuse[3],specular[3];
-                        StudioShade(state->scene,m,vertex,&matrix,eye,diffuse,specular); glColor3fv(pass ? specular : diffuse);
+                        const BgVertex *vertex=&mesh->vertices[v]; float diffuse[3],additive[3],metallic[3];
+                        StudioShade(state->scene,m,vertex,&matrix,eye,diffuse,additive,metallic);
+                        glColor3fv(pass==2 ? metallic : pass==1 ? additive : diffuse);
                         glTexCoord2f(vertex->s,vertex->t); glVertex3f(vertex->x,vertex->y,vertex->z);
                     }
                     glEnd();
