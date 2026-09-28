@@ -37,6 +37,14 @@ static void Projection(void)
         assert(rect.right==sizes[i][0]-8 && rect.bottom==sizes[i][1]-8 && rect.left>=8 && rect.top>=8);
     }
     assert(!StudioCameraPreviewRect(271,600,&rect) && !StudioCameraPreviewRect(800,271,&rect));
+    const StudioRenderSettings dimensions[]={{64,64},{128,64},{64,128},{255,1},{1,255}};
+    for (unsigned i=0;i<sizeof(dimensions)/sizeof(*dimensions);i++) {
+        StudioPreviewRect image={0,0,256,256}; StudioCameraImageRect(&dimensions[i],&image);
+        assert(image.left>=0 && image.top>=0 && image.right<=256 && image.bottom<=256);
+        assert(image.right>image.left && image.bottom>image.top);
+        if (i==1) assert(image.left==0 && image.top==64 && image.right==256 && image.bottom==192);
+        if (i==2) assert(image.left==64 && image.top==0 && image.right==192 && image.bottom==256);
+    }
     StudioModel asset={0}; StudioInstance instance={0}; StudioScene scene={0};
     asset.lower[0]=asset.lower[1]=asset.lower[2]=-1; asset.upper[0]=asset.upper[1]=asset.upper[2]=1;
     instance.asset=&asset; instance.transform=(StudioTransform){{0},{0},{1,1,1}};
@@ -73,11 +81,18 @@ static void ParallelShading(void)
 int main(int argc,char **argv)
 {
     assert(argc==3); Projection(); ParallelShading();
-    StudioScene scene={0},loaded={0}; StudioSceneDefaultLighting(&scene); scene.camera=g_StudioDefaultCamera; const char *why="";
+    StudioScene scene={0},loaded={0}; StudioSceneDefaultLighting(&scene); scene.camera=g_StudioDefaultCamera; scene.render=g_StudioDefaultRender; const char *why="";
     snprintf(scene.project,sizeof(scene.project),"%s",argv[1]); strcpy(scene.filename,"Camera.rnd");
     scene.camera=(StudioCamera){{{1.25,-2.5,8},{-12,35,17},{1,1,1}},3.125};
+    scene.render=(StudioRenderSettings){127,63};
     assert(StudioSceneSave(&scene,&why) && StudioSceneLoad(argv[1],"Camera.rnd",&loaded,&why));
     assert(!memcmp(&scene.camera,&loaded.camera,sizeof(StudioCamera)));
+    assert(loaded.render.width==127 && loaded.render.height==63);
+    const StudioRenderSettings invalidsizes[]={{0,64},{64,0},{256,1},{1,256},{-1,64}};
+    for(unsigned i=0;i<sizeof(invalidsizes)/sizeof(*invalidsizes);i++) {
+        scene.render=invalidsizes[i]; assert(!StudioSceneSave(&scene,&why));
+    }
+    scene.render=(StudioRenderSettings){127,63};
     StudioCamera retained=scene.camera;
     double invalid[]={0,-1,1e10,NAN,INFINITY};
     for(unsigned i=0;i<sizeof(invalid)/sizeof(*invalid);i++) {
@@ -88,12 +103,13 @@ int main(int argc,char **argv)
         char file[64]; snprintf(file,sizeof(file),"BadCamera%d.rnd",i); StudioScene before=loaded;
         assert(!StudioSceneLoad(argv[1],file,&loaded,&why) && !memcmp(&before,&loaded,sizeof(loaded)));
     }
-    for(int version=1;version<=7;version++) {
+    for(int version=1;version<=8;version++) {
         char file[64]; snprintf(file,sizeof(file),"Legacy%d.rnd",version);
         assert(StudioSceneLoad(argv[1],file,&loaded,&why));
         assert(!memcmp(&loaded.camera,&g_StudioDefaultCamera,sizeof(StudioCamera)));
+        assert(loaded.render.width==64 && loaded.render.height==64);
         assert(StudioSceneSave(&loaded,&why));
     }
     StudioSceneFree(&loaded); StudioSceneFree(&scene);
-    puts("PASS: camera scene roundtrip, invalid setting/load rollback, and v1-v7 default camera migration.");
+    puts("PASS: camera scene roundtrip, invalid setting/load rollback, and v1-v8 camera/render migration, output dimensions and malformed settings.");
 }

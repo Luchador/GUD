@@ -8,12 +8,13 @@
 #include <string.h>
 #include "renderstudio.h"
 #include "studioviewport.h"
+#include "studiooutput.h"
 #include "studioscene.h"
 #include "studiogizmo.h"
 #include "browser.h"
 #include "editorpath.h"
 
-static HWND g_Studio, g_StudioViewport, g_StudioProperties, g_StudioTransform;
+static HWND g_Studio, g_StudioViewport, g_StudioProperties, g_StudioTransform, g_StudioRender;
 static StudioScene g_StudioScene;
 static int g_StudioObject=-1,g_StudioMaterial=-1,g_StudioLight=-1,g_StudioGlobal=-1;
 static BOOL g_StudioUpdating,g_StudioDragArmed,g_StudioDragging,g_StudioCameraDirty;
@@ -330,6 +331,72 @@ static INT_PTR CALLBACK RenderStudioTransformProc(HWND hwnd,UINT message,WPARAM 
     return FALSE;
 }
 
+static void RenderStudioRenderPanel(void)
+{
+    BOOL loaded=g_StudioScene.filename[0]!=0;
+    StudioRenderSettings settings=loaded ? g_StudioScene.render : g_StudioDefaultRender;
+    SetDlgItemInt(g_StudioRender,IDC_STUDIO_RENDER_WIDTH,settings.width,FALSE);
+    SetDlgItemInt(g_StudioRender,IDC_STUDIO_RENDER_HEIGHT,settings.height,FALSE);
+    EnableWindow(GetDlgItem(g_StudioRender,IDC_STUDIO_RENDER_WIDTH),loaded);
+    EnableWindow(GetDlgItem(g_StudioRender,IDC_STUDIO_RENDER_HEIGHT),loaded);
+    EnableWindow(GetDlgItem(g_StudioRender,IDC_STUDIO_RENDER_BUTTON),loaded);
+}
+
+static BOOL RenderStudioCommitRender(BOOL notify)
+{
+    if (!g_StudioScene.filename[0]) { return FALSE; }
+    const char *why=""; int values[2];
+    for (int axis=0;axis<2;axis++)
+    {
+        char text[32],*end; GetDlgItemText(g_StudioRender,axis ? IDC_STUDIO_RENDER_HEIGHT : IDC_STUDIO_RENDER_WIDTH,text,sizeof(text));
+        long value=strtol(text,&end,10);
+        if (!text[0] || *end || value<1 || value>255)
+        {
+            why="Render width and height must be whole numbers from 1 to 255.";
+            SetDlgItemText(g_Studio,IDC_STUDIO_STATUS,why);
+            if (notify) { MessageBox(g_Studio,why,"Render",MB_ICONERROR); }
+            return FALSE;
+        }
+        values[axis]=(int)value;
+    }
+    StudioRenderSettings next={values[0],values[1]};
+    StudioRenderSettings previous=g_StudioScene.render;
+    if (next.width==previous.width && next.height==previous.height) { return TRUE; }
+    g_StudioScene.render=next;
+    if (!StudioSceneSave(&g_StudioScene,&why))
+    {
+        g_StudioScene.render=previous; RenderStudioRenderPanel();
+        MessageBox(g_Studio,why,"Render Settings",MB_ICONERROR); return FALSE;
+    }
+    InvalidateRect(g_StudioViewport,NULL,FALSE);
+    SetDlgItemText(g_Studio,IDC_STUDIO_STATUS,"Render dimensions saved."); return TRUE;
+}
+
+static void RenderStudioRender(void)
+{
+    RenderStudioFinishMaterialSlider(); StudioViewportCommitTransform(g_StudioViewport); SetFocus(g_StudioViewport);
+    if (!RenderStudioCommitRender(TRUE)) { return; }
+    const char *why=""; TexPixel *pixels=NULL; char path[MAX_PATH],status[MAX_PATH+32];
+    HCURSOR previous=SetCursor(LoadCursor(NULL,IDC_WAIT));
+    BOOL ok=StudioViewportRender(g_StudioViewport,&pixels,&why);
+    if (ok) { ok=StudioOutputSave(g_StudioProject,pixels,&g_StudioScene.render,path,&why); }
+    free(pixels); SetCursor(previous);
+    if (!ok) { MessageBox(g_Studio,why,"Render",MB_ICONERROR); return; }
+    snprintf(status,sizeof(status),"Rendered %s",path); SetDlgItemText(g_Studio,IDC_STUDIO_STATUS,status);
+}
+
+static INT_PTR CALLBACK RenderStudioRenderProc(HWND hwnd,UINT message,WPARAM wparam,LPARAM lparam)
+{
+    if (message==WM_COMMAND)
+    {
+        int id=LOWORD(wparam),code=HIWORD(wparam);
+        if (id==IDC_STUDIO_RENDER_BUTTON && code==BN_CLICKED) { RenderStudioRender(); return TRUE; }
+        if ((id==IDC_STUDIO_RENDER_WIDTH || id==IDC_STUDIO_RENDER_HEIGHT) && code==EN_KILLFOCUS)
+        { RenderStudioCommitRender(FALSE); return TRUE; }
+    }
+    return FALSE;
+}
+
 static void RenderStudioSaveScene(void)
 {
     const char *why="";
@@ -421,7 +488,7 @@ static BOOL RenderStudioLoadScene(const char *filename)
     g_StudioGeneration++;
     g_StudioObject=g_StudioScene.count ? 0 : -1; g_StudioMaterial=g_StudioLight=g_StudioGlobal=-1;
     StudioViewportRefreshImages(g_StudioViewport); StudioViewportSetScene(g_StudioViewport,&g_StudioScene,TRUE);
-    RenderStudioOutliner(); SetDlgItemText(g_Studio,IDC_STUDIO_STATUS,why[0] ? why : g_StudioNavigation); g_StudioLoading=FALSE; return TRUE;
+    RenderStudioRenderPanel(); RenderStudioOutliner(); SetDlgItemText(g_Studio,IDC_STUDIO_STATUS,why[0] ? why : g_StudioNavigation); g_StudioLoading=FALSE; return TRUE;
 }
 
 static void RenderStudioCommitMaterial(StudioMaterial *material, const StudioMaterial *previous)
@@ -900,15 +967,16 @@ static void RenderStudioPanel(HWND hwnd, int group, int content,
 
 static void RenderStudioLayout(HWND hwnd)
 {
-    RECT client, units = {8, 16, 144, 0}, panel = {0, 0, 168, 88}, properties={0,0,0,208}, transform={0,0,0,112};
-    int margin, height, left, right, rightx, scenesize, imagesize, outline;
-    GetClientRect(hwnd, &client); MapDialogRect(hwnd, &units); MapDialogRect(hwnd, &panel); MapDialogRect(hwnd,&properties); MapDialogRect(hwnd,&transform);
+    RECT client, units = {8, 16, 144, 0}, panel = {0, 0, 168, 88}, properties={0,0,0,184}, transform={0,0,0,112}, render={0,0,0,80}, minimumlist={0,0,0,48};
+    int margin, height, left, right, rightx, scenesize, imagesize, outline, materials, available;
+    GetClientRect(hwnd, &client); MapDialogRect(hwnd, &units); MapDialogRect(hwnd, &panel); MapDialogRect(hwnd,&properties); MapDialogRect(hwnd,&transform); MapDialogRect(hwnd,&render); MapDialogRect(hwnd,&minimumlist);
     margin = units.left; left = units.right; right = panel.right;
     height = max(0, client.bottom - units.top - margin * 3);
     rightx = client.right - margin - right;
     scenesize = min(panel.bottom, height / 3);
     imagesize = max(0, (height - scenesize - margin * 2) / 2);
-    outline = max(0, (height - properties.bottom - transform.bottom - margin * 3) / 2);
+    available=max(0,height-properties.bottom-transform.bottom-render.bottom-margin*4);
+    materials=min(available/2,max(minimumlist.bottom,available/3)); outline=available-materials;
     RenderStudioPanel(hwnd, IDC_STUDIO_SCENE_PANEL, IDC_STUDIO_SCENE, margin, margin,
         left, scenesize, margin, units.top);
     RenderStudioPanel(hwnd, IDC_STUDIO_IMAGES_PANEL, IDC_STUDIO_IMAGES, margin, margin * 2 + scenesize,
@@ -920,9 +988,11 @@ static void RenderStudioLayout(HWND hwnd)
     RenderStudioPanel(hwnd, IDC_STUDIO_TRANSFORM_PANEL, IDC_STUDIO_TRANSFORM, rightx, margin * 2 + outline,
         right, transform.bottom, margin, units.top);
     RenderStudioPanel(hwnd, IDC_STUDIO_MATERIALS_PANEL, IDC_STUDIO_MATERIALS, rightx, margin * 3 + outline + transform.bottom,
-        right, outline, margin, units.top);
-    RenderStudioPanel(hwnd, IDC_STUDIO_PROPERTIES_PANEL, IDC_STUDIO_PROPERTIES, rightx, margin * 4 + outline * 2 + transform.bottom,
-        right, height - outline * 2 - transform.bottom - margin * 3, margin, units.top);
+        right, materials, margin, units.top);
+    RenderStudioPanel(hwnd, IDC_STUDIO_PROPERTIES_PANEL, IDC_STUDIO_PROPERTIES, rightx, margin * 4 + outline + materials + transform.bottom,
+        right, properties.bottom, margin, units.top);
+    RenderStudioPanel(hwnd,IDC_STUDIO_RENDER_PANEL,IDC_STUDIO_RENDER,rightx,margin*5+outline+materials+transform.bottom+properties.bottom,
+        right,render.bottom,margin,units.top);
     if (g_StudioViewport)
         RenderStudioPlace(g_StudioViewport, left + margin * 2, margin,
             rightx - left - margin * 3, height);
@@ -950,7 +1020,7 @@ void RenderStudioSetProject(const GEditorProject *project)
     SendDlgItemMessage(g_Studio, IDC_STUDIO_SCENE, LB_RESETCONTENT, 0, 0);
     BrowserSetImages(GetDlgItem(g_Studio, IDC_STUDIO_IMAGES), NULL, 0, NULL);
     SendDlgItemMessage(g_Studio, IDC_STUDIO_MODELS, LB_RESETCONTENT, 0, 0);
-    RenderStudioOutliner();
+    RenderStudioRenderPanel(); RenderStudioOutliner();
     RenderStudioRefreshScenes(NULL);
     RenderStudioRefreshAssets();
     RenderStudioProperties();
@@ -970,7 +1040,7 @@ static INT_PTR CALLBACK RenderStudioProc(HWND hwnd, UINT message, WPARAM wparam,
             {IDC_STUDIO_SCENE_PANEL, IDC_STUDIO_SCENE}, {IDC_STUDIO_IMAGES_PANEL, IDC_STUDIO_IMAGES},
             {IDC_STUDIO_MODELS_PANEL, IDC_STUDIO_MODELS}, {IDC_STUDIO_OUTLINER_PANEL, IDC_STUDIO_OUTLINER},
             {IDC_STUDIO_PROPERTIES_PANEL, IDC_STUDIO_PROPERTIES}, {IDC_STUDIO_MATERIALS_PANEL,IDC_STUDIO_MATERIALS},
-            {IDC_STUDIO_TRANSFORM_PANEL,IDC_STUDIO_TRANSFORM}};
+            {IDC_STUDIO_TRANSFORM_PANEL,IDC_STUDIO_TRANSFORM}, {IDC_STUDIO_RENDER_PANEL,IDC_STUDIO_RENDER}};
         g_Studio = hwnd;
         for (size_t i = 0; i < sizeof(panels) / sizeof(*panels); i++)
             SetWindowSubclass(GetDlgItem(hwnd, panels[i][0]), RenderStudioGroupProc, 1, panels[i][1]);
@@ -990,7 +1060,7 @@ static INT_PTR CALLBACK RenderStudioProc(HWND hwnd, UINT message, WPARAM wparam,
     case WM_GETMINMAXINFO:
     {
         MINMAXINFO *limits = (MINMAXINFO *)lparam;
-        RECT minimum = {0, 0, 640, 480};
+        RECT minimum = {0, 0, 640, 560};
         MapDialogRect(hwnd, &minimum);
         AdjustWindowRectEx(&minimum, (DWORD)GetWindowLongPtr(hwnd, GWL_STYLE),
             GetMenu(hwnd) != NULL, (DWORD)GetWindowLongPtr(hwnd, GWL_EXSTYLE));
@@ -1033,7 +1103,7 @@ static INT_PTR CALLBACK RenderStudioProc(HWND hwnd, UINT message, WPARAM wparam,
     case WM_NCDESTROY:
         g_StudioSliderMaterial=NULL;
         g_StudioGeneration++; g_StudioTriedInitialScene=FALSE; StudioSceneFree(&g_StudioScene);
-        g_Studio = g_StudioViewport = g_StudioProperties = g_StudioTransform = NULL; g_StudioTool=STUDIO_TRANSLATE; g_StudioProject[0] = '\0';
+        g_Studio = g_StudioViewport = g_StudioProperties = g_StudioTransform = g_StudioRender = NULL; g_StudioTool=STUDIO_TRANSLATE; g_StudioProject[0] = '\0';
         g_StudioObject=g_StudioMaterial=g_StudioLight=g_StudioGlobal=-1; g_StudioDragArmed=g_StudioDragging=FALSE;
         break;
     }
@@ -1068,6 +1138,12 @@ BOOL RenderStudioShow(HWND owner, HINSTANCE instance, const GEditorProject *proj
         if (!g_StudioTransform)
         { DestroyWindow(g_Studio); *why="Could not create the Transform panel."; return FALSE; }
         SetWindowLongPtr(g_StudioTransform,GWLP_ID,IDC_STUDIO_TRANSFORM); ShowWindow(g_StudioTransform,SW_SHOW);
+        DestroyWindow(GetDlgItem(g_Studio,IDC_STUDIO_RENDER));
+        g_StudioRender=CreateDialog(instance,MAKEINTRESOURCE(IDD_STUDIO_RENDER),g_Studio,RenderStudioRenderProc);
+        if (!g_StudioRender)
+        { DestroyWindow(g_Studio); *why="Could not create the Render panel."; return FALSE; }
+        SetWindowLongPtr(g_StudioRender,GWLP_ID,IDC_STUDIO_RENDER); ShowWindow(g_StudioRender,SW_SHOW);
+        RenderStudioRenderPanel();
         SetWindowSubclass(GetDlgItem(g_Studio,IDC_STUDIO_MODELS),RenderStudioModelDragProc,2,0);
         g_StudioViewport = StudioViewportCreate(g_Studio, instance);
         if (!g_StudioViewport)

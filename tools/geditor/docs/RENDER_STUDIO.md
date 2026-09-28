@@ -8,7 +8,7 @@ The workspace contains:
 
 - Scene, Images, and Models panels on the left.
 - An independent OpenGL viewport in the center.
-- Scene Outliner, Transform, Materials, and Properties panels on the right, in that order.
+- Scene Outliner, Transform, Materials, Properties, and Render panels on the right, in that order.
 
 Drag with either the left or right mouse button to orbit, drag with the middle
 button to pan, and use the wheel to zoom. Click a model to select its instance
@@ -99,8 +99,8 @@ Select **Camera** in the outliner, click its `intro_camera.glb` model in the mai
 view, or click the small preview. **W** moves it and **E** rotates it using the
 existing gizmos; Ctrl retains rotation snapping. Position and rotation are also
 editable in **Transform**, including camera roll. Camera scaling is disabled;
-use **Orthographic size** in Properties to set the square view's width and height
-in studio units. Smaller values zoom in. Moving the camera toward a subject does
+use **Orthographic size** in Properties to set the vertical view span in studio
+units. The output width/height determines its horizontal span. Smaller values zoom in. Moving the camera toward a subject does
 not change its apparent size under orthographic projection.
 
 The preview displays models with the scene's materials, lights, emission and
@@ -111,7 +111,27 @@ the camera; it does not orbit the editor camera or select/place models behind it
 The Camera cannot be deleted. Completed camera edits save with the scene, and
 failed saves restore the previous settings. New and older scenes start with the
 camera at (0, 3, 8), rotation (-20, 0, 0), and size 10, looking toward the origin.
-This is a live preview; image export is not implemented yet.
+Use the **Render** panel below Properties to set **Width** and **Height**, then
+click the large **Render** button. Dimensions are whole numbers from **1–255**
+pixels per axis, matching GUD's image dimension fields; the default is **64 × 64**.
+They save with each scene when leaving a field or pressing Enter. The fixed
+256 × 256 preview fits the chosen aspect ratio with gray bars outside the image.
+Its black background represents transparent output.
+
+Rendering creates a **32-bit RGBA BMP** in `[Project Name]/studio/output`. It uses
+the scene Camera and the same materials/lighting as its preview, excluding all
+editor guides. Alpha is **255 (white)** wherever a model covers a pixel and
+**0 (black)** in the background. A black model is still opaque, and an empty
+scene produces a fully transparent black image. The output uses binary coverage,
+without partially transparent edge pixels.
+
+Names start at `render0001.bmp` and fill the lowest unused four-digit number.
+Existing files or folders are never overwritten. If all 9999 names are occupied,
+rendering reports that the range is full. The image is published only after it
+has been completely written; failures remove the temporary file. The status bar
+shows the completed image's path. Output files stay separate from source images;
+import one through the main editor's image importer when ready to use it in GUD.
+The importer's normal format, palette, mipmap, and texture-memory limits still apply.
 
 Select a model in the viewport or Scene Outliner to show its transform gizmo and
 **Transform** panel. Use the panel buttons or **W** for translation, **E** for
@@ -264,7 +284,8 @@ scene to resolve it. Materials are matched by slot and name, with a unique-name
 fallback when slots are reordered in Blender. Reopen a scene after changing a
 model externally; image files refresh when Render Studio regains focus.
 
-Each project has `studio/models`, `studio/images`, and `studio/scenes` folders.
+Each project has `studio/models`, `studio/images`, `studio/scenes`, and
+`studio/output` folders.
 New projects create them automatically. Opening an older project adds missing
 folders without changing existing files. Opening Render Studio also checks
 these folders. An existing `studio/model` folder is renamed to `studio/models`,
@@ -284,12 +305,12 @@ workspace to the newly opened project; switching game levels does not.
 `studiodocument.c` owns scene loading, atomic replacement, instances, shared model
 assets, per-instance materials, fixed local-light slots, and permanent lighting. A `.rnd` is a UTF-8 JSON
 document with
-`"format": "GEditor Render Studio"`, `"version": 8`, `objects` and `lights` arrays,
+`"format": "GEditor Render Studio"`, `"version": 9`, `objects` and `lights` arrays,
 required `ambient` and `directional` objects, and an `environment` string.
 The environment is a BMP leaf filename relative to `studio/images`, or an empty
-string for None. Versions 6–8 require it; versions 1–5 default to None. Each permanent-light object
+string for None. Versions 6–9 require it; versions 1–5 default to None. Each permanent-light object
 stores `color` (RGB, 0–1) and `intensity`; `directional` also stores `direction`.
-Versions 1–7 remain supported. Versions 1–3 use the legacy lighting defaults:
+Versions 1–8 remain supported. Versions 1–3 use the legacy lighting defaults:
 their ambient light defaults to white at 0.2.
 Their directional light preserves the original preview direction and is white
 at intensity 1 if there are no local lights, or intensity 0 if any local light
@@ -297,25 +318,31 @@ exists (including one with zero intensity). This preserves their previous
 appearance. After loading, the permanent lights can be edited independently.
 For version-1 scenes, existing positions and material settings are
 retained, rotation defaults to zero, and scale defaults to one. An empty scene
-created by New Scene starts as version 1; saving upgrades it to version 8.
+created by New Scene starts as version 1; saving upgrades it to version 9.
 Each object stores its model leaf filename, three-component `position`, `rotation`
 (in degrees), `scale` (multipliers), and material overrides (`name`, `image`,
 `base`, `specular`, `intensity`, `shininess`, `emission`, `metalness`, and `environmentBlur`).
-Versions 5–8 require `emission` (three RGB values, 0–1) and `metalness` (0–1) on each
+Versions 5–9 require `emission` (three RGB values, 0–1) and `metalness` (0–1) on each
 saved material. Versions 1–4 default both to zero, preserving their appearance;
 version 4 retains its saved global-light settings. New imported material slots
 also start with black emission and zero metalness, irrespective of glTF PBR
-material settings. Versions 7–8 require `environmentBlur` (0–1) per material;
+material settings. Versions 7–9 require `environmentBlur` (0–1) per material;
 versions 1–6 and new imports default to zero. Paths are relative to the
 project's studio folders. The scene name comes from its filename.
 Each light stores `type` (`spotlight` or `point`), `slot`, `position`, `color`,
 and `intensity`. The optional `slot` preserves point-light identity after deletions;
 older version-3 scenes without it assign slots in file order. Spotlights also store `direction`, `inner`, and `outer`; point lights
 store `radius`. Invalid light data or exceeded limits reject the entire load
-without changing the open scene. Version 8 requires a `camera` object with three-component `position` and
+without changing the open scene. Versions 8–9 require a `camera` object with three-component `position` and
 `rotation` (degrees), and a positive `size` (0.0001–1 billion). Camera scale is
-always one. Versions 1–7 receive the default camera. Older editor builds reject
-version-8 scenes rather than silently discarding the camera settings.
+always one. Versions 1–7 receive the default camera. Version 9 also requires a
+`render` object containing integer `width` and `height` (1–255). Versions 1–8
+receive 64 × 64 defaults. Older builds reject version-9 scenes instead of
+silently dropping their render settings. `studiooutput.c` writes BMP V4 headers
+with explicit R/G/B/A bitfield masks and an sRGB color space, preserving even an
+all-zero alpha channel through GUD's BMP importer. Camera output reads depth
+coverage for alpha so it does not rely on the window pixel format having alpha
+bits; color and depth readback restore the context's OpenGL and pixel-pack state.
 `gltf.c` provides a separate studio import mode using the shared JSON codec in
 `gltfjson.c`; it does not require game source identities or game texture tags.
 `studiomath.c` owns model matrices, ray picking, transformed bounds, and preview
@@ -407,3 +434,13 @@ orbiting the main view. Its contents should contain no editor overlays. Click
 and scroll over the inset and confirm nothing behind it is selected, moved or
 placed. Check the intro camera model's lens points in the preview's viewing
 direction, including after rotation; test Escape during a camera gizmo drag.
+
+For image export, try square, wide, and tall output dimensions, then reopen the
+scene and confirm they persist. Verify the preview composition matches the BMP.
+Render an unlit black model and an empty scene; inspect alpha separately and
+import the BMP through GEditor's image importer. Delete an earlier numbered BMP
+and render again to check gap filling. Confirm the grid, camera marker, light
+icons, selection outlines, and gizmos never enter the saved image. Resize at the
+minimum window size and check that Render and the material sliders remain usable.
+`python3 tools/geditor/tests/studio_output/run.py` checks production BMP encoding,
+GUD alpha restoration, numbered publication and failure cleanup without a Windows UI.

@@ -10,6 +10,16 @@ BOOL StudioCameraPreviewRect(int width,int height,StudioPreviewRect *rect)
     return TRUE;
 }
 
+void StudioCameraImageRect(const StudioRenderSettings *settings,StudioPreviewRect *rect)
+{
+    int width=rect->right-rect->left,height=rect->bottom-rect->top;
+    int w=width,h=height;
+    if (settings->width>settings->height) { h=(int)fmax(1,round((double)width*settings->height/settings->width)); }
+    else { w=(int)fmax(1,round((double)height*settings->width/settings->height)); }
+    rect->left+=(width-w)/2; rect->top+=(height-h)/2;
+    rect->right=rect->left+w; rect->bottom=rect->top+h;
+}
+
 void StudioCameraView(const StudioCamera *camera,double matrix[16],double view[3])
 {
     Rotation rotation; RotationEuler(&rotation,camera->transform.rotation);

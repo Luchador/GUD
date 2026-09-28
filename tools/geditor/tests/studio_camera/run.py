@@ -34,7 +34,17 @@ with tempfile.TemporaryDirectory(prefix='geditor-studio-camera-') as tmp:
     missing = copy.deepcopy(doc)
     del missing['camera']
     invalid.append(missing)
+    invalid.append(dict(doc, version=10))
+    for field in ('width', 'height'):
+        for value in (0, -1, 256, 1.5, float('nan'), float('inf'), '64', None):
+            invalid.append(dict(doc, version=9, render=dict(width=64, height=64) | {field: value}))
+        bad = dict(doc, version=9, render=dict(width=64, height=64))
+        del bad['render'][field]
+        invalid.append(bad)
+    for value in (None, [], 'render', 1):
+        invalid.append(dict(doc, version=9, render=value))
     invalid.append(dict(doc, version=9))
+    (scenes / 'Legacy8.rnd').write_text(json.dumps(doc))
     for i, bad in enumerate(invalid):
         (scenes / f'BadCamera{i}.rnd').write_text(json.dumps(bad))
     for version in range(1, 8):
@@ -50,8 +60,10 @@ with tempfile.TemporaryDirectory(prefix='geditor-studio-camera-') as tmp:
     subprocess.run([str(work / 'check'), str(work), str(len(invalid))], check=True,
                    env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))
     saved = json.loads((scenes / 'Camera.rnd').read_text())
-    assert saved['version'] == 8 and saved['camera'] == dict(position=[1.25, -2.5, 8], rotation=[-12, 35, 17], size=3.125)
-    for version in range(1, 8):
+    assert saved['version'] == 9 and saved['camera'] == dict(position=[1.25, -2.5, 8], rotation=[-12, 35, 17], size=3.125)
+    assert saved['render'] == dict(width=127, height=63)
+    for version in range(1, 9):
         saved = json.loads((scenes / f'Legacy{version}.rnd').read_text())
-        assert saved['version'] == 8 and saved['camera'] == doc['camera']
+        assert saved['version'] == 9 and saved['camera'] == doc['camera']
+        assert saved['render'] == dict(width=64, height=64)
     print('PASS: independently parsed camera persistence and legacy upgrades.')

@@ -35,11 +35,17 @@ typedef struct StudioTransform {
 } StudioTransform;
 
 /* One permanent orthographic render camera. Local -Z looks forward, +Y is up.
- * Scale stays at one; size is the square view's width/height in studio units. */
+ * Scale stays at one; size is the vertical view span in studio units. */
 typedef struct StudioCamera { StudioTransform transform; double size; } StudioCamera;
 extern const StudioCamera g_StudioDefaultCamera;
 #define STUDIO_SELECT_CAMERA (-7)
 BOOL StudioCameraValid(const StudioCamera *camera);
+
+/* GUD's image dimensions are stored in one byte per axis. */
+typedef struct StudioRenderSettings { int width,height; } StudioRenderSettings;
+extern const StudioRenderSettings g_StudioDefaultRender;
+static inline BOOL StudioRenderSettingsValid(const StudioRenderSettings *settings)
+{ return settings->width>=1 && settings->width<=255 && settings->height>=1 && settings->height<=255; }
 
 typedef struct StudioInstance {
     char model[MAX_PATH];
@@ -76,6 +82,7 @@ typedef struct StudioScene {
     StudioLight lights[STUDIO_LIGHT_COUNT];
     StudioGlobalLight ambient, directional;
     StudioCamera camera;
+    StudioRenderSettings render;
 } StudioScene;
 
 /* Shared viewport/outliner selection IDs: models >= 0, none/root -1. */

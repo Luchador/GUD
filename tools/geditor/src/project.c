@@ -14,7 +14,7 @@
 
 BOOL ProjectEnsureStudioFolders(const char *projectdir, const char **reasonout)
 {
-    static const char *folders[] = {"studio", "studio\\models", "studio\\images", "studio\\scenes"};
+    static const char *folders[] = {"studio", "studio\\models", "studio\\images", "studio\\scenes", "studio\\output"};
     char paths[sizeof(folders) / sizeof(*folders)][MAX_PATH];
     char legacy[MAX_PATH];
     DWORD attrs;

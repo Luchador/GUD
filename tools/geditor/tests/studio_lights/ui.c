@@ -26,7 +26,7 @@ static int nodecount,selectedrow,materialcount,viewportselection,errors,saved,in
 static int fail_save,choose_cancel,choose_switch,new_cancel,scene_bounds;
 static HTREEITEM treeselected;
 static char text[1600][128]; static BOOL visible[1600],enabled[1600];
-static HWND g_Studio=1,g_StudioViewport=2,g_StudioProperties=3,g_StudioTransform=4;
+static HWND g_Studio=1,g_StudioViewport=2,g_StudioProperties=3,g_StudioTransform=4,g_StudioRender=5;
 static StudioScene g_StudioScene;
 static int g_StudioObject=-1,g_StudioMaterial=-1,g_StudioLight=-1,g_StudioGlobal=-1;
 static StudioMaterial *g_StudioSliderMaterial;
@@ -55,6 +55,7 @@ static HWND GetDlgItem(HWND hwnd,int id) { return id; }
 static void ShowWindow(HWND hwnd,int mode) { visible[hwnd]=mode==SW_SHOW; }
 static void InvalidateRect(HWND hwnd,void *rect,BOOL erase) { invalidated++; }
 static void SetDlgItemText(HWND hwnd,int id,const char *value) { snprintf(text[id],sizeof(text[id]),"%s",value); }
+static void SetDlgItemInt(HWND hwnd,int id,int value,BOOL sign) { snprintf(text[id],sizeof(text[id]),"%d",value); }
 static void GetDlgItemText(HWND hwnd,int id,char *out,int size) { snprintf(out,size,"%s",text[id]); }
 static HDC GetDC(HWND hwnd) { return NULL; }
 static HFONT SelectObject(HDC dc,HFONT font) { return NULL; }
@@ -116,7 +117,7 @@ static BOOL ChooseColor(CHOOSECOLOR *choice)
 { if(choose_switch) g_StudioGeneration++; choice->rgbResult=RGB(17,85,204); return !choose_cancel; }
 BOOL StudioSceneSave(const StudioScene *scene,const char **why)
 { if(fail_save) { *why="Test failure"; return FALSE; } saved++; return TRUE; }
-static void RenderStudioNewScene(HWND hwnd) { if(!new_cancel) { strcpy(g_StudioScene.filename,"New.rnd"); StudioSceneDefaultLighting(&g_StudioScene); g_StudioScene.camera=g_StudioDefaultCamera; } }
+static void RenderStudioNewScene(HWND hwnd) { if(!new_cancel) { strcpy(g_StudioScene.filename,"New.rnd"); StudioSceneDefaultLighting(&g_StudioScene); g_StudioScene.camera=g_StudioDefaultCamera; g_StudioScene.render=g_StudioDefaultRender; } }
 BOOL StudioBounds(const StudioScene *scene,int selected,double lower[3],double upper[3])
 { for(int k=0;k<3;k++) { lower[k]=-2; upper[k]=2; } return scene_bounds; }
 #include "ui.inc"
@@ -335,6 +336,23 @@ int main(void)
     attempts=saved; RenderStudioDeleteLight(); assert(saved==attempts && RenderStudioCamera());
     RenderStudioSelect(0,0); assert(!visible[IDC_STUDIO_CAMERA_SIZE] && visible[IDC_STUDIO_METALNESS]);
     puts("PASS: permanent Camera outliner identity, move/rotate controls, scale rejection, position/rotation/size persistence callbacks, validation and failed-save rollback.");
+    RenderStudioRenderPanel(); assert(enabled[IDC_STUDIO_RENDER_BUTTON]);
+    assert(!strcmp(text[IDC_STUDIO_RENDER_WIDTH],"64") && !strcmp(text[IDC_STUDIO_RENDER_HEIGHT],"64"));
+    strcpy(text[IDC_STUDIO_RENDER_WIDTH],"127"); strcpy(text[IDC_STUDIO_RENDER_HEIGHT],"63");
+    attempts=saved; assert(RenderStudioCommitRender(TRUE));
+    assert(saved==attempts+1 && g_StudioScene.render.width==127 && g_StudioScene.render.height==63);
+    assert(RenderStudioCommitRender(TRUE) && saved==attempts+1);
+    const char *invalidrender[]={"0","256","-1","nan","1.5","64oops","","99999999999999999999999999999999"};
+    for(unsigned i=0;i<sizeof(invalidrender)/sizeof(*invalidrender);i++) {
+        strcpy(text[IDC_STUDIO_RENDER_WIDTH],invalidrender[i]); assert(!RenderStudioCommitRender(FALSE));
+        assert(g_StudioScene.render.width==127 && saved==attempts+1);
+    }
+    fail_save=1; strcpy(text[IDC_STUDIO_RENDER_WIDTH],"32"); assert(!RenderStudioCommitRender(TRUE)); fail_save=0;
+    assert(g_StudioScene.render.width==127 && !strcmp(text[IDC_STUDIO_RENDER_WIDTH],"127"));
+    g_StudioScene.filename[0]=0; RenderStudioRenderPanel();
+    assert(!enabled[IDC_STUDIO_RENDER_BUTTON] && !enabled[IDC_STUDIO_RENDER_WIDTH] && !enabled[IDC_STUDIO_RENDER_HEIGHT]);
+    assert(!RenderStudioCommitRender(TRUE));
+    puts("PASS: Render panel defaults, loaded-scene enablement, integer validation, settings persistence, unchanged-value no-op and failed-save rollback.");
     assert(invalidated>0);
     puts("PASS: shared image catalog, scene-only selector, validation, save rollback, cache refresh, missing-image retention and None.");
     puts("PASS: emission picker/cancel/rollback, live metalness/blur previews, one save per drag, keyboard adjustment, selection-change commit and light-control isolation.");

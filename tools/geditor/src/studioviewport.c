@@ -340,31 +340,87 @@ static void StudioViewportObjects(StudioViewport *state, const double eye[3],BOO
     }
 }
 
-static void StudioViewportPreview(StudioViewport *state,int width,int height)
+/* Shared camera pass: identical framing, materials and lighting for preview
+ * and output. The output aspect determines horizontal span; size is vertical. */
+static void StudioViewportCamera(StudioViewport *state,int x,int y,int width,int height)
 {
-    StudioPreviewRect rect;
-    if (!state->scene || !state->scene->filename[0] || !StudioCameraValid(&state->scene->camera)
-        || !StudioCameraPreviewRect(width,height,&rect)) { return; }
     double viewmatrix[16],view[3],nearz,farz,half=state->scene->camera.size*.5;
+    double aspect=(double)state->scene->render.width/state->scene->render.height;
     StudioCameraView(&state->scene->camera,viewmatrix,view); StudioCameraClip(state->scene,&nearz,&farz);
-    /* Reuse the context/textures, but isolate the inset's matrices, clear, depth,
-     * viewport and GL state. Drawing guides never enter this render preview. */
     glPushAttrib(GL_ALL_ATTRIB_BITS);
-    glEnable(GL_SCISSOR_TEST); glDepthMask(GL_TRUE);
-    glScissor(rect.left-1,height-rect.bottom-1,STUDIO_PREVIEW_SIZE+2,STUDIO_PREVIEW_SIZE+2);
-    if (state->selected==STUDIO_SELECT_CAMERA) { glClearColor(.95f,.76f,.27f,1); }
-    else { glClearColor(.45f,.47f,.5f,1); }
-    glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
-    glViewport(rect.left,height-rect.bottom,STUDIO_PREVIEW_SIZE,STUDIO_PREVIEW_SIZE);
-    glScissor(rect.left,height-rect.bottom,STUDIO_PREVIEW_SIZE,STUDIO_PREVIEW_SIZE);
-    glClearColor(.13f,.14f,.16f,1); glClear(GL_COLOR_BUFFER_BIT);
+    glEnable(GL_SCISSOR_TEST); glScissor(x,y,width,height); glViewport(x,y,width,height);
+    glColorMask(GL_TRUE,GL_TRUE,GL_TRUE,GL_TRUE); glDepthMask(GL_TRUE); glClearDepth(1);
+    glClearColor(0,0,0,0); glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST); glDepthFunc(GL_LEQUAL); glDisable(GL_BLEND);
     glDisable(GL_LIGHTING); glDisable(GL_TEXTURE_2D); glDisable(GL_CULL_FACE); glDisable(GL_FOG);
-    glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); glOrtho(-half,half,-half,half,nearz,farz);
+    glDisable(GL_ALPHA_TEST); glDisable(GL_STENCIL_TEST); glDisable(GL_DITHER);
+    glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); glOrtho(-half*aspect,half*aspect,-half,half,nearz,farz);
     glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadMatrixd(viewmatrix);
     StudioViewportObjects(state,view,TRUE);
     glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix(); glMatrixMode(GL_MODELVIEW);
     glPopAttrib();
+}
+
+static void StudioViewportPreview(StudioViewport *state,int width,int height)
+{
+    StudioPreviewRect rect;
+    if (!state->scene || !state->scene->filename[0] || !StudioCameraValid(&state->scene->camera)
+        || !StudioRenderSettingsValid(&state->scene->render) || !StudioCameraPreviewRect(width,height,&rect)) { return; }
+    glPushAttrib(GL_ALL_ATTRIB_BITS);
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(rect.left-1,height-rect.bottom-1,STUDIO_PREVIEW_SIZE+2,STUDIO_PREVIEW_SIZE+2);
+    if (state->selected==STUDIO_SELECT_CAMERA) { glClearColor(.95f,.76f,.27f,1); }
+    else { glClearColor(.45f,.47f,.5f,1); }
+    glClear(GL_COLOR_BUFFER_BIT);
+    glScissor(rect.left,height-rect.bottom,STUDIO_PREVIEW_SIZE,STUDIO_PREVIEW_SIZE);
+    glClearColor(.13f,.14f,.16f,1); glClear(GL_COLOR_BUFFER_BIT);
+    StudioCameraImageRect(&state->scene->render,&rect);
+    StudioViewportCamera(state,rect.left,height-rect.bottom,rect.right-rect.left,rect.bottom-rect.top);
+    glPopAttrib();
+}
+
+/* Alpha comes from geometry coverage, never RGB or the window pixel format's
+ * optional alpha bits. Even black models are opaque; an empty scene stays clear. */
+static BOOL StudioViewportReadCamera(StudioViewport *state,TexPixel *pixels,float *depth)
+{
+    int width=state->scene->render.width,height=state->scene->render.height;
+    glPushAttrib(GL_ALL_ATTRIB_BITS); glPushClientAttrib(GL_CLIENT_PIXEL_STORE_BIT);
+    glDrawBuffer(GL_BACK); glReadBuffer(GL_BACK);
+    glPixelStorei(GL_PACK_ALIGNMENT,1); glPixelStorei(GL_PACK_ROW_LENGTH,0);
+    glPixelStorei(GL_PACK_SKIP_ROWS,0); glPixelStorei(GL_PACK_SKIP_PIXELS,0); glPixelStorei(GL_PACK_SWAP_BYTES,GL_FALSE);
+    while (glGetError()!=GL_NO_ERROR) { }
+    StudioViewportCamera(state,0,0,width,height);
+    glReadPixels(0,0,width,height,GL_RGBA,GL_UNSIGNED_BYTE,pixels);
+    glReadPixels(0,0,width,height,GL_DEPTH_COMPONENT,GL_FLOAT,depth);
+    BOOL ok=glGetError()==GL_NO_ERROR;
+    glPopClientAttrib(); glPopAttrib();
+    if (ok) for (int i=0;i<width*height;i++)
+    {
+        pixels[i].a=depth[i]<1.0f ? 255 : 0;
+        if (!pixels[i].a) { pixels[i].r=pixels[i].g=pixels[i].b=0; }
+    }
+    return ok;
+}
+
+BOOL StudioViewportRender(HWND viewport,TexPixel **pixels,const char **why)
+{
+    StudioViewport *state=(StudioViewport *)GetWindowLongPtr(viewport,GWLP_USERDATA);
+    RECT client; *pixels=NULL; *why="";
+    if (!state || !state->context || !state->scene || !state->scene->filename[0]
+        || !StudioCameraValid(&state->scene->camera) || !StudioRenderSettingsValid(&state->scene->render))
+    { *why="Open a valid scene before rendering."; return FALSE; }
+    GetClientRect(viewport,&client);
+    if (client.right<state->scene->render.width || client.bottom<state->scene->render.height)
+    { *why="Enlarge the Render Studio viewport before rendering."; return FALSE; }
+    size_t count=(size_t)state->scene->render.width*state->scene->render.height;
+    TexPixel *rgba=malloc(count*sizeof(*rgba)); float *depth=malloc(count*sizeof(*depth));
+    if (!rgba || !depth) { free(rgba); free(depth); *why="Not enough memory to render the image."; return FALSE; }
+    HDC previousdc=wglGetCurrentDC(); HGLRC previous=wglGetCurrentContext(); BOOL ok=FALSE;
+    if (wglMakeCurrent(state->dc,state->context))
+    { ok=StudioViewportReadCamera(state,rgba,depth); wglMakeCurrent(previousdc,previous); }
+    free(depth); InvalidateRect(viewport,NULL,FALSE);
+    if (!ok) { free(rgba); *why="OpenGL could not render the output image."; return FALSE; }
+    *pixels=rgba; return TRUE;
 }
 
 /* The grid is a background guide, not part of the model's depth bounds.
