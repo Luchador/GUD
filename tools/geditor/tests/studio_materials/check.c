@@ -136,8 +136,8 @@ int main(int argc,char **argv)
     position[2]=2; CHECK(StudioSceneAddModel(&scene,"Light.gltf",position,&why));
     CHECK(scene.objects[0].asset==scene.objects[1].asset && scene.objects[0].materials!=scene.objects[1].materials);
     StudioMaterial *m=&scene.objects[0].materials[1];
-    CHECK(m->metalness==0 && m->emission[0]==0 && m->emission[1]==0 && m->emission[2]==0);
-    m->base[0]=.125; m->base[1]=.625; m->specular[0]=.375; m->intensity=.875; m->shininess=87; m->emission[0]=.125f; m->emission[1]=.25f; m->emission[2]=.5f; m->metalness=.625f;
+    CHECK(m->environmentblur==0 && m->metalness==0 && m->emission[0]==0 && m->emission[1]==0 && m->emission[2]==0);
+    m->base[0]=.125; m->base[1]=.625; m->specular[0]=.375; m->intensity=.875; m->shininess=87; m->emission[0]=.125f; m->emission[1]=.25f; m->emission[2]=.5f; m->metalness=.625f; m->environmentblur=.375f;
     lstrcpyn(m->image,"Paint.bmp",sizeof(m->image)); CHECK(StudioSceneSave(&scene,&why));
     Math(&scene);
     CHECK(StudioSceneLoad(project,"Main.rnd",&loaded,&why) && !why[0] && loaded.count==2);
@@ -150,7 +150,7 @@ int main(int argc,char **argv)
     CHECK(!StudioSceneAddModel(&scene,"../Light.gltf",position,&why) && scene.count==2);
     m->intensity=NAN; CHECK(!StudioSceneSave(&scene,&why)); m->intensity=.875;
     snprintf(path,sizeof(path),"%s/studio/scenes/Bad.rnd",project);
-    const char *bad[]={"{\"format\":\"GEditor Render Studio\",\"version\":7,\"objects\":[]}",
+    const char *bad[]={"{\"format\":\"GEditor Render Studio\",\"version\":8,\"objects\":[]}",
         "{\"format\":\"GEditor Render Studio\",\"version\":1,\"objects\":[{\"model\":\"../Light.gltf\"}]}",
         "{\"format\":\"GEditor Render Studio\",\"version\":1,\"objects\":[{\"model\":\"Light.gltf\",\"position\":[NaN,0,0],\"materials\":[]}]}",
         "{\"format\":\"GEditor Render Studio\",\"version\":1,\"objects\":[{\"model\":\"Light.gltf\",\"position\":[0,0,0],\"materials\":[{}]}]}"};
@@ -164,17 +164,22 @@ int main(int argc,char **argv)
         char name[64]; snprintf(name,sizeof(name),"BadMaterial%d.rnd",i); StudioScene before=loaded;
         CHECK(!StudioSceneLoad(project,name,&loaded,&why) && !memcmp(&before,&loaded,sizeof(loaded)));
     }
-    for(int version=1;version<=4;version++)
+    for(int version=1;version<=6;version++)
     {
         char name[64]; snprintf(name,sizeof(name),"Legacy%d.rnd",version);
         CHECK(StudioSceneLoad(project,name,&loaded,&why) && loaded.count==1);
         StudioMaterial *legacy=&loaded.objects[0].materials[0];
-        CHECK(legacy->metalness==0 && legacy->emission[0]==0 && legacy->emission[1]==0 && legacy->emission[2]==0);
+        CHECK(legacy->environmentblur==0);
+        CHECK(legacy->metalness==(version<5 ? 0 : .5f));
+        if (version<5) { CHECK(legacy->emission[0]==0 && legacy->emission[1]==0 && legacy->emission[2]==0); }
         CHECK(legacy->base[0]==.25f && legacy->shininess==64 && StudioSceneSave(&loaded,&why));
     }
     CHECK(StudioSceneLoad(project,"Main.rnd",&loaded,&why));
     StudioMaterial retained=*m; m->emission[0]=NAN; CHECK(!StudioSceneSave(&scene,&why)); *m=retained;
     m->metalness=2; CHECK(!StudioSceneSave(&scene,&why)); *m=retained;
+    m->environmentblur=NAN; CHECK(!StudioSceneSave(&scene,&why)); *m=retained;
+    m->environmentblur=-.1f; CHECK(!StudioSceneSave(&scene,&why)); *m=retained;
+    m->environmentblur=1.01f; CHECK(!StudioSceneSave(&scene,&why)); *m=retained;
     CHECK(StudioSceneLoad(project,"Main.rnd",&loaded,&why) && !memcmp(m,&loaded.objects[0].materials[1],sizeof(*m)));
     snprintf(asset,sizeof(asset),"%s/studio/models/Light.gltf",project);
     CHECK(DeleteFile(asset));

@@ -29,9 +29,10 @@ static char text[1600][128]; static BOOL visible[1600],enabled[1600];
 static HWND g_Studio=1,g_StudioViewport=2,g_StudioProperties=3,g_StudioTransform=4;
 static StudioScene g_StudioScene;
 static int g_StudioObject=-1,g_StudioMaterial=-1,g_StudioLight=-1,g_StudioGlobal=-1;
-static StudioMaterial *g_StudioMetalnessMaterial;
-static float g_StudioMetalnessBefore;
-static void RenderStudioFinishMetalness(void);
+static StudioMaterial *g_StudioSliderMaterial;
+static StudioMaterial g_StudioSliderBefore;
+static int g_StudioSliderId;
+static void RenderStudioFinishMaterialSlider(void);
 static BOOL g_StudioUpdating;
 static unsigned g_StudioGeneration,g_StudioLightDirty,g_StudioTransformDirty;
 static int g_StudioTool=STUDIO_SCALE;
@@ -96,9 +97,11 @@ static void StudioViewportSetTool(HWND hwnd,int tool) {}
 static void StudioViewportSetScene(HWND hwnd,StudioScene *scene,BOOL frame) { invalidated++; }
 static void EnableWindow(HWND hwnd,BOOL value) { enabled[hwnd]=value; }
 static void CheckRadioButton(HWND hwnd,int first,int last,int value) {}
-static int metalness_slider;
+static int metalness_slider,env_blur_slider;
 static LRESULT SendDlgItemMessage(HWND hwnd,int id,UINT message,WPARAM wparam,LPARAM lparam)
 {
+    if (id==IDC_STUDIO_ENV_BLUR && message==TBM_SETPOS) { env_blur_slider=(int)lparam; }
+    if (id==IDC_STUDIO_ENV_BLUR && message==TBM_GETPOS) { return env_blur_slider; }
     if (id==IDC_STUDIO_METALNESS && message==TBM_SETPOS) { metalness_slider=(int)lparam; }
     return id==IDC_STUDIO_METALNESS && message==TBM_GETPOS ? metalness_slider : SendMessage(id,message,wparam,lparam);
 }
@@ -234,22 +237,48 @@ int main(void)
     RenderStudioSelect(0,0); assert(g_StudioGlobal==-1 && visible[IDC_STUDIO_BASE_COLOR] && !visible[IDC_STUDIO_LIGHT_COLOR]);
     assert(visible[IDC_STUDIO_EMISSION_COLOR] && visible[IDC_STUDIO_METALNESS]);
     attempts=saved;
-    metalness_slider=37; assert(RenderStudioMetalnessCommand(g_StudioProperties,TB_THUMBTRACK));
+    metalness_slider=37; assert(RenderStudioMaterialSliderCommand(g_StudioProperties,IDC_STUDIO_METALNESS,TB_THUMBTRACK));
     assert(fabs(material.metalness-.37)<1e-6 && saved==attempts && !strcmp(text[IDC_STUDIO_METALNESS_LABEL],"Metalness: 37%"));
-    metalness_slider=75; assert(RenderStudioMetalnessCommand(g_StudioProperties,TB_THUMBTRACK));
-    assert(saved==attempts); assert(RenderStudioMetalnessCommand(g_StudioProperties,TB_THUMBPOSITION));
-    assert(saved==attempts+1 && material.metalness==.75f && !g_StudioMetalnessMaterial);
-    RenderStudioMetalnessCommand(g_StudioProperties,TB_ENDTRACK); assert(saved==attempts+1);
-    fail_save=1; metalness_slider=90; RenderStudioMetalnessCommand(g_StudioProperties,TB_THUMBTRACK);
-    RenderStudioMetalnessCommand(g_StudioProperties,TB_ENDTRACK); fail_save=0;
+    metalness_slider=75; assert(RenderStudioMaterialSliderCommand(g_StudioProperties,IDC_STUDIO_METALNESS,TB_THUMBTRACK));
+    assert(saved==attempts); assert(RenderStudioMaterialSliderCommand(g_StudioProperties,IDC_STUDIO_METALNESS,TB_THUMBPOSITION));
+    assert(saved==attempts+1 && material.metalness==.75f && !g_StudioSliderMaterial);
+    RenderStudioMaterialSliderCommand(g_StudioProperties,IDC_STUDIO_METALNESS,TB_ENDTRACK); assert(saved==attempts+1);
+    fail_save=1; metalness_slider=90; RenderStudioMaterialSliderCommand(g_StudioProperties,IDC_STUDIO_METALNESS,TB_THUMBTRACK);
+    RenderStudioMaterialSliderCommand(g_StudioProperties,IDC_STUDIO_METALNESS,TB_ENDTRACK); fail_save=0;
     assert(material.metalness==.75f && metalness_slider==75);
-    metalness_slider=0; RenderStudioMetalnessCommand(g_StudioProperties,TB_LINEUP); assert(material.metalness==0);
-    metalness_slider=100; RenderStudioMetalnessCommand(g_StudioProperties,TB_THUMBTRACK); attempts=saved;
+    metalness_slider=0; RenderStudioMaterialSliderCommand(g_StudioProperties,IDC_STUDIO_METALNESS,TB_LINEUP); assert(material.metalness==0);
+    metalness_slider=100; RenderStudioMaterialSliderCommand(g_StudioProperties,IDC_STUDIO_METALNESS,TB_THUMBTRACK); attempts=saved;
     RenderStudioSelect(STUDIO_SELECT_AMBIENT,-1);
-    assert(material.metalness==1 && saved==attempts+1 && !g_StudioMetalnessMaterial);
+    assert(material.metalness==1 && saved==attempts+1 && !g_StudioSliderMaterial);
     assert(!visible[IDC_STUDIO_EMISSION_COLOR] && !visible[IDC_STUDIO_METALNESS]);
-    assert(!RenderStudioMetalnessCommand(g_StudioProperties,TB_THUMBTRACK));
+    assert(!RenderStudioMaterialSliderCommand(g_StudioProperties,IDC_STUDIO_METALNESS,TB_THUMBTRACK));
     RenderStudioSelect(0,0);
+    assert(material.environmentblur==0 && visible[IDC_STUDIO_ENV_BLUR]);
+    attempts=saved;
+    env_blur_slider=37; assert(RenderStudioMaterialSliderCommand(g_StudioProperties,IDC_STUDIO_ENV_BLUR,TB_THUMBTRACK));
+    assert(fabs(material.environmentblur-.37)<1e-6 && saved==attempts && !strcmp(text[IDC_STUDIO_ENV_BLUR_LABEL],"Env Map Blur: 37%"));
+    env_blur_slider=75; assert(RenderStudioMaterialSliderCommand(g_StudioProperties,IDC_STUDIO_ENV_BLUR,TB_THUMBTRACK));
+    assert(saved==attempts); assert(RenderStudioMaterialSliderCommand(g_StudioProperties,IDC_STUDIO_ENV_BLUR,TB_THUMBPOSITION));
+    assert(saved==attempts+1 && material.environmentblur==.75f && !g_StudioSliderMaterial);
+    RenderStudioMaterialSliderCommand(g_StudioProperties,IDC_STUDIO_ENV_BLUR,TB_ENDTRACK); assert(saved==attempts+1);
+    fail_save=1; env_blur_slider=90; RenderStudioMaterialSliderCommand(g_StudioProperties,IDC_STUDIO_ENV_BLUR,TB_THUMBTRACK);
+    RenderStudioMaterialSliderCommand(g_StudioProperties,IDC_STUDIO_ENV_BLUR,TB_ENDTRACK); fail_save=0;
+    assert(material.environmentblur==.75f && env_blur_slider==75);
+    env_blur_slider=0; RenderStudioMaterialSliderCommand(g_StudioProperties,IDC_STUDIO_ENV_BLUR,TB_LINEUP); assert(material.environmentblur==0);
+    env_blur_slider=100; RenderStudioMaterialSliderCommand(g_StudioProperties,IDC_STUDIO_ENV_BLUR,TB_THUMBTRACK); attempts=saved;
+    RenderStudioSelect(STUDIO_SELECT_AMBIENT,-1);
+    assert(material.environmentblur==1 && saved==attempts+1 && !g_StudioSliderMaterial);
+    assert(!visible[IDC_STUDIO_EMISSION_COLOR] && !visible[IDC_STUDIO_ENV_BLUR]);
+    assert(!RenderStudioMaterialSliderCommand(g_StudioProperties,IDC_STUDIO_ENV_BLUR,TB_THUMBTRACK));
+    RenderStudioSelect(0,0);
+    assert(material.metalness==1 && material.environmentblur==1);
+    /* Switching sliders must finish the previous preview without losing the
+     * requested value from the second control or rolling back other fields. */
+    metalness_slider=40; RenderStudioMaterialSliderCommand(g_StudioProperties,IDC_STUDIO_METALNESS,TB_THUMBTRACK);
+    env_blur_slider=60; RenderStudioMaterialSliderCommand(g_StudioProperties,IDC_STUDIO_ENV_BLUR,TB_THUMBTRACK);
+    assert(fabs(material.metalness-.4)<1e-6 && fabs(material.environmentblur-.6)<1e-6);
+    fail_save=1; RenderStudioFinishMaterialSlider(); fail_save=0;
+    assert(fabs(material.metalness-.4)<1e-6 && material.environmentblur==1);
     StudioMaterial prior=material; choose_cancel=1;
     RenderStudioMaterialCommand(g_StudioProperties,IDC_STUDIO_EMISSION_COLOR,BN_CLICKED);
     assert(!memcmp(&prior,&material,sizeof(prior))); choose_cancel=0; choose_switch=1;
@@ -280,7 +309,7 @@ int main(void)
     assert(!g_StudioScene.environment[0] && choicerow[1]==0);
     assert(invalidated>0);
     puts("PASS: shared image catalog, scene-only selector, validation, save rollback, cache refresh, missing-image retention and None.");
-    puts("PASS: emission picker/cancel/rollback, live metalness previews, one save per drag, keyboard adjustment, selection-change commit and light-control isolation.");
+    puts("PASS: emission picker/cancel/rollback, live metalness/blur previews, one save per drag, keyboard adjustment, selection-change commit and light-control isolation.");
     puts("PASS: permanent globals, isolated controls, direction validation, zero intensity, color dialogs, non-deletion and save rollback.");
     puts("PASS: add/cancel/failure, outliner identities, material/light isolation, Transform/Properties controls, tool availability, numeric/color edits, deletion/slot reuse and rollback.");
     return 0;

@@ -19,6 +19,7 @@ typedef struct StudioMaterial {
     char name[128], image[MAX_PATH];
     float base[3], specular[3], intensity, shininess;
     float emission[3], metalness; /* Black emission, nonmetallic by default. */
+    float environmentblur; /* Gaussian environment blur, 0 (sharp) to 1. */
 } StudioMaterial;
 
 typedef struct StudioModel {

@@ -63,6 +63,7 @@ BOOL StudioMaterialValid(const StudioMaterial *m)
             || !isfinite(m->emission[i]) || m->emission[i]<0 || m->emission[i]>1
             || !isfinite(m->specular[i]) || m->specular[i]<0 || m->specular[i]>1) { return FALSE; }
     return isfinite(m->metalness) && m->metalness>=0 && m->metalness<=1
+        && isfinite(m->environmentblur) && m->environmentblur>=0 && m->environmentblur<=1
         && isfinite(m->intensity) && m->intensity>=0 && m->intensity<=1
         && isfinite(m->shininess) && m->shininess>=1 && m->shininess<=128;
 }
@@ -217,7 +218,7 @@ BOOL StudioSceneSave(const StudioScene *scene, const char **why)
     { *why="Could not create a temporary scene file."; return FALSE; }
     file=fopen(temporary,"wb");
     if (!file) { DeleteFile(temporary); *why="Could not open the temporary scene file."; return FALSE; }
-    ok=fputs("{\n  \"format\": \"GEditor Render Studio\",\n  \"version\": 6,\n  \"environment\": ",file)!=EOF
+    ok=fputs("{\n  \"format\": \"GEditor Render Studio\",\n  \"version\": 7,\n  \"environment\": ",file)!=EOF
         && GltfJsonWriteString(file,scene->environment) && fputs(",\n  \"objects\": [",file)!=EOF;
     for (DWORD i=0;ok && i<scene->count;i++)
     {
@@ -232,9 +233,9 @@ BOOL StudioSceneSave(const StudioScene *scene, const char **why)
             const StudioMaterial *m=&o->materials[j];
             ok=fprintf(file,"%s\n      {\"name\": ",j ? "," : "")>=0 && GltfJsonWriteString(file,m->name)
                 && fputs(", \"image\": ",file)!=EOF && GltfJsonWriteString(file,m->image)
-                && fprintf(file,", \"base\": [%.9g, %.9g, %.9g], \"specular\": [%.9g, %.9g, %.9g], \"intensity\": %.9g, \"shininess\": %.9g, \"emission\": [%.9g, %.9g, %.9g], \"metalness\": %.9g}",
+                && fprintf(file,", \"base\": [%.9g, %.9g, %.9g], \"specular\": [%.9g, %.9g, %.9g], \"intensity\": %.9g, \"shininess\": %.9g, \"emission\": [%.9g, %.9g, %.9g], \"metalness\": %.9g, \"environmentBlur\": %.9g}",
                     m->base[0],m->base[1],m->base[2],m->specular[0],m->specular[1],m->specular[2],m->intensity,m->shininess,
-                    m->emission[0],m->emission[1],m->emission[2],m->metalness)>=0;
+                    m->emission[0],m->emission[1],m->emission[2],m->metalness,m->environmentblur)>=0;
         }
         ok=ok && fputs("\n    ]}",file)!=EOF;
     }
@@ -318,7 +319,7 @@ BOOL StudioSceneLoad(const char *projectdir, const char *filename, StudioScene *
     *why="The studio scene is invalid or uses an unsupported format.";
     if (!String(&j,Field(&j,0,"format"),format,sizeof(format)) || strcmp(format,"GEditor Render Studio")) { goto done; }
     token=Field(&j,0,"version");
-    if (token<0 || !GltfJsonUnsigned(text,&j.tokens[token],&version) || (version<1 || version>6)) { goto done; }
+    if (token<0 || !GltfJsonUnsigned(text,&j.tokens[token],&version) || (version<1 || version>7)) { goto done; }
     if (version>=6 && (!String(&j,Field(&j,0,"environment"),next.environment,sizeof(next.environment))
         || (next.environment[0] && !StudioAssetFilename(next.environment,".bmp")))) { goto done; }
     array=Field(&j,0,"objects");
@@ -362,6 +363,12 @@ BOOL StudioSceneLoad(const char *projectdir, const char *filename, StudioScene *
                 for (int k=0;k<3;k++)
                 { if (emission[k]<0 || emission[k]>1) { goto done; } mat->emission[k]=(float)emission[k]; }
                 mat->metalness=(float)metalness;
+            }
+            if (version>=7)
+            {
+                double blur;
+                if (!Number(&j,Field(&j,token,"environmentBlur"),&blur) || blur<0 || blur>1) { goto done; }
+                mat->environmentblur=(float)blur;
             }
             if (!StudioMaterialValid(mat)) { goto done; }
         }

@@ -46,7 +46,7 @@ static BOOL StudioViewportCancelTransform(HWND hwnd)
 { if(!dragging) return FALSE; dragging=FALSE; cancelled++; return TRUE; }
 static void StudioViewportCommitTransform(HWND hwnd) { dragging=FALSE; }
 static void RenderStudioDeleteLight(void) { deleted++; }
-static void RenderStudioFinishMetalness(void) {}
+static void RenderStudioFinishMaterialSlider(void) {}
 static void RenderStudioTool(int mode) { tool=mode; }
 static BOOL StudioSceneSave(const void *scene,const char **why)
 { assert(!dragging && !pending); saved++; lastsaved=g_StudioScene.value; return TRUE; }

@@ -18,9 +18,10 @@ static StudioScene g_StudioScene;
 static int g_StudioObject=-1,g_StudioMaterial=-1,g_StudioLight=-1,g_StudioGlobal=-1;
 static BOOL g_StudioUpdating,g_StudioDragArmed,g_StudioDragging;
 static unsigned g_StudioGeneration,g_StudioTransformDirty,g_StudioLightDirty;
-static StudioMaterial *g_StudioMetalnessMaterial;
-static float g_StudioMetalnessBefore;
-static void RenderStudioFinishMetalness(void);
+static StudioMaterial *g_StudioSliderMaterial;
+static StudioMaterial g_StudioSliderBefore;
+static int g_StudioSliderId;
+static void RenderStudioFinishMaterialSlider(void);
 static int g_StudioTool=STUDIO_TRANSLATE;
 static BOOL g_StudioLoading,g_StudioTriedInitialScene;
 static POINT g_StudioDragPress;
@@ -148,6 +149,8 @@ static void RenderStudioProperties(void)
         ShowWindow(GetDlgItem(g_StudioProperties,id),m ? SW_SHOW : SW_HIDE);
     for (int id=IDC_STUDIO_EMISSION_LABEL;id<=IDC_STUDIO_METALNESS;id++)
         ShowWindow(GetDlgItem(g_StudioProperties,id),m ? SW_SHOW : SW_HIDE);
+    for (int id=IDC_STUDIO_ENV_BLUR_LABEL;id<=IDC_STUDIO_ENV_BLUR;id++)
+        ShowWindow(GetDlgItem(g_StudioProperties,id),m ? SW_SHOW : SW_HIDE);
     BOOL scene=RenderStudioSceneSelected();
     for (int id=IDC_STUDIO_ENVIRONMENT_LABEL;id<=IDC_STUDIO_ENVIRONMENT_HINT;id++)
         ShowWindow(GetDlgItem(g_StudioProperties,id),scene ? SW_SHOW : SW_HIDE);
@@ -170,6 +173,9 @@ static void RenderStudioProperties(void)
         int metalness=(int)(m->metalness*100+.5f);
         SendDlgItemMessage(g_StudioProperties,IDC_STUDIO_METALNESS,TBM_SETPOS,TRUE,metalness);
         snprintf(text,sizeof(text),"Metalness: %d%%",metalness); SetDlgItemText(g_StudioProperties,IDC_STUDIO_METALNESS_LABEL,text);
+        int blur=(int)(m->environmentblur*100+.5f);
+        SendDlgItemMessage(g_StudioProperties,IDC_STUDIO_ENV_BLUR,TBM_SETPOS,TRUE,blur);
+        snprintf(text,sizeof(text),"Env Map Blur: %d%%",blur); SetDlgItemText(g_StudioProperties,IDC_STUDIO_ENV_BLUR_LABEL,text);
         HWND image=GetDlgItem(g_StudioProperties,IDC_STUDIO_BASE_IMAGE);
         LRESULT row=m->image[0] ? SendMessage(image,CB_FINDSTRINGEXACT,(WPARAM)-1,(LPARAM)m->image) : 0;
         if (row==CB_ERR) { row=SendMessage(image,CB_ADDSTRING,0,(LPARAM)m->image); }
@@ -302,7 +308,7 @@ static void RenderStudioSaveScene(void)
 {
     const char *why="";
     /* End text editing first so File > Save includes the current field. */
-    RenderStudioFinishMetalness();
+    RenderStudioFinishMaterialSlider();
     StudioViewportCommitTransform(g_StudioViewport);
     SetFocus(g_StudioViewport);
     if (!g_StudioScene.filename[0]) { return; }
@@ -312,7 +318,7 @@ static void RenderStudioSaveScene(void)
 
 static void RenderStudioSelect(int object, int material)
 {
-    RenderStudioFinishMetalness();
+    RenderStudioFinishMaterialSlider();
     StudioViewportCancelTransform(g_StudioViewport);
     g_StudioGlobal=g_StudioScene.filename[0] ? (object==STUDIO_SELECT_AMBIENT ? 0 : object==STUDIO_SELECT_DIRECTIONAL ? 1 : -1) : -1;
     g_StudioLight=StudioSceneLightIndex(&g_StudioScene,object);
@@ -374,7 +380,7 @@ static void RenderStudioOutliner(void)
 
 static BOOL RenderStudioLoadScene(const char *filename)
 {
-    RenderStudioFinishMetalness();
+    RenderStudioFinishMaterialSlider();
     const char *why="";
     if (g_StudioLoading) { return FALSE; } g_StudioLoading=TRUE;
     StudioViewportCancelTransform(g_StudioViewport);
@@ -493,23 +499,29 @@ static BOOL RenderStudioLightCommand(HWND hwnd,int id,int code)
 
 /* Keep thumb tracking responsive: preview while dragging, save once on release.
  * Finish before selection changes or the scene's material storage is replaced. */
-static void RenderStudioFinishMetalness(void)
+static void RenderStudioFinishMaterialSlider(void)
 {
-    StudioMaterial *m=g_StudioMetalnessMaterial; if (!m) { return; }
-    StudioMaterial previous=*m; previous.metalness=g_StudioMetalnessBefore;
-    g_StudioMetalnessMaterial=NULL;
-    if (m->metalness!=previous.metalness) { RenderStudioCommitMaterial(m,&previous); }
+    StudioMaterial *m=g_StudioSliderMaterial; if (!m) { return; }
+    StudioMaterial previous=*m;
+    if (g_StudioSliderId==IDC_STUDIO_METALNESS) { previous.metalness=g_StudioSliderBefore.metalness; }
+    else { previous.environmentblur=g_StudioSliderBefore.environmentblur; }
+    g_StudioSliderMaterial=NULL;
+    if (memcmp(m,&previous,sizeof(previous))) { RenderStudioCommitMaterial(m,&previous); }
 }
 
-static BOOL RenderStudioMetalnessCommand(HWND hwnd,int code)
+static BOOL RenderStudioMaterialSliderCommand(HWND hwnd,int id,int code)
 {
-    StudioMaterial *m=RenderStudioMaterial(); if (!m || g_StudioUpdating) { return FALSE; }
-    if (!g_StudioMetalnessMaterial) { g_StudioMetalnessMaterial=m; g_StudioMetalnessBefore=m->metalness; }
-    int value=(int)SendDlgItemMessage(hwnd,IDC_STUDIO_METALNESS,TBM_GETPOS,0,0);
-    value=max(0,min(100,value)); m->metalness=value/100.f;
-    char text[64]; snprintf(text,sizeof(text),"Metalness: %d%%",value);
-    SetDlgItemText(hwnd,IDC_STUDIO_METALNESS_LABEL,text); InvalidateRect(g_StudioViewport,NULL,FALSE);
-    if (code!=TB_THUMBTRACK) { RenderStudioFinishMetalness(); }
+    StudioMaterial *m=RenderStudioMaterial();
+    if (!m || g_StudioUpdating || (id!=IDC_STUDIO_METALNESS && id!=IDC_STUDIO_ENV_BLUR)) { return FALSE; }
+    int value=(int)SendDlgItemMessage(hwnd,id,TBM_GETPOS,0,0);
+    if (g_StudioSliderMaterial && (g_StudioSliderMaterial!=m || g_StudioSliderId!=id)) { RenderStudioFinishMaterialSlider(); }
+    if (!g_StudioSliderMaterial) { g_StudioSliderMaterial=m; g_StudioSliderBefore=*m; g_StudioSliderId=id; }
+    value=max(0,min(100,value)); SendDlgItemMessage(hwnd,id,TBM_SETPOS,TRUE,value);
+    if (id==IDC_STUDIO_METALNESS) { m->metalness=value/100.f; } else { m->environmentblur=value/100.f; }
+    char text[64]; snprintf(text,sizeof(text),"%s: %d%%",id==IDC_STUDIO_METALNESS ? "Metalness" : "Env Map Blur",value);
+    SetDlgItemText(hwnd,id==IDC_STUDIO_METALNESS ? IDC_STUDIO_METALNESS_LABEL : IDC_STUDIO_ENV_BLUR_LABEL,text);
+    InvalidateRect(g_StudioViewport,NULL,FALSE);
+    if (code!=TB_THUMBTRACK) { RenderStudioFinishMaterialSlider(); }
     return TRUE;
 }
 
@@ -584,16 +596,20 @@ static INT_PTR CALLBACK RenderStudioPropertiesProc(HWND hwnd, UINT message, WPAR
     case WM_INITDIALOG:
         SendDlgItemMessage(hwnd,IDC_STUDIO_METALNESS,TBM_SETRANGE,TRUE,MAKELONG(0,100));
         SendDlgItemMessage(hwnd,IDC_STUDIO_METALNESS,TBM_SETPAGESIZE,0,10);
+        SendDlgItemMessage(hwnd,IDC_STUDIO_ENV_BLUR,TBM_SETRANGE,TRUE,MAKELONG(0,100));
+        SendDlgItemMessage(hwnd,IDC_STUDIO_ENV_BLUR,TBM_SETPAGESIZE,0,10);
         SendDlgItemMessage(hwnd,IDC_STUDIO_INTENSITY,EM_LIMITTEXT,32,0);
         SendDlgItemMessage(hwnd,IDC_STUDIO_SHININESS,EM_LIMITTEXT,32,0);
         for (int id=IDC_STUDIO_LIGHT_INTENSITY;id<=IDC_STUDIO_LIGHT_OUTER;id++) { SendDlgItemMessage(hwnd,id,EM_LIMITTEXT,48,0); }
         return TRUE;
     case WM_HSCROLL:
-        if ((HWND)lparam==GetDlgItem(hwnd,IDC_STUDIO_METALNESS)) { return RenderStudioMetalnessCommand(hwnd,LOWORD(wparam)); }
+        if ((HWND)lparam==GetDlgItem(hwnd,IDC_STUDIO_METALNESS)) { return RenderStudioMaterialSliderCommand(hwnd,IDC_STUDIO_METALNESS,LOWORD(wparam)); }
+        if ((HWND)lparam==GetDlgItem(hwnd,IDC_STUDIO_ENV_BLUR)) { return RenderStudioMaterialSliderCommand(hwnd,IDC_STUDIO_ENV_BLUR,LOWORD(wparam)); }
         break;
     case WM_NOTIFY:
-        if (((NMHDR *)lparam)->idFrom==IDC_STUDIO_METALNESS && ((NMHDR *)lparam)->code==NM_RELEASEDCAPTURE)
-        { RenderStudioFinishMetalness(); return TRUE; }
+        if ((((NMHDR *)lparam)->idFrom==IDC_STUDIO_METALNESS || ((NMHDR *)lparam)->idFrom==IDC_STUDIO_ENV_BLUR)
+            && ((NMHDR *)lparam)->code==NM_RELEASEDCAPTURE)
+        { RenderStudioFinishMaterialSlider(); return TRUE; }
         break;
     case WM_DRAWITEM:
     {
@@ -636,7 +652,7 @@ static void RenderStudioImageChoices(const TexThumb *images,DWORD count)
 
 static void RenderStudioAddLight(BOOL spotlight)
 {
-    RenderStudioFinishMetalness();
+    RenderStudioFinishMaterialSlider();
     const char *why="";
     SetFocus(g_StudioViewport); /* Commit any current numeric edit. */
     if (!g_StudioScene.filename[0]) { RenderStudioNewScene(g_Studio); }
@@ -678,7 +694,7 @@ static void RenderStudioDeleteLight(void)
 
 static void RenderStudioDropModel(const char *filename,POINT point)
 {
-    RenderStudioFinishMetalness();
+    RenderStudioFinishMaterialSlider();
     const char *why=""; double position[3];
     if (WindowFromPoint(point)!=g_StudioViewport || !StudioViewportDropPoint(g_StudioViewport,point,position)) { return; }
     if (!g_StudioScene.filename[0]) { RenderStudioNewScene(g_Studio); if (!g_StudioScene.filename[0]) { return; } }
@@ -842,7 +858,7 @@ static void RenderStudioPanel(HWND hwnd, int group, int content,
 
 static void RenderStudioLayout(HWND hwnd)
 {
-    RECT client, units = {8, 16, 144, 0}, panel = {0, 0, 168, 88}, properties={0,0,0,184}, transform={0,0,0,112};
+    RECT client, units = {8, 16, 144, 0}, panel = {0, 0, 168, 88}, properties={0,0,0,208}, transform={0,0,0,112};
     int margin, height, left, right, rightx, scenesize, imagesize, outline;
     GetClientRect(hwnd, &client); MapDialogRect(hwnd, &units); MapDialogRect(hwnd, &panel); MapDialogRect(hwnd,&properties); MapDialogRect(hwnd,&transform);
     margin = units.left; left = units.right; right = panel.right;
@@ -884,7 +900,7 @@ void RenderStudioSetProject(const GEditorProject *project)
     snprintf(title, sizeof(title), "Render Studio%s%s", dir[0] ? " - " : "", dir[0] ? project->name : "");
     SetWindowText(g_Studio, title);
     if (!changed) { return; }
-    RenderStudioFinishMetalness();
+    RenderStudioFinishMaterialSlider();
     /* Scene state belongs to this project, never to the selected game level. */
     StudioViewportCancelTransform(g_StudioViewport);
     g_StudioGeneration++; g_StudioTriedInitialScene=FALSE; StudioSceneFree(&g_StudioScene); g_StudioObject=g_StudioMaterial=g_StudioLight=g_StudioGlobal=-1;
@@ -945,7 +961,7 @@ static INT_PTR CALLBACK RenderStudioProc(HWND hwnd, UINT message, WPARAM wparam,
         if (LOWORD(wparam) == ID_STUDIO_ADD_POINT_LIGHT) { RenderStudioAddLight(FALSE); return TRUE; }
         if (LOWORD(wparam) == ID_STUDIO_SAVE_SCENE) { RenderStudioSaveScene(); return TRUE; }
         if (LOWORD(wparam) == ID_STUDIO_NEW_SCENE) { RenderStudioNewScene(hwnd); return TRUE; }
-        if (LOWORD(wparam) == IDCANCEL) { RenderStudioFinishMetalness(); DestroyWindow(hwnd); return TRUE; }
+        if (LOWORD(wparam) == IDCANCEL) { RenderStudioFinishMaterialSlider(); DestroyWindow(hwnd); return TRUE; }
         if (LOWORD(wparam) == IDOK) { SetFocus(GetDlgItem(g_Studio,IDC_STUDIO_MATERIALS)); return TRUE; }
         if (LOWORD(wparam)==IDC_STUDIO_SCENE && HIWORD(wparam)==LBN_SELCHANGE)
         {
@@ -955,7 +971,7 @@ static INT_PTR CALLBACK RenderStudioProc(HWND hwnd, UINT message, WPARAM wparam,
             return TRUE;
         }
         if (LOWORD(wparam)==IDC_STUDIO_MATERIALS && HIWORD(wparam)==LBN_SELCHANGE && !g_StudioUpdating)
-        { RenderStudioFinishMetalness(); g_StudioMaterial=(int)SendDlgItemMessage(hwnd,IDC_STUDIO_MATERIALS,LB_GETCURSEL,0,0); RenderStudioProperties(); return TRUE; }
+        { RenderStudioFinishMaterialSlider(); g_StudioMaterial=(int)SendDlgItemMessage(hwnd,IDC_STUDIO_MATERIALS,LB_GETCURSEL,0,0); RenderStudioProperties(); return TRUE; }
         break;
     case WM_NOTIFY:
         if (((NMHDR *)lparam)->idFrom==IDC_STUDIO_OUTLINER && ((NMHDR *)lparam)->code==TVN_SELCHANGED && !g_StudioUpdating)
@@ -971,9 +987,9 @@ static INT_PTR CALLBACK RenderStudioProc(HWND hwnd, UINT message, WPARAM wparam,
         else { RenderStudioTransformPanel(); StudioViewportSetScene(g_StudioViewport,&g_StudioScene,FALSE); }
         return TRUE;
     case STUDIO_WM_SELECT: RenderStudioSelect((int)(INT_PTR)wparam,(int)lparam); return TRUE;
-    case WM_CLOSE: RenderStudioFinishMetalness(); StudioViewportCancelTransform(g_StudioViewport); DestroyWindow(hwnd); return TRUE;
+    case WM_CLOSE: RenderStudioFinishMaterialSlider(); StudioViewportCancelTransform(g_StudioViewport); DestroyWindow(hwnd); return TRUE;
     case WM_NCDESTROY:
-        g_StudioMetalnessMaterial=NULL;
+        g_StudioSliderMaterial=NULL;
         g_StudioGeneration++; g_StudioTriedInitialScene=FALSE; StudioSceneFree(&g_StudioScene);
         g_Studio = g_StudioViewport = g_StudioProperties = g_StudioTransform = NULL; g_StudioTool=STUDIO_TRANSLATE; g_StudioProject[0] = '\0';
         g_StudioObject=g_StudioMaterial=g_StudioLight=g_StudioGlobal=-1; g_StudioDragArmed=g_StudioDragging=FALSE;
@@ -1028,7 +1044,7 @@ BOOL RenderStudioShow(HWND owner, HINSTANCE instance, const GEditorProject *proj
     return TRUE;
 }
 
-void RenderStudioClose(void) { if (g_Studio) { RenderStudioFinishMetalness(); DestroyWindow(g_Studio); } }
+void RenderStudioClose(void) { if (g_Studio) { RenderStudioFinishMaterialSlider(); DestroyWindow(g_Studio); } }
 
 BOOL RenderStudioHandleMessage(MSG *message)
 {

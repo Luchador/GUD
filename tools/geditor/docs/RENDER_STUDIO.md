@@ -74,13 +74,20 @@ intensity and shininess continue to control highlights from the scene lights.
 Emission is added separately. The panorama supplies reflections, without
 changing the viewport background or lighting nonmetallic surfaces.
 
+Select a material and adjust **Env Map Blur** (0–100%) to soften its reflection
+with a Gaussian blur. It defaults to 0%, retaining the original sharp map.
+The blur previews while dragging and saves on release, independently for each
+material instance. Metalness still controls reflection strength; blur does not
+change the base image, emission, or highlights from scene lights. The source BMP
+is never changed, and filtering wraps across the panorama seam and poles.
+
 The environment stays aligned with the world as the camera or model moves.
 The image's top is +Y and bottom is -Y; its center faces +Z, with +X at three
 quarters of the width and -X at one quarter. The left/right edges wrap at -Z.
 The reflection uses transformed normals, including nonuniform model scales.
 As with the preview's vertex lighting, the mapping is interpolated across
-triangles; sufficient mesh detail improves curved reflections. Reflection blur
-and reflections of other scene objects are not implemented.
+triangles; sufficient mesh detail improves curved reflections. Reflections of
+other scene objects are not implemented.
 
 Select a model in the viewport or Scene Outliner to show its transform gizmo and
 **Transform** panel. Use the panel buttons or **W** for translation, **E** for
@@ -134,6 +141,8 @@ a slot exposes these controls in **Properties**:
   mix the nonmetallic and metallic responses. The slider displays its percentage,
   previews while dragging, and saves when released; arrow keys adjust by 1% and
   Page Up/Down by 10% while it has focus.
+- **Env Map Blur:** a 0–100% Gaussian blur slider, initially 0%. It has the same
+  live preview, save-on-release, and keyboard behavior as Metalness.
 
 Metalness is an artistic extension of the Phong preview, not a PBR renderer.
 Place lights where they produce visible highlights, and adjust specular intensity
@@ -251,12 +260,12 @@ workspace to the newly opened project; switching game levels does not.
 `studiodocument.c` owns scene loading, atomic replacement, instances, shared model
 assets, per-instance materials, fixed local-light slots, and permanent lighting. A `.rnd` is a UTF-8 JSON
 document with
-`"format": "GEditor Render Studio"`, `"version": 6`, `objects` and `lights` arrays,
+`"format": "GEditor Render Studio"`, `"version": 7`, `objects` and `lights` arrays,
 required `ambient` and `directional` objects, and an `environment` string.
 The environment is a BMP leaf filename relative to `studio/images`, or an empty
-string for None. Version 6 requires it; versions 1–5 default to None. Each permanent-light object
+string for None. Versions 6–7 require it; versions 1–5 default to None. Each permanent-light object
 stores `color` (RGB, 0–1) and `intensity`; `directional` also stores `direction`.
-Versions 1–5 remain supported. Versions 1–3 use the legacy lighting defaults:
+Versions 1–6 remain supported. Versions 1–3 use the legacy lighting defaults:
 their ambient light defaults to white at 0.2.
 Their directional light preserves the original preview direction and is white
 at intensity 1 if there are no local lights, or intensity 0 if any local light
@@ -264,22 +273,23 @@ exists (including one with zero intensity). This preserves their previous
 appearance. After loading, the permanent lights can be edited independently.
 For version-1 scenes, existing positions and material settings are
 retained, rotation defaults to zero, and scale defaults to one. An empty scene
-created by New Scene starts as version 1; saving upgrades it to version 6.
+created by New Scene starts as version 1; saving upgrades it to version 7.
 Each object stores its model leaf filename, three-component `position`, `rotation`
 (in degrees), `scale` (multipliers), and material overrides (`name`, `image`,
-`base`, `specular`, `intensity`, `shininess`, `emission`, and `metalness`).
-Versions 5 and 6 require `emission` (three RGB values, 0–1) and `metalness` (0–1) on each
+`base`, `specular`, `intensity`, `shininess`, `emission`, `metalness`, and `environmentBlur`).
+Versions 5–7 require `emission` (three RGB values, 0–1) and `metalness` (0–1) on each
 saved material. Versions 1–4 default both to zero, preserving their appearance;
 version 4 retains its saved global-light settings. New imported material slots
 also start with black emission and zero metalness, irrespective of glTF PBR
-material settings. Paths are relative to the
+material settings. Version 7 requires `environmentBlur` (0–1) per material;
+versions 1–6 and new imports default to zero. Paths are relative to the
 project's studio folders. The scene name comes from its filename.
 Each light stores `type` (`spotlight` or `point`), `slot`, `position`, `color`,
 and `intensity`. The optional `slot` preserves point-light identity after deletions;
 older version-3 scenes without it assign slots in file order. Spotlights also store `direction`, `inner`, and `outer`; point lights
 store `radius`. Invalid light data or exceeded limits reject the entire load
-without changing the open scene. Older editor builds reject version-6 scenes
-rather than silently discarding the environment setting.
+without changing the open scene. Older editor builds reject version-7 scenes
+rather than silently discarding the blur setting.
 `gltf.c` provides a separate studio import mode using the shared JSON codec in
 `gltfjson.c`; it does not require game source identities or game texture tags.
 `studiomath.c` owns model matrices, ray picking, transformed bounds, and preview
@@ -288,19 +298,29 @@ draws, and picks the same arrow/ring/scale assets used by the main editor.
 `studiolightview.c` owns the embedded light icons, projection, picking, and direction
 guide. `studioviewport.c`
 owns the preview camera, rendering, image textures, and its own OpenGL context.
+The grid uses its own clipping range and does not write model depth, so framing
+a small model no longer cuts the grid into a narrow strip at shallow angles.
+`studioenvironment.c` applies a normalized, separable Gaussian kernel truncated
+at three standard deviations. At 100%, sigma is 1/16 of the panorama width
+(22.5 degrees). Blurred textures use area-filtered, power-of-two resolutions up
+to 1024 pixels wide; wider kernels use fewer pixels to bound interactive work.
+The sharp environment retains the existing 4096-pixel limit. Blur variants are
+cached per image/whole percentage and shared across materials; changing images,
+scenes, or projects releases them.
 
 Run `python3 tools/geditor/tests/studio_materials/run.py` for glTF/material,
 scene persistence, failure rollback, picking, and lighting regression coverage,
 including emission, metalness blending, material validation, v1–v4 material
 migration, panorama orientation/seam/pole math, environment persistence, and
-v1–v5 environment defaults.
+v1–v5 environment defaults, v1–v6 sharp-reflection defaults, and Gaussian
+reference/identity/energy/seam/pole tests.
 Run `python3 tools/geditor/tests/studio_lights/run.py` for light limits, properties,
 roundtrip persistence, legacy migration, invalid-document/save rollback, cone and
 radius falloff, colored diffuse/specular contributions, and outliner/property
 callback coverage with stand-in native controls, light transforms, icon picking,
 framing, deletion, stable slot reuse, permanent-light controls/non-deletion,
 colored ambient/directional illumination, v1–v3 appearance migration, and the
-emission picker/metalness slider callbacks with drag commit and save rollback,
+emission picker and metalness/blur slider callbacks with drag commit and save rollback,
 and the scene environment selector with shared image choices and failure handling.
 Run `python3 tools/geditor/tests/studio_transforms/run.py` for transform
 persistence, legacy-scene loading, transformed picking/lighting, drag math,
@@ -338,3 +358,8 @@ Save/reopen, switch scenes/projects, select None, and temporarily move/restore
 the panorama file. Try an ordinary square BMP and confirm it is rejected while
 remaining available as a base image. Native WIC decoding and control layout
 still require this Windows smoke test.
+
+Try Env Map Blur at 0%, 50%, and 100%, including two materials with different
+blur values. Confirm changing one leaves the other sharp, and save/reopen retains
+both. Orbit close to the X/Z horizon and resize the viewport; nearby and distant
+grid lines should remain visible without changing model depth or reflection passes.

@@ -11,10 +11,15 @@
 #include "editorpath.h"
 #include "studiogizmo.h"
 #include "studiolightview.h"
+#include "studioenvironment.h"
 
 #define STUDIO_VIEWPORT_CLASS "GEditorStudioViewport"
 
-typedef struct StudioTexture { char name[MAX_PATH]; GLuint id; BOOL environment; int height; struct StudioTexture *next; } StudioTexture;
+typedef struct StudioTexture {
+    char name[MAX_PATH]; GLuint id; BOOL environment; int width,height,blur;
+    TexPixel *pixels; /* Retained only for the sharp environment, shared by blur variants. */
+    struct StudioTexture *next;
+} StudioTexture;
 
 typedef struct StudioViewport {
     HDC dc;
@@ -102,7 +107,7 @@ static void StudioViewportTextures(StudioViewport *state)
     while (state->textures)
     {
         StudioTexture *texture=state->textures; state->textures=texture->next;
-        if (texture->id) { glDeleteTextures(1,&texture->id); } free(texture);
+        if (texture->id) { glDeleteTextures(1,&texture->id); } free(texture->pixels); free(texture);
     }
 }
 
@@ -193,24 +198,33 @@ static BOOL StudioViewportInit(HWND hwnd, StudioViewport *state)
     return loaded;
 }
 
-static StudioTexture *StudioViewportTexture(StudioViewport *state, const char *filename,BOOL environment)
+static StudioTexture *StudioViewportTexture(StudioViewport *state, const char *filename,BOOL environment,int blur)
 {
     if (!filename[0] || !state->scene) { return NULL; }
     StudioTexture *texture; char folder[MAX_PATH],path[MAX_PATH]; TexPixel *pixels=NULL; int w,h; GLint maximum;
-    for (texture=state->textures;texture;texture=texture->next) if (texture->environment==environment && !lstrcmpi(filename,texture->name)) { return texture; }
+    for (texture=state->textures;texture;texture=texture->next) if (texture->environment==environment && texture->blur==blur && !lstrcmpi(filename,texture->name)) { return texture; }
     texture=calloc(1,sizeof(*texture)); if (!texture) { return NULL; }
-    texture->environment=environment;
+    texture->environment=environment; texture->blur=blur;
     lstrcpyn(texture->name,filename,sizeof(texture->name)); texture->next=state->textures; state->textures=texture;
-    glGetIntegerv(GL_MAX_TEXTURE_SIZE,&maximum); maximum=min(4096,maximum);
-    if (!EditorPathJoin(folder,sizeof(folder),state->scene->project,"studio\\images")
-        || !EditorPathJoin(path,sizeof(path),folder,filename)
-        || !(environment ? TexLoadStudioEnvironment(path,maximum,&pixels,&w,&h)
-            : TexLoadStudioTexture(path,maximum,&pixels,&w,&h))) { return texture; }
-    texture->height=h;
+    if (environment && blur)
+    {
+        StudioTexture *source=StudioViewportTexture(state,filename,TRUE,0);
+        if (!source || !source->pixels || !StudioEnvironmentBlur(source->pixels,source->width,source->height,blur,&pixels,&w,&h)) { return texture; }
+    }
+    else
+    {
+        glGetIntegerv(GL_MAX_TEXTURE_SIZE,&maximum); maximum=min(4096,maximum);
+        if (!EditorPathJoin(folder,sizeof(folder),state->scene->project,"studio\\images")
+            || !EditorPathJoin(path,sizeof(path),folder,filename)
+            || !(environment ? TexLoadStudioEnvironment(path,maximum,&pixels,&w,&h)
+                : TexLoadStudioTexture(path,maximum,&pixels,&w,&h))) { return texture; }
+    }
+    texture->width=w; texture->height=h;
     glGenTextures(1,&texture->id); glBindTexture(GL_TEXTURE_2D,texture->id);
     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR); glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT); glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,environment ? GL_CLAMP : GL_REPEAT);
-    glTexImage2D(GL_TEXTURE_2D,0,GL_RGB,w,h,0,GL_RGBA,GL_UNSIGNED_BYTE,pixels); free(pixels);
+    glTexImage2D(GL_TEXTURE_2D,0,GL_RGB,w,h,0,GL_RGBA,GL_UNSIGNED_BYTE,pixels);
+    if (environment && !blur) { texture->pixels=pixels; } else { free(pixels); }
     return texture;
 }
 
@@ -218,7 +232,7 @@ static void StudioViewportObjects(StudioViewport *state, const double eye[3])
 {
     if (!state->scene) { return; }
     glShadeModel(GL_SMOOTH);
-    StudioTexture *environment=StudioViewportTexture(state,state->scene->environment,TRUE);
+    StudioTexture *environment=StudioViewportTexture(state,state->scene->environment,TRUE,0);
     BOOL reflect=FALSE;
     if (environment && environment->id) for (DWORD i=0;i<state->scene->count;i++)
         for (DWORD j=0;j<state->scene->objects[i].materialcount;j++)
@@ -251,7 +265,13 @@ static void StudioViewportObjects(StudioViewport *state, const double eye[3])
                     const StudioMaterial *m=&o->materials[slot];
                     if ((kind==METALLIC || kind==ENVIRONMENT) && m->metalness==0) { first=end; continue; }
                     StudioTexture *texture=kind==ENVIRONMENT ? environment : kind==BASE_IMAGE || (!reflect && kind!=ADDITIVE)
-                        ? StudioViewportTexture(state,m->image,FALSE) : NULL;
+                        ? StudioViewportTexture(state,m->image,FALSE,0) : NULL;
+                    if (kind==ENVIRONMENT && m->environmentblur>0)
+                    {
+                        int blur=max(0,min(100,(int)(m->environmentblur*100+.5f)));
+                        StudioTexture *blurred=StudioViewportTexture(state,state->scene->environment,TRUE,blur);
+                        if (blurred && blurred->id) { texture=blurred; }
+                    }
                     if (kind==BASE_IMAGE && (!texture || !texture->id)) { first=end; continue; }
                     if (texture && texture->id)
                     { glEnable(GL_TEXTURE_2D); glBindTexture(GL_TEXTURE_2D,texture->id); glTexEnvi(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_MODULATE); }
@@ -268,7 +288,7 @@ static void StudioViewportObjects(StudioViewport *state, const double eye[3])
                             {
                                 float strength=m->metalness/255.f;
                                 glColor3f(m->base[0]*vertex->r*strength,m->base[1]*vertex->g*strength,m->base[2]*vertex->b*strength);
-                                double edge=.5/environment->height;
+                                double edge=.5/texture->height;
                                 glTexCoord2d(uv[k][0],fmax(edge,fmin(1-edge,uv[k][1])));
                             }
                             else
@@ -308,6 +328,36 @@ static void StudioViewportObjects(StudioViewport *state, const double eye[3])
     }
 }
 
+/* The grid is a background guide, not part of the model's depth bounds.
+ * A separate projection keeps both its near and distant lines visible without
+ * sacrificing model depth precision (especially for the additive passes). */
+static void StudioViewportGrid(const double eye[3],int width,int height)
+{
+    double distance=sqrt(eye[0]*eye[0]+eye[1]*eye[1]+eye[2]*eye[2]);
+    double nearz=.001,farz=distance+18;
+    double halfheight=tan(STUDIO_FOV*3.14159265358979323846/360.0)*nearz;
+    glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity();
+    glFrustum(-halfheight*width/height,halfheight*width/height,-halfheight,halfheight,nearz,farz);
+    glMatrixMode(GL_MODELVIEW); glDisable(GL_DEPTH_TEST); glDepthMask(GL_FALSE);
+    glLineWidth(1); glBegin(GL_LINES);
+    for (int i = -10; i <= 10; i++)
+    {
+        if (!i) { continue; }
+        if (i % 5) { glColor3ub(65, 69, 77); }
+        else { glColor3ub(89, 94, 103); }
+        glVertex3i(i, 0, -10); glVertex3i(i, 0, 10);
+        glVertex3i(-10, 0, i); glVertex3i(10, 0, i);
+    }
+    glEnd();
+    glLineWidth(2); glBegin(GL_LINES);
+    glColor3ub(190, 83, 83); glVertex3i(-10, 0, 0); glVertex3i(10, 0, 0);
+    glColor3ub(90, 175, 111); glVertex3i(0, 0, 0); glVertex3i(0, 3, 0);
+    glColor3ub(88, 130, 205); glVertex3i(0, 0, -10); glVertex3i(0, 0, 10);
+    glEnd(); glLineWidth(1);
+    glDepthMask(GL_TRUE); glEnable(GL_DEPTH_TEST);
+    glMatrixMode(GL_PROJECTION); glPopMatrix(); glMatrixMode(GL_MODELVIEW);
+}
+
 static void StudioViewportDraw(StudioViewport *state, int width, int height)
 {
     double nearz, farz, eye[3], halfheight;
@@ -329,21 +379,7 @@ static void StudioViewportDraw(StudioViewport *state, int width, int height)
     glRotated(-state->camera.yaw, 0, 1, 0);
     glTranslated(-eye[0], -eye[1], -eye[2]);
 
-    glLineWidth(1); glBegin(GL_LINES);
-    for (int i = -10; i <= 10; i++)
-    {
-        if (!i) { continue; }
-        if (i % 5) { glColor3ub(65, 69, 77); }
-        else { glColor3ub(89, 94, 103); }
-        glVertex3i(i, 0, -10); glVertex3i(i, 0, 10);
-        glVertex3i(-10, 0, i); glVertex3i(10, 0, i);
-    }
-    glEnd();
-    glLineWidth(2); glBegin(GL_LINES);
-    glColor3ub(190, 83, 83); glVertex3i(-10, 0, 0); glVertex3i(10, 0, 0);
-    glColor3ub(90, 175, 111); glVertex3i(0, 0, 0); glVertex3i(0, 3, 0);
-    glColor3ub(88, 130, 205); glVertex3i(0, 0, -10); glVertex3i(0, 0, 10);
-    glEnd(); glLineWidth(1);
+    StudioViewportGrid(eye,width,height);
     StudioViewportObjects(state,eye);
     StudioLightIconsDraw(&state->lighticons,state->scene,&state->camera,width,height,state->selected);
     StudioGizmoFrame frame;
