@@ -24,6 +24,7 @@
 #include "objectflags.h"
 #include "setupselection.h"
 #include "objectproperties.h"
+#include "safelinkdialog.h"
 #include "doorshadowproperties.h"
 #include <src/propconstants.h>
 #include "characterproperties.h"
@@ -737,8 +738,8 @@ enum {
     ID_VIEW_RENDER_UNTEXTURED,
     ID_VIEW_HIDE_SELECTED,
     ID_VIEW_UNHIDE_ALL,
-    ID_VIEW_GO_TO_FACE,
-    ID_VIEW_GO_TO_PORTAL,
+    ID_SELECT_GO_TO_FACE,
+    ID_SELECT_GO_TO_PORTAL,
 
     ID_SELECT_GROW,
     ID_SELECT_ALL,
@@ -939,9 +940,6 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(viewmenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(viewmenu, MF_STRING, ID_VIEW_HIDE_SELECTED, "&Hide Selected\tH");
     AppendMenu(viewmenu, MF_STRING, ID_VIEW_UNHIDE_ALL, "&Unhide All\tAlt+H");
-    AppendMenu(viewmenu, MF_SEPARATOR, 0, NULL);
-    AppendMenu(viewmenu, MF_STRING, ID_VIEW_GO_TO_FACE, "Go to Face...\tCtrl+F");
-    AppendMenu(viewmenu, MF_STRING, ID_VIEW_GO_TO_PORTAL, "Go to Portal...\tCtrl+P");
 
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_GROW, "&Grow Selection\tQ");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_ALL, "Select &All\tCtrl+A");
@@ -951,6 +949,9 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_MATERIAL_IN_ROOM, "Select Material in Room\tAlt+M");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_ROOM, "Select &Room\tShift+R");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_SIMILAR, "Select &Similar\tShift+S");
+    AppendMenu(selectmenu, MF_SEPARATOR, 0, NULL);
+    AppendMenu(selectmenu, MF_STRING, ID_SELECT_GO_TO_FACE, "Go to Face...\tCtrl+F");
+    AppendMenu(selectmenu, MF_STRING, ID_SELECT_GO_TO_PORTAL, "Go to Portal...\tCtrl+P");
 
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_TEXT_EDITOR, "&Text Editor...");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_ACTION_BLOCKS, "&Action Blocks...");
@@ -4895,7 +4896,7 @@ typedef enum
 {
     GEDITOR_PLACE_MODEL, GEDITOR_PLACE_DOOR, GEDITOR_PLACE_GLASS,
     GEDITOR_PLACE_CCTV, GEDITOR_PLACE_ALARM, GEDITOR_PLACE_DRONE, GEDITOR_PLACE_ARMOR,
-    GEDITOR_PLACE_TANK
+    GEDITOR_PLACE_TANK, GEDITOR_PLACE_SAFE
 } GEditorPlacementKind;
 
 static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request, GEditorPlacementKind kind)
@@ -4904,13 +4905,14 @@ static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request, GEditor
     SetupObjectGeometry objects = {0};
     const char *why = "", *restorewhy = "";
     double position[3], look[3];
-    DWORD selection, triangle;
+    DWORD selection, triangle, safedoor = (DWORD)-1;
     BOOL character, found = FALSE, added;
     BOOL door = kind == GEDITOR_PLACE_DOOR, glass = kind == GEDITOR_PLACE_GLASS;
     BOOL cctv = kind == GEDITOR_PLACE_CCTV, alarm = kind == GEDITOR_PLACE_ALARM;
     BOOL drone = kind == GEDITOR_PLACE_DRONE;
     BOOL armor = kind == GEDITOR_PLACE_ARMOR;
     BOOL tank = kind == GEDITOR_PLACE_TANK;
+    BOOL safe = kind == GEDITOR_PLACE_SAFE;
     int modelid;
 
     if (request == NULL || g_CurrentLevelIndex == GEDITOR_NO_LEVEL || g_CurrentSetup.data == NULL ||
@@ -4920,7 +4922,7 @@ static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request, GEditor
     {
         return FALSE;
     }
-    if ((door || glass || cctv || alarm || drone || tank) && !ViewportGetCameraDirection(g_Viewport, look)) { return FALSE; }
+    if ((door || glass || cctv || alarm || drone || tank || safe) && !ViewportGetCameraDirection(g_Viewport, look)) { return FALSE; }
     if (cctv || alarm)
     {
         /* Pull the mount a little towards the viewer so an exact wall hit
@@ -4929,7 +4931,7 @@ static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request, GEditor
         if (length > 1e-8)
         { position[0] -= look[0] / length; position[2] -= look[2] / length; }
     }
-    if (door || glass || tank)
+    if (door || glass || tank || safe)
     {
         float point[3], height;
         DWORD tile;
@@ -4937,7 +4939,7 @@ static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request, GEditor
         tile = StanResolvePadTile(&g_CurrentStan, "", point);
         if (tile == STAN_TILE_NONE || !StanGetTileHeight(&g_CurrentStan, tile, point[0], point[2], &height))
         {
-            MessageBox(hwnd, tank ? "Place the tank over a walkable floor."
+            MessageBox(hwnd, safe ? "Place the safe over a walkable floor." : tank ? "Place the tank over a walkable floor."
                 : glass ? "Place the glass over a walkable floor." : "Place the door over a walkable floor.",
                 GEDITOR_TITLE, MB_ICONINFORMATION);
             return FALSE;
@@ -4946,7 +4948,7 @@ static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request, GEditor
     }
     if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup,
                                    door ? "Add Door" : glass ? "Add Glass" : cctv ? "Add CCTV Camera"
-                                       : alarm ? "Add Alarm" : drone ? "Add Drone Gun" : armor ? "Add Armor" : tank ? "Add Tank"
+                                       : alarm ? "Add Alarm" : drone ? "Add Drone Gun" : armor ? "Add Armor" : tank ? "Add Tank" : safe ? "Add Safe"
                                        : character ? "Add Character" : "Add Prop",
                                    &transaction, &why))
     {
@@ -4956,6 +4958,14 @@ static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request, GEditor
     {
         added = SetupFileAddDoor(&g_CurrentSetup, modelid, g_CurrentBgDocument.levelscale,
             position, look, &selection, &why);
+    }
+    else if (safe)
+    {
+        int doorid; BOOL doorcharacter;
+        if (!ObjectResolvePlaceableModel(SETUP_DEFAULT_SAFE_DOOR_MODEL, &doorcharacter, &doorid))
+        { why = "The safe door model is unavailable."; goto rollback; }
+        added = SetupFileAddSafe(&g_CurrentSetup, modelid, doorid, g_CurrentBgDocument.levelscale,
+            position, look, &selection, &safedoor, &why);
     }
     else if (glass)
     {
@@ -5006,6 +5016,8 @@ static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request, GEditor
         if (!StanResolveMovedPadName(&g_CurrentStan, "", point, point, name))
         { why = "Place the object over a walkable Stan floor."; goto rollback; }
         if (!SetupFileSetPadStanName(&g_CurrentSetup, &ref, name, &why)) { goto rollback; }
+        if (safe && (!SetupFileGetModelPad(&g_CurrentSetup, safedoor, &ref)
+            || !SetupFileSetPadStanName(&g_CurrentSetup, &ref, name, &why))) { goto rollback; }
     }
     if (!ObjectLoadSetupGeometry(g_Project.dir, &g_CurrentSetup, &g_CurrentStan,
                                  g_CurrentBgDocument.levelscale, &objects, &why))
@@ -5021,6 +5033,12 @@ static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request, GEditor
             found = TRUE;
             break;
         }
+    }
+    if (safe && found)
+    {
+        found = FALSE;
+        for (triangle = 0; triangle < objects.tricount; triangle++)
+            if (objects.objectindices[triangle] == safedoor) { found = TRUE; break; }
     }
     if (!found)
     {
@@ -5039,12 +5057,13 @@ static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request, GEditor
     RightPanelShowObjects(g_RightPanel);
     ViewportSetTool(g_Viewport, EDITOR_TOOL_FACE_SELECT);
     ToolToolbarSetTool(g_ToolToolbar, ViewportGetTool(g_Viewport));
-    if (door || glass || tank)
+    if (door || glass || tank || safe)
     {
         ViewportSetTransformMode(g_Viewport, TRANSFORM_MOVE);
         RightPanelSetTransformMode(g_RightPanel, TRANSFORM_MOVE);
     }
-    ViewportSelectSetupModel(g_Viewport, selection);
+    if (safe) { DWORD pair[2] = {selection, safedoor}; ViewportSelectSetupModels(g_Viewport, pair, 2); }
+    else { ViewportSelectSetupModel(g_Viewport, selection); }
     GEditorRefreshHistoryMenu(hwnd);
     SetFocus(g_Viewport);
     return TRUE;
@@ -5318,6 +5337,29 @@ rollback:
 fail:
     EditHistoryCancelEdit(&transaction); GEditorRefreshHistoryMenu(hwnd);
     MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR); return FALSE;
+}
+
+static void GEditorEditSafeContents(HWND hwnd, DWORD item, DWORD sourceoffset)
+{
+    LONG body, door; DWORD selected; BOOL changed;
+    EditHistoryTransaction transaction = {0};
+    const char *why = "";
+    if (!ViewportGetSelectedObject(g_Viewport, &selected) || selected != item
+        || !SetupFileCanBeSafeItem(&g_CurrentSetup, item)
+        || g_CurrentSetup.objects[item].sourceoffset != sourceoffset) return;
+    ViewportCancelTransform(g_Viewport);
+    if (!SafeLinkDialogShow(hwnd, &g_CurrentSetup, item, &body, &door)) return;
+    if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup, "Edit Safe Contents", &transaction, &why)) goto fail;
+    if (!SetupFileSetSafeLink(&g_CurrentSetup, item, body, door, &changed, &why)) goto rollback;
+    if (!changed) { EditHistoryCancelEdit(&transaction); return; }
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+        &g_CurrentStan, &transaction, &why)) goto rollback;
+    GEditorRefreshHistoryMenu(hwnd); return;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+fail:
+    EditHistoryCancelEdit(&transaction); GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
 }
 
 static BOOL GEditorSetObjectProperty(HWND hwnd, const SetupObjectPropertyEdit *edit)
@@ -5938,6 +5980,11 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         return ok;
     }
 
+    case OBJECTPROPERTIES_WM_SAFE_CONTENTS:
+        GEditorEditSafeContents(hwnd, (DWORD)wparam, (DWORD)lparam);
+        GEditorRefreshSelectionDetails();
+        return 0;
+
     case OBJECTPROPERTIES_WM_CHANGED:
     {
         BOOL ok = GEditorSetObjectProperty(hwnd, (const SetupObjectPropertyEdit *)lparam);
@@ -6325,7 +6372,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         if ((wparam != BROWSER_OBJECT_OCCLUDER && wparam != BROWSER_OBJECT_PAD && wparam != BROWSER_OBJECT_SPAWN && wparam != BROWSER_OBJECT_INTRO_CAMERA && wparam != BROWSER_OBJECT_OUTRO_CAMERA
                 && wparam != BROWSER_OBJECT_DOOR && wparam != BROWSER_OBJECT_GLASS
                 && wparam != BROWSER_OBJECT_CCTV && wparam != BROWSER_OBJECT_ALARM && wparam != BROWSER_OBJECT_DRONE_GUN
-                && wparam != BROWSER_OBJECT_ARMOR && wparam != BROWSER_OBJECT_TANK)
+                && wparam != BROWSER_OBJECT_ARMOR && wparam != BROWSER_OBJECT_TANK && wparam != BROWSER_OBJECT_SAFE)
             || g_CurrentLevelIndex == GEDITOR_NO_LEVEL || !g_CurrentSetup.data) { return FALSE; }
         if ((wparam == BROWSER_OBJECT_INTRO_CAMERA || wparam == BROWSER_OBJECT_OUTRO_CAMERA || wparam == BROWSER_OBJECT_TANK)
             && strncmp(g_CurrentSetup.name, "Ump_", 4) == 0)
@@ -6348,7 +6395,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         { return GEditorDropPrimitive(hwnd, drop); }
         if (drop && (drop->type == BROWSER_OBJECT_DOOR || drop->type == BROWSER_OBJECT_GLASS
             || drop->type == BROWSER_OBJECT_CCTV || drop->type == BROWSER_OBJECT_ALARM || drop->type == BROWSER_OBJECT_DRONE_GUN
-            || drop->type == BROWSER_OBJECT_ARMOR || drop->type == BROWSER_OBJECT_TANK))
+            || drop->type == BROWSER_OBJECT_ARMOR || drop->type == BROWSER_OBJECT_TANK || drop->type == BROWSER_OBJECT_SAFE))
         {
             BrowserModelDrop model = {"", drop->screen};
             GEditorPlacementKind kind;
@@ -6361,6 +6408,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             case BROWSER_OBJECT_DRONE_GUN: kind = GEDITOR_PLACE_DRONE; name = SETUP_DEFAULT_DRONE_MODEL; break;
             case BROWSER_OBJECT_ARMOR: kind = GEDITOR_PLACE_ARMOR; name = SETUP_DEFAULT_ARMOR_MODEL; break;
             case BROWSER_OBJECT_TANK: kind = GEDITOR_PLACE_TANK; name = SETUP_DEFAULT_TANK_MODEL; break;
+            case BROWSER_OBJECT_SAFE: kind = GEDITOR_PLACE_SAFE; name = SETUP_DEFAULT_SAFE_MODEL; break;
             default: kind = GEDITOR_PLACE_DOOR; name = SETUP_DEFAULT_DOOR_MODEL; break;
             }
             lstrcpyn(model.name, name, sizeof(model.name));
@@ -6708,9 +6756,9 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         GEditorUpdateHistoryMenu((HMENU)wparam);
         EnableMenuItem((HMENU)wparam, ID_VIEW_ZOOM_SELECTED, MF_BYCOMMAND |
             (ViewportCanZoomToSelected(g_Viewport) ? MF_ENABLED : MF_GRAYED));
-        EnableMenuItem((HMENU)wparam, ID_VIEW_GO_TO_FACE, MF_BYCOMMAND |
+        EnableMenuItem((HMENU)wparam, ID_SELECT_GO_TO_FACE, MF_BYCOMMAND |
             (GEditorCanGoToGeometry(FALSE) ? MF_ENABLED : MF_GRAYED));
-        EnableMenuItem((HMENU)wparam, ID_VIEW_GO_TO_PORTAL, MF_BYCOMMAND |
+        EnableMenuItem((HMENU)wparam, ID_SELECT_GO_TO_PORTAL, MF_BYCOMMAND |
             (GEditorCanGoToGeometry(TRUE) ? MF_ENABLED : MF_GRAYED));
         CheckMenuItem((HMENU)wparam, ID_VIEW_BACKFACE_CULLING, MF_BYCOMMAND | (ViewportGetBackfaceCulling(g_Viewport) ? MF_CHECKED : MF_UNCHECKED));
         CheckMenuItem((HMENU)wparam, ID_VIEW_GEOMETRY_STATISTICS, MF_BYCOMMAND | (ViewportGetGeometryStatisticsVisible(g_Viewport) ? MF_CHECKED : MF_UNCHECKED));
@@ -6969,9 +7017,9 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 ViewportZoomToSelected(g_Viewport);
                 return 0;
 
-            case ID_VIEW_GO_TO_FACE:
-            case ID_VIEW_GO_TO_PORTAL:
-                GEditorGoToGeometry(hwnd, LOWORD(wparam) == ID_VIEW_GO_TO_PORTAL);
+            case ID_SELECT_GO_TO_FACE:
+            case ID_SELECT_GO_TO_PORTAL:
+                GEditorGoToGeometry(hwnd, LOWORD(wparam) == ID_SELECT_GO_TO_PORTAL);
                 return 0;
 
             case ID_VIEW_BACKFACE_CULLING:
@@ -7315,7 +7363,7 @@ static BOOL GEditorHandleGoToHotkey(HWND frame, const MSG *message)
     if (lstrcmpi(classname, "Edit") == 0 || lstrcmpi(classname, "ComboBox") == 0
         || lstrcmpi(classname, "ComboLBox") == 0) { return FALSE; }
     if (!(message->lParam & ((LPARAM)1 << 30)))
-    { SendMessage(frame, WM_COMMAND, message->wParam == 'P' ? ID_VIEW_GO_TO_PORTAL : ID_VIEW_GO_TO_FACE, 0); }
+    { SendMessage(frame, WM_COMMAND, message->wParam == 'P' ? ID_SELECT_GO_TO_PORTAL : ID_SELECT_GO_TO_FACE, 0); }
     return TRUE;
 }
 

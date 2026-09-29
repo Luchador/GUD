@@ -421,6 +421,20 @@ BOOL SetupFileAddTank(SetupFile *setup, int modelid, float levelscale,
                       const double position[3], const double facing[3],
                       DWORD *selectionout, const char **reasonout);
 
+#define SETUP_DEFAULT_SAFE_MODEL "PsafeZ"
+#define SETUP_DEFAULT_SAFE_DOOR_MODEL "PsafedoorZ"
+/* One atomic placement, two private bound pads; both returned IDs are objects. */
+BOOL SetupFileAddSafe(SetupFile *setup, int bodymodel, int doormodel, float levelscale,
+                      const double position[3], const double facing[3],
+                      DWORD *bodyout, DWORD *doorout, const char **reasonout);
+/* Safe links use native command-relative indices, never editor object indices.
+ * -1/-1 removes all links on this item. The game sets Linked to safe at load. */
+BOOL SetupFileCanBeSafeItem(const SetupFile *setup, DWORD item);
+BOOL SetupFileGetSafeLink(const SetupFile *setup, DWORD item, LONG *body, LONG *door,
+                          const char **reasonout);
+BOOL SetupFileSetSafeLink(SetupFile *setup, DWORD item, LONG body, LONG door,
+                          BOOL *changedout, const char **reasonout);
+
 #define SETUP_DEFAULT_DOOR_MODEL "Psteel_door1Z"
 /* Add an unlocked slider and its private bound pad, preserving all existing
  * command/pad indices. position is the floor anchor in gameplay world units;

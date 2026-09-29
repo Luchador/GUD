@@ -10,6 +10,7 @@ BOOL ObjectPropertiesFillModelList(HWND combo, const char *projectdir);
 
 /* Synchronous, stack-owned SetupObjectPropertyEdit, forwarded by RightPanel.
  * The frame owns validation against selection, history, and scene rebuilding. */
+#define OBJECTPROPERTIES_WM_SAFE_CONTENTS (WM_APP + 116) /* object ID, source offset */
 #define OBJECTPROPERTIES_WM_CHANGED (WM_APP + 46)
 BOOL ObjectPropertiesRegisterClass(HINSTANCE instance);
 HWND ObjectPropertiesCreate(HWND parent, HINSTANCE instance);

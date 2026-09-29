@@ -2374,6 +2374,63 @@ BOOL SetupFileAddDoor(SetupFile *setup, int modelid, float levelscale,
     return SetupAddPlacement(setup, PROPDEF_DOOR, modelid, levelscale, position, &pad, NULL, selectionout, reasonout);
 }
 
+BOOL SetupFileAddSafe(SetupFile *setup, int bodymodel, int doormodel, float levelscale,
+                      const double position[3], const double facing[3],
+                      DWORD *bodyout, DWORD *doorout, const char **reasonout)
+{
+    SetupFile copy = {0}; SetupBoundPad body = {0}, door = {0};
+    DWORD bodyid, doorid; double length, unit;
+    *reasonout = "The safe placement, models or level scale are invalid.";
+    if (!setup || !position || !facing || !bodyout || !doorout || bodymodel < 0 || bodymodel > 32767
+        || doormodel < 0 || doormodel > 32767 || !RomScaleIsValid(levelscale)) { return FALSE; }
+    for (int a = 0; a < 3; a++) if (!isfinite(position[a]) || !isfinite(facing[a])) { return FALSE; }
+    length = hypot(facing[0], facing[2]);
+    unit = levelscale * (100.0 / 57.0);
+    if (!isfinite(length) || unit < .000001 || unit * 57 > 100000000.0) { return FALSE; }
+    /* Surface/Archives safe proportions: 57 high, 57 wide, 53 deep;
+     * its flipped door is 47 square, 10 deep, centered 21.5 toward the front.
+     * Use a 100-world-unit height independent of the level visibility scale.
+     * Both pads reference the floor center, keeping their stan resolution
+     * together even when the door overhangs a walkable boundary. */
+    body.pad.up[1] = 1;
+    body.pad.look[0] = length > 1e-8 ? (float)(-facing[0] / length) : 0;
+    body.pad.look[2] = length > 1e-8 ? (float)(-facing[2] / length) : 1;
+    body.xmin = -28.5 * unit; body.xmax = 28.5 * unit;
+    body.ymin = 0; body.ymax = 57 * unit;
+    body.zmin = -26.5 * unit; body.zmax = 26.5 * unit;
+    door.pad.up[0] = -body.pad.look[2]; door.pad.up[2] = body.pad.look[0];
+    door.pad.look[1] = 1;
+    door.xmin = -26.5 * unit; door.xmax = -16.5 * unit;
+    door.ymin = -23.5 * unit; door.ymax = 23.5 * unit;
+    door.zmin = 5 * unit; door.zmax = 52 * unit;
+    if (!SetupFileClone(setup, &copy, reasonout)) { return FALSE; }
+    if (!SetupAddPlacement(&copy, PROPDEF_SAFE, bodymodel, levelscale, position, &body, NULL, &bodyid, reasonout)
+        || !SetupAddPlacement(&copy, PROPDEF_DOOR, doormodel, levelscale, position, &door, NULL, &doorid, reasonout))
+    { SetupFileFree(&copy); return FALSE; }
+    SetupObject *object = &copy.objects[bodyid];
+    object->flags = PROPFLAG_INAIR | PROPFLAG_FORCE_COLLISIONS | PROPFLAG_INVINCIBLE
+        | PROPFLAG_SCALE_TO_X_BOUNDS | PROPFLAG_SCALE_TO_Y_BOUNDS | PROPFLAG_SCALE_TO_Z_BOUNDS;
+    SetupWrite32(copy.data + object->sourceoffset + 8, object->flags);
+    object = &copy.objects[doorid];
+    unsigned char *record = copy.data + object->sourceoffset;
+    object->flags2 = PROPFLAG2_LOCKEDTOAI;
+    SetupWrite32(record + 12, object->flags2);
+    /* Stock safe motion, without a key requirement. Keep collision while
+     * open and do not let a safe close an unrelated level visibility portal. */
+    SetupWrite32(record + 0x84, 90u << 16);
+    SetupWrite32(record + 0x88, 1000u << 16);
+    SetupWrite32(record + 0x8c, 0xf5c);
+    SetupWrite32(record + 0x90, 0xf5c);
+    SetupWrite32(record + 0x94, 65536);
+    SetupWrite32(record + 0x98, ((DWORD)DOORFLAG_FLIP << 16) | DOORTYPE_SWINGING);
+    SetupWrite32(record + 0xa0, 0x0fffffffu);
+    SetupWrite32(record + 0xa4, DOOR_OPEN_SOUND_16);
+    copy.dirty = TRUE;
+    SetupFileFree(setup); *setup = copy;
+    *bodyout = bodyid; *doorout = doorid; *reasonout = "";
+    return TRUE;
+}
+
 BOOL SetupFileAddGlass(SetupFile *setup, int modelid, float levelscale,
                        const double position[3], const double facing[3],
                        DWORD *selectionout, const char **reasonout)
@@ -5237,6 +5294,140 @@ LONG SetupFileCommandObject(const SetupFile *s,LONG command)
     }
     return -1;
 }
+BOOL SetupFileCanBeSafeItem(const SetupFile *s, DWORD item)
+{
+    if (!s || !s->data || item >= s->objectcount || s->objects[item].deleted
+        || (s->objects[item].flags & (PROPFLAG_ASSIGNEDTOCHR | PROPFLAG_INSIDEANOTHEROBJ))) return FALSE;
+    switch (s->objects[item].type)
+    {
+    case PROPDEF_PROP: case PROPDEF_KEY: case PROPDEF_COLLECTABLE:
+    case PROPDEF_MAGAZINE: case PROPDEF_AMMO: case PROPDEF_ARMOUR: return TRUE;
+    default: return FALSE;
+    }
+}
+
+/* Walk actual setup commands, including tags and non-object records. Object
+ * panel IDs cannot be used for the game's relative command references. */
+static BOOL SetupSafeCommands(const SetupFile *s, DWORD *end, DWORD *count, const char **why)
+{
+    *why = "The setup command list is malformed or full.";
+    if (!s || !s->data || s->size < SETUP_HEADER_SIZE || s->size > SETUP_FILE_MAX) return FALSE;
+    DWORD at = SetupRead32(s->data + SETUP_OBJECT_POINTER);
+    if (at < SETUP_HEADER_SIZE || (at & 3)) return FALSE;
+    for (DWORD index = 0; index < SETUP_OBJECT_MAX; index++)
+    {
+        if (at > s->size - 4) return FALSE;
+        unsigned char type = s->data[at + 3];
+        DWORD bytes = SetupObjectWordCount(type) * 4;
+        if (bytes > s->size - at) return FALSE;
+        if (type == SETUP_PROP_END) { *end = at; *count = index; *why = ""; return TRUE; }
+        at += bytes;
+    }
+    return FALSE;
+}
+
+BOOL SetupFileGetSafeLink(const SetupFile *s, DWORD item, LONG *body, LONG *door, const char **why)
+{
+    DWORD end, count, at, index = 0;
+    LONG itemcommand;
+    *body = *door = -1;
+    if (!SetupSafeCommands(s, &end, &count, why)) return FALSE;
+    itemcommand = SetupFileObjectCommand(s, item);
+    if (itemcommand < 0) { *why = "The safe item is invalid."; return FALSE; }
+    for (at = SetupRead32(s->data + SETUP_OBJECT_POINTER); at < end; index++)
+    {
+        if (s->data[at + 3] == PROPDEF_SAFE_ITEM
+            && (long long)index + (LONG)SetupRead32(s->data + at + 4) == itemcommand)
+        {
+            long long b = (long long)index + (LONG)SetupRead32(s->data + at + 8);
+            long long d = (long long)index + (LONG)SetupRead32(s->data + at + 12);
+            *body = b >= 0 && b < count ? SetupFileCommandObject(s, (LONG)b) : -1;
+            *door = d >= 0 && d < count ? SetupFileCommandObject(s, (LONG)d) : -1;
+            if (*body < 0 || *door < 0 || s->objects[*body].deleted || s->objects[*door].deleted
+                || s->objects[*body].type != PROPDEF_SAFE || s->objects[*door].type != PROPDEF_DOOR)
+            { *why = "This item's safe link has a missing or deleted safe/door. Choose both again, or None to remove it."; return FALSE; }
+            return TRUE;
+        }
+        at += SetupObjectWordCount(s->data[at + 3]) * 4;
+    }
+    return TRUE;
+}
+
+BOOL SetupFileSetSafeLink(SetupFile *s, DWORD item, LONG body, LONG door, BOOL *changed, const char **why)
+{
+    SetupFile copy = {0};
+    DWORD end, count, at, index = 0, slot = 0, slotindex = 0, matches = 0;
+    LONG itemcommand, bodycommand = -1, doorcommand = -1;
+    BOOL same = FALSE, remove = body == -1 && door == -1;
+    *changed = FALSE; *why = "Choose a placed pickup object, a safe body and its door.";
+    if (!SetupFileCanBeSafeItem(s, item)) return FALSE;
+    if (!remove && (body < 0 || door < 0 || (DWORD)body >= s->objectcount || (DWORD)door >= s->objectcount
+        || s->objects[body].deleted || s->objects[door].deleted
+        || s->objects[body].type != PROPDEF_SAFE || s->objects[door].type != PROPDEF_DOOR)) return FALSE;
+    if (!SetupSafeCommands(s, &end, &count, why)) return FALSE;
+    itemcommand = SetupFileObjectCommand(s, item);
+    if (!remove) { bodycommand = SetupFileObjectCommand(s, body); doorcommand = SetupFileObjectCommand(s, door); }
+    if (itemcommand < 0 || (!remove && (bodycommand < 0 || doorcommand < 0))) return FALSE;
+    for (at = SetupRead32(s->data + SETUP_OBJECT_POINTER); at < end; index++)
+    {
+        if (s->data[at + 3] == PROPDEF_SAFE_ITEM)
+        {
+            LONG itemref = (LONG)SetupRead32(s->data + at + 4);
+            if ((long long)index + itemref == itemcommand)
+            {
+                matches++; slot = at; slotindex = index;
+                same = (long long)index + (LONG)SetupRead32(s->data + at + 8) == bodycommand
+                    && (long long)index + (LONG)SetupRead32(s->data + at + 12) == doorcommand;
+            }
+            else if (!slot && !itemref && !SetupRead32(s->data + at + 8) && !SetupRead32(s->data + at + 12))
+            { slot = at; slotindex = index; }
+        }
+        at += SetupObjectWordCount(s->data[at + 3]) * 4;
+    }
+    if ((remove && !matches) || (!remove && matches == 1 && same)) { *why = ""; return TRUE; }
+    if (!SetupFileClone(s, &copy, why)) return FALSE;
+    /* Disable old links without removing command indices used elsewhere.
+     * A zero relative item points to this non-object link record and is inert. */
+    index = 0;
+    for (at = SetupRead32(copy.data + SETUP_OBJECT_POINTER); at < end; index++)
+    {
+        if (copy.data[at + 3] == PROPDEF_SAFE_ITEM
+            && (long long)index + (LONG)SetupRead32(copy.data + at + 4) == itemcommand)
+            memset(copy.data + at + 4, 0, 16);
+        at += SetupObjectWordCount(copy.data[at + 3]) * 4;
+    }
+    if (!remove && !slot)
+    {
+        DWORD start = SetupRead32(copy.data + SETUP_OBJECT_POINTER);
+        DWORD newstart = (copy.size + 3u) & ~3u, size = newstart + end - start + 24;
+        *why = "There is no room for another safe-content link.";
+        if (count >= SETUP_OBJECT_MAX - 1 || size > SETUP_FILE_MAX) goto fail;
+        unsigned char *data = calloc(size, 1);
+        if (!data) { *why = "Out of memory adding a safe-content link."; goto fail; }
+        memcpy(data, copy.data, copy.size);
+        memcpy(data + newstart, copy.data + start, end - start);
+        slot = newstart + end - start; slotindex = count;
+        SetupWrite32(data + SETUP_OBJECT_POINTER, newstart);
+        SetupWrite32(data + slot, PROPDEF_SAFE_ITEM);
+        SetupWrite32(data + slot + 20, SETUP_PROP_END);
+        free(copy.data); copy.data = data; copy.size = size;
+    }
+    if (!remove)
+    {
+        SetupWrite32(copy.data + slot + 4, (DWORD)(itemcommand - (LONG)slotindex));
+        SetupWrite32(copy.data + slot + 8, (DWORD)(bodycommand - (LONG)slotindex));
+        SetupWrite32(copy.data + slot + 12, (DWORD)(doorcommand - (LONG)slotindex));
+        SetupWrite32(copy.data + slot + 16, 0); /* Runtime next pointer. */
+    }
+    free(copy.objects); copy.objects = NULL; copy.objectcount = 0;
+    free(copy.characters); copy.characters = NULL; copy.charactercount = 0;
+    if (!SetupParseObjects(&copy, why) || !SetupFileCompact(&copy, why)) goto fail;
+    copy.dirty = TRUE; SetupFileFree(s); *s = copy;
+    *changed = TRUE; *why = ""; return TRUE;
+fail:
+    SetupFileFree(&copy); return FALSE;
+}
+
 BOOL SetupFileAddDoorShadow(SetupFile *s,const unsigned char record[DOOR_SHADOW_BYTES],DWORD *selection,const char **why)
 {
     SetupFile copy={0};DWORD start,end,commands=0,active=0,reused,unused,newstart,at,size;

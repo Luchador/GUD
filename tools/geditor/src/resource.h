@@ -33,6 +33,10 @@
 #define IDD_STUDIO_PROPERTIES 129
 #define IDD_STUDIO_TRANSFORM 130
 #define IDD_STUDIO_RENDER    131
+#define IDD_SAFE_CONTENTS    133
+#define IDC_SAFE_BODY        1530
+#define IDC_SAFE_DOOR        1531
+#define IDC_SAFE_STATUS      1532
 #define IDD_GO_TO_GEOMETRY   132
 #define IDC_GO_TO_ID_LABEL   1520
 #define IDC_GO_TO_ID         1521

@@ -39,6 +39,7 @@ enum { OBJECT_TYPE, OBJECT_MODEL_LABEL, OBJECT_MODEL, OBJECT_MODEL_HELP,
        OBJECT_KEY_FIRST, OBJECT_KEY_LAST = OBJECT_KEY_FIRST + 31,
        OBJECT_AMMO_LABEL, OBJECT_AMMO_TYPE, OBJECT_AMMO_HELP,
        OBJECT_QUANTITY_LABEL, OBJECT_QUANTITY, OBJECT_CONTENTS,
+       OBJECT_SAFE_CONTENTS, OBJECT_SAFE_STATUS,
        OBJECT_IDENTITY, OBJECT_STATUS, OBJECT_CONTROL_COUNT };
 
 /* New specialized sections can reuse these controls and the property-edit
@@ -61,7 +62,7 @@ typedef struct ObjectPropertiesState {
     DWORD objectindex;
     ULONG_PTR document;
     SetupObjectProperties properties;
-    BOOL selected, updating, edited, committing;
+    BOOL selected, updating, edited, committing, safeitem;
     BOOL keyedited, quantityedited, armoredited, multiplayer;
     BOOL fadeedited, glassedited[3];
     const BgPortalFile *glassportals;
@@ -267,6 +268,7 @@ static BOOL ObjectPropertiesIsEdit(int id)
 static BOOL ObjectPropertiesControlVisible(const ObjectPropertiesState *state, int id)
 {
     unsigned char type = state->properties.object.type;
+    if (id == OBJECT_SAFE_CONTENTS || id == OBJECT_SAFE_STATUS) { return state->selected && state->safeitem; }
     if (id >= OBJECT_GLASS_TYPE_LABEL && id <= OBJECT_GLASS_TYPE)
         return state->selected && (type == PROPDEF_GLASS || type == PROPDEF_TINTED_GLASS);
     if (id >= OBJECT_GLASS_START_LABEL && id <= OBJECT_GLASS_PORTAL_STATUS)
@@ -314,7 +316,7 @@ static void ObjectPropertiesLayout(HWND hwnd, ObjectPropertiesState *state)
             if (column == 3) { y += height; }
             continue;
         }
-        if (!ObjectPropertiesIsCombo(i) && !ObjectPropertiesIsEdit(i))
+        if (!ObjectPropertiesIsCombo(i) && !ObjectPropertiesIsEdit(i) && i != OBJECT_SAFE_CONTENTS)
         {
             BOOL checkbox = i == OBJECT_GLASS_AUTO_PORTAL || i == OBJECT_FADE_ENABLED || (i >= OBJECT_DOOR_FLAG_FIRST && i <= OBJECT_DOOR_FLAG_LAST);
             char text[OBJECT_CONTENTS_TEXT_MAX]; RECT rect = {0, 0, max(1, width - (checkbox ? 20 : 0)), 0};
@@ -943,14 +945,15 @@ static LRESULT CALLBACK ObjectPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
             BOOL key = i == OBJECT_GLASS_AUTO_PORTAL || i == OBJECT_FADE_ENABLED || (i >= OBJECT_KEY_FIRST && i <= OBJECT_KEY_LAST)
                 || (i >= OBJECT_DOOR_FLAG_FIRST && i <= OBJECT_DOOR_FLAG_LAST);
             state->controls[i] = CreateWindowEx(edit ? WS_EX_CLIENTEDGE : 0,
-                combo ? "COMBOBOX" : edit ? "EDIT" : key ? "BUTTON" : "STATIC", "",
+                combo ? "COMBOBOX" : edit ? "EDIT" : (key || i == OBJECT_SAFE_CONTENTS) ? "BUTTON" : "STATIC", "",
                 WS_CHILD | WS_VISIBLE | (combo ? WS_TABSTOP | CBS_DROPDOWNLIST | WS_VSCROLL
-                    : edit ? WS_TABSTOP | ES_AUTOHSCROLL : key ? WS_TABSTOP | BS_AUTOCHECKBOX | BS_MULTILINE
+                    : edit ? WS_TABSTOP | ES_AUTOHSCROLL : i == OBJECT_SAFE_CONTENTS ? WS_TABSTOP | BS_PUSHBUTTON : key ? WS_TABSTOP | BS_AUTOCHECKBOX | BS_MULTILINE
                     : SS_NOPREFIX),
                 0, 0, 1, 1, hwnd, (HMENU)(INT_PTR)(100 + i), cs->hInstance, NULL);
             if (!state->controls[i]) { return -1; }
             SendMessage(state->controls[i], WM_SETFONT, (WPARAM)font, FALSE);
         }
+        SetWindowText(state->controls[OBJECT_SAFE_CONTENTS], "Safe contents...");
         for (unsigned int i = 0; i < sizeof(g_SharedProperties) / sizeof(g_SharedProperties[0]); i++)
         {
             SetWindowText(state->controls[g_SharedProperties[i].label], g_SharedProperties[i].name);
@@ -1007,6 +1010,15 @@ static LRESULT CALLBACK ObjectPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
         if (state) { ObjectPropertiesLayout(hwnd, state); }
         return 0;
     case WM_COMMAND:
+        if (state && LOWORD(wparam) == 100 + OBJECT_SAFE_CONTENTS && HIWORD(wparam) == BN_CLICKED
+            && state->selected && state->safeitem && !state->committing)
+        {
+            state->committing = TRUE;
+            SendMessage(GetParent(hwnd), OBJECTPROPERTIES_WM_SAFE_CONTENTS, state->objectindex,
+                state->properties.object.sourceoffset);
+            state->committing = FALSE;
+            return 0;
+        }
         if (!state || state->updating) { return 0; }
         if ((HWND)lparam == state->controls[OBJECT_GLASS_TYPE])
         {
@@ -1328,6 +1340,17 @@ BOOL ObjectPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD inde
     snprintf(text, sizeof(text), "Object index: %lu\r\n%s\r\nExtra scale: %.6g",
         (unsigned long)index, placement, properties.object.extrascale / 256.0);
     SetWindowText(state->controls[OBJECT_IDENTITY], text);
+    state->safeitem = SetupFileCanBeSafeItem(setup, index);
+    if (state->safeitem)
+    {
+        LONG body, door;
+        if (!SetupFileGetSafeLink(setup, index, &body, &door, &why))
+            snprintf(text, sizeof(text), "%s", why);
+        else if (body >= 0) snprintf(text, sizeof(text), "Safe: object %ld; door: object %ld", (long)body, (long)door);
+        else snprintf(text, sizeof(text), "Not linked to a safe.");
+        SetWindowText(state->controls[OBJECT_SAFE_STATUS], text);
+    }
+
     if (!state->edited && !state->keyedited && !state->quantityedited && !state->armoredited && !state->fadeedited
         && !ObjectPropertiesDoorPending(state) && !ObjectPropertiesAimPending(state))
     { SetWindowText(state->controls[OBJECT_STATUS], "Enter or leave a field to apply. Escape cancels typing."); }
