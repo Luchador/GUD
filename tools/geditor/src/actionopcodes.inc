@@ -193,8 +193,8 @@
     {"TRYGiveMeItem", "Try give this character item", 9, 4, {{"PROP_NUM", 1, 2, ACTION_NUMBER}, {"ITEM_NUM", 3, 1, ACTION_NUMBER}, {"PROPFLAG", 4, 4, ACTION_NUMBER}, {"GOTOLABEL", 8, 1, ACTION_LABEL}}}, /* BF */
     {"TRYGiveMeHat", "Try give this character hat", 8, 3, {{"PROP_NUM", 1, 2, ACTION_NUMBER}, {"PROP_BITFIELD", 3, 4, ACTION_NUMBER}, {"GOTOLABEL", 7, 1, ACTION_LABEL}}}, /* C0 */
     {"TRYCloningChr", "Try cloning character", 5, 3, {{"CHR_NUM", 1, 1, ACTION_CHARACTER}, {"AI_LIST_ID", 2, 2, ACTION_BLOCK}, {"GOTOLABEL", 4, 1, ACTION_LABEL}}}, /* C1 */
-    {"TextPrintBottom", "Text print bottom", 3, 1, {{"TEXT_SLOT", 1, 2, ACTION_NUMBER}}}, /* C2 */
-    {"TextPrintTop", "Text print top", 3, 1, {{"TEXT_SLOT", 1, 2, ACTION_NUMBER}}}, /* C3 */
+    {"TextPrintBottom", "Text print bottom", 3, 1, {{"TEXT_SLOT", 1, 2, ACTION_TEXT}}}, /* C2 */
+    {"TextPrintTop", "Text print top", 3, 1, {{"TEXT_SLOT", 1, 2, ACTION_TEXT}}}, /* C3 */
     {"SfxPlay", "Sfx play", 4, 2, {{"SOUND_NUM", 1, 2, ACTION_NUMBER}, {"CHANNEL_NUM", 3, 1, ACTION_NUMBER}}}, /* C4 */
     {"SfxEmitFromObject", "Sfx emit from object", 5, 3, {{"CHANNEL_NUM", 1, 1, ACTION_NUMBER}, {"OBJECT_TAG", 2, 1, ACTION_NUMBER}, {"VOL_DECAY_TIME60", 3, 2, ACTION_SECONDS60}}}, /* C5 */
     {"SfxEmitFromPad", "Sfx emit from pad", 6, 3, {{"CHANNEL_NUM", 1, 1, ACTION_NUMBER}, {"PAD", 2, 2, ACTION_PAD}, {"VOL_DECAY_TIME60", 4, 2, ACTION_SECONDS60}}}, /* C6 */

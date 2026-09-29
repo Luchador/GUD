@@ -5,6 +5,7 @@
 #include <string.h>
 #include <ctype.h>
 #include "actioneditor.h"
+#include "actiontext.h"
 #include "resource.h"
 #include "romexport.h"
 
@@ -14,7 +15,8 @@ enum {
     AE_SEARCH, AE_COMMAND, AE_INSERT, AE_DELETE, AE_UP, AE_DOWN, AE_UNDO, AE_REDO,
     AE_VALIDATE, AE_ISSUES, AE_CHARACTERS, AE_ASSIGN, AE_USED, AE_HELP, AE_STATUS,
     AE_BLOCKLABEL, AE_NAMELABEL, AE_NOTELABEL, AE_TEXTLABEL, AE_SEARCHLABEL,
-    AE_CHARLABEL, AE_USEDLABEL, AE_ISSUELABEL, AE_ENABLED, AE_PARAM=2100, AE_PARAMLABEL=2120
+    AE_CHARLABEL, AE_USEDLABEL, AE_ISSUELABEL, AE_ENABLED, AE_PREVIEW, AE_PREVIEWLABEL,
+    AE_PARAM=2100, AE_PARAMLABEL=2120
 };
 #define AE_HISTORY 32
 #define AE_HISTORY_BYTES (64u * 1024u * 1024u)
@@ -24,6 +26,7 @@ typedef struct ActionEditor {
     const SetupFile *setup;
     SetupFile *result;
     ActionDocument doc;
+    ActionText text;
     ActionSnapshot undo[AE_HISTORY], redo[AE_HISTORY];
     DWORD undocount, redocount, block, row, selectedcharacter;
     BOOL refreshing, pending, accepted, failed;
@@ -140,6 +143,53 @@ static void FormatNumber(const ActionParam *p, DWORD value, char *s, size_t n)
     if (p->kind==ACTION_BLOCK || p->kind==ACTION_MASK) { snprintf(s,n,"0x%lX",(unsigned long)value); }
     else { snprintf(s,n,"%.12g",ActionDisplayValue(p,value)); }
 }
+static int TextParameter(ActionEditor *e)
+{
+    const ActionInstruction *ins=Instruction(e);
+    if (ins) for (int p=0;p<g_ActionOpcodes[ins->bytes[0]].paramcount;p++)
+    { if (g_ActionOpcodes[ins->bytes[0]].params[p].kind==ACTION_TEXT) { return p; } }
+    return -1;
+}
+static void LayoutTextPreview(ActionEditor *e)
+{
+    const ActionInstruction *ins=Instruction(e); RECT r;
+    int p=TextParameter(e), top=ins ? 153+g_ActionOpcodes[ins->bytes[0]].paramcount*39 : 192;
+    GetClientRect(e->window,&r);
+    Place(e,AE_PREVIEWLABEL,r.right-338,top,326,18);
+    Place(e,AE_PREVIEW,r.right-338,top+22,326,max(24,451-top-22));
+    ShowWindow(Control(e,AE_PREVIEWLABEL),p>=0 ? SW_SHOW : SW_HIDE);
+    ShowWindow(Control(e,AE_PREVIEW),p>=0 ? SW_SHOW : SW_HIDE);
+}
+static void DisplayTextPreview(ActionEditor *e)
+{
+    int p=TextParameter(e); char label[160],number[128];
+    const char *bank,*why,*value; DWORD id;
+    LayoutTextPreview(e);
+    if (p<0) { SetText(e,AE_PREVIEW,""); return; }
+    HWND c=Control(e,AE_PARAM+p);
+    id=e->typed[p] ? ACTION_MISSING_TARGET : ListData(c,CB_GETCURSEL,CB_GETITEMDATA);
+    if (id==ACTION_MISSING_TARGET)
+    {
+        GetWindowText(c,number,sizeof(number));
+        if (!ActionParseValue(&g_ActionOpcodes[Instruction(e)->bytes[0]].params[p],number,&id))
+        {
+            SetText(e,AE_PREVIEWLABEL,"Referenced text");
+            SetText(e,AE_PREVIEW,"Enter a text ID from 0 to 65535, in decimal or 0x hex."); return;
+        }
+    }
+    value=ActionTextResolve(&e->text,id,&bank,&why);
+    if (*bank) { snprintf(label,sizeof(label),"Referenced text - %s, slot %lu",bank,(unsigned long)(id&1023)); }
+    else { snprintf(label,sizeof(label),"Referenced text - bank %lu, slot %lu",(unsigned long)(id>>10),(unsigned long)(id&1023)); }
+    SetText(e,AE_PREVIEWLABEL,label);
+    if (!value) { SetText(e,AE_PREVIEW,why); }
+    else if (!*value) { SetText(e,AE_PREVIEW,"[Empty string]"); }
+    else
+    {
+        wchar_t *wide=TextBankFormat(value);
+        if (wide) { SetWindowTextW(Control(e,AE_PREVIEW),wide); free(wide); }
+        else { SetText(e,AE_PREVIEW,"Out of memory displaying text."); }
+    }
+}
 static void DisplayInstruction(ActionEditor *e)
 {
     ActionBlock *b=Block(e); ActionInstruction *ins=Instruction(e);
@@ -188,6 +238,16 @@ static void DisplayInstruction(ActionEditor *e)
                 { snprintf(text,sizeof(text),"%lu - Pad (%s)",(unsigned long)i,e->setup->pads[i].stanname); Choice(c,text,i); }
                 Choice(c,"9000 - Current pad preset",9000);
             }
+            else if (param->kind==ACTION_TEXT && value<=0xffff)
+            {
+                const ActionTextBank *bank=&e->text.banks[value>>10];
+                for (DWORD slot=0;slot<bank->text.count;slot++) if (TextBankString(&bank->text,slot))
+                {
+                    char preview[240]; DWORD id=(value&0xfc00)|slot;
+                    ActionTextSummary(&e->text,id,preview,sizeof(preview));
+                    snprintf(text,sizeof(text),"%lu - %s",(unsigned long)id,preview); Choice(c,text,id);
+                }
+            }
             if (ins->bytes[0]==0x0a && (p==1 || p==2))
             { Choice(c,p==1 ? "65535 - Start of animation" : "65535 - End of animation",65535); }
             SelectChoice(c,value);
@@ -216,7 +276,7 @@ static void DisplayInstruction(ActionEditor *e)
         snprintf(text,sizeof(text),"%s%s%s\r\n\r\nNative command: %s [0x%02X]\r\nNumbers accept decimal or 0x hex. Lists accept a listed reference or a numeric ID.",b->global ? "Shared behavior (read-only). Duplicate into this level to customize.\r\n\r\n" : "",
             b->disabled ? "Disabled in game. Re-enable to run this block in your next ROM.\r\n\r\n" : "",help,op->symbol,ins->bytes[0]);
     }
-    SetText(e,AE_HELP,text); e->pending=FALSE; e->refreshing=FALSE;
+    SetText(e,AE_HELP,text); DisplayTextPreview(e); e->pending=FALSE; e->refreshing=FALSE;
 }
 static void DisplayReferences(ActionEditor *e)
 {
@@ -275,7 +335,7 @@ static void Refresh(ActionEditor *e)
         if (e->row>=b->count) { e->row=b->count-1; }
         for (DWORD i=0;i<b->count;i++)
         {
-            ActionInstructionFormat(b,i,title,sizeof(title));
+            ActionTextInstructionFormat(&e->text,b,i,title,sizeof(title));
             snprintf(text,sizeof(text),"%lu. %s%s%s",(unsigned long)i+1,b->instructions[i].bytes[0]==2 ? "" : "    ",title,b->instructions[i].note[0] ? "  [note]" : "");
             SendMessage(steps,LB_ADDSTRING,0,(LPARAM)text);
         }
@@ -459,6 +519,7 @@ static void Layout(ActionEditor *e)
     for (int p=0;p<8;p++)
     { Place(e,AE_PARAMLABEL+p,rx,145+p*39,right,16); Place(e,AE_PARAM+p,rx,161+p*39,right,240); }
     Place(e,AE_TEXTLABEL,rx,145,right,18); Place(e,AE_DEBUGTEXT,rx,167,right,124);
+    LayoutTextPreview(e);
     Place(e,AE_APPLYSTEP,rx,465,150,27); Place(e,AE_FOLLOW,rx+160,465,right-160,27);
     Place(e,AE_HELP,rx,503,right,body-506);
     Place(e,AE_ISSUELABEL,12,body+1,400,18); Place(e,AE_ISSUES,12,body+23,w-24,77);
@@ -500,6 +561,9 @@ static void Controls(ActionEditor *e)
     AddControl(e,AE_ENABLED,"BUTTON","Enabled in game",WS_TABSTOP|BS_AUTOCHECKBOX);
     AddControl(e,AE_NOTE,"EDIT","",WS_TABSTOP|ES_MULTILINE|ES_AUTOVSCROLL|ES_WANTRETURN|WS_VSCROLL);
     AddControl(e,AE_DEBUGTEXT,"EDIT","",WS_TABSTOP|ES_MULTILINE|ES_AUTOVSCROLL|ES_WANTRETURN|WS_VSCROLL);
+    AddControl(e,AE_PREVIEWLABEL,"STATIC","Referenced text",SS_LEFT|SS_NOPREFIX);
+    AddControl(e,AE_PREVIEW,"EDIT","",WS_TABSTOP|ES_MULTILINE|ES_READONLY|ES_AUTOVSCROLL|WS_VSCROLL);
+    SendMessage(Control(e,AE_PREVIEW),EM_LIMITTEXT,TEXT_BANK_MAX_SIZE*4u,0);
     AddControl(e,AE_SEARCH,"EDIT","",edit);
     AddControl(e,AE_COMMAND,"COMBOBOX","",WS_TABSTOP|CBS_DROPDOWNLIST|WS_VSCROLL);
     AddControl(e,AE_CHARACTERS,"COMBOBOX","",WS_TABSTOP|CBS_DROPDOWNLIST|WS_VSCROLL);
@@ -509,6 +573,7 @@ static void Controls(ActionEditor *e)
         AddControl(e,AE_PARAMLABEL+p,"STATIC","",0);
         AddControl(e,AE_PARAM+p,"COMBOBOX","",WS_TABSTOP|CBS_DROPDOWN|CBS_AUTOHSCROLL|WS_VSCROLL);
         SendMessage(Control(e,AE_PARAM+p),CB_LIMITTEXT,128,0);
+        SendMessage(Control(e,AE_PARAM+p),CB_SETDROPPEDWIDTH,600,0);
     }
     for (unsigned int i=0;i<sizeof(buttons)/sizeof(*buttons);i++)
     { AddControl(e,buttons[i].id,"BUTTON",buttons[i].text,WS_TABSTOP|BS_PUSHBUTTON); }
@@ -548,7 +613,11 @@ static INT_PTR CALLBACK Dialog(HWND hwnd, UINT msg, WPARAM w, LPARAM l)
             if (((id==AE_NAME || id==AE_NOTE || id==AE_BLOCKNAME || id==AE_DEBUGTEXT) && code==EN_CHANGE)
                 || (id>=AE_PARAM && id<AE_PARAM+8 && (code==CBN_EDITCHANGE || code==CBN_SELCHANGE)))
             {
-                if (id>=AE_PARAM && id<AE_PARAM+8) { e->typed[id-AE_PARAM]=code==CBN_EDITCHANGE; }
+                if (id>=AE_PARAM && id<AE_PARAM+8)
+                {
+                    e->typed[id-AE_PARAM]=code==CBN_EDITCHANGE;
+                    if (id-AE_PARAM==TextParameter(e)) { DisplayTextPreview(e); }
+                }
                 e->pending=TRUE; return TRUE;
             }
             if (id==AE_BLOCKS && code==LBN_SELCHANGE)
@@ -608,6 +677,7 @@ BOOL ActionEditorShow(HWND owner, const GEditorProject *project, const SetupFile
         { snprintf(e->globalstatus,sizeof(e->globalstatus),"Shared scripts are read-only. Duplicate one into this level to customize it."); }
         else if (**why) { snprintf(e->globalstatus,sizeof(e->globalstatus),"%s",*why); }
     }
+    ActionTextLoad(&e->text,project->dir,&rom);
     RomFree(&rom); e->block=e->doc.count ? 0 : ACTION_MISSING_TARGET;
     if (selectedcharacter<e->doc.charactercount)
     { for (DWORD i=0;i<e->doc.count;i++) if (e->doc.blocks[i].id==e->doc.assignments[selectedcharacter]) { e->block=i; break; } }
@@ -617,5 +687,5 @@ BOOL ActionEditorShow(HWND owner, const GEditorProject *project, const SetupFile
     if (!success) { *why="The Action Blocks window could not be created."; }
     else { *why=""; }
     ActionDocumentFree(&e->doc); ClearHistory(e->undo,&e->undocount); ClearHistory(e->redo,&e->redocount);
-    free(e->issues); free(e); return success;
+    ActionTextFree(&e->text); free(e->issues); free(e); return success;
 }
