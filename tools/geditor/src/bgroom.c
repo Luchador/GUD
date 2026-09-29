@@ -16,6 +16,38 @@ static void BgRoomReadGroup(BgRenderState *state, const BgDocumentDrawGroup *gro
     { BgRenderStateRead(state, BgRoomRead32(group->commands + i), BgRoomRead32(group->commands + i + 4)); }
 }
 
+/* A layer's first untextured group can inherit G_TL_TILE without writing
+ * the texture-LOD bit. Appending it after a textured room's G_TL_LOD group
+ * must restore that default explicitly (as set by dlFastPipelineSetup).
+ * Reset only this verified default; keep the full compatibility check for
+ * other inherited-state conflicts. */
+static BOOL BgRoomNeedsTileReset(const BgDocumentLayerData *dst,
+    const BgDocumentLayerData *src, BOOL *reset, const char **reasonout)
+{
+    BgRenderState sourcehead, appendedhead;
+    BgRenderStateInit(&sourcehead, FALSE);
+    BgRenderStateInit(&appendedhead, FALSE); /* Texture LOD is independent of layer. */
+    if ((dst->groupcount && !dst->groups) || (src->groupcount && !src->groups)) { goto malformed; }
+    for (DWORD g = 0; g < dst->groupcount; g++)
+    {
+        const BgDocumentDrawGroup *group = &dst->groups[g];
+        if ((group->commandsize & 7u) || (group->commandsize && !group->commands)) { goto malformed; }
+        BgRoomReadGroup(&appendedhead, group);
+    }
+    if (src->groupcount)
+    {
+        const BgDocumentDrawGroup *group = &src->groups[0];
+        if ((group->commandsize & 7u) || (group->commandsize && !group->commands)) { goto malformed; }
+        BgRoomReadGroup(&sourcehead, group);
+        BgRoomReadGroup(&appendedhead, group);
+    }
+    *reset = ((sourcehead.othermodehigh ^ appendedhead.othermodehigh) & 0x00010000u) != 0;
+    return TRUE;
+malformed:
+    *reasonout = "A room has malformed display-list state.";
+    return FALSE;
+}
+
 /* Replay the entire source layer, including state-only groups and its tail.
  * A group's commands are incremental, so copying only the selected group's
  * commands would lose inherited render modes and authored surface overrides.
@@ -27,6 +59,8 @@ static BOOL BgRoomAppendLayer(BgDocumentLayerData *dst, const BgDocumentLayerDat
     DWORD base = dst->groupcount ? dst->groupcount : 1;
     BgDocumentDrawGroup *groups;
     DWORD i;
+    BOOL resettile;
+    if (!BgRoomNeedsTileReset(dst, src, &resettile, reasonout)) { return FALSE; }
     if (base > (DWORD)-1 - count || base + count > (DWORD)-1 / sizeof(*groups)) { return FALSE; }
     groups = realloc(dst->groups, (size_t)(base + count) * sizeof(*groups));
     if (!groups) { return FALSE; }
@@ -42,7 +76,7 @@ static BOOL BgRoomAppendLayer(BgDocumentLayerData *dst, const BgDocumentLayerDat
         DWORD size = from ? from->commandsize : 0;
         /* Reset editor policy at the room boundary. This marker has no RDP
          * side effect; subsequent source overrides take precedence as usual. */
-        DWORD prefix = i == 0 ? 8 : 0;
+        DWORD prefix = i == 0 ? (resettile ? 24 : 8) : 0;
         if ((size & 7u) || (size && !from->commands) || size > (DWORD)-1 - prefix)
         { *reasonout = "A source room has malformed display-list state."; return FALSE; }
         to->commandsize = to->commandcapacity = size + prefix;
@@ -51,10 +85,11 @@ static BOOL BgRoomAppendLayer(BgDocumentLayerData *dst, const BgDocumentLayerDat
         if (!to->commands) { return FALSE; }
         if (prefix)
         {
-            DWORD w0 = BG_SURFACE_MARKER, w1 = BG_SURFACE_TAG_VALUE(BG_SURFACE_AUTO, 0);
-            unsigned int b;
-            for (b = 0; b < 4; b++)
-            { to->commands[b] = (unsigned char)(w0 >> (24 - b * 8)); to->commands[b + 4] = (unsigned char)(w1 >> (24 - b * 8)); }
+            const DWORD words[] = {BG_SURFACE_MARKER, BG_SURFACE_TAG_VALUE(BG_SURFACE_AUTO, 0),
+                0xE7000000u, 0, /* Pipe sync before the RDP state change. */
+                0xBA001001u, 0}; /* G_MDSFT_TEXTLOD, one bit: G_TL_TILE. */
+            for (DWORD b = 0; b < prefix; b++)
+            { to->commands[b] = (unsigned char)(words[b / 4] >> (24 - (b % 4) * 8)); }
         }
         if (size) { memcpy(to->commands + prefix, from->commands, size); }
     }
@@ -190,6 +225,11 @@ static BOOL BgRoomAppendFaces(BgDocument *doc, const BgDocumentRoom *src, DWORD 
         {
             BgDocumentFace *face = &dst->faces[dst->facecount++];
             *face = src->faces[f]; face->room = (unsigned short)target;
+            /* A source can have G_ON but no image binding yet. Make its
+             * untextured state explicit so a native save/reload cannot pick
+             * up the destination's last image. Retain the authored combiner. */
+            if (bases[face->layer] && face->textureid == BG_TEX_NONE)
+            { face->material.modeword0 &= ~0xffu; }
             if (newids) { face->id = doc->nextfaceid++; }
             face->drawgroup += bases[face->layer];
             for (unsigned int c = 0; c < 3; c++)

@@ -39,8 +39,11 @@ static void Appearance(const BgDocument *before, const BgDocument *after)
         {
             if (after->rooms[s].faces[g].id == x->id) { b = &after->rooms[s]; y = &b->faces[g]; break; }
         }
-        assert(y && x->layer == y->layer && x->cullbackfaces == y->cullbackfaces
-            && x->textureid == y->textureid && BgMaterialEqual(&x->material, &y->material));
+        assert(y && x->layer == y->layer && x->cullbackfaces == y->cullbackfaces && x->textureid == y->textureid);
+        BgMaterial ma = x->material, mb = y->material;
+        /* G_ON without an image and explicit G_OFF are both untextured. */
+        if (x->textureid == BG_TEX_NONE) { ma.modeword0 &= ~0xffu; mb.modeword0 &= ~0xffu; }
+        assert(BgMaterialEqual(&ma,&mb));
         for (int c = 0; c < 3; c++)
         {
             const BgDocumentVertex *v = &a->vertices[x->vertexindices[c]], *w = &b->vertices[y->vertexindices[c]];
@@ -181,6 +184,71 @@ static void InheritedShading(const char *dir)
     assert(strstr(why,"render state")); Same(&doc,&original);
     BgDocumentFree(&doc); BgDocumentFree(&original); BgFileFree(&source);
     puts("PASS: inherited runtime shading matches explicit shading through room transfer and save/reload; real conflicts retain atomic rejection.");
+}
+
+static void InheritedTextureLod(const char *dir)
+{
+    BgFile source = Fixture(); BgDocument original = {0}, doc = {0};
+    BgFaceRef refs[20]; const char *why = ""; BOOL changed;
+    assert(BgDocumentLoad(source.data,source.size,1,&original,&why)); Refs(&original,refs);
+    for (unsigned int l = 0; l < 2; l++)
+    {
+        BgDocumentLayerData *src = &original.rooms[1].layers[l], *dst = &original.rooms[2].layers[l];
+        /* Control 11 -> 10: untextured source faces inherit G_TL_TILE,
+         * but the destination's preceding geometry leaves G_TL_LOD set. */
+        for (DWORD g = 0; g < dst->groupcount; g++)
+        {
+            assert(BgDocumentSurfaceCommand(&dst->groups[g],0xe7000000,0));
+            assert(BgDocumentSurfaceCommand(&dst->groups[g],0xba001001,0x10000));
+        }
+        /* Later source faces deliberately use LOD; retain that setting too. */
+        assert(src->groupcount > 1);
+        assert(BgDocumentSurfaceCommand(&src->groups[1],0xe7000000,0));
+        assert(BgDocumentSurfaceCommand(&src->groups[1],0xba001001,0x10000));
+    }
+    for (DWORD f = 0; f < original.rooms[1].facecount; f++)
+    {
+        BgDocumentFace *face = &original.rooms[1].faces[f];
+        if (face->drawgroup) { continue; }
+        face->textureid = BG_TEX_NONE; BgMaterialSetTexture(&face->material,BG_TEX_NONE);
+        /* Native Control starts with G_ON but has not bound an image yet. */
+        face->material.textureword0 = face->material.textureword1 = 0;
+        face->material.modeword0 |= 1;
+        BgRenderState state;
+        assert(BgDocumentGetFaceRenderStates(&original,&refs[f],1,&state));
+        assert(!(state.othermodehigh & 0x10000) && !(state.othermodehighknown & 0x10000));
+    }
+    assert(BgDocumentClone(&original,&doc,&why));
+    assert(BgDocumentMoveFacesToRoom(&doc,refs,10,2,&changed,&why) && changed);
+    for (DWORD f = 0; f < doc.rooms[2].facecount; f++)
+    {
+        const BgDocumentFace *face = &doc.rooms[2].faces[f];
+        if (face->textureid == BG_TEX_NONE) { assert(!(face->material.modeword0 & 0xffu)); }
+    }
+    Appearance(&original,&doc); UseCounts(&doc); RoundTrip(&doc,&source,dir);
+    BgDocumentFree(&doc); BgDocumentFree(&original); BgFileFree(&source);
+    puts("PASS: inherited TILE and explicit LOD states survive room transfer and native save/reload on both layers.");
+}
+
+/* Optional regression against the supplied edited Control BG. Face IDs are
+ * assigned again on load, so test the room contents rather than session IDs. */
+static void Control(const char *file, const char *dir)
+{
+    BgFile source = {0}; BgDocument original = {0}, doc = {0}; const char *why = ""; BOOL changed;
+    FILE *fp = fopen(file,"rb"); assert(fp); fseek(fp,0,SEEK_END); source.size = (DWORD)ftell(fp); rewind(fp);
+    source.data = malloc(source.size); assert(source.data && fread(source.data,1,source.size,fp) == source.size); fclose(fp);
+    strcpy(source.name,"bg/control_room_test.seg");
+    assert(BgDocumentLoad(source.data,source.size,1,&original,&why) && original.roomcount >= 11);
+    assert(BgDocumentClone(&original,&doc,&why));
+    DWORD count = doc.rooms[11].facecount; assert(count);
+    BgFaceRef *refs = malloc(count*sizeof(*refs)); assert(refs);
+    for (DWORD f = 0; f < count; f++) { BgDocumentFace *p = &doc.rooms[11].faces[f]; refs[f] = (BgFaceRef){p->id,11,p->layer,0}; }
+    if (!BgDocumentMoveFacesToRoom(&doc,refs,count,10,&changed,&why)) { fprintf(stderr,"Control: %s\n",why); abort(); }
+    assert(changed && doc.rooms[11].facecount == original.rooms[11].facecount - count
+        && doc.rooms[10].facecount == original.rooms[10].facecount + count);
+    Appearance(&original,&doc); UseCounts(&doc); RoundTrip(&doc,&source,dir);
+    printf("PASS: edited Control room 11 -> 10, %lu faces; appearance and native save/reload preserved.\n",(unsigned long)count);
+    free(refs); BgDocumentFree(&doc); BgDocumentFree(&original); BgFileFree(&source);
 }
 
 static void Depot(const char *file, const char *dir)
@@ -372,4 +440,11 @@ static void StateBarriers(void)
     puts("PASS: partial register writes, full RGB/alpha, geometry masks, surface tags, leading sync and opaque-command barriers survive cleanup.");
 }
 
-int main(int argc, char **argv) { assert(argc == 3); Geometry(argv[1]); InheritedShading(argv[1]); RepeatedTransfers(argv[1]); LegacyRepair(argv[1]); StateBarriers(); Depot(argv[2],argv[1]); Commands(); return 0; }
+int main(int argc, char **argv)
+{
+    assert(argc == 3 || argc == 4);
+    Geometry(argv[1]); InheritedShading(argv[1]); InheritedTextureLod(argv[1]);
+    RepeatedTransfers(argv[1]); LegacyRepair(argv[1]); StateBarriers(); Depot(argv[2],argv[1]); Commands();
+    if (argc == 4) { Control(argv[3],argv[1]); }
+    return 0;
+}

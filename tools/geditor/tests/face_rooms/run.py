@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Room transfers, native save/reload (including Depot), and editor history."""
+"""Room transfers, native save/reload (including Depot), and editor history.
+
+Pass --control-bg PATH to also check room 11 -> 10 in the edited Control BG.
+"""
+import argparse
 import importlib.util
 import os
 from pathlib import Path
@@ -18,6 +22,9 @@ def load(name, path):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--control-bg', type=Path)
+    args = parser.parse_args()
     sys.dont_write_bytecode = True
     here = Path(__file__).resolve().parent
     src = here.parents[1] / 'src'
@@ -34,6 +41,12 @@ def main():
         comparison = re.search(r'typedef struct FaceKey\s*\{.*?\} FaceKey;', batching, re.S)[0]
         comparison += '\n' + ''.join(helpers.function(batching, name) for name in
                                      ('Key', 'Compare', 'EquivalentDocuments'))
+        # An unbound G_ON material is normalized to G_OFF during a transfer.
+        # Compare these untextured materials equally, retaining their combiner
+        # and pipeline. A face picking up an image on reload must still fail.
+        comparison = comparison.replace('return key;',
+            'if (face->textureid == BG_TEX_NONE) { key.material[0]=key.material[1]=0; '
+            'key.material[2] &= ~0xffu; } return key;')
         (work / 'comparison.inc').write_text(comparison.replace('OK(', 'assert('))
         (work / 'editor.inc').write_text(helpers.function((src / 'geditor.c').read_text(), 'GEditorMoveSelectedFacesToRoom'))
         depot = (here.parents[3] / 'assets/obseg/bg/bg_depo_all_p.c').read_text()
@@ -49,7 +62,8 @@ def main():
         sources = ('bgload.c', 'bgcompile.c', 'bgmaterial.c', 'bgrender.c', 'bghistory.c')
         subprocess.run(command + [str(here / 'check.c'), str(here.parent / 'image_import/platform.c')]
                        + [str(src / n) for n in sources] + ['-Wl,--gc-sections', '-lm', '-o', str(work / 'check')], check=True)
-        subprocess.run([str(work / 'check'), str(work), str(work / 'depot.seg')], check=True,
+        extra = [str(args.control_bg.resolve())] if args.control_bg else []
+        subprocess.run([str(work / 'check'), str(work), str(work / 'depot.seg')] + extra, check=True,
                        env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))
 
         inspector = (src / 'faceproperties.c').read_text()
