@@ -455,6 +455,16 @@ s32 bondinvAddPropToInv(PropRecord *prop)
 }
 
 
+/* A single marked pickup grants its own matching pair. Keep this independent
+ * of dualweapon/LinkedWeaponType, which track two physically linked weapons. */
+bool bondinvWeaponGrantsDual(const WeaponObjRecord *weapon)
+{
+    return (weapon->flags & PROPFLAG_WEAPON_GRANTS_DUAL)
+        && weapon->weaponnum > ITEM_UNARMED && weapon->weaponnum < ITEM_BOMBCASE
+        && bondwalkItemCheckBitflags(weapon->weaponnum, WEAPONSTATBITFLAG_CAN_DUAL_WIELD);
+}
+
+
 s32 bondinvAddWeaponByProp(PropRecord *prop)
 {
     s32 added;
@@ -501,6 +511,12 @@ s32 bondinvAddWeaponByProp(PropRecord *prop)
                         added = bondinvAddDoublesInvItem(weaponnum, weapon->LinkedWeaponType);
                     }
                 }
+            }
+
+            if (bondinvWeaponGrantsDual(weapon)
+                && bondinvAddDoublesInvItem(weaponnum, weaponnum))
+            {
+                added = TRUE;
             }
         }
     }

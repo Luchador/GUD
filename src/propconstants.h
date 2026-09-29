@@ -38,6 +38,7 @@ typedef enum PROPFLAG
     PROPFLAG_CANNOT_ACTIVATE                   = 0x02000000, // Cannot Activate Door/Object
     PROPFLAG_TRANSPARENT_TO_AI                 = 0x04000000, // AI Sees Through Door/Object
     PROPFLAG_DOOR_TWOWAY                       = 0x08000000, // Open Away From Player
+    PROPFLAG_WEAPON_GRANTS_DUAL                = 0x08000000, // Collecting this weapon unlocks a matching dual-wield pair without equipping it. Weapons only; requires dual-wield support.
     PROPFLAG_WEAPON_LEFTHANDED                 = 0x10000000, // Left-Handed weapon
     PROPFLAG_GLASS_HASPORTAL                   = 0x10000000, // Glass Has Portal
     PROPFLAG_CULL_BEHIND_DOOR                  = 0x10000000, // Area Behind Door Invisible

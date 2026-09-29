@@ -19,6 +19,7 @@ ITEM_IDS bondinvGetNextGadget(ITEM_IDS current);
 bool bondinvHasGoldenGun(void);
 int bondinvAddInvItem(ITEM_IDS item);
 int bondinvAddDoublesInvItem(ITEM_IDS right, ITEM_IDS left);
+bool bondinvWeaponGrantsDual(const WeaponObjRecord *weapon);
 s32 bondinvGetAllGunsFlag(void);
 void bondinvSetAllGunsFlag(s32 all_guns);
 bool          bondinvHasPropInInv(PropRecord *prop);

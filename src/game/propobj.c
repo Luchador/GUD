@@ -10557,7 +10557,10 @@ TICKOP objTickPlayer(struct PropRecord* prop)
         {
             if (gunGetAmmoType(weaponObj->weaponnum) != 0) 
             {
-                if (get_ammo_count_for_weapon(weaponObj->weaponnum) >= get_max_ammo_for_weapon(weaponObj->weaponnum)) 
+                /* A new dual-wield unlock is useful even with full ammo. */
+                if (get_ammo_count_for_weapon(weaponObj->weaponnum) >= get_max_ammo_for_weapon(weaponObj->weaponnum)
+                    && !(bondinvWeaponGrantsDual(weaponObj)
+                        && !bondinvHasDualWeapon(weaponObj->weaponnum, weaponObj->weaponnum)))
                 {
                     if ((weaponObj->dualweapon != NULL) || (weaponObj->LinkedWeaponType >= 0)) 
                     {

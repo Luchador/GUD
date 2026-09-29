@@ -33,6 +33,7 @@ OBJECT_FLAG(0, PROPFLAG_EMBEDDED, "Prevent landing damage", "Prevents noncollect
 OBJECT_FLAG(0, PROPFLAG_CANNOT_ACTIVATE, "Cannot activate", "Cannot Activate door/object")
 OBJECT_FLAG(0, PROPFLAG_TRANSPARENT_TO_AI, "Transparent to AI", "AI Sees through door/object")
 OBJECT_FLAG(0, PROPFLAG_DOOR_TWOWAY, "Door two-way", "Open away from player")
+OBJECT_FLAG_FOR_TYPE(0, PROPFLAG_WEAPON_GRANTS_DUAL, "Grants dual wield on pickup", "Collecting this weapon unlocks a matching dual-wield pair without equipping it. Only affects weapons that support dual wielding.", PROPDEF_COLLECTABLE)
 OBJECT_FLAG(0, PROPFLAG_WEAPON_LEFTHANDED, "Weapon left handed", "Equips this weapon in the character’s left hand instead of the right. Also identifies the left-hand weapon in a linked pair.")
 OBJECT_FLAG(0, PROPFLAG_GLASS_HASPORTAL, "Glass has portal", "Glass is connected to a portal.")
 OBJECT_FLAG(0, PROPFLAG_CULL_BEHIND_DOOR, "Cull behind door", "Area behind door is not rendered.")

@@ -2665,7 +2665,8 @@ u8 ai_16[] = {
     if_guard_has_stopped_moving(0x2c)
     goto_first(0x0b)
     label(0x2c)
-    guard_try_spawning_item(0xbf00, 0x04, 0x00000000, 0x2c)
+    // PROPFLAG_WEAPON_GRANTS_DUAL (0x08000000), byte-swapped for this macro.
+    guard_try_spawning_item(0xbf00, ITEM_WPPK, 0x00000008, 0x2c)
     label(0x2c)
     guard_play_animation(0x4100, 0x1500, 0x2800, 0x04, 0x10)
     label(0x0c)
