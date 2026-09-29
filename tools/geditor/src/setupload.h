@@ -405,6 +405,14 @@ BOOL SetupFileCanAddBoundPadModel(const SetupFile *setup, DWORD padindex, BOOL d
 BOOL SetupFileAddBoundPadModel(SetupFile *setup, DWORD padindex, int modelid, BOOL door,
                               DWORD *selectionout, const char **reasonout);
 
+#define SETUP_DEFAULT_AMMO_MODEL "Pammo_crate3Z"
+/* Add a native single-type pickup, initially 9mm, with a private normal pad.
+ * Model and ammo type are independent editable properties. Pickup quantities
+ * use the game's ammo-type defaults and difficulty multipliers. */
+BOOL SetupFileAddAmmo(SetupFile *setup, int modelid, float levelscale,
+                      const double position[3], DWORD *selectionout,
+                      const char **reasonout);
+
 #define SETUP_DEFAULT_ARMOR_MODEL "PbodyarmourZ"
 /* Add a full-strength armor pickup at the stock 1.5x model scale, with a
  * private normal pad. Uses normal floor/support placement and can fall if

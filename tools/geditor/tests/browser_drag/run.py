@@ -60,6 +60,7 @@ typedef struct {
     DWORD dragtextureid;
     struct { RECT bodyrc; BOOL expanded; } sections[4];
     struct { char label[64]; } models[4], levels[1];
+    DWORD levelindices[1];
     int modelcount, modeltab, scroll[4], selectedlevel;
 } BrowserState;
 #define TRUE 1
@@ -86,11 +87,13 @@ typedef struct {
 #define BROWSER_OBJECT_OUTRO_CAMERA 5
 #define BROWSER_OBJECT_DOOR 6
 #define BROWSER_OBJECT_GLASS 7
+#define BROWSER_OBJECT_AMMO 9
 #define BROWSER_OBJECT_CCTV 10
 #define BROWSER_OBJECT_ALARM 11
 #define BROWSER_OBJECT_DRONE_GUN 12
 #define BROWSER_OBJECT_TANK 13
 #define BROWSER_OBJECT_PORTAL 14
+#define BROWSER_OBJECT_SAFE 16
 #define BROWSER_OBJECT_CIRCLE 17
 #define BROWSER_OBJECT_CYLINDER 18
 #define BROWSER_OBJECT_ARMOR 19
@@ -307,6 +310,11 @@ int main(void)
     Dispatch(browser, WM_LBUTTONUP, 0, (100 << 16) | 320);
     assert(objectdrops == 1 && placed.type == BROWSER_OBJECT_ARMOR && placed.screen.x == 420 && placed.screen.y == 300);
     assert(destroyed == 1 && capture == 0);
+    Reset(TRUE); Start(TRUE); g_state.pressedobject = BROWSER_OBJECT_AMMO;
+    Dispatch(browser, WM_LBUTTONUP, 0, (100 << 16) | 320);
+    assert(objectdrops == 1 && placed.type == BROWSER_OBJECT_AMMO && placed.screen.x == 420 && placed.screen.y == 300);
+    assert(destroyed == 1 && capture == 0);
+    Dispatch(browser, WM_LBUTTONUP, 0, 0); assert(objectdrops == 1);
     Reset(TRUE); Start(TRUE); SetCapture(other);
     assert(capture == other && !g_state.dragimage && g_state.pressedobject == -1 && destroyed == 1);
     Dispatch(browser, WM_LBUTTONUP, 0, 0); assert(objectdrops == 0);
@@ -318,7 +326,7 @@ int main(void)
     Dispatch(browser, WM_LBUTTONUP, 0, 0); assert(imagedrops == 1 && destroyed == 1);
     Reset(FALSE); Start(FALSE); strcpy(g_state.dragmodel, "PcrateZ");
     Dispatch(browser, WM_LBUTTONUP, 0, 0); assert(modeldrops == 1 && destroyed == 1);
-    puts("PASS: multi-monitor preview coordinates, palette capture, triangle/quad/circle/cylinder/spawn/intro/outro/door/glass/CCTV/alarm/drone/tank/armor/portal/pad drop type/position, capture loss, cancellation, image/model drags, double-click opening across model tabs and scrolling.");
+    puts("PASS: multi-monitor preview coordinates, palette capture, triangle/quad/circle/cylinder/spawn/intro/outro/door/glass/CCTV/alarm/drone/tank/armor/ammo/portal/pad drop type/position, capture loss, cancellation, image/model drags, double-click opening across model tabs and scrolling.");
     return 0;
 }
 '''

@@ -2115,9 +2115,9 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
         DWORD extrascale = type == PROPDEF_ARMOUR ? 384u : type == PROPDEF_TANK ? 276u : 256u;
         SetupWrite32(added.data + newrecord, (extrascale << 16) | type);
         SetupWrite32(added.data + newrecord + 4, ((DWORD)modelid << 16) | (padindex + (bound ? 10000u : 0u)));
-        if (type == PROPDEF_ARMOUR)
+        if (type == PROPDEF_ARMOUR || type == PROPDEF_MAGAZINE)
         {
-            /* Armor is collectible by type; don't turn it into an obstacle
+            /* Armor and ammo are collectible by type; don't turn them into obstacles
              * with FORCE_COLLISIONS or require the interaction button. */
             SetupWrite32(added.data + newrecord + 8, PROPFLAG_ALLOWFALL);
         }
@@ -2163,6 +2163,12 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
              * signed 16.16 initialamount, then copies it to runtime amount.
              * 65536 gives full armor; writing float bits here is incorrect. */
             SetupWrite32(added.data + newrecord + 0x80, 65536);
+        }
+        else if (type == PROPDEF_MAGAZINE)
+        {
+            /* Native 33-word AmmoCrateRecord. Its type is independent of
+             * the visible model; the game supplies the pickup quantity. */
+            SetupWrite32(added.data + newrecord + 0x80, AMMO_9MM);
         }
         else if (type == PROPDEF_TANK)
         {
@@ -2318,6 +2324,14 @@ malformed:
 fail:
     SetupFileFree(&copy);
     return FALSE;
+}
+
+BOOL SetupFileAddAmmo(SetupFile *setup, int modelid, float levelscale,
+                      const double position[3], DWORD *selectionout,
+                      const char **reasonout)
+{
+    return SetupAddPlacement(setup, PROPDEF_MAGAZINE, modelid, levelscale,
+        position, NULL, NULL, selectionout, reasonout);
 }
 
 BOOL SetupFileAddArmor(SetupFile *setup, int modelid, float levelscale,
