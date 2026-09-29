@@ -149,11 +149,13 @@ bool check_if_imageID_is_light(s32 imageID)
         (imageID == IMAGE_205_LIGHT)     ||
         (imageID == IMAGE_252_LIGHT)     ||
         (imageID == 0xFD)                ||
+        (imageID == 0xFF)                ||
         (imageID == IMAGE_PANEL_LAMP)    ||
         (imageID == IMAGE_255_LIGHT)     ||
         (imageID == IMAGE_256_LIGHT)     ||
         (imageID == IMAGE_HANGING_LAMP)  ||
         (imageID == IMAGE_NEON_LAMP)     ||
+        (imageID == 0xAA0)               ||
         (imageID == IMAGE_LINEAR_LAMP))
     {
         // Will darken when shot

@@ -10457,6 +10457,31 @@ BOOL ViewportHideSelectedBgFaces(HWND hwnd)
     return TRUE;
 }
 
+BOOL ViewportRevealBgFace(HWND hwnd, const BgFaceRef *ref)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    int triangle;
+    if (!state || !ref || ref->faceid == BG_FACE_ID_NONE || !state->scenefacerefs) { return FALSE; }
+    for (triangle = 0; triangle < state->scenecount / 3; triangle++)
+    {
+        if (!ViewportCompareFaceRefs(ref, &state->scenefacerefs[triangle])) { break; }
+    }
+    if (triangle == state->scenecount / 3) { return FALSE; }
+    for (int i = 0; i < state->hiddenrefcount; i++)
+    {
+        if (!ViewportCompareFaceRefs(ref, &state->hiddenrefs[i]))
+        {
+            memmove(state->hiddenrefs + i, state->hiddenrefs + i + 1,
+                (size_t)(state->hiddenrefcount - i - 1) * sizeof(*state->hiddenrefs));
+            state->hiddenrefcount--;
+            ViewportRestoreHiddenFaces(state, FALSE);
+            InvalidateRect(hwnd, NULL, FALSE);
+            break;
+        }
+    }
+    return TRUE;
+}
+
 void ViewportUnhideAllBgFaces(HWND hwnd)
 {
     ViewportState *state = ViewportGetState(hwnd);

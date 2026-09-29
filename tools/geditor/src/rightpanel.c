@@ -312,9 +312,14 @@ void RightPanelShowObjects(HWND panel)
 
 void RightPanelShowPrimaryBackground(HWND panel)
 {
+    RightPanelShowBackgroundLayer(panel, FALSE);
+}
+
+void RightPanelShowBackgroundLayer(HWND panel, BOOL secondary)
+{
     RightPanelState *state = RightPanelGetState(panel);
     if (state == NULL) { return; }
-    SendMessage(state->bgprimary, BM_SETCHECK, BST_CHECKED, 0);
+    SendMessage(secondary ? state->bgsecondary : state->bgprimary, BM_SETCHECK, BST_CHECKED, 0);
     RightPanelNotifyVisibility(panel, state);
 }
 

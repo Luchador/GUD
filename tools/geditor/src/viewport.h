@@ -252,6 +252,8 @@ void ViewportSelectMaterialInRoom(HWND hwnd);
 /* Temporary viewport visibility only: never edits assets or history. Hidden
    identities survive scene rebuilds; opening/closing a level resets them. */
 BOOL ViewportHideSelectedBgFaces(HWND hwnd);
+/* Reveal only this source face, retaining all other hidden faces. */
+BOOL ViewportRevealBgFace(HWND hwnd, const BgFaceRef *ref);
 void ViewportUnhideAllBgFaces(HWND hwnd);
 BOOL ViewportHasHiddenBgFaces(HWND hwnd);
 /* Native image dimensions already loaded by the scene. Missing/untextured

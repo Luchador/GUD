@@ -8,6 +8,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
+#include <ctype.h>
 
 #include "project.h"
 #include "projectrebase.h"
@@ -736,6 +737,8 @@ enum {
     ID_VIEW_RENDER_UNTEXTURED,
     ID_VIEW_HIDE_SELECTED,
     ID_VIEW_UNHIDE_ALL,
+    ID_VIEW_GO_TO_FACE,
+    ID_VIEW_GO_TO_PORTAL,
 
     ID_SELECT_GROW,
     ID_SELECT_ALL,
@@ -936,6 +939,9 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(viewmenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(viewmenu, MF_STRING, ID_VIEW_HIDE_SELECTED, "&Hide Selected\tH");
     AppendMenu(viewmenu, MF_STRING, ID_VIEW_UNHIDE_ALL, "&Unhide All\tAlt+H");
+    AppendMenu(viewmenu, MF_SEPARATOR, 0, NULL);
+    AppendMenu(viewmenu, MF_STRING, ID_VIEW_GO_TO_FACE, "Go to Face...\tCtrl+F");
+    AppendMenu(viewmenu, MF_STRING, ID_VIEW_GO_TO_PORTAL, "Go to Portal...\tCtrl+P");
 
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_GROW, "&Grow Selection\tQ");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_ALL, "Select &All\tCtrl+A");
@@ -5495,6 +5501,128 @@ static BOOL GEditorLocateIssue(HWND hwnd, const LevelIssue *issue)
     return moved;
 }
 
+static BOOL GEditorFindBgFaceById(DWORD id, BgFaceRef *out)
+{
+    if (!id || !g_CurrentBgDocument.rooms) { return FALSE; }
+    for (DWORD r = 1; r <= g_CurrentBgDocument.roomcount; r++)
+    {
+        const BgDocumentRoom *room = &g_CurrentBgDocument.rooms[r];
+        for (DWORD i = 0; i < room->facecount; i++)
+        {
+            const BgDocumentFace *face = &room->faces[i];
+            if (face->id == id)
+            {
+                *out = (BgFaceRef){id, (unsigned short)r, face->layer, face->uvseams};
+                return TRUE;
+            }
+        }
+    }
+    return FALSE;
+}
+
+/* IDs are decimal, unsigned and may have gaps after editing. Portal 0 is valid. */
+static BOOL GEditorParseGeometryId(const char *text, DWORD *out)
+{
+    const unsigned char *p = (const unsigned char *)text;
+    DWORD value = 0;
+    while (isspace(*p)) { p++; }
+    if (*p < '0' || *p > '9') { return FALSE; }
+    do
+    {
+        unsigned int digit = *p++ - '0';
+        if (value > (0xffffffffu - digit) / 10u) { return FALSE; }
+        value = value * 10u + digit;
+    } while (*p >= '0' && *p <= '9');
+    while (isspace(*p)) { p++; }
+    if (*p) { return FALSE; }
+    *out = value;
+    return TRUE;
+}
+
+typedef struct GEditorGoToDialog {
+    BOOL portal;
+    DWORD id;
+    BgFaceRef face;
+} GEditorGoToDialog;
+
+static INT_PTR CALLBACK GEditorGoToDialogProc(HWND dialog, UINT message, WPARAM wparam, LPARAM lparam)
+{
+    GEditorGoToDialog *state = (GEditorGoToDialog *)GetWindowLongPtr(dialog, DWLP_USER);
+    switch (message)
+    {
+    case WM_INITDIALOG:
+        state = (GEditorGoToDialog *)lparam;
+        SetWindowLongPtr(dialog, DWLP_USER, (LONG_PTR)state);
+        SetWindowText(dialog, state->portal ? "Go to Portal" : "Go to Face");
+        SetDlgItemText(dialog, IDC_GO_TO_ID_LABEL, state->portal ? "&Portal ID:" : "&Face ID:");
+        SendDlgItemMessage(dialog, IDC_GO_TO_ID, EM_SETLIMITTEXT, 63, 0);
+        SetFocus(GetDlgItem(dialog, IDC_GO_TO_ID));
+        return FALSE;
+    case WM_CLOSE:
+        EndDialog(dialog, IDCANCEL); return TRUE;
+    case WM_COMMAND:
+        if (LOWORD(wparam) == IDCANCEL) { EndDialog(dialog, IDCANCEL); return TRUE; }
+        if (LOWORD(wparam) == IDC_GO_TO_ID && HIWORD(wparam) == EN_CHANGE)
+        { SetDlgItemText(dialog, IDC_GO_TO_ERROR, ""); return TRUE; }
+        if (LOWORD(wparam) == IDOK && state)
+        {
+            char text[64], error[128];
+            GetDlgItemText(dialog, IDC_GO_TO_ID, text, sizeof(text));
+            if (!GEditorParseGeometryId(text, &state->id))
+            { snprintf(error, sizeof(error), "Enter a valid decimal %s ID.", state->portal ? "portal" : "face"); }
+            else if (state->portal ? state->id < g_CurrentBgDocument.portals.portalcount
+                : GEditorFindBgFaceById(state->id, &state->face))
+            { EndDialog(dialog, IDOK); return TRUE; }
+            else
+            { snprintf(error, sizeof(error), "No %s with ID %lu exists in this level.", state->portal ? "portal" : "face", (unsigned long)state->id); }
+            SetDlgItemText(dialog, IDC_GO_TO_ERROR, error);
+            SetFocus(GetDlgItem(dialog, IDC_GO_TO_ID));
+            SendDlgItemMessage(dialog, IDC_GO_TO_ID, EM_SETSEL, 0, -1);
+            return TRUE;
+        }
+        break;
+    }
+    return FALSE;
+}
+
+static BOOL GEditorCanGoToGeometry(BOOL portal)
+{
+    return g_Viewport && g_CurrentLevelIndex < g_Project.levelcount
+        && !ViewportIsFlying(g_Viewport) && !ViewportIsTransforming(g_Viewport)
+        && (portal ? g_CurrentBgDocument.portals.portalcount : g_CurrentBgDocument.facecount) > 0;
+}
+
+static void GEditorGoToGeometry(HWND hwnd, BOOL portal)
+{
+    GEditorGoToDialog state = {0};
+    BOOL selected;
+    if (!GEditorCanGoToGeometry(portal)) { return; }
+    state.portal = portal;
+    INT_PTR result = DialogBoxParam(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_GO_TO_GEOMETRY),
+        hwnd, GEditorGoToDialogProc, (LPARAM)&state);
+    if (result == -1)
+    { MessageBox(hwnd, "Could not open the Go to dialog.", GEDITOR_TITLE, MB_ICONERROR); }
+    if (result != IDOK) { return; }
+    PatrolEditorSetPicking(FALSE);
+    ViewportSetColorPick(g_Viewport, FALSE);
+    ViewportSetTool(g_Viewport, EDITOR_TOOL_FACE_SELECT);
+    ToolToolbarSetTool(g_ToolToolbar, EDITOR_TOOL_FACE_SELECT);
+    if (portal)
+    {
+        RightPanelShowPortals(g_RightPanel);
+        selected = ViewportSelectPortal(g_Viewport, state.id);
+    }
+    else
+    {
+        RightPanelShowBackgroundLayer(g_RightPanel, state.face.layer == BG_GEOMETRY_SECONDARY);
+        selected = ViewportRevealBgFace(g_Viewport, &state.face)
+            && ViewportSelectBgFaces(g_Viewport, &state.face, 1);
+    }
+    GEditorRefreshSelectionDetails();
+    GEditorRefreshHistoryMenu(hwnd);
+    if (selected) { ViewportZoomToSelected(g_Viewport); SetFocus(g_Viewport); }
+}
+
 static BOOL GEditorFrameRoom(DWORD room)
 {
     double min[3], max[3];
@@ -6580,6 +6708,10 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         GEditorUpdateHistoryMenu((HMENU)wparam);
         EnableMenuItem((HMENU)wparam, ID_VIEW_ZOOM_SELECTED, MF_BYCOMMAND |
             (ViewportCanZoomToSelected(g_Viewport) ? MF_ENABLED : MF_GRAYED));
+        EnableMenuItem((HMENU)wparam, ID_VIEW_GO_TO_FACE, MF_BYCOMMAND |
+            (GEditorCanGoToGeometry(FALSE) ? MF_ENABLED : MF_GRAYED));
+        EnableMenuItem((HMENU)wparam, ID_VIEW_GO_TO_PORTAL, MF_BYCOMMAND |
+            (GEditorCanGoToGeometry(TRUE) ? MF_ENABLED : MF_GRAYED));
         CheckMenuItem((HMENU)wparam, ID_VIEW_BACKFACE_CULLING, MF_BYCOMMAND | (ViewportGetBackfaceCulling(g_Viewport) ? MF_CHECKED : MF_UNCHECKED));
         CheckMenuItem((HMENU)wparam, ID_VIEW_GEOMETRY_STATISTICS, MF_BYCOMMAND | (ViewportGetGeometryStatisticsVisible(g_Viewport) ? MF_CHECKED : MF_UNCHECKED));
         CheckMenuItem((HMENU)wparam, ID_VIEW_FOG, MF_BYCOMMAND | (ViewportGetFogVisible(g_Viewport) ? MF_CHECKED : MF_UNCHECKED));
@@ -6835,6 +6967,11 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
             case ID_VIEW_ZOOM_SELECTED:
                 ViewportZoomToSelected(g_Viewport);
+                return 0;
+
+            case ID_VIEW_GO_TO_FACE:
+            case ID_VIEW_GO_TO_PORTAL:
+                GEditorGoToGeometry(hwnd, LOWORD(wparam) == ID_VIEW_GO_TO_PORTAL);
                 return 0;
 
             case ID_VIEW_BACKFACE_CULLING:
@@ -7164,6 +7301,24 @@ static BOOL GEditorHandleFlipFaceHotkey(HWND frame, const MSG *message)
     return TRUE;
 }
 
+/* Do not take Ctrl+F/P from text inputs or floating editors, or repeat a dialog. */
+static BOOL GEditorHandleGoToHotkey(HWND frame, const MSG *message)
+{
+    char classname[32] = "";
+    if (!message || message->message != WM_KEYDOWN
+        || (message->wParam != 'F' && message->wParam != 'P')
+        || !GEditorCanGoToGeometry(message->wParam == 'P')
+        || (message->hwnd != frame && !IsChild(frame, message->hwnd))
+        || !(GetKeyState(VK_CONTROL) & 0x8000) || (GetKeyState(VK_MENU) & 0x8000)
+        || (GetKeyState(VK_SHIFT) & 0x8000)) { return FALSE; }
+    GetClassName(message->hwnd, classname, sizeof(classname));
+    if (lstrcmpi(classname, "Edit") == 0 || lstrcmpi(classname, "ComboBox") == 0
+        || lstrcmpi(classname, "ComboLBox") == 0) { return FALSE; }
+    if (!(message->lParam & ((LPARAM)1 << 30)))
+    { SendMessage(frame, WM_COMMAND, message->wParam == 'P' ? ID_VIEW_GO_TO_PORTAL : ID_VIEW_GO_TO_FACE, 0); }
+    return TRUE;
+}
+
 /* Plain Z belongs to the main viewport; typing and Ctrl+Z keep their meaning. */
 static BOOL GEditorHandleZoomSelectedHotkey(HWND frame, const MSG *message)
 {
@@ -7485,6 +7640,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                     && !GEditorHandleVisibilityHotkey(hwnd, &msg)
                     && !GEditorHandleFlipFaceHotkey(hwnd, &msg)
                     && !GEditorHandleZoomSelectedHotkey(hwnd, &msg)
+                    && !GEditorHandleGoToHotkey(hwnd, &msg)
                     && !GEditorHandleMergeVerticesHotkey(hwnd, &msg)
                     && !GEditorHandleBridgeEdgesHotkey(hwnd, &msg)
                     && !GEditorHandleBisectEdgeHotkey(hwnd, &msg)
@@ -7528,6 +7684,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                 && !GEditorHandleVisibilityHotkey(hwnd, &msg)
                 && !GEditorHandleFlipFaceHotkey(hwnd, &msg)
                 && !GEditorHandleZoomSelectedHotkey(hwnd, &msg)
+                && !GEditorHandleGoToHotkey(hwnd, &msg)
                 && !GEditorHandleMergeVerticesHotkey(hwnd, &msg)
                 && !GEditorHandleBridgeEdgesHotkey(hwnd, &msg)
                 && !GEditorHandleBisectEdgeHotkey(hwnd, &msg)
