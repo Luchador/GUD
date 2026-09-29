@@ -51,8 +51,15 @@ static LRESULT SendMessage(HWND hwnd,unsigned message,int wparam,LPARAM lparam)
     {
         assert(message==UVCANVAS_WM_COMMIT_FACES);
         const UVCanvasFaceEdit *request=(const UVCanvasFaceEdit *)lparam;
-        assert(request->count<=64 && !strcmp(request->action,"Cylindrical UV Mapping")); mappedcount=request->count;
+        assert(request->count<=64 && (!strcmp(request->action,"Cylindrical UV Mapping")
+            || !strcmp(request->action,"Box UV Mapping"))); mappedcount=request->count;
         memcpy(mapped,request->faces,mappedcount*sizeof(*mapped));
+        for (int f=0;f<state.trianglecount;f++) for (DWORD i=0;i<mappedcount;i++)
+        {
+            if (state.triangles[f].face.faceid!=mapped[i].face.faceid) { continue; }
+            for (int c=0;c<3;c++)
+            { state.triangles[f].source[c].s=mapped[i].s[c]; state.triangles[f].source[c].t=mapped[i].t[c]; }
+        }
     }
     if (destroyoncommit) { free(state.nodes); free(state.triangles); memset(&state,0,sizeof(state)); }
     return TRUE;
@@ -174,6 +181,45 @@ static void Planar(void)
     puts("PASS: planar X/Y/Z/tilted Best Fit preserve physical texel density across geometry and image sizes; checkbox routing, normalized fallback, no-op edits, range rejection and synchronous rebuild.");
 }
 
+static void Box(void)
+{
+    const double positions[4][3]={{0,0,0},{128,0,0},{0,64,0},{0,0,32}};
+    const int indices[2][3]={{0,1,2},{0,2,3}};
+    state.nodecount=4; state.trianglecount=2;
+    state.nodes=calloc(4,sizeof(*state.nodes)); state.triangles=calloc(2,sizeof(*state.triangles));
+    assert(state.nodes && state.triangles);
+    for (int f=0;f<2;f++)
+    {
+        UVCanvasTriangle *t=&state.triangles[f];
+        t->face=(BgFaceRef){.room=1,.faceid=(DWORD)f+100}; t->width=f?64:32; t->height=f?32:16;
+        for (int c=0;c<3;c++)
+        {
+            int n=indices[f][c]; t->nodes[c]=n; t->source[c].vertexid=n+10;
+            memcpy(t->position[c],positions[n],sizeof(t->position[c]));
+        }
+    }
+    int before=messages, olderrors=errors;
+    usetexelsize=TRUE; strcpy(texelsize,"4"); UVEditorProjectBox(g_UVEditor);
+    assert(messages==before+1 && errors==olderrors && mappedcount==2);
+    /* Shared origin receives different U values on the X and Z box sides. */
+    assert(mapped[0].vertexids[0]==mapped[1].vertexids[0]);
+    assert(mapped[0].s[0]==0 && mapped[1].s[0]==256);
+    assert(mapped[0].t[2]==512 && mapped[1].t[1]==512); /* Same physical density, mixed images. */
+    UVEditorProjectBox(g_UVEditor); assert(messages==before+1); /* No-op. */
+    const char *why="";
+    assert(!UVCanvasProjectBox(g_UVCanvas,.0001,&why) && why[0] && messages==before+1);
+    strcpy(texelsize,"invalid"); UVEditorProjectBox(g_UVEditor);
+    assert(errors==olderrors+1 && messages==before+1);
+    usetexelsize=FALSE; UVEditorProjectBox(g_UVEditor);
+    assert(messages==before+2 && errors==olderrors+1);
+    assert(mapped[0].s[1]==32*32 && mapped[0].t[0]==16*32/4);
+    assert(mapped[1].s[0]==(int)(.625*64*32) && mapped[1].t[1]==(int)(.75*32*32));
+    destroyoncommit=TRUE;
+    assert(UVCanvasProjectBox(g_UVCanvas,4,&why) && !state.nodes && !state.triangles);
+    destroyoncommit=FALSE;
+    puts("PASS: box button uses per-corner UVs, mixed image sizes, checkbox/fit modes, no-op suppression, overflow rejection and synchronous canvas replacement.");
+}
+
 static void Cylinder(void)
 {
     state.nodecount=16; state.trianglecount=16;
@@ -213,4 +259,4 @@ static void Cylinder(void)
     }
     puts("PASS: actual cylindrical button operation produces native per-corner UVs and face identities, rejects range overflow, and survives synchronous canvas replacement.");
 }
-int main(void) { Coordinates(); Planar(); Cylinder(); }
+int main(void) { Coordinates(); Planar(); Box(); Cylinder(); }

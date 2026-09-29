@@ -13,6 +13,68 @@ static double UVProjectionLength(const double vector[3])
     return hypot(hypot(vector[0], vector[1]), vector[2]);
 }
 
+int UVProjectionBox(const UVProjectionVertex *vertices, int vertexcount,
+    const UVProjectionFace *faces, int facecount, double unitspertexel,
+    double (*uv)[3][2], const char **reason)
+{
+    double minimum[3] = {0}, maximum[3] = {0}, span[3], extent;
+    *reason = "Select faces to box map.";
+    if (!vertices || !faces || !uv || vertexcount <= 0 || facecount <= 0) { return 0; }
+    if (!isfinite(unitspertexel) || unitspertexel < 0)
+    { *reason = "Enter a positive texel size, or turn off Use texel size."; return 0; }
+    for (int f = 0; f < facecount; f++) for (int c = 0; c < 3; c++)
+    {
+        int index = faces[f].vertices[c];
+        if (index < 0 || index >= vertexcount)
+        { *reason = "A projection face references a missing vertex."; return 0; }
+        for (int a = 0; a < 3; a++)
+        {
+            double p = vertices[index].position[a];
+            if (!isfinite(p)) { *reason = "The selected faces contain invalid coordinates."; return 0; }
+            if ((!f && !c) || p < minimum[a]) { minimum[a] = p; }
+            if ((!f && !c) || p > maximum[a]) { maximum[a] = p; }
+        }
+    }
+    for (int a = 0; a < 3; a++) { span[a] = maximum[a] - minimum[a]; }
+    extent = fmax(span[0], fmax(span[1], span[2]));
+    if (!isfinite(extent)) { *reason = "The selected geometry is too large to project."; return 0; }
+    for (int f = 0; f < facecount; f++)
+    {
+        const double *a = vertices[faces[f].vertices[0]].position;
+        const double *b = vertices[faces[f].vertices[1]].position;
+        const double *c = vertices[faces[f].vertices[2]].position;
+        double ab[3], ac[3], normal[3];
+        for (int k = 0; k < 3; k++) { ab[k] = b[k] - a[k]; ac[k] = c[k] - a[k]; }
+        UVProjectionCross(ab, ac, normal);
+        int plane = 0;
+        for (int k = 0; k < 3; k++)
+        {
+            if (!isfinite(normal[k])) { *reason = "The selected geometry is too large to project."; return 0; }
+            /* Largest normal component is the nearest axis; ties prefer X,
+             * then Y, then Z, independently of selection/vertex ordering. */
+            if (fabs(normal[k]) > fabs(normal[plane])) { plane = k; }
+        }
+        if (normal[plane] == 0)
+        { *reason = "Box mapping requires every selected face to have a nonzero area."; return 0; }
+        int axes[2] = {plane == 0 ? 2 : 0, plane == 1 ? 2 : 1};
+        int signs[2] = {(plane == 0 ? -1 : 1) * (normal[plane] < 0 ? -1 : 1), plane == 1 ? -1 : 1};
+        /* Positive sides use the planar tools' right-handed bases. Flip U
+         * on negative sides so walls stay upright when viewed from outside. */
+        for (int corner = 0; corner < 3; corner++) for (int k = 0; k < 2; k++)
+        {
+            int axis = axes[k];
+            double p = vertices[faces[f].vertices[corner]].position[axis];
+            double distance = signs[k] > 0 ? p - minimum[axis] : maximum[axis] - p;
+            double mapped = unitspertexel > 0 ? distance / unitspertexel
+                : distance / extent + (1 - span[axis] / extent) * 0.5;
+            if (!isfinite(mapped)) { *reason = "The selected geometry is too large to project."; return 0; }
+            uv[f][corner][k] = mapped;
+        }
+    }
+    *reason = "";
+    return 1;
+}
+
 int UVProjectionMap(UVProjectionVertex *vertices, int vertexcount,
                     const UVProjectionFace *faces, int facecount,
                     UVProjection projection, double unitspertexel, const char **reason)

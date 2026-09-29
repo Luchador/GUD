@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Cylindrical fitting, native UV seams/history/save, and real coordinate controls."""
+"""Planar/box/cylindrical mapping, native seams/history/save, and UV controls."""
 import importlib.util
 import os
 from pathlib import Path
@@ -29,16 +29,16 @@ def main():
             for n in ('UVCanvasNode', 'UVCanvasState')))
         (work / 'canvas.inc').write_text(''.join(helper.function(canvas, n) for n in
             ('UVCanvasTransformST', 'UVCanvasNodeST', 'UVCanvasSelectionPosition', 'UVCanvasGetSelection',
-             'UVCanvasSetCoordinate', 'UVCanvasGetTransform', 'UVCanvasHasFaces', 'UVCanvasProjectFaces', 'UVCanvasProjectCylinder')))
+             'UVCanvasSetCoordinate', 'UVCanvasGetTransform', 'UVCanvasHasFaces', 'UVCanvasProjectFaces', 'UVCanvasProjectBox', 'UVCanvasProjectCylinder')))
         uv = (src / 'uveditor.c').read_text()
         (work / 'fields.inc').write_text(''.join(helper.function(uv, n) for n in
-            ('UVEditorUpdateFields', 'UVEditorReadCoordinate', 'UVEditorProjectPlanar', 'UVEditorApplyFields')))
+            ('UVEditorUpdateFields', 'UVEditorReadCoordinate', 'UVEditorProjectPlanar', 'UVEditorProjectBox', 'UVEditorApplyFields')))
         command = [os.environ.get('CC','cc'), '-std=c99', '-O1', '-g', '-Wall', '-Wextra', '-Werror',
                    '-Wno-unused-parameter', '-Dfopen=TestFopen', '-ffunction-sections', '-fdata-sections', '-fsanitize=address,undefined',
                    f'-I{here.parent / "image_import"}', f'-I{src}', f'-I{work}']
         env = dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1')
-        for name, sources in (('projection',('uvcylinder.c',)), ('seams',('uvcylinder.c',)),
-                              ('document',('bgload.c','bgcompile.c','bgmaterial.c','bgrender.c','bgprimitive.c','bghistory.c','uvcylinder.c','bgseams.c','bgseamfile.c','bgbisect.c')),
+        for name, sources in (('box',('uvprojection.c',)), ('projection',('uvcylinder.c',)), ('seams',('uvcylinder.c',)),
+                              ('document',('bgload.c','bgcompile.c','bgmaterial.c','bgrender.c','bgprimitive.c','bghistory.c','uvcylinder.c','uvprojection.c','bgseams.c','bgseamfile.c','bgbisect.c')),
                               ('canvas',('uvcylinder.c','uvprojection.c'))):
             subprocess.run(command + [str(here / (name+'.c')), str(here.parent / 'image_import/platform.c')]
                 + [str(src / n) for n in sources] + ['-Wl,--gc-sections', '-lm', '-o', str(work / name)],check=True)

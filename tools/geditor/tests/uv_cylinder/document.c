@@ -114,8 +114,9 @@ static void UVEditorRefreshSelection(HWND hwnd,const BgDocument *doc,const char 
 static void GEditorRefreshHistoryMenu(HWND hwnd) {}
 static void MessageBox(HWND hwnd,const char *why,const char *title,unsigned flags) { assert(why[0]); errors++; }
 #include "editor.inc"
-static void Cylinder(const char *dir)
+static void Cylinder(const char *dir, BOOL box)
 {
+    int olderrors=errors;
     BgFile source=Fixture(); const char *why=""; BgFaceRef refs[BG_PRIMITIVE_MAX_FACES]; DWORD count;
     assert(BgDocumentLoad(source.data,source.size,1,&g_CurrentBgDocument,&why));
     assert(BgDocumentAddRoundPrimitive(&g_CurrentBgDocument,TRUE,1,(double[]){1000,1000,1000},100,350,12,refs,&count,&why));
@@ -145,18 +146,20 @@ static void Cylinder(const char *dir)
             faces[i].vertices[c]=n;
         }
     }
-    assert(UVProjectionCylinder(vertices,72,faces,24,NULL,0,uv,&why));
+    assert(box ? UVProjectionBox(vertices,72,faces,24,1,uv,&why)
+        : UVProjectionCylinder(vertices,72,faces,24,NULL,0,uv,&why));
     for (DWORD i=0;i<count;i++)
     {
         edits[i]=Edit(&before,refs[i],0,0);
         for (int c=0;c<3;c++) { edits[i].s[c]=(int)round(uv[i][c][0]*8); edits[i].t[c]=(int)round(uv[i][c][1]*8); }
     }
-    UVCanvasFaceEdit request={edits,count,"Cylindrical UV Mapping"};
+    UVCanvasFaceEdit request={edits,count,box ? "Box UV Mapping" : "Cylindrical UV Mapping"};
     failrebuild=TRUE; assert(!GEditorApplyUVFaceEdit((HWND)1,&request)); Same(&g_CurrentBgDocument,&before);
     ULONGLONG revision=g_EditHistory.nextrevision; g_EditHistory.nextrevision=0;
     assert(!GEditorApplyUVFaceEdit((HWND)1,&request)); g_EditHistory.nextrevision=revision; Same(&g_CurrentBgDocument,&before);
     assert(GEditorApplyUVFaceEdit((HWND)1,&request)); CheckUVs(&g_CurrentBgDocument,edits,count);
-    assert(g_CurrentBgDocument.rooms[1].vertexcount==before.rooms[1].vertexcount+2); /* Only the seam column splits. */
+    if (box) { assert(g_CurrentBgDocument.rooms[1].vertexcount>before.rooms[1].vertexcount); }
+    else { assert(g_CurrentBgDocument.rooms[1].vertexcount==before.rooms[1].vertexcount+2); } /* Seam column. */
     assert(g_EditHistory.undocount==1 && !strcmp(EditHistoryGetUndoAction(&g_EditHistory),request.action));
     assert(BgDocumentClone(&g_CurrentBgDocument,&after,&why)); RoundTrip(&after,&source,dir);
     assert(EditHistoryUndo(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,NULL,&why)); Same(&g_CurrentBgDocument,&before);
@@ -167,9 +170,10 @@ static void Cylinder(const char *dir)
         memcpy(edits[i].vertexids,current.vertexids,sizeof(current.vertexids));
     }
     assert(GEditorApplyUVFaceEdit((HWND)1,&request) && g_EditHistory.undocount==1); Same(&g_CurrentBgDocument,&after);
-    assert(errors==2);
+    assert(errors==olderrors+2);
     EditHistoryFree(&g_EditHistory); BgDocumentFree(&g_CurrentBgDocument); BgDocumentFree(&before); BgDocumentFree(&after); BgFileFree(&source);
-    puts("PASS: cylinder mapping through the real editor transaction, two seam vertices, undo/redo, repeated mapping, save/reload and rebuild/history failure rollback.");
+    puts(box ? "PASS: box mapping through the real editor transaction, split UV seams, undo/redo, no-op remapping, save/reload and atomic rollback."
+        : "PASS: cylinder mapping through the real editor transaction, two seam vertices, undo/redo, repeated mapping, save/reload and rebuild/history failure rollback.");
 }
 static unsigned SeamCount(const BgDocument *doc)
 {
@@ -219,4 +223,4 @@ static void Seams(const char *dir)
     BgFileFree(&source); BgFileFree(&compiled); BgFileFree(&unmarked);
     puts("PASS: seam marking across native splits, undo/redo/no-op/rollback, winding, native compile/reload and persistent guide replacement/failure.");
 }
-int main(int argc,char **argv) { setbuf(stdout,NULL); assert(argc==2); Geometry(argv[1]); Cylinder(argv[1]); Seams(argv[1]); }
+int main(int argc,char **argv) { setbuf(stdout,NULL); assert(argc==2); Geometry(argv[1]); Cylinder(argv[1],FALSE); Cylinder(argv[1],TRUE); Seams(argv[1]); }

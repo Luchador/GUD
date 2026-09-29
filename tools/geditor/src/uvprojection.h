@@ -28,6 +28,15 @@ int UVProjectionMap(UVProjectionVertex *vertices, int vertexcount,
                     const UVProjectionFace *faces, int facecount,
                     UVProjection projection, double unitspertexel, const char **reason);
 
+/* Project each face onto its nearest signed primary-axis plane. Shared
+ * selection bounds keep coplanar triangles aligned and all planes at one
+ * scale. Zero unitspertexel fits uniformly into 0-1; positive values return
+ * texels. Per-corner output permits seams between box sides. No source data
+ * is modified; degenerate faces are rejected. */
+int UVProjectionBox(const UVProjectionVertex *vertices, int vertexcount,
+    const UVProjectionFace *faces, int facecount, double unitspertexel,
+    double (*uv)[3][2], const char **reason);
+
 /* Unwrap one uncapped side wall. Geometric adjacency joins native UV/color
  * duplicates; seams has one three-bit edge mask per face (or NULL for auto).
  * Axis: 0=Auto (open rims), 1=X, 2=Y, 3=Z. Output distances are in

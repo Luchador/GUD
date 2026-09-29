@@ -1159,6 +1159,58 @@ done:
     return result;
 }
 
+BOOL UVCanvasProjectBox(HWND canvas, double unitspertexel, const char **reason)
+{
+    UVCanvasState *state = UVCanvasGetState(canvas);
+    UVProjectionVertex *vertices = NULL;
+    UVProjectionFace *faces = NULL;
+    double (*uv)[3][2] = NULL;
+    BgDocumentFaceUVEdit *edits = NULL;
+    UVCanvasFaceEdit request;
+    BOOL result = FALSE;
+    *reason = "Select faces to box map.";
+    if (!state || !state->nodecount || !state->trianglecount) { return FALSE; }
+    UVCanvasCancelInteraction(canvas);
+    vertices = calloc((size_t)state->nodecount, sizeof(*vertices));
+    faces = malloc((size_t)state->trianglecount * sizeof(*faces));
+    uv = malloc((size_t)state->trianglecount * sizeof(*uv));
+    edits = calloc((size_t)state->trianglecount, sizeof(*edits));
+    if (!vertices || !faces || !uv || !edits)
+    { *reason = "Out of memory box mapping UVs."; goto done; }
+    for (int f = 0; f < state->trianglecount; f++) for (int c = 0; c < 3; c++)
+    {
+        int node = state->triangles[f].nodes[c];
+        faces[f].vertices[c] = node;
+        memcpy(vertices[node].position, state->triangles[f].position[c], sizeof(vertices[node].position));
+    }
+    if (!UVProjectionBox(vertices, state->nodecount, faces, state->trianglecount, unitspertexel, uv, reason)) { goto done; }
+    request.faces = edits; request.count = 0; request.action = "Box UV Mapping";
+    for (int f = 0; f < state->trianglecount; f++)
+    {
+        const UVCanvasTriangle *triangle = &state->triangles[f];
+        BgDocumentFaceUVEdit *edit = &edits[request.count];
+        BOOL changed = FALSE;
+        edit->face = triangle->face;
+        for (int c = 0; c < 3; c++)
+        {
+            double s = round(uv[f][c][0] * 32.0 * (unitspertexel > 0 ? 1 : triangle->width));
+            double t = round(uv[f][c][1] * 32.0 * (unitspertexel > 0 ? 1 : triangle->height));
+            if (!isfinite(s) || !isfinite(t) || s < -32768 || s > 32767 || t < -32768 || t > 32767)
+            { *reason = "The projected UVs exceed GoldenEye's texture coordinate range. Increase Texel size or project fewer faces."; goto done; }
+            edit->vertexids[c] = triangle->source[c].vertexid;
+            edit->s[c] = (int)s; edit->t[c] = (int)t;
+            changed |= edit->s[c] != triangle->source[c].s || edit->t[c] != triangle->source[c].t;
+        }
+        if (changed) { request.count++; }
+    }
+    /* Per-corner edits split UVs at box-plane boundaries and retain any
+     * unselected faces sharing those vertices. Rebuilding may replace state. */
+    result = !request.count || (BOOL)SendMessage(GetParent(canvas), UVCANVAS_WM_COMMIT_FACES, 0, (LPARAM)&request);
+done:
+    free(vertices); free(faces); free(uv); free(edits);
+    return result;
+}
+
 BOOL UVCanvasProjectCylinder(HWND canvas, int axis, double unitspertexel, const char **reason)
 {
     UVCanvasState *state = UVCanvasGetState(canvas);
