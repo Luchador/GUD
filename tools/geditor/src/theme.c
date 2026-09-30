@@ -331,7 +331,16 @@ static void ThemeDrawButton(HWND hwnd, ThemeWindow *state, HDC dc)
                 ThemeLine(dc, x+size/2, y+size-a, x+size-a, y+a, enabled ? THEME_TEXT : THEME_MUTED, ThemePixels(hwnd, 2));
             }
         }
-        DrawTextW(dc, text, -1, &textrect, (style & BS_MULTILINE) ? DT_WORDBREAK : DT_SINGLELINE | DT_VCENTER);
+        if (style & BS_MULTILINE) {
+            /* DT_VCENTER only works for single-line text. Measure the wrapped
+             * label at its available width, then center it beside the mark. */
+            RECT measured = textrect;
+            int height = DrawTextW(dc, text, -1, &measured, DT_WORDBREAK | DT_CALCRECT);
+            textrect.top += max(0, (textrect.bottom - textrect.top - height) / 2);
+            DrawTextW(dc, text, -1, &textrect, DT_WORDBREAK);
+        } else {
+            DrawTextW(dc, text, -1, &textrect, DT_SINGLELINE | DT_VCENTER);
+        }
     } else {
         ThemeFill(dc, &r, pressed ? THEME_PRESSED : state->hot && enabled ? THEME_HOVER : THEME_BUTTON);
         ThemeFrame(dc, &r, focused || type == BS_DEFPUSHBUTTON ? THEME_SELECTION : THEME_BORDER);
