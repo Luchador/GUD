@@ -8,7 +8,7 @@ typedef enum ThemeColorRole {
     THEME_HOVER, THEME_PRESSED, THEME_BORDER, THEME_TEXT,
     THEME_MUTED, THEME_SELECTION, THEME_SELECTION_TEXT,
     THEME_MENU, THEME_TITLE, THEME_TITLE_TEXT, THEME_ERROR_BACKGROUND,
-    THEME_COLOR_COUNT
+    THEME_MENU_BORDER, THEME_COLOR_COUNT
 } ThemeColorRole;
 
 /* Palette definitions live at the top of theme.c. Brush handles are borrowed. */

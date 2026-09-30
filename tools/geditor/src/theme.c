@@ -20,6 +20,7 @@ static const COLORREF g_DarkPalette[THEME_COLOR_COUNT] = {
     [THEME_SELECTION]        = RGB( 58,  91, 138),
     [THEME_SELECTION_TEXT]   = RGB(255, 255, 255),
     [THEME_MENU]             = RGB( 40,  40,  40),
+    [THEME_MENU_BORDER]      = RGB( 90,  90,  90), /* One-pixel line below menu bars */
     [THEME_TITLE]            = RGB( 30,  30,  30), /* Windows 11 title bar */
     [THEME_TITLE_TEXT]       = RGB(222, 222, 222),
     [THEME_ERROR_BACKGROUND] = RGB( 93,  42,  42)
@@ -62,7 +63,7 @@ static int ThemeLightIndex(ThemeColorRole role)
     case THEME_MUTED: return COLOR_GRAYTEXT;
     case THEME_SELECTION: case THEME_PRESSED: return COLOR_HIGHLIGHT;
     case THEME_SELECTION_TEXT: return COLOR_HIGHLIGHTTEXT;
-    case THEME_BORDER: return COLOR_BTNSHADOW;
+    case THEME_BORDER: case THEME_MENU_BORDER: return COLOR_BTNSHADOW;
     case THEME_MENU: return COLOR_MENU;
     case THEME_TITLE: return COLOR_ACTIVECAPTION;
     case THEME_TITLE_TEXT: return COLOR_CAPTIONTEXT;
@@ -129,6 +130,26 @@ static HFONT ThemeSelectFont(HWND hwnd, HDC dc)
 {
     HFONT font = (HFONT)SendMessage(hwnd, WM_GETFONT, 0, 0);
     return (HFONT)SelectObject(dc, font ? font : GetStockObject(DEFAULT_GUI_FONT));
+}
+
+static void ThemeDrawMenuBorder(HWND hwnd)
+{
+    RECT window, client, border;
+    POINT origin = {0, 0};
+    HDC dc;
+    if ((GetWindowLongPtr(hwnd, GWL_STYLE) & (WS_CHILD | WS_MINIMIZE)) || !GetMenu(hwnd)) { return; }
+    if (!GetWindowRect(hwnd, &window) || !GetClientRect(hwnd, &client)
+        || !ClientToScreen(hwnd, &origin) || IsRectEmpty(&client)) { return; }
+    /* Windows draws this strip outside the owner-drawn menu items. Use the
+     * actual client edge so resizing, menu wrapping and DPI changes need no
+     * assumed caption/menu heights. Keep it one pixel and outside the client. */
+    OffsetRect(&client, origin.x - window.left, origin.y - window.top);
+    SetRect(&border, client.left, client.top - 1, client.right, client.top);
+    dc = GetWindowDC(hwnd);
+    if (dc) {
+        ThemeFill(dc, &border, THEME_MENU_BORDER);
+        ReleaseDC(hwnd, dc);
+    }
 }
 
 /* Only our menu records are interpreted as pointers. Existing owner-drawn
@@ -517,6 +538,9 @@ static LRESULT CALLBACK ThemeWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
         state->hot = TRUE; TrackMouseEvent(&track); if (dark) { InvalidateRect(hwnd, NULL, FALSE); }
     } else if (hoverable && msg == WM_MOUSELEAVE) { state->hot = FALSE; if (dark) { InvalidateRect(hwnd, NULL, FALSE); } }
     LRESULT result = DefSubclassProc(hwnd, msg, wp, lp);
+    /* Let Windows finish painting the native frame before replacing its
+     * menu/client separator. Activation can repaint it without WM_NCPAINT. */
+    if (dark && (msg == WM_NCPAINT || (msg == WM_NCACTIVATE && lp != -1))) { ThemeDrawMenuBorder(hwnd); }
     if (dark && (msg == WM_ENABLE || msg == WM_SETFOCUS || msg == WM_KILLFOCUS || msg == WM_SETTEXT
         || msg == BM_SETCHECK || msg == BM_SETSTATE || msg == BM_SETSTYLE || msg == CB_SETCURSEL
         || msg == WM_LBUTTONDOWN || msg == WM_LBUTTONUP || msg == WM_KEYDOWN || msg == WM_KEYUP

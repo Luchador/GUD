@@ -15,7 +15,7 @@ GEditor after editing. The roles are declared in `theme.h`.
 | Role | Default RGB | Used for |
 | --- | --- | --- |
 | `THEME_BACKGROUND` | 36, 36, 36 | Window and dialog backgrounds |
-| `THEME_PANEL` | 45, 45, 45 | Headers and panel chrome |
+| `THEME_PANEL` | 50, 50, 50 | Headers and panel chrome |
 | `THEME_INPUT` | 29, 29, 29 | Text fields and standard lists |
 | `THEME_BUTTON` | 58, 58, 58 | Buttons |
 | `THEME_HOVER` | 73, 73, 73 | Hovered controls |
@@ -26,6 +26,7 @@ GEditor after editing. The roles are declared in `theme.h`.
 | `THEME_SELECTION` | 58, 91, 138 | Selected menus and control accents |
 | `THEME_SELECTION_TEXT` | 255, 255, 255 | Selected menu/browser text |
 | `THEME_MENU` | 40, 40, 40 | Menu backgrounds |
+| `THEME_MENU_BORDER` | 90, 90, 90 | One-pixel line beneath window menu bars |
 | `THEME_TITLE` | 30, 30, 30 | Windows 11 title bars |
 | `THEME_TITLE_TEXT` | 222, 222, 222 | Windows 11 title text |
 | `THEME_ERROR_BACKGROUND` | 93, 42, 42 | Invalid color-picker input |
@@ -50,7 +51,10 @@ icons, image thumbnails and material color swatches keep their own drawing.
 Menus use documented owner drawing. Item IDs, states, original item data and
 Unicode labels are retained; popup owner-draw records are restored and freed
 when the popup closes. Menu mnemonics, duplicate mnemonic cycling, separators,
-checks and shortcut text are handled by the shared module. Window frames use
+checks and shortcut text are handled by the shared module. In Dark mode, the
+one-pixel line beneath the menu bar is repainted with `THEME_MENU_BORDER` after
+Windows paints the nonclient frame, including activation changes. Light keeps
+the native border. Window frames use
 DWM attributes 20, 35 and 36; unsupported attributes fail harmlessly on older
 Windows versions. The build links `uxtheme` and `dwmapi`.
 
