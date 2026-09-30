@@ -23,13 +23,18 @@ assert '"&Open", IDOK' in template and '"Cancel", IDCANCEL' in template
 new_level = editor.index('AppendMenu(filemenu, MF_STRING, ID_FILE_NEW_LEVEL,')
 open_level = editor.index('AppendMenu(filemenu, MF_STRING, ID_FILE_OPEN_LEVEL,')
 separator = editor.index('AppendMenu(filemenu, MF_SEPARATOR', new_level)
-assert new_level < open_level < separator
+recent_level = editor.index('AppendMenu(filemenu, MF_POPUP, (UINT_PTR)g_RecentLevelsMenu,')
+assert new_level < open_level < recent_level < separator
 assert 'BROWSER_SECTION_LEVELS' not in browser and 'BrowserSetLevels' not in editor
 types = re.search(r'typedef struct GEditorOpenLevelDialog \{.*?\} GEditorOpenLevelDialog;', editor, re.S)[0]
+recent = (src / 'recentlevels.h').read_text()
+types += '\n' + re.search(r'#define RECENT_LEVELS_MAX .*', recent)[0]
+types += '\n' + re.search(r'typedef struct RecentLevels \{.*?\} RecentLevels;', recent, re.S)[0]
 types += '\n' + '\n'.join(re.findall(r'^#define BROWSER_(?:SECTION_\w+|HEADER_H|OBJECT_TAB_H) .*', browser, re.M))
 logic = '\n'.join(extract.function(editor, name) for name in
-    ('GEditorOpenLevelDialogProc', 'GEditorPromptForOpenLevel'))
+    ('GEditorRecentLevelIndex', 'GEditorRefreshRecentLevelsMenu', 'GEditorOpenLevelDialogProc', 'GEditorOpenLevel', 'GEditorPromptForOpenLevel'))
 logic += '\n' + extract.function(browser, 'BrowserLayoutSections')
+logic += '\n' + re.sub(r'^#include[^\n]*', '', (src / 'recentlevels.c').read_text(), flags=re.M)
 with tempfile.TemporaryDirectory(prefix='geditor-open-level-') as temp:
     work = Path(temp)
     (work / 'types.inc').write_text(types)

@@ -13,6 +13,7 @@
 #include "project.h"
 #include "projectrebase.h"
 #include "recentprojects.h"
+#include "recentlevels.h"
 #include "resource.h"
 #include "viewport.h"
 #include "browser.h"
@@ -87,6 +88,8 @@ static BOOL g_DraggingRightSplitter = FALSE;
 static GEditorProject g_Project;
 static RecentProjects g_RecentProjects;
 static HMENU g_RecentProjectsMenu;
+static RecentLevels g_RecentLevels;
+static HMENU g_RecentLevelsMenu;
 /* Retain a failed metadata save even if all level assets were written. */
 static BOOL g_ProjectMetadataDirty;
 static DWORD g_CurrentLevelIndex = GEDITOR_NO_LEVEL;
@@ -681,6 +684,7 @@ static void GEditorCloseProject(HWND hwnd)
     ModelEditsReset();
     ImageEditsReset();
     ProjectClose(&g_Project);
+    ZeroMemory(&g_RecentLevels, sizeof(g_RecentLevels));
     g_ProjectMetadataDirty = FALSE;
 
     ModelEditorSetProject(NULL);
@@ -762,7 +766,9 @@ enum {
     ID_EDIT_PASTE_FACES,
     ID_FILE_NEW_LEVEL,
     ID_TOOLS_RENDER_STUDIO,
-    ID_FILE_OPEN_LEVEL
+    ID_FILE_OPEN_LEVEL,
+    ID_FILE_RECENT_LEVEL_FIRST,
+    ID_FILE_RECENT_LEVEL_LAST = ID_FILE_RECENT_LEVEL_FIRST + RECENT_LEVELS_MAX - 1
 };
 
 
@@ -830,10 +836,45 @@ static void GEditorRefreshRecentProjectsMenu(void)
 }
 
 
+static DWORD GEditorRecentLevelIndex(DWORD recentindex)
+{
+    if (!g_Project.name[0] || recentindex >= g_RecentLevels.count) { return GEDITOR_NO_LEVEL; }
+    for (DWORD index = 0; index < g_Project.levelcount; index++)
+    { if (g_Project.levels[index].levelID == g_RecentLevels.ids[recentindex]) { return index; } }
+    return GEDITOR_NO_LEVEL;
+}
+
+static void GEditorRefreshRecentLevelsMenu(void)
+{
+    if (!g_RecentLevelsMenu) { return; }
+    while (GetMenuItemCount(g_RecentLevelsMenu) > 0)
+    { DeleteMenu(g_RecentLevelsMenu, 0, MF_BYPOSITION); }
+    for (DWORD recentindex = 0; recentindex < g_RecentLevels.count; recentindex++)
+    {
+        DWORD index = GEditorRecentLevelIndex(recentindex);
+        if (index == GEDITOR_NO_LEVEL) { continue; } /* Removed levels are not shortcuts. */
+        const char *text = g_Project.levels[index].name;
+        char label[sizeof(g_Project.levels[index].name) * 2];
+        size_t length = 0;
+        while (*text)
+        {
+            if (*text == '&') { label[length++] = '&'; }
+            label[length++] = *text++;
+        }
+        label[length] = '\0';
+        AppendMenu(g_RecentLevelsMenu, MF_STRING | (index == g_CurrentLevelIndex ? MF_CHECKED : 0),
+            ID_FILE_RECENT_LEVEL_FIRST + recentindex, label);
+    }
+    if (!GetMenuItemCount(g_RecentLevelsMenu))
+    { AppendMenu(g_RecentLevelsMenu, MF_STRING | MF_GRAYED, 0, "No recent levels"); }
+}
+
 static void GEditorRememberProject(void)
 {
     RecentProjectsRemember(&g_RecentProjects, g_Project.geppath);
     GEditorRefreshRecentProjectsMenu();
+    RecentLevelsLoad(&g_RecentLevels, g_Project.geppath);
+    GEditorRefreshRecentLevelsMenu();
 }
 
 
@@ -897,6 +938,8 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(importmenu, MF_STRING, ID_FILE_IMPORT_IMAGE, "Import &Image");
     g_RecentProjectsMenu = CreatePopupMenu();
     GEditorRefreshRecentProjectsMenu();
+    g_RecentLevelsMenu = CreatePopupMenu();
+    GEditorRefreshRecentLevelsMenu();
 
     /* MF_STRING items carry a command ID. '&' marks the Alt mnemonic. */
     AppendMenu(filemenu, MF_STRING, ID_FILE_NEW_PROJECT, "&New Project");
@@ -907,6 +950,7 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(filemenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(filemenu, MF_STRING, ID_FILE_NEW_LEVEL, "New &Level");
     AppendMenu(filemenu, MF_STRING, ID_FILE_OPEN_LEVEL, "Open Le&vel...");
+    AppendMenu(filemenu, MF_POPUP, (UINT_PTR)g_RecentLevelsMenu, "Open Recen&t");
     AppendMenu(filemenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(filemenu, MF_POPUP, (UINT_PTR)importmenu, "&Import...");
     AppendMenu(filemenu, MF_SEPARATOR, 0, NULL);
@@ -5649,6 +5693,19 @@ static INT_PTR CALLBACK GEditorOpenLevelDialogProc(HWND dialog, UINT message, WP
     return FALSE;
 }
 
+static void GEditorOpenLevel(HWND hwnd, DWORD index)
+{
+    if (!g_Project.name[0] || index >= g_Project.levelcount || index == g_CurrentLevelIndex) return;
+    if (GEditorHasUnsavedChanges())
+    {
+        int choice = MessageBox(hwnd, "Save current changes before opening another level?",
+            GEDITOR_TITLE, MB_ICONQUESTION | MB_YESNOCANCEL);
+        if (choice != IDYES && choice != IDNO) return;
+        if (choice == IDYES && !GEditorSaveProject(hwnd)) return;
+    }
+    SendMessage(hwnd, GEDITOR_WM_OPEN_LEVEL, index, 0);
+}
+
 static void GEditorPromptForOpenLevel(HWND hwnd)
 {
     GEditorOpenLevelDialog state = { GEDITOR_NO_LEVEL };
@@ -5657,15 +5714,7 @@ static void GEditorPromptForOpenLevel(HWND hwnd)
         hwnd, GEditorOpenLevelDialogProc, (LPARAM)&state);
     if (result == -1)
     { MessageBox(hwnd, "Could not open the level selection dialog.", GEDITOR_TITLE, MB_ICONERROR); }
-    if (result != IDOK || state.index >= g_Project.levelcount || state.index == g_CurrentLevelIndex) return;
-    if (GEditorHasUnsavedChanges())
-    {
-        int choice = MessageBox(hwnd, "Save current changes before opening another level?",
-            GEDITOR_TITLE, MB_ICONQUESTION | MB_YESNOCANCEL);
-        if (choice != IDYES && choice != IDNO) return;
-        if (choice == IDYES && !GEditorSaveProject(hwnd)) return;
-    }
-    SendMessage(hwnd, GEDITOR_WM_OPEN_LEVEL, state.index, 0);
+    if (result == IDOK) { GEditorOpenLevel(hwnd, state.index); }
 }
 
 typedef struct GEditorGoToDialog {
@@ -6722,6 +6771,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         EditHistoryReset(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
         g_SelectionHistoryReset = TRUE;
         g_CurrentLevelIndex = index;
+        RecentLevelsRemember(&g_RecentLevels, level->levelID);
+        GEditorRefreshRecentLevelsMenu();
         IssuesWindowInvalidate();
 
         ViewportSetBackgroundColor(g_Viewport, level->hasbackgroundcolor ? level->backgroundcolor : NULL);
@@ -6828,6 +6879,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         return 0;
 
     case WM_INITMENUPOPUP:
+        if ((HMENU)wparam == g_RecentLevelsMenu) { GEditorRefreshRecentLevelsMenu(); }
         /* Sent just before a drop-down opens - the one moment the item
            states matter, so they can never be stale. Saving requires
            an open project. */
@@ -6894,6 +6946,12 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
     case WM_COMMAND:
         ViewportCancelTransform(g_Viewport);
+        if (LOWORD(wparam) >= ID_FILE_RECENT_LEVEL_FIRST
+            && LOWORD(wparam) <= ID_FILE_RECENT_LEVEL_LAST)
+        {
+            GEditorOpenLevel(hwnd, GEditorRecentLevelIndex(LOWORD(wparam) - ID_FILE_RECENT_LEVEL_FIRST));
+            return 0;
+        }
         if (LOWORD(wparam) >= ID_FILE_RECENT_PROJECT_FIRST
             && LOWORD(wparam) <= ID_FILE_RECENT_PROJECT_LAST)
         {

@@ -4,6 +4,11 @@
 #include <string.h>
 #include <strings.h>
 typedef uint32_t DWORD;
+typedef int32_t LONG;
+typedef unsigned char BYTE;
+typedef int HKEY;
+#define MAX_PATH 260
+typedef intptr_t HMENU;
 typedef int BOOL;
 typedef unsigned UINT;
 typedef intptr_t HWND, LPARAM, LRESULT, LONG_PTR, INT_PTR;
@@ -18,14 +23,25 @@ typedef struct { int left,top,right,bottom; } RECT;
 #define HIWORD(n) (((n)>>16)&0xffff)
 #define MAKEINTRESOURCE(n) (n)
 enum { IDOK=1,IDCANCEL=2,IDYES=6,IDNO=7,WM_INITDIALOG=20,WM_COMMAND,WM_CLOSE,
+    MF_BYPOSITION,MF_STRING,MF_GRAYED=0x800,MF_CHECKED=0x1000,ID_FILE_RECENT_LEVEL_FIRST=500,
     DWLP_USER,IDC_OPEN_LEVEL_LIST,IDD_OPEN_LEVEL,LB_ADDSTRING,LB_SETITEMDATA,
     LB_GETITEMDATA,LB_GETCURSEL,LB_SETCURSEL,LBN_SELCHANGE,LBN_DBLCLK,
     GEDITOR_WM_OPEN_LEVEL,MB_ICONERROR=0x100,MB_ICONQUESTION=0x200,MB_YESNOCANCEL=0x400 };
 #define LB_ERR (-1)
 #define LB_ERRSPACE (-2)
 #include "types.inc"
-static struct Project { char name[64];DWORD levelcount;struct {char name[64];DWORD levelid;} levels[64]; } g_Project;
+static struct Project { char name[64];DWORD levelcount;struct {char name[64];LONG levelID;} levels[64]; } g_Project;
 static DWORD g_CurrentLevelIndex=GEDITOR_NO_LEVEL;
+static RecentLevels g_RecentLevels;
+static HMENU g_RecentLevelsMenu=10;
+static struct { char label[128];DWORD id;UINT flags; } menu[5];
+static int menucount;
+static int GetMenuItemCount(HMENU m) { assert(m==10);return menucount; }
+static void DeleteMenu(HMENU m,UINT position,UINT flags)
+{ assert(m==10 && position==0 && flags==MF_BYPOSITION);menucount--;memmove(menu,menu+1,menucount*sizeof(*menu)); }
+static void AppendMenu(HMENU m,UINT flags,uintptr_t id,const char *label)
+{ assert(m==10 && menucount<5);snprintf(menu[menucount].label,128,"%s",label);menu[menucount].id=id;menu[menucount++].flags=flags; }
+
 static struct { char name[64];DWORD index; } rows[64];
 static int rowcount,selection,ended,errors,opens,saves,prompts,dialogs;
 static BOOL openenabled,dirty,saveok=TRUE;
@@ -84,7 +100,63 @@ static void SetRect(RECT *r,int l,int t,int right,int b) { *r=(RECT){l,t,right,b
 static void SetRectEmpty(RECT *r) { memset(r,0,sizeof(*r)); }
 static int BrowserContentHeight(const BrowserState *state,int section)
 { assert(section==BROWSER_SECTION_OBJECTS);return state->objectheight; }
+/* Registry storage survives preference objects and switches between projects. */
+#define ZeroMemory(p,n) memset(p,0,n)
+enum { HKEY_CURRENT_USER,KEY_QUERY_VALUE,KEY_SET_VALUE,REG_OPTION_NON_VOLATILE,
+       REG_BINARY,ERROR_SUCCESS=0 };
+static struct { char path[MAX_PATH];BYTE data[20];DWORD bytes,type; } registry[2];
+static BOOL registryfail;
+static DWORD GetFullPathNameA(const char *path,DWORD size,char *out,char **file)
+{ size_t n=strlen(path);if(n<size) memcpy(out,path,n+1);return (DWORD)n; }
+static LONG RegOpenKeyExA(HKEY hive,const char *name,DWORD zero,DWORD access,HKEY *key)
+{ assert(strstr(name,"Recent Levels"));*key=1;return registryfail?5:ERROR_SUCCESS; }
+static LONG RegCreateKeyExA(HKEY hive,const char *name,DWORD zero,char *class,DWORD options,
+    DWORD access,void *security,HKEY *key,void *disposition)
+{ return RegOpenKeyExA(hive,name,zero,access,key); }
+static LONG RegQueryValueExA(HKEY key,const char *name,void *reserved,DWORD *type,BYTE *data,DWORD *bytes)
+{
+    for(int i=0;i<2;i++) if(!strcasecmp(name,registry[i].path))
+    {
+        *type=registry[i].type;
+        if(*bytes<registry[i].bytes) return 234;
+        memcpy(data,registry[i].data,registry[i].bytes);*bytes=registry[i].bytes;return ERROR_SUCCESS;
+    }
+    return 2;
+}
+static LONG RegSetValueExA(HKEY key,const char *name,DWORD zero,DWORD type,const BYTE *data,DWORD bytes)
+{
+    for(int i=0;i<2;i++) if(!registry[i].path[0] || !strcasecmp(name,registry[i].path))
+    {
+        assert(bytes<=sizeof(registry[i].data));strcpy(registry[i].path,name);
+        memcpy(registry[i].data,data,bytes);registry[i].type=type;registry[i].bytes=bytes;return ERROR_SUCCESS;
+    }
+    assert(0);return 1;
+}
+static void RegCloseKey(HKEY key) { assert(key==1); }
 #include "logic.inc"
+
+static void CheckRecentHistory(void)
+{
+    RecentLevels recent,loaded;
+    RecentLevelsLoad(&recent,"C:/one.gep");assert(!recent.count);
+    for(LONG id=10;id<17;id++) RecentLevelsRemember(&recent,id);
+    const LONG newest[]={16,15,14,13,12};
+    assert(recent.count==5 && !memcmp(recent.ids,newest,sizeof(newest)));
+    RecentLevelsRemember(&recent,14);
+    const LONG moved[]={14,16,15,13,12};
+    assert(recent.count==5 && !memcmp(recent.ids,moved,sizeof(moved)));
+    RecentLevelsLoad(&loaded,"c:/ONE.gep");assert(loaded.count==5 && !memcmp(loaded.ids,moved,sizeof(moved)));
+    RecentLevelsRemember(&loaded,14);assert(!memcmp(loaded.ids,moved,sizeof(moved)));
+    RecentLevelsLoad(&recent,"C:/two.gep");assert(!recent.count);
+    RecentLevelsRemember(&recent,40);
+    RecentLevelsLoad(&loaded,"C:/one.gep");assert(loaded.count==5 && !memcmp(loaded.ids,moved,sizeof(moved)));
+    RecentLevelsLoad(&loaded,"C:/two.gep");assert(loaded.count==1 && loaded.ids[0]==40);
+    registryfail=TRUE;RecentLevelsRemember(&loaded,55);assert(loaded.count==2 && loaded.ids[0]==55);
+    registryfail=FALSE;RecentLevelsLoad(&loaded,"C:/two.gep");assert(loaded.count==1 && loaded.ids[0]==40);
+    registry[0].bytes=3;RecentLevelsLoad(&loaded,"C:/one.gep");assert(!loaded.count);
+    RecentLevelsLoad(&loaded,NULL);assert(!loaded.count && !loaded.projectpath[0]);
+    puts("PASS five-level MRU, deduplication, persistence, per-project isolation, case/slash normalization and preference failure handling.");
+}
 
 static void Init(GEditorOpenLevelDialog *state)
 {
@@ -93,9 +165,10 @@ static void Init(GEditorOpenLevelDialog *state)
 }
 int main(void)
 {
+    CheckRecentHistory();
     const char *names[]={"Depot","control","Aztec","Train","Bunker 2 MP","Control","Title"};
     strcpy(g_Project.name,"Test");g_Project.levelcount=7;
-    for(int i=0;i<7;i++) {strcpy(g_Project.levels[i].name,names[i]);g_Project.levels[i].levelid=40-i*3;}
+    for(int i=0;i<7;i++) {strcpy(g_Project.levels[i].name,names[i]);g_Project.levels[i].levelID=40-i*3;}
     struct Project original=g_Project;
     GEditorOpenLevelDialog state;
     g_CurrentLevelIndex=0;Init(&state);
@@ -129,6 +202,30 @@ int main(void)
     dialogresult=-1;GEditorPromptForOpenLevel(100);assert(opens==3 && errors==3);
     int calls=dialogs;g_Project.levelcount=0;GEditorPromptForOpenLevel(100);assert(dialogs==calls);
     g_Project=original;g_Project.name[0]=0;GEditorPromptForOpenLevel(100);assert(dialogs==calls);
+    g_Project=original;
+    g_RecentLevels.count=3;
+    g_RecentLevels.ids[0]=g_Project.levels[4].levelID;
+    g_RecentLevels.ids[1]=999; /* Removed level; remaining commands retain their slots. */
+    g_RecentLevels.ids[2]=g_Project.levels[0].levelID;
+    g_CurrentLevelIndex=4;strcpy(g_Project.levels[0].name,"Depot & yard");
+    GEditorRefreshRecentLevelsMenu();
+    assert(menucount==2 && menu[0].id==ID_FILE_RECENT_LEVEL_FIRST && (menu[0].flags&MF_CHECKED));
+    assert(menu[1].id==ID_FILE_RECENT_LEVEL_FIRST+2 && !strcmp(menu[1].label,"Depot && yard"));
+    dirty=TRUE;choice=IDCANCEL;int prioropens=opens,priorprompts=prompts;
+    GEditorOpenLevel(100,GEditorRecentLevelIndex(0));assert(opens==prioropens && prompts==priorprompts);
+    GEditorOpenLevel(100,GEditorRecentLevelIndex(1));assert(opens==prioropens && prompts==priorprompts);
+    GEditorOpenLevel(100,GEditorRecentLevelIndex(2));assert(opens==prioropens && prompts==priorprompts+1);
+    choice=IDYES;saveok=FALSE;GEditorOpenLevel(100,GEditorRecentLevelIndex(2));assert(opens==prioropens);
+    saveok=TRUE;choice=IDNO;GEditorOpenLevel(100,GEditorRecentLevelIndex(2));assert(opens==prioropens+1 && g_CurrentLevelIndex==0);
+    g_Project.levels[3]=g_Project.levels[0];g_Project.levels[0]=original.levels[3];
+    assert(GEditorRecentLevelIndex(2)==3); /* Reorder resolves by identity, not saved array index. */
+    assert(GEditorRecentLevelIndex(5)==GEDITOR_NO_LEVEL);
+    strcpy(g_Project.levels[3].name,"Depot renamed");GEditorRefreshRecentLevelsMenu();
+    assert(!strcmp(menu[1].label,"Depot renamed"));
+    g_Project.name[0]=0;GEditorRefreshRecentLevelsMenu();
+    assert(menucount==1 && (menu[0].flags&MF_GRAYED) && !strcmp(menu[0].label,"No recent levels"));
+    g_Project=original;g_RecentLevels.count=0;GEditorRefreshRecentLevelsMenu();assert(menucount==1 && (menu[0].flags&MF_GRAYED));
+    puts("PASS recent-level menu placement, IDs across reordering/renaming, removed entries, empty state, literal ampersands, current-level preservation and unsaved-change guards.");
     puts("PASS alphabetical level picker, stable identities/duplicate names, current-level selection, Open/double-click/Cancel/close, empty/failure states and unsaved-change guards.");
 
     assert(BROWSER_SECTION_COUNT==3);
