@@ -9,7 +9,7 @@
 /* Custom dark mode colors. Light mode uses the Windows system palette. */
 static const COLORREF g_DarkPalette[THEME_COLOR_COUNT] = {
     [THEME_BACKGROUND]       = RGB( 36,  36,  36), /* Empty window/dialog areas */
-    [THEME_PANEL]            = RGB( 50,  50,  50), /* Headers and tool panels */
+    [THEME_PANEL]            = RGB( 64,  64,  64), /* Headers and tool panels */
     [THEME_INPUT]            = RGB( 29,  29,  29), /* Text fields and lists */
     [THEME_BUTTON]           = RGB( 58,  58,  58),
     [THEME_HOVER]            = RGB( 73,  73,  73),
