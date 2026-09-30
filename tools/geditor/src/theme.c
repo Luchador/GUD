@@ -6,12 +6,10 @@
 #include <wchar.h>
 #include <wctype.h>
 
-/* EDIT THE DARK COLORS HERE. These are RGB(red, green, blue), 0..255.
- * Roles are shared by the main editor, floating tools and dialogs.
- * Rebuild GEditor after editing. Light uses the Windows system palette. */
+/* Custom dark mode colors. Light mode uses the Windows system palette. */
 static const COLORREF g_DarkPalette[THEME_COLOR_COUNT] = {
     [THEME_BACKGROUND]       = RGB( 36,  36,  36), /* Empty window/dialog areas */
-    [THEME_PANEL]            = RGB( 45,  45,  45), /* Headers and tool panels */
+    [THEME_PANEL]            = RGB( 50,  50,  50), /* Headers and tool panels */
     [THEME_INPUT]            = RGB( 29,  29,  29), /* Text fields and lists */
     [THEME_BUTTON]           = RGB( 58,  58,  58),
     [THEME_HOVER]            = RGB( 73,  73,  73),
