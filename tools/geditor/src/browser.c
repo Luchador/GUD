@@ -33,11 +33,10 @@ typedef struct BrowserSection {
     RECT bodyrc;     /* valid only when expanded        */
 } BrowserSection;
 
-#define BROWSER_SECTION_COUNT 4
+#define BROWSER_SECTION_COUNT 3
 #define BROWSER_SECTION_OBJECTS 0
-#define BROWSER_SECTION_LEVELS 1
-#define BROWSER_SECTION_IMAGES 2
-#define BROWSER_SECTION_MODELS 3
+#define BROWSER_SECTION_IMAGES 1
+#define BROWSER_SECTION_MODELS 2
 #define BROWSER_OBJECT_COLUMNS 2
 #define BROWSER_OBJECT_TAB_H 24
 #define BROWSER_OBJECT_TAB_COUNT 3
@@ -107,15 +106,11 @@ static const BrowserObjectType g_BrowserObjectOrder[BROWSER_OBJECT_COUNT] = {
 #define BROWSER_IMAGE_LABEL_H 16
 #define BROWSER_IMAGE_CELL_H (BROWSER_IMAGE_PREVIEW_SIZE + BROWSER_IMAGE_LABEL_H + 8)
 #define BROWSER_IMAGE_MARGIN 4
-#define BROWSER_MAX_LEVELS 64
 #define BROWSER_ROW_H 16
 
 typedef struct BrowserState {
     BOOL fileimages; /* Standalone studio grid: filename identity, no game actions. */
     BrowserSection sections[BROWSER_SECTION_COUNT];
-    BrowserLevelItem levels[BROWSER_MAX_LEVELS];
-    DWORD levelindices[BROWSER_MAX_LEVELS]; /* Project indices, independent of display order. */
-    int levelcount;
     TexThumb objecticons[BROWSER_OBJECT_COUNT];
     unsigned char objectpixels[BROWSER_OBJECT_COUNT][TEX_THUMB_MAX * TEX_THUMB_MAX * 4];
     int objecttab;                       /* Objects is the default */
@@ -129,13 +124,12 @@ typedef struct BrowserState {
     int imagecount;
     TexThumb notexture; /* permanent item zero, independent of project images */
     unsigned char notexturepixels[TEX_THUMB_MAX * TEX_THUMB_MAX * 4];
-    BrowserLevelItem models[BROWSER_MAX_MODELS];
+    BrowserModelItem models[BROWSER_MAX_MODELS];
     int modelcount;
     int modeltab;                        /* Characters is the default */
     int modelcounts[BROWSER_MODEL_TAB_COUNT];
     int modelscroll[BROWSER_MODEL_TAB_COUNT];
     int scroll[BROWSER_SECTION_COUNT];   /* pixels scrolled per body */
-    int selectedlevel;
     int selectedimage;                   /* grid index, including No Texture */
     HWND tooltip;
     int tooltipimage;                    /* the one image registered as a tool */
@@ -271,11 +265,6 @@ static int BrowserContentHeight(const BrowserState *state, int section)
         rows = (count + BROWSER_OBJECT_COLUMNS - 1) / BROWSER_OBJECT_COLUMNS;
         return rows > 0 ? BROWSER_OBJECT_MARGIN * 2
             + rows * (BROWSER_OBJECT_TILE_H + BROWSER_OBJECT_GAP) - BROWSER_OBJECT_GAP : 0;
-    }
-
-    if (section == BROWSER_SECTION_LEVELS)
-    {
-        return state->levelcount > 0 ? state->levelcount * BROWSER_ROW_H + 8 : 0;
     }
 
     if (section == BROWSER_SECTION_IMAGES)
@@ -435,7 +424,8 @@ static void BrowserLayoutSections(BrowserState *state, const RECT *client)
     {
         int preferred = BROWSER_OBJECT_TAB_H + BrowserContentHeight(state, BROWSER_SECTION_OBJECTS);
         objectheight = bodyspace / expandedcount;
-        if (bodyspace >= preferred * expandedcount)
+        if (expandedcount == 1) { objectheight = bodyspace; }
+        else if (bodyspace >= preferred * expandedcount)
         { objectheight = preferred; }
         /* Reserve modest useful space for the other bodies before showing
          * all rows, rather than leaving Objects partially clipped. */
@@ -594,48 +584,6 @@ static void BrowserPaintObjects(const BrowserState *state, HDC dc, const RECT *b
 }
 
 
-static int BrowserHitLevelRow(HWND hwnd, int x, int y)
-{
-    BrowserState *state = BrowserGetState(hwnd);
-    BrowserSection *sec;
-    RECT client;
-    POINT p;
-    int index;
-
-    if (state == NULL || state->levelcount == 0)
-    {
-        return -1;
-    }
-
-    GetClientRect(hwnd, &client);
-    BrowserLayoutSections(state, &client);
-
-    sec = &state->sections[BROWSER_SECTION_LEVELS];
-    p.x = x;
-    p.y = y;
-
-    if (!sec->expanded || !PtInRect(&sec->bodyrc, p))
-    {
-        return -1;
-    }
-
-    if (x >= sec->bodyrc.right - BROWSER_SCROLLBAR_W - 2)
-    {
-        return -1; /* that's the scrollbar, not a row */
-    }
-
-    index = (y - sec->bodyrc.top - 4 + state->scroll[BROWSER_SECTION_LEVELS])
-          / BROWSER_ROW_H;
-
-    if (index < 0 || index >= state->levelcount)
-    {
-        return -1;
-    }
-
-    return index;
-}
-
-
 /* Section index whose header contains the point, or -1. */
 static int BrowserHitHeader(HWND hwnd, int x, int y)
 {
@@ -699,54 +647,6 @@ static void BrowserPaintArrow(HDC hdc, const RECT *header, BOOL expanded)
     SelectObject(hdc, oldbrush);
     SelectObject(hdc, oldpen);
     DeleteObject(pen); /* created objects are ours to free; stock ones are not */
-}
-
-/*
- * Draws the level rows top-down inside the body rect, clipping to it.
- * When rows do not fit, the last visible line becomes a "+N more"
- * hint; scrolling is a later feature.
- */
-/*
- * Draws the level rows offset by the section's scroll position. The
- * caller has already clipped the DC to the body rect, so rows that
- * hang over either edge are cut cleanly instead of painted over the
- * neighbouring section.
- */
-static void BrowserPaintLevelRows(BrowserState *state, HDC hdc, const RECT *body)
-{
-    int y = body->top + 4 - state->scroll[BROWSER_SECTION_LEVELS];
-    int i;
-
-    for (i = 0; i < state->levelcount; i++, y += BROWSER_ROW_H)
-    {
-        RECT rc;
-
-        if (y + BROWSER_ROW_H < body->top || y > body->bottom)
-        {
-            continue; /* entirely outside the body: nothing to draw */
-        }
-
-        rc.left = 26;
-        rc.right = body->right - BROWSER_SCROLLBAR_W - 6;
-        rc.top = y;
-        rc.bottom = y + BROWSER_ROW_H;
-
-        if (i == state->selectedlevel)
-        {
-            RECT fill = rc;
-
-            fill.left = body->left;
-            FillRect(hdc, &fill, GetSysColorBrush(COLOR_HIGHLIGHT));
-            SetTextColor(hdc, GetSysColor(COLOR_HIGHLIGHTTEXT));
-        }
-        else
-        {
-            SetTextColor(hdc, GetSysColor(COLOR_WINDOWTEXT));
-        }
-
-        DrawText(hdc, state->levels[i].label, -1, &rc,
-                 DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_END_ELLIPSIS | DT_NOPREFIX);
-    }
 }
 
 /*
@@ -992,7 +892,6 @@ static void BrowserPaint(HWND hwnd, HDC hdc)
             if (i == BROWSER_SECTION_OBJECTS) { BrowserPaintObjectTabs(state, hdc); }
             if (body.bottom <= body.top) { continue; }
             if (i == BROWSER_SECTION_OBJECTS
-                || (i == BROWSER_SECTION_LEVELS && state->levelcount > 0)
                 || (i == BROWSER_SECTION_IMAGES && BrowserImageCount(state) > 0)
                 || (i == BROWSER_SECTION_MODELS && state->modelcounts[state->modeltab] > 0))
             {
@@ -1004,10 +903,6 @@ static void BrowserPaint(HWND hwnd, HDC hdc)
                 if (i == BROWSER_SECTION_OBJECTS)
                 {
                     BrowserPaintObjects(state, hdc, &body);
-                }
-                else if (i == BROWSER_SECTION_LEVELS)
-                {
-                    BrowserPaintLevelRows(state, hdc, &body);
                 }
                 else if (i == BROWSER_SECTION_IMAGES)
                 {
@@ -1439,7 +1334,6 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
         state->fileimages = ((CREATESTRUCT *)lparam)->lpCreateParams != NULL;
         state->sections[BROWSER_SECTION_OBJECTS].name = "Objects";
-        state->sections[BROWSER_SECTION_LEVELS].name = "Levels";
         state->sections[BROWSER_SECTION_IMAGES].name = "Images";
         state->sections[BROWSER_SECTION_MODELS].name = "Models";
         state->hoverobject = -1;
@@ -1459,7 +1353,6 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             }
         }
         state->dragsection = -1;
-        state->selectedlevel = -1;
         state->selectedimage = -1;
         state->tooltipimage = -1;
 
@@ -1489,18 +1382,7 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     {
         int x = GET_X_LPARAM(lparam);
         int y = GET_Y_LPARAM(lparam);
-        int row = BrowserHitLevelRow(hwnd, x, y);
-
-        if (row >= 0)
-        {
-            state->selectedlevel = row;
-            InvalidateRect(hwnd, NULL, FALSE);
-
-            /* Tell the frame which level was opened. The label pointer
-               is only valid for the duration of this SendMessage. */
-            SendMessage(GetParent(hwnd), BROWSER_WM_LEVEL_OPEN, (WPARAM)state->levelindices[row], (LPARAM)state->levels[row].label);
-            return 0;
-        }
+        int row;
 
         /* Accept rapid image drags and tab clicks as ordinary clicks. */
         if (state != NULL)
@@ -2036,55 +1918,6 @@ HWND BrowserCreateImagePanel(HWND parent, HINSTANCE hinstance, int controlid)
         parent, (HMENU)(INT_PTR)controlid, hinstance, (void *)1);
 }
 
-void BrowserSelectLevel(HWND browser, DWORD index)
-{
-    BrowserState *state = BrowserGetState(browser);
-    if (!state || index >= (DWORD)state->levelcount) { return; }
-    for (int row = 0; row < state->levelcount; row++)
-        if (state->levelindices[row] == index) { state->selectedlevel = row; break; }
-    InvalidateRect(browser, NULL, FALSE);
-}
-
-void BrowserSetLevels(HWND browser, const BrowserLevelItem *items, int count)
-{
-    BrowserState *state = BrowserGetState(browser);
-    int i;
-
-    if (state == NULL)
-    {
-        return;
-    }
-
-    if (count > BROWSER_MAX_LEVELS)
-    {
-        count = BROWSER_MAX_LEVELS;
-    }
-    if (items == NULL)
-    {
-        count = 0;
-    }
-
-    for (i = 0; i < count; i++)
-    {
-        int row = i;
-        while (row > 0 && lstrcmpiA(state->levels[row - 1].label, items[i].label) > 0)
-        {
-            state->levels[row] = state->levels[row - 1];
-            state->levelindices[row] = state->levelindices[row - 1];
-            row--;
-        }
-        state->levels[row] = items[i];
-        state->levelindices[row] = (DWORD)i;
-    }
-
-    state->levelcount = count;
-    state->scroll[BROWSER_SECTION_LEVELS] = 0;
-    state->selectedlevel = -1;
-
-    InvalidateRect(browser, NULL, TRUE);
-}
-
-
 void BrowserSetImages(HWND browser, TexThumb *items, int count,
                       unsigned char *pixelblock)
 {
@@ -2169,7 +2002,7 @@ BOOL BrowserRevealImage(HWND browser, DWORD textureid)
 }
 
 
-void BrowserSetModels(HWND browser, const BrowserLevelItem *items, int count)
+void BrowserSetModels(HWND browser, const BrowserModelItem *items, int count)
 {
     BrowserState *state = BrowserGetState(browser);
     int i;

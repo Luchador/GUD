@@ -58,10 +58,9 @@ typedef struct {
     BOOL dragobject;
     int pressedobject, dragsection;
     DWORD dragtextureid;
-    struct { RECT bodyrc; BOOL expanded; } sections[4];
-    struct { char label[64]; } models[4], levels[1];
-    DWORD levelindices[1];
-    int modelcount, modeltab, scroll[4], selectedlevel;
+    struct { RECT bodyrc; BOOL expanded; } sections[3];
+    struct { char label[64]; } models[4];
+    int modelcount, modeltab, scroll[3];
 } BrowserState;
 #define TRUE 1
 #define FALSE 0
@@ -73,8 +72,8 @@ typedef struct {
 #define SM_XVIRTUALSCREEN 76
 #define SM_YVIRTUALSCREEN 77
 #define BROWSER_SECTION_OBJECTS 0
-#define BROWSER_SECTION_IMAGES 2
-#define BROWSER_SECTION_MODELS 3
+#define BROWSER_SECTION_IMAGES 1
+#define BROWSER_SECTION_MODELS 2
 #define BROWSER_MODEL_CHARACTERS 0
 #define BROWSER_MODEL_ITEMS 1
 #define BROWSER_MODEL_PROPS 2
@@ -106,7 +105,6 @@ typedef struct {
 #define WM_LBUTTONDBLCLK 8
 #define WM_LBUTTONDOWN 9
 #define BROWSER_WM_MODEL_OPEN 10
-#define BROWSER_WM_LEVEL_OPEN 11
 #define BROWSER_WM_OBJECT_DROP 4
 #define BROWSER_WM_IMAGE_DROP 5
 #define BROWSER_WM_MODEL_DROP 6
@@ -175,7 +173,6 @@ static BOOL PtInRect(const RECT *r, POINT p)
 static RECT BrowserContentRect(const BrowserState *state, int section) { return state->sections[section].bodyrc; }
 static void GetClientRect(HWND hwnd, RECT *r) { *r = (RECT){0, 0, 200, 200}; }
 static void BrowserLayoutSections(BrowserState *state, const RECT *r) {}
-static int BrowserHitLevelRow(HWND hwnd, int x, int y) { return -1; }
 static int BrowserHitHeader(HWND hwnd, int x, int y) { return -1; }
 static int BrowserHitImage(const BrowserState *state, POINT p) { return -1; }
 static int BrowserHitModelTab(const BrowserState *state, POINT p) { return -1; }

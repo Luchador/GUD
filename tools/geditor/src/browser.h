@@ -3,13 +3,6 @@
 
 #include <windows.h>
 
-/*
- * Sent to the browser's parent when a level row is double-clicked.
- * wparam: level index. lparam: the row's label (char *), valid only
- * for the duration of the message.
- */
-#define BROWSER_WM_LEVEL_OPEN (WM_APP + 1)
-
 /* The parent accepts a drag only when the current tool/level supports it.
  * DROP is synchronous; lparam points to a request valid during SendMessage. */
 #define BROWSER_WM_IMAGE_DRAG_BEGIN (WM_APP + 12)
@@ -67,8 +60,6 @@ HWND BrowserCreate(HWND parent, HINSTANCE hinstance);
  * scrolling and tooltips, without game texture IDs or game editing actions.
  * Populate with BrowserSetImages; the child uses the supplied control ID. */
 HWND BrowserCreateImagePanel(HWND parent, HINSTANCE hinstance, int controlid);
-/* Synchronize the highlight after navigation from a report. */
-void BrowserSelectLevel(HWND browser, DWORD index);
 
 #include "texload.h"
 
@@ -89,19 +80,13 @@ BOOL BrowserCopyImageThumbnail(HWND browser, DWORD textureid, TexThumb *thumb,
 /* Expand Images, scroll the matching item into view, and highlight it. */
 BOOL BrowserRevealImage(HWND browser, DWORD textureid);
 
-/* One row in the Levels section. */
-typedef struct BrowserLevelItem {
+/* One model row, copied by BrowserSetModels. */
+typedef struct BrowserModelItem {
     char label[64];
-} BrowserLevelItem;
+} BrowserModelItem;
 
-/*
- * Replaces the Levels section's contents. Copies the items, so the
- * caller's array can live on the stack. NULL/0 clears the section.
- */
-void BrowserSetLevels(HWND browser, const BrowserLevelItem *items, int count);
-
-/* Same contract for Models (labels only, copied). Rows are grouped into the
+/* Copies model labels. NULL/0 clears the section. Rows are grouped into the
  * Characters, Items, and Props tabs by their C/G/P model-name prefixes. */
-void BrowserSetModels(HWND browser, const BrowserLevelItem *items, int count);
+void BrowserSetModels(HWND browser, const BrowserModelItem *items, int count);
 
 #endif

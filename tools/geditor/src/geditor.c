@@ -127,6 +127,8 @@ static SetupObjectGeometry g_CurrentObjects;
 static void GEditorSetTitleForProject(HWND hwnd);
 static void GEditorRefreshHistoryMenu(HWND hwnd);
 static BOOL GEditorConfirmExit(HWND hwnd);
+/* Shared by the level picker and navigation from issue reports. */
+#define GEDITOR_WM_OPEN_LEVEL (WM_APP + 1)
 
 
 static BOOL GEditorAppendObjectGeometry(BgDocumentRenderMesh *mesh,
@@ -573,21 +575,12 @@ static void GEditorEditImage(HWND hwnd, DWORD id, UINT action)
  */
 static void GEditorRefreshProjectAssets(void)
 {
-    BrowserLevelItem levels[ROM_MAX_LEVELS];
     TexThumb *items = NULL;
     unsigned char *pixels = NULL;
     const char *why = "";
     DWORD count;
-    DWORD i;
 
     ProjectSettingsRefresh(g_Project.dir);
-
-    for (i = 0; i < g_Project.levelcount; i++)
-    {
-        lstrcpyn(levels[i].label, g_Project.levels[i].name, sizeof(levels[i].label));
-    }
-
-    BrowserSetLevels(g_Browser, g_Project.levelcount > 0 ? levels : NULL, (int)g_Project.levelcount);
 
     count = TexLoadProjectThumbnails(g_Project.dir, &items, &pixels, &why);
 
@@ -601,7 +594,7 @@ static void GEditorRefreshProjectAssets(void)
     /* Models: enumerate the four class folders into plain rows. */
     {
         static const char *classes[] = { "characters", "guns", "objects", "casings" };
-        BrowserLevelItem models[1024];
+        BrowserModelItem models[1024];
         int modelcount = 0;
         int c;
 
@@ -691,7 +684,6 @@ static void GEditorCloseProject(HWND hwnd)
     g_ProjectMetadataDirty = FALSE;
 
     ModelEditorSetProject(NULL);
-    BrowserSetLevels(g_Browser, NULL, 0);
     BrowserSetImages(g_Browser, NULL, 0, NULL);
     BrowserSetModels(g_Browser, NULL, 0);
     ViewportSetDoorPick(g_Viewport, FALSE);
@@ -769,7 +761,8 @@ enum {
     ID_EDIT_COPY_FACES,
     ID_EDIT_PASTE_FACES,
     ID_FILE_NEW_LEVEL,
-    ID_TOOLS_RENDER_STUDIO
+    ID_TOOLS_RENDER_STUDIO,
+    ID_FILE_OPEN_LEVEL
 };
 
 
@@ -913,6 +906,7 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(filemenu, MF_STRING, ID_FILE_REBASE_PROJECT, "Re&base Project...");
     AppendMenu(filemenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(filemenu, MF_STRING, ID_FILE_NEW_LEVEL, "New &Level");
+    AppendMenu(filemenu, MF_STRING, ID_FILE_OPEN_LEVEL, "Open Le&vel...");
     AppendMenu(filemenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(filemenu, MF_POPUP, (UINT_PTR)importmenu, "&Import...");
     AppendMenu(filemenu, MF_SEPARATOR, 0, NULL);
@@ -5505,7 +5499,7 @@ static BOOL GEditorLocateIssue(HWND hwnd, const LevelIssue *issue)
                 if (choice != IDYES && choice != IDNO) { return FALSE; }
                 if (choice == IDYES && !GEditorSaveProject(hwnd)) { return FALSE; }
             }
-            SendMessage(hwnd, BROWSER_WM_LEVEL_OPEN, index, 0);
+            SendMessage(hwnd, GEDITOR_WM_OPEN_LEVEL, index, 0);
             if (g_CurrentLevelIndex != index) { return FALSE; }
         }
         if (!LevelIssueResolveExport(issue, &g_CurrentSetup, g_Project.levels[index].levelscale, &resolved)) { return FALSE; }
@@ -5585,6 +5579,86 @@ static BOOL GEditorParseGeometryId(const char *text, DWORD *out)
     if (*p) { return FALSE; }
     *out = value;
     return TRUE;
+}
+
+typedef struct GEditorOpenLevelDialog {
+    DWORD index;
+} GEditorOpenLevelDialog;
+
+static INT_PTR CALLBACK GEditorOpenLevelDialogProc(HWND dialog, UINT message, WPARAM wparam, LPARAM lparam)
+{
+    GEditorOpenLevelDialog *state = (GEditorOpenLevelDialog *)GetWindowLongPtr(dialog, DWLP_USER);
+    HWND list = GetDlgItem(dialog, IDC_OPEN_LEVEL_LIST);
+    switch (message)
+    {
+    case WM_INITDIALOG:
+    {
+        LRESULT selected = 0;
+        state = (GEditorOpenLevelDialog *)lparam;
+        SetWindowLongPtr(dialog, DWLP_USER, (LONG_PTR)state);
+        for (DWORD i = 0; i < g_Project.levelcount; i++)
+        {
+            /* LBS_SORT changes row order. Store the original project index,
+             * never interpret a displayed row as a level ID or table index. */
+            LRESULT row = SendMessage(list, LB_ADDSTRING, 0, (LPARAM)g_Project.levels[i].name);
+            if (row == LB_ERR || row == LB_ERRSPACE
+                || SendMessage(list, LB_SETITEMDATA, row, i) == LB_ERR)
+            {
+                MessageBox(dialog, "Could not list the project's levels.", GEDITOR_TITLE, MB_ICONERROR);
+                EndDialog(dialog, IDCANCEL); return TRUE;
+            }
+        }
+        /* Locate the current level after all sorted insertions have finished. */
+        for (LRESULT row = 0; row < (LRESULT)g_Project.levelcount; row++)
+            if ((DWORD)SendMessage(list, LB_GETITEMDATA, row, 0) == g_CurrentLevelIndex)
+            { selected = row; break; }
+        SendMessage(list, LB_SETCURSEL, selected, 0);
+        EnableWindow(GetDlgItem(dialog, IDOK), g_Project.levelcount != 0);
+        SetFocus(list); return FALSE;
+    }
+    case WM_CLOSE:
+        EndDialog(dialog, IDCANCEL); return TRUE;
+    case WM_COMMAND:
+        if (LOWORD(wparam) == IDCANCEL) { EndDialog(dialog, IDCANCEL); return TRUE; }
+        if (LOWORD(wparam) == IDC_OPEN_LEVEL_LIST && HIWORD(wparam) == LBN_SELCHANGE)
+        {
+            EnableWindow(GetDlgItem(dialog, IDOK), SendMessage(list, LB_GETCURSEL, 0, 0) != LB_ERR);
+            return TRUE;
+        }
+        if (state && (LOWORD(wparam) == IDOK
+            || (LOWORD(wparam) == IDC_OPEN_LEVEL_LIST && HIWORD(wparam) == LBN_DBLCLK)))
+        {
+            LRESULT row = SendMessage(list, LB_GETCURSEL, 0, 0);
+            if (row != LB_ERR)
+            {
+                LRESULT index = SendMessage(list, LB_GETITEMDATA, row, 0);
+                if (index >= 0 && (DWORD)index < g_Project.levelcount)
+                { state->index = (DWORD)index; EndDialog(dialog, IDOK); }
+            }
+            return TRUE;
+        }
+        break;
+    }
+    return FALSE;
+}
+
+static void GEditorPromptForOpenLevel(HWND hwnd)
+{
+    GEditorOpenLevelDialog state = { GEDITOR_NO_LEVEL };
+    if (!g_Project.name[0] || !g_Project.levelcount) return;
+    INT_PTR result = DialogBoxParam(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_OPEN_LEVEL),
+        hwnd, GEditorOpenLevelDialogProc, (LPARAM)&state);
+    if (result == -1)
+    { MessageBox(hwnd, "Could not open the level selection dialog.", GEDITOR_TITLE, MB_ICONERROR); }
+    if (result != IDOK || state.index >= g_Project.levelcount || state.index == g_CurrentLevelIndex) return;
+    if (GEditorHasUnsavedChanges())
+    {
+        int choice = MessageBox(hwnd, "Save current changes before opening another level?",
+            GEDITOR_TITLE, MB_ICONQUESTION | MB_YESNOCANCEL);
+        if (choice != IDYES && choice != IDNO) return;
+        if (choice == IDYES && !GEditorSaveProject(hwnd)) return;
+    }
+    SendMessage(hwnd, GEDITOR_WM_OPEN_LEVEL, state.index, 0);
 }
 
 typedef struct GEditorGoToDialog {
@@ -6464,7 +6538,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         return GEditorDropBgTexture(hwnd,drop);
     }
 
-    case BROWSER_WM_LEVEL_OPEN:
+    case GEDITOR_WM_OPEN_LEVEL:
     {
         DWORD index = (DWORD)wparam;
         const RomLevel *level;
@@ -6640,7 +6714,6 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         EditHistoryReset(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
         g_SelectionHistoryReset = TRUE;
         g_CurrentLevelIndex = index;
-        BrowserSelectLevel(g_Browser, index);
         IssuesWindowInvalidate();
 
         ViewportSetBackgroundColor(g_Viewport, level->hasbackgroundcolor ? level->backgroundcolor : NULL);
@@ -6752,6 +6825,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
            an open project. */
         EnableMenuItem((HMENU)wparam, ID_FILE_SAVE_PROJECT, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_FILE_REBASE_PROJECT, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
+        EnableMenuItem((HMENU)wparam, ID_FILE_OPEN_LEVEL, MF_BYCOMMAND
+            | (g_Project.name[0] && g_Project.levelcount ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_FILE_IMPORT_IMAGE, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_TEXT_EDITOR, MF_BYCOMMAND | (g_Project.name[0] ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_ACTION_BLOCKS, MF_BYCOMMAND | (g_CurrentSetup.data ? MF_ENABLED : MF_GRAYED));
@@ -6935,6 +7010,10 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
             case ID_FILE_NEW_LEVEL:
                 /* Reserved for level creation. */
+                return 0;
+
+            case ID_FILE_OPEN_LEVEL:
+                GEditorPromptForOpenLevel(hwnd);
                 return 0;
 
             case ID_FILE_IMPORT_IMAGE:

@@ -34,6 +34,8 @@
 #define IDD_STUDIO_TRANSFORM 130
 #define IDD_STUDIO_RENDER    131
 #define IDD_SAFE_CONTENTS    133
+#define IDD_OPEN_LEVEL       134
+#define IDC_OPEN_LEVEL_LIST  1540
 #define IDC_SAFE_BODY        1530
 #define IDC_SAFE_DOOR        1531
 #define IDC_SAFE_STATUS      1532

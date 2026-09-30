@@ -9,7 +9,7 @@ typedef struct { HWND hwnd; UINT message; WPARAM wParam; LPARAM lParam; } MSG;
 enum { WM_APP=0x8000, DWLP_USER=1, WM_SETREDRAW, IDC_WAIT, LVNI_SELECTED,
        LVIF_TEXT, CB_GETCURSEL, LVIS_SELECTED=1, LVIS_FOCUSED=2, IDOK=1,
        IDYES=6, IDNO=7, IDCANCEL=2, MB_ICONQUESTION=0, MB_YESNOCANCEL=0 };
-#define BROWSER_WM_LEVEL_OPEN (WM_APP + 1)
+#define GEDITOR_WM_OPEN_LEVEL (WM_APP + 1)
 #define GEDITOR_TITLE "GEditor"
 typedef struct { int mask,iItem; char *pszText; } LVITEM;
 #include "issueswindow.h"
@@ -45,7 +45,7 @@ static void TranslateMessage(MSG *msg) {}
 static void DispatchMessage(MSG *msg) { dispatched++; }
 static LRESULT SendMessage(HWND hwnd,UINT message,WPARAM wp,LPARAM lp)
 {
-    if(message==BROWSER_WM_LEVEL_OPEN)return OpenLevel(wp);
+    if(message==GEDITOR_WM_OPEN_LEVEL)return OpenLevel(wp);
     if(message==WM_SETREDRAW)return TRUE;
     if(message==ISSUES_WM_SCAN)
     {
