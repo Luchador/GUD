@@ -21,6 +21,8 @@ enum { WM_KEYDOWN = 1, EM_EMPTYUNDOBUFFER, EM_CANUNDO, WM_UNDO,
 #define BST_UNCHECKED 0
 #define min(a,b) ((a) < (b) ? (a) : (b))
 #include "input-types.inc"
+#include "weaponchoices.h"
+#include "weapon-catalog.inc"
 static ObjectPropertiesState state;
 static char text[64], status[256];
 static char fadeText[2][64], glassText[3][64];
@@ -59,7 +61,7 @@ static LRESULT SendMessage(HWND hwnd, unsigned int msg, WPARAM wparam, LPARAM lp
     { if(msg==BM_SETCHECK) glassPortal=wparam==BST_CHECKED; else assert(msg==BM_GETCHECK); return glassPortal; }
     if(msg==BM_GETCHECK) { return fadeChecked ? BST_CHECKED : BST_UNCHECKED; }
     if(msg==BM_SETCHECK) { fadeChecked=wparam==BST_CHECKED; return 0; }
-    if (hwnd == state.controls[OBJECT_AIM_PAD] && msg >= CB_RESETCONTENT && msg <= CB_GETCURSEL)
+    if ((hwnd == state.controls[OBJECT_AIM_PAD] || hwnd == state.controls[OBJECT_WEAPON_TYPE]) && msg >= CB_RESETCONTENT && msg <= CB_GETCURSEL)
     {
         switch (msg)
         {
@@ -83,6 +85,7 @@ static LRESULT SendMessage(HWND hwnd, unsigned int msg, WPARAM wparam, LPARAM lp
     assert(edit->objectindex == 4 && edit->sourceoffset == 200 && edit->type == state.properties.object.type);
     commits++;
     /* A synchronous callback can move focus: its nested commit must be ignored. */
+    ObjectPropertiesApplyWeapon(0, &state);
     ObjectPropertiesApplyHealth(0, &state);
     ObjectPropertiesApplyArmor(0, &state);
     ObjectPropertiesApplyExtra(0, &state, OBJECT_KEY_MASK);
@@ -98,6 +101,13 @@ static LRESULT SendMessage(HWND hwnd, unsigned int msg, WPARAM wparam, LPARAM lp
         if(edit->property==SETUP_OBJECT_GLASS_TINT_DISTANCE) state.properties.glass.tintdistance=edit->value;
         else if(edit->property==SETUP_OBJECT_GLASS_OPAQUE_DISTANCE) state.properties.glass.opaquedistance=edit->value;
         else state.properties.glass.minimumopacity=edit->value;
+    }
+    else if (edit->property == SETUP_OBJECT_WEAPON_TYPE)
+    {
+        const SetupWeaponChoice *choice=SetupWeaponChoiceForItem((int)edit->value);
+        assert(choice && choice->item>=0);
+        state.properties.weapontype=choice->item;
+        state.properties.object.modelid=choice->model;
     }
     else if (edit->property == SETUP_OBJECT_FADE_DISTANCES)
     {
@@ -164,6 +174,39 @@ static void Type(const char *value)
 { snprintf(text, sizeof(text), "%s", value); state.edited = TRUE; canundo = TRUE; }
 static BOOL Key(WPARAM key)
 { MSG msg = {WM_KEYDOWN, key}; return ObjectPropertiesHandleMessage(0, &msg); }
+
+static void CheckWeapon(void)
+{
+    state.properties.object.type=PROPDEF_COLLECTABLE;
+    state.controls[OBJECT_WEAPON_TYPE]=900;
+    state.properties.weapontype=SETUP_DEFAULT_WEAPON_ITEM;
+    state.selected=TRUE;
+    int before=commits;
+    assert(ObjectPropertiesControlVisible(&state,OBJECT_WEAPON_TYPE));
+    ObjectPropertiesRefreshWeapon(&state);
+    DWORD count; SetupWeaponChoices(&count);
+    assert(choicecount==(int)count-1 && choices[chosen].value==SETUP_DEFAULT_WEAPON_ITEM);
+    assert(!strcmp(choices[chosen].label,"PP7 Special Issue"));
+    for (int i=0;i<choicecount;i++) assert(choices[i].value>=0);
+    ObjectPropertiesApplyWeapon(0,&state); assert(commits==before);
+    chosen=ObjectPropertiesModelChoice(900,13); /* AR33, distinct item and model IDs. */
+    ObjectPropertiesApplyWeapon(0,&state);
+    assert(commits==before+1 && state.properties.weapontype==13 && state.properties.object.modelid==188);
+    chosen=ObjectPropertiesModelChoice(900,26);
+    reject=TRUE; ObjectPropertiesApplyWeapon(0,&state); reject=FALSE;
+    assert(commits==before+2 && state.properties.weapontype==13 && !state.committing);
+    ObjectPropertiesRefreshWeapon(&state); assert(choices[chosen].value==13);
+    state.properties.weapontype=0xf4; ObjectPropertiesRefreshWeapon(&state);
+    assert(choices[chosen].value==0xf4 && strstr(choices[chosen].label,"preserved"));
+    ObjectPropertiesApplyWeapon(0,&state); assert(commits==before+2);
+    chosen=ObjectPropertiesModelChoice(900,4);
+    state.updating=TRUE; ObjectPropertiesApplyWeapon(0,&state); state.updating=FALSE;
+    state.selected=FALSE; ObjectPropertiesApplyWeapon(0,&state); state.selected=TRUE;
+    state.properties.object.type=PROPDEF_PROP;
+    assert(!ObjectPropertiesControlVisible(&state,OBJECT_WEAPON_TYPE));
+    ObjectPropertiesApplyWeapon(0,&state); assert(commits==before+2);
+    puts("PASS: weapon dropdown names/IDs, model pairing, no-op/rejected edits, unknown slot preservation and reentrant commits.");
+}
 
 static void CheckGlass(void)
 {
@@ -573,5 +616,6 @@ int main(void)
     CheckArmor();
     CheckGlass();
     CheckFade();
+    CheckWeapon();
     return 0;
 }

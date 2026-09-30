@@ -4890,7 +4890,7 @@ typedef enum
 {
     GEDITOR_PLACE_MODEL, GEDITOR_PLACE_DOOR, GEDITOR_PLACE_GLASS,
     GEDITOR_PLACE_CCTV, GEDITOR_PLACE_ALARM, GEDITOR_PLACE_DRONE, GEDITOR_PLACE_ARMOR,
-    GEDITOR_PLACE_TANK, GEDITOR_PLACE_SAFE, GEDITOR_PLACE_AMMO
+    GEDITOR_PLACE_TANK, GEDITOR_PLACE_SAFE, GEDITOR_PLACE_AMMO, GEDITOR_PLACE_WEAPON
 } GEditorPlacementKind;
 
 static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request, GEditorPlacementKind kind)
@@ -4908,6 +4908,7 @@ static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request, GEditor
     BOOL tank = kind == GEDITOR_PLACE_TANK;
     BOOL safe = kind == GEDITOR_PLACE_SAFE;
     BOOL ammo = kind == GEDITOR_PLACE_AMMO;
+    BOOL weapon = kind == GEDITOR_PLACE_WEAPON;
     int modelid;
 
     if (request == NULL || g_CurrentLevelIndex == GEDITOR_NO_LEVEL || g_CurrentSetup.data == NULL ||
@@ -4943,7 +4944,7 @@ static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request, GEditor
     }
     if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup,
                                    door ? "Add Door" : glass ? "Add Glass" : cctv ? "Add CCTV Camera"
-                                       : alarm ? "Add Alarm" : drone ? "Add Drone Gun" : ammo ? "Add Ammo" : armor ? "Add Armor" : tank ? "Add Tank" : safe ? "Add Safe"
+                                       : alarm ? "Add Alarm" : drone ? "Add Drone Gun" : weapon ? "Add Weapon" : ammo ? "Add Ammo" : armor ? "Add Armor" : tank ? "Add Tank" : safe ? "Add Safe"
                                        : character ? "Add Character" : "Add Prop",
                                    &transaction, &why))
     {
@@ -4981,6 +4982,11 @@ static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request, GEditor
     {
         added = SetupFileAddDroneGun(&g_CurrentSetup, modelid, g_CurrentBgDocument.levelscale,
             position, look, &selection, &why);
+    }
+    else if (weapon)
+    {
+        added = SetupFileAddWeapon(&g_CurrentSetup, modelid, g_CurrentBgDocument.levelscale,
+            position, &selection, &why);
     }
     else if (ammo)
     {
@@ -5372,7 +5378,7 @@ static BOOL GEditorSetObjectProperty(HWND hwnd, const SetupObjectPropertyEdit *e
     const char *action;
     if (!edit || !ViewportGetSelectedObject(g_Viewport, &selected)
         || selected != edit->objectindex || selected >= g_CurrentSetup.objectcount) { return FALSE; }
-    model = edit->property == SETUP_OBJECT_MODEL;
+    model = edit->property == SETUP_OBJECT_MODEL || edit->property == SETUP_OBJECT_WEAPON_TYPE;
     rebuild = model || (edit->property >= SETUP_OBJECT_GLASS_TYPE && edit->property <= SETUP_OBJECT_GLASS_AUTO_PORTAL);
     switch (edit->property)
     {
@@ -5381,6 +5387,7 @@ static BOOL GEditorSetObjectProperty(HWND hwnd, const SetupObjectPropertyEdit *e
     case SETUP_OBJECT_GLASS_OPAQUE_DISTANCE: action = "Change Glass Opaque Distance"; break;
     case SETUP_OBJECT_GLASS_MINIMUM_OPACITY: action = "Change Glass Minimum Opacity"; break;
     case SETUP_OBJECT_GLASS_AUTO_PORTAL: action = "Change Glass Portal Detection"; break;
+    case SETUP_OBJECT_WEAPON_TYPE: action = "Change Weapon Type"; break;
     case SETUP_OBJECT_MODEL: action = "Change Object Model"; break;
     case SETUP_OBJECT_HEALTH: action = "Change Object Health"; break;
     case SETUP_OBJECT_ARMOR_STRENGTH: action = "Change Armor Strength"; break;
@@ -5423,7 +5430,7 @@ static BOOL GEditorSetObjectProperty(HWND hwnd, const SetupObjectPropertyEdit *e
         float scale;
         /* The full scene loader skips missing models to keep damaged projects
          * inspectable. An explicit model edit must instead fail and roll back. */
-        BgVertex *mesh = ModelLoadProjectGeometry(g_Project.dir, (int)edit->value,
+        BgVertex *mesh = ModelLoadProjectGeometry(g_Project.dir, g_CurrentSetup.objects[selected].modelid,
             &count, &tags, &flags, &scale, &why);
         BOOL loaded = mesh != NULL;
         free(mesh); free(tags); free(flags);
@@ -6452,7 +6459,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         if ((wparam != BROWSER_OBJECT_OCCLUDER && wparam != BROWSER_OBJECT_PAD && wparam != BROWSER_OBJECT_SPAWN && wparam != BROWSER_OBJECT_INTRO_CAMERA && wparam != BROWSER_OBJECT_OUTRO_CAMERA
                 && wparam != BROWSER_OBJECT_DOOR && wparam != BROWSER_OBJECT_GLASS
                 && wparam != BROWSER_OBJECT_CCTV && wparam != BROWSER_OBJECT_ALARM && wparam != BROWSER_OBJECT_DRONE_GUN
-                && wparam != BROWSER_OBJECT_AMMO && wparam != BROWSER_OBJECT_ARMOR && wparam != BROWSER_OBJECT_TANK && wparam != BROWSER_OBJECT_SAFE)
+                && wparam != BROWSER_OBJECT_WEAPON && wparam != BROWSER_OBJECT_AMMO && wparam != BROWSER_OBJECT_ARMOR && wparam != BROWSER_OBJECT_TANK && wparam != BROWSER_OBJECT_SAFE)
             || g_CurrentLevelIndex == GEDITOR_NO_LEVEL || !g_CurrentSetup.data) { return FALSE; }
         if ((wparam == BROWSER_OBJECT_INTRO_CAMERA || wparam == BROWSER_OBJECT_OUTRO_CAMERA || wparam == BROWSER_OBJECT_TANK)
             && strncmp(g_CurrentSetup.name, "Ump_", 4) == 0)
@@ -6475,7 +6482,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         { return GEditorDropPrimitive(hwnd, drop); }
         if (drop && (drop->type == BROWSER_OBJECT_DOOR || drop->type == BROWSER_OBJECT_GLASS
             || drop->type == BROWSER_OBJECT_CCTV || drop->type == BROWSER_OBJECT_ALARM || drop->type == BROWSER_OBJECT_DRONE_GUN
-            || drop->type == BROWSER_OBJECT_AMMO || drop->type == BROWSER_OBJECT_ARMOR || drop->type == BROWSER_OBJECT_TANK || drop->type == BROWSER_OBJECT_SAFE))
+            || drop->type == BROWSER_OBJECT_WEAPON || drop->type == BROWSER_OBJECT_AMMO || drop->type == BROWSER_OBJECT_ARMOR || drop->type == BROWSER_OBJECT_TANK || drop->type == BROWSER_OBJECT_SAFE))
         {
             BrowserModelDrop model = {"", drop->screen};
             GEditorPlacementKind kind;
@@ -6486,6 +6493,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             case BROWSER_OBJECT_CCTV: kind = GEDITOR_PLACE_CCTV; name = SETUP_DEFAULT_CCTV_MODEL; break;
             case BROWSER_OBJECT_ALARM: kind = GEDITOR_PLACE_ALARM; name = SETUP_DEFAULT_ALARM_MODEL; break;
             case BROWSER_OBJECT_DRONE_GUN: kind = GEDITOR_PLACE_DRONE; name = SETUP_DEFAULT_DRONE_MODEL; break;
+            case BROWSER_OBJECT_WEAPON: kind = GEDITOR_PLACE_WEAPON; name = SETUP_DEFAULT_WEAPON_MODEL; break;
             case BROWSER_OBJECT_AMMO: kind = GEDITOR_PLACE_AMMO; name = SETUP_DEFAULT_AMMO_MODEL; break;
             case BROWSER_OBJECT_ARMOR: kind = GEDITOR_PLACE_ARMOR; name = SETUP_DEFAULT_ARMOR_MODEL; break;
             case BROWSER_OBJECT_TANK: kind = GEDITOR_PLACE_TANK; name = SETUP_DEFAULT_TANK_MODEL; break;

@@ -72,7 +72,7 @@ typedef enum SetupObjectProperty {
     SETUP_OBJECT_ARMOR_STRENGTH, SETUP_OBJECT_FADE_DISTANCES,
     SETUP_OBJECT_GLASS_TYPE, SETUP_OBJECT_GLASS_TINT_DISTANCE,
     SETUP_OBJECT_GLASS_OPAQUE_DISTANCE, SETUP_OBJECT_GLASS_MINIMUM_OPACITY,
-    SETUP_OBJECT_GLASS_AUTO_PORTAL
+    SETUP_OBJECT_GLASS_AUTO_PORTAL, SETUP_OBJECT_WEAPON_TYPE
 } SetupObjectProperty;
 /* Movement uses native fractions/degrees/animation units per 60 Hz tick.
  * The inspector converts these to percentages/degrees and seconds. */
@@ -104,6 +104,7 @@ typedef struct SetupObjectProperties {
     double fadestart, fadeend; /* Camera distances in metres; native values use centimetres. */
     double armorstrength; /* Percentage, decoded from BodyArmourRecord.initialamount. */
     DWORD keyflags, ammotype; /* keyflags: supplied by a key, required by a door */
+    unsigned char weapontype; /* WeaponObjRecord.weaponnum; retain unknown/MP slot IDs. */
     struct { double tintdistance, opaquedistance, minimumopacity; BOOL autoportal; } glass; /* metres, metres, percent */
     SetupDoorProperties door;
     SetupCctvProperties cctv;
@@ -404,6 +405,13 @@ BOOL SetupFileCanAddBoundPadModel(const SetupFile *setup, DWORD padindex, BOOL d
                                  const char **reasonout);
 BOOL SetupFileAddBoundPadModel(SetupFile *setup, DWORD padindex, int modelid, BOOL door,
                               DWORD *selectionout, const char **reasonout);
+
+#define SETUP_DEFAULT_WEAPON_MODEL "PchrwppkZ"
+/* Add a collectible PP7 with a private normal pad, no linked weapon and
+ * an inactive explosive timer. Changing weapon type also changes its model. */
+BOOL SetupFileAddWeapon(SetupFile *setup, int modelid, float levelscale,
+                        const double position[3], DWORD *selectionout,
+                        const char **reasonout);
 
 #define SETUP_DEFAULT_AMMO_MODEL "Pammo_crate3Z"
 /* Add a native single-type pickup, initially 9mm, with a private normal pad.

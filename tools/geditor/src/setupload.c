@@ -2115,9 +2115,9 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
         DWORD extrascale = type == PROPDEF_ARMOUR ? 384u : type == PROPDEF_TANK ? 276u : 256u;
         SetupWrite32(added.data + newrecord, (extrascale << 16) | type);
         SetupWrite32(added.data + newrecord + 4, ((DWORD)modelid << 16) | (padindex + (bound ? 10000u : 0u)));
-        if (type == PROPDEF_ARMOUR || type == PROPDEF_MAGAZINE)
+        if (type == PROPDEF_ARMOUR || type == PROPDEF_MAGAZINE || type == PROPDEF_COLLECTABLE)
         {
-            /* Armor and ammo are collectible by type; don't turn them into obstacles
+            /* Pickups are collectible by type; don't turn them into obstacles
              * with FORCE_COLLISIONS or require the interaction button. */
             SetupWrite32(added.data + newrecord + 8, PROPFLAG_ALLOWFALL);
         }
@@ -2157,7 +2157,16 @@ static BOOL SetupAddPlacement(SetupFile *setup, unsigned char type, int modelid,
         /* ObjectRecord.damage is authored as signed 16.16 durability and
            converted by domakedefaultobj. maxdamage starts at zero. */
         SetupWrite32(added.data + newrecord + 0x74, 1000u << 16);
-        if (type == PROPDEF_ARMOUR)
+        if (type == PROPDEF_COLLECTABLE)
+        {
+            /* Native 34-word WeaponObjRecord: item byte, no linked weapon,
+             * timer -1 (inactive), followed by a null runtime dual pointer. */
+            SetupWrite32(added.data + newrecord + 0x78, 0xffffff00u);
+            SetupWrite32(added.data + newrecord + 0x7c, 0xffffff00u);
+            SetupWrite32(added.data + newrecord + 0x80,
+                ((DWORD)SETUP_DEFAULT_WEAPON_ITEM << 24) | 0xffffffu);
+        }
+        else if (type == PROPDEF_ARMOUR)
         {
             /* Native 34-word BodyArmourRecord: setupLoadFiles converts the
              * signed 16.16 initialamount, then copies it to runtime amount.
@@ -2324,6 +2333,14 @@ malformed:
 fail:
     SetupFileFree(&copy);
     return FALSE;
+}
+
+BOOL SetupFileAddWeapon(SetupFile *setup, int modelid, float levelscale,
+                        const double position[3], DWORD *selectionout,
+                        const char **reasonout)
+{
+    return SetupAddPlacement(setup, PROPDEF_COLLECTABLE, modelid, levelscale,
+        position, NULL, NULL, selectionout, reasonout);
 }
 
 BOOL SetupFileAddAmmo(SetupFile *setup, int modelid, float levelscale,
@@ -4920,6 +4937,7 @@ BOOL SetupFileGetObjectProperties(const SetupFile *setup, DWORD index,
         out->door.closeframes = SetupRead32(record + 0xa0);
         out->door.sound = SetupRead32(record + 0xa4);
     }
+    if (out->object.type == PROPDEF_COLLECTABLE) { out->weapontype = record[0x80]; }
     if (out->object.type == PROPDEF_MAGAZINE) { out->ammotype = SetupRead32(record + 0x80); }
     if (out->object.type == PROPDEF_AMMO)
     {
@@ -5263,6 +5281,23 @@ BOOL SetupFileSetObjectProperty(SetupFile *setup, const SetupObjectPropertyEdit 
         if (encoded == SetupRead32(record + 0x74)) { return TRUE; }
         SetupWrite32(setup->data + edit->sourceoffset + 0x74, encoded);
         break;
+    case SETUP_OBJECT_WEAPON_TYPE:
+    {
+        const SetupWeaponChoice *choice;
+        if (record[3] != PROPDEF_COLLECTABLE)
+        { *reasonout = "Weapon type can only be edited on a weapon pickup."; return FALSE; }
+        if (edit->value < 0 || edit->value > 127 || floor(edit->value) != edit->value
+            || !(choice = SetupWeaponChoiceForItem((int)edit->value)) || choice->model < 0)
+        { *reasonout = "Choose a supported weapon type."; return FALSE; }
+        /* Preserve custom appearance on a no-op, and retain the pad, scale,
+         * flags, links and timer when changing the weapon and its model. */
+        if (record[0x80] == choice->item) { return TRUE; }
+        encoded = ((DWORD)choice->model << 16) | (SetupRead32(record + 4) & 0xffffu);
+        SetupWrite32(setup->data + edit->sourceoffset + 4, encoded);
+        setup->data[edit->sourceoffset + 0x80] = (unsigned char)choice->item;
+        setup->objects[edit->objectindex].modelid = (short)choice->model;
+        break;
+    }
     case SETUP_OBJECT_MODEL:
         if (edit->value < 0 || edit->value > 32767 || floor(edit->value) != edit->value
             || !ModelGetPropDefinition((int)edit->value, &modelname, NULL) || !modelname || !*modelname)

@@ -20,6 +20,7 @@
 #define OBJECT_DOOR_FIELD_COUNT 6
 #define OBJECT_AIM_FIELD_COUNT 4
 enum { OBJECT_TYPE, OBJECT_MODEL_LABEL, OBJECT_MODEL, OBJECT_MODEL_HELP,
+       OBJECT_WEAPON_LABEL, OBJECT_WEAPON_TYPE,
        OBJECT_HEALTH_LABEL, OBJECT_HEALTH, OBJECT_HEALTH_HELP,
        OBJECT_GLASS_TYPE_LABEL, OBJECT_GLASS_TYPE,
        OBJECT_GLASS_START_LABEL, OBJECT_GLASS_START, OBJECT_GLASS_END_LABEL, OBJECT_GLASS_END,
@@ -260,7 +261,7 @@ static void ObjectPropertiesResetDoor(ObjectPropertiesState *state, int field)
 }
 
 static BOOL ObjectPropertiesIsCombo(int id)
-{ return id == OBJECT_GLASS_TYPE || id == OBJECT_MODEL || id == OBJECT_AMMO_TYPE || id == OBJECT_DOOR_TYPE || id == OBJECT_DOOR_SOUND || id == OBJECT_AIM_PAD; }
+{ return id == OBJECT_GLASS_TYPE || id == OBJECT_MODEL || id == OBJECT_WEAPON_TYPE || id == OBJECT_AMMO_TYPE || id == OBJECT_DOOR_TYPE || id == OBJECT_DOOR_SOUND || id == OBJECT_AIM_PAD; }
 static BOOL ObjectPropertiesIsEdit(int id)
 { return id == OBJECT_GLASS_START || id == OBJECT_GLASS_END || id == OBJECT_GLASS_MIN || id == OBJECT_HEALTH || id == OBJECT_ARMOR || id == OBJECT_KEY_MASK || id == OBJECT_QUANTITY
     || id == OBJECT_FADE_START || id == OBJECT_FADE_END
@@ -268,6 +269,8 @@ static BOOL ObjectPropertiesIsEdit(int id)
 static BOOL ObjectPropertiesControlVisible(const ObjectPropertiesState *state, int id)
 {
     unsigned char type = state->properties.object.type;
+    if (id == OBJECT_WEAPON_LABEL || id == OBJECT_WEAPON_TYPE)
+    { return state->selected && type == PROPDEF_COLLECTABLE; }
     if (id == OBJECT_SAFE_CONTENTS || id == OBJECT_SAFE_STATUS) { return state->selected && state->safeitem; }
     if (id >= OBJECT_GLASS_TYPE_LABEL && id <= OBJECT_GLASS_TYPE)
         return state->selected && (type == PROPDEF_GLASS || type == PROPDEF_TINTED_GLASS);
@@ -793,6 +796,44 @@ static void ObjectPropertiesApplyModel(HWND hwnd, ObjectPropertiesState *state)
     { ObjectPropertiesApply(hwnd, state, SETUP_OBJECT_MODEL, model); }
 }
 
+static void ObjectPropertiesRefreshWeapon(ObjectPropertiesState *state)
+{
+    DWORD count;
+    const SetupWeaponChoice *choices = SetupWeaponChoices(&count);
+    HWND combo = state->controls[OBJECT_WEAPON_TYPE];
+    state->updating = TRUE;
+    SendMessage(combo, CB_RESETCONTENT, 0, 0);
+    for (DWORD i = 0; i < count; i++)
+    {
+        if (choices[i].item < 0 || choices[i].model < 0) { continue; }
+        int row = (int)SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)choices[i].name);
+        if (row >= 0) { SendMessage(combo, CB_SETITEMDATA, row, choices[i].item); }
+    }
+    int row = ObjectPropertiesModelChoice(combo, state->properties.weapontype);
+    if (row < 0)
+    {
+        /* Mission items and multiplayer slots are valid existing records.
+         * Merely inspecting one must never replace it with a regular gun. */
+        char text[80];
+        snprintf(text, sizeof(text), "Other item / slot 0x%02X (preserved)", state->properties.weapontype);
+        row = (int)SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)text);
+        if (row >= 0) { SendMessage(combo, CB_SETITEMDATA, row, state->properties.weapontype); }
+    }
+    SendMessage(combo, CB_SETCURSEL, row, 0);
+    state->updating = FALSE;
+}
+
+static void ObjectPropertiesApplyWeapon(HWND hwnd, ObjectPropertiesState *state)
+{
+    HWND combo = state->controls[OBJECT_WEAPON_TYPE];
+    int row = (int)SendMessage(combo, CB_GETCURSEL, 0, 0);
+    if (row < 0 || !state->selected || state->updating || state->committing
+        || state->properties.object.type != PROPDEF_COLLECTABLE) { return; }
+    int item = (int)SendMessage(combo, CB_GETITEMDATA, row, 0);
+    if (item != state->properties.weapontype)
+    { ObjectPropertiesApply(hwnd, state, SETUP_OBJECT_WEAPON_TYPE, item); }
+}
+
 /* Match propobj.c: multiply each slot's base quantity and truncate. */
 static BOOL ObjectPropertiesFormatContents(const SetupObjectProperties *properties, BOOL multiplayer, char *text, size_t capacity)
 {
@@ -954,6 +995,7 @@ static LRESULT CALLBACK ObjectPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
             SendMessage(state->controls[i], WM_SETFONT, (WPARAM)font, FALSE);
         }
         SetWindowText(state->controls[OBJECT_SAFE_CONTENTS], "Safe contents...");
+        SetWindowText(state->controls[OBJECT_WEAPON_LABEL], "Weapon type");
         for (unsigned int i = 0; i < sizeof(g_SharedProperties) / sizeof(g_SharedProperties[0]); i++)
         {
             SetWindowText(state->controls[g_SharedProperties[i].label], g_SharedProperties[i].name);
@@ -1132,6 +1174,15 @@ static LRESULT CALLBACK ObjectPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
             if (HIWORD(wparam) == CBN_SELENDCANCEL) { ObjectPropertiesRefreshAmmo(state); }
             if (HIWORD(wparam) == CBN_SETFOCUS) { ObjectPropertiesRevealControl(hwnd, state, (HWND)lparam); }
         }
+        if ((HWND)lparam == state->controls[OBJECT_WEAPON_TYPE])
+        {
+            if (HIWORD(wparam) == CBN_SELENDOK || (HIWORD(wparam) == CBN_SELCHANGE
+                && !SendMessage((HWND)lparam, CB_GETDROPPEDSTATE, 0, 0)))
+            { ObjectPropertiesApplyWeapon(hwnd, state); }
+            if (HIWORD(wparam) == CBN_SELENDCANCEL)
+            { SendMessage((HWND)lparam, CB_SETCURSEL, ObjectPropertiesModelChoice((HWND)lparam, state->properties.weapontype), 0); }
+            if (HIWORD(wparam) == CBN_SETFOCUS) { ObjectPropertiesRevealControl(hwnd, state, (HWND)lparam); }
+        }
         if ((HWND)lparam == state->controls[OBJECT_MODEL])
         {
             if (HIWORD(wparam) == CBN_SELENDOK || (HIWORD(wparam) == CBN_SELCHANGE
@@ -1278,6 +1329,7 @@ BOOL ObjectPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD inde
     }
     SendMessage(state->controls[OBJECT_MODEL], CB_SETCURSEL, choice, 0);
     state->updating = FALSE;
+    if (properties.object.type == PROPDEF_COLLECTABLE) { ObjectPropertiesRefreshWeapon(state); }
     if (properties.object.type == PROPDEF_DOOR) { ObjectPropertiesRefreshDoor(state); }
     if (ObjectPropertiesHasAim(properties.object.type))
     {

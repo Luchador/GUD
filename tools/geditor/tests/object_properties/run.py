@@ -93,13 +93,16 @@ def main():
                  'ObjectPropertiesApplyGlass', 'ObjectPropertiesParseAim', 'ObjectPropertiesApplyAim',
                  'ObjectPropertiesEnableFade', 'ObjectPropertiesResetFade',
                  'ObjectPropertiesParseFade', 'ObjectPropertiesApplyFade',
-                 'ObjectPropertiesModelChoice', 'ObjectPropertiesLoadAimPads',
+                 'ObjectPropertiesModelChoice', 'ObjectPropertiesRefreshWeapon', 'ObjectPropertiesApplyWeapon', 'ObjectPropertiesLoadAimPads',
                  'ObjectPropertiesRefreshAim', 'ObjectPropertiesApplyAimPad',
                  'ObjectPropertiesParseDoor', 'ObjectPropertiesApplyDoor',
                  'ObjectPropertiesKeyProperty', 'ObjectPropertiesApplyHealth',
                  'ObjectPropertiesApplyArmor',
                  'ObjectPropertiesParseUnsigned', 'ObjectPropertiesResetExtra',
                  'ObjectPropertiesApplyExtra', 'ObjectPropertiesHandleMessage')
+        catalog = (src / 'setupload.c').read_text()
+        (work / 'weapon-catalog.inc').write_text(''.join(function(catalog, name) for name in
+            ('SetupWeaponChoices', 'SetupWeaponChoiceForItem')))
         (work / 'input-logic.inc').write_text(''.join(function(source, name) for name in names))
         subprocess.run([os.environ.get('CC', 'cc'), '-O1', '-g', '-std=c99', '-Wall', '-Wextra',
                         '-Werror', '-Wno-unused-parameter', '-fsanitize=address,undefined',
