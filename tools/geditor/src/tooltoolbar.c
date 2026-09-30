@@ -281,9 +281,16 @@ static LRESULT CALLBACK ToolToolbarWndProc(HWND hwnd, UINT message,
         tool = LOWORD(wparam) - TOOLTOOLBAR_MENU_FIRST_ID;
         if (state && HIWORD(wparam) == BN_CLICKED && tool >= 0 && tool < TOOLTOOLBAR_MENU_COUNT)
         {
+            if (tool == TOOLTOOLBAR_MENU_VISIBILITY) {
+                /* A modeless popup must open after the native button has
+                 * finished its click/focus handling. The popup owns its
+                 * button's pressed state while it is actually visible. */
+                PostMessage(GetParent(hwnd), TOOLTOOLBAR_WM_MENU, tool, (LPARAM)state->menus[tool]);
+                return 0;
+            }
             SendMessage(state->menus[tool], BM_SETSTATE, TRUE, 0);
             SendMessage(GetParent(hwnd), TOOLTOOLBAR_WM_MENU, tool, (LPARAM)state->menus[tool]);
-            if (tool != TOOLTOOLBAR_MENU_VISIBILITY) { SendMessage(state->menus[tool], BM_SETSTATE, FALSE, 0); }
+            SendMessage(state->menus[tool], BM_SETSTATE, FALSE, 0);
             return 0;
         }
         tool = LOWORD(wparam) - TOOLTOOLBAR_FIRST_ID;

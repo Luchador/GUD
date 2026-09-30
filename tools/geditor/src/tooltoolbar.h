@@ -13,7 +13,8 @@ typedef enum ToolToolbarMenu {
     TOOLTOOLBAR_MENU_VISIBILITY,
     TOOLTOOLBAR_MENU_COUNT
 } ToolToolbarMenu;
-/* Synchronous request: wparam is the menu, lparam its anchor button HWND. */
+/* wparam is the menu, lparam its anchor button HWND. Geometry menus are
+ * synchronous; Visibility is posted so the native button click finishes first. */
 #define TOOLTOOLBAR_WM_MENU (WM_APP + 53)
 
 /* Wrap controls when the viewport is narrowed by its side panels. */

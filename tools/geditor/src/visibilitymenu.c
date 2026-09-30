@@ -46,11 +46,13 @@ static void VisibilityMenuUpdateOpacity(HWND menu, VisibilityMenuState *state)
 void VisibilityMenuClose(HWND menu, BOOL restorefocus)
 {
     VisibilityMenuState *state = VisibilityMenuGetState(menu);
-    if (!state || !IsWindowVisible(menu)) { return; }
-    ShowWindow(menu, SW_HIDE);
+    BOOL visible;
+    if (!state) { return; }
+    visible = IsWindowVisible(menu);
+    if (visible) { ShowWindow(menu, SW_HIDE); }
     if (IsWindow(state->anchor)) {
         SendMessage(state->anchor, BM_SETSTATE, FALSE, 0);
-        if (restorefocus) {
+        if (restorefocus && visible) {
             SetActiveWindow(GetWindow(menu, GW_OWNER));
             SetFocus(state->anchor);
         }
@@ -82,6 +84,7 @@ void VisibilityMenuOpen(HWND menu, HWND anchor)
     RECT button;
     MONITORINFO monitor = {0};
     int x, y;
+    if (IsWindow(anchor)) { SendMessage(anchor, BM_SETSTATE, FALSE, 0); }
     if (!state || !GetWindowRect(anchor, &button)) { return; }
     if (IsWindowVisible(menu)) { VisibilityMenuClose(menu, TRUE); return; }
     state->anchor = anchor;
@@ -93,9 +96,15 @@ void VisibilityMenuOpen(HWND menu, HWND anchor)
         x = max(monitor.rcWork.left, min(x, monitor.rcWork.right - VISIBILITY_WIDTH));
         y = max(monitor.rcWork.top, min(y, monitor.rcWork.bottom - VISIBILITY_HEIGHT));
     }
-    SetWindowPos(menu, HWND_TOP, x, y, VISIBILITY_WIDTH, VISIBILITY_HEIGHT, SWP_SHOWWINDOW);
-    SetFocus(state->checks[0]);
-    SendMessage(anchor, BM_SETSTATE, TRUE, 0);
+    /* Position/show before activating, without rearranging the owner. Focus
+     * changes can synchronously dismiss the popup, so never latch the button
+     * down unless the popup survives those messages and remains visible. */
+    if (SetWindowPos(menu, HWND_TOP, x, y, VISIBILITY_WIDTH, VISIBILITY_HEIGHT,
+            SWP_SHOWWINDOW | SWP_NOACTIVATE | SWP_NOOWNERZORDER) && IsWindowVisible(menu)) {
+        SetActiveWindow(menu);
+        if (IsWindowVisible(menu)) { SetFocus(state->checks[0]); }
+    }
+    SendMessage(anchor, BM_SETSTATE, IsWindowVisible(menu), 0);
 }
 
 BOOL VisibilityMenuConsumeAnchorClick(HWND menu, LPARAM lparam)
