@@ -22,7 +22,7 @@ typedef struct RECT { int left, top, right, bottom; } RECT;
 #define TPM_TOPALIGN 0
 #define TPM_RIGHTBUTTON 4
 #define RECENT_PROJECTS_MAX 10
-typedef enum ToolToolbarMenu { TOOLTOOLBAR_MENU_VERTEX, TOOLTOOLBAR_MENU_EDGE, TOOLTOOLBAR_MENU_FACE, TOOLTOOLBAR_MENU_COUNT } ToolToolbarMenu;
+typedef enum ToolToolbarMenu { TOOLTOOLBAR_MENU_VERTEX, TOOLTOOLBAR_MENU_EDGE, TOOLTOOLBAR_MENU_FACE, TOOLTOOLBAR_MENU_VISIBILITY, TOOLTOOLBAR_MENU_COUNT } ToolToolbarMenu;
 typedef struct Item { UINT flags, id; const char *label; } Item;
 typedef struct Menu { Item items[12]; int count; } Menu;
 typedef Menu *HMENU;
@@ -89,10 +89,10 @@ static void Show(ToolToolbarMenu menu)
 }
 
 #define TOOLTOOLBAR_HEIGHT 40
-typedef struct ToolToolbarState { HWND buttons[5]; HWND menus[3]; HWND correctattributes; BOOL paintonly; } ToolToolbarState;
-static RECT positions[9];
+typedef struct ToolToolbarState { HWND buttons[5]; HWND menus[4]; HWND correctattributes; BOOL paintonly; } ToolToolbarState;
+static RECT positions[10];
 static void MoveWindow(HWND hwnd, int x, int y, int w, int h, BOOL repaint)
-{ int index = (int)(intptr_t)hwnd-1; assert(index >= 0 && index < 9); positions[index] = (RECT){x,y,x+w,y+h}; }
+{ int index = (int)(intptr_t)hwnd-1; assert(index >= 0 && index < 10); positions[index] = (RECT){x,y,x+w,y+h}; }
 #include "layout.inc"
 
 typedef struct { HWND hwnd; UINT message; UINT wParam; LPARAM lParam; } MSG;
@@ -183,16 +183,18 @@ int main(void)
     for (int i = 0; i < 5; i++) { toolbar.buttons[i] = (HWND)(intptr_t)(i+1); }
     for (int i = 0; i < 3; i++) { toolbar.menus[i] = (HWND)(intptr_t)(i+6); }
     toolbar.correctattributes = (HWND)9;
+    toolbar.menus[TOOLTOOLBAR_MENU_VISIBILITY] = (HWND)10;
     for (int width = 88; width < 900; width++)
     {
         int height = ToolToolbarLayout(&toolbar, width); assert(height == ToolToolbarGetHeight(width));
-        for (int i = 0; i < 9; i++)
+        for (int i = 0; i < 10; i++)
         {
             const RECT *a = &positions[i]; assert(a->left >= 4 && a->right <= width-4 && a->top >= 4 && a->bottom <= height-4);
             for (int j = 0; j < i; j++)
-            { const RECT *b = &positions[j]; assert(a->left >= b->right || a->top >= b->bottom); }
+            { const RECT *b = &positions[j]; assert(a->left >= b->right || a->right <= b->left || a->top >= b->bottom || a->bottom <= b->top); }
         }
-        if (width >= 608) { assert(height == 40); }
+        assert(positions[9].right == width - 4 && positions[9].top == 4);
+        assert((height == 40) == (width >= 708));
     }
     toolbar.paintonly=TRUE;
     assert(ToolToolbarLayout(&toolbar,40)==40);

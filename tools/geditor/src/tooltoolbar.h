@@ -10,6 +10,7 @@ typedef enum ToolToolbarMenu {
     TOOLTOOLBAR_MENU_VERTEX,
     TOOLTOOLBAR_MENU_EDGE,
     TOOLTOOLBAR_MENU_FACE,
+    TOOLTOOLBAR_MENU_VISIBILITY,
     TOOLTOOLBAR_MENU_COUNT
 } ToolToolbarMenu;
 /* Synchronous request: wparam is the menu, lparam its anchor button HWND. */

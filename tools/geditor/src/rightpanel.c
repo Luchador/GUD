@@ -2,7 +2,7 @@
 /*
  * GEditor right-hand tool panel.
  *
- * Visibility and Transform sit above a draggable Properties/Color splitter. The
+ * Scene Outliner and Transform sit above a draggable Properties/Color splitter. The
  * transform controls send absolute world-position requests to the frame, which
  * owns selection dispatch, document edits, and undo history. Vertex paint
  * replaces the lower properties view with a persistent RGBA color picker.
@@ -34,19 +34,11 @@
 #define RIGHTPANEL_BOTTOM_MIN 160
 #define RIGHTPANEL_INITIAL_TOP_H 424
 #define RIGHTPANEL_MARGIN 12
-#define RIGHTPANEL_CHECK_H 22
-#define RIGHTPANEL_CHECK_GAP 4
 
 enum {
-    RIGHTPANEL_ID_BG_PRIMARY = 2001,
-    RIGHTPANEL_ID_BG_SECONDARY,
-    RIGHTPANEL_ID_STAN,
-    RIGHTPANEL_ID_PORTALS,
-    RIGHTPANEL_ID_OBJECTS,
-    RIGHTPANEL_ID_POSITION_X,
+    RIGHTPANEL_ID_POSITION_X = 2006,
     RIGHTPANEL_ID_POSITION_Y,
     RIGHTPANEL_ID_POSITION_Z,
-    RIGHTPANEL_ID_STAN_OPACITY,
     RIGHTPANEL_ID_MOVE_MODE,
     RIGHTPANEL_ID_ROTATE_MODE,
     RIGHTPANEL_ID_SCALE_MODE,
@@ -59,17 +51,10 @@ enum {
 };
 
 typedef struct RightPanelState {
-    HWND bgprimary;
-    HWND bgsecondary;
-    HWND stan;
-    HWND stanopacity;
-    HWND stanopacitylabel;
-    HWND portals;
     HWND positions[3];
     HWND movemode, rotatemode, scalebutton;
     BOOL rotationmode, scalemode, scaleislocal, scaleisgroup, nativeunits;
     unsigned int rotationaxes;
-    HWND objects;
     HWND details;
     HWND stanroom, stanroomlabel;
     HWND stantype, stantypelabel;
@@ -119,7 +104,7 @@ static void RightPanelClampTopHeight(RightPanelState *state, int height)
     if (maximum < minimum) { maximum = minimum; }
 
     /* On shorter windows, leave whatever space remains to the scrollable
-       properties view after accommodating Visibility and Transform. */
+       properties view after accommodating Scene Outliner and Transform. */
     if (state->topheight > maximum) { state->topheight = maximum; }
     if (state->topheight < minimum) { state->topheight = minimum; }
 }
@@ -128,7 +113,6 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
 {
     RECT client;
     int width;
-    int y = 32;
     int axis;
     int detailtop;
     int detailheight;
@@ -142,20 +126,6 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
     }
 
     RightPanelClampTopHeight(state, client.bottom);
-
-    MoveWindow(state->bgprimary, RIGHTPANEL_MARGIN, y, width, RIGHTPANEL_CHECK_H, TRUE);
-    y += RIGHTPANEL_CHECK_H + RIGHTPANEL_CHECK_GAP;
-    MoveWindow(state->bgsecondary, RIGHTPANEL_MARGIN, y, width, RIGHTPANEL_CHECK_H, TRUE);
-    y += RIGHTPANEL_CHECK_H + RIGHTPANEL_CHECK_GAP;
-    MoveWindow(state->stan, RIGHTPANEL_MARGIN, y, width, RIGHTPANEL_CHECK_H, TRUE);
-    y += RIGHTPANEL_CHECK_H + RIGHTPANEL_CHECK_GAP;
-    MoveWindow(state->stanopacitylabel, RIGHTPANEL_MARGIN + 24, y + 4, 90, 20, TRUE);
-    MoveWindow(state->stanopacity, RIGHTPANEL_MARGIN + 114, y,
-               width > 114 ? width - 114 : 1, 26, TRUE);
-    y += 34;
-    MoveWindow(state->portals, RIGHTPANEL_MARGIN, y, width, RIGHTPANEL_CHECK_H, TRUE);
-    y += RIGHTPANEL_CHECK_H + RIGHTPANEL_CHECK_GAP;
-    MoveWindow(state->objects, RIGHTPANEL_MARGIN, y, width, RIGHTPANEL_CHECK_H, TRUE);
 
     MoveWindow(state->movemode, RIGHTPANEL_MARGIN, RIGHTPANEL_TRANSFORM_TOP+22, width/3, 23, TRUE);
     MoveWindow(state->rotatemode, RIGHTPANEL_MARGIN+width/3, RIGHTPANEL_TRANSFORM_TOP+22, width/3, 23, TRUE);
@@ -262,91 +232,6 @@ static BOOL RightPanelInSplitter(const RightPanelState *state, int y)
 }
 
 
-static DWORD RightPanelGetVisibility(const RightPanelState *state)
-{
-    DWORD visibility = 0;
-
-    if (SendMessage(state->bgprimary, BM_GETCHECK, 0, 0) == BST_CHECKED)
-    {
-        visibility |= RIGHTPANEL_SHOW_BG_PRIMARY;
-    }
-
-    if (SendMessage(state->bgsecondary, BM_GETCHECK, 0, 0) == BST_CHECKED)
-    {
-        visibility |= RIGHTPANEL_SHOW_BG_SECONDARY;
-    }
-
-    if (SendMessage(state->stan, BM_GETCHECK, 0, 0) == BST_CHECKED)
-    {
-        visibility |= RIGHTPANEL_SHOW_STAN;
-    }
-
-    if (SendMessage(state->portals, BM_GETCHECK, 0, 0) == BST_CHECKED)
-    {
-        visibility |= RIGHTPANEL_SHOW_PORTALS;
-    }
-
-    if (SendMessage(state->objects, BM_GETCHECK, 0, 0) == BST_CHECKED)
-    {
-        visibility |= RIGHTPANEL_SHOW_OBJECTS;
-    }
-
-    return visibility;
-}
-
-static void RightPanelNotifyVisibility(HWND hwnd, RightPanelState *state)
-{
-    SendMessage(GetParent(hwnd), RIGHTPANEL_WM_VISIBILITY_CHANGED,
-                (WPARAM)RightPanelGetVisibility(state), 0);
-}
-
-void RightPanelShowObjects(HWND panel)
-{
-    RightPanelState *state = RightPanelGetState(panel);
-    if (state == NULL)
-    {
-        return;
-    }
-    SendMessage(state->objects, BM_SETCHECK, BST_CHECKED, 0);
-    RightPanelNotifyVisibility(panel, state);
-}
-
-void RightPanelShowPrimaryBackground(HWND panel)
-{
-    RightPanelShowBackgroundLayer(panel, FALSE);
-}
-
-void RightPanelShowBackgroundLayer(HWND panel, BOOL secondary)
-{
-    RightPanelState *state = RightPanelGetState(panel);
-    if (state == NULL) { return; }
-    SendMessage(secondary ? state->bgsecondary : state->bgprimary, BM_SETCHECK, BST_CHECKED, 0);
-    RightPanelNotifyVisibility(panel, state);
-}
-
-void RightPanelShowStan(HWND panel)
-{
-    RightPanelState *state = RightPanelGetState(panel);
-    if (!state) { return; }
-    SendMessage(state->stan, BM_SETCHECK, BST_CHECKED, 0);
-    EnableWindow(state->stanopacity, TRUE);
-    if (SendMessage(state->stanopacity, TBM_GETPOS, 0, 0) == 0)
-    {
-        SendMessage(state->stanopacity, TBM_SETPOS, TRUE, 44);
-        SetWindowText(state->stanopacitylabel, "Opacity: 44%");
-        SendMessage(GetParent(panel), RIGHTPANEL_WM_STAN_OPACITY, 44, 0);
-    }
-    RightPanelNotifyVisibility(panel, state);
-}
-
-void RightPanelShowPortals(HWND panel)
-{
-    RightPanelState *state = RightPanelGetState(panel);
-    if (state == NULL) { return; }
-    SendMessage(state->portals, BM_SETCHECK, BST_CHECKED, 0);
-    RightPanelNotifyVisibility(panel, state);
-}
-
 /* Position fields accept sums/differences of signed numbers. Let strtod
    consume each complete number, including exponent signs such as 1e-3.
    Rotation and scale retain their existing single-number input. */
@@ -432,7 +317,7 @@ static void RightPanelPaint(HWND hwnd, RightPanelState *state, HDC hdc)
     title.right = client.right - RIGHTPANEL_MARGIN;
     title.top = 8;
     title.bottom = 28;
-    DrawText(hdc, "Visibility", -1, &title,
+    DrawText(hdc, "Scene Outliner", -1, &title,
              DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX);
 
     splitter.left = 0;
@@ -589,41 +474,6 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
                  sizeof(state->detailtext));
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
 
-        state->bgprimary = CreateWindowEx(
-            0, "BUTTON", "Background Primary",
-            WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX,
-            0, 0, 1, 1, hwnd, (HMENU)(INT_PTR)RIGHTPANEL_ID_BG_PRIMARY,
-            cs->hInstance, NULL);
-        state->bgsecondary = CreateWindowEx(
-            0, "BUTTON", "Background Secondary",
-            WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX,
-            0, 0, 1, 1, hwnd, (HMENU)(INT_PTR)RIGHTPANEL_ID_BG_SECONDARY,
-            cs->hInstance, NULL);
-        state->stan = CreateWindowEx(
-            0, "BUTTON", "Stan Geometry",
-            WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX,
-            0, 0, 1, 1, hwnd, (HMENU)(INT_PTR)RIGHTPANEL_ID_STAN,
-            cs->hInstance, NULL);
-        state->stanopacitylabel = CreateWindowEx(
-            0, "STATIC", "Opacity: 44%", WS_CHILD | WS_VISIBLE,
-            0, 0, 1, 1, hwnd, NULL, cs->hInstance, NULL);
-        state->stanopacity = CreateWindowEx(
-            0, TRACKBAR_CLASS, "", WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_DISABLED | TBS_HORZ | TBS_NOTICKS,
-            0, 0, 1, 1, hwnd, (HMENU)(INT_PTR)RIGHTPANEL_ID_STAN_OPACITY, cs->hInstance, NULL);
-        SendMessage(state->stanopacity, TBM_SETRANGE, FALSE, MAKELPARAM(0, 100));
-        SendMessage(state->stanopacity, TBM_SETPOS, TRUE, 44);
-        SendMessage(state->stanopacitylabel, WM_SETFONT, (WPARAM)font, TRUE);
-        state->portals = CreateWindowEx(
-            0, "BUTTON", "Portals",
-            WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX,
-            0, 0, 1, 1, hwnd, (HMENU)(INT_PTR)RIGHTPANEL_ID_PORTALS,
-            cs->hInstance, NULL);
-        state->objects = CreateWindowEx(
-            0, "BUTTON", "Objects / Characters",
-            WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX,
-            0, 0, 1, 1, hwnd, (HMENU)(INT_PTR)RIGHTPANEL_ID_OBJECTS,
-            cs->hInstance, NULL);
-
         state->movemode=CreateWindowEx(0,"BUTTON","Move",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_RADIOBUTTON,
             0,0,1,1,hwnd,(HMENU)(INT_PTR)RIGHTPANEL_ID_MOVE_MODE,cs->hInstance,NULL);
         state->rotatemode=CreateWindowEx(0,"BUTTON","Rotate",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_RADIOBUTTON,
@@ -695,13 +545,11 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         }
         SendMessage(state->details, WM_SETFONT, (WPARAM)font, TRUE);
 
-        if (state->bgprimary == NULL || state->bgsecondary == NULL
-            || state->stan == NULL || state->stanopacity == NULL || state->stanopacitylabel == NULL
-            || state->portals == NULL || state->stanroom == NULL || state->stanroomlabel == NULL
+        if (state->stanroom == NULL || state->stanroomlabel == NULL
             || state->stantype == NULL || state->stantypelabel == NULL
             || state->padmodellabel == NULL || state->padmodel == NULL || state->padcreate == NULL || state->padcreatedoor == NULL
             || state->positions[0] == NULL || state->positions[1] == NULL
-            || state->positions[2] == NULL || state->objects == NULL || state->details == NULL
+            || state->positions[2] == NULL || state->details == NULL
             || state->movemode == NULL || state->rotatemode == NULL || state->scalebutton == NULL
             || state->colorpicker == NULL || state->faceproperties == NULL || state->portalproperties == NULL
             || state->objectflags == NULL || state->propertytabs == NULL || state->objectproperties == NULL || state->characterproperties == NULL)
@@ -710,15 +558,6 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
             SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
             return -1;
         }
-
-        SendMessage(state->bgprimary, WM_SETFONT, (WPARAM)font, TRUE);
-        SendMessage(state->bgsecondary, WM_SETFONT, (WPARAM)font, TRUE);
-        SendMessage(state->stan, WM_SETFONT, (WPARAM)font, TRUE);
-        SendMessage(state->portals, WM_SETFONT, (WPARAM)font, TRUE);
-        SendMessage(state->objects, WM_SETFONT, (WPARAM)font, TRUE);
-        SendMessage(state->objects, BM_SETCHECK, BST_CHECKED, 0);
-        SendMessage(state->bgprimary, BM_SETCHECK, BST_CHECKED, 0);
-        SendMessage(state->bgsecondary, BM_SETCHECK, BST_CHECKED, 0);
 
         return 0;
     }
@@ -797,27 +636,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
                     LOWORD(wparam) == RIGHTPANEL_ID_SCALE_MODE ? TRANSFORM_SCALE
                     : LOWORD(wparam) == RIGHTPANEL_ID_ROTATE_MODE ? TRANSFORM_ROTATE : TRANSFORM_MOVE, 0);
                 return 0;
-            case RIGHTPANEL_ID_BG_PRIMARY:
-            case RIGHTPANEL_ID_BG_SECONDARY:
-            case RIGHTPANEL_ID_STAN:
-            case RIGHTPANEL_ID_PORTALS:
-            case RIGHTPANEL_ID_OBJECTS:
-                EnableWindow(state->stanopacity, (RightPanelGetVisibility(state) & RIGHTPANEL_SHOW_STAN) != 0);
-                RightPanelNotifyVisibility(hwnd, state);
-                return 0;
             }
-        }
-        break;
-
-    case WM_HSCROLL:
-        if (state != NULL && (HWND)lparam == state->stanopacity)
-        {
-            int percent = (int)SendMessage(state->stanopacity, TBM_GETPOS, 0, 0);
-            char label[32];
-            snprintf(label, sizeof(label), "Opacity: %d%%", percent);
-            SetWindowText(state->stanopacitylabel, label);
-            SendMessage(GetParent(hwnd), RIGHTPANEL_WM_STAN_OPACITY, percent, 0);
-            return 0;
         }
         break;
 

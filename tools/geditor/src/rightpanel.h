@@ -8,11 +8,6 @@
 #include "stanload.h"
 #include "edittool.h"
 
-/* Sent to the frame whenever a visibility checkbox changes. wparam is
-   a bitwise combination of the RIGHTPANEL_SHOW_* flags below. */
-#define RIGHTPANEL_WM_VISIBILITY_CHANGED (WM_APP + 2)
-/* wparam is opacity percent, 0-100; this changes only the preview. */
-#define RIGHTPANEL_WM_STAN_OPACITY (WM_APP + 10)
 /* Assign all selected stan faces to the existing room in wparam. */
 #define RIGHTPANEL_WM_STAN_ROOM_CHANGED (WM_APP + 73)
 #define RIGHTPANEL_WM_STAN_TYPE_CHANGED (WM_APP + 113) /* wparam: StanTileType */
@@ -35,20 +30,8 @@ typedef struct RightPanelPosition {
     unsigned int axismask;
 } RightPanelPosition;
 
-#define RIGHTPANEL_SHOW_BG_PRIMARY   0x01
-#define RIGHTPANEL_SHOW_BG_SECONDARY 0x02
-#define RIGHTPANEL_SHOW_STAN         0x04
-#define RIGHTPANEL_SHOW_PORTALS      0x08
-#define RIGHTPANEL_SHOW_OBJECTS      0x10
-
 BOOL RightPanelRegisterClass(HINSTANCE hinstance);
 HWND RightPanelCreate(HWND parent, HINSTANCE hinstance);
-/* Reveal a newly placed model and keep the visibility checkbox in sync. */
-void RightPanelShowObjects(HWND panel);
-void RightPanelShowPrimaryBackground(HWND panel);
-void RightPanelShowBackgroundLayer(HWND panel, BOOL secondary);
-void RightPanelShowPortals(HWND panel);
-void RightPanelShowStan(HWND panel);
 /* A NULL position clears the fields; a noneditable position remains visible. */
 void RightPanelSetTransformState(HWND panel, const double position[3],
                                  DWORD count, BOOL editable, double gridstep);

@@ -14,6 +14,7 @@
 #define TOOLTOOLBAR_BUTTON_COUNT EDITOR_TOOL_COUNT
 #define TOOLTOOLBAR_MENU_FIRST_ID 3101
 #define TOOLTOOLBAR_MENU_WIDTH 80
+#define TOOLTOOLBAR_VISIBILITY_WIDTH 100
 #define TOOLTOOLBAR_CORRECT_ID 3201
 #define TOOLTOOLBAR_CORRECT_WIDTH 164
 
@@ -157,21 +158,32 @@ static BOOL ToolToolbarLoadImages(HINSTANCE instance, ToolToolbarState *state)
 static int ToolToolbarLayout(ToolToolbarState *state, int width)
 {
     int x = TOOLTOOLBAR_MARGIN, y = TOOLTOOLBAR_MARGIN;
+    int available = width - 2 * TOOLTOOLBAR_MARGIN;
+    int visibilitywidth = available < TOOLTOOLBAR_VISIBILITY_WIDTH ? available : TOOLTOOLBAR_VISIBILITY_WIDTH;
+    if (visibilitywidth < 1) { visibilitywidth = 1; }
     if (state && state->paintonly)
     {
         MoveWindow(state->buttons[EDITOR_TOOL_VERTEX_PAINT], x, y,
                    TOOLTOOLBAR_BUTTON_SIZE, TOOLTOOLBAR_BUTTON_SIZE, TRUE);
         return TOOLTOOLBAR_HEIGHT;
     }
-    for (int i = 0; i < TOOLTOOLBAR_BUTTON_COUNT + TOOLTOOLBAR_MENU_COUNT + 1; i++)
+    /* Keep Visibility at the top right. Left-hand controls can wrap onto
+     * additional rows using the full width below that reserved space. */
+    if (state) {
+        MoveWindow(state->menus[TOOLTOOLBAR_MENU_VISIBILITY], width - TOOLTOOLBAR_MARGIN - visibilitywidth,
+                   TOOLTOOLBAR_MARGIN, visibilitywidth, TOOLTOOLBAR_BUTTON_SIZE, TRUE);
+    }
+    for (int i = 0; i < TOOLTOOLBAR_BUTTON_COUNT + TOOLTOOLBAR_MENU_VISIBILITY + 1; i++)
     {
-        BOOL correct = i == TOOLTOOLBAR_BUTTON_COUNT + TOOLTOOLBAR_MENU_COUNT;
+        BOOL correct = i == TOOLTOOLBAR_BUTTON_COUNT + TOOLTOOLBAR_MENU_VISIBILITY;
         BOOL menu = i >= TOOLTOOLBAR_BUTTON_COUNT;
+        int rowright = width - TOOLTOOLBAR_MARGIN
+            - (y == TOOLTOOLBAR_MARGIN ? visibilitywidth + TOOLTOOLBAR_MARGIN : 0);
         int buttonwidth = correct ? TOOLTOOLBAR_CORRECT_WIDTH
             : menu ? TOOLTOOLBAR_MENU_WIDTH : TOOLTOOLBAR_BUTTON_SIZE;
         if (correct && buttonwidth > width - 2 * TOOLTOOLBAR_MARGIN)
         { buttonwidth = width > 2 * TOOLTOOLBAR_MARGIN ? width - 2 * TOOLTOOLBAR_MARGIN : 1; }
-        if (x > TOOLTOOLBAR_MARGIN && x + buttonwidth + TOOLTOOLBAR_MARGIN > width)
+        if (x + buttonwidth > rowright && (x > TOOLTOOLBAR_MARGIN || y == TOOLTOOLBAR_MARGIN))
         {
             x = TOOLTOOLBAR_MARGIN;
             y += TOOLTOOLBAR_BUTTON_SIZE + TOOLTOOLBAR_MARGIN;
@@ -242,10 +254,11 @@ static LRESULT CALLBACK ToolToolbarWndProc(HWND hwnd, UINT message,
         if (state->paintonly) { return 0; }
         for (tool = 0; tool < TOOLTOOLBAR_MENU_COUNT; tool++)
         {
-            static const WCHAR *names[] = { L"Vertex  \x25be", L"Edge  \x25be", L"Face  \x25be" };
+            static const WCHAR *names[] = { L"Vertex  \x25be", L"Edge  \x25be", L"Face  \x25be", L"Visibility  \x25be" };
             state->menus[tool] = CreateWindowExW(0, L"BUTTON", names[tool],
                 WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
-                0, 0, TOOLTOOLBAR_MENU_WIDTH, TOOLTOOLBAR_BUTTON_SIZE,
+                0, 0, tool == TOOLTOOLBAR_MENU_VISIBILITY ? TOOLTOOLBAR_VISIBILITY_WIDTH : TOOLTOOLBAR_MENU_WIDTH,
+                TOOLTOOLBAR_BUTTON_SIZE,
                 hwnd, (HMENU)(INT_PTR)(TOOLTOOLBAR_MENU_FIRST_ID + tool), instance, NULL);
             if (!state->menus[tool]) { return -1; }
             SendMessage(state->menus[tool], WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), FALSE);
@@ -270,7 +283,7 @@ static LRESULT CALLBACK ToolToolbarWndProc(HWND hwnd, UINT message,
         {
             SendMessage(state->menus[tool], BM_SETSTATE, TRUE, 0);
             SendMessage(GetParent(hwnd), TOOLTOOLBAR_WM_MENU, tool, (LPARAM)state->menus[tool]);
-            SendMessage(state->menus[tool], BM_SETSTATE, FALSE, 0);
+            if (tool != TOOLTOOLBAR_MENU_VISIBILITY) { SendMessage(state->menus[tool], BM_SETSTATE, FALSE, 0); }
             return 0;
         }
         tool = LOWORD(wparam) - TOOLTOOLBAR_FIRST_ID;
