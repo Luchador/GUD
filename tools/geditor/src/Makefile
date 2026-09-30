@@ -53,7 +53,7 @@ weaponchoices.h introchoices.h hatchoices.h &: ../scripts/generate_weapon_choice
 	python3 ../scripts/generate_weapon_choices.py
 
 # Resource script -> linkable object (dialogs, icon, and tool button artwork)
-$(RCOBJ): $(RCFILE) resource.h icon.ico $(TOOL_IMAGES) $(MARKER_MODELS) ../geditorassets/box.glb ../geditorassets/gizmo_arrow.glb ../geditorassets/gizmo_cylinder.glb ../geditorassets/gizmo_scale.glb
+$(RCOBJ): $(RCFILE) geditor.manifest resource.h icon.ico $(TOOL_IMAGES) $(MARKER_MODELS) ../geditorassets/box.glb ../geditorassets/gizmo_arrow.glb ../geditorassets/gizmo_cylinder.glb ../geditorassets/gizmo_scale.glb
 	$(RC) -i $(RCFILE) -o $@
 
 clean:

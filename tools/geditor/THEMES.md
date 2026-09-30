@@ -54,6 +54,12 @@ checks and shortcut text are handled by the shared module. Window frames use
 DWM attributes 20, 35 and 36; unsupported attributes fail harmlessly on older
 Windows versions. The build links `uxtheme` and `dwmapi`.
 
+`src/geditor.manifest` requests Common Controls v6, required by
+`GetWindowSubclass`. It is embedded as `RT_MANIFEST` resource 1 so Windows
+selects the correct DLL before resolving imports. No external manifest or DLL
+needs to be copied beside the executable. The resource build depends on the
+manifest so an edit to it rebuilds the executable.
+
 This is the initial theme framework. Native scrollbar chrome, some shell/common
 dialog elements, and backgrounds baked into supplied toolbar PNGs can still use
 their original appearance. This change does not recolor those images, the 3D
@@ -67,6 +73,10 @@ viewport, textures, vertex paint, or material colors.
   menu storage, including state/data preservation, mnemonics, dynamic rebuilds
   and repeated cleanup under ASan/UBSan.
 - Build the complete Win64 editor and its resources with the normal Makefile.
+- `python3 tools/geditor/tests/theme/check_manifest.py tools/geditor/GEditor.exe`:
+  check that the built executable embeds the v6 dependency at the startup
+  manifest resource ID. This catches a loader requirement that a successful
+  compile/link alone cannot verify.
 
 The host tests do not render Windows controls. On Windows, check opening menus
 with mouse and Alt shortcuts, checking/toggling controls, typing in fields,

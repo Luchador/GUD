@@ -2,6 +2,9 @@
 #include <commctrl.h>
 #include "resource.h"
 
+// Select Common Controls v6 before Windows resolves the theme's API imports.
+CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "geditor.manifest"
+
 IDI_GEDITOR ICON "icon.ico"
 IDR_GIZMO_CYLINDER RCDATA "../geditorassets/gizmo_cylinder.glb"
 IDR_GIZMO_SCALE RCDATA "../geditorassets/gizmo_scale.glb"
