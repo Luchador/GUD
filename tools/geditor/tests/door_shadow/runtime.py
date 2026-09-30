@@ -24,6 +24,7 @@ def function(source, name):
 
 source = (TESTS / 'render_options/harness.h').read_text().split('static u32 g_TestButtons;')[0]
 source += '#include <math.h>\n'
+source += strip((ROOT / 'assets/font_dl.c').read_text())
 source += (ROOT / 'src/bgtransparency.h').read_text()
 source += (ROOT / 'src/doorshadowformat.h').read_text()
 source += (ROOT / 'src/propconstants.h').read_text()

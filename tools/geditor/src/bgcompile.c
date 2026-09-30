@@ -756,8 +756,8 @@ BOOL BgCompileDoorShadow(const BgDocumentFace *face, const BgRenderState *state,
     BgMaterial current;
     BOOL cull = FALSE, ok = FALSE;
     DWORD geometry = state->geometrymode;
-    /* Inherited world defaults: perspective, bilinear filtering, filtered
-     * conversion. Preserve every high-mode field the material authors. */
+    /* Inherited material defaults: perspective, bilinear filtering, filtered
+     * conversion. Global pipeline mode belongs to the world pass. */
     DWORD high = (0x00082c00u & ~state->othermodehighknown) | state->othermodehigh;
     *data = NULL; *size = 0; *why = "Could not compile the Door Shadow material.";
     BgMaterialInit(&current);
@@ -769,10 +769,11 @@ BOOL BgCompileDoorShadow(const BgDocumentFace *face, const BgRenderState *state,
         /* Resolve inherited fog to the level's actual runtime setting before
          * loading vertices, even if the preceding BG material disabled it. */
         || !BgCompileWriteCommand(&gdl, BG_SURFACE_MARKER, BG_ALPHA_TAG | BG_ALPHA_FOG)
-        /* OtherMode H has 24 data bits; the RSP keeps the EF opcode above
-         * them. Write bits 8..23 only, preserving that opcode and the
-         * world pass's inherited dithering below bit 8. */
-        || !BgCompileWriteCommand(&gdl, 0xba000810u, high & 0x00ffff00u)
+        /* Write only material fields (bits 8..21). Bit 23 is pipeline mode:
+         * clearing it disables the world pass's G_PM_1PRIMITIVE protection
+         * for all following geometry. Preserve it, the RSP's EF opcode and
+         * inherited dithering below bit 8. */
+        || !BgCompileWriteCommand(&gdl, 0xba00080eu, high & 0x003fff00u)
         || !BgCompileWriteCommand(&gdl, 0xb900031du, state->othermode & 0xfffffff8u)
         || !BgCompileWriteCommand(&gdl, 0xb9000003u, state->othermode & 7u)
         || !BgCompileWriteCommand(&gdl, 0xfb000000u, state->environmentword1)

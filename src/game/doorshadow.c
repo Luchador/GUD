@@ -215,16 +215,18 @@ static void doorShadowLoad(DoorShadowRuntime *s)
     if(!memory){renderCacheRequestReclaim();return;}
     input=(Gfx *)((u8 *)memory+capacity);
     memcpy(input,s->record+DOOR_SHADOW_GDL,bytes);
-    /* Repair both historical generated headers in the RAM copy. A 32-bit
+    /* Repair historical generated headers in the RAM copy. A 32-bit
      * length wraps the RSP's variable shift; shift 8/length 24 instead
      * clears the EF opcode stored above OtherMode H's 24 data bits. Once
      * lost, later mode changes (including weapon/HUD setup) cannot reach
-     * the RDP. Write only bits 8..23, preserving the opcode and dithering.
+     * the RDP. Shift 8/length 16 preserves EF but clears pipeline bit 23,
+     * disabling dlFastPipelineSetup's G_PM_1PRIMITIVE for later geometry.
+     * Write only material bits 8..21, preserving pipeline mode and dithering.
      * Later authored commands still apply normally; saved assets stay put. */
     if(bytes>=5*sizeof(Gfx)&&(input[4].words.w0==0xba000020u
-            ||input[4].words.w0==0xba000818u)) {
-        input[4].words.w0=0xba000810u;
-        input[4].words.w1&=0x00ffff00u;
+            ||input[4].words.w0==0xba000818u||input[4].words.w0==0xba000810u)) {
+        input[4].words.w0=0xba00080eu;
+        input[4].words.w1&=0x003fff00u;
     }
     size=texLoadFromGdl(input,bytes,memory,NULL);
     if(size<=0||size>capacity){memaFree(memory,allocation);return;}

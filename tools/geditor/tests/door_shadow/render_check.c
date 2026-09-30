@@ -1,22 +1,35 @@
 static u32 be32(u8 *p);
 static void word(u8 *p,int offset,u32 value);
 
+/* Read the production frame setup, including global pipeline mode. Starting
+ * from zero hid the shadow header's accidental switch to G_PM_NPRIMITIVE. */
+static u32 shadowWorldOtherMode(void)
+{
+    u32 high=0xef000000u;
+    for(Gfx *p=dlFastPipelineSetup;(p->words.w0>>24)!=(u8)G_ENDDL;p++)
+        if((p->words.w0>>24)==(u8)G_SETOTHERMODE_H)
+            high=shadowRspOtherMode(high,p->words.w0,p->words.w1);
+    assert(high&G_PM_1PRIMITIVE);
+    return high;
+}
+
 /* Walk effective hardware state at every draw, starting with the world pass's
- * dithering. Fog geometry alone is insufficient: check its blender too. */
+ * pipeline mode and dithering. Check those also after subsequent HUD setup. */
 static void checkShadowDraws(Gfx *gdl,int oneCycle,int fog,u32 dither)
 {
     BgOneCycleState state;
     u32 geometry=0;
-    u32 rspHigh=0xef000000u|dither;
+    u32 rspHigh=(shadowWorldOtherMode()&~0xf0u)|dither;
     int triangles=0;
     bgOneCycleResetState(&state);
-    state.high=dither;
+    state.high=rspHigh&0x00ffffffu;
     for(Gfx *p=gdl;(p->words.w0>>24)!=(u8)G_ENDDL;p++) {
         u32 op=p->words.w0>>24;
         assert(bgOneCycleReadState(&state,*p,FALSE));
         if(op==(u8)G_SETOTHERMODE_H) {
             rspHigh=shadowRspOtherMode(rspHigh,p->words.w0,p->words.w1);
             assert((rspHigh>>24)==0xef);
+            assert(rspHigh&G_PM_1PRIMITIVE);
             assert((rspHigh&0x00ffffffu)==state.high);
         }
         if(op==(u8)G_SETGEOMETRYMODE)geometry|=p->words.w1;
@@ -41,7 +54,7 @@ static void checkShadowDraws(Gfx *gdl,int oneCycle,int fog,u32 dither)
         if(op==(u8)G_SETOTHERMODE_H)
             rspHigh=shadowRspOtherMode(rspHigh,p->words.w0,p->words.w1);
         if(op==(u8)G_SETOTHERMODE_H||op==(u8)G_SETOTHERMODE_L)
-            assert((rspHigh>>24)==0xef);
+            assert((rspHigh>>24)==0xef&&(rspHigh&G_PM_1PRIMITIVE));
     }
     assert(!(rspHigh&(BG_CYCLE_MASK|BG_LOD_MASK|G_TP_PERSP|(3u<<G_MDSFT_TEXTLUT))));
 }
@@ -58,8 +71,8 @@ static void renderChecks(u8 *fixture)
     u32 storage[DOOR_SHADOW_BYTES/4+1]={0};
     u8 *p=(u8 *)storage;
     Gfx output[32];
-    const u32 headers[]={0xba000020u,0xba000818u,0xba000810u};
-    for(int version=0;version<3;version++) for(int fog=0;fog<2;fog++) for(int layer=0;layer<2;layer++) {
+    const u32 headers[]={0xba000020u,0xba000818u,0xba000810u,0xba00080eu};
+    for(int version=0;version<4;version++) for(int fog=0;fog<2;fog++) for(int layer=0;layer<2;layer++) {
         u8 saved[DOOR_SHADOW_BYTES];
         memcpy(p,fixture,DOOR_SHADOW_BYTES);
         p[DOOR_SHADOW_BYTES+3]=PROPDEF_END;
@@ -121,7 +134,7 @@ static void renderChecks(u8 *fixture)
         assert(drawShadow(output,layer,TRUE)==output+5&&!s->oneCycleGdl);
         doorShadowFreeRoom(1);assert(allocations==frees);
     }
-    puts("PASS render parity: all three header versions, RSP opcode and subsequent HUD setup, inherited colour/fog dithering, AA On/Off mip selection, both passes, fog blender, cache reclaim/reload/failure and custom-material fallback.");
+    puts("PASS render parity: all four header versions, world pipeline mode and RSP opcode through subsequent HUD setup, inherited colour/fog dithering, AA On/Off mip selection, both passes, fog blender, cache reclaim/reload/failure and custom-material fallback.");
 }
 
 /* Optional real saved records, read-only. Keep ROM/setup assets out of tests. */
