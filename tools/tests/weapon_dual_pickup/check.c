@@ -131,8 +131,8 @@ int main(void)
     WeaponObjRecord weapon, other;
     const u32 flag = PROPFLAG_WEAPON_GRANTS_DUAL;
     int spawn = -1;
-    /* The real AI macros must encode the normal (not silenced) PP7 and the
-     * big-endian flag, despite this generated setup's reversed literal syntax. */
+    /* Keep stock Control's spawn unchanged so a new base ROM does not conflict
+     * with customized project setups. The project opts into the pickup flag. */
     for (unsigned i = 0; i + 8 < sizeof(ai_16); i++) {
         if (ai_16[i] == guard_try_spawning_item_ID && ai_16[i + 1] == 0
             && ai_16[i + 2] == 0xbf && ai_16[i + 3] == ITEM_WPPK) {
@@ -140,10 +140,20 @@ int main(void)
             spawn = (int)i;
             u32 encoded = (u32)ai_16[i + 4] << 24 | (u32)ai_16[i + 5] << 16
                 | (u32)ai_16[i + 6] << 8 | ai_16[i + 7];
-            assert(encoded == flag && ai_16[i + 8] == 0x2c);
+            assert(encoded == 0 && ai_16[i + 8] == 0x2c);
         }
     }
     assert(spawn >= 0);
+
+    /* The same command with the project's flag must encode a regular PP7 and
+     * the big-endian bit despite the macro's reversed literal syntax. */
+    {
+        const u8 custom[] = { guard_try_spawning_item(0xbf00, ITEM_WPPK, 0x00000008, 0x2c) };
+        u32 encoded = (u32)custom[4] << 24 | (u32)custom[5] << 16
+            | (u32)custom[6] << 8 | custom[7];
+        assert(sizeof(custom) == 9 && custom[3] == ITEM_WPPK);
+        assert(encoded == flag && custom[8] == 0x2c);
+    }
 
     /* Boris's pickup works whether or not Bond already owns a regular PP7,
      * with full or partial ammo, and for either weapon-hand flag. */
@@ -203,6 +213,6 @@ int main(void)
     weapon.flags = flag;
     weapon.position.x = 1000;
     assert(PickUp(&weapon) == TICKOP_NONE);
-    puts("PASS: Boris AI bytes; single-pickup dual grants; full-ammo and repeat pickups; unchanged equipment; ordinary, linked and unsupported weapons.");
+    puts("PASS: unchanged stock Boris AI bytes and custom dual-wield encoding; single-pickup dual grants; full-ammo and repeat pickups; unchanged equipment; ordinary, linked and unsupported weapons.");
     return 0;
 }

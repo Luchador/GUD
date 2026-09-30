@@ -11,8 +11,10 @@ weapons use the same bit in the `PROPFLAG` parameter of `TRYGiveMeItem` (`0xBF`)
 Ordinary two-weapon links keep their existing behavior; this flag grants the
 matching pair independently, even if the marked weapon belongs to a link.
 
-Control's stock action block `0x0411` now sets this bit on Boris's PP7.
-For an existing customized project:
+Control's stock action block `0x0411` deliberately keeps the original unflagged
+PP7 spawn. Changing the stock setup as well as an existing project's setup
+creates a three-way rebase conflict, even if both contain the same script
+change. Enable the flag in the customized project instead:
 
 1. Rebuild GUD with the patch and rebase the project onto that ROM.
 2. Open Control's action block `0x0411` and find `TRYGiveMeItem` with
@@ -22,10 +24,14 @@ For an existing customized project:
    C setup is specific to the old AI macro's byte encoding.
 4. Save the project and create the playable ROM.
 
+If the project's Boris spawn already has this flag, retain it: no project
+setup replacement or further script edit is needed. This stock-setup correction
+leaves engine support for flagged pickups intact.
+
 Run `python3 tools/tests/weapon_dual_pickup/run.py` from the repository root.
 The ASan/UBSan host fixture executes the production inventory functions and
 complete pickup eligibility gate. It checks full-ammo pickups, repeat pickups,
-existing links, unsupported items, inventory-only grants, and the encoded
-Boris spawn command. Platform services are stubbed; in-game testing remains
-necessary. Editor flag persistence is covered by
+existing links, unsupported items, inventory-only grants, the unchanged stock
+Boris spawn command, and the custom flag's encoding. Platform services are
+stubbed; in-game testing remains necessary. Editor flag persistence is covered by
 `python3 tools/geditor/tests/object_flags/run.py`.
