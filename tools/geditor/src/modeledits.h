@@ -35,6 +35,10 @@ typedef struct ModelUVChange {
     unsigned char *before, *after; /* Owned exact snapshots, also used by bulk material edits. */
     DWORD beforeSize, afterSize, beforeRevision, afterRevision;
 } ModelUVChange;
+/* Assign only these source faces, splitting shared slots as needed. Normalized
+ * UVs, other face properties and unselected geometry survive the assignment. */
+BOOL ModelEditsSetFaceTexture(const char *project, const char *name, DWORD revision,
+    const DWORD *faces, DWORD count, DWORD texture, ModelUVChange *change, const char **reasonout);
 BOOL ModelEditsSetPropertiesWithHistory(const char *project, const char *name, DWORD revision,
     const DWORD *faces, DWORD count, int culling, int surface, int wrapu, int wrapv,
     ModelUVChange *change, const char **reasonout);

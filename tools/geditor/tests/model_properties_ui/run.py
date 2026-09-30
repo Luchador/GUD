@@ -25,7 +25,7 @@ def main():
                     ('ViewportBatchCullMode', 'ViewportOrbitInput'))
     logic += ''.join(helpers.function(editor, name) for name in
                      ('ModelEditorCulling', 'ModelEditorSurface', 'ModelEditorOpenModel',
-                      'ModelEditorCanAssignImages', 'ModelEditorDropImage',
+                      'ModelEditorCanAssignImages', 'ModelEditorDropFaceImage', 'ModelEditorDropImage',
                       'ModelEditorProperties', 'ModelEditorApplyProperties', 'ModelEditorDeleteFaces'))
     with tempfile.TemporaryDirectory(prefix='geditor-model-ui-') as temp:
         work = Path(temp)

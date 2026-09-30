@@ -585,8 +585,8 @@ static void ModelEditorGroups(void)
     SetDlgItemText(g_ModelEditor,IDC_MODEL_UNTEXTURED,g_ModelLod==MODEL_LOD_ALL
         ? "Make all LODs untextured" : "Make LOD untextured");
     SetDlgItemText(g_ModelEditor,IDC_MODEL_HINT,shared && g_ModelLod!=MODEL_LOD_ALL
-        ? "Shared faces also change in the other LOD.\nDrag an image onto a material to assign it."
-        : "Drag an image onto a material.\nDrop No Texture to clear its image.");
+        ? "Shared faces also change in the other LOD.\nDrop an image onto a face or material."
+        : "Drop an image onto a face or material.\nDrop No Texture to clear its image.");
 }
 
 static void ModelEditorSeparateLods(void)
@@ -764,6 +764,45 @@ BOOL ModelEditorCanAssignImages(void)
     return g_ModelEditor && IsWindowVisible(g_ModelEditor) && g_ModelSelected>=0
         && g_ModelSource.materials.count!=0;
 }
+static BOOL ModelEditorDropFaceImage(DWORD texture,POINT screen)
+{
+    BgFaceRef hit,*refs=NULL;
+    DWORD *faces=NULL;
+    BOOL selected,ok=FALSE;
+    int count;
+    const char *why="";
+    ModelUVChange change={0};
+    if (!ViewportGetTextureDropFace(g_ModelViewport,screen,&hit,&selected)) return FALSE;
+    count=selected?ViewportGetSelectedBgFaceCount(g_ModelViewport):1;
+    if (count<1) return FALSE;
+    SendMessage(g_ModelViewport,WM_CANCELMODE,0,0);
+    UVEditorCancelInteraction(g_ModelEditor);
+    refs=malloc((size_t)count*sizeof(*refs));faces=malloc((size_t)count*sizeof(*faces));
+    if (!refs || !faces) { why="Out of memory reading selected model faces.";goto done; }
+    if (selected)
+    {
+        if (!ViewportGetSelectedBgFaces(g_ModelViewport,refs,count))
+        { why="The selected model faces could not be read.";goto done; }
+    }
+    else refs[0]=hit;
+    for (int i=0;i<count;i++) faces[i]=refs[i].faceid-1;
+    if (!ModelEditsSetFaceTexture(g_ModelProject,g_ModelEntries[g_ModelSelected].name,
+        g_ModelRevision,faces,(DWORD)count,texture,&change,&why)) goto done;
+    ok=TRUE;
+    if (change.before)
+    {
+        ModelEditorRecord((ModelEditorHistoryStep){.uv=change});
+        ModelEditorRefreshImages();
+        SetDlgItemText(g_ModelEditor,IDC_MODEL_STATUS,
+            "Face textures updated. Ctrl+Z undoes; Save Project keeps the changes.");
+        SendMessage(GetWindow(g_ModelEditor,GW_OWNER),MODELEDITOR_CHANGED,0,0);
+    }
+    SetFocus(g_ModelViewport);
+done:
+    free(refs);free(faces);
+    if (!ok) MessageBox(g_ModelEditor,why,"Assign Face Image",MB_ICONERROR);
+    return TRUE; /* A failed model edit must not fall through to the level. */
+}
 BOOL ModelEditorDropImage(DWORD texture,POINT screen)
 {
     HWND list;
@@ -772,6 +811,7 @@ BOOL ModelEditorDropImage(DWORD texture,POINT screen)
     const char *why="";
     BOOL ok;
     if (!ModelEditorCanAssignImages()) return FALSE;
+    if (WindowFromPoint(screen)==g_ModelViewport) return ModelEditorDropFaceImage(texture,screen);
     list=GetDlgItem(g_ModelEditor,IDC_MODEL_MATERIAL_LIST);
     if (WindowFromPoint(screen)!=list) return FALSE;
     ScreenToClient(list,&screen);GetClientRect(list,&client);

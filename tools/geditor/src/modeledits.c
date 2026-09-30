@@ -576,6 +576,116 @@ done:
     GltfFreeModelImport(&imported); return ok;
 }
 
+BOOL ModelEditsSetFaceTexture(const char *project, const char *name, DWORD revision,
+    const DWORD *faces, DWORD count, DWORD texture, ModelUVChange *change, const char **why)
+{
+    unsigned char *data=NULL,*compiled=NULL,*selected=NULL,*keep=NULL;
+    DWORD size,basehash,compiledsize,changed=0,*slots=NULL;
+    ModelSource source={0},check={0};GltfModelImport imported={0};
+    ModelUVChange step={0};BOOL ok=FALSE;
+    int width=1,height=1;
+    if (change) memset(change,0,sizeof(*change));
+    if (texture>BG_TEX_NONE || (count && !faces))
+    { *why="Invalid model face or image selection.";goto done; }
+    if (!LoadSource(project,name,&data,&size,&basehash,why)) goto done;
+    if (ModelDataHash(data,size)!=revision)
+    { *why="The model changed. Reload it before assigning face textures.";goto done; }
+    if (!ModelReadSource(data,size,&source,why) || !ModelMaterialsEnsure(&source,project,why)) goto done;
+    if (texture!=BG_TEX_NONE && !TexGetProjectImageSize(project,texture,&width,&height))
+    { *why="The dragged image is no longer available in this project.";goto done; }
+    selected=calloc(source.count?source.count:1,1);
+    keep=calloc(source.materials.count?source.materials.count:1,1);
+    slots=malloc((size_t)(source.materials.count+1)*sizeof(*slots));
+    if (!selected || !keep || !slots)
+    { *why="Out of memory reading the model face selection.";goto done; }
+    for (DWORD i=0;i<count;i++)
+    {
+        if (faces[i]>=source.count) { *why="A selected model face no longer exists.";goto done; }
+        if (BG_TEX_ID(source.tags[faces[i]])!=texture && !selected[faces[i]])
+        { selected[faces[i]]=1;changed++; }
+    }
+    if (!changed) { *why="";ok=TRUE;goto done; }
+    for (DWORD i=0;i<source.count;i++) if (!selected[i]) keep[source.materials.faces[i].slot]=1;
+    /* Preserve named slots when every face in a slot changes. A partial slot
+     * needs a separate assignment so it cannot affect unselected faces/LODs.
+     * Reuse our split slot for this image and compact unused slots below. */
+    DWORD split=0xffffffffu,originalslots=source.materials.count;
+    for (DWORD i=0;i<originalslots;i++)
+        if (source.materials.slots[i].texture==texture
+            && !strcmp(source.materials.slots[i].name,"Face selection")) { split=i;break; }
+    for (DWORD i=0;i<source.count;i++) if (selected[i])
+    {
+        DWORD slot=source.materials.faces[i].slot;
+        if (!keep[slot]) { source.materials.slots[slot].texture=texture;continue; }
+        if (split==0xffffffffu)
+        {
+            ModelMaterialSlot *grown=realloc(source.materials.slots,(size_t)(originalslots+1)*sizeof(*grown));
+            if (!grown) { *why="Out of memory splitting the model material.";goto done; }
+            source.materials.slots=grown;split=source.materials.count++;
+            memset(&grown[split],0,sizeof(*grown));
+            strcpy(grown[split].name,"Face selection");grown[split].texture=texture;
+        }
+        source.materials.faces[i].slot=split;
+    }
+    memset(slots,0xff,(size_t)source.materials.count*sizeof(*slots));
+    for (DWORD i=0;i<source.count;i++) slots[source.materials.faces[i].slot]=0;
+    DWORD used=0;
+    for (DWORD i=0;i<source.materials.count;i++) if (slots[i]!=0xffffffffu)
+    { slots[i]=used;source.materials.slots[used++]=source.materials.slots[i]; }
+    for (DWORD i=0;i<source.count;i++) source.materials.faces[i].slot=slots[source.materials.faces[i].slot];
+    source.materials.count=used;
+    imported.count=source.count;
+    imported.vertices=malloc((size_t)source.count*3*sizeof(*imported.vertices));
+    imported.tags=malloc((size_t)source.count*sizeof(*imported.tags));
+    imported.sourcevertices=malloc((size_t)source.count*3*sizeof(*imported.sourcevertices));
+    imported.rebind=selected;selected=NULL;
+    if (!imported.vertices || !imported.tags || !imported.sourcevertices)
+    { *why="Out of memory assigning model face textures.";goto done; }
+    for (DWORD i=0;i<source.count;i++)
+    {
+        DWORD target=imported.rebind[i]?texture:BG_TEX_ID(source.tags[i]);
+        int w=1,h=1;
+        imported.tags[i]=(source.tags[i]&~BG_TEX_ID_MASK)|target;
+        if (target!=BG_TEX_NONE && !TexGetProjectImageSize(project,target,&w,&h))
+        { *why="A model image is no longer available in this project.";goto done; }
+        for (DWORD k=0;k<3;k++)
+        {
+            DWORD corner=i*3+k;
+            imported.sourcevertices[corner]=corner;
+            imported.vertices[corner]=source.vertices[corner];
+            /* Use authored normalized UVs for a new image. Untouched faces
+             * and RSP-generated reflection coordinates retain native S/T. */
+            if (imported.rebind[i] && !(source.flags[i]&BG_RENDER_ENVIRONMENT))
+            {
+                imported.vertices[corner].s=source.materials.faces[i].uv[k*2];
+                imported.vertices[corner].t=source.materials.faces[i].uv[k*2+1];
+            }
+            else
+            { imported.vertices[corner].s/=w;imported.vertices[corner].t/=h; }
+        }
+    }
+    if (!ModelCompileImport(data,size,&source,&imported,project,&compiled,&compiledsize,why)
+        || !ModelMaterialsAttach(&compiled,&compiledsize,&source.materials,why)
+        || !ModelReadSource(compiled,compiledsize,&check,why)) goto done;
+    if (check.count!=source.count)
+    { *why="The texture assignment changed the model's geometry.";goto done; }
+    if (change)
+    {
+        step.after=malloc(compiledsize);
+        if (!step.after) { *why="Out of memory retaining model texture history.";goto done; }
+        memcpy(step.after,compiled,compiledsize);
+        step.afterSize=compiledsize;step.afterRevision=ModelDataHash(compiled,compiledsize);
+        step.before=data;data=NULL;step.beforeSize=size;step.beforeRevision=revision;
+    }
+    ok=RetainModel(project,name,basehash,compiled,compiledsize,why);
+    if (ok) compiled=NULL;
+done:
+    if (ok && change) { *change=step;memset(&step,0,sizeof(step)); }
+    ModelEditsFreeUVChange(&step);
+    free(data);free(compiled);free(selected);free(keep);free(slots);
+    ModelFreeSource(&source);ModelFreeSource(&check);GltfFreeModelImport(&imported);return ok;
+}
+
 BOOL ModelEditsSetMaterial(const char *project,const char *name,DWORD revision,
     DWORD slot,DWORD texture,const char **why)
 {

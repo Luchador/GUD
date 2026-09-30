@@ -58,11 +58,14 @@ static const int rows[3][2] = {{1, -1}, {2, -1}, {3, 0}};
 static int selectedrows[3] = {-1, -1, -1}, shown, loads;
 static BOOL showok = TRUE;
 static BOOL editorvisible=TRUE,hitlist=TRUE,assignok=TRUE;
+static BOOL hitviewport,facehit=TRUE,hitselected;
+static int faceassigned,expectedfaces;
+static DWORD expectedfaceids[2],expectedtexture;
 static int assigned,refreshed,selectedslot=-1,notified,errors;
 static DWORD assignedtexture,assignedslot,g_ModelRevision=123;
 static const char g_ModelProject[]="project";
 static BOOL IsWindowVisible(HWND hwnd) {return editorvisible;}
-static HWND WindowFromPoint(POINT p) {return hitlist?(HWND)(uintptr_t)12:NULL;}
+static HWND WindowFromPoint(POINT p) {return hitviewport?g_ModelViewport:hitlist?(HWND)(uintptr_t)12:NULL;}
 static BOOL ScreenToClient(HWND hwnd,POINT *p) {p->x+=1000;return TRUE;}
 static BOOL GetClientRect(HWND hwnd,RECT *r) {*r=(RECT){0,0,200,300};return TRUE;}
 static BOOL PtInRect(const RECT *r,POINT p) {return p.x>=r->left && p.x<r->right && p.y>=r->top && p.y<r->bottom;}
@@ -89,6 +92,21 @@ static ModelEditorHistoryStep recorded;
 static int tool = EDITOR_TOOL_FACE_SELECT;
 static void UVEditorCancelInteraction(HWND hwnd) {}
 static int ViewportGetTool(HWND hwnd) {return tool;}
+static BOOL ViewportGetTextureDropFace(HWND hwnd,POINT screen,BgFaceRef *hit,BOOL *selected)
+{
+    assert(hwnd==g_ModelViewport && screen.x==-950);
+    *hit=(BgFaceRef){.room=1,.faceid=1};*selected=hitselected;
+    return facehit && tool==EDITOR_TOOL_FACE_SELECT;
+}
+BOOL ModelEditsSetFaceTexture(const char *project,const char *name,DWORD revision,
+    const DWORD *faces,DWORD count,DWORD texture,ModelUVChange *change,const char **why)
+{
+    assert(!strcmp(project,"project") && !strcmp(name,"Gpp7Z") && revision==123);
+    assert(count==(DWORD)expectedfaces && texture==expectedtexture);
+    assert(!memcmp(faces,expectedfaceids,count*sizeof(*faces)));
+    faceassigned++;if(assignok && !nochange) change->before=(unsigned char *)"snapshot";
+    return assignok;
+}
 static void ViewportClearSelection(HWND hwnd) {cleared++;selectedfaces=0;}
 static void ModelEditorRecord(ModelEditorHistoryStep step) {recorded=step;records++;}
 BOOL ModelEditsDeleteFaces(const char *project,const char *name,DWORD revision,
@@ -336,6 +354,28 @@ int main(void)
     selectedfaces=0;ModelEditorProperties();
     assert(!enabled[IDC_MODEL_WRAP_U] && !enabled[IDC_MODEL_WRAP_V]);
     assert(strstr(current,"Select faces"));
+    /* Face drops preserve the existing selection and target only the hit face
+     * unless it belongs to the selected group. Failed edits are consumed. */
+    hitviewport=TRUE;assignok=TRUE;expectedtexture=0xd4;expectedfaces=1;expectedfaceids[0]=0;
+    int oldrecords=records,oldrefresh=refreshed,oldnotify=notified,olderrors=errors;
+    assert(ModelEditorDropImage(expectedtexture,(POINT){-950,20}));
+    assert(faceassigned==1 && records==oldrecords+1 && refreshed==oldrefresh+1 && notified==oldnotify+1);
+    selectedfaces=2;faceselection[0].faceid=2;faceselection[1].faceid=1;hitselected=TRUE;
+    expectedfaces=2;expectedfaceids[0]=1;expectedfaceids[1]=0;expectedtexture=BG_TEX_NONE;
+    assert(ModelEditorDropImage(expectedtexture,(POINT){-950,20}));
+    assert(faceassigned==2 && records==oldrecords+2 && selectedfaces==2 && !recorded.topology);
+    nochange=TRUE;assert(ModelEditorDropImage(expectedtexture,(POINT){-950,20}));nochange=FALSE;
+    assert(faceassigned==3 && records==oldrecords+2 && refreshed==oldrefresh+2 && notified==oldnotify+2);
+    assignok=FALSE;assert(ModelEditorDropImage(expectedtexture,(POINT){-950,20}));assignok=TRUE;
+    assert(faceassigned==4 && errors==olderrors+1 && records==oldrecords+2 && notified==oldnotify+2);
+    facehit=FALSE;assert(!ModelEditorDropImage(expectedtexture,(POINT){-950,20}));facehit=TRUE;
+    tool=EDITOR_TOOL_VERTEX_PAINT;assert(!ModelEditorDropImage(expectedtexture,(POINT){-950,20}));
+    tool=EDITOR_TOOL_FACE_SELECT;editorvisible=FALSE;
+    assert(!ModelEditorDropImage(expectedtexture,(POINT){-950,20}));editorvisible=TRUE;
+    hitselected=FALSE;expectedfaces=1;expectedfaceids[0]=0;
+    assert(ModelEditorDropImage(expectedtexture,(POINT){-950,20}));
+    assert(faceassigned==5 && selectedfaces==2 && records==oldrecords+3);
+    puts("PASS model face texture drops: single/selected/unselected targets, No Texture, no-op/failed edits, history, refresh and mode guards.");
     puts("PASS automatic properties, per-setting history, deletion routing and selection clearing; wrap inspector mixed/untextured/empty selections, independent U/V application and failed-edit refresh guards.");
     puts("PASS material drop targeting, negative screen coordinates, No Texture, invalid targets and failed assignment.");
     puts("PASS model viewer click/double-click/orbit, sorted asset opening/reuse, culling and inspector labels (ASan + UBSan)");
