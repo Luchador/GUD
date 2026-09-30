@@ -106,7 +106,7 @@ int main(void)
         assert(positions[IDC_MODEL_MATERIAL_LIST].bottom<positions[IDC_MODEL_SEPARATE_LODS].top);
         assert(positions[IDC_MODEL_SEPARATE_LODS].bottom<positions[IDC_MODEL_UNTEXTURED].top);
         assert(positions[IDC_MODEL_UNTEXTURED].bottom<positions[IDC_MODEL_SHARED].top);
-        assert(positions[IDC_MODEL_SHARED].bottom<=positions[IDC_MODEL_HINT].top);
+        assert(positions[IDC_MODEL_SHARED].bottom<materials.bottom);
         RECT lod=positions[IDC_MODEL_LODS];lod.bottom=lod.top+lround(18*scaley);
         assert(Inside(lod,faces));
         assert(positions[IDC_MODEL_MATERIAL_LIST].bottom-positions[IDC_MODEL_MATERIAL_LIST].top>=44*scaley);

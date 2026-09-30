@@ -21,7 +21,7 @@ typedef struct {int left,top,right,bottom;} RECT;
 #define LOWORD(n) ((uintptr_t)(n)&0xffff)
 #define MAKELPARAM(x,y) ((unsigned short)(x)|((LPARAM)(unsigned short)(y)<<16))
 #define LB_ERR (-1)
-enum {LB_ITEMFROMPOINT=10,LB_GETITEMRECT,LB_SETCURSEL,LB_GETITEMDATA,MB_ICONERROR,GW_OWNER,MODELEDITOR_CHANGED};
+enum {LB_ITEMFROMPOINT=10,LB_GETITEMRECT,LB_SETCURSEL,LB_GETITEMDATA,MB_ICONERROR,GW_OWNER,MODELEDITOR_CHANGED,VIEWPORT_WM_DELETE_SELECTION};
 #define GL_FRONT 0x0404
 #define GL_BACK 0x0405
 #define GL_FRONT_AND_BACK 0x0408
@@ -33,6 +33,7 @@ enum {LB_ITEMFROMPOINT=10,LB_GETITEMRECT,LB_SETCURSEL,LB_GETITEMDATA,MB_ICONERRO
 #define VIEWPORT_FOV_Y 60
 #define WHEEL_DELTA 120
 #define VK_ESCAPE 27
+#define VK_DELETE 46
 #define GET_X_LPARAM(l) ((short)(l))
 #define GET_Y_LPARAM(l) ((short)((l) >> 16))
 #define GET_WHEEL_DELTA_WPARAM(w) ((short)((w) >> 16))
@@ -70,6 +71,7 @@ static BOOL ScreenToClient(HWND hwnd,POINT *p) {p->x+=1000;return TRUE;}
 static BOOL GetClientRect(HWND hwnd,RECT *r) {*r=(RECT){0,0,200,300};return TRUE;}
 static BOOL PtInRect(const RECT *r,POINT p) {return p.x>=r->left && p.x<r->right && p.y>=r->top && p.y<r->bottom;}
 static HWND GetWindow(HWND hwnd,int type) {return (HWND)(uintptr_t)99;}
+static HWND GetParent(HWND hwnd) {assert(hwnd==g_ModelViewport);return g_ModelEditor;}
 static void MessageBox(HWND hwnd,const char *why,const char *title,int type) {errors++;}
 static int choices[1200], selectedfaces, properties;
 static BOOL enabled[1200];
@@ -132,8 +134,10 @@ static void ModelEditorSelectGroup(BOOL all) {assert(!all);}
 BOOL ModelEditsSetMaterial(const char *project,const char *name,DWORD revision,DWORD slot,DWORD texture,const char **why)
 {assert(!strcmp(project,"project") && !strcmp(name,"Gpp7Z") && revision==123);assigned++;assignedslot=slot;assignedtexture=texture;return assignok;}
 static HWND GetDlgItem(HWND hwnd, int item) {return (HWND)(uintptr_t)(item==IDC_MODEL_MATERIAL_LIST?12:item+2);}
+static void ModelEditorDeleteFaces(void);
 static LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
+    if(hwnd==g_ModelEditor && msg==VIEWPORT_WM_DELETE_SELECTION) {ModelEditorDeleteFaces();return 0;}
     if(hwnd==g_ModelViewport) {assert(msg==WM_CANCELMODE);return 0;}
     if(hwnd==(HWND)(uintptr_t)99) {assert(msg==MODELEDITOR_CHANGED);notified++;return 0;}
     if(hwnd==(HWND)(uintptr_t)12)
@@ -376,6 +380,27 @@ int main(void)
     assert(ModelEditorDropImage(expectedtexture,(POINT){-950,20}));
     assert(faceassigned==5 && selectedfaces==2 && records==oldrecords+3);
     puts("PASS model face texture drops: single/selected/unselected targets, No Texture, no-op/failed edits, history, refresh and mode guards.");
+    /* Drive the actual orbit-input -> owner -> deletion path, not just the
+     * deletion command directly. This used to consume Delete without editing. */
+    state.tool=EDITOR_TOOL_FACE_SELECT;state.orbitbuttons=0;
+    int olddeletions=deletions,oldcleared=cleared;
+    oldrecords=records;oldrefresh=refreshed;oldnotify=notified;
+    assert(ViewportOrbitInput(g_ModelViewport,&state,WM_KEYDOWN,VK_DELETE,0));
+    assert(deletions==olddeletions+1 && selectedfaces==0 && cleared==oldcleared+1);
+    assert(records==oldrecords+1 && recorded.topology && refreshed==oldrefresh+1 && notified==oldnotify+1);
+    assert(ViewportOrbitInput(g_ModelViewport,&state,WM_KEYDOWN,VK_DELETE,0));
+    assert(deletions==olddeletions+1); /* Holding Delete cannot delete other faces. */
+    selectedfaces=2;state.tool=EDITOR_TOOL_VERTEX_PAINT;
+    ViewportOrbitInput(g_ModelViewport,&state,WM_KEYDOWN,VK_DELETE,0);
+    state.tool=EDITOR_TOOL_FACE_SELECT;state.orbitbuttons=MK_RBUTTON;
+    ViewportOrbitInput(g_ModelViewport,&state,WM_KEYDOWN,VK_DELETE,0);
+    state.orbitbuttons=0;ViewportOrbitInput(g_ModelViewport,&state,WM_KEYUP,VK_DELETE,0);
+    assert(deletions==olddeletions+1 && selectedfaces==2);
+    assignok=FALSE;olderrors=errors;
+    ViewportOrbitInput(g_ModelViewport,&state,WM_KEYDOWN,VK_DELETE,0);
+    assert(deletions==olddeletions+2 && errors==olderrors+1 && selectedfaces==2 && cleared==oldcleared+1);
+    assert(records==oldrecords+1 && notified==oldnotify+1);
+    puts("PASS Delete from orbit viewport reaches selected-face deletion/history; empty selection, paint, camera drag, key-up and failure guards.");
     puts("PASS automatic properties, per-setting history, deletion routing and selection clearing; wrap inspector mixed/untextured/empty selections, independent U/V application and failed-edit refresh guards.");
     puts("PASS material drop targeting, negative screen coordinates, No Texture, invalid targets and failed assignment.");
     puts("PASS model viewer click/double-click/orbit, sorted asset opening/reuse, culling and inspector labels (ASan + UBSan)");

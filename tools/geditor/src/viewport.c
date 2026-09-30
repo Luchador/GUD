@@ -8943,6 +8943,11 @@ static BOOL ViewportOrbitInput(HWND hwnd, ViewportState *state,
         return TRUE;
     case WM_KEYDOWN:
         if (wparam == VK_ESCAPE) { ViewportSetColorPick(hwnd, FALSE); }
+        /* Orbit viewers consume keys before the level viewport handler. Route
+         * face deletion to their owner instead of swallowing Delete here. */
+        else if (wparam == VK_DELETE && state->tool == EDITOR_TOOL_FACE_SELECT
+            && !state->orbitbuttons)
+        { SendMessage(GetParent(hwnd), VIEWPORT_WM_DELETE_SELECTION, 0, 0); }
         return TRUE;
     case WM_KEYUP:
         return TRUE;

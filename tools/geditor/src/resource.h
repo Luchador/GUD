@@ -309,7 +309,6 @@
 #define IDC_MODEL_SURFACE_LABEL    1059
 #define IDC_MODEL_SURFACE          1060
 #define IDC_MODEL_LODS             1062
-#define IDC_MODEL_HINT             1063
 #define IDC_MODEL_MATERIALS        1064
 #define IDC_MODEL_MATERIAL_LIST    1065
 #define IDC_MODEL_COLORS           1066

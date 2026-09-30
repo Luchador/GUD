@@ -468,7 +468,6 @@ BEGIN
     PUSHBUTTON      "Separate shared LOD geometry", IDC_MODEL_SEPARATE_LODS, 596, 198, 168, 18, WS_TABSTOP
     PUSHBUTTON      "Make LOD untextured", IDC_MODEL_UNTEXTURED, 596, 220, 168, 18, WS_TABSTOP
     CONTROL         "Include shared faces", IDC_MODEL_SHARED, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 596, 240, 168, 14
-    LTEXT           "Drag an image onto a material.", IDC_MODEL_HINT, 596, 258, 168, 24
     GROUPBOX        "Vertex color (RGBA)", IDC_MODEL_COLORS, 588, 282, 184, 136, BS_GROUPBOX, WS_EX_TRANSPARENT
     GROUPBOX        "Face properties", IDC_MODEL_PROPERTIES, 588, 350, 184, 176, BS_GROUPBOX, WS_EX_TRANSPARENT
     LTEXT           "No faces selected", IDC_MODEL_SELECTION, 596, 366, 98, 12

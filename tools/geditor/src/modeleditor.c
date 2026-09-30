@@ -584,9 +584,6 @@ static void ModelEditorGroups(void)
     SetDlgItemText(g_ModelEditor,IDC_MODEL_SHARED,caption);
     SetDlgItemText(g_ModelEditor,IDC_MODEL_UNTEXTURED,g_ModelLod==MODEL_LOD_ALL
         ? "Make all LODs untextured" : "Make LOD untextured");
-    SetDlgItemText(g_ModelEditor,IDC_MODEL_HINT,shared && g_ModelLod!=MODEL_LOD_ALL
-        ? "Shared faces also change in the other LOD.\nDrop an image onto a face or material."
-        : "Drop an image onto a face or material.\nDrop No Texture to clear its image.");
 }
 
 static void ModelEditorSeparateLods(void)
@@ -793,8 +790,7 @@ static BOOL ModelEditorDropFaceImage(DWORD texture,POINT screen)
     {
         ModelEditorRecord((ModelEditorHistoryStep){.uv=change});
         ModelEditorRefreshImages();
-        SetDlgItemText(g_ModelEditor,IDC_MODEL_STATUS,
-            "Face textures updated. Ctrl+Z undoes; Save Project keeps the changes.");
+        SetDlgItemText(g_ModelEditor,IDC_MODEL_STATUS,"Face textures updated.");
         SendMessage(GetWindow(g_ModelEditor,GW_OWNER),MODELEDITOR_CHANGED,0,0);
     }
     SetFocus(g_ModelViewport);
@@ -1028,7 +1024,7 @@ static void ModelEditorLayout(HWND hwnd)
             {IDC_MODEL_WRAP_V_LABEL,96,122,80,12},{IDC_MODEL_WRAP_V,96,136,80,100},
             {IDC_MODEL_LOD_LABEL,8,162,30,12},{IDC_MODEL_LODS,42,158,134,80}
         };
-        RECT dimensions={8,16,168,180},row={0,0,0,44},footer={0,18,0,94},checkbox={0,42,0,14},clearrow={0,22,0,0};
+        RECT dimensions={8,16,168,180},row={0,0,0,44},footer={0,18,0,64},checkbox={0,42,0,14},clearrow={0,22,0,0};
         int facey,colory,colorheight,materialheight;
         size_t i;
         MapDialogRect(hwnd,&dimensions);MapDialogRect(hwnd,&row);
@@ -1047,8 +1043,6 @@ static void ModelEditorLayout(HWND hwnd)
             dimensions.right,footer.top);
         ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_SHARED),panelx+dimensions.left,units.top+materialheight-footer.bottom+checkbox.top+margin/2,
             dimensions.right,checkbox.bottom);
-        ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_HINT),panelx+dimensions.left,units.top+materialheight-dimensions.top*2,
-            dimensions.right,dimensions.top*2-margin);
         SendDlgItemMessage(hwnd,IDC_MODEL_MATERIAL_LIST,LB_SETITEMHEIGHT,0,row.bottom);
         ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_COLORS),panelx,colory,panel.right-margin,colorheight);
         if (g_ModelColorPicker)
