@@ -1,3 +1,4 @@
+#include "theme.h"
 #include <windows.h>
 #include <windowsx.h>
 #include <commctrl.h>
@@ -156,7 +157,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
             s->wheel %= WHEEL_DELTA; Layout(hwnd, s); }
         return 0;
     case WM_CTLCOLORSTATIC:
-        SetBkMode((HDC)wp, TRANSPARENT); return (LRESULT)GetSysColorBrush(COLOR_WINDOW);
+        SetBkMode((HDC)wp, TRANSPARENT); return (LRESULT)ThemeSystemBrush(COLOR_WINDOW);
     case WM_NCDESTROY: free(s); SetWindowLongPtr(hwnd, GWLP_USERDATA, 0); break;
     }
     return DefWindowProc(hwnd, msg, wp, lp);
@@ -164,7 +165,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 BOOL DoorShadowPropertiesRegisterClass(HINSTANCE instance)
 {
     WNDCLASS wc = {0}; wc.lpfnWndProc = WndProc; wc.hInstance = instance;
-    wc.hCursor = LoadCursor(NULL, IDC_ARROW); wc.hbrBackground = GetSysColorBrush(COLOR_WINDOW);
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW); wc.hbrBackground = ThemeSystemBrush(COLOR_WINDOW);
     wc.lpszClassName = SHADOW_CLASS; return RegisterClass(&wc) != 0;
 }
 HWND DoorShadowPropertiesCreate(HWND parent, HINSTANCE instance)

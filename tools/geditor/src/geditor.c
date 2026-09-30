@@ -1,4 +1,5 @@
 #define COBJMACROS
+#include "theme.h"
 #include <windows.h>
 #include <commdlg.h>
 #include <shobjidl.h>   /* IFileOpenDialog: the modern folder picker */
@@ -1419,7 +1420,7 @@ static INT_PTR CALLBACK GEditorNewProjectProc(HWND hdlg, UINT msg, WPARAM wparam
             HDC hdc = (HDC)wparam;
             SetTextColor(hdc, RGB(192, 0, 0));
             SetBkMode(hdc, TRANSPARENT);
-            return (INT_PTR)GetSysColorBrush(COLOR_3DFACE);
+            return (INT_PTR)ThemeSystemBrush(COLOR_3DFACE);
         }
         return FALSE;
 
@@ -1839,7 +1840,7 @@ static INT_PTR CALLBACK GEditorCreateRomProc(HWND hdlg, UINT msg,
             HDC hdc = (HDC)wparam;
             SetTextColor(hdc, RGB(192, 0, 0));
             SetBkMode(hdc, TRANSPARENT);
-            return (INT_PTR)GetSysColorBrush(COLOR_3DFACE);
+            return (INT_PTR)ThemeSystemBrush(COLOR_3DFACE);
         }
         return FALSE;
 
@@ -7734,6 +7735,9 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
     HMENU menubar;
     HACCEL accelerators;
 
+    EditorSettingsLoad();
+    if (!ThemeInitialize(EditorSettingsGetTheme()))
+    { MessageBox(NULL, "Could not initialize the editor theme.", GEDITOR_TITLE, MB_ICONERROR); return 1; }
     ZeroMemory(&wc, sizeof(wc));
     wc.lpfnWndProc   = GEditorWndProc;
     wc.hInstance     = hinstance;
@@ -7772,7 +7776,6 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
         return 1;
     }
 
-    EditorSettingsLoad();
     RecentProjectsLoad(&g_RecentProjects);
     menubar = GEditorCreateMenuBar();
 
@@ -7821,6 +7824,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                     {
                         DestroyAcceleratorTable(accelerators);
                     }
+                    ThemeShutdown();
                     CoUninitialize();
                     return (int)msg.wParam;
                 }
@@ -7908,6 +7912,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
     {
         DestroyAcceleratorTable(accelerators);
     }
+    ThemeShutdown();
     CoUninitialize();
     return (int)msg.wParam;
 }

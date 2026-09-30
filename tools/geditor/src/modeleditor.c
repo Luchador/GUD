@@ -1,3 +1,4 @@
+#include "theme.h"
 #include <windows.h>
 #include <windowsx.h>
 #include <commdlg.h>
@@ -641,12 +642,12 @@ static void ModelEditorDrawMaterial(const DRAWITEMSTRUCT *draw)
     int pad=6,side=max(16,r.bottom-r.top-pad*2);
     if (draw->itemID==(UINT)-1 || slot>=g_ModelSource.materials.count) return;
     const ModelMaterialSlot *material=&g_ModelSource.materials.slots[slot];
-    FillRect(draw->hDC,&r,GetSysColorBrush(selected?COLOR_HIGHLIGHT:COLOR_WINDOW));
+    FillRect(draw->hDC,&r,ThemeSystemBrush(selected?COLOR_HIGHLIGHT:COLOR_WINDOW));
     SetBkMode(draw->hDC,TRANSPARENT);
-    SetTextColor(draw->hDC,GetSysColor(selected?COLOR_HIGHLIGHTTEXT:COLOR_WINDOWTEXT));
+    SetTextColor(draw->hDC,ThemeSystemColor(selected?COLOR_HIGHLIGHTTEXT:COLOR_WINDOWTEXT));
     thumbrect=r;thumbrect.left+=pad;thumbrect.top+=pad;
     thumbrect.right=thumbrect.left+side;thumbrect.bottom=thumbrect.top+side;
-    FillRect(draw->hDC,&thumbrect,GetSysColorBrush(COLOR_BTNFACE));
+    FillRect(draw->hDC,&thumbrect,ThemeSystemBrush(COLOR_BTNFACE));
     if (BrowserCopyImageThumbnail(g_ModelBrowser,material->texture,&thumb,pixels))
     {
         int width=side,height=side,x,y;
@@ -658,7 +659,7 @@ static void ModelEditorDrawMaterial(const DRAWITEMSTRUCT *draw)
         bmi.bmiHeader.biBitCount=32;bmi.bmiHeader.biCompression=BI_RGB;
         StretchDIBits(draw->hDC,x,y,width,height,0,0,thumb.w,thumb.h,pixels,&bmi,DIB_RGB_COLORS,SRCCOPY);
     }
-    FrameRect(draw->hDC,&thumbrect,GetSysColorBrush(COLOR_3DSHADOW));
+    FrameRect(draw->hDC,&thumbrect,ThemeSystemBrush(COLOR_3DSHADOW));
     textrect=r;textrect.left=thumbrect.right+pad;textrect.right-=pad;textrect.top+=pad;
     textrect.bottom=textrect.top+(r.bottom-r.top)/2;
     snprintf(caption,sizeof(caption),"%lu. %s",(unsigned long)slot+1,material->name);

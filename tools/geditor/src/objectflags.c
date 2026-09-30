@@ -1,3 +1,4 @@
+#include "theme.h"
 /* Scrollable object flags, with type-specific aliases and game state filtered. */
 #include <windows.h>
 #include <windowsx.h>
@@ -251,7 +252,7 @@ static LRESULT CALLBACK ObjectFlagsWndProc(HWND hwnd, UINT msg, WPARAM wparam, L
         return 0;
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORBTN:
-        SetBkColor((HDC)wparam, GetSysColor(COLOR_WINDOW)); return (LRESULT)GetSysColorBrush(COLOR_WINDOW);
+        SetBkColor((HDC)wparam, ThemeSystemColor(COLOR_WINDOW)); return (LRESULT)ThemeSystemBrush(COLOR_WINDOW);
     case WM_DESTROY:
         if (state && state->tooltip) { DestroyWindow(state->tooltip); state->tooltip = NULL; }
         return 0;
@@ -265,7 +266,7 @@ static LRESULT CALLBACK ObjectFlagsWndProc(HWND hwnd, UINT msg, WPARAM wparam, L
 BOOL ObjectFlagsRegisterClass(HINSTANCE instance)
 {
     WNDCLASS wc = {0}; wc.lpfnWndProc = ObjectFlagsWndProc; wc.hInstance = instance;
-    wc.hCursor = LoadCursor(NULL, IDC_ARROW); wc.hbrBackground = GetSysColorBrush(COLOR_WINDOW);
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW); wc.hbrBackground = ThemeSystemBrush(COLOR_WINDOW);
     wc.lpszClassName = OBJECTFLAGS_CLASS; return RegisterClass(&wc) != 0;
 }
 

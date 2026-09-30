@@ -1,3 +1,4 @@
+#include "theme.h"
 #include <windows.h>
 #include <commdlg.h>
 #include <stdio.h>
@@ -89,7 +90,7 @@ static INT_PTR CALLBACK DialogProc(HWND dialog,UINT message,WPARAM wparam,LPARAM
             || HIWORD(wparam)==CBN_SELCHANGE) { Refresh(dialog,state);return TRUE; }
     }
     if(message==WM_CTLCOLORSTATIC && (HWND)lparam==GetDlgItem(dialog,IDC_IMAGE_WARNING))
-    { SetTextColor((HDC)wparam,RGB(180,0,0));SetBkMode((HDC)wparam,TRANSPARENT);return (INT_PTR)GetSysColorBrush(COLOR_3DFACE); }
+    { SetTextColor((HDC)wparam,RGB(180,0,0));SetBkMode((HDC)wparam,TRANSPARENT);return (INT_PTR)ThemeSystemBrush(COLOR_3DFACE); }
     if(message==WM_CLOSE) { EndDialog(dialog,0);return TRUE; }
     return FALSE;
 }

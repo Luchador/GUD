@@ -1,3 +1,4 @@
+#include "theme.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include "patroleditor.h"
@@ -179,12 +180,12 @@ static void DrawPicker(PatrolEditor *e, const DRAWITEMSTRUCT *draw)
 {
     RECT rect=draw->rcItem;
     BOOL pressed=e->picking || (draw->itemState&ODS_SELECTED);
-    FillRect(draw->hDC,&rect,GetSysColorBrush(pressed ? COLOR_HIGHLIGHT : COLOR_BTNFACE));
+    FillRect(draw->hDC,&rect,ThemeSystemBrush(pressed ? COLOR_HIGHLIGHT : COLOR_BTNFACE));
     DrawEdge(draw->hDC,&rect,pressed ? EDGE_SUNKEN : EDGE_RAISED,BF_RECT);
     if (e->icon.w && e->icon.h)
     {
         unsigned char pixels[sizeof(e->pixels)];
-        COLORREF bg=GetSysColor(pressed ? COLOR_HIGHLIGHT : COLOR_BTNFACE);
+        COLORREF bg=ThemeSystemColor(pressed ? COLOR_HIGHLIGHT : COLOR_BTNFACE);
         unsigned char background[3]={GetBValue(bg),GetGValue(bg),GetRValue(bg)};
         for (int i=0;i<TEX_THUMB_MAX*TEX_THUMB_MAX;i++)
         {

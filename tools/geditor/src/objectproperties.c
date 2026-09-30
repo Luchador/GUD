@@ -1,3 +1,4 @@
+#include "theme.h"
 /* Shared inspector controls. The setup API owns native encodings and edits;
  * this child window owns only its current values and uncommitted text. */
 #include <windows.h>
@@ -1223,11 +1224,11 @@ static LRESULT CALLBACK ObjectPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
         }
         return 0;
     case WM_CTLCOLORSTATIC:
-        SetBkColor((HDC)wparam, GetSysColor(COLOR_WINDOW));
+        SetBkColor((HDC)wparam, ThemeSystemColor(COLOR_WINDOW));
         SetBkMode((HDC)wparam, TRANSPARENT);
         if (state && (HWND)lparam == state->controls[OBJECT_STATUS])
-        { SetTextColor((HDC)wparam, GetSysColor(COLOR_GRAYTEXT)); }
-        return (LRESULT)GetSysColorBrush(COLOR_WINDOW);
+        { SetTextColor((HDC)wparam, ThemeSystemColor(COLOR_GRAYTEXT)); }
+        return (LRESULT)ThemeSystemBrush(COLOR_WINDOW);
     case WM_NCDESTROY:
         free(state); SetWindowLongPtr(hwnd, GWLP_USERDATA, 0); break;
     }
@@ -1239,7 +1240,7 @@ BOOL ObjectPropertiesRegisterClass(HINSTANCE instance)
     WNDCLASS wc = {0};
     if (!DoorShadowPropertiesRegisterClass(instance)) { return FALSE; }
     wc.lpfnWndProc = ObjectPropertiesWndProc; wc.hInstance = instance;
-    wc.hCursor = LoadCursor(NULL, IDC_ARROW); wc.hbrBackground = GetSysColorBrush(COLOR_WINDOW);
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW); wc.hbrBackground = ThemeSystemBrush(COLOR_WINDOW);
     wc.lpszClassName = OBJECTPROPERTIES_CLASS;
     return RegisterClass(&wc) != 0;
 }

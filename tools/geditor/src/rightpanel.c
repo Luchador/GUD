@@ -1,3 +1,4 @@
+#include "theme.h"
 /*
  * GEditor right-hand tool panel.
  *
@@ -420,12 +421,12 @@ static void RightPanelPaint(HWND hwnd, RightPanelState *state, HDC hdc)
     HFONT oldfont;
 
     GetClientRect(hwnd, &client);
-    FillRect(hdc, &client, GetSysColorBrush(COLOR_WINDOW));
+    FillRect(hdc, &client, ThemeSystemBrush(COLOR_WINDOW));
 
     font = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
     oldfont = (HFONT)SelectObject(hdc, font);
     SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, GetSysColor(COLOR_WINDOWTEXT));
+    SetTextColor(hdc, ThemeSystemColor(COLOR_WINDOWTEXT));
 
     title.left = RIGHTPANEL_MARGIN;
     title.right = client.right - RIGHTPANEL_MARGIN;
@@ -438,20 +439,20 @@ static void RightPanelPaint(HWND hwnd, RightPanelState *state, HDC hdc)
     splitter.right = client.right;
     splitter.top = state->topheight;
     splitter.bottom = state->topheight + RIGHTPANEL_SPLITTER_H;
-    FillRect(hdc, &splitter, GetSysColorBrush(COLOR_BTNFACE));
+    FillRect(hdc, &splitter, ThemeSystemBrush(COLOR_BTNFACE));
 
     line = splitter;
     line.bottom = line.top + 1;
-    FillRect(hdc, &line, GetSysColorBrush(COLOR_BTNSHADOW));
+    FillRect(hdc, &line, ThemeSystemBrush(COLOR_BTNSHADOW));
     line.top = splitter.bottom - 1;
     line.bottom = splitter.bottom;
-    FillRect(hdc, &line, GetSysColorBrush(COLOR_BTNHIGHLIGHT));
+    FillRect(hdc, &line, ThemeSystemBrush(COLOR_BTNHIGHLIGHT));
 
     line.left = 0;
     line.right = client.right;
     line.top = RIGHTPANEL_TRANSFORM_TOP - 6;
     line.bottom = line.top + 1;
-    FillRect(hdc, &line, GetSysColorBrush(COLOR_BTNSHADOW));
+    FillRect(hdc, &line, ThemeSystemBrush(COLOR_BTNSHADOW));
 
     transform.left = RIGHTPANEL_MARGIN;
     transform.right = client.right - RIGHTPANEL_MARGIN;
@@ -474,10 +475,10 @@ static void RightPanelPaint(HWND hwnd, RightPanelState *state, HDC hdc)
     }
     transform.top = RIGHTPANEL_TRANSFORM_TOP + 168;
     transform.bottom = transform.top + 32;
-    SetTextColor(hdc, GetSysColor(COLOR_GRAYTEXT));
+    SetTextColor(hdc, ThemeSystemColor(COLOR_GRAYTEXT));
     DrawText(hdc, state->transformhint, -1, &transform,
              DT_LEFT | DT_TOP | DT_WORDBREAK | DT_NOPREFIX);
-    SetTextColor(hdc, GetSysColor(COLOR_WINDOWTEXT));
+    SetTextColor(hdc, ThemeSystemColor(COLOR_WINDOWTEXT));
 
     detailtitle.left = RIGHTPANEL_MARGIN;
     detailtitle.right = client.right - RIGHTPANEL_MARGIN;
@@ -493,7 +494,7 @@ static void RightPanelPaint(HWND hwnd, RightPanelState *state, HDC hdc)
     detailtype = detailtitle;
     detailtype.top = detailtitle.bottom + 2;
     detailtype.bottom = detailtype.top + 20;
-    SetTextColor(hdc, GetSysColor(COLOR_GRAYTEXT));
+    SetTextColor(hdc, ThemeSystemColor(COLOR_GRAYTEXT));
     DrawText(hdc, state->detailtitle, -1, &detailtype,
              DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX);
 
@@ -937,9 +938,9 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
 
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORBTN:
-        SetBkColor((HDC)wparam, GetSysColor(COLOR_WINDOW));
+        SetBkColor((HDC)wparam, ThemeSystemColor(COLOR_WINDOW));
         SetBkMode((HDC)wparam, TRANSPARENT);
-        return (LRESULT)GetSysColorBrush(COLOR_WINDOW);
+        return (LRESULT)ThemeSystemBrush(COLOR_WINDOW);
 
     case WM_PAINT:
     {

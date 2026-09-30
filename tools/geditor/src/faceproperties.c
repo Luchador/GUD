@@ -1,3 +1,4 @@
+#include "theme.h"
 /* Scrollable face controls shared by single- and multiple-face selections. */
 #include <windows.h>
 #include <windowsx.h>
@@ -317,7 +318,7 @@ static void FacePropertiesPaintThumbnail(const TexThumb *thumb, const unsigned c
     RECT rect = draw->rcItem;
     HDC dc = draw->hDC;
     int saved = SaveDC(dc);
-    FillRect(dc, &rect, GetSysColorBrush(COLOR_WINDOW));
+    FillRect(dc, &rect, ThemeSystemBrush(COLOR_WINDOW));
     DrawEdge(dc, &rect, BDR_SUNKENOUTER, BF_RECT);
     InflateRect(&rect, -4, -4);
     if (available && rect.right > rect.left && rect.bottom > rect.top)
@@ -359,7 +360,7 @@ static void FacePropertiesPaintThumbnail(const TexThumb *thumb, const unsigned c
     else
     {
         SelectObject(dc, GetStockObject(DEFAULT_GUI_FONT));
-        SetTextColor(dc, GetSysColor(COLOR_GRAYTEXT));
+        SetTextColor(dc, ThemeSystemColor(COLOR_GRAYTEXT));
         SetBkMode(dc, TRANSPARENT);
         DrawText(dc, mixed ? "Mixed" : "Image unavailable", -1, &rect,
                  DT_CENTER | DT_WORDBREAK | DT_NOPREFIX);
@@ -787,8 +788,8 @@ static LRESULT CALLBACK FacePropertiesWndProc(HWND hwnd, UINT msg, WPARAM wparam
         }
         return 0;
     case WM_CTLCOLORSTATIC:
-        SetBkColor((HDC)wparam, GetSysColor(COLOR_WINDOW));
-        return (LRESULT)GetSysColorBrush(COLOR_WINDOW);
+        SetBkColor((HDC)wparam, ThemeSystemColor(COLOR_WINDOW));
+        return (LRESULT)ThemeSystemBrush(COLOR_WINDOW);
     case WM_NCDESTROY:
         if (state && state->tooltip) { DestroyWindow(state->tooltip); }
         free(state);
@@ -804,7 +805,7 @@ BOOL FacePropertiesRegisterClass(HINSTANCE instance)
     wc.lpfnWndProc = FacePropertiesWndProc;
     wc.hInstance = instance;
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-    wc.hbrBackground = GetSysColorBrush(COLOR_WINDOW);
+    wc.hbrBackground = ThemeSystemBrush(COLOR_WINDOW);
     wc.lpszClassName = FACEPROPERTIES_CLASS;
     return RegisterClass(&wc) != 0;
 }

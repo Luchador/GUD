@@ -1,3 +1,4 @@
+#include "theme.h"
 #include <windows.h>
 #include <windowsx.h>
 #include <commctrl.h>
@@ -52,7 +53,7 @@ static LRESULT CALLBACK RenderStudioGroupProc(HWND hwnd, UINT message, WPARAM wp
             MapWindowPoints(NULL, hwnd, (POINT *)&content, 2);
             ExcludeClipRect(dc, content.left, content.top, content.right, content.bottom);
         }
-        FillRect(dc, &client, GetSysColorBrush(COLOR_3DFACE));
+        FillRect(dc, &client, ThemeSystemBrush(COLOR_3DFACE));
         if (saved) { RestoreDC(dc, saved); }
         return 1;
     }

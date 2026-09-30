@@ -1,3 +1,4 @@
+#include "theme.h"
 /*
  * GEditor content browser panel.
  *
@@ -516,9 +517,9 @@ static int BrowserHitObject(const BrowserState *state, POINT point)
 static void BrowserPaintObjectTile(const BrowserState *state, HDC dc,
                                    int index, const RECT *rect, BOOL active)
 {
-    COLORREF background = GetSysColor(active ? COLOR_HIGHLIGHT : COLOR_BTNFACE);
-    COLORREF foreground = GetSysColor(active ? COLOR_HIGHLIGHTTEXT : COLOR_BTNTEXT);
-    HGDIOBJ oldbrush = SelectObject(dc, GetSysColorBrush(active ? COLOR_HIGHLIGHT : COLOR_BTNFACE));
+    COLORREF background = ThemeSystemColor(active ? COLOR_HIGHLIGHT : COLOR_BTNFACE);
+    COLORREF foreground = ThemeSystemColor(active ? COLOR_HIGHLIGHTTEXT : COLOR_BTNTEXT);
+    HGDIOBJ oldbrush = SelectObject(dc, ThemeSystemBrush(active ? COLOR_HIGHLIGHT : COLOR_BTNFACE));
     HGDIOBJ oldpen = SelectObject(dc, GetStockObject(DC_PEN));
     const TexThumb *icon = &state->objecticons[index];
     unsigned char pixels[TEX_THUMB_MAX * TEX_THUMB_MAX * 4] = {0};
@@ -526,7 +527,7 @@ static void BrowserPaintObjectTile(const BrowserState *state, HDC dc,
     RECT label = *rect;
     int x, y, saved = SaveDC(dc);
     IntersectClipRect(dc, rect->left, rect->top, rect->right, rect->bottom);
-    SetDCPenColor(dc, GetSysColor(active ? COLOR_HIGHLIGHT : COLOR_BTNSHADOW));
+    SetDCPenColor(dc, ThemeSystemColor(active ? COLOR_HIGHLIGHT : COLOR_BTNSHADOW));
     RoundRect(dc, rect->left, rect->top, rect->right, rect->bottom, 6, 6);
     /* Composite straight-alpha PNG pixels over the tile before drawing with
      * GDI. Keep the source artwork unchanged and preserve its aspect ratio. */
@@ -562,7 +563,7 @@ static void BrowserPaintObjectTile(const BrowserState *state, HDC dc,
     {
         RECT dot = {rect->right - 9 + x, (rect->top + rect->bottom) / 2 + y,
                     rect->right - 8 + x, (rect->top + rect->bottom) / 2 + y + 1};
-        FillRect(dc, &dot, GetSysColorBrush(active ? COLOR_HIGHLIGHTTEXT : COLOR_BTNSHADOW));
+        FillRect(dc, &dot, ThemeSystemBrush(active ? COLOR_HIGHLIGHTTEXT : COLOR_BTNSHADOW));
     }
     RestoreDC(dc, saved);
     SelectObject(dc, oldbrush);
@@ -620,7 +621,7 @@ static void BrowserPaintArrow(HDC hdc, const RECT *header, BOOL expanded)
     POINT pts[3];
     int cx = header->left + 13;
     int cy = (header->top + header->bottom) / 2;
-    HBRUSH brush = GetSysColorBrush(COLOR_BTNTEXT);
+    HBRUSH brush = ThemeSystemBrush(COLOR_BTNTEXT);
     HPEN pen;
     HGDIOBJ oldbrush;
     HGDIOBJ oldpen;
@@ -638,7 +639,7 @@ static void BrowserPaintArrow(HDC hdc, const RECT *header, BOOL expanded)
         pts[2].x = cx + 3; pts[2].y = cy;
     }
 
-    pen = CreatePen(PS_SOLID, 1, GetSysColor(COLOR_BTNTEXT));
+    pen = CreatePen(PS_SOLID, 1, ThemeSystemColor(COLOR_BTNTEXT));
     oldbrush = SelectObject(hdc, brush);
     oldpen = SelectObject(hdc, pen);
 
@@ -700,7 +701,7 @@ static void BrowserPaintImageGrid(BrowserState *state, HDC hdc, const RECT *body
     bmi.bmiHeader.biBitCount = 32;
     bmi.bmiHeader.biCompression = BI_RGB;
 
-    SetTextColor(hdc, GetSysColor(COLOR_WINDOWTEXT));
+    SetTextColor(hdc, ThemeSystemColor(COLOR_WINDOWTEXT));
 
     for (i = firstrow * columns; i < BrowserImageCount(state); i++)
     {
@@ -724,10 +725,10 @@ static void BrowserPaintImageGrid(BrowserState *state, HDC hdc, const RECT *body
         rc.bottom = y + BROWSER_IMAGE_CELL_H - 2;
         if (i == state->selectedimage)
         {
-            FillRect(hdc, &rc, GetSysColorBrush(COLOR_HIGHLIGHT));
-            SetTextColor(hdc, GetSysColor(COLOR_HIGHLIGHTTEXT));
+            FillRect(hdc, &rc, ThemeSystemBrush(COLOR_HIGHLIGHT));
+            SetTextColor(hdc, ThemeSystemColor(COLOR_HIGHLIGHTTEXT));
         }
-        else { SetTextColor(hdc, GetSysColor(COLOR_WINDOWTEXT)); }
+        else { SetTextColor(hdc, ThemeSystemColor(COLOR_WINDOWTEXT)); }
 
         if (t->w > 0 && t->h > 0)
         {
@@ -764,8 +765,8 @@ static void BrowserPaintImageGrid(BrowserState *state, HDC hdc, const RECT *body
 
 static void BrowserPaintTab(HDC hdc, RECT rect, const char *name, BOOL active)
 {
-    SetTextColor(hdc, GetSysColor(COLOR_BTNTEXT));
-    FillRect(hdc, &rect, GetSysColorBrush(active ? COLOR_WINDOW : COLOR_BTNFACE));
+    SetTextColor(hdc, ThemeSystemColor(COLOR_BTNTEXT));
+    FillRect(hdc, &rect, ThemeSystemBrush(active ? COLOR_WINDOW : COLOR_BTNFACE));
     DrawEdge(hdc, &rect, BDR_RAISEDOUTER,
              BF_LEFT | BF_TOP | BF_RIGHT | (active ? 0 : BF_BOTTOM));
     rect.left += 3;
@@ -802,7 +803,7 @@ static void BrowserPaintModelRows(BrowserState *state, HDC hdc, const RECT *body
     int y = body->top + 4 - state->scroll[BROWSER_SECTION_MODELS];
     int i;
 
-    SetTextColor(hdc, GetSysColor(COLOR_WINDOWTEXT));
+    SetTextColor(hdc, ThemeSystemColor(COLOR_WINDOWTEXT));
 
     for (i = 0; i < state->modelcount; i++)
     {
@@ -842,8 +843,8 @@ static void BrowserPaintScrollbar(BrowserState *state, HDC hdc, int section)
     track.left = thumb.left;
     track.right = thumb.right;
 
-    FillRect(hdc, &track, GetSysColorBrush(COLOR_BTNFACE));
-    FillRect(hdc, &thumb, GetSysColorBrush(COLOR_BTNSHADOW));
+    FillRect(hdc, &track, ThemeSystemBrush(COLOR_BTNFACE));
+    FillRect(hdc, &thumb, ThemeSystemBrush(COLOR_BTNSHADOW));
 }
 
 static void BrowserPaint(HWND hwnd, HDC hdc)
@@ -857,7 +858,7 @@ static void BrowserPaint(HWND hwnd, HDC hdc)
     GetClientRect(hwnd, &client);
 
     /* Base coat: anything not covered by a header or body below. */
-    FillRect(hdc, &client, GetSysColorBrush(COLOR_WINDOW));
+    FillRect(hdc, &client, ThemeSystemBrush(COLOR_WINDOW));
 
     if (state == NULL)
     {
@@ -877,10 +878,10 @@ static void BrowserPaint(HWND hwnd, HDC hdc)
 
         if (RectVisible(hdc, &sec->headerrc))
         {
-            FillRect(hdc, &sec->headerrc, GetSysColorBrush(COLOR_BTNFACE));
+            FillRect(hdc, &sec->headerrc, ThemeSystemBrush(COLOR_BTNFACE));
             BrowserPaintArrow(hdc, &sec->headerrc, sec->expanded);
             text.left += 26;
-            SetTextColor(hdc, GetSysColor(COLOR_BTNTEXT));
+            SetTextColor(hdc, ThemeSystemColor(COLOR_BTNTEXT));
             DrawText(hdc, sec->name, -1, &text, DT_SINGLELINE | DT_VCENTER | DT_LEFT);
         }
 
@@ -923,7 +924,7 @@ static void BrowserPaint(HWND hwnd, HDC hdc)
 
                 hint.left += 26;
                 hint.top += 6;
-                SetTextColor(hdc, GetSysColor(COLOR_GRAYTEXT));
+                SetTextColor(hdc, ThemeSystemColor(COLOR_GRAYTEXT));
                 DrawText(hdc, "(empty)", -1, &hint, DT_SINGLELINE | DT_TOP | DT_LEFT);
             }
         }
@@ -1183,7 +1184,7 @@ static void BrowserBeginObjectDrag(HWND hwnd, BrowserState *state, int index, PO
     if (dc == NULL) { DeleteObject(bitmap); return; }
     oldbitmap = SelectObject(dc, bitmap);
     oldfont = SelectObject(dc, GetStockObject(DEFAULT_GUI_FONT));
-    FillRect(dc, &rect, GetSysColorBrush(COLOR_WINDOW));
+    FillRect(dc, &rect, ThemeSystemBrush(COLOR_WINDOW));
     BrowserPaintObjectTile(state, dc, index, &rect, TRUE);
     SelectObject(dc, oldfont);
     SelectObject(dc, oldbitmap);
@@ -1231,9 +1232,9 @@ static void BrowserBeginModelDrag(HWND hwnd, BrowserState *state, int index, POI
     }
     oldbitmap = SelectObject(dc, bitmap);
     oldfont = SelectObject(dc, GetStockObject(DEFAULT_GUI_FONT));
-    FillRect(dc, &rect, GetSysColorBrush(COLOR_HIGHLIGHT));
+    FillRect(dc, &rect, ThemeSystemBrush(COLOR_HIGHLIGHT));
     SetBkMode(dc, TRANSPARENT);
-    SetTextColor(dc, GetSysColor(COLOR_HIGHLIGHTTEXT));
+    SetTextColor(dc, ThemeSystemColor(COLOR_HIGHLIGHTTEXT));
     rect.left = 6;
     rect.right -= 6;
     DrawText(dc, name, -1, &rect, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);

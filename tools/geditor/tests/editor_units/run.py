@@ -35,7 +35,8 @@ with tempfile.TemporaryDirectory(prefix='geditor-units-') as temp:
                    env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))
     settings = (src / 'editorsettings.c').read_text()
     (work / 'preferences.inc').write_text(''.join(extract.function(settings, name) for name in (
-        'EditorSettingsLoad', 'EditorSettingsGetUnits', 'EditorSettingsSetUnits')))
+        'EditorSettingsLoad', 'EditorSettingsGetUnits', 'EditorSettingsSetUnits',
+        'EditorSettingsGetTheme', 'EditorSettingsSetTheme')))
     cmd[cmd.index(str(here / 'check.c'))] = str(here / 'preferences.c')
     cmd.remove(str(src / 'bgdocument.c'))
     subprocess.run(cmd, check=True)

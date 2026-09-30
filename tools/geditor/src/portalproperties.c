@@ -1,3 +1,4 @@
+#include "theme.h"
 /* Portal connections and margins are edited independently in native table order. */
 #include <windows.h>
 #include <windowsx.h>
@@ -194,7 +195,7 @@ static LRESULT CALLBACK PortalPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
         }
         return 0;
     case WM_CTLCOLORSTATIC:
-        SetBkColor((HDC)wparam, GetSysColor(COLOR_WINDOW)); return (LRESULT)GetSysColorBrush(COLOR_WINDOW);
+        SetBkColor((HDC)wparam, ThemeSystemColor(COLOR_WINDOW)); return (LRESULT)ThemeSystemBrush(COLOR_WINDOW);
     case WM_NCDESTROY:
         free(state); SetWindowLongPtr(hwnd, GWLP_USERDATA, 0); break;
     }
@@ -204,7 +205,7 @@ static LRESULT CALLBACK PortalPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
 BOOL PortalPropertiesRegisterClass(HINSTANCE instance)
 {
     WNDCLASS wc = {0}; wc.lpfnWndProc = PortalPropertiesWndProc; wc.hInstance = instance;
-    wc.hCursor = LoadCursor(NULL, IDC_ARROW); wc.hbrBackground = GetSysColorBrush(COLOR_WINDOW);
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW); wc.hbrBackground = ThemeSystemBrush(COLOR_WINDOW);
     wc.lpszClassName = PORTALPROPERTIES_CLASS; return RegisterClass(&wc) != 0;
 }
 HWND PortalPropertiesCreate(HWND parent, HINSTANCE instance)

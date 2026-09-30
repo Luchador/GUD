@@ -1,3 +1,4 @@
+#include "theme.h"
 /* Compact HSV picker with byte RGBA inputs and an alpha-checkered swatch. */
 #include <windows.h>
 #include <windowsx.h>
@@ -251,7 +252,7 @@ static void ColorPickerPaint(HWND hwnd, ColorPickerState *state, HDC hdc)
     char hex[16];
 
     GetClientRect(hwnd, &client);
-    FillRect(hdc, &client, GetSysColorBrush(COLOR_WINDOW));
+    FillRect(hdc, &client, ThemeSystemBrush(COLOR_WINDOW));
     if (state->imagedirty)
     {
         ColorPickerHsvToRgb(state->hue, 1.0, 1.0, hue);
@@ -305,10 +306,10 @@ static void ColorPickerPaint(HWND hwnd, ColorPickerState *state, HDC hdc)
             FillRect(hdc, &cell, (HBRUSH)GetStockObject(DC_BRUSH));
         }
     }
-    FrameRect(hdc, &state->swatch, GetSysColorBrush(COLOR_BTNSHADOW));
+    FrameRect(hdc, &state->swatch, ThemeSystemBrush(COLOR_BTNSHADOW));
     oldfont = (HFONT)SelectObject(hdc, GetStockObject(DEFAULT_GUI_FONT));
     SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, GetSysColor(COLOR_WINDOWTEXT));
+    SetTextColor(hdc, ThemeSystemColor(COLOR_WINDOWTEXT));
     SetRect(&label, state->swatch.right + 10, state->swatch.top, client.right - 8, state->swatch.top + 18);
     DrawText(hdc, "Current color", -1, &label, DT_SINGLELINE | DT_NOPREFIX);
     label.top += 18;
@@ -328,7 +329,7 @@ static void ColorPickerPaint(HWND hwnd, ColorPickerState *state, HDC hdc)
     if (!state->model)
     {
         SetRect(&label, COLORPICKER_MARGIN, state->channelstop + 60, client.right - 8, state->channelstop + 104);
-        SetTextColor(hdc, GetSysColor(COLOR_GRAYTEXT));
+        SetTextColor(hdc, ThemeSystemColor(COLOR_GRAYTEXT));
         DrawText(hdc, state->sampling
                  ? "Click a BG face or Stan tile to pick its color. Esc cancels."
                  : "Click a BG face to paint its nearest vertex. Pick Color copies its RGBA.", -1,
@@ -457,8 +458,8 @@ static LRESULT CALLBACK ColorPickerWndProc(HWND hwnd, UINT message, WPARAM wpara
             {
                 if ((HWND)lparam == state->channels[channel] && state->invalid[channel])
                 {
-                    SetBkColor((HDC)wparam, RGB(255, 220, 220));
-                    SetDCBrushColor((HDC)wparam, RGB(255, 220, 220));
+                    SetBkColor((HDC)wparam, ThemeColor(THEME_ERROR_BACKGROUND));
+                    SetDCBrushColor((HDC)wparam, ThemeColor(THEME_ERROR_BACKGROUND));
                     return (LRESULT)GetStockObject(DC_BRUSH);
                 }
             }
