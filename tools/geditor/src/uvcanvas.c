@@ -793,6 +793,9 @@ static void UVCanvasDrag(HWND hwnd, UVCanvasState *state, int x, int y)
         return;
     }
     UVCanvasNotify(hwnd);
+    /* Paint this preview before handling more mouse input. Queued WM_PAINT
+     * messages can otherwise wait until the drag ends. */
+    UpdateWindow(hwnd);
 }
 
 static BOOL UVCanvasCommit(HWND hwnd, UVCanvasState *state)

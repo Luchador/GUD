@@ -28,6 +28,9 @@ static HWND canvas = &state, capture;
 static UVCanvasTriangle source;
 static int previews, clears;
 static BgDocumentUVEdit displayed[3];
+static int canvasPaints;
+static BOOL paintPending;
+static double paintedUV[3][2];
 static int commits, refreshes, inspectorUpdates, notificationDepth;
 static DWORD inspectorOffset;
 static BOOL objectSelected;
@@ -45,7 +48,16 @@ static UVCanvasState *UVCanvasGetState(HWND hwnd) { return hwnd; }
 static HWND GetParent(HWND hwnd) { return (HWND)4; }
 static HWND GetCapture(void) { return capture; }
 static void ReleaseCapture(void) { capture = NULL; UVCanvasCancelInteraction(canvas); }
-static void InvalidateRect(HWND hwnd, const void *rect, BOOL erase) {}
+static void InvalidateRect(HWND hwnd, const void *rect, BOOL erase)
+{ assert(hwnd == canvas && !erase); paintPending = TRUE; }
+static void UpdateWindow(HWND hwnd)
+{
+    assert(hwnd == canvas);
+    if (!paintPending) { return; }
+    assert(state.trianglecount == 1);
+    memcpy(paintedUV, state.triangles[0].uv, sizeof(paintedUV));
+    canvasPaints++; paintPending = FALSE;
+}
 static int GetKeyState(int key) { return 0; }
 static int MessageBox(HWND hwnd, const char *text, const char *title, int flags) { abort(); }
 static LRESULT SendMessage(HWND hwnd, unsigned message, WPARAM wparam, LPARAM lparam);
@@ -155,6 +167,8 @@ static void Fixture(TransformMode mode)
     UVEditorRefreshSelection(g_Viewport, &g_CurrentBgDocument, g_Project.dir);
     for (int i = 0; i < 3; i++) { state.nodes[i].selected = TRUE; }
     UVCanvasResetTransform(&state);
+    UpdateWindow(canvas); /* Paint the initial frame before input stays busy. */
+    canvasPaints = 0;
 }
 
 static void BeginDrag(void)
@@ -187,10 +201,18 @@ int main(void)
         assert(state.nodes[1].source.s == 1024); /* Source stays intact during preview. */
         assert(state.triangles[0].uv[0][0] != 0);
         assert(state.values[0] == (mode == TRANSFORM_MOVE ? .18 : mode == TRANSFORM_ROTATE ? 90 : 1.5));
+        /* No idle message processing: the canvas must paint during the drag,
+         * not wait for mouse-up or only refresh the owner's 3D preview. */
+        assert(canvasPaints == 1 && !paintPending);
+        assert(memcmp(paintedUV, state.triangles[0].uv, sizeof(paintedUV)) == 0);
+        x -= 18; y -= 9;
         UVCanvasDrag(canvas, &state, x, y);
         assert(state.draghandle == 3 && capture == canvas && !commits && previews == 2 && state.previewvertices == buffer);
+        assert(canvasPaints == 2 && !paintPending);
+        assert(memcmp(paintedUV, state.triangles[0].uv, sizeof(paintedUV)) == 0);
         assert(UVCanvasCommit(canvas, &state));
         assert(commits == 1 && refreshes == before + 1 && !state.draghandle && !capture && clears == 1 && !state.previewvertices);
+        assert(canvasPaints == 2); /* Never flash the restored source during commit. */
         assert(source.source[0].s != 0);
         for (int i = 0; i < 3; i++) { assert(state.nodes[i].selected); }
 
@@ -210,6 +232,6 @@ int main(void)
     GEditorRefreshHistoryMenu((HWND)5);
     assert(inspectorOffset == 128 && refreshes == before);
     free(state.nodes); free(state.triangles);
-    puts("PASS: Move/Rotate/Scale survive history refresh; previews commit once, cancellation restores UVs, and setup inspector offsets still refresh.");
+    puts("PASS: Move/Rotate/Scale repaint the UV canvas during drag and survive history refresh; previews commit once, cancellation restores UVs, and setup inspector offsets still refresh.");
     return 0;
 }
