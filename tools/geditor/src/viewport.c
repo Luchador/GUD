@@ -321,6 +321,8 @@ typedef struct ViewportState {
     int width, height;
     BOOL boxpending, boxdragging, boxadd, boxremove;
     POINT boxstart, boxend; /* viewport client pixels, independent of monitor origin */
+    POINT selectionpoint; /* last viewport cursor position for hover commands in menus */
+    BOOL selectionpointvalid;
     BgVertex *arrow;
     DWORD arrowtris;
     BgVertex *markermodels[SETUP_MARKER_KIND_COUNT];
@@ -6794,6 +6796,119 @@ BOOL ViewportCanSelectBackground(HWND hwnd, BOOL grow)
     return !grow || (s->tool == EDITOR_TOOL_FACE_SELECT ? s->selectedtricount : s->componentcount) > 0;
 }
 
+BOOL ViewportCanSelectConnected(HWND hwnd)
+{
+    const ViewportState *s = ViewportGetState(hwnd);
+    return ViewportCanSelectBackground(hwnd, FALSE) && s->tool == EDITOR_TOOL_FACE_SELECT
+        && s->scenecolors && !s->vertexsnap && !s->padpick && !s->doorpick && !s->knifeactive;
+}
+
+typedef struct ViewportConnectedEdge {
+    ViewportBoxComponent key;
+    int triangle;
+} ViewportConnectedEdge;
+
+static int ViewportCompareConnectedEdges(const void *left, const void *right)
+{
+    const ViewportConnectedEdge *a = left, *b = right;
+    return ViewportCompareBoxComponents(&a->key, &b->key);
+}
+
+/* Negative entries hold component sizes. Union by size and path compression
+ * keep long strips and non-manifold fans fast without recursive flood fills. */
+static int ViewportConnectedRoot(int *parents, int triangle)
+{
+    int root = triangle;
+    while (parents[root] >= 0) { root = parents[root]; }
+    while (triangle != root)
+    {
+        int next = parents[triangle];
+        parents[triangle] = root; triangle = next;
+    }
+    return root;
+}
+
+static void ViewportRememberSelectionPoint(ViewportState *state, int x, int y)
+{
+    if (state && !state->orbit && !state->flying && x >= 0 && y >= 0
+        && x < state->width && y < state->height)
+    { state->selectionpoint = (POINT){x, y}; state->selectionpointvalid = TRUE; }
+}
+
+BOOL ViewportSelectConnected(HWND hwnd)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    ViewportPickRay ray;
+    POINT point;
+    double distance;
+    ViewportConnectedEdge *edges = NULL;
+    int *parents = NULL, edgecount = 0;
+    BOOL ok = FALSE;
+    if (!ViewportCanSelectConnected(hwnd)) { return TRUE; }
+    if (GetCursorPos(&point) && WindowFromPoint(point) == hwnd && ScreenToClient(hwnd, &point))
+    { ViewportRememberSelectionPoint(state, point.x, point.y); }
+    if (!state->selectionpointvalid) { return TRUE; }
+    point = state->selectionpoint;
+    if (point.x < 0 || point.y < 0 || point.x >= state->width || point.y >= state->height
+        || !ViewportBuildPickRay(hwnd, state, point.x, point.y, &ray)) { return TRUE; }
+    /* Use the rendered winner, including depth/culling/alpha and wireframe
+     * rules. Unlike repeated clicks, L never cycles to a face behind it. */
+    int seed = ViewportFindSceneTriangle(state, &ray, &distance, TRUE);
+    int triangles = state->scenecount / 3;
+    if (seed < 0 || seed >= triangles || state->scenefacerefs[seed].faceid == BG_FACE_ID_NONE
+        || !state->scenefacerefs[seed].room) { return TRUE; }
+    if ((size_t)state->scenecount > SIZE_MAX / sizeof(*edges)
+        || (size_t)triangles > SIZE_MAX / sizeof(*parents)) { return FALSE; }
+    edges = malloc((size_t)state->scenecount * sizeof(*edges));
+    parents = malloc((size_t)triangles * sizeof(*parents));
+    if (!edges || !parents) { goto done; }
+    for (int tri = 0; tri < triangles; tri++) { parents[tri] = -1; }
+    for (int i = 0; i < state->batchcount; i++)
+    {
+        const SceneBatch *batch = &state->batches[i];
+        if (batch->object || !ViewportBatchIsPickable(state, batch)) { continue; }
+        for (int tri = batch->first / 3; tri < (batch->first + batch->count) / 3; tri++)
+        {
+            const BgFaceRef *face = &state->scenefacerefs[tri];
+            if (face->room != state->scenefacerefs[seed].room || face->faceid == BG_FACE_ID_NONE
+                || ViewportTriangleHidden(state, tri)) { continue; }
+            for (int c = 0; c < 3; c++)
+            {
+                ViewportBoxPoint a = ViewportBgSelectionPoint(state, tri*3+c);
+                ViewportBoxPoint b = ViewportBgSelectionPoint(state, tri*3+(c+1)%3);
+                if (a.owner != face->room || b.owner != face->room || !ViewportCompareBoxPoints(&a, &b)) { continue; }
+                edges[edgecount++] = (ViewportConnectedEdge){ViewportBoxComponentKey(a, b), tri};
+            }
+        }
+    }
+    qsort(edges, edgecount, sizeof(*edges), ViewportCompareConnectedEdges);
+    for (int i = 1; i < edgecount; i++)
+    {
+        if (ViewportCompareConnectedEdges(&edges[i-1], &edges[i])) { continue; }
+        int a = ViewportConnectedRoot(parents, edges[i-1].triangle);
+        int b = ViewportConnectedRoot(parents, edges[i].triangle);
+        if (a == b) { continue; }
+        if (parents[a] > parents[b]) { int swap = a; a = b; b = swap; }
+        parents[a] += parents[b]; parents[b] = a;
+    }
+    int root = ViewportConnectedRoot(parents, seed);
+    /* No selection is changed before allocation and traversal succeed. A
+     * single notification captures the whole island in selection history. */
+    ViewportClearAllSelection(state);
+    for (int tri = 0; tri < triangles; tri++)
+    {
+        if (ViewportConnectedRoot(parents, tri) != root) { continue; }
+        state->selectedtris[tri] = 1; state->selectedtricount++;
+        ViewportSetTriangleColor(state, tri, TRUE);
+    }
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd, NULL, FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+    ok = TRUE;
+done:
+    free(edges); free(parents); return ok;
+}
+
 typedef enum ViewportBgSelectionScope
 {
     VIEWPORT_BG_SELECT_ALL,
@@ -8961,6 +9076,9 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
 {
     ViewportState *state = ViewportGetState(hwnd);
 
+    if (msg == WM_MOUSEMOVE || msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN)
+    { ViewportRememberSelectionPoint(state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)); }
+
     if (state != NULL && state->orbit && ViewportOrbitInput(hwnd, state, msg, wparam, lparam))
     { return 0; }
 
@@ -9950,6 +10068,7 @@ static void ViewportFreeTextureCache(ViewportTexture *cache)
 /* Releases GL textures, geometry and editor overlays in the scene context. */
 static void ViewportFreeScene(struct ViewportState *state_)
 {
+    state_->selectionpointvalid = FALSE;
     ViewportState *state = (ViewportState *)state_;
 
     if (state->texturecount > 0)

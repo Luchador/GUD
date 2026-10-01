@@ -231,6 +231,12 @@ BOOL ViewportSelectBackground(HWND hwnd, BOOL grow);
    Single-selection pads, markers and the whole-room tool are excluded. */
 BOOL ViewportCanSelectInverse(HWND hwnd);
 BOOL ViewportSelectInverse(HWND hwnd);
+/* Face mode: replace selection with the hovered BG face's connected island.
+ * Adjacency requires a complete edge with matching source vertex identities;
+ * hidden faces and disabled layers are excluded, occluded faces can connect.
+ * Menu invocation outside the viewport uses its last recorded cursor position. */
+BOOL ViewportCanSelectConnected(HWND hwnd);
+BOOL ViewportSelectConnected(HWND hwnd);
 /* Add one adjacent ring in the selected BG or stan domain. Stan growth uses
  * linked point identities and polygon perimeters, never fan diagonals. */
 BOOL ViewportCanGrowSelection(HWND hwnd);

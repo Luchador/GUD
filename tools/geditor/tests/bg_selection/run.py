@@ -25,7 +25,8 @@ def main():
     viewport = (src / 'viewport.c').read_text()
     types = re.search(r'^#define VIEWPORT_SELECTION_GOLD .*', viewport, re.M)[0] + '\n'
     for name in ('SceneBatch', 'Vertex', 'VertexColor', 'ViewportComponent',
-                 'ViewportStanComponent', 'ViewportBoxPoint', 'ViewportBoxComponent', 'ViewportBgPlane'):
+                 'ViewportStanComponent', 'ViewportBoxPoint', 'ViewportBoxComponent', 'ViewportBgPlane',
+                 'ViewportPickRay', 'ViewportConnectedEdge'):
         types += re.search(r'typedef struct ' + name + r'\s*\{.*?\} ' + name + ';', viewport, re.S)[0] + '\n'
     types += re.search(r'typedef enum ViewportBgSelectionScope\s*\{.*?\} ViewportBgSelectionScope;', viewport, re.S)[0] + '\n'
     types += re.search(r'typedef enum ViewportSelectionDomain\s*\{.*?\} ViewportSelectionDomain;', viewport, re.S)[0] + '\n'
@@ -38,6 +39,8 @@ def main():
         'ViewportCompareBoxComponents', 'ViewportBoxComponentKey', 'ViewportApplyBoxComponents', 'ViewportApplyInverseComponents',
         'ViewportBgSelectionPoint', 'ViewportCanSelectBackground', 'ViewportBgRoomKey',
         'ViewportChangeBgSelection', 'ViewportSelectBackground',
+        'ViewportCanSelectConnected', 'ViewportCompareConnectedEdges', 'ViewportConnectedRoot',
+        'ViewportRememberSelectionPoint', 'ViewportSelectConnected',
         'ViewportStanVisible', 'ViewportCompareStanIds', 'ViewportStanTileHidden',
         'ViewportStanPointRef', 'ViewportCanSelectStan', 'ViewportStanSelectionPoint',
         'ViewportInverseDomain', 'ViewportCanSelectInverse', 'ViewportInvertStanSelection',
@@ -59,8 +62,14 @@ def main():
     assert 'ViewportCanSelectCoplanar(g_Viewport)' in menu
     items = re.findall(r'AppendMenu\(selectmenu, MF_STRING, (ID_SELECT_\w+),', editor)
     assert items[items.index('ID_SELECT_ALL') + 1] == 'ID_SELECT_INVERSE'
-    assert items[items.index('ID_SELECT_INVERSE') + 1] == 'ID_SELECT_COPLANAR'
-    assert 'Select &Inverse\\tShift+I' in editor
+    assert items[items.index('ID_SELECT_INVERSE') + 1] == 'ID_SELECT_CONNECTED'
+    assert items[items.index('ID_SELECT_CONNECTED') + 1] == 'ID_SELECT_COPLANAR'
+    assert 'Select &Inverse\\tCtrl+I' in editor
+    assert 'Select Connected\\tL' in editor
+    menu = editor.split('EnableMenuItem((HMENU)wparam, ID_SELECT_CONNECTED,')[1].split(';', 1)[0]
+    assert 'ViewportCanSelectConnected(g_Viewport)' in menu
+    command = editor.split('case ID_SELECT_CONNECTED:')[1].split('return 0;', 1)[0]
+    assert 'ViewportSelectConnected(g_Viewport)' in command
     menu = editor.split('EnableMenuItem((HMENU)wparam, ID_SELECT_INVERSE,')[1].split(';', 1)[0]
     assert 'ViewportCanSelectInverse(g_Viewport)' in menu
     command = editor.split('case ID_SELECT_INVERSE:')[1].split('case ID_SELECT_ROOM:', 1)[0]

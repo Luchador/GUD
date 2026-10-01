@@ -745,6 +745,7 @@ enum {
     ID_SELECT_GROW,
     ID_SELECT_ALL,
     ID_SELECT_INVERSE,
+    ID_SELECT_CONNECTED,
     ID_SELECT_COPLANAR,
     ID_SELECT_SAME_MATERIAL,
     ID_SELECT_MATERIAL_IN_ROOM,
@@ -986,7 +987,8 @@ static HMENU GEditorCreateMenuBar(void)
 
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_GROW, "&Grow Selection\tQ");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_ALL, "Select &All\tCtrl+A");
-    AppendMenu(selectmenu, MF_STRING, ID_SELECT_INVERSE, "Select &Inverse\tShift+I");
+    AppendMenu(selectmenu, MF_STRING, ID_SELECT_INVERSE, "Select &Inverse\tCtrl+I");
+    AppendMenu(selectmenu, MF_STRING, ID_SELECT_CONNECTED, "Select Connected\tL");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_COPLANAR, "Select &Coplanar\tShift+C");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_SAME_MATERIAL, "Select Same &Material\tShift+M");
     AppendMenu(selectmenu, MF_STRING, ID_SELECT_MATERIAL_IN_ROOM, "Select Material in Room\tAlt+M");
@@ -6969,6 +6971,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             (ViewportCanSelectBackground(g_Viewport, FALSE) ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_SELECT_INVERSE, MF_BYCOMMAND |
             (ViewportCanSelectInverse(g_Viewport) ? MF_ENABLED : MF_GRAYED));
+        EnableMenuItem((HMENU)wparam, ID_SELECT_CONNECTED, MF_BYCOMMAND |
+            (ViewportCanSelectConnected(g_Viewport) ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_SELECT_ROOM, MF_BYCOMMAND |
             (ViewportCanSelectRoom(g_Viewport) ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_SELECT_COPLANAR, MF_BYCOMMAND |
@@ -7279,6 +7283,11 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             case ID_SELECT_INVERSE:
                 if (!ViewportSelectInverse(g_Viewport))
                 { MessageBox(hwnd, "Not enough memory to invert the selection.", GEDITOR_TITLE, MB_ICONERROR); }
+                return 0;
+
+            case ID_SELECT_CONNECTED:
+                if (!ViewportSelectConnected(g_Viewport))
+                { MessageBox(hwnd, "Not enough memory to select connected faces.", GEDITOR_TITLE, MB_ICONERROR); }
                 return 0;
 
             case ID_SELECT_ROOM:
@@ -7774,7 +7783,7 @@ static BOOL GEditorHandleSelectionHotkey(HWND frame, const MSG *message)
     BOOL control, shift, alt;
     if (!message || !g_Viewport
         || (message->message != WM_KEYDOWN && message->message != WM_SYSKEYDOWN)
-        || (message->wParam != 'Q' && message->wParam != 'A' && message->wParam != 'R' && message->wParam != 'S' && message->wParam != 'M' && message->wParam != 'C' && message->wParam != 'I')
+        || (message->wParam != 'Q' && message->wParam != 'A' && message->wParam != 'R' && message->wParam != 'S' && message->wParam != 'M' && message->wParam != 'C' && message->wParam != 'I' && message->wParam != 'L')
         || ViewportIsFlying(g_Viewport)
         || (message->hwnd != frame && !IsChild(frame, message->hwnd))) { return FALSE; }
     control = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
@@ -7784,13 +7793,20 @@ static BOOL GEditorHandleSelectionHotkey(HWND frame, const MSG *message)
     {
         if (message->wParam != 'M' || control || shift) { return FALSE; }
     }
-    else if (control != (message->wParam == 'A') || shift != (message->wParam == 'R' || message->wParam == 'S' || message->wParam == 'M' || message->wParam == 'C' || message->wParam == 'I')) { return FALSE; }
+    else if (control != (message->wParam == 'A' || message->wParam == 'I') || shift != (message->wParam == 'R' || message->wParam == 'S' || message->wParam == 'M' || message->wParam == 'C')) { return FALSE; }
     GetClassName(message->hwnd, classname, sizeof(classname));
     if (lstrcmpi(classname, "Edit") == 0 || lstrcmpi(classname, "ComboBox") == 0
         || lstrcmpi(classname, "ComboLBox") == 0) { return FALSE; }
+    if (message->wParam == 'L')
+    {
+        POINT point;
+        /* The menu can use the last viewport position; L is strictly a hover
+         * command and must not act on a stale target while over another panel. */
+        if (!GetCursorPos(&point) || WindowFromPoint(point) != g_Viewport) { return FALSE; }
+    }
     /* Run once per physical press; holding Q must not grow more rings. */
     if (!(message->lParam & ((LPARAM)1 << 30)))
-    { SendMessage(frame, WM_COMMAND, alt ? ID_SELECT_MATERIAL_IN_ROOM : message->wParam == 'I' ? ID_SELECT_INVERSE : message->wParam == 'C' ? ID_SELECT_COPLANAR : message->wParam == 'M' ? ID_SELECT_SAME_MATERIAL : message->wParam == 'S' ? ID_SELECT_SIMILAR : shift ? ID_SELECT_ROOM : control ? ID_SELECT_ALL : ID_SELECT_GROW, 0); }
+    { SendMessage(frame, WM_COMMAND, alt ? ID_SELECT_MATERIAL_IN_ROOM : message->wParam == 'L' ? ID_SELECT_CONNECTED : message->wParam == 'I' ? ID_SELECT_INVERSE : message->wParam == 'C' ? ID_SELECT_COPLANAR : message->wParam == 'M' ? ID_SELECT_SAME_MATERIAL : message->wParam == 'S' ? ID_SELECT_SIMILAR : shift ? ID_SELECT_ROOM : control ? ID_SELECT_ALL : ID_SELECT_GROW, 0); }
     return TRUE;
 }
 

@@ -11,6 +11,7 @@
 #include "setupload.h"
 
 typedef void *HWND;
+typedef struct POINT { int x, y; } POINT;
 typedef unsigned int GLuint;
 typedef int GLsizei;
 typedef float GLfloat;
@@ -49,6 +50,9 @@ typedef struct ViewportState {
     Vertex *objectselectionboxes;
     GLsizei objectselectionboxescount, objectselectionboxcount;
     float markerlevelscale;
+    BOOL vertexsnap, padpick, doorpick, knifeactive, selectionpointvalid;
+    POINT selectionpoint;
+    int width, height;
 } ViewportState;
 
 static unsigned notifications, stanrefreshes;
@@ -70,6 +74,20 @@ static HWND GetParent(HWND hwnd) { return (HWND)1; }
 static unsigned command;
 static void SendMessage(HWND hwnd, unsigned msg, unsigned wparam, LPARAM lparam)
 { if (msg==VIEWPORT_WM_SELECTION_CHANGED) { notifications++; } else { command=wparam; } }
+
+static POINT cursor, raypoint;
+static HWND cursorwindow;
+static BOOL cursorvalid = TRUE, rayvalid = TRUE;
+static int pickedtriangle;
+static BOOL GetCursorPos(POINT *point) { *point = cursor; return cursorvalid; }
+static HWND WindowFromPoint(POINT point) { return cursorwindow; }
+static BOOL ScreenToClient(HWND hwnd, POINT *point)
+{ point->x -= 1200; point->y -= 100; return TRUE; } /* non-primary monitor origin */
+static BOOL ViewportBuildPickRay(HWND hwnd, const ViewportState *state, int x, int y, ViewportPickRay *ray)
+{ raypoint = (POINT){x,y}; memset(ray,0,sizeof(*ray)); return rayvalid; }
+static int ViewportFindSceneTriangle(const ViewportState *state, const ViewportPickRay *ray,
+    double *distance, BOOL faceselection)
+{ assert(faceselection); *distance = 10; return pickedtriangle; }
 
 static int allocations=-1;
 static BOOL FailAllocation(void)
@@ -701,6 +719,7 @@ typedef struct { HWND hwnd; unsigned message, wParam; LPARAM lParam; } MSG;
 #define VK_MENU 1
 #define VK_SHIFT 2
 #define ID_SELECT_INVERSE 16
+#define ID_SELECT_CONNECTED 18
 #define ID_SELECT_ALL 10
 #define ID_SELECT_GROW 11
 #define ID_SELECT_ROOM 12
@@ -779,16 +798,28 @@ static void Hotkeys(void)
     classname="Viewport"; msg.hwnd=(HWND)4; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg));
     msg.hwnd=(HWND)2; keys[VK_SHIFT]=0; msg.wParam='I';
     assert(!GEditorHandleSelectionHotkey((HWND)1,&msg));
-    keys[VK_SHIFT]=0x8000;
+    keys[VK_SHIFT]=0x8000; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg)); keys[VK_SHIFT]=0;
+    keys[VK_CONTROL]=0x8000;
     assert(GEditorHandleSelectionHotkey((HWND)1,&msg) && command==ID_SELECT_INVERSE);
     command=0; msg.lParam=(LPARAM)1<<30;
     assert(GEditorHandleSelectionHotkey((HWND)1,&msg) && !command); msg.lParam=0;
     flying=TRUE; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg)); flying=FALSE;
-    keys[VK_CONTROL]=0x8000; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg)); keys[VK_CONTROL]=0;
+    keys[VK_SHIFT]=0x8000; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg)); keys[VK_SHIFT]=0;
     keys[VK_MENU]=0x8000; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg)); keys[VK_MENU]=0;
     for (unsigned i=0; i<3; i++) { classname=inputs[i]; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg)); }
     classname="Viewport"; msg.hwnd=(HWND)4; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg));
-    puts("PASS: Q/Ctrl+A/Shift+R/Shift+S/Shift+M/Shift+C/Shift+I routing, repeat suppression, text fields, camera flight and window scope.");
+    msg.hwnd=(HWND)2; keys[VK_CONTROL]=0; msg.wParam='L'; cursorwindow=g_Viewport;
+    assert(GEditorHandleSelectionHotkey((HWND)1,&msg) && command==ID_SELECT_CONNECTED);
+    command=0; msg.lParam=(LPARAM)1<<30;
+    assert(GEditorHandleSelectionHotkey((HWND)1,&msg) && !command); msg.lParam=0;
+    for (int key=0; key<3; key++)
+    { keys[key]=0x8000; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg)); keys[key]=0; }
+    flying=TRUE; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg)); flying=FALSE;
+    cursorwindow=(HWND)3; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg)); cursorwindow=g_Viewport;
+    cursorvalid=FALSE; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg)); cursorvalid=TRUE;
+    for (unsigned i=0; i<3; i++) { classname=inputs[i]; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg)); }
+    classname="Viewport"; msg.hwnd=(HWND)4; assert(!GEditorHandleSelectionHotkey((HWND)1,&msg));
+    puts("PASS: selection shortcuts including Ctrl+I/L, repeat suppression, modifiers, text fields, flight, window scope and viewport hover.");
 }
 
 static void Coplanar(void)
@@ -873,4 +904,102 @@ static void Coplanar(void)
     puts("PASS: coplanar world planes, angle/distance/native-scale tolerances, reversed winding, disconnected/off-screen rooms, multiple frozen seeds, hidden/layer filters, degenerate/non-finite faces, no-op and allocation failure.");
 }
 
-int main(void) { Geometry(); SameMaterial(); StanRooms(); StanGrowth(); InverseStans(); InversePortalsAndModels(); Coplanar(); Hotkeys(); return 0; }
+static void Connected(void)
+{
+    enum { count = 14 };
+    /* All positions deliberately coincide: only source identities matter. */
+    Vertex vertices[count*3] = {0}; VertexColor colors[count*3] = {0};
+    BgDocumentVertexRef refs[count*3]; BgFaceRef faces[count] = {0};
+    unsigned char selected[count] = {0}, hidden[count] = {0}; SceneBatch batches[count] = {0};
+    const DWORD indices[count][3] = {
+        {0,1,2}, {2,1,3}, {3,1,4}, /* three-face strip */
+        {10,11,12}, {4,20,21}, {1,30,31}, /* duplicate coordinates, vertex-only, split endpoint */
+        {0,1,2}, /* room 2 */
+        {4,3,5}, {5,3,6}, /* hidden bridge and face beyond it */
+        {2,0,7}, {7,0,8}, /* disabled secondary bridge and primary face beyond it */
+        {1,2,32}, /* third face on a non-manifold edge */
+        {0,1,2}, {44,44,45} /* object, degenerate edge */
+    };
+    ViewportState s = {.tool=EDITOR_TOOL_FACE_SELECT, .showbgprimary=TRUE, .dragaxis=-1,
+        .scene=vertices, .scenecolors=colors, .scenecount=count*3, .scenevertexrefs=refs,
+        .scenefacerefs=faces, .selectedtris=selected, .hiddentris=hidden, .batches=batches,
+        .batchcount=count, .selectedobject=VIEWPORT_OBJECT_NONE, .width=640, .height=480};
+    for (int tri=0; tri<count; tri++)
+    {
+        DWORD room=tri==6?2:1;
+        faces[tri]=(BgFaceRef){.faceid=tri+1, .room=room};
+        batches[tri].first=tri*3; batches[tri].count=3;
+        for (int c=0; c<3; c++) { refs[tri*3+c]=(BgDocumentVertexRef){room,indices[tri][c]}; }
+    }
+    hidden[7]=1; batches[9].secondary=TRUE; batches[12].object=TRUE; faces[12].faceid=BG_FACE_ID_NONE;
+    cursorwindow=&s; cursor=(POINT){1204,105}; pickedtriangle=0;
+    selected[3]=1; s.selectedtricount=1;
+    unsigned before=notifications;
+    assert(ViewportCanSelectConnected(&s) && ViewportSelectConnected(&s));
+    assert(notifications==before+1 && s.selectedtricount==4 && raypoint.x==4 && raypoint.y==5);
+    for (int tri=0; tri<count; tri++) { assert(selected[tri]==(tri==0 || tri==1 || tri==2 || tri==11)); }
+    assert(ViewportSelectConnected(&s) && s.selectedtricount==4); /* stable; no cycling to underlying geometry */
+    hidden[7]=0; assert(ViewportSelectConnected(&s) && s.selectedtricount==6 && selected[7] && selected[8]);
+    hidden[7]=1; s.showbgsecondary=TRUE;
+    assert(ViewportSelectConnected(&s) && s.selectedtricount==6 && selected[9] && selected[10] && !selected[8]);
+    s.showbgsecondary=FALSE;
+    pickedtriangle=6; assert(ViewportSelectConnected(&s) && s.selectedtricount==1 && selected[6]);
+    pickedtriangle=13; assert(ViewportSelectConnected(&s) && s.selectedtricount==1 && selected[13]);
+    /* A menu uses the recorded client position after the cursor leaves the viewport. */
+    cursorwindow=NULL; ViewportRememberSelectionPoint(&s,30,40); pickedtriangle=0;
+    assert(ViewportSelectConnected(&s) && raypoint.x==30 && raypoint.y==40 && s.selectedtricount==4);
+    ViewportRememberSelectionPoint(&s,-20,50);
+    assert(s.selectionpoint.x==30 && s.selectionpoint.y==40);
+    before=notifications;
+    s.selectionpointvalid=FALSE; assert(ViewportSelectConnected(&s) && notifications==before);
+    ViewportRememberSelectionPoint(&s,30,40);
+    s.width=20; assert(ViewportSelectConnected(&s) && notifications==before); s.width=640;
+    rayvalid=FALSE; assert(ViewportSelectConnected(&s) && notifications==before); rayvalid=TRUE;
+    pickedtriangle=-1; assert(ViewportSelectConnected(&s) && notifications==before && s.selectedtricount==4);
+    pickedtriangle=12; assert(ViewportSelectConnected(&s) && notifications==before && s.selectedtricount==4);
+    pickedtriangle=0;
+    for (int budget=0; budget<2; budget++)
+    {
+        unsigned char saved[count]; memcpy(saved,selected,sizeof(saved)); allocations=budget;
+        assert(!ViewportSelectConnected(&s)); allocations=-1;
+        assert(notifications==before && s.selectedtricount==4 && !memcmp(saved,selected,sizeof(saved)));
+    }
+    s.flying=TRUE; assert(!ViewportCanSelectConnected(&s) && ViewportSelectConnected(&s)); s.flying=FALSE;
+    s.dragaxis=0; assert(!ViewportCanSelectConnected(&s)); s.dragaxis=-1;
+    s.boxpending=TRUE; assert(!ViewportCanSelectConnected(&s)); s.boxpending=FALSE;
+    s.vertexsnap=TRUE; assert(!ViewportCanSelectConnected(&s)); s.vertexsnap=FALSE;
+    s.knifeactive=TRUE; assert(!ViewportCanSelectConnected(&s)); s.knifeactive=FALSE;
+    s.padpick=TRUE; assert(!ViewportCanSelectConnected(&s)); s.padpick=FALSE;
+    s.doorpick=TRUE; assert(!ViewportCanSelectConnected(&s)); s.doorpick=FALSE;
+    s.showbgprimary=FALSE; assert(!ViewportCanSelectConnected(&s)); s.showbgprimary=TRUE;
+    s.orbit=TRUE; assert(!ViewportCanSelectConnected(&s)); s.orbit=FALSE;
+    s.tool=EDITOR_TOOL_EDGE_SELECT; assert(!ViewportCanSelectConnected(&s));
+    s.tool=EDITOR_TOOL_VERTEX_SELECT; assert(!ViewportCanSelectConnected(&s));
+    assert(!ViewportCanSelectConnected(NULL) && ViewportSelectConnected(NULL) && notifications==before);
+    puts("PASS: hovered connected island, complete shared edges, transitive/non-manifold adjacency, room/seam boundaries, hidden/layer barriers, no-hit no-op, atomic allocation failure and menu cursor fallback.");
+}
+
+static void ConnectedLongStrip(void)
+{
+    enum { count=5000 };
+    ViewportState s = {.tool=EDITOR_TOOL_FACE_SELECT, .showbgprimary=TRUE, .dragaxis=-1,
+        .scenecount=count*3, .batchcount=1, .selectedobject=VIEWPORT_OBJECT_NONE, .width=640, .height=480};
+    s.scene=calloc(count*3,sizeof(*s.scene)); s.scenecolors=calloc(count*3,sizeof(*s.scenecolors));
+    s.scenevertexrefs=calloc(count*3,sizeof(*s.scenevertexrefs));
+    s.scenefacerefs=calloc(count,sizeof(*s.scenefacerefs)); s.selectedtris=calloc(count,1);
+    assert(s.scene && s.scenecolors && s.scenevertexrefs && s.scenefacerefs && s.selectedtris);
+    SceneBatch batch={.first=0, .count=count*3}; s.batches=&batch;
+    for (int tri=0; tri<count; tri++)
+    {
+        s.scenefacerefs[tri]=(BgFaceRef){.faceid=tri+1,.room=1};
+        /* Reverse draw order so growth must work independently of batching. */
+        for (int c=0; c<3; c++) { s.scenevertexrefs[tri*3+c]=(BgDocumentVertexRef){1,count-tri+c}; }
+    }
+    cursorwindow=&s; cursor=(POINT){1201,101}; pickedtriangle=count-1;
+    assert(ViewportSelectConnected(&s) && s.selectedtricount==count);
+    for (int tri=0; tri<count; tri++) { assert(s.selectedtris[tri]); }
+    free(s.scene); free(s.scenecolors); free(s.scenevertexrefs); free(s.scenefacerefs); free(s.selectedtris);
+    puts("PASS: 5,000-face strip selected completely in one operation without recursion or repeated selection growth.");
+}
+
+int main(void) { Geometry(); SameMaterial(); StanRooms(); StanGrowth(); InverseStans(); InversePortalsAndModels(); Coplanar(); Connected(); ConnectedLongStrip(); Hotkeys(); return 0; }
