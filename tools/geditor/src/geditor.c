@@ -1651,7 +1651,7 @@ static BOOL GEditorSaveProject(HWND hwnd)
              * portal/command identities in undo snapshots must not relocate. */
             if (g_CurrentBgDocument.rooms)
             {
-                if (!BgDocumentCompile(&g_CurrentBgDocument, &g_CurrentBg,
+                if (!BgDocumentCompileProject(&g_CurrentBgDocument, &g_CurrentBg,
                                        &compiled, &why))
                 {
                     MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);

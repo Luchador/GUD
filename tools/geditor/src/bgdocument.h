@@ -431,6 +431,10 @@ BOOL BgDocumentCorrectMovedUVs(const BgDocument *before, BgDocument *document,
  * portals, visibility data, and opaque display-list state. */
 BOOL BgDocumentCompile(const BgDocument *document, const BgFile *source,
                        BgFile *out, const char **reasonout);
+/* Same optimized native geometry, plus the authored per-corner connectivity
+ * needed when reopening a project. Use the ordinary compiler for ROM data. */
+BOOL BgDocumentCompileProject(const BgDocument *document, const BgFile *source,
+                              BgFile *out, const char **reasonout);
 
 /* Validate room vertex-cache batches, including the last-load bounds used by
  * player bullet tests. Invalid assets are rejected, never rewritten. */

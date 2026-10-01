@@ -38,6 +38,8 @@ typedef struct BgCompileBuffer {
     BOOL pipesynced;
     BOOL packvertices;
     const unsigned char *pinnedvertices;
+    struct BgCompileBuffer *topology;
+    const BgDocumentRoom *topologysource;
 } BgCompileBuffer;
 
 
@@ -522,6 +524,16 @@ static BOOL BgCompileEmitTriangles(BgCompileBuffer *gdl,
             const BgDocumentFace *face =
                 &room->faces[faceindices[position + triangle]];
 
+            if (gdl->topology)
+            {
+                /* Record the source corner identities, before render-only
+                 * deduplication, in the exact order the loader sees faces. */
+                const BgDocumentFace *authored = &gdl->topologysource->faces[faceindices[position + triangle]];
+                for (int c = 0; c < 3; c++)
+                    if (!BgCompileWrite32(gdl->topology, authored->vertexindices[c]))
+                    { *reasonout = "Out of memory recording background topology."; return FALSE; }
+            }
+
             for (corner = 0; corner < 3; corner++)
             {
                 int cache = BgCompileFindVertex(vertices, vertexcount,
@@ -849,6 +861,7 @@ static BOOL BgCompileBatchFaces(BgCompileBuffer *gdl, BgCompileBuffer *vertexdat
     BgCompileSortFace *sort = NULL;
     DWORD *order = NULL, start, i;
     BgCompileBuffer lists[2] = {{0}}, vertices[2] = {{0}};
+    BgCompileBuffer topology[2] = {{0}};
     BgMaterial states[2] = {*material, *material};
     BOOL culls[2] = {*cullbackfaces, *cullbackfaces}, changed = FALSE, ok = FALSE;
     unsigned int choice = 0;
@@ -875,6 +888,8 @@ static BOOL BgCompileBatchFaces(BgCompileBuffer *gdl, BgCompileBuffer *vertexdat
     for (i = 0; i < 2; i++)
     {
         lists[i].pipesynced = gdl->pipesynced;
+        lists[i].topology = gdl->topology ? &topology[i] : NULL;
+        lists[i].topologysource = gdl->topologysource;
         /* Only appended bytes are consumed; existing vertex offsets stay valid. */
         vertices[i].size = vertexdata->size;
         vertices[i].packvertices = vertexdata->packvertices;
@@ -889,13 +904,15 @@ static BOOL BgCompileBatchFaces(BgCompileBuffer *gdl, BgCompileBuffer *vertexdat
             && lists[1].size <= lists[0].size && vertices[1].size <= vertices[0].size) { choice = 1; }
     }
     if (!BgCompileAppend(gdl, lists[choice].data, lists[choice].size)) { goto done; }
+    if (gdl->topology && !BgCompileAppend(gdl->topology, topology[choice].data, topology[choice].size))
+    { *reasonout = "Out of memory recording background topology."; goto done; }
     if (vertices[choice].size > vertexdata->size && !BgCompileAppend(vertexdata,
             vertices[choice].data + vertexdata->size, vertices[choice].size - vertexdata->size)) { goto done; }
     gdl->pipesynced = lists[choice].pipesynced;
     *material = states[choice]; *cullbackfaces = culls[choice]; ok = TRUE;
 done:
     free(sort); free(order);
-    for (i = 0; i < 2; i++) { free(lists[i].data); free(vertices[i].data); }
+    for (i = 0; i < 2; i++) { free(lists[i].data); free(vertices[i].data); free(topology[i].data); }
     return ok;
 }
 
@@ -1027,6 +1044,12 @@ BOOL BgFileBatchOpaque(const BgFile *source, BgFile *out, const char **reasonout
     if (!out || out == source) { *reasonout = "Invalid background batching output."; return FALSE; }
     ZeroMemory(out, sizeof(*out));
     if (!BgFileValidateVertexBatches(source, reasonout)) { return FALSE; }
+    /* In-place batching addresses the native vertex array. Never substitute
+     * the editor graph, whose indices intentionally differ from that array. */
+    const unsigned char *topology;
+    DWORD topologysize, nativesize;
+    if (!BgFileGetEditorTopology(source->data, source->size, &topology, &topologysize, &nativesize, reasonout)) { return FALSE; }
+    BgFile native = *source; native.size = nativesize; source = &native;
     if (source->size < 8 || BgCompileRead32(source->data)) { return TRUE; }
     if (!BgDocumentLoad(source->data, source->size, 1.0f, &document, reasonout)) { return FALSE; }
     table = BgCompileRead32(source->data + 4) & 0xffffffu;
@@ -1538,10 +1561,11 @@ static BOOL BgCompileVisCommands(const BgDocument *document, const BgFile *sourc
     return BgCompilePatch32(output, 12, size ? BGCOMPILE_SEGMENT | *offset : 0);
 }
 
-BOOL BgDocumentCompile(const BgDocument *document, const BgFile *source,
-                       BgFile *out, const char **reasonout)
+static BOOL BgDocumentCompileInternal(const BgDocument *document, const BgFile *source,
+                       BgFile *out, BOOL keeptopology, const char **reasonout)
 {
     BgCompileBuffer output;
+    BgCompileBuffer topology = {0};
     DWORD roomtable;
     DWORD prefixsize;
     DWORD roomindex;
@@ -1556,16 +1580,17 @@ BOOL BgDocumentCompile(const BgDocument *document, const BgFile *source,
 
     if (!BgCompileValidateSource(document, source, &roomtable,
                                  &prefixsize, reasonout)
+        || (keeptopology && !BgCompileWrite32(&topology, document->roomcount))
         || !BgCompileAppend(&output, source->data, prefixsize)
         || !BgCompilePortalRooms(document, &output, newoffsets, reasonout)
         || !BgCompileVisCommands(document, source, &output, newoffsets,
             &visoffset, &viscapacity, reasonout))
     {
-        if (output.failed && (*reasonout)[0] == '\0')
+        if ((output.failed || topology.failed) && (*reasonout)[0] == '\0')
         {
             *reasonout = "out of memory compiling the bg header.";
         }
-        free(output.data);
+        free(output.data); free(topology.data);
         return FALSE;
     }
 
@@ -1577,6 +1602,7 @@ BOOL BgDocumentCompile(const BgDocument *document, const BgFile *source,
         BgCompileBuffer vertices;
         BgCompileBuffer primary;
         BgCompileBuffer secondary;
+        BgCompileBuffer primarytopology = {0}, secondarytopology = {0};
         DWORD vertexoffset;
         DWORD primaryoffset;
         DWORD secondaryoffset = 0;
@@ -1587,6 +1613,9 @@ BOOL BgDocumentCompile(const BgDocument *document, const BgFile *source,
         ZeroMemory(&vertices, sizeof(vertices));
         ZeroMemory(&primary, sizeof(primary));
         ZeroMemory(&secondary, sizeof(secondary));
+        primary.topology = keeptopology ? &primarytopology : NULL;
+        secondary.topology = keeptopology ? &secondarytopology : NULL;
+        primary.topologysource = secondary.topologysource = room;
 
         if ((room->vertexcount != 0 && room->vertices == NULL)
             || (room->facecount != 0 && room->faces == NULL)
@@ -1649,6 +1678,16 @@ BOOL BgDocumentCompile(const BgDocument *document, const BgFile *source,
             }
         }
 
+        if (keeptopology)
+        {
+            if ((ULONGLONG)primarytopology.size + secondarytopology.size != (ULONGLONG)room->facecount * 12
+                || !BgCompileWrite32(&topology, room->vertexcount)
+                || !BgCompileWrite32(&topology, room->facecount)
+                || !BgCompileAppend(&topology, primarytopology.data, primarytopology.size)
+                || !BgCompileAppend(&topology, secondarytopology.data, secondarytopology.size))
+            { *reasonout = "Could not record the background's editor topology."; goto room_failed; }
+        }
+
         if (!BgCompileAppendStream(&output, vertices.data, vertices.size,
                                    &vertexoffset)
             || !BgCompileAppendStream(&output, primary.data, primary.size,
@@ -1689,6 +1728,7 @@ BOOL BgDocumentCompile(const BgDocument *document, const BgFile *source,
         free(vertices.data);
         free(primary.data);
         free(secondary.data);
+        free(primarytopology.data); free(secondarytopology.data);
         BgCompileFreeRoom(&prepared);
         continue;
 
@@ -1696,14 +1736,15 @@ room_failed:
         free(vertices.data);
         free(primary.data);
         free(secondary.data);
+        free(primarytopology.data); free(secondarytopology.data);
         BgCompileFreeRoom(&prepared);
-        free(output.data);
+        free(output.data); free(topology.data);
         return FALSE;
     }
 
     if (!BgCompileAlign(&output, 16))
     {
-        free(output.data);
+        free(output.data); free(topology.data);
         *reasonout = "out of memory aligning the compiled bg.";
         return FALSE;
     }
@@ -1717,10 +1758,25 @@ room_failed:
     {
         BgFile cleaned = {0};
         if (!BgFileRemoveUnusedVertices(out, &cleaned, reasonout))
-        { BgFileFree(out); return FALSE; }
+        { BgFileFree(out); free(topology.data); return FALSE; }
         if (cleaned.data) { BgFileFree(out); *out = cleaned; }
     }
-    return TRUE;
+    BOOL ok = !keeptopology || BgFileAppendEditorTopology(out, topology.data, topology.size, reasonout);
+    free(topology.data);
+    if (!ok) { BgFileFree(out); }
+    return ok;
+}
+
+BOOL BgDocumentCompile(const BgDocument *document, const BgFile *source,
+                       BgFile *out, const char **reasonout)
+{
+    return BgDocumentCompileInternal(document, source, out, FALSE, reasonout);
+}
+
+BOOL BgDocumentCompileProject(const BgDocument *document, const BgFile *source,
+                              BgFile *out, const char **reasonout)
+{
+    return BgDocumentCompileInternal(document, source, out, TRUE, reasonout);
 }
 
 
@@ -1766,6 +1822,10 @@ BOOL BgFileOptimize(const BgFile *source, BgFile *out, const char **reasonout)
     if (!out || out == source) { *reasonout = "Invalid background optimization output."; return FALSE; }
     ZeroMemory(out, sizeof(*out));
     if (!BgFileValidateVertexBatches(source, reasonout)) { return FALSE; }
+    const unsigned char *topology;
+    DWORD topologysize, nativesize;
+    if (!BgFileGetEditorTopology(source->data, source->size, &topology, &topologysize, &nativesize, reasonout)) { return FALSE; }
+    BgFile native = *source; native.size = nativesize; source = &native;
     if (source->size < 8 || BgCompileRead32(source->data)) { return TRUE; }
     if (!BgDocumentLoad(source->data, source->size, 1.0f, &document, reasonout)) { return FALSE; }
     for (DWORD r = 1; r <= document.roomcount; r++) for (int layer = 0; layer < 2; layer++)
@@ -2031,6 +2091,12 @@ BOOL BgFileRemoveUnusedVertices(const BgFile *source, BgFile *out,
     ZeroMemory(out, sizeof(*out));
     *reasonout = "Invalid background to clean.";
     if (!source || !source->data) { return FALSE; }
+    /* Cleanup is a native/export operation. If it rewrites bytes, do not
+     * carry a now-stale project checksum into the next optimization pass. */
+    const unsigned char *topology;
+    DWORD topologysize, nativesize;
+    if (!BgFileGetEditorTopology(source->data, source->size, &topology, &topologysize, &nativesize, reasonout)) { return FALSE; }
+    BgFile native = *source; native.size = nativesize; source = &native;
     if (!BgFileValidateVertexBatches(source, reasonout)) { return FALSE; }
     if (source->size < 8 || BgCleanupRead32(source->data)) { return TRUE; }
     table = BgCleanupRead32(source->data + 4) & 0xFFFFFFu;

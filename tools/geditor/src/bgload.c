@@ -931,10 +931,60 @@ fail:
     return FALSE;
 }
 
+/* Native streams know render-cache addresses, not authoring identities.
+ * Trailer v1: payload, then magic[8], native size, payload size, FNV-1a.
+ * The checksum covers native bytes and payload, so a stale/corrupt map cannot
+ * silently reconnect unrelated geometry. No game pointer names this data. */
+#define BG_TOPOLOGY_FOOTER_SIZE 20u
+static const unsigned char g_BgTopologyMagic[8] = {'G','E','T','O','P','O','0','1'};
+
+static DWORD BgTopologyChecksum(const unsigned char *data, DWORD size)
+{
+    DWORD hash = 2166136261u;
+    for (DWORD i = 0; i < size; i++) { hash = (hash ^ data[i]) * 16777619u; }
+    return hash;
+}
+
+BOOL BgFileGetEditorTopology(const unsigned char *data, DWORD size,
+    const unsigned char **topology, DWORD *topologysize, DWORD *nativesize, const char **reasonout)
+{
+    *topology = NULL; *topologysize = 0; *nativesize = size;
+    if (!data || size < BG_TOPOLOGY_FOOTER_SIZE
+        || memcmp(data + size - BG_TOPOLOGY_FOOTER_SIZE, g_BgTopologyMagic, 8)) { return TRUE; }
+    const unsigned char *footer = data + size - BG_TOPOLOGY_FOOTER_SIZE;
+    DWORD native = bg32(footer + 8), bytes = bg32(footer + 12);
+    if (native < 20 || native > size - BG_TOPOLOGY_FOOTER_SIZE
+        || bytes != size - BG_TOPOLOGY_FOOTER_SIZE - native
+        || BgTopologyChecksum(data, size - BG_TOPOLOGY_FOOTER_SIZE) != bg32(footer + 16))
+    { *reasonout = "The background's saved editor topology is damaged."; return FALSE; }
+    *topology = data + native; *topologysize = bytes; *nativesize = native;
+    return TRUE;
+}
+
+BOOL BgFileAppendEditorTopology(BgFile *bg, const unsigned char *topology,
+    DWORD topologysize, const char **reasonout)
+{
+    if (!bg || !bg->data || !topology || bg->size > 0x1000000u - BG_TOPOLOGY_FOOTER_SIZE
+        || topologysize > 0x1000000u - BG_TOPOLOGY_FOOTER_SIZE - bg->size)
+    { *reasonout = "The background and editor topology exceed the project file size limit."; return FALSE; }
+    DWORD size = bg->size + topologysize + BG_TOPOLOGY_FOOTER_SIZE;
+    unsigned char *data = realloc(bg->data, size);
+    if (!data) { *reasonout = "Out of memory saving background topology."; return FALSE; }
+    bg->data = data;
+    memcpy(data + bg->size, topology, topologysize);
+    unsigned char *footer = data + size - BG_TOPOLOGY_FOOTER_SIZE;
+    memcpy(footer, g_BgTopologyMagic, 8);
+    BgPackedWrite32(footer + 8, bg->size);
+    BgPackedWrite32(footer + 12, topologysize);
+    BgPackedWrite32(footer + 16, BgTopologyChecksum(data, size - BG_TOPOLOGY_FOOTER_SIZE));
+    bg->size = size;
+    return TRUE;
+}
+
 BOOL BgSaveProjectFile(const char *projectdir, const BgFile *bg,
                        const char **reasonout)
 {
-    char path[MAX_PATH];
+    char path[MAX_PATH], temporary[MAX_PATH];
     HANDLE file;
     DWORD written;
     BOOL ok;
@@ -949,8 +999,15 @@ BOOL BgSaveProjectFile(const char *projectdir, const BgFile *bg,
         return FALSE;
     }
 
-    if (!BgFileCompact(bg, &packed, reasonout)) { return FALSE; }
-    file = CreateFile(path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+    const unsigned char *topology;
+    DWORD topologysize, nativesize;
+    if (snprintf(temporary, sizeof(temporary), "%s.tmp", path) >= (int)sizeof(temporary))
+    { *reasonout = "The project background path is too long."; return FALSE; }
+    if (!BgFileGetEditorTopology(bg->data, bg->size, &topology, &topologysize, &nativesize, reasonout)
+        || !BgFileCompact(bg, &packed, reasonout)) { return FALSE; }
+    if (topology && !BgFileAppendEditorTopology(&packed, topology, topologysize, reasonout))
+    { BgFileFree(&packed); return FALSE; }
+    file = CreateFile(temporary, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
                       FILE_ATTRIBUTE_NORMAL, NULL);
     if (file == INVALID_HANDLE_VALUE)
     {
@@ -966,9 +1023,11 @@ BOOL BgSaveProjectFile(const char *projectdir, const BgFile *bg,
     {
         ok = FALSE;
     }
+    if (ok) { ok = MoveFileEx(temporary, path, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH); }
 
     if (!ok)
     {
+        DeleteFile(temporary);
         *reasonout = "the project background could not be fully written.";
     }
 

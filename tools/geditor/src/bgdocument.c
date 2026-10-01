@@ -466,6 +466,67 @@ static BOOL BgDocumentLoadRoomVertices(BgDocument *document,
 }
 
 
+static BOOL BgDocumentSameNativeVertex(const BgDocumentVertex *a, const BgDocumentVertex *b)
+{
+    return a->x == b->x && a->y == b->y && a->z == b->z && a->flag == b->flag
+        && a->s == b->s && a->t == b->t
+        && a->r == b->r && a->g == b->g && a->b == b->b && a->a == b->a;
+}
+
+/* Each output face carries its original three room-local vertex keys.
+ * Rebuild the authoring graph from those keys, not from matching positions:
+ * equal native bytes can belong to deliberately disconnected vertices.
+ * Payload v1 uses big-endian words: room count, then for each room its key
+ * range, face count and three keys per face (primary, then secondary order). */
+static BOOL BgDocumentRestoreTopology(BgDocument *document,
+    const unsigned char *data, DWORD size, const char **reasonout)
+{
+    DWORD at = 4;
+    *reasonout = "The background's saved editor topology does not match its geometry.";
+    if (size < 4 || BgDocumentRead32(data) != document->roomcount) { return FALSE; }
+    for (DWORD r = 1; r <= document->roomcount; r++)
+    {
+        BgDocumentRoom *room = &document->rooms[r];
+        if (size - at < 8) { return FALSE; }
+        DWORD keys = BgDocumentRead32(data + at), faces = BgDocumentRead32(data + at + 4);
+        at += 8;
+        if (keys > 0x100000u || faces != room->facecount || faces > (size - at) / 12) { return FALSE; }
+        /* Empty rooms may retain native vertices only for their bounds. */
+        if (!faces) { continue; }
+        if (!keys) { return FALSE; }
+        DWORD capacity = keys < (ULONGLONG)faces * 3 ? keys : faces * 3;
+        DWORD *map = malloc((size_t)keys * sizeof(*map)), count = 0;
+        BgDocumentVertex *vertices = malloc((size_t)capacity * sizeof(*vertices));
+        if (!map || !vertices)
+        { free(map); free(vertices); *reasonout = "Out of memory restoring background topology."; return FALSE; }
+        memset(map, 0xff, (size_t)keys * sizeof(*map));
+        for (DWORD f = 0; f < faces; f++) for (int c = 0; c < 3; c++, at += 4)
+        {
+            DWORD key = BgDocumentRead32(data + at);
+            DWORD native = room->faces[f].vertexindices[c];
+            if (key >= keys || native >= room->vertexcount) { free(map); free(vertices); return FALSE; }
+            const BgDocumentVertex *source = &room->vertices[native];
+            if (map[key] == (DWORD)-1)
+            {
+                if (!document->nextvertexid || count >= capacity) { free(map); free(vertices); return FALSE; }
+                map[key] = count;
+                vertices[count] = *source;
+                vertices[count].id = document->nextvertexid++;
+                vertices[count++].usecount = 0;
+            }
+            else if (!BgDocumentSameNativeVertex(&vertices[map[key]], source))
+            { free(map); free(vertices); return FALSE; }
+            room->faces[f].vertexindices[c] = map[key];
+            vertices[map[key]].usecount++;
+        }
+        free(map); free(room->vertices);
+        room->vertices = vertices; room->vertexcount = count;
+    }
+    if (at != size) { return FALSE; }
+    *reasonout = "";
+    return TRUE;
+}
+
 BOOL BgDocumentLoad(const unsigned char *data, DWORD size, float levelscale,
                     BgDocument *out, const char **reasonout)
 {
@@ -475,6 +536,11 @@ BOOL BgDocumentLoad(const unsigned char *data, DWORD size, float levelscale,
 
     ZeroMemory(out, sizeof(*out));
     *reasonout = "";
+
+    const unsigned char *topology;
+    DWORD topologysize, nativesize;
+    if (!BgFileGetEditorTopology(data, size, &topology, &topologysize, &nativesize, reasonout)) { return FALSE; }
+    size = nativesize;
 
     if (data == NULL || size < 0x40)
     {
@@ -616,6 +682,8 @@ BOOL BgDocumentLoad(const unsigned char *data, DWORD size, float levelscale,
             }
         }
     }
+    if (topology && !BgDocumentRestoreTopology(out, topology, topologysize, reasonout))
+    { BgDocumentFree(out); return FALSE; }
     return TRUE;
 }
 

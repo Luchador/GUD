@@ -128,6 +128,12 @@ BOOL BgLoadProjectFile(const char *projectdir, const char *bgname,
                        BgFile *out, const char **reasonout);
 BOOL BgSaveProjectFile(const char *projectdir, const BgFile *bg,
                        const char **reasonout);
+/* Optional project-only trailer. Native compaction/ROM export discard it;
+ * project saving reattaches it after compaction in the same atomic write. */
+BOOL BgFileGetEditorTopology(const unsigned char *data, DWORD size,
+    const unsigned char **topology, DWORD *topologysize, DWORD *nativesize, const char **reasonout);
+BOOL BgFileAppendEditorTopology(BgFile *bg, const unsigned char *topology,
+    DWORD topologysize, const char **reasonout);
 /* Compact unreferenced vertices in a saved copy, remapping G_VTX and triangle
  * indices together. Empty rooms retain their bounds-only vertex records.
  * On success out->data is NULL when no changes are needed. Source is immutable. */
