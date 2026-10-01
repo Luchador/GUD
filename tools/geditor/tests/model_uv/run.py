@@ -34,7 +34,7 @@ with tempfile.TemporaryDirectory(prefix='geditor-model-uv-') as folder:
         'UVCanvasNotify', 'UVCanvasUpdatePreview', 'UVCanvasCancelInteraction',
         'UVCanvasTryTransform', 'UVCanvasCommit', 'UVCanvasSetTriangles',
         'UVCanvasGetSelection', 'UVCanvasSetCoordinate', 'UVCanvasSetTransformMode', 'UVCanvasGetTransform',
-        'UVCanvasApplyTransform', 'UVCanvasHasFaces', 'UVCanvasProjectFaces', 'UVCanvasProjectCylinder')))
+        'UVCanvasApplyTransform', 'UVCanvasHasFaces', 'UVCanvasProjectFaces', 'UVCanvasProjectCylinder', 'UVCanvasUnwrap')))
     command = [os.environ.get('CC', 'cc'), '-std=c99', '-O1', '-g', '-Wall', '-Wextra',
         '-Werror', '-Wno-unused-parameter', '-Dfopen=TestFopen', '-ffunction-sections', '-fdata-sections',
         '-fsanitize=address,undefined', '-include', str(here / 'win_types.h'),
@@ -42,7 +42,7 @@ with tempfile.TemporaryDirectory(prefix='geditor-model-uv-') as folder:
         str(here / 'check.c'), str(here.parent / 'image_import/platform.c')]
     command += [str(src / n) for n in ('modeluv.c', 'modelload.c', 'modelmaterials.c', 'modelcompile.c',
         'modeledits.c', 'gltf.c', 'gltfjson.c', 'newprops.c', 'propcompile.c', 'bgmaterial.c', 'bgrender.c',
-        'rotation.c', 'uvprojection.c', 'uvcylinder.c')]
+        'rotation.c', 'uvprojection.c', 'uvcylinder.c', 'uvunwrap.c')]
     subprocess.run(command + ['-Wl,--gc-sections', '-lm', '-o', str(work / 'check')], check=True)
     assets = [root / 'assets/obseg/prop/PsevdoormetslideZ.bin', root / 'assets/obseg/prop/Pbook1Z.bin',
         root / 'assets/obseg/chr/CarmourguardZ.bin']

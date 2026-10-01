@@ -55,7 +55,7 @@ Select the complete **uncapped side wall** of one cylinder in face mode, open
 Tools > UV Editor, choose **Axis** and **Texel size (cm)**, then click
 **Cylindrical**. The operation uses all faces displayed in the UV Editor,
 independently of the selected UV vertices.
-It always uses Texel size; the checkbox controls planar mapping only.
+It always uses Texel size; the checkbox controls planar, box and LSCM mapping.
 
 - **Auto** derives the axis from the two open rims, using their area centroids
   and rim planes to handle both tall and short cylinders.
@@ -102,6 +102,35 @@ Each mapping is one undo step and saves through the normal background compiler.
 If the result exceeds native S/T limits, the entire edit is rejected; increase
 Texel size to reduce the number of repeats.
 
+## LSCM unwrap
+
+Select the faces in the viewport, open the UV Editor, then click **Unwrap**
+beside Cylindrical. This uses Least Squares Conformal Mapping to flatten all
+displayed faces, minimizing angular distortion while keeping shared edges
+continuous. It works for background and model faces. Existing UV/color vertex
+splits are joined only in the temporary solver; geometry and colors stay intact.
+
+An open arch or folded sheet can stay one UV island. **Mark Seam** separates
+charts or opens a closed loop; Unwrap respects the marks on either side of an
+edge. Closed surfaces, tubes without a seam, and surfaces with handles need
+cuts into open patches first. Separate patches are unwrapped individually and
+packed with a small gap at a common scale. The tool rejects non-manifold edges,
+degenerate triangles, failed solves and folded/overlapping results without
+applying a partial edit. Add seams or select a smaller surface in those cases.
+
+With **Use texel size** checked, the specified size sets average physical
+density: each island's UV area matches its surface area before texel scaling.
+Local stretching can still occur on curved surfaces. With it unchecked, the
+islands fit inside the image using one uniform texel scale, preserving the
+image's aspect ratio. Mixed image sizes use the smallest width and height.
+The cylinder Axis setting is not used by Unwrap.
+
+Unwrap changes only the displayed faces and is one **Unwrap UVs (LSCM)** undo
+step. Repeating an unchanged unwrap creates no extra history entry. Native
+S/T overflow rejects the whole edit; increase Texel size or use a smaller
+selection. The algorithm and sparse linear solver are built into GEditor;
+no additional build dependencies are needed.
+
 ## Verification
 
 Run `python3 tools/geditor/tests/uv_cylinder/run.py`. The native tests use
@@ -115,6 +144,13 @@ AddressSanitizer and UndefinedBehaviorSanitizer and cover:
   undo/redo, repeated mapping, rollback and native coordinate limits.
 - Seam guide persistence, winding, marking across native splits, failed file
   replacement and confirmation that marks do not change compiled BG bytes.
+- LSCM button routing, shared UVs, rectangular image fitting, texel scaling,
+  seam cuts, undo/redo, save/reload, no-op edits and synchronous canvas rebuilds.
+
+Run `python3 tools/geditor/tests/uv_unwrap/run.py` for LSCM solver checks:
+an 800-face planar grid, a 96-face arch with a three-sided profile, an isometric
+folded strip, a cut tube, separate islands, native attribute splits, inconsistent
+face winding, allocation failures and invalid geometry.
 
 Texture canvas and existing topology tests remain in `tests/uv_texture`,
 `tests/edge_extrusion`, `tests/bisect_edge` and `tests/knife`.

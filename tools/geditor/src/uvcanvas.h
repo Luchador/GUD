@@ -66,5 +66,6 @@ BOOL UVCanvasHasFaces(HWND canvas);
 BOOL UVCanvasProjectFaces(HWND canvas, UVProjection projection, double unitspertexel, const char **reason);
 BOOL UVCanvasProjectBox(HWND canvas, double unitspertexel, const char **reason);
 BOOL UVCanvasProjectCylinder(HWND canvas, int axis, double unitspertexel, const char **reason);
+BOOL UVCanvasUnwrap(HWND canvas, double unitspertexel, const char **reason);
 
 #endif /* GEDITOR_UVCANVAS_H */

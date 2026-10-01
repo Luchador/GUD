@@ -114,7 +114,7 @@ static void UVEditorRefreshSelection(HWND hwnd,const BgDocument *doc,const char 
 static void GEditorRefreshHistoryMenu(HWND hwnd) {}
 static void MessageBox(HWND hwnd,const char *why,const char *title,unsigned flags) { assert(why[0]); errors++; }
 #include "editor.inc"
-static void Cylinder(const char *dir, BOOL box)
+static void Cylinder(const char *dir, int mode)
 {
     int olderrors=errors;
     BgFile source=Fixture(); const char *why=""; BgFaceRef refs[BG_PRIMITIVE_MAX_FACES]; DWORD count;
@@ -146,19 +146,33 @@ static void Cylinder(const char *dir, BOOL box)
             faces[i].vertices[c]=n;
         }
     }
-    assert(box ? UVProjectionBox(vertices,72,faces,24,1,uv,&why)
+    unsigned char seams[24]={0};
+    if (mode==2)
+    {
+        double seamx=0,seamz=0; BOOL found=FALSE;
+        for (int f=0;f<24;f++) for (int c=0;c<3;c++)
+        {
+            const double *a=vertices[faces[f].vertices[c]].position;
+            const double *b=vertices[faces[f].vertices[(c+1)%3]].position;
+            if (a[0]!=b[0] || a[2]!=b[2] || a[1]==b[1]) { continue; }
+            if (!found) { seamx=a[0]; seamz=a[2]; found=TRUE; }
+            if (a[0]==seamx && a[2]==seamz) { seams[f]|=1<<c; }
+        }
+        assert(found && UVProjectionUnwrap(vertices,72,faces,24,seams,uv,&why));
+    }
+    else assert(mode ? UVProjectionBox(vertices,72,faces,24,1,uv,&why)
         : UVProjectionCylinder(vertices,72,faces,24,NULL,0,uv,&why));
     for (DWORD i=0;i<count;i++)
     {
         edits[i]=Edit(&before,refs[i],0,0);
         for (int c=0;c<3;c++) { edits[i].s[c]=(int)round(uv[i][c][0]*8); edits[i].t[c]=(int)round(uv[i][c][1]*8); }
     }
-    UVCanvasFaceEdit request={edits,count,box ? "Box UV Mapping" : "Cylindrical UV Mapping"};
+    UVCanvasFaceEdit request={edits,count,mode==2 ? "Unwrap UVs (LSCM)" : mode ? "Box UV Mapping" : "Cylindrical UV Mapping"};
     failrebuild=TRUE; assert(!GEditorApplyUVFaceEdit((HWND)1,&request)); Same(&g_CurrentBgDocument,&before);
     ULONGLONG revision=g_EditHistory.nextrevision; g_EditHistory.nextrevision=0;
     assert(!GEditorApplyUVFaceEdit((HWND)1,&request)); g_EditHistory.nextrevision=revision; Same(&g_CurrentBgDocument,&before);
     assert(GEditorApplyUVFaceEdit((HWND)1,&request)); CheckUVs(&g_CurrentBgDocument,edits,count);
-    if (box) { assert(g_CurrentBgDocument.rooms[1].vertexcount>before.rooms[1].vertexcount); }
+    if (mode==1) { assert(g_CurrentBgDocument.rooms[1].vertexcount>before.rooms[1].vertexcount); }
     else { assert(g_CurrentBgDocument.rooms[1].vertexcount==before.rooms[1].vertexcount+2); } /* Seam column. */
     assert(g_EditHistory.undocount==1 && !strcmp(EditHistoryGetUndoAction(&g_EditHistory),request.action));
     assert(BgDocumentClone(&g_CurrentBgDocument,&after,&why)); RoundTrip(&after,&source,dir);
@@ -172,7 +186,8 @@ static void Cylinder(const char *dir, BOOL box)
     assert(GEditorApplyUVFaceEdit((HWND)1,&request) && g_EditHistory.undocount==1); Same(&g_CurrentBgDocument,&after);
     assert(errors==olderrors+2);
     EditHistoryFree(&g_EditHistory); BgDocumentFree(&g_CurrentBgDocument); BgDocumentFree(&before); BgDocumentFree(&after); BgFileFree(&source);
-    puts(box ? "PASS: box mapping through the real editor transaction, split UV seams, undo/redo, no-op remapping, save/reload and atomic rollback."
+    puts(mode==2 ? "PASS: LSCM through the real editor transaction, seam vertices, undo/redo, no-op, save/reload and atomic rollback."
+        : mode ? "PASS: box mapping through the real editor transaction, split UV seams, undo/redo, no-op remapping, save/reload and atomic rollback."
         : "PASS: cylinder mapping through the real editor transaction, two seam vertices, undo/redo, repeated mapping, save/reload and rebuild/history failure rollback.");
 }
 static unsigned SeamCount(const BgDocument *doc)
@@ -223,4 +238,4 @@ static void Seams(const char *dir)
     BgFileFree(&source); BgFileFree(&compiled); BgFileFree(&unmarked);
     puts("PASS: seam marking across native splits, undo/redo/no-op/rollback, winding, native compile/reload and persistent guide replacement/failure.");
 }
-int main(int argc,char **argv) { setbuf(stdout,NULL); assert(argc==2); Geometry(argv[1]); Cylinder(argv[1],FALSE); Cylinder(argv[1],TRUE); Seams(argv[1]); }
+int main(int argc,char **argv) { setbuf(stdout,NULL); assert(argc==2); Geometry(argv[1]); Cylinder(argv[1],0); Cylinder(argv[1],1); Cylinder(argv[1],2); Seams(argv[1]); }

@@ -72,6 +72,7 @@ static void UVEditorUpdateFields(void)
     { EnableWindow(GetDlgItem(g_UVEditor, axis), UVCanvasHasFaces(g_UVCanvas)); }
     EnableWindow(GetDlgItem(g_UVEditor, IDC_UV_PROJECT_BOX), UVCanvasHasFaces(g_UVCanvas));
     EnableWindow(GetDlgItem(g_UVEditor, IDC_UV_PROJECT_CYLINDER), UVCanvasHasFaces(g_UVCanvas));
+    EnableWindow(GetDlgItem(g_UVEditor, IDC_UV_UNWRAP), UVCanvasHasFaces(g_UVCanvas));
     if (count == 0) { lstrcpy(text, "No UV vertices selected"); }
     else { snprintf(text, sizeof(text), "%d UV %s selected", count, count == 1 ? "vertex" : "vertices"); }
     SetDlgItemText(g_UVEditor, IDC_UV_SELECTION, text);
@@ -148,6 +149,22 @@ static void UVEditorProjectBox(HWND hwnd)
     SetFocus(g_UVCanvas);
 }
 
+static void UVEditorUnwrap(HWND hwnd)
+{
+    const char *reason = "";
+    double size = 0;
+    if (IsDlgButtonChecked(hwnd, IDC_UV_USE_TEXEL_SIZE) == BST_CHECKED)
+    {
+        if (!UVEditorReadCoordinate(IDC_UV_CYLINDER_SIZE, &size) || size <= 0)
+        { MessageBox(hwnd, "Enter a positive texel size.", "UV Editor", MB_ICONERROR); return; }
+        g_UVTexelSize = size;
+    }
+    if (!UVCanvasUnwrap(g_UVCanvas, size, &reason) && reason[0])
+    { MessageBox(hwnd, reason, "UV Editor", MB_ICONERROR); }
+    UVEditorUpdateFields();
+    SetFocus(g_UVCanvas);
+}
+
 static void UVEditorApplyFields(void)
 {
     double uv[2] = {0, 0};
@@ -191,10 +208,10 @@ static void UVEditorApplyFields(void)
 static void UVEditorLayout(HWND hwnd)
 {
     static const int tools[] = { IDC_UV_MOVE, IDC_UV_ROTATE, IDC_UV_SCALE, IDC_UV_PROJECT_LABEL, IDC_UV_PROJECT_X,
-                                IDC_UV_PROJECT_Y, IDC_UV_PROJECT_Z, IDC_UV_PROJECT_BEST, IDC_UV_PROJECT_BOX, IDC_UV_PROJECT_CYLINDER,
+                                IDC_UV_PROJECT_Y, IDC_UV_PROJECT_Z, IDC_UV_PROJECT_BEST, IDC_UV_PROJECT_BOX, IDC_UV_PROJECT_CYLINDER, IDC_UV_UNWRAP,
                                 IDC_UV_CYLINDER_AXIS_LABEL, IDC_UV_CYLINDER_AXIS, IDC_UV_USE_TEXEL_SIZE,
                                 IDC_UV_CYLINDER_SIZE_LABEL, IDC_UV_CYLINDER_SIZE };
-    static const int widths[] = { 8, 9, 8, 5, 6, 6, 6, 8, 6, 11, 5, 9, 14, 14, 7 };
+    static const int widths[] = { 8, 9, 8, 5, 6, 6, 6, 8, 6, 11, 8, 5, 9, 14, 14, 7 };
     RECT client;
     RECT units = { 8, 32, 140, 16 };
     HWND closebutton = GetDlgItem(hwnd, IDCANCEL);
@@ -326,6 +343,11 @@ static INT_PTR CALLBACK UVEditorDialogProc(HWND hwnd, UINT message,
         if (LOWORD(wparam) == IDC_UV_PROJECT_BOX)
         {
             UVEditorProjectBox(hwnd);
+            return TRUE;
+        }
+        if (LOWORD(wparam) == IDC_UV_UNWRAP)
+        {
+            UVEditorUnwrap(hwnd);
             return TRUE;
         }
         if (LOWORD(wparam) == IDC_UV_PROJECT_CYLINDER)

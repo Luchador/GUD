@@ -1265,6 +1265,76 @@ done:
     return result;
 }
 
+BOOL UVCanvasUnwrap(HWND canvas, double unitspertexel, const char **reason)
+{
+    UVCanvasState *state = UVCanvasGetState(canvas);
+    UVProjectionVertex *vertices = NULL;
+    UVProjectionFace *faces = NULL;
+    unsigned char *seams = NULL;
+    double (*uv)[3][2] = NULL;
+    BgDocumentFaceUVEdit *edits = NULL;
+    UVCanvasFaceEdit request;
+    double span[2] = {0}, factor, offset[2] = {0};
+    int width = INT_MAX, height = INT_MAX;
+    BOOL result = FALSE;
+    *reason = "Select faces to unwrap.";
+    if (!state || !state->nodecount || !state->trianglecount) { return FALSE; }
+    if (!isfinite(unitspertexel) || unitspertexel < 0)
+    { *reason = "Enter a positive texel size, or turn off Use texel size."; return FALSE; }
+    UVCanvasCancelInteraction(canvas);
+    vertices = calloc((size_t)state->nodecount, sizeof(*vertices));
+    faces = malloc((size_t)state->trianglecount * sizeof(*faces));
+    uv = malloc((size_t)state->trianglecount * sizeof(*uv));
+    seams = calloc((size_t)state->trianglecount, sizeof(*seams));
+    edits = calloc((size_t)state->trianglecount, sizeof(*edits));
+    if (!vertices || !faces || !uv || !seams || !edits)
+    { *reason = "Out of memory unwrapping UVs."; goto done; }
+    for (int f = 0; f < state->trianglecount; f++)
+    {
+        const UVCanvasTriangle *t = &state->triangles[f];
+        if (t->width <= 0 || t->height <= 0)
+        { *reason = "A selected face has invalid texture dimensions."; goto done; }
+        if (t->width < width) { width = t->width; }
+        if (t->height < height) { height = t->height; }
+        seams[f] = t->seams;
+        for (int c = 0; c < 3; c++)
+        {
+            int node = t->nodes[c]; faces[f].vertices[c] = node;
+            memcpy(vertices[node].position, t->position[c], sizeof(vertices[node].position));
+        }
+    }
+    if (!UVProjectionUnwrap(vertices, state->nodecount, faces, state->trianglecount, seams, uv, reason)) { goto done; }
+    for (int f = 0; f < state->trianglecount; f++) for (int c = 0; c < 3; c++) for (int k = 0; k < 2; k++)
+    { span[k] = fmax(span[k], uv[f][c][k]); }
+    /* Fit uniformly in texel space, so a non-square image does not stretch
+     * the unwrap. Mixed images share one density and fit the smallest size. */
+    factor = unitspertexel > 0 ? 1/unitspertexel : fmin(width/span[0], height/span[1]);
+    if (!unitspertexel)
+    { offset[0] = (width-span[0]*factor)*0.5; offset[1] = (height-span[1]*factor)*0.5; }
+    request.faces = edits; request.count = (DWORD)state->trianglecount; request.action = "Unwrap UVs (LSCM)";
+    BOOL changed = FALSE;
+    for (int f = 0; f < state->trianglecount; f++)
+    {
+        const UVCanvasTriangle *t = &state->triangles[f]; edits[f].face = t->face;
+        for (int c = 0; c < 3; c++)
+        {
+            double s = round((uv[f][c][0]*factor+offset[0])*32);
+            double v = round((uv[f][c][1]*factor+offset[1])*32);
+            if (!isfinite(s) || !isfinite(v) || s < -32768 || s > 32767 || v < -32768 || v > 32767)
+            { *reason = "The unwrapped UVs exceed GoldenEye's texture coordinate range. Increase Texel size or unwrap fewer faces."; goto done; }
+            edits[f].vertexids[c] = t->source[c].vertexid;
+            edits[f].s[c] = (int)s; edits[f].t[c] = (int)v;
+            changed |= edits[f].s[c] != t->source[c].s || edits[f].t[c] != t->source[c].t;
+        }
+    }
+    /* Send the whole selected group so unchanged corners remain part of its
+     * shared UVs. One atomic history command; rebuild can free state here. */
+    result = !changed || (BOOL)SendMessage(GetParent(canvas), UVCANVAS_WM_COMMIT_FACES, 0, (LPARAM)&request);
+done:
+    free(vertices); free(faces); free(uv); free(seams); free(edits);
+    return result;
+}
+
 /* Source identity and the selected texture's coordinate basis, never live S/T. */
 typedef struct UVCanvasSelectionVertex {
     BgDocumentVertexRef vertex;

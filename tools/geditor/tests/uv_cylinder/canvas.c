@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <limits.h>
 #include <ctype.h>
 #include <errno.h>
 #include <string.h>
@@ -52,7 +53,7 @@ static LRESULT SendMessage(HWND hwnd,unsigned message,int wparam,LPARAM lparam)
         assert(message==UVCANVAS_WM_COMMIT_FACES);
         const UVCanvasFaceEdit *request=(const UVCanvasFaceEdit *)lparam;
         assert(request->count<=64 && (!strcmp(request->action,"Cylindrical UV Mapping")
-            || !strcmp(request->action,"Box UV Mapping"))); mappedcount=request->count;
+            || !strcmp(request->action,"Box UV Mapping") || !strcmp(request->action,"Unwrap UVs (LSCM)"))); mappedcount=request->count;
         memcpy(mapped,request->faces,mappedcount*sizeof(*mapped));
         for (int f=0;f<state.trianglecount;f++) for (DWORD i=0;i<mappedcount;i++)
         {
@@ -259,4 +260,58 @@ static void Cylinder(void)
     }
     puts("PASS: actual cylindrical button operation produces native per-corner UVs and face identities, rejects range overflow, and survives synchronous canvas replacement.");
 }
-int main(void) { Coordinates(); Planar(); Box(); Cylinder(); }
+static void Unwrap(void)
+{
+    destroyoncommit=FALSE;
+    const double positions[4][3]={{0,0,0},{128,0,0},{128,64,0},{0,64,0}};
+    const int indices[2][3]={{0,1,2},{0,2,3}};
+    state.nodecount=4; state.trianglecount=2;
+    state.nodes=calloc(4,sizeof(*state.nodes)); state.triangles=calloc(2,sizeof(*state.triangles));
+    assert(state.nodes && state.triangles);
+    for (int f=0;f<2;f++)
+    {
+        UVCanvasTriangle *t=&state.triangles[f];
+        t->face=(BgFaceRef){.room=1,.faceid=(DWORD)f+100}; t->width=128; t->height=32;
+        for (int c=0;c<3;c++)
+        {
+            int n=indices[f][c]; t->nodes[c]=n; t->source[c].vertexid=n+10;
+            memcpy(t->position[c],positions[n],sizeof(t->position[c]));
+        }
+    }
+    int before=messages, olderrors=errors; const char *why="";
+    usetexelsize=TRUE; strcpy(texelsize,"4"); UVEditorUnwrap(g_UVEditor);
+    assert(messages==before+1 && errors==olderrors && mappedcount==2);
+    for (int f=0;f<2;f++) for (int c=0;c<3;c++)
+    {
+        int next=(c+1)%3;
+        double world=0;
+        for (int k=0;k<3;k++) { double d=positions[indices[f][c]][k]-positions[indices[f][next]][k]; world+=d*d; }
+        double native=hypot(mapped[f].s[c]-mapped[f].s[next],mapped[f].t[c]-mapped[f].t[next]);
+        assert(fabs(native-sqrt(world)*8)<1.5);
+    }
+    assert(mapped[0].s[0]==mapped[1].s[0] && mapped[0].t[0]==mapped[1].t[0]);
+    assert(mapped[0].s[2]==mapped[1].s[1] && mapped[0].t[2]==mapped[1].t[1]);
+    UVEditorUnwrap(g_UVEditor); assert(messages==before+1);
+    assert(!UVCanvasUnwrap(g_UVCanvas,.0001,&why) && why[0] && messages==before+1);
+    strcpy(texelsize,"invalid"); UVEditorUnwrap(g_UVEditor);
+    assert(errors==olderrors+1 && messages==before+1);
+    usetexelsize=FALSE; UVEditorUnwrap(g_UVEditor);
+    assert(messages==before+2 && errors==olderrors+1);
+    double density=-1;
+    for (int f=0;f<2;f++) for (int c=0;c<3;c++)
+    {
+        int next=(c+1)%3; double world=hypot(positions[indices[f][c]][0]-positions[indices[f][next]][0],positions[indices[f][c]][1]-positions[indices[f][next]][1]);
+        double ratio=hypot(mapped[f].s[c]-mapped[f].s[next],mapped[f].t[c]-mapped[f].t[next])/world;
+        if (density<0) { density=ratio; } else { assert(fabs(ratio-density)<.03); }
+        assert(mapped[f].s[c]>=0 && mapped[f].s[c]<=128*32 && mapped[f].t[c]>=0 && mapped[f].t[c]<=32*32);
+    }
+    /* Mark one side of the shared diagonal; each face becomes an island. */
+    state.triangles[0].seams=4;
+    assert(UVCanvasUnwrap(g_UVCanvas,4,&why) && messages==before+3);
+    assert(mapped[0].s[0]!=mapped[1].s[0] || mapped[0].t[0]!=mapped[1].t[0]);
+    destroyoncommit=TRUE;
+    assert(UVCanvasUnwrap(g_UVCanvas,8,&why) && !state.nodes && !state.triangles);
+    destroyoncommit=FALSE;
+    puts("PASS: Unwrap button, exact shared UVs, texel-size/fit modes, non-square aspect, seams, no-op, overflow and synchronous rebuild.");
+}
+int main(void) { Coordinates(); Planar(); Box(); Cylinder(); Unwrap(); }

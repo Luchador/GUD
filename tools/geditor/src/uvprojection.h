@@ -45,4 +45,13 @@ int UVProjectionCylinder(const UVProjectionVertex *vertices, int vertexcount,
     const UVProjectionFace *faces, int facecount, const unsigned char *seams,
     int axis, double (*uv)[3][2], const char **reason);
 
+/* LSCM on connected, open disk charts. Exact geometric edge matches join
+ * native UV/color splits in scratch space; marked seams cut the charts.
+ * Separate islands are packed at a common, area-normalized world scale.
+ * Reject closed/invalid charts, nonconvergence and folded/overlapping output.
+ * Inputs and output are untouched on failure. */
+int UVProjectionUnwrap(const UVProjectionVertex *vertices, int vertexcount,
+    const UVProjectionFace *faces, int facecount, const unsigned char *seams,
+    double (*uv)[3][2], const char **reason);
+
 #endif

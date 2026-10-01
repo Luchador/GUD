@@ -145,6 +145,9 @@ int main(int argc,char **argv)
         OK(UVCanvasProjectFaces(&state,p,0,&why));SameGeometry(&original,base);
         OK(UVCanvasProjectFaces(&state,p,4,&why));SameGeometry(&original,base);
     }
+    OK(UVCanvasUnwrap(&state,0,&why));SameGeometry(&original,base);
+    OK(UVCanvasUnwrap(&state,4,&why));SameGeometry(&original,base);
+    Saved();
     AllNodes();UVCanvasSetTransformMode(&state,TRANSFORM_ROTATE);
     double values[2]={90,0};OK(UVCanvasApplyTransform(&state,values,&why));SameGeometry(&original,base);
     AllNodes();UVCanvasSetTransformMode(&state,TRANSFORM_SCALE);values[0]=.5;values[1]=2;
