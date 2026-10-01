@@ -26,6 +26,18 @@ typedef struct { float x, y, z; } BgVertex;
 typedef struct { unsigned char r, g, b, a; } TexPixel;
 typedef struct { DWORD count; BgVertex *vertices; unsigned short *tags; BgRenderFlags *flags; } ModelSource;
 static int modelrevision = 1, imagecolor = 2, reads, renders, contexts, failread, failrender, badvertex, nowrites;
+static BOOL bodiesenabled, failpose, expectpose;
+static int poses;
+static int CharacterBodySwitchCount(const char *name)
+{ return bodiesenabled && !strcmp(name, "CbodyZ") ? 7 : 0; }
+static BOOL ModelEditsApplyIdlePreview(const char *project, const char *name, int switches,
+    BgVertex *vertices, DWORD count)
+{
+    assert(!strcmp(name, "CbodyZ") && switches == 7 && count == 1);
+    poses++;
+    if (failpose) return FALSE;
+    vertices[0].x = 4; return TRUE;
+}
 static HDC currentdc = 11; static HGLRC currentcontext = 12;
 static BOOL ModelEditsReadSource(const char *project, const char *name, ModelSource *s, DWORD *revision, const char **why)
 {
@@ -52,7 +64,7 @@ static BOOL ViewportSetScene(HWND hwnd, const BgVertex *vertices, const unsigned
     const BgRenderFlags *flags, const void *a, const void *b, const void *c, int first,
     const void *d, int count, const char *project, BOOL frame)
 {
-    assert(hwnd == 42 && count == 1 && vertices[0].x == 3 && frame);
+    assert(hwnd == 42 && count == 1 && vertices[0].x == (expectpose ? 4 : 3) && frame);
     currentdc = 21; currentcontext = 22; return TRUE;
 }
 static BOOL ViewportCaptureThumbnail(HWND hwnd, unsigned char *pixels, int size)
@@ -88,6 +100,7 @@ static void SetTimer(HWND hwnd, int id, int delay, void *callback) { assert(id =
 static void Update(ModelThumbnail *t, HWND *renderer, const char *name)
 {
     t->pending = TRUE;
+    expectpose = CharacterBodySwitchCount(name) > 0 && !failpose;
     ModelThumbnailUpdate(t, 1, renderer, ".", name);
     assert(!t->pending && currentdc == 11 && currentcontext == 12);
 }
@@ -132,5 +145,27 @@ int main(void)
     Update(&thumbs[0], &renderer, "PoneZ"); assert(thumbs[0].failed && renders == 8);
     ModelThumbnailFree(&thumbs[0]); ModelThumbnailFree(&thumbs[1]);
     assert(contexts == reads && timers == 2);
+    /* Seed pre-idle cache entries, then enable the body pose. Non-body
+       entries must remain byte-identical cache hits across this upgrade. */
+    nowrites = badvertex = FALSE;
+    const char *names[] = {"CbodyZ", "CheadZ", "Csuit_lf_handZ", "Gpp7Z", "PoneZ"};
+    for (unsigned int i = 0; i < sizeof(names) / sizeof(*names); i++)
+    { Update(&thumbs[0], &renderer, names[i]); ModelThumbnailFree(&thumbs[0]); }
+    int previousrenders = renders;
+    bodiesenabled = TRUE;
+    for (unsigned int i = 1; i < sizeof(names) / sizeof(*names); i++)
+    { Update(&thumbs[0], &renderer, names[i]); ModelThumbnailFree(&thumbs[0]); }
+    assert(renders == previousrenders && poses == 0);
+    Update(&thumbs[0], &renderer, "CbodyZ");
+    assert(renders == previousrenders + 1 && poses == 1);
+    ModelThumbnailFree(&thumbs[0]); Update(&thumbs[0], &renderer, "CbodyZ");
+    assert(renders == previousrenders + 1 && poses == 1); /* Posed cache hit. */
+    modelrevision++; failpose = TRUE;
+    Update(&thumbs[0], &renderer, "CbodyZ");
+    assert(renders == previousrenders + 2 && poses == 2 && !thumbs[0].failed);
+    failpose = FALSE; Update(&thumbs[0], &renderer, "CbodyZ");
+    assert(renders == previousrenders + 3 && poses == 3); /* Failed pose was not cached. */
+    ModelThumbnailFree(&thumbs[0]);
+    puts("PASS: only body caches refreshed for idle pose; camera receives posed geometry; non-body caches retained; failed pose retried.");
     puts("PASS: cache reuse, edit/undo/image invalidation, checksum recovery, high-LOD dependencies, targeted refresh, read-only cache, failed capture, invalid geometry, GL context restoration and cleanup.");
 }

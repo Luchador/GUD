@@ -11,6 +11,8 @@ typedef struct CharacterModelDefinition {
 } CharacterModelDefinition;
 
 BOOL CharacterGetModelDefinition(int modelid, CharacterModelDefinition *out);
+/* Guard-skeleton bodies only. Heads, watch hands and other assets return 0. */
+int CharacterBodySwitchCount(const char *filename);
 /* Resolves only the preview. A body with an integrated head returns -1. */
 BOOL CharacterResolveModels(const SetupCharacter *character,
                              int *bodyid, int *headid);

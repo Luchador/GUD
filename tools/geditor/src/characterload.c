@@ -25,13 +25,20 @@ enum CharacterPreviewPose {
 /* Reuse the game's complete CitemZ_entries order and metadata. The included
    model headers supply switch counts through local header placeholders;
    no N64 structs, skeletons or runtime symbols enter the editor build. */
+typedef struct CharacterSourceHeader {
+    int switchcount;
+    const int *skeleton;
+} CharacterSourceHeader;
+static const int g_EditorSkeleton_guard = 1, g_EditorSkeleton_suit_lf_hand = 2;
+#define SKELETON(NAME) g_EditorSkeleton_ ## NAME
 #define MODELFILEHEADER(NAME, ROOT, SKELETON, SWITCHES, NUMSWITCHES, NUMMATRICES, RADIUS, RECORDS, TEXTURES) \
-    static const int NAME ## _header = NUMSWITCHES;
+    static const CharacterSourceHeader NAME ## _header = {NUMSWITCHES, SKELETON};
 #include <assets/obseg/chr/chrModelFileHeaders.inc.c>
 #undef MODELFILEHEADER
+#undef SKELETON
 
 typedef struct CharacterSourceDefinition {
-    const int *header;
+    const CharacterSourceHeader *header;
     const char *filename;
     float scale;
     float pov;
@@ -106,6 +113,16 @@ static int CharacterFindModel(const char *filename)
     return -1;
 }
 
+int CharacterBodySwitchCount(const char *filename)
+{
+    int model = CharacterFindModel(filename);
+    if (model < 0) { return 0; }
+    const CharacterSourceHeader *header = g_CharacterModels[model].header;
+    /* The character catalog also contains heads and the first-person watch
+     * hand. Only bodies use the guard skeleton's animation channels. */
+    return header->skeleton == &g_EditorSkeleton_guard ? header->switchcount : 0;
+}
+
 BOOL CharacterResolveModels(const SetupCharacter *character,
                              int *bodyid, int *headid)
 {
@@ -163,15 +180,15 @@ static CharacterPart *CharacterGetPart(CharacterPart *cache, int modelid, int po
                     size, part->attachments.head.m[3]);
             }
             part->attachments.hashands[0] = ModelReadSwitchAttachment(native,
-                size, *definition->header, 3, part->attachments.hands[0].m[3]);
+                size, definition->header->switchcount, 3, part->attachments.hands[0].m[3]);
             part->attachments.hashands[1] = ModelReadSwitchAttachment(native,
-                size, *definition->header, 5, part->attachments.hands[1].m[3]);
+                size, definition->header->switchcount, 5, part->attachments.hands[1].m[3]);
             part->attachments.hashat = ModelReadSwitchAttachment(native,
-                size, *definition->header, 6, part->attachments.hat.m[3]);
+                size, definition->header->switchcount, 6, part->attachments.hat.m[3]);
             if (poseid == CHARACTER_POSE_HEAD_WITH_HAT)
             {
                 DWORD count; unsigned short *tags; BgRenderFlags *flags;
-                BgVertex *vertices = ModelLoadHeadWithHatGeometry(native, size, *definition->header,
+                BgVertex *vertices = ModelLoadHeadWithHatGeometry(native, size, definition->header->switchcount,
                     &count, &tags, &flags, &why);
                 if (vertices)
                 {
@@ -184,7 +201,7 @@ static CharacterPart *CharacterGetPart(CharacterPart *cache, int modelid, int po
             {
                 const unsigned short *angles = poseid == CHARACTER_POSE_RELAXED
                     ? g_EditorPose_idle_unarmed : g_EditorPose_idle;
-                ModelApplyCharacterPose(native, size, *definition->header,
+                ModelApplyCharacterPose(native, size, definition->header->switchcount,
                     angles, poseid == CHARACTER_POSE_TWO_HANDED_LEFT,
                     part->vertices, part->tricount, &part->attachments);
             }

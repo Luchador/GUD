@@ -46,6 +46,7 @@ with tempfile.TemporaryDirectory(prefix='geditor-character-weapons-') as temp:
         for name in ('GEditorSetCharacterWeapon', 'GEditorSetCharacterHat', 'GEditorSetCharacterBehavior', 'GEditorSetCharacterPatrol')))
     subprocess.run(command + [str(here / 'input.c'), '-Wl,--gc-sections', '-lm', '-o', str(work / 'input')], check=True)
     subprocess.run([str(work / 'input')], check=True, env=env)
+    (work / 'idle-preview.inc').write_text(extract.function((src / 'modeledits.c').read_text(), 'ModelEditsApplyIdlePreview'))
     subprocess.run(command + [str(here / 'preview.c'), str(here.parent / 'image_import/platform.c')]
         + [str(src / name) for name in ('modelload.c', 'modelmaterials.c', 'bgmaterial.c', 'bgrender.c', 'setupload.c')]
         + ['-Wl,--gc-sections', '-lm', '-o', str(work / 'preview')], check=True)

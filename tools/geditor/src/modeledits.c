@@ -10,6 +10,7 @@
 #include "modelcompile.h"
 #include "newprops.h"
 #include "texload.h"
+#include "idleposes.h"
 
 typedef struct ModelEdit {
     char name[64];
@@ -140,6 +141,22 @@ BOOL ModelEditsReadSource(const char *project, const char *name, ModelSource *so
     if (ok) { *revision = ModelDataHash(data, size); source->closestpreview = name[0] == 'C'; }
     else ModelFreeSource(source);
     free(data); return ok;
+}
+
+BOOL ModelEditsApplyIdlePreview(const char *project, const char *name, int switchcount,
+    BgVertex *vertices, DWORD count)
+{
+    unsigned char *data = NULL;
+    DWORD size, basehash;
+    const char *why = "";
+    ModelCharacterAttachments attachments = {0};
+    if (!LoadSource(project, name, &data, &size, &basehash, &why)) { return FALSE; }
+    /* This transforms only the caller's preview copy. Use the same native
+     * replacement as ReadSource so edited topology retains its joint bindings. */
+    BOOL ok = ModelApplyCharacterPose(data, size, switchcount, g_EditorPose_idle_unarmed,
+        FALSE, vertices, count, &attachments);
+    free(data);
+    return ok;
 }
 static BOOL ValidateWrapSize(const char *project, const ModelSource *source,
     const DWORD *faces, DWORD count, int wrapu, int wrapv, const char **why)

@@ -15,6 +15,10 @@ BOOL ModelEditsImport(const char *projectdir, const char *name, const char *path
                        DWORD *before, DWORD *after, const char **reasonout);
 BOOL ModelEditsReadSource(const char *project, const char *name, ModelSource *source,
     DWORD *revision, const char **reasonout);
+/* Relaxed unarmed idle on a high-LOD preview copy; source data is never edited.
+ * A failed skeleton/topology match leaves the supplied vertices unchanged. */
+BOOL ModelEditsApplyIdlePreview(const char *project, const char *name, int switchcount,
+    BgVertex *vertices, DWORD count);
 BOOL ModelEditsSetProperties(const char *project, const char *name, DWORD revision,
     const DWORD *faces, DWORD count, int culling, int surface, int wrapu, int wrapv, const char **reasonout);
 BOOL ModelEditsSetMaterial(const char *project, const char *name, DWORD revision,

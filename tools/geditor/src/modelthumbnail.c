@@ -1,5 +1,6 @@
 #include "modelthumbnail.h"
 #include "modeledits.h"
+#include "characterload.h"
 #include "viewport.h"
 #include "texload.h"
 #include "editorpath.h"
@@ -81,6 +82,7 @@ void ModelThumbnailUpdate(ModelThumbnail *thumbnail, HWND owner, HWND *renderer,
     BgVertex *vertices = NULL; unsigned short *tags = NULL; BgRenderFlags *flags = NULL;
     TexPixel *texture = NULL; unsigned char *pixels = NULL, *used = NULL;
     char folder[MAX_PATH], path[MAX_PATH]; BOOL ok = FALSE;
+    int bodyswitches = CharacterBodySwitchCount(name);
     HDC previousdc = wglGetCurrentDC(); HGLRC previous = wglGetCurrentContext();
     thumbnail->pending = FALSE;
     if (!ModelEditsReadSource(project, name, &source, &revision, &why)
@@ -107,6 +109,13 @@ void ModelThumbnailUpdate(ModelThumbnail *thumbnail, HWND owner, HWND *renderer,
             images = ThumbnailHash(images, texture, (size_t)dimensions[0] * dimensions[1] * sizeof(*texture));
         images = ThumbnailHash(images, dimensions, sizeof(dimensions));
     }
+    /* Invalidate only body previews from the bind-pose capture. All other
+     * cache keys stay identical. Bump this tag when the idle capture changes. */
+    if (bodyswitches > 0)
+    {
+        static const char pose[] = "idle-unarmed-1";
+        images = ThumbnailHash(images, pose, sizeof(pose));
+    }
     /* Fingerprint actual native data and decoded images, including unsaved
      * edits. Discarding edits or rebasing therefore cannot reuse a stale image. */
     BOOL cacheable = ThumbnailPath(project, name, folder, path);
@@ -125,6 +134,13 @@ void ModelThumbnailUpdate(ModelThumbnail *thumbnail, HWND owner, HWND *renderer,
             vertices[at * 3 + k] = *v;
         }
         tags[at] = source.tags[face]; flags[at++] = source.flags[face];
+    }
+    if (bodyswitches > 0 && count
+        && !ModelEditsApplyIdlePreview(project, name, bodyswitches, vertices, count))
+    {
+        /* Keep unsupported custom skeletons usable in their authored pose,
+         * but retry next time instead of caching a failed idle capture. */
+        cacheable = FALSE;
     }
     if (!*renderer) *renderer = ViewportCreateThumbnail(owner, (HINSTANCE)GetWindowLongPtr(owner, GWLP_HINSTANCE));
     if (!*renderer || !ViewportSetScene(*renderer, vertices, tags, flags,
