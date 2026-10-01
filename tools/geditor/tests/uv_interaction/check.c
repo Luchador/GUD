@@ -107,6 +107,7 @@ static void LevelManagerRefreshSettings(const void *project,int index) {}
 static void RightPanelSetSetupObject(HWND hwnd, const SetupFile *setup, DWORD index, const char *dir)
 { inspectorUpdates++; inspectorOffset = setup->objects[index].sourceoffset; }
 static void GEditorRefreshTransformFields(void) {}
+static void GEditorRefreshSceneOutliner(void) {}
 static DWORD ViewportGetSelectedRoom(HWND hwnd) { return 0; }
 static void BgCommandsWindowRefresh(const BgFile *bg,const BgDocument *doc,const char *name) {}
 static HWND GetAncestor(HWND hwnd, int flags) { return hwnd; }

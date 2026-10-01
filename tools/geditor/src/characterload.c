@@ -14,6 +14,7 @@
 #include "modeledits.h"
 #include "modelload.h"
 #include "idleposes.h"
+#include "characternames.h"
 
 enum CharacterPreviewPose {
     CHARACTER_POSE_NONE, CHARACTER_POSE_RELAXED,
@@ -111,6 +112,19 @@ static int CharacterFindModel(const char *filename)
         if (strcmp(g_CharacterModels[i].filename, filename) == 0) { return i; }
     }
     return -1;
+}
+
+const char *CharacterGetBodyName(int modelid)
+{
+    CharacterModelDefinition body;
+    if (modelid == 0xffff) { return "Random Guard"; }
+    if (!CharacterGetModelDefinition(modelid, &body)) { return "Unknown Character"; }
+    for (size_t i = 0; i < sizeof(g_CharacterBodyNames) / sizeof(g_CharacterBodyNames[0]); i++)
+    {
+        if (!strcmp(body.filename, g_CharacterBodyNames[i].file))
+        { return g_CharacterBodyNames[i].name; }
+    }
+    return body.filename;
 }
 
 int CharacterBodySwitchCount(const char *filename)

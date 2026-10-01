@@ -7,6 +7,7 @@
 #include "setupload.h"
 #include "stanload.h"
 #include "edittool.h"
+#include "sceneoutliner.h"
 
 /* Assign all selected stan faces to the existing room in wparam. */
 #define RIGHTPANEL_WM_STAN_ROOM_CHANGED (WM_APP + 73)
@@ -32,6 +33,8 @@ typedef struct RightPanelPosition {
 
 BOOL RightPanelRegisterClass(HINSTANCE hinstance);
 HWND RightPanelCreate(HWND parent, HINSTANCE hinstance);
+void RightPanelSetScene(HWND panel, const SetupFile *setup, const BgPortalFile *portals,
+                       SceneOutlinerKind selectedkind, DWORD selectedindex);
 /* A NULL position clears the fields; a noneditable position remains visible. */
 void RightPanelSetTransformState(HWND panel, const double position[3],
                                  DWORD count, BOOL editable, double gridstep);

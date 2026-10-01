@@ -51,6 +51,7 @@ enum {
 };
 
 typedef struct RightPanelState {
+    HWND outliner;
     HWND positions[3];
     HWND movemode, rotatemode, scalebutton;
     BOOL rotationmode, scalemode, scaleislocal, scaleisgroup, nativeunits;
@@ -127,6 +128,8 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
 
     RightPanelClampTopHeight(state, client.bottom);
 
+    MoveWindow(state->outliner, RIGHTPANEL_MARGIN, 32, width,
+               RIGHTPANEL_TRANSFORM_TOP - 44, TRUE);
     MoveWindow(state->movemode, RIGHTPANEL_MARGIN, RIGHTPANEL_TRANSFORM_TOP+22, width/3, 23, TRUE);
     MoveWindow(state->rotatemode, RIGHTPANEL_MARGIN+width/3, RIGHTPANEL_TRANSFORM_TOP+22, width/3, 23, TRUE);
     MoveWindow(state->scalebutton, RIGHTPANEL_MARGIN+width*2/3, RIGHTPANEL_TRANSFORM_TOP+22, width/3, 23, TRUE);
@@ -474,6 +477,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
                  sizeof(state->detailtext));
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
 
+        state->outliner = SceneOutlinerCreate(hwnd, cs->hInstance);
         state->movemode=CreateWindowEx(0,"BUTTON","Move",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_RADIOBUTTON,
             0,0,1,1,hwnd,(HMENU)(INT_PTR)RIGHTPANEL_ID_MOVE_MODE,cs->hInstance,NULL);
         state->rotatemode=CreateWindowEx(0,"BUTTON","Rotate",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_RADIOBUTTON,
@@ -545,7 +549,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         }
         SendMessage(state->details, WM_SETFONT, (WPARAM)font, TRUE);
 
-        if (state->stanroom == NULL || state->stanroomlabel == NULL
+        if (state->outliner == NULL || state->stanroom == NULL || state->stanroomlabel == NULL
             || state->stantype == NULL || state->stantypelabel == NULL
             || state->padmodellabel == NULL || state->padmodel == NULL || state->padcreate == NULL || state->padcreatedoor == NULL
             || state->positions[0] == NULL || state->positions[1] == NULL
@@ -572,6 +576,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
     case COLORPICKER_WM_PICK_COLOR:
         return SendMessage(GetParent(hwnd), RIGHTPANEL_WM_PICK_COLOR, 0, 0);
 
+    case SCENEOUTLINER_WM_SELECT:
     case CHARACTERPROPERTIES_WM_WEAPON_CHANGED:
     case CHARACTERPROPERTIES_WM_HAT_CHANGED:
     case CHARACTERPROPERTIES_WM_BEHAVIOR_CHANGED:
@@ -792,7 +797,7 @@ BOOL RightPanelRegisterClass(HINSTANCE hinstance)
     INITCOMMONCONTROLSEX controls = {sizeof(controls), ICC_BAR_CLASSES | ICC_TAB_CLASSES};
 
     if (!InitCommonControlsEx(&controls)) { return FALSE; }
-    if (!ColorPickerRegisterClass(hinstance) || !FacePropertiesRegisterClass(hinstance)
+    if (!SceneOutlinerRegisterClass(hinstance) || !ColorPickerRegisterClass(hinstance) || !FacePropertiesRegisterClass(hinstance)
         || !PortalPropertiesRegisterClass(hinstance) || !ObjectFlagsRegisterClass(hinstance)
         || !ObjectPropertiesRegisterClass(hinstance) || !CharacterPropertiesRegisterClass(hinstance)) { return FALSE; }
     ZeroMemory(&wc, sizeof(wc));
@@ -816,6 +821,15 @@ HWND RightPanelCreate(HWND parent, HINSTANCE hinstance)
         parent, NULL, hinstance, NULL);
 }
 
+
+void RightPanelSetScene(HWND panel, const SetupFile *setup, const BgPortalFile *portals,
+                       SceneOutlinerKind selectedkind, DWORD selectedindex)
+{
+    RightPanelState *state = RightPanelGetState(panel);
+    if (!state) { return; }
+    SceneOutlinerRefresh(state->outliner, setup, portals);
+    SceneOutlinerSelect(state->outliner, selectedkind, selectedindex);
+}
 
 void RightPanelSetTransformState(HWND panel, const double position[3],
                                  DWORD count, BOOL editable, double gridstep)

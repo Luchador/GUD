@@ -348,10 +348,28 @@ static void GEditorRefreshTransformFields(void)
 }
 
 
+static void GEditorRefreshSceneOutliner(void)
+{
+    SceneOutlinerKind kind = SCENE_OUTLINER_NONE;
+    DWORD index = 0;
+    if (ViewportGetTool(g_Viewport) != EDITOR_TOOL_ROOM_SELECT)
+    {
+        if (ViewportGetSelectedObject(g_Viewport, &index))
+        {
+            kind = (index & SETUP_CHARACTER_SELECTION_BIT) ? SCENE_OUTLINER_CHARACTER : SCENE_OUTLINER_OBJECT;
+            index &= ~SETUP_CHARACTER_SELECTION_BIT;
+        }
+        else if (ViewportGetPortalSelectionCount(g_Viewport) == 1
+            && ViewportGetSelectedPortal(g_Viewport, &index)) { kind = SCENE_OUTLINER_PORTAL; }
+    }
+    RightPanelSetScene(g_RightPanel, &g_CurrentSetup, &g_CurrentBgDocument.portals, kind, index);
+}
+
 /* Rebind inspector data after setup compaction without replacing the UV
  * overlay. History/menu updates also run during live UV drag notifications. */
 static void GEditorRefreshSelectionInspector(void)
 {
+    GEditorRefreshSceneOutliner();
     SetupPadRef padref;
     SetupMarkerRef markerref;
     DWORD selectedobject, portal;
@@ -5802,6 +5820,44 @@ static INT_PTR CALLBACK GEditorGoToDialogProc(HWND dialog, UINT message, WPARAM 
     return FALSE;
 }
 
+static BOOL GEditorSelectSceneItem(HWND hwnd, const SceneOutlinerSelection *request)
+{
+    if (!request || g_CurrentLevelIndex >= g_Project.levelcount
+        || ViewportIsFlying(g_Viewport) || ViewportIsTransforming(g_Viewport)) { return FALSE; }
+    /* The tree is a view of the data; validate its ID again before selecting. */
+    DWORD index = request->index;
+    if (request->kind == SCENE_OUTLINER_CHARACTER)
+    {
+        if (index >= g_CurrentSetup.charactercount || g_CurrentSetup.characters[index].deleted) { return FALSE; }
+        index |= SETUP_CHARACTER_SELECTION_BIT;
+    }
+    else if (request->kind == SCENE_OUTLINER_OBJECT)
+    {
+        if (index >= g_CurrentSetup.objectcount || g_CurrentSetup.objects[index].deleted) { return FALSE; }
+    }
+    else if (request->kind == SCENE_OUTLINER_PORTAL)
+    {
+        if (index >= g_CurrentBgDocument.portals.portalcount) { return FALSE; }
+    }
+    else { return FALSE; }
+    PatrolEditorSetPicking(FALSE);
+    ViewportSetColorPick(g_Viewport, FALSE);
+    ViewportSetDoorPick(g_Viewport, FALSE);
+    ViewportSetTool(g_Viewport, EDITOR_TOOL_FACE_SELECT);
+    ToolToolbarSetTool(g_ToolToolbar, EDITOR_TOOL_FACE_SELECT);
+    VisibilityMenuReveal(g_VisibilityMenu, request->kind == SCENE_OUTLINER_PORTAL
+        ? VISIBILITY_SHOW_PORTALS : VISIBILITY_SHOW_OBJECTS);
+    BOOL selected = request->kind == SCENE_OUTLINER_PORTAL
+        ? ViewportSelectPortal(g_Viewport, index) : ViewportSelectSetupModels(g_Viewport, &index, 1);
+    GEditorRefreshSelectionDetails();
+    GEditorRefreshHistoryMenu(hwnd);
+    if (selected && request->frame)
+    { ViewportZoomToSelected(g_Viewport); SetFocus(g_Viewport); }
+    /* Leave focus in the tree on single-click so double-click and arrow-key
+     * navigation continue to reach the native control. */
+    return selected;
+}
+
 static BOOL GEditorCanGoToGeometry(BOOL portal)
 {
     return g_Viewport && g_CurrentLevelIndex < g_Project.levelcount
@@ -6122,6 +6178,9 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     case VIEWPORT_WM_SELECTION_CHANGED:
         GEditorRefreshSelectionDetails();
         return 0;
+
+    case SCENEOUTLINER_WM_SELECT:
+        return GEditorSelectSceneItem(hwnd, (const SceneOutlinerSelection *)lparam);
 
     case VIEWPORT_WM_OPEN_MODEL:
     {
