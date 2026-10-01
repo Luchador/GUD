@@ -312,6 +312,11 @@ static INT_PTR CALLBACK UVEditorDialogProc(HWND hwnd, UINT message,
         SendMessage(GetWindow(hwnd, GW_OWNER), UVEDITOR_WM_SELECTION_CHANGED, 0, 0);
         return TRUE;
 
+    case UVCANVAS_WM_PREVIEW:
+        SetWindowLongPtr(hwnd, DWLP_MSGRESULT,
+            SendMessage(GetWindow(hwnd, GW_OWNER), UVEDITOR_WM_PREVIEW, 0, lparam));
+        return TRUE;
+
     case UVCANVAS_WM_COMMIT:
     case UVCANVAS_WM_COMMIT_FACES:
     {

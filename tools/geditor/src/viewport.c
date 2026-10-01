@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include "browser.h"
 #include "viewport.h"
+#include "uvcanvas.h"
 #include "editorunits.h"
 #include "gltf.h"
 #include "modellighting.h"
@@ -212,6 +213,13 @@ typedef struct VertexColor {
     GLubyte r, g, b;
 } VertexColor;
 
+typedef struct ViewportUVPreviewCorner {
+    int corner;
+    DWORD edit;
+    BgDocumentUVEdit source;
+    float original[2], scale[2];
+} ViewportUVPreviewCorner;
+
 typedef struct ViewportComponent {
     BgDocumentVertexRef refs[2];
     int corners[2];
@@ -301,6 +309,9 @@ typedef struct ViewportState {
     LARGE_INTEGER startupstart, startupfrequency;
     Vertex *scene;       /* malloc'd level geometry, or NULL for an empty viewport */
     BOOL stageopen;      /* A selected stage may intentionally have no geometry. */
+    struct ViewportUVPreviewCorner *uvpreview;
+    int uvpreviewcount;
+    BOOL uvpreviewactive;
     VertexColor *scenecolors; /* original RGB restored when faces are deselected */
     GLsizei scenecount;  /* vertices in scene */
     struct SceneBatch *batches;  /* draw-ordered draw ranges */
@@ -6892,18 +6903,21 @@ BOOL ViewportSelectConnected(HWND hwnd)
         parents[a] += parents[b]; parents[b] = a;
     }
     int root = ViewportConnectedRoot(parents, seed);
-    /* No selection is changed before allocation and traversal succeed. A
-     * single notification captures the whole island in selection history. */
-    ViewportClearAllSelection(state);
+    /* Add the island without disturbing the previous selection. Allocate
+     * first, then record all newly selected faces in one history notification. */
+    BOOL changed = FALSE;
     for (int tri = 0; tri < triangles; tri++)
     {
-        if (ViewportConnectedRoot(parents, tri) != root) { continue; }
+        if (state->selectedtris[tri] || ViewportConnectedRoot(parents, tri) != root) { continue; }
         state->selectedtris[tri] = 1; state->selectedtricount++;
-        ViewportSetTriangleColor(state, tri, TRUE);
+        ViewportSetTriangleColor(state, tri, TRUE); changed = TRUE;
     }
-    ViewportUpdateGizmo(state);
-    InvalidateRect(hwnd, NULL, FALSE);
-    SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+    if (changed)
+    {
+        ViewportUpdateGizmo(state);
+        InvalidateRect(hwnd, NULL, FALSE);
+        SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+    }
     ok = TRUE;
 done:
     free(edges); free(parents); return ok;
@@ -10088,6 +10102,8 @@ static void ViewportFreeScene(struct ViewportState *state_)
     free(state->hiddentris);
     free(state->scenefacerefs);
     free(state->sceneobjectindices);
+    free(state->uvpreview); state->uvpreview = NULL;
+    state->uvpreviewcount = 0; state->uvpreviewactive = FALSE;
     free(state->scenevertexrefs);
     free(state->scenecolors);
     BgPortalFileFree(&state->portals);
@@ -11116,6 +11132,151 @@ BOOL ViewportGetTextureSize(HWND hwnd, unsigned short textureid, int *width, int
     return FALSE;
 }
 
+
+static int ViewportCompareUVEdits(const void *left, const void *right)
+{
+    const BgDocumentUVEdit *a = left, *b = right;
+    int order = ViewportCompareVertexRefs(&a->vertex, &b->vertex);
+    return order ? order : a->vertexid < b->vertexid ? -1 : a->vertexid > b->vertexid;
+}
+
+typedef struct ViewportUVPreviewFace {
+    BgFaceRef face;
+    int triangle;
+} ViewportUVPreviewFace;
+
+static int ViewportCompareUVFaces(const void *left, const void *right)
+{
+    const ViewportUVPreviewFace *a = left, *b = right;
+    return ViewportCompareFaceRefs(&a->face, &b->face);
+}
+
+static void ViewportClearUVPreview(HWND hwnd, ViewportState *state)
+{
+    BOOL changed = FALSE;
+    for (int i = 0; i < state->uvpreviewcount; i++)
+    {
+        const ViewportUVPreviewCorner *p = &state->uvpreview[i];
+        Vertex *v = &state->scene[p->corner];
+        changed |= v->s != p->original[0] || v->t != p->original[1];
+        v->s = p->original[0]; v->t = p->original[1];
+    }
+    free(state->uvpreview); state->uvpreview = NULL;
+    state->uvpreviewcount = 0; state->uvpreviewactive = FALSE;
+    /* Do not force a paint here: committing immediately rebuilds the scene,
+     * so drawing the restored UVs first would flash the old mapping. */
+    if (changed) { InvalidateRect(hwnd, NULL, FALSE); }
+}
+
+static BOOL ViewportBuildUVPreview(HWND hwnd, ViewportState *state,
+    const BgDocument *document, const UVCanvasPreview *preview)
+{
+    ViewportUVPreviewCorner *corners = NULL;
+    ViewportUVPreviewFace *faces = NULL;
+    int count = 0;
+    if (!state->scene || !state->scenefacerefs || !state->scenevertexrefs || state->scenecount <= 0
+        || (size_t)state->scenecount > SIZE_MAX / sizeof(*corners)) { return FALSE; }
+    corners = malloc((size_t)state->scenecount * sizeof(*corners));
+    if (!corners) { return FALSE; }
+    if (!document)
+    {
+        if (!preview->triangles || preview->trianglecount <= 0
+            || (size_t)preview->trianglecount > SIZE_MAX / sizeof(*faces)) { goto fail; }
+        faces = malloc((size_t)preview->trianglecount * sizeof(*faces));
+        if (!faces) { goto fail; }
+        for (int i = 0; i < preview->trianglecount; i++)
+        { faces[i] = (ViewportUVPreviewFace){preview->triangles[i].face, i}; }
+        qsort(faces, preview->trianglecount, sizeof(*faces), ViewportCompareUVFaces);
+    }
+    for (int b = 0; b < state->batchcount; b++)
+    {
+        const SceneBatch *batch = &state->batches[b];
+        int width, height;
+        /* Match the normal renderer: untextured/missing-image coordinates
+         * remain zero, and reflection coordinates are generated each frame. */
+        if (batch->object || !batch->gltex || (batch->renderflags & BG_RENDER_ENVIRONMENT_MASK)) { continue; }
+        ViewportGetTextureSize(hwnd, batch->textureid, &width, &height);
+        for (int tri = batch->first/3; tri < (batch->first+batch->count)/3; tri++)
+        {
+            const UVCanvasTriangle *model = NULL;
+            if (faces)
+            {
+                ViewportUVPreviewFace key = {state->scenefacerefs[tri], 0};
+                const ViewportUVPreviewFace *hit = bsearch(&key, faces, preview->trianglecount,
+                    sizeof(*faces), ViewportCompareUVFaces);
+                if (!hit) { continue; }
+                model = &preview->triangles[hit->triangle];
+                if (model->width <= 0 || model->height <= 0) { goto fail; }
+                width = model->width; height = model->height;
+            }
+            for (int c = 0; c < 3; c++)
+            {
+                BgDocumentUVEdit source;
+                if (model) { source = model->source[c]; }
+                else
+                {
+                    BgDocumentVertexRef ref = state->scenevertexrefs[tri*3+c];
+                    if (!ref.room || ref.room > document->roomcount || !document->rooms) { continue; }
+                    const BgDocumentRoom *room = &document->rooms[ref.room];
+                    if (!room->vertices || ref.index >= room->vertexcount) { continue; }
+                    const BgDocumentVertex *v = &room->vertices[ref.index];
+                    source = (BgDocumentUVEdit){ref, v->id, v->s, v->t};
+                }
+                const BgDocumentUVEdit *edit = bsearch(&source, preview->vertices, preview->count,
+                    sizeof(*edit), ViewportCompareUVEdits);
+                if (!edit) { continue; }
+                Vertex *v = &state->scene[tri*3+c];
+                corners[count++] = (ViewportUVPreviewCorner){tri*3+c, (DWORD)(edit-preview->vertices),
+                    source, {v->s, v->t}, {1.0f/(32.0f*width), 1.0f/(32.0f*height)}};
+            }
+        }
+    }
+    free(faces);
+    state->uvpreview = corners; state->uvpreviewcount = count; state->uvpreviewactive = TRUE;
+    return TRUE;
+fail:
+    free(faces); free(corners); return FALSE;
+}
+
+BOOL ViewportPreviewUVs(HWND hwnd, const BgDocument *document, const UVCanvasPreview *preview)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    BOOL changed = FALSE;
+    if (!state) { return preview == NULL; }
+    if (!preview) { ViewportClearUVPreview(hwnd, state); return TRUE; }
+    if (!preview->vertices || !preview->count) { goto fail; }
+    for (DWORD i = 0; i < preview->count; i++)
+    {
+        const BgDocumentUVEdit *v = &preview->vertices[i];
+        if (v->s < -32768 || v->s > 32767 || v->t < -32768 || v->t > 32767
+            || (i && ViewportCompareUVEdits(v-1, v) >= 0)) { goto fail; }
+    }
+    if (!state->uvpreviewactive && !ViewportBuildUVPreview(hwnd, state, document, preview)) { goto fail; }
+    for (int i = 0; i < state->uvpreviewcount; i++)
+    {
+        const ViewportUVPreviewCorner *p = &state->uvpreview[i];
+        if (p->edit >= preview->count || ViewportCompareUVEdits(&p->source, &preview->vertices[p->edit])) { goto fail; }
+    }
+    /* The corner mapping and original coordinates are cached once per drag.
+     * Mouse moves only update affected UVs, with no asset/texture reloads. */
+    for (int i = 0; i < state->uvpreviewcount; i++)
+    {
+        const ViewportUVPreviewCorner *p = &state->uvpreview[i];
+        const BgDocumentUVEdit *edit = &preview->vertices[p->edit];
+        Vertex *v = &state->scene[p->corner];
+        float s = edit->s == p->source.s ? p->original[0] : edit->s * p->scale[0];
+        float t = edit->t == p->source.t ? p->original[1] : edit->t * p->scale[1];
+        changed |= v->s != s || v->t != t; v->s = s; v->t = t;
+    }
+    if (changed)
+    {
+        InvalidateRect(hwnd, NULL, FALSE);
+        UpdateWindow(hwnd); /* Show this cursor update even during a busy drag. */
+    }
+    return TRUE;
+fail:
+    ViewportClearUVPreview(hwnd, state); return FALSE;
+}
 
 BOOL ViewportSelectBgVertex(HWND hwnd, const BgDocumentVertexRef *ref)
 {

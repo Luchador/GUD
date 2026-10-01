@@ -936,18 +936,18 @@ static void Connected(void)
     selected[3]=1; s.selectedtricount=1;
     unsigned before=notifications;
     assert(ViewportCanSelectConnected(&s) && ViewportSelectConnected(&s));
-    assert(notifications==before+1 && s.selectedtricount==4 && raypoint.x==4 && raypoint.y==5);
-    for (int tri=0; tri<count; tri++) { assert(selected[tri]==(tri==0 || tri==1 || tri==2 || tri==11)); }
-    assert(ViewportSelectConnected(&s) && s.selectedtricount==4); /* stable; no cycling to underlying geometry */
-    hidden[7]=0; assert(ViewportSelectConnected(&s) && s.selectedtricount==6 && selected[7] && selected[8]);
+    assert(notifications==before+1 && s.selectedtricount==5 && raypoint.x==4 && raypoint.y==5);
+    for (int tri=0; tri<count; tri++) { assert(selected[tri]==(tri==0 || tri==1 || tri==2 || tri==3 || tri==11)); }
+    assert(ViewportSelectConnected(&s) && s.selectedtricount==5 && notifications==before+1); /* no duplicate selection/history */
+    hidden[7]=0; assert(ViewportSelectConnected(&s) && s.selectedtricount==7 && selected[7] && selected[8]);
     hidden[7]=1; s.showbgsecondary=TRUE;
-    assert(ViewportSelectConnected(&s) && s.selectedtricount==6 && selected[9] && selected[10] && !selected[8]);
+    assert(ViewportSelectConnected(&s) && s.selectedtricount==9 && selected[9] && selected[10] && selected[8] && selected[3]);
     s.showbgsecondary=FALSE;
-    pickedtriangle=6; assert(ViewportSelectConnected(&s) && s.selectedtricount==1 && selected[6]);
-    pickedtriangle=13; assert(ViewportSelectConnected(&s) && s.selectedtricount==1 && selected[13]);
+    pickedtriangle=6; assert(ViewportSelectConnected(&s) && s.selectedtricount==10 && selected[6] && selected[0] && selected[3]);
+    pickedtriangle=13; assert(ViewportSelectConnected(&s) && s.selectedtricount==11 && selected[13]);
     /* A menu uses the recorded client position after the cursor leaves the viewport. */
     cursorwindow=NULL; ViewportRememberSelectionPoint(&s,30,40); pickedtriangle=0;
-    assert(ViewportSelectConnected(&s) && raypoint.x==30 && raypoint.y==40 && s.selectedtricount==4);
+    assert(ViewportSelectConnected(&s) && raypoint.x==30 && raypoint.y==40 && s.selectedtricount==11);
     ViewportRememberSelectionPoint(&s,-20,50);
     assert(s.selectionpoint.x==30 && s.selectionpoint.y==40);
     before=notifications;
@@ -955,14 +955,14 @@ static void Connected(void)
     ViewportRememberSelectionPoint(&s,30,40);
     s.width=20; assert(ViewportSelectConnected(&s) && notifications==before); s.width=640;
     rayvalid=FALSE; assert(ViewportSelectConnected(&s) && notifications==before); rayvalid=TRUE;
-    pickedtriangle=-1; assert(ViewportSelectConnected(&s) && notifications==before && s.selectedtricount==4);
-    pickedtriangle=12; assert(ViewportSelectConnected(&s) && notifications==before && s.selectedtricount==4);
+    pickedtriangle=-1; assert(ViewportSelectConnected(&s) && notifications==before && s.selectedtricount==11);
+    pickedtriangle=12; assert(ViewportSelectConnected(&s) && notifications==before && s.selectedtricount==11);
     pickedtriangle=0;
     for (int budget=0; budget<2; budget++)
     {
         unsigned char saved[count]; memcpy(saved,selected,sizeof(saved)); allocations=budget;
         assert(!ViewportSelectConnected(&s)); allocations=-1;
-        assert(notifications==before && s.selectedtricount==4 && !memcmp(saved,selected,sizeof(saved)));
+        assert(notifications==before && s.selectedtricount==11 && !memcmp(saved,selected,sizeof(saved)));
     }
     s.flying=TRUE; assert(!ViewportCanSelectConnected(&s) && ViewportSelectConnected(&s)); s.flying=FALSE;
     s.dragaxis=0; assert(!ViewportCanSelectConnected(&s)); s.dragaxis=-1;
@@ -976,7 +976,7 @@ static void Connected(void)
     s.tool=EDITOR_TOOL_EDGE_SELECT; assert(!ViewportCanSelectConnected(&s));
     s.tool=EDITOR_TOOL_VERTEX_SELECT; assert(!ViewportCanSelectConnected(&s));
     assert(!ViewportCanSelectConnected(NULL) && ViewportSelectConnected(NULL) && notifications==before);
-    puts("PASS: hovered connected island, complete shared edges, transitive/non-manifold adjacency, room/seam boundaries, hidden/layer barriers, no-hit no-op, atomic allocation failure and menu cursor fallback.");
+    puts("PASS: additive hovered connected islands, repeat without duplicates/history, complete shared edges, transitive/non-manifold adjacency, room/seam boundaries, hidden/layer barriers, no-hit no-op, atomic allocation failure and menu cursor fallback.");
 }
 
 static void ConnectedLongStrip(void)

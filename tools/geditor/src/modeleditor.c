@@ -1136,6 +1136,10 @@ static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wp
         ModelEditorProperties(); ModelEditorRefreshUV(); return TRUE;
     case VIEWPORT_WM_DELETE_SELECTION:
         ModelEditorDeleteFaces(); return TRUE;
+    case UVEDITOR_WM_PREVIEW:
+        SetWindowLongPtr(hwnd, DWLP_MSGRESULT,
+            ViewportPreviewUVs(g_ModelViewport, NULL, (const UVCanvasPreview *)lparam));
+        return TRUE;
     case UVEDITOR_WM_APPLY:
     case UVEDITOR_WM_APPLY_FACES:
         SetWindowLongPtr(hwnd, DWLP_MSGRESULT, message == UVEDITOR_WM_APPLY

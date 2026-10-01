@@ -91,6 +91,7 @@ BOOL ViewportGetMarkerRotation(HWND h,Rotation *r) { abort(); }
 #include "plane.inc"
 static void UVCanvasUpdatePreview(UVCanvasState *s) {}
 static void UVCanvasNotify(HWND hwnd) {}
+static BOOL UVCanvasPreviewOwner(HWND hwnd, UVCanvasState *state) { return TRUE; }
 BOOL UVCanvasCancelInteraction(HWND hwnd) { ((UVCanvasState *)hwnd)->draghandle=0; return TRUE; }
 #include "uv_drag.inc"
 

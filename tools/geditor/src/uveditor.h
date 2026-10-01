@@ -21,6 +21,8 @@ void UVEditorSetOverlay(HWND owner, UVCanvasTriangle *triangles, int count,
 /* Synchronous owner requests. APPLY lparam points to a UVCanvasEdit;
    HISTORY wparam is TRUE for redo. */
 #define UVEDITOR_WM_APPLY (WM_APP + 42)
+/* UVCanvasPreview in lparam, or NULL to restore the unmodified 3D view. */
+#define UVEDITOR_WM_PREVIEW (WM_APP + 119)
 #define UVEDITOR_WM_HISTORY (WM_APP + 43)
 #define UVEDITOR_WM_SELECTION_CHANGED (WM_APP + 44)
 /* APPLY_FACES lparam points to a UVCanvasFaceEdit, with per-corner UVs. */

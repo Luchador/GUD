@@ -26,12 +26,16 @@ typedef struct { int x, y; } POINT;
 static UVCanvasState state;
 static HWND canvas = &state, capture;
 static UVCanvasTriangle source;
+static int previews, clears;
+static BgDocumentUVEdit displayed[3];
 static int commits, refreshes, inspectorUpdates, notificationDepth;
 static DWORD inspectorOffset;
 static BOOL objectSelected;
 static BOOL g_SelectionHistoryPending;
 static HWND g_Viewport = (HWND)1, g_RightPanel = (HWND)2, g_Browser = (HWND)3;
 static BgDocument g_CurrentBgDocument;
+static BgFile g_CurrentBg;
+static DWORD g_DoorShadowPicking = (DWORD)-1;
 static SetupFile g_CurrentSetup;
 static StanFile g_CurrentStan;
 static struct { char dir[MAX_PATH]; int levelcount; struct { const char *name; } levels[1]; } g_Project;
@@ -71,6 +75,10 @@ static BOOL ViewportGetSelectedPortal(HWND hwnd, DWORD *index) { return FALSE; }
 static BOOL ViewportGetSelectedMarker(HWND hwnd, SetupMarkerRef *ref, void *marker) { return FALSE; }
 static BOOL ViewportGetSelectedPad(HWND hwnd, SetupPadRef *ref) { return FALSE; }
 static void Ignore(HWND hwnd, ...) {}
+#define ViewportSetDoorPick Ignore
+#define RightPanelSetGlassPortals Ignore
+#define RightPanelSetRoomMode Ignore
+#define RightPanelSetRoomSelection Ignore
 #define RightPanelSetObjectFlags Ignore
 #define RightPanelSetVertexPaintMode Ignore
 #define RightPanelSetPortal Ignore
@@ -87,6 +95,8 @@ static void LevelManagerRefreshSettings(const void *project,int index) {}
 static void RightPanelSetSetupObject(HWND hwnd, const SetupFile *setup, DWORD index, const char *dir)
 { inspectorUpdates++; inspectorOffset = setup->objects[index].sourceoffset; }
 static void GEditorRefreshTransformFields(void) {}
+static DWORD ViewportGetSelectedRoom(HWND hwnd) { return 0; }
+static void BgCommandsWindowRefresh(const BgFile *bg,const BgDocument *doc,const char *name) {}
 static HWND GetAncestor(HWND hwnd, int flags) { return hwnd; }
 static void GEditorSetTitleForProject(HWND hwnd) {}
 static HMENU GetMenu(HWND hwnd) { return NULL; }
@@ -104,6 +114,14 @@ static LRESULT SendMessage(HWND hwnd, unsigned message, WPARAM wparam, LPARAM lp
         notificationDepth++;
         if (notificationDepth == 1) { GEditorRefreshHistoryMenu((HWND)5); }
         notificationDepth--;
+    }
+    else if (message == UVCANVAS_WM_PREVIEW)
+    {
+        if (!lparam) { clears++; memcpy(displayed,source.source,sizeof(displayed)); return TRUE; }
+        const UVCanvasPreview *preview = (const UVCanvasPreview *)lparam;
+        assert(preview->count == 3 && preview->trianglecount == 1 && state.draghandle && capture == canvas);
+        memcpy(displayed,preview->vertices,sizeof(displayed)); previews++;
+        assert(source.source[0].s == 0 && source.source[1].s == 1024); /* no document edit */
     }
     else
     {
@@ -133,7 +151,7 @@ static void Fixture(TransformMode mode)
     for (DWORD i = 0; i < 3; i++)
     { source.source[i] = (BgDocumentUVEdit){.vertex = {1, i}, .vertexid = i + 1,
         .s = i == 1 ? 1024 : 0, .t = i == 2 ? 1024 : 0}; }
-    capture = NULL; commits = 0;
+    capture = NULL; commits = previews = clears = 0;
     UVEditorRefreshSelection(g_Viewport, &g_CurrentBgDocument, g_Project.dir);
     for (int i = 0; i < 3; i++) { state.nodes[i].selected = TRUE; }
     UVCanvasResetTransform(&state);
@@ -163,20 +181,23 @@ int main(void)
         if (mode == TRANSFORM_ROTATE) { x = state.dragorigin.x; y = state.dragorigin.y - UVCANVAS_ROTATE_RADIUS; }
         UVCanvasDrag(canvas, &state, x, y);
         assert(state.draghandle == 3 && capture == canvas);
-        assert(state.nodes == nodes && refreshes == before && !commits);
+        assert(state.nodes == nodes && refreshes == before && !commits && previews == 1);
+        assert(displayed[0].s == (int)round(state.triangles[0].uv[0][0]*1024));
+        BgDocumentUVEdit *buffer = state.previewvertices; assert(buffer);
         assert(state.nodes[1].source.s == 1024); /* Source stays intact during preview. */
         assert(state.triangles[0].uv[0][0] != 0);
         assert(state.values[0] == (mode == TRANSFORM_MOVE ? .18 : mode == TRANSFORM_ROTATE ? 90 : 1.5));
         UVCanvasDrag(canvas, &state, x, y);
-        assert(state.draghandle == 3 && capture == canvas && !commits);
+        assert(state.draghandle == 3 && capture == canvas && !commits && previews == 2 && state.previewvertices == buffer);
         assert(UVCanvasCommit(canvas, &state));
-        assert(commits == 1 && refreshes == before + 1 && !state.draghandle && !capture);
+        assert(commits == 1 && refreshes == before + 1 && !state.draghandle && !capture && clears == 1 && !state.previewvertices);
         assert(source.source[0].s != 0);
         for (int i = 0; i < 3; i++) { assert(state.nodes[i].selected); }
 
         Fixture((TransformMode)mode); BeginDrag();
         UVCanvasDrag(canvas, &state, state.dragstart.x + 36, state.dragstart.y - 36);
-        assert(UVCanvasCancelInteraction(canvas) && !commits && !capture);
+        assert(UVCanvasCancelInteraction(canvas) && !commits && !capture && clears == 1 && !state.previewvertices);
+        assert(displayed[0].s == 0 && displayed[1].s == 1024);
         assert(state.triangles[0].uv[0][0] == 0 && state.nodes[1].source.s == 1024);
     }
     /* Setup compaction still refreshes cached inspector command offsets. */

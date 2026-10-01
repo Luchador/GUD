@@ -31,6 +31,16 @@ typedef struct UVCanvasEdit {
     const char *action; /* NULL uses the default move action */
 } UVCanvasEdit;
 
+/* Synchronous display-only updates; NULL lparam cancels the preview.
+ * Vertex identities are sorted and remain fixed throughout one drag. */
+#define UVCANVAS_WM_PREVIEW (WM_APP + 118)
+typedef struct UVCanvasPreview {
+    const BgDocumentUVEdit *vertices;
+    DWORD count;
+    const UVCanvasTriangle *triangles;
+    int trianglecount;
+} UVCanvasPreview;
+
 #define UVCANVAS_WM_COMMIT_FACES (WM_APP + 60)
 typedef struct UVCanvasFaceEdit {
     const BgDocumentFaceUVEdit *faces;

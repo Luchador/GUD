@@ -6259,6 +6259,9 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     case VIEWPORT_WM_MARK_SEAM:
         return GEditorMarkUVSeam(hwnd, (const BgDocumentEdgeRef *)lparam, (BOOL)wparam);
 
+    case UVEDITOR_WM_PREVIEW:
+        return ViewportPreviewUVs(g_Viewport, &g_CurrentBgDocument, (const UVCanvasPreview *)lparam);
+
     case UVEDITOR_WM_APPLY_FACES:
         return GEditorApplyUVFaceEdit(hwnd, (const UVCanvasFaceEdit *)lparam);
 

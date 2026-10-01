@@ -127,6 +127,12 @@ BOOL ViewportSelectBgVertices(HWND hwnd, const BgDocumentVertexRef *refs, DWORD 
 /* Mean vertex positions, edge midpoints or face centers; a model uses its
    surface centroid. Includes the live drag preview, excludes hidden items. */
 BOOL ViewportGetSelectionPosition(HWND hwnd, double position[3], DWORD *countout);
+/* Display-only UV drag updates. NULL preview restores the original UVs;
+ * document=NULL uses the Model Editor's face/corner identities. A scene
+ * rebuild discards the preview. No asset, selection or history is modified. */
+struct UVCanvasPreview;
+BOOL ViewportPreviewUVs(HWND hwnd, const BgDocument *document, const struct UVCanvasPreview *preview);
+
 /* World-space output, using exact BG coordinates for numeric entry. */
 BOOL ViewportGetEditorSelectionPosition(HWND hwnd, const BgDocument *document,
                                         double position[3], DWORD *countout);
@@ -231,7 +237,7 @@ BOOL ViewportSelectBackground(HWND hwnd, BOOL grow);
    Single-selection pads, markers and the whole-room tool are excluded. */
 BOOL ViewportCanSelectInverse(HWND hwnd);
 BOOL ViewportSelectInverse(HWND hwnd);
-/* Face mode: replace selection with the hovered BG face's connected island.
+/* Face mode: add the hovered BG face's connected island to the selection.
  * Adjacency requires a complete edge with matching source vertex identities;
  * hidden faces and disabled layers are excluded, occluded faces can connect.
  * Menu invocation outside the viewport uses its last recorded cursor position. */

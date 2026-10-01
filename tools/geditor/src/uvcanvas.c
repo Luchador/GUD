@@ -47,6 +47,8 @@ typedef struct UVCanvasState {
     POINT dragstart, dragorigin;
     double pivot[2], values[2]; /* UV offsets, degrees, or scale factors */
     double lastangle, dragangle;
+    BgDocumentUVEdit *previewvertices; /* reused while the drag remains active */
+    BOOL previewactive;
     BOOL limited; /* last requested transform exceeded native S/T range */
 } UVCanvasState;
 
@@ -644,6 +646,12 @@ BOOL UVCanvasCancelInteraction(HWND canvas)
     active = state->boxing || state->draghandle != 0;
     state->boxing = FALSE;
     state->draghandle = 0;
+    if (state->previewactive)
+    {
+        state->previewactive = FALSE; /* ReleaseCapture may reenter cancellation. */
+        SendMessage(GetParent(canvas), UVCANVAS_WM_PREVIEW, 0, 0);
+    }
+    free(state->previewvertices); state->previewvertices = NULL;
     UVCanvasResetTransform(state);
     if (active)
     {
@@ -715,6 +723,25 @@ static BOOL UVCanvasTryTransform(UVCanvasState *state, const double values[2])
     return TRUE;
 }
 
+static BOOL UVCanvasPreviewOwner(HWND hwnd, UVCanvasState *state)
+{
+    if (!state->previewvertices && state->nodecount > 0)
+    { state->previewvertices = malloc((size_t)state->nodecount * sizeof(*state->previewvertices)); }
+    if (!state->previewvertices) { return FALSE; }
+    DWORD count = 0;
+    for (int i = 0; i < state->nodecount; i++)
+    {
+        const UVCanvasNode *node = &state->nodes[i];
+        if (!node->selected) { continue; }
+        int st[2]; UVCanvasNodeST(state, node, st);
+        BgDocumentUVEdit *edit = &state->previewvertices[count++];
+        *edit = node->source; edit->s = st[0]; edit->t = st[1];
+    }
+    UVCanvasPreview preview = {state->previewvertices, count, state->triangles, state->trianglecount};
+    state->previewactive = TRUE;
+    return (BOOL)SendMessage(GetParent(hwnd), UVCANVAS_WM_PREVIEW, 0, (LPARAM)&preview);
+}
+
 static void UVCanvasDrag(HWND hwnd, UVCanvasState *state, int x, int y)
 {
     int axis, i;
@@ -759,6 +786,12 @@ static void UVCanvasDrag(HWND hwnd, UVCanvasState *state, int x, int y)
      * preview. Clipping individual vertices would distort rotation/scale. */
     UVCanvasTryTransform(state, values);
     UVCanvasUpdatePreview(state);
+    if (!UVCanvasPreviewOwner(hwnd, state))
+    {
+        UVCanvasCancelInteraction(hwnd);
+        MessageBox(GetParent(hwnd), "Could not preview the UV transform.", "UV Editor", MB_ICONERROR);
+        return;
+    }
     UVCanvasNotify(hwnd);
 }
 

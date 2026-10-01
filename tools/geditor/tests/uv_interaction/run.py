@@ -26,7 +26,7 @@ with tempfile.TemporaryDirectory(prefix='geditor-uv-interaction-') as temp:
          'UVCanvasTransformST', 'UVCanvasNodeST', 'UVCanvasSelectionPosition',
          'UVCanvasProject', 'UVCanvasGizmo', 'UVCanvasPickHandle', 'UVCanvasNotify',
          'UVCanvasUpdatePreview', 'UVCanvasCancelInteraction', 'UVCanvasTryTransform',
-         'UVCanvasDrag', 'UVCanvasCommit', 'UVCanvasSetTriangles', 'UVCanvasSetTransformMode',
+         'UVCanvasPreviewOwner', 'UVCanvasDrag', 'UVCanvasCommit', 'UVCanvasSetTriangles', 'UVCanvasSetTransformMode',
          'UVCanvasApplyTransform')))
     # Also runs against the pre-fix source, where the inspector was not split.
     names = ['GEditorRefreshSelectionDetails', 'GEditorRefreshHistoryMenu']
