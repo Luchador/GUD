@@ -60,30 +60,52 @@ static void PrivateCorners(const BgDocument *doc,const BgFaceRef *ref,unsigned m
     }
 }
 
-/* Check independence even before attributes diverge: saving must not weld
-   identical copies together. Repeated compilation may repack native batches. */
-static void RoundTrip(const BgDocument *doc,const BgFile *source,const char *dir,
-    const BgFaceRef *private,DWORD count,unsigned mask)
+static BOOL Selected(const BgDocumentFace *face,const BgFaceRef *refs,DWORD count)
 {
-    BgFile compiled={0},saved={0}; BgDocument loaded={0}; const char *why="";
+    for (DWORD i=0;i<count;i++)
+    { if (face->room==refs[i].room && face->layer==refs[i].layer && face->id==refs[i].faceid) { return TRUE; } }
+    return FALSE;
+}
+
+/* Only selected-to-unselected connections may be cut. Existing seams must
+   stay separate even when their positions, UVs and colors are identical. */
+static void Connections(const BgDocument *before,const BgDocument *after,
+    const BgFaceRef *refs,DWORD count)
+{
+    assert(before->roomcount==after->roomcount);
+    for (DWORD r=1;r<=before->roomcount;r++)
+    {
+        const BgDocumentRoom *a=&before->rooms[r], *b=&after->rooms[r];
+        assert(a->facecount==b->facecount);
+        for (DWORD f=0;f<a->facecount;f++) for (DWORD g=0;g<a->facecount;g++)
+        for (int c=0;c<3;c++) for (int k=0;k<3;k++)
+        {
+            BOOL shared=a->faces[f].vertexindices[c]==a->faces[g].vertexindices[k]
+                && Selected(&a->faces[f],refs,count)==Selected(&a->faces[g],refs,count);
+            assert(shared==(b->faces[f].vertexindices[c]==b->faces[g].vertexindices[k]));
+        }
+    }
+}
+
+/* Native output must preserve appearance and leave the live edit untouched.
+   The existing save optimizer may merge byte-identical native vertices, so
+   editor connection identities are checked on the live document separately. */
+static void RoundTrip(const BgDocument *doc,const BgFile *source,const char *dir)
+{
+    BgFile compiled={0},saved={0},packed={0}; BgDocument loaded={0},before={0}; const char *why="";
+    assert(BgDocumentClone(doc,&before,&why));
     assert(BgDocumentCompile(doc,source,&compiled,&why));
     assert(BgFileValidateVertexBatches(&compiled,&why));
     char path[MAX_PATH]; snprintf(path,sizeof(path),"%s/bg",dir); CreateDirectory(path,NULL);
     assert(BgSaveProjectFile(dir,&compiled,&why));
     assert(BgLoadProjectFile(dir,compiled.name,&saved,&why));
-    assert(saved.size==compiled.size && !memcmp(saved.data,compiled.data,saved.size));
+    assert(BgFileCompact(&compiled,&packed,&why));
+    assert(saved.size==packed.size && !memcmp(saved.data,packed.data,saved.size));
     assert(BgDocumentLoad(saved.data,saved.size,doc->levelscale,&loaded,&why));
     Equivalent(doc,&loaded); UseCounts(&loaded);
-    /* Face IDs are reassigned on load, but the native face order remains. */
-    for (DWORD i=0;i<count;i++)
-    {
-        const BgDocumentRoom *room;
-        const BgDocumentFace *face=BgDocumentFindFace(doc,&private[i],&room);
-        DWORD index=(DWORD)(face-room->faces);
-        const BgDocumentFace *f=&loaded.rooms[private[i].room].faces[index];
-        BgFaceRef ref={f->id,f->room,f->layer,0}; PrivateCorners(&loaded,&ref,mask);
-    }
-    BgDocumentFree(&loaded); BgFileFree(&saved); BgFileFree(&compiled);
+    Same(doc,&before);
+    BgDocumentFree(&before); BgDocumentFree(&loaded);
+    BgFileFree(&saved); BgFileFree(&compiled); BgFileFree(&packed);
 }
 
 static void Geometry(const char *dir)
@@ -99,13 +121,13 @@ static void Geometry(const char *dir)
     }
     assert(BgDocumentClone(&original,&doc,&why));
     selected[0]=refs[1];selected[1]=refs[2];selected[2]=refs[6];selected[3]=refs[11];
-    assert(BgDocumentDisconnectFaces(&doc,selected,4,&added,&why) && added==12);
+    assert(BgDocumentDisconnectFaces(&doc,selected,4,&added,&why) && added==6);
     Equivalent(&original,&doc); UseCounts(&doc);
-    for (DWORD i=0;i<4;i++) { PrivateCorners(&doc,&selected[i],7); }
-    RoundTrip(&doc,&source,dir,selected,4,7);
+    Connections(&original,&doc,selected,4);
+    RoundTrip(&doc,&source,dir);
     DWORD next=doc.nextvertexid;
     assert(BgDocumentDisconnectFaces(&doc,selected,4,&added,&why) && !added && doc.nextvertexid==next);
-    /* UV edits and paint now affect exactly one face. */
+    /* UV edits and paint affect shared selected corners, but no outside face. */
     assert(BgDocumentClone(&doc,&before,&why));
     const BgDocumentFace *face=BgDocumentFindFace(&doc,&selected[0],NULL);
     DWORD vertex=face->vertexindices[0];
@@ -119,7 +141,18 @@ static void Geometry(const char *dir)
         if (r==selected[0].room && v==vertex) { assert(p->s==1234 && p->t==-456 && !memcmp(&p->r,rgba,4)); }
         else { assert(!memcmp(p,&before.rooms[r].vertices[v],sizeof(*p))); }
     }
-    RoundTrip(&doc,&source,dir,selected,4,7); BgDocumentFree(&before); BgDocumentFree(&doc);
+    RoundTrip(&doc,&source,dir); BgDocumentFree(&before); BgDocumentFree(&doc);
+
+    /* A single selected face still disconnects completely. Selecting the
+       whole document is a no-op, even when no more vertex IDs are available. */
+    assert(BgDocumentClone(&original,&doc,&why));
+    assert(BgDocumentDisconnectFaces(&doc,selected,1,&added,&why) && added==3);
+    PrivateCorners(&doc,&selected[0],7); Connections(&original,&doc,selected,1);
+    BgDocumentFree(&doc);
+    assert(BgDocumentClone(&original,&doc,&why));
+    doc.nextvertexid=UINT32_MAX;
+    assert(BgDocumentDisconnectFaces(&doc,refs,20,&added,&why) && !added);
+    doc.nextvertexid=original.nextvertexid; Same(&doc,&original); BgDocumentFree(&doc);
 
     assert(BgDocumentClone(&original,&doc,&why));
     BgDocumentEdgeRef edge={refs[0],0};
@@ -132,7 +165,7 @@ static void Geometry(const char *dir)
         PrivateCorners(&doc,&refs[i],3);
         assert(BgDocumentFindFace(&doc,&refs[i],NULL)->vertexindices[2]==third);
     }
-    RoundTrip(&doc,&source,dir,refs,10,3);
+    RoundTrip(&doc,&source,dir);
     assert(BgDocumentSplitEdge(&doc,&edge,&added,&why) && !added);
     /* No incident faces or same-position vertices in another room were edited. */
     assert(!memcmp(doc.rooms[2].vertices,original.rooms[2].vertices,original.rooms[2].vertexcount*sizeof(BgDocumentVertex)));
@@ -166,7 +199,46 @@ static void Geometry(const char *dir)
     assert(!BgDocumentDisconnectFaces(&doc,selected,4,&added,&why) && !added);
     doc.nextvertexid=original.nextvertexid; Same(&doc,&original);
     BgDocumentFree(&doc); BgDocumentFree(&original); BgFileFree(&source);
-    puts("PASS: independent corners, UV/paint isolation, source identity, native round trips, no-ops, non-manifold edges and atomic failures.");
+    puts("PASS: grouped faces across rooms/layers, UV/paint isolation, native round trips, no-ops, non-manifold edges and atomic failures.");
+}
+
+static void GroupBoundary(const char *dir)
+{
+    BgFile source=Fixture(); BgDocument original={0},doc={0},reversed={0};
+    BgFaceRef refs[20],selected[4],backwards[4]; const char *why=""; DWORD added;
+    assert(BgDocumentLoad(source.data,source.size,1,&original,&why));
+    BgDocumentRoom *room=&original.rooms[1];
+    room->vertices=realloc(room->vertices,9*sizeof(*room->vertices)); assert(room->vertices);
+    for (DWORD v=3;v<9;v++)
+    { room->vertices[v]=room->vertices[v%3]; room->vertices[v].id=original.nextvertexid++; }
+    room->vertexcount=9;
+    const DWORD corners[10][3]={{0,1,2},{0,2,3},{0,3,4},{3,5,4},{0,0,4},
+        {6,7,8},{4,5,3},{5,4,3},{3,4,5},{5,3,4}};
+    for (DWORD v=0;v<9;v++) { room->vertices[v].usecount=0; }
+    for (DWORD f=0;f<10;f++) for (int c=0;c<3;c++)
+    { room->faces[f].vertexindices[c]=corners[f][c]; room->vertices[corners[f][c]].usecount++; }
+    assert(Refs(&original,refs)==20);
+    selected[0]=refs[0]; selected[1]=refs[1]; selected[2]=refs[4]; selected[3]=refs[5];
+    for (int i=0;i<4;i++) { backwards[i]=selected[3-i]; }
+    assert(BgDocumentClone(&original,&doc,&why));
+    assert(BgDocumentClone(&original,&reversed,&why));
+    assert(BgDocumentDisconnectFaces(&doc,selected,4,&added,&why) && added==3);
+    assert(BgDocumentDisconnectFaces(&reversed,backwards,4,&added,&why) && added==3);
+    Same(&doc,&reversed); Equivalent(&original,&doc); UseCounts(&doc);
+    Connections(&original,&doc,selected,4);
+    for (DWORD v=0;v<9;v++)
+    {
+        const BgDocumentVertex *a=&original.rooms[1].vertices[v], *b=&doc.rooms[1].vertices[v];
+        assert(a->id==b->id);
+        if (v==0 || v==3 || v==4) { assert(b->usecount<a->usecount); }
+        else { assert(!memcmp(a,b,sizeof(*a))); }
+    }
+    for (DWORD f=0;f<10;f++) if (!Selected(&original.rooms[1].faces[f],selected,4))
+    { assert(!memcmp(&original.rooms[1].faces[f],&doc.rooms[1].faces[f],sizeof(BgDocumentFace))); }
+    RoundTrip(&doc,&source,dir);
+    assert(BgDocumentDisconnectFaces(&doc,selected,4,&added,&why) && !added); Same(&doc,&reversed);
+    BgDocumentFree(&doc); BgDocumentFree(&reversed); BgDocumentFree(&original); BgFileFree(&source);
+    puts("PASS: boundary-only copies, retained interior vertices, existing seams, repeated corners and selection order.");
 }
 
 /* Run the real editor transaction command with only presentation calls stubbed. */
@@ -227,4 +299,4 @@ static void Commands(void)
     EditHistoryFree(&g_EditHistory);BgDocumentFree(&g_CurrentBgDocument);BgDocumentFree(&original);BgDocumentFree(&separated);BgFileFree(&source);
     puts("PASS: editor commands, undo/redo, no-op history, rebuild/selection/commit rollback and edit guards.");
 }
-int main(int argc,char **argv) { assert(argc==2);Geometry(argv[1]);Commands();return 0; }
+int main(int argc,char **argv) { assert(argc==2);Geometry(argv[1]);GroupBoundary(argv[1]);Commands();return 0; }

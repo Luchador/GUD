@@ -12,9 +12,15 @@ typedef struct BgDisconnectFace {
     DWORD index;
 } BgDisconnectFace;
 
+typedef struct BgDisconnectVertex {
+    DWORD uses; /* Selected corners sharing this source vertex. */
+    DWORD copy; /* Replacement index + 1, or zero until a copy is needed. */
+} BgDisconnectVertex;
+
 typedef struct BgDisconnectRoom {
     BgDocumentVertex *vertices;
     BgDocumentFace *faces;
+    BgDisconnectVertex *group;
     DWORD count, capacity, vertexcount;
 } BgDisconnectRoom;
 
@@ -30,7 +36,7 @@ static int BgDisconnectCompareFaces(const void *left, const void *right)
 /* Stage only touched rooms. No live arrays or IDs change until every
  * reference, allocation and native limit has passed. */
 static BOOL BgDisconnectCorners(BgDocument *document, BgDisconnectFace *edits,
-    DWORD count, DWORD *duplicatedout, const char **why)
+    DWORD count, BOOL keepconnected, DWORD *duplicatedout, const char **why)
 {
     BgDisconnectRoom *rooms = NULL;
     DWORD nextvertex = document->nextvertexid, duplicated = 0;
@@ -72,6 +78,20 @@ static BOOL BgDisconnectCorners(BgDocument *document, BgDisconnectFace *edits,
         if (!pending->vertices || !pending->faces) { goto done; }
         memcpy(pending->vertices, room->vertices, (size_t)room->vertexcount * sizeof(*pending->vertices));
         memcpy(pending->faces, room->faces, (size_t)room->facecount * sizeof(*pending->faces));
+        if (keepconnected)
+        {
+            pending->group = calloc(room->vertexcount, sizeof(*pending->group));
+            if (!pending->group) { goto done; }
+        }
+    }
+    /* Count the entire selection before splitting: selected faces share one
+       replacement per source vertex, and interior vertices need no copy. */
+    if (keepconnected) for (DWORD i = 0; i < count; i++)
+    {
+        BgDisconnectRoom *room = &rooms[edits[i].ref.room];
+        const BgDocumentFace *face = &room->faces[edits[i].index];
+        for (int c = 0; c < 3; c++)
+        { if (edits[i].mask & (1u << c)) { room->group[face->vertexindices[c]].uses++; } }
     }
     for (DWORD i = 0; i < count; i++)
     {
@@ -86,7 +106,15 @@ static BOOL BgDisconnectCorners(BgDocument *document, BgDisconnectFace *edits,
             for (int previous = 0; previous < c; previous++)
             { if ((edits[i].mask & (1u << previous)) && original->vertexindices[previous] == index) { repeated = TRUE; } }
             if (repeated) { continue; }
-            for (int corner = 0; corner < 3; corner++)
+            BgDisconnectVertex *group = keepconnected ? &room->group[index] : NULL;
+            if (group && group->copy)
+            {
+                for (int corner = 0; corner < 3; corner++)
+                { if (original->vertexindices[corner] == index) { face->vertexindices[corner] = group->copy - 1; } }
+                continue;
+            }
+            if (group) { uses = group->uses; }
+            else for (int corner = 0; corner < 3; corner++)
             { uses += original->vertexindices[corner] == index; }
             BgDocumentVertex *source = &room->vertices[index];
             *why = "A background vertex has an invalid reference count.";
@@ -99,6 +127,7 @@ static BOOL BgDisconnectCorners(BgDocument *document, BgDisconnectFace *edits,
             room->vertices[copy].id = nextvertex++;
             room->vertices[copy].usecount = uses;
             source->usecount -= uses;
+            if (group) { group->copy = copy + 1; }
             for (int corner = 0; corner < 3; corner++)
             { if (original->vertexindices[corner] == index) { face->vertexindices[corner] = copy; } }
             duplicated++;
@@ -121,7 +150,8 @@ static BOOL BgDisconnectCorners(BgDocument *document, BgDisconnectFace *edits,
     }
     *duplicatedout = duplicated; *why = ""; ok = TRUE;
 done:
-    for (DWORD r = 1; r <= document->roomcount; r++) { free(rooms[r].vertices); free(rooms[r].faces); }
+    for (DWORD r = 1; r <= document->roomcount; r++)
+    { free(rooms[r].vertices); free(rooms[r].faces); free(rooms[r].group); }
     free(rooms);
     return ok;
 }
@@ -141,7 +171,7 @@ BOOL BgDocumentDisconnectFaces(BgDocument *document, const BgFaceRef *refs,
     edits = malloc((size_t)count * sizeof(*edits));
     if (!edits) { goto done; }
     for (DWORD i = 0; i < count; i++) { edits[i] = (BgDisconnectFace){.ref=refs[i], .mask=7}; }
-    ok = BgDisconnectCorners(document, edits, count, duplicatedout, &why);
+    ok = BgDisconnectCorners(document, edits, count, TRUE, duplicatedout, &why);
 done:
     free(edits);
     if (reasonout) { *reasonout = why; }
@@ -184,7 +214,7 @@ BOOL BgDocumentSplitEdge(BgDocument *document, const BgDocumentEdgeRef *edge,
         if (hasa && hasb)
         { edits[count++] = (BgDisconnectFace){.ref={f->id,f->room,f->layer,0}, .mask=mask}; }
     }
-    ok = BgDisconnectCorners(document, edits, count, duplicatedout, &why);
+    ok = BgDisconnectCorners(document, edits, count, FALSE, duplicatedout, &why);
 done:
     free(edits);
     if (reasonout) { *reasonout = why; }

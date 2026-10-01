@@ -66,7 +66,11 @@ editing text or working in the floating UV/model windows. Stan is not merged.
 
 Split Edge requires one selected BG edge and separates its endpoint vertices
 between incident faces, as the right-click command does; it does not subdivide
-an edge. Disconnect Face works on one or more selected BG faces.
+an edge. Disconnect Face separates the selected BG faces from unselected faces
+while keeping their existing connections to each other. Only vertices shared
+with unselected faces are copied; existing seams remain separate. The native
+save optimizer can merge identical vertices again if their attributes have
+not changed after disconnecting.
 
 Press **B** to bridge the selected edges. The shortcut ignores text fields,
 floating editors, camera flight, active transforms and key auto-repeat.
