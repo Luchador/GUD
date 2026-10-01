@@ -80,13 +80,15 @@ BOOL BrowserCopyImageThumbnail(HWND browser, DWORD textureid, TexThumb *thumb,
 /* Expand Images, scroll the matching item into view, and highlight it. */
 BOOL BrowserRevealImage(HWND browser, DWORD textureid);
 
-/* One model row, copied by BrowserSetModels. */
+/* One model asset, copied by BrowserSetModels. */
 typedef struct BrowserModelItem {
     char label[64];
 } BrowserModelItem;
 
-/* Copies model labels. NULL/0 clears the section. Rows are grouped into the
+/* Copies model labels. NULL/0 clears the section. Assets are grouped into the
  * Characters, Items, and Props tabs by their C/G/P model-name prefixes. */
-void BrowserSetModels(HWND browser, const BrowserModelItem *items, int count);
+void BrowserSetModels(HWND browser, const BrowserModelItem *items, int count, const char *project);
+void BrowserRefreshModelThumbnail(HWND browser, const char *name);
+void BrowserRefreshModelImage(HWND browser, DWORD textureid);
 
 #endif

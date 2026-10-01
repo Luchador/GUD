@@ -23,6 +23,8 @@
 #include "browser.h"
 #include "bgload.h"
 #include "resource.h"
+#include "modelthumbnail.h"
+#include "viewport.h"
 
 #define BROWSER_CLASS    "GEditorBrowser"
 #define BROWSER_HEADER_H 26
@@ -107,7 +109,7 @@ static const BrowserObjectType g_BrowserObjectOrder[BROWSER_OBJECT_COUNT] = {
 #define BROWSER_IMAGE_LABEL_H 16
 #define BROWSER_IMAGE_CELL_H (BROWSER_IMAGE_PREVIEW_SIZE + BROWSER_IMAGE_LABEL_H + 8)
 #define BROWSER_IMAGE_MARGIN 4
-#define BROWSER_ROW_H 16
+#define BROWSER_MODEL_TIMER 0x4d54
 
 typedef struct BrowserState {
     BOOL fileimages; /* Standalone studio grid: filename identity, no game actions. */
@@ -126,6 +128,11 @@ typedef struct BrowserState {
     TexThumb notexture; /* permanent item zero, independent of project images */
     unsigned char notexturepixels[TEX_THUMB_MAX * TEX_THUMB_MAX * 4];
     BrowserModelItem models[BROWSER_MAX_MODELS];
+    ModelThumbnail *modelthumbnails;
+    char modelproject[MAX_PATH];
+    HWND modelrenderer;
+    int selectedmodel;
+    DWORD modelrefreshafter;
     int modelcount;
     int modeltab;                        /* Characters is the default */
     int modelcounts[BROWSER_MODEL_TAB_COUNT];
@@ -280,8 +287,9 @@ static int BrowserContentHeight(const BrowserState *state, int section)
     if (section == BROWSER_SECTION_MODELS)
     {
         int count = state->modelcounts[state->modeltab];
-
-        return count > 0 ? count * BROWSER_ROW_H + 8 : 0;
+        int columns = BrowserImageColumns(&state->sections[section].bodyrc);
+        int rows = (count + columns - 1) / columns;
+        return rows > 0 ? rows * BROWSER_IMAGE_CELL_H + BROWSER_IMAGE_MARGIN * 2 : 0;
     }
 
     return 0;
@@ -797,35 +805,59 @@ static void BrowserPaintModelTabs(const BrowserState *state, HDC hdc)
     }
 }
 
-/* Filtered model rows, clipped below the fixed tab strip. */
+/* The grid and its hit testing share the image browser's column boundaries. */
+static BOOL BrowserModelRect(const BrowserState *state, int index, RECT *rect)
+{
+    RECT body = BrowserContentRect(state, BROWSER_SECTION_MODELS);
+    int columns = BrowserImageColumns(&body), width = BrowserImageGridWidth(&body), cell = 0;
+    if (!state->sections[BROWSER_SECTION_MODELS].expanded || index < 0 || index >= state->modelcount
+        || BrowserModelCategory(state->models[index].label) != state->modeltab) { return FALSE; }
+    for (int i = 0; i < index; i++)
+        if (BrowserModelCategory(state->models[i].label) == state->modeltab) { cell++; }
+    rect->left = body.left + BROWSER_IMAGE_MARGIN + (cell % columns) * width / columns;
+    rect->right = body.left + BROWSER_IMAGE_MARGIN + (cell % columns + 1) * width / columns;
+    rect->top = body.top + BROWSER_IMAGE_MARGIN + (cell / columns) * BROWSER_IMAGE_CELL_H
+        - state->scroll[BROWSER_SECTION_MODELS];
+    rect->bottom = rect->top + BROWSER_IMAGE_CELL_H - 2;
+    return rect->bottom > body.top && rect->top < body.bottom;
+}
+
+static void BrowserPaintModelTile(const BrowserState *state, HDC dc, int index, RECT rect)
+{
+    const ModelThumbnail *thumbnail = state->modelthumbnails ? &state->modelthumbnails[index] : NULL;
+    BOOL selected = index == state->selectedmodel;
+    if (selected) { FillRect(dc, &rect, ThemeSystemBrush(COLOR_HIGHLIGHT)); }
+    SetTextColor(dc, ThemeSystemColor(selected ? COLOR_HIGHLIGHTTEXT : COLOR_WINDOWTEXT));
+    if (thumbnail && thumbnail->pixels)
+    {
+        BITMAPINFO bmi = {0};
+        bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
+        bmi.bmiHeader.biWidth = MODEL_THUMBNAIL_SIZE; bmi.bmiHeader.biHeight = -MODEL_THUMBNAIL_SIZE;
+        bmi.bmiHeader.biPlanes = 1; bmi.bmiHeader.biBitCount = 32; bmi.bmiHeader.biCompression = BI_RGB;
+        StretchDIBits(dc, rect.left + (rect.right - rect.left - MODEL_THUMBNAIL_SIZE) / 2,
+            rect.top, MODEL_THUMBNAIL_SIZE, MODEL_THUMBNAIL_SIZE, 0, 0,
+            MODEL_THUMBNAIL_SIZE, MODEL_THUMBNAIL_SIZE, thumbnail->pixels, &bmi, DIB_RGB_COLORS, SRCCOPY);
+    }
+    else
+    {
+        RECT preview = rect; preview.bottom = preview.top + MODEL_THUMBNAIL_SIZE;
+        DrawText(dc, thumbnail && thumbnail->pending ? "..." : "No preview", -1,
+            &preview, DT_SINGLELINE | DT_CENTER | DT_VCENTER | DT_NOPREFIX);
+    }
+    rect.top += MODEL_THUMBNAIL_SIZE + 4;
+    DrawText(dc, state->models[index].label, -1, &rect,
+        DT_SINGLELINE | DT_CENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
+}
+
 static void BrowserPaintModelRows(BrowserState *state, HDC hdc, const RECT *body)
 {
-    int y = body->top + 4 - state->scroll[BROWSER_SECTION_MODELS];
-    int i;
-
-    SetTextColor(hdc, ThemeSystemColor(COLOR_WINDOWTEXT));
-
-    for (i = 0; i < state->modelcount; i++)
+    int oldstretch = SetStretchBltMode(hdc, COLORONCOLOR);
+    for (int i = 0; i < state->modelcount; i++)
     {
-        RECT rc;
-
-        if (BrowserModelCategory(state->models[i].label) != state->modeltab)
-        {
-            continue;
-        }
-        rc.top = y;
-        rc.bottom = y + BROWSER_ROW_H;
-        y += BROWSER_ROW_H;
-        if (rc.bottom < body->top || rc.top > body->bottom)
-        {
-            continue;
-        }
-
-        rc.left = 26;
-        rc.right = body->right - BROWSER_SCROLLBAR_W - 6;
-        DrawText(hdc, state->models[i].label, -1, &rc,
-                 DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_END_ELLIPSIS | DT_NOPREFIX);
+        RECT rect;
+        if (BrowserModelRect(state, i, &rect)) { BrowserPaintModelTile(state, hdc, i, rect); }
     }
+    SetStretchBltMode(hdc, oldstretch);
 }
 
 /* Slim track-and-thumb indicator on the body's right edge. */
@@ -987,6 +1019,20 @@ static int BrowserHitImage(const BrowserState *state, POINT point)
     return image < BrowserImageCount(state) ? image : -1;
 }
 
+static int BrowserHitModel(const BrowserState *state, POINT point)
+{
+    RECT body = BrowserContentRect(state, BROWSER_SECTION_MODELS);
+    int width = BrowserImageGridWidth(&body), columns = BrowserImageColumns(&body);
+    int x = point.x - body.left - BROWSER_IMAGE_MARGIN;
+    int y = point.y - body.top - BROWSER_IMAGE_MARGIN + state->scroll[BROWSER_SECTION_MODELS];
+    if (!state->sections[BROWSER_SECTION_MODELS].expanded || !PtInRect(&body, point)
+        || x < 0 || x >= width || y < 0) { return -1; }
+    int cell = (y / BROWSER_IMAGE_CELL_H) * columns + ((x + 1) * columns - 1) / width;
+    for (int i = 0; i < state->modelcount; i++)
+        if (BrowserModelCategory(state->models[i].label) == state->modeltab && cell-- == 0) { return i; }
+    return -1;
+}
+
 static void BrowserUpdateImageTooltip(HWND hwnd, BrowserState *state, WPARAM wparam, LPARAM lparam)
 {
     RECT client;
@@ -998,6 +1044,8 @@ static void BrowserUpdateImageTooltip(HWND hwnd, BrowserState *state, WPARAM wpa
     GetClientRect(hwnd, &client);
     BrowserLayoutSections(state, &client);
     index = BrowserHitImage(state, point);
+    int model = index < 0 ? BrowserHitModel(state, point) : -1;
+    if (model >= 0) { index = BrowserImageCount(state) + model; }
     if (index != state->tooltipimage)
     {
         BrowserHideImageTooltip(hwnd, state);
@@ -1007,7 +1055,11 @@ static void BrowserUpdateImageTooltip(HWND hwnd, BrowserState *state, WPARAM wpa
             RECT body = BrowserContentRect(state, BROWSER_SECTION_IMAGES);
             int columns = BrowserImageColumns(&body), width = BrowserImageGridWidth(&body);
             int column = index % columns;
-            if (state->fileimages)
+            if (model >= 0)
+            {
+                lstrcpyn(state->tooltiptext, state->models[model].label, sizeof(state->tooltiptext));
+            }
+            else if (state->fileimages)
             {
                 const TexThumb *thumb = &state->images[index];
                 if (thumb->w && thumb->h)
@@ -1030,6 +1082,11 @@ static void BrowserUpdateImageTooltip(HWND hwnd, BrowserState *state, WPARAM wpa
             tool.rect.top = body.top + BROWSER_IMAGE_MARGIN + (index / columns) * BROWSER_IMAGE_CELL_H
                 - state->scroll[BROWSER_SECTION_IMAGES];
             tool.rect.bottom = tool.rect.top + BROWSER_IMAGE_CELL_H;
+            if (model >= 0)
+            {
+                body = BrowserContentRect(state, BROWSER_SECTION_MODELS);
+                BrowserModelRect(state, model, &tool.rect);
+            }
             IntersectRect(&tool.rect, &tool.rect, &body);
             if (SendMessage(state->tooltip, TTM_ADDTOOL, 0, (LPARAM)&tool)) { state->tooltipimage = index; }
         }
@@ -1084,31 +1141,8 @@ static void BrowserEndAssetDrag(HWND hwnd, BrowserState *state)
 }
 
 
-/* Invert the filtered, scrolled row layout; tabs and scrollbar are not rows. */
-static int BrowserHitModel(const BrowserState *state, POINT point)
-{
-    RECT body = BrowserContentRect(state, BROWSER_SECTION_MODELS);
-    int row, i;
-    if (!state->sections[BROWSER_SECTION_MODELS].expanded || !PtInRect(&body, point) ||
-        point.x >= body.right - BROWSER_SCROLLBAR_W - 6)
-    {
-        return -1;
-    }
-    row = point.y - body.top - 4 + state->scroll[BROWSER_SECTION_MODELS];
-    if (row < 0)
-    {
-        return -1;
-    }
-    row /= BROWSER_ROW_H;
-    for (i = 0; i < state->modelcount; i++)
-    {
-        if (BrowserModelCategory(state->models[i].label) == state->modeltab && row-- == 0)
-        {
-            return i;
-        }
-    }
-    return -1;
-}
+
+
 
 /* All browser drags share capture, cancellation and multi-monitor coordinates.
    Takes ownership of bitmap even when the drag cannot start. */
@@ -1205,7 +1239,7 @@ static void BrowserBeginModelDrag(HWND hwnd, BrowserState *state, int index, POI
     HDC dc;
     HGDIOBJ oldbitmap, oldfont;
     unsigned char *pixels;
-    RECT rect = {0, 0, 200, 24};
+    RECT rect = {0, 0, BROWSER_IMAGE_CELL_W, BROWSER_IMAGE_CELL_H};
     int i;
 
     if (state->modeltab == BROWSER_MODEL_ITEMS ||
@@ -1234,19 +1268,16 @@ static void BrowserBeginModelDrag(HWND hwnd, BrowserState *state, int index, POI
     oldfont = SelectObject(dc, GetStockObject(DEFAULT_GUI_FONT));
     FillRect(dc, &rect, ThemeSystemBrush(COLOR_HIGHLIGHT));
     SetBkMode(dc, TRANSPARENT);
-    SetTextColor(dc, ThemeSystemColor(COLOR_HIGHLIGHTTEXT));
-    rect.left = 6;
-    rect.right -= 6;
-    DrawText(dc, name, -1, &rect, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
+    BrowserPaintModelTile(state, dc, index, rect);
     SelectObject(dc, oldfont);
     SelectObject(dc, oldbitmap);
     DeleteDC(dc);
     /* GDI does not write alpha for its text/fill pixels. */
-    for (i = 0; i < 200 * 24; i++)
+    for (i = 0; i < BROWSER_IMAGE_CELL_W * BROWSER_IMAGE_CELL_H; i++)
     {
         pixels[i * 4 + 3] = 255;
     }
-    if (BrowserStartAssetDrag(hwnd, state, bitmap, 200, 24, point))
+    if (BrowserStartAssetDrag(hwnd, state, bitmap, BROWSER_IMAGE_CELL_W, BROWSER_IMAGE_CELL_H, point))
     {
         lstrcpyn(state->dragmodel, name, sizeof(state->dragmodel));
     }
@@ -1325,6 +1356,33 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
     switch (msg)
     {
+    case WM_TIMER:
+        if (wparam == BROWSER_MODEL_TIMER && state && state->modelthumbnails)
+        {
+            /* Mouse capture belongs to active drags/painting. Leave those
+             * interactions uninterrupted, and coalesce rapid model edits. */
+            if (GetCapture() || !IsWindowEnabled(GetAncestor(hwnd, GA_ROOT))
+                || IsIconic(GetAncestor(hwnd, GA_ROOT))
+                || (LONG)(GetTickCount() - state->modelrefreshafter) < 0) { return 0; }
+            int next = -1;
+            for (int i = 0; i < state->modelcount; i++) if (state->modelthumbnails[i].pending)
+            {
+                RECT rect;
+                if (next < 0) { next = i; }
+                if (BrowserModelRect(state, i, &rect)) { next = i; break; }
+            }
+            if (next < 0) { KillTimer(hwnd, BROWSER_MODEL_TIMER); return 0; }
+            ModelThumbnailUpdate(&state->modelthumbnails[next], hwnd, &state->modelrenderer,
+                state->modelproject, state->models[next].label);
+            RECT rect, body = BrowserContentRect(state, BROWSER_SECTION_MODELS);
+            if (BrowserModelRect(state, next, &rect))
+            {
+                IntersectRect(&rect, &rect, &body);
+                InvalidateRect(hwnd, &rect, FALSE);
+            }
+            return 0;
+        }
+        break;
     case WM_CREATE:
         state = (BrowserState *)calloc(1, sizeof(*state));
 
@@ -1355,6 +1413,7 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         }
         state->dragsection = -1;
         state->selectedimage = -1;
+        state->selectedmodel = -1;
         state->tooltipimage = -1;
 
         lstrcpyn(state->notexture.label, "No Texture", sizeof(state->notexture.label));
@@ -1509,6 +1568,8 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             hit = BrowserHitModel(state, p);
             if (hit >= 0)
             {
+                state->selectedmodel = hit;
+                InvalidateRect(hwnd, &state->sections[BROWSER_SECTION_MODELS].bodyrc, FALSE);
                 BrowserBeginModelDrag(hwnd, state, hit, p);
                 return 0;
             }
@@ -1790,8 +1851,8 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                 if (sec->expanded && PtInRect(&sec->bodyrc, p))
                 {
                     int notches = GET_WHEEL_DELTA_WPARAM(wparam) / WHEEL_DELTA;
-                    int step = i == BROWSER_SECTION_IMAGES
-                        ? BROWSER_IMAGE_CELL_H : 3 * BROWSER_ROW_H;
+                    int step = i == BROWSER_SECTION_IMAGES || i == BROWSER_SECTION_MODELS
+                        ? BROWSER_IMAGE_CELL_H : 48;
 
                     BrowserScrollTo(hwnd, state, i, state->scroll[i] - notches * step);
                     break;
@@ -1872,6 +1933,11 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             BrowserHideImageTooltip(hwnd, state);
             if (state->tooltip) { DestroyWindow(state->tooltip); }
             BrowserEndAssetDrag(hwnd, state);
+            KillTimer(hwnd, BROWSER_MODEL_TIMER);
+            for (int i = 0; state->modelthumbnails && i < state->modelcount; i++)
+                ModelThumbnailFree(&state->modelthumbnails[i]);
+            free(state->modelthumbnails);
+            if (state->modelrenderer) { ViewportDestroyThumbnail(state->modelrenderer); }
             free(state->images);
             free(state->imagepixels);
         }
@@ -2003,39 +2069,69 @@ BOOL BrowserRevealImage(HWND browser, DWORD textureid)
 }
 
 
-void BrowserSetModels(HWND browser, const BrowserModelItem *items, int count)
+static int BrowserCompareModels(const void *left, const void *right)
+{
+    return lstrcmpi(((const BrowserModelItem *)left)->label, ((const BrowserModelItem *)right)->label);
+}
+
+void BrowserSetModels(HWND browser, const BrowserModelItem *items, int count, const char *project)
 {
     BrowserState *state = BrowserGetState(browser);
-    int i;
-
-    if (state == NULL)
-    {
-        return;
-    }
-
+    if (!state) { return; }
+    BrowserHideImageTooltip(browser, state);
     BrowserEndAssetDrag(browser, state);
-
-    if (count > BROWSER_MAX_MODELS)
-    {
-        count = BROWSER_MAX_MODELS;
-    }
-    if (items == NULL || count < 0)
-    {
-        count = 0;
-    }
-
+    KillTimer(browser, BROWSER_MODEL_TIMER);
+    for (int i = 0; state->modelthumbnails && i < state->modelcount; i++)
+        ModelThumbnailFree(&state->modelthumbnails[i]);
+    free(state->modelthumbnails); state->modelthumbnails = NULL;
+    if (state->modelrenderer) { ViewportDestroyThumbnail(state->modelrenderer); state->modelrenderer = NULL; }
+    if (!items || count < 0) { count = 0; }
+    if (count > BROWSER_MAX_MODELS) { count = BROWSER_MAX_MODELS; }
+    lstrcpyn(state->modelproject, project ? project : "", sizeof(state->modelproject));
     ZeroMemory(state->modelcounts, sizeof(state->modelcounts));
     ZeroMemory(state->modelscroll, sizeof(state->modelscroll));
-    for (i = 0; i < count; i++)
+    for (int i = 0; i < count; i++) { state->models[i] = items[i]; }
+    qsort(state->models, count, sizeof(state->models[0]), BrowserCompareModels);
+    for (int i = 0; i < count; i++)
     {
-        int category = BrowserModelCategory(items[i].label);
-
-        state->models[i] = items[i];
+        int category = BrowserModelCategory(state->models[i].label);
         if (category >= 0) { state->modelcounts[category]++; }
     }
-
-    state->modelcount = count;
+    state->modelcount = count; state->selectedmodel = -1;
     state->scroll[BROWSER_SECTION_MODELS] = 0;
+    if (count && state->modelproject[0])
+    {
+        state->modelthumbnails = calloc(count, sizeof(*state->modelthumbnails));
+        if (state->modelthumbnails)
+        {
+            for (int i = 0; i < count; i++) { state->modelthumbnails[i].pending = TRUE; }
+            state->modelrefreshafter = GetTickCount();
+            SetTimer(browser, BROWSER_MODEL_TIMER, 30, NULL);
+        }
+    }
+    InvalidateRect(browser, NULL, FALSE);
+}
 
-    InvalidateRect(browser, NULL, TRUE);
+void BrowserRefreshModelThumbnail(HWND browser, const char *name)
+{
+    BrowserState *state = BrowserGetState(browser);
+    if (!state || !state->modelthumbnails || !name) { return; }
+    for (int i = 0; i < state->modelcount; i++) if (!lstrcmpi(state->models[i].label, name))
+    {
+        state->modelthumbnails[i].pending = TRUE;
+        state->modelrefreshafter = GetTickCount() + 150;
+        SetTimer(browser, BROWSER_MODEL_TIMER, 30, NULL);
+        break;
+    }
+}
+
+void BrowserRefreshModelImage(HWND browser, DWORD textureid)
+{
+    BrowserState *state = BrowserGetState(browser);
+    if (!state || !state->modelthumbnails) { return; }
+    for (int i = 0; i < state->modelcount; i++)
+        if (ModelThumbnailUsesImage(&state->modelthumbnails[i], textureid))
+            state->modelthumbnails[i].pending = TRUE;
+    state->modelrefreshafter = GetTickCount() + 150;
+    SetTimer(browser, BROWSER_MODEL_TIMER, 30, NULL);
 }

@@ -162,6 +162,11 @@ HWND ViewportCreate(HWND parent, HINSTANCE hinstance);
 /* Independent textured model preview: either mouse button orbits, wheel dollies.
    Uses ViewportSetScene, with no level selection/editing or test geometry. */
 HWND ViewportCreateOrbit(HWND parent, HINSTANCE hinstance);
+/* Private, hidden model renderer. Capture uses an off-screen framebuffer,
+ * independent of window visibility, monitor placement and other viewports. */
+HWND ViewportCreateThumbnail(HWND parent, HINSTANCE hinstance);
+void ViewportDestroyThumbnail(HWND viewport);
+BOOL ViewportCaptureThumbnail(HWND viewport, unsigned char *bgra, int size);
 void ViewportRedraw(HWND viewport);
 
 /* Vertex mode: left-drag selects through geometry in the visible layers;

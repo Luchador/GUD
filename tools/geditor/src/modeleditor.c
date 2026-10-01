@@ -46,6 +46,13 @@ typedef struct ModelEditorHistoryStep {
 } ModelEditorHistoryStep;
 static ModelEditorHistoryStep g_ModelHistory[MODEL_HISTORY_LIMIT];
 static int g_ModelHistoryCount, g_ModelHistoryPosition;
+/* The name is borrowed only for the synchronous notification. */
+static void ModelEditorNotifyChanged(void)
+{
+    const char *name = g_ModelSelected >= 0 && g_ModelSelected < g_ModelCount
+        ? g_ModelEntries[g_ModelSelected].name : NULL;
+    SendMessage(GetWindow(g_ModelEditor, GW_OWNER), MODELEDITOR_CHANGED, 0, (LPARAM)name);
+}
 static void ModelEditorRefreshUV(void);
 static DWORD ModelEditorHistoryRevision(const ModelEditorHistoryStep *step, BOOL after)
 {
@@ -381,7 +388,7 @@ static BOOL ModelEditorApplyUV(const UVCanvasEdit *vertices, const UVCanvasFaceE
     ModelEditorRecord((ModelEditorHistoryStep){.uv = change}); memset(&change, 0, sizeof(change));
     ModelEditorLoad(g_ModelSelected, FALSE);
     SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS, "Model UVs updated. Save Project to keep the changes.");
-    SendMessage(GetWindow(g_ModelEditor, GW_OWNER), MODELEDITOR_CHANGED, 0, 0);
+    ModelEditorNotifyChanged();
 done:
     free(triangles); free(edits); ModelEditsFreeUVChange(&change);
     if (!ok)
@@ -450,7 +457,7 @@ static BOOL ModelEditorVertexColor(const ViewportBgVertexHit *hit, BOOL sample)
     ModelEditorRecord((ModelEditorHistoryStep){.paint = change});
     ModelEditorLoad(g_ModelSelected, FALSE);
     SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS, "Vertex RGBA painted. Save Project to keep the model changes.");
-    SendMessage(GetWindow(g_ModelEditor, GW_OWNER), MODELEDITOR_CHANGED, 0, 0);
+    ModelEditorNotifyChanged();
     return TRUE;
 }
 
@@ -477,7 +484,7 @@ static void ModelEditorUndo(BOOL redo)
     SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS, redo
         ? "Model edit redone. Save Project to keep model changes."
         : "Model edit undone. Save Project to keep model changes.");
-    SendMessage(GetWindow(g_ModelEditor, GW_OWNER), MODELEDITOR_CHANGED, 0, 0);
+    ModelEditorNotifyChanged();
 }
 
 static BOOL ModelEditorPaintKey(MSG *message)
@@ -605,7 +612,7 @@ static void ModelEditorSeparateLods(void)
     snprintf(text,sizeof(text),"Separated %lu shared faces. Low-LOD textures and vertex colors can now be edited independently. Ctrl+Z undoes; Save Project keeps changes.",
         (unsigned long)separated);
     SetDlgItemText(g_ModelEditor,IDC_MODEL_STATUS,text);
-    SendMessage(GetWindow(g_ModelEditor,GW_OWNER),MODELEDITOR_CHANGED,0,0);
+    ModelEditorNotifyChanged();
 }
 
 static void ModelEditorMakeUntextured(void)
@@ -628,7 +635,7 @@ static void ModelEditorMakeUntextured(void)
     snprintf(text, sizeof(text), "%lu faces made untextured. Vertex colors retained. Ctrl+Z undoes this edit; Save Project to keep it.",
         (unsigned long)changed);
     SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS, text);
-    SendMessage(GetWindow(g_ModelEditor, GW_OWNER), MODELEDITOR_CHANGED, 0, 0);
+    ModelEditorNotifyChanged();
 }
 
 static void ModelEditorDrawMaterial(const DRAWITEMSTRUCT *draw)
@@ -792,7 +799,7 @@ static BOOL ModelEditorDropFaceImage(DWORD texture,POINT screen)
         ModelEditorRecord((ModelEditorHistoryStep){.uv=change});
         ModelEditorRefreshImages();
         SetDlgItemText(g_ModelEditor,IDC_MODEL_STATUS,"Face textures updated.");
-        SendMessage(GetWindow(g_ModelEditor,GW_OWNER),MODELEDITOR_CHANGED,0,0);
+        ModelEditorNotifyChanged();
     }
     SetFocus(g_ModelViewport);
 done:
@@ -825,7 +832,7 @@ BOOL ModelEditorDropImage(DWORD texture,POINT screen)
     if (!ok) { MessageBox(g_ModelEditor,why,"Assign Material Image",MB_ICONERROR);return TRUE; }
     ModelEditorRefreshImages();ModelEditorSelectGroup(FALSE);
     SetDlgItemText(g_ModelEditor,IDC_MODEL_STATUS,"Material image updated. Save Project to keep the assignment.");
-    SendMessage(GetWindow(g_ModelEditor,GW_OWNER),MODELEDITOR_CHANGED,0,0);
+    ModelEditorNotifyChanged();
     return TRUE;
 }
 
@@ -866,7 +873,7 @@ static void ModelEditorApplyProperties(int control)
     ModelEditorRecord((ModelEditorHistoryStep){.uv = change});
     ModelEditorRefreshImages();
     SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS, "Face properties updated. Save Project to keep the native model changes.");
-    SendMessage(GetWindow(g_ModelEditor, GW_OWNER), MODELEDITOR_CHANGED, 0, 0);
+    ModelEditorNotifyChanged();
 }
 
 static void ModelEditorDeleteFaces(void)
@@ -894,7 +901,7 @@ static void ModelEditorDeleteFaces(void)
     ViewportClearSelection(g_ModelViewport);
     ModelEditorRefreshImages();
     SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS, "Selected faces deleted. Ctrl+Z to undo. Save Project to keep the model changes.");
-    SendMessage(GetWindow(g_ModelEditor, GW_OWNER), MODELEDITOR_CHANGED, 0, 0);
+    ModelEditorNotifyChanged();
 }
 
 static void ModelEditorTransfer(BOOL importing)
@@ -930,7 +937,7 @@ static void ModelEditorTransfer(BOOL importing)
     snprintf(message,sizeof(message),"Imported all LODs: %lu to %lu tris. Save Project to keep the replacement.",
         (unsigned long)before,(unsigned long)after);
     SetDlgItemText(g_ModelEditor,IDC_MODEL_STATUS,message);
-    SendMessage(GetWindow(g_ModelEditor,GW_OWNER),MODELEDITOR_CHANGED,0,0);
+    ModelEditorNotifyChanged();
 }
 
 static INT_PTR CALLBACK ModelEditorNewPropDialog(HWND hwnd,UINT message,WPARAM wparam,LPARAM lparam)

@@ -3,6 +3,7 @@
 
 #include <windows.h>
 
+/* wparam: refresh asset list; otherwise lparam: changed model name (synchronous). */
 #define MODELEDITOR_CHANGED (WM_APP + 0x241)
 
 BOOL ModelEditorShow(HWND owner, HINSTANCE instance, const char *projectdir);

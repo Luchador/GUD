@@ -546,6 +546,7 @@ static void GEditorRefreshImageViews(HWND hwnd, DWORD id, BOOL reveal)
         { ViewportSetLevelClouds(g_Viewport, &level->clouds, g_Project.dir); }
     }
     ModelEditorRefreshImages();
+    BrowserRefreshModelImage(g_Browser, id);
     GEditorRefreshSelectionDetails();
     GEditorRefreshHistoryMenu(hwnd);
 }
@@ -597,7 +598,7 @@ static void GEditorRefreshProjectAssets(void)
     if (!NewPropsOpen(g_Project.dir,&why))
     { MessageBox(GetParent(g_Viewport),why,GEDITOR_TITLE,MB_ICONERROR); }
 
-    /* Models: enumerate the four class folders into plain rows. */
+    /* Models: enumerate assets for the cached thumbnail grid. */
     {
         static const char *classes[] = { "characters", "guns", "objects", "casings" };
         BrowserModelItem models[1024];
@@ -653,7 +654,7 @@ static void GEditorRefreshProjectAssets(void)
             for (row=0;row<modelcount;row++) if (!strcmp(models[row].label,name)) break;
             if (row==modelcount) lstrcpyn(models[modelcount++].label,name,sizeof(models[0].label));
         }
-        BrowserSetModels(g_Browser, modelcount > 0 ? models : NULL, modelcount);
+        BrowserSetModels(g_Browser, modelcount > 0 ? models : NULL, modelcount, g_Project.dir);
     }
     ModelEditorSetProject(g_Project.dir);
     RenderStudioSetProject(&g_Project);
@@ -692,7 +693,7 @@ static void GEditorCloseProject(HWND hwnd)
 
     ModelEditorSetProject(NULL);
     BrowserSetImages(g_Browser, NULL, 0, NULL);
-    BrowserSetModels(g_Browser, NULL, 0);
+    BrowserSetModels(g_Browser, NULL, 0, NULL);
     ViewportSetDoorPick(g_Viewport, FALSE);
     DoorShadowSetPreview((DWORD)-1, 0);
     ViewportSetScene(g_Viewport, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0, NULL, FALSE);
@@ -6949,6 +6950,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     {
         const char *why="";
         if (wparam) GEditorRefreshProjectAssets();
+        else BrowserRefreshModelThumbnail(g_Browser, (const char *)lparam);
         if (g_CurrentLevelIndex < g_Project.levelcount && !GEditorReloadCurrentObjectsAndViewport(&why))
         { MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR); }
         GEditorRefreshSelectionDetails();

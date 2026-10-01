@@ -32,6 +32,9 @@ def main():
     end_drag = function(source, 'static void BrowserEndAssetDrag(')
     start_drag = function(source, 'static BOOL BrowserStartAssetDrag(')
     hit_model = function(source, 'static int BrowserModelCategory(') + '\n'
+    hit_model += function(source, 'static int BrowserImageGridWidth(') + '\n'
+    hit_model += function(source, 'static int BrowserImageColumns(') + '\n'
+    hit_model += function(source, 'static BOOL BrowserModelRect(') + '\n'
     hit_model += function(source, 'static int BrowserHitModel(')
     double_click = source[source.index('    case WM_LBUTTONDBLCLK:'):source.index('    case WM_LBUTTONDOWN:')]
     mousemove = source[source.index('    case WM_MOUSEMOVE:'):source.index('    case WM_MOUSELEAVE:')]
@@ -77,7 +80,9 @@ typedef struct {
 #define BROWSER_MODEL_CHARACTERS 0
 #define BROWSER_MODEL_ITEMS 1
 #define BROWSER_MODEL_PROPS 2
-#define BROWSER_ROW_H 16
+#define BROWSER_IMAGE_CELL_W 80
+#define BROWSER_IMAGE_CELL_H 88
+#define BROWSER_IMAGE_MARGIN 4
 #define BROWSER_SCROLLBAR_W 8
 #define BROWSER_OBJECT_TRIANGLE 0
 #define BROWSER_OBJECT_QUAD 1
@@ -244,27 +249,55 @@ static void CheckMonitorLayouts(void)
         assert(!capture && destroyed == 1);
     }
 }
+static void CheckModelGrid(void)
+{
+    /* Painted cells and picking must agree after wrapping, scrolling and
+       filtering. The fixed tab strip and scrollbar must never open a model. */
+    Reset(FALSE);
+    g_state.modelcount = 4; g_state.modeltab = BROWSER_MODEL_PROPS;
+    strcpy(g_state.models[0].label, "CguardZ"); strcpy(g_state.models[1].label, "Gpp7Z");
+    strcpy(g_state.models[2].label, "PboxZ"); strcpy(g_state.models[3].label, "PpendantZ");
+    g_state.sections[BROWSER_SECTION_MODELS].expanded = TRUE;
+    for (int width = 40; width < 600; width++) for (int scroll = 0; scroll < 180; scroll += 19)
+    {
+        RECT body = {10, 24, 10 + width, 210};
+        g_state.sections[BROWSER_SECTION_MODELS].bodyrc = body;
+        g_state.scroll[BROWSER_SECTION_MODELS] = scroll;
+        assert(BrowserHitModel(&g_state, (POINT){20, 23}) == -1);
+        assert(BrowserHitModel(&g_state, (POINT){body.right - 1, 40}) == -1);
+        for (int index = 2; index < 4; index++)
+        {
+            RECT cell;
+            if (!BrowserModelRect(&g_state, index, &cell)) continue;
+            long top = cell.top > body.top ? cell.top : body.top;
+            long bottom = cell.bottom < body.bottom ? cell.bottom : body.bottom;
+            POINT point = {(cell.left + cell.right - 1) / 2, (top + bottom - 1) / 2};
+            assert(BrowserHitModel(&g_state, point) == index);
+        }
+    }
+}
 int main(void)
 {
     CheckMonitorLayouts();
-    /* Use real tab filtering and scrolled model-row hit testing. Item models
+    CheckModelGrid();
+    /* Use real tab filtering and scrolled model-grid hit testing. Item models
        can open even though they do not support placement drags. */
     for (int tab = 0; tab < 3; tab++)
     {
         const char *expected[] = {"CguardZ", "Gpp7Z", "PpendantZ"};
         Reset(FALSE); Start(FALSE);
         g_state.sections[BROWSER_SECTION_MODELS].expanded = TRUE;
-        g_state.sections[BROWSER_SECTION_MODELS].bodyrc = (RECT){0, 0, 200, 100};
+        g_state.sections[BROWSER_SECTION_MODELS].bodyrc = (RECT){0, 0, 100, 100};
         g_state.modelcount = 4; g_state.modeltab = tab;
         strcpy(g_state.models[0].label, "CguardZ"); strcpy(g_state.models[1].label, "Gpp7Z");
         strcpy(g_state.models[2].label, "PboxZ"); strcpy(g_state.models[3].label, "PpendantZ");
-        g_state.scroll[BROWSER_SECTION_MODELS] = tab == 2 ? BROWSER_ROW_H : 0;
+        g_state.scroll[BROWSER_SECTION_MODELS] = tab == 2 ? BROWSER_IMAGE_CELL_H : 0;
         Dispatch(browser, WM_LBUTTONDBLCLK, 0, MousePoint(10, 6));
         assert(modelopens == 1 && !strcmp(openedmodel, expected[tab]));
         assert(destroyed == 1 && !capture && !g_state.dragimage && !modeldrops);
         Dispatch(browser, WM_LBUTTONUP, 0, 0); assert(!modeldrops);
-        Dispatch(browser, WM_LBUTTONDBLCLK, 0, MousePoint(10, 90)); /* Blank area. */
-        Dispatch(browser, WM_LBUTTONDBLCLK, 0, MousePoint(195, 6)); /* Scrollbar. */
+        Dispatch(browser, WM_LBUTTONDBLCLK, 0, MousePoint(10, 95)); /* Blank area after the final cell. */
+        Dispatch(browser, WM_LBUTTONDBLCLK, 0, MousePoint(95, 6)); /* Scrollbar. */
         g_state.sections[BROWSER_SECTION_MODELS].expanded = FALSE;
         Dispatch(browser, WM_LBUTTONDBLCLK, 0, MousePoint(10, 6));
         assert(modelopens == 1);

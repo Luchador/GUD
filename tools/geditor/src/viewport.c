@@ -9,6 +9,7 @@
 #include <windows.h>
 #include <windowsx.h>
 #include <GL/gl.h>
+#include <GL/glext.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -284,6 +285,7 @@ typedef struct ViewportState {
     double selectionfar; /* extended clipping for a large framed selection */
 
     BOOL orbit;
+    BOOL thumbnail;
     OrbitCamera orbitcamera;
     unsigned int orbitbuttons;
     POINT orbitstart;
@@ -708,7 +710,7 @@ static void ViewportDrawStatistics(const ViewportState *state)
     char lines[8][64];
     int line, linecount;
 
-    if ((!state->orbit && !state->showgeometrystatistics) || !state->statisticsfont
+    if (state->thumbnail || (!state->orbit && !state->showgeometrystatistics) || !state->statisticsfont
         || state->width <= 0 || state->height <= 0) { return; }
     if (state->orbit)
     {
@@ -859,7 +861,7 @@ static BOOL ViewportInitGL(HWND hwnd, ViewportState *state)
     glEnableClientState(GL_COLOR_ARRAY);
 
     ModelLightingInit(&state->modellighting);
-    return ViewportCreateStatisticsFont(state);
+    return state->thumbnail || ViewportCreateStatisticsFont(state);
 }
 
 
@@ -2380,7 +2382,7 @@ static void ViewportPaintGL(ViewportState *state)
     {
         if (!state->orbit && !state->stageopen) { ViewportDrawStartupModel(state); }
         ViewportDrawStatistics(state);
-        SwapBuffers(state->hdc);
+        if (!state->thumbnail) { SwapBuffers(state->hdc); }
         return;
     }
 
@@ -2623,7 +2625,7 @@ static void ViewportPaintGL(ViewportState *state)
         ViewportDrawBoxSelection(state);
     }
     ViewportDrawStatistics(state);
-    SwapBuffers(state->hdc);
+    if (!state->thumbnail) { SwapBuffers(state->hdc); }
 }
 
 
@@ -8985,6 +8987,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         ViewportSetBackgroundColor(hwnd, NULL);
 
         state->orbit = ((CREATESTRUCT *)lparam)->lpCreateParams != NULL;
+        state->thumbnail = ((CREATESTRUCT *)lparam)->lpCreateParams == (void *)2;
 
         if (state->orbit)
         {
@@ -9014,7 +9017,8 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
 
         if (!ViewportInitGL(hwnd, state))
         {
-            MessageBox(hwnd, "Could not initialize the OpenGL viewport.", "GEditor", MB_ICONERROR);
+            if (!state->thumbnail)
+                MessageBox(hwnd, "Could not initialize the OpenGL viewport.", "GEditor", MB_ICONERROR);
             return -1;
         }
         if (!state->orbit) { ViewportLoadStartupModel(hwnd, state); }
@@ -9395,6 +9399,97 @@ HWND ViewportCreateOrbit(HWND parent, HINSTANCE hinstance)
 {
     return CreateWindowEx(0, VIEWPORT_CLASS, NULL, WS_CHILD | WS_VISIBLE | WS_TABSTOP,
                           0, 0, 16, 16, parent, NULL, hinstance, (void *)1);
+}
+
+HWND ViewportCreateThumbnail(HWND parent, HINSTANCE hinstance)
+{
+    HDC dc = wglGetCurrentDC(); HGLRC context = wglGetCurrentContext();
+    HWND hwnd = CreateWindowEx(0, VIEWPORT_CLASS, NULL, WS_CHILD,
+        0, 0, 128, 128, parent, NULL, hinstance, (void *)2);
+    wglMakeCurrent(dc, context);
+    return hwnd;
+}
+
+void ViewportDestroyThumbnail(HWND hwnd)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    if (!state || !state->thumbnail) { return; }
+    HDC dc = wglGetCurrentDC(); HGLRC context = wglGetCurrentContext();
+    if (context == state->hglrc) { dc = NULL; context = NULL; }
+    DestroyWindow(hwnd);
+    wglMakeCurrent(dc, context);
+}
+
+static PROC ViewportFramebufferProc(const char *core, const char *extension)
+{
+    PROC proc = wglGetProcAddress(core);
+    if ((INT_PTR)proc == -1 || (UINT_PTR)proc <= 3) { proc = wglGetProcAddress(extension); }
+    return (INT_PTR)proc == -1 || (UINT_PTR)proc <= 3 ? NULL : proc;
+}
+
+BOOL ViewportCaptureThumbnail(HWND hwnd, unsigned char *bgra, int size)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    HDC previousdc = wglGetCurrentDC(); HGLRC previous = wglGetCurrentContext();
+    GLuint framebuffer = 0, buffers[2] = {0};
+    unsigned char *rgba = NULL;
+    BOOL ok = FALSE;
+    if (!state || !state->thumbnail || !state->hglrc || !bgra || size < 1 || size > 256
+        || !wglMakeCurrent(state->hdc, state->hglrc)) { return FALSE; }
+    PFNGLGENFRAMEBUFFERSEXTPROC genframe = (void *)ViewportFramebufferProc("glGenFramebuffers", "glGenFramebuffersEXT");
+    PFNGLBINDFRAMEBUFFEREXTPROC bindframe = (void *)ViewportFramebufferProc("glBindFramebuffer", "glBindFramebufferEXT");
+    PFNGLDELETEFRAMEBUFFERSEXTPROC deleteframe = (void *)ViewportFramebufferProc("glDeleteFramebuffers", "glDeleteFramebuffersEXT");
+    PFNGLGENRENDERBUFFERSEXTPROC genbuffer = (void *)ViewportFramebufferProc("glGenRenderbuffers", "glGenRenderbuffersEXT");
+    PFNGLBINDRENDERBUFFEREXTPROC bindbuffer = (void *)ViewportFramebufferProc("glBindRenderbuffer", "glBindRenderbufferEXT");
+    PFNGLRENDERBUFFERSTORAGEEXTPROC storage = (void *)ViewportFramebufferProc("glRenderbufferStorage", "glRenderbufferStorageEXT");
+    PFNGLFRAMEBUFFERRENDERBUFFEREXTPROC attach = (void *)ViewportFramebufferProc("glFramebufferRenderbuffer", "glFramebufferRenderbufferEXT");
+    PFNGLDELETERENDERBUFFERSEXTPROC deletebuffer = (void *)ViewportFramebufferProc("glDeleteRenderbuffers", "glDeleteRenderbuffersEXT");
+    PFNGLCHECKFRAMEBUFFERSTATUSEXTPROC status = (void *)ViewportFramebufferProc("glCheckFramebufferStatus", "glCheckFramebufferStatusEXT");
+    if (!genframe || !bindframe || !deleteframe || !genbuffer || !bindbuffer
+        || !storage || !attach || !deletebuffer || !status) { goto done; }
+    int render = size * 2;
+    rgba = malloc((size_t)render * render * 4);
+    if (!rgba) { goto done; }
+    while (glGetError() != GL_NO_ERROR) { }
+    genframe(1, &framebuffer); bindframe(GL_FRAMEBUFFER_EXT, framebuffer);
+    genbuffer(2, buffers);
+    bindbuffer(GL_RENDERBUFFER_EXT, buffers[0]);
+    storage(GL_RENDERBUFFER_EXT, GL_RGBA8, render, render);
+    attach(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_RENDERBUFFER_EXT, buffers[0]);
+    bindbuffer(GL_RENDERBUFFER_EXT, buffers[1]);
+    storage(GL_RENDERBUFFER_EXT, GL_DEPTH_COMPONENT24, render, render);
+    attach(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, buffers[1]);
+    glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT); glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
+    if (status(GL_FRAMEBUFFER_EXT) != GL_FRAMEBUFFER_COMPLETE_EXT) { goto cleanup; }
+    state->width = state->height = render;
+    ViewportResizeGL(state, render, render);
+    /* Stable neutral background: cached previews work in either UI theme. */
+    state->backgroundcolor[0] = state->backgroundcolor[1] = state->backgroundcolor[2] = 36.0f / 255;
+    ViewportPaintGL(state);
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glReadPixels(0, 0, render, render, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
+    ok = glGetError() == GL_NO_ERROR;
+    if (ok) for (int y = 0; y < size; y++) for (int x = 0; x < size; x++)
+    {
+        unsigned char *out = bgra + ((size_t)y * size + x) * 4;
+        /* Supersample 2x, flip GL's bottom-up rows, and convert to GDI BGRA. */
+        for (int channel = 0; channel < 3; channel++)
+        {
+            unsigned int sum = 0;
+            for (int dy = 0; dy < 2; dy++) for (int dx = 0; dx < 2; dx++)
+                sum += rgba[((size_t)(render - 1 - y * 2 - dy) * render + x * 2 + dx) * 4 + 2 - channel];
+            out[channel] = (unsigned char)((sum + 2) / 4);
+        }
+        out[3] = 255;
+    }
+cleanup:
+    bindframe(GL_FRAMEBUFFER_EXT, 0); bindbuffer(GL_RENDERBUFFER_EXT, 0);
+    glDrawBuffer(GL_BACK); glReadBuffer(GL_BACK);
+    deletebuffer(2, buffers); deleteframe(1, &framebuffer);
+done:
+    free(rgba);
+    wglMakeCurrent(previousdc, previous);
+    return ok;
 }
 
 
