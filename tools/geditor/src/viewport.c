@@ -271,6 +271,8 @@ typedef struct ViewportState {
     BOOL colorsampleclick; /* Consume the second click of a sampling double-click. */
     BOOL showgeometrystatistics;
     GLuint statisticsfont; /* ASCII bitmap display lists, owned by the GL context */
+    int statisticscharwidth[VIEWPORT_STATS_FONT_GLYPHS];
+    int statisticsfontheight, statisticsfontascent;
     DWORD bgprimarytris, bgsecondarytris, bgtexturecount; /* cached on scene rebuild */
     DWORD objecttris, charactertris;
 
@@ -451,6 +453,7 @@ static Vertex ViewportStanPointVertex(const StanPoint *point);
 static int ViewportCompareStanRefs(const void *left, const void *right);
 static StanPointRef ViewportStanPointRef(const ViewportState *state, DWORD tile, DWORD point);
 static void ViewportDrawTransformTools(const ViewportState *state);
+static void ViewportDrawTransformReadout(const ViewportState *state);
 static void ViewportUpdateGizmo(ViewportState *state);
 static void ViewportRestoreComponents(ViewportState *state);
 static void ViewportDrawBoxSelection(const ViewportState *state);
@@ -709,6 +712,17 @@ static BOOL ViewportCreateStatisticsFont(ViewportState *state)
         if (previous != NULL && previous != HGDI_ERROR)
         {
             ok = wglUseFontBitmapsA(state->hdc, 0, VIEWPORT_STATS_FONT_GLYPHS, lists);
+            /* The transform label shares this font, but sizes its background
+             * to the glyph advances rather than guessing from text length. */
+            TEXTMETRICA metrics;
+            state->statisticsfontheight = 16; state->statisticsfontascent = 13;
+            if (GetTextMetricsA(state->hdc, &metrics))
+            {
+                state->statisticsfontheight = metrics.tmHeight;
+                state->statisticsfontascent = metrics.tmAscent;
+            }
+            if (!GetCharWidth32A(state->hdc, 0, VIEWPORT_STATS_FONT_GLYPHS - 1, state->statisticscharwidth))
+            { for (int i = 0; i < VIEWPORT_STATS_FONT_GLYPHS; i++) { state->statisticscharwidth[i] = 8; } }
             SelectObject(state->hdc, previous);
         }
         if (!ok) { glDeleteLists(lists, VIEWPORT_STATS_FONT_GLYPHS); }
@@ -2638,6 +2652,7 @@ static void ViewportPaintGL(ViewportState *state)
         ViewportDrawBoxSelection(state);
     }
     ViewportDrawStatistics(state);
+    ViewportDrawTransformReadout(state);
     if (!state->thumbnail) { SwapBuffers(state->hdc); }
 }
 
@@ -4541,6 +4556,99 @@ static BOOL ViewportProject(const ViewportState *state, const Vertex *point, dou
     screen[0]=state->width*0.5+focal*(p[0]*r[0]+p[1]*r[1]+p[2]*r[2])/depth;
     screen[1]=state->height*0.5-focal*(p[0]*up[0]+p[1]*up[1]+p[2]*up[2])/depth;
     return TRUE;
+}
+
+/* Read the applied preview, including snapping and room/extrusion rounding.
+ * This is a displacement from mouse-down, not the selection's absolute value. */
+static BOOL ViewportTransformReadoutText(const ViewportState *state, char text[96])
+{
+    if (state->thumbnail || state->orbit || state->dragaxis < 0
+        || state->dragaxis > VIEWPORT_UNIFORM_SCALE_AXIS || !isfinite(state->dragdelta)) { return FALSE; }
+    const char *axis = state->dragaxis == VIEWPORT_UNIFORM_SCALE_AXIS ? "XYZ"
+        : state->dragaxis == 0 ? "X" : state->dragaxis == 1 ? "Y" : "Z";
+    double delta = state->dragdelta;
+    if (state->dragscaling)
+    {
+        if (fabs(delta) < .0000001) { delta = 0; }
+        snprintf(text, 96, "Scale %s: %.2fx (%+.0f%%)", axis, 1 + delta, delta * 100);
+    }
+    else if (state->dragaxis == VIEWPORT_UNIFORM_SCALE_AXIS) { return FALSE; }
+    else if (state->dragrotation)
+    {
+        if (fabs(delta) < .5) { delta = 0; }
+        snprintf(text, 96, "Rotate %s: %+.0f deg", axis, delta);
+    }
+    else
+    {
+        char value[48];
+        double factor = isfinite(state->coordinatescale) && state->coordinatescale > 0 ? state->coordinatescale : 1;
+        if (state->dragextruding) { delta = state->extrudepreviewvalid ? state->extrudeoffset[state->dragaxis] : 0; }
+        delta *= factor;
+        if (!isfinite(delta)) { return FALSE; }
+        if (fabs(delta) < .0005) { delta = 0; }
+        int length = snprintf(value, sizeof(value), "%+.3f", delta);
+        if (length < 0 || length >= (int)sizeof(value)) { return FALSE; }
+        while (length > 0 && value[length - 1] == '0') { value[--length] = '\0'; }
+        if (length > 0 && value[length - 1] == '.') { value[--length] = '\0'; }
+        snprintf(text, 96, "Move %s: %s units", axis, value);
+    }
+    return TRUE;
+}
+
+static BOOL ViewportTransformReadoutBounds(const ViewportState *state,
+    const double anchor[2], int width, int height, RECT *bounds)
+{
+    const int margin = 8, gap = 18;
+    if (!isfinite(anchor[0]) || !isfinite(anchor[1]) || width <= 0 || height <= 0
+        || width > state->width - margin * 2 || height > state->height - margin * 2) { return FALSE; }
+    double x = anchor[0] + gap, y = anchor[1] - height - gap;
+    if (x + width > state->width - margin) { x = anchor[0] - width - gap; }
+    if (y < margin) { y = anchor[1] + gap; }
+    bounds->left = (LONG)fmax(margin, fmin(x, state->width - margin - width));
+    bounds->top = (LONG)fmax(margin, fmin(y, state->height - margin - height));
+    bounds->right = bounds->left + width; bounds->bottom = bounds->top + height;
+    return TRUE;
+}
+
+static void ViewportDrawTransformReadout(const ViewportState *state)
+{
+    char text[96];
+    double anchor[2];
+    Vertex point = {0};
+    RECT bounds;
+    int width = 18, height = state->statisticsfontheight + 10;
+    if (!state->statisticsfont || !ViewportTransformReadoutText(state, text)) { return; }
+    /* Follow the grabbed part of the gizmo as it translates, keeping the
+     * label offset from the handle and inside the viewport's client area. */
+    point.x = state->gizmohit[0] + state->gizmoposition[0] - state->dragorigin[0];
+    point.y = state->gizmohit[1] + state->gizmoposition[1] - state->dragorigin[1];
+    point.z = state->gizmohit[2] + state->gizmoposition[2] - state->dragorigin[2];
+    if (!ViewportProject(state, &point, anchor)) { return; }
+    for (const unsigned char *p = (const unsigned char *)text; *p; p++)
+    { width += state->statisticscharwidth[*p]; }
+    if (!ViewportTransformReadoutBounds(state, anchor, width, height, &bounds)) { return; }
+
+    /* Render into the same back buffer as the gizmo. Isolate overlay state so
+     * the badge stays solid in every render mode without affecting geometry. */
+    glPushAttrib(GL_CURRENT_BIT | GL_ENABLE_BIT | GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT
+        | GL_TRANSFORM_BIT | GL_LIST_BIT | GL_POLYGON_BIT);
+    glDisable(GL_TEXTURE_2D); glDisable(GL_DEPTH_TEST); glDisable(GL_ALPHA_TEST);
+    glDisable(GL_BLEND); glDisable(GL_LIGHTING); glDisable(GL_FOG); glDisable(GL_CULL_FACE);
+    glDepthMask(GL_FALSE); glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity();
+    glOrtho(0, state->width, state->height, 0, -1, 1);
+    glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity();
+    glColor3ub(90, 90, 90);
+    glRecti(bounds.left, bounds.top, bounds.right, bounds.bottom);
+    glColor3ub(32, 32, 32);
+    glRecti(bounds.left + 1, bounds.top + 1, bounds.right - 1, bounds.bottom - 1);
+    glColor3ub(VIEWPORT_SELECTION_GOLD);
+    glRecti(bounds.left, bounds.top, bounds.left + 3, bounds.bottom);
+    glColor3ub(255, 255, 255);
+    glListBase(state->statisticsfont);
+    glRasterPos2i(bounds.left + 10, bounds.top + 5 + state->statisticsfontascent);
+    glCallLists((GLsizei)strlen(text), GL_UNSIGNED_BYTE, text);
+    glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix(); glPopAttrib();
 }
 
 /* Closest screen-space edge point with perspective-correct world position. */
