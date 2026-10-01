@@ -1,12 +1,33 @@
-/* Merge explicitly selected source identities; never weld by proximity. */
+/* Merge/weld explicitly selected source identities within each room. */
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include "bgdocument.h"
 
 static int BgMergeAverage(int64_t sum, DWORD count)
 {
     /* Match native position rounding: nearest integer, half away from zero. */
     return (int)(sum < 0 ? -((-sum + count/2)/count) : (sum + count/2)/count);
+}
+
+static void BgMergeAccumulate(int64_t sum[9], const BgDocumentVertex *v)
+{
+    sum[0] += v->x; sum[1] += v->y; sum[2] += v->z;
+    sum[3] += v->s; sum[4] += v->t;
+    sum[5] += v->r; sum[6] += v->g; sum[7] += v->b; sum[8] += v->a;
+}
+
+static void BgMergeSetAverage(BgDocumentVertex *v, const int64_t sum[9], DWORD count)
+{
+    v->x = (short)BgMergeAverage(sum[0], count);
+    v->y = (short)BgMergeAverage(sum[1], count);
+    v->z = (short)BgMergeAverage(sum[2], count);
+    v->s = (short)BgMergeAverage(sum[3], count);
+    v->t = (short)BgMergeAverage(sum[4], count);
+    v->r = (unsigned char)BgMergeAverage(sum[5], count);
+    v->g = (unsigned char)BgMergeAverage(sum[6], count);
+    v->b = (unsigned char)BgMergeAverage(sum[7], count);
+    v->a = (unsigned char)BgMergeAverage(sum[8], count);
 }
 
 static BOOL BgMergeFaceHasArea(const BgDocumentVertex *vertices, const BgDocumentFace *face)
@@ -55,23 +76,12 @@ BOOL BgDocumentMergeVertices(BgDocument *document, const BgDocumentVertexRef *re
         if (selected[v]) { continue; }
         selected[v] = 1; unique++;
         if (v < first) { first = v; }
-        const BgDocumentVertex *p = &room->vertices[v];
-        sum[0] += p->x; sum[1] += p->y; sum[2] += p->z;
-        sum[3] += p->s; sum[4] += p->t;
-        sum[5] += p->r; sum[6] += p->g; sum[7] += p->b; sum[8] += p->a;
+        BgMergeAccumulate(sum, &room->vertices[v]);
     }
     why = "Select at least two distinct background vertices.";
     if (unique < 2) { goto done; }
     merged = room->vertices[first]; /* Stable survivor ID and native flag. */
-    merged.x = (short)BgMergeAverage(sum[0], unique);
-    merged.y = (short)BgMergeAverage(sum[1], unique);
-    merged.z = (short)BgMergeAverage(sum[2], unique);
-    merged.s = (short)BgMergeAverage(sum[3], unique);
-    merged.t = (short)BgMergeAverage(sum[4], unique);
-    merged.r = (unsigned char)BgMergeAverage(sum[5], unique);
-    merged.g = (unsigned char)BgMergeAverage(sum[6], unique);
-    merged.b = (unsigned char)BgMergeAverage(sum[7], unique);
-    merged.a = (unsigned char)BgMergeAverage(sum[8], unique);
+    BgMergeSetAverage(&merged, sum, unique);
     why = "Out of memory merging background vertices.";
     vertices = malloc((size_t)(room->vertexcount-unique+1)*sizeof(*vertices));
     if (room->facecount) { faces = malloc((size_t)room->facecount*sizeof(*faces)); }
@@ -120,6 +130,162 @@ BOOL BgDocumentMergeVertices(BgDocument *document, const BgDocumentVertexRef *re
     why = ""; ok = TRUE;
 done:
     free(selected); free(mapping); free(vertices); free(faces);
+    if (reasonout) { *reasonout = why; }
+    return ok;
+}
+
+typedef struct BgWeldVertex {
+    BgDocumentVertexRef ref;
+    short x, y, z;
+} BgWeldVertex;
+
+typedef struct BgWeldRoom {
+    DWORD room, vertexcount;
+    BgDocumentVertex *vertices;
+    BgDocumentFace *faces;
+    DWORD *mapping;
+} BgWeldRoom;
+
+static int BgWeldComparePosition(const void *left, const void *right)
+{
+    const BgWeldVertex *a = left, *b = right;
+    if (a->ref.room != b->ref.room) { return a->ref.room < b->ref.room ? -1 : 1; }
+    if (a->x != b->x) { return (int)a->x - b->x; }
+    if (a->y != b->y) { return (int)a->y - b->y; }
+    return (int)a->z - b->z;
+}
+
+static int BgWeldCompareVertex(const void *left, const void *right)
+{
+    const BgWeldVertex *a = left, *b = right;
+    int order = BgWeldComparePosition(left, right);
+    if (order) { return order; }
+    return a->ref.index < b->ref.index ? -1 : a->ref.index != b->ref.index;
+}
+
+BOOL BgDocumentWeldVertices(BgDocument *document, BgDocumentVertexRef *refs,
+    DWORD *countinout, DWORD *removedout, const char **reasonout)
+{
+    BgWeldVertex *selected = NULL;
+    BgWeldRoom *pending = NULL;
+    DWORD count, unique = 0, roomcount = 0, removed = 0;
+    const char *why = "Invalid background vertex selection.";
+    BOOL ok = FALSE;
+    if (removedout) { *removedout = 0; }
+    if (!document || !document->rooms || !refs || !countinout
+        || !(count = *countinout) || count > UINT32_MAX/sizeof(*selected)
+        || count > UINT32_MAX/sizeof(*pending)) { goto done; }
+    why = "Out of memory welding background vertices.";
+    selected = malloc((size_t)count*sizeof(*selected));
+    pending = calloc(count, sizeof(*pending));
+    if (!selected || !pending) { goto done; }
+    for (DWORD i = 0; i < count; i++)
+    {
+        why = "A selected background vertex no longer exists.";
+        if (!refs[i].room || refs[i].room > document->roomcount) { goto done; }
+        const BgDocumentRoom *r = &document->rooms[refs[i].room];
+        if (!r->vertices || refs[i].index >= r->vertexcount
+            || r->vertices[refs[i].index].room != refs[i].room) { goto done; }
+        const BgDocumentVertex *v = &r->vertices[refs[i].index];
+        selected[i] = (BgWeldVertex){refs[i], v->x, v->y, v->z};
+    }
+    /* XYZ are signed native integers: distance <= 0.1 is exactly coincident.
+     * Do not compare world-space floats or scale the tolerance by levelscale.
+     * Sorting also makes duplicate refs contribute once and keeps the lowest
+     * source index (and its stable ID/native flag) as each group's survivor. */
+    qsort(selected, count, sizeof(*selected), BgWeldCompareVertex);
+    for (DWORD i = 0; i < count; i++)
+    {
+        if (!unique || BgWeldCompareVertex(&selected[i], &selected[unique-1]))
+        { selected[unique++] = selected[i]; }
+    }
+    for (DWORD start = 0, end; start < unique; start = end)
+    {
+        for (end = start+1; end < unique && selected[end].ref.room == selected[start].ref.room; end++) {}
+        BOOL changes = FALSE;
+        for (DWORD i = start+1; i < end; i++)
+        { if (!BgWeldComparePosition(&selected[i-1], &selected[i])) { changes = TRUE; break; } }
+        if (!changes) { continue; }
+        const BgDocumentRoom *r = &document->rooms[selected[start].ref.room];
+        why = "The background room has invalid geometry.";
+        if (r->vertexcount > 0x100000u || (r->facecount && !r->faces)
+            || r->facecount > document->facecount || r->facecount > UINT32_MAX/sizeof(*r->faces)) { goto done; }
+        BgWeldRoom *edit = &pending[roomcount++];
+        edit->room = selected[start].ref.room;
+        why = "Out of memory welding background vertices.";
+        edit->vertices = malloc((size_t)r->vertexcount*sizeof(*edit->vertices));
+        edit->mapping = malloc((size_t)r->vertexcount*sizeof(*edit->mapping));
+        if (r->facecount) { edit->faces = malloc((size_t)r->facecount*sizeof(*edit->faces)); }
+        if (!edit->vertices || !edit->mapping || (r->facecount && !edit->faces)) { goto done; }
+        memcpy(edit->vertices, r->vertices, (size_t)r->vertexcount*sizeof(*edit->vertices));
+        for (DWORD v = 0; v < r->vertexcount; v++) { edit->mapping[v] = v; }
+        for (DWORD first = start, next; first < end; first = next)
+        {
+            for (next = first+1; next < end && !BgWeldComparePosition(&selected[first], &selected[next]); next++) {}
+            if (next == first+1) { continue; }
+            DWORD survivor = selected[first].ref.index;
+            int64_t sum[9] = {0};
+            for (DWORD i = first; i < next; i++)
+            {
+                DWORD v = selected[i].ref.index;
+                edit->mapping[v] = survivor;
+                BgMergeAccumulate(sum, &r->vertices[v]);
+            }
+            BgMergeSetAverage(&edit->vertices[survivor], sum, next-first);
+            removed += next-first-1;
+        }
+        /* Compact once per room, not once per group. Every survivor precedes
+         * its removed sources, so its final index is already known here. */
+        for (DWORD v = 0; v < r->vertexcount; v++)
+        {
+            if (edit->mapping[v] != v) { edit->mapping[v] = edit->mapping[edit->mapping[v]]; continue; }
+            edit->mapping[v] = edit->vertexcount;
+            edit->vertices[edit->vertexcount] = edit->vertices[v];
+            edit->vertices[edit->vertexcount++].usecount = 0;
+        }
+        for (DWORD f = 0; f < r->facecount; f++)
+        {
+            BgDocumentFace *face = &edit->faces[f]; *face = r->faces[f];
+            for (int c = 0; c < 3; c++)
+            {
+                why = "A background face references an invalid vertex.";
+                if (face->vertexindices[c] >= r->vertexcount) { goto done; }
+                face->vertexindices[c] = edit->mapping[face->vertexindices[c]];
+                DWORD *uses = &edit->vertices[face->vertexindices[c]].usecount;
+                if (*uses == UINT32_MAX) { goto done; }
+                (*uses)++;
+            }
+        }
+        /* Positions never move, so no new degenerate faces can be produced.
+         * As with Merge, preserve any degenerates that already existed. */
+        for (DWORD i = start; i < end; i++) { selected[i].ref.index = edit->mapping[selected[i].ref.index]; }
+    }
+    /* Allocate and validate every room before changing the document/selection. */
+    if (removed)
+    {
+        for (DWORD i = 0; i < roomcount; i++)
+        {
+            BgWeldRoom *edit = &pending[i]; BgDocumentRoom *r = &document->rooms[edit->room];
+            free(r->vertices); free(r->faces);
+            r->vertices = edit->vertices; edit->vertices = NULL;
+            r->faces = edit->faces; edit->faces = NULL;
+            r->vertexcount = edit->vertexcount; r->facecapacity = r->facecount;
+        }
+        DWORD kept = 0;
+        for (DWORD i = 0; i < unique; i++)
+        {
+            if (!kept || selected[i].ref.room != refs[kept-1].room || selected[i].ref.index != refs[kept-1].index)
+            { refs[kept++] = selected[i].ref; }
+        }
+        *countinout = kept;
+        document->dirty = TRUE;
+    }
+    if (removedout) { *removedout = removed; }
+    why = ""; ok = TRUE;
+done:
+    for (DWORD i = 0; i < roomcount; i++)
+    { free(pending[i].vertices); free(pending[i].faces); free(pending[i].mapping); }
+    free(selected); free(pending);
     if (reasonout) { *reasonout = why; }
     return ok;
 }

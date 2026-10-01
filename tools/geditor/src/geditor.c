@@ -718,6 +718,7 @@ enum {
     ID_EDIT_UNDO,
     ID_EDIT_REDO,
     ID_EDIT_FLIP_FACE,
+    ID_GEOMETRY_WELD_VERTICES,
     ID_GEOMETRY_MERGE_VERTICES,
     ID_GEOMETRY_SNAP_VERTEX,
     ID_GEOMETRY_PAINT_VERTEX,
@@ -3996,6 +3997,37 @@ fail:
     return FALSE;
 }
 
+static BOOL GEditorWeldSelectedBgVertices(HWND hwnd)
+{
+    EditHistoryTransaction transaction = {0};
+    BgDocumentVertexRef *vertices = NULL;
+    DWORD count = 0, removed = 0;
+    const char *why = "", *restorewhy = "";
+    BOOL ok = FALSE;
+    if (!GEditorCanMergeSelectedBgVertices()) { return FALSE; }
+    vertices = ViewportGetMoveVertices(g_Viewport, &count);
+    if (!vertices || !EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
+        "Weld Vertices", &transaction, &why)) { goto done; }
+    if (!BgDocumentWeldVertices(&g_CurrentBgDocument, vertices, &count, &removed, &why))
+    { goto done; } /* Atomic failure: no viewport/history changes. */
+    if (!removed) { ok = TRUE; goto done; } /* No matches: no undo entry. */
+    if (!GEditorRebuildCurrentViewport(&why)
+        || !ViewportSelectBgVertices(g_Viewport, vertices, count)
+        || !EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+            &g_CurrentStan, &transaction, &why))
+    {
+        EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+        GEditorRebuildCurrentViewport(&restorewhy);
+        GEditorRestoreHistorySelection(hwnd);
+        goto done;
+    }
+    ok = TRUE;
+done:
+    free(vertices); EditHistoryCancelEdit(&transaction);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    return ok; /* Ineligible selections and failed welds are deliberately silent. */
+}
+
 /* Both the dropdown and command handlers recheck selection. Opening a menu
  * never changes tools or clears selection, even for an inactive category. */
 static void GEditorShowGeometryMenu(HWND hwnd, ToolToolbarMenu kind, HWND button)
@@ -4016,9 +4048,10 @@ static void GEditorShowGeometryMenu(HWND hwnd, ToolToolbarMenu kind, HWND button
     switch (kind)
     {
     case TOOLTOOLBAR_MENU_VERTEX:
+        AppendMenu(menu, MF_STRING | (GEditorCanMergeSelectedBgVertices() ? MF_ENABLED : MF_GRAYED),
+            ID_GEOMETRY_WELD_VERTICES, "&Weld Vertices\tCtrl+W");
         AppendMenu(menu, MF_STRING | ((GEditorCanMergeSelectedBgVertices() || GEditorCanMergeSelectedStanVertices()) ? MF_ENABLED : MF_GRAYED),
             ID_GEOMETRY_MERGE_VERTICES, "&Merge Vertices\tM");
-        AppendMenu(menu, MF_SEPARATOR, 0, NULL);
         AppendMenu(menu, MF_STRING | (idle && tool == EDITOR_TOOL_VERTEX_SELECT ? MF_ENABLED : MF_GRAYED)
             | (ViewportGetVertexSnap(g_Viewport) ? MF_CHECKED : MF_UNCHECKED),
             ID_GEOMETRY_SNAP_VERTEX, "&Snap to Vertex\tV");
@@ -7132,6 +7165,10 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 else { GEditorPasteBgFaces(hwnd); }
                 return 0;
 
+            case ID_GEOMETRY_WELD_VERTICES:
+                GEditorWeldSelectedBgVertices(hwnd);
+                return 0;
+
             case ID_GEOMETRY_MERGE_VERTICES:
                 if (ViewportGetStanSelectionCount(g_Viewport,NULL)) { GEditorEditStanTopology(hwnd,NULL); }
                 else { GEditorMergeSelectedBgVertices(hwnd); }
@@ -7568,6 +7605,23 @@ static BOOL GEditorHandleMergeVerticesHotkey(HWND frame, const MSG *message)
     return TRUE;
 }
 
+/* Ctrl+W uses the same input scope and repeat suppression as M. */
+static BOOL GEditorHandleWeldVerticesHotkey(HWND frame, const MSG *message)
+{
+    char classname[32] = "";
+    if (!message || !g_Viewport || message->message != WM_KEYDOWN || message->wParam != 'W'
+        || ViewportIsFlying(g_Viewport) || ViewportIsTransforming(g_Viewport)
+        || (message->hwnd != frame && !IsChild(frame, message->hwnd))
+        || !(GetKeyState(VK_CONTROL) & 0x8000) || (GetKeyState(VK_MENU) & 0x8000)
+        || (GetKeyState(VK_SHIFT) & 0x8000)) { return FALSE; }
+    GetClassName(message->hwnd, classname, sizeof(classname));
+    if (lstrcmpi(classname, "Edit") == 0 || lstrcmpi(classname, "ComboBox") == 0
+        || lstrcmpi(classname, "ComboLBox") == 0) { return FALSE; }
+    if (!(message->lParam & ((LPARAM)1 << 30)))
+    { SendMessage(frame, WM_COMMAND, ID_GEOMETRY_WELD_VERTICES, 0); }
+    return TRUE;
+}
+
 /* B invokes the existing bridge command once per press, using the same
  * input scope and text-field exclusions as Merge Vertices. */
 static BOOL GEditorHandleBridgeEdgesHotkey(HWND frame, const MSG *message)
@@ -7869,6 +7923,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                     && !GEditorHandleFlipFaceHotkey(hwnd, &msg)
                     && !GEditorHandleZoomSelectedHotkey(hwnd, &msg)
                     && !GEditorHandleGoToHotkey(hwnd, &msg)
+                    && !GEditorHandleWeldVerticesHotkey(hwnd, &msg)
                     && !GEditorHandleMergeVerticesHotkey(hwnd, &msg)
                     && !GEditorHandleBridgeEdgesHotkey(hwnd, &msg)
                     && !GEditorHandleBisectEdgeHotkey(hwnd, &msg)
@@ -7914,6 +7969,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                 && !GEditorHandleFlipFaceHotkey(hwnd, &msg)
                 && !GEditorHandleZoomSelectedHotkey(hwnd, &msg)
                 && !GEditorHandleGoToHotkey(hwnd, &msg)
+                && !GEditorHandleWeldVerticesHotkey(hwnd, &msg)
                 && !GEditorHandleMergeVerticesHotkey(hwnd, &msg)
                 && !GEditorHandleBridgeEdgesHotkey(hwnd, &msg)
                 && !GEditorHandleBisectEdgeHotkey(hwnd, &msg)

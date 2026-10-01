@@ -108,8 +108,20 @@ static void Geometry(const char *dir)
     BgFile compiled = {0}; BgDocument loaded = {0};
     assert(BgDocumentCompile(&doc, &source, &compiled, &why));
     assert(BgDocumentLoad(compiled.data, compiled.size, doc.levelscale, &loaded, &why));
-    assert(loaded.rooms[1].vertexcount == 5); Counts(&loaded);
-    assert(loaded.rooms[1].vertices[1].usecount == 3); /* true shared identity survives native output */
+    Counts(&loaded);
+    /* Native compilation may emit separate vertex batches for each layer.
+     * Compare the merged source's attributes and total references, not indices. */
+    DWORD mergeduses = 0;
+    for (DWORD i = 0; i < loaded.rooms[1].vertexcount; i++)
+    {
+        const BgDocumentVertex *p = &loaded.rooms[1].vertices[i];
+        if (p->x == 150 && p->y == 0 && p->z == 0)
+        {
+            assert(p->s == -129 && p->t == 10 && p->r == 61 && p->g == 111 && p->b == 120 && p->a == 151);
+            mergeduses += p->usecount;
+        }
+    }
+    assert(mergeduses == 3);
     BgDocumentFree(&loaded); BgFileFree(&compiled); BgDocumentFree(&doc);
     /* Only one selected corner in each collapsed face: catch coincident/collinear geometry too. */
     assert(BgDocumentClone(&original, &doc, &why));
@@ -155,14 +167,14 @@ typedef void *HWND;
 typedef intptr_t LPARAM;
 typedef struct MSG { HWND hwnd; unsigned message; uintptr_t wParam; LPARAM lParam; } MSG;
 enum { WM_KEYDOWN = 256, WM_COMMAND = 273, VK_CONTROL = 17, VK_MENU = 18, VK_SHIFT = 16,
-       ID_GEOMETRY_MERGE_VERTICES = 100, MB_ICONERROR = 16, MB_OKCANCEL = 1, MB_ICONWARNING = 48, IDOK = 1, IDCANCEL = 2 };
+       ID_GEOMETRY_MERGE_VERTICES = 100, ID_GEOMETRY_WELD_VERTICES, MB_ICONERROR = 16, MB_OKCANCEL = 1, MB_ICONWARNING = 48, IDOK = 1, IDCANCEL = 2 };
 #define GEDITOR_TITLE "GEditor"
 static HWND g_Viewport = (HWND)2;
 static BgDocument g_CurrentBgDocument;
 static SetupFile g_CurrentSetup;
 static StanFile g_CurrentStan;
 static EditHistory g_EditHistory;
-static BgDocumentVertexRef selection[4];
+static BgDocumentVertexRef selection[16];
 static DWORD selectedcount = 2;
 static int rebuilds, errors, warnings, restores;
 static BOOL flying, transforming, control, alt, shift, snap, stan, failrebuild, failselection;
@@ -187,6 +199,12 @@ static BOOL ViewportSelectBgVertex(HWND hwnd, const BgDocumentVertexRef *ref)
     assert(ref && ref->index < g_CurrentBgDocument.rooms[ref->room].vertexcount);
     selection[0] = *ref; selectedcount = 1; return TRUE;
 }
+static BOOL ViewportSelectBgVertices(HWND hwnd, const BgDocumentVertexRef *refs, DWORD count)
+{
+    if (failselection) { return FALSE; }
+    assert(count <= 16);
+    memcpy(selection, refs, count*sizeof(*refs)); selectedcount = count; return TRUE;
+}
 static BOOL GEditorRebuildCurrentViewport(const char **why)
 { rebuilds++; if (failrebuild) { failrebuild = FALSE; *why = "test rebuild failure"; return FALSE; } return TRUE; }
 static void GEditorRefreshSelectionDetails(void) {}
@@ -194,7 +212,7 @@ static void GEditorRefreshHistoryMenu(HWND hwnd) {}
 static void GEditorRestoreHistorySelection(HWND hwnd)
 {
     selectedcount = (DWORD)(g_EditHistory.selectionsize/sizeof(*selection));
-    assert(selectedcount <= 4); memcpy(selection, g_EditHistory.selection, g_EditHistory.selectionsize); restores++;
+    assert(selectedcount <= 16); memcpy(selection, g_EditHistory.selection, g_EditHistory.selectionsize); restores++;
 }
 static int MessageBox(HWND hwnd, const char *why, const char *title, unsigned flags)
 {
@@ -206,8 +224,13 @@ static BOOL IsChild(HWND parent, HWND child) { return parent == (HWND)1 && child
 static short GetKeyState(int key) { return (key == VK_CONTROL ? control : key == VK_MENU ? alt : shift) ? (short)0x8000 : 0; }
 static void GetClassName(HWND hwnd, char *out, int size) { snprintf(out, size, "%s", classname); }
 static BOOL GEditorMergeSelectedBgVertices(HWND hwnd);
+static BOOL GEditorWeldSelectedBgVertices(HWND hwnd);
 static void SendMessage(HWND hwnd, unsigned message, uintptr_t wparam, LPARAM lparam)
-{ assert(hwnd == (HWND)1 && message == WM_COMMAND && wparam == ID_GEOMETRY_MERGE_VERTICES); sent++; GEditorMergeSelectedBgVertices(hwnd); }
+{
+    assert(hwnd == (HWND)1 && message == WM_COMMAND); sent++;
+    if (wparam == ID_GEOMETRY_MERGE_VERTICES) { GEditorMergeSelectedBgVertices(hwnd); }
+    else { assert(wparam == ID_GEOMETRY_WELD_VERTICES); GEditorWeldSelectedBgVertices(hwnd); }
+}
 #include "editor.inc"
 
 static void Commands(void)
@@ -264,4 +287,156 @@ static void Commands(void)
     EditHistoryFree(&g_EditHistory); BgDocumentFree(&g_CurrentBgDocument); BgDocumentFree(&original); BgDocumentFree(&merged); BgFileFree(&source);
     puts("PASS: collapse OK/Cancel, rebuild/selection/commit rollback, undo/redo restores topology and selection, menu guards, and M scoping/repeat suppression.");
 }
-int main(int argc, char **argv) { assert(argc == 2); Geometry(argv[1]); Commands(); return 0; }
+
+
+static void MakeWeld(BgDocument *doc)
+{
+    MakeStrip(doc);
+    BgDocumentRoom *r = &doc->rooms[1];
+    r->vertices = realloc(r->vertices, 9*sizeof(*r->vertices)); assert(r->vertices);
+    r->vertices[4].x = 100; /* group A: 1,4,8 */
+    r->vertices[5].x = 0;   /* group B: 2,5 */
+    for (DWORD v = 6; v < 9; v++)
+    {
+        r->vertices[v] = r->vertices[v == 8 ? 1 : 0];
+        r->vertices[v].id = doc->nextvertexid++; r->vertices[v].usecount = 0;
+    }
+    r->vertices[6].x = 1; /* one native unit away, even at tiny world scales */
+    r->vertices[8].s = 101;
+    r->vertexcount = 9;
+    /* A second real room with coincident native positions; identities stay local. */
+    BgDocument copy = {0}; const char *why = "";
+    assert(doc->roomcount == 2 && BgDocumentClone(doc, &copy, &why));
+    BgDocumentRoom empty = doc->rooms[2]; doc->rooms[2] = copy.rooms[1]; copy.rooms[1] = empty;
+    r = &doc->rooms[2];
+    for (DWORD v = 0; v < r->vertexcount; v++) { r->vertices[v].room = 2; r->vertices[v].id = doc->nextvertexid++; }
+    for (DWORD f = 0; f < r->facecount; f++) { r->faces[f].room = 2; r->faces[f].id = doc->nextfaceid++; }
+    doc->facecount += r->facecount;
+    BgDocumentFree(&copy);
+}
+
+static void WeldGeometry(void)
+{
+    BgFile source = Fixture(); BgDocument original = {0}, doc = {0}; const char *why = "";
+    assert(BgDocumentLoad(source.data, source.size, 1000, &original, &why)); MakeWeld(&original);
+    const BgDocumentVertexRef input[] = {{1,8},{1,4},{1,1},{1,2},{1,5},{1,6},{1,0},{1,8},{2,4},{2,1},{2,0}};
+    BgDocumentVertexRef refs[11]; DWORD count, removed;
+    assert(BgDocumentClone(&original, &doc, &why));
+    memcpy(refs, input, sizeof(refs)); count = 11;
+    assert(BgDocumentWeldVertices(&doc, refs, &count, &removed, &why));
+    assert(removed == 4 && count == 6 && doc.dirty && doc.facecount == original.facecount);
+    assert(doc.rooms[1].vertexcount == 6 && doc.rooms[2].vertexcount == 8);
+    assert(doc.rooms[1].vertices[1].s == -52); /* each distinct source gets equal weight */
+    assert(doc.rooms[1].vertices[1].id == original.rooms[1].vertices[1].id);
+    assert(doc.rooms[1].vertices[1].flag == original.rooms[1].vertices[1].flag);
+    assert(doc.rooms[1].vertices[4].x == 1 && doc.rooms[1].vertices[4].id == original.rooms[1].vertices[6].id);
+    assert(doc.rooms[1].vertices[5].id == original.rooms[1].vertices[7].id); /* unselected coincident source stays */
+    assert(doc.nextvertexid == original.nextvertexid && doc.nextfaceid == original.nextfaceid);
+    Counts(&doc);
+    for (DWORD i = 0; i < count; i++)
+    {
+        assert(refs[i].index < doc.rooms[refs[i].room].vertexcount);
+        for (DWORD j = 0; j < i; j++) { assert(memcmp(&refs[i], &refs[j], sizeof(refs[i]))); }
+    }
+    for (DWORD room = 1; room <= doc.roomcount; room++)
+    for (DWORD f = 0; f < doc.rooms[room].facecount; f++)
+    {
+        BgDocumentFace face = doc.rooms[room].faces[f];
+        const BgDocumentFace *before = &original.rooms[room].faces[f];
+        for (int c = 0; c < 3; c++)
+        {
+            const BgDocumentVertex *v = &doc.rooms[room].vertices[face.vertexindices[c]];
+            const BgDocumentVertex *w = &original.rooms[room].vertices[before->vertexindices[c]];
+            assert(v->x == w->x && v->y == w->y && v->z == w->z);
+        }
+        memcpy(face.vertexindices, before->vertexindices, sizeof(face.vertexindices));
+        assert(!memcmp(&face, before, sizeof(face))); /* materials, flags, layers, winding, IDs */
+    }
+    /* Idempotence retains the document, selection and dirty state. */
+    BgDocument welded = {0}; assert(BgDocumentClone(&doc, &welded, &why));
+    assert(BgDocumentWeldVertices(&doc, refs, &count, &removed, &why) && !removed && count == 6);
+    Same(&doc, &welded); BgDocumentFree(&welded);
+    BgFile compiled = {0}; BgDocument loaded = {0};
+    assert(BgDocumentCompile(&doc, &source, &compiled, &why));
+    assert(BgFileValidateVertexBatches(&compiled, &why));
+    assert(BgDocumentLoad(compiled.data, compiled.size, doc.levelscale, &loaded, &why));
+    assert(loaded.facecount == doc.facecount); Counts(&loaded);
+    BgDocumentFree(&loaded); BgFileFree(&compiled); BgDocumentFree(&doc);
+    /* Fail each allocation, including after room 1 has been staged. */
+    for (int budget = 0; budget < 8; budget++)
+    {
+        assert(BgDocumentClone(&original, &doc, &why));
+        memcpy(refs, input, sizeof(refs)); count = 11; allocations = budget;
+        assert(!BgDocumentWeldVertices(&doc, refs, &count, &removed, &why)); allocations = -1;
+        assert(!removed && count == 11 && !memcmp(refs, input, sizeof(refs)));
+        Same(&doc, &original); BgDocumentFree(&doc);
+    }
+    assert(BgDocumentClone(&original, &doc, &why));
+    BgDocumentVertexRef nohits[] = {{1,0},{2,0},{1,6},{1,0}}; count = 4;
+    assert(BgDocumentWeldVertices(&doc, nohits, &count, &removed, &why) && !removed && count == 4);
+    Same(&doc, &original); /* no cross-room weld; 1 native unit is not <= 0.1 */
+    BgDocumentVertexRef bad[] = {{1,1},{1,4},{2,999}}; count = 3;
+    assert(!BgDocumentWeldVertices(&doc, bad, &count, &removed, &why)); Same(&doc, &original);
+    doc.rooms[2].faces[0].vertexindices[0] = 99;
+    BgDocument invalid = {0}; assert(BgDocumentClone(&doc, &invalid, &why));
+    memcpy(refs, input, sizeof(refs)); count = 11;
+    assert(!BgDocumentWeldVertices(&doc, refs, &count, &removed, &why)); Same(&doc, &invalid);
+    BgDocumentFree(&invalid); BgDocumentFree(&doc); BgDocumentFree(&original); BgFileFree(&source);
+    puts("PASS: multi-group/multi-room welds, native threshold, equal-weight attributes, stable IDs, unselected vertices, unchanged face geometry, save/reload, idempotence and atomic failures.");
+}
+
+static void WeldCommands(void)
+{
+    BgFile source = Fixture(); BgDocument original = {0}, welded = {0}; const char *why = "";
+    HWND frame = (HWND)1; MSG msg = {.hwnd=g_Viewport, .message=WM_KEYDOWN, .wParam='W'};
+    errors = warnings = rebuilds = restores = sent = 0;
+    assert(BgDocumentLoad(source.data, source.size, 1, &g_CurrentBgDocument, &why)); MakeWeld(&g_CurrentBgDocument);
+    assert(BgDocumentClone(&g_CurrentBgDocument, &original, &why));
+    /* A no-op does not rebuild, dirty the document, clear selection or add history. */
+    selection[0] = (BgDocumentVertexRef){1,0}; selection[1] = (BgDocumentVertexRef){2,0}; selectedcount = 2;
+    EditHistoryReset(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    assert(EditHistorySetSelection(&g_EditHistory, selection, selectedcount*sizeof(*selection), FALSE, &why));
+    assert(GEditorWeldSelectedBgVertices(frame) && !g_EditHistory.undocount && !rebuilds && selectedcount == 2);
+    Same(&g_CurrentBgDocument, &original);
+    selection[0] = (BgDocumentVertexRef){1,1}; selection[1] = (BgDocumentVertexRef){1,4};
+    selection[2] = (BgDocumentVertexRef){2,1}; selection[3] = (BgDocumentVertexRef){2,4}; selectedcount = 4;
+    assert(EditHistorySetSelection(&g_EditHistory, selection, selectedcount*sizeof(*selection), FALSE, &why));
+    for (int failure = 0; failure < 3; failure++)
+    {
+        ULONGLONG revision = g_EditHistory.nextrevision;
+        failrebuild = failure == 0; failselection = failure == 1;
+        if (failure == 2) { g_EditHistory.nextrevision = 0; }
+        assert(!GEditorWeldSelectedBgVertices(frame));
+        g_EditHistory.nextrevision = revision; failselection = FALSE;
+        Same(&g_CurrentBgDocument, &original); assert(selectedcount == 4 && !g_EditHistory.undocount);
+    }
+    assert(!errors && !warnings && restores == 3);
+    assert(!GEditorHandleWeldVerticesHotkey(frame, &msg)); /* plain W remains translation */
+    control = TRUE;
+    assert(GEditorHandleWeldVerticesHotkey(frame, &msg) && sent == 1 && g_EditHistory.undocount == 1);
+    assert(selectedcount == 2 && g_CurrentBgDocument.rooms[1].vertexcount == 8 && g_CurrentBgDocument.rooms[2].vertexcount == 8);
+    assert(!strcmp(EditHistoryGetUndoAction(&g_EditHistory), "Weld Vertices"));
+    assert(BgDocumentClone(&g_CurrentBgDocument, &welded, &why));
+    assert(EditHistorySetSelection(&g_EditHistory, selection, selectedcount*sizeof(*selection), FALSE, &why));
+    assert(EditHistoryUndo(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan, NULL, &why));
+    GEditorRestoreHistorySelection(frame); Same(&g_CurrentBgDocument, &original); assert(selectedcount == 4);
+    msg.lParam = (LPARAM)1 << 30;
+    assert(GEditorHandleWeldVerticesHotkey(frame, &msg) && sent == 1); msg.lParam = 0;
+    assert(EditHistoryRedo(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan, NULL, &why));
+    GEditorRestoreHistorySelection(frame); Same(&g_CurrentBgDocument, &welded); assert(selectedcount == 2);
+    const char *inputs[] = {"Edit", "ComboBox", "ComboLBox"};
+    for (unsigned i = 0; i < 3; i++) { classname = inputs[i]; assert(!GEditorHandleWeldVerticesHotkey(frame, &msg)); }
+    classname = "GEditorViewport";
+    msg.hwnd = (HWND)3; assert(!GEditorHandleWeldVerticesHotkey(frame, &msg)); msg.hwnd = g_Viewport;
+    alt = TRUE; assert(!GEditorHandleWeldVerticesHotkey(frame, &msg)); alt = FALSE;
+    shift = TRUE; assert(!GEditorHandleWeldVerticesHotkey(frame, &msg)); shift = FALSE;
+    flying = TRUE; assert(!GEditorHandleWeldVerticesHotkey(frame, &msg)); flying = FALSE;
+    transforming = TRUE; assert(!GEditorHandleWeldVerticesHotkey(frame, &msg)); transforming = FALSE;
+    control = FALSE;
+    assert(sent == 1 && !errors && !warnings);
+    EditHistoryFree(&g_EditHistory); BgDocumentFree(&g_CurrentBgDocument); BgDocumentFree(&original); BgDocumentFree(&welded); BgFileFree(&source);
+    puts("PASS: silent no-op/refusal, transactional rollback, one undo/redo step with selection, Ctrl+W scoping and repeat suppression.");
+}
+
+int main(int argc, char **argv)
+{ assert(argc == 2); Geometry(argv[1]); Commands(); WeldGeometry(); WeldCommands(); return 0; }

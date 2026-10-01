@@ -120,6 +120,9 @@ int ViewportGetSelectedComponentCount(HWND hwnd);
 /* Select one source vertex after a topology edit. NULL or a vertex with no
  * visible incident face clears selection. Allocation failure changes nothing. */
 BOOL ViewportSelectBgVertex(HWND hwnd, const BgDocumentVertexRef *ref);
+/* Select surviving source vertices after a batch topology edit. Hidden or
+ * unreferenced vertices are skipped; allocation failure leaves selection intact. */
+BOOL ViewportSelectBgVertices(HWND hwnd, const BgDocumentVertexRef *refs, DWORD count);
 
 /* Mean vertex positions, edge midpoints or face centers; a model uses its
    surface centroid. Includes the live drag preview, excludes hidden items. */

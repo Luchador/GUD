@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Merge geometry, save/reload, transactional rollback and M input routing."""
+"""Merge/weld geometry, save/reload, transactional rollback and M/Ctrl+W routing."""
 import importlib.util
 import os
 from pathlib import Path
@@ -22,8 +22,14 @@ def main():
         (work / 'fixture.inc').write_text(''.join(helpers.function(fixture, name) for name in
             ('Put', 'Float', 'Fixture', 'RoundTrip')))
         editor = (src / 'geditor.c').read_text()
+        vertexmenu = editor.split('case TOOLTOOLBAR_MENU_VERTEX:', 1)[1].split('case TOOLTOOLBAR_MENU_EDGE:', 1)[0]
+        assert vertexmenu.index('ID_GEOMETRY_WELD_VERTICES') < vertexmenu.index('ID_GEOMETRY_MERGE_VERTICES')
+        assert vertexmenu.index('ID_GEOMETRY_MERGE_VERTICES') < vertexmenu.index('ID_GEOMETRY_SNAP_VERTEX')
+        assert 'MF_SEPARATOR' not in vertexmenu and r'Weld Vertices\tCtrl+W' in vertexmenu
+        assert editor.count('&& !GEditorHandleWeldVerticesHotkey(hwnd, &msg)') == 2
         (work / 'editor.inc').write_text(''.join(helpers.function(editor, name) for name in
-            ('GEditorCanMergeSelectedBgVertices', 'GEditorMergeSelectedBgVertices', 'GEditorHandleMergeVerticesHotkey')))
+            ('GEditorCanMergeSelectedBgVertices', 'GEditorMergeSelectedBgVertices', 'GEditorWeldSelectedBgVertices',
+             'GEditorHandleMergeVerticesHotkey', 'GEditorHandleWeldVerticesHotkey')))
         command = [os.environ.get('CC', 'cc'), '-O1', '-g', '-std=c99', '-Wall', '-Wextra',
                    '-Werror', '-Wno-unused-parameter', '-ffunction-sections', '-fdata-sections',
                    '-fsanitize=address,undefined', f'-I{shim}', f'-I{src}', f'-I{work}']
@@ -36,7 +42,8 @@ def main():
         viewport = (src / 'viewport.c').read_text()
         (work / 'viewport.inc').write_text(''.join(helpers.function(viewport, name) for name in
             ('ViewportCompareVertexRefs', 'ViewportTriangleHidden', 'ViewportCornerVisible',
-             'ViewportFindVertexCorner', 'ViewportSelectBgVertex')))
+             'ViewportFindVertexCorner', 'ViewportSelectBgVertex',
+             'ViewportCompareVertexComponents', 'ViewportSelectBgVertices')))
         subprocess.run(command + [str(here / 'viewport.c'), '-Wl,--gc-sections', '-o', str(work / 'viewport')], check=True)
         subprocess.run([str(work / 'viewport')], check=True, env=env)
 

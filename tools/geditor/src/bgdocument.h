@@ -294,6 +294,14 @@ BOOL BgDocumentMergeVertices(BgDocument *document, const BgDocumentVertexRef *re
     DWORD count, BgDocumentVertexRef *out, DWORD *removedout, DWORD *deletedout,
     const char **reasonout);
 
+/* Weld selected vertices within 0.1 native units, independently in each room.
+ * Native XYZ are integers, so only coincident positions qualify. Use the same
+ * equal-weight attribute averaging and stable survivor as Merge Vertices.
+ * Atomic on failure; removedout=0 is a no-op. On change, rewrite refs/count
+ * with all survivors and unmatched selected vertices (caller owns refs). */
+BOOL BgDocumentWeldVertices(BgDocument *document, BgDocumentVertexRef *refs,
+    DWORD *countinout, DWORD *removedout, const char **reasonout);
+
 /* Compare snapshots with identical topology after a vertex-position edit.
  * Finds faces whose area became zero, retaining pre-existing degenerates.
  * Returns an owned reference array (NULL when empty); the caller frees it. */

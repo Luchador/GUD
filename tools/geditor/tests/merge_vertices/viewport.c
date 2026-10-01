@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -48,6 +49,19 @@ int main(void)
     merged.index = 99; assert(ViewportSelectBgVertex(&s, &merged) && !s.componentcount); /* no incident faces remain */
     assert(ViewportSelectBgVertex(&s, NULL) && !s.componentcount);
     s.tool = EDITOR_TOOL_EDGE_SELECT; assert(!ViewportSelectBgVertex(&s, &merged));
+    s.tool = EDITOR_TOOL_VERTEX_SELECT;
+    BgDocumentVertexRef multiple[] = {{1,2},{1,4},{1,0},{1,1},{1,2},{1,99}};
+    assert(ViewportSelectBgVertices(&s, multiple, 6) && s.componentcount == 3);
+    assert(s.components[0].refs[0].index == 0 && s.components[0].corners[0] == 4);
+    assert(s.components[1].refs[0].index == 1 && s.components[1].corners[0] == 3);
+    assert(s.components[2].refs[0].index == 2 && s.components[2].corners[0] == 5);
+    ViewportComponent *before = s.components;
+    failallocation = TRUE; assert(!ViewportSelectBgVertices(&s, multiple, 6)); failallocation = FALSE;
+    assert(s.components == before && s.componentcount == 3);
+    s.showbgsecondary = FALSE;
+    assert(ViewportSelectBgVertices(&s, multiple, 6) && !s.componentcount && !s.components);
+    assert(ViewportSelectBgVertices(&s, NULL, 0));
+    assert(!ViewportSelectBgVertices(&s, NULL, 1));
     free(s.components);
     puts("PASS: survivor selection uses visible source identity after reindexing, handles hidden/deleted faces, and preserves selection on allocation failure.");
     return 0;

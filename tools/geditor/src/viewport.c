@@ -11021,6 +11021,58 @@ BOOL ViewportSelectBgVertex(HWND hwnd, const BgDocumentVertexRef *ref)
     return TRUE;
 }
 
+static int ViewportCompareVertexComponents(const void *left, const void *right)
+{
+    const ViewportComponent *a = left, *b = right;
+    return ViewportCompareVertexRefs(&a->refs[0], &b->refs[0]);
+}
+
+BOOL ViewportSelectBgVertices(HWND hwnd, const BgDocumentVertexRef *refs, DWORD count)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    ViewportComponent *components = NULL;
+    DWORD kept = 0;
+    if (!state || state->tool != EDITOR_TOOL_VERTEX_SELECT || (count && !refs)
+        || count > INT_MAX || count > UINT32_MAX/sizeof(*components)) { return FALSE; }
+    if (count)
+    {
+        components = calloc(count, sizeof(*components));
+        if (!components) { return FALSE; }
+        for (DWORD i = 0; i < count; i++)
+        {
+            components[i].refs[0] = components[i].refs[1] = refs[i];
+            components[i].corners[0] = components[i].corners[1] = -1;
+        }
+        qsort(components, count, sizeof(*components), ViewportCompareVertexComponents);
+        for (DWORD i = 0; i < count; i++)
+        {
+            if (!kept || ViewportCompareVertexComponents(&components[i], &components[kept-1]))
+            { components[kept++] = components[i]; }
+        }
+        /* Scan scene corners once; a large weld selection must not rescan
+         * every triangle for every selected vertex. */
+        for (int corner = 0; state->scenevertexrefs && corner < state->scenecount; corner++)
+        {
+            ViewportComponent key = {0}; key.refs[0] = state->scenevertexrefs[corner];
+            ViewportComponent *c = bsearch(&key, components, kept, sizeof(*components), ViewportCompareVertexComponents);
+            if (c && c->corners[0] < 0 && ViewportCornerVisible(state, corner))
+            { c->corners[0] = c->corners[1] = corner; }
+        }
+        DWORD visible = 0;
+        for (DWORD i = 0; i < kept; i++)
+        { if (components[i].corners[0] >= 0) { components[visible++] = components[i]; } }
+        kept = visible;
+        if (!kept) { free(components); components = NULL; }
+    }
+    ViewportClearAllSelection(state);
+    free(state->components); state->components = components;
+    state->componentcount = state->componentcapacity = (int)kept;
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd, NULL, FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+    return TRUE;
+}
+
 BOOL ViewportSelectBgEdges(HWND hwnd, const BgDocumentEdgeRef *edges, DWORD count)
 {
     ViewportState *state = ViewportGetState(hwnd);
