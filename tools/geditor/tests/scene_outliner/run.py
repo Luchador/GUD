@@ -34,13 +34,26 @@ with tempfile.TemporaryDirectory(prefix='geditor-outliner-') as temp:
     (work / 'outliner.inc').write_text(''.join(extract.function(source, name) for name in (
         'SceneOutlinerKey', 'SceneOutlinerLabel', 'SceneOutlinerBeginUpdate',
         'SceneOutlinerDeleteRow', 'SceneOutlinerRefreshGroup', 'SceneOutlinerRefresh',
-        'SceneOutlinerSelect', 'SceneOutlinerActivate')))
+        'SceneOutlinerSelect', 'SceneOutlinerActivate',
+        'SceneOutlinerQueueFrame', 'SceneOutlinerFramePending')))
+    (work / 'frame_message.inc').write_text(re.search(
+        r'    case SCENEOUTLINER_WM_FRAME:.*?return 0;', source, re.S)[0])
+    (work / 'double_click.inc').write_text(re.search(
+        r'else if \(\(\(NMHDR \*\)lparam\)->code == NM_DBLCLK\)\s*\{(.*?)\n        \}', source, re.S)[1])
     (work / 'dispatch.inc').write_text(extract.function(
         (src / 'geditor.c').read_text(), 'GEditorSelectSceneItem'))
+    panel = (src / 'rightpanel.c').read_text()
+    (work / 'layout_types.inc').write_text(
+        '\n'.join(line for line in panel.splitlines() if line.startswith('#define RIGHTPANEL_')) + '\n'
+        + re.search(r'typedef enum RightPanelSplitter \{.*?\} RightPanelSplitter;', panel, re.S)[0] + '\n'
+        + re.search(r'typedef struct RightPanelState \{.*?\} RightPanelState;', panel, re.S)[0] + '\n')
+    (work / 'layout.inc').write_text(''.join(extract.function(panel, name) for name in (
+        'RightPanelTransformTop', 'RightPanelClampLayout', 'RightPanelDragSplitter', 'RightPanelInSplitter')))
     command = [os.environ.get('CC', 'cc'), '-std=c99', '-O1', '-g', '-Wall', '-Wextra',
         '-Werror', '-Wno-unused-parameter', '-fsanitize=address,undefined',
         f'-I{here.parent / "image_import"}', f'-I{src}', f'-I{work}',
-        str(here / 'check.c'), '-o', str(work / 'check')]
-    subprocess.run(command, check=True)
-    subprocess.run([str(work / 'check')], check=True,
-        env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))
+        ]
+    for check in ('check', 'layout'):
+        subprocess.run(command + [str(here / (check + '.c')), '-o', str(work / check)], check=True)
+        subprocess.run([str(work / check)], check=True,
+            env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))

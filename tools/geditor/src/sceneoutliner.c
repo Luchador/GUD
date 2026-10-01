@@ -1,6 +1,7 @@
 /* Level outliner. Keep rows in native ID order, independent of their labels.
  * Incremental updates preserve expansion, scroll position and tree handles. */
 #include <windows.h>
+#include <windowsx.h>
 #include <commctrl.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -12,6 +13,7 @@
 
 #define SCENEOUTLINER_CLASS "GEditorSceneOutliner"
 #define SCENEOUTLINER_GROUPS 3
+#define SCENEOUTLINER_WM_FRAME (WM_APP + 121)
 
 typedef struct SceneOutlinerRow {
     HTREEITEM item;
@@ -187,6 +189,33 @@ static BOOL SceneOutlinerActivate(HWND hwnd, SceneOutlinerState *state, HTREEITE
     return TRUE;
 }
 
+/* Let the native tree finish its double-click/focus handling before moving
+ * focus to the viewport and starting its interruptible camera animation. */
+static BOOL SceneOutlinerQueueFrame(HWND hwnd, SceneOutlinerState *state)
+{
+    if (state->updating) { return FALSE; }
+    DWORD position = GetMessagePos();
+    TVHITTESTINFO hit = {0};
+    hit.pt.x = GET_X_LPARAM(position); hit.pt.y = GET_Y_LPARAM(position);
+    if (!ScreenToClient(state->tree, &hit.pt)) { return FALSE; }
+    TreeView_HitTest(state->tree, &hit);
+    TVITEM item = {0}; item.mask = TVIF_PARAM; item.hItem = hit.hItem;
+    if (!(hit.flags & TVHT_ONITEM) || !hit.hItem
+        || !TreeView_GetItem(state->tree, &item) || !item.lParam) { return FALSE; }
+    /* Queue an ID, never a pointer into the notification or tree rows. */
+    return PostMessage(hwnd, SCENEOUTLINER_WM_FRAME, (WPARAM)item.lParam, 0);
+}
+
+static void SceneOutlinerFramePending(HWND hwnd, SceneOutlinerState *state, ULONG_PTR key)
+{
+    TVITEM item = {0}; item.mask = TVIF_PARAM;
+    item.hItem = TreeView_GetSelection(state->tree);
+    /* Ignore a request if the selection/level changed before it was handled. */
+    if (!state->updating && item.hItem && TreeView_GetItem(state->tree, &item)
+        && (ULONG_PTR)item.lParam == key)
+    { SceneOutlinerActivate(hwnd, state, item.hItem, TRUE); }
+}
+
 static LRESULT CALLBACK SceneOutlinerWndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
 {
     SceneOutlinerState *state = SceneOutlinerGetState(hwnd);
@@ -232,10 +261,11 @@ static LRESULT CALLBACK SceneOutlinerWndProc(HWND hwnd, UINT message, WPARAM wpa
         }
         else if (((NMHDR *)lparam)->code == NM_DBLCLK)
         {
-            TVHITTESTINFO hit = {0}; GetCursorPos(&hit.pt); ScreenToClient(state->tree, &hit.pt);
-            TreeView_HitTest(state->tree, &hit);
-            if ((hit.flags & TVHT_ONITEM) && SceneOutlinerActivate(hwnd, state, hit.hItem, TRUE)) { return TRUE; }
+            if (SceneOutlinerQueueFrame(hwnd, state)) { return TRUE; }
         }
+        return 0;
+    case SCENEOUTLINER_WM_FRAME:
+        if (state) { SceneOutlinerFramePending(hwnd, state, (ULONG_PTR)wparam); }
         return 0;
     case WM_ERASEBKGND:
         return 1; /* The tree fills this entire child window. */

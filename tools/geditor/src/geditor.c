@@ -5852,7 +5852,7 @@ static BOOL GEditorSelectSceneItem(HWND hwnd, const SceneOutlinerSelection *requ
     GEditorRefreshSelectionDetails();
     GEditorRefreshHistoryMenu(hwnd);
     if (selected && request->frame)
-    { ViewportZoomToSelected(g_Viewport); SetFocus(g_Viewport); }
+    { SetFocus(g_Viewport); ViewportZoomToSelected(g_Viewport); }
     /* Leave focus in the tree on single-click so double-click and arrow-key
      * navigation continue to reach the native control. */
     return selected;

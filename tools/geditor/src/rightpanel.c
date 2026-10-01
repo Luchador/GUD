@@ -2,7 +2,7 @@
 /*
  * GEditor right-hand tool panel.
  *
- * Scene Outliner and Transform sit above a draggable Properties/Color splitter. The
+ * Scene Outliner, Transform and Properties/Color have draggable dividers. The
  * transform controls send absolute world-position requests to the frame, which
  * owns selection dispatch, document edits, and undo history. Vertex paint
  * replaces the lower properties view with a persistent RGBA color picker.
@@ -29,10 +29,16 @@
 #define RIGHTPANEL_CLASS "GEditorRightPanel"
 
 #define RIGHTPANEL_SPLITTER_H 5
-#define RIGHTPANEL_TOP_MIN 416
-#define RIGHTPANEL_TRANSFORM_TOP 208
+#define RIGHTPANEL_OUTLINER_TOP 32
+#define RIGHTPANEL_OUTLINER_MIN_H 96
+#define RIGHTPANEL_INITIAL_OUTLINER_H 280
+#define RIGHTPANEL_TRANSFORM_MIN_H 208
+#define RIGHTPANEL_SECTION_GAP 6
 #define RIGHTPANEL_BOTTOM_MIN 160
-#define RIGHTPANEL_INITIAL_TOP_H 424
+
+typedef enum RightPanelSplitter {
+    RIGHTPANEL_SPLITTER_NONE, RIGHTPANEL_SPLITTER_OUTLINER, RIGHTPANEL_SPLITTER_PROPERTIES
+} RightPanelSplitter;
 #define RIGHTPANEL_MARGIN 12
 
 enum {
@@ -82,8 +88,10 @@ typedef struct RightPanelState {
     DWORD selectioncount;
     int wheelremainder;
     char transformhint[128];
-    int topheight;
-    BOOL draggingsplitter;
+    int outlinerbottom, topheight;
+    int preferredoutlinerbottom, preferredtopheight;
+    RightPanelSplitter draggingsplitter;
+    int splitteroffset;
     char detailtitle[64];
     char detailtext[2048];
 } RightPanelState;
@@ -93,21 +101,42 @@ static RightPanelState *RightPanelGetState(HWND hwnd)
     return (RightPanelState *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
 }
 
-static void RightPanelClampTopHeight(RightPanelState *state, int height)
+static int RightPanelTransformTop(const RightPanelState *state)
 {
-    int available = height - RIGHTPANEL_SPLITTER_H;
-    int minimum;
-    int maximum;
+    return state->outlinerbottom + RIGHTPANEL_SPLITTER_H + RIGHTPANEL_SECTION_GAP;
+}
 
-    if (available < 0) { available = 0; }
-    minimum = available < RIGHTPANEL_TOP_MIN ? available : RIGHTPANEL_TOP_MIN;
-    maximum = available - RIGHTPANEL_BOTTOM_MIN;
-    if (maximum < minimum) { maximum = minimum; }
+static void RightPanelClampLayout(RightPanelState *state, int height)
+{
+    int available = max(0, height - RIGHTPANEL_SPLITTER_H);
+    int outlinermin = RIGHTPANEL_OUTLINER_TOP + RIGHTPANEL_OUTLINER_MIN_H + RIGHTPANEL_SECTION_GAP;
+    int transformspan = RIGHTPANEL_SPLITTER_H + RIGHTPANEL_SECTION_GAP + RIGHTPANEL_TRANSFORM_MIN_H;
+    int minimum = min(available, outlinermin + transformspan);
+    int maximum = max(minimum, available - RIGHTPANEL_BOTTOM_MIN);
+    state->topheight = max(minimum, min(state->preferredtopheight, maximum));
+    maximum = max(0, state->topheight - transformspan);
+    state->outlinerbottom = max(min(outlinermin, maximum), min(state->preferredoutlinerbottom, maximum));
+    /* Keep preferred positions through temporary/small creation sizes and
+     * window resizing; restoring the window restores the user's layout. */
+}
 
-    /* On shorter windows, leave whatever space remains to the scrollable
-       properties view after accommodating Scene Outliner and Transform. */
-    if (state->topheight > maximum) { state->topheight = maximum; }
-    if (state->topheight < minimum) { state->topheight = minimum; }
+static void RightPanelDragSplitter(RightPanelState *state, int y, int height)
+{
+    int position = y - state->splitteroffset;
+    if (state->draggingsplitter == RIGHTPANEL_SPLITTER_OUTLINER)
+    {
+        /* Move Transform with this divider, retaining its current height. */
+        state->preferredtopheight = state->topheight + position - state->outlinerbottom;
+        state->preferredoutlinerbottom = position;
+    }
+    else if (state->draggingsplitter == RIGHTPANEL_SPLITTER_PROPERTIES)
+    {
+        state->preferredtopheight = position;
+        state->preferredoutlinerbottom = state->outlinerbottom;
+    }
+    RightPanelClampLayout(state, height);
+    state->preferredtopheight = state->topheight;
+    state->preferredoutlinerbottom = state->outlinerbottom;
 }
 
 static void RightPanelLayout(HWND hwnd, RightPanelState *state)
@@ -126,17 +155,18 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
         width = 1;
     }
 
-    RightPanelClampTopHeight(state, client.bottom);
+    RightPanelClampLayout(state, client.bottom);
 
-    MoveWindow(state->outliner, RIGHTPANEL_MARGIN, 32, width,
-               RIGHTPANEL_TRANSFORM_TOP - 44, TRUE);
-    MoveWindow(state->movemode, RIGHTPANEL_MARGIN, RIGHTPANEL_TRANSFORM_TOP+22, width/3, 23, TRUE);
-    MoveWindow(state->rotatemode, RIGHTPANEL_MARGIN+width/3, RIGHTPANEL_TRANSFORM_TOP+22, width/3, 23, TRUE);
-    MoveWindow(state->scalebutton, RIGHTPANEL_MARGIN+width*2/3, RIGHTPANEL_TRANSFORM_TOP+22, width/3, 23, TRUE);
+    int transformtop = RightPanelTransformTop(state);
+    MoveWindow(state->outliner, RIGHTPANEL_MARGIN, RIGHTPANEL_OUTLINER_TOP, width,
+               max(0, state->outlinerbottom - RIGHTPANEL_SECTION_GAP - RIGHTPANEL_OUTLINER_TOP), TRUE);
+    MoveWindow(state->movemode, RIGHTPANEL_MARGIN, transformtop+22, width/3, 23, TRUE);
+    MoveWindow(state->rotatemode, RIGHTPANEL_MARGIN+width/3, transformtop+22, width/3, 23, TRUE);
+    MoveWindow(state->scalebutton, RIGHTPANEL_MARGIN+width*2/3, transformtop+22, width/3, 23, TRUE);
     for (axis = 0; axis < 3; axis++)
     {
         MoveWindow(state->positions[axis], RIGHTPANEL_MARGIN + 24,
-                   RIGHTPANEL_TRANSFORM_TOP + 80 + axis * 28,
+                   transformtop + 80 + axis * 28,
                    width > 24 ? width - 24 : 1, 23, TRUE);
     }
     {
@@ -229,9 +259,13 @@ static void RightPanelShowFaceProperties(HWND panel, RightPanelState *state, BOO
 }
 
 
-static BOOL RightPanelInSplitter(const RightPanelState *state, int y)
+static RightPanelSplitter RightPanelInSplitter(const RightPanelState *state, int y)
 {
-    return y >= state->topheight && y < state->topheight + RIGHTPANEL_SPLITTER_H;
+    if (y >= state->outlinerbottom && y < state->outlinerbottom + RIGHTPANEL_SPLITTER_H)
+    { return RIGHTPANEL_SPLITTER_OUTLINER; }
+    if (y >= state->topheight && y < state->topheight + RIGHTPANEL_SPLITTER_H)
+    { return RIGHTPANEL_SPLITTER_PROPERTIES; }
+    return RIGHTPANEL_SPLITTER_NONE;
 }
 
 
@@ -295,16 +329,26 @@ static void RightPanelSetPosition(HWND hwnd, RightPanelState *state)
     SendMessage(GetParent(hwnd), state->scalemode ? RIGHTPANEL_WM_SET_SCALE : state->rotationmode ? RIGHTPANEL_WM_SET_ROTATION : RIGHTPANEL_WM_SET_POSITION, 0, (LPARAM)&request);
 }
 
+static void RightPanelPaintSplitter(HDC hdc, int width, int top)
+{
+    RECT splitter = {0, top, width, top + RIGHTPANEL_SPLITTER_H};
+    FillRect(hdc, &splitter, ThemeSystemBrush(COLOR_BTNFACE));
+    RECT line = splitter; line.bottom = line.top + 1;
+    FillRect(hdc, &line, ThemeSystemBrush(COLOR_BTNSHADOW));
+    line.top = splitter.bottom - 1; line.bottom = splitter.bottom;
+    FillRect(hdc, &line, ThemeSystemBrush(COLOR_BTNHIGHLIGHT));
+}
+
 static void RightPanelPaint(HWND hwnd, RightPanelState *state, HDC hdc)
 {
     RECT client;
     RECT title;
     RECT splitter;
-    RECT line;
     RECT detailtitle;
     RECT detailtype;
     RECT transform;
     int axis;
+    int transformtop = RightPanelTransformTop(state);
     HFONT font;
     HFONT oldfont;
 
@@ -323,28 +367,13 @@ static void RightPanelPaint(HWND hwnd, RightPanelState *state, HDC hdc)
     DrawText(hdc, "Scene Outliner", -1, &title,
              DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX);
 
-    splitter.left = 0;
-    splitter.right = client.right;
-    splitter.top = state->topheight;
+    RightPanelPaintSplitter(hdc, client.right, state->outlinerbottom);
+    RightPanelPaintSplitter(hdc, client.right, state->topheight);
     splitter.bottom = state->topheight + RIGHTPANEL_SPLITTER_H;
-    FillRect(hdc, &splitter, ThemeSystemBrush(COLOR_BTNFACE));
-
-    line = splitter;
-    line.bottom = line.top + 1;
-    FillRect(hdc, &line, ThemeSystemBrush(COLOR_BTNSHADOW));
-    line.top = splitter.bottom - 1;
-    line.bottom = splitter.bottom;
-    FillRect(hdc, &line, ThemeSystemBrush(COLOR_BTNHIGHLIGHT));
-
-    line.left = 0;
-    line.right = client.right;
-    line.top = RIGHTPANEL_TRANSFORM_TOP - 6;
-    line.bottom = line.top + 1;
-    FillRect(hdc, &line, ThemeSystemBrush(COLOR_BTNSHADOW));
 
     transform.left = RIGHTPANEL_MARGIN;
     transform.right = client.right - RIGHTPANEL_MARGIN;
-    transform.top = RIGHTPANEL_TRANSFORM_TOP;
+    transform.top = transformtop;
     transform.bottom = transform.top + 20;
     DrawText(hdc, "Transform", -1, &transform, DT_SINGLELINE | DT_LEFT | DT_NOPREFIX);
     transform.top += 52;
@@ -356,12 +385,12 @@ static void RightPanelPaint(HWND hwnd, RightPanelState *state, HDC hdc)
     {
         char label[2] = { (char)('X' + axis), '\0' };
 
-        transform.top = RIGHTPANEL_TRANSFORM_TOP + 80 + axis * 28;
+        transform.top = transformtop + 80 + axis * 28;
         transform.bottom = transform.top + 23;
         DrawText(hdc, label, -1, &transform,
                  DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX);
     }
-    transform.top = RIGHTPANEL_TRANSFORM_TOP + 168;
+    transform.top = transformtop + 168;
     transform.bottom = transform.top + 32;
     SetTextColor(hdc, ThemeSystemColor(COLOR_GRAYTEXT));
     DrawText(hdc, state->transformhint, -1, &transform,
@@ -468,7 +497,9 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
             return -1;
         }
 
-        state->topheight = RIGHTPANEL_INITIAL_TOP_H;
+        state->preferredoutlinerbottom = RIGHTPANEL_OUTLINER_TOP + RIGHTPANEL_INITIAL_OUTLINER_H + RIGHTPANEL_SECTION_GAP;
+        state->preferredtopheight = state->preferredoutlinerbottom + RIGHTPANEL_SPLITTER_H
+            + RIGHTPANEL_SECTION_GAP + RIGHTPANEL_TRANSFORM_MIN_H;
         lstrcpyn(state->transformhint, "Select geometry, a model or a pad.",
                  sizeof(state->transformhint));
         lstrcpyn(state->detailtitle, "Selection",
@@ -664,7 +695,9 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         if (state != NULL
             && RightPanelInSplitter(state, GET_Y_LPARAM(lparam)))
         {
-            state->draggingsplitter = TRUE;
+            state->draggingsplitter = RightPanelInSplitter(state, GET_Y_LPARAM(lparam));
+            state->splitteroffset = GET_Y_LPARAM(lparam) - (state->draggingsplitter == RIGHTPANEL_SPLITTER_OUTLINER
+                ? state->outlinerbottom : state->topheight);
             SetCapture(hwnd);
         }
         return 0;
@@ -675,9 +708,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
             RECT client;
 
             GetClientRect(hwnd, &client);
-            state->topheight = GET_Y_LPARAM(lparam)
-                             - RIGHTPANEL_SPLITTER_H / 2;
-            RightPanelClampTopHeight(state, client.bottom);
+            RightPanelDragSplitter(state, GET_Y_LPARAM(lparam), client.bottom);
             RightPanelLayout(hwnd, state);
         }
         return 0;
@@ -685,7 +716,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
     case WM_LBUTTONUP:
         if (state != NULL && state->draggingsplitter)
         {
-            state->draggingsplitter = FALSE;
+            state->draggingsplitter = RIGHTPANEL_SPLITTER_NONE;
             ReleaseCapture();
         }
         return 0;
@@ -693,7 +724,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
     case WM_CAPTURECHANGED:
         if (state != NULL)
         {
-            state->draggingsplitter = FALSE;
+            state->draggingsplitter = RIGHTPANEL_SPLITTER_NONE;
         }
         return 0;
 

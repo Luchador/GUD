@@ -9,6 +9,7 @@ typedef uintptr_t ULONG_PTR, WPARAM;
 typedef intptr_t LPARAM, LRESULT;
 #define WM_APP 0x8000
 #define WM_SETREDRAW 11
+#define SCENEOUTLINER_WM_FRAME (WM_APP + 121)
 #include "sceneoutliner.h"
 #include "characterload.h"
 #include "edittool.h"
@@ -22,6 +23,13 @@ typedef struct TreeItem {
 } TreeItem, *HTREEITEM;
 typedef struct { unsigned mask; HTREEITEM hItem; char *pszText; LPARAM lParam; } TVITEM;
 typedef struct { HTREEITEM hParent, hInsertAfter; TVITEM item; } TVINSERTSTRUCT;
+typedef struct { int x, y; } POINT;
+typedef struct { POINT pt; unsigned flags; HTREEITEM hItem; } TVHITTESTINFO;
+#define TVHT_ONITEM 0x46
+#define TVHT_ONITEMLABEL 0x04
+#define TVHT_ONITEMBUTTON 0x10
+#define GET_X_LPARAM(p) ((int)(int16_t)((p) & 0xffff))
+#define GET_Y_LPARAM(p) ((int)(int16_t)((p) >> 16))
 #define TVIF_PARAM 1
 #define TVIF_TEXT 2
 #define TVI_FIRST ((HTREEITEM)(intptr_t)-1)
@@ -36,6 +44,27 @@ static HWND outliner = &state;
 static HTREEITEM treeSelection;
 static int redraws, activations, zooms, selections;
 static HWND focus;
+static ULONG_PTR pendingFrame;
+static int queuedFrames;
+static HTREEITEM hitItem;
+static unsigned hitFlags;
+static BOOL nativeClickInProgress;
+static DWORD GetMessagePos(void) { return ((DWORD)360 << 16) | (uint16_t)-1200; }
+static BOOL ScreenToClient(HWND hwnd, POINT *point)
+{
+    assert(point->x == -1200 && point->y == 360); /* Secondary monitor; signed coordinates. */
+    point->x += 1300; point->y -= 300; return TRUE;
+}
+static HTREEITEM TreeView_HitTest(HWND hwnd, TVHITTESTINFO *hit)
+{
+    assert(hit->pt.x == 100 && hit->pt.y == 60);
+    hit->hItem = hitItem; hit->flags = hitFlags; return hitItem;
+}
+static BOOL PostMessage(HWND hwnd, unsigned message, WPARAM wparam, LPARAM lparam)
+{
+    assert(message == SCENEOUTLINER_WM_FRAME && !lparam);
+    pendingFrame = wparam; queuedFrames++; return TRUE;
+}
 static SceneOutlinerSelection last;
 static HWND g_Viewport = (HWND)1, g_ToolToolbar = (HWND)2, g_VisibilityMenu = (HWND)3;
 static SetupFile g_CurrentSetup;
@@ -88,6 +117,32 @@ BOOL ObjectGetSetupModelName(const SetupFile *setup, DWORD index, const char **o
 { *out = setup->objects[index].modelid == 99 ? "Pdesk_arecibo1Z" : NULL; return *out != NULL; }
 #include "outliner.inc"
 
+static BOOL DoubleClickNotification(HWND hwnd, SceneOutlinerState *state)
+{
+#include "double_click.inc"
+    return FALSE;
+}
+static LRESULT DispatchFrameMessage(HWND hwnd, SceneOutlinerState *state, unsigned message, WPARAM wparam)
+{
+    switch (message) {
+#include "frame_message.inc"
+    default: assert(0); return 0;
+    }
+}
+static void DoubleClick(HTREEITEM item)
+{
+    focus = outliner; nativeClickInProgress = TRUE;
+    TreeView_SelectItem(state.tree, item);
+    int before = zooms;
+    hitItem = item; hitFlags = TVHT_ONITEMLABEL;
+    assert(DoubleClickNotification(outliner, &state));
+    assert(zooms == before && focus == outliner);
+    /* Native control finishes focus processing after sending its notification. */
+    focus = outliner; nativeClickInProgress = FALSE;
+    DispatchFrameMessage(outliner, &state, SCENEOUTLINER_WM_FRAME, pendingFrame);
+    assert(zooms == before + 1 && focus == g_Viewport);
+}
+
 static void TreeView_SelectItem(HWND hwnd, HTREEITEM item)
 {
     if (treeSelection == item) { return; }
@@ -119,7 +174,11 @@ static void GEditorRefreshSelectionDetails(void)
     SceneOutlinerSelect(outliner, selectedKind, selectedIndex);
 }
 static void GEditorRefreshHistoryMenu(HWND hwnd) {}
-static BOOL ViewportZoomToSelected(HWND hwnd) { zooms++; return TRUE; }
+static BOOL ViewportZoomToSelected(HWND hwnd)
+{
+    assert(!nativeClickInProgress && focus == g_Viewport);
+    zooms++; return TRUE;
+}
 static void SetFocus(HWND hwnd) { focus = hwnd; }
 #include "dispatch.inc"
 static LRESULT SendMessage(HWND hwnd, unsigned message, WPARAM wparam, LPARAM lparam)
@@ -163,12 +222,28 @@ int main(void)
     TreeView_SelectItem(state.tree, marine);
     assert(activations == 1 && selectedKind == SCENE_OUTLINER_CHARACTER && selectedIndex == 0);
     assert(!zooms && focus == outliner); /* chrnum 713 is a label, not index 0. */
-    assert(SceneOutlinerActivate(outliner, &state, desk, TRUE));
-    assert(activations == 2 && selections == 2 && selectedKind == SCENE_OUTLINER_OBJECT && selectedIndex == 13);
+    DoubleClick(desk);
+    assert(activations == 3 && selections == 3 && selectedKind == SCENE_OUTLINER_OBJECT && selectedIndex == 13);
     assert(zooms == 1 && focus == g_Viewport && treeSelection == desk);
-    assert(!SceneOutlinerActivate(outliner, &state, &roots[0], TRUE));
-    assert(SceneOutlinerActivate(outliner, &state, roots[2].child->next, TRUE));
-    assert(selectedKind == SCENE_OUTLINER_PORTAL && selectedIndex == 1 && zooms == 2);
+    DoubleClick(desk); /* Repeated activation of the already-selected item. */
+    DoubleClick(marine);
+    DoubleClick(roots[2].child->next);
+    assert(selectedKind == SCENE_OUTLINER_PORTAL && selectedIndex == 1 && zooms == 4);
+    assert(queuedFrames == 4);
+
+    /* Group labels, expand buttons and empty space do not frame anything. */
+    hitItem = &roots[0]; assert(!DoubleClickNotification(outliner, &state));
+    hitItem = desk; hitFlags = TVHT_ONITEMBUTTON;
+    assert(!DoubleClickNotification(outliner, &state));
+    hitItem = NULL; hitFlags = 0; assert(!DoubleClickNotification(outliner, &state));
+    hitItem = desk; hitFlags = TVHT_ONITEMLABEL; state.updating = TRUE;
+    assert(!DoubleClickNotification(outliner, &state)); state.updating = FALSE;
+    assert(queuedFrames == 4 && zooms == 4);
+
+    /* Delayed requests must not jump to the previous item after selection changes. */
+    assert(DoubleClickNotification(outliner, &state));
+    DispatchFrameMessage(outliner, &state, SCENEOUTLINER_WM_FRAME, pendingFrame);
+    assert(zooms == 4);
 
     /* Body/number changes, tombstones, undo, additions and removed portal IDs. */
     state.groups[0].expanded = FALSE; roots[0].expanded = FALSE;
@@ -196,12 +271,12 @@ int main(void)
     assert(!GEditorSelectSceneItem(NULL, &stale));
     stale = (SceneOutlinerSelection){SCENE_OUTLINER_PORTAL, 9, TRUE};
     assert(!GEditorSelectSceneItem(NULL, &stale));
-    assert(zooms == 2 && selections == 3);
+    assert(zooms == 4 && selections == 8);
 
     /* Closing a level empties all groups without touching the document. */
     g_CurrentSetup = (SetupFile){0}; g_CurrentBgDocument.portals = (BgPortalFile){0};
     GEditorRefreshSelectionDetails();
     for (int i = 0; i < 3; i++) { assert(!roots[i].child); free(state.groups[i].rows); }
-    puts("PASS: canonical body names, stable IDs, grouped updates, selection feedback, single-click selection and double-click framing.");
+    puts("PASS: canonical body names, stable IDs, grouped updates, selection feedback, single-click selection, deferred double-click framing, focus order and stale requests.");
     return 0;
 }
