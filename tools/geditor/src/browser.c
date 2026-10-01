@@ -1051,18 +1051,18 @@ static void BrowserUpdateImageTooltip(HWND hwnd, BrowserState *state, WPARAM wpa
 }
 
 
-/* Desktop image-list drags use the virtual screen's upper-left corner. The
- * desktop window rectangle reports only the primary monitor, so using it as
- * the origin shifts the preview onto another monitor when a display sits to
- * the left or above the primary. Share this conversion for enter and move. */
+/* With the manifested common-controls v6, desktop image-list drags take
+ * screen coordinates, including negative positions on monitors left/above
+ * the primary. Subtracting the virtual-screen origin here shifts the preview
+ * a whole monitor away. Share the same cursor offset for enter and move. */
 static BOOL BrowserImageDragPoint(HWND hwnd, POINT *point)
 {
     if (!ClientToScreen(hwnd, point))
     {
         return FALSE;
     }
-    point->x += 12 - GetSystemMetrics(SM_XVIRTUALSCREEN);
-    point->y += 18 - GetSystemMetrics(SM_YVIRTUALSCREEN);
+    point->x += 12;
+    point->y += 18;
     return TRUE;
 }
 

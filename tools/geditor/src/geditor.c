@@ -7796,7 +7796,11 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
     RecentProjectsLoad(&g_RecentProjects);
     menubar = GEditorCreateMenuBar();
 
-    hwnd = CreateWindowEx(0, GEDITOR_CLASS, GEDITOR_TITLE, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, GEDITOR_WIDTH, GEDITOR_HEIGHT, NULL, menubar, hinstance, NULL);
+    /* Frame background paints must never cover the OpenGL viewport or the
+     * other child panels, even during focus/title/menu updates. */
+    hwnd = CreateWindowEx(0, GEDITOR_CLASS, GEDITOR_TITLE,
+        WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN, CW_USEDEFAULT, CW_USEDEFAULT,
+        GEDITOR_WIDTH, GEDITOR_HEIGHT, NULL, menubar, hinstance, NULL);
 
     if (hwnd == NULL)
     {

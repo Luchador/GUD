@@ -487,6 +487,9 @@ static LRESULT CALLBACK ThemeWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
 {
     ThemeWindow *state = (ThemeWindow *)data;
     BOOL dark = g_Theme == EDITOR_THEME_DARK;
+    BOOL paintedcontrol = state->kind == THEME_BUTTON_CONTROL || state->kind == THEME_COMBO_CONTROL
+        || state->kind == THEME_TAB_CONTROL || state->kind == THEME_TRACKBAR_CONTROL
+        || state->kind == THEME_HEADER_CONTROL;
     if (msg == WM_NCDESTROY) {
         if (!(GetWindowLongPtr(hwnd, GWL_STYLE) & WS_CHILD) && GetMenu(hwnd)) { ThemeRestoreMenu(GetMenu(hwnd)); }
         RemoveWindowSubclass(hwnd, ThemeWindowProc, id); free(state);
@@ -518,7 +521,11 @@ static LRESULT CALLBACK ThemeWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
         SetBkColor(dc, ThemeColor(background));
         return (LRESULT)ThemeBrush(background);
     }
-    if (msg == WM_ERASEBKGND && (state->kind == THEME_DIALOG || state->kind == THEME_WINDOW)
+    /* A NULL class brush means the window owns its background (GL or a
+     * buffered painter). Preserve its erase handler instead of flashing a
+     * theme-colored fill before its next complete frame. */
+    if (msg == WM_ERASEBKGND && (state->kind == THEME_DIALOG
+        || (state->kind == THEME_WINDOW && GetClassLongPtr(hwnd, GCLP_HBRBACKGROUND)))
         && !(GetClassLongPtr(hwnd, GCL_STYLE) & CS_OWNDC)) {
         RECT r; GetClientRect(hwnd, &r);
         FillRect((HDC)wp, &r, dark ? ThemeBrush(THEME_BACKGROUND)
@@ -550,7 +557,10 @@ static LRESULT CALLBACK ThemeWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
     /* Let Windows finish painting the native frame before replacing its
      * menu/client separator. Activation can repaint it without WM_NCPAINT. */
     if (dark && (msg == WM_NCPAINT || (msg == WM_NCACTIVATE && lp != -1))) { ThemeDrawMenuBorder(hwnd); }
-    if (dark && (msg == WM_ENABLE || msg == WM_SETFOCUS || msg == WM_KILLFOCUS || msg == WM_SETTEXT
+    /* Only our custom-painted controls need these extra refreshes. In
+     * particular, selection changes set the frame title: repainting the
+     * entire frame for WM_SETTEXT also invalidates its GL child windows. */
+    if (dark && paintedcontrol && (msg == WM_ENABLE || msg == WM_SETFOCUS || msg == WM_KILLFOCUS || msg == WM_SETTEXT
         || msg == BM_SETCHECK || msg == BM_SETSTATE || msg == BM_SETSTYLE || msg == CB_SETCURSEL
         || msg == WM_LBUTTONDOWN || msg == WM_LBUTTONUP || msg == WM_KEYDOWN || msg == WM_KEYUP
         || msg == WM_UPDATEUISTATE)) { InvalidateRect(hwnd, NULL, FALSE); }

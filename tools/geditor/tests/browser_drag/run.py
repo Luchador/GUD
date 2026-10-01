@@ -154,6 +154,8 @@ static BOOL ImageList_Destroy(HIMAGELIST images) { assert(images == 4); destroye
 static HIMAGELIST ImageList_Create(int w, int h, UINT flags, int count, int grow) { return 4; }
 static int ImageList_Add(HIMAGELIST images, HBITMAP bitmap, HBITMAP mask) { return 0; }
 static BOOL ImageList_BeginDrag(HIMAGELIST images, int image, int x, int y) { return TRUE; }
+/* The v6 desktop drag overlay uses screen coordinates, not coordinates
+   relative to SM_XVIRTUALSCREEN / SM_YVIRTUALSCREEN. */
 static BOOL ImageList_DragMove(int x, int y) { preview = (POINT){x, y}; return TRUE; }
 static BOOL ImageList_DragEnter(HWND hwnd, int x, int y)
 {
@@ -217,10 +219,10 @@ static LPARAM MousePoint(int x, int y)
 }
 static void CheckPreview(int x, int y)
 {
-    /* Image-list positions are relative to the virtual desktop; the visible
-       thumbnail must be 12/18 pixels from the cursor in screen coordinates. */
-    assert(preview.x + virtualorigin.x == clientorigin.x + x + 12);
-    assert(preview.y + virtualorigin.y == clientorigin.y + y + 18);
+    /* The visible thumbnail must be 12/18 pixels from the cursor, whether
+       the editor is on the left, center or right monitor. */
+    assert(preview.x == clientorigin.x + x + 12);
+    assert(preview.y == clientorigin.y + y + 18);
 }
 static void CheckMonitorLayouts(void)
 {
