@@ -22,6 +22,8 @@
 
 /* Preserve relation updates and effect RNG while omitting character geometry. */
 #define MODEL_RENDER_OCCLUDED           0x20
+/* Regular-glass override: texture alpha * env alpha, independent of shade alpha. */
+#define MODEL_RENDER_GLASS_OPACITY      0x40
 
 /*
  * The original game budgets 0xc0 bytes per animated model even though Model

@@ -406,6 +406,11 @@ typedef enum RUNTIMEBITFLAG
 
 /* 2-bit owner field spanning bits 17-18 (player index 0-3). */
 #define RUNTIMEBITFLAG_OWNER          0x00060000
+/* Regular glass only: retain the setup opacity after its matrix is replaced.
+ * These bits are independent of the existing low twenty runtime flags. */
+#define RUNTIMEBITFLAG_GLASS_OPACITY   0x00100000u
+#define RUNTIMEBITMASK_GLASS_OPACITY   0xff000000u
+#define RUNTIMEBITSHIFT_GLASS_OPACITY  24
 #define RUNTIMEBITSHIFT_OWNER         0x11
 
 /* Numeric alias for bit 7, kept from the original header: a few sites

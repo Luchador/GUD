@@ -5495,7 +5495,8 @@ static BOOL GEditorSetObjectProperty(HWND hwnd, const SetupObjectPropertyEdit *e
     if (!edit || !ViewportGetSelectedObject(g_Viewport, &selected)
         || selected != edit->objectindex || selected >= g_CurrentSetup.objectcount) { return FALSE; }
     model = edit->property == SETUP_OBJECT_MODEL || edit->property == SETUP_OBJECT_WEAPON_TYPE;
-    rebuild = model || (edit->property >= SETUP_OBJECT_GLASS_TYPE && edit->property <= SETUP_OBJECT_GLASS_AUTO_PORTAL);
+    rebuild = model || (edit->property >= SETUP_OBJECT_GLASS_TYPE && edit->property <= SETUP_OBJECT_GLASS_AUTO_PORTAL)
+        || edit->property == SETUP_OBJECT_GLASS_CUSTOM_OPACITY || edit->property == SETUP_OBJECT_GLASS_OPACITY;
     switch (edit->property)
     {
     case SETUP_OBJECT_GLASS_TYPE: action = "Change Glass Type"; break;
@@ -5503,6 +5504,8 @@ static BOOL GEditorSetObjectProperty(HWND hwnd, const SetupObjectPropertyEdit *e
     case SETUP_OBJECT_GLASS_OPAQUE_DISTANCE: action = "Change Glass Opaque Distance"; break;
     case SETUP_OBJECT_GLASS_MINIMUM_OPACITY: action = "Change Glass Minimum Opacity"; break;
     case SETUP_OBJECT_GLASS_AUTO_PORTAL: action = "Change Glass Portal Detection"; break;
+    case SETUP_OBJECT_GLASS_CUSTOM_OPACITY:
+    case SETUP_OBJECT_GLASS_OPACITY: action = "Change Glass Opacity"; break;
     case SETUP_OBJECT_WEAPON_TYPE: action = "Change Weapon Type"; break;
     case SETUP_OBJECT_MODEL: action = "Change Object Model"; break;
     case SETUP_OBJECT_HEALTH: action = "Change Object Health"; break;

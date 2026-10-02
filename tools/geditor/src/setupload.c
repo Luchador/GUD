@@ -1078,6 +1078,39 @@ BOOL SetupValidateObjectFadeNative(const unsigned char *data, DWORD size,
     return FALSE;
 }
 
+BOOL SetupValidateGlassOpacityNative(const unsigned char *data, DWORD size,
+                                    const RomFile *rom, const char **reasonout)
+{
+    DWORD at;
+    BOOL supported = FALSE;
+    *reasonout = "Invalid object list while checking glass opacity.";
+    if (!data || size < SETUP_HEADER_SIZE) return FALSE;
+    at = SetupRead32(data + SETUP_OBJECT_POINTER);
+    if (!at) { *reasonout = ""; return TRUE; }
+    if (at < SETUP_HEADER_SIZE || (at & 3)) return FALSE;
+    for (DWORD i = 0; rom && i < rom->info.entrycount; i++)
+    {
+        const RomManifestEntry *entry = &rom->info.entries[i];
+        if (entry->kind == GLASS_OPACITY_MANIFEST_KIND && entry->flags == GLASS_OPACITY_VERSION) supported = TRUE;
+    }
+    for (DWORD command = 0; command < SETUP_OBJECT_MAX; command++)
+    {
+        if (at > size || size - at < 4) return FALSE;
+        unsigned char type = data[at + 3];
+        if (type == SETUP_PROP_END) { *reasonout = ""; return TRUE; }
+        DWORD bytes = SetupObjectWordCount(type) * 4;
+        if (!bytes || bytes > size - at) return FALSE;
+        if (type == PROPDEF_GLASS && !supported
+            && (SetupRead32(data + at + GLASS_OPACITY_OFFSET) & GLASS_OPACITY_TAG_MASK) == GLASS_OPACITY_TAG)
+        {
+            *reasonout = "This setup has custom regular-glass opacity. Rebase onto a GUD ROM with glass opacity support before exporting.";
+            return FALSE;
+        }
+        at += bytes;
+    }
+    return FALSE;
+}
+
 static BOOL SetupParseObjects(SetupFile *setup, const char **reasonout)
 {
     DWORD offset;
@@ -4895,6 +4928,13 @@ BOOL SetupFileGetObjectProperties(const SetupFile *setup, DWORD index,
         out->fadestart = (distances >> 16) / 100.0;
         out->fadeend = (distances & 0xffffu) / 100.0;
     }
+    out->glass.opacity = 100;
+    if (out->object.type == PROPDEF_GLASS)
+    {
+        DWORD word = SetupRead32(record + GLASS_OPACITY_OFFSET);
+        out->glass.customopacity = (word & GLASS_OPACITY_TAG_MASK) == GLASS_OPACITY_TAG;
+        if (out->glass.customopacity) out->glass.opacity = (word & 255u) * (100.0 / 255.0);
+    }
     if (out->object.type == PROPDEF_TINTED_GLASS)
     {
         out->glass.tintdistance = (LONG)SetupRead32(record + 0x80) / 100.0;
@@ -5064,6 +5104,28 @@ BOOL SetupFileSetObjectProperty(SetupFile *setup, const SetupObjectPropertyEdit 
     { *reasonout = "These settings require a glass object."; return FALSE; }
     switch (edit->property)
     {
+    case SETUP_OBJECT_GLASS_CUSTOM_OPACITY:
+    case SETUP_OBJECT_GLASS_OPACITY:
+        if (record[3] != PROPDEF_GLASS)
+        { *reasonout = "Custom opacity requires regular glass."; return FALSE; }
+        previous = SetupRead32(record + GLASS_OPACITY_OFFSET);
+        if (edit->property == SETUP_OBJECT_GLASS_CUSTOM_OPACITY)
+        {
+            if (edit->value != 0 && edit->value != 1) return FALSE;
+            if ((previous & GLASS_OPACITY_TAG_MASK) == GLASS_OPACITY_TAG)
+            { if (edit->value) return TRUE; }
+            else if (!edit->value) return TRUE;
+            encoded = edit->value ? GLASS_OPACITY_TAG | 255u : 0;
+        }
+        else
+        {
+            if (edit->value < 0 || edit->value > 100)
+            { *reasonout = "Enter glass opacity from 0 to 100 percent."; return FALSE; }
+            encoded = GLASS_OPACITY_TAG | (DWORD)floor(edit->value * (255.0 / 100.0) + 0.5);
+        }
+        if (previous == encoded) return TRUE;
+        SetupWrite32(setup->data + edit->sourceoffset + GLASS_OPACITY_OFFSET, encoded);
+        break;
     case SETUP_OBJECT_GLASS_TYPE:
         if (edit->value != PROPDEF_GLASS && edit->value != PROPDEF_TINTED_GLASS)
         { *reasonout = "Choose regular or tinted glass."; return FALSE; }

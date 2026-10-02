@@ -3177,12 +3177,46 @@ void modelTickAnim(struct Model *model, s32 numticks, s32 update_chrstuff)
 }
 
 
+/* A per-instance glass override never edits shared vertices/display lists.
+ * Interpolate texture alpha first, then apply the requested opacity (already
+ * multiplied by the object's distance/regeneration fade). Preserve RGB and
+ * the ordinary room/fog blender, while ignoring the model's vertex alpha. */
+static void modelApplyGlassOpacity(ModelRenderData *renderdata, bool trilerp, bool fog)
+{
+    u32 colour = renderdata->fogcolour.word;
+    gDPPipeSync(renderdata->gdl++);
+    gDPSetCycleType(renderdata->gdl++, G_CYC_2CYCLE);
+    gDPSetAlphaCompare(renderdata->gdl++, G_AC_NONE);
+    gDPSetFogColor(renderdata->gdl++, colour >> 24, (colour >> 16) & 255, (colour >> 8) & 255, colour & 255);
+    gDPSetEnvColor(renderdata->gdl++, 255, 255, 255, renderdata->envcolour.word & 255);
+    if (trilerp)
+    {
+        gDPSetCombineLERP(renderdata->gdl++, TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0, TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,
+            COMBINED, 0, SHADE, 0, COMBINED, 0, ENVIRONMENT, 0);
+    }
+    else
+    {
+        gDPSetCombineLERP(renderdata->gdl++, 0, 0, 0, TEXEL0, 0, 0, 0, TEXEL0,
+            COMBINED, 0, SHADE, 0, COMBINED, 0, ENVIRONMENT, 0);
+    }
+    if (renderdata->zbufferenabled)
+    {
+        gDPSetRenderMode(renderdata->gdl++, fog ? G_RM_FOG_PRIM_A : G_RM_PASS, G_RM_AA_ZB_XLU_SURF2);
+    }
+    else
+    {
+        gDPSetRenderMode(renderdata->gdl++, fog ? G_RM_FOG_PRIM_A : G_RM_PASS, G_RM_AA_XLU_SURF2);
+    }
+}
+
 /**
  * @brief Model Type 1: 1Cycle No Secondary
  * @param[in,out] renderdata append cycle, CC and RM to display List
  */
 void modelApplyRenderModeType1(ModelRenderData *renderdata)
 {
+    if (renderdata->flags & MODEL_RENDER_GLASS_OPACITY)
+    { modelApplyGlassOpacity(renderdata, FALSE, FALSE); return; }
     gDPPipeSync(renderdata->gdl++);
     gDPSetCycleType(renderdata->gdl++, G_CYC_1CYCLE);
 
@@ -3206,6 +3240,8 @@ void modelApplyRenderModeType1(ModelRenderData *renderdata)
  */
 void modelApplyRenderModeType3(ModelRenderData *renderdata, bool isPrimary)
 {
+    if (renderdata->flags & MODEL_RENDER_GLASS_OPACITY)
+    { modelApplyGlassOpacity(renderdata, TRUE, TRUE); return; }
     if (renderdata->PropType == PROP_TYPE_VIEWER+1)
     {
         if (isPrimary)
@@ -3502,6 +3538,8 @@ void modelApplyRenderModeType3(ModelRenderData *renderdata, bool isPrimary)
  */
 void modelApplyRenderModeType4(ModelRenderData *renderdata, bool isPrimary)
 {
+    if (renderdata->flags & MODEL_RENDER_GLASS_OPACITY)
+    { modelApplyGlassOpacity(renderdata, TRUE, TRUE); return; }
     if (renderdata->PropType == PROP_TYPE_VIEWER+1)
     {
         u8 r, g, b, a;
@@ -3788,6 +3826,8 @@ void modelApplyRenderModeType4(ModelRenderData *renderdata, bool isPrimary)
  */
 void modelApplyRenderModeType2(ModelRenderData *renderdata)
 {
+    if (renderdata->flags & MODEL_RENDER_GLASS_OPACITY)
+    { modelApplyGlassOpacity(renderdata, TRUE, FALSE); return; }
     gDPPipeSync(renderdata->gdl++);
     gDPSetCycleType(renderdata->gdl++, G_CYC_2CYCLE);
 

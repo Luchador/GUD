@@ -983,6 +983,24 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
             object->type == PROPDEF_MONITOR ? 1 : object->type == PROPDEF_MULTI_MONITOR ? 4 : 0);
         if (builder.tricount > firsttriangle)
         { ObjectShadeModel(&builder,firsttriangle,object->modelid,&placements[i].shade); }
+        if (object->type == PROPDEF_GLASS)
+        {
+            SetupObjectProperties properties;
+            if (!SetupFileGetObjectProperties(setup, i, &properties, reasonout)) goto fail;
+            if (properties.glass.customopacity)
+            {
+                unsigned char alpha = (unsigned char)floor(properties.glass.opacity * (255.0 / 100.0) + 0.5);
+                /* Per-instance geometry: leave the cached model and all other
+                 * panes alone. Match the runtime's texture-alpha * opacity. */
+                for (DWORD tri = firsttriangle; tri < builder.tricount; tri++)
+                {
+                    for (int corner = 0; corner < 3; corner++) builder.tris[tri * 3 + corner].a = alpha;
+                    builder.renderflags[tri] = (builder.renderflags[tri]
+                        & ~(BG_RENDER_DEPTH_WRITE | BG_RENDER_ALPHA_TEST | BG_RENDER_IGNORE_TEXTURE_ALPHA)) | BG_RENDER_BLEND;
+                    builder.tritags[tri] |= BG_TRI_SECONDARY;
+                }
+            }
+        }
         if (object->type == PROPDEF_TINTED_GLASS)
         {
             SetupObjectProperties properties;

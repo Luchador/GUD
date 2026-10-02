@@ -24,6 +24,7 @@ enum { OBJECT_TYPE, OBJECT_MODEL_LABEL, OBJECT_MODEL, OBJECT_MODEL_HELP,
        OBJECT_WEAPON_LABEL, OBJECT_WEAPON_TYPE,
        OBJECT_HEALTH_LABEL, OBJECT_HEALTH, OBJECT_HEALTH_HELP,
        OBJECT_GLASS_TYPE_LABEL, OBJECT_GLASS_TYPE,
+       OBJECT_GLASS_CUSTOM_OPACITY, OBJECT_GLASS_OPACITY_LABEL, OBJECT_GLASS_OPACITY,
        OBJECT_GLASS_START_LABEL, OBJECT_GLASS_START, OBJECT_GLASS_END_LABEL, OBJECT_GLASS_END,
        OBJECT_GLASS_MIN_LABEL, OBJECT_GLASS_MIN, OBJECT_GLASS_HELP,
        OBJECT_GLASS_AUTO_PORTAL, OBJECT_GLASS_PORTAL_STATUS,
@@ -66,7 +67,7 @@ typedef struct ObjectPropertiesState {
     SetupObjectProperties properties;
     BOOL selected, updating, edited, committing, safeitem;
     BOOL keyedited, quantityedited, armoredited, multiplayer;
-    BOOL fadeedited, glassedited[3];
+    BOOL fadeedited, glassedited[4];
     const BgPortalFile *glassportals;
     float glasslevelscale;
     BOOL dooredited[OBJECT_DOOR_FIELD_COUNT];
@@ -264,7 +265,7 @@ static void ObjectPropertiesResetDoor(ObjectPropertiesState *state, int field)
 static BOOL ObjectPropertiesIsCombo(int id)
 { return id == OBJECT_GLASS_TYPE || id == OBJECT_MODEL || id == OBJECT_WEAPON_TYPE || id == OBJECT_AMMO_TYPE || id == OBJECT_DOOR_TYPE || id == OBJECT_DOOR_SOUND || id == OBJECT_AIM_PAD; }
 static BOOL ObjectPropertiesIsEdit(int id)
-{ return id == OBJECT_GLASS_START || id == OBJECT_GLASS_END || id == OBJECT_GLASS_MIN || id == OBJECT_HEALTH || id == OBJECT_ARMOR || id == OBJECT_KEY_MASK || id == OBJECT_QUANTITY
+{ return id == OBJECT_GLASS_OPACITY || id == OBJECT_GLASS_START || id == OBJECT_GLASS_END || id == OBJECT_GLASS_MIN || id == OBJECT_HEALTH || id == OBJECT_ARMOR || id == OBJECT_KEY_MASK || id == OBJECT_QUANTITY
     || id == OBJECT_FADE_START || id == OBJECT_FADE_END
     || ObjectPropertiesDoorField(id) >= 0 || ObjectPropertiesAimField(id) >= 0; }
 static BOOL ObjectPropertiesControlVisible(const ObjectPropertiesState *state, int id)
@@ -275,6 +276,8 @@ static BOOL ObjectPropertiesControlVisible(const ObjectPropertiesState *state, i
     if (id == OBJECT_SAFE_CONTENTS || id == OBJECT_SAFE_STATUS) { return state->selected && state->safeitem; }
     if (id >= OBJECT_GLASS_TYPE_LABEL && id <= OBJECT_GLASS_TYPE)
         return state->selected && (type == PROPDEF_GLASS || type == PROPDEF_TINTED_GLASS);
+    if (id >= OBJECT_GLASS_CUSTOM_OPACITY && id <= OBJECT_GLASS_OPACITY)
+        return state->selected && type == PROPDEF_GLASS;
     if (id >= OBJECT_GLASS_START_LABEL && id <= OBJECT_GLASS_PORTAL_STATUS)
         return state->selected && type == PROPDEF_TINTED_GLASS;
     if (id >= OBJECT_FADE_ENABLED && id <= OBJECT_FADE_END) { return state->selected; }
@@ -322,7 +325,7 @@ static void ObjectPropertiesLayout(HWND hwnd, ObjectPropertiesState *state)
         }
         if (!ObjectPropertiesIsCombo(i) && !ObjectPropertiesIsEdit(i) && i != OBJECT_SAFE_CONTENTS)
         {
-            BOOL checkbox = i == OBJECT_GLASS_AUTO_PORTAL || i == OBJECT_FADE_ENABLED || (i >= OBJECT_DOOR_FLAG_FIRST && i <= OBJECT_DOOR_FLAG_LAST);
+            BOOL checkbox = i == OBJECT_GLASS_CUSTOM_OPACITY || i == OBJECT_GLASS_AUTO_PORTAL || i == OBJECT_FADE_ENABLED || (i >= OBJECT_DOOR_FLAG_FIRST && i <= OBJECT_DOOR_FLAG_LAST);
             char text[OBJECT_CONTENTS_TEXT_MAX]; RECT rect = {0, 0, max(1, width - (checkbox ? 20 : 0)), 0};
             GetWindowText(state->controls[i], text, sizeof(text));
             DrawText(dc, text, -1, &rect, DT_CALCRECT | DT_WORDBREAK | DT_NOPREFIX);
@@ -408,19 +411,22 @@ static void ObjectPropertiesApply(HWND hwnd, ObjectPropertiesState *state,
 }
 
 static int ObjectPropertiesGlassField(int id)
-{ return id == OBJECT_GLASS_START ? 0 : id == OBJECT_GLASS_END ? 1 : id == OBJECT_GLASS_MIN ? 2 : -1; }
+{ return id == OBJECT_GLASS_START ? 0 : id == OBJECT_GLASS_END ? 1 : id == OBJECT_GLASS_MIN ? 2 : id == OBJECT_GLASS_OPACITY ? 3 : -1; }
 static void ObjectPropertiesResetGlass(ObjectPropertiesState *state)
 {
-    const int ids[] = {OBJECT_GLASS_START, OBJECT_GLASS_END, OBJECT_GLASS_MIN};
+    const int ids[] = {OBJECT_GLASS_START, OBJECT_GLASS_END, OBJECT_GLASS_MIN, OBJECT_GLASS_OPACITY};
     const double values[] = {state->properties.glass.tintdistance, state->properties.glass.opaquedistance,
-        state->properties.glass.minimumopacity};
+        state->properties.glass.minimumopacity, state->properties.glass.opacity};
     char text[80];
     state->updating = TRUE;
     SendMessage(state->controls[OBJECT_GLASS_TYPE], CB_SETCURSEL,
         state->properties.object.type == PROPDEF_TINTED_GLASS ? 1 : 0, 0);
     SendMessage(state->controls[OBJECT_GLASS_AUTO_PORTAL], BM_SETCHECK,
         state->properties.glass.autoportal ? BST_CHECKED : BST_UNCHECKED, 0);
-    for (int field = 0; field < 3; field++) if (!state->glassedited[field])
+    SendMessage(state->controls[OBJECT_GLASS_CUSTOM_OPACITY], BM_SETCHECK,
+        state->properties.glass.customopacity ? BST_CHECKED : BST_UNCHECKED, 0);
+    EnableWindow(state->controls[OBJECT_GLASS_OPACITY], state->selected && state->properties.glass.customopacity);
+    for (int field = 0; field < 4; field++) if (!state->glassedited[field])
     {
         snprintf(text, sizeof(text), field == 2 ? "%.6f" : "%.2f", values[field]);
         SetWindowText(state->controls[ids[field]], text);
@@ -430,19 +436,20 @@ static void ObjectPropertiesResetGlass(ObjectPropertiesState *state)
 }
 static void ObjectPropertiesApplyGlass(HWND hwnd, ObjectPropertiesState *state, int field)
 {
-    const int ids[] = {OBJECT_GLASS_START, OBJECT_GLASS_END, OBJECT_GLASS_MIN};
+    const int ids[] = {OBJECT_GLASS_START, OBJECT_GLASS_END, OBJECT_GLASS_MIN, OBJECT_GLASS_OPACITY};
     const SetupObjectProperty properties[] = {SETUP_OBJECT_GLASS_TINT_DISTANCE,
-        SETUP_OBJECT_GLASS_OPAQUE_DISTANCE, SETUP_OBJECT_GLASS_MINIMUM_OPACITY};
+        SETUP_OBJECT_GLASS_OPAQUE_DISTANCE, SETUP_OBJECT_GLASS_MINIMUM_OPACITY, SETUP_OBJECT_GLASS_OPACITY};
     char text[64], *end; double value;
-    if (field < 0 || field >= 3 || !state->selected || !state->glassedited[field]
-        || state->updating || state->committing || state->properties.object.type != PROPDEF_TINTED_GLASS) return;
+    if (field < 0 || field >= 4 || !state->selected || !state->glassedited[field]
+        || state->updating || state->committing
+        || state->properties.object.type != (field == 3 ? PROPDEF_GLASS : PROPDEF_TINTED_GLASS)) return;
     GetWindowText(state->controls[ids[field]], text, sizeof(text));
     errno = 0; value = strtod(text, &end);
     BOOL parsed = end != text;
     while (isspace((unsigned char)*end)) end++;
     if (!parsed || *end || errno == ERANGE || !isfinite(value) || value < 0
-        || value > (field == 2 ? 100 : 21474836.47))
-    { ObjectPropertiesStatus(hwnd, state, field == 2 ? "Enter opacity from 0 to 100 percent."
+        || value > (field >= 2 ? 100 : 21474836.47))
+    { ObjectPropertiesStatus(hwnd, state, field >= 2 ? "Enter opacity from 0 to 100 percent."
         : "Enter a distance from 0 to 21474836.47 metres."); return; }
     ObjectPropertiesApply(hwnd, state, properties[field], value);
     state->glassedited[field] = FALSE; ObjectPropertiesResetGlass(state);
@@ -984,7 +991,7 @@ static LRESULT CALLBACK ObjectPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
         for (int i = 0; i < OBJECT_CONTROL_COUNT; i++)
         {
             BOOL combo = ObjectPropertiesIsCombo(i), edit = ObjectPropertiesIsEdit(i);
-            BOOL key = i == OBJECT_GLASS_AUTO_PORTAL || i == OBJECT_FADE_ENABLED || (i >= OBJECT_KEY_FIRST && i <= OBJECT_KEY_LAST)
+            BOOL key = i == OBJECT_GLASS_CUSTOM_OPACITY || i == OBJECT_GLASS_AUTO_PORTAL || i == OBJECT_FADE_ENABLED || (i >= OBJECT_KEY_FIRST && i <= OBJECT_KEY_LAST)
                 || (i >= OBJECT_DOOR_FLAG_FIRST && i <= OBJECT_DOOR_FLAG_LAST);
             state->controls[i] = CreateWindowEx(edit ? WS_EX_CLIENTEDGE : 0,
                 combo ? "COMBOBOX" : edit ? "EDIT" : (key || i == OBJECT_SAFE_CONTENTS) ? "BUTTON" : "STATIC", "",
@@ -1008,6 +1015,8 @@ static LRESULT CALLBACK ObjectPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
             if (ObjectPropertiesIsEdit(i)) { SendMessage(state->controls[i], EM_SETLIMITTEXT, 63, 0); }
         }
         SetWindowText(state->controls[OBJECT_GLASS_TYPE_LABEL], "Glass type");
+        SetWindowText(state->controls[OBJECT_GLASS_CUSTOM_OPACITY], "Use custom opacity");
+        SetWindowText(state->controls[OBJECT_GLASS_OPACITY_LABEL], "Opacity (%)");
         SendMessage(state->controls[OBJECT_GLASS_TYPE], CB_ADDSTRING, 0, (LPARAM)"Regular glass");
         SendMessage(state->controls[OBJECT_GLASS_TYPE], CB_ADDSTRING, 0, (LPARAM)"Tinted glass");
         SetWindowText(state->controls[OBJECT_GLASS_START_LABEL], "Tint start distance (m)");
@@ -1081,9 +1090,15 @@ static LRESULT CALLBACK ObjectPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
                 SendMessage((HWND)lparam, BM_GETCHECK, 0, 0) == BST_CHECKED);
             ObjectPropertiesResetGlass(state);
         }
-        for (int field = 0; field < 3; field++)
+        if ((HWND)lparam == state->controls[OBJECT_GLASS_CUSTOM_OPACITY] && HIWORD(wparam) == BN_CLICKED)
         {
-            int id = field == 0 ? OBJECT_GLASS_START : field == 1 ? OBJECT_GLASS_END : OBJECT_GLASS_MIN;
+            ObjectPropertiesApply(hwnd, state, SETUP_OBJECT_GLASS_CUSTOM_OPACITY,
+                SendMessage((HWND)lparam, BM_GETCHECK, 0, 0) == BST_CHECKED);
+            ObjectPropertiesResetGlass(state);
+        }
+        for (int field = 0; field < 4; field++)
+        {
+            int id = field == 0 ? OBJECT_GLASS_START : field == 1 ? OBJECT_GLASS_END : field == 2 ? OBJECT_GLASS_MIN : OBJECT_GLASS_OPACITY;
             if ((HWND)lparam != state->controls[id]) continue;
             if (HIWORD(wparam) == EN_CHANGE) state->glassedited[field] = TRUE;
             if (HIWORD(wparam) == EN_KILLFOCUS) ObjectPropertiesApplyGlass(hwnd, state, field);

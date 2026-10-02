@@ -533,10 +533,43 @@ static u32 read_be(FILE *file)
     return ((u32)b[0] << 24) | ((u32)b[1] << 16) | ((u32)b[2] << 8) | b[3];
 }
 
+static void check_glass_opacity(void)
+{
+    Gfx output[32]; Snapshot state[2];
+    Gfx *primary=(Gfx *)(g_TestRam+0x10000);
+    memcpy(primary,opaque,sizeof(opaque));
+    for(int type=1;type<=4;type++) for(int secondary=0;secondary<2;secondary++)
+    for(int z=0;z<2;z++) for(int alpha=0;alpha<=255;alpha+=51)
+    {
+        ModelRenderData data=prop();
+        data.flags=3|MODEL_RENDER_GLASS_OPACITY; data.PropType=5;
+        data.envcolour.word=alpha; data.zbufferenabled=z; data.gdl=output;
+        if(type==1) modelApplyRenderModeType1(&data);
+        else if(type==2) modelApplyRenderModeType2(&data);
+        else if(type==3) modelApplyRenderModeType3(&data,!secondary);
+        else modelApplyRenderModeType4(&data,!secondary);
+        gSPEndDisplayList(data.gdl++);
+        assert(data.gdl-output<32 && snapshots(output,data.gdl-output,state)==1);
+        assert(((state[0].h>>G_MDSFT_CYCLETYPE)&3)==1); /* two cycles */
+        assert((state[0].l&Z_UPD)==0 && (state[0].l&FORCE_BL));
+        assert(!!(state[0].l&Z_CMP)==z && !(state[0].l&3)); /* No cutout threshold. */
+        assert((state[0].env&255)==(unsigned)alpha);
+        /* Decode alpha's final cycle: interpolated texture * environment,
+         * without SHADE or a primitive-alpha addition. */
+        assert(((state[0].c1>>21)&7)==0);
+        assert(((state[0].c1>>3)&7)==7 && (state[0].c1&7)==7);
+        assert(((state[0].c1>>18)&7)==5);
+        /* Never replace this material with an opaque one-cycle cache entry. */
+        assert(modelGetOneCycleGdl(&data,primary,type,g_TestRam)==primary);
+    }
+    puts("Glass opacity: both lists, all model types, texture mask, translucent depth state and one-cycle exclusion pass.");
+}
+
 int main(int argc, char **argv)
 {
     if (argc == 1) {
         reset();
+        check_glass_opacity();
         for (int type = 2; type <= 4; type++) for (int z = 0; z < 2; z++) {
             assert(check_stream((Gfx *)opaque, sizeof(opaque), type, z) == 1);
             assert(check_stream((Gfx *)mixed, sizeof(mixed), type, z) == 2);

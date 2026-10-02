@@ -52,7 +52,7 @@ source += strip_includes((ROOT / 'src/game/rendercache.h').read_text())
 source += strip_includes((ROOT / 'src/game/rendercache.c').read_text())
 source += '\n'.join(re.findall(r'^#define MODEL_RENDER_[^\n]*', (ROOT / 'src/game/model.h').read_text(), re.M)) + '\n'
 model = (ROOT / 'src/game/model.c').read_text()
-for name in ('modelApplyRenderModeType1', 'modelApplyRenderModeType2',
+for name in ('modelApplyGlassOpacity', 'modelApplyRenderModeType1', 'modelApplyRenderModeType2',
              'modelApplyRenderModeType3', 'modelApplyRenderModeType4', 'modelApplyCullMode'):
     source += function(model, name)
 cache = strip_includes((ROOT / 'src/game/modelonecycle.c').read_text())

@@ -120,6 +120,79 @@ static BOOL GlassEdit(SetupFile *setup, DWORD index, SetupObjectProperty propert
     edit.type=setup->objects[index].type; edit.property=property; edit.value=value;
     return SetupFileSetObjectProperty(setup,&edit,&changed,&why);
 }
+static void Opacity(const char *dir, const SetupFile *source, int model)
+{
+    SetupFile setup={0}, before={0}, after={0}; const char *why;
+    double pos[3]={300,-20,-400}, facing[3]={0,0,-1}; DWORD pane;
+    EditHistory history={0}; EditHistoryTransaction tx; EditHistoryAsset asset;
+    BgDocument bg={0}; StanFile stan={0}; SetupObjectProperties properties;
+    RomFile rom={0};
+    rom.info.entries[0]=(RomManifestEntry){GLASS_OPACITY_MANIFEST_KIND,0,0,GLASS_OPACITY_VERSION};
+    rom.info.entrycount=1;
+    assert(SetupFileClone(source,&setup,&why));
+    assert(SetupFileAddGlass(&setup,model,1,pos,facing,&pane,&why));
+    assert(SetupFileCompact(&setup,&why));
+    assert(SetupFileGetObjectProperties(&setup,pane,&properties,&why));
+    assert(!properties.glass.customopacity && properties.glass.opacity==100);
+    assert(SetupValidateGlassOpacityNative(setup.data,setup.size,NULL,&why));
+    assert(SetupFileClone(&setup,&before,&why));
+    EditHistoryReset(&history,&bg,&setup,&stan);
+    assert(EditHistoryBeginSetupEdit(&history,&setup,"Glass opacity",&tx,&why));
+    assert(GlassEdit(&setup,pane,SETUP_OBJECT_GLASS_CUSTOM_OPACITY,1));
+    assert(GlassEdit(&setup,pane,SETUP_OBJECT_GLASS_OPACITY,35));
+    assert(setup.size==before.size); /* Still a 32-word native pane. */
+    DWORD at=setup.objects[pane].sourceoffset;
+    for(DWORD i=0;i<setup.size;i++)
+        if(i<at+GLASS_OPACITY_OFFSET || i>=at+GLASS_OPACITY_OFFSET+4)
+            assert(setup.data[i]==before.data[i]);
+    assert(Read(setup.data+at+GLASS_OPACITY_OFFSET)==(GLASS_OPACITY_TAG|89u));
+    assert(SetupFileGetObjectProperties(&setup,pane,&properties,&why));
+    assert(properties.glass.customopacity); Near(properties.glass.opacity,89*100.0/255);
+    assert(!SetupValidateGlassOpacityNative(setup.data,setup.size,NULL,&why) && strstr(why,"Rebase"));
+    assert(SetupValidateGlassOpacityNative(setup.data,setup.size,&rom,&why));
+    assert(!SetupValidateGlassOpacityNative(setup.data,at+64,&rom,&why));
+    rom.info.entries[0].flags=2; assert(!SetupValidateGlassOpacityNative(setup.data,setup.size,&rom,&why)); rom.info.entries[0].flags=1;
+    assert(EditHistoryCommitEdit(&history,&bg,&setup,&stan,&tx,&why));
+    assert(SetupFileClone(&setup,&after,&why)); RoundTrip(dir,&setup);
+    assert(EditHistoryUndo(&history,&bg,&setup,&stan,&asset,&why)); Same(&setup,&before);
+    assert(EditHistoryRedo(&history,&bg,&setup,&stan,&asset,&why)); Same(&setup,&after);
+    assert(!GlassEdit(&setup,pane,SETUP_OBJECT_GLASS_OPACITY,-1));
+    assert(!GlassEdit(&setup,pane,SETUP_OBJECT_GLASS_OPACITY,101));
+    assert(!GlassEdit(&setup,pane,SETUP_OBJECT_GLASS_OPACITY,NAN));
+    assert(!GlassEdit(&setup,0,SETUP_OBJECT_GLASS_OPACITY,50)); Same(&setup,&after);
+    SetupFile duplicate={0}; DWORD cloned;
+    assert(SetupFileClone(&setup,&duplicate,&why));
+    assert(SetupFileDuplicateObject(&duplicate,&duplicate,pane,&cloned,&why));
+    assert(SetupFileGetObjectProperties(&duplicate,cloned,&properties,&why) && properties.glass.customopacity);
+    Near(properties.glass.opacity,89*100.0/255);
+    SetupObjectPropertyEdit fade={0}; BOOL changed;
+    fade.objectindex=cloned; fade.sourceoffset=duplicate.objects[cloned].sourceoffset; fade.type=PROPDEF_GLASS;
+    fade.property=SETUP_OBJECT_FADE_DISTANCES; fade.value=20; fade.value2=30;
+    assert(SetupFileSetObjectProperty(&duplicate,&fade,&changed,&why) && changed);
+    assert(SetupFileGetObjectProperties(&duplicate,cloned,&properties,&why));
+    assert(properties.glass.customopacity && properties.customfade && properties.fadeend==30);
+    Near(properties.glass.opacity,89*100.0/255);
+    RoundTrip(dir,&duplicate); SetupFileFree(&duplicate);
+    assert(GlassEdit(&setup,pane,SETUP_OBJECT_GLASS_TYPE,PROPDEF_TINTED_GLASS));
+    assert(SetupValidateGlassOpacityNative(setup.data,setup.size,NULL,&why)); /* Inactive on tinted panes. */
+    assert(!GlassEdit(&setup,pane,SETUP_OBJECT_GLASS_OPACITY,50));
+    assert(GlassEdit(&setup,pane,SETUP_OBJECT_GLASS_TYPE,PROPDEF_GLASS));
+    assert(SetupFileGetObjectProperties(&setup,pane,&properties,&why) && properties.glass.customopacity);
+    Near(properties.glass.opacity,89*100.0/255);
+    for(int percent=0;percent<=100;percent+=100)
+    {
+        assert(GlassEdit(&setup,pane,SETUP_OBJECT_GLASS_OPACITY,percent));
+        assert(SetupFileGetObjectProperties(&setup,pane,&properties,&why));
+        assert(properties.glass.customopacity && properties.glass.opacity==percent);
+        RoundTrip(dir,&setup);
+    }
+    assert(GlassEdit(&setup,pane,SETUP_OBJECT_GLASS_CUSTOM_OPACITY,0));
+    assert(SetupValidateGlassOpacityNative(setup.data,setup.size,NULL,&why));
+    assert(!Read(setup.data+setup.objects[pane].sourceoffset+GLASS_OPACITY_OFFSET));
+    SetupFileFree(&setup); SetupFileFree(&before); SetupFileFree(&after); EditHistoryFree(&history);
+    puts("PASS: regular-glass opacity, byte preservation, endpoints, type conversion, save/reload, undo/redo and ROM capability checks.");
+}
+
 static void Tinted(const char *dir, const SetupFile *source, int model)
 {
     SetupFile setup={0}, before={0}, after={0}; const char *why;
@@ -228,7 +301,7 @@ int main(int argc, char **argv)
     for (int i=0; ModelGetPropDefinition(i,&name,NULL); i++)
     { if (!strcmp(name,SETUP_DEFAULT_GLASS_MODEL)) { model=i; break; } }
     assert(model==104);
-    Tinted(argv[1],&source,model); Preview();
+    Tinted(argv[1],&source,model); Opacity(argv[1],&source,model); Preview();
     const float scales[]={.15019713f,.53931433f,1.20648f,1};
     const double facing[][3]={{0,0,-1},{1,.5,1},{-1,0,0},{0,-1,0}};
     for (int mp=0;mp<2;mp++) for (int s=0;s<4;s++) for (int f=0;f<4;f++)

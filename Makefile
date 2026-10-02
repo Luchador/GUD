@@ -267,6 +267,7 @@ $(addprefix $(BUILD_DIR)/src/game/,model.o modelonecycle.o dyn.o tex.o rendercac
 $(BUILD_DIR)/src/game/modelonecycle.o: src/game/dyn.h
 $(addprefix $(BUILD_DIR)/src/game/,model.o modelonecycle.o gunfire.o propobj.o initunk_0009E0.o): src/game/model.h
 $(BUILD_DIR)/src/game/propobj.o: src/game/glassmath.h
+$(addprefix $(BUILD_DIR)/src/game/,propobj.o gedmanifest.o): src/glassopacityformat.h src/bondconstants.h
 $(addprefix $(BUILD_DIR)/src/game/,bgonecycle.o tex.o bgapply.o bgenvironment.o bg.o): src/bgtransparency.h
 
 $(addprefix $(BUILD_DIR)/src/game/,cam.o player.o chr.o propobj.o): src/game/cam.h

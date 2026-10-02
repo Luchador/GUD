@@ -25,11 +25,14 @@ def main():
     props = (root / 'src/game/chrprop.c').read_text()
     constants = '\n'.join(re.findall(r'^#define OBJFADE_.*', objects, re.M)) + '\n'
     constants += '\n'.join(re.findall(r'^#define CHROBJ_TIMETOREGEN.*', (root / 'src/game/propobj.h').read_text(), re.M))
+    constants += '\n' + '\n'.join(re.findall(r'^#define RUNTIMEBIT\w+_GLASS_OPACITY.*', (root / 'src/bondconstants.h').read_text(), re.M))
+    constants += '\n' + '\n'.join(re.findall(r'^#define MODEL_RENDER_GLASS_OPACITY.*', (root / 'src/game/model.h').read_text(), re.M))
     logic = ''.join(function(objects, name) for name in
-                    ('objInitFadeDistances', 'objCalcScreenFadeAlpha', 'objCalcDistanceFadeAlpha', 'objRenderProp'))
+                    ('objInitFadeDistances', 'objInitGlassOpacity', 'objCalcScreenFadeAlpha', 'objCalcDistanceFadeAlpha', 'objRenderProp'))
     logic += ''.join(function(props, name) for name in ('chrpropAllocate', 'chrpropFree'))
     # Ensure real initialization consumes metadata, not just the test fixture.
     assert 'objInitFadeDistances(prop, obj);' in function(objects, 'objInit')
+    assert 'objInitGlassOpacity(obj);' in function(objects, 'objInit')
     with tempfile.TemporaryDirectory(prefix='gud-object-fade-') as temp:
         temp = Path(temp)
         (temp / 'constants.inc').write_text(constants + '\n')

@@ -4,6 +4,8 @@
 #include <string.h>
 #include <math.h>
 #include <src/objectfadeformat.h>
+#include <src/glassopacityformat.h>
+#include <stdbool.h>
 #include <src/propconstants.h>
 #include <src/doorconstants.h>
 typedef float f32;
@@ -18,7 +20,7 @@ typedef union { u32 word; u8 rgba[4]; } Colour;
 typedef struct { int numMatrices; float BoundingVolumeRadius; } Header;
 typedef struct { Header *obj; void *anim; } Model;
 typedef struct ObjectRecord {
-    int type; u32 flags2; Model *model; Mtxf mtx; coord3d position; Colour shadecol;
+    int type; u32 flags2, runtime_bitflags; Model *model; Mtxf mtx; coord3d position; Colour shadecol;
 } ObjectRecord;
 typedef struct PropRecord {
     int type,flags,timetoregen; ObjectRecord *obj; coord3d pos;
@@ -97,8 +99,46 @@ static void ScreenSizeFade(void)
     puts("PASS: small/large models share fade boundaries; actual size, projection, level settings and zero-alpha render skipping.");
 }
 
+static void GlassOpacity(void)
+{
+    Header header={1,100}; Model model={&header,NULL};
+    ObjectRecord obj={.type=PROPDEF_GLASS,.model=&model};
+    PropRecord prop={.type=PROP_TYPE_OBJ,.obj=&obj,.objectFadeStart=2000,.objectFadeEnd=3000};
+    g_PropFadeStartPx=-1; camera.m[3][2]=0;
+    for(u32 alpha=0;alpha<=255;alpha+=51)
+    {
+        obj.runtime_bitflags=0x54321; /* Existing runtime flags survive. */
+        SetWord(&obj.mtx.m[1][2],GLASS_OPACITY_TAG|alpha);
+        objInitGlassOpacity(&obj);
+        memset(&obj.mtx,0,sizeof(obj.mtx));
+        assert((obj.runtime_bitflags&0xfffff)==0x54321);
+        assert(obj.runtime_bitflags&RUNTIMEBITFLAG_GLASS_OPACITY);
+        prop.pos.z=1000;
+        assert(!Render(&prop,0));
+        assert(Render(&prop,1)==(alpha!=0));
+        if(alpha) assert(rendered.flags==(3|MODEL_RENDER_GLASS_OPACITY)
+            && rendered.PropType==5 && rendered.envcolour.word==alpha);
+        prop.pos.z=2500;
+        assert(Render(&prop,1)==(alpha!=0));
+        if(alpha) assert(rendered.envcolour.word==127*alpha/255);
+        prop.pos.z=3000; assert(!Render(&prop,1));
+        prop.pos.z=1000; prop.timetoregen=30;
+        assert(Render(&prop,1)==(alpha!=0));
+        if(alpha) assert(rendered.envcolour.word==127*alpha/255);
+        prop.timetoregen=0;
+    }
+    objInitGlassOpacity(&obj); /* Untagged glass restores the native material. */
+    assert(obj.runtime_bitflags==0x54321);
+    assert(Render(&prop,0) && rendered.flags==1 && rendered.PropType==9);
+    obj.type=PROPDEF_TINTED_GLASS;
+    SetWord(&obj.mtx.m[1][2],GLASS_OPACITY_TAG|128);
+    objInitGlassOpacity(&obj); assert(obj.runtime_bitflags==0x54321);
+    puts("PASS: per-pane opacity initialization, default/tinted isolation, native flags, render passes, zero/full opacity, fade and regeneration.");
+}
+
 int main(void)
 {
+    GlassOpacity();
     ScreenSizeFade();
     Header header={1,100}; Model model={&header,NULL};
     ObjectRecord obj={.type=PROPDEF_PROP,.model=&model};

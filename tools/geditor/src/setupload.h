@@ -10,6 +10,7 @@
 #include "../../../src/doorconstants.h"
 #include "../../../src/occluderformat.h"
 #include "../../../src/objectfadeformat.h"
+#include "../../../src/glassopacityformat.h"
 
 /* Host-native views of the pad data parsed from the big-endian setup. */
 typedef struct SetupPad {
@@ -72,7 +73,8 @@ typedef enum SetupObjectProperty {
     SETUP_OBJECT_ARMOR_STRENGTH, SETUP_OBJECT_FADE_DISTANCES,
     SETUP_OBJECT_GLASS_TYPE, SETUP_OBJECT_GLASS_TINT_DISTANCE,
     SETUP_OBJECT_GLASS_OPAQUE_DISTANCE, SETUP_OBJECT_GLASS_MINIMUM_OPACITY,
-    SETUP_OBJECT_GLASS_AUTO_PORTAL, SETUP_OBJECT_WEAPON_TYPE
+    SETUP_OBJECT_GLASS_AUTO_PORTAL, SETUP_OBJECT_WEAPON_TYPE,
+    SETUP_OBJECT_GLASS_CUSTOM_OPACITY, SETUP_OBJECT_GLASS_OPACITY
 } SetupObjectProperty;
 /* Movement uses native fractions/degrees/animation units per 60 Hz tick.
  * The inspector converts these to percentages/degrees and seconds. */
@@ -105,7 +107,11 @@ typedef struct SetupObjectProperties {
     double armorstrength; /* Percentage, decoded from BodyArmourRecord.initialamount. */
     DWORD keyflags, ammotype; /* keyflags: supplied by a key, required by a door */
     unsigned char weapontype; /* WeaponObjRecord.weaponnum; retain unknown/MP slot IDs. */
-    struct { double tintdistance, opaquedistance, minimumopacity; BOOL autoportal; } glass; /* metres, metres, percent */
+    struct {
+        double tintdistance, opaquedistance, minimumopacity; /* metres, metres, percent */
+        BOOL autoportal, customopacity;
+        double opacity; /* Regular-glass vertex alpha override, percent. */
+    } glass;
     SetupDoorProperties door;
     SetupCctvProperties cctv;
     SetupDroneProperties drone;
@@ -124,6 +130,8 @@ typedef struct SetupObjectPropertyEdit {
  * and rebase. Untagged setup records remain compatible with older runtimes. */
 BOOL SetupValidateObjectFadeNative(const unsigned char *data, DWORD size,
                                  const RomFile *rom, const char **reasonout);
+BOOL SetupValidateGlassOpacityNative(const unsigned char *data, DWORD size,
+                                    const RomFile *rom, const char **reasonout);
 
 /* GuardRecord uses a different layout from ObjectRecord. Keep its source
    values separate so prop editing cannot overwrite character commands. */

@@ -9,6 +9,7 @@
 #include <ultra64.h>
 #include "occlusion.h"
 #include <objectfadeformat.h>
+#include <glassopacityformat.h>
 #include <math.h>
 #include <string.h>
 #include <PR/libaudio.h>
@@ -589,6 +590,19 @@ static void objInitFadeDistances(PropRecord *prop, const ObjectRecord *obj)
     }
 }
 
+static void objInitGlassOpacity(ObjectRecord *obj)
+{
+    u32 word;
+    if (obj->type != PROPDEF_GLASS) { return; }
+    memcpy(&word, &obj->mtx.m[1][2], sizeof(word)); /* Native offset 0x30. */
+    obj->runtime_bitflags &= ~(RUNTIMEBITFLAG_GLASS_OPACITY | RUNTIMEBITMASK_GLASS_OPACITY);
+    if ((word & GLASS_OPACITY_TAG_MASK) == GLASS_OPACITY_TAG)
+    {
+        obj->runtime_bitflags |= RUNTIMEBITFLAG_GLASS_OPACITY
+            | ((word & 0xffu) << RUNTIMEBITSHIFT_GLASS_OPACITY);
+    }
+}
+
 PropRecord* objInit(ObjectRecord* obj, ModelFileHeader* model_header, PropRecord* prop, Model* model)
 {
     if (prop == NULL)
@@ -611,6 +625,7 @@ PropRecord* objInit(ObjectRecord* obj, ModelFileHeader* model_header, PropRecord
     if ((prop != NULL) && (model != NULL))
     {
         objInitFadeDistances(prop, obj);
+        objInitGlassOpacity(obj);
         obj->model = model;
         obj->collisionBlock = NULL;
 
@@ -7273,8 +7288,10 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
     f32 modelSize;
     s32 temp_v0_4;
     s32 phi_a0;
+    bool customGlass;
 
     obj = prop->obj;
+    customGlass = obj->type == PROPDEF_GLASS && (obj->runtime_bitflags & RUNTIMEBITFLAG_GLASS_OPACITY);
 
     /* Rendering only: retain normal tick/AI, targeting and onscreen flags.
      * Start with standalone, unanimated generic props. Attachments and special
@@ -7320,9 +7337,11 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
      * Keep regeneration, fog, shading and the normal alpha render passes. */
     if (prop->objectFadeEnd)
     { objAlpha = (objAlpha * objCalcDistanceFadeAlpha(prop)) / 255; }
+    if (customGlass)
+    { objAlpha = (objAlpha * ((obj->runtime_bitflags & RUNTIMEBITMASK_GLASS_OPACITY) >> RUNTIMEBITSHIFT_GLASS_OPACITY)) / 255; }
     if (objAlpha <= 0) { return gdl; }
 
-    if ((objAlpha < 0xFF) || (obj->flags2 & PROPFLAG2_DISABLE_ZBUFFER))
+    if (customGlass || (objAlpha < 0xFF) || (obj->flags2 & PROPFLAG2_DISABLE_ZBUFFER))
     {
         if (withalpha == 0)
         {
@@ -7348,11 +7367,12 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
 
     modrendata = g_DefaultPropRenderData;
     modrendata.flags = sp44;
+    if (customGlass) { modrendata.flags |= MODEL_RENDER_GLASS_OPACITY; }
     modrendata.zbufferenabled = (obj->flags2 & PROPFLAG2_DISABLE_ZBUFFER) == 0;
 
     modrendata.gdl = gdl;
 
-    if (objAlpha < 0xFF)
+    if (customGlass || objAlpha < 0xFF)
     {
         modrendata.PropType = 5;
         modrendata.envcolour.word = objAlpha;

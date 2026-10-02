@@ -1356,6 +1356,7 @@ have_replacement:
         }
         if (!OccludersValidateNative(packed, packedsize, featureRom ? featureRom : rom, reasonout)
             || !SetupValidateObjectFadeNative(packed, packedsize, featureRom ? featureRom : rom, reasonout)
+            || !SetupValidateGlassOpacityNative(packed, packedsize, featureRom ? featureRom : rom, reasonout)
             || !DoorShadowValidateNative(packed, packedsize, featureRom ? featureRom : rom, reasonout))
         { free(packed); goto fail; }
         free(slot->replacement);
