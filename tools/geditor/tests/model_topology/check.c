@@ -67,6 +67,47 @@ static void Compare(const ModelSource *s,const GltfModelImport *in)
     }
     free(seen);
 }
+/* Editor decoding accepts both segments, but gun nodes only bind segment 5
+ * at runtime. A preview round trip alone cannot detect a wrong segment. */
+static void VertexSegments(const unsigned char *data,DWORD size,const ModelSource *source,const char *project)
+{
+    GltfModelImport in={0};ModelMaterials ordered={0};ModelSource check={0};
+    unsigned char *compiled=NULL;DWORD length,loads=0;
+    in.count=source->count*2;
+    in.vertices=calloc(in.count*3,sizeof(*in.vertices));in.tags=calloc(in.count,sizeof(*in.tags));
+    OK(in.vertices&&in.tags&&ModelMaterialsCopy(&in.materials,&source->materials,&why));
+    free(in.materials.faces);in.materials.faces=calloc(in.count,sizeof(*in.materials.faces));OK(in.materials.faces);
+    in.materials.facecount=in.count;
+    for(DWORD f=0;f<in.count;f++)
+    {
+        DWORD ref=f/2;int w=1,h=1;
+        in.tags[f]=source->tags[ref];in.materials.faces[f]=source->materials.faces[ref];
+        if(BG_TEX_ID(in.tags[f])!=BG_TEX_NONE)OK(TexGetProjectImageSize(project,BG_TEX_ID(in.tags[f]),&w,&h));
+        for(DWORD k=0;k<3;k++)
+        {
+            in.vertices[f*3+k]=source->vertices[ref*3+k];
+            in.vertices[f*3+k].s/=w;in.vertices[f*3+k].t/=h;
+        }
+    }
+    OK(ModelCompileRetopology(data,size,source,&in,project,&ordered,&compiled,&length,&why));
+    OK(ModelReadSource(compiled,length,&check,&why)&&check.count==in.count);
+    for(DWORD l=0;l<source->listcount;l++)
+    {
+        unsigned segment=0;
+        for(DWORD pc=source->lists[l].offset;pc<source->lists[l].end;pc+=8)if(data[pc]==4)
+        { if(!segment)segment=data[pc+4];OK(segment==data[pc+4]); }
+        for(DWORD pc=check.lists[l].offset;pc<check.lists[l].end;pc+=8)if(compiled[pc]==4)
+        {
+            DWORD address=Get(compiled+pc+4),count=(compiled[pc+1]>>4)+1;
+            OK((address>>24)==segment);address&=0xffffffu;
+            if(segment==4)address+=check.lists[l].vertexbase;
+            OK(address>=check.lists[l].vertexbase&&address+count*16<=check.lists[l].vertexbase+(DWORD)(unsigned short)Get16(compiled+check.lists[l].vertexpointer+4)*16);
+            loads++;
+        }
+    }
+    OK(loads);printf("PASS: rebuilt %lu faces retain runtime vertex segments and valid DMA ranges.\n",(unsigned long)in.count);
+    free(compiled);GltfFreeModelImport(&in);ModelMaterialsFree(&ordered);ModelFreeSource(&check);
+}
 int main(int argc,char **argv)
 {
     OK(argc==5);asset=argv[1];DWORD size;unsigned char *data=Read(asset,&size);ModelSource original={0},source={0};
@@ -77,6 +118,8 @@ int main(int argc,char **argv)
         OK(!ModelEditsHasUnsaved());printf("PASS: rejected unsafe topology: %s\n",why);goto done;
     }
     OK(ModelReadSource(data,size,&original,&why));OK(ModelMaterialsEnsure(&original,argv[3],&why));
+    if(!strcmp(argv[4],"segments"))
+    { VertexSegments(data,size,&original,argv[3]);goto done; }
     if(!strcmp(argv[4],"export"))
     { OK(GltfWriteEditableModel(argv[2],argv[3],&original,ModelDataHash(data,size),&why));goto done; }
     OK(GltfReadModelImport(argv[2],ModelDataHash(data,size),&imported,&why));

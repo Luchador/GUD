@@ -28,6 +28,9 @@ with tempfile.TemporaryDirectory(prefix='geditor-topology-') as folder:
         (project/'models/objects').mkdir(parents=True)
         subprocess.run([str(binary),str(native),str(path),str(project),mode],env=env,check=True)
     original=work/'original.gltf';run(original,'export')
+    # Collision nodes use segment 4; first-person gun nodes bind only 5.
+    run(original,'segments')
+    run(original,'segments',root/'assets/obseg/gun/GwppksilZ.bin')
     doc=json.loads(original.read_text())
     raw=base64.b64decode(doc['buffers'][0]['uri'].split(',')[1])
     def accessor(document,data,values,kind,components):

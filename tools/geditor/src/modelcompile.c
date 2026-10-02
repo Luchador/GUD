@@ -979,6 +979,7 @@ static BOOL TopologyList(ModelOutput *out, const unsigned char *data, const Mode
     const ModelSourceList *part = &source->lists[list];
     BgMaterial original = part->initial, current = part->initial;
     ModelLoadState state = {0}, recipes[16] = {{0}};
+    DWORD segments[16] = {0};
     unsigned valid = 0; BOOL synced = FALSE;
     state.mode0 = current.modeword0; state.mode1 = current.modeword1;
     current.textureword0 = current.textureword1 = 0;
@@ -996,6 +997,7 @@ static BOOL TopologyList(ModelOutput *out, const unsigned char *data, const Mode
             {
                 recipes[slot] = state; recipes[slot].mode0 = original.modeword0;
                 recipes[slot].mode1 = original.modeword1; valid |= 1u << slot;
+                segments[slot] = cmd[4];
             }
             continue;
         }
@@ -1056,7 +1058,11 @@ static BOOL TopologyList(ModelOutput *out, const unsigned char *data, const Mode
                     DWORD start = slot++, address;
                     while (slot < count && edits[variants[slot]].target == edits[variants[slot - 1]].target + 16) { slot++; }
                     DWORD n = slot - start;
-                    if (!SplitVertexAddress(buffer, &edits[variants[start]], variants[start], 4, &address, why)) { return FALSE; }
+                    /* Gun display-list nodes bind only segment 5. Preserve
+                     * the original addressing convention: segment 4 is
+                     * relative to a runtime vertex buffer, while segment 5
+                     * is relative to the complete model file. */
+                    if (!SplitVertexAddress(buffer, &edits[variants[start]], variants[start], segments[idx[0]], &address, why)) { return FALSE; }
                     Command(out, 0x04000000u | ((n - 1) << 20) | (start << 16) | (n * 16), address);
                 }
                 if (!LoadState(out, &state, &saved, &current, why)) { return FALSE; }
