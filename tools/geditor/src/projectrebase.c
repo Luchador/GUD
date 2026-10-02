@@ -1,7 +1,7 @@
 /* Rebase saved edits onto a compatible GUD ROM. ROM addresses and file-table
  * indices may move; resource names and native model IDs remain stable. Image banks may gain
- * or lose an appended suffix; differing shared image IDs require an explicit
- * choice to keep the old base images and their complete native settings.
+ * or lose an appended suffix; differing image IDs use an explicit choice of
+ * project or incoming image data and complete native settings.
  * BG/setup/stan files and editable level fields use a three-way merge.
  * Binary conflicts require an explicit project/ROM choice, never a byte merge. */
 #include <stdio.h>
@@ -173,7 +173,7 @@ static BOOL Catalogs(const RomFile *a, const RomFile *b, const char **why)
     }
     return TRUE;
 }
-static BOOL ImageBank(const RomFile *a, RomFile *b, BOOL keepBaseImages,
+static BOOL ImageBank(const RomFile *a, RomFile *b, ProjectRebaseChoice choice,
     ProjectRebaseReport *report, const char **why)
 {
     TexRomBank oldbank, newbank;
@@ -194,12 +194,15 @@ static BOOL ImageBank(const RomFile *a, RomFile *b, BOOL keepBaseImages,
             || memcmp(a->data+oldat,b->data+newat,size))
         {
             size_t used=strlen(report->details);
-            if (!keepBaseImages)
-            { return Fail(why,"Image %04lX changed in the base ROM. To retain the project's existing texture and image settings, enable Keep existing base images and check again.",(unsigned long)i); }
-            report->imagespreserved++;
+            if (choice==PROJECT_REBASE_STOP)
+            { return Fail(why,"Image %04lX changed in the base ROM. Choose an Image conflicts resolution.",(unsigned long)i); }
+            BOOL keep=choice==PROJECT_REBASE_KEEP_PROJECT;
+            if (keep) { report->imagespreserved++; } else { report->imagesupdated++; }
+            report->resolved++;
             if (used<sizeof(report->details)-128)
                 snprintf(report->details+used,sizeof(report->details)-used,
-                    "Image %04lX: keeping the existing base texture and image settings.\r\n",(unsigned long)i);
+                    "Image %04lX: %s texture and image settings.\r\n",(unsigned long)i,
+                    keep ? "keeping the project's base" : "using the new ROM's");
         }
         oldat+=size;
         /* A retained replacement may have different dimensions/format. */
@@ -209,9 +212,8 @@ static BOOL ImageBank(const RomFile *a, RomFile *b, BOOL keepBaseImages,
     if (oldbank.count<=newbank.count && !report->imagespreserved) { return TRUE; }
     if (oldbank.count>newbank.capacity)
     { return Fail(why,"The new ROM has insufficient image capacity to retain the project's base images."); }
-    /* A project made from an exported ROM can have replacements as well as
-     * appended textures baked into its base. Keep complete original records
-     * in the private incoming ROM; no BG/model/material references move. */
+    /* Retain an absent suffix to preserve referenced image IDs. Shared slots
+     * use the chosen base, including complete native mipmaps/detail flags. */
     count=oldbank.count>newbank.count ? oldbank.count : newbank.count;
     records=calloc(count,sizeof(*records)); sizes=calloc(count,sizeof(*sizes));
     surfaces=calloc(count,1);
@@ -220,17 +222,20 @@ static BOOL ImageBank(const RomFile *a, RomFile *b, BOOL keepBaseImages,
     oldat=oldbank.images;
     for (i=0;i<oldbank.count;i++)
     {
-        records[i]=a->data+oldat; sizes[i]=Read32(a->data+oldbank.table+i*8)&0xffffffu;
+        DWORD size=Read32(a->data+oldbank.table+i*8)&0xffffffu;
+        if (i>=common || choice==PROJECT_REBASE_KEEP_PROJECT)
+        { records[i]=a->data+oldat; sizes[i]=size; }
         /* A legacy original can use flags unavailable to fresh imports.
          * Supply neutral import flags here and restore its full entry below. */
-        oldat+=sizes[i];
+        oldat+=size;
     }
     ok=TexRomUpdateImages(b,&newbank,records,sizes,surfaces,count,why);
     if (ok)
     {
         /* These are originals, not fresh imports. Preserve all detail flags
          * too; TexRomUpdateImages normally clears them on replacement. */
-        memcpy(b->data+newbank.table,a->data+oldbank.table,oldbank.count*8);
+        for (i=0;i<oldbank.count;i++) if (records[i])
+            memcpy(b->data+newbank.table+i*8,a->data+oldbank.table+i*8,8);
         report->imagesretained=oldbank.count-common;
     }
     free(records); free(sizes); free(surfaces); return ok;
@@ -621,26 +626,28 @@ static BOOL Prepare(RebasePlan *plan, const GEditorProject *source, const char *
     char base[MAX_PATH];
     ZeroMemory(report,sizeof(*report)); *why="";
     if (!source || !source->dir[0] || source->levelcount>ROM_MAX_LEVELS) { return Fail(why,"Open a valid saved project first."); }
-    if (!options || options->levelConflicts<PROJECT_REBASE_STOP || options->levelConflicts>PROJECT_REBASE_USE_ROM
+    if (!options || options->imageConflicts<PROJECT_REBASE_STOP || options->imageConflicts>PROJECT_REBASE_USE_ROM
+        || options->levelConflicts<PROJECT_REBASE_STOP || options->levelConflicts>PROJECT_REBASE_USE_ROM
         || options->modelConflicts<PROJECT_REBASE_STOP || options->modelConflicts>PROJECT_REBASE_USE_ROM)
     { return Fail(why,"Choose valid rebase conflict resolutions."); }
     if (!Join(base,source->dir,ROM_EXPORT_BASE_FILENAME,why)
         || !RomLoad(base,&plan->oldrom,why) || !RomLoad(rompath,&plan->newrom,why)
-        || !ImageBank(&plan->oldrom,&plan->newrom,options->keepBaseImages,report,why) || !Catalogs(&plan->oldrom,&plan->newrom,why)
+        || !ImageBank(&plan->oldrom,&plan->newrom,options->imageConflicts,report,why) || !Catalogs(&plan->oldrom,&plan->newrom,why)
         || !NewPropsCheckRebase(source->dir,&plan->newrom,why)
         || !Levels(plan,source,report,why) || !Resources(plan,source,options,report,why)) { return FALSE; }
     if (report->conflicts) { return Fail(why,"Rebase blocked by %lu conflict(s). See the report.",(unsigned long)report->conflicts); }
     /* Validate against the original base before new stock IDs can turn an
      * orphan BMP or a gap in imported IDs into an apparently valid asset. */
     return RomExportValidateRebaseSource(source,&plan->newrom,why)
-        && ImageEditsRebase(source->dir,&plan->oldrom,&plan->newrom,FALSE,why);
+        && ImageEditsRebase(source->dir,&plan->oldrom,&plan->newrom,options->imageConflicts,report,FALSE,why);
 }
 static void FreePlan(RebasePlan *plan)
 { if (plan) { RomFree(&plan->oldrom); RomFree(&plan->newrom); free(plan); } }
 BOOL ProjectRebaseCheck(const GEditorProject *source, const char *rompath,
     BOOL keepBaseImages, ProjectRebaseReport *report, const char **why)
 {
-    ProjectRebaseOptions options={keepBaseImages,PROJECT_REBASE_STOP,PROJECT_REBASE_STOP};
+    ProjectRebaseOptions options={keepBaseImages ? PROJECT_REBASE_KEEP_PROJECT : PROJECT_REBASE_STOP,
+        PROJECT_REBASE_STOP,PROJECT_REBASE_STOP};
     return ProjectRebaseCheckWithOptions(source,rompath,&options,report,why);
 }
 BOOL ProjectRebaseCheckWithOptions(const GEditorProject *source, const char *rompath,
@@ -763,7 +770,8 @@ BOOL ProjectRebaseCreate(const GEditorProject *source, const char *rompath,
     BOOL keepBaseImages, const char *parent, const char *name, GEditorProject *output,
     ProjectRebaseReport *report, const char **why)
 {
-    ProjectRebaseOptions options={keepBaseImages,PROJECT_REBASE_STOP,PROJECT_REBASE_STOP};
+    ProjectRebaseOptions options={keepBaseImages ? PROJECT_REBASE_KEEP_PROJECT : PROJECT_REBASE_STOP,
+        PROJECT_REBASE_STOP,PROJECT_REBASE_STOP};
     return ProjectRebaseCreateWithOptions(source,rompath,&options,parent,name,output,report,why);
 }
 BOOL ProjectRebaseCreateWithOptions(const GEditorProject *source, const char *rompath,
@@ -812,7 +820,7 @@ BOOL ProjectRebaseCreateWithOptions(const GEditorProject *source, const char *ro
     lstrcpyn(plan->project.name,name,sizeof(plan->project.name));
     snprintf(filename,sizeof(filename),"%s.gep",name);
     if (!Join(plan->project.geppath,staging,filename,why)
-        || !ImageEditsRebase(staging,&plan->oldrom,&plan->newrom,TRUE,why)
+        || !ImageEditsRebase(staging,&plan->oldrom,&plan->newrom,options->imageConflicts,NULL,TRUE,why)
         || !RomExportStoreProjectBase(&plan->project,&plan->newrom,why)
         || !ProjectSave(&plan->project,why)) { goto done; }
     /* Model previews must use the adopted base images and image edits. */

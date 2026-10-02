@@ -4,7 +4,7 @@
 
 typedef struct ProjectRebaseReport {
     DWORD checked, kept, updated, conflicts;
-    DWORD imagesretained, imagesadded, imagespreserved;
+    DWORD imagesretained, imagesadded, imagespreserved, imagesupdated;
     DWORD levelsremoved, resourcesremoved;
     DWORD modelskept, modelsupdated, resolved;
     char details[8192];
@@ -16,16 +16,15 @@ typedef enum ProjectRebaseChoice {
     PROJECT_REBASE_USE_ROM
 } ProjectRebaseChoice;
 typedef struct ProjectRebaseOptions {
-    BOOL keepBaseImages;
-    ProjectRebaseChoice levelConflicts, modelConflicts;
+    ProjectRebaseChoice imageConflicts, levelConflicts, modelConflicts;
 } ProjectRebaseOptions;
 
 /* These functions consume saved project files. Check never writes anything.
  * Create rechecks a private snapshot, validates it through the ROM exporter,
  * then publishes a new folder. It never replaces an existing destination.
- * keepBaseImages explicitly chooses the old base for differing shared image
- * IDs, including native mipmaps and surface/detail settings. New IDs still
- * undergo the normal imported-image conflict checks. */
+ * keepBaseImages chooses Keep project for images; FALSE uses strict checks.
+ * The dialog uses WithOptions to choose Keep project or Use new ROM for each
+ * asset category, including competing imports at the same image ID. */
 BOOL ProjectRebaseDestination(const GEditorProject *source, const char *parent,
     const char *name, char destination[MAX_PATH], const char **why);
 BOOL ProjectRebaseCheck(const GEditorProject *source, const char *rompath,

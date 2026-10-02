@@ -366,36 +366,59 @@ static BOOL ReadForExport(const char *project,DWORD id,const TexRomBank *bank,Im
 done:
     free(pixels);return ok;
 }
-BOOL ImageEditsRebase(const char *project,const RomFile *oldrom,const RomFile *newrom,BOOL write,const char **why)
+BOOL ImageEditsRebase(const char *project,const RomFile *oldrom,const RomFile *newrom,
+    ProjectRebaseChoice choice,ProjectRebaseReport *report,BOOL write,const char **why)
 {
     unsigned char ids[TEX_IMAGE_CAPACITY];TexRomBank oldbank,newbank;
-    DWORD count,total,i,at;static char message[256];
+    DWORD count,total,i,at,oldat;static char message[256];
     if(!TexRomReadBank(oldrom,&oldbank,why) || !TexRomReadBank(newrom,&newbank,why)
         || !SavedIds(project,ids,&count,why) || !Contiguous(ids,&oldbank,&total,why)) { return FALSE; }
     if(newbank.count<oldbank.count || total>newbank.capacity)
     { *why="The rebased image bank cannot retain every project image ID.";return FALSE; }
     if(oldbank.count==newbank.count && oldbank.hash==newbank.hash) { return TRUE; }
-    at=newbank.images;
+    at=newbank.images;oldat=oldbank.images;
     for(i=0;i<newbank.count || i<total;i++)
     {
         DWORD size=i<newbank.count ? Read32(newrom->data+newbank.table+i*8)&0xffffffu : 0;
+        DWORD oldsize=i<oldbank.count ? Read32(oldrom->data+oldbank.table+i*8)&0xffffffu : 0;
+        BOOL changed=size && (!oldsize || oldsize!=size
+            || memcmp(oldrom->data+oldbank.table+i*8,newrom->data+newbank.table+i*8,8)
+            || memcmp(oldrom->data+oldat,newrom->data+at,size));
+        BOOL take=FALSE;
         char path[MAX_PATH];
         if(ids[i])
         {
             ImageEdit edit={0};BOOL ok=ReadForExport(project,i,&oldbank,&edit,why);
-            if(ok && i>=oldbank.count && i<newbank.count)
+            if(ok && changed)
             {
                 unsigned char entry[8]={0};
                 Write32(entry,((DWORD)((edit.options.hitsound<<4)|edit.options.hittexture)<<24)|edit.size);
                 if(edit.size!=size || memcmp(entry,newrom->data+newbank.table+i*8,8)
                     || memcmp(edit.data,newrom->data+at,size))
                 {
-                    snprintf(message,sizeof(message),"Image %04lX is used by both an imported project image and a different image in the new ROM. Rebase cannot automatically merge this image-ID conflict.",(unsigned long)i);
-                    *why=message;ok=FALSE;
+                    if(choice==PROJECT_REBASE_STOP)
+                    {
+                        snprintf(message,sizeof(message),"Image %04lX is used by both a project image and a different image in the new ROM. Choose an Image conflicts resolution.",(unsigned long)i);
+                        *why=message;ok=FALSE;
+                    }
+                    else
+                    {
+                        take=choice==PROJECT_REBASE_USE_ROM;
+                        if(report && i>=oldbank.count)
+                        {
+                            size_t used=strlen(report->details);
+                            if(take) report->imagesupdated++; else report->imagespreserved++;
+                            report->resolved++;
+                            if(used<sizeof(report->details)-128)
+                                snprintf(report->details+used,sizeof(report->details)-used,
+                                    "Image %04lX: %s at a conflicting imported ID.\r\n",(unsigned long)i,
+                                    take ? "using the new ROM's image" : "keeping the project image");
+                        }
+                    }
                 }
             }
             FreeEdit(&edit);if(!ok) { return FALSE; }
-            if(write)
+            if(write && !take)
             {
                 /* Only the verified base fingerprint changes. Keep GTI2/GTI3,
                  * pixels, settings, deletion state and source path untouched. */
@@ -407,11 +430,18 @@ BOOL ImageEditsRebase(const char *project,const RomFile *oldrom,const RomFile *n
                 if(fclose(file)) { ok=FALSE; }
                 if(!ok) { *why="An image's base fingerprint could not be saved in the rebased copy.";return FALSE; }
             }
+            else if(write)
+            {
+                /* Remove the conflicting override, including deleted-image
+                 * state/source paths, so export actually uses the new base. */
+                if(!Path(path,project,i,".gtex") || !DeleteFile(path))
+                { *why="A conflicting image override could not be removed from the rebased copy.";return FALSE; }
+            }
         }
-        else if(i>=oldbank.count && i<newbank.count)
+        if(take || (!ids[i] && changed))
         {
-            /* New stock images need previews too: image/model browsers read
-             * project BMPs, not the ROM bank. Never overwrite a project image. */
+            /* Adopted images need matching browser/model previews. Only the
+             * private copy may be overwritten, and only for chosen ROM data. */
             TexPixel *pixels=malloc(256*256*sizeof(TexPixel));int width,height;BOOL ok;
             if(!pixels) { *why="Out of memory decoding a new base image.";return FALSE; }
             ok=TexDecodeRecord(newrom->data+at,size,pixels,&width,&height);
@@ -419,14 +449,16 @@ BOOL ImageEditsRebase(const char *project,const RomFile *oldrom,const RomFile *n
             {
                 int n=snprintf(path,sizeof(path),"%s\\images",project);
                 ok=n>=0 && n<MAX_PATH && (CreateDirectory(path,NULL) || GetLastError()==ERROR_ALREADY_EXISTS)
-                    && Path(path,project,i,".bmp") && GetFileAttributes(path)==INVALID_FILE_ATTRIBUTES
-                    && (GetLastError()==ERROR_FILE_NOT_FOUND || GetLastError()==ERROR_PATH_NOT_FOUND)
-                    && TexWriteBmp(path,pixels,width,height);
+                    && Path(path,project,i,".bmp");
+                if(ok && !take && !oldsize)
+                    ok=GetFileAttributes(path)==INVALID_FILE_ATTRIBUTES
+                        && (GetLastError()==ERROR_FILE_NOT_FOUND || GetLastError()==ERROR_PATH_NOT_FOUND);
+                if(ok) ok=TexWriteBmp(path,pixels,width,height);
             }
             free(pixels);
-            if(!ok) { *why="A new base image could not be decoded or its preview saved in the rebased copy.";return FALSE; }
+            if(!ok) { *why="An incoming image could not be decoded or its preview saved in the rebased copy.";return FALSE; }
         }
-        at+=size;
+        at+=size;oldat+=oldsize;
     }
     *why="";return TRUE;
 }

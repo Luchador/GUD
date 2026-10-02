@@ -7,6 +7,29 @@ static void SameBank(const RomFile *a,const RomFile *b)
     OK(!memcmp(a->data+ab.table,b->data+bb.table,(ab.count+1)*8));
 }
 
+static void SameImage(const RomFile *a,const RomFile *b,DWORD id)
+{
+    TexRomBank ab,bb;DWORD aa,ba,size;
+    OK(TexRomReadBank(a,&ab,&why)&&TexRomReadBank(b,&bb,&why)&&id<ab.count&&id<bb.count);
+    OK(!memcmp(a->data+ab.table+id*8,b->data+bb.table+id*8,8));
+    aa=ab.images;ba=bb.images;
+    for(DWORD i=0;i<id;i++) { aa+=Get32(a->data+ab.table+i*8)&0xffffffu;ba+=Get32(b->data+bb.table+i*8)&0xffffffu; }
+    size=Get32(a->data+ab.table+id*8)&0xffffffu;
+    OK(!memcmp(a->data+aa,b->data+ba,size));
+}
+
+static void IncomingImagePreview(const char *project,const RomFile *rom,DWORD id)
+{
+    TexRomBank bank;int w,h,pw,ph;DWORD at;
+    TexPixel *pixels=malloc(256*256*sizeof(*pixels)),*preview=malloc(256*256*sizeof(*preview));
+    OK(pixels&&preview&&TexRomReadBank(rom,&bank,&why)&&id<bank.count);
+    at=bank.images;
+    for(DWORD i=0;i<id;i++) at+=Get32(rom->data+bank.table+i*8)&0xffffffu;
+    OK(TexDecodeRecord(rom->data+at,Get32(rom->data+bank.table+id*8)&0xffffffu,pixels,&w,&h));
+    OK(TexLoadSavedProjectImage(project,id,preview,&pw,&ph)&&w==pw&&h==ph);
+    OK(!memcmp(pixels,preview,w*h*sizeof(*pixels)));free(pixels);free(preview);
+}
+
 static void ExistingImageBases(const GEditorProject *source,const char *incoming,const char *parent)
 {
     GEditorProject kept,grown,shrunk,again,rejected;
@@ -41,6 +64,18 @@ static void ExistingImageBases(const GEditorProject *source,const char *incoming
         Same(source->dir,kept.dir,"images/0000.bmp");Same(source->dir,kept.dir,"images/native/0001.gtex");
         OK(RomExportCreate(&kept,mode?"KeptSettingsROM":"KeptImageROM",parent,exported,sizeof(exported),&why));
         OK(RomLoad(exported,&after,&why));SameBank(&before,&after);RomFree(&after);
+        // The other UI choice adopts complete incoming settings and refreshes
+        // an existing BMP, even when only surface/detail flags changed.
+        ProjectRebaseOptions take={PROJECT_REBASE_USE_ROM,PROJECT_REBASE_KEEP_PROJECT,PROJECT_REBASE_KEEP_PROJECT};
+        OK(ProjectRebaseCreateWithOptions(source,different,&take,parent,mode?"TakeImageSettings":"TakeImageData",&kept,&report,&why));
+        OK(report.imagesupdated==1&&!report.imagespreserved);
+        OK(RomLoad(different,&changed,&why));
+        Path(path,kept.dir,"base.z64");OK(RomLoad(path,&after,&why));SameBank(&changed,&after);
+        IncomingImagePreview(kept.dir,&changed,0);
+        OK(RomExportCreate(&kept,mode?"TakenSettingsROM":"TakenImageROM",parent,exported,sizeof(exported),&why));
+        RomFree(&after);OK(RomLoad(exported,&after,&why));SameImage(&changed,&after,0);
+        for(DWORD i=1;i<4;i++) SameImage(&before,&after,i);
+        RomFree(&after);RomFree(&changed);
     }
     // Incoming stock slots may absorb identical project imports. Add a fifth
     // slot as well: the old prefix is kept, new slots retain incoming bytes.
@@ -72,17 +107,55 @@ static void ExistingImageBases(const GEditorProject *source,const char *incoming
     RomFree(&before);OK(RomLoad(exported,&before,&why));
     OK(RomExportCreate(&shrunk,"AfterRetainedShrink",parent,exported,sizeof(exported),&why));
     OK(RomLoad(exported,&after,&why));SameBank(&before,&after);RomFree(&after);
-    // Keeping the base never resolves a genuinely different new image at an
-    // imported ID. Failed checks/publication must leave all source files intact.
+    // The image choice also covers conflicting imports at incoming stock IDs.
     OK(TexRomReadBank(&changed,&bank,&why));changed.data[bank.table+8]^=1;
     Save(large,changed.data,changed.size);
-    OK(!ProjectRebaseCheck(source,large,TRUE,&report,&why)&&strstr(why,"Image 0001"));
-    OK(!ProjectRebaseCreate(source,large,TRUE,parent,"KeptButConflictingImport",&rejected,&report,&why));
-    OK(!rejected.dir[0]);Path(path,parent,"KeptButConflictingImport");OK(GetFileAttributes(path)==INVALID_FILE_ATTRIBUTES);
+    OK(ProjectRebaseCheck(source,large,TRUE,&report,&why)&&report.imagespreserved==2&&strstr(report.details,"Image 0001"));
+    OK(ProjectRebaseCreate(source,large,TRUE,parent,"KeptConflictingImport",&kept,&report,&why));
+    Same(source->dir,kept.dir,"images/0001.bmp");
+    OK(RomExportCreate(&kept,"KeptImportROM",parent,exported,sizeof(exported),&why));
+    OK(RomLoad(exported,&after,&why));
+    // Incoming slot 4 remains present and slot 1 retains the project edit.
+    SameBank(&before,&after);RomFree(&after);
+    ProjectRebaseOptions take={PROJECT_REBASE_USE_ROM,PROJECT_REBASE_KEEP_PROJECT,PROJECT_REBASE_KEEP_PROJECT};
+    OK(ProjectRebaseCreateWithOptions(source,large,&take,parent,"TakenConflictingImport",&kept,&report,&why));
+    OK(report.imagesupdated==2&&!report.imagespreserved);
+    Path(path,kept.dir,"images/native/0001.gtex");OK(GetFileAttributes(path)==INVALID_FILE_ATTRIBUTES);
+    IncomingImagePreview(kept.dir,&changed,0);IncomingImagePreview(kept.dir,&changed,1);
+    OK(RomExportCreate(&kept,"TakenImportROM",parent,exported,sizeof(exported),&why));
+    OK(RomLoad(exported,&after,&why));SameBank(&changed,&after);RomFree(&after);
+    OK(ProjectRebaseCreateWithOptions(&kept,large,&take,parent,"TakenImagesAgain",&again,&report,&why));
+    OK(!report.imagesupdated&&!report.imagespreserved);
+    // A smaller incoming bank still retains the old suffix without reverting
+    // a chosen incoming image in the shared prefix.
+    OK(ProjectRebaseCreateWithOptions(&kept,different,&take,parent,"TakenImagesFewerSlots",&shrunk,&report,&why));
+    OK(report.imagesretained==4);
+    OK(RomLoad(different,&after,&why));IncomingImagePreview(shrunk.dir,&after,0);RomFree(&after);
+    // An ordinary replacement/deletion at a shared base ID must disappear
+    // only when the user takes a competing ROM change. Uncontested edits stay.
+    GEditorProject edited;
+    OK(ProjectRebaseCreate(source,incoming,TRUE,parent,"EditableImageSource",&edited,&report,&why));
+    for(DWORD i=0;i<16*17;i++) pixels[i]=(TexPixel){255,0,255,255};
+    OK(ImageEditsReplace(edited.dir,0,pixels,16,17,&options,"C:\\glass.bmp",&why));
+    OK(ImageEditsSave(edited.dir,&why));ImageEditsReset();
+    Path(path,edited.dir,"images/native/0000.gtex");DWORD editHash=Hash(path);
+    OK(ProjectRebaseCreateWithOptions(&edited,incoming,&take,parent,"KeepUncontestedImage",&again,&report,&why));
+    Same(edited.dir,again.dir,"images/native/0000.gtex");Same(edited.dir,again.dir,"images/0000.bmp");
+    for(int deleted=0;deleted<2;deleted++)
+    {
+        if(deleted) { OK(ImageEditsDelete(edited.dir,0,&why));OK(ImageEditsSave(edited.dir,&why));ImageEditsReset(); }
+        OK(ProjectRebaseCreateWithOptions(&edited,different,&take,parent,
+            deleted?"TakeDeletedImage":"TakeReplacedImage",&again,&report,&why));
+        OK(report.imagesupdated==1);
+        Path(path,again.dir,"images/native/0000.gtex");OK(GetFileAttributes(path)==INVALID_FILE_ATTRIBUTES);
+        OK(RomLoad(different,&after,&why));IncomingImagePreview(again.dir,&after,0);RomFree(&after);
+        OK(RomExportValidateProject(&again,&why));
+        if(!deleted) { Path(path,edited.dir,"images/native/0000.gtex");OK(Hash(path)==editHash); }
+    }
     test_fail_move=1;
     OK(!ProjectRebaseCreate(source,different,TRUE,parent,"KeptPublishFailure",&rejected,&report,&why));
     Path(path,parent,"KeptPublishFailure");OK(GetFileAttributes(path)==INVALID_FILE_ATTRIBUTES);
     OK(Hash(base)==sourceHash&&Hash(different)==incomingHash);NoTemps(parent);OK(RomExportValidateProject(source,&why));
     RomFree(&before);RomFree(&rebased);RomFree(&original);RomFree(&changed);free(texture);
-    puts("PASS: explicit base-image choice, changed formats/sizes/settings, exact payload/flags, new/retained IDs, repeated rebase/export, import conflicts and rollback.");
+    puts("PASS: project/ROM image choices, changed formats/sizes/settings, exact payload/flags, previews, replacements/deletions, imported-ID conflicts, retained suffixes, repeated rebase/export and rollback.");
 }

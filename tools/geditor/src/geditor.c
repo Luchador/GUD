@@ -1994,6 +1994,12 @@ typedef struct RebaseProjectInfo {
     GEditorProject output;
 } RebaseProjectInfo;
 
+static ProjectRebaseChoice GEditorRebaseChoice(HWND hdlg, int id)
+{
+    LRESULT row=SendDlgItemMessage(hdlg,id,CB_GETCURSEL,0,0);
+    return (ProjectRebaseChoice)SendDlgItemMessage(hdlg,id,CB_GETITEMDATA,row,0);
+}
+
 static INT_PTR CALLBACK GEditorRebaseProjectProc(HWND hdlg, UINT msg,
                                                  WPARAM wparam, LPARAM lparam)
 {
@@ -2015,14 +2021,14 @@ static INT_PTR CALLBACK GEditorRebaseProjectProc(HWND hdlg, UINT msg,
         if (slash) { slash[1]=0; } else { lstrcpyn(parent,".",sizeof(parent)); }
         SetDlgItemText(hdlg,IDC_REBASE_NAME,name);
         SetDlgItemText(hdlg,IDC_REBASE_PARENT,parent);
-        CheckDlgButton(hdlg,IDC_REBASE_KEEP_IMAGES,BST_CHECKED);
-        const int choices[]={IDC_REBASE_LEVEL_CONFLICTS,IDC_REBASE_MODEL_CONFLICTS};
+        const int choices[]={IDC_REBASE_LEVEL_CONFLICTS,IDC_REBASE_MODEL_CONFLICTS,IDC_REBASE_IMAGE_CONFLICTS};
         for (unsigned i=0;i<sizeof(choices)/sizeof(choices[0]);i++)
         {
-            SendDlgItemMessage(hdlg,choices[i],CB_ADDSTRING,0,(LPARAM)"Stop on conflicts");
-            SendDlgItemMessage(hdlg,choices[i],CB_ADDSTRING,0,(LPARAM)"Keep project");
-            SendDlgItemMessage(hdlg,choices[i],CB_ADDSTRING,0,(LPARAM)"Use new ROM");
-            SendDlgItemMessage(hdlg,choices[i],CB_SETCURSEL,PROJECT_REBASE_STOP,0);
+            LRESULT row=SendDlgItemMessage(hdlg,choices[i],CB_ADDSTRING,0,(LPARAM)"Keep project");
+            SendDlgItemMessage(hdlg,choices[i],CB_SETITEMDATA,row,PROJECT_REBASE_KEEP_PROJECT);
+            row=SendDlgItemMessage(hdlg,choices[i],CB_ADDSTRING,0,(LPARAM)"Use new ROM");
+            SendDlgItemMessage(hdlg,choices[i],CB_SETITEMDATA,row,PROJECT_REBASE_USE_ROM);
+            SendDlgItemMessage(hdlg,choices[i],CB_SETCURSEL,0,0);
         }
         SetDlgItemText(hdlg,IDC_REBASE_REPORT,"Choose a newer GUD ROM, then select Save and Check.\r\n\r\nUnedited assets update automatically. Choose how to resolve competing project/ROM edits above; the report lists which files will be kept or replaced.");
         EnableWindow(GetDlgItem(hdlg,IDC_REBASE_CREATE),FALSE);
@@ -2034,11 +2040,11 @@ static INT_PTR CALLBACK GEditorRebaseProjectProc(HWND hdlg, UINT msg,
         case IDC_REBASE_ROM:
         case IDC_REBASE_PARENT:
         case IDC_REBASE_NAME:
-        case IDC_REBASE_KEEP_IMAGES:
+        case IDC_REBASE_IMAGE_CONFLICTS:
         case IDC_REBASE_LEVEL_CONFLICTS:
         case IDC_REBASE_MODEL_CONFLICTS:
-            if (info && ((LOWORD(wparam)==IDC_REBASE_KEEP_IMAGES && HIWORD(wparam)==BN_CLICKED)
-                || ((LOWORD(wparam)==IDC_REBASE_LEVEL_CONFLICTS || LOWORD(wparam)==IDC_REBASE_MODEL_CONFLICTS)
+            if (info && (((LOWORD(wparam)==IDC_REBASE_IMAGE_CONFLICTS
+                    || LOWORD(wparam)==IDC_REBASE_LEVEL_CONFLICTS || LOWORD(wparam)==IDC_REBASE_MODEL_CONFLICTS)
                     && HIWORD(wparam)==CBN_SELCHANGE)
                 || HIWORD(wparam)==EN_CHANGE))
             {
@@ -2069,9 +2075,9 @@ static INT_PTR CALLBACK GEditorRebaseProjectProc(HWND hdlg, UINT msg,
             const char *why="";
             BOOL create=LOWORD(wparam)==IDC_REBASE_CREATE, ok;
             ProjectRebaseOptions options={
-                IsDlgButtonChecked(hdlg,IDC_REBASE_KEEP_IMAGES)==BST_CHECKED,
-                (ProjectRebaseChoice)SendDlgItemMessage(hdlg,IDC_REBASE_LEVEL_CONFLICTS,CB_GETCURSEL,0,0),
-                (ProjectRebaseChoice)SendDlgItemMessage(hdlg,IDC_REBASE_MODEL_CONFLICTS,CB_GETCURSEL,0,0)};
+                GEditorRebaseChoice(hdlg,IDC_REBASE_IMAGE_CONFLICTS),
+                GEditorRebaseChoice(hdlg,IDC_REBASE_LEVEL_CONFLICTS),
+                GEditorRebaseChoice(hdlg,IDC_REBASE_MODEL_CONFLICTS)};
             HCURSOR previous;
             if (!info || (create && !info->checked)) { return TRUE; }
             GetDlgItemText(hdlg,IDC_REBASE_ROM,rom,sizeof(rom));
@@ -2102,13 +2108,13 @@ static INT_PTR CALLBACK GEditorRebaseProjectProc(HWND hdlg, UINT msg,
                 "%lu level resources updated from the new ROM.\r\n"
                 "%lu unused levels and %lu unused ROM resources removed.\r\n"
                 "%lu base images carried forward; %lu incoming image slots added.\r\n"
-                "%lu differing base images kept from the existing project.\r\n"
+                "%lu differing images kept from the project; %lu taken from the new ROM.\r\n"
                 "%lu changed models kept from the project; %lu updated from the new ROM.\r\n"
                 "%lu competing asset edits resolved using your choices.\r\n\r\n%s\r\nDestination:\r\n%s",
                 (unsigned long)report.checked,(unsigned long)report.kept,(unsigned long)report.updated,
                 (unsigned long)report.levelsremoved,(unsigned long)report.resourcesremoved,
                 (unsigned long)report.imagesretained,(unsigned long)report.imagesadded,
-                (unsigned long)report.imagespreserved,(unsigned long)report.modelskept,
+                (unsigned long)report.imagespreserved,(unsigned long)report.imagesupdated,(unsigned long)report.modelskept,
                 (unsigned long)report.modelsupdated,(unsigned long)report.resolved,report.details,destination);
             SetDlgItemText(hdlg,IDC_REBASE_REPORT,message);
             info->checked=TRUE;
