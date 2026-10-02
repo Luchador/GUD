@@ -2016,7 +2016,15 @@ static INT_PTR CALLBACK GEditorRebaseProjectProc(HWND hdlg, UINT msg,
         SetDlgItemText(hdlg,IDC_REBASE_NAME,name);
         SetDlgItemText(hdlg,IDC_REBASE_PARENT,parent);
         CheckDlgButton(hdlg,IDC_REBASE_KEEP_IMAGES,BST_CHECKED);
-        SetDlgItemText(hdlg,IDC_REBASE_REPORT,"Choose a newer GUD ROM, then select Save and Check.\r\n\r\nCompatible project edits, imported images and model edits will be retained. Conflicts must be resolved before a copy can be created.");
+        const int choices[]={IDC_REBASE_LEVEL_CONFLICTS,IDC_REBASE_MODEL_CONFLICTS};
+        for (unsigned i=0;i<sizeof(choices)/sizeof(choices[0]);i++)
+        {
+            SendDlgItemMessage(hdlg,choices[i],CB_ADDSTRING,0,(LPARAM)"Stop on conflicts");
+            SendDlgItemMessage(hdlg,choices[i],CB_ADDSTRING,0,(LPARAM)"Keep project");
+            SendDlgItemMessage(hdlg,choices[i],CB_ADDSTRING,0,(LPARAM)"Use new ROM");
+            SendDlgItemMessage(hdlg,choices[i],CB_SETCURSEL,PROJECT_REBASE_STOP,0);
+        }
+        SetDlgItemText(hdlg,IDC_REBASE_REPORT,"Choose a newer GUD ROM, then select Save and Check.\r\n\r\nUnedited assets update automatically. Choose how to resolve competing project/ROM edits above; the report lists which files will be kept or replaced.");
         EnableWindow(GetDlgItem(hdlg,IDC_REBASE_CREATE),FALSE);
         return TRUE;
     }
@@ -2027,7 +2035,11 @@ static INT_PTR CALLBACK GEditorRebaseProjectProc(HWND hdlg, UINT msg,
         case IDC_REBASE_PARENT:
         case IDC_REBASE_NAME:
         case IDC_REBASE_KEEP_IMAGES:
+        case IDC_REBASE_LEVEL_CONFLICTS:
+        case IDC_REBASE_MODEL_CONFLICTS:
             if (info && ((LOWORD(wparam)==IDC_REBASE_KEEP_IMAGES && HIWORD(wparam)==BN_CLICKED)
+                || ((LOWORD(wparam)==IDC_REBASE_LEVEL_CONFLICTS || LOWORD(wparam)==IDC_REBASE_MODEL_CONFLICTS)
+                    && HIWORD(wparam)==CBN_SELCHANGE)
                 || HIWORD(wparam)==EN_CHANGE))
             {
                 info->checked=FALSE;
@@ -2056,7 +2068,10 @@ static INT_PTR CALLBACK GEditorRebaseProjectProc(HWND hdlg, UINT msg,
             ProjectRebaseReport report={0};
             const char *why="";
             BOOL create=LOWORD(wparam)==IDC_REBASE_CREATE, ok;
-            BOOL keepBaseImages=IsDlgButtonChecked(hdlg,IDC_REBASE_KEEP_IMAGES)==BST_CHECKED;
+            ProjectRebaseOptions options={
+                IsDlgButtonChecked(hdlg,IDC_REBASE_KEEP_IMAGES)==BST_CHECKED,
+                (ProjectRebaseChoice)SendDlgItemMessage(hdlg,IDC_REBASE_LEVEL_CONFLICTS,CB_GETCURSEL,0,0),
+                (ProjectRebaseChoice)SendDlgItemMessage(hdlg,IDC_REBASE_MODEL_CONFLICTS,CB_GETCURSEL,0,0)};
             HCURSOR previous;
             if (!info || (create && !info->checked)) { return TRUE; }
             GetDlgItemText(hdlg,IDC_REBASE_ROM,rom,sizeof(rom));
@@ -2071,8 +2086,8 @@ static INT_PTR CALLBACK GEditorRebaseProjectProc(HWND hdlg, UINT msg,
             SetDlgItemText(hdlg,IDC_REBASE_REPORT,create ? "Creating and validating the new project..." : "Checking ROM compatibility and saved edits...");
             UpdateWindow(hdlg);
             previous=SetCursor(LoadCursor(NULL,IDC_WAIT));
-            ok=create ? ProjectRebaseCreate(&g_Project,rom,keepBaseImages,parent,name,&info->output,&report,&why)
-                      : ProjectRebaseCheck(&g_Project,rom,keepBaseImages,&report,&why);
+            ok=create ? ProjectRebaseCreateWithOptions(&g_Project,rom,&options,parent,name,&info->output,&report,&why)
+                      : ProjectRebaseCheckWithOptions(&g_Project,rom,&options,&report,&why);
             SetCursor(previous);
             if (!ok)
             {
@@ -2088,11 +2103,13 @@ static INT_PTR CALLBACK GEditorRebaseProjectProc(HWND hdlg, UINT msg,
                 "%lu unused levels and %lu unused ROM resources removed.\r\n"
                 "%lu base images carried forward; %lu incoming image slots added.\r\n"
                 "%lu differing base images kept from the existing project.\r\n"
-                "Model edits and imported images will be retained.\r\n\r\n%s\r\nDestination:\r\n%s",
+                "%lu changed models kept from the project; %lu updated from the new ROM.\r\n"
+                "%lu competing asset edits resolved using your choices.\r\n\r\n%s\r\nDestination:\r\n%s",
                 (unsigned long)report.checked,(unsigned long)report.kept,(unsigned long)report.updated,
                 (unsigned long)report.levelsremoved,(unsigned long)report.resourcesremoved,
                 (unsigned long)report.imagesretained,(unsigned long)report.imagesadded,
-                (unsigned long)report.imagespreserved,report.details,destination);
+                (unsigned long)report.imagespreserved,(unsigned long)report.modelskept,
+                (unsigned long)report.modelsupdated,(unsigned long)report.resolved,report.details,destination);
             SetDlgItemText(hdlg,IDC_REBASE_REPORT,message);
             info->checked=TRUE;
             EnableWindow(GetDlgItem(hdlg,IDC_REBASE_CREATE),TRUE);

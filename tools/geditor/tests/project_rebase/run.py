@@ -17,7 +17,10 @@ import tempfile
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument("--rom", type=Path, help="Also verify all 20 briefings in a local GUD ROM")
+    parser.add_argument("--base-rom", type=Path, help="Also rebase an unedited project from this ROM onto --rom")
     args=parser.parse_args()
+    if args.base_rom and not args.rom:
+        parser.error("--base-rom requires --rom")
     here = Path(__file__).resolve().parent
     src = here.parent.parent / 'src'
     root = src.parents[2]
@@ -53,7 +56,7 @@ def main():
         doc['images'][0]['name'] = 'GUD Image 0000'
         doc['images'][1]['name'] = 'GUD Image 0001'
         new_props.write(model, doc, data)
-        subprocess.run([str(work / 'check'), str(work), str(root / 'assets/obseg/prop/Pjungle3_treeZ.bin'), str(model)] + ([str(args.rom.resolve())] if args.rom else []),
+        subprocess.run([str(work / 'check'), str(work), str(root / 'assets/obseg/prop/Pjungle3_treeZ.bin'), str(model)] + ([str(args.rom.resolve())] if args.rom else []) + ([str(args.base_rom.resolve())] if args.base_rom else []),
                        env=env, check=True)
 
 

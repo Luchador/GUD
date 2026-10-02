@@ -1,20 +1,23 @@
 /* Rebase saved edits onto a compatible GUD ROM. ROM addresses and file-table
- * indices may move; resource names and native model IDs/content may not. Image banks may gain
+ * indices may move; resource names and native model IDs remain stable. Image banks may gain
  * or lose an appended suffix; differing shared image IDs require an explicit
  * choice to keep the old base images and their complete native settings.
  * BG/setup/stan files and editable level fields use a three-way merge.
- * Binary conflicts are reported, never guessed or merged byte by byte. */
+ * Binary conflicts require an explicit project/ROM choice, never a byte merge. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
 #include <math.h>
+#include <ctype.h>
 #include "projectrebase.h"
 #include "textbank.h"
 #include "romexport.h"
 #include "texrom.h"
 #include "imageedits.h"
 #include "newprops.h"
+#include "modeledits.h"
+#include "modelcompile.h"
 #include "editorpath.h"
 
 #define REBASE_MAX_FILES 1024u
@@ -22,6 +25,7 @@ typedef struct RebaseUpdate {
     char path[MAX_PATH];
     DWORD offset, size;
     BOOL remove;
+    int model; /* 0 = level resource; 1 = incoming model; 2 = keep native edit. */
 } RebaseUpdate;
 typedef struct RebaseFile {
     const char *name;
@@ -54,6 +58,12 @@ static void Conflict(ProjectRebaseReport *report, const char *name, const char *
         snprintf(report->details + used, sizeof(report->details) - used,
             "%s: %s\r\n", name, detail);
     }
+}
+static void Note(ProjectRebaseReport *report, const char *name, const char *detail)
+{
+    size_t used=strlen(report->details);
+    if (used<sizeof(report->details)-256)
+        snprintf(report->details+used,sizeof(report->details)-used,"%s: %s\r\n",name,detail);
 }
 static DWORD Read32(const unsigned char *p)
 { return (DWORD)p[0]<<24 | (DWORD)p[1]<<16 | (DWORD)p[2]<<8 | p[3]; }
@@ -414,6 +424,63 @@ static BOOL EqualResource(const char *name, const unsigned char *a, DWORD asize,
 {
     return Equal(a,asize,b,bsize) || (TextBankIsResource(name) && TextBankEqual(a,asize,b,bsize));
 }
+/* ROM slots may include up to 15 alignment bytes beyond a saved model. */
+static BOOL EqualModel(const unsigned char *a, DWORD asize, const unsigned char *b, DWORD bsize)
+{
+    DWORD common=asize<bsize ? asize : bsize, extra=asize>bsize ? asize-bsize : bsize-asize;
+    const unsigned char *tail=asize>bsize ? a+common : b+common;
+    if (extra>15 || memcmp(a,b,common)) { return FALSE; }
+    for (DWORD i=0;i<extra;i++) if (tail[i]) { return FALSE; }
+    return TRUE;
+}
+static const char *ModelFolder(const char *name)
+{
+    size_t length=strlen(name);
+    if (length<2 || length>=64 || name[length-1]!='Z') { return NULL; }
+    for (size_t i=0;i<length;i++) if (!isalnum((unsigned char)name[i]) && name[i]!='_') { return NULL; }
+    if (name[0]=='C') { return "characters"; }
+    if (name[0]=='P') { return "objects"; }
+    if (name[0]!='G') { return NULL; }
+    return !strcmp(name,"GcartblueZ") || !strcmp(name,"GcartridgeZ")
+        || !strcmp(name,"GcartrifleZ") || !strcmp(name,"GcartshellZ") ? "casings" : "guns";
+}
+static BOOL ModelResource(RebasePlan *plan, const GEditorProject *source,
+    const RebaseFile *a, const RebaseFile *b, ProjectRebaseChoice choice,
+    ProjectRebaseReport *report, const char **why)
+{
+    unsigned char *local=NULL;
+    DWORD size=0;
+    ModelSource incoming={0};
+    const unsigned char *old=plan->oldrom.data+a->offset, *next=plan->newrom.data+b->offset;
+    int present=ModelEditsReadReplacement(source->dir,a->name,old,a->size,&local,&size,why);
+    if (present<0) { return FALSE; }
+    if (!ModelReadSource(next,b->size,&incoming,why)) { free(local); return FALSE; }
+    ModelFreeSource(&incoming);
+    BOOL edited=present && !EqualModel(local,size,old,a->size);
+    BOOL matches=present && EqualModel(local,size,next,b->size);
+    BOOL conflict=edited && !matches && !EqualModel(old,a->size,next,b->size);
+    free(local);
+    if (conflict && choice==PROJECT_REBASE_STOP)
+    { Conflict(report,a->name,"model changed in both project and ROM; choose a Model conflicts resolution"); return TRUE; }
+    BOOL keep=present && (matches || (edited && (!conflict || choice==PROJECT_REBASE_KEEP_PROJECT)));
+    RebaseUpdate *update=&plan->updates[plan->count++];
+    lstrcpyn(update->path,a->name,sizeof(update->path));
+    update->model=keep ? 2 : 1; update->offset=b->offset; update->size=b->size;
+    if (conflict) { report->resolved++; }
+    if (keep)
+    {
+        report->modelskept++;
+        Note(report,a->name,matches ? "project model already matches the new ROM; retaining editor materials"
+            : "keeping the project model and rebinding it to the new base");
+    }
+    else
+    {
+        report->modelsupdated++;
+        Note(report,a->name,conflict ? "using the new ROM model instead of the project edit"
+            : "updating from the new ROM; no competing project model edit");
+    }
+    return TRUE;
+}
 static const RebaseFile *File(const RebaseFile *files, DWORD count, const char *name)
 {
     DWORD i;
@@ -445,7 +512,7 @@ static BOOL Files(const RomFile *rom, RebaseFile *files, DWORD *count, const cha
     return Fail(why,"The ROM file table has no valid terminator.");
 }
 static BOOL Resources(RebasePlan *plan, const GEditorProject *source,
-    ProjectRebaseReport *report, const char **why)
+    const ProjectRebaseOptions *options, ProjectRebaseReport *report, const char **why)
 {
     DWORD count, newcount, i;
     if (!Files(&plan->oldrom,plan->oldfiles,&count,why)
@@ -492,9 +559,11 @@ static BOOL Resources(RebasePlan *plan, const GEditorProject *source,
         if (managed<0) { return Fail(why,"Invalid project resource path: %s",name); }
         if (!managed)
         {
-            /* Includes native models and other resources for which the editor
-             * has no complete merge schema. Keep model fingerprints intact. */
-            if (changed) { Conflict(report,name,"base asset changed; this version supports code and level-resource updates only"); }
+            if (changed && ModelFolder(name))
+            {
+                if (!ModelResource(plan,source,a,b,options->modelConflicts,report,why)) { return FALSE; }
+            }
+            else if (changed) { Conflict(report,name,"unsupported base resource changed; asset migration required"); }
             continue;
         }
         attrs=GetFileAttributes(path);
@@ -518,7 +587,23 @@ static BOOL Resources(RebasePlan *plan, const GEditorProject *source,
         }
         else if (changed && !EqualResource(name,data,size,plan->oldrom.data+a->offset,a->size)
             && !EqualResource(name,data,size,plan->newrom.data+b->offset,b->size))
-        { Conflict(report,name,"changed differently in the project and the new ROM"); }
+        {
+            if (options->levelConflicts==PROJECT_REBASE_STOP)
+            { Conflict(report,name,"changed differently in the project and the new ROM; choose a Level file conflicts resolution"); }
+            else
+            {
+                report->resolved++;
+                if (options->levelConflicts==PROJECT_REBASE_KEEP_PROJECT)
+                { report->kept++; Note(report,name,"keeping the project file instead of the new ROM version"); }
+                else
+                {
+                    RebaseUpdate *update=&plan->updates[plan->count++];
+                    lstrcpyn(update->path,path+strlen(source->dir)+1,sizeof(update->path));
+                    update->offset=b->offset; update->size=b->size; report->updated++;
+                    Note(report,name,"using the new ROM file instead of the project edit");
+                }
+            }
+        }
         else if (changed)
         {
             RebaseUpdate *update=&plan->updates[plan->count++];
@@ -531,16 +616,19 @@ static BOOL Resources(RebasePlan *plan, const GEditorProject *source,
     return TRUE;
 }
 static BOOL Prepare(RebasePlan *plan, const GEditorProject *source, const char *rompath,
-    BOOL keepBaseImages, ProjectRebaseReport *report, const char **why)
+    const ProjectRebaseOptions *options, ProjectRebaseReport *report, const char **why)
 {
     char base[MAX_PATH];
     ZeroMemory(report,sizeof(*report)); *why="";
     if (!source || !source->dir[0] || source->levelcount>ROM_MAX_LEVELS) { return Fail(why,"Open a valid saved project first."); }
+    if (!options || options->levelConflicts<PROJECT_REBASE_STOP || options->levelConflicts>PROJECT_REBASE_USE_ROM
+        || options->modelConflicts<PROJECT_REBASE_STOP || options->modelConflicts>PROJECT_REBASE_USE_ROM)
+    { return Fail(why,"Choose valid rebase conflict resolutions."); }
     if (!Join(base,source->dir,ROM_EXPORT_BASE_FILENAME,why)
         || !RomLoad(base,&plan->oldrom,why) || !RomLoad(rompath,&plan->newrom,why)
-        || !ImageBank(&plan->oldrom,&plan->newrom,keepBaseImages,report,why) || !Catalogs(&plan->oldrom,&plan->newrom,why)
+        || !ImageBank(&plan->oldrom,&plan->newrom,options->keepBaseImages,report,why) || !Catalogs(&plan->oldrom,&plan->newrom,why)
         || !NewPropsCheckRebase(source->dir,&plan->newrom,why)
-        || !Levels(plan,source,report,why) || !Resources(plan,source,report,why)) { return FALSE; }
+        || !Levels(plan,source,report,why) || !Resources(plan,source,options,report,why)) { return FALSE; }
     if (report->conflicts) { return Fail(why,"Rebase blocked by %lu conflict(s). See the report.",(unsigned long)report->conflicts); }
     /* Validate against the original base before new stock IDs can turn an
      * orphan BMP or a gap in imported IDs into an apparently valid asset. */
@@ -552,11 +640,17 @@ static void FreePlan(RebasePlan *plan)
 BOOL ProjectRebaseCheck(const GEditorProject *source, const char *rompath,
     BOOL keepBaseImages, ProjectRebaseReport *report, const char **why)
 {
+    ProjectRebaseOptions options={keepBaseImages,PROJECT_REBASE_STOP,PROJECT_REBASE_STOP};
+    return ProjectRebaseCheckWithOptions(source,rompath,&options,report,why);
+}
+BOOL ProjectRebaseCheckWithOptions(const GEditorProject *source, const char *rompath,
+    const ProjectRebaseOptions *options, ProjectRebaseReport *report, const char **why)
+{
     RebasePlan *plan=calloc(1,sizeof(*plan));
     BOOL ok;
     ZeroMemory(report,sizeof(*report));
     if (!plan) { return Fail(why,"Out of memory checking the project."); }
-    ok=Prepare(plan,source,rompath,keepBaseImages,report,why);
+    ok=Prepare(plan,source,rompath,options,report,why);
     FreePlan(plan); return ok;
 }
 
@@ -622,8 +716,58 @@ static BOOL RemoveTree(const char *dir)
     else if (GetLastError()!=ERROR_FILE_NOT_FOUND) { ok=FALSE; }
     return RemoveDirectory(dir) && ok;
 }
+static BOOL EnsureDirectory(const char *path, const char **why)
+{
+    DWORD attrs=GetFileAttributes(path);
+    if (attrs!=INVALID_FILE_ATTRIBUTES)
+        return (attrs & FILE_ATTRIBUTE_DIRECTORY) || Fail(why,"Expected a directory: %s",path);
+    return CreateDirectory(path,NULL) || Fail(why,"Cannot create model directory: %s",path);
+}
+static BOOL ApplyModel(const RebaseUpdate *update, const char *project,
+    const RomFile *rom, const char **why)
+{
+    char path[MAX_PATH],relative[128],models[MAX_PATH],folder[MAX_PATH];
+    const unsigned char *incoming=rom->data+update->offset;
+    snprintf(relative,sizeof(relative),"models\\native\\%s.gmodel",update->path);
+    if (!Join(path,project,relative,why)) { return FALSE; }
+    if (update->model==2)
+    {
+        unsigned char *data=NULL; DWORD size;
+        if (!ReadFileBytes(path,&data,&size,why)) { return FALSE; }
+        /* Prepare validated the full native payload against the old base.
+         * Keep its content hash, material slots, UVs and export identity. */
+        if (size<16 || memcmp(data,"GMD1",4)) { free(data); return Fail(why,"Invalid model edit: %s",path); }
+        DWORD hash=ModelDataHash(incoming,update->size);
+        for (DWORD k=0;k<4;k++) { data[4+k]=(unsigned char)(hash>>(24-k*8)); }
+        BOOL ok=WriteFileBytes(path,data,size,why); free(data); return ok;
+    }
+    DWORD attrs=GetFileAttributes(path);
+    if (attrs!=INVALID_FILE_ATTRIBUTES)
+    {
+        if (!DeleteFile(path)) { return Fail(why,"Cannot replace project model: %s",path); }
+    }
+    else if (GetLastError()!=ERROR_FILE_NOT_FOUND && GetLastError()!=ERROR_PATH_NOT_FOUND)
+    { return Fail(why,"Cannot inspect model edit: %s",path); }
+    if (!Join(models,project,"models",why) || !EnsureDirectory(models,why)
+        || !Join(folder,models,ModelFolder(update->path),why) || !EnsureDirectory(folder,why)) { return FALSE; }
+    snprintf(relative,sizeof(relative),"%s.gltf",update->path);
+    if (!Join(path,folder,relative,why)) { return FALSE; }
+    ModelSource model={0};
+    BOOL ok=ModelReadSource(incoming,update->size,&model,why)
+        && ModelMaterialsEnsure(&model,project,why);
+    model.closestpreview=update->path[0]=='C';
+    if (ok) { ok=GltfWriteEditableModel(path,project,&model,ModelDataHash(incoming,update->size),why); }
+    ModelFreeSource(&model); return ok;
+}
 BOOL ProjectRebaseCreate(const GEditorProject *source, const char *rompath,
     BOOL keepBaseImages, const char *parent, const char *name, GEditorProject *output,
+    ProjectRebaseReport *report, const char **why)
+{
+    ProjectRebaseOptions options={keepBaseImages,PROJECT_REBASE_STOP,PROJECT_REBASE_STOP};
+    return ProjectRebaseCreateWithOptions(source,rompath,&options,parent,name,output,report,why);
+}
+BOOL ProjectRebaseCreateWithOptions(const GEditorProject *source, const char *rompath,
+    const ProjectRebaseOptions *options, const char *parent, const char *name, GEditorProject *output,
     ProjectRebaseReport *report, const char **why)
 {
     char destination[MAX_PATH], staging[MAX_PATH], filename[MAX_PATH], path[MAX_PATH];
@@ -653,10 +797,11 @@ BOOL ProjectRebaseCreate(const GEditorProject *source, const char *rompath,
     /* Re-read compatibility from the copied snapshot, not a stale UI check. */
     plan=calloc(1,sizeof(*plan));
     if (!plan) { Fail(why,"Out of memory rebasing the project."); goto done; }
-    if (!Prepare(plan,&snapshot,rompath,keepBaseImages,report,why)) { goto done; }
+    if (!Prepare(plan,&snapshot,rompath,options,report,why)) { goto done; }
     for (i=0;i<plan->count;i++)
     {
         RebaseUpdate *update=&plan->updates[i];
+        if (update->model) { continue; }
         if (!Join(path,staging,update->path,why)) { goto done; }
         if (update->remove)
         {
@@ -669,8 +814,11 @@ BOOL ProjectRebaseCreate(const GEditorProject *source, const char *rompath,
     if (!Join(plan->project.geppath,staging,filename,why)
         || !ImageEditsRebase(staging,&plan->oldrom,&plan->newrom,TRUE,why)
         || !RomExportStoreProjectBase(&plan->project,&plan->newrom,why)
-        || !ProjectSave(&plan->project,why)
-        || !RomExportValidateProject(&plan->project,why)) { goto done; }
+        || !ProjectSave(&plan->project,why)) { goto done; }
+    /* Model previews must use the adopted base images and image edits. */
+    for (i=0;i<plan->count;i++)
+        if (plan->updates[i].model && !ApplyModel(&plan->updates[i],staging,&plan->newrom,why)) { goto done; }
+    if (!RomExportValidateProject(&plan->project,why)) { goto done; }
     /* Validate the final .gep path before publication as well. */
     *output=plan->project;
     lstrcpyn(output->dir,destination,sizeof(output->dir));

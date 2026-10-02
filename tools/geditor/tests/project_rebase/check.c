@@ -312,6 +312,7 @@ static void ImageRebases(const GEditorProject *source,const char *incoming,const
 #include "objectfade.c"
 #include "text.c"
 #include "briefing.c"
+#include "assets.c"
 
 int main(int argc,char **argv)
 {
@@ -319,10 +320,20 @@ int main(int argc,char **argv)
     char oldpath[MAX_PATH],nextpath[MAX_PATH],path[MAX_PATH],backup[MAX_PATH],exported[MAX_PATH],destination[MAX_PATH];
     GEditorProject project,rebased,loaded,again;ProjectRebaseReport report;RomFile rom,output;ModelSource native;
     TexPixel pixels[64];TexImportOptions options={1,1,3,4};TexRomBank bank;
-    assert(argc==4 || argc==5);model=Read(argv[2],&modelsize);old=Fixture(0,model,modelsize);next=Fixture(SHIFT,model,modelsize);
+    assert(argc>=4 && argc<=6);model=Read(argv[2],&modelsize);
+    /* The synthetic ROM has one stock image. Keep the real model geometry,
+     * but bind its texture commands to that image so fresh previews can be
+     * regenerated during native-asset migration. */
+    OK(ModelReadSource(model,modelsize,&native,&why));
+    for (DWORD l=0;l<native.listcount;l++)
+        for (DWORD pc=native.lists[l].offset;pc<native.lists[l].end;pc+=8)
+            if (model[pc]==BG_G_SETTEXTURE) Put32(model+pc+4,Get32(model+pc+4)&~BG_TEX_ID_MASK);
+    ModelFreeSource(&native);
+    old=Fixture(0,model,modelsize);next=Fixture(SHIFT,model,modelsize);
     StudioFolders(argv[1]);
     BriefingEditing(argv[1],model,modelsize);
-    if (argc==5) { BriefingCorpus(argv[4],argv[1]); }
+    if (argc>=5) { BriefingCorpus(argv[4],argv[1]); }
+    if (argc==6) { AssetCorpus(argv[5],argv[4],argv[1]); }
     TextEditing(argv[1],model,modelsize);
     Path(oldpath,argv[1],"old.z64");Path(nextpath,argv[1],"new.z64");Save(oldpath,old,SIZE);
     /* Incoming setup and sound changes; our BG/music changes must survive. */
@@ -490,6 +501,7 @@ int main(int argc,char **argv)
       Path(alias,source,"notes/link");OK(!symlink(oldpath,alias));Reject(&project,nextpath,argv[1],"Linked");OK(!unlink(alias)); }
     Path(path,project.dir,"base.z64");OK(Hash(path)==Hash(oldpath));OK(RomExportValidateProject(&project,&why));
     puts("PASS: copy/write/publish failures, destination race, existing/reserved/nested paths and reparse-point rejection; original project remains exportable.");
+    AssetRebases(&project,nextpath,argv[1]);
     CatalogRebase(&project,nextpath,argv[1]);
     RetiredRebases(&project,nextpath,argv[1]);
     MemoryRebases(&project,nextpath,argv[1]);

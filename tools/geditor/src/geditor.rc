@@ -209,7 +209,7 @@ BEGIN
     PUSHBUTTON      "Cancel", IDCANCEL, 180, 102, 50, 16
 END
 
-IDD_REBASE_PROJECT DIALOGEX 0, 0, 380, 340
+IDD_REBASE_PROJECT DIALOGEX 0, 0, 380, 396
 STYLE DS_MODALFRAME | DS_CENTER | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Rebase Project"
 FONT 8, "MS Shell Dlg"
@@ -225,11 +225,16 @@ BEGIN
     PUSHBUTTON "Browse...", IDC_REBASE_BROWSE_DIR, 316, 112, 54, 16
     CONTROL "Keep existing base images", IDC_REBASE_KEEP_IMAGES, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 10, 136, 200, 12
     LTEXT "Use the project's base textures and image settings when the new ROM differs.", -1, 22, 151, 348, 18
-    EDITTEXT IDC_REBASE_REPORT, 10, 174, 360, 110, ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY | WS_VSCROLL
-    LTEXT "Save and Check saves current edits. Create Copy opens the new project.", -1, 10, 290, 360, 12
-    DEFPUSHBUTTON "Save and Check", IDC_REBASE_CHECK, 136, 314, 88, 18
-    PUSHBUTTON "Create Copy", IDC_REBASE_CREATE, 230, 314, 76, 18
-    PUSHBUTTON "Cancel", IDCANCEL, 312, 314, 58, 18
+    LTEXT "Level file conflicts:", -1, 10, 175, 100, 10
+    COMBOBOX IDC_REBASE_LEVEL_CONFLICTS, 114, 172, 256, 65, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT "Model conflicts:", -1, 10, 195, 100, 10
+    COMBOBOX IDC_REBASE_MODEL_CONFLICTS, 114, 192, 256, 65, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT "Choices apply when both versions changed. The original project stays intact.", -1, 10, 212, 360, 14
+    EDITTEXT IDC_REBASE_REPORT, 10, 230, 360, 110, ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY | WS_VSCROLL
+    LTEXT "Save and Check saves current edits. Create Copy opens the new project.", -1, 10, 346, 360, 12
+    DEFPUSHBUTTON "Save and Check", IDC_REBASE_CHECK, 136, 370, 88, 18
+    PUSHBUTTON "Create Copy", IDC_REBASE_CREATE, 230, 370, 76, 18
+    PUSHBUTTON "Cancel", IDCANCEL, 312, 370, 58, 18
 END
 
 /* Closing this prompt or pressing Escape cancels exiting. */
