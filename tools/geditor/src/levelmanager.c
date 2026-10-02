@@ -181,7 +181,11 @@ static void LevelManagerLayout(HWND hwnd)
     int footer;
     GetClientRect(hwnd, &client); MapDialogRect(hwnd, &units);
     footer = max(units.top, client.bottom - units.bottom - units.top);
-    MoveWindow(tab, units.left, units.top, max(0, client.right - units.left * 2), max(0, footer - units.top * 2), TRUE);
+    /* Pages and their controls are siblings of the tab, not its children.
+     * Together with WS_CLIPSIBLINGS, this keeps the tab's themed background
+     * from painting over them on tab changes, resizing or focus updates. */
+    SetWindowPos(tab, HWND_BOTTOM, units.left, units.top,
+        max(0, client.right - units.left * 2), max(0, footer - units.top * 2), SWP_NOACTIVATE);
     MoveWindow(GetDlgItem(hwnd, IDCANCEL), max(units.left, client.right - units.right - units.left),
                footer, units.right, units.bottom, TRUE);
     GetClientRect(tab, &page); TabCtrl_AdjustRect(tab, FALSE, &page);
