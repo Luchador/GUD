@@ -487,7 +487,7 @@ BOOL ImageEditsExportToRom(const char *project,RomFile *rom,const char **why)
             if(error!=ERROR_NO_MORE_FILES) { *why="The image folder could not be completely read.";return FALSE; }
         }
     }
-    if(count==0) { *why="";return TRUE; }
+    if(count==0) { return TexRomCompactImages(rom,why); }
     records=calloc(total,sizeof(*records));sizes=calloc(total,sizeof(*sizes));surfaces=calloc(total,1);
     if(!records || !sizes || !surfaces) { *why="Out of memory loading imported images.";goto done; }
     for(i=0;i<total;i++) if(ids[i])

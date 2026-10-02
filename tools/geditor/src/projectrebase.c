@@ -209,7 +209,7 @@ static BOOL ImageBank(const RomFile *a, RomFile *b, ProjectRebaseChoice choice,
         newat+=Read32(b->data+newbank.table+i*8)&0xffffffu;
     }
     if (oldbank.count<=newbank.count) report->imagesadded=newbank.count-oldbank.count;
-    if (oldbank.count<=newbank.count && !report->imagespreserved) { return TRUE; }
+    if (oldbank.count<=newbank.count && !report->imagespreserved) { return TexRomCompactImages(b,why); }
     if (oldbank.count>newbank.capacity)
     { return Fail(why,"The new ROM has insufficient image capacity to retain the project's base images."); }
     /* Retain an absent suffix to preserve referenced image IDs. Shared slots

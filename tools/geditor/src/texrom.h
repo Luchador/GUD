@@ -14,8 +14,11 @@ BOOL TexRomReadBank(const RomFile *rom, TexRomBank *bank, const char **reasonout
 /* Rebuild IMGS + its table after all other ROM edits. Input base.z64 is untouched.
  * Indexed by final texture ID: NULL preserves an original and its surface/detail
  * flags byte-for-byte, non-NULL replaces it. Appended IDs must all have records.
- * No existing IDs are shifted. */
+ * No existing IDs are shifted. NULL records preserves the complete bank.
+ * Reuses/reclaims image storage and trims verified trailing ROM padding. */
 BOOL TexRomUpdateImages(RomFile *rom, const TexRomBank *bank,
     const unsigned char *const *records, const DWORD *sizes,
     const unsigned char *surfaces, DWORD count, const char **reasonout);
+/* Also clean legacy duplicate banks when exporting/rebasing without edits. */
+BOOL TexRomCompactImages(RomFile *rom, const char **reasonout);
 #endif

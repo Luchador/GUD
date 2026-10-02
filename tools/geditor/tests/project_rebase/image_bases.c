@@ -1,3 +1,17 @@
+static void SingleImageBank(const RomFile *rom)
+{
+    TexRomBank bank;DWORD count=0;
+    OK(TexRomReadBank(rom,&bank,&why));
+    for(DWORD at=0;at+100<=rom->size;)
+    {
+        TexInfoRecord record;
+        if(!memcmp(rom->data+at,"GUTX",4)&&TexInfoReadRecord(rom->data+at,rom->size-at,&record))
+        { count++;at+=record.size; }
+        else at+=4;
+    }
+    OK(count==bank.count);
+}
+
 static void SameBank(const RomFile *a,const RomFile *b)
 {
     TexRomBank ab,bb;
@@ -5,6 +19,7 @@ static void SameBank(const RomFile *a,const RomFile *b)
     OK(ab.count==bb.count&&ab.hash==bb.hash&&ab.imagebytes==bb.imagebytes);
     OK(!memcmp(a->data+ab.images,b->data+bb.images,ab.imagebytes));
     OK(!memcmp(a->data+ab.table,b->data+bb.table,(ab.count+1)*8));
+    SingleImageBank(b);
 }
 
 static void SameImage(const RomFile *a,const RomFile *b,DWORD id)
@@ -16,6 +31,7 @@ static void SameImage(const RomFile *a,const RomFile *b,DWORD id)
     for(DWORD i=0;i<id;i++) { aa+=Get32(a->data+ab.table+i*8)&0xffffffu;ba+=Get32(b->data+bb.table+i*8)&0xffffffu; }
     size=Get32(a->data+ab.table+id*8)&0xffffffu;
     OK(!memcmp(a->data+aa,b->data+ba,size));
+    SingleImageBank(b);
 }
 
 static void IncomingImagePreview(const char *project,const RomFile *rom,DWORD id)
@@ -54,6 +70,10 @@ static void ExistingImageBases(const GEditorProject *source,const char *incoming
         if(!mode)OK(TexRomUpdateImages(&changed,&bank,records,sizes,surfaces,1,&why));
         Put32(changed.data+bank.table,(Get32(changed.data+bank.table)&0xffffffu)|0xfa000000u);
         Put32(changed.data+bank.table+4,0x38d20000u); // legacy detail flags must not be normalized
+        // Older exports carry abandoned banks. Both image-conflict choices
+        // must discard these, including the path with no retained images.
+        OK(TexRomReadBank(&changed,&bank,&why));
+        memcpy(changed.data+0x140000,changed.data+bank.images,bank.imagebytes);
         Save(different,changed.data,changed.size);RomFree(&changed);incomingHash=Hash(different);
         OK(!ProjectRebaseCheck(source,different,FALSE,&report,&why)&&strstr(why,"Image 0000"));
         OK(ProjectRebaseCheck(source,different,TRUE,&report,&why));

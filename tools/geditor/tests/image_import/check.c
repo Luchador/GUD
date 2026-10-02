@@ -14,6 +14,19 @@
 #define CMAP_END (TABLE+(TEX_IMAGE_CAPACITY+1)*8)
 static DWORD Read32(const unsigned char *p) {return (DWORD)p[0]<<24|(DWORD)p[1]<<16|(DWORD)p[2]<<8|p[3];}
 static void Write32(unsigned char *p,DWORD v) {p[0]=v>>24;p[1]=v>>16;p[2]=v>>8;p[3]=v;}
+static void SingleImageBank(const RomFile *rom)
+{
+    TexRomBank bank;DWORD count=0;const char *why;
+    assert(TexRomReadBank(rom,&bank,&why));
+    for(DWORD at=0;at+100<=rom->size;)
+    {
+        TexInfoRecord record;
+        if(!memcmp(rom->data+at,"GUTX",4)&&TexInfoReadRecord(rom->data+at,rom->size-at,&record))
+        { count++;at+=record.size; }
+        else at+=4;
+    }
+    assert(count==bank.count);
+}
 /* Isolate the image pipeline from the independently tested level-table parser. */
 BOOL RomLoad(const char *path,RomFile *rom,const char **why)
 {
@@ -102,9 +115,15 @@ static void Fixture(const char *project)
 static void Pipeline(const char *project)
 {
     const char *why="";char basepath[MAX_PATH],path[MAX_PATH],renamed[MAX_PATH];DWORD id,i,basehash;int w,h;
-    RomFile rom;TexRomBank bank,after;TexThumb *thumbs=NULL;unsigned char *thumbpixels=NULL;DWORD count;
+    RomFile rom;TexRomBank bank,after;TexThumb *thumbs=NULL;unsigned char *thumbpixels=NULL;DWORD count,bankhash;
     snprintf(basepath,sizeof(basepath),"%s\\base.z64",project);
     assert(RomLoad(basepath,&rom,&why));assert(TexRomReadBank(&rom,&bank,&why));basehash=TexDataHash(rom.data,rom.size);
+    bankhash=TexDataHash(rom.data+bank.images,bank.imagebytes);
+    /* An export without any image edits still removes abandoned banks. */
+    memcpy(rom.data+0x180000,rom.data+bank.images,bank.imagebytes);
+    memcpy(rom.data+0x190000,rom.data+bank.images,bank.imagebytes);
+    assert(ImageEditsExportToRom(project,&rom,&why)&&TexDataHash(rom.data,rom.size)==basehash);
+    SingleImageBank(&rom);
     assert(ImageEditsNextId(project,&id,&why)&&id==BASE_COUNT);
     for(i=0;i<64;i++) source[i]=(TexPixel){(i%4)*64,(i%3)*64,(i%5)*32,(i%2)*255};
     {TexImportOptions o={1,0,1,1};
@@ -135,8 +154,9 @@ static void Pipeline(const char *project)
     free(thumbs);free(thumbpixels);
     assert(ImageEditsNextId(project,&id,&why)&&id==BASE_COUNT+13);
     assert(ImageEditsExportToRom(project,&rom,&why));assert(TexRomReadBank(&rom,&after,&why)&&after.count==BASE_COUNT+13);
-    assert(after.images>=CMAP_END&&after.images!=bank.images);
-    assert(!memcmp(rom.data+bank.images,rom.data+after.images,bank.imagebytes));
+    assert(after.images==bank.images);
+    SingleImageBank(&rom);
+    assert(TexDataHash(rom.data+after.images,bank.imagebytes)==bankhash);
     for(i=0;i<BASE_COUNT;i++) assert(Read32(rom.data+TABLE+i*8+4)==0xabcd0000);
     {DWORD offset=after.images+bank.imagebytes;for(i=0;i<13;i++) {assert(rom.data[TABLE+(BASE_COUNT+i)*8]==((i<<4)|(12-i)));assert(TexDecodeRecord(rom.data+offset,rom.size-offset,decoded,&w,&h));offset+=Read32(rom.data+offset+12);}}
     RomFree(&rom);assert(RomLoad(basepath,&rom,&why)&&TexDataHash(rom.data,rom.size)==basehash);
@@ -151,12 +171,12 @@ static void Pipeline(const char *project)
     assert(RomLoad(basepath,&rom,&why));assert(!ImageEditsExportToRom(project,&rom,&why));RomFree(&rom);assert(MoveFileEx(renamed,path,0));
     snprintf(path,sizeof(path),"%s\\images\\0011.bmp",project);snprintf(renamed,sizeof(renamed),"%s\\images\\0011.hold",project);assert(MoveFileEx(path,renamed,0));
     assert(RomLoad(basepath,&rom,&why));assert(!ImageEditsExportToRom(project,&rom,&why));RomFree(&rom);assert(MoveFileEx(renamed,path,0));
-    /* Exercise expansion and the last legal image ID without changing base files. */
+    /* Unknown nonzero tails are preserved, without forcing a second bank. */
     assert(RomLoad(basepath,&rom,&why));rom.data[rom.size-1]=0x75;
-    assert(ImageEditsExportToRom(project,&rom,&why)&&rom.size==4*1024*1024);assert(TexRomReadBank(&rom,&after,&why));RomFree(&rom);
+    assert(ImageEditsExportToRom(project,&rom,&why)&&rom.size==2*1024*1024&&rom.data[rom.size-1]==0x75);assert(TexRomReadBank(&rom,&after,&why));RomFree(&rom);
     assert(RomLoad(basepath,&rom,&why));rom.data=realloc(rom.data,64u*1024*1024);memset(rom.data+rom.size,0,64u*1024*1024-rom.size);rom.size=rom.info.size=64u*1024*1024;rom.data[rom.size-1]=1;
-    assert(!ImageEditsExportToRom(project,&rom,&why));RomFree(&rom);
-    puts("PASS: pending imports, BMP orientation, thumbnails, save failure/retry, reopen, surface settings, preserved originals, edited BMPs, missing assets, ROM relocation/growth and 64 MB limit.");
+    assert(ImageEditsExportToRom(project,&rom,&why)&&rom.size==64u*1024*1024&&rom.data[rom.size-1]==1);RomFree(&rom);
+    puts("PASS: pending imports, BMP orientation, thumbnails, save failure/retry, reopen, surface settings, preserved originals, edited BMPs, missing assets, in-place rebuilding and unknown ROM tails.");
 }
 
 static void Limits(const char *project)
@@ -241,12 +261,13 @@ static void ImageActions(const char *project)
     const char *why="";TexImportOptions o={0,2,12,6},other={5,1,4,9};
     RomFile rom;TexRomBank bank,after;DWORD id,next,originalbmp,savedbmp,savednative,originalrom,count,i;
     char basepath[MAX_PATH],bmp[MAX_PATH],native[MAX_PATH],path[MAX_PATH];int w,h;
-    TexThumb *thumbs;unsigned char *thumbpixels;
+    TexThumb *thumbs;unsigned char *thumbpixels,*originalbank;
     snprintf(basepath,sizeof(basepath),"%s\\base.z64",project);
     snprintf(bmp,sizeof(bmp),"%s\\images\\0003.bmp",project);
     snprintf(native,sizeof(native),"%s\\images\\native\\0003.gtex",project);
     originalbmp=FileHash(bmp);assert(RomLoad(basepath,&rom,&why));
     originalrom=TexDataHash(rom.data,rom.size);assert(TexRomReadBank(&rom,&bank,&why));
+    originalbank=malloc(bank.imagebytes);assert(originalbank);memcpy(originalbank,rom.data+bank.images,bank.imagebytes);
     for(i=0;i<64;i++) { source[i]=(TexPixel){240,32,96,255}; }
     /* Cancelling an edit or closing without save preserves the original BMP/ROM. */
     assert(ImageEditsReplace(project,3,source,8,8,&o,NULL,&why));
@@ -274,13 +295,13 @@ static void ImageActions(const char *project)
     {
         DWORD offset=ImageOffset(&rom,&after,i),old,size=Read32(rom.data+TABLE+i*8)&0xffffffu;
         /* In this fixture all originals have the same record size. */
-        old=bank.images+i*(bank.imagebytes/BASE_COUNT);
-        assert(!memcmp(rom.data+offset,rom.data+old,size));assert(Read32(rom.data+TABLE+i*8+4)==0xabcd0000);
+        old=i*(bank.imagebytes/BASE_COUNT);
+        assert(!memcmp(rom.data+offset,originalbank+old,size));assert(Read32(rom.data+TABLE+i*8+4)==0xabcd0000);
     }
     assert(rom.data[TABLE+3*8]==0xc6&&Read32(rom.data+TABLE+3*8+4)==0);
     {DWORD offset=ImageOffset(&rom,&after,3);TexInfoRecord info;
      assert(TexInfoReadRecord(rom.data+offset,rom.size-offset,&info)&&info.info.format==0&&info.info.mipmaps==2);}
-    RomFree(&rom);
+    RomFree(&rom);free(originalbank);
     /* Late save failures restore BOTH prior BMP and native settings. */
     assert(ImageEditsReplace(project,3,source,4,4,&other,NULL,&why));
     for(i=1;i<=3;i++)
@@ -327,6 +348,7 @@ static void ImageActions(const char *project)
     assert(RomLoad(basepath,&rom,&why)&&TexDataHash(rom.data,rom.size)==originalrom);
     assert(ImageEditsExportToRom(project,&rom,&why)&&TexRomReadBank(&rom,&after,&why));
     assert(after.count==BASE_COUNT+3);AssertBlank(&rom,&after,0);AssertBlank(&rom,&after,3);
+    SingleImageBank(&rom);
     AssertBlank(&rom,&after,BASE_COUNT+1);AssertBlank(&rom,&after,BASE_COUNT+2);
     {DWORD offset=ImageOffset(&rom,&after,BASE_COUNT);assert(TexDecodeRecord(rom.data+offset,rom.size-offset,decoded,&w,&h)&&w==8&&decoded[0].r==240);}
     RomFree(&rom);
