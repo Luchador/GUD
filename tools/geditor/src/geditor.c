@@ -31,7 +31,6 @@
 #include <src/propconstants.h>
 #include "characterproperties.h"
 #include "tooltoolbar.h"
-#include "visibilitymenu.h"
 #include "uveditor.h"
 #include "modeleditor.h"
 #include "renderstudio.h"
@@ -74,7 +73,6 @@
 
 static HWND g_Viewport;
 static HWND g_ToolToolbar;
-static HWND g_VisibilityMenu;
 static HWND g_Browser;
 static HWND g_RightPanel;
 
@@ -3475,7 +3473,7 @@ static BOOL GEditorPastePortalSnapshot(HWND hwnd, const BgPortalFile *clipboard,
     if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument, action, &transaction, &why)) { goto fail; }
     if (!BgDocumentPastePortals(&g_CurrentBgDocument, clipboard, offset, indices, &why)) { goto fail; }
     ViewportSetPortals(g_Viewport, &g_CurrentBgDocument.portals);
-    VisibilityMenuReveal(g_VisibilityMenu, VISIBILITY_SHOW_PORTALS);
+    RightPanelReveal(g_RightPanel, VISIBILITY_SHOW_PORTALS);
     if (!ViewportSelectPortalFaces(g_Viewport, indices, clipboard->portalcount))
     { why = "Could not display the pasted portals."; goto rollback; }
     if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
@@ -4062,7 +4060,7 @@ static void GEditorShowGeometryMenu(HWND hwnd, ToolToolbarMenu kind, HWND button
     BgDocumentEdgeRef edges[2];
     StanEdgeRef stanedge, stanedges[2];
     const char *why;
-    if (kind < 0 || kind >= TOOLTOOLBAR_MENU_VISIBILITY || !button) { return; }
+    if (kind < 0 || kind >= TOOLTOOLBAR_MENU_COUNT || !button) { return; }
     menu = CreatePopupMenu();
     if (!menu) { return; }
     switch (kind)
@@ -4794,7 +4792,7 @@ static BOOL GEditorEditSetupMarker(HWND hwnd, SetupMarkerKind kind, const double
        select the placed marker, or clear the deleted marker's old identity. */
     if (position)
     {
-        VisibilityMenuReveal(g_VisibilityMenu, VISIBILITY_SHOW_OBJECTS);
+        RightPanelReveal(g_RightPanel, VISIBILITY_SHOW_OBJECTS);
         ViewportSetTool(g_Viewport, EDITOR_TOOL_FACE_SELECT);
         ToolToolbarSetTool(g_ToolToolbar, ViewportGetTool(g_Viewport));
         ViewportSetTransformMode(g_Viewport, TRANSFORM_MOVE);
@@ -4913,7 +4911,7 @@ static BOOL GEditorDropPortal(HWND hwnd, const BrowserObjectDrop *drop)
                                 "Add Portal", &transaction, &why)) { goto fail; }
     if (!BgDocumentAddPortal(&g_CurrentBgDocument, &placement, &index, &why)) { goto rollback; }
     ViewportSetPortals(g_Viewport, &g_CurrentBgDocument.portals);
-    VisibilityMenuReveal(g_VisibilityMenu, VISIBILITY_SHOW_PORTALS);
+    RightPanelReveal(g_RightPanel, VISIBILITY_SHOW_PORTALS);
     ViewportSetTransformMode(g_Viewport, TRANSFORM_MOVE);
     RightPanelSetTransformMode(g_RightPanel, TRANSFORM_MOVE);
     ViewportSetTool(g_Viewport, EDITOR_TOOL_FACE_SELECT);
@@ -4969,7 +4967,7 @@ static BOOL GEditorDropPrimitive(HWND hwnd, const BrowserObjectDrop *drop)
     { why = "Could not select the new background geometry."; goto rollback; }
     if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
         &g_CurrentStan, &transaction, &why)) { goto rollback; }
-    VisibilityMenuReveal(g_VisibilityMenu, VISIBILITY_SHOW_BG_PRIMARY);
+    RightPanelReveal(g_RightPanel, VISIBILITY_SHOW_BG_PRIMARY);
     ToolToolbarSetTool(g_ToolToolbar, EDITOR_TOOL_FACE_SELECT);
     ViewportSetTransformMode(g_Viewport, TRANSFORM_MOVE);
     RightPanelSetTransformMode(g_RightPanel, TRANSFORM_MOVE);
@@ -5161,7 +5159,7 @@ static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request, GEditor
     }
     ObjectGeometryFree(&g_CurrentObjects);
     g_CurrentObjects = objects;
-    VisibilityMenuReveal(g_VisibilityMenu, VISIBILITY_SHOW_OBJECTS);
+    RightPanelReveal(g_RightPanel, VISIBILITY_SHOW_OBJECTS);
     ViewportSetTool(g_Viewport, EDITOR_TOOL_FACE_SELECT);
     ToolToolbarSetTool(g_ToolToolbar, ViewportGetTool(g_Viewport));
     if (door || glass || tank || safe)
@@ -5225,7 +5223,7 @@ static BOOL GEditorCreateBoundPadModel(HWND hwnd, const RightPanelPadModel *requ
         || !EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
             &g_CurrentStan, &transaction, &why)) { goto rollback; }
     ObjectGeometryFree(&g_CurrentObjects); g_CurrentObjects = objects;
-    VisibilityMenuReveal(g_VisibilityMenu, VISIBILITY_SHOW_OBJECTS);
+    RightPanelReveal(g_RightPanel, VISIBILITY_SHOW_OBJECTS);
     ViewportSetTool(g_Viewport, EDITOR_TOOL_FACE_SELECT);
     ToolToolbarSetTool(g_ToolToolbar, ViewportGetTool(g_Viewport));
     ViewportSelectSetupModel(g_Viewport, selection);
@@ -5623,7 +5621,7 @@ static BOOL GEditorLocateIssue(HWND hwnd, const LevelIssue *issue)
     case LEVEL_ISSUE_MODEL:
     {
         DWORD selected;
-        VisibilityMenuReveal(g_VisibilityMenu, VISIBILITY_SHOW_OBJECTS);
+        RightPanelReveal(g_RightPanel, VISIBILITY_SHOW_OBJECTS);
         ViewportSelectSetupModel(g_Viewport, location.index);
         if (ViewportGetSelectedObject(g_Viewport, &selected) && selected == location.index
             && ViewportCanZoomToSelected(g_Viewport)) { break; }
@@ -5634,12 +5632,12 @@ static BOOL GEditorLocateIssue(HWND hwnd, const LevelIssue *issue)
     case LEVEL_ISSUE_PAD:
         ViewportSelectSetupPad(g_Viewport, &location.pad); break;
     case LEVEL_ISSUE_STAN:
-        VisibilityMenuReveal(g_VisibilityMenu, VISIBILITY_SHOW_STAN);
+        RightPanelReveal(g_RightPanel, VISIBILITY_SHOW_STAN);
         if (!ViewportRevealStanTile(g_Viewport, location.index)
             || !ViewportSelectStanTiles(g_Viewport, &location.index, 1)) { return FALSE; }
         break;
     case LEVEL_ISSUE_PORTAL_FACE:
-        VisibilityMenuReveal(g_VisibilityMenu, VISIBILITY_SHOW_PORTALS);
+        RightPanelReveal(g_RightPanel, VISIBILITY_SHOW_PORTALS);
         if (!ViewportSelectPortal(g_Viewport, location.index)) { return FALSE; }
         break;
     default: return FALSE;
@@ -5845,7 +5843,7 @@ static BOOL GEditorSelectSceneItem(HWND hwnd, const SceneOutlinerSelection *requ
     ViewportSetDoorPick(g_Viewport, FALSE);
     ViewportSetTool(g_Viewport, EDITOR_TOOL_FACE_SELECT);
     ToolToolbarSetTool(g_ToolToolbar, EDITOR_TOOL_FACE_SELECT);
-    VisibilityMenuReveal(g_VisibilityMenu, request->kind == SCENE_OUTLINER_PORTAL
+    RightPanelReveal(g_RightPanel, request->kind == SCENE_OUTLINER_PORTAL
         ? VISIBILITY_SHOW_PORTALS : VISIBILITY_SHOW_OBJECTS);
     BOOL selected = request->kind == SCENE_OUTLINER_PORTAL
         ? ViewportSelectPortal(g_Viewport, index) : ViewportSelectSetupModels(g_Viewport, &index, 1);
@@ -5882,12 +5880,12 @@ static void GEditorGoToGeometry(HWND hwnd, BOOL portal)
     ToolToolbarSetTool(g_ToolToolbar, EDITOR_TOOL_FACE_SELECT);
     if (portal)
     {
-        VisibilityMenuReveal(g_VisibilityMenu, VISIBILITY_SHOW_PORTALS);
+        RightPanelReveal(g_RightPanel, VISIBILITY_SHOW_PORTALS);
         selected = ViewportSelectPortal(g_Viewport, state.id);
     }
     else
     {
-        VisibilityMenuReveal(g_VisibilityMenu, state.face.layer == BG_GEOMETRY_SECONDARY
+        RightPanelReveal(g_RightPanel, state.face.layer == BG_GEOMETRY_SECONDARY
             ? VISIBILITY_SHOW_BG_SECONDARY : VISIBILITY_SHOW_BG_PRIMARY);
         selected = ViewportRevealBgFace(g_Viewport, &state.face)
             && ViewportSelectBgFaces(g_Viewport, &state.face, 1);
@@ -5945,7 +5943,7 @@ static BOOL GEditorLocateBgCommand(HWND hwnd, BOOL portal, DWORD index)
     if (!portal) { return GEditorFrameRoom(index); }
     ViewportSetTool(g_Viewport, EDITOR_TOOL_FACE_SELECT);
     ToolToolbarSetTool(g_ToolToolbar, EDITOR_TOOL_FACE_SELECT);
-    VisibilityMenuReveal(g_VisibilityMenu, VISIBILITY_SHOW_PORTALS);
+    RightPanelReveal(g_RightPanel, VISIBILITY_SHOW_PORTALS);
     if (!ViewportSelectPortal(g_Viewport, index)) { return FALSE; }
     GEditorRefreshSelectionDetails();
     GEditorRefreshHistoryMenu(hwnd);
@@ -6119,19 +6117,12 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         {
             return -1;
         }
-        g_VisibilityMenu = VisibilityMenuCreate(hwnd, cs->hInstance);
-        if (g_VisibilityMenu == NULL) { return -1; }
         ToolToolbarSetTool(g_ToolToolbar, ViewportGetTool(g_Viewport));
         GEditorRefreshHistoryMenu(hwnd);
         return 0;
     }
 
-    case WM_MOUSEACTIVATE:
-        if (VisibilityMenuConsumeAnchorClick(g_VisibilityMenu, lparam)) { return MA_ACTIVATEANDEAT; }
-        break;
-
     case WM_SIZE:
-        VisibilityMenuClose(g_VisibilityMenu, FALSE);
         GEditorLayout(hwnd);
         return 0;
 
@@ -6332,8 +6323,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         return 0;
 
     case TOOLTOOLBAR_WM_MENU:
-        if (wparam == TOOLTOOLBAR_MENU_VISIBILITY) { VisibilityMenuOpen(g_VisibilityMenu, (HWND)lparam); }
-        else { GEditorShowGeometryMenu(hwnd, (ToolToolbarMenu)wparam, (HWND)lparam); }
+        GEditorShowGeometryMenu(hwnd, (ToolToolbarMenu)wparam, (HWND)lparam);
         return 0;
 
     case EDITTOOL_WM_SELECT:
@@ -7915,12 +7905,6 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
         return 1;
     }
 
-    if (!VisibilityMenuRegisterClass(hinstance))
-    {
-        MessageBox(NULL, "VisibilityMenuRegisterClass failed", GEDITOR_TITLE, MB_ICONERROR);
-        return 1;
-    }
-
     if (!ToolToolbarRegisterClass(hinstance))
     {
         MessageBox(NULL, "ToolToolbarRegisterClass failed", GEDITOR_TITLE, MB_ICONERROR);
@@ -7983,7 +7967,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                     CoUninitialize();
                     return (int)msg.wParam;
                 }
-                if (!VisibilityMenuHandleMessage(g_VisibilityMenu, &msg)
+                if (!RightPanelHandleMessage(g_RightPanel, &msg)
                     && !RenderStudioHandleMessage(&msg)
                     && !EditorSettingsHandleMessage(&msg)
                     && !BgCommandsWindowHandleMessage(&msg)
@@ -8010,7 +7994,6 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                     && !GEditorHandleTransformHotkey(hwnd, &msg)
                     && !GEditorHandleFaceClipboardHotkey(hwnd, &msg)
                     && !GEditorHandleSelectionHotkey(hwnd, &msg)
-                    && !RightPanelHandleMessage(g_RightPanel, &msg)
                     && !ToolToolbarHandleMessage(g_ToolToolbar, &msg)
                     && (accelerators == NULL
                         || !TranslateAccelerator(hwnd, accelerators, &msg)))
@@ -8029,7 +8012,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
             {
                 break;
             }
-            if (!VisibilityMenuHandleMessage(g_VisibilityMenu, &msg)
+            if (!RightPanelHandleMessage(g_RightPanel, &msg)
                 && !RenderStudioHandleMessage(&msg)
                 && !EditorSettingsHandleMessage(&msg)
                 && !BgCommandsWindowHandleMessage(&msg)
@@ -8056,7 +8039,6 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                 && !GEditorHandleTransformHotkey(hwnd, &msg)
                 && !GEditorHandleFaceClipboardHotkey(hwnd, &msg)
                 && !GEditorHandleSelectionHotkey(hwnd, &msg)
-                && !RightPanelHandleMessage(g_RightPanel, &msg)
                 && !ToolToolbarHandleMessage(g_ToolToolbar, &msg)
                 && (accelerators == NULL
                     || !TranslateAccelerator(hwnd, accelerators, &msg)))

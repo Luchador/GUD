@@ -91,7 +91,7 @@ static void Window(void)
     puts("PASS: modeless message scope, scan/recheck, stale-result protection, failures and safe copied navigation.");
 }
 
-static HWND g_Viewport=(HWND)3,g_VisibilityMenu=(HWND)4,g_ToolToolbar=(HWND)5;
+static HWND g_Viewport=(HWND)3,g_RightPanel=(HWND)4,g_ToolToolbar=(HWND)5;
 static BgDocument g_CurrentBgDocument;
 static StanFile g_CurrentStan;
 static SetupFile g_CurrentSetup;
@@ -114,9 +114,9 @@ static void ToolToolbarSetTool(HWND hwnd,EditorTool tool) { assert(tool==EDITOR_
 #define VISIBILITY_SHOW_STAN 0x04
 #define VISIBILITY_SHOW_PORTALS 0x08
 #define VISIBILITY_SHOW_OBJECTS 0x10
-static void VisibilityMenuReveal(HWND hwnd, DWORD flags)
+static void RightPanelReveal(HWND hwnd, DWORD flags)
 {
-    assert(hwnd == g_VisibilityMenu);
+    assert(hwnd == g_RightPanel);
     show_objects |= (flags & VISIBILITY_SHOW_OBJECTS) != 0;
     show_stan |= (flags & VISIBILITY_SHOW_STAN) != 0;
     show_portals |= (flags & VISIBILITY_SHOW_PORTALS) != 0;

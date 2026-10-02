@@ -2,9 +2,10 @@
 /*
  * GEditor right-hand tool panel.
  *
- * Scene Outliner, Transform and Properties/Color have draggable dividers. The
- * transform controls send absolute world-position requests to the frame, which
- * owns selection dispatch, document edits, and undo history. Vertex paint
+ * Visibility sits above Scene Outliner. Outliner, Transform and Properties/Color
+ * have draggable dividers. Transform controls send absolute position requests to
+ * the frame, which owns selection dispatch, document edits, and undo history.
+ * Vertex paint
  * replaces the lower properties view with a persistent RGBA color picker.
  */
 
@@ -29,7 +30,7 @@
 #define RIGHTPANEL_CLASS "GEditorRightPanel"
 
 #define RIGHTPANEL_SPLITTER_H 5
-#define RIGHTPANEL_OUTLINER_TOP 32
+#define RIGHTPANEL_OUTLINER_TOP (VISIBILITY_PANEL_HEIGHT + 32)
 #define RIGHTPANEL_OUTLINER_MIN_H 96
 #define RIGHTPANEL_INITIAL_OUTLINER_H 280
 #define RIGHTPANEL_TRANSFORM_MIN_H 208
@@ -57,7 +58,7 @@ enum {
 };
 
 typedef struct RightPanelState {
-    HWND outliner;
+    HWND visibility, outliner;
     HWND positions[3];
     HWND movemode, rotatemode, scalebutton;
     BOOL rotationmode, scalemode, scaleislocal, scaleisgroup, nativeunits;
@@ -158,6 +159,7 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
     RightPanelClampLayout(state, client.bottom);
 
     int transformtop = RightPanelTransformTop(state);
+    MoveWindow(state->visibility, 0, 0, max(1, client.right), VISIBILITY_PANEL_HEIGHT, TRUE);
     MoveWindow(state->outliner, RIGHTPANEL_MARGIN, RIGHTPANEL_OUTLINER_TOP, width,
                max(0, state->outlinerbottom - RIGHTPANEL_SECTION_GAP - RIGHTPANEL_OUTLINER_TOP), TRUE);
     MoveWindow(state->movemode, RIGHTPANEL_MARGIN, transformtop+22, width/3, 23, TRUE);
@@ -362,8 +364,8 @@ static void RightPanelPaint(HWND hwnd, RightPanelState *state, HDC hdc)
 
     title.left = RIGHTPANEL_MARGIN;
     title.right = client.right - RIGHTPANEL_MARGIN;
-    title.top = 8;
-    title.bottom = 28;
+    title.top = RIGHTPANEL_OUTLINER_TOP - 24;
+    title.bottom = RIGHTPANEL_OUTLINER_TOP - 4;
     DrawText(hdc, "Scene Outliner", -1, &title,
              DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX);
 
@@ -508,6 +510,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
                  sizeof(state->detailtext));
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
 
+        state->visibility = VisibilityPanelCreate(hwnd, cs->hInstance);
         state->outliner = SceneOutlinerCreate(hwnd, cs->hInstance);
         state->movemode=CreateWindowEx(0,"BUTTON","Move",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_RADIOBUTTON,
             0,0,1,1,hwnd,(HMENU)(INT_PTR)RIGHTPANEL_ID_MOVE_MODE,cs->hInstance,NULL);
@@ -580,7 +583,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         }
         SendMessage(state->details, WM_SETFONT, (WPARAM)font, TRUE);
 
-        if (state->outliner == NULL || state->stanroom == NULL || state->stanroomlabel == NULL
+        if (state->visibility == NULL || state->outliner == NULL || state->stanroom == NULL || state->stanroomlabel == NULL
             || state->stantype == NULL || state->stantypelabel == NULL
             || state->padmodellabel == NULL || state->padmodel == NULL || state->padcreate == NULL || state->padcreatedoor == NULL
             || state->positions[0] == NULL || state->positions[1] == NULL
@@ -607,6 +610,8 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
     case COLORPICKER_WM_PICK_COLOR:
         return SendMessage(GetParent(hwnd), RIGHTPANEL_WM_PICK_COLOR, 0, 0);
 
+    case VISIBILITY_WM_CHANGED:
+    case VISIBILITY_WM_STAN_OPACITY:
     case SCENEOUTLINER_WM_SELECT:
     case CHARACTERPROPERTIES_WM_WEAPON_CHANGED:
     case CHARACTERPROPERTIES_WM_HAT_CHANGED:
@@ -828,7 +833,7 @@ BOOL RightPanelRegisterClass(HINSTANCE hinstance)
     INITCOMMONCONTROLSEX controls = {sizeof(controls), ICC_BAR_CLASSES | ICC_TAB_CLASSES};
 
     if (!InitCommonControlsEx(&controls)) { return FALSE; }
-    if (!SceneOutlinerRegisterClass(hinstance) || !ColorPickerRegisterClass(hinstance) || !FacePropertiesRegisterClass(hinstance)
+    if (!VisibilityPanelRegisterClass(hinstance) || !SceneOutlinerRegisterClass(hinstance) || !ColorPickerRegisterClass(hinstance) || !FacePropertiesRegisterClass(hinstance)
         || !PortalPropertiesRegisterClass(hinstance) || !ObjectFlagsRegisterClass(hinstance)
         || !ObjectPropertiesRegisterClass(hinstance) || !CharacterPropertiesRegisterClass(hinstance)) { return FALSE; }
     ZeroMemory(&wc, sizeof(wc));
@@ -852,6 +857,12 @@ HWND RightPanelCreate(HWND parent, HINSTANCE hinstance)
         parent, NULL, hinstance, NULL);
 }
 
+
+void RightPanelReveal(HWND panel, DWORD flags)
+{
+    RightPanelState *state = RightPanelGetState(panel);
+    if (state) { VisibilityPanelReveal(state->visibility, flags); }
+}
 
 void RightPanelSetScene(HWND panel, const SetupFile *setup, const BgPortalFile *portals,
                        SceneOutlinerKind selectedkind, DWORD selectedindex)
@@ -926,6 +937,7 @@ BOOL RightPanelHandleMessage(HWND panel, MSG *message)
     {
         return FALSE;
     }
+    if (VisibilityPanelHandleMessage(state->visibility, message)) { return TRUE; }
     if (state->vertexpaint && ColorPickerHandleMessage(state->colorpicker, message))
     {
         return TRUE;

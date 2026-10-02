@@ -165,7 +165,7 @@ typedef struct { long x,y; } POINT;
 #define GEDITOR_NO_LEVEL ((DWORD)-1)
 #define GEDITOR_TITLE "GEditor"
 #define MB_ICONERROR 1
-static HWND g_Viewport=(HWND)1,g_RightPanel=(HWND)2,g_ToolToolbar=(HWND)3,g_VisibilityMenu=(HWND)4;
+static HWND g_Viewport=(HWND)1,g_RightPanel=(HWND)2,g_ToolToolbar=(HWND)3;
 static DWORD g_CurrentLevelIndex;
 static BgDocument g_CurrentBgDocument;
 static SetupFile g_CurrentSetup;
@@ -187,8 +187,8 @@ BOOL PortalOptionsPrompt(HWND hwnd, DWORD rooms, BgPortalPlacement *p)
 }
 static void ViewportSetPortals(HWND hwnd,const BgPortalFile *p) { overlaycount=faildisplay?0:p->portalcount; }
 #define VISIBILITY_SHOW_PORTALS 0x08
-static void VisibilityMenuReveal(HWND hwnd, DWORD flags)
-{ assert(hwnd == g_VisibilityMenu && flags == VISIBILITY_SHOW_PORTALS); visible=TRUE; }
+static void RightPanelReveal(HWND hwnd, DWORD flags)
+{ assert(hwnd == g_RightPanel && flags == VISIBILITY_SHOW_PORTALS); visible=TRUE; }
 static void ViewportSetTool(HWND hwnd,EditorTool t) { tool=t; }
 static void ViewportSetTransformMode(HWND hwnd,TransformMode mode) { assert(mode==TRANSFORM_MOVE); }
 static void RightPanelSetTransformMode(HWND hwnd,TransformMode mode) { assert(mode==TRANSFORM_MOVE); }

@@ -8,6 +8,7 @@
 #include "stanload.h"
 #include "edittool.h"
 #include "sceneoutliner.h"
+#include "visibilitypanel.h"
 
 /* Assign all selected stan faces to the existing room in wparam. */
 #define RIGHTPANEL_WM_STAN_ROOM_CHANGED (WM_APP + 73)
@@ -33,6 +34,8 @@ typedef struct RightPanelPosition {
 
 BOOL RightPanelRegisterClass(HINSTANCE hinstance);
 HWND RightPanelCreate(HWND parent, HINSTANCE hinstance);
+/* Reveal newly created, pasted or selected content and synchronize the toggles. */
+void RightPanelReveal(HWND panel, DWORD flags);
 void RightPanelSetScene(HWND panel, const SetupFile *setup, const BgPortalFile *portals,
                        SceneOutlinerKind selectedkind, DWORD selectedindex);
 /* A NULL position clears the fields; a noneditable position remains visible. */

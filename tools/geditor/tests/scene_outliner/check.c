@@ -13,7 +13,7 @@ typedef intptr_t LPARAM, LRESULT;
 #include "sceneoutliner.h"
 #include "characterload.h"
 #include "edittool.h"
-#include "visibilitymenu.h"
+#include "visibilitypanel.h"
 #include "characternames.h"
 
 typedef struct TreeItem {
@@ -66,7 +66,7 @@ static BOOL PostMessage(HWND hwnd, unsigned message, WPARAM wparam, LPARAM lpara
     pendingFrame = wparam; queuedFrames++; return TRUE;
 }
 static SceneOutlinerSelection last;
-static HWND g_Viewport = (HWND)1, g_ToolToolbar = (HWND)2, g_VisibilityMenu = (HWND)3;
+static HWND g_Viewport = (HWND)1, g_ToolToolbar = (HWND)2, g_RightPanel = (HWND)3;
 static SetupFile g_CurrentSetup;
 static struct { BgPortalFile portals; } g_CurrentBgDocument;
 static struct { DWORD levelcount; } g_Project = {1};
@@ -156,7 +156,7 @@ static void ViewportSetColorPick(HWND hwnd, BOOL value) { assert(!value); }
 static void ViewportSetDoorPick(HWND hwnd, BOOL value) { assert(!value); }
 static void ViewportSetTool(HWND hwnd, EditorTool value) { tool = value; }
 static void ToolToolbarSetTool(HWND hwnd, EditorTool value) { assert(value == tool); }
-void VisibilityMenuReveal(HWND hwnd, DWORD mask) { revealed = mask; }
+void RightPanelReveal(HWND hwnd, DWORD mask) { revealed = mask; }
 static BOOL ViewportSelectSetupModels(HWND hwnd, const DWORD *ids, DWORD count)
 {
     assert(count == 1 && tool == EDITOR_TOOL_FACE_SELECT && revealed == VISIBILITY_SHOW_OBJECTS);

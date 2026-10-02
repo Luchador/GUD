@@ -171,7 +171,7 @@ typedef struct ViewportState {
 #define GEDITOR_TITLE "GEditor"
 #define MB_ICONERROR 1
 static ViewportState view;
-static HWND g_Viewport = &view, g_VisibilityMenu = (HWND)2;
+static HWND g_Viewport = &view, g_RightPanel = (HWND)2;
 static BgDocument g_CurrentBgDocument, g_FaceClipboard;
 static BgPortalFile g_PortalClipboard;
 static SetupFile g_CurrentSetup;
@@ -195,8 +195,8 @@ static BOOL ViewportKnifeActive(HWND hwnd) { return knife; }
 static void ViewportSetPortals(HWND hwnd, const BgPortalFile *portals)
 { view.portals = *portals; if (faildisplay) { faildisplay = FALSE; view.portals.portalcount = 0; } }
 #define VISIBILITY_SHOW_PORTALS 0x08
-static void VisibilityMenuReveal(HWND hwnd, DWORD flags)
-{ assert(hwnd == g_VisibilityMenu && flags == VISIBILITY_SHOW_PORTALS); view.showportals = TRUE; }
+static void RightPanelReveal(HWND hwnd, DWORD flags)
+{ assert(hwnd == g_RightPanel && flags == VISIBILITY_SHOW_PORTALS); view.showportals = TRUE; }
 static void GEditorClearObjectClipboard(void) { objectclipboard = FALSE; }
 static void GEditorRestoreHistorySelection(HWND hwnd)
 { restores++; memcpy(view.portalselection, g_EditHistory.selection, sizeof(view.portalselection)); }

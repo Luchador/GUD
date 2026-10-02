@@ -44,7 +44,10 @@ def main():
                  'ViewportCancelTransform', 'ViewportFinishPortalDuplicate', 'ViewportFinishBgFaceDuplicate', 'ViewportEndTransform')
         (work / 'viewport.inc').write_text(''.join(helpers.function(viewport, n) for n in names))
         harness = (here.parent / 'edge_extrusion/viewport.c').read_text()
-        # The shared fixture already includes the portal cancellation stubs.
+        # This fixture exercises edge extrusion, without a pending stan duplicate.
+        harness = harness.replace('#include "viewport.inc"',
+            'static BOOL ViewportFinishStanDuplicate(HWND hwnd, ViewportState *state) { return FALSE; }\n'
+            '#include "viewport.inc"')
         prefix, main = harness.split('int main(void)', 1)
         main = main.replace('    Begin(&s,TRUE,25);', '''    BgDocumentEdgeRef selected;
     assert(ViewportGetSelectedBgEdges(&s, &selected, 1) && selected.face.faceid == 11 && selected.corner == 0);
@@ -65,7 +68,7 @@ def main():
         (work / 'input.inc').write_text(helpers.function(editor, 'GEditorHandleBridgeEdgesHotkey'))
         (work / 'menu.inc').write_text(enum + '\n' + helpers.function(editor, 'GEditorCanFlipSelectedBgFaces')
             + helpers.function(editor, 'GEditorShowGeometryMenu'))
-        constants = '\n'.join(re.findall(r'^#define TOOLTOOLBAR_(?:BUTTON_SIZE|MARGIN|BUTTON_COUNT|MENU_WIDTH|CORRECT_WIDTH|VISIBILITY_WIDTH) .*', toolbar, re.M))
+        constants = '\n'.join(re.findall(r'^#define TOOLTOOLBAR_(?:BUTTON_SIZE|MARGIN|BUTTON_COUNT|MENU_WIDTH|CORRECT_WIDTH) .*', toolbar, re.M))
         (work / 'layout.inc').write_text(constants + '\n' + helpers.function(toolbar, 'ToolToolbarLayout')
             + helpers.function(toolbar, 'ToolToolbarGetHeight'))
         subprocess.run(command + [str(here / 'menu.c'), str(shim / 'platform.c'), '-Wl,--gc-sections', '-o', str(work / 'menu')], check=True)
