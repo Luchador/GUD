@@ -281,6 +281,11 @@ void expand_09_characters(s32 stageid, GuardRecord *arg1, s32 arg2)
                     temp_v0_5->chrflags |= CHRFLAG_INVINCIBLE;
                 }
 
+                if ((arg1->bitflags & GUARD_SETUP_FLAG_CHR_NOFADE))
+                {
+                    temp_v0_5->chrflags |= CHRFLAG_NOFADE;
+                }
+
                 arg1->Data = temp_v0_5;
             }
         }

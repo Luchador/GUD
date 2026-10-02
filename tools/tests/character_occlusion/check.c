@@ -75,7 +75,7 @@ static void reset(void)
     chr.handle_positiondata_hat=&hatProp;chr.hitChain=chain;chr.action=42;chr.health=123;chr.animation=72;
     prop=(PropRecord){.chr=&chr,.flags=0x9876};
     emitted=allocations=relations=conversions=freed=0;playerStats.time_other_players_on_screen=0;
-    rng=123;envColor=2;
+    rng=123;envColor=2;screenFadeAlpha=255;
 }
 
 static void bounds(void)
@@ -185,9 +185,36 @@ static void render(void)
 }
 
 static void attachment_checks(void);
+
+static void distance_fade(void)
+{
+    int alpha,exempt;
+    for(alpha=0;alpha<=255;alpha+=85) for(exempt=0;exempt<2;exempt++) {
+        Gfx *gdl=commands;
+        reset();g_OcclusionEnabled=0;
+        screenFadeAlpha=alpha;chr.chrflags=exempt?CHRFLAG_NOFADE:0;
+        gdl=chrRenderChr(&prop,gdl,0);
+        /* Exempt characters keep their opaque pass at every distance. */
+        assert((gdl>commands)==(exempt || alpha==255));
+        gdl=chrRenderChr(&prop,gdl,1);
+        assert((gdl>commands)==(exempt || alpha>0));
+        assert(freed==1 && chr.hitChain==NULL);
+    }
+    /* The exemption must not bypass scripted fades or other visibility rules. */
+    reset();g_OcclusionEnabled=0;chr.chrflags=CHRFLAG_NOFADE;chr.fadealpha=120;
+    assert(chrRenderChr(&prop,commands,0)==commands);
+    assert(chrRenderChr(&prop,commands,1)>commands);
+    reset();chr.chrflags=CHRFLAG_NOFADE;chr.fadealpha=0;
+    assert(chrRenderChr(&prop,commands,1)==commands && freed==1);
+    reset();chr.chrflags=CHRFLAG_NOFADE;envColor=0;
+    assert(chrRenderChr(&prop,commands,1)==commands && freed==1);
+    reset();chr.chrflags=CHRFLAG_NOFADE;screenFadeAlpha=0;
+    assert(chrRenderChr(&prop,commands,1)==commands && g_OcclusionRejected==1);
+}
+
 int main(void)
 {
-    bounds();effects();render();attachment_checks();
-    puts("character occlusion: bounds, attachments, RNG, relations, decals and render lifecycle passed");
+    bounds();effects();render();attachment_checks();distance_fade();
+    puts("character occlusion: bounds, attachments, RNG, relations, decals, distance fade and render lifecycle passed");
     return 0;
 }

@@ -89,6 +89,7 @@ static s32 coss(u16 a) { return (s32)(cos(a*6.283185307179586/65536)*32767); }
 static s32 sins(u16 a) { return (s32)(sin(a*6.283185307179586/65536)*32767); }
 static void sub_GAME_7F073038(ModelRenderData *rd,sImageTableEntry *im,s32 arg) { (void)im; (void)arg; command(rd->gdl++); }
 static void modelRenderNodeGundl(ModelRenderData *rd,ModelNode *node) { nodeDraws[node->testId]++; command(rd->gdl++); }
+static void modelRenderShadow(ModelRenderData *rd,Model *m,ModelNode *n) { (void)m;(void)n;command(rd->gdl++); }
 static void modelRenderNodeDlWithCache(ModelRenderData *rd,Model *m,ModelNode *n,ModelNodeRenderCache *c) { (void)m;(void)c;nodeDraws[n->testId]++;command(rd->gdl++); }
 #define RELATION(name) static void name(Model *m,ModelNode *n) { (void)m; (void)n; relations++; }
 RELATION(modelApplyDistanceRelations)
@@ -99,7 +100,8 @@ static void modelApplyToggleRelations(Model *m,ModelNode *n) {
 }
 RELATION(modelApplyHeadRelations)
 static void modelSetShadowAlpha(int n) { shadowAlpha=n; }
-static int chrCalcScreenFadeAlpha(PropRecord *p) { (void)p; return 255; }
+static int screenFadeAlpha=255;
+static int chrCalcScreenFadeAlpha(PropRecord *p) { (void)p; return screenFadeAlpha; }
 static int envColor=2;
 static int envGetPropDistColor(PropRecord *p,struct rgba_f32 *c) { (void)p; memset(c,0,sizeof(*c)); return envColor; }
 static int getPropCombinedRoomsBBox2D(PropRecord *p,struct view4f *v) { (void)p; memset(v,0,sizeof(*v)); return 1; }

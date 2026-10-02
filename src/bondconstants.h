@@ -258,7 +258,7 @@ typedef enum GUARD_SETUP_FLAG // u16
     GUARD_SETUP_FLAG_SUNGLASSES_50       = 0x0002, // 50% chance of sunglasses
     GUARD_SETUP_FLAG_CHR_CLONE           = 0x0004, // set CHRFLAG_CLONE
     GUARD_SETUP_FLAG_CHR_INVINCIBLE      = 0x0008, // set CHRFLAG_INVINCIBLE
-    GUARD_SETUP_FLAG_0010                = 0x0010, // unused
+    GUARD_SETUP_FLAG_CHR_NOFADE          = 0x0010, // set CHRFLAG_NOFADE; no distance fade/cull
     GUARD_SETUP_FLAG_0020                = 0x0020, // unused
     GUARD_SETUP_FLAG_0040                = 0x0040, // unknown, used in train
     GUARD_SETUP_FLAG_0080                = 0x0080, // unused
