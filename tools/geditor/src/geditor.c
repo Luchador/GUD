@@ -382,13 +382,12 @@ static void GEditorRefreshSelectionInspector(void)
     if (models && !ViewportGetSelectedModels(g_Viewport, models, modelcount)) { free(models); models = NULL; }
     RightPanelSetGlassPortals(g_RightPanel, &g_CurrentBgDocument.portals, g_CurrentBgDocument.levelscale);
     RightPanelSetObjectFlags(g_RightPanel, &g_CurrentSetup, models, models ? modelcount : 0);
-    free(models);
     RightPanelSetRoomMode(g_RightPanel, ViewportGetTool(g_Viewport) == EDITOR_TOOL_ROOM_SELECT);
     RightPanelSetVertexPaintMode(g_RightPanel,
         ViewportGetTool(g_Viewport) == EDITOR_TOOL_VERTEX_PAINT);
     GEditorRefreshTransformFields();
     if (ViewportGetTool(g_Viewport) == EDITOR_TOOL_ROOM_SELECT)
-    { RightPanelSetRoomSelection(g_RightPanel, ViewportGetSelectedRoom(g_Viewport)); return; }
+    { RightPanelSetRoomSelection(g_RightPanel, ViewportGetSelectedRoom(g_Viewport)); free(models); return; }
     if (ViewportGetSelectedPortal(g_Viewport, &portal))
     {
         RightPanelSetPortal(g_RightPanel, &g_CurrentBgDocument, portal);
@@ -413,7 +412,8 @@ static void GEditorRefreshSelectionInspector(void)
     }
     else if (modelcount > 1)
     {
-        RightPanelSetModelSelectionCount(g_RightPanel, modelcount);
+        if (!models || !RightPanelSetSetupObjects(g_RightPanel, &g_CurrentSetup, models, modelcount, g_Project.dir))
+            RightPanelSetModelSelectionCount(g_RightPanel, modelcount);
     }
     else if (objectselected && selectedobject < g_CurrentSetup.objectcount)
     {
@@ -444,6 +444,7 @@ static void GEditorRefreshSelectionInspector(void)
     {
         RightPanelSetBgSelectionCount(g_RightPanel, count);
     }
+    free(models);
 }
 
 
@@ -5427,22 +5428,39 @@ static BOOL GEditorRefreshDoorShadows(const char **why)
 }
 static BOOL GEditorSetDoorShadow(HWND hwnd, const DoorShadowEdit *edit)
 {
-    EditHistoryTransaction transaction = {0}; DWORD selected; BOOL changed;
+    EditHistoryTransaction transaction = {0};
+    DWORD count = ViewportGetSelectedModelCount(g_Viewport), *ids = NULL;
+    BOOL changed = FALSE, anchor = FALSE;
     const char *why = "", *restorewhy = "";
-    if (!edit || !ViewportGetSelectedObject(g_Viewport, &selected) || selected != edit->objectindex) { return FALSE; }
+    if (!edit || !count) return FALSE;
+    ids = malloc((size_t)count * sizeof(*ids));
+    if (!ids || !ViewportGetSelectedModels(g_Viewport, ids, count)) { free(ids); return FALSE; }
+    for (DWORD i = 0; i < count; i++)
+    {
+        DoorShadowProperties properties;
+        if (!DoorShadowGet(&g_CurrentSetup, ids[i], &properties)) { free(ids); return FALSE; }
+        anchor |= ids[i] == edit->objectindex;
+    }
+    if (!anchor) { free(ids); return FALSE; }
     if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup, "Edit Door Shadow", &transaction, &why)) { goto fail; }
-    if (!DoorShadowSet(&g_CurrentSetup, edit, &changed, &why)) { goto rollback; }
-    if (!changed) { EditHistoryCancelEdit(&transaction); return TRUE; }
+    for (DWORD i = 0; i < count; i++)
+    {
+        DoorShadowEdit item = *edit; BOOL itemchanged;
+        item.objectindex = ids[i];
+        if (!DoorShadowSet(&g_CurrentSetup, &item, &itemchanged, &why)) goto rollback;
+        changed |= itemchanged;
+    }
+    if (!changed) { EditHistoryCancelEdit(&transaction); free(ids); return TRUE; }
     if (!GEditorRefreshDoorShadows(&why)
         || !EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
             &g_CurrentStan, &transaction, &why)) { goto rollback; }
-    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd); return TRUE;
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd); free(ids); return TRUE;
 rollback:
     EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
     GEditorRefreshDoorShadows(&restorewhy); GEditorRestoreHistorySelection(hwnd);
 fail:
     EditHistoryCancelEdit(&transaction); GEditorRefreshHistoryMenu(hwnd);
-    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR); return FALSE;
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR); free(ids); return FALSE;
 }
 static BOOL GEditorCreateDoorShadow(HWND hwnd)
 {
@@ -5495,11 +5513,11 @@ static BOOL GEditorSetObjectProperty(HWND hwnd, const SetupObjectPropertyEdit *e
     EditHistoryTransaction transaction = {0};
     SetupObjectGeometry objects = {0};
     const char *why = "", *restorewhy = "";
-    DWORD selected;
+    DWORD count = ViewportGetSelectedModelCount(g_Viewport);
+    DWORD *selection = NULL;
     BOOL changed = FALSE, model, rebuild;
     const char *action;
-    if (!edit || !ViewportGetSelectedObject(g_Viewport, &selected)
-        || selected != edit->objectindex || selected >= g_CurrentSetup.objectcount) { return FALSE; }
+    if (!edit || !count || edit->objectindex >= g_CurrentSetup.objectcount) return FALSE;
     model = edit->property == SETUP_OBJECT_MODEL || edit->property == SETUP_OBJECT_WEAPON_TYPE;
     rebuild = model || (edit->property >= SETUP_OBJECT_GLASS_TYPE && edit->property <= SETUP_OBJECT_GLASS_AUTO_PORTAL)
         || edit->property == SETUP_OBJECT_GLASS_CUSTOM_OPACITY || edit->property == SETUP_OBJECT_GLASS_OPACITY;
@@ -5516,6 +5534,9 @@ static BOOL GEditorSetObjectProperty(HWND hwnd, const SetupObjectPropertyEdit *e
     case SETUP_OBJECT_MODEL: action = "Change Object Model"; break;
     case SETUP_OBJECT_HEALTH: action = "Change Object Health"; break;
     case SETUP_OBJECT_ARMOR_STRENGTH: action = "Change Armor Strength"; break;
+    case SETUP_OBJECT_FADE_ENABLED:
+    case SETUP_OBJECT_FADE_START:
+    case SETUP_OBJECT_FADE_END:
     case SETUP_OBJECT_FADE_DISTANCES: action = "Change Object Fade Distances"; break;
     case SETUP_OBJECT_KEY_FLAGS: action = "Change Key Unlock Flags"; break;
     case SETUP_OBJECT_AMMO_TYPE: action = "Change Ammo Type"; break;
@@ -5542,12 +5563,15 @@ static BOOL GEditorSetObjectProperty(HWND hwnd, const SetupObjectPropertyEdit *e
     case SETUP_OBJECT_DRONE_RANGE: action = "Change Drone Gun Detection Range"; break;
     default: return FALSE;
     }
+    selection = malloc((size_t)count * sizeof(*selection));
+    if (!selection || !ViewportGetSelectedModels(g_Viewport, selection, count))
+    { free(selection); return FALSE; }
     ViewportCancelTransform(g_Viewport);
     if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup,
         action, &transaction, &why)) { goto fail; }
-    if (!SetupFileSetObjectProperty(&g_CurrentSetup, edit, &changed, &why)) { goto rollback; }
-    if (!changed) { EditHistoryCancelEdit(&transaction); return TRUE; }
-    if (model)
+    if (!SetupFileSetObjectProperties(&g_CurrentSetup, selection, count, edit, &changed, &why)) { goto rollback; }
+    if (!changed) { EditHistoryCancelEdit(&transaction); free(selection); return TRUE; }
+    if (model) for (DWORD i = 0; i < count; i++)
     {
         DWORD count = 0;
         unsigned short *tags = NULL;
@@ -5555,7 +5579,7 @@ static BOOL GEditorSetObjectProperty(HWND hwnd, const SetupObjectPropertyEdit *e
         float scale;
         /* The full scene loader skips missing models to keep damaged projects
          * inspectable. An explicit model edit must instead fail and roll back. */
-        BgVertex *mesh = ModelLoadProjectGeometry(g_Project.dir, g_CurrentSetup.objects[selected].modelid,
+        BgVertex *mesh = ModelLoadProjectGeometry(g_Project.dir, g_CurrentSetup.objects[selection[i]].modelid,
             &count, &tags, &flags, &scale, &why);
         BOOL loaded = mesh != NULL;
         free(mesh); free(tags); free(flags);
@@ -5579,19 +5603,21 @@ static BOOL GEditorSetObjectProperty(HWND hwnd, const SetupObjectPropertyEdit *e
         g_CurrentObjects = objects;
     }
     GEditorRefreshHistoryMenu(hwnd);
+    free(selection);
     return TRUE;
 rollback:
     EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
     if (rebuild)
     {
         GEditorRebuildCurrentViewport(&restorewhy);
-        ViewportSelectSetupModel(g_Viewport, selected);
+        ViewportSelectSetupModels(g_Viewport, selection, count);
     }
 fail:
     ObjectGeometryFree(&objects);
     EditHistoryCancelEdit(&transaction);
     GEditorRefreshHistoryMenu(hwnd);
     MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    free(selection);
     return FALSE;
 }
 

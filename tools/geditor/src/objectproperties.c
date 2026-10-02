@@ -63,6 +63,9 @@ typedef struct ObjectPropertiesState {
     HWND shadowpanel;
     BOOL shadowselected;
     DWORD objectindex;
+    DWORD *selection, selectioncount, editmask;
+    BOOL mixed[OBJECT_CONTROL_COUNT], ammomixed[AMMOTYPE_GLOBAL_MAX];
+    int fadefield;
     ULONG_PTR document;
     SetupObjectProperties properties;
     BOOL selected, updating, edited, committing, safeitem;
@@ -78,6 +81,29 @@ typedef struct ObjectPropertiesState {
     char projectdir[MAX_PATH];
     int newmodelcount;
 } ObjectPropertiesState;
+
+/* Mixed is display state only. It is never written to a setup record. */
+#define OBJECT_MIXED_CHOICE (-2147483647 - 1)
+static void ObjectPropertiesText(ObjectPropertiesState *state, int id, const char *text)
+{ SetWindowText(state->controls[id], state->mixed[id] ? "Mixed" : text); }
+static void ObjectPropertiesCheck(ObjectPropertiesState *state, int id, BOOL checked)
+{ SendMessage(state->controls[id], BM_SETCHECK,
+    state->mixed[id] ? BST_INDETERMINATE : checked ? BST_CHECKED : BST_UNCHECKED, 0); }
+static void ObjectPropertiesMixedChoice(ObjectPropertiesState *state, int id)
+{
+    HWND combo = state->controls[id];
+    int count = (int)SendMessage(combo, CB_GETCOUNT, 0, 0), row;
+    for (row = 0; row < count; row++)
+        if ((int)SendMessage(combo, CB_GETITEMDATA, row, 0) == OBJECT_MIXED_CHOICE) break;
+    if (!state->mixed[id])
+    { if (row < count) SendMessage(combo, CB_DELETESTRING, row, 0); return; }
+    if (row == count)
+    {
+        row = (int)SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)"Mixed");
+        SendMessage(combo, CB_SETITEMDATA, row, OBJECT_MIXED_CHOICE);
+    }
+    SendMessage(combo, CB_SETCURSEL, row, 0);
+}
 
 /* Designated native IDs keep names correct if the enum grows. */
 static const char *g_AmmoNames[AMMOTYPE_MAX] = {
@@ -198,6 +224,43 @@ static double ObjectPropertiesAimValue(const SetupObjectProperties *properties, 
     default: return properties->cctv.range;
     }
 }
+static void ObjectPropertiesAccumulateMixed(ObjectPropertiesState *state, const SetupObjectProperties *other)
+{
+    const SetupObjectProperties *first = &state->properties;
+#define MIX(id, member) state->mixed[id] |= first->member != other->member
+    MIX(OBJECT_MODEL, object.modelid); MIX(OBJECT_HEALTH, health);
+    MIX(OBJECT_ARMOR, armorstrength); MIX(OBJECT_WEAPON_TYPE, weapontype);
+    MIX(OBJECT_KEY_MASK, keyflags); MIX(OBJECT_AMMO_TYPE, ammotype);
+    MIX(OBJECT_GLASS_CUSTOM_OPACITY, glass.customopacity); MIX(OBJECT_GLASS_OPACITY, glass.opacity);
+    MIX(OBJECT_GLASS_START, glass.tintdistance); MIX(OBJECT_GLASS_END, glass.opaquedistance);
+    MIX(OBJECT_GLASS_MIN, glass.minimumopacity); MIX(OBJECT_GLASS_AUTO_PORTAL, glass.autoportal);
+    MIX(OBJECT_FADE_ENABLED, customfade);
+    state->mixed[OBJECT_FADE_START] |= (first->customfade ? first->fadestart : 20.0)
+        != (other->customfade ? other->fadestart : 20.0);
+    state->mixed[OBJECT_FADE_END] |= (first->customfade ? first->fadeend : 25.0)
+        != (other->customfade ? other->fadeend : 25.0);
+    MIX(OBJECT_DOOR_TYPE, door.type); MIX(OBJECT_DOOR_SOUND, door.sound);
+    state->mixed[OBJECT_AIM_PAD] |= ObjectPropertiesAimPad(first) != ObjectPropertiesAimPad(other);
+    for (int i = 0; i < OBJECT_AIM_FIELD_COUNT; i++)
+        state->mixed[OBJECT_AIM_FIRST + i * 3 + 1] |= ObjectPropertiesAimValue(first, i) != ObjectPropertiesAimValue(other, i);
+    const double a[] = {first->door.travel, first->door.clearance, first->door.speed,
+        first->door.accel, first->door.decel, first->door.closeframes};
+    const double b[] = {other->door.travel, other->door.clearance, other->door.speed,
+        other->door.accel, other->door.decel, other->door.closeframes};
+    for (int i = 0; i < OBJECT_DOOR_FIELD_COUNT; i++)
+        state->mixed[OBJECT_DOOR_FIRST + i * 3 + 1] |= a[i] != b[i] || (i < 5 && first->door.type != other->door.type);
+    for (int i = 0; i < 4; i++)
+        state->mixed[OBJECT_DOOR_FLAG_FIRST + i] |= ((first->door.flags ^ other->door.flags) & g_DoorFlags[i].bit) != 0;
+    for (int i = 0; i < 32; i++)
+        state->mixed[OBJECT_KEY_FIRST + i] |= ((first->keyflags ^ other->keyflags) & ((DWORD)1 << i)) != 0;
+    for (int i = 0; i < AMMOTYPE_GLOBAL_MAX; i++)
+    {
+        state->ammomixed[i] |= first->ammo[i].quantity != other->ammo[i].quantity;
+        state->mixed[OBJECT_CONTENTS] |= state->ammomixed[i];
+    }
+#undef MIX
+}
+
 static void ObjectPropertiesResetAim(ObjectPropertiesState *state, int field)
 {
     int id = OBJECT_AIM_FIRST + field * 3 + 1;
@@ -205,7 +268,7 @@ static void ObjectPropertiesResetAim(ObjectPropertiesState *state, int field)
     if (state->selected)
     { snprintf(text, sizeof(text), "%.15g", ObjectPropertiesAimValue(&state->properties, field)); }
     state->updating = TRUE;
-    SetWindowText(state->controls[id], text);
+    ObjectPropertiesText(state, id, text);
     SendMessage(state->controls[id], EM_EMPTYUNDOBUFFER, 0, 0);
     state->updating = FALSE;
     state->aimedited[field] = FALSE;
@@ -256,7 +319,7 @@ static void ObjectPropertiesResetDoor(ObjectPropertiesState *state, int field)
     { snprintf(text, sizeof(text), "%.15g", ObjectPropertiesDoorValue(&state->properties.door, field)
         * ObjectPropertiesDoorFactor(state->properties.door.type, field)); }
     state->updating = TRUE;
-    SetWindowText(state->controls[id], text);
+    ObjectPropertiesText(state, id, text);
     SendMessage(state->controls[id], EM_EMPTYUNDOBUFFER, 0, 0);
     state->updating = FALSE;
     state->dooredited[field] = FALSE;
@@ -362,7 +425,7 @@ static void ObjectPropertiesResetHealth(ObjectPropertiesState *state)
     char text[64] = "";
     if (state->selected) { snprintf(text, sizeof(text), "%.15g", state->properties.health); }
     state->updating = TRUE;
-    SetWindowText(state->controls[OBJECT_HEALTH], text);
+    ObjectPropertiesText(state, OBJECT_HEALTH, text);
     SendMessage(state->controls[OBJECT_HEALTH], EM_EMPTYUNDOBUFFER, 0, 0);
     state->updating = FALSE;
     state->edited = FALSE;
@@ -383,7 +446,7 @@ static void ObjectPropertiesResetArmor(ObjectPropertiesState *state)
     char text[64] = "";
     if (state->selected) { snprintf(text, sizeof(text), "%.15g", state->properties.armorstrength); }
     state->updating = TRUE;
-    SetWindowText(state->controls[OBJECT_ARMOR], text);
+    ObjectPropertiesText(state, OBJECT_ARMOR, text);
     SendMessage(state->controls[OBJECT_ARMOR], EM_EMPTYUNDOBUFFER, 0, 0);
     state->updating = FALSE;
     state->armoredited = FALSE;
@@ -405,6 +468,7 @@ static void ObjectPropertiesApply(HWND hwnd, ObjectPropertiesState *state,
     edit.property = property;
     edit.value = value;
     edit.slot = state->ammoslot;
+    edit.mask = state->editmask; state->editmask = 0;
     state->committing = TRUE;
     SendMessage(GetParent(hwnd), OBJECTPROPERTIES_WM_CHANGED, 0, (LPARAM)&edit);
     state->committing = FALSE;
@@ -421,15 +485,13 @@ static void ObjectPropertiesResetGlass(ObjectPropertiesState *state)
     state->updating = TRUE;
     SendMessage(state->controls[OBJECT_GLASS_TYPE], CB_SETCURSEL,
         state->properties.object.type == PROPDEF_TINTED_GLASS ? 1 : 0, 0);
-    SendMessage(state->controls[OBJECT_GLASS_AUTO_PORTAL], BM_SETCHECK,
-        state->properties.glass.autoportal ? BST_CHECKED : BST_UNCHECKED, 0);
-    SendMessage(state->controls[OBJECT_GLASS_CUSTOM_OPACITY], BM_SETCHECK,
-        state->properties.glass.customopacity ? BST_CHECKED : BST_UNCHECKED, 0);
-    EnableWindow(state->controls[OBJECT_GLASS_OPACITY], state->selected && state->properties.glass.customopacity);
+    ObjectPropertiesCheck(state, OBJECT_GLASS_AUTO_PORTAL, state->properties.glass.autoportal);
+    ObjectPropertiesCheck(state, OBJECT_GLASS_CUSTOM_OPACITY, state->properties.glass.customopacity);
+    EnableWindow(state->controls[OBJECT_GLASS_OPACITY], state->selected && (state->properties.glass.customopacity || state->mixed[OBJECT_GLASS_CUSTOM_OPACITY]));
     for (int field = 0; field < 4; field++) if (!state->glassedited[field])
     {
         snprintf(text, sizeof(text), field == 2 ? "%.6f" : "%.2f", values[field]);
-        SetWindowText(state->controls[ids[field]], text);
+        ObjectPropertiesText(state, ids[field], text);
         SendMessage(state->controls[ids[field]], EM_EMPTYUNDOBUFFER, 0, 0);
     }
     state->updating = FALSE;
@@ -457,7 +519,7 @@ static void ObjectPropertiesApplyGlass(HWND hwnd, ObjectPropertiesState *state, 
 
 static void ObjectPropertiesEnableFade(ObjectPropertiesState *state)
 {
-    BOOL enabled = state->selected && SendMessage(state->controls[OBJECT_FADE_ENABLED], BM_GETCHECK, 0, 0) == BST_CHECKED;
+    BOOL enabled = state->selected && SendMessage(state->controls[OBJECT_FADE_ENABLED], BM_GETCHECK, 0, 0) != BST_UNCHECKED;
     EnableWindow(state->controls[OBJECT_FADE_START], enabled);
     EnableWindow(state->controls[OBJECT_FADE_END], enabled);
 }
@@ -467,11 +529,11 @@ static void ObjectPropertiesResetFade(ObjectPropertiesState *state)
     char text[64];
     BOOL enabled = state->selected && state->properties.customfade;
     state->updating = TRUE;
-    SendMessage(state->controls[OBJECT_FADE_ENABLED], BM_SETCHECK, enabled ? BST_CHECKED : BST_UNCHECKED, 0);
+    ObjectPropertiesCheck(state, OBJECT_FADE_ENABLED, enabled);
     snprintf(text, sizeof(text), "%.2f", enabled ? state->properties.fadestart : 20.0);
-    SetWindowText(state->controls[OBJECT_FADE_START], text);
+    ObjectPropertiesText(state, OBJECT_FADE_START, text);
     snprintf(text, sizeof(text), "%.2f", enabled ? state->properties.fadeend : 25.0);
-    SetWindowText(state->controls[OBJECT_FADE_END], text);
+    ObjectPropertiesText(state, OBJECT_FADE_END, text);
     SendMessage(state->controls[OBJECT_FADE_START], EM_EMPTYUNDOBUFFER, 0, 0);
     SendMessage(state->controls[OBJECT_FADE_END], EM_EMPTYUNDOBUFFER, 0, 0);
     state->fadeedited = FALSE;
@@ -494,6 +556,16 @@ static void ObjectPropertiesApplyFade(HWND hwnd, ObjectPropertiesState *state)
     SetupObjectPropertyEdit edit = {0};
     char start[64], end[64];
     if (!state->selected || state->updating || state->committing || !state->fadeedited) { return; }
+    if (state->selectioncount > 1)
+    {
+        int id = state->fadefield == OBJECT_FADE_END ? OBJECT_FADE_END : OBJECT_FADE_START;
+        GetWindowText(state->controls[id], start, sizeof(start));
+        if (!ObjectPropertiesParseFade(start, &edit.value))
+        { ObjectPropertiesStatus(hwnd, state, "Enter a distance from 0 to 655.35 m."); return; }
+        ObjectPropertiesApply(hwnd, state, id == OBJECT_FADE_START ? SETUP_OBJECT_FADE_START : SETUP_OBJECT_FADE_END, edit.value);
+        ObjectPropertiesResetFade(state);
+        return;
+    }
     if (SendMessage(state->controls[OBJECT_FADE_ENABLED], BM_GETCHECK, 0, 0) == BST_CHECKED)
     {
         GetWindowText(state->controls[OBJECT_FADE_START], start, sizeof(start));
@@ -641,7 +713,7 @@ static void ObjectPropertiesResetExtra(ObjectPropertiesState *state, int id)
         else { snprintf(text, sizeof(text), "%u", state->properties.ammo[state->ammoslot].quantity); }
     }
     state->updating = TRUE;
-    SetWindowText(state->controls[id], text);
+    ObjectPropertiesText(state, id, text);
     SendMessage(state->controls[id], EM_EMPTYUNDOBUFFER, 0, 0);
     state->updating = FALSE;
     if (id == OBJECT_KEY_MASK) { state->keyedited = FALSE; }
@@ -700,6 +772,7 @@ static void ObjectPropertiesRefreshAim(ObjectPropertiesState *state)
         if (choice >= 0) { SendMessage(combo, CB_SETITEMDATA, choice, pad); }
     }
     SendMessage(combo, CB_SETCURSEL, choice, 0);
+    ObjectPropertiesMixedChoice(state, OBJECT_AIM_PAD);
     state->updating = FALSE;
     for (int field = 0; field < OBJECT_AIM_FIELD_COUNT; field++)
     { if (!state->aimedited[field]) { ObjectPropertiesResetAim(state, field); } }
@@ -737,7 +810,7 @@ static void ObjectPropertiesApplyAimPad(HWND hwnd, ObjectPropertiesState *state)
     if (!state->selected || !ObjectPropertiesHasAim(state->properties.object.type)
         || state->updating || state->committing || choice < 0) { return; }
     LONG value = (LONG)SendMessage(combo, CB_GETITEMDATA, choice, 0);
-    if (value != ObjectPropertiesAimPad(&state->properties))
+    if (value != OBJECT_MIXED_CHOICE && (state->mixed[OBJECT_AIM_PAD] || value != ObjectPropertiesAimPad(&state->properties)))
     { ObjectPropertiesApply(hwnd, state, state->properties.object.type == PROPDEF_AUTOGUN
         ? SETUP_OBJECT_DRONE_AIM_PAD : SETUP_OBJECT_CCTV_LOOK_PAD, value); }
 }
@@ -760,6 +833,8 @@ static void ObjectPropertiesRefreshDoor(ObjectPropertiesState *state)
     state->updating = TRUE;
     ObjectPropertiesDoorChoice(state->controls[OBJECT_DOOR_TYPE], door->type);
     ObjectPropertiesDoorChoice(state->controls[OBJECT_DOOR_SOUND], door->sound);
+    ObjectPropertiesMixedChoice(state, OBJECT_DOOR_TYPE);
+    ObjectPropertiesMixedChoice(state, OBJECT_DOOR_SOUND);
     SetWindowText(state->controls[OBJECT_DOOR_TYPE_HELP], units == 0
         ? "Travel is a percentage of the door's width (height for vertical / fall-away doors). Special folding types need compatible models."
         : units == 1 ? "Travel is an angle in degrees. The model and pad determine the hinge."
@@ -774,10 +849,12 @@ static void ObjectPropertiesRefreshDoor(ObjectPropertiesState *state)
         if (property == SETUP_OBJECT_DOOR_CLOSE_DELAY) { snprintf(text, sizeof(text), "%s", g_DoorFields[field].name); }
         else { snprintf(text, sizeof(text), "%s (%s%s)", g_DoorFields[field].name, unit, rate); }
         SetWindowText(state->controls[OBJECT_DOOR_FIRST + field * 3], text);
+        EnableWindow(state->controls[OBJECT_DOOR_FIRST + field * 3 + 1], !state->mixed[OBJECT_DOOR_TYPE] || field == 5);
     }
+    if (state->mixed[OBJECT_DOOR_TYPE]) SetWindowText(state->controls[OBJECT_DOOR_TYPE_HELP],
+        "Choose a common door movement before editing travel or speed; the units depend on the movement.");
     for (int flag = 0; flag < 4; flag++)
-    { SendMessage(state->controls[OBJECT_DOOR_FLAG_FIRST + flag], BM_SETCHECK,
-        door->flags & g_DoorFlags[flag].bit ? BST_CHECKED : BST_UNCHECKED, 0); }
+        ObjectPropertiesCheck(state, OBJECT_DOOR_FLAG_FIRST + flag, (door->flags & g_DoorFlags[flag].bit) != 0);
     state->updating = FALSE;
     for (int field = 0; field < OBJECT_DOOR_FIELD_COUNT; field++)
     { if (!state->dooredited[field]) { ObjectPropertiesResetDoor(state, field); } }
@@ -790,7 +867,7 @@ static void ObjectPropertiesApplyDoorChoice(HWND hwnd, ObjectPropertiesState *st
     if (!state->selected || state->properties.object.type != PROPDEF_DOOR
         || state->updating || state->committing || choice < 0) { return; }
     value = (DWORD)SendMessage(combo, CB_GETITEMDATA, choice, 0);
-    if (value != current)
+    if ((int)value != OBJECT_MIXED_CHOICE && (state->mixed[id] || value != current))
     { ObjectPropertiesApply(hwnd, state, id == OBJECT_DOOR_TYPE ? SETUP_OBJECT_DOOR_TYPE : SETUP_OBJECT_DOOR_SOUND, value); }
 }
 
@@ -800,7 +877,7 @@ static void ObjectPropertiesApplyModel(HWND hwnd, ObjectPropertiesState *state)
     int choice = (int)SendMessage(combo, CB_GETCURSEL, 0, 0), model;
     if (choice == CB_ERR || !state->selected) { return; }
     model = (int)SendMessage(combo, CB_GETITEMDATA, choice, 0);
-    if (model != state->properties.object.modelid)
+    if (model != OBJECT_MIXED_CHOICE && (state->mixed[OBJECT_MODEL] || model != state->properties.object.modelid))
     { ObjectPropertiesApply(hwnd, state, SETUP_OBJECT_MODEL, model); }
 }
 
@@ -828,6 +905,7 @@ static void ObjectPropertiesRefreshWeapon(ObjectPropertiesState *state)
         if (row >= 0) { SendMessage(combo, CB_SETITEMDATA, row, state->properties.weapontype); }
     }
     SendMessage(combo, CB_SETCURSEL, row, 0);
+    ObjectPropertiesMixedChoice(state, OBJECT_WEAPON_TYPE);
     state->updating = FALSE;
 }
 
@@ -838,7 +916,7 @@ static void ObjectPropertiesApplyWeapon(HWND hwnd, ObjectPropertiesState *state)
     if (row < 0 || !state->selected || state->updating || state->committing
         || state->properties.object.type != PROPDEF_COLLECTABLE) { return; }
     int item = (int)SendMessage(combo, CB_GETITEMDATA, row, 0);
-    if (item != state->properties.weapontype)
+    if (item != OBJECT_MIXED_CHOICE && (state->mixed[OBJECT_WEAPON_TYPE] || item != state->properties.weapontype))
     { ObjectPropertiesApply(hwnd, state, SETUP_OBJECT_WEAPON_TYPE, item); }
 }
 
@@ -898,11 +976,13 @@ static void ObjectPropertiesRefreshAmmo(ObjectPropertiesState *state)
     SendMessage(state->controls[OBJECT_AMMO_TYPE], CB_SETCURSEL,
         ObjectPropertiesModelChoice(state->controls[OBJECT_AMMO_TYPE],
             crate ? (int)state->ammoslot + 1 : (int)state->properties.ammotype), 0);
+    if (!crate) ObjectPropertiesMixedChoice(state, OBJECT_AMMO_TYPE);
+    state->mixed[OBJECT_QUANTITY] = state->ammomixed[state->ammoslot];
     if (crate)
     {
         if (!ObjectPropertiesFormatContents(&state->properties, state->multiplayer, text, sizeof(text)))
         { strcpy(text, "Contents could not be displayed."); }
-        SetWindowText(state->controls[OBJECT_CONTENTS], text);
+        ObjectPropertiesText(state, OBJECT_CONTENTS, text);
     }
     state->updating = FALSE;
     if (!state->quantityedited) { ObjectPropertiesResetExtra(state, OBJECT_QUANTITY); }
@@ -915,6 +995,7 @@ static void ObjectPropertiesApplyAmmoChoice(HWND hwnd, ObjectPropertiesState *st
     DWORD value;
     if (!state->selected || state->updating || state->committing || choice < 0) { return; }
     value = (DWORD)SendMessage(combo, CB_GETITEMDATA, choice, 0);
+    if ((int)value == OBJECT_MIXED_CHOICE) return;
     if (state->properties.object.type == PROPDEF_MAGAZINE)
     { ObjectPropertiesApply(hwnd, state, SETUP_OBJECT_AMMO_TYPE, value); }
     else if (value >= 1 && value <= AMMOTYPE_GLOBAL_MAX && state->ammoslot != value - 1)
@@ -996,7 +1077,7 @@ static LRESULT CALLBACK ObjectPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
             state->controls[i] = CreateWindowEx(edit ? WS_EX_CLIENTEDGE : 0,
                 combo ? "COMBOBOX" : edit ? "EDIT" : (key || i == OBJECT_SAFE_CONTENTS) ? "BUTTON" : "STATIC", "",
                 WS_CHILD | WS_VISIBLE | (combo ? WS_TABSTOP | CBS_DROPDOWNLIST | WS_VSCROLL
-                    : edit ? WS_TABSTOP | ES_AUTOHSCROLL : i == OBJECT_SAFE_CONTENTS ? WS_TABSTOP | BS_PUSHBUTTON : key ? WS_TABSTOP | BS_AUTOCHECKBOX | BS_MULTILINE
+                    : edit ? WS_TABSTOP | ES_AUTOHSCROLL : i == OBJECT_SAFE_CONTENTS ? WS_TABSTOP | BS_PUSHBUTTON : key ? WS_TABSTOP | BS_3STATE | BS_MULTILINE
                     : SS_NOPREFIX),
                 0, 0, 1, 1, hwnd, (HMENU)(INT_PTR)(100 + i), cs->hInstance, NULL);
             if (!state->controls[i]) { return -1; }
@@ -1072,6 +1153,13 @@ static LRESULT CALLBACK ObjectPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
             return 0;
         }
         if (!state || state->updating) { return 0; }
+        int controlid = LOWORD(wparam) - 100;
+        if (HIWORD(wparam) == BN_CLICKED && controlid >= 0 && controlid < OBJECT_CONTROL_COUNT
+            && (controlid == OBJECT_GLASS_CUSTOM_OPACITY || controlid == OBJECT_GLASS_AUTO_PORTAL
+                || controlid == OBJECT_FADE_ENABLED || (controlid >= OBJECT_KEY_FIRST && controlid <= OBJECT_KEY_LAST)
+                || (controlid >= OBJECT_DOOR_FLAG_FIRST && controlid <= OBJECT_DOOR_FLAG_LAST)))
+            SendMessage((HWND)lparam, BM_SETCHECK,
+                SendMessage((HWND)lparam, BM_GETCHECK, 0, 0) == BST_CHECKED ? BST_UNCHECKED : BST_CHECKED, 0);
         if ((HWND)lparam == state->controls[OBJECT_GLASS_TYPE])
         {
             if (HIWORD(wparam) == CBN_SELENDOK || (HIWORD(wparam) == CBN_SELCHANGE
@@ -1106,12 +1194,17 @@ static LRESULT CALLBACK ObjectPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
         }
         if ((HWND)lparam == state->controls[OBJECT_FADE_ENABLED] && HIWORD(wparam) == BN_CLICKED)
         {
-            state->fadeedited = TRUE;
-            ObjectPropertiesApplyFade(hwnd, state);
+            if (state->selectioncount > 1)
+            {
+                ObjectPropertiesApply(hwnd, state, SETUP_OBJECT_FADE_ENABLED,
+                    SendMessage((HWND)lparam, BM_GETCHECK, 0, 0) == BST_CHECKED);
+                ObjectPropertiesResetFade(state);
+            }
+            else { state->fadeedited = TRUE; ObjectPropertiesApplyFade(hwnd, state); }
         }
         if ((HWND)lparam == state->controls[OBJECT_FADE_START] || (HWND)lparam == state->controls[OBJECT_FADE_END])
         {
-            if (HIWORD(wparam) == EN_CHANGE) { state->fadeedited = TRUE; }
+            if (HIWORD(wparam) == EN_CHANGE) { state->fadeedited = TRUE; state->fadefield = controlid; }
             if (HIWORD(wparam) == EN_KILLFOCUS) { ObjectPropertiesApplyFade(hwnd, state); }
             if (HIWORD(wparam) == EN_SETFOCUS) { ObjectPropertiesRevealControl(hwnd, state, (HWND)lparam); }
         }
@@ -1162,8 +1255,9 @@ static LRESULT CALLBACK ObjectPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
         if (LOWORD(wparam) >= 100 + OBJECT_DOOR_FLAG_FIRST && LOWORD(wparam) <= 100 + OBJECT_DOOR_FLAG_LAST
             && HIWORD(wparam) == BN_CLICKED && state->properties.object.type == PROPDEF_DOOR)
         {
-            DWORD mask = state->properties.door.flags ^ g_DoorFlags[LOWORD(wparam) - 100 - OBJECT_DOOR_FLAG_FIRST].bit;
-            ObjectPropertiesApply(hwnd, state, SETUP_OBJECT_DOOR_FLAGS, mask);
+            state->editmask = g_DoorFlags[controlid - OBJECT_DOOR_FLAG_FIRST].bit;
+            ObjectPropertiesApply(hwnd, state, SETUP_OBJECT_DOOR_FLAGS,
+                SendMessage((HWND)lparam, BM_GETCHECK, 0, 0) == BST_CHECKED ? state->editmask : 0);
         }
         for (int id = OBJECT_KEY_MASK; id <= OBJECT_QUANTITY; id++)
         {
@@ -1178,8 +1272,9 @@ static LRESULT CALLBACK ObjectPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
             && HIWORD(wparam) == BN_CLICKED
             && (state->properties.object.type == PROPDEF_KEY || state->properties.object.type == PROPDEF_DOOR))
         {
-            DWORD mask = state->properties.keyflags ^ ((DWORD)1 << (LOWORD(wparam) - 100 - OBJECT_KEY_FIRST));
-            ObjectPropertiesApply(hwnd, state, ObjectPropertiesKeyProperty(state), mask);
+            state->editmask = (DWORD)1 << (controlid - OBJECT_KEY_FIRST);
+            ObjectPropertiesApply(hwnd, state, ObjectPropertiesKeyProperty(state),
+                SendMessage((HWND)lparam, BM_GETCHECK, 0, 0) == BST_CHECKED ? state->editmask : 0);
             ObjectPropertiesResetExtra(state, OBJECT_KEY_MASK);
         }
         if ((HWND)lparam == state->controls[OBJECT_AMMO_TYPE])
@@ -1208,6 +1303,8 @@ static LRESULT CALLBACK ObjectPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
             { SendMessage((HWND)lparam, CB_SETCURSEL, ObjectPropertiesModelChoice((HWND)lparam, state->properties.object.modelid), 0); }
             if (HIWORD(wparam) == CBN_SETFOCUS) { ObjectPropertiesRevealControl(hwnd, state, (HWND)lparam); }
         }
+        if (controlid >= 0 && controlid < OBJECT_CONTROL_COUNT && ObjectPropertiesIsCombo(controlid)
+            && HIWORD(wparam) == CBN_SELENDCANCEL) ObjectPropertiesMixedChoice(state, controlid);
         return 0;
     case WM_VSCROLL:
         if (state)
@@ -1245,6 +1342,7 @@ static LRESULT CALLBACK ObjectPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
         { SetTextColor((HDC)wparam, ThemeSystemColor(COLOR_GRAYTEXT)); }
         return (LRESULT)ThemeSystemBrush(COLOR_WINDOW);
     case WM_NCDESTROY:
+        if (state) free(state->selection);
         free(state); SetWindowLongPtr(hwnd, GWLP_USERDATA, 0); break;
     }
     return DefWindowProc(hwnd, msg, wparam, lparam);
@@ -1267,7 +1365,11 @@ HWND ObjectPropertiesCreate(HWND parent, HINSTANCE instance)
 }
 
 BOOL ObjectPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD index, const char *projectdir)
+{ return ObjectPropertiesSetSelections(panel, setup, &index, setup ? 1 : 0, projectdir); }
+
+BOOL ObjectPropertiesSetSelections(HWND panel, const SetupFile *setup, const DWORD *indices, DWORD count, const char *projectdir)
 {
+    DWORD index = count && indices ? indices[0] : 0;
     ObjectPropertiesState *state = ObjectPropertiesGetState(panel);
     SetupObjectProperties properties;
     const char *why;
@@ -1275,11 +1377,25 @@ BOOL ObjectPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD inde
     BOOL same;
     int choice;
     if (!state) { return FALSE; }
+    BOOL sameselection = count == state->selectioncount && (!count || (indices && state->selection
+        && !memcmp(indices, state->selection, count * sizeof(*indices))));
+    DWORD *selection = count && indices ? malloc((size_t)count * sizeof(*selection)) : NULL;
+    if (count && !selection) return FALSE;
+    if (count) memcpy(selection, indices, count * sizeof(*selection));
+    free(state->selection); state->selection = selection; state->selectioncount = count;
+    memset(state->mixed, 0, sizeof(state->mixed)); memset(state->ammomixed, 0, sizeof(state->ammomixed));
+    if (count > 1)
+    {
+        for (DWORD i = 0; i < count; i++)
+            if (!setup || indices[i] >= setup->objectcount || setup->objects[indices[i]].deleted
+                || setup->objects[indices[i]].type != setup->objects[index].type)
+            { ObjectPropertiesSetSelection(panel, NULL, 0, NULL); return FALSE; }
+    }
     state->shadowselected = setup && index < setup->objectcount
         && !setup->objects[index].deleted && setup->objects[index].type == PROPDEF_DOOR_SHADOW;
     if (state->shadowselected) {
         state->selected = FALSE; /* No ordinary object fields apply to this record. */
-        DoorShadowPropertiesSetSelection(state->shadowpanel, setup, index);
+        DoorShadowPropertiesSetSelections(state->shadowpanel, setup, indices, count);
         ObjectPropertiesLayout(panel, state);
         return TRUE;
     }
@@ -1295,7 +1411,8 @@ BOOL ObjectPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD inde
         ObjectPropertiesResetFade(state);
         return FALSE;
     }
-    same = state->selected && state->objectindex == index && state->document == (ULONG_PTR)setup->data
+    same = sameselection && state->selected && state->objectindex == index
+        && (state->document == (ULONG_PTR)setup->data || state->committing)
         && state->properties.object.sourceoffset == properties.object.sourceoffset
         && state->properties.object.type == properties.object.type;
     if (!same)
@@ -1328,9 +1445,17 @@ BOOL ObjectPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD inde
     if (!same || memcmp(&state->properties.glass, &properties.glass, sizeof(properties.glass)))
         memset(state->glassedited, 0, sizeof(state->glassedited));
     state->properties = properties;
+    for (DWORD i = 1; i < count; i++)
+    {
+        SetupObjectProperties other;
+        if (!SetupFileGetObjectProperties(setup, indices[i], &other, &why))
+        { ObjectPropertiesSetSelection(panel, NULL, 0, NULL); return FALSE; }
+        ObjectPropertiesAccumulateMixed(state, &other);
+    }
     state->multiplayer = strncmp(setup->name, "Ump_", 4) == 0;
     if (!ObjectPropertiesLoadModels(state, projectdir)) { return FALSE; }
     snprintf(text, sizeof(text), "Type: %s", SetupObjectTypeName(properties.object.type));
+    if (count > 1) snprintf(text, sizeof(text), "%lu objects: %s", (unsigned long)count, SetupObjectTypeName(properties.object.type));
     SetWindowText(state->controls[OBJECT_TYPE], text);
     state->updating = TRUE;
     choice = ObjectPropertiesModelChoice(state->controls[OBJECT_MODEL], properties.object.modelid);
@@ -1344,6 +1469,7 @@ BOOL ObjectPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD inde
         if (choice >= 0) { SendMessage(state->controls[OBJECT_MODEL], CB_SETITEMDATA, choice, properties.object.modelid); }
     }
     SendMessage(state->controls[OBJECT_MODEL], CB_SETCURSEL, choice, 0);
+    ObjectPropertiesMixedChoice(state, OBJECT_MODEL);
     state->updating = FALSE;
     if (properties.object.type == PROPDEF_COLLECTABLE) { ObjectPropertiesRefreshWeapon(state); }
     if (properties.object.type == PROPDEF_DOOR) { ObjectPropertiesRefreshDoor(state); }
@@ -1367,12 +1493,12 @@ BOOL ObjectPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD inde
         if (!properties.glass.autoportal) snprintf(text, sizeof(text), "Portal control is off.");
         else if (portal < 0) snprintf(text, sizeof(text), "No portal detected. Align the pane's bound pad with a portal.");
         else snprintf(text, sizeof(text), "Detected portal: %d. Closes at full opacity in single player.", portal);
-        SetWindowText(state->controls[OBJECT_GLASS_PORTAL_STATUS], text);
+        SetWindowText(state->controls[OBJECT_GLASS_PORTAL_STATUS], count > 1 ? "Visibility portals are detected separately for each pane." : text);
     }
     if (!state->keyedited) { ObjectPropertiesResetExtra(state, OBJECT_KEY_MASK); }
     state->updating = TRUE;
     for (int bit = 0; bit < 32; bit++)
-    { SendMessage(state->controls[OBJECT_KEY_FIRST + bit], BM_SETCHECK, properties.keyflags & ((DWORD)1 << bit) ? BST_CHECKED : BST_UNCHECKED, 0); }
+    { ObjectPropertiesCheck(state, OBJECT_KEY_FIRST + bit, (properties.keyflags & ((DWORD)1 << bit)) != 0); }
     BOOL crate = properties.object.type == PROPDEF_AMMO;
     if (!same)
     {
@@ -1407,8 +1533,9 @@ BOOL ObjectPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD inde
     else { snprintf(placement, sizeof(placement), "Pad: %d", properties.object.pad); }
     snprintf(text, sizeof(text), "Object index: %lu\r\n%s\r\nExtra scale: %.6g",
         (unsigned long)index, placement, properties.object.extrascale / 256.0);
+    if (count > 1) snprintf(text, sizeof(text), "%lu objects selected. Changes apply to all selected objects.\r\nMixed means the values differ.", (unsigned long)count);
     SetWindowText(state->controls[OBJECT_IDENTITY], text);
-    state->safeitem = SetupFileCanBeSafeItem(setup, index);
+    state->safeitem = count == 1 && SetupFileCanBeSafeItem(setup, index);
     if (state->safeitem)
     {
         LONG body, door;

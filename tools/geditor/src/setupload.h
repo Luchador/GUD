@@ -74,7 +74,8 @@ typedef enum SetupObjectProperty {
     SETUP_OBJECT_GLASS_TYPE, SETUP_OBJECT_GLASS_TINT_DISTANCE,
     SETUP_OBJECT_GLASS_OPAQUE_DISTANCE, SETUP_OBJECT_GLASS_MINIMUM_OPACITY,
     SETUP_OBJECT_GLASS_AUTO_PORTAL, SETUP_OBJECT_WEAPON_TYPE,
-    SETUP_OBJECT_GLASS_CUSTOM_OPACITY, SETUP_OBJECT_GLASS_OPACITY
+    SETUP_OBJECT_GLASS_CUSTOM_OPACITY, SETUP_OBJECT_GLASS_OPACITY,
+    SETUP_OBJECT_FADE_ENABLED, SETUP_OBJECT_FADE_START, SETUP_OBJECT_FADE_END
 } SetupObjectProperty;
 /* Movement uses native fractions/degrees/animation units per 60 Hz tick.
  * The inspector converts these to percentages/degrees and seconds. */
@@ -124,6 +125,7 @@ typedef struct SetupObjectPropertyEdit {
     double value;
     double value2; /* Fade end distance for SETUP_OBJECT_FADE_DISTANCES; otherwise ignored. */
     DWORD slot; /* Zero-based multi-ammo slot; ignored by other properties. */
+    DWORD mask; /* Optional bit mask for key/door flag checkboxes; 0 replaces the whole value. */
 } SetupObjectPropertyEdit;
 
 /* Validate tagged object distances and destination runtime support on export
@@ -292,6 +294,9 @@ BOOL SetupFileGetObjectProperties(const SetupFile *setup, DWORD index,
                                   SetupObjectProperties *out, const char **reasonout);
 /* Validates before mutation, preserves all unrelated bytes, reports no-ops.
  * The frame validates model asset availability before committing the edit. */
+/* Atomic same-type selection edit. Identity is checked before any changes. */
+BOOL SetupFileSetObjectProperties(SetupFile *setup, const DWORD *indices, DWORD count,
+    const SetupObjectPropertyEdit *edit, BOOL *changedout, const char **reasonout);
 BOOL SetupFileSetObjectProperty(SetupFile *setup, const SetupObjectPropertyEdit *edit,
                                 BOOL *changedout, const char **reasonout);
 

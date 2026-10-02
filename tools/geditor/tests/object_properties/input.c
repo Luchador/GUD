@@ -15,10 +15,11 @@ typedef intptr_t LPARAM, LRESULT;
 typedef struct { unsigned int message; WPARAM wParam; } MSG;
 enum { WM_KEYDOWN = 1, EM_EMPTYUNDOBUFFER, EM_CANUNDO, WM_UNDO,
        OBJECTPROPERTIES_WM_CHANGED, VK_CONTROL, VK_RETURN, VK_ESCAPE,
-       CB_RESETCONTENT, CB_GETCOUNT, CB_ADDSTRING, CB_SETITEMDATA, CB_GETITEMDATA,
+       CB_RESETCONTENT, CB_DELETESTRING, CB_GETCOUNT, CB_ADDSTRING, CB_SETITEMDATA, CB_GETITEMDATA,
        CB_SETCURSEL, CB_GETCURSEL, BM_GETCHECK, BM_SETCHECK };
 #define BST_CHECKED 1
 #define BST_UNCHECKED 0
+#define BST_INDETERMINATE 2
 #define min(a,b) ((a) < (b) ? (a) : (b))
 #include "input-types.inc"
 #include "weaponchoices.h"
@@ -68,6 +69,11 @@ static LRESULT SendMessage(HWND hwnd, unsigned int msg, WPARAM wparam, LPARAM lp
         switch (msg)
         {
         case CB_RESETCONTENT: choicecount = 0; chosen = -1; return 0;
+        case CB_DELETESTRING:
+            assert(wparam < (WPARAM)choicecount);
+            memmove(choices + wparam, choices + wparam + 1, (choicecount - wparam - 1) * sizeof(*choices));
+            choicecount--; if (chosen == (int)wparam) chosen = -1; else if (chosen > (int)wparam) chosen--;
+            return choicecount;
         case CB_GETCOUNT: return choicecount;
         case CB_ADDSTRING:
             assert(choicecount < 32);
@@ -510,8 +516,61 @@ static void CheckArmor(void)
     puts("PASS: armor percentage input, quantization, Enter/blur, Escape, invalid text, rejected edits and type visibility.");
 }
 
+static void CheckBatchInputs(void)
+{
+    state.selected = TRUE; state.selectioncount = 2;
+    memset(state.mixed, 0, sizeof(state.mixed));
+    state.properties.object.type = PROPDEF_GLASS;
+    state.properties.glass.customopacity = FALSE;
+    state.properties.glass.opacity = 100;
+    state.mixed[OBJECT_GLASS_CUSTOM_OPACITY] = TRUE;
+    state.mixed[OBJECT_GLASS_OPACITY] = TRUE;
+    state.glassedited[3] = FALSE;
+    ObjectPropertiesResetGlass(&state);
+    assert(!strcmp(glassText[3], "Mixed") && fadeEnabled[OBJECT_GLASS_OPACITY]);
+    focus = state.controls[OBJECT_GLASS_OPACITY];
+    int before = commits;
+    assert(Key(VK_RETURN) && commits == before); /* Viewing Mixed never changes anything. */
+    strcpy(glassText[3], "60"); state.glassedited[3] = TRUE;
+    assert(Key(VK_ESCAPE) && commits == before && !strcmp(glassText[3], "Mixed"));
+    strcpy(glassText[3], "60"); state.glassedited[3] = TRUE;
+    assert(Key(VK_RETURN) && commits == before + 1 && state.properties.glass.opacity == 60);
+    ObjectPropertiesApplyGlass(0, &state, 3); assert(commits == before + 1);
+
+    /* Choosing the anchor's current value must still update differing peers. */
+    state.properties.object.type = PROPDEF_COLLECTABLE;
+    state.properties.weapontype = SETUP_DEFAULT_WEAPON_ITEM;
+    state.mixed[OBJECT_WEAPON_TYPE] = TRUE;
+    ObjectPropertiesRefreshWeapon(&state);
+    assert(choices[chosen].value == OBJECT_MIXED_CHOICE);
+    ObjectPropertiesApplyWeapon(0, &state); assert(commits == before + 1);
+    chosen = ObjectPropertiesModelChoice(state.controls[OBJECT_WEAPON_TYPE], SETUP_DEFAULT_WEAPON_ITEM);
+    ObjectPropertiesApplyWeapon(0, &state); assert(commits == before + 2);
+    state.selectioncount = 1;
+    memset(state.mixed, 0, sizeof(state.mixed));
+    puts("PASS: mixed glass display, enable state, no-edit/escape/enter and mixed dropdown commits.");
+}
+
+static void CheckMixedValues(void)
+{
+    ObjectPropertiesState mixed = {0};
+    SetupObjectProperties other = {0};
+    mixed.properties.object.type = other.object.type = PROPDEF_GLASS;
+    mixed.properties.glass.opacity = 60; other.glass.opacity = 80;
+    other.glass.customopacity = TRUE; other.health = 100;
+    other.customfade = TRUE; other.fadestart = 20; other.fadeend = 30;
+    other.keyflags = 0x80000000u; other.ammo[2].quantity = 50;
+    ObjectPropertiesAccumulateMixed(&mixed, &other);
+    assert(mixed.mixed[OBJECT_GLASS_OPACITY] && mixed.mixed[OBJECT_GLASS_CUSTOM_OPACITY]);
+    assert(mixed.mixed[OBJECT_HEALTH] && !mixed.mixed[OBJECT_MODEL]);
+    assert(mixed.mixed[OBJECT_FADE_ENABLED] && !mixed.mixed[OBJECT_FADE_START] && mixed.mixed[OBJECT_FADE_END]);
+    assert(mixed.mixed[OBJECT_KEY_FIRST+31] && !mixed.mixed[OBJECT_KEY_FIRST]);
+    assert(mixed.ammomixed[2] && !mixed.ammomixed[1]);
+}
+
 int main(void)
 {
+    CheckMixedValues();
     for (int i=0;i<OBJECT_CONTROL_COUNT;i++) { state.controls[i]=1000+i; }
     CheckContents();
     double value;
@@ -636,5 +695,6 @@ int main(void)
     CheckGlass();
     CheckFade();
     CheckWeapon();
+    CheckBatchInputs();
     return 0;
 }

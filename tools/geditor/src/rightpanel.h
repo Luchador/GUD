@@ -65,6 +65,8 @@ void RightPanelSetBgSelectionCount(HWND panel, int count);
 void RightPanelSetRoomSelection(HWND panel, DWORD room);
 void RightPanelSetRoomMode(HWND panel, BOOL enabled);
 void RightPanelSetGlassPortals(HWND panel, const BgPortalFile *portals, float levelscale);
+BOOL RightPanelSetSetupObjects(HWND panel, const SetupFile *setup, const DWORD *indices,
+    DWORD count, const char *projectdir);
 void RightPanelSetSetupObject(HWND panel, const SetupFile *setup,
                               DWORD objectindex, const char *projectdir);
 /* Clear with NULL whenever the selection is not an ObjectRecord. */

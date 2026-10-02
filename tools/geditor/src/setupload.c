@@ -5102,6 +5102,37 @@ BOOL SetupFileSetObjectProperty(SetupFile *setup, const SetupObjectPropertyEdit 
         && (record[3] != PROPDEF_TINTED_GLASS
             && (record[3] != PROPDEF_GLASS || edit->property != SETUP_OBJECT_GLASS_TYPE)))
     { *reasonout = "These settings require a glass object."; return FALSE; }
+    /* Expand partial controls against this object's values, never the anchor's. */
+    if (edit->mask || (edit->property >= SETUP_OBJECT_FADE_ENABLED && edit->property <= SETUP_OBJECT_FADE_END))
+    {
+        SetupObjectProperties current;
+        SetupObjectPropertyEdit resolved = *edit;
+        if (!SetupFileGetObjectProperties(setup, edit->objectindex, &current, reasonout)) return FALSE;
+        resolved.mask = 0;
+        if (edit->property >= SETUP_OBJECT_FADE_ENABLED && edit->property <= SETUP_OBJECT_FADE_END)
+        {
+            resolved.property = SETUP_OBJECT_FADE_DISTANCES;
+            resolved.value = current.customfade ? current.fadestart : 20.0;
+            resolved.value2 = current.customfade ? current.fadeend : 25.0;
+            if (edit->property == SETUP_OBJECT_FADE_ENABLED)
+            {
+                if (edit->value != 0 && edit->value != 1) return FALSE;
+                if (!edit->value) resolved.value = resolved.value2 = 0;
+            }
+            else if (edit->property == SETUP_OBJECT_FADE_START) resolved.value = edit->value;
+            else resolved.value2 = edit->value;
+        }
+        else
+        {
+            DWORD flags;
+            if (edit->property != SETUP_OBJECT_KEY_FLAGS && edit->property != SETUP_OBJECT_DOOR_KEY_FLAGS
+                && edit->property != SETUP_OBJECT_DOOR_FLAGS) return FALSE;
+            if (edit->value < 0 || edit->value > 4294967295.0 || floor(edit->value) != edit->value) return FALSE;
+            flags = edit->property == SETUP_OBJECT_DOOR_FLAGS ? current.door.flags : current.keyflags;
+            resolved.value = (flags & ~edit->mask) | ((DWORD)edit->value & edit->mask);
+        }
+        return SetupFileSetObjectProperty(setup, &resolved, changedout, reasonout);
+    }
     switch (edit->property)
     {
     case SETUP_OBJECT_GLASS_CUSTOM_OPACITY:
@@ -5378,6 +5409,43 @@ BOOL SetupFileSetObjectProperty(SetupFile *setup, const SetupObjectPropertyEdit 
     }
     setup->dirty = TRUE;
     *changedout = TRUE;
+    return TRUE;
+}
+
+BOOL SetupFileSetObjectProperties(SetupFile *setup, const DWORD *indices, DWORD count,
+    const SetupObjectPropertyEdit *edit, BOOL *changedout, const char **reasonout)
+{
+    SetupFile staged = {0};
+    BOOL anchor = FALSE, changed = FALSE;
+    *changedout = FALSE;
+    *reasonout = "Select objects of the same type to edit their properties together.";
+    if (!setup || !indices || !count || !edit) return FALSE;
+    for (DWORD i = 0; i < count; i++)
+    {
+        DWORD index = indices[i];
+        if (index >= setup->objectcount || setup->objects[index].deleted
+            || setup->objects[index].type != edit->type) return FALSE;
+        if (index == edit->objectindex)
+            anchor = setup->objects[index].sourceoffset == edit->sourceoffset;
+    }
+    if (!anchor || !SetupFileClone(setup, &staged, reasonout)) return FALSE;
+    for (DWORD i = 0; i < count; i++)
+    {
+        SetupObjectPropertyEdit item = *edit;
+        BOOL itemchanged;
+        item.objectindex = indices[i];
+        /* A glass type conversion relocates later records. Resolve each offset
+         * from the staged document after the preceding conversion. */
+        item.sourceoffset = staged.objects[item.objectindex].sourceoffset;
+        item.type = staged.objects[item.objectindex].type;
+        if (!SetupFileSetObjectProperty(&staged, &item, &itemchanged, reasonout))
+        { SetupFileFree(&staged); return FALSE; }
+        changed |= itemchanged;
+    }
+    if (changed) { SetupFileFree(setup); *setup = staged; }
+    else SetupFileFree(&staged);
+    *changedout = changed;
+    *reasonout = "";
     return TRUE;
 }
 

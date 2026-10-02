@@ -34,7 +34,7 @@ def main():
         work = Path(temp)
         (work / 'setup').mkdir()
         data = bytearray(40)
-        for kind, words in sizes.items():
+        for kind, words in list(sizes.items()) * 2:
             record = bytearray((i * 13 + kind) % 256 for i in range(words * 4))
             struct.pack_into('>I', record, 0, 0x01002000 | kind)
             struct.pack_into('>HHII', record, 4, 15, 0, 0x52514C3B, 0x83001400)
@@ -82,9 +82,11 @@ def main():
         types += '\n' + re.search(r'typedef struct ObjectAimField \{.*?\} ObjectAimField;', source, re.S)[0]
         for table in ('g_CctvFields', 'g_DroneFields'):
             types += '\n' + re.search(r'static const ObjectAimField ' + table + r'\[OBJECT_AIM_FIELD_COUNT\] = \{.*?\n\};', source, re.S)[0]
+        types += '\n' + re.search(r'#define OBJECT_MIXED_CHOICE .*', source)[0]
+        types += '\n' + re.search(r'static const struct \{[^}]*\} g_DoorFlags\[\] = \{.*?\n\};', source, re.S)[0]
         (work / 'input-types.inc').write_text(types)
-        names = ('ObjectPropertiesHasAim', 'ObjectPropertiesAimFields', 'ObjectPropertiesAimPad',
-                 'ObjectPropertiesAimField', 'ObjectPropertiesAimValue', 'ObjectPropertiesResetAim',
+        names = ('ObjectPropertiesText', 'ObjectPropertiesCheck', 'ObjectPropertiesMixedChoice', 'ObjectPropertiesHasAim', 'ObjectPropertiesAimFields', 'ObjectPropertiesAimPad',
+                 'ObjectPropertiesAimField', 'ObjectPropertiesAimValue', 'ObjectPropertiesAccumulateMixed', 'ObjectPropertiesResetAim',
                  'ObjectPropertiesDoorField', 'ObjectPropertiesDoorValue', 'ObjectPropertiesDoorUnits',
                  'ObjectPropertiesDoorFactor', 'ObjectPropertiesResetDoor', 'ObjectPropertiesFormatContents', 'ObjectPropertiesIsEdit', 'ObjectPropertiesControlVisible',
                  'ObjectPropertiesResetHealth', 'ObjectPropertiesParseHealth',

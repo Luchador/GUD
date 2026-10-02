@@ -30,6 +30,26 @@ model IDs. The inspector verifies that the chosen project model loads, rolling
 back if it fails. Specialized objects such as doors and monitors may require
 particular model parts; this first pass does not validate those requirements.
 
+## Editing a selection
+
+Select multiple objects of the same native type to edit their shared Properties.
+Their models may differ. For example, select regular glass panes, enable **Use
+custom opacity**, and enter **60** in **Opacity (%)** to update every pane.
+
+Fields and dropdowns show **Mixed** when values differ; checkboxes show an
+indeterminate mark. Editing a field sets that value on the whole selection.
+Individual key/door flag checkboxes preserve all other bits, and changing a fade
+endpoint preserves each object's other endpoint. Enabling custom fades preserves
+existing pairs and gives unconfigured objects the usual 20/25 metre defaults.
+Each edit is one undo step. Invalid values or a failed preview roll back the
+whole selection, and the selection remains available for further edits.
+
+Door travel/speed fields require a common movement type because their units
+depend on that type. Mixed object types and characters keep their existing Flags
+workflow. Safe links, door-shadow door picking and shadow preview remain
+individual-object operations; shadow colors, directions and unlinking support
+multi-selection.
+
 ## Keys and ammo
 
 These sections appear only for the selected record type, in the Properties tab.
@@ -143,7 +163,8 @@ corresponding cached SetupObject field. The raw setup remains authoritative.
 
 `objectproperties.c` owns controls and uncommitted text. It sends a synchronous
 property request containing the object index, source offset and type. The main
-frame checks the current selection, wraps the setter in an existing setup-history
+frame checks the current selection, uses `SetupFileSetObjectProperties` to stage
+an atomic same-type batch, and wraps it in an existing setup-history
 transaction, refreshes geometry when needed, and restores the prior state on
 failure. No control writes directly into a setup record.
 

@@ -1127,7 +1127,7 @@ void RightPanelSetModelSelectionCount(HWND panel, DWORD count)
     if (!state) { return; }
     lstrcpyn(state->detailtitle, "Models", sizeof(state->detailtitle));
     snprintf(state->detailtext, sizeof(state->detailtext),
-        "%lu models selected.\r\n\r\nUse Flags to edit their flags together. Select one model to edit its other properties.",
+        "%lu models selected.\r\n\r\nUse Flags to edit their flags together. Select objects of the same type to edit their properties together.",
         (unsigned long)count);
     RightPanelShowFaceProperties(panel, state, FALSE);
     SetWindowText(state->details, state->detailtext);
@@ -1190,15 +1190,19 @@ void RightPanelSetBgSelectionCount(HWND panel, int count)
 
 void RightPanelSetSetupObject(HWND panel, const SetupFile *setup,
                               DWORD objectindex, const char *projectdir)
+{ RightPanelSetSetupObjects(panel, setup, &objectindex, 1, projectdir); }
+
+BOOL RightPanelSetSetupObjects(HWND panel, const SetupFile *setup, const DWORD *indices,
+                               DWORD count, const char *projectdir)
 {
     RightPanelState *state = RightPanelGetState(panel);
-    if (!state) { return; }
-    lstrcpyn(state->detailtitle, "Setup Object", sizeof(state->detailtitle));
-    if (!ObjectPropertiesSetSelection(state->objectproperties, setup, objectindex, projectdir))
+    if (!state) { return FALSE; }
+    lstrcpyn(state->detailtitle, count > 1 ? "Setup Objects" : "Setup Object", sizeof(state->detailtitle));
+    if (!ObjectPropertiesSetSelections(state->objectproperties, setup, indices, count, projectdir))
     {
         RightPanelShowFaceProperties(panel, state, FALSE);
         SetWindowText(state->details, "The object's properties could not be loaded.");
-        return;
+        return FALSE;
     }
     state->showingfaces = state->showingportals = state->showingstanroom = state->showingstantype = FALSE;
     CharacterPropertiesSetSelection(state->characterproperties, NULL, 0);
@@ -1206,6 +1210,7 @@ void RightPanelSetSetupObject(HWND panel, const SetupFile *setup,
     state->showingobjects = TRUE;
     state->showingpadmodel = FALSE;
     RightPanelLayout(panel, state);
+    return TRUE;
 }
 
 

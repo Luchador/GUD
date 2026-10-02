@@ -446,11 +446,105 @@ static void CheckFade(const char *dir, const SetupFile *source)
     puts("PASS: per-object fade pairs, all subtypes, centimetre limits, atomic validation, save/reopen, no-ops, undo/redo and runtime capability.");
 }
 
+static void CheckBatch(const char *dir, const SetupFile *source)
+{
+    SetupFile setup = {0}, before = {0}, after = {0};
+    SetupObjectProperties view; const char *why; BOOL changed;
+    EditHistory history = {0}; EditHistoryTransaction tx; EditHistoryAsset asset;
+    BgDocument bg = {0}; StanFile stan = {0};
+    assert(SetupFileClone(source, &setup, &why));
+    DWORD glass = FindType(&setup, PROPDEF_GLASS), ids[] = {glass, glass + 21};
+    assert(setup.objects[ids[1]].type == PROPDEF_GLASS);
+    assert(SetupFileClone(&setup, &before, &why));
+    EditHistoryReset(&history, &bg, &setup, &stan);
+    assert(EditHistoryBeginSetupEdit(&history, &setup, "Glass opacity", &tx, &why));
+    SetupObjectPropertyEdit edit = Request(&setup, glass, SETUP_OBJECT_GLASS_OPACITY, 60);
+    assert(SetupFileSetObjectProperties(&setup, ids, 2, &edit, &changed, &why) && changed);
+    for (int i = 0; i < 2; i++)
+    {
+        assert(SetupFileGetObjectProperties(&setup, ids[i], &view, &why));
+        assert(view.glass.customopacity && view.glass.opacity == 60);
+        assert(!memcmp(&setup.objects[ids[i]], &before.objects[ids[i]], sizeof(SetupObject)));
+    }
+    assert(EditHistoryCommitEdit(&history, &bg, &setup, &stan, &tx, &why));
+    assert(SetupFileClone(&setup, &after, &why));
+    assert(EditHistoryUndo(&history, &bg, &setup, &stan, &asset, &why)); Same(&setup, &before);
+    assert(EditHistoryRedo(&history, &bg, &setup, &stan, &asset, &why)); Same(&setup, &after);
+    assert(SetupFileSetObjectProperties(&setup, ids, 2, &edit, &changed, &why) && !changed);
+    RoundTrip(dir, &setup);
+    SetupFileFree(&before); SetupFileFree(&after); EditHistoryFree(&history);
+
+    /* One endpoint/checkbox never copies the anchor's unrelated settings. */
+    for (int i = 0; i < 2; i++)
+    {
+        edit = Request(&setup, ids[i], SETUP_OBJECT_FADE_DISTANCES, 10);
+        edit.value2 = i ? 40 : 25;
+        assert(SetupFileSetObjectProperty(&setup, &edit, &changed, &why));
+    }
+    edit = Request(&setup, glass, SETUP_OBJECT_FADE_START, 15);
+    assert(SetupFileSetObjectProperties(&setup, ids, 2, &edit, &changed, &why) && changed);
+    for (int i = 0; i < 2; i++)
+    {
+        assert(SetupFileGetObjectProperties(&setup, ids[i], &view, &why));
+        assert(view.fadestart == 15 && view.fadeend == (i ? 40 : 25));
+    }
+    /* First succeeds, second fails: the entire batch must remain untouched. */
+    DWORD reverse[] = {ids[1], ids[0]};
+    edit.value = 30;
+    assert(SetupFileClone(&setup, &before, &why));
+    assert(!SetupFileSetObjectProperties(&setup, reverse, 2, &edit, &changed, &why) && !changed);
+    Same(&setup, &before); SetupFileFree(&before);
+    edit = Request(&setup, glass, SETUP_OBJECT_FADE_ENABLED, 1);
+    assert(SetupFileSetObjectProperties(&setup, ids, 2, &edit, &changed, &why) && !changed);
+
+    /* Stale, deleted, character, and heterogeneous selections are rejected. */
+    DWORD invalid[] = {glass, FindType(&setup, PROPDEF_PROP)};
+    assert(!SetupFileSetObjectProperties(&setup, invalid, 2, &edit, &changed, &why));
+    invalid[1] = SETUP_CHARACTER_SELECTION_BIT;
+    assert(!SetupFileSetObjectProperties(&setup, invalid, 2, &edit, &changed, &why));
+    edit.sourceoffset++;
+    assert(!SetupFileSetObjectProperties(&setup, ids, 2, &edit, &changed, &why));
+    edit.sourceoffset--;
+    setup.objects[ids[1]].deleted = TRUE;
+    assert(!SetupFileSetObjectProperties(&setup, ids, 2, &edit, &changed, &why));
+    setup.objects[ids[1]].deleted = FALSE;
+
+    /* Resizing records during conversion must not stale later object offsets. */
+    edit = Request(&setup, glass, SETUP_OBJECT_GLASS_TYPE, PROPDEF_TINTED_GLASS);
+    assert(SetupFileSetObjectProperties(&setup, ids, 2, &edit, &changed, &why) && changed);
+    for (int i = 0; i < 2; i++) assert(setup.objects[ids[i]].type == PROPDEF_TINTED_GLASS);
+    edit = Request(&setup, glass, SETUP_OBJECT_GLASS_TYPE, PROPDEF_GLASS);
+    assert(SetupFileSetObjectProperties(&setup, ids, 2, &edit, &changed, &why) && changed);
+    for (int i = 0; i < 2; i++)
+    {
+        assert(SetupFileGetObjectProperties(&setup, ids[i], &view, &why));
+        assert(view.glass.customopacity && view.glass.opacity == 60);
+    }
+    RoundTrip(dir, &setup);
+
+    DWORD door = FindType(&setup, PROPDEF_DOOR), doors[] = {door, door + 21};
+    for (int i = 0; i < 2; i++)
+    {
+        edit = Request(&setup, doors[i], SETUP_OBJECT_DOOR_KEY_FLAGS, i ? 8 : 2);
+        assert(SetupFileSetObjectProperty(&setup, &edit, &changed, &why));
+    }
+    edit = Request(&setup, door, SETUP_OBJECT_DOOR_KEY_FLAGS, 1); edit.mask = 1;
+    assert(SetupFileSetObjectProperties(&setup, doors, 2, &edit, &changed, &why) && changed);
+    for (int i = 0; i < 2; i++)
+    {
+        assert(SetupFileGetObjectProperties(&setup, doors[i], &view, &why));
+        assert(view.keyflags == (i ? 9 : 3));
+    }
+    SetupFileFree(&setup);
+    puts("same-type batch edits: opacity, undo/redo, persistence, partial fields, atomic failures and type conversion passed");
+}
+
 int main(int argc, char **argv)
 {
     SetupFile source = {0}, setup = {0}; const char *why;
     assert(argc == 2 && SetupLoadProjectFile(argv[1], "UsetuppropertiesZ", &source, &why));
-    assert(source.objectcount == 21 && source.charactercount == 1);
+    assert(source.objectcount == 42 && source.charactercount == 1);
+    CheckBatch(argv[1], &source);
     CheckKeysAndAmmo(argv[1], &source);
     CheckDoors(argv[1], &source);
     CheckCctv(argv[1], &source);

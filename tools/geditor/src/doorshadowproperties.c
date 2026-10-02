@@ -16,6 +16,7 @@ typedef struct ShadowPanel {
     DoorShadowProperties values;
     int scroll, wheel;
     BOOL updating;
+    BOOL mixeddirection;
 } ShadowPanel;
 static ShadowPanel *State(HWND hwnd) { return (ShadowPanel *)GetWindowLongPtr(hwnd, GWLP_USERDATA); }
 static void Layout(HWND hwnd, ShadowPanel *s)
@@ -62,13 +63,19 @@ static void ColorText(HWND control, const char *name, DWORD rgb)
     SetWindowText(control, text);
 }
 void DoorShadowPropertiesSetSelection(HWND hwnd, const SetupFile *setup, DWORD index)
+{ DoorShadowPropertiesSetSelections(hwnd, setup, &index, 1); }
+
+void DoorShadowPropertiesSetSelections(HWND hwnd, const SetupFile *setup, const DWORD *indices, DWORD count)
 {
+    if (!count || !indices) return;
+    DWORD index = indices[0];
     ShadowPanel *s = State(hwnd); char text[160];
     if (!s || !DoorShadowGet(setup, index, &s->values)) { return; }
     s->updating = TRUE;
     if (s->index != index) { s->scroll = 0; }
-    s->index = index;
+    s->index = index; s->mixeddirection = FALSE;
     snprintf(text, sizeof(text), "Door Shadow %lu (room %lu)", (unsigned long)index, (unsigned long)s->values.room);
+    if (count > 1) snprintf(text, sizeof(text), "%lu Door Shadows", (unsigned long)count);
     SetWindowText(s->controls[TITLE], text);
     if (s->values.door < 0) { snprintf(text, sizeof(text), "Linked door: None (closed)"); }
     else { snprintf(text, sizeof(text), "Linked door: %ld", (long)s->values.door); }
@@ -81,6 +88,31 @@ void DoorShadowPropertiesSetSelection(HWND hwnd, const SetupFile *setup, DWORD i
     snprintf(text, sizeof(text), "Preview door opening: %d%%", percent);
     SetWindowText(s->controls[PREVIEW_LABEL], text);
     SendMessage(s->controls[PREVIEW], TBM_SETPOS, TRUE, percent);
+    BOOL mixedlink = FALSE, mixedlight = FALSE, mixeddark = FALSE, linked = s->values.door >= 0;
+    for (DWORD i = 1; i < count; i++)
+    {
+        DoorShadowProperties other;
+        if (!DoorShadowGet(setup, indices[i], &other)) continue;
+        mixedlink |= other.door != s->values.door; linked |= other.door >= 0;
+        mixedlight |= other.light != s->values.light; mixeddark |= other.dark != s->values.dark;
+        s->mixeddirection |= other.direction != s->values.direction;
+    }
+    if (mixedlink) SetWindowText(s->controls[LINK], "Linked door: Mixed");
+    if (mixedlight) SetWindowText(s->controls[LIGHT], "Light RGB: Mixed...");
+    if (mixeddark) SetWindowText(s->controls[DARK], "Dark RGB: Mixed...");
+    if (SendMessage(s->controls[DIRECTION], CB_GETCOUNT, 0, 0) > 4)
+        SendMessage(s->controls[DIRECTION], CB_DELETESTRING, 4, 0);
+    if (s->mixeddirection)
+    {
+        SendMessage(s->controls[DIRECTION], CB_ADDSTRING, 0, (LPARAM)"Mixed");
+        SendMessage(s->controls[DIRECTION], CB_SETCURSEL, 4, 0);
+    }
+    EnableWindow(s->controls[UNLINK], linked);
+    EnableWindow(s->controls[PICK], count == 1);
+    EnableWindow(s->controls[PREVIEW], count == 1);
+    SetWindowText(s->controls[HELP], count > 1
+        ? "Changes apply to all selected shadows. Select one shadow to pick its door or preview opening."
+        : "Preview only. In game, the shadow follows the linked door's actual opening. Click Pick door, then a door in the viewport; Esc cancels.");
     Layout(hwnd, s); s->updating = FALSE;
 }
 static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
@@ -121,8 +153,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
             } else if (id == UNLINK && HIWORD(wp) == BN_CLICKED) {
                 Edit(hwnd, s, DOOR_SHADOW_EDIT_DOOR, -1);
             } else if (id == DIRECTION && HIWORD(wp) == CBN_SELCHANGE) {
-                if (!Edit(hwnd, s, DOOR_SHADOW_EDIT_DIRECTION, SendMessage(s->controls[DIRECTION], CB_GETCURSEL, 0, 0)))
-                    SendMessage(s->controls[DIRECTION], CB_SETCURSEL, s->values.direction, 0);
+                int choice = (int)SendMessage(s->controls[DIRECTION], CB_GETCURSEL, 0, 0);
+                if (choice < 0 || choice > 3 || !Edit(hwnd, s, DOOR_SHADOW_EDIT_DIRECTION, choice))
+                    SendMessage(s->controls[DIRECTION], CB_SETCURSEL, s->mixeddirection ? 4 : s->values.direction, 0);
             } else if ((id == LIGHT || id == DARK) && HIWORD(wp) == BN_CLICKED) {
                 static COLORREF custom[16];
                 DWORD rgb = id == LIGHT ? s->values.light : s->values.dark;

@@ -7,4 +7,5 @@
 BOOL DoorShadowPropertiesRegisterClass(HINSTANCE instance);
 HWND DoorShadowPropertiesCreate(HWND parent, HINSTANCE instance);
 void DoorShadowPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD index);
+void DoorShadowPropertiesSetSelections(HWND panel, const SetupFile *setup, const DWORD *indices, DWORD count);
 #endif
