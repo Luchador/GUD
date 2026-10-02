@@ -23,3 +23,8 @@ with tempfile.TemporaryDirectory(prefix='geditor-theme-') as directory:
     subprocess.run([os.environ.get('CC','cc'),'-std=c99','-O1','-g','-Wall','-Wextra','-Werror','-Wno-sign-compare',
         '-fsanitize=address,undefined','-I'+str(work),str(HERE/'check.c'),'-o',str(work/'check')],check=True)
     subprocess.run([str(work/'check')],check=True,env=dict(os.environ,ASAN_OPTIONS='detect_leaks=0',UBSAN_OPTIONS='halt_on_error=1'))
+    (work/'groupboxes.inc').write_text(''.join(function(n) for n in
+        ('ThemeClipGroupBoxContents', 'ThemeDrawButton')))
+    subprocess.run([os.environ.get('CC','cc'),'-std=c99','-O1','-g','-Wall','-Wextra','-Werror','-Wno-unused-parameter',
+        '-fsanitize=address,undefined','-I'+str(work),str(HERE/'groupboxes.c'),'-o',str(work/'groupboxes')],check=True)
+    subprocess.run([str(work/'groupboxes')],check=True,env=dict(os.environ,ASAN_OPTIONS='detect_leaks=0',UBSAN_OPTIONS='halt_on_error=1'))

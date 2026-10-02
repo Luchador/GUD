@@ -286,6 +286,25 @@ static LRESULT ThemeMenuChar(WPARAM wp, HMENU menu)
         : MAKELRESULT(0, MNC_IGNORE);
 }
 
+static void ThemeClipGroupBoxContents(HWND hwnd, HDC dc)
+{
+    HWND parent = GetParent(hwnd);
+    if (!parent) { return; }
+    /* Controls inside a group box are normally its siblings. Transparent
+     * frames (as used by Model Editor) paint after those controls, so filling
+     * the whole rectangle erases them until their next independent repaint.
+     * Exclude visible siblings in either Z order, including composite panels
+     * such as the color picker. The caller saves/restores the DC's clip. */
+    for (HWND sibling = GetWindow(parent, GW_CHILD); sibling;
+         sibling = GetWindow(sibling, GW_HWNDNEXT))
+    {
+        RECT bounds;
+        if (sibling == hwnd || !IsWindowVisible(sibling) || !GetWindowRect(sibling, &bounds)) { continue; }
+        MapWindowPoints(NULL, hwnd, (POINT *)&bounds, 2);
+        ExcludeClipRect(dc, bounds.left, bounds.top, bounds.right, bounds.bottom);
+    }
+}
+
 static void ThemeDrawButton(HWND hwnd, ThemeWindow *state, HDC dc)
 {
     RECT r, textrect; WCHAR text[1024]; DWORD style = (DWORD)GetWindowLongPtr(hwnd, GWL_STYLE);
@@ -298,6 +317,7 @@ static void ThemeDrawButton(HWND hwnd, ThemeWindow *state, HDC dc)
     HFONT old = ThemeSelectFont(hwnd, dc);
     GetClientRect(hwnd, &r); textrect = r; GetWindowTextW(hwnd, text, 1024);
     SetBkMode(dc, TRANSPARENT); SetTextColor(dc, ThemeColor(enabled ? THEME_TEXT : THEME_MUTED));
+    if (type == BS_GROUPBOX) { ThemeClipGroupBoxContents(hwnd, dc); }
     ThemeFill(dc, &r, THEME_BACKGROUND);
     if (type == BS_GROUPBOX) {
         SIZE size; RECT border = r; GetTextExtentPoint32W(dc, text, lstrlenW(text), &size);
