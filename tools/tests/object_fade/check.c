@@ -45,7 +45,7 @@ static int occlusionCount(void) { return 0; }
 static int occlusionEnabled(void) { return 0; }
 static int occlusionTestSphere(const float *pos,float radius) { return 0; }
 static int envGetPropDistColor(PropRecord *p,struct rgba_f32 *c) { memset(c,0,sizeof(*c)); return envVisible; }
-static float modelGetInstSize(Model *m) { sizes++; return 100; }
+static float modelGetInstSize(Model *m) { sizes++; return m->obj->BoundingVolumeRadius; }
 static int getPropCombinedRoomsBBox2D(PropRecord *p,struct view4f *v) { return 0; }
 static Gfx *bgScissorCurrentPlayerViewF(Gfx *g,float l,float t,float w,float h) { return g; }
 static Gfx *bgScissorCurrentPlayerViewDefault(Gfx *g) { return g; }
@@ -58,8 +58,48 @@ static void SetWord(float *dest,u32 value) { memcpy(dest,&value,4); }
 static int Render(PropRecord *p,int pass)
 { Gfx commands[1]; renders=0; objRenderProp(p,commands,pass); return renders; }
 
+static void ScreenSizeFade(void)
+{
+    Header header={1,100}; Model model={&header,NULL};
+    ObjectRecord obj={.type=PROPDEF_PROP,.model=&model};
+    PropRecord prop={.type=PROP_TYPE_OBJ,.obj=&obj};
+    const float diameters[]={20,50,100,199,200,400};
+    view.m[2][2]=-1;
+    g_PropFadeStartPx=g_PropFadeEndPx=0;
+    for (unsigned i=0;i<sizeof(diameters)/sizeof(*diameters);i++)
+    {
+        header.BoundingVolumeRadius=diameters[i]/2;
+        prop.pos.z=diameters[i]*100/12.5f;
+        assert(Render(&prop,0) && rendered.flags==1 && rendered.PropType==9);
+        prop.pos.z=diameters[i]*100/11.25f;
+        assert(!Render(&prop,0) && Render(&prop,1));
+        assert(rendered.flags==3 && rendered.PropType==5
+            && rendered.envcolour.word>=126 && rendered.envcolour.word<=127);
+        prop.pos.z=diameters[i]*100/10;
+        assert(!Render(&prop,0) && !Render(&prop,1));
+    }
+    /* At the same distance, small props now disappear before larger props. */
+    prop.pos.z=1000; header.BoundingVolumeRadius=25;
+    assert(!Render(&prop,0) && !Render(&prop,1));
+    header.BoundingVolumeRadius=100; assert(Render(&prop,0));
+    /* Camera projection and per-level thresholds still determine apparent size. */
+    header.BoundingVolumeRadius=25; prop.pos.z=500;
+    assert(!Render(&prop,0) && !Render(&prop,1));
+    player.c_recipscaley=200; assert(Render(&prop,0));
+    player.c_recipscaley=100;
+    g_PropFadeStartPx=20; g_PropFadeEndPx=15;
+    prop.pos.z=250; assert(Render(&prop,0));
+    prop.pos.z=5000/17.5f;
+    assert(!Render(&prop,0) && Render(&prop,1) && rendered.envcolour.word==127);
+    prop.pos.z=500; assert(!Render(&prop,0) && !Render(&prop,1));
+    g_PropFadeStartPx=-1; assert(Render(&prop,0));
+    g_PropFadeStartPx=g_PropFadeEndPx=0;
+    puts("PASS: small/large models share fade boundaries; actual size, projection, level settings and zero-alpha render skipping.");
+}
+
 int main(void)
 {
+    ScreenSizeFade();
     Header header={1,100}; Model model={&header,NULL};
     ObjectRecord obj={.type=PROPDEF_PROP,.model=&model};
     PropRecord prop={.type=PROP_TYPE_OBJ,.obj=&obj};

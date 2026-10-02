@@ -121,10 +121,9 @@
 
 #define CCTV_ALARM_FRAMES 300.0f
 
-// Object fade optimizatino definitions.
+// Object screen-size fade thresholds.
 #define OBJFADE_START_PX     12.5f
 #define OBJFADE_END_PX       10.0f
-#define OBJFADE_MIN_DIAMETER 200.0f
 
 /* From the decomp.me ctx -- not present in any repo header. Without the macro,
  * C89 turns U32_TO_F32(...) into an implicit function call (5 sites, ~31 insns
@@ -7192,10 +7191,8 @@ void objRenderPropModel(PropRecord *prop, ModelRenderData *renderData, bool tran
 }
 
 
- /**
-  * Companion to chrCalcScreenFadeAlpha to fade and then stop rendering objects based on how many screen pixels they occupy.
-  * Floored at OBJFADE_MIN_DIAMETER so small objects don't fade away too quickly.
-  */
+/* Fade and stop rendering objects using their projected model diameter.
+ * Every model size uses the same equation, without a minimum diameter. */
 static s32 objCalcScreenFadeAlpha(PropRecord *prop, f32 diameter)
 {
     f32 startpx = OBJFADE_START_PX;
@@ -7208,11 +7205,6 @@ static s32 objCalcScreenFadeAlpha(PropRecord *prop, f32 diameter)
     if (g_PropFadeStartPx < 0.0f)
     {
         return 255;
-    }
-
-    if (diameter < OBJFADE_MIN_DIAMETER)
-    {
-        diameter = OBJFADE_MIN_DIAMETER;
     }
 
     wts = camGetWorldToViewMtxf();
