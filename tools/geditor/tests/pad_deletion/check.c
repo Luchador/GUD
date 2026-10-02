@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <src/propconstants.h>
+#include <src/doorshadowformat.h>
 #include "actionblocks.h"
 #include "setupmeta.h"
 #include "bghistory.h"
@@ -35,6 +36,20 @@ static SetupFile Fixture(void)
         Write(s.data+at+16,0x3f800000); Write(s.data+at+32,0x3f800000);
         Write(s.data+at+36,2047); /* Non-null link to an empty stan name. */
     }
+    return s;
+}
+/* A Door Shadow is a full 1,024-byte command after PROPDEF_END in the enum,
+ * not a terminator or a malformed record. Its payload has no pad references. */
+static SetupFile ShadowFixture(void)
+{
+    SetupFile s=Fixture();
+    Write(s.data+640,0x01000000u | PROPDEF_DOOR_SHADOW);
+    Write(s.data+644,0xffffffffu); /* No model or placement pad. */
+    Write(s.data+640+DOOR_SHADOW_DOOR,0xffffffffu);
+    Write(s.data+640+DOOR_SHADOW_FORMAT,DOOR_SHADOW_VERSION);
+    Write(s.data+640+DOOR_SHADOW_GDL,PROPDEF_OBJECTIVE_ENTER_ROOM);
+    Write(s.data+640+DOOR_SHADOW_GDL+4,ordinary.index);
+    Write(s.data+640+DOOR_SHADOW_BYTES,PROPDEF_END);
     return s;
 }
 static void Script(SetupFile *s, const unsigned char *bytes, size_t n)
@@ -98,6 +113,51 @@ static void References(void)
     Require(SetupFileDeletePad(&s,&ordinary,&rom,&why)); SetupFileFree(&s);
     puts("PASS: placement, aim, character, navigation, intro and objective references; independent pad IDs and deleted entities.");
 }
+static void DoorShadows(void)
+{
+    for (int deleted=0;deleted<2;deleted++)
+    {
+        SetupFile s=ShadowFixture();
+        if (deleted) { Write(s.data+640+12,0xf8); }
+        Require(SetupFileDeletePad(&s,&ordinary,&rom,&why));
+        Require(SetupFileDeletePad(&s,&bound,&rom,&why));
+        SetupFileFree(&s);
+    }
+    /* Continue through the complete shadow record: later references still count. */
+    SetupFile s=ShadowFixture(); DWORD next=640+DOOR_SHADOW_BYTES;
+    Write(s.data+next,PROPDEF_OBJECTIVE_ENTER_ROOM); Write(s.data+next+4,ordinary.index);
+    Write(s.data+next+16,PROPDEF_END);
+    Blocked(&s,&ordinary,"objective"); SetupFileFree(&s);
+    s=ShadowFixture(); Write(s.data+20,1800); Write(s.data+1800,1900); Write(s.data+1804,0x401);
+    const unsigned char move[]={0x1c,0,1,4}; memcpy(s.data+1900,move,sizeof(move));
+    Blocked(&s,&ordinary,"level Action Block"); SetupFileFree(&s);
+    memcpy(rom.data+80,move,sizeof(move));
+    s=ShadowFixture(); Blocked(&s,&ordinary,"shared Action Block"); SetupFileFree(&s); rom.data[80]=4;
+
+    /* Accept only supported records; do not bypass corrupt or truncated data. */
+    s=ShadowFixture(); Write(s.data+640,PROPDEF_MAX); Blocked(&s,&ordinary,"malformed"); SetupFileFree(&s);
+    s=ShadowFixture(); Write(s.data+12,2044); Write(s.data+2044,PROPDEF_DOOR_SHADOW);
+    Blocked(&s,&ordinary,"malformed"); SetupFileFree(&s);
+
+    /* The same checker is used by movement and free-pad allocation. */
+    s=ShadowFixture(); Require(SetupFileSetGlobalReferences(&s,&rom,&why));
+    const double position[3]={10,20,30}, step[3]={1,0,-1}; DWORD selection;
+    Require(SetupFileAddModel(&s,TRUE,1,1,position,&selection,&why));
+    DWORD guard=selection & ~SETUP_CHARACTER_SELECTION_BIT;
+    DWORD pad=s.characters[guard].pad, count=s.padcount;
+    for (int i=0;i<10;i++) {
+        Require(SetupFileTranslateModel(&s,selection,1,step,&why));
+        assert(s.characters[guard].pad==pad && s.padcount==count);
+    }
+    SetupPadRef placement={pad,FALSE};
+    Blocked(&s,&placement,"character");
+    Require(SetupFileDeleteCharacter(&s,guard,&why));
+    Require(SetupFileDeletePad(&s,&placement,&rom,&why));
+    Require(SetupFileAddModel(&s,TRUE,1,1,position,&selection,&why));
+    assert(s.characters[selection & ~SETUP_CHARACTER_SELECTION_BIT].pad==pad && s.padcount==count);
+    SetupFileFree(&s);
+    puts("PASS: Door Shadows allow unused-pad deletion/reuse; movement stays on the same pad; later references and malformed records remain protected.");
+}
 static void Scripts(void)
 {
     const unsigned char move[]={0x1c,0,1,4}, boundmove[]={0x65,0,0x27,0x11,4};
@@ -126,7 +186,7 @@ static void Scripts(void)
 }
 static void HistoryAndSaving(const char *dir)
 {
-    SetupFile s=Fixture(), loaded={0}; EditHistory history={0}; EditHistoryTransaction transaction={0};
+    SetupFile s=ShadowFixture(), loaded={0}; EditHistory history={0}; EditHistoryTransaction transaction={0};
     EditHistoryAsset asset; BgDocument bg={0}; StanFile stan={0};
     unsigned char original[2048]; memcpy(original,s.data,s.size);
     EditHistoryReset(&history,&bg,&s,&stan);
@@ -163,5 +223,5 @@ int main(int argc, char **argv)
     rom.info.entries[1]=(RomManifestEntry){0x4149474c,16,32,0};
     Write(rom.data+16,0x80000030); Write(rom.data+20,1); Write(rom.data+24,8); Write(rom.data+28,1);
     Write(rom.data+48,0x80000050); Write(rom.data+52,2); rom.data[80]=4;
-    References(); Scripts(); HistoryAndSaving(argv[1]); free(rom.data); return 0;
+    References(); Scripts(); DoorShadows(); HistoryAndSaving(argv[1]); free(rom.data); return 0;
 }

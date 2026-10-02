@@ -1420,7 +1420,9 @@ static BOOL SetupPadUnusedExcept(const SetupFile *setup, const SetupPadRef *ref,
         DWORD header, type, bytes, field = 0;
         if (at > setup->size - 4) { goto malformed; }
         header = SetupRead32(setup->data + at); type = header & 255;
-        if (type > SETUP_PROP_END) { goto malformed; }
+        /* Match native setup validation: Door Shadows follow END in the enum,
+         * but are valid commands that contain no pad references. */
+        if (type > SETUP_PROP_END && type != PROPDEF_DOOR_SHADOW) { goto malformed; }
         if (type == SETUP_PROP_END) { break; }
         bytes = SetupObjectWordCount((unsigned char)type) * 4;
         if (bytes > setup->size - at) { goto malformed; }
