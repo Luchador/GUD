@@ -2033,7 +2033,7 @@ static INT_PTR CALLBACK GEditorRebaseProjectProc(HWND hdlg, UINT msg,
             SendDlgItemMessage(hdlg,choices[i],CB_SETITEMDATA,row,PROJECT_REBASE_USE_ROM);
             SendDlgItemMessage(hdlg,choices[i],CB_SETCURSEL,0,0);
         }
-        SetDlgItemText(hdlg,IDC_REBASE_REPORT,"Choose a newer GUD ROM, then select Save and Check.\r\n\r\nUnedited assets update automatically. Choose how to resolve competing project/ROM edits above; the report lists which files will be kept or replaced.");
+        SetDlgItemText(hdlg,IDC_REBASE_REPORT,"Choose a newer GUD ROM, then select Save and Check.\r\n\r\nSaved setup files always stay with the project, including on conflicts. Other unedited assets update automatically; the choices above resolve their competing edits.");
         EnableWindow(GetDlgItem(hdlg,IDC_REBASE_CREATE),FALSE);
         return TRUE;
     }
@@ -2107,14 +2107,15 @@ static INT_PTR CALLBACK GEditorRebaseProjectProc(HWND hdlg, UINT msg,
             if (create) { EndDialog(hdlg,IDOK); return TRUE; }
             snprintf(message,sizeof(message),
                 "Compatible. Ready to create the new project.\r\n\r\n"
-                "%lu ROM resources checked.\r\n%lu edited level resources retained.\r\n"
+                "%lu ROM resources checked.\r\n%lu project level resources retained.\r\n"
+                "%lu saved setup files preserved (project always wins).\r\n"
                 "%lu level resources updated from the new ROM.\r\n"
                 "%lu unused levels and %lu unused ROM resources removed.\r\n"
                 "%lu base images carried forward; %lu incoming image slots added.\r\n"
                 "%lu differing images kept from the project; %lu taken from the new ROM.\r\n"
                 "%lu changed models kept from the project; %lu updated from the new ROM.\r\n"
-                "%lu competing asset edits resolved using your choices.\r\n\r\n%s\r\nDestination:\r\n%s",
-                (unsigned long)report.checked,(unsigned long)report.kept,(unsigned long)report.updated,
+                "%lu competing asset edits resolved (setup conflicts always keep project).\r\n\r\n%s\r\nDestination:\r\n%s",
+                (unsigned long)report.checked,(unsigned long)report.kept,(unsigned long)report.setupskept,(unsigned long)report.updated,
                 (unsigned long)report.levelsremoved,(unsigned long)report.resourcesremoved,
                 (unsigned long)report.imagesretained,(unsigned long)report.imagesadded,
                 (unsigned long)report.imagespreserved,(unsigned long)report.imagesupdated,(unsigned long)report.modelskept,

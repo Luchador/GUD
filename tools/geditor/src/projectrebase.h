@@ -7,6 +7,7 @@ typedef struct ProjectRebaseReport {
     DWORD imagesretained, imagesadded, imagespreserved, imagesupdated;
     DWORD levelsremoved, resourcesremoved;
     DWORD modelskept, modelsupdated, resolved;
+    DWORD setupskept;
     char details[8192];
 } ProjectRebaseReport;
 
@@ -16,6 +17,7 @@ typedef enum ProjectRebaseChoice {
     PROJECT_REBASE_USE_ROM
 } ProjectRebaseChoice;
 typedef struct ProjectRebaseOptions {
+    /* levelConflicts applies to BG/stan/text. Saved setups always keep project. */
     ProjectRebaseChoice imageConflicts, levelConflicts, modelConflicts;
 } ProjectRebaseOptions;
 
@@ -26,7 +28,10 @@ typedef struct ProjectRebaseOptions {
  * The dialog uses WithOptions to choose Keep project or Use new ROM for each
  * asset category, including competing imports at the same image ID.
  * Keep project for models retains every saved .gmodel override, including
- * one whose native geometry already matches the old base.z64. */
+ * one whose native geometry already matches the old base.z64.
+ * Saved solo/MP setup files always survive byte-for-byte while their resource
+ * exists in the new ROM, including when they match the old base. Setup
+ * conflicts keep the project under every option, including STOP and USE_ROM. */
 BOOL ProjectRebaseDestination(const GEditorProject *source, const char *parent,
     const char *name, char destination[MAX_PATH], const char **why);
 BOOL ProjectRebaseCheck(const GEditorProject *source, const char *rompath,

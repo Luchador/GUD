@@ -223,13 +223,13 @@ BEGIN
     LTEXT "Destination directory:", -1, 10, 101, 160, 10
     EDITTEXT IDC_REBASE_PARENT, 10, 113, 300, 14, ES_AUTOHSCROLL
     PUSHBUTTON "Browse...", IDC_REBASE_BROWSE_DIR, 316, 112, 54, 16
-    LTEXT "Level file conflicts:", -1, 10, 141, 100, 10
+    LTEXT "BG/stan/text conflicts:", -1, 10, 141, 100, 10
     COMBOBOX IDC_REBASE_LEVEL_CONFLICTS, 114, 138, 256, 65, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     LTEXT "Model conflicts:", -1, 10, 161, 100, 10
     COMBOBOX IDC_REBASE_MODEL_CONFLICTS, 114, 158, 256, 65, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     LTEXT "Image conflicts:", -1, 10, 181, 100, 10
     COMBOBOX IDC_REBASE_IMAGE_CONFLICTS, 114, 178, 256, 65, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    LTEXT "Choose which version to keep when assets differ. The original project stays intact.", -1, 10, 202, 360, 14
+    LTEXT "Saved setups always stay with the project. Other asset conflicts use your choices.", -1, 10, 202, 360, 14
     EDITTEXT IDC_REBASE_REPORT, 10, 220, 360, 120, ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY | WS_VSCROLL
     LTEXT "Save and Check saves current edits. Create Copy opens the new project.", -1, 10, 346, 360, 12
     DEFPUSHBUTTON "Save and Check", IDC_REBASE_CHECK, 136, 370, 88, 18

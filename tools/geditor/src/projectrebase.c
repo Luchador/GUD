@@ -2,8 +2,8 @@
  * indices may move; resource names and native model IDs remain stable. Image banks may gain
  * or lose an appended suffix; differing image IDs use an explicit choice of
  * project or incoming image data and complete native settings.
- * BG/setup/stan files and editable level fields use a three-way merge.
- * Binary conflicts require an explicit project/ROM choice, never a byte merge. */
+ * Saved setup files always stay with the project. Other level resources and
+ * editable fields use a three-way merge; binary conflicts are never byte merged. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -593,11 +593,25 @@ static BOOL Resources(RebasePlan *plan, const GEditorProject *source,
                 update->remove=TRUE;
             }
         }
+        else if (!strncmp(name,"Usetup",6) || !strncmp(name,"Ump_setup",9))
+        {
+            /* A saved setup is the project's authoritative level state, even
+             * when it was already baked into the old base ROM. The snapshot
+             * contains the complete .set, including editor action metadata.
+             * Never queue an incoming-ROM overwrite, regardless of the other
+             * level-file conflict choice. Removed resources still use the
+             * compatibility checks above; export validation still runs. */
+            report->kept++; report->setupskept++;
+            if (changed && !EqualResource(name,data,size,plan->oldrom.data+a->offset,a->size)
+                && !EqualResource(name,data,size,plan->newrom.data+b->offset,b->size))
+            { report->resolved++; }
+            Note(report,name,"keeping the saved project setup (project always wins)");
+        }
         else if (changed && !EqualResource(name,data,size,plan->oldrom.data+a->offset,a->size)
             && !EqualResource(name,data,size,plan->newrom.data+b->offset,b->size))
         {
             if (options->levelConflicts==PROJECT_REBASE_STOP)
-            { Conflict(report,name,"changed differently in the project and the new ROM; choose a Level file conflicts resolution"); }
+            { Conflict(report,name,"changed differently in the project and the new ROM; choose a BG/stan/text conflicts resolution"); }
             else
             {
                 report->resolved++;

@@ -7,7 +7,8 @@ GUD build, such as one containing character or rendering optimizations.
 2. Choose the new GUD ROM, a new project name, and its destination directory.
    If the project was created from an exported ROM containing replaced stock
    textures, leave **Keep existing base images** checked to carry them forward.
-   **Level file conflicts** and **Model conflicts** default to **Stop on conflicts**.
+   **BG/stan/text conflicts** and **Model conflicts** default to **Stop on conflicts**.
+   Saved solo and multiplayer setups always keep the project version.
 3. Select **Save and Check**. This saves the current project's edits and checks
    the retained `base.z64`, the incoming ROM, and the saved assets.
 4. Review the result, then select **Create Copy**. GEditor creates and opens the
@@ -19,8 +20,9 @@ normal project save, even if the subsequent compatibility check finds a conflict
 
 ## What carries over
 
-Unless explicitly replaced using the conflict choices, the new project retains saved background geometry and materials, portals, setup
-objects and characters, stan geometry, native model replacements, imported and
+Saved setup files retain their objects, characters, actions and editor metadata.
+Unless explicitly replaced using the conflict choices, the new project retains saved background geometry and materials, portals,
+stan geometry, native model replacements, imported and
 replaced images, deleted-image records, previews, and other project sidecars.
 Image IDs, conversion settings, and remembered source paths are preserved. A
 missing original BMP source does not block rebasing if the project's saved
@@ -56,7 +58,15 @@ ROM addresses can move. GEditor discovers the new locations through the new
 ROM's manifest and resource table, and exports edits using those locations.
 It does not copy old executable code into the new ROM.
 
-For each saved BG, setup, and stan resource, GEditor compares the old base,
+Saved solo and multiplayer `.set` files are authoritative while their resource
+exists in the incoming ROM. Rebase preserves the complete saved file byte for
+byte, including editor metadata, even if its native contents already match the
+old base ROM. Competing incoming setup changes always keep the project version,
+including under **Stop on conflicts** or **Use new ROM**. The report counts the
+saved setups preserved and names each one. If no local setup file exists, the
+new base supplies that setup.
+
+For each saved BG, stan and text-bank resource, GEditor compares the old base,
 project copy, and incoming base:
 
 | Change | Result |
@@ -66,7 +76,7 @@ project copy, and incoming base:
 | Both contain the same change | Accept the shared result |
 | Both changed differently | Apply the selected conflict choice; stop by default |
 
-**Level file conflicts** applies to saved BG, setup, stan and text-bank files.
+**BG/stan/text conflicts** applies to saved BG, stan and text-bank files.
 **Keep project** retains each conflicting project file; **Use new ROM** replaces
 each conflicting file with the incoming version. These are whole-file choices,
 not geometric merges. The report names every resolved file before Create Copy.
@@ -86,10 +96,12 @@ alignment bytes are ignored for this comparison. Invalid native models or stale
 override fingerprints still stop the operation, regardless of the selected choice.
 
 For a code/model upgrade where the saved levels are authoritative, choose
-**Keep project** for level conflicts. Leave model conflicts on **Stop on conflicts**
+**Keep project** for BG/stan/text conflicts. Setups always keep the project.
+Leave model conflicts on **Stop on conflicts**
 to review competing model edits, or choose **Use new ROM** when those models
 should be replaced with the incoming versions. Nonconflicting assets still use
-the automatic three-way comparison. Changing either choice requires another check.
+the automatic three-way comparison, except for saved setups. Changing either
+choice requires another check.
 
 A missing local resource override inherits the incoming ROM resource during
 ROM export. Render scale, music, background sound, and the extra music track
@@ -170,6 +182,8 @@ UndefinedBehaviorSanitizer. It uses synthetic current-format ROMs, the
 repository's Jungle tree model, actual image/model export code, and a POSIX
 shim for Windows file operations. It covers relocated tables, preserved edits,
 three-way merging, explicit file/model choices, model fingerprint migration,
+byte-for-byte solo/MP setup retention under every conflict choice (including
+setups matching the old base), setup metadata, reopen/export and absent-file fallback,
 automatic stock-model updates, compatibility conflicts, missing/corrupt assets, repeated
 rebasing, larger/smaller base image banks, imported-ID collisions, retained
 texture flags, the explicit choice to keep differing base images (formats,

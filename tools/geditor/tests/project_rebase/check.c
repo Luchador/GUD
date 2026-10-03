@@ -313,6 +313,7 @@ static void ImageRebases(const GEditorProject *source,const char *incoming,const
 #include "text.c"
 #include "briefing.c"
 #include "assets.c"
+#include "setups.c"
 
 
 static void SavedModelMatchingBase(const char *parent,const unsigned char *model,DWORD modelsize)
@@ -378,6 +379,7 @@ int main(int argc,char **argv)
             if (model[pc]==BG_G_SETTEXTURE) Put32(model+pc+4,Get32(model+pc+4)&~BG_TEX_ID_MASK);
     ModelFreeSource(&native);
     old=Fixture(0,model,modelsize);next=Fixture(SHIFT,model,modelsize);
+    SavedSetupRebases(argv[1],model,modelsize);
     SavedModelMatchingBase(argv[1],model,modelsize);
     StudioFolders(argv[1]);
     BriefingEditing(argv[1],model,modelsize);
@@ -385,7 +387,7 @@ int main(int argc,char **argv)
     if (argc==6) { AssetCorpus(argv[5],argv[4],argv[1]); }
     TextEditing(argv[1],model,modelsize);
     Path(oldpath,argv[1],"old.z64");Path(nextpath,argv[1],"new.z64");Save(oldpath,old,SIZE);
-    /* Incoming setup and sound changes; our BG/music changes must survive. */
+    /* Incoming setup and sound changes: preserve the saved setup and BG/music edits. */
     next[OBJECTS+SHIFT+52]=0x56;next[LEVELS+SHIFT+39]=8;Save(nextpath,next,SIZE);
     OK(RomLoad(oldpath,&rom,&why));OK(ProjectCreate("Original",argv[1],&rom.info,&project,&why));
     Path(path,project.dir,"studio/models");OK(GetFileAttributes(path)&FILE_ATTRIBUTE_DIRECTORY);
@@ -435,7 +437,7 @@ int main(int argc,char **argv)
       OK(ModelEditsSetMaterial(project.dir,"PpendantZ",revision,1,1,&why)); }
     OK(ImageEditsSave(project.dir,&why));
     OK(NewPropsSave(project.dir,&why));
-    OK(ProjectRebaseCheck(&project,nextpath,FALSE,&report,&why));OK(report.kept==1 && report.updated==1 && !report.conflicts);
+    OK(ProjectRebaseCheck(&project,nextpath,FALSE,&report,&why));OK(report.kept==3 && report.setupskept==2 && report.updated==0 && !report.conflicts);
     OK(ProjectRebaseCreate(&project,nextpath,FALSE,argv[1],"Updated",&rebased,&report,&why));NoTemps(argv[1]);
     OK(project.levels[0].clouds.enabled && project.levels[0].clouds.height==5000);
     OK(rebased.levels[0].clouds.enabled && rebased.levels[0].clouds.height==7500);
@@ -445,6 +447,7 @@ int main(int argc,char **argv)
     OK(loaded.levels[0].fog.farclip==6000&&loaded.levels[0].backgroundcolor[0]==25&&loaded.levels[0].clouds.height==7500);
     OK(loaded.levels[0].music==12 && loaded.levels[0].bgsound==8);
     Same(project.dir,rebased.dir,"bg/bg_test.seg");Same(project.dir,rebased.dir,"stan/Tbg_test_stanZ.stan");
+    Same(project.dir,rebased.dir,"setup/UsetuptestZ.set");Same(project.dir,rebased.dir,"setup/Ump_setuptestZ.set");
     Same(project.dir,rebased.dir,"models/native/Pjungle3_treeZ.gmodel");Same(project.dir,rebased.dir,"models/objects/Pjungle3_treeZ.gltf");
     Same(project.dir,rebased.dir,"models/newprops.gnp");
     Same(project.dir,rebased.dir,"models/objects/PpendantZ.gltf");
@@ -460,7 +463,7 @@ int main(int argc,char **argv)
     OK(output.info.levels[0].levelscale==.375f&&output.info.levels[0].renderScale==.875f&&output.info.levels[0].chrLODDistance==1.375f);
     OK(output.data[0x2000]==0x22 && output.info.levels[0].music==12 && output.info.levels[0].bgsound==8);
     OK(output.info.levels[0].fog.farclip==6000&&output.info.levels[0].backgroundcolor[0]==25&&output.info.levels[0].clouds.height==7500);
-    OK(RomGetFileByIndex(&output,1,path,sizeof(path),&offset,&span) && output.data[offset+52]==0x56);
+    OK(RomGetFileByIndex(&output,1,path,sizeof(path),&offset,&span) && output.data[offset+52]==old[OBJECTS+52]);
     OK(RomGetFileByIndex(&output,2,path,sizeof(path),&offset,&span));
     { DWORD rooms=Get32(output.data+offset+4)&0xffffffu;
       DWORD vertices=Get32(output.data+offset+rooms+24)&0xffffffu;
