@@ -3312,6 +3312,22 @@ BOOL SetupFileSetCharacterBehavior(SetupFile *setup, const SetupCharacterBehavio
     if (chr->sourceoffset != edit->sourceoffset || chr->chrnum != edit->chrnum
         || chr->ailistid != edit->previous
         || (unsigned short)SetupRead16(setup->data + chr->sourceoffset + 10) != chr->ailistid) { return FALSE; }
+    ActionDocument actions={0};SetupCharacterHealth health;
+    if(!ActionDocumentLoad(setup,&actions,reasonout)) return FALSE;
+    ActionCharacterHealth(&actions,chr->ailistid,&health);
+    if(health.custom)
+    {
+        SetupFile copy={0};BOOL ok=FALSE;
+        if(health.behavior==(unsigned short)edit->ailistid) { ok=TRUE;goto healthdone; }
+        if(!ActionCharacterAssignBehavior(&actions,setup,edit->characterindex,(unsigned short)edit->ailistid,reasonout)
+            || !ActionDocumentCompile(&actions,setup,&copy,reasonout)
+            || !SetupFileCompact(&copy,reasonout)) goto healthdone;
+        SetupFileFree(setup);*setup=copy;memset(&copy,0,sizeof(copy));
+        setup->dirty=TRUE;*changedout=TRUE;ok=TRUE;
+healthdone:
+        ActionDocumentFree(&actions);SetupFileFree(&copy);if(ok) *reasonout="";return ok;
+    }
+    ActionDocumentFree(&actions);
     if (chr->ailistid != edit->ailistid)
     {
         unsigned char *record = setup->data + chr->sourceoffset;

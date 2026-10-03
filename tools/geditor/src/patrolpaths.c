@@ -96,6 +96,7 @@ static BOOL OwnedStarter(const ActionBlock *b)
 }
 static int AssignedPath(const ActionDocument *actions, DWORD id)
 {
+    SetupCharacterHealth health;ActionCharacterHealth(actions,id,&health);id=health.behavior;
     /* Shared behavior IDs and local setup blocks use separate ID ranges. */
     if (id==1 || id==2 || id==5 || id==PATROL_GUARD_AI) { return PATROL_NONE; }
     for (DWORD i=0;i<actions->count;i++) if (actions->blocks[i].id==id)
@@ -458,8 +459,7 @@ BOOL PatrolAssignCharacter(const SetupFile *s, const PatrolAssignment *edit,
         /* None cancels this explicit starting patrol; ordinary/custom AI is
          * untouched if the user has not assigned one through this control. */
         if (AssignedPath(&actions,chr->ailistid)==PATROL_NONE) { ok=TRUE; goto done; }
-        actions.assignments[edit->characterindex]=SETUP_BEHAVIOR_STANDARD_GUARD;
-        actions.changed=TRUE;
+        if(!ActionCharacterAssignBehavior(&actions,s,edit->characterindex,SETUP_BEHAVIOR_STANDARD_GUARD,why)) goto done;
     }
     else
     {
@@ -499,7 +499,7 @@ BOOL PatrolAssignCharacter(const SetupFile *s, const PatrolAssignment *edit,
             if (!ActionInstructionSet(&actions,block,1,values,0,"","","",why)) { goto done; }
             snprintf(actions.blocks[block].name,ACTION_NAME_SIZE,"GEditor patrol %d",edit->path);
         }
-        if (!ActionDocumentAssign(&actions,edit->characterindex,block,why)) { goto done; }
+        if (!ActionCharacterAssignBehavior(&actions,s,edit->characterindex,(unsigned short)actions.blocks[block].id,why)) { goto done; }
     }
     PruneStarters(&actions,s);
     if (!ActionDocumentCompile(&actions,s,out,why) || !SetupFileCompact(out,why)) { SetupFileFree(out); goto done; }

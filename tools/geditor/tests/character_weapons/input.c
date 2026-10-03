@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
+#include <errno.h>
 typedef void *HWND;
 typedef uintptr_t WPARAM;
 typedef intptr_t LPARAM,LRESULT;
@@ -10,7 +12,9 @@ typedef unsigned int UINT;
 typedef struct { HWND hwnd;UINT message;WPARAM wParam;LPARAM lParam; } MSG;
 #define WM_APP 0x8000
 #define CB_ERR (-1)
-enum { CB_RESETCONTENT=1,CB_ADDSTRING,CB_SETITEMDATA,CB_SETCURSEL,CB_GETCURSEL,CB_GETITEMDATA };
+enum { CB_RESETCONTENT=1,CB_ADDSTRING,CB_SETITEMDATA,CB_SETCURSEL,CB_GETCURSEL,CB_GETITEMDATA, BM_SETCHECK,BM_GETCHECK };
+#define BST_CHECKED 1
+#define BST_UNCHECKED 0
 #define MB_ICONERROR 1
 #define GEDITOR_TITLE "GEditor"
 #include "characterproperties.h"
@@ -22,11 +26,16 @@ enum { CB_RESETCONTENT=1,CB_ADDSTRING,CB_SETITEMDATA,CB_SETCURSEL,CB_GETCURSEL,C
 #include "hatchoices.h"
 #include "catalog.inc"
 typedef struct Combo { int count,selected,item[40];char names[40][80]; } Combo;
-static Combo combos[5];
+static Combo combos[8];
+static void GetWindowText(HWND h,char *text,int size) { snprintf(text,size,"%.*s",size-1,((Combo *)h)->names[0]); }
+static void SetWindowText(HWND h,const char *text) { snprintf(((Combo *)h)->names[0],80,"%s",text); }
+static void EnableWindow(HWND h,BOOL enable) {}
+static void MessageBox(HWND,const char *,const char *,int);
 static CharacterPropertiesState *active;
 static SetupCharacterWeaponEdit received;
 static SetupCharacterHatEdit receivedhat;
 static SetupCharacterBehaviorEdit receivedbehavior;
+static SetupCharacterHealthEdit receivedhealth;
 static PatrolAssignment receivedpatrol;
 static int requests;
 static BOOL reject,reenter;
@@ -34,10 +43,16 @@ static void CharacterPropertiesApply(HWND,CharacterPropertiesState *,int);
 static void CharacterPropertiesApplyHat(HWND,CharacterPropertiesState *);
 static void CharacterPropertiesApplyBehavior(HWND,CharacterPropertiesState *);
 static void CharacterPropertiesApplyPatrol(HWND,CharacterPropertiesState *);
+static void CharacterPropertiesApplyHealth(HWND,CharacterPropertiesState *,BOOL);
 static HWND GetParent(HWND h) { return NULL; }
 static LRESULT SendMessage(HWND h,int msg,WPARAM wp,LPARAM lp)
 {
     Combo *c=h;
+    if(msg==CHARACTERPROPERTIES_WM_HEALTH_CHANGED) {
+        assert(active->committing);receivedhealth=*(SetupCharacterHealthEdit *)lp;requests++;
+        if(reenter)CharacterPropertiesApplyHealth(active,active,TRUE);
+        return !reject;
+    }
     if(msg==CHARACTERPROPERTIES_WM_WEAPON_CHANGED) {
         assert(active->committing);received=*(SetupCharacterWeaponEdit *)lp;requests++;
         if(reenter)CharacterPropertiesApply(active,active,0);
@@ -59,6 +74,8 @@ static LRESULT SendMessage(HWND h,int msg,WPARAM wp,LPARAM lp)
         return !reject;
     }
     switch(msg) {
+    case BM_SETCHECK:c->selected=wp;return 0;
+    case BM_GETCHECK:return c->selected;
     case CB_RESETCONTENT:c->count=0;c->selected=-1;return 0;
     case CB_ADDSTRING:assert(c->count<40);snprintf(c->names[c->count],80,"%s",(char *)lp);return c->count++;
     case CB_SETITEMDATA:assert(wp<(unsigned)c->count);c->item[wp]=(int)lp;return 0;
@@ -123,6 +140,23 @@ static void Input(void)
     combos[4].selected=2;CharacterPropertiesApplyPatrol(&s,&s);assert(requests==8);
     combos[4].selected=0;s.updating=TRUE;CharacterPropertiesApplyPatrol(&s,&s);assert(requests==8);s.updating=FALSE;
     s.selected=FALSE;CharacterPropertiesApplyPatrol(&s,&s);assert(requests==8);s.selected=TRUE;
+    s.controls[CHARACTER_CUSTOM_HEALTH]=&combos[5];s.controls[CHARACTER_HEALTH]=&combos[6];s.controls[CHARACTER_ARMOR]=&combos[7];
+    s.health=(SetupCharacterHealth){FALSE,40,0,2};s.healthvalid=TRUE;CharacterPropertiesResetHealth(&s);
+    combos[5].selected=BST_CHECKED;CharacterPropertiesApplyHealth(&s,&s,TRUE);
+    assert(requests==9&&receivedhealth.custom&&receivedhealth.health==40&&!receivedhealth.armor
+        &&receivedhealth.previous==0x401&&receivedhealth.characterindex==3&&receivedhealth.sourceoffset==512&&receivedhealth.chrnum==8);
+    SetWindowText(&combos[6],"80");SetWindowText(&combos[7],"20");s.healthedited=TRUE;
+    CharacterPropertiesApplyHealth(&s,&s,FALSE);assert(requests==10&&receivedhealth.health==80&&receivedhealth.armor==20);
+    CharacterPropertiesApplyHealth(&s,&s,FALSE);assert(requests==10); /* No repeated commit on focus loss. */
+    const char *bad[]={"", "-1", "1.5", "nan", "0", "65536", "9999999999999999999999999999", "40abc"};
+    for(unsigned int i=0;i<sizeof(bad)/sizeof(*bad);i++) {
+        combos[5].selected=BST_CHECKED;SetWindowText(&combos[6],bad[i]);s.healthedited=TRUE;
+        CharacterPropertiesApplyHealth(&s,&s,FALSE);assert(requests==10&&!s.healthedited);
+    }
+    combos[5].selected=BST_UNCHECKED;CharacterPropertiesApplyHealth(&s,&s,TRUE);assert(requests==11&&!receivedhealth.custom);
+    s.updating=TRUE;CharacterPropertiesApplyHealth(&s,&s,TRUE);assert(requests==11);s.updating=FALSE;
+    s.selected=FALSE;CharacterPropertiesApplyHealth(&s,&s,TRUE);assert(requests==11);s.selected=TRUE;
+    puts("PASS: health checkbox, numeric input, limits, stale edit payload, invalid input reset, focus-loss no-op and synchronous reentrancy.");
     puts("PASS: patrol dropdown IDs/None/custom handling, stale binding payload and reentrancy guards.");
     puts("PASS: behavior presets, preserved custom display, edit identity/previous assignment, selection guards and synchronous reentrancy.");
     puts("PASS: actual dropdown catalog, None/unknown/mixed display, right/left edit payloads, selection guards and synchronous reentrancy.");
@@ -156,6 +190,8 @@ BOOL SetupFileSetCharacterWeapon(SetupFile *s,const SetupCharacterWeaponEdit *e,
 BOOL SetupFileSetCharacterHat(SetupFile *s,const SetupCharacterHatEdit *e,BOOL *changed,const char **why)
 {*changed=change;if(change&&editok)s->dirty=TRUE;return editok;}
 BOOL SetupFileSetCharacterBehavior(SetupFile *s,const SetupCharacterBehaviorEdit *e,BOOL *changed,const char **why)
+{*changed=change;if(change&&editok)s->dirty=TRUE;return editok;}
+BOOL SetupFileSetCharacterHealth(SetupFile *s,const SetupCharacterHealthEdit *e,BOOL *changed,const char **why)
 {*changed=change;if(change&&editok)s->dirty=TRUE;return editok;}
 BgVertex *ModelLoadProjectGeometry(const char *dir,int model,DWORD *n,unsigned short **tags,BgRenderFlags **flags,float *scale,const char **why)
 {assert(model==expectedmodel);return modelok?calloc(1,sizeof(BgVertex)):NULL;}
@@ -223,6 +259,15 @@ static void Editor(void)
         assert(errors==1 && rollbacks==1 && !g_CurrentSetup.dirty && !rebuilds && sceneversion==1);
     }
     puts("PASS: behavior history commit, no geometry reload, no-op/stale selection and edit/commit failure rollback.");
+    SetupCharacterHealthEdit health={.characterindex=3,.sourceoffset=512,.chrnum=8,.previous=1,.custom=TRUE,.health=40,.armor=20};
+    Reset();assert(GEditorSetCharacterHealth(NULL,&health));assert(commits==1&&!rebuilds&&!errors&&g_CurrentSetup.dirty);
+    Reset();change=FALSE;assert(GEditorSetCharacterHealth(NULL,&health));assert(!commits&&!g_CurrentSetup.dirty);
+    Reset();selected=FALSE;assert(!GEditorSetCharacterHealth(NULL,&health));assert(!begins);
+    for(int failure=0;failure<2;failure++) {
+        Reset();if(failure)commitok=FALSE;else editok=FALSE;
+        assert(!GEditorSetCharacterHealth(NULL,&health));assert(errors==1&&rollbacks==1&&!g_CurrentSetup.dirty&&!rebuilds);
+    }
+    puts("PASS: health frame transaction, no-op/stale selection, one history entry and edit/commit failure rollback.");
     PatrolAssignment patrol={.characterindex=3,.sourceoffset=512,.chrnum=8,.previous=1,.path=23};
     Reset();assert(GEditorSetCharacterPatrol(NULL,&patrol));
     assert(begins==1 && commits==1 && !rollbacks && rebuilds==1 && !errors && g_CurrentSetup.dirty && restored==selection);

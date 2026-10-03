@@ -38,12 +38,13 @@ with tempfile.TemporaryDirectory(prefix='geditor-character-weapons-') as temp:
         + '\n' + re.search(r'typedef struct CharacterPropertiesState \{.*?\} CharacterPropertiesState;', panel, re.S)[0])
     (work / 'input.inc').write_text(''.join(extract.function(panel, name) for name in
         ('CharacterPropertiesChoices', 'CharacterPropertiesApply', 'CharacterPropertiesHatChoices', 'CharacterPropertiesApplyHat',
-         'CharacterPropertiesBehaviorChoices', 'CharacterPropertiesApplyBehavior', 'CharacterPropertiesApplyPatrol')))
+         'CharacterPropertiesBehaviorChoices', 'CharacterPropertiesApplyBehavior', 'CharacterPropertiesApplyPatrol',
+         'CharacterPropertiesResetHealth', 'CharacterPropertiesHealthValue', 'CharacterPropertiesApplyHealth')))
     (work / 'catalog.inc').write_text(''.join(extract.function((src / 'setupload.c').read_text(), name)
         for name in ('SetupWeaponChoices', 'SetupWeaponChoiceForItem', 'SetupHatChoices', 'SetupHatChoiceForModel',
                      'SetupCharacterBehaviorChoices', 'SetupCharacterBehaviorChoiceForId')))
     (work / 'editor.inc').write_text(''.join(extract.function((src / 'geditor.c').read_text(), name)
-        for name in ('GEditorSetCharacterWeapon', 'GEditorSetCharacterHat', 'GEditorSetCharacterBehavior', 'GEditorSetCharacterPatrol')))
+        for name in ('GEditorSetCharacterWeapon', 'GEditorSetCharacterHat', 'GEditorSetCharacterBehavior', 'GEditorSetCharacterHealth', 'GEditorSetCharacterPatrol')))
     subprocess.run(command + [str(here / 'input.c'), '-Wl,--gc-sections', '-lm', '-o', str(work / 'input')], check=True)
     subprocess.run([str(work / 'input')], check=True, env=env)
     (work / 'idle-preview.inc').write_text(extract.function((src / 'modeledits.c').read_text(), 'ModelEditsApplyIdlePreview'))

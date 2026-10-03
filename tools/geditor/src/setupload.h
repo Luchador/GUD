@@ -260,6 +260,23 @@ const SetupBehaviorChoice *SetupCharacterBehaviorChoiceForId(int id);
 BOOL SetupFileSetCharacterBehavior(SetupFile *setup, const SetupCharacterBehaviorEdit *edit,
     BOOL *changedout, const char **reasonout);
 
+/* Native AI units: 40 is normal health; armor is additional protection.
+ * Disabled overrides leave the authored starting script entirely in charge. */
+typedef struct SetupCharacterHealth {
+    BOOL custom;
+    unsigned short health, armor, behavior;
+} SetupCharacterHealth;
+typedef struct SetupCharacterHealthEdit {
+    DWORD characterindex, sourceoffset;
+    unsigned short chrnum, previous;
+    BOOL custom;
+    DWORD health, armor;
+} SetupCharacterHealthEdit;
+BOOL SetupFileGetCharacterHealth(const SetupFile *setup, DWORD index,
+    SetupCharacterHealth *out, const char **reasonout);
+BOOL SetupFileSetCharacterHealth(SetupFile *setup, const SetupCharacterHealthEdit *edit,
+    BOOL *changedout, const char **reasonout);
+
 /* Discard unreachable tables and relocate native pointers in a separate copy.
  * Clear negligible pad-direction residues which can trap on the R4300. */
 BOOL SetupCompactNative(const unsigned char *data, DWORD size,

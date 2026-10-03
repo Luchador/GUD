@@ -511,6 +511,124 @@ BOOL ActionDocumentAssign(ActionDocument *d, DWORD character, DWORD block, const
     { d->assignments[character]=d->blocks[block].id; d->changed=TRUE; }
     return TRUE;
 }
+static BOOL HealthInitializer(const ActionBlock *b)
+{
+    if(b->global || b->disabled || b->count!=4) return FALSE;
+    const ActionInstruction *ins=b->instructions;
+    return ins[0].size==3 && ins[0].bytes[0]==0x8f
+        && ins[1].size==3 && ins[1].bytes[0]==0x90
+        && ins[2].size==4 && ins[2].bytes[0]==5 && ins[2].bytes[1]==253
+        && ins[3].size==1 && ins[3].bytes[0]==4
+        && ActionReadValue(ins+2,1)!=b->id;
+}
+void ActionCharacterHealth(const ActionDocument *d,DWORD id,SetupCharacterHealth *out)
+{
+    *out=(SetupCharacterHealth){FALSE,40,0,(unsigned short)id};
+    for(DWORD i=0;i<d->count;i++) if(d->blocks[i].id==id)
+    {
+        const ActionBlock *b=d->blocks+i;
+        if(HealthInitializer(b))
+        {
+            out->custom=TRUE;out->health=ActionReadValue(b->instructions,0);
+            out->armor=ActionReadValue(b->instructions+1,0);
+            out->behavior=ActionReadValue(b->instructions+2,1);
+        }
+        break; /* Runtime resolves the first occurrence of an ID. */
+    }
+}
+static BOOL HealthBlockReferenced(const ActionDocument *d,const SetupFile *s,DWORD id)
+{
+    if(SetupFileGlobalBlockReference(s,id)) return TRUE;
+    for(DWORD i=0;i<d->charactercount;i++)
+        if(!s->characters[i].deleted && d->assignments[i]==id) return TRUE;
+    for(DWORD i=0;i<d->count;i++) if(References(d->blocks+i,id)) return TRUE;
+    for(DWORD i=0;i<s->objectcount;i++)
+    {
+        const SetupObject *o=s->objects+i;
+        if(!o->deleted && (o->type==39 || o->type==40) && o->sourceoffset<=s->size
+            && s->size-o->sourceoffset>=0x84 && Read(s->data+o->sourceoffset+0x80,4)==id) return TRUE;
+    }
+    return FALSE;
+}
+static BOOL SetHealthInitializer(ActionDocument *d,const SetupFile *s,DWORD character,
+    const SetupCharacterHealth *health,const char **why)
+{
+    DWORD previous=d->assignments[character];
+    d->assignments[character]=health->behavior;d->changed=TRUE;
+    /* Detach this character before pruning. Shared/referenced initializers
+     * survive; editing a copied guard never changes the original guard. */
+    for(DWORD i=d->count;i-->0;)
+        if(d->blocks[i].id==previous && HealthInitializer(d->blocks+i) && !HealthBlockReferenced(d,s,previous))
+            if(!ActionDocumentDeleteBlock(d,s,i,why)) return FALSE;
+    if(!health->custom) return TRUE;
+    DWORD block,id;
+    if(!ActionDocumentAddBlock(d,ACTION_MISSING_TARGET,FALSE,&block,why)) return FALSE;
+    for(id=d->blocks[block].id;id<0x1000;id++)
+    {
+        DWORD i;for(i=0;i<block && d->blocks[i].id!=id;i++) {}
+        if(i==block && !HealthBlockReferenced(d,s,id)) break;
+    }
+    if(id==0x1000) return Fail(why,"No free character health Action Block IDs remain.");
+    d->blocks[block].id=id;
+    if(!ActionBlockDelete(d,block,2,why) || !ActionBlockDelete(d,block,1,why)
+        || !ActionBlockDelete(d,block,0,why)
+        || !ActionBlockInsert(d,block,0,0x8f,why)
+        || !ActionBlockInsert(d,block,1,0x90,why)
+        || !ActionBlockInsert(d,block,2,5,why)) return FALSE;
+    DWORD values[8]={health->health};
+    if(!ActionInstructionSet(d,block,0,values,0,"","","",why)) return FALSE;
+    values[0]=health->armor;
+    if(!ActionInstructionSet(d,block,1,values,0,"","","",why)) return FALSE;
+    values[0]=253;values[1]=health->behavior;
+    if(!ActionInstructionSet(d,block,2,values,0,"","","",why)) return FALSE;
+    Text(d->blocks[block].name,ACTION_NAME_SIZE,"GEditor character health");
+    return ActionDocumentAssign(d,character,block,why);
+}
+BOOL ActionCharacterAssignBehavior(ActionDocument *d,const SetupFile *s,DWORD character,
+    unsigned short behavior,const char **why)
+{
+    if(character>=d->charactercount) return Fail(why,"The character selection changed.");
+    SetupCharacterHealth health;ActionCharacterHealth(d,d->assignments[character],&health);
+    if(health.behavior==behavior) return TRUE;
+    if(!health.custom) { d->assignments[character]=behavior;d->changed=TRUE;return TRUE; }
+    health.behavior=behavior;
+    return SetHealthInitializer(d,s,character,&health,why);
+}
+BOOL SetupFileGetCharacterHealth(const SetupFile *s,DWORD index,SetupCharacterHealth *out,const char **why)
+{
+    ActionDocument d={0};
+    if(!s || !s->data || !out || index>=s->charactercount || s->characters[index].deleted)
+        return Fail(why,"No character is selected.");
+    if(!ActionDocumentLoad(s,&d,why)) return FALSE;
+    ActionCharacterHealth(&d,s->characters[index].ailistid,out);
+    ActionDocumentFree(&d);*why="";return TRUE;
+}
+BOOL SetupFileSetCharacterHealth(SetupFile *s,const SetupCharacterHealthEdit *edit,
+    BOOL *changed,const char **why)
+{
+    ActionDocument d={0};SetupFile copy={0};SetupCharacterHealth old,next;BOOL ok=FALSE;
+    *changed=FALSE;
+    if(!s || !s->data || !edit || edit->characterindex>=s->charactercount)
+        return Fail(why,"No character is selected.");
+    const SetupCharacter *chr=s->characters+edit->characterindex;
+    if(chr->deleted || chr->sourceoffset!=edit->sourceoffset || chr->chrnum!=edit->chrnum
+        || chr->ailistid!=edit->previous || chr->sourceoffset>s->size || s->size-chr->sourceoffset<28
+        || s->data[chr->sourceoffset+3]!=9 || Read(s->data+chr->sourceoffset+10,2)!=edit->previous)
+        return Fail(why,"The character changed while its health was being edited.");
+    if(edit->custom && (!edit->health || edit->health>65535 || edit->armor>65535))
+        return Fail(why,"Health must be 1 to 65535 and armor must be 0 to 65535.");
+    if(!ActionDocumentLoad(s,&d,why)) goto done;
+    ActionCharacterHealth(&d,chr->ailistid,&old);
+    if(old.custom==!!edit->custom && (!old.custom || (old.health==edit->health && old.armor==edit->armor)))
+    { ok=TRUE;goto done; }
+    next=(SetupCharacterHealth){!!edit->custom,(unsigned short)edit->health,(unsigned short)edit->armor,old.behavior};
+    if(!SetHealthInitializer(&d,s,edit->characterindex,&next,why)
+        || !ActionDocumentCompile(&d,s,&copy,why) || !SetupFileCompact(&copy,why)) goto done;
+    SetupFileFree(s);*s=copy;memset(&copy,0,sizeof(copy));s->dirty=TRUE;*changed=TRUE;ok=TRUE;
+done:
+    ActionDocumentFree(&d);SetupFileFree(&copy);if(ok) *why="";return ok;
+}
+
 double ActionDisplayValue(const ActionParam *p, DWORD value)
 {
     if (p->kind==ACTION_METERS) { return value/10.0; }

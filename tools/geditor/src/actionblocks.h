@@ -58,6 +58,11 @@ BOOL ActionInstructionSet(ActionDocument *doc, DWORD block, DWORD instruction,
     const DWORD values[8], DWORD target, const char *name, const char *note,
     const char *text, const char **why);
 BOOL ActionDocumentAssign(ActionDocument *doc, DWORD character, DWORD block, const char **why);
+/* Recognize a complete health/armor initializer, never arbitrary scripted AI.
+ * Behavior changes preserve the initializer and isolate shared assignments. */
+void ActionCharacterHealth(const ActionDocument *doc, DWORD id, SetupCharacterHealth *out);
+BOOL ActionCharacterAssignBehavior(ActionDocument *doc, const SetupFile *setup,
+    DWORD character, unsigned short behavior, const char **why);
 /* Compile into an independent setup clone. No-op edits retain every native byte. */
 BOOL ActionDocumentCompile(const ActionDocument *doc, const SetupFile *source,
     SetupFile *out, const char **why);

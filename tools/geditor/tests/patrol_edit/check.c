@@ -235,6 +235,30 @@ static void Assignments(const SetupFile *source)
     SetupFileFree(&before); SetupFileFree(&s);
     puts("PASS: native patrol starter and alert AI, shared assignments, None, reference protection, custom AI preservation, stale requests and repeated assignment without growth.");
 }
+static void HealthAssignments(const SetupFile *source)
+{
+    SetupFile s={0};BOOL changed;SetupCharacterHealth health;Require(SetupFileClone(source,&s,&why));
+    const SetupCharacter *chr=s.characters;
+    SetupCharacterHealthEdit edit={0,chr->sourceoffset,chr->chrnum,chr->ailistid,TRUE,40,20};
+    Require(SetupFileSetCharacterHealth(&s,&edit,&changed,&why));assert(changed&&PatrolCharacterPath(&s,0)==PATROL_NONE);
+    Assign(&s,0,23);assert(PatrolCharacterPath(&s,0)==23);Reload(&s);
+    Require(SetupFileGetCharacterHealth(&s,0,&health,&why));assert(health.custom&&health.health==40&&health.armor==20);
+    chr=s.characters;edit=(SetupCharacterHealthEdit){0,chr->sourceoffset,chr->chrnum,chr->ailistid,TRUE,80,30};
+    Require(SetupFileSetCharacterHealth(&s,&edit,&changed,&why));assert(changed&&PatrolCharacterPath(&s,0)==23);
+    PatrolDocument d={0};Require(PatrolDocumentLoad(&s,&d,&why));
+    assert(!PatrolDocumentDelete(&d,&s,1,&why));PatrolDocumentFree(&d);
+    Assign(&s,0,PATROL_NONE);assert(PatrolCharacterPath(&s,0)==PATROL_NONE);
+    DWORD size=s.size;
+    for(int i=0;i<20;i++) {
+        Assign(&s,0,5);Assign(&s,0,23);Assign(&s,0,PATROL_NONE);assert(s.size==size);
+        Require(SetupFileGetCharacterHealth(&s,0,&health,&why));assert(health.custom&&health.health==80&&health.armor==30&&health.behavior==2);
+    }
+    Assign(&s,0,23);chr=s.characters;
+    edit=(SetupCharacterHealthEdit){0,chr->sourceoffset,chr->chrnum,chr->ailistid,FALSE,40,0};
+    Require(SetupFileSetCharacterHealth(&s,&edit,&changed,&why));assert(changed&&PatrolCharacterPath(&s,0)==23);
+    Reload(&s);SetupFileFree(&s);
+    puts("PASS: health/armor before and after patrol assignment, reference protection, reset preserves route, repeat reassignment without growth and save/reload.");
+}
 static void History(const SetupFile *source)
 {
     SetupFile s={0},after={0}; Require(SetupFileClone(source,&s,&why));
@@ -339,7 +363,7 @@ int main(int argc,char **argv)
 {
     setvbuf(stdout,NULL,_IONBF,0);
     assert(argc>=2); dir=argv[1]; SetupFile s=Fixture();
-    Paths(&s); NewPads(&s); Modeless(&s); Assignments(&s); History(&s); AllocationFailures(&s); Safety(&s); SetupFileFree(&s);
+    Paths(&s); NewPads(&s); Modeless(&s); Assignments(&s); HealthAssignments(&s); History(&s); AllocationFailures(&s); Safety(&s); SetupFileFree(&s);
     for(int i=2;i<argc;i++) { Stock(argv[i]); }
     return 0;
 }

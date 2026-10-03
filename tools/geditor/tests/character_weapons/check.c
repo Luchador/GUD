@@ -6,6 +6,7 @@
 #include "setupload.h"
 #include "setupmeta.h"
 #include "bghistory.h"
+#include "actionblocks.h"
 #define W SetupMetaWrite32
 #define R SetupMetaRead32
 static const char *why, *dir;
@@ -393,6 +394,98 @@ static void Behaviors(void)
     SetupFileFree(&s);SetupFileFree(&before);SetupFileFree(&after);EditHistoryFree(&h);
     puts("PASS: behavior edit isolation, invalid/stale requests, native save/reload, undo/redo, standard guard placement and copied idle/custom assignments.");
 }
+static SetupCharacterHealthEdit HealthRequest(const SetupFile *s,DWORD index,BOOL custom,DWORD health,DWORD armor)
+{
+    const SetupCharacter *chr=s->characters+index;
+    return (SetupCharacterHealthEdit){index,chr->sourceoffset,chr->chrnum,chr->ailistid,custom,health,armor};
+}
+static void HealthSet(SetupFile *s,DWORD index,BOOL custom,DWORD health,DWORD armor)
+{
+    SetupCharacterHealthEdit edit=HealthRequest(s,index,custom,health,armor);BOOL changed;
+    Require(SetupFileSetCharacterHealth(s,&edit,&changed,&why));assert(changed);
+}
+static void Health(void)
+{
+    SetupFile s=Fixture(),before={0},after={0};SetupCharacterHealth health;BOOL changed;
+    DWORD offset=s.characters[0].sourceoffset;
+    W(s.data+offset+16,0x03e80123); /* Misnamed setup health is hearing, not hit points. */
+    Require(SetupFileClone(&s,&before,&why));
+    Require(SetupFileGetCharacterHealth(&s,0,&health,&why));
+    assert(!health.custom && health.health==40 && !health.armor && health.behavior==1);Same(&s,&before);
+    SetupCharacterHealthEdit edit=HealthRequest(&s,0,FALSE,40,0);
+    Require(SetupFileSetCharacterHealth(&s,&edit,&changed,&why));assert(!changed);Same(&s,&before);
+    for(int invalid=0;invalid<8;invalid++)
+    {
+        edit=HealthRequest(&s,0,TRUE,40,20);
+        switch(invalid) {
+        case 0:edit.characterindex=s.charactercount;break;
+        case 1:edit.sourceoffset++;break;
+        case 2:edit.chrnum++;break;
+        case 3:edit.previous++;break;
+        case 4:edit.health=0;break;
+        case 5:edit.health=65536;break;
+        case 6:edit.armor=65536;break;
+        case 7:edit.health=(DWORD)-1;break;
+        }
+        assert(!SetupFileSetCharacterHealth(&s,&edit,&changed,&why)&&!changed);Same(&s,&before);
+    }
+    EditHistory history={0};EditHistoryTransaction tx={0};EditHistoryAsset asset;BgDocument bg={0};StanFile stan={0};
+    EditHistoryReset(&history,&bg,&s,&stan);Require(EditHistoryBeginSetupEdit(&history,&s,"Character health",&tx,&why));
+    HealthSet(&s,0,TRUE,80,20);
+    Require(EditHistoryCommitEdit(&history,&bg,&s,&stan,&tx,&why));Reload(&s);
+    Require(SetupFileClone(&s,&after,&why));
+    Require(SetupFileGetCharacterHealth(&s,0,&health,&why));assert(health.custom&&health.health==80&&health.armor==20&&health.behavior==1);
+    assert(R(s.data+s.characters[0].sourceoffset+16)==0x03e80123);
+    Require(SetupFileGetCharacterHealth(&s,1,&health,&why));assert(!health.custom);
+    /* Execute the native initializer's two quantities as the runtime does.
+     * The jump targets the previous script, so armor is added only once. */
+    ActionDocument actions={0};Require(ActionDocumentLoad(&s,&actions,&why));assert(actions.count==1);
+    const unsigned char expected[]={0x8f,0,80,0x90,0,20,5,253,0,1,4};
+    assert(!memcmp(s.data+actions.blocks[0].sourceoffset,expected,sizeof(expected)));
+    assert(ActionReadValue(actions.blocks[0].instructions,0)*0.1f==8.0f);
+    assert(-(float)ActionReadValue(actions.blocks[0].instructions+1,0)*0.1f==-2.0f);
+    ActionDocumentFree(&actions);
+    Require(EditHistoryUndo(&history,&bg,&s,&stan,&asset,&why));Same(&s,&before);
+    Require(EditHistoryRedo(&history,&bg,&s,&stan,&asset,&why));Same(&s,&after);
+    edit=HealthRequest(&s,0,TRUE,80,20);
+    Require(SetupFileSetCharacterHealth(&s,&edit,&changed,&why));assert(!changed);Same(&s,&after);
+    /* A ROM extraction has native bytecode but no editor-only block names. */
+    free(s.actionmeta);s.actionmeta=NULL;s.actionmetasize=0;
+    Require(SetupFileGetCharacterHealth(&s,0,&health,&why));assert(health.custom&&health.armor==20);
+    HealthSet(&s,0,TRUE,40,65535);Reload(&s);
+    DWORD copy;
+    Require(SetupFileDuplicateObject(&s,&s,SETUP_CHARACTER_SELECTION_BIT,&copy,&why));
+    copy&=~SETUP_CHARACTER_SELECTION_BIT;
+    assert(s.characters[copy].ailistid==s.characters[0].ailistid);
+    HealthSet(&s,copy,TRUE,1,0);
+    Require(SetupFileGetCharacterHealth(&s,0,&health,&why));assert(health.health==40&&health.armor==65535);
+    Require(SetupFileGetCharacterHealth(&s,copy,&health,&why));assert(health.health==1&&!health.armor);
+    SetupCharacterBehaviorEdit behavior=BehaviorRequest(&s,0,2);
+    Require(SetupFileSetCharacterBehavior(&s,&behavior,&changed,&why));assert(changed);
+    Require(SetupFileGetCharacterHealth(&s,0,&health,&why));assert(health.custom&&health.behavior==2&&health.armor==65535);
+    HealthSet(&s,copy,FALSE,40,0);
+    assert(s.characters[copy].ailistid==1); /* Reset restores the original assignment. */
+    DWORD size=s.size;
+    for(int i=0;i<100;i++)
+    {
+        HealthSet(&s,0,TRUE,40+i,10+i);
+        assert(s.size==size);Require(ActionDocumentLoad(&s,&actions,&why));assert(actions.count==1);ActionDocumentFree(&actions);
+    }
+    HealthSet(&s,0,FALSE,40,0);assert(s.characters[0].ailistid==2);
+    Require(ActionDocumentLoad(&s,&actions,&why));assert(!actions.count);ActionDocumentFree(&actions);
+    Reload(&s);SetupFileFree(&s);EditHistoryFree(&history);
+    /* Allocation failures cannot publish partial scripts or assignments. */
+    for(int mode=0;mode<2;mode++) for(int failure=0;failure<1000;failure++)
+    {
+        const SetupFile *source=mode ? &after : &before;
+        Require(SetupFileClone(source,&s,&why));edit=HealthRequest(&s,0,TRUE,100,50);
+        failat=failure;allocations=0;BOOL ok=SetupFileSetCharacterHealth(&s,&edit,&changed,&why);failat=-1;
+        if(!ok) { assert(!changed);Same(&s,source); }
+        SetupFileFree(&s);if(ok) break;assert(failure<999);
+    }
+    SetupFileFree(&before);SetupFileFree(&after);
+    puts("PASS: health/armor native opcodes, limits, untouched hearing/guards, save/reload, metadata-free ROM extraction, undo/redo, copied-guard isolation, behavior preservation, reset, 100 edits without growth and atomic failures.");
+}
 int main(int argc,char **argv)
 {
     assert(argc==2);dir=argv[1];SetupFile source=Fixture();
@@ -400,5 +493,5 @@ int main(int argc,char **argv)
     AllocationFailures(&source,0,0,13);AllocationFailures(&source,2,1,25);AllocationFailures(&source,0,0,-1);
     Set(&source,0,0,-1);AllocationFailures(&source,0,0,6);
     SetupFileFree(&source);puts("PASS: allocation failures leave native bytes, caches, counts and dirty state unchanged.");
-    DuplicateCharacters();Hats();Behaviors();return 0;
+    DuplicateCharacters();Hats();Behaviors();Health();return 0;
 }

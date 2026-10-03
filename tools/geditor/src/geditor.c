@@ -5384,6 +5384,34 @@ fail:
     return FALSE;
 }
 
+static BOOL GEditorSetCharacterHealth(HWND hwnd, const SetupCharacterHealthEdit *edit)
+{
+    EditHistoryTransaction transaction = {0};
+    const char *why = "";
+    DWORD selected;
+    BOOL changed;
+    if (!edit || !ViewportGetSelectedObject(g_Viewport, &selected)
+        || !(selected & SETUP_CHARACTER_SELECTION_BIT)
+        || (selected & ~SETUP_CHARACTER_SELECTION_BIT) != edit->characterindex) { return FALSE; }
+    ViewportCancelTransform(g_Viewport);
+    if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup,
+        "Change Character Health", &transaction, &why)) { goto fail; }
+    if (!SetupFileSetCharacterHealth(&g_CurrentSetup, edit, &changed, &why)) { goto rollback; }
+    if (!changed) { EditHistoryCancelEdit(&transaction); return TRUE; }
+    /* Health initializes in-game; the editor geometry is unchanged. */
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+        &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+fail:
+    EditHistoryCancelEdit(&transaction);
+    GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
 static BOOL GEditorSetCharacterPatrol(HWND hwnd, const PatrolAssignment *edit)
 {
     SetupFile edited={0}; EditHistoryTransaction transaction={0};
@@ -6254,6 +6282,13 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     case CHARACTERPROPERTIES_WM_BEHAVIOR_CHANGED:
     {
         BOOL ok = GEditorSetCharacterBehavior(hwnd, (const SetupCharacterBehaviorEdit *)lparam);
+        GEditorRefreshSelectionDetails();
+        return ok;
+    }
+
+    case CHARACTERPROPERTIES_WM_HEALTH_CHANGED:
+    {
+        BOOL ok = GEditorSetCharacterHealth(hwnd, (const SetupCharacterHealthEdit *)lparam);
         GEditorRefreshSelectionDetails();
         return ok;
     }
