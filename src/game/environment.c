@@ -30,6 +30,8 @@ static f32 g_FarFogIntensity;
 static f32 g_DifferenceFromFarFogIntensity;
 static EnvironmentRecord *g_MainEnvironment;
 static EnvironmentRecord *g_AlternateEnvironment;
+/* Runtime opacity: keep the authored environment/ROM record unchanged. */
+static f32 g_SkyBodyAlpha = 255.0f;
 
 static f32 g_ScaledFarFogIntensity = FLT_MAX;
 
@@ -111,6 +113,12 @@ EnvironmentRecord g_EnvTable[] = {
 EnvironmentRecord *envGetCurrent(void)
 {
     return &g_CurrentEnvironment;
+}
+
+
+f32 envGetSkyBodyAlpha(void)
+{
+    return g_SkyBodyAlpha;
 }
 
 
@@ -231,26 +239,45 @@ void envLoadLevelEnvironment(s32 levelId, s32 useCinemaEnvironment)
         g_AlternateEnvironment = record;
     }
 
+    g_SkyBodyAlpha = record->SkyBody.Type == 1 || record->SkyBody.Type == 2 ? 255.0f : 0.0f;
     envLoadCurrentEnvironment(record);
 }
 
 
 /**
- * Switch to next Environment.
- * @param transitionTime: Usually 0 for instant switch or 1 to transition gradually
+ * Blend from the main to the alternate environment.
+ * @param transitionTime: Normalized progress: 0 = main, 1 = alternate.
  */
 void envSwitchToSoloSky2(f32 transitionTime)
 {
     static EnvironmentRecord static_envr;
+    bool mainBody, alternateBody;
 
     if (g_MainEnvironment == NULL || g_AlternateEnvironment == NULL)
     {
         return;
     }
 
+    if (transitionTime < 0.0f) { transitionTime = 0.0f; }
+    if (transitionTime > 1.0f) { transitionTime = 1.0f; }
+
     static_envr = *g_MainEnvironment;
-    /* Body selection/direction is discrete across an alternate environment.
-     * In particular, complete transitions must use the alternate sky body. */
+    mainBody = g_MainEnvironment->SkyBody.Type == 1 || g_MainEnvironment->SkyBody.Type == 2;
+    alternateBody = g_AlternateEnvironment->SkyBody.Type == 1 || g_AlternateEnvironment->SkyBody.Type == 2;
+    g_SkyBodyAlpha = mainBody ? 255.0f : 0.0f;
+    /* GasLeakAndFadeFog supplies the same progress as the fog/sky fade.
+     * Fade to transparency when the alternate has no body (Egyptian), and
+     * fade in the alternate body when the main has none. Tint stays intact.
+     * Two enabled bodies retain the existing discrete endpoint switch. */
+    if (mainBody && !alternateBody)
+    {
+        g_SkyBodyAlpha = 255.0f * (1.0f - transitionTime);
+    }
+    else if (!mainBody && alternateBody)
+    {
+        static_envr.SkyBody = g_AlternateEnvironment->SkyBody;
+        g_SkyBodyAlpha = 255.0f * transitionTime;
+    }
     if (transitionTime >= 1.0f) { static_envr.SkyBody = g_AlternateEnvironment->SkyBody; }
 
     static_envr.Visibility.NearClipDistance =

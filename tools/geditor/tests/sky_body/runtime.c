@@ -22,6 +22,8 @@ struct tex {void *data;u8 width,height,gbiformat,depth;};
 enum {TRUE=1,G_IM_FMT_IA=3,G_IM_SIZ_8b=1,G_TX_CLAMP=2,TEX_RENDER_TRANSLUCENT=2,
     G_RM_XLU_SURF=7,G_RM_XLU_SURF2=8,G_TP_PERSP,G_TF_BILERP,G_TC_FILT,G_AC_NONE,G_CC_MODULATEIA,G_SC_NON_INTERLACE};
 static unsigned NUM_TEXTURES=0xaa6,requested,triangles,loads;
+static f32 bodyAlpha=255;
+static f32 envGetSkyBodyAlpha(void){return bodyAlpha;}
 static int missing;
 static struct tex texture={(void*)0x12340,64,64,G_IM_FMT_IA,G_IM_SIZ_8b};
 static Mtxf view,projection;
@@ -46,7 +48,7 @@ static void texSelect(Gfx **gdl,sImageTableEntry *im,int style,int depth,int ori
 #define gDPSetTextureFilter(g,a) (*(g)=4)
 #define gDPSetTextureConvert(g,a) (*(g)=5)
 #define gDPSetAlphaCompare(g,a) (*(g)=6)
-#define gDPSetCombineMode(g,a,b) (*(g)=7)
+#define gDPSetCombineMode(g,a,b) do{assert((a)==G_CC_MODULATEIA&&(b)==G_CC_MODULATEIA);*(g)=7;}while(0)
 #define gDPSetScissor(g,mode,a,b,c,d) do{scissors++;scissor[0]=(a);scissor[1]=(b);scissor[2]=(c);scissor[3]=(d);*(g)=8;}while(0)
 #include "emitter.inc"
 static int SignedY(unsigned n){return (int)(n&0x1fff)-(int)(n&0x2000);}
@@ -58,11 +60,18 @@ static Gfx *skyRenderTri(Gfx *gdl,SkyRelated38 *a,SkyRelated38 *b,SkyRelated38 *
         assert(fabsf(v[i]->unk28)<4092&&fabsf(v[i]->unk2c)<4092);
         assert(isfinite(v[i]->unk20)&&isfinite(v[i]->unk24)&&isfinite(v[i]->unk34));
         assert(v[i]->unk0c>0);
-        assert(v[i]->r==255&&v[i]->g==210&&v[i]->b==160&&v[i]->a==255);
+        assert(v[i]->r==255&&v[i]->g==210&&v[i]->b==160&&v[i]->a==bodyAlpha);
     }
     assert(scissor[0]>=20&&scissor[1]>=10&&scissor[2]<=340&&scissor[3]<=250);
     Gfx *end=RealSkyRenderTri(gdl,a,b,c,scale,textured);
     assert(end-gdl==40&&((unsigned)gdl[0]>>24)==G_TRI_SHADE_TXTR);
+    /* Decode the native RDP shade alpha and its gradients: every covered
+     * pixel must receive the same fade, including fractional alpha. */
+    u32 packedAlpha=((u32)gdl[9]&0xffff)<<16|((u32)gdl[13]&0xffff);
+    assert(packedAlpha==(u32)((bodyAlpha+.5f)*65536.0f));
+    assert(!(gdl[11]&0xffff)&&!(gdl[15]&0xffff));
+    assert(!(gdl[17]&0xffff)&&!(gdl[21]&0xffff));
+    assert(!(gdl[19]&0xffff)&&!(gdl[23]&0xffff));
     int y[]={a->unk2c,b->unk2c,c->unk2c};
     for(int i=0;i<3;i++)for(int j=i+1;j<3;j++)if(y[j]<y[i]){int swap=y[i];y[i]=y[j];y[j]=swap;}
     assert(SignedY(gdl[0])==y[2]&&SignedY((unsigned)gdl[1]>>16)==y[1]&&SignedY(gdl[1])==y[0]);
@@ -78,6 +87,14 @@ int main(void)
     assert(selected.index==0x12340&&selected.width==64&&selected.height==64&&!selected.level);
     assert(selected.flagsS==G_TX_CLAMP&&selected.flagsT==G_TX_CLAMP);
     env.SkyBody.Type=2;triangles=0;skyRenderBody(list,&env);assert(triangles==1&&requested==0xaa5);
+    for (u32 type=1;type<=2;type++)
+    {
+        env.SkyBody.Type=type;bodyAlpha=127.5f;triangles=0;
+        assert(skyRenderBody(list,&env)>list&&triangles==1);
+        bodyAlpha=0;triangles=loads=scissors=0;
+        assert(skyRenderBody(list,&env)==list&&!triangles&&!loads&&!scissors);
+    }
+    bodyAlpha=255;
     /* A large disc crossing both the horizon and viewport is still one draw. */
     env.SkyBody.AngularSize=90;env.SkyBody.Direction.x=.5f;env.SkyBody.Direction.y=0;
     triangles=0;skyRenderBody(list,&env);assert(triangles==1);
@@ -88,5 +105,5 @@ int main(void)
     texture.depth=2;assert(skyRenderBody(list,&env)==list&&!triangles);texture.depth=1;
     texture.width=128;assert(skyRenderBody(list,&env)==list&&!triangles);texture.width=64;
     env.SkyBody.Direction.z=1;loads=0;assert(skyRenderBody(list,&env)==list&&!loads);
-    puts("PASS: production N64 adapter emits exactly one triangle, including horizon/viewport clipping; scissor restoration, IA8 IDs, tint, projective UVs, missing images and offscreen early exit.");
+    puts("PASS: production N64 adapter emits exactly one triangle, including horizon/viewport clipping; scissor restoration, IA8 IDs, tint, faded alpha, transparent early exit, projective UVs, missing images and offscreen early exit.");
 }

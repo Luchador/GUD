@@ -646,11 +646,12 @@ static Gfx *skyRenderBody(Gfx *gdl, const EnvironmentRecord *env)
     struct tex *texture;
     sImageTableEntry image;
     u32 imageId;
+    f32 alpha = envGetSkyBodyAlpha();
     f32 width = getPlayer_c_screenwidth();
     f32 height = getPlayer_c_screenheight();
     s32 count, i;
 
-    if ((body->Type != 1 && body->Type != 2) || width <= 0 || height <= 0) { return gdl; }
+    if ((body->Type != 1 && body->Type != 2) || alpha <= 0 || width <= 0 || height <= 0) { return gdl; }
     imageId = body->Type == 1 ? SKY_BODY_SUN_IMAGE : SKY_BODY_MOON_IMAGE;
     /* Newly compiled base ROMs can legitimately lack these project images. */
     if (imageId >= NUM_TEXTURES) { return gdl; }
@@ -701,7 +702,7 @@ static Gfx *skyRenderBody(Gfx *gdl, const EnvironmentRecord *env)
         p->unk28 = (getPlayer_c_screenleft() + (v->x + 1.0f) * width * 0.5f) * 4.0f;
         p->unk2c = (getPlayer_c_screentop() + (1.0f - v->y) * height * 0.5f) * 4.0f;
         p->unk30 = 0;
-        p->r = body->Red; p->g = body->Green; p->b = body->Blue; p->a = 255;
+        p->r = body->Red; p->g = body->Green; p->b = body->Blue; p->a = alpha;
     }
     gdl = skyRenderTri(gdl, &projected[0], &projected[1], &projected[2], 130.0f, TRUE);
     /* No depth reads/writes: the later room/prop pass occludes the sky. */

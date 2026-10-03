@@ -43,7 +43,7 @@ with tempfile.TemporaryDirectory(prefix='geditor-environment-') as folder:
     header = (root/'src/game/environment.h').read_text()
     (work/'types.inc').write_text(header[header.index('typedef struct SkySettings'):header.index('extern EnvironmentRecord')])
     (work/'engine.inc').write_text(''.join(function(engine, name) for name in
-        ('envFindEnvironment', 'envLoadLevelEnvironment', 'envSwitchToSoloSky2')))
+        ('envGetSkyBodyAlpha', 'envFindEnvironment', 'envLoadLevelEnvironment', 'envSwitchToSoloSky2')))
     subprocess.run(command + [str(here/'engine.c'), '-o', str(work/'engine')], check=True)
     subprocess.run([str(work/'engine')], env=env, check=True)
 

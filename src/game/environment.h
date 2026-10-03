@@ -81,6 +81,8 @@ extern f32 g_PropFadeStartPx;
 extern f32 g_PropFadeEndPx;
 
 EnvironmentRecord *envGetCurrent(void);
+/* Current Sun/Moon opacity, 0..255, including scripted environment fades. */
+f32 envGetSkyBodyAlpha(void);
 f32 envGetScaledFarFogIntensitySquared(void);
 void envLoadLevelEnvironment(s32 level_id, s32 arg1);
 s32 envPositionIsVisibleThroughFog(coord3d *pos, f32 range);
