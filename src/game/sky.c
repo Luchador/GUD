@@ -11,7 +11,7 @@
 #include "fr.h"
 #include "image_bank.h"
 #include "tex.h"
-#include "skybodymath.h"
+#include "skybodytriangle.h"
 
 
 #define SKYABS(val) (val >= 0.0f ? (val) : -(val))
@@ -639,7 +639,9 @@ static Gfx *skyRenderBody(Gfx *gdl, const EnvironmentRecord *env)
 {
     const SkyBodySettings *body = &env->SkyBody;
     SkyBodyVertex polygon[SKY_BODY_MAX_VERTICES];
-    SkyRelated38 projected[SKY_BODY_MAX_VERTICES];
+    SkyBodyTriangleVertex triangle[3];
+    SkyRelated38 projected[3];
+    f32 bounds[4];
     Mtxf worldToClip;
     struct tex *texture;
     sImageTableEntry image;
@@ -655,7 +657,7 @@ static Gfx *skyRenderBody(Gfx *gdl, const EnvironmentRecord *env)
     matrix_4x4_multiply(currentPlayerGetProjectionMatrixF(), camGetWorldToViewMtxf(), &worldToClip);
     count = skyBodyBuild(body->Direction.f, body->AngularSize, worldToClip.m,
             env->Sky.HorizonYOffset * 2.0f / height, polygon);
-    if (!count) { return gdl; }
+    if (!skyBodyCover(polygon, count, triangle, bounds)) { return gdl; }
     texLoadFromTextureNum(imageId, NULL);
     texture = texFindInPool(imageId, NULL);
     /* One IA8 image must fit TMEM. A missing/deleted/replaced image is safe. */
@@ -675,24 +677,37 @@ static Gfx *skyRenderBody(Gfx *gdl, const EnvironmentRecord *env)
     gDPSetTextureConvert(gdl++, G_TC_FILT);
     gDPSetAlphaCompare(gdl++, G_AC_NONE);
     gDPSetCombineMode(gdl++, G_CC_MODULATEIA, G_CC_MODULATEIA);
-    for (i = 0; i < count; i++)
+    /* Restrict the oversized triangle to the visible image's bounding box.
+     * RDP scissoring does not introduce another internal triangle edge. */
+    gDPSetScissor(gdl++, G_SC_NON_INTERLACE,
+        getPlayer_c_screenleft() + (bounds[0]+1.0f)*width*0.5f,
+        getPlayer_c_screentop() + (1.0f-bounds[3])*height*0.5f,
+        getPlayer_c_screenleft() + (bounds[2]+1.0f)*width*0.5f,
+        getPlayer_c_screentop() + (1.0f-bounds[1])*height*0.5f);
+    for (i = 0; i < 3; i++)
     {
-        SkyBodyVertex *v = &polygon[i];
+        SkyBodyTriangleVertex *v = &triangle[i];
         SkyRelated38 *p = &projected[i];
+        f32 q = v->q;
+        /* skyRenderTri multiplies UV by this projective weight again. Keep
+         * its normalization depth positive even for an extrapolated corner
+         * behind the texture plane. Zero weight is outside the visible image. */
+        if (q > -0.0000000001f && q < 0.0000000001f) { q = 0.0000000001f; }
         p->unk00 = v->x; p->unk04 = v->y; p->unk08 = 0;
-        p->unk0c = v->w * 1000.0f;
-        p->unk34 = 65536.0f / (130.0f * p->unk0c);
-        p->unk20 = (v->s * image.width - 0.5f) * 32.0f;
-        p->unk24 = (v->t * image.height - 0.5f) * 32.0f;
-        p->unk28 = (getPlayer_c_screenleft() + (v->x / v->w + 1.0f) * width * 0.5f) * 4.0f;
-        p->unk2c = (getPlayer_c_screentop() + (1.0f - v->y / v->w) * height * 0.5f) * 4.0f;
+        p->unk0c = 1000.0f;
+        p->unk34 = q * (65536.0f / 130000.0f);
+        p->unk20 = (v->s / q * image.width - 0.5f) * 32.0f;
+        p->unk24 = (v->t / q * image.height - 0.5f) * 32.0f;
+        p->unk28 = (getPlayer_c_screenleft() + (v->x + 1.0f) * width * 0.5f) * 4.0f;
+        p->unk2c = (getPlayer_c_screentop() + (1.0f - v->y) * height * 0.5f) * 4.0f;
         p->unk30 = 0;
         p->r = body->Red; p->g = body->Green; p->b = body->Blue; p->a = 255;
     }
-    for (i = 1; i < count - 1; i++)
-    { gdl = skyRenderTri(gdl, &projected[0], &projected[i], &projected[i+1], 130.0f, TRUE); }
+    gdl = skyRenderTri(gdl, &projected[0], &projected[1], &projected[2], 130.0f, TRUE);
     /* No depth reads/writes: the later room/prop pass occludes the sky. */
     gDPPipeSync(gdl++);
+    gDPSetScissor(gdl++, G_SC_NON_INTERLACE, getPlayer_c_screenleft(), getPlayer_c_screentop(),
+        getPlayer_c_screenleft()+width, getPlayer_c_screentop()+height);
     return gdl;
 }
 
@@ -1027,13 +1042,19 @@ Gfx *skyRenderTri(Gfx *gdl, SkyRelated38 *arg1, SkyRelated38 *arg2, SkyRelated38
 
     f2 = (sp484->unk2c * 0.25f);
     sp37c = f2 - (s32) f2;
+    /* RDP edge/attribute origins use floor(YH), including negative rows. */
+    if (sp37c < 0.0f) { sp37c += 1.0f; }
     sp408 = sp428[0] - skyRound(sp38c[0] * 8192.0f) * (1.0f / 8192.0f) * sp37c;
     sp410 = sp430[0] - skyRound(sp394[0] * 8192.0f) * (1.0f / 8192.0f) * sp37c;
 
-    gImmp1(gdl++, G_RDPHALF_1, (textured ? (G_TRI_SHADE_TXTR << 24) : (G_TRI_FILL << 24))
+    gImmp1(gdl++, G_RDPHALF_1, (textured ? ((u32)G_TRI_SHADE_TXTR << 24) : ((u32)G_TRI_FILL << 24))
             | (sp444 < 0.0f ? 0x00800000 : 0)
-            | (s32) sp47c->unk2c);
-    gImmp1(gdl++, G_RDPHALF_CONT, (s32) sp480->unk2c << 16 | (s32) sp484->unk2c);
+            | ((u32)(s32)sp47c->unk2c & 0x3fff));
+    /* Each Y is signed 12.2, packed in its own 14-bit field. In particular,
+     * an oversized sky-body triangle can start above the viewport: do not
+     * let a negative YH sign-extend over YM. */
+    gImmp1(gdl++, G_RDPHALF_CONT, ((u32)(s32)sp480->unk2c & 0x3fff) << 16
+            | ((u32)(s32)sp484->unk2c & 0x3fff));
 
     gImmp1(gdl++, G_RDPHALF_1, sub_GAME_7F094298(sp480->unk28 * 0.25f));
     gImmp1(gdl++, G_RDPHALF_CONT, sub_GAME_7F094298(sp384[0]));

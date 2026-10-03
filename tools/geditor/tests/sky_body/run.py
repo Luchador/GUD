@@ -27,6 +27,10 @@ with tempfile.TemporaryDirectory(prefix='geditor-sky-body-') as folder:
     env = dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1')
     for name in ('math', 'runtime'):
         if name == 'runtime':
-            (work/'runtime.inc').write_text(function((root/'src/game/sky.c').read_text(), 'skyRenderBody'))
-        subprocess.run(command + [str(here/f'{name}.c'), '-lm', '-o', str(work/name)], check=True)
+            source = (root/'src/game/sky.c').read_text()
+            (work/'runtime.inc').write_text(function(source, 'skyRenderBody'))
+            emitter = ''.join(function(source, fn) for fn in
+                              ('skyClamp','skyRound','sub_GAME_7F094298','skyVerticesAreTheSame','skyRenderTri'))
+            (work/'emitter.inc').write_text(emitter.replace('skyRenderTri(', 'RealSkyRenderTri('))
+        subprocess.run(command + ['-Wno-unused-variable','-Wno-unused-but-set-variable'] + [str(here/f'{name}.c'), '-lm', '-o', str(work/name)], check=True)
         subprocess.run([str(work/name)], env=env, check=True)

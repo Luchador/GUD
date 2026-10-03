@@ -273,7 +273,7 @@ $(addprefix $(BUILD_DIR)/src/game/,bgonecycle.o tex.o bgapply.o bgenvironment.o 
 $(addprefix $(BUILD_DIR)/src/game/,cam.o player.o chr.o propobj.o): src/game/cam.h
 $(addprefix $(BUILD_DIR)/src/game/,bg.o bgapply.o cam.o chraction.o chrai.o chrprop.o environment.o gedmanifest.o propobj.o sky.o): src/game/environment.h
 
-$(BUILD_DIR)/src/game/sky.o: src/game/skybodymath.h
+$(BUILD_DIR)/src/game/sky.o: src/game/skybodymath.h src/game/skybodytriangle.h
 
 # Graphics-task layout and persistent render settings.
 $(addprefix $(BUILD_DIR)/src/,boss.o fr.o) $(BUILD_DIR)/src/game/rsp.o: src/game/rsp.h
