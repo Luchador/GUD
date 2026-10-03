@@ -53,6 +53,7 @@
 #include "bgdocument.h"
 #include "roomedit.h"
 #include "bgcommandswindow.h"
+#include "bakedlighting.h"
 #include "primitiveoptions.h"
 #include "bghistory.h"
 #include "levelscale.h"
@@ -687,6 +688,7 @@ static void GEditorCloseProject(HWND hwnd)
     LevelManagerRefreshSettings(NULL, GEDITOR_NO_LEVEL);
     IssuesWindowClose();
     BgCommandsWindowClose();
+    BakedLightingClose();
     RomExportClearIssues();
     PatrolEditorClose();
     if (g_Project.name[0] == '\0')
@@ -775,6 +777,7 @@ enum {
     ID_TOOLS_CREATE_ROM,
     ID_TOOLS_UV_EDITOR,
     ID_TOOLS_MODEL_EDITOR,
+    ID_TOOLS_BAKED_LIGHTING,
     ID_TOOLS_ACTION_BLOCKS,
     ID_TOOLS_PATROL_PATHS,
     ID_TOOLS_BG_COMMANDS,
@@ -1023,6 +1026,7 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_BG_COMMANDS, "&BG Commands...");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_UV_EDITOR, "&UV Editor\tCtrl+T");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_MODEL_EDITOR, "&Model Editor");
+    AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_BAKED_LIGHTING, "Baked &Lighting...");
     AppendMenu(toolsmenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_RENDER_STUDIO, "&Render Studio");
     AppendMenu(toolsmenu, MF_SEPARATOR, 0, NULL);
@@ -1208,6 +1212,8 @@ static void GEditorRefreshHistoryMenu(HWND hwnd)
         g_CurrentLevelIndex < g_Project.levelcount ? g_Project.levels[g_CurrentLevelIndex].name : NULL);
     LevelManagerRefreshSettings(&g_Project, g_CurrentLevelIndex);
     BgCommandsWindowRefresh(&g_CurrentBg,&g_CurrentBgDocument,
+        g_CurrentLevelIndex<g_Project.levelcount ? g_Project.levels[g_CurrentLevelIndex].name : NULL);
+    BakedLightingRefresh(&g_CurrentBgDocument,
         g_CurrentLevelIndex<g_Project.levelcount ? g_Project.levels[g_CurrentLevelIndex].name : NULL);
     GEditorSetTitleForProject(hwnd);
     menubar = GetMenu(hwnd);
@@ -4447,6 +4453,34 @@ static BOOL GEditorSampleStanTile(DWORD index)
     return TRUE;
 }
 
+static BOOL GEditorBakeLighting(HWND hwnd, BakedLightingRequest *request)
+{
+    EditHistoryTransaction transaction={0};
+    const char *why="Open a background level before baking lighting.", *restorewhy="";
+    if (!request) { return FALSE; }
+    if (!g_CurrentBgDocument.rooms || !g_CurrentBg.data) { goto fail; }
+    why="Finish the active viewport movement or transform before baking.";
+    if (ViewportIsFlying(g_Viewport) || ViewportIsTransforming(g_Viewport)) { goto fail; }
+    if (!EditHistoryBeginBgEdit(&g_EditHistory,&g_CurrentBgDocument,"Bake Lighting",&transaction,&why)) { goto fail; }
+    if (!BgDocumentBakeLighting(&g_CurrentBgDocument,request->rooms,request->count,
+        &request->settings,&request->result,&why)) { goto fail; }
+    if (!request->result.vertices && !request->result.splits)
+    { EditHistoryCancelEdit(&transaction);request->why="";return TRUE; }
+    if (!GEditorRebuildCurrentViewport(&why)
+        || !EditHistoryCommitEdit(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,
+            &g_CurrentStan,&transaction,&why)) { goto rollback; }
+    GEditorRefreshSelectionDetails();GEditorRefreshHistoryMenu(hwnd);
+    request->why="";return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan);
+    GEditorRebuildCurrentViewport(&restorewhy);GEditorRestoreHistorySelection(hwnd);
+fail:
+    EditHistoryCancelEdit(&transaction);
+    GEditorRefreshSelectionDetails();GEditorRefreshHistoryMenu(hwnd);
+    request->why=why;return FALSE;
+}
+
+
 static BOOL GEditorPaintBgVertex(HWND hwnd, const ViewportBgVertexHit *request)
 {
     EditHistoryTransaction transaction;
@@ -6145,6 +6179,10 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 {
     switch (msg)
     {
+    case BAKEDLIGHTING_WM_BAKE:
+        return GEditorBakeLighting(hwnd, (BakedLightingRequest *)lparam);
+    case BAKEDLIGHTING_WM_HISTORY:
+        GEditorApplyHistoryStep(hwnd, wparam != 0); return TRUE;
     case BGCOMMANDS_WM_EDIT:
         return GEditorEditBgCommand(hwnd, (BgVisEditRequest *)lparam);
     case BGCOMMANDS_WM_HISTORY:
@@ -7086,6 +7124,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         EnableMenuItem((HMENU)wparam, ID_TOOLS_ACTION_BLOCKS, MF_BYCOMMAND | (g_CurrentSetup.data ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_PATROL_PATHS, MF_BYCOMMAND | (g_CurrentSetup.data ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_BG_COMMANDS, MF_BYCOMMAND | (g_CurrentBg.data ? MF_ENABLED : MF_GRAYED));
+        EnableMenuItem((HMENU)wparam, ID_TOOLS_BAKED_LIGHTING, MF_BYCOMMAND | (g_CurrentBgDocument.rooms ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_CHECK_ISSUES, MF_BYCOMMAND | (g_CurrentLevelIndex < g_Project.levelcount || RomExportIssues() ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_CREATE_ROM, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_RENDER_STUDIO, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
@@ -7524,6 +7563,12 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 }
                 return 0;
 
+            case ID_TOOLS_BAKED_LIGHTING:
+                if (!BakedLightingShow(hwnd,&g_CurrentBgDocument,
+                    g_CurrentLevelIndex<g_Project.levelcount ? g_Project.levels[g_CurrentLevelIndex].name : NULL))
+                { MessageBox(hwnd,"Could not open Baked Lighting.",GEDITOR_TITLE,MB_ICONERROR); }
+                return 0;
+
             case ID_TOOLS_MODEL_EDITOR:
                 if (!ModelEditorShow(hwnd, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), g_Project.dir))
                 {
@@ -7563,6 +7608,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         EditorSettingsClose();
         IssuesWindowClose();
         BgCommandsWindowClose();
+        BakedLightingClose();
         RomExportClearIssues();
         PatrolEditorClose();
         KnifeDialogClose();
@@ -8065,6 +8111,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                     && !RenderStudioHandleMessage(&msg)
                     && !EditorSettingsHandleMessage(&msg)
                     && !BgCommandsWindowHandleMessage(&msg)
+                    && !BakedLightingHandleMessage(&msg)
                     && !IssuesWindowHandleMessage(&msg)
                     && !PatrolEditorHandleMessage(&msg)
                     && !KnifeDialogHandleMessage(&msg)
@@ -8110,6 +8157,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                 && !RenderStudioHandleMessage(&msg)
                 && !EditorSettingsHandleMessage(&msg)
                 && !BgCommandsWindowHandleMessage(&msg)
+                && !BakedLightingHandleMessage(&msg)
                 && !IssuesWindowHandleMessage(&msg)
                 && !PatrolEditorHandleMessage(&msg)
                 && !KnifeDialogHandleMessage(&msg)

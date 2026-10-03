@@ -1,0 +1,219 @@
+#include <assert.h>
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "bgdocument.h"
+#include "bghistory.h"
+typedef void *HWND;
+typedef struct {int unused;} MSG;
+#include "bakedlighting.h"
+BOOL SetupFileCompact(SetupFile *s,const char **why) {abort();}
+void SetupFileFree(SetupFile *s) {abort();}
+void StanFileFree(StanFile *s) {abort();}
+static int allocations=-1;
+static BOOL FailAllocation(void) {if (!allocations) return TRUE;if (allocations>0) allocations--;return FALSE;}
+static void *TestMalloc(size_t n) {return FailAllocation()?NULL:malloc(n);}
+static void *TestCalloc(size_t n,size_t size) {return FailAllocation()?NULL:calloc(n,size);}
+#define malloc TestMalloc
+#define calloc TestCalloc
+#include "bglighting.c"
+#undef malloc
+#undef calloc
+#include "fixture.inc"
+static void Same(const BgDocument *a,const BgDocument *b)
+{
+    assert(a->roomcount==b->roomcount&&a->facecount==b->facecount&&a->dirty==b->dirty);
+    assert(a->nextvertexid==b->nextvertexid&&a->nextfaceid==b->nextfaceid);
+    for (DWORD r=1;r<=a->roomcount;r++)
+    {
+        const BgDocumentRoom *x=a->rooms+r,*y=b->rooms+r;
+        assert(x->vertexcount==y->vertexcount&&x->facecount==y->facecount);
+        if (x->vertexcount) assert(!memcmp(x->vertices,y->vertices,x->vertexcount*sizeof(*x->vertices)));
+        if (x->facecount) assert(!memcmp(x->faces,y->faces,x->facecount*sizeof(*x->faces)));
+    }
+}
+static void Counts(const BgDocument *doc)
+{
+    for (DWORD r=1;r<=doc->roomcount;r++) for (DWORD v=0;v<doc->rooms[r].vertexcount;v++)
+    {
+        DWORD count=0;
+        for (DWORD f=0;f<doc->rooms[r].facecount;f++) for (int c=0;c<3;c++)
+            count+=doc->rooms[r].faces[f].vertexindices[c]==v;
+        assert(count==doc->rooms[r].vertices[v].usecount);
+    }
+}
+static void Corner(BgDocument *doc)
+{
+    BgDocumentRoom *r=doc->rooms+1;
+    r->vertices=realloc(r->vertices,4*sizeof(*r->vertices));assert(r->vertices);
+    r->faces=realloc(r->faces,2*sizeof(*r->faces));assert(r->faces);
+    const short p[4][3]={{0,0,0},{100,0,0},{0,100,0},{0,0,100}};
+    for (int v=0;v<4;v++)
+    {
+        r->vertices[v]=(BgDocumentVertex){.id=doc->nextvertexid++,.room=1,
+            .x=p[v][0],.y=p[v][1],.z=p[v][2],.flag=123,.s=v*123,.t=-v*321,
+            .r=17,.g=29,.b=37,.a=80+v*20,.usecount=v<2?2:1};
+    }
+    r->faces[1]=r->faces[0];r->faces[1].id=doc->nextfaceid++;
+    DWORD indices[2][3]={{0,1,2},{1,0,3}};
+    memcpy(r->faces[0].vertexindices,indices[0],sizeof(indices[0]));
+    memcpy(r->faces[1].vertexindices,indices[1],sizeof(indices[1]));
+    r->facecount=r->facecapacity=doc->facecount=2;r->vertexcount=4;
+    /* A second room proves that selection is scoped and multi-room failure atomic. */
+    BgDocumentRoom *other=doc->rooms+2;
+    other->vertices=malloc(3*sizeof(*other->vertices));other->faces=malloc(sizeof(*other->faces));
+    assert(other->vertices&&other->faces);
+    memcpy(other->vertices,r->vertices,3*sizeof(*other->vertices));
+    for (int v=0;v<3;v++) {other->vertices[v].room=2;other->vertices[v].id=doc->nextvertexid++;other->vertices[v].usecount=1;}
+    other->faces[0]=r->faces[0];other->faces[0].room=2;other->faces[0].id=doc->nextfaceid++;
+    other->vertexcount=3;other->facecount=other->facecapacity=1;doc->facecount++;
+    other->layers[0].groups=calloc(1,sizeof(BgDocumentDrawGroup));assert(other->layers[0].groups);
+    other->layers[0].groupcount=other->layers[0].groupcapacity=1;
+    other->layers[0].sourcepresent=TRUE;other->faces[0].drawgroup=0;
+}
+static BgLightingSettings Lights(void)
+{ return (BgLightingSettings){{20,40,60},{180,120,60},1,1,{0,0,10},60}; }
+static const BgDocumentVertex *Vertex(const BgDocument *doc,DWORD f,int c)
+{return doc->rooms[1].vertices+doc->rooms[1].faces[f].vertexindices[c];}
+static void RGB(const BgDocumentVertex *v,int r,int g,int b) {assert(v->r==r&&v->g==g&&v->b==b);}
+static void Attributes(const BgDocument *a,const BgDocument *b)
+{
+    for (DWORD f=0;f<a->rooms[1].facecount;f++)
+    {
+        BgDocumentFace face=b->rooms[1].faces[f];
+        memcpy(face.vertexindices,a->rooms[1].faces[f].vertexindices,sizeof(face.vertexindices));
+        assert(!memcmp(&face,a->rooms[1].faces+f,sizeof(face)));
+        for (int c=0;c<3;c++)
+        {
+            const BgDocumentVertex *x=Vertex(a,f,c),*y=Vertex(b,f,c);
+            assert(x->x==y->x&&x->y==y->y&&x->z==y->z&&x->s==y->s&&x->t==y->t&&x->a==y->a&&x->flag==y->flag);
+        }
+    }
+    assert(!memcmp(a->rooms[2].vertices,b->rooms[2].vertices,3*sizeof(BgDocumentVertex)));
+    assert(!memcmp(a->rooms[2].faces,b->rooms[2].faces,sizeof(BgDocumentFace)));
+    Counts(b);
+}
+static void Geometry(const char *dir)
+{
+    BgFile source=Fixture();BgDocument original={0},doc={0},baked={0};const char *why="";
+    assert(BgDocumentLoad(source.data,source.size,1,&original,&why));Corner(&original);
+    DWORD rooms[]={1,1};BgLightingResult result;BgLightingSettings light=Lights();
+    assert(BgDocumentClone(&original,&doc,&why));
+    assert(BgDocumentBakeLighting(&doc,rooms,2,&light,&result,&why));
+    assert(result.rooms==1&&result.faces==2&&result.splits==2&&doc.rooms[1].vertexcount==6);
+    for (int c=0;c<3;c++) {RGB(Vertex(&doc,0,c),200,160,120);RGB(Vertex(&doc,1,c),20,40,60);}
+    Attributes(&original,&doc);RoundTrip(&doc,&source,dir);
+    assert(BgDocumentClone(&doc,&baked,&why));
+    assert(BgDocumentBakeLighting(&doc,rooms,2,&light,&result,&why)&&!result.vertices&&!result.splits);
+    Same(&doc,&baked);BgDocumentFree(&doc);BgDocumentFree(&baked);
+
+    light.smoothAngle=100;assert(BgDocumentClone(&original,&doc,&why));
+    assert(BgDocumentBakeLighting(&doc,rooms,1,&light,&result,&why)&&!result.splits);
+    RGB(Vertex(&doc,0,0),147,125,102);RGB(Vertex(&doc,1,1),147,125,102);
+    RGB(Vertex(&doc,0,1),147,125,102);RGB(Vertex(&doc,1,0),147,125,102);
+    RGB(Vertex(&doc,0,2),200,160,120);RGB(Vertex(&doc,1,2),20,40,60);
+    Attributes(&original,&doc);RoundTrip(&doc,&source,dir);BgDocumentFree(&doc);
+
+    /* Existing splits at the same position must stay hard, even at 180 degrees. */
+    assert(BgDocumentClone(&original,&doc,&why));
+    doc.rooms[1].vertices=realloc(doc.rooms[1].vertices,6*sizeof(BgDocumentVertex));assert(doc.rooms[1].vertices);
+    for (int i=0;i<2;i++) {doc.rooms[1].vertices[4+i]=doc.rooms[1].vertices[i];doc.rooms[1].vertices[4+i].id=doc.nextvertexid++;}
+    doc.rooms[1].vertexcount=6;doc.rooms[1].faces[1].vertexindices[0]=5;doc.rooms[1].faces[1].vertexindices[1]=4;
+    light.smoothAngle=180;assert(BgDocumentBakeLighting(&doc,rooms,1,&light,&result,&why));
+    RGB(Vertex(&doc,0,0),200,160,120);RGB(Vertex(&doc,1,1),20,40,60);assert(!result.splits);BgDocumentFree(&doc);
+
+    /* Secondary geometry is included but does not smooth across layer boundaries. */
+    assert(BgDocumentClone(&original,&doc,&why));doc.rooms[1].faces[1].layer=1;
+    assert(BgDocumentBakeLighting(&doc,rooms,1,&light,&result,&why)&&result.splits==2);
+    RGB(Vertex(&doc,1,1),20,40,60);BgDocumentFree(&doc);
+
+    /* Ambient-only accepts a zero direction, clamps channels, and needs no splits. */
+    assert(BgDocumentClone(&original,&doc,&why));light=Lights();light.directionalIntensity=0;
+    memset(light.direction,0,sizeof(light.direction));light.ambientIntensity=4;
+    assert(BgDocumentBakeLighting(&doc,rooms,1,&light,&result,&why)&&!result.splits);
+    RGB(Vertex(&doc,0,0),80,160,240);BgDocumentFree(&doc);
+    assert(BgDocumentClone(&original,&doc,&why));light=Lights();light.direction[2]=-1;
+    assert(BgDocumentBakeLighting(&doc,rooms,1,&light,&result,&why));RGB(Vertex(&doc,0,0),20,40,60);BgDocumentFree(&doc);
+    assert(BgDocumentClone(&original,&doc,&why));light=Lights();light.ambientIntensity=4;light.directionalIntensity=4;
+    assert(BgDocumentBakeLighting(&doc,rooms,1,&light,&result,&why));RGB(Vertex(&doc,0,0),255,255,255);BgDocumentFree(&doc);
+
+    /* Degenerate triangles are kept unchanged and excluded from normal sums. */
+    assert(BgDocumentClone(&original,&doc,&why));doc.rooms[1].faces[1].vertexindices[2]=1;
+    light=Lights();assert(BgDocumentBakeLighting(&doc,rooms,1,&light,&result,&why));
+    RGB(Vertex(&doc,1,0),17,29,37);RGB(Vertex(&doc,0,0),200,160,120);assert(result.faces==1);BgDocumentFree(&doc);
+    BgDocumentFree(&original);BgFileFree(&source);
+    puts("PASS: Lambert RGB, normalized/sign-correct direction, ambient/clamping, hard/smooth/UV-split/layer normals, degenerates, room scope, repeat bake, alpha/UV/material preservation and native save/export.");
+}
+static void Failures(void)
+{
+    BgFile source=Fixture();BgDocument original={0},doc={0};const char *why="";
+    assert(BgDocumentLoad(source.data,source.size,1,&original,&why));Corner(&original);
+    BgLightingSettings light=Lights();BgLightingResult result;DWORD rooms[]={1,2};
+    for (int fail=0;;fail++)
+    {
+        assert(fail<100);assert(BgDocumentClone(&original,&doc,&why));allocations=fail;
+        BOOL ok=BgDocumentBakeLighting(&doc,rooms,2,&light,&result,&why);allocations=-1;
+        if (ok) {assert(result.rooms==2);BgDocumentFree(&doc);break;}
+        assert(why[0]&&!result.rooms&&!result.vertices);Same(&doc,&original);BgDocumentFree(&doc);
+    }
+    assert(BgDocumentClone(&original,&doc,&why));rooms[1]=99;
+    assert(!BgDocumentBakeLighting(&doc,rooms,2,&light,&result,&why));Same(&doc,&original);
+    rooms[1]=2;doc.rooms[2].faces[0].vertexindices[2]=99;
+    assert(!BgDocumentBakeLighting(&doc,rooms,2,&light,&result,&why));doc.rooms[2].faces[0].vertexindices[2]=2;Same(&doc,&original);
+    for (int invalid=0;invalid<6;invalid++)
+    {
+        light=Lights();
+        if (invalid==0) light.ambientIntensity=NAN;
+        if (invalid==1) light.direction[0]=INFINITY;
+        if (invalid==2) light.direction[2]=0;
+        if (invalid==3) light.smoothAngle=-1;
+        if (invalid==4) light.directionalIntensity=5;
+        if (invalid==5) light.smoothAngle=181;
+        assert(!BgDocumentBakeLighting(&doc,rooms,2,&light,&result,&why));Same(&doc,&original);
+    }
+    BgDocumentFree(&doc);BgDocumentFree(&original);BgFileFree(&source);
+    puts("PASS: validation, invalid room/face, every allocation failure and atomic multi-room rollback.");
+}
+static BgDocument g_CurrentBgDocument;
+static BgFile g_CurrentBg;
+static EditHistory g_EditHistory;
+static SetupFile g_CurrentSetup;
+static StanFile g_CurrentStan;
+static HWND g_Viewport=(HWND)1;
+static BOOL flying,transforming,failrebuild;
+static BOOL ViewportIsFlying(HWND h) {return flying;}
+static BOOL ViewportIsTransforming(HWND h) {return transforming;}
+static BOOL GEditorRebuildCurrentViewport(const char **why)
+{if (failrebuild) {failrebuild=FALSE;*why="Injected viewport failure";return FALSE;}return TRUE;}
+static void GEditorRestoreHistorySelection(HWND h) {}
+static void GEditorRefreshSelectionDetails(void) {}
+static void GEditorRefreshHistoryMenu(HWND h) {}
+#include "editor.inc"
+static void History(void)
+{
+    const char *why="";BgDocument original={0},baked={0};DWORD rooms[]={1};
+    g_CurrentBg=Fixture();assert(BgDocumentLoad(g_CurrentBg.data,g_CurrentBg.size,1,&g_CurrentBgDocument,&why));Corner(&g_CurrentBgDocument);
+    assert(BgDocumentClone(&g_CurrentBgDocument,&original,&why));
+    EditHistoryReset(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan);
+    BakedLightingRequest request={.rooms=rooms,.count=1,.settings=Lights()};
+    failrebuild=TRUE;assert(!GEditorBakeLighting(NULL,&request));Same(&g_CurrentBgDocument,&original);assert(!g_EditHistory.undocount);
+    ULONGLONG revision=g_EditHistory.nextrevision;g_EditHistory.nextrevision=0;
+    assert(!GEditorBakeLighting(NULL,&request));g_EditHistory.nextrevision=revision;Same(&g_CurrentBgDocument,&original);
+    flying=TRUE;assert(!GEditorBakeLighting(NULL,&request));flying=FALSE;
+    transforming=TRUE;assert(!GEditorBakeLighting(NULL,&request));transforming=FALSE;
+    assert(GEditorBakeLighting(NULL,&request)&&g_EditHistory.undocount==1);
+    assert(!strcmp(EditHistoryGetUndoAction(&g_EditHistory),"Bake Lighting"));
+    assert(BgDocumentClone(&g_CurrentBgDocument,&baked,&why));
+    assert(GEditorBakeLighting(NULL,&request)&&g_EditHistory.undocount==1);Same(&g_CurrentBgDocument,&baked);
+    assert(EditHistoryUndo(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,NULL,&why));Same(&g_CurrentBgDocument,&original);
+    /* Invalid requests leave the available redo intact. */
+    request.settings.direction[2]=0;assert(!GEditorBakeLighting(NULL,&request));assert(EditHistoryCanRedo(&g_EditHistory));
+    assert(EditHistoryRedo(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,NULL,&why));Same(&g_CurrentBgDocument,&baked);
+    EditHistoryMarkBgSaved(&g_EditHistory,&g_CurrentBgDocument);assert(!g_CurrentBgDocument.dirty);
+    assert(EditHistoryUndo(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,NULL,&why)&&g_CurrentBgDocument.dirty);
+    assert(EditHistoryRedo(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,NULL,&why)&&!g_CurrentBgDocument.dirty);
+    EditHistoryFree(&g_EditHistory);BgDocumentFree(&g_CurrentBgDocument);BgDocumentFree(&original);BgDocumentFree(&baked);BgFileFree(&g_CurrentBg);
+    puts("PASS: real editor transaction, viewport/commit rollback, one-step undo/redo, no-op rebake, redo preservation and save revision tracking.");
+}
+int main(int argc,char **argv) {assert(argc==2);Geometry(argv[1]);Failures();History();return 0;}
