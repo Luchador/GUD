@@ -12240,7 +12240,7 @@ s32 sndCalculateVolumeFromDistance(f32 distance, f32 min, f32 max)
 }
 
 
-s32 sndCalculateVolumeAtPosition(coord3d *pos, f32 low, f32 high)
+static f32 sndDistanceToNearestPlayer(coord3d *pos, f32 maxDistance)
 {
     PropRecord *prop;
     s32 index;
@@ -12251,7 +12251,7 @@ s32 sndCalculateVolumeAtPosition(coord3d *pos, f32 low, f32 high)
     f32 distance;
     s32 count;
 
-    shortest_distance = high;
+    shortest_distance = maxDistance;
     count = getPlayerCount();
 
     for (index = 0; index < count; index++)
@@ -12268,7 +12268,35 @@ s32 sndCalculateVolumeAtPosition(coord3d *pos, f32 low, f32 high)
         }
     }
 
-    return sndCalculateVolumeFromDistance(shortest_distance, low, high);
+    return shortest_distance;
+}
+
+
+s32 sndCalculateVolumeAtPosition(coord3d *pos, f32 low, f32 high)
+{
+    return sndCalculateVolumeFromDistance(sndDistanceToNearestPlayer(pos, high), low, high);
+}
+
+
+s32 sndCalculateFleshHitVolumeAtPosition(coord3d *pos)
+{
+    /* Runtime world units are centimetres. Full volume through 20 m, linear
+     * falloff to half at 100 m, then half volume at every greater distance. */
+    f32 distance = sndDistanceToNearestPlayer(pos, 10000.0f);
+
+    if (distance <= 2000.0f)
+    {
+        return SHRT_MAX;
+    }
+
+    return (s32)(SHRT_MAX * (1.0f - 0.5f * (distance - 2000.0f) / 8000.0f) + 0.5f);
+}
+
+
+ALSoundState *chrobjSndPlayAtPosition(s16 soundId, ALSoundState *pendingState, coord3d *pos)
+{
+    return sndPlaySfxAtVolume((struct ALBankAlt_s *)g_musicSfxBufferPtr, soundId, pendingState,
+            sndCalculateVolumeAtPosition(pos, 5000.0f, 6000.0f));
 }
 
 

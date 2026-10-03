@@ -180,6 +180,8 @@ void sndDeactivate(ALSoundState *state);
 void sndDeactivateAllSfxByFlag_1(void);
 void sndCreatePostEvent(ALSoundState *state, s16 eventType, s32 arg2);
 ALSoundState *sndPlaySfx(struct ALBankAlt_s *soundBank, s16 soundIndex, ALSoundState *pendingState);
+/* Set the initial volume of every component before publishing any play event. */
+ALSoundState *sndPlaySfxAtVolume(struct ALBankAlt_s *soundBank, s16 soundIndex, ALSoundState *pendingState, s32 volume);
 u16 sndGetSfxSlotFirstNaturalVolume(void);
 void sndApplyVolumeAllSfxSlot(u16 arg0);
 void sndSetScalerApplyVolumeAllSfxSlot(f32 arg0);

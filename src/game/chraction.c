@@ -2151,7 +2151,6 @@ void play_sound_for_shot_actor(ChrRecord *self)
 {
     PropRecord *prop;
     bool male;
-    ALSoundState *sndstate;
  
     static s32 male_guard_yelp_counter = 0;
     static s32 female_guard_yelp_counter = 0;
@@ -2202,7 +2201,7 @@ void play_sound_for_shot_actor(ChrRecord *self)
             GET_HIT_MALE20_SFX, GET_HIT_MALE21_SFX, GET_HIT_MALE22_SFX, GET_HIT_MALE23_SFX, GET_HIT_MALE24_SFX
         };
         
-        sndstate = sndPlaySfx(g_musicSfxBufferPtr, male_yelps[male_guard_yelp_counter], NULL);
+        chrobjSndPlayAtPosition(male_yelps[male_guard_yelp_counter], NULL, &self->prop->pos);
         male_guard_yelp_counter++;
 
         if (male_guard_yelp_counter >= 25)
@@ -2218,7 +2217,7 @@ void play_sound_for_shot_actor(ChrRecord *self)
             GET_HIT_GIRL3_SFX
         };
 
-        sndstate = sndPlaySfx(g_musicSfxBufferPtr, female_yelps[female_guard_yelp_counter], NULL);
+        chrobjSndPlayAtPosition(female_yelps[female_guard_yelp_counter], NULL, &self->prop->pos);
         female_guard_yelp_counter++;
 
         if (female_guard_yelp_counter >= 3)
@@ -2226,8 +2225,6 @@ void play_sound_for_shot_actor(ChrRecord *self)
             female_guard_yelp_counter = 0;
         }
     }
-
-    chrobjSndCreatePostEventDefault(sndstate, &self->prop->pos);
 }
 
 
@@ -2259,8 +2256,7 @@ bool handles_shot_actors(ChrRecord *self, s32 hitpart, coord3d *vector, s32 weap
         else //steel helmet - ricochet
         {
             s16 mrs[3] = metal_ricochet_SFX;
-            ALSoundState * p = sndPlaySfx((struct ALBankAlt_s *)g_musicSfxBufferPtr, mrs[randomGetNext() % 3U], NULL);
-            chrobjSndCreatePostEventDefault(p, &self->prop->pos);
+            chrobjSndPlayAtPosition(mrs[randomGetNext() % 3U], NULL, &self->prop->pos);
         }
     }
 
@@ -4775,7 +4771,7 @@ void chrlvTickAnim(ChrRecord *self)
     {
         if (((g_GlobalTickCount & 1) == 0) && (chrGetDistanceToBond(self) < 800.0f))
         {
-            chrobjSndCreatePostEventDefault(sndPlaySfx((struct ALBankAlt_s *)g_musicSfxBufferPtr, SNEEZE_SFX, 0), &self->prop->pos);
+            chrobjSndPlayAtPosition(SNEEZE_SFX, NULL, &self->prop->pos);
         }
 
         self->chrflags |= CHRFLAG_02000000;
@@ -4916,17 +4912,13 @@ void chrlvTickDie(ChrRecord *self)
     Model *model = self->model;
     f32 frame = modelGetAnimFrame(model);
 
-    ALSoundState * p;
-
     static const s16 body_hit_SFX[] = {0x7B, 0x7C, 0x7D, 0x7E, 0x7F, 0x80, 0x81, 0x82, 0x83, 0x84, 0x85};
 
     static s32 thud_index = 0;
 
     if ((self->act_die.thudframe1 >= 0.0f) && (self->act_die.thudframe1 <= frame))
     {
-        p = sndPlaySfx((struct ALBankAlt_s *)g_musicSfxBufferPtr, body_hit_SFX[thud_index], NULL);
-
-        chrobjSndCreatePostEventDefault(p, &self->prop->pos);
+        chrobjSndPlayAtPosition(body_hit_SFX[thud_index], NULL, &self->prop->pos);
 
         thud_index++;
 
@@ -4940,9 +4932,7 @@ void chrlvTickDie(ChrRecord *self)
 
     if ((self->act_die.thudframe2 >= 0.0f) && (self->act_die.thudframe2 <= frame))
     {
-        p = sndPlaySfx((struct ALBankAlt_s *)g_musicSfxBufferPtr, body_hit_SFX[thud_index], NULL);
-
-        chrobjSndCreatePostEventDefault(p, &self->prop->pos);
+        chrobjSndPlayAtPosition(body_hit_SFX[thud_index], NULL, &self->prop->pos);
 
         thud_index++;
         if (thud_index >= 0xB)
@@ -5167,8 +5157,7 @@ void sub_GAME_7F02BFE4(ChrRecord *self, s32 arg1, s32 arg2)
 
             if (phi_a2 != NULL)
             {
-                sndPlaySfx(g_musicSfxBufferPtr, sp30, (ALSoundState *) phi_a2);
-                chrobjSndCreatePostEventDefault(*phi_a2, &self->prop->pos);
+                chrobjSndPlayAtPosition(sp30, (ALSoundState *) phi_a2, &self->prop->pos);
                 self->field_178[arg1] = ((0, g_GlobalTimer)) + ((s32) sp33);
                 self->hidden |= 0x80;
             }

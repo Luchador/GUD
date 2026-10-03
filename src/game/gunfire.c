@@ -2149,9 +2149,25 @@ ALSoundState* gunGetFreeSfxState(void)
 }
 
 
+static void gunfirePlayImpactSfx(s16 soundId, ALSoundState *pendingState, coord3d *pos)
+{
+    s32 volume;
+
+    if (soundId == HIT_BULLET_FLESH_SFX)
+    {
+        volume = sndCalculateFleshHitVolumeAtPosition(pos);
+    }
+    else
+    {
+        volume = sndCalculateVolumeAtPosition(pos, 5000.0f, 6000.0f);
+    }
+
+    sndPlaySfxAtVolume((struct ALBankAlt_s *)g_musicSfxBufferPtr, soundId, pendingState, volume);
+}
+
+
 void gunfirePlaySfxBulletImpact(enum ITEM_IDS item, PropRecord* prop, s32 texture_index)
 {
-    s32 sp6C;
     u32 rnd1;
     u32 rnd2;
     ALSoundState* sound_state;
@@ -2159,8 +2175,6 @@ void gunfirePlaySfxBulletImpact(enum ITEM_IDS item, PropRecord* prop, s32 textur
     struct PunchSounds punch_sounds_copy;
     struct BulletFleshSounds bullet_flesh_sounds_copy;
     u32 sfx_index;
-
-    sp6C = sndCalculateVolumeAtPosition(&prop->pos, 5000.0f, 6000.0f);
 
     rnd1 = randomGetNext();
     rnd2 = randomGetNext();
@@ -2191,38 +2205,29 @@ void gunfirePlaySfxBulletImpact(enum ITEM_IDS item, PropRecord* prop, s32 textur
         {
             if (item == ITEM_LASER)
             {
-                sndPlaySfx((struct ALBankAlt_s* ) g_musicSfxBufferPtr, RICO_LASER1_SFX, sound_state);
+                gunfirePlayImpactSfx(RICO_LASER1_SFX, sound_state, &prop->pos);
             }
             else
             {
                 ricochet_sounds_small_copy = ricochet_sounds_small;
-                sndPlaySfx((struct ALBankAlt_s* ) g_musicSfxBufferPtr, ricochet_sounds_small_copy.arr[rnd1 % 20], sound_state);
-            }
-
-            if (sound_state->link.next != NULL)
-            {
-                sndCreatePostEvent((ALSoundState* ) sound_state->link.next, 8, sp6C);
+                gunfirePlayImpactSfx(ricochet_sounds_small_copy.arr[rnd1 % 20], sound_state, &prop->pos);
             }
         }
         else
         {
             if (item == ITEM_KNIFE)
             {
-                sndPlaySfx((struct ALBankAlt_s* ) g_musicSfxBufferPtr, HIT_BULLET_SNOW_SFX, sound_state);
+                gunfirePlayImpactSfx(HIT_BULLET_SNOW_SFX, sound_state, &prop->pos);
             }
             else if (item == ITEM_FIST)
             {
                 punch_sounds_copy = punch_sounds;
-                sndPlaySfx((struct ALBankAlt_s* ) g_musicSfxBufferPtr, punch_sounds_copy.arr[rnd1 % 3], sound_state);
+                gunfirePlayImpactSfx(punch_sounds_copy.arr[rnd1 % 3], sound_state, &prop->pos);
             }
             else
             {
                 bullet_flesh_sounds_copy = bullet_flesh_sounds;
-                sndPlaySfx((struct ALBankAlt_s* ) g_musicSfxBufferPtr, bullet_flesh_sounds_copy.arr[rnd1 % 2], sound_state);
-            }
-
-            if (sound_state->link.next != NULL) {
-                sndCreatePostEvent((ALSoundState* ) sound_state->link.next, 8, sp6C);
+                gunfirePlayImpactSfx(bullet_flesh_sounds_copy.arr[rnd1 % 2], sound_state, &prop->pos);
             }
         }
     }
@@ -2236,12 +2241,7 @@ void gunfirePlaySfxBulletImpact(enum ITEM_IDS item, PropRecord* prop, s32 textur
             if (g_HitTypeSounds[g_Textures[texture_index].hitSound]->sfx_len > 0)
             {
                 sfx_index = rnd2 % g_HitTypeSounds[g_Textures[texture_index].hitSound]->sfx_len;
-                sndPlaySfx((struct ALBankAlt_s* ) g_musicSfxBufferPtr, g_HitTypeSounds[g_Textures[texture_index].hitSound]->sfx[sfx_index], sound_state);
-            }
-
-            if (sound_state->link.next != NULL)
-            {
-                chrobjSndCreatePostEventDefault((ALSoundState* ) sound_state->link.next, &prop->pos);
+                gunfirePlayImpactSfx(g_HitTypeSounds[g_Textures[texture_index].hitSound]->sfx[sfx_index], sound_state, &prop->pos);
             }
         }
     }
@@ -2251,7 +2251,6 @@ void gunfirePlaySfxBulletImpact(enum ITEM_IDS item, PropRecord* prop, s32 textur
 void gunfirePlaySfxBulletThroughGlass(coord3d* pos)
 {
     ALSoundState* sound;
-    ALLink* link;
 
     if (g_ClockTimer <= 0) 
     { 
@@ -2262,14 +2261,7 @@ void gunfirePlaySfxBulletThroughGlass(coord3d* pos)
 
     if (sound != NULL)
     {
-        sndPlaySfx((struct ALBankAlt_s* ) g_musicSfxBufferPtr, HIT_BULLET_GLASS_SFX, sound);
-
-        link = sound->link.next;
-
-        if (link != NULL)
-        {
-            chrobjSndCreatePostEventDefault((ALSoundState* ) link, pos);
-        }
+        gunfirePlayImpactSfx(HIT_BULLET_GLASS_SFX, sound, pos);
     }
 }
 
@@ -2300,18 +2292,13 @@ void gunfirePlaySfxRicochetSounds(enum ITEM_IDS item, coord3d* arg1, s32 texture
             if (item == ITEM_LASER)
             {
                 laser_copied = laser_ricochet_sounds;
-                sndPlaySfx((struct ALBankAlt_s* ) g_musicSfxBufferPtr, laser_copied.arr[rnd1 % 2], sound_state);
+                gunfirePlayImpactSfx(laser_copied.arr[rnd1 % 2], sound_state, arg1);
             }
             else
             {
                 rico_copied = ricochet_sounds_large;
-                sndPlaySfx((struct ALBankAlt_s* ) g_musicSfxBufferPtr, rico_copied.arr[rnd1 % 36], sound_state);
+                gunfirePlayImpactSfx(rico_copied.arr[rnd1 % 36], sound_state, arg1);
             }
-        }
-
-        if (sound_state->link.next != NULL)
-        {
-            chrobjSndCreatePostEventDefault((ALSoundState* ) sound_state->link.next, arg1);
         }
     }
 
@@ -2321,18 +2308,10 @@ void gunfirePlaySfxRicochetSounds(enum ITEM_IDS item, coord3d* arg1, s32 texture
     {
         img_sound = g_HitTypeSounds[g_Textures[texture_index].hitSound];
     
-        if (img_sound->sfx_len > 0)
+        if (img_sound != NULL && img_sound->sfx_len > 0)
         {
-            if (img_sound != NULL)
-            {
-                sfx_index = rnd2 % img_sound->sfx_len;
-                sndPlaySfx((struct ALBankAlt_s* ) g_musicSfxBufferPtr, img_sound->sfx[sfx_index], sound_state);
-            }
-
-            if (sound_state->link.next != NULL)
-            {
-                chrobjSndCreatePostEventDefault((ALSoundState* ) sound_state->link.next, arg1);
-            }
+            sfx_index = rnd2 % img_sound->sfx_len;
+            gunfirePlayImpactSfx(img_sound->sfx[sfx_index], sound_state, arg1);
         }
     }
 }

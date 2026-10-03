@@ -485,7 +485,7 @@ void sndHandleEvent(ALSndPlayer *sndp, ALSndpEvent *event) {
                 break;
             case AL_SNDP_PLAY_SFX_EVT:
                 if (soundState->unk3e & SOUND_FLAG_RETRIGGER) {
-                    sndPlaySfx(event->playSfx.soundBank, event->playSfx.soundIndex, soundState->state);
+                    sndPlaySfxAtVolume(event->playSfx.soundBank, event->playSfx.soundIndex, soundState->state, soundState->vol);
                 }
                 break;
             default:
@@ -790,6 +790,11 @@ ALSoundState *_sndPlaySfx(struct ALBankAlt_s *soundBank, s16 soundIndex, ALSound
 ALSoundState *sndPlaySfx(struct ALBankAlt_s *soundBank, s16 soundIndex, ALSoundState *pendingState)
 #endif
 {
+    return sndPlaySfxAtVolume(soundBank, soundIndex, pendingState, AL_SNDP_GROUP_VOLUME_MAX);
+}
+
+ALSoundState *sndPlaySfxAtVolume(struct ALBankAlt_s *soundBank, s16 soundIndex, ALSoundState *pendingState, s32 volume)
+{
     // declarations
 
     // declaration order doesn't seem to matter for these.
@@ -805,6 +810,7 @@ ALSoundState *sndPlaySfx(struct ALBankAlt_s *soundBank, s16 soundIndex, ALSoundS
     s16 unused_sp6c;           // 108(sp)
     ALMicroTime playSfxDelta;  // 104(sp)
     ALMicroTime deltaLoop; // 100(sp)
+    OSIntMask mask;
 
     // end declarations
 
@@ -822,22 +828,35 @@ ALSoundState *sndPlaySfx(struct ALBankAlt_s *soundBank, s16 soundIndex, ALSoundS
         return NULL;
     }
 
+    volume = MIN(AL_SNDP_GROUP_VOLUME_MAX, MAX(0, volume));
+
+    /* The audio thread must not see a partially constructed sequence or run a
+     * play event before the initial volume and caller's handle are installed. */
+    mask = osSetIntMask(OS_IM_NONE);
+
     do
     {
         ALKeyMap *keyMap;
 
         sound = (soundBank->instArray[0]->soundArray[soundIndex]);
+        deltaLoop = sound->keyMap->velocityMax * DELTA_33_MS;
 
-        newState = sndSetupSound(soundBank, sound);
+        /* A full queue cannot accept a play event. Do not strand a sound
+         * state (or its caller's handle) waiting for an event that was lost. */
+        newState = NULL;
+        if (g_sndPlayerPtr->evtq.freeList.next != NULL)
+        {
+            newState = sndSetupSound(soundBank, sound);
+        }
 
         if (newState != NULL)
         {
             ALSndpEvent playEvent;
 
+            newState->vol = volume;
             g_sndPlayerPtr->target = (s32)newState;
             playEvent.common.type = AL_SNDP_PLAY_EVT;
             playEvent.common.state = newState;
-            deltaLoop = sound->keyMap->velocityMax * DELTA_33_MS;
 
             if (newState->unk3e & 0x10)
             {
@@ -895,6 +914,7 @@ ALSoundState *sndPlaySfx(struct ALBankAlt_s *soundBank, s16 soundIndex, ALSoundS
         pendingState->link.next = (void*)nextState;
     }
 
+    osSetIntMask(mask);
     return nextState;
 }
 
