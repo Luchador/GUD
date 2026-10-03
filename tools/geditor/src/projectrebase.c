@@ -467,7 +467,10 @@ static BOOL ModelResource(RebasePlan *plan, const GEditorProject *source,
     free(local);
     if (conflict && choice==PROJECT_REBASE_STOP)
     { Conflict(report,a->name,"model changed in both project and ROM; choose a Model conflicts resolution"); return TRUE; }
-    BOOL keep=present && (matches || (edited && (!conflict || choice==PROJECT_REBASE_KEEP_PROJECT)));
+    /* A saved override remains intentional even after its geometry has been
+     * baked into base.z64. Keep project must not drop it merely because the
+     * old base now matches it, then silently adopt an older incoming model. */
+    BOOL keep=present && (choice==PROJECT_REBASE_KEEP_PROJECT || matches || (edited && !conflict));
     RebaseUpdate *update=&plan->updates[plan->count++];
     lstrcpyn(update->path,a->name,sizeof(update->path));
     update->model=keep ? 2 : 1; update->offset=b->offset; update->size=b->size;

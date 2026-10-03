@@ -314,6 +314,54 @@ static void ImageRebases(const GEditorProject *source,const char *incoming,const
 #include "briefing.c"
 #include "assets.c"
 
+
+static void SavedModelMatchingBase(const char *parent,const unsigned char *model,DWORD modelsize)
+{
+    unsigned char *old=Fixture(0,model,modelsize),*next=Fixture(SHIFT,model,modelsize);
+    unsigned char *saved=malloc(modelsize+16),*check;
+    char oldpath[MAX_PATH],newpath[MAX_PATH],path[MAX_PATH],outpath[MAX_PATH];
+    DWORD offset,span,size;
+    ModelSource source={0};RomFile rom={0},output={0};
+    GEditorProject project,kept,again,adopted;
+    ProjectRebaseReport report;
+    ProjectRebaseOptions options={PROJECT_REBASE_KEEP_PROJECT,PROJECT_REBASE_KEEP_PROJECT,PROJECT_REBASE_KEEP_PROJECT};
+    OK(saved&&ModelReadSource(model,modelsize,&source,&why));
+    next[MODEL+SHIFT+source.vertexoffsets[0]+1]^=1;
+    ModelFreeSource(&source);
+    Path(oldpath,parent,"saved-model-old.z64");Save(oldpath,old,SIZE);
+    Path(newpath,parent,"saved-model-new.z64");Save(newpath,next,SIZE);
+    OK(RomLoad(oldpath,&rom,&why));
+    OK(ProjectCreate("SavedModelBase",parent,&rom.info,&project,&why));
+    OK(RomExportStoreProjectBase(&project,&rom,&why));
+    Folder(project.dir,"models");Folder(project.dir,"models/native");Folder(project.dir,"models/objects");
+    Folder(project.dir,"images");
+    { TexPixel pixels[64];int w,h;OK(TexDecodeRecord(old+IMAGES,SIZE-IMAGES,pixels,&w,&h)&&w==8&&h==8);
+      Path(path,project.dir,"images/0000.bmp");OK(TexWriteBmp(path,pixels,w,h)); }
+    memcpy(saved,"GMD1",4);Put32(saved+4,ModelDataHash(model,modelsize));
+    Put32(saved+8,modelsize);Put32(saved+12,ModelDataHash(model,modelsize));memcpy(saved+16,model,modelsize);
+    Path(path,project.dir,"models/native/Pjungle3_treeZ.gmodel");Save(path,saved,modelsize+16);
+    Path(path,project.dir,"models/objects/Pjungle3_treeZ.gltf");Save(path,"saved preview",13);
+    OK(ProjectRebaseCreateWithOptions(&project,newpath,&options,parent,"SavedModelKept",&kept,&report,&why));
+    OK(report.modelskept==1&&report.modelsupdated==0);
+    Same(project.dir,kept.dir,"models/objects/Pjungle3_treeZ.gltf");
+    Path(path,kept.dir,"models/native/Pjungle3_treeZ.gmodel");check=Read(path,&size);
+    OK(size==modelsize+16&&!memcmp(check+8,saved+8,size-8));
+    OK(Get32(check+4)==ModelDataHash(next+MODEL+SHIFT,modelsize));free(check);
+    OK(RomExportCreate(&kept,"SavedModelPlayable",parent,outpath,sizeof(outpath),&why));
+    OK(RomLoad(outpath,&output,&why)&&RomFindFile(&output,"Pjungle3_treeZ",&offset,&span,&why));
+    OK(span==modelsize&&!memcmp(output.data+offset,model,modelsize));RomFree(&output);
+    OK(ProjectRebaseCreateWithOptions(&kept,oldpath,&options,parent,"SavedModelAgain",&again,&report,&why));
+    Same(project.dir,again.dir,"models/native/Pjungle3_treeZ.gmodel");
+    options.modelConflicts=PROJECT_REBASE_USE_ROM;
+    OK(ProjectRebaseCreateWithOptions(&project,newpath,&options,parent,"SavedModelAdopted",&adopted,&report,&why));
+    OK(report.modelsupdated==1&&report.modelskept==0);
+    Path(path,adopted.dir,"models/native/Pjungle3_treeZ.gmodel");OK(GetFileAttributes(path)==INVALID_FILE_ATTRIBUTES);
+    Path(path,project.dir,"models/native/Pjungle3_treeZ.gmodel");check=Read(path,&size);
+    OK(size==modelsize+16&&!memcmp(check,saved,size));free(check);
+    free(saved);free(old);free(next);RomFree(&rom);
+    puts("PASS: Keep project preserves a saved model identical to its old base, rebinds its fingerprint, exports its geometry, survives a second rebase; Use new ROM still adopts incoming geometry.");
+}
+
 int main(int argc,char **argv)
 {
     unsigned char *model,*old,*next,*edited;DWORD modelsize,i,offset,span,size,id;
@@ -330,6 +378,7 @@ int main(int argc,char **argv)
             if (model[pc]==BG_G_SETTEXTURE) Put32(model+pc+4,Get32(model+pc+4)&~BG_TEX_ID_MASK);
     ModelFreeSource(&native);
     old=Fixture(0,model,modelsize);next=Fixture(SHIFT,model,modelsize);
+    SavedModelMatchingBase(argv[1],model,modelsize);
     StudioFolders(argv[1]);
     BriefingEditing(argv[1],model,modelsize);
     if (argc>=5) { BriefingCorpus(argv[4],argv[1]); }
