@@ -33,7 +33,15 @@ const EnvironmentField g_EnvironmentFields[ENVIRONMENT_FIELD_COUNT] = {
     {"waterBlue", "Water blue", 72, 4, ENV_FLOAT, 0, 255},
     {"horizonyoffset", "Horizon Y offset", 76, 4, ENV_FLOAT, -FLT_MAX, FLT_MAX},
     {"propStartFade", "Prop fade start (px)", 80, 4, ENV_FLOAT, -FLT_MAX, FLT_MAX},
-    {"propEndFade", "Prop fade end (px)", 84, 4, ENV_FLOAT, 0, FLT_MAX}
+    {"propEndFade", "Prop fade end (px)", 84, 4, ENV_FLOAT, 0, FLT_MAX},
+    {"skyBody", "Sun / Moon", 88, 4, ENV_U32, 0, 2},
+    {"skyBodySize", "Diameter (degrees)", 92, 4, ENV_FLOAT, 0, 90},
+    {"skyBodyRed", "Tint red", 96, 1, ENV_BYTE, 0, 255},
+    {"skyBodyGreen", "Tint green", 97, 1, ENV_BYTE, 0, 255},
+    {"skyBodyBlue", "Tint blue", 98, 1, ENV_BYTE, 0, 255},
+    {"skyBodyX", "Direction X", 100, 4, ENV_FLOAT, -FLT_MAX, FLT_MAX},
+    {"skyBodyY", "Direction Y (up)", 104, 4, ENV_FLOAT, -FLT_MAX, FLT_MAX},
+    {"skyBodyZ", "Direction Z", 108, 4, ENV_FLOAT, -FLT_MAX, FLT_MAX}
 };
 static char g_EnvironmentError[256];
 static BOOL Fail(const char **why, const char *message)
@@ -108,7 +116,7 @@ BOOL EnvironmentReadRom(const RomFile *rom, EnvironmentTable *table, DWORD *offs
         if (e->kind == 0x454e5654u) { if (env) { return Fail(why, "Duplicate environment manifest."); } env = e; }
         if (e->kind == 0x434d4150u) { cmap = e; }
     }
-    if (!env || !cmap || (env->flags != ENVIRONMENT_RECORD_SIZE && env->flags != ROM_ENVIRONMENT_ROW_LEGACY_SIZE) || env->romend
+    if (!env || !cmap || !RomEnvironmentRowSizeIsValid(env->flags) || env->romend
         || cmap->romstart >= cmap->romend || cmap->romend > rom->size
         || env->romstart < cmap->romstart || env->romstart >= cmap->romend)
     { return Fail(why, "The base ROM has no supported environment table."); }
@@ -122,9 +130,11 @@ BOOL EnvironmentReadRom(const RomFile *rom, EnvironmentTable *table, DWORD *offs
         unsigned char *row = table->rows[table->count++].data;
         /* The old format stores four retired floats between farclip and
          * intensity. Normalize here so editing/rebase only sees live fields. */
-        DWORD gap = table->recordsize - ENVIRONMENT_RECORD_SIZE;
+        DWORD gap = table->recordsize == ROM_ENVIRONMENT_ROW_LEGACY_SIZE ? 16 : 0;
         memcpy(row, rom->data + at, 16);
-        memcpy(row + 16, rom->data + at + 16 + gap, ENVIRONMENT_RECORD_SIZE - 16);
+        memcpy(row + 16, rom->data + at + 16 + gap, ROM_ENVIRONMENT_ROW_COMPACT_SIZE - 16);
+        if (table->recordsize == ENVIRONMENT_RECORD_SIZE)
+        { memcpy(row + 88, rom->data + at + 88, ENVIRONMENT_RECORD_SIZE - 88); }
         at += table->recordsize;
     }
     memset(table, 0, sizeof(*table));
@@ -160,6 +170,9 @@ BOOL EnvironmentValidate(const EditorEnvironment *value, const char **why)
     { return Fail(why, "Fog needs fogend greater than fogstart and a range that the N64 fog calculation can represent (for example, 996 to 1000)."); }
     if (Value(value, 22) > 0 && Value(value, 23) >= Value(value, 22))
     { return Fail(why, "propEndFade must be less than a positive propStartFade. A zero start uses engine defaults; a negative start disables fading."); }
+    if (Value(value, 24) && (Value(value, 25) <= 0
+        || (Value(value, 29) == 0 && Value(value, 30) == 0 && Value(value, 31) == 0)))
+    { return Fail(why, "Sun/Moon needs a positive angular diameter and a nonzero direction (for example 0, 0.5, -1)."); }
     return TRUE;
 }
 BOOL EnvironmentValidateOverrides(const EnvironmentTable *table, const EnvironmentOverrides *overrides, const char **why)
@@ -171,11 +184,14 @@ BOOL EnvironmentValidateOverrides(const EnvironmentTable *table, const Environme
         const EnvironmentOverride *o = &overrides->rows[i];
         DWORD id = EnvironmentId(&o->value);
         EditorEnvironment value;
-        if (!o->fields || o->fields >> ENVIRONMENT_FIELD_COUNT || !id
+        if (!o->fields || !id
             || !EnvironmentGet(table, overrides, id, &value))
         { return Fail(why, "An environment override is invalid or its row is absent from the base ROM."); }
         for (DWORD j = 0; j < i; j++)
             if (EnvironmentId(&overrides->rows[j].value) == id) { return Fail(why, "Duplicate environment override."); }
+        if ((o->fields & ENVIRONMENT_SKY_BODY_FIELDS) && table->recordsize
+            && table->recordsize != ENVIRONMENT_RECORD_SIZE)
+        { return Fail(why, "Sun/Moon settings need a rebuilt GUD ROM. Rebase this project onto a ROM with sky-body support first."); }
         if (!EnvironmentValidate(&value, why)) { return FALSE; }
     }
     return TRUE;
@@ -194,6 +210,9 @@ BOOL EnvironmentSet(const EnvironmentTable *table, EnvironmentOverrides *overrid
         if (memcmp(base->data + f->offset, value->data + f->offset, f->size))
         { next.fields |= (DWORD)1 << i; memcpy(next.value.data + f->offset, value->data + f->offset, f->size); }
     }
+    if ((next.fields & ENVIRONMENT_SKY_BODY_FIELDS) && table->recordsize
+        && table->recordsize != ENVIRONMENT_RECORD_SIZE)
+    { return Fail(why, "Sun/Moon settings need a rebuilt GUD ROM. Rebase this project onto a ROM with sky-body support first."); }
     if (next.fields && !EnvironmentValidate(value, why)) { return FALSE; }
     Write32(next.value.data, id);
     for (at = 0; at < overrides->count; at++)
@@ -226,9 +245,11 @@ BOOL EnvironmentApplyRom(RomFile *rom, const EnvironmentOverrides *overrides, co
         EditorEnvironment row;
         EnvironmentGet(&table, overrides, EnvironmentId(&table.rows[i]), &row);
         unsigned char *target = rom->data + offset + i * table.recordsize;
-        DWORD gap = table.recordsize - ENVIRONMENT_RECORD_SIZE;
+        DWORD gap = table.recordsize == ROM_ENVIRONMENT_ROW_LEGACY_SIZE ? 16 : 0;
         memcpy(target, row.data, 16);
-        memcpy(target + 16 + gap, row.data + 16, ENVIRONMENT_RECORD_SIZE - 16);
+        memcpy(target + 16 + gap, row.data + 16, ROM_ENVIRONMENT_ROW_COMPACT_SIZE - 16);
+        if (table.recordsize == ENVIRONMENT_RECORD_SIZE)
+        { memcpy(target + 88, row.data + 88, ENVIRONMENT_RECORD_SIZE - 88); }
     }
     return TRUE;
 }
@@ -370,6 +391,15 @@ void EnvironmentPreview(const EditorEnvironment *value, unsigned char rgb[3], Ro
     clouds->horizonoffset = (float)Value(value, 21);
     for (int i = 0; i < 3; i++) { clouds->color[i] = (float)Value(value, 12 + i); }
 }
+void EnvironmentPreviewSkyBody(const EditorEnvironment *value, RomSkyBody *body)
+{
+    memset(body, 0, sizeof(*body));
+    body->type = (DWORD)Value(value, 24);
+    body->angularsize = (float)Value(value, 25);
+    body->horizonoffset = (float)Value(value, 21);
+    for (int i = 0; i < 3; i++)
+    { body->color[i] = (unsigned char)Value(value, 26+i); body->direction[i] = (float)Value(value, 29+i); }
+}
 void EnvironmentRefreshLevels(const EnvironmentTable *table, const EnvironmentOverrides *overrides, RomLevel *levels, DWORD count)
 {
     for (DWORD i = 0; i < count; i++)
@@ -379,6 +409,7 @@ void EnvironmentRefreshLevels(const EnvironmentTable *table, const EnvironmentOv
         {
             levels[i].hasbackgroundcolor = TRUE;
             EnvironmentPreview(&row, levels[i].backgroundcolor, &levels[i].fog, &levels[i].clouds);
+            EnvironmentPreviewSkyBody(&row, &levels[i].skybody);
         }
     }
 }

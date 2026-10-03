@@ -25,6 +25,7 @@
 #include "modellighting.h"
 #include "fog.h"
 #include "clouds.h"
+#include "../../../src/game/skybodymath.h"
 #include "orbitcamera.h"
 #include "cameraframe.h"
 #include "resource.h"
@@ -280,6 +281,8 @@ typedef struct ViewportState {
     BOOL showfog, levelfog;
     FogCurve fog;
     RomClouds clouds;
+    RomSkyBody skybody;
+    ViewportTexture skybodytexture;
     ViewportTexture cloudtexture; /* separate from editable scene textures */
     LARGE_INTEGER cloudstart, cloudfrequency;
     FogCoordPointerFn fogcoordpointer; /* owned by this viewport's GL context */
@@ -2039,6 +2042,47 @@ static void ViewportDrawClouds(const ViewportState *state)
     glPopAttrib();
 }
 
+static void ViewportDrawSkyBody(const ViewportState *state)
+{
+    const RomSkyBody *body = &state->skybody;
+    SkyBodyVertex polygon[SKY_BODY_MAX_VERTICES];
+    float forward[3], right[3], up[3], clip[4][4] = {{0}};
+    float halfheight = tanf(VIEWPORT_FOV_Y * 0.5f * VIEWPORT_DEG_TO_RAD);
+    if (state->orbit || !state->skybodytexture.name || (body->type != 1 && body->type != 2)
+        || state->rendermode == VIEWPORT_RENDER_UNTEXTURED || state->width < 1 || state->height < 1) { return; }
+    ViewportGetBasis(state, forward, right);
+    up[0] = right[1]*forward[2] - right[2]*forward[1];
+    up[1] = right[2]*forward[0] - right[0]*forward[2];
+    up[2] = right[0]*forward[1] - right[1]*forward[0];
+    for (int i = 0; i < 3; i++)
+    {
+        clip[i][0] = right[i] / (halfheight * state->width / state->height);
+        clip[i][1] = up[i] / halfheight;
+        clip[i][3] = forward[i];
+    }
+    /* Match the cloud preview's 240-line sky horizon convention. */
+    int count = skyBodyBuild(body->direction, body->angularsize, clip, body->horizonoffset / 120.0f, polygon);
+    if (!count) { return; }
+    glPushAttrib(GL_ENABLE_BIT | GL_CURRENT_BIT | GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT
+        | GL_TEXTURE_BIT | GL_POLYGON_BIT | GL_TRANSFORM_BIT);
+    glDisable(GL_DEPTH_TEST); glDepthMask(GL_FALSE);
+    glDisable(GL_FOG); glDisable(GL_LIGHTING); glDisable(GL_ALPHA_TEST); glDisable(GL_CULL_FACE);
+    glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    glEnable(GL_TEXTURE_2D); glBindTexture(GL_TEXTURE_2D, state->skybodytexture.name);
+    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+    glColor4ub(body->color[0], body->color[1], body->color[2], 255);
+    glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity();
+    glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity();
+    glBegin(GL_TRIANGLE_FAN);
+    for (int i = 0; i < count; i++)
+    {
+        glTexCoord2f(polygon[i].s, polygon[i].t);
+        glVertex4f(polygon[i].x, polygon[i].y, 0, polygon[i].w);
+    }
+    glEnd(); glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix(); glPopAttrib();
+}
+
 static void ViewportDrawKnifePlane(const ViewportState *state)
 {
     if (!state->knifepreview || state->orbit) { return; }
@@ -2414,6 +2458,7 @@ static void ViewportPaintGL(ViewportState *state)
     }
 
     ViewportDrawClouds(state);
+    ViewportDrawSkyBody(state);
 
     /* Fast3D and OpenGL both treat counter-clockwise faces as front. */
     glFrontFace(GL_CCW);
@@ -9553,7 +9598,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         return 1;
 
     case WM_DESTROY:
-        ViewportSetLevelClouds(hwnd, NULL, NULL);
+        ViewportSetLevelClouds(hwnd, NULL, NULL); ViewportSetLevelSkyBody(hwnd, NULL, NULL);
         KillTimer(hwnd, VIEWPORT_STARTUP_TIMER);
         KillTimer(hwnd, VIEWPORT_MONITOR_TIMER);
         ViewportCancelTransform(hwnd);
@@ -9772,6 +9817,42 @@ void ViewportSetBackgroundColor(HWND viewport, const unsigned char rgb[3])
     }
 
     ViewportRedraw(viewport);
+}
+
+void ViewportSetLevelSkyBody(HWND viewport, const RomSkyBody *body, const char *projectdir)
+{
+    ViewportState *state = ViewportGetState(viewport);
+    if (!state) { return; }
+    ViewportTexture *texture = &state->skybodytexture;
+    if (state->hglrc)
+    {
+        wglMakeCurrent(state->hdc, state->hglrc);
+        if (texture->name) { glDeleteTextures(1, &texture->name); }
+    }
+    ZeroMemory(texture, sizeof(*texture));
+    ZeroMemory(&state->skybody, sizeof(state->skybody));
+    if (!state->orbit && state->hglrc && body && (body->type == 1 || body->type == 2) && projectdir)
+    {
+        TexPixel *pixels = malloc(256u * 256u * sizeof(*pixels));
+        DWORD image = body->type == 1 ? SKY_BODY_SUN_IMAGE : SKY_BODY_MOON_IMAGE;
+        if (pixels && TexLoadProjectImage(projectdir, image, pixels, &texture->width, &texture->height)
+            && texture->width > 0 && texture->height > 0
+            && texture->width <= 255 && ((texture->width + 7) & ~7) * texture->height <= 4096)
+        {
+            glPushAttrib(GL_TEXTURE_BIT);
+            glGenTextures(1, &texture->name);
+            glBindTexture(GL_TEXTURE_2D, texture->name);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture->width, texture->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+            glPopAttrib();
+            state->skybody = *body;
+        }
+        free(pixels);
+    }
+    InvalidateRect(viewport, NULL, FALSE);
 }
 
 void ViewportSetLevelClouds(HWND viewport, const RomClouds *clouds, const char *projectdir)
@@ -11111,7 +11192,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     state->selectedobject = savedobject;
     state->monitors = monitorpreview;
     if (framecamera || !scene) { state->inversedomain = VIEWPORT_SELECTION_BG; }
-    if (framecamera || !tris || tricount <= 0) { ViewportSetLevelClouds(hwnd, NULL, NULL); }
+    if (framecamera || !tris || tricount <= 0) { ViewportSetLevelClouds(hwnd, NULL, NULL); ViewportSetLevelSkyBody(hwnd, NULL, NULL); }
     KillTimer(hwnd, VIEWPORT_MONITOR_TIMER);
     if (state->monitors.count) { SetTimer(hwnd, VIEWPORT_MONITOR_TIMER, 16, NULL); }
     if (framecamera)

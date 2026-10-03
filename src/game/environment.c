@@ -249,6 +249,9 @@ void envSwitchToSoloSky2(f32 transitionTime)
     }
 
     static_envr = *g_MainEnvironment;
+    /* Body selection/direction is discrete across an alternate environment.
+     * In particular, complete transitions must use the alternate sky body. */
+    if (transitionTime >= 1.0f) { static_envr.SkyBody = g_AlternateEnvironment->SkyBody; }
 
     static_envr.Visibility.NearClipDistance =
         g_MainEnvironment->Visibility.NearClipDistance

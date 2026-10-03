@@ -3,7 +3,8 @@
 #include "environmentpanel.h"
 
 enum { ENV_VARIANT_LABEL = 3000, ENV_VARIANT, ENV_STATUS, ENV_APPLY, ENV_RESET, ENV_REVERT,
-       ENV_GROUP_FIRST = 3010, ENV_LABEL_FIRST = 3020, ENV_FIELD_FIRST = 3050 };
+       ENV_SECTION_LABEL, ENV_SECTION, ENV_BODY_HELP,
+       ENV_GROUP_FIRST = 3010, ENV_LABEL_FIRST = 3020, ENV_FIELD_FIRST = 3060 };
 typedef struct EnvironmentPanel {
     const GEditorProject *project;
     DWORD level;
@@ -17,6 +18,7 @@ static EnvironmentPanel *State(HWND hwnd) { return (EnvironmentPanel *)GetWindow
 static HWND Owner(HWND hwnd) { return GetWindow(GetParent(hwnd), GW_OWNER); }
 static BOOL Checkbox(int field)
 { return g_EnvironmentFields[field].type == ENV_BOOL32 || g_EnvironmentFields[field].type == ENV_BOOL8; }
+static BOOL BodyChoice(int field) { return field == ENVIRONMENT_SKY_BODY_FIRST; }
 static BOOL Ready(EnvironmentPanel *s) { return s && s->project && s->selected >= 0 && s->selected < s->count; }
 static void Preview(HWND hwnd)
 {
@@ -40,13 +42,17 @@ static void Status(HWND hwnd)
         if (s->choices[s->selected].shared)
         { text = s->draft ? "Unapplied changes to a shared default: affects every level using it." : "Shared default: changes affect every level using this environment."; }
     }
+    if (ready && s->project->environments.recordsize != ENVIRONMENT_RECORD_SIZE
+        && SendDlgItemMessage(hwnd, ENV_SECTION, CB_GETCURSEL, 0, 0) == 1)
+    { text = "Rebuild GUD and rebase this project to enable Sun / Moon settings."; }
     SetDlgItemText(hwnd, ENV_STATUS, text);
     EnableWindow(GetDlgItem(hwnd, ENV_VARIANT), ready);
     EnableWindow(GetDlgItem(hwnd, ENV_APPLY), ready && s->draft);
     EnableWindow(GetDlgItem(hwnd, ENV_REVERT), ready && s->draft);
     EnableWindow(GetDlgItem(hwnd, ENV_RESET), ready);
     for (int i = 0; i < ENVIRONMENT_FIELD_COUNT; i++)
-        EnableWindow(GetDlgItem(hwnd, ENV_FIELD_FIRST + i), ready);
+        EnableWindow(GetDlgItem(hwnd, ENV_FIELD_FIRST + i), ready
+            && (i < ENVIRONMENT_SKY_BODY_FIRST || s->project->environments.recordsize == ENVIRONMENT_RECORD_SIZE));
 }
 static void Load(HWND hwnd)
 {
@@ -59,6 +65,7 @@ static void Load(HWND hwnd)
         char text[64] = "";
         if (Ready(s)) { EnvironmentFormatField(&s->committed, i, text, sizeof(text)); }
         if (Checkbox(i)) { CheckDlgButton(hwnd, ENV_FIELD_FIRST + i, text[0] == '1' ? BST_CHECKED : BST_UNCHECKED); }
+        else if (BodyChoice(i)) { SendDlgItemMessage(hwnd, ENV_FIELD_FIRST + i, CB_SETCURSEL, atoi(text), 0); }
         else { SetDlgItemText(hwnd, ENV_FIELD_FIRST + i, text); }
     }
     s->draft = FALSE; s->loading = FALSE; Status(hwnd);
@@ -87,6 +94,7 @@ BOOL EnvironmentPanelApply(HWND hwnd)
     {
         char text[64];
         if (Checkbox(i)) { strcpy(text, IsDlgButtonChecked(hwnd, ENV_FIELD_FIRST + i) == BST_CHECKED ? "1" : "0"); }
+        else if (BodyChoice(i)) { snprintf(text, sizeof(text), "%d", (int)SendDlgItemMessage(hwnd, ENV_FIELD_FIRST + i, CB_GETCURSEL, 0, 0)); }
         else { GetDlgItemText(hwnd, ENV_FIELD_FIRST + i, text, sizeof(text)); }
         if (!EnvironmentParseField(&value, i, text, &why))
         {
@@ -143,8 +151,9 @@ static void Layout(HWND hwnd)
 {
     /* Three columns fit the Level Settings minimum size. Keep the form
      * compact as the parent grows; controls retain their tab order. */
-    Place(hwnd, ENV_VARIANT_LABEL, 0, 3, 60, 14); Place(hwnd, ENV_VARIANT, 62, 0, 220, 120);
-    static const int first[] = {0, 6, 15}, last[] = {6, 15, ENVIRONMENT_FIELD_COUNT};
+    Place(hwnd, ENV_VARIANT_LABEL, 0, 3, 60, 14); Place(hwnd, ENV_VARIANT, 62, 0, 208, 120);
+    Place(hwnd, ENV_SECTION_LABEL, 280, 3, 36, 14); Place(hwnd, ENV_SECTION, 318, 0, 186, 80);
+    static const int first[] = {0, 6, 15}, last[] = {6, 15, ENVIRONMENT_SKY_BODY_FIRST};
     for (int column = 0; column < 3; column++)
     {
         int x = column * 170;
@@ -157,10 +166,47 @@ static void Layout(HWND hwnd)
             { Place(hwnd, ENV_LABEL_FIRST + i, x, y + 2, 93, 14); Place(hwnd, ENV_FIELD_FIRST + i, x + 94, y, 68, 15); }
         }
     }
+    Place(hwnd, ENV_GROUP_FIRST + 3, 0, 24, 162, 14);
+    for (int i = ENVIRONMENT_SKY_BODY_FIRST; i < ENVIRONMENT_FIELD_COUNT; i++)
+    {
+        int y = 42 + (i - ENVIRONMENT_SKY_BODY_FIRST) * 18;
+        Place(hwnd, ENV_LABEL_FIRST + i, 0, y+2, 93, 14);
+        Place(hwnd, ENV_FIELD_FIRST + i, 94, y, 68, BodyChoice(i) ? 90 : 15);
+    }
+    Place(hwnd, ENV_BODY_HELP, 180, 42, 324, 168);
     Place(hwnd, ENV_STATUS, 0, 226, 504, 20);
     Place(hwnd, ENV_APPLY, 0, 249, 64, 18);
     Place(hwnd, ENV_REVERT, 72, 249, 78, 18);
     Place(hwnd, ENV_RESET, 158, 249, 122, 18);
+}
+static void Section(HWND hwnd)
+{
+    BOOL body = SendDlgItemMessage(hwnd, ENV_SECTION, CB_GETCURSEL, 0, 0) == 1;
+    for (int i = 0; i < ENVIRONMENT_FIELD_COUNT; i++)
+    {
+        int show = ((i >= ENVIRONMENT_SKY_BODY_FIRST) == body) ? SW_SHOW : SW_HIDE;
+        ShowWindow(GetDlgItem(hwnd, ENV_FIELD_FIRST + i), show);
+        if (!Checkbox(i)) { ShowWindow(GetDlgItem(hwnd, ENV_LABEL_FIRST + i), show); }
+    }
+    for (int i = 0; i < 4; i++)
+    { ShowWindow(GetDlgItem(hwnd, ENV_GROUP_FIRST + i), ((i == 3) == body) ? SW_SHOW : SW_HIDE); }
+    ShowWindow(GetDlgItem(hwnd, ENV_BODY_HELP), body ? SW_SHOW : SW_HIDE);
+    Status(hwnd);
+}
+static void BodyDefaults(HWND hwnd)
+{
+    char text[64];
+    if (SendDlgItemMessage(hwnd, ENV_FIELD_FIRST + ENVIRONMENT_SKY_BODY_FIRST, CB_GETCURSEL, 0, 0) <= 0) { return; }
+    /* Zero-filled ROM defaults are disabled. Supply a useful first disc when
+     * enabling it; later selections retain the user's size, tint and direction. */
+    for (int i = 25; i < ENVIRONMENT_FIELD_COUNT; i++)
+    {
+        GetDlgItemText(hwnd, ENV_FIELD_FIRST + i, text, sizeof(text));
+        if (strtod(text, NULL) != 0) { return; }
+    }
+    static const char *values[] = {"5", "255", "255", "255", "0", "0.5", "-1"};
+    for (int i = 25; i < ENVIRONMENT_FIELD_COUNT; i++)
+    { SetDlgItemText(hwnd, ENV_FIELD_FIRST + i, values[i-25]); }
 }
 static BOOL Control(HWND hwnd, const char *type, const char *text, int id, DWORD style, DWORD exstyle)
 {
@@ -180,26 +226,45 @@ static INT_PTR CALLBACK Dialog(HWND hwnd, UINT message, WPARAM wp, LPARAM lp)
         s->selected = -1; SetWindowLongPtr(hwnd, DWLP_USER, (LONG_PTR)s);
         BOOL ok = Control(hwnd, "STATIC", "Environment", ENV_VARIANT_LABEL, 0, 0)
             && Control(hwnd, "COMBOBOX", "", ENV_VARIANT, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, 0);
-        static const char *groups[] = {"Clipping and fog", "Sky and colors", "Water and prop fade"};
-        for (int i = 0; ok && i < 3; i++) { ok = Control(hwnd, "STATIC", groups[i], ENV_GROUP_FIRST + i, 0, 0); }
+        ok = ok && Control(hwnd, "STATIC", "Section", ENV_SECTION_LABEL, 0, 0)
+            && Control(hwnd, "COMBOBOX", "", ENV_SECTION, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, 0);
+        SendDlgItemMessage(hwnd, ENV_SECTION, CB_ADDSTRING, 0, (LPARAM)"Environment");
+        SendDlgItemMessage(hwnd, ENV_SECTION, CB_ADDSTRING, 0, (LPARAM)"Sun / Moon");
+        SendDlgItemMessage(hwnd, ENV_SECTION, CB_SETCURSEL, 0, 0);
+        static const char *groups[] = {"Clipping and fog", "Sky and colors", "Water and prop fade", "Sun / Moon"};
+        for (int i = 0; ok && i < 4; i++) { ok = Control(hwnd, "STATIC", groups[i], ENV_GROUP_FIRST + i, 0, 0); }
         for (int i = 0; ok && i < ENVIRONMENT_FIELD_COUNT; i++)
         {
             if (!Checkbox(i)) { ok = Control(hwnd, "STATIC", g_EnvironmentFields[i].label, ENV_LABEL_FIRST + i, 0, 0); }
-            ok = ok && Control(hwnd, Checkbox(i) ? "BUTTON" : "EDIT", Checkbox(i) ? g_EnvironmentFields[i].label : "",
-                ENV_FIELD_FIRST + i, WS_TABSTOP | (Checkbox(i) ? BS_AUTOCHECKBOX : ES_AUTOHSCROLL), Checkbox(i) ? 0 : WS_EX_CLIENTEDGE);
-            if (!Checkbox(i)) { SendDlgItemMessage(hwnd, ENV_FIELD_FIRST + i, EM_SETLIMITTEXT, 63, 0); }
+            ok = ok && Control(hwnd, Checkbox(i) ? "BUTTON" : BodyChoice(i) ? "COMBOBOX" : "EDIT", Checkbox(i) ? g_EnvironmentFields[i].label : "",
+                ENV_FIELD_FIRST + i, WS_TABSTOP | (Checkbox(i) ? BS_AUTOCHECKBOX : BodyChoice(i) ? CBS_DROPDOWNLIST | WS_VSCROLL : ES_AUTOHSCROLL), Checkbox(i) || BodyChoice(i) ? 0 : WS_EX_CLIENTEDGE);
+            if (BodyChoice(i))
+            {
+                static const char *choices[] = {"None", "Sun", "Moon"};
+                for (int j = 0; j < 3; j++) { SendDlgItemMessage(hwnd, ENV_FIELD_FIRST+i, CB_ADDSTRING, 0, (LPARAM)choices[j]); }
+            }
+            else if (!Checkbox(i)) { SendDlgItemMessage(hwnd, ENV_FIELD_FIRST + i, EM_SETLIMITTEXT, 63, 0); }
         }
-        ok = ok && Control(hwnd, "STATIC", "", ENV_STATUS, 0, 0)
+        ok = ok && Control(hwnd, "STATIC",
+            "Sun uses image 0AA4. Moon uses image 0AA5.\r\n\r\n"
+            "Diameter is the full angular size, greater than 0 and up to 90 degrees.\r\n"
+            "Tint channels range from 0 to 255; white keeps the original image.\r\n\r\n"
+            "Direction is a world vector: +Y points up. Its length is ignored.\r\n"
+            "Example: 0, 0.5, -1 places it above the -Z horizon.\r\n\r\n"
+            "It stays at infinite distance when you move. Turn the camera to look toward it.\r\n"
+            "Apply to preview it in the level viewport.", ENV_BODY_HELP, 0, 0)
+            && Control(hwnd, "STATIC", "", ENV_STATUS, 0, 0)
             && Control(hwnd, "BUTTON", "&Apply", ENV_APPLY, BS_PUSHBUTTON | WS_TABSTOP, 0)
             && Control(hwnd, "BUTTON", "&Revert edits", ENV_REVERT, BS_PUSHBUTTON | WS_TABSTOP, 0)
             && Control(hwnd, "BUTTON", "Use ROM &defaults", ENV_RESET, BS_PUSHBUTTON | WS_TABSTOP, 0);
         if (!ok) { DestroyWindow(hwnd); return FALSE; }
-        Layout(hwnd); Load(hwnd); return TRUE;
+        Layout(hwnd); Load(hwnd); Section(hwnd); return TRUE;
     }
     case WM_COMMAND:
     {
         if (!s || s->loading) { return TRUE; }
         int id = LOWORD(wp), code = HIWORD(wp);
+        if (id == ENV_SECTION && code == CBN_SELCHANGE) { Section(hwnd); return TRUE; }
         if (id == ENV_APPLY || id == IDOK) { EnvironmentPanelApply(hwnd); return TRUE; }
         if (id == ENV_REVERT) { Load(hwnd); return TRUE; }
         if (id == ENV_RESET && Ready(s))
@@ -212,8 +277,10 @@ static INT_PTR CALLBACK Dialog(HWND hwnd, UINT message, WPARAM wp, LPARAM lp)
             return TRUE;
         }
         if (id >= ENV_FIELD_FIRST && id < ENV_FIELD_FIRST + ENVIRONMENT_FIELD_COUNT && Ready(s)
-            && (code == EN_CHANGE || (Checkbox(id - ENV_FIELD_FIRST) && code == BN_CLICKED)))
-        { s->draft = TRUE; Status(hwnd); SendMessage(Owner(hwnd), ENVIRONMENT_WM_DRAFT, 0, 0); return TRUE; }
+            && (code == EN_CHANGE || (Checkbox(id - ENV_FIELD_FIRST) && code == BN_CLICKED)
+                || (BodyChoice(id - ENV_FIELD_FIRST) && code == CBN_SELCHANGE)))
+        { if (BodyChoice(id - ENV_FIELD_FIRST)) { BodyDefaults(hwnd); }
+          s->draft = TRUE; Status(hwnd); SendMessage(Owner(hwnd), ENVIRONMENT_WM_DRAFT, 0, 0); return TRUE; }
         break;
     }
     case WM_NCDESTROY: SetWindowLongPtr(hwnd, DWLP_USER, 0); free(s); return TRUE;

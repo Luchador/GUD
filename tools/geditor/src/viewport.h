@@ -148,6 +148,7 @@ BOOL ViewportZoomToBounds(HWND hwnd, const double min[3], const double max[3]);
 void ViewportSetBackgroundColor(HWND viewport, const unsigned char rgb[3]);
 
 /* Preview-only sky, using the project's current cloud image. NULL clears it. */
+void ViewportSetLevelSkyBody(HWND viewport, const RomSkyBody *body, const char *projectdir);
 void ViewportSetLevelClouds(HWND viewport, const RomClouds *clouds, const char *projectdir);
 /* Level settings and the user's View toggle are independent; changing levels
    keeps the toggle. NULL clears the level fog. Orbit previews never use it. */

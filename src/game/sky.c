@@ -10,6 +10,8 @@
 #include "bg.h"
 #include "fr.h"
 #include "image_bank.h"
+#include "tex.h"
+#include "skybodymath.h"
 
 
 #define SKYABS(val) (val >= 0.0f ? (val) : -(val))
@@ -535,7 +537,7 @@ static Gfx *skyRenderCloudPolygon(Gfx *gdl, SkyRelated18 *vertices, s32 vertexCo
 }
 
 
-Gfx *skyRender(Gfx *gdl)
+static Gfx *skyRenderBackground(Gfx *gdl)
 {
     coord3d viewRays[4];
     coord3d horizonRay;
@@ -632,6 +634,73 @@ Gfx *skyRender(Gfx *gdl)
     return skyRenderCloudPolygon(gdl, vertices, vertexCount, roomScale, horizonMask, leftHorizonY, rightHorizonY, env);
 }
 
+
+static Gfx *skyRenderBody(Gfx *gdl, const EnvironmentRecord *env)
+{
+    const SkyBodySettings *body = &env->SkyBody;
+    SkyBodyVertex polygon[SKY_BODY_MAX_VERTICES];
+    SkyRelated38 projected[SKY_BODY_MAX_VERTICES];
+    Mtxf worldToClip;
+    struct tex *texture;
+    sImageTableEntry image;
+    u32 imageId;
+    f32 width = getPlayer_c_screenwidth();
+    f32 height = getPlayer_c_screenheight();
+    s32 count, i;
+
+    if ((body->Type != 1 && body->Type != 2) || width <= 0 || height <= 0) { return gdl; }
+    imageId = body->Type == 1 ? SKY_BODY_SUN_IMAGE : SKY_BODY_MOON_IMAGE;
+    /* Newly compiled base ROMs can legitimately lack these project images. */
+    if (imageId >= NUM_TEXTURES) { return gdl; }
+    matrix_4x4_multiply(currentPlayerGetProjectionMatrixF(), camGetWorldToViewMtxf(), &worldToClip);
+    count = skyBodyBuild(body->Direction.f, body->AngularSize, worldToClip.m,
+            env->Sky.HorizonYOffset * 2.0f / height, polygon);
+    if (!count) { return gdl; }
+    texLoadFromTextureNum(imageId, NULL);
+    texture = texFindInPool(imageId, NULL);
+    /* One IA8 image must fit TMEM. A missing/deleted/replaced image is safe. */
+    if (!texture || texture->gbiformat != G_IM_FMT_IA || texture->depth != G_IM_SIZ_8b
+            || !texture->width || !texture->height
+            || (((texture->width + 7) & ~7) * texture->height) > 4096) { return gdl; }
+    image.index = osVirtualToPhysical(texture->data);
+    image.width = texture->width; image.height = texture->height;
+    image.level = 0; image.format = G_IM_FMT_IA; image.depth = G_IM_SIZ_8b;
+    image.flagsS = G_TX_CLAMP; image.flagsT = G_TX_CLAMP; image.pad = 0;
+
+    gDPPipeSync(gdl++);
+    texSelect(&gdl, &image, TEX_RENDER_TRANSLUCENT, 0, 0);
+    gDPSetRenderMode(gdl++, G_RM_XLU_SURF, G_RM_XLU_SURF2);
+    gDPSetTexturePersp(gdl++, G_TP_PERSP);
+    gDPSetTextureFilter(gdl++, G_TF_BILERP);
+    gDPSetTextureConvert(gdl++, G_TC_FILT);
+    gDPSetAlphaCompare(gdl++, G_AC_NONE);
+    gDPSetCombineMode(gdl++, G_CC_MODULATEIA, G_CC_MODULATEIA);
+    for (i = 0; i < count; i++)
+    {
+        SkyBodyVertex *v = &polygon[i];
+        SkyRelated38 *p = &projected[i];
+        p->unk00 = v->x; p->unk04 = v->y; p->unk08 = 0;
+        p->unk0c = v->w * 1000.0f;
+        p->unk34 = 65536.0f / (130.0f * p->unk0c);
+        p->unk20 = (v->s * image.width - 0.5f) * 32.0f;
+        p->unk24 = (v->t * image.height - 0.5f) * 32.0f;
+        p->unk28 = (getPlayer_c_screenleft() + (v->x / v->w + 1.0f) * width * 0.5f) * 4.0f;
+        p->unk2c = (getPlayer_c_screentop() + (1.0f - v->y / v->w) * height * 0.5f) * 4.0f;
+        p->unk30 = 0;
+        p->r = body->Red; p->g = body->Green; p->b = body->Blue; p->a = 255;
+    }
+    for (i = 1; i < count - 1; i++)
+    { gdl = skyRenderTri(gdl, &projected[0], &projected[i], &projected[i+1], 130.0f, TRUE); }
+    /* No depth reads/writes: the later room/prop pass occludes the sky. */
+    gDPPipeSync(gdl++);
+    return gdl;
+}
+
+Gfx *skyRender(Gfx *gdl)
+{
+    gdl = skyRenderBackground(gdl);
+    return skyRenderBody(gdl, envGetCurrent());
+}
 
 void skyProjectVertex(SkyRelated18 *arg0, Mtxf *arg1, u16 arg2, f32 arg3, f32 arg4, SkyRelated38 *arg5)
 {

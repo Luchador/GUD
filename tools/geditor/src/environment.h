@@ -6,7 +6,9 @@
 
 #define ENVIRONMENT_RECORD_SIZE ROM_ENVIRONMENT_ROW_SIZE
 #define ENVIRONMENT_MAX_RECORDS 128u
-#define ENVIRONMENT_FIELD_COUNT 24
+#define ENVIRONMENT_FIELD_COUNT 32
+#define ENVIRONMENT_SKY_BODY_FIRST 24
+#define ENVIRONMENT_SKY_BODY_FIELDS 0xff000000u
 #define ENVIRONMENT_MAX_CHOICES 6
 
 /* Retain the native bytes so reserved fields and unrelated ROM defaults are
@@ -55,6 +57,7 @@ BOOL EnvironmentReadOverride(EnvironmentOverrides *overrides, const char *text);
 BOOL EnvironmentWriteOverrides(FILE *file, const EnvironmentOverrides *overrides);
 int EnvironmentChoices(const EnvironmentTable *table, LONG levelid, EnvironmentChoice choices[ENVIRONMENT_MAX_CHOICES]);
 void EnvironmentPreview(const EditorEnvironment *value, unsigned char rgb[3], RomFog *fog, RomClouds *clouds);
+void EnvironmentPreviewSkyBody(const EditorEnvironment *value, RomSkyBody *body);
 void EnvironmentRefreshLevels(const EnvironmentTable *table, const EnvironmentOverrides *overrides, RomLevel *levels, DWORD count);
 
 #endif

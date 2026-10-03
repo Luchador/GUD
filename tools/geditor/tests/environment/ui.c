@@ -6,7 +6,7 @@ typedef intptr_t LPARAM;
 #define WM_APP 0x8000
 #define GEDITOR_TITLE "GEditor"
 enum { DWLP_USER=1, GW_OWNER, BST_UNCHECKED=0, BST_CHECKED=1, CB_RESETCONTENT=10,
-    CB_ADDSTRING, CB_SETCURSEL, EM_SETSEL, MB_ICONERROR, MB_ICONWARNING, SW_SHOW, SW_HIDE };
+    CB_ADDSTRING, CB_SETCURSEL, CB_GETCURSEL, EM_SETSEL, MB_ICONERROR, MB_ICONWARNING, SW_SHOW, SW_HIDE };
 #include "environmentpanel.h"
 #include "ui_types.inc"
 static EnvironmentPanel panel;
@@ -19,12 +19,14 @@ static char controls[100][256];
 static BOOL enabled[100];
 static RomFog previewfog;
 static RomClouds previewclouds;
+static RomSkyBody previewbody;
 static unsigned char previewrgb[3];
 static BOOL GEditorApplyEnvironment(HWND hwnd, EnvironmentEditRequest *r);
 static void GEditorPreviewEnvironment(DWORD id, BOOL selected);
 static void GEditorSetTitleForProject(HWND hwnd) {}
 static void ViewportSetBackgroundColor(HWND hwnd,const unsigned char *rgb) { memcpy(previewrgb,rgb,3); }
 static void ViewportSetLevelFog(HWND hwnd,const RomFog *fog,float scale) { previewfog=*fog; }
+static void ViewportSetLevelSkyBody(HWND hwnd,const RomSkyBody *body,const char *dir) { previewbody=*body; }
 static void ViewportSetLevelClouds(HWND hwnd,const RomClouds *clouds,const char *dir) { previewclouds=*clouds;previews++; }
 static intptr_t GetWindowLongPtr(HWND hwnd,int field) { assert(hwnd==(HWND)1);return (intptr_t)&panel; }
 static HWND GetParent(HWND hwnd) { return (HWND)2; }
@@ -37,7 +39,12 @@ static intptr_t SendMessage(HWND hwnd,unsigned message,WPARAM wp,LPARAM lp)
     else { assert(message==ENVIRONMENT_WM_DRAFT);drafts++; }
     return 0;
 }
-static intptr_t SendDlgItemMessage(HWND hwnd,int id,unsigned message,WPARAM wp,LPARAM lp) { return 0; }
+static intptr_t SendDlgItemMessage(HWND hwnd,int id,unsigned message,WPARAM wp,LPARAM lp)
+{
+    if(message==CB_SETCURSEL)snprintf(controls[id-3000],256,"%d",(int)wp);
+    if(message==CB_GETCURSEL)return atoi(controls[id-3000]);
+    return 0;
+}
 static HWND GetDlgItem(HWND hwnd,int id) { return (HWND)(intptr_t)id; }
 static void EnableWindow(HWND hwnd,BOOL enable) { enabled[(int)(intptr_t)hwnd-3000]=enable; }
 static void SetDlgItemText(HWND hwnd,int id,const char *text) { snprintf(controls[id-3000],256,"%s",text); }
@@ -87,6 +94,15 @@ static void UI(const char *dir)
     panel.selected=1;Load(hwnd);Preview(hwnd);assert(previewfog.farclip==9000);
     EnvironmentPanelShow(hwnd,FALSE);assert(previewfog.farclip==6000);
     panel.selected=0;Load(hwnd);assert(Reset(hwnd));assert(!g_Project.environmentOverrides.count&&!panel.draft);
+    g_Project.environments.recordsize=88;Status(hwnd);assert(!enabled[ENV_FIELD_FIRST+24-3000]);
+    g_Project.environments.recordsize=112;Status(hwnd);assert(enabled[ENV_FIELD_FIRST+24-3000]);
+    SendDlgItemMessage(hwnd,ENV_FIELD_FIRST+24,CB_SETCURSEL,1,0);BodyDefaults(hwnd);
+    assert(!strcmp(controls[ENV_FIELD_FIRST+25-3000],"5")&&!strcmp(controls[ENV_FIELD_FIRST+31-3000],"-1"));
+    panel.draft=TRUE;assert(EnvironmentPanelApply(hwnd));
+    assert(previewbody.type==1&&previewbody.angularsize==5&&previewbody.color[0]==255&&previewbody.direction[1]==.5f);
+    SendDlgItemMessage(hwnd,ENV_FIELD_FIRST+24,CB_SETCURSEL,2,0);BodyDefaults(hwnd);
+    panel.draft=TRUE;assert(EnvironmentPanelApply(hwnd)&&previewbody.type==2&&previewbody.angularsize==5);
+    assert(Reset(hwnd)&&!g_Project.environmentOverrides.count&&!previewbody.type);
     EnvironmentPanelRefresh(hwnd,NULL,(DWORD)-1);assert(!enabled[ENV_APPLY-3000]&&!panel.count&&!panel.project);
     assert(EnvironmentPanelApply(NULL)&&!EnvironmentPanelHasDraft(NULL));
     /* Reopening this same project after choosing Save must read the new

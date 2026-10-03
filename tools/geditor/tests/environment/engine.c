@@ -8,6 +8,7 @@ typedef int16_t s16;
 typedef uint32_t u32;
 typedef int32_t s32;
 #define bool int
+typedef struct { f32 x,y,z; } coord3d;
 #include "types.inc"
 #include "../../../../src/levelids.h"
 static EnvironmentRecord *g_MainEnvironment,*g_AlternateEnvironment,active;
@@ -25,9 +26,12 @@ static EnvironmentRecord g_EnvTable[]={
 #include "engine.inc"
 int main(void)
 {
+    g_EnvTable[0].SkyBody.Type=1;g_EnvTable[0].SkyBody.AngularSize=5;
+    g_EnvTable[1].SkyBody.Type=2;g_EnvTable[1].SkyBody.AngularSize=8;
     envSwitchToSoloSky2(1);assert(!loads);
-    envLoadLevelEnvironment(1,0);assert(loads==1&&!active.FogEnabled);
+    envLoadLevelEnvironment(1,0);assert(loads==1&&!active.FogEnabled&&active.SkyBody.Type==1);
     envSwitchToSoloSky2(.5f);assert(loads==2&&!active.FogEnabled&&active.Visibility.NearClipDistance==20&&active.Visibility.FarClipDistance==2000);
+    envSwitchToSoloSky2(1);assert(active.SkyBody.Type==2&&active.SkyBody.AngularSize==8);
     g_EnvTable[0].FogEnabled=1;g_EnvTable[0].Visibility.FogStart=996;g_EnvTable[0].Visibility.FogEnd=1000;
     envLoadLevelEnvironment(1,0);envSwitchToSoloSky2(.99f);assert(active.FogEnabled&&active.Visibility.FogEnd-active.Visibility.FogStart==4);
     envSwitchToSoloSky2(1);assert(!active.FogEnabled&&active.Visibility.FogEnd==0);

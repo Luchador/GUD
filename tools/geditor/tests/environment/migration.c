@@ -31,7 +31,8 @@ static void Migration(const char *dir)
     /* Rebase from old native layout to compact layout, keeping live overrides. */
     rom.info.entries[1].flags=88;rom.info.entries[0].romend=3*88;
     memset(bytes,0,sizeof(bytes));
-    memcpy(bytes,rows,sizeof(rows));Float(bytes+88+76,30); /* New horizon default. */
+    for(int i=0;i<2;i++) { memcpy(bytes+i*88,rows[i].data,88); }
+    Float(bytes+88+76,30); /* New horizon default. */
     memcpy(before,bytes,sizeof(bytes));
     OK(EnvironmentReadRom(&rom,&next,NULL,&why)&&next.count==2&&next.recordsize==88);
     OK(EnvironmentRebase(&old,&next,&changes,&why));

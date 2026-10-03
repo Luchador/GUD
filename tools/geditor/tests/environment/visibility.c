@@ -9,8 +9,8 @@ typedef uint32_t u32;typedef int32_t s32;
 #define bool int
 #define TRUE 1
 #define FALSE 0
-#include "types.inc"
 typedef struct { f32 x,y,z; } coord3d;
+#include "types.inc"
 typedef struct { f32 m[4][4]; } Mtxf;
 typedef struct { coord3d pos;f32 zDepth; } PropRecord;
 typedef struct { f32 rgba[4]; } rgba_f32;
@@ -27,8 +27,10 @@ static void viSetZRange(f32 near,f32 far) { clipNear=near;clipFar=far; }
 int main(void)
 {
     /* Native layout must match the compact ENVT format. */
-    assert(sizeof(EnvironmentRecord)==88&&offsetof(EnvironmentRecord,Sky)==28);
+    assert(sizeof(EnvironmentRecord)==112&&offsetof(EnvironmentRecord,Sky)==28);
     assert(offsetof(EnvironmentRecord,PropVisibility)==80);
+    assert(offsetof(EnvironmentRecord,SkyBody)==88&&offsetof(SkyBodySettings,AngularSize)==4
+        &&offsetof(SkyBodySettings,Red)==8&&offsetof(SkyBodySettings,Direction)==12);
     EnvironmentRecord jungle={.FogEnabled=1,
         .Visibility={.NearClipDistance=10,.FarClipDistance=2500,
             .FogStart=996,.FogEnd=1000},

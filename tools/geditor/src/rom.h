@@ -15,8 +15,12 @@ static inline BOOL RomChrLodDistanceIsValid(float distance)
 #define ROM_MAX_ENTRIES 64
 #define ROM_MAX_LEVELS  64
 #define ROM_LEVEL_ROW_SIZE 44u
-#define ROM_ENVIRONMENT_ROW_SIZE 88u
+#define ROM_ENVIRONMENT_ROW_SIZE 112u
+#define ROM_ENVIRONMENT_ROW_COMPACT_SIZE 88u
 #define ROM_ENVIRONMENT_ROW_LEGACY_SIZE 104u
+
+static inline BOOL RomEnvironmentRowSizeIsValid(DWORD size)
+{ return size == ROM_ENVIRONMENT_ROW_SIZE || size == ROM_ENVIRONMENT_ROW_COMPACT_SIZE || size == ROM_ENVIRONMENT_ROW_LEGACY_SIZE; }
 
 typedef struct RomManifestEntry {
     DWORD kind;      /* fourcc, e.g. 'IMGS'  */
@@ -37,6 +41,13 @@ typedef struct RomClouds {
     DWORD textureid; /* resolved sky/water bank image ID */
     float height, color[3], horizonoffset;
 } RomClouds;
+
+typedef struct RomSkyBody {
+    DWORD type; /* 0 = none, 1 = sun, 2 = moon */
+    float angularsize, horizonoffset;
+    unsigned char color[3];
+    float direction[3];
+} RomSkyBody;
 
 /*
  * One row of the ROM's level table, strings resolved and copied out.
@@ -60,6 +71,7 @@ typedef struct RomLevel {
     unsigned char backgroundcolor[3];
     RomFog fog; /* refreshed from base.z64; not serialized to the .gep */
     RomClouds clouds;
+    RomSkyBody skybody;
 } RomLevel;
 
 typedef struct RomInfo {
@@ -98,6 +110,7 @@ BOOL RomLevelTableIsValid(const RomManifestEntry *stgt, DWORD romsize);
 BOOL RomLoad(const char *path, RomFile *rom, const char **reasonout);
 void RomFree(RomFile *rom);
 BOOL RomGetLevelClouds(const RomFile *rom, LONG levelid, RomClouds *clouds);
+BOOL RomGetLevelSkyBody(const RomFile *rom, LONG levelid, RomSkyBody *body);
 BOOL RomGetLevelEnvironment(const RomFile *rom, LONG levelid, unsigned char rgb[3], RomFog *fog);
 
 /*

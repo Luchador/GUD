@@ -43,6 +43,15 @@ typedef struct PropVisibilitySettings
     f32 FadeEndPx;
 } PropVisibilitySettings;
 
+/* The two optional project images are 0AA4 (Sun) and 0AA5 (Moon). */
+typedef struct SkyBodySettings
+{
+    u32 Type; /* 0 = none, 1 = sun, 2 = moon */
+    f32 AngularSize; /* Full angular diameter in degrees, (0, 90]. */
+    u8 Red, Green, Blue, Reserved;
+    coord3d Direction; /* World direction, +Y up; length is ignored. */
+} SkyBodySettings;
+
 typedef struct EnvironmentRecord
 {
     /**
@@ -62,6 +71,8 @@ typedef struct EnvironmentRecord
      * the defaults.
      */
     PropVisibilitySettings PropVisibility;
+    /* Appended for ENVT compatibility. Old initializers keep this disabled. */
+    SkyBodySettings SkyBody;
 } EnvironmentRecord;
 
 extern EnvironmentRecord g_EnvTable[];
