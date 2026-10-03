@@ -13,17 +13,17 @@
  * this calculation. Texture coordinates follow image rows, top to bottom. */
 typedef struct SkyBodyVertex
 {
-    f32 x, y, w, s, t, height;
+    float x, y, w, s, t, height;
 } SkyBodyVertex;
 
-static s32 skyBodyFinite(float value)
+static int skyBodyFinite(float value)
 {
-    union { f32 f; u32 bits; } number;
+    union { float f; unsigned int bits; } number;
     number.f = value;
     return (number.bits & 0x7f800000u) != 0x7f800000u;
 }
 
-static f32 skyBodyClipDistance(const SkyBodyVertex *v, int plane)
+static float skyBodyClipDistance(const SkyBodyVertex *v, int plane)
 {
     switch (plane)
     {
@@ -36,12 +36,12 @@ static f32 skyBodyClipDistance(const SkyBodyVertex *v, int plane)
     }
 }
 
-static s32 skyBodyBuild(const f32 direction[3], f32 degrees, const f32 worldToClip[4][4], f32 horizonNdc, SkyBodyVertex output[SKY_BODY_MAX_VERTICES])
+static int skyBodyBuild(const float direction[3], float degrees, const float worldToClip[4][4], float horizonNdc, SkyBodyVertex output[SKY_BODY_MAX_VERTICES])
 {
     SkyBodyVertex buffers[2][SKY_BODY_MAX_VERTICES];
-    f32 d[3], right[3], up[3], ray[3];
-    f32 largest = 0.0f, length, radius, angle;
-    s32 i, j, plane, count = 4, source = 0;
+    float d[3], right[3], up[3], ray[3];
+    float largest = 0.0f, length, radius, angle;
+    int i, j, plane, count = 4, source = 0;
 
     if (!(degrees > 0.0f && degrees <= 90.0f) || !skyBodyFinite(horizonNdc)) 
     { 
@@ -121,14 +121,14 @@ static s32 skyBodyBuild(const f32 direction[3], f32 degrees, const f32 worldToCl
 
     for (plane = 0; plane < 6 && count >= 3; plane++)
     {
-        s32 next = 0;
+        int next = 0;
         SkyBodyVertex *in = buffers[source], *out = buffers[1-source];
 
         for (i = 0; i < count; i++)
         {
             SkyBodyVertex *a = &in[i], *b = &in[(i+1)%count];
-            f32 da = 0.0f;
-            f32 db = 0.0f;
+            float da = 0.0f;
+            float db = 0.0f;
 
             da = skyBodyClipDistance(a, plane);
             db = skyBodyClipDistance(b, plane);
@@ -145,7 +145,7 @@ static s32 skyBodyBuild(const f32 direction[3], f32 degrees, const f32 worldToCl
         
             if ((da < 0.0f && db > 0.0f) || (da > 0.0f && db < 0.0f))
             {
-                f32 fraction = da / (da-db);
+                float fraction = da / (da-db);
                 SkyBodyVertex *v;
         
                 if (next == SKY_BODY_MAX_VERTICES) 
