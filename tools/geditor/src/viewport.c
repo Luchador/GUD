@@ -2197,10 +2197,9 @@ static int ViewportGlassAlpha(const ViewportState *state, const SceneBatch *batc
     const float eye[3] = {state->posx, state->posy, state->posz};
     return GlassPreviewAlpha(&state->glass[batch->glassobject], eye);
 }
-/* The N64 combiner adds primitive alpha AFTER texture * shade alpha and
- * clamps the sum. Raising vertex alpha before GL_MODULATE loses the tint in
- * transparent texels. Use the framebuffer's 8-bit alpha as scratch, per tri:
- * write tint, add texture*shade, then blend RGB by that saturated alpha.
+/* Match the bounded N64 fade: tint + texture*shade*(1-tint).
+ * Use the framebuffer's 8-bit alpha as scratch, per tri: write tint,
+ * add texture*shade scaled by the remaining transparency, then blend RGB.
  * This works on OpenGL 1.1, including the Windows software renderer. Depth
  * is written only in the final pass; scratch passes never change RGB. */
 static void ViewportDrawGlassTriangle(const ViewportState *state, const SceneBatch *batch, int first, int tint)
@@ -2214,7 +2213,7 @@ static void ViewportDrawGlassTriangle(const ViewportState *state, const SceneBat
     glDrawArrays(GL_TRIANGLES, first, 3);
     glEnableClientState(GL_COLOR_ARRAY);
     if (textured) glEnable(GL_TEXTURE_2D);
-    glEnable(GL_BLEND); glBlendFunc(GL_ONE, GL_ONE);
+    glEnable(GL_BLEND); glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE);
     glDrawArrays(GL_TRIANGLES, first, 3);
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE);
     ViewportApplyRenderFlags(batch->renderflags);
@@ -2225,7 +2224,7 @@ static void ViewportDrawGlassTriangle(const ViewportState *state, const SceneBat
             ? VIEWPORT_CUTOUT_ALPHA_THRESHOLD : VIEWPORT_BLEND_ALPHA_THRESHOLD;
         threshold -= tint / 255.0f;
         if (threshold < 0) glDisable(GL_ALPHA_TEST);
-        else glAlphaFunc(GL_GREATER, threshold);
+        else glAlphaFunc(GL_GREATER, threshold / (1.0f - tint / 255.0f));
     }
     glDrawArrays(GL_TRIANGLES, first, 3);
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);

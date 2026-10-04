@@ -7383,10 +7383,12 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
 
         if (obj->type == PROPDEF_TINTED_GLASS)
         {
+            modrendata.flags |= MODEL_RENDER_TINTED_GLASS;
             modrendata.envcolour.word = ((struct TintedGlassRecord*)obj)->calculatedopacity << 8;
         }
         else if ((obj->type == PROPDEF_DOOR) && (((struct DoorRecord*)obj)->doorFlags & DOORFLAG_WINDOWED))
         {
+            modrendata.flags |= MODEL_RENDER_TINTED_GLASS;
             modrendata.envcolour.word = ((struct DoorRecord*)obj)->calculatedopacity << 8;
         }
         else

@@ -24,6 +24,8 @@
 #define MODEL_RENDER_OCCLUDED           0x20
 /* Regular-glass override: texture alpha * env alpha, independent of shade alpha. */
 #define MODEL_RENDER_GLASS_OPACITY      0x40
+/* Distance tint must stay in the two-cycle translucent material path. */
+#define MODEL_RENDER_TINTED_GLASS       0x80
 
 /*
  * The original game budgets 0xc0 bytes per animated model even though Model

@@ -1106,7 +1106,7 @@ static LRESULT CALLBACK ObjectPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
         SetWindowText(state->controls[OBJECT_GLASS_START_LABEL], "Tint start distance (m)");
         SetWindowText(state->controls[OBJECT_GLASS_END_LABEL], "Fully opaque distance (m)");
         SetWindowText(state->controls[OBJECT_GLASS_MIN_LABEL], "Minimum tint opacity (%)");
-        SetWindowText(state->controls[OBJECT_GLASS_HELP], "Adds to the material's opacity, increasing to 100% between the two distances. Enter or leave a field to apply. Preview follows the viewport position.");
+        SetWindowText(state->controls[OBJECT_GLASS_HELP], "Fades the material's remaining transparency to opaque between the two distances. An opaque material stays opaque. Enter or leave a field to apply.");
         SetWindowText(state->controls[OBJECT_GLASS_AUTO_PORTAL], "Automatically detect visibility portal");
         SetWindowText(state->controls[OBJECT_ARMOR_LABEL], "Armor strength (%)");
         SetWindowText(state->controls[OBJECT_FADE_ENABLED], "Use custom fade distances");

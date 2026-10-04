@@ -66,13 +66,14 @@ void CheckGlassPixels(void)
         Clear(); Texture(textureAlphas[t]); Colors(shadeAlphas[s]);
         ViewportApplyRenderFlags(batch.renderflags);
         ViewportDrawGlassTriangle(&state,&batch,0,tints[n]);
-        float alpha=fminf(1,shadeAlphas[s]/255.f*(mode==2 ? 1 : textureAlphas[t]/255.f)+tints[n]/255.f);
+        float base=shadeAlphas[s]/255.f*(mode==2 ? 1 : textureAlphas[t]/255.f);
+        float alpha=base+(1-base)*tints[n]/255.f;
         if(alpha<=(mode==1 ? VIEWPORT_CUTOUT_ALPHA_THRESHOLD : VIEWPORT_BLEND_ALPHA_THRESHOLD)) alpha=0;
         float expected[3]; const float tex[]={128/255.f,192/255.f,1};
         for(int a=0;a<3;a++) expected[a]=colors[a]/255.f*(mode==2 ? 1 : tex[a])*alpha+background[a]*(1-alpha);
         Pixel(expected);
     }
-    /* Two overlapping panes must each use their own saturated alpha. */
+    /* Two overlapping panes must each use their own tint factor. */
     Clear(); state.rendermode=VIEWPORT_RENDER_NORMAL;
     batch.renderflags=BG_RENDER_DEPTH_TEST|BG_RENDER_BLEND;
     Texture(0); Colors(128); ViewportApplyRenderFlags(batch.renderflags);
@@ -85,10 +86,11 @@ void CheckGlassPixels(void)
         expected[a]=(rgb*(64/255.f)+background[a]*(1-64/255.f))*(1-128/255.f)+rgb*(128/255.f);
     }
     Pixel(expected);
-    /* Gradient shade alpha is interpolated before the saturated tint is added. */
+    /* Gradient shade alpha is interpolated before fading to opaque. */
     Clear(); Texture(255); Colors(0); colors[7]=255; colors[11]=128;
     ViewportApplyRenderFlags(batch.renderflags); ViewportDrawGlassTriangle(&state,&batch,0,64);
-    float gradient=(32.5f/128)*(1+128/255.f)+64/255.f;
+    float base=(32.5f/128)*(1+128/255.f);
+    float gradient=base+(1-base)*64/255.f;
     for(int a=0;a<3;a++) expected[a]=colors[a]/255.f*tex[a]*gradient+background[a]*(1-gradient);
     Pixel(expected);
     /* A nearer opaque triangle must block all three glass passes. */

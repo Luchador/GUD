@@ -570,6 +570,7 @@ int main(int argc, char **argv)
     if (argc == 1) {
         reset();
         check_glass_opacity();
+        check_tinted_glass();
         for (int type = 2; type <= 4; type++) for (int z = 0; z < 2; z++) {
             assert(check_stream((Gfx *)opaque, sizeof(opaque), type, z) == 1);
             assert(check_stream((Gfx *)mixed, sizeof(mixed), type, z) == 2);

@@ -3209,6 +3209,39 @@ static void modelApplyGlassOpacity(ModelRenderData *renderdata, bool trilerp, bo
     }
 }
 
+/* An additive alpha can exceed 383 and wrap to transparent in the RDP's
+ * signed nine-bit combiner. Fade the remaining transparency instead:
+ * base + (1 - base) * tint, with base = texture alpha * vertex alpha.
+ * RGB still uses trilinear filtering. Alpha uses the selected base mip in
+ * cycle zero so that cycle one can perform the bounded fade to opaque.
+ * Keep primary surfaces (eg. window frames) in their authored opaque pass. */
+static void modelApplyTintedGlass(ModelRenderData *renderdata, bool isPrimary)
+{
+    u32 colour = renderdata->fogcolour.word;
+    gDPPipeSync(renderdata->gdl++);
+    gDPSetCycleType(renderdata->gdl++, G_CYC_2CYCLE);
+    gDPSetAlphaCompare(renderdata->gdl++, G_AC_NONE);
+    gDPSetFogColor(renderdata->gdl++, colour >> 24, (colour >> 16) & 255, (colour >> 8) & 255, colour & 255);
+    gDPSetEnvColor(renderdata->gdl++, 255, 255, 255, 255);
+    gDPSetPrimColor(renderdata->gdl++, 0, 0, 0, 0, 0, (renderdata->envcolour.word >> 8) & 255);
+    gDPSetCombineLERP(renderdata->gdl++, TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0, TEXEL0, 0, SHADE, 0,
+        COMBINED, 0, SHADE, 0, 1, COMBINED, PRIMITIVE, COMBINED);
+    if (isPrimary)
+    {
+        if (renderdata->zbufferenabled)
+        { gDPSetRenderMode(renderdata->gdl++, G_RM_FOG_PRIM_A, G_RM_AA_ZB_OPA_SURF2); }
+        else
+        { gDPSetRenderMode(renderdata->gdl++, G_RM_FOG_PRIM_A, G_RM_AA_OPA_SURF2); }
+    }
+    else
+    {
+        if (renderdata->zbufferenabled)
+        { gDPSetRenderMode(renderdata->gdl++, G_RM_FOG_PRIM_A, G_RM_AA_ZB_XLU_SURF2); }
+        else
+        { gDPSetRenderMode(renderdata->gdl++, G_RM_FOG_PRIM_A, G_RM_AA_XLU_SURF2); }
+    }
+}
+
 /**
  * @brief Model Type 1: 1Cycle No Secondary
  * @param[in,out] renderdata append cycle, CC and RM to display List
@@ -3242,6 +3275,8 @@ void modelApplyRenderModeType3(ModelRenderData *renderdata, bool isPrimary)
 {
     if (renderdata->flags & MODEL_RENDER_GLASS_OPACITY)
     { modelApplyGlassOpacity(renderdata, TRUE, TRUE); return; }
+    if ((renderdata->flags & MODEL_RENDER_TINTED_GLASS) && !(renderdata->envcolour.word & 255))
+    { modelApplyTintedGlass(renderdata, isPrimary); return; }
     if (renderdata->PropType == PROP_TYPE_VIEWER+1)
     {
         if (isPrimary)
@@ -3540,6 +3575,8 @@ void modelApplyRenderModeType4(ModelRenderData *renderdata, bool isPrimary)
 {
     if (renderdata->flags & MODEL_RENDER_GLASS_OPACITY)
     { modelApplyGlassOpacity(renderdata, TRUE, TRUE); return; }
+    if ((renderdata->flags & MODEL_RENDER_TINTED_GLASS) && !(renderdata->envcolour.word & 255))
+    { modelApplyTintedGlass(renderdata, isPrimary); return; }
     if (renderdata->PropType == PROP_TYPE_VIEWER+1)
     {
         u8 r, g, b, a;

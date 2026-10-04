@@ -2,7 +2,7 @@
 #define GUD_GLASSMATH_H
 
 /* Shared by the runtime and editor. Distances are world centimetres; the
- * returned additive alpha is quantized exactly as the game's primitive alpha. */
+ * returned fade-to-opaque factor is quantized as the game's primitive alpha. */
 static int glassOpacityAtDistance(float distance, float tintDistance,
     float opaqueDistance, float minimumOpacity)
 {

@@ -299,7 +299,7 @@ Gfx *modelGetOneCycleGdl(ModelRenderData *renderdata, Gfx *primary, s32 modelTyp
     bool firstPerson;
 
     /* The glass override has its own alpha equation and translucent blender. */
-    if (renderdata->flags & MODEL_RENDER_GLASS_OPACITY) return primary;
+    if (renderdata->flags & (MODEL_RENDER_GLASS_OPACITY | MODEL_RENDER_TINTED_GLASS)) return primary;
 
     if (primary && modelType != 3 && modelType != 4) renderdata->flags &= ~MODEL_RENDER_CHARACTER;
 
