@@ -363,14 +363,17 @@ static void ObjectPropertiesLayout(HWND hwnd, ObjectPropertiesState *state)
     SCROLLINFO info = {0};
     int width, y = 4;
     if (state->shadowselected) {
-        GetClientRect(hwnd, &client);
         for (int i = 0; i < OBJECT_CONTROL_COUNT; i++) { ShowWindow(state->controls[i], SW_HIDE); }
         ShowScrollBar(hwnd, SB_VERT, FALSE);
+        GetClientRect(hwnd, &client);
         MoveWindow(state->shadowpanel, 0, 0, client.right, client.bottom, TRUE);
         ShowWindow(state->shadowpanel, SW_SHOWNA);
         return;
     }
     ShowWindow(state->shadowpanel, SW_HIDE);
+    /* Door shadows use their own scrolling panel. Restore our scrollbar
+     * before measuring ordinary object fields so they leave room for it. */
+    ShowScrollBar(hwnd, SB_VERT, TRUE);
     HDC dc = GetDC(hwnd);
     HFONT old = (HFONT)SelectObject(dc, GetStockObject(DEFAULT_GUI_FONT));
     GetClientRect(hwnd, &client);

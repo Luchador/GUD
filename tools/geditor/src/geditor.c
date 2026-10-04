@@ -977,7 +977,7 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(filemenu, MF_STRING, ID_FILE_REBASE_PROJECT, "Re&base Project...");
     AppendMenu(filemenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(filemenu, MF_STRING, ID_FILE_NEW_LEVEL, "New &Level");
-    AppendMenu(filemenu, MF_STRING, ID_FILE_OPEN_LEVEL, "Open Le&vel...");
+    AppendMenu(filemenu, MF_STRING, ID_FILE_OPEN_LEVEL, "Open Le&vel...\tCtrl+O");
     AppendMenu(filemenu, MF_POPUP, (UINT_PTR)g_RecentLevelsMenu, "Open Recen&t");
     AppendMenu(filemenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(filemenu, MF_POPUP, (UINT_PTR)importmenu, "&Import...");
@@ -1051,7 +1051,7 @@ static HMENU GEditorCreateMenuBar(void)
 
 static HACCEL GEditorCreateAccelerators(void)
 {
-    ACCEL entries[6];
+    ACCEL entries[7];
 
     ZeroMemory(entries, sizeof(entries));
     entries[0].fVirt = FVIRTKEY | FCONTROL;
@@ -1072,7 +1072,10 @@ static HACCEL GEditorCreateAccelerators(void)
     entries[5].fVirt = FVIRTKEY | FCONTROL;
     entries[5].key = 'R';
     entries[5].cmd = ID_TOOLS_CREATE_ROM;
-    return CreateAcceleratorTable(entries, 6);
+    entries[6].fVirt = FVIRTKEY | FCONTROL;
+    entries[6].key = 'O';
+    entries[6].cmd = ID_FILE_OPEN_LEVEL;
+    return CreateAcceleratorTable(entries, sizeof(entries) / sizeof(entries[0]));
 }
 
 
