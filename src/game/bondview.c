@@ -11,6 +11,7 @@
 #include <options.h>
 #include "bondview.h"
 #include "bg.h"
+#include "sky.h"
 #include "bgroomtrans.h"
 #include "blood_animation.h"
 #include "bondhead.h"
@@ -8800,6 +8801,7 @@ Gfx *bondviewRenderPlayerView(Gfx *gdl)
     if (g_CurrentPlayer->frozencam == 1)
     {
         bondviewIntroCameraTextTick();
+        gdl = skyRenderSunGlare(gdl);
         gdl = hudmsgBottomRender(gdl);
         bondviewUpperTextWindowTimerTick();
         gdl = bondviewRenderUpperText(gdl);
@@ -8812,6 +8814,7 @@ Gfx *bondviewRenderPlayerView(Gfx *gdl)
     gunUpdateAndFireBothHands();
     gunRenderCasings(&gdl);
     gunRenderFirstPersonGunModels(&gdl);
+    gdl = skyRenderSunGlare(gdl);
     gdl = bondviewRenderWatch(gdl);
 
     if (g_CurrentPlayer->mpmenuon != 0)

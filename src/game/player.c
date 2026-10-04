@@ -7,6 +7,7 @@
 #include "dyntex.h"
 #include "bondview.h"
 #include "lv.h"
+#include "sky.h"
 
 
 #define DEFAULT_CAMERA_POSITION_ACCUMULATOR_Z     9.999998f
@@ -227,6 +228,7 @@ void playerInitData(s32 player_num)
  */
     g_playerPointers[player_num] = mempAllocBytesInBank((sizeof(struct player) + 0xF) & ~0xF, MEMPOOL_STAGE);
     camInvalidatePlayerCameraScale(player_num);
+    skyResetGlare(player_num);
     g_playerPointers[player_num]->frozencam = 0;
     g_playerPointers[player_num]->pos.x = 0.0f;
     g_playerPointers[player_num]->pos.y = 0.0f;

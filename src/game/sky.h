@@ -6,6 +6,8 @@
 #include "bondview.h"
 
 void skyTick(void);
+void skyResetGlare(s32 playernum);
+Gfx *skyRenderSunGlare(Gfx *gdl);
 Gfx * skyRender(Gfx *arg0);
 void skyProjectVertex(SkyRelated18 *arg0, Mtxf *arg1, u16 arg2, f32 arg3, f32 arg4, SkyRelated38 *arg5);
 Gfx *skyRenderTri(Gfx *gdl, SkyRelated38 *arg1, SkyRelated38 *arg2, SkyRelated38 *arg3, f32 arg4, bool textured);

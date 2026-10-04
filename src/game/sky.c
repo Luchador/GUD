@@ -12,12 +12,134 @@
 #include "image_bank.h"
 #include "tex.h"
 #include "skybodytriangle.h"
+#include "skyglaremath.h"
+#include "textrelated.h"
+#include <vi.h>
 
 
 #define SKYABS(val) (val >= 0.0f ? (val) : -(val))
 
 f32 g_SkyCloudOffset = 0;
 static Mtxf g_SkyInverseRoomScaleMatrix;
+
+typedef struct SunGlareState
+{
+    coord3d direction;
+    f32 distance;
+    f32 target;
+    f32 opacity;
+} SunGlareState;
+
+static SunGlareState g_SunGlare[4];
+
+void skyResetGlare(s32 playernum)
+{
+    g_SunGlare[playernum].target = 0.0f;
+    g_SunGlare[playernum].opacity = 0.0f;
+}
+
+/* Capture the visible sun's centre while the world camera is active. The
+ * horizon offset moves the image on screen, so trace the displayed ray. */
+static void skyPrepareSunGlare(const EnvironmentRecord *env, const Mtxf *worldToClip)
+{
+    SunGlareState *glare = &g_SunGlare[get_cur_playernum()];
+    const coord3d *direction = &env->SkyBody.Direction;
+    coord2d screen;
+    coord3d ray;
+    f32 x, y, w, largest, d[3];
+    s32 i;
+
+    if (env->SkyBody.Type != 1 || direction->y < 0.0f) { return; }
+    largest = 0.0f;
+    for (i = 0; i < 3; i++)
+    {
+        f32 value = direction->f[i];
+        if (!skyBodyFinite(value)) { return; }
+        if (value < 0.0f) { value = -value; }
+        if (value > largest) { largest = value; }
+    }
+    if (largest == 0.0f) { return; }
+    for (i = 0; i < 3; i++) { d[i] = direction->f[i] / largest; }
+    x = d[0]*worldToClip->m[0][0] + d[1]*worldToClip->m[1][0] + d[2]*worldToClip->m[2][0];
+    y = d[0]*worldToClip->m[0][1] + d[1]*worldToClip->m[1][1] + d[2]*worldToClip->m[2][1];
+    w = d[0]*worldToClip->m[0][3] + d[1]*worldToClip->m[1][3] + d[2]*worldToClip->m[2][3];
+    if (!(w > 0.0f)) { return; }
+    x /= w;
+    y = y / w + env->Sky.HorizonYOffset * 2.0f / getPlayer_c_screenheight();
+    if (!skyBodyFinite(x) || !skyBodyFinite(y) || x < -1.0f || x > 1.0f || y < -1.0f || y > 1.0f) { return; }
+    screen.x = getPlayer_c_screenleft() + (x + 1.0f) * getPlayer_c_screenwidth() * 0.5f;
+    screen.y = getPlayer_c_screentop() + (1.0f - y) * getPlayer_c_screenheight() * 0.5f;
+    transformAndNormalizeByLength2Dto3D(&screen, &ray, 1.0f);
+    glare->target = skyGlareStrength(ray.f) * (envGetSkyBodyAlpha() / 255.0f);
+    if (glare->target <= 0.0f) { return; }
+    /* Clip depth is measured perpendicular to the view plane. */
+    glare->distance = env->Visibility.FarClipDistance / (bgGetLevelRenderScale() * -ray.z);
+    mtx4RotateVecInPlace(currentPlayerGetViewToWorldMtxf(), ray.f);
+    glare->direction = ray;
+}
+
+static bool skySunIsBlocked(const SunGlareState *glare)
+{
+    coord3d *origin = bondviewGetPlayerPosition();
+    coord3d end, scaledOrigin, scaledDelta;
+    HitThing hit;
+    f32 scale = bgGetRoomScale();
+    f32 distance = glare->distance * scale;
+    s32 room, axis;
+
+    if (!(distance > 0.0f) || !skyBodyFinite(distance)) { return TRUE; }
+    for (axis = 0; axis < 3; axis++)
+    {
+        end.f[axis] = origin->f[axis] + glare->direction.f[axis] * glare->distance;
+        scaledOrigin.f[axis] = origin->f[axis] * scale;
+        scaledDelta.f[axis] = glare->direction.f[axis] * distance;
+    }
+    for (room = 1; room < g_MaxNumRooms; room++)
+    {
+        RoomInfo *info = &g_BgRoomInfo[room];
+        /* Use this viewport's rendered BG, without loading extra rooms or
+         * relying on horizontal stan/portal traversal for an upward ray. */
+        if (!info->room_rendered || !skyGlareIntersectsRoom(scaledOrigin.f, scaledDelta.f,
+                info->minbounds.f, info->maxbounds.f)) { continue; }
+        if (bgTestBulletHitBackground(origin, &end, room, &hit))
+        {
+            f32 dx = hit.hitpos.x - scaledOrigin.x;
+            f32 dy = hit.hitpos.y - scaledOrigin.y;
+            f32 dz = hit.hitpos.z - scaledOrigin.z;
+            /* BG triangle collision accepts an infinite forward ray. */
+            if (dx*dx + dy*dy + dz*dz <= distance*distance) { return TRUE; }
+        }
+    }
+    return FALSE;
+}
+
+/* Called after world/weapon rendering, before HUD, watch and screen fades. */
+Gfx *skyRenderSunGlare(Gfx *gdl)
+{
+    SunGlareState *glare = &g_SunGlare[get_cur_playernum()];
+    const SkyBodySettings *body = &envGetCurrent()->SkyBody;
+    f32 target = glare->target;
+    s32 alpha;
+    u32 color;
+
+    if (body->Type != 1)
+    {
+        skyResetGlare(get_cur_playernum());
+        return gdl;
+    }
+    if (target > 0.0f && skySunIsBlocked(glare)) { target = 0.0f; }
+    glare->opacity = skyGlareSmooth(glare->opacity, target, g_ClockTimer);
+    alpha = (s32)(glare->opacity * 255.0f + 0.5f);
+    if (alpha <= 0) { return gdl; }
+    if (alpha > 51) { alpha = 51; }
+    color = ((u32)body->Red << 24) | ((u32)body->Green << 16) | ((u32)body->Blue << 8) | alpha;
+    gdl = gfxSetup2DTextureMode(gdl);
+    gDPSetScissor(gdl++, G_SC_NON_INTERLACE, viGetViewLeft(), viGetViewTop(),
+        viGetViewLeft() + viGetViewWidth(), viGetViewTop() + viGetViewHeight());
+    gdl = gfxDrawTranslucentRect(gdl, viGetViewLeft(), viGetViewTop(),
+        viGetViewLeft() + viGetViewWidth(), viGetViewTop() + viGetViewHeight(), color);
+    return gfxRestore3DRenderMode(gdl);
+}
 
 
 void skyGetWorldPosFromScreenPos(f32 offset_x, f32 offset_y, coord3d* out) {
@@ -665,6 +787,7 @@ static Gfx *skyRenderBody(Gfx *gdl, const EnvironmentRecord *env)
     if (!texture || texture->gbiformat != G_IM_FMT_IA || texture->depth != G_IM_SIZ_8b
             || !texture->width || !texture->height
             || (((texture->width + 7) & ~7) * texture->height) > 4096) { return gdl; }
+    skyPrepareSunGlare(env, &worldToClip);
     image.index = osVirtualToPhysical(texture->data);
     image.width = texture->width; image.height = texture->height;
     image.level = 0; image.format = G_IM_FMT_IA; image.depth = G_IM_SIZ_8b;
@@ -714,6 +837,7 @@ static Gfx *skyRenderBody(Gfx *gdl, const EnvironmentRecord *env)
 
 Gfx *skyRender(Gfx *gdl)
 {
+    g_SunGlare[get_cur_playernum()].target = 0.0f;
     gdl = skyRenderBackground(gdl);
     return skyRenderBody(gdl, envGetCurrent());
 }
