@@ -35,6 +35,7 @@ static ModelEditorEntry g_ModelEntries[1];
 static int g_ModelCount=1,g_ModelSelected=-1;
 static int files,dialogs,imports,replacements,exports,changed,reloads,opens,errors;
 static int cancelFile,cancelDialog,failImport,selectedCategory,dialogResult,rows;
+static int failShow,shows,clears;
 static intptr_t dialogData;
 static char nameText[64],addedName[64],openedName[64],lastTitle[80],order[32];
 static const char *typedName;
@@ -97,12 +98,17 @@ static void SendMessage(HWND hwnd,UINT message,WPARAM wparam,LPARAM lparam)
 static void ModelEditorSetProject(const char *project) { assert(!strcmp(project,g_ModelProject));g_ModelSelected=-1;Event('R'); }
 static BOOL ModelEditorOpenModel(HWND owner,HINSTANCE instance,const char *project,const char *name,const char **why)
 { opens++;g_ModelSelected=0;lstrcpyn(openedName,name,sizeof(openedName));Event('O');return TRUE; }
+static BOOL ModelEditorShow(HWND owner,HINSTANCE instance,const char *project)
+{ shows++;assert(!strcmp(project,g_ModelProject));Event('S');return !failShow; }
+static void ModelEditorClearSelection(void)
+{ clears++;g_ModelSelected=-1;Event('E'); }
 static void ModelEditorImportNew(const char *path);
 #include "logic.inc"
 static void Reset(void)
 {
     files=dialogs=imports=replacements=exports=changed=reloads=opens=errors=0;
     cancelFile=cancelDialog=failImport=0;choice=2;typedName=NULL;order[0]=0;
+    failShow=shows=clears=0;
     strcpy(g_ModelProject,"project");strcpy(g_ModelEntries[0].name,"PexistingZ");g_ModelSelected=-1;
 }
 int main(void)
@@ -113,7 +119,7 @@ int main(void)
         char expected[64];snprintf(expected,sizeof(expected),"%ctest_meshZ","CGP"[category]);
         assert(!strcmp(addedName,expected) && !strcmp(openedName,expected));
         assert(files==1 && dialogs==1 && imports==1 && !replacements && changed==1 && opens==1 && !errors);
-        assert(!strcmp(order,"FDNCRO") && !strcmp(lastTitle,"Import new model"));
+        assert(!strcmp(order,"FDNCRO") && !strcmp(lastTitle,"Import New Model"));
     }
     Reset();cancelFile=1;ModelEditorTransfer(TRUE);assert(files==1 && !dialogs && !imports && !changed);
     for(int cancel=1;cancel<=2;cancel++)
@@ -129,5 +135,25 @@ int main(void)
     Reset();g_ModelSelected=0;ModelEditorTransfer(FALSE);assert(exports==1 && !dialogs && !changed);
     Reset();ModelEditorTransfer(FALSE);assert(!files);
     Reset();g_ModelProject[0]=0;ModelEditorTransfer(TRUE);assert(!files);
-    puts("PASS import flow: file before category, Characters/Items/Props, cancellation/close, invalid input, failures, replacement routing, export and no-project guard.");
+    /* External import commands must never replace an already-selected model. */
+    for(int category=0;category<3;category++)
+    {
+        Reset();choice=category;g_ModelSelected=0;
+        assert(ModelEditorBeginNewImport((HWND)3,(HINSTANCE)1,g_ModelProject));
+        assert(shows==1 && clears==1 && imports==1 && !replacements && !strcmp(order,"SEFDNCRO"));
+    }
+    Reset();g_ModelSelected=0;cancelFile=1;
+    assert(ModelEditorBeginNewImport((HWND)3,(HINSTANCE)1,g_ModelProject));
+    assert(shows==1 && clears==1 && files==1 && !dialogs && !imports && !replacements && g_ModelSelected==-1);
+    Reset();cancelDialog=1;
+    assert(ModelEditorBeginNewImport((HWND)3,(HINSTANCE)1,g_ModelProject));
+    assert(dialogs==1 && !imports && !replacements && !errors);
+    Reset();g_ModelSelected=0;failShow=1;
+    assert(!ModelEditorBeginNewImport((HWND)3,(HINSTANCE)1,g_ModelProject));
+    assert(shows==1 && !clears && !files && g_ModelSelected==0);
+    Reset();
+    assert(!ModelEditorBeginNewImport((HWND)3,(HINSTANCE)1,NULL));
+    assert(!ModelEditorBeginNewImport((HWND)3,(HINSTANCE)1,""));
+    assert(!shows && !clears && !files);
+    puts("PASS import flow: file before category, Characters/Items/Props, cancellation/close, invalid input, failures, replacement routing, export, no-project guard and external new-import commands.");
 }

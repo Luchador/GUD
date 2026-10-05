@@ -1343,6 +1343,36 @@ static void BrowserBeginImageDrag(HWND hwnd, BrowserState *state, int index, POI
 }
 
 
+static BOOL BrowserModelContextMenu(HWND hwnd, BrowserState *state, POINT screen)
+{
+    RECT body = state->sections[BROWSER_SECTION_MODELS].bodyrc;
+    POINT point = screen;
+    HMENU menu;
+    UINT command;
+    BOOL canimport = state->modelproject[0] != '\0';
+
+    /* The same action is available over models, blank space, and category tabs. */
+    if (screen.x == -1 && screen.y == -1) { return FALSE; }
+    ScreenToClient(hwnd, &point);
+    body.right -= BROWSER_SCROLLBAR_W + 2;
+    if (!state->sections[BROWSER_SECTION_MODELS].expanded
+        || !PtInRect(&body, point)) { return FALSE; }
+    BrowserHideImageTooltip(hwnd, state);
+    BrowserEndAssetDrag(hwnd, state);
+    SetFocus(hwnd);
+    menu = CreatePopupMenu();
+    if (!menu) { return TRUE; }
+    AppendMenu(menu, MF_STRING | (canimport ? MF_ENABLED : MF_GRAYED), 1, "Import Model...");
+    command = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON,
+                             screen.x, screen.y, 0, hwnd, NULL);
+    DestroyMenu(menu);
+    if (command == 1 && canimport)
+    {
+        SendMessage(GetParent(hwnd), BROWSER_WM_MODEL_IMPORT, 0, 0);
+    }
+    return TRUE;
+}
+
 static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     BrowserState *state = BrowserGetState(hwnd);
@@ -1728,6 +1758,7 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                 BrowserEndAssetDrag(hwnd, state);
                 return 0;
             }
+            if (BrowserModelContextMenu(hwnd, state, screen)) { return 0; }
             if (screen.x == -1 && screen.y == -1)
             {
                 index = state->selectedimage;

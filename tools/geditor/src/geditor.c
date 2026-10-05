@@ -796,7 +796,8 @@ enum {
     ID_TOOLS_RENDER_STUDIO,
     ID_FILE_OPEN_LEVEL,
     ID_FILE_RECENT_LEVEL_FIRST,
-    ID_FILE_RECENT_LEVEL_LAST = ID_FILE_RECENT_LEVEL_FIRST + RECENT_LEVELS_MAX - 1
+    ID_FILE_RECENT_LEVEL_LAST = ID_FILE_RECENT_LEVEL_FIRST + RECENT_LEVELS_MAX - 1,
+    ID_FILE_IMPORT_MODEL
 };
 
 
@@ -964,6 +965,7 @@ static HMENU GEditorCreateMenuBar(void)
     settingsmenu = CreatePopupMenu();
     importmenu = CreatePopupMenu();
     AppendMenu(importmenu, MF_STRING, ID_FILE_IMPORT_IMAGE, "Import &Image");
+    AppendMenu(importmenu, MF_STRING, ID_FILE_IMPORT_MODEL, "Import &Model...");
     g_RecentProjectsMenu = CreatePopupMenu();
     GEditorRefreshRecentProjectsMenu();
     g_RecentLevelsMenu = CreatePopupMenu();
@@ -6433,6 +6435,10 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         SendMessage(hwnd, WM_COMMAND, ID_FILE_IMPORT_IMAGE, 0);
         return 0;
 
+    case BROWSER_WM_MODEL_IMPORT:
+        SendMessage(hwnd, WM_COMMAND, ID_FILE_IMPORT_MODEL, 0);
+        return 0;
+
     case FACEPROPERTIES_WM_REVEAL_IMAGE:
         return BrowserRevealImage(g_Browser, (DWORD)wparam);
 
@@ -7123,6 +7129,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         EnableMenuItem((HMENU)wparam, ID_FILE_OPEN_LEVEL, MF_BYCOMMAND
             | (g_Project.name[0] && g_Project.levelcount ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_FILE_IMPORT_IMAGE, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
+        EnableMenuItem((HMENU)wparam, ID_FILE_IMPORT_MODEL, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_TEXT_EDITOR, MF_BYCOMMAND | (g_Project.name[0] ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_ACTION_BLOCKS, MF_BYCOMMAND | (g_CurrentSetup.data ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_PATROL_PATHS, MF_BYCOMMAND | (g_CurrentSetup.data ? MF_ENABLED : MF_GRAYED));
@@ -7330,6 +7337,14 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 }
                 return 0;
             }
+
+            case ID_FILE_IMPORT_MODEL:
+                if (g_Project.name[0] != '\0'
+                    && !ModelEditorBeginNewImport(hwnd, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), g_Project.dir))
+                {
+                    MessageBox(hwnd, "Could not open the Model Editor window.", GEDITOR_TITLE, MB_ICONERROR);
+                }
+                return 0;
 
             case ID_EDIT_UNDO:
                 GEditorApplyHistoryStep(hwnd, FALSE);

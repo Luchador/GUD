@@ -25,6 +25,8 @@ typedef struct BrowserImageDrop {
 #define BROWSER_WM_MODEL_DROP       (WM_APP + 20)
 /* OPEN lparam is a model name, valid only during the synchronous message. */
 #define BROWSER_WM_MODEL_OPEN       (WM_APP + 62)
+/* Start a new model import into the current project; no model name is needed. */
+#define BROWSER_WM_MODEL_IMPORT     (WM_APP + 117)
 typedef struct BrowserModelDrop {
     char name[64];
     POINT screen;

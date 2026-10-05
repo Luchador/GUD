@@ -936,7 +936,7 @@ static void ModelEditorTransfer(BOOL importing)
     if (!importing) { snprintf(path,sizeof(path),"%.*s.gltf",(int)sizeof(path)-6,entry->name); }
     ZeroMemory(&ofn,sizeof(ofn)); ofn.lStructSize=sizeof(ofn);ofn.hwndOwner=g_ModelEditor;
     ofn.lpstrFile=path;ofn.nMaxFile=sizeof(path);ofn.lpstrDefExt="gltf";
-    ofn.lpstrTitle=importing ? (entry ? "Import replacement model" : "Import new model") : "Export model for Blender";
+    ofn.lpstrTitle=importing ? (entry ? "Import replacement model" : "Import New Model") : "Export model for Blender";
     ofn.lpstrFilter=importing ? "glTF models (*.glb;*.gltf)\0*.glb;*.gltf\0\0" : "glTF model (*.gltf)\0*.gltf\0\0";
     ofn.Flags=OFN_EXPLORER|OFN_NOCHANGEDIR|OFN_PATHMUSTEXIST|(importing ? OFN_FILEMUSTEXIST : OFN_OVERWRITEPROMPT);
     if (!(importing ? GetOpenFileName(&ofn) : GetSaveFileName(&ofn))) { return; }
@@ -1276,6 +1276,15 @@ BOOL ModelEditorShow(HWND owner, HINSTANCE instance, const char *projectdir)
     }
     ShowWindow(g_ModelEditor, SW_SHOWNORMAL);
     SetForegroundWindow(g_ModelEditor);
+    return TRUE;
+}
+
+BOOL ModelEditorBeginNewImport(HWND owner, HINSTANCE instance, const char *projectdir)
+{
+    if (!projectdir || !projectdir[0]) { return FALSE; }
+    if (!ModelEditorShow(owner, instance, projectdir)) { return FALSE; }
+    ModelEditorClearSelection();
+    ModelEditorTransfer(TRUE);
     return TRUE;
 }
 
