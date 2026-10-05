@@ -40,11 +40,14 @@ TOOL_IMAGES := $(wildcard ../geditorassets/*_select_*.png) \
 MARKER_MODELS := ../geditorassets/start.glb ../geditorassets/intro_camera.glb \
                  ../geditorassets/outro_camera.glb ../geditorassets/intro_spline_point.glb
 
-$(TARGET): $(SOURCES) $(HEADERS) $(SHARED_HEADERS) $(PROP_RECORDS) $(CHARACTER_RECORDS) ../../../assets/obseg/chr/chrHeadHats.inc.c idleposes.h weaponchoices.h introchoices.h hatchoices.h sfxnames.h characternames.h $(RCOBJ)
+$(TARGET): $(SOURCES) $(HEADERS) $(SHARED_HEADERS) $(PROP_RECORDS) $(CHARACTER_RECORDS) ../../../assets/obseg/chr/chrHeadHats.inc.c idleposes.h weaponchoices.h introchoices.h hatchoices.h sfxnames.h characternames.h modelanimationdata.h $(RCOBJ)
 	$(CC) $(CFLAGS) -o $@ $(SOURCES) $(RCOBJ) $(LDFLAGS)
 
 characternames.h: ../scripts/generate_character_names.py ../../../src/bondconstants.h ../../../src/game/front.c ../../../assets/obseg/text/LtitleE.c $(CHARACTER_RECORDS)
 	python3 ../scripts/generate_character_names.py
+
+modelanimationdata.h: ../scripts/generate_model_animations.py ../../../assets/animationtable_data.h $(CHARACTER_RECORDS) $(wildcard ../../../assets/obseg/prop/*/ModelFileHeader.inc.c)
+	python3 ../scripts/generate_model_animations.py
 
 idleposes.h: ../scripts/generate_idle_poses.py ../../../tools/make_animation_entries_uncompressed.py $(IDLE_SOURCES)
 	python3 ../scripts/generate_idle_poses.py

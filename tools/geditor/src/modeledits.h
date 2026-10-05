@@ -15,6 +15,9 @@ BOOL ModelEditsImport(const char *projectdir, const char *name, const char *path
                        DWORD *before, DWORD *after, const char **reasonout);
 BOOL ModelEditsReadSource(const char *project, const char *name, ModelSource *source,
     DWORD *revision, const char **reasonout);
+/* Owned native snapshot, including pending edits, for animation preview. */
+BOOL ModelEditsCopyNative(const char *project, const char *name,
+    unsigned char **data, DWORD *size, const char **reasonout);
 /* Relaxed unarmed idle on a high-LOD preview copy; source data is never edited.
  * A failed skeleton/topology match leaves the supplied vertices unchanged. */
 BOOL ModelEditsApplyIdlePreview(const char *project, const char *name, int switchcount,

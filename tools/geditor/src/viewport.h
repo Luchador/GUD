@@ -222,6 +222,10 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
                       int tricount,
                       const char *projectdir, BOOL framecamera);
 
+/* Update a Model Editor pose by source face ID, keeping camera, textures,
+ * colors, UVs, LOD visibility and selection. No project data is changed. */
+BOOL ViewportSetModelPose(HWND hwnd, const BgVertex *vertices, DWORD sourcecount);
+
 /* Background selection is stored in draw-ordered viewport order. These
    accessors expose stable source identities so callers never depend on draw
    order. A setup object and background faces are mutually exclusive. */

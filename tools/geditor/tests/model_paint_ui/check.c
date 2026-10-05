@@ -29,7 +29,7 @@ enum { SIF_RANGE=1,SIF_PAGE=2,SIF_POS=4,SIF_DISABLENOSCROLL=8,SB_VERT=1,
 #define lstrcmpi strcasecmp
 #include "types.inc"
 static ToolToolbarState toolbar;
-static HWND g_ModelEditor=(HWND)1, g_ModelPaintToolbar=(HWND)2,
+static HWND g_ModelEditor=(HWND)1, g_ModelPaintToolbar=(HWND)2002,
     g_ModelViewport=(HWND)2000, g_ModelColorPicker=(HWND)2001;
 static const int g_ModelCombos[]={IDC_MODEL_CHARACTERS,IDC_MODEL_ITEMS,IDC_MODEL_PROPS};
 static RECT positions[4000], client;
@@ -42,7 +42,7 @@ static BOOL g_ModelSampling;
 static void ModelEditorUndo(BOOL redo) { if(redo) redos++; else undos++; }
 static const char *focusclass="GEditorViewport";
 static BOOL IsChild(HWND parent, HWND child)
-{ return parent==(HWND)1 ? (uintptr_t)child>1 && (uintptr_t)child<4000 : parent==(HWND)2 && child==(HWND)3; }
+{ return parent==(HWND)1 ? (uintptr_t)child>1 && (uintptr_t)child<4000 : parent==(HWND)2002 && child==(HWND)3; }
 static HWND GetParent(HWND hwnd) { return g_ModelEditor; }
 static intptr_t GetWindowLongPtr(HWND hwnd,int index) { return (intptr_t)&toolbar; }
 static int GetKeyState(int key) { return (key==VK_CONTROL?control:key==VK_SHIFT?shift:alt)?0x8000:0; }
@@ -85,8 +85,17 @@ int main(void)
         client=(RECT){0,0,lround(660*scalex),lround(height*scaley)};
         ModelEditorLayout(g_ModelEditor);
         assert(Inside(positions[IDC_MODEL_UV],client));
-        assert(positions[IDC_MODEL_ADD].right<positions[IDC_MODEL_UV].left);
+        assert(positions[IDC_MODEL_EXPORT].right<positions[IDC_MODEL_IMPORT].left);
+        assert(positions[IDC_MODEL_IMPORT].right<positions[IDC_MODEL_UV].left);
         assert(positions[IDC_MODEL_UV].right<positions[(uintptr_t)g_ModelPaintToolbar].left);
+        assert(positions[(uintptr_t)g_ModelPaintToolbar].bottom<positions[IDC_MODEL_CHARACTERS_LABEL].top);
+        assert(positions[IDC_MODEL_CHARACTERS].top+18*scaley<positions[IDC_MODEL_ANIMATION].top);
+        assert(positions[IDC_MODEL_ANIMATION_LABEL].right<positions[IDC_MODEL_ANIMATION].left);
+        assert(positions[IDC_MODEL_ANIMATION].right<positions[IDC_MODEL_ANIMATION_PLAY].left);
+        assert(positions[IDC_MODEL_ANIMATION_PLAY].right<positions[IDC_MODEL_ANIMATION_STOP].left);
+        assert(positions[IDC_MODEL_ANIMATION_STOP].right<positions[IDC_MODEL_ANIMATION_RESET].left);
+        assert(Inside(positions[IDC_MODEL_ANIMATION_RESET],client));
+        assert(positions[IDC_MODEL_ANIMATION_RESET].bottom<positions[(uintptr_t)g_ModelViewport].top);
         RECT materials=positions[IDC_MODEL_MATERIALS], colors=positions[IDC_MODEL_COLORS], faces=positions[IDC_MODEL_PROPERTIES];
         assert(materials.bottom<colors.top && colors.bottom<faces.top);
         assert(Inside(materials,client) && Inside(colors,client) && Inside(faces,client));

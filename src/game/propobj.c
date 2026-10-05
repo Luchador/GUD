@@ -7158,15 +7158,16 @@ void objRenderPropModel(PropRecord *prop, ModelRenderData *renderData, bool tran
 
     renderData->gdl = gdl;
     renderFlags = renderData->flags;
+
     if ((obj->state & PROPSTATE_DESTROYED) && obj->obj != PROP_DESK1)
     {
-        /* Pdesk1Z needs its translucent supports to keep the top grounded.
-         * Hide other authored translucent geometry (such as lamp beams) from the
-         * first destroyed stage, even if no deformed vertices were allocated.
-         * Keep primary geometry when the whole prop is fading in the alpha
-         * pass. Never edit shared model lists or affect attached live props. */
+        /**
+         * GUD: Aside from Pdesk1Z, hide translucent geometry when a model is destroyed. This
+         * is partly to help performance and partly to make light beams on the new models disappear.
+         */
         renderData->flags = (renderFlags & ~2u) | MODEL_RENDER_HIDE_TRANSLUCENT;
     }
+
     subdraw(renderData, model);
     renderData->flags = renderFlags;
     gdl = renderData->gdl;
@@ -7265,15 +7266,31 @@ static s32 objCalcDistanceFadeAlpha(const PropRecord *prop)
     f32 dx, dy, dz, distance2;
     f32 start = prop->objectFadeStart;
     f32 end = prop->objectFadeEnd;
-    if (!camera || end <= start) { return 255; }
+
+    if (!camera || end <= start) 
+    { 
+        return 255; // Full alpha
+    }
+    
     dx = prop->pos.x - camera->m[3][0];
     dy = prop->pos.y - camera->m[3][1];
     dz = prop->pos.z - camera->m[3][2];
+
     distance2 = dx * dx + dy * dy + dz * dz;
-    if (distance2 >= end * end) { return 0; }
-    if (distance2 <= start * start) { return 255; }
+
+    if (distance2 >= end * end) 
+    { 
+        return 0; 
+    }
+
+    if (distance2 <= start * start) 
+    { 
+        return 255; 
+    }
+
     return (s32)(255.0f * (end - sqrtf(distance2)) / (end - start));
 }
+
 
 Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
 {
@@ -7297,23 +7314,28 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
     /* Rendering only: retain normal tick/AI, targeting and onscreen flags.
      * Start with standalone, unanimated generic props. Attachments and special
      * articulated models need bounds covering their entire rendered hierarchy. */
-    if (occlusionCount() && occlusionEnabled() && prop->type == PROP_TYPE_OBJ && obj->type == PROPDEF_PROP
-        && !prop->parent && !prop->child && !obj->model->anim
-        && obj->model->obj->numMatrices == 1)
+    if (occlusionCount() && occlusionEnabled() && prop->type == PROP_TYPE_OBJ && obj->type == PROPDEF_PROP && !prop->parent && !prop->child && !obj->model->anim && obj->model->obj->numMatrices == 1)
     {
         f32 norm = 0.0f;
         s32 row, col;
         /* Frobenius norm bounds every scale/shear in the actual render matrix.
          * modelGetInstSize alone misses non-uniform bound-pad scaling. */
-        for (row = 0; row < 3; row++) for (col = 0; col < 3; col++) {
-            norm += obj->mtx.m[row][col] * obj->mtx.m[row][col];
+        for (row = 0; row < 3; row++) 
+        {
+            for (col = 0; col < 3; col++) 
+            {
+                norm += obj->mtx.m[row][col] * obj->mtx.m[row][col];
+            }
         }
-        if (occlusionTestSphere(obj->position.f, obj->model->obj->BoundingVolumeRadius * sqrtf(norm))) {
+    
+        if (occlusionTestSphere(obj->position.f, obj->model->obj->BoundingVolumeRadius * sqrtf(norm)))
+        {
             return gdl;
         }
     }
 
-    objAlpha = 0xFF;
+    objAlpha = 255;
+
     spAC = envGetPropDistColor(prop, &spB0);
 
     if (spAC == 0)
@@ -7334,13 +7356,23 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
             objAlpha = (objAlpha * objCalcScreenFadeAlpha(prop, 2.0f * modelSize)) / 255;
         }
     }
+
     /* A custom distance replaces screen-size fading for this object only.
      * Keep regeneration, fog, shading and the normal alpha render passes. */
     if (prop->objectFadeEnd)
-    { objAlpha = (objAlpha * objCalcDistanceFadeAlpha(prop)) / 255; }
+    { 
+        objAlpha = (objAlpha * objCalcDistanceFadeAlpha(prop)) / 255; 
+    }
+
     if (customGlass)
-    { objAlpha = (objAlpha * ((obj->runtime_bitflags & RUNTIMEBITMASK_GLASS_OPACITY) >> RUNTIMEBITSHIFT_GLASS_OPACITY)) / 255; }
-    if (objAlpha <= 0) { return gdl; }
+    { 
+        objAlpha = (objAlpha * ((obj->runtime_bitflags & RUNTIMEBITMASK_GLASS_OPACITY) >> RUNTIMEBITSHIFT_GLASS_OPACITY)) / 255; 
+    }
+
+    if (objAlpha <= 0) 
+    { 
+        return gdl; 
+    }
 
     if (customGlass || (objAlpha < 0xFF) || (obj->flags2 & PROPFLAG2_DISABLE_ZBUFFER))
     {
@@ -7353,7 +7385,6 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
     }
     else
     {
-
         sp44 = (withalpha == 0) ? 1 : 2;
     }
 
@@ -7368,19 +7399,24 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
 
     modrendata = g_DefaultPropRenderData;
     modrendata.flags = sp44;
-    if (customGlass) { modrendata.flags |= MODEL_RENDER_GLASS_OPACITY; }
+
+    if (customGlass) 
+    { 
+        modrendata.flags |= MODEL_RENDER_GLASS_OPACITY; 
+    }
+
     modrendata.zbufferenabled = (obj->flags2 & PROPFLAG2_DISABLE_ZBUFFER) == 0;
 
     modrendata.gdl = gdl;
 
     if (customGlass || objAlpha < 0xFF)
     {
-        modrendata.PropType = 5;
+        modrendata.PropType = PROP_TYPE_PLAYER;
         modrendata.envcolour.word = objAlpha;
     }
     else
     {
-        modrendata.PropType = 9;
+        modrendata.PropType = PROP_TYPE_MAX;
 
         if (obj->type == PROPDEF_TINTED_GLASS)
         {
@@ -7501,9 +7537,9 @@ bool sub_GAME_7F04B590(ModelFileHeader* arg0, ModelNode* arg1)
 typedef struct Word4 { u32 w0; u32 w1; u32 w2; u32 w3; } Word4;
 
 
-/*
-*   objDeform - Deform an object due to it being destroyed.
-*/
+/**
+ * Deform an object due to it being destroyed.
+ */
 void objDeform(ObjectRecord *obj, E_EXPLOSIONTYPE explosiontype)
 {
     ModelNode *node;
@@ -7527,8 +7563,8 @@ void objDeform(ObjectRecord *obj, E_EXPLOSIONTYPE explosiontype)
     
     model = obj->model;
 
-    // Keep on one line for matching.
-    ymin = 99999; ymax = -99999;
+    ymin = 99999; 
+    ymax = -99999;
     
     node = sub_GAME_7F04B478(obj);
     nodeCopy = node;
@@ -7624,6 +7660,7 @@ void objDeform(ObjectRecord *obj, E_EXPLOSIONTYPE explosiontype)
         node = (ModelNode *) chrobjGetBboxFromObjFile((ModelFileHeader *) node);
         obj->prop->pos.y += (modelscale * chrpropBBOXGetYmin((ModelRoData_BoundingBoxRecord *) node)) * 0.15000001f;
         obj->position.y += (modelscale * chrpropBBOXGetYmin((ModelRoData_BoundingBoxRecord *) node)) * 0.15000001f;
+
         return;
     }
     
@@ -7748,34 +7785,31 @@ void objDeform(ObjectRecord *obj, E_EXPLOSIONTYPE explosiontype)
             chance = 0;
         }
             
-        if (1)
+        if (((s32) (chrObjRandomGetNext() % 100)) < chance)
         {
-            if (((s32) (chrObjRandomGetNext() % 100)) < chance)
-            {
-                ((Vertex *) (((u8 *) (*vtxslot)) + offset))->r = 0;
-                ((Vertex *) (((u8 *) (*vtxslot)) + offset))->g = 0;
-                ((Vertex *) (((u8 *) (*vtxslot)) + offset))->b = 0;
-                ((Vertex *) (((u8 *) (*vtxslot)) + offset))->a = 255;
-            }
-            else
-            if ((explosiontype * 2) == EXPLOSION_MEDIUM)
-            {
-                ((Vertex *) (((u8 *) (*vtxslot)) + offset))->a = 0;
-            }
-            
-            ((Vertex *) (((u8 *) (*vtxslot)) + offset))->coord.y = (((f32) (((Vertex *) (((u8 *) (*vtxslot)) + offset))->coord.y - ymin)) * yscale) + ((f32) ymin);
-            ((Vertex *) (((u8 *) (*vtxslot)) + offset))->coord.x += (chrObjRandomGetNext() % 80) - 40;
-            ((Vertex *) (((u8 *) (*vtxslot)) + offset))->coord.y += (chrObjRandomGetNext() % 80) - 40;
-            ((Vertex *) (((u8 *) (*vtxslot)) + offset))->coord.z += (chrObjRandomGetNext() % 80) - 40;
-                
-            if (((Vertex *) (((u8 *) (*vtxslot)) + offset))->coord.y < ymin)
-            {
-                ((Vertex *) (((u8 *) (*vtxslot)) + offset))->coord.y = ymin;
-            }
-
-            i++;
-            offset += sizeof(Vertex);
+            ((Vertex *) (((u8 *) (*vtxslot)) + offset))->r = 0;
+            ((Vertex *) (((u8 *) (*vtxslot)) + offset))->g = 0;
+            ((Vertex *) (((u8 *) (*vtxslot)) + offset))->b = 0;
+            ((Vertex *) (((u8 *) (*vtxslot)) + offset))->a = 255;
         }
+        else if ((explosiontype * 2) == EXPLOSION_MEDIUM)
+        {
+            ((Vertex *) (((u8 *) (*vtxslot)) + offset))->a = 0;
+        }
+        
+        ((Vertex *) (((u8 *) (*vtxslot)) + offset))->coord.y = (((f32) (((Vertex *) (((u8 *) (*vtxslot)) + offset))->coord.y - ymin)) * yscale) + ((f32) ymin);
+        ((Vertex *) (((u8 *) (*vtxslot)) + offset))->coord.x += (chrObjRandomGetNext() % 80) - 40;
+        ((Vertex *) (((u8 *) (*vtxslot)) + offset))->coord.y += (chrObjRandomGetNext() % 80) - 40;
+        ((Vertex *) (((u8 *) (*vtxslot)) + offset))->coord.z += (chrObjRandomGetNext() % 80) - 40;
+            
+        if (((Vertex *) (((u8 *) (*vtxslot)) + offset))->coord.y < ymin)
+        {
+            ((Vertex *) (((u8 *) (*vtxslot)) + offset))->coord.y = ymin;
+        }
+
+        i++;
+        offset += sizeof(Vertex);
+        
     } while (i < rodata->numVertices);
 }
 
@@ -7788,13 +7822,17 @@ void objBounce(ObjectRecord *obj, coord3d *arg1)
 
     sub_GAME_7F03FDA8(obj->prop);
 
-    if (obj->runtime_bitflags & RUNTIMEBITFLAG_EMBEDDED) {
+    if (obj->runtime_bitflags & RUNTIMEBITFLAG_EMBEDDED) 
+    {
         projectile = obj->embedment->projectile;
-    } else if (obj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE) {
+    } 
+    else if (obj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE) 
+    {
         projectile = obj->projectile;
     }
 
-    if (projectile) {
+    if (projectile) 
+    {
         projectile->speed.x = (RANDOMFRAC() * 1.6666666f * 4.0f) - 3.3333333f;
         projectile->speed.y = (RANDOMFRAC() * 1.6666666f * 2.0f) + 3.3333333f;
         projectile->speed.z = (RANDOMFRAC() * 1.6666666f * 4.0f) - 3.3333333f;
@@ -8122,14 +8160,13 @@ void objDestroySupportedObjects(PropRecord* tableprop, s32 playernum)
     if (edges > 0)
     {
         prop = chrpropGetActiveTail();
+
         while (prop)
         {
             if (((prop->type == PROP_TYPE_OBJ) || (prop->type == PROP_TYPE_WEAPON)) && (prop->stan->room == room))
             {
                 obj = prop->obj;
-                if ((tableobj->position.y < obj->position.y)
-                        && ((s32) obj->runtime_bitflags & RUNTIMEBITFLAG_00008000)
-                        && (chrpropTestPointInPolygon(&obj->position, rect, edges) != 0))
+                if ((tableobj->position.y < obj->position.y) && ((s32) obj->runtime_bitflags & RUNTIMEBITFLAG_00008000) && (chrpropTestPointInPolygon(&obj->position, rect, edges) != 0))
                 {
                     objFall(obj, playernum);
                 }

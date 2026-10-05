@@ -14,6 +14,7 @@
 #include "modeledits.h"
 #include "newprops.h"
 #include "modelload.h"
+#include "modelanimation.h"
 #include "viewport.h"
 #include "uveditor.h"
 #include "modeluv.h"
@@ -38,6 +39,12 @@ static DWORD g_ModelRevision;
 static ModelLod g_ModelLod;
 static BOOL g_ModelCompleting;
 static BOOL g_ModelSampling;
+#define MODEL_ANIMATION_TIMER 1
+static ModelAnimationPreview g_ModelAnimation;
+static int g_ModelAnimationClip=-1;
+static double g_ModelAnimationFrame;
+static BOOL g_ModelAnimationPlaying;
+static DWORD g_ModelAnimationTick;
 #define MODEL_HISTORY_LIMIT 256
 #define MODEL_HISTORY_BYTES (64u * 1024u * 1024u)
 typedef struct ModelEditorHistoryStep {
@@ -139,8 +146,98 @@ static LRESULT CALLBACK ModelEditorNameEditProc(HWND hwnd, UINT message, WPARAM 
     return DefSubclassProc(hwnd, message, wparam, lparam);
 }
 
+static void ModelEditorAnimationControls(void)
+{
+    BOOL selected=g_ModelAnimationClip>=0 && (DWORD)g_ModelAnimationClip<g_ModelAnimation.count;
+    EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_ANIMATION),g_ModelAnimation.count>0);
+    EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_ANIMATION_PLAY),selected && !g_ModelAnimationPlaying);
+    EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_ANIMATION_STOP),g_ModelAnimationPlaying);
+    EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_ANIMATION_RESET),selected);
+}
+
+static void ModelEditorAnimationStop(void)
+{
+    KillTimer(g_ModelEditor,MODEL_ANIMATION_TIMER);
+    g_ModelAnimationPlaying=FALSE;
+    ModelEditorAnimationControls();
+}
+
+static void ModelEditorAnimationClear(void)
+{
+    ModelEditorAnimationStop();
+    ModelAnimationClose(&g_ModelAnimation);
+    g_ModelAnimationClip=-1;g_ModelAnimationFrame=0;
+    SendDlgItemMessage(g_ModelEditor,IDC_MODEL_ANIMATION,CB_RESETCONTENT,0,0);
+    SendDlgItemMessage(g_ModelEditor,IDC_MODEL_ANIMATION,CB_ADDSTRING,0,(LPARAM)"No animations");
+    SendDlgItemMessage(g_ModelEditor,IDC_MODEL_ANIMATION,CB_SETCURSEL,0,0);
+    ModelEditorAnimationControls();
+}
+
+static BOOL ModelEditorAnimationDraw(void)
+{
+    const char *why="The animation preview could not be displayed.";
+    BgVertex *posed=NULL;
+    if (g_ModelAnimationClip>=0)
+        posed=ModelAnimationPose(&g_ModelAnimation,(DWORD)g_ModelAnimationClip,
+            g_ModelAnimationFrame,g_ModelSource.count,&why);
+    BOOL ok=(g_ModelAnimationClip<0 || posed)
+        && ViewportSetModelPose(g_ModelViewport,posed?posed:g_ModelSource.vertices,g_ModelSource.count);
+    free(posed);
+    if (!ok)
+    {
+        ModelEditorAnimationStop();
+        SetDlgItemText(g_ModelEditor,IDC_MODEL_STATUS,*why?why:"The animation preview could not be displayed.");
+    }
+    else if (g_ModelAnimationClip>=0)
+    {
+        char text[256];
+        const ModelAnimationClip *clip=&g_ModelAnimation.clips[g_ModelAnimationClip];
+        snprintf(text,sizeof(text),"%s - frame %lu / %lu - 30 fps, in-place preview%s",
+            clip->name,(unsigned long)g_ModelAnimationFrame+1,(unsigned long)clip->frames,
+            g_ModelAnimationPlaying?"":" (stopped)");
+        SetDlgItemText(g_ModelEditor,IDC_MODEL_STATUS,text);
+    }
+    else SetDlgItemText(g_ModelEditor,IDC_MODEL_STATUS,"Bind pose. Choose an animation to preview.");
+    return ok;
+}
+
+static void ModelEditorAnimationLoad(const char *name)
+{
+    const char *why="",*previous=g_ModelAnimationClip>=0
+        ? g_ModelAnimation.clips[g_ModelAnimationClip].name:NULL;
+    double frame=g_ModelAnimationFrame;
+    ModelEditorAnimationClear();
+    if (!g_ModelSource.count) return;
+    if (!ModelAnimationOpen(&g_ModelAnimation,g_ModelProject,name,&why))
+    { SetDlgItemText(g_ModelEditor,IDC_MODEL_STATUS,why);return; }
+    if (!g_ModelAnimation.count) return;
+    SendDlgItemMessage(g_ModelEditor,IDC_MODEL_ANIMATION,CB_RESETCONTENT,0,0);
+    SendDlgItemMessage(g_ModelEditor,IDC_MODEL_ANIMATION,CB_ADDSTRING,0,(LPARAM)"Bind pose (no animation)");
+    for (DWORD i=0;i<g_ModelAnimation.count;i++)
+    {
+        SendDlgItemMessage(g_ModelEditor,IDC_MODEL_ANIMATION,CB_ADDSTRING,0,(LPARAM)g_ModelAnimation.clips[i].name);
+        if (previous && !strcmp(previous,g_ModelAnimation.clips[i].name))
+        { g_ModelAnimationClip=(int)i;g_ModelAnimationFrame=fmin(frame,g_ModelAnimation.clips[i].frames-1.0); }
+    }
+    SendDlgItemMessage(g_ModelEditor,IDC_MODEL_ANIMATION,CB_SETCURSEL,g_ModelAnimationClip+1,0);
+    ModelEditorAnimationControls();
+    if (g_ModelAnimationClip>=0) ModelEditorAnimationDraw();
+}
+
+static void ModelEditorAnimationPlay(void)
+{
+    if (g_ModelAnimationClip<0 || (DWORD)g_ModelAnimationClip>=g_ModelAnimation.count) return;
+    g_ModelAnimationTick=GetTickCount();
+    if (!SetTimer(g_ModelEditor,MODEL_ANIMATION_TIMER,16,NULL))
+    { SetDlgItemText(g_ModelEditor,IDC_MODEL_STATUS,"Could not start animation playback.");return; }
+    g_ModelAnimationPlaying=TRUE;
+    ModelEditorAnimationControls();
+    ModelEditorAnimationDraw();
+}
+
 static void ModelEditorClearViewport(void)
 {
+    ModelEditorAnimationClear();
     ModelEditorClearHistory();
     if (g_ModelViewport != NULL)
     {
@@ -314,6 +411,7 @@ static void ModelEditorLoad(int index, BOOL framecamera)
     snprintf(text, sizeof(text), "%lu visible triangles. Click to select faces; left/right drag to orbit; middle drag to pan; scroll to zoom.", (unsigned long)count);
     SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS, text);
     ModelEditorRefreshUV();
+    ModelEditorAnimationLoad(entry->name);
     if (framecamera) { SetFocus(g_ModelViewport); }
 }
 
@@ -1032,29 +1130,43 @@ static void ModelEditorPlaceControl(HWND control, int x, int y, int width, int h
 static void ModelEditorLayout(HWND hwnd)
 {
     static const int labels[] = { IDC_MODEL_CHARACTERS_LABEL, IDC_MODEL_ITEMS_LABEL, IDC_MODEL_PROPS_LABEL };
-    RECT client, units = { 8, 80, 88, 18 };
-    int category, margin, column, bottom, panelx;
+    RECT client, units = { 8, 0, 88, 18 }, animation={54,0,56,0};
+    int category, margin, column, bottom, panelx, labely, animationy, toolheight;
     RECT panel = {0, 0, 192, 0};
     GetClientRect(hwnd, &client);
     MapDialogRect(hwnd, &units);
     MapDialogRect(hwnd, &panel);
+    MapDialogRect(hwnd, &animation);
     panelx = max(0, client.right - panel.right);
     margin = units.left;
+    toolheight=max(units.bottom,TOOLTOOLBAR_HEIGHT);
+    labely=margin*2+toolheight;
+    animationy=labely+units.bottom*2+margin;
+    units.top=animationy+units.bottom+margin;
     column = max(0, (client.right - margin * 4) / 3);
     bottom = max(units.top, client.bottom - units.bottom - margin * 2);
     for (category = 0; category < 3; category++)
     {
         int x = margin + category * (column + margin);
-        ModelEditorPlaceControl(GetDlgItem(hwnd, labels[category]), x, margin, column, units.bottom);
-        ModelEditorPlaceControl(GetDlgItem(hwnd, g_ModelCombos[category]), x, margin + units.bottom,
+        ModelEditorPlaceControl(GetDlgItem(hwnd, labels[category]), x, labely, column, units.bottom);
+        ModelEditorPlaceControl(GetDlgItem(hwnd, g_ModelCombos[category]), x, labely + units.bottom,
                                 column, units.bottom * 12);
     }
-    ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_EXPORT),margin,margin*2+units.bottom*2,units.right,units.bottom);
-    ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_IMPORT),margin*2+units.right,margin*2+units.bottom*2,units.right,units.bottom);
-    ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_UV),margin*3+units.right*2,margin*2+units.bottom*2,units.right+margin,units.bottom);
+    ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_EXPORT),margin,margin+(toolheight-units.bottom)/2,units.right,units.bottom);
+    ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_IMPORT),margin*2+units.right,margin+(toolheight-units.bottom)/2,units.right,units.bottom);
+    ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_UV),margin*3+units.right*2,margin+(toolheight-units.bottom)/2,units.right+margin,units.bottom);
     if (g_ModelPaintToolbar)
         ModelEditorPlaceControl(g_ModelPaintToolbar, margin*5+units.right*3,
-                                units.top-TOOLTOOLBAR_HEIGHT-margin/2, TOOLTOOLBAR_HEIGHT, TOOLTOOLBAR_HEIGHT);
+                                margin, TOOLTOOLBAR_HEIGHT, TOOLTOOLBAR_HEIGHT);
+    {
+        int buttons=client.right-margin-3*animation.right-2*margin;
+        int combo=margin*2+animation.left;
+        ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_ANIMATION_LABEL),margin,animationy+margin/2,animation.left,units.bottom);
+        ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_ANIMATION),combo,animationy,max(0,buttons-margin-combo),units.bottom*14);
+        ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_ANIMATION_PLAY),buttons,animationy,animation.right,units.bottom);
+        ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_ANIMATION_STOP),buttons+animation.right+margin,animationy,animation.right,units.bottom);
+        ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_ANIMATION_RESET),buttons+2*(animation.right+margin),animationy,animation.right,units.bottom);
+    }
     if (g_ModelViewport != NULL)
     {
         ModelEditorPlaceControl(g_ModelViewport, 0, units.top, panelx, max(0, bottom - units.top));
@@ -1146,7 +1258,22 @@ static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wp
         SendDlgItemMessage(hwnd, IDC_MODEL_LODS, CB_ADDSTRING, 0, (LPARAM)"Low LOD");
         SendDlgItemMessage(hwnd, IDC_MODEL_LODS, CB_ADDSTRING, 0, (LPARAM)"All LODs");
         SendDlgItemMessage(hwnd, IDC_MODEL_LODS, CB_SETCURSEL, MODEL_LOD_HIGH, 0);
+        ModelEditorAnimationClear();
         return TRUE;
+    case WM_TIMER:
+        if (wparam==MODEL_ANIMATION_TIMER && g_ModelAnimationPlaying && g_ModelAnimationClip>=0)
+        {
+            DWORD now=GetTickCount(),elapsed=now-g_ModelAnimationTick;
+            g_ModelAnimationTick=now;
+            if (!IsIconic(hwnd))
+            {
+                g_ModelAnimationFrame=fmod(g_ModelAnimationFrame+(double)elapsed*0.03,
+                    g_ModelAnimation.clips[g_ModelAnimationClip].frames);
+                ModelEditorAnimationDraw();
+            }
+            return TRUE;
+        }
+        break;
     case WM_MEASUREITEM:
         if (((MEASUREITEMSTRUCT *)lparam)->CtlID==IDC_MODEL_MATERIAL_LIST)
         { ((MEASUREITEMSTRUCT *)lparam)->itemHeight=66;return TRUE; }
@@ -1203,6 +1330,19 @@ static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wp
             ModelEditorVertexColor((const ViewportBgVertexHit *)lparam, message == VIEWPORT_WM_SAMPLE_VERTEX));
         return TRUE;
     case WM_COMMAND:
+        if (LOWORD(wparam)==IDC_MODEL_ANIMATION && HIWORD(wparam)==CBN_SELCHANGE)
+        {
+            ModelEditorAnimationStop();
+            LRESULT row=SendDlgItemMessage(hwnd,IDC_MODEL_ANIMATION,CB_GETCURSEL,0,0);
+            g_ModelAnimationClip=row>0 && (DWORD)row<=g_ModelAnimation.count ? (int)row-1 : -1;
+            g_ModelAnimationFrame=0;
+            ModelEditorAnimationControls();ModelEditorAnimationDraw();return TRUE;
+        }
+        if (LOWORD(wparam)==IDC_MODEL_ANIMATION_PLAY) { ModelEditorAnimationPlay();return TRUE; }
+        if (LOWORD(wparam)==IDC_MODEL_ANIMATION_STOP)
+        { ModelEditorAnimationStop();ModelEditorAnimationDraw();return TRUE; }
+        if (LOWORD(wparam)==IDC_MODEL_ANIMATION_RESET)
+        { ModelEditorAnimationStop();g_ModelAnimationFrame=0;ModelEditorAnimationDraw();return TRUE; }
         if (LOWORD(wparam) == IDC_MODEL_UV)
         { ModelEditorShowUV(); return TRUE; }
         if ((LOWORD(wparam)==IDC_MODEL_MATERIAL_LIST && HIWORD(wparam)==LBN_SELCHANGE)
@@ -1244,6 +1384,9 @@ static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wp
         DestroyWindow(hwnd);
         return TRUE;
     case WM_NCDESTROY:
+        KillTimer(hwnd,MODEL_ANIMATION_TIMER);
+        ModelAnimationClose(&g_ModelAnimation);
+        g_ModelAnimationPlaying=FALSE;g_ModelAnimationClip=-1;g_ModelAnimationFrame=0;
         ModelEditorClearHistory();
         ModelFreeSource(&g_ModelSource); g_ModelRevision = 0;
         free(g_ModelEntries); g_ModelEntries = NULL; g_ModelCount = 0; g_ModelSelected = -1;

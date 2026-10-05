@@ -10922,6 +10922,37 @@ BOOL ViewportHasHiddenBgFaces(HWND hwnd)
     return state != NULL && state->hiddenrefcount > 0;
 }
 
+BOOL ViewportSetModelPose(HWND hwnd, const BgVertex *vertices, DWORD sourcecount)
+{
+    ViewportState *state=(ViewportState *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+    if (!state || !state->orbit || !state->scene || !state->scenefacerefs || !vertices) return FALSE;
+    /* Validate the complete update before changing any displayed vertex. */
+    for (int tri=0;tri<state->scenecount/3;tri++)
+    {
+        DWORD face=state->scenefacerefs[tri].faceid;
+        if (!face || face>sourcecount) return FALSE;
+        for (int c=0;c<3;c++)
+        {
+            const BgVertex *v=&vertices[(face-1)*3+c];
+            if (!isfinite(v->x) || !isfinite(v->y) || !isfinite(v->z)) return FALSE;
+        }
+    }
+    for (int tri=0;tri<state->scenecount/3;tri++)
+    {
+        DWORD face=state->scenefacerefs[tri].faceid-1;
+        for (int c=0;c<3;c++)
+        {
+            const BgVertex *src=&vertices[face*3+c];
+            Vertex *dst=&state->scene[tri*3+c];
+            dst->x=src->x;dst->y=src->y;dst->z=src->z;
+            memcpy(dst->environment.normal,src->environment.normal,sizeof(dst->environment.normal));
+        }
+    }
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd,NULL,FALSE);
+    return TRUE;
+}
+
 BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
                       const unsigned short *tritags,
                       const BgRenderFlags *renderflags,

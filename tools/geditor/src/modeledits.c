@@ -128,6 +128,13 @@ static BOOL LoadSource(const char *project, const char *name, unsigned char **da
     if(!*data) { *why="Out of memory loading the source model.";return FALSE; }
     return TRUE;
 }
+BOOL ModelEditsCopyNative(const char *project, const char *name,
+    unsigned char **data, DWORD *size, const char **why)
+{
+    DWORD basehash;
+    return LoadSource(project,name,data,size,&basehash,why);
+}
+
 BOOL ModelEditsReadSource(const char *project, const char *name, ModelSource *source,
     DWORD *revision, const char **why)
 {

@@ -33,6 +33,11 @@ BOOL ModelApplyCharacterPose(const unsigned char *data, DWORD size, int switchco
                               const unsigned short angles[45], BOOL flip,
                               BgVertex *vertices, DWORD tricount,
                               ModelCharacterAttachments *attachments);
+/* In-place native animation preview in complete ModelSource face order.
+ * Supports guard (45 channels) and aircraft (3 channels) skeletons. */
+BgVertex *ModelLoadAnimationPose(const unsigned char *data, DWORD size,
+    const unsigned short angles[45], int channels, float height,
+    DWORD expectedcount, const char **reasonout);
 
 /* Stable source associations for a Blender round trip. Native vertex offsets
  * retain joint-local positions and shared storage independently of glTF's

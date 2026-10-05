@@ -862,7 +862,7 @@ static void MdlComposeJoint(ModelTransform *parent, const float origin[3],
 
 static BOOL MdlAnimatedNode(const unsigned char *data, DWORD size, DWORD node,
                              const unsigned short angles[45], BOOL flip, BOOL half,
-                             ModelTransform *out)
+                             ModelTransform *out, int channels)
 {
     DWORD chain[MDL_MAX_NODES];
     int count = 0, i;
@@ -884,20 +884,29 @@ static BOOL MdlAnimatedNode(const unsigned char *data, DWORD size, DWORD node,
 
         /* Root translation and heading are supplied by setup placement. */
         if (opcode == 0x01) { continue; }
-        if (opcode == 0x03 || opcode == 0x15) { return FALSE; }
-        if (opcode != 0x02) { continue; }
-        if ((flags & 0x200) || offset == 0 || offset > size - 20) { return FALSE; }
-        joint = md16(data + offset + 12);
-        if (joint < 0 || joint >= (int)(sizeof(g_EditorGuardJoints) / sizeof(g_EditorGuardJoints[0])))
+        if (opcode == 0x03) { return FALSE; }
+        if (opcode != 0x02 && opcode != 0x15) { continue; }
+        if ((flags & 0x200) || offset == 0 || offset > size - (opcode==0x15 ? 14u : 20u)) { return FALSE; }
+        channel=-1;
+        if (opcode==0x02)
         {
-            return FALSE;
+            joint = md16(data + offset + 12);
+            if (channels==3)
+            {
+                if (joint!=1) return FALSE; /* flying skeleton's sole rotation joint */
+                channel=0;
+            }
+            else
+            {
+                if (joint < 0 || joint >= (int)(sizeof(g_EditorGuardJoints) / sizeof(g_EditorGuardJoints[0]))) return FALSE;
+                channel = flip ? g_EditorGuardJoints[joint].mirrored : g_EditorGuardJoints[joint].base;
+                if (channel > 42) return FALSE;
+            }
         }
-        channel = flip ? g_EditorGuardJoints[joint].mirrored : g_EditorGuardJoints[joint].base;
-        if (channel > 42) { return FALSE; }
         for (axis = 0; axis < 3; axis++)
         {
             union { DWORD bits; float value; } coordinate;
-            DWORD angle = angles[channel + axis];
+            DWORD angle = channel>=0 ? angles[channel + axis] : 0;
 
             coordinate.bits = md32(data + offset + axis * 4);
             if (!isfinite(coordinate.value)) { return FALSE; }
@@ -912,7 +921,7 @@ static BOOL MdlAnimatedNode(const unsigned char *data, DWORD size, DWORD node,
 
 static BOOL MdlBuildIdleMatrices(const unsigned char *data, DWORD size,
     int switchcount, const unsigned short angles[45], BOOL flip,
-    MdlAnimatedPose *pose, ModelCharacterAttachments *attachments)
+    MdlAnimatedPose *pose, ModelCharacterAttachments *attachments, int channels)
 {
     DWORD stack[MDL_MAX_NODES], root = ModelFindRootNode(data, size);
     int count = 0, visited = 0, hand;
@@ -928,11 +937,11 @@ static BOOL MdlBuildIdleMatrices(const unsigned char *data, DWORD size,
         flags = (unsigned short)md16(data + node);
         opcode = flags & 0xff;
         offset = mdoff(md32(data + node + 4));
-        if (opcode == 0x01 || opcode == 0x02)
+        if (opcode == 0x01 || opcode == 0x02 || opcode == 0x15)
         {
             index = MdlNodeMatrix(data, size, node);
             if (index < 0 || !MdlAnimatedNode(data, size, node, angles, flip, FALSE,
-                                             &pose->matrices[index])) { return FALSE; }
+                                             &pose->matrices[index], channels)) { return FALSE; }
             pose->valid[index] = TRUE;
             if (opcode == 0x02 && (flags & 0x100))
             {
@@ -940,14 +949,14 @@ static BOOL MdlBuildIdleMatrices(const unsigned char *data, DWORD size,
                 index = md16(data + offset + 16);
                 if (index < 0 || index >= MDL_MAX_MATRICES
                     || !MdlAnimatedNode(data, size, node, angles, flip, TRUE,
-                                         &pose->matrices[index])) { return FALSE; }
+                                         &pose->matrices[index], channels)) { return FALSE; }
                 pose->valid[index] = TRUE;
             }
         }
         if (opcode == 0x17 && !attachments->hashead)
         {
             attachments->hashead = MdlAnimatedNode(data, size, node, angles, flip,
-                                                     FALSE, &attachments->head);
+                                                     FALSE, &attachments->head, channels);
             if (!attachments->hashead) { return FALSE; }
         }
         next = mdoff(md32(data + node + 12));
@@ -966,7 +975,7 @@ static BOOL MdlBuildIdleMatrices(const unsigned char *data, DWORD size,
             DWORD node = mdoff(md32(data + slot * 4));
             BOOL *present = hand < 2 ? &attachments->hashands[hand] : &attachments->hashat;
             ModelTransform *attachment = hand < 2 ? &attachments->hands[hand] : &attachments->hat;
-            *present = MdlAnimatedNode(data, size, node, angles, flip, FALSE, attachment);
+            *present = MdlAnimatedNode(data, size, node, angles, flip, FALSE, attachment, channels);
             if (!*present) { return FALSE; }
         }
     }
@@ -1184,6 +1193,35 @@ BOOL ModelReadSource(const unsigned char *data, DWORD size, ModelSource *source,
     return TRUE;
 }
 
+BgVertex *ModelLoadAnimationPose(const unsigned char *data, DWORD size,
+    const unsigned short angles[45], int channels, float height,
+    DWORD expectedcount, const char **reasonout)
+{
+    MdlAnimatedPose *pose=NULL;
+    ModelCharacterAttachments attachments={0};
+    BgVertex *vertices=NULL;
+    unsigned short *tags=NULL;
+    BgRenderFlags *flags=NULL;
+    DWORD count=0;
+    *reasonout="This model's joint layout cannot preview the selected animation.";
+    if (!data || size<40 || (channels!=45 && channels!=3) || !isfinite(height)) return NULL;
+    pose=calloc(1,sizeof(*pose));
+    if (!pose) { *reasonout="Out of memory posing the model.";return NULL; }
+    if (!MdlBuildIdleMatrices(data,size,0,angles,FALSE,pose,&attachments,channels)) goto done;
+    vertices=MdlLoadGeometry(data,ModelMaterialsNativeSize(data,size),&count,&tags,&flags,
+        reasonout,FALSE,pose,NULL,0);
+    if (vertices && count!=expectedcount)
+    { *reasonout="The animation preview does not match the edited model's faces.";free(vertices);vertices=NULL; }
+    for (DWORD i=0;vertices && i<count*3;i++)
+    {
+        vertices[i].y+=height;
+        if (!isfinite(vertices[i].x) || !isfinite(vertices[i].y) || !isfinite(vertices[i].z))
+        { *reasonout="The animation produced an invalid position.";free(vertices);vertices=NULL; }
+    }
+done:
+    free(tags);free(flags);free(pose);return vertices;
+}
+
 BOOL ModelApplyCharacterPose(const unsigned char *data, DWORD size, int switchcount,
                               const unsigned short angles[45], BOOL flip,
                               BgVertex *vertices, DWORD tricount,
@@ -1220,7 +1258,7 @@ BOOL ModelApplyCharacterPose(const unsigned char *data, DWORD size, int switchco
     }
     pose = (MdlAnimatedPose *)calloc(1, sizeof(*pose));
     if (pose == NULL || !MdlBuildIdleMatrices(data, size, switchcount, angles,
-                                            flip, pose, &posedattachments)) { goto done; }
+                                            flip, pose, &posedattachments, 45)) { goto done; }
     posed = MdlLoadGeometry(data, size, &count, &tags, &flags, &why, TRUE, pose, NULL, 0);
     if (posed == NULL || count != tricount) { goto done; }
     for (i = 0; i < count * 3; i++)
