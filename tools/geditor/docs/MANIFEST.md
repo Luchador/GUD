@@ -185,6 +185,16 @@ position floats at 44–52. Some filenames and headers are null for valid item
 IDs. The stats pointer is discoverable, but this manifest addition does not
 define a new editable weapon-stat format.
 
+Project rebases allow these model catalog counts to differ. New registrations
+and unused capacity may be added, and unused trailing capacity may be removed,
+provided every previously occupied ID keeps its model name and scalar settings.
+Header and stats pointers may relocate, but their null/non-null state must stay
+the same. Zero-filled records are unused; `CHRM` and `PROP` also allow an empty
+terminator with scale 1. Model-less `ITEM` records with other data remain occupied.
+Descriptor versions, record strides, mapped bounds and resource names are still
+validated. This does not remove the separate restriction on adding new `FTBL`
+resources during a rebase.
+
 `AIGL` locates shared bytecode programs. Script lengths are not in the native
 rows: decode commands with their actual sizes and remain within CMAP. Level
 scripts still come from their setup assets. `TXBK` names locate text resources

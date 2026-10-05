@@ -217,6 +217,85 @@ static void Reject(const GEditorProject *project,const char *rom,const char *par
     OK(!ProjectRebaseCreate(project,rom,FALSE,parent,name,&output,&report,&why));OK(why[0] && !output.dir[0]);
     Path(dest,parent,name);OK(GetFileAttributes(dest)==INVALID_FILE_ATTRIBUTES);OK(Hash(base)==hash);NoTemps(parent);
 }
+/* Keep the original row and relocate resized catalogs away from the fixture's
+ * texture table. Character rows model the actual 80 -> 128 capacity upgrade. */
+static unsigned char *ResizeModelCatalog(unsigned char *data,int kind,DWORD count,DWORD occupied)
+{
+    static const DWORD offsets[]={0xe000,0xea00,0xec00};
+    DWORD stride=kind==0 ? 20 : kind==1 ? 12 : 56;
+    unsigned char original[56],*descriptor=data+CMAP+SHIFT+0xc000+kind*16;
+    unsigned char *rows=data+CMAP+SHIFT+offsets[kind];
+    memcpy(original,data+CMAP+SHIFT+0xc100+kind*0x100,stride);
+    memset(rows,0,(kind==0 ? 128 : 4)*stride);
+    for (DWORD i=0;i<occupied;i++) memcpy(rows+i*stride,original,stride);
+    Put32(descriptor,0x80000000u+SHIFT*2+offsets[kind]);Put32(descriptor+4,count);
+    return rows;
+}
+static void ModelCatalogRebases(const GEditorProject *source,const char *incoming,const char *parent)
+{
+    DWORD size,offset,span;unsigned char *data=Read(incoming,&size);
+    char path[MAX_PATH],target[MAX_PATH],exported[MAX_PATH];
+    GEditorProject eighty,grown,loaded,again,shrunk,modeless;ProjectRebaseReport report;RomFile rom={0};
+    Path(target,parent,"model-catalogs.z64");
+    Path(path,source->dir,"base.z64");DWORD originalHash=Hash(path);
+    ResizeModelCatalog(data,0,80,80);Save(target,data,size);
+    OK(ProjectRebaseCreate(source,target,FALSE,parent,"Catalog80",&eighty,&report,&why));
+    unsigned char *characters=ResizeModelCatalog(data,0,128,80);
+    Float(characters+80*20+8,1); /* Former stock terminator is now an unused slot. */
+    Save(target,data,size);OK(ProjectRebaseCheck(&eighty,target,FALSE,&report,&why));
+    OK(ProjectRebaseCreate(&eighty,target,FALSE,parent,"Catalog128",&grown,&report,&why));
+    OK(ProjectRead(grown.geppath,&loaded));
+    Same(source->dir,loaded.dir,"setup/UsetuptestZ.set");
+    Same(source->dir,loaded.dir,"models/native/Pjungle3_treeZ.gmodel");
+    Same(source->dir,loaded.dir,"models/newprops.gnp");
+    OK(RomExportCreate(&loaded,"CatalogPlayable",parent,exported,sizeof(exported),&why));
+    OK(RomLoad(exported,&rom,&why));
+    OK(Get32(rom.data+CMAP+SHIFT+0xc004)==128);
+    OK(RomFindFile(&rom,"UsetuptestZ",&offset,&span,&why));
+    Path(path,source->dir,"setup/UsetuptestZ.set");DWORD savedsize;unsigned char *saved=Read(path,&savedsize);
+    OK(savedsize==span && !memcmp(saved,rom.data+offset,span));free(saved);RomFree(&rom);
+    OK(ProjectRebaseCreate(&loaded,target,FALSE,parent,"CatalogAgain",&again,&report,&why));
+    Put32(data+CMAP+SHIFT+0xc004,80);Save(target,data,size);
+    OK(ProjectRebaseCreate(&again,target,FALSE,parent,"CatalogShrunk",&shrunk,&report,&why));
+    Same(source->dir,shrunk.dir,"setup/UsetuptestZ.set");
+    /* New occupied slots may use existing resources, including a formerly
+     * unused slot. Existing header/stat pointers can relocate independently. */
+    ResizeModelCatalog(data,0,81,81);ResizeModelCatalog(data,1,2,2);ResizeModelCatalog(data,2,2,2);
+    Save(target,data,size);OK(ProjectRebaseCheck(&loaded,target,FALSE,&report,&why));
+    Put32(data+CMAP+SHIFT+0xe000,0x80000000u+SHIFT*2+0xd800);
+    Put32(data+CMAP+SHIFT+0xec00+12,0x80000000u+SHIFT*2+0xd900);
+    Save(target,data,size);OK(ProjectRebaseCheck(&loaded,target,FALSE,&report,&why));
+    /* Removed occupied IDs, ID reassignment and scalar/layout changes remain
+     * incompatible. Check failed publication leaves the source untouched. */
+    Put32(data+CMAP+SHIFT+0xc004,79);Save(target,data,size);
+    OK(!ProjectRebaseCheck(&loaded,target,FALSE,&report,&why) && strstr(why,"ID 79"));
+    Reject(&loaded,target,parent,"CatalogRemoved");Put32(data+CMAP+SHIFT+0xc004,81);
+    Float(characters+8,2);Save(target,data,size);Reject(&loaded,target,parent,"CatalogScale");Float(characters+8,1);
+    Put32(characters+4,0x80000000u+SHIFT*2+0x4e0);Save(target,data,size);
+    Reject(&loaded,target,parent,"CatalogRenamed");
+    memcpy(characters+4,data+CMAP+SHIFT+0xc104,4);
+    unsigned char *descriptor=data+CMAP+SHIFT+0xc000;
+    Put32(descriptor+8,24);Save(target,data,size);Reject(&loaded,target,parent,"CatalogStride");Put32(descriptor+8,20);
+    Put32(descriptor+12,2);Save(target,data,size);Reject(&loaded,target,parent,"CatalogVersion");Put32(descriptor+12,1);
+    Put32(descriptor+4,0xffffffffu);Save(target,data,size);Reject(&loaded,target,parent,"CatalogOverflow");Put32(descriptor+4,81);
+    Put32(descriptor,0x80000000u+SHIFT*2+0xfff0);Save(target,data,size);
+    Reject(&loaded,target,parent,"CatalogBounds");Put32(descriptor,0x80000000u+SHIFT*2+0xe000);
+    Put32(characters+80*20+4,0xffffffffu);Save(target,data,size);
+    Reject(&loaded,target,parent,"CatalogAddedName");memcpy(characters+80*20+4,characters+4,4);
+    /* Null model names do not make inventory entries removable. */
+    unsigned char *item=ResizeModelCatalog(data,2,2,1)+56;
+    Put32(item+12,0x80000000u+SHIFT*2+0xd900);Float(item+24,1000);
+    Save(target,data,size);
+    OK(ProjectRebaseCreate(&loaded,target,FALSE,parent,"CatalogModelLess",&modeless,&report,&why));
+    Put32(data+CMAP+SHIFT+0xc024,1);Save(target,data,size);
+    OK(!ProjectRebaseCheck(&modeless,target,FALSE,&report,&why) && strstr(why,"Item model catalog ID 1"));
+    Reject(&modeless,target,parent,"CatalogItemRemoved");
+    Put32(data+CMAP+SHIFT+0xc024,2);memset(item,0,56);Save(target,data,size);
+    Reject(&modeless,target,parent,"CatalogItemCleared");
+    Path(path,source->dir,"base.z64");OK(Hash(path)==originalHash);NoTemps(parent);
+    free(data);
+    puts("PASS: 80 -> 128 character catalogs, appended model IDs, unused-capacity shrink, preserved setups/models, reopen/export/repeat rebase; occupied/model-less IDs and malformed catalog changes remain blocked.");
+}
 static void ImageRebases(const GEditorProject *source,const char *incoming,const char *parent)
 {
     GEditorProject grown,shrunk,again;ProjectRebaseReport report;
@@ -481,6 +560,7 @@ int main(int argc,char **argv)
     OK(ProjectRebaseCreate(&rebased,nextpath,FALSE,argv[1],"Again",&again,&report,&why));
     OK(again.levels[0].levelscale==.375f&&again.levels[0].renderScale==.875f&&again.levels[0].chrLODDistance==1.375f);
     puts("PASS: project scale edits, relocated ROM tables/code, three-way asset/settings merge, native model edits, imported/deleted images, source settings, sidecars, reopen, ROM export and repeat rebase.");
+    ModelCatalogRebases(&project,nextpath,argv[1]);
     ImageRebases(&project,nextpath,argv[1]);
     ExistingImageBases(&project,nextpath,argv[1]);
     Float(next+CMAP+SHIFT+0x80c,5000);Save(nextpath,next,SIZE);

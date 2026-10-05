@@ -137,38 +137,71 @@ static const char *MappedString(const RomFile *rom, DWORD address)
     if (!p || !memchr(p, 0, rom->data + map->romend - p)) { return NULL; }
     return (const char *)p;
 }
+static BOOL CatalogRows(const RomFile *rom, const RomManifestEntry *entry,
+    DWORD stride, const unsigned char **rows, DWORD *count, const char **why)
+{
+    if (!entry || entry->flags != 0x80000000u || entry->romstart > rom->size
+        || rom->size-entry->romstart < 16 || entry->romend != entry->romstart+16)
+    { return Fail(why,"The ROM has an invalid model catalog descriptor."); }
+    const unsigned char *data=rom->data+entry->romstart;
+    *count=Read32(data+4);
+    if (Read32(data+8)!=stride || Read32(data+12)!=1 || *count>rom->size/stride)
+    { return Fail(why,"The ROM has an unsupported model catalog format or count."); }
+    *rows=Mapped(rom,Read32(data),*count*stride);
+    return *rows!=NULL || Fail(why,"The model catalog lies outside the ROM's mapped data.");
+}
+static BOOL CatalogUnused(const unsigned char *row, const char *name, DWORD stride)
+{
+    if (!row) { return TRUE; }
+    /* Expanded character arrays include the former {NULL,NULL,1.0f,...}
+     * terminator followed by zero-initialized capacity. Neither is a model.
+     * Model-less ITEM rows can still define usable inventory entries: only
+     * an entirely zero row is unused there, including its stats pointer. */
+    if (stride==56)
+    {
+        for (DWORD i=0;i<stride;i++) if (row[i]) { return FALSE; }
+        return TRUE;
+    }
+    if (Read32(row) || name[0] || (Read32(row+8)!=0 && Read32(row+8)!=0x3f800000u)) { return FALSE; }
+    for (DWORD i=12;i<stride;i++) if (row[i]) { return FALSE; }
+    return TRUE;
+}
 static BOOL Catalogs(const RomFile *a, const RomFile *b, const char **why)
 {
-    static const struct { DWORD tag, stride; } catalogs[] = {
-        {0x4348524du,20}, {0x50524f50u,12}, {0x4954454du,56}
+    static const struct { DWORD tag, stride; const char *name; } catalogs[] = {
+        {0x4348524du,20,"Character"}, {0x50524f50u,12,"Prop"}, {0x4954454du,56,"Item"}
     };
     unsigned int kind;
     for (kind = 0; kind < sizeof(catalogs)/sizeof(catalogs[0]); kind++)
     {
         const RomManifestEntry *ae = Entry(a,catalogs[kind].tag), *be = Entry(b,catalogs[kind].tag);
-        const unsigned char *ad, *bd, *ar, *br;
-        DWORD count, i, stride = catalogs[kind].stride;
+        const unsigned char *arows, *brows;
+        DWORD acount, bcount, i, stride = catalogs[kind].stride;
         if (!ae && !be) { continue; } /* Older v3 ROMs may omit discovery tables. */
-        if (!ae || !be || ae->flags != 0x80000000u || be->flags != ae->flags
-            || ae->romend-ae->romstart != 16 || be->romend-be->romstart != 16)
+        if (!ae || !be)
         { return Fail(why, "The ROMs have incompatible model catalogs. Use matching GUD/editor formats."); }
-        ad = a->data+ae->romstart; bd = b->data+be->romstart;
-        count = Read32(ad+4);
-        if (Read32(ad+8) != stride || Read32(ad+12) != 1 || memcmp(ad+4,bd+4,12)
-            || count > a->size/stride || count > b->size/stride
-            || !(ar = Mapped(a,Read32(ad),count*stride)) || !(br = Mapped(b,Read32(bd),count*stride)))
-        { return Fail(why, "Model catalog sizes, IDs or formats changed; this rebase needs asset migration."); }
-        for (i = 0; i < count; i++, ar+=stride, br+=stride)
+        if (!CatalogRows(a,ae,stride,&arows,&acount,why)
+            || !CatalogRows(b,be,stride,&brows,&bcount,why)) { return FALSE; }
+        /* Slot counts are capacity, not identity. Validate the entire incoming
+         * table, but require compatibility only for occupied old IDs. */
+        for (i=0;i<acount || i<bcount;i++)
         {
-            DWORD an = Read32(ar+4), bn = Read32(br+4);
-            const char *as = an ? MappedString(a,an) : "", *bs = bn ? MappedString(b,bn) : "";
+            const unsigned char *ar=i<acount ? arows+i*stride : NULL;
+            const unsigned char *br=i<bcount ? brows+i*stride : NULL;
+            DWORD an=ar ? Read32(ar+4) : 0, bn=br ? Read32(br+4) : 0;
+            const char *as=an ? MappedString(a,an) : "", *bs=bn ? MappedString(b,bn) : "";
+            if (!as || !bs)
+            { return Fail(why,"%s model catalog ID %lu has an invalid resource name.",
+                catalogs[kind].name,(unsigned long)i); }
+            if (CatalogUnused(ar,as,stride)) { continue; }
             /* Header/stat pointers may relocate with optimized code. Compare
-             * the actual model name and all scalar fields, not those addresses. */
-            if (!as || !bs || !!an != !!bn || strcmp(as,bs) || memcmp(ar+8,br+8,4)
-                || (stride == 20 && memcmp(ar+12,br+12,8))
-                || (stride == 56 && memcmp(ar+16,br+16,40)))
-            { return Fail(why, "Model catalog ID %lu changed (%s); this version does not remap model IDs or scales.",
-                (unsigned long)i, as ? as : "invalid name"); }
+             * their presence, model names and scalars, not linked addresses. */
+            if (!br || CatalogUnused(br,bs,stride) || !!Read32(ar)!=!!Read32(br)
+                || !!an!=!!bn || strcmp(as,bs) || memcmp(ar+8,br+8,4)
+                || (stride==20 && memcmp(ar+12,br+12,8))
+                || (stride==56 && (!!Read32(ar+12)!=!!Read32(br+12) || memcmp(ar+16,br+16,40))))
+            { return Fail(why, "%s model catalog ID %lu changed or was removed (%s); model IDs or settings need migration.",
+                catalogs[kind].name,(unsigned long)i,as[0] ? as : "model-less entry"); }
         }
     }
     return TRUE;
