@@ -24,7 +24,7 @@ GEDM_TABLE(g_GedPropModels, PitemZ_entries, 1);
 
 /* The editor patches only this descriptor. Meshes stay in ROM until used;
  * per-stage RAM grows with the number of added models, with no reserved pool. */
-CustomPropRomConfig g_CustomPropRomConfig = { CUSTOM_PROP_CONFIG_VERSION, 0, 0, 0 };
+CustomPropRomConfig g_CustomPropRomConfig = { CUSTOM_PROP_CONFIG_VERSION, 0, 0, CUSTOM_PROP_FEATURE_MODEL_CATEGORIES };
 typedef struct CustomPropRuntime {
     ModelFileHeader header;
     ItemModelFileRecord model;
@@ -68,7 +68,8 @@ void customPropsInit(void)
         CustomPropRuntime *item = &items[i];
         romCopy(row, (void *)(g_CustomPropRomConfig.romStart + 16 + i * CUSTOM_PROP_ENTRY_SIZE), CUSTOM_PROP_ENTRY_SIZE);
         offset = row[16]; size = row[17];
-        if (((char *)row)[0] != 'P' || ((char *)row)[63] != 0
+        if ((((char *)row)[0] != 'P' && ((char *)row)[0] != 'C' && ((char *)row)[0] != 'G')
+            || ((char *)row)[63] != 0
             || offset < 16 + count * CUSTOM_PROP_ENTRY_SIZE || (offset & 15)
             || size < 176 || (size & 15) || offset > g_CustomPropRomConfig.romSize
             || size > g_CustomPropRomConfig.romSize - offset) return;

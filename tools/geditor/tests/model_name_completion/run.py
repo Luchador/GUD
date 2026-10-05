@@ -25,7 +25,7 @@ def main():
     here = Path(__file__).resolve().parent
     source = (here.parents[1] / 'src/modeleditor.c').read_text()
     names = ('ModelEditorFindName', 'ModelEditorCompleteName', 'ModelEditorNameEditProc',
-             'ModelEditorSelect', 'ModelEditorAcceptName', 'ModelEditorNameKey',
+             'ModelEditorSelect', 'ModelEditorClearSelection', 'ModelEditorAcceptName', 'ModelEditorNameKey',
              'ModelEditorRefreshImages')
     with tempfile.TemporaryDirectory(prefix='geditor-model-completion-') as temporary:
         work = Path(temporary)

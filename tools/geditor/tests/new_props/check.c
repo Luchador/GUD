@@ -268,6 +268,68 @@ static void PaintedProp(const char *project, BOOL paint)
     ModelFreeSource(&source);
 }
 
+static void Categories(const char *project,const char *base,const char *source)
+{
+    const char *names[]={"Cadded_actorZ","Gadded_itemZ","Padded_propZ"};
+    const char *folders[]={"characters","guns","objects"};
+    char path[MAX_PATH],made[64],longname[64];DWORD triangles,before,after,size;
+    int original=NewPropsCount();RomFile rom={0};const char *name;
+    CHECK(!NewPropsImport(project,names[0],source,FALSE,&triangles,&why));
+    CHECK(!NewPropsImport(project,names[1],source,FALSE,&triangles,&why));
+    CHECK(NewPropsCount()==original); /* Old ROMs must not receive unusable IDs. */
+    CHECK(NewPropsSave(project,&why));
+    CHECK(RomLoad(base,&rom,&why));Put(rom.data+0x20c,CUSTOM_PROP_FEATURE_MODEL_CATEGORIES);
+    Write(base,rom.data,rom.size);RomFree(&rom);ModelEditsReset();CHECK(NewPropsOpen(project,&why));
+    CHECK(NewPropsMakeName(NEW_MODEL_CHARACTERS,"actor",made) && !strcmp(made,"CactorZ"));
+    CHECK(NewPropsMakeName(NEW_MODEL_ITEMS,"PactorZ",made) && !strcmp(made,"GactorZ"));
+    CHECK(NewPropsMakeName(NEW_MODEL_PROPS,"CactorZ",made) && !strcmp(made,"PactorZ"));
+    memset(longname,'a',61);longname[61]=0;
+    CHECK(NewPropsMakeName(NEW_MODEL_PROPS,longname,made) && strlen(made)==63);
+    longname[61]='a';longname[62]=0;CHECK(!NewPropsMakeName(NEW_MODEL_PROPS,longname,made));
+    CHECK(!NewPropsMakeName(-1,"actor",made) && !NewPropsMakeName(3,"actor",made));
+    CHECK(!NewPropsMakeName(0,"",made) && !NewPropsMakeName(0,"../actor",made));
+    for(int category=0;category<3;category++)
+    {
+        CHECK(NewPropsImport(project,names[category],source,FALSE,&triangles,&why) && triangles==4);
+        CHECK(NewPropsCategory(names[category])==category);
+        CHECK(!strcmp(NewPropsFolder(names[category]),folders[category]));
+        CHECK(NewPropsDefinition(CUSTOM_PROP_BASE+original+category,&name,NULL) && !strcmp(name,names[category]));
+        CHECK(!NewPropsImport(project,names[category],source,FALSE,&triangles,&why));
+        /* All categorized assets retain the existing static-model placement contract. */
+        BOOL character=TRUE;int id=-1;
+        CHECK(ObjectResolvePlaceableModel(names[category],&character,&id) && !character
+            && id==CUSTOM_PROP_BASE+original+category);
+        CHECK(ModelEditsImport(project,names[category],source,&before,&after,&why) && before==4 && after==4);
+    }
+    CHECK(NewPropsCount()==original+3 && ModelEditsSave(project,&why));ModelEditsReset();
+    CHECK(NewPropsOpen(project,&why) && NewPropsCount()==original+3);
+    for(int category=0;category<3;category++)
+    {
+        snprintf(path,sizeof(path),"%s/models/%s/%s.gltf",project,folders[category],names[category]);
+        CHECK(GetFileAttributes(path)!=INVALID_FILE_ATTRIBUTES);
+        CHECK(NewPropsData(project,names[category],&size) && size>0);
+    }
+    CHECK(RomLoad(base,&rom,&why));CHECK(NewPropsExportToRom(project,&rom,&why));
+    DWORD bank=Word(rom.data+0x204);
+    for(int category=0;category<3;category++)
+        CHECK(!strcmp((const char *)rom.data+bank+16+(original+category)*CUSTOM_PROP_ENTRY_SIZE,names[category]));
+    /* Refuse an incompatible rebase/export before touching its ROM bytes. */
+    Put(rom.data+0x20c,0);DWORD hash=ModelDataHash(rom.data,rom.size);
+    CHECK(!NewPropsCheckRebase(project,&rom,&why) && !NewPropsExportToRom(project,&rom,&why));
+    CHECK(hash==ModelDataHash(rom.data,rom.size));
+    Put(rom.data+0x20c,CUSTOM_PROP_FEATURE_MODEL_CATEGORIES);
+    CHECK(NewPropsCheckRebase(project,&rom,&why));Write(base,rom.data,rom.size);RomFree(&rom);
+    snprintf(path,sizeof(path),"%s/models/newprops.gnp",project);CHECK(DeleteFile(path));ModelEditsReset();
+    CHECK(NewPropsOpen(project,&why) && NewPropsCount()==original+3); /* Extract from ROM. */
+    for(int category=0;category<3;category++)
+    {
+        CHECK(NewPropsDefinition(CUSTOM_PROP_BASE+original+category,&name,NULL) && !strcmp(name,names[category]));
+        CHECK(NewPropsCategory(name)==category);
+    }
+    CHECK(NewPropsSave(project,&why));
+    puts("PASS model categories: C/G/P names, all three imports and replacements, category folders, save/reload, stable IDs, ROM extraction and incompatible-rebase/export protection.");
+}
+
 int main(int argc,char **argv)
 {
     const char *project=argv[1],*name;float scale;DWORD count,size,hash,oldsize,start,i;
@@ -372,6 +434,7 @@ int main(int argc,char **argv)
         CHECK(mesh.vertices[1].y==200 && mesh.vertices[2].x==-200);ModelFreeSource(&mesh);
     }
     Batching(project);
+    Categories(project,base,source);
     ModelEditsReset();puts("PASS four materials, alpha, bounds, winding, validation, IDs, topology, atomic save, roundtrip, bank export and rebase.");
     return 0;
 }

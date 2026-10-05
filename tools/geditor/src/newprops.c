@@ -17,18 +17,39 @@ typedef struct NewProp {
 typedef struct NewPropStore { NewProp entries[CUSTOM_PROP_CAPACITY]; DWORD count; } NewPropStore;
 static NewPropStore g_Props;
 static char g_Project[MAX_PATH];
-static BOOL g_Loaded,g_Supported,g_Dirty;
+static BOOL g_Loaded,g_Supported,g_CategoriesSupported,g_Dirty;
 static const char *g_LoadError;
 static DWORD Read32(const unsigned char *p) { return (DWORD)p[0]<<24|(DWORD)p[1]<<16|(DWORD)p[2]<<8|p[3]; }
 static void Write32(unsigned char *p,DWORD n) { p[0]=n>>24;p[1]=n>>16;p[2]=n>>8;p[3]=n; }
 static float ReadFloat(const unsigned char *p) { DWORD n=Read32(p);float f;memcpy(&f,&n,4);return f; }
 static void WriteFloat(unsigned char *p,float f) { DWORD n;memcpy(&n,&f,4);Write32(p,n); }
+int NewPropsCategory(const char *name)
+{
+    return name[0]=='C' ? NEW_MODEL_CHARACTERS : name[0]=='G' ? NEW_MODEL_ITEMS
+        : name[0]=='P' ? NEW_MODEL_PROPS : -1;
+}
+const char *NewPropsFolder(const char *name)
+{
+    static const char *folders[]={"characters","guns","objects"};
+    int category=NewPropsCategory(name);
+    return category>=0 ? folders[category] : NULL;
+}
 static BOOL NameValid(const char *name)
 {
     size_t i,n=strlen(name);
-    if (n<3 || n>=64 || name[0]!='P' || name[n-1]!='Z') return FALSE;
+    if (n<3 || n>=64 || NewPropsCategory(name)<0 || name[n-1]!='Z') return FALSE;
     for (i=0;i<n;i++) if (!isalnum((unsigned char)name[i]) && name[i]!='_') return FALSE;
     return TRUE;
+}
+BOOL NewPropsMakeName(int category,const char *stem,char name[64])
+{
+    static const char prefixes[]="CGP";
+    size_t length=strlen(stem);
+    if (category<NEW_MODEL_CHARACTERS || category>NEW_MODEL_PROPS) return FALSE;
+    if (length>=3 && NewPropsCategory(stem)>=0 && stem[length-1]=='Z') { stem++;length-=2; }
+    if (!length || length>61) return FALSE;
+    snprintf(name,64,"%c%.*sZ",prefixes[category],(int)length,stem);
+    return NameValid(name);
 }
 static BOOL Path(char path[MAX_PATH],const char *project,const char *suffix)
 {
@@ -43,7 +64,7 @@ static void FreeStore(NewPropStore *store)
 }
 void NewPropsReset(void)
 {
-    FreeStore(&g_Props);g_Project[0]=0;g_Loaded=g_Supported=g_Dirty=FALSE;g_LoadError=NULL;
+    FreeStore(&g_Props);g_Project[0]=0;g_Loaded=g_Supported=g_CategoriesSupported=g_Dirty=FALSE;g_LoadError=NULL;
 }
 BOOL NewPropsHasUnsaved(void) { return g_Dirty; }
 int NewPropsCount(void) { return (int)g_Props.count; }
@@ -150,7 +171,7 @@ static int Config(const RomFile *rom,DWORD *config,DWORD *bankindex,const char *
     if (!entry || !bank || entry->romstart>rom->size || rom->size-entry->romstart<16
         || entry->romend!=entry->romstart+16 || entry->flags!=CUSTOM_PROP_CONFIG_VERSION
         || Read32(rom->data+entry->romstart)!=CUSTOM_PROP_CONFIG_VERSION
-        || Read32(rom->data+entry->romstart+12)
+        || (Read32(rom->data+entry->romstart+12)&~CUSTOM_PROP_FEATURE_MODEL_CATEGORIES)
         || bank->flags!=CUSTOM_PROP_CONFIG_VERSION) return -1;
     *config=entry->romstart;
     if (bank->romstart>bank->romend || bank->romend>rom->size
@@ -200,6 +221,7 @@ BOOL NewPropsOpen(const char *project,const char **why)
         || !RomLoad(path,&rom,why)) goto fail;
     result=Config(&rom,&config,&index,why);if (result<0) goto fail;
     g_Supported=result==1;
+    g_CategoriesSupported=g_Supported && (Read32(rom.data+config+12)&CUSTOM_PROP_FEATURE_MODEL_CATEGORIES);
     if (g_Supported && Read32(rom.data+config+8)
         && !ParseBank(rom.data+Read32(rom.data+config+4),Read32(rom.data+config+8),&base,why)) goto fail;
     saved=ReadSaved(project,&g_Props,why);if (saved<0) goto fail;
@@ -210,6 +232,8 @@ BOOL NewPropsOpen(const char *project,const char **why)
         for (i=0;i<base.count;i++) if (strcmp(base.entries[i].name,g_Props.entries[i].name))
         { *why="A new prop ID means a different model in this base ROM.";goto fail; }
     }
+    for (i=0;i<g_Props.count;i++) if (!g_CategoriesSupported && NewPropsCategory(g_Props.entries[i].name)!=NEW_MODEL_PROPS)
+    { *why="Rebuild GUD with model-category support and rebase this project before using its added Characters or Items.";goto fail; }
     FreeStore(&base);RomFree(&rom);*why="";return TRUE;
 fail:
     FreeStore(&base);FreeStore(&g_Props);RomFree(&rom);
@@ -224,9 +248,11 @@ BOOL NewPropsImport(const char *project,const char *name,const char *path,BOOL r
     ModelMaterials materials={0}, ordered={0}; DWORD face,*faceorder=NULL;
     if (!NewPropsOpen(project,why)) return FALSE;
     if (!g_Supported) { *why="Rebuild GUD with new-prop support, then rebase this project to that ROM before adding models.";return FALSE; }
-    if (!NameValid(name)) { *why="Use a unique prop name such as PpendantZ (letters, digits and underscores, ending in Z).";return FALSE; }
+    if (!NameValid(name)) { *why="Use a unique model name beginning with C, G or P and ending in Z (letters, digits and underscores).";return FALSE; }
+    if (!g_CategoriesSupported && NewPropsCategory(name)!=NEW_MODEL_PROPS)
+    { *why="Rebuild GUD with model-category support, then rebase this project before adding Characters or Items.";return FALSE; }
     prop=Find(name);
-    if ((replace && !prop) || (!replace && prop)) { *why="That prop name is already used, or the reimport target no longer exists.";return FALSE; }
+    if ((replace && !prop) || (!replace && prop)) { *why="That model name is already used, or the reimport target no longer exists.";return FALSE; }
     if (!replace)
     {
         DWORD i;
@@ -237,8 +263,8 @@ BOOL NewPropsImport(const char *project,const char *name,const char *path,BOOL r
             { *why="This name belongs to an existing prop model.";return FALSE; }
         }
         for (i=0;i<g_Props.count;i++) if (!lstrcmpi(name,g_Props.entries[i].name))
-        { *why="Another prop already uses that name.";return FALSE; }
-        if (g_Props.count>=CUSTOM_PROP_CAPACITY) { *why="The project already contains 128 added prop models.";return FALSE; }
+        { *why="Another model already uses that name.";return FALSE; }
+        if (g_Props.count>=CUSTOM_PROP_CAPACITY) { *why="The project already contains 128 added models.";return FALSE; }
         snprintf(base,sizeof(base),"%s\\base.z64",project);
         if (!RomLoad(base,&rom,why)) goto done;
         if (RomFindFile(&rom,name,&offset,&span,why)) { *why="This name belongs to an existing ROM resource.";goto done; }
@@ -299,7 +325,11 @@ BOOL NewPropsSave(const char *project,const char **why)
     for (i=0;i<g_Props.count;i++)
     {
         NewProp *prop=&g_Props.entries[i];ModelSource source={0};
-        if (snprintf(path,sizeof(path),"%s\\models\\objects\\%s.gltf",project,prop->name)>=(int)sizeof(path)
+        if (snprintf(path,sizeof(path),"%s\\models\\%s",project,NewPropsFolder(prop->name))>=(int)sizeof(path))
+        { *why="The model folder path is too long.";return FALSE; }
+        if (!CreateDirectory(path,NULL) && GetLastError()!=ERROR_ALREADY_EXISTS)
+        { *why="The model category folder could not be created.";return FALSE; }
+        if (snprintf(path,sizeof(path),"%s\\models\\%s\\%s.gltf",project,NewPropsFolder(prop->name),prop->name)>=(int)sizeof(path)
             || !ModelReadSource(prop->data,prop->size,&source,why)) return FALSE;
         ok=GltfWriteEditableModel(path,project,&source,ModelDataHash(prop->data,prop->size),why);
         ModelFreeSource(&source);if (!ok) return FALSE;
@@ -314,6 +344,9 @@ BOOL NewPropsCheckRebase(const char *project,const RomFile *rom,const char **why
     result=Config(rom,&config,&index,why);if (result<0) goto done;
     if (saved.count && result!=1)
     { *why="The new ROM lacks the new-prop runtime required by this project.";goto done; }
+    for (i=0;i<saved.count;i++) if (NewPropsCategory(saved.entries[i].name)!=NEW_MODEL_PROPS
+        && !(Read32(rom->data+config+12)&CUSTOM_PROP_FEATURE_MODEL_CATEGORIES))
+    { *why="The new ROM lacks model-category support required by the project's added Characters or Items.";goto done; }
     if (result==1 && Read32(rom->data+config+8)
         && !ParseBank(rom->data+Read32(rom->data+config+4),Read32(rom->data+config+8),&base,why)) goto done;
     if (found) for (i=0;i<base.count;i++)

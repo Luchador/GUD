@@ -8,7 +8,7 @@ typedef struct CustomPropRomConfig {
     u32 version;
     u32 romStart;
     u32 romSize;
-    u32 reserved;
+    u32 features;
 } CustomPropRomConfig;
 
 extern CustomPropRomConfig g_CustomPropRomConfig;

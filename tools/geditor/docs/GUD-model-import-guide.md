@@ -1,9 +1,31 @@
 # Editing models in Blender
 
 The Model Editor now has **Export Model...** and **Import Model...** buttons.
-Import replaces the selected model throughout the project. Save Project saves
+With a model selected, Import replaces that model throughout the project. Save Project saves
 model replacements, and Create ROM includes them. Importing marks the project
 as unsaved; closing the Model Editor does not discard its changes.
+
+## Adding a new model
+
+With no model selected, **Import Model...** adds a new model. Select a `.glb`
+or `.gltf`, then choose **Characters**, **Items**, or **Props** and a model name
+in the Import Model window. The matching C/G/P prefix and final Z are applied
+automatically. The model opens in the chosen category; assign its images in
+Materials and **Save Project**. The category is retained through save/reload,
+ROM export, extraction and rebase. **Add Prop Model...** has been removed.
+
+To start another new import, clear any model selector's text and press Enter,
+or close and reopen the Model Editor. Clearing the selection keeps all edits.
+Cancelling either the file picker or category window adds nothing.
+
+New imports continue to use the static-mesh importer: skinning, morph targets
+and animations are not supported. Categories organize assets; importing a
+Characters or Items asset does not create a new guard definition or weapon
+type. Existing character/item replacement imports keep their original native
+rigs and behavior. Rebuild both GUD and GEditor and rebase before adding the
+new categories; older prop-only projects remain compatible.
+
+## Editing an existing model
 
 1. Select a character, item, or prop in Tools > Model Editor.
 2. Click **Export Model...** and save the glTF somewhere convenient. This works

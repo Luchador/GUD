@@ -8,6 +8,7 @@
 #include <string.h>
 #include <limits.h>
 #include <math.h>
+#include <ctype.h>
 
 #include "modeleditor.h"
 #include "modeledits.h"
@@ -192,8 +193,7 @@ void ModelEditorSetProject(const char *projectdir)
     ModelEditorClearViewport();
     g_ModelSelected = -1;
     EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_EXPORT),FALSE);
-    EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_IMPORT),FALSE);
-    EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_ADD),g_ModelProject[0]!=0);
+    EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_IMPORT),g_ModelProject[0]!=0);
     for (category = 0; category < 3; category++)
     {
         SendDlgItemMessage(g_ModelEditor, g_ModelCombos[category], CB_RESETCONTENT, 0, 0);
@@ -217,10 +217,11 @@ void ModelEditorSetProject(const char *projectdir)
             grown=realloc(g_ModelEntries,((size_t)g_ModelCount+1)*sizeof(*grown));
             if (!grown) { complete=FALSE;break; }
             g_ModelEntries=grown;lstrcpyn(grown[g_ModelCount].name,name,MAX_PATH);
-            grown[g_ModelCount].folder="objects";
-            row=SendDlgItemMessage(g_ModelEditor,IDC_MODEL_PROPS,CB_ADDSTRING,0,(LPARAM)name);
+            grown[g_ModelCount].folder=NewPropsFolder(name);
+            HWND combo=GetDlgItem(g_ModelEditor,g_ModelCombos[NewPropsCategory(name)]);
+            row=SendMessage(combo,CB_ADDSTRING,0,(LPARAM)name);
             if (row<0) { complete=FALSE;break; }
-            SendDlgItemMessage(g_ModelEditor,IDC_MODEL_PROPS,CB_SETITEMDATA,row,g_ModelCount++);
+            SendMessage(combo,CB_SETITEMDATA,row,g_ModelCount++);
         }
     }
     for (category = 0; category < 3; category++)
@@ -231,8 +232,7 @@ void ModelEditorSetProject(const char *projectdir)
     SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS, !complete
         ? "Could not list every model: check the project path or available memory."
         : g_ModelProject[0] == '\0' ? "Open or create a project to browse its models."
-        : g_ModelCount == 0 ? "No models were found in this project."
-        : "Choose a model. Left/right drag to orbit; middle drag to pan; scroll to zoom.");
+        : "Choose a model to edit, or use Import Model to add a new one.");
 }
 
 /* Reload by asset identity: an editable selector may contain an uncommitted
@@ -510,12 +510,29 @@ static BOOL ModelEditorPaintKey(MSG *message)
     return FALSE;
 }
 
+static void ModelEditorClearSelection(void)
+{
+    g_ModelSelected=-1;
+    ModelEditorClearViewport();
+    g_ModelCompleting=TRUE;
+    for (int i=0;i<3;i++)
+    {
+        SendDlgItemMessage(g_ModelEditor,g_ModelCombos[i],CB_SETCURSEL,-1,0);
+        SetDlgItemText(g_ModelEditor,g_ModelCombos[i],"");
+    }
+    g_ModelCompleting=FALSE;
+    EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_EXPORT),FALSE);
+    EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_IMPORT),g_ModelProject[0]!=0);
+    SetDlgItemText(g_ModelEditor,IDC_MODEL_STATUS,"Use Import Model to add a new model, or choose an existing model to edit.");
+}
+
 static void ModelEditorAcceptName(int category)
 {
     HWND combo = GetDlgItem(g_ModelEditor, g_ModelCombos[category]);
     char text[MAX_PATH];
     LRESULT row;
     GetWindowText(combo, text, sizeof(text));
+    if (!text[0]) { ModelEditorClearSelection();return; }
     row = ModelEditorFindName(combo, text);
     if (row == CB_ERR)
     {
@@ -904,6 +921,7 @@ static void ModelEditorDeleteFaces(void)
     ModelEditorNotifyChanged();
 }
 
+static void ModelEditorImportNew(const char *path);
 static void ModelEditorTransfer(BOOL importing)
 {
     OPENFILENAME ofn;
@@ -913,15 +931,16 @@ static void ModelEditorTransfer(BOOL importing)
     DWORD before=0, after=0;
     BOOL ok;
     HCURSOR previous;
-    if (g_ModelSelected < 0 || g_ModelSelected >= g_ModelCount) { return; }
-    entry=&g_ModelEntries[g_ModelSelected];
-    if (!importing) { snprintf(path,sizeof(path),"%s.gltf",entry->name); }
+    entry=g_ModelSelected>=0 && g_ModelSelected<g_ModelCount ? &g_ModelEntries[g_ModelSelected] : NULL;
+    if (!g_ModelProject[0] || (!importing && !entry)) { return; }
+    if (!importing) { snprintf(path,sizeof(path),"%.*s.gltf",(int)sizeof(path)-6,entry->name); }
     ZeroMemory(&ofn,sizeof(ofn)); ofn.lStructSize=sizeof(ofn);ofn.hwndOwner=g_ModelEditor;
     ofn.lpstrFile=path;ofn.nMaxFile=sizeof(path);ofn.lpstrDefExt="gltf";
-    ofn.lpstrTitle=importing ? "Import replacement model" : "Export model for Blender";
+    ofn.lpstrTitle=importing ? (entry ? "Import replacement model" : "Import new model") : "Export model for Blender";
     ofn.lpstrFilter=importing ? "glTF models (*.glb;*.gltf)\0*.glb;*.gltf\0\0" : "glTF model (*.gltf)\0*.gltf\0\0";
     ofn.Flags=OFN_EXPLORER|OFN_NOCHANGEDIR|OFN_PATHMUSTEXIST|(importing ? OFN_FILEMUSTEXIST : OFN_OVERWRITEPROMPT);
     if (!(importing ? GetOpenFileName(&ofn) : GetSaveFileName(&ofn))) { return; }
+    if (importing && !entry) { ModelEditorImportNew(path);return; }
     previous=SetCursor(LoadCursor(NULL,IDC_WAIT));
     ok=importing ? ModelEditsImport(g_ModelProject,entry->name,path,&before,&after,&why)
                  : ModelEditsExport(g_ModelProject,entry->name,path,&why);
@@ -940,45 +959,64 @@ static void ModelEditorTransfer(BOOL importing)
     ModelEditorNotifyChanged();
 }
 
-static INT_PTR CALLBACK ModelEditorNewPropDialog(HWND hwnd,UINT message,WPARAM wparam,LPARAM lparam)
+typedef struct ModelEditorNewModel { char name[64];int category; } ModelEditorNewModel;
+static INT_PTR CALLBACK ModelEditorNewModelDialog(HWND hwnd,UINT message,WPARAM wparam,LPARAM lparam)
 {
-    char *name=(char *)GetWindowLongPtr(hwnd,DWLP_USER);
+    ModelEditorNewModel *model=(ModelEditorNewModel *)GetWindowLongPtr(hwnd,DWLP_USER);
     if (message==WM_INITDIALOG)
     {
+        static const char *categories[]={"Characters","Items","Props"};
+        model=(ModelEditorNewModel *)lparam;
         SetWindowLongPtr(hwnd,DWLP_USER,lparam);
-        SendDlgItemMessage(hwnd,IDC_NEW_PROP_NAME,EM_SETLIMITTEXT,63,0);
-        SetDlgItemText(hwnd,IDC_NEW_PROP_NAME,(const char *)lparam);return TRUE;
+        SendDlgItemMessage(hwnd,IDC_NEW_MODEL_NAME,EM_SETLIMITTEXT,63,0);
+        SetDlgItemText(hwnd,IDC_NEW_MODEL_NAME,model->name);
+        for (int i=0;i<3;i++) SendDlgItemMessage(hwnd,IDC_NEW_MODEL_CATEGORY,CB_ADDSTRING,0,(LPARAM)categories[i]);
+        SendDlgItemMessage(hwnd,IDC_NEW_MODEL_CATEGORY,CB_SETCURSEL,model->category,0);
+        return TRUE;
     }
     if (message==WM_COMMAND && LOWORD(wparam)==IDOK)
-    { GetDlgItemText(hwnd,IDC_NEW_PROP_NAME,name,64);EndDialog(hwnd,IDOK);return TRUE; }
+    {
+        char stem[64],name[64];
+        int category=(int)SendDlgItemMessage(hwnd,IDC_NEW_MODEL_CATEGORY,CB_GETCURSEL,0,0);
+        GetDlgItemText(hwnd,IDC_NEW_MODEL_NAME,stem,sizeof(stem));
+        if (!NewPropsMakeName(category,stem,name))
+        {
+            MessageBox(hwnd,"Choose a category and enter a name using letters, digits and underscores (up to 61 characters).",
+                "Import Model",MB_ICONERROR);return TRUE;
+        }
+        lstrcpyn(model->name,name,sizeof(model->name));model->category=category;
+        EndDialog(hwnd,IDOK);return TRUE;
+    }
     if ((message==WM_COMMAND && LOWORD(wparam)==IDCANCEL) || message==WM_CLOSE)
     { EndDialog(hwnd,IDCANCEL);return TRUE; }
     return FALSE;
 }
 
-static void ModelEditorAddProp(void)
+static void ModelEditorImportNew(const char *path)
 {
-    OPENFILENAME ofn={0};char path[MAX_PATH]="",name[64],stem[64],text[160];
+    char stem[MAX_PATH],text[160];ModelEditorNewModel model={{0},NEW_MODEL_PROPS};
     const char *base,*why="";char *dot;DWORD triangles;HCURSOR cursor;BOOL ok;
     HWND owner=GetWindow(g_ModelEditor,GW_OWNER);
     HINSTANCE instance=(HINSTANCE)GetWindowLongPtr(g_ModelEditor,GWLP_HINSTANCE);
     if (!g_ModelProject[0]) return;
-    ofn.lStructSize=sizeof(ofn);ofn.hwndOwner=g_ModelEditor;ofn.lpstrFile=path;ofn.nMaxFile=sizeof(path);
-    ofn.lpstrTitle="Add a new prop model";ofn.lpstrFilter="glTF models (*.glb;*.gltf)\0*.glb;*.gltf\0\0";
-    ofn.Flags=OFN_EXPLORER|OFN_NOCHANGEDIR|OFN_PATHMUSTEXIST|OFN_FILEMUSTEXIST;
-    if (!GetOpenFileName(&ofn)) return;
-    base=strrchr(path,'\\');base=base?base+1:path;lstrcpyn(stem,base,sizeof(stem));
+    base=path;
+    for (const char *p=path;*p;p++) if (*p=='\\' || *p=='/') base=p+1;
+    lstrcpyn(stem,base,sizeof(stem));
     dot=strrchr(stem,'.');if (dot) *dot=0;
-    if (stem[0]=='P' && strlen(stem)>1 && stem[strlen(stem)-1]=='Z') lstrcpyn(name,stem,sizeof(name));
-    else snprintf(name,sizeof(name),"P%.60sZ",stem);
-    if (DialogBoxParam(instance,MAKEINTRESOURCE(IDD_ADD_PROP_MODEL),g_ModelEditor,ModelEditorNewPropDialog,(LPARAM)name)!=IDOK) return;
+    base=stem;
+    if (strlen(stem)>=3 && NewPropsCategory(stem)>=0 && stem[strlen(stem)-1]=='Z')
+    { model.category=NewPropsCategory(stem);stem[strlen(stem)-1]=0;base++; }
+    lstrcpyn(model.name,*base?base:"model",62);
+    for (char *p=model.name;*p;p++) if (!isalnum((unsigned char)*p) && *p!='_') *p='_';
+    if (DialogBoxParam(instance,MAKEINTRESOURCE(IDD_IMPORT_MODEL),g_ModelEditor,ModelEditorNewModelDialog,(LPARAM)&model)!=IDOK) return;
     cursor=SetCursor(LoadCursor(NULL,IDC_WAIT));
-    ok=NewPropsImport(g_ModelProject,name,path,FALSE,&triangles,&why);SetCursor(cursor);
-    if (!ok) { MessageBox(g_ModelEditor,why,"Add Prop Model",MB_ICONERROR);return; }
+    ok=NewPropsImport(g_ModelProject,model.name,path,FALSE,&triangles,&why);SetCursor(cursor);
+    if (!ok) { MessageBox(g_ModelEditor,why,"Import Model",MB_ICONERROR);return; }
     SendMessage(owner,MODELEDITOR_CHANGED,1,0); /* Refresh browser and new IDs before selecting. */
     ModelEditorSetProject(g_ModelProject);
-    ModelEditorOpenModel(owner,instance,g_ModelProject,name,&why);
-    snprintf(text,sizeof(text),"Added %s (%lu triangles). Drag it from Models into the level; Save Project to keep it.",name,(unsigned long)triangles);
+    if (!ModelEditorOpenModel(owner,instance,g_ModelProject,model.name,&why))
+    { MessageBox(g_ModelEditor,why,"Import Model",MB_ICONERROR);return; }
+    snprintf(text,sizeof(text),"Added %s (%lu triangles). Assign images in Materials; Save Project to keep the model.",model.name,(unsigned long)triangles);
     SetDlgItemText(g_ModelEditor,IDC_MODEL_STATUS,text);
 }
 
@@ -1013,10 +1051,9 @@ static void ModelEditorLayout(HWND hwnd)
     }
     ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_EXPORT),margin,margin*2+units.bottom*2,units.right,units.bottom);
     ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_IMPORT),margin*2+units.right,margin*2+units.bottom*2,units.right,units.bottom);
-    ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_ADD),margin*3+units.right*2,margin*2+units.bottom*2,units.right+margin,units.bottom);
-    ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_UV),margin*5+units.right*3,margin*2+units.bottom*2,units.right+margin,units.bottom);
+    ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_UV),margin*3+units.right*2,margin*2+units.bottom*2,units.right+margin,units.bottom);
     if (g_ModelPaintToolbar)
-        ModelEditorPlaceControl(g_ModelPaintToolbar, margin*7+units.right*4,
+        ModelEditorPlaceControl(g_ModelPaintToolbar, margin*5+units.right*3,
                                 units.top-TOOLTOOLBAR_HEIGHT-margin/2, TOOLTOOLBAR_HEIGHT, TOOLTOOLBAR_HEIGHT);
     if (g_ModelViewport != NULL)
     {
@@ -1192,7 +1229,6 @@ static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wp
         }
         if (LOWORD(wparam)==IDC_MODEL_EXPORT || LOWORD(wparam)==IDC_MODEL_IMPORT)
         { ModelEditorTransfer(LOWORD(wparam)==IDC_MODEL_IMPORT);return TRUE; }
-        if (LOWORD(wparam)==IDC_MODEL_ADD) { ModelEditorAddProp();return TRUE; }
         if (LOWORD(wparam) >= IDC_MODEL_CHARACTERS && LOWORD(wparam) <= IDC_MODEL_PROPS)
         {
             if (HIWORD(wparam) == CBN_EDITCHANGE)

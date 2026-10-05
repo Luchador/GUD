@@ -11,6 +11,8 @@
 #define CUSTOM_PROP_CONFIG_VERSION 1u
 #define CUSTOM_PROP_MANIFEST_KIND 0x4e505250u /* NPRP */
 #define CUSTOM_PROP_DATA_KIND 0x4e504d44u /* NPMD */
+/* Config word 3: accept C/G names as categorized static model assets. */
+#define CUSTOM_PROP_FEATURE_MODEL_CATEGORIES 1u
 /* Header: magic, count, entry size, ID base (four big-endian words).
  * Entry: name[64], bank-relative data offset, length, f32 radius, data hash,
  * f32 placement scale, then 12 reserved zero bytes. All data is 16-byte aligned.

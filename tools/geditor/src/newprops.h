@@ -3,6 +3,11 @@
 #include "rom.h"
 #include <src/custompropformat.h>
 
+enum { NEW_MODEL_CHARACTERS, NEW_MODEL_ITEMS, NEW_MODEL_PROPS };
+int NewPropsCategory(const char *name);
+const char *NewPropsFolder(const char *name);
+BOOL NewPropsMakeName(int category,const char *stem,char name[64]);
+
 void NewPropsReset(void);
 BOOL NewPropsOpen(const char *project,const char **why);
 BOOL NewPropsHasUnsaved(void);

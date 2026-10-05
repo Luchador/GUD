@@ -1695,7 +1695,7 @@ static BOOL GltfLoadGlbNode(const char *json, const GltfJsonToken *tokens,
     if (node < 0 || depth > 64 || ++*visited > 4096) { return FALSE; }
     if ((builder->newprop || builder->studio) && (GltfJsonObjectGet(json,tokens,tokencount,node,"skin") >= 0
         || GltfJsonObjectGet(json,tokens,tokencount,node,"weights") >= 0))
-    { *reasonout = "New prop imports must be static meshes without skinning or morph targets."; return FALSE; }
+    { *reasonout = "New model imports must be static meshes without skinning or morph targets."; return FALSE; }
     token = GltfJsonObjectGet(json, tokens, tokencount, node, "matrix");
     if (token >= 0)
     {
@@ -2409,7 +2409,7 @@ static BOOL GltfReadImport(const char *path, DWORD sourcehash, const char *proje
     if (token<0 || !GltfJsonTokenEquals(json,&tokens[token],"2.0")) { goto done; }
     if ((newprop || builder.studio) && GltfJsonArrayCount(tokens,tokencount,
         GltfJsonObjectGet(json,tokens,tokencount,0,"animations")))
-    { *reasonout="New props must be exported without animations."; goto done; }
+    { *reasonout="New models must be exported without animations."; goto done; }
     /* Blender preserves object/scene extras when Custom Properties is enabled.
        Check all occurrences so mixed exports cannot replace the wrong model. */
     for (token=0; builder.importing && token<tokencount; token++)

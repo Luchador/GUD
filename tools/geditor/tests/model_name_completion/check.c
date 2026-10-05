@@ -20,12 +20,18 @@ typedef struct { HWND hwnd; UINT message; WPARAM wParam; LPARAM lParam; } MSG;
 enum {CB_FINDSTRINGEXACT, CB_FINDSTRING, CB_GETEDITSEL, CB_SETCURSEL, CB_SETEDITSEL,
       CB_GETCURSEL, CB_GETITEMDATA, CB_SHOWDROPDOWN, WM_KEYDOWN, WM_CHAR, WM_CUT,
       WM_CLEAR, WM_UNDO, EM_UNDO, WM_NCDESTROY, VK_DELETE, VK_BACK, VK_RETURN,
-      IDC_MODEL_STATUS, WM_PASTE};
+      IDC_MODEL_STATUS, WM_PASTE, IDC_MODEL_EXPORT, IDC_MODEL_IMPORT};
 static const int g_ModelCombos[] = {0, 1, 2};
 static HWND g_ModelEditor = 10;
 static BOOL g_ModelCompleting;
 static int g_ModelCount = 6, g_ModelSelected = -1, loads, removed;
 static BOOL lastframe;
+static char g_ModelProject[MAX_PATH]="project";
+static BOOL importEnabled,exportEnabled=TRUE;
+static int clears;
+static void ModelEditorClearViewport(void) { clears++; }
+static void EnableWindow(HWND hwnd,BOOL enabled)
+{ if(hwnd==IDC_MODEL_IMPORT+1) importEnabled=enabled;else { assert(hwnd==IDC_MODEL_EXPORT+1);exportEnabled=enabled; } }
 static char status[200];
 typedef struct {
     const char *names[4];
@@ -49,7 +55,10 @@ static int GetWindowText(HWND hwnd, char *text, int size)
     return strlen(text);
 }
 static void SetDlgItemText(HWND parent, int id, const char *text)
-{ assert(id == IDC_MODEL_STATUS); snprintf(status, sizeof(status), "%s", text); }
+{
+    if(id>=0 && id<3) { snprintf(combos[id].text,sizeof(combos[id].text),"%s",text);return; }
+    assert(id == IDC_MODEL_STATUS); snprintf(status, sizeof(status), "%s", text);
+}
 static LRESULT SendMessage(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
 {
     Combo *combo = &combos[hwnd - 1];
@@ -145,7 +154,9 @@ int main(void)
     /* Even with a stale list selection, invalid/empty text cannot load an asset. */
     Type(2, "NoSuchModel"); Enter(2);
     assert(loads == 7 && g_ModelSelected == 3 && strstr(status, "No matching model"));
-    Type(2, ""); Enter(2); assert(loads == 7 && g_ModelSelected == 3);
+    Type(2, ""); Enter(2); assert(loads == 7 && g_ModelSelected == -1);
+    assert(clears==1 && importEnabled && !exportEnabled);
+    for(int i=0;i<3;i++) assert(!combos[i].text[0] && combos[i].row==-1);
     /* Mid-string edits do not replace the user's text or caret. */
     strcpy(props->text, "Ppend"); props->start = props->end = 2;
     ModelEditorCompleteName(3); assert(!strcmp(props->text, "Ppend") && props->start == 2);
