@@ -38,6 +38,12 @@ BOOL GltfReadModelImport(const char *path, DWORD sourcehash,
                          GltfModelImport *model, const char **reasonout);
 void GltfFreeModelImport(GltfModelImport *model);
 
+/* New heads accept static geometry without GUD metadata. When identity is
+ * present, validate it exactly as a round trip; stale exports never fall back.
+ * Caller frees flags and the model. Unbound slots start with No Texture. */
+BOOL GltfReadHeadImport(const char *path, DWORD sourcehash, const char *projectdir,
+    GltfModelImport *model, BgRenderFlags **flags, BOOL *roundtrip, const char **reasonout);
+
 /* Imports keep material slots and normalized UVs without looking up images.
  * Every imported slot starts with No Texture; the edit store can retain
  * previous assignments for matching slots on reimport. */

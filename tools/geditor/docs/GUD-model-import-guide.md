@@ -18,12 +18,59 @@ To start another new import, clear any model selector's text and press Enter,
 or close and reopen the Model Editor. Clearing the selection keeps all edits.
 Cancelling either the file picker or category window adds nothing.
 
-New imports continue to use the static-mesh importer: skinning, morph targets
-and animations are not supported. Categories organize assets; importing a
-Characters or Items asset does not create a new guard definition or weapon
-type. Existing character/item replacement imports keep their original native
-rigs and behavior. Rebuild both GUD and GEditor and rebase before adding the
-new categories; older prop-only projects remain compatible.
+Items and Props use the static-mesh importer; importing an Item does not create
+a new weapon type. Characters use the **Body** or **Head** selection and a stock
+**Rig template**, registering a new character ID. Bodies require a GEditor
+template export with its source metadata and part bindings. Arbitrary glTF skin
+weights are not converted. Existing character/item replacement imports keep
+their original native rigs and behavior. GUD must include character-import
+support; older prop-only projects remain compatible.
+
+## Adding Connery, Moore, Dalton or another new head
+
+With the character-import runtime already installed, this addition requires
+only rebuilding GEditor. It accepts ordinary static head GLB/glTF files without
+GUD source metadata, including the extracted XBLA `head.glb` files.
+
+1. Use **File > Import > Import Model...** (or right-click the Models panel and
+   choose **Import Model...**). Select the actor's separate `head.glb`.
+2. Choose **Characters**, type **Head**, and template **CheadbrosnanZ**.
+3. Enter a unique name, for example `headmoore`, `headconnery` or `headdalton`.
+   The resulting model names are `CheadmooreZ`, `CheadconneryZ`, `CheaddaltonZ`.
+4. Leave **Fit new head to template** checked for the extracted XBLA heads.
+5. Import, assign the existing N64 images to the retained material slots, and
+   **Save Project**. The new head appears in character head selectors.
+
+Fitting applies one uniform scale to match the template's head height and moves
+the bounding-box center to the template's center. Actor proportions are kept.
+The mesh must use Y up and +Z forward. The XBLA files already use those axes;
+their body-space height offset is removed by fitting. This is an initial fit:
+inspect the neck, face and hat placement in the viewport and in-game. To author
+an exact native attachment position in Blender, uncheck Fit and supply native
+head coordinates, or export and edit the imported head afterward.
+
+Raw heads bind to the template's single rigid attachment and inherit its render
+settings, collision bounds and runtime head settings. Native vertex and
+blood-stain links are rebuilt for the new mesh. The template is unchanged.
+Material names, normalized UVs and vertex colors are kept; images start at
+**No Texture**, regardless of image or material names in the GLB. UVs can be
+adjusted in the UV Editor after assigning textures. The extraction's texture
+mapping was not verified against N64 images, so import does not guess image IDs.
+
+This path supports opaque static triangle meshes with a single-part template.
+Skinning, morph targets, animations and guessed multi-part/LOD bindings are not
+supported for raw heads. Use a GEditor template export for authored native parts.
+Files that already contain GUD source metadata retain strict revision checks
+and their authored coordinates; Fit does not rescale those round trips.
+For subsequent replacement imports, export the current head from GEditor and
+retain its custom properties. Single-player Bond outfit selection and adding
+actors to the multiplayer roster remain separate work.
+
+`python3 tools/geditor/tests/new_characters/run.py` checks raw and template-derived
+imports, fitting on/off, geometry/colors/UVs, material assignment, collision
+chains, round trips, save/reopen, ROM bank export/extraction and failure rollback.
+Use `--heads /path/to/GoldenEye-XBLA-Bond-Geometry` to also test all three actual
+extracted actor heads. The tests do not modify those input files.
 
 ## Editing an existing model
 

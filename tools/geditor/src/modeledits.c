@@ -829,15 +829,58 @@ BOOL ModelEditsExport(const char *project, const char *name, const char *path, c
     }
     free(data);return ok;
 }
-BOOL ModelEditsCompileClone(const char *project,const char *name,const char *path,
+static BOOL FitHeadGeometry(const ModelSource *source,GltfModelImport *imported,const char **why)
+{
+    double bounds[2][2][3];
+    if (!source->count || !imported->count) { *why="A new head and its template must contain geometry.";return FALSE; }
+    for (int mesh=0;mesh<2;mesh++) {
+        const BgVertex *vertices=mesh ? imported->vertices : source->vertices;
+        DWORD count=mesh ? imported->count : source->count;
+        for (DWORD i=0;i<count*3;i++) {
+            double p[3]={vertices[i].x,vertices[i].y,vertices[i].z};
+            for (int axis=0;axis<3;axis++) {
+                if (!isfinite(p[axis])) { *why="A head contains a non-finite position.";return FALSE; }
+                if (!i || p[axis]<bounds[mesh][0][axis]) bounds[mesh][0][axis]=p[axis];
+                if (!i || p[axis]>bounds[mesh][1][axis]) bounds[mesh][1][axis]=p[axis];
+            }
+        }
+    }
+    double height=bounds[1][1][1]-bounds[1][0][1];
+    double targetheight=bounds[0][1][1]-bounds[0][0][1];
+    if (height<=1e-12 || targetheight<=1e-12)
+    { *why="Fit to template needs a head with nonzero height (Y axis).";return FALSE; }
+    double scale=targetheight/height;
+    /* Preserve the actor's proportions. Match head height and bounding-box
+     * center; no guessed metre conversion or body-space offset is retained. */
+    for (DWORD i=0;i<imported->count*3;i++) {
+        BgVertex *v=&imported->vertices[i];float *p[3]={&v->x,&v->y,&v->z};
+        for (int axis=0;axis<3;axis++)
+            *p[axis]=(float)((*p[axis]-(bounds[1][0][axis]+bounds[1][1][axis])*.5)*scale
+                +(bounds[0][0][axis]+bounds[0][1][axis])*.5);
+    }
+    return TRUE;
+}
+
+BOOL ModelEditsCompileClone(const char *project,const char *name,const char *path,BOOL head,BOOL fithead,
     unsigned char **result,DWORD *resultsize,DWORD *triangles,const char **why)
 {
     unsigned char *data=NULL,*compiled=NULL;DWORD size,basehash,compiledsize,i;
     ModelSource source={0},check={0};GltfModelImport imported={0};ModelMaterials ordered={0};
-    BOOL ok=FALSE;*result=NULL;*resultsize=0;
+    BgRenderFlags *flags=NULL;
+    BOOL ok=FALSE,roundtrip=TRUE;*result=NULL;*resultsize=0;
     if(!LoadSource(project,name,&data,&size,&basehash,why)) { goto done; }
-    if(!ModelReadSource(data,size,&source,why) || !ModelMaterialsEnsure(&source,project,why)
-        || !GltfReadModelImport(path,ModelDataHash(data,size),&imported,why)) goto done;
+    if(!ModelReadSource(data,size,&source,why) || !ModelMaterialsEnsure(&source,project,why)) goto done;
+    if (head) {
+        if (!GltfReadHeadImport(path,ModelDataHash(data,size),project,&imported,&flags,&roundtrip,why)) goto done;
+    } else if (!GltfReadModelImport(path,ModelDataHash(data,size),&imported,why)) goto done;
+    if (!roundtrip) {
+        for (i=0;i<imported.count;i++) if (flags[i]&BG_RENDER_BLEND) {
+            *why="New head geometry must use opaque materials. Use a GEditor template export for transparent parts.";goto done;
+        }
+        if (fithead && !FitHeadGeometry(&source,&imported,why)) goto done;
+        if (!ModelCompileHeadGeometry(data,size,&source,&imported,project,&ordered,&compiled,&compiledsize,why)) goto done;
+        goto validate;
+    }
     ModelMaterialsMatch(&imported.materials,&source.materials);
     for (i=0;i<imported.count;i++)
         imported.tags[i]=(imported.tags[i]&~BG_TEX_ID_MASK)|imported.materials.slots[imported.materials.faces[i].slot].texture;
@@ -849,13 +892,14 @@ BOOL ModelEditsCompileClone(const char *project,const char *name,const char *pat
             || !ImportMaterials(&source,&imported,&ordered,why)) goto done;
     }
     else if (!ModelCompileRetopology(data,size,&source,&imported,project,&ordered,&compiled,&compiledsize,why)) goto done;
+validate:
     if (!ModelMaterialsAttach(&compiled,&compiledsize,&ordered,why)
         || !ModelReadSource(compiled,compiledsize,&check,why)) goto done;
     if(check.count!=imported.count) { *why="The compiled model did not reproduce the imported face count.";goto done; }
     if (!check.count) { *why="A new character must contain geometry.";goto done; }
     *result=compiled;*resultsize=compiledsize;*triangles=check.count;compiled=NULL;ok=TRUE;*why="";
 done:
-    free(data);free(compiled);ModelFreeSource(&source);ModelFreeSource(&check);
+    free(flags);free(data);free(compiled);ModelFreeSource(&source);ModelFreeSource(&check);
     ModelMaterialsFree(&ordered);GltfFreeModelImport(&imported);return ok;
 }
 

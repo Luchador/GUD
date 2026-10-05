@@ -1103,9 +1103,9 @@ static BOOL TopologyList(ModelOutput *out, const unsigned char *data, const Mode
     return !out->failed;
 }
 
-BOOL ModelCompileRetopology(const unsigned char *data, DWORD size, const ModelSource *source,
+static BOOL CompileRetopology(const unsigned char *data, DWORD size, const ModelSource *source,
     const GltfModelImport *imported, const char *projectdir, ModelMaterials *ordered,
-    unsigned char **result, DWORD *resultsize, const char **why)
+    unsigned char **result, DWORD *resultsize, BOOL headgeometry, const char **why)
 {
     ModelSource expanded = *source;
     ModelTopologyFace *order = NULL;
@@ -1137,6 +1137,9 @@ BOOL ModelCompileRetopology(const unsigned char *data, DWORD size, const ModelSo
     if (!references || !order || !expanded.faces || !expanded.tags || !choices || !edits || !corners || !owners || !buffers || !hashes) { goto done; }
     for (DWORD slot = 0; slot < imported->materials.count; slot++)
     {
+        /* A detached rigid head has one attachment, so new material names
+         * need no exported part IDs. This opt-in is never used for bodies. */
+        if (headgeometry) { references[slot]=0;continue; }
         DWORD original = MODEL_NO_VERTEX, reference = MODEL_NO_VERTEX;
         for (DWORD s = 0; s < source->materials.count; s++)
             if (!strcmp(imported->materials.slots[slot].name, source->materials.slots[s].name))
@@ -1230,6 +1233,25 @@ done:
     if (!ok) { ModelMaterialsFree(ordered); }
     free(out.data); free(references); free(order); free(expanded.faces); free(expanded.tags);
     free(choices); free(edits); free(corners); free(owners); free(hashes); free(buffers); return ok;
+}
+
+BOOL ModelCompileRetopology(const unsigned char *data, DWORD size, const ModelSource *source,
+    const GltfModelImport *imported, const char *projectdir, ModelMaterials *ordered,
+    unsigned char **result, DWORD *resultsize, const char **why)
+{
+    return CompileRetopology(data,size,source,imported,projectdir,ordered,result,resultsize,FALSE,why);
+}
+
+BOOL ModelCompileHeadGeometry(const unsigned char *data, DWORD size, const ModelSource *source,
+    const GltfModelImport *imported, const char *projectdir, ModelMaterials *ordered,
+    unsigned char **result, DWORD *resultsize, const char **why)
+{
+    *result=NULL;*resultsize=0;
+    /* Separate hair/LOD branches need authored assignments. Do not guess
+     * which triangles a cap or distance switch should hide. */
+    if (!source->count || source->listcount!=1 || source->haslods)
+    { *why="New head geometry needs a single-part template such as CheadbrosnanZ. Multi-part templates require a GEditor export.";return FALSE; }
+    return CompileRetopology(data,size,source,imported,projectdir,ordered,result,resultsize,TRUE,why);
 }
 
 BOOL ModelCompileImport(const unsigned char *data, DWORD size, const ModelSource *source,

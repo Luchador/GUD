@@ -28,6 +28,12 @@ int ModelImportKeepsTopology(const ModelSource *source, const GltfModelImport *i
 BOOL ModelCompileRetopology(const unsigned char *data, DWORD size, const ModelSource *source,
     const GltfModelImport *imported, const char *projectdir, ModelMaterials *ordered,
     unsigned char **result, DWORD *resultsize, const char **reasonout);
+/* Bind arbitrary static head geometry to a single rigid template part.
+ * Retains its attachment, bounds and hit/blood-stain structures, rebuilding
+ * vertex links. Material names and normalized UVs remain the imported ones. */
+BOOL ModelCompileHeadGeometry(const unsigned char *data, DWORD size, const ModelSource *source,
+    const GltfModelImport *imported, const char *projectdir, ModelMaterials *ordered,
+    unsigned char **result, DWORD *resultsize, const char **why);
 /* -1 leaves that property unchanged. Culling: 0=none, 1=back, 2=front.
    Surface: 0=opaque, 1=cutout, 2=alpha blend. U/V wrap: 0=repeat, 1=clamp,
    2=mirror (textured faces only). IDs index ModelSource.faces. */

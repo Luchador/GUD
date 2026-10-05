@@ -11,8 +11,10 @@ const unsigned char *ModelEditsGetData(const char *projectdir, const char *name,
                                       DWORD *size, const char **reasonout);
 BOOL ModelEditsExport(const char *projectdir, const char *name, const char *path,
                        const char **reasonout);
-/* Compile a new character from an exported template, without changing it. */
-BOOL ModelEditsCompileClone(const char *project,const char *templateName,const char *path,
+/* Compile without changing the template. Heads also accept unbound static
+ * geometry, optionally fitted uniformly to the template's height/center.
+ * Existing GUD identities always require a matching template and keep units. */
+BOOL ModelEditsCompileClone(const char *project,const char *templateName,const char *path,BOOL head,BOOL fithead,
     unsigned char **data,DWORD *size,DWORD *triangles,const char **why);
 BOOL ModelEditsImport(const char *projectdir, const char *name, const char *path,
                        DWORD *before, DWORD *after, const char **reasonout);

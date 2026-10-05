@@ -18,7 +18,7 @@ BOOL NewPropsCharacter(int id,const char **name,int *templateid);
 int NewPropsCharacterId(const char *name);
 int NewPropsCharacterKind(const char *name);
 BOOL NewPropsImportCharacter(const char *project,const char *name,const char *path,
-    int templateid,DWORD *triangles,const char **why);
+    int templateid,BOOL fithead,DWORD *triangles,const char **why);
 const unsigned char *NewPropsData(const char *project,const char *name,DWORD *size);
 BOOL NewPropsImport(const char *project,const char *name,const char *path,BOOL replace,
     DWORD *triangles,const char **why);

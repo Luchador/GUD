@@ -1058,7 +1058,7 @@ static void ModelEditorTransfer(BOOL importing)
     ModelEditorNotifyChanged();
 }
 
-typedef struct ModelEditorNewModel { char name[64];int category,templateid; } ModelEditorNewModel;
+typedef struct ModelEditorNewModel { char name[64];int category,templateid;BOOL fithead; } ModelEditorNewModel;
 static void ModelEditorCharacterTemplates(HWND hwnd)
 {
     BOOL character=SendDlgItemMessage(hwnd,IDC_NEW_MODEL_CATEGORY,CB_GETCURSEL,0,0)==NEW_MODEL_CHARACTERS;
@@ -1078,8 +1078,11 @@ static void ModelEditorCharacterTemplates(HWND hwnd)
     }
     SendMessage(combo,CB_SETCURSEL,selected,0);
     EnableWindow(combo,character);EnableWindow(GetDlgItem(hwnd,IDC_NEW_CHARACTER_KIND),character);
+    EnableWindow(GetDlgItem(hwnd,IDC_NEW_HEAD_FIT),character && kind==CUSTOM_CHARACTER_HEAD);
     SetDlgItemText(hwnd,IDC_NEW_CHARACTER_HELP,character
-        ? "Import a GLB exported from the selected GEditor template. Keep its GoldenEye source attributes and material slots. The new character inherits the template's rig, scale and attachment points. Unbound meshes need rigging first."
+        ? (kind==CUSTOM_CHARACTER_HEAD
+            ? "Heads accept static GLB/glTF geometry. Fit matches the template's height and center, preserving proportions (Y up, +Z forward). Uncheck for geometry already in native head coordinates. GEditor exports retain their authored placement. Assign images after importing."
+            : "Bodies require a GLB exported from the selected GEditor template. Keep its GoldenEye source attributes and material slots. The new body inherits the template's rig, scale and attachment points.")
         : "Names may contain letters, digits and underscores. Assign images in Materials after importing.");
 }
 static INT_PTR CALLBACK ModelEditorNewModelDialog(HWND hwnd,UINT message,WPARAM wparam,LPARAM lparam)
@@ -1097,6 +1100,7 @@ static INT_PTR CALLBACK ModelEditorNewModelDialog(HWND hwnd,UINT message,WPARAM 
         SendDlgItemMessage(hwnd,IDC_NEW_CHARACTER_KIND,CB_ADDSTRING,0,(LPARAM)"Body");
         SendDlgItemMessage(hwnd,IDC_NEW_CHARACTER_KIND,CB_ADDSTRING,0,(LPARAM)"Head");
         SendDlgItemMessage(hwnd,IDC_NEW_CHARACTER_KIND,CB_SETCURSEL,0,0);
+        CheckDlgButton(hwnd,IDC_NEW_HEAD_FIT,model->fithead ? BST_CHECKED : BST_UNCHECKED);
         ModelEditorCharacterTemplates(hwnd);
         return TRUE;
     }
@@ -1114,6 +1118,7 @@ static INT_PTR CALLBACK ModelEditorNewModelDialog(HWND hwnd,UINT message,WPARAM 
                 "Import Model",MB_ICONERROR);return TRUE;
         }
         model->templateid=-1;
+        model->fithead=IsDlgButtonChecked(hwnd,IDC_NEW_HEAD_FIT)==BST_CHECKED;
         if (category==NEW_MODEL_CHARACTERS) {
             int row=(int)SendDlgItemMessage(hwnd,IDC_NEW_CHARACTER_TEMPLATE,CB_GETCURSEL,0,0);
             if (row==CB_ERR) return TRUE;
@@ -1129,7 +1134,7 @@ static INT_PTR CALLBACK ModelEditorNewModelDialog(HWND hwnd,UINT message,WPARAM 
 
 static void ModelEditorImportNew(const char *path)
 {
-    char stem[MAX_PATH],text[160];ModelEditorNewModel model={{0},NEW_MODEL_PROPS,-1};
+    char stem[MAX_PATH],text[256];ModelEditorNewModel model={{0},NEW_MODEL_PROPS,-1,TRUE};
     const char *base,*why="";char *dot;DWORD triangles;HCURSOR cursor;BOOL ok;
     HWND owner=GetWindow(g_ModelEditor,GW_OWNER);
     HINSTANCE instance=(HINSTANCE)GetWindowLongPtr(g_ModelEditor,GWLP_HINSTANCE);
@@ -1146,7 +1151,7 @@ static void ModelEditorImportNew(const char *path)
     if (DialogBoxParam(instance,MAKEINTRESOURCE(IDD_IMPORT_MODEL),g_ModelEditor,ModelEditorNewModelDialog,(LPARAM)&model)!=IDOK) return;
     cursor=SetCursor(LoadCursor(NULL,IDC_WAIT));
     ok=model.category==NEW_MODEL_CHARACTERS
-        ? NewPropsImportCharacter(g_ModelProject,model.name,path,model.templateid,&triangles,&why)
+        ? NewPropsImportCharacter(g_ModelProject,model.name,path,model.templateid,model.fithead,&triangles,&why)
         : NewPropsImport(g_ModelProject,model.name,path,FALSE,&triangles,&why);
     SetCursor(cursor);
     if (!ok) { MessageBox(g_ModelEditor,why,"Import Model",MB_ICONERROR);return; }
@@ -1155,7 +1160,7 @@ static void ModelEditorImportNew(const char *path)
     if (!ModelEditorOpenModel(owner,instance,g_ModelProject,model.name,&why))
     { MessageBox(g_ModelEditor,why,"Import Model",MB_ICONERROR);return; }
     if (model.category==NEW_MODEL_CHARACTERS)
-        snprintf(text,sizeof(text),"Added %s, character ID %d (%lu triangles). Save Project to keep the model.",
+        snprintf(text,sizeof(text),"Added %s, character ID %d (%lu triangles). Assign images in Materials; Save Project to keep the model.",
             model.name,NewPropsCharacterId(model.name),(unsigned long)triangles);
     else snprintf(text,sizeof(text),"Added %s (%lu triangles). Assign images in Materials; Save Project to keep the model.",model.name,(unsigned long)triangles);
     SetDlgItemText(g_ModelEditor,IDC_MODEL_STATUS,text);

@@ -26,6 +26,8 @@ enum { WM_INITDIALOG=1, WM_COMMAND, WM_CLOSE, DWLP_USER, GW_OWNER, GWLP_HINSTANC
        NEW_MODEL_CHARACTERS=0, NEW_MODEL_ITEMS=1, NEW_MODEL_PROPS=2 };
 #define IDOK 1
 #define IDCANCEL 2
+#define BST_CHECKED 1
+#define BST_UNCHECKED 0
 typedef struct {
     DWORD lStructSize; HWND hwndOwner; char *lpstrFile; DWORD nMaxFile;
     const char *lpstrDefExt,*lpstrTitle,*lpstrFilter; DWORD Flags;
@@ -38,6 +40,9 @@ static int g_ModelCount=1,g_ModelSelected=-1;
 static int files,dialogs,imports,replacements,exports,changed,reloads,opens,errors;
 static int cancelFile,cancelDialog,failImport,selectedCategory,dialogResult,rows;
 static int failShow,shows,clears,kindChoice,selectedKind,characterImports,lastTemplate;
+static int fitChecked,fitChoice=1,lastFit;
+static void CheckDlgButton(HWND hwnd,int id,int checked) { assert(id==IDC_NEW_HEAD_FIT);fitChecked=checked; }
+static int IsDlgButtonChecked(HWND hwnd,int id) { assert(id==IDC_NEW_HEAD_FIT);return fitChecked; }
 static intptr_t dialogData;
 static char nameText[64],addedName[64],openedName[64],lastTitle[80],order[32];
 static const char *typedName;
@@ -84,7 +89,7 @@ static INT_PTR DialogBoxParam(HINSTANCE instance,const char *resource,HWND owner
     dialogs++;Event('D');rows=dialogResult=0;
     assert((uintptr_t)resource==IDD_IMPORT_MODEL);
     proc((HWND)2,WM_INITDIALOG,0,data);assert(rows==3);
-    selectedCategory=choice;selectedKind=kindChoice;
+    selectedCategory=choice;selectedKind=kindChoice;fitChecked=fitChoice;
     if(typedName) lstrcpyn(nameText,typedName,sizeof(nameText));
     proc((HWND)2,cancelDialog==2 ? WM_CLOSE : WM_COMMAND,cancelDialog ? IDCANCEL : IDOK,0);
     return dialogResult; /* Invalid input stays open; no import may follow. */
@@ -96,8 +101,8 @@ static BOOL NewPropsImport(const char *project,const char *name,const char *path
 }
 static void ModelEditorCharacterTemplates(HWND hwnd) {}
 static int NewPropsCharacterId(const char *name) { return 80; }
-static BOOL NewPropsImportCharacter(const char *project,const char *name,const char *path,int templateid,DWORD *triangles,const char **why)
-{ characterImports++;lastTemplate=templateid;return NewPropsImport(project,name,path,FALSE,triangles,why); }
+static BOOL NewPropsImportCharacter(const char *project,const char *name,const char *path,int templateid,BOOL fithead,DWORD *triangles,const char **why)
+{ characterImports++;lastTemplate=templateid;lastFit=fithead;return NewPropsImport(project,name,path,FALSE,triangles,why); }
 static BOOL ModelEditsImport(const char *project,const char *name,const char *path,DWORD *before,DWORD *after,const char **why)
 { replacements++;assert(!strcmp(name,"PexistingZ"));*before=3;*after=4;*why="Import failed";return !failImport; }
 static BOOL ModelEditsExport(const char *project,const char *name,const char *path,const char **why)
@@ -119,7 +124,7 @@ static void Reset(void)
 {
     files=dialogs=imports=replacements=exports=changed=reloads=opens=errors=0;
     cancelFile=cancelDialog=failImport=0;choice=2;typedName=NULL;order[0]=0;
-    failShow=shows=clears=kindChoice=characterImports=0;lastTemplate=-1;
+    failShow=shows=clears=kindChoice=characterImports=0;lastTemplate=-1;fitChoice=1;lastFit=-1;
     strcpy(g_ModelProject,"project");strcpy(g_ModelEntries[0].name,"PexistingZ");g_ModelSelected=-1;
 }
 int main(void)
@@ -133,7 +138,8 @@ int main(void)
         assert(files==1 && dialogs==1 && imports==1 && !replacements && changed==1 && opens==1 && !errors);
         assert(!strcmp(order,"FDNCRO") && !strcmp(lastTitle,"Import New Model"));
     }
-    Reset();choice=0;kindChoice=1;ModelEditorTransfer(TRUE);assert(characterImports==1 && lastTemplate==78);
+    Reset();choice=0;kindChoice=1;ModelEditorTransfer(TRUE);assert(characterImports==1 && lastTemplate==78 && lastFit);
+    Reset();choice=0;kindChoice=1;fitChoice=0;ModelEditorTransfer(TRUE);assert(characterImports==1 && lastTemplate==78 && !lastFit);
     Reset();cancelFile=1;ModelEditorTransfer(TRUE);assert(files==1 && !dialogs && !imports && !changed);
     for(int cancel=1;cancel<=2;cancel++)
     { Reset();cancelDialog=cancel;ModelEditorTransfer(TRUE);assert(dialogs==1 && !imports && !changed && g_ModelSelected==-1); }

@@ -2358,7 +2358,7 @@ void GltfFreeModelImport(GltfModelImport *model)
 }
 
 static BOOL GltfReadImport(const char *path, DWORD sourcehash, const char *projectdir, BOOL newprop,
-    GltfModelImport *model, BgRenderFlags **flags, float (**studiocolors)[4], const char **reasonout)
+    GltfModelImport *model, BgRenderFlags **flags, float (**studiocolors)[4], BOOL *headroundtrip, const char **reasonout)
 {
     char *file = NULL, *json = NULL;
     size_t size, jsonsize;
@@ -2372,6 +2372,7 @@ static BOOL GltfReadImport(const char *path, DWORD sourcehash, const char *proje
     BOOL foundhash = FALSE, ok = FALSE;
     const double identity[16] = {1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1};
     ZeroMemory(model,sizeof(*model)); ZeroMemory(&builder,sizeof(builder));
+    if (headroundtrip) { *headroundtrip=FALSE; }
     builder.studio = studiocolors != NULL; builder.lit = builder.studio;
     builder.importing = !newprop && !builder.studio; builder.newprop = newprop; builder.projectdir = projectdir;
     if (studiocolors) { *studiocolors = NULL; }
@@ -2407,9 +2408,6 @@ static BOOL GltfReadImport(const char *path, DWORD sourcehash, const char *proje
     token=GltfJsonObjectGet(json,tokens,tokencount,0,"asset");
     token=GltfJsonObjectGet(json,tokens,tokencount,token,"version");
     if (token<0 || !GltfJsonTokenEquals(json,&tokens[token],"2.0")) { goto done; }
-    if ((newprop || builder.studio) && GltfJsonArrayCount(tokens,tokencount,
-        GltfJsonObjectGet(json,tokens,tokencount,0,"animations")))
-    { *reasonout="New models must be exported without animations."; goto done; }
     /* Blender preserves object/scene extras when Custom Properties is enabled.
        Check all occurrences so mixed exports cannot replace the wrong model. */
     for (token=0; builder.importing && token<tokencount; token++)
@@ -2434,6 +2432,12 @@ static BOOL GltfReadImport(const char *path, DWORD sourcehash, const char *proje
             }
         }
     }
+    /* Only a NEW head may use unbound geometry. An existing identity must
+     * still match the selected template; never retry a stale export as raw. */
+    if (headroundtrip && !foundhash) { builder.importing=FALSE;builder.newprop=TRUE; }
+    if ((builder.newprop || builder.studio) && GltfJsonArrayCount(tokens,tokencount,
+        GltfJsonObjectGet(json,tokens,tokencount,0,"animations")))
+    { *reasonout="New models must be exported without animations."; goto done; }
     if (builder.importing && !foundhash)
     { *reasonout="The model has no GUD source identity. Use Export Model in GEditor and enable Include > Custom Properties in Blender."; goto done; }
     token=GltfJsonObjectGet(json,tokens,tokencount,0,"buffers");
@@ -2491,6 +2495,7 @@ static BOOL GltfReadImport(const char *path, DWORD sourcehash, const char *proje
     model->sourcevertices=builder.sourcevertices; builder.sourcevertices=NULL;
     if (flags) { *flags=builder.renderflags; builder.renderflags=NULL; }
     model->count=builder.tricount; ok=TRUE; *reasonout="";
+    if (headroundtrip) { *headroundtrip=foundhash; }
 done:
     free(file); free(tokens); GltfFreeBuffers(buffers,buffercount);
     free(builder.vertices); free(builder.tags); free(builder.renderflags); free(builder.sourcevertices);
@@ -2502,15 +2507,21 @@ done:
 BOOL GltfReadModelImport(const char *path, DWORD sourcehash,
     GltfModelImport *model, const char **reasonout)
 {
-    return GltfReadImport(path,sourcehash,NULL,FALSE,model,NULL,NULL,reasonout);
+    return GltfReadImport(path,sourcehash,NULL,FALSE,model,NULL,NULL,NULL,reasonout);
 }
 
+BOOL GltfReadHeadImport(const char *path, DWORD sourcehash, const char *projectdir,
+    GltfModelImport *model, BgRenderFlags **flags, BOOL *roundtrip, const char **reasonout)
+{
+    *flags=NULL;
+    return GltfReadImport(path,sourcehash,projectdir,FALSE,model,flags,NULL,roundtrip,reasonout);
+}
 BgVertex *GltfReadNewProp(const char *path, const char *projectdir, DWORD *count,
     unsigned short **tags, BgRenderFlags **flags, ModelMaterials *materials, const char **reasonout)
 {
     GltfModelImport model={0};
     *count=0; *tags=NULL; *flags=NULL;
-    if (!GltfReadImport(path,0,projectdir,TRUE,&model,flags,NULL,reasonout)) return NULL;
+    if (!GltfReadImport(path,0,projectdir,TRUE,&model,flags,NULL,NULL,reasonout)) return NULL;
     *count=model.count; *tags=model.tags; *materials=model.materials;
     free(model.sourcevertices);
     return model.vertices;
@@ -2518,5 +2529,5 @@ BgVertex *GltfReadNewProp(const char *path, const char *projectdir, DWORD *count
 
 BOOL GltfReadStudioModel(const char *path, GltfModelImport *model, float (**basecolors)[4], const char **why)
 {
-    return GltfReadImport(path,0,NULL,FALSE,model,NULL,basecolors,why);
+    return GltfReadImport(path,0,NULL,FALSE,model,NULL,basecolors,NULL,why);
 }

@@ -334,7 +334,7 @@ done:
 }
 
 BOOL NewPropsImportCharacter(const char *project,const char *name,const char *path,
-    int templateid,DWORD *triangles,const char **why)
+    int templateid,BOOL fithead,DWORD *triangles,const char **why)
 {
     unsigned char *data=NULL;DWORD size,count,offset,bytes;RomFile rom={0};
     int kind=CharacterCatalogKind(templateid),id=CUSTOM_CHARACTER_BASE;
@@ -354,7 +354,8 @@ BOOL NewPropsImportCharacter(const char *project,const char *name,const char *pa
         || !RomLoad(base,&rom,why)) return FALSE;
     BOOL exists=RomFindFile(&rom,name,&offset,&bytes,why);RomFree(&rom);
     if (exists) { *why="That model name already exists in the base ROM.";return FALSE; }
-    if (!ModelEditsCompileClone(project,g_CharacterModels[templateid].filename,path,&data,&size,&count,why)) return FALSE;
+    if (!ModelEditsCompileClone(project,g_CharacterModels[templateid].filename,path,
+        kind==CUSTOM_CHARACTER_HEAD,fithead,&data,&size,&count,why)) return FALSE;
     NewProp *p=&g_Props.entries[g_Props.count];
     memset(p,0,sizeof(*p));lstrcpyn(p->name,name,sizeof(p->name));
     p->kind=kind;p->templateid=templateid;p->characterid=id;
