@@ -7158,9 +7158,10 @@ void objRenderPropModel(PropRecord *prop, ModelRenderData *renderData, bool tran
 
     renderData->gdl = gdl;
     renderFlags = renderData->flags;
-    if (obj->state & PROPSTATE_DESTROYED)
+    if ((obj->state & PROPSTATE_DESTROYED) && obj->obj != PROP_DESK1)
     {
-        /* Hide authored translucent geometry (such as lamp beams) from the
+        /* Pdesk1Z needs its translucent supports to keep the top grounded.
+         * Hide other authored translucent geometry (such as lamp beams) from the
          * first destroyed stage, even if no deformed vertices were allocated.
          * Keep primary geometry when the whole prop is fading in the alpha
          * pass. Never edit shared model lists or affect attached live props. */
