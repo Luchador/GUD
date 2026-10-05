@@ -590,6 +590,13 @@ static void GEditorEditImage(HWND hwnd, DWORD id, UINT action)
         if (!ImageEditsDelete(g_Project.dir, id, &why))
         { MessageBox(hwnd, why, "Delete Image", MB_ICONERROR); return; }
     }
+    else if (action == BROWSER_WM_IMAGE_FLIP_VERTICAL || action == BROWSER_WM_IMAGE_FLIP_HORIZONTAL)
+    {
+        HCURSOR previous=SetCursor(LoadCursor(NULL,IDC_WAIT));
+        BOOL ok=ImageEditsFlip(g_Project.dir,id,action==BROWSER_WM_IMAGE_FLIP_HORIZONTAL,&why);
+        SetCursor(previous);
+        if (!ok) { MessageBox(hwnd,why,"Flip Image",MB_ICONERROR);return; }
+    }
     else if (!(action == BROWSER_WM_IMAGE_REIMPORT
         ? ImageReimportShow(hwnd, g_Project.dir, id)
         : ImageReplaceShow(hwnd, g_Project.dir, id))) { return; }
@@ -6467,6 +6474,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     case BROWSER_WM_IMAGE_DELETE:
     case BROWSER_WM_IMAGE_REPLACE:
     case BROWSER_WM_IMAGE_REIMPORT:
+    case BROWSER_WM_IMAGE_FLIP_VERTICAL:
+    case BROWSER_WM_IMAGE_FLIP_HORIZONTAL:
         GEditorEditImage(hwnd, (DWORD)wparam, msg);
         return 0;
 

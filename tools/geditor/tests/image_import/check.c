@@ -412,11 +412,15 @@ static void ThumbnailOrientation(const char *project)
 
 void CheckBmpAlpha(const char *, const char *);
 void CheckReimport(const char *);
+void CheckFlips(const char *);
+void CheckGeneratedMipFlip(const char *);
 int main(int argc,char **argv)
 {
     char actions[MAX_PATH];assert(argc==2 || argc==3);Encoders();Fixture(argv[1]);
     CheckBmpAlpha(argv[1],argc==3?argv[2]:NULL);Pipeline(argv[1]);Limits(argv[1]);
     snprintf(actions,sizeof(actions),"%s-actions",argv[1]);Fixture(actions);ImageActions(actions);
     snprintf(actions,sizeof(actions),"%s-reimport",argv[1]);Fixture(actions);CheckReimport(actions);
+    snprintf(actions,sizeof(actions),"%s-flips",argv[1]);Fixture(actions);CheckFlips(actions);
+    snprintf(actions,sizeof(actions),"%s-flip-mips",argv[1]);Fixture(actions);CheckGeneratedMipFlip(actions);
     snprintf(actions,sizeof(actions),"%s-thumbnails",argv[1]);Fixture(actions);ThumbnailOrientation(actions);return 0;
 }

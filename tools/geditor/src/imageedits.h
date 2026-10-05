@@ -16,6 +16,9 @@ BOOL ImageEditsReplace(const char *projectdir, DWORD id, const TexPixel *pixels,
  * Conversion must succeed before replacing any saved or pending image. */
 BOOL ImageEditsReimport(const char *projectdir, DWORD id, char sourceout[MAX_PATH], const char **reasonout);
 BOOL ImageEditsDelete(const char *projectdir, DWORD id, const char **reasonout);
+/* Flip current pixels at the same ID, retaining format, mips, surface settings
+ * and remembered source. Changes are pending until Save Project. */
+BOOL ImageEditsFlip(const char *projectdir, DWORD id, BOOL horizontal, const char **reasonout);
 BOOL ImageEditsGetDeletedPixels(const char *projectdir, DWORD id, TexPixel *out, int *width, int *height);
 BOOL ImageEditsSave(const char *projectdir, const char **reasonout);
 BOOL ImageEditsExportToRom(const char *projectdir, RomFile *rom, const char **reasonout);

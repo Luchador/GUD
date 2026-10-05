@@ -89,6 +89,33 @@ checksum, committed together with the settings and native pixels. Existing
 `GTI2` files remain readable; edits without a source (including deletion records)
 still use `GTI2`. Earlier metadata versions are not supported.
 
+## Flipping images
+
+Right-click an image and choose **Flip vertical** or **Flip horizontal** at the
+bottom of the menu. These mirror the pixels top-to-bottom or left-to-right;
+they affect every model/background face using that image. The thumbnail and
+open viewports update immediately. **Save Project** retains the flipped image,
+and **Create ROM** includes it. Applying the same flip twice restores the orientation.
+
+The image ID, dimensions, texture format, mipmap count, hit sound, bullet-hole
+type, native detail settings and remembered source path stay the same. Existing explicit mipmaps and
+palette indices are mirrored directly, preserving their colors and alpha.
+Stock images with runtime-generated mipmaps are converted to stored mipmaps
+using their existing format and effective mip count. If the project BMP was
+edited externally, those current pixels are converted with the saved settings
+before flipping, just as they would be for ROM export.
+
+The original external source file is unchanged. **Reimport** still reloads
+that source, replacing any flips with the source image's orientation. Flipping
+an extracted ROM image creates the native edit metadata needed for ROM export;
+no manual BMP replacement is required. **No Texture** and deleted images have
+no flip action.
+
+Pixel edits retaining nonzero native detail flags use `GTI4` metadata. It adds
+the original detail word to the saved image settings and supports an optional
+source path. `GTI2` and `GTI3` remain readable and are still used when no detail
+word needs to be retained. Rebase preserves and compares the detail settings.
+
 ## ROM support
 
 The `TXTB` manifest entry describes the reserved image table, and `TXCF`
@@ -123,4 +150,7 @@ and model UV stability when a replacement has different dimensions.
 Reimport checks cover source changes, remembered settings, save/reopen, missing
 or malformed BMPs, TMEM/mipmap failures, pending replacement preservation,
 source-path rollback, and invalid source metadata.
+Flip checks cover both axes, all formats, odd dimensions, palettes and every
+stored mip, pending/saved/base images, thumbnails, save/reopen/ROM export,
+source/settings retention, external BMP edits and save-failure rollback.
 The Windows BMP decoder and dialog require a Windows runtime for visual testing.

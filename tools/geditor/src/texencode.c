@@ -7,6 +7,39 @@
 
 static void Write16(unsigned char *p, unsigned int v) { p[0] = v >> 8; p[1] = v; }
 static void Write32(unsigned char *p, DWORD v) { p[0]=v>>24; p[1]=v>>16; p[2]=v>>8; p[3]=v; }
+BOOL TexFlipRecord(unsigned char *data,DWORD size,BOOL horizontal,const char **why)
+{
+    static const unsigned char bytesperpixel[]={4,2,4,2,2,1,0,1,0,1,0,1,0};
+    TexInfoRecord info;
+    if (!data || !TexInfoReadRecord(data,size,&info) || info.size!=size)
+    { *why="The image's native pixel data is invalid.";return FALSE; }
+    for (unsigned int level=0;level<data[6];level++) {
+        const unsigned char *desc=data+16+level*12;
+        int width=desc[1],height=desc[2],bytes=bytesperpixel[desc[0]];
+        DWORD stride=TexImportRowBytes(desc[0],width);
+        DWORD offset=(DWORD)desc[4]<<24|(DWORD)desc[5]<<16|(DWORD)desc[6]<<8|desc[7];
+        unsigned char *pixels=data+offset;
+        if (!horizontal) {
+            for (int y=0;y<height/2;y++) for (DWORD x=0;x<stride;x++) {
+                unsigned char *a=pixels+y*stride+x,*b=pixels+(height-1-y)*stride+x,t=*a;
+                *a=*b;*b=t;
+            }
+        } else for (int y=0;y<height;y++) for (int x=0;x<width/2;x++) {
+            unsigned char *row=pixels+y*stride;
+            int opposite=width-1-x;
+            if (bytes) for (int k=0;k<bytes;k++) {
+                unsigned char t=row[x*bytes+k];row[x*bytes+k]=row[opposite*bytes+k];row[opposite*bytes+k]=t;
+            } else {
+                /* Packed 4-bit texels: keep the unused nibble/row padding. */
+                int a=(1-(x&1))*4,b=(1-(opposite&1))*4;
+                unsigned char first=(row[x/2]>>a)&15,second=(row[opposite/2]>>b)&15;
+                row[x/2]=(row[x/2]&~(15<<a))|(second<<a);
+                row[opposite/2]=(row[opposite/2]&~(15<<b))|(first<<b);
+            }
+        }
+    }
+    *why="";return TRUE;
+}
 DWORD TexImportRowBytes(int format, int width)
 {
     if (width < 1 || width > 255) { return 0; }

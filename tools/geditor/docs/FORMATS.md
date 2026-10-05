@@ -12,7 +12,7 @@ migrate files produced by older editors.
 | Model assets | glTF 2.0 with normalized UV coordinates and the current GEditor metadata |
 | Added prop models | `models/newprops.gnp` (`GNP1`), with `NPRP`/`NPMD` support in the base ROM; see [New prop models](../NEW_PROP_MODELS.md) |
 | Saved model edits | Current `.gmodel` native overrides (`GMD1`) |
-| Saved image edits | `.gtex` metadata (`GTI3` with an import source, or `GTI2` without one) and the associated BMP, except for deletion records |
+| Saved image edits | `.gtex` metadata (`GTI4` retaining native detail flags, `GTI3` with an import source, or `GTI2` without either) and the associated BMP, except for deletion records |
 | Saved text edits | Native offset/string banks in `text/L...E.bin`, preserving existing slot IDs; see [Text Editor](TEXT_EDITOR.md) |
 
 New ROMs also expose optional audio, animation, model, global AI and text-bank

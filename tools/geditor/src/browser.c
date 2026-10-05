@@ -1824,6 +1824,9 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                 AppendMenu(menu, MF_STRING, 2, "Replace image");
                 AppendMenu(menu, MF_STRING, 3, "Reimport");
                 AppendMenu(menu, MF_STRING, 4, "Export image");
+                AppendMenu(menu, MF_SEPARATOR, 0, NULL);
+                AppendMenu(menu, MF_STRING, 6, "Flip vertical");
+                AppendMenu(menu, MF_STRING, 7, "Flip horizontal");
             }
             command = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON,
                                      screen.x, screen.y, 0, hwnd, NULL);
@@ -1831,6 +1834,11 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             if (command == 5)
             {
                 SendMessage(GetParent(hwnd), BROWSER_WM_IMAGE_IMPORT, 0, 0);
+            }
+            else if (command == 6 || command == 7)
+            {
+                SendMessage(GetParent(hwnd), command == 6 ? BROWSER_WM_IMAGE_FLIP_VERTICAL
+                    : BROWSER_WM_IMAGE_FLIP_HORIZONTAL, textureid, 0);
             }
             else if (command >= 1 && command <= 4)
             {

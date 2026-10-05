@@ -12,5 +12,8 @@ DWORD TexImportTmemLimit(int format);
 int TexImportMaxMipmaps(int width, int height);
 BOOL TexEncodeRecord(const TexPixel *pixels, int width, int height,
     const TexImportOptions *options, unsigned char **data, DWORD *size, const char **reasonout);
+/* Mirror every stored mip without requantizing colors or changing palettes.
+ * TRUE flips left/right; FALSE flips top/bottom. Validate before modifying. */
+BOOL TexFlipRecord(unsigned char *data, DWORD size, BOOL horizontal, const char **reasonout);
 
 #endif

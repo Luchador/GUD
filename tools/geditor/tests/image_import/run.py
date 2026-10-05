@@ -45,7 +45,7 @@ def main():
         command = [os.environ.get("CC", "cc"), "-O1", "-g", "-std=c99", "-Wall", "-Wextra",
                    "-Wno-format-overflow", "-ffunction-sections", "-fdata-sections",
                    "-fsanitize=address,undefined", "-Dfopen=TestFopen", f"-I{tests}", f"-I{src}",
-                   str(tests / "check.c"), str(tests / "bmp_alpha.c"), str(tests / "reimport.c"),
+                   str(tests / "check.c"), str(tests / "bmp_alpha.c"), str(tests / "reimport.c"), str(tests / "flips.c"),
                    str(tests / "platform.c"), str(work / "texload_host.c")]
         command += [str(src / name) for name in ("texencode.c", "texinfo.c", "texrom.c", "imageedits.c", "gltf.c", "gltfjson.c", 'modelmaterials.c', 'bgmaterial.c', "bgrender.c")]
         command += ["-lm", "-Wl,--gc-sections", "-o", str(work / "check")]
