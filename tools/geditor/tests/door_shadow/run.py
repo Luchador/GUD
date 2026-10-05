@@ -20,9 +20,16 @@ with tempfile.TemporaryDirectory(prefix='geditor-door-shadow-') as temp:
     # Include a non-object command before the door: object and command indices differ.
     data = bytearray(40) + struct.pack('>II', 2, 0) + bytearray(256) + struct.pack('>I', 48)
     struct.pack_into('>I', data, 12, 40)
-    struct.pack_into('>III', data, 48, 0x1002001, 0xffffffff, 0)
+    struct.pack_into('>III', data, 48, 0x1002001, 0xffff0000, 0)
+    struct.pack_into('>I', data, 48 + 0x84, 65536)  # full sliding travel
     struct.pack_into('>II', data, 24, len(data), len(data) + 44)
     data += bytes(44 + 68)
+    boundpad = len(data) - 68
+    struct.pack_into('>ffffff', data, boundpad + 12, -1, 0, 0, 0, 1, 0)
+    struct.pack_into('>ffffff', data, boundpad + 44, -5, 5, -50, 50, -50, 50)
+    data += bytes(68)  # bound-pad terminator
+    struct.pack_into('>I', data, boundpad + 36, len(data))
+    data += b'p0\0'
     (work / 'setup/UsetupshadowZ.set').write_bytes(data)
     if len(sys.argv) > 2:
         shutil.copyfile(sys.argv[2], work / 'setup/UsetupdepotZ.set')

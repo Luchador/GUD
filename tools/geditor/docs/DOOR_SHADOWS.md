@@ -10,9 +10,19 @@ Select the new object to edit its properties:
 - **Pick door**: click a door in the viewport to link it. Escape cancels picking.
   **Unlink door** removes the link. Unlinked, deleted or unavailable doors leave
   the shadow closed.
-- **Light expands toward**: choose **+X**, **-X**, **+Z** or **-Z**. The selected
-  axis must run between two opposite edges. At 0% the surface is entirely dark;
+- **Light expands toward**: choose **+X**, **-X**, **+Z** or **-Z**. The surface
+  must have nonzero width along that axis; trapezoidal surfaces are supported.
+  At 0% the surface is entirely dark;
   at 100% it is entirely light. Intermediate values move the dividing line.
+- **Match horizontal door**: after linking an axis-aligned sliding door, click
+  this to select its actual **+X**, **-X**, **+Z** or **-Z** opening direction.
+  The light sweeps sideways across the shadow as the door opens and retreats
+  as it closes. The button is enabled when one shadow is selected, its linked
+  door moves horizontally along X or Z, and the shadow has width on that axis.
+  It reads the native door type and bound-pad axes, including reversed doors.
+  The direction is saved as an ordinary manual direction; click again after
+  rotating or relinking the door. Vertical doors keep using the manually chosen
+  direction of light on the surface.
 - **Light RGB / Dark RGB**: choose the vertex color tint for each region. White
   retains the texture's brightness; lower values darken or color it. These
   replace the source triangles' painted RGB. The source material and opacity
@@ -21,6 +31,10 @@ Select the new object to edit its properties:
   linked door or saving an artificial opening amount. In game the shadow uses
   the door's actual opening divided by its full travel, including partial
   openings, closing and reversals. Sliding and swinging travel are supported.
+
+The dividing line moves across the shadow's full X/Z extent in proportion to
+the door's opening fraction. It does not project the door's physical edge onto
+the surface. A trapezoid can therefore have a nonlinear change in lit area.
 
 The original two triangles are clipped independently. New boundary vertices
 interpolate each triangle's UVs and alpha, so the texture remains stationary
@@ -74,6 +88,11 @@ clean GUD build, then rebase the project onto that ROM and export. Existing Door
 Shadows gain collision automatically; no editor rebuild, format change or object
 recreation is required.
 
+The **Horizontal Door Shadows** update only requires rebuilding GEditor. The
+existing Door Shadow runtime and saved format already support X/Z clipping;
+the editor now allows trapezoidal sweeps and can match a horizontal door's
+travel direction. No GUD rebuild, project rebase or shadow recreation is needed.
+
 ## Implementation and checks
 
 `src/doorshadowformat.h` defines the fixed 1,024-byte type-49 command. Door
@@ -103,6 +122,11 @@ render scales, room-origin changes, multiple shadows, matrix restoration, and
 insufficient matrix/vertex memory. They decode matrices produced by the game's
 actual fixed-point converter. Host tests do not rasterize an N64 frame;
 emulator visual verification is still required.
+
+Horizontal-shadow checks cover matching positive/negative X and Z door travel,
+trapezoidal sweeps through every opening percentage, area and UV preservation,
+saved directions and runtime rendering, and rejection of unavailable doors,
+diagonal movement and surfaces without width on the selected axis.
 
 Collision checks execute the game's triangle intersection, shared BG hit query
 and bullet room/range checks. They cover both layers and sides, all opening

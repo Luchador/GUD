@@ -10,7 +10,7 @@ typedef struct DoorShadowProperties {
 } DoorShadowProperties;
 typedef enum DoorShadowField {
     DOOR_SHADOW_EDIT_DOOR, DOOR_SHADOW_EDIT_DIRECTION,
-    DOOR_SHADOW_EDIT_LIGHT, DOOR_SHADOW_EDIT_DARK
+    DOOR_SHADOW_EDIT_LIGHT, DOOR_SHADOW_EDIT_DARK, DOOR_SHADOW_EDIT_MATCH_DOOR
 } DoorShadowField;
 typedef struct DoorShadowEdit {
     DWORD objectindex;
@@ -21,6 +21,8 @@ typedef struct DoorShadowEdit {
 BOOL DoorShadowCreate(BgDocument *bg, SetupFile *setup, const BgFaceRef faces[2],
     DWORD *selection, const char **why);
 BOOL DoorShadowGet(const SetupFile *setup, DWORD index, DoorShadowProperties *out);
+/* Resolve the linked door's native horizontal travel to a supported split axis. */
+BOOL DoorShadowDoorDirection(const SetupFile *setup, DWORD index, DWORD *direction, const char **why);
 BOOL DoorShadowTranslate(SetupFile *setup, DWORD index, float scale, const double offset[3], const char **why);
 BOOL DoorShadowSet(SetupFile *setup, const DoorShadowEdit *edit, BOOL *changed, const char **why);
 BOOL DoorShadowBuildPreview(const SetupFile *setup, DWORD index, float levelscale,

@@ -30,9 +30,9 @@ static BOOL AxisValid(const DoorShadowPoint p[6],DWORD direction)
     int axis=direction<2?0:2;
     float low=p[0].position[axis],high=low;
     for(int i=1;i<6;i++){low=fminf(low,p[i].position[axis]);high=fmaxf(high,p[i].position[axis]);}
-    if (!(high>low))return FALSE;
-    for(int i=0;i<6;i++)if(p[i].position[axis]!=low&&p[i].position[axis]!=high)return FALSE;
-    return TRUE;
+    /* The shared clipper also handles trapezoids: corners need not all lie on
+     * the two extent planes. Only a zero-width sweep is undefined. */
+    return high>low;
 }
 BOOL DoorShadowGet(const SetupFile *s,DWORD i,DoorShadowProperties *out)
 {
@@ -43,6 +43,39 @@ BOOL DoorShadowGet(const SetupFile *s,DWORD i,DoorShadowProperties *out)
     out->door=SetupFileCommandObject(s,(LONG)SetupMetaRead32(p+DOOR_SHADOW_DOOR));
     if(out->door>=0&&(s->objects[out->door].type!=PROPDEF_DOOR||s->objects[out->door].deleted))out->door=-1;
     return TRUE;
+}
+BOOL DoorShadowDoorDirection(const SetupFile *s,DWORD index,DWORD *direction,const char **why)
+{
+    DoorShadowProperties shadow;
+    SetupObjectProperties door;
+    DoorShadowPoint points[6];
+    double movement[3],span;
+    int axis;
+    *why="Link a horizontally moving door first.";
+    if(!DoorShadowGet(s,index,&shadow)||shadow.door<0
+        ||!SetupFileGetObjectProperties(s,(DWORD)shadow.door,&door,why))return FALSE;
+    *why="Link a horizontally moving door first.";
+    if(door.door.type>DOORTYPE_VERTICAL||!(door.door.travel>0))return FALSE;
+    if(door.object.pad<0||(DWORD)door.object.pad>=s->boundpadcount
+        ||s->boundpads[door.object.pad].pad.deleted)return FALSE;
+    const SetupBoundPad *pad=&s->boundpads[door.object.pad];
+    /* setupDoor uses -pad.up for ordinary sliders, and pad.look for the
+     * vertical type. These pad axes are not the usual world up/facing. */
+    BOOL vertical=door.door.type==DOORTYPE_VERTICAL;
+    span=vertical?pad->zmax-pad->zmin:pad->ymin-pad->ymax;
+    for(int a=0;a<3;a++) {
+        movement[a]=(vertical?pad->pad.look[a]:pad->pad.up[a])*span;
+        if(!isfinite(movement[a]))return FALSE;
+    }
+    axis=fabs(movement[0])>=fabs(movement[2])?0:2;
+    *why="The linked door must move horizontally along the X or Z axis.";
+    if(!(fabs(movement[axis])>0)||fabs(movement[1])>fabs(movement[axis])*.0001
+        ||fabs(movement[2-axis])>fabs(movement[axis])*.0001)return FALSE;
+    DWORD result=(axis==0?DOOR_SHADOW_POS_X:DOOR_SHADOW_POS_Z)+(movement[axis]<0);
+    Points(Record(s,index),points);
+    *why="The shadow has no width along the linked door's movement axis.";
+    if(!AxisValid(points,result))return FALSE;
+    *direction=result;*why="";return TRUE;
 }
 BOOL DoorShadowTranslate(SetupFile *setup, DWORD index, float scale, const double offset[3], const char **why)
 {
@@ -73,9 +106,13 @@ BOOL DoorShadowSet(SetupFile *s,const DoorShadowEdit *edit,BOOL *changed,const c
         *why="Pick a live door in the viewport.";
         if(value>=s->objectcount||s->objects[value].type!=PROPDEF_DOOR||s->objects[value].deleted)return FALSE;
         value=(DWORD)SetupFileObjectCommand(s,value);if(value==(DWORD)-1)return FALSE;break;
+    case DOOR_SHADOW_EDIT_MATCH_DOOR:
+        if(!DoorShadowDoorDirection(s,edit->objectindex,&value,why))return FALSE;
+        /* Save the resolved ordinary direction; no new runtime format. */
+        offset=DOOR_SHADOW_DIRECTION;break;
     case DOOR_SHADOW_EDIT_DIRECTION: {
         DoorShadowPoint points[6];Points(p,points);offset=DOOR_SHADOW_DIRECTION;
-        *why="The quadrilateral must have opposite edges aligned with the selected X or Z direction.";
+        *why="The shadow must have nonzero width along the selected X or Z axis.";
         if(value>3||!AxisValid(points,value))return FALSE;
         break;
     }
@@ -210,7 +247,7 @@ BOOL DoorShadowCreate(BgDocument *bg,SetupFile *s,const BgFaceRef refs[2],DWORD 
     }
     DoorShadowPoint points[6];Points(record,points);
     DWORD direction=AxisValid(points,DOOR_SHADOW_POS_X)?DOOR_SHADOW_POS_X:DOOR_SHADOW_POS_Z;
-    *why="The quadrilateral needs opposite edges aligned with X or Z.";
+    *why="The quadrilateral needs nonzero width along X or Z.";
     if(!AxisValid(points,direction))return FALSE;
     SetupMetaWrite32(record+DOOR_SHADOW_DIRECTION,direction);
     if(!BgCompileDoorShadow(a,states,&gdl,&bytes,why))return FALSE;

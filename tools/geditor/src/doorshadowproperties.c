@@ -8,7 +8,7 @@
 #include "doorshadowproperties.h"
 
 #define SHADOW_CLASS "GEditorDoorShadowProperties"
-enum { TITLE, LINK, PICK, UNLINK, DIRECTION_LABEL, DIRECTION, DIRECTION_HELP,
+enum { TITLE, LINK, PICK, UNLINK, DIRECTION_LABEL, DIRECTION, MATCH_DOOR, DIRECTION_HELP,
     LIGHT, DARK, COLOR_HELP, PREVIEW_LABEL, PREVIEW, HELP, CONTROL_COUNT };
 typedef struct ShadowPanel {
     HWND controls[CONTROL_COUNT];
@@ -109,6 +109,13 @@ void DoorShadowPropertiesSetSelections(HWND hwnd, const SetupFile *setup, const 
     }
     EnableWindow(s->controls[UNLINK], linked);
     EnableWindow(s->controls[PICK], count == 1);
+    DWORD direction;
+    const char *why="";
+    BOOL horizontal=count==1&&DoorShadowDoorDirection(setup,index,&direction,&why);
+    EnableWindow(s->controls[MATCH_DOOR],horizontal);
+    SetWindowText(s->controls[DIRECTION_HELP], horizontal
+        ? "Match horizontal door selects its X/Z opening direction. You can also choose a direction manually."
+        : "Choose +X, -X, +Z or -Z. For horizontal doors, use the door's opening direction. The shadow must have width on that axis.");
     EnableWindow(s->controls[PREVIEW], count == 1);
     SetWindowText(s->controls[HELP], count > 1
         ? "Changes apply to all selected shadows. Select one shadow to pick its door or preview opening."
@@ -122,14 +129,14 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     case WM_CREATE: {
         HINSTANCE instance = ((CREATESTRUCT *)lp)->hInstance;
         const char *texts[CONTROL_COUNT] = {"Door Shadow", "Linked door: None", "Pick door", "Unlink door",
-            "Light expands toward", "", "Choose +X, -X, +Z or -Z along the quadrilateral's edges.",
+            "Light expands toward", "", "Match horizontal door", "Choose +X, -X, +Z or -Z. Horizontal shadows sweep along the door's movement axis.",
             "Light RGB", "Dark RGB", "RGB tints the original texture. Its UVs stay fixed as the boundary moves.",
             "Preview door opening: 0%", "", "Preview only. In game, the shadow follows the linked door's actual opening. Click Pick door, then a door in the viewport; Esc cancels."};
         s = calloc(1, sizeof(*s)); if (!s) { return -1; }
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)s);
         s->index = (DWORD)-1;
         for (int i = 0; i < CONTROL_COUNT; i++) {
-            BOOL button = i == PICK || i == UNLINK || i == LIGHT || i == DARK;
+            BOOL button = i == PICK || i == UNLINK || i == MATCH_DOOR || i == LIGHT || i == DARK;
             const char *cls = button ? "BUTTON" : i == DIRECTION ? "COMBOBOX" : i == PREVIEW ? TRACKBAR_CLASS : "STATIC";
             DWORD style = button ? WS_TABSTOP | BS_PUSHBUTTON : i == DIRECTION ? WS_TABSTOP | CBS_DROPDOWNLIST | WS_VSCROLL
                 : i == PREVIEW ? WS_TABSTOP | TBS_AUTOTICKS : SS_NOPREFIX;
@@ -152,6 +159,8 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
                 SendMessage(GetAncestor(hwnd, GA_ROOT), DOORSHADOW_WM_PICK, s->index, 0);
             } else if (id == UNLINK && HIWORD(wp) == BN_CLICKED) {
                 Edit(hwnd, s, DOOR_SHADOW_EDIT_DOOR, -1);
+            } else if (id == MATCH_DOOR && HIWORD(wp) == BN_CLICKED) {
+                Edit(hwnd, s, DOOR_SHADOW_EDIT_MATCH_DOOR, 0);
             } else if (id == DIRECTION && HIWORD(wp) == CBN_SELCHANGE) {
                 int choice = (int)SendMessage(s->controls[DIRECTION], CB_GETCURSEL, 0, 0);
                 if (choice < 0 || choice > 3 || !Edit(hwnd, s, DOOR_SHADOW_EDIT_DIRECTION, choice))

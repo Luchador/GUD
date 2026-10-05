@@ -195,9 +195,101 @@ static void Depot(const char *dir,const char *path)
     assert(count&&bg.facecount==faces-2);
     BgDocumentFree(&bg);SetupFileFree(&setup);
 }
+static void Horizontal(const char *dir)
+{
+    for(int axis=0;axis<=2;axis+=2) {
+        BgFile source=Fixture();BgDocument bg={0};SetupFile setup={0},loaded={0};
+        BgFaceRef refs[2];DWORD shadow,direction;BOOL changed;
+        /* Ordinary opaque mipmapped terrain, also checked by the runtime's
+         * saved-record two-cycle/one-cycle render-state regression. */
+        Put(source.data+192,0xba000818);Put(source.data+196,0x00192c00);
+        Put(source.data+204,0x0c182078);
+        const short x[4]={-25,125,90,10},z[4]={0,0,100,100};
+        for(int v=0;v<4;v++) {
+            unsigned char *p=source.data+116+v*16;
+            short a=axis==0?x[v]:z[v],b=axis==0?z[v]:x[v];
+            p[0]=(unsigned short)a>>8;p[1]=a;p[4]=(unsigned short)b>>8;p[5]=b;
+        }
+        OK(BgDocumentLoad(source.data,source.size,1,&bg,&why));
+        OK(SetupLoadProjectFile(dir,"UsetupshadowZ",&setup,&why));
+        /* Conversion() has saved a shadow already; use that setup's live door. */
+        Refs(&bg,1,0,1,refs);OK(DoorShadowCreate(&bg,&setup,refs,&shadow,&why));
+        DoorShadowEdit edit={shadow,DOOR_SHADOW_EDIT_MATCH_DOOR,0};
+        assert(!DoorShadowSet(&setup,&edit,&changed,&why)&&!changed);
+        edit.field=DOOR_SHADOW_EDIT_DOOR;edit.value=0;
+        OK(DoorShadowSet(&setup,&edit,&changed,&why));
+        SetupBoundPad *pad=&setup.boundpads[setup.objects[0].pad];
+        unsigned char *door=setup.data+setup.objects[0].sourceoffset;
+        Put(door+0x98,DOORTYPE_SLIDING);Put(door+0x84,65536);
+        for(int sign=-1;sign<=1;sign+=2) {
+            memset(pad->pad.up,0,sizeof(pad->pad.up));pad->pad.up[axis]=-sign;
+            edit.field=DOOR_SHADOW_EDIT_MATCH_DOOR;
+            OK(DoorShadowDoorDirection(&setup,shadow,&direction,&why));
+            assert(direction==(DWORD)(axis+(sign<0)));
+            OK(DoorShadowSet(&setup,&edit,&changed,&why));
+            DoorShadowProperties props;OK(DoorShadowGet(&setup,shadow,&props));
+            assert(props.direction==direction);
+            double previous=-1;
+            for(int fraction=0;fraction<=100;fraction++) {
+                BgVertex vertices[18];unsigned short tag;BgRenderFlags flags;
+                double total=0,lit=0;
+                DoorShadowSetPreview(shadow,fraction);
+                OK(DoorShadowBuildPreview(&setup,shadow,1,vertices,&tag,&flags,&why));
+                float edge=sign>0?-25+1.5f*fraction:125-1.5f*fraction;
+                for(int t=0;t<6;t++) {
+                    BgVertex *v=vertices+t*3;
+                    double area=fabs(((v[1].x-v[0].x)*(v[2].z-v[0].z)
+                        -(v[1].z-v[0].z)*(v[2].x-v[0].x))/2);
+                    total+=area;if(v->r==255)lit+=area;
+                    for(int c=0;c<3;c++) {
+                        double position=axis==0?v[c].x:v[c].z;
+                        if(area>.0001) {
+                            assert(v->r==255?(sign*(position-edge)<=.001):(sign*(position-edge)>=-.001));
+                        }
+                        /* Each source triangle retains its own affine UVs. */
+                        double px=axis==0?v[c].x:v[c].z,pz=axis==0?v[c].z:v[c].x;
+                        double w2=pz/100,w1=(px+25-115*w2)/150;
+                        double u=6400*w1+3000*w2;
+                        if(t>=3) {w2=(px+25-.35*pz)/80;u=3000*w2;}
+                        assert(fabs(v[c].s*32-u)<.005&&fabs(v[c].t*32-32*pz)<.005);
+                    }
+                }
+                assert(fabs(total-11500)<.005&&lit+0.005>=previous);
+                if(fraction==0)assert(lit==0);
+                if(fraction==100)assert(fabs(lit-total)<.005);
+                previous=lit;
+            }
+        }
+        char path[MAX_PATH];snprintf(path,sizeof(path),"%s/saved-shadow-horizontal-%d.bin",dir,axis);
+        FILE *file=fopen(path,"wb");assert(file);
+        assert(fwrite(setup.data+setup.objects[shadow].sourceoffset,1,DOOR_SHADOW_BYTES,file)==DOOR_SHADOW_BYTES);fclose(file);
+        OK(SetupSaveProjectFile(dir,&setup,&why));OK(SetupLoadProjectFile(dir,"UsetupshadowZ",&loaded,&why));
+        DoorShadowProperties props;OK(DoorShadowGet(&loaded,shadow,&props));assert(props.direction==(DWORD)axis);
+        /* Diagonal, vertical, swinging, deleted and unlinked doors cannot be matched. */
+        pad->pad.up[2-axis]=1;assert(!DoorShadowDoorDirection(&setup,shadow,&direction,&why));
+        pad->pad.up[2-axis]=0;pad->pad.up[1]=1;assert(!DoorShadowDoorDirection(&setup,shadow,&direction,&why));
+        pad->pad.up[1]=0;Put(door+0x98,DOORTYPE_SWINGING);
+        assert(!DoorShadowDoorDirection(&setup,shadow,&direction,&why));
+        Put(door+0x98,DOORTYPE_SLIDING);pad->pad.deleted=TRUE;
+        assert(!DoorShadowDoorDirection(&setup,shadow,&direction,&why));pad->pad.deleted=FALSE;
+        /* A vertical-type door uses its look axis; it can be placed sideways. */
+        Put(door+0x98,DOORTYPE_VERTICAL);memset(pad->pad.look,0,sizeof(pad->pad.look));
+        pad->pad.look[axis]=1;OK(DoorShadowDoorDirection(&setup,shadow,&direction,&why));
+        assert(direction==(DWORD)axis);
+        /* A wall perpendicular to the travel cannot support that sweep. */
+        unsigned char *record=setup.data+setup.objects[shadow].sourceoffset;
+        for(int v=0;v<6;v++)memset(record+DOOR_SHADOW_VERTICES+v*16+axis*2,0,2);
+        assert(!DoorShadowDoorDirection(&setup,shadow,&direction,&why));
+        edit.field=DOOR_SHADOW_EDIT_DIRECTION;edit.value=axis;
+        assert(!DoorShadowSet(&setup,&edit,&changed,&why)&&!changed);
+        setup.objects[0].deleted=TRUE;assert(!DoorShadowDoorDirection(&setup,shadow,&direction,&why));
+        SetupFileFree(&loaded);SetupFileFree(&setup);BgDocumentFree(&bg);BgFileFree(&source);
+    }
+    puts("PASS horizontal shadows: +/-X/Z native door directions, trapezoid sweeps, UVs, save/reload, and unsupported door rejection.");
+}
 int main(int argc,char **argv)
 {
-    assert(argc>=2); Math(); CompilerDithering(); Conversion(argv[1]);
+    assert(argc>=2); Math(); CompilerDithering(); Conversion(argv[1]);Horizontal(argv[1]);
     if (argc>2) { Depot(argv[1],argv[2]); }
     puts("PASS: clipping in four directions, fixed UVs, endpoints, conversion, link, colors, save/reload, atomic undo/redo, deletion and command recycling.");
     return 0;
