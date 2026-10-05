@@ -1,7 +1,9 @@
 # Editing models in Blender
 
 The Model Editor now has **Export Model...** and **Import Model...** buttons.
-With a model selected, Import replaces that model throughout the project. Save Project saves
+With a model selected, Import offers **Import a new model** (the default) or
+**Replace the selected model**, showing the replacement target's name.
+Replacement changes that model throughout the project. Save Project saves
 model replacements, and Create ROM includes them. Importing marks the project
 as unsaved; closing the Model Editor does not discard its changes.
 
@@ -14,9 +16,11 @@ automatically. The model opens in the chosen category; assign its images in
 Materials and **Save Project**. The category is retained through save/reload,
 ROM export, extraction and rebase. **Add Prop Model...** has been removed.
 
-To start another new import, clear any model selector's text and press Enter,
-or close and reopen the Model Editor. Clearing the selection keeps all edits.
-Cancelling either the file picker or category window adds nothing.
+To add another model while one is open, click **Import Model...**, leave
+**Import a new model** selected, and click **Continue**. Cancelling the choice,
+file picker or category window keeps the current selection and edits.
+**File > Import > Import Model...** and the Models panel's right-click import
+command go directly to a new import.
 
 Items and Props use the static-mesh importer; importing an Item does not create
 a new weapon type. Characters use the **Body** or **Head** selection and a stock
@@ -32,8 +36,9 @@ With the character-import runtime already installed, this addition requires
 only rebuilding GEditor. It accepts ordinary static head GLB/glTF files without
 GUD source metadata, including the extracted XBLA `head.glb` files.
 
-1. Use **File > Import > Import Model...** (or right-click the Models panel and
-   choose **Import Model...**). Select the actor's separate `head.glb`.
+1. Click **Import Model...** in the Model Editor and choose **Import a new model**
+   if a model is already open. Alternatively, use **File > Import > Import Model...**
+   or the Models panel's right-click import command. Select the actor's separate `head.glb`.
 2. Choose **Characters**, type **Head**, and template **CheadbrosnanZ**.
 3. Enter a unique name, for example `headmoore`, `headconnery` or `headdalton`.
    The resulting model names are `CheadmooreZ`, `CheadconneryZ`, `CheaddaltonZ`.
@@ -88,7 +93,8 @@ extracted actor heads. The tests do not modify those input files.
    **Vertex Colors**. Export the complete model, including its other parts and
    LODs. Do not enable mesh compression. Keep separate-format `.bin` files
    beside their `.gltf` file.
-6. Select the same model in GEditor and click **Import Model...**. Review the
+6. Select the same model in GEditor, click **Import Model...**, and choose
+   **Replace the selected model**. Review the
    viewport and the before/after counts in the footer. Slots retain assignments
    when their names match uniquely; new or renamed slots start with **No Texture**.
    Drag an image from the main image browser onto a material thumbnail to assign

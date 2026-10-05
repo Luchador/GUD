@@ -1020,6 +1020,26 @@ static void ModelEditorDeleteFaces(void)
     ModelEditorNotifyChanged();
 }
 
+/* A loaded model must not silently turn Import Model into a replacement. */
+static INT_PTR CALLBACK ModelEditorImportModeDialog(HWND hwnd,UINT message,WPARAM wparam,LPARAM lparam)
+{
+    if (message==WM_INITDIALOG)
+    {
+        SetDlgItemText(hwnd,IDC_IMPORT_MODEL_TARGET,(const char *)lparam);
+        CheckDlgButton(hwnd,IDC_IMPORT_MODEL_NEW,BST_CHECKED);
+        return TRUE;
+    }
+    if (message==WM_COMMAND && LOWORD(wparam)==IDOK)
+    {
+        EndDialog(hwnd,IsDlgButtonChecked(hwnd,IDC_IMPORT_MODEL_REPLACE)==BST_CHECKED
+            ? IDC_IMPORT_MODEL_REPLACE : IDC_IMPORT_MODEL_NEW);
+        return TRUE;
+    }
+    if ((message==WM_COMMAND && LOWORD(wparam)==IDCANCEL) || message==WM_CLOSE)
+    { EndDialog(hwnd,IDCANCEL);return TRUE; }
+    return FALSE;
+}
+
 static void ModelEditorImportNew(const char *path);
 static void ModelEditorTransfer(BOOL importing)
 {
@@ -1032,6 +1052,15 @@ static void ModelEditorTransfer(BOOL importing)
     HCURSOR previous;
     entry=g_ModelSelected>=0 && g_ModelSelected<g_ModelCount ? &g_ModelEntries[g_ModelSelected] : NULL;
     if (!g_ModelProject[0] || (!importing && !entry)) { return; }
+    if (importing && entry)
+    {
+        HINSTANCE instance=(HINSTANCE)GetWindowLongPtr(g_ModelEditor,GWLP_HINSTANCE);
+        INT_PTR mode=DialogBoxParam(instance,MAKEINTRESOURCE(IDD_MODEL_IMPORT_MODE),g_ModelEditor,
+            ModelEditorImportModeDialog,(LPARAM)entry->name);
+        if (mode==IDC_IMPORT_MODEL_NEW) { entry=NULL; }
+        else if (mode!=IDC_IMPORT_MODEL_REPLACE) { return; }
+        /* Keep the current selection and edits until a new model succeeds. */
+    }
     if (!importing) { snprintf(path,sizeof(path),"%.*s.gltf",(int)sizeof(path)-6,entry->name); }
     ZeroMemory(&ofn,sizeof(ofn)); ofn.lStructSize=sizeof(ofn);ofn.hwndOwner=g_ModelEditor;
     ofn.lpstrFile=path;ofn.nMaxFile=sizeof(path);ofn.lpstrDefExt="gltf";

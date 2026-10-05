@@ -41,8 +41,14 @@ static int files,dialogs,imports,replacements,exports,changed,reloads,opens,erro
 static int cancelFile,cancelDialog,failImport,selectedCategory,dialogResult,rows;
 static int failShow,shows,clears,kindChoice,selectedKind,characterImports,lastTemplate;
 static int fitChecked,fitChoice=1,lastFit;
-static void CheckDlgButton(HWND hwnd,int id,int checked) { assert(id==IDC_NEW_HEAD_FIT);fitChecked=checked; }
-static int IsDlgButtonChecked(HWND hwnd,int id) { assert(id==IDC_NEW_HEAD_FIT);return fitChecked; }
+static int modes,replaceChoice,replaceChecked,cancelMode,failMode;
+static void CheckDlgButton(HWND hwnd,int id,int checked)
+{
+    if (id==IDC_IMPORT_MODEL_NEW) { assert(checked==BST_CHECKED);replaceChecked=FALSE; }
+    else { assert(id==IDC_NEW_HEAD_FIT);fitChecked=checked; }
+}
+static int IsDlgButtonChecked(HWND hwnd,int id)
+{ if(id==IDC_IMPORT_MODEL_REPLACE) return replaceChecked;assert(id==IDC_NEW_HEAD_FIT);return fitChecked; }
 static intptr_t dialogData;
 static char nameText[64],addedName[64],openedName[64],lastTitle[80],order[32];
 static const char *typedName;
@@ -56,7 +62,11 @@ static HCURSOR LoadCursor(void *instance,int cursor) { return (HCURSOR)1; }
 static HCURSOR SetCursor(HCURSOR cursor) { return (HCURSOR)1; }
 static void MessageBox(HWND hwnd,const char *message,const char *title,int flags) { assert(*message);errors++; }
 static void SetDlgItemText(HWND hwnd,int id,const char *text)
-{ if(id==IDC_NEW_MODEL_NAME) lstrcpyn(nameText,text,sizeof(nameText));else assert(id==IDC_MODEL_STATUS); }
+{
+    if(id==IDC_NEW_MODEL_NAME) lstrcpyn(nameText,text,sizeof(nameText));
+    else if(id==IDC_IMPORT_MODEL_TARGET) assert(!strcmp(text,g_ModelEntries[0].name));
+    else assert(id==IDC_MODEL_STATUS);
+}
 static void GetDlgItemText(HWND hwnd,int id,char *text,int size)
 { assert(id==IDC_NEW_MODEL_NAME);lstrcpyn(text,nameText,size); }
 static intptr_t SendDlgItemMessage(HWND hwnd,int id,UINT message,WPARAM wparam,LPARAM lparam)
@@ -86,6 +96,16 @@ static int choice;
 static INT_PTR DialogBoxParam(HINSTANCE instance,const char *resource,HWND owner,
     INT_PTR (*proc)(HWND,UINT,WPARAM,LPARAM),LPARAM data)
 {
+    if ((uintptr_t)resource==IDD_MODEL_IMPORT_MODE)
+    {
+        modes++;Event('M');dialogResult=0;
+        if(failMode) return -1;
+        replaceChecked=TRUE;
+        proc((HWND)2,WM_INITDIALOG,0,data);assert(!replaceChecked);
+        replaceChecked=replaceChoice;
+        proc((HWND)2,cancelMode==2 ? WM_CLOSE : WM_COMMAND,cancelMode ? IDCANCEL : IDOK,0);
+        return dialogResult;
+    }
     dialogs++;Event('D');rows=dialogResult=0;
     assert((uintptr_t)resource==IDD_IMPORT_MODEL);
     proc((HWND)2,WM_INITDIALOG,0,data);assert(rows==3);
@@ -125,6 +145,7 @@ static void Reset(void)
     files=dialogs=imports=replacements=exports=changed=reloads=opens=errors=0;
     cancelFile=cancelDialog=failImport=0;choice=2;typedName=NULL;order[0]=0;
     failShow=shows=clears=kindChoice=characterImports=0;lastTemplate=-1;fitChoice=1;lastFit=-1;
+    modes=replaceChoice=replaceChecked=cancelMode=failMode=0;
     strcpy(g_ModelProject,"project");strcpy(g_ModelEntries[0].name,"PexistingZ");g_ModelSelected=-1;
 }
 int main(void)
@@ -146,12 +167,38 @@ int main(void)
     Reset();typedName="../invalid";ModelEditorTransfer(TRUE);assert(errors==1 && !imports && !changed && !dialogResult);
     Reset();choice=-1;ModelEditorTransfer(TRUE);assert(errors==1 && !imports && !changed);
     Reset();failImport=1;ModelEditorTransfer(TRUE);assert(imports==1 && errors==1 && !changed && !opens && g_ModelSelected==-1);
-    Reset();g_ModelSelected=0;ModelEditorTransfer(TRUE);
-    assert(files==1 && !dialogs && !imports && replacements==1 && reloads==1 && changed==1);
-    assert(!strcmp(lastTitle,"Import replacement model"));
+    /* The toolbar defaults to adding, even with a head already selected. */
+    for(int category=0;category<3;category++)
+    {
+        Reset();choice=category;g_ModelSelected=0;
+        strcpy(g_ModelEntries[0].name,"CheadmooreZ");kindChoice=1;
+        ModelEditorTransfer(TRUE);
+        assert(modes==1 && files==1 && dialogs==1 && imports==1 && !replacements && opens==1 && !errors);
+        assert(!strcmp(order,"MFDNCRO") && !strcmp(lastTitle,"Import New Model"));
+        assert(characterImports==(category==0));
+        if(category==0) assert(lastTemplate==78 && lastFit);
+    }
+    for(int cancel=1;cancel<=2;cancel++)
+    {
+        Reset();g_ModelSelected=0;cancelMode=cancel;ModelEditorTransfer(TRUE);
+        assert(modes==1 && !files && !imports && !replacements && !changed && g_ModelSelected==0);
+        Reset();g_ModelSelected=0;cancelDialog=cancel;ModelEditorTransfer(TRUE);
+        assert(modes==1 && dialogs==1 && !imports && !replacements && !changed && g_ModelSelected==0);
+    }
+    Reset();g_ModelSelected=0;cancelFile=1;ModelEditorTransfer(TRUE);
+    assert(modes==1 && files==1 && !dialogs && !imports && !replacements && !changed && g_ModelSelected==0);
+    Reset();g_ModelSelected=0;failMode=1;ModelEditorTransfer(TRUE);
+    assert(modes==1 && !files && !changed && g_ModelSelected==0);
     Reset();g_ModelSelected=0;failImport=1;ModelEditorTransfer(TRUE);
+    assert(imports==1 && errors==1 && !replacements && !changed && !opens && g_ModelSelected==0);
+    Reset();g_ModelSelected=0;replaceChoice=1;ModelEditorTransfer(TRUE);
+    assert(files==1 && !dialogs && !imports && replacements==1 && reloads==1 && changed==1);
+    assert(modes==1 && !strcmp(lastTitle,"Import replacement model"));
+    Reset();g_ModelSelected=0;replaceChoice=1;failImport=1;ModelEditorTransfer(TRUE);
     assert(replacements==1 && !dialogs && !imports && !reloads && !changed && errors==1);
-    Reset();g_ModelSelected=0;ModelEditorTransfer(FALSE);assert(exports==1 && !dialogs && !changed);
+    Reset();g_ModelSelected=0;replaceChoice=1;cancelFile=1;ModelEditorTransfer(TRUE);
+    assert(files==1 && !replacements && !changed && g_ModelSelected==0);
+    Reset();g_ModelSelected=0;ModelEditorTransfer(FALSE);assert(exports==1 && !modes && !dialogs && !changed);
     Reset();ModelEditorTransfer(FALSE);assert(!files);
     Reset();g_ModelProject[0]=0;ModelEditorTransfer(TRUE);assert(!files);
     /* External import commands must never replace an already-selected model. */
@@ -159,7 +206,7 @@ int main(void)
     {
         Reset();choice=category;g_ModelSelected=0;
         assert(ModelEditorBeginNewImport((HWND)3,(HINSTANCE)1,g_ModelProject));
-        assert(shows==1 && clears==1 && imports==1 && !replacements && !strcmp(order,"SEFDNCRO"));
+        assert(shows==1 && clears==1 && imports==1 && !modes && !replacements && !strcmp(order,"SEFDNCRO"));
     }
     Reset();g_ModelSelected=0;cancelFile=1;
     assert(ModelEditorBeginNewImport((HWND)3,(HINSTANCE)1,g_ModelProject));
@@ -174,5 +221,5 @@ int main(void)
     assert(!ModelEditorBeginNewImport((HWND)3,(HINSTANCE)1,NULL));
     assert(!ModelEditorBeginNewImport((HWND)3,(HINSTANCE)1,""));
     assert(!shows && !clears && !files);
-    puts("PASS import flow: file before category, Characters/Items/Props, cancellation/close, invalid input, failures, replacement routing, export, no-project guard and external new-import commands.");
+    puts("PASS import flow: new/import-replacement choice, raw head with existing head selected, Characters/Items/Props, cancellation/close, failures retain selection, export, no-project guard and external new-import commands.");
 }

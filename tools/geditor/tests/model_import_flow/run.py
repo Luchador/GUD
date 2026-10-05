@@ -15,7 +15,7 @@ bank = (src / 'newprops.c').read_text()
 logic = ''.join(extract(bank, name) for name in ('NewPropsCategory', 'NameValid', 'NewPropsMakeName'))
 logic += re.search(r'typedef struct ModelEditorNewModel [^\n]*', editor)[0] + '\n'
 logic += ''.join(extract(editor, name) for name in
-                 ('ModelEditorTransfer', 'ModelEditorNewModelDialog', 'ModelEditorImportNew',
+                 ('ModelEditorImportModeDialog', 'ModelEditorTransfer', 'ModelEditorNewModelDialog', 'ModelEditorImportNew',
                   'ModelEditorBeginNewImport'))
 resources = (src / 'geditor.rc').read_text()
 assert 'Add Prop Model...' not in resources and 'IDC_MODEL_ADD' not in editor
