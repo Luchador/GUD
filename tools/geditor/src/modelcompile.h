@@ -3,6 +3,10 @@
 #include "modelload.h"
 #include "gltf.h"
 DWORD ModelDataHash(const unsigned char *data, DWORD size);
+/* New character defaults: set explicit backface culling in every native list.
+ * Texture/material edits subsequently retain this authored state. */
+BOOL ModelCompileDefaultCulling(const unsigned char *data, DWORD size,
+    const ModelSource *source, unsigned char **result, DWORD *resultsize, const char **why);
 /* Delete source face IDs and prune unused vertex loads. Keep native vertex
  * data, joints, bounds, collision links and all non-triangle render commands. */
 BOOL ModelCompileDeleteFaces(const unsigned char *data, DWORD size, const ModelSource *source,
@@ -33,6 +37,12 @@ BOOL ModelCompileRetopology(const unsigned char *data, DWORD size, const ModelSo
  * vertex links. Material names and normalized UVs remain the imported ones. */
 BOOL ModelCompileHeadGeometry(const unsigned char *data, DWORD size, const ModelSource *source,
     const GltfModelImport *imported, const char *projectdir, ModelMaterials *ordered,
+    unsigned char **result, DWORD *resultsize, const char **why);
+/* Bind an unrigged, standing arms-down body to the template's closest-LOD
+ * surface joints. Keeps imported topology, seams, UVs and colors. The new body
+ * uses its own geometry at every distance; stock low LOD meshes are removed. */
+BOOL ModelCompileBodyGeometry(const unsigned char *data, DWORD size, const ModelSource *source,
+    const GltfModelImport *imported, BOOL fit, ModelMaterials *ordered,
     unsigned char **result, DWORD *resultsize, const char **why);
 /* -1 leaves that property unchanged. Culling: 0=none, 1=back, 2=front.
    Surface: 0=opaque, 1=cutout, 2=alpha blend. U/V wrap: 0=repeat, 1=clamp,

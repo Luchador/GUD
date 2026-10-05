@@ -16,7 +16,7 @@ here=Path(__file__).resolve().parent
 src=here.parents[1]/'src'
 root=src.parents[2]
 parser=argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--heads',type=Path,help='Optional extracted GoldenEye-XBLA-Bond-Geometry folder')
+parser.add_argument('--heads',type=Path,help='Optional extracted GoldenEye-XBLA-Bond-Geometry folder (tests heads and bodies)')
 args=parser.parse_args()
 
 def raw_head(path,variant='normal'):
@@ -60,9 +60,23 @@ with tempfile.TemporaryDirectory(prefix='geditor-characters-') as tmp:
     runpy.run_path(str(here.parent/'new_props/run.py'))['fixture'](work/'prop.glb')
     for variant in ('normal','flat','collapsed','oversize','stale','skinned','animated','blend'):
         raw_head(work/f'raw-{variant}.glb',variant)
+    # Real native frames exercise root/limb rotations and weapon/head attachments.
+    convert=runpy.run_path(str(root/'tools/make_animation_entries_uncompressed.py'))
+    arrays=dict(convert['parse_entry_arrays']((root/'assets/animationtable_entries.c').read_text()))
+    headers={m['name']:m for m in convert['DATA_HEADER_RE'].finditer((root/'assets/animationtable_data.c').read_text())}
+    poses=[]
+    for name in ('walking','running','sprinting','death_forward_face_down','death_backward_fall_face_up1'):
+        info=int(headers[name]['info'],16);bits=int(headers[name]['layout'],16)&65535
+        width=(info>>8)&255;count=info>>16
+        assert bits%8==0 and bits//width==45
+        for frame in (0,count//2,count-1):
+            data=arrays[name][frame*(bits//8):(frame+1)*(bits//8)]
+            poses.append([convert['read_packed_value'](data,c*width,width)<<(16-width) for c in range(45)])
+    (work/'bodyposes.inc').write_text('static const unsigned short bodyposes[][45]={\n'+
+        ',\n'.join('{'+','.join(map(str,p))+'}' for p in poses)+'\n};\n')
     command=[os.environ.get('CC','cc'),'-std=c99','-O1','-g','-Wall','-Wextra','-Werror',
         '-Wno-unused-parameter','-ffunction-sections','-fdata-sections','-fsanitize=address,undefined',
-        '-Dfopen=TestFopen',f'-I{here.parent/"image_import"}',f'-I{src}',f'-I{root}',
+        '-Dfopen=TestFopen',f'-I{here.parent/"image_import"}',f'-I{src}',f'-I{root}',f'-I{work}',
         str(here/'check.c'),str(here.parent/'image_import/platform.c')]
     command += [str(src/name) for name in ('newprops.c','propcompile.c','modelcompile.c','modelload.c',
         'modeledits.c','modelmaterials.c','gltf.c','gltfjson.c','bgmaterial.c','bgrender.c',

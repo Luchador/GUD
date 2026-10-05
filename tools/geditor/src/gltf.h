@@ -43,6 +43,10 @@ void GltfFreeModelImport(GltfModelImport *model);
  * Caller frees flags and the model. Unbound slots start with No Texture. */
 BOOL GltfReadHeadImport(const char *path, DWORD sourcehash, const char *projectdir,
     GltfModelImport *model, BgRenderFlags **flags, BOOL *roundtrip, const char **reasonout);
+/* Same identity rules for raw character bodies; binding is performed by the
+ * native body compiler, never by the static prop compiler. */
+BOOL GltfReadCharacterImport(const char *path, DWORD sourcehash, const char *projectdir,
+    GltfModelImport *model, BgRenderFlags **flags, BOOL *roundtrip, const char **reasonout);
 
 /* Imports keep material slots and normalized UVs without looking up images.
  * Every imported slot starts with No Texture; the edit store can retain

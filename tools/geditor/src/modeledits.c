@@ -870,15 +870,15 @@ BOOL ModelEditsCompileClone(const char *project,const char *name,const char *pat
     BOOL ok=FALSE,roundtrip=TRUE;*result=NULL;*resultsize=0;
     if(!LoadSource(project,name,&data,&size,&basehash,why)) { goto done; }
     if(!ModelReadSource(data,size,&source,why) || !ModelMaterialsEnsure(&source,project,why)) goto done;
-    if (head) {
-        if (!GltfReadHeadImport(path,ModelDataHash(data,size),project,&imported,&flags,&roundtrip,why)) goto done;
-    } else if (!GltfReadModelImport(path,ModelDataHash(data,size),&imported,why)) goto done;
+    if (!GltfReadCharacterImport(path,ModelDataHash(data,size),project,&imported,&flags,&roundtrip,why)) goto done;
     if (!roundtrip) {
         for (i=0;i<imported.count;i++) if (flags[i]&BG_RENDER_BLEND) {
-            *why="New head geometry must use opaque materials. Use a GEditor template export for transparent parts.";goto done;
+            *why="New character geometry must use opaque materials. Use a GEditor template export for transparent parts.";goto done;
         }
-        if (fithead && !FitHeadGeometry(&source,&imported,why)) goto done;
-        if (!ModelCompileHeadGeometry(data,size,&source,&imported,project,&ordered,&compiled,&compiledsize,why)) goto done;
+        if (head) {
+            if (fithead && !FitHeadGeometry(&source,&imported,why)) goto done;
+            if (!ModelCompileHeadGeometry(data,size,&source,&imported,project,&ordered,&compiled,&compiledsize,why)) goto done;
+        } else if (!ModelCompileBodyGeometry(data,size,&source,&imported,fithead,&ordered,&compiled,&compiledsize,why)) goto done;
         goto validate;
     }
     ModelMaterialsMatch(&imported.materials,&source.materials);
@@ -893,6 +893,12 @@ BOOL ModelEditsCompileClone(const char *project,const char *name,const char *pat
     }
     else if (!ModelCompileRetopology(data,size,&source,&imported,project,&ordered,&compiled,&compiledsize,why)) goto done;
 validate:
+    {
+        unsigned char *culled=NULL;DWORD culledsize;
+        if (!ModelReadSource(compiled,compiledsize,&check,why)
+            || !ModelCompileDefaultCulling(compiled,compiledsize,&check,&culled,&culledsize,why)) goto done;
+        ModelFreeSource(&check);free(compiled);compiled=culled;compiledsize=culledsize;
+    }
     if (!ModelMaterialsAttach(&compiled,&compiledsize,&ordered,why)
         || !ModelReadSource(compiled,compiledsize,&check,why)) goto done;
     if(check.count!=imported.count) { *why="The compiled model did not reproduce the imported face count.";goto done; }

@@ -1107,11 +1107,13 @@ static void ModelEditorCharacterTemplates(HWND hwnd)
     }
     SendMessage(combo,CB_SETCURSEL,selected,0);
     EnableWindow(combo,character);EnableWindow(GetDlgItem(hwnd,IDC_NEW_CHARACTER_KIND),character);
-    EnableWindow(GetDlgItem(hwnd,IDC_NEW_HEAD_FIT),character && kind==CUSTOM_CHARACTER_HEAD);
+    EnableWindow(GetDlgItem(hwnd,IDC_NEW_HEAD_FIT),character);
+    SetDlgItemText(hwnd,IDC_NEW_HEAD_FIT,kind==CUSTOM_CHARACTER_HEAD
+        ? "Fit new head to template" : "Fit new body to template");
     SetDlgItemText(hwnd,IDC_NEW_CHARACTER_HELP,character
         ? (kind==CUSTOM_CHARACTER_HEAD
             ? "Heads accept static GLB/glTF geometry. Fit matches the template's height and center, preserving proportions (Y up, +Z forward). Uncheck for geometry already in native head coordinates. GEditor exports retain their authored placement. Assign images after importing."
-            : "Bodies require a GLB exported from the selected GEditor template. Keep its GoldenEye source attributes and material slots. The new body inherits the template's rig, scale and attachment points.")
+            : "Raw bodies: use a complete standing, arms-down mesh (Y up, +Z forward). Fit preserves proportions; joints are transferred from the template. Review animations after import. GEditor exports keep their authored rig and placement. Assign images after importing.")
         : "Names may contain letters, digits and underscores. Assign images in Materials after importing.");
 }
 static INT_PTR CALLBACK ModelEditorNewModelDialog(HWND hwnd,UINT message,WPARAM wparam,LPARAM lparam)

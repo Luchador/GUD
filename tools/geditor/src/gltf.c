@@ -1344,22 +1344,20 @@ static BOOL GltfLoadPrimitive(const char *json,
     if (builder->newprop)
     {
         DWORD materialindex;
-        int material, sided, pbr, texture, coord;
+        int material, pbr, texture, coord;
         if (!GltfLitBaseColor(json,tokens,tokencount,root,primitive,basecolor))
         { *reasonout = "A prop material has an invalid Base Color factor."; return FALSE; }
         if (renderflags & (BG_RENDER_ENVIRONMENT_MASK | BG_RENDER_ALPHA_TEST))
         { *reasonout = "New props currently support opaque or alpha-blended materials, without generated reflection UVs."; return FALSE; }
-        renderflags |= BG_RENDER_CULL_EXPLICIT | BG_RENDER_CULL_BACK;
+        /* New models start single-sided. The editor can opt individual faces
+         * out afterward; image assignment never changes their culling. */
+        if (!(renderflags & BG_RENDER_CULL_EXPLICIT))
+            renderflags = (renderflags & ~BG_RENDER_CULL_MASK) | BG_RENDER_CULL_EXPLICIT | BG_RENDER_CULL_BACK;
         material = GltfJsonObjectGet(json,tokens,tokencount,primitive,"material");
         if (material >= 0 && GltfJsonUnsigned(json,&tokens[material],&materialindex))
         {
             material = GltfJsonArrayGet(tokens,tokencount,
                 GltfJsonObjectGet(json,tokens,tokencount,root,"materials"),materialindex);
-            sided = GltfJsonObjectGet(json,tokens,tokencount,material,"doubleSided");
-            if (sided >= 0 && tokens[sided].type == GLTF_JSON_PRIMITIVE
-                && tokens[sided].end-tokens[sided].start == 4
-                && !memcmp(json+tokens[sided].start,"true",4))
-                renderflags &= ~BG_RENDER_CULL_BACK;
             pbr=GltfJsonObjectGet(json,tokens,tokencount,material,"pbrMetallicRoughness");
             texture=GltfJsonObjectGet(json,tokens,tokencount,pbr,"baseColorTexture");
             coord=GltfJsonObjectGet(json,tokens,tokencount,texture,"texCoord");
@@ -2432,7 +2430,7 @@ static BOOL GltfReadImport(const char *path, DWORD sourcehash, const char *proje
             }
         }
     }
-    /* Only a NEW head may use unbound geometry. An existing identity must
+    /* Only a NEW character may use unbound geometry. An existing identity must
      * still match the selected template; never retry a stale export as raw. */
     if (headroundtrip && !foundhash) { builder.importing=FALSE;builder.newprop=TRUE; }
     if ((builder.newprop || builder.studio) && GltfJsonArrayCount(tokens,tokencount,
@@ -2511,6 +2509,12 @@ BOOL GltfReadModelImport(const char *path, DWORD sourcehash,
 }
 
 BOOL GltfReadHeadImport(const char *path, DWORD sourcehash, const char *projectdir,
+    GltfModelImport *model, BgRenderFlags **flags, BOOL *roundtrip, const char **reasonout)
+{
+    return GltfReadCharacterImport(path,sourcehash,projectdir,model,flags,roundtrip,reasonout);
+}
+
+BOOL GltfReadCharacterImport(const char *path, DWORD sourcehash, const char *projectdir,
     GltfModelImport *model, BgRenderFlags **flags, BOOL *roundtrip, const char **reasonout)
 {
     *flags=NULL;

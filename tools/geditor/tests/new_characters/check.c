@@ -10,6 +10,7 @@
 #include "texload.h"
 #include "objectload.h"
 static const char *why="";
+static void Culling(const ModelSource *source);
 #define OK(x) do { if (!(x)) { fprintf(stderr,"%d: %s: %s\n",__LINE__,#x,why);exit(1); } } while (0)
 static DWORD Word(const unsigned char *p) { return (DWORD)p[0]<<24|(DWORD)p[1]<<16|(DWORD)p[2]<<8|p[3]; }
 static void Put(unsigned char *p,DWORD n) { p[0]=n>>24;p[1]=n>>16;p[2]=n>>8;p[3]=n; }
@@ -94,6 +95,7 @@ static void RawHead(const char *project,const char *name,const char *path,BOOL f
     CheckCharacter(project,name,id,78);
     OK(ModelEditsReadSource(project,name,&source,&revision,&why));
     OK(source.count==raw.count && triangles==raw.count && source.materials.count==raw.materials.count);
+    Culling(&source);
     double lo[3],hi[3],slo[3],shi[3];Bounds(raw.vertices,raw.count,lo,hi);Bounds(stock.vertices,stock.count,slo,shi);
     double scale=fit ? (shi[1]-slo[1])/(hi[1]-lo[1]) : 1;
     for(DWORD i=0;i<source.count*3;i++) {
@@ -115,6 +117,7 @@ static void RawHead(const char *project,const char *name,const char *path,BOOL f
     ModelFreeSource(&source);
     OK(ModelEditsSetMaterial(project,name,revision,0,5,&why));
     OK(ModelEditsReadSource(project,name,&source,&revision,&why));
+    Culling(&source);
     for(DWORD i=0;i<source.count;i++) {
         DWORD slot=source.materials.faces[i].slot;OK(BG_TEX_ID(source.tags[i])==(slot ? BG_TEX_NONE : 5));
     }
@@ -127,6 +130,7 @@ static void RawHead(const char *project,const char *name,const char *path,BOOL f
     ModelFreeSource(&source);ModelFreeSource(&stock);GltfFreeModelImport(&raw);free(flags);
     printf("PASS raw head %s: %lu triangles, fitted=%d; geometry, colors, UVs, slots, texture assignment, collision chains and round trip.\n",name,(unsigned long)triangles,fit);
 }
+#include "bodies.c"
 int main(int argc,char **argv)
 {
     OK(argc==3 || argc==6);const char *project=argv[1],*root=argv[2];char base[MAX_PATH],path[MAX_PATH],body[MAX_PATH],head[MAX_PATH];
@@ -175,12 +179,21 @@ int main(int argc,char **argv)
         OK(!NewPropsImportCharacter(project,"CinvalidheadZ",path,78,i!=2,&count,&why));
         OK(why[0] && NewPropsCount()==previous && NewPropsCharacterId("CinvalidheadZ")==-1);
     }
+    const char *bodies[]={"CmooreZ","CconneryZ","CdaltonZ"};
+    for(int i=3;i<argc;i++) {
+        snprintf(path,sizeof(path),"%s",argv[i]);char *slash=strrchr(path,'/');OK(slash);
+        strcpy(slash+1,"body.glb");RawBody(project,bodies[i-3],path,TRUE,87+i-3);
+    }
+    snprintf(path,sizeof(path),"%s/raw-body.gltf",project);RawTemplateBody(project,path);
+    RawBody(project,"CrawbodyZ",path,FALSE,84+(argc-3)*2);
     OK(NewPropsSave(project,&why));ModelEditsReset();OK(NewPropsOpen(project,&why));
     CheckCharacter(project,"CtestbodyZ",80,5);CheckCharacter(project,"CactorZ",81,78);
     OK(ModelEditsReadSource(project,"CactorZ",&source,&revision,&why));
     OK(source.materials.slots[0].texture==BG_TEX_NONE);ModelFreeSource(&source);
     CheckCharacter(project,"CgeometryZ",82,78);CheckCharacter(project,"CnativeheadZ",83,78);
     for(int i=3;i<argc;i++) CheckCharacter(project,actors[i-3],84+i-3,78);
+    for(int i=3;i<argc;i++) CheckCharacter(project,bodies[i-3],87+i-3,5);
+    CheckCharacter(project,"CrawbodyZ",84+(argc-3)*2,5);
     OK(ModelEditsReadSource(project,"CgeometryZ",&source,&revision,&why));
     OK(source.materials.slots[0].texture==5 && source.count==4);ModelFreeSource(&source);
     OK(RomLoad(base,&rom,&why));OK(NewPropsExportToRom(project,&rom,&why));
@@ -194,6 +207,8 @@ int main(int argc,char **argv)
     OK(NewPropsOpen(project,&why));CheckCharacter(project,"CtestbodyZ",80,5);CheckCharacter(project,"CactorZ",81,78);
     CheckCharacter(project,"CgeometryZ",82,78);CheckCharacter(project,"CnativeheadZ",83,78);
     for(int i=3;i<argc;i++) CheckCharacter(project,actors[i-3],84+i-3,78);
+    for(int i=3;i<argc;i++) CheckCharacter(project,bodies[i-3],87+i-3,5);
+    CheckCharacter(project,"CrawbodyZ",84+(argc-3)*2,5);
     OK(NewPropsData(project,"CactorZ",&bytes) && bytes>0);OK(NewPropsSave(project,&why));
     ModelEditsReset();puts("PASS real head/body GLB imports, stable IDs, rig/animation, placement, reimport units, save/reload, ROM extraction and incompatible rebase/export.");
     return 0;

@@ -7,6 +7,11 @@ Replacement changes that model throughout the project. Save Project saves
 model replacements, and Create ROM includes them. Importing marks the project
 as unsaved; closing the Model Editor does not discard its changes.
 
+New raw model imports start with **Backface culling: On**, including heads and
+bodies after assigning images. Texture assignment preserves face culling;
+you can explicitly turn it off for selected faces afterward. Replacement
+round trips preserve the current model's settings.
+
 ## Adding a new model
 
 With no model selected, **Import Model...** adds a new model. Select a `.glb`
@@ -24,9 +29,10 @@ command go directly to a new import.
 
 Items and Props use the static-mesh importer; importing an Item does not create
 a new weapon type. Characters use the **Body** or **Head** selection and a stock
-**Rig template**, registering a new character ID. Bodies require a GEditor
-template export with its source metadata and part bindings. Arbitrary glTF skin
-weights are not converted. Existing character/item replacement imports keep
+**Rig template**, registering a new character ID. Bodies accept either a GEditor
+template export with its source metadata and part bindings, or an unrigged
+standing body as described below. Arbitrary glTF skin weights are not converted.
+Existing character/item replacement imports keep
 their original native rigs and behavior. GUD must include character-import
 support; older prop-only projects remain compatible.
 
@@ -76,6 +82,49 @@ imports, fitting on/off, geometry/colors/UVs, material assignment, collision
 chains, round trips, save/reopen, ROM bank export/extraction and failure rollback.
 Use `--heads /path/to/GoldenEye-XBLA-Bond-Geometry` to also test all three actual
 extracted actor heads. The tests do not modify those input files.
+
+## Adding Connery, Moore or Dalton bodies
+
+1. Use **Import Model...** and **Import a new model**. Select the actor's
+   separate `body.glb` from the original extraction, rather than `character.glb`.
+2. Choose **Characters**, type **Body**, and template **CdjbondZ**.
+3. Name it `connery`, `moore` or `dalton`. Leave **Fit new body to template** on.
+4. Assign images to the material slots. Use the Model Editor's animation
+   selector and Play button to review the body, then **Save Project**.
+5. Select the new body and corresponding head on a character to test in-game.
+
+Raw bodies must be complete, standing upright with arms down, Y up and +Z
+forward. Fitting uses one uniform scale and translation, preserving proportions.
+Uncheck Fit only when the body is already aligned with the template's native
+standing reference coordinates. Template-derived GEditor exports keep their
+authored coordinates regardless of this checkbox.
+
+The importer reconstructs bindings by finding the nearest template surface and
+transferring its dominant native joint, including elbow/knee seam matrices.
+Each vertex is converted back into that joint's local coordinates. Identical
+positions receive the same binding across material and UV seams. The native
+skeleton, head/hand attachment points, character scale and bounding boxes come
+from the template, so existing character animations work in the editor and ROM.
+This is automatic template binding, not recovery of the original XBLA skinning;
+inspect shoulder, elbow, wrist and knee deformation in the animations you use.
+
+Imported triangle counts, winding, colors, material names and normalized UVs
+are retained. The three supplied bodies each have 495 triangles. They use their
+own geometry at all distances; the old template's low-detail geometry is
+removed. Collision vertex tables and local blood-stain chains are rebuilt;
+obsolete cross-part associations are removed. The template itself is unchanged.
+For later Blender edits, export the imported body and retain its GUD properties
+so the replacement path preserves its rig. Raw skins, embedded animations and
+transparent parts are not supported by this binding path.
+
+Only GEditor needs rebuilding when the character-import runtime is already
+installed. Single-player outfit selection and adding actors to multiplayer
+menus remain separate work; imported bodies are registered as native characters.
+
+The `new_characters` tests exercise a synthetic full body without fitting.
+Passing `--heads /path/to/GoldenEye-XBLA-Bond-Geometry` also tests all three
+actual heads **and bodies**, including geometry, UVs, culling, texture edits,
+multiple poses, save/reopen, ROM export/extraction and replacement round trips.
 
 ## Editing an existing model
 

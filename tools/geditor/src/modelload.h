@@ -63,6 +63,7 @@ typedef struct ModelSourceList {
 typedef struct ModelSource {
     BgVertex *vertices;
     DWORD *vertexoffsets; /* One native 16-byte Vtx offset per exported corner. */
+    DWORD *vertexmatrices; /* Matrix at G_VTX time, including joint seam matrices. */
     unsigned short *tags;
     BgRenderFlags *flags;
     ModelSourceFace *faces;
@@ -87,6 +88,10 @@ BOOL ModelSourceFaceInLod(const ModelSource *source, DWORD face, ModelLod lod);
 BOOL ModelReadSource(const unsigned char *data, DWORD size, ModelSource *source,
                       const char **reasonout);
 void ModelFreeSource(ModelSource *source);
+/* Standing, arms-down reference for binding an unrigged body. The returned
+ * per-corner transforms map joint-local positions into this reference pose. */
+BOOL ModelBodyBindPose(const unsigned char *data, DWORD size, const ModelSource *source,
+    BgVertex **vertices, ModelTransform **transforms, const char **why);
 
 /*
  * GoldenEye model (P/C/G file) geometry extraction.

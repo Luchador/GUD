@@ -11,8 +11,9 @@ const unsigned char *ModelEditsGetData(const char *projectdir, const char *name,
                                       DWORD *size, const char **reasonout);
 BOOL ModelEditsExport(const char *projectdir, const char *name, const char *path,
                        const char **reasonout);
-/* Compile without changing the template. Heads also accept unbound static
+/* Compile without changing the template. Characters accept unbound static
  * geometry, optionally fitted uniformly to the template's height/center.
+ * Bodies transfer native joint bindings from a standing template reference.
  * Existing GUD identities always require a matching template and keep units. */
 BOOL ModelEditsCompileClone(const char *project,const char *templateName,const char *path,BOOL head,BOOL fithead,
     unsigned char **data,DWORD *size,DWORD *triangles,const char **why);

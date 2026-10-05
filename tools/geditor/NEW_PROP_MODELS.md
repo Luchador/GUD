@@ -56,8 +56,11 @@ should determine opacity by itself. If Blender exports only RGB, the missing
 alpha becomes 1. The exported material must use `BLEND`; merely changing a
 viewport color's alpha does not establish that glTF material mode.
 
-Export `doubleSided: true` if the shaft should be visible from both sides.
-Otherwise backface culling is used. The shaft's pass bypasses room tint and fog
+New raw imports use backface culling by default, including materials exported
+with `doubleSided: true`. Select the shaft's faces and turn Backface culling Off
+in GEditor if it should be visible from both sides. Image assignment preserves
+that choice, as do GEditor exports carrying explicit native culling metadata.
+The shaft's pass bypasses room tint and fog
 so its color and opacity are authored directly. It uses explicit source-alpha
 blending with either AA preference. The placed editor preview follows the same
 room-tint rule; final N64 appearance still needs an in-game check.

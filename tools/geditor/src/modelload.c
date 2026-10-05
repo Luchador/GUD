@@ -104,7 +104,7 @@ static DWORD mdoff(DWORD segptr)
     return segptr & 0x00FFFFFF;
 }
 
-static void MdlPush(MdlBuilder *b, const BgVertex *v, DWORD vertexoffset)
+static void MdlPush(MdlBuilder *b, const BgVertex *v, DWORD vertexoffset, DWORD matrix)
 {
     if (b->error)
     {
@@ -138,11 +138,17 @@ static void MdlPush(MdlBuilder *b, const BgVertex *v, DWORD vertexoffset)
             DWORD *offsets = realloc(b->source->vertexoffsets, next * sizeof(*offsets));
             if (offsets == NULL) { b->error = "out of memory retaining native model vertices."; return; }
             b->source->vertexoffsets = offsets;
+            DWORD *matrices = realloc(b->source->vertexmatrices, next * sizeof(*matrices));
+            if (matrices == NULL) { b->error = "out of memory retaining model joint bindings."; return; }
+            b->source->vertexmatrices = matrices;
         }
         b->capacity = next;
     }
 
-    if (b->source != NULL) { b->source->vertexoffsets[b->count] = vertexoffset; }
+    if (b->source != NULL) {
+        b->source->vertexoffsets[b->count] = vertexoffset;
+        b->source->vertexmatrices[b->count] = matrix;
+    }
     b->verts[b->count++] = *v;
 }
 
@@ -250,6 +256,7 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
     DWORD pc;
     BgVertex cache[16];
     DWORD cacheoffsets[16];
+    DWORD cachematrices[16], matrix = pose->defaultmatrix;
     BgRenderFlags cacheflags[16];
     unsigned int valid = 0;
     unsigned int normalbits = 0;
@@ -299,6 +306,7 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
                 return;
             }
             translation = pose->matrices[index].xyz;
+            matrix = index;
             if (pose->animated != NULL)
             {
                 if (!pose->animated->valid[index])
@@ -334,6 +342,7 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
                 BgVertex *out = &cache[first + i];
 
                 cacheoffsets[first + i] = addr + i * 16;
+                cachematrices[first + i] = matrix;
                 if (state->geometrymode & MDL_G_LIGHTING) { normalbits |= 1u << (first + i); }
                 else { normalbits &= ~(1u << (first + i)); }
                 out->x = md16(v + 0) + translation[0];
@@ -411,7 +420,7 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
                 {
                     BgVertex vertex = cache[idx[k]];
                     vertex.a = BgRenderVertexAlpha(alpha, vertex.a);
-                    MdlPush(b, &vertex, cacheoffsets[idx[k]]);
+                    MdlPush(b, &vertex, cacheoffsets[idx[k]], cachematrices[idx[k]]);
                 }
 
                 if (!b->error)
@@ -1111,9 +1120,9 @@ static BgVertex *MdlLoadGeometry(const unsigned char *data, DWORD maxlen,
         }
         if (!closestlod || MdlNodeInLod(data, maxlen, node, 0.0f))
         {
+            pose.defaultmatrix = MdlNodeMatrix(data, maxlen, node);
             if (animated != NULL)
             {
-                pose.defaultmatrix = MdlNodeMatrix(data, maxlen, node);
                 if (pose.defaultmatrix < 0 || !animated->valid[pose.defaultmatrix])
                 {
                     b.error = "model has an invalid posed mesh attachment.";
@@ -1174,7 +1183,7 @@ BgVertex *ModelLoadHeadWithHatGeometry(const unsigned char *data, DWORD size, in
 
 void ModelFreeSource(ModelSource *source)
 {
-    free(source->vertices); free(source->vertexoffsets); free(source->tags); free(source->flags);
+    free(source->vertices); free(source->vertexoffsets); free(source->vertexmatrices); free(source->tags); free(source->flags);
     ModelMaterialsFree(&source->materials);
     free(source->faces); free(source->lists); ZeroMemory(source, sizeof(*source));
 }
@@ -1191,6 +1200,34 @@ BOOL ModelReadSource(const unsigned char *data, DWORD size, ModelSource *source,
     if (!ModelMaterialsRead(data,size,source->count,&source->materials,reasonout))
     { ModelFreeSource(source); return FALSE; }
     return TRUE;
+}
+
+BOOL ModelBodyBindPose(const unsigned char *data,DWORD size,const ModelSource *source,
+    BgVertex **vertices,ModelTransform **transforms,const char **why)
+{
+    unsigned short angles[45]={0};
+    MdlAnimatedPose *pose=calloc(1,sizeof(*pose));
+    ModelCharacterAttachments attachments={0};
+    BgVertex *v=NULL;ModelTransform *t=NULL;BOOL ok=FALSE;
+    *vertices=NULL;*transforms=NULL;
+    /* Shoulders and hips turn their native horizontal axes downwards. */
+    angles[11]=angles[29]=0xc000;angles[14]=angles[32]=0x4000;
+    *why="The body template has an unsupported character skeleton.";
+    if (!pose || !source->vertexmatrices || !source->count
+        || !MdlBuildIdleMatrices(data,size,0,angles,FALSE,pose,&attachments,45)) goto done;
+    v=malloc((size_t)source->count*3*sizeof(*v));
+    t=malloc((size_t)source->count*3*sizeof(*t));
+    if (!v || !t) { *why="Out of memory reading the body template's bind pose.";goto done; }
+    for (DWORD i=0;i<source->count*3;i++) {
+        DWORD matrix=source->vertexmatrices[i],at=source->vertexoffsets[i];
+        if (matrix>=MDL_MAX_MATRICES || !pose->valid[matrix] || at>size || size-at<16) goto done;
+        t[i]=pose->matrices[matrix];v[i]=source->vertices[i];
+        v[i].x=md16(data+at);v[i].y=md16(data+at+2);v[i].z=md16(data+at+4);
+        ModelTransformVertex(&t[i],&v[i]);
+    }
+    *vertices=v;*transforms=t;v=NULL;t=NULL;ok=TRUE;*why="";
+done:
+    free(v);free(t);free(pose);return ok;
 }
 
 BgVertex *ModelLoadAnimationPose(const unsigned char *data, DWORD size,

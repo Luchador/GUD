@@ -265,6 +265,33 @@ static void Command(ModelOutput *out, DWORD w0, DWORD w1)
         && Read32(out->data+out->size-8)==w0 && !Read32(out->data+out->size-4)) return;
     unsigned char bytes[8]; Write32(bytes,w0); Write32(bytes+4,w1); Append(out,bytes,8);
 }
+
+BOOL ModelCompileDefaultCulling(const unsigned char *data,DWORD size,const ModelSource *source,
+    unsigned char **result,DWORD *resultsize,const char **why)
+{
+    ModelOutput out={0};DWORD previous=0;BOOL ok=FALSE;
+    *result=NULL;*resultsize=0;size=ModelMaterialsNativeSize(data,size);
+    *why="Could not set the new character's backface culling.";
+    for (DWORD l=0;l<source->listcount;l++) {
+        const ModelSourceList *p=&source->lists[l];
+        if (p->offset<previous || p->end<p->offset || p->end>size || p->pointer+4>p->offset) goto done;
+        Append(&out,data+previous,p->offset-previous);
+        if (out.failed) goto done;
+        Write32(out.data+p->pointer,0x05000000u|out.size);
+        Command(&out,0xb6000000u,0x3000);Command(&out,0xb7000000u,0x2000);
+        for (DWORD pc=p->offset;pc<p->end;pc+=8) {
+            DWORD a=Read32(data+pc),b=Read32(data+pc+4);
+            if (data[pc]==0xb6 || data[pc]==0xb7) b&=~0x3000u;
+            Command(&out,a,b);
+        }
+        previous=p->end;
+    }
+    Append(&out,data+previous,size-previous);
+    if (out.failed) goto done;
+    *result=out.data;*resultsize=out.size;out.data=NULL;ok=TRUE;*why="";
+done:
+    free(out.data);return ok;
+}
 static void Indices(const unsigned char *command, int slot, unsigned char indices[3])
 {
     if (command[0]==0xbf) { indices[0]=command[5]/10; indices[1]=command[6]/10; indices[2]=command[7]/10; }
@@ -1252,6 +1279,221 @@ BOOL ModelCompileHeadGeometry(const unsigned char *data, DWORD size, const Model
     if (!source->count || source->listcount!=1 || source->haslods)
     { *why="New head geometry needs a single-part template such as CheadbrosnanZ. Multi-part templates require a GEditor export.";return FALSE; }
     return CompileRetopology(data,size,source,imported,projectdir,ordered,result,resultsize,TRUE,why);
+}
+
+/* Closest point on a triangle, with barycentric coordinates for transferring
+ * its dominant native joint. Surface distance avoids attaching coat vertices
+ * to a nearby hand merely because the torso has fewer vertices. */
+static double BodyTriangleDistance(const double p[3],const BgVertex v[3],double weights[3])
+{
+    double q[3][3]={{v[0].x,v[0].y,v[0].z},{v[1].x,v[1].y,v[1].z},{v[2].x,v[2].y,v[2].z}};
+    double ab[3],ac[3],ap[3],aa=0,bb=0,cc=0,dd=0,ee=0,best=1e100;
+    for(int a=0;a<3;a++) {
+        ab[a]=q[1][a]-q[0][a];ac[a]=q[2][a]-q[0][a];ap[a]=p[a]-q[0][a];
+        aa+=ab[a]*ab[a];bb+=ab[a]*ac[a];cc+=ac[a]*ac[a];dd+=ap[a]*ab[a];ee+=ap[a]*ac[a];
+    }
+    double det=aa*cc-bb*bb;
+    if(det>1e-12) {
+        double u=(cc*dd-bb*ee)/det,w=(aa*ee-bb*dd)/det;
+        if(u>=0 && w>=0 && u+w<=1) {
+            best=0;for(int a=0;a<3;a++) {double d=ap[a]-u*ab[a]-w*ac[a];best+=d*d;}
+            weights[0]=1-u-w;weights[1]=u;weights[2]=w;return best;
+        }
+    }
+    for(int edge=0;edge<3;edge++) {
+        int next=(edge+1)%3;double length=0,dot=0,distance=0;
+        for(int a=0;a<3;a++) {double d=q[next][a]-q[edge][a];length+=d*d;dot+=(p[a]-q[edge][a])*d;}
+        double t=length>0 ? fmax(0,fmin(1,dot/length)) : 0;
+        for(int a=0;a<3;a++) {double d=p[a]-q[edge][a]-t*(q[next][a]-q[edge][a]);distance+=d*d;}
+        if(distance<best) {best=distance;weights[0]=weights[1]=weights[2]=0;weights[edge]=1-t;weights[next]=t;}
+    }
+    return best;
+}
+
+BOOL ModelCompileBodyGeometry(const unsigned char *data,DWORD size,const ModelSource *source,
+    const GltfModelImport *imported,BOOL fit,ModelMaterials *ordered,
+    unsigned char **result,DWORD *resultsize,const char **why)
+{
+    ModelOutput out={0};BOOL ok=FALSE;
+    BgVertex *standing=NULL;ModelTransform *transforms=NULL;
+    ModelVertexEdit *edits=NULL;ModelVertexBuffer *buffers=NULL;
+    DWORD *owners=NULL,*matrices=NULL,*corners=NULL,*drawlists=NULL,*hashes=NULL;
+    DWORD *sourceowners=NULL;unsigned char *prefix=NULL,*required=NULL,*used=NULL;
+    DWORD unique=0,hashcount=1,emitted=0;
+    double lo[2][3],hi[2][3],scale=1;
+    *result=NULL;*resultsize=0;
+    *why="A raw body must contain 1 to 10000 opaque triangles and a complete standing, arms-down humanoid mesh.";
+    if (!imported->count || imported->count>10000 || !source->count || !source->listcount
+        || !source->vertexmatrices || imported->materials.facecount!=imported->count) goto done;
+    if (!ModelBodyBindPose(data,size,source,&standing,&transforms,why)) goto done;
+    for (int mesh=0;mesh<2;mesh++) {
+        BOOL first=TRUE;DWORD count=mesh ? imported->count : source->count;
+        const BgVertex *v=mesh ? imported->vertices : standing;
+        for (DWORD i=0;i<count*3;i++) {
+            if (!mesh && !source->faces[i/3].closest) continue;
+            double p[3]={v[i].x,v[i].y,v[i].z};
+            for (int a=0;a<3;a++) {
+                if (!isfinite(p[a])) { *why="The body has a non-finite position.";goto done; }
+                if (first || p[a]<lo[mesh][a]) lo[mesh][a]=p[a];
+                if (first || p[a]>hi[mesh][a]) hi[mesh][a]=p[a];
+            }
+            first=FALSE;
+        }
+        if (first || hi[mesh][1]-lo[mesh][1]<1e-6) { *why="The body and its template must have nonzero height.";goto done; }
+    }
+    if (fit) scale=(hi[0][1]-lo[0][1])/(hi[1][1]-lo[1][1]);
+    DWORD limit=source->lists[0].offset;
+    if (limit>size) goto done;
+    edits=calloc((size_t)imported->count*3,sizeof(*edits));
+    owners=malloc((size_t)imported->count*3*sizeof(*owners));
+    matrices=malloc((size_t)imported->count*3*sizeof(*matrices));
+    corners=malloc((size_t)imported->count*3*sizeof(*corners));
+    drawlists=malloc((size_t)imported->count*sizeof(*drawlists));
+    sourceowners=malloc((size_t)source->count*3*sizeof(*sourceowners));
+    buffers=calloc(source->listcount,sizeof(*buffers));prefix=malloc(limit);
+    required=calloc(source->listcount,1);used=calloc(source->listcount,1);
+    while (hashcount<imported->count*6) hashcount*=2;
+    hashes=calloc(hashcount,sizeof(*hashes));
+    *why="Out of memory binding the new character body.";
+    if (!edits || !owners || !matrices || !corners || !drawlists || !sourceowners
+        || !buffers || !prefix || !required || !used || !hashes) goto done;
+    memcpy(prefix,data,limit);
+    /* Binding comes from G_VTX, including half-rotation seam matrices. Buffer
+     * ownership can differ from the list drawing a triangle across a joint. */
+    for (DWORD i=0;i<source->count*3;i++) {
+        sourceowners[i]=MODEL_NO_VERTEX;
+        if (!source->faces[i/3].closest) continue;
+        for (DWORD l=0;l<source->listcount;l++) {
+            const ModelSourceList *p=&source->lists[l];
+            if (p->preserve || !TopologySpan(p->vertexpointer,1,6,limit)) continue;
+            DWORD n=(unsigned short)Read16(data+p->vertexpointer+4),at=source->vertexoffsets[i];
+            if (at>=p->vertexbase && at-p->vertexbase<n*16) { sourceowners[i]=l;required[l]=1;break; }
+        }
+        if (sourceowners[i]==MODEL_NO_VERTEX || source->faces[i/3].normalmask)
+        { *why="This template has unsupported body vertex ownership or lighting normals.";goto done; }
+    }
+    for (DWORD i=0;i<imported->count*3;i++) {
+        const BgVertex *v=&imported->vertices[i];double p[3]={v->x,v->y,v->z};
+        if (fit) for (int a=0;a<3;a++) p[a]=(p[a]-(lo[1][a]+hi[1][a])*.5)*scale+(lo[0][a]+hi[0][a])*.5;
+        DWORD nearest=MODEL_NO_VERTEX;double best=1e100;
+        for (DWORD f=0;f<source->count;f++) if (source->faces[f].closest) {
+            double weights[3],d=BodyTriangleDistance(p,standing+f*3,weights);
+            if (d<best) {
+                best=d;double largest=-1;
+                for (DWORD k=0;k<3;k++) {
+                    double weight=0;
+                    for (DWORD j=0;j<3;j++) if (source->vertexmatrices[f*3+j]==source->vertexmatrices[f*3+k]) weight+=weights[j];
+                    if (weight>largest) { largest=weight;nearest=f*3+k; }
+                }
+            }
+        }
+        if (nearest==MODEL_NO_VERTEX || best>pow((hi[0][1]-lo[0][1])*.15,2))
+        { *why="The body does not fit the template's standing pose. Use a complete Y-up, +Z-forward body with arms down.";goto done; }
+        DWORD owner=sourceowners[nearest],matrix=source->vertexmatrices[nearest];
+        const ModelTransform *t=&transforms[nearest];ModelVertexEdit edit={0};edit.id=nearest;
+        /* Rotation matrices are orthonormal: transpose is the inverse. */
+        for (int a=0;a<3;a++) {
+            double local=0;for (int b=0;b<3;b++) local+=(p[b]-t->m[3][b])*t->m[a][b];
+            if (!WriteRounded16(edit.bytes+a*2,local)) { *why="A bound body vertex is outside native coordinate range.";goto done; }
+        }
+        edit.bytes[12]=v->r;edit.bytes[13]=v->g;edit.bytes[14]=v->b;edit.bytes[15]=v->a;
+        DWORD h=(ModelDataHash(edit.bytes,16)^source->lists[owner].vertexpointer^matrix)&(hashcount-1);
+        while (hashes[h] && (owners[hashes[h]-1]!=source->lists[owner].vertexpointer
+            || matrices[hashes[h]-1]!=matrix || memcmp(edits[hashes[h]-1].bytes,edit.bytes,16))) h=(h+1)&(hashcount-1);
+        if (!hashes[h]) {
+            owners[unique]=source->lists[owner].vertexpointer;matrices[unique]=matrix;
+            edits[unique]=edit;hashes[h]=++unique;
+        }
+        corners[i]=hashes[h]-1;used[owner]=1;
+        /* One native list owns the face; individual loads keep their joints. */
+        if (i%3==0) drawlists[i/3]=owner;
+    }
+    for (DWORD f=0;f<imported->count;f++) {
+        double q[3][3],ab[3],ac[3],area=0;
+        for (DWORD k=0;k<3;k++) {
+            const ModelVertexEdit *v=&edits[corners[f*3+k]];
+            const ModelTransform *t=&transforms[v->id];
+            for (int a=0;a<3;a++) {
+                q[k][a]=t->m[3][a];
+                for (int b=0;b<3;b++) q[k][a]+=Read16(v->bytes+b*2)*t->m[b][a];
+            }
+        }
+        for (int a=0;a<3;a++) {ab[a]=q[1][a]-q[0][a];ac[a]=q[2][a]-q[0][a];}
+        for (int a=0;a<3;a++) {double cross=ab[(a+1)%3]*ac[(a+2)%3]-ab[(a+2)%3]*ac[(a+1)%3];area+=cross*cross;}
+        if (area<1e-12) { *why="A body triangle collapses at native integer precision.";goto done; }
+    }
+    for (DWORD l=0;l<source->listcount;l++) {
+        const ModelSourceList *p=&source->lists[l];
+        if (required[l] && !used[l]) { *why="The body is missing a template body part. Import a complete standing, arms-down body, not a head or prop.";goto done; }
+        if (p->preserve) { *why="This body template contains unsupported dynamic parts.";goto done; }
+        if (p->pointusagepointer) {
+            if (!TopologySpan(p->vertexpointer,1,16,limit)) goto done;
+            DWORD n=(unsigned short)Read16(data+p->vertexpointer+6),at=Read32(data+p->vertexpointer+8)&0xffffffu;
+            if (!TopologySpan(at,n,16,limit)) goto done;
+            /* Old cross-part blood associations refer to discarded vertices.
+             * Rebuild local point chains from the new joint-owned buffers. */
+            for (DWORD j=0;j<n;j++) { Write32(prefix+at+j*16+8,0);WriteRounded16(prefix+at+j*16+12,-1); }
+        }
+        if (required[l]) {
+            DWORD node=p->node;int visited=0;
+            while (node && visited++<512) {
+                if (!TopologySpan(node,1,24,limit)) goto done;
+                if ((Read16(data+node)&255)==8) {
+                    DWORD at=Read32(data+node+4)&0xffffffu;
+                    if (!TopologySpan(at,1,8,limit)) goto done;
+                    Write32(prefix+at,0);Write32(prefix+at+4,0x7f7fffffu);
+                }
+                node=Read32(data+node+8)&0xffffffu;
+            }
+            if (node) goto done;
+        }
+    }
+    Append(&out,prefix,limit);
+    if (out.failed || !TopologyBuffers(&out,prefix,source,edits,owners,unique,buffers,why)
+        || !ModelMaterialsCopy(ordered,&imported->materials,why)) goto done;
+    static const unsigned char padding[8]={0};Append(&out,padding,(8-out.size%8)%8);
+    for (DWORD l=0;l<source->listcount;l++) {
+        const ModelSourceList *part=&source->lists[l];
+        if (out.failed || part->pointer+4>out.size) goto done;
+        Write32(out.data+part->pointer,0x05000000u|out.size);
+        Command(&out,0xb6000000u,0x000e3000u);Command(&out,0xb7000000u,0x2205u);
+        BgMaterial material;BgMaterialInit(&material);BgMaterialSetTexture(&material,BG_TEX_NONE);
+        Command(&out,material.modeword0,material.modeword1);Command(&out,material.combineword0,material.combineword1);
+        DWORD currentmatrix=MODEL_NO_VERTEX,cache[16],nextslot=0;int pending=0;
+        unsigned char triangles[4][3];memset(cache,0xff,sizeof(cache));
+        for (DWORD f=0;f<imported->count;f++) if (drawlists[f]==l) {
+            ordered->faces[emitted++]=imported->materials.faces[f];
+            unsigned char indices[3];unsigned locked=0;
+            for (DWORD k=0;k<3;k++) {
+                DWORD v=corners[f*3+k];indices[k]=16;
+                for (DWORD s=0;s<16;s++) if(cache[s]==v) {indices[k]=s;locked|=1u<<s;break;}
+            }
+            for (DWORD k=0;k<3;k++) if(indices[k]==16) {
+                DWORD v=corners[f*3+k],slot=nextslot;
+                while(locked&(1u<<slot)) slot=(slot+1)%16;
+                Triangles(&out,triangles,pending);pending=0;
+                if (matrices[v]!=currentmatrix) { currentmatrix=matrices[v];Command(&out,0x01020040u,0x03000000u|currentmatrix*64); }
+                DWORD addr=0x05000000u|edits[v].target;
+                unsigned char *previous=out.data+out.size-8;
+                DWORD n=(previous[1]>>4)+1,first=previous[1]&15;
+                if(previous[0]==4 && first+n==slot && Read32(previous+4)+n*16==addr) {
+                    /* Adjacent joint-local records can share a single DMA. */
+                    Write32(previous,0x04000000u|(n<<20)|(first<<16)|((n+1)*16));
+                } else Command(&out,0x04000010u|(slot<<16),addr);
+                cache[slot]=v;indices[k]=slot;locked|=1u<<slot;nextslot=(slot+1)%16;
+            }
+            memcpy(triangles[pending++],indices,3);
+            if(pending==4) {Triangles(&out,triangles,pending);pending=0;}
+        }
+        Triangles(&out,triangles,pending);
+        Command(&out,0xb8000000u,0);
+    }
+    if (out.failed || emitted!=imported->count) goto done;
+    *result=out.data;*resultsize=out.size;out.data=NULL;ok=TRUE;*why="";
+done:
+    if (!ok) ModelMaterialsFree(ordered);
+    free(out.data);free(standing);free(transforms);free(edits);free(buffers);free(owners);free(matrices);
+    free(corners);free(drawlists);free(hashes);free(sourceowners);free(prefix);free(required);free(used);return ok;
 }
 
 BOOL ModelCompileImport(const unsigned char *data, DWORD size, const ModelSource *source,

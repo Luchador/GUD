@@ -136,7 +136,8 @@ static void CheckModel(const char *project,DWORD expected)
             DWORD pc=Word(data+136)&0xffffff,geom=0x10000;
             CHECK(v->a==25 && v->r==200);CHECK(BG_TEX_ID(source.tags[i])==BG_TEX_NONE);
             CHECK(source.flags[i]&BG_RENDER_NO_FOG);
-            CHECK(!(source.flags[i]&(BG_RENDER_DEPTH_WRITE|BG_RENDER_CULL_BACK)));
+            CHECK(!(source.flags[i]&BG_RENDER_DEPTH_WRITE));
+            CHECK(source.flags[i]&BG_RENDER_CULL_BACK);
             CHECK(source.flags[i]&BG_RENDER_DEPTH_TEST);
             for (;data[pc]!=0xb8;pc+=8)
             {
