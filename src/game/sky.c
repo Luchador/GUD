@@ -32,11 +32,13 @@ typedef struct SunGlareState
 
 static SunGlareState g_SunGlare[4];
 
+
 void skyResetGlare(s32 playernum)
 {
     g_SunGlare[playernum].target = 0.0f;
     g_SunGlare[playernum].opacity = 0.0f;
 }
+
 
 /* Capture the visible sun's centre while the world camera is active. The
  * horizon offset moves the image on screen, so trace the displayed ray. */
@@ -49,34 +51,79 @@ static void skyPrepareSunGlare(const EnvironmentRecord *env, const Mtxf *worldTo
     f32 x, y, w, largest, d[3];
     s32 i;
 
-    if (env->SkyBody.Type != 1 || direction->y < 0.0f) { return; }
+    /**
+     * Only do the glare for sun, not the moon.
+     */
+    if (env->SkyBody.Type != 1 || direction->y < 0.0f) 
+    { 
+        return; 
+    }
+
     largest = 0.0f;
+
     for (i = 0; i < 3; i++)
     {
         f32 value = direction->f[i];
-        if (!skyBodyFinite(value)) { return; }
-        if (value < 0.0f) { value = -value; }
-        if (value > largest) { largest = value; }
+
+        if (!skyBodyFinite(value)) 
+        { 
+            return; 
+        }
+
+        if (value < 0.0f) 
+        { 
+            value = -value; 
+        }
+
+        if (value > largest) 
+        { 
+            largest = value; 
+        }
     }
-    if (largest == 0.0f) { return; }
-    for (i = 0; i < 3; i++) { d[i] = direction->f[i] / largest; }
+
+    if (largest == 0.0f) 
+    { 
+        return; 
+    }
+
+    for (i = 0; i < 3; i++) 
+    { 
+        d[i] = direction->f[i] / largest; 
+    }
+
     x = d[0]*worldToClip->m[0][0] + d[1]*worldToClip->m[1][0] + d[2]*worldToClip->m[2][0];
     y = d[0]*worldToClip->m[0][1] + d[1]*worldToClip->m[1][1] + d[2]*worldToClip->m[2][1];
     w = d[0]*worldToClip->m[0][3] + d[1]*worldToClip->m[1][3] + d[2]*worldToClip->m[2][3];
-    if (!(w > 0.0f)) { return; }
+
+    if (!(w > 0.0f)) 
+    {
+         return; 
+    }
+
     x /= w;
     y = y / w + env->Sky.HorizonYOffset * 2.0f / getPlayer_c_screenheight();
-    if (!skyBodyFinite(x) || !skyBodyFinite(y) || x < -1.0f || x > 1.0f || y < -1.0f || y > 1.0f) { return; }
+
+    if (!skyBodyFinite(x) || !skyBodyFinite(y) || x < -1.0f || x > 1.0f || y < -1.0f || y > 1.0f) 
+    {
+         return; 
+    }
+
     screen.x = getPlayer_c_screenleft() + (x + 1.0f) * getPlayer_c_screenwidth() * 0.5f;
     screen.y = getPlayer_c_screentop() + (1.0f - y) * getPlayer_c_screenheight() * 0.5f;
     transformAndNormalizeByLength2Dto3D(&screen, &ray, 1.0f);
     glare->target = skyGlareStrength(ray.f) * (envGetSkyBodyAlpha() / 255.0f);
-    if (glare->target <= 0.0f) { return; }
+
+    if (glare->target <= 0.0f) 
+    { 
+        return; 
+    }
+
     /* Clip depth is measured perpendicular to the view plane. */
     glare->distance = env->Visibility.FarClipDistance / (bgGetLevelRenderScale() * -ray.z);
     mtx4RotateVecInPlace(currentPlayerGetViewToWorldMtxf(), ray.f);
     glare->direction = ray;
 }
+
 
 static bool skySunIsBlocked(const SunGlareState *glare)
 {
@@ -87,29 +134,46 @@ static bool skySunIsBlocked(const SunGlareState *glare)
     f32 distance = glare->distance * scale;
     s32 room, axis;
 
-    if (!(distance > 0.0f) || !skyBodyFinite(distance)) { return TRUE; }
+    if (!(distance > 0.0f) || !skyBodyFinite(distance)) 
+    { 
+        return TRUE; 
+    }
+
     for (axis = 0; axis < 3; axis++)
     {
         end.f[axis] = origin->f[axis] + glare->direction.f[axis] * glare->distance;
         scaledOrigin.f[axis] = origin->f[axis] * scale;
         scaledDelta.f[axis] = glare->direction.f[axis] * distance;
     }
+
     for (room = 1; room < g_MaxNumRooms; room++)
     {
         RoomInfo *info = &g_BgRoomInfo[room];
         /* Use this viewport's rendered BG, without loading extra rooms or
          * relying on horizontal stan/portal traversal for an upward ray. */
-        if (!info->room_rendered || !skyGlareIntersectsRoom(scaledOrigin.f, scaledDelta.f,
-                info->minbounds.f, info->maxbounds.f)) { continue; }
+        
+        if (!info->room_rendered || !skyGlareIntersectsRoom(scaledOrigin.f, scaledDelta.f, info->minbounds.f, info->maxbounds.f)) 
+        { 
+            continue; 
+        }
+
+        /**
+         * Reuse the bullet hit test to see if anything is blocking the view to the sun.
+         */
         if (bgTestBulletHitBackground(origin, &end, room, &hit))
         {
             f32 dx = hit.hitpos.x - scaledOrigin.x;
             f32 dy = hit.hitpos.y - scaledOrigin.y;
             f32 dz = hit.hitpos.z - scaledOrigin.z;
+
             /* BG triangle collision accepts an infinite forward ray. */
-            if (dx*dx + dy*dy + dz*dz <= distance*distance) { return TRUE; }
+            if (dx*dx + dy*dy + dz*dz <= distance*distance) 
+            { 
+                return TRUE; 
+            }
         }
     }
+
     return FALSE;
 }
 
@@ -127,22 +191,40 @@ Gfx *skyRenderSunGlare(Gfx *gdl)
         skyResetGlare(get_cur_playernum());
         return gdl;
     }
-    if (target > 0.0f && skySunIsBlocked(glare)) { target = 0.0f; }
+
+    if (target > 0.0f && skySunIsBlocked(glare)) 
+    { 
+        target = 0.0f; 
+    }
+
     glare->opacity = skyGlareSmooth(glare->opacity, target, g_ClockTimer);
     alpha = (s32)(glare->opacity * 255.0f + 0.5f);
-    if (alpha <= 0) { return gdl; }
-    if (alpha > 51) { alpha = 51; }
+
+    if (alpha <= 0) 
+    { 
+        return gdl; 
+    }
+
+    /**
+     * The maximum glare is 20% opacity.
+     */
+    if (alpha > 51) 
+    { 
+        alpha = 51; 
+    }
+
     color = ((u32)body->Red << 24) | ((u32)body->Green << 16) | ((u32)body->Blue << 8) | alpha;
     gdl = gfxSetup2DTextureMode(gdl);
-    gDPSetScissor(gdl++, G_SC_NON_INTERLACE, viGetViewLeft(), viGetViewTop(),
-        viGetViewLeft() + viGetViewWidth(), viGetViewTop() + viGetViewHeight());
-    gdl = gfxDrawTranslucentRect(gdl, viGetViewLeft(), viGetViewTop(),
-        viGetViewLeft() + viGetViewWidth(), viGetViewTop() + viGetViewHeight(), color);
+
+    gDPSetScissor(gdl++, G_SC_NON_INTERLACE, viGetViewLeft(), viGetViewTop(), viGetViewLeft() + viGetViewWidth(), viGetViewTop() + viGetViewHeight());
+    gdl = gfxDrawTranslucentRect(gdl, viGetViewLeft(), viGetViewTop(), viGetViewLeft() + viGetViewWidth(), viGetViewTop() + viGetViewHeight(), color);
+
     return gfxRestore3DRenderMode(gdl);
 }
 
 
-void skyGetWorldPosFromScreenPos(f32 offset_x, f32 offset_y, coord3d* out) {
+void skyGetWorldPosFromScreenPos(f32 offset_x, f32 offset_y, coord3d* out) 
+{
     Mtxf* player_mtxf;
     coord2d coords;
     f32 screen_top;
@@ -522,8 +604,7 @@ static void skyProjectVertices(SkyRelated18 *vertices, SkyRelated38 *projected, 
     }
 }
 
-static Gfx *skyRenderWaterPolygon(Gfx *gdl, SkyRelated18 *vertices, s32 vertexCount,
-        f32 roomScale, bool closeHorizonSeam, EnvironmentRecord *env)
+static Gfx *skyRenderWaterPolygon(Gfx *gdl, SkyRelated18 *vertices, s32 vertexCount, f32 roomScale, bool closeHorizonSeam, EnvironmentRecord *env)
 {
     SkyRelated38 projected[5];
     s32 i;
@@ -549,8 +630,7 @@ static Gfx *skyRenderWaterPolygon(Gfx *gdl, SkyRelated18 *vertices, s32 vertexCo
         gDPSetCycleType(gdl++, G_CYC_FILL);
         gDPSetRenderMode(gdl++, G_RM_NOOP, G_RM_NOOP2);
         gDPSetTexturePersp(gdl++, G_TP_NONE);
-        gDPFillRectangle(gdl++, (s32)(minX * 0.25f), (s32)(minY * 0.25f),
-                (s32)(maxX * 0.25f), (s32)(maxY * 0.25f));
+        gDPFillRectangle(gdl++, (s32)(minX * 0.25f), (s32)(minY * 0.25f), (s32)(maxX * 0.25f), (s32)(maxY * 0.25f));
         gDPPipeSync(gdl++);
         gDPSetTexturePersp(gdl++, G_TP_PERSP);
         return gdl;
@@ -588,6 +668,7 @@ static Gfx *skyRenderWaterPolygon(Gfx *gdl, SkyRelated18 *vertices, s32 vertexCo
 
     return gdl;
 }
+
 
 static Gfx *skyRenderCloudPolygon(Gfx *gdl, SkyRelated18 *vertices, s32 vertexCount, f32 roomScale, s32 horizonMask, f32 leftHorizonY, f32 rightHorizonY, EnvironmentRecord *env)
 {
@@ -757,6 +838,9 @@ static Gfx *skyRenderBackground(Gfx *gdl)
 }
 
 
+/**
+ * Render the sun or the moon.
+ */
 static Gfx *skyRenderBody(Gfx *gdl, const EnvironmentRecord *env)
 {
     const SkyBodySettings *body = &env->SkyBody;
@@ -773,20 +857,36 @@ static Gfx *skyRenderBody(Gfx *gdl, const EnvironmentRecord *env)
     f32 height = getPlayer_c_screenheight();
     s32 count, i;
 
-    if ((body->Type != 1 && body->Type != 2) || alpha <= 0 || width <= 0 || height <= 0) { return gdl; }
+    if ((body->Type != 1 && body->Type != 2) || alpha <= 0 || width <= 0 || height <= 0) 
+    { 
+        return gdl; 
+    }
+
     imageId = body->Type == 1 ? SKY_BODY_SUN_IMAGE : SKY_BODY_MOON_IMAGE;
+
     /* Newly compiled base ROMs can legitimately lack these project images. */
-    if (imageId >= NUM_TEXTURES) { return gdl; }
+    if (imageId >= NUM_TEXTURES) 
+    { 
+        return gdl; 
+    }
+
     matrix_4x4_multiply(currentPlayerGetProjectionMatrixF(), camGetWorldToViewMtxf(), &worldToClip);
-    count = skyBodyBuild(body->Direction.f, body->AngularSize, worldToClip.m,
-            env->Sky.HorizonYOffset * 2.0f / height, polygon);
-    if (!skyBodyCover(polygon, count, triangle, bounds)) { return gdl; }
+    count = skyBodyBuild(body->Direction.f, body->AngularSize, worldToClip.m, env->Sky.HorizonYOffset * 2.0f / height, polygon);
+
+    if (!skyBodyCover(polygon, count, triangle, bounds)) 
+    { 
+        return gdl;
+    }
+
     texLoadFromTextureNum(imageId, NULL);
     texture = texFindInPool(imageId, NULL);
+
     /* One IA8 image must fit TMEM. A missing/deleted/replaced image is safe. */
-    if (!texture || texture->gbiformat != G_IM_FMT_IA || texture->depth != G_IM_SIZ_8b
-            || !texture->width || !texture->height
-            || (((texture->width + 7) & ~7) * texture->height) > 4096) { return gdl; }
+    if (!texture || texture->gbiformat != G_IM_FMT_IA || texture->depth != G_IM_SIZ_8b || !texture->width || !texture->height || (((texture->width + 7) & ~7) * texture->height) > 4096) 
+    { 
+        return gdl; 
+    }
+
     skyPrepareSunGlare(env, &worldToClip);
     image.index = osVirtualToPhysical(texture->data);
     image.width = texture->width; image.height = texture->height;
@@ -801,6 +901,7 @@ static Gfx *skyRenderBody(Gfx *gdl, const EnvironmentRecord *env)
     gDPSetTextureConvert(gdl++, G_TC_FILT);
     gDPSetAlphaCompare(gdl++, G_AC_NONE);
     gDPSetCombineMode(gdl++, G_CC_MODULATEIA, G_CC_MODULATEIA);
+
     /* Restrict the oversized triangle to the visible image's bounding box.
      * RDP scissoring does not introduce another internal triangle edge. */
     gDPSetScissor(gdl++, G_SC_NON_INTERLACE,
@@ -808,6 +909,7 @@ static Gfx *skyRenderBody(Gfx *gdl, const EnvironmentRecord *env)
         getPlayer_c_screentop() + (1.0f-bounds[3])*height*0.5f,
         getPlayer_c_screenleft() + (bounds[2]+1.0f)*width*0.5f,
         getPlayer_c_screentop() + (1.0f-bounds[1])*height*0.5f);
+
     for (i = 0; i < 3; i++)
     {
         SkyBodyTriangleVertex *v = &triangle[i];
@@ -816,7 +918,11 @@ static Gfx *skyRenderBody(Gfx *gdl, const EnvironmentRecord *env)
         /* skyRenderTri multiplies UV by this projective weight again. Keep
          * its normalization depth positive even for an extrapolated corner
          * behind the texture plane. Zero weight is outside the visible image. */
-        if (q > -0.0000000001f && q < 0.0000000001f) { q = 0.0000000001f; }
+        if (q > -0.0000000001f && q < 0.0000000001f) 
+        { 
+            q = 0.0000000001f; 
+        }
+
         p->unk00 = v->x; p->unk04 = v->y; p->unk08 = 0;
         p->unk0c = 1000.0f;
         p->unk34 = q * (65536.0f / 130000.0f);
@@ -827,13 +933,15 @@ static Gfx *skyRenderBody(Gfx *gdl, const EnvironmentRecord *env)
         p->unk30 = 0;
         p->r = body->Red; p->g = body->Green; p->b = body->Blue; p->a = alpha;
     }
+
     gdl = skyRenderTri(gdl, &projected[0], &projected[1], &projected[2], 130.0f, TRUE);
+
     /* No depth reads/writes: the later room/prop pass occludes the sky. */
     gDPPipeSync(gdl++);
-    gDPSetScissor(gdl++, G_SC_NON_INTERLACE, getPlayer_c_screenleft(), getPlayer_c_screentop(),
-        getPlayer_c_screenleft()+width, getPlayer_c_screentop()+height);
+    gDPSetScissor(gdl++, G_SC_NON_INTERLACE, getPlayer_c_screenleft(), getPlayer_c_screentop(), getPlayer_c_screenleft()+width, getPlayer_c_screentop()+height);
     return gdl;
 }
+
 
 Gfx *skyRender(Gfx *gdl)
 {
@@ -841,6 +949,7 @@ Gfx *skyRender(Gfx *gdl)
     gdl = skyRenderBackground(gdl);
     return skyRenderBody(gdl, envGetCurrent());
 }
+
 
 void skyProjectVertex(SkyRelated18 *arg0, Mtxf *arg1, u16 arg2, f32 arg3, f32 arg4, SkyRelated38 *arg5)
 {

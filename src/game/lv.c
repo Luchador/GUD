@@ -233,7 +233,7 @@ void lvInit(void)
  * Title screen is handled as a special case.
  * First half of method resets stage and player values (including mutliplayer values) to defaults.
  * Second part loads stage data (init guards, init guard heads, etc).
- **/
+ */
 void lvlStageLoad(s32 stage)
 {
     s32 i;
