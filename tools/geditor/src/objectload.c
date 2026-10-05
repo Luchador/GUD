@@ -30,8 +30,7 @@ BOOL ObjectResolvePlaceableModel(const char *name, BOOL *character, int *modelid
     {
         return FALSE;
     }
-    /* Added models are static assets, even when organized under Characters
-     * or Items. Their category does not allocate a guard/weapon definition. */
+    /* Legacy categorized static assets keep their prop IDs. */
     if (name[0] == 'P' || name[0] == 'C' || name[0] == 'G')
     {
         const char *filename;
@@ -46,8 +45,9 @@ BOOL ObjectResolvePlaceableModel(const char *name, BOOL *character, int *modelid
             }
         }
     }
-    if (name[0] == 'C' && strncmp(name, "Chead", 5) != 0 &&
-             strcmp(name, "Csuit_lf_handZ") != 0)
+    if (name[0] == 'C' && (NewPropsCharacterId(name)>=0
+        ? NewPropsCharacterKind(name)==CUSTOM_CHARACTER_BODY
+        : strncmp(name, "Chead", 5)!=0 && strcmp(name, "Csuit_lf_handZ")!=0))
     {
         CharacterModelDefinition definition;
         for (i = 0; CharacterGetModelDefinition(i, &definition); i++)

@@ -2,6 +2,8 @@
 #include <bondgame.h>
 #include "chrobjdata.h"
 #include "gedmanifest.h"
+#include <custompropformat.h>
+#define CHARACTER_MODEL_TABLE_SIZE (CUSTOM_CHARACTER_LIMIT + 1)
 
 //D:8003D410
 #include <assets/obseg/chr/chrModelFileHeaders.inc.c>

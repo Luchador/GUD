@@ -7,6 +7,7 @@
 #include "modelcompile.h"
 #include "idleposes.h"
 
+int NewPropsCharacterKind(const char *name) { return !strcmp(name,"CnewbodyZ") ? 1 : 0; }
 static const char *root,*work,*why="";
 static BOOL packed;
 #define OK(x) do { if (!(x)) { fprintf(stderr,"%d: %s: %s\n",__LINE__,#x,why);abort(); } } while(0)
@@ -33,6 +34,7 @@ BOOL RomLoad(const char *path,RomFile *rom,const char **reason)
 void RomFree(RomFile *rom) { free(rom->data); }
 BOOL ModelEditsCopyNative(const char *project,const char *name,unsigned char **data,DWORD *size,const char **reason)
 {
+    if (!strcmp(name,"CnewbodyZ")) name="CtrevguardZ";
     char path[1024];snprintf(path,sizeof(path),"%s/assets/obseg/%s/%s.bin",root,name[0]=='C'?"chr":"prop",name);
     *data=Read(path,size);return TRUE;
 }
@@ -83,6 +85,7 @@ int main(int argc,char **argv)
 {
     OK(argc==3);root=argv[1];work=argv[2];
     CheckModel("CtrevguardZ",170);
+    CheckModel("CnewbodyZ",170);
     CheckModel("PhelicopterZ",2);
     CheckModel("PplaneZ",1);
     ModelAnimationPreview p={0};

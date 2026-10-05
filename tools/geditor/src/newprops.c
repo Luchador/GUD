@@ -1,6 +1,8 @@
 #include "newprops.h"
 #include "propcompile.h"
 #include "modelcompile.h"
+#include "modeledits.h"
+#include "charactercatalog.h"
 #include <ctype.h>
 #include <math.h>
 #include <stdio.h>
@@ -13,11 +15,12 @@ typedef struct NewProp {
     unsigned char *data;
     DWORD size;
     float radius,scale;
+    DWORD kind,templateid,characterid;
 } NewProp;
 typedef struct NewPropStore { NewProp entries[CUSTOM_PROP_CAPACITY]; DWORD count; } NewPropStore;
 static NewPropStore g_Props;
 static char g_Project[MAX_PATH];
-static BOOL g_Loaded,g_Supported,g_CategoriesSupported,g_Dirty;
+static BOOL g_Loaded,g_Supported,g_CategoriesSupported,g_CharactersSupported,g_Dirty;
 static const char *g_LoadError;
 static DWORD Read32(const unsigned char *p) { return (DWORD)p[0]<<24|(DWORD)p[1]<<16|(DWORD)p[2]<<8|p[3]; }
 static void Write32(unsigned char *p,DWORD n) { p[0]=n>>24;p[1]=n>>16;p[2]=n>>8;p[3]=n; }
@@ -64,7 +67,7 @@ static void FreeStore(NewPropStore *store)
 }
 void NewPropsReset(void)
 {
-    FreeStore(&g_Props);g_Project[0]=0;g_Loaded=g_Supported=g_CategoriesSupported=g_Dirty=FALSE;g_LoadError=NULL;
+    FreeStore(&g_Props);g_Project[0]=0;g_Loaded=g_Supported=g_CategoriesSupported=g_CharactersSupported=g_Dirty=FALSE;g_LoadError=NULL;
 }
 BOOL NewPropsHasUnsaved(void) { return g_Dirty; }
 int NewPropsCount(void) { return (int)g_Props.count; }
@@ -83,6 +86,22 @@ BOOL NewPropsDefinition(int id,const char **name,float *scale)
     if (scale) *scale=g_Props.entries[id].scale;
     return TRUE;
 }
+BOOL NewPropsCharacter(int id,const char **name,int *templateid)
+{
+    for (DWORD i=0;i<g_Props.count;i++) {
+        const NewProp *p=&g_Props.entries[i];
+        if (p->kind && p->characterid==(DWORD)id) {
+            if (name) *name=p->name;
+            if (templateid) *templateid=p->templateid;
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+int NewPropsCharacterId(const char *name)
+{ NewProp *p=Find(name);return p && p->kind ? (int)p->characterid : -1; }
+int NewPropsCharacterKind(const char *name)
+{ NewProp *p=Find(name);return p ? (int)p->kind : 0; }
 const unsigned char *NewPropsData(const char *project,const char *name,DWORD *size)
 {
     NewProp *prop;
@@ -92,7 +111,7 @@ const unsigned char *NewPropsData(const char *project,const char *name,DWORD *si
 
 static BOOL ParseBank(const unsigned char *data,DWORD size,NewPropStore *store,const char **why)
 {
-    DWORD count,i,previous;
+    DWORD count,i,previous,nextCharacter=CUSTOM_CHARACTER_BASE;
     *why="The project's new-prop data is damaged or uses an unsupported format.";
     if (size<16 || size>BANK_LIMIT || Read32(data)!=CUSTOM_PROP_MAGIC
         || Read32(data+8)!=CUSTOM_PROP_ENTRY_SIZE || Read32(data+12)!=CUSTOM_PROP_BASE) return FALSE;
@@ -107,13 +126,20 @@ static BOOL ParseBank(const unsigned char *data,DWORD size,NewPropStore *store,c
         ModelSource source={0};
         if (entry[63] || !NameValid((const char *)entry) || at!=previous || (at&15)
             || length<176 || (length&15) || at>size || length>size-at
-            || Read32(entry+76)!=ModelDataHash(data+at,length)
-            || Read32(entry+84) || Read32(entry+88) || Read32(entry+92)) goto fail;
+            || Read32(entry+76)!=ModelDataHash(data+at,length)) goto fail;
+        prop->kind=Read32(entry+84);prop->templateid=Read32(entry+88);prop->characterid=Read32(entry+92);
+        if (prop->kind) {
+            if (entry[0]!='C' || prop->kind>CUSTOM_CHARACTER_HEAD
+                || prop->templateid>=CUSTOM_CHARACTER_BASE
+                || CharacterCatalogKind(prop->templateid)!=(int)prop->kind
+                || prop->characterid!=nextCharacter || nextCharacter>=CUSTOM_CHARACTER_LIMIT) goto fail;
+            nextCharacter++;
+        } else if (prop->templateid || prop->characterid) goto fail;
         for (j=0;j<i;j++) if (!lstrcmpi(store->entries[j].name,(const char *)entry)) goto fail;
         prop->radius=ReadFloat(entry+72);prop->scale=ReadFloat(entry+80);
         if (!isfinite(prop->radius) || prop->radius<=0 || !isfinite(prop->scale) || prop->scale<=0) goto fail;
         /* The runtime header contract requires root=4 and one switch. */
-        if (Read32(data+at)!=0x05000004u || data[at+4]!=0 || data[at+5]!=2
+        if ((!prop->kind && (Read32(data+at)!=0x05000004u || data[at+4]!=0 || data[at+5]!=2))
             || !ModelReadSource(data+at,length,&source,why)) goto fail;
         j=source.count;ModelFreeSource(&source);
         if (!j) goto fail;
@@ -150,7 +176,9 @@ static unsigned char *PackBank(const NewPropStore *store,DWORD *size,BOOL native
         memcpy(entry,prop->name,strlen(prop->name));Write32(entry+64,cursor);Write32(entry+68,length);
         memcpy(data+cursor,prop->data,bytes);
         WriteFloat(entry+72,prop->radius);Write32(entry+76,ModelDataHash(data+cursor,length));
-        WriteFloat(entry+80,prop->scale);cursor+=length;
+        WriteFloat(entry+80,prop->scale);
+        Write32(entry+84,prop->kind);Write32(entry+88,prop->templateid);Write32(entry+92,prop->characterid);
+        cursor+=length;
     }
     *size=total;return data;
 }
@@ -171,7 +199,7 @@ static int Config(const RomFile *rom,DWORD *config,DWORD *bankindex,const char *
     if (!entry || !bank || entry->romstart>rom->size || rom->size-entry->romstart<16
         || entry->romend!=entry->romstart+16 || entry->flags!=CUSTOM_PROP_CONFIG_VERSION
         || Read32(rom->data+entry->romstart)!=CUSTOM_PROP_CONFIG_VERSION
-        || (Read32(rom->data+entry->romstart+12)&~CUSTOM_PROP_FEATURE_MODEL_CATEGORIES)
+        || (Read32(rom->data+entry->romstart+12)&~(CUSTOM_PROP_FEATURE_MODEL_CATEGORIES|CUSTOM_PROP_FEATURE_CHARACTERS))
         || bank->flags!=CUSTOM_PROP_CONFIG_VERSION) return -1;
     *config=entry->romstart;
     if (bank->romstart>bank->romend || bank->romend>rom->size
@@ -222,6 +250,7 @@ BOOL NewPropsOpen(const char *project,const char **why)
     result=Config(&rom,&config,&index,why);if (result<0) goto fail;
     g_Supported=result==1;
     g_CategoriesSupported=g_Supported && (Read32(rom.data+config+12)&CUSTOM_PROP_FEATURE_MODEL_CATEGORIES);
+    g_CharactersSupported=g_Supported && (Read32(rom.data+config+12)&CUSTOM_PROP_FEATURE_CHARACTERS);
     if (g_Supported && Read32(rom.data+config+8)
         && !ParseBank(rom.data+Read32(rom.data+config+4),Read32(rom.data+config+8),&base,why)) goto fail;
     saved=ReadSaved(project,&g_Props,why);if (saved<0) goto fail;
@@ -229,11 +258,16 @@ BOOL NewPropsOpen(const char *project,const char **why)
     else
     {
         if (base.count>g_Props.count) { *why="The base ROM has additional prop IDs absent from the project.";goto fail; }
-        for (i=0;i<base.count;i++) if (strcmp(base.entries[i].name,g_Props.entries[i].name))
+        for (i=0;i<base.count;i++) if ((strcmp(base.entries[i].name,g_Props.entries[i].name)
+            || base.entries[i].kind!=g_Props.entries[i].kind
+            || base.entries[i].templateid!=g_Props.entries[i].templateid
+            || base.entries[i].characterid!=g_Props.entries[i].characterid))
         { *why="A new prop ID means a different model in this base ROM.";goto fail; }
     }
     for (i=0;i<g_Props.count;i++) if (!g_CategoriesSupported && NewPropsCategory(g_Props.entries[i].name)!=NEW_MODEL_PROPS)
     { *why="Rebuild GUD with model-category support and rebase this project before using its added Characters or Items.";goto fail; }
+    for (i=0;i<g_Props.count;i++) if (g_Props.entries[i].kind && !g_CharactersSupported)
+    { *why="The base ROM lacks character-import support required by this project.";goto fail; }
     FreeStore(&base);RomFree(&rom);*why="";return TRUE;
 fail:
     FreeStore(&base);FreeStore(&g_Props);RomFree(&rom);
@@ -252,6 +286,7 @@ BOOL NewPropsImport(const char *project,const char *name,const char *path,BOOL r
     if (!g_CategoriesSupported && NewPropsCategory(name)!=NEW_MODEL_PROPS)
     { *why="Rebuild GUD with model-category support, then rebase this project before adding Characters or Items.";return FALSE; }
     prop=Find(name);
+    if (prop && prop->kind) { *why="Use the character model round-trip importer for heads and bodies.";return FALSE; }
     if ((replace && !prop) || (!replace && prop)) { *why="That model name is already used, or the reimport target no longer exists.";return FALSE; }
     if (!replace)
     {
@@ -296,6 +331,38 @@ done:
     RomFree(&rom);ModelFreeSource(&check);ModelFreeSource(&previous);
     ModelMaterialsFree(&materials);ModelMaterialsFree(&ordered);
     free(faceorder);free(vertices);free(tags);free(flags);free(data);return ok;
+}
+
+BOOL NewPropsImportCharacter(const char *project,const char *name,const char *path,
+    int templateid,DWORD *triangles,const char **why)
+{
+    unsigned char *data=NULL;DWORD size,count,offset,bytes;RomFile rom={0};
+    int kind=CharacterCatalogKind(templateid),id=CUSTOM_CHARACTER_BASE;
+    char base[MAX_PATH];
+    if (!NewPropsOpen(project,why)) return FALSE;
+    if (!g_CharactersSupported) { *why="Rebuild GUD with character-import support and rebase the project first.";return FALSE; }
+    if (!NameValid(name) || name[0]!='C' || !kind) { *why="Choose a character name and a stock head or body template.";return FALSE; }
+    if (Find(name) || g_Props.count>=CUSTOM_PROP_CAPACITY) { *why="That name is already in use, or the added-model bank is full.";return FALSE; }
+    for (DWORD i=0;i<g_Props.count;i++) {
+        if (!lstrcmpi(name,g_Props.entries[i].name)) { *why="That model name is already in use.";return FALSE; }
+        if (g_Props.entries[i].kind) id++;
+    }
+    for (int i=0;i<CUSTOM_CHARACTER_BASE;i++) if (!lstrcmpi(name,g_CharacterModels[i].filename))
+    { *why="That name belongs to an existing character model.";return FALSE; }
+    if (id>=CUSTOM_CHARACTER_LIMIT) { *why="All 48 additional character IDs are in use.";return FALSE; }
+    if (snprintf(base,sizeof(base),"%s\\base.z64",project)>=(int)sizeof(base)
+        || !RomLoad(base,&rom,why)) return FALSE;
+    BOOL exists=RomFindFile(&rom,name,&offset,&bytes,why);RomFree(&rom);
+    if (exists) { *why="That model name already exists in the base ROM.";return FALSE; }
+    if (!ModelEditsCompileClone(project,g_CharacterModels[templateid].filename,path,&data,&size,&count,why)) return FALSE;
+    NewProp *p=&g_Props.entries[g_Props.count];
+    memset(p,0,sizeof(*p));lstrcpyn(p->name,name,sizeof(p->name));
+    p->kind=kind;p->templateid=templateid;p->characterid=id;
+    /* Character scale/radius come from the stock header at runtime. */
+    p->radius=1;p->scale=g_CharacterModels[templateid].scale;
+    g_Props.count++;
+    if (!NewPropsReplace(name,data,size,why)) { g_Props.count--;memset(p,0,sizeof(*p));free(data);return FALSE; }
+    *triangles=count;return TRUE;
 }
 
 BOOL NewPropsReplace(const char *name,unsigned char *data,DWORD size,const char **why)
@@ -347,11 +414,17 @@ BOOL NewPropsCheckRebase(const char *project,const RomFile *rom,const char **why
     for (i=0;i<saved.count;i++) if (NewPropsCategory(saved.entries[i].name)!=NEW_MODEL_PROPS
         && !(Read32(rom->data+config+12)&CUSTOM_PROP_FEATURE_MODEL_CATEGORIES))
     { *why="The new ROM lacks model-category support required by the project's added Characters or Items.";goto done; }
+    for (i=0;i<saved.count;i++) if (saved.entries[i].kind
+        && !(Read32(rom->data+config+12)&CUSTOM_PROP_FEATURE_CHARACTERS))
+    { *why="The new ROM lacks character-import support required by the project's heads or bodies.";goto done; }
     if (result==1 && Read32(rom->data+config+8)
         && !ParseBank(rom->data+Read32(rom->data+config+4),Read32(rom->data+config+8),&base,why)) goto done;
     if (found) for (i=0;i<base.count;i++)
     {
-        if (i>=saved.count || strcmp(base.entries[i].name,saved.entries[i].name))
+        if (i>=saved.count || (strcmp(base.entries[i].name,saved.entries[i].name)
+                || base.entries[i].kind!=saved.entries[i].kind
+                || base.entries[i].templateid!=saved.entries[i].templateid
+                || base.entries[i].characterid!=saved.entries[i].characterid))
         { *why="The new ROM assigns an added prop ID to a different model.";goto done; }
     }
     ok=TRUE;*why="";

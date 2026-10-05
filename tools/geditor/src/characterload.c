@@ -23,42 +23,15 @@ enum CharacterPreviewPose {
     CHARACTER_POSE_COUNT
 };
 
-/* Reuse the game's complete CitemZ_entries order and metadata. The included
-   model headers supply switch counts through local header placeholders;
-   no N64 structs, skeletons or runtime symbols enter the editor build. */
-typedef struct CharacterSourceHeader {
-    int switchcount;
-    const int *skeleton;
-} CharacterSourceHeader;
-static const int g_EditorSkeleton_guard = 1, g_EditorSkeleton_suit_lf_hand = 2;
-#define SKELETON(NAME) g_EditorSkeleton_ ## NAME
-#define MODELFILEHEADER(NAME, ROOT, SKELETON, SWITCHES, NUMSWITCHES, NUMMATRICES, RADIUS, RECORDS, TEXTURES) \
-    static const CharacterSourceHeader NAME ## _header = {NUMSWITCHES, SKELETON};
-#include <assets/obseg/chr/chrModelFileHeaders.inc.c>
-#undef MODELFILEHEADER
-#undef SKELETON
-
-typedef struct CharacterSourceDefinition {
-    const CharacterSourceHeader *header;
-    const char *filename;
-    float scale;
-    float pov;
-    unsigned char ismale, hashead, pad1, pad2;
-} CharacterSourceDefinition;
-
-#define ChrModelFileRecord CharacterSourceDefinition
-#define CitemZ_entries g_CharacterModels
-#include <assets/obseg/chr/chrModelFileRecords.inc.c>
-#undef CitemZ_entries
-#undef ChrModelFileRecord
+#include "charactercatalog.h"
+#include "newprops.h"
 
 struct headHat { float xoffset, yoffset, zoffset, xsize, ysize, zsize; };
 #define g_HeadHatDefs g_EditorHeadHatDefs
 #include <assets/obseg/chr/chrHeadHats.inc.c>
 #undef g_HeadHatDefs
 
-#define CHARACTER_MODEL_COUNT \
-    ((int)(sizeof(g_CharacterModels) / sizeof(g_CharacterModels[0])) - 1)
+#define CHARACTER_MODEL_COUNT CUSTOM_CHARACTER_LIMIT
 
 typedef struct CharacterPart {
     BOOL attempted;
@@ -86,15 +59,22 @@ typedef struct CharacterBuilder {
     DWORD capacity;
 } CharacterBuilder;
 
+int CharacterModelKind(int modelid)
+{
+    int templateid=modelid;
+    if (modelid>=CUSTOM_CHARACTER_BASE && !NewPropsCharacter(modelid,NULL,&templateid)) return 0;
+    return CharacterCatalogKind(templateid);
+}
+
 BOOL CharacterGetModelDefinition(int modelid, CharacterModelDefinition *out)
 {
-    const CharacterSourceDefinition *source;
-
-    if (modelid < 0 || modelid >= CHARACTER_MODEL_COUNT) { return FALSE; }
-    source = &g_CharacterModels[modelid];
+    const CharacterSourceDefinition *source;const char *name=NULL;int templateid=modelid;
+    if (modelid < 0 || modelid >= CHARACTER_MODEL_COUNT) return FALSE;
+    if (modelid >= CUSTOM_CHARACTER_BASE && !NewPropsCharacter(modelid,&name,&templateid)) return FALSE;
+    source = &g_CharacterModels[templateid];
     if (out != NULL)
     {
-        out->filename = source->filename;
+        out->filename = name ? name : source->filename;
         /* makeonebody applies this additional scale to character models. */
         out->scale = source->scale * 0.10000001f;
         out->ismale = source->ismale != 0;
@@ -107,11 +87,11 @@ static int CharacterFindModel(const char *filename)
 {
     int i;
 
-    for (i = 0; i < CHARACTER_MODEL_COUNT; i++)
+    for (i = 0; i < CUSTOM_CHARACTER_BASE; i++)
     {
         if (strcmp(g_CharacterModels[i].filename, filename) == 0) { return i; }
     }
-    return -1;
+    return NewPropsCharacterId(filename);
 }
 
 const char *CharacterGetBodyName(int modelid)
@@ -131,7 +111,9 @@ int CharacterBodySwitchCount(const char *filename)
 {
     int model = CharacterFindModel(filename);
     if (model < 0) { return 0; }
-    const CharacterSourceHeader *header = g_CharacterModels[model].header;
+    int templateid=model;
+    if (model>=CUSTOM_CHARACTER_BASE && !NewPropsCharacter(model,NULL,&templateid)) return 0;
+    const CharacterSourceHeader *header = g_CharacterModels[templateid].header;
     /* The character catalog also contains heads and the first-person watch
      * hand. Only bodies use the guard skeleton's animation channels. */
     return header->skeleton == &g_EditorSkeleton_guard ? header->switchcount : 0;
@@ -161,7 +143,10 @@ static CharacterPart *CharacterGetPart(CharacterPart *cache, int modelid, int po
                                         const char *projectdir, const RomFile *rom)
 {
     CharacterPart *part = &cache[modelid * CHARACTER_POSE_COUNT + poseid];
-    const CharacterSourceDefinition *definition = &g_CharacterModels[modelid];
+    int templateid=modelid;const char *filename=NULL;
+    if (modelid>=CUSTOM_CHARACTER_BASE && !NewPropsCharacter(modelid,&filename,&templateid)) return NULL;
+    const CharacterSourceDefinition *definition = &g_CharacterModels[templateid];
+    if (!filename) filename=definition->filename;
     const char *why;
     char path[MAX_PATH];
     int written;
@@ -171,9 +156,9 @@ static CharacterPart *CharacterGetPart(CharacterPart *cache, int modelid, int po
     {
         part->attempted = TRUE;
         written = snprintf(path, sizeof(path), "%s\\models\\characters\\%s.gltf",
-                            projectdir, definition->filename);
+                            projectdir, filename);
         if (written < 0 || written >= (int)sizeof(path)) { return NULL; }
-        part->vertices = ModelLoadProjectNamedGeometry(projectdir, "characters", definition->filename,
+        part->vertices = ModelLoadProjectNamedGeometry(projectdir, "characters", filename,
             &part->tricount, &part->tags, &part->renderflags, &why);
         if (part->vertices == NULL) { return NULL; }
         ModelTransformIdentity(&part->attachments.head);
@@ -182,9 +167,9 @@ static CharacterPart *CharacterGetPart(CharacterPart *cache, int modelid, int po
         ModelTransformIdentity(&part->attachments.hat);
         /* Replacements retain their native skeleton and attachment points.
            Pose the edited native model so face deletion keeps joint bindings. */
-        const unsigned char *native = ModelEditsGetData(projectdir, definition->filename, &size, &why);
+        const unsigned char *native = ModelEditsGetData(projectdir, filename, &size, &why);
         if (native == NULL && rom != NULL && rom->data != NULL
-            && RomFindFile(rom, definition->filename, &offset, &size, &why))
+            && RomFindFile(rom, filename, &offset, &size, &why))
         { native = rom->data + offset; }
         if (native != NULL)
         {
@@ -402,6 +387,7 @@ static BOOL CharacterPlaceEquipment(CharacterBuilder *builder,
 
 static const struct headHat *CharacterHatFit(int headid, int model)
 {
+    if (headid>=CUSTOM_CHARACTER_BASE && !NewPropsCharacter(headid,NULL,&headid)) return NULL;
     const SetupHatChoice *choice = SetupHatChoiceForModel(model);
     int first = CharacterFindModel("CheadkarlZ"), end = CharacterFindModel("CheadsallyZ");
     if (!choice || choice->fitting < 0 || choice->fitting >= 6
@@ -479,6 +465,7 @@ BOOL CharacterLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
     ZeroMemory(&builder, sizeof(builder));
     *reasonout = "";
     if (setup == NULL || setup->charactercount == 0) { return TRUE; }
+    if (projectdir && !NewPropsOpen(projectdir,reasonout)) return FALSE;
     if (projectdir == NULL || !(levelscale > 0.0f))
     {
         *reasonout = "the character preview has an invalid project or level scale.";

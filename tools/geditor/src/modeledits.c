@@ -817,7 +817,7 @@ BOOL ModelEditsExport(const char *project, const char *name, const char *path, c
     if(ok)
     {
         DWORD customsize;
-        if (NewPropsData(project,name,&customsize))
+        if (NewPropsData(project,name,&customsize) && !NewPropsCharacterKind(name))
         {
             DWORD i;
             for (i=0;i<source.count*3;i++)
@@ -829,6 +829,36 @@ BOOL ModelEditsExport(const char *project, const char *name, const char *path, c
     }
     free(data);return ok;
 }
+BOOL ModelEditsCompileClone(const char *project,const char *name,const char *path,
+    unsigned char **result,DWORD *resultsize,DWORD *triangles,const char **why)
+{
+    unsigned char *data=NULL,*compiled=NULL;DWORD size,basehash,compiledsize,i;
+    ModelSource source={0},check={0};GltfModelImport imported={0};ModelMaterials ordered={0};
+    BOOL ok=FALSE;*result=NULL;*resultsize=0;
+    if(!LoadSource(project,name,&data,&size,&basehash,why)) { goto done; }
+    if(!ModelReadSource(data,size,&source,why) || !ModelMaterialsEnsure(&source,project,why)
+        || !GltfReadModelImport(path,ModelDataHash(data,size),&imported,why)) goto done;
+    ModelMaterialsMatch(&imported.materials,&source.materials);
+    for (i=0;i<imported.count;i++)
+        imported.tags[i]=(imported.tags[i]&~BG_TEX_ID_MASK)|imported.materials.slots[imported.materials.faces[i].slot].texture;
+    int topology = ModelImportKeepsTopology(&source,&imported);
+    if (topology < 0) { *why="Out of memory matching imported faces."; goto done; }
+    if (topology)
+    {
+        if (!ModelCompileImport(data,size,&source,&imported,project,&compiled,&compiledsize,why)
+            || !ImportMaterials(&source,&imported,&ordered,why)) goto done;
+    }
+    else if (!ModelCompileRetopology(data,size,&source,&imported,project,&ordered,&compiled,&compiledsize,why)) goto done;
+    if (!ModelMaterialsAttach(&compiled,&compiledsize,&ordered,why)
+        || !ModelReadSource(compiled,compiledsize,&check,why)) goto done;
+    if(check.count!=imported.count) { *why="The compiled model did not reproduce the imported face count.";goto done; }
+    if (!check.count) { *why="A new character must contain geometry.";goto done; }
+    *result=compiled;*resultsize=compiledsize;*triangles=check.count;compiled=NULL;ok=TRUE;*why="";
+done:
+    free(data);free(compiled);ModelFreeSource(&source);ModelFreeSource(&check);
+    ModelMaterialsFree(&ordered);GltfFreeModelImport(&imported);return ok;
+}
+
 BOOL ModelEditsImport(const char *project, const char *name, const char *path,
     DWORD *before, DWORD *after, const char **why)
 {
@@ -839,7 +869,7 @@ BOOL ModelEditsImport(const char *project, const char *name, const char *path,
     ModelEdit *edit; DWORD i;
     BOOL ok=FALSE;
     if (!NewPropsOpen(project,why)) return FALSE;
-    if (NewPropsData(project,name,&size))
+    if (NewPropsData(project,name,&size) && !NewPropsCharacterKind(name))
     {
         if (!ModelEditsReadSource(project,name,&source,&basehash,why)) return FALSE;
         *before=source.count;ModelFreeSource(&source);
@@ -869,6 +899,11 @@ BOOL ModelEditsImport(const char *project, const char *name, const char *path,
     if(check.count!=imported.count) { *why="The compiled model did not reproduce the imported face count.";goto done; }
     *before=source.count;*after=check.count;
     if(size==compiledsize && !memcmp(data,compiled,size)) { ok=TRUE;goto done; }
+    if (NewPropsCharacterKind(name)) {
+        ok=NewPropsReplace(name,compiled,compiledsize,why);
+        if (ok) compiled=NULL;
+        goto done;
+    }
     for(edit=g_ModelEdits;edit && strcmp(edit->name,name);edit=edit->next) {}
     if(!edit)
     {

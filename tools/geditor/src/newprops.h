@@ -13,6 +13,12 @@ BOOL NewPropsOpen(const char *project,const char **why);
 BOOL NewPropsHasUnsaved(void);
 int NewPropsCount(void);
 BOOL NewPropsDefinition(int id,const char **name,float *scale);
+BOOL NewPropsCharacter(int id,const char **name,int *templateid);
+/* -1 for static/stock models. */
+int NewPropsCharacterId(const char *name);
+int NewPropsCharacterKind(const char *name);
+BOOL NewPropsImportCharacter(const char *project,const char *name,const char *path,
+    int templateid,DWORD *triangles,const char **why);
 const unsigned char *NewPropsData(const char *project,const char *name,DWORD *size);
 BOOL NewPropsImport(const char *project,const char *name,const char *path,BOOL replace,
     DWORD *triangles,const char **why);

@@ -248,6 +248,14 @@ BOOL SetupFileSetCharacterHat(SetupFile *setup, const SetupCharacterHatEdit *edi
  * Other shared scripts may be subroutines requiring a return list. */
 enum { SETUP_BEHAVIOR_DO_NOTHING = 1, SETUP_BEHAVIOR_STANDARD_GUARD = 2 };
 typedef struct SetupBehaviorChoice { int id; const char *name; } SetupBehaviorChoice;
+typedef struct SetupCharacterModelEdit {
+    DWORD characterindex, sourceoffset;
+    unsigned short chrnum;
+    int previousbody, previoushead, bodyid, headid;
+} SetupCharacterModelEdit;
+BOOL SetupFileSetCharacterModels(SetupFile *setup,const SetupCharacterModelEdit *edit,
+    BOOL *changedout,const char **reasonout);
+
 typedef struct SetupCharacterBehaviorEdit {
     DWORD characterindex, sourceoffset;
     unsigned short chrnum, previous;

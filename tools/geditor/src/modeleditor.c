@@ -1,3 +1,4 @@
+#include "characterload.h"
 #include "theme.h"
 #include <windows.h>
 #include <windowsx.h>
@@ -1057,7 +1058,30 @@ static void ModelEditorTransfer(BOOL importing)
     ModelEditorNotifyChanged();
 }
 
-typedef struct ModelEditorNewModel { char name[64];int category; } ModelEditorNewModel;
+typedef struct ModelEditorNewModel { char name[64];int category,templateid; } ModelEditorNewModel;
+static void ModelEditorCharacterTemplates(HWND hwnd)
+{
+    BOOL character=SendDlgItemMessage(hwnd,IDC_NEW_MODEL_CATEGORY,CB_GETCURSEL,0,0)==NEW_MODEL_CHARACTERS;
+    int kind=SendDlgItemMessage(hwnd,IDC_NEW_CHARACTER_KIND,CB_GETCURSEL,0,0)==1
+        ? CUSTOM_CHARACTER_HEAD : CUSTOM_CHARACTER_BODY;
+    HWND combo=GetDlgItem(hwnd,IDC_NEW_CHARACTER_TEMPLATE);
+    SendMessage(combo,CB_RESETCONTENT,0,0);
+    int selected=0;
+    for (int id=0;id<CUSTOM_CHARACTER_BASE;id++) if (CharacterModelKind(id)==kind) {
+        CharacterModelDefinition def;
+        if (!CharacterGetModelDefinition(id,&def)) continue;
+        int row=(int)SendMessage(combo,CB_ADDSTRING,0,(LPARAM)def.filename);
+        if (row>=0) {
+            SendMessage(combo,CB_SETITEMDATA,row,id);
+            if (!strcmp(def.filename,kind==CUSTOM_CHARACTER_BODY ? "CdjbondZ" : "CheadbrosnanZ")) selected=row;
+        }
+    }
+    SendMessage(combo,CB_SETCURSEL,selected,0);
+    EnableWindow(combo,character);EnableWindow(GetDlgItem(hwnd,IDC_NEW_CHARACTER_KIND),character);
+    SetDlgItemText(hwnd,IDC_NEW_CHARACTER_HELP,character
+        ? "Import a GLB exported from the selected GEditor template. Keep its GoldenEye source attributes and material slots. The new character inherits the template's rig, scale and attachment points. Unbound meshes need rigging first."
+        : "Names may contain letters, digits and underscores. Assign images in Materials after importing.");
+}
 static INT_PTR CALLBACK ModelEditorNewModelDialog(HWND hwnd,UINT message,WPARAM wparam,LPARAM lparam)
 {
     ModelEditorNewModel *model=(ModelEditorNewModel *)GetWindowLongPtr(hwnd,DWLP_USER);
@@ -1070,8 +1094,15 @@ static INT_PTR CALLBACK ModelEditorNewModelDialog(HWND hwnd,UINT message,WPARAM 
         SetDlgItemText(hwnd,IDC_NEW_MODEL_NAME,model->name);
         for (int i=0;i<3;i++) SendDlgItemMessage(hwnd,IDC_NEW_MODEL_CATEGORY,CB_ADDSTRING,0,(LPARAM)categories[i]);
         SendDlgItemMessage(hwnd,IDC_NEW_MODEL_CATEGORY,CB_SETCURSEL,model->category,0);
+        SendDlgItemMessage(hwnd,IDC_NEW_CHARACTER_KIND,CB_ADDSTRING,0,(LPARAM)"Body");
+        SendDlgItemMessage(hwnd,IDC_NEW_CHARACTER_KIND,CB_ADDSTRING,0,(LPARAM)"Head");
+        SendDlgItemMessage(hwnd,IDC_NEW_CHARACTER_KIND,CB_SETCURSEL,0,0);
+        ModelEditorCharacterTemplates(hwnd);
         return TRUE;
     }
+    if (message==WM_COMMAND && HIWORD(wparam)==CBN_SELCHANGE
+        && (LOWORD(wparam)==IDC_NEW_MODEL_CATEGORY || LOWORD(wparam)==IDC_NEW_CHARACTER_KIND))
+    { ModelEditorCharacterTemplates(hwnd);return TRUE; }
     if (message==WM_COMMAND && LOWORD(wparam)==IDOK)
     {
         char stem[64],name[64];
@@ -1081,6 +1112,12 @@ static INT_PTR CALLBACK ModelEditorNewModelDialog(HWND hwnd,UINT message,WPARAM 
         {
             MessageBox(hwnd,"Choose a category and enter a name using letters, digits and underscores (up to 61 characters).",
                 "Import Model",MB_ICONERROR);return TRUE;
+        }
+        model->templateid=-1;
+        if (category==NEW_MODEL_CHARACTERS) {
+            int row=(int)SendDlgItemMessage(hwnd,IDC_NEW_CHARACTER_TEMPLATE,CB_GETCURSEL,0,0);
+            if (row==CB_ERR) return TRUE;
+            model->templateid=(int)SendDlgItemMessage(hwnd,IDC_NEW_CHARACTER_TEMPLATE,CB_GETITEMDATA,row,0);
         }
         lstrcpyn(model->name,name,sizeof(model->name));model->category=category;
         EndDialog(hwnd,IDOK);return TRUE;
@@ -1092,7 +1129,7 @@ static INT_PTR CALLBACK ModelEditorNewModelDialog(HWND hwnd,UINT message,WPARAM 
 
 static void ModelEditorImportNew(const char *path)
 {
-    char stem[MAX_PATH],text[160];ModelEditorNewModel model={{0},NEW_MODEL_PROPS};
+    char stem[MAX_PATH],text[160];ModelEditorNewModel model={{0},NEW_MODEL_PROPS,-1};
     const char *base,*why="";char *dot;DWORD triangles;HCURSOR cursor;BOOL ok;
     HWND owner=GetWindow(g_ModelEditor,GW_OWNER);
     HINSTANCE instance=(HINSTANCE)GetWindowLongPtr(g_ModelEditor,GWLP_HINSTANCE);
@@ -1108,13 +1145,19 @@ static void ModelEditorImportNew(const char *path)
     for (char *p=model.name;*p;p++) if (!isalnum((unsigned char)*p) && *p!='_') *p='_';
     if (DialogBoxParam(instance,MAKEINTRESOURCE(IDD_IMPORT_MODEL),g_ModelEditor,ModelEditorNewModelDialog,(LPARAM)&model)!=IDOK) return;
     cursor=SetCursor(LoadCursor(NULL,IDC_WAIT));
-    ok=NewPropsImport(g_ModelProject,model.name,path,FALSE,&triangles,&why);SetCursor(cursor);
+    ok=model.category==NEW_MODEL_CHARACTERS
+        ? NewPropsImportCharacter(g_ModelProject,model.name,path,model.templateid,&triangles,&why)
+        : NewPropsImport(g_ModelProject,model.name,path,FALSE,&triangles,&why);
+    SetCursor(cursor);
     if (!ok) { MessageBox(g_ModelEditor,why,"Import Model",MB_ICONERROR);return; }
     SendMessage(owner,MODELEDITOR_CHANGED,1,0); /* Refresh browser and new IDs before selecting. */
     ModelEditorSetProject(g_ModelProject);
     if (!ModelEditorOpenModel(owner,instance,g_ModelProject,model.name,&why))
     { MessageBox(g_ModelEditor,why,"Import Model",MB_ICONERROR);return; }
-    snprintf(text,sizeof(text),"Added %s (%lu triangles). Assign images in Materials; Save Project to keep the model.",model.name,(unsigned long)triangles);
+    if (model.category==NEW_MODEL_CHARACTERS)
+        snprintf(text,sizeof(text),"Added %s, character ID %d (%lu triangles). Save Project to keep the model.",
+            model.name,NewPropsCharacterId(model.name),(unsigned long)triangles);
+    else snprintf(text,sizeof(text),"Added %s (%lu triangles). Assign images in Materials; Save Project to keep the model.",model.name,(unsigned long)triangles);
     SetDlgItemText(g_ModelEditor,IDC_MODEL_STATUS,text);
 }
 

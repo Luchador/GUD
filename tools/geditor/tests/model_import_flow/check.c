@@ -16,9 +16,11 @@ typedef int BOOL;
 #define MAX_PATH 260
 #define ZeroMemory(p,n) memset(p,0,n)
 #define MAKEINTRESOURCE(n) ((const char *)(uintptr_t)(n))
+#define HIWORD(n) ((unsigned)(n)>>16)
+#define CB_ERR (-1)
 #define LOWORD(n) ((unsigned)(n)&65535)
 enum { WM_INITDIALOG=1, WM_COMMAND, WM_CLOSE, DWLP_USER, GW_OWNER, GWLP_HINSTANCE,
-       IDC_WAIT, MB_ICONERROR, EM_SETLIMITTEXT, CB_ADDSTRING, CB_SETCURSEL, CB_GETCURSEL,
+       IDC_WAIT, MB_ICONERROR, EM_SETLIMITTEXT, CB_ADDSTRING, CB_SETCURSEL, CB_GETCURSEL, CB_GETITEMDATA, CBN_SELCHANGE,
        OFN_EXPLORER=32, OFN_NOCHANGEDIR=64, OFN_PATHMUSTEXIST=128,
        OFN_FILEMUSTEXIST=256, OFN_OVERWRITEPROMPT=512, MODELEDITOR_CHANGED=1024,
        NEW_MODEL_CHARACTERS=0, NEW_MODEL_ITEMS=1, NEW_MODEL_PROPS=2 };
@@ -35,7 +37,7 @@ static ModelEditorEntry g_ModelEntries[1];
 static int g_ModelCount=1,g_ModelSelected=-1;
 static int files,dialogs,imports,replacements,exports,changed,reloads,opens,errors;
 static int cancelFile,cancelDialog,failImport,selectedCategory,dialogResult,rows;
-static int failShow,shows,clears;
+static int failShow,shows,clears,kindChoice,selectedKind,characterImports,lastTemplate;
 static intptr_t dialogData;
 static char nameText[64],addedName[64],openedName[64],lastTitle[80],order[32];
 static const char *typedName;
@@ -55,6 +57,11 @@ static void GetDlgItemText(HWND hwnd,int id,char *text,int size)
 static intptr_t SendDlgItemMessage(HWND hwnd,int id,UINT message,WPARAM wparam,LPARAM lparam)
 {
     if(message==EM_SETLIMITTEXT) { assert(id==IDC_NEW_MODEL_NAME && wparam==63);return 0; }
+    if(id==IDC_NEW_CHARACTER_KIND) {
+        if(message==CB_SETCURSEL) selectedKind=wparam;
+        return message==CB_GETCURSEL ? selectedKind : 0;
+    }
+    if(id==IDC_NEW_CHARACTER_TEMPLATE) return message==CB_GETCURSEL ? 0 : selectedKind ? 78 : 5;
     assert(id==IDC_NEW_MODEL_CATEGORY);
     if(message==CB_ADDSTRING)
     { const char *expected[]={"Characters","Items","Props"};assert(rows<3 && !strcmp((const char *)lparam,expected[rows]));return rows++; }
@@ -77,7 +84,7 @@ static INT_PTR DialogBoxParam(HINSTANCE instance,const char *resource,HWND owner
     dialogs++;Event('D');rows=dialogResult=0;
     assert((uintptr_t)resource==IDD_IMPORT_MODEL);
     proc((HWND)2,WM_INITDIALOG,0,data);assert(rows==3);
-    selectedCategory=choice;
+    selectedCategory=choice;selectedKind=kindChoice;
     if(typedName) lstrcpyn(nameText,typedName,sizeof(nameText));
     proc((HWND)2,cancelDialog==2 ? WM_CLOSE : WM_COMMAND,cancelDialog ? IDCANCEL : IDOK,0);
     return dialogResult; /* Invalid input stays open; no import may follow. */
@@ -87,6 +94,10 @@ static BOOL NewPropsImport(const char *project,const char *name,const char *path
     Event('N');imports++;assert(!replace && !strcmp(path,filePath));
     lstrcpyn(addedName,name,sizeof(addedName));*triangles=4;*why="Import failed";return !failImport;
 }
+static void ModelEditorCharacterTemplates(HWND hwnd) {}
+static int NewPropsCharacterId(const char *name) { return 80; }
+static BOOL NewPropsImportCharacter(const char *project,const char *name,const char *path,int templateid,DWORD *triangles,const char **why)
+{ characterImports++;lastTemplate=templateid;return NewPropsImport(project,name,path,FALSE,triangles,why); }
 static BOOL ModelEditsImport(const char *project,const char *name,const char *path,DWORD *before,DWORD *after,const char **why)
 { replacements++;assert(!strcmp(name,"PexistingZ"));*before=3;*after=4;*why="Import failed";return !failImport; }
 static BOOL ModelEditsExport(const char *project,const char *name,const char *path,const char **why)
@@ -108,7 +119,7 @@ static void Reset(void)
 {
     files=dialogs=imports=replacements=exports=changed=reloads=opens=errors=0;
     cancelFile=cancelDialog=failImport=0;choice=2;typedName=NULL;order[0]=0;
-    failShow=shows=clears=0;
+    failShow=shows=clears=kindChoice=characterImports=0;lastTemplate=-1;
     strcpy(g_ModelProject,"project");strcpy(g_ModelEntries[0].name,"PexistingZ");g_ModelSelected=-1;
 }
 int main(void)
@@ -118,9 +129,11 @@ int main(void)
         Reset();choice=category;ModelEditorTransfer(TRUE);
         char expected[64];snprintf(expected,sizeof(expected),"%ctest_meshZ","CGP"[category]);
         assert(!strcmp(addedName,expected) && !strcmp(openedName,expected));
+        assert(characterImports==(category==0));
         assert(files==1 && dialogs==1 && imports==1 && !replacements && changed==1 && opens==1 && !errors);
         assert(!strcmp(order,"FDNCRO") && !strcmp(lastTitle,"Import New Model"));
     }
+    Reset();choice=0;kindChoice=1;ModelEditorTransfer(TRUE);assert(characterImports==1 && lastTemplate==78);
     Reset();cancelFile=1;ModelEditorTransfer(TRUE);assert(files==1 && !dialogs && !imports && !changed);
     for(int cancel=1;cancel<=2;cancel++)
     { Reset();cancelDialog=cancel;ModelEditorTransfer(TRUE);assert(dialogs==1 && !imports && !changed && g_ModelSelected==-1); }

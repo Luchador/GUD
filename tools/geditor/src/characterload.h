@@ -10,6 +10,8 @@ typedef struct CharacterModelDefinition {
     BOOL hashead;
 } CharacterModelDefinition;
 
+/* 0 = non-character, 1 = body, 2 = attachable head. */
+int CharacterModelKind(int modelid);
 BOOL CharacterGetModelDefinition(int modelid, CharacterModelDefinition *out);
 /* Body-based English name; falls back to the model filename for new bodies. */
 const char *CharacterGetBodyName(int modelid);

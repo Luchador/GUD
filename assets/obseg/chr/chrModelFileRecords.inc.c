@@ -1,4 +1,8 @@
+#ifdef CHARACTER_MODEL_TABLE_SIZE
+struct ChrModelFileRecord CitemZ_entries[CHARACTER_MODEL_TABLE_SIZE] = {
+#else
 struct ChrModelFileRecord CitemZ_entries[] = {
+#endif
     #include <assets/obseg/chr/camguard/chrModelFileRecord.inc.c>
     #include <assets/obseg/chr/greyguard/chrModelFileRecord.inc.c>
     #include <assets/obseg/chr/oliveguard/chrModelFileRecord.inc.c>

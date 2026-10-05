@@ -486,9 +486,29 @@ static void Health(void)
     SetupFileFree(&before);SetupFileFree(&after);
     puts("PASS: health/armor native opcodes, limits, untouched hearing/guards, save/reload, metadata-free ROM extraction, undo/redo, copied-guard isolation, behavior preservation, reset, 100 edits without growth and atomic failures.");
 }
+static void Models(void)
+{
+    SetupFile s=Fixture(),before={0},after={0};BOOL changed=FALSE;
+    Require(SetupFileClone(&s,&before,&why));
+    const SetupCharacter *chr=&s.characters[0];
+    SetupCharacterModelEdit edit={0,chr->sourceoffset,chr->chrnum,chr->bodyid,chr->headid,80,81};
+    Require(SetupFileSetCharacterModels(&s,&edit,&changed,&why));assert(changed);
+    assert(s.characters[0].bodyid==80 && s.characters[0].headid==81);
+    for(DWORD i=0;i<s.size;i++) if(i!=edit.sourceoffset+8 && i!=edit.sourceoffset+9
+        && i!=edit.sourceoffset+22 && i!=edit.sourceoffset+23) assert(s.data[i]==before.data[i]);
+    Reload(&s);Require(SetupFileClone(&s,&after,&why));
+    assert(!SetupFileSetCharacterModels(&s,&edit,&changed,&why));Same(&s,&after);
+    edit.previousbody=80;edit.previoushead=81;
+    Require(SetupFileSetCharacterModels(&s,&edit,&changed,&why));assert(!changed);
+    edit.bodyid=128;assert(!SetupFileSetCharacterModels(&s,&edit,&changed,&why));Same(&s,&after);
+    edit.bodyid=0xffff;edit.headid=-1;Require(SetupFileSetCharacterModels(&s,&edit,&changed,&why));
+    assert(changed);Reload(&s);assert(s.characters[0].bodyid==0xffff && s.characters[0].headid==-1);
+    SetupFileFree(&s);SetupFileFree(&before);SetupFileFree(&after);
+    puts("PASS character body/head edits, untouched setup bytes, stale selection, signed-byte boundary and save/reload.");
+}
 int main(int argc,char **argv)
 {
-    assert(argc==2);dir=argv[1];SetupFile source=Fixture();
+    assert(argc==2);dir=argv[1];Models();SetupFile source=Fixture();
     Variants(&source);AppendAndHistory(&source);
     AllocationFailures(&source,0,0,13);AllocationFailures(&source,2,1,25);AllocationFailures(&source,0,0,-1);
     Set(&source,0,0,-1);AllocationFailures(&source,0,0,6);

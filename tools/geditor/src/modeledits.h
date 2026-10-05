@@ -11,6 +11,9 @@ const unsigned char *ModelEditsGetData(const char *projectdir, const char *name,
                                       DWORD *size, const char **reasonout);
 BOOL ModelEditsExport(const char *projectdir, const char *name, const char *path,
                        const char **reasonout);
+/* Compile a new character from an exported template, without changing it. */
+BOOL ModelEditsCompileClone(const char *project,const char *templateName,const char *path,
+    unsigned char **data,DWORD *size,DWORD *triangles,const char **why);
 BOOL ModelEditsImport(const char *projectdir, const char *name, const char *path,
                        DWORD *before, DWORD *after, const char **reasonout);
 BOOL ModelEditsReadSource(const char *project, const char *name, ModelSource *source,

@@ -2,6 +2,8 @@
 #include <assert.h>
 #include "characterload.c"
 
+int NewPropsCharacterId(const char *name) { return -1; }
+BOOL NewPropsCharacter(int id,const char **name,int *templateid) { return FALSE; }
 static unsigned char *Read(const char *root,const char *name,DWORD *size)
 {
     char path[2048];snprintf(path,sizeof(path),"%s/assets/obseg/chr/%s.bin",root,name);
@@ -30,7 +32,7 @@ static void BodyThumbnails(const char *root)
     assert(!CharacterBodySwitchCount("Csuit_lf_handZ"));
     assert(!CharacterBodySwitchCount("Gpp7Z"));
     assert(!CharacterBodySwitchCount("PboxZ"));
-    for (int id = 0; id < CHARACTER_MODEL_COUNT; id++)
+    for (int id = 0; id < CUSTOM_CHARACTER_BASE; id++)
     {
         const char *name = g_CharacterModels[id].filename, *why = "";
         int switches = CharacterBodySwitchCount(name);

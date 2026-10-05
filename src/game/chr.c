@@ -2256,6 +2256,7 @@ static void chrRefreshHatCache(ChrRecord *chr, ObjectRecord *hat)
     ChrHatCache *cache = &chr->hatcache;
     Model *model = hat->model;
     s32 type;
+    s32 fittingHead = customCharacterTemplate(chr->headnum);
     struct headHat *fit;
     cache->model = model;
     cache->hatfile = model->obj;
@@ -2271,11 +2272,11 @@ static void chrRefreshHatCache(ChrRecord *chr, ObjectRecord *hat)
     cache->fitted = FALSE;
     cache->headVisible = TRUE;
 
-    if (chr->headnum >= HEAD_START && chr->headnum < BODY_Female_Sally) {
+    if (fittingHead >= HEAD_START && fittingHead < BODY_Female_Sally) {
         type = get_hat_model(chr->handle_positiondata_hat);
         /* HATTYPE_OTHER is -1; custom hats have no stock fitting entry. */
         if ((u32)type < 6) {
-            fit = &g_HeadHatDefs[(chr->headnum - HEAD_START) * 6 + type];
+            fit = &g_HeadHatDefs[(fittingHead - HEAD_START) * 6 + type];
             cache->offset.x = fit->xoffset * 21.3f;
             cache->offset.y = fit->yoffset * 21.3f;
             cache->offset.z = fit->zoffset * 21.3f;

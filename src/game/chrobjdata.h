@@ -566,6 +566,8 @@ extern struct ModelFileHeader chrtesttube_header;
 extern struct ModelFileHeader bollard_header;
 
 extern struct ChrModelFileRecord CitemZ_entries[];
+/* Stock fitting reference for an added head; stock IDs pass through. */
+s32 customCharacterTemplate(s32 id);
 extern struct ModelSkeleton SKELETON(guard);
 extern struct ModelSkeleton SKELETON(suit_lf_hand);
 

@@ -15,11 +15,13 @@ enum { CHARACTER_RIGHT_LABEL, CHARACTER_RIGHT, CHARACTER_LEFT_LABEL, CHARACTER_L
        CHARACTER_PATROL_LABEL, CHARACTER_PATROL,
        CHARACTER_CUSTOM_HEALTH, CHARACTER_HEALTH_LABEL, CHARACTER_HEALTH,
        CHARACTER_ARMOR_LABEL, CHARACTER_ARMOR,
+       CHARACTER_BODY_LABEL, CHARACTER_BODY, CHARACTER_HEAD_LABEL, CHARACTER_HEAD,
        CHARACTER_DETAILS, CHARACTER_CONTROLS };
 typedef struct CharacterPropertiesState {
     HWND controls[CHARACTER_CONTROLS];
     SetupCharacterWeaponEdit binding;
     unsigned short ailistid;
+    int bodyid,headid;
     SetupCharacterHealth health;
     BOOL healthvalid, healthedited;
     BOOL selected, updating, committing;
@@ -42,7 +44,7 @@ static void CharacterPropertiesLayout(HWND hwnd, CharacterPropertiesState *state
     RECT rect; GetClientRect(hwnd, &rect);
     int width = max(1, rect.right - 8);
     int details = CharacterPropertiesTextHeight(state->controls[CHARACTER_DETAILS], width);
-    int height = 410 + details;
+    int height = 518 + details;
     state->scroll = max(0, min(state->scroll, max(0, height - rect.bottom)));
     SCROLLINFO si = {sizeof(si), SIF_RANGE | SIF_PAGE | SIF_POS, 0, height - 1, (UINT)max(0,rect.bottom), state->scroll, 0};
     SetScrollInfo(hwnd, SB_VERT, &si, TRUE);
@@ -57,7 +59,11 @@ static void CharacterPropertiesLayout(HWND hwnd, CharacterPropertiesState *state
     MoveWindow(state->controls[CHARACTER_HEALTH],4,324-state->scroll,width,23,TRUE);
     MoveWindow(state->controls[CHARACTER_ARMOR_LABEL],4,356-state->scroll,width,18,TRUE);
     MoveWindow(state->controls[CHARACTER_ARMOR],4,376-state->scroll,width,23,TRUE);
-    MoveWindow(state->controls[CHARACTER_DETAILS], 4, 410 - state->scroll, width, details, TRUE);
+    for (int slot=0;slot<2;slot++) {
+        MoveWindow(state->controls[CHARACTER_BODY_LABEL+slot*2],4,410+slot*54-state->scroll,width,18,TRUE);
+        MoveWindow(state->controls[CHARACTER_BODY+slot*2],4,430+slot*54-state->scroll,width,320,TRUE);
+    }
+    MoveWindow(state->controls[CHARACTER_DETAILS], 4, 518 - state->scroll, width, details, TRUE);
     RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
 }
 static void CharacterPropertiesChoices(HWND combo, int item)
@@ -253,6 +259,39 @@ static void CharacterPropertiesApplyHealth(HWND hwnd,CharacterPropertiesState *s
     SendMessage(GetParent(hwnd),CHARACTERPROPERTIES_WM_HEALTH_CHANGED,0,(LPARAM)&edit);
     state->committing=FALSE;
 }
+static void CharacterPropertiesModelChoices(HWND combo,BOOL head,int current)
+{
+    SendMessage(combo,CB_RESETCONTENT,0,0);
+    int selected=0;
+    int row=(int)SendMessage(combo,CB_ADDSTRING,0,(LPARAM)(head ? "Random head" : "Random guard"));
+    SendMessage(combo,CB_SETITEMDATA,row,head ? (current<0 ? current : -1) : 0xffff);
+    for (int id=0;id<128;id++) {
+        CharacterModelDefinition def;
+        if (CharacterModelKind(id)!=(head ? 2 : 1) || !CharacterGetModelDefinition(id,&def)) continue;
+        char text[128];snprintf(text,sizeof(text),"%s [%d]",def.filename,id);
+        row=(int)SendMessage(combo,CB_ADDSTRING,0,(LPARAM)text);
+        if (row>=0) { SendMessage(combo,CB_SETITEMDATA,row,id);if(id==current) selected=row; }
+    }
+    if (current>=0 && current!=0xffff && !CharacterGetModelDefinition(current,NULL)) {
+        char text[64];snprintf(text,sizeof(text),"Model %d (unavailable)",current);
+        selected=(int)SendMessage(combo,CB_ADDSTRING,0,(LPARAM)text);
+        SendMessage(combo,CB_SETITEMDATA,selected,current);
+    }
+    SendMessage(combo,CB_SETCURSEL,selected,0);
+}
+static void CharacterPropertiesApplyModels(HWND hwnd,CharacterPropertiesState *state)
+{
+    if (!state || !state->selected || state->updating || state->committing) return;
+    SetupCharacterModelEdit edit={state->binding.characterindex,state->binding.sourceoffset,state->binding.chrnum,
+        state->bodyid,state->headid,state->bodyid,state->headid};
+    HWND body=state->controls[CHARACTER_BODY],head=state->controls[CHARACTER_HEAD];
+    int b=(int)SendMessage(body,CB_GETCURSEL,0,0),h=(int)SendMessage(head,CB_GETCURSEL,0,0);
+    if (b==CB_ERR || h==CB_ERR) return;
+    edit.bodyid=(int)SendMessage(body,CB_GETITEMDATA,b,0);edit.headid=(int)SendMessage(head,CB_GETITEMDATA,h,0);
+    state->committing=TRUE;
+    SendMessage(GetParent(hwnd),CHARACTERPROPERTIES_WM_MODELS_CHANGED,0,(LPARAM)&edit);
+    state->committing=FALSE;
+}
 BOOL CharacterPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD index)
 {
     CharacterPropertiesState *state = CharacterPropertiesGetState(panel);
@@ -271,9 +310,13 @@ BOOL CharacterPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD i
     if (!state->selected || state->binding.characterindex != index || state->binding.chrnum != chr->chrnum)
     { state->scroll = 0;state->healthedited=FALSE; }
     state->binding = (SetupCharacterWeaponEdit){.characterindex=index, .sourceoffset=chr->sourceoffset, .chrnum=chr->chrnum};
-    state->ailistid = chr->ailistid;
+    state->ailistid = chr->ailistid;state->bodyid=chr->bodyid;state->headid=chr->headid;
     state->selected = TRUE;
     for (int i = 0; i < CHARACTER_CONTROLS; i++) { EnableWindow(state->controls[i], TRUE); }
+    CharacterPropertiesModelChoices(state->controls[CHARACTER_BODY],FALSE,chr->bodyid);
+    CharacterPropertiesModelChoices(state->controls[CHARACTER_HEAD],TRUE,chr->headid);
+    CharacterModelDefinition currentbody;
+    EnableWindow(state->controls[CHARACTER_HEAD],!CharacterGetModelDefinition(chr->bodyid,&currentbody) || !currentbody.hashead);
     CharacterPropertiesChoices(state->controls[CHARACTER_RIGHT], weapons.item[0]);
     CharacterPropertiesChoices(state->controls[CHARACTER_LEFT], weapons.item[1]);
     CharacterPropertiesHatChoices(state->controls[CHARACTER_HAT], hat.model);
@@ -315,10 +358,10 @@ static LRESULT CALLBACK CharacterPropertiesWndProc(HWND hwnd, UINT msg, WPARAM w
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
         const char *labels[CHARACTER_CONTROLS] = {"Right-hand weapon", "", "Left-hand weapon", "",
             "Hat", "", "Starting behavior", "", "Patrol", "", "Custom health and armor",
-            "Starting health (40 = standard)", "", "Starting armor", "", ""};
+            "Starting health (40 = standard)", "", "Starting armor", "", "Body", "", "Head", "", ""};
         for (int i = 0; i < CHARACTER_CONTROLS; i++)
         {
-            BOOL combo = i == CHARACTER_RIGHT || i == CHARACTER_LEFT || i == CHARACTER_HAT || i == CHARACTER_BEHAVIOR || i == CHARACTER_PATROL;
+            BOOL combo = i == CHARACTER_RIGHT || i == CHARACTER_LEFT || i == CHARACTER_HAT || i == CHARACTER_BEHAVIOR || i == CHARACTER_PATROL || i == CHARACTER_BODY || i == CHARACTER_HEAD;
             BOOL edit=i==CHARACTER_HEALTH || i==CHARACTER_ARMOR,check=i==CHARACTER_CUSTOM_HEALTH;
             state->controls[i] = CreateWindowEx(edit ? WS_EX_CLIENTEDGE : 0, combo ? "COMBOBOX" : edit ? "EDIT" : check ? "BUTTON" : "STATIC", labels[i],
                 WS_CHILD | WS_VISIBLE | (combo ? WS_TABSTOP | WS_VSCROLL | CBS_DROPDOWNLIST
@@ -342,6 +385,7 @@ static LRESULT CALLBACK CharacterPropertiesWndProc(HWND hwnd, UINT msg, WPARAM w
         }
         if (HIWORD(wp) == CBN_SELCHANGE)
         {
+            if (LOWORD(wp)==CHARACTER_BODY+1 || LOWORD(wp)==CHARACTER_HEAD+1) CharacterPropertiesApplyModels(hwnd,state);
             if (LOWORD(wp) == CHARACTER_RIGHT+1) { CharacterPropertiesApply(hwnd, state, 0); }
             if (LOWORD(wp) == CHARACTER_LEFT+1) { CharacterPropertiesApply(hwnd, state, 1); }
             if (LOWORD(wp) == CHARACTER_HAT+1) { CharacterPropertiesApplyHat(hwnd, state); }

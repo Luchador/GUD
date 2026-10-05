@@ -1385,7 +1385,10 @@ BOOL ModelGetPropDefinition(int modelid, const char **nameout,
 {
     if (modelid < 0 || modelid >= PROP_MODEL_COUNT)
     {
-        return NewPropsDefinition(modelid,nameout,scaleout);
+        const char *name;
+        if (!NewPropsDefinition(modelid,&name,scaleout) || NewPropsCharacterKind(name)) return FALSE;
+        if (nameout) *nameout=name;
+        return TRUE;
     }
 
     if (nameout != NULL)

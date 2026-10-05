@@ -3301,6 +3301,27 @@ const SetupBehaviorChoice *SetupCharacterBehaviorChoiceForId(int id)
     for (DWORD i = 0; i < count; i++) { if (choices[i].id == id) { return choices + i; } }
     return NULL;
 }
+BOOL SetupFileSetCharacterModels(SetupFile *setup,const SetupCharacterModelEdit *edit,
+    BOOL *changedout,const char **reasonout)
+{
+    *changedout=FALSE;*reasonout="The character model edit is invalid or the selection changed.";
+    if (!edit || !SetupCharacterValid(setup,edit->characterindex)
+        || (edit->bodyid!=0xffff && (edit->bodyid<0 || edit->bodyid>=128))
+        || edit->headid < -32768 || edit->headid>=128) return FALSE;
+    SetupCharacter *chr=&setup->characters[edit->characterindex];
+    unsigned char *record=setup->data+chr->sourceoffset;
+    if (chr->sourceoffset!=edit->sourceoffset || chr->chrnum!=edit->chrnum
+        || chr->bodyid!=edit->previousbody || chr->headid!=edit->previoushead
+        || (unsigned short)SetupRead16(record+8)!=chr->bodyid || SetupRead16(record+22)!=chr->headid) return FALSE;
+    if (chr->bodyid!=edit->bodyid || chr->headid!=edit->headid) {
+        SetupWrite32(record+8,((DWORD)edit->bodyid<<16)|(SetupRead32(record+8)&0xffff));
+        SetupWrite32(record+20,(SetupRead32(record+20)&0xffff0000u)|(unsigned short)edit->headid);
+        chr->bodyid=(unsigned short)edit->bodyid;chr->headid=(short)edit->headid;
+        setup->dirty=TRUE;*changedout=TRUE;
+    }
+    *reasonout="";return TRUE;
+}
+
 BOOL SetupFileSetCharacterBehavior(SetupFile *setup, const SetupCharacterBehaviorEdit *edit,
     BOOL *changedout, const char **reasonout)
 {

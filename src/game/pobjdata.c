@@ -24,19 +24,22 @@ GEDM_TABLE(g_GedPropModels, PitemZ_entries, 1);
 
 /* The editor patches only this descriptor. Meshes stay in ROM until used;
  * per-stage RAM grows with the number of added models, with no reserved pool. */
-CustomPropRomConfig g_CustomPropRomConfig = { CUSTOM_PROP_CONFIG_VERSION, 0, 0, CUSTOM_PROP_FEATURE_MODEL_CATEGORIES };
+CustomPropRomConfig g_CustomPropRomConfig = { CUSTOM_PROP_CONFIG_VERSION, 0, 0, CUSTOM_PROP_FEATURE_MODEL_CATEGORIES | CUSTOM_PROP_FEATURE_CHARACTERS };
 typedef struct CustomPropRuntime {
     ModelFileHeader header;
     ItemModelFileRecord model;
     fileentry file;
     resource_lookup_data_entry info;
     char name[64];
+    u32 kind, templateId, characterId;
 } CustomPropRuntime;
 static CustomPropRuntime *g_CustomProps;
 static s32 g_CustomPropCount;
 
 void customPropsReset(void)
 {
+    bzero(&CitemZ_entries[CUSTOM_CHARACTER_BASE],
+        (CUSTOM_CHARACTER_LIMIT + 1 - CUSTOM_CHARACTER_BASE) * sizeof(*CitemZ_entries));
     g_CustomProps = NULL;
     g_CustomPropCount = 0;
 }
@@ -46,7 +49,7 @@ void customPropsInit(void)
     /* PI DMA destinations and cache invalidation must be 16-byte aligned. */
     u8 scratch[CUSTOM_PROP_ENTRY_SIZE + 15];
     u32 *row = (u32 *)ALIGN16_a((u32)scratch);
-    u32 count, i, offset, size;
+    u32 count, i, offset, size, nextCharacter = CUSTOM_CHARACTER_BASE;
     CustomPropRuntime *items;
     customPropsReset();
     if (g_CustomPropRomConfig.version != CUSTOM_PROP_CONFIG_VERSION
@@ -73,6 +76,17 @@ void customPropsInit(void)
             || offset < 16 + count * CUSTOM_PROP_ENTRY_SIZE || (offset & 15)
             || size < 176 || (size & 15) || offset > g_CustomPropRomConfig.romSize
             || size > g_CustomPropRomConfig.romSize - offset) return;
+        item->kind = row[21]; item->templateId = row[22]; item->characterId = row[23];
+        if (item->kind) {
+            ChrModelFileRecord *source;
+            if (((char *)row)[0] != 'C' || item->kind > CUSTOM_CHARACTER_HEAD
+                || item->templateId >= CUSTOM_CHARACTER_BASE
+                || item->characterId != nextCharacter || nextCharacter >= CUSTOM_CHARACTER_LIMIT) return;
+            source = &CitemZ_entries[item->templateId];
+            if ((item->kind == CUSTOM_CHARACTER_BODY && source->header->Skeleton != &SKELETON(guard))
+                || (item->kind == CUSTOM_CHARACTER_HEAD && source->header->Skeleton != NULL)) return;
+            nextCharacter++;
+        } else if (item->templateId || item->characterId) return;
         memcpy(item->name, row, 64);
         item->header.Skeleton = &SKELETON(standard_object);
         item->header.numSwitches = 1;
@@ -85,16 +99,37 @@ void customPropsInit(void)
         item->file.filename = item->name;
         item->file.hw_address = (u8 *)(g_CustomPropRomConfig.romStart + offset);
         item->info.rom_size = size;
+        if (item->kind) {
+            item->header = *CitemZ_entries[item->templateId].header;
+            item->header.RootNode = NULL;
+        }
+    }
+    /* Publish only after every row has passed validation. */
+    for (i = 0; i < count; i++) if (items[i].kind) {
+        ChrModelFileRecord *model = &CitemZ_entries[items[i].characterId];
+        *model = CitemZ_entries[items[i].templateId];
+        model->header = &items[i].header;
+        model->filename = items[i].name;
     }
     g_CustomProps = items;
     g_CustomPropCount = count;
+}
+
+s32 customCharacterTemplate(s32 id)
+{
+    s32 i;
+    if (id < CUSTOM_CHARACTER_BASE) return id;
+    for (i = 0; i < g_CustomPropCount; i++)
+        if (g_CustomProps[i].kind && g_CustomProps[i].characterId == (u32)id)
+            return g_CustomProps[i].templateId;
+    return id;
 }
 
 ItemModelFileRecord *propModelGet(s32 modelid)
 {
     if (modelid >= 0 && modelid < ARRAYCOUNT(PitemZ_entries) - 1) return &PitemZ_entries[modelid];
     modelid -= CUSTOM_PROP_BASE;
-    return modelid >= 0 && modelid < g_CustomPropCount ? &g_CustomProps[modelid].model : NULL;
+    return modelid >= 0 && modelid < g_CustomPropCount && !g_CustomProps[modelid].kind ? &g_CustomProps[modelid].model : NULL;
 }
 
 ExplosionDetailsRecord *propExplosionGet(s32 modelid)

@@ -1,3 +1,4 @@
+#include "characterload.h"
 #define COBJMACROS
 #include "theme.h"
 #include <windows.h>
@@ -5398,6 +5399,43 @@ fail:
     return FALSE;
 }
 
+static BOOL GEditorSetCharacterModels(HWND hwnd, const SetupCharacterModelEdit *edit)
+{
+    EditHistoryTransaction transaction = {0};
+    SetupObjectGeometry objects = {0};
+    const char *why = "", *restorewhy = "";
+    DWORD selected;
+    BOOL changed;
+    if (!edit || !ViewportGetSelectedObject(g_Viewport, &selected)
+        || !(selected & SETUP_CHARACTER_SELECTION_BIT)
+        || (selected & ~SETUP_CHARACTER_SELECTION_BIT) != edit->characterindex) { return FALSE; }
+    if ((edit->bodyid!=0xffff && CharacterModelKind(edit->bodyid)!=1)
+        || (edit->headid>=0 && CharacterModelKind(edit->headid)!=2)) return FALSE;
+    ViewportCancelTransform(g_Viewport);
+    if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup,
+        "Change Character Models", &transaction, &why)) { goto fail; }
+    if (!SetupFileSetCharacterModels(&g_CurrentSetup, edit, &changed, &why)) { goto rollback; }
+    if (!changed) { EditHistoryCancelEdit(&transaction); return TRUE; }
+    if (!ObjectLoadSetupGeometry(g_Project.dir, &g_CurrentSetup, &g_CurrentStan,
+        g_CurrentBgDocument.levelscale, &objects, &why)
+        || !GEditorRebuildCurrentViewportWithObjects(&objects, &why)) { goto rollback; }
+    ViewportSelectSetupModel(g_Viewport, selected);
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+        &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    ObjectGeometryFree(&g_CurrentObjects); g_CurrentObjects = objects;
+    GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    GEditorRebuildCurrentViewport(&restorewhy);
+    ViewportSelectSetupModel(g_Viewport, selected);
+fail:
+    ObjectGeometryFree(&objects); EditHistoryCancelEdit(&transaction);
+    GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
 static BOOL GEditorSetCharacterBehavior(HWND hwnd, const SetupCharacterBehaviorEdit *edit)
 {
     EditHistoryTransaction transaction = {0};
@@ -6333,6 +6371,12 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         BOOL ok = GEditorSetCharacterBehavior(hwnd, (const SetupCharacterBehaviorEdit *)lparam);
         GEditorRefreshSelectionDetails();
         return ok;
+    }
+
+    case CHARACTERPROPERTIES_WM_MODELS_CHANGED:
+    {
+        BOOL ok=GEditorSetCharacterModels(hwnd,(const SetupCharacterModelEdit *)lparam);
+        GEditorRefreshSelectionDetails();return ok;
     }
 
     case CHARACTERPROPERTIES_WM_HEALTH_CHANGED:

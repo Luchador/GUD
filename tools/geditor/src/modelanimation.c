@@ -5,6 +5,7 @@
 #include "modelanimation.h"
 #include "modeledits.h"
 #include "modelanimationdata.h"
+#include "newprops.h"
 
 static DWORD Read32(const unsigned char *p)
 { return (DWORD)p[0]<<24 | (DWORD)p[1]<<16 | (DWORD)p[2]<<8 | p[3]; }
@@ -45,6 +46,7 @@ BOOL ModelAnimationOpen(ModelAnimationPreview *p, const char *project,
     ZeroMemory(p,sizeof(*p));*why="";
     for (size_t i=0;i<sizeof(g_AnimatedModels)/sizeof(g_AnimatedModels[0]);i++)
         if (!strcmp(name,g_AnimatedModels[i].name)) { p->channels=g_AnimatedModels[i].channels;break; }
+    if (NewPropsCharacterKind(name)==CUSTOM_CHARACTER_BODY) p->channels=45;
     if (!p->channels) return TRUE;
     int length=snprintf(path,sizeof(path),"%s\\base.z64",project);
     if (length<0 || length>=MAX_PATH) { *why="The animation source path is too long.";goto done; }
