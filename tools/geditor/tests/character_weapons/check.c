@@ -503,6 +503,13 @@ static void Models(void)
     edit.bodyid=128;assert(!SetupFileSetCharacterModels(&s,&edit,&changed,&why));Same(&s,&after);
     edit.bodyid=0xffff;edit.headid=-1;Require(SetupFileSetCharacterModels(&s,&edit,&changed,&why));
     assert(changed);Reload(&s);assert(s.characters[0].bodyid==0xffff && s.characters[0].headid==-1);
+    edit.previousbody=0xffff;edit.previoushead=-1;edit.bodyid=80;
+    Require(SetupFileSetCharacterModels(&s,&edit,&changed,&why));assert(changed);Reload(&s);
+    /* Assign just the head on an already placed imported body. Saving and
+     * rebuilding the selector must retain that explicit head, not random. */
+    edit.previousbody=80;edit.headid=81;
+    Require(SetupFileSetCharacterModels(&s,&edit,&changed,&why));assert(changed);Reload(&s);
+    assert(s.characters[0].bodyid==80 && s.characters[0].headid==81);
     SetupFileFree(&s);SetupFileFree(&before);SetupFileFree(&after);
     puts("PASS character body/head edits, untouched setup bytes, stale selection, signed-byte boundary and save/reload.");
 }

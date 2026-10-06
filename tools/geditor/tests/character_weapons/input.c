@@ -18,6 +18,7 @@ enum { CB_RESETCONTENT=1,CB_ADDSTRING,CB_SETITEMDATA,CB_SETCURSEL,CB_GETCURSEL,C
 #define MB_ICONERROR 1
 #define GEDITOR_TITLE "GEditor"
 #include "characterproperties.h"
+#include "characterload.h"
 #include "patrolpaths.h"
 #include "objectload.h"
 #include "bghistory.h"
@@ -26,7 +27,7 @@ enum { CB_RESETCONTENT=1,CB_ADDSTRING,CB_SETITEMDATA,CB_SETCURSEL,CB_GETCURSEL,C
 #include "hatchoices.h"
 #include "catalog.inc"
 typedef struct Combo { int count,selected,item[40];char names[40][80]; } Combo;
-static Combo combos[8];
+static Combo combos[10];
 static void GetWindowText(HWND h,char *text,int size) { snprintf(text,size,"%.*s",size-1,((Combo *)h)->names[0]); }
 static void SetWindowText(HWND h,const char *text) { snprintf(((Combo *)h)->names[0],80,"%s",text); }
 static void EnableWindow(HWND h,BOOL enable) {}
@@ -36,6 +37,7 @@ static SetupCharacterWeaponEdit received;
 static SetupCharacterHatEdit receivedhat;
 static SetupCharacterBehaviorEdit receivedbehavior;
 static SetupCharacterHealthEdit receivedhealth;
+static SetupCharacterModelEdit receivedmodels;
 static PatrolAssignment receivedpatrol;
 static int requests;
 static BOOL reject,reenter;
@@ -44,10 +46,27 @@ static void CharacterPropertiesApplyHat(HWND,CharacterPropertiesState *);
 static void CharacterPropertiesApplyBehavior(HWND,CharacterPropertiesState *);
 static void CharacterPropertiesApplyPatrol(HWND,CharacterPropertiesState *);
 static void CharacterPropertiesApplyHealth(HWND,CharacterPropertiesState *,BOOL);
-static HWND GetParent(HWND h) { return NULL; }
+static void CharacterPropertiesApplyModels(HWND,CharacterPropertiesState *);
+static LRESULT SendMessage(HWND,int,WPARAM,LPARAM);
+static int panelwindow,framewindow;
+static HWND GetParent(HWND h) { return h==&panelwindow ? &framewindow : &panelwindow; }
+#include "relay.inc"
+int CharacterModelKind(int id) { return id==80 || id==82 ? 1 : id==81 ? 2 : 0; }
+BOOL CharacterGetModelDefinition(int id,CharacterModelDefinition *out)
+{
+    if(!CharacterModelKind(id)) return FALSE;
+    if(out) *out=(CharacterModelDefinition){.filename=id==80 ? "CdaltonZ" : id==81 ? "CheaddaltonZ" : "CmooreZ"};
+    return TRUE;
+}
 static LRESULT SendMessage(HWND h,int msg,WPARAM wp,LPARAM lp)
 {
+    if(h==&panelwindow) return RightPanelRelay(h,msg,wp,lp);
     Combo *c=h;
+    if(msg==CHARACTERPROPERTIES_WM_MODELS_CHANGED) {
+        assert(h==&framewindow && active->committing);receivedmodels=*(SetupCharacterModelEdit *)lp;requests++;
+        if(reenter)CharacterPropertiesApplyModels(active,active);
+        return !reject;
+    }
     if(msg==CHARACTERPROPERTIES_WM_HEALTH_CHANGED) {
         assert(active->committing);receivedhealth=*(SetupCharacterHealthEdit *)lp;requests++;
         if(reenter)CharacterPropertiesApplyHealth(active,active,TRUE);
@@ -160,6 +179,29 @@ static void Input(void)
     puts("PASS: patrol dropdown IDs/None/custom handling, stale binding payload and reentrancy guards.");
     puts("PASS: behavior presets, preserved custom display, edit identity/previous assignment, selection guards and synchronous reentrancy.");
     puts("PASS: actual dropdown catalog, None/unknown/mixed display, right/left edit payloads, selection guards and synchronous reentrancy.");
+}
+
+static void ModelInput(void)
+{
+    CharacterPropertiesState s={.selected=TRUE,.binding={.characterindex=3,.sourceoffset=512,.chrnum=8},.bodyid=80,.headid=-1};
+    active=&s;requests=0;reject=FALSE;reenter=TRUE;
+    s.controls[CHARACTER_BODY]=&combos[8];s.controls[CHARACTER_HEAD]=&combos[9];
+    CharacterPropertiesModelChoices(&combos[8],FALSE,s.bodyid);
+    CharacterPropertiesModelChoices(&combos[9],TRUE,s.headid);
+    assert(combos[8].item[combos[8].selected]==80 && combos[9].item[combos[9].selected]==-1);
+    assert(!strcmp(combos[9].names[Row(&combos[9],81)],"CheaddaltonZ [81]"));
+    combos[9].selected=Row(&combos[9],81);CharacterPropertiesApplyModels(&s,&s);
+    assert(requests==1 && receivedmodels.characterindex==3 && receivedmodels.sourceoffset==512
+        && receivedmodels.chrnum==8 && receivedmodels.previousbody==80 && receivedmodels.previoushead==-1
+        && receivedmodels.bodyid==80 && receivedmodels.headid==81 && !s.committing);
+    s.headid=81;combos[8].selected=Row(&combos[8],82);CharacterPropertiesApplyModels(&s,&s);
+    assert(requests==2 && receivedmodels.bodyid==82 && receivedmodels.headid==81 && receivedmodels.previoushead==81);
+    combos[9].selected=Row(&combos[9],-1);CharacterPropertiesApplyModels(&s,&s);
+    assert(requests==3 && receivedmodels.headid==-1);
+    s.updating=TRUE;CharacterPropertiesApplyModels(&s,&s);assert(requests==3);s.updating=FALSE;
+    s.selected=FALSE;CharacterPropertiesApplyModels(&s,&s);assert(requests==3);s.selected=TRUE;
+    combos[9].selected=CB_ERR;CharacterPropertiesApplyModels(&s,&s);assert(requests==3);
+    puts("PASS: imported body/head dropdown edits reach the frame through the real right-panel relay; random head, payload identity and reentrancy guards.");
 }
 
 static HWND g_Viewport=(void *)1;
@@ -283,4 +325,4 @@ static void Editor(void)
     puts("PASS: patrol frame transaction, preview rebuild, no-op/stale selection and assignment/rebuild/commit failure rollback.");
     puts("PASS: production frame transaction, immediate geometry rebuild, one undo commit, no-op/stale selection, missing-model/build/commit failure rollback and None without model loading.");
 }
-int main(void) {Input();Editor();return 0;}
+int main(void) {Input();ModelInput();Editor();return 0;}

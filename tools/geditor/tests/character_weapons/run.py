@@ -39,7 +39,15 @@ with tempfile.TemporaryDirectory(prefix='geditor-character-weapons-') as temp:
     (work / 'input.inc').write_text(''.join(extract.function(panel, name) for name in
         ('CharacterPropertiesChoices', 'CharacterPropertiesApply', 'CharacterPropertiesHatChoices', 'CharacterPropertiesApplyHat',
          'CharacterPropertiesBehaviorChoices', 'CharacterPropertiesApplyBehavior', 'CharacterPropertiesApplyPatrol',
-         'CharacterPropertiesResetHealth', 'CharacterPropertiesHealthValue', 'CharacterPropertiesApplyHealth')))
+         'CharacterPropertiesResetHealth', 'CharacterPropertiesHealthValue', 'CharacterPropertiesApplyHealth',
+         'CharacterPropertiesModelChoices', 'CharacterPropertiesApplyModels')))
+    # Exercise the real intermediate parent, which must relay the synchronous
+    # stack-owned edit to the main frame. Direct input-to-frame stubs miss this.
+    rightpanel = (src / 'rightpanel.c').read_text()
+    relay = re.search(r'(?:    case [A-Z_]+:\n)+        return SendMessage\(GetParent\(hwnd\), msg, wparam, lparam\);', rightpanel)[0]
+    relay = re.sub(r'^    case (?!CHARACTERPROPERTIES_)[A-Z_]+:\n', '', relay, flags=re.M)
+    (work / 'relay.inc').write_text('static LRESULT RightPanelRelay(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)\n'
+        '{\n    switch (msg) {\n' + relay + '\n    }\n    return 0;\n}\n')
     (work / 'catalog.inc').write_text(''.join(extract.function((src / 'setupload.c').read_text(), name)
         for name in ('SetupWeaponChoices', 'SetupWeaponChoiceForItem', 'SetupHatChoices', 'SetupHatChoiceForModel',
                      'SetupCharacterBehaviorChoices', 'SetupCharacterBehaviorChoiceForId')))
