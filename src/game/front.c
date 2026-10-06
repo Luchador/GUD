@@ -255,6 +255,14 @@ struct coord3d folderpositions[] = {
     {900.0f, -200.0f, 0.0f}
 };
 
+/* Folder indices run across the top row, then the bottom row. This gives
+ * Dalton, Brosnan, Moore, Connery from left to right on the file screen.
+ * Keep portrait selection independent of saved gameplay actor IDs while
+ * restoring the front end; existing saves must show the same four actors. */
+static const u8 g_WalletBonds[MAX_FOLDER_COUNT] = {
+    BOND_BROSNAN, BOND_CONNERY, BOND_DALTON, BOND_MOORE
+};
+
 struct rectbbox folder_option_COPY_bound = { 0 };
 struct rectbbox folder_option_ERASE_bound = { 0 };
 
@@ -1665,9 +1673,13 @@ void set_item_visibility_in_objinstance(Model* objinstance, s32 item, s32 mode)
 //WALLETINIT
 //********************************************************************************************************
 
+static u32 frontGetWalletBondForFolder(u32 folder)
+{
+    return folder < MAX_FOLDER_COUNT ? g_WalletBonds[folder] : BOND_BROSNAN;
+}
+
 void select_load_bond_picture(Model *objinstance, u32 bondID)
 {
-#ifdef ALL_BONDS
     set_item_visibility_in_objinstance(objinstance, SW_BROSNAN, (bondID == BOND_BROSNAN)); //brosnan picture
     set_item_visibility_in_objinstance(objinstance, SW_CONNERY, (bondID == BOND_CONNERY));
     set_item_visibility_in_objinstance(objinstance, SW_DALTON, (bondID == BOND_DALTON));
@@ -1676,16 +1688,6 @@ void select_load_bond_picture(Model *objinstance, u32 bondID)
     set_item_visibility_in_objinstance(objinstance, SW_CONNERYCOVER, (bondID == BOND_CONNERY));
     set_item_visibility_in_objinstance(objinstance, SW_DALTONCOVER, (bondID == BOND_DALTON));
     set_item_visibility_in_objinstance(objinstance, SW_MOORECOVER, (bondID == BOND_MOORE));
-#else
-    set_item_visibility_in_objinstance(objinstance,SW_BROSNAN,TRUE); //brosnan picture
-    set_item_visibility_in_objinstance(objinstance,SW_CONNERY,FALSE);
-    set_item_visibility_in_objinstance(objinstance,SW_DALTON,FALSE);
-    set_item_visibility_in_objinstance(objinstance,SW_MOORE,FALSE);
-    set_item_visibility_in_objinstance(objinstance,SW_BROSNANCOVER,TRUE); //bigger brosnan picture
-    set_item_visibility_in_objinstance(objinstance,SW_CONNERYCOVER,FALSE);
-    set_item_visibility_in_objinstance(objinstance,SW_DALTONCOVER,FALSE);
-    set_item_visibility_in_objinstance(objinstance,SW_MOORECOVER,FALSE);
-#endif
 }
 
 
@@ -1865,9 +1867,9 @@ s32 interface_menu05_fileselect(void)
 
         disable_all_switches(walletinst[walletnum]);
 
-        select_load_bond_picture(walletinst[walletnum], fileGetBondForFolder(walletnum));
-        set_item_visibility_in_objinstance(walletinst[walletnum], 0xE, 1);
-        set_item_visibility_in_objinstance(walletinst[walletnum], 0xD, 1);
+        select_load_bond_picture(walletinst[walletnum], frontGetWalletBondForFolder(walletnum));
+        set_item_visibility_in_objinstance(walletinst[walletnum], SW_PHOTOCOVER, TRUE);
+        set_item_visibility_in_objinstance(walletinst[walletnum], SW_COVER, TRUE);
     }
 
     if (selected_folder_num >= FOLDER1)
@@ -2371,7 +2373,7 @@ void interface_menu06_modesel(void)
     viSetUseZBuf(FALSE);
 
     disable_all_switches(walletinst[0]);
-    select_load_bond_picture(walletinst[0], fileGetBondForFolder(selected_folder_num));
+    select_load_bond_picture(walletinst[0], frontGetWalletBondForFolder(selected_folder_num));
     set_item_visibility_in_objinstance(walletinst[0], SW_TABS, 1);
     set_item_visibility_in_objinstance(walletinst[0], SW_PAPER, 1);
     set_item_visibility_in_objinstance(walletinst[0], SW_OHMSS, 1);
