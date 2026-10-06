@@ -8198,7 +8198,8 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                     CoUninitialize();
                     return (int)msg.wParam;
                 }
-                if (!RightPanelHandleMessage(g_RightPanel, &msg)
+                if (!BrowserHandleMessage(g_Browser, &msg)
+                    && !RightPanelHandleMessage(g_RightPanel, &msg)
                     && !RenderStudioHandleMessage(&msg)
                     && !EditorSettingsHandleMessage(&msg)
                     && !BgCommandsWindowHandleMessage(&msg)
@@ -8245,7 +8246,8 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
             {
                 break;
             }
-            if (!RightPanelHandleMessage(g_RightPanel, &msg)
+            if (!BrowserHandleMessage(g_Browser, &msg)
+                && !RightPanelHandleMessage(g_RightPanel, &msg)
                 && !RenderStudioHandleMessage(&msg)
                 && !EditorSettingsHandleMessage(&msg)
                 && !BgCommandsWindowHandleMessage(&msg)

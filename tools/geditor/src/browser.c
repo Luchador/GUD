@@ -19,6 +19,7 @@
 #include <commctrl.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <ctype.h>
 
 #include "browser.h"
 #include "bgload.h"
@@ -110,9 +111,13 @@ static const BrowserObjectType g_BrowserObjectOrder[BROWSER_OBJECT_COUNT] = {
 #define BROWSER_IMAGE_CELL_H (BROWSER_IMAGE_PREVIEW_SIZE + BROWSER_IMAGE_LABEL_H + 8)
 #define BROWSER_IMAGE_MARGIN 4
 #define BROWSER_MODEL_TIMER 0x4d54
+#define BROWSER_SEARCH_H 30
+#define BROWSER_SEARCH_ID 100
 
 typedef struct BrowserState {
     BOOL fileimages; /* Standalone studio grid: filename identity, no game actions. */
+    HWND search[BROWSER_SECTION_COUNT];
+    char filter[BROWSER_SECTION_COUNT][MAX_PATH];
     BrowserSection sections[BROWSER_SECTION_COUNT];
     TexThumb objecticons[BROWSER_OBJECT_COUNT];
     unsigned char objectpixels[BROWSER_OBJECT_COUNT][TEX_THUMB_MAX * TEX_THUMB_MAX * 4];
@@ -155,6 +160,43 @@ typedef struct BrowserState {
 static int BrowserImageCount(const BrowserState *state)
 { return state->imagecount + (state->fileimages ? 0 : 1); }
 
+static BOOL BrowserNameMatches(const char *name, const char *filter)
+{
+    if (!*filter) { return TRUE; }
+    for (; *name; name++)
+    {
+        const char *a = name, *b = filter;
+        while (*a && *b && tolower((unsigned char)*a) == tolower((unsigned char)*b)) { a++; b++; }
+        if (!*b) { return TRUE; }
+    }
+    return FALSE;
+}
+
+static BOOL BrowserImageMatches(const BrowserState *state, int index)
+{
+    const char *name = !state->fileimages && index == 0 ? state->notexture.label
+        : state->images[index - (state->fileimages ? 0 : 1)].label;
+    return BrowserNameMatches(name, state->filter[BROWSER_SECTION_IMAGES]);
+}
+
+static int BrowserVisibleImageCount(const BrowserState *state)
+{
+    int count = 0;
+    for (int i = 0; i < BrowserImageCount(state); i++)
+        if (BrowserImageMatches(state, i)) { count++; }
+    return count;
+}
+
+/* Display cells are temporary; selections, drags and actions retain the
+ * original asset index so filtering can never change an asset's identity. */
+static int BrowserImageCell(const BrowserState *state, int index)
+{
+    int cell = 0;
+    if (index < 0 || index >= BrowserImageCount(state) || !BrowserImageMatches(state, index)) { return -1; }
+    for (int i = 0; i < index; i++) if (BrowserImageMatches(state, i)) { cell++; }
+    return cell;
+}
+
 /* Classify by the model name, independently of its project folder. */
 static int BrowserModelCategory(const char *name)
 {
@@ -167,17 +209,36 @@ static int BrowserModelCategory(const char *name)
     return -1;
 }
 
+static BOOL BrowserModelMatches(const BrowserState *state, int index)
+{
+    return BrowserModelCategory(state->models[index].label) == state->modeltab
+        && BrowserNameMatches(state->models[index].label, state->filter[BROWSER_SECTION_MODELS]);
+}
+
+static void BrowserCountModels(BrowserState *state)
+{
+    ZeroMemory(state->modelcounts, sizeof(state->modelcounts));
+    for (int i = 0; i < state->modelcount; i++)
+    {
+        int category = BrowserModelCategory(state->models[i].label);
+        if (category >= 0 && BrowserNameMatches(state->models[i].label, state->filter[BROWSER_SECTION_MODELS]))
+            state->modelcounts[category]++;
+    }
+}
+
 /* Tabbed sections reserve a fixed strip above their scrolling rows. All
  * scrollbar calculations and content clipping use this same rectangle. */
 static RECT BrowserContentRect(const BrowserState *state, int section)
 {
     RECT rect = state->sections[section].bodyrc;
 
+    if (!state->fileimages && (section == BROWSER_SECTION_IMAGES || section == BROWSER_SECTION_MODELS))
+        rect.top += BROWSER_SEARCH_H;
     if (section == BROWSER_SECTION_MODELS || section == BROWSER_SECTION_OBJECTS)
     {
         rect.top += section == BROWSER_SECTION_OBJECTS ? BROWSER_OBJECT_TAB_H : BROWSER_MODEL_TAB_H;
-        if (rect.top > rect.bottom) { rect.top = rect.bottom; }
     }
+    if (rect.top > rect.bottom) { rect.top = rect.bottom; }
     return rect;
 }
 
@@ -217,6 +278,8 @@ static RECT BrowserModelTabRect(const BrowserState *state, int tab)
     RECT rect = state->sections[BROWSER_SECTION_MODELS].bodyrc;
     int width = rect.right - rect.left;
 
+    if (!state->fileimages) { rect.top += BROWSER_SEARCH_H; }
+    if (rect.top > rect.bottom) { rect.top = rect.bottom; }
     rect.right = rect.left + width * boundaries[tab + 1] / 4;
     rect.left += width * boundaries[tab] / 4;
     if (rect.bottom > rect.top + BROWSER_MODEL_TAB_H)
@@ -278,7 +341,7 @@ static int BrowserContentHeight(const BrowserState *state, int section)
     if (section == BROWSER_SECTION_IMAGES)
     {
         int columns = BrowserImageColumns(&state->sections[section].bodyrc);
-        int count = BrowserImageCount(state);
+        int count = BrowserVisibleImageCount(state);
         int rows = count / columns + (count % columns != 0);
 
         return rows > 0 ? rows * BROWSER_IMAGE_CELL_H + BROWSER_IMAGE_MARGIN * 2 : 0;
@@ -404,6 +467,30 @@ static void BrowserHideImageTooltip(HWND hwnd, BrowserState *state)
     state->tooltipimage = -1;
 }
 
+static void BrowserLayoutSearches(BrowserState *state)
+{
+    for (int i = BROWSER_SECTION_IMAGES; i <= BROWSER_SECTION_MODELS; i++)
+    {
+        HWND edit = state->search[i];
+        RECT rect = state->sections[i].bodyrc, old;
+        BOOL visible = state->sections[i].expanded
+            && rect.bottom - rect.top >= BROWSER_SEARCH_H && rect.right - rect.left > 8;
+        if (!edit) { continue; }
+        if (visible)
+        {
+            rect.left += 4; rect.right -= 4; rect.top += 4; rect.bottom = rect.top + BROWSER_SEARCH_H - 8;
+            GetWindowRect(edit, &old);
+            MapWindowPoints(NULL, GetParent(edit), (POINT *)&old, 2);
+            if (!EqualRect(&rect, &old))
+                SetWindowPos(edit, NULL, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top,
+                    SWP_NOZORDER | SWP_NOACTIVATE);
+        }
+        else if (GetFocus() == edit) { SetFocus(GetParent(edit)); }
+        if (!!(GetWindowLongPtr(edit, GWL_STYLE) & WS_VISIBLE) != visible)
+            ShowWindow(edit, visible ? SW_SHOWNA : SW_HIDE);
+    }
+}
+
 /* Reserve every header, then give Objects enough height for its active tab
  * when space permits. At short heights it shares the available space and
  * scrolls. The remaining expanded sections split the rest evenly. */
@@ -463,6 +550,7 @@ static void BrowserLayoutSections(BrowserState *state, const RECT *client)
             y = sec->bodyrc.bottom;
         }
     }
+    BrowserLayoutSearches(state);
 }
 
 static void BrowserSelectObjectTab(HWND hwnd, BrowserState *state, int tab)
@@ -699,7 +787,7 @@ static void BrowserPaintImageGrid(BrowserState *state, HDC hdc, const RECT *body
     int scroll = state->scroll[BROWSER_SECTION_IMAGES];
     int firstrow = scroll > BROWSER_IMAGE_MARGIN
         ? (scroll - BROWSER_IMAGE_MARGIN) / BROWSER_IMAGE_CELL_H : 0;
-    int i;
+    int i, cell = -1;
     int oldstretch = SetStretchBltMode(hdc, COLORONCOLOR);
     BITMAPINFO bmi;
 
@@ -711,14 +799,17 @@ static void BrowserPaintImageGrid(BrowserState *state, HDC hdc, const RECT *body
 
     SetTextColor(hdc, ThemeSystemColor(COLOR_WINDOWTEXT));
 
-    for (i = firstrow * columns; i < BrowserImageCount(state); i++)
+    for (i = 0; i < BrowserImageCount(state); i++)
     {
         const TexThumb *t;
         const unsigned char *pixels;
         RECT rc;
-        int column = i % columns;
-        int y = body->top + BROWSER_IMAGE_MARGIN
-              + (i / columns) * BROWSER_IMAGE_CELL_H - scroll;
+        int column, y;
+        if (!BrowserImageMatches(state, i)) { continue; }
+        cell++;
+        if (cell < firstrow * columns) { continue; }
+        column = cell % columns;
+        y = body->top + BROWSER_IMAGE_MARGIN + (cell / columns) * BROWSER_IMAGE_CELL_H - scroll;
 
         if (y >= body->bottom)
         {
@@ -811,9 +902,9 @@ static BOOL BrowserModelRect(const BrowserState *state, int index, RECT *rect)
     RECT body = BrowserContentRect(state, BROWSER_SECTION_MODELS);
     int columns = BrowserImageColumns(&body), width = BrowserImageGridWidth(&body), cell = 0;
     if (!state->sections[BROWSER_SECTION_MODELS].expanded || index < 0 || index >= state->modelcount
-        || BrowserModelCategory(state->models[index].label) != state->modeltab) { return FALSE; }
+        || !BrowserModelMatches(state, index)) { return FALSE; }
     for (int i = 0; i < index; i++)
-        if (BrowserModelCategory(state->models[i].label) == state->modeltab) { cell++; }
+        if (BrowserModelMatches(state, i)) { cell++; }
     rect->left = body.left + BROWSER_IMAGE_MARGIN + (cell % columns) * width / columns;
     rect->right = body.left + BROWSER_IMAGE_MARGIN + (cell % columns + 1) * width / columns;
     rect->top = body.top + BROWSER_IMAGE_MARGIN + (cell / columns) * BROWSER_IMAGE_CELL_H
@@ -925,7 +1016,7 @@ static void BrowserPaint(HWND hwnd, HDC hdc)
             if (i == BROWSER_SECTION_OBJECTS) { BrowserPaintObjectTabs(state, hdc); }
             if (body.bottom <= body.top) { continue; }
             if (i == BROWSER_SECTION_OBJECTS
-                || (i == BROWSER_SECTION_IMAGES && BrowserImageCount(state) > 0)
+                || (i == BROWSER_SECTION_IMAGES && BrowserVisibleImageCount(state) > 0)
                 || (i == BROWSER_SECTION_MODELS && state->modelcounts[state->modeltab] > 0))
             {
                 int saved = SaveDC(hdc);
@@ -957,7 +1048,7 @@ static void BrowserPaint(HWND hwnd, HDC hdc)
                 hint.left += 26;
                 hint.top += 6;
                 SetTextColor(hdc, ThemeSystemColor(COLOR_GRAYTEXT));
-                DrawText(hdc, "(empty)", -1, &hint, DT_SINGLELINE | DT_TOP | DT_LEFT);
+                DrawText(hdc, state->filter[i][0] ? "No matches" : "(empty)", -1, &hint, DT_SINGLELINE | DT_TOP | DT_LEFT);
             }
         }
     }
@@ -1001,14 +1092,15 @@ static void BrowserPaintBuffered(HWND hwnd, HDC hdc, const RECT *dirty)
 static int BrowserHitImage(const BrowserState *state, POINT point)
 {
     const BrowserSection *section = &state->sections[BROWSER_SECTION_IMAGES];
-    int width = BrowserImageGridWidth(&section->bodyrc);
-    int columns = BrowserImageColumns(&section->bodyrc);
-    int x = point.x - section->bodyrc.left - BROWSER_IMAGE_MARGIN;
-    int y = point.y - section->bodyrc.top - BROWSER_IMAGE_MARGIN
+    RECT body = BrowserContentRect(state, BROWSER_SECTION_IMAGES);
+    int width = BrowserImageGridWidth(&body);
+    int columns = BrowserImageColumns(&body);
+    int x = point.x - body.left - BROWSER_IMAGE_MARGIN;
+    int y = point.y - body.top - BROWSER_IMAGE_MARGIN
           + state->scroll[BROWSER_SECTION_IMAGES];
     int image;
 
-    if (!section->expanded || !PtInRect(&section->bodyrc, point)
+    if (!section->expanded || !PtInRect(&body, point)
         || x < 0 || x >= width || y < 0)
     {
         return -1;
@@ -1016,7 +1108,9 @@ static int BrowserHitImage(const BrowserState *state, POINT point)
     /* Invert the painter's rounded column boundaries exactly. */
     image = (y / BROWSER_IMAGE_CELL_H) * columns
           + ((x + 1) * columns - 1) / width;
-    return image < BrowserImageCount(state) ? image : -1;
+    for (int i = 0; i < BrowserImageCount(state); i++)
+        if (BrowserImageMatches(state, i) && image-- == 0) { return i; }
+    return -1;
 }
 
 static int BrowserHitModel(const BrowserState *state, POINT point)
@@ -1029,7 +1123,7 @@ static int BrowserHitModel(const BrowserState *state, POINT point)
         || x < 0 || x >= width || y < 0) { return -1; }
     int cell = (y / BROWSER_IMAGE_CELL_H) * columns + ((x + 1) * columns - 1) / width;
     for (int i = 0; i < state->modelcount; i++)
-        if (BrowserModelCategory(state->models[i].label) == state->modeltab && cell-- == 0) { return i; }
+        if (BrowserModelMatches(state, i) && cell-- == 0) { return i; }
     return -1;
 }
 
@@ -1054,7 +1148,8 @@ static void BrowserUpdateImageTooltip(HWND hwnd, BrowserState *state, WPARAM wpa
             TOOLINFO tool = {0};
             RECT body = BrowserContentRect(state, BROWSER_SECTION_IMAGES);
             int columns = BrowserImageColumns(&body), width = BrowserImageGridWidth(&body);
-            int column = index % columns;
+            int cell = model < 0 ? BrowserImageCell(state, index) : 0;
+            int column = cell % columns;
             if (model >= 0)
             {
                 lstrcpyn(state->tooltiptext, state->models[model].label, sizeof(state->tooltiptext));
@@ -1079,7 +1174,7 @@ static void BrowserUpdateImageTooltip(HWND hwnd, BrowserState *state, WPARAM wpa
             tool.lpszText = state->tooltiptext;
             tool.rect.left = body.left + BROWSER_IMAGE_MARGIN + column * width / columns;
             tool.rect.right = body.left + BROWSER_IMAGE_MARGIN + (column + 1) * width / columns;
-            tool.rect.top = body.top + BROWSER_IMAGE_MARGIN + (index / columns) * BROWSER_IMAGE_CELL_H
+            tool.rect.top = body.top + BROWSER_IMAGE_MARGIN + (cell / columns) * BROWSER_IMAGE_CELL_H
                 - state->scroll[BROWSER_SECTION_IMAGES];
             tool.rect.bottom = tool.rect.top + BROWSER_IMAGE_CELL_H;
             if (model >= 0)
@@ -1456,6 +1551,16 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         }
 
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
+        for (int i = BROWSER_SECTION_IMAGES; !state->fileimages && i <= BROWSER_SECTION_MODELS; i++)
+        {
+            state->search[i] = CreateWindowEx(WS_EX_CLIENTEDGE, "EDIT", "",
+                WS_CHILD | WS_TABSTOP | ES_AUTOHSCROLL, 0, 0, 0, 0,
+                hwnd, (HMENU)(INT_PTR)(BROWSER_SEARCH_ID + i), ((CREATESTRUCT *)lparam)->hInstance, NULL);
+            SendMessage(state->search[i], WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), FALSE);
+            SendMessage(state->search[i], EM_SETLIMITTEXT, sizeof(state->filter[i]) - 1, 0);
+            SendMessageW(state->search[i], EM_SETCUEBANNER, TRUE,
+                (LPARAM)(i == BROWSER_SECTION_IMAGES ? L"Search images..." : L"Search models..."));
+        }
         state->tooltip = CreateWindowEx(WS_EX_TOPMOST, TOOLTIPS_CLASS, NULL,
             WS_POPUP | TTS_NOPREFIX, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
             CW_USEDEFAULT, hwnd, NULL, ((CREATESTRUCT *)lparam)->hInstance, NULL);
@@ -1467,6 +1572,32 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             SendMessage(state->tooltip, TTM_SETDELAYTIME, TTDT_AUTOPOP, 15000);
         }
         return 0;
+
+    case WM_COMMAND:
+        if (state && HIWORD(wparam) == EN_CHANGE)
+        {
+            int section = LOWORD(wparam) - BROWSER_SEARCH_ID;
+            if (section >= BROWSER_SECTION_IMAGES && section <= BROWSER_SECTION_MODELS
+                && (HWND)lparam == state->search[section])
+            {
+                GetWindowText(state->search[section], state->filter[section], sizeof(state->filter[section]));
+                BrowserHideImageTooltip(hwnd, state);
+                BrowserEndAssetDrag(hwnd, state);
+                state->scroll[section] = 0;
+                if (section == BROWSER_SECTION_MODELS)
+                {
+                    ZeroMemory(state->modelscroll, sizeof(state->modelscroll));
+                    BrowserCountModels(state);
+                    if (state->selectedmodel >= 0 && !BrowserModelMatches(state, state->selectedmodel))
+                        state->selectedmodel = -1;
+                }
+                else if (state->selectedimage >= 0 && !BrowserImageMatches(state, state->selectedimage))
+                    state->selectedimage = -1;
+                InvalidateRect(hwnd, &state->sections[section].bodyrc, FALSE);
+                return 0;
+            }
+        }
+        break;
 
     case WM_LBUTTONDBLCLK:
     {
@@ -1765,9 +1896,11 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                 if (index <= 0 || index > state->imagecount) { return 0; }
                 /* Keyboard context menus open alongside the selected row. */
                 BrowserRevealImage(hwnd, (DWORD)strtoul(state->images[index - 1].label, NULL, 16));
-                point.x = state->sections[BROWSER_SECTION_IMAGES].bodyrc.left + BROWSER_IMAGE_MARGIN;
-                point.y = state->sections[BROWSER_SECTION_IMAGES].bodyrc.top + BROWSER_IMAGE_MARGIN
-                    + (index / BrowserImageColumns(&state->sections[BROWSER_SECTION_IMAGES].bodyrc)) * BROWSER_IMAGE_CELL_H
+                RECT body = BrowserContentRect(state, BROWSER_SECTION_IMAGES);
+                int cell = BrowserImageCell(state, index);
+                point.x = body.left + BROWSER_IMAGE_MARGIN;
+                point.y = body.top + BROWSER_IMAGE_MARGIN
+                    + (cell / BrowserImageColumns(&body)) * BROWSER_IMAGE_CELL_H
                     - state->scroll[BROWSER_SECTION_IMAGES] + BROWSER_IMAGE_CELL_H / 2;
                 screen = point; ClientToScreen(hwnd, &screen);
             }
@@ -1787,13 +1920,15 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                        Its image and label still open the image's own menu. */
                     const unsigned char *pixels;
                     const TexThumb *thumb = BrowserImageAt(state, index, &pixels);
-                    const RECT *grid = &state->sections[BROWSER_SECTION_IMAGES].bodyrc;
+                    RECT content = BrowserContentRect(state, BROWSER_SECTION_IMAGES);
+                    const RECT *grid = &content;
                     int columns = BrowserImageColumns(grid), width = BrowserImageGridWidth(grid);
-                    int column = index % columns;
+                    int cell = BrowserImageCell(state, index);
+                    int column = cell % columns;
                     int left = grid->left + BROWSER_IMAGE_MARGIN + column * width / columns;
                     int right = grid->left + BROWSER_IMAGE_MARGIN + (column + 1) * width / columns;
                     int top = grid->top + BROWSER_IMAGE_MARGIN
-                        + (index / columns) * BROWSER_IMAGE_CELL_H - state->scroll[BROWSER_SECTION_IMAGES];
+                        + (cell / columns) * BROWSER_IMAGE_CELL_H - state->scroll[BROWSER_SECTION_IMAGES];
                     int imagewidth = thumb->w * BROWSER_IMAGE_DISPLAY_SCALE;
                     int imageheight = thumb->h * BROWSER_IMAGE_DISPLAY_SCALE;
                     RECT image = {left + (right - left - imagewidth) / 2,
@@ -2012,7 +2147,7 @@ HWND BrowserCreate(HWND parent, HINSTANCE hinstance)
         0,
         BROWSER_CLASS,
         NULL,
-        WS_CHILD | WS_VISIBLE,
+        WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN,
         0, 0, 16, 16, /* placeholder; the parent's layout positions it */
         parent, NULL, hinstance, NULL);
 }
@@ -2022,6 +2157,35 @@ HWND BrowserCreateImagePanel(HWND parent, HINSTANCE hinstance, int controlid)
     return CreateWindowEx(WS_EX_CLIENTEDGE, BROWSER_CLASS, NULL,
         WS_CHILD | WS_VISIBLE | WS_TABSTOP, 0, 0, 16, 16,
         parent, (HMENU)(INT_PTR)controlid, hinstance, (void *)1);
+}
+
+BOOL BrowserHandleMessage(HWND browser, MSG *message)
+{
+    BrowserState *state = BrowserGetState(browser);
+    int section;
+    if (!state || !message || message->message < WM_KEYFIRST || message->message > WM_KEYLAST) { return FALSE; }
+    for (section = BROWSER_SECTION_IMAGES; section <= BROWSER_SECTION_MODELS; section++)
+        if (state->search[section] && message->hwnd == state->search[section]) { break; }
+    if (section > BROWSER_SECTION_MODELS) { return FALSE; }
+    if (message->message == WM_KEYDOWN)
+    {
+        if (message->wParam == 'A' && (GetKeyState(VK_CONTROL) & 0x8000))
+        { SendMessage(message->hwnd, EM_SETSEL, 0, -1); return TRUE; }
+        if (message->wParam == VK_ESCAPE)
+        { SetWindowText(message->hwnd, ""); return TRUE; }
+        if (message->wParam == VK_RETURN)
+        { SetFocus(browser); return TRUE; }
+        if (message->wParam == VK_TAB)
+        {
+            HWND other = state->search[section == BROWSER_SECTION_IMAGES ? BROWSER_SECTION_MODELS : BROWSER_SECTION_IMAGES];
+            SetFocus(other && IsWindowVisible(other) ? other : browser);
+            return TRUE;
+        }
+    }
+    /* Text editing (including Ctrl+Z/C/X/V) must precede editor accelerators. */
+    TranslateMessage(message);
+    DispatchMessage(message);
+    return TRUE;
 }
 
 void BrowserSetImages(HWND browser, TexThumb *items, int count,
@@ -2061,6 +2225,7 @@ void BrowserSetImages(HWND browser, TexThumb *items, int count,
     if (selectedfile[0])
         for (int i = 0; i < state->imagecount; i++)
             if (!lstrcmpi(selectedfile, state->images[i].label)) { state->selectedimage = i; break; }
+    if (!items && state->search[BROWSER_SECTION_IMAGES]) { SetWindowText(state->search[BROWSER_SECTION_IMAGES], ""); }
     BrowserClampScroll(state, BROWSER_SECTION_IMAGES);
 
     InvalidateRect(browser, NULL, TRUE);
@@ -2089,14 +2254,17 @@ BOOL BrowserRevealImage(HWND browser, DWORD textureid)
 {
     BrowserState *state = BrowserGetState(browser);
     RECT client, body;
-    int index, top, height;
+    int index, cell, top, height;
     if (state == NULL || (index = BrowserFindImage(state, textureid)) < 0) { return FALSE; }
     BrowserHideImageTooltip(browser, state);
+    /* An explicit reveal must also work when a search currently hides it. */
+    if (!BrowserImageMatches(state, index)) { SetWindowText(state->search[BROWSER_SECTION_IMAGES], ""); }
+    cell = BrowserImageCell(state, index);
     state->sections[BROWSER_SECTION_IMAGES].expanded = TRUE;
     GetClientRect(browser, &client);
     BrowserLayoutSections(state, &client);
     body = BrowserContentRect(state, BROWSER_SECTION_IMAGES);
-    top = BROWSER_IMAGE_MARGIN + (index / BrowserImageColumns(&body)) * BROWSER_IMAGE_CELL_H;
+    top = BROWSER_IMAGE_MARGIN + (cell / BrowserImageColumns(&body)) * BROWSER_IMAGE_CELL_H;
     height = body.bottom - body.top;
     /* Center the row when possible, including after expanding a closed section. */
     state->scroll[BROWSER_SECTION_IMAGES] = top
@@ -2127,16 +2295,12 @@ void BrowserSetModels(HWND browser, const BrowserModelItem *items, int count, co
     if (!items || count < 0) { count = 0; }
     if (count > BROWSER_MAX_MODELS) { count = BROWSER_MAX_MODELS; }
     lstrcpyn(state->modelproject, project ? project : "", sizeof(state->modelproject));
-    ZeroMemory(state->modelcounts, sizeof(state->modelcounts));
     ZeroMemory(state->modelscroll, sizeof(state->modelscroll));
     for (int i = 0; i < count; i++) { state->models[i] = items[i]; }
     qsort(state->models, count, sizeof(state->models[0]), BrowserCompareModels);
-    for (int i = 0; i < count; i++)
-    {
-        int category = BrowserModelCategory(state->models[i].label);
-        if (category >= 0) { state->modelcounts[category]++; }
-    }
     state->modelcount = count; state->selectedmodel = -1;
+    if (!items && state->search[BROWSER_SECTION_MODELS]) { SetWindowText(state->search[BROWSER_SECTION_MODELS], ""); }
+    BrowserCountModels(state);
     state->scroll[BROWSER_SECTION_MODELS] = 0;
     if (count && state->modelproject[0])
     {

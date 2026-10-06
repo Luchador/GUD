@@ -32,10 +32,16 @@ def main():
     end_drag = function(source, 'static void BrowserEndAssetDrag(')
     start_drag = function(source, 'static BOOL BrowserStartAssetDrag(')
     hit_model = function(source, 'static int BrowserModelCategory(') + '\n'
+    for signature in ('static BOOL BrowserNameMatches(', 'static BOOL BrowserModelMatches(',
+                      'static int BrowserImageCount(', 'static BOOL BrowserImageMatches(',
+                      'static int BrowserVisibleImageCount(', 'static int BrowserImageCell(',
+                      'static RECT BrowserContentRect(', 'static void BrowserCountModels('):
+        hit_model += function(source, signature) + '\n'
     hit_model += function(source, 'static int BrowserImageGridWidth(') + '\n'
     hit_model += function(source, 'static int BrowserImageColumns(') + '\n'
     hit_model += function(source, 'static BOOL BrowserModelRect(') + '\n'
     hit_model += function(source, 'static int BrowserHitModel(')
+    hit_model += '\n' + function(source, 'static int BrowserHitImage(')
     double_click = source[source.index('    case WM_LBUTTONDBLCLK:'):source.index('    case WM_LBUTTONDOWN:')]
     mousemove = source[source.index('    case WM_MOUSEMOVE:'):source.index('    case WM_MOUSELEAVE:')]
     move_drag = mousemove[mousemove.index('        if (state != NULL && state->dragimage != NULL)'):
@@ -46,6 +52,7 @@ def main():
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 typedef intptr_t HWND, HIMAGELIST, HBITMAP, LPARAM, WPARAM, LRESULT;
 typedef unsigned int DWORD, UINT;
 typedef int BOOL;
@@ -55,16 +62,22 @@ typedef int BrowserObjectType;
 typedef struct { DWORD textureid; POINT screen; } BrowserImageDrop;
 typedef struct { char name[64]; POINT screen; } BrowserModelDrop;
 typedef struct { BrowserObjectType type; POINT screen; } BrowserObjectDrop;
+typedef struct { RECT bodyrc; BOOL expanded; } BrowserSection;
 typedef struct {
     HIMAGELIST dragimage;
     char dragmodel[64];
     BOOL dragobject;
     int pressedobject, dragsection;
     DWORD dragtextureid;
-    struct { RECT bodyrc; BOOL expanded; } sections[3];
+    BrowserSection sections[3];
     struct { char label[64]; } models[4];
     int modelcount, modeltab, scroll[3];
+    int modelcounts[3], imagecount;
+    BOOL fileimages;
+    struct { char label[64]; } notexture, images[4];
+    char filter[3][260];
 } BrowserState;
+#define ZeroMemory(ptr, size) memset(ptr, 0, size)
 #define TRUE 1
 #define FALSE 0
 #define NULL_HANDLE 0
@@ -84,6 +97,9 @@ typedef struct {
 #define BROWSER_IMAGE_CELL_H 88
 #define BROWSER_IMAGE_MARGIN 4
 #define BROWSER_SCROLLBAR_W 8
+#define BROWSER_SEARCH_H 30
+#define BROWSER_MODEL_TAB_H 24
+#define BROWSER_OBJECT_TAB_H 24
 #define BROWSER_OBJECT_TRIANGLE 0
 #define BROWSER_OBJECT_QUAD 1
 #define BROWSER_OBJECT_SPAWN 2
@@ -178,11 +194,9 @@ static BOOL ClientToScreen(HWND hwnd, POINT *p)
 }
 static BOOL PtInRect(const RECT *r, POINT p)
 { return p.x >= r->left && p.x < r->right && p.y >= r->top && p.y < r->bottom; }
-static RECT BrowserContentRect(const BrowserState *state, int section) { return state->sections[section].bodyrc; }
 static void GetClientRect(HWND hwnd, RECT *r) { *r = (RECT){0, 0, 200, 200}; }
 static void BrowserLayoutSections(BrowserState *state, const RECT *r) {}
 static int BrowserHitHeader(HWND hwnd, int x, int y) { return -1; }
-static int BrowserHitImage(const BrowserState *state, POINT p) { return -1; }
 static int BrowserHitModelTab(const BrowserState *state, POINT p) { return -1; }
 static int BrowserHitObjectTab(const BrowserState *state, POINT p) { return -1; }
 static int BrowserHitObject(const BrowserState *state, POINT p) { return -1; }
@@ -262,6 +276,7 @@ static void CheckModelGrid(void)
     {
         RECT body = {10, 24, 10 + width, 210};
         g_state.sections[BROWSER_SECTION_MODELS].bodyrc = body;
+        body = BrowserContentRect(&g_state, BROWSER_SECTION_MODELS);
         g_state.scroll[BROWSER_SECTION_MODELS] = scroll;
         assert(BrowserHitModel(&g_state, (POINT){20, 23}) == -1);
         assert(BrowserHitModel(&g_state, (POINT){body.right - 1, 40}) == -1);
@@ -276,10 +291,66 @@ static void CheckModelGrid(void)
         }
     }
 }
+static void CheckSearchIdentity(void)
+{
+    RECT cell;
+    Reset(FALSE);
+    g_state.modelcount = 4; g_state.modeltab = BROWSER_MODEL_PROPS;
+    strcpy(g_state.models[0].label, "CheadMooreZ"); strcpy(g_state.models[1].label, "Gpp7Z");
+    strcpy(g_state.models[2].label, "PboxZ"); strcpy(g_state.models[3].label, "PpendantZ");
+    g_state.sections[BROWSER_SECTION_MODELS].expanded = TRUE;
+    g_state.sections[BROWSER_SECTION_MODELS].bodyrc = (RECT){0, 0, 100, 220};
+    strcpy(g_state.filter[BROWSER_SECTION_MODELS], "PEND");
+    BrowserCountModels(&g_state);
+    assert(g_state.modelcounts[2] == 1 && !g_state.modelcounts[0] && !g_state.modelcounts[1]);
+    assert(!BrowserModelRect(&g_state, 2, &cell));
+    assert(BrowserModelRect(&g_state, 3, &cell));
+    assert(BrowserHitModel(&g_state, (POINT){10, 60}) == 3);
+    Dispatch(browser, WM_LBUTTONDBLCLK, 0, MousePoint(10, 60));
+    assert(modelopens == 1 && !strcmp(openedmodel, "PpendantZ"));
+    assert(BrowserHitModel(&g_state, (POINT){10, 20}) == -1); /* Search field */
+    assert(BrowserHitModel(&g_state, (POINT){10, 40}) == -1); /* Tabs */
+    strcpy(g_state.filter[BROWSER_SECTION_MODELS], "MOORE");
+    BrowserCountModels(&g_state);
+    assert(g_state.modelcounts[0] == 1 && !g_state.modelcounts[2]);
+    assert(BrowserHitModel(&g_state, (POINT){10, 60}) == -1);
+    g_state.modeltab = BROWSER_MODEL_CHARACTERS;
+    assert(BrowserHitModel(&g_state, (POINT){10, 60}) == 0);
+
+    g_state.imagecount = 4;
+    strcpy(g_state.notexture.label, "No Texture");
+    strcpy(g_state.images[0].label, "00AA"); strcpy(g_state.images[1].label, "075B");
+    strcpy(g_state.images[2].label, "075C"); strcpy(g_state.images[3].label, "0AA5");
+    g_state.sections[BROWSER_SECTION_IMAGES].expanded = TRUE;
+    g_state.sections[BROWSER_SECTION_IMAGES].bodyrc = (RECT){0, 0, 100, 220};
+    strcpy(g_state.filter[BROWSER_SECTION_IMAGES], "75");
+    assert(BrowserVisibleImageCount(&g_state) == 2);
+    assert(BrowserImageCell(&g_state, 2) == 0 && BrowserImageCell(&g_state, 3) == 1);
+    assert(BrowserImageCell(&g_state, 0) == -1 && BrowserImageCell(&g_state, 4) == -1);
+    assert(BrowserHitImage(&g_state, (POINT){10, 36}) == 2); /* 075B, not source item 0 */
+    g_state.scroll[BROWSER_SECTION_IMAGES] = BROWSER_IMAGE_CELL_H;
+    assert(BrowserHitImage(&g_state, (POINT){10, 36}) == 3);
+    assert(BrowserHitImage(&g_state, (POINT){10, 20}) == -1);
+    assert(BrowserHitImage(&g_state, (POINT){95, 36}) == -1);
+    strcpy(g_state.filter[BROWSER_SECTION_IMAGES], "missing");
+    assert(!BrowserVisibleImageCount(&g_state));
+    assert(BrowserHitImage(&g_state, (POINT){10, 36}) == -1);
+    g_state.filter[BROWSER_SECTION_IMAGES][0] = 0;
+    g_state.scroll[BROWSER_SECTION_IMAGES] = 0;
+    assert(BrowserVisibleImageCount(&g_state) == 5 && BrowserHitImage(&g_state, (POINT){10, 36}) == 0);
+    strcpy(g_state.filter[BROWSER_SECTION_IMAGES], "aa5");
+    assert(BrowserHitImage(&g_state, (POINT){10, 36}) == 4);
+    assert(!strcmp(g_state.images[3].label, "0AA5"));
+    /* Studio keeps its filename identities and original header-free layout. */
+    g_state.fileimages = TRUE;
+    strcpy(g_state.images[3].label, "hair.bmp"); strcpy(g_state.filter[1], "HAIR");
+    assert(BrowserHitImage(&g_state, (POINT){10, 6}) == 3);
+}
 int main(void)
 {
     CheckMonitorLayouts();
     CheckModelGrid();
+    CheckSearchIdentity();
     /* Use real tab filtering and scrolled model-grid hit testing. Item models
        can open even though they do not support placement drags. */
     for (int tab = 0; tab < 3; tab++)
@@ -287,19 +358,19 @@ int main(void)
         const char *expected[] = {"CguardZ", "Gpp7Z", "PpendantZ"};
         Reset(FALSE); Start(FALSE);
         g_state.sections[BROWSER_SECTION_MODELS].expanded = TRUE;
-        g_state.sections[BROWSER_SECTION_MODELS].bodyrc = (RECT){0, 0, 100, 100};
+        g_state.sections[BROWSER_SECTION_MODELS].bodyrc = (RECT){0, 0, 100, 220};
         g_state.modelcount = 4; g_state.modeltab = tab;
         strcpy(g_state.models[0].label, "CguardZ"); strcpy(g_state.models[1].label, "Gpp7Z");
         strcpy(g_state.models[2].label, "PboxZ"); strcpy(g_state.models[3].label, "PpendantZ");
         g_state.scroll[BROWSER_SECTION_MODELS] = tab == 2 ? BROWSER_IMAGE_CELL_H : 0;
-        Dispatch(browser, WM_LBUTTONDBLCLK, 0, MousePoint(10, 6));
+        Dispatch(browser, WM_LBUTTONDBLCLK, 0, MousePoint(10, 60));
         assert(modelopens == 1 && !strcmp(openedmodel, expected[tab]));
         assert(destroyed == 1 && !capture && !g_state.dragimage && !modeldrops);
         Dispatch(browser, WM_LBUTTONUP, 0, 0); assert(!modeldrops);
-        Dispatch(browser, WM_LBUTTONDBLCLK, 0, MousePoint(10, 95)); /* Blank area after the final cell. */
-        Dispatch(browser, WM_LBUTTONDBLCLK, 0, MousePoint(95, 6)); /* Scrollbar. */
+        Dispatch(browser, WM_LBUTTONDBLCLK, 0, MousePoint(10, 149)); /* Blank area after the final cell. */
+        Dispatch(browser, WM_LBUTTONDBLCLK, 0, MousePoint(95, 60)); /* Scrollbar. */
         g_state.sections[BROWSER_SECTION_MODELS].expanded = FALSE;
-        Dispatch(browser, WM_LBUTTONDBLCLK, 0, MousePoint(10, 6));
+        Dispatch(browser, WM_LBUTTONDBLCLK, 0, MousePoint(10, 60));
         assert(modelopens == 1);
     }
     const int primitives[] = {BROWSER_OBJECT_TRIANGLE, BROWSER_OBJECT_QUAD, BROWSER_OBJECT_CIRCLE, BROWSER_OBJECT_CYLINDER};

@@ -60,6 +60,8 @@ typedef struct BrowserObjectDrop {
 
 BOOL BrowserRegisterClass(HINSTANCE hinstance);
 HWND BrowserCreate(HWND parent, HINSTANCE hinstance);
+/* Route search-field typing before main-window shortcuts. Escape clears. */
+BOOL BrowserHandleMessage(HWND browser, MSG *message);
 /* Images-only browser for ordinary filenames. Shares the main thumbnail grid,
  * scrolling and tooltips, without game texture IDs or game editing actions.
  * Populate with BrowserSetImages; the child uses the supplied control ID. */
