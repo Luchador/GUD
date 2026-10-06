@@ -151,6 +151,31 @@ rebase is required.
 
 ## Editing an existing model
 
+### Fitting an imported head to its body
+
+Select a placed character in the level viewport, assign its imported **Head**,
+then click **Adjust head offset...** beneath that selector. The modeless window
+leaves the level viewport usable, so you can orbit the assembled character as
+you work. Enter X, Y and Z offsets and click **Apply** (or press Enter).
+Y is up and Z is forward; negative Y lowers the head and negative Z moves it
+back. Values are whole native model units, the same units used by character
+model exports. The small arrows change a value by one unit.
+
+Offsets are measured from the head's position when this window was opened.
+Applying the same values again does not move it twice. **Reset** restores that
+opening position; **Undo** and **Redo** step through applied adjustments.
+Closing keeps applied edits. **Save Project**, then **Create ROM** to use them
+in-game. Reopening starts at zero relative to the current model position.
+
+The adjustment changes the head asset, so every character using that head is
+affected. Vertex positions and native collision points move together; textures,
+UVs, colors, material settings and the body's animation rig stay intact. This
+first version supports rigid imported heads using a single-part template such
+as **CheadbrosnanZ**, including Connery, Moore and Dalton. Random heads and bodies
+with built-in heads cannot be adjusted here. No GUD rebuild or rebase is needed.
+
+### Editing geometry externally
+
 1. Select a character, item, or prop in Tools > Model Editor.
 2. Click **Export Model...** and save the glTF somewhere convenient. This works
    with existing projects that have `base.z64`; no new project is required.

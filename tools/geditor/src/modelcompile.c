@@ -1281,6 +1281,48 @@ BOOL ModelCompileHeadGeometry(const unsigned char *data, DWORD size, const Model
     return CompileRetopology(data,size,source,imported,projectdir,ordered,result,resultsize,TRUE,why);
 }
 
+static BOOL OffsetHeadPoint(unsigned char *out,const unsigned char *data,DWORD size,
+    unsigned char *moved,DWORD at,const int delta[3],const char **why)
+{
+    if(!TopologySpan(at,1,16,size)) { *why="The head has an invalid vertex or collision point.";return FALSE; }
+    if(moved[at]) return TRUE;
+    for(int axis=0;axis<3;axis++) if(!WriteRounded16(out+at+axis*2,(double)Read16(data+at+axis*2)+delta[axis]))
+    { *why="This offset would move a head vertex outside the native coordinate range.";return FALSE; }
+    moved[at]=1;return TRUE;
+}
+BOOL ModelCompileOffsetHead(const unsigned char *data,DWORD size,const ModelSource *source,
+    const int delta[3],unsigned char **result,const char **why)
+{
+    unsigned char *out=NULL,*moved=NULL;BOOL ok=FALSE;
+    DWORD native=ModelMaterialsNativeSize(data,size),root=source->root;
+    *result=NULL;*why="Head offsets require a rigid imported head made with a single-part template such as CheadbrosnanZ.";
+    /* A detached DLCOLLISION root inherits the body's head matrix. Moving its
+     * local coordinates preserves that attachment and every animation. Reject
+     * jointed/hair-switch templates instead of guessing their local spaces. */
+    if(!source->count || !source->listcount || !TopologySpan(root,1,24,native)
+        || (Read16(data+root)&255)!=0x18 || Read32(data+root+8)
+        || Read32(data+root+12) || Read32(data+root+20)) return FALSE;
+    for(DWORD l=0;l<source->listcount;l++)
+        if(source->lists[l].node!=root || source->lists[l].preserve) return FALSE;
+    if(!delta[0] && !delta[1] && !delta[2]) { *why="";return TRUE; }
+    out=malloc(size);moved=calloc(native,1);
+    if(!out || !moved) { *why="Out of memory moving the head.";goto done; }
+    memcpy(out,data,size);
+    const ModelSourceList *part=source->lists;
+    DWORD p=part->vertexpointer;
+    if(!TopologySpan(p,1,16,native)) goto done;
+    DWORD count=(unsigned short)Read16(data+p+4),points=(unsigned short)Read16(data+p+6);
+    DWORD xyz=Read32(data+p+8)&0xffffffu;
+    if(!TopologySpan(part->vertexbase,count,16,native) || (points && !TopologySpan(xyz,points,16,native))) goto done;
+    for(DWORD i=0;i<count;i++) if(!OffsetHeadPoint(out,data,native,moved,part->vertexbase+i*16,delta,why)) goto done;
+    /* UV splitting can leave absolute G_VTX loads outside the current array. */
+    for(DWORD i=0;i<source->count*3;i++) if(!OffsetHeadPoint(out,data,native,moved,source->vertexoffsets[i],delta,why)) goto done;
+    for(DWORD i=0;i<points;i++) if(!OffsetHeadPoint(out,data,native,moved,xyz+i*16,delta,why)) goto done;
+    *result=out;out=NULL;*why="";ok=TRUE;
+done:
+    free(out);free(moved);return ok;
+}
+
 /* Closest point on a triangle, with barycentric coordinates for transferring
  * its dominant native joint. Surface distance avoids attaching coat vertices
  * to a nearby hand merely because the torso has fewer vertices. */

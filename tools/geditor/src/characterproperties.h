@@ -13,6 +13,7 @@
 /* Synchronous stack-owned SetupCharacterHealthEdit; frame owns history. */
 #define CHARACTERPROPERTIES_WM_HEALTH_CHANGED (WM_APP + 122)
 #define CHARACTERPROPERTIES_WM_MODELS_CHANGED (WM_APP + 124)
+#define CHARACTERPROPERTIES_WM_HEAD_OFFSET (WM_APP + 127)
 BOOL CharacterPropertiesRegisterClass(HINSTANCE instance);
 HWND CharacterPropertiesCreate(HWND parent, HINSTANCE instance);
 BOOL CharacterPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD index);

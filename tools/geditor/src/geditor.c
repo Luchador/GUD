@@ -34,6 +34,7 @@
 #include "tooltoolbar.h"
 #include "uveditor.h"
 #include "modeleditor.h"
+#include "headoffset.h"
 #include "renderstudio.h"
 #include "levelmanager.h"
 #include "projectsettings.h"
@@ -697,6 +698,7 @@ static void GEditorCloseProject(HWND hwnd)
     IssuesWindowClose();
     BgCommandsWindowClose();
     BakedLightingClose();
+    HeadOffsetClose();
     RomExportClearIssues();
     PatrolEditorClose();
     if (g_Project.name[0] == '\0')
@@ -6380,6 +6382,23 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         return ok;
     }
 
+    case CHARACTERPROPERTIES_WM_HEAD_OFFSET:
+    {
+        DWORD selected;CharacterModelDefinition body,head;const char *why="";
+        if(!ViewportGetSelectedObject(g_Viewport,&selected) || !(selected&SETUP_CHARACTER_SELECTION_BIT)) return FALSE;
+        DWORD index=selected&~SETUP_CHARACTER_SELECTION_BIT;
+        if(index>=g_CurrentSetup.charactercount) return FALSE;
+        const SetupCharacter *chr=&g_CurrentSetup.characters[index];
+        int bodyid,headid;
+        if(chr->deleted || chr->headid<CUSTOM_CHARACTER_BASE
+            || CharacterModelKind(chr->headid)!=CUSTOM_CHARACTER_HEAD
+            || !CharacterGetModelDefinition(chr->headid,&head)
+            || !CharacterResolveModels(chr,&bodyid,&headid)
+            || !CharacterGetModelDefinition(bodyid,&body) || body.hashead) return FALSE;
+        if(!HeadOffsetShow(hwnd,g_Project.dir,head.filename,&why)) MessageBox(hwnd,why,"Head Offset",MB_ICONERROR);
+        return TRUE;
+    }
+
     case CHARACTERPROPERTIES_WM_MODELS_CHANGED:
     {
         BOOL ok=GEditorSetCharacterModels(hwnd,(const SetupCharacterModelEdit *)lparam);
@@ -7680,6 +7699,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         IssuesWindowClose();
         BgCommandsWindowClose();
         BakedLightingClose();
+        HeadOffsetClose();
         RomExportClearIssues();
         PatrolEditorClose();
         KnifeDialogClose();
@@ -8188,6 +8208,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                     && !KnifeDialogHandleMessage(&msg)
                     && !LevelManagerHandleMessage(&msg)
                     && !ProjectSettingsHandleMessage(&msg)
+                    && !HeadOffsetHandleMessage(&msg)
                     && !ModelEditorHandleMessage(&msg)
                     && !UVEditorHandleMessage(&msg)
                     && !GEditorHandleFogHotkey(hwnd, &msg)
@@ -8234,6 +8255,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                 && !KnifeDialogHandleMessage(&msg)
                 && !LevelManagerHandleMessage(&msg)
                 && !ProjectSettingsHandleMessage(&msg)
+                && !HeadOffsetHandleMessage(&msg)
                 && !ModelEditorHandleMessage(&msg)
                 && !UVEditorHandleMessage(&msg)
                 && !GEditorHandleFogHotkey(hwnd, &msg)

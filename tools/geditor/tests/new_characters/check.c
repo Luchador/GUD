@@ -131,6 +131,7 @@ static void RawHead(const char *project,const char *name,const char *path,BOOL f
     printf("PASS raw head %s: %lu triangles, fitted=%d; geometry, colors, UVs, slots, texture assignment, collision chains and round trip.\n",name,(unsigned long)triangles,fit);
 }
 #include "bodies.c"
+#include "headoffset.c"
 int main(int argc,char **argv)
 {
     OK(argc==3 || argc==6);const char *project=argv[1],*root=argv[2];char base[MAX_PATH],path[MAX_PATH],body[MAX_PATH],head[MAX_PATH];
@@ -187,7 +188,13 @@ int main(int argc,char **argv)
     }
     snprintf(path,sizeof(path),"%s/raw-body.gltf",project);RawTemplateBody(project,path);
     RawBody(project,"CrawbodyZ",path,FALSE,84+(argc-3)*2);
+    HeadOffsetTest(project,"CactorZ",0);
+    for(int i=3;i<argc;i++) {
+        HeadOffsetFixture(actors[i-3]);HeadOffsetTest(project,actors[i-3],i-2);
+    }
     OK(NewPropsSave(project,&why));ModelEditsReset();OK(NewPropsOpen(project,&why));
+    HeadOffsetSaved(project,"CactorZ",0);
+    for(int i=3;i<argc;i++) HeadOffsetSaved(project,actors[i-3],i-2);
     CheckCharacter(project,"CtestbodyZ",80,5);CheckCharacter(project,"CactorZ",81,78);
     OK(ModelEditsReadSource(project,"CactorZ",&source,&revision,&why));
     OK(source.materials.slots[0].texture==BG_TEX_NONE);ModelFreeSource(&source);
@@ -206,6 +213,8 @@ int main(int argc,char **argv)
     OK(NewPropsCheckRebase(project,&rom,&why));Write(base,rom.data,rom.size);RomFree(&rom);
     snprintf(path,sizeof(path),"%s/models/newprops.gnp",project);OK(DeleteFile(path));ModelEditsReset();
     OK(NewPropsOpen(project,&why));CheckCharacter(project,"CtestbodyZ",80,5);CheckCharacter(project,"CactorZ",81,78);
+    HeadOffsetSaved(project,"CactorZ",0);
+    for(int i=3;i<argc;i++) HeadOffsetSaved(project,actors[i-3],i-2);
     CheckCharacter(project,"CgeometryZ",82,78);CheckCharacter(project,"CnativeheadZ",83,78);
     for(int i=3;i<argc;i++) CheckCharacter(project,actors[i-3],84+i-3,78);
     for(int i=3;i<argc;i++) CheckCharacter(project,bodies[i-3],87+i-3,5);

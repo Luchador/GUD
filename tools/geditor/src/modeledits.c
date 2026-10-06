@@ -413,6 +413,41 @@ done:
     free(data);free(compiled);return ok;
 }
 
+BOOL ModelEditsOffsetHead(const char *project,const char *name,DWORD revision,
+    const int delta[3],ModelUVChange *change,const char **why)
+{
+    unsigned char *data=NULL,*compiled=NULL;DWORD size,basehash;
+    ModelSource source={0},check={0};ModelUVChange step={0};BOOL ok=FALSE;
+    if(change) memset(change,0,sizeof(*change));
+    if(!NewPropsOpen(project,why)) return FALSE;
+    if(NewPropsCharacterKind(name)!=CUSTOM_CHARACTER_HEAD)
+    { *why="Select an explicitly assigned imported head to adjust its offset.";return FALSE; }
+    if(!LoadSource(project,name,&data,&size,&basehash,why)) goto done;
+    if(ModelDataHash(data,size)!=revision)
+    { *why="The head changed in another editor. Close and reopen Head Offset before continuing.";goto done; }
+    if(!ModelReadSource(data,size,&source,why)
+        || !ModelCompileOffsetHead(data,size,&source,delta,&compiled,why)) goto done;
+    if(!compiled) { ok=TRUE;goto done; }
+    if(!ModelReadSource(compiled,size,&check,why) || check.count!=source.count) goto done;
+    for(DWORD i=0;i<source.count*3;i++) {
+        if(fabs((double)check.vertices[i].x-source.vertices[i].x-delta[0])>.001
+            || fabs((double)check.vertices[i].y-source.vertices[i].y-delta[1])>.001
+            || fabs((double)check.vertices[i].z-source.vertices[i].z-delta[2])>.001)
+        { *why="The head's local coordinate system cannot be moved safely.";goto done; }
+    }
+    if(change) {
+        step.after=malloc(size);
+        if(!step.after) { *why="Out of memory retaining head offset history.";goto done; }
+        memcpy(step.after,compiled,size);step.afterSize=size;step.afterRevision=ModelDataHash(compiled,size);
+        step.before=data;data=NULL;step.beforeSize=size;step.beforeRevision=revision;
+    }
+    ok=RetainModel(project,name,basehash,compiled,size,why);if(ok) compiled=NULL;
+done:
+    if(ok && change) {*change=step;memset(&step,0,sizeof(step));}
+    ModelEditsFreeUVChange(&step);ModelFreeSource(&source);ModelFreeSource(&check);
+    free(data);free(compiled);return ok;
+}
+
 BOOL ModelEditsSetUVs(const char *project, const char *name, DWORD revision,
     const ModelUVEdit *edits, DWORD count, ModelUVChange *change, const char **why)
 {

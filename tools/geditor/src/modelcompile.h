@@ -48,6 +48,10 @@ BOOL ModelCompileBodyGeometry(const unsigned char *data, DWORD size, const Model
  * order, native materials and attributes. No change returns NULL/zero bytes. */
 BOOL ModelCompileRepairBodyBindings(const unsigned char *data, DWORD size, const ModelSource *source,
     unsigned char **result, DWORD *resultsize, DWORD *fixed, const char **why);
+/* Translate a rigid imported head, including collision points. Preserve every
+ * UV, color, material and display-list byte; positions use native integers. */
+BOOL ModelCompileOffsetHead(const unsigned char *data, DWORD size, const ModelSource *source,
+    const int delta[3], unsigned char **result, const char **why);
 /* -1 leaves that property unchanged. Culling: 0=none, 1=back, 2=front.
    Surface: 0=opaque, 1=cutout, 2=alpha blend. U/V wrap: 0=repeat, 1=clamp,
    2=mirror (textured faces only). IDs index ModelSource.faces. */
