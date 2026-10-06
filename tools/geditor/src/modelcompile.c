@@ -1462,14 +1462,14 @@ static BOOL BodyFixIsolatedBindings(const unsigned char *data,DWORD size,const M
 
 static BOOL CompileBodyGeometry(const unsigned char *data,DWORD size,const ModelSource *source,
     const GltfModelImport *imported,BOOL fit,ModelMaterials *ordered,
-    unsigned char **result,DWORD *resultsize,BOOL repair,DWORD *fixed,const char **why)
+    unsigned char **result,DWORD *resultsize,BOOL repair,BOOL bloodonly,DWORD *fixed,const char **why)
 {
     ModelOutput out={0};BOOL ok=FALSE;
     BgVertex *standing=NULL;ModelTransform *transforms=NULL;
     ModelVertexEdit *edits=NULL;ModelVertexBuffer *buffers=NULL;
     DWORD *owners=NULL,*matrices=NULL,*corners=NULL,*drawlists=NULL,*hashes=NULL;
     DWORD *sourceowners=NULL,*references=NULL;unsigned char *prefix=NULL,*required=NULL,*used=NULL;
-    DWORD unique=0,hashcount=1,emitted=0;
+    DWORD unique=0,hashcount=1,emitted=0,detached=0;
     double lo[2][3],hi[2][3],scale=1;
     *result=NULL;*resultsize=0;
     *why="A raw body must contain 1 to 10000 opaque triangles and a complete standing, arms-down humanoid mesh.";
@@ -1513,7 +1513,7 @@ static BOOL CompileBodyGeometry(const unsigned char *data,DWORD size,const Model
      * ownership can differ from the list drawing a triangle across a joint. */
     for (DWORD i=0;i<source->count*3;i++) {
         sourceowners[i]=MODEL_NO_VERTEX;
-        if (!source->faces[i/3].closest) continue;
+        if (!bloodonly && !source->faces[i/3].closest) continue;
         for (DWORD l=0;l<source->listcount;l++) {
             const ModelSourceList *p=&source->lists[l];
             if (p->preserve || !TopologySpan(p->vertexpointer,1,6,limit)) continue;
@@ -1535,7 +1535,7 @@ static BOOL CompileBodyGeometry(const unsigned char *data,DWORD size,const Model
             if(distance<best) {best=distance;owner=sourceowners[j];}
         }
         if(owner==MODEL_NO_VERTEX) { *why="A body vertex has no live buffer for its joint.";goto done; }
-        sourceowners[i]=owner;
+        sourceowners[i]=owner;detached++;
     }
     for (DWORD i=0;i<imported->count*3;i++) {
         if(repair) {references[i]=i;continue;}
@@ -1557,7 +1557,8 @@ static BOOL CompileBodyGeometry(const unsigned char *data,DWORD size,const Model
         { *why="The body does not fit the template's standing pose. Use a complete Y-up, +Z-forward body with arms down.";goto done; }
         references[i]=nearest;
     }
-    if(!BodyFixIsolatedBindings(data,size,source,imported->vertices,imported->count,references,fixed,why)) goto done;
+    if(bloodonly) *fixed=detached;
+    else if(!BodyFixIsolatedBindings(data,size,source,imported->vertices,imported->count,references,fixed,why)) goto done;
     if(repair && !*fixed) {ok=TRUE;*why="";goto done;}
     for (DWORD i=0;i<imported->count*3;i++) {
         DWORD nearest=references[i];
@@ -1696,7 +1697,7 @@ BOOL ModelCompileBodyGeometry(const unsigned char *data,DWORD size,const ModelSo
     unsigned char **result,DWORD *resultsize,const char **why)
 {
     DWORD fixed;
-    return CompileBodyGeometry(data,size,source,imported,fit,ordered,result,resultsize,FALSE,&fixed,why);
+    return CompileBodyGeometry(data,size,source,imported,fit,ordered,result,resultsize,FALSE,FALSE,&fixed,why);
 }
 
 BOOL ModelCompileRepairBodyBindings(const unsigned char *data,DWORD size,const ModelSource *source,
@@ -1707,9 +1708,38 @@ BOOL ModelCompileRepairBodyBindings(const unsigned char *data,DWORD size,const M
     if(source->haslods) { *why="Binding repair is for imported bodies with a single LOD.";return FALSE; }
     if(!ModelBodyBindPose(data,size,source,&standing,&transforms,why)) return FALSE;
     GltfModelImport imported={0};imported.count=source->count;imported.vertices=standing;imported.materials=source->materials;
-    ok=CompileBodyGeometry(data,size,source,&imported,FALSE,&ordered,result,resultsize,TRUE,fixed,why);
+    ok=CompileBodyGeometry(data,size,source,&imported,FALSE,&ordered,result,resultsize,TRUE,FALSE,fixed,why);
     if(ok && *result) ok=ModelMaterialsAttach(result,resultsize,&ordered,why);
     if(!ok) {free(*result);*result=NULL;*resultsize=*fixed=0;}
+    free(standing);free(transforms);ModelMaterialsFree(&ordered);return ok;
+}
+
+/* Old UV edits left some segment-5 loads outside every live vertex array.
+ * Rehome them by their existing matrix; retain all native positions, UVs,
+ * colors and face order. Unlike binding repair this never changes a joint. */
+BOOL ModelCompileBodyBloodVertices(const unsigned char *data,DWORD size,const ModelSource *source,
+    unsigned char **result,DWORD *resultsize,const char **why)
+{
+    BgVertex *standing=NULL;ModelTransform *transforms=NULL;ModelMaterials ordered={0};BOOL ok=FALSE;
+    DWORD fixed=0;
+    *result=NULL;*resultsize=0;
+    /* Most bodies already own every vertex. Avoid rebuilding their authored
+     * LODs or blood links, and do not require a binding-compatible template. */
+    for(DWORD i=0;i<source->count*3;i++) {
+        DWORD l,at=source->vertexoffsets[i];
+        for(l=0;l<source->listcount;l++) {
+            const ModelSourceList *p=&source->lists[l];
+            if(p->pointusagepointer && TopologySpan(p->vertexpointer,1,6,size)
+                && at>=p->vertexbase && at-p->vertexbase<(DWORD)(unsigned short)Read16(data+p->vertexpointer+4)*16) break;
+        }
+        if(l==source->listcount) {fixed++;break;}
+    }
+    if(!fixed) {*why="";return TRUE;}
+    if(!ModelBodyBindPose(data,size,source,&standing,&transforms,why)) return FALSE;
+    GltfModelImport imported={0};imported.count=source->count;imported.vertices=standing;imported.materials=source->materials;
+    ok=CompileBodyGeometry(data,size,source,&imported,FALSE,&ordered,result,resultsize,TRUE,TRUE,&fixed,why);
+    if(ok && *result) ok=ModelMaterialsAttach(result,resultsize,&ordered,why);
+    if(!ok) {free(*result);*result=NULL;*resultsize=0;}
     free(standing);free(transforms);ModelMaterialsFree(&ordered);return ok;
 }
 

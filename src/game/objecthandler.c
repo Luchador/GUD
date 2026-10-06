@@ -654,7 +654,7 @@ void modelHitRenderNodeListFiltered(ModelRenderData *renderData, ModelHitEntry *
     ModelNode *node;
     Model *model;
     RenderPosView *matrixSegment = NULL;
-    ModelNodeRenderCache renderCache = {NULL, NULL, FALSE};
+    ModelNodeRenderCache renderCache = {0};
     s32 renderPrimary = renderData->flags & 1;
     s32 renderSecondary = renderData->flags & 2;
     s32 originalOccluded = renderData->flags & MODEL_RENDER_OCCLUDED;

@@ -70,6 +70,7 @@ source += checks.replace('static u32 read_be(FILE *file)',
                         (HERE / 'tinted_glass.c').read_text()
                         + '\n' + (HERE / 'character.c').read_text()
                         + '\n' + (HERE / 'character_onecycle.c').read_text()
+                        + '\n' + (HERE / 'character_blood.c').read_text()
                         + '\nstatic u32 read_be(FILE *file)')
 
 gunfire = (ROOT / 'src/game/gunfire.c').read_text()
@@ -174,7 +175,7 @@ with tempfile.TemporaryDirectory(prefix='gud-model-onecycle-') as directory:
     (work / 'PR/gbi.h').write_text(gbi)
     command = shlex.split(os.environ.get('CC', 'cc'))
     command += ['-std=c99', '-O2', '-Wall', '-Wextra', '-Werror', '-Wno-sign-compare',
-                '-Wno-pointer-to-int-cast', '-Wno-int-to-pointer-cast', '-Wno-missing-braces',
+                '-Wno-missing-field-initializers', '-Wno-pointer-to-int-cast', '-Wno-int-to-pointer-cast', '-Wno-missing-braces',
                 '-I', str(work), '-idirafter', str(ROOT / 'include')]
     command += shlex.split(os.environ.get('TEST_CFLAGS', ''))
     command += [str(work / 'check.c'), '-o', str(work / 'check')]

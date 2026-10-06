@@ -48,6 +48,10 @@ BOOL ModelCompileBodyGeometry(const unsigned char *data, DWORD size, const Model
  * order, native materials and attributes. No change returns NULL/zero bytes. */
 BOOL ModelCompileRepairBodyBindings(const unsigned char *data, DWORD size, const ModelSource *source,
     unsigned char **result, DWORD *resultsize, DWORD *fixed, const char **why);
+/* Export compatibility: restore live ownership of detached UV/color copies
+ * without changing their joints or attributes. No change returns NULL. */
+BOOL ModelCompileBodyBloodVertices(const unsigned char *data, DWORD size, const ModelSource *source,
+    unsigned char **result, DWORD *resultsize, const char **why);
 /* Translate a rigid imported head, including collision points. Preserve every
  * UV, color, material and display-list byte; positions use native integers. */
 BOOL ModelCompileOffsetHead(const unsigned char *data, DWORD size, const ModelSource *source,

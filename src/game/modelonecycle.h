@@ -3,6 +3,7 @@
 
 #include <ultra64.h>
 #include <bondtypes.h>
+#include "model.h"
 
 /* Forget entries at stage initialization or during a drained render-cache
  * reclaim. The render-cache allocator owns all copies, including retired ones. */
@@ -18,5 +19,9 @@ Gfx *modelGetUnbloodiedGdl(ModelRenderData *renderdata, Gfx *primary, s32 modelT
         void *baseAddr, Vertex *vertices, s32 numVertices);
 /* Stock body lists inherit pipeline state. Edited lists may override it. */
 bool modelGdlPreservesType3Pipeline(ModelRenderData *renderdata, Gfx *primary, void *baseAddr);
+
+/* Redirect file-relative loads to this instance's blood buffers. The returned
+ * copy belongs to the current frame; never retain its instance addresses. */
+Gfx *modelGetBloodGdl(Model *model, ModelNode *node, Gfx *gdl, ModelNodeRenderCache *cache);
 
 #endif

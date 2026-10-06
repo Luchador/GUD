@@ -438,10 +438,27 @@ BOOL NewPropsExportToRom(const char *project,RomFile *rom,const char **why)
     NewPropStore saved={0};unsigned char *packed=NULL,*grown;DWORD size,config=0,index=0,target,oldstart,oldsize,newsize,i,at;
     int result,found;BOOL ok=FALSE;
     found=ReadSaved(project,&saved,why);if (found<0) return FALSE;
-    if (!found) return TRUE; /* The unchanged bank already lives in base.z64. */
     result=Config(rom,&config,&index,why);
+    if (!result && !found) {ok=TRUE;goto done;}
     if (result!=1) { if (!result) *why="The base ROM needs GUD's new-prop runtime before these models can be exported.";goto done; }
+    if (!found) {
+        DWORD start=Read32(rom->data+config+4),bytes=Read32(rom->data+config+8);
+        if (!bytes) {ok=TRUE;goto done;}
+        if (!ParseBank(rom->data+start,bytes,&saved,why)) goto done;
+    }
     if (!NewPropsCheckRebase(project,rom,why)) goto done;
+    /* Repair only the export copy: saved edit history, materials and project
+     * hashes remain valid. This also upgrades bodies already in base.z64. */
+    for (i=0;i<saved.count;i++) if (saved.entries[i].kind==CUSTOM_CHARACTER_BODY) {
+        NewProp *prop=&saved.entries[i];ModelSource source={0};
+        unsigned char *repaired=NULL;DWORD repairedsize=0;
+        BOOL valid=ModelReadSource(prop->data,prop->size,&source,why)
+            && ModelMaterialsEnsure(&source,project,why)
+            && ModelCompileBodyBloodVertices(prop->data,prop->size,&source,&repaired,&repairedsize,why);
+        ModelFreeSource(&source);
+        if (!valid) {free(repaired);goto done;}
+        if (repaired) {free(prop->data);prop->data=repaired;prop->size=repairedsize;}
+    }
     packed=PackBank(&saved,&size,TRUE,why);if (!packed) goto done;
     oldstart=Read32(rom->data+config+4);oldsize=Read32(rom->data+config+8);
     target=oldsize>=size?oldstart:rom->info.manifestoffset+24+rom->info.entrycount*16;

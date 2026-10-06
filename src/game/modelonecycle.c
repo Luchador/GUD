@@ -19,6 +19,7 @@ typedef struct ModelOneCycleEntry {
     u8 valid;
     u8 pipelineSafe;
     u8 characterFixups;
+    u8 fileVertices;
     Vertex *vertices;
     s32 numVertices;
     void *vertexFileBase;
@@ -127,6 +128,7 @@ static ModelOneCycleEntry *modelInspectGdl(Gfx *primary, void *baseAddr, ModelOn
     local->valid = FALSE;
     local->pipelineSafe = FALSE;
     local->characterFixups = FALSE;
+    local->fileVertices = FALSE;
     if (!source) return local;
     /* Material 16 is metadata only, shared by all instances and draw modes.
      * Transient lists and a full table are inspected without retaining them. */
@@ -139,6 +141,7 @@ static ModelOneCycleEntry *modelInspectGdl(Gfx *primary, void *baseAddr, ModelOn
     entry->valid = TRUE;
     entry->pipelineSafe = FALSE;
     entry->characterFixups = FALSE;
+    entry->fileVertices = FALSE;
     entry->sourceSize = modelOneCycleListSize(source);
     if (!entry->sourceSize) {
         entry->sourceSize = sizeof(Gfx);
@@ -149,6 +152,7 @@ static ModelOneCycleEntry *modelInspectGdl(Gfx *primary, void *baseAddr, ModelOn
     for (i = 0; i < entry->sourceSize / sizeof(Gfx); i++) {
         Gfx command = source[i];
         u32 op = command.words.w0 >> 24;
+        if (op == (u8)G_VTX && command.words.w1 >> 24 == SPSEGMENT_MODEL_COL1) entry->fileVertices = TRUE;
         if ((op == (u8)G_SETGEOMETRYMODE && (command.words.w1 & G_FOG))
                 || op == (u8)G_MOVEWORD || op == (u8)G_MOVEMEM || op == 0xaf || op == 0xb0) {
             entry->characterFixups |= 4;
@@ -243,6 +247,101 @@ static Gfx *modelGetCharacterGdl(ModelRenderData *renderdata, Gfx *primary, s32 
         renderInvalidateDisplayListCache();
     }
     return alternate;
+}
+
+/* Inspect each native component once per draw, independently of the optional
+ * material cache. Heads have their own file base and must not traverse a body
+ * tree whose head attachment may have been used by another player. */
+static void modelCollectBloodVertices(Model *model, ModelNode *node, ModelNodeRenderCache *cache)
+{
+    ModelNode *root = node;
+    cache->bloodModel = model;
+    cache->bloodFile = node->Data->DisplayListCollisions.BaseAddr;
+    cache->bloodVertices = NULL;
+    while (root->Parent && (root->Parent->Opcode & 255) != MODELNODE_OPCODE_HEAD) root = root->Parent;
+    node = root;
+    while (node) {
+        if ((node->Opcode & 255) == MODELNODE_OPCODE_DLCOLLISION) {
+            ModelRoData_DisplayList_CollisionRecord *ro = &node->Data->DisplayListCollisions;
+            ModelRwData_DisplayList_CollisionRecord *rw = &modelGetNodeRwData(model, node)->DisplayListCollisions;
+            if (ro->BaseAddr == cache->bloodFile && ro->numVertices > 0
+                    && rw->Vertices && rw->Vertices != ro->Vertices) {
+                ModelBloodVertices *span = dynAllocate(sizeof(*span));
+                span->original = ro->Vertices;
+                span->current = rw->Vertices;
+                span->bytes = ro->numVertices * sizeof(Vertex);
+                span->next = cache->bloodVertices;
+                cache->bloodVertices = span;
+            }
+        }
+        if (node->Child && (node->Opcode & 255) != MODELNODE_OPCODE_HEAD) node = node->Child;
+        else {
+            while (node != root && !node->Next) node = node->Parent;
+            node = node == root ? NULL : node->Next;
+        }
+    }
+}
+
+static u32 modelBloodVertexAddress(u32 address, void *base, ModelBloodVertices *span)
+{
+    u32 physical = K0_TO_PHYS(base) + (address & 0xffffff);
+    for (; span; span = span->next) {
+        u32 offset = physical - K0_TO_PHYS(span->original);
+        if (!(offset & 15) && offset < span->bytes) return osVirtualToPhysical(span->current) + offset;
+    }
+    return address;
+}
+
+/* Loads can straddle two buffers. Split only those runs whose destinations
+ * cease to be contiguous, retaining every RSP cache slot and matrix command. */
+static s32 modelCopyBloodGdl(Gfx *source, s32 bytes, Gfx *out, void *base,
+        ModelBloodVertices *spans, bool *changed)
+{
+    s32 i, used = 0;
+    for (i = 0; i < bytes / sizeof(Gfx); i++) {
+        Gfx command = source[i];
+        u32 w0 = command.words.w0, w1 = command.words.w1;
+        u32 count = ((w0 >> 20) & 15) + 1, first = (w0 >> 16) & 15;
+        if (w0 >> 24 == (u8)G_VTX && w1 >> 24 == SPSEGMENT_MODEL_COL1
+                && first + count <= 16 && (w0 & 0xffff) == count * sizeof(Vertex)) {
+            u32 slot = 0;
+            while (slot < count) {
+                u32 start = slot++, address = modelBloodVertexAddress(w1 + start * sizeof(Vertex), base, spans);
+                while (slot < count && modelBloodVertexAddress(w1 + slot * sizeof(Vertex), base, spans)
+                        == address + (slot - start) * sizeof(Vertex)) slot++;
+                if (address != w1 + start * sizeof(Vertex)) *changed = TRUE;
+                if (out) {
+                    out[used].words.w0 = 0x04000000 | ((slot - start - 1) << 20)
+                            | ((first + start) << 16) | ((slot - start) * sizeof(Vertex));
+                    out[used].words.w1 = address;
+                }
+                used++;
+            }
+        } else {
+            if (out) out[used] = command;
+            used++;
+        }
+    }
+    return used * sizeof(Gfx);
+}
+
+Gfx *modelGetBloodGdl(Model *model, ModelNode *node, Gfx *gdl, ModelNodeRenderCache *cache)
+{
+    void *base = node->Data->DisplayListCollisions.BaseAddr;
+    ModelOneCycleEntry local;
+    ModelOneCycleEntry *info = modelInspectGdl(gdl, base, &local);
+    Gfx *copy;
+    s32 bytes;
+    bool changed = FALSE;
+    /* Stock segment-4 lists already use rwdata and take this fast exit. */
+    if (!info->fileVertices || !IS_KSEG0(base)) return gdl;
+    if (cache->bloodModel != model || cache->bloodFile != base) modelCollectBloodVertices(model, node, cache);
+    if (!cache->bloodVertices) return gdl;
+    bytes = modelCopyBloodGdl(info->source, info->sourceSize, NULL, base, cache->bloodVertices, &changed);
+    if (!changed) return gdl;
+    copy = dynAllocate((bytes + 15) & ~15);
+    modelCopyBloodGdl(info->source, info->sourceSize, copy, base, cache->bloodVertices, &changed);
+    return copy;
 }
 
 static Gfx *modelOneCycleBuildEntry(ModelOneCycleEntry *entry,

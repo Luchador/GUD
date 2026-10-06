@@ -15,16 +15,22 @@ typedef struct {
     Gfx *Primary, *Secondary; void *BaseAddr; s32 ModelType;
     Vertex *Vertices; s16 numVertices;
 } ModelRoData_DisplayListRecord;
+typedef ModelRoData_DisplayListRecord ModelRoData_DisplayList_CollisionRecord;
 union ModelRoData {
     ModelRoData_DisplayListRecord DisplayList;
     ModelRoData_DisplayListRecord DisplayListCollisions;
 };
-union ModelRwData { struct { Gfx *gdl; void *Vertices; } DisplayListCollisions; };
+typedef struct { Gfx *gdl; void *Vertices; } ModelRwData_DisplayList_CollisionRecord;
+union ModelRwData { ModelRwData_DisplayList_CollisionRecord DisplayListCollisions; };
 typedef struct { union ModelRwData *rwdata; } Model;
-typedef struct { union ModelRoData *Data; } ModelNode;
-typedef struct { void *colorSegmentBase, *vertexSegmentBase; bool type3PipelineReady; } ModelNodeRenderCache;
+typedef struct ModelNode { union ModelRoData *Data; u16 Opcode;
+    struct ModelNode *Parent, *Next, *Child; int rwIndex; } ModelNode;
+enum {MODELNODE_OPCODE_DLCOLLISION=24, MODELNODE_OPCODE_HEAD=23};
+typedef struct ModelBloodVertices { Vertex *original, *current; u32 bytes; struct ModelBloodVertices *next; } ModelBloodVertices;
+typedef struct { void *colorSegmentBase, *vertexSegmentBase; bool type3PipelineReady;
+    Model *bloodModel; void *bloodFile; ModelBloodVertices *bloodVertices; } ModelNodeRenderCache;
 static union ModelRwData *modelGetNodeRwData(Model *model, ModelNode *node)
-{ (void)node; return model->rwdata; }
+{ return model->rwdata + node->rwIndex; }
 #undef K0_TO_PHYS
 #undef IS_KSEG0
 #define _SHIFTR(v, s, w) (((u32)(v) >> (s)) & (0xffffffffu >> (32 - (w))))

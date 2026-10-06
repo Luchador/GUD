@@ -39,10 +39,20 @@ extern s32 g_ModelSlotCount;
 extern s32 g_AnimatedModelSlotCount;
 extern s32 g_ModelIsLvResetting;
 
+typedef struct ModelBloodVertices {
+    Vertex *original;
+    Vertex *current;
+    u32 bytes;
+    struct ModelBloodVertices *next;
+} ModelBloodVertices;
+
 typedef struct ModelNodeRenderCache {
     void *colorSegmentBase;
     void *vertexSegmentBase;
     bool type3PipelineReady;
+    Model *bloodModel;
+    void *bloodFile;
+    ModelBloodVertices *bloodVertices;
 } ModelNodeRenderCache;
 
 bool modelmgrCanSlotFitRwdata(Model *model, ModelFileHeader *header);

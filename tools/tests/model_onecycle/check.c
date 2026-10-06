@@ -581,6 +581,7 @@ int main(int argc, char **argv)
         check_pressure_reclaim();
         check_character_materials();
         check_character_onecycle();
+        check_character_blood();
         puts("Model states: TRI1/TRI4, opaque fog lighting, depth, decal/cutout/translucent fallback and outgoing state pass.");
     } else if (argc == 3) {
         check_character_assets(argv[1]);

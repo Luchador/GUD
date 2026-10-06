@@ -4139,19 +4139,28 @@ void modelRenderNodeDlWithCache(ModelRenderData *renderdata, Model *model, Model
                 gSPSegment(renderdata->gdl++, SPSEGMENT_MODEL_VTX, osVirtualToPhysical(cache->vertexSegmentBase));
             }
 
-            if ((renderdata->flags & MODEL_RENDER_CHARACTER)
-                    && rwdata->DisplayListCollisions.Vertices == rodata->DisplayListCollisions.Vertices)
             {
-                gSPDisplayList(renderdata->gdl++, modelGetUnbloodiedGdl(renderdata,
-                        rwdata->DisplayListCollisions.gdl, rodata->DisplayListCollisions.ModelType,
-                        rodata->DisplayListCollisions.BaseAddr, rodata->DisplayListCollisions.Vertices,
-                        rodata->DisplayListCollisions.numVertices));
-            }
-            else
-            {
-                gSPDisplayList(renderdata->gdl++, modelGetOneCycleGdl(renderdata,
-                        rwdata->DisplayListCollisions.gdl, rodata->DisplayListCollisions.ModelType,
-                        rodata->DisplayListCollisions.BaseAddr));
+                Gfx *primary;
+                if ((renderdata->flags & MODEL_RENDER_CHARACTER)
+                        && rwdata->DisplayListCollisions.Vertices == rodata->DisplayListCollisions.Vertices)
+                {
+                    primary = modelGetUnbloodiedGdl(renderdata,
+                            rwdata->DisplayListCollisions.gdl, rodata->DisplayListCollisions.ModelType,
+                            rodata->DisplayListCollisions.BaseAddr, rodata->DisplayListCollisions.Vertices,
+                            rodata->DisplayListCollisions.numVertices);
+                }
+                else
+                {
+                    primary = modelGetOneCycleGdl(renderdata,
+                            rwdata->DisplayListCollisions.gdl, rodata->DisplayListCollisions.ModelType,
+                            rodata->DisplayListCollisions.BaseAddr);
+                }
+                if (renderdata->PropType == PROP_TYPE_VIEWER + 1
+                        || renderdata->PropType == PROP_TYPE_EXPLOSION + 1)
+                {
+                    primary = modelGetBloodGdl(model, node, primary, cache);
+                }
+                gSPDisplayList(renderdata->gdl++, primary);
             }
 
             if (rodata->DisplayListCollisions.ModelType == 3 && rodata->DisplayListCollisions.Secondary
@@ -4217,7 +4226,7 @@ void modelRenderNodeDlWithCache(ModelRenderData *renderdata, Model *model, Model
 
 void modelRenderNodeDl(ModelRenderData *renderdata, Model *model, ModelNode *node)
 {
-    ModelNodeRenderCache cache = {NULL, NULL, FALSE};
+    ModelNodeRenderCache cache = {0};
 
     modelRenderNodeDlWithCache(renderdata, model, node, &cache);
 }
