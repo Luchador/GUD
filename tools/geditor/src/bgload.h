@@ -29,6 +29,8 @@ typedef struct BgVertex {
 } BgVertex;
 
 #define BG_MAX_PORTALS 200
+/* Matches MAXROOMCOUNT in the runtime; room zero is reserved. */
+#define BG_MAX_ROOM 138u
 
 /* Raw project background retained while a level is open. The compiler uses
    it to preserve the header, portals, visibility data, and other data which

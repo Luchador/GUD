@@ -13,5 +13,7 @@ typedef struct BakedLightingRequest {
 BOOL BakedLightingShow(HWND owner, const BgDocument *document, const char *level);
 void BakedLightingRefresh(const BgDocument *document, const char *level);
 void BakedLightingClose(void);
+/* Room-table compaction invalidates the caller's selected room numbers. */
+void BakedLightingResetRooms(void);
 BOOL BakedLightingHandleMessage(MSG *message);
 #endif

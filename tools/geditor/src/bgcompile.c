@@ -1119,6 +1119,7 @@ static BOOL BgCompileValidateSource(const BgDocument *document,
                                     const BgFile *source,
                                     DWORD *roomtableout,
                                     DWORD *prefixsizeout,
+                                    DWORD *sourceroomsout,
                                     const char **reasonout)
 {
     DWORD roomtable;
@@ -1136,22 +1137,23 @@ static BOOL BgCompileValidateSource(const BgDocument *document,
     roomtable = BgCompileRead32(source->data + 4) & 0x00FFFFFFu;
     if (roomtable >= source->size
         || source->size - roomtable < BGCOMPILE_ROOM_RECORD_SIZE * 2
-        || document->roomcount > (source->size - roomtable)
-                                  / BGCOMPILE_ROOM_RECORD_SIZE - 1)
+        || !document->roomcount || document->roomcount > BG_MAX_ROOM)
     {
         *reasonout = "the source bg room table is invalid.";
         return FALSE;
     }
 
-    for (roomindex = 1; roomindex <= document->roomcount; roomindex++)
+    /* Read the source's own table. History and room creation/removal can
+     * legitimately have a different count from the last compiled source. */
+    for (roomindex = 1; roomindex <= BG_MAX_ROOM + 1; roomindex++)
     {
         DWORD record = roomtable + roomindex * BGCOMPILE_ROOM_RECORD_SIZE;
         int field;
-
+        if (record > source->size || source->size - record < BGCOMPILE_ROOM_RECORD_SIZE)
+        { *reasonout = "the source bg room table is incomplete."; return FALSE; }
         if (BgCompileRead32(source->data + record + 4) == 0)
         {
-            *reasonout = "the editable bg does not match its source room table.";
-            return FALSE;
+            break;
         }
 
         for (field = 0; field < 3; field++)
@@ -1166,11 +1168,9 @@ static BOOL BgCompileValidateSource(const BgDocument *document,
         }
     }
 
-    if (BgCompileRead32(source->data + roomtable
-                        + (document->roomcount + 1)
-                          * BGCOMPILE_ROOM_RECORD_SIZE + 4) != 0)
+    if (roomindex <= 1 || roomindex > BG_MAX_ROOM + 1)
     {
-        *reasonout = "the editable bg room count does not match its source.";
+        *reasonout = "the source bg room table has no valid terminator.";
         return FALSE;
     }
 
@@ -1179,10 +1179,31 @@ static BOOL BgCompileValidateSource(const BgDocument *document,
         *reasonout = "the source bg contains no valid room streams.";
         return FALSE;
     }
+    if (roomtable > firststream - 4
+        || (roomindex + 1) * BGCOMPILE_ROOM_RECORD_SIZE > firststream - 4 - roomtable)
+    { *reasonout = "The source room table overlaps its geometry streams."; return FALSE; }
 
     *roomtableout = roomtable;
     *prefixsizeout = firststream - 4;
+    *sourceroomsout = roomindex - 1;
     return TRUE;
+}
+
+static BOOL BgCompileRoomTable(const BgDocument *document, DWORD sourcerooms,
+    BgCompileBuffer *output, DWORD *roomtable, const char **why)
+{
+    if (document->roomcount == sourcerooms) return TRUE;
+    /* Append a complete replacement table; old metadata and portal polygon
+     * addresses stay stable. Disk/ROM compaction discards the obsolete table. */
+    unsigned char reserved[BGCOMPILE_ROOM_RECORD_SIZE];
+    memcpy(reserved, output->data + *roomtable, sizeof(reserved));
+    if (!BgCompileAlign(output, 4)) return FALSE;
+    *roomtable = output->size;
+    if (*roomtable > 0xffffffu) { *why = "The room table exceeds segmented address space."; return FALSE; }
+    if (!BgCompileAppend(output, reserved, sizeof(reserved))) return FALSE;
+    for (DWORD i=0;i<(document->roomcount+1)*BGCOMPILE_ROOM_RECORD_SIZE/4;i++)
+        if (!BgCompileWrite32(output, 0)) return FALSE;
+    return BgCompilePatch32(output, 4, BGCOMPILE_SEGMENT | *roomtable);
 }
 
 
@@ -1571,6 +1592,7 @@ static BOOL BgDocumentCompileInternal(const BgDocument *document, const BgFile *
     DWORD roomindex;
     DWORD newoffsets[BG_MAX_PORTALS];
     DWORD visoffset, viscapacity;
+    DWORD sourcerooms;
 
     ZeroMemory(out, sizeof(*out));
     ZeroMemory(&output, sizeof(output));
@@ -1579,9 +1601,10 @@ static BOOL BgDocumentCompileInternal(const BgDocument *document, const BgFile *
     if (source) { memcpy(newoffsets, source->newportaloffsets, sizeof(newoffsets)); }
 
     if (!BgCompileValidateSource(document, source, &roomtable,
-                                 &prefixsize, reasonout)
+                                 &prefixsize, &sourcerooms, reasonout)
         || (keeptopology && !BgCompileWrite32(&topology, document->roomcount))
         || !BgCompileAppend(&output, source->data, prefixsize)
+        || !BgCompileRoomTable(document, sourcerooms, &output, &roomtable, reasonout)
         || !BgCompilePortalRooms(document, &output, newoffsets, reasonout)
         || !BgCompileVisCommands(document, source, &output, newoffsets,
             &visoffset, &viscapacity, reasonout))

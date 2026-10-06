@@ -179,6 +179,8 @@ BOOL BakedLightingShow(HWND owner, const BgDocument *doc, const char *level)
     BakedLightingRefresh(doc,level);ShowWindow(g_Window,SW_RESTORE);SetForegroundWindow(g_Window);return TRUE;
 }
 void BakedLightingClose(void) { if (g_Window) { DestroyWindow(g_Window); } }
+void BakedLightingResetRooms(void)
+{ if (g_Window) { SendDlgItemMessage(g_Window,IDC_BAKE_ROOM_LIST,LB_RESETCONTENT,0,0);UpdateButtons(); } }
 BOOL BakedLightingHandleMessage(MSG *msg)
 {
     if (!g_Window || !msg || (msg->hwnd!=g_Window && !IsChild(g_Window,msg->hwnd))) { return FALSE; }

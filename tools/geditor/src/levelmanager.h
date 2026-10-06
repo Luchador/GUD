@@ -12,6 +12,12 @@
 #define LEVELMANAGER_WM_HISTORY (WM_APP + 0x251)
 #define LEVELMANAGER_WM_SAVE (WM_APP + 0x252)
 #define LEVELMANAGER_WM_FRAME_ROOM (WM_APP + 0x253)
+#define LEVELMANAGER_WM_ROOM_EDIT (WM_APP + 0x254)
+typedef struct LevelRoomEditRequest {
+    BOOL remove;
+    DWORD room; /* Selection on entry; room to select after success. */
+    char why[512];
+} LevelRoomEditRequest;
 
 BOOL LevelManagerShow(HWND owner, HINSTANCE instance, const SetupFile *setup, const char *levelname);
 void LevelManagerRefresh(const SetupFile *setup, const char *levelname);

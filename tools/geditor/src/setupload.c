@@ -1374,6 +1374,8 @@ BOOL SetupFileGlobalBlockReference(const SetupFile *setup, DWORD id)
 { return id < 65536 && setup->globalrefs && (setup->globalrefs->values[id] & 4); }
 BOOL SetupFileGlobalPatrolReference(const SetupFile *setup, DWORD id)
 { return id < 256 && setup->globalrefs && (setup->globalrefs->values[id] & 8); }
+BOOL SetupFileGlobalPadReference(const SetupFile *setup, DWORD value)
+{ return value != 9000 && value < 65536 && setup->globalrefs && (setup->globalrefs->values[value] & 1); }
 
 /* Ignore exactly one placement field, never the owner's other references
  * (for example a CCTV aim pad). This also covers native cameras and spawns. */

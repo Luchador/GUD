@@ -54,6 +54,7 @@
 #include "bgload.h"
 #include "bgdocument.h"
 #include "roomedit.h"
+#include "roommanage.h"
 #include "bgcommandswindow.h"
 #include "bakedlighting.h"
 #include "primitiveoptions.h"
@@ -2338,6 +2339,7 @@ static void GEditorApplyHistoryStep(HWND hwnd, BOOL redo)
     EditHistoryAsset asset = EDIT_HISTORY_ASSET_NONE;
     EditHistoryAsset restoreasset = EDIT_HISTORY_ASSET_NONE;
     BOOL changed;
+    DWORD previousrooms=g_CurrentBgDocument.roomcount;
 
     g_SelectionHistoryNavigation = TRUE;
     ViewportSetDoorPick(g_Viewport, FALSE);
@@ -2388,6 +2390,11 @@ static void GEditorApplyHistoryStep(HWND hwnd, BOOL redo)
         MessageBox(hwnd, why[0] ? why : "Could not restore the selection.", GEDITOR_TITLE, MB_ICONERROR);
     }
 
+    if (previousrooms!=g_CurrentBgDocument.roomcount) {
+        GEditorClearObjectClipboard();BgDocumentFree(&g_FaceClipboard);
+        BgPortalFileFree(&g_PortalClipboard);StanFileFree(&g_StanClipboard);
+        BakedLightingResetRooms();
+    }
     GEditorRefreshHistoryMenu(hwnd);
 }
 
@@ -2872,6 +2879,49 @@ fail:
 
 static BOOL GEditorTranslatePortals(HWND hwnd, const double offset[3], BOOL snap)
 { return GEditorTransformPortals(hwnd, offset, NULL, NULL, NULL, snap); }
+
+static BOOL GEditorManageRoom(HWND hwnd,LevelRoomEditRequest *request)
+{
+    EditHistoryTransaction transaction={0}; SetupObjectGeometry objects={0};
+    const char *why="Open a level first.",*restorewhy="";
+    DWORD reference=request->room;
+    if (!g_CurrentBgDocument.rooms) goto fail;
+    if (request->remove && !RoomManageCanRemove(&g_CurrentBgDocument,&g_CurrentBg,
+        &g_CurrentSetup,&g_CurrentStan,reference,request->why,sizeof(request->why))) return FALSE;
+    if (!EditHistoryBeginRoomEdit(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan,
+        request->remove?"Remove Room":"Create Room",&transaction,&why)) goto fail;
+    if (request->remove) {
+        if (!RoomManageRemove(&g_CurrentBgDocument,&g_CurrentBg,&g_CurrentSetup,&g_CurrentStan,
+            reference,request->why,sizeof(request->why))) { why=request->why;goto rollback; }
+        request->room=min(reference,g_CurrentBgDocument.roomcount);
+    } else {
+        if (!RoomManageAdd(&g_CurrentBgDocument,&request->room,&why)) goto rollback;
+        if (reference && reference<request->room)
+            memcpy(g_CurrentBgDocument.rooms[request->room].origin,
+                g_CurrentBgDocument.rooms[reference].origin,sizeof(g_CurrentBgDocument.rooms[reference].origin));
+    }
+    ViewportClearSelection(g_Viewport);
+    if (!ObjectLoadSetupGeometry(g_Project.dir,&g_CurrentSetup,&g_CurrentStan,
+        g_CurrentBgDocument.levelscale,&objects,&why)
+        || !GEditorRebuildCurrentViewportWithObjects(&objects,&why)
+        || !EditHistoryCommitEdit(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,
+            &g_CurrentStan,&transaction,&why)) goto rollback;
+    ObjectGeometryFree(&g_CurrentObjects);g_CurrentObjects=objects;
+    if (request->remove) {
+        GEditorClearObjectClipboard();BgDocumentFree(&g_FaceClipboard);
+        BgPortalFileFree(&g_PortalClipboard);StanFileFree(&g_StanClipboard);
+        BakedLightingResetRooms();
+    }
+    LevelManagerRefreshRooms(&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan);
+    GEditorRefreshSelectionDetails();GEditorRefreshHistoryMenu(hwnd);return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan);
+    ObjectGeometryFree(&objects);GEditorRebuildCurrentViewport(&restorewhy);GEditorRestoreHistorySelection(hwnd);
+fail:
+    EditHistoryCancelEdit(&transaction);
+    if (why!=request->why) snprintf(request->why,sizeof(request->why),"%s",why);
+    GEditorRefreshSelectionDetails();GEditorRefreshHistoryMenu(hwnd);return FALSE;
+}
 
 static BOOL GEditorTranslateRoom(HWND hwnd, const double offset[3])
 {
@@ -6273,6 +6323,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         GEditorSetTitleForProject(hwnd); return 0;
     case LEVELMANAGER_WM_FRAME_ROOM:
         return GEditorFrameRoom((DWORD)wparam);
+    case LEVELMANAGER_WM_ROOM_EDIT:
+        return GEditorManageRoom(hwnd,(LevelRoomEditRequest *)lparam);
     case ISSUES_WM_SCAN:
         return GEditorScanIssues((IssuesScanRequest *)lparam);
     case ISSUES_WM_LOCATE:

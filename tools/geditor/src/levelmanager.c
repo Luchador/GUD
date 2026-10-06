@@ -23,6 +23,38 @@ static int g_RoomSortColumn;
 static BOOL g_RoomSortDescending;
 static void LevelManagerLayout(HWND hwnd);
 
+static DWORD LevelManagerSelectedRoom(HWND hwnd)
+{
+    HWND list=GetDlgItem(hwnd,IDC_LEVEL_ROOMS_LIST);
+    LVITEM item={0}; item.mask=LVIF_PARAM;
+    item.iItem=ListView_GetNextItem(list,-1,LVNI_SELECTED);
+    return item.iItem>=0 && ListView_GetItem(list,&item) && item.lParam>0
+        && (DWORD)item.lParam<=g_RoomStats.roomcount ? (DWORD)item.lParam : 0;
+}
+static void LevelManagerRoomButtons(HWND hwnd)
+{
+    EnableWindow(GetDlgItem(hwnd,IDC_LEVEL_ROOM_ADD),g_RoomStats.rooms && g_RoomStats.roomcount<BG_MAX_ROOM);
+    EnableWindow(GetDlgItem(hwnd,IDC_LEVEL_ROOM_REMOVE),g_RoomStats.roomcount>1 && LevelManagerSelectedRoom(hwnd));
+}
+static void LevelManagerEditRoom(HWND hwnd,BOOL remove)
+{
+    LevelRoomEditRequest request={0};request.remove=remove;request.room=LevelManagerSelectedRoom(hwnd);
+    if (remove && !request.room) return;
+    if (!SendMessage(GetWindow(hwnd,GW_OWNER),LEVELMANAGER_WM_ROOM_EDIT,0,(LPARAM)&request)) {
+        if (request.why[0]) MessageBox(hwnd,request.why,"Rooms",MB_OK|MB_ICONINFORMATION);
+        return;
+    }
+    HWND list=GetDlgItem(hwnd,IDC_LEVEL_ROOMS_LIST);
+    for (int row=0;row<ListView_GetItemCount(list);row++) {
+        LVITEM item={0};item.mask=LVIF_PARAM;item.iItem=row;
+        if (ListView_GetItem(list,&item) && (DWORD)item.lParam==request.room) {
+            ListView_SetItemState(list,row,LVIS_SELECTED|LVIS_FOCUSED,LVIS_SELECTED|LVIS_FOCUSED);
+            ListView_EnsureVisible(list,row,FALSE);break;
+        }
+    }
+    LevelManagerRoomButtons(hwnd);SetFocus(list);
+}
+
 void LevelManagerRefreshSettings(const GEditorProject *project, DWORD level)
 {
     StageOptionsRefresh(g_StageOptionsPanel, project, level);
@@ -119,7 +151,7 @@ void LevelManagerRefreshRooms(const BgDocument *bg, const SetupFile *setup, cons
     }
     if (g_RoomStats.rooms && counts.roomcount == g_RoomStats.roomcount
         && !memcmp(counts.rooms, g_RoomStats.rooms, ((size_t)counts.roomcount + 1) * sizeof(*counts.rooms)))
-    { RoomStatsFree(&counts); return; }
+    { RoomStatsFree(&counts); LevelManagerRoomButtons(g_LevelManager); return; }
     LVITEM selected = {0}; selected.mask = LVIF_PARAM;
     selected.iItem = ListView_GetNextItem(list, -1, LVNI_SELECTED);
     BOOL keepselection = selected.iItem >= 0 && ListView_GetItem(list, &selected);
@@ -222,9 +254,12 @@ static void LevelManagerLayout(HWND hwnd)
     int helpheight = GetWindowTextLength(GetDlgItem(hwnd, IDC_LEVEL_ROOMS_STATUS)) ? line * 2 : 0;
     int totalsheight = line * 2, statusgap = helpheight ? gap : 0;
     HWND roomlist = GetDlgItem(hwnd, IDC_LEVEL_ROOMS_LIST);
-    MoveWindow(GetDlgItem(hwnd, IDC_LEVEL_ROOMS_STATUS), page.left, page.top, width, helpheight, TRUE);
-    MoveWindow(roomlist, page.left, page.top + helpheight + statusgap, width,
-        max(1, page.bottom - page.top - helpheight - totalsheight - statusgap - gap), TRUE);
+    MoveWindow(GetDlgItem(hwnd,IDC_LEVEL_ROOM_ADD),page.left,page.top,units.right,line,TRUE);
+    MoveWindow(GetDlgItem(hwnd,IDC_LEVEL_ROOM_REMOVE),page.left+units.right+gap,page.top,units.right,line,TRUE);
+    int roomtop=page.top+line+gap;
+    MoveWindow(GetDlgItem(hwnd, IDC_LEVEL_ROOMS_STATUS), page.left, roomtop, width, helpheight, TRUE);
+    MoveWindow(roomlist, page.left, roomtop + helpheight + statusgap, width,
+        max(1, page.bottom - roomtop - helpheight - totalsheight - statusgap - gap), TRUE);
     MoveWindow(GetDlgItem(hwnd, IDC_LEVEL_ROOMS_TOTALS), page.left, page.bottom - totalsheight, width, totalsheight, TRUE);
     int available = max(1, width - GetSystemMetrics(SM_CXVSCROLL) - 8), roomwidth = units.right;
     ListView_SetColumnWidth(roomlist, 0, roomwidth);
@@ -233,6 +268,9 @@ static void LevelManagerLayout(HWND hwnd)
     ShowWindow(GetDlgItem(hwnd, IDC_LEVEL_ROOMS_STATUS), rooms && helpheight ? SW_SHOW : SW_HIDE);
     ShowWindow(roomlist, rooms ? SW_SHOW : SW_HIDE);
     ShowWindow(GetDlgItem(hwnd, IDC_LEVEL_ROOMS_TOTALS), rooms ? SW_SHOW : SW_HIDE);
+    ShowWindow(GetDlgItem(hwnd,IDC_LEVEL_ROOM_ADD),rooms?SW_SHOW:SW_HIDE);
+    ShowWindow(GetDlgItem(hwnd,IDC_LEVEL_ROOM_REMOVE),rooms?SW_SHOW:SW_HIDE);
+    LevelManagerRoomButtons(hwnd);
     if (g_EnvironmentPanel)
     {
         MoveWindow(g_EnvironmentPanel, page.left, page.top, width, max(1, page.bottom - page.top), TRUE);
@@ -467,6 +505,8 @@ static INT_PTR CALLBACK LevelManagerDialogProc(HWND hwnd, UINT message, WPARAM w
         if (notice->idFrom == IDC_LEVEL_MANAGER_TABS && notice->code == TCN_SELCHANGE) { LevelManagerLayout(hwnd); }
         if (notice->idFrom == IDC_LEVEL_ROOMS_LIST && notice->code == NM_DBLCLK)
         { LevelManagerFrameRoom(hwnd, ((NMITEMACTIVATE *)notice)->iItem); }
+        if (notice->idFrom == IDC_LEVEL_ROOMS_LIST && notice->code == LVN_ITEMCHANGED)
+        { LevelManagerRoomButtons(hwnd); }
         if (notice->idFrom == IDC_LEVEL_ROOMS_LIST && notice->code == LVN_COLUMNCLICK)
         {
             int column = ((NMLISTVIEW *)notice)->iSubItem;
@@ -507,6 +547,8 @@ static INT_PTR CALLBACK LevelManagerDialogProc(HWND hwnd, UINT message, WPARAM w
         }
         if (HIWORD(wparam) == BN_CLICKED)
         {
+            if (id==IDC_LEVEL_ROOM_ADD || id==IDC_LEVEL_ROOM_REMOVE)
+            { LevelManagerEditRoom(hwnd,id==IDC_LEVEL_ROOM_REMOVE);return TRUE; }
             BOOL ammo = id >= IDC_INTRO_AMMO_ADD && id <= IDC_INTRO_AMMO_DOWN;
             int action = id - (ammo ? IDC_INTRO_AMMO_ADD : IDC_INTRO_WEAPON_ADD);
             if (action >= 0 && action <= 4) { LevelManagerEdit(hwnd, ammo, (SetupIntroAction)action); return TRUE; }
