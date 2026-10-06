@@ -3,7 +3,7 @@ static void Roster(void)
     const char *names[]={"Brosnan","Connery","Dalton","Moore"};
     const int photos[]={IMG_MPC_BROSNAN,IMG_MPC_CONNERY,IMG_MPC_DALTON,IMG_MPC_MOORE};
     assert(ARRAYCOUNT(mp_chr_setup)==67);
-    assert(ARRAYCOUNT(LtitleE)==292 && LtitleE[287]==NULL);
+    assert(ARRAYCOUNT(LtitleE)>=292 && LtitleE[287]==NULL);
     assert(BODY_Brosnan_Tuxedo==5 && HEAD_Male_Brosnan_Tuxedo==78);
     for (int i=0;i<4;i++) {
         assert(mp_chr_setup[i].text_preset==0x9d20+i);

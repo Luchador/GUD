@@ -322,6 +322,7 @@ extern u32 full_actor_intro;
 
 void frontChangeMenu(MENU menu, s32 reload);
 s32 get_selected_num_players(void);
+void frontGetSoloCharacterModels(s32 bond, s32 stage, s32 cuff, s32 *body, s32 *head);
 void do_extended_cast_display(bool doExtended);
 MPSCENARIOS get_scenario(void);
 f32 get_player_mp_handicap(int player);

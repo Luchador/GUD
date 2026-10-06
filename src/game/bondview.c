@@ -2,6 +2,7 @@
 #include <math.h>
 #include <bondconstants.h>
 #include <bondtypes.h>
+#include <custompropformat.h>
 #include <boss.h>
 #include <fr.h>
 #include <joy.h>
@@ -560,114 +561,8 @@ void bviewLoadPlayerChr(void)
 
         if (getPlayerCount() == 1)
         {
-            helddst = fileGetBondForCurrentFolder();
-            switch (g_CurrentPlayer->bondtype)
-            {
-                case CUFF_BLUE:
-                    break;
-
-                case CUFF_BOILER:
-                    body = BODY_Special_Operations_Uniform;
-                    break;
-
-                case CUFF_JUNGLE:
-                    body = BODY_Jungle_Fatigues;
-                    break;
-
-                case CUFF_SNOW:
-                    body = BODY_Parka;
-                    break;
-
-                case CUFF_BROSNAN:
-                    body = BODY_Brosnan_Tuxedo;
-                    break;
-
-                case CUFF_CONNERY:
-                    body = BODY_Brosnan_Tuxedo;
-                    break;
-
-                case CUFF_DALTON:
-                    body = BODY_Brosnan_Tuxedo;
-                    break;
-
-                case CUFF_MOORE:
-                    body = BODY_Brosnan_Tuxedo;
-                    break;
-
-                case CUFF_FOLDER:
-                    switch (helddst)
-                    {
-                        case BOND_BROSNAN:
-                            body = BODY_Brosnan_Tuxedo;
-                            break;
-
-                        case BOND_CONNERY:
-                            body = BODY_Brosnan_Tuxedo;
-                            break;
-
-                        case BOND_DALTON:
-                            body = BODY_Brosnan_Tuxedo;
-                            break;
-
-                        case BOND_MOORE:
-                            body = BODY_Brosnan_Tuxedo;
-                            break;
-                    }
-
-                    break;
-            }
-
-            switch (helddst)
-            {
-                case BOND_BROSNAN:
-                    switch (g_CurrentPlayer->bondtype)
-                    {
-                        case CUFF_BLUE:
-                            break;
-
-                        case CUFF_BOILER:
-                            head = HEAD_Male_Brosnan_Boiler;
-                            break;
-
-                        case CUFF_JUNGLE:
-                            head = HEAD_Male_Brosnan_Jungle;
-                            break;
-
-                        case CUFF_BROSNAN:
-                            head = HEAD_Male_Brosnan_Tuxedo;
-                            break;
-
-                        case CUFF_CONNERY:
-                            head = HEAD_Male_Brosnan_Tuxedo;
-                            break;
-
-                        case CUFF_DALTON:
-                            head = HEAD_Male_Brosnan_Tuxedo;
-                            break;
-
-                        case CUFF_MOORE:
-                            head = HEAD_Male_Brosnan_Tuxedo;
-                            break;
-
-                        case CUFF_FOLDER:
-                            head = HEAD_Male_Brosnan_Tuxedo;
-                            break;
-                    }
-
-                    break;
-
-                case BOND_CONNERY:
-                    head = HEAD_Male_Brosnan_Tuxedo;
-                    break;
-
-                case BOND_DALTON:
-                    head = HEAD_Male_Brosnan_Tuxedo;
-                    break;
-
-                case BOND_MOORE:
-                    head = HEAD_Male_Brosnan_Tuxedo;
-                    break;
-            }
+            frontGetSoloCharacterModels(fileGetBondForCurrentFolder(), bossGetStageNum(),
+                g_CurrentPlayer->bondtype, &body, &head);
         }
         else
         {
@@ -685,38 +580,47 @@ void bviewLoadPlayerChr(void)
             remove_item_in_hand(GUNLEFT);
             remove_item_in_hand(GUNRIGHT);
             texInitPool(&pool, weaponbuf1, size1);
-            bodyheader  = get_ptr_itemheader_in_hand(GUNRIGHT);
-            *bodyheader = *CitemZ_entries[body].header;
-            load_object_fill_header(bodyheader, (u8 *)CitemZ_entries[body].filename, weaponbuf0, size0, &pool);
-            cursor = get_pc_buffer_remaining_value((u8 *)CitemZ_entries[body].filename);
-
-            do
+            if (body >= CUSTOM_CHARACTER_BASE || head >= CUSTOM_CHARACTER_BASE)
             {
-                cursor      = ALIGN64_V3(cursor + 0x3f);
-                headheader  = (ModelFileHeader *)(weaponbuf0 + cursor);
-                cursor      = ALIGN64_V3(cursor + sizeof(ModelFileHeader) + 0x3f);
+                /* Imported geometry and expanded display lists can exceed the
+                 * fixed gun buffer. Cache these assets in the stage pool, as
+                 * for guards/MP; only this instance and held gun use scratch.
+                 * Stage textures must also outlive the temporary gun pool. */
+                bodyheader = CitemZ_entries[body].header;
+                headheader = CitemZ_entries[head].header;
+                if (bodyheader->RootNode == NULL)
+                    fileLoad(bodyheader, CitemZ_entries[body].filename);
+                if (headheader->RootNode == NULL)
+                    fileLoad(headheader, CitemZ_entries[head].filename);
+            }
+            else
+            {
+                bodyheader = get_ptr_itemheader_in_hand(GUNRIGHT);
+                *bodyheader = *CitemZ_entries[body].header;
+                load_object_fill_header(bodyheader, (u8 *)CitemZ_entries[body].filename, weaponbuf0, size0, &pool);
+                cursor = ALIGN64_V3(get_pc_buffer_remaining_value((u8 *)CitemZ_entries[body].filename) + 0x3f);
+                headheader = (ModelFileHeader *)(weaponbuf0 + cursor);
+                cursor = ALIGN64_V3(cursor + sizeof(ModelFileHeader) + 0x3f);
                 *headheader = *CitemZ_entries[head].header;
-
-                if(1);
-
                 load_object_fill_header(headheader, (u8 *)CitemZ_entries[head].filename, weaponbuf0 + cursor, size0 - cursor, &pool);
                 cursor = ALIGN64_V3(get_pc_buffer_remaining_value((u8 *)CitemZ_entries[head].filename) + cursor + 0x3f);
-                model  = (Model *)(weaponbuf0 + cursor);
-                cursor = ALIGN64_V3(cursor + 0xfb);
-                modelCalculateRwDataLen(bodyheader);
-                modelCalculateRwDataLen(headheader);
+            }
 
-                {
-                    u32 *animdata;
-                    s32  nrec;
-                    animdata = (u32 *)(weaponbuf0 + cursor);
-                    nrec     = (bodyheader->numRecords + headheader->numRecords) + 0xa;
-                    cursor   = ALIGN64_V3(cursor + (nrec << 2) + 0x3f);
-                    animInit(model, bodyheader, animdata);
-                    model->rwdatalen = nrec;
-                }
-
-            } while (FALSE);
+            /* Keep private animation/rwdata in scratch even with shared stage
+             * geometry. No spare animated-model slot is needed for SP. */
+            model = (Model *)(weaponbuf0 + cursor);
+            cursor = ALIGN64_V3(cursor + ANIM_MODEL_ALLOCATION_SIZE + 0x3f);
+            modelCalculateRwDataLen(bodyheader);
+            modelCalculateRwDataLen(headheader);
+            {
+                u32 *animdata;
+                s32 nrec;
+                animdata = (u32 *)(weaponbuf0 + cursor);
+                nrec = bodyheader->numRecords + headheader->numRecords + 0xa;
+                cursor = ALIGN64_V3(cursor + (nrec << 2) + 0x3f);
+                animInit(model, bodyheader, animdata);
+                model->rwdatalen = nrec;
+            }
         }
         else
         {

@@ -110,7 +110,7 @@ typedef uint16_t u16; typedef uint8_t u8; typedef float f32; typedef int bool;
     code += declaration((ROOT/'src/game/front.h').read_text(), r'struct MP_selectable_chars\s*\{.*?\};')
     code += declaration(front, r'enum \{ MP_CHARS_DEFAULT_COUNT.*?;')
     code += declaration(front, r's32 num_chars_selectable_mp = .*?;')
-    code += declaration(front, r'static const struct \{ const char \*body, \*head; \} g_MpBondModels\[\] = \{.*?\n\};')
+    code += declaration(front, r'static const struct \{ const char \*body, \*head; \} g_BondModels\[\] = \{.*?\n\};')
     code += declaration(front, r'struct MP_selectable_chars mp_chr_setup\[\] = \{.*?\n\};')
     # Only fields touched by customCharacterFind; registration itself is unchanged.
     code += 'typedef struct {char name[64]; u32 kind, characterId;} CustomPropRuntime;\n'

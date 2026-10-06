@@ -291,4 +291,8 @@ char *LtitleE[] = {
  "Connery", //TITLE_STR_289_CONNERY
  "Dalton", //TITLE_STR_290_DALTON
  "Moore", //TITLE_STR_291_MOORE
+ ": 007 (Brosnan)", //TITLE_STR_292_007_BROSNAN
+ ": 007 (Connery)", //TITLE_STR_293_007_CONNERY
+ ": 007 (Dalton)", //TITLE_STR_294_007_DALTON
+ ": 007 (Moore)", //TITLE_STR_295_007_MOORE
 };

@@ -256,14 +256,6 @@ struct coord3d folderpositions[] = {
     {900.0f, -200.0f, 0.0f}
 };
 
-/* Folder indices run across the top row, then the bottom row. This gives
- * Dalton, Brosnan, Moore, Connery from left to right on the file screen.
- * Keep portrait selection independent of saved gameplay actor IDs while
- * restoring the front end; existing saves must show the same four actors. */
-static const u8 g_WalletBonds[MAX_FOLDER_COUNT] = {
-    BOND_BROSNAN, BOND_CONNERY, BOND_DALTON, BOND_MOORE
-};
-
 struct rectbbox folder_option_COPY_bound = { 0 };
 struct rectbbox folder_option_ERASE_bound = { 0 };
 
@@ -375,9 +367,9 @@ struct mp_stage_setup multi_stage_setups[] = {
 enum { MP_CHARS_DEFAULT_COUNT = 11, MP_CHARS_COMPLETED_COUNT = 36 };
 s32 num_chars_selectable_mp = MP_CHARS_DEFAULT_COUNT;
 
-/* Roster entries 1..3. Imported character IDs depend on import order, so resolve
- * the names against each stage's active catalog when creating the player. */
-static const struct { const char *body, *head; } g_MpBondModels[] = {
+/* Actors 1..3 (also MP roster entries 1..3). Imported IDs depend on import
+ * order, so resolve names against the active catalog when creating a player. */
+static const struct { const char *body, *head; } g_BondModels[] = {
     {"CconneryZ", "CheadconneryZ"},
     {"CdaltonZ", "CheaddaltonZ"},
     {"CmooreZ", "CheadmooreZ"}
@@ -1689,7 +1681,7 @@ void set_item_visibility_in_objinstance(Model* objinstance, s32 item, s32 mode)
 
 static u32 frontGetWalletBondForFolder(u32 folder)
 {
-    return folder < MAX_FOLDER_COUNT ? g_WalletBonds[folder] : BOND_BROSNAN;
+    return fileGetBondForFolder(folder);
 }
 
 void select_load_bond_picture(Model *objinstance, u32 bondID)
@@ -3066,6 +3058,12 @@ void interface_menu08_difficulty(void)
 }
 
 
+static s32 frontGetSoloAgentTextId(s32 bond)
+{
+    if (bond < BOND_BROSNAN || bond > BOND_MOORE) bond = BOND_BROSNAN;
+    return getStringID(LTITLE, TITLE_STR_292_007_BROSNAN + bond);
+}
+
 Gfx * print_current_solo_briefing_stage_name(Gfx *DL, char *text)
 {
     s32 x;
@@ -3076,7 +3074,7 @@ Gfx * print_current_solo_briefing_stage_name(Gfx *DL, char *text)
     if (selected_difficulty >= DIFFICULTY_AGENT)
     {
         strcpy(text, get_ptr_difficulty_name(selected_difficulty));
-        strcat(text, langGet(getStringID(LTITLE, TITLE_STR_32_JB)));
+        strcat(text, langGet(frontGetSoloAgentTextId(fileGetBondForCurrentFolder())));
         x = 0x37;
         y = 0x57;
         DL = frontPrintText(DL, &x, &y, text, ptrFontZurichBoldChars, ptrFontZurichBold, 0xff, viGetX(), viGetY(), 0, 0);
@@ -3681,14 +3679,73 @@ static s32 frontGetMpCharacterIndex(s32 player)
     return index >= 0 && index < ARRAYCOUNT(mp_chr_setup) ? index : 0;
 }
 
+void frontGetSoloCharacterModels(s32 bond, s32 stage, s32 cuff, s32 *body, s32 *head)
+{
+    bool bonus = stage == LEVELID_AZTEC || stage == LEVELID_EGYPT;
+    s32 actorBody;
+    s32 actorHead;
+
+    /* Retain the original mission's outfit and Brosnan head as fallbacks.
+     * Cuba follows its normal setup cuff, just like the main missions. */
+    *body = BODY_Formal_Wear;
+    *head = HEAD_Male_Brosnan_Default;
+    switch (cuff)
+    {
+        case CUFF_BOILER:
+            *body = BODY_Special_Operations_Uniform;
+            *head = HEAD_Male_Brosnan_Boiler;
+            break;
+        case CUFF_JUNGLE:
+            *body = BODY_Jungle_Fatigues;
+            *head = HEAD_Male_Brosnan_Jungle;
+            break;
+        case CUFF_SNOW:
+            *body = BODY_Parka;
+            break;
+        case CUFF_BROSNAN:
+        case CUFF_CONNERY:
+        case CUFF_DALTON:
+        case CUFF_MOORE:
+        case CUFF_FOLDER:
+            *body = BODY_Brosnan_Tuxedo;
+            *head = HEAD_Male_Brosnan_Tuxedo;
+            break;
+    }
+
+    if (bonus)
+    {
+        *body = BODY_Brosnan_Tuxedo;
+        *head = HEAD_Male_Brosnan_Tuxedo;
+    }
+
+    if (bond >= BOND_CONNERY && bond <= BOND_MOORE)
+    {
+        actorHead = customCharacterFind(g_BondModels[bond - 1].head, CUSTOM_CHARACTER_HEAD);
+        if (bonus)
+        {
+            actorBody = customCharacterFind(g_BondModels[bond - 1].body, CUSTOM_CHARACTER_BODY);
+            /* A bonus-stage actor needs both halves of the imported pair. */
+            if (actorBody >= 0 && actorHead >= 0)
+            {
+                *body = actorBody;
+                *head = actorHead;
+            }
+        }
+        else if (actorHead >= 0)
+        {
+            *head = actorHead;
+        }
+    }
+}
+
 static u16 frontGetMpCharacterModel(s32 player, bool wantHead)
 {
     s32 index = frontGetMpCharacterIndex(player);
 
-    if (index >= 1 && index <= ARRAYCOUNT(g_MpBondModels))
+    if (index >= 1 && index <= ARRAYCOUNT(g_BondModels))
     {
-        s32 body = customCharacterFind(g_MpBondModels[index - 1].body, CUSTOM_CHARACTER_BODY);
-        s32 head = customCharacterFind(g_MpBondModels[index - 1].head, CUSTOM_CHARACTER_HEAD);
+        s32 body = customCharacterFind(g_BondModels[index - 1].body, CUSTOM_CHARACTER_BODY);
+        s32 head = customCharacterFind(g_BondModels[index - 1].head, CUSTOM_CHARACTER_HEAD);
 
         /* Resolve the pair together: a missing or mistyped asset must not
          * produce an invalid model-table access or a mismatched actor. */

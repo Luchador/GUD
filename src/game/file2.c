@@ -1034,15 +1034,14 @@ bool fileIsEgyptCompletedOn00AnyFolder(void)
  */
 u8 fileGetBondForFolder(u32 folder)
 {
-#ifdef ALL_BONDS
-    //likely code based on behavior
-    if ((folder >= FOLDER1) && (folder < MAX_FOLDER_COUNT))
-    {
-        return save_selected_bond[folder];
-    }
-#endif
+    /* Actor identity belongs to the wallet, not its saved progress. Existing
+     * Brosnan saves, copying and erasing must not change a folder's actor.
+     * Folder positions display Dalton, Brosnan, Moore, Connery left to right. */
+    static const u8 bonds[MAX_FOLDER_COUNT] = {
+        BOND_BROSNAN, BOND_CONNERY, BOND_DALTON, BOND_MOORE
+    };
 
-    return BOND_BROSNAN;
+    return folder < MAX_FOLDER_COUNT ? bonds[folder] : BOND_BROSNAN;
 }
 
 
