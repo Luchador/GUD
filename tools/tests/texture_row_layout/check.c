@@ -156,6 +156,52 @@ static void SpecialBank(void)
     free(record);
 }
 
+static void CheckModelExpansionBounds(void)
+{
+    Gfx commands[128], *end;
+    struct tex first = {0}, second = {0};
+    int format, detailformat, levels, type;
+    int ordinarymax = 0, detailmax = 0;
+
+    /* modelGetBufferRequirements budgets 32 commands for ordinary texture
+     * markers and 64 for detail markers. Exercise the production writers,
+     * including palette/LUT transitions and the maximum seven mip levels. */
+    first.width = first.height = second.width = second.height = 32;
+    first.unk0a = second.unk0a = 255;
+    second.maxlod = 1;
+    for (format = 0; format <= TEXFORMAT_IA16_CI4; format++) {
+        first.depth = g_TexFormatDepths[format];
+        first.gbiformat = g_TexFormatGbiMappings[format];
+        first.lutmodeindex = g_TexFormatLutModes[format];
+        for (detailformat = 0; detailformat <= TEXFORMAT_IA16_CI4; detailformat++) {
+            second.depth = g_TexFormatDepths[detailformat];
+            second.gbiformat = g_TexFormatGbiMappings[detailformat];
+            second.lutmodeindex = g_TexFormatLutModes[detailformat];
+            for (levels = 1; levels <= 7; levels++) {
+                first.maxlod = levels;
+                for (type = 0; type <= 4; type++) {
+                    int count;
+                    sub_GAME_7F0CC4C8();
+                    switch (type) {
+                    case 0: end = texHandleType0(commands, &first, 2, 0, 2, 1, 1, 255); break;
+                    case 1: end = texHandleType1(commands, &first, 2, 0, 2, &second, 1, 1, 255); break;
+                    case 2: end = texHandleType2(commands, &first, 2, 0, 2); break;
+                    case 3: end = texHandleType3(commands, (u32 *)&first, 2, 0, 2); break;
+                    default: end = texHandleType4(commands, (u32 *)&first, 2, 0, 2); break;
+                    }
+                    /* The outer loader can also emit a pipe sync and texture command. */
+                    count = end - commands + 2;
+                    assert(count <= (type == 1 ? 64 : 32));
+                    if (type == 1 && count > detailmax) detailmax = count;
+                    if (type != 1 && count > ordinarymax) ordinarymax = count;
+                }
+            }
+        }
+    }
+    printf("PASS: model texture expansion bounds (ordinary %d/32, detail %d/64 commands).\n",
+           ordinarymax, detailmax);
+}
+
 int main(void)
 {
     int format, mipmaps;
@@ -170,6 +216,7 @@ int main(void)
     }
     TestImage(TEXFORMAT_I8, 2, 0, 0); /* Runtime-generated mip chain. */
     SpecialBank();
+    CheckModelExpansionBounds();
     puts("PASS: encoded imports, raw loader and upload/fetch byte agreement across all 13 formats;");
     puts("      base-only and mipmapped images, tile paths, direct draws, raw pointers and zero-count banks.");
     return 0;

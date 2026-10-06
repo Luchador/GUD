@@ -14,6 +14,7 @@ import shlex
 import struct
 import subprocess
 import tempfile
+from rom_buffers import fixture as buffer_fixture
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
@@ -90,6 +91,11 @@ typedef float f32; typedef int bool;
     model_h = (ROOT/'src/game/model.h').read_text()
     code += re.search(r'^#define ANIM_MODEL_ALLOCATION_SIZE.*$',model_h,re.M)[0]+'\n'
     code += (HERE/'harness.h').read_text()
+    code += mp.declaration((ROOT/'src/game/objecthandler.h').read_text(),
+        r'typedef struct ModelBufferRequirements \{.*?\} ModelBufferRequirements;')
+    code += mp.function((ROOT/'src/game/ob.c').read_text(),'fileReadRawToBuffer')
+    code += mp.function((ROOT/'src/game/objecthandler_2.c').read_text(),'modelGetBufferRequirements')
+    code += mp.function(bondview,'bviewCanUsePrivateCharacterBuffers')
     code += mp.function(bondview,'bviewLoadPlayerChr')
     code += mp.function(bondview,'bondviewRemovePlayerBody')
     code += (HERE/'check.c').read_text()
@@ -103,7 +109,11 @@ typedef float f32; typedef int bool;
                     '-Wno-int-to-pointer-cast','-fsanitize=address,undefined',
                     '-I',str(ROOT),str(work/'check.c'),'-o',str(work/'check')]
         subprocess.run(command,check=True)
-        subprocess.run([str(work/'check')],check=True,env=dict(os.environ,
+        arguments=[str(work/'check')]
+        if args.rom:
+            buffer_fixture(args.rom,work/'buffers.bin')
+            arguments.append(str(work/'buffers.bin'))
+        subprocess.run(arguments,check=True,env=dict(os.environ,
             ASAN_OPTIONS='detect_leaks=0',UBSAN_OPTIONS='halt_on_error=1'))
 
 

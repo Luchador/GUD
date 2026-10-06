@@ -513,6 +513,40 @@ void bviewSetCurrentPlayerPosition(coord3d *pos, coord3d *pos2, coord3d *offset,
 }
 
 
+/* Test the complete lifetime of the cutscene scratch allocation before loading
+ * any actual models. The preflight also fills the private texture pool, so a
+ * success covers both geometry/workspace and texture capacity. No stage or
+ * dynamic-heap memory is spent on a stock outfit plus an imported head that
+ * fits. Oversized combinations retain the stage-backed loading path. */
+static bool bviewCanUsePrivateCharacterBuffers(s32 body, s32 head, s32 prop,
+        u8 *scratch, s32 capacity, struct texpool *pool)
+{
+    ModelBufferRequirements bodyReq;
+    ModelBufferRequirements headReq;
+    ModelBufferRequirements weaponReq;
+    s32 cursor;
+
+    if (!modelGetBufferRequirements(CitemZ_entries[body].header,
+            (u8 *)CitemZ_entries[body].filename, scratch, capacity, pool, &bodyReq)) return FALSE;
+    cursor = ALIGN64_V3(bodyReq.bytes + 0x3f);
+    cursor = ALIGN64_V3(cursor + sizeof(ModelFileHeader) + 0x3f);
+    if (!modelGetBufferRequirements(CitemZ_entries[head].header,
+            (u8 *)CitemZ_entries[head].filename, scratch, capacity, pool, &headReq)
+            || headReq.workspace > capacity - cursor) return FALSE;
+    cursor = ALIGN64_V3(cursor + headReq.bytes + 0x3f);
+    cursor = ALIGN64_V3(cursor + ANIM_MODEL_ALLOCATION_SIZE + 0x3f);
+    cursor = ALIGN64_V3(cursor + (bodyReq.rwWords + headReq.rwWords + 0xa) * 4 + 0x3f);
+    if (cursor > capacity) return FALSE;
+    if (prop >= 0)
+    {
+        cursor = ALIGN64_V3(cursor + 0xc7);
+        if (!modelGetBufferRequirements(PitemZ_entries[prop].header,
+                (u8 *)PitemZ_entries[prop].filename, scratch, capacity, pool, &weaponReq)
+                || weaponReq.workspace > capacity - cursor) return FALSE;
+    }
+    return TRUE;
+}
+
 /**
  * Creates the player's body and head models. For single player picks the outfit for that stage, for multiplayer
  * picks the chosen character. Created per hand weapon buffers and loads their models, then instantiates
@@ -540,6 +574,7 @@ void bviewLoadPlayerChr(void)
     s32                         head;
     struct ItemModelFileRecord *unusedpitem;
     Model                      *model;
+    bool                        privateCharacter;
 
     yaw = bondviewGetPlayerYawRadians();
 
@@ -580,7 +615,14 @@ void bviewLoadPlayerChr(void)
             remove_item_in_hand(GUNLEFT);
             remove_item_in_hand(GUNRIGHT);
             texInitPool(&pool, weaponbuf1, size1);
-            if (body >= CUSTOM_CHARACTER_BASE || head >= CUSTOM_CHARACTER_BASE)
+            privateCharacter = body < CUSTOM_CHARACTER_BASE && head < CUSTOM_CHARACTER_BASE;
+            if (!privateCharacter)
+            {
+                privateCharacter = bviewCanUsePrivateCharacterBuffers(body, head,
+                        getPropForHeldItem(item), weaponbuf0, size0, &pool);
+                if (!privateCharacter) texInitPool(&pool, weaponbuf1, size1);
+            }
+            if (!privateCharacter)
             {
                 /* Imported geometry and expanded display lists can exceed the
                  * fixed gun buffer. Cache these assets in the stage pool, as

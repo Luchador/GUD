@@ -28,6 +28,8 @@ typedef enum FILELOADMETHOD
 } FILELOADMETHOD;
 
 void load_resource(u8 *ptrdata, fileentry *srcfile, resource_lookup_data_entry *lookupdata);
+/* Inspect raw model bytes without changing the cached expanded-file size. */
+s32 fileReadRawToBuffer(u8 *name, u8 *dst, s32 capacity);
 
 void  obBlankResourcesLoadedInBank(u8 i);
 void  obBlankResourcesInBank5(void);

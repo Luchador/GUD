@@ -30,6 +30,18 @@ void load_resource(u8 *ptrdata, fileentry *srcfile, resource_lookup_data_entry *
     lookupdata->poolRemaining = lookupdata->rom_size;
 }
 
+s32 fileReadRawToBuffer(u8 *name, u8 *dst, s32 capacity)
+{
+    s32 index = fileGetIndex(name);
+    u32 size;
+
+    if (index <= 0 || capacity <= 0) return 0;
+    size = obInfo(index)->rom_size;
+    if (!size || size > (u32)capacity) return 0;
+    romCopy(dst, obFile(index)->hw_address, size);
+    return size;
+}
+
 
 void obInit(void)
 {

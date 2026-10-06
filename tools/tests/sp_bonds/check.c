@@ -61,7 +61,12 @@ static void ResetStage(void) {
         headers[i].RootNode=NULL;headers[i].numRecords=i>=80 ? 160 : 40;
         snprintf(filenames[i],sizeof(filenames[i]),"C%d",i);
         CitemZ_entries[i].header=&headers[i];CitemZ_entries[i].filename=filenames[i];
+        InitRawFixture(i,i>=80 ? 27632 : 28512,i>=80 ? 9 : 52);
     }
+    for(int i=0;i<g_CustomPropCount;i++) if(fixtures[i].kind==1)
+        InitRawFixture(fixtures[i].characterId,54176,80);
+    InitRawFixture(128,2304,8);
+    textureBytes=2048;
     memset(&playerprop,0,sizeof(playerprop));
     player.prop=&playerprop;player.bodyModel=NULL;player.bondtype=CUFF_BOILER;
     gunasset.numRecords=16;PitemZ_entries[0].header=&gunasset;PitemZ_entries[0].filename="Pgun";
@@ -82,16 +87,16 @@ static void Loading(void) {
             assert(playerprop.type==PROP_TYPE_VIEWER && chr.chrflags==CHRFLAG_INIT);
             assert(chosenItem==(repeat==0 ? 7 : helditem));
             assert(animations==repeat+1 && gunLoads==repeat+1 && removed==2*(repeat+1));
-            assert(stageLoads==(bond ? 2 : 0));
-            assert(scratchLoads==(bond ? 0 : 2*(repeat+1)));
+            assert(stageLoads==((bond && s>=2) ? 2 : 0));
+            assert(scratchLoads==((bond && s>=2) ? 0 : 2*(repeat+1)));
             bviewLoadPlayerChr(); /* Existing animated body is reused. */
             assert(setupCalls==repeat+1);
             bondviewRemovePlayerBody();
             assert(playerprop.chr==NULL && player.bodyModel==NULL && g_bondviewForceDisarm);
         }
     }
-    ResetStage();selected_folder_num=BOND_DALTON;helditem=-1;
-    bviewLoadPlayerChr();assert(gunLoads==0 && stageLoads==2);
+    ResetStage();selected_folder_num=BOND_DALTON;helditem=-1;stage=LEVELID_FRIGATE;
+    bviewLoadPlayerChr();assert(gunLoads==0 && stageLoads==0 && scratchLoads==2);
     bondviewRemovePlayerBody();
     /* MP still uses its own chosen pair and manager instance, regardless of folder/stage. */
     ResetStage();players=2;selected_folder_num=BOND_MOORE;stage=LEVELID_EGYPT;
@@ -103,8 +108,71 @@ static void Loading(void) {
     ResetStage();
 }
 
-int main(void) {
-    Selection();Loading();
-    puts("PASS: four wallet identities/briefing IDs; all 21 stages and 9 cuffs; import order/fallbacks; SP stage geometry caching, private animation buffers, held guns, teardown/reload; MP unchanged");
+static void Capacity(void) {
+    struct texpool pool;
+    ModelBufferRequirements r;
+    int body=BODY_Formal_Wear,head=customCharacterFind("CheaddaltonZ",2);
+    ResetStage();
+    texInitPool(&pool,gunbuffer[1],sizeof(gunbuffer[1]));
+    assert(bviewCanUsePrivateCharacterBuffers(body,head,0,gunbuffer[0],sizeof(gunbuffer[0]),&pool));
+    for(int i=0;i<129;i++) assert(rawInfo[i].poolRemaining==0x12345678);
+    assert(headers[body].RootNode==NULL && headers[head].RootNode==NULL);
+    assert(!modelGetBufferRequirements(&headers[head],(u8 *)filenames[head],gunbuffer[0],100,&pool,&r));
+    /* Extra animation words and a large held weapon must also fit. */
+    headers[head].numRecords=16000;
+    assert(!bviewCanUsePrivateCharacterBuffers(body,head,0,gunbuffer[0],sizeof(gunbuffer[0]),&pool));
+    ResetStage();texInitPool(&pool,gunbuffer[1],sizeof(gunbuffer[1]));
+    InitRawFixture(128,30000,40);
+    assert(!bviewCanUsePrivateCharacterBuffers(body,head,0,gunbuffer[0],sizeof(gunbuffer[0]),&pool));
+    /* Oversized raw geometry and texture exhaustion fail without a write past
+     * either existing buffer; no permanent allocation occurs during preflight. */
+    ResetStage();texInitPool(&pool,gunbuffer[1],sizeof(gunbuffer[1]));
+    InitRawFixture(head,110000,9);
+    assert(!bviewCanUsePrivateCharacterBuffers(body,head,0,gunbuffer[0],sizeof(gunbuffer[0]),&pool));
+    ResetStage();texInitPool(&pool,gunbuffer[1],sizeof(gunbuffer[1]));textureBytes=10000;
+    assert(!bviewCanUsePrivateCharacterBuffers(body,head,0,gunbuffer[0],sizeof(gunbuffer[0]),&pool));
+    /* A failed private preflight takes the established stage path. */
+    selected_folder_num=BOND_DALTON;stage=LEVELID_FRIGATE;
+    bviewLoadPlayerChr();assert(stageLoads==2 && scratchLoads==0 && gunLoads==1);
+    bondviewRemovePlayerBody();ResetStage();
+}
+
+static u32 ReadWord(FILE *f) {
+    u8 bytes[4];assert(fread(bytes,1,4,f)==4);
+    return (u32)bytes[0]<<24 | (u32)bytes[1]<<16 | (u32)bytes[2]<<8 | bytes[3];
+}
+static void RomCapacity(const char *path) {
+    FILE *f=fopen(path,"rb");assert(f);
+    ResetStage();textureBytes=0;
+    u32 count=ReadWord(f);
+    for(u32 i=0;i<count;i++) {
+        u32 id=ReadWord(f),ns=ReadWord(f),nt=ReadWord(f),size=ReadWord(f),first=ReadWord(f);
+        assert(id<129 && size<=sizeof(rawWords[id]));
+        ModelFileHeader *h=id==128 ? &gunasset : &headers[id];
+        h->numSwitches=ns;h->numtextures=nt;h->numRecords=160;
+        rawInfo[id].rom_size=size;rawFirst[id]=first;
+        for(u32 j=0;j<size/4;j++) rawWords[id][j]=ReadWord(f);
+    }
+    count=ReadWord(f);assert(count<=4096);
+    for(u32 i=0;i<count;i++) romTextureBytes[i]=ReadWord(f);
+    fclose(f);
+    const int bodies[]={BODY_Brosnan_Tuxedo,BODY_Special_Operations_Uniform,
+        BODY_Formal_Wear,BODY_Jungle_Fatigues,BODY_Parka};
+    const char *heads[]={"CheadconneryZ","CheaddaltonZ","CheadmooreZ"};
+    for(int b=0;b<5;b++) for(int h=0;h<3;h++) {
+        int head=customCharacterFind(heads[h],2);
+        struct texpool pool;
+        texInitPool(&pool,gunbuffer[1],sizeof(gunbuffer[1]));
+        int fits=bviewCanUsePrivateCharacterBuffers(bodies[b],head,0,gunbuffer[0],sizeof(gunbuffer[0]),&pool);
+        printf("ROM body %d + %s: private fit=%d, textures=%d/%zu bytes\n",bodies[b],heads[h],fits,pool.used,sizeof(gunbuffer[1]));
+        assert(fits);
+    }
+    puts("PASS: production preflight fits all 15 actual stock-outfit/imported-head pairs plus Frigate's D5K in the existing buffers");
+}
+
+int main(int argc,char **argv) {
+    Selection();Loading();Capacity();
+    if(argc>1) RomCapacity(argv[1]);
+    puts("PASS: four wallet identities/briefing IDs; all 21 stages and 9 cuffs; import order/fallbacks; SP bounded private geometry/textures, oversized fallback, held guns, teardown/reload; MP unchanged");
     return 0;
 }

@@ -46,6 +46,13 @@ s32 modelHitFindNextBBoxHit(ModelHitEntry **entry, coord3d *rayOrigin, coord3d *
 s32 modelHitFindFirstBBoxHit(ModelHitEntry **entry, coord3d *rayOrigin, coord3d *rayDirection, Model **hitModel, ModelNode **hitNode);
 
 void load_object_fill_header(struct ModelFileHeader *objheader, u8 *name, u8* dst, s32 size, struct texpool * buffer);
+typedef struct ModelBufferRequirements {
+    s32 bytes;       /* Upper bound on the expanded model. */
+    s32 workspace;   /* Also keeps the relocated source lists out of its way. */
+    s32 rwWords;
+} ModelBufferRequirements;
+bool modelGetBufferRequirements(ModelFileHeader *definition, u8 *name,
+        u8 *scratch, s32 capacity, struct texpool *pool, ModelBufferRequirements *result);
 
 
 #endif
