@@ -1689,12 +1689,6 @@ void select_load_bond_picture(Model *objinstance, u32 bondID)
 }
 
 
-
-
-
-/**
- * Address 0x7F00B8AC NTSC
-*/
 void load_walletbond(void)
 {
     ModelNode *mnode;
@@ -1735,8 +1729,6 @@ void load_walletbond(void)
 }
 
 
-
-
 void frontCleanUpWalletBond(void)
 {
     s32 i;
@@ -1749,7 +1741,6 @@ void frontCleanUpWalletBond(void)
         walletinst[i] = NULL;
     }
 }
-
 
 
 //********************************************************************************************************

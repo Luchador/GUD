@@ -11,15 +11,8 @@
 
 
 save_data saves[SAVESLOTMAX];
-
-//CODE.bss:80069B60
-/**
- * The chr whose model is currently being built. Has to stay here to preserve ROM layout.
- */
 ChrRecord *g_CurModelChr;
 
-//data
-//D:8002C510
 #ifdef ALL_BONDS
 s32 save_selected_bond[] = {BOND_BROSNAN,BOND_CONNERY,BOND_DALTON,BOND_MOORE};
 #else
@@ -37,6 +30,7 @@ s32 fileGamePakProbe(void)
   return joyGamePakProbe();
 }
 
+
 /**
  * Resets the RamRom replay folder save
  *
@@ -47,6 +41,7 @@ void fileResetRamRomSave(void)
 
     saves[SAVESLOTRAMROM] = new_save;
 }
+
 
 /**
  *
@@ -61,6 +56,7 @@ void fileWriteSmallSave(smallSave *save)
         joyGamePakLongWrite(0, save, sizeof(smallSave));
     }
 }
+
 
 /**
  *
@@ -79,6 +75,7 @@ void fileWriteSave(save_data *save)
     }
 }
 
+
 /**
  * reset save to default
  *
@@ -92,6 +89,7 @@ void fileResetSave(save_data *save)
     fileWriteSave(save);
 }
 
+
 /**
  * Get the folder of save
  *
@@ -102,6 +100,7 @@ u32 fileGetSaveFolder(save_data *save)
 {
   return save->completion_bitflags & SAVEFLAG_FOLDER;
 }
+
 
 /**
  * Clear then set save folder flag
@@ -115,6 +114,7 @@ void fileSetSaveFoldernum(save_data *save, u32 folder)
     save->completion_bitflags |= folder & SAVEFLAG_FOLDER;
 }
 
+
 /**
  * Get save flag 0x18
  *
@@ -125,6 +125,7 @@ u32 fileGetSaveFlagSlot(save_data *folder)
 {
   return (folder->completion_bitflags & SAVEFLAG_SLOT) >> 3;
 }
+
 
 /**
  * Resets save flag 0x18
@@ -138,6 +139,7 @@ void fileResetSaveFlagSlot(save_data *folder, s32 slot)
     folder->completion_bitflags |= ((slot * 8) & SAVEFLAG_SLOT);
 }
 
+
 /**
  * Get the selected bond save flag
  *
@@ -148,6 +150,7 @@ u32 fileGetSelectedBond(save_data *folder)
 {
   return (folder->completion_bitflags & SAVEFLAG_BOND) >> 5;
 }
+
 
 /**
  * Set the selected bond save flag
@@ -161,6 +164,7 @@ void fileSetSelectedBond(save_data *folder, s32 bond)
     folder->completion_bitflags |= ((bond << 5) & SAVEFLAG_BOND);
 }
 
+
 /**
  * Check if save has flag 0x80
  *
@@ -171,6 +175,7 @@ bool fileGetSaveFlagDoReset(save_data *folder)
 {
   return ((folder->completion_bitflags & SAVEFLAG_DORESET) != FALSE);
 }
+
 
 /**
  * Toggle save flag 0x80
@@ -190,6 +195,7 @@ void fileSetSaveFlagDoReset(save_data *folder, bool enable)
         folder->completion_bitflags &= ~SAVEFLAG_DORESET;
     }
 }
+
 
 /**
  * Get completion time for stage at difficulty
@@ -249,6 +255,7 @@ s32 fileGetSaveStageDifficultyTime(save_data* save, LEVEL_SOLO_SLOT levelid, DIF
     return 0;
 }
 
+
 /**
  * Set completion time for stage at difficulty
  *
@@ -264,11 +271,15 @@ void fileSetDifficultyStageTime(save_data *save, LEVEL_SOLO_SLOT levelid, DIFFIC
     LEVEL_SOLO_SLOT max_level;
 
     max_level = SP_LEVEL_MAX;
+
     if ((levelid >= SP_LEVEL_DAM) && (levelid < SP_LEVEL_MAX ) && (difficulty >= DIFFICULTY_AGENT) && (difficulty < DIFFICULTY_007))
     {
-        if (newtime == 0) {
+        if (newtime == 0) 
+        {
             newtime = 0x4f;
-        } else if (newtime > 0x3ff) {
+        } 
+        else if (newtime > 0x3ff) 
+        {
             newtime = 0x3ff;
         }
 
@@ -427,7 +438,7 @@ s32 fileGetSaveFlagDoReset_any_folder(void)
 
     for(i = SAVESLOT1; i < SAVESLOTRAMROM; i++)
     {
-        if ( fileGetSaveFlagDoReset(&saves[i]))
+        if (fileGetSaveFlagDoReset(&saves[i]))
         {
             return i;
         }
@@ -579,6 +590,7 @@ void fileValidateSaves(void)
     }
 }
 
+
 /**
  * Check if folder is valid
  *
@@ -600,6 +612,7 @@ bool fileIsFolderValid(s32 folder)
     return FALSE;
 }
 
+
 /**
  * wrapper func - uses save if found
  * file fileIsStageUnlockedAtDifficulty calls fileIsSavedStageUnlockedAtDifficulty
@@ -617,17 +630,24 @@ STAGESTATUS fileIsStageUnlockedAtDifficulty(s32 foldernum, LEVEL_SOLO_SLOT level
     s32 i, position;
     LEVEL_SOLO_SLOT prior;
 
-    if (!fileIsFolderValid(foldernum) || entry < 0
-            || difficulty < DIFFICULTY_AGENT || difficulty >= DIFFICULTY_MAX)
+    if (!fileIsFolderValid(foldernum) || entry < 0 || difficulty < DIFFICULTY_AGENT || difficulty >= DIFFICULTY_MAX)
+    {
         return STAGESTATUS_LOCKED;
+    }
 
     save = fileGetSaveForFoldernum(foldernum);
+
     if (save)
     {
         if (fileGetSaveStageCompletedForDifficulty(save, levelid, difficulty))
+        {
             return STAGESTATUS_COMPLETED;
+        }
+
         if (difficulty < mission_folder_setup_entries[entry].minimum_difficulty)
+        {
             return STAGESTATUS_LOCKED;
+        }
 
         /* Main missions follow main campaign order. Bonus missions require
          * the main campaign and any earlier bonus missions, wherever their
@@ -637,18 +657,35 @@ STAGESTATUS fileIsStageUnlockedAtDifficulty(s32 foldernum, LEVEL_SOLO_SLOT level
             for (position = 0; position < count; position++)
             {
                 prior = campaignGetSaveSlotByOrder(position);
-                if (!campaignIsPrerequisite(levelid, prior)) continue;
-                if (!fileGetSaveStageCompletedForDifficulty(save, prior, i)) break;
+
+                if (!campaignIsPrerequisite(levelid, prior)) 
+                {
+                    continue;
+                }
+
+                if (!fileGetSaveStageCompletedForDifficulty(save, prior, i)) 
+                {
+                    break;
+                }
             }
-            if (position == count) return STAGESTATUS_UNLOCKED;
+
+            if (position == count)
+            {   
+                return STAGESTATUS_UNLOCKED;
+            }
         }
 
         if (difficulty < DIFFICULTY_007 && !campaignIsBonus(levelid))
         {
             prior = campaignGetPreviousMain(levelid);
+    
             for (i = difficulty; i < DIFFICULTY_MAX; i++)
+            {
                 if (prior != SP_LEVEL_NONE && fileGetSaveStageCompletedForDifficulty(save, prior, i))
+                {
                     return STAGESTATUS_UNLOCKED;
+                }
+            }
         }
 
         if (difficulty < DIFFICULTY_007)
@@ -656,20 +693,35 @@ STAGESTATUS fileIsStageUnlockedAtDifficulty(s32 foldernum, LEVEL_SOLO_SLOT level
             for (position = 0; position < count; position++)
             {
                 prior = campaignGetSaveSlotByOrder(position);
-                if (!campaignIsBonus(prior)
-                        && !fileGetSaveStageCompletedForDifficulty(save, prior, DIFFICULTY_AGENT)) break;
+
+                if (!campaignIsBonus(prior)  && !fileGetSaveStageCompletedForDifficulty(save, prior, DIFFICULTY_AGENT)) 
+                {
+                    break;
+                }
             }
             if (position == count)
             {
                 for (i = DIFFICULTY_AGENT; i < difficulty; i++)
-                    if (!fileGetSaveStageCompletedForDifficulty(save, levelid, i)) break;
-                if (i == difficulty) return STAGESTATUS_UNLOCKED;
+                {
+                    if (!fileGetSaveStageCompletedForDifficulty(save, levelid, i)) 
+                    {
+                        break;
+                    }
+                }
+
+                if (i == difficulty) 
+                {
+                    return STAGESTATUS_UNLOCKED;
+                }
             }
         }
     }
 
     if (!campaignIsBonus(levelid) && campaignGetPreviousMain(levelid) == SP_LEVEL_NONE)
+    {
         return STAGESTATUS_UNLOCKED;
+    }
+
     return STAGESTATUS_LOCKED;
 }
 
@@ -816,6 +868,7 @@ void fileGetHighestStageDifficultyCompletedForFolder(s32 foldernum, LEVEL_SOLO_S
     *difficulty = DIFFICULTY_MULTI;
 }
 
+
 /**
  * Get the highest stage unlocked in folder
  *
@@ -845,6 +898,7 @@ LEVEL_SOLO_SLOT fileGetHighestStageUnlockedForFolder(s32 foldernum)
     return campaignGetFirstMain();
 }
 
+
 /**
  * Get the highest stage unlocked in any folder
  *
@@ -852,13 +906,14 @@ LEVEL_SOLO_SLOT fileGetHighestStageUnlockedForFolder(s32 foldernum)
  */
 LEVEL_SOLO_SLOT fileGetHighestStageUnlockedAnyFolder(void)
 {
-    int folder;
+    s32 folder;
     LEVEL_SOLO_SLOT isfound;
     LEVEL_SOLO_SLOT highest = campaignGetFirstMain();
 
     for (folder = FOLDER1; folder < MAX_FOLDER_COUNT; folder++)
     {
         isfound = fileGetHighestStageUnlockedForFolder(folder);
+
         if (campaignGetOrderBySaveSlot(highest) < campaignGetOrderBySaveSlot(isfound))
         {
             highest = isfound;
@@ -868,8 +923,9 @@ LEVEL_SOLO_SLOT fileGetHighestStageUnlockedAnyFolder(void)
     return highest;
 }
 
+
 /**
- * Check if cradle has been completed at any difficulty
+ * Check if Cradle has been completed at any difficulty
  *
  * @param foldernum
  * @return bool
@@ -881,8 +937,9 @@ bool fileIsCradleCompletedForFolder(s32 folder)
            (fileIsStageUnlockedAtDifficulty(folder, SP_LEVEL_CRADLE, DIFFICULTY_00) == STAGESTATUS_COMPLETED);
 }
 
+
 /**
- * Check if aztec has been completed at secret or 00 difficulty
+ * Check if Aztec has been completed at secret or 00 difficulty
  *
  * @param folder
  * @return bool
@@ -893,8 +950,9 @@ bool fileIsAztecCompletedOnSecretOr00ForFolder(s32 folder)
            (fileIsStageUnlockedAtDifficulty(folder, SP_LEVEL_AZTEC, DIFFICULTY_00) == STAGESTATUS_COMPLETED);
 }
 
+
 /**
- * Check if egypt is completed at 00 difficulty
+ * Check if Egyptian is completed at 00 difficulty
  *
  * @param foldernum
  * @return bool
@@ -904,8 +962,9 @@ bool fileIsEgyptCompletedOn00ForFolder(int foldernum)
     return fileIsStageUnlockedAtDifficulty(foldernum, SP_LEVEL_EGYPT, DIFFICULTY_00) == STAGESTATUS_COMPLETED;
 }
 
+
 /**
- * Check if cradle has been completed in any folder
+ * Check if Cradle has been completed in any folder
  *
  * @return bool
  */
@@ -924,8 +983,9 @@ bool fileIsCradleCompletedAnyFolder(void)
     return FALSE;
 }
 
+
 /**
- * Check if aztec has been completed in any folder at secret or 00 difficulty
+ * Check if Aztec has been completed in any folder at secret or 00 difficulty
  *
  * @return bool
  */
@@ -944,8 +1004,9 @@ bool check_aztec_completed_any_folder_secret_00(void)
     return FALSE;
 }
 
+
 /**
- * Check if Egypt has been completed in any folder at secret or 00 difficulty
+ * Check if Egyptian has been completed in any folder at secret or 00 difficulty
  *
  * @return bool
  */
@@ -964,8 +1025,9 @@ bool fileIsEgyptCompletedOn00AnyFolder(void)
     return FALSE;
 }
 
+
 /**
- * Get bond for folder
+ * Get Bond actor for folder.
  *
  * @param folder
  * @return u8
@@ -983,8 +1045,9 @@ u8 fileGetBondForFolder(u32 folder)
     return BOND_BROSNAN;
 }
 
+
 /**
- * Set the selected bond to folder object
+ * Set the selected Bond actor to folder object.
  *
  * @param folder
  * @param bond
