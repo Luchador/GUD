@@ -115,6 +115,16 @@ void customPropsInit(void)
     g_CustomPropCount = count;
 }
 
+s32 customCharacterFind(const char *name, u32 kind)
+{
+    s32 i;
+    if (kind != CUSTOM_CHARACTER_BODY && kind != CUSTOM_CHARACTER_HEAD) return -1;
+    for (i = 0; i < g_CustomPropCount; i++)
+        if (g_CustomProps[i].kind == kind && !strcmp(name, g_CustomProps[i].name))
+            return g_CustomProps[i].characterId;
+    return -1;
+}
+
 s32 customCharacterTemplate(s32 id)
 {
     s32 i;

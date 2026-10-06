@@ -5,7 +5,7 @@ static const struct { const char *file, *name; } g_CharacterBodyNames[] = {
     {"ColiveguardZ", "Russian Soldier"}, /* BODY_Russian_Soldier */
     {"CrusguardZ", "Russian Infantry"}, /* BODY_Russian_Infantry */
     {"CtrevguardZ", "Janus Special Forces"}, /* BODY_Janus_Special_Forces */
-    {"CdjbondZ", "Bond"}, /* BODY_Brosnan_Tuxedo */
+    {"CdjbondZ", "Brosnan"}, /* BODY_Brosnan_Tuxedo */
     {"CborisZ", "Boris"}, /* BODY_Boris */
     {"CorumovZ", "Ourumov"}, /* BODY_Ourumov */
     {"CtrevelyanZ", "Trevelyan"}, /* BODY_Trevelyan_Janus */

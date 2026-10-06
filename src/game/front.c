@@ -24,6 +24,7 @@
 #include "chrai.h"
 #include "cheat.h"
 #include "chrobjdata.h"
+#include "customprops.h"
 #include "dyn.h"
 #include "file2.h"
 #include "front.h"
@@ -371,10 +372,23 @@ struct mp_stage_setup multi_stage_setups[] = {
   //{getStringID(LTITLE, TITLE_STR_174_CITADEL), getStringID(LTITLE, TITLE_STR_175_CITADEL2), IMG_MP_RANDOM, LEVELID_CITADEL, -1, 1, 4}, //Citadel (old format setup)
 };
 
-s32 num_chars_selectable_mp = 8;
+enum { MP_CHARS_DEFAULT_COUNT = 11, MP_CHARS_COMPLETED_COUNT = 36 };
+s32 num_chars_selectable_mp = MP_CHARS_DEFAULT_COUNT;
+
+/* Roster entries 1..3. Imported character IDs depend on import order, so resolve
+ * the names against each stage's active catalog when creating the player. */
+static const struct { const char *body, *head; } g_MpBondModels[] = {
+    {"CconneryZ", "CheadconneryZ"},
+    {"CdaltonZ", "CheaddaltonZ"},
+    {"CmooreZ", "CheadmooreZ"}
+};
 
 struct MP_selectable_chars mp_chr_setup[] = {
-    {getStringID(LTITLE, TITLE_STR_184_BOND), MALE,   IMG_MPC_BROSNAN, BODY_Brosnan_Tuxedo,                   HEAD_Male_Brosnan_Tuxedo, 1.0},
+    {getStringID(LTITLE, TITLE_STR_288_BROSNAN), MALE, IMG_MPC_BROSNAN, BODY_Brosnan_Tuxedo, HEAD_Male_Brosnan_Tuxedo, 1.0},
+    /* Stock models are safe fallbacks for a base ROM before project rebasing. */
+    {getStringID(LTITLE, TITLE_STR_289_CONNERY), MALE, IMG_MPC_CONNERY, BODY_Brosnan_Tuxedo, HEAD_Male_Brosnan_Tuxedo, 1.0},
+    {getStringID(LTITLE, TITLE_STR_290_DALTON), MALE, IMG_MPC_DALTON, BODY_Brosnan_Tuxedo, HEAD_Male_Brosnan_Tuxedo, 1.0},
+    {getStringID(LTITLE, TITLE_STR_291_MOORE), MALE, IMG_MPC_MOORE, BODY_Brosnan_Tuxedo, HEAD_Male_Brosnan_Tuxedo, 1.0},
     {getStringID(LTITLE, TITLE_STR_191_NATALYA), FEMALE, IMG_MPC_NATALYA, BODY_Natalya_Skirt,            HEAD_Male_Brosnan_Tuxedo, 0.96609998},
     {getStringID(LTITLE, TITLE_STR_188_TREVELYAN), MALE,   IMG_MPC_TREVELYAN, BODY_Trevelyan_Janus,          HEAD_Male_Brosnan_Tuxedo, 1.0},
     {getStringID(LTITLE, TITLE_STR_190_XENIA), FEMALE, IMG_MPC_XENIA, BODY_Xenia,                    HEAD_Male_Brosnan_Tuxedo, 1.0},
@@ -3648,7 +3662,7 @@ void advance_aim_settings_selection(void)
 
 
 void unlock_all_mp_chars(void) {
-    num_chars_selectable_mp = 0x40;
+    num_chars_selectable_mp = ARRAYCOUNT(mp_chr_setup);
 }
 
 
@@ -3661,31 +3675,42 @@ s32 get_selected_num_players(void)
     return 1;
 }
 
+static s32 frontGetMpCharacterIndex(s32 player)
+{
+    s32 index = player_char[player] < 0 ? player : player_char[player];
+    return index >= 0 && index < ARRAYCOUNT(mp_chr_setup) ? index : 0;
+}
+
+static u16 frontGetMpCharacterModel(s32 player, bool wantHead)
+{
+    s32 index = frontGetMpCharacterIndex(player);
+
+    if (index >= 1 && index <= ARRAYCOUNT(g_MpBondModels))
+    {
+        s32 body = customCharacterFind(g_MpBondModels[index - 1].body, CUSTOM_CHARACTER_BODY);
+        s32 head = customCharacterFind(g_MpBondModels[index - 1].head, CUSTOM_CHARACTER_HEAD);
+
+        /* Resolve the pair together: a missing or mistyped asset must not
+         * produce an invalid model-table access or a mismatched actor. */
+        if (body >= 0 && head >= 0) return wantHead ? head : body;
+    }
+
+    return wantHead ? mp_chr_setup[index].head : mp_chr_setup[index].body;
+}
+
 u16 get_player_mp_char_head(s32 player)
 {
-    if (player_char[player] < 0)
-    {
-        return mp_chr_setup[player].head;
-    }
-    return mp_chr_setup[player_char[player]].head;
+    return frontGetMpCharacterModel(player, TRUE);
 }
 
 u8 get_player_mp_char_gender(s32 player)
 {
-    if (player_char[player] < 0)
-    {
-        return mp_chr_setup[player].gender;
-    }
-    return mp_chr_setup[player_char[player]].gender;
+    return mp_chr_setup[frontGetMpCharacterIndex(player)].gender;
 }
 
 u16 get_player_mp_char_body(s32 player)
 {
-    if (player_char[player] < 0)
-    {
-        return mp_chr_setup[player].body;
-    }
-    return mp_chr_setup[player_char[player]].body;
+    return frontGetMpCharacterModel(player, FALSE);
 }
 
 f32 get_player_mp_handicap(s32 player)
@@ -3695,10 +3720,7 @@ f32 get_player_mp_handicap(s32 player)
 
 f32 get_player_mp_char_height(s32 player)
 {
-    if (player_char[player] < 0) {
-        return mp_chr_setup[player].pov;
-    }
-    return mp_chr_setup[player_char[player]].pov;
+    return mp_chr_setup[frontGetMpCharacterIndex(player)].pov;
 }
 
 s32 get_mp_timelimit(void) {
@@ -4359,7 +4381,7 @@ void init_menu0f_mpcharsel(void)
     tab_next_highlight = 0;
     tab_start_highlight = 0;
 
-    for ( i = 0; i < 64; i += 1)
+    for ( i = 0; i < ARRAYCOUNT(mp_chr_setup); i += 1)
     {
         s32 selected_photo = mp_chr_setup[i].select_photo;
 
@@ -4390,15 +4412,15 @@ void init_menu0f_mpcharsel(void)
         }
     }
 
-    if (num_chars_selectable_mp != 0x40)
+    if (num_chars_selectable_mp != ARRAYCOUNT(mp_chr_setup))
     {
         if (fileIsStageUnlockedAtDifficulty(selected_folder_num, SP_LEVEL_CRADLE, DIFFICULTY_AGENT) == STAGESTATUS_COMPLETED)
         {
-            num_chars_selectable_mp = 0x21;
+            num_chars_selectable_mp = MP_CHARS_COMPLETED_COUNT;
         }
         else
         {
-            num_chars_selectable_mp = 8;
+            num_chars_selectable_mp = MP_CHARS_DEFAULT_COUNT;
 
             for ( i = 0; i < MAX_PLAYER_COUNT; i++)
             {

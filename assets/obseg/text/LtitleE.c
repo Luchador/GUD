@@ -286,5 +286,9 @@ char *LtitleE[] = {
  "2.4 Goodhead\n", //TITLE_STR_284
  "Select Control Style\n", //TITLE_STR_285
  "Control Style\n", //TITLE_STR_286
- 0 //TITLE_STR_287_RUSSIANSOLDIER
+ 0, //TITLE_STR_287_RUSSIANSOLDIER
+ "Brosnan", //TITLE_STR_288_BROSNAN
+ "Connery", //TITLE_STR_289_CONNERY
+ "Dalton", //TITLE_STR_290_DALTON
+ "Moore", //TITLE_STR_291_MOORE
 };

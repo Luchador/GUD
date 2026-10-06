@@ -14,6 +14,8 @@ typedef struct CustomPropRomConfig {
 extern CustomPropRomConfig g_CustomPropRomConfig;
 void customPropsReset(void);
 void customPropsInit(void);
+/* Match an imported head/body by resource name; -1 if absent or wrong kind. */
+s32 customCharacterFind(const char *name, u32 kind);
 ItemModelFileRecord *propModelGet(s32 modelid);
 s32 customPropFileIndex(const char *name);
 fileentry *customPropFile(s32 index);
