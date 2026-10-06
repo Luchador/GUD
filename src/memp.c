@@ -153,6 +153,20 @@ void *mempAllocBytesInBank(u32 bytes, u8 poolnum)
 }
 
 
+void *mempTryAllocBytesInBank(u32 bytes, u8 poolnum)
+{
+    MemoryPool *pool = &g_mempPools[poolnum];
+
+    if (pool->pos == NULL || pool->pos > pool->end
+            || bytes > (u32)(pool->end - pool->pos))
+    {
+        return NULL;
+    }
+
+    return mempAllocBytesInBank(bytes, poolnum);
+}
+
+
 /**
  * Resize the most recent allocation in a pool without moving it.
  */

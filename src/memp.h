@@ -48,6 +48,8 @@ typedef enum MEMP_ADD_ENTRY_RESULT
 void mempCheckMemflagTokens(int bstart,int bsize);
 void mempSetBankStarts(s32 banks[8]);
 void *mempAllocBytesInBank(u32 bytes,u8 bank);
+/* Optional allocation: never borrows from another bank or hangs on failure. */
+void *mempTryAllocBytesInBank(u32 bytes, u8 bank);
 MEMP_ADD_ENTRY_RESULT mempAddEntryOfSizeToBank(void *allocation, s32 newsize, u8 poolnum);
 s32 mempGetBankSizeLeft(u8 bank);
 void mempResetBank(u8 bank);

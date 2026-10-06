@@ -5,6 +5,7 @@
 #include <assets/image_externs.h>
 #include <PR/R4300.h>
 #include "ramrom.h"
+#include "memp.h"
 
 
 #define TEX_ALPHA_WEIGHT 961
@@ -16,6 +17,16 @@ struct texdataprefix
     u32 magic;
     struct tex *descriptor;
 };
+
+/* Extra stage textures keep their own stable storage when -mt is exhausted.
+ * Private pools (weapon/cutscene buffers) must stay within their own bounds. */
+struct texoverflow
+{
+    struct texoverflow *next;
+    struct tex *tex;
+};
+
+static struct texoverflow *g_TexOverflow;
 
 struct texpool *ptr_texture_alloc_start;
 s32 ptr_texture_alloc_end;
@@ -664,7 +675,7 @@ s32 texShrinkNonPaletted(u8 *src, u8 *dst, s32 srcwidth, s32 srcheight, s32 form
                     b = ((((tl32 >>  8) & 0xff) + ((tr32 >>  8) & 0xff) + ((bl32 >>  8) & 0xff) + ((br32 >>  8) & 0xff)) >> 2) & 0xff;
                     a = ((((tl32 >>  0) & 0xff) + ((tr32 >>  0) & 0xff) + ((bl32 >>  0) & 0xff) + ((br32 >>  0) & 0xff) + 1) >> 2) & 0xff;
 
-                    dst32[j >> 1] = r << 24 | g << 16 | b << 8 | a;
+                    dst32[j >> 1] = (u32)r << 24 | g << 16 | b << 8 | a;
                 }
 
                 dst32 += aligneddstwidth;
@@ -903,6 +914,11 @@ void texSwapAltRowBytes(u8 *dst, s32 width, s32 height, s32 format)
 
 void texInitPool(struct texpool *arg0, u8 *arg1, s32 arg2)
 {
+    if (arg0 == (struct texpool *)&ptr_texture_alloc_start)
+    {
+        /* MEMPOOL_STAGE has just been reset. Never follow old stage pointers. */
+        g_TexOverflow = NULL;
+    }
     arg0->start = arg1;
 	arg0->end = (struct tex *)(arg1 + arg2);
     arg0->leftpos = arg1;
@@ -915,6 +931,7 @@ struct tex *texFindInPool(s32 texturenum, struct texpool *arg1)
     struct tex *end;
     struct tex *cur;
     s32 i;
+    struct texoverflow *overflow;
 
     if (arg1 == NULL)
     {
@@ -932,6 +949,17 @@ struct tex *texFindInPool(s32 texturenum, struct texpool *arg1)
         }
 
         cur++;
+    }
+
+    if (arg1 == (struct texpool *)&ptr_texture_alloc_start)
+    {
+        for (overflow = g_TexOverflow; overflow != NULL; overflow = overflow->next)
+        {
+            if (overflow->tex->texturenum == texturenum)
+            {
+                return overflow->tex;
+            }
+        }
     }
 
     return NULL;
@@ -1019,6 +1047,78 @@ static u16 texReadRawU16(u8 *src)
 static u32 texReadRawU32(u8 *src)
 {
     return ((u32)src[0] << 24) | ((u32)src[1] << 16) | (src[2] << 8) | src[3];
+}
+
+
+static s32 texRawLevelBytes(s32 format, s32 width, s32 height)
+{
+    switch (g_TexFormatDepths[format])
+    {
+        case G_IM_SIZ_32b: return ((width + 3) & ~3) * height * 4;
+        case G_IM_SIZ_16b: return ((width + 3) & ~3) * height * 2;
+        case G_IM_SIZ_8b: return ((width + 7) & ~7) * height;
+        default: return ((width + 15) & ~15) * height / 2;
+    }
+}
+
+
+/* Validate and size the entire allocation BEFORE DMA or mip generation.
+ * The old 0x10cc check both rejected small images and let larger ones overrun
+ * the descriptors at the other end of the pool. */
+static s32 texRawAllocationBytes(u8 *header)
+{
+    u32 recordSize = texReadRawU32(&header[12]);
+    s32 headerSize = texReadRawU16(&header[10]);
+    s32 paletteCount = texReadRawU16(&header[8]);
+    s32 total = 0;
+    s32 firstOffset = 0;
+    s32 format;
+    s32 width;
+    s32 height;
+    s32 i;
+
+    if (paletteCount > 256 || recordSize < headerSize)
+    {
+        return 0;
+    }
+
+    for (i = 0; i < header[6]; i++)
+    {
+        u8 *descriptor = &header[RAW_TEXTURE_DESCRIPTOR_OFFSET + i * RAW_TEXTURE_DESCRIPTOR_SIZE];
+        u32 offset = texReadRawU32(&descriptor[4]);
+        u32 size = texReadRawU32(&descriptor[8]);
+
+        format = descriptor[0];
+        width = descriptor[1];
+        height = descriptor[2];
+        if (i == 0) firstOffset = offset;
+
+        if (format >= ARRAYCOUNT(g_TexFormatDepths) || width == 0 || height == 0
+                || offset < headerSize || offset > recordSize
+                || offset != firstOffset + total || size > recordSize - offset
+                || size != texRawLevelBytes(format, width, height)
+                || (format >= TEXFORMAT_RGBA16_CI8 && paletteCount == 0))
+        {
+            return 0;
+        }
+        total += size;
+    }
+
+    if (!header[4] && header[6] == 1)
+    {
+        for (i = 1; i < header[5]; i++)
+        {
+            s32 imageBytes;
+            width = (width + 1) >> 1;
+            height = (height + 1) >> 1;
+            imageBytes = texRawLevelBytes(format, width, height);
+            if (paletteCount && total + imageBytes > 0x800) break;
+            total += imageBytes;
+        }
+    }
+
+    return ((total + paletteCount * 2 + 7) & ~7)
+            + sizeof(struct texdataprefix) + sizeof(struct tex);
 }
 
 
@@ -1225,14 +1325,17 @@ static s32 texLoadRaw(u8 *header, u32 romAddress, struct texpool *pool)
 
                 if (paletteCount)
                 {
-                    imageBytes = texShrinkPaletted(source, output, currentWidth,
-                            currentHeight, format, palette, paletteCount);
-
+                    /* Do not write a discarded mip outside the allocation. */
+                    imageBytes = texRawLevelBytes(format, (currentWidth + 1) >> 1,
+                            (currentHeight + 1) >> 1);
                     if (totalBytes + imageBytes > 0x800)
                     {
                         tex->maxlod = i;
                         break;
                     }
+
+                    imageBytes = texShrinkPaletted(source, output, currentWidth,
+                            currentHeight, format, palette, paletteCount);
                 }
                 else
                 {
@@ -1298,6 +1401,9 @@ void texLoad(s32 *updateword, struct texpool *pool)
     s32 headerSize;
     struct texdataprefix *prefix;
     s32 bytesout;
+    s32 allocationBytes;
+    struct texpool overflowPool;
+    struct texoverflow *overflow = NULL;
 
     if (pool == NULL)
     {
@@ -1338,10 +1444,34 @@ void texLoad(s32 *updateword, struct texpool *pool)
         hasValidHeader = hasValidHeader
                 && RAW_TEXTURE_PALETTE_OFFSET + texReadRawU16(&header[8]) * 2 <= headerSize;
 
-        if (!hasValidHeader || texFreeBytesInBuffer(pool) < 0x10cc)
+        allocationBytes = hasValidHeader ? texRawAllocationBytes(header) : 0;
+        if (allocationBytes == 0)
         {
             *updateword = osVirtualToPhysical(pool->start);
             return;
+        }
+
+        if (texFreeBytesInBuffer(pool) < allocationBytes)
+        {
+            if (pool == (struct texpool *)&ptr_texture_alloc_start)
+            {
+                s32 nodeBytes = (sizeof(struct texoverflow) + 15) & ~15;
+                s32 poolBytes = (allocationBytes + 15) & ~15;
+                u8 *memory = mempTryAllocBytesInBank(nodeBytes + poolBytes + 16, MEMPOOL_STAGE);
+
+                if (memory != NULL)
+                {
+                    overflow = (struct texoverflow *)(((u32)memory + 15) & ~15);
+                    texInitPool(&overflowPool, (u8 *)overflow + nodeBytes, poolBytes);
+                    pool = &overflowPool;
+                }
+            }
+
+            if (overflow == NULL)
+            {
+                *updateword = osVirtualToPhysical(pool->start);
+                return;
+            }
         }
 
         prefix = (struct texdataprefix *)pool->leftpos;
@@ -1356,6 +1486,13 @@ void texLoad(s32 *updateword, struct texpool *pool)
 
         bytesout = texLoadRaw(header, romAddress, pool);
         pool->leftpos += bytesout;
+
+        if (overflow != NULL)
+        {
+            overflow->tex = tex;
+            overflow->next = g_TexOverflow;
+            g_TexOverflow = overflow;
+        }
     }
 
     *updateword = osVirtualToPhysical(tex->data);

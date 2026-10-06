@@ -77,13 +77,15 @@ typedef uint64_t ULONGLONG;
 typedef struct TexPixel { u8 r, g, b, a; } TexPixel;
 typedef struct TexImportOptions { u8 format, mipmaps, hitsound, hittexture; } TexImportOptions;
 '''
-source += re.sub(r'^#include[^\n]*\n', '',
-                 (ROOT / 'tools/geditor/src/texencode.c').read_text(), flags=re.M)
+encoder = (ROOT / 'tools/geditor/src/texencode.c').read_text()
+# Flipping is tested separately; it depends on the editor's full image reader.
+encoder = encoder.replace(function(encoder, 'TexFlipRecord'), '')
+source += re.sub(r'^#include[^\n]*\n', '', encoder, flags=re.M)
 for name in ('g_TexFormatGbiMappings', 'g_TexFormatDepths', 'g_TexFormatLutModes'):
     source += declaration(image, r's32 ' + name + r'\[\]\s*=\s*\{.*?\n};')
 for name in ('texFindClosestColourIndexRGBA', 'texFindClosestColourIndexIA',
              'texShrinkPaletted', 'texShrinkNonPaletted', 'texSwapAltRowBytes',
-             'texReadRawU16', 'texReadRawU32', 'texShouldWriteLodCache',
+             'texReadRawU16', 'texReadRawU32', 'texRawLevelBytes', 'texShouldWriteLodCache',
              'texCommitLodCache', 'texHasBinaryAlpha', 'texLoadRaw'):
     source += function(image, name)
 for name in ('sub_GAME_7F0CC4C8', 'texSetLutMode', 'texTrySetTileState', 'texTrySetTileSize',
