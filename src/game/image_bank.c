@@ -161,6 +161,11 @@ void texReset(void)
 
     texLoad(genericimage, 0);
 
+    /* Reserve the shared menu cursor / aiming reticle before loading models
+     * and level textures. A late first draw can otherwise exhaust the pool
+     * and permanently replace its image ID with the allocation-failure pointer. */
+    texLoad(crosshairimage, 0);
+
     for (i=0; i < 6; i++)
     {
         texLoad(&explosion_smokeimages[i], 0);
