@@ -6,6 +6,26 @@
 static const char *why="";
 #define OK(x) do { if (!(x)) { fprintf(stderr,"%d: %s: %s\n",__LINE__,#x,why); abort(); } } while (0)
 static void Put(unsigned char *p,DWORD v) { p[0]=v>>24;p[1]=v>>16;p[2]=v>>8;p[3]=v; }
+static const char *bondnames[]={"Brosnan","Connery","Dalton","Moore"};
+static void AppendNames(TextBank *bank)
+{
+    TextBank original={0},reloaded={0}; DWORD slot,first=bank->count;
+    OK(TextBankLoad(bank->data,bank->size,&original,&why));
+    for (DWORD i=0;i<4;i++)
+    {
+        OK(TextBankAppend(bank,"",&slot,&why)); OK(slot==first+i);
+        OK(TextBankString(bank,slot) && !*TextBankString(bank,slot));
+        OK(TextBankSet(bank,slot,bondnames[i],&why));
+    }
+    OK(TextBankLoad(bank->data,bank->size,&reloaded,&why)); OK(reloaded.count==first+4);
+    for (DWORD i=0;i<first;i++)
+    {
+        const char *a=TextBankString(&original,i),*b=TextBankString(&reloaded,i);
+        OK((a && b && !strcmp(a,b)) || (!a && !b));
+    }
+    for (DWORD i=0;i<4;i++) { OK(!strcmp(TextBankString(&reloaded,first+i),bondnames[i])); }
+    TextBankFree(&reloaded);TextBankFree(&original);
+}
 static void RoundTrip(const unsigned char *data,DWORD size)
 {
     TextBank bank={0}; DWORD count;
@@ -30,7 +50,7 @@ static void RoundTrip(const unsigned char *data,DWORD size)
         TextBankFree(&reloaded); OK(TextBankSet(&bank,i,copy,&why)); free(copy);
         OK(TextBankEqual(data,size,bank.data,bank.size));
     }
-    TextBankFree(&bank);
+    AppendNames(&bank); TextBankFree(&bank);
 }
 static void EdgeCases(void)
 {
@@ -40,7 +60,7 @@ static void EdgeCases(void)
     OK(TextBankSet(&bank,0,"Changed\n",&why)); OK(!strcmp(TextBankString(&bank,1),"shared\n"));
     OK(!strcmp(TextBankString(&bank,2),"ared\n")); OK(TextBankString(&bank,3)==NULL);
     OK(TextBankSet(&bank,1,"",&why)); OK(TextBankString(&bank,1) && !*TextBankString(&bank,1));
-    OK(!TextBankSet(&bank,3,"unused",&why)); TextBankFree(&bank);
+    OK(!TextBankSet(&bank,3,"unused",&why)); AppendNames(&bank); TextBankFree(&bank);
     char bytes[256]; for (int i=1;i<=255;i++) { bytes[i-1]=(char)i; } bytes[255]=0;
     wide=TextBankFormat(bytes);OK(wide);OK(TextBankParse(wide,&s,&why));OK(!memcmp(s,bytes,256));free(s);free(wide);
     OK(TextBankParse(L"One\r\n\r\nTwo\n",&s,&why));OK(!strcmp(s,"One\n\nTwo\n"));free(s);
@@ -59,7 +79,18 @@ static void EdgeCases(void)
     OK(TextBankLoad(data,sizeof(data),&bank,&why));
     char *large=malloc(TEXT_BANK_MAX_SIZE+1);memset(large,'X',TEXT_BANK_MAX_SIZE);large[TEXT_BANK_MAX_SIZE]=0;
     OK(!TextBankSet(&bank,0,large,&why));OK(bank.size==sizeof(data)&&!memcmp(bank.data,data,sizeof(data)));
+    DWORD slot=TEXT_BANK_UNKNOWN_ID;
+    OK(!TextBankAppend(&bank,large,&slot,&why)); OK(slot==TEXT_BANK_UNKNOWN_ID);
+    OK(bank.count==4 && bank.size==sizeof(data) && !memcmp(bank.data,data,sizeof(data)));
     free(large);TextBankFree(&bank);
+    unsigned char *slots=calloc(TEXT_BANK_MAX_SLOTS*4,1);
+    OK(slots && TextBankLoad(slots,(TEXT_BANK_MAX_SLOTS-1)*4,&bank,&why));
+    OK(TextBankAppend(&bank,"",&slot,&why)); OK(slot==TEXT_BANK_MAX_SLOTS-1);
+    OK(TextBankValidate(bank.data,bank.size,&count,&why) && count==TEXT_BANK_MAX_SLOTS);
+    unsigned char *saved=bank.data; DWORD savedsize=bank.size;
+    OK(!TextBankAppend(&bank,"Too many",NULL,&why));
+    OK(bank.data==saved && bank.size==savedsize && bank.count==TEXT_BANK_MAX_SLOTS);
+    TextBankFree(&bank); free(slots);
     puts("PASS: aliases, NULL versus empty, every nonzero byte, CRLF, escapes, Unicode rejection, malformed offsets and size limit.");
 }
 int main(int argc,char **argv)
@@ -70,6 +101,6 @@ int main(int argc,char **argv)
         FILE *f=fopen(argv[i],"rb");long size;unsigned char *data;OK(f);OK(!fseek(f,0,SEEK_END));size=ftell(f);rewind(f);
         data=malloc(size);OK(data && fread(data,1,size,f)==(size_t)size);fclose(f);RoundTrip(data,(DWORD)size);free(data);
     }
-    printf("PASS: %d native banks; all strings survive edits, resizing, reload and restoration with stable IDs.\n",argc-1);
+    printf("PASS: %d native banks; edits and four appended Bond names survive reload with stable IDs; 1024-slot limit enforced.\n",argc-1);
     return 0;
 }

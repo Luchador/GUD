@@ -21,6 +21,8 @@ void TextBankFree(TextBank *bank);
 const char *TextBankString(const TextBank *bank, DWORD slot); /* NULL is an unused slot. */
 BOOL TextBankEqual(const unsigned char *a, DWORD asize, const unsigned char *b, DWORD bsize);
 BOOL TextBankSet(TextBank *bank, DWORD slot, const char *text, const char **why);
+/* Append without reusing NULL slots or changing any existing string IDs. */
+BOOL TextBankAppend(TextBank *bank, const char *text, DWORD *slot, const char **why);
 /* Lossless ASCII editing: real newlines, \\, \n, \r, \t and \xHH escapes. */
 wchar_t *TextBankFormat(const char *text);
 BOOL TextBankParse(const wchar_t *text, char **out, const char **why);

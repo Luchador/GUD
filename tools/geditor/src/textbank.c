@@ -129,14 +129,11 @@ BOOL TextBankEqual(const unsigned char *a, DWORD asize, const unsigned char *b, 
     }
     return TRUE;
 }
-BOOL TextBankSet(TextBank *bank, DWORD slot, const char *text, const char **why)
+static BOOL Rebuild(TextBank *bank, DWORD count, DWORD slot, const char *text, const char **why)
 {
-    DWORD size=bank->count*4, offsets[TEXT_BANK_MAX_SLOTS]={0};
+    DWORD size=count*4, offsets[TEXT_BANK_MAX_SLOTS]={0};
     const char *strings[TEXT_BANK_MAX_SLOTS]; unsigned char *data;
-    const char *old=TextBankString(bank,slot);
-    if (!old || !text) { return Fail(why,"Select an existing string. Unused slots cannot be edited."); }
-    if (!strcmp(old,text)) { return TRUE; }
-    for (DWORD i=0;i<bank->count;i++)
+    for (DWORD i=0;i<count;i++)
     {
         strings[i]=i==slot ? text : TextBankString(bank,i);
         if (!strings[i]) { continue; }
@@ -153,9 +150,25 @@ BOOL TextBankSet(TextBank *bank, DWORD slot, const char *text, const char **why)
     if (size>TEXT_BANK_MAX_SIZE) { return Fail(why,"This text file exceeds the game's text buffer."); }
     data=calloc(size,1);
     if (!data) { return Fail(why,"Out of memory editing text."); }
-    for (DWORD i=0;i<bank->count;i++)
+    for (DWORD i=0;i<count;i++)
     { Write32(data+i*4,offsets[i]); if (offsets[i]) { strcpy((char *)data+offsets[i],strings[i]); } }
-    free(bank->data); bank->data=data; bank->size=size; return TRUE;
+    free(bank->data); bank->data=data; bank->size=size; bank->count=count; return TRUE;
+}
+BOOL TextBankSet(TextBank *bank, DWORD slot, const char *text, const char **why)
+{
+    const char *old=TextBankString(bank,slot);
+    if (!old || !text) { return Fail(why,"Select an existing string. Unused slots cannot be edited."); }
+    if (!strcmp(old,text)) { return TRUE; }
+    return Rebuild(bank,bank->count,slot,text,why);
+}
+BOOL TextBankAppend(TextBank *bank, const char *text, DWORD *slot, const char **why)
+{
+    DWORD next=bank->count;
+    if (!bank->data || !next || !text) { return Fail(why,"Open a text file before adding a string."); }
+    if (next>=TEXT_BANK_MAX_SLOTS) { return Fail(why,"This text file already has the maximum of 1024 string slots."); }
+    if (!Rebuild(bank,next+1,next,text,why)) { return FALSE; }
+    if (slot) { *slot=next; }
+    *why=""; return TRUE;
 }
 
 wchar_t *TextBankFormat(const char *text)

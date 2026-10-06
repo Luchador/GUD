@@ -10,7 +10,7 @@
 #include "romexport.h"
 
 enum { TE_FILES=2400, TE_FILTER, TE_STRINGS, TE_TEXT, TE_REVERT, TE_SAVE,
-    TE_FILELABEL, TE_FILTERLABEL, TE_ID, TE_HELP, TE_STATUS };
+    TE_FILELABEL, TE_FILTERLABEL, TE_ID, TE_HELP, TE_STATUS, TE_NEW };
 typedef struct TextEditor {
     HWND window;
     const GEditorProject *project;
@@ -57,6 +57,7 @@ static void Title(TextEditor *e)
     snprintf(text,sizeof(text),"Text Editor - %s%s",e->files[e->file].name,e->dirty || e->pending ? " *" : "");
     SetWindowText(e->window,text);
     EnableWindow(Control(e,TE_SAVE),e->dirty || e->pending);
+    EnableWindow(Control(e,TE_NEW),e->bank.count<TEXT_BANK_MAX_SLOTS);
 }
 static void Status(TextEditor *e)
 {
@@ -87,7 +88,7 @@ static void ShowString(TextEditor *e)
     e->refreshing=TRUE;
     SetWindowTextW(Control(e,TE_TEXT),text); free(text);
     SendMessage(Control(e,TE_TEXT),EM_SETREADONLY,!s,0);
-    EnableWindow(Control(e,TE_REVERT),s!=NULL);
+    EnableWindow(Control(e,TE_REVERT),s!=NULL && TextBankString(&e->saved,e->slot)!=NULL);
     if (e->slot==TEXT_BANK_UNKNOWN_ID) { strcpy(label,"No matching strings"); }
     else if (e->files[e->file].id==TEXT_BANK_UNKNOWN_ID)
     { snprintf(label,sizeof(label),"Slot %lu [0x%03lX]%s",(unsigned long)e->slot,(unsigned long)e->slot,s ? "" : " - unused (NULL)"); }
@@ -137,6 +138,16 @@ static void ListStrings(TextEditor *e)
     SelectSlot(e); SendMessage(list,WM_SETREDRAW,TRUE,0); InvalidateRect(list,NULL,TRUE);
     e->refreshing=FALSE; ShowString(e);
 }
+static void NewString(TextEditor *e)
+{
+    const char *why=""; DWORD slot;
+    if (!ApplyText(e)) { return; }
+    if (!TextBankAppend(&e->bank,"",&slot,&why)) { Error(e,why); return; }
+    e->slot=slot; e->dirty=TRUE;
+    /* A previous search must not hide the newly created empty entry. */
+    e->refreshing=TRUE; SetWindowText(Control(e,TE_FILTER),""); e->refreshing=FALSE;
+    ListStrings(e); SetFocus(Control(e,TE_TEXT));
+}
 static BOOL Save(TextEditor *e)
 {
     TextBank saved={0}; const char *why="";
@@ -178,6 +189,7 @@ static void Layout(TextEditor *e)
     Place(e,TE_TEXT,right,74,w-right-12,h-228);
     Place(e,TE_HELP,right,h-146,w-right-12,64);
     Place(e,TE_STATUS,12,h-68,w-24,22);
+    Place(e,TE_NEW,12,h-38,130,26);
     Place(e,TE_REVERT,right,h-38,130,26); Place(e,TE_SAVE,w-226,h-38,110,26);
     Place(e,IDCANCEL,w-108,h-38,96,26);
 }
@@ -195,6 +207,7 @@ static void Controls(TextEditor *e)
     Add(e,TE_FILTERLABEL,"STATIC","Find / ID",SS_NOPREFIX);
     Add(e,TE_FILTER,"EDIT","",WS_TABSTOP|ES_AUTOHSCROLL);
     Add(e,TE_STRINGS,"LISTBOX","",WS_TABSTOP|LBS_NOTIFY|LBS_NOINTEGRALHEIGHT|WS_VSCROLL|WS_HSCROLL);
+    Add(e,TE_NEW,"BUTTON","&New String",WS_TABSTOP|BS_PUSHBUTTON);
     Add(e,TE_ID,"STATIC","",SS_NOPREFIX);
     /* Unicode input prevents ANSI conversion silently replacing pasted
      * unsupported characters before the byte-level validator sees them. */
@@ -259,6 +272,7 @@ static INT_PTR CALLBACK Dialog(HWND hwnd, UINT message, WPARAM w, LPARAM l)
                 return TRUE;
             }
             if (id==TE_SAVE && code==BN_CLICKED) { Save(e); return TRUE; }
+            if (id==TE_NEW && code==BN_CLICKED) { NewString(e); return TRUE; }
             if (id==TE_REVERT && code==BN_CLICKED)
             {
                 const char *why="",*original=TextBankString(&e->saved,e->slot);

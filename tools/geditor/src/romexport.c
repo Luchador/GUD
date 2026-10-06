@@ -1181,9 +1181,11 @@ static BOOL RomExportReplaceProjectResources(const GEditorProject *project,
             {
                 free(data); RomExportSetError(reasonout, "%s: %s", resource, why); goto fail;
             }
-            if (originalcount != editedcount)
+            /* Appending slots keeps every existing ID valid. Removing the
+             * original slots could break code/setup references into this bank. */
+            if (editedcount < originalcount)
             {
-                free(data); RomExportSetError(reasonout, "%s: the saved text must preserve the original string IDs.", resource); goto fail;
+                free(data); RomExportSetError(reasonout, "%s: the saved text must retain all original string slots.", resource); goto fail;
             }
         }
 

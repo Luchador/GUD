@@ -42,6 +42,9 @@ static void TextEditing(const char *parent,const unsigned char *model,DWORD mode
     char longtext[700];memset(longtext,'A',sizeof(longtext));longtext[sizeof(longtext)-2]='\n';longtext[sizeof(longtext)-1]=0;
     OK(TextBankSet(&bank,0,longtext,&why));OK(TextBankSet(&bank,1,"Find the new control room.\n",&why));
     OK(TextBankSet(&other,0,"Custom menu\n",&why));
+    const char *names[]={"Brosnan","Connery","Dalton","Moore"};
+    for (DWORD i=0;i<4;i++)
+    { DWORD slot; OK(TextBankAppend(&other,names[i],&slot,&why)); OK(slot==4+i); }
     OK(TextBankSaveProject(project.dir,"LsiloE",&bank,&why));
     OK(TextBankSaveProject(project.dir,"LoptionsE",&other,&why));
     OK(TextBankLoadProject(project.dir,&rom,"LsiloE",&loaded,&why));
@@ -61,6 +64,10 @@ static void TextEditing(const char *parent,const unsigned char *model,DWORD mode
     OK(RomExportCreate(&rebased,"TextRebasedPlayable",parent,exported,sizeof(exported),&why));
     OK(RomLoad(exported,&output,&why));OK(RomFindFile(&output,"LsiloE",&offset,&span,&why));
     OK(TextBankEqual(bank.data,bank.size,output.data+offset,span));RomFree(&output);
+    OK(RomLoad(exported,&output,&why));OK(RomFindFile(&output,"LoptionsE",&offset,&span,&why));
+    OK(TextBankLoad(output.data+offset,span,&loaded,&why));OK(loaded.count==8);
+    for (DWORD i=0;i<4;i++) { OK(!strcmp(TextBankString(&loaded,4+i),names[i])); }
+    TextBankFree(&loaded);RomFree(&output);
     /* Independent changes to the same native bank conflict, preserving both projects. */
     DWORD at=(MODEL+modelsize+156+15)&~15u;
     strcpy((char *)next+at+SHIFT+16,"Upstream briefing\n");Save(nextpath,next,SIZE);
