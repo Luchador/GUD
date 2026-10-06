@@ -173,5 +173,10 @@ BgVertex *ModelLoadProjectNamedGeometry(const char *projectdir, const char *fold
  */
 DWORD ModelExtractAll(const RomFile *rom, const char *projectdir,
                       const char **reasonout);
+/* Recover models skipped by older extractors when opening existing projects.
+ * Existing files are retained; missing files use any native project edits.
+ * Zero written with an empty reason means there was nothing to recover. */
+DWORD ModelExtractMissing(const RomFile *rom, const char *projectdir,
+                          const char **reasonout);
 
 #endif /* GEDITOR_MODELLOAD_H */

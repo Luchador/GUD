@@ -576,13 +576,30 @@ static DWORD ModelFindRootNode(const unsigned char *data, DWORD size)
 {
     DWORD probe;
 
-    for (probe = 0; probe + 24 <= size && probe < 0x200; probe += 4)
+    if (!data || size < 24) { return 0; }
+    /* Switch and texture tables precede the root. PwalletbondZ has 43
+     * switches and 84 texture records, putting its root at 0x49c rather
+     * than inside the old 0x200-byte search window. Validate the links
+     * instead of imposing an arbitrary limit on those tables. */
+    for (probe = 4; probe <= size - 24 && probe < 0x01000000u; probe += 4)
     {
         DWORD opcode = (unsigned short)md16(data + probe) & 0xff;
         DWORD dataptr = md32(data + probe + 4);
+        DWORD childptr = md32(data + probe + 20);
+        DWORD child = mdoff(childptr);
+        DWORD nextptr = md32(data + probe + 12);
+        DWORD next = mdoff(nextptr);
 
         if (opcode >= 1 && opcode <= 0x20 && (dataptr >> 24) == 0x05
-            && mdoff(dataptr) < size && md32(data + probe + 8) == 0)
+            && !(dataptr & 3) && mdoff(dataptr) < size
+            && md32(data + probe + 8) == 0 /* no parent */
+            && md32(data + probe + 16) == 0 /* first root-level sibling */
+            && (!nextptr || ((nextptr >> 24) == 5 && !(nextptr & 3)
+                && next != probe && next <= size - 24 && md32(data + next + 8) == 0
+                && md32(data + next + 16) == (0x05000000u | probe)))
+            && (!childptr || ((childptr >> 24) == 5 && !(childptr & 3)
+                && child != probe && child <= size - 24
+                && md32(data + child + 8) == (0x05000000u | probe))))
         {
             return probe;
         }
@@ -1336,8 +1353,8 @@ static const char *MdlClassFolder(const char *name)
     return NULL; /* setups, stans, text, bg - not models */
 }
 
-DWORD ModelExtractAll(const RomFile *rom, const char *projectdir,
-                      const char **reasonout)
+static DWORD MdlExtractModels(const RomFile *rom, const char *projectdir,
+                              BOOL onlymissing, const char **reasonout)
 {
     char dir[MAX_PATH];
     char path[MAX_PATH];
@@ -1370,11 +1387,23 @@ DWORD ModelExtractAll(const RomFile *rom, const char *projectdir,
         unsigned short *texids = NULL;
         BgRenderFlags *renderflags = NULL;
         BgVertex *tris;
+        const unsigned char *native;
         const char *why = "";
 
-        if (cls == NULL || strchr(name, '/') != NULL)
+        if (cls == NULL || strpbrk(name, "\\/:*?\"<>|.") != NULL)
         {
             continue;
+        }
+
+        int length = snprintf(path, sizeof(path), "%s\\models\\%s\\%s.gltf", projectdir, cls, name);
+        if (length < 0 || length >= (int)sizeof(path))
+        { *reasonout = "the model path is too long."; return written; }
+        if (onlymissing)
+        {
+            if (GetFileAttributes(path) != INVALID_FILE_ATTRIBUTES) { continue; }
+            DWORD error = GetLastError();
+            if (error != ERROR_FILE_NOT_FOUND && error != ERROR_PATH_NOT_FOUND)
+            { *reasonout = "an existing model file could not be accessed."; return written; }
         }
 
         if (!RomGetFileByIndex(rom, i, name, sizeof(name), &offset, &maxlen))
@@ -1382,40 +1411,54 @@ DWORD ModelExtractAll(const RomFile *rom, const char *projectdir,
             continue;
         }
 
+        native = rom->data + offset;
+        if (onlymissing)
+        {
+            DWORD editedsize;
+            const unsigned char *edited = ModelEditsGetData(projectdir, name, &editedsize, &why);
+            if (edited) { native = edited; maxlen = editedsize; }
+            else if (why[0]) { *reasonout = why; return written; }
+        }
         tris = name[0] == 'C'
-            ? ModelLoadCharacterGeometry(rom->data + offset, maxlen,
+            ? ModelLoadCharacterGeometry(native, maxlen,
                                          &tricount, &texids, &renderflags, &why)
-            : ModelLoadGeometry(rom->data + offset, maxlen,
+            : ModelLoadGeometry(native, maxlen,
                                  &tricount, &texids, &renderflags, &why);
 
         if (tris != NULL)
         {
-            wsprintf(path, "%s\\models\\%s\\%s.gltf", projectdir, cls, name);
-
             ModelSource source;
-            if (ModelReadSource(rom->data + offset, maxlen, &source, &why))
+            BOOL saved;
+            if (ModelReadSource(native, maxlen, &source, &why))
             {
                 source.closestpreview = name[0] == 'C';
-                if (GltfWriteEditableModel(path, projectdir, &source,
-                    ModelDataHash(rom->data + offset, maxlen), &why)) { written++; }
+                saved = GltfWriteEditableModel(path, projectdir, &source,
+                    ModelDataHash(native, maxlen), &why);
                 ModelFreeSource(&source);
             }
-            else if (GltfWriteModel(path, projectdir, tris, texids, renderflags, tricount, &why))
-            { written++; }
+            else { saved = GltfWriteModel(path, projectdir, tris, texids, renderflags, tricount, &why); }
+            if (saved) { written++; }
 
             free(tris);
             free(texids);
             free(renderflags);
+            if (!saved && onlymissing) { *reasonout = why; return written; }
         }
     }
 
-    if (written == 0)
+    if (written == 0 && !onlymissing)
     {
         *reasonout = "no models could be extracted.";
     }
 
     return written;
 }
+
+DWORD ModelExtractAll(const RomFile *rom, const char *projectdir, const char **reasonout)
+{ return MdlExtractModels(rom, projectdir, FALSE, reasonout); }
+
+DWORD ModelExtractMissing(const RomFile *rom, const char *projectdir, const char **reasonout)
+{ return MdlExtractModels(rom, projectdir, TRUE, reasonout); }
 
 BOOL ModelGetPropDefinition(int modelid, const char **nameout,
                             float *scaleout)

@@ -627,6 +627,20 @@ static void GEditorRefreshProjectAssets(void)
     if (!NewPropsOpen(g_Project.dir,&why))
     { MessageBox(GetParent(g_Viewport),why,GEDITOR_TITLE,MB_ICONERROR); }
 
+    /* Upgrade the extracted catalog in place, including models such as the
+     * front-end wallet whose root older editor versions could not locate. */
+    {
+        RomFile rom;
+        char path[MAX_PATH];
+        int length = snprintf(path, sizeof(path), "%s\\base.z64", g_Project.dir);
+        if (length >= 0 && length < (int)sizeof(path) && RomLoad(path, &rom, &why))
+        {
+            ModelExtractMissing(&rom, g_Project.dir, &why);
+            RomFree(&rom);
+            if (why[0]) { MessageBox(GetParent(g_Viewport), why, "Recover missing models", MB_ICONWARNING); }
+        }
+    }
+
     /* Models: enumerate assets for the cached thumbnail grid. */
     {
         static const char *classes[] = { "characters", "guns", "objects", "casings" };
