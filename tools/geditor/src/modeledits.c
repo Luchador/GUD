@@ -9,6 +9,7 @@
 #include "modeledits.h"
 #include "modelcompile.h"
 #include "newprops.h"
+#include "charactercatalog.h"
 #include "texload.h"
 #include "idleposes.h"
 
@@ -986,16 +987,78 @@ done:
     ModelMaterialsFree(&ordered);GltfFreeModelImport(&imported);return ok;
 }
 
-BOOL ModelEditsImport(const char *project, const char *name, const char *path,
-    DWORD *before, DWORD *after, const char **why)
+/* Raw replacements use the original stock template, not the already-bound
+ * body in its preview pose. Repeated imports must not accumulate fitting or
+ * transfer a previous binding error. Keep the custom bank entry and its ID. */
+static BOOL CompileCharacterReplacement(const char *project,const char *name,
+    const ModelSource *previous,GltfModelImport *imported,const BgRenderFlags *flags,BOOL fit,
+    ModelMaterials *ordered,unsigned char **result,DWORD *resultsize,const char **why)
+{
+    unsigned char *data=NULL,*compiled=NULL,*finished=NULL;
+    DWORD size,basehash,compiledsize,finishedsize;int templateid;
+    ModelSource source={0},check={0};GltfModelImport textured={0};
+    BOOL ok=FALSE,assigned=FALSE;
+    *result=NULL;*resultsize=0;
+    if (!NewPropsCharacter(NewPropsCharacterId(name),NULL,&templateid)
+        || !CharacterCatalogKind(templateid) || CharacterCatalogKind(templateid)!=NewPropsCharacterKind(name))
+    { *why="Raw character replacement requires an imported head or body with a stock template.";goto done; }
+    for (DWORD i=0;i<imported->count;i++) if (flags[i]&BG_RENDER_BLEND)
+    { *why="Raw character geometry must use opaque materials. Use a GEditor export for transparent parts.";goto done; }
+    if (!LoadSource(project,g_CharacterModels[templateid].filename,&data,&size,&basehash,why)
+        || !ModelReadSource(data,size,&source,why) || !ModelMaterialsEnsure(&source,project,why)) goto done;
+    if (NewPropsCharacterKind(name)==CUSTOM_CHARACTER_HEAD) {
+        if (fit && !FitHeadGeometry(&source,imported,why)) goto done;
+        if (!ModelCompileHeadGeometry(data,size,&source,imported,project,ordered,&compiled,&compiledsize,why)) goto done;
+    } else if (!ModelCompileBodyGeometry(data,size,&source,imported,fit,ordered,&compiled,&compiledsize,why)) goto done;
+    if (!ModelReadSource(compiled,compiledsize,&check,why)
+        || !ModelCompileDefaultCulling(compiled,compiledsize,&check,&finished,&finishedsize,why)) goto done;
+    free(compiled);compiled=finished;compiledsize=finishedsize;finished=NULL;ModelFreeSource(&check);
+    /* Raw body compilation emits untextured native geometry. Reapply matched
+     * images to the actual display lists and native UVs, not just the trailer.
+     * Unmatched or ambiguous names deliberately remain unassigned. */
+    ModelMaterialsMatch(ordered,&previous->materials);
+    for (DWORD i=0;i<ordered->count;i++) assigned|=ordered->slots[i].texture!=BG_TEX_NONE;
+    if (assigned) {
+        if (!ModelReadSource(compiled,compiledsize,&check,why)) goto done;
+        if (check.count!=ordered->facecount) { *why="The rebuilt character has an unexpected face count.";goto done; }
+        textured.count=check.count;
+        textured.vertices=malloc((size_t)check.count*3*sizeof(*textured.vertices));
+        textured.tags=malloc((size_t)check.count*sizeof(*textured.tags));
+        textured.sourcevertices=malloc((size_t)check.count*3*sizeof(*textured.sourcevertices));
+        textured.rebind=malloc(check.count);
+        if (!textured.vertices || !textured.tags || !textured.sourcevertices || !textured.rebind)
+        { *why="Out of memory retaining character images.";goto done; }
+        for (DWORD i=0;i<check.count;i++) {
+            textured.tags[i]=(check.tags[i]&~BG_TEX_ID_MASK)|ordered->slots[ordered->faces[i].slot].texture;
+            textured.rebind[i]=TRUE;
+            for (DWORD k=0;k<3;k++) {
+                DWORD corner=i*3+k;
+                textured.sourcevertices[corner]=corner;textured.vertices[corner]=check.vertices[corner];
+                textured.vertices[corner].s=ordered->faces[i].uv[k*2];
+                textured.vertices[corner].t=ordered->faces[i].uv[k*2+1];
+            }
+        }
+        if (!ModelCompileImport(compiled,compiledsize,&check,&textured,project,&finished,&finishedsize,why)) goto done;
+        free(compiled);compiled=finished;compiledsize=finishedsize;finished=NULL;
+    }
+    *result=compiled;*resultsize=compiledsize;compiled=NULL;ok=TRUE;
+done:
+    free(data);free(compiled);free(finished);ModelFreeSource(&source);ModelFreeSource(&check);
+    GltfFreeModelImport(&textured);return ok;
+}
+
+static BOOL ImportModel(const char *project, const char *name, const char *path,
+    BOOL rawcharacter,BOOL fit,DWORD *before, DWORD *after, const char **why)
 {
     unsigned char *data=NULL,*compiled=NULL;
     DWORD size,basehash,compiledsize;
     ModelSource source={0},check={0};
     GltfModelImport imported={0}; ModelMaterials ordered={0};
     ModelEdit *edit; DWORD i;
-    BOOL ok=FALSE;
+    BOOL ok=FALSE,roundtrip=TRUE;BgRenderFlags *flags=NULL;
     if (!NewPropsOpen(project,why)) return FALSE;
+    if (rawcharacter && !NewPropsCharacterKind(name))
+    { *why="Raw character replacement is only available for imported heads and bodies.";return FALSE; }
     if (NewPropsData(project,name,&size) && !NewPropsCharacterKind(name))
     {
         if (!ModelEditsReadSource(project,name,&source,&basehash,why)) return FALSE;
@@ -1003,8 +1066,14 @@ BOOL ModelEditsImport(const char *project, const char *name, const char *path,
         return NewPropsImport(project,name,path,TRUE,after,why);
     }
     if(!LoadSource(project,name,&data,&size,&basehash,why)) { goto done; }
-    if(!ModelReadSource(data,size,&source,why) || !ModelMaterialsEnsure(&source,project,why)
-        || !GltfReadModelImport(path,ModelDataHash(data,size),&imported,why)) goto done;
+    if(!ModelReadSource(data,size,&source,why) || !ModelMaterialsEnsure(&source,project,why)) goto done;
+    if (rawcharacter) {
+        if (!GltfReadCharacterImport(path,ModelDataHash(data,size),project,&imported,&flags,&roundtrip,why)) goto done;
+    } else if (!GltfReadModelImport(path,ModelDataHash(data,size),&imported,why)) goto done;
+    if (!roundtrip) {
+        if (!CompileCharacterReplacement(project,name,&source,&imported,flags,fit,&ordered,&compiled,&compiledsize,why)) goto done;
+        goto validate;
+    }
     ModelMaterialsMatch(&imported.materials,&source.materials);
     for (i=0;i<imported.count;i++)
         imported.tags[i]=(imported.tags[i]&~BG_TEX_ID_MASK)|imported.materials.slots[imported.materials.faces[i].slot].texture;
@@ -1016,6 +1085,7 @@ BOOL ModelEditsImport(const char *project, const char *name, const char *path,
             || !ImportMaterials(&source,&imported,&ordered,why)) goto done;
     }
     else if (!ModelCompileRetopology(data,size,&source,&imported,project,&ordered,&compiled,&compiledsize,why)) goto done;
+validate:
     if (compiledsize==ModelMaterialsNativeSize(data,size) && !memcmp(data,compiled,compiledsize)
         && ordered.count==source.materials.count && ordered.facecount==source.materials.facecount
         && !memcmp(ordered.slots,source.materials.slots,(size_t)ordered.count*sizeof(*ordered.slots))
@@ -1040,8 +1110,18 @@ BOOL ModelEditsImport(const char *project, const char *name, const char *path,
     free(edit->data);edit->data=compiled;compiled=NULL;edit->size=compiledsize;edit->basehash=basehash;edit->dirty=TRUE;
     ok=TRUE;*why="";
 done:
-    free(data);free(compiled);ModelFreeSource(&source);ModelFreeSource(&check);
+    free(flags);free(data);free(compiled);ModelFreeSource(&source);ModelFreeSource(&check);
     ModelMaterialsFree(&ordered);GltfFreeModelImport(&imported);return ok;
+}
+BOOL ModelEditsImport(const char *project,const char *name,const char *path,
+    DWORD *before,DWORD *after,const char **why)
+{
+    return ImportModel(project,name,path,FALSE,FALSE,before,after,why);
+}
+BOOL ModelEditsImportCharacter(const char *project,const char *name,const char *path,BOOL fit,
+    DWORD *before,DWORD *after,const char **why)
+{
+    return ImportModel(project,name,path,TRUE,fit,before,after,why);
 }
 BOOL ModelEditsSave(const char *project, const char **why)
 {

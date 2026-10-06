@@ -137,6 +137,14 @@ static void RawBody(const char *project,const char *name,const char *path,BOOL f
     OK(ModelEditsExport(project,name,exported,&why));
     OK(ModelEditsImport(project,name,exported,&before,&after,&why) && before==after && after==count);
     OK(!ModelEditsImport(project,name,path,&before,&after,&why));
+    OK(strstr(why,"no GUD source identity"));
+    RawReplacement(project,name,path,fit,id,5);
+    native=NewPropsData(project,name,&size);
+    for(DWORD frame=0;frame<sizeof(bodyposes)/sizeof(*bodyposes);frame++) {
+        BgVertex *pose=ModelLoadAnimationPose(native,size,bodyposes[frame],45,0,count,&why);OK(pose);
+        for(DWORD i=0;i<count*3;i++) OK(isfinite(pose[i].x) && isfinite(pose[i].y) && isfinite(pose[i].z));
+        free(pose);
+    }
     /* Assigning an image must preserve an intentional culling override. */
     ModelFreeSource(&source);OK(ModelEditsReadSource(project,name,&source,&revision,&why));
     DWORD face=0;OK(ModelEditsSetProperties(project,name,revision,&face,1,0,-1,-1,-1,&why));

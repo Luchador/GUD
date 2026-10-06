@@ -2430,8 +2430,9 @@ static BOOL GltfReadImport(const char *path, DWORD sourcehash, const char *proje
             }
         }
     }
-    /* Only a NEW character may use unbound geometry. An existing identity must
-     * still match the selected template; never retry a stale export as raw. */
+    /* Character creation and explicit custom-character replacement may use
+     * unbound geometry. Any existing identity must still match the requested
+     * source; never retry a stale or malformed export as raw geometry. */
     if (headroundtrip && !foundhash) { builder.importing=FALSE;builder.newprop=TRUE; }
     if ((builder.newprop || builder.studio) && GltfJsonArrayCount(tokens,tokencount,
         GltfJsonObjectGet(json,tokens,tokencount,0,"animations")))

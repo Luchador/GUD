@@ -1041,16 +1041,31 @@ static void ModelEditorRepairBodyBindings(void)
 }
 
 /* A loaded model must not silently turn Import Model into a replacement. */
+typedef struct ModelEditorImportOptions { const char *name;BOOL character,fit; } ModelEditorImportOptions;
 static INT_PTR CALLBACK ModelEditorImportModeDialog(HWND hwnd,UINT message,WPARAM wparam,LPARAM lparam)
 {
+    ModelEditorImportOptions *options=(ModelEditorImportOptions *)GetWindowLongPtr(hwnd,DWLP_USER);
     if (message==WM_INITDIALOG)
     {
-        SetDlgItemText(hwnd,IDC_IMPORT_MODEL_TARGET,(const char *)lparam);
+        options=(ModelEditorImportOptions *)lparam;SetWindowLongPtr(hwnd,DWLP_USER,lparam);
+        SetDlgItemText(hwnd,IDC_IMPORT_MODEL_TARGET,options->name);
         CheckDlgButton(hwnd,IDC_IMPORT_MODEL_NEW,BST_CHECKED);
+        CheckDlgButton(hwnd,IDC_IMPORT_CHARACTER_FIT,options->fit ? BST_CHECKED : BST_UNCHECKED);
+        EnableWindow(GetDlgItem(hwnd,IDC_IMPORT_CHARACTER_FIT),FALSE);
+        SetDlgItemText(hwnd,IDC_IMPORT_MODEL_HELP,options->character
+            ? "Raw GLB/glTF rebuilds geometry and joints from the original template, retaining images with matching material names. Other mesh edits are replaced. Bodies must be standing, arms down (Y up, +Z forward). Current GEditor exports retain their rig and placement."
+            : "Replacement requires an export of the current model from GEditor. Imported static props also accept raw GLB/glTF geometry.");
+        return TRUE;
+    }
+    if (message==WM_COMMAND && (LOWORD(wparam)==IDC_IMPORT_MODEL_NEW || LOWORD(wparam)==IDC_IMPORT_MODEL_REPLACE))
+    {
+        EnableWindow(GetDlgItem(hwnd,IDC_IMPORT_CHARACTER_FIT),options->character
+            && IsDlgButtonChecked(hwnd,IDC_IMPORT_MODEL_REPLACE)==BST_CHECKED);
         return TRUE;
     }
     if (message==WM_COMMAND && LOWORD(wparam)==IDOK)
     {
+        options->fit=IsDlgButtonChecked(hwnd,IDC_IMPORT_CHARACTER_FIT)==BST_CHECKED;
         EndDialog(hwnd,IsDlgButtonChecked(hwnd,IDC_IMPORT_MODEL_REPLACE)==BST_CHECKED
             ? IDC_IMPORT_MODEL_REPLACE : IDC_IMPORT_MODEL_NEW);
         return TRUE;
@@ -1069,14 +1084,16 @@ static void ModelEditorTransfer(BOOL importing)
     const char *why="";
     DWORD before=0, after=0;
     BOOL ok;
+    ModelEditorImportOptions options={0};
     HCURSOR previous;
     entry=g_ModelSelected>=0 && g_ModelSelected<g_ModelCount ? &g_ModelEntries[g_ModelSelected] : NULL;
     if (!g_ModelProject[0] || (!importing && !entry)) { return; }
     if (importing && entry)
     {
+        options=(ModelEditorImportOptions){entry->name,NewPropsCharacterKind(entry->name)!=0,TRUE};
         HINSTANCE instance=(HINSTANCE)GetWindowLongPtr(g_ModelEditor,GWLP_HINSTANCE);
         INT_PTR mode=DialogBoxParam(instance,MAKEINTRESOURCE(IDD_MODEL_IMPORT_MODE),g_ModelEditor,
-            ModelEditorImportModeDialog,(LPARAM)entry->name);
+            ModelEditorImportModeDialog,(LPARAM)&options);
         if (mode==IDC_IMPORT_MODEL_NEW) { entry=NULL; }
         else if (mode!=IDC_IMPORT_MODEL_REPLACE) { return; }
         /* Keep the current selection and edits until a new model succeeds. */
@@ -1090,8 +1107,9 @@ static void ModelEditorTransfer(BOOL importing)
     if (!(importing ? GetOpenFileName(&ofn) : GetSaveFileName(&ofn))) { return; }
     if (importing && !entry) { ModelEditorImportNew(path);return; }
     previous=SetCursor(LoadCursor(NULL,IDC_WAIT));
-    ok=importing ? ModelEditsImport(g_ModelProject,entry->name,path,&before,&after,&why)
-                 : ModelEditsExport(g_ModelProject,entry->name,path,&why);
+    if (!importing) ok=ModelEditsExport(g_ModelProject,entry->name,path,&why);
+    else if (options.character) ok=ModelEditsImportCharacter(g_ModelProject,entry->name,path,options.fit,&before,&after,&why);
+    else ok=ModelEditsImport(g_ModelProject,entry->name,path,&before,&after,&why);
     SetCursor(previous);
     if (!ok) { MessageBox(g_ModelEditor,why,"Model Editor",MB_ICONERROR);return; }
     if (!importing)
@@ -1101,7 +1119,7 @@ static void ModelEditorTransfer(BOOL importing)
         return;
     }
     ModelEditorLoad(g_ModelSelected, TRUE);
-    snprintf(message,sizeof(message),"Imported all LODs: %lu to %lu tris. Save Project to keep the replacement.",
+    snprintf(message,sizeof(message),"Imported replacement: %lu to %lu tris. Save Project to keep the replacement.",
         (unsigned long)before,(unsigned long)after);
     SetDlgItemText(g_ModelEditor,IDC_MODEL_STATUS,message);
     ModelEditorNotifyChanged();

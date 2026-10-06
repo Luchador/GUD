@@ -85,6 +85,53 @@ static void Bounds(const BgVertex *vertices,DWORD count,double min[3],double max
         for(int a=0;a<3;a++) { if(!i || p[a]<min[a])min[a]=p[a];if(!i || p[a]>max[a])max[a]=p[a]; }
     }
 }
+static void RawReplacement(const char *project,const char *name,const char *path,BOOL fit,int id,int templateid)
+{
+    ModelSource old={0},now={0};DWORD revision,bytes,before,after;
+    int entries=NewPropsCount();
+    OK(ModelEditsReadSource(project,name,&old,&revision,&why));
+    OK(ModelEditsImportCharacter(project,name,path,fit,&before,&after,&why));
+    OK(before==old.count && after==old.count && NewPropsCount()==entries);
+    CheckCharacter(project,name,id,templateid);
+    OK(ModelEditsReadSource(project,name,&now,&revision,&why));Culling(&now);
+    OK(now.count==old.count && now.materials.count==old.materials.count);
+    OK(!memcmp(now.materials.slots,old.materials.slots,old.materials.count*sizeof(*old.materials.slots)));
+    OK(!memcmp(now.materials.faces,old.materials.faces,old.count*sizeof(*old.materials.faces)));
+    for(DWORD i=0;i<now.count;i++) {
+        OK(now.tags[i]==old.tags[i]);
+        for(DWORD k=0;k<3;k++) {
+            DWORD j=i*3+k;const BgVertex *a=old.vertices+j,*b=now.vertices+j;
+            OK(fabs(a->x-b->x)<.001 && fabs(a->y-b->y)<.001 && fabs(a->z-b->z)<.001);
+            OK(a->r==b->r && a->g==b->g && a->b==b->b && a->a==b->a);
+            OK(now.vertexmatrices[j]==old.vertexmatrices[j]);
+            if(BG_TEX_ID(now.tags[i])!=BG_TEX_NONE) {
+                OK(fabs(a->s-b->s)<.001 && fabs(a->t-b->t)<.001);
+            }
+        }
+    }
+    /* Repeat imports rebuild from the template, so size and fit cannot drift. */
+    unsigned char *snapshot=NULL;DWORD snapshotsize;
+    OK(ModelEditsCopyNative(project,name,&snapshot,&snapshotsize,&why));
+    OK(ModelEditsImportCharacter(project,name,path,fit,&before,&after,&why));
+    const unsigned char *native=NewPropsData(project,name,&bytes);
+    OK(native && bytes==snapshotsize && !memcmp(snapshot,native,bytes));
+    free(snapshot);
+    /* The permissive character route must still accept current GEditor
+     * exports without fitting them, and reject stale identities atomically. */
+    char exported[MAX_PATH];snprintf(exported,sizeof(exported),"%s/replacement.gltf",project);
+    OK(ModelEditsExport(project,name,exported,&why));
+    OK(ModelEditsImportCharacter(project,name,exported,TRUE,&before,&after,&why));
+    ModelFreeSource(&now);OK(ModelEditsReadSource(project,name,&now,&revision,&why));
+    OK(ModelEditsSetMaterial(project,name,revision,0,30,&why));
+    native=NewPropsData(project,name,&bytes);DWORD hash=ModelDataHash(native,bytes);
+    OK(!ModelEditsImportCharacter(project,name,exported,fit,&before,&after,&why));
+    OK(strstr(why,"older revision"));
+    native=NewPropsData(project,name,&bytes);OK(ModelDataHash(native,bytes)==hash && NewPropsCount()==entries);
+    OK(ModelEditsSetMaterial(project,name,hash,0,old.materials.slots[0].texture,&why));
+    ModelFreeSource(&old);ModelFreeSource(&now);
+    printf("PASS raw replacement %s: stable ID, fit=%d, geometry, joints, colors, UVs, images, repeat import and strict revision checks.\n",name,fit);
+}
+
 static void RawHead(const char *project,const char *name,const char *path,BOOL fit,int id)
 {
     ModelSource source={0},stock={0};GltfModelImport raw={0};BgRenderFlags *flags=NULL;
@@ -125,10 +172,46 @@ static void RawHead(const char *project,const char *name,const char *path,BOOL f
     char exported[MAX_PATH];snprintf(exported,sizeof(exported),"%s/%s.gltf",project,name);
     OK(ModelEditsExport(project,name,exported,&why));
     OK(ModelEditsImport(project,name,exported,&before,&after,&why) && before==after && after==triangles);
-    /* Replacing an existing model still requires its identity. */
+    /* The general importer stays strict; the custom-character route accepts
+     * raw geometry after explicitly choosing to replace the selected model. */
     OK(!ModelEditsImport(project,name,path,&before,&after,&why));
+    OK(strstr(why,"no GUD source identity"));
+    RawReplacement(project,name,path,fit,id,78);
     ModelFreeSource(&source);ModelFreeSource(&stock);GltfFreeModelImport(&raw);free(flags);
     printf("PASS raw head %s: %lu triangles, fitted=%d; geometry, colors, UVs, slots, texture assignment, collision chains and round trip.\n",name,(unsigned long)triangles,fit);
+}
+static void ChangedReplacement(const char *project)
+{
+    const char *name="CgeometryZ";char path[MAX_PATH];
+    ModelSource old={0},now={0};GltfModelImport raw={0};BgRenderFlags *flags=NULL;
+    BOOL roundtrip;DWORD revision,before,after,bytes;
+    OK(ModelEditsReadSource(project,name,&old,&revision,&why));
+    OK(ModelEditsSetMaterial(project,name,revision,1,6,&why));
+    const unsigned char *native=NewPropsData(project,name,&bytes);DWORD hash=ModelDataHash(native,bytes);
+    snprintf(path,sizeof(path),"%s/raw-changed.glb",project);
+    OK(GltfReadCharacterImport(path,hash,project,&raw,&flags,&roundtrip,&why) && !roundtrip);
+    /* No fit means use the changed file's native coordinates verbatim. */
+    OK(ModelEditsImportCharacter(project,name,path,FALSE,&before,&after,&why));
+    OK(ModelEditsReadSource(project,name,&now,&revision,&why) && revision!=hash);
+    OK(before==old.count && after==raw.count && now.count==raw.count);
+    CheckCharacter(project,name,82,78);Culling(&now);
+    OK(now.materials.slots[0].texture==5 && now.materials.slots[1].texture==BG_TEX_NONE);
+    OK(!strcmp(now.materials.slots[1].name,"New hair"));
+    for(DWORD i=0;i<now.count;i++) {
+        DWORD slot=now.materials.faces[i].slot;
+        OK(BG_TEX_ID(now.tags[i])==(slot ? BG_TEX_NONE : 5));
+        OK(!memcmp(now.materials.faces[i].uv,raw.materials.faces[i].uv,6*sizeof(float)));
+        for(DWORD k=0;k<3;k++) {
+            const BgVertex *a=raw.vertices+i*3+k,*b=now.vertices+i*3+k;
+            OK(fabs(a->x-b->x)<=.501 && fabs(a->y-b->y)<=.501 && fabs(a->z-b->z)<=.501);
+        }
+    }
+    ModelFreeSource(&now);
+    /* Restore the normal fixture for the subsequent save/export assertions. */
+    snprintf(path,sizeof(path),"%s/raw-normal.glb",project);
+    OK(ModelEditsImportCharacter(project,name,path,TRUE,&before,&after,&why));
+    ModelFreeSource(&old);GltfFreeModelImport(&raw);free(flags);
+    puts("PASS changed raw replacement: updated geometry, unmatched material unassigned, matching image retained, native coordinates and stable ID.");
 }
 #include "bodies.c"
 #include "headoffset.c"
@@ -174,12 +257,20 @@ int main(int argc,char **argv)
     RawHead(project,"CgeometryZ",path,TRUE,82);RawHead(project,"CnativeheadZ",path,FALSE,83);
     const char *actors[]={"CheadmooreZ","CheadconneryZ","CheaddaltonZ"};
     for(int i=3;i<argc;i++) RawHead(project,actors[i-3],argv[i],TRUE,84+i-3);
-    const char *invalid[]={"flat","collapsed","oversize","stale","skinned","animated","blend"};
+    ChangedReplacement(project);
+    const char *invalid[]={"flat","collapsed","oversize","stale","skinned","animated","blend","malformed","mixed"};
     for(unsigned int i=0;i<sizeof(invalid)/sizeof(*invalid);i++) {
         int previous=NewPropsCount();snprintf(path,sizeof(path),"%s/raw-%s.glb",project,invalid[i]);
         OK(!NewPropsImportCharacter(project,"CinvalidheadZ",path,78,i!=2,&count,&why));
         OK(why[0] && NewPropsCount()==previous && NewPropsCharacterId("CinvalidheadZ")==-1);
+        DWORD bytes;const unsigned char *native=NewPropsData(project,"CgeometryZ",&bytes);
+        DWORD hash=ModelDataHash(native,bytes);
+        OK(!ModelEditsImportCharacter(project,"CgeometryZ",path,i!=2,&before,&after,&why));
+        native=NewPropsData(project,"CgeometryZ",&bytes);
+        OK(why[0] && hash==ModelDataHash(native,bytes) && NewPropsCount()==previous);
     }
+    OK(!ModelEditsImportCharacter(project,"PstaticZ",path,TRUE,&before,&after,&why));
+    OK(!ModelEditsImportCharacter(project,"CdjbondZ",path,TRUE,&before,&after,&why));
     const char *bodies[]={"CmooreZ","CconneryZ","CdaltonZ"};
     for(int i=3;i<argc;i++) {
         snprintf(path,sizeof(path),"%s",argv[i]);char *slash=strrchr(path,'/');OK(slash);

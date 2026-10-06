@@ -14,6 +14,7 @@ editor = (src / 'modeleditor.c').read_text()
 bank = (src / 'newprops.c').read_text()
 logic = ''.join(extract(bank, name) for name in ('NewPropsCategory', 'NameValid', 'NewPropsMakeName'))
 logic += re.search(r'typedef struct ModelEditorNewModel [^\n]*', editor)[0] + '\n'
+logic += re.search(r'typedef struct ModelEditorImportOptions [^\n]*', editor)[0] + '\n'
 logic += ''.join(extract(editor, name) for name in
                  ('ModelEditorImportModeDialog', 'ModelEditorTransfer', 'ModelEditorNewModelDialog', 'ModelEditorImportNew',
                   'ModelEditorBeginNewImport'))

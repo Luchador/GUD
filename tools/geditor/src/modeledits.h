@@ -19,6 +19,12 @@ BOOL ModelEditsCompileClone(const char *project,const char *templateName,const c
     unsigned char **data,DWORD *size,DWORD *triangles,const char **why);
 BOOL ModelEditsImport(const char *projectdir, const char *name, const char *path,
                        DWORD *before, DWORD *after, const char **reasonout);
+/* Replace a custom character in place. Unbound geometry is rebuilt using its
+ * original template; uniquely named material image assignments are retained.
+ * GEditor exports must still match the current revision and are never fitted.
+ * No project changes are made unless compilation and validation succeed. */
+BOOL ModelEditsImportCharacter(const char *project,const char *name,const char *path,BOOL fit,
+    DWORD *before,DWORD *after,const char **why);
 BOOL ModelEditsReadSource(const char *project, const char *name, ModelSource *source,
     DWORD *revision, const char **reasonout);
 /* Owned native snapshot, including pending edits, for animation preview. */

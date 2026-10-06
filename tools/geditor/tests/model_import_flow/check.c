@@ -42,13 +42,20 @@ static int cancelFile,cancelDialog,failImport,selectedCategory,dialogResult,rows
 static int failShow,shows,clears,kindChoice,selectedKind,characterImports,lastTemplate;
 static int fitChecked,fitChoice=1,lastFit;
 static int modes,replaceChoice,replaceChecked,cancelMode,failMode;
+static int replacementFit,replacementFitChoice=1,replacementFitEnabled,characterReplacements;
+static HWND GetDlgItem(HWND hwnd,int id) { return (HWND)(uintptr_t)id; }
+static void EnableWindow(HWND hwnd,BOOL enabled)
+{ assert((uintptr_t)hwnd==IDC_IMPORT_CHARACTER_FIT);replacementFitEnabled=enabled; }
 static void CheckDlgButton(HWND hwnd,int id,int checked)
 {
     if (id==IDC_IMPORT_MODEL_NEW) { assert(checked==BST_CHECKED);replaceChecked=FALSE; }
+    else if (id==IDC_IMPORT_CHARACTER_FIT) replacementFit=checked;
     else { assert(id==IDC_NEW_HEAD_FIT);fitChecked=checked; }
 }
 static int IsDlgButtonChecked(HWND hwnd,int id)
-{ if(id==IDC_IMPORT_MODEL_REPLACE) return replaceChecked;assert(id==IDC_NEW_HEAD_FIT);return fitChecked; }
+{ if(id==IDC_IMPORT_MODEL_REPLACE) return replaceChecked;
+  if(id==IDC_IMPORT_CHARACTER_FIT) return replacementFit;
+  assert(id==IDC_NEW_HEAD_FIT);return fitChecked; }
 static intptr_t dialogData;
 static char nameText[64],addedName[64],openedName[64],lastTitle[80],order[32];
 static const char *typedName;
@@ -65,6 +72,7 @@ static void SetDlgItemText(HWND hwnd,int id,const char *text)
 {
     if(id==IDC_NEW_MODEL_NAME) lstrcpyn(nameText,text,sizeof(nameText));
     else if(id==IDC_IMPORT_MODEL_TARGET) assert(!strcmp(text,g_ModelEntries[0].name));
+    else if(id==IDC_IMPORT_MODEL_HELP) assert(*text);
     else assert(id==IDC_MODEL_STATUS);
 }
 static void GetDlgItemText(HWND hwnd,int id,char *text,int size)
@@ -101,8 +109,11 @@ static INT_PTR DialogBoxParam(HINSTANCE instance,const char *resource,HWND owner
         modes++;Event('M');dialogResult=0;
         if(failMode) return -1;
         replaceChecked=TRUE;
-        proc((HWND)2,WM_INITDIALOG,0,data);assert(!replaceChecked);
+        proc((HWND)2,WM_INITDIALOG,0,data);assert(!replaceChecked && replacementFit && !replacementFitEnabled);
         replaceChecked=replaceChoice;
+        proc((HWND)2,WM_COMMAND,replaceChoice ? IDC_IMPORT_MODEL_REPLACE : IDC_IMPORT_MODEL_NEW,0);
+        assert(replacementFitEnabled==(replaceChoice && g_ModelEntries[0].name[0]=='C'));
+        replacementFit=replacementFitChoice;
         proc((HWND)2,cancelMode==2 ? WM_CLOSE : WM_COMMAND,cancelMode ? IDCANCEL : IDOK,0);
         return dialogResult;
     }
@@ -121,10 +132,14 @@ static BOOL NewPropsImport(const char *project,const char *name,const char *path
 }
 static void ModelEditorCharacterTemplates(HWND hwnd) {}
 static int NewPropsCharacterId(const char *name) { return 80; }
+static int NewPropsCharacterKind(const char *name) { return name[0]=='C' ? 1 : 0; }
 static BOOL NewPropsImportCharacter(const char *project,const char *name,const char *path,int templateid,BOOL fithead,DWORD *triangles,const char **why)
 { characterImports++;lastTemplate=templateid;lastFit=fithead;return NewPropsImport(project,name,path,FALSE,triangles,why); }
 static BOOL ModelEditsImport(const char *project,const char *name,const char *path,DWORD *before,DWORD *after,const char **why)
 { replacements++;assert(!strcmp(name,"PexistingZ"));*before=3;*after=4;*why="Import failed";return !failImport; }
+static BOOL ModelEditsImportCharacter(const char *project,const char *name,const char *path,BOOL fit,DWORD *before,DWORD *after,const char **why)
+{ characterReplacements++;assert(!strcmp(name,"CdaltonZ") && fit==replacementFitChoice);
+  *before=3;*after=4;*why="Import failed";return !failImport; }
 static BOOL ModelEditsExport(const char *project,const char *name,const char *path,const char **why)
 { exports++;assert(!strcmp(name,"PexistingZ"));return TRUE; }
 static void ModelEditorLoad(int index,BOOL frame) { reloads++;assert(index==0 && frame); }
@@ -146,6 +161,7 @@ static void Reset(void)
     cancelFile=cancelDialog=failImport=0;choice=2;typedName=NULL;order[0]=0;
     failShow=shows=clears=kindChoice=characterImports=0;lastTemplate=-1;fitChoice=1;lastFit=-1;
     modes=replaceChoice=replaceChecked=cancelMode=failMode=0;
+    replacementFitChoice=1;characterReplacements=replacementFitEnabled=0;
     strcpy(g_ModelProject,"project");strcpy(g_ModelEntries[0].name,"PexistingZ");g_ModelSelected=-1;
 }
 int main(void)
@@ -198,6 +214,20 @@ int main(void)
     assert(replacements==1 && !dialogs && !imports && !reloads && !changed && errors==1);
     Reset();g_ModelSelected=0;replaceChoice=1;cancelFile=1;ModelEditorTransfer(TRUE);
     assert(files==1 && !replacements && !changed && g_ModelSelected==0);
+    for(int fit=0;fit<2;fit++) for(int fail=0;fail<2;fail++) {
+        Reset();g_ModelSelected=0;replaceChoice=1;replacementFitChoice=fit;failImport=fail;
+        strcpy(g_ModelEntries[0].name,"CdaltonZ");ModelEditorTransfer(TRUE);
+        assert(characterReplacements==1 && !replacements && !imports && !dialogs);
+        assert(reloads==!fail && changed==!fail && errors==fail && g_ModelSelected==0);
+    }
+    for(int cancel=1;cancel<=2;cancel++) {
+        Reset();g_ModelSelected=0;replaceChoice=1;cancelMode=cancel;
+        strcpy(g_ModelEntries[0].name,"CdaltonZ");ModelEditorTransfer(TRUE);
+        assert(!characterReplacements && !changed && !files && g_ModelSelected==0);
+    }
+    Reset();g_ModelSelected=0;replaceChoice=1;cancelFile=1;
+    strcpy(g_ModelEntries[0].name,"CdaltonZ");ModelEditorTransfer(TRUE);
+    assert(files==1 && !characterReplacements && !changed && g_ModelSelected==0);
     Reset();g_ModelSelected=0;ModelEditorTransfer(FALSE);assert(exports==1 && !modes && !dialogs && !changed);
     Reset();ModelEditorTransfer(FALSE);assert(!files);
     Reset();g_ModelProject[0]=0;ModelEditorTransfer(TRUE);assert(!files);

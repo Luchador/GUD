@@ -30,6 +30,7 @@ def raw_head(path,variant='normal'):
     if variant=='flat': positions=[(x,5000,z) for x,y,z in positions]
     if variant=='collapsed': positions=[positions[0]]*4
     if variant=='oversize': positions=[(x+100000,y,z) for x,y,z in positions]
+    if variant=='changed': positions[2]=(260,5460,325)
     payload=bytearray();views=[];accessors=[]
     def accessor(values,components):
         start=len(payload)
@@ -53,7 +54,10 @@ def raw_head(path,variant='normal'):
              nodes=[{'children':[1],'translation':[100,-500,20]},{'mesh':0,'scale':[2,2,2]}],
              meshes=[{'primitives':primitive}],materials=[{'name':'Actor skin'},{'name':'Actor hair'}],
              buffers=[{'byteLength':len(payload)}],bufferViews=views,accessors=accessors)
+    if variant=='changed': doc['materials'][1]['name']='New hair'
     if variant=='stale': doc['scenes'][0]['extras']={'goldeneyeSourceHash':'00000000'}
+    if variant=='malformed': doc['scenes'][0]['extras']={'goldeneyeSourceHash':'notahash'}
+    if variant=='mixed': doc['nodes'][1]['extras']={'goldeneyeSourceHash':'00000000'}
     if variant=='skinned': doc['nodes'][1]['skin']=0
     if variant=='animated': doc['animations']=[{}]
     if variant=='blend': doc['materials'][0]['alphaMode']='BLEND'
@@ -64,7 +68,7 @@ with tempfile.TemporaryDirectory(prefix='geditor-characters-') as tmp:
     work=Path(tmp)
     (work/'models/characters').mkdir(parents=True)
     runpy.run_path(str(here.parent/'new_props/run.py'))['fixture'](work/'prop.glb')
-    for variant in ('normal','flat','collapsed','oversize','stale','skinned','animated','blend'):
+    for variant in ('normal','flat','collapsed','oversize','stale','skinned','animated','blend','malformed','mixed','changed'):
         raw_head(work/f'raw-{variant}.glb',variant)
     # Real native frames exercise root/limb rotations and weapon/head attachments.
     convert=runpy.run_path(str(root/'tools/make_animation_entries_uncompressed.py'))
