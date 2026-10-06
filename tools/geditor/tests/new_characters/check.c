@@ -183,6 +183,7 @@ int main(int argc,char **argv)
     for(int i=3;i<argc;i++) {
         snprintf(path,sizeof(path),"%s",argv[i]);char *slash=strrchr(path,'/');OK(slash);
         strcpy(slash+1,"body.glb");RawBody(project,bodies[i-3],path,TRUE,87+i-3);
+        LegacyBodyRepair(project,bodies[i-3],i==3 ? 2 : i==5 ? 1 : 0);
     }
     snprintf(path,sizeof(path),"%s/raw-body.gltf",project);RawTemplateBody(project,path);
     RawBody(project,"CrawbodyZ",path,FALSE,84+(argc-3)*2);

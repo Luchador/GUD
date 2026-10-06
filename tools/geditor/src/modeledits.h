@@ -71,6 +71,8 @@ BOOL ModelEditsSetUVs(const char *project, const char *name, DWORD revision,
 BOOL ModelEditsRestoreUVs(const char *project, const char *name,
     const ModelUVChange *change, BOOL redo, const char **reasonout);
 void ModelEditsFreeUVChange(ModelUVChange *change);
+BOOL ModelEditsRepairBodyBindings(const char *project, const char *name, DWORD revision,
+    DWORD *fixed, ModelUVChange *change, const char **why);
 BOOL ModelEditsSave(const char *projectdir, const char **reasonout);
 /* Returns 1 for a replacement, 0 if absent, -1 on a corrupt/mismatched edit.
    ROM builds read saved overrides only; save-before-build is owned by GEditor. */

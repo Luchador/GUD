@@ -371,6 +371,48 @@ void ModelEditsFreeUVChange(ModelUVChange *change)
     free(change->before); free(change->after); memset(change, 0, sizeof(*change));
 }
 
+BOOL ModelEditsRepairBodyBindings(const char *project,const char *name,DWORD revision,
+    DWORD *fixed,ModelUVChange *change,const char **why)
+{
+    unsigned char *data=NULL,*compiled=NULL;DWORD size,basehash,compiledsize;
+    ModelSource source={0},check={0};ModelUVChange step={0};BOOL ok=FALSE;
+    *fixed=0;if(change) memset(change,0,sizeof(*change));
+    if(!NewPropsOpen(project,why)) return FALSE;
+    if(NewPropsCharacterKind(name)!=CUSTOM_CHARACTER_BODY)
+    { *why="Select an imported character body to repair its joint bindings.";return FALSE; }
+    if(!LoadSource(project,name,&data,&size,&basehash,why)) goto done;
+    if(ModelDataHash(data,size)!=revision)
+    { *why="The model changed. Reload it before repairing its bindings.";goto done; }
+    if(!ModelReadSource(data,size,&source,why) || !ModelMaterialsEnsure(&source,project,why)
+        || !ModelCompileRepairBodyBindings(data,size,&source,&compiled,&compiledsize,fixed,why)) goto done;
+    if(!compiled) {ok=TRUE;goto done;}
+    if(!ModelReadSource(compiled,compiledsize,&check,why)) goto done;
+    if(check.count!=source.count || check.materials.count!=source.materials.count
+        || memcmp(check.materials.slots,source.materials.slots,source.materials.count*sizeof(*source.materials.slots))
+        || memcmp(check.materials.faces,source.materials.faces,source.count*sizeof(*source.materials.faces)))
+    { *why="The binding repair could not preserve the body's materials and faces.";goto done; }
+    for(DWORD f=0;f<source.count;f++) {
+        if(source.tags[f]!=check.tags[f] || source.flags[f]!=check.flags[f])
+        { *why="The binding repair could not preserve the body's render settings.";goto done; }
+        for(DWORD k=0;k<3;k++) if(memcmp(data+source.vertexoffsets[f*3+k]+6,
+            compiled+check.vertexoffsets[f*3+k]+6,10))
+        { *why="The binding repair could not preserve the body's UVs and vertex colors.";goto done; }
+    }
+    if(change) {
+        step.after=malloc(compiledsize);
+        if(!step.after) { *why="Out of memory retaining body binding history.";goto done; }
+        memcpy(step.after,compiled,compiledsize);step.afterSize=compiledsize;step.afterRevision=ModelDataHash(compiled,compiledsize);
+        step.before=data;data=NULL;step.beforeSize=size;step.beforeRevision=revision;
+    }
+    ok=RetainModel(project,name,basehash,compiled,compiledsize,why);
+    if(ok) compiled=NULL;
+done:
+    if(ok && change) {*change=step;memset(&step,0,sizeof(step));}
+    if(!ok) *fixed=0;
+    ModelEditsFreeUVChange(&step);ModelFreeSource(&source);ModelFreeSource(&check);
+    free(data);free(compiled);return ok;
+}
+
 BOOL ModelEditsSetUVs(const char *project, const char *name, DWORD revision,
     const ModelUVEdit *edits, DWORD count, ModelUVChange *change, const char **why)
 {

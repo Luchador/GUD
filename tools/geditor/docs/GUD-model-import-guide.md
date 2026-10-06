@@ -105,6 +105,10 @@ Each vertex is converted back into that joint's local coordinates. Identical
 positions receive the same binding across material and UV seams. The native
 skeleton, head/hand attachment points, character scale and bounding boxes come
 from the template, so existing character animations work in the editor and ROM.
+The importer also checks mesh connectivity for isolated binding errors, such
+as a sleeve point attached to the torso because the resting arm is near the
+hip. It corrects points surrounded entirely by another joint, while retaining
+mixed bindings and parent/child joint seams.
 This is automatic template binding, not recovery of the original XBLA skinning;
 inspect shoulder, elbow, wrist and knee deformation in the animations you use.
 
@@ -125,6 +129,25 @@ The `new_characters` tests exercise a synthetic full body without fitting.
 Passing `--heads /path/to/GoldenEye-XBLA-Bond-Geometry` also tests all three
 actual heads **and bodies**, including geometry, UVs, culling, texture edits,
 multiple poses, save/reopen, ROM export/extraction and replacement round trips.
+Use `--legacy-bodies /path/to/native-dumps` alongside `--heads` to exercise
+repair of bodies imported before this fix. The dumps are named `CmooreZ-native.bin`,
+`CconneryZ-native.bin` and `CdaltonZ-native.bin`; the optional
+`GEDITOR_BODY_PREVIEW` output from the earlier importer supplies these fixtures.
+
+### Repairing a body already imported
+
+Select the body in the Model Editor and click **Repair body binding** on the
+toolbar. This applies the same isolated-point check to the current model,
+preserving its assigned images, material names, UVs, vertex colors, face order
+and render settings. Review the animation preview, then **Save Project** and
+**Create ROM**. **Ctrl+Z** undoes a repair. Repeating the repair makes no further
+changes once the isolated errors have been corrected.
+
+For the supplied actor bodies imported with the earlier binder, this repairs
+one sleeve point on Dalton and two wrist points on Moore. Connery needs no
+change. Repair supports imported bodies with a single LOD and does not rerig
+the entire model. Rebuild GEditor to obtain the fix; no GUD rebuild or project
+rebase is required.
 
 ## Editing an existing model
 

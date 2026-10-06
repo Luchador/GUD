@@ -1310,15 +1310,123 @@ static double BodyTriangleDistance(const double p[3],const BgVertex v[3],double 
     return best;
 }
 
-BOOL ModelCompileBodyGeometry(const unsigned char *data,DWORD size,const ModelSource *source,
+typedef struct BodyPoint {
+    float xyz[3];
+    DWORD corner;
+} BodyPoint;
+typedef struct BodyNeighbours {
+    DWORD matrix, reference, distinct[3];
+    unsigned count;
+    BOOL mixed, fix;
+} BodyNeighbours;
+static int BodyPointCompare(const void *left,const void *right)
+{
+    const BodyPoint *a=left,*b=right;
+    for(int axis=0;axis<3;axis++) {
+        if(a->xyz[axis]<b->xyz[axis]) return -1;
+        if(a->xyz[axis]>b->xyz[axis]) return 1;
+    }
+    return 0;
+}
+/* Locate the native joint owning a primary or half-rotation matrix. Never
+ * infer bone relationships from consecutive matrix numbers. */
+static DWORD BodyMatrixNode(const unsigned char *data,DWORD size,const ModelSource *source,DWORD matrix)
+{
+    for(DWORD l=0;l<source->listcount;l++) {
+        DWORD node=source->lists[l].node;unsigned visited=0;
+        while(node && visited++<512) {
+            if(!TopologySpan(node,1,24,size)) return 0;
+            unsigned flags=(unsigned short)Read16(data+node),op=flags&255;
+            DWORD at=Read32(data+node+4)&0xffffffu;
+            if(op==1 || op==2 || op==0x15) {
+                DWORD field=op==1 ? 2 : op==0x15 ? 12 : 14;
+                if(!TopologySpan(at,1,field+2,size)) return 0;
+                if(Read16(data+at+field)==(int)matrix) return node;
+                if(op==2 && (flags&0x100) && TopologySpan(at,1,18,size)
+                    && Read16(data+at+16)==(int)matrix) return node;
+            }
+            node=Read32(data+node+8)&0xffffffu;
+        }
+    }
+    return 0;
+}
+static DWORD BodyParentJoint(const unsigned char *data,DWORD size,DWORD node)
+{
+    unsigned visited=0;
+    while(node && visited++<512) {
+        if(!TopologySpan(node,1,24,size)) return 0;
+        node=Read32(data+node+8)&0xffffffu;
+        if(!node) return 0;
+        if(!TopologySpan(node,1,24,size)) return 0;
+        unsigned op=(unsigned short)Read16(data+node)&255;
+        if(op==1 || op==2 || op==0x15) return node;
+    }
+    return 0;
+}
+/* Arms-down bodies can nearly touch their hips. Surface distance alone can
+ * bind one sleeve point to the torso. Weld positions only for this analysis
+ * (retain all UV/color splits), then correct unanimous, isolated outliers.
+ * Mixed bindings and parent/child/half-rotation seams remain authored. */
+static BOOL BodyFixIsolatedBindings(const unsigned char *data,DWORD size,const ModelSource *source,
+    const BgVertex *vertices,DWORD count,DWORD *references,DWORD *fixed,const char **why)
+{
+    DWORD corners=count*3,points=0;
+    BodyPoint *sorted=malloc((size_t)corners*sizeof(*sorted));
+    DWORD *groups=malloc((size_t)corners*sizeof(*groups)),*matrices=malloc((size_t)corners*sizeof(*matrices));
+    BodyNeighbours *neighbours=calloc(corners,sizeof(*neighbours));
+    *fixed=0;
+    if(!sorted || !groups || !matrices || !neighbours) {
+        *why="Out of memory checking body joint connectivity.";
+        free(sorted);free(groups);free(matrices);free(neighbours);return FALSE;
+    }
+    for(DWORD i=0;i<corners;i++) {
+        sorted[i]=(BodyPoint){{vertices[i].x,vertices[i].y,vertices[i].z},i};
+    }
+    qsort(sorted,corners,sizeof(*sorted),BodyPointCompare);
+    for(DWORD i=0;i<corners;i++) {
+        DWORD corner=sorted[i].corner,matrix=source->vertexmatrices[references[corner]];
+        if(!i || BodyPointCompare(sorted+i-1,sorted+i)) {
+            matrices[points]=matrix;neighbours[points].matrix=MODEL_NO_VERTEX;points++;
+        } else if(matrices[points-1]!=matrix) matrices[points-1]=MODEL_NO_VERTEX;
+        groups[corner]=points-1;
+    }
+    for(DWORD f=0;f<count;f++) for(DWORD k=0;k<3;k++) {
+        DWORD point=groups[f*3+k];BodyNeighbours *n=&neighbours[point];
+        for(DWORD j=0;j<3;j++) if(j!=k) {
+            DWORD other=groups[f*3+j],matrix=matrices[other];
+            if(other==point) continue;
+            if(matrix==MODEL_NO_VERTEX) {n->mixed=TRUE;continue;}
+            if(n->matrix==MODEL_NO_VERTEX) {n->matrix=matrix;n->reference=references[f*3+j];}
+            else if(n->matrix!=matrix) n->mixed=TRUE;
+            unsigned seen=0;while(seen<n->count && n->distinct[seen]!=other) seen++;
+            if(seen==n->count && n->count<3) n->distinct[n->count++]=other;
+        }
+    }
+    /* Decisions use the original neighbours, so face order cannot propagate
+     * a correction across the mesh or turn a whole region into another limb. */
+    for(DWORD p=0;p<points;p++) {
+        BodyNeighbours *n=&neighbours[p];
+        if(n->mixed || n->count<3 || matrices[p]==MODEL_NO_VERTEX || n->matrix==matrices[p]) continue;
+        DWORD a=BodyMatrixNode(data,size,source,matrices[p]),b=BodyMatrixNode(data,size,source,n->matrix);
+        if(!a || !b || a==b || BodyParentJoint(data,size,a)==b || BodyParentJoint(data,size,b)==a) continue;
+        n->fix=TRUE;(*fixed)++;
+    }
+    for(DWORD i=0;i<corners;i++) {
+        DWORD p=groups[i];BodyNeighbours *n=&neighbours[p];
+        if(n->fix) references[i]=n->reference;
+    }
+    free(sorted);free(groups);free(matrices);free(neighbours);return TRUE;
+}
+
+static BOOL CompileBodyGeometry(const unsigned char *data,DWORD size,const ModelSource *source,
     const GltfModelImport *imported,BOOL fit,ModelMaterials *ordered,
-    unsigned char **result,DWORD *resultsize,const char **why)
+    unsigned char **result,DWORD *resultsize,BOOL repair,DWORD *fixed,const char **why)
 {
     ModelOutput out={0};BOOL ok=FALSE;
     BgVertex *standing=NULL;ModelTransform *transforms=NULL;
     ModelVertexEdit *edits=NULL;ModelVertexBuffer *buffers=NULL;
     DWORD *owners=NULL,*matrices=NULL,*corners=NULL,*drawlists=NULL,*hashes=NULL;
-    DWORD *sourceowners=NULL;unsigned char *prefix=NULL,*required=NULL,*used=NULL;
+    DWORD *sourceowners=NULL,*references=NULL;unsigned char *prefix=NULL,*required=NULL,*used=NULL;
     DWORD unique=0,hashcount=1,emitted=0;
     double lo[2][3],hi[2][3],scale=1;
     *result=NULL;*resultsize=0;
@@ -1350,13 +1458,14 @@ BOOL ModelCompileBodyGeometry(const unsigned char *data,DWORD size,const ModelSo
     corners=malloc((size_t)imported->count*3*sizeof(*corners));
     drawlists=malloc((size_t)imported->count*sizeof(*drawlists));
     sourceowners=malloc((size_t)source->count*3*sizeof(*sourceowners));
+    references=malloc((size_t)imported->count*3*sizeof(*references));
     buffers=calloc(source->listcount,sizeof(*buffers));prefix=malloc(limit);
     required=calloc(source->listcount,1);used=calloc(source->listcount,1);
     while (hashcount<imported->count*6) hashcount*=2;
     hashes=calloc(hashcount,sizeof(*hashes));
     *why="Out of memory binding the new character body.";
     if (!edits || !owners || !matrices || !corners || !drawlists || !sourceowners
-        || !buffers || !prefix || !required || !used || !hashes) goto done;
+        || !buffers || !prefix || !required || !used || !hashes || !references) goto done;
     memcpy(prefix,data,limit);
     /* Binding comes from G_VTX, including half-rotation seam matrices. Buffer
      * ownership can differ from the list drawing a triangle across a joint. */
@@ -1369,10 +1478,25 @@ BOOL ModelCompileBodyGeometry(const unsigned char *data,DWORD size,const ModelSo
             DWORD n=(unsigned short)Read16(data+p->vertexpointer+4),at=source->vertexoffsets[i];
             if (at>=p->vertexbase && at-p->vertexbase<n*16) { sourceowners[i]=l;required[l]=1;break; }
         }
-        if (sourceowners[i]==MODEL_NO_VERTEX || source->faces[i/3].normalmask)
+        if (source->faces[i/3].normalmask || (!repair && sourceowners[i]==MODEL_NO_VERTEX))
         { *why="This template has unsupported body vertex ownership or lighting normals.";goto done; }
     }
+    /* Texture/UV splitting can leave file-absolute loads referencing an older
+     * copy of a joint's vertex array. Rehome those records into a live buffer
+     * for the SAME matrix before rebuilding its collision-point chains. */
+    if(repair) for(DWORD i=0;i<source->count*3;i++) if(sourceowners[i]==MODEL_NO_VERTEX) {
+        DWORD owner=MODEL_NO_VERTEX;double best=1e100;
+        for(DWORD j=0;j<source->count*3;j++) if(sourceowners[j]!=MODEL_NO_VERTEX
+            && source->vertexmatrices[j]==source->vertexmatrices[i]) {
+            double distance=0;
+            for(int a=0;a<3;a++) {double d=Read16(data+source->vertexoffsets[i]+a*2)-Read16(data+source->vertexoffsets[j]+a*2);distance+=d*d;}
+            if(distance<best) {best=distance;owner=sourceowners[j];}
+        }
+        if(owner==MODEL_NO_VERTEX) { *why="A body vertex has no live buffer for its joint.";goto done; }
+        sourceowners[i]=owner;
+    }
     for (DWORD i=0;i<imported->count*3;i++) {
+        if(repair) {references[i]=i;continue;}
         const BgVertex *v=&imported->vertices[i];double p[3]={v->x,v->y,v->z};
         if (fit) for (int a=0;a<3;a++) p[a]=(p[a]-(lo[1][a]+hi[1][a])*.5)*scale+(lo[0][a]+hi[0][a])*.5;
         DWORD nearest=MODEL_NO_VERTEX;double best=1e100;
@@ -1389,14 +1513,23 @@ BOOL ModelCompileBodyGeometry(const unsigned char *data,DWORD size,const ModelSo
         }
         if (nearest==MODEL_NO_VERTEX || best>pow((hi[0][1]-lo[0][1])*.15,2))
         { *why="The body does not fit the template's standing pose. Use a complete Y-up, +Z-forward body with arms down.";goto done; }
+        references[i]=nearest;
+    }
+    if(!BodyFixIsolatedBindings(data,size,source,imported->vertices,imported->count,references,fixed,why)) goto done;
+    if(repair && !*fixed) {ok=TRUE;*why="";goto done;}
+    for (DWORD i=0;i<imported->count*3;i++) {
+        DWORD nearest=references[i];
+        const BgVertex *v=&imported->vertices[i];double p[3]={v->x,v->y,v->z};
+        if (fit) for (int a=0;a<3;a++) p[a]=(p[a]-(lo[1][a]+hi[1][a])*.5)*scale+(lo[0][a]+hi[0][a])*.5;
         DWORD owner=sourceowners[nearest],matrix=source->vertexmatrices[nearest];
         const ModelTransform *t=&transforms[nearest];ModelVertexEdit edit={0};edit.id=nearest;
+        if(repair) memcpy(edit.bytes,data+source->vertexoffsets[i],16);
         /* Rotation matrices are orthonormal: transpose is the inverse. */
-        for (int a=0;a<3;a++) {
+        for (int a=0;a<3 && (!repair || source->vertexmatrices[i]!=matrix);a++) {
             double local=0;for (int b=0;b<3;b++) local+=(p[b]-t->m[3][b])*t->m[a][b];
             if (!WriteRounded16(edit.bytes+a*2,local)) { *why="A bound body vertex is outside native coordinate range.";goto done; }
         }
-        edit.bytes[12]=v->r;edit.bytes[13]=v->g;edit.bytes[14]=v->b;edit.bytes[15]=v->a;
+        if(!repair) {edit.bytes[12]=v->r;edit.bytes[13]=v->g;edit.bytes[14]=v->b;edit.bytes[15]=v->a;}
         DWORD h=(ModelDataHash(edit.bytes,16)^source->lists[owner].vertexpointer^matrix)&(hashcount-1);
         while (hashes[h] && (owners[hashes[h]-1]!=source->lists[owner].vertexpointer
             || matrices[hashes[h]-1]!=matrix || memcmp(edits[hashes[h]-1].bytes,edit.bytes,16))) h=(h+1)&(hashcount-1);
@@ -1406,7 +1539,7 @@ BOOL ModelCompileBodyGeometry(const unsigned char *data,DWORD size,const ModelSo
         }
         corners[i]=hashes[h]-1;used[owner]=1;
         /* One native list owns the face; individual loads keep their joints. */
-        if (i%3==0) drawlists[i/3]=owner;
+        if (i%3==0) drawlists[i/3]=repair ? source->faces[i/3].list : owner;
     }
     for (DWORD f=0;f<imported->count;f++) {
         double q[3][3],ab[3],ac[3],area=0;
@@ -1424,7 +1557,7 @@ BOOL ModelCompileBodyGeometry(const unsigned char *data,DWORD size,const ModelSo
     }
     for (DWORD l=0;l<source->listcount;l++) {
         const ModelSourceList *p=&source->lists[l];
-        if (required[l] && !used[l]) { *why="The body is missing a template body part. Import a complete standing, arms-down body, not a head or prop.";goto done; }
+        if (!repair && required[l] && !used[l]) { *why="The body is missing a template body part. Import a complete standing, arms-down body, not a head or prop.";goto done; }
         if (p->preserve) { *why="This body template contains unsupported dynamic parts.";goto done; }
         if (p->pointusagepointer) {
             if (!TopologySpan(p->vertexpointer,1,16,limit)) goto done;
@@ -1434,7 +1567,7 @@ BOOL ModelCompileBodyGeometry(const unsigned char *data,DWORD size,const ModelSo
              * Rebuild local point chains from the new joint-owned buffers. */
             for (DWORD j=0;j<n;j++) { Write32(prefix+at+j*16+8,0);WriteRounded16(prefix+at+j*16+12,-1); }
         }
-        if (required[l]) {
+        if (!repair && required[l]) {
             DWORD node=p->node;int visited=0;
             while (node && visited++<512) {
                 if (!TopologySpan(node,1,24,limit)) goto done;
@@ -1456,12 +1589,26 @@ BOOL ModelCompileBodyGeometry(const unsigned char *data,DWORD size,const ModelSo
         const ModelSourceList *part=&source->lists[l];
         if (out.failed || part->pointer+4>out.size) goto done;
         Write32(out.data+part->pointer,0x05000000u|out.size);
-        Command(&out,0xb6000000u,0x000e3000u);Command(&out,0xb7000000u,0x2205u);
-        BgMaterial material;BgMaterialInit(&material);BgMaterialSetTexture(&material,BG_TEX_NONE);
-        Command(&out,material.modeword0,material.modeword1);Command(&out,material.combineword0,material.combineword1);
+        if(!repair) {
+            Command(&out,0xb6000000u,0x000e3000u);Command(&out,0xb7000000u,0x2205u);
+            BgMaterial material;BgMaterialInit(&material);BgMaterialSetTexture(&material,BG_TEX_NONE);
+            Command(&out,material.modeword0,material.modeword1);Command(&out,material.combineword0,material.combineword1);
+        }
         DWORD currentmatrix=MODEL_NO_VERTEX,cache[16],nextslot=0;int pending=0;
+        DWORD pc=part->offset;
         unsigned char triangles[4][3];memset(cache,0xff,sizeof(cache));
         for (DWORD f=0;f<imported->count;f++) if (drawlists[f]==l) {
+            if(repair) {
+                /* Keep every original material/state command and face order.
+                 * Only matrix selections, vertex loads and triangles change. */
+                for(;pc<source->faces[f].command;pc+=8) {
+                    unsigned op=data[pc];
+                    if(op==1 || op==4 || op==0xb1 || op==0xbf || op==0xb8) continue;
+                    if(op==6 || op==0xbe || op==0xbd || op==0xb2 || (op==0xbc && data[pc+3]==0x0c))
+                    { *why="This body's display lists use unsupported vertex-cache commands.";goto done; }
+                    Triangles(&out,triangles,pending);pending=0;Append(&out,data+pc,8);
+                }
+            }
             ordered->faces[emitted++]=imported->materials.faces[f];
             unsigned char indices[3];unsigned locked=0;
             for (DWORD k=0;k<3;k++) {
@@ -1486,6 +1633,12 @@ BOOL ModelCompileBodyGeometry(const unsigned char *data,DWORD size,const ModelSo
             if(pending==4) {Triangles(&out,triangles,pending);pending=0;}
         }
         Triangles(&out,triangles,pending);
+        if(repair) for(;pc<part->end;pc+=8) {
+            unsigned op=data[pc];
+            if(op==6 || op==0xbe || op==0xbd || op==0xb2 || (op==0xbc && data[pc+3]==0x0c))
+            { *why="This body's display lists use unsupported vertex-cache commands.";goto done; }
+            if(op!=1 && op!=4 && op!=0xb1 && op!=0xbf && op!=0xb8) Append(&out,data+pc,8);
+        }
         Command(&out,0xb8000000u,0);
     }
     if (out.failed || emitted!=imported->count) goto done;
@@ -1493,7 +1646,29 @@ BOOL ModelCompileBodyGeometry(const unsigned char *data,DWORD size,const ModelSo
 done:
     if (!ok) ModelMaterialsFree(ordered);
     free(out.data);free(standing);free(transforms);free(edits);free(buffers);free(owners);free(matrices);
-    free(corners);free(drawlists);free(hashes);free(sourceowners);free(prefix);free(required);free(used);return ok;
+    free(corners);free(drawlists);free(hashes);free(sourceowners);free(references);free(prefix);free(required);free(used);return ok;
+}
+
+BOOL ModelCompileBodyGeometry(const unsigned char *data,DWORD size,const ModelSource *source,
+    const GltfModelImport *imported,BOOL fit,ModelMaterials *ordered,
+    unsigned char **result,DWORD *resultsize,const char **why)
+{
+    DWORD fixed;
+    return CompileBodyGeometry(data,size,source,imported,fit,ordered,result,resultsize,FALSE,&fixed,why);
+}
+
+BOOL ModelCompileRepairBodyBindings(const unsigned char *data,DWORD size,const ModelSource *source,
+    unsigned char **result,DWORD *resultsize,DWORD *fixed,const char **why)
+{
+    BgVertex *standing=NULL;ModelTransform *transforms=NULL;ModelMaterials ordered={0};BOOL ok=FALSE;
+    *result=NULL;*resultsize=*fixed=0;
+    if(source->haslods) { *why="Binding repair is for imported bodies with a single LOD.";return FALSE; }
+    if(!ModelBodyBindPose(data,size,source,&standing,&transforms,why)) return FALSE;
+    GltfModelImport imported={0};imported.count=source->count;imported.vertices=standing;imported.materials=source->materials;
+    ok=CompileBodyGeometry(data,size,source,&imported,FALSE,&ordered,result,resultsize,TRUE,fixed,why);
+    if(ok && *result) ok=ModelMaterialsAttach(result,resultsize,&ordered,why);
+    if(!ok) {free(*result);*result=NULL;*resultsize=*fixed=0;}
+    free(standing);free(transforms);ModelMaterialsFree(&ordered);return ok;
 }
 
 BOOL ModelCompileImport(const unsigned char *data, DWORD size, const ModelSource *source,

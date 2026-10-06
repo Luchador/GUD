@@ -20,7 +20,7 @@ typedef struct { HWND hwnd; UINT message; WPARAM wParam; LPARAM lParam; } MSG;
 enum {CB_FINDSTRINGEXACT, CB_FINDSTRING, CB_GETEDITSEL, CB_SETCURSEL, CB_SETEDITSEL,
       CB_GETCURSEL, CB_GETITEMDATA, CB_SHOWDROPDOWN, WM_KEYDOWN, WM_CHAR, WM_CUT,
       WM_CLEAR, WM_UNDO, EM_UNDO, WM_NCDESTROY, VK_DELETE, VK_BACK, VK_RETURN,
-      IDC_MODEL_STATUS, WM_PASTE, IDC_MODEL_EXPORT, IDC_MODEL_IMPORT};
+      IDC_MODEL_STATUS, WM_PASTE, IDC_MODEL_EXPORT, IDC_MODEL_IMPORT, IDC_MODEL_REPAIR_BINDINGS};
 static const int g_ModelCombos[] = {0, 1, 2};
 static HWND g_ModelEditor = 10;
 static BOOL g_ModelCompleting;
@@ -31,7 +31,8 @@ static BOOL importEnabled,exportEnabled=TRUE;
 static int clears;
 static void ModelEditorClearViewport(void) { clears++; }
 static void EnableWindow(HWND hwnd,BOOL enabled)
-{ if(hwnd==IDC_MODEL_IMPORT+1) importEnabled=enabled;else { assert(hwnd==IDC_MODEL_EXPORT+1);exportEnabled=enabled; } }
+{ if(hwnd==IDC_MODEL_REPAIR_BINDINGS+1) {assert(!enabled);return;}
+  if(hwnd==IDC_MODEL_IMPORT+1) importEnabled=enabled;else { assert(hwnd==IDC_MODEL_EXPORT+1);exportEnabled=enabled; } }
 static char status[200];
 typedef struct {
     const char *names[4];

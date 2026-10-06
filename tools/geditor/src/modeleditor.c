@@ -291,6 +291,7 @@ void ModelEditorSetProject(const char *projectdir)
     ModelEditorClearViewport();
     g_ModelSelected = -1;
     EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_EXPORT),FALSE);
+    EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_REPAIR_BINDINGS),FALSE);
     EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_IMPORT),g_ModelProject[0]!=0);
     for (category = 0; category < 3; category++)
     {
@@ -352,6 +353,7 @@ static void ModelEditorLoad(int index, BOOL framecamera)
     EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_EXPORT),TRUE);
     EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_IMPORT),TRUE);
     entry = &g_ModelEntries[index];
+    EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_REPAIR_BINDINGS),NewPropsCharacterKind(entry->name)==CUSTOM_CHARACTER_BODY);
     if (framecamera) { ModelEditorClearViewport(); }
     previous = SetCursor(LoadCursor(NULL, IDC_WAIT));
     ModelFreeSource(&g_ModelSource);
@@ -612,6 +614,7 @@ static BOOL ModelEditorPaintKey(MSG *message)
 static void ModelEditorClearSelection(void)
 {
     g_ModelSelected=-1;
+    EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_REPAIR_BINDINGS),FALSE);
     ModelEditorClearViewport();
     g_ModelCompleting=TRUE;
     for (int i=0;i<3;i++)
@@ -1020,6 +1023,23 @@ static void ModelEditorDeleteFaces(void)
     ModelEditorNotifyChanged();
 }
 
+static void ModelEditorRepairBodyBindings(void)
+{
+    if(g_ModelSelected<0 || g_ModelSelected>=g_ModelCount) return;
+    const char *why="";DWORD fixed=0;ModelUVChange change={0};char message[200];
+    SendMessage(g_ModelViewport,WM_CANCELMODE,0,0);UVEditorCancelInteraction(g_ModelEditor);
+    if(!ModelEditsRepairBodyBindings(g_ModelProject,g_ModelEntries[g_ModelSelected].name,
+        g_ModelRevision,&fixed,&change,&why)) {
+        MessageBox(g_ModelEditor,why,"Repair body binding",MB_ICONERROR);return;
+    }
+    if(change.before) {
+        ModelEditorRecord((ModelEditorHistoryStep){.uv=change});
+        ModelEditorLoad(g_ModelSelected,FALSE);ModelEditorNotifyChanged();
+        snprintf(message,sizeof(message),"Repaired %lu isolated joint binding(s). Ctrl+Z to undo. Save Project to keep the repair.",(unsigned long)fixed);
+    } else snprintf(message,sizeof(message),"No isolated joint-binding errors were found.");
+    SetDlgItemText(g_ModelEditor,IDC_MODEL_STATUS,message);
+}
+
 /* A loaded model must not silently turn Import Model into a replacement. */
 static INT_PTR CALLBACK ModelEditorImportModeDialog(HWND hwnd,UINT message,WPARAM wparam,LPARAM lparam)
 {
@@ -1237,6 +1257,8 @@ static void ModelEditorLayout(HWND hwnd)
     if (g_ModelPaintToolbar)
         ModelEditorPlaceControl(g_ModelPaintToolbar, margin*5+units.right*3,
                                 margin, TOOLTOOLBAR_HEIGHT, TOOLTOOLBAR_HEIGHT);
+    ModelEditorPlaceControl(GetDlgItem(hwnd,IDC_MODEL_REPAIR_BINDINGS),margin*6+units.right*3+TOOLTOOLBAR_HEIGHT,
+        margin+(toolheight-units.bottom)/2,units.right+margin*2,units.bottom);
     {
         int buttons=client.right-margin-3*animation.right-2*margin;
         int combo=margin*2+animation.left;
@@ -1448,6 +1470,7 @@ static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wp
         }
         if (LOWORD(wparam)==IDC_MODEL_EXPORT || LOWORD(wparam)==IDC_MODEL_IMPORT)
         { ModelEditorTransfer(LOWORD(wparam)==IDC_MODEL_IMPORT);return TRUE; }
+        if (LOWORD(wparam)==IDC_MODEL_REPAIR_BINDINGS) {ModelEditorRepairBodyBindings();return TRUE;}
         if (LOWORD(wparam) >= IDC_MODEL_CHARACTERS && LOWORD(wparam) <= IDC_MODEL_PROPS)
         {
             if (HIWORD(wparam) == CBN_EDITCHANGE)

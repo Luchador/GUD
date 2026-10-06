@@ -42,6 +42,14 @@ static void RawBody(const char *project,const char *name,const char *path,BOOL f
     CheckCharacter(project,name,id,5);
     OK(ModelEditsReadSource(project,name,&source,&revision,&why));
     OK(source.count==raw.count && count==raw.count && !source.haslods);
+    /* Dalton's two forearm materials must stay entirely on the forearms.
+     * The previous distance-only binder sent one six-face fan to the torso. */
+    if(!strcmp(name,"CdaltonZ")) for(DWORD f=0;f<source.count;f++) {
+        const char *material=source.materials.slots[source.materials.faces[f].slot].name;
+        if(strcmp(material,"file3Material") && strcmp(material,"file15Material")) continue;
+        DWORD matrix=source.vertexmatrices[f*3];OK(matrix==14 || matrix==17);
+        OK(source.vertexmatrices[f*3+1]==matrix && source.vertexmatrices[f*3+2]==matrix);
+    }
     Culling(&source);
     for(DWORD i=0;i<source.materials.count;i++) {
         OK(source.materials.slots[i].texture==BG_TEX_NONE);
@@ -53,6 +61,11 @@ static void RawBody(const char *project,const char *name,const char *path,BOOL f
         if(drawn) {ModelSource part={0};part.listcount=1;part.lists=source.lists+l;HeadLinks(native,size,&part);}
     }
     OK(ModelBodyBindPose(native,size,&source,&standing,&posedtransforms,&why));
+    if (getenv("GEDITOR_BODY_PREVIEW")) {
+        char output[512];snprintf(output,sizeof(output),"%s/%s-native.bin",getenv("GEDITOR_BODY_PREVIEW"),name);Write(output,native,size);
+        snprintf(output,sizeof(output),"%s/%s-source.gltf",getenv("GEDITOR_BODY_PREVIEW"),name);
+        OK(GltfWriteEditableModel(output,project,&source,revision,&why));
+    }
     /* The source template is unchanged; use it to calculate the expected fit. */
     char base[MAX_PATH];snprintf(base,sizeof(base),"%s/base.z64",project);RomFile rom={0};DWORD at,bytes;
     OK(RomLoad(base,&rom,&why) && RomFindFile(&rom,"CdjbondZ",&at,&bytes,&why));
@@ -135,4 +148,71 @@ static void RawBody(const char *project,const char *name,const char *path,BOOL f
     ModelFreeSource(&source);ModelFreeSource(&stock);GltfFreeModelImport(&raw);
     free(flags);free(reference);free(transforms);free(standing);free(posedtransforms);RomFree(&rom);
     printf("PASS raw body %s: %lu triangles; fitted geometry, colors, UVs, per-vertex joints, poses, culling, texture assignments and round trip.\n",name,(unsigned long)count);
+}
+
+static void LegacyBodyRepair(const char *project,const char *name,DWORD expected)
+{
+    const char *folder=getenv("GEDITOR_LEGACY_BODIES");if(!folder || !folder[0]) return;
+    char path[512];snprintf(path,sizeof(path),"%s/%s-native.bin",folder,name);
+    FILE *file=fopen(path,"rb");OK(file && !fseek(file,0,SEEK_END));long bytes=ftell(file);rewind(file);
+    unsigned char *data=malloc(bytes);OK(data && fread(data,1,bytes,file)==(size_t)bytes && !fclose(file));
+    OK(NewPropsReplace(name,data,bytes,&why));
+    ModelSource before={0},after={0};DWORD revision,size,fixed;ModelUVChange history={0};
+    OK(ModelEditsReadSource(project,name,&before,&revision,&why));DWORD slots=before.materials.count;ModelFreeSource(&before);
+    for(DWORD slot=0;slot<slots;slot++) {
+        OK(ModelEditsReadSource(project,name,&before,&revision,&why));ModelFreeSource(&before);
+        OK(ModelEditsSetMaterial(project,name,revision,slot,slot+5,&why));
+    }
+    OK(ModelEditsReadSource(project,name,&before,&revision,&why));ModelFreeSource(&before);
+    DWORD face=0;OK(ModelEditsSetProperties(project,name,revision,&face,1,2,0,1,2,&why));
+    OK(ModelEditsReadSource(project,name,&before,&revision,&why));ModelFreeSource(&before);
+    ModelUVEdit uv={0,{.125f,.875f}};OK(ModelEditsSetUVs(project,name,revision,&uv,1,NULL,&why));
+    OK(ModelEditsReadSource(project,name,&before,&revision,&why));
+    unsigned char *snapshot=NULL;DWORD snapshotSize;OK(ModelEditsCopyNative(project,name,&snapshot,&snapshotSize,&why));
+    BgVertex *oldstanding=NULL,*standing=NULL;ModelTransform *oldtransforms=NULL,*transforms=NULL;
+    OK(ModelBodyBindPose(snapshot,snapshotSize,&before,&oldstanding,&oldtransforms,&why));
+    OK(!ModelEditsRepairBodyBindings(project,name,revision^1,&fixed,NULL,&why));
+    OK(ModelEditsRepairBodyBindings(project,name,revision,&fixed,&history,&why) && fixed==expected);
+    OK(ModelEditsReadSource(project,name,&after,&revision,&why));
+    const unsigned char *native=NewPropsData(project,name,&size);OK(native);
+    OK(ModelBodyBindPose(native,size,&after,&standing,&transforms,&why));
+    OK(after.count==before.count);DWORD changes=0;
+    for(DWORD i=0;i<before.count*3;i++) {
+        changes+=before.vertexmatrices[i]!=after.vertexmatrices[i];
+        OK(fabs(oldstanding[i].x-standing[i].x)<1 && fabs(oldstanding[i].y-standing[i].y)<1 && fabs(oldstanding[i].z-standing[i].z)<1);
+        OK(!memcmp(snapshot+before.vertexoffsets[i]+6,native+after.vertexoffsets[i]+6,10));
+    }
+    OK(changes==expected*6);
+    if(expected) {
+        OK(history.before && history.after);
+        OK(ModelEditsRestoreUVs(project,name,&history,FALSE,&why));
+        native=NewPropsData(project,name,&size);OK(size==snapshotSize && !memcmp(native,snapshot,size));
+        OK(ModelEditsRestoreUVs(project,name,&history,TRUE,&why));
+    } else OK(!history.before && !history.after);
+    ModelUVChange noop={0};OK(ModelEditsRepairBodyBindings(project,name,revision,&fixed,&noop,&why) && !fixed && !noop.before);
+    native=NewPropsData(project,name,&size);OK(ModelDataHash(native,size)==revision);
+    for(unsigned frame=0;frame<sizeof(bodyposes)/sizeof(*bodyposes);frame++) {
+        BgVertex *pose=ModelLoadAnimationPose(native,size,bodyposes[frame],45,0,after.count,&why);OK(pose);
+        if(!strcmp(name,"CdaltonZ")) for(DWORD f=0;f<after.count;f++) {
+            const char *material=after.materials.slots[after.materials.faces[f].slot].name;
+            if(strcmp(material,"file3Material") && strcmp(material,"file15Material")) continue;
+            /* Every sleeve triangle stays rigid under a real animation pose. */
+            for(int k=0;k<3;k++) {
+                DWORD i=f*3+k,j=f*3+(k+1)%3;
+                double old=hypot(hypot(standing[i].x-standing[j].x,standing[i].y-standing[j].y),standing[i].z-standing[j].z);
+                double now=hypot(hypot(pose[i].x-pose[j].x,pose[i].y-pose[j].y),pose[i].z-pose[j].z);
+                OK(fabs(old-now)<.01);
+            }
+        }
+        free(pose);
+    }
+    for(DWORD l=0;l<after.listcount;l++) {
+        BOOL used=FALSE;for(DWORD f=0;f<after.count;f++) used|=after.faces[f].list==l;
+        if(used) {ModelSource part={0};part.listcount=1;part.lists=after.lists+l;HeadLinks(native,size,&part);}
+    }
+    snprintf(path,sizeof(path),"%s/%s-repaired.gltf",project,name);OK(ModelEditsExport(project,name,path,&why));
+    DWORD oldcount,newcount;OK(ModelEditsImport(project,name,path,&oldcount,&newcount,&why) && newcount==after.count);
+    ModelEditsFreeUVChange(&history);ModelFreeSource(&before);ModelFreeSource(&after);
+    free(snapshot);free(standing);free(oldstanding);free(transforms);free(oldtransforms);
+    printf("PASS existing %s: %lu repaired points; UVs, colors, render flags, materials, poses, undo/redo, repeat repair and export round trip.\n",name,(unsigned long)expected);
 }

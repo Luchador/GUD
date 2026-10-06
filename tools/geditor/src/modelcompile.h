@@ -44,6 +44,10 @@ BOOL ModelCompileHeadGeometry(const unsigned char *data, DWORD size, const Model
 BOOL ModelCompileBodyGeometry(const unsigned char *data, DWORD size, const ModelSource *source,
     const GltfModelImport *imported, BOOL fit, ModelMaterials *ordered,
     unsigned char **result, DWORD *resultsize, const char **why);
+/* Repair isolated joint outliers in an existing imported body. Preserve face
+ * order, native materials and attributes. No change returns NULL/zero bytes. */
+BOOL ModelCompileRepairBodyBindings(const unsigned char *data, DWORD size, const ModelSource *source,
+    unsigned char **result, DWORD *resultsize, DWORD *fixed, const char **why);
 /* -1 leaves that property unchanged. Culling: 0=none, 1=back, 2=front.
    Surface: 0=opaque, 1=cutout, 2=alpha blend. U/V wrap: 0=repeat, 1=clamp,
    2=mirror (textured faces only). IDs index ModelSource.faces. */

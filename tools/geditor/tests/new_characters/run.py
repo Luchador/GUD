@@ -17,7 +17,10 @@ src=here.parents[1]/'src'
 root=src.parents[2]
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--heads',type=Path,help='Optional extracted GoldenEye-XBLA-Bond-Geometry folder (tests heads and bodies)')
+parser.add_argument('--legacy-bodies',type=Path,help='Optional pre-fix native body dumps for repair/undo/save regression')
 args=parser.parse_args()
+if args.legacy_bodies and not args.heads:
+    parser.error('--legacy-bodies requires --heads')
 
 def raw_head(path,variant='normal'):
     positions=[(100,5000,300),(300,5000,300),(200,5400,300),(200,5200,600)]
@@ -84,7 +87,8 @@ with tempfile.TemporaryDirectory(prefix='geditor-characters-') as tmp:
     subprocess.run(command+['-Wl,--gc-sections','-lm','-o',str(work/'check')],check=True)
     heads=[str(args.heads/name/'head.glb') for name in ('Roger_Moore','Sean_Connery','Timothy_Dalton')] if args.heads else []
     subprocess.run([str(work/'check'),str(work),str(root)]+heads,check=True,
-        env=dict(os.environ,ASAN_OPTIONS='detect_leaks=0',UBSAN_OPTIONS='halt_on_error=1'))
+        env=dict(os.environ,ASAN_OPTIONS='detect_leaks=0',UBSAN_OPTIONS='halt_on_error=1',
+                 GEDITOR_LEGACY_BODIES=str(args.legacy_bodies.resolve()) if args.legacy_bodies else ''))
 
     runtime=(root/'src/game/pobjdata.c').read_text()
     runtime=runtime[runtime.index('CustomPropRomConfig g_CustomPropRomConfig'):runtime.index('ExplosionDetailsRecord *propExplosionGet')]
