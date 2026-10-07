@@ -17,7 +17,7 @@ void StanFileFree(StanFile *stan) { abort(); }
    bytes need not be identical between the first and second compilation. */
 static void RoundTrip(const BgDocument *doc, const BgFile *source, const char *dir)
 {
-    BgFile compiled = {0}, saved = {0}, again = {0};
+    BgFile compiled = {0}, saved = {0}, again = {0}, packed = {0};
     BgDocument loaded = {0}, reloaded = {0};
     const char *why = "";
     char path[MAX_PATH];
@@ -26,7 +26,10 @@ static void RoundTrip(const BgDocument *doc, const BgFile *source, const char *d
     snprintf(path, sizeof(path), "%s/bg", dir); CreateDirectory(path, NULL);
     assert(BgSaveProjectFile(dir, &compiled, &why));
     assert(BgLoadProjectFile(dir, compiled.name, &saved, &why));
-    assert(saved.size == compiled.size && !memcmp(saved.data, compiled.data, saved.size));
+    /* Project saves compact native allocations before writing. */
+    assert(BgFileCompact(&compiled, &packed, &why));
+    assert(saved.size == packed.size && !memcmp(saved.data, packed.data, saved.size));
+    BgFileFree(&packed);
     assert(BgDocumentLoad(saved.data, saved.size, doc->levelscale, &loaded, &why));
     Equivalent(doc, &loaded);
     assert(BgDocumentCompile(&loaded, &saved, &again, &why));

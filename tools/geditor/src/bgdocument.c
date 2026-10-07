@@ -1064,6 +1064,16 @@ BOOL BgDocumentDeleteFaces(BgDocument *document, const BgFaceRef *refs,
 }
 
 
+static void BgDocumentReverseFaceWinding(BgDocumentFace *face)
+{
+    DWORD vertex = face->vertexindices[1];
+    /* UVs and colors stay attached to their vertex records. Seam bits follow
+       the same physical edges when corner order changes. */
+    face->vertexindices[1] = face->vertexindices[2];
+    face->vertexindices[2] = vertex;
+    face->uvseams = ((face->uvseams & 1) << 2) | (face->uvseams & 2) | ((face->uvseams & 4) >> 2);
+}
+
 BOOL BgDocumentFlipFaces(BgDocument *document, const BgFaceRef *refs,
                          DWORD refcount, const char **reasonout)
 {
@@ -1102,12 +1112,7 @@ BOOL BgDocumentFlipFaces(BgDocument *document, const BgFaceRef *refs,
     for (index = 0; index < refcount; index++)
     {
         BgDocumentFace *face = (BgDocumentFace *)BgDocumentFindFace(document, &refs[index], NULL);
-        DWORD vertex = face->vertexindices[1];
-        /* UVs and colors belong to the vertex records, so only reorder the
-           references. Shared vertices and neighboring faces remain intact. */
-        face->vertexindices[1] = face->vertexindices[2];
-        face->vertexindices[2] = vertex;
-        face->uvseams = ((face->uvseams & 1) << 2) | (face->uvseams & 2) | ((face->uvseams & 4) >> 2);
+        BgDocumentReverseFaceWinding(face);
     }
     document->dirty = TRUE;
     return TRUE;
@@ -1209,6 +1214,111 @@ static int BgDocumentCompareVertexRefs(const void *left, const void *right)
     if (a->room != b->room) { return a->room < b->room ? -1 : 1; }
     if (a->index != b->index) { return a->index < b->index ? -1 : 1; }
     return 0;
+}
+
+static int BgDocumentCompareFacePointers(const void *left, const void *right)
+{
+    const BgDocumentFace *a = *(BgDocumentFace * const *)left;
+    const BgDocumentFace *b = *(BgDocumentFace * const *)right;
+    if (a->room != b->room) { return a->room < b->room ? -1 : 1; }
+    if (a->layer != b->layer) { return a->layer < b->layer ? -1 : 1; }
+    if (a->id != b->id) { return a->id < b->id ? -1 : 1; }
+    return 0;
+}
+
+BOOL BgDocumentMirrorFaces(BgDocument *document, const BgFaceRef *refs,
+                           DWORD refcount, unsigned int axis, const char **reasonout)
+{
+    BgDocumentFace **faces = NULL;
+    BgDocumentVertexRef *vertices = NULL;
+    short *positions = NULL;
+    size_t count = 0, unique = 0, i;
+    double min = 0, max = 0;
+    const char *reason = "";
+
+    if (reasonout) { *reasonout = ""; }
+    if (!document || !document->rooms || !refs || !refcount)
+    { reason = "There are no background faces to mirror."; goto fail; }
+    if (axis > 2)
+    { reason = "The mirror axis must be X, Y or Z."; goto fail; }
+    if (!isfinite(document->levelscale) || document->levelscale <= 0)
+    { reason = "The background has an invalid world scale."; goto fail; }
+    if (refcount > (DWORD)-1 / (3 * sizeof(*vertices)))
+    { reason = "Too many background faces to mirror."; goto fail; }
+    faces = malloc((size_t)refcount * sizeof(*faces));
+    vertices = malloc((size_t)refcount * 3 * sizeof(*vertices));
+    positions = malloc((size_t)refcount * 3 * sizeof(*positions));
+    if (!faces || !vertices || !positions)
+    { reason = "Out of memory mirroring background faces."; goto fail; }
+
+    for (i = 0; i < refcount; i++)
+    {
+        const BgDocumentRoom *room;
+        faces[i] = (BgDocumentFace *)BgDocumentFindFace(document, &refs[i], &room);
+        if (!faces[i])
+        { reason = "A selected background face no longer exists."; goto fail; }
+        if (!room->vertices || !isfinite(room->origin[axis]))
+        { reason = "A selected background room has invalid geometry."; goto fail; }
+        for (int corner = 0; corner < 3; corner++)
+        {
+            DWORD vertex = faces[i]->vertexindices[corner];
+            if (vertex >= room->vertexcount)
+            { reason = "A selected background face has an invalid vertex."; goto fail; }
+            vertices[count++] = (BgDocumentVertexRef){refs[i].room, vertex};
+        }
+    }
+    qsort(faces, refcount, sizeof(*faces), BgDocumentCompareFacePointers);
+    for (i = 1; i < refcount; i++)
+    {
+        if (faces[i] == faces[i - 1])
+        { reason = "The background face selection contains duplicates."; goto fail; }
+    }
+    qsort(vertices, count, sizeof(*vertices), BgDocumentCompareVertexRefs);
+    for (i = 0; i < count; i++)
+    {
+        if (unique && !BgDocumentCompareVertexRefs(&vertices[unique - 1], &vertices[i])) { continue; }
+        vertices[unique++] = vertices[i];
+    }
+    /* All rooms share the level scale. Absolute native coordinates therefore
+       give the same bounding-box center as world coordinates, without a
+       scale/divide round trip. Use one box for the entire selection. */
+    for (i = 0; i < unique; i++)
+    {
+        const BgDocumentRoom *room = &document->rooms[vertices[i].room];
+        const BgDocumentVertex *v = &room->vertices[vertices[i].index];
+        double value = (axis == 0 ? v->x : axis == 1 ? v->y : v->z) + (double)room->origin[axis];
+        if (!i || value < min) { min = value; }
+        if (!i || value > max) { max = value; }
+    }
+    /* Validate every destination before editing. A cross-room mirror can
+       exceed a room's signed 16-bit local coordinate range. */
+    for (i = 0; i < unique; i++)
+    {
+        const BgDocumentRoom *room = &document->rooms[vertices[i].room];
+        const BgDocumentVertex *v = &room->vertices[vertices[i].index];
+        double local = axis == 0 ? v->x : axis == 1 ? v->y : v->z;
+        double value = round(min + max - 2.0 * room->origin[axis] - local);
+        if (!isfinite(value) || value < SHRT_MIN || value > SHRT_MAX)
+        { reason = "The mirrored geometry exceeds a room's native coordinate range."; goto fail; }
+        positions[i] = (short)value;
+    }
+    for (i = 0; i < unique; i++)
+    {
+        BgDocumentVertex *v = &document->rooms[vertices[i].room].vertices[vertices[i].index];
+        if (axis == 0) { v->x = positions[i]; }
+        else if (axis == 1) { v->y = positions[i]; }
+        else { v->z = positions[i]; }
+    }
+    /* Reflection changes handedness, including for faces lying on the mirror
+       plane. Reverse winding to preserve their intended front side. */
+    for (i = 0; i < refcount; i++) { BgDocumentReverseFaceWinding(faces[i]); }
+    document->dirty = TRUE;
+    free(faces); free(vertices); free(positions);
+    return TRUE;
+fail:
+    free(faces); free(vertices); free(positions);
+    if (reasonout) { *reasonout = reason; }
+    return FALSE;
 }
 
 

@@ -9071,6 +9071,11 @@ show_menu:
     if ((!paste || (AppendMenu(menu, MF_STRING, 4, "Paste Here")
             && (!(message || stancount) || AppendMenu(menu, MF_SEPARATOR, 0, NULL))))
         && (!message || AppendMenu(menu, MF_STRING, 1, label))
+        && (message != VIEWPORT_WM_DISCONNECT_FACES
+            || (AppendMenu(menu, MF_SEPARATOR, 0, NULL)
+                && AppendMenu(menu, MF_STRING, 10, "Mirror X")
+                && AppendMenu(menu, MF_STRING, 11, "Mirror Y")
+                && AppendMenu(menu, MF_STRING, 12, "Mirror Z")))
         && (message != VIEWPORT_WM_SPLIT_EDGE || AppendMenu(menu, MF_STRING
             | (SendMessage(GetParent(hwnd), VIEWPORT_WM_CAN_REVERSE_EDGE, 0, 0) ? MF_ENABLED : MF_GRAYED),
             6, "Reverse Edge\tT"))
@@ -9078,7 +9083,8 @@ show_menu:
         && (message != VIEWPORT_WM_SPLIT_EDGE || AppendMenu(menu, MF_STRING, 3,
             (edge.face.seams & (1u << edge.corner)) ? "Clear Seam" : "Mark Seam"))
         && (message != VIEWPORT_WM_DISCONNECT_FACES || ViewportGetSelectedBgFaceCount(hwnd) != 2
-            || AppendMenu(menu, MF_STRING, 5, "Create Door Shadow"))
+            || (AppendMenu(menu, MF_SEPARATOR, 0, NULL)
+                && AppendMenu(menu, MF_STRING, 5, "Create Door Shadow")))
         && (!stancount || ((!message || AppendMenu(menu, MF_SEPARATOR, 0, NULL))
             && AppendMenu(menu, MF_STRING | (stantype == STAN_TYPE_NORMAL ? MF_CHECKED : 0), 7, "Normal")
             && AppendMenu(menu, MF_STRING | (stantype == STAN_TYPE_LADDER ? MF_CHECKED : 0), 8, "Ladder")
@@ -9099,6 +9105,8 @@ show_menu:
         { SendMessage(GetParent(hwnd), VIEWPORT_WM_LINK_STAN_EDGE, 0, (LPARAM)&stanedge); }
         else if (command == 5 && message == VIEWPORT_WM_DISCONNECT_FACES)
         { SendMessage(GetParent(hwnd), VIEWPORT_WM_CREATE_DOOR_SHADOW, 0, 0); }
+        else if (message == VIEWPORT_WM_DISCONNECT_FACES && command >= 10 && command <= 12)
+        { SendMessage(GetParent(hwnd), VIEWPORT_WM_MIRROR_FACES, command - 10, 0); }
         else if (command == 4 && paste)
         { SendMessage(GetParent(hwnd), VIEWPORT_WM_PASTE_OBJECT_HERE, 0, (LPARAM)&target); }
         else if (stancount && command >= 7 && command <= 9)

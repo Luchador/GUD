@@ -3913,6 +3913,44 @@ fail:
 }
 
 
+static BOOL GEditorMirrorSelectedBgFaces(HWND hwnd, unsigned int axis)
+{
+    static const char *actions[] = {"Mirror X", "Mirror Y", "Mirror Z"};
+    EditHistoryTransaction transaction = {0};
+    BgFaceRef *faces = NULL;
+    int count;
+    const char *why = "", *restorewhy = "";
+
+    if (axis > 2 || !GEditorCanFlipSelectedBgFaces()) { return FALSE; }
+    count = ViewportGetSelectedBgFaceCount(g_Viewport);
+    faces = malloc((size_t)count * sizeof(*faces));
+    if (!faces) { why = "Out of memory reading the background selection."; goto fail; }
+    if (!ViewportGetSelectedBgFaces(g_Viewport, faces, count))
+    { why = "The selected background faces could not be read."; goto fail; }
+    if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
+        actions[axis], &transaction, &why)) { goto fail; }
+    if (!BgDocumentMirrorFaces(&g_CurrentBgDocument, faces, (DWORD)count, axis, &why))
+    { goto fail; } /* Document operation is atomic. */
+    /* Stable face IDs retain the selection through the rebuild. */
+    if (!GEditorRebuildCurrentViewport(&why)
+        || !EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument,
+            &g_CurrentSetup, &g_CurrentStan, &transaction, &why))
+    {
+        EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+        GEditorRebuildCurrentViewport(&restorewhy);
+        GEditorRestoreHistorySelection(hwnd);
+        goto fail;
+    }
+    free(faces);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+fail:
+    free(faces); EditHistoryCancelEdit(&transaction);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
 static BOOL GEditorSeparateBgVertices(HWND hwnd, const BgDocumentEdgeRef *edge)
 {
     EditHistoryTransaction transaction = {0};
@@ -6872,6 +6910,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         return 0;
     case VIEWPORT_WM_DISCONNECT_FACES:
         return GEditorSeparateBgVertices(hwnd, NULL);
+    case VIEWPORT_WM_MIRROR_FACES:
+        return GEditorMirrorSelectedBgFaces(hwnd, (unsigned int)wparam);
 
     case VIEWPORT_WM_LINK_STAN_TILES:
         return GEditorLinkStanTiles(hwnd, NULL);

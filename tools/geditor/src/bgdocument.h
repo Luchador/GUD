@@ -279,6 +279,13 @@ BOOL BgDocumentDeleteFaces(BgDocument *document, const BgFaceRef *refs,
 BOOL BgDocumentFlipFaces(BgDocument *document, const BgFaceRef *refs,
                          DWORD refcount, const char **reasonout);
 
+/* Reflect about the whole selection's bounding-box center: axis 0=X, 1=Y,
+ * 2=Z. Move shared vertices once, preserving connections as with the other
+ * face transforms. Reverse selected winding/seam order; retain UVs, colors,
+ * materials and IDs. Reject invalid selections/range overflow atomically. */
+BOOL BgDocumentMirrorFaces(BgDocument *document, const BgFaceRef *refs,
+                           DWORD refcount, unsigned int axis, const char **reasonout);
+
 /* Separate selected faces from unselected faces by copying boundary source
  * vertices once per selection. Connections within the selection stay intact.
  * Split Edge separates only its two endpoints on every incident face; it
