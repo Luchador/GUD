@@ -524,42 +524,41 @@ Gfx *bgRender(Gfx *gdl)
 }
 
 
-s32 bgGetPrimaryGdlCountForRoom(s32 room)
+/* Room zero is reserved; the first null primary pointer terminates the
+ * table. The final non-null row can contain newly authored geometry. */
+static s32 bgCountRooms(void)
 {
-    s32 i = room;
-
-    while (ptr_bgdata_room_fileposition_list[i].primaryGraphics == 0)
+    s32 room = 1;
+    while (room < MAXROOMCOUNT && ptr_bgdata_room_fileposition_list[room].primaryGraphics != NULL)
     {
-        i++;
+        room++;
     }
-
-    return i;
+    return room;
 }
 
-
-s32 bgGetSecondaryGdlCountForRoom(s32 room)
+/* GUD streams carry their own byte lengths. The old compressed-format
+ * lookahead could run past the terminator, and required a dummy final room. */
+static void bgInitRoomStreams(void)
 {
-    s32 i = room;
-
-    while (ptr_bgdata_room_fileposition_list[i].secondaryGraphics == 0)
+    s32 room;
+    for (room = 1; room < g_MaxNumRooms; room++)
     {
-        i++;
+        RoomInfo *info = &g_BgRoomInfo[room];
+        BgRoomData *source = &ptr_bgdata_room_fileposition_list[room];
+        info->unloadAge = 0;
+        info->keepLoaded = 0;
+        info->hasVertexStream = source->pPointTableBin != NULL;
+        info->hasPrimaryStream = source->primaryGraphics != NULL;
+        info->hasSecondaryStream = source->secondaryGraphics != NULL;
+        info->vertices = NULL;
+        info->verticesSize = 0;
+        info->primaryGdl = NULL;
+        info->primaryGdlSize = 0;
+        info->secondaryGdl = NULL;
+        info->secondaryGdlSize = 0;
+        info->num_vtx_batch_bounds = 0;
+        info->cur_room_totalsize = -1;
     }
-
-    return i;
-}
-
-
-s32 getPointTableBinCount(s32 room)
-{
-    s32 i = room;
-    
-    while (ptr_bgdata_room_fileposition_list[i].pPointTableBin == 0)
-    {
-        i++;
-    }
-
-    return i;
 }
 
 
@@ -647,13 +646,8 @@ void bgLoadFile(LEVELID levelid)
         g_BgRenderMode = BGLOADTYPE_ROOMS;
         bgDataOffsets = (s32)data;
         ptr_bgdata_room_fileposition_list = (BgRoomData *) BG_SEG_TO_PTR(data, ((s32 *)bgDataOffsets)[1]);
-        g_MaxNumRooms = 0;
+        g_MaxNumRooms = bgCountRooms();
 
-        for (i = 1; ptr_bgdata_room_fileposition_list[i].primaryGraphics != NULL; i++) 
-        {
-            g_MaxNumRooms++;  
-        }
- 
         g_BgPortals = (PortalData *) BG_SEG_TO_PTR(data, ((s32 *)bgDataOffsets)[2]);
 
         if (((s32 *)bgDataOffsets)[3] == 0)
@@ -681,68 +675,8 @@ void bgLoadFile(LEVELID levelid)
             }
         }
  
-        for (i = 1; i < g_MaxNumRooms; i++)
-        {
-            g_BgRoomInfo[i].unloadAge = 0;
-            g_BgRoomInfo[i].keepLoaded = 0;
- 
-            if (ptr_bgdata_room_fileposition_list[i].primaryGraphics != (NULL))
-            {
-                s32 primaryindex;
-                s32 secondaryindex;
-                primaryindex = bgGetPrimaryGdlCountForRoom(i + 1);
-                secondaryindex = bgGetSecondaryGdlCountForRoom(i);
- 
-                if (primaryindex <= secondaryindex)
-                {
-                    g_BgRoomInfo[i].primaryGdlRomBlockSize = ((s32) ptr_bgdata_room_fileposition_list[primaryindex].primaryGraphics) - ((s32) ptr_bgdata_room_fileposition_list[i].primaryGraphics);
-                }
-                else
-                {
-                    g_BgRoomInfo[i].primaryGdlRomBlockSize = ((s32) ptr_bgdata_room_fileposition_list[secondaryindex].secondaryGraphics) - ((s32) ptr_bgdata_room_fileposition_list[i].primaryGraphics);
-                }
-            }
-            else
-            {
-                g_BgRoomInfo[i].primaryGdlRomBlockSize = 0;
-            }
- 
-            if (ptr_bgdata_room_fileposition_list[i].secondaryGraphics != (NULL))
-            {
-                s32 primaryindex;
-                s32 secondaryindex;
+        bgInitRoomStreams();
 
-                primaryindex = bgGetPrimaryGdlCountForRoom(i + 1);
-                secondaryindex = bgGetSecondaryGdlCountForRoom(i + 1);
- 
-                if (primaryindex <= secondaryindex)
-                {
-                    g_BgRoomInfo[i].secondaryGdlRomBlockSize = ((s32) ptr_bgdata_room_fileposition_list[primaryindex].primaryGraphics) - ((s32) ptr_bgdata_room_fileposition_list[i].secondaryGraphics);
-                }
-                else
-                {
-                    g_BgRoomInfo[i].secondaryGdlRomBlockSize = ((s32) ptr_bgdata_room_fileposition_list[secondaryindex].secondaryGraphics) - ((s32) ptr_bgdata_room_fileposition_list[i].secondaryGraphics);
-                }
-            }
-            else
-            {
-                g_BgRoomInfo[i].secondaryGdlRomBlockSize = 0;
-            }
- 
-            if (ptr_bgdata_room_fileposition_list[i].pPointTableBin != (NULL))
-            {
-                s32 pointindex;
-                pointindex = getPointTableBinCount(i + 1);
-                g_BgRoomInfo[i].verticesRomBlockSize = ((s32) ptr_bgdata_room_fileposition_list[pointindex].pPointTableBin) - ((s32) ptr_bgdata_room_fileposition_list[i].pPointTableBin);
-            }
-            else
-            {
-                g_BgRoomInfo[i].verticesRomBlockSize = 0;
-            }
- 
-            g_BgRoomInfo[i].cur_room_totalsize = -1;
-        }
- 
         initializeRoomData();
  
         for (i = 1; i < g_MaxNumRooms; i++)
@@ -1885,6 +1819,13 @@ s32 bgLoadRoomVtxData(s32 roomnum, u8 *dst, s32 len)
     fileoffset += 0xf1000000;
     dataSize = bgGetRoomStreamSize(fileoffset);
 
+    if (dataSize == 0)
+    {
+        room->vertices = NULL;
+        room->verticesSize = 0;
+        return 0;
+    }
+
     if (len < ((dataSize + 0xf) & ~0xf) + 0x20)
     {
         return -1;
@@ -1915,6 +1856,12 @@ s32 bgLoadRoomPrimaryGdl(s32 roomnum, u8 *dst, s32 allocsize)
     fileoffset = (s32)ptr_bgdata_room_fileposition_list[roomnum].primaryGraphics;
     fileoffset += 0xf1000000;
     dataSize = bgGetRoomStreamSize(fileoffset);
+    if (dataSize == 0)
+    {
+        room->primaryGdl = NULL;
+        room->primaryGdlSize = 0;
+        return 0;
+    }
     alignedSize = (dataSize + 0xf) & ~0xf;
 
     if (allocsize < alignedSize + 0x20)
@@ -1956,6 +1903,12 @@ s32 bgLoadRoomSecondaryGdl(s32 roomnum, u8 *dst, s32 allocsize)
     fileoffset = (s32)ptr_bgdata_room_fileposition_list[roomnum].secondaryGraphics;
     fileoffset += 0xf1000000;
     dataSize = bgGetRoomStreamSize(fileoffset);
+    if (dataSize == 0)
+    {
+        room->secondaryGdl = NULL;
+        room->secondaryGdlSize = 0;
+        return 0;
+    }
     alignedSize = (dataSize + 0xf) & ~0xf;
 
     if (allocsize < alignedSize + 0x20)
@@ -2104,7 +2057,7 @@ void bgLoadRoomModelData(s32 roomID)
         return;
     }
 
-    if (g_BgRoomInfo[roomID].verticesRomBlockSize)
+    if (g_BgRoomInfo[roomID].hasVertexStream)
     {
         result = bgLoadRoomVtxData(roomID, data, allocsize);
 
@@ -2125,7 +2078,7 @@ void bgLoadRoomModelData(s32 roomID)
     /**
      * Append the primary display list after the vertex data.
      */
-    if (g_BgRoomInfo[roomID].primaryGdlRomBlockSize)
+    if (g_BgRoomInfo[roomID].hasPrimaryStream)
     {
         result = bgLoadRoomPrimaryGdl(roomID, data + used, allocsize - used);
 
@@ -2140,11 +2093,16 @@ void bgLoadRoomModelData(s32 roomID)
          * shrinks the cached size, then loses the primary on the next load. */
         used = (used + result + 0xf) & ~0xf;
     }
+    else
+    {
+        g_BgRoomInfo[roomID].primaryGdl = NULL;
+        g_BgRoomInfo[roomID].primaryGdlSize = 0;
+    }
 
     /**
      * Append the secondary display list.
      */
-    if (g_BgRoomInfo[roomID].secondaryGdlRomBlockSize)
+    if (g_BgRoomInfo[roomID].hasSecondaryStream)
     {
         result = bgLoadRoomSecondaryGdl(roomID, data + used, allocsize - used);
 
@@ -2158,6 +2116,17 @@ void bgLoadRoomModelData(s32 roomID)
     else
     {
         g_BgRoomInfo[roomID].secondaryGdl = NULL;
+        g_BgRoomInfo[roomID].secondaryGdlSize = 0;
+    }
+
+    if (used == 0)
+    {
+        /* Old end-marker rooms can have non-null pointers to empty streams.
+         * Mark them resident without retaining an allocation with no owner. */
+        memaFree(data, allocsize);
+        g_BgRoomInfo[roomID].cur_room_totalsize = 0;
+        g_BgRoomInfo[roomID].unloadAge = 1;
+        return;
     }
 
     g_BgRoomInfo[roomID].cur_room_totalsize = ((used + 0x20) & ~0xf);
@@ -2172,10 +2141,13 @@ void bgLoadRoomModelData(s32 roomID)
     // Same branches, only the LUT parameter changes
     if (envGetCurrent()->FogEnabled)
     {
-        bgApplyDynamicCCRMLUT(
-            g_BgRoomInfo[roomID].primaryGdl,
-            (Gfx *)((u8 *)g_BgRoomInfo[roomID].primaryGdl + g_BgRoomInfo[roomID].primaryGdlSize),
-            1);
+        if (g_BgRoomInfo[roomID].primaryGdl)
+        {
+            bgApplyDynamicCCRMLUT(
+                g_BgRoomInfo[roomID].primaryGdl,
+                (Gfx *)((u8 *)g_BgRoomInfo[roomID].primaryGdl + g_BgRoomInfo[roomID].primaryGdlSize),
+                1);
+        }
 
         if (g_BgRoomInfo[roomID].secondaryGdl)
         {
@@ -2187,10 +2159,13 @@ void bgLoadRoomModelData(s32 roomID)
     }
     else
     {
-        bgApplyDynamicCCRMLUT(
-            g_BgRoomInfo[roomID].primaryGdl,
-            (Gfx *)((u8 *)g_BgRoomInfo[roomID].primaryGdl + g_BgRoomInfo[roomID].primaryGdlSize),
-            6);
+        if (g_BgRoomInfo[roomID].primaryGdl)
+        {
+            bgApplyDynamicCCRMLUT(
+                g_BgRoomInfo[roomID].primaryGdl,
+                (Gfx *)((u8 *)g_BgRoomInfo[roomID].primaryGdl + g_BgRoomInfo[roomID].primaryGdlSize),
+                6);
+        }
 
         if (g_BgRoomInfo[roomID].secondaryGdl)
         {
@@ -2201,9 +2176,12 @@ void bgLoadRoomModelData(s32 roomID)
         }
     }
 
-    bgApplyEnvironmentMapping(g_BgRoomInfo[roomID].primaryGdl,
-        (Gfx *)((u8 *)g_BgRoomInfo[roomID].primaryGdl + g_BgRoomInfo[roomID].primaryGdlSize),
-        g_BgRoomInfo[roomID].vertices, g_BgRoomInfo[roomID].verticesSize);
+    if (g_BgRoomInfo[roomID].primaryGdl)
+    {
+        bgApplyEnvironmentMapping(g_BgRoomInfo[roomID].primaryGdl,
+            (Gfx *)((u8 *)g_BgRoomInfo[roomID].primaryGdl + g_BgRoomInfo[roomID].primaryGdlSize),
+            g_BgRoomInfo[roomID].vertices, g_BgRoomInfo[roomID].verticesSize);
+    }
     if (g_BgRoomInfo[roomID].secondaryGdl)
     {
         bgApplyEnvironmentMapping(g_BgRoomInfo[roomID].secondaryGdl,
@@ -2276,10 +2254,14 @@ void bgFreeRoomData(s32 roomID)
             memaFree(pointindex, size2);
             room->vertices = NULL;
         }
-        else
+        else if (room->primaryGdl != NULL)
         {
             memaFree(room->primaryGdl, size);
             room->vertices = NULL;
+        }
+        else if (room->secondaryGdl != NULL)
+        {
+            memaFree(room->secondaryGdl, size);
         }
 
         room->primaryGdl = NULL;
@@ -2369,7 +2351,10 @@ Gfx *bgRenderRoomPrimary(Gfx *gdl, s32 room_index)
         {
             primary = g_BgOneCycleRooms[room_index].gdl;
         }
-        gSPDisplayList(gdl++, OS_K0_TO_PHYSICAL(primary));
+        if (primary != NULL)
+        {
+            gSPDisplayList(gdl++, OS_K0_TO_PHYSICAL(primary));
+        }
         gdl = doorShadowRenderRoom(gdl, room_index, 0, primary != g_BgRoomInfo[room_index].primaryGdl);
         if (g_BgDebugEnabled) bgDebugRecordRoom(room_index, BG_DEBUG_PRIMARY);
 
@@ -2464,6 +2449,11 @@ void bgBuildRoomVtxBounds(s32 roomID)
 
     gdl = g_BgRoomInfo[roomID].primaryGdl;
 
+    if (gdl == NULL)
+    {
+        return;
+    }
+
     vertices = g_BgRoomInfo[roomID].vertices;
     cmdindex = 0;
     numpoints = 0;
@@ -2475,6 +2465,11 @@ void bgBuildRoomVtxBounds(s32 roomID)
             numpoints++;
         }
         cmdindex++;
+    }
+
+    if (numpoints == 0)
+    {
+        return;
     }
 
     points = memaAlloc(ALIGN16(numpoints * sizeof(RoomVtxBatchBounds)));
@@ -3977,33 +3972,43 @@ void bgGetRoomCenter(s32 roomnum, coord3d *dst)
 }
 
 
+/* Empty authored rooms and legacy dummy rows still need finite bounds.
+ * Use collision bounds when available, otherwise the authored origin. */
+static void bgRoomSetEmptyBounds(s32 room)
+{
+    BgRoomData *source = &ptr_bgdata_room_fileposition_list[room];
+    s32 axis;
+    for (axis = 0; axis < 3; axis++)
+    {
+        if (room < g_StanRoomIndexLimit && g_StanFirstTileByRoom[room] != NULL)
+        {
+            g_BgRoomInfo[room].minbounds.f[axis] = g_StanRoomBounds[room].min[axis];
+            g_BgRoomInfo[room].maxbounds.f[axis] = g_StanRoomBounds[room].max[axis];
+            source->pos.f[axis] = (g_StanRoomBounds[room].min[axis] + g_StanRoomBounds[room].max[axis]) / 2;
+        }
+        else
+        {
+            g_BgRoomInfo[room].minbounds.f[axis] = source->pos.f[axis];
+            g_BgRoomInfo[room].maxbounds.f[axis] = source->pos.f[axis];
+        }
+    }
+    doorShadowExpandRoomBounds(room);
+}
+
+
 void bgRoomCalcBB(s32 room)
 {
     BgRoomData *roomdata;
-    Vtx *vertices = (Vtx *) &g_StanRoomBounds[0];
+    Vtx *vertices;
     s32 j = 0;
     StanRoomBounds limits;
     u8 wasloaded;
 
     roomdata = (BgRoomData *) ((s32) ptr_bgdata_room_fileposition_list + room * 24);
 
-    // Does the room have gfx data?
     if (roomdata->pPointTableBin == NULL)
     {
-        // Does the room have stan data?
-        if ((room < g_StanRoomIndexLimit) && ((s32) g_StanFirstTileByRoom[room] != ((StanRoomBounds *) vertices)->min[j] % 1))
-        {
-            for (j = 0; j < 3; j++)
-            {
-                g_BgRoomInfo[room].minbounds.f[j] = g_StanRoomBounds[room].min[j];
-
-                g_BgRoomInfo[room].maxbounds.f[j] = g_StanRoomBounds[room].max[j];
-
-                ptr_bgdata_room_fileposition_list[room].pos.f[j] = (g_StanRoomBounds[room].min[j] + g_StanRoomBounds[room].max[j]) / 2;
-            }
-        }
-
-        doorShadowExpandRoomBounds(room);
+        bgRoomSetEmptyBounds(room);
         return;
     }
 
@@ -4015,6 +4020,16 @@ void bgRoomCalcBB(s32 room)
     }
 
     vertices = g_BgRoomInfo[room].vertices;
+    if (vertices == NULL || g_BgRoomInfo[room].verticesSize == 0)
+    {
+        bgRoomSetEmptyBounds(room);
+        if (!wasloaded && g_BgRoomInfo[room].unloadAge)
+        {
+            bgFreeRoomData(room);
+        }
+        return;
+    }
+
     roomdata = (BgRoomData *) ((s32) ptr_bgdata_room_fileposition_list + room * 24);
 
     limits.minX = 0x7fff;

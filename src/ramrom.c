@@ -48,6 +48,12 @@ void romReceiveMesg(void)
  */
 void romCopy(void *target, void *source, u32 size)
 {
+    /* PI encodes the transfer length as size - 1. A zero-byte request would
+     * start a huge transfer, corrupting RAM. Do not queue or await it. */
+    if (size == 0)
+    {
+        return;
+    }
     doRomCopy(target, source, size);
     romReceiveMesg();
 }

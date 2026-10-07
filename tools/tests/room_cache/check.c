@@ -12,8 +12,8 @@ static void reset(int bytes)
     memset(g_BgRoomInfo, 0, sizeof(g_BgRoomInfo));
     bgClearRoomRenderCaches();
     for (int i = 1; i < MAXROOMCOUNT; i++) {
-        g_BgRoomInfo[i].verticesRomBlockSize = 64;
-        g_BgRoomInfo[i].primaryGdlRomBlockSize = 64;
+        g_BgRoomInfo[i].hasVertexStream = 64;
+        g_BgRoomInfo[i].hasPrimaryStream = 64;
         g_BgRoomInfo[i].cur_room_totalsize = 160;
         ptr_bgdata_room_fileposition_list[i].pPointTableBin = (void *)0x0f000100;
         ptr_bgdata_room_fileposition_list[i].primaryGraphics = (void *)0x0f000200;
@@ -39,7 +39,7 @@ static void check_room_recovery(void)
     int before, conversionCount;
     reset(1024);
     assert(testFrameAllowed(0) && testFrameAllowed(1) && !testFrameAllowed(2));
-    g_BgRoomInfo[1].secondaryGdlRomBlockSize = 64;
+    g_BgRoomInfo[1].hasSecondaryStream = 64;
     g_BgRoomInfo[1].cur_room_totalsize = 224;
     bgLoadRoomModelData(1);
     assert(g_BgRoomInfo[1].unloadAge && g_BgOneCycleRooms[1].gdl
@@ -100,7 +100,7 @@ static void check_allocation_lifetime(void)
     assert(!renderCacheAlloc(0) && !renderCacheAlloc(-1) && !renderCacheAlloc(0x7fffffff));
     assert(!renderCacheAlloc(2048) && renderCacheIsEnabled() && !renderCacheReclaimPending());
     /* Normal room unloading unregisters both copies; recovery must not free them twice. */
-    g_BgRoomInfo[1].secondaryGdlRomBlockSize = 64;
+    g_BgRoomInfo[1].hasSecondaryStream = 64;
     g_BgRoomInfo[1].cur_room_totalsize = 224;
     bgLoadRoomModelData(1); bgFreeRoomData(1); assert_full_heap(1024);
     rejectConversion = TRUE; bgLoadRoomModelData(2);
@@ -138,7 +138,7 @@ static void check_short_list_reload(void)
         oneCycle = FALSE;
         memcpy(streamSizes, sizes[i], sizeof(streamSizes));
         g_BgRoomInfo[1].cur_room_totalsize = -1;
-        g_BgRoomInfo[1].secondaryGdlRomBlockSize = sizes[i][2] != 0;
+        g_BgRoomInfo[1].hasSecondaryStream = sizes[i][2] != 0;
         int allocation = 0;
         for (int reload = 0; reload < 4; reload++) {
             bgLoadRoomModelData(1);
@@ -155,6 +155,28 @@ static void check_short_list_reload(void)
     puts("PASS: short state-only primary/secondary lists survive repeated room reloads without losing streams or shrinking the cached allocation.");
 }
 
+static void check_empty_streams(void)
+{
+    const int sizes[][3] = {{0,8,0}, {0,0,0}, {0,0,8}};
+    for (unsigned i=0;i<sizeof(sizes)/sizeof(*sizes);i++) {
+        reset(4096);oneCycle=FALSE;
+        memcpy(streamSizes,sizes[i],sizeof(streamSizes));
+        g_BgRoomInfo[1].hasSecondaryStream=TRUE;
+        g_BgRoomInfo[1].cur_room_totalsize=-1;
+        for (int repeat=0;repeat<3;repeat++) {
+            Gfx out[16];
+            bgLoadRoomModelData(1);
+            RoomInfo *room=&g_BgRoomInfo[1];
+            assert(room->unloadAge && !room->vertices && !room->verticesSize);
+            assert(!!room->primaryGdl==!!sizes[i][1] && !!room->secondaryGdl==!!sizes[i][2]);
+            lastDrawn=NULL;bgRenderRoomPrimary(out,1);
+            assert(lastDrawn==room->primaryGdl);
+            bgFreeRoomData(1);assert_full_heap(4096);
+        }
+    }
+    puts("PASS: empty vertex/primary/secondary streams issue no zero-length DMA; empty and secondary-only room allocations reload and free safely.");
+}
+
 static void check_partial_room_failure(void)
 {
     /* Leave just enough space to fail the vertex, primary or secondary
@@ -162,7 +184,7 @@ static void check_partial_room_failure(void)
     for (int stream = 0; stream < 3; stream++) {
         reset(4096);
         g_BgRoomInfo[1].cur_room_totalsize = -1;
-        g_BgRoomInfo[1].secondaryGdlRomBlockSize = 64;
+        g_BgRoomInfo[1].hasSecondaryStream = 64;
         int occupied = 4096 - (stream + 1) * 64;
         void *otherRoom = memaAlloc(occupied);
         assert(otherRoom);
@@ -259,6 +281,7 @@ int main(void)
     check_room_recovery();
     check_allocation_lifetime();
     check_short_list_reload();
+    check_empty_streams();
     check_partial_room_failure();
     check_visible_room_priority();
     assert(munmap(heap, 0x10000) == 0);

@@ -7208,8 +7208,9 @@ void objRenderPropModel(PropRecord *prop, ModelRenderData *renderData, bool tran
 }
 
 
-/* Fade and stop rendering objects using their projected model diameter.
- * Every model size uses the same equation, without a minimum diameter. */
+/** 
+ * Fade and stop rendering objects using their projected model diameter.
+ */
 static s32 objCalcScreenFadeAlpha(PropRecord *prop, f32 diameter)
 {
     f32 startpx = OBJFADE_START_PX;

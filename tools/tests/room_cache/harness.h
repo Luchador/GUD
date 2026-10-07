@@ -46,7 +46,7 @@ static int streamSizes[3] = {64, 64, 64};
 static int bgGetRoomStreamSize(int offset)
 { assert(offset >= 0x100 && offset <= 0x300); return streamSizes[offset / 0x100 - 1]; }
 static void obLoadBGFileBytesAtOffset(char *file, u8 *dst, int offset, int size)
-{ (void)file; (void)offset; memset(dst, 0x5a, size); }
+{ (void)file; (void)offset; assert(size > 0); memset(dst, 0x5a, size); }
 static int texLoadFromGdl(Gfx *src, int size, Gfx *dst, void *pool)
 { (void)pool; memmove(dst, src, size); return size; }
 static void clear_light_fixturetable_in_room(int room) { (void)room; }

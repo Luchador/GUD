@@ -59,9 +59,10 @@ typedef struct RoomInfo {
     Gfx *primaryGdl;                        // 0x08
     void *secondaryGdl;                     // 0x0c
 
-    s32 verticesRomBlockSize;               // 0x10
-    s32 primaryGdlRomBlockSize;             // 0x14
-    s32 secondaryGdlRomBlockSize;           // 0x18
+    /* Raw-stream presence, not distances to the next room's pointers. */
+    bool hasVertexStream;                  // 0x10
+    bool hasPrimaryStream;                 // 0x14
+    bool hasSecondaryStream;               // 0x18
 
     s32 verticesSize;                       // 0x1c
     s32 primaryGdlSize;                     // 0x20
