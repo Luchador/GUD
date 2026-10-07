@@ -62,7 +62,7 @@ typedef struct RightPanelState {
     HWND visibility, outliner;
     HWND positions[3];
     HWND movemode, rotatemode, scalebutton;
-    BOOL rotationmode, scalemode, scaleislocal, scaleisgroup, nativeunits;
+    BOOL rotationmode, scalemode, scaleislocal, scaleisgroup, scaleallowzero, nativeunits;
     unsigned int rotationaxes;
     HWND details;
     HWND stanroom, stanroomlabel;
@@ -323,9 +323,12 @@ static void RightPanelSetPosition(HWND hwnd, RightPanelState *state)
         if (!(request.axismask & (1u << axis))) { continue; }
         GetWindowText(state->positions[axis], text, sizeof(text));
         if (!RightPanelParseTransformValue(text, !state->rotationmode && !state->scalemode, &value)
-            || (state->scalemode && (value <= 0 || value > 1000000)))
+            || (state->scalemode && (value < 0 || (!state->scaleallowzero && value == 0) || value > 1000000)))
         {
-            MessageBox(hwnd, state->scalemode ? "Enter a scale factor greater than zero and no larger than 1000000." : state->rotationmode ? "Enter a finite angle in degrees." : "Enter a finite position or an addition/subtraction expression, such as 250 + 100.",
+            MessageBox(hwnd, state->scalemode ? (state->scaleallowzero
+                       ? "Enter a scale factor from 0 to 1000000. Zero flattens the selected geometry on that axis."
+                       : "Enter a scale factor greater than zero and no larger than 1000000.")
+                       : state->rotationmode ? "Enter a finite angle in degrees." : "Enter a finite position or an addition/subtraction expression, such as 250 + 100.",
                        "Transform", MB_ICONWARNING);
             SetFocus(state->positions[axis]);
             SendMessage(state->positions[axis], EM_SETSEL, 0, -1);
@@ -916,6 +919,7 @@ void RightPanelSetTransformState(HWND panel, const double position[3],
     if (state->scalemode)
     {
         const char *hint = position == NULL ? "Select geometry, props or pads.\r\nVertices need a group; characters cannot scale."
+            : state->scaleallowzero ? "Enter applies factors: 0 flattens, 1 unchanged, 2 doubles."
             : "Enter applies factors: 1 unchanged, 2 doubles. Drag in 1% steps.";
         lstrcpyn(state->transformhint, hint, sizeof(state->transformhint));
     }
@@ -1411,10 +1415,10 @@ void RightPanelSetTransformMode(HWND panel, TransformMode mode)
     InvalidateRect(panel, NULL, FALSE);
 }
 
-void RightPanelSetScaleSpace(HWND panel, BOOL local, BOOL group)
+void RightPanelSetScaleSpace(HWND panel, BOOL local, BOOL group, BOOL allowzero)
 {
     RightPanelState *state = RightPanelGetState(panel);
-    if (state) { state->scaleislocal = local; state->scaleisgroup = group; }
+    if (state) { state->scaleislocal = local; state->scaleisgroup = group; state->scaleallowzero = allowzero; }
 }
 
 void RightPanelSetPortal(HWND panel, const BgDocument *document, DWORD index)

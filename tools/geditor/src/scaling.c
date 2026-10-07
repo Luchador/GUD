@@ -1,7 +1,7 @@
 #include <math.h>
 #include "scaling.h"
 
-int ScalingValid(const Scaling *scale)
+int ScalingGeometryValid(const Scaling *scale)
 {
     int axis;
     if (!scale || !RotationValid(&scale->axes))
@@ -11,12 +11,18 @@ int ScalingValid(const Scaling *scale)
     for (axis = 0; axis < 3; axis++)
     {
         if (!isfinite(scale->pivot[axis]) || !isfinite(scale->factor[axis]) ||
-            scale->factor[axis] <= 0 || scale->factor[axis] > 1000000)
+            scale->factor[axis] < 0 || scale->factor[axis] > 1000000)
         {
             return 0;
         }
     }
     return 1;
+}
+
+int ScalingValid(const Scaling *scale)
+{
+    return ScalingGeometryValid(scale)
+        && scale->factor[0] > 0 && scale->factor[1] > 0 && scale->factor[2] > 0;
 }
 
 void ScalingGroupMember(const Scaling *group, const Rotation *axes, const double center[3],

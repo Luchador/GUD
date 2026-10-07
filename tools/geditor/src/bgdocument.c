@@ -2451,7 +2451,7 @@ static BOOL BgDocumentTransformVertices(BgDocument *document, const BgDocumentVe
     *changed = 0;
     *reasonout = "Invalid background transform.";
     if (!document || !document->rooms || !refs || !count || !pivot ||
-        (scale ? !ScalingValid(scale) : !RotationValid(rotation)) ||
+        (scale ? !ScalingGeometryValid(scale) : !RotationValid(rotation)) ||
         !isfinite(document->levelscale) || document->levelscale <= 0)
     {
         return FALSE;
@@ -2499,7 +2499,16 @@ static BOOL BgDocumentTransformVertices(BgDocument *document, const BgDocumentVe
         }
         for (axis = 0; axis < 3; axis++)
         {
-            double value = round(rotated[axis] * document->levelscale - room->origin[axis]);
+            double native = rotated[axis] * document->levelscale;
+            /* Panel scales use world axes. Snap a flattened axis to one
+               absolute native plane before converting to room coordinates.
+               Otherwise a half-unit pivot can round in opposite directions
+               in rooms whose origins lie on different sides of the plane. */
+            if (scale && scale->factor[axis] == 0 && scale->axes.m[axis][axis] == 1
+                && scale->axes.m[axis][(axis + 1) % 3] == 0
+                && scale->axes.m[axis][(axis + 2) % 3] == 0)
+            { native = round(scale->pivot[axis] * document->levelscale); }
+            double value = round(native - room->origin[axis]);
             if (!isfinite(value) || value < SHRT_MIN || value > SHRT_MAX)
             {
                 *reasonout = "Transform exceeds a room's coordinate range.";

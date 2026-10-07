@@ -10,6 +10,9 @@ typedef struct Scaling
     double factor[3];
 } Scaling;
 int ScalingValid(const Scaling *scale);
+/* Geometry can flatten onto a plane/line/point. Pads, props and portals
+ * continue to require strictly positive factors via ScalingValid. */
+int ScalingGeometryValid(const Scaling *scale);
 void ScalingPoint(const Scaling *scale, const double in[3], double out[3]);
 /* Group spacing follows group axes. Member factors are the lengths of its
  * pad axes after group scaling; orientation stays fixed because native pads

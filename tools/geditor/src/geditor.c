@@ -329,7 +329,8 @@ static void GEditorRefreshTransformFields(void)
     {
         Scaling scaling;
         BOOL valid = ViewportGetScaling(g_Viewport, &scaling);
-        RightPanelSetScaleSpace(g_RightPanel, object || pad, group);
+        RightPanelSetScaleSpace(g_RightPanel, object || pad, group,
+            valid && !object && !group && !pad && !marker && !portal && !knife && !roommode);
         RightPanelSetTransformState(g_RightPanel, valid ? scaling.factor : NULL, count, valid, 0);
         return;
     }
@@ -3263,7 +3264,8 @@ static BOOL GEditorTransformSelection(HWND hwnd, const ViewportRotation *request
     ZeroMemory(&transaction, sizeof(transaction));
     ZeroMemory(&objects, sizeof(objects));
     if (tool == EDITOR_TOOL_VERTEX_PAINT ||
-        (scaling ? !ScalingValid(scaling) : !RotationValid(rotation)) || (scaling && character) ||
+        (scaling ? !(object || pad ? ScalingValid(scaling) : ScalingGeometryValid(scaling))
+                 : !RotationValid(rotation)) || (scaling && character) ||
         (object && !GEditorCanMoveSetupModel(objectindex)))
     {
         return FALSE;

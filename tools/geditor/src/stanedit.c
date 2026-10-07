@@ -372,7 +372,7 @@ static BOOL StanTransformPoints(StanFile *stan, const StanPointRef *points, DWOR
         *reasonout = "there are no editable selected stan points.";
         return FALSE;
     }
-    if (!pivot || (scale ? !ScalingValid(scale) : !RotationValid(rotation)))
+    if (!pivot || (scale ? !ScalingGeometryValid(scale) : !RotationValid(rotation)))
     {
         *reasonout = "Invalid stan transform.";
         return FALSE;
