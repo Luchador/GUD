@@ -924,6 +924,26 @@ BOOL BgDocumentSetPortalMargin(BgDocument *document, DWORD index, double margin,
 }
 
 
+BOOL BgDocumentSetPortalSideCulling(BgDocument *document, DWORD index, BOOL enabled,
+                                    BOOL *changed, const char **reasonout)
+{
+    BgPortal *portal;
+    unsigned char flags;
+    *changed = FALSE;
+    *reasonout = "The selected portal is no longer available.";
+    if (!document || !document->rooms || document->portalwarning || !document->portals.portals
+        || index >= document->portals.portalcount) { return FALSE; }
+    portal = &document->portals.portals[index];
+    flags = (portal->controlbytes1 & ~PORTALFLAG_FORCE_SIDE_CULL)
+        | (enabled ? PORTALFLAG_FORCE_SIDE_CULL : 0);
+    *changed = flags != portal->controlbytes1;
+    portal->controlbytes1 = flags;
+    document->dirty |= *changed;
+    *reasonout = "";
+    return TRUE;
+}
+
+
 BOOL BgDocumentDeleteFaces(BgDocument *document, const BgFaceRef *refs,
                            DWORD refcount, DWORD *deletedout,
                            const char **reasonout)

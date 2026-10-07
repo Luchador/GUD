@@ -2,12 +2,13 @@
 #define GEDITOR_PORTALPROPERTIES_H
 #include "bgdocument.h"
 
-/* Room requests apply both endpoints atomically; margin requests are independent. */
+/* Room requests apply both endpoints atomically; margin and flag requests are independent. */
 #define PORTALPROPERTIES_WM_CHANGED (WM_APP + 31)
 typedef struct PortalPropertiesEdit {
     DWORD portal, room1, room2;
     BOOL marginonly;
     double margin; /* World units; used only when marginonly is TRUE. */
+    BOOL sidecullingonly, sideculling;
 } PortalPropertiesEdit;
 BOOL PortalPropertiesRegisterClass(HINSTANCE instance);
 HWND PortalPropertiesCreate(HWND parent, HINSTANCE instance);

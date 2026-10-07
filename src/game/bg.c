@@ -4497,6 +4497,13 @@ static void bgBuildPortalCache(void)
         if (bgRoomFitsPortalSide(data->connectedRoom1, &g_PortalPlanes[portalnum], FALSE))
             g_BgPortalPlaneCullMasks[portalnum] |= BG_PORTAL_CULL_FROM_ROOM2;
 
+        /* The author can assert that this opening separates its rooms even
+         * when their conservative bounds overlap an angled window plane.
+         * Cache the override once; traversal still checks door state, margins
+         * and screen clipping normally. Unflagged connections are unchanged. */
+        if (data->controlbytes1 & PORTALFLAG_FORCE_SIDE_CULL)
+            g_BgPortalPlaneCullMasks[portalnum] = BG_PORTAL_CULL_FROM_ROOM1 | BG_PORTAL_CULL_FROM_ROOM2;
+
         g_BgRoomPortalOffsets[data->connectedRoom1 + 1]++;
 
         if (data->connectedRoom2 != data->connectedRoom1)

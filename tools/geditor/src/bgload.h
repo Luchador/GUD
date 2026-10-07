@@ -4,6 +4,7 @@
 #include <windows.h>
 
 #include "rom.h"
+#include "../../../src/portalflags.h"
 
 /*
  * GoldenEye background geometry loader.

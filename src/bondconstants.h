@@ -6,6 +6,7 @@
 #include "ammoconstants.h"
 #include "doorconstants.h"
 #include "propruntimeflags.h"
+#include "portalflags.h"
 
 #pragma region Tools
 #ifdef __INTELLISENSE__
@@ -1650,12 +1651,6 @@ typedef enum PLAYER_ID
     PLAYER_3,
     PLAYER_4
 } PLAYER_ID;
-
-typedef enum PORTALFLAGS
-{
-    PORTALFLAG_DISABLED    = 0x01,
-    PORTALFLAG_SPECIAL     = 0x02
-} PORTALFLAGS;
 
 #define SAVESLOT1 0x0
 #define SAVESLOT2 0x1

@@ -25,10 +25,18 @@ static void RoundTrip(const BgDocument *doc, const BgFile *source, const char *d
     snprintf(path,sizeof(path),"%s/bg",dir); CreateDirectory(path,NULL);
     assert(BgSaveProjectFile(dir,compiled,&why));
     assert(BgLoadProjectFile(dir,compiled->name,&saved,&why));
-    assert(saved.size==compiled->size && !memcmp(saved.data,compiled->data,saved.size));
+    /* Project saves compact obsolete BG allocations and relocate polygons. */
+    assert(saved.size<=compiled->size);
     assert(BgDocumentLoad(saved.data,saved.size,doc->levelscale,&loaded,&why));
     assert(loaded.portals.portalcount==doc->portals.portalcount);
-    assert(!memcmp(loaded.portals.portals,doc->portals.portals,doc->portals.portalcount*sizeof(BgPortal)));
+    for (DWORD i=0;i<doc->portals.portalcount;i++) {
+        BgPortal expected=doc->portals.portals[i];
+        expected.geometryoffset=loaded.portals.portals[i].geometryoffset;
+        assert(!memcmp(&expected,&loaded.portals.portals[i],sizeof(expected)));
+        for (DWORD j=0;j<i;j++)
+            assert((doc->portals.portals[i].geometryoffset==doc->portals.portals[j].geometryoffset)
+                ==(loaded.portals.portals[i].geometryoffset==loaded.portals.portals[j].geometryoffset));
+    }
     assert(loaded.facecount==doc->facecount && loaded.roomcount==doc->roomcount);
     BgDocumentFree(&loaded); BgFileFree(&saved);
 }

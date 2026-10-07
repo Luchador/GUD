@@ -22,9 +22,7 @@ typedef int bool;
 #define LEVELID_CONTROL 1
 #define LEVELID_JUNGLE 2
 typedef int LEVELID;
-#define PORTALFLAG_DISABLED 1
-#define PORTALFLAG_SPECIAL 2
-typedef s32 PORTALFLAGS;
+#include "portalflags.h"
 typedef struct { f32 x, y; } coord2d;
 typedef struct { union { struct { f32 x, y, z; }; f32 f[3]; }; } coord3d;
 typedef struct bbox2d { union { struct { coord2d min, max; }; f32 f[2][2]; }; } bbox2d;
@@ -57,7 +55,7 @@ static int numPortals, rootRoom, dispatched, peak, maximumDepth;
 static int traceOnly, requeueSelf;
 static bbox2d lastParent;
 static coord3d *bondviewGetPlayerPosition(void) { return &camera; }
-static f32 bgGetPortalMargin(s32 portal) { (void)portal; return 0; }
+f32 bgGetPortalMargin(s32 portal);
 static bool bgGetPortalScreenBbox(s32 portal, bbox2d *box)
 { *box = portalBoxes[portal]; return portalVisible[portal]; }
 static bool bgIsRoomOnScreen(s32 room, struct rectbbox *box)

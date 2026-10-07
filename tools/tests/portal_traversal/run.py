@@ -45,7 +45,8 @@ for name in ('bgRectIntersect', 'bgRectOutersect', 'bgGetRoomPortalList', 'bgSet
              'bgResetPortalVisitCounts', 'bgResetPortalQueue', 'bgIncrementRoomPortalVisitCount',
              'bgQueuePortalTraversal', 'bgProcessNextQueuedPortal', 'bgGetRoomCenter',
              'bgCalcPortalPlane', 'bgSwapConnectedRooms', 'bgOrderPortal', 'bgExpandRoomToPortals',
-             'bgRoomFitsPortalSide', 'bgBuildPortalCache', 'bgMarkSpecialPortals'):
+             'bgRoomFitsPortalSide', 'bgBuildPortalCache', 'bgMarkSpecialPortals',
+             'bgGetPortalMargin', 'bgToggleDataPortalsContrlBytes1Bit1'):
     source += function(bg, name)
 process = function(bg, 'bgProcessPortalTraversal')
 process = process.replace('depth + 1, &screenbox)', 'depth + 1, screenbox.f[0])')
@@ -58,7 +59,7 @@ with tempfile.TemporaryDirectory(prefix='gud-portal-traversal-') as directory:
     work = Path(directory)
     (work / 'check.c').write_text(source)
     command = shlex.split(os.environ.get('CC', 'cc')) + [
-        '-std=c99', '-O1', '-g', '-Wall', '-Wextra', '-Werror',
+        f'-I{ROOT / "src"}', '-std=c99', '-O1', '-g', '-Wall', '-Wextra', '-Werror',
         '-Wno-sign-compare', '-Wno-missing-braces', '-Wno-return-type', '-fno-strict-aliasing',
         '-fsanitize=address,undefined', str(work / 'check.c'), '-lm', '-o', str(work / 'check')]
     subprocess.run(command, check=True)

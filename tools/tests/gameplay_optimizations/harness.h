@@ -21,8 +21,7 @@ typedef int bool;
 #define MAX_PROPS 600
 #define BGLOADTYPE_ROOMS 0
 #define BGLOADTYPE_SINGLE_DL 1
-#define PORTALFLAG_DISABLED 1
-#define PORTALFLAG_SPECIAL 2
+#include "portalflags.h"
 #define LEVEL_INDEX_CRAD 19
 #define LEVELID_CRADLE 41
 #define CDTYPE_OBJS 1

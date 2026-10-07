@@ -51,15 +51,21 @@ static void check_special_ranges(void)
         /* Following bytes stand in for visibility cells and polygon data. */
         memset(&portals[count + 1], 0xa5, (PORTMAX - count) * sizeof(*portals));
         memcpy(before,portals,sizeof(before));
-        g_CurrentBgLevelId = LEVELID_CONTROL;
-        bgMarkSpecialPortals();
-        assert(!memcmp(before + count,portals + count,(PORTMAX + 1 - count) * sizeof(*portals)));
-        for (int p = 0; p < count; p++) {
-            int special = 0;
-            const u8 *ranges = specialportalarray[0].portallist;
-            for (unsigned int r = 0; r + 1 < sizeof(specialportalarray[0].portallist) && ranges[r] != 255; r += 2)
-                if (p >= ranges[r] && p <= ranges[r + 1]) special = PORTALFLAG_SPECIAL;
-            assert(portals[p].controlbytes1 == (PORTALFLAG_DISABLED | special));
+        for (int level = LEVELID_CONTROL; level <= LEVELID_JUNGLE; level++) {
+            memcpy(portals,before,sizeof(before));
+            g_CurrentBgLevelId = level;
+            bgMarkSpecialPortals();
+            assert(!memcmp(before + count,portals + count,(PORTMAX + 1 - count) * sizeof(*portals)));
+            for (int p = 0; p < count; p++) {
+                int special = 0;
+                for (unsigned int i = 0; i < ARRAYCOUNT(specialportalarray); i++) {
+                    if (specialportalarray[i].levelid != level) continue;
+                    const u8 *ranges = specialportalarray[i].portallist;
+                    for (unsigned int r = 0; r + 1 < sizeof(specialportalarray[i].portallist) && ranges[r] != 255; r += 2)
+                        if (p >= ranges[r] && p <= ranges[r + 1]) special = PORTALFLAG_SPECIAL;
+                }
+                assert(portals[p].controlbytes1 == (PORTALFLAG_DISABLED | special));
+            }
         }
     }
     g_CurrentBgLevelId = 0;
@@ -106,6 +112,36 @@ static void check_planes(void)
     /* One ambiguous destination only disables its own incoming side test. */
     g_BgRoomInfo[1].maxbounds.y = 150;
     build_geometry(); assert(g_BgPortalPlaneCullMasks[0] == BG_PORTAL_CULL_FROM_ROOM1);
+    portals[0].controlbytes1 |= PORTALFLAG_FORCE_SIDE_CULL;
+    bgBuildPortalCache(); assert(g_BgPortalPlaneCullMasks[0] == 3);
+    camera.y = 50; clear_view(2);
+    productionProcessPortalTraversal(0,2,0,1,&player.screensize);
+    assert(!g_BgRoomInfo[1].room_rendered);
+    camera.y = 150; clear_view(2);
+    productionProcessPortalTraversal(0,2,0,1,&player.screensize);
+    assert(g_BgRoomInfo[1].room_rendered);
+    /* Door toggles preserve the authored bit and still close the opening. */
+    bgToggleDataPortalsContrlBytes1Bit1(0,0);
+    assert(portals[0].controlbytes1 == (PORTALFLAG_FORCE_SIDE_CULL | PORTALFLAG_DISABLED));
+    clear_view(2); productionProcessPortalTraversal(0,2,0,1,&player.screensize);
+    assert(!g_BgRoomInfo[1].room_rendered);
+    bgToggleDataPortalsContrlBytes1Bit1(0,1);
+    assert(portals[0].controlbytes1 == PORTALFLAG_FORCE_SIDE_CULL);
+    /* Existing positive margin still allows a camera close to the plane. */
+    portals[0].controlbytes2 = 0x18; /* Four native units. */
+    camera.y = 99; clear_view(2);
+    productionProcessPortalTraversal(0,2,0,1,&player.screensize);
+    assert(g_BgRoomInfo[1].room_rendered);
+    portals[0].controlbytes2 = 0;
+    camera.y = 150; portalVisible[0] = FALSE; clear_view(2);
+    productionProcessPortalTraversal(0,2,0,1,&player.screensize);
+    assert(!g_BgRoomInfo[1].room_rendered);
+    portalVisible[0] = TRUE; clear_view(2);
+    bbox2d separate = box(110,110,120,120);
+    productionProcessPortalTraversal(0,2,0,1,&separate);
+    assert(!g_BgRoomInfo[1].room_rendered);
+    portals[0].controlbytes1 &= ~PORTALFLAG_FORCE_SIDE_CULL;
+    bgBuildPortalCache(); assert(g_BgPortalPlaneCullMasks[0] == BG_PORTAL_CULL_FROM_ROOM1);
     /* Another opening below the plane also counts, even without BG there. */
     add(2,3); horizontal(1,60);
     bounds(3,(coord3d){-488,0,-323},(coord3d){488,60,-122});
@@ -165,6 +201,28 @@ static void check_geometry(const char *path)
         || (portals[87].connectedRoom1 == 67 && portals[87].connectedRoom2 == 32))) {
         check_control_connection(87);
         puts("PASS: supplied Control portal 87 bounds/order reproduce and fix both missing-room directions.");
+    }
+    if (rooms == 62 && count == 76) {
+        for (int p = 68; p <= 69; p++) {
+            assert((portals[p].connectedRoom1 == 1 && portals[p].connectedRoom2 == 50)
+                || (portals[p].connectedRoom1 == 50 && portals[p].connectedRoom2 == 1));
+            assert(g_BgPortalPlaneCullMasks[p] == 0);
+            camera = (coord3d){-300,390,-500}; clear_view(50);
+            productionProcessPortalTraversal(0,50,p,1,&player.screensize);
+            assert(g_BgRoomInfo[1].room_rendered);
+            portals[p].controlbytes1 |= PORTALFLAG_FORCE_SIDE_CULL; bgBuildPortalCache();
+            assert(g_BgPortalPlaneCullMasks[p] == 3);
+            clear_view(50); productionProcessPortalTraversal(0,50,p,1,&player.screensize);
+            assert(!g_BgRoomInfo[1].room_rendered);
+            camera = (coord3d){0,390,200}; clear_view(50);
+            productionProcessPortalTraversal(0,50,p,1,&player.screensize);
+            assert(g_BgRoomInfo[1].room_rendered); /* Bow-facing window view. */
+            camera = (coord3d){0,390,-100}; clear_view(1);
+            productionProcessPortalTraversal(0,1,p,1,&player.screensize);
+            assert(g_BgRoomInfo[50].room_rendered); /* From inside the bridge. */
+            portals[p].controlbytes1 &= ~PORTALFLAG_FORCE_SIDE_CULL; bgBuildPortalCache();
+        }
+        puts("PASS: Frigate windows 68/69 reject room 61's side with the flag; bow and bridge views remain eligible.");
     }
     int maxpeak = 0;
     for (int root = 1; root <= rooms; root++) {

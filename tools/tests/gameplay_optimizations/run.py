@@ -74,7 +74,7 @@ with tempfile.TemporaryDirectory(prefix="gud-gameplay-optimizations-") as temp:
     work = Path(temp)
     (work / "check.c").write_text(source)
     command = shlex.split(os.environ.get("CC", "cc"))
-    command += ["-std=c99", "-O2", "-Wall", "-Wextra", "-Werror",
+    command += [f"-I{root / 'src'}", "-std=c99", "-O2", "-Wall", "-Wextra", "-Werror",
                 "-Wno-unused-variable", "-Wno-unused-parameter", "-Wno-unused-but-set-variable",
                 "-Wno-sign-compare", "-Wno-maybe-uninitialized", "-fno-builtin",
                 "-fno-strict-aliasing", "-ffp-contract=off"]

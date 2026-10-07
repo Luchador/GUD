@@ -4904,8 +4904,13 @@ static BOOL GEditorSetPortalProperty(HWND hwnd, const PortalPropertiesEdit *edit
     if (!edit || !ViewportGetSelectedPortal(g_Viewport, &index) || index != edit->portal) { return FALSE; }
     ViewportCancelTransform(g_Viewport);
     if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
-        edit->marginonly ? "Change Portal Margin" : "Change Portal Rooms", &transaction, &why)) { goto fail; }
-    if (edit->marginonly)
+        edit->sidecullingonly ? "Change Portal Side Culling"
+        : edit->marginonly ? "Change Portal Margin" : "Change Portal Rooms", &transaction, &why)) { goto fail; }
+    if (edit->sidecullingonly)
+    {
+        if (!BgDocumentSetPortalSideCulling(&g_CurrentBgDocument, index, edit->sideculling, &changed, &why)) { goto fail; }
+    }
+    else if (edit->marginonly)
     {
         if (!BgDocumentSetPortalMargin(&g_CurrentBgDocument, index, edit->margin, &changed, &why)) { goto fail; }
     }

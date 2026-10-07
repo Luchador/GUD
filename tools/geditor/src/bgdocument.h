@@ -235,6 +235,11 @@ BOOL BgDocumentSetPortalRooms(BgDocument *document, DWORD portal, DWORD room1, D
 BOOL BgDocumentSetPortalMargin(BgDocument *document, DWORD portal, double margin,
                                BOOL *changed, const char **reasonout);
 
+/* Changes only this connection's authored side-culling bit. Shared polygons,
+ * other flags, room endpoints and margin are retained. */
+BOOL BgDocumentSetPortalSideCulling(BgDocument *document, DWORD portal, BOOL enabled,
+                                    BOOL *changed, const char **reasonout);
+
 typedef struct BgPortalPointRef { DWORD portal, point; } BgPortalPointRef;
 BOOL BgDocumentTranslatePortalPoints(BgDocument *document, const BgPortalPointRef *refs,
     DWORD count, const double offset[3], DWORD *movedout, const char **reasonout);
