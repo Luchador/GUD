@@ -402,7 +402,7 @@ static void GEditorRefreshSelectionInspector(void)
     }
     else if (ViewportGetSelectedPad(g_Viewport, &padref))
     {
-        RightPanelSetSetupPad(g_RightPanel, &g_CurrentSetup, &padref, g_Project.dir);
+        RightPanelSetSetupPad(g_RightPanel, &g_CurrentSetup, &padref, g_Project.dir, &g_CurrentStan);
     }
     else if (stancount > 0)
     {
@@ -2772,6 +2772,36 @@ fail:
     GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
     MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
     return FALSE;
+}
+
+static BOOL GEditorDetectPadRoom(HWND hwnd)
+{
+    SetupPadRef ref;
+    EditHistoryTransaction transaction = {0};
+    const char *why = "", *restorewhy = "";
+    BOOL changed;
+    if (!ViewportGetSelectedPad(g_Viewport, &ref)
+        || ViewportIsFlying(g_Viewport) || ViewportIsTransforming(g_Viewport)) { return FALSE; }
+    if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup,
+        "Detect Pad Room", &transaction, &why)) { goto fail; }
+    if (!SetupDetectPadRoom(&g_CurrentSetup, &g_CurrentStan, &ref, &changed, &why)) { goto rollback; }
+    if (!changed)
+    {
+        EditHistoryCancelEdit(&transaction); GEditorRefreshSelectionDetails();
+        MessageBox(hwnd, "The pad is already linked to the detected room's STAN floor.",
+            GEDITOR_TITLE, MB_ICONINFORMATION); return TRUE;
+    }
+    if (!GEditorReloadCurrentObjectsAndViewport(&why)
+        || !EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+            &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd); return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    GEditorReloadCurrentObjectsAndViewport(&restorewhy);
+fail:
+    EditHistoryCancelEdit(&transaction);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR); return FALSE;
 }
 
 static BOOL GEditorExtrudeStanEdges(HWND hwnd, const ViewportEdgeExtrusion *request)
@@ -6534,6 +6564,9 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         GEditorRefreshSelectionDetails();
         return ok;
     }
+
+    case RIGHTPANEL_WM_DETECT_PAD_ROOM:
+        return GEditorDetectPadRoom(hwnd);
 
     case RIGHTPANEL_WM_STAN_ROOM_CHANGED:
     {

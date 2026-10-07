@@ -8,6 +8,12 @@ typedef struct SetupStanRefresh {
     SetupPadRef firstunresolved;
 } SetupStanRefresh;
 
+/* Redetect one live ordinary/bound pad. Verify both live and saved STAN order
+ * before changing its native name. Position, bounds and pad indices stay fixed.
+ * Call within a setup history transaction. Failure leaves setup unchanged. */
+BOOL SetupDetectPadRoom(SetupFile *setup, const StanFile *stan, const SetupPadRef *ref,
+    BOOL *changed, const char **reasonout);
+
 /* Called once for each unresolved live pad, in table order. Positions are
  * gameplay world units. FALSE aborts without returning modified setup bytes. */
 typedef BOOL (*SetupStanIssueFn)(void *context, SetupPadRef pad,

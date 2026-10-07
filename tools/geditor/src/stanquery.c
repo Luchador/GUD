@@ -357,6 +357,28 @@ static DWORD StanFindPropFloorBelow(const StanFile *stan, const float pos[3])
     return best;
 }
 
+BOOL StanDetectPadRoomName(const StanFile *stan, const float pos[3], char resolved[16])
+{
+    DWORD tile, id;
+    char name[16];
+    resolved[0] = '\0';
+    if (!stan || !pos || !isfinite(stan->levelscale) || stan->levelscale <= 0
+        || !isfinite(pos[0]) || !isfinite(pos[1]) || !isfinite(pos[2])) { return FALSE; }
+    /* Explicit authoring operation: ignore the old name and the nearest-3D
+     * search, which can start on a disconnected platform beside/above a pad. */
+    tile = StanFindPropFloorBelow(stan, pos);
+    if (tile == STAN_TILE_NONE) { return FALSE; }
+    id = stan->tiles[tile].id;
+    if (id > 0xffffffu || ((id >> 3) & 31u) >= 26) { return FALSE; }
+    snprintf(name, sizeof(name), "p%lu%c%u", (unsigned long)((id >> 8) & 32767u),
+        'a' + (int)((id >> 3) & 31u), (unsigned)(id & 7u));
+    /* Verify the exact tile, not just a matching room. Duplicate names cannot
+     * safely represent a later tile even when the fallback walk reaches it. */
+    for (DWORD i = 0; i < tile; i++) if (stan->tiles[i].id == id) { return FALSE; }
+    return StanResolvePadTile(stan, name, pos) == tile
+        && StanResolveSavedPadName(stan, name, pos, resolved);
+}
+
 /* A prop's room follows its existing floor through a move. Starting a fresh
  * 3D nearest-sample search at ceiling height can choose a disconnected raised
  * surface even when the destination lies above the original floor. */

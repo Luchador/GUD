@@ -13,6 +13,7 @@
 /* Assign all selected stan faces to the existing room in wparam. */
 #define RIGHTPANEL_WM_STAN_ROOM_CHANGED (WM_APP + 73)
 #define RIGHTPANEL_WM_STAN_TYPE_CHANGED (WM_APP + 113) /* wparam: StanTileType */
+#define RIGHTPANEL_WM_DETECT_PAD_ROOM (WM_APP + 128)
 #define RIGHTPANEL_WM_BOUND_PAD_MODEL (WM_APP + 91)
 typedef struct RightPanelPadModel {
     SetupPadRef pad;
@@ -73,7 +74,7 @@ void RightPanelSetSetupObject(HWND panel, const SetupFile *setup,
 void RightPanelSetObjectFlags(HWND panel, const SetupFile *setup, const DWORD *ids, DWORD count);
 void RightPanelSetSetupCharacter(HWND panel, const SetupFile *setup, DWORD index);
 void RightPanelSetSetupPad(HWND panel, const SetupFile *setup, const SetupPadRef *ref,
-                          const char *projectdir);
+                          const char *projectdir, const StanFile *stan);
 void RightPanelSetSetupMarker(HWND panel, const SetupMarkerRef *ref);
 void RightPanelSetPortal(HWND panel, const BgDocument *document, DWORD index);
 

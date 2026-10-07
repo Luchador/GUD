@@ -183,6 +183,10 @@ DWORD StanResolvePadTile(const StanFile *stan, const char *name,
  * choosing a different floor. Requires a valid named-tile fast path. */
 BOOL StanResolveSavedPadName(const StanFile *stan, const char *name,
                             const float pos[3], char resolved[16]);
+/* Explicitly redetect a pad's room from the highest containing normal floor
+ * at/below its anchor, across all current rooms. Does not trust the old name,
+ * move the pad, use a nearby disconnected floor or create collision geometry. */
+BOOL StanDetectPadRoomName(const StanFile *stan, const float pos[3], char resolved[16]);
 /* Preserve a moved prop's connected floor when below its destination. Otherwise
  * prefer the highest containing floor below, then legacy destination lookup.
  * For new props, pass an empty name and the pad position as both endpoints.

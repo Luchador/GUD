@@ -8,6 +8,44 @@ static DWORD Read32(const unsigned char *p)
 static void Write32(unsigned char *p, DWORD v)
 { p[0] = v >> 24; p[1] = v >> 16; p[2] = v >> 8; p[3] = v; }
 
+BOOL SetupDetectPadRoom(SetupFile *setup, const StanFile *stan, const SetupPadRef *ref,
+    BOOL *changed, const char **reasonout)
+{
+    StanFile saved = {0};
+    unsigned char *bytes = NULL;
+    DWORD size;
+    float pos[3];
+    char name[16], savedname[16];
+    const SetupPad *pad;
+    *changed = FALSE;
+    *reasonout = "Select a live ordinary or bound pad with STAN data loaded.";
+    if (!setup || !ref || !stan || !stan->data || !stan->tilecount
+        || !isfinite(stan->levelscale) || stan->levelscale <= 0
+        || ref->index >= (ref->bound ? setup->boundpadcount : setup->padcount)
+        || (ref->bound ? !setup->boundpads : !setup->pads)) { return FALSE; }
+    pad = ref->bound ? &setup->boundpads[ref->index].pad : &setup->pads[ref->index];
+    if (pad->deleted || pad->occluder) { return FALSE; }
+    for (int axis = 0; axis < 3; axis++) { pos[axis] = pad->pos[axis] / stan->levelscale; }
+    *reasonout = "No uniquely named walkable STAN floor was found beneath this pad. "
+        "Check floor coverage and the pad position. For a new room, assign its floor STAN faces "
+        "to that room using their Room property, then try Detect Room again.";
+    if (!StanDetectPadRoomName(stan, pos, name)) { return FALSE; }
+    /* Room changes regroup records on save. A name that works in the live
+     * order must still choose the same floor after that regrouping. */
+    if (!StanPrepareSave(stan, &bytes, &size, reasonout)) { return FALSE; }
+    BOOL ok = StanLoadNative(bytes, size, stan->levelscale, &saved, reasonout);
+    free(bytes);
+    if (!ok) { return FALSE; }
+    ok = StanDetectPadRoomName(&saved, pos, savedname) && !strcmp(name, savedname);
+    StanFileFree(&saved);
+    if (!ok)
+    { *reasonout = "This floor's STAN name is ambiguous after saving. Give overlapping tiles unique names before rebinding the pad."; return FALSE; }
+    if (!strcmp(pad->stanname, name)) { *reasonout = ""; return TRUE; }
+    if (!SetupFileSetPadStanName(setup, ref, name, reasonout)) { return FALSE; }
+    *changed = TRUE;
+    return TRUE;
+}
+
 BOOL SetupRefreshPadStanNativeReport(const unsigned char *data, DWORD size,
     const StanFile *stan, unsigned char **out, DWORD *sizeout,
     SetupStanRefresh *stats, SetupStanIssueFn report, void *context, const char **reasonout)

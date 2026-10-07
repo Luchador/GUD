@@ -54,7 +54,8 @@ enum {
     RIGHTPANEL_ID_STAN_TYPE,
     RIGHTPANEL_ID_PAD_MODEL,
     RIGHTPANEL_ID_PAD_CREATE,
-    RIGHTPANEL_ID_PAD_CREATE_DOOR
+    RIGHTPANEL_ID_PAD_CREATE_DOOR,
+    RIGHTPANEL_ID_PAD_DETECT_ROOM
 };
 
 typedef struct RightPanelState {
@@ -70,7 +71,8 @@ typedef struct RightPanelState {
     BOOL showingstanroom, updatingstanroom;
     DWORD stanroomcount;
     char stanroomtext[32];
-    HWND padmodellabel, padmodel, padcreate, padcreatedoor;
+    HWND padmodellabel, padmodel, padcreate, padcreatedoor, paddetectroom;
+    BOOL showingpadbinding;
     BOOL showingpadmodel, padavailable, paddooravailable;
     SetupPadRef padref;
     ULONG_PTR paddocument;
@@ -196,9 +198,15 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
         int typeheight = showtype ? 52 : 0;
         BOOL showroom = detailheight > typeheight + 52 && state->showingstanroom
             && !state->vertexpaint && !state->secondarytab;
-        BOOL showpad = detailheight >= 84 && state->showingpadmodel
+        BOOL showbinding = detailheight >= 32 && state->showingpadbinding
             && !state->vertexpaint && !state->secondarytab;
-        int propertyheight = typeheight + (showroom ? 52 : showpad ? 84 : 0);
+        int bindingheight = showbinding ? 32 : 0;
+        int padtop = detailtop + bindingheight;
+        BOOL showpad = detailheight >= bindingheight + 84 && state->showingpadmodel
+            && !state->vertexpaint && !state->secondarytab;
+        int propertyheight = bindingheight + typeheight + (showroom ? 52 : showpad ? 84 : 0);
+        MoveWindow(state->paddetectroom, RIGHTPANEL_MARGIN, detailtop, width, 26, TRUE);
+        ShowWindow(state->paddetectroom, showbinding ? SW_SHOW : SW_HIDE);
         MoveWindow(state->stantypelabel, RIGHTPANEL_MARGIN, detailtop, width, 18, TRUE);
         MoveWindow(state->stantype, RIGHTPANEL_MARGIN, detailtop + 20, width, 160, TRUE);
         ShowWindow(state->stantypelabel, showtype ? SW_SHOW : SW_HIDE);
@@ -207,11 +215,11 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
         MoveWindow(state->stanroom, RIGHTPANEL_MARGIN, detailtop + typeheight + 20, width, 240, TRUE);
         ShowWindow(state->stanroomlabel, showroom ? SW_SHOW : SW_HIDE);
         ShowWindow(state->stanroom, showroom ? SW_SHOW : SW_HIDE);
-        MoveWindow(state->padmodellabel, RIGHTPANEL_MARGIN, detailtop, width, 18, TRUE);
-        MoveWindow(state->padmodel, RIGHTPANEL_MARGIN, detailtop + 20, width, 300, TRUE);
+        MoveWindow(state->padmodellabel, RIGHTPANEL_MARGIN, padtop, width, 18, TRUE);
+        MoveWindow(state->padmodel, RIGHTPANEL_MARGIN, padtop + 20, width, 300, TRUE);
         int buttonwidth = max(0, (width - 4) / 2);
-        MoveWindow(state->padcreate, RIGHTPANEL_MARGIN, detailtop + 50, buttonwidth, 26, TRUE);
-        MoveWindow(state->padcreatedoor, RIGHTPANEL_MARGIN + buttonwidth + 4, detailtop + 50,
+        MoveWindow(state->padcreate, RIGHTPANEL_MARGIN, padtop + 50, buttonwidth, 26, TRUE);
+        MoveWindow(state->padcreatedoor, RIGHTPANEL_MARGIN + buttonwidth + 4, padtop + 50,
                    max(0, width - buttonwidth - 4), 26, TRUE);
         ShowWindow(state->padmodellabel, showpad ? SW_SHOW : SW_HIDE);
         ShowWindow(state->padmodel, showpad ? SW_SHOW : SW_HIDE);
@@ -248,13 +256,13 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
 
 static void RightPanelShowFaceProperties(HWND panel, RightPanelState *state, BOOL show)
 {
-    if (state->showingfaces == show && !state->showingportals && !state->showingobjects && !state->showingstanroom && !state->showingstantype && !state->showingcharacters && !state->showingpadmodel) { return; }
+    if (state->showingfaces == show && !state->showingportals && !state->showingobjects && !state->showingstanroom && !state->showingstantype && !state->showingcharacters && !state->showingpadmodel && !state->showingpadbinding) { return; }
     ObjectPropertiesSetSelection(state->objectproperties, NULL, 0, NULL);
     CharacterPropertiesSetSelection(state->characterproperties, NULL, 0);
     state->showingcharacters = FALSE;
     state->showingobjects = FALSE;
     state->showingstanroom = state->showingstantype = FALSE;
-    state->showingpadmodel = FALSE;
+    state->showingpadmodel = state->showingpadbinding = FALSE;
     state->showingfaces = show;
     state->showingportals = FALSE;
     RightPanelLayout(panel, state);
@@ -551,6 +559,9 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         SendMessage(state->stanroomlabel, WM_SETFONT, (WPARAM)font, TRUE);
         SendMessage(state->stanroom, WM_SETFONT, (WPARAM)font, TRUE);
         SendMessage(state->stanroom, CB_LIMITTEXT, 10, 0);
+        state->paddetectroom = CreateWindowEx(0, "BUTTON", "Detect Room", WS_CHILD | WS_TABSTOP | BS_PUSHBUTTON,
+            0, 0, 1, 1, hwnd, (HMENU)(INT_PTR)RIGHTPANEL_ID_PAD_DETECT_ROOM, cs->hInstance, NULL);
+        SendMessage(state->paddetectroom, WM_SETFONT, (WPARAM)font, TRUE);
         state->padmodellabel = CreateWindowEx(0, "STATIC", "Model", WS_CHILD | SS_NOPREFIX,
             0, 0, 1, 1, hwnd, NULL, cs->hInstance, NULL);
         state->padmodel = CreateWindowEx(0, "COMBOBOX", "",
@@ -585,7 +596,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
 
         if (state->visibility == NULL || state->outliner == NULL || state->stanroom == NULL || state->stanroomlabel == NULL
             || state->stantype == NULL || state->stantypelabel == NULL
-            || state->padmodellabel == NULL || state->padmodel == NULL || state->padcreate == NULL || state->padcreatedoor == NULL
+            || state->paddetectroom == NULL || state->padmodellabel == NULL || state->padmodel == NULL || state->padcreate == NULL || state->padcreatedoor == NULL
             || state->positions[0] == NULL || state->positions[1] == NULL
             || state->positions[2] == NULL || state->details == NULL
             || state->movemode == NULL || state->rotatemode == NULL || state->scalebutton == NULL
@@ -641,6 +652,12 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         break;
 
     case WM_COMMAND:
+        if (state && state->showingpadbinding && LOWORD(wparam) == RIGHTPANEL_ID_PAD_DETECT_ROOM
+            && HIWORD(wparam) == BN_CLICKED)
+        {
+            SendMessage(GetParent(hwnd), RIGHTPANEL_WM_DETECT_PAD_ROOM, 0, 0);
+            return 0;
+        }
         if (state && LOWORD(wparam) == RIGHTPANEL_ID_PAD_MODEL && HIWORD(wparam) == CBN_SELCHANGE)
         {
             EnableWindow(state->padcreate, state->padavailable
@@ -962,6 +979,11 @@ BOOL RightPanelHandleMessage(HWND panel, MSG *message)
         if (message->wParam == VK_ESCAPE)
         { SetWindowText(state->stanroom, state->stanroomtext); return TRUE; }
     }
+    if (state->showingpadbinding && IsWindowVisible(state->paddetectroom)
+        && focus == state->paddetectroom && message->wParam == VK_RETURN)
+    {
+        SendMessage(GetParent(panel), RIGHTPANEL_WM_DETECT_PAD_ROOM, 0, 0); return TRUE;
+    }
     if (state->showingpadmodel && IsWindowVisible(state->padmodel)
         && (focus == state->padcreate || focus == state->padcreatedoor)
         && message->wParam == VK_RETURN)
@@ -1211,14 +1233,14 @@ BOOL RightPanelSetSetupObjects(HWND panel, const SetupFile *setup, const DWORD *
     CharacterPropertiesSetSelection(state->characterproperties, NULL, 0);
     state->showingcharacters = FALSE;
     state->showingobjects = TRUE;
-    state->showingpadmodel = FALSE;
+    state->showingpadmodel = state->showingpadbinding = FALSE;
     RightPanelLayout(panel, state);
     return TRUE;
 }
 
 
 void RightPanelSetSetupPad(HWND panel, const SetupFile *setup, const SetupPadRef *ref,
-                          const char *projectdir)
+                          const char *projectdir, const StanFile *stan)
 {
     RightPanelState *state = RightPanelGetState(panel);
     const SetupPad *pad;
@@ -1226,16 +1248,28 @@ void RightPanelSetSetupPad(HWND panel, const SetupFile *setup, const SetupPadRef
     if (state == NULL || setup == NULL || ref == NULL
         || ref->index >= (ref->bound ? setup->boundpadcount : setup->padcount)) { return; }
     pad = ref->bound ? &setup->boundpads[ref->index].pad : &setup->pads[ref->index];
+    char roomtext[32] = "Unresolved";
+    if (stan && isfinite(stan->levelscale) && stan->levelscale > 0 && !pad->occluder)
+    {
+        float pos[3];
+        for (int axis = 0; axis < 3; axis++) { pos[axis] = pad->pos[axis] / stan->levelscale; }
+        DWORD tile = StanResolvePadTile(stan, pad->stanname, pos);
+        if (tile < stan->tilecount)
+            snprintf(roomtext, sizeof(roomtext), "%u", stan->tiles[tile].room);
+    }
     lstrcpyn(state->detailtitle, pad->occluder ? "Occluder" : ref->bound ? "Bound Pad" : "Pad", sizeof(state->detailtitle));
     snprintf(state->detailtext, sizeof(state->detailtext),
         "Pad index: %lu\r\n"
         "Stan link: %s\r\n"
+        "Room: %s\r\n"
         "Up: %.4g, %.4g, %.4g\r\n"
         "Look: %.4g, %.4g, %.4g\r\n\r\n"
         "Drag an arrow or enter a world position.\r\n"
         "Moving a pad updates all references to it.\r\n"
+        "Detect Room uses the STAN floor beneath the pad.\r\n"
+        "New rooms need floor STAN faces assigned to them.\r\n"
         "Delete removes an unused pad.",
-        (unsigned long)ref->index, pad->stanname[0] ? pad->stanname : "Automatic",
+        (unsigned long)ref->index, pad->stanname[0] ? pad->stanname : "Automatic", roomtext,
         pad->up[0], pad->up[1], pad->up[2], pad->look[0], pad->look[1], pad->look[2]);
     if (pad->occluder)
     {
@@ -1249,8 +1283,10 @@ void RightPanelSetSetupPad(HWND panel, const SetupFile *setup, const SetupPadRef
             "Delete removes this occluder.", (unsigned long)ref->index);
     }
     /* An ordinary selection refresh must not hide the active model picker. */
-    state->showingpadmodel = FALSE;
+    state->showingpadmodel = state->showingpadbinding = FALSE;
     RightPanelShowFaceProperties(panel, state, FALSE);
+    state->showingpadbinding = !pad->occluder && !pad->deleted;
+    EnableWindow(state->paddetectroom, stan && stan->data && stan->tilecount);
     if (ref->bound && !pad->occluder && !pad->deleted)
     {
         const char *why = "";
@@ -1321,7 +1357,7 @@ void RightPanelSetSetupCharacter(HWND panel, const SetupFile *setup, DWORD index
     ObjectPropertiesSetSelection(state->objectproperties, NULL, 0, NULL);
     state->showingfaces = state->showingportals = state->showingstanroom = state->showingstantype = state->showingobjects = FALSE;
     state->showingcharacters = TRUE;
-    state->showingpadmodel = FALSE;
+    state->showingpadmodel = state->showingpadbinding = FALSE;
     RightPanelLayout(panel, state);
 }
 
@@ -1391,7 +1427,7 @@ void RightPanelSetPortal(HWND panel, const BgDocument *document, DWORD index)
     state->showingcharacters = FALSE;
     state->showingobjects = FALSE;
     state->showingfaces = state->showingstanroom = state->showingstantype = FALSE; state->showingportals = TRUE;
-    state->showingpadmodel = FALSE;
+    state->showingpadmodel = state->showingpadbinding = FALSE;
     RightPanelLayout(panel, state);
 }
 
