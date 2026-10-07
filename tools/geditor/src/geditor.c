@@ -60,6 +60,7 @@
 #include "primitiveoptions.h"
 #include "bghistory.h"
 #include "levelscale.h"
+#include "levelexport.h"
 #include "setupload.h"
 #include "setupstan.h"
 #include "issueswindow.h"
@@ -822,7 +823,9 @@ enum {
     ID_FILE_OPEN_LEVEL,
     ID_FILE_RECENT_LEVEL_FIRST,
     ID_FILE_RECENT_LEVEL_LAST = ID_FILE_RECENT_LEVEL_FIRST + RECENT_LEVELS_MAX - 1,
-    ID_FILE_IMPORT_MODEL
+    ID_FILE_IMPORT_MODEL,
+    ID_FILE_EXPORT_BACKGROUND,
+    ID_FILE_EXPORT_STANS
 };
 
 
@@ -969,6 +972,44 @@ static void GEditorOpenProject(HWND hwnd, const char *path)
 }
 
 
+static BOOL GEditorCanExportLevel(BOOL stans)
+{
+    return g_CurrentLevelIndex < g_Project.levelcount
+        && (stans ? g_CurrentStan.tiles && g_CurrentStan.tilecount
+                  : g_CurrentBgDocument.rooms && g_CurrentBgDocument.facecount);
+}
+
+static void GEditorExportLevel(HWND hwnd, BOOL stans)
+{
+    char path[MAX_PATH];
+    OPENFILENAME ofn = {0};
+    const char *why = "";
+    if (!GEditorCanExportLevel(stans)) { return; }
+    snprintf(path, sizeof(path), "%s.glb", stans ? g_CurrentStan.name : g_CurrentBg.name);
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner = hwnd;
+    ofn.lpstrTitle = stans ? "Export stans" : "Export background";
+    ofn.lpstrFilter = "Binary glTF (*.glb)\0*.glb\0\0";
+    ofn.lpstrFile = path;
+    ofn.nMaxFile = sizeof(path);
+    ofn.lpstrDefExt = "glb";
+    ofn.lpstrInitialDir = g_Project.dir;
+    ofn.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+    if (!GetSaveFileName(&ofn))
+    {
+        if (CommDlgExtendedError())
+            MessageBox(hwnd, "The export file dialog could not be opened.", GEDITOR_TITLE, MB_ICONERROR);
+        return;
+    }
+    ViewportCancelTransform(g_Viewport);
+    UVEditorCancelInteraction(hwnd);
+    HCURSOR previous = SetCursor(LoadCursor(NULL, IDC_WAIT));
+    BOOL ok = stans ? LevelExportStans(path, &g_CurrentStan, &why)
+        : LevelExportBackground(path, g_Project.dir, &g_CurrentBgDocument, &why);
+    SetCursor(previous);
+    if (!ok) { MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR); }
+}
+
 /* Builds the top menu bar. */
 static HMENU GEditorCreateMenuBar(void)
 {
@@ -980,6 +1021,7 @@ static HMENU GEditorCreateMenuBar(void)
     HMENU toolsmenu;
     HMENU settingsmenu;
     HMENU importmenu;
+    HMENU exportmenu;
 
     menubar = CreateMenu();
     filemenu = CreatePopupMenu();
@@ -991,6 +1033,9 @@ static HMENU GEditorCreateMenuBar(void)
     importmenu = CreatePopupMenu();
     AppendMenu(importmenu, MF_STRING, ID_FILE_IMPORT_IMAGE, "Import &Image");
     AppendMenu(importmenu, MF_STRING, ID_FILE_IMPORT_MODEL, "Import &Model...");
+    exportmenu = CreatePopupMenu();
+    AppendMenu(exportmenu, MF_STRING, ID_FILE_EXPORT_BACKGROUND, "Export &background");
+    AppendMenu(exportmenu, MF_STRING, ID_FILE_EXPORT_STANS, "Export &stans");
     g_RecentProjectsMenu = CreatePopupMenu();
     GEditorRefreshRecentProjectsMenu();
     g_RecentLevelsMenu = CreatePopupMenu();
@@ -1008,6 +1053,7 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(filemenu, MF_POPUP, (UINT_PTR)g_RecentLevelsMenu, "Open Recen&t");
     AppendMenu(filemenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(filemenu, MF_POPUP, (UINT_PTR)importmenu, "&Import...");
+    AppendMenu(filemenu, MF_POPUP, (UINT_PTR)exportmenu, "&Export...");
     AppendMenu(filemenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(filemenu, MF_STRING, ID_FILE_EXIT, "E&xit");
 
@@ -7306,6 +7352,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             | (g_Project.name[0] && g_Project.levelcount ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_FILE_IMPORT_IMAGE, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_FILE_IMPORT_MODEL, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
+        EnableMenuItem((HMENU)wparam, ID_FILE_EXPORT_BACKGROUND, MF_BYCOMMAND | (GEditorCanExportLevel(FALSE) ? MF_ENABLED : MF_GRAYED));
+        EnableMenuItem((HMENU)wparam, ID_FILE_EXPORT_STANS, MF_BYCOMMAND | (GEditorCanExportLevel(TRUE) ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_TEXT_EDITOR, MF_BYCOMMAND | (g_Project.name[0] ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_ACTION_BLOCKS, MF_BYCOMMAND | (g_CurrentSetup.data ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_PATROL_PATHS, MF_BYCOMMAND | (g_CurrentSetup.data ? MF_ENABLED : MF_GRAYED));
@@ -7520,6 +7568,14 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 {
                     MessageBox(hwnd, "Could not open the Model Editor window.", GEDITOR_TITLE, MB_ICONERROR);
                 }
+                return 0;
+
+            case ID_FILE_EXPORT_BACKGROUND:
+                GEditorExportLevel(hwnd, FALSE);
+                return 0;
+
+            case ID_FILE_EXPORT_STANS:
+                GEditorExportLevel(hwnd, TRUE);
                 return 0;
 
             case ID_EDIT_UNDO:

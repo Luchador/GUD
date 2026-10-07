@@ -19,6 +19,18 @@ BOOL GltfWriteModel(const char *path, const char *projectdir,
                     const BgRenderFlags *renderflags, DWORD tricount,
                     const char **reasonout);
 
+/* Level exports use one named mesh per contiguous room/layer, in meters.
+ * Textures and vertices are embedded in the GLB BIN chunk. No project/source
+ * identity is attached: this is a scene export, not a model replacement. */
+typedef struct GltfGeometryPart {
+    unsigned short room;
+    unsigned char layer;
+} GltfGeometryPart;
+BOOL GltfWriteGlb(const char *path, const char *projectdir,
+    const BgVertex *vertices, const unsigned short *tags,
+    const BgRenderFlags *flags, const GltfGeometryPart *parts, DWORD count,
+    BOOL stans, const char **reasonout);
+
 struct ModelSource;
 BOOL GltfWriteEditableModel(const char *path, const char *projectdir,
                             const struct ModelSource *source, DWORD sourcehash,

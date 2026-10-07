@@ -81,7 +81,7 @@ typedef struct GltfGroup {
     int textureheight;
     int imageindex;
     int textureindex;
-    DWORD part, materialslot;
+    DWORD part, materialslot, mesh;
     BOOL hidden;
     DWORD tricount;
     DWORD firstvertex;
@@ -2008,7 +2008,7 @@ static int GltfWrapMode(BgRenderFlags flags, BOOL t)
 }
 
 static BOOL GltfWriteTextures(FILE *file, const GltfGroup *groups, DWORD groupcount,
-                              const GltfImage *images, DWORD imagecount)
+                              const GltfImage *images, DWORD imagecount, BOOL glb)
 {
     DWORD index;
     BOOL first = TRUE;
@@ -2016,6 +2016,13 @@ static BOOL GltfWriteTextures(FILE *file, const GltfGroup *groups, DWORD groupco
     if (fprintf(file, "  \"images\": [\n") < 0) { return FALSE; }
     for (index = 0; index < imagecount; index++)
     {
+        if (glb)
+        {
+            if (fprintf(file, "    {\"name\": \"GUD Image %04X%s\", \"mimeType\": \"image/png\", \"bufferView\": %lu}%s\n",
+                images[index].textureid, images[index].ignorealpha ? " opaque" : "",
+                (unsigned long)index + 1, index + 1 < imagecount ? "," : "") < 0) { return FALSE; }
+            continue;
+        }
         if (fprintf(file, "    {\"name\": \"GUD Image %04X%s\", \"uri\": \"data:image/png;base64,",
                     images[index].textureid, images[index].ignorealpha ? " opaque" : "") < 0
             || !GltfWriteBase64(file, images[index].png, images[index].pngsize)
@@ -2044,9 +2051,22 @@ static BOOL GltfWriteTextures(FILE *file, const GltfGroup *groups, DWORD groupco
 
 static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
                           DWORD binarysize, const GltfGroup *groups,
-                          DWORD groupcount, const GltfImage *images, DWORD imagecount, const ModelSource *source, DWORD sourcehash)
+                          DWORD groupcount, const GltfImage *images, DWORD imagecount,
+                          const ModelSource *source, DWORD sourcehash, BOOL glb, BOOL stans,
+                          const GltfGeometryPart *parts)
 {
-    FILE *file = fopen(path, "wb");
+    char temporary[MAX_PATH];
+    DWORD buffersize = binarysize;
+    if (glb)
+    {
+        if (snprintf(temporary, sizeof(temporary), "%s.tmp", path) >= (int)sizeof(temporary)) { return FALSE; }
+        for (DWORD i = 0; i < imagecount; i++)
+        {
+            if (images[i].pngsize > 0xfffffffcu - buffersize) { return FALSE; }
+            buffersize += (images[i].pngsize + 3u) & ~3u;
+        }
+    }
+    FILE *file = fopen(glb ? temporary : path, "wb");
     DWORD group;
     BOOL ok = TRUE;
 
@@ -2055,35 +2075,55 @@ static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
         return FALSE;
     }
 
+    if (glb)
+    {
+        unsigned char header[20] = {0};
+        ok = fwrite(header, 1, sizeof(header), file) == sizeof(header);
+    }
+
     if (fprintf(file,
         "{\n  \"asset\": {\"version\": \"2.0\", \"generator\": \"GEditor\"},\n"
         "  \"extensionsUsed\": [\"KHR_materials_unlit\"],\n"
         "  \"extras\": {\"goldeneyeUvUnits\": \"normalized\"},\n"
-        "  \"scene\": 0,\n  \"scenes\": [{\"extras\": {\"goldeneyeSourceHash\": \"%08lX\"}, \"nodes\": [",
+        "  \"scene\": 0,\n  \"scenes\": [{") < 0) { ok = FALSE; }
+    if (!glb && fprintf(file, "\"extras\": {\"goldeneyeSourceHash\": \"%08lX\"}, ",
         (unsigned long)sourcehash) < 0) { ok = FALSE; }
-    for (group=0; ok && group < (source != NULL ? groupcount : 1); group++)
+    if (fprintf(file, "\"nodes\": [") < 0) { ok = FALSE; }
+    for (group=0; ok && group <= groups[groupcount-1].mesh; group++)
     {
         if (fprintf(file,"%s%lu",group ? "," : "",(unsigned long)group)<0) { ok=FALSE; }
     }
     if (fprintf(file,"]}],\n  \"nodes\": [\n")<0) { ok=FALSE; }
-    for (group=0; ok && group < (source != NULL ? groupcount : 1); group++)
+    for (group=0; ok && group < groupcount; group++)
     {
-        if (fprintf(file,"    {\"mesh\": %lu, \"name\": \"Part %lu%s\", \"extras\": {\"goldeneyeSourceHash\": \"%08lX\"}}%s\n",
-            (unsigned long)group, (unsigned long)(source != NULL ? groups[group].part : 0),
+        if (group && groups[group].mesh == groups[group-1].mesh) { continue; }
+        const char *comma = groups[group].mesh < groups[groupcount-1].mesh ? "," : "";
+        if (parts)
+        {
+            if (fprintf(file, "    {\"mesh\": %lu, \"name\": \"Room %lu %s\", \"extras\": {\"goldeneyeRoom\": %lu, \"goldeneyeLayer\": \"%s\"}}%s\n",
+                (unsigned long)groups[group].mesh, (unsigned long)(groups[group].part / 2),
+                stans ? "stans" : groups[group].part & 1 ? "secondary" : "primary",
+                (unsigned long)(groups[group].part / 2),
+                stans ? "stans" : groups[group].part & 1 ? "secondary" : "primary", comma) < 0) { ok = FALSE; }
+        }
+        else if (fprintf(file,"    {\"mesh\": %lu, \"name\": \"Part %lu%s\", \"extras\": {\"goldeneyeSourceHash\": \"%08lX\"}}%s\n",
+            (unsigned long)groups[group].mesh, (unsigned long)(source != NULL ? groups[group].part : 0),
             source != NULL && groups[group].hidden ? " (distant LOD)" : "",
-            (unsigned long)sourcehash, group+1 < (source != NULL ? groupcount : 1) ? "," : "")<0) { ok=FALSE; }
+            (unsigned long)sourcehash, comma)<0) { ok=FALSE; }
     }
-    if (!ok || fprintf(file,
-        "  ],\n  \"buffers\": [{\"byteLength\": %lu, \"uri\": \"data:application/octet-stream;base64,",
-        (unsigned long)binarysize) < 0
-        || !GltfWriteBase64(file, binary, binarysize)
-        || fprintf(file, "\"}],\n"
-                         "  \"bufferViews\": [{\"buffer\": 0, \"byteOffset\": 0, \"byteLength\": %lu, \"byteStride\": %u, \"target\": 34962}],\n"
-                         "  \"accessors\": [\n",
-                   (unsigned long)binarysize, GLTF_VERTEX_STRIDE) < 0)
+    if (fprintf(file, "  ],\n  \"buffers\": [{\"byteLength\": %lu", (unsigned long)buffersize) < 0) { ok = FALSE; }
+    if (!glb && (fprintf(file, ", \"uri\": \"data:application/octet-stream;base64,") < 0
+        || !GltfWriteBase64(file, binary, binarysize) || fprintf(file, "\"") < 0)) { ok = FALSE; }
+    if (fprintf(file, "}],\n  \"bufferViews\": [{\"buffer\": 0, \"byteOffset\": 0, \"byteLength\": %lu, \"byteStride\": %u, \"target\": 34962}",
+        (unsigned long)binarysize, GLTF_VERTEX_STRIDE) < 0) { ok = FALSE; }
+    DWORD imageoffset = binarysize;
+    for (DWORD i = 0; glb && ok && i < imagecount; i++)
     {
-        ok = FALSE;
+        if (fprintf(file, ",\n    {\"buffer\": 0, \"byteOffset\": %lu, \"byteLength\": %lu}",
+            (unsigned long)imageoffset, (unsigned long)images[i].pngsize) < 0) { ok = FALSE; }
+        imageoffset += (images[i].pngsize + 3u) & ~3u;
     }
+    if (fprintf(file, "],\n  \"accessors\": [\n") < 0) { ok = FALSE; }
 
     for (group = 0; ok && group < groupcount; group++)
     {
@@ -2114,7 +2154,7 @@ static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
     }
 
     if (ok && (fprintf(file, "  ],\n") < 0
-        || !GltfWriteTextures(file, groups, groupcount, images, imagecount)
+        || !GltfWriteTextures(file, groups, groupcount, images, imagecount, glb)
         || fprintf(file, "  \"materials\": [\n") < 0))
     {
         ok = FALSE;
@@ -2154,7 +2194,7 @@ static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
     for (group=0; ok && group<groupcount; group++)
     {
         char attributes[180] = "";
-        if (source != NULL || group == 0)
+        if (group == 0 || groups[group].mesh != groups[group-1].mesh)
         {
             if (fprintf(file,"    {\"extras\": {\"goldeneyePreviewHidden\": %s}, \"primitives\": [\n",
                 source != NULL && groups[group].hidden ? "true" : "false")<0) { ok=FALSE; break; }
@@ -2173,18 +2213,39 @@ static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
             "      {\"attributes\": {\"POSITION\": %lu, \"TEXCOORD_0\": %lu, \"COLOR_0\": %lu%s}, \"material\": %lu, \"mode\": 4, \"extras\": {\"goldeneyeTextureTag\": %u, \"goldeneyeUvUnits\": \"normalized\", \"goldeneyeUvOrientation\": \"native\", \"goldeneyeTextureSize\": [%d, %d]}}%s\n",
             (unsigned long)(group*6),(unsigned long)(group*6+1),(unsigned long)(group*6+2),attributes,
             (unsigned long)group,groups[group].tag,groups[group].texturewidth,groups[group].textureheight,
-            source == NULL && group+1<groupcount ? "," : "")<0) { ok=FALSE; }
-        if ((source != NULL || group+1==groupcount)
-            && fprintf(file,"    ]}%s\n",source != NULL && group+1<groupcount ? "," : "")<0) { ok=FALSE; }
+            group+1<groupcount && groups[group].mesh == groups[group+1].mesh ? "," : "")<0) { ok=FALSE; }
+        if ((group+1==groupcount || groups[group].mesh != groups[group+1].mesh)
+            && fprintf(file,"    ]}%s\n",group+1<groupcount ? "," : "")<0) { ok=FALSE; }
     }
     if (ok && fprintf(file,"  ]\n}\n")<0) { ok=FALSE; }
+    if (glb && ok)
+    {
+        long end = ftell(file);
+        ULONGLONG jsonbytes = end < 20 ? 0 : ((ULONGLONG)end - 20u + 3u) & ~(ULONGLONG)3;
+        if (end < 20 || 28u + jsonbytes + buffersize > 0xffffffffu) { ok = FALSE; }
+        DWORD jsonsize = (DWORD)jsonbytes;
+        while (ok && (ULONGLONG)end < 20u + jsonbytes) { ok = fputc(' ', file) != EOF; end++; }
+        unsigned char header[20], chunk[8];
+        GltfWriteU32(header, 0x46546c67); GltfWriteU32(header+4, 2);
+        GltfWriteU32(header+8, 28u + jsonsize + buffersize);
+        GltfWriteU32(header+12, jsonsize); GltfWriteU32(header+16, 0x4e4f534a);
+        GltfWriteU32(chunk, buffersize); GltfWriteU32(chunk+4, 0x004e4942);
+        if (ok) { ok = fwrite(chunk, 1, 8, file) == 8 && fwrite(binary, 1, binarysize, file) == binarysize; }
+        for (DWORD i = 0; ok && i < imagecount; i++)
+        {
+            ok = fwrite(images[i].png, 1, images[i].pngsize, file) == images[i].pngsize;
+            for (DWORD pad = images[i].pngsize; ok && (pad & 3u); pad++) { ok = fputc(0, file) != EOF; }
+        }
+        if (ok) { ok = !fseek(file, 0, SEEK_SET) && fwrite(header, 1, 20, file) == 20; }
+    }
     if (fclose(file) != 0)
     {
         ok = FALSE;
     }
+    if (glb && ok) { ok = MoveFileEx(temporary, path, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH); }
     if (!ok)
     {
-        remove(path);
+        remove(glb ? temporary : path);
     }
     return ok;
 }
@@ -2194,7 +2255,8 @@ static BOOL GltfWriteModelSource(const char *path, const char *projectdir,
                     const BgVertex *vertices,
                     const unsigned short *tritags,
                     const BgRenderFlags *renderflags, DWORD tricount,
-                    const ModelSource *source, DWORD sourcehash, const char **reasonout)
+                    const ModelSource *source, DWORD sourcehash, const GltfGeometryPart *parts,
+                    BOOL glb, BOOL stans, const char **reasonout)
 {
     GltfGroup *groups = NULL;
     GltfImage *images = NULL;
@@ -2239,12 +2301,16 @@ static BOOL GltfWriteModelSource(const char *path, const char *projectdir,
         if (groupcount == 0 || groups[groupcount - 1].materialslot != slot
             || groups[groupcount - 1].tag != tag
             || groups[groupcount - 1].renderflags != flags
+            || (parts && groups[groupcount - 1].part != (DWORD)parts[triangle].room * 2u + parts[triangle].layer)
             || (source != NULL && groups[groupcount - 1].part != source->faces[triangle].list))
         {
             groups[groupcount].materialslot = slot;
             groups[groupcount].tag = tag;
             groups[groupcount].renderflags = flags;
-            groups[groupcount].part = source != NULL ? source->faces[triangle].list : 0;
+            groups[groupcount].part = parts ? (DWORD)parts[triangle].room * 2u + parts[triangle].layer
+                : source != NULL ? source->faces[triangle].list : 0;
+            groups[groupcount].mesh = source ? groupcount : groupcount && parts
+                ? groups[groupcount-1].mesh + (groups[groupcount-1].part != groups[groupcount].part) : 0;
             groups[groupcount].hidden = source != NULL && source->closestpreview && !source->faces[triangle].closest;
             groupcount++;
         }
@@ -2302,7 +2368,7 @@ static BOOL GltfWriteModelSource(const char *path, const char *projectdir,
         group->written++;
     }
 
-    ok = GltfWriteJson(path, binary, binarysize, groups, groupcount, images, imagecount, source, sourcehash);
+    ok = GltfWriteJson(path, binary, binarysize, groups, groupcount, images, imagecount, source, sourcehash, glb, stans, parts);
     if (!ok)
     {
         *reasonout = "the glTF model file could not be completely written.";
@@ -2318,7 +2384,14 @@ done:
 BOOL GltfWriteModel(const char *path, const char *projectdir, const BgVertex *vertices,
     const unsigned short *tags, const BgRenderFlags *flags, DWORD count, const char **reasonout)
 {
-    return GltfWriteModelSource(path,projectdir,vertices,tags,flags,count,NULL,0,reasonout);
+    return GltfWriteModelSource(path,projectdir,vertices,tags,flags,count,NULL,0,NULL,FALSE,FALSE,reasonout);
+}
+
+BOOL GltfWriteGlb(const char *path, const char *projectdir, const BgVertex *vertices,
+    const unsigned short *tags, const BgRenderFlags *flags, const GltfGeometryPart *parts,
+    DWORD count, BOOL stans, const char **reasonout)
+{
+    return GltfWriteModelSource(path,projectdir,vertices,tags,flags,count,NULL,0,parts,TRUE,stans,reasonout);
 }
 
 BOOL GltfWriteEditableModel(const char *path, const char *projectdir,
@@ -2341,11 +2414,11 @@ BOOL GltfWriteEditableModel(const char *path, const char *projectdir,
         memset(&copy.materials,0,sizeof(copy.materials));
         if (!ModelMaterialsEnsure(&copy,projectdir,reasonout)) return FALSE;
         ok=GltfWriteModelSource(path,projectdir,copy.vertices,copy.tags,copy.flags,
-            copy.count,&copy,sourcehash,reasonout);
+            copy.count,&copy,sourcehash,NULL,FALSE,FALSE,reasonout);
         ModelMaterialsFree(&copy.materials);return ok;
     }
     return GltfWriteModelSource(path,projectdir,source->vertices,source->tags,source->flags,
-        source->count,source,sourcehash,reasonout);
+        source->count,source,sourcehash,NULL,FALSE,FALSE,reasonout);
 }
 
 void GltfFreeModelImport(GltfModelImport *model)
