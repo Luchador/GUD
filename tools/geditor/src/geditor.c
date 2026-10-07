@@ -985,7 +985,16 @@ static void GEditorExportLevel(HWND hwnd, BOOL stans)
     OPENFILENAME ofn = {0};
     const char *why = "";
     if (!GEditorCanExportLevel(stans)) { return; }
-    snprintf(path, sizeof(path), "%s.glb", stans ? g_CurrentStan.name : g_CurrentBg.name);
+    /* BG asset names include a directory and extension (bg/name.seg).
+     * Use only the suggested filename for lpstrFile; the project
+     * directory is supplied separately through lpstrInitialDir. */
+    const char *name = stans ? g_CurrentStan.name : g_CurrentBg.name;
+    for (const char *p = name; *p; p++)
+    { if (EditorPathSeparator(*p)) { name = p + 1; } }
+    const char *extension = strrchr(name, '.');
+    size_t length = extension ? (size_t)(extension - name) : strlen(name);
+    if (!length) { name = stans ? "stans" : "background"; length = strlen(name); }
+    snprintf(path, sizeof(path), "%.*s.glb", (int)length, name);
     ofn.lStructSize = sizeof(ofn);
     ofn.hwndOwner = hwnd;
     ofn.lpstrTitle = stans ? "Export stans" : "Export background";
@@ -997,8 +1006,14 @@ static void GEditorExportLevel(HWND hwnd, BOOL stans)
     ofn.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
     if (!GetSaveFileName(&ofn))
     {
-        if (CommDlgExtendedError())
-            MessageBox(hwnd, "The export file dialog could not be opened.", GEDITOR_TITLE, MB_ICONERROR);
+        DWORD error = CommDlgExtendedError();
+        if (error)
+        {
+            char message[160];
+            snprintf(message, sizeof(message),
+                "The export file dialog could not be opened (Windows error 0x%04lX).", (unsigned long)error);
+            MessageBox(hwnd, message, GEDITOR_TITLE, MB_ICONERROR);
+        }
         return;
     }
     ViewportCancelTransform(g_Viewport);
