@@ -567,6 +567,8 @@ static void GEditorRefreshImageViews(HWND hwnd, DWORD id, BOOL reveal)
         const RomLevel *level = &g_Project.levels[g_CurrentLevelIndex];
         if (level->clouds.enabled && level->clouds.textureid == id)
         { ViewportSetLevelClouds(g_Viewport, &level->clouds, g_Project.dir); }
+        if (level->water.enabled && level->water.textureid == id)
+        { ViewportSetLevelWater(g_Viewport, &level->water, g_Project.dir); }
         if (id == 0x0aa4u || id == 0x0aa5u)
         { ViewportSetLevelSkyBody(g_Viewport, &level->skybody, g_Project.dir); }
     }
@@ -6326,14 +6328,16 @@ static void GEditorPreviewEnvironment(DWORD id, BOOL selected)
     if (g_CurrentLevelIndex >= g_Project.levelcount) { return; }
     const RomLevel *level = &g_Project.levels[g_CurrentLevelIndex];
     EditorEnvironment value;
-    unsigned char rgb[3]; RomFog fog; RomClouds clouds; RomSkyBody body;
+    unsigned char rgb[3]; RomFog fog; RomClouds clouds; RomWater water; RomSkyBody body;
     if (selected && EnvironmentGet(&g_Project.environments, &g_Project.environmentOverrides, id, &value))
     {
         EnvironmentPreview(&value, rgb, &fog, &clouds);
         EnvironmentPreviewSkyBody(&value, &body);
+        EnvironmentPreviewWater(&value, &water);
         ViewportSetBackgroundColor(g_Viewport, rgb);
         ViewportSetLevelFog(g_Viewport, &fog, level->renderScale);
         ViewportSetLevelClouds(g_Viewport, &clouds, g_Project.dir);
+        ViewportSetLevelWater(g_Viewport, &water, g_Project.dir);
         ViewportSetLevelSkyBody(g_Viewport, &body, g_Project.dir);
     }
     else
@@ -6341,6 +6345,7 @@ static void GEditorPreviewEnvironment(DWORD id, BOOL selected)
         ViewportSetBackgroundColor(g_Viewport, level->hasbackgroundcolor ? level->backgroundcolor : NULL);
         ViewportSetLevelFog(g_Viewport, level->hasbackgroundcolor ? &level->fog : NULL, level->renderScale);
         ViewportSetLevelClouds(g_Viewport, &level->clouds, g_Project.dir);
+        ViewportSetLevelWater(g_Viewport, &level->water, g_Project.dir);
         ViewportSetLevelSkyBody(g_Viewport, &level->skybody, g_Project.dir);
     }
 }
@@ -7297,6 +7302,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         ViewportSetBackgroundColor(g_Viewport, level->hasbackgroundcolor ? level->backgroundcolor : NULL);
         ViewportSetLevelFog(g_Viewport, level->hasbackgroundcolor ? &level->fog : NULL, level->renderScale);
         ViewportSetLevelClouds(g_Viewport, &level->clouds, g_Project.dir);
+        ViewportSetLevelWater(g_Viewport, &level->water, g_Project.dir);
         ViewportSetLevelSkyBody(g_Viewport, &level->skybody, g_Project.dir);
 
         GEditorRefreshHistoryMenu(hwnd);

@@ -42,6 +42,12 @@ typedef struct RomClouds {
     float height, color[3], horizonoffset;
 } RomClouds;
 
+typedef struct RomWater {
+    BOOL enabled;
+    DWORD textureid;
+    float height, color[3], horizonoffset;
+} RomWater;
+
 typedef struct RomSkyBody {
     DWORD type; /* 0 = none, 1 = sun, 2 = moon */
     float angularsize, horizonoffset;
@@ -71,6 +77,7 @@ typedef struct RomLevel {
     unsigned char backgroundcolor[3];
     RomFog fog; /* refreshed from base.z64; not serialized to the .gep */
     RomClouds clouds;
+    RomWater water;
     RomSkyBody skybody;
 } RomLevel;
 
@@ -109,6 +116,7 @@ BOOL RomLevelTableIsValid(const RomManifestEntry *stgt, DWORD romsize);
  */
 BOOL RomLoad(const char *path, RomFile *rom, const char **reasonout);
 void RomFree(RomFile *rom);
+BOOL RomGetLevelWater(const RomFile *rom, LONG levelid, RomWater *water);
 BOOL RomGetLevelClouds(const RomFile *rom, LONG levelid, RomClouds *clouds);
 BOOL RomGetLevelSkyBody(const RomFile *rom, LONG levelid, RomSkyBody *body);
 BOOL RomGetLevelEnvironment(const RomFile *rom, LONG levelid, unsigned char rgb[3], RomFog *fog);

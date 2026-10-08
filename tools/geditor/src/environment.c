@@ -391,6 +391,20 @@ void EnvironmentPreview(const EditorEnvironment *value, unsigned char rgb[3], Ro
     clouds->horizonoffset = (float)Value(value, 21);
     for (int i = 0; i < 3; i++) { clouds->color[i] = (float)Value(value, 12 + i); }
 }
+void EnvironmentPreviewWater(const EditorEnvironment *value, RomWater *water)
+{
+    static const DWORD images[] = {0x08b4u, 0x05e4u, 0x05e5u};
+    memset(water, 0, sizeof(*water));
+    int image = (int)Value(value, 17);
+    /* skyRenderBackground bypasses both planes when Clouds is disabled. */
+    if (!Value(value, 9) || !Value(value, 15) || image < 0 || image >= 3
+        || !isfinite(Value(value, 16)) || !isfinite(Value(value, 21))) { return; }
+    for (int i = 0; i < 3; i++)
+    { if (!isfinite(Value(value, 18 + i)) || Value(value, 18 + i) < 0 || Value(value, 18 + i) > 255) { return; } }
+    water->enabled = TRUE; water->textureid = images[image]; water->height = (float)Value(value, 16);
+    water->horizonoffset = (float)Value(value, 21);
+    for (int i = 0; i < 3; i++) { water->color[i] = (float)Value(value, 18 + i); }
+}
 void EnvironmentPreviewSkyBody(const EditorEnvironment *value, RomSkyBody *body)
 {
     memset(body, 0, sizeof(*body));
@@ -410,6 +424,7 @@ void EnvironmentRefreshLevels(const EnvironmentTable *table, const EnvironmentOv
             levels[i].hasbackgroundcolor = TRUE;
             EnvironmentPreview(&row, levels[i].backgroundcolor, &levels[i].fog, &levels[i].clouds);
             EnvironmentPreviewSkyBody(&row, &levels[i].skybody);
+            EnvironmentPreviewWater(&row, &levels[i].water);
         }
     }
 }

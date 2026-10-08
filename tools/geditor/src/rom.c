@@ -403,6 +403,7 @@ static BOOL RomValidateBuffer(unsigned char *data, DWORD size,
             level->hasbackgroundcolor = RomGetLevelEnvironment(&view, level->levelID,
                 level->backgroundcolor, &level->fog);
             RomGetLevelClouds(&view, level->levelID, &level->clouds);
+            RomGetLevelWater(&view, level->levelID, &level->water);
             RomGetLevelSkyBody(&view, level->levelID, &level->skybody);
         }
     }
@@ -609,6 +610,36 @@ BOOL RomGetLevelClouds(const RomFile *rom, LONG levelid, RomClouds *clouds)
     }
     result.enabled = TRUE;
     *clouds = result;
+    return TRUE;
+}
+
+BOOL RomGetLevelWater(const RomFile *rom, LONG levelid, RomWater *water)
+{
+    /* s_skywaterimages in assets/oddtextures.c. These image IDs are stable
+     * across current GUD ROMs; no new manifest or project version is needed. */
+    static const DWORD images[] = {0x08b4u, 0x05e4u, 0x05e5u};
+    DWORD skyoffset;
+    const unsigned char *row = RomFindLevelEnvironment(rom, levelid, &skyoffset, NULL);
+    RomWater result = {0};
+    unsigned int image, i;
+    if (!water) { return FALSE; }
+    ZeroMemory(water, sizeof(*water));
+    if (!row) { return FALSE; }
+    row += skyoffset;
+    if (!row[3] || !row[24]) { return TRUE; }
+    image = (unsigned int)row[32] << 8 | row[33];
+    if (image >= sizeof(images) / sizeof(images[0])) { return FALSE; }
+    result.textureid = images[image];
+    result.height = RomEnvironmentFloat(row + 28);
+    result.horizonoffset = RomEnvironmentFloat(row + 48);
+    if (!isfinite(result.height) || !isfinite(result.horizonoffset)) { return FALSE; }
+    for (i = 0; i < 3; i++)
+    {
+        result.color[i] = RomEnvironmentFloat(row + 36 + i * 4);
+        if (!isfinite(result.color[i]) || result.color[i] < 0 || result.color[i] > 255) { return FALSE; }
+    }
+    result.enabled = TRUE;
+    *water = result;
     return TRUE;
 }
 

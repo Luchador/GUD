@@ -57,6 +57,7 @@ BOOL EnvironmentReadOverride(EnvironmentOverrides *overrides, const char *text);
 BOOL EnvironmentWriteOverrides(FILE *file, const EnvironmentOverrides *overrides);
 int EnvironmentChoices(const EnvironmentTable *table, LONG levelid, EnvironmentChoice choices[ENVIRONMENT_MAX_CHOICES]);
 void EnvironmentPreview(const EditorEnvironment *value, unsigned char rgb[3], RomFog *fog, RomClouds *clouds);
+void EnvironmentPreviewWater(const EditorEnvironment *value, RomWater *water);
 void EnvironmentPreviewSkyBody(const EditorEnvironment *value, RomSkyBody *body);
 void EnvironmentRefreshLevels(const EnvironmentTable *table, const EnvironmentOverrides *overrides, RomLevel *levels, DWORD count);
 

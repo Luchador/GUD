@@ -27,6 +27,8 @@ static void GEditorSetTitleForProject(HWND hwnd) {}
 static void ViewportSetBackgroundColor(HWND hwnd,const unsigned char *rgb) { memcpy(previewrgb,rgb,3); }
 static void ViewportSetLevelFog(HWND hwnd,const RomFog *fog,float scale) { previewfog=*fog; }
 static void ViewportSetLevelSkyBody(HWND hwnd,const RomSkyBody *body,const char *dir) { previewbody=*body; }
+static RomWater previewwater;
+static void ViewportSetLevelWater(HWND hwnd,const RomWater *water,const char *dir) { previewwater=*water; }
 static void ViewportSetLevelClouds(HWND hwnd,const RomClouds *clouds,const char *dir) { previewclouds=*clouds;previews++; }
 static intptr_t GetWindowLongPtr(HWND hwnd,int field) { assert(hwnd==(HWND)1);return (intptr_t)&panel; }
 static HWND GetParent(HWND hwnd) { return (HWND)2; }
@@ -103,6 +105,16 @@ static void UI(const char *dir)
     SendDlgItemMessage(hwnd,ENV_FIELD_FIRST+24,CB_SETCURSEL,2,0);BodyDefaults(hwnd);
     panel.draft=TRUE;assert(EnvironmentPanelApply(hwnd)&&previewbody.type==2&&previewbody.angularsize==5);
     assert(Reset(hwnd)&&!g_Project.environmentOverrides.count&&!previewbody.type);
+    CheckDlgButton(hwnd,ENV_FIELD_FIRST+15,BST_CHECKED);
+    strcpy(controls[ENV_FIELD_FIRST+16-3000],"-500");
+    strcpy(controls[ENV_FIELD_FIRST+17-3000],"1");
+    strcpy(controls[ENV_FIELD_FIRST+18-3000],"200");
+    panel.draft=TRUE;assert(EnvironmentPanelApply(hwnd));
+    assert(previewwater.enabled&&previewwater.height==-500&&previewwater.textureid==0x05e4&&previewwater.color[0]==200);
+    assert(g_Project.levels[0].water.enabled&&g_Project.levels[0].water.height==-500);
+    CheckDlgButton(hwnd,ENV_FIELD_FIRST+15,BST_UNCHECKED);panel.draft=TRUE;
+    assert(EnvironmentPanelApply(hwnd)&&!previewwater.enabled&&!g_Project.levels[0].water.enabled);
+    assert(Reset(hwnd)&&!g_Project.environmentOverrides.count);
     EnvironmentPanelRefresh(hwnd,NULL,(DWORD)-1);assert(!enabled[ENV_APPLY-3000]&&!panel.count&&!panel.project);
     assert(EnvironmentPanelApply(NULL)&&!EnvironmentPanelHasDraft(NULL));
     /* Reopening this same project after choosing Save must read the new

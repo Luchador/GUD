@@ -25,6 +25,7 @@
 #include "modellighting.h"
 #include "fog.h"
 #include "clouds.h"
+#include "water.h"
 #include "../../../src/game/skybodymath.h"
 #include "orbitcamera.h"
 #include "cameraframe.h"
@@ -281,6 +282,9 @@ typedef struct ViewportState {
     BOOL showfog, levelfog;
     FogCurve fog;
     RomClouds clouds;
+    RomWater water;
+    ViewportTexture watertexture;
+    LARGE_INTEGER waterstart, waterfrequency;
     RomSkyBody skybody;
     ViewportTexture skybodytexture;
     ViewportTexture cloudtexture; /* separate from editable scene textures */
@@ -1983,6 +1987,72 @@ static void ViewportDrawStanExtrusion(const ViewportState *state)
     glEnd(); glPopClientAttrib(); glPopAttrib();
 }
 
+static void ViewportDrawWater(const ViewportState *state)
+{
+    enum { columns = 32, rows = 24 };
+    const ViewportTexture *texture = &state->watertexture;
+    float forward[3], right[3];
+    double up[3], eye[3] = {state->posx, state->posy, state->posz};
+    double seconds = 0, halfheight, halfwidth;
+    LARGE_INTEGER now;
+    if (state->orbit || !state->water.enabled || !texture->name
+        || state->rendermode == VIEWPORT_RENDER_UNTEXTURED || state->width < 1 || state->height < 1
+        || eye[1] <= state->water.height) { return; }
+    if (state->waterfrequency.QuadPart > 0)
+    {
+        QueryPerformanceCounter(&now);
+        seconds = (double)(now.QuadPart - state->waterstart.QuadPart) / state->waterfrequency.QuadPart;
+    }
+    ViewportGetBasis(state, forward, right);
+    up[0] = right[1] * forward[2] - right[2] * forward[1];
+    up[1] = right[2] * forward[0] - right[0] * forward[2];
+    up[2] = right[0] * forward[1] - right[1] * forward[0];
+    halfheight = tan(VIEWPORT_FOV_Y * 0.5 * VIEWPORT_DEG_TO_RAD);
+    halfwidth = halfheight * state->width / state->height;
+    /* Like sky.c, water is a backdrop with no depth writes, drawn before BG.
+     * Clip exactly at the horizon rather than letting a mesh row cross it. */
+    GLdouble horizon[4] = {-right[1] * halfwidth, -up[1] * halfheight, 0,
+        -forward[1] + up[1] * halfheight * state->water.horizonoffset / 120.0};
+    glPushAttrib(GL_ENABLE_BIT | GL_CURRENT_BIT | GL_COLOR_BUFFER_BIT
+        | GL_DEPTH_BUFFER_BIT | GL_TEXTURE_BIT | GL_POLYGON_BIT | GL_TRANSFORM_BIT);
+    glDisable(GL_DEPTH_TEST); glDepthMask(GL_FALSE);
+    glDisable(GL_FOG); glDisable(GL_LIGHTING); glDisable(GL_ALPHA_TEST); glDisable(GL_CULL_FACE);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    glEnable(GL_TEXTURE_2D); glBindTexture(GL_TEXTURE_2D, texture->name);
+    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+    glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity();
+    glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity();
+    glClipPlane(GL_CLIP_PLANE0, horizon); glEnable(GL_CLIP_PLANE0);
+    for (int layer = 0; layer < 2; layer++)
+    {
+        if (!layer) { glDisable(GL_BLEND); }
+        else { glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); }
+        float alpha = layer ? WaterBlend(seconds) : 1;
+        for (int row = 0; row < rows; row++)
+        {
+            glBegin(GL_TRIANGLE_STRIP);
+            for (int column = 0; column <= columns; column++) for (int edge = 0; edge < 2; edge++)
+            {
+                double x = 2.0 * column / columns - 1.0;
+                double y = 2.0 * (row + edge) / rows - 1.0;
+                double vertical = (y - state->water.horizonoffset / 120.0) * halfheight;
+                double direction[3];
+                for (int axis = 0; axis < 3; axis++)
+                { direction[axis] = forward[axis] + right[axis] * x * halfwidth + up[axis] * vertical; }
+                WaterSample sample = WaterSamplePlane(&state->water, eye, direction,
+                    state->backgroundcolor, seconds, texture->width, texture->height);
+                glColor4f(sample.color[0], sample.color[1], sample.color[2], alpha);
+                /* Tile origins are in quarter texels: 90/4 and 150/4. */
+                glTexCoord4f(sample.s - (layer ? 22.5f / texture->width * sample.q : 0),
+                    sample.t - (layer ? 37.5f / texture->height * sample.q : 0), 0, sample.q);
+                glVertex2f((float)x, (float)y);
+            }
+            glEnd();
+        }
+    }
+    glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix(); glPopAttrib();
+}
+
 static void ViewportDrawClouds(const ViewportState *state)
 {
     enum { columns = 64, rows = 40 };
@@ -2456,6 +2526,7 @@ static void ViewportPaintGL(ViewportState *state)
         return;
     }
 
+    ViewportDrawWater(state);
     ViewportDrawClouds(state);
     ViewportDrawSkyBody(state);
 
@@ -9328,7 +9399,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
 
     case WM_TIMER:
         if (wparam == VIEWPORT_ZOOM_TIMER) { ViewportZoomFrame(hwnd, state); return 0; }
-        if (wparam == VIEWPORT_CLOUD_TIMER && state && state->cloudtexture.name && state->scene
+        if (wparam == VIEWPORT_CLOUD_TIMER && state && (state->cloudtexture.name || state->watertexture.name) && state->scene
             && state->rendermode != VIEWPORT_RENDER_UNTEXTURED && !state->flying && IsWindowVisible(hwnd)
             && !IsIconic(GetAncestor(hwnd, GA_ROOT))) { InvalidateRect(hwnd, NULL, FALSE); }
         if (wparam == VIEWPORT_STARTUP_TIMER && state && !state->orbit && !state->scene
@@ -9605,7 +9676,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         return 1;
 
     case WM_DESTROY:
-        ViewportSetLevelClouds(hwnd, NULL, NULL); ViewportSetLevelSkyBody(hwnd, NULL, NULL);
+        ViewportSetLevelWater(hwnd, NULL, NULL); ViewportSetLevelClouds(hwnd, NULL, NULL); ViewportSetLevelSkyBody(hwnd, NULL, NULL);
         KillTimer(hwnd, VIEWPORT_STARTUP_TIMER);
         KillTimer(hwnd, VIEWPORT_MONITOR_TIMER);
         ViewportCancelTransform(hwnd);
@@ -9862,13 +9933,61 @@ void ViewportSetLevelSkyBody(HWND viewport, const RomSkyBody *body, const char *
     InvalidateRect(viewport, NULL, FALSE);
 }
 
+static void ViewportUpdateSkyTimer(HWND viewport, const ViewportState *state)
+{
+    if (state->cloudtexture.name || state->watertexture.name)
+    { SetTimer(viewport, VIEWPORT_CLOUD_TIMER, 33, NULL); }
+    else { KillTimer(viewport, VIEWPORT_CLOUD_TIMER); }
+}
+
+void ViewportSetLevelWater(HWND viewport, const RomWater *water, const char *projectdir)
+{
+    ViewportState *state = ViewportGetState(viewport);
+    TexPixel *pixels = NULL;
+    ViewportTexture *texture;
+    if (!state) { return; }
+    texture = &state->watertexture;
+    if (state->hglrc)
+    {
+        wglMakeCurrent(state->hdc, state->hglrc);
+        if (texture->name) { glDeleteTextures(1, &texture->name); }
+    }
+    ZeroMemory(texture, sizeof(*texture));
+    ZeroMemory(&state->water, sizeof(state->water));
+    if (!state->orbit && state->hglrc && water && water->enabled && projectdir
+        && water->textureid < BG_TEX_NONE)
+    {
+        pixels = malloc(256u * 256u * sizeof(*pixels));
+        if (pixels && TexLoadProjectImage(projectdir, water->textureid, pixels, &texture->width, &texture->height)
+            && texture->width > 0 && texture->height > 0 && texture->width <= 256 && texture->height <= 256)
+        {
+            /* The sky water combiner uses RGB; its surface is opaque. */
+            for (int i = 0; i < texture->width * texture->height; i++) { pixels[i].a = 255; }
+            glPushAttrib(GL_TEXTURE_BIT);
+            glGenTextures(1, &texture->name);
+            glBindTexture(GL_TEXTURE_2D, texture->name);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture->width, texture->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+            glPopAttrib();
+            state->water = *water;
+            QueryPerformanceFrequency(&state->waterfrequency);
+            QueryPerformanceCounter(&state->waterstart);
+        }
+        free(pixels);
+    }
+    ViewportUpdateSkyTimer(viewport, state);
+    InvalidateRect(viewport, NULL, FALSE);
+}
+
 void ViewportSetLevelClouds(HWND viewport, const RomClouds *clouds, const char *projectdir)
 {
     ViewportState *state = ViewportGetState(viewport);
     TexPixel *pixels = NULL;
     ViewportTexture *texture;
     if (!state) { return; }
-    KillTimer(viewport, VIEWPORT_CLOUD_TIMER);
     texture = &state->cloudtexture;
     if (state->hglrc)
     {
@@ -9897,10 +10016,10 @@ void ViewportSetLevelClouds(HWND viewport, const RomClouds *clouds, const char *
             state->clouds = *clouds;
             QueryPerformanceFrequency(&state->cloudfrequency);
             QueryPerformanceCounter(&state->cloudstart);
-            SetTimer(viewport, VIEWPORT_CLOUD_TIMER, 33, NULL);
         }
         free(pixels);
     }
+    ViewportUpdateSkyTimer(viewport, state);
     InvalidateRect(viewport, NULL, FALSE);
 }
 
@@ -11230,7 +11349,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     state->selectedobject = savedobject;
     state->monitors = monitorpreview;
     if (framecamera || !scene) { state->inversedomain = VIEWPORT_SELECTION_BG; }
-    if (framecamera || !tris || tricount <= 0) { ViewportSetLevelClouds(hwnd, NULL, NULL); ViewportSetLevelSkyBody(hwnd, NULL, NULL); }
+    if (framecamera || !tris || tricount <= 0) { ViewportSetLevelWater(hwnd, NULL, NULL); ViewportSetLevelClouds(hwnd, NULL, NULL); ViewportSetLevelSkyBody(hwnd, NULL, NULL); }
     KillTimer(hwnd, VIEWPORT_MONITOR_TIMER);
     if (state->monitors.count) { SetTimer(hwnd, VIEWPORT_MONITOR_TIMER, 16, NULL); }
     if (framecamera)
