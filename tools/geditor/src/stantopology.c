@@ -806,6 +806,117 @@ BOOL StanExtrudeEdges(StanFile *s,const StanEdgeRef *edges,DWORD count,
     free(quads);free(s->data);free(s->tiles);*s=staged;s->dirty=TRUE;*extrudedout=count;*why="";return TRUE;
 }
 
+typedef struct StanCreateEdge {
+    unsigned char ends[12]; /* lexically sorted native XYZ endpoints */
+    DWORD tile, point;
+    BOOL reversed;
+} StanCreateEdge;
+
+static int StanCreateCompareEdges(const void *left, const void *right)
+{
+    const StanCreateEdge *a = left, *b = right;
+    return memcmp(a->ends, b->ends, sizeof(a->ends));
+}
+
+BOOL StanCreateTriangles(StanFile *s, const StanTriangle *triangles, DWORD count,
+    DWORD *out, const char **why)
+{
+    DWORD end, nextid = 0, nexteditor = 0;
+    StanFile staged = {0};
+    StanCreateEdge *edges = NULL;
+    if (!s || !triangles || !count || count > 0x7fffu || !out)
+    { *why = "The stan creation request is invalid."; return FALSE; }
+    if (!Validate(s, &end, why)) { return FALSE; }
+    for (DWORD t = 0; t < s->tilecount; t++)
+    {
+        DWORD number = (s->tiles[t].id >> 8) & 0x7fffu;
+        if (number > nextid) { nextid = number; }
+        if (s->tiles[t].editorid > nexteditor) { nexteditor = s->tiles[t].editorid; }
+    }
+    DWORD bytes = count * 32, first = s->tiles[0].sourceoffset;
+    if (s->tilecount > 65536u - count || nextid > 0x7fffu - count
+        || nexteditor > UINT32_MAX - count || end > 0xffffffu - bytes || s->size > UINT32_MAX - bytes
+        || (end + bytes - first) / 8 + 0x10 > 0x10000u)
+    { *why = "The new tiles exceed the native stan tile, identity or edge-link limits."; return FALSE; }
+    staged = *s;
+    staged.data = malloc(s->size + bytes);
+    staged.tiles = malloc((size_t)(s->tilecount + count) * sizeof(*staged.tiles));
+    edges = malloc((size_t)count * 3 * sizeof(*edges));
+    if (!staged.data || !staged.tiles || !edges)
+    { *why = "Out of memory creating stan tiles."; goto fail; }
+    staged.size += bytes; staged.tilecount += count;
+    memcpy(staged.data, s->data, end);
+    memcpy(staged.data + end + bytes, s->data + end, s->size - end);
+    memcpy(staged.tiles, s->tiles, (size_t)s->tilecount * sizeof(*s->tiles));
+    for (DWORD t = 0; t < count; t++)
+    {
+        const StanTriangle *source = &triangles[t];
+        StanTile *tile = &staged.tiles[s->tilecount + t];
+        unsigned char *rawtile = staged.data + end + t * 32;
+        if (!source->room || source->room > STAN_MAX_ROOM)
+        { *why = "A new stan tile has an invalid room."; goto fail; }
+        memset(tile, 0, sizeof(*tile)); memset(rawtile, 0, 32);
+        tile->id = ++nextid << 8; tile->editorid = ++nexteditor;
+        tile->sourceoffset = end + t * 32; tile->room = source->room; tile->pointcount = 3;
+        tile->red = ((source->red + 8) / 17) * 17;
+        tile->green = ((source->green + 8) / 17) * 17;
+        tile->blue = ((source->blue + 8) / 17) * 17;
+        Write32(rawtile, tile->id << 8 | tile->room);
+        rawtile[4] = tile->red / 17;
+        rawtile[5] = (tile->green / 17 << 4) | tile->blue / 17;
+        for (int p = 0; p < 3; p++) for (int k = 0; k < 3; k++)
+        {
+            double value = round(source->points[p][k] * s->levelscale);
+            if (!isfinite(value) || value < -32768 || value > 32767)
+            { *why = "A background vertex exceeds the native stan coordinate range."; goto fail; }
+            Write16(rawtile + 8 + p * 8 + k * 2, (unsigned short)(short)value);
+        }
+        if (!StanPointsHaveArea(rawtile + 8, 3))
+        { *why = "A selected face collapses after rounding to stan coordinates. No tiles were created."; goto fail; }
+        /* Runtime walks use positive interior-side tests in XZ. BG winding
+         * may face either way, including mirrored or double-sided geometry. */
+        if (StanBridgeSide(rawtile + 8, rawtile + 16, rawtile + 24) < 0)
+        {
+            unsigned char temp[8];
+            memcpy(temp, rawtile + 16, 8); memcpy(rawtile + 16, rawtile + 24, 8); memcpy(rawtile + 24, temp, 8);
+        }
+        for (int p = 0; p < 3; p++)
+        {
+            const unsigned char *a = rawtile + 8 + p * 8, *b = rawtile + 8 + (p + 1) % 3 * 8;
+            float scale = 1.0f / s->levelscale;
+            tile->points[p] = (StanPoint){(short)Read16(a) * scale,
+                (short)Read16(a + 2) * scale, (short)Read16(a + 4) * scale, 0};
+            StanCreateEdge *edge = &edges[t * 3 + p];
+            edge->tile = s->tilecount + t; edge->point = p; edge->reversed = memcmp(a, b, 6) > 0;
+            memcpy(edge->ends, edge->reversed ? b : a, 6);
+            memcpy(edge->ends + 6, edge->reversed ? a : b, 6);
+        }
+        StanUpdateRepresentativeTriangle(&staged, s->tilecount + t);
+    }
+    /* A shared edge must have exactly two oppositely oriented owners. Leave
+     * ambiguous/nonmanifold edges open for explicit editing; never guess or
+     * overwrite connections in the pre-existing collision mesh. */
+    qsort(edges, count * 3, sizeof(*edges), StanCreateCompareEdges);
+    for (DWORD i = 0, j; i < count * 3; i = j)
+    {
+        for (j = i + 1; j < count * 3 && !StanCreateCompareEdges(&edges[i], &edges[j]); j++) {}
+        if (j - i != 2 || edges[i].reversed == edges[i+1].reversed) { continue; }
+        for (int e = 0; e < 2; e++)
+        {
+            const StanCreateEdge *edge = &edges[i+e], *other = &edges[i+1-e];
+            StanTile *tile = &staged.tiles[edge->tile];
+            unsigned short link = (unsigned short)((staged.tiles[other->tile].sourceoffset - first) / 8 + 0x10);
+            tile->points[edge->point].link = link;
+            Write16(staged.data + tile->sourceoffset + 8 + edge->point * 8 + 6, link);
+        }
+    }
+    for (DWORD t = 0; t < count; t++) { out[t] = s->tilecount + t; }
+    free(edges); free(s->data); free(s->tiles); *s = staged; s->dirty = TRUE;
+    *why = ""; return TRUE;
+fail:
+    free(edges); StanFileFree(&staged); return FALSE;
+}
+
 BOOL StanCopyTiles(const StanFile *s, const DWORD *selected, DWORD count,
     StanFile *clipboard, const char **why)
 {

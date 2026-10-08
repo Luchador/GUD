@@ -53,6 +53,7 @@
 #include "editorpath.h"
 #include "bgload.h"
 #include "bgdocument.h"
+#include "bgstan.h"
 #include "roomedit.h"
 #include "roommanage.h"
 #include "bgcommandswindow.h"
@@ -777,6 +778,7 @@ enum {
     ID_GEOMETRY_REVERSE_EDGE,
     ID_GEOMETRY_BRIDGE_EDGES,
     ID_GEOMETRY_DISCONNECT_FACE,
+    ID_GEOMETRY_CREATE_STAN,
     ID_GEOMETRY_KNIFE,
     ID_VIEW_ZOOM_SELECTED,
     ID_VIEW_BACKFACE_CULLING,
@@ -1197,6 +1199,13 @@ static BOOL GEditorCanUseStanClipboard(void)
 static BOOL GEditorCanCopyStanTiles(void)
 {
     return GEditorCanUseStanClipboard() && ViewportGetStanSelectionCount(g_Viewport, NULL) > 0;
+}
+
+static BOOL GEditorCanCreateStan(void)
+{
+    return GEditorCanUseStanClipboard() && g_CurrentBgDocument.rooms
+        && !ViewportGetVertexSnap(g_Viewport)
+        && ViewportGetSelectedBgFaceCount(g_Viewport) > 0;
 }
 
 static BOOL GEditorCanPasteStanTiles(void)
@@ -3505,6 +3514,38 @@ static BOOL GEditorCopyStanTiles(HWND hwnd)
     GEditorRefreshHistoryMenu(hwnd); return TRUE;
 }
 
+static BOOL GEditorCreateStanFromFaces(HWND hwnd)
+{
+    EditHistoryTransaction transaction = {0};
+    BgFaceRef *faces = NULL;
+    DWORD *selected = NULL;
+    const char *why = "Out of memory creating stan tiles.", *restorewhy = "";
+    if (!GEditorCanCreateStan()) { return FALSE; }
+    DWORD count = (DWORD)ViewportGetSelectedBgFaceCount(g_Viewport);
+    faces = malloc((size_t)count * sizeof(*faces));
+    selected = malloc((size_t)count * sizeof(*selected));
+    if (!faces || !selected) { goto fail; }
+    if (!ViewportGetSelectedBgFaces(g_Viewport, faces, count))
+    { why = "The selected background faces could not be read."; goto fail; }
+    if (!EditHistoryBeginStanEdit(&g_EditHistory, &g_CurrentStan, "Create Stan", &transaction, &why)
+        || !BgCreateStanFromFaces(&g_CurrentBgDocument, faces, count, &g_CurrentStan, selected, &why)) { goto fail; }
+    if (!GEditorReloadCurrentObjectsAndViewport(&why)) { goto rollback; }
+    RightPanelReveal(g_RightPanel, VISIBILITY_SHOW_STAN);
+    if (!ViewportSelectStanTiles(g_Viewport, selected, count))
+    { why = "Could not select the new stan tiles."; goto rollback; }
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+        &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    free(faces); free(selected);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd); return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    GEditorReloadCurrentObjectsAndViewport(&restorewhy); GEditorRestoreHistorySelection(hwnd);
+fail:
+    free(faces); free(selected); EditHistoryCancelEdit(&transaction);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR); return FALSE;
+}
+
 static BOOL GEditorPasteStanSnapshot(HWND hwnd, const StanFile *clipboard,
     const double offset[3], const char *action)
 {
@@ -4344,6 +4385,7 @@ static void GEditorShowGeometryMenu(HWND hwnd, ToolToolbarMenu kind, HWND button
         AppendMenu(menu, MF_STRING | (face ? MF_ENABLED : MF_GRAYED), ID_GEOMETRY_KNIFE, "&Knife...\tK");
         AppendMenu(menu, MF_STRING | (face ? MF_ENABLED : MF_GRAYED), ID_EDIT_FLIP_FACE, "&Flip Face\tAlt+N");
         AppendMenu(menu, MF_STRING | (face ? MF_ENABLED : MF_GRAYED), ID_GEOMETRY_DISCONNECT_FACE, "&Disconnect Face");
+        AppendMenu(menu, MF_STRING | (GEditorCanCreateStan() ? MF_ENABLED : MF_GRAYED), ID_GEOMETRY_CREATE_STAN, "Create &Stan");
         AppendMenu(menu, MF_SEPARATOR, 0, NULL);
         AppendMenu(menu, MF_STRING | (face ? MF_ENABLED : MF_GRAYED), ID_TOOLS_UV_EDITOR, "Edit &UVs...");
         AppendMenu(menu, MF_SEPARATOR, 0, NULL);
@@ -6920,6 +6962,12 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         return 0;
     case VIEWPORT_WM_DISCONNECT_FACES:
         return GEditorSeparateBgVertices(hwnd, NULL);
+
+    case VIEWPORT_WM_CAN_CREATE_STAN:
+        return GEditorCanCreateStan();
+
+    case VIEWPORT_WM_CREATE_STAN:
+        return GEditorCreateStanFromFaces(hwnd);
     case VIEWPORT_WM_MIRROR_FACES:
         return GEditorMirrorSelectedBgFaces(hwnd, (unsigned int)wparam);
 
@@ -7715,6 +7763,10 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
             case ID_GEOMETRY_DISCONNECT_FACE:
                 GEditorSeparateBgVertices(hwnd, NULL);
+                return 0;
+
+            case ID_GEOMETRY_CREATE_STAN:
+                GEditorCreateStanFromFaces(hwnd);
                 return 0;
 
             case ID_EDIT_FLIP_FACE:

@@ -50,6 +50,8 @@ void ViewportShowUVSeams(HWND viewport, BOOL show);
 #define VIEWPORT_WM_DISCONNECT_FACES (WM_APP + 52)
 /* Mirror the current BG face selection; wparam: 0=X, 1=Y, 2=Z. */
 #define VIEWPORT_WM_MIRROR_FACES (WM_APP + 129)
+#define VIEWPORT_WM_CAN_CREATE_STAN (WM_APP + 130)
+#define VIEWPORT_WM_CREATE_STAN (WM_APP + 131)
 #define VIEWPORT_WM_CREATE_DOOR_SHADOW (WM_APP + 100)
 #define VIEWPORT_WM_PICK_DOOR (WM_APP + 101) /* wparam: setup object index */
 #define VIEWPORT_WM_DOOR_PICK_CHANGED (WM_APP + 102)

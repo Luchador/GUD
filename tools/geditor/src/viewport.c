@@ -9142,6 +9142,9 @@ show_menu:
     if ((!paste || (AppendMenu(menu, MF_STRING, 4, "Paste Here")
             && (!(message || stancount) || AppendMenu(menu, MF_SEPARATOR, 0, NULL))))
         && (!message || AppendMenu(menu, MF_STRING, 1, label))
+        && (message != VIEWPORT_WM_DISCONNECT_FACES || AppendMenu(menu, MF_STRING
+            | (SendMessage(GetParent(hwnd), VIEWPORT_WM_CAN_CREATE_STAN, 0, 0) ? MF_ENABLED : MF_GRAYED),
+            13, "Create Stan"))
         && (message != VIEWPORT_WM_DISCONNECT_FACES
             || (AppendMenu(menu, MF_SEPARATOR, 0, NULL)
                 && AppendMenu(menu, MF_STRING, 10, "Mirror X")
@@ -9176,6 +9179,8 @@ show_menu:
         { SendMessage(GetParent(hwnd), VIEWPORT_WM_LINK_STAN_EDGE, 0, (LPARAM)&stanedge); }
         else if (command == 5 && message == VIEWPORT_WM_DISCONNECT_FACES)
         { SendMessage(GetParent(hwnd), VIEWPORT_WM_CREATE_DOOR_SHADOW, 0, 0); }
+        else if (command == 13 && message == VIEWPORT_WM_DISCONNECT_FACES)
+        { SendMessage(GetParent(hwnd), VIEWPORT_WM_CREATE_STAN, 0, 0); }
         else if (message == VIEWPORT_WM_DISCONNECT_FACES && command >= 10 && command <= 12)
         { SendMessage(GetParent(hwnd), VIEWPORT_WM_MIRROR_FACES, command - 10, 0); }
         else if (command == 4 && paste)

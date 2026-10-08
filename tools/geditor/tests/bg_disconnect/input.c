@@ -23,7 +23,8 @@ enum { GL_FRONT=1, GL_BACK, GL_FRONT_AND_BACK, MF_STRING=0, MF_ENABLED=0, MF_GRA
        VIEWPORT_WM_MARK_SEAM=78, VIEWPORT_WM_SPLIT_EDGE=51, VIEWPORT_WM_DISCONNECT_FACES=52, VIEWPORT_WM_LINK_STAN_TILES=71, VIEWPORT_WM_SPLIT_STAN_EDGE=75, VIEWPORT_WM_LINK_STAN_EDGE=76,
        VIEWPORT_WM_CAN_PASTE_OBJECT=80, VIEWPORT_WM_PASTE_OBJECT_HERE=81,
        VIEWPORT_WM_CREATE_DOOR_SHADOW=100, VIEWPORT_WM_CAN_REVERSE_EDGE=111, VIEWPORT_WM_REVERSE_EDGE=112,
-       VIEWPORT_WM_STAN_TYPE_CHANGED=114, VIEWPORT_WM_MIRROR_FACES=129 };
+       VIEWPORT_WM_STAN_TYPE_CHANGED=114, VIEWPORT_WM_MIRROR_FACES=129,
+       VIEWPORT_WM_CAN_CREATE_STAN=130, VIEWPORT_WM_CREATE_STAN=131 };
 typedef struct ViewportState {
     double selectionfar;
     EditorTool tool;
@@ -54,6 +55,8 @@ static BgDocumentEdgeRef sentedge,selectededge;
 static BOOL stanedgehit;
 static StanEdgeRef sentstanedge;
 static BOOL canpaste;
+static BOOL cancreatestan=TRUE;
+static UINT createflags;
 static char pastelabel[40];
 static ViewportObjectPaste sentpaste;
 static ViewportState *ViewportGetState(HWND hwnd) { return hwnd; }
@@ -79,9 +82,10 @@ static HMENU CreatePopupMenu(void) { if(failmenu)return NULL;menus++;menuitems=0
 static BOOL AppendMenu(HMENU menu,UINT flags,UINT id,const char *text)
 { assert(menuordercount < 16);menuorder[menuordercount++]=id;
   if(flags==MF_SEPARATOR) { assert(!id && !text);return TRUE; }
-  assert(menu && id>=1 && id<=12);menuitems|=1u<<id;
+  assert(menu && id>=1 && id<=13);menuitems|=1u<<id;
   if(id<=4) { snprintf(id==1?label:id==2?linklabel:id==3?seamlabel:pastelabel,sizeof(label),"%s",text); }
-  if(id>=10) { const char *labels[]={"Mirror X","Mirror Y","Mirror Z"};assert(!strcmp(text,labels[id-10])); }
+  if(id>=10 && id<=12) { const char *labels[]={"Mirror X","Mirror Y","Mirror Z"};assert(!strcmp(text,labels[id-10])); }
+  if(id==13) { assert(!strcmp(text,"Create Stan"));createflags=flags; }
   return TRUE; }
 static UINT TrackPopupMenu(HMENU menu,UINT flags,int x,int y,int reserved,HWND hwnd,const RECT *rect)
 { assert(!((ViewportState *)hwnd)->flying && !cursorhide && !captured);assert(!commandchoice || (menuitems&(1u<<commandchoice)));return commandchoice; }
@@ -89,6 +93,7 @@ static void DestroyMenu(HMENU menu) { destroyed++; }
 static intptr_t SendMessage(HWND hwnd,UINT msg,UINT wparam,LPARAM lparam)
 { if(msg==VIEWPORT_WM_CAN_PASTE_OBJECT) { assert(!lparam);return canpaste; }
   if(msg==VIEWPORT_WM_CAN_REVERSE_EDGE)return TRUE;
+  if(msg==VIEWPORT_WM_CAN_CREATE_STAN)return cancreatestan;
   commands++;sent=msg;if(msg==VIEWPORT_WM_SPLIT_EDGE || msg==VIEWPORT_WM_MARK_SEAM) { sentedge=*(const BgDocumentEdgeRef *)lparam;seammark=wparam; }
   else if(msg==VIEWPORT_WM_SPLIT_STAN_EDGE || msg==VIEWPORT_WM_LINK_STAN_EDGE)sentstanedge=*(const StanEdgeRef *)lparam;
   else if(msg==VIEWPORT_WM_PASTE_OBJECT_HERE)sentpaste=*(const ViewportObjectPaste *)lparam;
@@ -175,7 +180,7 @@ int main(void)
     Click(&s,30,30);
     assert(commands==5 && menus==oldmenus+1 && sent==VIEWPORT_WM_LINK_STAN_TILES);
     assert(!strcmp(label,"Link Stan Tiles") && facepicks==oldfacepicks && s.selectedstantiles==2 && !s.selectedtricount);
-    assert(!(menuitems&((1u<<10)|(1u<<11)|(1u<<12))));
+    assert(!(menuitems&((1u<<10)|(1u<<11)|(1u<<12)|(1u<<13))));
     commandchoice=0;
     s.selectedstantiles=1;Click(&s,200,150);assert(commands==5 && facepicks==oldfacepicks && menus==oldmenus+2);
     s.selectedstantiles=3;Click(&s,200,150);assert(commands==5 && facepicks==oldfacepicks && menus==oldmenus+3);
@@ -219,7 +224,7 @@ int main(void)
     ViewportBeginRightGesture(&s,&s,200,150); cursor.x+=8; ViewportFlyLook(&s,&s);
     ViewportEndRightGesture(&s,&s); assert(commands==before);
     s.tool=EDITOR_TOOL_VERTEX_PAINT; Click(&s,200,150); assert(commands==before);
-    /* Mirrors follow Disconnect Face and a separator, keeping a group intact.
+    /* Create Stan follows Disconnect Face, then a separator and mirrors.
        A click with no selection picks just the face under the cursor. */
     canpaste=FALSE;s.tool=EDITOR_TOOL_FACE_SELECT;s.yaw=0;s.selectedtricount=2;
     oldfacepicks=facepicks;
@@ -227,13 +232,20 @@ int main(void)
     {
         commandchoice=10+axis;Click(&s,30,30);
         assert(sent==VIEWPORT_WM_MIRROR_FACES && mirroraxis==axis && facepicks==oldfacepicks && s.selectedtricount==2);
-        const UINT expected[]={1,0,10,11,12,0,5};
-        assert(menuordercount==7 && !memcmp(menuorder,expected,sizeof(expected)));
+        const UINT expected[]={1,13,0,10,11,12,0,5};
+        assert(menuordercount==8 && !memcmp(menuorder,expected,sizeof(expected)));
     }
     s.selectedtricount=0;commandchoice=10;Click(&s,200,150);
     assert(sent==VIEWPORT_WM_MIRROR_FACES && mirroraxis==0 && facepicks==oldfacepicks+1 && s.selectedtricount==1);
-    assert(menuordercount==5 && menuitems==((1u<<1)|(1u<<10)|(1u<<11)|(1u<<12)));
+    assert(menuordercount==6 && menuitems==((1u<<1)|(1u<<10)|(1u<<11)|(1u<<12)|(1u<<13)));
+    commandchoice=13;s.selectedtricount=3;before=commands;oldfacepicks=facepicks;Click(&s,30,30);
+    assert(commands==before+1 && sent==VIEWPORT_WM_CREATE_STAN && !(createflags&MF_GRAYED));
+    assert(s.selectedtricount==3 && facepicks==oldfacepicks);
+    s.selectedtricount=0;Click(&s,200,150);
+    assert(sent==VIEWPORT_WM_CREATE_STAN && s.selectedtricount==1 && facepicks==oldfacepicks+1);
+    cancreatestan=FALSE;commandchoice=0;Click(&s,30,30);assert(createflags&MF_GRAYED);
     assert(destroyed==menus);
+    puts("PASS: Create Stan context placement, availability, single-face picking and multi-face dispatch.");
     puts("PASS: Mirror X/Y/Z context order and dispatch, single-face picking, retained groups and no mirrors on stan/edge menus.");
     puts("PASS: Paste Here targets a visible BG surface in vertex/edge/face modes; excludes void, hidden BG and foreground objects; cancel/flight/paint do not paste.");
     puts("PASS: real edge hit testing, culling/occlusion, context labels/targets, preserved face selections, click jitter, camera drag/keys and capture cancellation.");

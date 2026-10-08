@@ -88,6 +88,17 @@ BOOL StanCopyTiles(const StanFile *stan, const DWORD *selected, DWORD count,
 BOOL StanPasteTiles(StanFile *stan, const StanFile *clipboard, const double offset[3],
     DWORD *out, const char **reasonout);
 
+typedef struct StanTriangle {
+    double points[3][3]; /* world coordinates, before native quantization */
+    unsigned char room, red, green, blue;
+} StanTriangle;
+/* Append normal tiles atomically, with fresh identities and nearest native
+ * coordinates/colors. Floors are wound upward; vertical triangles retain their
+ * winding. Only unique, opposite shared edges within this batch are linked.
+ * Existing tiles/links are untouched. out holds count new tile indices. */
+BOOL StanCreateTriangles(StanFile *stan, const StanTriangle *triangles, DWORD count,
+    DWORD *out, const char **reasonout);
+
 /* A point identity is local to its tile. The point map joins coincident
    endpoints only through authored tile links, never unrelated stacked floors. */
 typedef struct StanPointRef { DWORD tile, point; } StanPointRef;
