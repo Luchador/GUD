@@ -23,10 +23,12 @@ def function(source, name):
 
 
 props = (ROOT / 'src/game/propobj.c').read_text()
-source = (HERE / 'harness.h').read_text()
+source = re.search(r'typedef enum PROP\s*\{.*?\}\s*PROP;',
+                   (ROOT / 'src/bondconstants.h').read_text(), re.S)[0] + '\n'
+source += (HERE / 'harness.h').read_text()
 source += 'static void modelLodInvalidateInstance(Model *model) { (void)model; }\n'
-source += re.search(r'^#define MODEL_RENDER_HIDE_TRANSLUCENT[^\n]*',
-                    (ROOT / 'src/game/model.h').read_text(), re.M)[0] + '\n'
+source += '\n'.join(re.findall(r'^#define MODEL_RENDER_(?:HIDE_TRANSLUCENT|OCCLUDED)[^\n]*',
+                    (ROOT / 'src/game/model.h').read_text(), re.M)) + '\n'
 for name in ('objGetDestroyedLevel', 'objHideMonitorScreens', 'objRenderPropModel'):
     source += function(props, name)
 source += (HERE / 'check.c').read_text()

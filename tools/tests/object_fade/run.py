@@ -26,7 +26,7 @@ def main():
     constants = '\n'.join(re.findall(r'^#define OBJFADE_.*', objects, re.M)) + '\n'
     constants += '\n'.join(re.findall(r'^#define CHROBJ_TIMETOREGEN.*', (root / 'src/game/propobj.h').read_text(), re.M))
     constants += '\n' + '\n'.join(re.findall(r'^#define RUNTIMEBIT\w+_GLASS_OPACITY.*', (root / 'src/bondconstants.h').read_text(), re.M))
-    constants += '\n' + '\n'.join(re.findall(r'^#define MODEL_RENDER_GLASS_OPACITY.*', (root / 'src/game/model.h').read_text(), re.M))
+    constants += '\n' + '\n'.join(re.findall(r'^#define MODEL_RENDER_.*', (root / 'src/game/model.h').read_text(), re.M))
     logic = ''.join(function(objects, name) for name in
                     ('objInitFadeDistances', 'objInitGlassOpacity', 'objCalcScreenFadeAlpha', 'objCalcDistanceFadeAlpha', 'objRenderProp'))
     logic += ''.join(function(props, name) for name in ('chrpropAllocate', 'chrpropFree'))

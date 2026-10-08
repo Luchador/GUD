@@ -7036,6 +7036,10 @@ void objRenderPropModel(PropRecord *prop, ModelRenderData *renderData, bool tran
     if ((obj->type == PROPDEF_MONITOR || obj->type == PROPDEF_MULTI_MONITOR)
             && !(obj->state & PROPSTATE_DESTROYED) && (renderData->flags & 1))
     {
+        /* Build even when occluded: screen scripts consume gameplay RNG and
+         * their per-frame lists/vertices also supply bullet-hit geometry and
+         * texture metadata. The builder branches over these lists; subdraw
+         * suppresses their submission along with the console's shell. */
         if (obj->flags2 & PROPFLAG2_DISABLE_ZBUFFER)
         {
             monitorZBufferMode = MONITOR_ZBUFFER_DISABLED;
@@ -7151,7 +7155,7 @@ void objRenderPropModel(PropRecord *prop, ModelRenderData *renderData, bool tran
         }
     }
 
-    if (orthogonalProjection != NULL)
+    if (orthogonalProjection != NULL && !(renderData->flags & MODEL_RENDER_OCCLUDED))
     {
         gSPMatrix(gdl++, orthogonalProjection, G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
     }
@@ -7179,10 +7183,11 @@ void objRenderPropModel(PropRecord *prop, ModelRenderData *renderData, bool tran
 
     if (obj->state & (1 << translucentPass))
     {
-        gdl = explosionRenderBulletImpactOnProp(gdl, prop, translucentPass);
+        gdl = explosionRenderBulletImpactOnPropFiltered(gdl, prop, translucentPass,
+                !(renderData->flags & MODEL_RENDER_OCCLUDED));
     }
 
-    if (orthogonalProjection != NULL)
+    if (orthogonalProjection != NULL && !(renderData->flags & MODEL_RENDER_OCCLUDED))
     {
         gSPMatrix(gdl++, camGetPlayerProjMtx(), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
     }
@@ -7308,14 +7313,18 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
     s32 temp_v0_4;
     s32 phi_a0;
     bool customGlass;
+    bool occluded = FALSE;
 
     obj = prop->obj;
     customGlass = obj->type == PROPDEF_GLASS && (obj->runtime_bitflags & RUNTIMEBITFLAG_GLASS_OPACITY);
 
     /* Rendering only: retain normal tick/AI, targeting and onscreen flags.
-     * Start with standalone, unanimated generic props. Attachments and special
-     * articulated models need bounds covering their entire rendered hierarchy. */
-    if (occlusionCount() && occlusionEnabled() && prop->type == PROP_TYPE_OBJ && obj->type == PROPDEF_PROP && !prop->parent && !prop->child && !obj->model->anim && obj->model->obj->numMatrices == 1)
+     * Standalone, unanimated generic props and single/multi-screen monitors.
+     * Attachments and articulated models need bounds covering their entire
+     * rendered hierarchy. */
+    if (occlusionCount() && occlusionEnabled() && prop->type == PROP_TYPE_OBJ
+            && (obj->type == PROPDEF_PROP || obj->type == PROPDEF_MONITOR || obj->type == PROPDEF_MULTI_MONITOR)
+            && !prop->parent && !prop->child && !obj->model->anim && obj->model->obj->numMatrices == 1)
     {
         f32 norm = 0.0f;
         s32 row, col;
@@ -7331,7 +7340,10 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
     
         if (occlusionTestSphere(obj->position.f, obj->model->obj->BoundingVolumeRadius * sqrtf(norm)))
         {
-            return gdl;
+            if (obj->type == PROPDEF_PROP) { return gdl; }
+            /* Monitors must retain screen updates, model relations, bullet-mark
+             * bookkeeping and post-render matrix conversion in both passes. */
+            occluded = TRUE;
         }
     }
 
@@ -7399,7 +7411,7 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
     }
 
     modrendata = g_DefaultPropRenderData;
-    modrendata.flags = sp44;
+    modrendata.flags = sp44 | (occluded ? MODEL_RENDER_OCCLUDED : 0);
 
     if (customGlass) 
     { 

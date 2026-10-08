@@ -23,8 +23,9 @@ Single-player and multiplayer setups author their boxes separately.
 
 ## Scope and testing
 
-Occlusion skips drawing covered, standalone generic props with a single model
-matrix and no animation or attached child props. It also skips covered
+Occlusion skips drawing covered, standalone generic props, single monitors and
+multi-monitor consoles with a single model matrix and no animation or attached
+child props. It also skips covered
 characters, including their held weapons, hats, muzzle flashes and attachment
 bullet marks. Doors, pickups, other articulated props, independent effects
 (such as smoke/sparks) and background rooms retain their existing paths.
@@ -34,6 +35,19 @@ model relations, matrix processing, onscreen flags and transient hit-list
 cleanup. Rendering effects consume the same random numbers when hidden, and
 attachment bullet-mark bookkeeping still runs. Savings are display-list
 submission, temporary effect vertices and RSP/RDP work, not character logic.
+
+Monitors keep their screen scripts, random-number consumption, model relations,
+bullet-hit geometry, bullet-mark bookkeeping and matrix processing. Both the
+console shell and its screens are hidden in opaque and translucent passes.
+Screen display lists and vertices are still built because hit detection needs
+them; occlusion saves model submission and RSP/RDP work. Destroyed monitors keep
+their normal destroyed appearance when revealed again. No extra per-monitor
+memory is allocated, and existing occluders work without format changes.
+
+For Frigate's bridge, place boxes inside opaque walls or other permanent solid
+geometry, leaving windows and doorways clear. Check consoles from both sides of
+each doorway, through the windows, and after destroying them. Compare occlusion
+on/off using the controls below. A partially exposed console must remain visible.
 
 The test encloses the whole model in a conservative sphere, including
 non-uniform object scaling. A sphere must be wholly inside the shadow cast by
@@ -103,3 +117,11 @@ render traversal, both passes, fades, attachments, effect RNG, bullet-mark
 bookkeeping and matrix/hit-list cleanup. It also checks stock body/head/prop
 vertices against their authored model bounds. Hardware performance and visual
 validation remain necessary.
+
+The monitor extension requires rebuilding GUD and rebasing onto the updated ROM;
+the existing GEditor and occluder boxes need no changes. Run
+`python3 tools/tests/monitor_occlusion/run.py` for production monitor script and
+render-dispatch checks, and `python3 tools/tests/object_fade/run.py` for monitor
+eligibility, scale/shear bounds and fade/pass integration. The destroyed-prop
+and character-occlusion suites cover shared render behavior and stock bounds.
+In-game visual and performance testing is still required.

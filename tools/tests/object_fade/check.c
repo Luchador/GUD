@@ -40,12 +40,19 @@ static Mtxf camera, view;
 static int cameraMissing, renders, projections, sizes, envVisible=1;
 static PropRecord *g_FreeProps;
 #define PROP_TYPE_OBJ 1
+#define PROP_TYPE_PLAYER 5
+#define PROP_TYPE_MAX 9
+#define TRUE true
+#define FALSE false
 #include "constants.inc"
 static Mtxf *currentPlayerGetViewToWorldMtxf(void) { return cameraMissing ? NULL : &camera; }
 static Mtxf *camGetWorldToViewMtxf(void) { projections++; return &view; }
-static int occlusionCount(void) { return 0; }
-static int occlusionEnabled(void) { return 0; }
-static int occlusionTestSphere(const float *pos,float radius) { return 0; }
+static int boxes, occlusionOn, covered, sphereTests;
+static float testedRadius;
+static int occlusionCount(void) { return boxes; }
+static int occlusionEnabled(void) { return occlusionOn; }
+static int occlusionTestSphere(const float *pos,float radius)
+{ sphereTests++; testedRadius=radius; return covered; }
 static int envGetPropDistColor(PropRecord *p,struct rgba_f32 *c) { memset(c,0,sizeof(*c)); return envVisible; }
 static float modelGetInstSize(Model *m) { sizes++; return m->obj->BoundingVolumeRadius; }
 static int getPropCombinedRoomsBBox2D(PropRecord *p,struct view4f *v) { return 0; }
@@ -59,6 +66,56 @@ static void objRenderPropModel(PropRecord *p,ModelRenderData *rd,int pass) { ren
 static void SetWord(float *dest,u32 value) { memcpy(dest,&value,4); }
 static int Render(PropRecord *p,int pass)
 { Gfx commands[1]; renders=0; objRenderProp(p,commands,pass); return renders; }
+
+static void MonitorOcclusion(void)
+{
+    Header header={1,100}; Model model={&header,NULL};
+    ObjectRecord obj={.type=PROPDEF_MONITOR,.model=&model};
+    PropRecord prop={.type=PROP_TYPE_OBJ,.obj=&obj};
+    g_PropFadeStartPx=-1; envVisible=1;
+    obj.mtx.m[0][0]=2; obj.mtx.m[1][1]=3; obj.mtx.m[2][2]=4;
+    obj.mtx.m[0][1]=1; /* Non-uniform scaling plus shear. */
+    boxes=occlusionOn=covered=1;
+    for(int type=PROPDEF_MONITOR;type<=PROPDEF_MULTI_MONITOR;type++) {
+        obj.type=type;
+        for(int hidden=0;hidden<2;hidden++) for(int pass=0;pass<2;pass++) {
+            covered=hidden;
+            assert(Render(&prop,pass));
+            assert(rendered.flags==((pass?2:1)|(hidden?MODEL_RENDER_OCCLUDED:0)));
+            assert(fabsf(testedRadius-100*sqrtf(30))<.001f);
+        }
+        covered=1;
+        for(int exclusion=0;exclusion<7;exclusion++) {
+            switch(exclusion) {
+            case 0: boxes=0; break;
+            case 1: occlusionOn=0; break;
+            case 2: prop.parent=&prop; break;
+            case 3: prop.child=&prop; break;
+            case 4: model.anim=&model; break;
+            case 5: header.numMatrices=2; break;
+            case 6: prop.type=99; break;
+            }
+            sphereTests=0;
+            assert(Render(&prop,0) && rendered.flags==1 && !sphereTests);
+            boxes=occlusionOn=1; prop.parent=prop.child=NULL; model.anim=NULL;
+            header.numMatrices=1; prop.type=PROP_TYPE_OBJ;
+        }
+        prop.objectFadeStart=2000; prop.objectFadeEnd=3000; prop.pos.z=2500;
+        memset(&camera,0,sizeof(camera));
+        assert(!Render(&prop,0) && Render(&prop,1));
+        assert(rendered.flags==(3|MODEL_RENDER_OCCLUDED) && rendered.envcolour.word==127);
+        prop.objectFadeStart=prop.objectFadeEnd=0; prop.pos.z=0;
+        obj.flags2=PROPFLAG2_DISABLE_ZBUFFER;
+        assert(!Render(&prop,0) && Render(&prop,1) && rendered.flags==(3|MODEL_RENDER_OCCLUDED));
+        obj.flags2=0;
+    }
+    obj.type=PROPDEF_PROP; assert(!Render(&prop,0)); /* Existing fast skip. */
+    struct DoorRecord door={.base=obj}; door.base.type=PROPDEF_DOOR; prop.obj=&door.base;
+    assert(Render(&prop,0) && rendered.flags==1); prop.obj=&obj;
+    obj.type=PROPDEF_GLASS; assert(Render(&prop,0) && rendered.flags==1);
+    boxes=occlusionOn=covered=0;
+    puts("PASS: monitor occlusion, both passes, partial cover, scale/shear bounds, fades and safety exclusions.");
+}
 
 static void ScreenSizeFade(void)
 {
@@ -138,6 +195,7 @@ static void GlassOpacity(void)
 
 int main(void)
 {
+    MonitorOcclusion();
     GlassOpacity();
     ScreenSizeFade();
     Header header={1,100}; Model model={&header,NULL};

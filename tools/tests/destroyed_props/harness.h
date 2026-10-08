@@ -24,7 +24,7 @@ typedef struct ModelNode { int Opcode; union ModelRoData *Data; } ModelNode;
 typedef struct { ModelNode *Switches[4]; int numMatrices; } ModelFileHeader;
 typedef struct { ModelFileHeader *obj; union ModelRwData rw[5]; void *datas[5]; void *render_pos; ModelNode *body; } Model;
 typedef struct PropRecord PropRecord;
-typedef struct { int type, state; u32 flags, flags2; Model *model; float maxdamage; } ObjectRecord;
+typedef struct { int type, state, obj; u32 flags, flags2; Model *model; float maxdamage; } ObjectRecord;
 typedef struct { int unused; } MonitorRecord;
 typedef struct { ObjectRecord obj; MonitorRecord Monitor; } MonitorObjRecord;
 typedef struct { ObjectRecord obj; MonitorRecord Monitor[4]; } MultiMonitorObjRecord;
@@ -47,7 +47,7 @@ static void subdraw(ModelRenderData *data, Model *model)
     assert(draws < 128); drawnFlags[draws++] = lastFlags = data->flags;
     lastCull = data->cullmode; lastEnv = data->envcolour.word & 255;
 }
-static Gfx *explosionRenderBulletImpactOnProp(Gfx *g, PropRecord *p, bool alpha) { return g; }
+static Gfx *explosionRenderBulletImpactOnPropFiltered(Gfx *g, PropRecord *p, bool alpha, bool render) { return g; }
 static void bviewTransformManyPosToWorldMatrix(Mtxf *m, int n) {}
 static void bviewTransformManyPosToViewMatrix(void *m, int n) {}
 /* Observe dispatch to the unchanged monitor builder, and emulate its instance

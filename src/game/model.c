@@ -4692,15 +4692,15 @@ void sub_GAME_7F074534(ModelRenderData* data, Model* model, ModelNode* node)
             modelRenderGunfire(data, model, node);
             return;
         case MODELNODE_OPCODE_SHADOW:
-            modelRenderShadow(data, model, node);
+            if (!(data->flags & MODEL_RENDER_OCCLUDED)) { modelRenderShadow(data, model, node); }
             return;
         case MODELNODE_OPCODE_BBOX:
             return;
         case MODELNODE_OPCODE_DL:
-            modelRenderNodeGundl(data, node);
+            if (!(data->flags & MODEL_RENDER_OCCLUDED)) { modelRenderNodeGundl(data, node); }
             return;
         case MODELNODE_OPCODE_DLCOLLISION:
-            modelRenderNodeDl(data, model, node);
+            if (!(data->flags & MODEL_RENDER_OCCLUDED)) { modelRenderNodeDl(data, model, node); }
             return;
         case MODELNODE_OPCODE_OP20:
             return;
@@ -4729,7 +4729,10 @@ void subdraw(ModelRenderData *mrData, Model *mdl)
 {
     ModelNode *root = mdl->obj->RootNode;
 
-    gSPSegment(mrData->gdl++, 3, osVirtualToPhysical(mdl->render_pos));
+    if (!(mrData->flags & MODEL_RENDER_OCCLUDED))
+    {
+        gSPSegment(mrData->gdl++, 3, osVirtualToPhysical(mdl->render_pos));
+    }
 
     while (root != NULL)
     {

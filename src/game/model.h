@@ -20,7 +20,7 @@
 /* World-character pass: RSP fog is off; room/fog shading uses FOG_PRIM_A. */
 #define MODEL_RENDER_CHARACTER          0x10
 
-/* Preserve relation updates and effect RNG while omitting character geometry. */
+/* Preserve relation updates and effect RNG while omitting model geometry. */
 #define MODEL_RENDER_OCCLUDED           0x20
 /* Regular-glass override: texture alpha * env alpha, independent of shade alpha. */
 #define MODEL_RENDER_GLASS_OPACITY      0x40
