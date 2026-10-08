@@ -27,6 +27,7 @@
 #include "clouds.h"
 #include "water.h"
 #include "../../../src/game/skybodymath.h"
+#include "../../../src/game/skygradientmath.h"
 #include "orbitcamera.h"
 #include "cameraframe.h"
 #include "resource.h"
@@ -286,6 +287,7 @@ typedef struct ViewportState {
     ViewportTexture watertexture;
     LARGE_INTEGER waterstart, waterfrequency;
     RomSkyBody skybody;
+    RomSkyGradient skygradient;
     ViewportTexture skybodytexture;
     ViewportTexture cloudtexture; /* separate from editable scene textures */
     LARGE_INTEGER cloudstart, cloudfrequency;
@@ -1987,6 +1989,60 @@ static void ViewportDrawStanExtrusion(const ViewportState *state)
     glEnd(); glPopClientAttrib(); glPopAttrib();
 }
 
+static void ViewportSkyGradientColor(const ViewportState *state, const float direction[3],
+    float endSine, float color[3])
+{
+    float amount = skyGradientAmount(direction, endSine);
+    for (int i = 0; i < 3; i++)
+    { color[i] = state->backgroundcolor[i] + amount * (state->skygradient.color[i]/255.0f - state->backgroundcolor[i]); }
+}
+
+static void ViewportDrawSkyGradient(const ViewportState *state)
+{
+    enum { columns = SKY_GRADIENT_COLUMNS, rows = SKY_GRADIENT_ROWS };
+    float forward[3], right[3], up[3], endSine;
+    float colors[rows+1][columns+1][3];
+    float halfheight, halfwidth;
+    if (state->orbit || !state->skygradient.enabled || state->width < 1 || state->height < 1) { return; }
+    ViewportGetBasis(state, forward, right);
+    up[0] = right[1]*forward[2] - right[2]*forward[1];
+    up[1] = right[2]*forward[0] - right[0]*forward[2];
+    up[2] = right[0]*forward[1] - right[1]*forward[0];
+    halfheight = tanf(VIEWPORT_FOV_Y * 0.5f * VIEWPORT_DEG_TO_RAD);
+    halfwidth = halfheight * state->width / state->height;
+    endSine = skyGradientEndSine(state->skygradient.endangle);
+    for (int row = 0; row <= rows; row++) for (int column = 0; column <= columns; column++)
+    {
+        float direction[3];
+        float x = 2.0f*column/columns-1.0f, y = 1.0f-2.0f*row/rows;
+        float vertical = (y-state->skygradient.horizonoffset/120.0f)*halfheight;
+        for (int axis = 0; axis < 3; axis++)
+        { direction[axis] = forward[axis] + right[axis]*x*halfwidth + up[axis]*vertical; }
+        ViewportSkyGradientColor(state, direction, endSine, colors[row][column]);
+    }
+    glPushAttrib(GL_ENABLE_BIT | GL_CURRENT_BIT | GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT
+        | GL_TEXTURE_BIT | GL_POLYGON_BIT | GL_TRANSFORM_BIT | GL_LIGHTING_BIT);
+    glDisable(GL_DEPTH_TEST); glDepthMask(GL_FALSE);
+    glDisable(GL_FOG); glDisable(GL_LIGHTING); glDisable(GL_ALPHA_TEST); glDisable(GL_CULL_FACE);
+    glDisable(GL_BLEND); glDisable(GL_TEXTURE_2D);
+    glShadeModel(GL_SMOOTH); glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity();
+    glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity();
+    glBegin(GL_TRIANGLES);
+    for (int row = 0; row < rows; row++) for (int column = 0; column < columns; column++)
+    {
+        static const int offsets[6][2] = {{0,0},{1,0},{0,1},{1,0},{1,1},{0,1}};
+        for (int v = 0; v < 6; v++)
+        {
+            int c = column+offsets[v][0], r = row+offsets[v][1];
+            glColor3fv(colors[r][c]);
+            glVertex2f(2.0f*c/columns-1.0f, 1.0f-2.0f*r/rows);
+        }
+    }
+    glEnd();
+    glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix(); glPopAttrib();
+}
+
 static void ViewportDrawWater(const ViewportState *state)
 {
     enum { columns = 32, rows = 24 };
@@ -2062,6 +2118,7 @@ static void ViewportDrawClouds(const ViewportState *state)
     double seconds = 0, halfheight, halfwidth;
     LARGE_INTEGER now;
     int row, column, edge;
+    float endSine = skyGradientEndSine(state->skygradient.endangle);
     if (state->orbit || !state->clouds.enabled || !texture->name
         || state->rendermode == VIEWPORT_RENDER_UNTEXTURED || state->width < 1 || state->height < 1) { return; }
     if (state->cloudfrequency.QuadPart > 0)
@@ -2082,7 +2139,9 @@ static void ViewportDrawClouds(const ViewportState *state)
         | GL_DEPTH_BUFFER_BIT | GL_TEXTURE_BIT | GL_POLYGON_BIT | GL_TRANSFORM_BIT);
     glDisable(GL_DEPTH_TEST); glDepthMask(GL_FALSE);
     glDisable(GL_FOG); glDisable(GL_LIGHTING); glDisable(GL_ALPHA_TEST); glDisable(GL_CULL_FACE);
-    glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_BLEND);
+    if (state->skygradient.enabled) { glBlendFunc(GL_ONE, GL_ONE); }
+    else { glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); }
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     glEnable(GL_TEXTURE_2D); glBindTexture(GL_TEXTURE_2D, texture->name);
     glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
@@ -2102,7 +2161,16 @@ static void ViewportDrawClouds(const ViewportState *state)
             for (int axis = 0; axis < 3; axis++)
             { direction[axis] = forward[axis] + right[axis] * x * halfwidth + up[axis] * vertical; }
             sample = CloudsSample(&state->clouds, eye, direction, seconds, texture->width, texture->height);
-            glColor4f(1, 1, 1, sample.opacity);
+            if (state->skygradient.enabled)
+            {
+                float ray[3], color[3];
+                for (int i = 0; i < 3; i++) { ray[i] = (float)direction[i]; }
+                ViewportSkyGradientColor(state, ray, endSine, color);
+                for (int i = 0; i < 3; i++)
+                { color[i] = state->clouds.color[i]/255.0f * (1-color[i]) * sample.opacity; }
+                glColor4f(color[0], color[1], color[2], 1);
+            }
+            else { glColor4f(1, 1, 1, sample.opacity); }
             glTexCoord2f(sample.s, sample.t);
             glVertex2f((float)x, (float)y);
         }
@@ -2526,6 +2594,7 @@ static void ViewportPaintGL(ViewportState *state)
         return;
     }
 
+    ViewportDrawSkyGradient(state);
     ViewportDrawWater(state);
     ViewportDrawClouds(state);
     ViewportDrawSkyBody(state);
@@ -9681,7 +9750,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         return 1;
 
     case WM_DESTROY:
-        ViewportSetLevelWater(hwnd, NULL, NULL); ViewportSetLevelClouds(hwnd, NULL, NULL); ViewportSetLevelSkyBody(hwnd, NULL, NULL);
+        ViewportSetLevelSkyGradient(hwnd, NULL); ViewportSetLevelWater(hwnd, NULL, NULL); ViewportSetLevelClouds(hwnd, NULL, NULL); ViewportSetLevelSkyBody(hwnd, NULL, NULL);
         KillTimer(hwnd, VIEWPORT_STARTUP_TIMER);
         KillTimer(hwnd, VIEWPORT_MONITOR_TIMER);
         ViewportCancelTransform(hwnd);
@@ -9987,6 +10056,15 @@ void ViewportSetLevelWater(HWND viewport, const RomWater *water, const char *pro
     InvalidateRect(viewport, NULL, FALSE);
 }
 
+void ViewportSetLevelSkyGradient(HWND viewport, const RomSkyGradient *gradient)
+{
+    ViewportState *state = ViewportGetState(viewport);
+    if (!state) { return; }
+    ZeroMemory(&state->skygradient, sizeof(state->skygradient));
+    if (gradient && !state->orbit) { state->skygradient = *gradient; }
+    InvalidateRect(viewport, NULL, FALSE);
+}
+
 void ViewportSetLevelClouds(HWND viewport, const RomClouds *clouds, const char *projectdir)
 {
     ViewportState *state = ViewportGetState(viewport);
@@ -10008,7 +10086,13 @@ void ViewportSetLevelClouds(HWND viewport, const RomClouds *clouds, const char *
         if (pixels && TexLoadProjectImage(projectdir, clouds->textureid, pixels, &texture->width, &texture->height)
             && texture->width > 0 && texture->height > 0 && texture->width <= 256 && texture->height <= 256)
         {
-            CloudsTint(pixels, (DWORD)texture->width * texture->height, clouds, state->backgroundcolor);
+            if (state->skygradient.enabled)
+            {
+                /* The additive cloud pass supplies its tint and sky-dependent
+                 * brightness per vertex. Texture alpha is ignored by GUD. */
+                for (int i = 0; i < texture->width * texture->height; i++) { pixels[i].a = 255; }
+            }
+            else { CloudsTint(pixels, (DWORD)texture->width * texture->height, clouds, state->backgroundcolor); }
             glPushAttrib(GL_TEXTURE_BIT);
             glGenTextures(1, &texture->name);
             glBindTexture(GL_TEXTURE_2D, texture->name);
@@ -11354,7 +11438,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     state->selectedobject = savedobject;
     state->monitors = monitorpreview;
     if (framecamera || !scene) { state->inversedomain = VIEWPORT_SELECTION_BG; }
-    if (framecamera || !tris || tricount <= 0) { ViewportSetLevelWater(hwnd, NULL, NULL); ViewportSetLevelClouds(hwnd, NULL, NULL); ViewportSetLevelSkyBody(hwnd, NULL, NULL); }
+    if (framecamera || !tris || tricount <= 0) { ViewportSetLevelSkyGradient(hwnd, NULL); ViewportSetLevelWater(hwnd, NULL, NULL); ViewportSetLevelClouds(hwnd, NULL, NULL); ViewportSetLevelSkyBody(hwnd, NULL, NULL); }
     KillTimer(hwnd, VIEWPORT_MONITOR_TIMER);
     if (state->monitors.count) { SetTimer(hwnd, VIEWPORT_MONITOR_TIMER, 16, NULL); }
     if (framecamera)

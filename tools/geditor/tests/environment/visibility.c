@@ -27,10 +27,11 @@ static void viSetZRange(f32 near,f32 far) { clipNear=near;clipFar=far; }
 int main(void)
 {
     /* Native layout must match the compact ENVT format. */
-    assert(sizeof(EnvironmentRecord)==112&&offsetof(EnvironmentRecord,Sky)==28);
+    assert(sizeof(EnvironmentRecord)==124&&offsetof(EnvironmentRecord,Sky)==28);
     assert(offsetof(EnvironmentRecord,PropVisibility)==80);
     assert(offsetof(EnvironmentRecord,SkyBody)==88&&offsetof(SkyBodySettings,AngularSize)==4
         &&offsetof(SkyBodySettings,Red)==8&&offsetof(SkyBodySettings,Direction)==12);
+    assert(offsetof(EnvironmentRecord,SkyGradient)==112&&sizeof(SkyGradientSettings)==12);
     EnvironmentRecord jungle={.FogEnabled=1,
         .Visibility={.NearClipDistance=10,.FarClipDistance=2500,
             .FogStart=996,.FogEnd=1000},

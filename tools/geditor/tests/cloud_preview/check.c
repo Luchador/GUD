@@ -18,7 +18,7 @@ static void Environment(unsigned char *p, DWORD id, BOOL enabled, float red, DWO
 }
 static void Metadata(DWORD stride)
 {
-    unsigned char data[5*112]={0},copy[sizeof(data)],rgb[3];
+    unsigned char data[5*ROM_ENVIRONMENT_ROW_SIZE]={0},copy[sizeof(data)],rgb[3];
     DWORD sky=(stride==104?44:28);
     RomFile rom={0}; RomClouds clouds; RomFog fog;
     rom.data=data; rom.size=5*stride; rom.info.entrycount=2;
@@ -29,15 +29,24 @@ static void Metadata(DWORD stride)
     Environment(data+2*stride,9,TRUE,30,stride);
     Environment(data+3*stride,21,FALSE,40,stride);
     RomSkyBody body;
-    if(stride==112)
+    if(stride>=112)
     {
         Put32(data+2*stride+88,2);Float(data+2*stride+92,7.5f);
         data[2*stride+96]=240;data[2*stride+97]=230;data[2*stride+98]=220;
         Float(data+2*stride+104,.5f);Float(data+2*stride+108,-1);
     }
     assert(RomGetLevelSkyBody(&rom,9,&body));
-    assert(body.type==(stride==112?2u:0u));
-    if(stride==112)assert(body.angularsize==7.5f&&body.color[0]==240&&body.direction[2]==-1&&body.horizonoffset==25);
+    assert(body.type==(stride>=112?2u:0u));
+    if(stride>=112)assert(body.angularsize==7.5f&&body.color[0]==240&&body.direction[2]==-1&&body.horizonoffset==25);
+    RomSkyGradient gradient;
+    if(stride==124)
+    {
+        Put32(data+2*stride+112,1);Float(data+2*stride+116,60);
+        data[2*stride+120]=20;data[2*stride+121]=40;data[2*stride+122]=80;
+    }
+    assert(RomGetLevelSkyGradient(&rom,9,&gradient));
+    assert(gradient.enabled==(stride==124));
+    if(stride==124)assert(gradient.endangle==60&&gradient.color[2]==80&&gradient.horizonoffset==25);
     memcpy(copy,data,sizeof(data));
     assert(RomGetLevelClouds(&rom,9,&clouds) && clouds.enabled);
     assert(clouds.textureid==0x08b4 && clouds.height==5000 && clouds.color[0]==30 && clouds.horizonoffset==25);
@@ -102,4 +111,4 @@ static void ProjectionAndColor(void)
     assert(pixels[2].r>pixels[0].r && pixels[2].r<pixels[1].r && pixels[2].a==255);
     puts("PASS: cloud-plane UVs, drift, horizon fade, camera movement, above-sky flight and native sky tint.");
 }
-int main(void) { Metadata(104); Metadata(112); Metadata(88); ProjectionAndColor(); return 0; }
+int main(void) { Metadata(104); Metadata(112);Metadata(124); Metadata(88); ProjectionAndColor(); return 0; }

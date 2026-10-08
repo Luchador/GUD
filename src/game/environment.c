@@ -252,6 +252,11 @@ void envSwitchToSoloSky2(f32 transitionTime)
 {
     static EnvironmentRecord static_envr;
     bool mainBody, alternateBody;
+    const SkyGradientSettings *mainGradient, *altGradient;
+    f32 mainAngle, altAngle;
+    f32 mainColor[3], altColor[3];
+    u8 *gradientColor;
+    s32 channel;
 
     if (g_MainEnvironment == NULL || g_AlternateEnvironment == NULL)
     {
@@ -331,6 +336,33 @@ void envSwitchToSoloSky2(f32 transitionTime)
     static_envr.Sky.Red &= 0xf8;
     static_envr.Sky.Green &= 0xf8;
     static_envr.Sky.Blue &= 0xf8;
+
+    /* A disabled endpoint is a solid horizon color. Blend its effective
+     * zenith too, so enabling/disabling the gradient never causes a pop. */
+    mainGradient = &g_MainEnvironment->SkyGradient;
+    altGradient = &g_AlternateEnvironment->SkyGradient;
+    if (mainGradient->Enabled || altGradient->Enabled)
+    {
+        mainAngle = mainGradient->EndAngle > 0.0f ? mainGradient->EndAngle : 90.0f;
+        altAngle = altGradient->EndAngle > 0.0f ? altGradient->EndAngle : 90.0f;
+        if (!mainGradient->Enabled) { mainAngle = altAngle; }
+        if (!altGradient->Enabled) { altAngle = mainAngle; }
+        static_envr.SkyGradient.Enabled = transitionTime <= 0.0f ? mainGradient->Enabled
+            : transitionTime >= 1.0f ? altGradient->Enabled : 1;
+        static_envr.SkyGradient.EndAngle = mainAngle + transitionTime * (altAngle - mainAngle);
+        mainColor[0] = mainGradient->Enabled ? mainGradient->Red : (g_MainEnvironment->Sky.Red & 0xf8);
+        mainColor[1] = mainGradient->Enabled ? mainGradient->Green : (g_MainEnvironment->Sky.Green & 0xf8);
+        mainColor[2] = mainGradient->Enabled ? mainGradient->Blue : (g_MainEnvironment->Sky.Blue & 0xf8);
+        altColor[0] = altGradient->Enabled ? altGradient->Red : (g_AlternateEnvironment->Sky.Red & 0xf8);
+        altColor[1] = altGradient->Enabled ? altGradient->Green : (g_AlternateEnvironment->Sky.Green & 0xf8);
+        altColor[2] = altGradient->Enabled ? altGradient->Blue : (g_AlternateEnvironment->Sky.Blue & 0xf8);
+        gradientColor = &static_envr.SkyGradient.Red;
+        for (channel = 0; channel < 3; channel++)
+        {
+            gradientColor[channel] = mainColor[channel]
+                + transitionTime * (altColor[channel] - mainColor[channel]);
+        }
+    }
 
     envLoadCurrentEnvironment(&static_envr);
 }

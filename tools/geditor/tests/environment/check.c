@@ -38,7 +38,7 @@ static void RoundTrip(const char *dir)
     for(unsigned i=0;i<sizeof(ids)/sizeof(ids[0]);i++)base.rows[base.count++]=Row(ids[i]);
     edited=base.rows[0];
     const char *texts[]={"0","5.25","6400.5","4294967295","995","1050",
-        "1","2","3","0","8000.25","2","60.5","150.25","200.125","1","-123.5","2","100.5","90.25","80.125","12.5","24","12","2","8.5","255","220","180","0","0.5","-1"};
+        "1","2","3","0","8000.25","2","60.5","150.25","200.125","1","-123.5","2","100.5","90.25","80.125","12.5","24","12","2","8.5","255","220","180","0","0.5","-1","1","65","30","60","120"};
     for(int i=0;i<ENVIRONMENT_FIELD_COUNT;i++)OK(EnvironmentParseField(&edited,i,texts[i],&why));
     OK(EnvironmentSet(&base,&changes,&edited,&why));OK(changes.count==1);
     OK(EnvironmentGet(&base,&changes,29,&actual)&&!memcmp(&actual,&edited,sizeof(actual)));
@@ -63,16 +63,17 @@ static void RoundTrip(const char *dir)
     OK(F32(actual.data+76)==12.5f&&F32(actual.data+80)==24&&F32(actual.data+84)==12);
     OK(U32(actual.data+88)==2&&F32(actual.data+92)==8.5f&&actual.data[96]==255&&actual.data[97]==220&&actual.data[98]==180);
     OK(F32(actual.data+100)==0&&F32(actual.data+104)==0.5f&&F32(actual.data+108)==-1);
+    OK(U32(actual.data+112)==1&&F32(actual.data+116)==65&&actual.data[120]==30&&actual.data[121]==60&&actual.data[122]==120);
     unsigned char bytes[2048],before[2048];memset(bytes,0xa5,sizeof(bytes));
-    for(DWORD i=0;i<base.count;i++)memcpy(bytes+128+i*112,base.rows[i].data,112);
-    memset(bytes+128+base.count*112,0,112);memcpy(before,bytes,sizeof(bytes));
+    for(DWORD i=0;i<base.count;i++)memcpy(bytes+128+i*ROM_ENVIRONMENT_ROW_SIZE,base.rows[i].data,ROM_ENVIRONMENT_ROW_SIZE);
+    memset(bytes+128+base.count*ROM_ENVIRONMENT_ROW_SIZE,0,ROM_ENVIRONMENT_ROW_SIZE);memcpy(before,bytes,sizeof(bytes));
     RomFile rom={.data=bytes,.size=sizeof(bytes)};rom.info.entrycount=2;
     rom.info.entries[0]=(RomManifestEntry){0x434d4150,64,sizeof(bytes),0x80000000};
-    rom.info.entries[1]=(RomManifestEntry){0x454e5654,128,0,112};
+    rom.info.entries[1]=(RomManifestEntry){0x454e5654,128,0,ROM_ENVIRONMENT_ROW_SIZE};
     OK(EnvironmentApplyRom(&rom,&changes,&why));
-    memcpy(before+128,edited.data,112);OK(!memcmp(bytes,before,sizeof(bytes)));
+    memcpy(before+128,edited.data,ROM_ENVIRONMENT_ROW_SIZE);OK(!memcmp(bytes,before,sizeof(bytes)));
     EnvironmentTable saved;OK(EnvironmentReadRom(&rom,&saved,NULL,&why));
-    OK(!memcmp(saved.rows[0].data,edited.data,112));
+    OK(!memcmp(saved.rows[0].data,edited.data,ROM_ENVIRONMENT_ROW_SIZE));
     OK(EnvironmentApplyRom(&rom,&changes,&why)&&!memcmp(bytes,before,sizeof(bytes)));
     /* Reserved data, row order/IDs, other variants, sentinel and surrounding code remain byte-identical. */
     OK(EnvironmentSet(&base,&changes,&base.rows[0],&why)&&!changes.count);
@@ -136,6 +137,7 @@ static void Rebase(void)
     puts("PASS: field-level three-way rebase, new untouched defaults, identical-edit cleanup, conflict/missing-row rejection and rollback.");
 }
 #include "sky_body.c"
+#include "sky_gradient.c"
 #include "migration.c"
 #include "ui.c"
-int main(int argc,char **argv) { assert(argc==2);RoundTrip(argv[1]);Invalid();Rebase();SkyBody();Migration(argv[1]);UI(argv[1]);return 0; }
+int main(int argc,char **argv) { assert(argc==2);RoundTrip(argv[1]);Invalid();Rebase();SkyBody();SkyGradient();Migration(argv[1]);UI(argv[1]);return 0; }

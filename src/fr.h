@@ -148,6 +148,7 @@ extern u32 g_viOriginalHstart;
 extern u32 g_viOriginalVstart0;
 extern u32 g_viOriginalVstart1;
 extern Mtx *g_viProjectionMatrix;
+u16 viGetPerspNorm(void);
 
 /* SCREEN_HEIGHT #define changes based on version (PAL or NTSC) */
 extern u8 cfb_16[NUM_VIDEO_FRAME_BUFFERS][SCREEN_WIDTH * SCREEN_HEIGHT * 2];

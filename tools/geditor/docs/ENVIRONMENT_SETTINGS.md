@@ -1,5 +1,9 @@
 # Environment overrides
 
+Optional gradients are configured in **Section > Sky gradient**. See
+[SKY_GRADIENT.md](SKY_GRADIENT.md) for authoring, current 124-byte environment
+records, cloud rendering and compatibility with earlier ROM layouts.
+
 Open **Settings > Level Settings > Environment**. Choose the environment row,
 edit its values, and click **Apply** (or press Enter). Fog, background color and
 cloud changes preview in the viewport. Leaving the tab restores the level's

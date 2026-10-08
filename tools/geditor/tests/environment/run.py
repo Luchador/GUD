@@ -29,7 +29,7 @@ with tempfile.TemporaryDirectory(prefix='geditor-environment-') as folder:
     (work/'ui.inc').write_text(''.join(function(editor, name) for name in
         ('GEditorPreviewEnvironment', 'GEditorApplyEnvironment')) + ''.join(function(panel, name) for name in
         ('State', 'Owner', 'Checkbox', 'BodyChoice', 'Ready', 'Preview', 'Status', 'Load', 'Commit', 'Reset', 'EnvironmentPanelApply',
-         'BodyDefaults', 'EnvironmentPanelHasDraft', 'EnvironmentPanelRefresh', 'EnvironmentPanelShow')) + function(editor, 'GEditorOpenProject'))
+         'BodyDefaults', 'GradientDefaults', 'EnvironmentPanelHasDraft', 'EnvironmentPanelRefresh', 'EnvironmentPanelShow')) + function(editor, 'GEditorOpenProject'))
     command = [os.environ.get('CC', 'cc'), '-std=c99', '-O1', '-g', '-Wall', '-Wextra', '-Werror',
         '-Wno-unused-parameter', '-ffunction-sections', '-fdata-sections', '-fsanitize=address,undefined',
         '-Dfopen=TestFopen', f'-I{here.parent / "image_import"}', f'-I{src}', f'-I{work}']

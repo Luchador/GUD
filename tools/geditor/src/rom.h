@@ -15,12 +15,14 @@ static inline BOOL RomChrLodDistanceIsValid(float distance)
 #define ROM_MAX_ENTRIES 64
 #define ROM_MAX_LEVELS  64
 #define ROM_LEVEL_ROW_SIZE 44u
-#define ROM_ENVIRONMENT_ROW_SIZE 112u
+#define ROM_ENVIRONMENT_ROW_SIZE 124u
+#define ROM_ENVIRONMENT_ROW_SKY_BODY_SIZE 112u
 #define ROM_ENVIRONMENT_ROW_COMPACT_SIZE 88u
 #define ROM_ENVIRONMENT_ROW_LEGACY_SIZE 104u
 
 static inline BOOL RomEnvironmentRowSizeIsValid(DWORD size)
-{ return size == ROM_ENVIRONMENT_ROW_SIZE || size == ROM_ENVIRONMENT_ROW_COMPACT_SIZE || size == ROM_ENVIRONMENT_ROW_LEGACY_SIZE; }
+{ return size == ROM_ENVIRONMENT_ROW_SIZE || size == ROM_ENVIRONMENT_ROW_SKY_BODY_SIZE
+    || size == ROM_ENVIRONMENT_ROW_COMPACT_SIZE || size == ROM_ENVIRONMENT_ROW_LEGACY_SIZE; }
 
 typedef struct RomManifestEntry {
     DWORD kind;      /* fourcc, e.g. 'IMGS'  */
@@ -55,6 +57,12 @@ typedef struct RomSkyBody {
     float direction[3];
 } RomSkyBody;
 
+typedef struct RomSkyGradient {
+    BOOL enabled;
+    float endangle, horizonoffset;
+    unsigned char color[3];
+} RomSkyGradient;
+
 /*
  * One row of the ROM's level table, strings resolved and copied out.
  * name comes from LevelEntry.levelName. world is the shared BG filename stem
@@ -79,6 +87,7 @@ typedef struct RomLevel {
     RomClouds clouds;
     RomWater water;
     RomSkyBody skybody;
+    RomSkyGradient skygradient;
 } RomLevel;
 
 typedef struct RomInfo {
@@ -119,6 +128,7 @@ void RomFree(RomFile *rom);
 BOOL RomGetLevelWater(const RomFile *rom, LONG levelid, RomWater *water);
 BOOL RomGetLevelClouds(const RomFile *rom, LONG levelid, RomClouds *clouds);
 BOOL RomGetLevelSkyBody(const RomFile *rom, LONG levelid, RomSkyBody *body);
+BOOL RomGetLevelSkyGradient(const RomFile *rom, LONG levelid, RomSkyGradient *gradient);
 BOOL RomGetLevelEnvironment(const RomFile *rom, LONG levelid, unsigned char rgb[3], RomFog *fog);
 
 /*

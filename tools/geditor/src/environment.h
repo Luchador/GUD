@@ -2,13 +2,16 @@
 #define GEDITOR_ENVIRONMENT_H
 
 #include <stdio.h>
+#include <stdint.h>
 #include "rom.h"
 
 #define ENVIRONMENT_RECORD_SIZE ROM_ENVIRONMENT_ROW_SIZE
 #define ENVIRONMENT_MAX_RECORDS 128u
-#define ENVIRONMENT_FIELD_COUNT 32
+#define ENVIRONMENT_FIELD_COUNT 37
 #define ENVIRONMENT_SKY_BODY_FIRST 24
-#define ENVIRONMENT_SKY_BODY_FIELDS 0xff000000u
+#define ENVIRONMENT_SKY_GRADIENT_FIRST 32
+#define ENVIRONMENT_SKY_BODY_FIELDS UINT64_C(0xff000000)
+#define ENVIRONMENT_SKY_GRADIENT_FIELDS UINT64_C(0x1f00000000)
 #define ENVIRONMENT_MAX_CHOICES 6
 
 /* Retain the native bytes so reserved fields and unrelated ROM defaults are
@@ -20,7 +23,7 @@ typedef struct EnvironmentTable {
     EditorEnvironment rows[ENVIRONMENT_MAX_RECORDS];
 } EnvironmentTable;
 typedef struct EnvironmentOverride {
-    DWORD fields;
+    uint64_t fields;
     EditorEnvironment value;
 } EnvironmentOverride;
 typedef struct EnvironmentOverrides {
@@ -59,6 +62,7 @@ int EnvironmentChoices(const EnvironmentTable *table, LONG levelid, EnvironmentC
 void EnvironmentPreview(const EditorEnvironment *value, unsigned char rgb[3], RomFog *fog, RomClouds *clouds);
 void EnvironmentPreviewWater(const EditorEnvironment *value, RomWater *water);
 void EnvironmentPreviewSkyBody(const EditorEnvironment *value, RomSkyBody *body);
+void EnvironmentPreviewSkyGradient(const EditorEnvironment *value, RomSkyGradient *gradient);
 void EnvironmentRefreshLevels(const EnvironmentTable *table, const EnvironmentOverrides *overrides, RomLevel *levels, DWORD count);
 
 #endif

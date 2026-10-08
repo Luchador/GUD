@@ -16,7 +16,7 @@ enum { VIEWPORT_RENDER_UNTEXTURED=3, BG_TEX_NONE=65535 };
 typedef struct ViewportState {
     BOOL orbit; int width,height,rendermode;
     float posx,posy,posz,yaw,pitch,backgroundcolor[3];
-    RomWater water;RomClouds clouds;
+    RomWater water;RomClouds clouds;RomSkyGradient skygradient;
     ViewportTexture watertexture,cloudtexture;
     LARGE_INTEGER waterfrequency,waterstart,cloudfrequency,cloudstart;
     void *hglrc,*hdc;

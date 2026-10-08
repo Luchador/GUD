@@ -52,6 +52,13 @@ typedef struct SkyBodySettings
     coord3d Direction; /* World direction, +Y up; length is ignored. */
 } SkyBodySettings;
 
+typedef struct SkyGradientSettings
+{
+    u32 Enabled;
+    f32 EndAngle; /* Elevation in degrees, 1..90; zero defaults to 90. */
+    u8 Red, Green, Blue, Reserved; /* Zenith color; Sky RGB is the horizon. */
+} SkyGradientSettings;
+
 typedef struct EnvironmentRecord
 {
     /**
@@ -73,6 +80,7 @@ typedef struct EnvironmentRecord
     PropVisibilitySettings PropVisibility;
     /* Appended for ENVT compatibility. Old initializers keep this disabled. */
     SkyBodySettings SkyBody;
+    SkyGradientSettings SkyGradient; /* Appended; zero-filled rows stay solid. */
 } EnvironmentRecord;
 
 extern EnvironmentRecord g_EnvTable[];

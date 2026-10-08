@@ -405,6 +405,7 @@ static BOOL RomValidateBuffer(unsigned char *data, DWORD size,
             RomGetLevelClouds(&view, level->levelID, &level->clouds);
             RomGetLevelWater(&view, level->levelID, &level->water);
             RomGetLevelSkyBody(&view, level->levelID, &level->skybody);
+            RomGetLevelSkyGradient(&view, level->levelID, &level->skygradient);
         }
     }
     return TRUE;
@@ -574,12 +575,27 @@ BOOL RomGetLevelSkyBody(const RomFile *rom, LONG levelid, RomSkyBody *body)
     if (!body) { return FALSE; }
     ZeroMemory(body, sizeof(*body));
     if (!row) { return FALSE; }
-    if (recordsize != ROM_ENVIRONMENT_ROW_SIZE) { return TRUE; }
+    if (recordsize < ROM_ENVIRONMENT_ROW_SKY_BODY_SIZE) { return TRUE; }
     body->type = be32(row + 88);
     body->angularsize = RomEnvironmentFloat(row + 92);
     body->horizonoffset = RomEnvironmentFloat(row + 76);
     memcpy(body->color, row + 96, 3);
     for (int i = 0; i < 3; i++) { body->direction[i] = RomEnvironmentFloat(row + 100 + i*4); }
+    return TRUE;
+}
+
+BOOL RomGetLevelSkyGradient(const RomFile *rom, LONG levelid, RomSkyGradient *gradient)
+{
+    DWORD skyoffset, recordsize;
+    const unsigned char *row = RomFindLevelEnvironment(rom, levelid, &skyoffset, &recordsize);
+    if (!gradient) { return FALSE; }
+    ZeroMemory(gradient, sizeof(*gradient));
+    if (!row) { return FALSE; }
+    if (recordsize != ROM_ENVIRONMENT_ROW_SIZE) { return TRUE; }
+    gradient->enabled = be32(row + 112) != 0;
+    gradient->endangle = RomEnvironmentFloat(row + 116);
+    gradient->horizonoffset = RomEnvironmentFloat(row + 76);
+    memcpy(gradient->color, row + 120, 3);
     return TRUE;
 }
 

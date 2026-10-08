@@ -394,6 +394,7 @@ static BOOL Levels(RebasePlan *plan, const GEditorProject *source,
         lstrcpyn(p->world,b->world,sizeof(p->world));
         p->hasbackgroundcolor=b->hasbackgroundcolor;
         memcpy(p->backgroundcolor,b->backgroundcolor,sizeof(p->backgroundcolor)); p->fog=b->fog; p->clouds=b->clouds;
+        p->water=b->water; p->skybody=b->skybody; p->skygradient=b->skygradient;
         plan->project.levelcount++;
     }
     /* New named rows (MP variants and Title) retain existing stage IDs.

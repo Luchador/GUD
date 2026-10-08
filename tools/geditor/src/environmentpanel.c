@@ -3,7 +3,7 @@
 #include "environmentpanel.h"
 
 enum { ENV_VARIANT_LABEL = 3000, ENV_VARIANT, ENV_STATUS, ENV_APPLY, ENV_RESET, ENV_REVERT,
-       ENV_SECTION_LABEL, ENV_SECTION, ENV_BODY_HELP,
+       ENV_SECTION_LABEL, ENV_SECTION, ENV_BODY_HELP, ENV_GRADIENT_HELP,
        ENV_GROUP_FIRST = 3010, ENV_LABEL_FIRST = 3020, ENV_FIELD_FIRST = 3060 };
 typedef struct EnvironmentPanel {
     const GEditorProject *project;
@@ -42,9 +42,12 @@ static void Status(HWND hwnd)
         if (s->choices[s->selected].shared)
         { text = s->draft ? "Unapplied changes to a shared default: affects every level using it." : "Shared default: changes affect every level using this environment."; }
     }
-    if (ready && s->project->environments.recordsize != ENVIRONMENT_RECORD_SIZE
+    if (ready && s->project->environments.recordsize < ROM_ENVIRONMENT_ROW_SKY_BODY_SIZE
         && SendDlgItemMessage(hwnd, ENV_SECTION, CB_GETCURSEL, 0, 0) == 1)
     { text = "Rebuild GUD and rebase this project to enable Sun / Moon settings."; }
+    if (ready && s->project->environments.recordsize != ENVIRONMENT_RECORD_SIZE
+        && SendDlgItemMessage(hwnd, ENV_SECTION, CB_GETCURSEL, 0, 0) == 2)
+    { text = "Rebuild GUD and rebase this project to enable sky gradient settings."; }
     SetDlgItemText(hwnd, ENV_STATUS, text);
     EnableWindow(GetDlgItem(hwnd, ENV_VARIANT), ready);
     EnableWindow(GetDlgItem(hwnd, ENV_APPLY), ready && s->draft);
@@ -52,7 +55,9 @@ static void Status(HWND hwnd)
     EnableWindow(GetDlgItem(hwnd, ENV_RESET), ready);
     for (int i = 0; i < ENVIRONMENT_FIELD_COUNT; i++)
         EnableWindow(GetDlgItem(hwnd, ENV_FIELD_FIRST + i), ready
-            && (i < ENVIRONMENT_SKY_BODY_FIRST || s->project->environments.recordsize == ENVIRONMENT_RECORD_SIZE));
+            && (i < ENVIRONMENT_SKY_BODY_FIRST
+                || (i < ENVIRONMENT_SKY_GRADIENT_FIRST && s->project->environments.recordsize >= ROM_ENVIRONMENT_ROW_SKY_BODY_SIZE)
+                || s->project->environments.recordsize == ENVIRONMENT_RECORD_SIZE));
 }
 static void Load(HWND hwnd)
 {
@@ -167,13 +172,22 @@ static void Layout(HWND hwnd)
         }
     }
     Place(hwnd, ENV_GROUP_FIRST + 3, 0, 24, 162, 14);
-    for (int i = ENVIRONMENT_SKY_BODY_FIRST; i < ENVIRONMENT_FIELD_COUNT; i++)
+    for (int i = ENVIRONMENT_SKY_BODY_FIRST; i < ENVIRONMENT_SKY_GRADIENT_FIRST; i++)
     {
         int y = 42 + (i - ENVIRONMENT_SKY_BODY_FIRST) * 18;
         Place(hwnd, ENV_LABEL_FIRST + i, 0, y+2, 93, 14);
         Place(hwnd, ENV_FIELD_FIRST + i, 94, y, 68, BodyChoice(i) ? 90 : 15);
     }
     Place(hwnd, ENV_BODY_HELP, 180, 42, 324, 168);
+    Place(hwnd, ENV_GROUP_FIRST + 4, 0, 24, 162, 14);
+    for (int i = ENVIRONMENT_SKY_GRADIENT_FIRST; i < ENVIRONMENT_FIELD_COUNT; i++)
+    {
+        int y = 42 + (i - ENVIRONMENT_SKY_GRADIENT_FIRST) * 18;
+        if (Checkbox(i)) { Place(hwnd, ENV_FIELD_FIRST + i, 0, y, 162, 15); }
+        else
+        { Place(hwnd, ENV_LABEL_FIRST + i, 0, y+2, 93, 14); Place(hwnd, ENV_FIELD_FIRST + i, 94, y, 68, 15); }
+    }
+    Place(hwnd, ENV_GRADIENT_HELP, 180, 42, 324, 168);
     Place(hwnd, ENV_STATUS, 0, 226, 504, 20);
     Place(hwnd, ENV_APPLY, 0, 249, 64, 18);
     Place(hwnd, ENV_REVERT, 72, 249, 78, 18);
@@ -181,16 +195,18 @@ static void Layout(HWND hwnd)
 }
 static void Section(HWND hwnd)
 {
-    BOOL body = SendDlgItemMessage(hwnd, ENV_SECTION, CB_GETCURSEL, 0, 0) == 1;
+    int section = (int)SendDlgItemMessage(hwnd, ENV_SECTION, CB_GETCURSEL, 0, 0);
     for (int i = 0; i < ENVIRONMENT_FIELD_COUNT; i++)
     {
-        int show = ((i >= ENVIRONMENT_SKY_BODY_FIRST) == body) ? SW_SHOW : SW_HIDE;
+        int fieldsection = i < ENVIRONMENT_SKY_BODY_FIRST ? 0 : i < ENVIRONMENT_SKY_GRADIENT_FIRST ? 1 : 2;
+        int show = fieldsection == section ? SW_SHOW : SW_HIDE;
         ShowWindow(GetDlgItem(hwnd, ENV_FIELD_FIRST + i), show);
         if (!Checkbox(i)) { ShowWindow(GetDlgItem(hwnd, ENV_LABEL_FIRST + i), show); }
     }
-    for (int i = 0; i < 4; i++)
-    { ShowWindow(GetDlgItem(hwnd, ENV_GROUP_FIRST + i), ((i == 3) == body) ? SW_SHOW : SW_HIDE); }
-    ShowWindow(GetDlgItem(hwnd, ENV_BODY_HELP), body ? SW_SHOW : SW_HIDE);
+    for (int i = 0; i < 5; i++)
+    { ShowWindow(GetDlgItem(hwnd, ENV_GROUP_FIRST + i), (i < 3 ? section == 0 : section == i-2) ? SW_SHOW : SW_HIDE); }
+    ShowWindow(GetDlgItem(hwnd, ENV_BODY_HELP), section == 1 ? SW_SHOW : SW_HIDE);
+    ShowWindow(GetDlgItem(hwnd, ENV_GRADIENT_HELP), section == 2 ? SW_SHOW : SW_HIDE);
     Status(hwnd);
 }
 static void BodyDefaults(HWND hwnd)
@@ -199,14 +215,30 @@ static void BodyDefaults(HWND hwnd)
     if (SendDlgItemMessage(hwnd, ENV_FIELD_FIRST + ENVIRONMENT_SKY_BODY_FIRST, CB_GETCURSEL, 0, 0) <= 0) { return; }
     /* Zero-filled ROM defaults are disabled. Supply a useful first disc when
      * enabling it; later selections retain the user's size, tint and direction. */
-    for (int i = 25; i < ENVIRONMENT_FIELD_COUNT; i++)
+    for (int i = 25; i < ENVIRONMENT_SKY_GRADIENT_FIRST; i++)
     {
         GetDlgItemText(hwnd, ENV_FIELD_FIRST + i, text, sizeof(text));
         if (strtod(text, NULL) != 0) { return; }
     }
     static const char *values[] = {"5", "255", "255", "255", "0", "0.5", "-1"};
-    for (int i = 25; i < ENVIRONMENT_FIELD_COUNT; i++)
+    for (int i = 25; i < ENVIRONMENT_SKY_GRADIENT_FIRST; i++)
     { SetDlgItemText(hwnd, ENV_FIELD_FIRST + i, values[i-25]); }
+}
+static void GradientDefaults(HWND hwnd)
+{
+    char text[64];
+    if (IsDlgButtonChecked(hwnd, ENV_FIELD_FIRST + ENVIRONMENT_SKY_GRADIENT_FIRST) != BST_CHECKED) { return; }
+    GetDlgItemText(hwnd, ENV_FIELD_FIRST + 33, text, sizeof(text));
+    if (strtod(text, NULL) != 0) { return; }
+    /* Initialize only a previously unconfigured gradient. */
+    SetDlgItemText(hwnd, ENV_FIELD_FIRST + 33, "90");
+    for (int i = 0; i < 3; i++)
+    {
+        GetDlgItemText(hwnd, ENV_FIELD_FIRST + 6+i, text, sizeof(text));
+        int color = atoi(text) / 2;
+        snprintf(text, sizeof(text), "%d", color);
+        SetDlgItemText(hwnd, ENV_FIELD_FIRST + 34+i, text);
+    }
 }
 static BOOL Control(HWND hwnd, const char *type, const char *text, int id, DWORD style, DWORD exstyle)
 {
@@ -230,9 +262,10 @@ static INT_PTR CALLBACK Dialog(HWND hwnd, UINT message, WPARAM wp, LPARAM lp)
             && Control(hwnd, "COMBOBOX", "", ENV_SECTION, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, 0);
         SendDlgItemMessage(hwnd, ENV_SECTION, CB_ADDSTRING, 0, (LPARAM)"Environment");
         SendDlgItemMessage(hwnd, ENV_SECTION, CB_ADDSTRING, 0, (LPARAM)"Sun / Moon");
+        SendDlgItemMessage(hwnd, ENV_SECTION, CB_ADDSTRING, 0, (LPARAM)"Sky gradient");
         SendDlgItemMessage(hwnd, ENV_SECTION, CB_SETCURSEL, 0, 0);
-        static const char *groups[] = {"Clipping and fog", "Sky and colors", "Water and prop fade", "Sun / Moon"};
-        for (int i = 0; ok && i < 4; i++) { ok = Control(hwnd, "STATIC", groups[i], ENV_GROUP_FIRST + i, 0, 0); }
+        static const char *groups[] = {"Clipping and fog", "Sky and colors", "Water and prop fade", "Sun / Moon", "Sky gradient"};
+        for (int i = 0; ok && i < 5; i++) { ok = Control(hwnd, "STATIC", groups[i], ENV_GROUP_FIRST + i, 0, 0); }
         for (int i = 0; ok && i < ENVIRONMENT_FIELD_COUNT; i++)
         {
             if (!Checkbox(i)) { ok = Control(hwnd, "STATIC", g_EnvironmentFields[i].label, ENV_LABEL_FIRST + i, 0, 0); }
@@ -253,6 +286,14 @@ static INT_PTR CALLBACK Dialog(HWND hwnd, UINT message, WPARAM wp, LPARAM lp)
             "Example: 0, 0.5, -1 places it above the -Z horizon.\r\n\r\n"
             "It stays at infinite distance when you move. Turn the camera to look toward it.\r\n"
             "Apply to preview it in the level viewport.", ENV_BODY_HELP, 0, 0)
+            && Control(hwnd, "STATIC",
+            "The existing fog / sky RGB is the horizon color.\r\n\r\n"
+            "Zenith is directly overhead. Its RGB channels range from 0 to 255.\r\n\r\n"
+            "End angle is the elevation where the zenith color is fully reached (1 to 90 degrees).\r\n"
+            "90 gives a horizon-to-overhead transition; a smaller angle reaches the color sooner.\r\n\r\n"
+            "Works with or without clouds. Below the horizon retains the fog color.\r\n"
+            "Choose Alternate above to edit the scripted fade's destination.\r\n"
+            "Apply to preview it in the level viewport.", ENV_GRADIENT_HELP, 0, 0)
             && Control(hwnd, "STATIC", "", ENV_STATUS, 0, 0)
             && Control(hwnd, "BUTTON", "&Apply", ENV_APPLY, BS_PUSHBUTTON | WS_TABSTOP, 0)
             && Control(hwnd, "BUTTON", "&Revert edits", ENV_REVERT, BS_PUSHBUTTON | WS_TABSTOP, 0)
@@ -280,6 +321,7 @@ static INT_PTR CALLBACK Dialog(HWND hwnd, UINT message, WPARAM wp, LPARAM lp)
             && (code == EN_CHANGE || (Checkbox(id - ENV_FIELD_FIRST) && code == BN_CLICKED)
                 || (BodyChoice(id - ENV_FIELD_FIRST) && code == CBN_SELCHANGE)))
         { if (BodyChoice(id - ENV_FIELD_FIRST)) { BodyDefaults(hwnd); }
+          if (id == ENV_FIELD_FIRST + ENVIRONMENT_SKY_GRADIENT_FIRST && code == BN_CLICKED) { GradientDefaults(hwnd); }
           s->draft = TRUE; Status(hwnd); SendMessage(Owner(hwnd), ENVIRONMENT_WM_DRAFT, 0, 0); return TRUE; }
         break;
     }

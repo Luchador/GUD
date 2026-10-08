@@ -13,6 +13,8 @@
 #include "tex.h"
 #include "skybodytriangle.h"
 #include "skyglaremath.h"
+#include "skygradientmath.h"
+#include "dyn.h"
 #include "textrelated.h"
 #include <vi.h>
 
@@ -21,6 +23,8 @@
 
 f32 g_SkyCloudOffset = 0;
 static Mtxf g_SkyInverseRoomScaleMatrix;
+static bool g_SkyGradientActive;
+static f32 g_SkyGradientEndSine;
 
 typedef struct SunGlareState
 {
@@ -517,6 +521,24 @@ static void skySetCloudVertex(SkyRelated18 *vertex, coord3d *position, f32 fade,
     vertex->unk0c = position->x * 0.1f;
     vertex->unk10 = position->z * 0.1f + g_SkyCloudOffset;
     skyChooseCloudVtxColour(vertex, fade);
+    if (g_SkyGradientActive)
+    {
+        const EnvironmentRecord *env = envGetCurrent();
+        coord3d *eye = bondviewGetPlayerPosition();
+        f32 direction[3], amount, sky[3];
+        direction[0] = position->x - eye->x;
+        direction[1] = position->y - eye->y;
+        direction[2] = position->z - eye->z;
+        amount = skyGradientAmount(direction, g_SkyGradientEndSine);
+        sky[0] = env->Sky.Red + amount * ((f32)env->SkyGradient.Red - env->Sky.Red);
+        sky[1] = env->Sky.Green + amount * ((f32)env->SkyGradient.Green - env->Sky.Green);
+        sky[2] = env->Sky.Blue + amount * ((f32)env->SkyGradient.Blue - env->Sky.Blue);
+        /* The existing cloud equation is sky + texture * contribution.
+         * Add just that contribution over the gradient, never a flat sky. */
+        vertex->r = env->Sky.CloudRed * (1.0f - sky[0]/255.0f) * (1.0f - fade);
+        vertex->g = env->Sky.CloudGreen * (1.0f - sky[1]/255.0f) * (1.0f - fade);
+        vertex->b = env->Sky.CloudBlue * (1.0f - sky[2]/255.0f) * (1.0f - fade);
+    }
 }
 
 static s32 skyBuildWaterPolygon(SkyRelated18 *vertices, SkyPlaneSample *samples, s32 horizonMask, f32 roomScale)
@@ -571,6 +593,77 @@ static Gfx *skyRenderSolidBackground(Gfx *gdl, EnvironmentRecord *env)
     }
 
     gDPPipeSync(gdl++);
+    return gdl;
+}
+
+/* Only the RSP mesh uses dynamic vertices: 63 vertices and two matrices,
+ * independent of resolution. Sky/cloud/water CPU projection stays unchanged. */
+static Gfx *skyRenderGradient(Gfx *gdl, const EnvironmentRecord *env)
+{
+    enum { columns = SKY_GRADIENT_COLUMNS, rows = SKY_GRADIENT_ROWS,
+        vertexCount = (columns+1)*(rows+1) };
+    Vtx *vertices;
+    Mtx *projection, *identity;
+    coord3d ray;
+    f32 amount;
+    const u8 *horizon = &env->Sky.Red;
+    const u8 *zenith = &env->SkyGradient.Red;
+    s32 row, column, channel;
+
+    if (dynGetFreeVertexBytes() < (s32)(vertexCount * sizeof(Vtx) + 2*sizeof(Mtx))
+        || dynGetFreeGfx(gdl) < columns*rows*2 + rows + 32)
+    { return gdl; }
+    vertices = dynAllocateVertices(vertexCount);
+    projection = dynAllocateMatrix();
+    identity = dynAllocateMatrix();
+    guOrtho(projection, -512.0f, 512.0f, -512.0f, 512.0f, -1.0f, 1.0f, 1.0f);
+    guMtxIdent(identity);
+    g_SkyGradientEndSine = skyGradientEndSine(env->SkyGradient.EndAngle);
+    for (row = 0; row <= rows; row++)
+    {
+        for (column = 0; column <= columns; column++)
+        {
+            Vtx *v = &vertices[row*(columns+1)+column];
+            skyGetWorldPosFromScreenPos(getPlayer_c_screenwidth()*column/columns,
+                getPlayer_c_screenheight()*row/rows, &ray);
+            amount = skyGradientAmount(ray.f, g_SkyGradientEndSine);
+            v->v.ob[0] = -512 + (1024*column + columns/2)/columns;
+            v->v.ob[1] = 512 - 1024*row/rows;
+            v->v.ob[2] = 0;
+            v->v.flag = 0; v->v.tc[0] = v->v.tc[1] = 0;
+            for (channel = 0; channel < 3; channel++)
+            { v->v.cn[channel] = horizon[channel] + amount*((f32)zenith[channel]-horizon[channel]) + 0.5f; }
+            v->v.cn[3] = 255;
+        }
+    }
+    gDPPipeSync(gdl++);
+    gDPSetCycleType(gdl++, G_CYC_1CYCLE);
+    gDPSetRenderMode(gdl++, G_RM_OPA_SURF, G_RM_OPA_SURF2);
+    gDPSetAlphaCompare(gdl++, G_AC_NONE);
+    gDPSetCombineMode(gdl++, G_CC_SHADE, G_CC_SHADE);
+    gDPSetColorDither(gdl++, G_CD_BAYER);
+    gSPClearGeometryMode(gdl++, G_ZBUFFER | G_FOG | G_LIGHTING | G_TEXTURE_GEN | G_TEXTURE_GEN_LINEAR | G_CULL_BOTH);
+    gSPSetGeometryMode(gdl++, G_SHADE | G_SHADING_SMOOTH);
+    gSPTexture(gdl++, 0, 0, 0, G_TX_RENDERTILE, G_OFF);
+    gSPMatrix(gdl++, osVirtualToPhysical(projection), G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
+    gSPMatrix(gdl++, osVirtualToPhysical(identity), G_MTX_MODELVIEW | G_MTX_LOAD | G_MTX_PUSH);
+    gSPPerspNormalize(gdl++, 0xffff);
+    for (row = 0; row < rows; row++)
+    {
+        gSPVertex(gdl++, osVirtualToPhysical(vertices + row*(columns+1)), (columns+1)*2, 0);
+        for (column = 0; column < columns; column++)
+        {
+            gSP1Triangle(gdl++, column, column+1, column+columns+1, 0);
+            gSP1Triangle(gdl++, column+1, column+columns+2, column+columns+1, 0);
+        }
+    }
+    gDPPipeSync(gdl++);
+    gSPPopMatrix(gdl++, G_MTX_MODELVIEW);
+    gSPMatrix(gdl++, osVirtualToPhysical(camGetPlayerProjMtx()), G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
+    gSPPerspNormalize(gdl++, viGetPerspNorm());
+    gSPSetGeometryMode(gdl++, G_ZBUFFER);
+    gSPTexture(gdl++, 0xffff, 0xffff, 0, G_TX_RENDERTILE, G_ON);
+    g_SkyGradientActive = TRUE;
     return gdl;
 }
 
@@ -676,10 +769,24 @@ static Gfx *skyRenderCloudPolygon(Gfx *gdl, SkyRelated18 *vertices, s32 vertexCo
 
     gDPPipeSync(gdl++);
     texSelect(&gdl, &skywaterimages[env->Sky.SkyImageId], 1, 0, 2);
-    gDPSetEnvColor(gdl++, env->Sky.Red, env->Sky.Green, env->Sky.Blue, 0xff);
-    gDPSetCombineLERP(gdl++,
-            SHADE, ENVIRONMENT, TEXEL0, ENVIRONMENT, 0, 0, 0, SHADE,
-            SHADE, ENVIRONMENT, TEXEL0, ENVIRONMENT, 0, 0, 0, SHADE);
+    if (g_SkyGradientActive)
+    {
+        gDPSetCycleType(gdl++, G_CYC_1CYCLE);
+        /* RM_ADD with shade alpha (255) instead of fog alpha. No fog-color
+         * state changes, depth access or extra cloud triangles are needed. */
+        gDPSetRenderMode(gdl++, IM_RD | CVG_DST_SAVE | FORCE_BL | ZMODE_OPA
+            | GBL_c1(G_BL_CLR_IN, G_BL_A_IN, G_BL_CLR_MEM, G_BL_1),
+            GBL_c2(G_BL_CLR_IN, G_BL_A_IN, G_BL_CLR_MEM, G_BL_1));
+        gDPSetCombineLERP(gdl++, TEXEL0, 0, SHADE, 0, 0, 0, 0, SHADE,
+            TEXEL0, 0, SHADE, 0, 0, 0, 0, SHADE);
+    }
+    else
+    {
+        gDPSetEnvColor(gdl++, env->Sky.Red, env->Sky.Green, env->Sky.Blue, 0xff);
+        gDPSetCombineLERP(gdl++,
+                SHADE, ENVIRONMENT, TEXEL0, ENVIRONMENT, 0, 0, 0, SHADE,
+                SHADE, ENVIRONMENT, TEXEL0, ENVIRONMENT, 0, 0, 0, SHADE);
+    }
 
     skyProjectVertices(vertices, projected, vertexCount, roomScale, FALSE);
 
@@ -758,9 +865,11 @@ static Gfx *skyRenderBackground(Gfx *gdl)
     roomScale = bgGetRoomScale() / 30.0f;
     env = envGetCurrent();
 
+    g_SkyGradientActive = FALSE;
+    if (env->SkyGradient.Enabled) { gdl = skyRenderGradient(gdl, env); }
     if (!env->Sky.Clouds)
     {
-        return skyRenderSolidBackground(gdl, env);
+        return g_SkyGradientActive ? gdl : skyRenderSolidBackground(gdl, env);
     }
 
     gdl = viSetFillColor(gdl, env->Sky.Red, env->Sky.Green, env->Sky.Blue);

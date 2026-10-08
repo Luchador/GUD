@@ -71,6 +71,36 @@ static void SkyBodyFades(void)
     envLoadLevelEnvironment(3,0);envSwitchToSoloSky2(1);
     assert(active.SkyBody.Type==1&&envGetSkyBodyAlpha()==255); /* no alternate */
 }
+static void SkyGradientFades(void)
+{
+    g_EnvTable[0].Sky.Red=160;g_EnvTable[0].Sky.Green=192;g_EnvTable[0].Sky.Blue=240;
+    g_EnvTable[1].Sky.Red=g_EnvTable[1].Sky.Green=g_EnvTable[1].Sky.Blue=0;
+    g_EnvTable[0].SkyGradient=(SkyGradientSettings){1,60,16,48,96,0};
+    g_EnvTable[1].SkyGradient=(SkyGradientSettings){0};
+    envLoadLevelEnvironment(1,0);
+    for(int tick=0;tick<=120;tick++)
+    {
+        envSwitchToSoloSky2(tick/120.0f);
+        assert(active.SkyGradient.Enabled==(tick<120));
+        assert(active.SkyGradient.EndAngle==60);
+        assert(active.SkyGradient.Blue<=(unsigned)(96*(120-tick)/120.0f+1));
+    }
+    assert(!active.SkyGradient.Red&&!active.SkyGradient.Green&&!active.SkyGradient.Blue);
+    envSwitchToSoloSky2(.5f);
+    assert(active.SkyGradient.Red==8&&active.SkyGradient.Green==24&&active.SkyGradient.Blue==48);
+    g_EnvTable[1].SkyGradient=(SkyGradientSettings){1,30,48,96,160,0};
+    envLoadLevelEnvironment(1,0);envSwitchToSoloSky2(.5f);
+    assert(active.SkyGradient.Enabled&&active.SkyGradient.EndAngle==45&&active.SkyGradient.Blue==128);
+    g_EnvTable[0].SkyGradient.Enabled=0;
+    envLoadLevelEnvironment(1,0);envSwitchToSoloSky2(0);assert(!active.SkyGradient.Enabled);
+    envSwitchToSoloSky2(.5f);
+    assert(active.SkyGradient.Enabled&&active.SkyGradient.EndAngle==30&&active.SkyGradient.Blue==200);
+    envSwitchToSoloSky2(1);assert(active.SkyGradient.Blue==160);
+    envLoadLevelEnvironment(1,0);assert(!active.SkyGradient.Enabled);
+    g_EnvTable[1].SkyGradient.Enabled=0;
+    envSwitchToSoloSky2(.5f);assert(!active.SkyGradient.Enabled);
+    puts("PASS: gradient color/angle interpolation, gradient-to-black, reverse/instant transitions and level reloads.");
+}
 int main(void)
 {
     g_EnvTable[0].SkyBody.Type=1;g_EnvTable[0].SkyBody.AngularSize=5;
@@ -88,6 +118,7 @@ int main(void)
     players=2;envLoadLevelEnvironment(1,0);envSwitchToSoloSky2(1);assert(active.Id==201&&active.Visibility.FarClipDistance==1500);
     players=1;envLoadLevelEnvironment(99,0);envSwitchToSoloSky2(1);assert(active.Id==(u32)-1&&active.Visibility.FarClipDistance==20000);
     SkyBodyFades();
+    SkyGradientFades();
     puts("PASS: Sun/Moon transparency follows the 120-tick environment fade, reverse fades, instant switches, repeat calls and level reloads.");
     puts("PASS: scripted transitions with fog disabled, enabling/disabling fog at transition endpoints, no alternate, MP/fallback rows and calls before initialization.");
     return 0;
