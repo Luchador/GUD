@@ -743,7 +743,7 @@ BEGIN
     PUSHBUTTON "Cancel", IDCANCEL, 226, 150, 54, 18
 END
 
-IDD_BAKED_LIGHTING DIALOGEX 0, 0, 440, 354
+IDD_BAKED_LIGHTING DIALOGEX 0, 0, 440, 448
 STYLE DS_CENTER | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Baked Lighting"
 FONT 8, "MS Shell Dlg"
@@ -785,10 +785,19 @@ BEGIN
 
     LTEXT "Smoothing angle (0 to 180 degrees)", -1, 180, 211, 180, 12
     EDITTEXT IDC_BAKE_SMOOTH_ANGLE, 370, 208, 52, 14, ES_AUTOHSCROLL | WS_TABSTOP
-    LTEXT "Merged vertices smooth across connected faces within this angle. Sharper edges split when their colors differ. Undo before rebaking with a larger angle to restore merged vertices.\n\nReplaces RGB on both BG layers; keeps alpha and UVs. No cast shadows. Direction is normalized automatically.", -1, 180, 234, 246, 60
-    LTEXT "", IDC_BAKE_STATUS, 12, 306, 298, 36
-    DEFPUSHBUTTON "Bake Lighting", IDC_BAKE_RUN, 322, 306, 106, 18
-    PUSHBUTTON "Close", IDCANCEL, 322, 330, 106, 18
+    LTEXT "Merged vertices smooth across connected faces within this angle. Sharper edges split when their colors differ. Undo before rebaking with a larger angle to restore merged vertices.", -1, 180, 232, 246, 42
+    GROUPBOX "Ambient occlusion", -1, 174, 280, 258, 98
+    CONTROL "Enable ambient occlusion", IDC_BAKE_AO, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 184, 294, 230, 12
+    LTEXT "Strength", -1, 184, 314, 46, 12
+    CONTROL "", IDC_BAKE_AO_STRENGTH, "msctls_trackbar32", TBS_HORZ | TBS_NOTICKS | WS_TABSTOP, 234, 310, 144, 20
+    LTEXT "100%", IDC_BAKE_AO_PERCENT, 382, 314, 40, 12
+    LTEXT "Radius (world units)", -1, 184, 338, 138, 12
+    EDITTEXT IDC_BAKE_AO_RADIUS, 336, 335, 86, 14, ES_AUTOHSCROLL | WS_TABSTOP
+    LTEXT "Primary BG blocks ambient light within this radius.", -1, 184, 359, 238, 12
+    LTEXT "Replaces RGB on both BG layers; keeps alpha and UVs.", -1, 12, 383, 416, 12
+    LTEXT "", IDC_BAKE_STATUS, 12, 402, 298, 36
+    DEFPUSHBUTTON "Bake Lighting", IDC_BAKE_RUN, 322, 402, 106, 18
+    PUSHBUTTON "Close", IDCANCEL, 322, 426, 106, 18
 END
 
 IDD_HEAD_OFFSET DIALOGEX 0, 0, 300, 156

@@ -27,9 +27,9 @@ with tempfile.TemporaryDirectory(prefix='geditor-baked-lighting-') as folder:
         env=dict(os.environ,ASAN_OPTIONS='detect_leaks=0',UBSAN_OPTIONS='halt_on_error=1'))
     ui = (src/'bakedlighting.c').read_text().replace(' CALLBACK ', ' ')
     (work/'ui.inc').write_text(''.join(helpers.function(ui, name) for name in
-        ('Number','ReadNumber','Settings','UpdateButtons','AddRoom','Dialog','BakedLightingRefresh')))
+        ('RoomKey','SaveRooms','Number','ReadNumber','Settings','UpdateAo','UpdateButtons','AddRoom','LoadRooms','Dialog','BakedLightingRefresh','BakedLightingResetRooms')))
     command = command[:command.index(str(here/'check.c'))]
-    subprocess.run(command+[str(here/'ui.c'),str(src/'bglighting.c'),str(shim/'platform.c'),
+    subprocess.run(command+[str(here/'ui.c'),str(src/'bglighting.c'),str(src/'bgao.c'),str(shim/'platform.c'),
         '-Wl,--gc-sections','-lm','-o',str(work/'ui')], check=True)
     subprocess.run([str(work/'ui')], check=True,
         env=dict(os.environ,ASAN_OPTIONS='detect_leaks=0',UBSAN_OPTIONS='halt_on_error=1'))

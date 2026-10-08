@@ -8,6 +8,7 @@
 typedef void *HWND;
 typedef struct {int unused;} MSG;
 #include "bakedlighting.h"
+BOOL SetupFileClone(const SetupFile *s,SetupFile *out,const char **why) {abort();}
 BOOL SetupFileCompact(SetupFile *s,const char **why) {abort();}
 void SetupFileFree(SetupFile *s) {abort();}
 void StanFileFree(StanFile *s) {abort();}
@@ -17,6 +18,7 @@ static void *TestMalloc(size_t n) {return FailAllocation()?NULL:malloc(n);}
 static void *TestCalloc(size_t n,size_t size) {return FailAllocation()?NULL:calloc(n,size);}
 #define malloc TestMalloc
 #define calloc TestCalloc
+#include "bgao.c"
 #include "bglighting.c"
 #undef malloc
 #undef calloc
@@ -73,7 +75,7 @@ static void Corner(BgDocument *doc)
     other->layers[0].sourcepresent=TRUE;other->faces[0].drawgroup=0;
 }
 static BgLightingSettings Lights(void)
-{ return (BgLightingSettings){{20,40,60},{180,120,60},1,1,{0,0,10},60}; }
+{ return (BgLightingSettings){{20,40,60},{180,120,60},1,1,{0,0,10},60,FALSE,1,200}; }
 static const BgDocumentVertex *Vertex(const BgDocument *doc,DWORD f,int c)
 {return doc->rooms[1].vertices+doc->rooms[1].faces[f].vertexindices[c];}
 static void RGB(const BgDocumentVertex *v,int r,int g,int b) {assert(v->r==r&&v->g==g&&v->b==b);}
@@ -145,11 +147,91 @@ static void Geometry(const char *dir)
     BgDocumentFree(&original);BgFileFree(&source);
     puts("PASS: Lambert RGB, normalized/sign-correct direction, ambient/clamping, hard/smooth/UV-split/layer normals, degenerates, room scope, repeat bake, alpha/UV/material preservation and native save/export.");
 }
+static void AmbientOcclusion(const char *dir)
+{
+    BgFile source=Fixture();BgDocument original={0},doc={0};const char *why="";
+    assert(BgDocumentLoad(source.data,source.size,2,&original,&why));Corner(&original);
+    BgDocumentRoom *floor=original.rooms+1,*ceiling=original.rooms+2;
+    memset(floor->origin,0,sizeof(floor->origin));
+    const short ground[3][3]={{0,0,0},{0,0,100},{100,0,0}};
+    for (int i=0;i<3;i++)
+    { floor->vertices[i].x=ground[i][0];floor->vertices[i].y=ground[i][1];floor->vertices[i].z=ground[i][2];floor->vertices[i].usecount=1; }
+    floor->vertexcount=3;floor->facecount=1;
+    ceiling->vertices=realloc(ceiling->vertices,4*sizeof(*ceiling->vertices));assert(ceiling->vertices);
+    ceiling->vertices[3]=ceiling->vertices[0];ceiling->vertices[3].id=original.nextvertexid++;
+    ceiling->faces=realloc(ceiling->faces,2*sizeof(*ceiling->faces));assert(ceiling->faces);
+    ceiling->faces[1]=ceiling->faces[0];ceiling->faces[1].id=original.nextfaceid++;
+    ceiling->vertexcount=4;ceiling->facecount=ceiling->facecapacity=2;original.facecount=3;
+    ceiling->origin[0]=300;ceiling->origin[1]=400;ceiling->origin[2]=500;
+    const short top[4][3]={{-1000,10,-1000},{1000,10,-1000},{1000,10,1000},{-1000,10,1000}};
+    for (int i=0;i<4;i++)
+    {
+        ceiling->vertices[i].x=top[i][0]-300;ceiling->vertices[i].y=top[i][1]-400;ceiling->vertices[i].z=top[i][2]-500;
+        ceiling->vertices[i].usecount=(i==0||i==2)?2:1;
+    }
+    DWORD indices[2][3]={{0,1,2},{0,2,3}};
+    for (int i=0;i<2;i++)memcpy(ceiling->faces[i].vertexindices,indices[i],sizeof(indices[i]));
+    DWORD rooms[]={1};BgLightingResult result;BgLightingSettings light=g_BgLightingDefaults;
+    light.ambient[0]=light.ambient[1]=light.ambient[2]=100;light.ambientIntensity=1;
+    light.directional[0]=light.directional[1]=light.directional[2]=60;light.directionalIntensity=1;
+    light.direction[0]=light.direction[2]=0;light.direction[1]=1;light.aoEnabled=TRUE;light.aoRadius=100;
+    int full=0;
+    for (int mode=0;mode<8;mode++)
+    {
+        assert(BgDocumentClone(&original,&doc,&why));light.aoEnabled=mode!=1;light.aoStrength=mode==2?0:mode==3?.5:1;
+        light.aoRadius=mode==4||mode==7?4:100;
+        if (mode==5) { doc.rooms[2].faces[0].layer=doc.rooms[2].faces[1].layer=1; }
+        if (mode==6) { doc.rooms[1].faces[0].layer=1; }
+        if (mode==7) { doc.levelscale=4; } /* Ceiling is now 2.5 world units away. */
+        assert(BgDocumentBakeLighting(&doc,rooms,1,&light,&result,&why));
+        const BgDocumentVertex *v=Vertex(&doc,0,0);
+        if (!mode) { full=v->r;assert(full>=60&&full<85);RoundTrip(&doc,&source,dir); }
+        if (mode==1||mode==2||mode==4||mode==5) { RGB(v,160,160,160); }
+        if (mode==3) { assert(abs(v->r-(full+160)/2)<=1); }
+        if (mode==6) { assert(v->r==full); }
+        if (mode==7) { assert(v->r<160); }
+        assert(v->a==original.rooms[1].vertices[0].a&&v->s==original.rooms[1].vertices[0].s);
+        assert(!memcmp(doc.rooms[2].vertices,original.rooms[2].vertices,4*sizeof(BgDocumentVertex)));
+        assert(BgDocumentBakeLighting(&doc,rooms,1,&light,&result,&why)&&!result.vertices&&!result.splits);
+        BgDocumentFree(&doc);
+    }
+    /* Reversing an occluder's winding does not let ambient light through. */
+    for (int i=0;i<2;i++)
+    { DWORD swap=ceiling->faces[i].vertexindices[1];ceiling->faces[i].vertexindices[1]=ceiling->faces[i].vertexindices[2];ceiling->faces[i].vertexindices[2]=swap; }
+    light.aoRadius=100;assert(BgDocumentBakeLighting(&original,rooms,1,&light,&result,&why));assert(Vertex(&original,0,0)->r==full);
+    BgDocumentFree(&original);BgFileFree(&source);
+    puts("PASS: primary-only AO across unselected rooms, receiver layers, two-sided blockers, radius/world scale/origins, 0/50/100% strength, direct-light preservation, repeat bake and native persistence.");
+}
+static void Acceleration(void)
+{
+    /* Compare tree traversal against a flat exhaustive traversal, including
+     * parallel rays, shared edges and sparse geometry spread over a level. */
+    BgAoScene scene={0};scene.count=400;
+    scene.triangles=calloc(scene.count,sizeof(*scene.triangles));scene.nodes=calloc(scene.count*2,sizeof(*scene.nodes));
+    assert(scene.triangles&&scene.nodes);
+    for (DWORD i=0;i<scene.count;i++)
+    {
+        AoTriangle *t=scene.triangles+i;t->p[0]=(i%20)*20;t->p[1]=10+(i%7)*5;t->p[2]=(i/20)*20;
+        t->a[0]=20;t->b[2]=20;
+        for (int k=0;k<3;k++) { t->min[k]=t->p[k];t->max[k]=t->p[k]+t->a[k]+t->b[k]; }
+    }
+    AoBuildNode(&scene,0,scene.count,0);assert(scene.nodecount>1);
+    BgAoScene flat=scene;AoNode root=scene.nodes[0];root.first=0;root.count=scene.count;flat.nodes=&root;
+    for (int i=0;i<2000;i++)
+    {
+        double p[3]={(i*137)%500-50,0,(i*73)%500-50},d[3]={sin(i),1,cos(i)},a=500,b=500;
+        if (i%3==0) { d[0]=d[2]=0; }
+        AoTrace(&scene,0,p,d,.0001,&a);AoTrace(&flat,0,p,d,.0001,&b);assert(fabs(a-b)<1e-8);
+    }
+    free(scene.triangles);free(scene.nodes);
+    puts("PASS: AO acceleration tree matches exhaustive triangle tracing for 2000 rays.");
+}
 static void Failures(void)
 {
     BgFile source=Fixture();BgDocument original={0},doc={0};const char *why="";
     assert(BgDocumentLoad(source.data,source.size,1,&original,&why));Corner(&original);
     BgLightingSettings light=Lights();BgLightingResult result;DWORD rooms[]={1,2};
+    light.aoEnabled=TRUE;
     for (int fail=0;;fail++)
     {
         assert(fail<100);assert(BgDocumentClone(&original,&doc,&why));allocations=fail;
@@ -197,6 +279,7 @@ static void History(void)
     assert(BgDocumentClone(&g_CurrentBgDocument,&original,&why));
     EditHistoryReset(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan);
     BakedLightingRequest request={.rooms=rooms,.count=1,.settings=Lights()};
+    request.settings.aoEnabled=TRUE;
     failrebuild=TRUE;assert(!GEditorBakeLighting(NULL,&request));Same(&g_CurrentBgDocument,&original);assert(!g_EditHistory.undocount);
     ULONGLONG revision=g_EditHistory.nextrevision;g_EditHistory.nextrevision=0;
     assert(!GEditorBakeLighting(NULL,&request));g_EditHistory.nextrevision=revision;Same(&g_CurrentBgDocument,&original);
@@ -216,4 +299,4 @@ static void History(void)
     EditHistoryFree(&g_EditHistory);BgDocumentFree(&g_CurrentBgDocument);BgDocumentFree(&original);BgDocumentFree(&baked);BgFileFree(&g_CurrentBg);
     puts("PASS: real editor transaction, viewport/commit rollback, one-step undo/redo, no-op rebake, redo preservation and save revision tracking.");
 }
-int main(int argc,char **argv) {assert(argc==2);Geometry(argv[1]);Failures();History();return 0;}
+int main(int argc,char **argv) {assert(argc==2);Geometry(argv[1]);AmbientOcclusion(argv[1]);Acceleration();Failures();History();return 0;}

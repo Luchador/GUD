@@ -3,9 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include "bglighting.h"
+#include "bgao.h"
 
 const BgLightingSettings g_BgLightingDefaults = {
-    {255,255,255}, {255,255,255}, .25, .75, {-.4,.8,-.6}, 60
+    {255,255,255}, {255,255,255}, .25, .75, {-.4,.8,-.6}, 60, FALSE, 1, 200
 };
 typedef struct BakeNode { DWORD parent, target; double normal[3]; } BakeNode;
 typedef struct BakeEdge { DWORD lo, hi, a, b; unsigned char layer; } BakeEdge;
@@ -36,6 +37,10 @@ BOOL BgLightingValidate(const BgLightingSettings *s, const char **why)
         if (!isfinite(s->direction[i]) || fabs(s->direction[i])>1000000) { return FALSE; }
     *why="The directional light needs a nonzero direction.";
     if (s->directionalIntensity>0 && Dot(s->direction,s->direction)<1e-20) { return FALSE; }
+    *why="Enter ambient occlusion strength from 0 to 100%.";
+    if (!isfinite(s->aoStrength) || s->aoStrength<0 || s->aoStrength>1) { return FALSE; }
+    *why="Enter an ambient occlusion radius greater than 0 and no larger than 1000000 world units.";
+    if (s->aoEnabled && (!isfinite(s->aoRadius) || s->aoRadius<=0 || s->aoRadius>1000000)) { return FALSE; }
     *why="";return TRUE;
 }
 static DWORD Root(BakeNode *nodes, DWORD i)
@@ -58,18 +63,18 @@ static int EdgeOrder(const void *a, const void *b)
 }
 static BOOL ColorEquals(const BgDocumentVertex *v, const unsigned char rgb[3])
 { return v->r==rgb[0] && v->g==rgb[1] && v->b==rgb[2]; }
-static void Shade(const BgLightingSettings *s, const double light[3], double normal[3], unsigned char rgb[3])
+static void Shade(const BgLightingSettings *s, const double light[3], double normal[3], double ambient, unsigned char rgb[3])
 {
     Normalize(normal);
     double diffuse=fmax(0,Dot(normal,light))*s->directionalIntensity;
     for (int i=0;i<3;i++)
     {
-        double value=s->ambient[i]*s->ambientIntensity+s->directional[i]*diffuse;
+        double value=s->ambient[i]*s->ambientIntensity*ambient+s->directional[i]*diffuse;
         rgb[i]=(unsigned char)floor(fmin(255,fmax(0,value))+.5);
     }
 }
 static BOOL Bake(const BgDocumentRoom *r, DWORD roomid, const BgLightingSettings *s,
-    BakeRoom *out, DWORD *nextid, BgLightingResult *result, const char **why)
+    const BgAoScene *ao, double levelscale, BakeRoom *out, DWORD *nextid, BgLightingResult *result, const char **why)
 {
     BakeNode *nodes=NULL;
     BakeEdge *edges=NULL;
@@ -161,7 +166,16 @@ static BOOL Bake(const BgDocumentRoom *r, DWORD roomid, const BgLightingSettings
             BakeNode *node=nodes+Root(nodes,f*3+c);
             if (node->target==UINT32_MAX)
             {
-                unsigned char rgb[3];Shade(s,light,node->normal,rgb);
+                unsigned char rgb[3];double ambient=1;
+                if (ao)
+                {
+                    const BgDocumentVertex *v=r->vertices+source;
+                    double position[3]={(v->x+(double)r->origin[0])/levelscale,
+                        (v->y+(double)r->origin[1])/levelscale,(v->z+(double)r->origin[2])/levelscale};
+                    Normalize(node->normal);
+                    ambient-=s->aoStrength*BgAoOcclusion(ao,position,node->normal,s->aoRadius);
+                }
+                Shade(s,light,node->normal,ambient,rgb);
                 node->target=source;
                 if (used[source] && !ColorEquals(out->vertices+source,rgb))
                 {
@@ -192,7 +206,7 @@ done:
 BOOL BgDocumentBakeLighting(BgDocument *doc, const DWORD *rooms, DWORD count,
     const BgLightingSettings *s, BgLightingResult *result, const char **why)
 {
-    BakeRoom *pending=NULL;BOOL ok=FALSE,changed=FALSE;
+    BakeRoom *pending=NULL;BgAoScene *ao=NULL;BOOL ok=FALSE,changed=FALSE;
     BgLightingResult total={0};
     if (result) { memset(result,0,sizeof(*result)); }
     if (!BgLightingValidate(s,why)) { return FALSE; }
@@ -202,13 +216,14 @@ BOOL BgDocumentBakeLighting(BgDocument *doc, const DWORD *rooms, DWORD count,
     *why="Out of memory preparing the lighting bake.";
     pending=calloc(doc->roomcount+1,sizeof(*pending));
     if (!pending) { return FALSE; }
+    if (s->aoEnabled && s->aoStrength>0 && s->ambientIntensity>0 && !BgAoBuild(doc,&ao,why)) { goto done; }
     DWORD nextid=doc->nextvertexid;
     for (DWORD i=0;i<count;i++)
     {
         DWORD id=rooms[i];*why="A selected background room no longer exists.";
         if (!id || id>doc->roomcount) { goto done; }
         if (pending[id].vertices) { continue; }
-        if (!Bake(doc->rooms+id,id,s,pending+id,&nextid,&total,why)) { goto done; }
+        if (!Bake(doc->rooms+id,id,s,ao,doc->levelscale,pending+id,&nextid,&total,why)) { goto done; }
     }
     for (DWORD id=1;id<=doc->roomcount;id++) if (pending[id].changed)
     {
@@ -222,5 +237,5 @@ BOOL BgDocumentBakeLighting(BgDocument *doc, const DWORD *rooms, DWORD count,
     *why="";ok=TRUE;
 done:
     for (DWORD id=1;id<=doc->roomcount;id++) { free(pending[id].vertices);free(pending[id].faces); }
-    free(pending);return ok;
+    BgAoFree(ao);free(pending);return ok;
 }

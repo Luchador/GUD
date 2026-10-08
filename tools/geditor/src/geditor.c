@@ -1308,7 +1308,8 @@ static void GEditorRefreshHistoryMenu(HWND hwnd)
     BgCommandsWindowRefresh(&g_CurrentBg,&g_CurrentBgDocument,
         g_CurrentLevelIndex<g_Project.levelcount ? g_Project.levels[g_CurrentLevelIndex].name : NULL);
     BakedLightingRefresh(&g_CurrentBgDocument,
-        g_CurrentLevelIndex<g_Project.levelcount ? g_Project.levels[g_CurrentLevelIndex].name : NULL);
+        g_CurrentLevelIndex<g_Project.levelcount ? g_Project.levels[g_CurrentLevelIndex].name : NULL,
+        g_Project.geppath, g_CurrentLevelIndex<g_Project.levelcount ? g_Project.levels[g_CurrentLevelIndex].bgname : NULL);
     GEditorSetTitleForProject(hwnd);
     menubar = GetMenu(hwnd);
     if (menubar == NULL)
@@ -2457,7 +2458,8 @@ static void GEditorApplyHistoryStep(HWND hwnd, BOOL redo)
     if (previousrooms!=g_CurrentBgDocument.roomcount) {
         GEditorClearObjectClipboard();BgDocumentFree(&g_FaceClipboard);
         BgPortalFileFree(&g_PortalClipboard);StanFileFree(&g_StanClipboard);
-        BakedLightingResetRooms();
+        BakedLightingResetRooms(g_Project.geppath,
+            g_CurrentLevelIndex<g_Project.levelcount ? g_Project.levels[g_CurrentLevelIndex].bgname : NULL);
     }
     GEditorRefreshHistoryMenu(hwnd);
 }
@@ -3004,7 +3006,8 @@ static BOOL GEditorManageRoom(HWND hwnd,LevelRoomEditRequest *request)
     if (request->remove) {
         GEditorClearObjectClipboard();BgDocumentFree(&g_FaceClipboard);
         BgPortalFileFree(&g_PortalClipboard);StanFileFree(&g_StanClipboard);
-        BakedLightingResetRooms();
+        BakedLightingResetRooms(g_Project.geppath,
+            g_CurrentLevelIndex<g_Project.levelcount ? g_Project.levels[g_CurrentLevelIndex].bgname : NULL);
     }
     LevelManagerRefreshRooms(&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan);
     GEditorRefreshSelectionDetails();GEditorRefreshHistoryMenu(hwnd);return TRUE;
@@ -7878,7 +7881,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
             case ID_TOOLS_BAKED_LIGHTING:
                 if (!BakedLightingShow(hwnd,&g_CurrentBgDocument,
-                    g_CurrentLevelIndex<g_Project.levelcount ? g_Project.levels[g_CurrentLevelIndex].name : NULL))
+                    g_CurrentLevelIndex<g_Project.levelcount ? g_Project.levels[g_CurrentLevelIndex].name : NULL,
+                    g_Project.geppath, g_CurrentLevelIndex<g_Project.levelcount ? g_Project.levels[g_CurrentLevelIndex].bgname : NULL))
                 { MessageBox(hwnd,"Could not open Baked Lighting.",GEDITOR_TITLE,MB_ICONERROR); }
                 return 0;
 
