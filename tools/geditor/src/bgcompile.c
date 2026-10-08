@@ -1874,8 +1874,10 @@ BOOL BgFileOptimize(const BgFile *source, BgFile *out, const char **reasonout)
         || !BgFileCompact(&compiled, &compact, reasonout)) { goto done; }
     before = BgCompileFileCost(source); after = BgCompileFileCost(&compact);
     /* Older Cutout overrides may inherit an opaque mux across their tags.
-     * Scope restoration is a correctness fix, even if it adds a few packets. */
-    if (cutoutalpha || (after.textures <= before.textures && after.loads <= before.loads
+     * Texture assignment also left two-cycle muxes in one-cycle spans. These
+     * are correctness repairs, even if scope restoration adds a few packets. */
+    if (cutoutalpha || document.repairedmaterials
+        || (after.textures <= before.textures && after.loads <= before.loads
         && after.vertices <= before.vertices && compact.size <= source->size))
     {
         if (compact.size != source->size || memcmp(compact.data, source->data, source->size))

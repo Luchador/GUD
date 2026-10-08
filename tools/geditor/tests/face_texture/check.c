@@ -61,17 +61,55 @@ static void Materials(void)
     puts("PASS: shade-only image assignments, detail/mipmap/single-tile modes, custom materials and repeated assignments.");
 }
 
-static void SameMaterials(const BgDocument *a, const BgDocument *b)
+/* Compare decoded triangles by geometry/material/state, allowing only primary
+ * order changes. Group numbers and parser-assigned face IDs are not geometry. */
+typedef struct FaceKey {
+    unsigned char vertices[3][16];
+    DWORD material[9],state[7];
+    DWORD layer,cull;
+} FaceKey;
+static FaceKey Key(const BgDocument *doc,DWORD room,DWORD f)
 {
-    Equivalent(a, b);
-    assert(a->roomcount == b->roomcount);
-    for (DWORD r = 1; r <= a->roomcount; r++)
+    const BgDocumentFace *face=&doc->rooms[room].faces[f];
+    BgFaceRef ref={face->id,(unsigned short)room,face->layer,0};
+    BgRenderState state;FaceKey key={0};
+    assert(BgDocumentGetFaceRenderStates(doc,&ref,1,&state));
+    for (DWORD c=0;c<3;c++)
     {
-        assert(a->rooms[r].facecount == b->rooms[r].facecount);
-        for (DWORD f = 0; f < a->rooms[r].facecount; f++)
-        { assert(BgMaterialEqual(&a->rooms[r].faces[f].material, &b->rooms[r].faces[f].material)); }
+        const BgDocumentVertex *v=&doc->rooms[room].vertices[face->vertexindices[c]];
+        unsigned char *p=key.vertices[c];
+        p[0]=(unsigned short)v->x>>8;p[1]=v->x;p[2]=(unsigned short)v->y>>8;p[3]=v->y;
+        p[4]=(unsigned short)v->z>>8;p[5]=v->z;p[6]=v->flag>>8;p[7]=v->flag;
+        p[8]=(unsigned short)v->s>>8;p[9]=v->s;p[10]=(unsigned short)v->t>>8;p[11]=v->t;
+        p[12]=v->r;p[13]=v->g;p[14]=v->b;p[15]=v->a;
+    }
+    memcpy(key.material,&face->material,sizeof(key.material));
+    key.state[0]=state.othermode;key.state[1]=state.othermodehigh;key.state[2]=state.environmentalpha;
+    key.state[3]=state.primitiveword0;key.state[4]=state.primitiveword1;
+    key.state[5]=state.geometrymode&~0x2000u;key.state[6]=state.surfacepolicy;
+    key.layer=face->layer;key.cull=face->cullbackfaces;return key;
+}
+static int Compare(const void *a,const void *b) { return memcmp(a,b,sizeof(FaceKey)); }
+static void SameMaterials(const BgDocument *x,const BgDocument *y)
+{
+    assert(x->roomcount==y->roomcount && x->facecount==y->facecount);
+    for (DWORD r=1;r<=x->roomcount;r++)
+    {
+        DWORD count=x->rooms[r].facecount;assert(count==y->rooms[r].facecount);
+        assert(!memcmp(x->rooms[r].origin,y->rooms[r].origin,sizeof(x->rooms[r].origin)));
+        FaceKey *left=calloc(count?count:1,sizeof(*left)),*right=calloc(count?count:1,sizeof(*right));assert(left&&right);
+        for (DWORD f=0;f<count;f++)
+        {
+            left[f]=Key(x,r,f);right[f]=Key(y,r,f);
+            if (left[f].layer || (left[f].state[0]&0x5c00u) || left[f].state[6]>=BG_SURFACE_CUTOUT)
+                assert(!memcmp(&left[f],&right[f],sizeof(*left)));
+        }
+        qsort(left,count,sizeof(*left),Compare);qsort(right,count,sizeof(*right),Compare);
+        assert(!memcmp(left,right,count*sizeof(*left)));free(left);free(right);
     }
 }
+
+static DWORD InvalidNativeCombiners(const BgFile *bg);
 
 static void RoundTripMaterials(const BgDocument *doc, const BgFile *source, const char *dir)
 {
@@ -81,7 +119,10 @@ static void RoundTripMaterials(const BgDocument *doc, const BgFile *source, cons
     assert(BgFileValidateVertexBatches(&compiled, &why));
     assert(BgSaveProjectFile(dir, &compiled, &why));
     assert(BgLoadProjectFile(dir, compiled.name, &saved, &why));
-    assert(saved.size == compiled.size && !memcmp(saved.data, compiled.data, saved.size));
+    /* Saving may compact/rebatch the compiled streams. Check the emitted
+     * pipeline before the loader can repair it, then compare decoded assets. */
+    assert(BgFileValidateVertexBatches(&saved, &why));
+    assert(!InvalidNativeCombiners(&compiled) && !InvalidNativeCombiners(&saved));
     assert(BgDocumentLoad(saved.data, saved.size, doc->levelscale, &loaded, &why));
     SameMaterials(doc, &loaded);
     BgDocumentFree(&loaded); BgFileFree(&compiled); BgFileFree(&saved);
@@ -107,8 +148,12 @@ static void CheckSelection(const BgDocument *doc, const BgDocument *before,
             {
                 assert(face->textureid == 0x558 && !ShadeOnly(&face->material));
                 BOOL detail = (face->material.textureword0 & 7) < 2;
-                assert(face->material.combineword0 == (detail ? 0xFC26E404u : 0xFC26A004u)
-                    && face->material.combineword1 == (detail ? 0x1F10FFFFu : 0x1F1093FFu));
+                BgFaceRef ref={.room=r,.layer=face->layer,.faceid=face->id}; BgRenderState state;
+                assert(BgDocumentGetFaceRenderStates(doc,&ref,1,&state));
+                BOOL single=!detail && (state.othermodehighknown&0x300000u)==0x300000u
+                    && !(state.othermodehigh&0x300000u);
+                assert(face->material.combineword0 == (detail ? 0xFC26E404u : single ? 0xFC121824u : 0xFC26A004u)
+                    && face->material.combineword1 == (detail ? 0x1F10FFFFu : single ? 0xFF33FFFFu : 0x1F1093FFu));
             }
             else { assert(BgMaterialEqual(&face->material, &old->faces[f].material)); }
         }
@@ -181,11 +226,14 @@ static void Native(const char *path, const char *dir, BOOL reported)
     free(refs); BgDocumentFree(&doc); BgDocumentFree(&before); BgFileFree(&source);
 }
 
+#include "cycles.c"
+
 int main(int argc, char **argv)
 {
     assert(argc == 3 || argc == 4);
     setvbuf(stdout, NULL, _IONBF, 0);
-    Materials(); Synthetic(argv[1]); Native(argv[2], argv[1], FALSE);
+    Materials(); CycleMaterials(); CycleDocuments(argv[1]);
+    Synthetic(argv[1]); Native(argv[2], argv[1], FALSE);
     if (argc == 4) { Native(argv[3], argv[1], TRUE); }
     return 0;
 }

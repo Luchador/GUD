@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Texture assignment on shade-only faces, including an inherited image binding.
+"""Texture assignment and one-cycle combiner repairs, including inherited state.
 
 Optionally pass an extracted BG from the reported ROM to check faces 4312/4313.
 """
@@ -28,7 +28,7 @@ with tempfile.TemporaryDirectory(prefix='geditor-face-texture-') as temp:
     work = Path(temp)
     fixture = (HERE.parent / 'bg_transparency/edit.c').read_text()
     (work / 'fixture.inc').write_text(''.join(extract.function(fixture, name) for name in
-        ('Put', 'Fixture', 'Refs', 'Equivalent')))
+        ('Put', 'Fixture', 'Refs')))
     command = [os.environ.get('CC', 'cc'), '-std=c99', '-O1', '-g', '-Wall', '-Wextra',
         '-Werror', '-Wno-unused-parameter', '-ffunction-sections', '-fdata-sections',
         '-fsanitize=address,undefined', f'-I{HERE.parent / "image_import"}', f'-I{SRC}', f'-I{work}']

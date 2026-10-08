@@ -70,6 +70,10 @@ unsigned char BgRenderVertexAlpha(BgRenderAlpha alpha, unsigned char vertexalpha
 
 void BgRenderStateInit(BgRenderState *state, BOOL secondary);
 void BgRenderStateRead(BgRenderState *state, DWORD word0, DWORD word1);
+/* Repair the standard mipmap combiner mistakenly assigned to one-cycle BG
+ * faces by older editors. Retains the pipeline and all material metadata;
+ * unknown cycles, detail textures and custom combiners remain untouched. */
+BOOL BgRenderRepairTextureCombiner(const BgRenderState *state, BgMaterial *material);
 BgRenderFlags BgRenderStateFlags(const BgRenderState *state);
 BgRenderFlags BgRenderDefaultFlags(BOOL secondary);
 

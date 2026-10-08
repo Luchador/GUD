@@ -268,11 +268,13 @@ static BOOL BgDocumentWalkDisplayList(BgDocument *document,
     DWORD cachevertices[16];
     BOOL cachevalid[16];
     BgMaterial material;
+    BgRenderState renderstate;
     BOOL cullbackfaces = FALSE;
     DWORD drawgroup = 0;
     BOOL grouphasfaces = FALSE;
 
     BgMaterialInit(&material);
+    BgRenderStateInit(&renderstate, layer == BG_GEOMETRY_SECONDARY);
     ZeroMemory(cachevertices, sizeof(cachevertices));
     ZeroMemory(cachevalid, sizeof(cachevalid));
     layerdata->sourcepresent = TRUE;
@@ -322,6 +324,8 @@ static BOOL BgDocumentWalkDisplayList(BgDocument *document,
         {
             int trianglecount = command[0] == BGDOC_G_TRI1 ? 1 : 4;
             int triangle;
+            BgMaterial facematerial = material;
+            BOOL repaired = BgRenderRepairTextureCombiner(&renderstate, &facematerial);
 
             for (triangle = 0; triangle < trianglecount; triangle++)
             {
@@ -360,7 +364,7 @@ static BOOL BgDocumentWalkDisplayList(BgDocument *document,
                     && !BgDocumentAppendFace(document, room, roomnumber,
                                              vertexindices,
                                              drawgroup,
-                                             layer, &material,
+                                             layer, &facematerial,
                                              cullbackfaces))
                 {
                     return FALSE;
@@ -368,6 +372,7 @@ static BOOL BgDocumentWalkDisplayList(BgDocument *document,
                 else if (valid)
                 {
                     grouphasfaces = TRUE;
+                    if (repaired) { document->dirty = document->repairedmaterials = TRUE; }
                 }
             }
 
@@ -395,6 +400,10 @@ static BOOL BgDocumentWalkDisplayList(BgDocument *document,
 
         BgMaterialReadCommand(&material, BgDocumentRead32(command),
                                BgDocumentRead32(command + 4));
+        /* Keep the source mux separate from repaired per-face materials: a
+         * later two-cycle span may intentionally inherit that original mux. */
+        BgRenderStateRead(&renderstate, BgDocumentRead32(command),
+                          BgDocumentRead32(command + 4));
         if (command[0] == BGDOC_G_SETGEOMETRYMODE
                  && (BgDocumentRead32(command + 4) & BGDOC_G_CULL_BACK))
         {
@@ -716,6 +725,7 @@ BOOL BgDocumentClone(const BgDocument *source, BgDocument *out,
     out->nextfaceid = source->nextfaceid;
     out->levelscale = source->levelscale;
     out->dirty = source->dirty;
+    out->repairedmaterials = source->repairedmaterials;
     out->portalwarning = source->portalwarning;
     out->viscommandsloaded = source->viscommandsloaded;
     if (source->viscommandssize)
@@ -1463,10 +1473,13 @@ BOOL BgDocumentSetFaceTexture(BgDocument *document, const BgFaceRef *refs,
                               BOOL *changedout, const char **reasonout)
 {
     DWORD i;
+    BgRenderState *states;
+    size_t statebytes = (size_t)refcount * sizeof(*states);
 
     *changedout = FALSE;
     *reasonout = "";
-    if (refs == NULL || refcount == 0 || textureid > BG_TEX_NONE)
+    if (document == NULL || refs == NULL || refcount == 0 || textureid > BG_TEX_NONE
+        || statebytes / sizeof(*states) != refcount)
     {
         *reasonout = "The background texture assignment is invalid.";
         return FALSE;
@@ -1486,12 +1499,17 @@ BOOL BgDocumentSetFaceTexture(BgDocument *document, const BgFaceRef *refs,
         if (!BgMaterialEnvironmentImageSupported(&material))
         { *reasonout = "Use a static base image for generated environment mapping, or restore Auto first."; return FALSE; }
     }
+    states = malloc(statebytes);
+    if (!states) { *reasonout = "Out of memory reading background render state."; return FALSE; }
+    if (!BgDocumentGetFaceRenderStates(document, refs, refcount, states))
+    { free(states); *reasonout = "The selected background render state could not be read."; return FALSE; }
     for (i = 0; i < refcount; i++)
     {
         BgDocumentFace *face = (BgDocumentFace *)BgDocumentFindFace(document, &refs[i], NULL);
         BgMaterial material = face->material;
 
         BgMaterialSetTexture(&material, textureid);
+        BgRenderRepairTextureCombiner(&states[i], &material);
         if (face->textureid != textureid || !BgMaterialEqual(&face->material, &material))
         {
             face->textureid = (unsigned short)textureid;
@@ -1499,6 +1517,7 @@ BOOL BgDocumentSetFaceTexture(BgDocument *document, const BgFaceRef *refs,
             *changedout = TRUE;
         }
     }
+    free(states);
     if (*changedout) { document->dirty = TRUE; }
     return TRUE;
 }

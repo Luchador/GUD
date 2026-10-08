@@ -79,6 +79,31 @@ void BgRenderStateInit(BgRenderState *state, BOOL secondary)
     state->fogothermode = state->othermode;
 }
 
+BOOL BgRenderRepairTextureCombiner(const BgRenderState *state, BgMaterial *material)
+{
+    /* One-cycle mode evaluates the second mux. TRILERP/MODULATE*2 reads
+     * COMBINED there, but no first cycle produced a texture color. Use TEXEL0
+     * directly, retaining whether the authored alpha includes texture alpha.
+     * Do not infer a cycle from layer defaults or simplify detail/custom muxes. */
+    if ((state->othermodehighknown & 0x00300000u) != 0x00300000u
+        || (state->othermodehigh & 0x00300000u) != 0
+        || BgMaterialTextureId(material) == BG_TEX_NONE
+        || (material->textureword0 & 7u) != 2
+        || material->combineword0 != 0xFC26A004u) { return FALSE; }
+    if (material->combineword1 == 0x1F1093FFu) /* TRILERP, MODULATEIA2 */
+    {
+        material->combineword0 = 0xFC121824u; /* MODULATEIA in both cycles */
+        material->combineword1 = 0xFF33FFFFu;
+    }
+    else if (material->combineword1 == 0x1FFC93FCu) /* TRILERP, MODULATEI2 */
+    {
+        material->combineword0 = 0xFC127E24u; /* MODULATEI in both cycles */
+        material->combineword1 = 0xFFFFF9FCu;
+    }
+    else { return FALSE; }
+    return TRUE;
+}
+
 void BgRenderStateRead(BgRenderState *state, DWORD word0, DWORD word1)
 {
     if (BG_SURFACE_IS_MARKER(word0, word1))

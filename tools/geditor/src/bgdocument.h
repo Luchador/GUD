@@ -96,6 +96,7 @@ typedef struct BgDocument {
     DWORD nextfaceid;
     float levelscale;
     BOOL dirty;
+    BOOL repairedmaterials; /* Load-time correctness repairs must survive export cost checks. */
 } BgDocument;
 
 /* Room vertex arrays retain their indices through edits and history. Room 0
