@@ -610,6 +610,24 @@ static void GEditorEditImage(HWND hwnd, DWORD id, UINT action)
     GEditorRefreshImageViews(hwnd, id, !deleting);
 }
 
+static void GEditorSetImageSurface(HWND hwnd, DWORD id, BOOL sound, unsigned int type)
+{
+    const char *why = "";
+    BOOL changed;
+    if (!g_Project.name[0]) { return; }
+    if (!ImageEditsSetSurface(g_Project.dir, id, sound, type, &changed, &why))
+    { MessageBox(hwnd, why, "Image Properties", MB_ICONERROR); return; }
+    if (!changed) { return; }
+    /* Only metadata changed: refresh hover/menu values and the unsaved marker
+     * without rebuilding level or model geometry. BrowserSetImages retains
+     * the active search and selected image, and dismisses the stale tooltip. */
+    TexThumb *items = NULL;
+    unsigned char *pixels = NULL;
+    DWORD count = TexLoadProjectThumbnails(g_Project.dir, &items, &pixels, &why);
+    BrowserSetImages(g_Browser, items, (int)count, pixels);
+    GEditorRefreshHistoryMenu(hwnd);
+}
+
 /*
  * (Re)loads the browser from the project file and extracted asset
  * folders. Works for both freshly created and reopened projects: the
@@ -6756,6 +6774,11 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     case BROWSER_WM_IMAGE_EXPORT:
         if (g_Project.name[0] != '\0')
         { ImageExportShow(hwnd, g_Project.dir, (DWORD)wparam); }
+        return 0;
+
+    case BROWSER_WM_IMAGE_HIT_SOUND:
+    case BROWSER_WM_IMAGE_BULLET_HOLE:
+        GEditorSetImageSurface(hwnd, (DWORD)wparam, msg == BROWSER_WM_IMAGE_HIT_SOUND, (unsigned int)lparam);
         return 0;
 
     case BROWSER_WM_IMAGE_IMPORT:

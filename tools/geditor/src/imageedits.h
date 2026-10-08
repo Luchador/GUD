@@ -19,6 +19,11 @@ BOOL ImageEditsDelete(const char *projectdir, DWORD id, const char **reasonout);
 /* Flip current pixels at the same ID, retaining format, mips, surface settings
  * and remembered source. Changes are pending until Save Project. */
 BOOL ImageEditsFlip(const char *projectdir, DWORD id, BOOL horizontal, const char **reasonout);
+/* Change one HIT_TYPE (0..12), preserving the other, pixels, native mip chain,
+ * palette, detail flags and remembered source. TRUE selects the sound field;
+ * FALSE selects bullet holes. Pending until Save Project; same value is a no-op. */
+BOOL ImageEditsSetSurface(const char *projectdir, DWORD id, BOOL sound,
+    unsigned int type, BOOL *changed, const char **reasonout);
 BOOL ImageEditsGetDeletedPixels(const char *projectdir, DWORD id, TexPixel *out, int *width, int *height);
 BOOL ImageEditsSave(const char *projectdir, const char **reasonout);
 BOOL ImageEditsExportToRom(const char *projectdir, RomFile *rom, const char **reasonout);

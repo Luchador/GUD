@@ -15,7 +15,7 @@ typedef struct ImageEdit {
     int width, height;
     TexImportOptions options;
     char sourcepath[MAX_PATH];
-    BOOL deleted, restorebmp;
+    BOOL deleted, restorebmp, surfaceonly;
     struct ImageEdit *next;
 } ImageEdit;
 static ImageEdit *g_ImageEdits;
@@ -89,24 +89,25 @@ static BOOL ReadSaved(const char *project,DWORD id,const TexRomBank *bank,ImageE
     TexInfoRecord info;int level,w,h;DWORD sourcebytes=0,headersize=32;
     *why="An imported image's native asset is damaged, unreadable, or belongs to another base ROM.";
     if(!Path(path,project,id,".gtex") || !(file=fopen(path,"rb"))) { return FALSE; }
-    if(fseek(file,0,SEEK_END) || (length=ftell(file))<144 || length>8192 || fseek(file,0,SEEK_SET)
-        || fread(header,1,32,file)!=32 || (memcmp(header,"GTI2",4) && memcmp(header,"GTI3",4) && memcmp(header,"GTI4",4))
+    if(fseek(file,0,SEEK_END) || (length=ftell(file))<144 || length>2*1024*1024 || fseek(file,0,SEEK_SET)
+        || fread(header,1,32,file)!=32 || (memcmp(header,"GTI2",4) && memcmp(header,"GTI3",4) && memcmp(header,"GTI4",4) && memcmp(header,"GTI5",4))
         || Read32(header+12)!=id
         || header[28]>12 || header[29]>12 || header[30]>1 || header[31]
         || (bank && (Read32(header+4)!=bank->hash || Read32(header+8)!=bank->count)))
     { fclose(file);return FALSE; }
-    edit->sourcepath[0]=0;edit->detail=0;
+    edit->sourcepath[0]=0;edit->detail=0;edit->surfaceonly=!memcmp(header,"GTI5",4);
+    if(!edit->surfaceonly && length>8192) { fclose(file);return FALSE; }
     /* GTI2 remains readable. GTI3 adds a length + hash, then the NUL-terminated
      * source path before the GUTX record. The source is saved atomically with
      * its pixels/settings, never in a separately committed sidecar. */
-    if(!memcmp(header,"GTI3",4) || !memcmp(header,"GTI4",4))
+    if(!memcmp(header,"GTI3",4) || !memcmp(header,"GTI4",4) || edit->surfaceonly)
     {
-        BOOL hasdetail=!memcmp(header,"GTI4",4);
+        BOOL hasdetail=!memcmp(header,"GTI4",4) || edit->surfaceonly;
         if(fread(sourceheader,1,8,file)!=8 || (sourcebytes=Read32(sourceheader))>MAX_PATH
             || header[30] || (hasdetail && fread(detail,1,4,file)!=4))
         { fclose(file);return FALSE; }
-        /* GTI4 retains native detail flags for pixel-only edits. Its source
-         * is optional; GTI3 still requires a nonempty path as before. */
+        /* GTI4/5 retain native detail flags and an optional source;
+         * GTI3 still requires a nonempty path as before. */
         if(sourcebytes || !hasdetail) {
             if(sourcebytes<2 || fread(edit->sourcepath,1,sourcebytes,file)!=sourcebytes
                 || edit->sourcepath[sourcebytes-1] || memchr(edit->sourcepath,0,sourcebytes-1)
@@ -123,19 +124,25 @@ static BOOL ReadSaved(const char *project,DWORD id,const TexRomBank *bank,ImageE
     { fclose(file);free(edit->data);edit->data=NULL;return FALSE; }
     fclose(file);
     if(TexDataHash(edit->data,edit->size)!=Read32(header+20)
-        || !TexInfoReadRecord(edit->data,edit->size,&info) || info.size!=edit->size
-        || edit->data[4]!=1 || edit->data[5]<1 || edit->data[5]>7) { goto invalid; }
+        || !TexInfoReadRecord(edit->data,edit->size,&info) || info.size!=edit->size) { goto invalid; }
     edit->deleted=header[30]!=0;
     edit->id=id;edit->width=w=edit->data[17];edit->height=h=edit->data[18];
     edit->options=(TexImportOptions){info.info.format,info.info.mipmaps,header[28],header[29]};
     edit->basehash=Read32(header+4);edit->basecount=Read32(header+8);edit->pixelhash=Read32(header+24);
-    if(!TexImportTmemBytes(w,h,edit->options.format,edit->options.mipmaps)
-        || TexImportTmemBytes(w,h,edit->options.format,edit->options.mipmaps)>TexImportTmemLimit(edit->options.format)) { goto invalid; }
-    for(level=0;level<=edit->options.mipmaps;level++)
+    /* GTI5 changes only surface categories, retaining stock records exactly:
+     * implicit mips, mixed-format LODs and special zero-LOD banks are valid.
+     * Ordinary imports keep their stricter same-format/TMEM validation. */
+    if(!edit->surfaceonly)
     {
-        const unsigned char *desc=edit->data+16+level*12;
-        if(desc[0]!=edit->options.format || desc[1]!=w || desc[2]!=h) { goto invalid; }
-        w=(w+1)/2;h=(h+1)/2;
+        if(edit->data[4]!=1 || edit->data[5]<1 || edit->data[5]>7
+            || !TexImportTmemBytes(w,h,edit->options.format,edit->options.mipmaps)
+            || TexImportTmemBytes(w,h,edit->options.format,edit->options.mipmaps)>TexImportTmemLimit(edit->options.format)) { goto invalid; }
+        for(level=0;level<=edit->options.mipmaps;level++)
+        {
+            const unsigned char *desc=edit->data+16+level*12;
+            if(desc[0]!=edit->options.format || desc[1]!=w || desc[2]!=h) { goto invalid; }
+            w=(w+1)/2;h=(h+1)/2;
+        }
     }
     if(edit->deleted)
     {
@@ -226,6 +233,68 @@ static BOOL Stage(const char *project,DWORD id,const TexPixel *pixels,int width,
     const TexImportOptions *options,const char *sourcepath,BOOL deleted,const char **why)
 { return StageRecord(project,id,pixels,width,height,options,sourcepath,deleted,NULL,0,0,why); }
 
+static BOOL ReadBase(const char *project,DWORD id,ImageEdit *edit,const char **why)
+{
+    RomFile rom={0};TexRomBank bank;TexInfoRecord info;TexPixel *pixels=NULL;
+    char path[MAX_PATH];DWORD offset;BOOL ok=FALSE;
+    if(snprintf(path,sizeof(path),"%s\\base.z64",project)>=(int)sizeof(path)
+        || !RomLoad(path,&rom,why) || !TexRomReadBank(&rom,&bank,why)) goto done;
+    if(id>=bank.count) { *why="The image's saved native asset is missing.";goto done; }
+    offset=bank.images;
+    for(DWORD i=0;i<id;i++) offset+=Read32(rom.data+bank.table+i*8)&0xffffffu;
+    if(!TexInfoReadRecord(rom.data+offset,rom.size-offset,&info))
+    { *why="The base image has invalid native settings.";goto done; }
+    edit->size=info.size;edit->data=malloc(edit->size);
+    pixels=malloc(256*256*sizeof(*pixels));
+    if(!edit->data || !pixels) { *why="Out of memory reading the base image.";goto done; }
+    memcpy(edit->data,rom.data+offset,edit->size);
+    edit->id=id;edit->basehash=bank.hash;edit->basecount=bank.count;
+    edit->options=(TexImportOptions){info.info.format,info.info.mipmaps,
+        rom.data[bank.table+id*8]>>4,rom.data[bank.table+id*8]&15};
+    edit->detail=Read32(rom.data+bank.table+id*8+4);
+    if(!TexDecodeRecord(edit->data,edit->size,pixels,&edit->width,&edit->height))
+    { *why="The base image could not be decoded.";goto done; }
+    edit->pixelhash=TexDataHash((const unsigned char *)pixels,edit->width*edit->height*sizeof(*pixels));
+    ok=TRUE;*why="";
+done:
+    free(pixels);RomFree(&rom);return ok;
+}
+
+BOOL ImageEditsSetSurface(const char *project,DWORD id,BOOL sound,
+    unsigned int type,BOOL *changed,const char **why)
+{
+    ImageEdit stored={0},*edit,**slot;char path[MAX_PATH];BOOL ok=FALSE;
+    *changed=FALSE;*why="Choose a supported hit sound or bullet hole type.";
+    if(type>12 || !ImageEditsCanEdit(project,id,why)) return FALSE;
+    edit=Pending(project,id);
+    if(!edit) {
+        if(!Path(path,project,id,".gtex")) { *why="The image asset path is too long.";goto done; }
+        if(GetFileAttributes(path)!=INVALID_FILE_ATTRIBUTES) {
+            if(!ReadSaved(project,id,NULL,&stored,why)) goto done;
+        } else if(!ReadBase(project,id,&stored,why)) goto done;
+        edit=&stored;
+    }
+    if(edit->options.hitsound>12 || edit->options.hittexture>12)
+    { *why="This image uses unsupported surface settings.";goto done; }
+    if((sound ? edit->options.hitsound : edit->options.hittexture)==type)
+    { ok=TRUE;*why="";goto done; }
+    if(edit==&stored) {
+        /* Keep native data and BMP independent: a surface edit must not
+         * regenerate mips, quantize palettes or overwrite external BMP edits. */
+        edit=malloc(sizeof(*edit));
+        if(!edit) { *why="Out of memory editing image properties.";goto done; }
+        *edit=stored;memset(&stored,0,sizeof(stored));edit->surfaceonly=TRUE;
+        if(strcmp(project,g_ImageProject)) { ImageEditsReset();lstrcpyn(g_ImageProject,project,MAX_PATH); }
+        slot=&g_ImageEdits;while(*slot && (*slot)->id<id) slot=&(*slot)->next;
+        edit->next=*slot;*slot=edit;
+    }
+    if(sound) edit->options.hitsound=(unsigned char)type;
+    else edit->options.hittexture=(unsigned char)type;
+    *changed=TRUE;*why="";ok=TRUE;
+done:
+    FreeEdit(&stored);return ok;
+}
+
 /* Saved imports use explicit, same-format mip chains. Other stock records
  * can use runtime-generated levels; convert those with the effective settings. */
 static BOOL CanRetainRecord(const ImageEdit *edit,int width,int height,DWORD pixelhash)
@@ -245,8 +314,7 @@ static BOOL CanRetainRecord(const ImageEdit *edit,int width,int height,DWORD pix
 BOOL ImageEditsFlip(const char *project,DWORD id,BOOL horizontal,const char **why)
 {
     ImageEdit stored={0},*edit;TexPixel *pixels=NULL;unsigned char *record=NULL;
-    RomFile rom={0};TexRomBank bank;TexInfoRecord info;
-    char path[MAX_PATH];DWORD size,offset;int width,height;BOOL ok=FALSE;
+    char path[MAX_PATH];DWORD size;int width,height;BOOL ok=FALSE;
     if(!ImageEditsCanEdit(project,id,why)) return FALSE;
     pixels=malloc(256*256*sizeof(*pixels));
     if(!pixels) { *why="Out of memory flipping the image.";goto done; }
@@ -255,24 +323,7 @@ BOOL ImageEditsFlip(const char *project,DWORD id,BOOL horizontal,const char **wh
         if(!Path(path,project,id,".gtex")) { *why="The image asset path is too long.";goto done; }
         if(GetFileAttributes(path)!=INVALID_FILE_ATTRIBUTES) {
             if(!ReadSaved(project,id,NULL,&stored,why)) goto done;
-        } else {
-            if(snprintf(path,sizeof(path),"%s\\base.z64",project)>=(int)sizeof(path)
-                || !RomLoad(path,&rom,why) || !TexRomReadBank(&rom,&bank,why)) goto done;
-            if(id>=bank.count) { *why="The image's saved native asset is missing.";goto done; }
-            offset=bank.images;
-            for(DWORD i=0;i<id;i++) offset+=Read32(rom.data+bank.table+i*8)&0xffffffu;
-            if(!TexInfoReadRecord(rom.data+offset,rom.size-offset,&info))
-            { *why="The base image has invalid native settings.";goto done; }
-            stored.size=info.size;stored.data=malloc(stored.size);
-            if(!stored.data) { *why="Out of memory reading the base image.";goto done; }
-            memcpy(stored.data,rom.data+offset,stored.size);
-            stored.options=(TexImportOptions){info.info.format,info.info.mipmaps,
-                rom.data[bank.table+id*8]>>4,rom.data[bank.table+id*8]&15};
-            stored.detail=Read32(rom.data+bank.table+id*8+4);
-            if(!TexDecodeRecord(stored.data,stored.size,pixels,&stored.width,&stored.height))
-            { *why="The base image could not be decoded.";goto done; }
-            stored.pixelhash=TexDataHash((const unsigned char *)pixels,stored.width*stored.height*sizeof(*pixels));
-        }
+        } else if(!ReadBase(project,id,&stored,why)) goto done;
         edit=&stored;
     }
     if(edit->options.hitsound>12 || edit->options.hittexture>12)
@@ -288,7 +339,7 @@ BOOL ImageEditsFlip(const char *project,DWORD id,BOOL horizontal,const char **wh
     if(!TexFlipRecord(record,size,horizontal,why)) goto done;
     ok=StageRecord(project,id,NULL,width,height,&edit->options,edit->sourcepath,FALSE,record,size,edit->detail,why);
 done:
-    RomFree(&rom);FreeEdit(&stored);free(record);free(pixels);return ok;
+    FreeEdit(&stored);free(record);free(pixels);return ok;
 }
 BOOL ImageEditsImport(const char *project,const TexPixel *pixels,int width,int height,
     const TexImportOptions *options,const char *sourcepath,DWORD *id,const char **why)
@@ -356,6 +407,7 @@ BOOL ImageEditsGetPixels(const char *project,DWORD id,TexPixel *out,int *width,i
     if(strcmp(project,g_ImageProject)) { return FALSE; }
     for(edit=g_ImageEdits;edit;edit=edit->next) if(edit->id==id)
     {
+        if(edit->surfaceonly) { return FALSE; }
         *width=edit->width;*height=edit->height;
         if(out) { memcpy(out,edit->pixels,(size_t)edit->width*edit->height*sizeof(TexPixel)); }
         return TRUE;
@@ -399,14 +451,15 @@ BOOL ImageEditsSave(const char *project,const char **why)
             Write32(header+36,TexDataHash((const unsigned char *)edit->sourcepath,sourcebytes));
         }
         if(edit->detail) { memcpy(header,"GTI4",4);headersize=44;Write32(header+40,edit->detail); }
+        if(edit->surfaceonly) { memcpy(header,"GTI5",4);headersize=44;Write32(header+40,edit->detail); }
         file=fopen(temp,"wb");ok=file && fwrite(header,1,headersize,file)==headersize
             && fwrite(edit->sourcepath,1,sourcebytes,file)==sourcebytes
             && fwrite(edit->data,1,edit->size,file)==edit->size;
         if(file && fclose(file)) { ok=FALSE; }
-        if(ok && !edit->deleted) { ok=TexWriteBmp(bmptemp,edit->pixels,edit->width,edit->height); }
-        if(ok && GetFileAttributes(bmp)!=INVALID_FILE_ATTRIBUTES)
+        if(ok && !edit->deleted && !edit->surfaceonly) { ok=TexWriteBmp(bmptemp,edit->pixels,edit->width,edit->height); }
+        if(ok && !edit->surfaceonly && GetFileAttributes(bmp)!=INVALID_FILE_ATTRIBUTES)
         { ok=backedup=MoveFileEx(bmp,backup,MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH); }
-        if(ok && !edit->deleted) { ok=bmpwritten=MoveFileEx(bmptemp,bmp,MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH); }
+        if(ok && !edit->deleted && !edit->surfaceonly) { ok=bmpwritten=MoveFileEx(bmptemp,bmp,MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH); }
         /* Commit the native record last. On a failed replacement/deletion,
          * restore the old BMP too, rather than destroying the saved version. */
         if(ok) { ok=MoveFileEx(temp,native,MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH); }
@@ -504,7 +557,7 @@ BOOL ImageEditsRebase(const char *project,const RomFile *oldrom,const RomFile *n
             FreeEdit(&edit);if(!ok) { return FALSE; }
             if(write && !take)
             {
-                /* Only the verified base fingerprint changes. Keep GTI2/GTI3/GTI4,
+                /* Only the verified base fingerprint changes. Keep GTI2..GTI5,
                  * pixels, settings, deletion state and source path untouched. */
                 FILE *file;unsigned char fingerprint[8];
                 Write32(fingerprint,newbank.hash);Write32(fingerprint+4,newbank.count);
@@ -598,8 +651,10 @@ static void RemoveThumbnail(TexThumb *items,DWORD *count,DWORD id)
 }
 static void SetInfo(TexThumb *thumb,const ImageEdit *edit)
 {
-    thumb->info=(TexImageInfo){TRUE,TRUE,edit->options.format,edit->options.mipmaps,FALSE,
-                             edit->options.hitsound,edit->options.hittexture};
+    TexInfoRecord record;
+    if(!TexInfoReadRecord(edit->data,edit->size,&record)) { ZeroMemory(&thumb->info,sizeof(thumb->info));return; }
+    thumb->info=record.info;thumb->info.surfacevalid=TRUE;
+    thumb->info.hitsound=edit->options.hitsound;thumb->info.hittexture=edit->options.hittexture;
 }
 void ImageEditsUpdateThumbnails(const char *project,TexThumb **items,unsigned char **pixels,DWORD *count)
 {
@@ -634,6 +689,10 @@ void ImageEditsUpdateThumbnails(const char *project,TexThumb **items,unsigned ch
         TexThumb *thumb;int x,y,longest=edit->width>edit->height ? edit->width : edit->height;
         if(edit->deleted) { continue; }
         for(j=0;j<*count;j++) if(strtoul((*items)[j].label,NULL,16)==edit->id) { break; }
+        if(edit->surfaceonly) {
+            if(j<*count) SetInfo(&(*items)[j],edit);
+            continue;
+        }
         if(j==*count)
         {
             TexThumb *list=realloc(*items,((size_t)*count+1)*sizeof(**items));unsigned char *block;

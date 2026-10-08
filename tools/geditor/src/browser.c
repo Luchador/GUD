@@ -1468,6 +1468,46 @@ static BOOL BrowserModelContextMenu(HWND hwnd, BrowserState *state, POINT screen
     return TRUE;
 }
 
+static BOOL BrowserAppendSurfaceMenu(HMENU menu, const char *label, UINT first,
+    unsigned int current, BOOL available)
+{
+    HMENU choices = CreatePopupMenu();
+    if (!choices) { return FALSE; }
+    for (UINT i = 0; i <= 12; i++)
+    {
+        if (!AppendMenu(choices, MF_STRING | (available && current == i ? MF_CHECKED : 0),
+            first + i, TexInfoSurfaceName(i)))
+        { DestroyMenu(choices); return FALSE; }
+    }
+    if (!AppendMenu(menu, MF_POPUP | MF_STRING | (available ? MF_ENABLED : MF_GRAYED),
+        (UINT_PTR)choices, label))
+    { DestroyMenu(choices); return FALSE; }
+    return TRUE;
+}
+
+static BOOL BrowserAppendImageActions(HMENU menu, const TexImageInfo *info)
+{
+    return AppendMenu(menu, MF_STRING, 1, "Delete image")
+        && AppendMenu(menu, MF_STRING, 2, "Replace image")
+        && AppendMenu(menu, MF_STRING, 3, "Reimport")
+        && AppendMenu(menu, MF_STRING, 4, "Export image")
+        && AppendMenu(menu, MF_SEPARATOR, 0, NULL)
+        && BrowserAppendSurfaceMenu(menu, "Hit sound", 100, info->hitsound, info->surfacevalid)
+        && BrowserAppendSurfaceMenu(menu, "Bullet hole", 200, info->hittexture, info->surfacevalid)
+        && AppendMenu(menu, MF_SEPARATOR, 0, NULL)
+        && AppendMenu(menu, MF_STRING, 6, "Flip vertical")
+        && AppendMenu(menu, MF_STRING, 7, "Flip horizontal");
+}
+
+static BOOL BrowserDispatchSurfaceCommand(HWND hwnd, UINT command, DWORD textureid)
+{
+    if (command >= 100 && command <= 112)
+    { SendMessage(GetParent(hwnd), BROWSER_WM_IMAGE_HIT_SOUND, textureid, command - 100); return TRUE; }
+    if (command >= 200 && command <= 212)
+    { SendMessage(GetParent(hwnd), BROWSER_WM_IMAGE_BULLET_HOLE, textureid, command - 200); return TRUE; }
+    return FALSE;
+}
+
 static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     BrowserState *state = BrowserGetState(hwnd);
@@ -1953,19 +1993,12 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             {
                 AppendMenu(menu, MF_STRING, 5, "Import image");
             }
-            else
-            {
-                AppendMenu(menu, MF_STRING, 1, "Delete image");
-                AppendMenu(menu, MF_STRING, 2, "Replace image");
-                AppendMenu(menu, MF_STRING, 3, "Reimport");
-                AppendMenu(menu, MF_STRING, 4, "Export image");
-                AppendMenu(menu, MF_SEPARATOR, 0, NULL);
-                AppendMenu(menu, MF_STRING, 6, "Flip vertical");
-                AppendMenu(menu, MF_STRING, 7, "Flip horizontal");
-            }
+            else if (!BrowserAppendImageActions(menu, &state->images[index - 1].info))
+            { DestroyMenu(menu); return 0; }
             command = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON,
                                      screen.x, screen.y, 0, hwnd, NULL);
             DestroyMenu(menu);
+            if (index > 0 && BrowserDispatchSurfaceCommand(hwnd, command, textureid)) { return 0; }
             if (command == 5)
             {
                 SendMessage(GetParent(hwnd), BROWSER_WM_IMAGE_IMPORT, 0, 0);

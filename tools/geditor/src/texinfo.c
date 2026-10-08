@@ -1,4 +1,4 @@
-/* Read-only image information for the content browser. The game keeps surface
+/* Image information for the content browser. The game keeps surface
  * categories in g_Textures, separately from the GUTX pixel/mipmap records. */
 #include <stdio.h>
 #include <stdlib.h>
@@ -69,16 +69,17 @@ BOOL TexInfoReadRecord(const unsigned char *rec, DWORD available, TexInfoRecord 
     }
     /* The loader generates implicit levels, but caps paletted pixel data at
      * 0x800 bytes. Match texLoadRaw rather than counting stored descriptors. */
-    if (!rec[4] && levels >= 2 && colours)
+    DWORD total = payload;
+    if (!rec[4] && levels >= 2)
     {
-        DWORD width = rec[17], height = rec[18], total = payload;
+        DWORD width = rec[17], height = rec[18];
         for (i = 1; i < levels; i++)
         {
             DWORD bytes;
             width = (width + 1) / 2;
             height = (height + 1) / 2;
             bytes = TexInfoRowBytes(rec[16], width) * height;
-            if (total + bytes > 0x800) { levels = i; break; }
+            if (colours && total + bytes > 0x800) { levels = i; break; }
             total += bytes;
         }
     }
@@ -87,6 +88,11 @@ BOOL TexInfoReadRecord(const unsigned char *rec, DWORD available, TexInfoRecord 
     info->format = rec[16];
     info->mipmaps = levels > 0 ? levels - 1 : 0;
     info->generatedmipmaps = !rec[4] && info->mipmaps > 0;
+    /* Match texRawAllocationBytes/texLoadRaw, including native row padding.
+     * The N64 descriptor is 16 bytes; texdataprefix is 8. Host sizeof would
+     * incorrectly count 64-bit pointers. Pool spill blocks have separate,
+     * situational allocator overhead, so are not part of this per-image cost. */
+    info->memorybytes = ((total + colours * 2 + 7) & ~7u) + 24;
     return TRUE;
 }
 
@@ -183,7 +189,7 @@ const char *TexInfoFormatName(unsigned int format)
 void TexFormatThumbnailInfo(const TexThumb *thumb, char *text, DWORD capacity)
 {
     const TexImageInfo *info = &thumb->info;
-    char mipmaps[96];
+    char mipmaps[96], memory[64];
     if (capacity == 0) { return; }
     if (!info->valid) { snprintf(mipmaps, sizeof(mipmaps), "Unavailable"); }
     else if (info->mipmaps == 0) { snprintf(mipmaps, sizeof(mipmaps), "0 (base image only)"); }
@@ -193,9 +199,14 @@ void TexFormatThumbnailInfo(const TexThumb *thumb, char *text, DWORD capacity)
             (unsigned int)info->mipmaps, info->generatedmipmaps ? "generated" : "stored",
             (unsigned int)info->mipmaps + 1);
     }
+    if (info->valid)
+        snprintf(memory, sizeof(memory), "%lu bytes (%.2f KiB)",
+            (unsigned long)info->memorybytes, info->memorybytes / 1024.0);
+    else { snprintf(memory, sizeof(memory), "Unavailable"); }
     snprintf(text, capacity, "%s\r\nDimensions: %d x %d pixels\r\nType: %s\r\nMipmaps: %s\r\n"
+        "Texture RAM: %s\r\n"
         "Hit sound: %s\r\nBullet hole: %s", thumb->label, thumb->imagewidth, thumb->imageheight,
         info->valid ? TexInfoFormatName(info->format) : "Unavailable",
-        mipmaps, info->surfacevalid ? TexInfoSurfaceName(info->hitsound) : "Unavailable",
+        mipmaps, memory, info->surfacevalid ? TexInfoSurfaceName(info->hitsound) : "Unavailable",
         info->surfacevalid ? TexInfoSurfaceName(info->hittexture) : "Unavailable");
 }

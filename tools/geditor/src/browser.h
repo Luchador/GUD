@@ -14,6 +14,9 @@
 #define BROWSER_WM_IMAGE_EXPORT     (WM_APP + 108)
 #define BROWSER_WM_IMAGE_FLIP_VERTICAL   (WM_APP + 125)
 #define BROWSER_WM_IMAGE_FLIP_HORIZONTAL (WM_APP + 126)
+/* wparam: image ID; lparam: HIT_TYPE (0..12). */
+#define BROWSER_WM_IMAGE_HIT_SOUND (WM_APP + 132)
+#define BROWSER_WM_IMAGE_BULLET_HOLE (WM_APP + 133)
 /* Import into the current project; no texture ID is needed. */
 #define BROWSER_WM_IMAGE_IMPORT     (WM_APP + 109)
 typedef struct BrowserImageDrop {

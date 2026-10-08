@@ -40,6 +40,7 @@ BOOL RomLoad(const char *path,RomFile *rom,const char **why)
 }
 void RomFree(RomFile *rom) {free(rom->data);memset(rom,0,sizeof(*rom));}
 static TexPixel source[256*256],decoded[256*256];
+DWORD TestTextureRam(const unsigned char *data);
 static TexPixel Expected(TexPixel p,int format)
 {
     unsigned int intensity=(77u*p.r+150u*p.g+29u*p.b+128)>>8;
@@ -69,6 +70,7 @@ static void Encoders(void)
             if(bytes>TexImportTmemLimit(format)) {assert(!TexEncodeRecord(source,w,h,&options,&data,&size,&why));assert(!data);continue;}
             assert(TexEncodeRecord(source,w,h,&options,&data,&size,&why));
             assert(TexInfoReadRecord(data,size,&info)&&info.size==size&&info.info.format==format&&info.info.mipmaps==mips);
+            assert(info.info.memorybytes==TestTextureRam(data));
             assert(data[4]==1&&data[5]==mips+1&&data[6]==mips+1);
             assert(TexDecodeRecord(data,size,decoded,&dw,&dh)&&dw==w&&dh==h);
             /* Mips may require extra palette entries; a base-only four-color image is exact. */
@@ -414,6 +416,7 @@ void CheckBmpAlpha(const char *, const char *);
 void CheckReimport(const char *);
 void CheckFlips(const char *);
 void CheckGeneratedMipFlip(const char *);
+void CheckSurfaceProperties(const char *);
 int main(int argc,char **argv)
 {
     char actions[MAX_PATH];assert(argc==2 || argc==3);Encoders();Fixture(argv[1]);
@@ -422,5 +425,6 @@ int main(int argc,char **argv)
     snprintf(actions,sizeof(actions),"%s-reimport",argv[1]);Fixture(actions);CheckReimport(actions);
     snprintf(actions,sizeof(actions),"%s-flips",argv[1]);Fixture(actions);CheckFlips(actions);
     snprintf(actions,sizeof(actions),"%s-flip-mips",argv[1]);Fixture(actions);CheckGeneratedMipFlip(actions);
+    snprintf(actions,sizeof(actions),"%s-surfaces",argv[1]);Fixture(actions);CheckSurfaceProperties(actions);
     snprintf(actions,sizeof(actions),"%s-thumbnails",argv[1]);Fixture(actions);ThumbnailOrientation(actions);return 0;
 }

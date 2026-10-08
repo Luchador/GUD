@@ -57,6 +57,7 @@ typedef struct TexImageInfo {
     unsigned char format, mipmaps; /* mipmaps excludes the base image */
     BOOL generatedmipmaps;
     unsigned char hitsound, hittexture;
+    DWORD memorybytes; /* N64 texture-pool RAM: aligned pixels/mips/palette + 24 bytes */
 } TexImageInfo;
 
 typedef struct TexInfoRecord {
