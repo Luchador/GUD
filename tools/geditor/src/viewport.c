@@ -9108,7 +9108,9 @@ static BOOL ViewportObjectPasteTarget(HWND hwnd, const ViewportState *state, int
     int triangle, axis;
     if (!ViewportBuildPickRay(hwnd, state, x, y, &ray)) { return FALSE; }
     triangle = ViewportFindNearestBgTriangle(state, &ray, &distance);
-    if (triangle < 0) { return FALSE; }
+    if (triangle < 0 || !state->scenefacerefs || !state->scenefacerefs[triangle].faceid
+        || !state->scenefacerefs[triangle].room) { return FALSE; }
+    out->room = state->scenefacerefs[triangle].room;
     const Vertex *v = &state->scene[triangle*3];
     a[0] = (double)v[1].x-v[0].x; a[1] = (double)v[1].y-v[0].y; a[2] = (double)v[1].z-v[0].z;
     b[0] = (double)v[2].x-v[0].x; b[1] = (double)v[2].y-v[0].y; b[2] = (double)v[2].z-v[0].z;
@@ -9154,7 +9156,7 @@ static void ViewportShowGeometryContextMenu(HWND hwnd, ViewportState *state, int
     BgDocumentEdgeRef edge;
     StanEdgeRef stanedge;
     ViewportObjectPaste target;
-    BOOL paste;
+    BOOL paste, pastebg;
     DWORD stancount = 0;
     int stantype = -1;
     POINT screen = {x,y};
@@ -9164,7 +9166,8 @@ static void ViewportShowGeometryContextMenu(HWND hwnd, ViewportState *state, int
     if (!state || state->orbit || state->flying || state->vertexsnap || state->dragaxis >= 0 || state->boxpending
         || state->tool == EDITOR_TOOL_VERTEX_PAINT)
     { return; }
-    paste = SendMessage(GetParent(hwnd), VIEWPORT_WM_CAN_PASTE_OBJECT, 0, 0)
+    pastebg = SendMessage(GetParent(hwnd), VIEWPORT_WM_CAN_PASTE_BG_FACES, 0, 0) != 0;
+    paste = (pastebg || SendMessage(GetParent(hwnd), VIEWPORT_WM_CAN_PASTE_OBJECT, 0, 0))
         && ViewportObjectPasteTarget(hwnd, state, x, y, &target);
     if (state->tool == EDITOR_TOOL_FACE_SELECT)
     { stancount = ViewportContextStanType(hwnd, state, x, y, &stantype); }
@@ -9208,12 +9211,14 @@ show_menu:
     if (!message && !paste && !stancount) { return; }
     menu=CreatePopupMenu();
     if (!menu) { return; }
-    if ((!paste || (AppendMenu(menu, MF_STRING, 4, "Paste Here")
+    if ((!paste || message == VIEWPORT_WM_DISCONNECT_FACES || (AppendMenu(menu, MF_STRING, 4, "Paste Here")
             && (!(message || stancount) || AppendMenu(menu, MF_SEPARATOR, 0, NULL))))
         && (!message || AppendMenu(menu, MF_STRING, 1, label))
         && (message != VIEWPORT_WM_DISCONNECT_FACES || AppendMenu(menu, MF_STRING
             | (SendMessage(GetParent(hwnd), VIEWPORT_WM_CAN_CREATE_STAN, 0, 0) ? MF_ENABLED : MF_GRAYED),
             13, "Create Stan"))
+        && (message != VIEWPORT_WM_DISCONNECT_FACES || AppendMenu(menu, MF_STRING
+            | (paste ? MF_ENABLED : MF_GRAYED), 4, "Paste Here"))
         && (message != VIEWPORT_WM_DISCONNECT_FACES
             || (AppendMenu(menu, MF_SEPARATOR, 0, NULL)
                 && AppendMenu(menu, MF_STRING, 10, "Mirror X")
@@ -9253,7 +9258,8 @@ show_menu:
         else if (message == VIEWPORT_WM_DISCONNECT_FACES && command >= 10 && command <= 12)
         { SendMessage(GetParent(hwnd), VIEWPORT_WM_MIRROR_FACES, command - 10, 0); }
         else if (command == 4 && paste)
-        { SendMessage(GetParent(hwnd), VIEWPORT_WM_PASTE_OBJECT_HERE, 0, (LPARAM)&target); }
+        { SendMessage(GetParent(hwnd), pastebg ? VIEWPORT_WM_PASTE_BG_FACES_HERE : VIEWPORT_WM_PASTE_OBJECT_HERE,
+            0, (LPARAM)&target); }
         else if (stancount && command >= 7 && command <= 9)
         {
             StanTileType type = command == 7 ? STAN_TYPE_NORMAL

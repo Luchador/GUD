@@ -33,7 +33,15 @@ def main():
         editor = (src / 'geditor.c').read_text()
         (work / 'editor.inc').write_text(''.join(helpers.function(editor, n) for n in
             ('GEditorCanFlipSelectedBgFaces', 'GEditorCanPasteBgFaces',
-             'GEditorCopySelectedBgFaces', 'GEditorPasteBgFaceSnapshot', 'GEditorPasteBgFaces', 'GEditorDuplicateBgFaces')))
+             'GEditorCopySelectedBgFaces', 'GEditorPasteBgFaceSnapshot', 'GEditorPasteBgFaces', 'GEditorPasteBgFacesHere', 'GEditorDuplicateBgFaces')))
+        # The real level-open path retains only the BG clipboard; project close
+        # and shutdown still free it so image IDs cannot cross projects.
+        switch = editor[editor.index('        g_CurrentBg = bg;'):editor.index('        g_CurrentBgDocument = document;')]
+        assert 'BgDocumentFree(&g_FaceClipboard)' not in switch
+        close = helpers.function(editor, 'GEditorCloseProject')
+        assert 'BgDocumentFree(&g_FaceClipboard)' in close
+        assert 'g_FaceClipboardLevel == g_CurrentLevelIndex ? &g_FaceClipboard : &emptyfaces' in editor
+        assert editor.count('if (g_FaceClipboardLevel == g_CurrentLevelIndex) { BgDocumentFree(&g_FaceClipboard); }') == 2
         paths = []
         for name in ('depo', 'run'):
             source = (here.parents[3] / f'assets/obseg/bg/bg_{name}_all_p.c').read_text()
@@ -53,6 +61,16 @@ def main():
         subprocess.run(command + [str(here / 'input.c'), str(here.parent / 'image_import/platform.c'),
                                  '-Wl,--gc-sections', '-o', str(work / 'input')], check=True)
         subprocess.run([str(work / 'input')], check=True, env=env)
+        viewport = (src / 'viewport.c').read_text()
+        header = (src / 'viewport.h').read_text()
+        (work / 'context.inc').write_text(''.join(helpers.function(viewport, n) for n in
+            ('ViewportObjectPasteTarget', 'ViewportShowGeometryContextMenu')))
+        (work / 'messages.inc').write_text('#define WM_APP 0x8000\n'
+            + '\n'.join(re.findall(r'^#define VIEWPORT_WM_.*$', header, re.M)) + '\n'
+            + re.search(r'typedef struct ViewportObjectPaste\s*\{.*?\} ViewportObjectPaste;', header, re.S)[0])
+        subprocess.run(command + [str(here / 'context.c'), '-Wl,--gc-sections', '-lm',
+                                 '-o', str(work / 'context')], check=True)
+        subprocess.run([str(work / 'context')], check=True, env=env)
 
 
 if __name__ == '__main__':

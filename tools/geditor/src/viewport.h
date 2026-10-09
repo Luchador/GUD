@@ -52,6 +52,8 @@ void ViewportShowUVSeams(HWND viewport, BOOL show);
 #define VIEWPORT_WM_MIRROR_FACES (WM_APP + 129)
 #define VIEWPORT_WM_CAN_CREATE_STAN (WM_APP + 130)
 #define VIEWPORT_WM_CREATE_STAN (WM_APP + 131)
+#define VIEWPORT_WM_CAN_PASTE_BG_FACES (WM_APP + 134)
+#define VIEWPORT_WM_PASTE_BG_FACES_HERE (WM_APP + 135) /* LPARAM: ViewportObjectPaste */
 #define VIEWPORT_WM_CREATE_DOOR_SHADOW (WM_APP + 100)
 #define VIEWPORT_WM_PICK_DOOR (WM_APP + 101) /* wparam: setup object index */
 #define VIEWPORT_WM_DOOR_PICK_CHANGED (WM_APP + 102)
@@ -399,6 +401,7 @@ typedef struct ViewportStanDuplicate {
 #define VIEWPORT_WM_PASTE_OBJECT_HERE (WM_APP + 81)
 typedef struct ViewportObjectPaste {
     double position[3], normal[3]; /* world hit and normal towards the viewer */
+    DWORD room; /* destination BG face; independent of the current selection */
 } ViewportObjectPaste;
 typedef struct ViewportObjectDuplicate {
     DWORD source;

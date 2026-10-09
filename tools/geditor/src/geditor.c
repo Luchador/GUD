@@ -107,10 +107,12 @@ static BgFile g_CurrentBg;
 /* Room-aware editable geometry. Saving compiles it back into g_CurrentBg;
    the raw segment supplies preserved portal, visibility, and header data. */
 static BgDocument g_CurrentBgDocument;
-/* Scene clipboards own snapshots, independent of later edits/undo. Cleared
- * on level changes so room numbers and image IDs stay local to the level. */
+/* Scene clipboards own snapshots, independent of later edits/undo. BG faces
+ * survive level changes within this project (whose image IDs are shared).
+ * Other clipboards retain level-local setup/collision/portal references. */
 static StanFile g_StanClipboard;
 static BgDocument g_FaceClipboard;
+static DWORD g_FaceClipboardLevel = GEDITOR_NO_LEVEL;
 static BgPortalFile g_PortalClipboard;
 static SetupFile g_ObjectClipboard;
 static SetupObjectGeometry g_ObjectClipboardPose;
@@ -2483,7 +2485,8 @@ static void GEditorApplyHistoryStep(HWND hwnd, BOOL redo)
     }
 
     if (previousrooms!=g_CurrentBgDocument.roomcount) {
-        GEditorClearObjectClipboard();BgDocumentFree(&g_FaceClipboard);
+        GEditorClearObjectClipboard();
+        if (g_FaceClipboardLevel == g_CurrentLevelIndex) { BgDocumentFree(&g_FaceClipboard); }
         BgPortalFileFree(&g_PortalClipboard);StanFileFree(&g_StanClipboard);
         BakedLightingResetRooms(g_Project.geppath,
             g_CurrentLevelIndex<g_Project.levelcount ? g_Project.levels[g_CurrentLevelIndex].bgname : NULL);
@@ -3031,7 +3034,8 @@ static BOOL GEditorManageRoom(HWND hwnd,LevelRoomEditRequest *request)
             &g_CurrentStan,&transaction,&why)) goto rollback;
     ObjectGeometryFree(&g_CurrentObjects);g_CurrentObjects=objects;
     if (request->remove) {
-        GEditorClearObjectClipboard();BgDocumentFree(&g_FaceClipboard);
+        GEditorClearObjectClipboard();
+        if (g_FaceClipboardLevel == g_CurrentLevelIndex) { BgDocumentFree(&g_FaceClipboard); }
         BgPortalFileFree(&g_PortalClipboard);StanFileFree(&g_StanClipboard);
         BakedLightingResetRooms(g_Project.geppath,
             g_CurrentLevelIndex<g_Project.levelcount ? g_Project.levels[g_CurrentLevelIndex].bgname : NULL);
@@ -3653,13 +3657,14 @@ static BOOL GEditorCopySelectedBgFaces(HWND hwnd)
         { ok = BgDocumentCopyFaces(&g_CurrentBgDocument, faces, (DWORD)count, &g_FaceClipboard, &why); }
     }
     free(faces);
-    if (!ok) { MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR); }
+    if (ok) { g_FaceClipboardLevel = g_CurrentLevelIndex; }
+    else { MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR); }
     GEditorRefreshHistoryMenu(hwnd);
     return ok;
 }
 
 static BOOL GEditorPasteBgFaceSnapshot(HWND hwnd, const BgDocument *clipboard,
-    const double offset[3], const char *action)
+    const double offset[3], DWORD room, const char *action)
 {
     EditHistoryTransaction transaction = {0};
     BgFaceRef *faces = NULL;
@@ -3667,7 +3672,8 @@ static BOOL GEditorPasteBgFaceSnapshot(HWND hwnd, const BgDocument *clipboard,
     const char *why = "", *restorewhy = "";
     if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
         action, &transaction, &why)) { goto fail; }
-    if (!BgDocumentPasteFaces(&g_CurrentBgDocument, clipboard, offset, &faces, &count, &why))
+    if (!(room ? BgDocumentPasteFacesToRoom(&g_CurrentBgDocument, clipboard, room, offset, &faces, &count, &why)
+        : BgDocumentPasteFaces(&g_CurrentBgDocument, clipboard, offset, &faces, &count, &why)))
     { goto fail; }
     if (!GEditorRebuildCurrentViewport(&why)) { goto rollback; }
     if (!ViewportSelectBgFaces(g_Viewport, faces, count))
@@ -3691,8 +3697,38 @@ fail:
 static BOOL GEditorPasteBgFaces(HWND hwnd)
 {
     const double offset[3] = {0, 10 / GEditorCoordinateFactor(), 0};
-    return GEditorCanPasteBgFaces() && GEditorPasteBgFaceSnapshot(hwnd, &g_FaceClipboard, offset,
+    DWORD room = 0;
+    if (!GEditorCanPasteBgFaces()) { return FALSE; }
+    if (g_FaceClipboardLevel != g_CurrentLevelIndex)
+    {
+        /* Room IDs belong to a level. Use the first selected destination face
+         * or room 1 for an ordinary paste; Paste Here uses the hit face's room. */
+        int count = ViewportGetSelectedBgFaceCount(g_Viewport);
+        room = 1;
+        if (count > 0)
+        {
+            BgFaceRef *selected = malloc((size_t)count * sizeof(*selected));
+            if (!selected || !ViewportGetSelectedBgFaces(g_Viewport, selected, count))
+            { free(selected); MessageBox(hwnd, "Could not read the destination room.", GEDITOR_TITLE, MB_ICONERROR); return FALSE; }
+            room = selected[0].room; free(selected);
+        }
+    }
+    return GEditorPasteBgFaceSnapshot(hwnd, &g_FaceClipboard, offset, room,
         g_FaceClipboard.facecount == 1 ? "Paste Face" : "Paste Faces");
+}
+
+static BOOL GEditorPasteBgFacesHere(HWND hwnd, const ViewportObjectPaste *target)
+{
+    double center[3], offset[3];
+    if (!GEditorCanPasteBgFaces() || !target || !target->room
+        || target->room > g_CurrentBgDocument.roomcount
+        || !BgDocumentCopiedFaceCenter(&g_FaceClipboard, center)) { return FALSE; }
+    for (int axis = 0; axis < 3; axis++)
+    {
+        if (!isfinite(target->position[axis])) { return FALSE; }
+        offset[axis] = target->position[axis] - center[axis];
+    }
+    return GEditorPasteBgFaceSnapshot(hwnd, &g_FaceClipboard, offset, target->room, "Paste Faces Here");
 }
 
 static BOOL GEditorDuplicateBgFaces(HWND hwnd, const double offset[3])
@@ -3710,7 +3746,7 @@ static BOOL GEditorDuplicateBgFaces(HWND hwnd, const double offset[3])
     if (!ViewportGetSelectedBgFaces(g_Viewport, faces, count)
         || !BgDocumentCopyFaces(&g_CurrentBgDocument, faces, (DWORD)count, &copy, &why)) { goto fail; }
     /* Use a private snapshot so a drag leaves all scene clipboards intact. */
-    result = GEditorPasteBgFaceSnapshot(hwnd, &copy, offset, count == 1 ? "Duplicate Face" : "Duplicate Faces");
+    result = GEditorPasteBgFaceSnapshot(hwnd, &copy, offset, 0, count == 1 ? "Duplicate Face" : "Duplicate Faces");
     goto done;
 fail:
     MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
@@ -6468,9 +6504,11 @@ static BOOL GEditorApplyStageOptions(HWND hwnd, StageOptionsEditRequest *request
     if (scalechanged)
     {
         SetupObjectGeometry clipboard = {0};
+        BgDocument emptyfaces = {0};
+        BgDocument *faces = g_FaceClipboardLevel == g_CurrentLevelIndex ? &g_FaceClipboard : &emptyfaces;
         ViewportCancelTransform(g_Viewport); UVEditorCancelInteraction(GetParent(g_Viewport));
         if (!LevelScaleApply(&g_CurrentBgDocument, &g_CurrentStan, &g_EditHistory,
-            &g_FaceClipboard, &g_PortalClipboard, request->levelscale, &request->why)) { return FALSE; }
+            faces, &g_PortalClipboard, request->levelscale, &request->why)) { return FALSE; }
         if ((g_ObjectClipboard.data && !ObjectLoadSetupGeometry(g_Project.dir, &g_ObjectClipboard,
                 &g_CurrentStan, request->levelscale, &clipboard, &request->why))
             || !GEditorReloadCurrentObjectsAndViewport(&request->why))
@@ -6478,7 +6516,7 @@ static BOOL GEditorApplyStageOptions(HWND hwnd, StageOptionsEditRequest *request
             const char *restorewhy = "";
             ObjectGeometryFree(&clipboard);
             LevelScaleApply(&g_CurrentBgDocument, &g_CurrentStan, &g_EditHistory,
-                &g_FaceClipboard, &g_PortalClipboard, level->levelscale, &restorewhy);
+                faces, &g_PortalClipboard, level->levelscale, &restorewhy);
             GEditorRebuildCurrentViewport(&restorewhy);
             return FALSE;
         }
@@ -7020,6 +7058,11 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
     case VIEWPORT_WM_DUPLICATE_BG_FACES:
         return lparam && GEditorDuplicateBgFaces(hwnd, ((const ViewportTranslation *)lparam)->offset);
 
+    case VIEWPORT_WM_CAN_PASTE_BG_FACES:
+        return GEditorCanPasteBgFaces();
+    case VIEWPORT_WM_PASTE_BG_FACES_HERE:
+        return GEditorPasteBgFacesHere(hwnd, (const ViewportObjectPaste *)lparam);
+
     case VIEWPORT_WM_CAN_PASTE_OBJECT:
         return GEditorCanPasteObject();
 
@@ -7312,7 +7355,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
         BgFileFree(&g_CurrentBg);
         g_CurrentBg = bg;
         BgDocumentFree(&g_CurrentBgDocument);
-        StanFileFree(&g_StanClipboard); BgDocumentFree(&g_FaceClipboard);
+        /* The BG snapshot owns its vertices/state and source scale. */
+        StanFileFree(&g_StanClipboard);
         BgPortalFileFree(&g_PortalClipboard);
         GEditorClearObjectClipboard();
         g_CurrentBgDocument = document;

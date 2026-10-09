@@ -203,6 +203,8 @@ typedef void *HWND;
 #define MB_ICONERROR 16
 static HWND g_Viewport = (HWND)2;
 static BgDocument g_CurrentBgDocument, g_FaceClipboard;
+static DWORD g_FaceClipboardLevel, g_CurrentLevelIndex;
+typedef struct ViewportObjectPaste { double position[3], normal[3]; DWORD room; } ViewportObjectPaste;
 static SetupFile g_CurrentSetup;
 static StanFile g_CurrentStan;
 static EditHistory g_EditHistory;
@@ -320,5 +322,7 @@ static void DuplicateCommands(const char *dir)
     BgDocumentFree(&original); BgDocumentFree(&clipboard); BgFileFree(&source);
     puts("PASS: face drag duplication on XYZ, single/multiple selections, preserved source/clipboard/materials, native save/reload, one undo/redo step, no-op and failure rollback.");
 }
+#include "cross.c"
+
 int main(int argc,char **argv)
-{ setvbuf(stdout,NULL,_IONBF,0); assert(argc == 4); Geometry(argv[1]); Commands(); DuplicateCommands(argv[1]); Native(argv[2],argv[1]); Native(argv[3],argv[1]); return 0; }
+{ setvbuf(stdout,NULL,_IONBF,0); assert(argc == 4); Geometry(argv[1]); Commands(); DuplicateCommands(argv[1]); Native(argv[2],argv[1]); Native(argv[3],argv[1]); CrossGeometry(argv[1]); CrossCommands(argv[1]); CrossNative(argv[2],argv[3],argv[1]); CrossNative(argv[3],argv[2],argv[1]); return 0; }

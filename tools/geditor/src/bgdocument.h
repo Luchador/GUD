@@ -405,7 +405,7 @@ BOOL BgDocumentMoveFacesToRoom(BgDocument *document, const BgFaceRef *refs,
 BOOL BgDocumentSetFaceLayer(BgDocument *document, const BgFaceRef *refs,
     DWORD count, BgGeometryLayer layer, BOOL *changedout, const char **reasonout);
 
-/* Level-local, owned face snapshot; initialize clipboard to zero and release
+/* Project-local, owned face snapshot; initialize clipboard to zero and release
  * with BgDocumentFree. Copy retains selected rooms/layers and native draw state.
  * Failed copies preserve the previous clipboard. Paste gives all copies fresh
  * identities, preserving sharing within the copied set but never with originals.
@@ -415,6 +415,12 @@ BOOL BgDocumentCopyFaces(const BgDocument *document, const BgFaceRef *refs,
     DWORD count, BgDocument *clipboard, const char **reasonout);
 BOOL BgDocumentPasteFaces(BgDocument *document, const BgDocument *clipboard,
     const double offset[3], BgFaceRef **facesout, DWORD *countout, const char **reasonout);
+/* Paste into one explicit destination room, including across levels/scales.
+ * Retains world size, layout, UVs, colors, layers and native render state;
+ * quantizes positions once to the destination room's native grid. */
+BOOL BgDocumentPasteFacesToRoom(BgDocument *document, const BgDocument *clipboard,
+    DWORD room, const double offset[3], BgFaceRef **facesout, DWORD *countout, const char **reasonout);
+BOOL BgDocumentCopiedFaceCenter(const BgDocument *clipboard, double center[3]);
 
 /* Paints the existing vertex at one face corner. Every face sharing that
  * vertex sees the edit; coincident vertices with different identities do not.

@@ -145,7 +145,7 @@ static BOOL BgRoomSameLayerPrefix(const BgDocumentLayerData *dst, const BgDocume
  * Both room transfers and clipboard paste preserve inherited draw state. */
 static BOOL BgRoomAppendFaces(BgDocument *doc, const BgDocumentRoom *src, DWORD target,
     const unsigned char *selected, BOOL newids, const double translation[3],
-    BgFaceRef *out, const char **reasonout)
+    double positionscale, BOOL quantize, BgFaceRef *out, const char **reasonout)
 {
     BgDocumentRoom *dst = &doc->rooms[target];
     DWORD *vertices = malloc((size_t)src->vertexcount * sizeof(*vertices));
@@ -171,8 +171,8 @@ static BOOL BgRoomAppendFaces(BgDocument *doc, const BgDocumentRoom *src, DWORD 
     }
     for (i = 0; i < 3; i++)
     {
-        offset[i] = (double)src->origin[i] - dst->origin[i] + translation[i];
-        if (!isfinite(offset[i]) || offset[i] != floor(offset[i]))
+        offset[i] = (double)src->origin[i] * positionscale - dst->origin[i] + translation[i];
+        if (!isfinite(offset[i]) || (!quantize && offset[i] != floor(offset[i])))
         { *reasonout = "These room origins cannot preserve exact vertex positions on the native coordinate grid."; goto done; }
     }
     if (dst->vertexcount > 0x100000u || added > 0x100000u - dst->vertexcount
@@ -199,10 +199,13 @@ static BOOL BgRoomAppendFaces(BgDocument *doc, const BgDocumentRoom *src, DWORD 
         vertices[i] += dst->vertexcount;
         v = &dst->vertices[vertices[i]];
         *v = src->vertices[i];
-        xyz[0] = v->x + offset[0]; xyz[1] = v->y + offset[1]; xyz[2] = v->z + offset[2];
+        xyz[0] = v->x * positionscale + offset[0];
+        xyz[1] = v->y * positionscale + offset[1];
+        xyz[2] = v->z * positionscale + offset[2];
         for (unsigned int c = 0; c < 3; c++)
         {
-            if (xyz[c] < -32768 || xyz[c] > 32767)
+            if (quantize) { xyz[c] = round(xyz[c]); }
+            if (!isfinite(xyz[c]) || xyz[c] < -32768 || xyz[c] > 32767)
             { *reasonout = "A moved vertex is outside the destination room's native coordinate range."; goto done; }
         }
         v->x = (short)xyz[0]; v->y = (short)xyz[1]; v->z = (short)xyz[2];
@@ -261,7 +264,7 @@ static BOOL BgRoomMoveFrom(BgDocument *doc, DWORD source, DWORD target,
         const BgDocumentFace *face = BgDocumentFindFace(doc, &refs[i], NULL);
         selected[face - src->faces] = TRUE;
     }
-    if (!BgRoomAppendFaces(doc, src, target, selected, FALSE, offset, NULL, reasonout))
+    if (!BgRoomAppendFaces(doc, src, target, selected, FALSE, offset, 1.0, FALSE, NULL, reasonout))
     { free(selected); return FALSE; }
     for (f = 0, i = 0; f < src->facecount; f++)
     {
@@ -491,8 +494,8 @@ done:
     return ok;
 }
 
-BOOL BgDocumentPasteFaces(BgDocument *document, const BgDocument *clipboard,
-    const double offset[3], BgFaceRef **facesout, DWORD *countout, const char **reasonout)
+static BOOL BgDocumentPasteFacesInternal(BgDocument *document, const BgDocument *clipboard,
+    DWORD targetroom, const double offset[3], BgFaceRef **facesout, DWORD *countout, const char **reasonout)
 {
     BgDocument staged = {0};
     BgFaceRef *faces = NULL;
@@ -500,17 +503,20 @@ BOOL BgDocumentPasteFaces(BgDocument *document, const BgDocument *clipboard,
     double translation[3];
     const char *ignored;
     if (!reasonout) { reasonout = &ignored; }
-    *reasonout = "There are no copied faces for this level.";
+    *reasonout = "There are no valid copied background faces or destination room.";
     if (facesout) { *facesout = NULL; }
     if (countout) { *countout = 0; }
     if (!document || !document->rooms || !clipboard || !clipboard->rooms || !clipboard->facecount
         || !offset || !facesout || !countout || document == clipboard
-        || document->roomcount != clipboard->roomcount || document->levelscale != clipboard->levelscale
+        || targetroom > document->roomcount
+        || (!targetroom && document->levelscale != clipboard->levelscale)
+        || !isfinite(clipboard->levelscale) || clipboard->levelscale <= 0
         || !isfinite(document->levelscale) || document->levelscale <= 0) { return FALSE; }
     for (r = 0; r < 3; r++)
     {
-        translation[r] = round(offset[r] * document->levelscale);
-        if (!isfinite(translation[r]) || fabs(translation[r]) > 65535)
+        translation[r] = offset[r] * document->levelscale;
+        if (!targetroom) { translation[r] = round(translation[r]); }
+        if (!isfinite(translation[r]) || (!targetroom && fabs(translation[r]) > 65535))
         { *reasonout = "The paste offset exceeds the native coordinate range."; return FALSE; }
     }
     if (clipboard->facecount > (DWORD)-1 / sizeof(*faces)) { return FALSE; }
@@ -524,9 +530,13 @@ BOOL BgDocumentPasteFaces(BgDocument *document, const BgDocument *clipboard,
         if (!src->facecount) { continue; }
         if (src->facecount > clipboard->facecount - count) { goto fail; }
         BOOL compacted;
-        if (!BgRoomAppendFaces(&staged, src, r, NULL, TRUE, translation, faces + count, reasonout)
-            || !BgDocumentCompactRoomState(&staged.rooms[r], &compacted, reasonout)
-            || !BgRoomOrderFaces(&staged.rooms[r])) { goto fail; }
+        DWORD target = targetroom ? targetroom : r;
+        if (target > staged.roomcount)
+        { *reasonout = "A copied room no longer exists. Use Paste Here to choose a destination room."; goto fail; }
+        if (!BgRoomAppendFaces(&staged, src, target, NULL, TRUE, translation,
+                (double)document->levelscale / clipboard->levelscale, targetroom != 0, faces + count, reasonout)
+            || !BgDocumentCompactRoomState(&staged.rooms[target], &compacted, reasonout)
+            || !BgRoomOrderFaces(&staged.rooms[target])) { goto fail; }
         count += src->facecount;
     }
     if (count != clipboard->facecount) { goto fail; }
@@ -537,4 +547,52 @@ BOOL BgDocumentPasteFaces(BgDocument *document, const BgDocument *clipboard,
 fail:
     free(faces); BgDocumentFree(&staged);
     return FALSE;
+}
+
+BOOL BgDocumentPasteFaces(BgDocument *document, const BgDocument *clipboard,
+    const double offset[3], BgFaceRef **facesout, DWORD *countout, const char **reasonout)
+{
+    return BgDocumentPasteFacesInternal(document, clipboard, 0, offset, facesout, countout, reasonout);
+}
+
+BOOL BgDocumentPasteFacesToRoom(BgDocument *document, const BgDocument *clipboard,
+    DWORD room, const double offset[3], BgFaceRef **facesout, DWORD *countout, const char **reasonout)
+{
+    if (!room)
+    {
+        if (facesout) { *facesout = NULL; } if (countout) { *countout = 0; }
+        if (reasonout) { *reasonout = "Choose an existing destination room."; } return FALSE;
+    }
+    return BgDocumentPasteFacesInternal(document, clipboard, room, offset, facesout, countout, reasonout);
+}
+
+BOOL BgDocumentCopiedFaceCenter(const BgDocument *clipboard, double center[3])
+{
+    double low[3] = {0}, high[3] = {0};
+    BOOL found = FALSE;
+    if (!clipboard || !clipboard->rooms || !center || !isfinite(clipboard->levelscale)
+        || clipboard->levelscale <= 0) { return FALSE; }
+    /* A snapshot can retain unselected room vertices. Only copied corners
+     * contribute to placement; they all share this world-space origin. */
+    for (DWORD r = 1; r <= clipboard->roomcount; r++)
+    {
+        const BgDocumentRoom *room = &clipboard->rooms[r];
+        for (DWORD f = 0; f < room->facecount; f++) for (unsigned int c = 0; c < 3; c++)
+        {
+            DWORD index = room->faces[f].vertexindices[c];
+            if (index >= room->vertexcount) { return FALSE; }
+            const BgDocumentVertex *v = &room->vertices[index];
+            double xyz[3] = {(double)room->origin[0]+v->x, (double)room->origin[1]+v->y, (double)room->origin[2]+v->z};
+            for (int axis = 0; axis < 3; axis++)
+            {
+                xyz[axis] /= clipboard->levelscale;
+                if (!isfinite(xyz[axis])) { return FALSE; }
+                if (!found || xyz[axis] < low[axis]) { low[axis] = xyz[axis]; }
+                if (!found || xyz[axis] > high[axis]) { high[axis] = xyz[axis]; }
+            }
+            found = TRUE;
+        }
+    }
+    if (found) for (int axis = 0; axis < 3; axis++) { center[axis] = low[axis] * .5 + high[axis] * .5; }
+    return found;
 }
