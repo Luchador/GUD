@@ -25,9 +25,10 @@ with tempfile.TemporaryDirectory(prefix='geditor-uv-interaction-') as temp:
         ('UVCanvasNodeCompare', 'UVCanvasCornerCompare', 'UVCanvasResetTransform',
          'UVCanvasTransformST', 'UVCanvasNodeST', 'UVCanvasSelectionPosition',
          'UVCanvasProject', 'UVCanvasGizmo', 'UVCanvasPickHandle', 'UVCanvasNotify',
-         'UVCanvasUpdatePreview', 'UVCanvasCancelInteraction', 'UVCanvasTryTransform',
-         'UVCanvasPreviewOwner', 'UVCanvasDrag', 'UVCanvasCommit', 'UVCanvasSetTriangles', 'UVCanvasSetTransformMode',
+         'UVCanvasUpdatePreview', 'UVCanvasCancelInteraction', 'UVCanvasSelect', 'UVCanvasTryTransform',
+         'UVCanvasPreviewOwner', 'UVCanvasPreviewTransform', 'UVCanvasDrag', 'UVCanvasCommit', 'UVCanvasSetTriangles', 'UVCanvasSetTransformMode',
          'UVCanvasApplyTransform')))
+    (work / 'events.inc').write_text(helper.function(canvas, 'UVCanvasWndProc'))
     # Also runs against the pre-fix source, where the inspector was not split.
     names = ['GEditorRefreshSelectionDetails', 'GEditorRefreshHistoryMenu']
     if 'static void GEditorRefreshSelectionInspector(' in editor:

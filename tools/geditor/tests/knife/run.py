@@ -39,7 +39,7 @@ with tempfile.TemporaryDirectory(prefix='geditor-knife-') as temp:
              'ViewportBeginTransform', 'ViewportBeginKnifeTransform', 'ViewportDragTransform', 'ViewportGetRotation', 'ViewportFinishKnifeTransform', 'ViewportCancelTransform', 'ViewportFinishPortalDuplicate', 'ViewportFinishBgFaceDuplicate', 'ViewportEndTransform')
     (work / 'plane.inc').write_text(re.search(r'^#define VIEWPORT_UNIFORM_SCALE_AXIS .*$', viewport, re.M)[0] + '\n' + ''.join(extract.function(viewport, n) for n in names))
     (work / 'uv_drag.inc').write_text(''.join(extract.function(uv, n) for n in
-        ('UVCanvasTransformST', 'UVCanvasNodeST', 'UVCanvasTryTransform', 'UVCanvasDrag', 'UVCanvasCommit')))
+        ('UVCanvasTransformST', 'UVCanvasNodeST', 'UVCanvasTryTransform', 'UVCanvasPreviewTransform', 'UVCanvasDrag', 'UVCanvasCommit')))
     # Exercise the real one-point message routing, including Escape precedence.
     (work / 'pick.inc').write_text(extract.function((src / 'knife.c').read_text(), 'KnifeDialogHandleMessage'))
     binary = work / 'interaction'

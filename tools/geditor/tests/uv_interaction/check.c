@@ -17,6 +17,8 @@ typedef struct { int x, y; } POINT;
 #define GA_ROOTOWNER 3
 #define UVCANVAS_PI 3.14159265358979323846
 #define UVCANVAS_ROTATE_RADIUS 56
+#define min(a,b) ((a)<(b)?(a):(b))
+#define max(a,b) ((a)>(b)?(a):(b))
 #include "uvcanvas.h"
 #include "setupload.h"
 #include "stanload.h"
@@ -34,6 +36,7 @@ static double paintedUV[3][2];
 static int commits, refreshes, inspectorUpdates, notificationDepth;
 static DWORD inspectorOffset;
 static BOOL objectSelected;
+static BOOL control;
 static BOOL g_SelectionHistoryPending;
 static HWND g_Viewport = (HWND)1, g_RightPanel = (HWND)2, g_Browser = (HWND)3;
 static BgDocument g_CurrentBgDocument;
@@ -41,7 +44,7 @@ static BgFile g_CurrentBg;
 static DWORD g_DoorShadowPicking = (DWORD)-1;
 static SetupFile g_CurrentSetup;
 static StanFile g_CurrentStan;
-static struct { char dir[MAX_PATH]; int levelcount; struct { const char *name; } levels[1]; } g_Project;
+static struct { char dir[MAX_PATH],geppath[MAX_PATH]; int levelcount; struct { const char *name,*bgname; } levels[1]; } g_Project;
 static int g_CurrentLevelIndex;
 
 static UVCanvasState *UVCanvasGetState(HWND hwnd) { return hwnd; }
@@ -58,12 +61,13 @@ static void UpdateWindow(HWND hwnd)
     memcpy(paintedUV, state.triangles[0].uv, sizeof(paintedUV));
     canvasPaints++; paintPending = FALSE;
 }
-static int GetKeyState(int key) { return 0; }
+static int GetKeyState(int key) { return key == VK_CONTROL && control ? 0x8000 : 0; }
 static int MessageBox(HWND hwnd, const char *text, const char *title, int flags) { abort(); }
 static LRESULT SendMessage(HWND hwnd, unsigned message, WPARAM wparam, LPARAM lparam);
 static void UVCanvasUpdatePreview(UVCanvasState *s);
 static void UVCanvasEndPan(HWND hwnd, UVCanvasState *s) { s->panning = FALSE; }
 #include "canvas.inc"
+#include "events.c"
 
 /* Presentation calls are inert. Replacing the UV overlay uses the real
  * cancellation, shared-vertex selection and preview rebuilding functions. */
@@ -106,6 +110,9 @@ static void LevelManagerRefresh(const SetupFile *setup,const char *name) {}
 static void LevelManagerRefreshSettings(const void *project,int index) {}
 static void RightPanelSetSetupObject(HWND hwnd, const SetupFile *setup, DWORD index, const char *dir)
 { inspectorUpdates++; inspectorOffset = setup->objects[index].sourceoffset; }
+static BOOL RightPanelSetSetupObjects(HWND hwnd,const SetupFile *setup,const DWORD *indices,DWORD count,const char *dir)
+{ assert(count==1);RightPanelSetSetupObject(hwnd,setup,indices[0],dir);return TRUE; }
+static void BakedLightingRefresh(const BgDocument *doc,const void *level,const char *projectpath,const char *bgname) {}
 static void GEditorRefreshTransformFields(void) {}
 static void GEditorRefreshSceneOutliner(void) {}
 static DWORD ViewportGetSelectedRoom(HWND hwnd) { return 0; }
@@ -155,6 +162,7 @@ static LRESULT SendMessage(HWND hwnd, unsigned message, WPARAM wparam, LPARAM lp
 
 static void Fixture(TransformMode mode)
 {
+    control = FALSE;
     free(state.nodes); free(state.triangles); memset(&state, 0, sizeof(state));
     memset(&source, 0, sizeof(source));
     state.width = state.height = 600; state.pixelsperunit = 200;
@@ -183,6 +191,72 @@ static void BeginDrag(void)
     UVCanvasSelectionPosition(&state, state.pivot);
     state.dragorigin = origin; state.lastangle = state.dragangle = 0;
     capture = canvas;
+}
+
+static LPARAM MousePoint(POINT p) { return (uint16_t)p.x | ((uint32_t)(uint16_t)p.y << 16); }
+static POINT RingPoint(POINT origin,double degrees)
+{
+    double a=degrees*UVCANVAS_PI/180.0;
+    return (POINT){origin.x+(int)round(UVCANVAS_ROTATE_RADIUS*cos(a)),
+        origin.y-(int)round(UVCANVAS_ROTATE_RADIUS*sin(a))};
+}
+static void RotationInput(void)
+{
+    Fixture(TRANSFORM_ROTATE);
+    POINT origin;assert(UVCanvasGizmo(&state,&origin));
+    POINT start=RingPoint(origin,0);
+    control=TRUE;UVCanvasWndProc(canvas,WM_KEYDOWN,VK_CONTROL,0);
+    UVCanvasWndProc(canvas,WM_LBUTTONDOWN,MK_LBUTTON|MK_CONTROL,MousePoint(start));
+    assert(state.draghandle==3 && !state.boxing && capture==canvas);
+    /* A queued mouse message can lag behind the live cursor. Holding Ctrl
+     * before the drag also allows repeat keydowns to arrive during it. Keys
+     * must not feed those future coordinates into the mouse angle history. */
+    double previous=0;
+    for(int degrees=7;degrees<=735;degrees+=7)
+    {
+        POINT point=RingPoint(origin,degrees);livecursor=RingPoint(origin,degrees+140);
+        UVCanvasWndProc(canvas,WM_MOUSEMOVE,MK_LBUTTON|MK_CONTROL,MousePoint(point));
+        double raw=state.dragangle,angle=state.lastangle,snapped=state.values[0];
+        assert(fabs(raw-degrees)<1 && raw>previous && snapped==RotationSnapDegrees(raw));
+        for(int repeat=0;repeat<3;repeat++)
+        {
+            UVCanvasWndProc(canvas,WM_KEYDOWN,VK_CONTROL,(LPARAM)1<<30);
+            assert(state.dragangle==raw && state.lastangle==angle && state.values[0]==snapped);
+        }
+        previous=raw;
+    }
+    assert(!commits && state.dragangle>720);
+    UVCanvasWndProc(canvas,WM_LBUTTONUP,MK_CONTROL,MousePoint(RingPoint(origin,735)));
+    assert(commits==1 && !state.draghandle && !capture && clears==1);
+
+    /* Press/release Ctrl after free rotation, with the mouse stationary in
+     * the input stream. Resnap immediately, retaining the unsnapped angle. */
+    Fixture(TRANSFORM_ROTATE);assert(UVCanvasGizmo(&state,&origin));
+    UVCanvasWndProc(canvas,WM_LBUTTONDOWN,MK_LBUTTON,MousePoint(RingPoint(origin,0)));
+    UVCanvasWndProc(canvas,WM_MOUSEMOVE,MK_LBUTTON,MousePoint(RingPoint(origin,17)));
+    double raw=state.dragangle,angle=state.lastangle;
+    assert(fabs(raw-17)<1 && state.values[0]==raw);
+    livecursor=RingPoint(origin,160);
+    for(int i=0;i<3;i++)
+    {
+        control=TRUE;UVCanvasWndProc(canvas,WM_KEYDOWN,VK_CONTROL,0);
+        assert(state.dragangle==raw && state.lastangle==angle && state.values[0]==20);
+        control=FALSE;UVCanvasWndProc(canvas,WM_KEYUP,VK_CONTROL,(LPARAM)1<<30);
+        assert(state.dragangle==raw && state.lastangle==angle && state.values[0]==raw);
+    }
+    UVCanvasWndProc(canvas,WM_CAPTURECHANGED,0,0);
+    assert(!commits && !state.draghandle && !capture && clears==1);
+    assert(source.source[0].s==0 && source.source[1].s==1024 && state.triangles[0].uv[0][0]==0);
+
+    /* Ctrl-click away from the ring still deselects a UV point. */
+    Fixture(TRANSFORM_ROTATE);double screen[2];UVCanvasProject(&state,source.uv[0],screen);
+    POINT vertex={(int)screen[0],(int)screen[1]};control=TRUE;
+    UVCanvasWndProc(canvas,WM_LBUTTONDOWN,MK_LBUTTON|MK_CONTROL,MousePoint(vertex));
+    assert(state.boxing && state.boxremove && !state.draghandle);
+    UVCanvasWndProc(canvas,WM_LBUTTONUP,MK_CONTROL,MousePoint(vertex));
+    assert(!state.nodes[0].selected && state.nodes[1].selected && state.nodes[2].selected && !commits);
+    control=FALSE;
+    puts("PASS: Ctrl held before UV rotation, repeated keydowns with queued mouse input, multi-turn snapping, mid-drag Ctrl toggles, commit/cancel and Ctrl-click deselection.");
 }
 
 int main(void)
@@ -223,6 +297,7 @@ int main(void)
         assert(displayed[0].s == 0 && displayed[1].s == 1024);
         assert(state.triangles[0].uv[0][0] == 0 && state.nodes[1].source.s == 1024);
     }
+    RotationInput();
     /* Setup compaction still refreshes cached inspector command offsets. */
     SetupObject object = {.sourceoffset = 512};
     g_CurrentSetup.objects = &object; g_CurrentSetup.objectcount = 1; objectSelected = TRUE;

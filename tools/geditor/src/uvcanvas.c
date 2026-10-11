@@ -742,6 +742,24 @@ static BOOL UVCanvasPreviewOwner(HWND hwnd, UVCanvasState *state)
     return (BOOL)SendMessage(GetParent(hwnd), UVCANVAS_WM_PREVIEW, 0, (LPARAM)&preview);
 }
 
+static void UVCanvasPreviewTransform(HWND hwnd, UVCanvasState *state, const double values[2])
+{
+    /* Refuse an out-of-range group as a whole and retain its last valid
+     * preview. Clipping individual vertices would distort rotation/scale. */
+    UVCanvasTryTransform(state, values);
+    UVCanvasUpdatePreview(state);
+    if (!UVCanvasPreviewOwner(hwnd, state))
+    {
+        UVCanvasCancelInteraction(hwnd);
+        MessageBox(GetParent(hwnd), "Could not preview the UV transform.", "UV Editor", MB_ICONERROR);
+        return;
+    }
+    UVCanvasNotify(hwnd);
+    /* Paint this preview before handling more mouse input. Queued WM_PAINT
+     * messages can otherwise wait until the drag ends. */
+    UpdateWindow(hwnd);
+}
+
 static void UVCanvasDrag(HWND hwnd, UVCanvasState *state, int x, int y)
 {
     int axis, i;
@@ -782,20 +800,7 @@ static void UVCanvasDrag(HWND hwnd, UVCanvasState *state, int x, int y)
             values[axis] = fmax(lower, fmin(upper, values[axis]));
         }
     }
-    /* Refuse an out-of-range group as a whole and retain its last valid
-     * preview. Clipping individual vertices would distort rotation/scale. */
-    UVCanvasTryTransform(state, values);
-    UVCanvasUpdatePreview(state);
-    if (!UVCanvasPreviewOwner(hwnd, state))
-    {
-        UVCanvasCancelInteraction(hwnd);
-        MessageBox(GetParent(hwnd), "Could not preview the UV transform.", "UV Editor", MB_ICONERROR);
-        return;
-    }
-    UVCanvasNotify(hwnd);
-    /* Paint this preview before handling more mouse input. Queued WM_PAINT
-     * messages can otherwise wait until the drag ends. */
-    UpdateWindow(hwnd);
+    UVCanvasPreviewTransform(hwnd, state, values);
 }
 
 static BOOL UVCanvasCommit(HWND hwnd, UVCanvasState *state)
@@ -943,8 +948,15 @@ static LRESULT CALLBACK UVCanvasWndProc(HWND hwnd, UINT message,
     case WM_KEYUP:
         if (wparam == VK_CONTROL && state && state->draghandle && state->mode == TRANSFORM_ROTATE)
         {
-            POINT point;
-            if (GetCursorPos(&point) && ScreenToClient(hwnd, &point)) { UVCanvasDrag(hwnd, state, point.x, point.y); }
+            /* Keys only change snapping. Sampling the live cursor here can
+             * jump ahead of queued mouse moves, then rotate backwards when
+             * those older positions arrive (especially on key repeat). */
+            if (message == WM_KEYUP || !(lparam & ((LPARAM)1 << 30)))
+            {
+                double values[2] = {(GetKeyState(VK_CONTROL) & 0x8000)
+                    ? RotationSnapDegrees(state->dragangle) : state->dragangle, 0};
+                UVCanvasPreviewTransform(hwnd, state, values);
+            }
             return 0;
         }
         break;
