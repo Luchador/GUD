@@ -6,6 +6,7 @@
 - Frame rate display option.
 - Hold Z to skip credits.
 - Added three more intro cameras to Silo taken from the PAL version.
+- Every level has a hidden wedge of cheese.
 
 ### Fixed
 - Fix player bullets sometimes not colliding with the ground or other surfaces.
