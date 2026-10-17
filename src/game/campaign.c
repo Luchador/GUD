@@ -1,4 +1,29 @@
 #include "campaign.h"
+#include "levelmenu.h"
+
+/* Native big-endian LVSL data, patched by GEditor. Catalog IDs remain stable
+ * even when rows are reordered or multiple menu boxes use the same level. */
+LevelMenuConfig g_LevelMenuConfig = { LEVEL_MENU_VERSION, LEVEL_MENU_DEFAULT_STAGES };
+static int g_LevelMenuLaunchStage = LEVELID_NONE;
+static int g_LevelMenuLaunchMultiplayer = 0;
+
+int levelMenuBaseStage(int stage)
+{
+    return LEVELID_IS_MP(stage) ? stage - ENVIRONMENTDATA_PLAYERS_4 : stage;
+}
+int levelMenuSelectStage(int stage, int multiplayer)
+{
+    g_LevelMenuLaunchStage = stage;
+    g_LevelMenuLaunchMultiplayer = multiplayer;
+    return levelMenuBaseStage(stage);
+}
+void levelMenuClearLaunch(void) { g_LevelMenuLaunchStage = LEVELID_NONE; }
+int levelMenuGetLaunchStage(int stage, int players)
+{
+    return g_LevelMenuLaunchStage != LEVELID_NONE
+        && levelMenuBaseStage(g_LevelMenuLaunchStage) == stage
+        && g_LevelMenuLaunchMultiplayer == (players >= 2) ? g_LevelMenuLaunchStage : LEVELID_NONE;
+}
 
 static int campaignIsMission(int entry)
 {

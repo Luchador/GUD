@@ -28,6 +28,7 @@ source = '''#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 #include "campaign.h"
+#include "levelmenu.h"
 typedef unsigned char u8;
 typedef int32_t s32;
 typedef int16_t s16;
@@ -78,7 +79,7 @@ for name in ('lvFindLevelInfo', 'lvFindStageInfo', 'lvGetMemoryAllocationString'
 bg = (ROOT / 'src/game/bg.c').read_text()
 source += re.search(r'typedef struct s_specialportal\s*\{.*?\} s_specialportal;', (ROOT / 'src/game/bg.h').read_text(), re.S)[0] + '\n'
 source += re.search(r'static const s_specialportal specialportalarray\[\] = \{.*?\n\};', bg, re.S)[0] + '\n'
-source += 'static LEVELID g_CurrentBgLevelId;\nstatic u8 g_BgPortals[128 * 8];\n'
+source += 'static LEVELID g_CurrentBgLevelId;\n#define PORTMAX 128\n#define PORTALFLAG_SPECIAL 2\nstatic struct { void *portal; u8 controlbytes1; } g_BgPortals[PORTMAX];\n'
 source += function(bg, 'bgMarkSpecialPortals')
 source += function((ROOT / 'tools/aiParse.c').read_text(), 'levelIdName')
 source += (HERE / 'check.c').read_text()

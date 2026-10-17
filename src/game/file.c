@@ -104,6 +104,7 @@ void set_selected_difficulty(DIFFICULTY difficulty)
 void set_solo_and_ptr_briefing(LEVELID stage)
 {
     gamemode = GAMEMODE_SOLO;
+    levelMenuClearLaunch(); /* Recordings use their original stage identities. */
     selected_stage = stage;
     briefingpage = campaignGetEntryByLevel(stage);
 }

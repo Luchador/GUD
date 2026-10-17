@@ -642,7 +642,7 @@ static void GEditorRefreshProjectAssets(void)
     const char *why = "";
     DWORD count;
 
-    ProjectSettingsRefresh(g_Project.dir);
+    ProjectSettingsRefresh(&g_Project);
 
     count = TexLoadProjectThumbnails(g_Project.dir, &items, &pixels, &why);
 
@@ -6540,6 +6540,17 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 {
     switch (msg)
     {
+    case PROJECTSETTINGS_WM_LEVEL_SLOT:
+    {
+        ProjectLevelSlotEdit *edit = (ProjectLevelSlotEdit *)lparam;
+        if (!edit || !g_Project.name[0]) return FALSE;
+        LevelSlotOverrides next = g_Project.levelSlotOverrides;
+        if (!LevelSlotsSet(&g_Project.levelSlots, &next, g_Project.levels, g_Project.levelcount,
+            edit->slot, edit->stage, &edit->why)) return FALSE;
+        if (memcmp(&next, &g_Project.levelSlotOverrides, sizeof(next)))
+        { g_Project.levelSlotOverrides = next; g_ProjectMetadataDirty = TRUE; GEditorSetTitleForProject(hwnd); }
+        return TRUE;
+    }
     case BAKEDLIGHTING_WM_BAKE:
         return GEditorBakeLighting(hwnd, (BakedLightingRequest *)lparam);
     case BAKEDLIGHTING_WM_HISTORY:
@@ -7654,6 +7665,8 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
                             EnvironmentReadRom(&rom, &g_Project.environments, NULL, &assetwhy);
                             LevelMemoryReadRom(&rom, &g_Project.memory, &assetwhy);
+                            if (!LevelSlotsReadRom(&rom, &g_Project.levelSlots, &assetwhy))
+                                MessageBox(hwnd, assetwhy, GEDITOR_TITLE, MB_ICONWARNING);
                             EnvironmentRefreshLevels(&g_Project.environments, &g_Project.environmentOverrides, g_Project.levels, g_Project.levelcount);
 
                             if (!RomExportStoreProjectBase(&g_Project, &rom,
@@ -7949,7 +7962,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
                 return 0;
 
             case ID_SETTINGS_PROJECT:
-                if (!ProjectSettingsShow(hwnd, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), g_Project.dir))
+                if (!ProjectSettingsShow(hwnd, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), &g_Project))
                 {
                     MessageBox(hwnd, "Could not open the Project Settings window.", GEDITOR_TITLE, MB_ICONERROR);
                 }

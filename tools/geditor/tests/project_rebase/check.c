@@ -165,6 +165,7 @@ static void NoTemps(const char *dir)
     DIR *d=opendir(dir);struct dirent *e;OK(d);
     while((e=readdir(d))) { OK(strncmp(e->d_name,".geditor-rebase-",16)); }closedir(d);
 }
+#include "levelslots.c"
 static void CatalogRebase(const GEditorProject *source,const char *incoming,const char *parent)
 {
     DWORD size,offset,span,soloHash;unsigned char *data=Read(incoming,&size);
@@ -204,6 +205,7 @@ static void CatalogRebase(const GEditorProject *source,const char *incoming,cons
     free(entries);SetupFileFree(&setup);RomFree(&rom);
     OK(ProjectRebaseCreate(&updated,expanded,FALSE,parent,"ExpandedAgain",&again,&report,&why));
     OK(again.levelcount==3);Same(updated.dir,again.dir,"setup/Ump_setuptestZ.set");
+    LevelSlotRebases(&updated,expanded,parent);
     /* Removing an old ID or introducing duplicates must still be rejected. */
     Put32(solo,22);Save(expanded,data,size);OK(!ProjectRebaseCheck(source,expanded,FALSE,&report,&why));
     Put32(solo,21);Put32(mp,21);Save(expanded,data,size);OK(!ProjectRebaseCheck(source,expanded,FALSE,&report,&why));

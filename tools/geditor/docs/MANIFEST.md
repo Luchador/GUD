@@ -243,3 +243,19 @@ entries; texture references are native C0 display-list commands. The project
 bank and ROM bank share the same pointer-free, big-endian format.
 
 See [New prop models](../NEW_PROP_MODELS.md) for import and persistence rules.
+
+## Level menu assignments
+
+`LVSL` is an optional CMAP-contained, four-byte-aligned table with flags 1 and
+exact size 132 bytes. It contains a big-endian `u32 version = 1` followed by
+32 signed 32-bit catalog level IDs: 20 solo boxes then 12 multiplayer boxes,
+in row-major order. `-1` is Random, valid only in MP. The shared declaration is
+`src/levelmenuformat.h`; defaults explicitly use the +400 MP variants where
+appropriate. `g_LevelMenuConfig` resides in initialized game data, and
+`_gedLevelMenuRom` locates it independently of other tables and linker layout.
+
+GEditor validates IDs and the complete range before writing, rejecting aliases
+with other bounded manifest resources. The runtime validates all entries before
+changing either menu and falls back to its compiled menus if validation fails.
+The table changes loaded resources and labels while preserving campaign save
+slots and progression. See [Level Manager](LEVEL_MANAGER.md).

@@ -11,6 +11,7 @@ enum {DWLP_USER=1,GW_OWNER,MB_ICONERROR,MB_ICONWARNING,EM_SETSEL};
 #include "ui_types.inc"
 static StageOptions panel;
 static GEditorProject g_Project;
+static DWORD g_FaceClipboardLevel;
 static DWORD g_CurrentLevelIndex;
 static BOOL g_ProjectMetadataDirty;
 static char controls[100][256];static BOOL enabled[100];static HWND focus;static int errors;

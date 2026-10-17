@@ -2,6 +2,7 @@
 #include <memp.h>
 #include "front.h"
 #include "initmenus.h"
+#include "levelmenu.h"
 #include "initintromatrices.h"
 #include <macro.h>
 
@@ -9,6 +10,7 @@
 void init_menus_or_reset(void)
 {
     s32 i;
+    frontInitLevelMenu();
     current_menu = ~MENU_LEGAL_SCREEN;
     maybe_prev_menu = ~MENU_LEGAL_SCREEN;
     screen_size = SCREEN_SIZE_320x240;

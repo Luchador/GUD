@@ -364,6 +364,95 @@ struct mp_stage_setup multi_stage_setups[] = {
   //{getStringID(LTITLE, TITLE_STR_174_CITADEL), getStringID(LTITLE, TITLE_STR_175_CITADEL2), IMG_MP_RANDOM, LEVELID_CITADEL, -1, 1, 4}, //Citadel (old format setup)
 };
 
+static int g_LevelMenuInitialized = FALSE;
+static int g_LevelMenuActive = FALSE;
+static struct BriefingData g_EmptyMenuBriefing = {0};
+
+void frontInitLevelMenu(void)
+{
+    struct mission_folder_setup original[LEVEL_MENU_SOLO_COUNT];
+    struct mp_stage_setup arenas[LEVEL_MENU_MULTI_COUNT];
+    struct LevelEntry *level;
+    int i, j, entry, stage, arenaCount = 0;
+    if (g_LevelMenuInitialized) return;
+    g_LevelMenuInitialized = TRUE;
+    if (g_LevelMenuConfig.version != LEVEL_MENU_VERSION
+        || campaignGetMissionCount() != LEVEL_MENU_SOLO_COUNT) return;
+    /* Validate the complete table before changing either menu. */
+    for (i = 0; i < LEVEL_MENU_SLOT_COUNT; i++)
+    {
+        stage = g_LevelMenuConfig.stages[i];
+        if (i >= LEVEL_MENU_SOLO_COUNT && stage == LEVELID_NONE) continue;
+        level = lvFindLevelInfo(stage);
+        if (!level || stage == LEVELID_TITLE || !level->setupFileName
+            || !level->bg_seg_filename || !level->bg_stan_filename) return;
+        if (i >= LEVEL_MENU_SOLO_COUNT) arenaCount++;
+    }
+    if (!arenaCount) return;
+    for (i = 0; i < LEVEL_MENU_SOLO_COUNT; i++)
+        original[i] = mission_folder_setup_entries[campaignGetEntryByOrder(i)];
+    for (i = 0; i < LEVEL_MENU_MULTI_COUNT; i++) arenas[i] = multi_stage_setups[i];
+    for (i = 0; i < LEVEL_MENU_SOLO_COUNT; i++)
+    {
+        entry = campaignGetEntryByOrder(i);
+        stage = g_LevelMenuConfig.stages[i];
+        mission_folder_setup_entries[entry].briefing_name_ptr = NULL;
+        for (j = 0; j < LEVEL_MENU_SOLO_COUNT; j++) if (original[j].stage_id == stage)
+        {
+            mission_folder_setup_entries[entry].briefing_name_ptr = original[j].briefing_name_ptr;
+            mission_folder_setup_entries[entry].folder_text_preset = original[j].folder_text_preset;
+            mission_folder_setup_entries[entry].icon_text_preset = original[j].icon_text_preset;
+            break;
+        }
+        /* Save/unlock/cheat slots and unique wallet photo switches belong to
+         * the box. Only the loaded level, its label and briefing change. */
+        mission_folder_setup_entries[entry].stage_id = levelMenuBaseStage(stage);
+    }
+    for (i = 0; i < LEVEL_MENU_MULTI_COUNT; i++)
+    {
+        stage = levelMenuBaseStage(g_LevelMenuConfig.stages[LEVEL_MENU_SOLO_COUNT + i]);
+        multi_stage_setups[i].stage_id = stage;
+        multi_stage_setups[i].photo = IMG_MP_RANDOM;
+        multi_stage_setups[i].min_player = 1;
+        multi_stage_setups[i].max_player = 4;
+        for (j = 0; j < LEVEL_MENU_MULTI_COUNT; j++) if (arenas[j].stage_id == stage)
+        {
+            multi_stage_setups[i].photo = arenas[j].photo;
+            multi_stage_setups[i].min_player = arenas[j].min_player;
+            multi_stage_setups[i].max_player = arenas[j].max_player;
+            break;
+        }
+        if (stage == LEVELID_NONE) multi_stage_setups[i].unlock_after = -1;
+    }
+    g_LevelMenuActive = TRUE;
+}
+
+static char *frontLevelMenuName(int slot, int preset)
+{
+    static const int defaults[LEVEL_MENU_SLOT_COUNT] = LEVEL_MENU_DEFAULT_STAGES;
+    static char name[34];
+    struct LevelEntry *level;
+    int length;
+    if (!g_LevelMenuActive || slot < 0 || slot >= LEVEL_MENU_SLOT_COUNT
+        || g_LevelMenuConfig.stages[slot] == defaults[slot]) return (char *)langGet(preset);
+    if (g_LevelMenuConfig.stages[slot] == LEVELID_NONE)
+        return (char *)langGet(getStringID(LTITLE, TITLE_STR_154_RANDOM));
+    level = lvFindLevelInfo(g_LevelMenuConfig.stages[slot]);
+    strncpy(name, level->levelName, 31); name[31] = '\0';
+    length = strlen(name); name[length] = '\n'; name[length + 1] = '\0';
+    return name;
+}
+static char *frontSoloLevelName(int entry, int preset)
+{
+    return frontLevelMenuName(campaignGetOrderBySaveSlot(mission_folder_setup_entries[entry].save_slot), preset);
+}
+static int frontSelectSoloStage(int entry)
+{
+    int slot = campaignGetOrderBySaveSlot(mission_folder_setup_entries[entry].save_slot);
+    return levelMenuSelectStage(g_LevelMenuActive ? g_LevelMenuConfig.stages[slot]
+        : mission_folder_setup_entries[entry].stage_id, FALSE);
+}
+
 enum { MP_CHARS_DEFAULT_COUNT = 11, MP_CHARS_COMPLETED_COUNT = 36 };
 s32 num_chars_selectable_mp = MP_CHARS_DEFAULT_COUNT;
 
@@ -2829,7 +2918,7 @@ void interface_menu07_missionsel(void)
         else if (mission_difficulty_highlighted >= 0)
         {
             briefingpage = campaignGetEntryByOrder(mission_difficulty_highlighted);
-            selected_stage = mission_folder_setup_entries[briefingpage].stage_id;
+            selected_stage = frontSelectSoloStage(briefingpage);
             tab_next_selected = 1;
 
             sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, DOOR_METAL_CLOSE2_SFX, NULL);
@@ -2877,7 +2966,7 @@ Gfx *constructor_menu07_missionsel(Gfx *DL)
     s32 temp_s0;
     s32 var_s5;
     s32 padding2[5];
-    u8 sp90[24];
+    u8 sp90[64];
     s32 sp8C;
     s32 sp88;
     s32 temp_v0_3;
@@ -2909,11 +2998,11 @@ Gfx *constructor_menu07_missionsel(Gfx *DL)
 
                 if (mission_folder_setup_entries[temp_s0].icon_text_preset)
                 {
-                    strcpy(sp90, langGet(mission_folder_setup_entries[temp_s0].icon_text_preset));
+                    strcpy(sp90, frontSoloLevelName(temp_s0, mission_folder_setup_entries[temp_s0].icon_text_preset));
                 }
                 else
                 {
-                    strcpy(sp90, langGet(mission_folder_setup_entries[temp_s0].folder_text_preset));
+                    strcpy(sp90, frontSoloLevelName(temp_s0, mission_folder_setup_entries[temp_s0].folder_text_preset));
                 }
 
                 temp_v0_3 = strlen(sp90) - 1;
@@ -3096,7 +3185,7 @@ Gfx * print_current_solo_briefing_stage_name(Gfx *DL, char *text)
     strcpy(text, langGet(getStringID(LTITLE, TITLE_STR_34_PART)));
     strcat(text, mission_folder_setup_entries[briefingpage].number_text);
     strcat(text, ": ");
-    strcat(text, langGet(mission_folder_setup_entries[briefingpage].folder_text_preset));
+    strcat(text, frontSoloLevelName(briefingpage, mission_folder_setup_entries[briefingpage].folder_text_preset));
     strcat(text, "\n");
     x = 0x37;
     y = 0x77;
@@ -3606,6 +3695,14 @@ u32 get_player_control_style(s32 playernum)
 s32 check_if_mp_stage_unlocked(s32 stage)
 {
     s32 players;
+    s32 i;
+    if (stage < 0 || stage >= LEVEL_MENU_MULTI_COUNT) return FALSE;
+    if (multi_stage_setups[stage].stage_id == LEVELID_NONE)
+    {
+        for (i = 0; i < LEVEL_MENU_MULTI_COUNT; i++)
+            if (multi_stage_setups[i].stage_id != LEVELID_NONE && check_if_mp_stage_unlocked(i)) return TRUE;
+        return FALSE;
+    }
     if (!multi_stage_setups[stage].min_player)
     {
         return FALSE;
@@ -3626,6 +3723,32 @@ s32 check_if_mp_stage_unlocked(s32 stage)
     return FALSE;
 }
 
+
+static int frontSelectMultiStage(int slot)
+{
+    s32 chosen = slot;
+    if (slot < 0 || slot >= LEVEL_MENU_MULTI_COUNT) return LEVELID_NONE;
+    if (multi_stage_setups[chosen].stage_id < 0)
+    {
+        s32 i, count = 0, pick;
+        for (i = 0; i < LEVEL_MENU_MULTI_COUNT; i++)
+            if (multi_stage_setups[i].stage_id >= 0 && check_if_mp_stage_unlocked(i)) count++;
+        if (!count) return LEVELID_NONE;
+        pick = randomGetNext() % (u32)count;
+        for (i = 0; i < LEVEL_MENU_MULTI_COUNT; i++)
+        {
+            if (multi_stage_setups[i].stage_id >= 0 && check_if_mp_stage_unlocked(i) && pick-- == 0)
+            { chosen = i; break; }
+        }
+    }
+    if (g_LevelMenuActive)
+        return levelMenuSelectStage(g_LevelMenuConfig.stages[LEVEL_MENU_SOLO_COUNT + chosen], TRUE);
+    else
+    {
+        levelMenuClearLaunch();
+        return multi_stage_setups[chosen].stage_id;
+    }
+}
 
 void select_game_length(void)
 {
@@ -4122,19 +4245,8 @@ void interface_menu0E_mpoptions(void)
 
     if (tab_start_selected)
     {
-        if (multi_stage_setups[MP_stage_selected].stage_id < 0)
-        {
-            s32 temp_hi;
-            do
-            {
-                temp_hi = randomGetNext() % (u32)(MP_STAGE_SELECTED_MAX - 1);
-                selected_stage = multi_stage_setups[1 + temp_hi].stage_id;
-            } while (check_if_mp_stage_unlocked(temp_hi + 1) == 0);
-        }
-        else
-        {
-            selected_stage = multi_stage_setups[MP_stage_selected].stage_id;
-        }
+        selected_stage = frontSelectMultiStage(MP_stage_selected);
+        if (selected_stage == LEVELID_NONE) return;
 
         briefingpage = -1;
         frontChangeMenu(MENU_RUN_STAGE, 1);
@@ -4357,7 +4469,7 @@ Gfx * constructor_menu0E_mpoptions(Gfx *DL)
   y = 0x8d;
   DL = frontPrintText(DL,&x,&y,text,ptrFontZurichBoldChars,ptrFontZurichBold,0xff,viGetX(),viGetY(),0,0);
 
-  text = langGet(multi_stage_setups[MP_stage_selected].folder_text_preset);
+  text = frontLevelMenuName(LEVEL_MENU_SOLO_COUNT + MP_stage_selected, multi_stage_setups[MP_stage_selected].folder_text_preset);
   x = 0xa0;
   y = 0xa1;
   if (unlock_stage_select) {
@@ -5591,19 +5703,19 @@ Gfx * constructor_menu12_mpstage(Gfx *DL)
                         var_s2_2 = -0x100;
                     }
 
-                    textMeasure(&sp128, &sp124, langGet(multi_stage_setups[count_2].select_screen_text_preset), ptrFontBankGothicChars, ptrFontBankGothic, 0);
+                    textMeasure(&sp128, &sp124, frontLevelMenuName(LEVEL_MENU_SOLO_COUNT + count_2, multi_stage_setups[count_2].select_screen_text_preset), ptrFontBankGothicChars, ptrFontBankGothic, 0);
 
                     sp130 = var_s6 - 0x1F;
                     sp12C = sp90 - sp128;
 
                     DL = gfxDrawTranslucentRect(DL, sp130, sp12C, sp130 + sp124, sp12C + sp128, 0);
 
-                    DL = textRender(DL, &sp130, &sp12C, langGet(multi_stage_setups[count_2].select_screen_text_preset), ptrFontBankGothicChars, ptrFontBankGothic, var_s2_2 | 0xFF, viGetX(), viGetY(), 0, 0);
+                    DL = textRender(DL, &sp130, &sp12C, frontLevelMenuName(LEVEL_MENU_SOLO_COUNT + count_2, multi_stage_setups[count_2].select_screen_text_preset), ptrFontBankGothicChars, ptrFontBankGothic, var_s2_2 | 0xFF, viGetX(), viGetY(), 0, 0);
 
                     sp130 = var_s6 - 0x1F;
                     sp12C = sp90 - sp128;
 
-                    DL = textRender(DL, &sp130, &sp12C, langGet(multi_stage_setups[count_2].select_screen_text_preset), ptrFontBankGothicChars, ptrFontBankGothic, var_s2_2 | 0x64, viGetX(), viGetY(), 0, 0);
+                    DL = textRender(DL, &sp130, &sp12C, frontLevelMenuName(LEVEL_MENU_SOLO_COUNT + count_2, multi_stage_setups[count_2].select_screen_text_preset), ptrFontBankGothicChars, ptrFontBankGothic, var_s2_2 | 0x64, viGetX(), viGetY(), 0, 0);
                 }
 
                 var_s6 += 0x55;
@@ -6099,6 +6211,8 @@ void load_briefing_text_for_stage(void)
 
     // alright
     argg = 0x200;
+    if (!mission_folder_setup_entries[briefingpage].briefing_name_ptr)
+    { ptrbriefingdata = &g_EmptyMenuBriefing; return; }
     ptrbriefingdata = _fileNameLoadToAddr(mission_folder_setup_entries[briefingpage].briefing_name_ptr, FILELOADMETHOD_DEFAULT, (u8 *) temp_s0, argg);
 
     // what is this
@@ -6135,7 +6249,8 @@ void init_menu0A_briefing(void)
 
 void update_menu0A_briefing(void)
 {
-  langClearBank(langGetLangBankIndexFromStagenum(mission_folder_setup_entries[briefingpage].stage_id));
+  if (mission_folder_setup_entries[briefingpage].briefing_name_ptr)
+    langClearBank(langGetLangBankIndexFromStagenum(mission_folder_setup_entries[briefingpage].stage_id));
   if (-1 < menu_update) {
     frontCleanUpWalletBond();
   }
@@ -6374,19 +6489,19 @@ Gfx *constructor_menu0A_briefing(Gfx *DL)
         switch (current_menu_briefing_page)
         {
             case BRIEFING_OVERVIEW:
-                spC0C = langGet(ptrbriefingdata->brief[0]);
+                spC0C = ptrbriefingdata->brief[0] ? langGet(ptrbriefingdata->brief[0]) : (u8 *)"";
             break;
 
             case BRIEFING_M:
-                spC0C = langGet(ptrbriefingdata->brief[1]);
+                spC0C = ptrbriefingdata->brief[1] ? langGet(ptrbriefingdata->brief[1]) : (u8 *)"";
             break;
 
             case BRIEFING_Q:
-                spC0C = langGet(ptrbriefingdata->brief[2]);
+                spC0C = ptrbriefingdata->brief[2] ? langGet(ptrbriefingdata->brief[2]) : (u8 *)"";
             break;
 
             case BRIEFING_MONEYPENNY:
-                spC0C = langGet(ptrbriefingdata->brief[3]);
+                spC0C = ptrbriefingdata->brief[3] ? langGet(ptrbriefingdata->brief[3]) : (u8 *)"";
             break;
         }
 
@@ -6693,12 +6808,13 @@ void interface_menu0D_missioncomplete()
                 if (entry < 0)
                 {
                     frontChangeMenu(MENU_RUN_STAGE, TRUE);
+                    levelMenuClearLaunch();
                     selected_stage = LEVELID_CUBA;
                 }
                 else
                 {
                     briefingpage = entry;
-                    selected_stage = mission_folder_setup_entries[entry].stage_id;
+                    selected_stage = frontSelectSoloStage(entry);
                     frontChangeMenu(MENU_BRIEFING, FALSE);
                 }
             }

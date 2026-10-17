@@ -409,6 +409,11 @@ static BOOL Levels(RebasePlan *plan, const GEditorProject *source,
             plan->project.levels[plan->project.levelcount++] = *level;
         }
     }
+    /* Slot edits are keyed by stable level ID and always favor the project.
+     * Untouched slots adopt the incoming ROM's defaults. */
+    if (!LevelSlotsReadRom(&plan->newrom, &plan->project.levelSlots, why)
+        || !LevelSlotsValidate(&plan->project.levelSlots, &plan->project.levelSlotOverrides,
+            plan->project.levels, plan->project.levelcount, why)) { return FALSE; }
     const char *environmentwhy = "";
     BOOL available = EnvironmentReadRom(&plan->newrom, &plan->project.environments, NULL, &environmentwhy);
     if (source->environmentOverrides.count)

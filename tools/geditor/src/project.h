@@ -6,6 +6,7 @@
 #include "rom.h"
 #include "environment.h"
 #include "levelmemory.h"
+#include "levelslots.h"
 
 typedef struct GEditorProject {
     char name[GEDITOR_NAME_MAX];
@@ -17,6 +18,8 @@ typedef struct GEditorProject {
     EnvironmentOverrides environmentOverrides;
     LevelMemoryTable memory; /* immutable defaults refreshed from base.z64 */
     LevelMemoryOverrides memoryOverrides;
+    LevelSlotTable levelSlots; /* immutable defaults refreshed from base.z64 */
+    LevelSlotOverrides levelSlotOverrides;
 } GEditorProject;
 
 BOOL ProjectCreate(const char *name, const char *location,

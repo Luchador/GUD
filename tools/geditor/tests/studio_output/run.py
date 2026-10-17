@@ -25,7 +25,7 @@ with tempfile.TemporaryDirectory(prefix='geditor-studio-output-') as temp:
                '-Wno-unused-parameter', '-Wno-format', '-ffunction-sections', '-fdata-sections',
                '-fsanitize=address,undefined', '-Dfopen=TestFopen', f'-I{shim}', f'-I{src}',
                f'-I{src.parents[2]}', str(here / 'check.c'), str(shim / 'platform.c'), str(work / 'alpha.c'),
-               str(src / 'studiooutput.c'), str(src / 'project.c'), '-Wl,--gc-sections', '-o', str(work / 'check')]
+               str(src / 'studiooutput.c'), str(src / 'project.c'), str(src / 'levelslots.c'), '-Wl,--gc-sections', '-o', str(work / 'check')]
     subprocess.run(command, check=True)
     subprocess.run([str(work / 'check'), str(work)], check=True,
                    env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))

@@ -30,8 +30,7 @@ typedef float f32;typedef int32_t s32;typedef uint32_t u32;
 #define TRUE 1
 #define FALSE 0
 #define ARRAYCOUNT(a) ((s32)(sizeof(a)/sizeof(*(a))))
-#define ENVIRONMENTDATA_PLAYERS_4 400
-enum LEVELID { LEVELID_TITLE=90 };
+#include "levelmenu.h"
 struct LevelEntry { s32 levelID; f32 chrLODDistance; };
 static struct LevelEntry g_LevelInfoTable[]={{29,.8f},{429,2},{90,.5f},{22,1.25f}};
 static int players=1,lookups;
@@ -50,6 +49,8 @@ static f32 viewscale=1,g_ModelDistanceScale=1;
 static s32 g_ModelDistanceDisabled;
 static f32 getPlayer_c_lodscalez(void) {return viewscale;}
 '''
+campaign = (ROOT / 'src/game/campaign.c').read_text()
+source += campaign[campaign.index('LevelMenuConfig g_LevelMenuConfig'):campaign.index('static int campaignIsMission')]
 source += re.search(r'^f32 g_ChrLodDistance[^;]*;', lv, re.M)[0] + '\n'
 source += function(lv, 'lvFindLevelInfo') + function(lv, 'lvFindStageInfo')
 # Run the actual stage-loader prefix, stopping before unrelated level loading.
@@ -105,6 +106,6 @@ with tempfile.TemporaryDirectory(prefix='gud-character-lod-distance-') as temp:
     (work / 'check.c').write_text(source)
     subprocess.run([os.environ.get('CC', 'cc'), '-std=c99', '-O1', '-g', '-Wall', '-Wextra',
         '-Werror', '-Wno-sign-compare', '-Wno-unused-variable', '-fsanitize=address,undefined', str(work / 'check.c'),
-        '-lm', '-o', str(work / 'check')], check=True)
+        f'-I{ROOT / "src/game"}', '-lm', '-o', str(work / 'check')], check=True)
     subprocess.run([str(work / 'check')], check=True,
         env=dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1'))

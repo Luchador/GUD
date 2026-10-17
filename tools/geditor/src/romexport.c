@@ -293,6 +293,10 @@ BOOL RomExportRefreshProjectLevelMetadata(GEditorProject *project, const char **
         }
         EnvironmentRefreshLevels(&project->environments, &project->environmentOverrides, project->levels, project->levelcount);
     }
+    if (matches)
+        matches = LevelSlotsReadRom(&rom, &project->levelSlots, reasonout)
+            && LevelSlotsValidate(&project->levelSlots, &project->levelSlotOverrides,
+                project->levels, project->levelcount, reasonout);
     RomFree(&rom);
     return matches;
 }
@@ -1568,6 +1572,7 @@ static BOOL RomExportBuild(const GEditorProject *project, RomFile *rom,
     return RomExportProjectMatchesRom(project, rom, reasonout)
         && EnvironmentApplyRom(rom, &project->environmentOverrides, reasonout)
         && LevelMemoryApplyRom(rom, &project->memoryOverrides, reasonout)
+        && LevelSlotsApplyRom(rom, &project->levelSlotOverrides, reasonout)
         && RomExportReplaceProjectResources(project, rom, report, featureRom, reasonout)
         && RomExportUpdateLevelTable(project, rom, reasonout)
         && NewPropsExportToRom(project->dir, rom, reasonout)

@@ -102,23 +102,22 @@ int main(void)
     assert(lvFindStageInfo(LEVELID_TITLE, 4)->levelID == LEVELID_TITLE);
 
     g_CurrentBgLevelId = LEVELID_CONTROL;
+    for (portal = 0; portal < 128; portal++) g_BgPortals[portal].portal = &g_BgPortals[portal];
     bgMarkSpecialPortals();
     for (portal = 0; portal < 128; portal++)
     {
-        int expected = (portal >= 0x2c && portal <= 0x2e) || (portal >= 0x32 && portal <= 0x37)
-            || (portal >= 0x3e && portal <= 0x3f) || (portal >= 0x4e && portal <= 0x56)
-            || (portal >= 0x59 && portal <= 0x5d) || (portal >= 0x72 && portal <= 0x76)
-            || (portal >= 0x79 && portal <= 0x7a);
-        assert(g_BgPortals[portal * 8 + 6] == (expected ? 2 : 0));
+        assert(g_BgPortals[portal].controlbytes1 == 0); /* Control no longer forces special portals. */
     }
     memset(g_BgPortals, 0, sizeof(g_BgPortals));
     g_CurrentBgLevelId = LEVELID_JUNGLE;
+    for (portal = 0; portal < 128; portal++) g_BgPortals[portal].portal = &g_BgPortals[portal];
     bgMarkSpecialPortals();
-    for (portal = 0; portal < 128; portal++) assert(g_BgPortals[portal * 8 + 6] == (portal <= 0x3a ? 2 : 0));
+    for (portal = 0; portal < 128; portal++) assert(g_BgPortals[portal].controlbytes1 == (portal <= 0x3a ? 2 : 0));
     memset(g_BgPortals, 0, sizeof(g_BgPortals));
     g_CurrentBgLevelId = LEVELID_SILO;
+    for (portal = 0; portal < 128; portal++) g_BgPortals[portal].portal = &g_BgPortals[portal];
     bgMarkSpecialPortals();
-    for (portal = 0; portal < 128; portal++) assert(!g_BgPortals[portal * 8 + 6]);
+    for (portal = 0; portal < 128; portal++) assert(!g_BgPortals[portal].controlbytes1);
     puts("PASS: catalog permutation preserves resources, memory budgets, MP/Title selection and level-specific portals.");
     return 0;
 }

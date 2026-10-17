@@ -1,6 +1,6 @@
 # Project audio
 
-Settings -> Project Settings has SFX and Music tabs. SFX lists the sound effects
+Settings -> Project Settings has Level Manager, SFX and Music tabs. SFX lists the sound effects
 from the open project's `base.z64`. Filter by name or by hexadecimal/decimal ID.
 The list shows the ID, a readable name, native sample format and sample byte size.
 Select an effect and click Play, double-click its row, or press Enter while the

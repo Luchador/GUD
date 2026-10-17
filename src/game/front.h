@@ -43,6 +43,7 @@ struct legal_screen_text {
 };
 
 #include "campaign.h"
+#include "levelmenu.h"
 
 struct MP_game_length_settings {
     u16 text_preset;

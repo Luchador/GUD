@@ -1,4 +1,5 @@
 #include <ultra64.h>
+#include "levelmenu.h"
 #include <math.h>
 #include <os_extension.h>
 #include <PR/libaudio.h>
@@ -167,6 +168,12 @@ struct LevelEntry *lvFindLevelInfo(enum LEVELID levelId)
 struct LevelEntry *lvFindStageInfo(enum LEVELID levelId, s32 numPlayers)
 {
     struct LevelEntry *levelInfo;
+    int explicitStage = levelMenuGetLaunchStage(levelId, numPlayers);
+    if (explicitStage != LEVELID_NONE)
+    {
+        levelInfo = lvFindLevelInfo(explicitStage);
+        if (levelInfo != NULL) return levelInfo;
+    }
 
     if (levelId != LEVELID_TITLE && numPlayers >= 2)
     {
@@ -185,12 +192,7 @@ struct LevelEntry *lvFindStageInfo(enum LEVELID levelId, s32 numPlayers)
 /* Prefer the multiplayer override, then the stage, then the default budget. */
 const char *lvGetMemoryAllocationString(enum LEVELID levelId, s32 numPlayers)
 {
-    struct LevelEntry *levelInfo = NULL;
-
-    if (levelId != LEVELID_TITLE && numPlayers >= 2)
-    {
-        levelInfo = lvFindLevelInfo(levelId + ENVIRONMENTDATA_PLAYERS_4);
-    }
+    struct LevelEntry *levelInfo = lvFindStageInfo(levelId, numPlayers);
 
     if (levelInfo == NULL || levelInfo->memoryAllocationString == NULL)
     {

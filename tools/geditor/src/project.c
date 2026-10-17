@@ -94,6 +94,7 @@ static BOOL ProjectWrite(const GEditorProject *proj)
 
     ok = ok && EnvironmentWriteOverrides(f, &proj->environmentOverrides);
     ok = ok && LevelMemoryWriteOverrides(f, &proj->memoryOverrides);
+    ok = ok && LevelSlotsWriteOverrides(f, &proj->levelSlotOverrides);
     return fclose(f) == 0 && ok;
 }
 
@@ -112,6 +113,7 @@ BOOL ProjectSave(const GEditorProject *proj, const char **reasonout)
         && !EnvironmentValidateOverrides(&proj->environments, &proj->environmentOverrides, reasonout)) { return FALSE; }
     if (proj->memoryOverrides.count
         && !LevelMemoryValidateOverrides(&proj->memory, &proj->memoryOverrides, reasonout)) { return FALSE; }
+    if (!LevelSlotsValidate(&proj->levelSlots, &proj->levelSlotOverrides, proj->levels, proj->levelcount, reasonout)) { return FALSE; }
 
     for (DWORD i = 0; i < proj->levelcount; i++)
         if (!RomScaleIsValid(proj->levels[i].levelscale) || !RomScaleIsValid(proj->levels[i].renderScale))
@@ -340,6 +342,11 @@ BOOL ProjectRead(const char *geppath, GEditorProject *proj)
         else if (strcmp(key, "memory") == 0)
         {
             if (!LevelMemoryReadOverride(&proj->memoryOverrides, value))
+            { fclose(f); ZeroMemory(proj, sizeof(*proj)); return FALSE; }
+        }
+        else if (strcmp(key, "levelslot") == 0)
+        {
+            if (!LevelSlotsReadOverride(&proj->levelSlotOverrides, value))
             { fclose(f); ZeroMemory(proj, sizeof(*proj)); return FALSE; }
         }
         /* unknown keys: ignored */
