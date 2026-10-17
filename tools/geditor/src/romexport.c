@@ -1577,6 +1577,7 @@ static BOOL RomExportBuild(const GEditorProject *project, RomFile *rom,
         && RomExportUpdateLevelTable(project, rom, reasonout)
         && NewPropsExportToRom(project->dir, rom, reasonout)
         && ImageEditsExportToRom(project->dir, rom, reasonout)
+        && LevelAssetsValidateRom(rom, &project->levelSlots, &project->levelSlotOverrides, reasonout)
         && RomExportUpdateChecksum(rom, reasonout);
 }
 

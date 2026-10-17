@@ -186,6 +186,7 @@ SECTIONS
    _romSegmentEnd = _csegmentSegmentRomEnd;
    _gedLevelMemoryRom = _csegmentSegmentRomStart + (g_LevelMemoryAllocationStrings - _csegmentSegmentStart);
    _gedLevelTableRom = _csegmentSegmentRomStart + (g_LevelInfoTable - _csegmentSegmentStart);
+   _gedLevelAssetsRom = _csegmentSegmentRomStart + (g_LevelMenuAssets - _csegmentSegmentStart);
    _gedLevelMenuRom = _csegmentSegmentRomStart + (g_LevelMenuConfig - _csegmentSegmentStart);
    _gedFileTableRom = _csegmentSegmentRomStart + (file_resource_table - _csegmentSegmentStart);
    _gedEnvTableRom = _csegmentSegmentRomStart + (g_EnvTable - _csegmentSegmentStart);

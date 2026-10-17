@@ -28,6 +28,7 @@
 #include "dyn.h"
 #include "file2.h"
 #include "front.h"
+#include "levelmenuwallet.h"
 #include "gbi_extension.h"
 #include "gmath.h"
 #include "image_bank.h"
@@ -368,12 +369,46 @@ static int g_LevelMenuInitialized = FALSE;
 static int g_LevelMenuActive = FALSE;
 static struct BriefingData g_EmptyMenuBriefing = {0};
 
+static int g_LevelMenuBriefingStage[LEVEL_MENU_SOLO_COUNT];
+static const LevelMenuAsset *frontMenuAsset(int slot)
+{
+    const LevelMenuAsset *a;
+    int i,j;
+    if (g_LevelMenuAssets.version != LEVEL_ASSETS_VERSION || slot < 0 || slot >= 32) return NULL;
+    a=&g_LevelMenuAssets.slots[slot];
+    if (a->flags & ~(slot<20 ? LEVEL_ASSET_ALL : LEVEL_ASSET_MP_FIELDS)) return NULL;
+    for (i=0;i<3;i++) {
+        if ((a->flags&LEVEL_ASSET_BIT(i)) && (u32)a->images[i]>=g_TextureRomConfig.textureCount) return NULL;
+        for (j=0;j<32 && a->names[i][j];j++) if ((u8)a->names[i][j]<32 || (u8)a->names[i][j]>126) return NULL;
+        if (j==32) return NULL;
+    }
+    return a;
+}
+void frontApplyLevelMenuWallet(unsigned char *data,unsigned size,unsigned switches,unsigned textures)
+{
+    int i,order[20],changed=FALSE;
+    if (!g_LevelMenuActive) return;
+    for (i=0;i<20;i++) {
+        const LevelMenuAsset *a=frontMenuAsset(i);
+        if (!a) return;
+        if (a->flags&7) changed=TRUE;
+        order[i]=campaignGetPhotoOrder(SW_BRIEF1+i);
+    }
+    if (changed) levelWalletPatch(data,size,switches,textures,g_LevelMenuAssets.slots,order,NULL);
+}
+static int frontBriefingStage(int entry)
+{
+    int slot=campaignGetOrderBySaveSlot(mission_folder_setup_entries[entry].save_slot);
+    return g_LevelMenuActive && slot>=0 ? g_LevelMenuBriefingStage[slot] : mission_folder_setup_entries[entry].stage_id;
+}
+
 void frontInitLevelMenu(void)
 {
     struct mission_folder_setup original[LEVEL_MENU_SOLO_COUNT];
     struct mp_stage_setup arenas[LEVEL_MENU_MULTI_COUNT];
     struct LevelEntry *level;
-    int i, j, entry, stage, arenaCount = 0;
+    int i, j, entry, stage, source, arenaCount = 0;
+    const LevelMenuAsset *asset;
     if (g_LevelMenuInitialized) return;
     g_LevelMenuInitialized = TRUE;
     if (g_LevelMenuConfig.version != LEVEL_MENU_VERSION
@@ -396,10 +431,18 @@ void frontInitLevelMenu(void)
     {
         entry = campaignGetEntryByOrder(i);
         stage = g_LevelMenuConfig.stages[i];
+        asset=frontMenuAsset(i);
+        source=asset && (asset->flags&LEVEL_ASSET_BIT(LEVEL_ASSET_BRIEF_SOURCE)) ? asset->briefingStage : stage;
+        g_LevelMenuBriefingStage[i]=LEVELID_NONE;
         mission_folder_setup_entries[entry].briefing_name_ptr = NULL;
-        for (j = 0; j < LEVEL_MENU_SOLO_COUNT; j++) if (original[j].stage_id == stage)
+        for (j = 0; j < LEVEL_MENU_SOLO_COUNT; j++) if (original[j].stage_id == source)
         {
             mission_folder_setup_entries[entry].briefing_name_ptr = original[j].briefing_name_ptr;
+            g_LevelMenuBriefingStage[i]=source;
+            break;
+        }
+        for (j = 0; j < LEVEL_MENU_SOLO_COUNT; j++) if (original[j].stage_id == stage)
+        {
             mission_folder_setup_entries[entry].folder_text_preset = original[j].folder_text_preset;
             mission_folder_setup_entries[entry].icon_text_preset = original[j].icon_text_preset;
             break;
@@ -427,12 +470,16 @@ void frontInitLevelMenu(void)
     g_LevelMenuActive = TRUE;
 }
 
-static char *frontLevelMenuName(int slot, int preset)
+static char *frontLevelMenuNameFor(int slot, int preset, int field)
 {
     static const int defaults[LEVEL_MENU_SLOT_COUNT] = LEVEL_MENU_DEFAULT_STAGES;
     static char name[34];
     struct LevelEntry *level;
     int length;
+    const LevelMenuAsset *a=frontMenuAsset(slot);
+    if (g_LevelMenuActive && a && (a->flags&LEVEL_ASSET_BIT(field))) {
+        strcpy(name,a->names[field-3]);length=strlen(name);name[length]='\n';name[length+1]=0;return name;
+    }
     if (!g_LevelMenuActive || slot < 0 || slot >= LEVEL_MENU_SLOT_COUNT
         || g_LevelMenuConfig.stages[slot] == defaults[slot]) return (char *)langGet(preset);
     if (g_LevelMenuConfig.stages[slot] == LEVELID_NONE)
@@ -441,6 +488,16 @@ static char *frontLevelMenuName(int slot, int preset)
     strncpy(name, level->levelName, 31); name[31] = '\0';
     length = strlen(name); name[length] = '\n'; name[length + 1] = '\0';
     return name;
+}
+static char *frontLevelMenuName(int slot,int preset)
+{ return frontLevelMenuNameFor(slot,preset,LEVEL_ASSET_MENU_NAME); }
+static char *frontSoloPartName(int entry,int preset)
+{ return frontLevelMenuNameFor(campaignGetOrderBySaveSlot(mission_folder_setup_entries[entry].save_slot),preset,LEVEL_ASSET_PART_NAME); }
+static char *frontSoloMissionName(int entry,int preset)
+{
+    int slot=campaignGetOrderBySaveSlot(mission_folder_setup_entries[entry].save_slot);
+    const LevelMenuAsset *a=frontMenuAsset(slot);
+    return g_LevelMenuActive && a && (a->flags&LEVEL_ASSET_BIT(LEVEL_ASSET_MISSION_NAME)) ? (char *)a->names[1] : (char *)langGet(preset);
 }
 static char *frontSoloLevelName(int entry, int preset)
 {
@@ -3175,7 +3232,7 @@ Gfx * print_current_solo_briefing_stage_name(Gfx *DL, char *text)
         strcpy(text, langGet(getStringID(LTITLE, TITLE_STR_33_MISSION2)));
         strcat(text, mission_folder_setup_entries[chapter].number_text);
         strcat(text, ": ");
-        strcat(text, langGet(mission_folder_setup_entries[chapter].folder_text_preset));
+        strcat(text, frontSoloMissionName(briefingpage, mission_folder_setup_entries[chapter].folder_text_preset));
         strcat(text, "\n");
         x = 0x37;
         y = 0x67;
@@ -3185,7 +3242,7 @@ Gfx * print_current_solo_briefing_stage_name(Gfx *DL, char *text)
     strcpy(text, langGet(getStringID(LTITLE, TITLE_STR_34_PART)));
     strcat(text, mission_folder_setup_entries[briefingpage].number_text);
     strcat(text, ": ");
-    strcat(text, frontSoloLevelName(briefingpage, mission_folder_setup_entries[briefingpage].folder_text_preset));
+    strcat(text, frontSoloPartName(briefingpage, mission_folder_setup_entries[briefingpage].folder_text_preset));
     strcat(text, "\n");
     x = 0x37;
     y = 0x77;
@@ -5592,6 +5649,8 @@ Gfx * constructor_menu12_mpstage(Gfx *DL)
     s32 var_s6;
     s32 var_s2_2;
     struct sImageTableEntry *simage;
+    struct sImageTableEntry customImage;
+    const LevelMenuAsset *asset;
     s32 count;
     s32 count_2;
     s32 padding;
@@ -5645,6 +5704,10 @@ Gfx * constructor_menu12_mpstage(Gfx *DL)
             {
                 simage = &mpstageselimages[multi_stage_setups[count].photo];
 
+                asset=frontMenuAsset(20+count);
+                if (g_LevelMenuActive && asset && (asset->flags&LEVEL_ASSET_BIT(LEVEL_ASSET_MENU_IMAGE))) {
+                    customImage=*simage;customImage.index=asset->images[0];customImage.level=0;simage=&customImage;
+                }
                 texSelect(&DL, simage, 1, 0, 2);
 
                 if (count == current_mp_stage_highlighted)
@@ -6221,7 +6284,7 @@ void load_briefing_text_for_stage(void)
     // what is this
     argg *= 879;
 
-    langLoadToBank(langGetLangBankIndexFromStagenum(mission_folder_setup_entries[briefingpage].stage_id), (u8 *)temp_s0, argg);
+    langLoadToBank(langGetLangBankIndexFromStagenum(frontBriefingStage(briefingpage)), (u8 *)temp_s0, argg);
 
     // what is this
     for (argg = 0; argg < OBJECTIVES_MAX; argg++)
@@ -6250,7 +6313,7 @@ void init_menu0A_briefing(void)
 void update_menu0A_briefing(void)
 {
   if (mission_folder_setup_entries[briefingpage].briefing_name_ptr)
-    langClearBank(langGetLangBankIndexFromStagenum(mission_folder_setup_entries[briefingpage].stage_id));
+    langClearBank(langGetLangBankIndexFromStagenum(frontBriefingStage(briefingpage)));
   if (-1 < menu_update) {
     frontCleanUpWalletBond();
   }

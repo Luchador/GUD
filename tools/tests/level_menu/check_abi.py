@@ -11,7 +11,7 @@ objects=importlib.util.module_from_spec(spec);spec.loader.exec_module(objects)
 build=Path(sys.argv[1]) if len(sys.argv)>1 else root/'build/u'
 manifest=objects.Object(build/'src/game/gedmanifest.o')
 version,count=struct.unpack_from('>II',manifest.bytes('g_GedManifest',24),16)
-assert version==3 and count==36
+assert version==3 and count==37
 blob=manifest.bytes('g_GedManifest',24+16*count)
 entries=[24+i*16 for i in range(count) if blob[24+i*16:28+i*16]==b'LVSL']
 assert len(entries)==1
@@ -25,3 +25,14 @@ expected=(1,33,34,35,36,9,20,26,43,27,22,24,29,30,25,37,23,39,41,28,32,
 assert struct.unpack('>33i',obj.bytes('g_LevelMenuConfig',132))==expected
 assert obj.named['g_LevelMenuConfig'][2]==132
 print('PASS: real IDO N64 objects contain the 132-byte big-endian LVSL defaults and both manifest relocations.')
+
+entries=[24+i*16 for i in range(count) if blob[24+i*16:28+i*16]==b'LVAS']
+assert len(entries)==1
+entry=entries[0]
+assert struct.unpack_from('>I',blob,entry+12)[0]==1
+manifest.pointer('g_GedManifest',entry+4,'_gedLevelAssetsRom')
+manifest.pointer('g_GedManifest',entry+8,'_gedLevelAssetsRom',3716)
+# IDO reports the initializer's compact size for this nested char-array struct;
+# verify all emitted bytes and manifest endpoint instead of ELF st_size.
+assert obj.bytes('g_LevelMenuAssets',3716)==struct.pack('>I',1)+bytes(3712)
+print('PASS: real IDO N64 objects contain the 3716-byte LVAS defaults and both manifest relocations.')

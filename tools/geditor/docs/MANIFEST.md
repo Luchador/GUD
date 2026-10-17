@@ -259,3 +259,31 @@ with other bounded manifest resources. The runtime validates all entries before
 changing either menu and falls back to its compiled menus if validation fails.
 The table changes loaded resources and labels while preserving campaign save
 slots and progression. See [Level Manager](LEVEL_MANAGER.md).
+
+
+## Level menu assets
+
+`LVAS` supplements LVSL without changing its version or 132-byte ABI. It is an
+optional, non-overlapping, four-byte-aligned CMAP range with flags 1 and exact
+size 3716 bytes. `_gedLevelAssetsRom` locates `g_LevelMenuAssets`.
+
+The big-endian layout is `u32 version = 1`, then 32 records of 116 bytes:
+
+| Record offset | Type | Meaning |
+| --- | --- | --- |
+| 0 | u32 | Explicit-field flags, bits 0-6 |
+| 4, 8, 12 | s32 each | Menu image, briefing upper image, briefing lower image IDs |
+| 16 | s32 | Briefing source level ID; -1 means empty |
+| 20, 52, 84 | char[32] each | Menu, mission and part names, ASCII, NUL terminated |
+
+Bits 0-6 correspond to the three images, three names, then briefing source. An
+unset bit inherits the existing menu behavior. MP records (20-31) support only
+bits 0 and 3. Unused fields are zero in generated tables. The shared declaration
+is `src/levelmenuassets.h`; runtime defaults have all override bits clear.
+
+Project `levelasset` rows use decimal slot/field/numeric values, hexadecimal
+encoded ASCII names, or `default` to explicitly clear a base-ROM override. Field
+masks distinguish untouched fields from authored resets when rebasing. GEditor
+validates the final packed image records and briefing resources before publication.
+SP artwork uses the wallet's native two-half photograph layout and is substituted
+on load before pointer promotion/texture expansion, never in an active RDP list.

@@ -528,6 +528,6 @@ $(addprefix $(BUILD_DIR)/src/game/,doorshadow.o dyn.o): src/game/dyn.h
 
 # Level identities are shared with setup AI and GEditor. Catalog order/count
 # comes from one definition; rebuild the native manifest when that changes.
-$(GAMEOBJECTS) $(CODEOBJECTS) $(SETUP_O_FILES): src/levelids.h src/levelmenuformat.h src/game/levelmenu.h
+$(GAMEOBJECTS) $(CODEOBJECTS) $(SETUP_O_FILES): src/levelids.h src/levelmenuformat.h src/levelmenuassets.h src/game/levelmenuwallet.h src/game/levelmenu.h
 $(BUILD_DIR)/src/game/lv.o $(BUILD_DIR)/src/game/gedmanifest.o: src/game/lv.h src/game/leveltable.inc
 $(BUILD_DIR)/src/game/campaign.o $(BUILD_DIR)/src/game/front.o $(BUILD_DIR)/src/game/file.o $(BUILD_DIR)/src/game/file2.o $(BUILD_DIR)/src/game/cheat.o $(BUILD_DIR)/src/game/ramromreplay.o: src/game/campaign.h

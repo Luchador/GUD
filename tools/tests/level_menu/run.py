@@ -50,6 +50,8 @@ source += lv[lv.index('#define LEVEL('):lv.index('struct LevelEntry *lvFindLevel
 for name in ('lvFindLevelInfo','lvFindStageInfo','lvGetMemoryAllocationString'):
     source += function(lv,name)
 source += '''static int g_LevelMenuInitialized, g_LevelMenuActive;
+static int g_LevelMenuBriefingStage[20];
+static struct {unsigned textureCount;} g_TextureRomConfig={4096};
 static int players=4, selected_folder_num, unlocked=1;
 static u32 randomValue;
 static u32 randomGetNext(void) { return randomValue; }
@@ -58,7 +60,8 @@ static int fileIsStageUnlockedAtDifficulty(int folder,int slot,int difficulty)
 {(void)folder;(void)slot;(void)difficulty;return unlocked;}
 static char *langGet(int preset) {(void)preset;return "localized\\n";}
 '''
-for name in ('frontInitLevelMenu','frontLevelMenuName','frontSoloLevelName','frontSelectSoloStage',
+for name in ('frontMenuAsset','frontBriefingStage','frontInitLevelMenu','frontLevelMenuNameFor','frontLevelMenuName',
+             'frontSoloPartName','frontSoloMissionName','frontSoloLevelName','frontSelectSoloStage',
              'check_if_mp_stage_unlocked','frontSelectMultiStage'):
     source += function(front,name)
 source += r'''
@@ -75,7 +78,13 @@ int main(void)
     g_LevelMenuConfig.stages[21]=LEVELID_NONE; /* Random is movable. */
     g_LevelMenuConfig.stages[22]=LEVELID_FACILITY_MP;
     g_LevelMenuConfig.stages[23]=LEVELID_BUNKER2_MP;
+    g_LevelMenuAssets.slots[4].flags=LEVEL_ASSET_BIT(LEVEL_ASSET_BRIEF_SOURCE);
+    g_LevelMenuAssets.slots[4].briefingStage=LEVELID_FRIGATE;
     frontInitLevelMenu();assert(g_LevelMenuActive);
+    assert(frontBriefingStage(campaignGetEntryByOrder(0))==LEVELID_FRIGATE);
+    assert(frontBriefingStage(campaignGetEntryByOrder(2))==LEVELID_NONE);
+    assert(frontBriefingStage(campaignGetEntryByOrder(4))==LEVELID_FRIGATE);
+    assert(mission_folder_setup_entries[campaignGetEntryByOrder(4)].briefing_name_ptr==original[6].briefing_name_ptr);
     for(int i=0;i<20;i++) {
         struct mission_folder_setup *entry=&mission_folder_setup_entries[campaignGetEntryByOrder(i)];
         assert(entry->save_slot==original[i].save_slot && entry->photo_switch==original[i].photo_switch);
@@ -114,12 +123,26 @@ int main(void)
     memcpy(multi_stage_setups,arenas,sizeof(arenas));g_LevelMenuActive=0;
     assert(frontSelectMultiStage(7)==LEVELID_FACILITY);
     assert(lvFindStageInfo(LEVELID_FACILITY,4)->levelID==LEVELID_FACILITY_MP);
+    /* Independent names and malformed asset fallback. */
+    g_LevelMenuActive=1;
+    LevelMenuAsset *a=&g_LevelMenuAssets.slots[0];
+    a->flags=LEVEL_ASSET_BIT(LEVEL_ASSET_MENU_NAME);strcpy(a->names[0],"Custom menu");
+    assert(!strcmp(frontSoloLevelName(campaignGetEntryByOrder(0),1),"Custom menu\n"));
+    assert(!strcmp(frontSoloPartName(campaignGetEntryByOrder(0),1),"Frigate\n"));
+    assert(!strcmp(frontSoloMissionName(campaignGetEntryByOrder(0),1),"localized\n"));
+    a->flags|=LEVEL_ASSET_BIT(LEVEL_ASSET_PART_NAME)|LEVEL_ASSET_BIT(LEVEL_ASSET_MISSION_NAME);
+    strcpy(a->names[1],"Custom mission");strcpy(a->names[2],"Custom part");
+    assert(!strcmp(frontSoloPartName(campaignGetEntryByOrder(0),1),"Custom part\n"));
+    assert(!strcmp(frontSoloMissionName(campaignGetEntryByOrder(0),1),"Custom mission"));
+    memset(a->names[0],'x',32);assert(!frontMenuAsset(0));
+    assert(!strcmp(frontSoloLevelName(campaignGetEntryByOrder(0),1),"Frigate\n"));
+    memset(a,0,sizeof(*a));
     /* Malformed input must leave both menus alone. */
     for(int i=0;i<20;i++)mission_folder_setup_entries[campaignGetEntryByOrder(i)]=original[i];
-    g_LevelMenuInitialized=0;g_LevelMenuConfig.stages[0]=LEVELID_TITLE;
+    g_LevelMenuInitialized=0;g_LevelMenuActive=0;g_LevelMenuConfig.stages[0]=LEVELID_TITLE;
     frontInitLevelMenu();assert(!g_LevelMenuActive);
     assert(mission_folder_setup_entries[campaignGetEntryByOrder(0)].stage_id==LEVELID_DAM);
-    puts("PASS: campaign slot identity, duplicate levels, briefing metadata, labels, exact SP/MP resources and budgets, moved Random, player limits, empty pool and legacy fallback.");
+    puts("PASS: campaign slot identity, duplicate levels, briefing source/bank routing, independent names, invalid asset fallback, labels, exact SP/MP resources and budgets, moved Random, player limits, empty pool and legacy fallback.");
 }
 '''
 with tempfile.TemporaryDirectory(prefix='gud-level-menu-') as temp:

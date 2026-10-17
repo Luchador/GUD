@@ -551,6 +551,7 @@ static BOOL GEditorReloadCurrentObjectsAndViewport(const char **reasonout)
 
 static void GEditorRefreshImageViews(HWND hwnd, DWORD id, BOOL reveal)
 {
+    ProjectSettingsRefresh(&g_Project);
     TexThumb *items = NULL;
     unsigned char *pixels = NULL;
     const char *why = "";
@@ -969,7 +970,7 @@ static void GEditorOpenProject(HWND hwnd, const char *path)
 
     /* A save can update the very project being reopened. Read its metadata
      * after resolving the current edits, so that snapshot cannot go stale. */
-    if ((g_ProjectMetadataDirty || LevelManagerHasSettingsDraft()) && !GEditorConfirmExit(hwnd)) { return; }
+    if ((g_ProjectMetadataDirty || (LevelManagerHasSettingsDraft() || ProjectSettingsHasDraft())) && !GEditorConfirmExit(hwnd)) { return; }
     if (!ProjectRead(path, &project))
     {
         char message[MAX_PATH + 128];
@@ -1721,7 +1722,7 @@ static BOOL GEditorHasUnsavedChanges(void)
 {
     return g_Project.name[0] != '\0'
         && (g_CurrentBgDocument.dirty || g_CurrentSetup.dirty
-            || g_CurrentStan.dirty || g_ProjectMetadataDirty || LevelManagerHasSettingsDraft() || ModelEditsHasUnsaved()
+            || g_CurrentStan.dirty || g_ProjectMetadataDirty || (LevelManagerHasSettingsDraft() || ProjectSettingsHasDraft()) || ModelEditsHasUnsaved()
             || ImageEditsHasUnsaved());
 }
 
@@ -1762,7 +1763,7 @@ static BOOL GEditorSaveProject(HWND hwnd)
     BOOL saved = FALSE;
     SetupStanRefresh padstats = {0};
 
-    if (!LevelManagerApplySettings() || !PatrolEditorApply()) { return FALSE; }
+    if (!ProjectSettingsApply() || !LevelManagerApplySettings() || !PatrolEditorApply()) { return FALSE; }
 
     if (g_Project.name[0] == '\0')
     {
@@ -6540,6 +6541,18 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 {
     switch (msg)
     {
+    case PROJECTSETTINGS_WM_DRAFT:
+        GEditorSetTitleForProject(hwnd); return TRUE;
+    case PROJECTSETTINGS_WM_LEVEL_ASSETS:
+    {
+        ProjectLevelAssetEdit *edit=(ProjectLevelAssetEdit *)lparam;
+        LevelSlotOverrides next=g_Project.levelSlotOverrides;
+        if (!edit || !g_Project.name[0] || !LevelAssetsSet(&g_Project.levelSlots,&next,g_Project.levels,
+            g_Project.levelcount,edit->slot,&edit->value,&edit->why)) return FALSE;
+        if (memcmp(&next,&g_Project.levelSlotOverrides,sizeof(next)))
+        { g_Project.levelSlotOverrides=next;g_ProjectMetadataDirty=TRUE;GEditorSetTitleForProject(hwnd); }
+        return TRUE;
+    }
     case PROJECTSETTINGS_WM_LEVEL_SLOT:
     {
         ProjectLevelSlotEdit *edit = (ProjectLevelSlotEdit *)lparam;
@@ -7643,7 +7656,7 @@ static LRESULT GEditorDispatchMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
             {
                 NewProjectInfo info;
 
-                if ((g_ProjectMetadataDirty || LevelManagerHasSettingsDraft()) && !GEditorConfirmExit(hwnd)) { return 0; }
+                if ((g_ProjectMetadataDirty || (LevelManagerHasSettingsDraft() || ProjectSettingsHasDraft())) && !GEditorConfirmExit(hwnd)) { return 0; }
                 if (!PatrolEditorConfirmClose(TRUE)) { return 0; }
                 if (GEditorPromptForNewProject(hwnd, &info))
                 {

@@ -1,7 +1,9 @@
 #ifndef GUD_LEVELMENU_H
 #define GUD_LEVELMENU_H
-#include "../levelmenuformat.h"
+#include "../levelmenuassets.h"
 extern LevelMenuConfig g_LevelMenuConfig;
+extern LevelMenuAssetConfig g_LevelMenuAssets;
+void frontApplyLevelMenuWallet(unsigned char *data,unsigned size,unsigned switches,unsigned textures);
 int levelMenuBaseStage(int stage);
 int levelMenuSelectStage(int stage, int multiplayer);
 void levelMenuClearLaunch(void);

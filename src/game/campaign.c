@@ -4,6 +4,7 @@
 /* Native big-endian LVSL data, patched by GEditor. Catalog IDs remain stable
  * even when rows are reordered or multiple menu boxes use the same level. */
 LevelMenuConfig g_LevelMenuConfig = { LEVEL_MENU_VERSION, LEVEL_MENU_DEFAULT_STAGES };
+LevelMenuAssetConfig g_LevelMenuAssets = { LEVEL_ASSETS_VERSION, {{0}} };
 static int g_LevelMenuLaunchStage = LEVELID_NONE;
 static int g_LevelMenuLaunchMultiplayer = 0;
 

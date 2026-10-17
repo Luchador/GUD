@@ -349,6 +349,11 @@ BOOL ProjectRead(const char *geppath, GEditorProject *proj)
             if (!LevelSlotsReadOverride(&proj->levelSlotOverrides, value))
             { fclose(f); ZeroMemory(proj, sizeof(*proj)); return FALSE; }
         }
+        else if (strcmp(key, "levelasset") == 0)
+        {
+            if (!LevelAssetsReadOverride(&proj->levelSlotOverrides, value))
+            { fclose(f); ZeroMemory(proj, sizeof(*proj)); return FALSE; }
+        }
         /* unknown keys: ignored */
     }
  

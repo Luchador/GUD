@@ -9,6 +9,8 @@
 #include "objecthandler.h"
 #include "quaternion.h"
 #include "tex.h"
+#include "levelmenu.h"
+#include <string.h>
 
 /* Preflight a private cutscene buffer before the unbounded legacy loader runs.
  * Only the caller's scratch and texture pool are changed. In particular, do
@@ -172,6 +174,8 @@ void load_object_fill_header(struct ModelFileHeader *objheader, u8 *name, u8* ds
     
     objheader->RootNode = (struct ModelNode *)&objheader->Textures[objheader->numtextures];
     
+    if (!strcmp((char *)name,"PwalletbondZ"))
+        frontApplyLevelMenuWallet(filedata,get_pc_remaining_buffer_for_index(fileGetIndex((char *)name)),objheader->numSwitches,objheader->numtextures);
     sub_GAME_7F075A90(objheader, 0x5000000, filedata);
     sub_GAME_7F0762E0(objheader, name, dst, buffer);
 }
