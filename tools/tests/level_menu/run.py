@@ -58,15 +58,77 @@ static u32 randomGetNext(void) { return randomValue; }
 static int get_selected_num_players(void) {return players;}
 static int fileIsStageUnlockedAtDifficulty(int folder,int slot,int difficulty)
 {(void)folder;(void)slot;(void)difficulty;return unlocked;}
-static char *langGet(int preset) {(void)preset;return "localized\\n";}
+static char *localized="localized";
+static char *langGet(int preset) {(void)preset;return localized;}
 '''
 for name in ('frontMenuAsset','frontBriefingStage','frontInitLevelMenu','frontLevelMenuNameFor','frontLevelMenuName',
              'frontSoloPartName','frontSoloMissionName','frontSoloLevelName','frontSelectSoloStage',
              'check_if_mp_stage_unlocked','frontSelectMultiStage'):
     source += function(front,name)
+# Exercise the real text measurement and label layout, including the solo
+# screen's own trailing newline, rather than checking returned names alone.
+font_types=(root/'src/bondtypes.h').read_text()
+for name in ('fontchar','font'):
+    source += re.search(r'struct '+name+r'\s*\{.*?\};',font_types,re.S)[0]+'\n'
+source += '''static struct font testfont;
+static struct font *ptrFontBankGothic=&testfont;
+static struct fontchar *ptrFontBankGothicChars=testfont.chars;
+static int text_spacing;
+#define SPACE_WIDTH 5
+'''
+source += function((root/'src/game/textrelated.c').read_text(),'textMeasure')
+for axis in 'xy':
+    source += re.search(r's32 cursor_'+axis+r'pos_table_mission_select\[\] = .*?;',front)[0]+'\n'
+solo=function(front,'constructor_menu07_missionsel')
+source += '''static void SoloLabel(int temp_s0,int spD8,int i,int out[4]) {
+    char sp90[64];int temp_v0_3,spC4,spC8,sp8C,sp88;
+'''
+source += solo[solo.index('                if (mission_folder_setup_entries[temp_s0].icon_text_preset)'):
+               solo.index('                DL = gfxDrawTranslucentRect')]
+source += 'out[0]=sp8C;out[1]=sp88;out[2]=spC4;out[3]=spC8;}\n'
+mp=function(front,'constructor_menu12_mpstage')
+start=mp.index('                    textMeasure(&sp128, &sp124, frontLevelMenuName')
+source += 'static void MultiLabel(int count_2,int var_s6,int sp90,int out[4]) {int sp128,sp124,sp130,sp12C;\n'
+source += mp[start:mp.index('                    DL = gfxDrawTranslucentRect',start)]
+source += 'out[0]=sp130;out[1]=sp12C;out[2]=sp124;out[3]=sp128;}\n'
 source += r'''
+static void CheckLabelAlignment(void)
+{
+    const char *names[]={"Archives","A","Night Harbour","1234567890123456789012345678901"};
+    int expected[4],actual[4],entry=campaignGetEntryByOrder(0);
+    const int defaults[32]=LEVEL_MENU_DEFAULT_STAGES;
+    char *saved=lvFindLevelInfo(LEVELID_ARCHIVES)->levelName;
+    g_LevelMenuActive=1;
+    for(int i=0;i<94;i++){testfont.chars[i].width=6;testfont.chars[i].height=10;testfont.chars[i].baseline=1;}
+    for(int i=0;i<13*13;i++)testfont.kerning[i]=1;
+    for(unsigned n=0;n<ARRAYCOUNT(names);n++) {
+        localized=(char *)names[n];
+        for(int slot=0;slot<20;slot++) {
+            LevelMenuAsset *a=&g_LevelMenuAssets.slots[0];memset(a,0,sizeof(*a));
+            g_LevelMenuConfig.stages[0]=defaults[0];SoloLabel(entry,slot%5,slot/5,expected);
+            assert(expected[3]==11); /* One line using deterministic font metrics. */
+            a->flags=LEVEL_ASSET_BIT(LEVEL_ASSET_MENU_NAME);strcpy(a->names[0],names[n]);
+            SoloLabel(entry,slot%5,slot/5,actual);assert(!memcmp(actual,expected,sizeof(actual)));
+            memset(a,0,sizeof(*a));g_LevelMenuConfig.stages[0]=LEVELID_ARCHIVES;
+            lvFindLevelInfo(LEVELID_ARCHIVES)->levelName=(char *)names[n];
+            SoloLabel(entry,slot%5,slot/5,actual);assert(!memcmp(actual,expected,sizeof(actual)));
+        }
+        for(int slot=20;slot<32;slot++) {
+            LevelMenuAsset *a=&g_LevelMenuAssets.slots[slot];memset(a,0,sizeof(*a));
+            g_LevelMenuConfig.stages[slot]=defaults[slot];MultiLabel(slot-20,86+(slot-20)%4*85,151+(slot-20)/4*70,expected);
+            a->flags=LEVEL_ASSET_BIT(LEVEL_ASSET_MENU_NAME);strcpy(a->names[0],names[n]);
+            MultiLabel(slot-20,86+(slot-20)%4*85,151+(slot-20)/4*70,actual);assert(!memcmp(actual,expected,sizeof(actual)));
+            memset(a,0,sizeof(*a));g_LevelMenuConfig.stages[slot]=LEVELID_ARCHIVES;
+            MultiLabel(slot-20,86+(slot-20)%4*85,151+(slot-20)/4*70,actual);assert(!memcmp(actual,expected,sizeof(actual)));
+        }
+    }
+    lvFindLevelInfo(LEVELID_ARCHIVES)->levelName=saved;localized="localized";
+    memcpy(g_LevelMenuConfig.stages,defaults,sizeof(defaults));g_LevelMenuActive=0;
+    puts("PASS: stock, custom and reassigned-level labels have identical bounds/positions in all 20 solo and 12 MP boxes, including 31-character names.");
+}
 int main(void)
 {
+    CheckLabelAlignment();
     struct mission_folder_setup original[20];struct mp_stage_setup arenas[12];
     for(int i=0;i<20;i++)original[i]=mission_folder_setup_entries[campaignGetEntryByOrder(i)];
     memcpy(arenas,multi_stage_setups,sizeof(arenas));
@@ -94,11 +156,11 @@ int main(void)
     }
     assert(mission_folder_setup_entries[campaignGetEntryByOrder(0)].briefing_name_ptr==original[6].briefing_name_ptr);
     assert(!mission_folder_setup_entries[campaignGetEntryByOrder(2)].briefing_name_ptr);
-    assert(!strcmp(frontSoloLevelName(campaignGetEntryByOrder(0),1),"Frigate\n"));
-    assert(!strcmp(frontLevelMenuName(21,1),"localized\n"));
+    assert(!strcmp(frontSoloLevelName(campaignGetEntryByOrder(0),1),"Frigate"));
+    assert(!strcmp(frontLevelMenuName(21,1),"localized"));
     char *saved=lvFindLevelInfo(LEVELID_FRIGATE)->levelName;
     lvFindLevelInfo(LEVELID_FRIGATE)->levelName="12345678901234567890123456789012345678901234567890";
-    assert(strlen(frontLevelMenuName(0,1))==32);lvFindLevelInfo(LEVELID_FRIGATE)->levelName=saved;
+    assert(strlen(frontLevelMenuName(0,1))==31);lvFindLevelInfo(LEVELID_FRIGATE)->levelName=saved;
     assert(frontSelectSoloStage(campaignGetEntryByOrder(3))==LEVELID_FACILITY);
     assert(lvFindStageInfo(LEVELID_FACILITY,1)->levelID==LEVELID_FACILITY_MP);
     assert(frontSelectMultiStage(0)==LEVELID_FACILITY);
@@ -127,15 +189,15 @@ int main(void)
     g_LevelMenuActive=1;
     LevelMenuAsset *a=&g_LevelMenuAssets.slots[0];
     a->flags=LEVEL_ASSET_BIT(LEVEL_ASSET_MENU_NAME);strcpy(a->names[0],"Custom menu");
-    assert(!strcmp(frontSoloLevelName(campaignGetEntryByOrder(0),1),"Custom menu\n"));
-    assert(!strcmp(frontSoloPartName(campaignGetEntryByOrder(0),1),"Frigate\n"));
-    assert(!strcmp(frontSoloMissionName(campaignGetEntryByOrder(0),1),"localized\n"));
+    assert(!strcmp(frontSoloLevelName(campaignGetEntryByOrder(0),1),"Custom menu"));
+    assert(!strcmp(frontSoloPartName(campaignGetEntryByOrder(0),1),"Frigate"));
+    assert(!strcmp(frontSoloMissionName(campaignGetEntryByOrder(0),1),"localized"));
     a->flags|=LEVEL_ASSET_BIT(LEVEL_ASSET_PART_NAME)|LEVEL_ASSET_BIT(LEVEL_ASSET_MISSION_NAME);
     strcpy(a->names[1],"Custom mission");strcpy(a->names[2],"Custom part");
-    assert(!strcmp(frontSoloPartName(campaignGetEntryByOrder(0),1),"Custom part\n"));
+    assert(!strcmp(frontSoloPartName(campaignGetEntryByOrder(0),1),"Custom part"));
     assert(!strcmp(frontSoloMissionName(campaignGetEntryByOrder(0),1),"Custom mission"));
     memset(a->names[0],'x',32);assert(!frontMenuAsset(0));
-    assert(!strcmp(frontSoloLevelName(campaignGetEntryByOrder(0),1),"Frigate\n"));
+    assert(!strcmp(frontSoloLevelName(campaignGetEntryByOrder(0),1),"Frigate"));
     memset(a,0,sizeof(*a));
     /* Malformed input must leave both menus alone. */
     for(int i=0;i<20;i++)mission_folder_setup_entries[campaignGetEntryByOrder(i)]=original[i];

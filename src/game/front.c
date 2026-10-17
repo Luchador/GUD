@@ -473,12 +473,13 @@ void frontInitLevelMenu(void)
 static char *frontLevelMenuNameFor(int slot, int preset, int field)
 {
     static const int defaults[LEVEL_MENU_SLOT_COUNT] = LEVEL_MENU_DEFAULT_STAGES;
-    static char name[34];
+    static char name[LEVEL_ASSET_NAME_SIZE];
     struct LevelEntry *level;
-    int length;
     const LevelMenuAsset *a=frontMenuAsset(slot);
+    /* Match the stock Ltitle names: callers own line breaks. In particular,
+     * mission select appends one before measuring its bottom-aligned label. */
     if (g_LevelMenuActive && a && (a->flags&LEVEL_ASSET_BIT(field))) {
-        strcpy(name,a->names[field-3]);length=strlen(name);name[length]='\n';name[length+1]=0;return name;
+        strcpy(name,a->names[field-3]);return name;
     }
     if (!g_LevelMenuActive || slot < 0 || slot >= LEVEL_MENU_SLOT_COUNT
         || g_LevelMenuConfig.stages[slot] == defaults[slot]) return (char *)langGet(preset);
@@ -486,7 +487,6 @@ static char *frontLevelMenuNameFor(int slot, int preset, int field)
         return (char *)langGet(getStringID(LTITLE, TITLE_STR_154_RANDOM));
     level = lvFindLevelInfo(g_LevelMenuConfig.stages[slot]);
     strncpy(name, level->levelName, 31); name[31] = '\0';
-    length = strlen(name); name[length] = '\n'; name[length + 1] = '\0';
     return name;
 }
 static char *frontLevelMenuName(int slot,int preset)
